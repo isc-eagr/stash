@@ -328,6 +328,8 @@ input SceneFilterType {
   groups_filter: GroupFilterType
   "Filter by related markers that meet this criteria"
   markers_filter: SceneMarkerFilterType
+  "Filter by related markers that meet this criteria"
+  performer_ethnicity: StringCriterionInput
 }
 
 input MovieFilterType {

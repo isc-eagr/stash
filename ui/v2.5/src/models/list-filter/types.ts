@@ -196,6 +196,7 @@ export type CriterionType =
   | "performer_favorite"
   | "favorite"
   | "performer_age"
+  | "performer_ethnicity"
   | "duplicated"
   | "ignore_auto_tag"
   | "file_count"

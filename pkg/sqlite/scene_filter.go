@@ -155,6 +155,14 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		qb.performerTagsCriterionHandler(sceneFilter.PerformerTags),
 		qb.performerFavoriteCriterionHandler(sceneFilter.PerformerFavorite),
 		qb.performerAgeCriterionHandler(sceneFilter.PerformerAge),
+		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
+			if sceneFilter.PerformerEthnicity != nil {
+				f.addLeftJoin("performers_scenes", "", "scenes.id = performers_scenes.scene_id")
+				f.addLeftJoin("performers", "", "performers_scenes.performer_id = performers.id")
+			}
+
+			stringCriterionHandler(sceneFilter.PerformerEthnicity, "performers.ethnicity")(ctx, f)
+		}),
 		qb.phashDuplicatedCriterionHandler(sceneFilter.Duplicated, qb.addSceneFilesTable),
 		&dateCriterionHandler{sceneFilter.Date, "scenes.date", nil},
 		&timestampCriterionHandler{sceneFilter.CreatedAt, "scenes.created_at", nil},

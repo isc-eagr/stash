@@ -14,7 +14,7 @@ import {
 } from "./criteria/groups";
 import { GalleriesCriterionOption } from "./criteria/galleries";
 import { OrganizedCriterionOption } from "./criteria/organized";
-import { PerformersCriterionOption } from "./criteria/performers";
+import { PerformersCriterionOption} from "./criteria/performers";
 import { ResolutionCriterionOption } from "./criteria/resolution";
 import { StudiosCriterionOption } from "./criteria/studios";
 import { InteractiveCriterionOption } from "./criteria/interactive";
@@ -110,7 +110,8 @@ const criterionOptions = [
   createMandatoryNumberCriterionOption("performer_count"),
   createMandatoryNumberCriterionOption("performer_age"),
   PerformerFavoriteCriterionOption,
-  // StudioTagsCriterionOption,
+  createStringCriterionOption("performer_ethnicity"),
+    // StudioTagsCriterionOption,
   StudiosCriterionOption,
   GroupsCriterionOption,
   LegacyMoviesCriterionOption,
