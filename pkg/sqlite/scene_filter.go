@@ -157,11 +157,33 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		qb.performerAgeCriterionHandler(sceneFilter.PerformerAge),
 		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
 			if sceneFilter.PerformerEthnicity != nil {
-				f.addLeftJoin("performers_scenes", "", "scenes.id = performers_scenes.scene_id")
-				f.addLeftJoin("performers", "", "performers_scenes.performer_id = performers.id")
+
+				if modifier := sceneFilter.PerformerEthnicity.Modifier; sceneFilter.PerformerEthnicity.Modifier.IsValid() {
+
+					f.addLeftJoin("performers_scenes", "", "scenes.id = performers_scenes.scene_id")
+					f.addLeftJoin("performers", "", "performers_scenes.performer_id = performers.id")
+
+					switch modifier {
+
+					case models.CriterionModifierEquals:
+						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( DISTINCT performers.ethnicity ) list
+												FROM scenes 
+												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
+												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
+												GROUP BY scenes.id)`, "ethnicities", "ethnicities.id=scenes.id")
+						f.addWhere(`list = ?`, sceneFilter.PerformerEthnicity.Value)
+					case models.CriterionModifierNotEquals:
+						f.addWhere(`scenes.id NOT IN(SELECT DISTINCT scenes.id FROM scenes 
+										LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
+										LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
+										WHERE performers.ethnicity = ?)`, sceneFilter.PerformerEthnicity.Value)
+					case models.CriterionModifierIncludes:
+						f.addWhere("performers.ethnicity LIKE ?", sceneFilter.PerformerEthnicity.Value)
+					}
+
+				}
 			}
 
-			stringCriterionHandler(sceneFilter.PerformerEthnicity, "performers.ethnicity")(ctx, f)
 		}),
 		qb.phashDuplicatedCriterionHandler(sceneFilter.Duplicated, qb.addSceneFilesTable),
 		&dateCriterionHandler{sceneFilter.Date, "scenes.date", nil},

@@ -552,11 +552,41 @@ export class StringCriterionOption extends ModifierCriterionOption {
   }
 }
 
+export class PerformerEthnicityStringCriterionOption extends ModifierCriterionOption {
+  constructor(
+    messageID: string,
+    value: CriterionType,
+    makeCriterion?: () => ModifierCriterion<CriterionValue>
+  ) {
+    super({
+      messageID,
+      type: value,
+      modifierOptions: [
+        CriterionModifier.Equals,
+        CriterionModifier.NotEquals,
+        CriterionModifier.Includes
+      ],
+      defaultModifier: CriterionModifier.Equals,
+      inputType: "text",
+      makeCriterion: makeCriterion
+        ? makeCriterion
+        : () => new StringCriterion(this),
+    });
+  }
+}
+
 export function createStringCriterionOption(
   type: CriterionType,
   messageID?: string
 ) {
   return new StringCriterionOption(messageID ?? type, type);
+}
+
+export function createPerformerEthnicityStringCriterionOption(
+  type: CriterionType,
+  messageID?: string
+) {
+  return new PerformerEthnicityStringCriterionOption(messageID ?? type, type);
 }
 
 export class MandatoryStringCriterionOption extends ModifierCriterionOption {
