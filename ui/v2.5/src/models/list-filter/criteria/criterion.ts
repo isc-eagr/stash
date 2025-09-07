@@ -575,6 +575,50 @@ export class PerformerEthnicityStringCriterionOption extends ModifierCriterionOp
   }
 }
 
+export class PerformerCountryStringCriterionOption extends ModifierCriterionOption {
+  constructor(
+    messageID: string,
+    value: CriterionType,
+    makeCriterion?: () => ModifierCriterion<CriterionValue>
+  ) {
+    super({
+      messageID,
+      type: value,
+      modifierOptions: [
+        CriterionModifier.Equals,
+        CriterionModifier.NotEquals,
+        CriterionModifier.Includes
+      ],
+      defaultModifier: CriterionModifier.Equals,
+      inputType: "text",
+      makeCriterion: makeCriterion
+        ? makeCriterion
+        : () => new StringCriterion(this),
+    });
+  }
+}
+
+export class PerformerSceneMarkersCriterionOption extends ModifierCriterionOption {
+  constructor(
+    messageID: string,
+    value: CriterionType,
+    makeCriterion?: () => ModifierCriterion<CriterionValue>
+  ) {
+    super({
+      messageID,
+      type: value,
+      modifierOptions: [
+        CriterionModifier.Includes
+      ],
+      defaultModifier: CriterionModifier.Equals,
+      inputType: "text",
+      makeCriterion: makeCriterion
+        ? makeCriterion
+        : () => new StringCriterion(this),
+    });
+  }
+}
+
 export function createStringCriterionOption(
   type: CriterionType,
   messageID?: string
@@ -587,6 +631,20 @@ export function createPerformerEthnicityStringCriterionOption(
   messageID?: string
 ) {
   return new PerformerEthnicityStringCriterionOption(messageID ?? type, type);
+}
+
+export function createPerformerCountryStringCriterionOption(
+  type: CriterionType,
+  messageID?: string
+) {
+  return new PerformerCountryStringCriterionOption(messageID ?? type, type);
+}
+
+export function createSceneMarkersStringCriterionOption(
+  type: CriterionType,
+  messageID?: string
+) {
+  return new PerformerSceneMarkersCriterionOption(messageID ?? type, type);
 }
 
 export class MandatoryStringCriterionOption extends ModifierCriterionOption {

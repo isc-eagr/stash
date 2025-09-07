@@ -3,6 +3,7 @@ import {
   createMandatoryStringCriterionOption,
   createStringCriterionOption,
   createPerformerEthnicityStringCriterionOption,
+  createPerformerCountryStringCriterionOption,
   createDateCriterionOption,
   createMandatoryTimestampCriterionOption,
   createDurationCriterionOption,
@@ -23,6 +24,7 @@ import {
   PerformerTagsCriterionOption,
   // StudioTagsCriterionOption,
   TagsCriterionOption,
+  SceneMarkerTagsCriterionOption,
 } from "./criteria/tags";
 import { ListFilterOptions, MediaSortByOptions } from "./filter-options";
 import { DisplayMode } from "./types";
@@ -112,6 +114,9 @@ const criterionOptions = [
   createMandatoryNumberCriterionOption("performer_age"),
   PerformerFavoriteCriterionOption,
   createPerformerEthnicityStringCriterionOption("performer_ethnicity"),
+  createPerformerCountryStringCriterionOption("performer_country"),
+  //createSceneMarkersStringCriterionOption("scene_markers"),
+  SceneMarkerTagsCriterionOption,
     // StudioTagsCriterionOption,
   StudiosCriterionOption,
   GroupsCriterionOption,

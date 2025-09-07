@@ -197,6 +197,8 @@ export type CriterionType =
   | "favorite"
   | "performer_age"
   | "performer_ethnicity"
+  | "performer_country"
+  | "scene_marker_tags"
   | "duplicated"
   | "ignore_auto_tag"
   | "file_count"

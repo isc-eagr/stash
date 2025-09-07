@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/utils"
@@ -153,32 +154,77 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 
 		qb.galleriesCriterionHandler(sceneFilter.Galleries),
 		qb.performerTagsCriterionHandler(sceneFilter.PerformerTags),
+		qb.sceneMarkerTagsCriterionHandler(sceneFilter.SceneMarkerTags),
 		qb.performerFavoriteCriterionHandler(sceneFilter.PerformerFavorite),
 		qb.performerAgeCriterionHandler(sceneFilter.PerformerAge),
 		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
 			if sceneFilter.PerformerEthnicity != nil {
 
 				if modifier := sceneFilter.PerformerEthnicity.Modifier; sceneFilter.PerformerEthnicity.Modifier.IsValid() {
-
+					ethnicityWithPercentSigns := "%" + strings.ReplaceAll(sceneFilter.PerformerEthnicity.Value, ",", "%") + "%"
 					f.addLeftJoin("performers_scenes", "", "scenes.id = performers_scenes.scene_id")
 					f.addLeftJoin("performers", "", "performers_scenes.performer_id = performers.id")
 
 					switch modifier {
 
 					case models.CriterionModifierEquals:
-						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( DISTINCT performers.ethnicity ) list
+						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( DISTINCT performers.ethnicity ORDER BY performers.ethnicity) list
 												FROM scenes 
 												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
 												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
 												GROUP BY scenes.id)`, "ethnicities", "ethnicities.id=scenes.id")
-						f.addWhere(`list = ?`, sceneFilter.PerformerEthnicity.Value)
+						f.addWhere(`list LIKE ?`, sceneFilter.PerformerEthnicity.Value)
 					case models.CriterionModifierNotEquals:
-						f.addWhere(`scenes.id NOT IN(SELECT DISTINCT scenes.id FROM scenes 
-										LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
-										LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
-										WHERE performers.ethnicity = ?)`, sceneFilter.PerformerEthnicity.Value)
+						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( performers.ethnicity ORDER BY performers.ethnicity) list
+												FROM scenes 
+												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
+												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
+												GROUP BY scenes.id)`, "ethnicities", "ethnicities.id=scenes.id")
+						f.addWhere(`list NOT LIKE ?`, ethnicityWithPercentSigns)
 					case models.CriterionModifierIncludes:
-						f.addWhere("performers.ethnicity LIKE ?", sceneFilter.PerformerEthnicity.Value)
+						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( performers.ethnicity ORDER BY performers.ethnicity) list
+												FROM scenes 
+												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
+												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
+												GROUP BY scenes.id)`, "ethnicities", "ethnicities.id=scenes.id")
+						f.addWhere("list LIKE ?", ethnicityWithPercentSigns)
+					}
+
+				}
+			}
+
+		}),
+		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
+			if sceneFilter.PerformerCountry != nil {
+
+				if modifier := sceneFilter.PerformerCountry.Modifier; sceneFilter.PerformerCountry.Modifier.IsValid() {
+					countryWithPercentSigns := "%" + strings.ReplaceAll(sceneFilter.PerformerCountry.Value, ",", "%") + "%"
+					f.addLeftJoin("performers_scenes", "", "scenes.id = performers_scenes.scene_id")
+					f.addLeftJoin("performers", "", "performers_scenes.performer_id = performers.id")
+
+					switch modifier {
+
+					case models.CriterionModifierEquals:
+						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( DISTINCT performers.country ORDER BY performers.country) list
+												FROM scenes 
+												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
+												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
+												GROUP BY scenes.id)`, "countries", "countries.id=scenes.id")
+						f.addWhere(`list LIKE ?`, sceneFilter.PerformerCountry.Value)
+					case models.CriterionModifierNotEquals:
+						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( performers.country ORDER BY performers.country) list
+												FROM scenes 
+												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
+												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
+												GROUP BY scenes.id)`, "countries", "countries.id=scenes.id")
+						f.addWhere(`list NOT LIKE ?`, countryWithPercentSigns)
+					case models.CriterionModifierIncludes:
+						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( performers.country ORDER BY performers.country) list
+												FROM scenes 
+												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
+												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
+												GROUP BY scenes.id)`, "countries", "countries.id=scenes.id")
+						f.addWhere("list LIKE ?", countryWithPercentSigns)
 					}
 
 				}
@@ -554,6 +600,15 @@ func (qb *sceneFilterHandler) performerTagsCriterionHandler(tags *models.Hierarc
 		criterion:      tags,
 		primaryTable:   sceneTable,
 		joinTable:      performersScenesTable,
+		joinPrimaryKey: sceneIDColumn,
+	}
+}
+
+func (qb *sceneFilterHandler) sceneMarkerTagsCriterionHandler(tags *models.HierarchicalMultiCriterionInput) criterionHandler {
+	return &joinedSceneMarkerTagsHandler{
+		criterion:      tags,
+		primaryTable:   sceneTable,
+		joinTable:      sceneMarkersTable,
 		joinPrimaryKey: sceneIDColumn,
 	}
 }

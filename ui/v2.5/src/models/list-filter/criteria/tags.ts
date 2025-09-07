@@ -58,6 +58,12 @@ export const PerformerTagsCriterionOption = new BaseTagsCriterionOption(
   withoutEqualsModifierOptions
 );
 
+export const SceneMarkerTagsCriterionOption = new BaseTagsCriterionOption(
+  "scene_marker_tags",
+  "scene_marker_tags",
+  withoutEqualsModifierOptions
+);
+
 // TODO - this requires using a nested studios_filter which needs to be added separately
 // export const StudioTagsCriterionOption = new BaseTagsCriterionOption(
 //   "studio_tags",
