@@ -1002,11 +1002,21 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 	if h.criterion != nil {
 		tags := h.criterion.CombineExcludes()
 
+		isSpecial := ""
+
+		switch tags.Modifier {
+		case models.CriterionModifierEquals:
+			isSpecial = "_special"
+		default:
+			isSpecial = ""
+		}
+
 		strFormatMap := utils.StrFormatMap{
 			"primaryTable":   h.primaryTable,
 			"joinTable":      h.joinTable,
 			"joinPrimaryKey": h.joinPrimaryKey,
 			"inBinding":      getInBinding(len(tags.Value)),
+			"isSpecial":      isSpecial,
 		}
 
 		f.addLeftJoin(h.joinTable, "", utils.StrFormat("{primaryTable}.id = {joinTable}.{joinPrimaryKey}", strFormatMap))
@@ -1041,13 +1051,13 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 			}
 
 			f.addWith(utils.StrFormat(`marker_tags AS (
-	SELECT ps.{joinPrimaryKey} as primaryID, t.column1 AS root_tag_id, pt.scene_marker_id FROM {joinTable} ps
+	SELECT ps.{joinPrimaryKey} as primaryID, t.column1 AS root_tag_id{isSpecial}, pt.scene_marker_id FROM {joinTable} ps
 	INNER JOIN scene_markers_tags pt ON pt.scene_marker_id = ps.id
 	INNER JOIN (`+valuesClause+`) t ON t.column2 = pt.tag_id
 	
 	UNION
 
-	SELECT ps.{joinPrimaryKey} as primaryID, t.column1 AS root_tag_id, ps.id FROM {joinTable} ps
+	SELECT ps.{joinPrimaryKey} as primaryID, t.column1 AS root_tag_id{isSpecial}, ps.id FROM {joinTable} ps
 	INNER JOIN (`+valuesClause+`) t ON t.column2 = ps.primary_tag_id
 	)`, strFormatMap))
 
@@ -1056,11 +1066,15 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 			switch tags.Modifier {
 			case models.CriterionModifierEquals:
 				// includes only the provided ids
+				f.addWhere("marker_tags.root_tag_id_special IS NOT NULL")
+				tagsLen := len(tags.Value)
+				f.addHaving(fmt.Sprintf("count(distinct marker_tags.root_tag_id_special) IS %d", tagsLen))
+			case models.CriterionModifierIncludesAll:
 				f.addWhere("marker_tags.root_tag_id IS NOT NULL")
 				tagsLen := len(tags.Value)
 				f.addHaving(fmt.Sprintf("count(distinct marker_tags.root_tag_id) IS %d", tagsLen))
 				// decrement by one to account for primary tag id
-				f.addWhere("(SELECT COUNT(*) FROM scene_markers_tags s WHERE s.scene_marker_id = scene_markers.id) = ?", tagsLen-1)
+				//f.addWhere("(SELECT COUNT(*) FROM scene_markers_tags s WHERE s.scene_marker_id = scene_markers.id) = ?", tagsLen-1)
 			case models.CriterionModifierNotEquals:
 				f.setError(fmt.Errorf("not equals modifier is not supported for scene marker tags"))
 			default:

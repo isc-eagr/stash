@@ -115,7 +115,6 @@ const criterionOptions = [
   PerformerFavoriteCriterionOption,
   createPerformerEthnicityStringCriterionOption("performer_ethnicity"),
   createPerformerCountryStringCriterionOption("performer_country"),
-  //createSceneMarkersStringCriterionOption("scene_markers"),
   SceneMarkerTagsCriterionOption,
     // StudioTagsCriterionOption,
   StudiosCriterionOption,
