@@ -332,6 +332,8 @@ input SceneFilterType {
   performer_ethnicity: StringCriterionInput
   "Filter by performer country"
   performer_country: StringCriterionInput
+  "Filter by performer rating"
+  performer_rating: StringCriterionInput
   "Filter by scene markers"
   scene_marker_tags: HierarchicalMultiCriterionInput
 }

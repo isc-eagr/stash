@@ -598,6 +598,29 @@ export class PerformerCountryStringCriterionOption extends ModifierCriterionOpti
   }
 }
 
+export class PerformerRatingStringCriterionOption extends ModifierCriterionOption {
+  constructor(
+    messageID: string,
+    value: CriterionType,
+    makeCriterion?: () => ModifierCriterion<CriterionValue>
+  ) {
+    super({
+      messageID,
+      type: value,
+      modifierOptions: [
+        CriterionModifier.Equals,
+        CriterionModifier.NotEquals,
+        CriterionModifier.Includes
+      ],
+      defaultModifier: CriterionModifier.Equals,
+      inputType: "text",
+      makeCriterion: makeCriterion
+        ? makeCriterion
+        : () => new StringCriterion(this),
+    });
+  }
+}
+
 export class PerformerSceneMarkersCriterionOption extends ModifierCriterionOption {
   constructor(
     messageID: string,
@@ -638,6 +661,13 @@ export function createPerformerCountryStringCriterionOption(
   messageID?: string
 ) {
   return new PerformerCountryStringCriterionOption(messageID ?? type, type);
+}
+
+export function createPerformerRatingStringCriterionOption(
+  type: CriterionType,
+  messageID?: string
+) {
+  return new PerformerRatingStringCriterionOption(messageID ?? type, type);
 }
 
 export function createSceneMarkersStringCriterionOption(

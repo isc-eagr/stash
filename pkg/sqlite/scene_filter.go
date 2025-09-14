@@ -168,26 +168,26 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 					switch modifier {
 
 					case models.CriterionModifierEquals:
-						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( DISTINCT performers.ethnicity ORDER BY performers.ethnicity) list
+						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( DISTINCT performers.ethnicity ORDER BY performers.ethnicity) listEthnicity
 												FROM scenes 
 												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
 												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
 												GROUP BY scenes.id)`, "ethnicities", "ethnicities.id=scenes.id")
-						f.addWhere(`list LIKE ?`, sceneFilter.PerformerEthnicity.Value)
+						f.addWhere(`listEthnicity LIKE ?`, sceneFilter.PerformerEthnicity.Value)
 					case models.CriterionModifierNotEquals:
-						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( performers.ethnicity ORDER BY performers.ethnicity) list
+						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( performers.ethnicity ORDER BY performers.ethnicity) listEthnicity
 												FROM scenes 
 												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
 												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
 												GROUP BY scenes.id)`, "ethnicities", "ethnicities.id=scenes.id")
-						f.addWhere(`list NOT LIKE ?`, ethnicityWithPercentSigns)
+						f.addWhere(`listEthnicity NOT LIKE ?`, ethnicityWithPercentSigns)
 					case models.CriterionModifierIncludes:
-						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( performers.ethnicity ORDER BY performers.ethnicity) list
+						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( performers.ethnicity ORDER BY performers.ethnicity) listEthnicity
 												FROM scenes 
 												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
 												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
 												GROUP BY scenes.id)`, "ethnicities", "ethnicities.id=scenes.id")
-						f.addWhere("list LIKE ?", ethnicityWithPercentSigns)
+						f.addWhere("listEthnicity LIKE ?", ethnicityWithPercentSigns)
 					}
 
 				}
@@ -205,26 +205,63 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 					switch modifier {
 
 					case models.CriterionModifierEquals:
-						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( DISTINCT performers.country ORDER BY performers.country) list
+						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( DISTINCT performers.country ORDER BY performers.country) listCountry
 												FROM scenes 
 												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
 												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
 												GROUP BY scenes.id)`, "countries", "countries.id=scenes.id")
-						f.addWhere(`list LIKE ?`, sceneFilter.PerformerCountry.Value)
+						f.addWhere(`listCountry LIKE ?`, sceneFilter.PerformerCountry.Value)
 					case models.CriterionModifierNotEquals:
-						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( performers.country ORDER BY performers.country) list
+						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( performers.country ORDER BY performers.country) listCountry
 												FROM scenes 
 												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
 												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
 												GROUP BY scenes.id)`, "countries", "countries.id=scenes.id")
-						f.addWhere(`list NOT LIKE ?`, countryWithPercentSigns)
+						f.addWhere(`listCountry NOT LIKE ?`, countryWithPercentSigns)
 					case models.CriterionModifierIncludes:
-						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( performers.country ORDER BY performers.country) list
+						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( performers.country ORDER BY performers.country) listCountry
 												FROM scenes 
 												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
 												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
 												GROUP BY scenes.id)`, "countries", "countries.id=scenes.id")
-						f.addWhere("list LIKE ?", countryWithPercentSigns)
+						f.addWhere("listCountry LIKE ?", countryWithPercentSigns)
+					}
+
+				}
+			}
+
+		}),
+		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
+			if sceneFilter.PerformerRating != nil {
+
+				if modifier := sceneFilter.PerformerRating.Modifier; sceneFilter.PerformerRating.Modifier.IsValid() {
+					ratingWithPercentSigns := "%" + strings.ReplaceAll(sceneFilter.PerformerRating.Value, ",", "%") + "%"
+					f.addLeftJoin("performers_scenes", "", "scenes.id = performers_scenes.scene_id")
+					f.addLeftJoin("performers", "", "performers_scenes.performer_id = performers.id")
+
+					switch modifier {
+
+					case models.CriterionModifierEquals:
+						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( DISTINCT IFNULL (performers.rating,0) ORDER BY IFNULL (performers.rating,0)) listRating
+												FROM scenes 
+												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
+												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
+												GROUP BY scenes.id)`, "ratings", "ratings.id=scenes.id")
+						f.addWhere(`listRating LIKE ?`, sceneFilter.PerformerRating.Value)
+					case models.CriterionModifierNotEquals:
+						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( IFNULL (performers.rating,0) ORDER BY IFNULL (performers.rating,0)) listRating
+												FROM scenes 
+												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
+												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
+												GROUP BY scenes.id)`, "ratings", "ratings.id=scenes.id")
+						f.addWhere(`listRating NOT LIKE ?`, ratingWithPercentSigns)
+					case models.CriterionModifierIncludes:
+						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( IFNULL (performers.rating,0) ORDER BY IFNULL (performers.rating,0)) listRating
+												FROM scenes 
+												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
+												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
+												GROUP BY scenes.id)`, "ratings", "ratings.id=scenes.id")
+						f.addWhere("listRating LIKE ?", ratingWithPercentSigns)
 					}
 
 				}

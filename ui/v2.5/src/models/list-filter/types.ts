@@ -199,6 +199,7 @@ export type CriterionType =
   | "performer_ethnicity"
   | "performer_country"
   | "scene_marker_tags"
+  | "performer_rating"
   | "duplicated"
   | "ignore_auto_tag"
   | "file_count"
