@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
+	"golang.org/x/exp/slices"
 
 	"github.com/stashapp/stash/pkg/models"
 )
@@ -159,6 +160,13 @@ func (r *repository) buildQueryBody(body string, whereClauses []string, havingCl
 	}
 	if len(havingClauses) > 0 {
 		body = body + " GROUP BY " + r.tableName + ".id "
+
+		nameCheck := "(marker_tags.root_tag_id_special IS NOT NULL)"
+
+		if slices.Contains(whereClauses, nameCheck) {
+			body = body + ", scene_markers.id  "
+		}
+
 		body = body + " HAVING " + strings.Join(havingClauses, " AND ") // TODO handle AND or OR
 	}
 

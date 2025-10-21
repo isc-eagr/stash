@@ -1248,6 +1248,9 @@
   "performer": "Performer",
   "performer_age": "Performer Age",
   "performer_count": "Performer Count",
+  "performer_country": "Performer Country",
+  "performer_ethnicity": "Performer Ethnicity",
+  "performer_rating": "Performer Rating",
   "performer_favorite": "Performer Favourited",
   "performer_image": "Performer Image",
   "performer_tagger": {
@@ -1311,6 +1314,7 @@
   "scene_created_at": "Scene Created At",
   "scene_date": "Date of Scene",
   "scene_id": "Scene ID",
+  "scene_marker_tags": "Scene Marker Tags",
   "scene_tags": "Scene Tags",
   "scene_updated_at": "Scene Updated At",
   "scenes": "Scenes",

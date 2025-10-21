@@ -1000,6 +1000,117 @@ INNER JOIN (`+valuesClause+`) t ON t.column2 = pt.tag_id
 	}
 }
 
+type joinedSceneMarkerTagsHandler struct {
+	criterion *models.HierarchicalMultiCriterionInput
+
+	primaryTable   string // eg scenes
+	joinTable      string // eg performers_scenes
+	joinPrimaryKey string // eg scene_id
+}
+
+func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuilder) {
+
+	if h.criterion != nil {
+		tags := h.criterion.CombineExcludes()
+
+		isSpecial := ""
+
+		switch tags.Modifier {
+		case models.CriterionModifierEquals:
+			isSpecial = "_special"
+		default:
+			isSpecial = ""
+		}
+
+		strFormatMap := utils.StrFormatMap{
+			"primaryTable":   h.primaryTable,
+			"joinTable":      h.joinTable,
+			"joinPrimaryKey": h.joinPrimaryKey,
+			"inBinding":      getInBinding(len(tags.Value)),
+			"isSpecial":      isSpecial,
+		}
+
+		f.addLeftJoin(h.joinTable, "", utils.StrFormat("{primaryTable}.id = {joinTable}.{joinPrimaryKey}", strFormatMap))
+
+		if tags.Modifier == models.CriterionModifierIsNull || tags.Modifier == models.CriterionModifierNotNull {
+			var notClause string
+			if tags.Modifier == models.CriterionModifierNotNull {
+				notClause = "NOT"
+			}
+
+			f.addLeftJoin("scene_markers_tags", "", utils.StrFormat("{joinTable}.id = scene_markers.id", strFormatMap))
+
+			f.addWhere(fmt.Sprintf("scene_markers_tags.tag_id IS %s NULL", notClause))
+			return
+		}
+
+		if tags.Modifier == models.CriterionModifierEquals && tags.Depth != nil && *tags.Depth != 0 {
+			f.setError(fmt.Errorf("depth is not supported for equals modifier for marker tag filtering"))
+			return
+		}
+
+		if len(tags.Value) == 0 && len(tags.Excludes) == 0 {
+			return
+		}
+
+		if len(tags.Value) > 0 {
+			valuesClause, err := getHierarchicalValues(ctx, tags.Value, tagTable, "tags_relations", "parent_id", "child_id", tags.Depth)
+
+			if err != nil {
+				f.setError(err)
+				return
+			}
+
+			f.addWith(utils.StrFormat(`marker_tags AS (
+	SELECT ps.{joinPrimaryKey} as primaryID, t.column1 AS root_tag_id{isSpecial}, pt.scene_marker_id FROM {joinTable} ps
+	INNER JOIN scene_markers_tags pt ON pt.scene_marker_id = ps.id
+	INNER JOIN (`+valuesClause+`) t ON t.column2 = pt.tag_id
+	
+	UNION
+
+	SELECT ps.{joinPrimaryKey} as primaryID, t.column1 AS root_tag_id{isSpecial}, ps.id FROM {joinTable} ps
+	INNER JOIN (`+valuesClause+`) t ON t.column2 = ps.primary_tag_id
+	)`, strFormatMap))
+
+			f.addLeftJoin("marker_tags", "", "marker_tags.scene_marker_id = scene_markers.id")
+
+			switch tags.Modifier {
+			case models.CriterionModifierEquals:
+				// includes only the provided ids
+				f.addWhere("marker_tags.root_tag_id_special IS NOT NULL")
+				tagsLen := len(tags.Value)
+				f.addHaving(fmt.Sprintf("count(distinct marker_tags.root_tag_id_special) IS %d", tagsLen))
+			case models.CriterionModifierIncludesAll:
+				f.addWhere("marker_tags.root_tag_id IS NOT NULL")
+				tagsLen := len(tags.Value)
+				f.addHaving(fmt.Sprintf("count(distinct marker_tags.root_tag_id) IS %d", tagsLen))
+				// decrement by one to account for primary tag id
+				//f.addWhere("(SELECT COUNT(*) FROM scene_markers_tags s WHERE s.scene_marker_id = scene_markers.id) = ?", tagsLen-1)
+			case models.CriterionModifierNotEquals:
+				f.setError(fmt.Errorf("not equals modifier is not supported for scene marker tags"))
+			default:
+				addHierarchicalConditionClauses(f, tags, "marker_tags", "root_tag_id")
+			}
+		}
+
+		if len(h.criterion.Excludes) > 0 {
+			valuesClause, err := getHierarchicalValues(ctx, tags.Excludes, tagTable, "tags_relations", "parent_id", "child_id", tags.Depth)
+			if err != nil {
+				f.setError(err)
+				return
+			}
+
+			clause := utils.StrFormat("{primaryTable}.id NOT IN (SELECT {joinTable}.{joinPrimaryKey} FROM {joinTable} INNER JOIN scene_markers_tags ON {joinTable}.id = scene_markers_tags.scene_marker_id WHERE scene_markers_tags.tag_id IN (SELECT column2 FROM (%s)))", strFormatMap)
+			f.addWhere(fmt.Sprintf(clause, valuesClause))
+
+			//f.addWhere(fmt.Sprintf("scene_markers.primary_tag_id NOT IN (SELECT column2 FROM (%s))", valuesClause))
+
+			clause2 := utils.StrFormat("{primaryTable}.id NOT IN (SELECT {joinTable}.{joinPrimaryKey} FROM {joinTable} WHERE scene_markers.primary_tag_id IN (SELECT column2 FROM (%s)))", strFormatMap)
+			f.addWhere(fmt.Sprintf(clause2, valuesClause))
+		}
+	}
+}
+
 type stashIDCriterionHandler struct {
 	c                 *models.StashIDCriterionInput
 	stashIDRepository *stashIDRepository
