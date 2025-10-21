@@ -8,11 +8,9 @@ import {
   IListFilterOperation,
   ListOperationButtons,
 } from "./ListOperationButtons";
-import { DisplayMode } from "src/models/list-filter/types";
-import { ButtonToolbar } from "react-bootstrap";
+import { ButtonGroup, ButtonToolbar } from "react-bootstrap";
 import { View } from "./views";
-import { useListContext } from "./ListProvider";
-import { useFilter } from "./FilterProvider";
+import { IListSelect, useFilterOperations } from "./util";
 
 export interface IItemListOperation<T extends QueryResult> {
   text: string;
@@ -32,8 +30,13 @@ export interface IItemListOperation<T extends QueryResult> {
 }
 
 export interface IFilteredListToolbar {
-  showEditFilter?: (editingCriterion?: string) => void;
+  filter: ListFilterModel;
+  setFilter: (
+    value: ListFilterModel | ((prevState: ListFilterModel) => ListFilterModel)
+  ) => void;
+  showEditFilter: () => void;
   view?: View;
+  listSelect: IListSelect;
   onEdit?: () => void;
   onDelete?: () => void;
   operations?: IListFilterOperation[];
@@ -41,51 +44,53 @@ export interface IFilteredListToolbar {
 }
 
 export const FilteredListToolbar: React.FC<IFilteredListToolbar> = ({
+  filter,
+  setFilter,
   showEditFilter,
   view,
+  listSelect,
   onEdit,
   onDelete,
   operations,
   zoomable = false,
 }) => {
-  const { getSelected, onSelectAll, onSelectNone } = useListContext();
-  const { filter, setFilter } = useFilter();
-
   const filterOptions = filter.options;
-
-  function onChangeDisplayMode(displayMode: DisplayMode) {
-    setFilter(filter.setDisplayMode(displayMode));
-  }
-
-  function onChangeZoom(newZoomIndex: number) {
-    setFilter(filter.setZoom(newZoomIndex));
-  }
+  const { setDisplayMode, setZoom } = useFilterOperations({
+    filter,
+    setFilter,
+  });
+  const { selectedIds, onSelectAll, onSelectNone } = listSelect;
 
   return (
     <ButtonToolbar className="filtered-list-toolbar">
-      {showEditFilter && (
-        <ListFilter
-          onFilterUpdate={setFilter}
-          filter={filter}
-          openFilterDialog={() => showEditFilter()}
-          view={view}
+      <ButtonGroup>
+        {showEditFilter && (
+          <ListFilter
+            onFilterUpdate={setFilter}
+            filter={filter}
+            openFilterDialog={() => showEditFilter()}
+            view={view}
+          />
+        )}
+        <ListOperationButtons
+          onSelectAll={onSelectAll}
+          onSelectNone={onSelectNone}
+          otherOperations={operations}
+          itemsSelected={selectedIds.size > 0}
+          onEdit={onEdit}
+          onDelete={onDelete}
         />
-      )}
-      <ListOperationButtons
-        onSelectAll={onSelectAll}
-        onSelectNone={onSelectNone}
-        otherOperations={operations}
-        itemsSelected={getSelected().length > 0}
-        onEdit={onEdit}
-        onDelete={onDelete}
-      />
-      <ListViewOptions
-        displayMode={filter.displayMode}
-        displayModeOptions={filterOptions.displayModeOptions}
-        onSetDisplayMode={onChangeDisplayMode}
-        zoomIndex={zoomable ? filter.zoomIndex : undefined}
-        onSetZoom={zoomable ? onChangeZoom : undefined}
-      />
+        <ButtonGroup>
+          <ListViewOptions
+            displayMode={filter.displayMode}
+            displayModeOptions={filterOptions.displayModeOptions}
+            onSetDisplayMode={setDisplayMode}
+            zoomIndex={zoomable ? filter.zoomIndex : undefined}
+            onSetZoom={zoomable ? setZoom : undefined}
+          />
+        </ButtonGroup>
+      </ButtonGroup>
+      <ButtonGroup></ButtonGroup>
     </ButtonToolbar>
   );
 };
