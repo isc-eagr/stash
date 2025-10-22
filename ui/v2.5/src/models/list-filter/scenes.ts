@@ -2,6 +2,9 @@ import {
   createMandatoryNumberCriterionOption,
   createMandatoryStringCriterionOption,
   createStringCriterionOption,
+  createPerformerEthnicityStringCriterionOption,
+  createPerformerCountryStringCriterionOption,
+  createPerformerRatingStringCriterionOption,
   createDateCriterionOption,
   createMandatoryTimestampCriterionOption,
   createDurationCriterionOption,
@@ -14,7 +17,7 @@ import {
 } from "./criteria/groups";
 import { GalleriesCriterionOption } from "./criteria/galleries";
 import { OrganizedCriterionOption } from "./criteria/organized";
-import { PerformersCriterionOption } from "./criteria/performers";
+import { PerformersCriterionOption} from "./criteria/performers";
 import { ResolutionCriterionOption } from "./criteria/resolution";
 import { StudiosCriterionOption } from "./criteria/studios";
 import { InteractiveCriterionOption } from "./criteria/interactive";
@@ -22,6 +25,7 @@ import {
   PerformerTagsCriterionOption,
   // StudioTagsCriterionOption,
   TagsCriterionOption,
+  SceneMarkerTagsCriterionOption,
 } from "./criteria/tags";
 import { ListFilterOptions, MediaSortByOptions } from "./filter-options";
 import { DisplayMode } from "./types";
@@ -110,7 +114,11 @@ const criterionOptions = [
   createMandatoryNumberCriterionOption("performer_count"),
   createMandatoryNumberCriterionOption("performer_age"),
   PerformerFavoriteCriterionOption,
-  // StudioTagsCriterionOption,
+  createPerformerEthnicityStringCriterionOption("performer_ethnicity"),
+  createPerformerCountryStringCriterionOption("performer_country"),
+  createPerformerRatingStringCriterionOption("performer_rating"),
+  SceneMarkerTagsCriterionOption,
+    // StudioTagsCriterionOption,
   StudiosCriterionOption,
   GroupsCriterionOption,
   LegacyMoviesCriterionOption,

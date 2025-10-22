@@ -550,11 +550,129 @@ export class StringCriterionOption extends ModifierCriterionOption {
   }
 }
 
+export class PerformerEthnicityStringCriterionOption extends ModifierCriterionOption {
+  constructor(
+    messageID: string,
+    value: CriterionType,
+    makeCriterion?: () => ModifierCriterion<CriterionValue>
+  ) {
+    super({
+      messageID,
+      type: value,
+      modifierOptions: [
+        CriterionModifier.Equals,
+        CriterionModifier.NotEquals,
+        CriterionModifier.Includes
+      ],
+      defaultModifier: CriterionModifier.Equals,
+      inputType: "text",
+      makeCriterion: makeCriterion
+        ? makeCriterion
+        : () => new StringCriterion(this),
+    });
+  }
+}
+
+export class PerformerCountryStringCriterionOption extends ModifierCriterionOption {
+  constructor(
+    messageID: string,
+    value: CriterionType,
+    makeCriterion?: () => ModifierCriterion<CriterionValue>
+  ) {
+    super({
+      messageID,
+      type: value,
+      modifierOptions: [
+        CriterionModifier.Equals,
+        CriterionModifier.NotEquals,
+        CriterionModifier.Includes
+      ],
+      defaultModifier: CriterionModifier.Equals,
+      inputType: "text",
+      makeCriterion: makeCriterion
+        ? makeCriterion
+        : () => new StringCriterion(this),
+    });
+  }
+}
+
+export class PerformerRatingStringCriterionOption extends ModifierCriterionOption {
+  constructor(
+    messageID: string,
+    value: CriterionType,
+    makeCriterion?: () => ModifierCriterion<CriterionValue>
+  ) {
+    super({
+      messageID,
+      type: value,
+      modifierOptions: [
+        CriterionModifier.Equals,
+        CriterionModifier.NotEquals,
+        CriterionModifier.Includes
+      ],
+      defaultModifier: CriterionModifier.Equals,
+      inputType: "text",
+      makeCriterion: makeCriterion
+        ? makeCriterion
+        : () => new StringCriterion(this),
+    });
+  }
+}
+
+export class PerformerSceneMarkersCriterionOption extends ModifierCriterionOption {
+  constructor(
+    messageID: string,
+    value: CriterionType,
+    makeCriterion?: () => ModifierCriterion<CriterionValue>
+  ) {
+    super({
+      messageID,
+      type: value,
+      modifierOptions: [
+        CriterionModifier.Includes
+      ],
+      defaultModifier: CriterionModifier.Equals,
+      inputType: "text",
+      makeCriterion: makeCriterion
+        ? makeCriterion
+        : () => new StringCriterion(this),
+    });
+  }
+}
+
 export function createStringCriterionOption(
   type: CriterionType,
   messageID?: string
 ) {
   return new StringCriterionOption({ messageID: messageID ?? type, type });
+}
+
+export function createPerformerEthnicityStringCriterionOption(
+  type: CriterionType,
+  messageID?: string
+) {
+  return new PerformerEthnicityStringCriterionOption(messageID ?? type, type);
+}
+
+export function createPerformerCountryStringCriterionOption(
+  type: CriterionType,
+  messageID?: string
+) {
+  return new PerformerCountryStringCriterionOption(messageID ?? type, type);
+}
+
+export function createPerformerRatingStringCriterionOption(
+  type: CriterionType,
+  messageID?: string
+) {
+  return new PerformerRatingStringCriterionOption(messageID ?? type, type);
+}
+
+export function createSceneMarkersStringCriterionOption(
+  type: CriterionType,
+  messageID?: string
+) {
+  return new PerformerSceneMarkersCriterionOption(messageID ?? type, type);
 }
 
 export class MandatoryStringCriterionOption extends ModifierCriterionOption {
