@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Tabs, Tab, Col, Row } from "react-bootstrap";
+import { Tabs, Tab, Col, Row, Button } from "react-bootstrap";
 import { useIntl } from "react-intl";
 import { useHistory, Redirect, RouteComponentProps } from "react-router-dom";
 import { Helmet } from "react-helmet";
@@ -14,7 +14,7 @@ import {
 } from "src/core/StashService";
 import { DetailsEditNavbar } from "src/components/Shared/DetailsEditNavbar";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
-import { Button, ButtonGroup } from "react-bootstrap";
+// Button imported above; removed unused ButtonGroup and duplicate import of react-bootstrap
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { useToast } from "src/hooks/Toast";
 import { ConfigurationContext } from "src/hooks/Config";

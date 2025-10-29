@@ -10,8 +10,8 @@ import {
   ParentTagsCriterionOption,
   TagsCriterion,
   TagsCriterionOption,
-  PerformerSceneTagsCriterionOption,
   PerformerSceneTagsPairCriterion,
+  PerformerSceneTagsInPerformerFilterOption,
 } from "src/models/list-filter/criteria/tags";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import {
@@ -30,7 +30,7 @@ import {
 } from "src/models/list-filter/criteria/criterion";
 import { GalleriesCriterion } from "src/models/list-filter/criteria/galleries";
 import { PhashCriterion } from "src/models/list-filter/criteria/phash";
-import { ILabeledId } from "src/models/list-filter/types";
+import { ILabeledId, IHierarchicalLabelValue } from "src/models/list-filter/types";
 import { IntlShape } from "react-intl";
 import { galleryTitle } from "src/core/galleries";
 import { MarkersScenesCriterion } from "src/models/list-filter/criteria/scenes";
@@ -352,6 +352,23 @@ const makeTagPerformersUrl = (tag: INamedObject) => {
   return `/performers?${makeTagFilter(GQL.FilterMode.Performers, tag)}`;
 };
 
+// Build a Performers URL filtered by performer_scene_tags (top-level performer filter),
+// encoding the criterion as: c=(type:"performer_scene_tags",modifier:"INCLUDES_ALL",value:(items:[{id,label}],excluded:[],depth:0))
+const makeTagPerformersBySceneTagsUrl = (tag: INamedObject) => {
+  if (!tag.id) return "#";
+  const filter = new ListFilterModel(GQL.FilterMode.Performers, undefined);
+  const criterion = new TagsCriterion(PerformerSceneTagsInPerformerFilterOption);
+  criterion.modifier = GQL.CriterionModifier.IncludesAll;
+  const value: IHierarchicalLabelValue = {
+    items: [{ id: tag.id, label: tag.name || `Tag ${tag.id}` }],
+    excluded: [],
+    depth: 0,
+  };
+  criterion.value = value;
+  filter.criteria.push(criterion);
+  return `/performers?${filter.makeQueryParameters()}`;
+};
+
 const makeTagStudiosUrl = (tag: INamedObject) => {
   return `/studios?${makeTagFilter(GQL.FilterMode.Studios, tag)}`;
 };
@@ -535,6 +552,7 @@ const NavUtils = {
   makeTagSceneMarkersUrl,
   makeTagScenesUrl,
   makeTagPerformersUrl,
+  makeTagPerformersBySceneTagsUrl,
   makeTagStudiosUrl,
   makeTagGalleriesUrl,
   makeTagImagesUrl,

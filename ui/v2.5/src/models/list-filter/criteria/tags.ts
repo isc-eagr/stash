@@ -105,7 +105,11 @@ export class TagsCriterion extends IHierarchicalLabeledIdCriterion {}
 // Top-level variant for the Performers page: applies performer_scene_tags directly on performer filter
 class PerformerSceneTagsInPerformerFilterCriterion extends TagsCriterion {
   public applyToCriterionInput(input: Record<string, unknown>): void {
-    input["performer_scene_tags"] = this.toCriterionInput();
+    type PerformerFilterInput = Record<string, unknown> & {
+      performer_scene_tags?: unknown;
+    };
+    (input as PerformerFilterInput).performer_scene_tags =
+      this.toCriterionInput();
   }
 }
 
@@ -142,6 +146,8 @@ export class PerformerSceneTagsPairCriterion extends Criterion {
   }
 
   public getLabel(_intl: IntlShape): string {
+    // mark parameter as used to satisfy @typescript-eslint/no-unused-vars
+    void _intl;
     return "";
   }
 
@@ -155,11 +161,20 @@ export class PerformerSceneTagsPairCriterion extends Criterion {
 
   public fromDecodedParams(i: Record<string, unknown>): void {
     try {
-      const v = (i as any).value || i;
-      this._performerId = v.performer_id ?? v.performerId ?? this._performerId;
-      this._tagId = v.tag_id ?? v.tagId ?? this._tagId;
-    } catch (e) {
-      // ignore
+      const raw = i as { value?: unknown };
+      type PairInputShape = {
+        performer_id?: string;
+        performerId?: string;
+        tag_id?: string;
+        tagId?: string;
+      };
+      const v = (raw.value ?? i) as PairInputShape;
+      const performerId = v.performer_id ?? v.performerId;
+      const tagId = v.tag_id ?? v.tagId;
+      if (performerId) this._performerId = performerId;
+      if (tagId) this._tagId = tagId;
+    } catch {
+      // ignore decode errors
     }
   }
 

@@ -6,8 +6,21 @@ import {
   PerformerSceneTagsCriterionOption,
   TagsCriterion,
 } from "src/models/list-filter/criteria/tags";
-import { useApolloClient } from "@apollo/client";
-import gql from "graphql-tag";
+import { useApolloClient, gql } from "@apollo/client";
+import { ListFilterModel } from "src/models/list-filter/filter";
+
+// Hoisted so hooks don't depend on a locally re-created document
+const PERFORMER_TAG_SCENE_COUNTS = gql`
+  query PerformerTagSceneCounts($performer_id: ID!, $tag_ids: [ID!]!) {
+    performerTagSceneCounts(
+      performer_id: $performer_id
+      tag_ids: $tag_ids
+    ) {
+      tag_id
+      count
+    }
+  }
+`;
 
 interface IPerformerDetailsProps {
   active: boolean;
@@ -25,7 +38,7 @@ export const PerformerSceneTagsPanel: React.FC<IPerformerDetailsProps> =
     // filterHook: restrict TagList to tags that appear in scenes for this
     // performer. We use the existing PerformerTags criterion option which
     // maps to the `performer_tags` field in the generated tag_filter input.
-    const filterHook = (filter: any) => {
+    const filterHook = (filter: ListFilterModel) => {
       try {
   // construct a tags criterion but use the PerformerSceneTagsCriterionOption
   // so the generated filter key will be `performer_scene_tags`.
@@ -36,9 +49,8 @@ export const PerformerSceneTagsPanel: React.FC<IPerformerDetailsProps> =
         // returns tags associated with scenes containing this performer.
         crit.value.items = [{ id: performer.id as string, label: performer.name ?? "" }];
 
-  // Use the exact field name added to the GraphQL TagFilterType
-  // as requested by the user: `performer_scene_tags`.
-  return filter.replaceCriteria("performer_scene_tags", [crit]);
+  // Replace existing criteria of this type with our criterion
+  return filter.replaceCriteria(PerformerSceneTagsCriterionOption.type, [crit]);
       } catch (e) {
         // In case of any runtime issue, return the unmodified filter so the
         // TagList doesn't break the UI.
@@ -47,15 +59,6 @@ export const PerformerSceneTagsPanel: React.FC<IPerformerDetailsProps> =
     };
 
     const client = useApolloClient();
-
-    const PERFORMER_TAG_SCENE_COUNTS = gql`
-      query PerformerTagSceneCounts($performer_id: ID!, $tag_ids: [ID!]!) {
-        performerTagSceneCounts(performer_id: $performer_id, tag_ids: $tag_ids) {
-          tag_id
-          count
-        }
-      }
-    `;
 
     const onTags = useCallback(
       async (tags: GQL.TagDataFragment[]) => {

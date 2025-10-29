@@ -77,9 +77,9 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
               onMouseLeave={handleMouseLeave}
               id="popover"
               className="hover-popover-content"
-              ref={(el: any) => {
+              ref={(el: HTMLDivElement | null) => {
                 // keep a ref to the popover DOM node
-                popoverRef.current = el && (el as HTMLDivElement);
+                popoverRef.current = el ?? null;
               }}
             >
               {content}

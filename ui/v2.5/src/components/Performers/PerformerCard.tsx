@@ -1,5 +1,5 @@
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, useParams } from "react-router-dom";
 import { useIntl } from "react-intl";
 import * as GQL from "src/core/generated-graphql";
 import NavUtils from "src/utils/navigation";
@@ -17,12 +17,10 @@ import {
 } from "src/models/list-filter/criteria/criterion";
 import { PopoverCountButton } from "../Shared/PopoverCountButton";
 import GenderIcon from "./GenderIcon";
-import { faTag, faEdit } from "@fortawesome/free-solid-svg-icons";
+import { faTag } from "@fortawesome/free-solid-svg-icons";
 import { RatingBanner } from "../Shared/RatingBanner";
 import { usePerformerUpdate, getClient } from "src/core/StashService";
-import { useParams } from "react-router-dom";
 import { useTagsEdit } from "src/hooks/tagsEdit";
-import { useState, useEffect, useRef } from "react";
 import { useToast } from "src/hooks/Toast";
 import { ILabeledId } from "src/models/list-filter/types";
 import { FavoriteIcon } from "../Shared/FavoriteIcon";
@@ -52,6 +50,93 @@ interface IPerformerCardProps {
   showInlineTags?: boolean;
 }
 
+type TagRef = { id: string; name?: string | null };
+
+// Inline tag editor component rendered beneath a performer card when requested
+const PerformerTagEditor: React.FC<{
+  performer: GQL.PerformerDataFragment;
+  onSaved?: () => void;
+}> = ({ performer, onSaved }) => {
+  const [updatePerformer] = usePerformerUpdate();
+  const params = useParams<{ id?: string; sceneId?: string }>();
+  const sceneId = params?.sceneId ?? params?.id;
+  const hasSceneTagsField = Object.prototype.hasOwnProperty.call(
+    performer as Record<string, unknown>,
+    "scene_tags"
+  );
+  const initialTags: TagRef[] = hasSceneTagsField
+    ? ((performer as unknown as { scene_tags?: TagRef[] }).scene_tags ?? [])
+    : ((performer.tags as unknown as TagRef[]) ?? []);
+
+  const { tags, tagsControl } = useTagsEdit(
+    initialTags,
+    // noop - we capture tags via hook state and push on save
+    () => {}
+  );
+  const Toast = useToast();
+  const [isSaving, setIsSaving] = useState(false);
+
+  return (
+    <div className="performer-tag-editor">
+      {tagsControl({})}
+      <div className="tag-editor-actions mt-2">
+        <Button
+          variant="primary"
+          disabled={isSaving}
+          onClick={async () => {
+            if (!performer.id) return;
+            setIsSaving(true);
+            try {
+              if (sceneId) {
+                await updatePerformer({
+                  variables: {
+                    input: {
+                      id: performer.id,
+                      scene_tags: [
+                        {
+                          scene_id: sceneId,
+                          tag_ids: tags.map((t) => t.id),
+                        },
+                      ],
+                    },
+                  },
+                });
+                try {
+                  await getClient().query({
+                    query: GQL.FindSceneDocument,
+                    variables: { id: sceneId },
+                    fetchPolicy: "network-only",
+                  });
+                } catch (_err) {
+                  // ignore refetch failure
+                }
+              } else {
+                await updatePerformer({
+                  variables: {
+                    input: {
+                      id: performer.id,
+                      tag_ids: tags.map((t) => t.id),
+                    },
+                  },
+                });
+              }
+
+              Toast.success(`Performer tagged: ${performer.name ?? performer.id}`);
+              onSaved?.();
+            } catch (e: unknown) {
+              Toast.error(e as Error);
+            } finally {
+              setIsSaving(false);
+            }
+          }}
+        >
+          {isSaving ? "Saving..." : "Save"}
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Popovers",
   ({ performer, extraCriteria }) => {
@@ -61,16 +146,18 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
       // by the presence of the `scene_tags` field on the performer fragment
       // (FindScene supplies this). On other pages, don't render the button.
       const hasSceneTagsField = Object.prototype.hasOwnProperty.call(
-        performer as any,
+        performer as Record<string, unknown>,
         "scene_tags"
       );
       if (!hasSceneTagsField) return null;
-      const sceneTags: Array<any> | undefined = (performer as any).scene_tags;
-      const sceneTagCount = sceneTags && sceneTags.length > 0 ? sceneTags.length : 0;
+      const sceneTags: TagRef[] = (
+        (performer as unknown as { scene_tags?: TagRef[] }).scene_tags ?? []
+      );
+      const sceneTagCount = sceneTags.length;
 
       // If the performer model includes `scene_tags`, show those in the
       // edit button popover (even when empty — display a 'No scene tags' hint).
-        let popoverContent: any = null;      
+  let popoverContent: React.ReactNode = null;      
       
         // Uppercase-first sort: primary compare case-insensitive alpha; if equal ignoring case,
         // prefer the one that starts with an uppercase letter. Finally, fall back to full compare.
@@ -90,7 +177,7 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
             const sortedSceneTags = [...sceneTags].sort((a, b) =>
               uppercaseFirstComparator(a.name ?? "", b.name ?? "")
             );
-          popoverContent = sortedSceneTags.map((tag: any) => (
+          popoverContent = sortedSceneTags.map((tag: TagRef) => (
             <TagLink key={tag.id} linkType="performer" tag={tag} />
           ));
         } else {
@@ -181,7 +268,7 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
 
     function maybeRenderTagPopoverButton() {
       // Use global performer tags for the hover popover (scene-scoped tags are edited in the modal)
-      const displayTags: Array<any> = performer.tags;
+  const displayTags: TagRef[] = (performer.tags as unknown as TagRef[]) ?? [];
 
       if (!displayTags || displayTags.length <= 0) {
         // no tag-count rendered when there are no tags (original behavior)
@@ -280,7 +367,6 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Overlays",
   ({ performer }) => {
     const [updatePerformer] = usePerformerUpdate();
-    const [showTagEditor, setShowTagEditor] = useState(false);
 
     function onToggleFavorite(v: boolean) {
       if (performer.id) {
@@ -334,96 +420,7 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
   }
 );
 
-// Inline tag editor component rendered beneath a performer card when requested
-const PerformerTagEditor: React.FC<{ performer: GQL.PerformerDataFragment; onSaved?: () => void }> = (
-  { performer, onSaved }
-) => {
-  const [updatePerformer] = usePerformerUpdate();
-  const params = useParams<{ id?: string; sceneId?: string }>();
-  const sceneId = params?.sceneId ?? params?.id;
-  // Prefer scene-scoped tags when the performer model includes the field
-  // (FindScene query provides performer.scene_tags). If the field exists
-  // but is empty, use the empty list (do not fall back to global tags).
-  const hasSceneTagsField = Object.prototype.hasOwnProperty.call(
-    performer as any,
-    "scene_tags"
-  );
-  const initialTags = hasSceneTagsField ? (performer as any).scene_tags || [] : performer.tags;
-
-  const { tags, onSetTags, tagsControl } = useTagsEdit(
-    initialTags,
-    // noop - we capture tags via hook state and push on save
-    () => {}
-  );
-  const Toast = useToast();
-  const [isSaving, setIsSaving] = useState(false);
-
-  return (
-    <div className="performer-tag-editor">
-      {tagsControl({})}
-      <div className="tag-editor-actions mt-2">
-        <Button
-          variant="primary"
-          disabled={isSaving}
-          onClick={async () => {
-            if (!performer.id) return;
-            setIsSaving(true);
-            try {
-              // If a sceneId is present in route params, send scene-scoped tags
-              if (sceneId) {
-                await updatePerformer({
-                  variables: {
-                    input: {
-                      id: performer.id,
-                      scene_tags: [
-                        {
-                          scene_id: sceneId,
-                          tag_ids: tags.map((t) => t.id),
-                        },
-                      ],
-                    },
-                  },
-                });
-                // refetch the scene to update cached performer.scene_tags so
-                // the edit button count and tooltip update immediately.
-                try {
-                  await getClient().query({
-                    query: GQL.FindSceneDocument,
-                    variables: { id: sceneId },
-                    fetchPolicy: "network-only",
-                  });
-                } catch (e) {
-                  // non-fatal: if refetch fails, UI will still reflect server
-                  // state after a full page refresh.
-                  // swallow error to avoid blocking the save flow.
-                }
-              } else {
-                await updatePerformer({
-                  variables: {
-                    input: {
-                      id: performer.id,
-                      tag_ids: tags.map((t) => t.id),
-                    },
-                  },
-                });
-              }
-
-              Toast.success(`Performer tagged: ${performer.name ?? performer.id}`);
-              // notify caller (eg modal) that save completed
-              onSaved?.();
-            } catch (e) {
-              Toast.error(e);
-            } finally {
-              setIsSaving(false);
-            }
-          }}
-        >
-          {isSaving ? "Saving..." : "Save"}
-        </Button>
-      </div>
-    </div>
-  );
-};
+// (removed duplicate PerformerTagEditor; hoisted definition above Popovers)
  
 
 const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
@@ -481,11 +478,11 @@ const PerformerCardTitle: React.FC<IPerformerCardProps> = PatchComponent(
     // (if available on this performer model) directly under the name.
     // This mirrors the hover tooltip content of the green tag button.
     const hasSceneTagsField = Object.prototype.hasOwnProperty.call(
-      performer as any,
+      performer as Record<string, unknown>,
       "scene_tags"
     );
-    const sceneTags: Array<{ id: string; name?: string | null }> = hasSceneTagsField
-      ? ((performer as any).scene_tags ?? [])
+    const sceneTags: TagRef[] = hasSceneTagsField
+      ? ((performer as unknown as { scene_tags?: TagRef[] }).scene_tags ?? [])
       : [];
     // Uppercase-first: case-insensitive alpha; if equal ignoring case, uppercase comes first.
     const uppercaseFirstComparator = (aName: string, bName: string) => {
@@ -546,7 +543,6 @@ export const PerformerCard: React.FC<IPerformerCardProps> = PatchComponent(
       selected,
       onSelectedChanged,
       zoomIndex,
-      showInlineTags,
     } = props;
 
     return (
