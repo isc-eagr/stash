@@ -27,5 +27,6 @@
         "config": {
             "mark_organized_label": "Mark as Organized on save"
         }
-    }
+    },
+    "performer_scene_tags": "Performer Scene Tags"
 }

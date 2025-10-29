@@ -20,11 +20,33 @@ interface IProps {
   selecting?: boolean;
   selected?: boolean;
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
+  // when true only render the scene-count popover/button
+  sceneCountOnly?: boolean;
+  // optional performer context - when provided scene links should filter by performer_scene_tags
+  performerId?: string;
+  performerName?: string;
 }
 
-const TagCardPopovers: React.FC<IProps> = PatchComponent(
+  const TagCardPopovers: React.FC<IProps> = PatchComponent(
   "TagCard.Popovers",
-  ({ tag }) => {
+  ({ tag, sceneCountOnly, performerId, performerName }) => {
+    if (sceneCountOnly) {
+      return (
+        <>
+          <hr />
+          <ButtonGroup className="card-popovers">
+            <PopoverCountButton
+              className="scene-count"
+              type="scene"
+              count={tag.scene_count}
+              url={NavUtils.makeTagScenesUrl(tag, performerId ? { id: performerId, name: performerName } : undefined)}
+              showZero={false}
+            />
+          </ButtonGroup>
+        </>
+      );
+    }
+
     return (
       <>
         <hr />
@@ -33,7 +55,7 @@ const TagCardPopovers: React.FC<IProps> = PatchComponent(
             className="scene-count"
             type="scene"
             count={tag.scene_count}
-            url={NavUtils.makeTagScenesUrl(tag)}
+            url={NavUtils.makeTagScenesUrl(tag, performerId ? { id: performerId, name: performerName } : undefined)}
             showZero={false}
           />
           <PopoverCountButton

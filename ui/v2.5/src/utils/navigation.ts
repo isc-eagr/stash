@@ -10,6 +10,8 @@ import {
   ParentTagsCriterionOption,
   TagsCriterion,
   TagsCriterionOption,
+  PerformerSceneTagsCriterionOption,
+  PerformerSceneTagsPairCriterion,
 } from "src/models/list-filter/criteria/tags";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import {
@@ -296,7 +298,53 @@ function makeTagFilter(mode: GQL.FilterMode, tag: INamedObject) {
   return filter.makeQueryParameters();
 }
 
-const makeTagScenesUrl = (tag: INamedObject) => {
+const makeTagScenesUrl = (tag: INamedObject, performer?: INamedObject) => {
+  if (!tag.id) return "#";
+
+  // If a performer is provided, build a Scene filter that uses the
+  // performer_scene_tags criterion together with the performers criterion so
+  // the resulting /scenes page is scoped to that performer + tag pair.
+  if (performer && performer.id) {
+    const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+
+      // Encode the performer+tag pair into a single performer_scene_tags criterion
+      // so the resulting /scenes page is scoped only by performer_scene_tags.
+      const tCrit = new PerformerSceneTagsPairCriterion(performer.id, tag.id);
+      filter.criteria.push(tCrit);
+
+    // Debug: log criterion objects and their encoded form so we can see why the tag criterion
+    // may be missing from the generated query string when a performer is provided.
+    try {
+      // eslint-disable-next-line no-console
+      console.debug("makeTagScenesUrl: filter.criteria", filter.criteria);
+      // eslint-disable-next-line no-console
+      console.debug(
+        "makeTagScenesUrl: toQueryParams",
+        filter.criteria.map((c) => c.toQueryParams())
+      );
+    } catch (e) {
+      /* ignore debug failures */
+    }
+
+    const params = filter.makeQueryParameters();
+
+    // Debug check: ensure the tag id is encoded in the query params when a performer is provided.
+    try {
+      if (!params.includes(tag.id)) {
+        // eslint-disable-next-line no-console
+        console.warn("makeTagScenesUrl: generated /scenes URL is missing tag id", {
+          tagId: tag.id,
+          performer,
+          params,
+        });
+      }
+    } catch (e) {
+      // ignore any errors in debug check
+    }
+
+    return `/scenes?${params}`;
+  }
+
   return `/scenes?${makeTagFilter(GQL.FilterMode.Scenes, tag)}`;
 };
 

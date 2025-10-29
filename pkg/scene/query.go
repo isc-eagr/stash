@@ -145,6 +145,24 @@ func CountByTagID(ctx context.Context, r models.SceneQueryer, id int, depth *int
 	return r.QueryCount(ctx, filter, nil)
 }
 
+// CountByTagIDAndPerformerID returns the number of scenes that have the given
+// tag and include the given performer. Depth applies to the tag hierarchy.
+func CountByTagIDAndPerformerID(ctx context.Context, r models.SceneQueryer, tagID int, performerID int, depth *int) (int, error) {
+	filter := &models.SceneFilterType{
+		Tags: &models.HierarchicalMultiCriterionInput{
+			Value:    []string{strconv.Itoa(tagID)},
+			Modifier: models.CriterionModifierIncludes,
+			Depth:    depth,
+		},
+		Performers: &models.MultiCriterionInput{
+			Value:    []string{strconv.Itoa(performerID)},
+			Modifier: models.CriterionModifierIncludes,
+		},
+	}
+
+	return r.QueryCount(ctx, filter, nil)
+}
+
 func CountByGroupID(ctx context.Context, r models.SceneQueryer, id int, depth *int) (int, error) {
 	filter := &models.SceneFilterType{
 		Groups: &models.HierarchicalMultiCriterionInput{

@@ -46,6 +46,8 @@ type TagFilterType struct {
 	ImagesFilter *ImageFilterType `json:"images_filter"`
 	// Filter by related galleries that meet this criteria
 	GalleriesFilter *GalleryFilterType `json:"galleries_filter"`
+	// Filter to only include tags that appear on scenes containing these performers
+	PerformerSceneTags *HierarchicalMultiCriterionInput `json:"performer_scene_tags"`
 	// Filter by created at
 	CreatedAt *TimestampCriterionInput `json:"created_at"`
 	// Filter by updated at

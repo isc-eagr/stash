@@ -228,3 +228,9 @@ type ImageFileFilterInput struct {
 	Resolution  *ResolutionCriterionInput  `json:"resolution,omitempty"`
 	Orientation *OrientationCriterionInput `json:"orientation,omitempty"`
 }
+
+// PerformerSceneTagPairInput is a compact input for filtering scenes by a performer+tag pair
+type PerformerSceneTagPairInput struct {
+	PerformerID string `json:"performer_id"`
+	TagID       string `json:"tag_id"`
+}

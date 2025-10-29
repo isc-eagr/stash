@@ -113,6 +113,9 @@ func (qb *tagFilterHandler) criterionHandler() criterionHandler {
 				tagRepository.galleries.innerJoin(f, "", "tags.id")
 			},
 		},
+
+		// Filter tags by performers whose scenes contain the tags
+		qb.performerSceneTagsCriterionHandler(tagFilter.PerformerSceneTags),
 	}
 }
 
@@ -218,5 +221,38 @@ func (qb *tagFilterHandler) markerCountCriterionHandler(markerCount *models.IntC
 
 			f.addHaving(clause, args...)
 		}
+	}
+}
+
+// Filter tags by performers whose scenes contain the tags. This uses the
+// performer_scene_tags join table which maps performer_id -> tag_id. The
+// input is a HierarchicalMultiCriterionInput (for compatibility with the
+// GraphQL schema) but we can treat it like a MultiCriterionInput where the
+// values are performer ids.
+func (qb *tagFilterHandler) performerSceneTagsCriterionHandler(tags *models.HierarchicalMultiCriterionInput) criterionHandlerFunc {
+	return func(ctx context.Context, f *filterBuilder) {
+		if tags == nil {
+			return
+		}
+
+		// Convert HierarchicalMultiCriterionInput to MultiCriterionInput -
+		// depth/relations are not applicable for performers, so we ignore them.
+		mc := &models.MultiCriterionInput{
+			Value:    tags.Value,
+			Modifier: tags.Modifier,
+			Excludes: tags.Excludes,
+		}
+
+		h := multiCriterionHandlerBuilder{
+			primaryTable: tagTable,
+			joinTable:    "performer_scene_tags",
+			primaryFK:    tagIDColumn,
+			foreignFK:    "performer_id",
+			addJoinsFunc: func(fb *filterBuilder) {
+				fb.addLeftJoin("performer_scene_tags", "", "performer_scene_tags.tag_id = tags.id")
+			},
+		}
+
+		h.handler(mc)(ctx, f)
 	}
 }

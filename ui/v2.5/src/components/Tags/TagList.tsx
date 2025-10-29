@@ -38,9 +38,18 @@ function getCount(result: GQL.FindTagsQueryResult) {
 interface ITagList {
   filterHook?: (filter: ListFilterModel) => ListFilterModel;
   alterQuery?: boolean;
+  // if true only render the scene-count button on tag cards/list rows
+  sceneCountOnly?: boolean;
+  // optional callback invoked when the current list of tags is available/updated
+  onTags?: (tags: GQL.TagDataFragment[]) => void;
+  // optional performer context; when present tag->scenes links should filter by performer_scene_tags
+  performerId?: string;
+  // optional performer name to display in generated performer criteria labels
+  performerName?: string;
 }
 
-export const TagList: React.FC<ITagList> = ({ filterHook, alterQuery }) => {
+export const TagList: React.FC<ITagList> = ({ filterHook, alterQuery, sceneCountOnly = false, onTags, performerId, performerName }) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const Toast = useToast();
   const [deletingTag, setDeletingTag] =
     useState<Partial<GQL.TagDataFragment> | null>(null);
@@ -184,13 +193,26 @@ export const TagList: React.FC<ITagList> = ({ filterHook, alterQuery }) => {
     function renderTags() {
       if (!result.data?.findTags) return;
 
-      if (filter.displayMode === DisplayMode.Grid) {
+      // notify caller about the loaded tags so they can perform additional
+      // queries (for example: performer-scoped counts) and update the cache.
+      try {
+        if (typeof onTags === "function") {
+          onTags(result.data.findTags.tags);
+        }
+      } catch (e) {
+        // swallow any errors from the callback to avoid breaking the list UI
+      }
+
+        if (filter.displayMode === DisplayMode.Grid) {
         return (
-          <TagCardGrid
+            <TagCardGrid
             tags={result.data.findTags.tags}
             zoomIndex={filter.zoomIndex}
             selectedIds={selectedIds}
             onSelectChange={onSelectChange}
+                  sceneCountOnly={sceneCountOnly}
+              performerId={performerId}
+              performerName={performerName}
           />
         );
       }
@@ -222,83 +244,97 @@ export const TagList: React.FC<ITagList> = ({ filterHook, alterQuery }) => {
               <Link to={`/tags/${tag.id}`}>{tag.name}</Link>
 
               <div className="ml-auto">
-                <Button
-                  variant="secondary"
-                  className="tag-list-button"
-                  onClick={() => onAutoTag(tag)}
-                >
-                  <FormattedMessage id="actions.auto_tag" />
-                </Button>
-                <Button variant="secondary" className="tag-list-button">
-                  <Link
-                    to={NavUtils.makeTagScenesUrl(tag)}
-                    className="tag-list-anchor"
-                  >
-                    <FormattedMessage
-                      id="countables.scenes"
-                      values={{
-                        count: tag.scene_count ?? 0,
-                      }}
-                    />
-                    : <FormattedNumber value={tag.scene_count ?? 0} />
-                  </Link>
-                </Button>
-                <Button variant="secondary" className="tag-list-button">
-                  <Link
-                    to={NavUtils.makeTagImagesUrl(tag)}
-                    className="tag-list-anchor"
-                  >
-                    <FormattedMessage
-                      id="countables.images"
-                      values={{
-                        count: tag.image_count ?? 0,
-                      }}
-                    />
-                    : <FormattedNumber value={tag.image_count ?? 0} />
-                  </Link>
-                </Button>
-                <Button variant="secondary" className="tag-list-button">
-                  <Link
-                    to={NavUtils.makeTagGalleriesUrl(tag)}
-                    className="tag-list-anchor"
-                  >
-                    <FormattedMessage
-                      id="countables.galleries"
-                      values={{
-                        count: tag.gallery_count ?? 0,
-                      }}
-                    />
-                    : <FormattedNumber value={tag.gallery_count ?? 0} />
-                  </Link>
-                </Button>
-                <Button variant="secondary" className="tag-list-button">
-                  <Link
-                    to={NavUtils.makeTagSceneMarkersUrl(tag)}
-                    className="tag-list-anchor"
-                  >
-                    <FormattedMessage
-                      id="countables.markers"
-                      values={{
-                        count: tag.scene_marker_count ?? 0,
-                      }}
-                    />
-                    : <FormattedNumber value={tag.scene_marker_count ?? 0} />
-                  </Link>
-                </Button>
-                <span className="tag-list-count">
-                  <FormattedMessage id="total" />:{" "}
-                  <FormattedNumber
-                    value={
-                      (tag.scene_count || 0) +
-                      (tag.scene_marker_count || 0) +
-                      (tag.image_count || 0) +
-                      (tag.gallery_count || 0)
-                    }
-                  />
-                </span>
-                <Button variant="danger" onClick={() => setDeletingTag(tag)}>
-                  <Icon icon={faTrashAlt} color="danger" />
-                </Button>
+                {/* If sceneCountOnly is set, render only the scenes count button */}
+                {sceneCountOnly ? (
+                  <Button variant="secondary" className="tag-list-button">
+                    <Link to={NavUtils.makeTagScenesUrl(tag, performerId ? { id: performerId, name: performerName } : undefined)} className="tag-list-anchor">
+                      <FormattedMessage
+                        id="countables.scenes"
+                        values={{
+                          count: tag.scene_count ?? 0,
+                        }}
+                      />
+                      : <FormattedNumber value={tag.scene_count ?? 0} />
+                    </Link>
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      variant="secondary"
+                      className="tag-list-button"
+                      onClick={() => onAutoTag(tag)}
+                    >
+                      <FormattedMessage id="actions.auto_tag" />
+                    </Button>
+                    <Button variant="secondary" className="tag-list-button">
+                      <Link to={NavUtils.makeTagScenesUrl(tag, performerId ? { id: performerId, name: performerName } : undefined)} className="tag-list-anchor">
+                        <FormattedMessage
+                          id="countables.scenes"
+                          values={{
+                            count: tag.scene_count ?? 0,
+                          }}
+                        />
+                        : <FormattedNumber value={tag.scene_count ?? 0} />
+                      </Link>
+                    </Button>
+                    <Button variant="secondary" className="tag-list-button">
+                      <Link
+                        to={NavUtils.makeTagImagesUrl(tag)}
+                        className="tag-list-anchor"
+                      >
+                        <FormattedMessage
+                          id="countables.images"
+                          values={{
+                            count: tag.image_count ?? 0,
+                          }}
+                        />
+                        : <FormattedNumber value={tag.image_count ?? 0} />
+                      </Link>
+                    </Button>
+                    <Button variant="secondary" className="tag-list-button">
+                      <Link
+                        to={NavUtils.makeTagGalleriesUrl(tag)}
+                        className="tag-list-anchor"
+                      >
+                        <FormattedMessage
+                          id="countables.galleries"
+                          values={{
+                            count: tag.gallery_count ?? 0,
+                          }}
+                        />
+                        : <FormattedNumber value={tag.gallery_count ?? 0} />
+                      </Link>
+                    </Button>
+                    <Button variant="secondary" className="tag-list-button">
+                      <Link
+                        to={NavUtils.makeTagSceneMarkersUrl(tag)}
+                        className="tag-list-anchor"
+                      >
+                        <FormattedMessage
+                          id="countables.markers"
+                          values={{
+                            count: tag.scene_marker_count ?? 0,
+                          }}
+                        />
+                        : <FormattedNumber value={tag.scene_marker_count ?? 0} />
+                      </Link>
+                    </Button>
+                    <span className="tag-list-count">
+                      <FormattedMessage id="total" />: {" "}
+                      <FormattedNumber
+                        value={
+                          (tag.scene_count || 0) +
+                          (tag.scene_marker_count || 0) +
+                          (tag.image_count || 0) +
+                          (tag.gallery_count || 0)
+                        }
+                      />
+                    </span>
+                    <Button variant="danger" onClick={() => setDeletingTag(tag)}>
+                      <Icon icon={faTrashAlt} color="danger" />
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           );

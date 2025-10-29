@@ -28,6 +28,7 @@ import { PerformerGalleriesPanel } from "./PerformerGalleriesPanel";
 import { PerformerGroupsPanel } from "./PerformerGroupsPanel";
 import { PerformerImagesPanel } from "./PerformerImagesPanel";
 import { PerformerAppearsWithPanel } from "./performerAppearsWithPanel";
+import { PerformerSceneTagsPanel } from "./performerSceneTagsPanel";
 import { PerformerEditPanel } from "./PerformerEditPanel";
 import { PerformerSubmitButton } from "./PerformerSubmitButton";
 import { SweatDrops } from "src/components/Shared/SweatDrops";
@@ -66,6 +67,7 @@ const validTabs = [
   "galleries",
   "images",
   "groups",
+  "scenetags",
   "appearswith",
 ] as const;
 type TabKey = (typeof validTabs)[number];
@@ -79,6 +81,20 @@ const PerformerTabs: React.FC<{
   performer: GQL.PerformerDataFragment;
   abbreviateCounter: boolean;
 }> = ({ tabKey, performer, abbreviateCounter }) => {
+  // fetch count of scene tags for this performer for the tab medal
+  const { data: sceneTagsData } = GQL.useFindTagsQuery({
+    variables: {
+      tag_filter: {
+        performer_scene_tags: {
+          modifier: GQL.CriterionModifier.IncludesAll,
+          value: [performer.id],
+        },
+      },
+      // no need to fetch actual tags here; we only use the count
+      filter: { per_page: 1 },
+    },
+  });
+  const sceneTagsCount = sceneTagsData?.findTags.count ?? 0;
   const populatedDefaultTab = useMemo(() => {
     let ret: TabKey = "scenes";
     if (performer.scene_count == 0) {
@@ -197,6 +213,21 @@ const PerformerTabs: React.FC<{
       >
         <PerformerAppearsWithPanel
           active={tabKey === "appearswith"}
+          performer={performer}
+        />
+      </Tab>
+      <Tab
+        eventKey="scenetags"
+        title={
+          <TabTitleCounter
+            messageID="scene_tags"
+            count={sceneTagsCount}
+            abbreviateCounter={abbreviateCounter}
+          />
+        }
+      >
+        <PerformerSceneTagsPanel
+          active={tabKey === "scenetags"}
           performer={performer}
         />
       </Tab>

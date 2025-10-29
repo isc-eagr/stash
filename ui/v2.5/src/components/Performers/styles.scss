@@ -134,7 +134,77 @@
 .card {
   &.performer-card {
     padding: 0 0 1rem 0;
+
+    /* Keep gender icon aligned with the top of the name block,
+       not vertically centered when tags add extra rows */
+    .card-section-title.flex-aligned {
+      align-items: flex-start;
+    }
   }
+}
+
+/* Inline scene tag strip under performer name: wrap and clamp to 3 rows */
+.performer-card__scene-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start; /* pack rows from top */
+  position: relative; /* allow bottom-right ellipsis overlay */
+  /* space between chips without relying on bootstrap margins */
+  gap: 0.2rem; /* tighter and even spacing */
+  padding-bottom: 1px; /* prevent last row from being visually cut by overflow */
+
+  /* Standardize chip height for precise clamping */
+  .tag-item {
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box; /* include padding/border within fixed height */
+    height: 1.6rem; /* fixed chip height tuned for Bootstrap badge */
+    padding: 0 0.5rem; /* horizontal padding inside the chip */
+    margin: 0; /* override global margin from index.scss to avoid extra row height */
+    white-space: nowrap; /* prevent chip text wrapping */
+    line-height: 1; /* ensure height is controlled by the container */
+    font-size: 0.78rem; /* compact font size for dense chips */
+  }
+
+  /* normalize inner link to not affect chip height */
+  .tag-item a {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+  }
+
+  /* ensure linked chips don't add vertical padding via global .tag-link styles */
+  .tag-item.tag-link {
+    padding: 0; /* let the anchor handle horizontal padding */
+  }
+  .tag-item.tag-link a {
+    padding: 0 0.5rem; /* horizontal padding only; no vertical padding */
+  }
+
+  /* Limit to 3 rows: 3 * chip-height + 2 * row-gaps + small slack */
+  /* Clamp strictly to 3 rows; minimal slack to avoid rounding-induced cut */
+  max-height: calc(3 * 1.6rem + 2 * 0.2rem + 0.05rem);
+  overflow: hidden;
+}
+
+/* Ellipsis overlay when tag list overflows */
+.performer-card__scene-tags-ellipsis {
+  position: absolute;
+  right: 0.1rem;
+  bottom: 0.05rem;
+  z-index: 1;
+  color: $text-muted;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  /* fade background behind the ellipsis for readability over chips */
+  padding-left: 0.35rem;
+  background: linear-gradient(
+    90deg,
+    rgba($card-bg, 0) 0%,
+    rgba($card-bg, 0.6) 40%,
+    rgba($card-bg, 0.9) 100%
+  );
 }
 
 /* wrapper to force the inline tag editor below the card */

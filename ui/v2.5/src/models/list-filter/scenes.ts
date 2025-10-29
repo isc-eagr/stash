@@ -23,6 +23,8 @@ import { StudiosCriterionOption } from "./criteria/studios";
 import { InteractiveCriterionOption } from "./criteria/interactive";
 import {
   PerformerTagsCriterionOption,
+  PerformerSceneTagsCriterionOption,
+  PerformerSceneTagPairCriterionOption,
   // StudioTagsCriterionOption,
   TagsCriterionOption,
   SceneMarkerTagsCriterionOption,
@@ -110,6 +112,9 @@ const criterionOptions = [
   TagsCriterionOption,
   createMandatoryNumberCriterionOption("tag_count"),
   PerformerTagsCriterionOption,
+  PerformerSceneTagsCriterionOption,
+  // compact performer+tag pair criterion
+  PerformerSceneTagPairCriterionOption,
   PerformersCriterionOption,
   createMandatoryNumberCriterionOption("performer_count"),
   createMandatoryNumberCriterionOption("performer_age"),

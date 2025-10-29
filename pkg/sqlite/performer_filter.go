@@ -153,9 +153,13 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 
 		qb.tagsCriterionHandler(filter.Tags),
 
+		qb.performerSceneTagsCriterionHandler(filter.PerformerSceneTags),
+
 		qb.studiosCriterionHandler(filter.Studios),
 
 		qb.groupsCriterionHandler(filter.Groups),
+
+		// Note: performer_scene_tags is already handled above
 
 		qb.appearsWithCriterionHandler(filter.Performers),
 
@@ -213,6 +217,23 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 			idCol: "performers.id",
 		},
 	}
+}
+
+// Filters performers by tags recorded in the performer_scene_tags join table.
+// This matches performers that have at least one row in performer_scene_tags with a tag in the provided set
+// (supports hierarchy, includes/excludes, includes-all, null/not-null like other hierarchical tag filters).
+func (qb *performerFilterHandler) performerSceneTagsCriterionHandler(tags *models.HierarchicalMultiCriterionInput) criterionHandlerFunc {
+	h := joinedHierarchicalMultiCriterionHandlerBuilder{
+		primaryTable:   performerTable,
+		foreignTable:   tagTable,
+		foreignFK:      "tag_id",
+		relationsTable: "tags_relations",
+		joinAs:         "performer_pst",
+		joinTable:      "performer_scene_tags",
+		primaryFK:      performerIDColumn,
+	}
+
+	return h.handler(tags)
 }
 
 // TODO - we need to provide a whitelist of possible values

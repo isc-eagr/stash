@@ -180,6 +180,8 @@ input PerformerFilterType {
   death_date: DateCriterionInput
   "Filter by related scenes that meet this criteria"
   scenes_filter: SceneFilterType
+  "Filter to only include performers where the performer has these scene tags (from performer_scene_tags)"
+  performer_scene_tags: HierarchicalMultiCriterionInput
   "Filter by related images that meet this criteria"
   images_filter: ImageFilterType
   "Filter by related galleries that meet this criteria"
@@ -282,6 +284,10 @@ input SceneFilterType {
   tag_count: IntCriterionInput
   "Filter to only include scenes with performers with these tags"
   performer_tags: HierarchicalMultiCriterionInput
+  "Filter to only include scenes where a given performer has this tag (joins performer_scene_tags)"
+  performer_scene_tags: HierarchicalMultiCriterionInput
+  "Filter to only include scenes where a given performer has a specific tag (compact pair input)"
+  performer_scene_tag_pair: PerformerSceneTagPairInput
   "Filter scenes that have performers that have been favorited"
   performer_favorite: Boolean
   "Filter scenes by performer age at time of scene"
@@ -613,6 +619,9 @@ input TagFilterType {
   "Filter by related galleries that meet this criteria"
   galleries_filter: GalleryFilterType
 
+  "Filter to only include tags that appear on scenes containing these performers"
+  performer_scene_tags: HierarchicalMultiCriterionInput
+
   "Filter by creation time"
   created_at: TimestampCriterionInput
 
@@ -853,6 +862,11 @@ input HierarchicalMultiCriterionInput {
   modifier: CriterionModifier!
   depth: Int
   excludes: [ID!]
+}
+
+input PerformerSceneTagPairInput {
+  performer_id: ID!
+  tag_id: ID!
 }
 
 input DateCriterionInput {

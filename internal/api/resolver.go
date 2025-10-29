@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/stashapp/stash/internal/build"
 	"github.com/stashapp/stash/internal/manager"
@@ -110,6 +111,12 @@ func (r *Resolver) Plugin() PluginResolver {
 func (r *Resolver) ConfigResult() ConfigResultResolver {
 	return &configResultResolver{r}
 }
+
+// NOTE: TagFilterType resolver stub removed temporarily to allow gqlgen
+// to run and generate the TagFilterTypeResolver interface. The stub will be
+// re-added after code generation so we can return a no-op resolver for the
+// input type fields (TagFilterType is used as an input type and doesn't
+// require runtime resolution).
 
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
@@ -409,6 +416,99 @@ func (r *queryResolver) SceneMarkerTags(ctx context.Context, scene_id string) ([
 	var result []*SceneMarkerTag
 	for _, key := range keys {
 		result = append(result, tags[key])
+	}
+
+	return result, nil
+}
+
+// PerformerTagSceneCounts returns the number of scenes for each provided tag_id
+// where the scene is associated with the given performer. Returned slice is in
+// the same order as the provided tag_ids.
+func (r *queryResolver) PerformerTagSceneCounts(ctx context.Context, performer_id string, tag_ids []string) ([]*PerformerTagSceneCount, error) {
+	// parse performer id
+	pid, err := strconv.Atoi(performer_id)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(tag_ids) == 0 {
+		return []*PerformerTagSceneCount{}, nil
+	}
+
+	// parse tag ids and build args
+	args := make([]interface{}, 0, 1+len(tag_ids))
+	args = append(args, pid)
+	placeholders := make([]string, len(tag_ids))
+	parsedIDs := make([]int, len(tag_ids))
+	for i, tid := range tag_ids {
+		id, err := strconv.Atoi(tid)
+		if err != nil {
+			return nil, err
+		}
+		parsedIDs[i] = id
+		args = append(args, id)
+		placeholders[i] = "?"
+	}
+
+	query := "SELECT tag_id, COUNT(DISTINCT scene_id) FROM performer_scene_tags WHERE performer_id = ? AND tag_id IN (" + strings.Join(placeholders, ",") + ") GROUP BY tag_id"
+
+	db := manager.GetInstance().Database
+
+	var rows [][]interface{}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		var err error
+		_, rows, err = db.QuerySQL(ctx, query, args)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+
+	counts := make(map[int]int)
+	for _, row := range rows {
+		if len(row) < 2 {
+			continue
+		}
+
+		// tag_id may be returned as int64 or string/[]byte depending on driver
+		var tagInt int
+		switch v := row[0].(type) {
+		case int64:
+			tagInt = int(v)
+		case int:
+			tagInt = v
+		case []byte:
+			tagInt, _ = strconv.Atoi(string(v))
+		case string:
+			tagInt, _ = strconv.Atoi(v)
+		default:
+			tagInt, _ = strconv.Atoi(fmt.Sprint(v))
+		}
+
+		var cnt int
+		switch v := row[1].(type) {
+		case int64:
+			cnt = int(v)
+		case int:
+			cnt = v
+		case []byte:
+			cnt, _ = strconv.Atoi(string(v))
+		case string:
+			cnt, _ = strconv.Atoi(v)
+		default:
+			cnt, _ = strconv.Atoi(fmt.Sprint(v))
+		}
+
+		counts[tagInt] = cnt
+	}
+
+	var result []*PerformerTagSceneCount
+	for _, id := range parsedIDs {
+		c := counts[id]
+		result = append(result, &PerformerTagSceneCount{
+			TagID: strconv.Itoa(id),
+			Count: c,
+		})
 	}
 
 	return result, nil

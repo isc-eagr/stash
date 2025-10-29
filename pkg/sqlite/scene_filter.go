@@ -144,6 +144,8 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		}),
 
 		qb.tagsCriterionHandler(sceneFilter.Tags),
+		qb.performerSceneTagsCriterionHandler(sceneFilter.PerformerSceneTags),
+		qb.performerSceneTagPairCriterionHandler(sceneFilter.PerformerSceneTagPair),
 		qb.tagCountCriterionHandler(sceneFilter.TagCount),
 		qb.performersCriterionHandler(sceneFilter.Performers),
 		qb.performerCountCriterionHandler(sceneFilter.PerformerCount),
@@ -522,6 +524,34 @@ func (qb *sceneFilterHandler) tagsCriterionHandler(tags *models.HierarchicalMult
 	}
 
 	return h.handler(tags)
+}
+
+func (qb *sceneFilterHandler) performerSceneTagsCriterionHandler(tags *models.HierarchicalMultiCriterionInput) criterionHandler {
+	// This handler filters scenes by tags recorded in the performer_scene_tags join table.
+	// It supports hierarchical tag inputs similar to the normal tags handler.
+	h := joinedHierarchicalMultiCriterionHandlerBuilder{
+		primaryTable:   sceneTable,
+		foreignTable:   tagTable,
+		foreignFK:      "tag_id",
+		relationsTable: "tags_relations",
+		joinAs:         "scene_pst",
+		joinTable:      "performer_scene_tags",
+		primaryFK:      sceneIDColumn,
+	}
+
+	return h.handler(tags)
+}
+
+func (qb *sceneFilterHandler) performerSceneTagPairCriterionHandler(pair *models.PerformerSceneTagPairInput) criterionHandler {
+	return criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
+		if pair == nil {
+			return
+		}
+
+		// Join the performer_scene_tags table and filter by performer_id and tag_id
+		f.addLeftJoin("performer_scene_tags", "scene_pst_pair", "scene_pst_pair.scene_id = scenes.id")
+		f.addWhere("scene_pst_pair.performer_id = ? AND scene_pst_pair.tag_id = ?", pair.PerformerID, pair.TagID)
+	})
 }
 
 func (qb *sceneFilterHandler) tagCountCriterionHandler(tagCount *models.IntCriterionInput) criterionHandlerFunc {

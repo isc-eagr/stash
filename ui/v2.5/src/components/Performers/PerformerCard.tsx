@@ -10,7 +10,7 @@ import { SweatDrops } from "../Shared/SweatDrops";
 import { HoverPopover } from "../Shared/HoverPopover";
 import { Icon } from "../Shared/Icon";
 import { TagLink } from "../Shared/TagLink";
-import { Button, ButtonGroup, Modal } from "react-bootstrap";
+import { Button, ButtonGroup, Modal, Badge } from "react-bootstrap";
 import {
   ModifierCriterion,
   CriterionValue,
@@ -22,7 +22,7 @@ import { RatingBanner } from "../Shared/RatingBanner";
 import { usePerformerUpdate, getClient } from "src/core/StashService";
 import { useParams } from "react-router-dom";
 import { useTagsEdit } from "src/hooks/tagsEdit";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useToast } from "src/hooks/Toast";
 import { ILabeledId } from "src/models/list-filter/types";
 import { FavoriteIcon } from "../Shared/FavoriteIcon";
@@ -70,10 +70,27 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
 
       // If the performer model includes `scene_tags`, show those in the
       // edit button popover (even when empty — display a 'No scene tags' hint).
-      let popoverContent: any = null;
+        let popoverContent: any = null;      
+      
+        // Uppercase-first sort: primary compare case-insensitive alpha; if equal ignoring case,
+        // prefer the one that starts with an uppercase letter. Finally, fall back to full compare.
+        const uppercaseFirstComparator = (aName: string, bName: string) => {
+          const aN = aName ?? "";
+          const bN = bName ?? "";
+          const isAUpper = !!(aN[0] && aN[0] !== aN[0].toLowerCase() && aN[0] === aN[0].toUpperCase());
+          const isBUpper = !!(bN[0] && bN[0] !== bN[0].toLowerCase() && bN[0] === bN[0].toUpperCase());
+          if (isAUpper !== isBUpper) return isAUpper ? -1 : 1;
+          const lowerCmp = aN.toLowerCase().localeCompare(bN.toLowerCase(), undefined, { sensitivity: "base" });
+          if (lowerCmp !== 0) return lowerCmp;
+          return aN.localeCompare(bN);
+        };
+
       if (hasSceneTagsField) {
         if (sceneTags && sceneTags.length > 0) {
-          popoverContent = sceneTags.map((tag: any) => (
+            const sortedSceneTags = [...sceneTags].sort((a, b) =>
+              uppercaseFirstComparator(a.name ?? "", b.name ?? "")
+            );
+          popoverContent = sortedSceneTags.map((tag: any) => (
             <TagLink key={tag.id} linkType="performer" tag={tag} />
           ));
         } else {
@@ -171,7 +188,13 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
         return null;
       }
 
-      const popoverContent = displayTags.map((tag) => (
+      const sortedDisplayTags = [...displayTags].sort((a, b) =>
+        (a?.name ?? "").localeCompare(b?.name ?? "", undefined, {
+          sensitivity: "base",
+        })
+      );
+      
+      const popoverContent = sortedDisplayTags.map((tag) => (
         <TagLink key={tag.id} linkType="performer" tag={tag} />
       ));
 
@@ -454,6 +477,32 @@ const PerformerCardImage: React.FC<IPerformerCardProps> = PatchComponent(
 const PerformerCardTitle: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Title",
   ({ performer }) => {
+    // Inline scene tags strip: show a compact list of scene-specific tags
+    // (if available on this performer model) directly under the name.
+    // This mirrors the hover tooltip content of the green tag button.
+    const hasSceneTagsField = Object.prototype.hasOwnProperty.call(
+      performer as any,
+      "scene_tags"
+    );
+    const sceneTags: Array<{ id: string; name?: string | null }> = hasSceneTagsField
+      ? ((performer as any).scene_tags ?? [])
+      : [];
+    // Uppercase-first: case-insensitive alpha; if equal ignoring case, uppercase comes first.
+    const uppercaseFirstComparator = (aName: string, bName: string) => {
+      const aN = aName ?? "";
+      const bN = bName ?? "";
+      const isAUpper = !!(aN[0] && aN[0] !== aN[0].toLowerCase() && aN[0] === aN[0].toUpperCase());
+      const isBUpper = !!(bN[0] && bN[0] !== bN[0].toLowerCase() && bN[0] === bN[0].toUpperCase());
+      if (isAUpper !== isBUpper) return isAUpper ? -1 : 1;
+      const lowerCmp = aN.toLowerCase().localeCompare(bN.toLowerCase(), undefined, { sensitivity: "base" });
+      if (lowerCmp !== 0) return lowerCmp;
+      return aN.localeCompare(bN);
+    };
+
+    const sortedSceneTags = [...sceneTags].sort((a, b) =>
+      uppercaseFirstComparator(a.name ?? "", b.name ?? "")
+    );
+
     return (
       <div>
         <span className="performer-name">{performer.name}</span>
@@ -461,6 +510,26 @@ const PerformerCardTitle: React.FC<IPerformerCardProps> = PatchComponent(
           <span className="performer-disambiguation">
             {` (${performer.disambiguation})`}
           </span>
+        )}
+        {hasSceneTagsField && sortedSceneTags.length > 0 && (
+          <div className="performer-card__scene-tags mt-1">
+            {sortedSceneTags.map((tag) => (
+              <Badge
+                key={tag.id}
+                className="tag-item tag-link"
+                variant="secondary"
+              >
+                <Link
+                  to={NavUtils.makeTagScenesUrl(
+                    { id: tag.id, name: tag.name ?? undefined },
+                    { id: performer.id, name: performer.name ?? undefined }
+                  )}
+                >
+                  {tag.name}
+                </Link>
+              </Badge>
+            ))}
+          </div>
         )}
       </div>
     );
