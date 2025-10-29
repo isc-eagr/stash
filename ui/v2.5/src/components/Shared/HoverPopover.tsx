@@ -28,6 +28,7 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
   }) => {
     const [show, setShow] = useState(false);
     const triggerRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
     const enterTimer = useRef<number>();
     const leaveTimer = useRef<number>();
 
@@ -76,6 +77,10 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
               onMouseLeave={handleMouseLeave}
               id="popover"
               className="hover-popover-content"
+              ref={(el: any) => {
+                // keep a ref to the popover DOM node
+                popoverRef.current = el && (el as HTMLDivElement);
+              }}
             >
               {content}
             </Popover>

@@ -10,16 +10,20 @@ import { SweatDrops } from "../Shared/SweatDrops";
 import { HoverPopover } from "../Shared/HoverPopover";
 import { Icon } from "../Shared/Icon";
 import { TagLink } from "../Shared/TagLink";
-import { Button, ButtonGroup } from "react-bootstrap";
+import { Button, ButtonGroup, Modal } from "react-bootstrap";
 import {
   ModifierCriterion,
   CriterionValue,
 } from "src/models/list-filter/criteria/criterion";
 import { PopoverCountButton } from "../Shared/PopoverCountButton";
 import GenderIcon from "./GenderIcon";
-import { faTag } from "@fortawesome/free-solid-svg-icons";
+import { faTag, faEdit } from "@fortawesome/free-solid-svg-icons";
 import { RatingBanner } from "../Shared/RatingBanner";
-import { usePerformerUpdate } from "src/core/StashService";
+import { usePerformerUpdate, getClient } from "src/core/StashService";
+import { useParams } from "react-router-dom";
+import { useTagsEdit } from "src/hooks/tagsEdit";
+import { useState } from "react";
+import { useToast } from "src/hooks/Toast";
 import { ILabeledId } from "src/models/list-filter/types";
 import { FavoriteIcon } from "../Shared/FavoriteIcon";
 import { PatchComponent } from "src/patch";
@@ -41,11 +45,57 @@ interface IPerformerCardProps {
   zoomIndex?: number;
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
   extraCriteria?: IPerformerCardExtraCriteria;
+  // optional: show a compact tag button in the card which will open the tag editor
+  showTagButton?: boolean;
+  onOpenTagEditor?: (performer: GQL.PerformerDataFragment) => void;
+  // optional: show an inline tag editor below the performer card
+  showInlineTags?: boolean;
 }
 
 const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Popovers",
   ({ performer, extraCriteria }) => {
+    const [showTagModal, setShowTagModal] = useState(false);
+    function maybeRenderEditButton() {
+      // Only show the scene-tags edit button on Scene pages. We detect this
+      // by the presence of the `scene_tags` field on the performer fragment
+      // (FindScene supplies this). On other pages, don't render the button.
+      const hasSceneTagsField = Object.prototype.hasOwnProperty.call(
+        performer as any,
+        "scene_tags"
+      );
+      if (!hasSceneTagsField) return null;
+      const sceneTags: Array<any> | undefined = (performer as any).scene_tags;
+      const sceneTagCount = sceneTags && sceneTags.length > 0 ? sceneTags.length : 0;
+
+      // If the performer model includes `scene_tags`, show those in the
+      // edit button popover (even when empty — display a 'No scene tags' hint).
+      let popoverContent: any = null;
+      if (hasSceneTagsField) {
+        if (sceneTags && sceneTags.length > 0) {
+          popoverContent = sceneTags.map((tag: any) => (
+            <TagLink key={tag.id} linkType="performer" tag={tag} />
+          ));
+        } else {
+          popoverContent = [<div key="none" className="muted">No scene tags</div>];
+        }
+      }
+
+      const editButton = (
+        <Button className="minimal edit-tags" onClick={() => setShowTagModal(true)} aria-label={`Edit tags for ${performer.name ?? performer.id}`}>
+          <Icon icon={faTag} />
+          {sceneTags && sceneTags.length > 0 ? <span>{sceneTagCount}</span> : null}
+        </Button>
+      );
+
+      return popoverContent ? (
+        <HoverPopover placement="bottom" content={popoverContent}>
+          {editButton}
+        </HoverPopover>
+      ) : (
+        editButton
+      );
+    }
     function maybeRenderScenesPopoverButton() {
       if (!performer.scene_count) return;
 
@@ -113,9 +163,15 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     }
 
     function maybeRenderTagPopoverButton() {
-      if (performer.tags.length <= 0) return;
+      // Use global performer tags for the hover popover (scene-scoped tags are edited in the modal)
+      const displayTags: Array<any> = performer.tags;
 
-      const popoverContent = performer.tags.map((tag) => (
+      if (!displayTags || displayTags.length <= 0) {
+        // no tag-count rendered when there are no tags (original behavior)
+        return null;
+      }
+
+      const popoverContent = displayTags.map((tag) => (
         <TagLink key={tag.id} linkType="performer" tag={tag} />
       ));
 
@@ -123,7 +179,7 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
         <HoverPopover placement="bottom" content={popoverContent}>
           <Button className="minimal tag-count">
             <Icon icon={faTag} />
-            <span>{performer.tags.length}</span>
+            <span>{displayTags.length}</span>
           </Button>
         </HoverPopover>
       );
@@ -146,30 +202,54 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
       );
     }
 
-    if (
+    const hasAnyPopover = !!(
       performer.scene_count ||
       performer.image_count ||
       performer.gallery_count ||
       performer.tags.length > 0 ||
       performer.o_counter ||
       performer.group_count
-    ) {
+    );
+
+    if (hasAnyPopover) {
       return (
         <>
           <hr />
           <ButtonGroup className="card-popovers">
+            {maybeRenderEditButton && maybeRenderEditButton()}
+            {maybeRenderTagPopoverButton()}
             {maybeRenderScenesPopoverButton()}
             {maybeRenderGroupsPopoverButton()}
             {maybeRenderImagesPopoverButton()}
             {maybeRenderGalleriesPopoverButton()}
-            {maybeRenderTagPopoverButton()}
             {maybeRenderOCounter()}
           </ButtonGroup>
+          <Modal
+            show={showTagModal}
+            onHide={() => setShowTagModal(false)}
+            centered
+            dialogClassName="scene-tags-modal"
+          >
+            <Modal.Header closeButton>
+              <Modal.Title>Scene Tags for {performer.name ?? performer.id}</Modal.Title>
+            </Modal.Header>
+            <Modal.Body className="scene-tags-body">
+              <PerformerTagEditor performer={performer} onSaved={() => setShowTagModal(false)} />
+            </Modal.Body>
+          </Modal>
         </>
       );
     }
 
-    return null;
+    // If there are no other popovers, still render a minimal edit button so tags can be edited
+    return (
+      <>
+        <hr />
+        <ButtonGroup className="card-popovers">
+          {maybeRenderEditButton && maybeRenderEditButton()}
+        </ButtonGroup>
+      </>
+    );
   }
 );
 
@@ -177,6 +257,7 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Overlays",
   ({ performer }) => {
     const [updatePerformer] = usePerformerUpdate();
+    const [showTagEditor, setShowTagEditor] = useState(false);
 
     function onToggleFavorite(v: boolean) {
       if (performer.id) {
@@ -229,6 +310,98 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
     );
   }
 );
+
+// Inline tag editor component rendered beneath a performer card when requested
+const PerformerTagEditor: React.FC<{ performer: GQL.PerformerDataFragment; onSaved?: () => void }> = (
+  { performer, onSaved }
+) => {
+  const [updatePerformer] = usePerformerUpdate();
+  const params = useParams<{ id?: string; sceneId?: string }>();
+  const sceneId = params?.sceneId ?? params?.id;
+  // Prefer scene-scoped tags when the performer model includes the field
+  // (FindScene query provides performer.scene_tags). If the field exists
+  // but is empty, use the empty list (do not fall back to global tags).
+  const hasSceneTagsField = Object.prototype.hasOwnProperty.call(
+    performer as any,
+    "scene_tags"
+  );
+  const initialTags = hasSceneTagsField ? (performer as any).scene_tags || [] : performer.tags;
+
+  const { tags, onSetTags, tagsControl } = useTagsEdit(
+    initialTags,
+    // noop - we capture tags via hook state and push on save
+    () => {}
+  );
+  const Toast = useToast();
+  const [isSaving, setIsSaving] = useState(false);
+
+  return (
+    <div className="performer-tag-editor">
+      {tagsControl({})}
+      <div className="tag-editor-actions mt-2">
+        <Button
+          variant="primary"
+          disabled={isSaving}
+          onClick={async () => {
+            if (!performer.id) return;
+            setIsSaving(true);
+            try {
+              // If a sceneId is present in route params, send scene-scoped tags
+              if (sceneId) {
+                await updatePerformer({
+                  variables: {
+                    input: {
+                      id: performer.id,
+                      scene_tags: [
+                        {
+                          scene_id: sceneId,
+                          tag_ids: tags.map((t) => t.id),
+                        },
+                      ],
+                    },
+                  },
+                });
+                // refetch the scene to update cached performer.scene_tags so
+                // the edit button count and tooltip update immediately.
+                try {
+                  await getClient().query({
+                    query: GQL.FindSceneDocument,
+                    variables: { id: sceneId },
+                    fetchPolicy: "network-only",
+                  });
+                } catch (e) {
+                  // non-fatal: if refetch fails, UI will still reflect server
+                  // state after a full page refresh.
+                  // swallow error to avoid blocking the save flow.
+                }
+              } else {
+                await updatePerformer({
+                  variables: {
+                    input: {
+                      id: performer.id,
+                      tag_ids: tags.map((t) => t.id),
+                    },
+                  },
+                });
+              }
+
+              Toast.success(`Performer tagged: ${performer.name ?? performer.id}`);
+              // notify caller (eg modal) that save completed
+              onSaved?.();
+            } catch (e) {
+              Toast.error(e);
+            } finally {
+              setIsSaving(false);
+            }
+          }}
+        >
+          {isSaving ? "Saving..." : "Save"}
+        </Button>
+      </div>
+    </div>
+  );
+};
+ 
 
 const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Details",
@@ -304,25 +477,29 @@ export const PerformerCard: React.FC<IPerformerCardProps> = PatchComponent(
       selected,
       onSelectedChanged,
       zoomIndex,
+      showInlineTags,
     } = props;
 
     return (
-      <GridCard
-        className={`performer-card zoom-${zoomIndex}`}
-        url={`/performers/${performer.id}`}
-        width={cardWidth}
-        pretitleIcon={
-          <GenderIcon className="gender-icon" gender={performer.gender} />
-        }
-        title={<PerformerCardTitle {...props} />}
-        image={<PerformerCardImage {...props} />}
-        overlays={<PerformerCardOverlays {...props} />}
-        details={<PerformerCardDetails {...props} />}
-        popovers={<PerformerCardPopovers {...props} />}
-        selected={selected}
-        selecting={selecting}
-        onSelectedChanged={onSelectedChanged}
-      />
+      <div className={`performer-card-wrapper zoom-${zoomIndex}`}>
+        <GridCard
+          className={`performer-card`}
+          url={`/performers/${performer.id}`}
+          width={cardWidth}
+          pretitleIcon={
+            <GenderIcon className="gender-icon" gender={performer.gender} />
+          }
+          title={<PerformerCardTitle {...props} />}
+          image={<PerformerCardImage {...props} />}
+          overlays={<PerformerCardOverlays {...props} />}
+          details={<PerformerCardDetails {...props} />}
+          popovers={<PerformerCardPopovers {...props} />}
+          selected={selected}
+          selecting={selecting}
+          onSelectedChanged={onSelectedChanged}
+        />
+        {/* PerformerTagEditor is available via the tag-count button which opens a modal */}
+      </div>
     );
   }
 );

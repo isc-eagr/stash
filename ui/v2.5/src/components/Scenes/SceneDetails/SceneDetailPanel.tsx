@@ -52,6 +52,7 @@ export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
         key={performer.id}
         performer={performer}
         ageFromDate={props.scene.date ?? undefined}
+        showInlineTags={true}
       />
     ));
 

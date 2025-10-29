@@ -36,6 +36,8 @@ type Performer {
   alias_list: [String!]!
   favorite: Boolean!
   tags: [Tag!]!
+  # Scene-scoped performer tags (tags for this performer within a specific scene)
+  scene_tags(scene_id: ID!): [Tag!]!
   ignore_auto_tag: Boolean!
 
   image_path: String # Resolver
@@ -135,6 +137,8 @@ input PerformerUpdateInput {
   ignore_auto_tag: Boolean
 
   custom_fields: CustomFieldsInput
+  # Scene-scoped performer tags: apply tag_ids to the performer for a specific scene
+  scene_tags: [PerformerSceneTagsInput!]
 }
 
 input BulkUpdateStrings {
@@ -175,6 +179,12 @@ input BulkPerformerUpdateInput {
   ignore_auto_tag: Boolean
 
   custom_fields: CustomFieldsInput
+
+}
+
+input PerformerSceneTagsInput {
+  scene_id: ID!
+  tag_ids: [ID!]
 }
 
 input PerformerDestroyInput {

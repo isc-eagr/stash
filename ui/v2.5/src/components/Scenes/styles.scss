@@ -29,6 +29,24 @@
   margin: 5px;
 }
 
+/* Inline performer tag editor styling to match SceneEditPanel tag appearance */
+.performer-tag-editor {
+  margin-top: 0.5rem;
+
+  .tag-select {
+    width: 100%;
+  }
+
+  .tag-editor-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+}
+
+/* No scene-specific width override for performer tag editor; keep it responsive */
+
 .performer-tag-container .performer-disambiguation {
   color: initial;
 }

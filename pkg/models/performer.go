@@ -280,4 +280,11 @@ type PerformerUpdateInput struct {
 	IgnoreAutoTag *bool          `json:"ignore_auto_tag"`
 
 	CustomFields CustomFieldsInput `json:"custom_fields"`
+	// Scene-scoped tags: list of scene -> tag ids
+	SceneTags []PerformerSceneTagsInput `json:"scene_tags"`
+}
+
+type PerformerSceneTagsInput struct {
+	SceneID string   `json:"scene_id"`
+	TagIds  []string `json:"tag_ids"`
 }
