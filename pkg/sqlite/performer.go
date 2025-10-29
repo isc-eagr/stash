@@ -17,11 +17,11 @@ import (
 )
 
 const (
-	performerTable         = "performers"
-	performerIDColumn      = "performer_id"
-	performersAliasesTable = "performer_aliases"
-	performerAliasColumn   = "alias"
-	performersTagsTable    = "performers_tags"
+	performerTable          = "performers"
+	performerIDColumn       = "performer_id"
+	performersAliasesTable  = "performer_aliases"
+	performerAliasColumn    = "alias"
+	performersTagsTable     = "performers_tags"
 	performerSceneTagsTable = "performer_scene_tags"
 
 	performerURLsTable = "performer_urls"
@@ -169,9 +169,9 @@ func (r *performerRowRecord) fromPartial(o models.PerformerPartial) {
 type performerRepositoryType struct {
 	repository
 
-	tags     joinRepository
+	tags               joinRepository
 	performerSceneTags joinRepository
-	stashIDs stashIDRepository
+	stashIDs           stashIDRepository
 
 	scenes    joinRepository
 	images    joinRepository
@@ -839,7 +839,7 @@ func (qb *PerformerStore) GetTagIDs(ctx context.Context, id int) ([]int, error) 
 func (qb *PerformerStore) GetSceneTagIDs(ctx context.Context, performerID int, sceneID int) ([]int, error) {
 	query := `SELECT tag_id as id FROM performer_scene_tags WHERE performer_id = ? AND scene_id = ? ORDER BY tag_id`
 
-	var result []struct{
+	var result []struct {
 		ID int `db:"id"`
 	}
 

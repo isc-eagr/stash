@@ -359,10 +359,10 @@ func (r *mutationResolver) PerformerUpdate(ctx context.Context, input models.Per
 				// replace using performersSceneTags table manager. For simplicity, call the underlying
 				// repository replace method on the performerSceneTagsTableMgr by using its repository.
 
-					// Persist scene-scoped tags via the PerformerStore helper
-					if err := qb.SetSceneTags(ctx, performerID, sid, tids); err != nil {
-						return err
-					}
+				// Persist scene-scoped tags via the PerformerStore helper
+				if err := qb.SetSceneTags(ctx, performerID, sid, tids); err != nil {
+					return err
+				}
 			}
 		}
 
