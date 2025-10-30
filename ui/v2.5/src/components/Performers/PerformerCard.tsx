@@ -92,7 +92,7 @@ const PerformerTagEditor: React.FC<{
 
   return (
     <div className="performer-tag-editor">
-      {tagsControl({})}
+  {tagsControl({ disableHoverPopovers: true })}
       <div className="tag-editor-actions mt-2">
         <Button
           variant="primary"
@@ -169,54 +169,17 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
       );
       const sceneTagCount = sceneTags.length;
 
-    // If the performer model includes `scene_tags`, show those in the
-    // edit button popover (even when empty — display a 'No scene tags' hint).
-    let popoverContent: JSX.Element | JSX.Element[] | string = "";
-      
-        // Uppercase-first sort: primary compare case-insensitive alpha; if equal ignoring case,
-        // prefer the one that starts with an uppercase letter. Finally, fall back to full compare.
-        const uppercaseFirstComparator = (aName: string, bName: string) => {
-          const aN = aName ?? "";
-          const bN = bName ?? "";
-          const isAUpper = !!(aN[0] && aN[0] !== aN[0].toLowerCase() && aN[0] === aN[0].toUpperCase());
-          const isBUpper = !!(bN[0] && bN[0] !== bN[0].toLowerCase() && bN[0] === bN[0].toUpperCase());
-          if (isAUpper !== isBUpper) return isAUpper ? -1 : 1;
-          const lowerCmp = aN.toLowerCase().localeCompare(bN.toLowerCase(), undefined, { sensitivity: "base" });
-          if (lowerCmp !== 0) return lowerCmp;
-          return aN.localeCompare(bN);
-        };
-
-      if (hasSceneTagsField) {
-        if (sceneTags && sceneTags.length > 0) {
-            const sortedSceneTags = [...sceneTags].sort((a, b) =>
-              uppercaseFirstComparator(a.name ?? "", b.name ?? "")
-            );
-          popoverContent = sortedSceneTags.map((tag: TagRef) => (
-            <TagLink
-              key={tag.id}
-              linkType="performer"
-              tag={{ id: tag.id, name: tag.name ?? undefined }}
-            />
-          ));
-        } else {
-          popoverContent = [<div key="none" className="muted">No scene tags</div>];
-        }
-      }
-
       const editButton = (
-        <Button className="minimal edit-tags" onClick={() => setShowTagModal(true)} aria-label={`Edit tags for ${performer.name ?? performer.id}`}>
-          <Icon icon={faTag} />
-          {sceneTags && sceneTags.length > 0 ? <span>{sceneTagCount}</span> : null}
-        </Button>
+        <div>
+          <Button className="minimal edit-tags" onClick={() => setShowTagModal(true)} aria-label={`Edit tags for ${performer.name ?? performer.id}`}>
+            <Icon icon={faTag} />
+            {sceneTags && sceneTags.length > 0 ? <span>{sceneTagCount}</span> : null}
+          </Button>
+        </div>
       );
 
-      return popoverContent ? (
-        <HoverPopover placement="bottom" content={popoverContent}>
-          {editButton}
-        </HoverPopover>
-      ) : (
-        editButton
-      );
+      // Remove tooltip/popover from the green edit-tags button; return plain button only
+      return editButton;
     }
     function maybeRenderScenesPopoverButton() {
       if (!performer.scene_count) return;
@@ -465,13 +428,76 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
       { age, years_old: ageL10String }
     );
 
+    // Scene tags for this performer within the current scene context (if present)
+    const hasSceneTagsField = Object.prototype.hasOwnProperty.call(
+      performer as Record<string, unknown>,
+      "scene_tags"
+    );
+    const sceneTags: TagRef[] = hasSceneTagsField
+      ? ((performer as unknown as { scene_tags?: TagRef[] }).scene_tags ?? [])
+      : [];
+
+    const uppercaseFirstComparator = (aName: string, bName: string) => {
+      const aN = aName ?? "";
+      const bN = bName ?? "";
+      const isAUpper = !!(
+        aN[0] &&
+        aN[0] !== aN[0].toLowerCase() &&
+        aN[0] === aN[0].toUpperCase()
+      );
+      const isBUpper = !!(
+        bN[0] &&
+        bN[0] !== bN[0].toLowerCase() &&
+        bN[0] === bN[0].toUpperCase()
+      );
+      if (isAUpper !== isBUpper) return isAUpper ? -1 : 1;
+      const lowerCmp = aN
+        .toLowerCase()
+        .localeCompare(bN.toLowerCase(), undefined, { sensitivity: "base" });
+      if (lowerCmp !== 0) return lowerCmp;
+      return aN.localeCompare(bN);
+    };
+
+    const sortedSceneTags = [...sceneTags].sort((a, b) =>
+      uppercaseFirstComparator(a.name ?? "", b.name ?? "")
+    );
+
+    const tooltipContent = sortedSceneTags.map((tag) => (
+      <Badge key={tag.id} className="tag-item" variant="secondary">
+        <span>{tag.name}</span>
+      </Badge>
+    ));
+
     return (
       <>
-        {age !== 0 ? (
-          <div className="performer-card__age">{ageString}</div>
-        ) : (
-          ""
-        )}
+        {/* Age line first */}
+        <div className="performer-card__age">
+          {age !== 0 ? ageString : "\u00A0"}
+        </div>
+
+        {/* Scene tag strip under age; always shows tooltip with full list */}
+        <HoverPopover placement="bottom" content={tooltipContent}>
+          <div className="performer-card__scene-tags mt-1">
+            {hasSceneTagsField && sortedSceneTags.length > 0
+              ? sortedSceneTags.map((tag) => (
+                  <Badge
+                    key={tag.id}
+                    className="tag-item tag-link"
+                    variant="secondary"
+                  >
+                    <Link
+                      to={NavUtils.makeTagScenesUrl(
+                        { id: tag.id, name: tag.name ?? undefined },
+                        { id: performer.id, name: performer.name ?? undefined }
+                      )}
+                    >
+                      {tag.name}
+                    </Link>
+                  </Badge>
+                ))
+              : null}
+          </div>
+        </HoverPopover>
       </>
     );
   }
@@ -522,6 +548,12 @@ const PerformerCardTitle: React.FC<IPerformerCardProps> = PatchComponent(
       uppercaseFirstComparator(a.name ?? "", b.name ?? "")
     );
 
+    const popoverContent = sortedSceneTags.map((tag) => (
+      <Badge key={tag.id} className="tag-item" variant="secondary">
+        <span>{tag.name}</span>
+      </Badge>
+    ));
+
     return (
       <div>
         <span className="performer-name">{performer.name}</span>
@@ -530,26 +562,7 @@ const PerformerCardTitle: React.FC<IPerformerCardProps> = PatchComponent(
             {` (${performer.disambiguation})`}
           </span>
         )}
-        {hasSceneTagsField && sortedSceneTags.length > 0 && (
-          <div className="performer-card__scene-tags mt-1">
-            {sortedSceneTags.map((tag) => (
-              <Badge
-                key={tag.id}
-                className="tag-item tag-link"
-                variant="secondary"
-              >
-                <Link
-                  to={NavUtils.makeTagScenesUrl(
-                    { id: tag.id, name: tag.name ?? undefined },
-                    { id: performer.id, name: performer.name ?? undefined }
-                  )}
-                >
-                  {tag.name}
-                </Link>
-              </Badge>
-            ))}
-          </div>
-        )}
+        {/* Age and scene-tag strip moved to details to align with the gender icon */}
       </div>
     );
   }
@@ -568,9 +581,9 @@ export const PerformerCard: React.FC<IPerformerCardProps> = PatchComponent(
     } = props;
 
     return (
-      <div className={`performer-card-wrapper zoom-${zoomIndex}`}>
+      <div className={`performer-card-wrapper`}>
         <GridCard
-          className={`performer-card`}
+          className={`performer-card zoom-${zoomIndex}`}
           url={`/performers/${performer.id}`}
           width={cardWidth}
           pretitleIcon={
