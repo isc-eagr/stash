@@ -81,8 +81,10 @@ type SceneFilterType struct {
 	PerformerEthnicity *StringCriterionInput `json:"performer_ethnicity"`
 	// Filter by performer ethnicity
 	PerformerCountry *StringCriterionInput `json:"performer_country"`
-	// Filter by performer rating
-	PerformerRating *StringCriterionInput `json:"performer_rating"`
+	// Filter by performer rating (1-100)
+	PerformerRating *IntCriterionInput `json:"performer_rating"`
+	// When true, all linked performers must satisfy performer_rating; when false, any matching performer is sufficient
+	PerformerRatingAll *bool `json:"performer_rating_all"`
 	// Filter by performer count
 	PerformerCount *IntCriterionInput `json:"performer_count"`
 	// Filter by Scene Marker Tags

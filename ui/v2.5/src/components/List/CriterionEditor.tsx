@@ -31,8 +31,9 @@ import { CountryCriterion } from "src/models/list-filter/criteria/country";
 import { CountrySelect } from "../Shared/CountrySelect";
 import { StashIDCriterion } from "src/models/list-filter/criteria/stash-ids";
 import { StashIDFilter } from "./Filters/StashIDFilter";
-import { RatingCriterion } from "../../models/list-filter/criteria/rating";
+import { PerformerRatingCriterion, RatingCriterion } from "../../models/list-filter/criteria/rating";
 import { RatingFilter } from "./Filters/RatingFilter";
+import { PerformerRatingFilter } from "./Filters/PerformerRatingFilter";
 import { BooleanFilter } from "./Filters/BooleanFilter";
 import { OptionFilter, OptionListFilter } from "./Filters/OptionFilter";
 import { PathFilter } from "./Filters/PathFilter";
@@ -219,6 +220,19 @@ const GenericCriterionEditor: React.FC<IGenericCriterionEditor> = ({
     if (criterion instanceof NumberCriterion) {
       return (
         <NumberFilter criterion={criterion} onValueChanged={onValueChanged} />
+      );
+    }
+    if (criterion instanceof PerformerRatingCriterion) {
+      return (
+        <PerformerRatingFilter
+          criterion={criterion}
+          onValueChanged={(v) => onValueChanged(v)}
+          onMatchAllChanged={(v) => {
+            const c = cloneDeep(criterion);
+            c.matchAll = v;
+            setCriterion(c);
+          }}
+        />
       );
     }
     if (criterion instanceof RatingCriterion) {

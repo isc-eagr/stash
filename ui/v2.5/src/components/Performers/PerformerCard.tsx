@@ -60,27 +60,25 @@ const PerformerTagEditor: React.FC<{
   const [updatePerformer] = usePerformerUpdate();
   const params = useParams<{ id?: string; sceneId?: string }>();
   const sceneId = params?.sceneId ?? params?.id;
-  const hasSceneTagsField = Object.prototype.hasOwnProperty.call(
-    performer as Record<string, unknown>,
-    "scene_tags"
-  );
-  const initialTags: TagRef[] = hasSceneTagsField
-    ? ((performer as unknown as { scene_tags?: TagRef[] }).scene_tags ?? [])
-    : ((performer.tags as unknown as TagRef[]) ?? []);
-
-  // Map lightweight TagRef into the Tag shape expected by useTagsEdit
+  // Map lightweight TagRef into the Tag shape expected by useTagsEdit.
   // Memoize to avoid recreating array each render, which would reset TagSelect state and break typing
-  const initialEditableTags = useMemo(
-    () =>
-      initialTags.map((t) => ({
-        id: t.id,
-        name: t.name ?? "",
-        sort_name: t.name ?? null,
-        aliases: [] as string[],
-        image_path: null as string | null,
-      })),
-    [initialTags]
-  );
+  const initialEditableTags = useMemo(() => {
+    const hasSceneTagsField = Object.prototype.hasOwnProperty.call(
+      performer as Record<string, unknown>,
+      "scene_tags"
+    );
+    const baseTags: TagRef[] = hasSceneTagsField
+      ? ((performer as unknown as { scene_tags?: TagRef[] }).scene_tags ?? [])
+      : ((performer.tags as unknown as TagRef[]) ?? []);
+
+    return baseTags.map((t) => ({
+      id: t.id,
+      name: t.name ?? "",
+      sort_name: t.name ?? null,
+      aliases: [] as string[],
+      image_path: null as string | null,
+    }));
+  }, [performer]);
 
   const { tags, tagsControl } = useTagsEdit(
     initialEditableTags,
@@ -522,38 +520,6 @@ const PerformerCardImage: React.FC<IPerformerCardProps> = PatchComponent(
 const PerformerCardTitle: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Title",
   ({ performer }) => {
-    // Inline scene tags strip: show a compact list of scene-specific tags
-    // (if available on this performer model) directly under the name.
-    // This mirrors the hover tooltip content of the green tag button.
-    const hasSceneTagsField = Object.prototype.hasOwnProperty.call(
-      performer as Record<string, unknown>,
-      "scene_tags"
-    );
-    const sceneTags: TagRef[] = hasSceneTagsField
-      ? ((performer as unknown as { scene_tags?: TagRef[] }).scene_tags ?? [])
-      : [];
-    // Uppercase-first: case-insensitive alpha; if equal ignoring case, uppercase comes first.
-    const uppercaseFirstComparator = (aName: string, bName: string) => {
-      const aN = aName ?? "";
-      const bN = bName ?? "";
-      const isAUpper = !!(aN[0] && aN[0] !== aN[0].toLowerCase() && aN[0] === aN[0].toUpperCase());
-      const isBUpper = !!(bN[0] && bN[0] !== bN[0].toLowerCase() && bN[0] === bN[0].toUpperCase());
-      if (isAUpper !== isBUpper) return isAUpper ? -1 : 1;
-      const lowerCmp = aN.toLowerCase().localeCompare(bN.toLowerCase(), undefined, { sensitivity: "base" });
-      if (lowerCmp !== 0) return lowerCmp;
-      return aN.localeCompare(bN);
-    };
-
-    const sortedSceneTags = [...sceneTags].sort((a, b) =>
-      uppercaseFirstComparator(a.name ?? "", b.name ?? "")
-    );
-
-    const popoverContent = sortedSceneTags.map((tag) => (
-      <Badge key={tag.id} className="tag-item" variant="secondary">
-        <span>{tag.name}</span>
-      </Badge>
-    ));
-
     return (
       <div>
         <span className="performer-name">{performer.name}</span>

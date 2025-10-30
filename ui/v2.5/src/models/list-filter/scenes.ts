@@ -4,7 +4,7 @@ import {
   createStringCriterionOption,
   createPerformerEthnicityStringCriterionOption,
   createPerformerCountryStringCriterionOption,
-  createPerformerRatingStringCriterionOption,
+  
   createDateCriterionOption,
   createMandatoryTimestampCriterionOption,
   createDurationCriterionOption,
@@ -38,7 +38,7 @@ import {
 import { PerformerFavoriteCriterionOption } from "./criteria/favorite";
 import { CaptionsCriterionOption } from "./criteria/captions";
 import { StashIDCriterionOption } from "./criteria/stash-ids";
-import { RatingCriterionOption } from "./criteria/rating";
+import { RatingCriterionOption, PerformerRatingCriterionOption } from "./criteria/rating";
 import { PathCriterionOption } from "./criteria/path";
 import { OrientationCriterionOption } from "./criteria/orientation";
 
@@ -121,7 +121,7 @@ const criterionOptions = [
   PerformerFavoriteCriterionOption,
   createPerformerEthnicityStringCriterionOption("performer_ethnicity"),
   createPerformerCountryStringCriterionOption("performer_country"),
-  createPerformerRatingStringCriterionOption("performer_rating"),
+  PerformerRatingCriterionOption,
   SceneMarkerTagsCriterionOption,
     // StudioTagsCriterionOption,
   StudiosCriterionOption,

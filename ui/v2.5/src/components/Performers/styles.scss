@@ -244,10 +244,10 @@
 .card-popovers .tag-count,
 .card-popovers .edit-tags {
   /* same dimensions and centering for visual parity */
-  min-width: 3.2rem;
-  display: inline-flex;
   align-items: center;
+  display: inline-flex;
   justify-content: center;
+  min-width: 3.2rem;
   padding-left: 0.4rem;
   padding-right: 0.4rem;
 }
@@ -282,10 +282,10 @@
 
 /* performer tag editor should be fluid by default */
 .performer-tag-editor {
-  max-width: 100%;
-  padding: 0 0.5rem; /* small horizontal padding so contents aren't flush to edges */
   box-sizing: border-box;
+  max-width: 100%;
   overflow: visible; /* allow popovers/dropdowns to be visible outside the container */
+  padding: 0 0.5rem; /* small horizontal padding so contents aren't flush to edges */
 }
 
 /* Scene tags modal tweaks */
@@ -297,15 +297,15 @@
 
 /* Constrain the modal content so the body can scroll without overflowing viewport */
 .modal-dialog.scene-tags-modal .modal-content {
-  height: calc(50vh);
   display: flex;
   flex-direction: column;
+  height: calc(50vh);
 }
 
 /* Modal body (we add class `scene-tags-body` on Modal.Body) */
 .modal-body.scene-tags-body {
-  overflow-y: auto; /* allow tag list/editor to scroll inside modal */
   max-height: calc(100vh - 6rem); /* leave room for header/footer */
+  overflow-y: auto; /* allow tag list/editor to scroll inside modal */
 }
 
 .scrape-dialog .performer-image {

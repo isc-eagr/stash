@@ -235,40 +235,54 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		}),
 		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
 			if sceneFilter.PerformerRating != nil {
+				pr := sceneFilter.PerformerRating
+				// default to ALL performers must satisfy unless explicitly overridden
+				modeAll := true
+				if sceneFilter.PerformerRatingAll != nil {
+					modeAll = *sceneFilter.PerformerRatingAll
+				}
 
-				if modifier := sceneFilter.PerformerRating.Modifier; sceneFilter.PerformerRating.Modifier.IsValid() {
-					ratingWithPercentSigns := "%" + strings.ReplaceAll(sceneFilter.PerformerRating.Value, ",", "%") + "%"
-					f.addLeftJoin("performers_scenes", "", "scenes.id = performers_scenes.scene_id")
-					f.addLeftJoin("performers", "", "performers_scenes.performer_id = performers.id")
+				if !modeAll {
+					// ANY performer must satisfy: simple join + numeric comparison
+					f.addInnerJoin("performers_scenes", "", "scenes.id = performers_scenes.scene_id")
+					f.addInnerJoin("performers", "", "performers_scenes.performer_id = performers.id")
+					intCriterionHandler(pr, "performers.rating", nil)(ctx, f)
+					return
+				}
 
-					switch modifier {
-
-					case models.CriterionModifierEquals:
-						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( DISTINCT IFNULL (performers.rating,0) ORDER BY IFNULL (performers.rating,0)) listRating
-												FROM scenes 
-												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
-												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
-												GROUP BY scenes.id)`, "ratings", "ratings.id=scenes.id")
-						f.addWhere(`listRating LIKE ?`, sceneFilter.PerformerRating.Value)
-					case models.CriterionModifierNotEquals:
-						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( IFNULL (performers.rating,0) ORDER BY IFNULL (performers.rating,0)) listRating
-												FROM scenes 
-												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
-												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
-												GROUP BY scenes.id)`, "ratings", "ratings.id=scenes.id")
-						f.addWhere(`listRating NOT LIKE ?`, ratingWithPercentSigns)
-					case models.CriterionModifierIncludes:
-						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( IFNULL (performers.rating,0) ORDER BY IFNULL (performers.rating,0)) listRating
-												FROM scenes 
-												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
-												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
-												GROUP BY scenes.id)`, "ratings", "ratings.id=scenes.id")
-						f.addWhere("listRating LIKE ?", ratingWithPercentSigns)
-					}
-
+				// ALL performers must satisfy: ensure no violating performer exists and at least one performer exists
+				existsPerformer := "EXISTS (SELECT 1 FROM performers_scenes ps WHERE ps.scene_id = scenes.id)"
+				switch pr.Modifier {
+				case models.CriterionModifierEquals:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND (p.rating IS NULL OR p.rating != ?))", pr.Value)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierNotEquals:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.rating = ?)", pr.Value)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierGreaterThan:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND (p.rating IS NULL OR p.rating <= ?))", pr.Value)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierLessThan:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND (p.rating IS NULL OR p.rating >= ?))", pr.Value)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierBetween:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND (p.rating IS NULL OR p.rating < ? OR p.rating > ?))", pr.Value, pr.Value2)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierNotBetween:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND (p.rating IS NULL OR (p.rating >= ? AND p.rating <= ?)))", pr.Value, pr.Value2)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierNotNull:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.rating IS NULL)")
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierIsNull:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.rating IS NOT NULL)")
+					f.addWhere(existsPerformer)
+				default:
+					f.addInnerJoin("performers_scenes", "", "scenes.id = performers_scenes.scene_id")
+					f.addInnerJoin("performers", "", "performers_scenes.performer_id = performers.id")
+					intCriterionHandler(pr, "performers.rating", nil)(ctx, f)
 				}
 			}
-
 		}),
 		qb.phashDuplicatedCriterionHandler(sceneFilter.Duplicated, qb.addSceneFilesTable),
 		&dateCriterionHandler{sceneFilter.Date, "scenes.date", nil},

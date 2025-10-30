@@ -340,8 +340,10 @@ input SceneFilterType {
   performer_ethnicity: StringCriterionInput
   "Filter by performer country"
   performer_country: StringCriterionInput
-  "Filter by performer rating"
-  performer_rating: StringCriterionInput
+  "Filter by performer rating (1-100). Matches scenes where any linked performer satisfies the condition."
+  performer_rating: IntCriterionInput
+  "When true, all linked performers must satisfy the performer_rating condition; when false, at least one performer must satisfy it (default: true)."
+  performer_rating_all: Boolean
   "Filter by scene markers"
   scene_marker_tags: HierarchicalMultiCriterionInput
 }
