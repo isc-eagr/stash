@@ -2,6 +2,7 @@ import { PerformersCriterionOption } from "./criteria/performers";
 import { MarkersScenesCriterionOption } from "./criteria/scenes";
 import { SceneTagsCriterionOption, TagsCriterionOption } from "./criteria/tags";
 import { ListFilterOptions } from "./filter-options";
+import { PerformerRatingCriterionOption } from "./criteria/rating";
 import { DisplayMode } from "./types";
 import {
   createDateCriterionOption,
@@ -24,6 +25,7 @@ const criterionOptions = [
   MarkersScenesCriterionOption,
   SceneTagsCriterionOption,
   PerformersCriterionOption,
+  PerformerRatingCriterionOption,
   createNullDurationCriterionOption("duration"),
   createMandatoryTimestampCriterionOption("created_at"),
   createMandatoryTimestampCriterionOption("updated_at"),

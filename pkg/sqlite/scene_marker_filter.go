@@ -40,6 +40,58 @@ func (qb *sceneMarkerFilterHandler) criterionHandler() criterionHandler {
 		qb.tagsCriterionHandler(sceneMarkerFilter.Tags),
 		qb.sceneTagsCriterionHandler(sceneMarkerFilter.SceneTags),
 		qb.performersCriterionHandler(sceneMarkerFilter.Performers),
+		// Filter by performer rating of linked performers on the marker's scene
+		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
+			if sceneMarkerFilter.PerformerRating != nil {
+				pr := sceneMarkerFilter.PerformerRating
+				// default to ALL performers must satisfy unless explicitly overridden
+				modeAll := true
+				if sceneMarkerFilter.PerformerRatingAll != nil {
+					modeAll = *sceneMarkerFilter.PerformerRatingAll
+				}
+
+				if !modeAll {
+					// ANY performer must satisfy: simple join + numeric comparison via marker's scene
+					f.addInnerJoin("performers_scenes", "", "performers_scenes.scene_id = scene_markers.scene_id")
+					f.addInnerJoin("performers", "", "performers_scenes.performer_id = performers.id")
+					intCriterionHandler(pr, "performers.rating", nil)(ctx, f)
+					return
+				}
+
+				// ALL performers must satisfy: ensure no violating performer exists and at least one performer exists
+				existsPerformer := "EXISTS (SELECT 1 FROM performers_scenes ps WHERE ps.scene_id = scene_markers.scene_id)"
+				switch pr.Modifier {
+				case models.CriterionModifierEquals:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scene_markers.scene_id AND (p.rating IS NULL OR p.rating != ?))", pr.Value)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierNotEquals:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scene_markers.scene_id AND p.rating = ?)", pr.Value)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierGreaterThan:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scene_markers.scene_id AND (p.rating IS NULL OR p.rating <= ?))", pr.Value)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierLessThan:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scene_markers.scene_id AND (p.rating IS NULL OR p.rating >= ?))", pr.Value)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierBetween:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scene_markers.scene_id AND (p.rating IS NULL OR p.rating < ? OR p.rating > ?))", pr.Value, pr.Value2)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierNotBetween:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scene_markers.scene_id AND (p.rating IS NULL OR (p.rating >= ? AND p.rating <= ?)))", pr.Value, pr.Value2)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierNotNull:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scene_markers.scene_id AND p.rating IS NULL)")
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierIsNull:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scene_markers.scene_id AND p.rating IS NOT NULL)")
+					f.addWhere(existsPerformer)
+				default:
+					f.addInnerJoin("performers_scenes", "", "performers_scenes.scene_id = scene_markers.scene_id")
+					f.addInnerJoin("performers", "", "performers_scenes.performer_id = performers.id")
+					intCriterionHandler(pr, "performers.rating", nil)(ctx, f)
+				}
+			}
+		}),
 		qb.scenesCriterionHandler(sceneMarkerFilter.Scenes),
 		floatCriterionHandler(sceneMarkerFilter.Duration, "COALESCE(scene_markers.end_seconds - scene_markers.seconds, NULL)", nil),
 		&timestampCriterionHandler{sceneMarkerFilter.CreatedAt, "scene_markers.created_at", nil},
