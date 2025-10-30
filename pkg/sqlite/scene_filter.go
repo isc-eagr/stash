@@ -198,37 +198,63 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		}),
 		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
 			if sceneFilter.PerformerCountry != nil {
+				pc := sceneFilter.PerformerCountry
+				if !pc.Modifier.IsValid() {
+					return
+				}
 
-				if modifier := sceneFilter.PerformerCountry.Modifier; sceneFilter.PerformerCountry.Modifier.IsValid() {
-					countryWithPercentSigns := "%" + strings.ReplaceAll(sceneFilter.PerformerCountry.Value, ",", "%") + "%"
-					f.addLeftJoin("performers_scenes", "", "scenes.id = performers_scenes.scene_id")
-					f.addLeftJoin("performers", "", "performers_scenes.performer_id = performers.id")
-
-					switch modifier {
-
-					case models.CriterionModifierEquals:
-						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( DISTINCT performers.country ORDER BY performers.country) listCountry
-												FROM scenes 
-												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
-												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
-												GROUP BY scenes.id)`, "countries", "countries.id=scenes.id")
-						f.addWhere(`listCountry LIKE ?`, sceneFilter.PerformerCountry.Value)
-					case models.CriterionModifierNotEquals:
-						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( performers.country ORDER BY performers.country) listCountry
-												FROM scenes 
-												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
-												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
-												GROUP BY scenes.id)`, "countries", "countries.id=scenes.id")
-						f.addWhere(`listCountry NOT LIKE ?`, countryWithPercentSigns)
-					case models.CriterionModifierIncludes:
-						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( performers.country ORDER BY performers.country) listCountry
-												FROM scenes 
-												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
-												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
-												GROUP BY scenes.id)`, "countries", "countries.id=scenes.id")
-						f.addWhere("listCountry LIKE ?", countryWithPercentSigns)
+				// split comma-separated country list into slice and build placeholders
+				countries := []string{}
+				for _, c := range strings.Split(pc.Value, ",") {
+					c = strings.TrimSpace(c)
+					if c != "" {
+						countries = append(countries, c)
 					}
+				}
+				if len(countries) == 0 {
+					return
+				}
 
+				placeholders := strings.Repeat("?,", len(countries))
+				placeholders = placeholders[:len(placeholders)-1]
+				args := make([]interface{}, len(countries))
+				for i, v := range countries {
+					args[i] = v
+				}
+
+				// require at least one performer on scene
+				existsPerformer := "EXISTS (SELECT 1 FROM performers_scenes ps WHERE ps.scene_id = scenes.id)"
+
+				switch pc.Modifier {
+				case models.CriterionModifierIncludes:
+					// at least one performer country in the set; include null countries implicitly, but must have some performer in set
+					clause := fmt.Sprintf("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.country IN (%s))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierIncludesAll:
+					// at least one performer from each selected country; do not restrict other countries or nulls
+					for _, c := range countries {
+						f.addWhere("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.country = ?)", c)
+					}
+				case models.CriterionModifierEquals:
+					// all performers must be in the set; exclude performers with NULL/empty country
+					clause := fmt.Sprintf("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND (p.country IS NULL OR TRIM(p.country) = '' OR p.country NOT IN (%s)))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
+					// and ensure at least one performer from each selected country
+					for _, c := range countries {
+						f.addWhere("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.country = ?)", c)
+					}
+				case models.CriterionModifierNotEquals:
+					// no performer may be in the set; performers without country are allowed
+					clause := fmt.Sprintf("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.country IN (%s))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
+				default:
+					// fallback: treat as includes
+					clause := fmt.Sprintf("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.country IN (%s))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
 				}
 			}
 

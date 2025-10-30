@@ -28,7 +28,7 @@ import { InputFilter } from "./Filters/InputFilter";
 import { DateFilter } from "./Filters/DateFilter";
 import { TimestampFilter } from "./Filters/TimestampFilter";
 import { CountryCriterion } from "src/models/list-filter/criteria/country";
-import { CountrySelect } from "../Shared/CountrySelect";
+import { PerformerCountryFilter } from "./Filters/PerformerCountryFilter";
 import { StashIDCriterion } from "src/models/list-filter/criteria/stash-ids";
 import { StashIDFilter } from "./Filters/StashIDFilter";
 import { PerformerRatingCriterion, RatingCriterion } from "../../models/list-filter/criteria/rating";
@@ -245,16 +245,11 @@ const GenericCriterionEditor: React.FC<IGenericCriterionEditor> = ({
         <PhashFilter criterion={criterion} onValueChanged={onValueChanged} />
       );
     }
-    if (
-      criterion instanceof CountryCriterion &&
-      (criterion.modifier === CriterionModifier.Equals ||
-        criterion.modifier === CriterionModifier.NotEquals)
-    ) {
+    if (criterion instanceof CountryCriterion) {
       return (
-        <CountrySelect
-          value={criterion.value}
-          onChange={(v) => onValueChanged(v)}
-          menuPortalTarget={document.body}
+        <PerformerCountryFilter
+          criterion={criterion}
+          onValueChanged={(v) => onValueChanged(v)}
         />
       );
     }

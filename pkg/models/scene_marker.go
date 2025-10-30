@@ -11,6 +11,8 @@ type SceneMarkerFilterType struct {
 	Performers *MultiCriterionInput `json:"performers"`
 	// Filter by performer rating (1-100)
 	PerformerRating *IntCriterionInput `json:"performer_rating"`
+	// Filter to only include scene markers by performer country
+	PerformerCountry *StringCriterionInput `json:"performer_country"`
 	// When true, all linked performers must satisfy the performer_rating condition; when false, at least one performer must satisfy it (default: true)
 	PerformerRatingAll *bool `json:"performer_rating_all"`
 	// Filter to only include scene markers from these scenes

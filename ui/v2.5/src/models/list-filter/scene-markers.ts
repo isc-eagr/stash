@@ -2,6 +2,9 @@ import { PerformersCriterionOption } from "./criteria/performers";
 import { MarkersScenesCriterionOption } from "./criteria/scenes";
 import { SceneTagsCriterionOption, TagsCriterionOption } from "./criteria/tags";
 import { ListFilterOptions } from "./filter-options";
+import { ModifierCriterionOption } from "./criteria/criterion";
+import { CriterionModifier } from "src/core/generated-graphql";
+import { CountryCriterion } from "./criteria/country";
 import { PerformerRatingCriterionOption } from "./criteria/rating";
 import { DisplayMode } from "./types";
 import {
@@ -25,6 +28,19 @@ const criterionOptions = [
   MarkersScenesCriterionOption,
   SceneTagsCriterionOption,
   PerformersCriterionOption,
+  new ModifierCriterionOption({
+    messageID: "performer_country",
+    type: "performer_country",
+    modifierOptions: [
+      CriterionModifier.Equals,
+      CriterionModifier.NotEquals,
+      CriterionModifier.Includes,
+      CriterionModifier.IncludesAll,
+    ],
+    defaultModifier: CriterionModifier.Equals,
+    inputType: "text",
+    makeCriterion: (o) => new CountryCriterion(o as unknown as ModifierCriterionOption),
+  }),
   PerformerRatingCriterionOption,
   createNullDurationCriterionOption("duration"),
   createMandatoryTimestampCriterionOption("created_at"),

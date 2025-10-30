@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/stashapp/stash/pkg/models"
 )
@@ -40,6 +41,61 @@ func (qb *sceneMarkerFilterHandler) criterionHandler() criterionHandler {
 		qb.tagsCriterionHandler(sceneMarkerFilter.Tags),
 		qb.sceneTagsCriterionHandler(sceneMarkerFilter.SceneTags),
 		qb.performersCriterionHandler(sceneMarkerFilter.Performers),
+		// Performer country filter mirrors scenes semantics but applies to the marker's scene
+		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
+			if sceneMarkerFilter.PerformerCountry != nil {
+				pc := sceneMarkerFilter.PerformerCountry
+				if !pc.Modifier.IsValid() {
+					return
+				}
+
+				countries := []string{}
+				for _, c := range strings.Split(pc.Value, ",") {
+					c = strings.TrimSpace(c)
+					if c != "" {
+						countries = append(countries, c)
+					}
+				}
+				if len(countries) == 0 {
+					return
+				}
+
+				placeholders := strings.Repeat("?,", len(countries))
+				placeholders = placeholders[:len(placeholders)-1]
+				args := make([]interface{}, len(countries))
+				for i, v := range countries {
+					args[i] = v
+				}
+
+				existsPerformer := "EXISTS (SELECT 1 FROM performers_scenes ps WHERE ps.scene_id = scene_markers.scene_id)"
+
+				switch pc.Modifier {
+				case models.CriterionModifierIncludes:
+					clause := fmt.Sprintf("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scene_markers.scene_id AND p.country IN (%s))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierIncludesAll:
+					for _, c := range countries {
+						f.addWhere("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scene_markers.scene_id AND p.country = ?)", c)
+					}
+				case models.CriterionModifierEquals:
+					clause := fmt.Sprintf("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scene_markers.scene_id AND (p.country IS NULL OR TRIM(p.country) = '' OR p.country NOT IN (%s)))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
+					for _, c := range countries {
+						f.addWhere("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scene_markers.scene_id AND p.country = ?)", c)
+					}
+				case models.CriterionModifierNotEquals:
+					clause := fmt.Sprintf("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scene_markers.scene_id AND p.country IN (%s))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
+				default:
+					clause := fmt.Sprintf("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scene_markers.scene_id AND p.country IN (%s))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
+				}
+			}
+		}),
 		// Filter by performer rating of linked performers on the marker's scene
 		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
 			if sceneMarkerFilter.PerformerRating != nil {

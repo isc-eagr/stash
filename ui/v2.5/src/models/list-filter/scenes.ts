@@ -3,12 +3,13 @@ import {
   createMandatoryStringCriterionOption,
   createStringCriterionOption,
   createPerformerEthnicityStringCriterionOption,
-  createPerformerCountryStringCriterionOption,
-  
   createDateCriterionOption,
   createMandatoryTimestampCriterionOption,
   createDurationCriterionOption,
+  ModifierCriterionOption,
 } from "./criteria/criterion";
+import { CountryCriterion } from "./criteria/country";
+import { CriterionModifier } from "src/core/generated-graphql";
 import { HasMarkersCriterionOption } from "./criteria/has-markers";
 import { SceneIsMissingCriterionOption } from "./criteria/is-missing";
 import {
@@ -120,7 +121,24 @@ const criterionOptions = [
   createMandatoryNumberCriterionOption("performer_age"),
   PerformerFavoriteCriterionOption,
   createPerformerEthnicityStringCriterionOption("performer_ethnicity"),
-  createPerformerCountryStringCriterionOption("performer_country"),
+    // Specialized country criterion using multi-select editor
+    new ModifierCriterionOption({
+      messageID: "performer_country",
+      type: "performer_country",
+      modifierOptions: [
+        // IS
+        CriterionModifier.Equals,
+        // IS NOT
+        CriterionModifier.NotEquals,
+        // INCLUDES (any one)
+        CriterionModifier.Includes,
+        // INCLUDES ALL (at least one from each selected country)
+        CriterionModifier.IncludesAll,
+      ],
+      defaultModifier: CriterionModifier.Equals,
+      inputType: "text",
+      makeCriterion: (o) => new CountryCriterion(o as unknown as ModifierCriterionOption),
+    }),
   PerformerRatingCriterionOption,
   SceneMarkerTagsCriterionOption,
     // StudioTagsCriterionOption,
