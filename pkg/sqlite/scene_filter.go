@@ -161,40 +161,58 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		qb.performerAgeCriterionHandler(sceneFilter.PerformerAge),
 		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
 			if sceneFilter.PerformerEthnicity != nil {
+				pe := sceneFilter.PerformerEthnicity
+				if !pe.Modifier.IsValid() {
+					return
+				}
 
-				if modifier := sceneFilter.PerformerEthnicity.Modifier; sceneFilter.PerformerEthnicity.Modifier.IsValid() {
-					ethnicityWithPercentSigns := "%" + strings.ReplaceAll(sceneFilter.PerformerEthnicity.Value, ",", "%") + "%"
-					f.addLeftJoin("performers_scenes", "", "scenes.id = performers_scenes.scene_id")
-					f.addLeftJoin("performers", "", "performers_scenes.performer_id = performers.id")
-
-					switch modifier {
-
-					case models.CriterionModifierEquals:
-						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( DISTINCT performers.ethnicity ORDER BY performers.ethnicity) listEthnicity
-												FROM scenes 
-												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
-												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
-												GROUP BY scenes.id)`, "ethnicities", "ethnicities.id=scenes.id")
-						f.addWhere(`listEthnicity LIKE ?`, sceneFilter.PerformerEthnicity.Value)
-					case models.CriterionModifierNotEquals:
-						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( performers.ethnicity ORDER BY performers.ethnicity) listEthnicity
-												FROM scenes 
-												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
-												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
-												GROUP BY scenes.id)`, "ethnicities", "ethnicities.id=scenes.id")
-						f.addWhere(`listEthnicity NOT LIKE ?`, ethnicityWithPercentSigns)
-					case models.CriterionModifierIncludes:
-						f.addLeftJoin(`(SELECT DISTINCT scenes.id, GROUP_CONCAT ( performers.ethnicity ORDER BY performers.ethnicity) listEthnicity
-												FROM scenes 
-												LEFT JOIN performers_scenes ON scenes.id = performers_scenes.scene_id 
-												LEFT JOIN performers ON performers_scenes.performer_id = performers.id 
-												GROUP BY scenes.id)`, "ethnicities", "ethnicities.id=scenes.id")
-						f.addWhere("listEthnicity LIKE ?", ethnicityWithPercentSigns)
+				// split comma-separated list
+				eths := []string{}
+				for _, e := range strings.Split(pe.Value, ",") {
+					e = strings.TrimSpace(e)
+					if e != "" {
+						eths = append(eths, e)
 					}
+				}
+				if len(eths) == 0 {
+					return
+				}
 
+				placeholders := strings.Repeat("?,", len(eths))
+				placeholders = placeholders[:len(placeholders)-1]
+				args := make([]interface{}, len(eths))
+				for i, v := range eths {
+					args[i] = v
+				}
+
+				existsPerformer := "EXISTS (SELECT 1 FROM performers_scenes ps WHERE ps.scene_id = scenes.id)"
+
+				switch pe.Modifier {
+				case models.CriterionModifierIncludes:
+					clause := fmt.Sprintf("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.ethnicity IN (%s))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierIncludesAll:
+					for _, e := range eths {
+						f.addWhere("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.ethnicity = ?)", e)
+					}
+				case models.CriterionModifierEquals:
+					clause := fmt.Sprintf("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND (p.ethnicity IS NULL OR TRIM(p.ethnicity) = '' OR p.ethnicity NOT IN (%s)))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
+					for _, e := range eths {
+						f.addWhere("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.ethnicity = ?)", e)
+					}
+				case models.CriterionModifierNotEquals:
+					clause := fmt.Sprintf("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.ethnicity IN (%s))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
+				default:
+					clause := fmt.Sprintf("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.ethnicity IN (%s))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
 				}
 			}
-
 		}),
 		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
 			if sceneFilter.PerformerCountry != nil {

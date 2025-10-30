@@ -2,7 +2,7 @@ import {
   createMandatoryNumberCriterionOption,
   createMandatoryStringCriterionOption,
   createStringCriterionOption,
-  createPerformerEthnicityStringCriterionOption,
+  
   createDateCriterionOption,
   createMandatoryTimestampCriterionOption,
   createDurationCriterionOption,
@@ -42,6 +42,7 @@ import { StashIDCriterionOption } from "./criteria/stash-ids";
 import { RatingCriterionOption, PerformerRatingCriterionOption } from "./criteria/rating";
 import { PathCriterionOption } from "./criteria/path";
 import { OrientationCriterionOption } from "./criteria/orientation";
+import { EthnicityCriterionOption } from "./criteria/ethnicity";
 
 const defaultSortBy = "date";
 const sortByOptions = [
@@ -120,7 +121,7 @@ const criterionOptions = [
   createMandatoryNumberCriterionOption("performer_count"),
   createMandatoryNumberCriterionOption("performer_age"),
   PerformerFavoriteCriterionOption,
-  createPerformerEthnicityStringCriterionOption("performer_ethnicity"),
+  EthnicityCriterionOption,
     // Specialized country criterion using multi-select editor
     new ModifierCriterionOption({
       messageID: "performer_country",

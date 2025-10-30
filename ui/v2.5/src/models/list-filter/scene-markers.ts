@@ -6,6 +6,7 @@ import { ModifierCriterionOption } from "./criteria/criterion";
 import { CriterionModifier } from "src/core/generated-graphql";
 import { CountryCriterion } from "./criteria/country";
 import { PerformerRatingCriterionOption } from "./criteria/rating";
+import { EthnicityCriterionOption } from "./criteria/ethnicity";
 import { DisplayMode } from "./types";
 import {
   createDateCriterionOption,
@@ -28,6 +29,7 @@ const criterionOptions = [
   MarkersScenesCriterionOption,
   SceneTagsCriterionOption,
   PerformersCriterionOption,
+  EthnicityCriterionOption,
   new ModifierCriterionOption({
     messageID: "performer_country",
     type: "performer_country",

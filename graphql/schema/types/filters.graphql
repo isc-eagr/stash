@@ -203,6 +203,8 @@ input SceneMarkerFilterType {
   scene_tags: HierarchicalMultiCriterionInput
   "Filter to only include scene markers with these performers"
   performers: MultiCriterionInput
+  "Filter to only include scene markers by performer ethnicity"
+  performer_ethnicity: StringCriterionInput
   "Filter by performer country (comma-separated ISO codes for multi-select)"
   performer_country: StringCriterionInput
   "Filter by performer rating (1-100). Matches markers where linked performers satisfy the condition."

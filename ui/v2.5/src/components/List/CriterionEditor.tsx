@@ -32,8 +32,10 @@ import { PerformerCountryFilter } from "./Filters/PerformerCountryFilter";
 import { StashIDCriterion } from "src/models/list-filter/criteria/stash-ids";
 import { StashIDFilter } from "./Filters/StashIDFilter";
 import { PerformerRatingCriterion, RatingCriterion } from "../../models/list-filter/criteria/rating";
+import { EthnicityCriterion } from "../../models/list-filter/criteria/ethnicity";
 import { RatingFilter } from "./Filters/RatingFilter";
 import { PerformerRatingFilter } from "./Filters/PerformerRatingFilter";
+import { PerformerEthnicityFilter } from "./Filters/PerformerEthnicityFilter";
 import { BooleanFilter } from "./Filters/BooleanFilter";
 import { OptionFilter, OptionListFilter } from "./Filters/OptionFilter";
 import { PathFilter } from "./Filters/PathFilter";
@@ -220,6 +222,14 @@ const GenericCriterionEditor: React.FC<IGenericCriterionEditor> = ({
     if (criterion instanceof NumberCriterion) {
       return (
         <NumberFilter criterion={criterion} onValueChanged={onValueChanged} />
+      );
+    }
+    if (criterion instanceof EthnicityCriterion) {
+      return (
+        <PerformerEthnicityFilter
+          criterion={criterion}
+          onValueChanged={(v) => onValueChanged(v)}
+        />
       );
     }
     if (criterion instanceof PerformerRatingCriterion) {

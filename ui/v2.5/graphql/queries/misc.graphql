@@ -46,3 +46,8 @@ query LatestVersion {
     url
   }
 }
+
+# Distinct performer ethnicities for filters
+query PerformerEthnicities {
+  performerEthnicities
+}

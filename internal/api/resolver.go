@@ -184,6 +184,37 @@ func (r *queryResolver) MarkerStrings(ctx context.Context, q *string, sort *stri
 	return ret, nil
 }
 
+func (r *queryResolver) PerformerEthnicities(ctx context.Context) (ret []string, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		// Query distinct, non-empty, non-null performer ethnicities
+		cols, rows, err := db.QuerySQL(ctx, "SELECT DISTINCT ethnicity FROM performers WHERE ethnicity IS NOT NULL AND TRIM(ethnicity) <> '' ORDER BY ethnicity", nil)
+		if err != nil {
+			return err
+		}
+		_ = cols // not used
+		out := make([]string, 0, len(rows))
+		for _, row := range rows {
+			if len(row) == 0 {
+				continue
+			}
+			switch v := row[0].(type) {
+			case string:
+				out = append(out, v)
+			case []byte:
+				out = append(out, string(v))
+			default:
+				out = append(out, fmt.Sprint(v))
+			}
+		}
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 func (r *queryResolver) Stats(ctx context.Context) (*StatsResultType, error) {
 	var ret StatsResultType
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
