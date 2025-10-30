@@ -167,21 +167,51 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 				}
 
 				// split comma-separated list
-				eths := []string{}
+				selected := []string{}
 				for _, e := range strings.Split(pe.Value, ",") {
 					e = strings.TrimSpace(e)
 					if e != "" {
-						eths = append(eths, e)
+						selected = append(selected, e)
 					}
 				}
-				if len(eths) == 0 {
+				if len(selected) == 0 {
 					return
 				}
 
-				placeholders := strings.Repeat("?,", len(eths))
+				// Expand ethnicity selections to include special cases:
+				// - Black matches Black, Mixed, Afrolatino
+				// - White matches White, Mixed
+				// - Latino matches Latino, Afrolatino
+				expandForFilter := func(s string) []string {
+					out := []string{s}
+					if strings.EqualFold(s, "Black") {
+						out = append(out, "Mixed", "Afrolatino")
+					}
+					if strings.EqualFold(s, "White") {
+						out = append(out, "Mixed")
+					}
+					if strings.EqualFold(s, "Latino") {
+						out = append(out, "Afrolatino")
+					}
+					return out
+				}
+
+				// Build allowed set (unique) for IN(...) clauses
+				allowedSet := map[string]struct{}{}
+				for _, s := range selected {
+					for _, v := range expandForFilter(s) {
+						allowedSet[v] = struct{}{}
+					}
+				}
+				allowed := make([]string, 0, len(allowedSet))
+				for v := range allowedSet {
+					allowed = append(allowed, v)
+				}
+
+				placeholders := strings.Repeat("?,", len(allowed))
 				placeholders = placeholders[:len(placeholders)-1]
-				args := make([]interface{}, len(eths))
-				for i, v := range eths {
+				args := make([]interface{}, len(allowed))
+				for i, v := range allowed {
 					args[i] = v
 				}
 
@@ -193,17 +223,35 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 					f.addWhere(clause, args...)
 					f.addWhere(existsPerformer)
 				case models.CriterionModifierIncludesAll:
-					for _, e := range eths {
-						f.addWhere("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.ethnicity = ?)", e)
+					// ensure at least one performer per each selected value (considering expansions)
+					for _, s := range selected {
+						group := expandForFilter(s)
+						ph := strings.Repeat("?,", len(group))
+						ph = ph[:len(ph)-1]
+						gargs := make([]interface{}, len(group))
+						for i, v := range group {
+							gargs[i] = v
+						}
+						f.addWhere(fmt.Sprintf("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.ethnicity IN (%s))", ph), gargs...)
 					}
 				case models.CriterionModifierEquals:
+					// all performers must be in the allowed set (expanded), exclude null/empty
 					clause := fmt.Sprintf("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND (p.ethnicity IS NULL OR TRIM(p.ethnicity) = '' OR p.ethnicity NOT IN (%s)))", placeholders)
 					f.addWhere(clause, args...)
 					f.addWhere(existsPerformer)
-					for _, e := range eths {
-						f.addWhere("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.ethnicity = ?)", e)
+					// ensure at least one performer per each selected value (considering expansions)
+					for _, s := range selected {
+						group := expandForFilter(s)
+						ph := strings.Repeat("?,", len(group))
+						ph = ph[:len(ph)-1]
+						gargs := make([]interface{}, len(group))
+						for i, v := range group {
+							gargs[i] = v
+						}
+						f.addWhere(fmt.Sprintf("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.ethnicity IN (%s))", ph), gargs...)
 					}
 				case models.CriterionModifierNotEquals:
+					// no performer may match any of the allowed (expanded) set
 					clause := fmt.Sprintf("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.ethnicity IN (%s))", placeholders)
 					f.addWhere(clause, args...)
 					f.addWhere(existsPerformer)

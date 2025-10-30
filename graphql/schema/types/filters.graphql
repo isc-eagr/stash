@@ -552,6 +552,14 @@ input GalleryFilterType {
   scenes_filter: SceneFilterType
   "Filter by related images that meet this criteria"
   images_filter: ImageFilterType
+  "Filter galleries by performers' rating (1-100)"
+  performer_rating: IntCriterionInput
+  "When true, all linked performers must satisfy the performer_rating condition; when false, at least one performer must satisfy it (default: true)."
+  performer_rating_all: Boolean
+  "Filter by performer country"
+  performer_country: StringCriterionInput
+  "Filter by performer ethnicity"
+  performer_ethnicity: StringCriterionInput
   "Filter by related performers that meet this criteria"
   performers_filter: PerformerFilterType
   "Filter by related studios that meet this criteria"
@@ -687,6 +695,14 @@ input ImageFilterType {
   performer_favorite: Boolean
   "Filter images by performer age at time of image"
   performer_age: IntCriterionInput
+  "Filter images by performers' rating (1-100)"
+  performer_rating: IntCriterionInput
+  "When true, all linked performers must satisfy the performer_rating condition; when false, at least one performer must satisfy it (default: true)."
+  performer_rating_all: Boolean
+  "Filter by performer country"
+  performer_country: StringCriterionInput
+  "Filter by performer ethnicity"
+  performer_ethnicity: StringCriterionInput
   "Filter to only include images with these galleries"
   galleries: MultiCriterionInput
   "Filter by creation time"

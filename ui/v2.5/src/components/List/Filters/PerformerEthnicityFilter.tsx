@@ -28,15 +28,22 @@ export const PerformerEthnicityFilter: React.FC<{
   }, [criterion.value, options]);
 
   return (
-    <Select
-      classNamePrefix="react-select"
-      isMulti
-      value={selectedValues}
-      options={options}
-      placeholder="Ethnicity"
-      onChange={(vals) => onValueChanged((vals as IOption[]).map((v) => v.value).join(","))}
-      components={{ IndicatorSeparator: null }}
-      menuPortalTarget={document.body}
-    />
+    <div>
+      <Select
+        classNamePrefix="react-select"
+        isMulti
+        value={selectedValues}
+        options={options}
+        placeholder="Ethnicity"
+        onChange={(vals) => onValueChanged((vals as IOption[]).map((v) => v.value).join(","))}
+        components={{ IndicatorSeparator: null }}
+        menuPortalTarget={document.body}
+      />
+      <div style={{ marginTop: 4 }}>
+        <small className="text-muted">
+          Note: Afrolatino counts as Black and Latino; Mixed counts as Black and White.
+        </small>
+      </div>
+    </div>
   );
 };
