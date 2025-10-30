@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useIntl } from "react-intl";
 import * as GQL from "src/core/generated-graphql";
@@ -68,8 +68,22 @@ const PerformerTagEditor: React.FC<{
     ? ((performer as unknown as { scene_tags?: TagRef[] }).scene_tags ?? [])
     : ((performer.tags as unknown as TagRef[]) ?? []);
 
+  // Map lightweight TagRef into the Tag shape expected by useTagsEdit
+  // Memoize to avoid recreating array each render, which would reset TagSelect state and break typing
+  const initialEditableTags = useMemo(
+    () =>
+      initialTags.map((t) => ({
+        id: t.id,
+        name: t.name ?? "",
+        sort_name: t.name ?? null,
+        aliases: [] as string[],
+        image_path: null as string | null,
+      })),
+    [initialTags]
+  );
+
   const { tags, tagsControl } = useTagsEdit(
-    initialTags,
+    initialEditableTags,
     // noop - we capture tags via hook state and push on save
     () => {}
   );
@@ -155,9 +169,9 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
       );
       const sceneTagCount = sceneTags.length;
 
-      // If the performer model includes `scene_tags`, show those in the
-      // edit button popover (even when empty — display a 'No scene tags' hint).
-  let popoverContent: React.ReactNode = null;      
+    // If the performer model includes `scene_tags`, show those in the
+    // edit button popover (even when empty — display a 'No scene tags' hint).
+    let popoverContent: JSX.Element | JSX.Element[] | string = "";
       
         // Uppercase-first sort: primary compare case-insensitive alpha; if equal ignoring case,
         // prefer the one that starts with an uppercase letter. Finally, fall back to full compare.
@@ -178,7 +192,11 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
               uppercaseFirstComparator(a.name ?? "", b.name ?? "")
             );
           popoverContent = sortedSceneTags.map((tag: TagRef) => (
-            <TagLink key={tag.id} linkType="performer" tag={tag} />
+            <TagLink
+              key={tag.id}
+              linkType="performer"
+              tag={{ id: tag.id, name: tag.name ?? undefined }}
+            />
           ));
         } else {
           popoverContent = [<div key="none" className="muted">No scene tags</div>];
@@ -281,8 +299,12 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
         })
       );
       
-      const popoverContent = sortedDisplayTags.map((tag) => (
-        <TagLink key={tag.id} linkType="performer" tag={tag} />
+      const popoverContent: JSX.Element[] = sortedDisplayTags.map((tag) => (
+        <TagLink
+          key={tag.id}
+          linkType="performer"
+          tag={{ id: tag.id, name: tag.name ?? undefined }}
+        />
       ));
 
       return (
