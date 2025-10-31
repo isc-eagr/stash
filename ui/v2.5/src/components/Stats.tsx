@@ -1,12 +1,28 @@
 import React from "react";
+import { gql, useQuery } from "@apollo/client";
 import { useStats } from "src/core/StashService";
+import { usePerformerEthnicityCountsQuery } from "src/core/generated-graphql";
 import { FormattedMessage, FormattedNumber } from "react-intl";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import TextUtils from "src/utils/text";
 import { FileSize } from "./Shared/FileSize";
 
+// Five-star performers by ethnicity
+const PERFORMER_ETHNICITY_FIVE_STAR_COUNTS = gql`
+  query PerformerEthnicityFiveStarCounts {
+    performerEthnicityFiveStarCounts {
+      ethnicity
+      count
+    }
+  }
+`;
+
 export const Stats: React.FC = () => {
   const { data, error, loading } = useStats();
+  const { data: ethData } = usePerformerEthnicityCountsQuery();
+  const { data: fiveStarData } = useQuery(
+    PERFORMER_ETHNICITY_FIVE_STAR_COUNTS
+  );
 
   if (error) return <span>{error.message}</span>;
   if (loading || !data) return <LoadingIndicator />;
@@ -137,6 +153,80 @@ export const Stats: React.FC = () => {
           </p>
         </div>
       </div>
+      {/* Extra spacing between core stats and ethnicity report */}
+  <div className="my-5" aria-hidden="true" />
+      {/* Ethnicity reports side-by-side */}
+      {(ethData?.performerEthnicityCounts?.length ?? 0) > 0 ||
+      (fiveStarData?.performerEthnicityFiveStarCounts?.length ?? 0) > 0 ? (
+        <div className="row justify-content-center mt-5">
+          {(ethData?.performerEthnicityCounts?.length ?? 0) > 0 ? (
+            <div className="col-12 col-md-auto" style={{ maxWidth: 420 }}>
+              <h5 className="mb-3">
+                <FormattedMessage id="stats.performers_by_ethnicity" defaultMessage="Performers by ethnicity" />
+              </h5>
+              <div className="table-responsive">
+                <table className="table table-sm table-striped mb-0">
+                  <thead>
+                    <tr>
+                      <th>
+                        <FormattedMessage id="ethnicity" defaultMessage="Ethnicity" />
+                      </th>
+                      <th className="text-right">
+                        <FormattedMessage id="performers" defaultMessage="Performers" />
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ethData!.performerEthnicityCounts.map((row) => (
+                      <tr key={row.ethnicity}>
+                        <td>{row.ethnicity}</td>
+                        <td className="text-right">
+                          <FormattedNumber value={row.count} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+
+          {(fiveStarData?.performerEthnicityFiveStarCounts?.length ?? 0) > 0 ? (
+            <div className="col-12 col-md-auto mt-4 mt-md-0 ml-md-4" style={{ maxWidth: 420 }}>
+              <h5 className="mb-3">
+                <FormattedMessage
+                  id="stats.five_star_performers_by_ethnicity"
+                  defaultMessage="5-star performers by ethnicity"
+                />
+              </h5>
+              <div className="table-responsive">
+                <table className="table table-sm table-striped mb-0">
+                  <thead>
+                    <tr>
+                      <th>
+                        <FormattedMessage id="ethnicity" defaultMessage="Ethnicity" />
+                      </th>
+                      <th className="text-right">
+                        <FormattedMessage id="performers" defaultMessage="Performers" />
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fiveStarData!.performerEthnicityFiveStarCounts.map((row: { ethnicity: string; count: number }) => (
+                      <tr key={`5star-${row.ethnicity}`}>
+                        <td>{row.ethnicity}</td>
+                        <td className="text-right">
+                          <FormattedNumber value={row.count} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 };

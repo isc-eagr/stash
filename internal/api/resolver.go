@@ -215,6 +215,107 @@ func (r *queryResolver) PerformerEthnicities(ctx context.Context) (ret []string,
 	return ret, nil
 }
 
+// PerformerEthnicityCounts returns counts of performers grouped by non-empty ethnicity,
+// sorted by count descending.
+func (r *queryResolver) PerformerEthnicityCounts(ctx context.Context) (ret []*PerformerEthnicityCount, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := "SELECT ethnicity, COUNT(*) as cnt FROM performers WHERE ethnicity IS NOT NULL AND TRIM(ethnicity) <> '' GROUP BY ethnicity ORDER BY cnt DESC"
+		_, rows, err := db.QuerySQL(ctx, query, nil)
+		if err != nil {
+			return err
+		}
+		out := make([]*PerformerEthnicityCount, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 2 {
+				continue
+			}
+			var eth string
+			switch v := row[0].(type) {
+			case string:
+				eth = v
+			case []byte:
+				eth = string(v)
+			default:
+				eth = fmt.Sprint(v)
+			}
+			var cnt int
+			switch v := row[1].(type) {
+			case int64:
+				cnt = int(v)
+			case int:
+				cnt = v
+			case []byte:
+				i, _ := strconv.Atoi(string(v))
+				cnt = i
+			case string:
+				i, _ := strconv.Atoi(v)
+				cnt = i
+			default:
+				i, _ := strconv.Atoi(fmt.Sprint(v))
+				cnt = i
+			}
+			out = append(out, &PerformerEthnicityCount{Ethnicity: eth, Count: cnt})
+		}
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+// PerformerEthnicityFiveStarCounts returns counts of performers with a 5-star rating (rating100→5)
+// grouped by non-empty ethnicity, sorted by count descending. Threshold is rating >= 90, consistent
+// with Rating100To5 mapping (round(r/20) >= 4.5 → 5).
+func (r *queryResolver) PerformerEthnicityFiveStarCounts(ctx context.Context) (ret []*PerformerEthnicityCount, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := "SELECT ethnicity, COUNT(*) as cnt FROM performers WHERE rating IS NOT NULL AND rating >= 90 AND ethnicity IS NOT NULL AND TRIM(ethnicity) <> '' GROUP BY ethnicity ORDER BY cnt DESC"
+		_, rows, err := db.QuerySQL(ctx, query, nil)
+		if err != nil {
+			return err
+		}
+		out := make([]*PerformerEthnicityCount, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 2 {
+				continue
+			}
+			var eth string
+			switch v := row[0].(type) {
+			case string:
+				eth = v
+			case []byte:
+				eth = string(v)
+			default:
+				eth = fmt.Sprint(v)
+			}
+			var cnt int
+			switch v := row[1].(type) {
+			case int64:
+				cnt = int(v)
+			case int:
+				cnt = v
+			case []byte:
+				i, _ := strconv.Atoi(string(v))
+				cnt = i
+			case string:
+				i, _ := strconv.Atoi(v)
+				cnt = i
+			default:
+				i, _ := strconv.Atoi(fmt.Sprint(v))
+				cnt = i
+			}
+			out = append(out, &PerformerEthnicityCount{Ethnicity: eth, Count: cnt})
+		}
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 func (r *queryResolver) Stats(ctx context.Context) (*StatsResultType, error) {
 	var ret StatsResultType
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {

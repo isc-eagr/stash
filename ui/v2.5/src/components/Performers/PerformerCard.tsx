@@ -18,7 +18,7 @@ import {
 } from "src/models/list-filter/criteria/criterion";
 import { PopoverCountButton } from "../Shared/PopoverCountButton";
 import GenderIcon from "./GenderIcon";
-import { faTag } from "@fortawesome/free-solid-svg-icons";
+import { faTag, faArrowUp, faArrowDown } from "@fortawesome/free-solid-svg-icons";
 import { RatingBanner } from "../Shared/RatingBanner";
 import { usePerformerUpdate, getClient } from "src/core/StashService";
 import { useTagsEdit } from "src/hooks/tagsEdit";
@@ -371,6 +371,46 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
   ({ performer }) => {
     const [updatePerformer] = usePerformerUpdate();
 
+    // Helper: detect Scene-page presence and role flags
+    function getSceneRoleFlags(): {
+      hasSceneTagsField: boolean;
+      isTop: boolean;
+      isBottom: boolean;
+    } {
+      const hasSceneTagsField = Object.prototype.hasOwnProperty.call(
+        performer as Record<string, unknown>,
+        "scene_tags"
+      );
+      if (!hasSceneTagsField)
+        return { hasSceneTagsField, isTop: false, isBottom: false };
+
+      const sceneTags: Array<{ id: string; name?: string | null }> = (
+        (performer as unknown as {
+          scene_tags?: Array<{ id: string; name?: string | null }>;
+        }).scene_tags ?? []
+      );
+      const names = new Set(
+        sceneTags
+          .map((t) => (t?.name ?? "").trim().toLowerCase())
+          .filter((n) => n.length > 0)
+      );
+      // Primary: use explicit Top/Bottom tags if present
+      const explicitTop = names.has("top");
+      const explicitBottom = names.has("bottom");
+      let isTop = explicitTop;
+      let isBottom = explicitBottom;
+      // Fallback: only if neither Top nor Bottom are present, map synonyms
+      if (!explicitTop && !explicitBottom) {
+        if (names.has("dicksucked")) isTop = true; // treat as Top
+        if (names.has("suckeddick")) isBottom = true; // treat as Bottom
+      }
+      return {
+        hasSceneTagsField,
+        isTop,
+        isBottom,
+      };
+    }
+
     function onToggleFavorite(v: boolean) {
       if (performer.id) {
         updatePerformer({
@@ -408,6 +448,73 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
       }
     }
 
+
+    // Scene-page-only role badges (Top/Bottom) derived from scene-scoped tags
+    function maybeRenderTopBottomRoleBadges() {
+      const { hasSceneTagsField, isTop, isBottom } = getSceneRoleFlags();
+      if (!hasSceneTagsField || (!isTop && !isBottom)) return null;
+
+      // Bottom-left corner to avoid conflict with favorite (top-right) and rating banner
+      return (
+        <div
+          className="performer-role-badges"
+          style={{
+            position: "absolute",
+            left: 6,
+            bottom: 6,
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
+            zIndex: 2,
+            pointerEvents: "none", // let clicks fall through to the card
+          }}
+        >
+          {isTop && (
+            <OverlayTrigger
+              placement="top"
+              overlay={<Tooltip id={`tt-performer-top-${performer.id}`}>Top</Tooltip>}
+            >
+              <Badge
+                pill
+                variant="success"
+                style={{
+                  fontSize: 10,
+                  padding: "3px 6px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  pointerEvents: "auto", // re-enable for tooltip hover
+                }}
+              >
+                <Icon icon={faArrowUp} />
+              </Badge>
+            </OverlayTrigger>
+          )}
+          {isBottom && (
+            <OverlayTrigger
+              placement="top"
+              overlay={<Tooltip id={`tt-performer-bottom-${performer.id}`}>Bottom</Tooltip>}
+            >
+              <Badge
+                pill
+                variant="info"
+                style={{
+                  fontSize: 10,
+                  padding: "3px 6px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  pointerEvents: "auto",
+                }}
+              >
+                <Icon icon={faArrowDown} />
+              </Badge>
+            </OverlayTrigger>
+          )}
+        </div>
+      );
+    }
+
     return (
       <>
         <FavoriteIcon
@@ -416,12 +523,14 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
           size="2x"
           className="hide-not-favorite"
         />
+        {maybeRenderTopBottomRoleBadges()}
         {maybeRenderRatingBanner()}
         {maybeRenderFlag()}
       </>
     );
   }
 );
+ 
 
 // (removed duplicate PerformerTagEditor; hoisted definition above Popovers)
  
