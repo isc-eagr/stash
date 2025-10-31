@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -1001,113 +1002,189 @@ INNER JOIN (`+valuesClause+`) t ON t.column2 = pt.tag_id
 }
 
 type joinedSceneMarkerTagsHandler struct {
-	criterion *models.HierarchicalMultiCriterionInput
+	criterion *models.SceneMarkerTagsCriterionInput
 
 	primaryTable   string // eg scenes
-	joinTable      string // eg performers_scenes
+	joinTable      string // eg scene_markers
 	joinPrimaryKey string // eg scene_id
 }
 
 func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuilder) {
+	if h.criterion == nil {
+		return
+	}
 
-	if h.criterion != nil {
-		tags := h.criterion.CombineExcludes()
+	// Always join the scene_markers table for consistency with other handlers
+	f.addLeftJoin(h.joinTable, "", utils.StrFormat("{primaryTable}.id = {joinTable}.{joinPrimaryKey}", utils.StrFormatMap{
+		"primaryTable":   h.primaryTable,
+		"joinTable":      h.joinTable,
+		"joinPrimaryKey": h.joinPrimaryKey,
+	}))
 
-		isSpecial := ""
+	c := h.criterion
 
-		switch tags.Modifier {
-		case models.CriterionModifierEquals:
-			isSpecial = "_special"
-		default:
-			isSpecial = ""
+	switch c.Modifier {
+	case models.CriterionModifierIsNull, models.CriterionModifierNotNull:
+		var notClause string
+		if c.Modifier == models.CriterionModifierNotNull {
+			notClause = "NOT"
+		}
+		// Join marker tags to check presence/absence
+		f.addLeftJoin("scene_markers_tags", "", "scene_markers.id = scene_markers_tags.scene_marker_id")
+		f.addWhere(fmt.Sprintf("scene_markers_tags.tag_id IS %s NULL", notClause))
+		return
+
+	case models.CriterionModifierEquals:
+		// Treat Value as a single group if Groups not provided
+		groups := c.Groups
+		if len(groups) == 0 && len(c.Value) > 0 {
+			groups = [][]string{c.Value}
 		}
 
-		strFormatMap := utils.StrFormatMap{
-			"primaryTable":   h.primaryTable,
-			"joinTable":      h.joinTable,
-			"joinPrimaryKey": h.joinPrimaryKey,
-			"inBinding":      getInBinding(len(tags.Value)),
-			"isSpecial":      isSpecial,
-		}
-
-		f.addLeftJoin(h.joinTable, "", utils.StrFormat("{primaryTable}.id = {joinTable}.{joinPrimaryKey}", strFormatMap))
-
-		if tags.Modifier == models.CriterionModifierIsNull || tags.Modifier == models.CriterionModifierNotNull {
-			var notClause string
-			if tags.Modifier == models.CriterionModifierNotNull {
-				notClause = "NOT"
-			}
-
-			f.addLeftJoin("scene_markers_tags", "", utils.StrFormat("{joinTable}.id = scene_markers.id", strFormatMap))
-
-			f.addWhere(fmt.Sprintf("scene_markers_tags.tag_id IS %s NULL", notClause))
+		if len(groups) == 0 {
+			// nothing to enforce
 			return
 		}
 
-		if tags.Modifier == models.CriterionModifierEquals && tags.Depth != nil && *tags.Depth != 0 {
-			f.setError(fmt.Errorf("depth is not supported for equals modifier for marker tag filtering"))
+		// Group identical tag-sets and require sufficient distinct markers for each set
+		type groupKey struct{ s string }
+		counts := make(map[groupKey]int)
+		orderedGroups := make(map[groupKey][]string)
+		for _, g := range groups {
+			if len(g) == 0 {
+				continue
+			}
+			// build order-independent key
+			vals := append([]string(nil), g...)
+			sort.Strings(vals)
+			key := groupKey{s: strings.Join(vals, ",")}
+			counts[key]++
+			// store canonical ordered group once
+			if _, ok := orderedGroups[key]; !ok {
+				orderedGroups[key] = vals
+			}
+		}
+
+		for k, multiplicity := range counts {
+			g := orderedGroups[k]
+			if len(g) == 0 {
+				continue
+			}
+			ph := getInBinding(len(g))
+			// Require at least <multiplicity> distinct markers matching the tag-set
+			subq := utils.StrFormat(`(
+SELECT COUNT(DISTINCT sm.id)
+FROM scene_markers sm
+WHERE sm.scene_id = {primaryTable}.id
+	AND (
+		SELECT COUNT(DISTINCT tag_id) FROM (
+			SELECT sm.primary_tag_id AS tag_id
+			UNION ALL
+			SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
+		) tags_per_marker
+		WHERE tag_id IN `+ph+`
+	) = `+fmt.Sprintf("%d", len(g))+`
+) >= ?`, utils.StrFormatMap{"primaryTable": h.primaryTable})
+
+			args := make([]any, 0, len(g)+1)
+			for _, v := range g {
+				args = append(args, v)
+			}
+			args = append(args, multiplicity)
+			f.addWhere(subq, args...)
+		}
+		return
+
+	case models.CriterionModifierNotEquals:
+		// Treat Value as a single group if Groups not provided
+		groups := c.Groups
+		if len(groups) == 0 && len(c.Value) > 0 {
+			groups = [][]string{c.Value}
+		}
+
+		if len(groups) == 0 {
+			// nothing to enforce
 			return
 		}
 
-		if len(tags.Value) == 0 && len(tags.Excludes) == 0 {
+		// Deduplicate identical groups (order-insensitive)
+		type groupKey struct{ s string }
+		unique := make(map[groupKey][]string)
+		for _, g := range groups {
+			if len(g) == 0 {
+				continue
+			}
+			vals := append([]string(nil), g...)
+			sort.Strings(vals)
+			key := groupKey{s: strings.Join(vals, ",")}
+			if _, ok := unique[key]; !ok {
+				unique[key] = vals
+			}
+		}
+
+		// For each unique group, assert there does NOT exist a marker that contains all tags in that group
+		for _, g := range unique {
+			ph := getInBinding(len(g))
+			subq := utils.StrFormat(`NOT EXISTS (
+SELECT 1
+FROM scene_markers sm
+WHERE sm.scene_id = {primaryTable}.id
+  AND (
+    SELECT COUNT(DISTINCT tag_id) FROM (
+      SELECT sm.primary_tag_id AS tag_id
+      UNION ALL
+      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
+    ) tags_per_marker
+    WHERE tag_id IN `+ph+`
+  ) = `+fmt.Sprintf("%d", len(g))+`
+)`, utils.StrFormatMap{"primaryTable": h.primaryTable})
+
+			args := make([]any, 0, len(g))
+			for _, v := range g {
+				args = append(args, v)
+			}
+			f.addWhere(subq, args...)
+		}
+		return
+
+	case models.CriterionModifierIncludesAll:
+		// Each tag in Value must be present on at least one marker in the scene
+		if len(c.Value) == 0 {
 			return
 		}
-
-		if len(tags.Value) > 0 {
-			valuesClause, err := getHierarchicalValues(ctx, tags.Value, tagTable, "tags_relations", "parent_id", "child_id", tags.Depth)
-
-			if err != nil {
-				f.setError(err)
-				return
-			}
-
-			f.addWith(utils.StrFormat(`marker_tags AS (
-	SELECT ps.{joinPrimaryKey} as primaryID, t.column1 AS root_tag_id{isSpecial}, pt.scene_marker_id FROM {joinTable} ps
-	INNER JOIN scene_markers_tags pt ON pt.scene_marker_id = ps.id
-	INNER JOIN (`+valuesClause+`) t ON t.column2 = pt.tag_id
-	
-	UNION
-
-	SELECT ps.{joinPrimaryKey} as primaryID, t.column1 AS root_tag_id{isSpecial}, ps.id FROM {joinTable} ps
-	INNER JOIN (`+valuesClause+`) t ON t.column2 = ps.primary_tag_id
-	)`, strFormatMap))
-
-			f.addLeftJoin("marker_tags", "", "marker_tags.scene_marker_id = scene_markers.id")
-
-			switch tags.Modifier {
-			case models.CriterionModifierEquals:
-				// includes only the provided ids
-				f.addWhere("marker_tags.root_tag_id_special IS NOT NULL")
-				tagsLen := len(tags.Value)
-				f.addHaving(fmt.Sprintf("count(distinct marker_tags.root_tag_id_special) IS %d", tagsLen))
-			case models.CriterionModifierIncludesAll:
-				f.addWhere("marker_tags.root_tag_id IS NOT NULL")
-				tagsLen := len(tags.Value)
-				f.addHaving(fmt.Sprintf("count(distinct marker_tags.root_tag_id) IS %d", tagsLen))
-				// decrement by one to account for primary tag id
-				//f.addWhere("(SELECT COUNT(*) FROM scene_markers_tags s WHERE s.scene_marker_id = scene_markers.id) = ?", tagsLen-1)
-			case models.CriterionModifierNotEquals:
-				f.setError(fmt.Errorf("not equals modifier is not supported for scene marker tags"))
-			default:
-				addHierarchicalConditionClauses(f, tags, "marker_tags", "root_tag_id")
-			}
+		for _, v := range c.Value {
+			clause := utils.StrFormat(`EXISTS (
+SELECT 1 FROM scene_markers sm
+LEFT JOIN scene_markers_tags mt ON mt.scene_marker_id = sm.id
+WHERE sm.scene_id = {primaryTable}.id AND (sm.primary_tag_id = ? OR mt.tag_id = ?)
+)`, utils.StrFormatMap{"primaryTable": h.primaryTable})
+			f.addWhere(clause, v, v)
 		}
+		return
 
-		if len(h.criterion.Excludes) > 0 {
-			valuesClause, err := getHierarchicalValues(ctx, tags.Excludes, tagTable, "tags_relations", "parent_id", "child_id", tags.Depth)
-			if err != nil {
-				f.setError(err)
-				return
-			}
-
-			clause := utils.StrFormat("{primaryTable}.id NOT IN (SELECT {joinTable}.{joinPrimaryKey} FROM {joinTable} INNER JOIN scene_markers_tags ON {joinTable}.id = scene_markers_tags.scene_marker_id WHERE scene_markers_tags.tag_id IN (SELECT column2 FROM (%s)))", strFormatMap)
-			f.addWhere(fmt.Sprintf(clause, valuesClause))
-
-			//f.addWhere(fmt.Sprintf("scene_markers.primary_tag_id NOT IN (SELECT column2 FROM (%s))", valuesClause))
-
-			clause2 := utils.StrFormat("{primaryTable}.id NOT IN (SELECT {joinTable}.{joinPrimaryKey} FROM {joinTable} WHERE scene_markers.primary_tag_id IN (SELECT column2 FROM (%s)))", strFormatMap)
-			f.addWhere(fmt.Sprintf(clause2, valuesClause))
+	case models.CriterionModifierIncludes:
+		if len(c.Value) == 0 {
+			return
 		}
+		ph := getInBinding(len(c.Value))
+		clause := utils.StrFormat(`EXISTS (
+SELECT 1 FROM scene_markers sm
+LEFT JOIN scene_markers_tags mt ON mt.scene_marker_id = sm.id
+WHERE sm.scene_id = {primaryTable}.id AND (sm.primary_tag_id IN `+ph+` OR mt.tag_id IN `+ph+`)
+)`, utils.StrFormatMap{"primaryTable": h.primaryTable})
+		args := make([]any, 0, len(c.Value)*2)
+		for _, v := range c.Value {
+			args = append(args, v)
+		}
+		for _, v := range c.Value {
+			args = append(args, v)
+		}
+		f.addWhere(clause, args...)
+		return
+
+	default:
+		// Unsupported modifiers: no-op
+		return
 	}
 }
 

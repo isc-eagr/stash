@@ -6,7 +6,7 @@ import React, {
   useRef,
 } from "react";
 import { Badge, BadgeProps, Button, Overlay, Popover } from "react-bootstrap";
-import { Criterion } from "src/models/list-filter/criteria/criterion";
+import { Criterion, ModifierCriterion } from "src/models/list-filter/criteria/criterion";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Icon } from "../Shared/Icon";
 import { faMagnifyingGlass, faTimes } from "@fortawesome/free-solid-svg-icons";
@@ -14,6 +14,8 @@ import { BsPrefixProps, ReplaceProps } from "react-bootstrap/esm/helpers";
 import { CustomFieldsCriterion } from "src/models/list-filter/criteria/custom-fields";
 import { useDebounce } from "src/hooks/debounce";
 import cx from "classnames";
+import { SceneMarkerTagsCriterion } from "src/models/list-filter/criteria/tags";
+import { CriterionModifier, useFindTagsForSelectQuery } from "src/core/generated-graphql";
 
 type TagItemProps = PropsWithChildren<
   ReplaceProps<"span", BsPrefixProps<"span"> & BadgeProps>
@@ -111,6 +113,65 @@ interface IFilterTagsProps {
   onRemoveSearchTerm?: () => void;
   truncateOnOverflow?: boolean;
 }
+
+const SceneMarkerTagsChipLabel: React.FC<{ criterion: SceneMarkerTagsCriterion }> = ({ criterion }) => {
+  const intl = useIntl();
+  // Gather unresolved ids (labels equal to ids)
+  const unresolvedIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    if (
+      criterion.modifier === CriterionModifier.Equals ||
+      criterion.modifier === CriterionModifier.NotEquals
+    ) {
+      criterion.groups.forEach((g) =>
+        g.forEach((t) => {
+          if (t.label === t.id) ids.add(t.id);
+        })
+      );
+    } else {
+      criterion.items.forEach((t) => {
+        if (t.label === t.id) ids.add(t.id);
+      });
+    }
+    return Array.from(ids);
+  }, [criterion]);
+
+  const { data } = useFindTagsForSelectQuery({
+    variables: unresolvedIds.length
+      ? { ids: unresolvedIds, filter: { per_page: unresolvedIds.length } }
+      : { ids: [] },
+    skip: unresolvedIds.length === 0,
+  } as any);
+
+  const nameMap = React.useMemo(() => {
+    const m = new Map<string, string>();
+    (data?.findTags?.tags ?? []).forEach((t) => m.set(t.id, t.name));
+    return m;
+  }, [data]);
+
+  const criterionLabel = intl.formatMessage({ id: (criterion as any).criterionOption.messageID });
+  const modifierString = ModifierCriterion.getModifierLabel(intl, criterion.modifier as unknown as CriterionModifier);
+
+  let valueString = "";
+  if (
+    criterion.modifier === CriterionModifier.Equals ||
+    criterion.modifier === CriterionModifier.NotEquals
+  ) {
+    valueString = criterion.groups
+      .map((g) => `(${g
+        .map((v) => (v.label === v.id ? nameMap.get(v.id) ?? v.label : v.label))
+        .join(" + ")})`)
+      .join("; ");
+  } else {
+    valueString = criterion.items
+      .map((v) => (v.label === v.id ? nameMap.get(v.id) ?? v.label : v.label))
+      .join(", ");
+  }
+
+  return (
+    <>{intl.formatMessage({ id: "criterion_modifier.format_string" }, { criterion: criterionLabel, modifierString, valueString })}</>
+  );
+};
 
 export const FilterTags: React.FC<IFilterTagsProps> = ({
   searchTerm,
@@ -270,7 +331,13 @@ export const FilterTags: React.FC<IFilterTagsProps> = ({
     return (
       <FilterTag
         key={criterion.getId()}
-        label={criterion.getLabel(intl)}
+        label={
+          criterion instanceof SceneMarkerTagsCriterion ? (
+            <SceneMarkerTagsChipLabel criterion={criterion} />
+          ) : (
+            criterion.getLabel(intl)
+          )
+        }
         onClick={() => onClickCriterionTag(criterion)}
         onRemove={($event) => onRemoveCriterionTag(criterion, $event)}
       />

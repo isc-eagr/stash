@@ -173,6 +173,18 @@ type MultiCriterionInput struct {
 	Excludes []string          `json:"excludes"`
 }
 
+// SceneMarkerTagsCriterionInput supports grouped tag semantics for scene marker tag filtering on scenes.
+// - For modifier = EQUALS (IS): use Groups, where each inner slice represents tags that must all appear on a single marker.
+// - For modifier = INCLUDES / INCLUDES_ALL: use Value as a flat list of tag IDs across any markers on the scene.
+// - IS_NULL / NOT_NULL are also supported to check presence/absence of any marker tags.
+type SceneMarkerTagsCriterionInput struct {
+	Modifier CriterionModifier `json:"modifier"`
+	// Used by INCLUDES and INCLUDES_ALL (flat set of tag IDs)
+	Value []string `json:"value"`
+	// Used by EQUALS (IS): each inner list is a group of tag IDs that must all be present on a single marker
+	Groups [][]string `json:"groups"`
+}
+
 type DateCriterionInput struct {
 	Value    string            `json:"value"`
 	Value2   *string           `json:"value2"`

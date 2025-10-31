@@ -44,7 +44,9 @@ import PerformersFilter from "./Filters/PerformersFilter";
 import { StudiosCriterion } from "src/models/list-filter/criteria/studios";
 import StudiosFilter from "./Filters/StudiosFilter";
 import { TagsCriterion } from "src/models/list-filter/criteria/tags";
+import { SceneMarkerTagsCriterion } from "src/models/list-filter/criteria/tags";
 import TagsFilter from "./Filters/TagsFilter";
+import SceneMarkerTagsFilter from "./Filters/SceneMarkerTagsFilter";
 import { PhashCriterion } from "src/models/list-filter/criteria/phash";
 import { PhashFilter } from "./Filters/PhashFilter";
 import { PathCriterion } from "src/models/list-filter/criteria/path";
@@ -161,6 +163,7 @@ const GenericCriterionEditor: React.FC<IGenericCriterionEditor> = ({
         />
       );
     }
+    // SceneMarkerTagsCriterion is handled by a specialized editor outside GenericCriterionEditor
 
     if (criterion instanceof ILabeledIdCriterion) {
       return (
@@ -286,6 +289,28 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
   setCriterion,
 }) => {
   const filterControl = useMemo(() => {
+    if (criterion instanceof SceneMarkerTagsCriterion) {
+      // Custom editor with modifier selector
+      const c = criterion;
+      return (
+        <div>
+          <ModifierSelectorButtons
+            options={(c.criterionOption as any).modifierOptions}
+            value={c.modifier as unknown as CriterionModifier}
+            onChanged={(m) => {
+              const newC = c.clone() as SceneMarkerTagsCriterion;
+              (newC as any).modifier = m;
+              setCriterion(newC);
+            }}
+          />
+          <SceneMarkerTagsFilter
+            criterion={c as SceneMarkerTagsCriterion}
+            setCriterion={(nc) => setCriterion(nc)}
+          />
+        </div>
+      );
+    }
+
     if (criterion instanceof BooleanCriterion) {
       return (
         <BooleanFilter criterion={criterion} setCriterion={setCriterion} />

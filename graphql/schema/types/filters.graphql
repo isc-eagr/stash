@@ -229,6 +229,19 @@ input SceneMarkerFilterType {
   scene_filter: SceneFilterType
 }
 
+"Groups of tag IDs used for Scene Marker Tags 'IS' filter. Each inner list represents the set of tags that must all be present on a single marker."
+input TagIdGroupsInput {
+  groups: [[ID!]!]
+}
+
+input SceneMarkerTagsCriterionInput {
+  modifier: CriterionModifier!
+  "Used by INCLUDES and INCLUDES_ALL"
+  value: [ID!]
+  "Used by EQUALS (IS) to express groups; each group maps to a marker that must contain all tags in that group"
+  groups: [[ID!]]
+}
+
 input SceneFilterType {
   AND: SceneFilterType
   OR: SceneFilterType
@@ -353,7 +366,7 @@ input SceneFilterType {
   "When true, all linked performers must satisfy the performer_rating condition; when false, at least one performer must satisfy it (default: true)."
   performer_rating_all: Boolean
   "Filter by scene markers"
-  scene_marker_tags: HierarchicalMultiCriterionInput
+  scene_marker_tags: SceneMarkerTagsCriterionInput
 }
 
 input MovieFilterType {

@@ -777,7 +777,7 @@ func (qb *sceneFilterHandler) performerTagsCriterionHandler(tags *models.Hierarc
 	}
 }
 
-func (qb *sceneFilterHandler) sceneMarkerTagsCriterionHandler(tags *models.HierarchicalMultiCriterionInput) criterionHandler {
+func (qb *sceneFilterHandler) sceneMarkerTagsCriterionHandler(tags *models.SceneMarkerTagsCriterionInput) criterionHandler {
 	return &joinedSceneMarkerTagsHandler{
 		criterion:      tags,
 		primaryTable:   sceneTable,
