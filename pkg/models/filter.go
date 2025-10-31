@@ -246,3 +246,22 @@ type PerformerSceneTagPairInput struct {
 	PerformerID string `json:"performer_id"`
 	TagID       string `json:"tag_id"`
 }
+
+// PerformerSceneTagGroupInput represents a single group in the
+// PerformerSceneTagsWithAttrsCriterionInput. Each group requires that at
+// least one performer on the scene has the specified tag (from
+// performer_scene_tags) and matches the optional attributes.
+type PerformerSceneTagGroupInput struct {
+	TagID              string             `json:"tag_id"`
+	PerformerCountry   *string            `json:"performer_country"`
+	PerformerEthnicity *string            `json:"performer_ethnicity"`
+	PerformerRating    *IntCriterionInput `json:"performer_rating"`
+}
+
+// PerformerSceneTagsWithAttrsCriterionInput is a grouped input for filtering
+// scenes by performer_scene_tags combined with performer attributes. For each
+// group, at least one performer must match the tag and provided attributes.
+type PerformerSceneTagsWithAttrsCriterionInput struct {
+	Groups   []PerformerSceneTagGroupInput `json:"groups"`
+	MatchAny *bool                         `json:"match_any"`
+}

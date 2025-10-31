@@ -43,6 +43,7 @@ import { RatingCriterionOption, PerformerRatingCriterionOption } from "./criteri
 import { PathCriterionOption } from "./criteria/path";
 import { OrientationCriterionOption } from "./criteria/orientation";
 import { EthnicityCriterionOption } from "./criteria/ethnicity";
+import { PerformerSceneTagsWithAttrsCriterionOption } from "./criteria/performer-scene-tags-with-attrs";
 
 const defaultSortBy = "date";
 const sortByOptions = [
@@ -115,6 +116,7 @@ const criterionOptions = [
   createMandatoryNumberCriterionOption("tag_count"),
   PerformerTagsCriterionOption,
   PerformerSceneTagsCriterionOption,
+  PerformerSceneTagsWithAttrsCriterionOption,
   // compact performer+tag pair criterion
   PerformerSceneTagPairCriterionOption,
   PerformersCriterionOption,

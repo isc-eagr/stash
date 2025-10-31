@@ -8,6 +8,7 @@ import { CountryCriterion } from "./criteria/country";
 import { PerformerRatingCriterionOption } from "./criteria/rating";
 import { EthnicityCriterionOption } from "./criteria/ethnicity";
 import { DisplayMode } from "./types";
+import { PerformerSceneTagsWithAttrsCriterionOption } from "./criteria/performer-scene-tags-with-attrs";
 import {
   createDateCriterionOption,
   createMandatoryTimestampCriterionOption,
@@ -28,6 +29,7 @@ const criterionOptions = [
   TagsCriterionOption,
   MarkersScenesCriterionOption,
   SceneTagsCriterionOption,
+  PerformerSceneTagsWithAttrsCriterionOption,
   PerformersCriterionOption,
   EthnicityCriterionOption,
   new ModifierCriterionOption({

@@ -89,6 +89,8 @@ type SceneFilterType struct {
 	PerformerCount *IntCriterionInput `json:"performer_count"`
 	// Filter by Scene Marker Tags
 	SceneMarkerTags *SceneMarkerTagsCriterionInput `json:"scene_marker_tags"`
+	// Filter by performer scene tag with optional performer attributes per group
+	PerformerSceneTagsWithAttrs *PerformerSceneTagsWithAttrsCriterionInput `json:"performer_scene_tags_with_attrs"`
 	// Filter by StashID
 	StashID *StringCriterionInput `json:"stash_id"`
 	// Filter by StashID Endpoint

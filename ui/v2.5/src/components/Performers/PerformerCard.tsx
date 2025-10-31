@@ -49,6 +49,8 @@ interface IPerformerCardProps {
   onOpenTagEditor?: (performer: GQL.PerformerDataFragment) => void;
   // optional: show an inline tag editor below the performer card
   showInlineTags?: boolean;
+  // optional: show counts next to tags in inline tag strip and tooltip (default: true)
+  showTagCounts?: boolean;
 }
 
 type TagRef = { id: string; name?: string | null };
@@ -154,20 +156,6 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Popovers",
   ({ performer, extraCriteria }) => {
     const [showTagModal, setShowTagModal] = useState(false);
-    // Fetch performer scene tags count (same logic used by the Scene Tags tab badge)
-    const { data: sceneTagsTabData } = GQL.useFindTagsQuery({
-      variables: {
-        tag_filter: {
-          performer_scene_tags: {
-            modifier: GQL.CriterionModifier.IncludesAll,
-            value: [performer.id],
-          },
-        },
-        // we only need the count for the badge
-        filter: { per_page: 1 },
-      },
-    });
-    const performerSceneTagsCount = sceneTagsTabData?.findTags?.count ?? 0;
     function maybeRenderEditButton() {
       // Only show the scene-tags edit button on Scene pages. We detect this
       // by the presence of the `scene_tags` field on the performer fragment
@@ -306,31 +294,7 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
       );
     }
 
-    // On the Performers page (no scene_tags field), show a green tag button that navigates
-    // to the performer's Scene Tags tab at /performers/<id>/scenetags
-    function maybeRenderEditNavButton() {
-      const hasSceneTagsField = Object.prototype.hasOwnProperty.call(
-        performer as Record<string, unknown>,
-        "scene_tags"
-      );
-      if (hasSceneTagsField) return null;
-      // Don't render the green button if there are no scene tags
-      if (performerSceneTagsCount <= 0) return null;
-
-      return (
-        <div>
-          <Link
-            to={`/performers/${performer.id}/scenetags`}
-            className="btn minimal edit-tags"
-            aria-label={`Edit scene tags for ${performer.name ?? performer.id}`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Icon icon={faTag} />
-            <span>{performerSceneTagsCount}</span>
-          </Link>
-        </div>
-      );
-    }
+    // Removed Performers page green tag navigation button per request.
 
     function maybeRenderGroupsPopoverButton() {
       if (!performer.group_count) return;
@@ -370,7 +334,7 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
             {maybeRenderImagesPopoverButton()}
             {maybeRenderGalleriesPopoverButton()}
             {maybeRenderOCounter()}
-            {maybeRenderEditNavButton()}
+            {/* Performers page green tag navigation button removed */}
           </ButtonGroup>
           <Modal
             show={showTagModal}
@@ -395,7 +359,7 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
         <hr />
         <ButtonGroup className="card-popovers">
           {maybeRenderEditButton && maybeRenderEditButton()}
-          {maybeRenderEditNavButton()}
+          {/* Performers page green tag navigation button removed */}
         </ButtonGroup>
       </>
     );
@@ -464,7 +428,7 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
 
 const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Details",
-  ({ performer, ageFromDate }) => {
+  ({ performer, ageFromDate, showTagCounts }) => {
     const intl = useIntl();
     const age = TextUtils.age(
       performer.birthdate,
@@ -575,6 +539,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
       });
     }, [hasSceneTagsField, sceneTags, countByTagId]);
 
+  const showCounts = showTagCounts !== false;
     const tooltipContent = sortedSceneTags.map((tag) => (
       <Badge key={tag.id} className="tag-item" variant="secondary">
         <Link
@@ -585,7 +550,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
           onClick={(e) => e.stopPropagation()}
         >
           {tag.name}
-          {typeof countByTagId[tag.id] === "number" && countByTagId[tag.id] > 0
+          {showCounts && typeof countByTagId[tag.id] === "number" && countByTagId[tag.id] > 0
             ? ` (${countByTagId[tag.id]})`
             : ""}
         </Link>
@@ -617,7 +582,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
                       onClick={(e) => e.stopPropagation()}
                     >
                       {tag.name}
-                      {typeof countByTagId[tag.id] === "number" && countByTagId[tag.id] > 0
+                      {showCounts && typeof countByTagId[tag.id] === "number" && countByTagId[tag.id] > 0
                         ? ` (${countByTagId[tag.id]})`
                         : ""}
                     </Link>

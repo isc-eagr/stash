@@ -40,6 +40,7 @@ func (qb *sceneMarkerFilterHandler) criterionHandler() criterionHandler {
 		qb.tagIDCriterionHandler(sceneMarkerFilter.TagID),
 		qb.tagsCriterionHandler(sceneMarkerFilter.Tags),
 		qb.sceneTagsCriterionHandler(sceneMarkerFilter.SceneTags),
+		qb.performerSceneTagsWithAttrsCriterionHandler(sceneMarkerFilter.PerformerSceneTagsWithAttrs),
 		qb.performersCriterionHandler(sceneMarkerFilter.Performers),
 		// Performer ethnicity filter mirrors scenes semantics on the marker's scene
 		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
@@ -262,6 +263,84 @@ func (qb *sceneMarkerFilterHandler) criterionHandler() criterionHandler {
 				qb.joinScenes(f)
 			},
 		},
+	}
+}
+
+// performerSceneTagsWithAttrsCriterionHandler for markers: mirrors the scene handler but applies to the marker's scene_id.
+func (qb *sceneMarkerFilterHandler) performerSceneTagsWithAttrsCriterionHandler(input *models.PerformerSceneTagsWithAttrsCriterionInput) criterionHandlerFunc {
+	return func(ctx context.Context, f *filterBuilder) {
+		if input == nil || len(input.Groups) == 0 {
+			return
+		}
+
+		expandEthnicity := func(s string) []string {
+			v := strings.TrimSpace(s)
+			if v == "" {
+				return nil
+			}
+			out := []string{v}
+			if strings.EqualFold(v, "Black") {
+				out = append(out, "Mixed", "Afrolatino")
+			}
+			if strings.EqualFold(v, "White") {
+				out = append(out, "Mixed")
+			}
+			if strings.EqualFold(v, "Latino") {
+				out = append(out, "Afrolatino")
+			}
+			return out
+		}
+
+		groupClauses := make([]string, 0, len(input.Groups))
+		allArgs := make([]interface{}, 0)
+		for _, g := range input.Groups {
+			where := []string{"scene_pst_group.tag_id = ?"}
+			args := []interface{}{g.TagID}
+
+			if g.PerformerCountry != nil && strings.TrimSpace(*g.PerformerCountry) != "" {
+				where = append(where, "p_group.country = ?")
+				args = append(args, strings.TrimSpace(*g.PerformerCountry))
+			}
+
+			if g.PerformerEthnicity != nil && strings.TrimSpace(*g.PerformerEthnicity) != "" {
+				exp := expandEthnicity(*g.PerformerEthnicity)
+				if len(exp) > 0 {
+					ph := strings.Repeat("?,", len(exp))
+					ph = ph[:len(ph)-1]
+					where = append(where, fmt.Sprintf("p_group.ethnicity IN (%s)", ph))
+					for _, v := range exp {
+						args = append(args, v)
+					}
+				}
+			}
+
+			if g.PerformerRating != nil {
+				w, wargs := getIntWhereClause("p_group.rating", g.PerformerRating.Modifier, g.PerformerRating.Value, g.PerformerRating.Value2)
+				where = append(where, w)
+				args = append(args, wargs...)
+			}
+
+			clause := fmt.Sprintf("EXISTS (SELECT 1 FROM performer_scene_tags scene_pst_group JOIN performers p_group ON p_group.id = scene_pst_group.performer_id WHERE scene_pst_group.scene_id = scene_markers.scene_id AND %s)", strings.Join(where, " AND "))
+			groupClauses = append(groupClauses, clause)
+			allArgs = append(allArgs, args...)
+		}
+
+		matchAny := input.MatchAny != nil && *input.MatchAny
+		if matchAny {
+			grouped := make([]string, len(groupClauses))
+			for i, c := range groupClauses {
+				grouped[i] = fmt.Sprintf("(%s)", c)
+			}
+			f.addWhere(strings.Join(grouped, " OR "), allArgs...)
+		} else {
+			argIdx := 0
+			for gi := range input.Groups {
+				clause := groupClauses[gi]
+				phCount := strings.Count(clause, "?")
+				f.addWhere(clause, allArgs[argIdx:argIdx+phCount]...)
+				argIdx += phCount
+			}
+		}
 	}
 }
 

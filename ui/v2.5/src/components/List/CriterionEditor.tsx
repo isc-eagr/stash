@@ -45,8 +45,10 @@ import { StudiosCriterion } from "src/models/list-filter/criteria/studios";
 import StudiosFilter from "./Filters/StudiosFilter";
 import { TagsCriterion } from "src/models/list-filter/criteria/tags";
 import { SceneMarkerTagsCriterion } from "src/models/list-filter/criteria/tags";
+import { PerformerSceneTagsWithAttrsCriterion } from "src/models/list-filter/criteria/performer-scene-tags-with-attrs";
 import TagsFilter from "./Filters/TagsFilter";
 import SceneMarkerTagsFilter from "./Filters/SceneMarkerTagsFilter";
+import PerformerSceneTagsWithAttrsFilter from "./Filters/PerformerSceneTagsWithAttrsFilter";
 import { PhashCriterion } from "src/models/list-filter/criteria/phash";
 import { PhashFilter } from "./Filters/PhashFilter";
 import { PathCriterion } from "src/models/list-filter/criteria/path";
@@ -208,7 +210,7 @@ const GenericCriterionEditor: React.FC<IGenericCriterionEditor> = ({
       return (
         <DurationFilter criterion={criterion} onValueChanged={onValueChanged} />
       );
-    }
+  }
     if (criterion instanceof DateCriterion) {
       return (
         <DateFilter criterion={criterion} onValueChanged={onValueChanged} />
@@ -329,6 +331,17 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
           criterion={criterion}
           setCriterion={setCriterion}
         />
+      );
+    }
+
+    if (criterion instanceof PerformerSceneTagsWithAttrsCriterion) {
+      return (
+        <div>
+          <PerformerSceneTagsWithAttrsFilter
+            criterion={criterion}
+            setCriterion={(nc: PerformerSceneTagsWithAttrsCriterion) => setCriterion(nc)}
+          />
+        </div>
       );
     }
 

@@ -3,7 +3,9 @@
         "anonymise": "Anonymize",
         "download_anonymised": "Download anonymized",
         "customise": "Customize",
-        "optimise_database": "Optimize Database"
+        "optimise_database": "Optimize Database",
+        "add_group": "Add group",
+        "clear": "Clear"
     },
     "config": {
         "tools": {
@@ -28,5 +30,12 @@
             "mark_organized_label": "Mark as Organized on save"
         }
     },
-    "performer_scene_tags": "Performer Scene Tags"
+    "performer_scene_tags": "Performer Scene Tags",
+    "performer_scene_tags_with_attrs": "Performer Scene Tags + Attributes",
+    "performer_country": "Performer Country",
+    "performer_ethnicity": "Performer Ethnicity",
+    "performer_rating": "Performer Rating",
+    "filters": {
+        "group": "Group"
+    }
 }

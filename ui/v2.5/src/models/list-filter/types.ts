@@ -137,6 +137,7 @@ export type CriterionType =
   | "performer_tags"
   | "performer_scene_tags"
   | "performer_scene_tag_pair"
+  | "performer_scene_tags_with_attrs"
   | "studio_tags"
   | "tag_count"
   | "performers"

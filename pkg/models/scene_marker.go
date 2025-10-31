@@ -15,6 +15,8 @@ type SceneMarkerFilterType struct {
 	PerformerEthnicity *StringCriterionInput `json:"performer_ethnicity"`
 	// Filter to only include scene markers by performer country
 	PerformerCountry *StringCriterionInput `json:"performer_country"`
+	// Filter by performer scene tag with optional performer attributes per group (applied to the marker's scene)
+	PerformerSceneTagsWithAttrs *PerformerSceneTagsWithAttrsCriterionInput `json:"performer_scene_tags_with_attrs"`
 	// When true, all linked performers must satisfy the performer_rating condition; when false, at least one performer must satisfy it (default: true)
 	PerformerRatingAll *bool `json:"performer_rating_all"`
 	// Filter to only include scene markers from these scenes
