@@ -204,9 +204,24 @@ export const TagList: React.FC<ITagList> = ({ filterHook, alterQuery, sceneCount
       }
 
         if (filter.displayMode === DisplayMode.Grid) {
+        const tagsForGrid = (() => {
+          const arr = [...(result.data.findTags.tags ?? [])];
+          // For performer Scene Tags tab, sort by scene_count desc, then name
+          if (performerId) {
+            arr.sort((a, b) => {
+              const ca = a.scene_count ?? 0;
+              const cb = b.scene_count ?? 0;
+              if (cb !== ca) return cb - ca;
+              return (a.name ?? "").localeCompare(b.name ?? "", undefined, {
+                sensitivity: "base",
+              });
+            });
+          }
+          return arr;
+        })();
         return (
             <TagCardGrid
-            tags={result.data.findTags.tags}
+            tags={tagsForGrid}
             zoomIndex={filter.zoomIndex}
             selectedIds={selectedIds}
             onSelectChange={onSelectChange}
@@ -217,6 +232,20 @@ export const TagList: React.FC<ITagList> = ({ filterHook, alterQuery, sceneCount
         );
       }
       if (filter.displayMode === DisplayMode.List) {
+        const tagsForList = (() => {
+          const arr = [...(result.data.findTags.tags ?? [])];
+          if (performerId) {
+            arr.sort((a, b) => {
+              const ca = a.scene_count ?? 0;
+              const cb = b.scene_count ?? 0;
+              if (cb !== ca) return cb - ca;
+              return (a.name ?? "").localeCompare(b.name ?? "", undefined, {
+                sensitivity: "base",
+              });
+            });
+          }
+          return arr;
+        })();
         const deleteAlert = (
           <ModalComponent
             onHide={() => {}}
@@ -238,7 +267,7 @@ export const TagList: React.FC<ITagList> = ({ filterHook, alterQuery, sceneCount
           </ModalComponent>
         );
 
-        const tagElements = result.data.findTags.tags.map((tag) => {
+        const tagElements = tagsForList.map((tag) => {
           return (
             <div key={tag.id} className="tag-list-row row">
               <Link to={`/tags/${tag.id}`}>{tag.name}</Link>

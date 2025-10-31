@@ -83,7 +83,7 @@ export class SceneMarkerTagsCriterion extends Criterion {
   public groups: ILabeledId[][] = [];
   // flat items used when modifier = INCLUDES / INCLUDES_ALL
   public items: ILabeledId[] = [];
-  public modifier: CriterionModifier = CriterionModifier.IncludesAll;
+  public modifier: CriterionModifier = CriterionModifier.Equals;
 
   constructor(option: CriterionOption) {
     super(option);
@@ -230,7 +230,7 @@ export const SceneMarkerTagsCriterionOption = new ModifierCriterionOption({
     CriterionModifier.IncludesAll,
     CriterionModifier.Includes,
   ],
-  defaultModifier: CriterionModifier.IncludesAll,
+  defaultModifier: CriterionModifier.Equals,
   inputType: "scene_tags", // custom UI component will be selected by instance type in editor
   makeCriterion: (o) => new SceneMarkerTagsCriterion(o),
 });

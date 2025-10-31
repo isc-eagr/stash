@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { gql, useQuery } from "@apollo/client";
 import { Link, useParams } from "react-router-dom";
 import { useIntl } from "react-intl";
 import * as GQL from "src/core/generated-graphql";
@@ -10,7 +11,7 @@ import { SweatDrops } from "../Shared/SweatDrops";
 import { HoverPopover } from "../Shared/HoverPopover";
 import { Icon } from "../Shared/Icon";
 import { TagLink } from "../Shared/TagLink";
-import { Button, ButtonGroup, Modal, Badge } from "react-bootstrap";
+import { Button, ButtonGroup, Modal, Badge, OverlayTrigger, Tooltip } from "react-bootstrap";
 import {
   ModifierCriterion,
   CriterionValue,
@@ -153,6 +154,20 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Popovers",
   ({ performer, extraCriteria }) => {
     const [showTagModal, setShowTagModal] = useState(false);
+    // Fetch performer scene tags count (same logic used by the Scene Tags tab badge)
+    const { data: sceneTagsTabData } = GQL.useFindTagsQuery({
+      variables: {
+        tag_filter: {
+          performer_scene_tags: {
+            modifier: GQL.CriterionModifier.IncludesAll,
+            value: [performer.id],
+          },
+        },
+        // we only need the count for the badge
+        filter: { per_page: 1 },
+      },
+    });
+    const performerSceneTagsCount = sceneTagsTabData?.findTags?.count ?? 0;
     function maybeRenderEditButton() {
       // Only show the scene-tags edit button on Scene pages. We detect this
       // by the presence of the `scene_tags` field on the performer fragment
@@ -169,10 +184,23 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
 
       const editButton = (
         <div>
-          <Button className="minimal edit-tags" onClick={() => setShowTagModal(true)} aria-label={`Edit tags for ${performer.name ?? performer.id}`}>
-            <Icon icon={faTag} />
-            {sceneTags && sceneTags.length > 0 ? <span>{sceneTagCount}</span> : null}
-          </Button>
+          <OverlayTrigger
+            placement="bottom"
+            overlay={
+              <Tooltip id={`tt-edit-tags-${performer.id}`}>
+                Edit Performer Scene Tags
+              </Tooltip>
+            }
+          >
+            <Button
+              className="minimal edit-tags"
+              onClick={() => setShowTagModal(true)}
+              aria-label={`Edit tags for ${performer.name ?? performer.id}`}
+            >
+              <Icon icon={faTag} />
+              {sceneTags && sceneTags.length > 0 ? <span>{sceneTagCount}</span> : null}
+            </Button>
+          </OverlayTrigger>
         </div>
       );
 
@@ -278,6 +306,32 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
       );
     }
 
+    // On the Performers page (no scene_tags field), show a green tag button that navigates
+    // to the performer's Scene Tags tab at /performers/<id>/scenetags
+    function maybeRenderEditNavButton() {
+      const hasSceneTagsField = Object.prototype.hasOwnProperty.call(
+        performer as Record<string, unknown>,
+        "scene_tags"
+      );
+      if (hasSceneTagsField) return null;
+      // Don't render the green button if there are no scene tags
+      if (performerSceneTagsCount <= 0) return null;
+
+      return (
+        <div>
+          <Link
+            to={`/performers/${performer.id}/scenetags`}
+            className="btn minimal edit-tags"
+            aria-label={`Edit scene tags for ${performer.name ?? performer.id}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Icon icon={faTag} />
+            <span>{performerSceneTagsCount}</span>
+          </Link>
+        </div>
+      );
+    }
+
     function maybeRenderGroupsPopoverButton() {
       if (!performer.group_count) return;
 
@@ -316,6 +370,7 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
             {maybeRenderImagesPopoverButton()}
             {maybeRenderGalleriesPopoverButton()}
             {maybeRenderOCounter()}
+            {maybeRenderEditNavButton()}
           </ButtonGroup>
           <Modal
             show={showTagModal}
@@ -340,6 +395,7 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
         <hr />
         <ButtonGroup className="card-popovers">
           {maybeRenderEditButton && maybeRenderEditButton()}
+          {maybeRenderEditNavButton()}
         </ButtonGroup>
       </>
     );
@@ -431,9 +487,27 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
       performer as Record<string, unknown>,
       "scene_tags"
     );
-    const sceneTags: TagRef[] = hasSceneTagsField
-      ? ((performer as unknown as { scene_tags?: TagRef[] }).scene_tags ?? [])
-      : [];
+    const { data: globalSceneTagsData } = GQL.useFindTagsQuery({
+      variables: {
+        tag_filter: {
+          performer_scene_tags: {
+            modifier: GQL.CriterionModifier.IncludesAll,
+            value: [performer.id],
+          },
+        },
+        filter: { per_page: 100 },
+      },
+      skip: hasSceneTagsField, // skip when the scene-specific field is already present
+    });
+
+    const globalSceneTags: TagRef[] = ((globalSceneTagsData?.findTags?.tags ?? []) as { id: string; name?: string | null }[])
+      .map((t) => ({ id: t.id, name: t.name }));
+
+    const sceneTags: TagRef[] = useMemo(() => {
+      return hasSceneTagsField
+        ? ((performer as unknown as { scene_tags?: TagRef[] }).scene_tags ?? [])
+        : globalSceneTags;
+    }, [hasSceneTagsField, globalSceneTags, performer]);
 
     const uppercaseFirstComparator = (aName: string, bName: string) => {
       const aN = aName ?? "";
@@ -456,13 +530,65 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
       return aN.localeCompare(bN);
     };
 
-    const sortedSceneTags = [...sceneTags].sort((a, b) =>
-      uppercaseFirstComparator(a.name ?? "", b.name ?? "")
-    );
+    // Query counts of performer_scene_tags per tag for this performer, limited to the
+    // tags we actually render in the strip/tooltip. We then sort by count desc.
+    // Hoist the document to avoid re-creation per render.
+    const PERFORMER_TAG_SCENE_COUNTS = gql`
+      query PerformerTagSceneCounts($performer_id: ID!, $tag_ids: [ID!]!) {
+        performerTagSceneCounts(performer_id: $performer_id, tag_ids: $tag_ids) {
+          tag_id
+          count
+        }
+      }
+    `;
+
+    const tagIds = useMemo(() => sceneTags.map((t) => t.id), [sceneTags]);
+    const { data: tagCountData } = useQuery(PERFORMER_TAG_SCENE_COUNTS, {
+      variables: { performer_id: performer.id, tag_ids: tagIds },
+      // Always fetch counts when there are tags; we'll use them for display even on /scenes
+      skip: tagIds.length === 0,
+      fetchPolicy: "cache-first",
+    });
+
+    const countByTagId: Record<string, number> = useMemo(() => {
+      const m: Record<string, number> = {};
+      const rows = tagCountData?.performerTagSceneCounts ?? [];
+      for (const r of rows as Array<{ tag_id: string; count: number }>) {
+        m[r.tag_id] = r.count ?? 0;
+      }
+      return m;
+    }, [tagCountData]);
+
+    const sortedSceneTags = useMemo(() => {
+      if (hasSceneTagsField) {
+        // On /scenes, revert to alphabetical sorting (no frequency-based order)
+        return [...sceneTags].sort((a, b) =>
+          uppercaseFirstComparator(a.name ?? "", b.name ?? "")
+        );
+      }
+      // On /performers (global), keep frequency-based sorting
+      return [...sceneTags].sort((a, b) => {
+        const ca = countByTagId[a.id] ?? 0;
+        const cb = countByTagId[b.id] ?? 0;
+        if (cb !== ca) return cb - ca;
+        return uppercaseFirstComparator(a.name ?? "", b.name ?? "");
+      });
+    }, [hasSceneTagsField, sceneTags, countByTagId]);
 
     const tooltipContent = sortedSceneTags.map((tag) => (
       <Badge key={tag.id} className="tag-item" variant="secondary">
-        <span>{tag.name}</span>
+        <Link
+          to={NavUtils.makeTagScenesUrl(
+            { id: tag.id, name: tag.name ?? undefined },
+            { id: performer.id, name: performer.name ?? undefined }
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {tag.name}
+          {typeof countByTagId[tag.id] === "number" && countByTagId[tag.id] > 0
+            ? ` (${countByTagId[tag.id]})`
+            : ""}
+        </Link>
       </Badge>
     ));
 
@@ -474,9 +600,9 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
         </div>
 
         {/* Scene tag strip under age; always shows tooltip with full list */}
-        <HoverPopover placement="bottom" content={tooltipContent}>
+        <HoverPopover placement="top" content={tooltipContent}>
           <div className="performer-card__scene-tags mt-1">
-            {hasSceneTagsField && sortedSceneTags.length > 0
+            {sortedSceneTags.length > 0
               ? sortedSceneTags.map((tag) => (
                   <Badge
                     key={tag.id}
@@ -488,8 +614,12 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
                         { id: tag.id, name: tag.name ?? undefined },
                         { id: performer.id, name: performer.name ?? undefined }
                       )}
+                      onClick={(e) => e.stopPropagation()}
                     >
                       {tag.name}
+                      {typeof countByTagId[tag.id] === "number" && countByTagId[tag.id] > 0
+                        ? ` (${countByTagId[tag.id]})`
+                        : ""}
                     </Link>
                   </Badge>
                 ))
