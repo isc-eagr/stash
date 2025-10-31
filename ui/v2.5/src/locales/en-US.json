@@ -35,6 +35,7 @@
     "performer_country": "Performer Country",
     "performer_ethnicity": "Performer Ethnicity",
     "performer_rating": "Performer Rating",
+    "has_performer_scene_tags": "Has Performer Scene Tags",
     "filters": {
         "group": "Group"
     }

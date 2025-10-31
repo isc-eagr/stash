@@ -431,6 +431,11 @@ func (qb *PerformerStore) Destroy(ctx context.Context, id int) error {
 		return err
 	}
 
+	// Ensure any scene-scoped performer tags are removed to avoid orphaned rows
+	if _, err := dbWrapper.Exec(ctx, "DELETE FROM performer_scene_tags WHERE performer_id = ?", id); err != nil {
+		return err
+	}
+
 	return performerRepository.destroyExisting(ctx, []int{id})
 }
 

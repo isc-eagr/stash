@@ -639,6 +639,8 @@ input TagFilterType {
 
   "Filter by number of performers with this tag"
   performer_count: IntCriterionInput
+  "Filter tags that have any performer_scene_tags entries (true) or none (false)"
+  has_performer_scene_tags: Boolean
 
   "Filter by number of studios with this tag"
   studio_count: IntCriterionInput

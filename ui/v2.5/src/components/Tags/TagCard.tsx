@@ -46,7 +46,8 @@ function usePerformerSceneTagPerformerCount(tagId?: string) {
         performer_scene_tags: {
           value: tagId ? [tagId] : [],
           modifier: GQL.CriterionModifier.Includes,
-          depth: -1,
+          // Only count performers that have this exact tag (no parent/child roll-up)
+          depth: 0,
         },
       },
     },

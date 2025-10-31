@@ -176,6 +176,7 @@ export type CriterionType =
   | "performer_count"
   | "studio_count"
   | "group_count"
+  | "has_performer_scene_tags"
   | "death_year"
   | "url"
   | "interactive"

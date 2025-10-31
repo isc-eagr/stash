@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from "react";
-import { Button, ButtonGroup, OverlayTrigger, Tooltip } from "react-bootstrap";
+import { Button, ButtonGroup, OverlayTrigger, Tooltip, Badge } from "react-bootstrap";
 import { useHistory } from "react-router-dom";
 import cx from "classnames";
 import * as GQL from "src/core/generated-graphql";
@@ -216,6 +216,86 @@ const SceneCardPopovers = PatchComponent(
       );
     }
 
+    // Green PST (performer_scene_tags) button: shows all tags present on this scene via performer_scene_tags
+    function maybeRenderPerformerSceneTagsPopoverButton() {
+      // Use existing FindScene query hook which includes performers.scene_tags(scene_id: $id)
+      const { data } = GQL.useFindSceneQuery({
+        variables: { id: props.scene.id },
+        fetchPolicy: "cache-first",
+      });
+
+      // Aggregate unique tags across all performers for this scene
+      const { tags, counts } = useMemo(() => {
+        const uppercaseFirstComparator = (aName: string, bName: string) => {
+          const aN = aName ?? "";
+          const bN = bName ?? "";
+          const isAUpper = !!(
+            aN[0] && aN[0] !== aN[0].toLowerCase() && aN[0] === aN[0].toUpperCase()
+          );
+          const isBUpper = !!(
+            bN[0] && bN[0] !== bN[0].toLowerCase() && bN[0] === bN[0].toUpperCase()
+          );
+          if (isAUpper !== isBUpper) return isAUpper ? -1 : 1;
+          const lowerCmp = aN
+            .toLowerCase()
+            .localeCompare(bN.toLowerCase(), undefined, { sensitivity: "base" });
+          if (lowerCmp !== 0) return lowerCmp;
+          return aN.localeCompare(bN);
+        };
+
+        const m = new Map<string, { id: string; name: string }>();
+        const countMap = new Map<string, number>();
+        const performers = data?.findScene?.performers ?? [];
+        for (const p of performers) {
+          const t = (p as any).scene_tags as Array<{ id: string; name: string }> | undefined;
+          if (!t) continue;
+          for (const tag of t) {
+            if (tag?.id && !m.has(tag.id)) {
+              m.set(tag.id, { id: tag.id, name: tag.name });
+            }
+            if (tag?.id) {
+              countMap.set(tag.id, (countMap.get(tag.id) ?? 0) + 1);
+            }
+          }
+        }
+        // alphabetic with uppercase-first ordering
+        const sorted = Array.from(m.values()).sort((a, b) =>
+          uppercaseFirstComparator(a.name ?? "", b.name ?? "")
+        );
+        return { tags: sorted, counts: countMap };
+      }, [data]);
+
+  if (!tags || tags.length === 0) return;
+
+      const popoverContent = (
+        <div className="tag-tooltip">
+          {tags.map((t) => {
+            const c = counts.get(t.id) ?? 0;
+            return (
+              <Badge key={t.id} className="tag-item" variant="secondary">
+                {t.name}
+                {c > 0 ? ` (${c})` : ""}
+              </Badge>
+            );
+          })}
+        </div>
+      );
+
+      return (
+        <HoverPopover
+          className="tag-count performer-green"
+          placement="top"
+          content={popoverContent}
+        >
+          {/* Non-linking green tag button with count */}
+          <Button className="minimal performer-green">
+            <Icon icon={faTag} />
+            <span>{tags.length}</span>
+          </Button>
+        </HoverPopover>
+      );
+    }
+
     function maybeRenderOCounter() {
       if (props.scene.o_counter) {
         return (
@@ -310,6 +390,7 @@ const SceneCardPopovers = PatchComponent(
               {maybeRenderGroupPopoverButton()}
               {maybeRenderSceneMarkerPopoverButton()}
               {maybeRenderOCounter()}
+              {maybeRenderPerformerSceneTagsPopoverButton()}
               {maybeRenderGallery()}
               {maybeRenderOrganized()}
               {maybeRenderDupeCopies()}

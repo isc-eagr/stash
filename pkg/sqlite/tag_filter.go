@@ -74,6 +74,7 @@ func (qb *tagFilterHandler) criterionHandler() criterionHandler {
 		qb.imageCountCriterionHandler(tagFilter.ImageCount),
 		qb.galleryCountCriterionHandler(tagFilter.GalleryCount),
 		qb.performerCountCriterionHandler(tagFilter.PerformerCount),
+		qb.hasPerformerSceneTagsCriterionHandler(tagFilter.HasPerformerSceneTags),
 		qb.studioCountCriterionHandler(tagFilter.StudioCount),
 
 		qb.groupCountCriterionHandler(tagFilter.GroupCount),
@@ -220,6 +221,25 @@ func (qb *tagFilterHandler) markerCountCriterionHandler(markerCount *models.IntC
 			clause, args := getIntCriterionWhereClause("count(distinct scene_markers.id)", *markerCount)
 
 			f.addHaving(clause, args...)
+		}
+	}
+}
+
+// hasPerformerSceneTagsCriterionHandler filters tags based on whether there are any entries in
+// performer_scene_tags for the tag (true) or none (false).
+func (qb *tagFilterHandler) hasPerformerSceneTagsCriterionHandler(flag *bool) criterionHandlerFunc {
+	return func(ctx context.Context, f *filterBuilder) {
+		if flag == nil {
+			return
+		}
+		// join the mapping table
+		f.addLeftJoin("performer_scene_tags", "", "performer_scene_tags.tag_id = tags.id")
+		if *flag {
+			// at least one mapping exists
+			f.addHaving("count(distinct performer_scene_tags.performer_id) > 0")
+		} else {
+			// no mappings exist
+			f.addHaving("count(distinct performer_scene_tags.performer_id) = 0")
 		}
 	}
 }
