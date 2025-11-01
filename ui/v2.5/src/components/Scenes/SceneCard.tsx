@@ -218,10 +218,15 @@ const SceneCardPopovers = PatchComponent(
 
     // Green PST (performer_scene_tags) button: shows all tags present on this scene via performer_scene_tags
     function maybeRenderPerformerSceneTagsPopoverButton() {
+      // Only query if scene has performers (otherwise this button won't render anyway)
+      const hasPerformers = props.scene.performers.length > 0;
+      
       // Use existing FindScene query hook which includes performers.scene_tags(scene_id: $id)
+      // Skip the query if there are no performers to avoid unnecessary queries
       const { data } = GQL.useFindSceneQuery({
         variables: { id: props.scene.id },
         fetchPolicy: "cache-first",
+        skip: !hasPerformers,
       });
 
       // Aggregate unique tags across all performers for this scene

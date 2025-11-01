@@ -7,7 +7,7 @@ import { TagSelect, Tag } from "./Tags/TagSelect";
 import { Icon } from "./Shared/Icon";
 import { faPlus, faTrash, faEdit, faSave, faTimes } from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
-import { useConfigureUISetting } from "src/core/StashService";
+import { useConfigureUISetting, useStats } from "src/core/StashService";
 import { ConfigurationContext } from "src/hooks/Config";
 
 interface ProgressTracker {
@@ -23,6 +23,7 @@ const UI_KEY = "taskProgressTrackers";
 const TaskProgress: React.FC = () => {
   const { configuration } = React.useContext(ConfigurationContext);
   const [saveUISetting] = useConfigureUISetting();
+  const { data: statsData, loading: statsLoading } = useStats();
   
   const [trackers, setTrackers] = useState<ProgressTracker[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -33,6 +34,7 @@ const TaskProgress: React.FC = () => {
     tagName: "",
   });
   const [sceneCounts, setSceneCounts] = useState<Record<string, number>>({});
+  const [organizedCount, setOrganizedCount] = useState<number>(0);
 
   // Load trackers from UI config on mount
   useEffect(() => {
@@ -62,6 +64,32 @@ const TaskProgress: React.FC = () => {
   const [fetchSceneCount] = useLazyQuery(GQL.FindScenesDocument, {
     fetchPolicy: "network-only",
   });
+
+  // Fetch organized scenes count
+  const [fetchOrganizedScenes] = useLazyQuery(GQL.FindScenesDocument, {
+    fetchPolicy: "network-only",
+  });
+
+  // Fetch organized scenes count on mount and when needed
+  useEffect(() => {
+    const fetchOrganized = async () => {
+      try {
+        const { data } = await fetchOrganizedScenes({
+          variables: {
+            scene_filter: {
+              organized: true,
+            },
+          },
+        });
+        setOrganizedCount(data?.findScenes?.count ?? 0);
+      } catch (e) {
+        console.error("Failed to fetch organized scenes count:", e);
+        setOrganizedCount(0);
+      }
+    };
+
+    fetchOrganized();
+  }, [fetchOrganizedScenes]);
 
   // Fetch scene counts for all trackers
   useEffect(() => {
@@ -151,6 +179,47 @@ const TaskProgress: React.FC = () => {
         <h2 className="mb-4">
           <FormattedMessage id="task_progress" defaultMessage="Task Progress" />
         </h2>
+
+        {/* Overall Progress - Fixed tracker */}
+        {!statsLoading && statsData && (
+          <Card className="mb-4" style={{ maxWidth: '600px' }}>
+            <Card.Body className="p-3">
+              <h6 className="mb-2">Overall Progress</h6>
+              <div className="mb-2">
+                <div className="d-flex justify-content-between mb-1">
+                  <span>
+                    <FormattedNumber value={organizedCount} /> organized /{" "}
+                    <FormattedNumber value={statsData.stats.scene_count} />{" "}
+                    total scenes
+                  </span>
+                  <span>
+                    <FormattedNumber
+                      value={statsData.stats.scene_count > 0 
+                        ? (organizedCount / statsData.stats.scene_count) * 100 
+                        : 0}
+                      maximumFractionDigits={1}
+                    />
+                    %
+                  </span>
+                </div>
+                <ProgressBar
+                  now={statsData.stats.scene_count > 0 
+                    ? (organizedCount / statsData.stats.scene_count) * 100 
+                    : 0}
+                  variant={
+                    organizedCount === statsData.stats.scene_count
+                      ? "success"
+                      : (organizedCount / statsData.stats.scene_count) * 100 >= 75
+                      ? "info"
+                      : (organizedCount / statsData.stats.scene_count) * 100 >= 50
+                      ? "warning"
+                      : "danger"
+                  }
+                />
+              </div>
+            </Card.Body>
+          </Card>
+        )}
 
         {/* Add new tracker form - compact version */}
         <Card className="mb-4" style={{ maxWidth: '600px', overflow: 'visible' }}>
