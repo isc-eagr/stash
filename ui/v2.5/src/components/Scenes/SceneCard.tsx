@@ -541,6 +541,21 @@ export const SceneCard = PatchComponent(
       return "";
     }
 
+    function getRatingClass() {
+      // Exclude home page from rating effects
+      const isHomePage =
+        window.location.pathname === "/" ||
+        window.location.pathname === "/frontpage";
+      if (isHomePage) return "";
+
+      const rating = props.scene.rating100;
+      // 5 stars = 100, 4 stars = 80, 3 stars = 60
+      if (rating === 100) return "rating-5-stars";
+      if (rating === 80) return "rating-4-stars";
+      if (rating === 60) return "rating-3-stars";
+      return "";
+    }
+
     const cont = configuration?.interface.continuePlaylistDefault ?? false;
 
     const sceneLink = props.queue
@@ -552,7 +567,7 @@ export const SceneCard = PatchComponent(
 
     return (
       <GridCard
-        className={`scene-card ${zoomIndex()} ${filelessClass()}`}
+        className={`scene-card ${zoomIndex()} ${filelessClass()} ${getRatingClass()}`}
         url={sceneLink}
         title={objectTitle(props.scene)}
         width={props.width}

@@ -305,6 +305,119 @@ textarea.scene-description {
   }
 }
 
+/* ===== ANIMATION OPTIONS FOR METALLIC SCENE CARDS ===== */
+/* Use the same keyframe animations defined in Performers/styles.scss */
+
+/* Metallic rating effects for scene cards */
+/* OPTION 2: Shimmer Effect (ACTIVE) */
+.scene-card.rating-5-stars {
+  box-sizing: border-box;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 215, 0, 0.30) 0%,
+    rgba(255, 215, 0, 0.45) 25%,
+    rgba(255, 237, 78, 0.60) 50%,
+    rgba(255, 215, 0, 0.45) 75%,
+    rgba(255, 215, 0, 0.30) 100%
+  );
+  background-size: 200% 200%;
+  border: 3px solid #d4af37;
+  box-shadow:
+    0 0 12px rgba(212, 175, 55, 0.3),
+    0 2px 8px rgba(212, 175, 55, 0.2),
+    inset 0 2px 0 rgba(255, 237, 78, 0.4),
+    inset 0 -2px 0 rgba(184, 134, 11, 0.4);
+  transition: all 0.3s ease;
+  animation: metallic-shimmer 4s linear infinite alternate;
+
+  &:hover {
+    background: linear-gradient(
+      180deg,
+      rgba(255, 215, 0, 0.3) 0%,
+      rgba(255, 215, 0, 0.2) 50%,
+      rgba(255, 215, 0, 0.23) 100%
+    );
+    box-shadow:
+      0 0 15px rgba(212, 175, 55, 0.4),
+      0 2px 10px rgba(212, 175, 55, 0.3);
+    border-color: #e6c459;
+    transform: translateY(-2px);
+    animation: none;
+  }
+}
+
+.scene-card.rating-4-stars {
+  box-sizing: border-box;
+  background: linear-gradient(
+    135deg,
+    rgba(200, 200, 200, 0.40) 0%,
+    rgba(220, 220, 220, 0.55) 25%,
+    rgba(240, 240, 240, 0.70) 50%,
+    rgba(220, 220, 220, 0.55) 75%,
+    rgba(200, 200, 200, 0.40) 100%
+  );
+  background-size: 200% 200%;
+  border: 3px solid #b8b8b8;
+  box-shadow:
+    0 0 14px rgba(192, 192, 192, 0.45),
+    0 2px 8px rgba(192, 192, 192, 0.3),
+    inset 0 2px 0 rgba(240, 240, 240, 0.5),
+    inset 0 -2px 0 rgba(140, 140, 140, 0.5);
+  transition: all 0.3s ease;
+  animation: metallic-shimmer 4s linear infinite alternate;
+
+  &:hover {
+    background: linear-gradient(
+      180deg,
+      rgba(230, 230, 230, 0.4) 0%,
+      rgba(210, 210, 210, 0.3) 50%,
+      rgba(220, 220, 220, 0.33) 100%
+    );
+    box-shadow:
+      0 0 18px rgba(192, 192, 192, 0.55),
+      0 2px 10px rgba(192, 192, 192, 0.4);
+    border-color: #d0d0d0;
+    transform: translateY(-2px);
+    animation: none;
+  }
+}
+
+.scene-card.rating-3-stars {
+  box-sizing: border-box;
+  background: linear-gradient(
+    135deg,
+    rgba(205, 127, 50, 0.30) 0%,
+    rgba(205, 127, 50, 0.45) 25%,
+    rgba(230, 150, 80, 0.60) 50%,
+    rgba(205, 127, 50, 0.45) 75%,
+    rgba(205, 127, 50, 0.30) 100%
+  );
+  background-size: 200% 200%;
+  border: 3px solid #b87333;
+  box-shadow:
+    0 0 12px rgba(184, 115, 51, 0.3),
+    0 2px 8px rgba(184, 115, 51, 0.2),
+    inset 0 2px 0 rgba(230, 150, 80, 0.4),
+    inset 0 -2px 0 rgba(140, 90, 40, 0.4);
+  transition: all 0.3s ease;
+  animation: metallic-shimmer 4s linear infinite alternate;
+
+  &:hover {
+    background: linear-gradient(
+      180deg,
+      rgba(205, 127, 50, 0.3) 0%,
+      rgba(205, 127, 50, 0.2) 50%,
+      rgba(205, 127, 50, 0.23) 100%
+    );
+    box-shadow:
+      0 0 15px rgba(184, 115, 51, 0.4),
+      0 2px 10px rgba(184, 115, 51, 0.3);
+    border-color: #cd7f32;
+    transform: translateY(-2px);
+    animation: none;
+  }
+}
+
 .scene-cover {
   display: block;
   margin-bottom: 10px;

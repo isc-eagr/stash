@@ -750,26 +750,37 @@ export const PerformerCard: React.FC<IPerformerCardProps> = PatchComponent(
       zoomIndex,
     } = props;
 
+    // Determine rating class for special styling
+    // Only apply on non-home pages (exclude /scenes, /images, /galleries, etc. when viewed from home)
+    const getRatingClass = () => {
+      // Check if we're on the home page by looking at the current location
+      const isHomePage = window.location.pathname === '/' || window.location.pathname === '/frontpage';
+      
+      if (isHomePage || !performer.rating100) return "";
+      // 5 stars = 100, 4 stars = 80, 3 stars = 60
+      if (performer.rating100 === 100) return "rating-5-stars";
+      if (performer.rating100 === 80) return "rating-4-stars";
+      if (performer.rating100 === 60) return "rating-3-stars";
+      return "";
+    };
+
     return (
-      <div className={`performer-card-wrapper`}>
-        <GridCard
-          className={`performer-card zoom-${zoomIndex}`}
-          url={`/performers/${performer.id}`}
-          width={cardWidth}
-          pretitleIcon={
-            <GenderIcon className="gender-icon" gender={performer.gender} />
-          }
-          title={<PerformerCardTitle {...props} />}
-          image={<PerformerCardImage {...props} />}
-          overlays={<PerformerCardOverlays {...props} />}
-          details={<PerformerCardDetails {...props} />}
-          popovers={<PerformerCardPopovers {...props} />}
-          selected={selected}
-          selecting={selecting}
-          onSelectedChanged={onSelectedChanged}
-        />
-        {/* PerformerTagEditor is available via the tag-count button which opens a modal */}
-      </div>
+      <GridCard
+        className={`performer-card zoom-${zoomIndex} ${getRatingClass()}`}
+        url={`/performers/${performer.id}`}
+        width={cardWidth}
+        pretitleIcon={
+          <GenderIcon className="gender-icon" gender={performer.gender} />
+        }
+        title={<PerformerCardTitle {...props} />}
+        image={<PerformerCardImage {...props} />}
+        overlays={<PerformerCardOverlays {...props} />}
+        details={<PerformerCardDetails {...props} />}
+        popovers={<PerformerCardPopovers {...props} />}
+        selected={selected}
+        selecting={selecting}
+        onSelectedChanged={onSelectedChanged}
+      />
     );
   }
 );
