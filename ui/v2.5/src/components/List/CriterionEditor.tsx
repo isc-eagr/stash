@@ -12,6 +12,7 @@ import {
   TimestampCriterion,
   BooleanCriterion,
   Criterion,
+  ModifierCriterionOption,
 } from "src/models/list-filter/criteria/criterion";
 import {
   criterionIsHierarchicalLabelValue,
@@ -43,12 +44,11 @@ import { PerformersCriterion } from "src/models/list-filter/criteria/performers"
 import PerformersFilter from "./Filters/PerformersFilter";
 import { StudiosCriterion } from "src/models/list-filter/criteria/studios";
 import StudiosFilter from "./Filters/StudiosFilter";
-import { TagsCriterion } from "src/models/list-filter/criteria/tags";
-import { SceneMarkerTagsCriterion } from "src/models/list-filter/criteria/tags";
+import { TagsCriterion, SceneMarkerTagsCriterion } from "src/models/list-filter/criteria/tags";
 import { PerformerSceneTagsWithAttrsCriterion } from "src/models/list-filter/criteria/performer-scene-tags-with-attrs";
 import TagsFilter from "./Filters/TagsFilter";
-import SceneMarkerTagsFilter from "./Filters/SceneMarkerTagsFilter";
-import PerformerSceneTagsWithAttrsFilter from "./Filters/PerformerSceneTagsWithAttrsFilter";
+import { SceneMarkerTagsFilter } from "./Filters/SceneMarkerTagsFilter";
+import PerformerSceneTagsWithAttrsFilter from "src/components/List/Filters/PerformerSceneTagsWithAttrsFilter";
 import { PhashCriterion } from "src/models/list-filter/criteria/phash";
 import { PhashFilter } from "./Filters/PhashFilter";
 import { PathCriterion } from "src/models/list-filter/criteria/path";
@@ -297,11 +297,11 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
       return (
         <div>
           <ModifierSelectorButtons
-            options={(c.criterionOption as any).modifierOptions}
-            value={c.modifier as unknown as CriterionModifier}
+            options={(c.criterionOption as ModifierCriterionOption).modifierOptions}
+            value={c.modifier}
             onChanged={(m) => {
               const newC = c.clone() as SceneMarkerTagsCriterion;
-              (newC as any).modifier = m;
+              newC.modifier = m;
               setCriterion(newC);
             }}
           />
