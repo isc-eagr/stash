@@ -180,47 +180,6 @@ const TaskProgress: React.FC = () => {
           <FormattedMessage id="task_progress" defaultMessage="Task Progress" />
         </h2>
 
-        {/* Overall Progress - Fixed tracker */}
-        {!statsLoading && statsData && (
-          <Card className="mb-4" style={{ maxWidth: '600px' }}>
-            <Card.Body className="p-3">
-              <h6 className="mb-2">Overall Progress</h6>
-              <div className="mb-2">
-                <div className="d-flex justify-content-between mb-1">
-                  <span>
-                    <FormattedNumber value={organizedCount} /> organized /{" "}
-                    <FormattedNumber value={statsData.stats.scene_count} />{" "}
-                    total scenes
-                  </span>
-                  <span>
-                    <FormattedNumber
-                      value={statsData.stats.scene_count > 0 
-                        ? (organizedCount / statsData.stats.scene_count) * 100 
-                        : 0}
-                      maximumFractionDigits={1}
-                    />
-                    %
-                  </span>
-                </div>
-                <ProgressBar
-                  now={statsData.stats.scene_count > 0 
-                    ? (organizedCount / statsData.stats.scene_count) * 100 
-                    : 0}
-                  variant={
-                    organizedCount === statsData.stats.scene_count
-                      ? "success"
-                      : (organizedCount / statsData.stats.scene_count) * 100 >= 75
-                      ? "info"
-                      : (organizedCount / statsData.stats.scene_count) * 100 >= 50
-                      ? "warning"
-                      : "danger"
-                  }
-                />
-              </div>
-            </Card.Body>
-          </Card>
-        )}
-
         {/* Add new tracker form - compact version */}
         <Card className="mb-4" style={{ maxWidth: '600px', overflow: 'visible' }}>
           <Card.Body className="p-3" style={{ overflow: 'visible' }}>
@@ -292,6 +251,47 @@ const TaskProgress: React.FC = () => {
             </Form>
           </Card.Body>
         </Card>
+
+        {/* Overall Progress - Fixed tracker (moved below Add Progress Tracker) */}
+        {!statsLoading && statsData && (
+          <Card className="mb-4" style={{ maxWidth: '600px' }}>
+            <Card.Body className="p-3">
+              <h6 className="mb-2">Overall Progress</h6>
+              <div className="mb-2">
+                <div className="d-flex justify-content-between mb-1">
+                  <span>
+                    <FormattedNumber value={organizedCount} /> organized /{" "}
+                    <FormattedNumber value={statsData.stats.scene_count} />{" "}
+                    total scenes
+                  </span>
+                  <span>
+                    <FormattedNumber
+                      value={statsData.stats.scene_count > 0 
+                        ? (organizedCount / statsData.stats.scene_count) * 100 
+                        : 0}
+                      maximumFractionDigits={1}
+                    />
+                    %
+                  </span>
+                </div>
+                <ProgressBar
+                  now={statsData.stats.scene_count > 0 
+                    ? (organizedCount / statsData.stats.scene_count) * 100 
+                    : 0}
+                  variant={
+                    organizedCount === statsData.stats.scene_count
+                      ? "success"
+                      : (organizedCount / statsData.stats.scene_count) * 100 >= 75
+                      ? "info"
+                      : (organizedCount / statsData.stats.scene_count) * 100 >= 50
+                      ? "warning"
+                      : "danger"
+                  }
+                />
+              </div>
+            </Card.Body>
+          </Card>
+        )}
 
         {/* Display trackers */}
         {trackers.length === 0 ? (
