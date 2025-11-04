@@ -700,12 +700,15 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
                       onClick={(e) => e.stopPropagation()}
                     >
                       {tag.name}
-                      {/* Reserve fixed width for counts to avoid chip reflow when counts load */}
-                      <span className="tag-count-slot">
-                        {showCounts && typeof countByTagId[tag.id] === "number" && countByTagId[tag.id] > 0
-                          ? ` (${countByTagId[tag.id]})`
-                          : ""}
-                      </span>
+                      {/* In scene context (hasSceneTagsField), do NOT reserve space for counts.
+                          Outside scenes, reserve space to avoid reflow when counts arrive. */}
+                      {!hasSceneTagsField && (
+                        <span className="tag-count-slot">
+                          {showCounts && typeof countByTagId[tag.id] === "number" && countByTagId[tag.id] > 0
+                            ? ` (${countByTagId[tag.id]})`
+                            : ""}
+                        </span>
+                      )}
                     </Link>
                   </Badge>
                 ))
