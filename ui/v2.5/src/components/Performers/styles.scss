@@ -78,7 +78,9 @@
 }
 
 .performer-card {
-  width: 20rem;
+  /* Remove fixed base width to avoid layout jump when JS-calculated width applies.
+     Other grids (scenes, galleries, images) rely on the inline width from GridCard
+     without a CSS default, so align performers with that pattern. */
 
   @media (max-width: 576px) {
     width: 100%;
@@ -115,6 +117,11 @@
       margin-left: 0.4rem;
       margin-right: 0.4rem;
     }
+  }
+
+  /* Reserve space for a two-line title to avoid reflow during font load */
+  .card-section-title {
+    min-height: 2.6rem; /* ~2 lines at ~1.2-1.3 line-height */
   }
 
   &:hover button.btn.favorite-button.not-favorite {
@@ -161,7 +168,7 @@
   align-content: flex-start; /* pack rows from top */
   position: relative; /* allow bottom-right ellipsis overlay */
   /* space between chips without relying on bootstrap margins */
-  gap: 0.2rem; /* tighter and even spacing */
+  gap: 0.15rem; /* tighter and even spacing to reduce wrapping */
   padding-bottom: 1px; /* prevent last row from being visually cut by overflow */
 
   /* Standardize chip height for precise clamping */
@@ -170,11 +177,11 @@
     align-items: center;
     box-sizing: border-box; /* include padding/border within fixed height */
     height: 1.6rem; /* fixed chip height tuned for Bootstrap badge */
-    padding: 0 0.5rem; /* horizontal padding inside the chip */
+    padding: 0 0.45rem; /* slightly tighter to reduce reflow on count arrival */
     margin: 0; /* override global margin from index.scss to avoid extra row height */
     white-space: nowrap; /* prevent chip text wrapping */
     line-height: 1; /* ensure height is controlled by the container */
-    font-size: 0.78rem; /* compact font size for dense chips */
+    font-size: 0.76rem; /* compact font size for dense chips */
   }
 
   /* normalize inner link to not affect chip height */
@@ -194,8 +201,8 @@
 
   /* Reserve a fixed height equal to 2 rows of chips so all cards align */
   /* 2 * chip-height + 1 * row-gap + small slack */
-  height: calc(2 * 1.6rem + 1 * 0.2rem + 0.05rem);
-  overflow: hidden; /* clip overflow beyond 3 rows */
+  height: calc(2 * 1.6rem + 1 * 0.15rem + 0.05rem);
+  overflow: hidden; /* clip overflow beyond 2 rows */
 }
 
 /* Tooltip chips: keep same visual and clearly non-clickable */
@@ -221,6 +228,16 @@
     rgba($card-bg, 0.6) 40%,
     rgba($card-bg, 0.9) 100%
   );
+}
+
+/* Reserve width for inline tag counts to avoid reflow when counts load */
+.performer-card__scene-tags .tag-count-slot {
+  display: inline-block;
+  width: 3.2ch; /* space for up to three digits like (999) */
+  margin-left: 0.1rem; /* slight separation from tag name */
+  overflow: hidden;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums; /* stable digit widths */
 }
 
 /* ===== ANIMATION OPTIONS FOR METALLIC CARDS ===== */

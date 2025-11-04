@@ -700,9 +700,12 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
                       onClick={(e) => e.stopPropagation()}
                     >
                       {tag.name}
-                      {showCounts && typeof countByTagId[tag.id] === "number" && countByTagId[tag.id] > 0
-                        ? ` (${countByTagId[tag.id]})`
-                        : ""}
+                      {/* Reserve fixed width for counts to avoid chip reflow when counts load */}
+                      <span className="tag-count-slot">
+                        {showCounts && typeof countByTagId[tag.id] === "number" && countByTagId[tag.id] > 0
+                          ? ` (${countByTagId[tag.id]})`
+                          : ""}
+                      </span>
                     </Link>
                   </Badge>
                 ))
@@ -721,6 +724,7 @@ const PerformerCardImage: React.FC<IPerformerCardProps> = PatchComponent(
       <>
         <img
           loading="lazy"
+          decoding="async"
           className="performer-card-image"
           alt={performer.name ?? ""}
           src={performer.image_path ?? ""}
