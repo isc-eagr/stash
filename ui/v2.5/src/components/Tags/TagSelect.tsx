@@ -13,6 +13,7 @@ import {
   queryFindTagsByIDForSelect,
   queryFindTagsForSelect,
 } from "src/core/StashService";
+import { queryFindTagsForSelectWithTagFilter } from "src/core/StashService";
 import { ConfigurationContext } from "src/hooks/Config";
 import { useIntl } from "react-intl";
 import { defaultMaxOptionsShown } from "src/core/config";
@@ -64,6 +65,8 @@ export type TagSelectProps = IFilterProps &
     excludeIds?: string[];
     // When true, suppress TagPopover hovers for options and selected chips
     disableHoverPopovers?: boolean;
+    // Optional extra tag filter constraints applied server-side when loading options
+    tagFilter?: Partial<GQL.TagFilterType>;
   };
 
 const _TagSelect: React.FC<TagSelectProps> = (props) => {
@@ -86,8 +89,15 @@ const _TagSelect: React.FC<TagSelectProps> = (props) => {
     filter.itemsPerPage = maxOptionsShown;
     filter.sortBy = "name";
     filter.sortDirection = GQL.SortDirectionEnum.Asc;
-    const query = await queryFindTagsForSelect(filter);
-    let ret = query.data.findTags.tags.filter((tag) => {
+    // Apply optional tag filter override to constrain results (e.g., only tags with performer_scene_tags)
+    const query = props.tagFilter
+      ? await queryFindTagsForSelectWithTagFilter(
+          filter,
+          props.tagFilter as GQL.TagFilterType
+        )
+      : await queryFindTagsForSelect(filter);
+    const tags = query.data.findTags.tags as FindTagsResult;
+    let ret = tags.filter((tag) => {
       // HACK - we should probably exclude these in the backend query, but
       // this will do in the short-term
       return !exclude.includes(tag.id.toString());

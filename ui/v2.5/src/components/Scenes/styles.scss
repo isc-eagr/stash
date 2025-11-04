@@ -14,6 +14,25 @@
   }
 }
 
+.scene-hand-icon {
+  margin-right: 0.5rem;
+  color: #ffffff; // White color for the hand icon
+  font-size: 1.1em;
+  transform: rotate(-45deg); // Angled diagonally to the left
+  display: inline-block;
+}
+
+.scene-mouth-icon {
+  margin-right: 0.5rem;
+  width: 1.1em;
+  height: 1.1em;
+  display: inline-block;
+  vertical-align: -0.125em; // align similarly to font icons
+  // Force black SVGs to render as white without altering the asset
+  filter: brightness(0) invert(1);
+  -webkit-filter: brightness(0) invert(1);
+}
+
 .video-section {
   position: relative;
 }

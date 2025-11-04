@@ -38,7 +38,9 @@ import {
   faEllipsisV,
   faChevronRight,
   faChevronLeft,
+  faHand,
 } from "@fortawesome/free-solid-svg-icons";
+import mouthSvg from "src/assets/mouth.svg";
 import { objectPath, objectTitle } from "src/core/files";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import TextUtils from "src/utils/text";
@@ -573,6 +575,62 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     [scene]
   );
 
+  // Determine which icon to show based on performer_scene_tags and configurable tag aliases
+  const iconToShow = useMemo(() => {
+    if (!scene.performers || scene.performers.length === 0) return null;
+
+    const allTags = new Set<string>();
+
+    // Collect all unique tag names from performer_scene_tags
+    for (const p of scene.performers) {
+      const sceneTags = (p as any).scene_tags as Array<{ id: string; name: string }> | undefined;
+      if (sceneTags) {
+        for (const tag of sceneTags) {
+          if (tag?.name) {
+            allTags.add(tag.name.toLowerCase());
+          }
+        }
+      }
+    }
+
+  const tagsArray = Array.from(allTags);
+
+  const cfg = (configuration?.ui as any)?.sceneTagAliases ?? {};
+  const tagTop = (cfg.top ?? "top").toLowerCase();
+  const tagBottom = (cfg.bottom ?? "bottom").toLowerCase();
+  const tagOralBottom = (cfg.oralbottom ?? "oralbottom").toLowerCase();
+  const tagOralTop = (cfg.oraltop ?? "oraltop").toLowerCase();
+  const tagSolo = (cfg.solo ?? "solo").toLowerCase();
+
+  // Check for mouth icon conditions (prioritized)
+  const hasOralBottomTag = tagsArray.includes(tagOralBottom);
+  const hasOralTopTag = tagsArray.includes(tagOralTop);
+  const hasTopTag = tagsArray.includes(tagTop);
+  const hasBottomTag = tagsArray.includes(tagBottom);
+
+    if ((hasOralBottomTag || hasOralTopTag) && !hasTopTag && !hasBottomTag) {
+      return {
+        type: 'mouth',
+        className: "scene-mouth-icon",
+        title: "Scene contains oral tags",
+      };
+    }
+
+    // Check for hand icon conditions (secondary)
+  const hasSoloTag = tagsArray.includes(tagSolo) || tagsArray.some(tag => tag.includes(tagSolo));
+
+    if (hasSoloTag && !hasTopTag && !hasBottomTag && !hasOralBottomTag && !hasOralTopTag) {
+      return {
+        type: 'hand',
+        icon: faHand,
+        className: "scene-hand-icon",
+        title: "Scene contains solo tags"
+      };
+    }
+
+    return null;
+  }, [scene.performers, configuration?.ui]);
+
   return (
     <>
       <Helmet>
@@ -599,7 +657,23 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               </h1>
             )}
             <h3 className={cx("scene-header", { "no-studio": !scene.studio })}>
-              <TruncatedText lineCount={2} text={title} />
+              <span style={{ display: 'flex', alignItems: 'center' }}>
+                {iconToShow && ((iconToShow as any).type === 'mouth' ? (
+                  <img
+                    src={mouthSvg}
+                    alt={(iconToShow as any).title || 'Open Mouth'}
+                    title={(iconToShow as any).title}
+                    className={(iconToShow as any).className}
+                  />
+                ) : (
+                  <Icon
+                    icon={(iconToShow as any).icon!}
+                    className={(iconToShow as any).className}
+                    title={(iconToShow as any).title}
+                  />
+                ))}
+                <TruncatedText lineCount={2} text={title} />
+              </span>
             </h3>
           </div>
 

@@ -8,6 +8,7 @@ import { CheckboxGroup } from "./CheckboxGroup";
 import { SettingSection } from "../SettingSection";
 import {
   BooleanSetting,
+  Setting,
   ModalSetting,
   NumberSetting,
   SelectSetting,
@@ -44,6 +45,7 @@ import {
 } from "src/utils/imageWall";
 import { defaultMaxOptionsShown } from "src/core/config";
 import { PatchComponent } from "src/patch";
+import { TagSelect, Tag as TagOption } from "src/components/Tags/TagSelect";
 
 const allMenuItems = [
   { id: "scenes", headingID: "scenes" },
@@ -273,6 +275,117 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
             checked={ui.abbreviateCounters ?? undefined}
             onChange={(v) => saveUI({ abbreviateCounters: v })}
           />
+        </SettingSection>
+
+        <SettingSection headingID="config.ui.scene_tag_aliases.heading">
+          <div className="setting-group">
+            <div className="setting">
+              <div>
+                <h3>
+                  {intl.formatMessage({ id: "config.ui.scene_tag_aliases.title" })}
+                </h3>
+                <div className="sub-heading">
+                  {intl.formatMessage({ id: "config.ui.scene_tag_aliases.description" })}
+                </div>
+              </div>
+              <div />
+            </div>
+          </div>
+
+          <Setting id="scene-tag-top" headingID="config.ui.scene_tag_aliases.top">
+            <TagSelect
+              isMulti={false}
+              creatable={false}
+              noSelectionString={ui.sceneTagAliases?.top ?? ""}
+              menuPortalTarget={document.body}
+              tagFilter={{ has_performer_scene_tags: true }}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  sceneTagAliases: {
+                    ...(ui.sceneTagAliases ?? {}),
+                    top: items[0]?.name ?? "",
+                  },
+                })
+              }
+            />
+          </Setting>
+          <Setting
+            id="scene-tag-bottom"
+            headingID="config.ui.scene_tag_aliases.bottom"
+          >
+            <TagSelect
+              isMulti={false}
+              creatable={false}
+              noSelectionString={ui.sceneTagAliases?.bottom ?? ""}
+              menuPortalTarget={document.body}
+              tagFilter={{ has_performer_scene_tags: true }}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  sceneTagAliases: {
+                    ...(ui.sceneTagAliases ?? {}),
+                    bottom: items[0]?.name ?? "",
+                  },
+                })
+              }
+            />
+          </Setting>
+          <Setting
+            id="scene-tag-oraltop"
+            headingID="config.ui.scene_tag_aliases.oraltop"
+          >
+            <TagSelect
+              isMulti={false}
+              creatable={false}
+              noSelectionString={ui.sceneTagAliases?.oraltop ?? ""}
+              menuPortalTarget={document.body}
+              tagFilter={{ has_performer_scene_tags: true }}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  sceneTagAliases: {
+                    ...(ui.sceneTagAliases ?? {}),
+                    oraltop: items[0]?.name ?? "",
+                  },
+                })
+              }
+            />
+          </Setting>
+          <Setting
+            id="scene-tag-oralbottom"
+            headingID="config.ui.scene_tag_aliases.oralbottom"
+          >
+            <TagSelect
+              isMulti={false}
+              creatable={false}
+              noSelectionString={ui.sceneTagAliases?.oralbottom ?? ""}
+              menuPortalTarget={document.body}
+              tagFilter={{ has_performer_scene_tags: true }}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  sceneTagAliases: {
+                    ...(ui.sceneTagAliases ?? {}),
+                    oralbottom: items[0]?.name ?? "",
+                  },
+                })
+              }
+            />
+          </Setting>
+          <Setting id="scene-tag-solo" headingID="config.ui.scene_tag_aliases.solo">
+            <TagSelect
+              isMulti={false}
+              creatable={false}
+              noSelectionString={ui.sceneTagAliases?.solo ?? ""}
+              menuPortalTarget={document.body}
+              tagFilter={{ has_performer_scene_tags: true }}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  sceneTagAliases: {
+                    ...(ui.sceneTagAliases ?? {}),
+                    solo: items[0]?.name ?? "",
+                  },
+                })
+              }
+            />
+          </Setting>
         </SettingSection>
 
         <SettingSection headingID="config.ui.desktop_integration.desktop_integration">

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useContext } from "react";
 import { gql, useQuery } from "@apollo/client";
 import { Link, useParams } from "react-router-dom";
 import { useIntl } from "react-intl";
@@ -26,6 +26,7 @@ import { useToast } from "src/hooks/Toast";
 import { ILabeledId } from "src/models/list-filter/types";
 import { FavoriteIcon } from "../Shared/FavoriteIcon";
 import { PatchComponent } from "src/patch";
+import { ConfigurationContext } from "src/hooks/Config";
 
 export interface IPerformerCardExtraCriteria {
   scenes?: ModifierCriterion<CriterionValue>[];
@@ -370,6 +371,7 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Overlays",
   ({ performer }) => {
     const [updatePerformer] = usePerformerUpdate();
+    const { configuration } = useContext(ConfigurationContext);
 
     // Helper: detect Scene-page presence and role flags
     function getSceneRoleFlags(): {
@@ -394,15 +396,22 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
           .map((t) => (t?.name ?? "").trim().toLowerCase())
           .filter((n) => n.length > 0)
       );
+      // Load configured aliases (case-insensitive comparisons)
+      const cfg = (configuration?.ui as any)?.sceneTagAliases ?? {};
+      const tagTop = (cfg.top ?? "top").toLowerCase();
+      const tagBottom = (cfg.bottom ?? "bottom").toLowerCase();
+      const tagOralTop = (cfg.oraltop ?? "oraltop").toLowerCase();
+      const tagOralBottom = (cfg.oralbottom ?? "oralbottom").toLowerCase();
+
       // Primary: use explicit Top/Bottom tags if present
-      const explicitTop = names.has("top");
-      const explicitBottom = names.has("bottom");
+      const explicitTop = names.has(tagTop);
+      const explicitBottom = names.has(tagBottom);
       let isTop = explicitTop;
       let isBottom = explicitBottom;
       // Fallback: only if neither Top nor Bottom are present, map synonyms
       if (!explicitTop && !explicitBottom) {
-        if (names.has("dicksucked")) isTop = true; // treat as Top
-        if (names.has("suckeddick")) isBottom = true; // treat as Bottom
+        if (names.has(tagOralTop)) isTop = true; // treat as Top
+        if (names.has(tagOralBottom)) isBottom = true; // treat as Bottom
       }
       return {
         hasSceneTagsField,

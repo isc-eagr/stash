@@ -20,16 +20,19 @@ import {
   faBox,
   faCopy,
   faFilm,
+  faHand,
   faImages,
   faMapMarkerAlt,
   faTag,
 } from "@fortawesome/free-solid-svg-icons";
+// Using emoji for oral indicator
 import { objectPath, objectTitle } from "src/core/files";
 import { PreviewScrubber } from "./PreviewScrubber";
 import { PatchComponent } from "src/patch";
 import { StudioOverlay } from "../Shared/GridCard/StudioOverlay";
 import { GroupTag } from "../Groups/GroupTag";
 import { FileSize } from "../Shared/FileSize";
+import mouthSvg from "src/assets/mouth.svg";
 
 interface IScenePreviewProps {
   isPortrait: boolean;
@@ -530,6 +533,104 @@ export const SceneCard = PatchComponent(
       [props.scene]
     );
 
+    // Hook to determine if scene should show hand icon based on performer_scene_tags
+    const shouldShowHandIcon = useMemo(() => {
+      // Only check if scene has performers
+      const hasPerformers = props.scene.performers.length > 0;
+      if (!hasPerformers) return false;
+
+      // Query the scene data to get performer_scene_tags
+      // We'll use a separate effect to avoid hooks in conditionals
+      return true; // Placeholder, will be determined by actual query
+    }, [props.scene.performers.length]);
+
+    // Fetch scene tags for performers if needed
+    const { data: sceneData } = GQL.useFindSceneQuery({
+      variables: { id: props.scene.id },
+      fetchPolicy: "cache-first",
+      skip: !shouldShowHandIcon,
+    });
+
+    // Determine which icon to show based on performer_scene_tags and configurable tag aliases
+    const iconToShow = useMemo(() => {
+      if (!sceneData?.findScene?.performers) return null;
+
+      const performers = sceneData.findScene.performers;
+      const allTags = new Set<string>();
+
+      // Collect all unique tag names from performer_scene_tags
+      for (const p of performers) {
+        const sceneTags = (p as any).scene_tags as Array<{ id: string; name: string }> | undefined;
+        if (sceneTags) {
+          for (const tag of sceneTags) {
+            if (tag?.name) {
+              allTags.add(tag.name.toLowerCase());
+            }
+          }
+        }
+      }
+
+  const tagsArray = Array.from(allTags);
+
+  const cfg = (configuration?.ui as any)?.sceneTagAliases ?? {};
+  const tagTop = (cfg.top ?? "top").toLowerCase();
+  const tagBottom = (cfg.bottom ?? "bottom").toLowerCase();
+  const tagOralBottom = (cfg.oralbottom ?? "oralbottom").toLowerCase();
+  const tagOralTop = (cfg.oraltop ?? "oraltop").toLowerCase();
+  const tagSolo = (cfg.solo ?? "solo").toLowerCase();
+
+  // Check for mouth icon conditions (prioritized)
+  const hasOralBottomTag = tagsArray.includes(tagOralBottom);
+  const hasOralTopTag = tagsArray.includes(tagOralTop);
+  const hasTopTag = tagsArray.includes(tagTop);
+  const hasBottomTag = tagsArray.includes(tagBottom);
+
+      if ((hasOralBottomTag || hasOralTopTag) && !hasTopTag && !hasBottomTag) {
+        return {
+          type: 'mouth',
+          className: "scene-mouth-icon",
+          title: "Scene contains oral tags",
+        };
+      }
+
+      // Check for hand icon conditions (secondary)
+  const hasSoloTag = tagsArray.includes(tagSolo) || tagsArray.some(tag => tag.includes(tagSolo));
+
+      if (hasSoloTag && !hasTopTag && !hasBottomTag && !hasOralBottomTag && !hasOralTopTag) {
+        return {
+          type: 'hand',
+          icon: faHand,
+          className: "scene-hand-icon",
+          title: "Scene contains solo tags"
+        };
+      }
+
+      return null;
+  }, [sceneData, configuration?.ui]);
+
+    const pretitleIcon = useMemo(() => {
+      if (!iconToShow) return undefined;
+      const t = (iconToShow as any).type as string | undefined;
+      if (t === 'mouth') {
+        return (
+          <img
+            src={mouthSvg}
+            alt={(iconToShow as any).title || 'Open Mouth'}
+            title={(iconToShow as any).title}
+            className={(iconToShow as any).className}
+          />
+        );
+      }
+      // fallback for hand/others using FontAwesome
+      return (
+        <Icon
+          icon={(iconToShow as any).icon!}
+          className={(iconToShow as any).className}
+          title={(iconToShow as any).title}
+        />
+      );
+    }, [iconToShow]);
+
     function zoomIndex() {
       if (!props.compact && props.zoomIndex !== undefined) {
         return `zoom-${props.zoomIndex}`;
@@ -575,6 +676,7 @@ export const SceneCard = PatchComponent(
         className={`scene-card ${zoomIndex()} ${filelessClass()} ${getRatingClass()}`}
         url={sceneLink}
         title={objectTitle(props.scene)}
+        pretitleIcon={pretitleIcon}
         width={props.width}
         linkClassName="scene-card-link"
         thumbnailSectionClassName="video-section"

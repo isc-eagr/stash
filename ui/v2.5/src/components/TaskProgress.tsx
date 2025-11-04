@@ -172,7 +172,6 @@ const TaskProgress: React.FC = () => {
       });
     }
   };
-
   return (
     <div className="mt-5">
       <div className="col col-sm-10 m-sm-auto">
@@ -261,8 +260,10 @@ const TaskProgress: React.FC = () => {
                 <div className="d-flex justify-content-between mb-1">
                   <span>
                     <FormattedNumber value={organizedCount} /> organized /{" "}
+                    <FormattedNumber value={Math.max(((statsData?.stats.scene_count ?? 0) - organizedCount), 0)} /> remaining /{" "}
                     <FormattedNumber value={statsData.stats.scene_count} />{" "}
                     total scenes
+                    
                   </span>
                   <span>
                     <FormattedNumber
@@ -279,11 +280,11 @@ const TaskProgress: React.FC = () => {
                     ? (organizedCount / statsData.stats.scene_count) * 100 
                     : 0}
                   variant={
-                    organizedCount === statsData.stats.scene_count
+                    (organizedCount / statsData.stats.scene_count) * 100 >= 75
                       ? "success"
-                      : (organizedCount / statsData.stats.scene_count) * 100 >= 75
-                      ? "info"
                       : (organizedCount / statsData.stats.scene_count) * 100 >= 50
+                      ? "info"
+                      : (organizedCount / statsData.stats.scene_count) * 100 >= 25
                       ? "warning"
                       : "danger"
                   }
@@ -334,8 +335,10 @@ const TaskProgress: React.FC = () => {
                         <div className="d-flex justify-content-between mb-1">
                           <span>
                             <FormattedNumber value={done} /> done /{" "}
+                            <FormattedNumber value={Math.max(count, 0)} /> remaining /{" "}
                             <FormattedNumber value={tracker.initialValue} />{" "}
                             total
+                            
                           </span>
                           <span>
                             <FormattedNumber
@@ -348,11 +351,11 @@ const TaskProgress: React.FC = () => {
                         <ProgressBar
                           now={percentageComplete}
                           variant={
-                            percentageComplete === 100
+                            percentageComplete >= 75
                               ? "success"
-                              : percentageComplete >= 75
-                              ? "info"
                               : percentageComplete >= 50
+                              ? "info"
+                              : percentageComplete >= 25
                               ? "warning"
                               : "danger"
                           }
