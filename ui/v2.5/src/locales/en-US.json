@@ -26,7 +26,10 @@
                 "bottom": "Bottom tag alias",
                 "oralbottom": "Oral (bottom) tag alias",
                 "oraltop": "Oral (top) tag alias",
-                "solo": "Solo tag alias"
+                "solo": "Solo tag alias",
+                "facialgiven": "Facial (given) tag alias",
+                        "facialreceived": "Facial (received) tag alias",
+                        "selffacial": "Facial (self) tag alias"
             }
         }
     },

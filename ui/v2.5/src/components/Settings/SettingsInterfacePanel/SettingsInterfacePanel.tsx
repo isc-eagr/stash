@@ -386,6 +386,66 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
               }
             />
           </Setting>
+          <Setting
+            id="scene-tag-facialgiven"
+            headingID="config.ui.scene_tag_aliases.facialgiven"
+          >
+            <TagSelect
+              isMulti={false}
+              creatable={false}
+              noSelectionString={ui.sceneTagAliases?.facialgiven ?? ""}
+              menuPortalTarget={document.body}
+              tagFilter={{ has_performer_scene_tags: true }}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  sceneTagAliases: {
+                    ...(ui.sceneTagAliases ?? {}),
+                    facialgiven: items[0]?.name ?? "",
+                  },
+                })
+              }
+            />
+          </Setting>
+          <Setting
+            id="scene-tag-facialreceived"
+            headingID="config.ui.scene_tag_aliases.facialreceived"
+          >
+            <TagSelect
+              isMulti={false}
+              creatable={false}
+              noSelectionString={ui.sceneTagAliases?.facialreceived ?? ""}
+              menuPortalTarget={document.body}
+              tagFilter={{ has_performer_scene_tags: true }}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  sceneTagAliases: {
+                    ...(ui.sceneTagAliases ?? {}),
+                    facialreceived: items[0]?.name ?? "",
+                  },
+                })
+              }
+            />
+          </Setting>
+          <Setting
+            id="scene-tag-selffacial"
+            headingID="config.ui.scene_tag_aliases.selffacial"
+          >
+            <TagSelect
+              isMulti={false}
+              creatable={false}
+              noSelectionString={ui.sceneTagAliases?.selffacial ?? ""}
+              menuPortalTarget={document.body}
+              tagFilter={{ has_performer_scene_tags: true }}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  sceneTagAliases: {
+                    ...(ui.sceneTagAliases ?? {}),
+                    selffacial: items[0]?.name ?? "",
+                  },
+                })
+              }
+            />
+          </Setting>
         </SettingSection>
 
         <SettingSection headingID="config.ui.desktop_integration.desktop_integration">

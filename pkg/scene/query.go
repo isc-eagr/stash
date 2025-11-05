@@ -174,3 +174,172 @@ func CountByGroupID(ctx context.Context, r models.SceneQueryer, id int, depth *i
 
 	return r.QueryCount(ctx, filter, nil)
 }
+
+// CountByStudioIDAndPerformerSceneTags counts scenes for a studio that have any of the specified performer_scene_tags
+func CountByStudioIDAndPerformerSceneTags(ctx context.Context, r models.SceneQueryer, tagReader models.TagReader, studioID int, depth *int, tagNames []string, matchAll bool) (int, error) {
+	// Get all tags to map names to IDs
+	tags, err := tagReader.All(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	tagIDs := []string{}
+	for _, tag := range tags {
+		for _, name := range tagNames {
+			if strings.EqualFold(tag.Name, name) {
+				tagIDs = append(tagIDs, strconv.Itoa(tag.ID))
+				break
+			}
+		}
+	}
+
+	if len(tagIDs) == 0 {
+		return 0, nil
+	}
+
+	modifier := models.CriterionModifierIncludes
+	if matchAll {
+		modifier = models.CriterionModifierIncludesAll
+	}
+
+	filter := &models.SceneFilterType{
+		Studios: &models.HierarchicalMultiCriterionInput{
+			Value:    []string{strconv.Itoa(studioID)},
+			Modifier: models.CriterionModifierIncludes,
+			Depth:    depth,
+		},
+		PerformerSceneTags: &models.HierarchicalMultiCriterionInput{
+			Value:    tagIDs,
+			Modifier: modifier,
+		},
+	}
+
+	return r.QueryCount(ctx, filter, nil)
+}
+
+// CountByStudioIDAndPerformerSceneTagsWithExclusions counts scenes for a studio that have
+// any of the included tags but none of the excluded tags in performer_scene_tags
+func CountByStudioIDAndPerformerSceneTagsWithExclusions(ctx context.Context, r models.SceneQueryer, tagReader models.TagReader, studioID int, depth *int, includeTagNames []string, excludeTagNames []string) (int, error) {
+	// Get all tags
+	tags, err := tagReader.All(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	// Map tag names to IDs (case-insensitive)
+	includeTagIDs := []string{}
+	excludeTagIDs := []string{}
+
+	for _, tag := range tags {
+		for _, name := range includeTagNames {
+			if strings.EqualFold(tag.Name, name) {
+				includeTagIDs = append(includeTagIDs, strconv.Itoa(tag.ID))
+				break
+			}
+		}
+		for _, name := range excludeTagNames {
+			if strings.EqualFold(tag.Name, name) {
+				excludeTagIDs = append(excludeTagIDs, strconv.Itoa(tag.ID))
+				break
+			}
+		}
+	}
+
+	if len(includeTagIDs) == 0 {
+		return 0, nil
+	}
+
+	filter := &models.SceneFilterType{
+		Studios: &models.HierarchicalMultiCriterionInput{
+			Value:    []string{strconv.Itoa(studioID)},
+			Modifier: models.CriterionModifierIncludes,
+			Depth:    depth,
+		},
+		PerformerSceneTags: &models.HierarchicalMultiCriterionInput{
+			Value:    includeTagIDs,
+			Modifier: models.CriterionModifierIncludes,
+			Excludes: excludeTagIDs,
+		},
+	}
+
+	return r.QueryCount(ctx, filter, nil)
+}
+
+// CountByPerformerSceneTags counts all scenes that have any of the specified performer_scene_tags
+func CountByPerformerSceneTags(ctx context.Context, r models.SceneQueryer, tagReader models.TagReader, tagNames []string, matchAll bool) (int, error) {
+	// Get all tags from database
+	allTags, err := tagReader.All(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	// Build list of tag IDs matching the provided names (case-insensitive)
+	var tagIDs []string
+	for _, tag := range allTags {
+		for _, name := range tagNames {
+			if strings.EqualFold(tag.Name, name) {
+				tagIDs = append(tagIDs, strconv.Itoa(tag.ID))
+				break
+			}
+		}
+	}
+
+	if len(tagIDs) == 0 {
+		return 0, nil
+	}
+
+	modifier := models.CriterionModifierIncludes
+	if matchAll {
+		modifier = models.CriterionModifierIncludesAll
+	}
+
+	filter := &models.SceneFilterType{
+		PerformerSceneTags: &models.HierarchicalMultiCriterionInput{
+			Value:    tagIDs,
+			Modifier: modifier,
+		},
+	}
+
+	return r.QueryCount(ctx, filter, nil)
+}
+
+// CountByPerformerSceneTagsWithExclusions counts all scenes that have the include tags but not the exclude tags
+func CountByPerformerSceneTagsWithExclusions(ctx context.Context, r models.SceneQueryer, tagReader models.TagReader, includeTagNames []string, excludeTagNames []string) (int, error) {
+	// Get all tags from database
+	allTags, err := tagReader.All(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	// Build lists of tag IDs
+	var includeTagIDs []string
+	var excludeTagIDs []string
+	for _, tag := range allTags {
+		for _, name := range includeTagNames {
+			if strings.EqualFold(tag.Name, name) {
+				includeTagIDs = append(includeTagIDs, strconv.Itoa(tag.ID))
+				break
+			}
+		}
+		for _, name := range excludeTagNames {
+			if strings.EqualFold(tag.Name, name) {
+				excludeTagIDs = append(excludeTagIDs, strconv.Itoa(tag.ID))
+				break
+			}
+		}
+	}
+
+	if len(includeTagIDs) == 0 {
+		return 0, nil
+	}
+
+	filter := &models.SceneFilterType{
+		PerformerSceneTags: &models.HierarchicalMultiCriterionInput{
+			Value:    includeTagIDs,
+			Modifier: models.CriterionModifierIncludes,
+			Excludes: excludeTagIDs,
+		},
+	}
+
+	return r.QueryCount(ctx, filter, nil)
+}

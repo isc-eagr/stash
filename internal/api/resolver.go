@@ -10,9 +10,11 @@ import (
 
 	"github.com/stashapp/stash/internal/build"
 	"github.com/stashapp/stash/internal/manager"
+	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/logger"
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/plugin/hook"
+	"github.com/stashapp/stash/pkg/scene"
 	"github.com/stashapp/stash/pkg/scraper"
 )
 
@@ -405,6 +407,70 @@ func (r *queryResolver) Stats(ctx context.Context) (*StatsResultType, error) {
 			return err
 		}
 
+		// Get scene category counts using configured tag names
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
+
+		topTagName := "top"
+		bottomTagName := "bottom"
+		oralTopTagName := "oraltop"
+		oralBottomTagName := "oralbottom"
+		soloTagName := "solo"
+		facialGivenTagName := "facialgiven"
+		facialReceivedTagName := "facialreceived"
+		selfFacialTagName := "selffacial"
+
+		if sceneTagAliases != nil {
+			if t, ok := sceneTagAliases["top"].(string); ok && t != "" {
+				topTagName = t
+			}
+			if b, ok := sceneTagAliases["bottom"].(string); ok && b != "" {
+				bottomTagName = b
+			}
+			if ot, ok := sceneTagAliases["oraltop"].(string); ok && ot != "" {
+				oralTopTagName = ot
+			}
+			if ob, ok := sceneTagAliases["oralbottom"].(string); ok && ob != "" {
+				oralBottomTagName = ob
+			}
+			if s, ok := sceneTagAliases["solo"].(string); ok && s != "" {
+				soloTagName = s
+			}
+			if fg, ok := sceneTagAliases["facialgiven"].(string); ok && fg != "" {
+				facialGivenTagName = fg
+			}
+			if fr, ok := sceneTagAliases["facialreceived"].(string); ok && fr != "" {
+				facialReceivedTagName = fr
+			}
+			if sf, ok := sceneTagAliases["selffacial"].(string); ok && sf != "" {
+				selfFacialTagName = sf
+			}
+		}
+
+		// Count sex scenes (scenes with top/bottom tags)
+		sexSceneCount, err := scene.CountByPerformerSceneTags(ctx, sceneQB, tagQB, []string{topTagName, bottomTagName}, false)
+		if err != nil {
+			return err
+		}
+
+		// Count oral scenes (scenes with oral tags but not top/bottom)
+		oralSceneCount, err := scene.CountByPerformerSceneTagsWithExclusions(ctx, sceneQB, tagQB, []string{oralTopTagName, oralBottomTagName}, []string{topTagName, bottomTagName})
+		if err != nil {
+			return err
+		}
+
+		// Count solo scenes (scenes with solo tags but not top/bottom/oral)
+		soloSceneCount, err := scene.CountByPerformerSceneTagsWithExclusions(ctx, sceneQB, tagQB, []string{soloTagName}, []string{topTagName, bottomTagName, oralTopTagName, oralBottomTagName})
+		if err != nil {
+			return err
+		}
+
+		// Count facial scenes (scenes with facialgiven or facialreceived or selffacial tags)
+		facialSceneCount, err := scene.CountByPerformerSceneTags(ctx, sceneQB, tagQB, []string{facialGivenTagName, facialReceivedTagName, selfFacialTagName}, false)
+		if err != nil {
+			return err
+		}
+
 		ret = StatsResultType{
 			SceneCount:        scenesCount,
 			ScenesSize:        scenesSize,
@@ -421,6 +487,10 @@ func (r *queryResolver) Stats(ctx context.Context) (*StatsResultType, error) {
 			TotalPlayDuration: totalPlayDuration,
 			TotalPlayCount:    totalPlayCount,
 			ScenesPlayed:      uniqueScenePlayCount,
+			SexSceneCount:     sexSceneCount,
+			OralSceneCount:    oralSceneCount,
+			SoloSceneCount:    soloSceneCount,
+			FacialSceneCount:  facialSceneCount,
 		}
 
 		return nil

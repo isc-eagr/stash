@@ -41,6 +41,7 @@ import {
   faHand,
 } from "@fortawesome/free-solid-svg-icons";
 import mouthSvg from "src/assets/mouth.svg";
+import gaySvg from "src/assets/gay.svg";
 import { objectPath, objectTitle } from "src/core/files";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import TextUtils from "src/utils/text";
@@ -608,6 +609,15 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const hasTopTag = tagsArray.includes(tagTop);
   const hasBottomTag = tagsArray.includes(tagBottom);
 
+    // Highest precedence: gay icon if Top and/or Bottom present
+    if (hasTopTag || hasBottomTag) {
+      return {
+        type: 'gay',
+        className: "scene-gay-icon",
+        title: "Scene contains top/bottom tags",
+      };
+    }
+
     if ((hasOralBottomTag || hasOralTopTag) && !hasTopTag && !hasBottomTag) {
       return {
         type: 'mouth',
@@ -662,6 +672,13 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                   <img
                     src={mouthSvg}
                     alt={(iconToShow as any).title || 'Open Mouth'}
+                    title={(iconToShow as any).title}
+                    className={(iconToShow as any).className}
+                  />
+                ) : (iconToShow as any).type === 'gay' ? (
+                  <img
+                    src={gaySvg}
+                    alt={(iconToShow as any).title || 'Gay'}
                     title={(iconToShow as any).title}
                     className={(iconToShow as any).className}
                   />

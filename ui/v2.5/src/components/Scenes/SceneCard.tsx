@@ -33,6 +33,8 @@ import { StudioOverlay } from "../Shared/GridCard/StudioOverlay";
 import { GroupTag } from "../Groups/GroupTag";
 import { FileSize } from "../Shared/FileSize";
 import mouthSvg from "src/assets/mouth.svg";
+import gaySvg from "src/assets/gay.svg";
+import goateeSvg from "src/assets/goatee.svg";
 
 interface IScenePreviewProps {
   isPortrait: boolean;
@@ -434,7 +436,45 @@ const SceneCardDetails = PatchComponent(
 const SceneCardOverlays = PatchComponent(
   "SceneCard.Overlays",
   (props: ISceneCardProps) => {
-    return <StudioOverlay studio={props.scene.studio} />;
+    const { configuration } = React.useContext(ConfigurationContext);
+    // Determine if the scene has any facial tags (facialgiven/facialreceived)
+    const { data: sceneData } = GQL.useFindSceneQuery({
+      variables: { id: props.scene.id },
+      fetchPolicy: "cache-first",
+    });
+
+    const hasFacial = useMemo(() => {
+      const performers = sceneData?.findScene?.performers ?? [];
+      if (performers.length === 0) return false;
+      const allTags = new Set<string>();
+      for (const p of performers) {
+        const sceneTags = (p as any).scene_tags as Array<{ id: string; name: string }> | undefined;
+        if (sceneTags) {
+          for (const tag of sceneTags) {
+            if (tag?.name) allTags.add((tag.name || "").toLowerCase());
+          }
+        }
+      }
+      const cfg = (configuration?.ui as any)?.sceneTagAliases ?? {};
+      const tagFacialGiven = (cfg.facialgiven ?? "facialgiven").toLowerCase();
+      const tagFacialReceived = (cfg.facialreceived ?? "facialreceived").toLowerCase();
+      const tagSelfFacial = (cfg.selffacial ?? "selffacial").toLowerCase();
+      return allTags.has(tagFacialGiven) || allTags.has(tagFacialReceived) || allTags.has(tagSelfFacial);
+    }, [sceneData, configuration?.ui]);
+
+    return (
+      <>
+        <StudioOverlay studio={props.scene.studio} />
+        {hasFacial && (
+          <img
+            className="scene-facial-overlay"
+            src={goateeSvg}
+            alt="Facial"
+            title="Facial tags present"
+          />
+        )}
+      </>
+    );
   }
 );
 
@@ -584,7 +624,14 @@ export const SceneCard = PatchComponent(
   const hasOralTopTag = tagsArray.includes(tagOralTop);
   const hasTopTag = tagsArray.includes(tagTop);
   const hasBottomTag = tagsArray.includes(tagBottom);
-
+      // Highest precedence: gay icon if Top and/or Bottom present
+      if (hasTopTag || hasBottomTag) {
+        return {
+          type: 'gay',
+          className: "scene-gay-icon",
+          title: "Scene contains top/bottom tags",
+        };
+      }
       if ((hasOralBottomTag || hasOralTopTag) && !hasTopTag && !hasBottomTag) {
         return {
           type: 'mouth',
@@ -609,26 +656,33 @@ export const SceneCard = PatchComponent(
   }, [sceneData, configuration?.ui]);
 
     const pretitleIcon = useMemo(() => {
-      if (!iconToShow) return undefined;
-      const t = (iconToShow as any).type as string | undefined;
-      if (t === 'mouth') {
-        return (
-          <img
-            src={mouthSvg}
-            alt={(iconToShow as any).title || 'Open Mouth'}
-            title={(iconToShow as any).title}
-            className={(iconToShow as any).className}
-          />
-        );
+      const pieces: JSX.Element[] = [];
+      if (iconToShow) {
+        const t = (iconToShow as any).type as string | undefined;
+        if (t === 'mouth' || t === 'gay') {
+          pieces.push(
+            <img
+              key="primary"
+              src={t === 'gay' ? gaySvg : mouthSvg}
+              alt={(iconToShow as any).title || (t === 'gay' ? 'Gay' : 'Open Mouth')}
+              title={(iconToShow as any).title}
+              className={(iconToShow as any).className}
+            />
+          );
+        } else {
+          // fallback for hand/others using FontAwesome
+          pieces.push(
+            <Icon
+              key="primary"
+              icon={(iconToShow as any).icon!}
+              className={(iconToShow as any).className}
+              title={(iconToShow as any).title}
+            />
+          );
+        }
       }
-      // fallback for hand/others using FontAwesome
-      return (
-        <Icon
-          icon={(iconToShow as any).icon!}
-          className={(iconToShow as any).className}
-          title={(iconToShow as any).title}
-        />
-      );
+      if (pieces.length === 0) return undefined;
+      return <>{pieces}</>;
     }, [iconToShow]);
 
     function zoomIndex() {

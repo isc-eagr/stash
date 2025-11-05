@@ -22,6 +22,10 @@ query Stats {
     total_play_duration
     total_play_count
     scenes_played
+    sex_scene_count
+    oral_scene_count
+    solo_scene_count
+    facial_scene_count
   }
 }
 

@@ -14,6 +14,10 @@ type StatsResultType {
   total_play_duration: Float!
   total_play_count: Int!
   scenes_played: Int!
+  sex_scene_count: Int!
+  oral_scene_count: Int!
+  solo_scene_count: Int!
+  facial_scene_count: Int!
 }
 
 "Count of performers grouped by ethnicity"

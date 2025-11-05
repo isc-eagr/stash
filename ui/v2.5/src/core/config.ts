@@ -111,6 +111,9 @@ export interface IUIConfig {
     oralbottom?: string;
     oraltop?: string;
     solo?: string;
+    facialgiven?: string;
+    facialreceived?: string;
+    selffacial?: string;
   };
 }
 
