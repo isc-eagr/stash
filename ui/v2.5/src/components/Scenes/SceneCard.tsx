@@ -34,6 +34,7 @@ import { GroupTag } from "../Groups/GroupTag";
 import { FileSize } from "../Shared/FileSize";
 import mouthSvg from "src/assets/mouth.svg";
 import gaySvg from "src/assets/gay.svg";
+import straightSvg from "src/assets/straight.svg";
 import goateeSvg from "src/assets/goatee.svg";
 
 interface IScenePreviewProps {
@@ -591,8 +592,20 @@ export const SceneCard = PatchComponent(
       skip: !shouldShowHandIcon,
     });
 
-    // Determine which icon to show based on performer_scene_tags and configurable tag aliases
+    // Determine which icon to show based on scene tags (highest precedence: straight) and performer_scene_tags
     const iconToShow = useMemo(() => {
+      // Highest precedence: check scene.tags for straight
+      const cfg = configuration?.ui?.sceneTagAliases ?? {};
+      const tagStraight = (cfg.straight ?? "straight").toLowerCase();
+      const sceneTagNames = (props.scene.tags ?? []).map((t) => (t?.name ?? "").toLowerCase());
+      if (sceneTagNames.includes(tagStraight)) {
+        return {
+          type: 'straight',
+          className: 'scene-straight-icon',
+          title: 'Scene contains straight tag',
+        } as const;
+      }
+
       if (!sceneData?.findScene?.performers) return null;
 
       const performers = sceneData.findScene.performers;
@@ -612,12 +625,12 @@ export const SceneCard = PatchComponent(
 
   const tagsArray = Array.from(allTags);
 
-  const cfg = (configuration?.ui as any)?.sceneTagAliases ?? {};
-  const tagTop = (cfg.top ?? "top").toLowerCase();
-  const tagBottom = (cfg.bottom ?? "bottom").toLowerCase();
-  const tagOralBottom = (cfg.oralbottom ?? "oralbottom").toLowerCase();
-  const tagOralTop = (cfg.oraltop ?? "oraltop").toLowerCase();
-  const tagSolo = (cfg.solo ?? "solo").toLowerCase();
+  const cfg2 = configuration?.ui?.sceneTagAliases ?? {};
+  const tagTop = (cfg2.top ?? "top").toLowerCase();
+  const tagBottom = (cfg2.bottom ?? "bottom").toLowerCase();
+  const tagOralBottom = (cfg2.oralbottom ?? "oralbottom").toLowerCase();
+  const tagOralTop = (cfg2.oraltop ?? "oraltop").toLowerCase();
+  const tagSolo = (cfg2.solo ?? "solo").toLowerCase();
 
   // Check for mouth icon conditions (prioritized)
   const hasOralBottomTag = tagsArray.includes(tagOralBottom);
@@ -659,12 +672,12 @@ export const SceneCard = PatchComponent(
       const pieces: JSX.Element[] = [];
       if (iconToShow) {
         const t = (iconToShow as any).type as string | undefined;
-        if (t === 'mouth' || t === 'gay') {
+        if (t === 'mouth' || t === 'gay' || t === 'straight') {
           pieces.push(
             <img
               key="primary"
-              src={t === 'gay' ? gaySvg : mouthSvg}
-              alt={(iconToShow as any).title || (t === 'gay' ? 'Gay' : 'Open Mouth')}
+              src={t === 'gay' ? gaySvg : t === 'straight' ? straightSvg : mouthSvg}
+              alt={(iconToShow as any).title || (t === 'gay' ? 'Gay' : t === 'straight' ? 'Straight' : 'Open Mouth')}
               title={(iconToShow as any).title}
               className={(iconToShow as any).className}
             />

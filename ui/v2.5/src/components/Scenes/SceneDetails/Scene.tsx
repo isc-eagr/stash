@@ -42,6 +42,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import mouthSvg from "src/assets/mouth.svg";
 import gaySvg from "src/assets/gay.svg";
+import straightSvg from "src/assets/straight.svg";
 import { objectPath, objectTitle } from "src/core/files";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import TextUtils from "src/utils/text";
@@ -576,8 +577,20 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     [scene]
   );
 
-  // Determine which icon to show based on performer_scene_tags and configurable tag aliases
+  // Determine which icon to show based on scene tags (highest precedence: straight) and performer_scene_tags
   const iconToShow = useMemo(() => {
+    // Highest precedence: straight tag at scene.tags
+    const cfg = configuration?.ui?.sceneTagAliases ?? {};
+    const tagStraight = (cfg.straight ?? "straight").toLowerCase();
+    const sceneTagNames = (scene.tags ?? []).map((t) => (t?.name ?? "").toLowerCase());
+    if (sceneTagNames.includes(tagStraight)) {
+      return {
+        type: "straight",
+        className: "scene-straight-icon",
+        title: "Scene contains straight tag",
+      } as const;
+    }
+
     if (!scene.performers || scene.performers.length === 0) return null;
 
     const allTags = new Set<string>();
@@ -596,7 +609,6 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
   const tagsArray = Array.from(allTags);
 
-  const cfg = (configuration?.ui as any)?.sceneTagAliases ?? {};
   const tagTop = (cfg.top ?? "top").toLowerCase();
   const tagBottom = (cfg.bottom ?? "bottom").toLowerCase();
   const tagOralBottom = (cfg.oralbottom ?? "oralbottom").toLowerCase();
@@ -679,6 +691,13 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                   <img
                     src={gaySvg}
                     alt={(iconToShow as any).title || 'Gay'}
+                    title={(iconToShow as any).title}
+                    className={(iconToShow as any).className}
+                  />
+                ) : (iconToShow as any).type === 'straight' ? (
+                  <img
+                    src={straightSvg}
+                    alt={(iconToShow as any).title || 'Straight'}
                     title={(iconToShow as any).title}
                     className={(iconToShow as any).className}
                   />

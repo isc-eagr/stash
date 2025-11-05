@@ -45,6 +45,9 @@ interface IPerformerCardProps {
   zoomIndex?: number;
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
   extraCriteria?: IPerformerCardExtraCriteria;
+  // Scene context flag: when any performer on the scene has explicit Top/Bottom tags,
+  // suppress fallback oral-based role icons for performers without explicit Top/Bottom
+  sceneHasExplicitTopBottom?: boolean;
   // optional: show a compact tag button in the card which will open the tag editor
   showTagButton?: boolean;
   onOpenTagEditor?: (performer: GQL.PerformerDataFragment) => void;
@@ -369,7 +372,7 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
 
 const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Overlays",
-  ({ performer }) => {
+  ({ performer, sceneHasExplicitTopBottom }) => {
     const [updatePerformer] = usePerformerUpdate();
     const { configuration } = useContext(ConfigurationContext);
 
@@ -408,10 +411,13 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
       const explicitBottom = names.has(tagBottom);
       let isTop = explicitTop;
       let isBottom = explicitBottom;
-      // Fallback: only if neither Top nor Bottom are present, map synonyms
+      // Fallback: only if neither Top nor Bottom are present for THIS performer,
+      // and also only when the SCENE does NOT already have any explicit Top/Bottom tags
       if (!explicitTop && !explicitBottom) {
-        if (names.has(tagOralTop)) isTop = true; // treat as Top
-        if (names.has(tagOralBottom)) isBottom = true; // treat as Bottom
+        if (!sceneHasExplicitTopBottom) {
+          if (names.has(tagOralTop)) isTop = true; // treat as Top
+          if (names.has(tagOralBottom)) isBottom = true; // treat as Bottom
+        }
       }
       return {
         hasSceneTagsField,

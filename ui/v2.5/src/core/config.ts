@@ -106,6 +106,7 @@ export interface IUIConfig {
   // Customizable tag names used for performer_scene_tags logic
   // These allow users to configure their own tag labels that drive UI iconography.
   sceneTagAliases?: {
+    straight?: string;
     top?: string;
     bottom?: string;
     oralbottom?: string;

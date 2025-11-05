@@ -44,6 +44,17 @@
   -webkit-filter: brightness(0) invert(1);
 }
 
+.scene-straight-icon {
+  margin-right: 0.5rem;
+  width: 1.1em;
+  height: 1.1em;
+  display: inline-block;
+  vertical-align: -0.125em;
+  // Force black SVGs to render as white without altering the asset
+  filter: brightness(0) invert(1);
+  -webkit-filter: brightness(0) invert(1);
+}
+
 .scene-goatee-icon {
   margin-right: 0.5rem;
   width: 1.1em;

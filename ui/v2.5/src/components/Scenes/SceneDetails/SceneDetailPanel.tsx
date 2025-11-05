@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useContext, useMemo } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
 import * as GQL from "src/core/generated-graphql";
 import TextUtils from "src/utils/text";
@@ -6,6 +6,7 @@ import { TagLink } from "src/components/Shared/TagLink";
 import { PerformerCard } from "src/components/Performers/PerformerCard";
 import { sortPerformers } from "src/core/performers";
 import { DirectorLink } from "src/components/Shared/Link";
+import { ConfigurationContext } from "src/hooks/Config";
 
 interface ISceneDetailProps {
   scene: GQL.SceneDataFragment;
@@ -13,6 +14,23 @@ interface ISceneDetailProps {
 
 export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
   const intl = useIntl();
+  const { configuration } = useContext(ConfigurationContext);
+
+  // Determine if the scene has any explicit Top/Bottom tags among any performers.
+  // This is used to suppress oral-based fallback icons for other performers without explicit roles.
+  const sceneHasExplicitTopBottom = useMemo(() => {
+    const cfg = configuration?.ui?.sceneTagAliases ?? {};
+    const tagTop = (cfg.top ?? "top").toLowerCase();
+    const tagBottom = (cfg.bottom ?? "bottom").toLowerCase();
+    for (const p of props.scene.performers) {
+      const sceneTags = (p as unknown as { scene_tags?: Array<{ id: string; name?: string | null }> }).scene_tags ?? [];
+      for (const t of sceneTags) {
+        const name = (t?.name ?? "").trim().toLowerCase();
+        if (name === tagTop || name === tagBottom) return true;
+      }
+    }
+    return false;
+  }, [props.scene.performers, configuration?.ui]);
 
   function renderDetails() {
     if (!props.scene.details || props.scene.details === "") return;
@@ -47,6 +65,8 @@ export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
   function renderPerformers() {
     if (props.scene.performers.length === 0) return;
     const performers = sortPerformers(props.scene.performers);
+
+    // sceneHasExplicitTopBottom is computed at component level
     const cards = performers.map((performer) => (
       <PerformerCard
         key={performer.id}
@@ -54,6 +74,7 @@ export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
         ageFromDate={props.scene.date ?? undefined}
         showInlineTags={true}
         showTagCounts={false}
+        sceneHasExplicitTopBottom={sceneHasExplicitTopBottom}
       />
     ));
 
