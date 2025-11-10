@@ -36,6 +36,7 @@ const (
 	sceneViewDateColumn   = "view_date"
 	scenesODatesTable     = "scenes_o_dates"
 	sceneODateColumn      = "o_date"
+	sceneMarkersTable     = "scene_markers"
 
 	sceneCoverBlobColumn = "cover_blob"
 )
@@ -478,10 +479,55 @@ func (qb *SceneStore) Destroy(ctx context.Context, id int) error {
 		return err
 	}
 
+	// Ensure any scene-scoped performer tags are removed to avoid orphaned rows
+	if _, err := dbWrapper.Exec(ctx, "DELETE FROM performer_scene_tags WHERE scene_id = ?", id); err != nil {
+		return err
+	}
+
 	// scene markers should be handled prior to calling destroy
 	// galleries should be handled prior to calling destroy
 
 	return qb.tableMgr.destroyExisting(ctx, []int{id})
+}
+
+// MergePerformerSceneTags migrates performer_scene_tags rows from the provided
+// source scene IDs to the destination scene ID, inserting only missing
+// (performer_id, destination_scene_id, tag_id) combinations.
+func (qb *SceneStore) MergePerformerSceneTags(ctx context.Context, sourceIDs []int, destinationID int) error {
+	if len(sourceIDs) == 0 {
+		return nil
+	}
+
+	// Build IN (...) binding for the sourceIDs
+	inBinding := getInBinding(len(sourceIDs))
+
+	// Insert distinct rows from sources for destination where they don't already exist
+	// Uses NOT EXISTS to avoid duplicates regardless of unique constraints.
+	query := fmt.Sprintf(`
+INSERT INTO performer_scene_tags (performer_id, scene_id, tag_id)
+SELECT DISTINCT pst.performer_id, ?, pst.tag_id
+FROM performer_scene_tags pst
+WHERE pst.scene_id IN %s
+  AND NOT EXISTS (
+	SELECT 1 FROM performer_scene_tags dst
+	WHERE dst.performer_id = pst.performer_id
+	  AND dst.scene_id = ?
+	  AND dst.tag_id = pst.tag_id
+  )`, inBinding)
+
+	// args: destinationID, sourceIDs..., destinationID
+	args := make([]interface{}, 0, len(sourceIDs)+2)
+	args = append(args, destinationID)
+	for _, id := range sourceIDs {
+		args = append(args, id)
+	}
+	args = append(args, destinationID)
+
+	if _, err := dbWrapper.Exec(ctx, query, args...); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // returns nil, nil if not found

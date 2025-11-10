@@ -62,6 +62,8 @@ const criterionOptions = [
   createMandatoryNumberCriterionOption("image_count"),
   createMandatoryNumberCriterionOption("gallery_count"),
   createMandatoryNumberCriterionOption("performer_count"),
+  // Tags that have any performer_scene_tags entries (green performer button available)
+  createBooleanCriterionOption("has_performer_scene_tags"),
   createMandatoryNumberCriterionOption("studio_count"),
   createMandatoryNumberCriterionOption("group_count"),
   createMandatoryNumberCriterionOption("marker_count"),

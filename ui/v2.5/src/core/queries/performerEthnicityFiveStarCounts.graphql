@@ -1,0 +1,6 @@
+query PerformerEthnicityFiveStarCounts {
+  performerEthnicityFiveStarCounts {
+    ethnicity
+    count
+  }
+}

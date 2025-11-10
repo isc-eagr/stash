@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/utils"
@@ -143,6 +144,8 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		}),
 
 		qb.tagsCriterionHandler(sceneFilter.Tags),
+		qb.performerSceneTagsCriterionHandler(sceneFilter.PerformerSceneTags),
+		qb.performerSceneTagPairCriterionHandler(sceneFilter.PerformerSceneTagPair),
 		qb.tagCountCriterionHandler(sceneFilter.TagCount),
 		qb.performersCriterionHandler(sceneFilter.Performers),
 		qb.performerCountCriterionHandler(sceneFilter.PerformerCount),
@@ -153,8 +156,227 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 
 		qb.galleriesCriterionHandler(sceneFilter.Galleries),
 		qb.performerTagsCriterionHandler(sceneFilter.PerformerTags),
+		qb.sceneMarkerTagsCriterionHandler(sceneFilter.SceneMarkerTags),
+		qb.performerSceneTagsWithAttrsCriterionHandler(sceneFilter.PerformerSceneTagsWithAttrs),
 		qb.performerFavoriteCriterionHandler(sceneFilter.PerformerFavorite),
 		qb.performerAgeCriterionHandler(sceneFilter.PerformerAge),
+		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
+			if sceneFilter.PerformerEthnicity != nil {
+				pe := sceneFilter.PerformerEthnicity
+				if !pe.Modifier.IsValid() {
+					return
+				}
+
+				// split comma-separated list
+				selected := []string{}
+				for _, e := range strings.Split(pe.Value, ",") {
+					e = strings.TrimSpace(e)
+					if e != "" {
+						selected = append(selected, e)
+					}
+				}
+				if len(selected) == 0 {
+					return
+				}
+
+				// Expand ethnicity selections to include special cases:
+				// - Black matches Black, Mixed, Afrolatino
+				// - White matches White, Mixed
+				// - Latino matches Latino, Afrolatino
+				expandForFilter := func(s string) []string {
+					out := []string{s}
+					if strings.EqualFold(s, "Black") {
+						out = append(out, "Mixed", "Afrolatino")
+					}
+					if strings.EqualFold(s, "White") {
+						out = append(out, "Mixed")
+					}
+					if strings.EqualFold(s, "Latino") {
+						out = append(out, "Afrolatino")
+					}
+					return out
+				}
+
+				// Build allowed set (unique) for IN(...) clauses
+				allowedSet := map[string]struct{}{}
+				for _, s := range selected {
+					for _, v := range expandForFilter(s) {
+						allowedSet[v] = struct{}{}
+					}
+				}
+				allowed := make([]string, 0, len(allowedSet))
+				for v := range allowedSet {
+					allowed = append(allowed, v)
+				}
+
+				placeholders := strings.Repeat("?,", len(allowed))
+				placeholders = placeholders[:len(placeholders)-1]
+				args := make([]interface{}, len(allowed))
+				for i, v := range allowed {
+					args[i] = v
+				}
+
+				existsPerformer := "EXISTS (SELECT 1 FROM performers_scenes ps WHERE ps.scene_id = scenes.id)"
+
+				switch pe.Modifier {
+				case models.CriterionModifierIncludes:
+					clause := fmt.Sprintf("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.ethnicity IN (%s))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierIncludesAll:
+					// ensure at least one performer per each selected value (considering expansions)
+					for _, s := range selected {
+						group := expandForFilter(s)
+						ph := strings.Repeat("?,", len(group))
+						ph = ph[:len(ph)-1]
+						gargs := make([]interface{}, len(group))
+						for i, v := range group {
+							gargs[i] = v
+						}
+						f.addWhere(fmt.Sprintf("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.ethnicity IN (%s))", ph), gargs...)
+					}
+				case models.CriterionModifierEquals:
+					// all performers must be in the allowed set (expanded), exclude null/empty
+					clause := fmt.Sprintf("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND (p.ethnicity IS NULL OR TRIM(p.ethnicity) = '' OR p.ethnicity NOT IN (%s)))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
+					// ensure at least one performer per each selected value (considering expansions)
+					for _, s := range selected {
+						group := expandForFilter(s)
+						ph := strings.Repeat("?,", len(group))
+						ph = ph[:len(ph)-1]
+						gargs := make([]interface{}, len(group))
+						for i, v := range group {
+							gargs[i] = v
+						}
+						f.addWhere(fmt.Sprintf("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.ethnicity IN (%s))", ph), gargs...)
+					}
+				case models.CriterionModifierNotEquals:
+					// no performer may match any of the allowed (expanded) set
+					clause := fmt.Sprintf("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.ethnicity IN (%s))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
+				default:
+					clause := fmt.Sprintf("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.ethnicity IN (%s))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
+				}
+			}
+		}),
+		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
+			if sceneFilter.PerformerCountry != nil {
+				pc := sceneFilter.PerformerCountry
+				if !pc.Modifier.IsValid() {
+					return
+				}
+
+				// split comma-separated country list into slice and build placeholders
+				countries := []string{}
+				for _, c := range strings.Split(pc.Value, ",") {
+					c = strings.TrimSpace(c)
+					if c != "" {
+						countries = append(countries, c)
+					}
+				}
+				if len(countries) == 0 {
+					return
+				}
+
+				placeholders := strings.Repeat("?,", len(countries))
+				placeholders = placeholders[:len(placeholders)-1]
+				args := make([]interface{}, len(countries))
+				for i, v := range countries {
+					args[i] = v
+				}
+
+				// require at least one performer on scene
+				existsPerformer := "EXISTS (SELECT 1 FROM performers_scenes ps WHERE ps.scene_id = scenes.id)"
+
+				switch pc.Modifier {
+				case models.CriterionModifierIncludes:
+					// at least one performer country in the set; include null countries implicitly, but must have some performer in set
+					clause := fmt.Sprintf("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.country IN (%s))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierIncludesAll:
+					// at least one performer from each selected country; do not restrict other countries or nulls
+					for _, c := range countries {
+						f.addWhere("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.country = ?)", c)
+					}
+				case models.CriterionModifierEquals:
+					// all performers must be in the set; exclude performers with NULL/empty country
+					clause := fmt.Sprintf("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND (p.country IS NULL OR TRIM(p.country) = '' OR p.country NOT IN (%s)))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
+					// and ensure at least one performer from each selected country
+					for _, c := range countries {
+						f.addWhere("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.country = ?)", c)
+					}
+				case models.CriterionModifierNotEquals:
+					// no performer may be in the set; performers without country are allowed
+					clause := fmt.Sprintf("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.country IN (%s))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
+				default:
+					// fallback: treat as includes
+					clause := fmt.Sprintf("EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.country IN (%s))", placeholders)
+					f.addWhere(clause, args...)
+					f.addWhere(existsPerformer)
+				}
+			}
+
+		}),
+		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
+			if sceneFilter.PerformerRating != nil {
+				pr := sceneFilter.PerformerRating
+				// default to ALL performers must satisfy unless explicitly overridden
+				modeAll := true
+				if sceneFilter.PerformerRatingAll != nil {
+					modeAll = *sceneFilter.PerformerRatingAll
+				}
+
+				if !modeAll {
+					// ANY performer must satisfy: simple join + numeric comparison
+					f.addInnerJoin("performers_scenes", "", "scenes.id = performers_scenes.scene_id")
+					f.addInnerJoin("performers", "", "performers_scenes.performer_id = performers.id")
+					intCriterionHandler(pr, "performers.rating", nil)(ctx, f)
+					return
+				}
+
+				// ALL performers must satisfy: ensure no violating performer exists and at least one performer exists
+				existsPerformer := "EXISTS (SELECT 1 FROM performers_scenes ps WHERE ps.scene_id = scenes.id)"
+				switch pr.Modifier {
+				case models.CriterionModifierEquals:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND (p.rating IS NULL OR p.rating != ?))", pr.Value)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierNotEquals:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.rating = ?)", pr.Value)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierGreaterThan:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND (p.rating IS NULL OR p.rating <= ?))", pr.Value)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierLessThan:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND (p.rating IS NULL OR p.rating >= ?))", pr.Value)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierBetween:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND (p.rating IS NULL OR p.rating < ? OR p.rating > ?))", pr.Value, pr.Value2)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierNotBetween:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND (p.rating IS NULL OR (p.rating >= ? AND p.rating <= ?)))", pr.Value, pr.Value2)
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierNotNull:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.rating IS NULL)")
+					f.addWhere(existsPerformer)
+				case models.CriterionModifierIsNull:
+					f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND p.rating IS NOT NULL)")
+					f.addWhere(existsPerformer)
+				default:
+					f.addInnerJoin("performers_scenes", "", "scenes.id = performers_scenes.scene_id")
+					f.addInnerJoin("performers", "", "performers_scenes.performer_id = performers.id")
+					intCriterionHandler(pr, "performers.rating", nil)(ctx, f)
+				}
+			}
+		}),
 		qb.phashDuplicatedCriterionHandler(sceneFilter.Duplicated, qb.addSceneFilesTable),
 		&dateCriterionHandler{sceneFilter.Date, "scenes.date", nil},
 		&timestampCriterionHandler{sceneFilter.CreatedAt, "scenes.created_at", nil},
@@ -210,6 +432,95 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 				f.addInnerJoin("scene_markers", "", "scenes.id")
 			},
 		},
+	}
+}
+
+// performerSceneTagsWithAttrsCriterionHandler handles grouped filtering combining
+// performer_scene_tags with optional performer attributes. For each group, we add
+// an EXISTS subquery that enforces the tag match and attribute predicates against
+// performers joined via performer_scene_tags for the same scene.
+func (qb *sceneFilterHandler) performerSceneTagsWithAttrsCriterionHandler(input *models.PerformerSceneTagsWithAttrsCriterionInput) criterionHandlerFunc {
+	return func(ctx context.Context, f *filterBuilder) {
+		if input == nil || len(input.Groups) == 0 {
+			return
+		}
+
+		// helper to expand ethnicity like global filters for consistency
+		expandEthnicity := func(s string) []string {
+			v := strings.TrimSpace(s)
+			if v == "" {
+				return nil
+			}
+			out := []string{v}
+			if strings.EqualFold(v, "Black") {
+				out = append(out, "Mixed", "Afrolatino")
+			}
+			if strings.EqualFold(v, "White") {
+				out = append(out, "Mixed")
+			}
+			if strings.EqualFold(v, "Latino") {
+				out = append(out, "Afrolatino")
+			}
+			return out
+		}
+
+		// Build clauses per group
+		groupClauses := make([]string, 0, len(input.Groups))
+		allArgs := make([]interface{}, 0)
+		for _, g := range input.Groups {
+			where := []string{"scene_pst_group.tag_id = ?"}
+			args := []interface{}{g.TagID}
+
+			if g.PerformerCountry != nil && strings.TrimSpace(*g.PerformerCountry) != "" {
+				where = append(where, "p_group.country = ?")
+				args = append(args, strings.TrimSpace(*g.PerformerCountry))
+			}
+
+			if g.PerformerEthnicity != nil && strings.TrimSpace(*g.PerformerEthnicity) != "" {
+				exp := expandEthnicity(*g.PerformerEthnicity)
+				if len(exp) > 0 {
+					ph := strings.Repeat("?,", len(exp))
+					ph = ph[:len(ph)-1]
+					where = append(where, fmt.Sprintf("p_group.ethnicity IN (%s)", ph))
+					for _, v := range exp {
+						args = append(args, v)
+					}
+				}
+			}
+
+			if g.PerformerRating != nil {
+				w, wargs := getIntWhereClause("p_group.rating", g.PerformerRating.Modifier, g.PerformerRating.Value, g.PerformerRating.Value2)
+				where = append(where, w)
+				args = append(args, wargs...)
+			}
+
+			clause := fmt.Sprintf("EXISTS (SELECT 1 FROM performer_scene_tags scene_pst_group JOIN performers p_group ON p_group.id = scene_pst_group.performer_id WHERE scene_pst_group.scene_id = scenes.id AND %s)", strings.Join(where, " AND "))
+			groupClauses = append(groupClauses, clause)
+			allArgs = append(allArgs, args...)
+		}
+
+		// Apply combined clause depending on match_any
+		matchAny := input.MatchAny != nil && *input.MatchAny
+		if matchAny {
+			// OR across groups in a single WHERE
+			grouped := make([]string, len(groupClauses))
+			for i, c := range groupClauses {
+				grouped[i] = fmt.Sprintf("(%s)", c)
+			}
+			f.addWhere(strings.Join(grouped, " OR "), allArgs...)
+		} else {
+			// AND semantics: add each clause separately
+			// Rebuild args per clause in order (since we flattened args)
+			argIdx := 0
+			for gi := range input.Groups {
+				// Count number of placeholders in clause to slice args
+				clause := groupClauses[gi]
+				// Rough split: count '?' occurrences
+				phCount := strings.Count(clause, "?")
+				f.addWhere(clause, allArgs[argIdx:argIdx+phCount]...)
+				argIdx += phCount
+			}
+		}
 	}
 }
 
@@ -411,6 +722,34 @@ func (qb *sceneFilterHandler) tagsCriterionHandler(tags *models.HierarchicalMult
 	return h.handler(tags)
 }
 
+func (qb *sceneFilterHandler) performerSceneTagsCriterionHandler(tags *models.HierarchicalMultiCriterionInput) criterionHandler {
+	// This handler filters scenes by tags recorded in the performer_scene_tags join table.
+	// It supports hierarchical tag inputs similar to the normal tags handler.
+	h := joinedHierarchicalMultiCriterionHandlerBuilder{
+		primaryTable:   sceneTable,
+		foreignTable:   tagTable,
+		foreignFK:      "tag_id",
+		relationsTable: "tags_relations",
+		joinAs:         "scene_pst",
+		joinTable:      "performer_scene_tags",
+		primaryFK:      sceneIDColumn,
+	}
+
+	return h.handler(tags)
+}
+
+func (qb *sceneFilterHandler) performerSceneTagPairCriterionHandler(pair *models.PerformerSceneTagPairInput) criterionHandler {
+	return criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
+		if pair == nil {
+			return
+		}
+
+		// Join the performer_scene_tags table and filter by performer_id and tag_id
+		f.addLeftJoin("performer_scene_tags", "scene_pst_pair", "scene_pst_pair.scene_id = scenes.id")
+		f.addWhere("scene_pst_pair.performer_id = ? AND scene_pst_pair.tag_id = ?", pair.PerformerID, pair.TagID)
+	})
+}
+
 func (qb *sceneFilterHandler) tagCountCriterionHandler(tagCount *models.IntCriterionInput) criterionHandlerFunc {
 	h := countCriterionHandlerBuilder{
 		primaryTable: sceneTable,
@@ -524,6 +863,15 @@ func (qb *sceneFilterHandler) performerTagsCriterionHandler(tags *models.Hierarc
 		criterion:      tags,
 		primaryTable:   sceneTable,
 		joinTable:      performersScenesTable,
+		joinPrimaryKey: sceneIDColumn,
+	}
+}
+
+func (qb *sceneFilterHandler) sceneMarkerTagsCriterionHandler(tags *models.SceneMarkerTagsCriterionInput) criterionHandler {
+	return &joinedSceneMarkerTagsHandler{
+		criterion:      tags,
+		primaryTable:   sceneTable,
+		joinTable:      sceneMarkersTable,
 		joinPrimaryKey: sceneIDColumn,
 	}
 }

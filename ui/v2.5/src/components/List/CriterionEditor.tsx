@@ -12,6 +12,7 @@ import {
   TimestampCriterion,
   BooleanCriterion,
   Criterion,
+  ModifierCriterionOption,
 } from "src/models/list-filter/criteria/criterion";
 import {
   criterionIsHierarchicalLabelValue,
@@ -28,11 +29,14 @@ import { InputFilter } from "./Filters/InputFilter";
 import { DateFilter } from "./Filters/DateFilter";
 import { TimestampFilter } from "./Filters/TimestampFilter";
 import { CountryCriterion } from "src/models/list-filter/criteria/country";
-import { CountrySelect } from "../Shared/CountrySelect";
+import { PerformerCountryFilter } from "./Filters/PerformerCountryFilter";
 import { StashIDCriterion } from "src/models/list-filter/criteria/stash-ids";
 import { StashIDFilter } from "./Filters/StashIDFilter";
-import { RatingCriterion } from "../../models/list-filter/criteria/rating";
+import { PerformerRatingCriterion, RatingCriterion } from "../../models/list-filter/criteria/rating";
+import { EthnicityCriterion } from "../../models/list-filter/criteria/ethnicity";
 import { RatingFilter } from "./Filters/RatingFilter";
+import { PerformerRatingFilter } from "./Filters/PerformerRatingFilter";
+import { PerformerEthnicityFilter } from "./Filters/PerformerEthnicityFilter";
 import { BooleanFilter } from "./Filters/BooleanFilter";
 import { OptionFilter, OptionListFilter } from "./Filters/OptionFilter";
 import { PathFilter } from "./Filters/PathFilter";
@@ -40,8 +44,11 @@ import { PerformersCriterion } from "src/models/list-filter/criteria/performers"
 import PerformersFilter from "./Filters/PerformersFilter";
 import { StudiosCriterion } from "src/models/list-filter/criteria/studios";
 import StudiosFilter from "./Filters/StudiosFilter";
-import { TagsCriterion } from "src/models/list-filter/criteria/tags";
+import { TagsCriterion, SceneMarkerTagsCriterion } from "src/models/list-filter/criteria/tags";
+import { PerformerSceneTagsWithAttrsCriterion } from "src/models/list-filter/criteria/performer-scene-tags-with-attrs";
 import TagsFilter from "./Filters/TagsFilter";
+import { SceneMarkerTagsFilter } from "./Filters/SceneMarkerTagsFilter";
+import PerformerSceneTagsWithAttrsFilter from "src/components/List/Filters/PerformerSceneTagsWithAttrsFilter";
 import { PhashCriterion } from "src/models/list-filter/criteria/phash";
 import { PhashFilter } from "./Filters/PhashFilter";
 import { PathCriterion } from "src/models/list-filter/criteria/path";
@@ -158,6 +165,7 @@ const GenericCriterionEditor: React.FC<IGenericCriterionEditor> = ({
         />
       );
     }
+    // SceneMarkerTagsCriterion is handled by a specialized editor outside GenericCriterionEditor
 
     if (criterion instanceof ILabeledIdCriterion) {
       return (
@@ -202,7 +210,7 @@ const GenericCriterionEditor: React.FC<IGenericCriterionEditor> = ({
       return (
         <DurationFilter criterion={criterion} onValueChanged={onValueChanged} />
       );
-    }
+  }
     if (criterion instanceof DateCriterion) {
       return (
         <DateFilter criterion={criterion} onValueChanged={onValueChanged} />
@@ -221,6 +229,27 @@ const GenericCriterionEditor: React.FC<IGenericCriterionEditor> = ({
         <NumberFilter criterion={criterion} onValueChanged={onValueChanged} />
       );
     }
+    if (criterion instanceof EthnicityCriterion) {
+      return (
+        <PerformerEthnicityFilter
+          criterion={criterion}
+          onValueChanged={(v) => onValueChanged(v)}
+        />
+      );
+    }
+    if (criterion instanceof PerformerRatingCriterion) {
+      return (
+        <PerformerRatingFilter
+          criterion={criterion}
+          onValueChanged={(v) => onValueChanged(v)}
+          onMatchAllChanged={(v) => {
+            const c = cloneDeep(criterion);
+            c.matchAll = v;
+            setCriterion(c);
+          }}
+        />
+      );
+    }
     if (criterion instanceof RatingCriterion) {
       return (
         <RatingFilter criterion={criterion} onValueChanged={onValueChanged} />
@@ -231,16 +260,11 @@ const GenericCriterionEditor: React.FC<IGenericCriterionEditor> = ({
         <PhashFilter criterion={criterion} onValueChanged={onValueChanged} />
       );
     }
-    if (
-      criterion instanceof CountryCriterion &&
-      (criterion.modifier === CriterionModifier.Equals ||
-        criterion.modifier === CriterionModifier.NotEquals)
-    ) {
+    if (criterion instanceof CountryCriterion) {
       return (
-        <CountrySelect
-          value={criterion.value}
-          onChange={(v) => onValueChanged(v)}
-          menuPortalTarget={document.body}
+        <PerformerCountryFilter
+          criterion={criterion}
+          onValueChanged={(v) => onValueChanged(v)}
         />
       );
     }
@@ -267,6 +291,28 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
   setCriterion,
 }) => {
   const filterControl = useMemo(() => {
+    if (criterion instanceof SceneMarkerTagsCriterion) {
+      // Custom editor with modifier selector
+      const c = criterion;
+      return (
+        <div>
+          <ModifierSelectorButtons
+            options={(c.criterionOption as ModifierCriterionOption).modifierOptions}
+            value={c.modifier}
+            onChanged={(m) => {
+              const newC = c.clone() as SceneMarkerTagsCriterion;
+              newC.modifier = m;
+              setCriterion(newC);
+            }}
+          />
+          <SceneMarkerTagsFilter
+            criterion={c as SceneMarkerTagsCriterion}
+            setCriterion={(nc) => setCriterion(nc)}
+          />
+        </div>
+      );
+    }
+
     if (criterion instanceof BooleanCriterion) {
       return (
         <BooleanFilter criterion={criterion} setCriterion={setCriterion} />
@@ -285,6 +331,17 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
           criterion={criterion}
           setCriterion={setCriterion}
         />
+      );
+    }
+
+    if (criterion instanceof PerformerSceneTagsWithAttrsCriterion) {
+      return (
+        <div>
+          <PerformerSceneTagsWithAttrsFilter
+            criterion={criterion}
+            setCriterion={(nc: PerformerSceneTagsWithAttrsCriterion) => setCriterion(nc)}
+          />
+        </div>
       );
     }
 

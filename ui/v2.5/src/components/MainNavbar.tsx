@@ -29,6 +29,7 @@ import {
   faHeart,
   faImage,
   faImages,
+  faListCheck,
   faMapMarkerAlt,
   faPlayCircle,
   faQuestionCircle,
@@ -323,6 +324,19 @@ export const MainNavbar: React.FC = () => {
             title={intl.formatMessage({ id: "statistics" })}
           >
             <Icon icon={faChartColumn} />
+          </Button>
+        </NavLink>
+        <NavLink
+          className="nav-utility"
+          exact
+          to="/task-progress"
+          onClick={handleDismiss}
+        >
+          <Button
+            className="minimal d-flex align-items-center h-100"
+            title={intl.formatMessage({ id: "task_progress", defaultMessage: "Task Progress" })}
+          >
+            <Icon icon={faListCheck} />
           </Button>
         </NavLink>
         <NavLink

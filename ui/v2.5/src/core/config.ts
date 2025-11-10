@@ -102,6 +102,20 @@ export interface IUIConfig {
   defaultFilters?: DefaultFilters;
 
   taggerConfig?: ITaggerConfig;
+
+  // Customizable tag names used for performer_scene_tags logic
+  // These allow users to configure their own tag labels that drive UI iconography.
+  sceneTagAliases?: {
+    straight?: string;
+    top?: string;
+    bottom?: string;
+    oralbottom?: string;
+    oraltop?: string;
+    solo?: string;
+    facialgiven?: string;
+    facialreceived?: string;
+    selffacial?: string;
+  };
 }
 
 export function getFrontPageContent(

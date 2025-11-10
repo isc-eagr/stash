@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/stashapp/stash/internal/build"
 	"github.com/stashapp/stash/internal/manager"
+	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/logger"
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/plugin/hook"
+	"github.com/stashapp/stash/pkg/scene"
 	"github.com/stashapp/stash/pkg/scraper"
 )
 
@@ -111,6 +114,12 @@ func (r *Resolver) ConfigResult() ConfigResultResolver {
 	return &configResultResolver{r}
 }
 
+// NOTE: TagFilterType resolver stub removed temporarily to allow gqlgen
+// to run and generate the TagFilterTypeResolver interface. The stub will be
+// re-added after code generation so we can return a no-op resolver for the
+// input type fields (TagFilterType is used as an input type and doesn't
+// require runtime resolution).
+
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
@@ -174,6 +183,138 @@ func (r *queryResolver) MarkerStrings(ctx context.Context, q *string, sort *stri
 		return nil, err
 	}
 
+	return ret, nil
+}
+
+func (r *queryResolver) PerformerEthnicities(ctx context.Context) (ret []string, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		// Query distinct, non-empty, non-null performer ethnicities
+		cols, rows, err := db.QuerySQL(ctx, "SELECT DISTINCT ethnicity FROM performers WHERE ethnicity IS NOT NULL AND TRIM(ethnicity) <> '' ORDER BY ethnicity", nil)
+		if err != nil {
+			return err
+		}
+		_ = cols // not used
+		out := make([]string, 0, len(rows))
+		for _, row := range rows {
+			if len(row) == 0 {
+				continue
+			}
+			switch v := row[0].(type) {
+			case string:
+				out = append(out, v)
+			case []byte:
+				out = append(out, string(v))
+			default:
+				out = append(out, fmt.Sprint(v))
+			}
+		}
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+// PerformerEthnicityCounts returns counts of performers grouped by non-empty ethnicity,
+// sorted by count descending.
+func (r *queryResolver) PerformerEthnicityCounts(ctx context.Context) (ret []*PerformerEthnicityCount, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := "SELECT ethnicity, COUNT(*) as cnt FROM performers WHERE ethnicity IS NOT NULL AND TRIM(ethnicity) <> '' GROUP BY ethnicity ORDER BY cnt DESC"
+		_, rows, err := db.QuerySQL(ctx, query, nil)
+		if err != nil {
+			return err
+		}
+		out := make([]*PerformerEthnicityCount, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 2 {
+				continue
+			}
+			var eth string
+			switch v := row[0].(type) {
+			case string:
+				eth = v
+			case []byte:
+				eth = string(v)
+			default:
+				eth = fmt.Sprint(v)
+			}
+			var cnt int
+			switch v := row[1].(type) {
+			case int64:
+				cnt = int(v)
+			case int:
+				cnt = v
+			case []byte:
+				i, _ := strconv.Atoi(string(v))
+				cnt = i
+			case string:
+				i, _ := strconv.Atoi(v)
+				cnt = i
+			default:
+				i, _ := strconv.Atoi(fmt.Sprint(v))
+				cnt = i
+			}
+			out = append(out, &PerformerEthnicityCount{Ethnicity: eth, Count: cnt})
+		}
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+// PerformerEthnicityFiveStarCounts returns counts of performers with a 5-star rating (rating100→5)
+// grouped by non-empty ethnicity, sorted by count descending. Threshold is rating >= 90, consistent
+// with Rating100To5 mapping (round(r/20) >= 4.5 → 5).
+func (r *queryResolver) PerformerEthnicityFiveStarCounts(ctx context.Context) (ret []*PerformerEthnicityCount, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := "SELECT ethnicity, COUNT(*) as cnt FROM performers WHERE rating IS NOT NULL AND rating >= 90 AND ethnicity IS NOT NULL AND TRIM(ethnicity) <> '' GROUP BY ethnicity ORDER BY cnt DESC"
+		_, rows, err := db.QuerySQL(ctx, query, nil)
+		if err != nil {
+			return err
+		}
+		out := make([]*PerformerEthnicityCount, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 2 {
+				continue
+			}
+			var eth string
+			switch v := row[0].(type) {
+			case string:
+				eth = v
+			case []byte:
+				eth = string(v)
+			default:
+				eth = fmt.Sprint(v)
+			}
+			var cnt int
+			switch v := row[1].(type) {
+			case int64:
+				cnt = int(v)
+			case int:
+				cnt = v
+			case []byte:
+				i, _ := strconv.Atoi(string(v))
+				cnt = i
+			case string:
+				i, _ := strconv.Atoi(v)
+				cnt = i
+			default:
+				i, _ := strconv.Atoi(fmt.Sprint(v))
+				cnt = i
+			}
+			out = append(out, &PerformerEthnicityCount{Ethnicity: eth, Count: cnt})
+		}
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
 	return ret, nil
 }
 
@@ -266,6 +407,70 @@ func (r *queryResolver) Stats(ctx context.Context) (*StatsResultType, error) {
 			return err
 		}
 
+		// Get scene category counts using configured tag names
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
+
+		topTagName := "top"
+		bottomTagName := "bottom"
+		oralTopTagName := "oraltop"
+		oralBottomTagName := "oralbottom"
+		soloTagName := "solo"
+		facialGivenTagName := "facialgiven"
+		facialReceivedTagName := "facialreceived"
+		selfFacialTagName := "selffacial"
+
+		if sceneTagAliases != nil {
+			if t, ok := sceneTagAliases["top"].(string); ok && t != "" {
+				topTagName = t
+			}
+			if b, ok := sceneTagAliases["bottom"].(string); ok && b != "" {
+				bottomTagName = b
+			}
+			if ot, ok := sceneTagAliases["oraltop"].(string); ok && ot != "" {
+				oralTopTagName = ot
+			}
+			if ob, ok := sceneTagAliases["oralbottom"].(string); ok && ob != "" {
+				oralBottomTagName = ob
+			}
+			if s, ok := sceneTagAliases["solo"].(string); ok && s != "" {
+				soloTagName = s
+			}
+			if fg, ok := sceneTagAliases["facialgiven"].(string); ok && fg != "" {
+				facialGivenTagName = fg
+			}
+			if fr, ok := sceneTagAliases["facialreceived"].(string); ok && fr != "" {
+				facialReceivedTagName = fr
+			}
+			if sf, ok := sceneTagAliases["selffacial"].(string); ok && sf != "" {
+				selfFacialTagName = sf
+			}
+		}
+
+		// Count sex scenes (scenes with top/bottom tags)
+		sexSceneCount, err := scene.CountByPerformerSceneTags(ctx, sceneQB, tagQB, []string{topTagName, bottomTagName}, false)
+		if err != nil {
+			return err
+		}
+
+		// Count oral scenes (scenes with oral tags but not top/bottom)
+		oralSceneCount, err := scene.CountByPerformerSceneTagsWithExclusions(ctx, sceneQB, tagQB, []string{oralTopTagName, oralBottomTagName}, []string{topTagName, bottomTagName})
+		if err != nil {
+			return err
+		}
+
+		// Count solo scenes (scenes with solo tags but not top/bottom/oral)
+		soloSceneCount, err := scene.CountByPerformerSceneTagsWithExclusions(ctx, sceneQB, tagQB, []string{soloTagName}, []string{topTagName, bottomTagName, oralTopTagName, oralBottomTagName})
+		if err != nil {
+			return err
+		}
+
+		// Count facial scenes (scenes with facialgiven or facialreceived or selffacial tags)
+		facialSceneCount, err := scene.CountByPerformerSceneTags(ctx, sceneQB, tagQB, []string{facialGivenTagName, facialReceivedTagName, selfFacialTagName}, false)
+		if err != nil {
+			return err
+		}
+
 		ret = StatsResultType{
 			SceneCount:        scenesCount,
 			ScenesSize:        scenesSize,
@@ -282,6 +487,10 @@ func (r *queryResolver) Stats(ctx context.Context) (*StatsResultType, error) {
 			TotalPlayDuration: totalPlayDuration,
 			TotalPlayCount:    totalPlayCount,
 			ScenesPlayed:      uniqueScenePlayCount,
+			SexSceneCount:     sexSceneCount,
+			OralSceneCount:    oralSceneCount,
+			SoloSceneCount:    soloSceneCount,
+			FacialSceneCount:  facialSceneCount,
 		}
 
 		return nil
@@ -409,6 +618,99 @@ func (r *queryResolver) SceneMarkerTags(ctx context.Context, scene_id string) ([
 	var result []*SceneMarkerTag
 	for _, key := range keys {
 		result = append(result, tags[key])
+	}
+
+	return result, nil
+}
+
+// PerformerTagSceneCounts returns the number of scenes for each provided tag_id
+// where the scene is associated with the given performer. Returned slice is in
+// the same order as the provided tag_ids.
+func (r *queryResolver) PerformerTagSceneCounts(ctx context.Context, performer_id string, tag_ids []string) ([]*PerformerTagSceneCount, error) {
+	// parse performer id
+	pid, err := strconv.Atoi(performer_id)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(tag_ids) == 0 {
+		return []*PerformerTagSceneCount{}, nil
+	}
+
+	// parse tag ids and build args
+	args := make([]interface{}, 0, 1+len(tag_ids))
+	args = append(args, pid)
+	placeholders := make([]string, len(tag_ids))
+	parsedIDs := make([]int, len(tag_ids))
+	for i, tid := range tag_ids {
+		id, err := strconv.Atoi(tid)
+		if err != nil {
+			return nil, err
+		}
+		parsedIDs[i] = id
+		args = append(args, id)
+		placeholders[i] = "?"
+	}
+
+	query := "SELECT tag_id, COUNT(DISTINCT scene_id) FROM performer_scene_tags WHERE performer_id = ? AND tag_id IN (" + strings.Join(placeholders, ",") + ") GROUP BY tag_id"
+
+	db := manager.GetInstance().Database
+
+	var rows [][]interface{}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		var err error
+		_, rows, err = db.QuerySQL(ctx, query, args)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+
+	counts := make(map[int]int)
+	for _, row := range rows {
+		if len(row) < 2 {
+			continue
+		}
+
+		// tag_id may be returned as int64 or string/[]byte depending on driver
+		var tagInt int
+		switch v := row[0].(type) {
+		case int64:
+			tagInt = int(v)
+		case int:
+			tagInt = v
+		case []byte:
+			tagInt, _ = strconv.Atoi(string(v))
+		case string:
+			tagInt, _ = strconv.Atoi(v)
+		default:
+			tagInt, _ = strconv.Atoi(fmt.Sprint(v))
+		}
+
+		var cnt int
+		switch v := row[1].(type) {
+		case int64:
+			cnt = int(v)
+		case int:
+			cnt = v
+		case []byte:
+			cnt, _ = strconv.Atoi(string(v))
+		case string:
+			cnt, _ = strconv.Atoi(v)
+		default:
+			cnt, _ = strconv.Atoi(fmt.Sprint(v))
+		}
+
+		counts[tagInt] = cnt
+	}
+
+	var result []*PerformerTagSceneCount
+	for _, id := range parsedIDs {
+		c := counts[id]
+		result = append(result, &PerformerTagSceneCount{
+			TagID: strconv.Itoa(id),
+			Count: c,
+		})
 	}
 
 	return result, nil

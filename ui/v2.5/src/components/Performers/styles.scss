@@ -78,7 +78,9 @@
 }
 
 .performer-card {
-  width: 20rem;
+  /* Remove fixed base width to avoid layout jump when JS-calculated width applies.
+     Other grids (scenes, galleries, images) rely on the inline width from GridCard
+     without a CSS default, so align performers with that pattern. */
 
   @media (max-width: 576px) {
     width: 100%;
@@ -117,12 +119,28 @@
     }
   }
 
+  /* Reserve space for a two-line title to avoid reflow during font load */
+  .card-section-title {
+    min-height: 2.6rem; /* ~2 lines at ~1.2-1.3 line-height */
+  }
+
   &:hover button.btn.favorite-button.not-favorite {
     opacity: 1;
   }
 
   &__age {
     color: $muted-gray;
+    /* Reserve space even when age is not present */
+    min-height: 1.1rem; /* roughly one line of body text */
+    /* Ensure age line doesn't inherit heading styles when rendered inside the title */
+    display: block;
+    font-weight: normal;
+    font-size: 1rem; /* standard body size */
+    line-height: 1.2;
+    margin-top: 0.15rem;
+    text-transform: none;
+    letter-spacing: normal;
+    font-family: $font-family-base; /* ensure body font family, not heading */
   }
 
   // allow country string to be shown, but disable by default
@@ -134,7 +152,364 @@
 .card {
   &.performer-card {
     padding: 0 0 1rem 0;
+
+    /* Keep gender icon aligned with the top of the name block,
+       not vertically centered when tags add extra rows */
+    .card-section-title.flex-aligned {
+      align-items: flex-start;
+    }
   }
+}
+
+/* Inline scene tag strip under performer name: wrap and clamp to 3 rows */
+.performer-card__scene-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start; /* pack rows from top */
+  position: relative; /* allow bottom-right ellipsis overlay */
+  /* space between chips without relying on bootstrap margins */
+  gap: 0.15rem; /* tighter and even spacing to reduce wrapping */
+  padding-bottom: 1px; /* prevent last row from being visually cut by overflow */
+
+  /* Standardize chip height for precise clamping */
+  .tag-item {
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box; /* include padding/border within fixed height */
+    height: 1.6rem; /* fixed chip height tuned for Bootstrap badge */
+    padding: 0 0.45rem; /* slightly tighter to reduce reflow on count arrival */
+    margin: 0; /* override global margin from index.scss to avoid extra row height */
+    white-space: nowrap; /* prevent chip text wrapping */
+    line-height: 1; /* ensure height is controlled by the container */
+    font-size: 0.76rem; /* compact font size for dense chips */
+  }
+
+  /* normalize inner link to not affect chip height */
+  .tag-item a {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+  }
+
+  /* ensure linked chips don't add vertical padding via global .tag-link styles */
+  .tag-item.tag-link {
+    padding: 0; /* let the anchor handle horizontal padding */
+  }
+  .tag-item.tag-link a {
+    padding: 0 0.5rem; /* horizontal padding only; no vertical padding */
+  }
+
+  /* Reserve a fixed height equal to 2 rows of chips so all cards align */
+  /* 2 * chip-height + 1 * row-gap + small slack */
+  height: calc(2 * 1.6rem + 1 * 0.15rem + 0.05rem);
+  overflow: hidden; /* clip overflow beyond 2 rows */
+}
+
+/* Tooltip chips: keep same visual and clearly non-clickable */
+.hover-popover-content .tag-item {
+  cursor: default;
+}
+
+/* Ellipsis overlay when tag list overflows */
+.performer-card__scene-tags-ellipsis {
+  position: absolute;
+  right: 0.1rem;
+  bottom: 0.05rem;
+  z-index: 1;
+  color: $text-muted;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  /* fade background behind the ellipsis for readability over chips */
+  padding-left: 0.35rem;
+  background: linear-gradient(
+    90deg,
+    rgba($card-bg, 0) 0%,
+    rgba($card-bg, 0.6) 40%,
+    rgba($card-bg, 0.9) 100%
+  );
+}
+
+/* Reserve width for inline tag counts to avoid reflow when counts load */
+.performer-card__scene-tags .tag-count-slot {
+  display: inline-block;
+  width: 3.2ch; /* space for up to three digits like (999) */
+  margin-left: 0.1rem; /* slight separation from tag name */
+  overflow: hidden;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums; /* stable digit widths */
+}
+
+/* ===== ANIMATION OPTIONS FOR METALLIC CARDS ===== */
+
+/* OPTION 1: Subtle Pulse - gentle breathing effect */
+@keyframes metallic-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 12px rgba(212, 175, 55, 0.3),
+      0 2px 8px rgba(212, 175, 55, 0.2),
+      inset 0 2px 0 rgba(255, 237, 78, 0.4),
+      inset 0 -2px 0 rgba(184, 134, 11, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 0 16px rgba(212, 175, 55, 0.4),
+      0 2px 10px rgba(212, 175, 55, 0.3),
+      inset 0 2px 0 rgba(255, 237, 78, 0.5),
+      inset 0 -2px 0 rgba(184, 134, 11, 0.5);
+  }
+}
+
+@keyframes metallic-pulse-silver {
+  0%, 100% {
+    box-shadow:
+      0 0 14px rgba(192, 192, 192, 0.45),
+      0 2px 8px rgba(192, 192, 192, 0.3),
+      inset 0 2px 0 rgba(240, 240, 240, 0.5),
+      inset 0 -2px 0 rgba(140, 140, 140, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 18px rgba(192, 192, 192, 0.55),
+      0 2px 10px rgba(192, 192, 192, 0.4),
+      inset 0 2px 0 rgba(240, 240, 240, 0.6),
+      inset 0 -2px 0 rgba(140, 140, 140, 0.6);
+  }
+}
+
+@keyframes metallic-pulse-bronze {
+  0%, 100% {
+    box-shadow:
+      0 0 12px rgba(184, 115, 51, 0.3),
+      0 2px 8px rgba(184, 115, 51, 0.2),
+      inset 0 2px 0 rgba(230, 150, 80, 0.4),
+      inset 0 -2px 0 rgba(140, 90, 40, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 0 16px rgba(184, 115, 51, 0.4),
+      0 2px 10px rgba(184, 115, 51, 0.3),
+      inset 0 2px 0 rgba(230, 150, 80, 0.5),
+      inset 0 -2px 0 rgba(140, 90, 40, 0.5);
+  }
+}
+
+/* OPTION 2: Shimmer - light sweeping across the card */
+@keyframes metallic-shimmer {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: 100% 100%;
+  }
+}
+
+/* OPTION 3: Border Glow Pulse - pulsing border only */
+@keyframes border-pulse-gold {
+  0%, 100% {
+    border-color: #d4af37;
+    filter: drop-shadow(0 0 2px rgba(212, 175, 55, 0.3));
+  }
+  50% {
+    border-color: #e6c459;
+    filter: drop-shadow(0 0 4px rgba(212, 175, 55, 0.5));
+  }
+}
+
+@keyframes border-pulse-silver {
+  0%, 100% {
+    border-color: #b8b8b8;
+    filter: drop-shadow(0 0 2px rgba(192, 192, 192, 0.3));
+  }
+  50% {
+    border-color: #d0d0d0;
+    filter: drop-shadow(0 0 4px rgba(192, 192, 192, 0.5));
+  }
+}
+
+@keyframes border-pulse-bronze {
+  0%, 100% {
+    border-color: #b87333;
+    filter: drop-shadow(0 0 2px rgba(184, 115, 51, 0.3));
+  }
+  50% {
+    border-color: #cd7f32;
+    filter: drop-shadow(0 0 4px rgba(184, 115, 51, 0.5));
+  }
+}
+
+.performer-card.rating-5-stars {
+  box-sizing: border-box;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 215, 0, 0.35) 0%,
+    rgba(255, 215, 0, 0.50) 25%,
+    rgba(255, 237, 78, 0.65) 50%,
+    rgba(255, 215, 0, 0.50) 75%,
+    rgba(255, 215, 0, 0.35) 100%
+  );
+  background-size: 200% 200%;
+  border: none;
+  box-shadow:
+    0 0 12px rgba(212, 175, 55, 0.3),
+    0 2px 8px rgba(212, 175, 55, 0.2),
+    inset 0 2px 0 rgba(255, 237, 78, 0.4),
+    inset 0 -2px 0 rgba(184, 134, 11, 0.4);
+  transition: all 0.3s ease;
+  animation: metallic-shimmer 4s linear infinite alternate;
+
+  &:hover {
+    background: linear-gradient(
+      180deg,
+      rgba(255, 215, 0, 0.3) 0%,
+      rgba(255, 215, 0, 0.2) 50%,
+      rgba(255, 215, 0, 0.23) 100%
+    );
+    box-shadow:
+      0 0 15px rgba(212, 175, 55, 0.4),
+      0 2px 10px rgba(212, 175, 55, 0.3);
+    border-color: #e6c459;
+    transform: translateY(-2px);
+    animation: none;
+  }
+}
+
+.performer-card.rating-4-stars {
+  box-sizing: border-box;
+  background: linear-gradient(
+    135deg,
+    rgba(200, 200, 200, 0.40) 0%,
+    rgba(220, 220, 220, 0.55) 25%,
+    rgba(240, 240, 240, 0.70) 50%,
+    rgba(220, 220, 220, 0.55) 75%,
+    rgba(200, 200, 200, 0.40) 100%
+  );
+  background-size: 200% 200%;
+  border: none;
+  box-shadow:
+    0 0 14px rgba(192, 192, 192, 0.45),
+    0 2px 8px rgba(192, 192, 192, 0.3),
+    inset 0 2px 0 rgba(240, 240, 240, 0.5),
+    inset 0 -2px 0 rgba(140, 140, 140, 0.5);
+  transition: all 0.3s ease;
+  animation: metallic-shimmer 4s linear infinite alternate;
+
+  &:hover {
+    background: linear-gradient(
+      180deg,
+      rgba(230, 230, 230, 0.4) 0%,
+      rgba(210, 210, 210, 0.3) 50%,
+      rgba(220, 220, 220, 0.33) 100%
+    );
+    box-shadow:
+      0 0 18px rgba(192, 192, 192, 0.55),
+      0 2px 10px rgba(192, 192, 192, 0.4);
+    border-color: #d0d0d0;
+    transform: translateY(-2px);
+    animation: none;
+  }
+}
+
+.performer-card.rating-3-stars {
+  box-sizing: border-box;
+  background: linear-gradient(
+    135deg,
+    rgba(205, 127, 50, 0.30) 0%,
+    rgba(205, 127, 50, 0.45) 25%,
+    rgba(230, 150, 80, 0.60) 50%,
+    rgba(205, 127, 50, 0.45) 75%,
+    rgba(205, 127, 50, 0.30) 100%
+  );
+  background-size: 200% 200%;
+  border: none;
+  box-shadow:
+    0 0 12px rgba(184, 115, 51, 0.3),
+    0 2px 8px rgba(184, 115, 51, 0.2),
+    inset 0 2px 0 rgba(230, 150, 80, 0.4),
+    inset 0 -2px 0 rgba(140, 90, 40, 0.4);
+  transition: all 0.3s ease;
+  animation: metallic-shimmer 4s linear infinite alternate;
+
+  &:hover {
+    background: linear-gradient(
+      180deg,
+      rgba(205, 127, 50, 0.3) 0%,
+      rgba(205, 127, 50, 0.2) 50%,
+      rgba(205, 127, 50, 0.23) 100%
+    );
+    box-shadow:
+      0 0 15px rgba(184, 115, 51, 0.4),
+      0 2px 10px rgba(184, 115, 51, 0.3);
+    border-color: #cd7f32;
+    transform: translateY(-2px);
+    animation: none;
+  }
+}
+
+/* Make tag-count and edit buttons visually aligned and the same width */
+.card-popovers .tag-count,
+.card-popovers .edit-tags {
+  /* same dimensions and centering for visual parity */
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  min-width: 3.2rem;
+  padding-left: 0.4rem;
+  padding-right: 0.4rem;
+}
+
+/* Visual distinction: global tag-count (view) vs scene-tag edit (modal) */
+.card-popovers .tag-count {
+  background: transparent;
+  border: none;
+  color: $text-color;
+}
+
+.card-popovers .tag-count .fa-icon,
+.card-popovers .tag-count svg {
+  color: #fff;
+}
+
+.card-popovers .edit-tags {
+  /* match other minimal buttons: no background/border so it doesn't look highlighted */
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.card-popovers .edit-tags .fa-icon,
+.card-popovers .edit-tags svg {
+  color: $success; /* make the edit control slightly accented */
+}
+
+.card-popovers .edit-tags:hover {
+  background: transparent;
+}
+
+/* performer tag editor should be fluid by default */
+.performer-tag-editor {
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: visible; /* allow popovers/dropdowns to be visible outside the container */
+  padding: 0 0.5rem; /* small horizontal padding so contents aren't flush to edges */
+}
+
+/* Scene tags modal tweaks */
+.modal-dialog.scene-tags-modal {
+  max-width: 30rem; /* roughly half the previous large size */
+}
+
+/* Constrain the modal content so the body can scroll without overflowing viewport */
+.modal-dialog.scene-tags-modal .modal-content {
+  display: flex;
+  flex-direction: column;
+  height: calc(50vh);
+}
+
+/* Modal body (we add class `scene-tags-body` on Modal.Body) */
+.modal-body.scene-tags-body {
+  max-height: calc(100vh - 6rem); /* leave room for header/footer */
+  overflow-y: auto; /* allow tag list/editor to scroll inside modal */
 }
 
 .scrape-dialog .performer-image {

@@ -592,6 +592,19 @@
       "scene_tools": "Scene Tools"
     },
     "ui": {
+      "scene_tag_aliases": {
+        "heading": "Scene Tag Aliases",
+        "title": "Aliases for Scene Tag Detection",
+        "description": "Customize the tag names used to detect participant roles and actions in scenes. Leave blank to use defaults.",
+        "top": "Top tag alias",
+        "bottom": "Bottom tag alias",
+        "oralbottom": "Oral (bottom) tag alias",
+        "oraltop": "Oral (top) tag alias",
+        "solo": "Solo tag alias",
+        "facialgiven": "Facial (given) tag alias",
+        "facialreceived": "Facial (received) tag alias",
+        "selffacial": "Facial (self) tag alias"
+      },
       "abbreviate_counters": {
         "description": "Abbreviate counters in cards and details view pages, for example \"1831\" will get formated to \"1.8K\".",
         "heading": "Abbreviate counters"
@@ -1248,6 +1261,9 @@
   "performer": "Performer",
   "performer_age": "Performer Age",
   "performer_count": "Performer Count",
+  "performer_country": "Performer Country",
+  "performer_ethnicity": "Performer Ethnicity",
+  "performer_rating": "Performer Rating",
   "performer_favorite": "Performer Favourited",
   "performer_image": "Performer Image",
   "performer_tagger": {
@@ -1311,6 +1327,7 @@
   "scene_created_at": "Scene Created At",
   "scene_date": "Date of Scene",
   "scene_id": "Scene ID",
+  "scene_marker_tags": "Scene Marker Tags",
   "scene_tags": "Scene Tags",
   "scene_updated_at": "Scene Updated At",
   "scenes": "Scenes",

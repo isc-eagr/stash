@@ -14,4 +14,21 @@ type StatsResultType {
   total_play_duration: Float!
   total_play_count: Int!
   scenes_played: Int!
+  sex_scene_count: Int!
+  oral_scene_count: Int!
+  solo_scene_count: Int!
+  facial_scene_count: Int!
+}
+
+"Count of performers grouped by ethnicity"
+type PerformerEthnicityCount {
+  ethnicity: String!
+  count: Int!
+}
+
+extend type Query {
+  "Get a count of performers per ethnicity (non-empty only), sorted by highest count first"
+  performerEthnicityCounts: [PerformerEthnicityCount!]!
+  "Get a count of 5-star performers per ethnicity (non-empty only), sorted by highest count first"
+  performerEthnicityFiveStarCounts: [PerformerEthnicityCount!]!
 }

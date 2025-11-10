@@ -422,6 +422,12 @@ $sceneTabWidth: 450px;
   padding-right: 15px;
 }
 
+/* Enlarge facial overlay only on the Scene detail player */
+.scene-player-container .scene-facial-overlay {
+  width: 3rem;
+  height: 3rem;
+}
+
 .scrubber-wrapper {
   display: flex;
   flex-shrink: 0;

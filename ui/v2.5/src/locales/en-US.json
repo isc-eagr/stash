@@ -3,7 +3,9 @@
         "anonymise": "Anonymize",
         "download_anonymised": "Download anonymized",
         "customise": "Customize",
-        "optimise_database": "Optimize Database"
+        "optimise_database": "Optimize Database",
+        "add_group": "Add group",
+        "clear": "Clear"
     },
     "config": {
         "tools": {
@@ -15,6 +17,19 @@
             "custom_locales": {
                 "heading": "Custom localization",
                 "option_label": "Custom localization enabled"
+            },
+            "scene_tag_aliases": {
+                "heading": "Scene Tag Aliases",
+                "title": "Aliases for Scene Tag Detection",
+                "description": "Customize the tag names used to detect participant roles and actions in scenes. Leave blank to use defaults.",
+                "top": "Top tag alias",
+                "bottom": "Bottom tag alias",
+                "oralbottom": "Oral (bottom) tag alias",
+                "oraltop": "Oral (top) tag alias",
+                "solo": "Solo tag alias",
+                "facialgiven": "Facial (given) tag alias",
+                        "facialreceived": "Facial (received) tag alias",
+                        "selffacial": "Facial (self) tag alias"
             }
         }
     },
@@ -27,5 +42,14 @@
         "config": {
             "mark_organized_label": "Mark as Organized on save"
         }
+    },
+    "performer_scene_tags": "Performer Scene Tags",
+    "performer_scene_tags_with_attrs": "Performer Scene Tags + Attributes",
+    "performer_country": "Performer Country",
+    "performer_ethnicity": "Performer Ethnicity",
+    "performer_rating": "Performer Rating",
+    "has_performer_scene_tags": "Has Performer Scene Tags",
+    "filters": {
+        "group": "Group"
     }
 }

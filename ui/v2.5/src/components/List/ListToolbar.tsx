@@ -37,7 +37,7 @@ export const ToolbarFilterSection: React.FC<{
     onRemoveSearchTerm,
     view,
   }) => {
-    const { criteria, searchTerm } = filter;
+  const { criteria, searchTerm } = filter;
 
     return (
       <>

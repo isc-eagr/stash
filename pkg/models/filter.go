@@ -173,6 +173,18 @@ type MultiCriterionInput struct {
 	Excludes []string          `json:"excludes"`
 }
 
+// SceneMarkerTagsCriterionInput supports grouped tag semantics for scene marker tag filtering on scenes.
+// - For modifier = EQUALS (IS): use Groups, where each inner slice represents tags that must all appear on a single marker.
+// - For modifier = INCLUDES / INCLUDES_ALL: use Value as a flat list of tag IDs across any markers on the scene.
+// - IS_NULL / NOT_NULL are also supported to check presence/absence of any marker tags.
+type SceneMarkerTagsCriterionInput struct {
+	Modifier CriterionModifier `json:"modifier"`
+	// Used by INCLUDES and INCLUDES_ALL (flat set of tag IDs)
+	Value []string `json:"value"`
+	// Used by EQUALS (IS): each inner list is a group of tag IDs that must all be present on a single marker
+	Groups [][]string `json:"groups"`
+}
+
 type DateCriterionInput struct {
 	Value    string            `json:"value"`
 	Value2   *string           `json:"value2"`
@@ -227,4 +239,29 @@ type ImageFileFilterInput struct {
 	Format      *StringCriterionInput      `json:"format,omitempty"`
 	Resolution  *ResolutionCriterionInput  `json:"resolution,omitempty"`
 	Orientation *OrientationCriterionInput `json:"orientation,omitempty"`
+}
+
+// PerformerSceneTagPairInput is a compact input for filtering scenes by a performer+tag pair
+type PerformerSceneTagPairInput struct {
+	PerformerID string `json:"performer_id"`
+	TagID       string `json:"tag_id"`
+}
+
+// PerformerSceneTagGroupInput represents a single group in the
+// PerformerSceneTagsWithAttrsCriterionInput. Each group requires that at
+// least one performer on the scene has the specified tag (from
+// performer_scene_tags) and matches the optional attributes.
+type PerformerSceneTagGroupInput struct {
+	TagID              string             `json:"tag_id"`
+	PerformerCountry   *string            `json:"performer_country"`
+	PerformerEthnicity *string            `json:"performer_ethnicity"`
+	PerformerRating    *IntCriterionInput `json:"performer_rating"`
+}
+
+// PerformerSceneTagsWithAttrsCriterionInput is a grouped input for filtering
+// scenes by performer_scene_tags combined with performer attributes. For each
+// group, at least one performer must match the tag and provided attributes.
+type PerformerSceneTagsWithAttrsCriterionInput struct {
+	Groups   []PerformerSceneTagGroupInput `json:"groups"`
+	MatchAny *bool                         `json:"match_any"`
 }

@@ -446,6 +446,23 @@ export const queryFindTagsForSelect = (filter: ListFilterModel) =>
     },
   });
 
+// Variant that allows overriding/augmenting the tag_filter used for selects.
+// Useful for constraining TagSelect to subsets like only tags that have performer_scene_tags entries.
+export const queryFindTagsForSelectWithTagFilter = (
+  filter: ListFilterModel,
+  tagFilterOverride?: GQL.TagFilterType
+) =>
+  client.query<GQL.FindTagsForSelectQuery>({
+    query: GQL.FindTagsForSelectDocument,
+    variables: {
+      filter: filter.makeFindFilter(),
+      tag_filter: {
+        ...(filter.makeFilter() as GQL.TagFilterType),
+        ...(tagFilterOverride ?? ({} as GQL.TagFilterType)),
+      },
+    },
+  });
+
 export const useFindSavedFilter = (id: string) =>
   GQL.useFindSavedFilterQuery({
     variables: { id },

@@ -14,6 +14,58 @@
   }
 }
 
+.scene-hand-icon {
+  margin-right: 0.5rem;
+  color: #ffffff; // White color for the hand icon
+  font-size: 1.1em;
+  transform: rotate(-45deg); // Angled diagonally to the left
+  display: inline-block;
+}
+
+.scene-mouth-icon {
+  margin-right: 0.5rem;
+  width: 1.1em;
+  height: 1.1em;
+  display: inline-block;
+  vertical-align: -0.125em; // align similarly to font icons
+  // Force black SVGs to render as white without altering the asset
+  filter: brightness(0) invert(1);
+  -webkit-filter: brightness(0) invert(1);
+}
+
+.scene-gay-icon {
+  margin-right: 0.5rem;
+  width: 1.1em;
+  height: 1.1em;
+  display: inline-block;
+  vertical-align: -0.125em;
+  // Force black SVGs to render as white without altering the asset
+  filter: brightness(0) invert(1);
+  -webkit-filter: brightness(0) invert(1);
+}
+
+.scene-straight-icon {
+  margin-right: 0.5rem;
+  width: 1.1em;
+  height: 1.1em;
+  display: inline-block;
+  vertical-align: -0.125em;
+  // Force black SVGs to render as white without altering the asset
+  filter: brightness(0) invert(1);
+  -webkit-filter: brightness(0) invert(1);
+}
+
+.scene-goatee-icon {
+  margin-right: 0.5rem;
+  width: 1.1em;
+  height: 1.1em;
+  display: inline-block;
+  vertical-align: -0.125em;
+  // Force black SVGs to render as white without altering the asset
+  filter: brightness(0) invert(1);
+  -webkit-filter: brightness(0) invert(1);
+}
+
 .video-section {
   position: relative;
 }
@@ -28,6 +80,24 @@
   display: inline-block;
   margin: 5px;
 }
+
+/* Inline performer tag editor styling to match SceneEditPanel tag appearance */
+.performer-tag-editor {
+  margin-top: 0.5rem;
+
+  .tag-select {
+    width: 100%;
+  }
+
+  .tag-editor-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+}
+
+/* No scene-specific width override for performer tag editor; keep it responsive */
 
 .performer-tag-container .performer-disambiguation {
   color: initial;
@@ -194,6 +264,20 @@ textarea.scene-description {
   left: 0.7rem;
 }
 
+/* Facial icon overlay on scene thumbnail (bottom-left, above interactive speed) */
+.scene-facial-overlay {
+  position: absolute;
+  left: 0.7rem;
+  bottom: 1.5rem; /* slightly lower but still above interactive speed overlay (1rem) */
+  width: 1.25rem; /* slightly larger for better visibility */
+  height: 1.25rem;
+  display: block;
+  z-index: 2;
+  filter: brightness(0) invert(1);
+  -webkit-filter: brightness(0) invert(1);
+  pointer-events: none; /* prevent accidental clicks */
+}
+
 .extra-scene-info {
   display: none;
 }
@@ -273,6 +357,8 @@ textarea.scene-description {
   }
 }
 
+/* Revert title layout to default; no float/column wrappers for icons */
+
 .scene-card.card,
 .scene-marker-card.card {
   overflow: hidden;
@@ -284,6 +370,116 @@ textarea.scene-description {
 
   &.fileless {
     background-color: darken($card-bg, 5%);
+  }
+}
+
+/* ===== ANIMATION OPTIONS FOR METALLIC SCENE CARDS ===== */
+/* Use the same keyframe animations defined in Performers/styles.scss */
+
+/* Metallic rating effects for scene cards */
+/* OPTION 2: Shimmer Effect (ACTIVE) */
+.scene-card.rating-5-stars {
+  box-sizing: border-box;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 215, 0, 0.30) 0%,
+    rgba(255, 215, 0, 0.45) 25%,
+    rgba(255, 237, 78, 0.60) 50%,
+    rgba(255, 215, 0, 0.45) 75%,
+    rgba(255, 215, 0, 0.30) 100%
+  );
+  background-size: 200% 200%;
+  border: none;
+  box-shadow:
+    0 0 12px rgba(212, 175, 55, 0.3),
+    0 2px 8px rgba(212, 175, 55, 0.2),
+    inset 0 2px 0 rgba(255, 237, 78, 0.4),
+    inset 0 -2px 0 rgba(184, 134, 11, 0.4);
+  transition: all 0.3s ease;
+  animation: metallic-shimmer 4s linear infinite alternate;
+
+  &:hover {
+    background: linear-gradient(
+      180deg,
+      rgba(255, 215, 0, 0.3) 0%,
+      rgba(255, 215, 0, 0.2) 50%,
+      rgba(255, 215, 0, 0.23) 100%
+    );
+    box-shadow:
+      0 0 15px rgba(212, 175, 55, 0.4),
+      0 2px 10px rgba(212, 175, 55, 0.3);
+    transform: translateY(-2px);
+    animation: none;
+  }
+}
+
+.scene-card.rating-4-stars {
+  box-sizing: border-box;
+  background: linear-gradient(
+    135deg,
+    rgba(200, 200, 200, 0.40) 0%,
+    rgba(220, 220, 220, 0.55) 25%,
+    rgba(240, 240, 240, 0.70) 50%,
+    rgba(220, 220, 220, 0.55) 75%,
+    rgba(200, 200, 200, 0.40) 100%
+  );
+  background-size: 200% 200%;
+  border: none;
+  box-shadow:
+    0 0 14px rgba(192, 192, 192, 0.45),
+    0 2px 8px rgba(192, 192, 192, 0.3),
+    inset 0 2px 0 rgba(240, 240, 240, 0.5),
+    inset 0 -2px 0 rgba(140, 140, 140, 0.5);
+  transition: all 0.3s ease;
+  animation: metallic-shimmer 4s linear infinite alternate;
+
+  &:hover {
+    background: linear-gradient(
+      180deg,
+      rgba(230, 230, 230, 0.4) 0%,
+      rgba(210, 210, 210, 0.3) 50%,
+      rgba(220, 220, 220, 0.33) 100%
+    );
+    box-shadow:
+      0 0 18px rgba(192, 192, 192, 0.55),
+      0 2px 10px rgba(192, 192, 192, 0.4);
+    transform: translateY(-2px);
+    animation: none;
+  }
+}
+
+.scene-card.rating-3-stars {
+  box-sizing: border-box;
+  background: linear-gradient(
+    135deg,
+    rgba(205, 127, 50, 0.30) 0%,
+    rgba(205, 127, 50, 0.45) 25%,
+    rgba(230, 150, 80, 0.60) 50%,
+    rgba(205, 127, 50, 0.45) 75%,
+    rgba(205, 127, 50, 0.30) 100%
+  );
+  background-size: 200% 200%;
+  border: none;
+  box-shadow:
+    0 0 12px rgba(184, 115, 51, 0.3),
+    0 2px 8px rgba(184, 115, 51, 0.2),
+    inset 0 2px 0 rgba(230, 150, 80, 0.4),
+    inset 0 -2px 0 rgba(140, 90, 40, 0.4);
+  transition: all 0.3s ease;
+  animation: metallic-shimmer 4s linear infinite alternate;
+
+  &:hover {
+    background: linear-gradient(
+      180deg,
+      rgba(205, 127, 50, 0.3) 0%,
+      rgba(205, 127, 50, 0.2) 50%,
+      rgba(205, 127, 50, 0.23) 100%
+    );
+    box-shadow:
+      0 0 15px rgba(184, 115, 51, 0.4),
+      0 2px 10px rgba(184, 115, 51, 0.3);
+    transform: translateY(-2px);
+    animation: none;
   }
 }
 
