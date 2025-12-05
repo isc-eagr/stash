@@ -288,6 +288,17 @@ func (r *studioResolver) PerformerCount(ctx context.Context, obj *models.Studio,
 	return ret, nil
 }
 
+func (r *studioResolver) UniquePerformerCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = performer.CountUniqueByStudioID(ctx, r.repository.Performer, obj.ID, depth)
+		return err
+	}); err != nil {
+		return 0, err
+	}
+
+	return ret, nil
+}
+
 func (r *studioResolver) GroupCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		ret, err = group.CountByStudioID(ctx, r.repository.Group, obj.ID, depth)

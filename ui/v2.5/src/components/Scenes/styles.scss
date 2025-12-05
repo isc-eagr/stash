@@ -273,8 +273,8 @@ textarea.scene-description {
   height: 1.25rem;
   display: block;
   z-index: 2;
-  filter: brightness(0) invert(1);
-  -webkit-filter: brightness(0) invert(1);
+  filter: brightness(0) invert(1) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.8));
+  -webkit-filter: brightness(0) invert(1) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.8));
   pointer-events: none; /* prevent accidental clicks */
 }
 

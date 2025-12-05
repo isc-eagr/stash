@@ -12,7 +12,7 @@ import { PopoverCountButton } from "../Shared/PopoverCountButton";
 import { RatingBanner } from "../Shared/RatingBanner";
 import { FavoriteIcon } from "../Shared/FavoriteIcon";
 import { useStudioUpdate } from "src/core/StashService";
-import { faTag, faHand } from "@fortawesome/free-solid-svg-icons";
+import { faTag, faHand, faUserPlus } from "@fortawesome/free-solid-svg-icons";
 import { ConfigurationContext } from "src/hooks/Config";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
@@ -252,12 +252,33 @@ export const StudioCard: React.FC<IProps> = ({
 
     return (
       <Button
-        className="minimal scene-category-count facial-scene-count ml-3"
+        className="minimal scene-category-count facial-scene-count"
         href={url}
         title={`Facial scenes`}
         disabled={count === 0}
       >
         <img src={goateeSvg} alt="Facial" className="category-icon" />
+        <span>{count}</span>
+      </Button>
+    );
+  }
+
+  // Unique performers (performers with only 1 scene in database, for this studio)
+  function maybeRenderUniquePerformersButton() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const count = (studio as any).unique_performer_count ?? 0;
+    if (count === 0) return null;
+
+    const url = NavUtils.makeStudioUniquePerformersUrl(studio);
+
+    return (
+      <Button
+        className="minimal scene-category-count unique-performer-count"
+        href={url}
+        title={`Unique performers (only 1 scene)`}
+        disabled={count === 0}
+      >
+        <Icon icon={faUserPlus} className="category-icon-fa" />
         <span>{count}</span>
       </Button>
     );
@@ -354,8 +375,9 @@ export const StudioCard: React.FC<IProps> = ({
                   {maybeRenderSexScenesButton()}
                   {maybeRenderOralScenesButton()}
                   {maybeRenderSoloScenesButton()}
+                  {maybeRenderFacialScenesButton()}
+                  {maybeRenderUniquePerformersButton()}
                 </ButtonGroup>
-                {maybeRenderFacialScenesButton()}
               </div>
             </>
           )}

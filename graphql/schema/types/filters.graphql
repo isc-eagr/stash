@@ -374,10 +374,10 @@ input SceneFilterType {
   performer_scene_tags_with_attrs: PerformerSceneTagsWithAttrsCriterionInput
 }
 
-"A single group describing a performer tag and optional attributes that a performer must satisfy on a scene"
+"A single group describing performer tags and optional attributes that a single performer must satisfy on a scene"
 input PerformerSceneTagGroupInput {
-  "Required tag that the performer must have on the scene (from performer_scene_tags)"
-  tag_id: ID!
+  "Required tags the same performer must all have on the scene (from performer_scene_tags)"
+  tag_ids: [ID!]!
   "Optional ISO country code"
   performer_country: String
   "Optional ethnicity label (exact match; special-case expansions like Black→{Black,Mixed,Afrolatino} and White→{White,Mixed}, Latino→{Latino,Afrolatino} are handled server-side)"

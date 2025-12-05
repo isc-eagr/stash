@@ -26,9 +26,37 @@ type PerformerEthnicityCount {
   count: Int!
 }
 
+"Count of scene orgasm events grouped by year"
+type SceneOYearCount {
+  year: Int!
+  count: Int!
+}
+
 extend type Query {
   "Get a count of performers per ethnicity (non-empty only), sorted by highest count first"
   performerEthnicityCounts: [PerformerEthnicityCount!]!
   "Get a count of 5-star performers per ethnicity (non-empty only), sorted by highest count first"
   performerEthnicityFiveStarCounts: [PerformerEthnicityCount!]!
+  "Get a count of scene orgasm events grouped by year (ascending by year)"
+  sceneOYearCounts: [SceneOYearCount!]!
+  "Get total number of 'orgasm' marker-tag entries across all scene markers"
+  sceneOrgasmCount: Int!
+  "Get total number of facial markers (primary or secondary). Includes descendants of 'facial'."
+  sceneFacialCount: Int!
+  "Get number of performers who have given facials (based on configurable tag alias)"
+  performersFacialGivenCount: Int!
+  "Get number of performers who have received facials (based on configurable tag alias)"
+  performersFacialReceivedCount: Int!
+  "Get number of strict tops (have top/oraltop, no bottom/oralbottom tags)"
+  performersStrictTopCount: Int!
+  "Get number of strict bottoms (have bottom/oralbottom, no top/oraltop tags)"
+  performersStrictBottomCount: Int!
+  "Get number of lenient tops (have top/oraltop, no bottom tag)"
+  performersLenientTopCount: Int!
+  "Get number of lenient bottoms (have bottom/oralbottom, no top tag)"
+  performersLenientBottomCount: Int!
+  "Get number of performers with only the solo tag"
+  performersSoloOnlyCount: Int!
+  "Get number of performers with only one scene"
+  performersOneSceneCount: Int!
 }

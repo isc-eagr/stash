@@ -318,6 +318,637 @@ func (r *queryResolver) PerformerEthnicityFiveStarCounts(ctx context.Context) (r
 	return ret, nil
 }
 
+// SceneOYearCounts returns counts of scene orgasm events grouped by year ascending.
+func (r *queryResolver) SceneOYearCounts(ctx context.Context) (ret []*SceneOYearCount, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := "SELECT CAST(strftime('%Y', o_date) AS INT) AS year, COUNT(*) AS cnt FROM scenes_o_dates GROUP BY year ORDER BY year ASC"
+		_, rows, err := db.QuerySQL(ctx, query, nil)
+		if err != nil {
+			return err
+		}
+		out := make([]*SceneOYearCount, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 2 {
+				continue
+			}
+			var yearInt int
+			switch v := row[0].(type) {
+			case int64:
+				yearInt = int(v)
+			case int:
+				yearInt = v
+			case []byte:
+				y, _ := strconv.Atoi(string(v))
+				yearInt = y
+			case string:
+				y, _ := strconv.Atoi(v)
+				yearInt = y
+			default:
+				y, _ := strconv.Atoi(fmt.Sprint(v))
+				yearInt = y
+			}
+			var cnt int
+			switch v := row[1].(type) {
+			case int64:
+				cnt = int(v)
+			case int:
+				cnt = v
+			case []byte:
+				c, _ := strconv.Atoi(string(v))
+				cnt = c
+			case string:
+				c, _ := strconv.Atoi(v)
+				cnt = c
+			default:
+				c, _ := strconv.Atoi(fmt.Sprint(v))
+				cnt = c
+			}
+			out = append(out, &SceneOYearCount{Year: yearInt, Count: cnt})
+		}
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+// SceneOrgasmCount returns the total number of orgasms in scenes using marker logic:
+// - Count markers where the primary tag name is 'orgasm' (case-insensitive)
+// - If that marker also has a secondary tag 'simultaneous', it counts as 2
+func (r *queryResolver) SceneOrgasmCount(ctx context.Context) (int, error) {
+	var count int
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := "SELECT SUM(1 + CASE WHEN EXISTS (SELECT 1 FROM scene_markers_tags smt2 JOIN tags t2 ON smt2.tag_id = t2.id WHERE smt2.scene_marker_id = sm.id AND LOWER(TRIM(t2.name)) = 'simultaneous') THEN 1 ELSE 0 END) AS total_orgasms FROM scene_markers sm JOIN tags t ON sm.primary_tag_id = t.id WHERE LOWER(TRIM(t.name)) = 'orgasm'"
+		_, rows, err := db.QuerySQL(ctx, query, nil)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 {
+			switch v := rows[0][0].(type) {
+			case int64:
+				count = int(v)
+			case int:
+				count = v
+			case []byte:
+				i, _ := strconv.Atoi(string(v))
+				count = i
+			case string:
+				i, _ := strconv.Atoi(v)
+				count = i
+			default:
+				i, _ := strconv.Atoi(fmt.Sprint(v))
+				count = i
+			}
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// SceneFacialCount returns the total number of facial markers.
+// A marker counts if:
+// - its primary tag is 'facial' or any descendant of 'facial', or
+// - it has any secondary tag that is 'facial' or any descendant of 'facial'.
+// Each marker is counted once even if multiple matching tags are present.
+func (r *queryResolver) SceneFacialCount(ctx context.Context) (int, error) {
+	var count int
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := `
+WITH RECURSIVE facial_tags(id) AS (
+  SELECT id FROM tags WHERE LOWER(TRIM(name)) = 'facial'
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN facial_tags ft ON tr.parent_id = ft.id
+)
+SELECT COUNT(DISTINCT sm.id) AS cnt
+FROM scene_markers sm
+LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+WHERE sm.primary_tag_id IN (SELECT id FROM facial_tags)
+   OR smt.tag_id IN (SELECT id FROM facial_tags)`
+		_, rows, err := db.QuerySQL(ctx, query, nil)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 {
+			switch v := rows[0][0].(type) {
+			case int64:
+				count = int(v)
+			case int:
+				count = v
+			case []byte:
+				i, _ := strconv.Atoi(string(v))
+				count = i
+			case string:
+				i, _ := strconv.Atoi(v)
+				count = i
+			default:
+				i, _ := strconv.Atoi(fmt.Sprint(v))
+				count = i
+			}
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// PerformersFacialGivenCount returns the number of distinct performers who have given facials.
+// Uses the configurable 'facialgiven' tag alias from UI config.
+func (r *queryResolver) PerformersFacialGivenCount(ctx context.Context) (int, error) {
+	var count int
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
+		facialGivenTagName := "facialgiven"
+		if sceneTagAliases != nil {
+			if fg, ok := sceneTagAliases["facialgiven"].(string); ok && fg != "" {
+				facialGivenTagName = fg
+			}
+		}
+
+		db := manager.GetInstance().Database
+		query := "SELECT COUNT(DISTINCT pst.performer_id) FROM performer_scene_tags pst JOIN tags t ON pst.tag_id = t.id WHERE LOWER(TRIM(t.name)) = ?"
+		args := []interface{}{strings.ToLower(facialGivenTagName)}
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 {
+			switch v := rows[0][0].(type) {
+			case int64:
+				count = int(v)
+			case int:
+				count = v
+			case []byte:
+				i, _ := strconv.Atoi(string(v))
+				count = i
+			case string:
+				i, _ := strconv.Atoi(v)
+				count = i
+			default:
+				i, _ := strconv.Atoi(fmt.Sprint(v))
+				count = i
+			}
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// PerformersFacialReceivedCount returns the number of distinct performers who have received facials.
+// Uses the configurable 'facialreceived' tag alias from UI config.
+func (r *queryResolver) PerformersFacialReceivedCount(ctx context.Context) (int, error) {
+	var count int
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
+		facialReceivedTagName := "facialreceived"
+		if sceneTagAliases != nil {
+			if fr, ok := sceneTagAliases["facialreceived"].(string); ok && fr != "" {
+				facialReceivedTagName = fr
+			}
+		}
+
+		db := manager.GetInstance().Database
+		query := "SELECT COUNT(DISTINCT pst.performer_id) FROM performer_scene_tags pst JOIN tags t ON pst.tag_id = t.id WHERE LOWER(TRIM(t.name)) = ?"
+		args := []interface{}{strings.ToLower(facialReceivedTagName)}
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 {
+			switch v := rows[0][0].(type) {
+			case int64:
+				count = int(v)
+			case int:
+				count = v
+			case []byte:
+				i, _ := strconv.Atoi(string(v))
+				count = i
+			case string:
+				i, _ := strconv.Atoi(v)
+				count = i
+			default:
+				i, _ := strconv.Atoi(fmt.Sprint(v))
+				count = i
+			}
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// PerformersStrictTopCount returns the number of performers who have top/oraltop tags but no bottom/oralbottom tags.
+func (r *queryResolver) PerformersStrictTopCount(ctx context.Context) (int, error) {
+	var count int
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
+		topTagName := "top"
+		bottomTagName := "bottom"
+		oralTopTagName := "oraltop"
+		oralBottomTagName := "oralbottom"
+		if sceneTagAliases != nil {
+			if t, ok := sceneTagAliases["top"].(string); ok && t != "" {
+				topTagName = t
+			}
+			if b, ok := sceneTagAliases["bottom"].(string); ok && b != "" {
+				bottomTagName = b
+			}
+			if ot, ok := sceneTagAliases["oraltop"].(string); ok && ot != "" {
+				oralTopTagName = ot
+			}
+			if ob, ok := sceneTagAliases["oralbottom"].(string); ok && ob != "" {
+				oralBottomTagName = ob
+			}
+		}
+
+		db := manager.GetInstance().Database
+		query := `
+SELECT COUNT(DISTINCT pst.performer_id)
+FROM performer_scene_tags pst
+JOIN tags t ON pst.tag_id = t.id
+WHERE LOWER(TRIM(t.name)) IN (?, ?)
+  AND pst.performer_id NOT IN (
+    SELECT DISTINCT pst2.performer_id
+    FROM performer_scene_tags pst2
+    JOIN tags t2 ON pst2.tag_id = t2.id
+    WHERE LOWER(TRIM(t2.name)) IN (?, ?)
+  )`
+		args := []interface{}{
+			strings.ToLower(topTagName),
+			strings.ToLower(oralTopTagName),
+			strings.ToLower(bottomTagName),
+			strings.ToLower(oralBottomTagName),
+		}
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 {
+			switch v := rows[0][0].(type) {
+			case int64:
+				count = int(v)
+			case int:
+				count = v
+			case []byte:
+				i, _ := strconv.Atoi(string(v))
+				count = i
+			case string:
+				i, _ := strconv.Atoi(v)
+				count = i
+			default:
+				i, _ := strconv.Atoi(fmt.Sprint(v))
+				count = i
+			}
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// PerformersStrictBottomCount returns the number of performers who have bottom/oralbottom tags but no top/oraltop tags.
+func (r *queryResolver) PerformersStrictBottomCount(ctx context.Context) (int, error) {
+	var count int
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
+		topTagName := "top"
+		bottomTagName := "bottom"
+		oralTopTagName := "oraltop"
+		oralBottomTagName := "oralbottom"
+		if sceneTagAliases != nil {
+			if t, ok := sceneTagAliases["top"].(string); ok && t != "" {
+				topTagName = t
+			}
+			if b, ok := sceneTagAliases["bottom"].(string); ok && b != "" {
+				bottomTagName = b
+			}
+			if ot, ok := sceneTagAliases["oraltop"].(string); ok && ot != "" {
+				oralTopTagName = ot
+			}
+			if ob, ok := sceneTagAliases["oralbottom"].(string); ok && ob != "" {
+				oralBottomTagName = ob
+			}
+		}
+
+		db := manager.GetInstance().Database
+		query := `
+SELECT COUNT(DISTINCT pst.performer_id)
+FROM performer_scene_tags pst
+JOIN tags t ON pst.tag_id = t.id
+WHERE LOWER(TRIM(t.name)) IN (?, ?)
+  AND pst.performer_id NOT IN (
+    SELECT DISTINCT pst2.performer_id
+    FROM performer_scene_tags pst2
+    JOIN tags t2 ON pst2.tag_id = t2.id
+    WHERE LOWER(TRIM(t2.name)) IN (?, ?)
+  )`
+		args := []interface{}{
+			strings.ToLower(bottomTagName),
+			strings.ToLower(oralBottomTagName),
+			strings.ToLower(topTagName),
+			strings.ToLower(oralTopTagName),
+		}
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 {
+			switch v := rows[0][0].(type) {
+			case int64:
+				count = int(v)
+			case int:
+				count = v
+			case []byte:
+				i, _ := strconv.Atoi(string(v))
+				count = i
+			case string:
+				i, _ := strconv.Atoi(v)
+				count = i
+			default:
+				i, _ := strconv.Atoi(fmt.Sprint(v))
+				count = i
+			}
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// PerformersLenientTopCount returns the number of performers who have both top and oral bottom tags, but no bottom tag.
+func (r *queryResolver) PerformersLenientTopCount(ctx context.Context) (int, error) {
+	var count int
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
+		topTagName := "top"
+		bottomTagName := "bottom"
+		oralBottomTagName := "oralbottom"
+		if sceneTagAliases != nil {
+			if t, ok := sceneTagAliases["top"].(string); ok && t != "" {
+				topTagName = t
+			}
+			if b, ok := sceneTagAliases["bottom"].(string); ok && b != "" {
+				bottomTagName = b
+			}
+			if ob, ok := sceneTagAliases["oralbottom"].(string); ok && ob != "" {
+				oralBottomTagName = ob
+			}
+		}
+
+		db := manager.GetInstance().Database
+		query := `
+SELECT COUNT(DISTINCT pst.performer_id)
+FROM performer_scene_tags pst
+JOIN tags t ON pst.tag_id = t.id
+WHERE LOWER(TRIM(t.name)) = ?
+  AND pst.performer_id IN (
+    SELECT DISTINCT pst2.performer_id
+    FROM performer_scene_tags pst2
+    JOIN tags t2 ON pst2.tag_id = t2.id
+    WHERE LOWER(TRIM(t2.name)) = ?
+  )
+  AND pst.performer_id NOT IN (
+    SELECT DISTINCT pst3.performer_id
+    FROM performer_scene_tags pst3
+    JOIN tags t3 ON pst3.tag_id = t3.id
+    WHERE LOWER(TRIM(t3.name)) = ?
+  )`
+		args := []interface{}{
+			strings.ToLower(topTagName),
+			strings.ToLower(oralBottomTagName),
+			strings.ToLower(bottomTagName),
+		}
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 {
+			switch v := rows[0][0].(type) {
+			case int64:
+				count = int(v)
+			case int:
+				count = v
+			case []byte:
+				i, _ := strconv.Atoi(string(v))
+				count = i
+			case string:
+				i, _ := strconv.Atoi(v)
+				count = i
+			default:
+				i, _ := strconv.Atoi(fmt.Sprint(v))
+				count = i
+			}
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// PerformersLenientBottomCount returns the number of performers who have both bottom and oral top tags, but no top tag.
+func (r *queryResolver) PerformersLenientBottomCount(ctx context.Context) (int, error) {
+	var count int
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
+		topTagName := "top"
+		bottomTagName := "bottom"
+		oralTopTagName := "oraltop"
+		if sceneTagAliases != nil {
+			if t, ok := sceneTagAliases["top"].(string); ok && t != "" {
+				topTagName = t
+			}
+			if b, ok := sceneTagAliases["bottom"].(string); ok && b != "" {
+				bottomTagName = b
+			}
+			if ot, ok := sceneTagAliases["oraltop"].(string); ok && ot != "" {
+				oralTopTagName = ot
+			}
+		}
+
+		db := manager.GetInstance().Database
+		query := `
+SELECT COUNT(DISTINCT pst.performer_id)
+FROM performer_scene_tags pst
+JOIN tags t ON pst.tag_id = t.id
+WHERE LOWER(TRIM(t.name)) = ?
+  AND pst.performer_id IN (
+    SELECT DISTINCT pst2.performer_id
+    FROM performer_scene_tags pst2
+    JOIN tags t2 ON pst2.tag_id = t2.id
+    WHERE LOWER(TRIM(t2.name)) = ?
+  )
+  AND pst.performer_id NOT IN (
+    SELECT DISTINCT pst3.performer_id
+    FROM performer_scene_tags pst3
+    JOIN tags t3 ON pst3.tag_id = t3.id
+    WHERE LOWER(TRIM(t3.name)) = ?
+  )`
+		args := []interface{}{
+			strings.ToLower(bottomTagName),
+			strings.ToLower(oralTopTagName),
+			strings.ToLower(topTagName),
+		}
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 {
+			switch v := rows[0][0].(type) {
+			case int64:
+				count = int(v)
+			case int:
+				count = v
+			case []byte:
+				i, _ := strconv.Atoi(string(v))
+				count = i
+			case string:
+				i, _ := strconv.Atoi(v)
+				count = i
+			default:
+				i, _ := strconv.Atoi(fmt.Sprint(v))
+				count = i
+			}
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// PerformersSoloOnlyCount returns the number of performers who have the solo tag but no position tags.
+func (r *queryResolver) PerformersSoloOnlyCount(ctx context.Context) (int, error) {
+	var count int
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
+		soloTagName := "solo"
+		topTagName := "top"
+		bottomTagName := "bottom"
+		oralTopTagName := "oraltop"
+		oralBottomTagName := "oralbottom"
+		if sceneTagAliases != nil {
+			if s, ok := sceneTagAliases["solo"].(string); ok && s != "" {
+				soloTagName = s
+			}
+			if t, ok := sceneTagAliases["top"].(string); ok && t != "" {
+				topTagName = t
+			}
+			if b, ok := sceneTagAliases["bottom"].(string); ok && b != "" {
+				bottomTagName = b
+			}
+			if ot, ok := sceneTagAliases["oraltop"].(string); ok && ot != "" {
+				oralTopTagName = ot
+			}
+			if ob, ok := sceneTagAliases["oralbottom"].(string); ok && ob != "" {
+				oralBottomTagName = ob
+			}
+		}
+
+		db := manager.GetInstance().Database
+		query := `
+SELECT COUNT(DISTINCT pst.performer_id)
+FROM performer_scene_tags pst
+JOIN tags t ON pst.tag_id = t.id
+WHERE LOWER(TRIM(t.name)) = ?
+  AND pst.performer_id NOT IN (
+    SELECT DISTINCT pst2.performer_id
+    FROM performer_scene_tags pst2
+    JOIN tags t2 ON pst2.tag_id = t2.id
+    WHERE LOWER(TRIM(t2.name)) IN (?, ?, ?, ?)
+  )`
+		args := []interface{}{
+			strings.ToLower(soloTagName),
+			strings.ToLower(topTagName),
+			strings.ToLower(bottomTagName),
+			strings.ToLower(oralTopTagName),
+			strings.ToLower(oralBottomTagName),
+		}
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 {
+			switch v := rows[0][0].(type) {
+			case int64:
+				count = int(v)
+			case int:
+				count = v
+			case []byte:
+				i, _ := strconv.Atoi(string(v))
+				count = i
+			case string:
+				i, _ := strconv.Atoi(v)
+				count = i
+			default:
+				i, _ := strconv.Atoi(fmt.Sprint(v))
+				count = i
+			}
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return count, nil
+} // PerformersOneSceneCount returns the number of performers who appear in exactly one scene.
+func (r *queryResolver) PerformersOneSceneCount(ctx context.Context) (int, error) {
+	var count int
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := `
+SELECT COUNT(*)
+FROM (
+  SELECT performer_id
+  FROM performers_scenes
+  GROUP BY performer_id
+  HAVING COUNT(*) = 1
+)`
+		_, rows, err := db.QuerySQL(ctx, query, nil)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 {
+			switch v := rows[0][0].(type) {
+			case int64:
+				count = int(v)
+			case int:
+				count = v
+			case []byte:
+				i, _ := strconv.Atoi(string(v))
+				count = i
+			case string:
+				i, _ := strconv.Atoi(v)
+				count = i
+			default:
+				i, _ := strconv.Atoi(fmt.Sprint(v))
+				count = i
+			}
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 func (r *queryResolver) Stats(ctx context.Context) (*StatsResultType, error) {
 	var ret StatsResultType
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {

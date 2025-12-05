@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/stashapp/stash/pkg/models"
@@ -291,54 +292,174 @@ func (qb *sceneMarkerFilterHandler) performerSceneTagsWithAttrsCriterionHandler(
 			return out
 		}
 
-		groupClauses := make([]string, 0, len(input.Groups))
-		allArgs := make([]interface{}, 0)
-		for _, g := range input.Groups {
-			where := []string{"scene_pst_group.tag_id = ?"}
-			args := []interface{}{g.TagID}
+		matchAny := input.MatchAny != nil && *input.MatchAny
 
-			if g.PerformerCountry != nil && strings.TrimSpace(*g.PerformerCountry) != "" {
-				where = append(where, "p_group.country = ?")
-				args = append(args, strings.TrimSpace(*g.PerformerCountry))
-			}
+		if matchAny {
+			// OR semantics: each group is independent, so we still use EXISTS
+			groupClauses := make([]string, 0, len(input.Groups))
+			allArgs := make([]interface{}, 0)
+			for _, g := range input.Groups {
+				if len(g.TagIDs) == 0 {
+					continue
+				}
 
-			if g.PerformerEthnicity != nil && strings.TrimSpace(*g.PerformerEthnicity) != "" {
-				exp := expandEthnicity(*g.PerformerEthnicity)
-				if len(exp) > 0 {
-					ph := strings.Repeat("?,", len(exp))
-					ph = ph[:len(ph)-1]
-					where = append(where, fmt.Sprintf("p_group.ethnicity IN (%s)", ph))
-					for _, v := range exp {
-						args = append(args, v)
+				where := []string{}
+				args := []interface{}{}
+
+				if g.PerformerCountry != nil && strings.TrimSpace(*g.PerformerCountry) != "" {
+					where = append(where, "p_group.country = ?")
+					args = append(args, strings.TrimSpace(*g.PerformerCountry))
+				}
+
+				if g.PerformerEthnicity != nil && strings.TrimSpace(*g.PerformerEthnicity) != "" {
+					exp := expandEthnicity(*g.PerformerEthnicity)
+					if len(exp) > 0 {
+						ph := strings.Repeat("?,", len(exp))
+						ph = ph[:len(ph)-1]
+						where = append(where, fmt.Sprintf("p_group.ethnicity IN (%s)", ph))
+						for _, v := range exp {
+							args = append(args, v)
+						}
 					}
 				}
+
+				if g.PerformerRating != nil {
+					w, wargs := getIntWhereClause("p_group.rating", g.PerformerRating.Modifier, g.PerformerRating.Value, g.PerformerRating.Value2)
+					where = append(where, w)
+					args = append(args, wargs...)
+				}
+
+				tagPlaceholders := strings.Repeat("?,", len(g.TagIDs))
+				tagPlaceholders = tagPlaceholders[:len(tagPlaceholders)-1]
+				for _, tid := range g.TagIDs {
+					args = append(args, tid)
+				}
+
+				attrsClause := "1=1"
+				if len(where) > 0 {
+					attrsClause = strings.Join(where, " AND ")
+				}
+
+				clause := fmt.Sprintf(
+					"EXISTS (SELECT 1 FROM performer_scene_tags scene_pst_group JOIN performers p_group ON p_group.id = scene_pst_group.performer_id WHERE scene_pst_group.scene_id = scene_markers.scene_id AND %s AND scene_pst_group.tag_id IN (%s) GROUP BY p_group.id HAVING COUNT(DISTINCT scene_pst_group.tag_id) = %d)",
+					attrsClause, tagPlaceholders, len(g.TagIDs),
+				)
+				groupClauses = append(groupClauses, clause)
+				allArgs = append(allArgs, args...)
 			}
 
-			if g.PerformerRating != nil {
-				w, wargs := getIntWhereClause("p_group.rating", g.PerformerRating.Modifier, g.PerformerRating.Value, g.PerformerRating.Value2)
-				where = append(where, w)
-				args = append(args, wargs...)
-			}
-
-			clause := fmt.Sprintf("EXISTS (SELECT 1 FROM performer_scene_tags scene_pst_group JOIN performers p_group ON p_group.id = scene_pst_group.performer_id WHERE scene_pst_group.scene_id = scene_markers.scene_id AND %s)", strings.Join(where, " AND "))
-			groupClauses = append(groupClauses, clause)
-			allArgs = append(allArgs, args...)
-		}
-
-		matchAny := input.MatchAny != nil && *input.MatchAny
-		if matchAny {
+			// OR across groups in a single WHERE
 			grouped := make([]string, len(groupClauses))
 			for i, c := range groupClauses {
 				grouped[i] = fmt.Sprintf("(%s)", c)
 			}
 			f.addWhere(strings.Join(grouped, " OR "), allArgs...)
 		} else {
-			argIdx := 0
-			for gi := range input.Groups {
-				clause := groupClauses[gi]
-				phCount := strings.Count(clause, "?")
-				f.addWhere(clause, allArgs[argIdx:argIdx+phCount]...)
-				argIdx += phCount
+			// AND semantics with distinct performers: group identical criteria
+			// and require sufficient distinct performers for each unique criteria set
+			type groupSignature struct {
+				tagIDsKey      string
+				country        string
+				ethnicity      string
+				ratingModifier models.CriterionModifier
+				ratingValue    int
+				ratingValue2   *int
+			}
+
+			groupCounts := make(map[groupSignature]int)
+			groupDetails := make(map[groupSignature]*models.PerformerSceneTagGroupInput)
+
+			for _, g := range input.Groups {
+				if len(g.TagIDs) == 0 {
+					continue
+				}
+
+				// Build a unique signature for this group's criteria
+				tagIDs := append([]string(nil), g.TagIDs...)
+				sort.Strings(tagIDs)
+				tagKey := strings.Join(tagIDs, ",")
+
+				sig := groupSignature{
+					tagIDsKey: tagKey,
+				}
+				if g.PerformerCountry != nil {
+					sig.country = strings.TrimSpace(*g.PerformerCountry)
+				}
+				if g.PerformerEthnicity != nil {
+					sig.ethnicity = strings.TrimSpace(*g.PerformerEthnicity)
+				}
+				if g.PerformerRating != nil {
+					sig.ratingModifier = g.PerformerRating.Modifier
+					sig.ratingValue = g.PerformerRating.Value
+					sig.ratingValue2 = g.PerformerRating.Value2
+				}
+
+				groupCounts[sig]++
+				if _, ok := groupDetails[sig]; !ok {
+					groupDetails[sig] = &g
+				}
+			}
+
+			// For each unique group signature, require at least <count> distinct performers
+			for sig, multiplicity := range groupCounts {
+				g := groupDetails[sig]
+				where := []string{}
+				args := []interface{}{}
+
+				if sig.country != "" {
+					where = append(where, "p_group.country = ?")
+					args = append(args, sig.country)
+				}
+
+				if sig.ethnicity != "" {
+					exp := expandEthnicity(sig.ethnicity)
+					if len(exp) > 0 {
+						ph := strings.Repeat("?,", len(exp))
+						ph = ph[:len(ph)-1]
+						where = append(where, fmt.Sprintf("p_group.ethnicity IN (%s)", ph))
+						for _, v := range exp {
+							args = append(args, v)
+						}
+					}
+				}
+
+				if g.PerformerRating != nil {
+					w, wargs := getIntWhereClause("p_group.rating", g.PerformerRating.Modifier, g.PerformerRating.Value, g.PerformerRating.Value2)
+					where = append(where, w)
+					args = append(args, wargs...)
+				}
+
+				tagPlaceholders := strings.Repeat("?,", len(g.TagIDs))
+				tagPlaceholders = tagPlaceholders[:len(tagPlaceholders)-1]
+				for _, tid := range g.TagIDs {
+					args = append(args, tid)
+				}
+
+				attrsClause := "1=1"
+				if len(where) > 0 {
+					attrsClause = strings.Join(where, " AND ")
+				}
+
+				// Require at least <multiplicity> distinct performers matching the criteria
+				// Subquery finds performers who have ALL tags in the group, then counts them
+				clause := fmt.Sprintf(
+					`(
+SELECT COUNT(*)
+FROM (
+  SELECT p_group.id
+  FROM performer_scene_tags scene_pst_group
+  JOIN performers p_group ON p_group.id = scene_pst_group.performer_id
+  WHERE scene_pst_group.scene_id = scene_markers.scene_id
+    AND %s
+    AND scene_pst_group.tag_id IN (%s)
+  GROUP BY p_group.id
+  HAVING COUNT(DISTINCT scene_pst_group.tag_id) = %d
+)
+) >= ?`,
+					attrsClause, tagPlaceholders, len(g.TagIDs),
+				)
+				args = append(args, multiplicity)
+				f.addWhere(clause, args...)
 			}
 		}
 	}

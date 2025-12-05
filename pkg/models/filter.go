@@ -252,7 +252,7 @@ type PerformerSceneTagPairInput struct {
 // least one performer on the scene has the specified tag (from
 // performer_scene_tags) and matches the optional attributes.
 type PerformerSceneTagGroupInput struct {
-	TagID              string             `json:"tag_id"`
+	TagIDs             []string           `json:"tag_ids"`
 	PerformerCountry   *string            `json:"performer_country"`
 	PerformerEthnicity *string            `json:"performer_ethnicity"`
 	PerformerRating    *IntCriterionInput `json:"performer_rating"`

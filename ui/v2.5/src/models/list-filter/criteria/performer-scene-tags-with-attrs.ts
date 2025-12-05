@@ -2,9 +2,10 @@ import { CriterionModifier } from "src/core/generated-graphql";
 import { Criterion, CriterionOption, ModifierCriterion } from "./criterion";
 import { IntlShape } from "react-intl";
 import { ILabeledId } from "../types";
+import { getCountryByISO } from "src/utils/country";
 
 export type PerformerSceneTagGroupUI = {
-  tag?: ILabeledId;
+  tags?: ILabeledId[];
   performer_country?: string;
   performer_ethnicity?: string;
   performer_rating?: {
@@ -24,7 +25,7 @@ export class PerformerSceneTagsWithAttrsCriterion extends Criterion {
 
   public cloneValues() {
     this.groups = this.groups.map((g) => ({
-      tag: g.tag ? { ...g.tag } : undefined,
+      tags: g.tags ? g.tags.map((t) => ({ ...t })) : undefined,
       performer_country: g.performer_country,
       performer_ethnicity: g.performer_ethnicity,
       performer_rating: g.performer_rating
@@ -45,8 +46,11 @@ export class PerformerSceneTagsWithAttrsCriterion extends Criterion {
     const valueString = this.groups
       .map((g) => {
         const parts: string[] = [];
-        if (g.tag?.label) parts.push(g.tag.label);
-        if (g.performer_country) parts.push(`country=${g.performer_country}`);
+        if (g.tags?.length) parts.push(g.tags.map((t) => t.label).join(", "));
+        if (g.performer_country) {
+          const countryName = getCountryByISO(g.performer_country, intl.locale) ?? g.performer_country;
+          parts.push(`country=${countryName}`);
+        }
         if (g.performer_ethnicity) parts.push(`ethnicity=${g.performer_ethnicity}`);
         if (g.performer_rating) {
           const mod = ModifierCriterion.getModifierLabel(intl, g.performer_rating.modifier);
@@ -68,7 +72,7 @@ export class PerformerSceneTagsWithAttrsCriterion extends Criterion {
       type: this.criterionOption.type,
       match_any: this.matchAny || undefined,
       groups: this.groups.map((g) => ({
-        tag_id: g.tag?.id,
+        tags: g.tags?.map((t) => ({ id: t.id, label: t.label })),
         performer_country: g.performer_country,
         performer_ethnicity: g.performer_ethnicity,
         performer_rating: g.performer_rating
@@ -84,14 +88,34 @@ export class PerformerSceneTagsWithAttrsCriterion extends Criterion {
 
   public fromDecodedParams(i: Record<string, unknown>): void {
     try {
-      const raw = i as { match_any?: boolean; groups?: Array<{ tag_id?: string; performer_country?: string; performer_ethnicity?: string; performer_rating?: { modifier: CriterionModifier; value: number; value2?: number } }>; };
+      const raw = i as { 
+        match_any?: boolean; 
+        groups?: Array<{ 
+          tag_ids?: string[]; 
+          tags?: Array<{ id: string; label: string }>; 
+          performer_country?: string; 
+          performer_ethnicity?: string; 
+          performer_rating?: { modifier: CriterionModifier; value: number; value2?: number } 
+        }>; 
+      };
       this.matchAny = !!raw.match_any;
-      this.groups = (raw.groups ?? []).map((g) => ({
-        tag: g.tag_id ? { id: g.tag_id, label: g.tag_id } : undefined,
-        performer_country: g.performer_country,
-        performer_ethnicity: g.performer_ethnicity,
-        performer_rating: g.performer_rating ?? null,
-      }));
+      this.groups = (raw.groups ?? []).map((g) => {
+        // Handle both old format (tag_ids array) and new format (tags with id+label)
+        let tags: ILabeledId[] | undefined;
+        if (g.tags && Array.isArray(g.tags)) {
+          tags = g.tags.map((t) => ({ id: t.id, label: t.label }));
+        } else if (g.tag_ids && Array.isArray(g.tag_ids)) {
+          // Legacy fallback: use ID as label
+          tags = g.tag_ids.map((id) => ({ id, label: id }));
+        }
+        
+        return {
+          tags,
+          performer_country: g.performer_country,
+          performer_ethnicity: g.performer_ethnicity,
+          performer_rating: g.performer_rating ?? null,
+        };
+      });
     } catch {
       // ignore
     }
@@ -101,9 +125,9 @@ export class PerformerSceneTagsWithAttrsCriterion extends Criterion {
     input[this.criterionOption.type] = {
       match_any: this.matchAny || undefined,
       groups: this.groups
-        .filter((g) => g.tag?.id)
+        .filter((g) => (g.tags?.length ?? 0) > 0)
         .map((g) => ({
-          tag_id: g.tag!.id,
+          tag_ids: g.tags!.map((t) => t.id),
           performer_country: g.performer_country || undefined,
           performer_ethnicity: g.performer_ethnicity || undefined,
           performer_rating: g.performer_rating

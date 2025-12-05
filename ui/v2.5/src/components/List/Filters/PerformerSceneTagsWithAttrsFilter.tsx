@@ -1,11 +1,13 @@
 import React, { useCallback, useMemo } from "react";
 import { Button, Col, Form, Row } from "react-bootstrap";
-import Select from "react-select";
+import Select, { components as selectComponents, OptionProps, SingleValueProps } from "react-select";
 import { defineMessages, useIntl } from "react-intl";
 import { CriterionModifier } from "src/core/generated-graphql";
-import { TagIDSelect } from "src/components/Tags/TagSelect";
+import * as GQL from "src/core/generated-graphql";
+import { TagSelect, Tag } from "src/components/Tags/TagSelect";
 import { PerformerSceneTagsWithAttrsCriterion, PerformerSceneTagGroupUI } from "src/models/list-filter/criteria/performer-scene-tags-with-attrs";
 import { getCountries } from "src/utils/country";
+import { CountryFlag } from "src/components/Shared/CountryFlag";
 import { usePerformerEthnicitiesQuery } from "src/core/generated-graphql";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 
@@ -54,13 +56,13 @@ const PerformerSceneTagsWithAttrsFilter: React.FC<{
     setCriterion(c);
   };
 
-  const onTagChange = useCallback(
-    (idx: number, tags: { id: string; name?: string }[]) => {
+  const onTagsChange = useCallback(
+    (idx: number, tags: Tag[]) => {
       const c = criterion.clone() as PerformerSceneTagsWithAttrsCriterion;
-      const tag = tags[0];
+      const mapped = (tags ?? []).map((t) => ({ id: t.id, label: t.name ?? t.id }));
       c.groups[idx] = {
         ...c.groups[idx],
-        tag: tag ? { id: tag.id, label: tag.name ?? tag.id } : undefined,
+        tags: mapped,
       };
       setCriterion(c);
     },
@@ -70,6 +72,31 @@ const PerformerSceneTagsWithAttrsFilter: React.FC<{
   // Country options (same source as PerformerCountryFilter)
   const { locale } = useIntl();
   const countryOptions = useMemo(() => getCountries(locale) as { label: string; value: string }[], [locale]);
+
+  // Custom option component with flag
+  const CountryOption: React.FC<OptionProps<{ label: string; value: string }, false>> = (optionProps) => {
+    const { data } = optionProps;
+    return (
+      <selectComponents.Option {...optionProps}>
+        <div className="d-flex align-items-center">
+          <CountryFlag country={data.value} />
+          <span style={{ marginLeft: '0.5rem' }}>{data.label}</span>
+        </div>
+      </selectComponents.Option>
+    );
+  };
+
+  const CountrySingleValue: React.FC<SingleValueProps<{ label: string; value: string }, false>> = (props) => {
+    const { data } = props;
+    return (
+      <selectComponents.SingleValue {...props}>
+        <div className="d-flex align-items-center">
+          <CountryFlag country={data.value} />
+          <span style={{ marginLeft: '0.5rem' }}>{data.label}</span>
+        </div>
+      </selectComponents.SingleValue>
+    );
+  };
 
   const onCountrySelect = (idx: number, v: { label: string; value: string } | null) => {
     const c = criterion.clone() as PerformerSceneTagsWithAttrsCriterion;
@@ -157,12 +184,14 @@ const PerformerSceneTagsWithAttrsFilter: React.FC<{
           {/* Row 1: Tags + Rating */}
           <Row className="g-2">
             <Col md={6}>
-              <Form.Label className="mb-1">{intl.formatMessage(messages.tag)}</Form.Label>
-              <TagIDSelect
-                ids={g.tag?.id ? [g.tag.id] : []}
-                isMulti={false}
-                onSelect={(tags) => onTagChange(idx, tags)}
+              <Form.Label className="mb-1">Performer Scene Tags</Form.Label>
+              <TagSelect
+                values={(g.tags ?? []).map((t) => ({ id: t.id, name: t.label, aliases: [] })) as Tag[]}
+                isMulti
+                onSelect={(tags) => onTagsChange(idx, tags as Tag[])}
                 menuPortalTarget={document.body}
+                // Show only tags that appear in performer_scene_tags to mirror filter intent
+                tagFilter={{ has_performer_scene_tags: true } as Partial<GQL.TagFilterType>}
               />
             </Col>
             <Col md={6}>
@@ -235,8 +264,8 @@ const PerformerSceneTagsWithAttrsFilter: React.FC<{
                 value={countryOptions.find((o) => o.value === (g.performer_country ?? "")) || null}
                 placeholder="Country"
                 onChange={(val) => onCountrySelect(idx, val as { label: string; value: string } | null)}
-                components={{ IndicatorSeparator: null }}
                 menuPortalTarget={document.body}
+                components={{ IndicatorSeparator: null, Option: CountryOption, SingleValue: CountrySingleValue }}
               />
             </Col>
           </Row>

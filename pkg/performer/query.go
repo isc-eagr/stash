@@ -19,6 +19,22 @@ func CountByStudioID(ctx context.Context, r models.PerformerQueryer, id int, dep
 	return r.QueryCount(ctx, filter, nil)
 }
 
+func CountUniqueByStudioID(ctx context.Context, r models.PerformerQueryer, id int, depth *int) (int, error) {
+	filter := &models.PerformerFilterType{
+		Studios: &models.HierarchicalMultiCriterionInput{
+			Value:    []string{strconv.Itoa(id)},
+			Modifier: models.CriterionModifierIncludes,
+			Depth:    depth,
+		},
+		SceneCount: &models.IntCriterionInput{
+			Value:    1,
+			Modifier: models.CriterionModifierEquals,
+		},
+	}
+
+	return r.QueryCount(ctx, filter, nil)
+}
+
 func CountByGroupID(ctx context.Context, r models.PerformerQueryer, id int, depth *int) (int, error) {
 	filter := &models.PerformerFilterType{
 		Groups: &models.HierarchicalMultiCriterionInput{

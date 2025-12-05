@@ -25,6 +25,8 @@ fragment StudioData on Studio {
   solo_scene_count_all: solo_scene_count(depth: -1)
   facial_scene_count
   facial_scene_count_all: facial_scene_count(depth: -1)
+  unique_performer_count
+  unique_performer_count_all: unique_performer_count(depth: -1)
   image_count
   image_count_all: image_count(depth: -1)
   gallery_count

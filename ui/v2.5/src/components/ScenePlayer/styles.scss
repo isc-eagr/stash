@@ -426,6 +426,8 @@ $sceneTabWidth: 450px;
 .scene-player-container .scene-facial-overlay {
   width: 3rem;
   height: 3rem;
+  filter: brightness(0) invert(1) drop-shadow(0 3px 5px rgba(0, 0, 0, 0.8));
+  -webkit-filter: brightness(0) invert(1) drop-shadow(0 3px 5px rgba(0, 0, 0, 0.8));
 }
 
 .scrubber-wrapper {
