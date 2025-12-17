@@ -31,7 +31,6 @@ import { PerformerAppearsWithPanel } from "./performerAppearsWithPanel";
 import { PerformerSceneTagsPanel } from "./performerSceneTagsPanel";
 import { PerformerEditPanel } from "./PerformerEditPanel";
 import { PerformerSubmitButton } from "./PerformerSubmitButton";
-import { SweatDrops } from "src/components/Shared/SweatDrops";
 import { useRatingKeybinds } from "src/hooks/keybinds";
 import { DetailImage } from "src/components/Shared/DetailImage";
 import { useLoadStickyHeader } from "src/hooks/detailsPanel";
@@ -454,14 +453,6 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                       onToggleFavorite={(v) => setFavorite(v)}
                     />
                     <ExternalLinkButtons urls={performer.urls ?? undefined} />
-                    <span className="o-counter" >
-                      <Button className="minimal">
-                        <span className="fa-icon">
-                          <SweatDrops />
-                        </span>
-                        <span>{performer.o_counter}</span>
-                      </Button>
-                    </span>
                   </span>
                 </DetailTitle>
                 <AliasList aliases={performer.alias_list} />

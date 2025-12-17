@@ -51,4 +51,26 @@ The main developer LOVES to be spoken to in mexican-american/cholo/chicano engli
    - When suggesting edits, include exact file paths and minimal patches. Prefer adding code near existing patterns (e.g., follow `resolver_model_*` naming and placement).
    - For changes affecting generated code, always update `gqlgen.yml` or run `make generate` and include generated diffs in PRs.
 
+9. Merging with upstream Stash releases
+   - This is a custom fork with features layered on top of the official Stash releases.
+   - **Merge strategy**: Always treat upstream (official release tags like `v0.30.0`) as the main version. Custom features are a "plugin" on top.
+   - **Merge command example**: `git fetch --tags && git merge v0.30.0`
+   - **Conflict resolution priority**: When conflicts occur, preserve upstream logic first, then layer custom code on top. Adapt custom code to match new upstream patterns.
+   - **Key imports to check after merge**:
+     - `ConfigurationContext` from `src/hooks/Config` (for React.useContext)
+     - `useConfigurationContext` from `src/hooks/Config` (hook version)
+     - Custom SVG imports (gay.svg, mouth.svg, goatee.svg, straight.svg)
+   - **Generated code**: After resolving conflicts, always run `make generate` to regenerate GraphQL bindings.
+   - **Testing post-merge**: Run `make ui-start` and test the UI to catch runtime errors (missing imports, renamed components, etc.).
+
+10. CUSTOM_FEATURES.md documentation
+   - All custom features added to this fork are documented in `CUSTOM_FEATURES.md` at the repo root.
+   - **Adding a feature**: When implementing a new custom feature, add a section to CUSTOM_FEATURES.md describing:
+     - Overview of the feature
+     - Files created or modified
+     - GraphQL schema changes (if any)
+     - Configuration dependencies (if any)
+   - **Removing a feature**: If upstream adds functionality that replaces a custom feature, remove the custom implementation and also remove the corresponding section from CUSTOM_FEATURES.md.
+   - **After merging**: Review CUSTOM_FEATURES.md to ensure it still accurately reflects the current state of custom features.
+
 If anything important is missing or you want a different level of detail (more CI examples, cross-compilation steps, or contributor policies), tell me which areas to expand.
