@@ -428,7 +428,7 @@ const SceneCardDetails = PatchComponent(
 const SceneCardOverlays = PatchComponent(
   "SceneCard.Overlays",
   (props: ISceneCardProps) => {
-    const { configuration } = React.useContext(ConfigurationContext);
+    const { configuration } = useConfigurationContext();
     // Determine if the scene has any facial tags (facialgiven/facialreceived)
     const { data: sceneData } = GQL.useFindSceneQuery({
       variables: { id: props.scene.id },

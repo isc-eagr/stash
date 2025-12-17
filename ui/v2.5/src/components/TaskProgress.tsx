@@ -8,7 +8,7 @@ import { Icon } from "./Shared/Icon";
 import { faPlus, faTrash, faEdit, faSave, faTimes } from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import { useConfigureUISetting, useStats } from "src/core/StashService";
-import { ConfigurationContext } from "src/hooks/Config";
+import { useConfigurationContext } from "src/hooks/Config";
 
 interface ProgressTracker {
   id: string;
@@ -21,7 +21,7 @@ interface ProgressTracker {
 const UI_KEY = "taskProgressTrackers";
 
 const TaskProgress: React.FC = () => {
-  const { configuration } = React.useContext(ConfigurationContext);
+  const { configuration } = useConfigurationContext();
   const [saveUISetting] = useConfigureUISetting();
   const { data: statsData, loading: statsLoading } = useStats();
   

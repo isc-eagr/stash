@@ -13,7 +13,7 @@ import NavUtils from "src/utils/navigation";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import goateeSvg from "src/assets/goatee.svg";
-import { ConfigurationContext } from "src/hooks/Config";
+import { useConfigurationContext } from "src/hooks/Config";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import { PerformerSceneTagsInPerformerFilterOption, TagsCriterion } from "src/models/list-filter/criteria/tags";
 
@@ -120,7 +120,7 @@ export const CustomStats: React.FC = () => {
   const { data: soloOnlyData } = useQuery(PERFORMERS_SOLO_ONLY_COUNT);
   const { data: oneSceneData } = useQuery(PERFORMERS_ONE_SCENE_COUNT);
   
-  const { configuration } = React.useContext(ConfigurationContext);
+  const { configuration } = useConfigurationContext();
   const cfg = (configuration?.ui as any)?.sceneTagAliases ?? {};
 
   // Query for tag IDs based on configured tag names

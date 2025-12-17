@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useContext } from "react";
+import React, { useMemo, useState } from "react";
 import { gql, useQuery } from "@apollo/client";
 import { Link, useParams } from "react-router-dom";
 import { useIntl } from "react-intl";
@@ -369,7 +369,6 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
     const { configuration } = useConfigurationContext();
     const uiConfig = configuration?.ui;
     const [updatePerformer] = usePerformerUpdate();
-    const { configuration } = useContext(ConfigurationContext);
 
     // Helper: detect Scene-page presence and role flags
     function getSceneRoleFlags(): {
