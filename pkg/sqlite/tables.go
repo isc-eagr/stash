@@ -28,6 +28,8 @@ var (
 	scenesGroupsJoinTable     = goqu.T(groupsScenesTable)
 	scenesURLsJoinTable       = goqu.T(scenesURLsTable)
 
+	sceneMarkersTagsJoinTable = goqu.T(sceneMarkersTagsTable)
+
 	performersAliasesJoinTable  = goqu.T(performersAliasesTable)
 	performersURLsJoinTable     = goqu.T(performerURLsTable)
 	performersTagsJoinTable     = goqu.T(performersTagsTable)
@@ -36,6 +38,7 @@ var (
 	performersCustomFieldsTable = goqu.T("performer_custom_fields")
 
 	studiosAliasesJoinTable  = goqu.T(studioAliasesTable)
+	studiosURLsJoinTable     = goqu.T(studioURLsTable)
 	studiosTagsJoinTable     = goqu.T(studiosTagsTable)
 	studiosStashIDsJoinTable = goqu.T("studio_stash_ids")
 
@@ -45,6 +48,7 @@ var (
 
 	tagsAliasesJoinTable  = goqu.T(tagAliasesTable)
 	tagRelationsJoinTable = goqu.T(tagRelationsTable)
+	tagsStashIDsJoinTable = goqu.T("tag_stash_ids")
 )
 
 var (
@@ -159,6 +163,16 @@ var (
 	sceneMarkerTableMgr = &table{
 		table:    goqu.T(sceneMarkerTable),
 		idColumn: goqu.T(sceneMarkerTable).Col(idColumn),
+	}
+
+	sceneMarkersTagsTableMgr = &joinTable{
+		table: table{
+			table:    sceneMarkersTagsJoinTable,
+			idColumn: sceneMarkersTagsJoinTable.Col(sceneMarkerIDColumn),
+		},
+		fkColumn:     sceneMarkersTagsJoinTable.Col(tagIDColumn),
+		foreignTable: tagTableMgr,
+		orderBy:      tagTableSort,
 	}
 
 	scenesFilesTableMgr = &relatedFilesTable{
@@ -318,6 +332,14 @@ var (
 		stringColumn: studiosAliasesJoinTable.Col(studioAliasColumn),
 	}
 
+	studiosURLsTableMgr = &orderedValueTable[string]{
+		table: table{
+			table:    studiosURLsJoinTable,
+			idColumn: studiosURLsJoinTable.Col(studioIDColumn),
+		},
+		valueColumn: studiosURLsJoinTable.Col(studioURLColumn),
+	}
+
 	studiosTagsTableMgr = &joinTable{
 		table: table{
 			table:    studiosTagsJoinTable,
@@ -365,6 +387,13 @@ var (
 	}
 
 	tagsChildTagsTableMgr = *tagsParentTagsTableMgr.invert()
+
+	tagsStashIDsTableMgr = &stashIDTable{
+		table: table{
+			table:    tagsStashIDsJoinTable,
+			idColumn: tagsStashIDsJoinTable.Col(tagIDColumn),
+		},
+	}
 )
 
 var (

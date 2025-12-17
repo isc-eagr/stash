@@ -16,6 +16,7 @@ import { useDebounce } from "src/hooks/debounce";
 import cx from "classnames";
 import { SceneMarkerTagsCriterion } from "src/models/list-filter/criteria/tags";
 import { CriterionModifier, useFindTagsForSelectQuery } from "src/core/generated-graphql";
+import { useConfigurationContext } from "src/hooks/Config";
 
 type TagItemProps = PropsWithChildren<
   ReplaceProps<"span", BsPrefixProps<"span"> & BadgeProps>
@@ -186,6 +187,9 @@ export const FilterTags: React.FC<IFilterTagsProps> = ({
   const intl = useIntl();
   const ref = useRef<HTMLDivElement>(null);
 
+  const { configuration } = useConfigurationContext();
+  const { sfwContentMode } = configuration.interface;
+
   const [cutoff, setCutoff] = React.useState<number | undefined>();
   const elementGap = 10; // Adjust this value based on your CSS gap or margin
   const moreTagWidth = 80; // reserve space for the "more" tag
@@ -335,7 +339,7 @@ export const FilterTags: React.FC<IFilterTagsProps> = ({
           criterion instanceof SceneMarkerTagsCriterion ? (
             <SceneMarkerTagsChipLabel criterion={criterion} />
           ) : (
-            criterion.getLabel(intl)
+            criterion.getLabel(intl, sfwContentMode)
           )
         }
         onClick={() => onClickCriterionTag(criterion)}

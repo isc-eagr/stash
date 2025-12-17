@@ -15,7 +15,7 @@ import { useTagUpdate } from "src/core/StashService";
 import { gql, useQuery } from "@apollo/client";
 
 interface IProps {
-  tag: GQL.TagDataFragment;
+  tag: GQL.TagDataFragment | GQL.TagListDataFragment;
   cardWidth?: number;
   zoomIndex: number;
   selecting?: boolean;

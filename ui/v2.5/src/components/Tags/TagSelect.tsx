@@ -12,9 +12,9 @@ import {
   useTagCreate,
   queryFindTagsByIDForSelect,
   queryFindTagsForSelect,
+  queryFindTagsForSelectWithTagFilter,
 } from "src/core/StashService";
-import { queryFindTagsForSelectWithTagFilter } from "src/core/StashService";
-import { ConfigurationContext } from "src/hooks/Config";
+import { useConfigurationContext } from "src/hooks/Config";
 import { useIntl } from "react-intl";
 import { defaultMaxOptionsShown } from "src/core/config";
 import { ListFilterModel } from "src/models/list-filter/filter";
@@ -39,7 +39,7 @@ export type SelectObject = {
 
 export type Tag = Pick<
   GQL.Tag,
-  "id" | "name" | "sort_name" | "aliases" | "image_path"
+  "id" | "name" | "sort_name" | "aliases" | "image_path" | "stash_ids"
 >;
 type Option = SelectOption<Tag>;
 
@@ -72,13 +72,11 @@ export type TagSelectProps = IFilterProps &
 const _TagSelect: React.FC<TagSelectProps> = (props) => {
   const [createTag] = useTagCreate();
 
-  const { configuration } = React.useContext(ConfigurationContext);
+  const { configuration } = useConfigurationContext();
   const intl = useIntl();
   const maxOptionsShown =
     configuration?.ui.maxOptionsShown ?? defaultMaxOptionsShown;
-  // Creatable is enabled by default; it's disabled only if config explicitly sets disableDropdownCreate.tag === true
-  const defaultCreatable =
-    configuration?.interface?.disableDropdownCreate?.tag !== true;
+  const defaultCreatable = !configuration?.interface.disableDropdownCreate.tag;
 
   const exclude = useMemo(() => props.excludeIds ?? [], [props.excludeIds]);
 
@@ -217,6 +215,7 @@ const _TagSelect: React.FC<TagSelectProps> = (props) => {
       id,
       name,
       aliases: [],
+      stash_ids: [],
     };
   };
 

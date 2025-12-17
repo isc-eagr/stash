@@ -7,7 +7,6 @@ import NavUtils from "src/utils/navigation";
 import TextUtils from "src/utils/text";
 import { GridCard } from "../Shared/GridCard/GridCard";
 import { CountryFlag } from "../Shared/CountryFlag";
-import { SweatDrops } from "../Shared/SweatDrops";
 import { HoverPopover } from "../Shared/HoverPopover";
 import { Icon } from "../Shared/Icon";
 import { TagLink } from "../Shared/TagLink";
@@ -18,7 +17,8 @@ import {
 } from "src/models/list-filter/criteria/criterion";
 import { PopoverCountButton } from "../Shared/PopoverCountButton";
 import GenderIcon from "./GenderIcon";
-import { faTag, faArrowUp, faArrowDown } from "@fortawesome/free-solid-svg-icons";
+import { faLink, faTag, faArrowUp, faArrowDown } from "@fortawesome/free-solid-svg-icons";
+import { faInstagram, faTwitter } from "@fortawesome/free-brands-svg-icons";
 import { RatingBanner } from "../Shared/RatingBanner";
 import { usePerformerUpdate, getClient } from "src/core/StashService";
 import { useTagsEdit } from "src/hooks/tagsEdit";
@@ -26,7 +26,9 @@ import { useToast } from "src/hooks/Toast";
 import { ILabeledId } from "src/models/list-filter/types";
 import { FavoriteIcon } from "../Shared/FavoriteIcon";
 import { PatchComponent } from "src/patch";
-import { ConfigurationContext } from "src/hooks/Config";
+import { ExternalLinksButton } from "../Shared/ExternalLinksButton";
+import { useConfigurationContext, ConfigurationContext } from "src/hooks/Config";
+import { OCounterButton } from "../Shared/CountButton";
 
 export interface IPerformerCardExtraCriteria {
   scenes?: ModifierCriterion<CriterionValue>[];
@@ -253,16 +255,7 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     function maybeRenderOCounter() {
       if (!performer.o_counter) return;
 
-      return (
-        <div className="o-counter">
-          <Button className="minimal">
-            <span className="fa-icon">
-              <SweatDrops />
-            </span>
-            <span>{performer.o_counter}</span>
-          </Button>
-        </div>
-      );
+      return <OCounterButton value={performer.o_counter} />;
     }
 
     function maybeRenderTagPopoverButton() {
@@ -373,8 +366,9 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
 const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Overlays",
   ({ performer, sceneHasExplicitTopBottom }) => {
+    const { configuration } = useConfigurationContext();
+    const uiConfig = configuration?.ui;
     const [updatePerformer] = usePerformerUpdate();
-    const { configuration } = useContext(ConfigurationContext);
 
     // Helper: detect Scene-page presence and role flags
     function getSceneRoleFlags(): {
@@ -463,7 +457,6 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
       }
     }
 
-
     // Scene-page-only role badges (Top/Bottom) derived from scene-scoped tags
     function maybeRenderTopBottomRoleBadges() {
       const { hasSceneTagsField, isTop, isBottom } = getSceneRoleFlags();
@@ -530,6 +523,63 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
       );
     }
 
+    function maybeRenderLinks() {
+      if (!uiConfig?.showLinksOnPerformerCard) {
+        return;
+      }
+
+      if (performer.urls && performer.urls.length > 0) {
+        const twitter = performer.urls.filter((u) =>
+          u.match(/https?:\/\/(?:www\.)?(?:twitter|x).com\//)
+        );
+        const instagram = performer.urls.filter((u) =>
+          u.match(/https?:\/\/(?:www\.)?instagram.com\//)
+        );
+        const others = performer.urls.filter(
+          (u) => !twitter.includes(u) && !instagram.includes(u)
+        );
+
+        return (
+          <div
+            className="performer-card__links"
+            style={{
+              position: "absolute",
+              left: "0",
+              bottom: "0",
+              display: "flex",
+              gap: "0.5rem",
+              flexDirection: "column-reverse",
+            }}
+          >
+            {twitter.length > 0 && (
+              <ExternalLinksButton
+                className="performer-card__link twitter"
+                urls={twitter}
+                icon={faTwitter}
+                openIfSingle={true}
+              ></ExternalLinksButton>
+            )}
+            {instagram.length > 0 && (
+              <ExternalLinksButton
+                className="performer-card__link instagram"
+                urls={instagram}
+                icon={faInstagram}
+                openIfSingle={true}
+              ></ExternalLinksButton>
+            )}
+            {others.length > 0 && (
+              <ExternalLinksButton
+                className="performer-card__link"
+                icon={faLink}
+                urls={others}
+                openIfSingle={true}
+              />
+            )}
+          </div>
+        );
+      }
+    }
+
     return (
       <>
         <FavoriteIcon
@@ -540,6 +590,7 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
         />
         {maybeRenderTopBottomRoleBadges()}
         {maybeRenderRatingBanner()}
+        {maybeRenderLinks()}
         {maybeRenderFlag()}
       </>
     );

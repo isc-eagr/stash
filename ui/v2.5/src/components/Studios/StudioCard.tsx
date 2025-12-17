@@ -13,6 +13,7 @@ import { RatingBanner } from "../Shared/RatingBanner";
 import { FavoriteIcon } from "../Shared/FavoriteIcon";
 import { useStudioUpdate } from "src/core/StashService";
 import { faTag, faHand, faUserPlus } from "@fortawesome/free-solid-svg-icons";
+import { OCounterButton } from "../Shared/CountButton";
 import { ConfigurationContext } from "src/hooks/Config";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
@@ -353,6 +354,12 @@ export const StudioCard: React.FC<IProps> = ({
     );
   }
 
+  function maybeRenderOCounter() {
+    if (!studio.o_counter) return;
+
+    return <OCounterButton value={studio.o_counter} />;
+  }
+
   function maybeRenderPopoverButtonGroup() {
     const hasCategoryButtons = !!(topTag && bottomTag && oralTopTag && oralBottomTag && soloTag);
     
@@ -362,6 +369,7 @@ export const StudioCard: React.FC<IProps> = ({
       studio.gallery_count ||
       studio.group_count ||
       studio.performer_count ||
+      studio.o_counter ||
       studio.tags.length > 0 ||
       hasCategoryButtons
     ) {
@@ -389,6 +397,7 @@ export const StudioCard: React.FC<IProps> = ({
             {maybeRenderGalleriesPopoverButton()}
             {maybeRenderPerformersPopoverButton()}
             {maybeRenderTagPopoverButton()}
+            {maybeRenderOCounter()}
           </ButtonGroup>
         </>
       );
