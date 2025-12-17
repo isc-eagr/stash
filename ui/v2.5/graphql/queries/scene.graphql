@@ -37,6 +37,12 @@ query FindDuplicateScenes($distance: Int, $duration_diff: Float) {
 query FindScene($id: ID!, $checksum: String) {
   findScene(id: $id, checksum: $checksum) {
     ...SceneData
+    performers {
+      ...PerformerData
+      scene_tags(scene_id: $id) {
+        ...SlimTagData
+      }
+    }
   }
 }
 

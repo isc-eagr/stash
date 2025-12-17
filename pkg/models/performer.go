@@ -150,6 +150,8 @@ type PerformerFilterType struct {
 	IsMissing *string `json:"is_missing"`
 	// Filter to only include performers with these tags
 	Tags *HierarchicalMultiCriterionInput `json:"tags"`
+	// Filter to only include performers where the performer has these scene tags (from performer_scene_tags)
+	PerformerSceneTags *HierarchicalMultiCriterionInput `json:"performer_scene_tags"`
 	// Filter by tag count
 	TagCount *IntCriterionInput `json:"tag_count"`
 	// Filter by scene count
@@ -280,4 +282,11 @@ type PerformerUpdateInput struct {
 	IgnoreAutoTag *bool          `json:"ignore_auto_tag"`
 
 	CustomFields CustomFieldsInput `json:"custom_fields"`
+	// Scene-scoped tags: list of scene -> tag ids
+	SceneTags []PerformerSceneTagsInput `json:"scene_tags"`
+}
+
+type PerformerSceneTagsInput struct {
+	SceneID string   `json:"scene_id"`
+	TagIds  []string `json:"tag_ids"`
 }

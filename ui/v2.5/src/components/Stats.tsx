@@ -71,6 +71,7 @@ export const Stats: React.FC = () => {
           </p>
         </div>
       </div>
+      
       <div className="col col-sm-8 m-sm-auto row stats">
         <div className="stats-element">
           <p className="title">

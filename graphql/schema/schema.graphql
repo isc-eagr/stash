@@ -136,6 +136,8 @@ type Query {
 
   "Get marker strings"
   markerStrings(q: String, sort: String): [MarkerStringsResultType]!
+  "Get distinct performer ethnicities"
+  performerEthnicities: [String!]!
   "Get stats"
   stats: StatsResultType!
   "Organize scene markers by tag for a given scene ID"

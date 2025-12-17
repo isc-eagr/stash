@@ -37,7 +37,11 @@ import {
   faEllipsisV,
   faChevronRight,
   faChevronLeft,
+  faHand,
 } from "@fortawesome/free-solid-svg-icons";
+import mouthSvg from "src/assets/mouth.svg";
+import gaySvg from "src/assets/gay.svg";
+import straightSvg from "src/assets/straight.svg";
 import { objectPath, objectTitle } from "src/core/files";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import TextUtils from "src/utils/text";
@@ -50,7 +54,6 @@ import { lazyComponent } from "src/utils/lazyComponent";
 import cx from "classnames";
 import { TruncatedText } from "src/components/Shared/TruncatedText";
 import { PatchComponent, PatchContainerComponent } from "src/patch";
-import { goBackOrReplace } from "src/utils/history";
 import { FormattedDate } from "src/components/Shared/Date";
 
 const SubmitStashBoxDraft = lazyComponent(
@@ -582,6 +585,82 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     [scene]
   );
 
+  // Determine which icon to show based on scene tags (highest precedence: straight) and performer_scene_tags
+  const iconToShow = useMemo(() => {
+    // Highest precedence: straight tag at scene.tags
+    const cfg = configuration?.ui?.sceneTagAliases ?? {};
+    const tagStraight = (cfg.straight ?? "straight").toLowerCase();
+    const sceneTagNames = (scene.tags ?? []).map((t) => (t?.name ?? "").toLowerCase());
+    if (sceneTagNames.includes(tagStraight)) {
+      return {
+        type: "straight",
+        className: "scene-straight-icon",
+        title: "Scene contains straight tag",
+      } as const;
+    }
+
+    if (!scene.performers || scene.performers.length === 0) return null;
+
+    const allTags = new Set<string>();
+
+    // Collect all unique tag names from performer_scene_tags
+    for (const p of scene.performers) {
+      const sceneTags = (p as any).scene_tags as Array<{ id: string; name: string }> | undefined;
+      if (sceneTags) {
+        for (const tag of sceneTags) {
+          if (tag?.name) {
+            allTags.add(tag.name.toLowerCase());
+          }
+        }
+      }
+    }
+
+  const tagsArray = Array.from(allTags);
+
+  const tagTop = (cfg.top ?? "top").toLowerCase();
+  const tagBottom = (cfg.bottom ?? "bottom").toLowerCase();
+  const tagOralBottom = (cfg.oralbottom ?? "oralbottom").toLowerCase();
+  const tagOralTop = (cfg.oraltop ?? "oraltop").toLowerCase();
+  const tagSolo = (cfg.solo ?? "solo").toLowerCase();
+
+  // Check for mouth icon conditions (prioritized)
+  const hasOralBottomTag = tagsArray.includes(tagOralBottom);
+  const hasOralTopTag = tagsArray.includes(tagOralTop);
+  const hasTopTag = tagsArray.includes(tagTop);
+  const hasBottomTag = tagsArray.includes(tagBottom);
+
+    // Highest precedence: gay icon if Top and/or Bottom present
+    if (hasTopTag || hasBottomTag) {
+      return {
+        type: 'gay',
+        className: "scene-gay-icon",
+        title: "Scene contains top/bottom tags",
+      };
+    }
+
+    if ((hasOralBottomTag || hasOralTopTag) && !hasTopTag && !hasBottomTag) {
+      return {
+        type: 'mouth',
+        className: "scene-mouth-icon",
+        title: "Scene contains oral tags",
+      };
+    }
+
+    // Check for hand icon conditions (secondary)
+  const hasSoloTag = tagsArray.includes(tagSolo) || tagsArray.some(tag => tag.includes(tagSolo));
+
+    if (hasSoloTag && !hasTopTag && !hasBottomTag && !hasOralBottomTag && !hasOralTopTag) {
+      return {
+        type: 'hand',
+        icon: faHand,
+        className: "scene-hand-icon",
+        title: "Scene contains solo tags"
+      };
+    }
+
+    return null;
+  }, [scene.performers, configuration?.ui]);
+
   return (
     <>
       <Helmet>
@@ -608,7 +687,37 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               </h1>
             )}
             <h3 className={cx("scene-header", { "no-studio": !scene.studio })}>
-              <TruncatedText lineCount={2} text={title} />
+              <span style={{ display: 'flex', alignItems: 'center' }}>
+                {iconToShow && ((iconToShow as any).type === 'mouth' ? (
+                  <img
+                    src={mouthSvg}
+                    alt={(iconToShow as any).title || 'Open Mouth'}
+                    title={(iconToShow as any).title}
+                    className={(iconToShow as any).className}
+                  />
+                ) : (iconToShow as any).type === 'gay' ? (
+                  <img
+                    src={gaySvg}
+                    alt={(iconToShow as any).title || 'Gay'}
+                    title={(iconToShow as any).title}
+                    className={(iconToShow as any).className}
+                  />
+                ) : (iconToShow as any).type === 'straight' ? (
+                  <img
+                    src={straightSvg}
+                    alt={(iconToShow as any).title || 'Straight'}
+                    title={(iconToShow as any).title}
+                    className={(iconToShow as any).className}
+                  />
+                ) : (
+                  <Icon
+                    icon={(iconToShow as any).icon!}
+                    className={(iconToShow as any).className}
+                    title={(iconToShow as any).title}
+                  />
+                ))}
+                <TruncatedText lineCount={2} text={title} />
+              </span>
             </h3>
           </div>
 
@@ -912,7 +1021,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
     ) {
       loadScene(queueScenes[currentQueueIndex + 1].id);
     } else {
-      goBackOrReplace(history, "/scenes");
+      history.goBack();
     }
   }
 

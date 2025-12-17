@@ -406,6 +406,43 @@ func (_m *PerformerReaderWriter) GetStashIDs(ctx context.Context, relatedID int)
 	return r0, r1
 }
 
+// GetSceneTagIDs provides a mock function with given fields: ctx, performerID, sceneID
+func (_m *PerformerReaderWriter) GetSceneTagIDs(ctx context.Context, performerID int, sceneID int) ([]int, error) {
+	ret := _m.Called(ctx, performerID, sceneID)
+
+	var r0 []int
+	if rf, ok := ret.Get(0).(func(context.Context, int, int) []int); ok {
+		r0 = rf(ctx, performerID, sceneID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]int)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int, int) error); ok {
+		r1 = rf(ctx, performerID, sceneID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SetSceneTags provides a mock function with given fields: ctx, performerID, sceneID, tagIDs
+func (_m *PerformerReaderWriter) SetSceneTags(ctx context.Context, performerID int, sceneID int, tagIDs []int) error {
+	ret := _m.Called(ctx, performerID, sceneID, tagIDs)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int, int, []int) error); ok {
+		r0 = rf(ctx, performerID, sceneID, tagIDs)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // GetTagIDs provides a mock function with given fields: ctx, relatedID
 func (_m *PerformerReaderWriter) GetTagIDs(ctx context.Context, relatedID int) ([]int, error) {
 	ret := _m.Called(ctx, relatedID)

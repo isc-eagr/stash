@@ -94,6 +94,7 @@ export const PluginApi = {
     Scenes: () => import("./components/Scenes/Scenes"),
     Settings: () => import("./components/Settings/Settings"),
     Stats: () => import("./components/Stats"),
+    CustomStats: () => import("./components/CustomStats"),
     Studios: () => import("./components/Studios/Studios"),
     Galleries: () => import("./components/Galleries/Galleries"),
     Groups: () => import("./components/Groups/Groups"),

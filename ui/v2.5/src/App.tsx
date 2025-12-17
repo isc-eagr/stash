@@ -64,6 +64,8 @@ const FrontPage = lazyComponent(
 const Scenes = lazyComponent(() => import("./components/Scenes/Scenes"));
 const Settings = lazyComponent(() => import("./components/Settings/Settings"));
 const Stats = lazyComponent(() => import("./components/Stats"));
+const CustomStats = lazyComponent(() => import("./components/CustomStats"));
+const TaskProgress = lazyComponent(() => import("./components/TaskProgress"));
 const Studios = lazyComponent(() => import("./components/Studios/Studios"));
 const Galleries = lazyComponent(
   () => import("./components/Galleries/Galleries")
@@ -259,6 +261,8 @@ export const App: React.FC = () => {
             <Route path="/studios" component={Studios} />
             <Route path="/groups" component={Groups} />
             <Route path="/stats" component={Stats} />
+            <Route path="/customstats" component={CustomStats} />
+            <Route path="/task-progress" component={TaskProgress} />
             <Route path="/settings" component={Settings} />
             <Route
               path="/sceneFilenameParser"

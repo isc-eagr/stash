@@ -305,6 +305,11 @@
   height: 150px;
 }
 
+/* Ensure consistent performer card width in carousel on desktop */
+.slick-list .performer-card.card {
+  width: 20rem;
+}
+
 @media (max-width: 576px) {
   .slick-list .scene-card.card,
   .slick-list .studio-card.card,

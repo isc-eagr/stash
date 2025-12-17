@@ -10,7 +10,7 @@ import { ImageIsMissingCriterionOption } from "./criteria/is-missing";
 import { OrganizedCriterionOption } from "./criteria/organized";
 import { PathCriterionOption } from "./criteria/path";
 import { PerformersCriterionOption } from "./criteria/performers";
-import { RatingCriterionOption } from "./criteria/rating";
+import { RatingCriterionOption, PerformerRatingCriterionOption } from "./criteria/rating";
 import { ResolutionCriterionOption } from "./criteria/resolution";
 import { OrientationCriterionOption } from "./criteria/orientation";
 import { StudiosCriterionOption } from "./criteria/studios";
@@ -22,6 +22,10 @@ import {
 import { ListFilterOptions, MediaSortByOptions } from "./filter-options";
 import { DisplayMode } from "./types";
 import { GalleriesCriterionOption } from "./criteria/galleries";
+import { EthnicityCriterionOption } from "./criteria/ethnicity";
+import { CriterionModifier } from "src/core/generated-graphql";
+import { ModifierCriterionOption } from "./criteria/criterion";
+import { CountryCriterion } from "./criteria/country";
 
 const defaultSortBy = "path";
 
@@ -52,6 +56,21 @@ const criterionOptions = [
   ImageIsMissingCriterionOption,
   TagsCriterionOption,
   RatingCriterionOption,
+  EthnicityCriterionOption,
+  new ModifierCriterionOption({
+    messageID: "performer_country",
+    type: "performer_country",
+    modifierOptions: [
+      CriterionModifier.Equals,
+      CriterionModifier.NotEquals,
+      CriterionModifier.Includes,
+      CriterionModifier.IncludesAll,
+    ],
+    defaultModifier: CriterionModifier.Equals,
+    inputType: "text",
+    makeCriterion: (o) => new CountryCriterion(o as unknown as ModifierCriterionOption),
+  }),
+  PerformerRatingCriterionOption,
   createMandatoryNumberCriterionOption("tag_count"),
   PerformerTagsCriterionOption,
   PerformersCriterionOption,

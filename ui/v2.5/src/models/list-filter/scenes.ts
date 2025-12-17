@@ -2,10 +2,14 @@ import {
   createMandatoryNumberCriterionOption,
   createMandatoryStringCriterionOption,
   createStringCriterionOption,
+  
   createDateCriterionOption,
   createMandatoryTimestampCriterionOption,
   createDurationCriterionOption,
+  ModifierCriterionOption,
 } from "./criteria/criterion";
+import { CountryCriterion } from "./criteria/country";
+import { CriterionModifier } from "src/core/generated-graphql";
 import { HasMarkersCriterionOption } from "./criteria/has-markers";
 import { SceneIsMissingCriterionOption } from "./criteria/is-missing";
 import {
@@ -14,14 +18,17 @@ import {
 } from "./criteria/groups";
 import { GalleriesCriterionOption } from "./criteria/galleries";
 import { OrganizedCriterionOption } from "./criteria/organized";
-import { PerformersCriterionOption } from "./criteria/performers";
+import { PerformersCriterionOption} from "./criteria/performers";
 import { ResolutionCriterionOption } from "./criteria/resolution";
 import { StudiosCriterionOption } from "./criteria/studios";
 import { InteractiveCriterionOption } from "./criteria/interactive";
 import {
   PerformerTagsCriterionOption,
+  PerformerSceneTagsCriterionOption,
+  PerformerSceneTagPairCriterionOption,
   // StudioTagsCriterionOption,
   TagsCriterionOption,
+  SceneMarkerTagsCriterionOption,
 } from "./criteria/tags";
 import { ListFilterOptions, MediaSortByOptions } from "./filter-options";
 import { DisplayMode } from "./types";
@@ -32,9 +39,11 @@ import {
 import { PerformerFavoriteCriterionOption } from "./criteria/favorite";
 import { CaptionsCriterionOption } from "./criteria/captions";
 import { StashIDCriterionOption } from "./criteria/stash-ids";
-import { RatingCriterionOption } from "./criteria/rating";
+import { RatingCriterionOption, PerformerRatingCriterionOption } from "./criteria/rating";
 import { PathCriterionOption } from "./criteria/path";
 import { OrientationCriterionOption } from "./criteria/orientation";
+import { EthnicityCriterionOption } from "./criteria/ethnicity";
+import { PerformerSceneTagsWithAttrsCriterionOption } from "./criteria/performer-scene-tags-with-attrs";
 
 const defaultSortBy = "date";
 const sortByOptions = [
@@ -121,11 +130,36 @@ const criterionOptions = [
   TagsCriterionOption,
   createMandatoryNumberCriterionOption("tag_count"),
   PerformerTagsCriterionOption,
+  PerformerSceneTagsCriterionOption,
+  PerformerSceneTagsWithAttrsCriterionOption,
+  // compact performer+tag pair criterion
+  PerformerSceneTagPairCriterionOption,
   PerformersCriterionOption,
   createMandatoryNumberCriterionOption("performer_count"),
   PerformerAgeCriterionOption,
   PerformerFavoriteCriterionOption,
-  // StudioTagsCriterionOption,
+  EthnicityCriterionOption,
+    // Specialized country criterion using multi-select editor
+    new ModifierCriterionOption({
+      messageID: "performer_country",
+      type: "performer_country",
+      modifierOptions: [
+        // IS
+        CriterionModifier.Equals,
+        // IS NOT
+        CriterionModifier.NotEquals,
+        // INCLUDES (any one)
+        CriterionModifier.Includes,
+        // INCLUDES ALL (at least one from each selected country)
+        CriterionModifier.IncludesAll,
+      ],
+      defaultModifier: CriterionModifier.Equals,
+      inputType: "text",
+      makeCriterion: (o) => new CountryCriterion(o as unknown as ModifierCriterionOption),
+    }),
+  PerformerRatingCriterionOption,
+  SceneMarkerTagsCriterionOption,
+    // StudioTagsCriterionOption,
   StudiosCriterionOption,
   GroupsCriterionOption,
   LegacyMoviesCriterionOption,

@@ -146,6 +146,31 @@ func (r *performerResolver) Tags(ctx context.Context, obj *models.Performer) (re
 	return ret, firstError(errs)
 }
 
+func (r *performerResolver) SceneTags(ctx context.Context, obj *models.Performer, sceneID string) (ret []*models.Tag, err error) {
+	// convert sceneID to int
+	sid, err := strconv.Atoi(sceneID)
+	if err != nil {
+		return nil, err
+	}
+
+	var ids []int
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		var err error
+		ids, err = r.repository.Performer.GetSceneTagIDs(ctx, obj.ID, sid)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	var errs []error
+	ret, errs = loaders.From(ctx).TagByID.LoadAll(ids)
+	return ret, firstError(errs)
+}
+
 func (r *performerResolver) SceneCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		ret, err = r.repository.Scene.CountByPerformerID(ctx, obj.ID)

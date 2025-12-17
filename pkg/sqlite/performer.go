@@ -17,11 +17,12 @@ import (
 )
 
 const (
-	performerTable         = "performers"
-	performerIDColumn      = "performer_id"
-	performersAliasesTable = "performer_aliases"
-	performerAliasColumn   = "alias"
-	performersTagsTable    = "performers_tags"
+	performerTable          = "performers"
+	performerIDColumn       = "performer_id"
+	performersAliasesTable  = "performer_aliases"
+	performerAliasColumn    = "alias"
+	performersTagsTable     = "performers_tags"
+	performerSceneTagsTable = "performer_scene_tags"
 
 	performerURLsTable = "performer_urls"
 	performerURLColumn = "url"
@@ -172,8 +173,9 @@ func (r *performerRowRecord) fromPartial(o models.PerformerPartial) {
 type performerRepositoryType struct {
 	repository
 
-	tags     joinRepository
-	stashIDs stashIDRepository
+	tags               joinRepository
+	performerSceneTags joinRepository
+	stashIDs           stashIDRepository
 
 	scenes    joinRepository
 	images    joinRepository
@@ -189,6 +191,15 @@ var (
 		tags: joinRepository{
 			repository: repository{
 				tableName: performersTagsTable,
+				idColumn:  performerIDColumn,
+			},
+			fkColumn:     tagIDColumn,
+			foreignTable: tagTable,
+			orderBy:      tagTableSortSQL,
+		},
+		performerSceneTags: joinRepository{
+			repository: repository{
+				tableName: performerSceneTagsTable,
 				idColumn:  performerIDColumn,
 			},
 			fkColumn:     tagIDColumn,
@@ -251,6 +262,34 @@ func NewPerformerStore(blobStore *BlobStore) *PerformerStore {
 
 func (qb *PerformerStore) table() exp.IdentifierExpression {
 	return qb.tableMgr.table
+}
+
+// SetSceneTags replaces the tags for a performer within a specific scene.
+func (qb *PerformerStore) SetSceneTags(ctx context.Context, performerID int, sceneID int, tagIDs []int) error {
+	// delete existing rows for this performer+scene using dbWrapper
+	if _, err := dbWrapper.Exec(ctx, "DELETE FROM performer_scene_tags WHERE performer_id = ? AND scene_id = ?", performerID, sceneID); err != nil {
+		return err
+	}
+
+	// nothing to insert
+	if len(tagIDs) == 0 {
+		return nil
+	}
+
+	// prepare insert statement and execute for each tag id using dbWrapper prepared stmt
+	stmt, err := dbWrapper.Prepare(ctx, "INSERT INTO performer_scene_tags (performer_id, scene_id, tag_id) VALUES (?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, tid := range tagIDs {
+		if _, err := dbWrapper.ExecStmt(ctx, stmt, performerID, sceneID, tid); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (qb *PerformerStore) selectDataset() *goqu.SelectDataset {
@@ -393,6 +432,11 @@ func (qb *PerformerStore) Update(ctx context.Context, updatedObject *models.Upda
 func (qb *PerformerStore) Destroy(ctx context.Context, id int) error {
 	// must handle image checksums manually
 	if err := qb.destroyImage(ctx, id); err != nil {
+		return err
+	}
+
+	// Ensure any scene-scoped performer tags are removed to avoid orphaned rows
+	if _, err := dbWrapper.Exec(ctx, "DELETE FROM performer_scene_tags WHERE performer_id = ?", id); err != nil {
 		return err
 	}
 
@@ -823,6 +867,26 @@ func (qb *PerformerStore) getPerformerSort(findFilter *models.FindFilterType) (s
 
 func (qb *PerformerStore) GetTagIDs(ctx context.Context, id int) ([]int, error) {
 	return performerRepository.tags.getIDs(ctx, id)
+}
+
+// GetSceneTagIDs returns tag IDs attached to a performer for a specific scene
+func (qb *PerformerStore) GetSceneTagIDs(ctx context.Context, performerID int, sceneID int) ([]int, error) {
+	query := `SELECT tag_id as id FROM performer_scene_tags WHERE performer_id = ? AND scene_id = ? ORDER BY tag_id`
+
+	var result []struct {
+		ID int `db:"id"`
+	}
+
+	if err := dbWrapper.Select(ctx, &result, query, performerID, sceneID); err != nil {
+		return nil, err
+	}
+
+	ids := make([]int, len(result))
+	for i, r := range result {
+		ids[i] = r.ID
+	}
+
+	return ids, nil
 }
 
 func (qb *PerformerStore) GetImage(ctx context.Context, performerID int) ([]byte, error) {

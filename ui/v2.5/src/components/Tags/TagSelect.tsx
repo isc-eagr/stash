@@ -13,6 +13,7 @@ import {
   queryFindTagsByIDForSelect,
   queryFindTagsForSelect,
 } from "src/core/StashService";
+import { queryFindTagsForSelectWithTagFilter } from "src/core/StashService";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useIntl } from "react-intl";
 import { defaultMaxOptionsShown } from "src/core/config";
@@ -62,6 +63,10 @@ export type TagSelectProps = IFilterProps &
     hoverPlacement?: Placement;
     hoverPlacementLabel?: Placement;
     excludeIds?: string[];
+    // When true, suppress TagPopover hovers for options and selected chips
+    disableHoverPopovers?: boolean;
+    // Optional extra tag filter constraints applied server-side when loading options
+    tagFilter?: Partial<GQL.TagFilterType>;
   };
 
 const _TagSelect: React.FC<TagSelectProps> = (props) => {
@@ -71,7 +76,9 @@ const _TagSelect: React.FC<TagSelectProps> = (props) => {
   const intl = useIntl();
   const maxOptionsShown =
     configuration?.ui.maxOptionsShown ?? defaultMaxOptionsShown;
-  const defaultCreatable = !configuration?.interface.disableDropdownCreate.tag;
+  // Creatable is enabled by default; it's disabled only if config explicitly sets disableDropdownCreate.tag === true
+  const defaultCreatable =
+    configuration?.interface?.disableDropdownCreate?.tag !== true;
 
   const exclude = useMemo(() => props.excludeIds ?? [], [props.excludeIds]);
 
@@ -82,8 +89,15 @@ const _TagSelect: React.FC<TagSelectProps> = (props) => {
     filter.itemsPerPage = maxOptionsShown;
     filter.sortBy = "name";
     filter.sortDirection = GQL.SortDirectionEnum.Asc;
-    const query = await queryFindTagsForSelect(filter);
-    let ret = query.data.findTags.tags.filter((tag) => {
+    // Apply optional tag filter override to constrain results (e.g., only tags with performer_scene_tags)
+    const query = props.tagFilter
+      ? await queryFindTagsForSelectWithTagFilter(
+          filter,
+          props.tagFilter as GQL.TagFilterType
+        )
+      : await queryFindTagsForSelect(filter);
+    const tags = query.data.findTags.tags as FindTagsResult;
+    let ret = tags.filter((tag) => {
       // HACK - we should probably exclude these in the backend query, but
       // this will do in the short-term
       return !exclude.includes(tag.id.toString());
@@ -114,7 +128,11 @@ const _TagSelect: React.FC<TagSelectProps> = (props) => {
     thisOptionProps = {
       ...optionProps,
       children: (
-        <TagPopover id={object.id} placement={props.hoverPlacement ?? "right"}>
+        <TagPopover
+          id={object.id}
+          placement={props.hoverPlacement ?? "right"}
+          hide={props.disableHoverPopovers}
+        >
           <span className="react-select-image-option">
             {/* the following code causes re-rendering issues when selecting tags */}
             {/* <TagPopover
@@ -158,6 +176,7 @@ const _TagSelect: React.FC<TagSelectProps> = (props) => {
         <TagPopover
           id={object.id}
           placement={props.hoverPlacementLabel ?? "top"}
+          hide={props.disableHoverPopovers}
         >
           <span>{object.name}</span>
         </TagPopover>
