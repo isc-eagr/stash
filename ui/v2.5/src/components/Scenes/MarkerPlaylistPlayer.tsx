@@ -185,12 +185,51 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   }, [markers, currentIndex, loopEnabled, loadMarker]);
   
   // Load first marker when markers are ready
+  const initialLoadedRef = useRef(false);
   useEffect(() => {
-    if (markers.length > 0 && videoRef.current) {
+    if (markers.length === 0) {
+      initialLoadedRef.current = false;
+      return;
+    }
+    if (!initialLoadedRef.current && videoRef.current) {
+      initialLoadedRef.current = true;
       loadMarker(0, false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [markers.length]);
+
+  // When markers or currentIndex changes, ensure playback continues smoothly after deletion/reorder
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || markers.length === 0) return;
+    // If currentIndex is out of bounds, fix it
+    if (currentIndex >= markers.length) {
+      setCurrentIndex(markers.length - 1);
+      return;
+    }
+    // If video is paused, don't do anything
+    if (video.paused) return;
+    const marker = markers[currentIndex];
+    if (!marker) return;
+    // If the video src or sceneId doesn't match, reload
+    if (video.src !== marker.streamUrl || currentSceneId !== marker.sceneId) {
+      video.src = marker.streamUrl;
+      setCurrentSceneId(marker.sceneId);
+      const handleLoadedMetadata = () => {
+        video.currentTime = marker.seconds;
+        video.play().catch(() => {});
+        video.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      };
+      video.addEventListener("loadedmetadata", handleLoadedMetadata);
+      video.load();
+    } else {
+      // Ensure we're within marker time bounds: seek to marker.seconds if we're before it
+      if (video.currentTime < marker.seconds) {
+        video.currentTime = marker.seconds;
+      }
+      video.play().catch(() => {});
+    }
+  }, [markers, currentIndex, currentSceneId]);
   
   const handlePlayPause = useCallback(() => {
     const video = videoRef.current;
@@ -421,6 +460,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                              [arr[index - 1], arr[index]] = [arr[index], arr[index - 1]];
                              return arr;
                            });
+                           setCurrentIndex(index - 1);
                          }
                        }}
                        title={intl.formatMessage({ id: "marker_playlist.move_up", defaultMessage: "Move up" })}
@@ -437,10 +477,30 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                              [arr[index], arr[index + 1]] = [arr[index + 1], arr[index]];
                              return arr;
                            });
+                           setCurrentIndex(index + 1);
                          }
                        }}
                        title={intl.formatMessage({ id: "marker_playlist.move_down", defaultMessage: "Move down" })}
                      >↓</Button>
+                     <Button
+                       variant="outline-danger"
+                       size="sm"
+                       onClick={e => {
+                         e.stopPropagation();
+                         setMarkers(prev => {
+                           const arr = prev.filter((_, i) => i !== index);
+                           if (currentIndex === index) {
+                             let next = index;
+                             if (index >= arr.length) next = arr.length - 1;
+                             setCurrentIndex(next >= 0 ? next : 0);
+                           } else if (currentIndex > index) {
+                             setCurrentIndex(currentIndex - 1);
+                           }
+                           return arr;
+                         });
+                       }}
+                       title={intl.formatMessage({ id: "marker_playlist.delete", defaultMessage: "Delete" })}
+                     >✕</Button>
                    </div>
                  </ListGroup.Item>
                ))}
