@@ -3,6 +3,7 @@ import React from "react";
 import { useHistory } from "react-router-dom";
 import { useIntl } from "react-intl";
 import Mousetrap from "mousetrap";
+import { faPlay, faRandom } from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import {
   queryFindSceneMarkers,
@@ -49,8 +50,39 @@ export const SceneMarkerList: React.FC<ISceneMarkerList> = PatchComponent(
       {
         text: intl.formatMessage({ id: "actions.play_random" }),
         onClick: playRandom,
+        icon: faRandom,
+      },
+      {
+        text: intl.formatMessage({ id: "actions.play_selected" }),
+        onClick: playSelected,
+        icon: faPlay,
+        isDisplayed: (
+          _result: GQL.FindSceneMarkersQueryResult,
+          _filter: ListFilterModel,
+          selectedIds: Set<string>
+        ) => selectedIds.size > 0,
       },
     ];
+
+    async function playSelected(
+      result: GQL.FindSceneMarkersQueryResult,
+      _filter: ListFilterModel,
+      selectedIds: Set<string>
+    ) {
+      if (selectedIds.size > 0 && result.data?.findSceneMarkers?.scene_markers) {
+        // Filter to get only selected markers and store in sessionStorage
+        const allMarkers = result.data.findSceneMarkers.scene_markers;
+        const selectedMarkers = Array.from(selectedIds)
+          .map((id) => allMarkers.find((m) => m.id === id))
+          .filter((m): m is GQL.SceneMarkerDataFragment => m !== undefined);
+        
+        // Store marker data in sessionStorage for the playlist player
+        sessionStorage.setItem("markerPlaylist", JSON.stringify(selectedMarkers));
+        
+        const idsParam = Array.from(selectedIds).join(",");
+        window.open(`/scenes/markers/player?ids=${idsParam}`, '_blank');
+      }
+    }
 
     function addKeybinds(
       result: GQL.FindSceneMarkersQueryResult,

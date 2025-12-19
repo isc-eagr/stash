@@ -5,7 +5,8 @@
         "customise": "Customize",
         "optimise_database": "Optimize Database",
         "add_group": "Add group",
-        "clear": "Clear"
+        "clear": "Clear",
+        "back": "Back"
     },
     "config": {
         "tools": {

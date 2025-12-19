@@ -18,6 +18,8 @@ This document describes all custom features and modifications added on top of th
 10. [Tag List Enhancements](#10-tag-list-enhancements)
 11. [New GraphQL Queries and Types](#11-new-graphql-queries-and-types)
 12. [File Inventory](#12-file-inventory)
+13. [Multi-Segment Loop Controls](#13-multi-segment-loop-controls)
+14. [Marker Playlist Player](#14-marker-playlist-player)
 
 ---
 
@@ -432,8 +434,89 @@ These configuration paths are used throughout the custom features:
 - `configuration.ui.sceneTagAliases.facialreceived`
 - `configuration.ui.sceneTagAliases.selffacial`
 - `configuration.ui.taskProgressTrackers` (for TaskProgress component)
+- `configuration.ui.showMultiSegmentLoopControls` (for multi-segment loop feature)
 
 ---
 
-*Last Updated: December 17, 2025*
+## 13. Multi-Segment Loop Controls
+
+### Overview
+An enhanced looping system for the scene player that allows you to define multiple A-B segments instead of just one. When loop is enabled, the player will play through all defined segments in order, then repeat from the first segment.
+
+### Usage
+1. Enable in Settings > Interface > Scene Player > "Show Multi-Segment Loop controls"
+2. In the scene player, a controls panel appears below the video
+3. Click "Add Segment" to mark a start point at current playback position
+4. Click "Set End" to mark the end point and create the segment
+5. Repeat to add more segments
+6. Use "Loop On" to start playing through all segments in sequence
+7. Segments can be reordered with up/down arrows, removed individually, or cleared entirely
+
+### Files Created
+- `ui/v2.5/src/components/ScenePlayer/multi-segment-loop.ts` - VideoJS plugin for multi-segment looping
+- `ui/v2.5/src/components/ScenePlayer/MultiSegmentLoopControls.tsx` - React component for segment management UI
+- `ui/v2.5/src/@types/videojs-multi-segment-loop.d.ts` - TypeScript type declarations
+
+### Files Modified
+- `ui/v2.5/src/components/ScenePlayer/ScenePlayer.tsx` - Integration of plugin and controls
+- `ui/v2.5/src/components/ScenePlayer/styles.scss` - Styles for controls and timeline markers
+- `ui/v2.5/src/components/Settings/SettingsInterfacePanel/SettingsInterfacePanel.tsx` - Setting toggle
+- `ui/v2.5/src/core/config.ts` - Config option type
+- `ui/v2.5/src/locales/en-GB.json` - Locale strings
+
+### Features
+- Add unlimited segments with start/end times
+- Visual markers on the player timeline showing segment positions
+- Active segment highlighting during playback
+- Reorder segments with drag-like up/down controls
+- Persistent pending marker when setting start point
+- Segment list with jump-to-segment functionality
+- Total duration calculation for all segments
+
+### Configuration Dependencies
+- `configuration.ui.showMultiSegmentLoopControls` - Boolean to enable the feature
+
+---
+
+## 14. Marker Playlist Player
+
+### Overview
+A dedicated player page that allows you to select multiple markers from the Markers page (`/scenes/markers`) and play them sequentially in a loop. This works across different scenes - the player automatically loads each scene's video and seeks to the marker position.
+
+### Usage
+1. Go to the Markers page (`/scenes/markers`)
+2. Enable selection mode by clicking the checkbox icon
+3. Select the markers you want to include in your playlist
+4. Click the "Play Selected" button (appears when markers are selected)
+5. A new player page opens with all selected markers in a playlist
+6. Markers play in order, automatically advancing to the next when one ends
+7. Use the loop toggle to continuously loop through all markers
+8. The playlist sidebar shows all markers with clickable entries to jump to any marker
+
+### Files Created
+- `ui/v2.5/src/components/Scenes/MarkerPlaylistPlayer.tsx` - Main React component for the playlist player
+- `ui/v2.5/src/components/Scenes/MarkerPlaylistPlayer.scss` - Styles for the playlist player UI
+
+### Files Modified
+- `ui/v2.5/src/components/Scenes/Scenes.tsx` - Added route for `/scenes/markers/player`
+- `ui/v2.5/src/components/Scenes/SceneMarkerList.tsx` - Added "Play Selected" operation button
+- `ui/v2.5/src/locales/en-GB.json` - Locale strings for `marker_playlist` section
+
+### Features
+- Select any number of markers from the markers list
+- Cross-scene playback - automatically loads the correct video for each marker
+- Automatic advancement from one marker to the next
+- Loop mode to continuously play all markers
+- Previous/Next navigation controls
+- Playlist sidebar with all markers listed
+- Click any marker in the sidebar to jump to it
+- Duration display for total playlist time
+- "Now Playing" indicator showing current marker
+
+### URL Parameters
+- `/scenes/markers/player?ids=1,2,3` - Comma-separated list of marker IDs to play
+
+---
+
+*Last Updated: December 18, 2025*
 *Base Version: Stash v0.30.0*

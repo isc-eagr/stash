@@ -790,6 +790,8 @@
           "disable_mobile_media_auto_rotate": "Disable auto-rotate of fullscreen media on Mobile",
           "enable_chromecast": "Enable Chromecast",
           "show_ab_loop_controls": "Show AB Loop plugin controls",
+          "show_multi_segment_loop_controls": "Show Multi-Segment Loop controls",
+          "show_multi_segment_loop_controls_desc": "Display controls below the scene player for creating multiple looping segments",
           "show_scrubber": "Show Scrubber",
           "show_range_markers": "Show Range Markers",
           "track_activity": "Enable Scene Play history",
@@ -1610,5 +1612,36 @@
   "weight": "Weight",
   "weight_kg": "Weight (kg)",
   "years_old": "years old",
-  "zip_file_count": "Zip File Count"
+  "zip_file_count": "Zip File Count",
+  "multi_segment_loop": {
+    "title": "Multi-Segment Loop",
+    "expand": "Expand multi-segment loop controls",
+    "on": "On",
+    "add_segment": "Add Segment",
+    "set_start": "Click to set segment start time",
+    "set_end": "Click to set segment end time (start: {start})",
+    "set_end_short": "Set End ({time})",
+    "enable": "Enable multi-segment loop",
+    "disable": "Disable multi-segment loop",
+    "loop_on": "Loop On",
+    "loop_off": "Loop Off",
+    "clear_all": "Clear All",
+    "remove_segment": "Remove this segment",
+    "move_up": "Move up",
+    "move_down": "Move down",
+    "no_segments": "No segments defined. Click 'Add Segment' to mark a start point.",
+    "summary": "{count} segments, total duration: {duration}"
+  },
+  "marker_playlist": {
+    "title": "Marker Playlist",
+    "no_markers": "No markers selected. Go to the Markers page and select some markers to play.",
+    "loading": "Loading markers...",
+    "previous": "Previous marker",
+    "next": "Next marker",
+    "toggle_loop": "Toggle loop",
+    "playlist": "Playlist",
+    "total_duration": "Total: {duration}",
+    "now_playing": "Now Playing",
+    "markers_selected": "{count} markers selected"
+  }
 }

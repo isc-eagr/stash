@@ -30,6 +30,9 @@ fragment SceneMarkerSceneData on Scene {
     height
     path
   }
+  paths {
+    stream
+  }
   performers {
     id
     name

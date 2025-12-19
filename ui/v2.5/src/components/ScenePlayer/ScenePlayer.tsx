@@ -52,6 +52,12 @@ import ScreenUtils from "src/utils/screen";
 import { PatchComponent } from "src/patch";
 import goateeSvg from "src/assets/goatee.svg";
 
+// Multi-segment loop plugin
+import "./multi-segment-loop";
+import type MultiSegmentLoopPlugin from "./multi-segment-loop";
+import type { ILoopSegment } from "./multi-segment-loop";
+import { MultiSegmentLoopControls } from "./MultiSegmentLoopControls";
+
 // register videojs plugins
 airplay(videojs);
 chromecast(videojs);
@@ -268,6 +274,13 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const [fullscreen, setFullscreen] = useState(false);
     const [showScrubber, setShowScrubber] = useState(false);
 
+    // Multi-segment loop state
+    const [multiSegments, setMultiSegments] = useState<ILoopSegment[]>([]);
+    const [multiSegmentEnabled, setMultiSegmentEnabled] = useState(false);
+    const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
+    const [pendingStart, setPendingStart] = useState<number | null>(null);
+    const showMultiSegmentControls = uiConfig?.showMultiSegmentLoopControls ?? false;
+
     const started = useRef(false);
     const auto = useRef(false);
     const interactiveReady = useRef(false);
@@ -406,6 +419,11 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             pauseBeforeLooping: false,
             createButtons: uiConfig?.showAbLoopControls ?? false,
           },
+          multiSegmentLoop: {
+            segments: [],
+            enabled: false,
+            currentSegmentIndex: 0,
+          },
           mediaSession: {},
           wakeSentinel: {},
         },
@@ -453,6 +471,112 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       skipButtons.setForwardHandler(onNext);
       skipButtons.setBackwardHandler(onPrevious);
     }, [getPlayer, onNext, onPrevious]);
+
+    // Multi-segment loop plugin setup
+    useEffect(() => {
+      const player = getPlayer();
+      if (!player) return;
+      
+      const multiSegmentPlugin = player.multiSegmentLoop?.() as MultiSegmentLoopPlugin | undefined;
+      if (!multiSegmentPlugin) return;
+      
+      // Set up callbacks to sync state with React
+      multiSegmentPlugin.setOnSegmentsChange((segments) => {
+        setMultiSegments([...segments]);
+      });
+      
+      multiSegmentPlugin.setOnEnabledChange((enabled) => {
+        setMultiSegmentEnabled(enabled);
+      });
+      
+      multiSegmentPlugin.setOnCurrentSegmentChange((index, _segment) => {
+        setCurrentSegmentIndex(index);
+      });
+      
+      // Sync pending start
+      const syncPending = () => {
+        setPendingStart(multiSegmentPlugin.getPendingStart());
+      };
+      
+      // Initial sync
+      setMultiSegments(multiSegmentPlugin.getSegments());
+      setMultiSegmentEnabled(multiSegmentPlugin.isEnabled());
+      setCurrentSegmentIndex(multiSegmentPlugin.getCurrentSegmentIndex());
+      syncPending();
+    }, [getPlayer]);
+
+    // Multi-segment loop control handlers
+    const handleMultiSegmentMarkPoint = useCallback(() => {
+      const player = getPlayer();
+      if (!player) return;
+      
+      const multiSegmentPlugin = player.multiSegmentLoop?.() as MultiSegmentLoopPlugin | undefined;
+      if (!multiSegmentPlugin) return;
+      
+      multiSegmentPlugin.markPoint();
+      setPendingStart(multiSegmentPlugin.getPendingStart());
+    }, [getPlayer]);
+
+    const handleMultiSegmentCancelPending = useCallback(() => {
+      const player = getPlayer();
+      if (!player) return;
+      
+      const multiSegmentPlugin = player.multiSegmentLoop?.() as MultiSegmentLoopPlugin | undefined;
+      if (!multiSegmentPlugin) return;
+      
+      multiSegmentPlugin.cancelPending();
+      setPendingStart(null);
+    }, [getPlayer]);
+
+    const handleMultiSegmentToggleEnabled = useCallback(() => {
+      const player = getPlayer();
+      if (!player) return;
+      
+      const multiSegmentPlugin = player.multiSegmentLoop?.() as MultiSegmentLoopPlugin | undefined;
+      if (!multiSegmentPlugin) return;
+      
+      multiSegmentPlugin.toggleEnabled();
+    }, [getPlayer]);
+
+    const handleMultiSegmentRemove = useCallback((id: string) => {
+      const player = getPlayer();
+      if (!player) return;
+      
+      const multiSegmentPlugin = player.multiSegmentLoop?.() as MultiSegmentLoopPlugin | undefined;
+      if (!multiSegmentPlugin) return;
+      
+      multiSegmentPlugin.removeSegment(id);
+    }, [getPlayer]);
+
+    const handleMultiSegmentClear = useCallback(() => {
+      const player = getPlayer();
+      if (!player) return;
+      
+      const multiSegmentPlugin = player.multiSegmentLoop?.() as MultiSegmentLoopPlugin | undefined;
+      if (!multiSegmentPlugin) return;
+      
+      multiSegmentPlugin.clearSegments();
+    }, [getPlayer]);
+
+    const handleMultiSegmentJumpTo = useCallback((index: number) => {
+      const player = getPlayer();
+      if (!player) return;
+      
+      const multiSegmentPlugin = player.multiSegmentLoop?.() as MultiSegmentLoopPlugin | undefined;
+      if (!multiSegmentPlugin) return;
+      
+      multiSegmentPlugin.jumpToSegment(index);
+    }, [getPlayer]);
+
+    const handleMultiSegmentReorder = useCallback((fromIndex: number, toIndex: number) => {
+      const player = getPlayer();
+      if (!player) return;
+      
+      const multiSegmentPlugin = player.multiSegmentLoop?.() as MultiSegmentLoopPlugin | undefined;
+      if (!multiSegmentPlugin) return;
+      
+      multiSegmentPlugin.reorderSegment(fromIndex, toIndex);
+    }, [getPlayer]);
 
     useEffect(() => {
       if (scene.interactive && interactiveInitialised) {
@@ -1024,6 +1148,21 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             time={time}
             onSeek={onScrubberSeek}
             onScroll={onScrubberScroll}
+          />
+        )}
+        {showMultiSegmentControls && (
+          <MultiSegmentLoopControls
+            segments={multiSegments}
+            enabled={multiSegmentEnabled}
+            currentSegmentIndex={currentSegmentIndex}
+            pendingStart={pendingStart}
+            onMarkPoint={handleMultiSegmentMarkPoint}
+            onCancelPending={handleMultiSegmentCancelPending}
+            onToggleEnabled={handleMultiSegmentToggleEnabled}
+            onRemoveSegment={handleMultiSegmentRemove}
+            onClearSegments={handleMultiSegmentClear}
+            onJumpToSegment={handleMultiSegmentJumpTo}
+            onReorderSegment={handleMultiSegmentReorder}
           />
         )}
       </div>

@@ -83,6 +83,9 @@ export interface IUIConfig {
 
   showAbLoopControls?: boolean;
 
+  // if true, multi-segment loop controls will be shown below the scene player
+  showMultiSegmentLoopControls?: boolean;
+
   // maximum number of items to shown in the dropdown list - defaults to 200
   // upper limit of 1000
   maxOptionsShown?: number;

@@ -634,6 +634,14 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
             checked={ui.showAbLoopControls ?? undefined}
             onChange={(v) => saveUI({ showAbLoopControls: v })}
           />
+
+          <BooleanSetting
+            id="show-multi-segment-loop"
+            headingID="config.ui.scene_player.options.show_multi_segment_loop_controls"
+            subHeadingID="config.ui.scene_player.options.show_multi_segment_loop_controls_desc"
+            checked={ui.showMultiSegmentLoopControls ?? undefined}
+            onChange={(v) => saveUI({ showMultiSegmentLoopControls: v })}
+          />
         </SettingSection>
         <SettingSection headingID="config.ui.tag_panel.heading">
           <BooleanSetting

@@ -707,3 +707,211 @@ $sceneTabWidth: 450px;
     }
   }
 }
+
+// Multi-segment loop styles
+.multi-segment-loop-controls {
+  background-color: rgba(0, 0, 0, 0.85);
+  border-radius: 4px;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+
+  &.collapsed {
+    background-color: transparent;
+    margin-top: 0.25rem;
+    padding: 0;
+
+    .expand-toggle {
+      color: #888;
+      font-size: 0.8rem;
+      padding: 0.25rem 0.5rem;
+      text-decoration: none;
+
+      &:hover {
+        color: #fff;
+      }
+
+      .badge {
+        font-size: 0.7rem;
+      }
+    }
+  }
+
+  .multi-segment-loop-header {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+
+    h6 {
+      color: #fff;
+      font-size: 0.85rem;
+      margin: 0;
+    }
+
+    .collapse-btn {
+      color: #aaa;
+      padding: 0;
+
+      &:hover {
+        color: #fff;
+      }
+    }
+  }
+
+  .multi-segment-loop-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .multi-segment-loop-summary {
+    color: #aaa;
+    margin-bottom: 0.5rem;
+    margin-top: 0.25rem;
+  }
+
+  .multi-segment-loop-empty {
+    color: #666;
+    font-style: italic;
+    padding: 0.5rem 0;
+    text-align: center;
+  }
+
+  .multi-segment-loop-list {
+    max-height: 200px;
+    overflow-y: auto;
+
+    .segment-item {
+      align-items: center;
+      background-color: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      font-size: 0.85rem;
+      justify-content: space-between;
+      padding: 0.4rem 0.6rem;
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+      }
+
+      &.active-segment {
+        background-color: rgba(40, 167, 69, 0.4);
+        border-left: 3px solid #28a745;
+      }
+
+      .segment-info {
+        display: flex;
+        gap: 0.5rem;
+
+        .segment-number {
+          color: #aaa;
+          font-weight: bold;
+          min-width: 1.5rem;
+        }
+
+        .segment-times {
+          font-family: monospace;
+        }
+
+        .segment-duration {
+          color: #888;
+          font-size: 0.8rem;
+        }
+      }
+
+      .segment-actions {
+        .btn-link {
+          color: #aaa;
+          padding: 0.1rem 0.3rem;
+
+          &:hover {
+            color: #fff;
+          }
+
+          &.text-danger:hover {
+            color: #dc3545;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Multi-segment markers on timeline
+.video-js {
+  .vjs-multi-segment-marker {
+    background-color: rgba(40, 167, 69, 0.6);
+    border: 1px solid rgba(40, 167, 69, 0.9);
+    border-radius: 2px;
+    cursor: pointer;
+    height: 8px;
+    min-width: 8px;
+    position: absolute;
+    transform: translateY(-34px);
+    transition: background-color 0.2s;
+    z-index: 99;
+
+    &:hover {
+      background-color: rgba(40, 167, 69, 0.9);
+    }
+
+    &.active {
+      background-color: rgba(40, 167, 69, 0.9);
+      border-color: #28a745;
+      box-shadow: 0 0 4px rgba(40, 167, 69, 0.8);
+    }
+
+    .segment-label {
+      background-color: rgba(0, 0, 0, 0.7);
+      border-radius: 2px;
+      color: #fff;
+      font-size: 9px;
+      font-weight: bold;
+      left: 50%;
+      padding: 1px 3px;
+      pointer-events: none;
+      position: absolute;
+      top: -14px;
+      transform: translateX(-50%);
+    }
+  }
+
+  .vjs-multi-segment-pending-marker {
+    background-color: rgba(255, 193, 7, 0.9);
+    border-radius: 50%;
+    box-shadow: 0 0 6px rgba(255, 193, 7, 0.8);
+    height: 10px;
+    position: absolute;
+    transform: translateY(-36px);
+    width: 10px;
+    z-index: 100;
+
+    &::after {
+      animation: pulse 1s infinite;
+      background-color: rgba(255, 193, 7, 0.4);
+      border-radius: 50%;
+      content: "";
+      height: 100%;
+      left: 0;
+      position: absolute;
+      top: 0;
+      width: 100%;
+    }
+  }
+
+  @keyframes pulse {
+    0% {
+      transform: scale(1);
+    }
+
+    50% {
+      transform: scale(1.5);
+    }
+
+    100% {
+      transform: scale(1);
+    }
+  }
+}
