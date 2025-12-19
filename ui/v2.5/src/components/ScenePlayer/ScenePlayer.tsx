@@ -50,6 +50,7 @@ import chromecast from "@silvermine/videojs-chromecast";
 import abLoopPlugin from "videojs-abloop";
 import ScreenUtils from "src/utils/screen";
 import { PatchComponent } from "src/patch";
+import goateeSvg from "src/assets/goatee.svg";
 
 // register videojs plugins
 airplay(videojs);
@@ -968,6 +969,33 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const isPortrait =
       file && file.height && file.width && file.height > file.width;
 
+    // Determine if the scene has any facial tags (facialgiven/facialreceived/selffacial)
+    const hasFacial = useMemo(() => {
+      const performers = scene.performers ?? [];
+      if (performers.length === 0) return false;
+      const allTags = new Set<string>();
+      for (const p of performers) {
+        const sceneTags = (p as any).scene_tags as Array<{
+          id: string;
+          name: string;
+        }> | undefined;
+        if (sceneTags) {
+          for (const tag of sceneTags) {
+            if (tag?.name) allTags.add((tag.name || "").toLowerCase());
+          }
+        }
+      }
+      const cfg = (configuration?.ui as any)?.sceneTagAliases ?? {};
+      const tagFacialGiven = (cfg.facialgiven ?? "facialgiven").toLowerCase();
+      const tagFacialReceived = (cfg.facialreceived ?? "facialreceived").toLowerCase();
+      const tagSelfFacial = (cfg.selffacial ?? "selffacial").toLowerCase();
+      return (
+        allTags.has(tagFacialGiven) ||
+        allTags.has(tagFacialReceived) ||
+        allTags.has(tagSelfFacial)
+      );
+    }, [scene.performers, configuration?.ui]);
+
     return (
       <div
         className={cx("VideoPlayer", {
@@ -976,7 +1004,16 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         })}
         onKeyDownCapture={onKeyDown}
       >
-        <div className="video-wrapper" ref={videoRef} />
+        <div className="video-wrapper" ref={videoRef}>
+          {hasFacial && (
+            <img
+              className="scene-facial-overlay"
+              src={goateeSvg}
+              alt="Facial"
+              title="Facial tags present"
+            />
+          )}
+        </div>
         {scene.interactive &&
           (interactiveState !== ConnectionState.Ready ||
             getPlayer()?.paused()) && <SceneInteractiveStatus />}

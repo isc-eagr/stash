@@ -19,8 +19,12 @@ import {
 } from "./criteria/tags";
 import { ListFilterOptions, MediaSortByOptions } from "./filter-options";
 import { DisplayMode } from "./types";
-import { RatingCriterionOption } from "./criteria/rating";
+import { RatingCriterionOption, PerformerRatingCriterionOption } from "./criteria/rating";
 import { PathCriterionOption } from "./criteria/path";
+import { CriterionModifier } from "src/core/generated-graphql";
+import { ModifierCriterionOption } from "./criteria/criterion";
+import { CountryCriterion } from "./criteria/country";
+import { EthnicityCriterionOption } from "./criteria/ethnicity";
 
 const defaultSortBy = "path";
 
@@ -58,6 +62,21 @@ const criterionOptions = [
   HasChaptersCriterionOption,
   createMandatoryNumberCriterionOption("tag_count"),
   PerformerTagsCriterionOption,
+  EthnicityCriterionOption,
+  new ModifierCriterionOption({
+    messageID: "performer_country",
+    type: "performer_country",
+    modifierOptions: [
+      CriterionModifier.Equals,
+      CriterionModifier.NotEquals,
+      CriterionModifier.Includes,
+      CriterionModifier.IncludesAll,
+    ],
+    defaultModifier: CriterionModifier.Equals,
+    inputType: "text",
+    makeCriterion: (o) => new CountryCriterion(o as unknown as ModifierCriterionOption),
+  }),
+  PerformerRatingCriterionOption,
   PerformersCriterionOption,
   createMandatoryNumberCriterionOption("performer_count"),
   createMandatoryNumberCriterionOption("performer_age"),

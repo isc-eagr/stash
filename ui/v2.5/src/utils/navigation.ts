@@ -10,6 +10,9 @@ import {
   ParentTagsCriterionOption,
   TagsCriterion,
   TagsCriterionOption,
+  PerformerSceneTagsPairCriterion,
+  PerformerSceneTagsInPerformerFilterOption,
+  PerformerSceneTagsCriterionOption,
 } from "src/models/list-filter/criteria/tags";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import {
@@ -24,11 +27,14 @@ import {
   CriterionValue,
   StringCriterion,
   createStringCriterionOption,
+  createPerformerEthnicityStringCriterionOption,
   Criterion,
 } from "src/models/list-filter/criteria/criterion";
+import { EthnicityCriterion, EthnicityCriterionOption } from "src/models/list-filter/criteria/ethnicity";
+import { RatingCriterion, RatingCriterionOption } from "src/models/list-filter/criteria/rating";
 import { GalleriesCriterion } from "src/models/list-filter/criteria/galleries";
 import { PhashCriterion } from "src/models/list-filter/criteria/phash";
-import { ILabeledId } from "src/models/list-filter/types";
+import { ILabeledId, IHierarchicalLabelValue } from "src/models/list-filter/types";
 import { IntlShape } from "react-intl";
 import { galleryTitle } from "src/core/galleries";
 import { MarkersScenesCriterion } from "src/models/list-filter/criteria/scenes";
@@ -155,6 +161,34 @@ const makePerformersCountryUrl = (
   return `/performers?${filter.makeQueryParameters()}`;
 };
 
+const makePerformersEthnicityUrl = (ethnicity: string) => {
+  const filter = new ListFilterModel(GQL.FilterMode.Performers, undefined);
+  const criterion = new StringCriterion(createStringCriterionOption("ethnicity"));
+  criterion.modifier = GQL.CriterionModifier.Equals;
+  criterion.value = ethnicity;
+  filter.criteria.push(criterion);
+  return `/performers?${filter.makeQueryParameters()}`;
+};
+
+const makePerformersEthnicityRatingUrl = (ethnicity: string, rating: number) => {
+  const filter = new ListFilterModel(GQL.FilterMode.Performers, undefined);
+  
+  const ethnicityCriterion = new StringCriterion(createStringCriterionOption("ethnicity"));
+  ethnicityCriterion.modifier = GQL.CriterionModifier.Equals;
+  ethnicityCriterion.value = ethnicity;
+  filter.criteria.push(ethnicityCriterion);
+  
+  const ratingCriterion = new RatingCriterion(
+    { type: "STARS", starPrecision: "FULL" },
+    RatingCriterionOption
+  );
+  ratingCriterion.modifier = GQL.CriterionModifier.Equals;
+  ratingCriterion.value = { value: rating, value2: undefined };
+  filter.criteria.push(ratingCriterion);
+  
+  return `/performers?${filter.makeQueryParameters()}`;
+};
+
 const makeStudioScenesUrl = (studio: Partial<GQL.StudioDataFragment>) => {
   if (!studio.id) return "#";
   const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
@@ -165,6 +199,412 @@ const makeStudioScenesUrl = (studio: Partial<GQL.StudioDataFragment>) => {
     depth: 0,
   };
   filter.criteria.push(criterion);
+  return `/scenes?${filter.makeQueryParameters()}`;
+};
+
+const makeStudioSexScenesUrl = (
+  studio: Partial<GQL.StudioDataFragment>,
+  topTagId: string,
+  topTagLabel: string,
+  bottomTagId: string,
+  bottomTagLabel: string
+) => {
+  if (!studio.id) return "#";
+  const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+  
+  // Add studio criterion
+  const studioCriterion = new StudiosCriterion();
+  studioCriterion.value = {
+    items: [{ id: studio.id, label: studio.name || `Studio ${studio.id}` }],
+    excluded: [],
+    depth: 0,
+  };
+  filter.criteria.push(studioCriterion);
+  
+  // Add performer scene tags criterion (must include top OR bottom)
+  const tagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  tagsCriterion.modifier = GQL.CriterionModifier.Includes;
+  tagsCriterion.value = {
+    items: [
+      { id: topTagId, label: topTagLabel },
+      { id: bottomTagId, label: bottomTagLabel },
+    ],
+    excluded: [],
+    depth: 0,
+  };
+  filter.criteria.push(tagsCriterion);
+  
+  return `/scenes?${filter.makeQueryParameters()}`;
+};
+
+const makeStudioOralScenesUrl = (
+  studio: Partial<GQL.StudioDataFragment>,
+  oralTopTagId: string,
+  oralTopTagLabel: string,
+  oralBottomTagId: string,
+  oralBottomTagLabel: string,
+  topTagId: string,
+  topTagLabel: string,
+  bottomTagId: string,
+  bottomTagLabel: string
+) => {
+  if (!studio.id) return "#";
+  const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+  
+  // Add studio criterion
+  const studioCriterion = new StudiosCriterion();
+  studioCriterion.value = {
+    items: [{ id: studio.id, label: studio.name || `Studio ${studio.id}` }],
+    excluded: [],
+    depth: 0,
+  };
+  filter.criteria.push(studioCriterion);
+  
+  // Add oral tags criterion (must include oral tags, exclude top/bottom)
+  const oralTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  oralTagsCriterion.modifier = GQL.CriterionModifier.Includes;
+  oralTagsCriterion.value = {
+    items: [
+      { id: oralTopTagId, label: oralTopTagLabel },
+      { id: oralBottomTagId, label: oralBottomTagLabel },
+    ],
+    excluded: [
+      { id: topTagId, label: topTagLabel },
+      { id: bottomTagId, label: bottomTagLabel },
+    ],
+    depth: 0,
+  };
+  filter.criteria.push(oralTagsCriterion);
+  
+  return `/scenes?${filter.makeQueryParameters()}`;
+};
+
+const makeStudioSoloScenesUrl = (
+  studio: Partial<GQL.StudioDataFragment>,
+  soloTagId: string,
+  soloTagLabel: string,
+  topTagId: string,
+  topTagLabel: string,
+  bottomTagId: string,
+  bottomTagLabel: string,
+  oralTopTagId: string,
+  oralTopTagLabel: string,
+  oralBottomTagId: string,
+  oralBottomTagLabel: string
+) => {
+  if (!studio.id) return "#";
+  const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+  
+  // Add studio criterion
+  const studioCriterion = new StudiosCriterion();
+  studioCriterion.value = {
+    items: [{ id: studio.id, label: studio.name || `Studio ${studio.id}` }],
+    excluded: [],
+    depth: 0,
+  };
+  filter.criteria.push(studioCriterion);
+  
+  // Add solo tag criterion (must include solo, exclude top/bottom/oral tags)
+  const soloTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  soloTagsCriterion.modifier = GQL.CriterionModifier.Includes;
+  soloTagsCriterion.value = {
+    items: [
+      { id: soloTagId, label: soloTagLabel },
+    ],
+    excluded: [
+      { id: topTagId, label: topTagLabel },
+      { id: bottomTagId, label: bottomTagLabel },
+      { id: oralTopTagId, label: oralTopTagLabel },
+      { id: oralBottomTagId, label: oralBottomTagLabel },
+    ],
+    depth: 0,
+  };
+  filter.criteria.push(soloTagsCriterion);
+  
+  return `/scenes?${filter.makeQueryParameters()}`;
+};
+
+const makeStudioFacialScenesUrl = (
+  studio: Partial<GQL.StudioDataFragment>,
+  facialGivenTagId: string,
+  facialGivenTagLabel: string,
+  facialReceivedTagId: string,
+  facialReceivedTagLabel: string,
+  selffacialTagId?: string,
+  selffacialTagLabel?: string,
+) => {
+  if (!studio.id) return "#";
+  const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+
+  // Add studio criterion
+  const studioCriterion = new StudiosCriterion();
+  studioCriterion.value = {
+    items: [{ id: studio.id, label: studio.name || `Studio ${studio.id}` }],
+    excluded: [],
+    depth: 0,
+  };
+  filter.criteria.push(studioCriterion);
+
+  // Include facialgiven or facialreceived tags
+  const facialTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  facialTagsCriterion.modifier = GQL.CriterionModifier.Includes;
+  const items = [
+    { id: facialGivenTagId, label: facialGivenTagLabel },
+    { id: facialReceivedTagId, label: facialReceivedTagLabel },
+  ] as { id: string; label: string }[];
+  if (selffacialTagId && selffacialTagLabel) {
+    items.push({ id: selffacialTagId, label: selffacialTagLabel });
+  }
+  facialTagsCriterion.value = {
+    items,
+    excluded: [],
+    depth: 0,
+  };
+  filter.criteria.push(facialTagsCriterion);
+
+  return `/scenes?${filter.makeQueryParameters()}`;
+};
+
+// Studio detail page versions - stay on studio page with filter
+const makeStudioDetailSexScenesUrl = (
+  studio: Partial<GQL.StudioDataFragment>,
+  topTagId: string,
+  topTagLabel: string,
+  bottomTagId: string,
+  bottomTagLabel: string
+) => {
+  if (!studio.id) return "#";
+  const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+  
+  // Add performer scene tags criterion (must include top OR bottom)
+  const tagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  tagsCriterion.modifier = GQL.CriterionModifier.Includes;
+  tagsCriterion.value = {
+    items: [
+      { id: topTagId, label: topTagLabel },
+      { id: bottomTagId, label: bottomTagLabel },
+    ],
+    excluded: [],
+    depth: 0,
+  };
+  filter.criteria.push(tagsCriterion);
+  
+  return `/studios/${studio.id}/scenes?${filter.makeQueryParameters()}`;
+};
+
+const makeStudioDetailOralScenesUrl = (
+  studio: Partial<GQL.StudioDataFragment>,
+  oralTopTagId: string,
+  oralTopTagLabel: string,
+  oralBottomTagId: string,
+  oralBottomTagLabel: string,
+  topTagId: string,
+  topTagLabel: string,
+  bottomTagId: string,
+  bottomTagLabel: string
+) => {
+  if (!studio.id) return "#";
+  const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+  
+  // Add oral tags criterion (must include oral tags, exclude top/bottom)
+  const oralTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  oralTagsCriterion.modifier = GQL.CriterionModifier.Includes;
+  oralTagsCriterion.value = {
+    items: [
+      { id: oralTopTagId, label: oralTopTagLabel },
+      { id: oralBottomTagId, label: oralBottomTagLabel },
+    ],
+    excluded: [
+      { id: topTagId, label: topTagLabel },
+      { id: bottomTagId, label: bottomTagLabel },
+    ],
+    depth: 0,
+  };
+  filter.criteria.push(oralTagsCriterion);
+  
+  return `/studios/${studio.id}/scenes?${filter.makeQueryParameters()}`;
+};
+
+const makeStudioDetailSoloScenesUrl = (
+  studio: Partial<GQL.StudioDataFragment>,
+  soloTagId: string,
+  soloTagLabel: string,
+  topTagId: string,
+  topTagLabel: string,
+  bottomTagId: string,
+  bottomTagLabel: string,
+  oralTopTagId: string,
+  oralTopTagLabel: string,
+  oralBottomTagId: string,
+  oralBottomTagLabel: string
+) => {
+  if (!studio.id) return "#";
+  const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+  
+  // Add solo tag criterion (must include solo, exclude top/bottom/oral tags)
+  const soloTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  soloTagsCriterion.modifier = GQL.CriterionModifier.Includes;
+  soloTagsCriterion.value = {
+    items: [
+      { id: soloTagId, label: soloTagLabel },
+    ],
+    excluded: [
+      { id: topTagId, label: topTagLabel },
+      { id: bottomTagId, label: bottomTagLabel },
+      { id: oralTopTagId, label: oralTopTagLabel },
+      { id: oralBottomTagId, label: oralBottomTagLabel },
+    ],
+    depth: 0,
+  };
+  filter.criteria.push(soloTagsCriterion);
+  
+  return `/studios/${studio.id}/scenes?${filter.makeQueryParameters()}`;
+};
+
+const makeStudioDetailFacialScenesUrl = (
+  studio: Partial<GQL.StudioDataFragment>,
+  facialGivenTagId: string,
+  facialGivenTagLabel: string,
+  facialReceivedTagId: string,
+  facialReceivedTagLabel: string,
+  selffacialTagId?: string,
+  selffacialTagLabel?: string,
+) => {
+  if (!studio.id) return "#";
+  const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+
+  // Include facialgiven or facialreceived tags
+  const facialTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  facialTagsCriterion.modifier = GQL.CriterionModifier.Includes;
+  const items = [
+    { id: facialGivenTagId, label: facialGivenTagLabel },
+    { id: facialReceivedTagId, label: facialReceivedTagLabel },
+  ] as { id: string; label: string }[];
+  if (selffacialTagId && selffacialTagLabel) {
+    items.push({ id: selffacialTagId, label: selffacialTagLabel });
+  }
+  facialTagsCriterion.value = {
+    items,
+    excluded: [],
+    depth: 0,
+  };
+  filter.criteria.push(facialTagsCriterion);
+
+  return `/studios/${studio.id}/scenes?${filter.makeQueryParameters()}`;
+};
+
+const makeGlobalSexScenesUrl = (
+  topTagId: string,
+  topTagLabel: string,
+  bottomTagId: string,
+  bottomTagLabel: string
+) => {
+  const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+  
+  const tagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  tagsCriterion.modifier = GQL.CriterionModifier.Includes;
+  tagsCriterion.value = {
+    items: [
+      { id: topTagId, label: topTagLabel },
+      { id: bottomTagId, label: bottomTagLabel },
+    ],
+    excluded: [],
+    depth: 0,
+  };
+  filter.criteria.push(tagsCriterion);
+  
+  return `/scenes?${filter.makeQueryParameters()}`;
+};
+
+const makeGlobalOralScenesUrl = (
+  oralTopTagId: string,
+  oralTopTagLabel: string,
+  oralBottomTagId: string,
+  oralBottomTagLabel: string,
+  topTagId: string,
+  topTagLabel: string,
+  bottomTagId: string,
+  bottomTagLabel: string
+) => {
+  const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+  
+  const oralTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  oralTagsCriterion.modifier = GQL.CriterionModifier.Includes;
+  oralTagsCriterion.value = {
+    items: [
+      { id: oralTopTagId, label: oralTopTagLabel },
+      { id: oralBottomTagId, label: oralBottomTagLabel },
+    ],
+    excluded: [
+      { id: topTagId, label: topTagLabel },
+      { id: bottomTagId, label: bottomTagLabel },
+    ],
+    depth: 0,
+  };
+  filter.criteria.push(oralTagsCriterion);
+  
+  return `/scenes?${filter.makeQueryParameters()}`;
+};
+
+const makeGlobalSoloScenesUrl = (
+  soloTagId: string,
+  soloTagLabel: string,
+  topTagId: string,
+  topTagLabel: string,
+  bottomTagId: string,
+  bottomTagLabel: string,
+  oralTopTagId: string,
+  oralTopTagLabel: string,
+  oralBottomTagId: string,
+  oralBottomTagLabel: string
+) => {
+  const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+  
+  const soloTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  soloTagsCriterion.modifier = GQL.CriterionModifier.Includes;
+  soloTagsCriterion.value = {
+    items: [
+      { id: soloTagId, label: soloTagLabel },
+    ],
+    excluded: [
+      { id: topTagId, label: topTagLabel },
+      { id: bottomTagId, label: bottomTagLabel },
+      { id: oralTopTagId, label: oralTopTagLabel },
+      { id: oralBottomTagId, label: oralBottomTagLabel },
+    ],
+    depth: 0,
+  };
+  filter.criteria.push(soloTagsCriterion);
+  
+  return `/scenes?${filter.makeQueryParameters()}`;
+};
+
+const makeGlobalFacialScenesUrl = (
+  facialGivenTagId: string,
+  facialGivenTagLabel: string,
+  facialReceivedTagId: string,
+  facialReceivedTagLabel: string,
+  selffacialTagId?: string,
+  selffacialTagLabel?: string,
+) => {
+  const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+
+  const facialTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  facialTagsCriterion.modifier = GQL.CriterionModifier.Includes;
+  const items = [
+    { id: facialGivenTagId, label: facialGivenTagLabel },
+    { id: facialReceivedTagId, label: facialReceivedTagLabel },
+  ] as { id: string; label: string }[];
+  if (selffacialTagId && selffacialTagLabel) {
+    items.push({ id: selffacialTagId, label: selffacialTagLabel });
+  }
+  facialTagsCriterion.value = {
+    items,
+    excluded: [],
+    depth: 0,
+  };
+  filter.criteria.push(facialTagsCriterion);
+
   return `/scenes?${filter.makeQueryParameters()}`;
 };
 
@@ -218,6 +658,42 @@ const makeStudioPerformersUrl = (studio: Partial<GQL.StudioDataFragment>) => {
   };
   filter.criteria.push(criterion);
   return `/performers?${filter.makeQueryParameters()}`;
+};
+
+const makeStudioUniquePerformersUrl = (studio: Partial<GQL.StudioDataFragment>) => {
+  if (!studio.id) return "#";
+  const filter = new ListFilterModel(GQL.FilterMode.Performers, undefined);
+  
+  const studioCriterion = new StudiosCriterion();
+  studioCriterion.value = {
+    items: [{ id: studio.id, label: studio.name || `Studio ${studio.id}` }],
+    excluded: [],
+    depth: 0,
+  };
+  filter.criteria.push(studioCriterion);
+
+  const sceneCountCriterion = filter.makeCriterion("scene_count");
+  if (sceneCountCriterion) {
+    (sceneCountCriterion as any).modifier = GQL.CriterionModifier.Equals;
+    (sceneCountCriterion as any).value = 1;
+    filter.criteria.push(sceneCountCriterion);
+  }
+  
+  return `/performers?${filter.makeQueryParameters()}`;
+};
+
+const makeStudioDetailUniquePerformersUrl = (studio: Partial<GQL.StudioDataFragment>) => {
+  if (!studio.id) return "#";
+  const filter = new ListFilterModel(GQL.FilterMode.Performers, undefined);
+  
+  const sceneCountCriterion = filter.makeCriterion("scene_count");
+  if (sceneCountCriterion) {
+    (sceneCountCriterion as any).modifier = GQL.CriterionModifier.Equals;
+    (sceneCountCriterion as any).value = 1;
+    filter.criteria.push(sceneCountCriterion);
+  }
+  
+  return `/studios/${studio.id}/performers?${filter.makeQueryParameters()}`;
 };
 
 const makeChildStudiosUrl = (studio: Partial<GQL.StudioDataFragment>) => {
@@ -296,12 +772,75 @@ function makeTagFilter(mode: GQL.FilterMode, tag: INamedObject) {
   return filter.makeQueryParameters();
 }
 
-const makeTagScenesUrl = (tag: INamedObject) => {
+const makeTagScenesUrl = (tag: INamedObject, performer?: INamedObject) => {
+  if (!tag.id) return "#";
+
+  // If a performer is provided, build a Scene filter that uses the
+  // performer_scene_tags criterion together with the performers criterion so
+  // the resulting /scenes page is scoped to that performer + tag pair.
+  if (performer && performer.id) {
+    const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+
+      // Encode the performer+tag pair into a single performer_scene_tags criterion
+      // so the resulting /scenes page is scoped only by performer_scene_tags.
+      const tCrit = new PerformerSceneTagsPairCriterion(performer.id, tag.id);
+      filter.criteria.push(tCrit);
+
+    // Debug: log criterion objects and their encoded form so we can see why the tag criterion
+    // may be missing from the generated query string when a performer is provided.
+    try {
+      // eslint-disable-next-line no-console
+      console.debug("makeTagScenesUrl: filter.criteria", filter.criteria);
+      // eslint-disable-next-line no-console
+      console.debug(
+        "makeTagScenesUrl: toQueryParams",
+        filter.criteria.map((c) => c.toQueryParams())
+      );
+    } catch (e) {
+      /* ignore debug failures */
+    }
+
+    const params = filter.makeQueryParameters();
+
+    // Debug check: ensure the tag id is encoded in the query params when a performer is provided.
+    try {
+      if (!params.includes(tag.id)) {
+        // eslint-disable-next-line no-console
+        console.warn("makeTagScenesUrl: generated /scenes URL is missing tag id", {
+          tagId: tag.id,
+          performer,
+          params,
+        });
+      }
+    } catch (e) {
+      // ignore any errors in debug check
+    }
+
+    return `/scenes?${params}`;
+  }
+
   return `/scenes?${makeTagFilter(GQL.FilterMode.Scenes, tag)}`;
 };
 
 const makeTagPerformersUrl = (tag: INamedObject) => {
   return `/performers?${makeTagFilter(GQL.FilterMode.Performers, tag)}`;
+};
+
+// Build a Performers URL filtered by performer_scene_tags (top-level performer filter),
+// encoding the criterion as: c=(type:"performer_scene_tags",modifier:"INCLUDES_ALL",value:(items:[{id,label}],excluded:[],depth:0))
+const makeTagPerformersBySceneTagsUrl = (tag: INamedObject) => {
+  if (!tag.id) return "#";
+  const filter = new ListFilterModel(GQL.FilterMode.Performers, undefined);
+  const criterion = new TagsCriterion(PerformerSceneTagsInPerformerFilterOption);
+  criterion.modifier = GQL.CriterionModifier.IncludesAll;
+  const value: IHierarchicalLabelValue = {
+    items: [{ id: tag.id, label: tag.name || `Tag ${tag.id}` }],
+    excluded: [],
+    depth: 0,
+  };
+  criterion.value = value;
+  filter.criteria.push(criterion);
+  return `/performers?${filter.makeQueryParameters()}`;
 };
 
 const makeTagStudiosUrl = (tag: INamedObject) => {
@@ -475,11 +1014,27 @@ const NavUtils = {
   makePerformerGroupsUrl,
   makePerformerSceneMarkersUrl,
   makePerformersCountryUrl,
+  makePerformersEthnicityUrl,
+  makePerformersEthnicityRatingUrl,
   makeStudioScenesUrl,
+  makeStudioSexScenesUrl,
+  makeStudioOralScenesUrl,
+  makeStudioSoloScenesUrl,
+  makeStudioFacialScenesUrl,
+  makeStudioDetailSexScenesUrl,
+  makeStudioDetailOralScenesUrl,
+  makeStudioDetailSoloScenesUrl,
+  makeStudioDetailFacialScenesUrl,
+  makeGlobalSexScenesUrl,
+  makeGlobalOralScenesUrl,
+  makeGlobalSoloScenesUrl,
+  makeGlobalFacialScenesUrl,
   makeStudioImagesUrl,
   makeStudioGalleriesUrl,
   makeStudioGroupsUrl: makeStudioGroupsUrl,
   makeStudioPerformersUrl,
+  makeStudioUniquePerformersUrl,
+  makeStudioDetailUniquePerformersUrl,
   makeTagUrl,
   makeGroupUrl,
   makeParentTagsUrl,
@@ -487,6 +1042,7 @@ const NavUtils = {
   makeTagSceneMarkersUrl,
   makeTagScenesUrl,
   makeTagPerformersUrl,
+  makeTagPerformersBySceneTagsUrl,
   makeTagStudiosUrl,
   makeTagGalleriesUrl,
   makeTagImagesUrl,

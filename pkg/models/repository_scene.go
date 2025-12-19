@@ -147,3 +147,11 @@ type SceneReaderWriter interface {
 	SceneReader
 	SceneWriter
 }
+
+// ScenePerformerSceneTagsMerger allows repositories to implement migration of
+// performer_scene_tags rows when scenes are merged. Implementations should add
+// any (performer_id, tag_id) rows from the source scene IDs to the destination
+// scene ID, avoiding duplicates.
+type ScenePerformerSceneTagsMerger interface {
+	MergePerformerSceneTags(ctx context.Context, sourceIDs []int, destinationID int) error
+}

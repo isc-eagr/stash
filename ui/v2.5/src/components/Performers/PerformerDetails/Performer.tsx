@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Tabs, Tab, Col, Row } from "react-bootstrap";
+import { Tabs, Tab, Col, Row, Button } from "react-bootstrap";
 import { useIntl } from "react-intl";
 import { useHistory, Redirect, RouteComponentProps } from "react-router-dom";
 import { Helmet } from "react-helmet";
@@ -14,6 +14,7 @@ import {
 } from "src/core/StashService";
 import { DetailsEditNavbar } from "src/components/Shared/DetailsEditNavbar";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
+// Button imported above; removed unused ButtonGroup and duplicate import of react-bootstrap
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { useToast } from "src/hooks/Toast";
 import { useConfigurationContext } from "src/hooks/Config";
@@ -27,6 +28,7 @@ import { PerformerGalleriesPanel } from "./PerformerGalleriesPanel";
 import { PerformerGroupsPanel } from "./PerformerGroupsPanel";
 import { PerformerImagesPanel } from "./PerformerImagesPanel";
 import { PerformerAppearsWithPanel } from "./performerAppearsWithPanel";
+import { PerformerSceneTagsPanel } from "./performerSceneTagsPanel";
 import { PerformerEditPanel } from "./PerformerEditPanel";
 import { PerformerSubmitButton } from "./PerformerSubmitButton";
 import { useRatingKeybinds } from "src/hooks/keybinds";
@@ -66,6 +68,7 @@ const validTabs = [
   "galleries",
   "images",
   "groups",
+  "scenetags",
   "appearswith",
 ] as const;
 type TabKey = (typeof validTabs)[number];
@@ -79,6 +82,20 @@ const PerformerTabs: React.FC<{
   performer: GQL.PerformerDataFragment;
   abbreviateCounter: boolean;
 }> = ({ tabKey, performer, abbreviateCounter }) => {
+  // fetch count of scene tags for this performer for the tab medal
+  const { data: sceneTagsData } = GQL.useFindTagsQuery({
+    variables: {
+      tag_filter: {
+        performer_scene_tags: {
+          modifier: GQL.CriterionModifier.IncludesAll,
+          value: [performer.id],
+        },
+      },
+      // no need to fetch actual tags here; we only use the count
+      filter: { per_page: 1 },
+    },
+  });
+  const sceneTagsCount = sceneTagsData?.findTags.count ?? 0;
   const populatedDefaultTab = useMemo(() => {
     let ret: TabKey = "scenes";
     if (performer.scene_count == 0) {
@@ -197,6 +214,21 @@ const PerformerTabs: React.FC<{
       >
         <PerformerAppearsWithPanel
           active={tabKey === "appearswith"}
+          performer={performer}
+        />
+      </Tab>
+      <Tab
+        eventKey="scenetags"
+        title={
+          <TabTitleCounter
+            messageID="scene_tags"
+            count={sceneTagsCount}
+            abbreviateCounter={abbreviateCounter}
+          />
+        }
+      >
+        <PerformerSceneTagsPanel
+          active={tabKey === "scenetags"}
           performer={performer}
         />
       </Tab>

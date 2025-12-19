@@ -12,6 +12,7 @@ import { Icon } from "../Shared/Icon";
 import { faHeart } from "@fortawesome/free-solid-svg-icons";
 import cx from "classnames";
 import { useTagUpdate } from "src/core/StashService";
+import { gql, useQuery } from "@apollo/client";
 
 interface IProps {
   tag: GQL.TagDataFragment | GQL.TagListDataFragment;
@@ -20,11 +21,66 @@ interface IProps {
   selecting?: boolean;
   selected?: boolean;
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
+  // when true only render the scene-count popover/button
+  sceneCountOnly?: boolean;
+  // optional performer context - when provided scene links should filter by performer_scene_tags
+  performerId?: string;
+  performerName?: string;
 }
 
-const TagCardPopovers: React.FC<IProps> = PatchComponent(
+// Minimal query to get the number of performers that have this tag via performer_scene_tags
+const COUNT_PERFORMERS_BY_SCENE_TAG = gql`
+  query CountPerformersBySceneTag($performer_filter: PerformerFilterType) {
+    findPerformers(performer_filter: $performer_filter) {
+      count
+    }
+  }
+`;
+
+function usePerformerSceneTagPerformerCount(tagId?: string) {
+  const skip = !tagId;
+  const { data } = useQuery(COUNT_PERFORMERS_BY_SCENE_TAG, {
+    skip,
+    variables: {
+      performer_filter: {
+        performer_scene_tags: {
+          value: tagId ? [tagId] : [],
+          modifier: GQL.CriterionModifier.Includes,
+          // Only count performers that have this exact tag (no parent/child roll-up)
+          depth: 0,
+        },
+      },
+    },
+    fetchPolicy: "cache-first",
+  });
+
+  return data?.findPerformers?.count ?? 0;
+}
+
+  const TagCardPopovers: React.FC<IProps> = PatchComponent(
   "TagCard.Popovers",
-  ({ tag }) => {
+  ({ tag, sceneCountOnly, performerId, performerName }) => {
+    // derive performer count for performer_scene_tags (green button)
+    const performerSceneTagPerformerCount = usePerformerSceneTagPerformerCount(
+      tag.id
+    );
+    if (sceneCountOnly) {
+      return (
+        <>
+          <hr />
+          <ButtonGroup className="card-popovers">
+            <PopoverCountButton
+              className="scene-count"
+              type="scene"
+              count={tag.scene_count}
+              url={NavUtils.makeTagScenesUrl(tag, performerId ? { id: performerId, name: performerName } : undefined)}
+              showZero={false}
+            />
+          </ButtonGroup>
+        </>
+      );
+    }
+
     return (
       <>
         <hr />
@@ -33,7 +89,7 @@ const TagCardPopovers: React.FC<IProps> = PatchComponent(
             className="scene-count"
             type="scene"
             count={tag.scene_count}
-            url={NavUtils.makeTagScenesUrl(tag)}
+            url={NavUtils.makeTagScenesUrl(tag, performerId ? { id: performerId, name: performerName } : undefined)}
             showZero={false}
           />
           <PopoverCountButton
@@ -69,6 +125,14 @@ const TagCardPopovers: React.FC<IProps> = PatchComponent(
             type="performer"
             count={tag.performer_count}
             url={NavUtils.makeTagPerformersUrl(tag)}
+            showZero={false}
+          />
+          {/* New: Green variant of the Performers button */}
+          <PopoverCountButton
+            className="performer-count performer-green"
+            type="performer"
+            count={performerSceneTagPerformerCount}
+            url={NavUtils.makeTagPerformersBySceneTagsUrl(tag)}
             showZero={false}
           />
           <PopoverCountButton

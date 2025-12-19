@@ -37,16 +37,19 @@ export const RatingCriterionOption = new ModifierCriterionOption({
   modifierOptions,
   defaultModifier: CriterionModifier.Equals,
   makeCriterion: (o, config) =>
-    new RatingCriterion(getRatingSystemOptions(config)),
+    new RatingCriterion(getRatingSystemOptions(config), o as unknown as ModifierCriterionOption),
   inputType: "number",
 });
 
 export class RatingCriterion extends ModifierCriterion<INumberValue> {
   ratingSystem: RatingSystemOptions;
+  option: ModifierCriterionOption;
 
-  constructor(ratingSystem: RatingSystemOptions) {
-    super(RatingCriterionOption, { value: 0, value2: undefined });
+  constructor(ratingSystem: RatingSystemOptions, optionOverride?: ModifierCriterionOption) {
+    const opt = optionOverride ?? RatingCriterionOption;
+    super(opt, { value: 0, value2: undefined });
     this.ratingSystem = ratingSystem;
+    this.option = opt;
   }
 
   public cloneValues() {
@@ -75,7 +78,6 @@ export class RatingCriterion extends ModifierCriterion<INumberValue> {
       value2: this.value.value2,
     };
   }
-
   public setFromSavedCriterion(c: {
     modifier: CriterionModifier;
     value: number | INumberValue;
@@ -103,3 +105,65 @@ export class RatingCriterion extends ModifierCriterion<INumberValue> {
     }
   }
 }
+
+// Specialized criterion for performer rating with an extra 'all/any' toggle
+export class PerformerRatingCriterion extends RatingCriterion {
+  public matchAll = true;
+
+  constructor(ratingSystem: RatingSystemOptions, optionOverride?: ModifierCriterionOption) {
+    super(ratingSystem, optionOverride);
+    this.matchAll = true; // default: all performers must match
+  }
+
+  public applyToCriterionInput(input: Record<string, unknown>): void {
+    // base implementation writes input["performer_rating"]
+    input[this.criterionOption.type] = this.toCriterionInput();
+    // extra scalar that the backend understands
+  input.performer_rating_all = this.matchAll;
+  }
+
+  public applyToSavedCriterion(input: Record<string, unknown>): void {
+    // store inline with the saved value
+    input[this.criterionOption.type] = {
+      ...this.toCriterionInput(),
+      all: this.matchAll,
+    };
+  }
+
+  public toQueryParams(): Record<string, unknown> {
+  const base = super.toQueryParams() as Record<string, unknown>;
+  return { ...base, all: this.matchAll };
+  }
+
+  public fromDecodedParams(i: Record<string, unknown>): void {
+    super.fromDecodedParams(i);
+  const { all } = i as { all?: unknown };
+  if (typeof all === "boolean") this.matchAll = all;
+  }
+
+  public setFromSavedCriterion(c: {
+    modifier: CriterionModifier;
+    value: number | INumberValue;
+    value2?: number;
+    all?: boolean;
+  }) {
+    super.setFromSavedCriterion(c);
+    if (typeof c.all === "boolean") {
+      this.matchAll = c.all;
+    }
+  }
+}
+
+// A rating-style criterion option builder for performer_rating field
+export const PerformerRatingCriterionOption = new ModifierCriterionOption({
+  messageID: "performer_rating",
+  type: "performer_rating",
+  modifierOptions,
+  defaultModifier: CriterionModifier.Equals,
+  makeCriterion: (o, config) =>
+    new PerformerRatingCriterion(
+      getRatingSystemOptions(config),
+      o as unknown as ModifierCriterionOption
+    ),
+  inputType: "number",
+});
