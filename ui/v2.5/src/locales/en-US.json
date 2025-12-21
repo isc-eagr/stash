@@ -37,6 +37,7 @@
     "eye_color": "Eye Color",
     "favourite": "Favorite",
     "hair_color": "Hair Color",
+    "has_end_time": "Has End Time",
     "organized": "Organized",
     "performer_favorite": "Performer Favorited",
     "component_tagger": {
@@ -49,6 +50,12 @@
     "performer_country": "Performer Country",
     "performer_ethnicity": "Performer Ethnicity",
     "performer_rating": "Performer Rating",
+    "scene_director": "Scene Director",
+    "marker_performers": "Marker Performers",
+    "marker_performer_ethnicity": "Marker Performer Ethnicity",
+    "marker_performer_country": "Marker Performer Country",
+    "marker_performer_rating": "Marker Performer Rating",
+    "has_marker_performers": "Has Marker Performers",
     "has_performer_scene_tags": "Has Performer Scene Tags",
     "filters": {
         "group": "Group"

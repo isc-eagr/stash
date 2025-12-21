@@ -16,6 +16,9 @@ import {
   createNullDurationCriterionOption,
   StringBooleanCriterionOption,
   StringBooleanCriterion,
+  StringCriterion,
+  BooleanCriterionOption,
+  BooleanCriterion,
 } from "./criteria/criterion";
 import { PerformersCriterion } from "./criteria/performers";
 import { defaultRatingSystemOptions } from "src/utils/rating";
@@ -96,11 +99,35 @@ const MarkerPerformerRatingCriterionOption = new ModifierCriterionOption({
   makeCriterion: (o) => new RatingCriterion(defaultRatingSystemOptions, o as unknown as ModifierCriterionOption),
 });
 
+// Scene Director criterion option
+const SceneDirectorCriterionOption = new ModifierCriterionOption({
+  messageID: "scene_director",
+  type: "scene_director",
+  modifierOptions: [
+    CriterionModifier.Equals,
+    CriterionModifier.NotEquals,
+    CriterionModifier.Includes,
+    CriterionModifier.Excludes,
+    CriterionModifier.IsNull,
+    CriterionModifier.NotNull,
+  ],
+  defaultModifier: CriterionModifier.Equals,
+  inputType: "text",
+  makeCriterion: (o) => new StringCriterion(o),
+});
+
 // Has Marker Performers criterion option
 const HasMarkerPerformersCriterionOption = new StringBooleanCriterionOption(
   "has_marker_performers",
   "has_marker_performers",
   () => new StringBooleanCriterion(HasMarkerPerformersCriterionOption)
+);
+
+// Has End Time criterion option
+const HasEndTimeCriterionOption = new BooleanCriterionOption(
+  "has_end_time",
+  "has_end_time",
+  () => new BooleanCriterion(HasEndTimeCriterionOption)
 );
 
 const criterionOptions = [
@@ -131,6 +158,8 @@ const criterionOptions = [
   MarkerPerformerCountryCriterionOption,
   MarkerPerformerRatingCriterionOption,
   HasMarkerPerformersCriterionOption,
+  HasEndTimeCriterionOption,
+  SceneDirectorCriterionOption,
   createNullDurationCriterionOption("duration"),
   createMandatoryTimestampCriterionOption("created_at"),
   createMandatoryTimestampCriterionOption("updated_at"),

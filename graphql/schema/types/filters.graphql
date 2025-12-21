@@ -216,6 +216,12 @@ input SceneMarkerFilterType {
   "When true, all linked performers must satisfy the performer_rating condition; when false, at least one performer must satisfy it (default: true)."
   performer_rating_all: Boolean
 
+  "Filter by scene director"
+  scene_director: StringCriterionInput
+
+  "Filter by whether the marker has an end time"
+  has_end_time: Boolean
+
   "Filter by performers assigned directly to the marker (via scene_marker_performers table)"
   marker_performers: MultiCriterionInput
   "Filter by ethnicity of performers assigned directly to the marker"

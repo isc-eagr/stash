@@ -35,6 +35,15 @@ func (qb *sceneMarkerFilterHandler) joinScenes(f *filterBuilder) {
 	sceneMarkerRepository.scenes.innerJoin(f, "", "scene_markers.scene_id")
 }
 
+func (qb *sceneMarkerFilterHandler) sceneDirectorCriterionHandler(criterion *models.StringCriterionInput) criterionHandler {
+	return criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
+		if criterion != nil {
+			qb.joinScenes(f)
+			stringCriterionHandler(criterion, "scenes.director")(ctx, f)
+		}
+	})
+}
+
 func (qb *sceneMarkerFilterHandler) criterionHandler() criterionHandler {
 	sceneMarkerFilter := qb.sceneMarkerFilter
 	return compoundHandler{
@@ -44,6 +53,16 @@ func (qb *sceneMarkerFilterHandler) criterionHandler() criterionHandler {
 		qb.performerSceneTagsWithAttrsCriterionHandler(sceneMarkerFilter.PerformerSceneTagsWithAttrs),
 		qb.performersCriterionHandler(sceneMarkerFilter.Performers),
 		qb.studiosCriterionHandler(sceneMarkerFilter.Studios),
+		qb.sceneDirectorCriterionHandler(sceneMarkerFilter.SceneDirector),
+		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
+			if sceneMarkerFilter.HasEndTime != nil {
+				if *sceneMarkerFilter.HasEndTime {
+					f.addWhere("scene_markers.end_seconds IS NOT NULL")
+				} else {
+					f.addWhere("scene_markers.end_seconds IS NULL")
+				}
+			}
+		}),
 		// Performer ethnicity filter mirrors scenes semantics on the marker's scene
 		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
 			if sceneMarkerFilter.PerformerEthnicity != nil {

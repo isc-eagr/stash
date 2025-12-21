@@ -222,4 +222,11 @@ export type CriterionType =
   | "disambiguation"
   | "has_chapters"
   | "sort_name"
-  | "custom_fields";
+  | "custom_fields"
+  | "marker_performers"
+  | "marker_performer_ethnicity"
+  | "marker_performer_country"
+  | "marker_performer_rating"
+  | "has_marker_performers"
+  | "scene_director"
+  | "has_end_time";

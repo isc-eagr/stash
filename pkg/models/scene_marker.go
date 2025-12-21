@@ -20,7 +20,13 @@ type SceneMarkerFilterType struct {
 	// When true, all linked performers must satisfy the performer_rating condition; when false, at least one performer must satisfy it (default: true)
 	PerformerRatingAll *bool `json:"performer_rating_all"`
 
-	// Filter by performers assigned directly to the marker (via scene_marker_performers table)
+	// Filter by scene director
+	SceneDirector *StringCriterionInput `json:"scene_director"`
+
+	// Filter by whether the marker has an end time
+	HasEndTime *bool `json:"has_end_time"`
+
+	// Filter by performers assigned directly to the marker (via scene_marker_performers table)"
 	MarkerPerformers *MultiCriterionInput `json:"marker_performers"`
 	// Filter by ethnicity of performers assigned directly to the marker
 	MarkerPerformerEthnicity *StringCriterionInput `json:"marker_performer_ethnicity"`
