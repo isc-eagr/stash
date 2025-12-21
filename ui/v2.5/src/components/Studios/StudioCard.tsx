@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { useContext, useMemo } from "react";
 import { Link } from "react-router-dom";
 import * as GQL from "src/core/generated-graphql";
 import NavUtils from "src/utils/navigation";
@@ -19,6 +19,16 @@ import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import goateeSvg from "src/assets/goatee.svg";
 
+interface PerformerStudioStats {
+  scene_count: number;
+  sex_scene_count: number;
+  oral_scene_count: number;
+  solo_scene_count: number;
+  facial_scene_count: number;
+  group_count: number;
+  o_counter: number | null | undefined;
+}
+
 interface IProps {
   studio: GQL.StudioDataFragment;
   cardWidth?: number;
@@ -27,6 +37,7 @@ interface IProps {
   selected?: boolean;
   zoomIndex?: number;
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
+  performerId?: string;
 }
 
 function maybeRenderParent(
@@ -82,6 +93,7 @@ export const StudioCard: React.FC<IProps> = ({
   selected,
   zoomIndex,
   onSelectedChanged,
+  performerId,
 }) => {
   const [updateStudio] = useStudioUpdate();
   const { configuration } = useContext(ConfigurationContext);
@@ -106,6 +118,30 @@ export const StudioCard: React.FC<IProps> = ({
       },
     },
   });
+  
+  // When viewing from a performer's studios, fetch performer-filtered stats
+  const { data: performerStatsData } = GQL.useFindStudioPerformerStatsQuery({
+    variables: {
+      id: studio.id,
+      performerId: performerId ?? "",
+    },
+    skip: !performerId, // Only run this query when performerId is provided
+  });
+  
+  // Memoize the performer stats to avoid recalculating on every render
+  const performerStats: PerformerStudioStats | null = useMemo(() => {
+    if (!performerId || !performerStatsData?.findStudio) return null;
+    const s = performerStatsData.findStudio;
+    return {
+      scene_count: s.scene_count,
+      sex_scene_count: s.sex_scene_count,
+      oral_scene_count: s.oral_scene_count,
+      solo_scene_count: s.solo_scene_count,
+      facial_scene_count: s.facial_scene_count,
+      group_count: s.group_count,
+      o_counter: s.o_counter,
+    };
+  }, [performerId, performerStatsData]);
   
   // Map tag names to IDs
   const allTags = tagsData?.findTags?.tags ?? [];
@@ -132,14 +168,20 @@ export const StudioCard: React.FC<IProps> = ({
   }
 
   function maybeRenderScenesPopoverButton() {
-    if (!studio.scene_count) return;
+    // Use performer-filtered scene count when available
+    const count = performerStats?.scene_count ?? studio.scene_count;
+    if (!count) return;
+
+    const url = performerId
+      ? NavUtils.makePerformerStudioScenesUrl(performerId, studio)
+      : NavUtils.makeStudioScenesUrl(studio);
 
     return (
       <PopoverCountButton
         className="scene-count"
         type="scene"
-        count={studio.scene_count}
-        url={NavUtils.makeStudioScenesUrl(studio)}
+        count={count}
+        url={url}
       />
     );
   }
@@ -148,14 +190,24 @@ export const StudioCard: React.FC<IProps> = ({
   function maybeRenderSexScenesButton() {
     if (!topTag || !bottomTag) return null;
     
-    const count = studio.sex_scene_count ?? 0;
-    const url = NavUtils.makeStudioSexScenesUrl(
-      studio,
-      topTag.id,
-      topTag.name,
-      bottomTag.id,
-      bottomTag.name
-    );
+    // Use performer-filtered stats when available, otherwise use studio stats
+    const count = performerStats?.sex_scene_count ?? studio.sex_scene_count ?? 0;
+    const url = performerId
+      ? NavUtils.makePerformerStudioSexScenesUrl(
+          performerId,
+          studio,
+          topTag.id,
+          topTag.name,
+          bottomTag.id,
+          bottomTag.name
+        )
+      : NavUtils.makeStudioSexScenesUrl(
+          studio,
+          topTag.id,
+          topTag.name,
+          bottomTag.id,
+          bottomTag.name
+        );
 
     return (
       <Button 
@@ -174,18 +226,32 @@ export const StudioCard: React.FC<IProps> = ({
   function maybeRenderOralScenesButton() {
     if (!oralTopTag || !oralBottomTag || !topTag || !bottomTag) return null;
     
-    const count = studio.oral_scene_count ?? 0;
-    const url = NavUtils.makeStudioOralScenesUrl(
-      studio,
-      oralTopTag.id,
-      oralTopTag.name,
-      oralBottomTag.id,
-      oralBottomTag.name,
-      topTag.id,
-      topTag.name,
-      bottomTag.id,
-      bottomTag.name
-    );
+    // Use performer-filtered stats when available, otherwise use studio stats
+    const count = performerStats?.oral_scene_count ?? studio.oral_scene_count ?? 0;
+    const url = performerId
+      ? NavUtils.makePerformerStudioOralScenesUrl(
+          performerId,
+          studio,
+          oralTopTag.id,
+          oralTopTag.name,
+          oralBottomTag.id,
+          oralBottomTag.name,
+          topTag.id,
+          topTag.name,
+          bottomTag.id,
+          bottomTag.name
+        )
+      : NavUtils.makeStudioOralScenesUrl(
+          studio,
+          oralTopTag.id,
+          oralTopTag.name,
+          oralBottomTag.id,
+          oralBottomTag.name,
+          topTag.id,
+          topTag.name,
+          bottomTag.id,
+          bottomTag.name
+        );
 
     return (
       <Button 
@@ -204,20 +270,36 @@ export const StudioCard: React.FC<IProps> = ({
   function maybeRenderSoloScenesButton() {
     if (!soloTag || !topTag || !bottomTag || !oralTopTag || !oralBottomTag) return null;
     
-    const count = studio.solo_scene_count ?? 0;
-    const url = NavUtils.makeStudioSoloScenesUrl(
-      studio,
-      soloTag.id,
-      soloTag.name,
-      topTag.id,
-      topTag.name,
-      bottomTag.id,
-      bottomTag.name,
-      oralTopTag.id,
-      oralTopTag.name,
-      oralBottomTag.id,
-      oralBottomTag.name
-    );
+    // Use performer-filtered stats when available, otherwise use studio stats
+    const count = performerStats?.solo_scene_count ?? studio.solo_scene_count ?? 0;
+    const url = performerId
+      ? NavUtils.makePerformerStudioSoloScenesUrl(
+          performerId,
+          studio,
+          soloTag.id,
+          soloTag.name,
+          topTag.id,
+          topTag.name,
+          bottomTag.id,
+          bottomTag.name,
+          oralTopTag.id,
+          oralTopTag.name,
+          oralBottomTag.id,
+          oralBottomTag.name
+        )
+      : NavUtils.makeStudioSoloScenesUrl(
+          studio,
+          soloTag.id,
+          soloTag.name,
+          topTag.id,
+          topTag.name,
+          bottomTag.id,
+          bottomTag.name,
+          oralTopTag.id,
+          oralTopTag.name,
+          oralBottomTag.id,
+          oralBottomTag.name
+        );
 
     return (
       <Button 
@@ -237,19 +319,32 @@ export const StudioCard: React.FC<IProps> = ({
     // At least one facial tag must be configured/found
     if (!facialGivenTag && !facialReceivedTag && !selfFacialTag) return null;
 
+    // Use performer-filtered stats when available, otherwise use studio stats
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const count = (studio as any).facial_scene_count ?? (studio as any).facialSceneCount ?? 0;
+    const studioCount = (studio as any).facial_scene_count ?? (studio as any).facialSceneCount ?? 0;
+    const count = performerStats?.facial_scene_count ?? studioCount;
     const primary1 = (facialGivenTag ?? selfFacialTag)!;
     const primary2 = (facialReceivedTag ?? selfFacialTag)!;
-    const url = NavUtils.makeStudioFacialScenesUrl(
-      studio,
-      primary1.id,
-      primary1.name,
-      primary2.id,
-      primary2.name,
-      selfFacialTag?.id,
-      selfFacialTag?.name
-    );
+    const url = performerId
+      ? NavUtils.makePerformerStudioFacialScenesUrl(
+          performerId,
+          studio,
+          primary1.id,
+          primary1.name,
+          primary2.id,
+          primary2.name,
+          selfFacialTag?.id,
+          selfFacialTag?.name
+        )
+      : NavUtils.makeStudioFacialScenesUrl(
+          studio,
+          primary1.id,
+          primary1.name,
+          primary2.id,
+          primary2.name,
+          selfFacialTag?.id,
+          selfFacialTag?.name
+        );
 
     return (
       <Button
@@ -266,6 +361,9 @@ export const StudioCard: React.FC<IProps> = ({
 
   // Unique performers (performers with only 1 scene in database, for this studio)
   function maybeRenderUniquePerformersButton() {
+    // Hide this button when viewing from a performer's studios tab
+    if (performerId) return null;
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const count = (studio as any).unique_performer_count ?? 0;
     if (count === 0) return null;
@@ -312,19 +410,27 @@ export const StudioCard: React.FC<IProps> = ({
   }
 
   function maybeRenderGroupsPopoverButton() {
-    if (!studio.group_count) return;
+    // Use performer-filtered group count when available
+    const count = performerStats?.group_count ?? studio.group_count;
+    if (!count) return;
+
+    const url = performerId
+      ? NavUtils.makePerformerStudioGroupsUrl(performerId, studio)
+      : NavUtils.makeStudioGroupsUrl(studio);
 
     return (
       <PopoverCountButton
         className="group-count"
         type="group"
-        count={studio.group_count}
-        url={NavUtils.makeStudioGroupsUrl(studio)}
+        count={count}
+        url={url}
       />
     );
   }
 
   function maybeRenderPerformersPopoverButton() {
+    // Hide performers button when viewing from performer's studios tab
+    if (performerId) return null;
     if (!studio.performer_count) return;
 
     return (
@@ -355,9 +461,11 @@ export const StudioCard: React.FC<IProps> = ({
   }
 
   function maybeRenderOCounter() {
-    if (!studio.o_counter) return;
+    // Use performer-filtered o_counter when available
+    const count = performerStats?.o_counter ?? studio.o_counter;
+    if (!count) return;
 
-    return <OCounterButton value={studio.o_counter} />;
+    return <OCounterButton value={count} />;
   }
 
   function maybeRenderPopoverButtonGroup() {

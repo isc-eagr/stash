@@ -119,6 +119,7 @@
     "select_entity": "Select {entityType}",
     "select_folders": "Select folders",
     "select_none": "Select None",
+    "select_performers": "Select Performers",
     "selective_auto_tag": "Selective Auto Tag",
     "selective_clean": "Selective Clean",
     "selective_scan": "Selective Scan",
@@ -1303,6 +1304,11 @@
   "performer_rating": "Performer Rating",
   "performer_favorite": "Performer Favourited",
   "performer_image": "Performer Image",
+  "marker_performers": "Marker Performers",
+  "marker_performer_country": "Marker Performer Country",
+  "marker_performer_ethnicity": "Marker Performer Ethnicity",
+  "marker_performer_rating": "Marker Performer Rating",
+  "has_marker_performers": "Has Marker Performers",
   "performer_tagger": {
     "add_new_performers": "Add New Performers",
     "any_names_entered_will_be_queried": "Any names entered will be queried from the remote Stash-Box instance and added if found. Only exact matches will be considered a match.",
@@ -1368,6 +1374,7 @@
   "scene_marker_tags": "Scene Marker Tags",
   "scene_tags": "Scene Tags",
   "scene_updated_at": "Scene Updated At",
+  "marker_tags": "Marker Tags",
   "scenes": "Scenes",
   "scenes_updated_at": "Scene Updated At",
   "search_filter": {
@@ -1629,6 +1636,8 @@
     "remove_segment": "Remove this segment",
     "move_up": "Move up",
     "move_down": "Move down",
+    "click_to_set_start": "Click to set start to current time",
+    "click_to_set_end": "Click to set end to current time",
     "no_segments": "No segments defined. Click 'Add Segment' to mark a start point.",
     "summary": "{count} segments, total duration: {duration}"
   },

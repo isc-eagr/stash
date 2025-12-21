@@ -155,6 +155,8 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 
 		qb.performerSceneTagsCriterionHandler(filter.PerformerSceneTags),
 
+		qb.markerTagsCriterionHandler(filter.MarkerTags),
+
 		qb.studiosCriterionHandler(filter.Studios),
 
 		qb.groupsCriterionHandler(filter.Groups),
@@ -234,6 +236,122 @@ func (qb *performerFilterHandler) performerSceneTagsCriterionHandler(tags *model
 	}
 
 	return h.handler(tags)
+}
+
+// Filters performers by scene marker tags.
+// This matches performers that have at least one scene marker with all the selected tags.
+func (qb *performerFilterHandler) markerTagsCriterionHandler(tags *models.HierarchicalMultiCriterionInput) criterionHandlerFunc {
+	return func(ctx context.Context, f *filterBuilder) {
+		if tags == nil {
+			return
+		}
+
+		criterion := *tags
+
+		// Handle null/not-null modifiers
+		if criterion.Modifier == models.CriterionModifierIsNull || criterion.Modifier == models.CriterionModifierNotNull {
+			var notClause string
+			if criterion.Modifier == models.CriterionModifierNotNull {
+				notClause = "NOT"
+			}
+			// Check if performer has any scene markers with tags
+			f.addWhere(fmt.Sprintf(`%s EXISTS (
+				SELECT 1 FROM performers_scenes ps
+				JOIN scenes s ON s.id = ps.scene_id
+				JOIN scene_markers sm ON sm.scene_id = s.id
+				JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+				WHERE ps.performer_id = performers.id
+			)`, notClause))
+			return
+		}
+
+		// Combine excludes if excludes modifier is selected
+		if criterion.Modifier == models.CriterionModifierExcludes {
+			criterion.Modifier = models.CriterionModifierIncludesAll
+			criterion.Excludes = append(criterion.Excludes, criterion.Value...)
+			criterion.Value = nil
+		}
+
+		if len(criterion.Value) == 0 && len(criterion.Excludes) == 0 {
+			return
+		}
+
+		// Get hierarchical tag values
+		if len(criterion.Value) > 0 {
+			valuesClause, err := getHierarchicalValues(ctx, criterion.Value, tagTable, "tags_relations", "parent_id", "child_id", criterion.Depth)
+			if err != nil {
+				f.setError(err)
+				return
+			}
+
+			switch criterion.Modifier {
+			case models.CriterionModifierIncludes:
+				// At least one marker with any of the tags
+				f.addWhere(fmt.Sprintf(`EXISTS (
+					SELECT 1 FROM performers_scenes ps
+					JOIN scenes s ON s.id = ps.scene_id
+					JOIN scene_markers sm ON sm.scene_id = s.id
+					JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+					WHERE ps.performer_id = performers.id
+					AND smt.tag_id IN (SELECT column2 FROM (%s))
+				)`, valuesClause))
+
+			case models.CriterionModifierIncludesAll:
+				// At least one marker with all the tags
+				f.addWhere(fmt.Sprintf(`EXISTS (
+					SELECT 1 FROM performers_scenes ps
+					JOIN scenes s ON s.id = ps.scene_id
+					JOIN scene_markers sm ON sm.scene_id = s.id
+					WHERE ps.performer_id = performers.id
+					AND (
+						SELECT COUNT(DISTINCT smt.tag_id)
+						FROM scene_markers_tags smt
+						WHERE smt.scene_marker_id = sm.id
+						AND smt.tag_id IN (SELECT column2 FROM (%s))
+					) = %d
+				)`, valuesClause, len(criterion.Value)))
+
+			case models.CriterionModifierEquals:
+				// At least one marker with exactly the specified tags
+				f.addWhere(fmt.Sprintf(`EXISTS (
+					SELECT 1 FROM performers_scenes ps
+					JOIN scenes s ON s.id = ps.scene_id
+					JOIN scene_markers sm ON sm.scene_id = s.id
+					WHERE ps.performer_id = performers.id
+					AND (
+						SELECT COUNT(DISTINCT smt.tag_id)
+						FROM scene_markers_tags smt
+						WHERE smt.scene_marker_id = sm.id
+						AND smt.tag_id IN (SELECT column2 FROM (%s))
+					) = %d
+					AND (
+						SELECT COUNT(*)
+						FROM scene_markers_tags smt2
+						WHERE smt2.scene_marker_id = sm.id
+					) = %d
+				)`, valuesClause, len(criterion.Value), len(criterion.Value)))
+			}
+		}
+
+		// Handle excludes
+		if len(criterion.Excludes) > 0 {
+			valuesClause, err := getHierarchicalValues(ctx, criterion.Excludes, tagTable, "tags_relations", "parent_id", "child_id", criterion.Depth)
+			if err != nil {
+				f.setError(err)
+				return
+			}
+
+			// Exclude performers that have any marker with any of the excluded tags
+			f.addWhere(fmt.Sprintf(`NOT EXISTS (
+				SELECT 1 FROM performers_scenes ps
+				JOIN scenes s ON s.id = ps.scene_id
+				JOIN scene_markers sm ON sm.scene_id = s.id
+				JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+				WHERE ps.performer_id = performers.id
+				AND smt.tag_id IN (SELECT column2 FROM (%s))
+			)`, valuesClause))
+		}
+	}
 }
 
 // TODO - we need to provide a whitelist of possible values

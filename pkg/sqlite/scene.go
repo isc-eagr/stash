@@ -866,7 +866,7 @@ func (qb *SceneStore) OCountByGroupID(ctx context.Context, groupID int) (int, er
 	return ret, nil
 }
 
-func (qb *SceneStore) OCountByStudioID(ctx context.Context, studioID int) (int, error) {
+func (qb *SceneStore) OCountByStudioID(ctx context.Context, studioID int, performerID *string) (int, error) {
 	table := qb.table()
 	oHistoryTable := goqu.T(scenesODatesTable)
 
@@ -874,6 +874,15 @@ func (qb *SceneStore) OCountByStudioID(ctx context.Context, studioID int) (int, 
 		oHistoryTable,
 		goqu.On(table.Col(idColumn).Eq(oHistoryTable.Col(sceneIDColumn))),
 	).Where(table.Col(studioIDColumn).Eq(studioID))
+
+	// If performerID is provided, filter by scenes that have this performer
+	if performerID != nil && *performerID != "" {
+		performersTable := goqu.T(performersScenesTable)
+		q = q.InnerJoin(
+			performersTable,
+			goqu.On(table.Col(idColumn).Eq(performersTable.Col(sceneIDColumn))),
+		).Where(performersTable.Col(performerIDColumn).Eq(*performerID))
+	}
 
 	var ret int
 	if err := querySimple(ctx, q, &ret); err != nil {

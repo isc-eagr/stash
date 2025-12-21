@@ -89,8 +89,9 @@ func (r *sceneMarkerRowRecord) fromPartial(o models.SceneMarkerPartial) {
 type sceneMarkerRepositoryType struct {
 	repository
 
-	scenes repository
-	tags   joinRepository
+	scenes     repository
+	tags       joinRepository
+	performers joinRepository
 }
 
 var (
@@ -109,6 +110,13 @@ var (
 				idColumn:  sceneMarkerIDColumn,
 			},
 			fkColumn: tagIDColumn,
+		},
+		performers: joinRepository{
+			repository: repository{
+				tableName: "scene_marker_performers",
+				idColumn:  "scene_marker_id",
+			},
+			fkColumn: performerIDColumn,
 		},
 	}
 )
@@ -458,6 +466,11 @@ func (qb *SceneMarkerStore) GetTagIDs(ctx context.Context, id int) ([]int, error
 func (qb *SceneMarkerStore) UpdateTags(ctx context.Context, id int, tagIDs []int) error {
 	// Delete the existing joins and then create new ones
 	return sceneMarkerRepository.tags.replace(ctx, id, tagIDs)
+}
+
+func (qb *SceneMarkerStore) UpdatePerformers(ctx context.Context, id int, performerIDs []int) error {
+	// Delete the existing joins and then create new ones
+	return sceneMarkerRepository.performers.replace(ctx, id, performerIDs)
 }
 
 func (qb *SceneMarkerStore) Count(ctx context.Context) (int, error) {

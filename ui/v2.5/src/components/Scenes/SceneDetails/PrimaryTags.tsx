@@ -37,6 +37,12 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
         </Badge>
       ));
 
+      const performers = marker.performers?.map((performer) => (
+        <Badge key={performer.id} variant="primary" className="performer-item mr-1">
+          {performer.name}
+        </Badge>
+      ));
+
       return (
         <div key={marker.id}>
           <hr />
@@ -58,6 +64,9 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
               marker.end_seconds ?? undefined
             )}
           </div>
+          {performers && performers.length > 0 && (
+            <div className="card-section centered">{performers}</div>
+          )}
           <div className="card-section centered">{tags}</div>
         </div>
       );

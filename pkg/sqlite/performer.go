@@ -579,6 +579,19 @@ func (qb *PerformerStore) FindByGalleryID(ctx context.Context, galleryID int) ([
 	return ret, nil
 }
 
+func (qb *PerformerStore) FindBySceneMarkerID(ctx context.Context, sceneMarkerID int) ([]*models.Performer, error) {
+	sq := dialect.From(goqu.T("scene_marker_performers")).Select(goqu.C("performer_id")).Where(
+		goqu.C("scene_marker_id").Eq(sceneMarkerID),
+	)
+	ret, err := qb.findBySubquery(ctx, sq)
+
+	if err != nil {
+		return nil, fmt.Errorf("getting performers for scene marker %d: %w", sceneMarkerID, err)
+	}
+
+	return ret, nil
+}
+
 func (qb *PerformerStore) FindByNames(ctx context.Context, names []string, nocase bool) ([]*models.Performer, error) {
 	clause := "name "
 	if nocase {

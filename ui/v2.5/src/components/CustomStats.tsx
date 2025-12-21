@@ -102,6 +102,20 @@ const PERFORMERS_ONE_SCENE_COUNT = gql`
   }
 `;
 
+// Estimated liters from orgasms (orgasm count × 3ml)
+const ESTIMATED_LITERS = gql`
+  query EstimatedLiters {
+    estimatedLiters
+  }
+`;
+
+// Total penis meters (sum of penis lengths, default 17cm if missing, converted to meters)
+const TOTAL_PENIS_METERS = gql`
+  query TotalPenisMeters {
+    totalPenisMeters
+  }
+`;
+
 export const CustomStats: React.FC = () => {
   const { data: statsData, error, loading } = useStats();
   const { data: ethData } = usePerformerEthnicityCountsQuery();
@@ -119,6 +133,8 @@ export const CustomStats: React.FC = () => {
   const { data: lenientBottomData } = useQuery(PERFORMERS_LENIENT_BOTTOM_COUNT);
   const { data: soloOnlyData } = useQuery(PERFORMERS_SOLO_ONLY_COUNT);
   const { data: oneSceneData } = useQuery(PERFORMERS_ONE_SCENE_COUNT);
+  const { data: litersData } = useQuery(ESTIMATED_LITERS);
+  const { data: metersData } = useQuery(TOTAL_PENIS_METERS);
   
   const { configuration } = React.useContext(ConfigurationContext);
   const cfg = (configuration?.ui as any)?.sceneTagAliases ?? {};
@@ -289,7 +305,9 @@ export const CustomStats: React.FC = () => {
         typeof lenientTopData?.performersLenientTopCount === "number" ||
         typeof lenientBottomData?.performersLenientBottomCount === "number" ||
         typeof soloOnlyData?.performersSoloOnlyCount === "number" ||
-        typeof oneSceneData?.performersOneSceneCount === "number"
+        typeof oneSceneData?.performersOneSceneCount === "number" ||
+        typeof litersData?.estimatedLiters === "number" ||
+        typeof metersData?.totalPenisMeters === "number"
       ) && (
         <div className="col col-sm-8 m-sm-auto row stats">
           {typeof orgasmCountData?.sceneOrgasmCount === "number" && (
@@ -298,6 +316,22 @@ export const CustomStats: React.FC = () => {
                 <FormattedNumber value={orgasmCountData.sceneOrgasmCount} />
               </p>
               <p className="heading">Total orgasms</p>
+            </div>
+          )}
+          {typeof litersData?.estimatedLiters === "number" && (
+            <div className="stats-element">
+              <p className="title">
+                <FormattedNumber value={litersData.estimatedLiters} maximumFractionDigits={2} /> L
+              </p>
+              <p className="heading">Estimated liters</p>
+            </div>
+          )}
+          {typeof metersData?.totalPenisMeters === "number" && (
+            <div className="stats-element">
+              <p className="title">
+                <FormattedNumber value={metersData.totalPenisMeters} maximumFractionDigits={2} /> m
+              </p>
+              <p className="heading">Total penis meters</p>
             </div>
           )}
           {typeof facialCountData?.sceneFacialCount === "number" && (

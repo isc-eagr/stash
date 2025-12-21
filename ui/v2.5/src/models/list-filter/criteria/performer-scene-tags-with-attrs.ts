@@ -8,6 +8,8 @@ export type PerformerSceneTagGroupUI = {
   tags?: ILabeledId[];
   performer_country?: string;
   performer_ethnicity?: string;
+  performer_countries?: string[];
+  performer_ethnicities?: string[];
   performer_rating?: {
     modifier: CriterionModifier;
     value: number;
@@ -28,6 +30,8 @@ export class PerformerSceneTagsWithAttrsCriterion extends Criterion {
       tags: g.tags ? g.tags.map((t) => ({ ...t })) : undefined,
       performer_country: g.performer_country,
       performer_ethnicity: g.performer_ethnicity,
+      performer_countries: g.performer_countries ? [...g.performer_countries] : undefined,
+      performer_ethnicities: g.performer_ethnicities ? [...g.performer_ethnicities] : undefined,
       performer_rating: g.performer_rating
         ? {
             modifier: g.performer_rating.modifier,
@@ -47,11 +51,17 @@ export class PerformerSceneTagsWithAttrsCriterion extends Criterion {
       .map((g) => {
         const parts: string[] = [];
         if (g.tags?.length) parts.push(g.tags.map((t) => t.label).join(", "));
-        if (g.performer_country) {
-          const countryName = getCountryByISO(g.performer_country, intl.locale) ?? g.performer_country;
-          parts.push(`country=${countryName}`);
+        // Handle multi-select countries
+        const countries = g.performer_countries?.length ? g.performer_countries : (g.performer_country ? [g.performer_country] : []);
+        if (countries.length) {
+          const countryNames = countries.map(c => getCountryByISO(c, intl.locale) ?? c);
+          parts.push(`country=${countryNames.join(",")}`);
         }
-        if (g.performer_ethnicity) parts.push(`ethnicity=${g.performer_ethnicity}`);
+        // Handle multi-select ethnicities
+        const ethnicities = g.performer_ethnicities?.length ? g.performer_ethnicities : (g.performer_ethnicity ? [g.performer_ethnicity] : []);
+        if (ethnicities.length) {
+          parts.push(`ethnicity=${ethnicities.join(",")}`);
+        }
         if (g.performer_rating) {
           const mod = ModifierCriterion.getModifierLabel(intl, g.performer_rating.modifier);
           if (g.performer_rating.modifier === CriterionModifier.Between || g.performer_rating.modifier === CriterionModifier.NotBetween) {
@@ -75,6 +85,8 @@ export class PerformerSceneTagsWithAttrsCriterion extends Criterion {
         tags: g.tags?.map((t) => ({ id: t.id, label: t.label })),
         performer_country: g.performer_country,
         performer_ethnicity: g.performer_ethnicity,
+        performer_countries: g.performer_countries?.length ? g.performer_countries : undefined,
+        performer_ethnicities: g.performer_ethnicities?.length ? g.performer_ethnicities : undefined,
         performer_rating: g.performer_rating
           ? {
               modifier: g.performer_rating.modifier,
@@ -94,7 +106,9 @@ export class PerformerSceneTagsWithAttrsCriterion extends Criterion {
           tag_ids?: string[]; 
           tags?: Array<{ id: string; label: string }>; 
           performer_country?: string; 
-          performer_ethnicity?: string; 
+          performer_ethnicity?: string;
+          performer_countries?: string[];
+          performer_ethnicities?: string[];
           performer_rating?: { modifier: CriterionModifier; value: number; value2?: number } 
         }>; 
       };
@@ -113,6 +127,8 @@ export class PerformerSceneTagsWithAttrsCriterion extends Criterion {
           tags,
           performer_country: g.performer_country,
           performer_ethnicity: g.performer_ethnicity,
+          performer_countries: g.performer_countries,
+          performer_ethnicities: g.performer_ethnicities,
           performer_rating: g.performer_rating ?? null,
         };
       });
@@ -130,6 +146,8 @@ export class PerformerSceneTagsWithAttrsCriterion extends Criterion {
           tag_ids: g.tags!.map((t) => t.id),
           performer_country: g.performer_country || undefined,
           performer_ethnicity: g.performer_ethnicity || undefined,
+          performer_countries: g.performer_countries?.length ? g.performer_countries : undefined,
+          performer_ethnicities: g.performer_ethnicities?.length ? g.performer_ethnicities : undefined,
           performer_rating: g.performer_rating
             ? {
                 modifier: g.performer_rating.modifier,

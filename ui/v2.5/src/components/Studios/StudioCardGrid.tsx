@@ -12,6 +12,7 @@ interface IStudioCardGrid {
   selectedIds: Set<string>;
   zoomIndex: number;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
+  performerId?: string;
 }
 
 const zoomWidths = [280, 340, 420, 560];
@@ -22,6 +23,7 @@ export const StudioCardGrid: React.FC<IStudioCardGrid> = ({
   selectedIds,
   zoomIndex,
   onSelectChange,
+  performerId,
 }) => {
   const [componentRef, { width: containerWidth }] = useContainerDimensions();
   const cardWidth = useCardWidth(containerWidth, zoomIndex, zoomWidths);
@@ -40,6 +42,7 @@ export const StudioCardGrid: React.FC<IStudioCardGrid> = ({
           onSelectedChanged={(selected: boolean, shiftKey: boolean) =>
             onSelectChange(studio.id, selected, shiftKey)
           }
+          performerId={performerId}
         />
       ))}
     </div>

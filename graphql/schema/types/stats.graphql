@@ -59,4 +59,8 @@ extend type Query {
   performersSoloOnlyCount: Int!
   "Get number of performers with only one scene"
   performersOneSceneCount: Int!
+  "Get estimated liters produced from orgasms (orgasm count × 3ml)"
+  estimatedLiters: Float!
+  "Get total meters of combined penis lengths (default 17cm if missing, converted to meters)"
+  totalPenisMeters: Float!
 }

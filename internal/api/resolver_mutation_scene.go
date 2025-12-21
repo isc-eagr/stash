@@ -671,6 +671,11 @@ func (r *mutationResolver) SceneMarkerCreate(ctx context.Context, input SceneMar
 		return nil, fmt.Errorf("converting tag ids: %w", err)
 	}
 
+	performerIDs, err := stringslice.StringSliceToIntSlice(input.PerformerIds)
+	if err != nil {
+		return nil, fmt.Errorf("converting performer ids: %w", err)
+	}
+
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.SceneMarker
 
@@ -682,7 +687,15 @@ func (r *mutationResolver) SceneMarkerCreate(ctx context.Context, input SceneMar
 		// Save the marker tags
 		// If this tag is the primary tag, then let's not add it.
 		tagIDs = sliceutil.Exclude(tagIDs, []int{newMarker.PrimaryTagID})
-		return qb.UpdateTags(ctx, newMarker.ID, tagIDs)
+		if err := qb.UpdateTags(ctx, newMarker.ID, tagIDs); err != nil {
+			return err
+		}
+
+		// Save the marker performers (if any)
+		if len(performerIDs) > 0 {
+			return qb.UpdatePerformers(ctx, newMarker.ID, performerIDs)
+		}
+		return nil
 	}); err != nil {
 		return nil, err
 	}
@@ -736,6 +749,15 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 		tagIDs, err = stringslice.StringSliceToIntSlice(input.TagIds)
 		if err != nil {
 			return nil, fmt.Errorf("converting tag ids: %w", err)
+		}
+	}
+
+	var performerIDs []int
+	performerIdsIncluded := translator.hasField("performer_ids")
+	if input.PerformerIds != nil {
+		performerIDs, err = stringslice.StringSliceToIntSlice(input.PerformerIds)
+		if err != nil {
+			return nil, fmt.Errorf("converting performer ids: %w", err)
 		}
 	}
 
@@ -808,6 +830,13 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 			// If this tag is the primary tag, then let's not add it.
 			tagIDs = sliceutil.Exclude(tagIDs, []int{newMarker.PrimaryTagID})
 			if err := qb.UpdateTags(ctx, markerID, tagIDs); err != nil {
+				return err
+			}
+		}
+
+		if performerIdsIncluded {
+			// Save the marker performers
+			if err := qb.UpdatePerformers(ctx, markerID, performerIDs); err != nil {
 				return err
 			}
 		}

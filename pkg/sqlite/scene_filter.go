@@ -107,6 +107,7 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		qb.codecCriterionHandler(sceneFilter.AudioCodec, "video_files.audio_codec", qb.addVideoFilesTable),
 
 		qb.hasMarkersCriterionHandler(sceneFilter.HasMarkers),
+		qb.hasMarkerPerformersCriterionHandler(sceneFilter.HasMarkerPerformers),
 		qb.isMissingCriterionHandler(sceneFilter.IsMissing),
 		qb.urlsCriterionHandler(sceneFilter.URL),
 
@@ -480,6 +481,43 @@ func (qb *sceneFilterHandler) performerSceneTagsWithAttrsCriterionHandler(input 
 			return out
 		}
 
+		// helper to expand multiple ethnicities
+		expandEthnicities := func(ethnicities []string) []string {
+			var out []string
+			seen := make(map[string]bool)
+			for _, e := range ethnicities {
+				for _, exp := range expandEthnicity(e) {
+					if !seen[exp] {
+						seen[exp] = true
+						out = append(out, exp)
+					}
+				}
+			}
+			return out
+		}
+
+		// helper to get countries (use array if provided, fallback to single)
+		getCountries := func(g models.PerformerSceneTagGroupInput) []string {
+			if len(g.PerformerCountries) > 0 {
+				return g.PerformerCountries
+			}
+			if g.PerformerCountry != nil && strings.TrimSpace(*g.PerformerCountry) != "" {
+				return []string{strings.TrimSpace(*g.PerformerCountry)}
+			}
+			return nil
+		}
+
+		// helper to get ethnicities (use array if provided, fallback to single)
+		getEthnicities := func(g models.PerformerSceneTagGroupInput) []string {
+			if len(g.PerformerEthnicities) > 0 {
+				return expandEthnicities(g.PerformerEthnicities)
+			}
+			if g.PerformerEthnicity != nil && strings.TrimSpace(*g.PerformerEthnicity) != "" {
+				return expandEthnicity(*g.PerformerEthnicity)
+			}
+			return nil
+		}
+
 		matchAny := input.MatchAny != nil && *input.MatchAny
 
 		if matchAny {
@@ -494,20 +532,23 @@ func (qb *sceneFilterHandler) performerSceneTagsWithAttrsCriterionHandler(input 
 				where := []string{}
 				args := []interface{}{}
 
-				if g.PerformerCountry != nil && strings.TrimSpace(*g.PerformerCountry) != "" {
-					where = append(where, "p_group.country = ?")
-					args = append(args, strings.TrimSpace(*g.PerformerCountry))
+				countries := getCountries(g)
+				if len(countries) > 0 {
+					ph := strings.Repeat("?,", len(countries))
+					ph = ph[:len(ph)-1]
+					where = append(where, fmt.Sprintf("p_group.country IN (%s)", ph))
+					for _, c := range countries {
+						args = append(args, c)
+					}
 				}
 
-				if g.PerformerEthnicity != nil && strings.TrimSpace(*g.PerformerEthnicity) != "" {
-					exp := expandEthnicity(*g.PerformerEthnicity)
-					if len(exp) > 0 {
-						ph := strings.Repeat("?,", len(exp))
-						ph = ph[:len(ph)-1]
-						where = append(where, fmt.Sprintf("p_group.ethnicity IN (%s)", ph))
-						for _, v := range exp {
-							args = append(args, v)
-						}
+				ethnicities := getEthnicities(g)
+				if len(ethnicities) > 0 {
+					ph := strings.Repeat("?,", len(ethnicities))
+					ph = ph[:len(ph)-1]
+					where = append(where, fmt.Sprintf("p_group.ethnicity IN (%s)", ph))
+					for _, v := range ethnicities {
+						args = append(args, v)
 					}
 				}
 
@@ -547,15 +588,17 @@ func (qb *sceneFilterHandler) performerSceneTagsWithAttrsCriterionHandler(input 
 			// and require sufficient distinct performers for each unique criteria set
 			type groupSignature struct {
 				tagIDsKey      string
-				country        string
-				ethnicity      string
+				countriesKey   string
+				ethnicitiesKey string
 				ratingModifier models.CriterionModifier
 				ratingValue    int
 				ratingValue2   *int
 			}
 
 			groupCounts := make(map[groupSignature]int)
-			groupDetails := make(map[groupSignature]*models.PerformerSceneTagGroupInput)
+			groupDetails := make(map[groupSignature]models.PerformerSceneTagGroupInput)
+			groupCountriesExpanded := make(map[groupSignature][]string)
+			groupEthnicitiesExpanded := make(map[groupSignature][]string)
 
 			for _, g := range input.Groups {
 				if len(g.TagIDs) == 0 {
@@ -567,14 +610,18 @@ func (qb *sceneFilterHandler) performerSceneTagsWithAttrsCriterionHandler(input 
 				sort.Strings(tagIDs)
 				tagKey := strings.Join(tagIDs, ",")
 
+				countries := getCountries(g)
+				sort.Strings(countries)
+				countriesKey := strings.Join(countries, ",")
+
+				ethnicities := getEthnicities(g)
+				sort.Strings(ethnicities)
+				ethnicitiesKey := strings.Join(ethnicities, ",")
+
 				sig := groupSignature{
-					tagIDsKey: tagKey,
-				}
-				if g.PerformerCountry != nil {
-					sig.country = strings.TrimSpace(*g.PerformerCountry)
-				}
-				if g.PerformerEthnicity != nil {
-					sig.ethnicity = strings.TrimSpace(*g.PerformerEthnicity)
+					tagIDsKey:      tagKey,
+					countriesKey:   countriesKey,
+					ethnicitiesKey: ethnicitiesKey,
 				}
 				if g.PerformerRating != nil {
 					sig.ratingModifier = g.PerformerRating.Modifier
@@ -584,7 +631,9 @@ func (qb *sceneFilterHandler) performerSceneTagsWithAttrsCriterionHandler(input 
 
 				groupCounts[sig]++
 				if _, ok := groupDetails[sig]; !ok {
-					groupDetails[sig] = &g
+					groupDetails[sig] = g
+					groupCountriesExpanded[sig] = countries
+					groupEthnicitiesExpanded[sig] = ethnicities
 				}
 			}
 
@@ -594,20 +643,23 @@ func (qb *sceneFilterHandler) performerSceneTagsWithAttrsCriterionHandler(input 
 				where := []string{}
 				args := []interface{}{}
 
-				if sig.country != "" {
-					where = append(where, "p_group.country = ?")
-					args = append(args, sig.country)
+				countries := groupCountriesExpanded[sig]
+				if len(countries) > 0 {
+					ph := strings.Repeat("?,", len(countries))
+					ph = ph[:len(ph)-1]
+					where = append(where, fmt.Sprintf("p_group.country IN (%s)", ph))
+					for _, c := range countries {
+						args = append(args, c)
+					}
 				}
 
-				if sig.ethnicity != "" {
-					exp := expandEthnicity(sig.ethnicity)
-					if len(exp) > 0 {
-						ph := strings.Repeat("?,", len(exp))
-						ph = ph[:len(ph)-1]
-						where = append(where, fmt.Sprintf("p_group.ethnicity IN (%s)", ph))
-						for _, v := range exp {
-							args = append(args, v)
-						}
+				ethnicities := groupEthnicitiesExpanded[sig]
+				if len(ethnicities) > 0 {
+					ph := strings.Repeat("?,", len(ethnicities))
+					ph = ph[:len(ph)-1]
+					where = append(where, fmt.Sprintf("p_group.ethnicity IN (%s)", ph))
+					for _, v := range ethnicities {
+						args = append(args, v)
 					}
 				}
 
@@ -743,6 +795,22 @@ func (qb *sceneFilterHandler) hasMarkersCriterionHandler(hasMarkers *string) cri
 			} else {
 				f.addWhere("scene_markers.id IS NULL")
 			}
+		}
+	}
+}
+
+func (qb *sceneFilterHandler) hasMarkerPerformersCriterionHandler(hasMarkerPerformers *string) criterionHandlerFunc {
+	return func(ctx context.Context, f *filterBuilder) {
+		if hasMarkerPerformers == nil || *hasMarkerPerformers == "" {
+			return
+		}
+
+		if *hasMarkerPerformers == "true" {
+			// Scene has at least one marker with at least one performer assigned
+			f.addWhere("EXISTS (SELECT 1 FROM scene_markers sm JOIN scene_marker_performers smp ON smp.scene_marker_id = sm.id WHERE sm.scene_id = scenes.id)")
+		} else {
+			// Scene has no markers with performers (either no markers or markers have no performers)
+			f.addWhere("NOT EXISTS (SELECT 1 FROM scene_markers sm JOIN scene_marker_performers smp ON smp.scene_marker_id = sm.id WHERE sm.scene_id = scenes.id)")
 		}
 	}
 }

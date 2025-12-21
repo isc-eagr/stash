@@ -7,13 +7,23 @@ import (
 	"github.com/stashapp/stash/pkg/models"
 )
 
-func CountByStudioID(ctx context.Context, r models.GroupQueryer, id int, depth *int) (int, error) {
+func CountByStudioID(ctx context.Context, r models.GroupQueryer, id int, depth *int, performerID *string) (int, error) {
 	filter := &models.GroupFilterType{
 		Studios: &models.HierarchicalMultiCriterionInput{
 			Value:    []string{strconv.Itoa(id)},
 			Modifier: models.CriterionModifierIncludes,
 			Depth:    depth,
 		},
+	}
+
+	// If performerID is provided, filter groups that have scenes with this performer
+	if performerID != nil && *performerID != "" {
+		filter.ScenesFilter = &models.SceneFilterType{
+			Performers: &models.MultiCriterionInput{
+				Value:    []string{*performerID},
+				Modifier: models.CriterionModifierIncludes,
+			},
+		}
 	}
 
 	return r.QueryCount(ctx, filter, nil)

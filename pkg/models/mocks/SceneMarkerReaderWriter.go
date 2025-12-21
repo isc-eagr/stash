@@ -324,6 +324,20 @@ func (_m *SceneMarkerReaderWriter) UpdateTags(ctx context.Context, markerID int,
 	return r0
 }
 
+// UpdatePerformers provides a mock function with given fields: ctx, markerID, performerIDs
+func (_m *SceneMarkerReaderWriter) UpdatePerformers(ctx context.Context, markerID int, performerIDs []int) error {
+	ret := _m.Called(ctx, markerID, performerIDs)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int, []int) error); ok {
+		r0 = rf(ctx, markerID, performerIDs)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Wall provides a mock function with given fields: ctx, q
 func (_m *SceneMarkerReaderWriter) Wall(ctx context.Context, q *string) ([]*models.SceneMarker, error) {
 	ret := _m.Called(ctx, q)

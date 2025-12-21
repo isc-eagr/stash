@@ -173,6 +173,16 @@ type MultiCriterionInput struct {
 	Excludes []string          `json:"excludes"`
 }
 
+// SceneMarkerTagGroupInput represents a group for scene marker tags filtering
+// with optional performer attributes
+type SceneMarkerTagGroupInput struct {
+	TagIDs               []string           `json:"tag_ids"`
+	PerformerIDs         []string           `json:"performer_ids"`
+	PerformerCountries   []string           `json:"performer_countries"`
+	PerformerEthnicities []string           `json:"performer_ethnicities"`
+	PerformerRating      *IntCriterionInput `json:"performer_rating"`
+}
+
 // SceneMarkerTagsCriterionInput supports grouped tag semantics for scene marker tag filtering on scenes.
 // - For modifier = EQUALS (IS): use Groups, where each inner slice represents tags that must all appear on a single marker.
 // - For modifier = INCLUDES / INCLUDES_ALL: use Value as a flat list of tag IDs across any markers on the scene.
@@ -183,6 +193,8 @@ type SceneMarkerTagsCriterionInput struct {
 	Value []string `json:"value"`
 	// Used by EQUALS (IS): each inner list is a group of tag IDs that must all be present on a single marker
 	Groups [][]string `json:"groups"`
+	// Extended groups with performer attributes
+	GroupsExtended []SceneMarkerTagGroupInput `json:"groups_extended"`
 }
 
 type DateCriterionInput struct {
@@ -252,10 +264,12 @@ type PerformerSceneTagPairInput struct {
 // least one performer on the scene has the specified tag (from
 // performer_scene_tags) and matches the optional attributes.
 type PerformerSceneTagGroupInput struct {
-	TagIDs             []string           `json:"tag_ids"`
-	PerformerCountry   *string            `json:"performer_country"`
-	PerformerEthnicity *string            `json:"performer_ethnicity"`
-	PerformerRating    *IntCriterionInput `json:"performer_rating"`
+	TagIDs               []string           `json:"tag_ids"`
+	PerformerCountry     *string            `json:"performer_country"`
+	PerformerEthnicity   *string            `json:"performer_ethnicity"`
+	PerformerCountries   []string           `json:"performer_countries"`
+	PerformerEthnicities []string           `json:"performer_ethnicities"`
+	PerformerRating      *IntCriterionInput `json:"performer_rating"`
 }
 
 // PerformerSceneTagsWithAttrsCriterionInput is a grouped input for filtering

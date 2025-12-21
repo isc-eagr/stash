@@ -8,6 +8,7 @@ import {
   useSceneMarkerCreate,
   useSceneMarkerUpdate,
   useSceneMarkerDestroy,
+  useFindScene,
 } from "src/core/StashService";
 import { DurationInput } from "src/components/Shared/DurationInput";
 import { MarkerTitleSuggest } from "src/components/Shared/Select";
@@ -17,6 +18,14 @@ import isEqual from "lodash-es/isEqual";
 import { formikUtils } from "src/utils/form";
 import { yupFormikValidate } from "src/utils/yup";
 import { Tag, TagSelect } from "src/components/Tags/TagSelect";
+import Select from "react-select";
+
+interface Performer {
+  id: string;
+  name: string;
+  alias_list: string[];
+  disambiguation?: string | null;
+}
 
 interface ISceneMarkerForm {
   sceneID: string;
@@ -38,6 +47,18 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
 
   const [primaryTag, setPrimaryTag] = useState<Tag>();
   const [tags, setTags] = useState<Tag[]>([]);
+  const [performers, setPerformers] = useState<Performer[]>([]);
+
+  // Fetch scene to get available performers
+  const { data: sceneData } = useFindScene(sceneID);
+  const scenePerformers = useMemo(() => {
+    return sceneData?.findScene?.performers?.map(p => ({
+      id: p.id,
+      name: p.name,
+      alias_list: p.alias_list ?? [],
+      disambiguation: p.disambiguation,
+    })) ?? [];
+  }, [sceneData]);
 
   const isNew = marker === undefined;
 
@@ -58,6 +79,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       ),
     primary_tag_id: yup.string().required(),
     tag_ids: yup.array(yup.string().required()).defined(),
+    performer_ids: yup.array(yup.string().required()).defined(),
   });
 
   // useMemo to only run getPlayerPosition when the input marker actually changes
@@ -68,6 +90,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       end_seconds: marker?.end_seconds ?? null,
       primary_tag_id: marker?.primary_tag.id ?? "",
       tag_ids: marker?.tags.map((tag) => tag.id) ?? [],
+      performer_ids: marker?.performers?.map((p) => p.id) ?? [],
     }),
     [marker]
   );
@@ -94,6 +117,14 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     );
   }
 
+  function onSetPerformers(items: Performer[]) {
+    setPerformers(items);
+    formik.setFieldValue(
+      "performer_ids",
+      items.map((item) => item.id)
+    );
+  }
+
   useEffect(() => {
     setPrimaryTag(
       marker?.primary_tag
@@ -111,6 +142,17 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       })) ?? []
     );
   }, [marker?.tags]);
+
+  useEffect(() => {
+    setPerformers(
+      marker?.performers?.map((p) => ({
+        id: p.id,
+        name: p.name,
+        alias_list: p.alias_list ?? [],
+        disambiguation: p.disambiguation,
+      })) ?? []
+    );
+  }, [marker?.performers]);
 
   async function onSave(input: InputValues) {
     try {
@@ -264,6 +306,47 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     return renderField("tag_ids", title, control, fullWidthProps);
   }
 
+  function renderPerformersField() {
+    if (scenePerformers.length === 0) return null;
+    
+    const title = intl.formatMessage({ id: "performers" });
+    
+    // Create options from scene performers only
+    const performerOptions = scenePerformers.map((p) => ({
+      value: p.id,
+      label: p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name,
+    }));
+    
+    // Current selected values
+    const selectedValues = performers.map((p) => ({
+      value: p.id,
+      label: p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name,
+    }));
+    
+    const control = (
+      <Select
+        classNamePrefix="react-select"
+        isMulti
+        options={performerOptions}
+        value={selectedValues}
+        onChange={(selected) => {
+          const selectedPerformers = (selected ?? []).map((opt) => {
+            const found = scenePerformers.find((p) => p.id === opt.value);
+            return found ?? { id: opt.value, name: opt.label, alias_list: [] };
+          });
+          onSetPerformers(selectedPerformers);
+        }}
+        placeholder={intl.formatMessage({ id: "actions.select_performers" })}
+        menuPortalTarget={document.body}
+        styles={{
+          menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+        }}
+      />
+    );
+
+    return renderField("performer_ids", title, control, fullWidthProps);
+  }
+
   return (
     <Form noValidate onSubmit={formik.handleSubmit}>
       <div className="form-container px-3">
@@ -272,6 +355,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         {renderTimeField()}
         {renderEndTimeField()}
         {renderTagsField()}
+        {renderPerformersField()}
       </div>
       <div className="buttons-container px-3">
         <div className="d-flex">

@@ -12,7 +12,7 @@ import { CircumcisedCriterionOption } from "./criteria/circumcised";
 import { PerformerIsMissingCriterionOption } from "./criteria/is-missing";
 import { StashIDCriterionOption } from "./criteria/stash-ids";
 import { StudiosCriterionOption } from "./criteria/studios";
-import { TagsCriterionOption, PerformerSceneTagsInPerformerFilterOption } from "./criteria/tags";
+import { TagsCriterionOption, PerformerSceneTagsInPerformerFilterOption, MarkerTagsCriterionOption } from "./criteria/tags";
 import { ListFilterOptions } from "./filter-options";
 import { CriterionType, DisplayMode } from "./types";
 import { CountryCriterionOption } from "./criteria/country";
@@ -98,6 +98,7 @@ const criterionOptions = [
   PerformerIsMissingCriterionOption,
   TagsCriterionOption,
   PerformerSceneTagsInPerformerFilterOption,
+  MarkerTagsCriterionOption,
   GroupsCriterionOption,
   StudiosCriterionOption,
   StashIDCriterionOption,

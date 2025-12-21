@@ -37,6 +37,7 @@ type SceneMarkerUpdater interface {
 	Update(ctx context.Context, updatedSceneMarker *SceneMarker) error
 	UpdatePartial(ctx context.Context, id int, updatedSceneMarker SceneMarkerPartial) (*SceneMarker, error)
 	UpdateTags(ctx context.Context, markerID int, tagIDs []int) error
+	UpdatePerformers(ctx context.Context, markerID int, performerIDs []int) error
 }
 
 // SceneMarkerDestroyer provides methods to destroy scene markers.

@@ -29,6 +29,7 @@ import { PerformerGroupsPanel } from "./PerformerGroupsPanel";
 import { PerformerImagesPanel } from "./PerformerImagesPanel";
 import { PerformerAppearsWithPanel } from "./performerAppearsWithPanel";
 import { PerformerSceneTagsPanel } from "./performerSceneTagsPanel";
+import { PerformerStudiosPanel } from "./PerformerStudiosPanel";
 import { PerformerEditPanel } from "./PerformerEditPanel";
 import { PerformerSubmitButton } from "./PerformerSubmitButton";
 import { useRatingKeybinds } from "src/hooks/keybinds";
@@ -51,6 +52,7 @@ import { PatchComponent } from "src/patch";
 import { ILightboxImage } from "src/hooks/Lightbox/types";
 import { goBackOrReplace } from "src/utils/history";
 import { OCounterButton } from "src/components/Shared/CountButton";
+import { PerformerCategoryStrip } from "./PerformerCategoryStrip";
 
 interface IProps {
   performer: GQL.PerformerDataFragment;
@@ -69,6 +71,7 @@ const validTabs = [
   "images",
   "groups",
   "scenetags",
+  "studios",
   "appearswith",
 ] as const;
 type TabKey = (typeof validTabs)[number];
@@ -232,6 +235,15 @@ const PerformerTabs: React.FC<{
           performer={performer}
         />
       </Tab>
+      <Tab
+        eventKey="studios"
+        title="Studios"
+      >
+        <PerformerStudiosPanel
+          active={tabKey === "studios"}
+          performer={performer}
+        />
+      </Tab>
     </Tabs>
   );
 };
@@ -249,17 +261,20 @@ const PerformerHeaderImage: React.FC<IPerformerHeaderImageProps> =
     "PerformerHeaderImage",
     ({ encodingImage, activeImage, lightboxImages, performer }) => {
       return (
-        <HeaderImage encodingImage={encodingImage}>
-          {!!activeImage && (
-            <LightboxLink images={lightboxImages}>
-              <DetailImage
-                className="performer"
-                src={activeImage}
-                alt={performer.name}
-              />
-            </LightboxLink>
-          )}
-        </HeaderImage>
+        <>
+          <HeaderImage encodingImage={encodingImage}>
+            {!!activeImage && (
+              <LightboxLink images={lightboxImages}>
+                <DetailImage
+                  className="performer"
+                  src={activeImage}
+                  alt={performer.name}
+                />
+              </LightboxLink>
+            )}
+          </HeaderImage>
+          <PerformerCategoryStrip performer={performer} />
+        </>
       );
     }
   );

@@ -17,7 +17,7 @@ import {
 } from "src/models/list-filter/criteria/criterion";
 import { PopoverCountButton } from "../Shared/PopoverCountButton";
 import GenderIcon from "./GenderIcon";
-import { faLink, faTag, faArrowUp, faArrowDown } from "@fortawesome/free-solid-svg-icons";
+import { faLink, faTag, faArrowUp, faArrowDown, faHand } from "@fortawesome/free-solid-svg-icons";
 import { faInstagram, faTwitter } from "@fortawesome/free-brands-svg-icons";
 import { RatingBanner } from "../Shared/RatingBanner";
 import { usePerformerUpdate, getClient } from "src/core/StashService";
@@ -29,6 +29,9 @@ import { PatchComponent } from "src/patch";
 import { ExternalLinksButton } from "../Shared/ExternalLinksButton";
 import { useConfigurationContext, ConfigurationContext } from "src/hooks/Config";
 import { OCounterButton } from "../Shared/CountButton";
+import gaySvg from "src/assets/gay.svg";
+import mouthSvg from "src/assets/mouth.svg";
+import goateeSvg from "src/assets/goatee.svg";
 
 export interface IPerformerCardExtraCriteria {
   scenes?: ModifierCriterion<CriterionValue>[];
@@ -162,6 +165,39 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Popovers",
   ({ performer, extraCriteria }) => {
     const [showTagModal, setShowTagModal] = useState(false);
+    const { configuration } = useContext(ConfigurationContext);
+    const cfg = (configuration?.ui as any)?.sceneTagAliases ?? {};
+    
+    // Query for tag IDs based on configured tag names
+    const topTagName = cfg.top ?? "top";
+    const bottomTagName = cfg.bottom ?? "bottom";
+    const oralTopTagName = cfg.oraltop ?? "oraltop";
+    const oralBottomTagName = cfg.oralbottom ?? "oralbottom";
+    const soloTagName = cfg.solo ?? "solo";
+    const facialGivenTagName = cfg.facialgiven ?? "facialgiven";
+    const facialReceivedTagName = cfg.facialreceived ?? "facialreceived";
+    const selfFacialTagName = cfg.selffacial ?? "selffacial";
+    
+    // Query all tags and filter client-side
+    const { data: tagsData } = GQL.useFindTagsQuery({
+      variables: {
+        filter: {
+          per_page: -1, // Get all tags
+        },
+      },
+    });
+    
+    // Map tag names to IDs
+    const allTags = tagsData?.findTags?.tags ?? [];
+    const topTag = allTags.find(t => t.name.toLowerCase() === topTagName.toLowerCase());
+    const bottomTag = allTags.find(t => t.name.toLowerCase() === bottomTagName.toLowerCase());
+    const oralTopTag = allTags.find(t => t.name.toLowerCase() === oralTopTagName.toLowerCase());
+    const oralBottomTag = allTags.find(t => t.name.toLowerCase() === oralBottomTagName.toLowerCase());
+    const soloTag = allTags.find(t => t.name.toLowerCase() === soloTagName.toLowerCase());
+    const facialGivenTag = allTags.find(t => t.name.toLowerCase() === facialGivenTagName.toLowerCase());
+    const facialReceivedTag = allTags.find(t => t.name.toLowerCase() === facialReceivedTagName.toLowerCase());
+    const selfFacialTag = allTags.find(t => t.name.toLowerCase() === selfFacialTagName.toLowerCase());
+    
     function maybeRenderEditButton() {
       // Only show the scene-tags edit button on Scene pages. We detect this
       // by the presence of the `scene_tags` field on the performer fragment
@@ -310,18 +346,159 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
       );
     }
 
+    // Sex scenes (top/bottom tags) - gay icon
+    function maybeRenderSexScenesButton() {
+      if (!topTag || !bottomTag) return null;
+      
+      const count = performer.sex_scene_count ?? 0;
+      const url = NavUtils.makePerformerDetailSexScenesUrl(
+        performer,
+        topTag.id,
+        topTag.name,
+        bottomTag.id,
+        bottomTag.name
+      );
+
+      return (
+        <Button 
+          className="minimal scene-category-count sex-scene-count"
+          href={url}
+          title={`Sex scenes (${topTag.name}/${bottomTag.name})`}
+          disabled={count === 0}
+        >
+          <img src={gaySvg} alt="Sex" className="category-icon" />
+          <span>{count}</span>
+        </Button>
+      );
+    }
+
+    // Oral scenes (oral tags without top/bottom) - mouth icon
+    function maybeRenderOralScenesButton() {
+      if (!oralTopTag || !oralBottomTag || !topTag || !bottomTag) return null;
+      
+      const count = performer.oral_scene_count ?? 0;
+      const url = NavUtils.makePerformerDetailOralScenesUrl(
+        performer,
+        oralTopTag.id,
+        oralTopTag.name,
+        oralBottomTag.id,
+        oralBottomTag.name,
+        topTag.id,
+        topTag.name,
+        bottomTag.id,
+        bottomTag.name
+      );
+
+      return (
+        <Button 
+          className="minimal scene-category-count oral-scene-count"
+          href={url}
+          title={`Oral scenes (${oralTopTag.name}/${oralBottomTag.name})`}
+          disabled={count === 0}
+        >
+          <img src={mouthSvg} alt="Oral" className="category-icon" />
+          <span>{count}</span>
+        </Button>
+      );
+    }
+
+    // Solo scenes (solo tags without top/bottom/oral) - hand icon
+    function maybeRenderSoloScenesButton() {
+      if (!soloTag || !topTag || !bottomTag || !oralTopTag || !oralBottomTag) return null;
+      
+      const count = performer.solo_scene_count ?? 0;
+      const url = NavUtils.makePerformerDetailSoloScenesUrl(
+        performer,
+        soloTag.id,
+        soloTag.name,
+        topTag.id,
+        topTag.name,
+        bottomTag.id,
+        bottomTag.name,
+        oralTopTag.id,
+        oralTopTag.name,
+        oralBottomTag.id,
+        oralBottomTag.name
+      );
+
+      return (
+        <Button 
+          className="minimal scene-category-count solo-scene-count"
+          href={url}
+          title={`Solo scenes (${soloTag.name})`}
+          disabled={count === 0}
+        >
+          <Icon icon={faHand} className="category-icon-fa" />
+          <span>{count}</span>
+        </Button>
+      );
+    }
+
+    // Facial scenes (facialgiven or facialreceived) - goatee icon
+    function maybeRenderFacialScenesButton() {
+      // At least one facial tag must be configured/found
+      if (!facialGivenTag && !facialReceivedTag && !selfFacialTag) return null;
+
+      const count = performer.facial_scene_count ?? 0;
+      const primary1 = (facialGivenTag ?? selfFacialTag)!;
+      const primary2 = (facialReceivedTag ?? selfFacialTag)!;
+      const url = NavUtils.makePerformerDetailFacialScenesUrl(
+        performer,
+        primary1.id,
+        primary1.name,
+        primary2.id,
+        primary2.name,
+        selfFacialTag?.id,
+        selfFacialTag?.name
+      );
+
+      return (
+        <Button
+          className="minimal scene-category-count facial-scene-count"
+          href={url}
+          title={`Facial scenes`}
+          disabled={count === 0}
+        >
+          <img src={goateeSvg} alt="Facial" className="category-icon" />
+          <span>{count}</span>
+        </Button>
+      );
+    }
+
+    const hasCategoryButtons = !!(
+      topTag &&
+      bottomTag &&
+      oralTopTag &&
+      oralBottomTag &&
+      soloTag
+    );
+
     const hasAnyPopover = !!(
       performer.scene_count ||
       performer.image_count ||
       performer.gallery_count ||
       performer.tags.length > 0 ||
       performer.o_counter ||
-      performer.group_count
+      performer.group_count ||
+      hasCategoryButtons
     );
 
     if (hasAnyPopover) {
       return (
         <>
+          {hasCategoryButtons && (
+            <>
+              <hr />
+              <div className="card-popovers scene-category-buttons d-flex align-items-center">
+                <ButtonGroup>
+                  {maybeRenderSexScenesButton()}
+                  {maybeRenderOralScenesButton()}
+                  {maybeRenderSoloScenesButton()}
+                  {maybeRenderFacialScenesButton()}
+                </ButtonGroup>
+              </div>
+            </>
+          )}
           <hr />
           <ButtonGroup className="card-popovers">
             {maybeRenderEditButton && maybeRenderEditButton()}

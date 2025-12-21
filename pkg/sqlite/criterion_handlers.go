@@ -1023,6 +1023,40 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 
 	c := h.criterion
 
+	// helper to expand ethnicity like global filters for consistency
+	expandEthnicity := func(s string) []string {
+		v := strings.TrimSpace(s)
+		if v == "" {
+			return nil
+		}
+		out := []string{v}
+		if strings.EqualFold(v, "Black") {
+			out = append(out, "Mixed", "Afrolatino")
+		}
+		if strings.EqualFold(v, "White") {
+			out = append(out, "Mixed")
+		}
+		if strings.EqualFold(v, "Latino") {
+			out = append(out, "Afrolatino")
+		}
+		return out
+	}
+
+	// helper to expand multiple ethnicities
+	expandEthnicities := func(ethnicities []string) []string {
+		var out []string
+		seen := make(map[string]bool)
+		for _, e := range ethnicities {
+			for _, exp := range expandEthnicity(e) {
+				if !seen[exp] {
+					seen[exp] = true
+					out = append(out, exp)
+				}
+			}
+		}
+		return out
+	}
+
 	switch c.Modifier {
 	case models.CriterionModifierIsNull, models.CriterionModifierNotNull:
 		var notClause string
@@ -1035,6 +1069,115 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 		return
 
 	case models.CriterionModifierEquals:
+		// Check if GroupsExtended is provided (with performer attributes)
+		if len(c.GroupsExtended) > 0 {
+			// Handle extended groups with performer attributes
+			for _, g := range c.GroupsExtended {
+				// Build performer condition clauses
+				var performerClauses []string
+				var performerArgs []any
+
+				if len(g.PerformerIDs) > 0 {
+					ph := getInBinding(len(g.PerformerIDs))
+					performerClauses = append(performerClauses, fmt.Sprintf("p.id IN %s", ph))
+					for _, pid := range g.PerformerIDs {
+						performerArgs = append(performerArgs, pid)
+					}
+				}
+
+				if len(g.PerformerCountries) > 0 {
+					ph := getInBinding(len(g.PerformerCountries))
+					performerClauses = append(performerClauses, fmt.Sprintf("p.country IN %s", ph))
+					for _, c := range g.PerformerCountries {
+						performerArgs = append(performerArgs, c)
+					}
+				}
+
+				if len(g.PerformerEthnicities) > 0 {
+					expanded := expandEthnicities(g.PerformerEthnicities)
+					ph := getInBinding(len(expanded))
+					performerClauses = append(performerClauses, fmt.Sprintf("p.ethnicity IN %s", ph))
+					for _, e := range expanded {
+						performerArgs = append(performerArgs, e)
+					}
+				}
+
+				if g.PerformerRating != nil {
+					w, wargs := getIntWhereClause("p.rating", g.PerformerRating.Modifier, g.PerformerRating.Value, g.PerformerRating.Value2)
+					performerClauses = append(performerClauses, w)
+					performerArgs = append(performerArgs, wargs...)
+				}
+
+				// Build the subquery
+				var subq string
+				var args []any
+
+				if len(g.TagIDs) > 0 && len(performerClauses) > 0 {
+					// Both tags and performer conditions
+					tagPh := getInBinding(len(g.TagIDs))
+					performerCondition := strings.Join(performerClauses, " AND ")
+
+					subq = utils.StrFormat(`EXISTS (
+SELECT 1 FROM scene_markers sm
+JOIN scene_marker_performers smp ON smp.scene_marker_id = sm.id
+JOIN performers p ON p.id = smp.performer_id
+WHERE sm.scene_id = {primaryTable}.id
+  AND `+performerCondition+`
+  AND (
+    SELECT COUNT(DISTINCT tag_id) FROM (
+      SELECT sm.primary_tag_id AS tag_id
+      UNION ALL
+      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
+    ) tags_per_marker
+    WHERE tag_id IN `+tagPh+`
+  ) = `+fmt.Sprintf("%d", len(g.TagIDs))+`
+)`, utils.StrFormatMap{"primaryTable": h.primaryTable})
+
+					args = append(args, performerArgs...)
+					for _, tid := range g.TagIDs {
+						args = append(args, tid)
+					}
+				} else if len(g.TagIDs) > 0 {
+					// Only tags, no performer conditions
+					tagPh := getInBinding(len(g.TagIDs))
+					subq = utils.StrFormat(`EXISTS (
+SELECT 1 FROM scene_markers sm
+WHERE sm.scene_id = {primaryTable}.id
+  AND (
+    SELECT COUNT(DISTINCT tag_id) FROM (
+      SELECT sm.primary_tag_id AS tag_id
+      UNION ALL
+      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
+    ) tags_per_marker
+    WHERE tag_id IN `+tagPh+`
+  ) = `+fmt.Sprintf("%d", len(g.TagIDs))+`
+)`, utils.StrFormatMap{"primaryTable": h.primaryTable})
+
+					for _, tid := range g.TagIDs {
+						args = append(args, tid)
+					}
+				} else if len(performerClauses) > 0 {
+					// Only performer conditions, no tags
+					performerCondition := strings.Join(performerClauses, " AND ")
+					subq = utils.StrFormat(`EXISTS (
+SELECT 1 FROM scene_markers sm
+JOIN scene_marker_performers smp ON smp.scene_marker_id = sm.id
+JOIN performers p ON p.id = smp.performer_id
+WHERE sm.scene_id = {primaryTable}.id
+  AND `+performerCondition+`
+)`, utils.StrFormatMap{"primaryTable": h.primaryTable})
+
+					args = append(args, performerArgs...)
+				} else {
+					// Empty group, skip
+					continue
+				}
+
+				f.addWhere(subq, args...)
+			}
+			return
+		}
+
 		// Treat Value as a single group if Groups not provided
 		groups := c.Groups
 		if len(groups) == 0 && len(c.Value) > 0 {

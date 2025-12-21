@@ -10,6 +10,7 @@ export interface IMultiSegmentLoopOptions {
   segments: ILoopSegment[];
   enabled: boolean;
   currentSegmentIndex: number;
+  createButton?: boolean;
 }
 
 // Events emitted by the plugin
@@ -31,6 +32,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   // Timeline visualization elements
   private segmentMarkers: Map<string, HTMLDivElement> = new Map();
   private pendingMarker: HTMLDivElement | null = null;
+  private controlButton: any = null;
 
   // Callback references for external listeners
   private onSegmentsChange?: (segments: ILoopSegment[]) => void;
@@ -59,6 +61,9 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
 
     player.ready(() => {
       this.setupTimeUpdateHandler();
+      if (options?.createButton) {
+        this.createControlButton();
+      }
     });
   }
 
@@ -148,6 +153,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     this.segments = [...segments];
     this.currentSegmentIndex = 0;
     this.renderSegmentMarkers();
+    this.updateControlButton();
     if (this.onSegmentsChange) {
       this.onSegmentsChange(this.getSegments());
     }
@@ -170,6 +176,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     };
     this.segments.push(segment);
     this.renderSegmentMarkers();
+    this.updateControlButton();
     if (this.onSegmentsChange) {
       this.onSegmentsChange(this.getSegments());
     }
@@ -191,6 +198,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     }
     
     this.renderSegmentMarkers();
+    this.updateControlButton();
     if (this.onSegmentsChange) {
       this.onSegmentsChange(this.getSegments());
     }
@@ -214,6 +222,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     segment.end = Math.max(start, end);
     
     this.renderSegmentMarkers();
+    this.updateControlButton();
     if (this.onSegmentsChange) {
       this.onSegmentsChange(this.getSegments());
     }
@@ -228,6 +237,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     this.currentSegmentIndex = 0;
     this.pendingStart = null;
     this.renderSegmentMarkers();
+    this.updateControlButton();
     if (this.onSegmentsChange) {
       this.onSegmentsChange(this.getSegments());
     }
@@ -297,6 +307,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     }
     
     this.updateActiveSegmentMarker();
+    this.updateControlButton();
     if (this.onEnabledChange) {
       this.onEnabledChange(enabled);
     }
@@ -518,6 +529,65 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
         marker.classList.remove("active");
       }
     });
+  }
+
+  /**
+   * Create a toggle button in the control bar
+   */
+  private createControlButton(): void {
+    const Button = videojs.getComponent("Button");
+    const plugin = this;
+    
+    class MultiSegmentLoopButton extends Button {
+      constructor(player: VideoJsPlayer, options: any) {
+        super(player, options);
+        this.controlText("Multi-Segment Loop");
+        this.addClass("vjs-multi-segment-loop-button");
+        this.updateState();
+      }
+
+      buildCSSClass(): string {
+        return `vjs-multi-segment-loop-button ${super.buildCSSClass()}`;
+      }
+
+      handleClick(): void {
+        plugin.toggleEnabled();
+        this.updateState();
+      }
+
+      updateState(): void {
+        if (plugin.isEnabled() && plugin.getSegments().length > 0) {
+          this.addClass("vjs-multi-segment-loop-active");
+        } else {
+          this.removeClass("vjs-multi-segment-loop-active");
+        }
+      }
+    }
+
+    videojs.registerComponent("MultiSegmentLoopButton", MultiSegmentLoopButton);
+
+    const controlBar = this.player.getChild("ControlBar");
+    if (controlBar) {
+      const button = new MultiSegmentLoopButton(this.player, {});
+      this.controlButton = button;
+      
+      // Add button before fullscreen button
+      const fullscreenToggle = controlBar.getChild("FullscreenToggle");
+      if (fullscreenToggle) {
+        controlBar.addChild(button, {}, controlBar.children().indexOf(fullscreenToggle));
+      } else {
+        controlBar.addChild(button);
+      }
+    }
+  }
+
+  /**
+   * Update control button state (called when enabled or segments change)
+   */
+  private updateControlButton(): void {
+    if (this.controlButton && typeof this.controlButton.updateState === 'function') {
+      this.controlButton.updateState();
+    }
   }
 
   dispose(): void {

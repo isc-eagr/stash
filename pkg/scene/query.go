@@ -121,13 +121,21 @@ func FilterFromPaths(paths []string) *models.SceneFilterType {
 	return ret
 }
 
-func CountByStudioID(ctx context.Context, r models.SceneQueryer, id int, depth *int) (int, error) {
+func CountByStudioID(ctx context.Context, r models.SceneQueryer, id int, depth *int, performerID *string) (int, error) {
 	filter := &models.SceneFilterType{
 		Studios: &models.HierarchicalMultiCriterionInput{
 			Value:    []string{strconv.Itoa(id)},
 			Modifier: models.CriterionModifierIncludes,
 			Depth:    depth,
 		},
+	}
+
+	// Add performer filter if specified
+	if performerID != nil && *performerID != "" {
+		filter.Performers = &models.MultiCriterionInput{
+			Value:    []string{*performerID},
+			Modifier: models.CriterionModifierIncludes,
+		}
 	}
 
 	return r.QueryCount(ctx, filter, nil)
@@ -176,7 +184,7 @@ func CountByGroupID(ctx context.Context, r models.SceneQueryer, id int, depth *i
 }
 
 // CountByStudioIDAndPerformerSceneTags counts scenes for a studio that have any of the specified performer_scene_tags
-func CountByStudioIDAndPerformerSceneTags(ctx context.Context, r models.SceneQueryer, tagReader models.TagReader, studioID int, depth *int, tagNames []string, matchAll bool) (int, error) {
+func CountByStudioIDAndPerformerSceneTags(ctx context.Context, r models.SceneQueryer, tagReader models.TagReader, studioID int, depth *int, tagNames []string, matchAll bool, performerID *string) (int, error) {
 	// Get all tags to map names to IDs
 	tags, err := tagReader.All(ctx)
 	if err != nil {
@@ -214,12 +222,20 @@ func CountByStudioIDAndPerformerSceneTags(ctx context.Context, r models.SceneQue
 		},
 	}
 
+	// Add performer filter if specified
+	if performerID != nil && *performerID != "" {
+		filter.Performers = &models.MultiCriterionInput{
+			Value:    []string{*performerID},
+			Modifier: models.CriterionModifierIncludes,
+		}
+	}
+
 	return r.QueryCount(ctx, filter, nil)
 }
 
 // CountByStudioIDAndPerformerSceneTagsWithExclusions counts scenes for a studio that have
 // any of the included tags but none of the excluded tags in performer_scene_tags
-func CountByStudioIDAndPerformerSceneTagsWithExclusions(ctx context.Context, r models.SceneQueryer, tagReader models.TagReader, studioID int, depth *int, includeTagNames []string, excludeTagNames []string) (int, error) {
+func CountByStudioIDAndPerformerSceneTagsWithExclusions(ctx context.Context, r models.SceneQueryer, tagReader models.TagReader, studioID int, depth *int, includeTagNames []string, excludeTagNames []string, performerID *string) (int, error) {
 	// Get all tags
 	tags, err := tagReader.All(ctx)
 	if err != nil {
@@ -260,6 +276,14 @@ func CountByStudioIDAndPerformerSceneTagsWithExclusions(ctx context.Context, r m
 			Modifier: models.CriterionModifierIncludes,
 			Excludes: excludeTagIDs,
 		},
+	}
+
+	// Add performer filter if specified
+	if performerID != nil && *performerID != "" {
+		filter.Performers = &models.MultiCriterionInput{
+			Value:    []string{*performerID},
+			Modifier: models.CriterionModifierIncludes,
+		}
 	}
 
 	return r.QueryCount(ctx, filter, nil)
@@ -334,6 +358,94 @@ func CountByPerformerSceneTagsWithExclusions(ctx context.Context, r models.Scene
 	}
 
 	filter := &models.SceneFilterType{
+		PerformerSceneTags: &models.HierarchicalMultiCriterionInput{
+			Value:    includeTagIDs,
+			Modifier: models.CriterionModifierIncludes,
+			Excludes: excludeTagIDs,
+		},
+	}
+
+	return r.QueryCount(ctx, filter, nil)
+}
+
+// CountByPerformerIDAndPerformerSceneTags counts scenes for a performer that have any of the specified performer_scene_tags
+func CountByPerformerIDAndPerformerSceneTags(ctx context.Context, r models.SceneQueryer, tagReader models.TagReader, performerID int, tagNames []string, matchAll bool) (int, error) {
+	// Get all tags to map names to IDs
+	tags, err := tagReader.All(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	tagIDs := []string{}
+	for _, tag := range tags {
+		for _, name := range tagNames {
+			if strings.EqualFold(tag.Name, name) {
+				tagIDs = append(tagIDs, strconv.Itoa(tag.ID))
+				break
+			}
+		}
+	}
+
+	if len(tagIDs) == 0 {
+		return 0, nil
+	}
+
+	modifier := models.CriterionModifierIncludes
+	if matchAll {
+		modifier = models.CriterionModifierIncludesAll
+	}
+
+	filter := &models.SceneFilterType{
+		Performers: &models.MultiCriterionInput{
+			Value:    []string{strconv.Itoa(performerID)},
+			Modifier: models.CriterionModifierIncludes,
+		},
+		PerformerSceneTags: &models.HierarchicalMultiCriterionInput{
+			Value:    tagIDs,
+			Modifier: modifier,
+		},
+	}
+
+	return r.QueryCount(ctx, filter, nil)
+}
+
+// CountByPerformerIDAndPerformerSceneTagsWithExclusions counts scenes for a performer that have
+// any of the included tags but none of the excluded tags in performer_scene_tags
+func CountByPerformerIDAndPerformerSceneTagsWithExclusions(ctx context.Context, r models.SceneQueryer, tagReader models.TagReader, performerID int, includeTagNames []string, excludeTagNames []string) (int, error) {
+	// Get all tags
+	tags, err := tagReader.All(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	// Map tag names to IDs (case-insensitive)
+	includeTagIDs := []string{}
+	excludeTagIDs := []string{}
+
+	for _, tag := range tags {
+		for _, name := range includeTagNames {
+			if strings.EqualFold(tag.Name, name) {
+				includeTagIDs = append(includeTagIDs, strconv.Itoa(tag.ID))
+				break
+			}
+		}
+		for _, name := range excludeTagNames {
+			if strings.EqualFold(tag.Name, name) {
+				excludeTagIDs = append(excludeTagIDs, strconv.Itoa(tag.ID))
+				break
+			}
+		}
+	}
+
+	if len(includeTagIDs) == 0 {
+		return 0, nil
+	}
+
+	filter := &models.SceneFilterType{
+		Performers: &models.MultiCriterionInput{
+			Value:    []string{strconv.Itoa(performerID)},
+			Modifier: models.CriterionModifierIncludes,
+		},
 		PerformerSceneTags: &models.HierarchicalMultiCriterionInput{
 			Value:    includeTagIDs,
 			Modifier: models.CriterionModifierIncludes,

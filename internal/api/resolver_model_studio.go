@@ -84,9 +84,9 @@ func (r *studioResolver) Tags(ctx context.Context, obj *models.Studio) (ret []*m
 	return ret, firstError(errs)
 }
 
-func (r *studioResolver) SceneCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
+func (r *studioResolver) SceneCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByStudioID(ctx, r.repository.Scene, obj.ID, depth)
+		ret, err = scene.CountByStudioID(ctx, r.repository.Scene, obj.ID, depth, performerID)
 		return err
 	}); err != nil {
 		return 0, err
@@ -96,7 +96,7 @@ func (r *studioResolver) SceneCount(ctx context.Context, obj *models.Studio, dep
 }
 
 // SexSceneCount returns the count of scenes with top/bottom performer_scene_tags
-func (r *studioResolver) SexSceneCount(ctx context.Context, obj *models.Studio, depth *int, topTag *string, bottomTag *string) (ret int, err error) {
+func (r *studioResolver) SexSceneCount(ctx context.Context, obj *models.Studio, depth *int, topTag *string, bottomTag *string, performerID *string) (ret int, err error) {
 	// Get tag names from UI configuration if not provided
 	uiConfig := config.GetInstance().GetUIConfiguration()
 	sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
@@ -120,7 +120,7 @@ func (r *studioResolver) SexSceneCount(ctx context.Context, obj *models.Studio, 
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByStudioIDAndPerformerSceneTags(ctx, r.repository.Scene, r.repository.Tag, obj.ID, depth, []string{top, bottom}, false)
+		ret, err = scene.CountByStudioIDAndPerformerSceneTags(ctx, r.repository.Scene, r.repository.Tag, obj.ID, depth, []string{top, bottom}, false, performerID)
 		return err
 	}); err != nil {
 		return 0, err
@@ -130,7 +130,7 @@ func (r *studioResolver) SexSceneCount(ctx context.Context, obj *models.Studio, 
 }
 
 // OralSceneCount returns the count of scenes with oral tags but not top/bottom
-func (r *studioResolver) OralSceneCount(ctx context.Context, obj *models.Studio, depth *int, oralTopTag *string, oralBottomTag *string, topTag *string, bottomTag *string) (ret int, err error) {
+func (r *studioResolver) OralSceneCount(ctx context.Context, obj *models.Studio, depth *int, oralTopTag *string, oralBottomTag *string, topTag *string, bottomTag *string, performerID *string) (ret int, err error) {
 	// Get tag names from UI configuration if not provided
 	uiConfig := config.GetInstance().GetUIConfiguration()
 	sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
@@ -172,7 +172,7 @@ func (r *studioResolver) OralSceneCount(ctx context.Context, obj *models.Studio,
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByStudioIDAndPerformerSceneTagsWithExclusions(ctx, r.repository.Scene, r.repository.Tag, obj.ID, depth, []string{oralTop, oralBottom}, []string{top, bottom})
+		ret, err = scene.CountByStudioIDAndPerformerSceneTagsWithExclusions(ctx, r.repository.Scene, r.repository.Tag, obj.ID, depth, []string{oralTop, oralBottom}, []string{top, bottom}, performerID)
 		return err
 	}); err != nil {
 		return 0, err
@@ -182,7 +182,7 @@ func (r *studioResolver) OralSceneCount(ctx context.Context, obj *models.Studio,
 }
 
 // SoloSceneCount returns the count of scenes with solo tags but not top/bottom/oral
-func (r *studioResolver) SoloSceneCount(ctx context.Context, obj *models.Studio, depth *int, soloTag *string, topTag *string, bottomTag *string, oralTopTag *string, oralBottomTag *string) (ret int, err error) {
+func (r *studioResolver) SoloSceneCount(ctx context.Context, obj *models.Studio, depth *int, soloTag *string, topTag *string, bottomTag *string, oralTopTag *string, oralBottomTag *string, performerID *string) (ret int, err error) {
 	// Get tag names from UI configuration if not provided
 	uiConfig := config.GetInstance().GetUIConfiguration()
 	sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
@@ -233,7 +233,7 @@ func (r *studioResolver) SoloSceneCount(ctx context.Context, obj *models.Studio,
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByStudioIDAndPerformerSceneTagsWithExclusions(ctx, r.repository.Scene, r.repository.Tag, obj.ID, depth, []string{solo}, []string{top, bottom, oralTop, oralBottom})
+		ret, err = scene.CountByStudioIDAndPerformerSceneTagsWithExclusions(ctx, r.repository.Scene, r.repository.Tag, obj.ID, depth, []string{solo}, []string{top, bottom, oralTop, oralBottom}, performerID)
 		return err
 	}); err != nil {
 		return 0, err
@@ -243,7 +243,7 @@ func (r *studioResolver) SoloSceneCount(ctx context.Context, obj *models.Studio,
 }
 
 // FacialSceneCount returns the count of scenes with facialgiven or facialreceived performer_scene_tags
-func (r *studioResolver) FacialSceneCount(ctx context.Context, obj *models.Studio, depth *int, facialGivenTag *string, facialReceivedTag *string) (ret int, err error) {
+func (r *studioResolver) FacialSceneCount(ctx context.Context, obj *models.Studio, depth *int, facialGivenTag *string, facialReceivedTag *string, performerID *string) (ret int, err error) {
 	// Get tag names from UI configuration if not provided
 	uiConfig := config.GetInstance().GetUIConfiguration()
 	sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
@@ -275,7 +275,7 @@ func (r *studioResolver) FacialSceneCount(ctx context.Context, obj *models.Studi
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByStudioIDAndPerformerSceneTags(ctx, r.repository.Scene, r.repository.Tag, obj.ID, depth, []string{facialGiven, facialReceived, selfFacial}, false)
+		ret, err = scene.CountByStudioIDAndPerformerSceneTags(ctx, r.repository.Scene, r.repository.Tag, obj.ID, depth, []string{facialGiven, facialReceived, selfFacial}, false, performerID)
 		return err
 	}); err != nil {
 		return 0, err
@@ -328,9 +328,9 @@ func (r *studioResolver) UniquePerformerCount(ctx context.Context, obj *models.S
 	return ret, nil
 }
 
-func (r *studioResolver) GroupCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
+func (r *studioResolver) GroupCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = group.CountByStudioID(ctx, r.repository.Group, obj.ID, depth)
+		ret, err = group.CountByStudioID(ctx, r.repository.Group, obj.ID, depth, performerID)
 		return err
 	}); err != nil {
 		return 0, err
@@ -341,19 +341,19 @@ func (r *studioResolver) GroupCount(ctx context.Context, obj *models.Studio, dep
 
 // deprecated
 func (r *studioResolver) MovieCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
-	return r.GroupCount(ctx, obj, depth)
+	return r.GroupCount(ctx, obj, depth, nil)
 }
 
-func (r *studioResolver) OCounter(ctx context.Context, obj *models.Studio) (ret *int, err error) {
+func (r *studioResolver) OCounter(ctx context.Context, obj *models.Studio, performerID *string) (ret *int, err error) {
 	var res_scene int
 	var res_image int
 	var res int
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		res_scene, err = r.repository.Scene.OCountByStudioID(ctx, obj.ID)
+		res_scene, err = r.repository.Scene.OCountByStudioID(ctx, obj.ID, performerID)
 		if err != nil {
 			return err
 		}
-		res_image, err = r.repository.Image.OCountByStudioID(ctx, obj.ID)
+		res_image, err = r.repository.Image.OCountByStudioID(ctx, obj.ID, performerID)
 		return err
 	}); err != nil {
 		return nil, err

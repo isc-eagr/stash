@@ -8,6 +8,8 @@ type SceneMarker {
   end_seconds: Float
   primary_tag: Tag!
   tags: [Tag!]!
+  "Optional performers associated with this marker. Only performers assigned to the parent scene are selectable."
+  performers: [Performer!]!
   created_at: Time!
   updated_at: Time!
 
@@ -28,6 +30,8 @@ input SceneMarkerCreateInput {
   scene_id: ID!
   primary_tag_id: ID!
   tag_ids: [ID!]
+  "Optional performer IDs to associate with this marker. Must be performers already assigned to the scene."
+  performer_ids: [ID!]
 }
 
 input SceneMarkerUpdateInput {
@@ -40,6 +44,8 @@ input SceneMarkerUpdateInput {
   scene_id: ID
   primary_tag_id: ID
   tag_ids: [ID!]
+  "Optional performer IDs to associate with this marker. Must be performers already assigned to the scene."
+  performer_ids: [ID!]
 }
 
 input BulkSceneMarkerUpdateInput {

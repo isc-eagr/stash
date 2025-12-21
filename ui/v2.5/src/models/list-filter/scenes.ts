@@ -2,11 +2,12 @@ import {
   createMandatoryNumberCriterionOption,
   createMandatoryStringCriterionOption,
   createStringCriterionOption,
-  
   createDateCriterionOption,
   createMandatoryTimestampCriterionOption,
   createDurationCriterionOption,
   ModifierCriterionOption,
+  StringBooleanCriterionOption,
+  StringBooleanCriterion,
 } from "./criteria/criterion";
 import { CountryCriterion } from "./criteria/country";
 import { CriterionModifier } from "src/core/generated-graphql";
@@ -44,6 +45,13 @@ import { PathCriterionOption } from "./criteria/path";
 import { OrientationCriterionOption } from "./criteria/orientation";
 import { EthnicityCriterionOption } from "./criteria/ethnicity";
 import { PerformerSceneTagsWithAttrsCriterionOption } from "./criteria/performer-scene-tags-with-attrs";
+
+// Has Marker Performers criterion option
+const HasMarkerPerformersCriterionOption = new StringBooleanCriterionOption(
+  "has_marker_performers",
+  "has_marker_performers",
+  () => new StringBooleanCriterion(HasMarkerPerformersCriterionOption)
+);
 
 const defaultSortBy = "date";
 const sortByOptions = [
@@ -126,6 +134,7 @@ const criterionOptions = [
   createMandatoryNumberCriterionOption("play_count"),
   createMandatoryTimestampCriterionOption("last_played_at"),
   HasMarkersCriterionOption,
+  HasMarkerPerformersCriterionOption,
   SceneIsMissingCriterionOption,
   TagsCriterionOption,
   createMandatoryNumberCriterionOption("tag_count"),

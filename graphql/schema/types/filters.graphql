@@ -182,6 +182,8 @@ input PerformerFilterType {
   scenes_filter: SceneFilterType
   "Filter to only include performers where the performer has these scene tags (from performer_scene_tags)"
   performer_scene_tags: HierarchicalMultiCriterionInput
+  "Filter to only include performers that have at least one scene marker with all the selected tags"
+  marker_tags: HierarchicalMultiCriterionInput
   "Filter by related images that meet this criteria"
   images_filter: ImageFilterType
   "Filter by related galleries that meet this criteria"
@@ -201,20 +203,36 @@ input SceneMarkerFilterType {
   tags: HierarchicalMultiCriterionInput
   "Filter to only include scene markers attached to a scene with these tags"
   scene_tags: HierarchicalMultiCriterionInput
-  "Filter to only include scene markers with these performers"
+  "Filter to only include scene markers with these performers (scene performers)"
   performers: MultiCriterionInput
-  "Filter to only include scene markers by performer ethnicity"
+  "Filter to only include scene markers by performer ethnicity (scene performers)"
   performer_ethnicity: StringCriterionInput
-  "Filter by performer country (comma-separated ISO codes for multi-select)"
+  "Filter by performer country (scene performers, comma-separated ISO codes for multi-select)"
   performer_country: StringCriterionInput
   "Filter markers whose scene has, for each group, at least one performer with the specified tag and optional attributes"
   performer_scene_tags_with_attrs: PerformerSceneTagsWithAttrsCriterionInput
-  "Filter by performer rating (1-100). Matches markers where linked performers satisfy the condition."
+  "Filter by performer rating (scene performers, 1-100). Matches markers where linked performers satisfy the condition."
   performer_rating: IntCriterionInput
   "When true, all linked performers must satisfy the performer_rating condition; when false, at least one performer must satisfy it (default: true)."
   performer_rating_all: Boolean
+
+  "Filter by performers assigned directly to the marker (via scene_marker_performers table)"
+  marker_performers: MultiCriterionInput
+  "Filter by ethnicity of performers assigned directly to the marker"
+  marker_performer_ethnicity: StringCriterionInput
+  "Filter by country of performers assigned directly to the marker (comma-separated ISO codes)"
+  marker_performer_country: StringCriterionInput
+  "Filter by rating of performers assigned directly to the marker (1-100)"
+  marker_performer_rating: IntCriterionInput
+  "When true, all marker performers must satisfy the marker_performer_rating condition; when false, at least one (default: true)"
+  marker_performer_rating_all: Boolean
+  "Filter by whether the marker has performers assigned directly to it"
+  has_marker_performers: String
+
   "Filter to only include scene markers from these scenes"
   scenes: MultiCriterionInput
+  "Filter to only include scene markers from scenes belonging to these studios"
+  studios: HierarchicalMultiCriterionInput
   "Filter by duration (in seconds)"
   duration: FloatCriterionInput
   "Filter by creation time"
@@ -236,12 +254,28 @@ input TagIdGroupsInput {
   groups: [[ID!]!]
 }
 
+"Group for scene marker tags filtering with optional performer attributes"
+input SceneMarkerTagGroupInput {
+  "Tag IDs that must be present on the marker"
+  tag_ids: [ID!]!
+  "Optional performer IDs - marker must have at least one of these performers assigned"
+  performer_ids: [ID!]
+  "Optional performer countries (OR match)"
+  performer_countries: [String!]
+  "Optional performer ethnicities (OR match; expansions handled server-side)"
+  performer_ethnicities: [String!]
+  "Optional performer rating criterion"
+  performer_rating: IntCriterionInput
+}
+
 input SceneMarkerTagsCriterionInput {
   modifier: CriterionModifier!
   "Used by INCLUDES and INCLUDES_ALL"
   value: [ID!]
   "Used by EQUALS (IS) to express groups; each group maps to a marker that must contain all tags in that group"
   groups: [[ID!]]
+  "Extended groups with performer attributes (used when groups_extended is provided)"
+  groups_extended: [SceneMarkerTagGroupInput!]
 }
 
 input SceneFilterType {
@@ -291,6 +325,8 @@ input SceneFilterType {
   duration: IntCriterionInput
   "Filter to only include scenes which have markers. `true` or `false`"
   has_markers: String
+  "Filter to only include scenes with markers that have assigned performers. `true` or `false`"
+  has_marker_performers: String
   "Filter to only include scenes missing this property"
   is_missing: String
   "Filter to only include scenes with this studio"
@@ -380,10 +416,14 @@ input SceneFilterType {
 input PerformerSceneTagGroupInput {
   "Required tags the same performer must all have on the scene (from performer_scene_tags)"
   tag_ids: [ID!]!
-  "Optional ISO country code"
+  "Optional ISO country code (single)"
   performer_country: String
-  "Optional ethnicity label (exact match; special-case expansions like Black→{Black,Mixed,Afrolatino} and White→{White,Mixed}, Latino→{Latino,Afrolatino} are handled server-side)"
+  "Optional ethnicity label (single, exact match; special-case expansions handled server-side)"
   performer_ethnicity: String
+  "Optional multiple ISO country codes (OR match)"
+  performer_countries: [String!]
+  "Optional multiple ethnicity labels (OR match; special-case expansions handled server-side)"
+  performer_ethnicities: [String!]
   "Optional performer rating (1-100) criterion applied to the matching performer"
   performer_rating: IntCriterionInput
 }

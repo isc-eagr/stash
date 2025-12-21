@@ -222,6 +222,29 @@ func (_m *PerformerReaderWriter) FindBySceneID(ctx context.Context, sceneID int)
 	return r0, r1
 }
 
+// FindBySceneMarkerID provides a mock function with given fields: ctx, sceneMarkerID
+func (_m *PerformerReaderWriter) FindBySceneMarkerID(ctx context.Context, sceneMarkerID int) ([]*models.Performer, error) {
+	ret := _m.Called(ctx, sceneMarkerID)
+
+	var r0 []*models.Performer
+	if rf, ok := ret.Get(0).(func(context.Context, int) []*models.Performer); ok {
+		r0 = rf(ctx, sceneMarkerID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*models.Performer)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = rf(ctx, sceneMarkerID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindByStashID provides a mock function with given fields: ctx, stashID
 func (_m *PerformerReaderWriter) FindByStashID(ctx context.Context, stashID models.StashID) ([]*models.Performer, error) {
 	ret := _m.Called(ctx, stashID)

@@ -29,6 +29,8 @@ interface IMultiSegmentLoopControlsProps {
   onClearSegments: () => void;
   onJumpToSegment: (index: number) => void;
   onReorderSegment: (fromIndex: number, toIndex: number) => void;
+  onUpdateSegmentStart?: (id: string) => void;
+  onUpdateSegmentEnd?: (id: string) => void;
   collapsed?: boolean;
 }
 
@@ -44,6 +46,8 @@ export const MultiSegmentLoopControls: React.FC<IMultiSegmentLoopControlsProps> 
   onClearSegments,
   onJumpToSegment,
   onReorderSegment,
+  onUpdateSegmentStart,
+  onUpdateSegmentEnd,
   collapsed = true, // Default to collapsed
 }) => {
   const intl = useIntl();
@@ -219,7 +223,31 @@ export const MultiSegmentLoopControls: React.FC<IMultiSegmentLoopControlsProps> 
                 <div className="segment-info">
                   <span className="segment-number">{index + 1}.</span>
                   <span className="segment-times">
-                    {formatTime(segment.start)} - {formatTime(segment.end)}
+                    <span
+                      className={onUpdateSegmentStart ? "clickable-time" : ""}
+                      onClick={(e) => {
+                        if (onUpdateSegmentStart) {
+                          e.stopPropagation();
+                          onUpdateSegmentStart(segment.id);
+                        }
+                      }}
+                      title={onUpdateSegmentStart ? intl.formatMessage({ id: "multi_segment_loop.click_to_set_start" }) : undefined}
+                    >
+                      {formatTime(segment.start)}
+                    </span>
+                    {" - "}
+                    <span
+                      className={onUpdateSegmentEnd ? "clickable-time" : ""}
+                      onClick={(e) => {
+                        if (onUpdateSegmentEnd) {
+                          e.stopPropagation();
+                          onUpdateSegmentEnd(segment.id);
+                        }
+                      }}
+                      title={onUpdateSegmentEnd ? intl.formatMessage({ id: "multi_segment_loop.click_to_set_end" }) : undefined}
+                    >
+                      {formatTime(segment.end)}
+                    </span>
                   </span>
                   <span className="segment-duration">
                     ({formatTime(getSegmentDuration(segment))})

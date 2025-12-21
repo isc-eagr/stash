@@ -198,6 +198,8 @@ type PerformerFilterType struct {
 	GalleriesFilter *GalleryFilterType `json:"galleries_filter"`
 	// Filter by related tags that meet this criteria
 	TagsFilter *TagFilterType `json:"tags_filter"`
+	// Filter to only include performers that have at least one scene marker with all the selected tags
+	MarkerTags *HierarchicalMultiCriterionInput `json:"marker_tags"`
 	// Filter by created at
 	CreatedAt *TimestampCriterionInput `json:"created_at"`
 	// Filter by updated at

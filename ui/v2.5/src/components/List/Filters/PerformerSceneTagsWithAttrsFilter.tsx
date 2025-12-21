@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo } from "react";
 import { Button, Col, Form, Row } from "react-bootstrap";
-import Select, { components as selectComponents, OptionProps, SingleValueProps } from "react-select";
+import Select, { components as selectComponents, OptionProps, MultiValueProps } from "react-select";
 import { defineMessages, useIntl } from "react-intl";
 import { CriterionModifier } from "src/core/generated-graphql";
 import * as GQL from "src/core/generated-graphql";
@@ -74,7 +74,7 @@ const PerformerSceneTagsWithAttrsFilter: React.FC<{
   const countryOptions = useMemo(() => getCountries(locale) as { label: string; value: string }[], [locale]);
 
   // Custom option component with flag
-  const CountryOption: React.FC<OptionProps<{ label: string; value: string }, false>> = (optionProps) => {
+  const CountryOption: React.FC<OptionProps<{ label: string; value: string }, true>> = (optionProps) => {
     const { data } = optionProps;
     return (
       <selectComponents.Option {...optionProps}>
@@ -86,21 +86,21 @@ const PerformerSceneTagsWithAttrsFilter: React.FC<{
     );
   };
 
-  const CountrySingleValue: React.FC<SingleValueProps<{ label: string; value: string }, false>> = (props) => {
+  const CountryMultiValue: React.FC<MultiValueProps<{ label: string; value: string }, true>> = (props) => {
     const { data } = props;
     return (
-      <selectComponents.SingleValue {...props}>
+      <selectComponents.MultiValue {...props}>
         <div className="d-flex align-items-center">
           <CountryFlag country={data.value} />
-          <span style={{ marginLeft: '0.5rem' }}>{data.label}</span>
+          <span style={{ marginLeft: '0.25rem' }}>{data.label}</span>
         </div>
-      </selectComponents.SingleValue>
+      </selectComponents.MultiValue>
     );
   };
 
-  const onCountrySelect = (idx: number, v: { label: string; value: string } | null) => {
+  const onCountriesSelect = (idx: number, values: readonly { label: string; value: string }[]) => {
     const c = criterion.clone() as PerformerSceneTagsWithAttrsCriterion;
-    c.groups[idx] = { ...c.groups[idx], performer_country: v?.value ?? "" };
+    c.groups[idx] = { ...c.groups[idx], performer_countries: values.map(v => v.value), performer_country: undefined };
     setCriterion(c);
   };
 
@@ -111,9 +111,9 @@ const PerformerSceneTagsWithAttrsFilter: React.FC<{
     return (list as string[]).map((v) => ({ label: v, value: v }));
   }, [ethnicityData]);
 
-  const onEthnicitySelect = (idx: number, v: { label: string; value: string } | null) => {
+  const onEthnicitiesSelect = (idx: number, values: readonly { label: string; value: string }[]) => {
     const c = criterion.clone() as PerformerSceneTagsWithAttrsCriterion;
-    c.groups[idx] = { ...c.groups[idx], performer_ethnicity: v?.value ?? "" };
+    c.groups[idx] = { ...c.groups[idx], performer_ethnicities: values.map(v => v.value), performer_ethnicity: undefined };
     setCriterion(c);
   };
 
@@ -233,18 +233,18 @@ const PerformerSceneTagsWithAttrsFilter: React.FC<{
             </Col>
           </Row>
 
-          {/* Row 2: Country + Ethnicity */}
+          {/* Row 2: Country + Ethnicity (multi-select) */}
           <Row className="g-2 mt-2">
             <Col md={6}>
-              <Form.Label className="mb-1">Ethnicity</Form.Label>
+              <Form.Label className="mb-1">Ethnicities</Form.Label>
               <Select
                 classNamePrefix="react-select"
-                isMulti={false}
+                isMulti
                 isClearable
                 options={ethnicityOptions}
-                value={ethnicityOptions.find((o) => o.value === (g.performer_ethnicity ?? "")) || null}
-                placeholder="Ethnicity"
-                onChange={(val) => onEthnicitySelect(idx, val as { label: string; value: string } | null)}
+                value={ethnicityOptions.filter((o) => (g.performer_ethnicities ?? (g.performer_ethnicity ? [g.performer_ethnicity] : [])).includes(o.value))}
+                placeholder="Ethnicities (any)"
+                onChange={(val) => onEthnicitiesSelect(idx, val)}
                 components={{ IndicatorSeparator: null }}
                 menuPortalTarget={document.body}
               />
@@ -255,17 +255,17 @@ const PerformerSceneTagsWithAttrsFilter: React.FC<{
               </div>
             </Col>
             <Col md={6}>
-              <Form.Label className="mb-1">Country</Form.Label>
+              <Form.Label className="mb-1">Countries</Form.Label>
               <Select
                 classNamePrefix="react-select"
-                isMulti={false}
+                isMulti
                 isClearable
                 options={countryOptions}
-                value={countryOptions.find((o) => o.value === (g.performer_country ?? "")) || null}
-                placeholder="Country"
-                onChange={(val) => onCountrySelect(idx, val as { label: string; value: string } | null)}
+                value={countryOptions.filter((o) => (g.performer_countries ?? (g.performer_country ? [g.performer_country] : [])).includes(o.value))}
+                placeholder="Countries (any)"
+                onChange={(val) => onCountriesSelect(idx, val)}
                 menuPortalTarget={document.body}
-                components={{ IndicatorSeparator: null, Option: CountryOption, SingleValue: CountrySingleValue }}
+                components={{ IndicatorSeparator: null, Option: CountryOption, MultiValue: CountryMultiValue }}
               />
             </Col>
           </Row>

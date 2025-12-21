@@ -1347,6 +1347,56 @@ func (r *queryResolver) PerformerTagSceneCounts(ctx context.Context, performer_i
 	return result, nil
 }
 
+// EstimatedLiters calculates the estimated liters produced from orgasms.
+// Formula: orgasm count × 3ml (average volume per orgasm), converted to liters.
+func (r *queryResolver) EstimatedLiters(ctx context.Context) (float64, error) {
+	orgasmCount, err := r.SceneOrgasmCount(ctx)
+	if err != nil {
+		return 0, err
+	}
+	// 3ml per orgasm, convert to liters (divide by 1000)
+	return float64(orgasmCount) * 3.0 / 1000.0, nil
+}
+
+// TotalPenisMeters sums all performer penis lengths, using 17cm as default if missing.
+// Result is converted from cm to meters.
+func (r *queryResolver) TotalPenisMeters(ctx context.Context) (float64, error) {
+	var totalCm float64
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		// Sum penis lengths, using 17cm as default for performers without a value
+		query := "SELECT SUM(COALESCE(penis_length, 17)) FROM performers"
+		_, rows, err := db.QuerySQL(ctx, query, nil)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 && rows[0][0] != nil {
+			switch v := rows[0][0].(type) {
+			case float64:
+				totalCm = v
+			case int64:
+				totalCm = float64(v)
+			case int:
+				totalCm = float64(v)
+			case []byte:
+				f, _ := strconv.ParseFloat(string(v), 64)
+				totalCm = f
+			case string:
+				f, _ := strconv.ParseFloat(v, 64)
+				totalCm = f
+			default:
+				f, _ := strconv.ParseFloat(fmt.Sprint(v), 64)
+				totalCm = f
+			}
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	// Convert cm to meters
+	return totalCm / 100.0, nil
+}
+
 func firstError(errs []error) error {
 	for _, e := range errs {
 		if e != nil {

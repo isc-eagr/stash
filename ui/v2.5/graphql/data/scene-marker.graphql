@@ -20,6 +20,13 @@ fragment SceneMarkerData on SceneMarker {
     id
     name
   }
+
+  performers {
+    id
+    name
+    alias_list
+    disambiguation
+  }
 }
 
 fragment SceneMarkerSceneData on Scene {

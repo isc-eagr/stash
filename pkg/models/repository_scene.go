@@ -45,7 +45,7 @@ type SceneCounter interface {
 	CountMissingOSHash(ctx context.Context) (int, error)
 	OCountByPerformerID(ctx context.Context, performerID int) (int, error)
 	OCountByGroupID(ctx context.Context, groupID int) (int, error)
-	OCountByStudioID(ctx context.Context, studioID int) (int, error)
+	OCountByStudioID(ctx context.Context, studioID int, performerID *string) (int, error)
 }
 
 // SceneCreator provides methods to create scenes.

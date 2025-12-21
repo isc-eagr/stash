@@ -35,11 +35,12 @@ interface IStudioList {
   view?: View;
   alterQuery?: boolean;
   extraOperations?: IItemListOperation<GQL.FindStudiosQueryResult>[];
+  performerId?: string;
 }
 
 export const StudioList: React.FC<IStudioList> = PatchComponent(
   "StudioList",
-  ({ fromParent, filterHook, view, alterQuery, extraOperations = [] }) => {
+  ({ fromParent, filterHook, view, alterQuery, extraOperations = [], performerId }) => {
     const intl = useIntl();
     const history = useHistory();
     const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
@@ -141,6 +142,7 @@ export const StudioList: React.FC<IStudioList> = PatchComponent(
               fromParent={fromParent}
               selectedIds={selectedIds}
               onSelectChange={onSelectChange}
+              performerId={performerId}
             />
           );
         }

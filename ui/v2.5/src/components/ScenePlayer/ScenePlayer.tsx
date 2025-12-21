@@ -210,16 +210,25 @@ function handleHotkeys(player: VideoJsPlayer, event: videojs.KeyboardEvent) {
 type MarkerFragment = Pick<GQL.SceneMarker, "title" | "seconds"> & {
   primary_tag: Pick<GQL.Tag, "name">;
   tags: Array<Pick<GQL.Tag, "name">>;
+  performers?: Array<Pick<GQL.Performer, "name">>;
 };
 
 function getMarkerTitle(marker: MarkerFragment) {
+  let ret = "";
+  
   if (marker.title) {
-    return marker.title;
+    ret = marker.title;
+  } else {
+    ret = marker.primary_tag.name;
+    if (marker.tags.length) {
+      ret += `, ${marker.tags.map((t) => t.name).join(", ")}`;
+    }
   }
 
-  let ret = marker.primary_tag.name;
-  if (marker.tags.length) {
-    ret += `, ${marker.tags.map((t) => t.name).join(", ")}`;
+  // Append performer names if present
+  if (marker.performers && marker.performers.length > 0) {
+    const performerNames = marker.performers.map((p) => p.name).join(", ");
+    ret += ` [${performerNames}]`;
   }
 
   return ret;
@@ -423,6 +432,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             segments: [],
             enabled: false,
             currentSegmentIndex: 0,
+            createButton: uiConfig?.showMultiSegmentLoopControls ?? false,
           },
           mediaSession: {},
           wakeSentinel: {},
@@ -576,6 +586,34 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       if (!multiSegmentPlugin) return;
       
       multiSegmentPlugin.reorderSegment(fromIndex, toIndex);
+    }, [getPlayer]);
+
+    const handleMultiSegmentUpdateStart = useCallback((id: string) => {
+      const player = getPlayer();
+      if (!player) return;
+      
+      const multiSegmentPlugin = player.multiSegmentLoop?.() as MultiSegmentLoopPlugin | undefined;
+      if (!multiSegmentPlugin) return;
+      
+      const currentTime = player.currentTime() || 0;
+      const segment = multiSegmentPlugin.getSegments().find(s => s.id === id);
+      if (!segment) return;
+      
+      multiSegmentPlugin.updateSegment(id, currentTime, segment.end);
+    }, [getPlayer]);
+
+    const handleMultiSegmentUpdateEnd = useCallback((id: string) => {
+      const player = getPlayer();
+      if (!player) return;
+      
+      const multiSegmentPlugin = player.multiSegmentLoop?.() as MultiSegmentLoopPlugin | undefined;
+      if (!multiSegmentPlugin) return;
+      
+      const currentTime = player.currentTime() || 0;
+      const segment = multiSegmentPlugin.getSegments().find(s => s.id === id);
+      if (!segment) return;
+      
+      multiSegmentPlugin.updateSegment(id, segment.start, currentTime);
     }, [getPlayer]);
 
     useEffect(() => {
@@ -1163,6 +1201,8 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             onClearSegments={handleMultiSegmentClear}
             onJumpToSegment={handleMultiSegmentJumpTo}
             onReorderSegment={handleMultiSegmentReorder}
+            onUpdateSegmentStart={handleMultiSegmentUpdateStart}
+            onUpdateSegmentEnd={handleMultiSegmentUpdateEnd}
           />
         )}
       </div>

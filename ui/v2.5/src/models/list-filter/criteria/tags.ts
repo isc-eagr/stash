@@ -69,6 +69,12 @@ export const PerformerSceneTagsCriterionOption = new BaseTagsCriterionOption(
   withoutEqualsModifierOptions
 );
 
+export const MarkerTagsCriterionOption = new BaseTagsCriterionOption(
+  "marker_tags",
+  "marker_tags",
+  defaultModifierOptions
+);
+
 // Criterion option for the compact performer+tag pair input
 export const PerformerSceneTagPairCriterionOption = new CriterionOption({
   messageID: "performer_scene_tag_pair",
@@ -78,9 +84,24 @@ export const PerformerSceneTagPairCriterionOption = new CriterionOption({
 });
 
 // Scene Marker Tags use grouped semantics for EQUALS (IS). Allow EQUALS here.
+// Supports extended groups with performer attributes (IDs, countries, ethnicities, rating)
+export type SceneMarkerTagGroupUI = {
+  tags?: ILabeledId[];
+  performer_ids?: ILabeledId[];
+  performer_countries?: string[];
+  performer_ethnicities?: string[];
+  performer_rating?: {
+    modifier: CriterionModifier;
+    value: number;
+    value2?: number;
+  } | null;
+};
+
 export class SceneMarkerTagsCriterion extends Criterion {
-  // groups used when modifier = EQUALS
+  // groups used when modifier = EQUALS (legacy simple tag-only groups)
   public groups: ILabeledId[][] = [];
+  // extended groups with performer attributes
+  public extendedGroups: SceneMarkerTagGroupUI[] = [];
   // flat items used when modifier = INCLUDES / INCLUDES_ALL
   public items: ILabeledId[] = [];
   public modifier: CriterionModifier = CriterionModifier.Equals;
@@ -91,7 +112,31 @@ export class SceneMarkerTagsCriterion extends Criterion {
 
   public cloneValues() {
     this.groups = this.groups.map((g) => g.map((v) => ({ ...v })));
+    this.extendedGroups = this.extendedGroups.map((g) => ({
+      tags: g.tags ? g.tags.map((t) => ({ ...t })) : undefined,
+      performer_ids: g.performer_ids ? g.performer_ids.map((p) => ({ ...p })) : undefined,
+      performer_countries: g.performer_countries ? [...g.performer_countries] : undefined,
+      performer_ethnicities: g.performer_ethnicities ? [...g.performer_ethnicities] : undefined,
+      performer_rating: g.performer_rating
+        ? {
+            modifier: g.performer_rating.modifier,
+            value: g.performer_rating.value,
+            value2: g.performer_rating.value2,
+          }
+        : null,
+    }));
     this.items = this.items.map((v) => ({ ...v }));
+  }
+
+  // Check if extended groups have any performer attributes set
+  private hasExtendedGroupAttrs(): boolean {
+    return this.extendedGroups.some(
+      (g) =>
+        (g.performer_ids?.length ?? 0) > 0 ||
+        (g.performer_countries?.length ?? 0) > 0 ||
+        (g.performer_ethnicities?.length ?? 0) > 0 ||
+        g.performer_rating != null
+    );
   }
 
   public getLabel(intl: IntlShape): string {
@@ -103,9 +148,34 @@ export class SceneMarkerTagsCriterion extends Criterion {
       this.modifier === CriterionModifier.Equals ||
       this.modifier === CriterionModifier.NotEquals
     ) {
-      valueString = this.groups
-        .map((g) => `(${g.map((v) => v.label).join(" + ")})`)
-        .join("; ");
+      // Use extendedGroups if they have performer attributes, otherwise use simple groups
+      if (this.hasExtendedGroupAttrs()) {
+        valueString = this.extendedGroups
+          .map((g) => {
+            const parts: string[] = [];
+            if (g.tags?.length) parts.push(g.tags.map((t) => t.label).join(" + "));
+            if (g.performer_ids?.length) parts.push(`performers=${g.performer_ids.map((p) => p.label).join(",")}`);
+            if (g.performer_countries?.length) parts.push(`country=${g.performer_countries.join(",")}`);
+            if (g.performer_ethnicities?.length) parts.push(`ethnicity=${g.performer_ethnicities.join(",")}`);
+            if (g.performer_rating) {
+              const mod = ModifierCriterion.getModifierLabel(intl, g.performer_rating.modifier);
+              if (
+                g.performer_rating.modifier === CriterionModifier.Between ||
+                g.performer_rating.modifier === CriterionModifier.NotBetween
+              ) {
+                parts.push(`rating ${mod} ${g.performer_rating.value}..${g.performer_rating.value2 ?? ""}`);
+              } else {
+                parts.push(`rating ${mod} ${g.performer_rating.value}`);
+              }
+            }
+            return `(${parts.join(" ")})`;
+          })
+          .join("; ");
+      } else {
+        valueString = this.groups
+          .map((g) => `(${g.map((v) => v.label).join(" + ")})`)
+          .join("; ");
+      }
     } else if (
       this.modifier !== CriterionModifier.IsNull &&
       this.modifier !== CriterionModifier.NotNull
@@ -132,7 +202,24 @@ export class SceneMarkerTagsCriterion extends Criterion {
         this.modifier === CriterionModifier.Equals ||
         this.modifier === CriterionModifier.NotEquals
       ) {
-        base.groups = this.groups.map((g) => g.map((v) => v.id));
+        // Use extendedGroups if they have performer attributes
+        if (this.hasExtendedGroupAttrs()) {
+          base.extendedGroups = this.extendedGroups.map((g) => ({
+            tags: g.tags?.map((t) => ({ id: t.id, label: t.label })),
+            performer_ids: g.performer_ids?.map((p) => ({ id: p.id, label: p.label })),
+            performer_countries: g.performer_countries?.length ? g.performer_countries : undefined,
+            performer_ethnicities: g.performer_ethnicities?.length ? g.performer_ethnicities : undefined,
+            performer_rating: g.performer_rating
+              ? {
+                  modifier: g.performer_rating.modifier,
+                  value: g.performer_rating.value,
+                  value2: g.performer_rating.value2,
+                }
+              : undefined,
+          }));
+        } else {
+          base.groups = this.groups.map((g) => g.map((v) => v.id));
+        }
       } else {
         base.value = this.items.map((v) => v.id);
       }
@@ -146,17 +233,41 @@ export class SceneMarkerTagsCriterion extends Criterion {
         modifier?: CriterionModifier;
         value?: string[] | { groups?: string[][] };
         groups?: string[][];
+        extendedGroups?: Array<{
+          tags?: Array<{ id: string; label: string }>;
+          performer_ids?: Array<{ id: string; label: string }>;
+          performer_countries?: string[];
+          performer_ethnicities?: string[];
+          performer_rating?: { modifier: CriterionModifier; value: number; value2?: number };
+        }>;
       };
       if (raw.modifier) this.modifier = raw.modifier;
-      const groupIds = (raw.groups as string[][]) ?? undefined;
-      const valueIds = (raw.value as string[]) ?? undefined;
-      if (
-        this.modifier === CriterionModifier.Equals ||
-        this.modifier === CriterionModifier.NotEquals
-      ) {
-        this.groups = (groupIds ?? []).map((g) => g.map((id) => ({ id, label: id })));
-      } else if (valueIds) {
-        this.items = valueIds.map((id) => ({ id, label: id }));
+      
+      if (raw.extendedGroups) {
+        this.extendedGroups = raw.extendedGroups.map((g) => ({
+          tags: g.tags?.map((t) => ({ id: t.id, label: t.label })),
+          performer_ids: g.performer_ids?.map((p) => ({ id: p.id, label: p.label })),
+          performer_countries: g.performer_countries,
+          performer_ethnicities: g.performer_ethnicities,
+          performer_rating: g.performer_rating ?? null,
+        }));
+        // Sync tags to simple groups for backwards compatibility
+        this.groups = this.extendedGroups
+          .filter((g) => g.tags?.length)
+          .map((g) => g.tags!.map((t) => ({ id: t.id, label: t.label })));
+      } else {
+        const groupIds = (raw.groups as string[][]) ?? undefined;
+        const valueIds = (raw.value as string[]) ?? undefined;
+        if (
+          this.modifier === CriterionModifier.Equals ||
+          this.modifier === CriterionModifier.NotEquals
+        ) {
+          this.groups = (groupIds ?? []).map((g) => g.map((id) => ({ id, label: id })));
+          // Sync to extendedGroups
+          this.extendedGroups = this.groups.map((g) => ({ tags: g }));
+        } else if (valueIds) {
+          this.items = valueIds.map((id) => ({ id, label: id }));
+        }
       }
     } catch {
       // ignore
@@ -176,10 +287,32 @@ export class SceneMarkerTagsCriterion extends Criterion {
       this.modifier === CriterionModifier.Equals ||
       this.modifier === CriterionModifier.NotEquals
     ) {
-      input[this.criterionOption.type] = {
-        modifier: this.modifier,
-        groups: this.groups.map((g) => g.map((v) => v.id)),
-      };
+      // Use groups_extended if any performer attributes are set
+      if (this.hasExtendedGroupAttrs()) {
+        input[this.criterionOption.type] = {
+          modifier: this.modifier,
+          groups_extended: this.extendedGroups
+            .filter((g) => (g.tags?.length ?? 0) > 0 || (g.performer_ids?.length ?? 0) > 0 || (g.performer_countries?.length ?? 0) > 0 || (g.performer_ethnicities?.length ?? 0) > 0 || g.performer_rating != null)
+            .map((g) => ({
+              tag_ids: g.tags?.map((t) => t.id) ?? [],
+              performer_ids: g.performer_ids?.map((p) => p.id) ?? undefined,
+              performer_countries: g.performer_countries?.length ? g.performer_countries : undefined,
+              performer_ethnicities: g.performer_ethnicities?.length ? g.performer_ethnicities : undefined,
+              performer_rating: g.performer_rating
+                ? {
+                    modifier: g.performer_rating.modifier,
+                    value: g.performer_rating.value,
+                    value2: g.performer_rating.value2,
+                  }
+                : undefined,
+            })),
+        };
+      } else {
+        input[this.criterionOption.type] = {
+          modifier: this.modifier,
+          groups: this.groups.map((g) => g.map((v) => v.id)),
+        };
+      }
     } else {
       input[this.criterionOption.type] = {
         modifier: this.modifier,
@@ -199,20 +332,44 @@ export class SceneMarkerTagsCriterion extends Criterion {
         modifier: CriterionModifier;
         value?: string[];
         groups?: string[][];
+        groups_extended?: Array<{
+          tag_ids?: string[];
+          performer_ids?: string[];
+          performer_countries?: string[];
+          performer_ethnicities?: string[];
+          performer_rating?: { modifier: CriterionModifier; value: number; value2?: number };
+        }>;
       };
       this.modifier = c.modifier;
       if (
         this.modifier === CriterionModifier.Equals ||
         this.modifier === CriterionModifier.NotEquals
       ) {
-        this.groups = (c.groups ?? []).map((g) => g.map((id) => ({ id, label: id })));
+        if (c.groups_extended) {
+          this.extendedGroups = c.groups_extended.map((g) => ({
+            tags: g.tag_ids?.map((id) => ({ id, label: id })),
+            performer_ids: g.performer_ids?.map((id) => ({ id, label: id })),
+            performer_countries: g.performer_countries,
+            performer_ethnicities: g.performer_ethnicities,
+            performer_rating: g.performer_rating ?? null,
+          }));
+          // Sync to simple groups
+          this.groups = this.extendedGroups
+            .filter((g) => g.tags?.length)
+            .map((g) => g.tags!.map((t) => ({ id: t.id, label: t.label })));
+        } else {
+          this.groups = (c.groups ?? []).map((g) => g.map((id) => ({ id, label: id })));
+          this.extendedGroups = this.groups.map((g) => ({ tags: g }));
+        }
         this.items = [];
       } else if (c.value) {
         this.items = c.value.map((id) => ({ id, label: id }));
         this.groups = [];
+        this.extendedGroups = [];
       } else {
         this.items = [];
         this.groups = [];
+        this.extendedGroups = [];
       }
     } catch {
       // ignore
