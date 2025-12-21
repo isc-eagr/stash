@@ -213,6 +213,18 @@ textarea.scene-description {
     max-height: 15rem;
     overflow-y: auto;
   }
+
+  &-tall {
+    .primary-card-body {
+      max-height: 40rem;
+    }
+
+    .primary-card-header {
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+      }
+    }
+  }
 }
 
 .justify-content-center .studio-card .studio-card-image {

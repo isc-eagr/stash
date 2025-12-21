@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Tabs, Tab, Col, Row, Button } from "react-bootstrap";
+import { Tabs, Tab, Col, Row } from "react-bootstrap";
 import { useIntl } from "react-intl";
 import { useHistory, Redirect, RouteComponentProps } from "react-router-dom";
 import { Helmet } from "react-helmet";
@@ -99,6 +99,24 @@ const PerformerTabs: React.FC<{
     },
   });
   const sceneTagsCount = sceneTagsData?.findTags.count ?? 0;
+
+  // fetch count of studios where this performer has scenes
+  const { data: studiosData } = GQL.useFindStudiosQuery({
+    variables: {
+      studio_filter: {
+        scenes_filter: {
+          performers: {
+            modifier: GQL.CriterionModifier.Includes,
+            value: [performer.id],
+          },
+        },
+      },
+      // no need to fetch actual studios here; we only use the count
+      filter: { per_page: 1 },
+    },
+  });
+  const studiosCount = studiosData?.findStudios.count ?? 0;
+
   const populatedDefaultTab = useMemo(() => {
     let ret: TabKey = "scenes";
     if (performer.scene_count == 0) {
@@ -237,7 +255,13 @@ const PerformerTabs: React.FC<{
       </Tab>
       <Tab
         eventKey="studios"
-        title="Studios"
+        title={
+          <TabTitleCounter
+            messageID="studios"
+            count={studiosCount}
+            abbreviateCounter={abbreviateCounter}
+          />
+        }
       >
         <PerformerStudiosPanel
           active={tabKey === "studios"}
@@ -261,8 +285,8 @@ const PerformerHeaderImage: React.FC<IPerformerHeaderImageProps> =
     "PerformerHeaderImage",
     ({ encodingImage, activeImage, lightboxImages, performer }) => {
       return (
-        <>
-          <HeaderImage encodingImage={encodingImage}>
+        <HeaderImage encodingImage={encodingImage}>
+          <div className="d-flex flex-column align-items-center">
             {!!activeImage && (
               <LightboxLink images={lightboxImages}>
                 <DetailImage
@@ -272,9 +296,9 @@ const PerformerHeaderImage: React.FC<IPerformerHeaderImageProps> =
                 />
               </LightboxLink>
             )}
-          </HeaderImage>
-          <PerformerCategoryStrip performer={performer} />
-        </>
+            <PerformerCategoryStrip performer={performer} />
+          </div>
+        </HeaderImage>
       );
     }
   );

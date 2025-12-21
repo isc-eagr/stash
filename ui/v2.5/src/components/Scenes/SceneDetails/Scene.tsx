@@ -54,8 +54,12 @@ import { lazyComponent } from "src/utils/lazyComponent";
 import cx from "classnames";
 import { TruncatedText } from "src/components/Shared/TruncatedText";
 import { PatchComponent, PatchContainerComponent } from "src/patch";
-import { goBackOrReplace } from "src/utils/history";
 import { FormattedDate } from "src/components/Shared/Date";
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
+import type {
+  IMultiSegmentLoopApi,
+  ILoopSegmentInput,
+} from "src/components/ScenePlayer/multi-segment-loop";
 
 const SubmitStashBoxDraft = lazyComponent(
   () => import("src/components/Dialogs/SubmitDraft")
@@ -139,6 +143,7 @@ const VideoFrameRateResolution: React.FC<{
 interface IProps {
   scene: GQL.SceneDataFragment;
   setTimestamp: (num: number) => void;
+  addMultiSegmentLoopSegments: (segments: ILoopSegmentInput[]) => void;
   queueScenes: QueuedScene[];
   onQueueNext: () => void;
   onQueuePrevious: () => void;
@@ -168,6 +173,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const {
     scene,
     setTimestamp,
+    addMultiSegmentLoopSegments,
     queueScenes,
     onQueueNext,
     onQueuePrevious,
@@ -537,6 +543,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               sceneId={scene.id}
               onClickMarker={onClickMarker}
               isVisible={activeTabKey === "scene-markers-panel"}
+              addMultiSegmentLoopSegments={addMultiSegmentLoopSegments}
             />
           </Tab.Pane>
           <Tab.Pane eventKey="scene-group-panel">
@@ -588,6 +595,24 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
   // Determine which icon to show based on scene tags (highest precedence: straight) and performer_scene_tags
   const iconToShow = useMemo(() => {
+    type SceneIconToShow =
+      | {
+          type: "straight" | "gay" | "mouth";
+          className: string;
+          title: string;
+        }
+      | {
+          type: "hand";
+          icon: IconDefinition;
+          className: string;
+          title: string;
+        }
+      | null;
+
+    type PerformerWithSceneTags = {
+      scene_tags?: Array<{ id: string; name: string }>;
+    };
+
     // Highest precedence: straight tag at scene.tags
     const cfg = configuration?.ui?.sceneTagAliases ?? {};
     const tagStraight = (cfg.straight ?? "straight").toLowerCase();
@@ -597,7 +622,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
         type: "straight",
         className: "scene-straight-icon",
         title: "Scene contains straight tag",
-      } as const;
+      } as SceneIconToShow;
     }
 
     if (!scene.performers || scene.performers.length === 0) return null;
@@ -606,7 +631,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
     // Collect all unique tag names from performer_scene_tags
     for (const p of scene.performers) {
-      const sceneTags = (p as any).scene_tags as Array<{ id: string; name: string }> | undefined;
+      const sceneTags = (p as unknown as PerformerWithSceneTags).scene_tags;
       if (sceneTags) {
         for (const tag of sceneTags) {
           if (tag?.name) {
@@ -633,18 +658,18 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     // Highest precedence: gay icon if Top and/or Bottom present
     if (hasTopTag || hasBottomTag) {
       return {
-        type: 'gay',
+        type: "gay",
         className: "scene-gay-icon",
         title: "Scene contains top/bottom tags",
-      };
+      } as SceneIconToShow;
     }
 
     if ((hasOralBottomTag || hasOralTopTag) && !hasTopTag && !hasBottomTag) {
       return {
-        type: 'mouth',
+        type: "mouth",
         className: "scene-mouth-icon",
         title: "Scene contains oral tags",
-      };
+      } as SceneIconToShow;
     }
 
     // Check for hand icon conditions (secondary)
@@ -652,15 +677,15 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
     if (hasSoloTag && !hasTopTag && !hasBottomTag && !hasOralBottomTag && !hasOralTopTag) {
       return {
-        type: 'hand',
+        type: "hand",
         icon: faHand,
         className: "scene-hand-icon",
         title: "Scene contains solo tags"
-      };
+      } as SceneIconToShow;
     }
 
     return null;
-  }, [scene.performers, configuration?.ui]);
+  }, [scene.performers, scene.tags, configuration?.ui]);
 
   return (
     <>
@@ -689,34 +714,34 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             )}
             <h3 className={cx("scene-header", { "no-studio": !scene.studio })}>
               <span style={{ display: 'flex', alignItems: 'center' }}>
-                {iconToShow && ((iconToShow as any).type === 'mouth' ? (
+                {iconToShow?.type === "mouth" ? (
                   <img
                     src={mouthSvg}
-                    alt={(iconToShow as any).title || 'Open Mouth'}
-                    title={(iconToShow as any).title}
-                    className={(iconToShow as any).className}
+                    alt={iconToShow.title}
+                    title={iconToShow.title}
+                    className={iconToShow.className}
                   />
-                ) : (iconToShow as any).type === 'gay' ? (
+                ) : iconToShow?.type === "gay" ? (
                   <img
                     src={gaySvg}
-                    alt={(iconToShow as any).title || 'Gay'}
-                    title={(iconToShow as any).title}
-                    className={(iconToShow as any).className}
+                    alt={iconToShow.title}
+                    title={iconToShow.title}
+                    className={iconToShow.className}
                   />
-                ) : (iconToShow as any).type === 'straight' ? (
+                ) : iconToShow?.type === "straight" ? (
                   <img
                     src={straightSvg}
-                    alt={(iconToShow as any).title || 'Straight'}
-                    title={(iconToShow as any).title}
-                    className={(iconToShow as any).className}
+                    alt={iconToShow.title}
+                    title={iconToShow.title}
+                    className={iconToShow.className}
                   />
-                ) : (
+                ) : iconToShow?.type === "hand" ? (
                   <Icon
-                    icon={(iconToShow as any).icon!}
-                    className={(iconToShow as any).className}
-                    title={(iconToShow as any).title}
+                    icon={iconToShow.icon}
+                    className={iconToShow.className}
+                    title={iconToShow.title}
                   />
-                ))}
+                ) : null}
                 <TruncatedText lineCount={2} text={title} />
               </span>
             </h3>
@@ -832,6 +857,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
   );
 
   const _setTimestamp = useRef<(value: number) => void>();
+  const _multiSegmentLoopApi = useRef<IMultiSegmentLoopApi | null>(null);
   const initialTimestamp = useMemo(() => {
     const t = queryParams.get("t");
     if (!t) return 0;
@@ -855,6 +881,14 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
 
   function getSetTimestamp(fn: (value: number) => void) {
     _setTimestamp.current = fn;
+  }
+
+  function getMultiSegmentLoopApi(api: IMultiSegmentLoopApi) {
+    _multiSegmentLoopApi.current = api;
+  }
+
+  function addMultiSegmentLoopSegments(segments: ILoopSegmentInput[]) {
+    _multiSegmentLoopApi.current?.addSegments(segments);
   }
 
   function setTimestamp(value: number) {
@@ -1053,6 +1087,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
       <ScenePage
         scene={scene}
         setTimestamp={setTimestamp}
+        addMultiSegmentLoopSegments={addMultiSegmentLoopSegments}
         queueScenes={queueScenes}
         queueStart={queueStart}
         onDelete={onDelete}
@@ -1077,6 +1112,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
           permitLoop={!continuePlaylist}
           initialTimestamp={initialTimestamp}
           sendSetTimestamp={getSetTimestamp}
+          sendMultiSegmentLoopApi={getMultiSegmentLoopApi}
           onComplete={onComplete}
           onNext={() => queueNext(true)}
           onPrevious={() => queuePrevious(true)}

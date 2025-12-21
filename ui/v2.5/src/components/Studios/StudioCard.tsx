@@ -26,6 +26,8 @@ interface PerformerStudioStats {
   solo_scene_count: number;
   facial_scene_count: number;
   group_count: number;
+  image_count: number;
+  gallery_count: number;
   o_counter: number | null | undefined;
 }
 
@@ -139,6 +141,8 @@ export const StudioCard: React.FC<IProps> = ({
       solo_scene_count: s.solo_scene_count,
       facial_scene_count: s.facial_scene_count,
       group_count: s.group_count,
+      image_count: s.image_count,
+      gallery_count: s.gallery_count,
       o_counter: s.o_counter,
     };
   }, [performerId, performerStatsData]);
@@ -384,27 +388,37 @@ export const StudioCard: React.FC<IProps> = ({
   }
 
   function maybeRenderImagesPopoverButton() {
-    if (!studio.image_count) return;
+    const count = performerStats?.image_count ?? studio.image_count;
+    if (!count) return;
+
+    const url = performerId
+      ? NavUtils.makePerformerStudioImagesUrl(performerId, studio)
+      : NavUtils.makeStudioImagesUrl(studio);
 
     return (
       <PopoverCountButton
         className="image-count"
         type="image"
-        count={studio.image_count}
-        url={NavUtils.makeStudioImagesUrl(studio)}
+        count={count}
+        url={url}
       />
     );
   }
 
   function maybeRenderGalleriesPopoverButton() {
-    if (!studio.gallery_count) return;
+    const count = performerStats?.gallery_count ?? studio.gallery_count;
+    if (!count) return;
+
+    const url = performerId
+      ? NavUtils.makePerformerStudioGalleriesUrl(performerId, studio)
+      : NavUtils.makeStudioGalleriesUrl(studio);
 
     return (
       <PopoverCountButton
         className="gallery-count"
         type="gallery"
-        count={studio.gallery_count}
-        url={NavUtils.makeStudioGalleriesUrl(studio)}
+        count={count}
+        url={url}
       />
     );
   }

@@ -457,6 +457,7 @@ An enhanced looping system for the scene player that allows you to define multip
 5. Repeat to add more segments
 6. Use "Loop On" to start playing through all segments in sequence
 7. Segments can be reordered with up/down arrows, removed individually, or cleared entirely
+8. From a scene's Markers tab (`/scenes/<id>` > Markers), select one or more markers and click "Add to Multi-Segment Loop" to append them as segments
 
 ### Files Created
 - `ui/v2.5/src/components/ScenePlayer/multi-segment-loop.ts` - VideoJS plugin for multi-segment looping
@@ -469,6 +470,9 @@ An enhanced looping system for the scene player that allows you to define multip
 - `ui/v2.5/src/components/Settings/SettingsInterfacePanel/SettingsInterfacePanel.tsx` - Setting toggle
 - `ui/v2.5/src/core/config.ts` - Config option type
 - `ui/v2.5/src/locales/en-GB.json` - Locale strings
+- `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx` - Plumbs Multi-Segment Loop API to the Markers tab
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkersPanel.tsx` - Marker selection UI + "Add to Multi-Segment Loop" action
+- `ui/v2.5/src/components/Scenes/SceneDetails/PrimaryTags.tsx` - Per-marker and per-card (tag) selection checkboxes
 
 ### Features
 - Add unlimited segments with start/end times

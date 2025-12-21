@@ -6,6 +6,14 @@ export interface ILoopSegment {
   end: number;
 }
 
+export type ILoopSegmentInput = Omit<ILoopSegment, "id">;
+
+export interface IMultiSegmentLoopApi {
+  addSegments: (segments: ILoopSegmentInput[]) => void;
+  setSegments: (segments: ILoopSegmentInput[]) => void;
+  clearSegments: () => void;
+}
+
 export interface IMultiSegmentLoopOptions {
   segments: ILoopSegment[];
   enabled: boolean;
@@ -32,7 +40,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   // Timeline visualization elements
   private segmentMarkers: Map<string, HTMLDivElement> = new Map();
   private pendingMarker: HTMLDivElement | null = null;
-  private controlButton: any = null;
+  private controlButton: { updateState?: () => void } | null = null;
 
   // Callback references for external listeners
   private onSegmentsChange?: (segments: ILoopSegment[]) => void;
@@ -539,7 +547,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     const plugin = this;
     
     class MultiSegmentLoopButton extends Button {
-      constructor(player: VideoJsPlayer, options: any) {
+      constructor(player: VideoJsPlayer, options: Record<string, unknown>) {
         super(player, options);
         this.controlText("Multi-Segment Loop");
         this.addClass("vjs-multi-segment-loop-button");
@@ -585,9 +593,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
    * Update control button state (called when enabled or segments change)
    */
   private updateControlButton(): void {
-    if (this.controlButton && typeof this.controlButton.updateState === 'function') {
-      this.controlButton.updateState();
-    }
+    this.controlButton?.updateState?.();
   }
 
   dispose(): void {

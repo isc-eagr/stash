@@ -55,7 +55,7 @@ import goateeSvg from "src/assets/goatee.svg";
 // Multi-segment loop plugin
 import "./multi-segment-loop";
 import type MultiSegmentLoopPlugin from "./multi-segment-loop";
-import type { ILoopSegment } from "./multi-segment-loop";
+import type { ILoopSegment, ILoopSegmentInput, IMultiSegmentLoopApi } from "./multi-segment-loop";
 import { MultiSegmentLoopControls } from "./MultiSegmentLoopControls";
 
 // register videojs plugins
@@ -241,6 +241,7 @@ interface IScenePlayerProps {
   permitLoop?: boolean;
   initialTimestamp: number;
   sendSetTimestamp: (setTimestamp: (value: number) => void) => void;
+  sendMultiSegmentLoopApi?: (api: IMultiSegmentLoopApi) => void;
   onComplete: () => void;
   onNext: () => void;
   onPrevious: () => void;
@@ -255,6 +256,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     permitLoop = true,
     initialTimestamp: _initialTimestamp,
     sendSetTimestamp,
+    sendMultiSegmentLoopApi,
     onComplete,
     onNext,
     onPrevious,
@@ -354,6 +356,61 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         }
       });
     }, [sendSetTimestamp, getPlayer]);
+
+    useEffect(() => {
+      if (!sendMultiSegmentLoopApi) return;
+
+      sendMultiSegmentLoopApi({
+        addSegments: (segments: ILoopSegmentInput[]) => {
+          const player = getPlayer();
+          if (!player) return;
+
+          const multiSegmentPlugin = player.multiSegmentLoop?.() as
+            | MultiSegmentLoopPlugin
+            | undefined;
+          if (!multiSegmentPlugin) return;
+
+          segments.forEach((s) => {
+            const { start, end: endRaw } = s;
+            const end = endRaw > start ? endRaw : start + 1;
+            multiSegmentPlugin.addSegment(start, end);
+          });
+        },
+        setSegments: (segments: ILoopSegmentInput[]) => {
+          const player = getPlayer();
+          if (!player) return;
+
+          const multiSegmentPlugin = player.multiSegmentLoop?.() as
+            | MultiSegmentLoopPlugin
+            | undefined;
+          if (!multiSegmentPlugin) return;
+
+          const normalized: ILoopSegmentInput[] = segments.map((s) => ({
+            start: s.start,
+            end: s.end > s.start ? s.end : s.start + 1,
+          }));
+
+          multiSegmentPlugin.setSegments(
+            normalized.map((s) => ({
+              id: `imported_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+              start: s.start,
+              end: s.end,
+            }))
+          );
+        },
+        clearSegments: () => {
+          const player = getPlayer();
+          if (!player) return;
+
+          const multiSegmentPlugin = player.multiSegmentLoop?.() as
+            | MultiSegmentLoopPlugin
+            | undefined;
+          if (!multiSegmentPlugin) return;
+
+          multiSegmentPlugin.clearSegments();
+        },
+      });
+    }, [sendMultiSegmentLoopApi, getPlayer]);
 
     // Initialize VideoJS player
     useEffect(() => {
@@ -499,7 +556,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         setMultiSegmentEnabled(enabled);
       });
       
-      multiSegmentPlugin.setOnCurrentSegmentChange((index, _segment) => {
+      multiSegmentPlugin.setOnCurrentSegmentChange((index) => {
         setCurrentSegmentIndex(index);
       });
       
@@ -1133,21 +1190,24 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
 
     // Determine if the scene has any facial tags (facialgiven/facialreceived/selffacial)
     const hasFacial = useMemo(() => {
+      type PerformerWithSceneTags = {
+        scene_tags?: Array<{ id: string; name: string }>;
+      };
+
       const performers = scene.performers ?? [];
       if (performers.length === 0) return false;
       const allTags = new Set<string>();
       for (const p of performers) {
-        const sceneTags = (p as any).scene_tags as Array<{
-          id: string;
-          name: string;
-        }> | undefined;
+        const sceneTags = (p as unknown as PerformerWithSceneTags).scene_tags;
         if (sceneTags) {
           for (const tag of sceneTags) {
             if (tag?.name) allTags.add((tag.name || "").toLowerCase());
           }
         }
       }
-      const cfg = (configuration?.ui as any)?.sceneTagAliases ?? {};
+      const cfg =
+        (configuration?.ui as unknown as { sceneTagAliases?: Record<string, string> } | undefined)
+          ?.sceneTagAliases ?? {};
       const tagFacialGiven = (cfg.facialgiven ?? "facialgiven").toLowerCase();
       const tagFacialReceived = (cfg.facialreceived ?? "facialreceived").toLowerCase();
       const tagSelfFacial = (cfg.selffacial ?? "selffacial").toLowerCase();

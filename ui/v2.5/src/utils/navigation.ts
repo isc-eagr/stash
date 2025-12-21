@@ -894,6 +894,54 @@ const makePerformerStudioGroupsUrl = (
   return `/groups?${filter.makeQueryParameters()}`;
 };
 
+const makePerformerStudioImagesUrl = (
+  performerId: string,
+  studio: Partial<GQL.StudioDataFragment>
+) => {
+  if (!studio.id) return "#";
+  const filter = new ListFilterModel(GQL.FilterMode.Images, undefined);
+  
+  // Add performer criterion
+  const performerCriterion = new PerformersCriterion();
+  performerCriterion.value.items = [{ id: performerId, label: `Performer ${performerId}` }];
+  filter.criteria.push(performerCriterion);
+  
+  // Add studio criterion
+  const studioCriterion = new StudiosCriterion();
+  studioCriterion.value = {
+    items: [{ id: studio.id, label: studio.name || `Studio ${studio.id}` }],
+    excluded: [],
+    depth: 0,
+  };
+  filter.criteria.push(studioCriterion);
+  
+  return `/images?${filter.makeQueryParameters()}`;
+};
+
+const makePerformerStudioGalleriesUrl = (
+  performerId: string,
+  studio: Partial<GQL.StudioDataFragment>
+) => {
+  if (!studio.id) return "#";
+  const filter = new ListFilterModel(GQL.FilterMode.Galleries, undefined);
+  
+  // Add performer criterion
+  const performerCriterion = new PerformersCriterion();
+  performerCriterion.value.items = [{ id: performerId, label: `Performer ${performerId}` }];
+  filter.criteria.push(performerCriterion);
+  
+  // Add studio criterion
+  const studioCriterion = new StudiosCriterion();
+  studioCriterion.value = {
+    items: [{ id: studio.id, label: studio.name || `Studio ${studio.id}` }],
+    excluded: [],
+    depth: 0,
+  };
+  filter.criteria.push(studioCriterion);
+  
+  return `/galleries?${filter.makeQueryParameters()}`;
+};
+
 const makeStudioPerformersUrl = (studio: Partial<GQL.StudioDataFragment>) => {
   if (!studio.id) return "#";
   const filter = new ListFilterModel(GQL.FilterMode.Performers, undefined);
@@ -1417,6 +1465,8 @@ const NavUtils = {
   makeStudioGalleriesUrl,
   makeStudioGroupsUrl: makeStudioGroupsUrl,
   makePerformerStudioGroupsUrl,
+  makePerformerStudioImagesUrl,
+  makePerformerStudioGalleriesUrl,
   makeStudioPerformersUrl,
   makeStudioUniquePerformersUrl,
   makeStudioDetailUniquePerformersUrl,

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/stashapp/stash/internal/api/loaders"
 	"github.com/stashapp/stash/internal/api/urlbuilders"
@@ -284,8 +285,16 @@ func (r *studioResolver) FacialSceneCount(ctx context.Context, obj *models.Studi
 	return ret, nil
 }
 
-func (r *studioResolver) ImageCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
+func (r *studioResolver) ImageCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		if performerID != nil {
+			perfID, err := strconv.Atoi(*performerID)
+			if err != nil {
+				return err
+			}
+			ret, err = image.CountByStudioIDAndPerformerID(ctx, r.repository.Image, obj.ID, perfID, depth)
+			return err
+		}
 		ret, err = image.CountByStudioID(ctx, r.repository.Image, obj.ID, depth)
 		return err
 	}); err != nil {
@@ -295,8 +304,16 @@ func (r *studioResolver) ImageCount(ctx context.Context, obj *models.Studio, dep
 	return ret, nil
 }
 
-func (r *studioResolver) GalleryCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
+func (r *studioResolver) GalleryCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		if performerID != nil {
+			perfID, err := strconv.Atoi(*performerID)
+			if err != nil {
+				return err
+			}
+			ret, err = gallery.CountByStudioIDAndPerformerID(ctx, r.repository.Gallery, obj.ID, perfID, depth)
+			return err
+		}
 		ret, err = gallery.CountByStudioID(ctx, r.repository.Gallery, obj.ID, depth)
 		return err
 	}); err != nil {

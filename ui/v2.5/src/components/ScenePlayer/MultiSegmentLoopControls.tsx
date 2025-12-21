@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState } from "react";
 import { Button, ButtonGroup, ListGroup, Badge } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Icon } from "src/components/Shared/Icon";
@@ -110,17 +110,28 @@ export const MultiSegmentLoopControls: React.FC<IMultiSegmentLoopControlsProps> 
   return (
     <div className="multi-segment-loop-controls">
       <div className="multi-segment-loop-header">
-        <h6>
-          <Icon icon={faRepeat} className="mr-2" />
-          <FormattedMessage id="multi_segment_loop.title" />
-        </h6>
         <Button
           variant="link"
           size="sm"
           onClick={() => setIsExpanded(false)}
-          className="collapse-btn"
+          className="expand-toggle"
+          title={intl.formatMessage({ id: "multi_segment_loop.expand" })}
         >
-          <Icon icon={faChevronUp} />
+          <Icon icon={faChevronUp} className="mr-1" />
+          <Icon icon={faRepeat} />
+          <span className="ml-1">
+            <FormattedMessage id="multi_segment_loop.title" />
+          </span>
+          {segments.length > 0 && (
+            <Badge variant="info" className="ml-2">
+              {segments.length}
+            </Badge>
+          )}
+          {enabled && (
+            <Badge variant="success" className="ml-1">
+              <FormattedMessage id="multi_segment_loop.on" />
+            </Badge>
+          )}
         </Button>
       </div>
 

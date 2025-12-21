@@ -22,6 +22,8 @@ query FindStudioPerformerStats($id: ID!, $performerId: ID!) {
     solo_scene_count(performer_id: $performerId)
     facial_scene_count(performer_id: $performerId)
     group_count(performer_id: $performerId)
+    image_count(performer_id: $performerId)
+    gallery_count(performer_id: $performerId)
     o_counter(performer_id: $performerId)
   }
 }
