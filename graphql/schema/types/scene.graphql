@@ -81,6 +81,8 @@ type Scene {
 
   "Return valid stream paths"
   sceneStreams: [SceneStreamEndpoint!]!
+
+  multi_segment_loop_presets: [MultiSegmentLoopPreset!]!
 }
 
 input SceneMovieInput {
@@ -283,4 +285,33 @@ input SceneMergeInput {
 type HistoryMutationResult {
   count: Int!
   history: [Time!]!
+}
+
+type MultiSegmentLoopSegment {
+  start: Float!
+  end: Float!
+}
+
+type MultiSegmentLoopPreset {
+  id: ID!
+  scene_id: ID!
+  name: String!
+  enabled: Boolean!
+  current_segment_index: Int!
+  segments: [MultiSegmentLoopSegment!]!
+  created_at: Time!
+  updated_at: Time!
+}
+
+input MultiSegmentLoopSegmentInput {
+  start: Float!
+  end: Float!
+}
+
+input SceneMultiSegmentLoopPresetInput {
+  scene_id: ID!
+  name: String!
+  enabled: Boolean!
+  current_segment_index: Int!
+  segments: [MultiSegmentLoopSegmentInput!]!
 }

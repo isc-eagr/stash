@@ -23,47 +23,45 @@ interface IProps {
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
   // when true only render the scene-count popover/button
   sceneCountOnly?: boolean;
-  // optional performer context - when provided scene links should filter by performer_scene_tags
+  // optional performer context - when provided scene links use scene markers
   performerId?: string;
   performerName?: string;
 }
 
-// Minimal query to get the number of performers that have this tag via performer_scene_tags
-const COUNT_PERFORMERS_BY_SCENE_TAG = gql`
-  query CountPerformersBySceneTag($performer_filter: PerformerFilterType) {
-    findPerformers(performer_filter: $performer_filter) {
+// Query to count scene markers with this tag (represents performer associations via scene_marker_performers)
+const COUNT_MARKERS_BY_TAG = gql`
+  query CountMarkersByTag($scene_marker_filter: SceneMarkerFilterType) {
+    findSceneMarkers(scene_marker_filter: $scene_marker_filter) {
       count
     }
   }
 `;
 
-function usePerformerSceneTagPerformerCount(tagId?: string) {
+function useSceneMarkerCountByTag(tagId?: string) {
   const skip = !tagId;
-  const { data } = useQuery(COUNT_PERFORMERS_BY_SCENE_TAG, {
+  const { data } = useQuery(COUNT_MARKERS_BY_TAG, {
     skip,
     variables: {
-      performer_filter: {
-        performer_scene_tags: {
+      scene_marker_filter: {
+        tags: {
           value: tagId ? [tagId] : [],
           modifier: GQL.CriterionModifier.Includes,
-          // Only count performers that have this exact tag (no parent/child roll-up)
           depth: 0,
         },
+        has_marker_performers: true,
       },
     },
     fetchPolicy: "cache-first",
   });
 
-  return data?.findPerformers?.count ?? 0;
+  return data?.findSceneMarkers?.count ?? 0;
 }
 
   const TagCardPopovers: React.FC<IProps> = PatchComponent(
   "TagCard.Popovers",
   ({ tag, sceneCountOnly, performerId, performerName }) => {
-    // derive performer count for performer_scene_tags (green button)
-    const performerSceneTagPerformerCount = usePerformerSceneTagPerformerCount(
-      tag.id
-    );
+    // count scene markers with this tag that have performers assigned
+    const sceneMarkerCount = useSceneMarkerCountByTag(tag.id);
     if (sceneCountOnly) {
       return (
         <>
@@ -127,11 +125,11 @@ function usePerformerSceneTagPerformerCount(tagId?: string) {
             url={NavUtils.makeTagPerformersUrl(tag)}
             showZero={false}
           />
-          {/* New: Green variant of the Performers button */}
+          {/* Scene markers with this tag that have performers */}
           <PopoverCountButton
             className="performer-count performer-green"
-            type="performer"
-            count={performerSceneTagPerformerCount}
+            type="marker"
+            count={sceneMarkerCount}
             url={NavUtils.makeTagPerformersBySceneTagsUrl(tag)}
             showZero={false}
           />

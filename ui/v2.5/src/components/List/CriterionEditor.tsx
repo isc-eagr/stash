@@ -1,6 +1,6 @@
 import cloneDeep from "lodash-es/cloneDeep";
 import React, { useCallback, useMemo } from "react";
-import { CriterionModifier } from "src/core/generated-graphql";
+import { CriterionModifier, FilterMode } from "src/core/generated-graphql";
 import {
   DurationCriterion,
   CriterionValue,
@@ -45,16 +45,18 @@ import PerformersFilter from "./Filters/PerformersFilter";
 import { StudiosCriterion } from "src/models/list-filter/criteria/studios";
 import StudiosFilter from "./Filters/StudiosFilter";
 import { TagsCriterion, SceneMarkerTagsCriterion } from "src/models/list-filter/criteria/tags";
-import { PerformerSceneTagsWithAttrsCriterion } from "src/models/list-filter/criteria/performer-scene-tags-with-attrs";
 import TagsFilter from "./Filters/TagsFilter";
 import { SceneMarkerTagsFilter } from "./Filters/SceneMarkerTagsFilter";
-import PerformerSceneTagsWithAttrsFilter from "src/components/List/Filters/PerformerSceneTagsWithAttrsFilter";
 import { PhashCriterion } from "src/models/list-filter/criteria/phash";
 import { PhashFilter } from "./Filters/PhashFilter";
 import { PathCriterion } from "src/models/list-filter/criteria/path";
 import { ModifierSelectorButtons } from "./ModifierSelect";
 import { CustomFieldsCriterion } from "src/models/list-filter/criteria/custom-fields";
 import { CustomFieldsFilter } from "./Filters/CustomFieldsFilter";
+import { MarkerPerformersCriterion, markerPerformersModifierOptions } from "src/models/list-filter/criteria/marker-performers";
+import { MarkerPerformersFilter } from "./Filters/MarkerPerformersFilter";
+import { PerformerMarkersCriterion } from "src/models/list-filter/criteria/performer-markers";
+import { PerformerMarkersFilter } from "./Filters/PerformerMarkersFilter";
 
 interface IGenericCriterionEditor {
   criterion: ModifierCriterion<CriterionValue>;
@@ -284,11 +286,13 @@ const GenericCriterionEditor: React.FC<IGenericCriterionEditor> = ({
 interface ICriterionEditor {
   criterion: Criterion;
   setCriterion: (c: Criterion) => void;
+  filterMode?: FilterMode;
 }
 
 export const CriterionEditor: React.FC<ICriterionEditor> = ({
   criterion,
   setCriterion,
+  filterMode,
 }) => {
   const filterControl = useMemo(() => {
     if (criterion instanceof SceneMarkerTagsCriterion) {
@@ -308,6 +312,7 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
           <SceneMarkerTagsFilter
             criterion={c as SceneMarkerTagsCriterion}
             setCriterion={(nc) => setCriterion(nc)}
+            filterMode={filterMode}
           />
         </div>
       );
@@ -325,6 +330,37 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
       );
     }
 
+    if (criterion instanceof MarkerPerformersCriterion) {
+      const c = criterion;
+      return (
+        <div>
+          <ModifierSelectorButtons
+            options={markerPerformersModifierOptions}
+            value={c.modifier}
+            onChanged={(m) => {
+              const newC = c.clone() as MarkerPerformersCriterion;
+              newC.modifier = m;
+              setCriterion(newC);
+            }}
+          />
+          <MarkerPerformersFilter
+            criterion={c}
+            setCriterion={(nc) => setCriterion(nc)}
+          />
+        </div>
+      );
+    }
+
+    if (criterion instanceof PerformerMarkersCriterion) {
+      const c = criterion;
+      return (
+        <PerformerMarkersFilter
+          criterion={c}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
     if (criterion instanceof ModifierCriterion) {
       return (
         <GenericCriterionEditor
@@ -334,19 +370,8 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
       );
     }
 
-    if (criterion instanceof PerformerSceneTagsWithAttrsCriterion) {
-      return (
-        <div>
-          <PerformerSceneTagsWithAttrsFilter
-            criterion={criterion}
-            setCriterion={(nc: PerformerSceneTagsWithAttrsCriterion) => setCriterion(nc)}
-          />
-        </div>
-      );
-    }
-
     return null;
-  }, [criterion, setCriterion]);
+  }, [criterion, setCriterion, filterMode]);
 
   return <div className="criterion-editor">{filterControl}</div>;
 };

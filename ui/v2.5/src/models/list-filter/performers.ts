@@ -12,13 +12,15 @@ import { CircumcisedCriterionOption } from "./criteria/circumcised";
 import { PerformerIsMissingCriterionOption } from "./criteria/is-missing";
 import { StashIDCriterionOption } from "./criteria/stash-ids";
 import { StudiosCriterionOption } from "./criteria/studios";
-import { TagsCriterionOption, PerformerSceneTagsInPerformerFilterOption, MarkerTagsCriterionOption } from "./criteria/tags";
+import { TagsCriterionOption } from "./criteria/tags";
 import { ListFilterOptions } from "./filter-options";
 import { CriterionType, DisplayMode } from "./types";
 import { CountryCriterionOption } from "./criteria/country";
 import { RatingCriterionOption } from "./criteria/rating";
 import { CustomFieldsCriterionOption } from "./criteria/custom-fields";
 import { GroupsCriterionOption } from "./criteria/groups";
+import { PerformerMarkersCriterionOption } from "./criteria/performer-markers";
+import { HasMarkersCriterionOption } from "./criteria/has-markers";
 
 const defaultSortBy = "name";
 const sortByOptions = [
@@ -97,8 +99,9 @@ const criterionOptions = [
   CircumcisedCriterionOption,
   PerformerIsMissingCriterionOption,
   TagsCriterionOption,
-  PerformerSceneTagsInPerformerFilterOption,
-  MarkerTagsCriterionOption,
+  HasMarkersCriterionOption,
+  // Performer Markers: filter by scene marker participation with tag + role + partner attributes
+  PerformerMarkersCriterionOption,
   GroupsCriterionOption,
   StudiosCriterionOption,
   StashIDCriterionOption,

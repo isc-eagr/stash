@@ -1,7 +1,7 @@
-import React, { useMemo, useState, useContext } from "react";
-import { gql, useQuery } from "@apollo/client";
-import { Link, useParams } from "react-router-dom";
+import React from "react";
+import { Link } from "react-router-dom";
 import { useIntl } from "react-intl";
+import { gql, useQuery } from "@apollo/client";
 import * as GQL from "src/core/generated-graphql";
 import NavUtils from "src/utils/navigation";
 import TextUtils from "src/utils/text";
@@ -10,7 +10,7 @@ import { CountryFlag } from "../Shared/CountryFlag";
 import { HoverPopover } from "../Shared/HoverPopover";
 import { Icon } from "../Shared/Icon";
 import { TagLink } from "../Shared/TagLink";
-import { Button, ButtonGroup, Modal, Badge, OverlayTrigger, Tooltip } from "react-bootstrap";
+import { Button, ButtonGroup, Badge, OverlayTrigger, Tooltip } from "react-bootstrap";
 import {
   ModifierCriterion,
   CriterionValue,
@@ -20,14 +20,12 @@ import GenderIcon from "./GenderIcon";
 import { faLink, faTag, faArrowUp, faArrowDown, faHand } from "@fortawesome/free-solid-svg-icons";
 import { faInstagram, faTwitter } from "@fortawesome/free-brands-svg-icons";
 import { RatingBanner } from "../Shared/RatingBanner";
-import { usePerformerUpdate, getClient } from "src/core/StashService";
-import { useTagsEdit } from "src/hooks/tagsEdit";
-import { useToast } from "src/hooks/Toast";
+import { usePerformerUpdate } from "src/core/StashService";
 import { ILabeledId } from "src/models/list-filter/types";
 import { FavoriteIcon } from "../Shared/FavoriteIcon";
 import { PatchComponent } from "src/patch";
 import { ExternalLinksButton } from "../Shared/ExternalLinksButton";
-import { useConfigurationContext, ConfigurationContext } from "src/hooks/Config";
+import { useConfigurationContext } from "src/hooks/Config";
 import { OCounterButton } from "../Shared/CountButton";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
@@ -50,193 +48,22 @@ interface IPerformerCardProps {
   zoomIndex?: number;
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
   extraCriteria?: IPerformerCardExtraCriteria;
-  // Scene context flag: when any performer on the scene has explicit Top/Bottom tags,
-  // suppress fallback oral-based role icons for performers without explicit Top/Bottom
-  sceneHasExplicitTopBottom?: boolean;
-  // optional: show a compact tag button in the card which will open the tag editor
-  showTagButton?: boolean;
-  onOpenTagEditor?: (performer: GQL.PerformerDataFragment) => void;
-  // optional: show an inline tag editor below the performer card
-  showInlineTags?: boolean;
-  // optional: show counts next to tags in inline tag strip and tooltip (default: true)
-  showTagCounts?: boolean;
+  /** Scene ID for scene context - enables role badges based on marker roles */
+  sceneId?: string;
 }
-
-type TagRef = { id: string; name?: string | null };
-
-// Inline tag editor component rendered beneath a performer card when requested
-const PerformerTagEditor: React.FC<{
-  performer: GQL.PerformerDataFragment;
-  onSaved?: () => void;
-}> = ({ performer, onSaved }) => {
-  const [updatePerformer] = usePerformerUpdate();
-  const params = useParams<{ id?: string; sceneId?: string }>();
-  const sceneId = params?.sceneId ?? params?.id;
-  // Map lightweight TagRef into the Tag shape expected by useTagsEdit.
-  // Memoize to avoid recreating array each render, which would reset TagSelect state and break typing
-  const initialEditableTags = useMemo(() => {
-    const hasSceneTagsField = Object.prototype.hasOwnProperty.call(
-      performer as Record<string, unknown>,
-      "scene_tags"
-    );
-    const baseTags: TagRef[] = hasSceneTagsField
-      ? ((performer as unknown as { scene_tags?: TagRef[] }).scene_tags ?? [])
-      : ((performer.tags as unknown as TagRef[]) ?? []);
-
-    return baseTags.map((t) => ({
-      id: t.id,
-      name: t.name ?? "",
-      sort_name: t.name ?? null,
-      aliases: [] as string[],
-      image_path: null as string | null,
-    }));
-  }, [performer]);
-
-  const { tags, tagsControl } = useTagsEdit(
-    initialEditableTags,
-    // noop - we capture tags via hook state and push on save
-    () => {}
-  );
-  const Toast = useToast();
-  const [isSaving, setIsSaving] = useState(false);
-
-  return (
-    <div className="performer-tag-editor">
-  {tagsControl({ disableHoverPopovers: true })}
-      <div className="tag-editor-actions mt-2">
-        <Button
-          variant="primary"
-          disabled={isSaving}
-          onClick={async () => {
-            if (!performer.id) return;
-            setIsSaving(true);
-            try {
-              if (sceneId) {
-                await updatePerformer({
-                  variables: {
-                    input: {
-                      id: performer.id,
-                      scene_tags: [
-                        {
-                          scene_id: sceneId,
-                          tag_ids: tags.map((t) => t.id),
-                        },
-                      ],
-                    },
-                  },
-                });
-                try {
-                  await getClient().query({
-                    query: GQL.FindSceneDocument,
-                    variables: { id: sceneId },
-                    fetchPolicy: "network-only",
-                  });
-                } catch (_err) {
-                  // ignore refetch failure
-                }
-              } else {
-                await updatePerformer({
-                  variables: {
-                    input: {
-                      id: performer.id,
-                      tag_ids: tags.map((t) => t.id),
-                    },
-                  },
-                });
-              }
-
-              Toast.success(`Performer tagged: ${performer.name ?? performer.id}`);
-              onSaved?.();
-            } catch (e: unknown) {
-              Toast.error(e as Error);
-            } finally {
-              setIsSaving(false);
-            }
-          }}
-        >
-          {isSaving ? "Saving..." : "Save"}
-        </Button>
-      </div>
-    </div>
-  );
-};
 
 const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Popovers",
   ({ performer, extraCriteria }) => {
-    const [showTagModal, setShowTagModal] = useState(false);
-    const { configuration } = useContext(ConfigurationContext);
-    const cfg = (configuration?.ui as any)?.sceneTagAliases ?? {};
+    const { configuration } = useConfigurationContext();
+    const roleTagIds = configuration?.ui?.roleTagIds ?? {};
     
-    // Query for tag IDs based on configured tag names
-    const topTagName = cfg.top ?? "top";
-    const bottomTagName = cfg.bottom ?? "bottom";
-    const oralTopTagName = cfg.oraltop ?? "oraltop";
-    const oralBottomTagName = cfg.oralbottom ?? "oralbottom";
-    const soloTagName = cfg.solo ?? "solo";
-    const facialGivenTagName = cfg.facialgiven ?? "facialgiven";
-    const facialReceivedTagName = cfg.facialreceived ?? "facialreceived";
-    const selfFacialTagName = cfg.selffacial ?? "selffacial";
-    
-    // Query all tags and filter client-side
-    const { data: tagsData } = GQL.useFindTagsQuery({
-      variables: {
-        filter: {
-          per_page: -1, // Get all tags
-        },
-      },
-    });
-    
-    // Map tag names to IDs
-    const allTags = tagsData?.findTags?.tags ?? [];
-    const topTag = allTags.find(t => t.name.toLowerCase() === topTagName.toLowerCase());
-    const bottomTag = allTags.find(t => t.name.toLowerCase() === bottomTagName.toLowerCase());
-    const oralTopTag = allTags.find(t => t.name.toLowerCase() === oralTopTagName.toLowerCase());
-    const oralBottomTag = allTags.find(t => t.name.toLowerCase() === oralBottomTagName.toLowerCase());
-    const soloTag = allTags.find(t => t.name.toLowerCase() === soloTagName.toLowerCase());
-    const facialGivenTag = allTags.find(t => t.name.toLowerCase() === facialGivenTagName.toLowerCase());
-    const facialReceivedTag = allTags.find(t => t.name.toLowerCase() === facialReceivedTagName.toLowerCase());
-    const selfFacialTag = allTags.find(t => t.name.toLowerCase() === selfFacialTagName.toLowerCase());
-    
-    function maybeRenderEditButton() {
-      // Only show the scene-tags edit button on Scene pages. We detect this
-      // by the presence of the `scene_tags` field on the performer fragment
-      // (FindScene supplies this). On other pages, don't render the button.
-      const hasSceneTagsField = Object.prototype.hasOwnProperty.call(
-        performer as Record<string, unknown>,
-        "scene_tags"
-      );
-      if (!hasSceneTagsField) return null;
-      const sceneTags: TagRef[] = (
-        (performer as unknown as { scene_tags?: TagRef[] }).scene_tags ?? []
-      );
-      const sceneTagCount = sceneTags.length;
+    // Get configured tag IDs directly (no need to query by name)
+    const sexTagId = roleTagIds.sexTagId;
+    const oralTagId = roleTagIds.oralTagId;
+    const soloTagId = roleTagIds.soloTagId;
+    const facialTagId = roleTagIds.facialTagId;
 
-      const editButton = (
-        <div>
-          <OverlayTrigger
-            placement="bottom"
-            overlay={
-              <Tooltip id={`tt-edit-tags-${performer.id}`}>
-                Edit Performer Scene Tags
-              </Tooltip>
-            }
-          >
-            <Button
-              className="minimal edit-tags"
-              onClick={() => setShowTagModal(true)}
-              aria-label={`Edit tags for ${performer.name ?? performer.id}`}
-            >
-              <Icon icon={faTag} />
-              {sceneTags && sceneTags.length > 0 ? <span>{sceneTagCount}</span> : null}
-            </Button>
-          </OverlayTrigger>
-        </div>
-      );
-
-      // Remove tooltip/popover from the green edit-tags button; return plain button only
-      return editButton;
-    }
     function maybeRenderScenesPopoverButton() {
       if (!performer.scene_count) return;
 
@@ -295,8 +122,8 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     }
 
     function maybeRenderTagPopoverButton() {
-      // Use global performer tags for the hover popover (scene-scoped tags are edited in the modal)
-  const displayTags: TagRef[] = (performer.tags as unknown as TagRef[]) ?? [];
+      // Use global performer tags for the hover popover
+      const displayTags = performer.tags ?? [];
 
       if (!displayTags || displayTags.length <= 0) {
         // no tag-count rendered when there are no tags (original behavior)
@@ -346,86 +173,82 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
       );
     }
 
-    // Sex scenes (top/bottom tags) - gay icon
+    // Sex scenes - gay icon with giver/receiver sub-counts
     function maybeRenderSexScenesButton() {
-      if (!topTag || !bottomTag) return null;
+      if (!sexTagId) return null;
       
       const count = performer.sex_scene_count ?? 0;
-      const url = NavUtils.makePerformerDetailSexScenesUrl(
-        performer,
-        topTag.id,
-        topTag.name,
-        bottomTag.id,
-        bottomTag.name
-      );
+      const giverCount = performer.sex_giver_count ?? 0;
+      const receiverCount = performer.sex_receiver_count ?? 0;
+      const url = NavUtils.makePerformerMarkerScenesUrl(performer, sexTagId, "sex");
 
       return (
-        <Button 
-          className="minimal scene-category-count sex-scene-count"
-          href={url}
-          title={`Sex scenes (${topTag.name}/${bottomTag.name})`}
-          disabled={count === 0}
+        <HoverPopover
+          placement="bottom"
+          content={
+            <div className="role-counts">
+              <div><Icon icon={faArrowUp} /> Giver: {giverCount}</div>
+              <div><Icon icon={faArrowDown} /> Receiver: {receiverCount}</div>
+            </div>
+          }
         >
-          <img src={gaySvg} alt="Sex" className="category-icon" />
-          <span>{count}</span>
-        </Button>
+          <Button 
+            className="minimal scene-category-count sex-scene-count"
+            href={url}
+            title="Sex scenes"
+            disabled={count === 0}
+          >
+            <img src={gaySvg} alt="Sex" className="category-icon" />
+            <span>{count}</span>
+          </Button>
+        </HoverPopover>
       );
     }
 
-    // Oral scenes (oral tags without top/bottom) - mouth icon
+    // Oral scenes - mouth icon with giver/receiver sub-counts
     function maybeRenderOralScenesButton() {
-      if (!oralTopTag || !oralBottomTag || !topTag || !bottomTag) return null;
+      if (!oralTagId) return null;
       
       const count = performer.oral_scene_count ?? 0;
-      const url = NavUtils.makePerformerDetailOralScenesUrl(
-        performer,
-        oralTopTag.id,
-        oralTopTag.name,
-        oralBottomTag.id,
-        oralBottomTag.name,
-        topTag.id,
-        topTag.name,
-        bottomTag.id,
-        bottomTag.name
-      );
+      const giverCount = performer.oral_giver_count ?? 0;
+      const receiverCount = performer.oral_receiver_count ?? 0;
+      const url = NavUtils.makePerformerMarkerScenesUrl(performer, oralTagId, "oral");
 
       return (
-        <Button 
-          className="minimal scene-category-count oral-scene-count"
-          href={url}
-          title={`Oral scenes (${oralTopTag.name}/${oralBottomTag.name})`}
-          disabled={count === 0}
+        <HoverPopover
+          placement="bottom"
+          content={
+            <div className="role-counts">
+              <div><Icon icon={faArrowUp} /> Giver: {giverCount}</div>
+              <div><Icon icon={faArrowDown} /> Receiver: {receiverCount}</div>
+            </div>
+          }
         >
-          <img src={mouthSvg} alt="Oral" className="category-icon" />
-          <span>{count}</span>
-        </Button>
+          <Button 
+            className="minimal scene-category-count oral-scene-count"
+            href={url}
+            title="Oral scenes"
+            disabled={count === 0}
+          >
+            <img src={mouthSvg} alt="Oral" className="category-icon" />
+            <span>{count}</span>
+          </Button>
+        </HoverPopover>
       );
     }
 
-    // Solo scenes (solo tags without top/bottom/oral) - hand icon
+    // Solo scenes - hand icon (no giver/receiver for solo)
     function maybeRenderSoloScenesButton() {
-      if (!soloTag || !topTag || !bottomTag || !oralTopTag || !oralBottomTag) return null;
+      if (!soloTagId) return null;
       
       const count = performer.solo_scene_count ?? 0;
-      const url = NavUtils.makePerformerDetailSoloScenesUrl(
-        performer,
-        soloTag.id,
-        soloTag.name,
-        topTag.id,
-        topTag.name,
-        bottomTag.id,
-        bottomTag.name,
-        oralTopTag.id,
-        oralTopTag.name,
-        oralBottomTag.id,
-        oralBottomTag.name
-      );
+      const url = NavUtils.makePerformerMarkerScenesUrl(performer, soloTagId, "solo");
 
       return (
         <Button 
           className="minimal scene-category-count solo-scene-count"
           href={url}
-          title={`Solo scenes (${soloTag.name})`}
+          title="Solo scenes"
           disabled={count === 0}
         >
           <Icon icon={faHand} className="category-icon-fa" />
@@ -434,44 +257,40 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
       );
     }
 
-    // Facial scenes (facialgiven or facialreceived) - goatee icon
+    // Facial scenes - goatee icon with giver/receiver sub-counts
     function maybeRenderFacialScenesButton() {
-      // At least one facial tag must be configured/found
-      if (!facialGivenTag && !facialReceivedTag && !selfFacialTag) return null;
+      if (!facialTagId) return null;
 
       const count = performer.facial_scene_count ?? 0;
-      const primary1 = (facialGivenTag ?? selfFacialTag)!;
-      const primary2 = (facialReceivedTag ?? selfFacialTag)!;
-      const url = NavUtils.makePerformerDetailFacialScenesUrl(
-        performer,
-        primary1.id,
-        primary1.name,
-        primary2.id,
-        primary2.name,
-        selfFacialTag?.id,
-        selfFacialTag?.name
-      );
+      const giverCount = performer.facial_giver_count ?? 0;
+      const receiverCount = performer.facial_receiver_count ?? 0;
+      const url = NavUtils.makePerformerMarkerScenesUrl(performer, facialTagId, "facial");
 
       return (
-        <Button
-          className="minimal scene-category-count facial-scene-count"
-          href={url}
-          title={`Facial scenes`}
-          disabled={count === 0}
+        <HoverPopover
+          placement="bottom"
+          content={
+            <div className="role-counts">
+              <div><Icon icon={faArrowUp} /> Giver: {giverCount}</div>
+              <div><Icon icon={faArrowDown} /> Receiver: {receiverCount}</div>
+            </div>
+          }
         >
-          <img src={goateeSvg} alt="Facial" className="category-icon" />
-          <span>{count}</span>
-        </Button>
+          <Button
+            className="minimal scene-category-count facial-scene-count"
+            href={url}
+            title="Facial scenes"
+            disabled={count === 0}
+          >
+            <img src={goateeSvg} alt="Facial" className="category-icon" />
+            <span>{count}</span>
+          </Button>
+        </HoverPopover>
       );
     }
 
-    const hasCategoryButtons = !!(
-      topTag &&
-      bottomTag &&
-      oralTopTag &&
-      oralBottomTag &&
-      soloTag
-    );
+    // Check if any role tag is configured
+    const hasCategoryButtons = !!(sexTagId || oralTagId || soloTagId || facialTagId);
 
     const hasAnyPopover = !!(
       performer.scene_count ||
@@ -479,123 +298,35 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
       performer.gallery_count ||
       performer.tags.length > 0 ||
       performer.o_counter ||
-      performer.group_count ||
-      hasCategoryButtons
+      performer.group_count
     );
 
     if (hasAnyPopover) {
       return (
         <>
-          {hasCategoryButtons && (
-            <>
-              <hr />
-              <div className="card-popovers scene-category-buttons d-flex align-items-center">
-                <ButtonGroup>
-                  {maybeRenderSexScenesButton()}
-                  {maybeRenderOralScenesButton()}
-                  {maybeRenderSoloScenesButton()}
-                  {maybeRenderFacialScenesButton()}
-                </ButtonGroup>
-              </div>
-            </>
-          )}
           <hr />
           <ButtonGroup className="card-popovers">
-            {maybeRenderEditButton && maybeRenderEditButton()}
             {maybeRenderTagPopoverButton()}
             {maybeRenderScenesPopoverButton()}
             {maybeRenderGroupsPopoverButton()}
             {maybeRenderImagesPopoverButton()}
             {maybeRenderGalleriesPopoverButton()}
             {maybeRenderOCounter()}
-            {/* Performers page green tag navigation button removed */}
           </ButtonGroup>
-          <Modal
-            show={showTagModal}
-            onHide={() => setShowTagModal(false)}
-            centered
-            dialogClassName="scene-tags-modal"
-          >
-            <Modal.Header closeButton>
-              <Modal.Title>Scene Tags for {performer.name ?? performer.id}</Modal.Title>
-            </Modal.Header>
-            <Modal.Body className="scene-tags-body">
-              <PerformerTagEditor performer={performer} onSaved={() => setShowTagModal(false)} />
-            </Modal.Body>
-          </Modal>
         </>
       );
     }
 
-    // If there are no other popovers, still render a minimal edit button so tags can be edited
-    return (
-      <>
-        <hr />
-        <ButtonGroup className="card-popovers">
-          {maybeRenderEditButton && maybeRenderEditButton()}
-          {/* Performers page green tag navigation button removed */}
-        </ButtonGroup>
-      </>
-    );
+    return null;
   }
 );
 
 const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Overlays",
-  ({ performer, sceneHasExplicitTopBottom }) => {
+  ({ performer }) => {
     const { configuration } = useConfigurationContext();
     const uiConfig = configuration?.ui;
     const [updatePerformer] = usePerformerUpdate();
-
-    // Helper: detect Scene-page presence and role flags
-    function getSceneRoleFlags(): {
-      hasSceneTagsField: boolean;
-      isTop: boolean;
-      isBottom: boolean;
-    } {
-      const hasSceneTagsField = Object.prototype.hasOwnProperty.call(
-        performer as Record<string, unknown>,
-        "scene_tags"
-      );
-      if (!hasSceneTagsField)
-        return { hasSceneTagsField, isTop: false, isBottom: false };
-
-      const sceneTags: Array<{ id: string; name?: string | null }> = (
-        (performer as unknown as {
-          scene_tags?: Array<{ id: string; name?: string | null }>;
-        }).scene_tags ?? []
-      );
-      const names = new Set(
-        sceneTags
-          .map((t) => (t?.name ?? "").trim().toLowerCase())
-          .filter((n) => n.length > 0)
-      );
-      // Load configured aliases (case-insensitive comparisons)
-      const cfg = (configuration?.ui as any)?.sceneTagAliases ?? {};
-      const tagTop = (cfg.top ?? "top").toLowerCase();
-      const tagBottom = (cfg.bottom ?? "bottom").toLowerCase();
-      const tagOralTop = (cfg.oraltop ?? "oraltop").toLowerCase();
-      const tagOralBottom = (cfg.oralbottom ?? "oralbottom").toLowerCase();
-
-      // Primary: use explicit Top/Bottom tags if present
-      const explicitTop = names.has(tagTop);
-      const explicitBottom = names.has(tagBottom);
-      let isTop = explicitTop;
-      let isBottom = explicitBottom;
-      // Fallback: only if neither Top nor Bottom are present for THIS performer,
-      // and also only when the SCENE does NOT already have any explicit Top/Bottom tags
-      if (!explicitTop && !explicitBottom) {
-        if (!sceneHasExplicitTopBottom) {
-          if (names.has(tagOralTop)) isTop = true; // treat as Top
-          if (names.has(tagOralBottom)) isBottom = true; // treat as Bottom
-        }
-      }
-      return {
-        hasSceneTagsField,
-        isTop,
-        isBottom,
-      };
-    }
 
     function onToggleFavorite(v: boolean) {
       if (performer.id) {
@@ -632,72 +363,6 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
           </Link>
         );
       }
-    }
-
-    // Scene-page-only role badges (Top/Bottom) derived from scene-scoped tags
-    function maybeRenderTopBottomRoleBadges() {
-      const { hasSceneTagsField, isTop, isBottom } = getSceneRoleFlags();
-      if (!hasSceneTagsField || (!isTop && !isBottom)) return null;
-
-      // Bottom-left corner to avoid conflict with favorite (top-right) and rating banner
-      return (
-        <div
-          className="performer-role-badges"
-          style={{
-            position: "absolute",
-            left: 6,
-            bottom: 6,
-            display: "flex",
-            flexDirection: "column",
-            gap: 4,
-            zIndex: 2,
-            pointerEvents: "none", // let clicks fall through to the card
-          }}
-        >
-          {isTop && (
-            <OverlayTrigger
-              placement="top"
-              overlay={<Tooltip id={`tt-performer-top-${performer.id}`}>Top</Tooltip>}
-            >
-              <Badge
-                pill
-                variant="success"
-                style={{
-                  fontSize: 10,
-                  padding: "3px 6px",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  pointerEvents: "auto", // re-enable for tooltip hover
-                }}
-              >
-                <Icon icon={faArrowUp} />
-              </Badge>
-            </OverlayTrigger>
-          )}
-          {isBottom && (
-            <OverlayTrigger
-              placement="top"
-              overlay={<Tooltip id={`tt-performer-bottom-${performer.id}`}>Bottom</Tooltip>}
-            >
-              <Badge
-                pill
-                variant="info"
-                style={{
-                  fontSize: 10,
-                  padding: "3px 6px",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  pointerEvents: "auto",
-                }}
-              >
-                <Icon icon={faArrowDown} />
-              </Badge>
-            </OverlayTrigger>
-          )}
-        </div>
-      );
     }
 
     function maybeRenderLinks() {
@@ -765,7 +430,6 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
           size="2x"
           className="hide-not-favorite"
         />
-        {maybeRenderTopBottomRoleBadges()}
         {maybeRenderRatingBanner()}
         {maybeRenderLinks()}
         {maybeRenderFlag()}
@@ -773,15 +437,13 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
     );
   }
 );
- 
-
-// (removed duplicate PerformerTagEditor; hoisted definition above Popovers)
- 
 
 const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Details",
-  ({ performer, ageFromDate, showTagCounts }) => {
+  ({ performer, ageFromDate, sceneId }) => {
     const intl = useIntl();
+    const { configuration } = useConfigurationContext();
+    
     const age = TextUtils.age(
       performer.birthdate,
       ageFromDate ?? performer.death_date
@@ -798,157 +460,246 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
       { age, years_old: ageL10String }
     );
 
-    // Scene tags for this performer within the current scene context (if present)
-    const hasSceneTagsField = Object.prototype.hasOwnProperty.call(
-      performer as Record<string, unknown>,
-      "scene_tags"
-    );
-    const { data: globalSceneTagsData } = GQL.useFindTagsQuery({
-      variables: {
-        tag_filter: {
-          performer_scene_tags: {
-            modifier: GQL.CriterionModifier.IncludesAll,
-            value: [performer.id],
-          },
-        },
-        filter: { per_page: 100 },
-      },
-      skip: hasSceneTagsField, // skip when the scene-specific field is already present
-    });
-
-    const globalSceneTags: TagRef[] = ((globalSceneTagsData?.findTags?.tags ?? []) as { id: string; name?: string | null }[])
-      .map((t) => ({ id: t.id, name: t.name }));
-
-    const sceneTags: TagRef[] = useMemo(() => {
-      return hasSceneTagsField
-        ? ((performer as unknown as { scene_tags?: TagRef[] }).scene_tags ?? [])
-        : globalSceneTags;
-    }, [hasSceneTagsField, globalSceneTags, performer]);
-
-    const uppercaseFirstComparator = (aName: string, bName: string) => {
-      const aN = aName ?? "";
-      const bN = bName ?? "";
-      const isAUpper = !!(
-        aN[0] &&
-        aN[0] !== aN[0].toLowerCase() &&
-        aN[0] === aN[0].toUpperCase()
-      );
-      const isBUpper = !!(
-        bN[0] &&
-        bN[0] !== bN[0].toLowerCase() &&
-        bN[0] === bN[0].toUpperCase()
-      );
-      if (isAUpper !== isBUpper) return isAUpper ? -1 : 1;
-      const lowerCmp = aN
-        .toLowerCase()
-        .localeCompare(bN.toLowerCase(), undefined, { sensitivity: "base" });
-      if (lowerCmp !== 0) return lowerCmp;
-      return aN.localeCompare(bN);
-    };
-
-    // Query counts of performer_scene_tags per tag for this performer, limited to the
-    // tags we actually render in the strip/tooltip. We then sort by count desc.
-    // Hoist the document to avoid re-creation per render.
-    const PERFORMER_TAG_SCENE_COUNTS = gql`
-      query PerformerTagSceneCounts($performer_id: ID!, $tag_ids: [ID!]!) {
-        performerTagSceneCounts(performer_id: $performer_id, tag_ids: $tag_ids) {
-          tag_id
-          count
+    // Query for scene marker roles when in scene context
+    const SCENE_MARKER_ROLES_QUERY = gql`
+      query PerformerSceneMarkerRoles($performer_id: ID!, $scene_id: ID!) {
+        findPerformer(id: $performer_id) {
+          id
+          scene_marker_roles(scene_id: $scene_id)
         }
       }
     `;
 
-    const tagIds = useMemo(() => sceneTags.map((t) => t.id), [sceneTags]);
-    const { data: tagCountData } = useQuery(PERFORMER_TAG_SCENE_COUNTS, {
-      variables: { performer_id: performer.id, tag_ids: tagIds },
-      // Always fetch counts when there are tags; we'll use them for display even on /scenes
-      skip: tagIds.length === 0,
-      fetchPolicy: "cache-first",
+    const { data: rolesData } = useQuery(SCENE_MARKER_ROLES_QUERY, {
+      variables: { performer_id: performer.id, scene_id: sceneId },
+      skip: !sceneId,
+      fetchPolicy: "cache-and-network",
     });
 
-    const countByTagId: Record<string, number> = useMemo(() => {
-      const m: Record<string, number> = {};
-      const rows = tagCountData?.performerTagSceneCounts ?? [];
-      for (const r of rows as Array<{ tag_id: string; count: number }>) {
-        m[r.tag_id] = r.count ?? 0;
-      }
-      return m;
-    }, [tagCountData]);
+    const markerRoles = rolesData?.findPerformer?.scene_marker_roles ?? [];
 
-    const sortedSceneTags = useMemo(() => {
-      if (hasSceneTagsField) {
-        // On /scenes, revert to alphabetical sorting (no frequency-based order)
-        return [...sceneTags].sort((a, b) =>
-          uppercaseFirstComparator(a.name ?? "", b.name ?? "")
-        );
-      }
-      // On /performers (global), keep frequency-based sorting
-      return [...sceneTags].sort((a, b) => {
-        const ca = countByTagId[a.id] ?? 0;
-        const cb = countByTagId[b.id] ?? 0;
-        if (cb !== ca) return cb - ca;
-        return uppercaseFirstComparator(a.name ?? "", b.name ?? "");
-      });
-    }, [hasSceneTagsField, sceneTags, countByTagId]);
+    // Render role badges - context-aware:
+    // In scene context (sceneId present): show scene-specific roles, no counters
+    // Outside scene context: show total performer counts
+    function maybeRenderRoleBadges() {
+      const roleTagIds = configuration?.ui?.roleTagIds ?? {};
 
-  const showCounts = showTagCounts !== false;
-    const tooltipContent = sortedSceneTags.map((tag) => (
-      <Badge key={tag.id} className="tag-item" variant="secondary">
-        <Link
-          to={NavUtils.makeTagScenesUrl(
-            { id: tag.id, name: tag.name ?? undefined },
-            { id: performer.id, name: performer.name ?? undefined }
-          )}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {tag.name}
-          {showCounts && typeof countByTagId[tag.id] === "number" && countByTagId[tag.id] > 0
-            ? ` (${countByTagId[tag.id]})`
-            : ""}
-        </Link>
-      </Badge>
-    ));
+      // Determine which categories to show based on context
+      // Order: Sex, Oral, Solo, Facial (fixed order)
+      let rolesToShow: Array<{
+        category: 'sex' | 'oral' | 'solo' | 'facial';
+        isGiver?: boolean;
+        isReceiver?: boolean;
+        count?: number;
+        giverCount?: number;
+        receiverCount?: number;
+      }> = [];
+
+      if (sceneId) {
+        // Scene context: show roles based on marker roles in this scene only
+        if (markerRoles.length === 0) return null;
+
+        const sexRoles = markerRoles.filter((r: string) => r.startsWith('sex_'));
+        const oralRoles = markerRoles.filter((r: string) => r.startsWith('oral_'));
+        const soloRoles = markerRoles.filter((r: string) => r === 'solo'); // solo is just "solo", not "solo_"
+        const facialRoles = markerRoles.filter((r: string) => r.startsWith('facial_'));
+
+        // Fixed order: Sex, Oral, Solo, Facial
+        if (sexRoles.length > 0 && roleTagIds.sexTagId) {
+          rolesToShow.push({
+            category: 'sex',
+            isGiver: sexRoles.some((r: string) => r.endsWith('_giver')),
+            isReceiver: sexRoles.some((r: string) => r.endsWith('_receiver')),
+          });
+        }
+        if (oralRoles.length > 0 && roleTagIds.oralTagId) {
+          rolesToShow.push({
+            category: 'oral',
+            isGiver: oralRoles.some((r: string) => r.endsWith('_giver')),
+            isReceiver: oralRoles.some((r: string) => r.endsWith('_receiver')),
+          });
+        }
+        if (soloRoles.length > 0 && roleTagIds.soloTagId) {
+          rolesToShow.push({
+            category: 'solo',
+          });
+        }
+        if (facialRoles.length > 0 && roleTagIds.facialTagId) {
+          rolesToShow.push({
+            category: 'facial',
+            isGiver: facialRoles.some((r: string) => r.endsWith('_giver')),
+            isReceiver: facialRoles.some((r: string) => r.endsWith('_receiver')),
+          });
+        }
+      } else {
+        // Global context: show total counts
+        const sexCount = performer.sex_scene_count ?? 0;
+        const oralCount = performer.oral_scene_count ?? 0;
+        const soloCount = performer.solo_scene_count ?? 0;
+        const facialCount = performer.facial_scene_count ?? 0;
+
+        // Fixed order: Sex, Oral, Solo, Facial
+        if (sexCount > 0 && roleTagIds.sexTagId) {
+          rolesToShow.push({
+            category: 'sex',
+            count: sexCount,
+            giverCount: performer.sex_giver_count ?? 0,
+            receiverCount: performer.sex_receiver_count ?? 0,
+          });
+        }
+        if (oralCount > 0 && roleTagIds.oralTagId) {
+          rolesToShow.push({
+            category: 'oral',
+            count: oralCount,
+            giverCount: performer.oral_giver_count ?? 0,
+            receiverCount: performer.oral_receiver_count ?? 0,
+          });
+        }
+        if (soloCount > 0 && roleTagIds.soloTagId) {
+          rolesToShow.push({
+            category: 'solo',
+            count: soloCount,
+          });
+        }
+        if (facialCount > 0 && roleTagIds.facialTagId) {
+          rolesToShow.push({
+            category: 'facial',
+            count: facialCount,
+            giverCount: performer.facial_giver_count ?? 0,
+            receiverCount: performer.facial_receiver_count ?? 0,
+          });
+        }
+      }
+
+      if (rolesToShow.length === 0) return null;
+
+      // Helper to get tag ID for a category
+      const getTagId = (category: 'sex' | 'oral' | 'solo' | 'facial') => {
+        switch (category) {
+          case 'sex': return roleTagIds.sexTagId;
+          case 'oral': return roleTagIds.oralTagId;
+          case 'solo': return roleTagIds.soloTagId;
+          case 'facial': return roleTagIds.facialTagId;
+        }
+      };
+
+      // Build exclude tags for oral (exclude sex) and solo (exclude sex + oral)
+      const getExcludeTagsForCategory = (category: 'sex' | 'oral' | 'solo' | 'facial') => {
+        const excludeTags: Array<{ id: string; label: string }> = [];
+        if (category === 'oral') {
+          // Oral should exclude sex tag
+          if (roleTagIds.sexTagId) excludeTags.push({ id: roleTagIds.sexTagId, label: 'Sex' });
+        } else if (category === 'solo') {
+          // Solo should exclude both sex and oral tags
+          if (roleTagIds.sexTagId) excludeTags.push({ id: roleTagIds.sexTagId, label: 'Sex' });
+          if (roleTagIds.oralTagId) excludeTags.push({ id: roleTagIds.oralTagId, label: 'Oral' });
+        }
+        return excludeTags.length > 0 ? excludeTags : undefined;
+      };
+
+      // Render badges with category icon on top, arrows below
+      return (
+        <div className="performer-role-badges">
+          {rolesToShow.map((role, idx) => {
+            const categoryIcon = 
+              role.category === 'sex' ? gaySvg :
+              role.category === 'oral' ? mouthSvg :
+              role.category === 'facial' ? goateeSvg :
+              null; // solo uses faHand
+            
+            const tagId = getTagId(role.category);
+            const tagLabel = role.category.charAt(0).toUpperCase() + role.category.slice(1);
+            const excludeTags = getExcludeTagsForCategory(role.category);
+            
+            // URLs for clickable badges (only in global context, not scene context)
+            const categoryUrl = !sceneId && tagId 
+              ? NavUtils.makePerformerMarkerScenesWithRoleUrl(performer, tagId, tagLabel, undefined, excludeTags)
+              : undefined;
+            const giverUrl = !sceneId && tagId 
+              ? NavUtils.makePerformerMarkerScenesWithRoleUrl(performer, tagId, tagLabel, "giver", excludeTags)
+              : undefined;
+            const receiverUrl = !sceneId && tagId 
+              ? NavUtils.makePerformerMarkerScenesWithRoleUrl(performer, tagId, tagLabel, "receiver", excludeTags)
+              : undefined;
+
+            const categoryIconElement = categoryIcon ? (
+              <img src={categoryIcon} alt={role.category} className="category-icon" />
+            ) : (
+              <Icon icon={faHand} className="category-icon-fa" />
+            );
+
+            return (
+              <div key={idx} className="role-badge-item">
+                {/* Category icon on top - clickable in global context */}
+                <div className="category-icon-container">
+                  {categoryUrl ? (
+                    <Link to={categoryUrl} className="role-badge-link" onClick={(e) => e.stopPropagation()}>
+                      {categoryIconElement}
+                      {role.count !== undefined && (
+                        <span className="role-total-count">{role.count}</span>
+                      )}
+                    </Link>
+                  ) : (
+                    <>
+                      {categoryIconElement}
+                      {!sceneId && role.count !== undefined && (
+                        <span className="role-total-count">{role.count}</span>
+                      )}
+                    </>
+                  )}
+                </div>
+                
+                {/* Arrows below (only for sex/oral/facial, not solo) */}
+                {role.category !== 'solo' && (
+                  <div className="role-arrows">
+                    {(sceneId ? role.isGiver : (role.giverCount ?? 0) > 0) && (
+                      giverUrl ? (
+                        <Link to={giverUrl} className="role-badge-link" onClick={(e) => e.stopPropagation()}>
+                          <Badge pill variant="success" className="arrow-badge giver-badge" style={{ fontSize: 10, padding: '3px 6px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <Icon icon={faArrowUp} />
+                            <span className="arrow-count">{role.giverCount}</span>
+                          </Badge>
+                        </Link>
+                      ) : (
+                        <Badge pill variant="success" className="arrow-badge giver-badge" style={{ fontSize: 10, padding: '3px 6px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <Icon icon={faArrowUp} />
+                          {!sceneId && <span className="arrow-count">{role.giverCount}</span>}
+                        </Badge>
+                      )
+                    )}
+                    {(sceneId ? role.isReceiver : (role.receiverCount ?? 0) > 0) && (
+                      receiverUrl ? (
+                        <Link to={receiverUrl} className="role-badge-link" onClick={(e) => e.stopPropagation()}>
+                          <Badge pill variant="info" className="arrow-badge receiver-badge" style={{ fontSize: 10, padding: '3px 6px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <Icon icon={faArrowDown} />
+                            <span className="arrow-count">{role.receiverCount}</span>
+                          </Badge>
+                        </Link>
+                      ) : (
+                        <Badge pill variant="info" className="arrow-badge receiver-badge" style={{ fontSize: 10, padding: '3px 6px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <Icon icon={faArrowDown} />
+                          {!sceneId && <span className="arrow-count">{role.receiverCount}</span>}
+                        </Badge>
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
 
     return (
       <>
-        {/* Age line first */}
+        {/* Age line */}
         <div className="performer-card__age">
           {age !== 0 ? ageString : "\u00A0"}
         </div>
-
-        {/* Scene tag strip under age; always shows tooltip with full list */}
-        <HoverPopover placement="top" content={tooltipContent}>
-          <div className="performer-card__scene-tags mt-1">
-            {sortedSceneTags.length > 0
-              ? sortedSceneTags.map((tag) => (
-                  <Badge
-                    key={tag.id}
-                    className="tag-item tag-link"
-                    variant="secondary"
-                  >
-                    <Link
-                      to={NavUtils.makeTagScenesUrl(
-                        { id: tag.id, name: tag.name ?? undefined },
-                        { id: performer.id, name: performer.name ?? undefined }
-                      )}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {tag.name}
-                      {/* In scene context (hasSceneTagsField), do NOT reserve space for counts.
-                          Outside scenes, reserve space to avoid reflow when counts arrive. */}
-                      {!hasSceneTagsField && (
-                        <span className="tag-count-slot">
-                          {showCounts && typeof countByTagId[tag.id] === "number" && countByTagId[tag.id] > 0
-                            ? ` (${countByTagId[tag.id]})`
-                            : ""}
-                        </span>
-                      )}
-                    </Link>
-                  </Badge>
-                ))
-              : null}
-          </div>
-        </HoverPopover>
+        
+        {/* Role badges */}
+        {maybeRenderRoleBadges()}
       </>
     );
   }

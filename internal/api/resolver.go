@@ -107,11 +107,17 @@ func (r *Resolver) Folder() FolderResolver {
 func (r *Resolver) SavedFilter() SavedFilterResolver {
 	return &savedFilterResolver{r}
 }
+func (r *Resolver) SceneMultiSegmentLoopPresetInput() SceneMultiSegmentLoopPresetInputResolver {
+	return &sceneMultiSegmentLoopPresetInputResolver{r}
+}
 func (r *Resolver) Plugin() PluginResolver {
 	return &pluginResolver{r}
 }
 func (r *Resolver) ConfigResult() ConfigResultResolver {
 	return &configResultResolver{r}
+}
+func (r *Resolver) PerformerFilterType() PerformerFilterTypeResolver {
+	return &performerFilterTypeResolver{r}
 }
 
 // NOTE: TagFilterType resolver stub removed temporarily to allow gqlgen
@@ -131,6 +137,7 @@ type sceneResolver struct{ *Resolver }
 type sceneMarkerResolver struct{ *Resolver }
 type imageResolver struct{ *Resolver }
 type studioResolver struct{ *Resolver }
+type sceneMultiSegmentLoopPresetInputResolver struct{ *Resolver }
 
 // movie is group under the hood
 type groupResolver struct{ *Resolver }
@@ -145,6 +152,7 @@ type folderResolver struct{ *Resolver }
 type savedFilterResolver struct{ *Resolver }
 type pluginResolver struct{ *Resolver }
 type configResultResolver struct{ *Resolver }
+type performerFilterTypeResolver struct{ *Resolver }
 
 func (r *Resolver) withTxn(ctx context.Context, fn func(ctx context.Context) error) error {
 	return r.repository.WithTxn(ctx, fn)
@@ -473,7 +481,11 @@ func (r *queryResolver) PerformersFacialGivenCount(ctx context.Context) (int, er
 		}
 
 		db := manager.GetInstance().Database
-		query := "SELECT COUNT(DISTINCT pst.performer_id) FROM performer_scene_tags pst JOIN tags t ON pst.tag_id = t.id WHERE LOWER(TRIM(t.name)) = ?"
+		query := `SELECT COUNT(DISTINCT smp.performer_id) 
+FROM scene_marker_performers smp 
+JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
+JOIN tags t ON t.id = sm.primary_tag_id 
+WHERE LOWER(TRIM(t.name)) = ? AND smp.role = 'giver'`
 		args := []interface{}{strings.ToLower(facialGivenTagName)}
 		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
@@ -518,7 +530,11 @@ func (r *queryResolver) PerformersFacialReceivedCount(ctx context.Context) (int,
 		}
 
 		db := manager.GetInstance().Database
-		query := "SELECT COUNT(DISTINCT pst.performer_id) FROM performer_scene_tags pst JOIN tags t ON pst.tag_id = t.id WHERE LOWER(TRIM(t.name)) = ?"
+		query := `SELECT COUNT(DISTINCT smp.performer_id) 
+FROM scene_marker_performers smp 
+JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
+JOIN tags t ON t.id = sm.primary_tag_id 
+WHERE LOWER(TRIM(t.name)) = ? AND smp.role = 'receiver'`
 		args := []interface{}{strings.ToLower(facialReceivedTagName)}
 		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
@@ -575,14 +591,16 @@ func (r *queryResolver) PerformersStrictTopCount(ctx context.Context) (int, erro
 
 		db := manager.GetInstance().Database
 		query := `
-SELECT COUNT(DISTINCT pst.performer_id)
-FROM performer_scene_tags pst
-JOIN tags t ON pst.tag_id = t.id
+SELECT COUNT(DISTINCT smp.performer_id)
+FROM scene_marker_performers smp
+JOIN scene_markers sm ON sm.id = smp.scene_marker_id
+JOIN tags t ON t.id = sm.primary_tag_id
 WHERE LOWER(TRIM(t.name)) IN (?, ?)
-  AND pst.performer_id NOT IN (
-    SELECT DISTINCT pst2.performer_id
-    FROM performer_scene_tags pst2
-    JOIN tags t2 ON pst2.tag_id = t2.id
+  AND smp.performer_id NOT IN (
+    SELECT DISTINCT smp2.performer_id
+    FROM scene_marker_performers smp2
+    JOIN scene_markers sm2 ON sm2.id = smp2.scene_marker_id
+    JOIN tags t2 ON t2.id = sm2.primary_tag_id
     WHERE LOWER(TRIM(t2.name)) IN (?, ?)
   )`
 		args := []interface{}{
@@ -646,14 +664,16 @@ func (r *queryResolver) PerformersStrictBottomCount(ctx context.Context) (int, e
 
 		db := manager.GetInstance().Database
 		query := `
-SELECT COUNT(DISTINCT pst.performer_id)
-FROM performer_scene_tags pst
-JOIN tags t ON pst.tag_id = t.id
+SELECT COUNT(DISTINCT smp.performer_id)
+FROM scene_marker_performers smp
+JOIN scene_markers sm ON sm.id = smp.scene_marker_id
+JOIN tags t ON t.id = sm.primary_tag_id
 WHERE LOWER(TRIM(t.name)) IN (?, ?)
-  AND pst.performer_id NOT IN (
-    SELECT DISTINCT pst2.performer_id
-    FROM performer_scene_tags pst2
-    JOIN tags t2 ON pst2.tag_id = t2.id
+  AND smp.performer_id NOT IN (
+    SELECT DISTINCT smp2.performer_id
+    FROM scene_marker_performers smp2
+    JOIN scene_markers sm2 ON sm2.id = smp2.scene_marker_id
+    JOIN tags t2 ON t2.id = sm2.primary_tag_id
     WHERE LOWER(TRIM(t2.name)) IN (?, ?)
   )`
 		args := []interface{}{
@@ -713,20 +733,23 @@ func (r *queryResolver) PerformersLenientTopCount(ctx context.Context) (int, err
 
 		db := manager.GetInstance().Database
 		query := `
-SELECT COUNT(DISTINCT pst.performer_id)
-FROM performer_scene_tags pst
-JOIN tags t ON pst.tag_id = t.id
+SELECT COUNT(DISTINCT smp.performer_id)
+FROM scene_marker_performers smp
+JOIN scene_markers sm ON sm.id = smp.scene_marker_id
+JOIN tags t ON t.id = sm.primary_tag_id
 WHERE LOWER(TRIM(t.name)) = ?
-  AND pst.performer_id IN (
-    SELECT DISTINCT pst2.performer_id
-    FROM performer_scene_tags pst2
-    JOIN tags t2 ON pst2.tag_id = t2.id
+  AND smp.performer_id IN (
+    SELECT DISTINCT smp2.performer_id
+    FROM scene_marker_performers smp2
+    JOIN scene_markers sm2 ON sm2.id = smp2.scene_marker_id
+    JOIN tags t2 ON t2.id = sm2.primary_tag_id
     WHERE LOWER(TRIM(t2.name)) = ?
   )
-  AND pst.performer_id NOT IN (
-    SELECT DISTINCT pst3.performer_id
-    FROM performer_scene_tags pst3
-    JOIN tags t3 ON pst3.tag_id = t3.id
+  AND smp.performer_id NOT IN (
+    SELECT DISTINCT smp3.performer_id
+    FROM scene_marker_performers smp3
+    JOIN scene_markers sm3 ON sm3.id = smp3.scene_marker_id
+    JOIN tags t3 ON t3.id = sm3.primary_tag_id
     WHERE LOWER(TRIM(t3.name)) = ?
   )`
 		args := []interface{}{
@@ -785,20 +808,23 @@ func (r *queryResolver) PerformersLenientBottomCount(ctx context.Context) (int, 
 
 		db := manager.GetInstance().Database
 		query := `
-SELECT COUNT(DISTINCT pst.performer_id)
-FROM performer_scene_tags pst
-JOIN tags t ON pst.tag_id = t.id
+SELECT COUNT(DISTINCT smp.performer_id)
+FROM scene_marker_performers smp
+JOIN scene_markers sm ON sm.id = smp.scene_marker_id
+JOIN tags t ON t.id = sm.primary_tag_id
 WHERE LOWER(TRIM(t.name)) = ?
-  AND pst.performer_id IN (
-    SELECT DISTINCT pst2.performer_id
-    FROM performer_scene_tags pst2
-    JOIN tags t2 ON pst2.tag_id = t2.id
+  AND smp.performer_id IN (
+    SELECT DISTINCT smp2.performer_id
+    FROM scene_marker_performers smp2
+    JOIN scene_markers sm2 ON sm2.id = smp2.scene_marker_id
+    JOIN tags t2 ON t2.id = sm2.primary_tag_id
     WHERE LOWER(TRIM(t2.name)) = ?
   )
-  AND pst.performer_id NOT IN (
-    SELECT DISTINCT pst3.performer_id
-    FROM performer_scene_tags pst3
-    JOIN tags t3 ON pst3.tag_id = t3.id
+  AND smp.performer_id NOT IN (
+    SELECT DISTINCT smp3.performer_id
+    FROM scene_marker_performers smp3
+    JOIN scene_markers sm3 ON sm3.id = smp3.scene_marker_id
+    JOIN tags t3 ON t3.id = sm3.primary_tag_id
     WHERE LOWER(TRIM(t3.name)) = ?
   )`
 		args := []interface{}{
@@ -865,14 +891,16 @@ func (r *queryResolver) PerformersSoloOnlyCount(ctx context.Context) (int, error
 
 		db := manager.GetInstance().Database
 		query := `
-SELECT COUNT(DISTINCT pst.performer_id)
-FROM performer_scene_tags pst
-JOIN tags t ON pst.tag_id = t.id
+SELECT COUNT(DISTINCT smp.performer_id)
+FROM scene_marker_performers smp
+JOIN scene_markers sm ON sm.id = smp.scene_marker_id
+JOIN tags t ON t.id = sm.primary_tag_id
 WHERE LOWER(TRIM(t.name)) = ?
-  AND pst.performer_id NOT IN (
-    SELECT DISTINCT pst2.performer_id
-    FROM performer_scene_tags pst2
-    JOIN tags t2 ON pst2.tag_id = t2.id
+  AND smp.performer_id NOT IN (
+    SELECT DISTINCT smp2.performer_id
+    FROM scene_marker_performers smp2
+    JOIN scene_markers sm2 ON sm2.id = smp2.scene_marker_id
+    JOIN tags t2 ON t2.id = sm2.primary_tag_id
     WHERE LOWER(TRIM(t2.name)) IN (?, ?, ?, ?)
   )`
 		args := []interface{}{
@@ -954,6 +982,7 @@ func (r *queryResolver) Stats(ctx context.Context) (*StatsResultType, error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		repo := r.repository
 		sceneQB := repo.Scene
+		sceneMarkerQB := repo.SceneMarker
 		imageQB := repo.Image
 		galleryQB := repo.Gallery
 		studioQB := repo.Studio
@@ -1038,66 +1067,47 @@ func (r *queryResolver) Stats(ctx context.Context) (*StatsResultType, error) {
 			return err
 		}
 
-		// Get scene category counts using configured tag names
+		// Get scene category counts using roleTagIds configuration (tag IDs)
 		uiConfig := config.GetInstance().GetUIConfiguration()
-		sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
+		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
 
-		topTagName := "top"
-		bottomTagName := "bottom"
-		oralTopTagName := "oraltop"
-		oralBottomTagName := "oralbottom"
-		soloTagName := "solo"
-		facialGivenTagName := "facialgiven"
-		facialReceivedTagName := "facialreceived"
-		selfFacialTagName := "selffacial"
+		var sexTagID, oralTagID, soloTagID, facialTagID int
 
-		if sceneTagAliases != nil {
-			if t, ok := sceneTagAliases["top"].(string); ok && t != "" {
-				topTagName = t
+		if roleTagIds != nil {
+			if sexID, ok := roleTagIds["sexTagId"].(string); ok && sexID != "" {
+				sexTagID, _ = strconv.Atoi(sexID)
 			}
-			if b, ok := sceneTagAliases["bottom"].(string); ok && b != "" {
-				bottomTagName = b
+			if oralID, ok := roleTagIds["oralTagId"].(string); ok && oralID != "" {
+				oralTagID, _ = strconv.Atoi(oralID)
 			}
-			if ot, ok := sceneTagAliases["oraltop"].(string); ok && ot != "" {
-				oralTopTagName = ot
+			if soloID, ok := roleTagIds["soloTagId"].(string); ok && soloID != "" {
+				soloTagID, _ = strconv.Atoi(soloID)
 			}
-			if ob, ok := sceneTagAliases["oralbottom"].(string); ok && ob != "" {
-				oralBottomTagName = ob
-			}
-			if s, ok := sceneTagAliases["solo"].(string); ok && s != "" {
-				soloTagName = s
-			}
-			if fg, ok := sceneTagAliases["facialgiven"].(string); ok && fg != "" {
-				facialGivenTagName = fg
-			}
-			if fr, ok := sceneTagAliases["facialreceived"].(string); ok && fr != "" {
-				facialReceivedTagName = fr
-			}
-			if sf, ok := sceneTagAliases["selffacial"].(string); ok && sf != "" {
-				selfFacialTagName = sf
+			if facialID, ok := roleTagIds["facialTagId"].(string); ok && facialID != "" {
+				facialTagID, _ = strconv.Atoi(facialID)
 			}
 		}
 
-		// Count sex scenes (scenes with top/bottom tags)
-		sexSceneCount, err := scene.CountByPerformerSceneTags(ctx, sceneQB, tagQB, []string{topTagName, bottomTagName}, false)
+		// Count sex scenes using scene markers
+		sexSceneCount, err := scene.CountScenesWithMarkerTag(ctx, sceneMarkerQB, sexTagID)
 		if err != nil {
 			return err
 		}
 
-		// Count oral scenes (scenes with oral tags but not top/bottom)
-		oralSceneCount, err := scene.CountByPerformerSceneTagsWithExclusions(ctx, sceneQB, tagQB, []string{oralTopTagName, oralBottomTagName}, []string{topTagName, bottomTagName})
+		// Count oral scenes (scenes with oral markers but not sex markers)
+		oralSceneCount, err := scene.CountScenesWithMarkerTagExcluding(ctx, sceneMarkerQB, oralTagID, sexTagID)
 		if err != nil {
 			return err
 		}
 
-		// Count solo scenes (scenes with solo tags but not top/bottom/oral)
-		soloSceneCount, err := scene.CountByPerformerSceneTagsWithExclusions(ctx, sceneQB, tagQB, []string{soloTagName}, []string{topTagName, bottomTagName, oralTopTagName, oralBottomTagName})
+		// Count solo scenes (scenes with solo markers but not sex or oral markers)
+		soloSceneCount, err := scene.CountScenesWithMarkerTagExcludingMultiple(ctx, sceneMarkerQB, soloTagID, []int{sexTagID, oralTagID})
 		if err != nil {
 			return err
 		}
 
-		// Count facial scenes (scenes with facialgiven or facialreceived or selffacial tags)
-		facialSceneCount, err := scene.CountByPerformerSceneTags(ctx, sceneQB, tagQB, []string{facialGivenTagName, facialReceivedTagName, selfFacialTagName}, false)
+		// Count facial scenes (scenes with facial markers)
+		facialSceneCount, err := scene.CountScenesWithMarkerTag(ctx, sceneMarkerQB, facialTagID)
 		if err != nil {
 			return err
 		}
@@ -1254,8 +1264,8 @@ func (r *queryResolver) SceneMarkerTags(ctx context.Context, scene_id string) ([
 	return result, nil
 }
 
-// PerformerTagSceneCounts returns the number of scenes for each provided tag_id
-// where the scene is associated with the given performer. Returned slice is in
+// PerformerTagSceneCounts returns the number of scene markers for each provided tag_id
+// where the scene marker is associated with the given performer. Returned slice is in
 // the same order as the provided tag_ids.
 func (r *queryResolver) PerformerTagSceneCounts(ctx context.Context, performer_id string, tag_ids []string) ([]*PerformerTagSceneCount, error) {
 	// parse performer id
@@ -1283,7 +1293,12 @@ func (r *queryResolver) PerformerTagSceneCounts(ctx context.Context, performer_i
 		placeholders[i] = "?"
 	}
 
-	query := "SELECT tag_id, COUNT(DISTINCT scene_id) FROM performer_scene_tags WHERE performer_id = ? AND tag_id IN (" + strings.Join(placeholders, ",") + ") GROUP BY tag_id"
+	// Query via scene_marker_performers -> scene_markers to get counts by primary_tag_id
+	query := `SELECT sm.primary_tag_id, COUNT(DISTINCT sm.scene_id) 
+FROM scene_marker_performers smp 
+JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
+WHERE smp.performer_id = ? AND sm.primary_tag_id IN (` + strings.Join(placeholders, ",") + `) 
+GROUP BY sm.primary_tag_id`
 
 	db := manager.GetInstance().Database
 

@@ -1,10 +1,10 @@
-import React, { useContext } from "react";
+import React from "react";
 import { Button, ButtonGroup } from "react-bootstrap";
 import { Icon } from "src/components/Shared/Icon";
 import { faHand, faUserPlus } from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import NavUtils from "src/utils/navigation";
-import { ConfigurationContext } from "src/hooks/Config";
+import { useConfigurationContext } from "src/hooks/Config";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import goateeSvg from "src/assets/goatee.svg";
@@ -13,23 +13,23 @@ interface IStudioCategoryStripProps {
   studio: GQL.StudioDataFragment;
 }
 
+/**
+ * StudioCategoryStrip - Shows marker-based scene category counts
+ * Uses roleTagIds configuration for tag IDs.
+ */
 export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
   studio,
 }) => {
-  const { configuration } = useContext(ConfigurationContext);
-  const cfg = (configuration?.ui as any)?.sceneTagAliases ?? {};
+  const { configuration } = useConfigurationContext();
+  
+  // Get role tag IDs from the new configuration
+  const roleTagIds = configuration?.ui?.roleTagIds ?? {};
+  const sexTagId = roleTagIds.sexTagId;
+  const oralTagId = roleTagIds.oralTagId;
+  const soloTagId = roleTagIds.soloTagId;
+  const facialTagId = roleTagIds.facialTagId;
 
-  // Query for tag IDs based on configured tag names
-  const topTagName = cfg.top ?? "top";
-  const bottomTagName = cfg.bottom ?? "bottom";
-  const oralTopTagName = cfg.oraltop ?? "oraltop";
-  const oralBottomTagName = cfg.oralbottom ?? "oralbottom";
-  const soloTagName = cfg.solo ?? "solo";
-  const facialGivenTagName = cfg.facialgiven ?? "facialgiven";
-  const facialReceivedTagName = cfg.facialreceived ?? "facialreceived";
-  const selfFacialTagName = cfg.selffacial ?? "selffacial";
-
-  // Query all tags and filter client-side
+  // Query all tags to get their names for display
   const { data: tagsData } = GQL.useFindTagsQuery({
     variables: {
       filter: {
@@ -38,161 +38,99 @@ export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
     },
   });
 
-  // Map tag names to IDs
+  // Map tag IDs to tag objects
   const allTags = tagsData?.findTags?.tags ?? [];
-  const topTag = allTags.find(
-    (t) => t.name.toLowerCase() === topTagName.toLowerCase()
-  );
-  const bottomTag = allTags.find(
-    (t) => t.name.toLowerCase() === bottomTagName.toLowerCase()
-  );
-  const oralTopTag = allTags.find(
-    (t) => t.name.toLowerCase() === oralTopTagName.toLowerCase()
-  );
-  const oralBottomTag = allTags.find(
-    (t) => t.name.toLowerCase() === oralBottomTagName.toLowerCase()
-  );
-  const soloTag = allTags.find(
-    (t) => t.name.toLowerCase() === soloTagName.toLowerCase()
-  );
-  const facialGivenTag = allTags.find(
-    (t) => t.name.toLowerCase() === facialGivenTagName.toLowerCase()
-  );
-  const facialReceivedTag = allTags.find(
-    (t) => t.name.toLowerCase() === facialReceivedTagName.toLowerCase()
-  );
-  const selfFacialTag = allTags.find(
-    (t) => t.name.toLowerCase() === selfFacialTagName.toLowerCase()
-  );
+  const sexTag = allTags.find(t => t.id === sexTagId);
+  const oralTag = allTags.find(t => t.id === oralTagId);
+  const soloTag = allTags.find(t => t.id === soloTagId);
+  const facialTag = allTags.find(t => t.id === facialTagId);
 
-  // Sex scenes (top/bottom tags) - gay icon
+  // Get counts from studio
+  const studioAny = studio as any;
+  const sexCount = studioAny.sex_scene_count ?? 0;
+  const oralCount = studioAny.oral_scene_count ?? 0;
+  const soloCount = studioAny.solo_scene_count ?? 0;
+  const facialCount = studioAny.facial_scene_count ?? 0;
+
+  // Sex scenes (marker-based) - gay icon
   function maybeRenderSexScenesButton() {
-    if (!topTag || !bottomTag) return null;
+    if (!sexTag) return null;
 
-    const count = studio.sex_scene_count ?? 0;
-    const url = NavUtils.makeStudioDetailSexScenesUrl(
-      studio,
-      topTag.id,
-      topTag.name,
-      bottomTag.id,
-      bottomTag.name
-    );
+    const url = NavUtils.makeStudioMarkerScenesUrl(studio, sexTag.id, "Sex");
 
     return (
       <Button
         className="minimal scene-category-count sex-scene-count"
         href={url}
-        title={`Sex scenes (${topTag.name}/${bottomTag.name})`}
-        disabled={count === 0}
+        title={`Sex scenes (${sexTag.name})`}
+        disabled={sexCount === 0}
       >
         <img src={gaySvg} alt="Sex" className="category-icon" />
-        <span>{count}</span>
+        <span>{sexCount}</span>
       </Button>
     );
   }
 
-  // Oral scenes (oral tags without top/bottom) - mouth icon
+  // Oral scenes (marker-based) - mouth icon
   function maybeRenderOralScenesButton() {
-    if (!oralTopTag || !oralBottomTag || !topTag || !bottomTag) return null;
+    if (!oralTag) return null;
 
-    const count = studio.oral_scene_count ?? 0;
-    const url = NavUtils.makeStudioDetailOralScenesUrl(
-      studio,
-      oralTopTag.id,
-      oralTopTag.name,
-      oralBottomTag.id,
-      oralBottomTag.name,
-      topTag.id,
-      topTag.name,
-      bottomTag.id,
-      bottomTag.name
-    );
+    const url = NavUtils.makeStudioMarkerScenesUrl(studio, oralTag.id, "Oral");
 
     return (
       <Button
         className="minimal scene-category-count oral-scene-count"
         href={url}
-        title={`Oral scenes (${oralTopTag.name}/${oralBottomTag.name})`}
-        disabled={count === 0}
+        title={`Oral scenes (${oralTag.name})`}
+        disabled={oralCount === 0}
       >
         <img src={mouthSvg} alt="Oral" className="category-icon" />
-        <span>{count}</span>
+        <span>{oralCount}</span>
       </Button>
     );
   }
 
-  // Solo scenes (solo tags without top/bottom/oral) - hand icon
+  // Solo scenes (marker-based) - hand icon
   function maybeRenderSoloScenesButton() {
-    if (!soloTag || !topTag || !bottomTag || !oralTopTag || !oralBottomTag)
-      return null;
+    if (!soloTag) return null;
 
-    const count = studio.solo_scene_count ?? 0;
-    const url = NavUtils.makeStudioDetailSoloScenesUrl(
-      studio,
-      soloTag.id,
-      soloTag.name,
-      topTag.id,
-      topTag.name,
-      bottomTag.id,
-      bottomTag.name,
-      oralTopTag.id,
-      oralTopTag.name,
-      oralBottomTag.id,
-      oralBottomTag.name
-    );
+    const url = NavUtils.makeStudioMarkerScenesUrl(studio, soloTag.id, "Solo");
 
     return (
       <Button
         className="minimal scene-category-count solo-scene-count"
         href={url}
         title={`Solo scenes (${soloTag.name})`}
-        disabled={count === 0}
+        disabled={soloCount === 0}
       >
         <Icon icon={faHand} className="category-icon-fa" />
-        <span>{count}</span>
+        <span>{soloCount}</span>
       </Button>
     );
   }
 
-  // Facial scenes (facialgiven or facialreceived) - goatee icon
+  // Facial scenes (marker-based) - goatee icon
   function maybeRenderFacialScenesButton() {
-    // At least one facial tag must be configured/found
-    if (!facialGivenTag && !facialReceivedTag && !selfFacialTag) return null;
+    if (!facialTag) return null;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const count =
-      (studio as any).facial_scene_count ??
-      (studio as any).facialSceneCount ??
-      0;
-    const primary1 = (facialGivenTag ?? selfFacialTag)!;
-    const primary2 = (facialReceivedTag ?? selfFacialTag)!;
-    const url = NavUtils.makeStudioDetailFacialScenesUrl(
-      studio,
-      primary1.id,
-      primary1.name,
-      primary2.id,
-      primary2.name,
-      selfFacialTag?.id,
-      selfFacialTag?.name
-    );
+    const url = NavUtils.makeStudioMarkerScenesUrl(studio, facialTag.id, "Facial");
 
     return (
       <Button
         className="minimal scene-category-count facial-scene-count ml-3"
         href={url}
-        title={`Facial scenes`}
-        disabled={count === 0}
+        title={`Facial scenes (${facialTag.name})`}
+        disabled={facialCount === 0}
       >
         <img src={goateeSvg} alt="Facial" className="category-icon" />
-        <span>{count}</span>
+        <span>{facialCount}</span>
       </Button>
     );
   }
 
   // Unique performers (performers with only 1 scene in database, for this studio)
   function maybeRenderUniquePerformersButton() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const count = (studio as any).unique_performer_count ?? 0;
+    const count = studioAny.unique_performer_count ?? 0;
     if (count === 0) return null;
 
     const url = NavUtils.makeStudioDetailUniquePerformersUrl(studio);
@@ -210,15 +148,9 @@ export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
     );
   }
 
-  const hasCategoryButtons = !!(
-    topTag &&
-    bottomTag &&
-    oralTopTag &&
-    oralBottomTag &&
-    soloTag
-  );
-
-  if (!hasCategoryButtons) return null;
+  // Only show if at least one role tag is configured
+  const hasAnyRoleTag = sexTag || oralTag || soloTag || facialTag;
+  if (!hasAnyRoleTag) return null;
 
   return (
     <div className="studio-category-strip scene-category-buttons d-flex align-items-center my-3">

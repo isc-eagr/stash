@@ -59,13 +59,6 @@ func (s *Service) Merge(ctx context.Context, sourceIDs []int, destinationID int,
 		}
 	}
 
-	// migrate performer_scene_tags from sources to destination
-	if migrator, ok := s.Repository.(models.ScenePerformerSceneTagsMerger); ok {
-		if err := migrator.MergePerformerSceneTags(ctx, sourceIDs, destinationID); err != nil {
-			return fmt.Errorf("merging performer scene tags: %w", err)
-		}
-	}
-
 	// move files to destination scene
 	if len(fileIDs) > 0 {
 		if err := s.Repository.AssignFiles(ctx, destinationID, fileIDs); err != nil {

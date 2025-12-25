@@ -5,7 +5,8 @@ mutation SceneMarkerCreate(
   $scene_id: ID!
   $primary_tag_id: ID!
   $tag_ids: [ID!] = []
-  $performer_ids: [ID!] = []
+  $giver_performer_ids: [ID!] = []
+  $receiver_performer_ids: [ID!] = []
 ) {
   sceneMarkerCreate(
     input: {
@@ -15,7 +16,8 @@ mutation SceneMarkerCreate(
       scene_id: $scene_id
       primary_tag_id: $primary_tag_id
       tag_ids: $tag_ids
-      performer_ids: $performer_ids
+      giver_performer_ids: $giver_performer_ids
+      receiver_performer_ids: $receiver_performer_ids
     }
   ) {
     ...SceneMarkerData
@@ -30,7 +32,8 @@ mutation SceneMarkerUpdate(
   $scene_id: ID!
   $primary_tag_id: ID!
   $tag_ids: [ID!] = []
-  $performer_ids: [ID!] = []
+  $giver_performer_ids: [ID!] = []
+  $receiver_performer_ids: [ID!] = []
 ) {
   sceneMarkerUpdate(
     input: {
@@ -41,7 +44,8 @@ mutation SceneMarkerUpdate(
       scene_id: $scene_id
       primary_tag_id: $primary_tag_id
       tag_ids: $tag_ids
-      performer_ids: $performer_ids
+      giver_performer_ids: $giver_performer_ids
+      receiver_performer_ids: $receiver_performer_ids
     }
   ) {
     ...SceneMarkerData

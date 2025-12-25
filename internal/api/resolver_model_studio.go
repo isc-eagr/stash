@@ -96,32 +96,26 @@ func (r *studioResolver) SceneCount(ctx context.Context, obj *models.Studio, dep
 	return ret, nil
 }
 
-// SexSceneCount returns the count of scenes with top/bottom performer_scene_tags
-func (r *studioResolver) SexSceneCount(ctx context.Context, obj *models.Studio, depth *int, topTag *string, bottomTag *string, performerID *string) (ret int, err error) {
-	// Get tag names from UI configuration if not provided
+// SexSceneCount returns the count of scenes with sex markers
+func (r *studioResolver) SexSceneCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
-	sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
+	sexTagID, _, _, _ := getRoleTagIDs(uiConfig)
 
-	top := "top"
-	if topTag != nil {
-		top = *topTag
-	} else if sceneTagAliases != nil {
-		if t, ok := sceneTagAliases["top"].(string); ok && t != "" {
-			top = t
-		}
+	if sexTagID == 0 {
+		return 0, nil
 	}
 
-	bottom := "bottom"
-	if bottomTag != nil {
-		bottom = *bottomTag
-	} else if sceneTagAliases != nil {
-		if b, ok := sceneTagAliases["bottom"].(string); ok && b != "" {
-			bottom = b
+	var perfID *int
+	if performerID != nil {
+		id, err := strconv.Atoi(*performerID)
+		if err != nil {
+			return 0, err
 		}
+		perfID = &id
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByStudioIDAndPerformerSceneTags(ctx, r.repository.Scene, r.repository.Tag, obj.ID, depth, []string{top, bottom}, false, performerID)
+		ret, err = scene.CountByStudioMarkerRole(ctx, r.repository.SceneMarker, r.repository.Scene, obj.ID, depth, sexTagID, "", perfID)
 		return err
 	}); err != nil {
 		return 0, err
@@ -130,50 +124,26 @@ func (r *studioResolver) SexSceneCount(ctx context.Context, obj *models.Studio, 
 	return ret, nil
 }
 
-// OralSceneCount returns the count of scenes with oral tags but not top/bottom
-func (r *studioResolver) OralSceneCount(ctx context.Context, obj *models.Studio, depth *int, oralTopTag *string, oralBottomTag *string, topTag *string, bottomTag *string, performerID *string) (ret int, err error) {
-	// Get tag names from UI configuration if not provided
+// OralSceneCount returns the count of scenes with oral markers but not sex markers
+func (r *studioResolver) OralSceneCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
-	sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
+	sexTagID, oralTagID, _, _ := getRoleTagIDs(uiConfig)
 
-	oralTop := "oraltop"
-	if oralTopTag != nil {
-		oralTop = *oralTopTag
-	} else if sceneTagAliases != nil {
-		if ot, ok := sceneTagAliases["oraltop"].(string); ok && ot != "" {
-			oralTop = ot
-		}
+	if oralTagID == 0 {
+		return 0, nil
 	}
 
-	oralBottom := "oralbottom"
-	if oralBottomTag != nil {
-		oralBottom = *oralBottomTag
-	} else if sceneTagAliases != nil {
-		if ob, ok := sceneTagAliases["oralbottom"].(string); ok && ob != "" {
-			oralBottom = ob
+	var perfID *int
+	if performerID != nil {
+		id, err := strconv.Atoi(*performerID)
+		if err != nil {
+			return 0, err
 		}
-	}
-
-	top := "top"
-	if topTag != nil {
-		top = *topTag
-	} else if sceneTagAliases != nil {
-		if t, ok := sceneTagAliases["top"].(string); ok && t != "" {
-			top = t
-		}
-	}
-
-	bottom := "bottom"
-	if bottomTag != nil {
-		bottom = *bottomTag
-	} else if sceneTagAliases != nil {
-		if b, ok := sceneTagAliases["bottom"].(string); ok && b != "" {
-			bottom = b
-		}
+		perfID = &id
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByStudioIDAndPerformerSceneTagsWithExclusions(ctx, r.repository.Scene, r.repository.Tag, obj.ID, depth, []string{oralTop, oralBottom}, []string{top, bottom}, performerID)
+		ret, err = scene.CountByStudioMarkerRoleExcluding(ctx, r.repository.SceneMarker, r.repository.Scene, obj.ID, depth, oralTagID, "", sexTagID, perfID)
 		return err
 	}); err != nil {
 		return 0, err
@@ -182,59 +152,26 @@ func (r *studioResolver) OralSceneCount(ctx context.Context, obj *models.Studio,
 	return ret, nil
 }
 
-// SoloSceneCount returns the count of scenes with solo tags but not top/bottom/oral
-func (r *studioResolver) SoloSceneCount(ctx context.Context, obj *models.Studio, depth *int, soloTag *string, topTag *string, bottomTag *string, oralTopTag *string, oralBottomTag *string, performerID *string) (ret int, err error) {
-	// Get tag names from UI configuration if not provided
+// SoloSceneCount returns the count of scenes with solo markers but not sex/oral markers
+func (r *studioResolver) SoloSceneCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
-	sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
+	sexTagID, oralTagID, soloTagID, _ := getRoleTagIDs(uiConfig)
 
-	solo := "solo"
-	if soloTag != nil {
-		solo = *soloTag
-	} else if sceneTagAliases != nil {
-		if s, ok := sceneTagAliases["solo"].(string); ok && s != "" {
-			solo = s
-		}
+	if soloTagID == 0 {
+		return 0, nil
 	}
 
-	top := "top"
-	if topTag != nil {
-		top = *topTag
-	} else if sceneTagAliases != nil {
-		if t, ok := sceneTagAliases["top"].(string); ok && t != "" {
-			top = t
+	var perfID *int
+	if performerID != nil {
+		id, err := strconv.Atoi(*performerID)
+		if err != nil {
+			return 0, err
 		}
-	}
-
-	bottom := "bottom"
-	if bottomTag != nil {
-		bottom = *bottomTag
-	} else if sceneTagAliases != nil {
-		if b, ok := sceneTagAliases["bottom"].(string); ok && b != "" {
-			bottom = b
-		}
-	}
-
-	oralTop := "oraltop"
-	if oralTopTag != nil {
-		oralTop = *oralTopTag
-	} else if sceneTagAliases != nil {
-		if ot, ok := sceneTagAliases["oraltop"].(string); ok && ot != "" {
-			oralTop = ot
-		}
-	}
-
-	oralBottom := "oralbottom"
-	if oralBottomTag != nil {
-		oralBottom = *oralBottomTag
-	} else if sceneTagAliases != nil {
-		if ob, ok := sceneTagAliases["oralbottom"].(string); ok && ob != "" {
-			oralBottom = ob
-		}
+		perfID = &id
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByStudioIDAndPerformerSceneTagsWithExclusions(ctx, r.repository.Scene, r.repository.Tag, obj.ID, depth, []string{solo}, []string{top, bottom, oralTop, oralBottom}, performerID)
+		ret, err = scene.CountByStudioMarkerRoleExcludingMultiple(ctx, r.repository.SceneMarker, r.repository.Scene, obj.ID, depth, soloTagID, "", []int{sexTagID, oralTagID}, perfID)
 		return err
 	}); err != nil {
 		return 0, err
@@ -243,40 +180,26 @@ func (r *studioResolver) SoloSceneCount(ctx context.Context, obj *models.Studio,
 	return ret, nil
 }
 
-// FacialSceneCount returns the count of scenes with facialgiven or facialreceived performer_scene_tags
-func (r *studioResolver) FacialSceneCount(ctx context.Context, obj *models.Studio, depth *int, facialGivenTag *string, facialReceivedTag *string, performerID *string) (ret int, err error) {
-	// Get tag names from UI configuration if not provided
+// FacialSceneCount returns the count of scenes with facial markers (independent of other markers)
+func (r *studioResolver) FacialSceneCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
-	sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
+	_, _, _, facialTagID := getRoleTagIDs(uiConfig)
 
-	facialGiven := "facialgiven"
-	if facialGivenTag != nil {
-		facialGiven = *facialGivenTag
-	} else if sceneTagAliases != nil {
-		if fg, ok := sceneTagAliases["facialgiven"].(string); ok && fg != "" {
-			facialGiven = fg
-		}
+	if facialTagID == 0 {
+		return 0, nil
 	}
 
-	facialReceived := "facialreceived"
-	if facialReceivedTag != nil {
-		facialReceived = *facialReceivedTag
-	} else if sceneTagAliases != nil {
-		if fr, ok := sceneTagAliases["facialreceived"].(string); ok && fr != "" {
-			facialReceived = fr
+	var perfID *int
+	if performerID != nil {
+		id, err := strconv.Atoi(*performerID)
+		if err != nil {
+			return 0, err
 		}
-	}
-
-	// Optional third facial tag: selffacial
-	selfFacial := "selffacial"
-	if sceneTagAliases != nil {
-		if sf, ok := sceneTagAliases["selffacial"].(string); ok && sf != "" {
-			selfFacial = sf
-		}
+		perfID = &id
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByStudioIDAndPerformerSceneTags(ctx, r.repository.Scene, r.repository.Tag, obj.ID, depth, []string{facialGiven, facialReceived, selfFacial}, false, performerID)
+		ret, err = scene.CountByStudioMarkerRole(ctx, r.repository.SceneMarker, r.repository.Scene, obj.ID, depth, facialTagID, "", perfID)
 		return err
 	}); err != nil {
 		return 0, err

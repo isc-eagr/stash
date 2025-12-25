@@ -245,6 +245,29 @@ func (_m *PerformerReaderWriter) FindBySceneMarkerID(ctx context.Context, sceneM
 	return r0, r1
 }
 
+// FindBySceneMarkerIDWithRole provides a mock function with given fields: ctx, sceneMarkerID, role
+func (_m *PerformerReaderWriter) FindBySceneMarkerIDWithRole(ctx context.Context, sceneMarkerID int, role string) ([]*models.Performer, error) {
+	ret := _m.Called(ctx, sceneMarkerID, role)
+
+	var r0 []*models.Performer
+	if rf, ok := ret.Get(0).(func(context.Context, int, string) []*models.Performer); ok {
+		r0 = rf(ctx, sceneMarkerID, role)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*models.Performer)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int, string) error); ok {
+		r1 = rf(ctx, sceneMarkerID, role)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindByStashID provides a mock function with given fields: ctx, stashID
 func (_m *PerformerReaderWriter) FindByStashID(ctx context.Context, stashID models.StashID) ([]*models.Performer, error) {
 	ret := _m.Called(ctx, stashID)
@@ -427,43 +450,6 @@ func (_m *PerformerReaderWriter) GetStashIDs(ctx context.Context, relatedID int)
 	}
 
 	return r0, r1
-}
-
-// GetSceneTagIDs provides a mock function with given fields: ctx, performerID, sceneID
-func (_m *PerformerReaderWriter) GetSceneTagIDs(ctx context.Context, performerID int, sceneID int) ([]int, error) {
-	ret := _m.Called(ctx, performerID, sceneID)
-
-	var r0 []int
-	if rf, ok := ret.Get(0).(func(context.Context, int, int) []int); ok {
-		r0 = rf(ctx, performerID, sceneID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]int)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, int, int) error); ok {
-		r1 = rf(ctx, performerID, sceneID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// SetSceneTags provides a mock function with given fields: ctx, performerID, sceneID, tagIDs
-func (_m *PerformerReaderWriter) SetSceneTags(ctx context.Context, performerID int, sceneID int, tagIDs []int) error {
-	ret := _m.Called(ctx, performerID, sceneID, tagIDs)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int, int, []int) error); ok {
-		r0 = rf(ctx, performerID, sceneID, tagIDs)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
 }
 
 // GetTagIDs provides a mock function with given fields: ctx, relatedID

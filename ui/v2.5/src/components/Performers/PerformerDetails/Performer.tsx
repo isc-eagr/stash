@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Tabs, Tab, Col, Row } from "react-bootstrap";
-import { useIntl } from "react-intl";
+import { FormattedMessage, useIntl } from "react-intl";
 import { useHistory, Redirect, RouteComponentProps } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import cx from "classnames";
@@ -27,8 +27,9 @@ import { PerformerScenesPanel } from "./PerformerScenesPanel";
 import { PerformerGalleriesPanel } from "./PerformerGalleriesPanel";
 import { PerformerGroupsPanel } from "./PerformerGroupsPanel";
 import { PerformerImagesPanel } from "./PerformerImagesPanel";
+import { PerformerMarkersPanel } from "./PerformerMarkersPanel";
 import { PerformerAppearsWithPanel } from "./performerAppearsWithPanel";
-import { PerformerSceneTagsPanel } from "./performerSceneTagsPanel";
+import { PerformerAppearsWithByRolePanel } from "./PerformerAppearsWithByRolePanel";
 import { PerformerStudiosPanel } from "./PerformerStudiosPanel";
 import { PerformerEditPanel } from "./PerformerEditPanel";
 import { PerformerSubmitButton } from "./PerformerSubmitButton";
@@ -53,6 +54,7 @@ import { ILightboxImage } from "src/hooks/Lightbox/types";
 import { goBackOrReplace } from "src/utils/history";
 import { OCounterButton } from "src/components/Shared/CountButton";
 import { PerformerCategoryStrip } from "./PerformerCategoryStrip";
+import { Counter } from "src/components/Shared/Counter";
 
 interface IProps {
   performer: GQL.PerformerDataFragment;
@@ -70,9 +72,10 @@ const validTabs = [
   "galleries",
   "images",
   "groups",
-  "scenetags",
+  "markers",
   "studios",
   "appearswith",
+  "appearswithbyrole",
 ] as const;
 type TabKey = (typeof validTabs)[number];
 
@@ -85,21 +88,6 @@ const PerformerTabs: React.FC<{
   performer: GQL.PerformerDataFragment;
   abbreviateCounter: boolean;
 }> = ({ tabKey, performer, abbreviateCounter }) => {
-  // fetch count of scene tags for this performer for the tab medal
-  const { data: sceneTagsData } = GQL.useFindTagsQuery({
-    variables: {
-      tag_filter: {
-        performer_scene_tags: {
-          modifier: GQL.CriterionModifier.IncludesAll,
-          value: [performer.id],
-        },
-      },
-      // no need to fetch actual tags here; we only use the count
-      filter: { per_page: 1 },
-    },
-  });
-  const sceneTagsCount = sceneTagsData?.findTags.count ?? 0;
-
   // fetch count of studios where this performer has scenes
   const { data: studiosData } = GQL.useFindStudiosQuery({
     variables: {
@@ -116,6 +104,29 @@ const PerformerTabs: React.FC<{
     },
   });
   const studiosCount = studiosData?.findStudios.count ?? 0;
+
+  // fetch count of markers directly assigned to this performer (as giver or receiver)
+  const { data: performerMarkersData } = GQL.useFindSceneMarkersQuery({
+    variables: {
+      scene_marker_filter: {
+        marker_performers: {
+          giver_performer_ids: [performer.id],
+          receiver_performer_ids: [performer.id],
+          mode: "OR",
+          modifier: GQL.CriterionModifier.Includes,
+        },
+      },
+      // no need to fetch actual markers here; we only use the count
+      filter: { per_page: 1 },
+    },
+  });
+  const performerMarkersCount = performerMarkersData?.findSceneMarkers.count ?? 0;
+
+  // fetch unique co-performer count for "Appears With (By Role)" tab
+  const { data: coPerformersData } = GQL.usePerformerCoPerformersByRoleQuery({
+    variables: { performer_id: performer.id },
+  });
+  const uniqueCoPerformerCount = coPerformersData?.performerCoPerformersByRole?.unique_count ?? 0;
 
   const populatedDefaultTab = useMemo(() => {
     let ret: TabKey = "scenes";
@@ -224,6 +235,27 @@ const PerformerTabs: React.FC<{
       </Tab>
 
       <Tab
+        eventKey="markers"
+        title={
+          <>
+            <FormattedMessage id="markers" defaultMessage="Markers" />
+            <Counter
+              count={performerMarkersCount}
+              abbreviateCounter={abbreviateCounter}
+              hideZero
+            />
+          </>
+        }
+      >
+        <PerformerMarkersPanel
+          active={tabKey === "markers"}
+          performer={performer}
+        />
+      </Tab>
+
+      {/* HIDDEN: This tab is hidden in this fork but kept for upstream merge compatibility */}
+      {false && (
+      <Tab
         eventKey="appearswith"
         title={
           <TabTitleCounter
@@ -238,18 +270,23 @@ const PerformerTabs: React.FC<{
           performer={performer}
         />
       </Tab>
+      )}
       <Tab
-        eventKey="scenetags"
+        eventKey="appearswithbyrole"
         title={
-          <TabTitleCounter
-            messageID="scene_tags"
-            count={sceneTagsCount}
-            abbreviateCounter={abbreviateCounter}
-          />
+          <>
+            <FormattedMessage id="appears_with_by_role" defaultMessage="Appears With (By Role)" />
+            {uniqueCoPerformerCount > 0 && (
+              <Counter
+                abbreviateCounter={abbreviateCounter}
+                count={uniqueCoPerformerCount}
+              />
+            )}
+          </>
         }
       >
-        <PerformerSceneTagsPanel
-          active={tabKey === "scenetags"}
+        <PerformerAppearsWithByRolePanel
+          active={tabKey === "appearswithbyrole"}
           performer={performer}
         />
       </Tab>

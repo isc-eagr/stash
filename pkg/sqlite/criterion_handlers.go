@@ -1073,51 +1073,236 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 		if len(c.GroupsExtended) > 0 {
 			// Handle extended groups with performer attributes
 			for _, g := range c.GroupsExtended {
-				// Build performer condition clauses
+				// Expand tag IDs if depth is specified (for including sub-tags)
+				tagIDs := g.TagIDs
+				if len(tagIDs) > 0 && g.Depth != nil && *g.Depth != 0 {
+					// Use hierarchical expansion to include descendant tags
+					valuesClause, err := getHierarchicalValues(ctx, tagIDs, tagTable, "tags_relations", "parent_id", "child_id", g.Depth)
+					if err != nil {
+						f.setError(err)
+						return
+					}
+					// Extract just the child tag IDs from the VALUES clause using a query
+					var expandedIDs []string
+					expandQuery := fmt.Sprintf("SELECT DISTINCT column2 FROM (%s)", valuesClause)
+					if err := dbWrapper.Select(ctx, &expandedIDs, expandQuery); err != nil {
+						f.setError(err)
+						return
+					}
+					if len(expandedIDs) > 0 {
+						tagIDs = expandedIDs
+					}
+				}
+
+				// Determine performer mode: AND (both giver and receiver must match) or OR (either can match)
+				performerModeAnd := false
+				if g.PerformerMode != nil && strings.EqualFold(*g.PerformerMode, "AND") {
+					performerModeAnd = true
+				}
+
+				// Helper to build role-specific condition with performer IDs and/or attributes
+				type roleCondition struct {
+					clause string
+					args   []any
+				}
+
+				buildRoleCondition := func(role string, performerIDs []string, ethnicities []string, countries []string, rating *models.IntCriterionInput) *roleCondition {
+					var clauses []string
+					var args []any
+
+					// Start with role condition
+					baseClauses := []string{fmt.Sprintf("smp.role = '%s'", role)}
+
+					if len(performerIDs) > 0 {
+						ph := getInBinding(len(performerIDs))
+						baseClauses = append(baseClauses, fmt.Sprintf("smp.performer_id IN %s", ph))
+						for _, pid := range performerIDs {
+							args = append(args, pid)
+						}
+					}
+
+					if len(ethnicities) > 0 {
+						expanded := expandEthnicities(ethnicities)
+						ph := getInBinding(len(expanded))
+						baseClauses = append(baseClauses, fmt.Sprintf("p.ethnicity IN %s", ph))
+						for _, e := range expanded {
+							args = append(args, e)
+						}
+					}
+
+					if len(countries) > 0 {
+						ph := getInBinding(len(countries))
+						baseClauses = append(baseClauses, fmt.Sprintf("p.country IN %s", ph))
+						for _, c := range countries {
+							args = append(args, c)
+						}
+					}
+
+					if rating != nil {
+						w, wargs := getIntWhereClause("p.rating", rating.Modifier, rating.Value, rating.Value2)
+						baseClauses = append(baseClauses, w)
+						args = append(args, wargs...)
+					}
+
+					clauses = append(clauses, "("+strings.Join(baseClauses, " AND ")+")")
+
+					return &roleCondition{
+						clause: strings.Join(clauses, " AND "),
+						args:   args,
+					}
+				}
+
+				// Build giver condition - use new fields if available, fall back to deprecated fields
+				var giverCond *roleCondition
+				giverEthnicities := g.GiverEthnicities
+				giverCountries := g.GiverCountries
+				giverRating := g.GiverRating
+				// Fall back to deprecated fields if new ones are empty
+				if len(giverEthnicities) == 0 && len(g.PerformerEthnicities) > 0 {
+					giverEthnicities = g.PerformerEthnicities
+				}
+				if len(giverCountries) == 0 && len(g.PerformerCountries) > 0 {
+					giverCountries = g.PerformerCountries
+				}
+				if giverRating == nil && g.PerformerRating != nil {
+					giverRating = g.PerformerRating
+				}
+				hasGiverCriteria := len(g.GiverPerformerIDs) > 0 || len(giverEthnicities) > 0 || len(giverCountries) > 0 || giverRating != nil
+				if hasGiverCriteria {
+					giverCond = buildRoleCondition("giver", g.GiverPerformerIDs, giverEthnicities, giverCountries, giverRating)
+				}
+
+				// Build receiver condition - use new fields if available, fall back to deprecated fields
+				var receiverCond *roleCondition
+				receiverEthnicities := g.ReceiverEthnicities
+				receiverCountries := g.ReceiverCountries
+				receiverRating := g.ReceiverRating
+				// Fall back to deprecated fields if new ones are empty
+				if len(receiverEthnicities) == 0 && len(g.PerformerEthnicities) > 0 {
+					receiverEthnicities = g.PerformerEthnicities
+				}
+				if len(receiverCountries) == 0 && len(g.PerformerCountries) > 0 {
+					receiverCountries = g.PerformerCountries
+				}
+				if receiverRating == nil && g.PerformerRating != nil {
+					receiverRating = g.PerformerRating
+				}
+				hasReceiverCriteria := len(g.ReceiverPerformerIDs) > 0 || len(receiverEthnicities) > 0 || len(receiverCountries) > 0 || receiverRating != nil
+				if hasReceiverCriteria {
+					receiverCond = buildRoleCondition("receiver", g.ReceiverPerformerIDs, receiverEthnicities, receiverCountries, receiverRating)
+				}
+
+				// Build both_roles condition (performer must be in BOTH giver and receiver roles)
+				hasBothRolesCriteria := len(g.BothRolesPerformerIDs) > 0 || len(g.BothRolesEthnicities) > 0 || len(g.BothRolesCountries) > 0 || g.BothRolesRating != nil
+
+				// Build the final performer condition
 				var performerClauses []string
 				var performerArgs []any
 
-				if len(g.PerformerIDs) > 0 {
-					ph := getInBinding(len(g.PerformerIDs))
-					performerClauses = append(performerClauses, fmt.Sprintf("p.id IN %s", ph))
-					for _, pid := range g.PerformerIDs {
-						performerArgs = append(performerArgs, pid)
+				if hasBothRolesCriteria {
+					// For both_roles: performer must appear as giver AND as receiver for matching markers
+					var bothRolesConditions []string
+					var bothRolesArgs []any
+
+					if len(g.BothRolesPerformerIDs) > 0 {
+						ph := getInBinding(len(g.BothRolesPerformerIDs))
+						bothRolesConditions = append(bothRolesConditions, fmt.Sprintf("p.id IN %s", ph))
+						for _, pid := range g.BothRolesPerformerIDs {
+							bothRolesArgs = append(bothRolesArgs, pid)
+						}
 					}
+					if len(g.BothRolesEthnicities) > 0 {
+						expanded := expandEthnicities(g.BothRolesEthnicities)
+						ph := getInBinding(len(expanded))
+						bothRolesConditions = append(bothRolesConditions, fmt.Sprintf("p.ethnicity IN %s", ph))
+						for _, e := range expanded {
+							bothRolesArgs = append(bothRolesArgs, e)
+						}
+					}
+					if len(g.BothRolesCountries) > 0 {
+						ph := getInBinding(len(g.BothRolesCountries))
+						bothRolesConditions = append(bothRolesConditions, fmt.Sprintf("p.country IN %s", ph))
+						for _, c := range g.BothRolesCountries {
+							bothRolesArgs = append(bothRolesArgs, c)
+						}
+					}
+					if g.BothRolesRating != nil {
+						w, wargs := getIntWhereClause("p.rating", g.BothRolesRating.Modifier, g.BothRolesRating.Value, g.BothRolesRating.Value2)
+						bothRolesConditions = append(bothRolesConditions, w)
+						bothRolesArgs = append(bothRolesArgs, wargs...)
+					}
+
+					performerCondition := strings.Join(bothRolesConditions, " AND ")
+					// This requires the performer to have BOTH 'giver' and 'receiver' entries
+					performerClauses = append(performerClauses, fmt.Sprintf(`EXISTS (
+						SELECT 1 FROM scene_marker_performers smp_g
+						JOIN performers p ON p.id = smp_g.performer_id
+						WHERE smp_g.scene_marker_id = sm.id AND smp_g.role = 'giver' AND %s
+					) AND EXISTS (
+						SELECT 1 FROM scene_marker_performers smp_r
+						JOIN performers p ON p.id = smp_r.performer_id  
+						WHERE smp_r.scene_marker_id = sm.id AND smp_r.role = 'receiver' AND %s
+					)`, performerCondition, performerCondition))
+					performerArgs = append(performerArgs, bothRolesArgs...)
+					performerArgs = append(performerArgs, bothRolesArgs...)
 				}
 
-				if len(g.PerformerCountries) > 0 {
-					ph := getInBinding(len(g.PerformerCountries))
-					performerClauses = append(performerClauses, fmt.Sprintf("p.country IN %s", ph))
-					for _, c := range g.PerformerCountries {
-						performerArgs = append(performerArgs, c)
+				if giverCond != nil && receiverCond != nil {
+					if performerModeAnd {
+						// AND mode: both giver and receiver conditions must match
+						performerClauses = append(performerClauses, giverCond.clause)
+						performerArgs = append(performerArgs, giverCond.args...)
+						performerClauses = append(performerClauses, receiverCond.clause)
+						performerArgs = append(performerArgs, receiverCond.args...)
+					} else {
+						// OR mode: either giver or receiver matches
+						combinedClause := fmt.Sprintf("(%s OR %s)", giverCond.clause, receiverCond.clause)
+						performerClauses = append(performerClauses, combinedClause)
+						performerArgs = append(performerArgs, giverCond.args...)
+						performerArgs = append(performerArgs, receiverCond.args...)
 					}
-				}
-
-				if len(g.PerformerEthnicities) > 0 {
-					expanded := expandEthnicities(g.PerformerEthnicities)
-					ph := getInBinding(len(expanded))
-					performerClauses = append(performerClauses, fmt.Sprintf("p.ethnicity IN %s", ph))
-					for _, e := range expanded {
-						performerArgs = append(performerArgs, e)
-					}
-				}
-
-				if g.PerformerRating != nil {
-					w, wargs := getIntWhereClause("p.rating", g.PerformerRating.Modifier, g.PerformerRating.Value, g.PerformerRating.Value2)
-					performerClauses = append(performerClauses, w)
-					performerArgs = append(performerArgs, wargs...)
+				} else if giverCond != nil {
+					performerClauses = append(performerClauses, giverCond.clause)
+					performerArgs = append(performerArgs, giverCond.args...)
+				} else if receiverCond != nil {
+					performerClauses = append(performerClauses, receiverCond.clause)
+					performerArgs = append(performerArgs, receiverCond.args...)
 				}
 
 				// Build the subquery
 				var subq string
 				var args []any
 
-				if len(g.TagIDs) > 0 && len(performerClauses) > 0 {
+				// When depth is specified and expanded, we match ANY of the expanded tags
+				// When no depth, we match ALL original tags
+				originalTagCount := len(g.TagIDs)
+				useIncludesLogic := len(tagIDs) > originalTagCount
+
+				if len(tagIDs) > 0 && len(performerClauses) > 0 {
 					// Both tags and performer conditions
-					tagPh := getInBinding(len(g.TagIDs))
+					tagPh := getInBinding(len(tagIDs))
 					performerCondition := strings.Join(performerClauses, " AND ")
 
-					subq = utils.StrFormat(`EXISTS (
+					if useIncludesLogic {
+						// With sub-tags: marker must have at least one of the expanded tags
+						subq = utils.StrFormat(`EXISTS (
+SELECT 1 FROM scene_markers sm
+JOIN scene_marker_performers smp ON smp.scene_marker_id = sm.id
+JOIN performers p ON p.id = smp.performer_id
+WHERE sm.scene_id = {primaryTable}.id
+  AND `+performerCondition+`
+  AND (
+    SELECT COUNT(*) FROM (
+      SELECT sm.primary_tag_id AS tag_id
+      UNION ALL
+      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
+    ) tags_per_marker
+    WHERE tag_id IN `+tagPh+`
+  ) >= 1
+)`, utils.StrFormatMap{"primaryTable": h.primaryTable})
+					} else {
+						// Without sub-tags: marker must have ALL original tags
+						subq = utils.StrFormat(`EXISTS (
 SELECT 1 FROM scene_markers sm
 JOIN scene_marker_performers smp ON smp.scene_marker_id = sm.id
 JOIN performers p ON p.id = smp.performer_id
@@ -1130,17 +1315,35 @@ WHERE sm.scene_id = {primaryTable}.id
       SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
     ) tags_per_marker
     WHERE tag_id IN `+tagPh+`
-  ) = `+fmt.Sprintf("%d", len(g.TagIDs))+`
+  ) = `+fmt.Sprintf("%d", originalTagCount)+`
 )`, utils.StrFormatMap{"primaryTable": h.primaryTable})
+					}
 
 					args = append(args, performerArgs...)
-					for _, tid := range g.TagIDs {
+					for _, tid := range tagIDs {
 						args = append(args, tid)
 					}
-				} else if len(g.TagIDs) > 0 {
+				} else if len(tagIDs) > 0 {
 					// Only tags, no performer conditions
-					tagPh := getInBinding(len(g.TagIDs))
-					subq = utils.StrFormat(`EXISTS (
+					tagPh := getInBinding(len(tagIDs))
+
+					if useIncludesLogic {
+						// With sub-tags: marker must have at least one of the expanded tags
+						subq = utils.StrFormat(`EXISTS (
+SELECT 1 FROM scene_markers sm
+WHERE sm.scene_id = {primaryTable}.id
+  AND (
+    SELECT COUNT(*) FROM (
+      SELECT sm.primary_tag_id AS tag_id
+      UNION ALL
+      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
+    ) tags_per_marker
+    WHERE tag_id IN `+tagPh+`
+  ) >= 1
+)`, utils.StrFormatMap{"primaryTable": h.primaryTable})
+					} else {
+						// Without sub-tags: marker must have ALL original tags
+						subq = utils.StrFormat(`EXISTS (
 SELECT 1 FROM scene_markers sm
 WHERE sm.scene_id = {primaryTable}.id
   AND (
@@ -1150,10 +1353,11 @@ WHERE sm.scene_id = {primaryTable}.id
       SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
     ) tags_per_marker
     WHERE tag_id IN `+tagPh+`
-  ) = `+fmt.Sprintf("%d", len(g.TagIDs))+`
+  ) = `+fmt.Sprintf("%d", originalTagCount)+`
 )`, utils.StrFormatMap{"primaryTable": h.primaryTable})
+					}
 
-					for _, tid := range g.TagIDs {
+					for _, tid := range tagIDs {
 						args = append(args, tid)
 					}
 				} else if len(performerClauses) > 0 {
@@ -1174,6 +1378,31 @@ WHERE sm.scene_id = {primaryTable}.id
 				}
 
 				f.addWhere(subq, args...)
+
+				// Handle exclude_tag_ids - scene must NOT have any markers with these tags
+				if len(g.ExcludeTagIDs) > 0 {
+					excludePh := getInBinding(len(g.ExcludeTagIDs))
+					excludeSubq := utils.StrFormat(`NOT EXISTS (
+SELECT 1 FROM scene_markers sm_excl
+WHERE sm_excl.scene_id = {primaryTable}.id
+  AND (
+    sm_excl.primary_tag_id IN `+excludePh+`
+    OR EXISTS (
+      SELECT 1 FROM scene_markers_tags smt_excl
+      WHERE smt_excl.scene_marker_id = sm_excl.id AND smt_excl.tag_id IN `+excludePh+`
+    )
+  )
+)`, utils.StrFormatMap{"primaryTable": h.primaryTable})
+					var excludeArgs []any
+					for _, tid := range g.ExcludeTagIDs {
+						excludeArgs = append(excludeArgs, tid)
+					}
+					// Need to add the args twice (once for primary_tag_id, once for scene_markers_tags)
+					for _, tid := range g.ExcludeTagIDs {
+						excludeArgs = append(excludeArgs, tid)
+					}
+					f.addWhere(excludeSubq, excludeArgs...)
+				}
 			}
 			return
 		}

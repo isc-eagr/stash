@@ -50,6 +50,7 @@ interface ICriterionList {
   onRemoveCriterion: (c: string) => void;
   onTogglePin: (c: CriterionOption) => void;
   externallySelected?: boolean;
+  filterMode?: FilterMode;
 }
 
 const CriterionOptionList: React.FC<ICriterionList> = ({
@@ -63,6 +64,7 @@ const CriterionOptionList: React.FC<ICriterionList> = ({
   onRemoveCriterion,
   onTogglePin,
   externallySelected = false,
+  filterMode,
 }) => {
   const { configuration } = useConfigurationContext();
   const { sfwContentMode } = configuration.interface;
@@ -127,6 +129,16 @@ const CriterionOptionList: React.FC<ICriterionList> = ({
     return prevCriterion;
   }
 
+  // Get filter descriptions for specific criteria based on filter mode
+  function getFilterDescription(criterionType: CriterionType): string | null {
+    if (filterMode === FilterMode.SceneMarkers) {
+      if (criterionType === "marker_tags_with_performers") {
+        return "Filter scene markers by tag with associated performer criteria (giver/receiver roles, countries, ethnicities)";
+      }
+    }
+    return null;
+  }
+
   function removeClicked(ev: React.MouseEvent, t: string) {
     // needed to prevent the nav item from being selected
     ev.stopPropagation();
@@ -175,9 +187,15 @@ const CriterionOptionList: React.FC<ICriterionList> = ({
           {(type === c.type && currentCriterion) ||
           (prevType === c.type && prevCriterion) ? (
             <Card.Body>
+              {getFilterDescription(c.type) && (
+                <div className="mb-2">
+                  <small className="text-muted">{getFilterDescription(c.type)}</small>
+                </div>
+              )}
               <CriterionEditor
                 criterion={getReleventCriterion(c.type)!}
                 setCriterion={setCriterion}
+                filterMode={filterMode}
               />
             </Card.Body>
           ) : (
@@ -573,6 +591,7 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
               onRemoveCriterion={(c) => removeCriterionString(c)}
               onTogglePin={(c) => onTogglePinFilter(c)}
               externallySelected={!!editingCriterion}
+              filterMode={currentFilter.mode}
             />
             {criteria.length > 0 && (
               <div>

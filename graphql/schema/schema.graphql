@@ -30,6 +30,9 @@ type Query {
   findScene(id: ID, checksum: String): Scene
   findSceneByHash(input: SceneHashInput!): Scene
 
+  "Find multi-segment loop presets for a scene"
+  findSceneMultiSegmentLoopPresets(scene_id: ID!): [MultiSegmentLoopPreset!]!
+
   "A function which queries Scene objects"
   findScenes(
     scene_filter: SceneFilterType
@@ -296,6 +299,10 @@ type Mutation {
   sceneDestroy(input: SceneDestroyInput!): Boolean!
   scenesDestroy(input: ScenesDestroyInput!): Boolean!
   scenesUpdate(input: [SceneUpdateInput!]!): [Scene]
+  saveSceneMultiSegmentLoopPreset(
+    input: SceneMultiSegmentLoopPresetInput!
+  ): MultiSegmentLoopPreset!
+  deleteSceneMultiSegmentLoopPreset(scene_id: ID!, name: String!): Boolean!
 
   "Increments the o-counter for a scene. Returns the new value"
   sceneIncrementO(id: ID!): Int! @deprecated(reason: "Use sceneAddO instead")

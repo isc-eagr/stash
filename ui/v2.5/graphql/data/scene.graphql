@@ -79,6 +79,20 @@ fragment SceneData on Scene {
     mime_type
     label
   }
+
+  multi_segment_loop_presets {
+    id
+    scene_id
+    name
+    enabled
+    current_segment_index
+    segments {
+      start
+      end
+    }
+    created_at
+    updated_at
+  }
 }
 
 fragment SelectSceneData on Scene {

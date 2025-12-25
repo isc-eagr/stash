@@ -186,6 +186,98 @@
   }
 }
 
+/* Role badges in performer card details section (below age) */
+.performer-role-badges {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+  
+  .role-badge-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border-radius: 6px;
+    padding: 6px;
+    
+    .category-icon-container {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 4px;
+      
+      .category-icon {
+        width: 20px;
+        height: 20px;
+        object-fit: contain;
+        filter: brightness(0) invert(1); /* Make white */
+      }
+      
+      .category-icon-fa {
+        font-size: 16px;
+        color: white;
+      }
+      
+      .role-total-count {
+        font-size: 11px;
+        font-weight: 600;
+        color: white;
+        line-height: 1;
+      }
+    }
+    
+    .role-arrows {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      
+      .arrow-badge {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        font-size: 10px;
+        line-height: 1;
+        
+        .arrow-icon {
+          font-size: 12px;
+        }
+        
+        .arrow-count {
+          font-weight: 600;
+        }
+      }
+      
+      /* Force white text and arrow icons on the bootstrap badges for visibility */
+      .giver-badge {
+        color: white !important;
+        
+        .arrow-icon {
+          color: white !important;
+        }
+        
+        .arrow-count {
+          color: white !important;
+        }
+      }
+      
+      .receiver-badge {
+        color: white !important;
+        
+        .arrow-icon {
+          color: white !important;
+        }
+        
+        .arrow-count {
+          color: white !important;
+        }
+      }
+    }
+  }
+}
+
 /* Inline scene tag strip under performer name: wrap and clamp to 3 rows */
 .performer-card__scene-tags {
   display: flex;

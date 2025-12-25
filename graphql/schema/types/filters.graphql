@@ -180,10 +180,14 @@ input PerformerFilterType {
   death_date: DateCriterionInput
   "Filter by related scenes that meet this criteria"
   scenes_filter: SceneFilterType
-  "Filter to only include performers where the performer has these scene tags (from performer_scene_tags)"
-  performer_scene_tags: HierarchicalMultiCriterionInput
+  "Filter to only include performers that have scene markers where they are giver/receiver"
+  has_markers: String
   "Filter to only include performers that have at least one scene marker with all the selected tags"
-  marker_tags: HierarchicalMultiCriterionInput
+  marker_tags: HierarchicalMultiCriterionInput @deprecated(reason: "Use performer_markers instead")
+  "Filter by role: performers who are givers/receivers in scene markers with configured role tags"
+  roles: PerformerRolesCriterionInput @deprecated(reason: "Use performer_markers instead")
+  "Filter by scene marker participation with tag + role + partner attributes"
+  performer_markers: PerformerMarkersCriterionInput
   "Filter by related images that meet this criteria"
   images_filter: ImageFilterType
   "Filter by related galleries that meet this criteria"
@@ -209,8 +213,6 @@ input SceneMarkerFilterType {
   performer_ethnicity: StringCriterionInput
   "Filter by performer country (scene performers, comma-separated ISO codes for multi-select)"
   performer_country: StringCriterionInput
-  "Filter markers whose scene has, for each group, at least one performer with the specified tag and optional attributes"
-  performer_scene_tags_with_attrs: PerformerSceneTagsWithAttrsCriterionInput
   "Filter by performer rating (scene performers, 1-100). Matches markers where linked performers satisfy the condition."
   performer_rating: IntCriterionInput
   "When true, all linked performers must satisfy the performer_rating condition; when false, at least one performer must satisfy it (default: true)."
@@ -222,18 +224,21 @@ input SceneMarkerFilterType {
   "Filter by whether the marker has an end time"
   has_end_time: Boolean
 
-  "Filter by performers assigned directly to the marker (via scene_marker_performers table)"
-  marker_performers: MultiCriterionInput
+  "Filter by performers assigned directly to the marker with giver/receiver role support"
+  marker_performers: MarkerPerformersFilterInput @deprecated(reason: "Use marker_tags_with_performers instead")
   "Filter by ethnicity of performers assigned directly to the marker"
-  marker_performer_ethnicity: StringCriterionInput
+  marker_performer_ethnicity: StringCriterionInput @deprecated(reason: "Use marker_tags_with_performers instead")
   "Filter by country of performers assigned directly to the marker (comma-separated ISO codes)"
-  marker_performer_country: StringCriterionInput
+  marker_performer_country: StringCriterionInput @deprecated(reason: "Use marker_tags_with_performers instead")
   "Filter by rating of performers assigned directly to the marker (1-100)"
-  marker_performer_rating: IntCriterionInput
+  marker_performer_rating: IntCriterionInput @deprecated(reason: "Use marker_tags_with_performers instead")
   "When true, all marker performers must satisfy the marker_performer_rating condition; when false, at least one (default: true)"
-  marker_performer_rating_all: Boolean
+  marker_performer_rating_all: Boolean @deprecated(reason: "Use marker_tags_with_performers instead")
   "Filter by whether the marker has performers assigned directly to it"
   has_marker_performers: String
+
+  "Filter by marker tags with performer attributes (giver/receiver/both roles). Consolidates marker tags and marker performer filters."
+  marker_tags_with_performers: SceneMarkerTagsCriterionInput
 
   "Filter to only include scene markers from these scenes"
   scenes: MultiCriterionInput
@@ -264,13 +269,46 @@ input TagIdGroupsInput {
 input SceneMarkerTagGroupInput {
   "Tag IDs that must be present on the marker"
   tag_ids: [ID!]!
-  "Optional performer IDs - marker must have at least one of these performers assigned"
-  performer_ids: [ID!]
-  "Optional performer countries (OR match)"
+  "Tag IDs that must NOT be present on any marker in the scene"
+  exclude_tag_ids: [ID!]
+  "Include child tags up to this depth. -1 = all descendants, 0 = no children (default)"
+  depth: Int
+  
+  "Giver performer IDs - marker must have at least one of these performers as giver"
+  giver_performer_ids: [ID!]
+  "Giver performer ethnicities (OR match; expansions handled server-side)"
+  giver_ethnicities: [String!]
+  "Giver performer countries (OR match)"
+  giver_countries: [String!]
+  "Giver performer rating criterion"
+  giver_rating: IntCriterionInput
+  
+  "Receiver performer IDs - marker must have at least one of these performers as receiver"
+  receiver_performer_ids: [ID!]
+  "Receiver performer ethnicities (OR match; expansions handled server-side)"
+  receiver_ethnicities: [String!]
+  "Receiver performer countries (OR match)"
+  receiver_countries: [String!]
+  "Receiver performer rating criterion"
+  receiver_rating: IntCriterionInput
+  
+  "Both-roles performer IDs - performer must appear as BOTH giver AND receiver for matching markers"
+  both_roles_performer_ids: [ID!]
+  "Both-roles performer ethnicities (OR match)"
+  both_roles_ethnicities: [String!]
+  "Both-roles performer countries (OR match)"
+  both_roles_countries: [String!]
+  "Both-roles performer rating criterion"
+  both_roles_rating: IntCriterionInput
+  
+  "Mode for performer matching: 'AND' = giver AND receiver must match, 'OR' = either can match (default: 'OR')"
+  performer_mode: String
+  
+  "DEPRECATED: Use giver_countries/receiver_countries instead. Optional performer countries (OR match)"
   performer_countries: [String!]
-  "Optional performer ethnicities (OR match; expansions handled server-side)"
+  "DEPRECATED: Use giver_ethnicities/receiver_ethnicities instead. Optional performer ethnicities (OR match)"
   performer_ethnicities: [String!]
-  "Optional performer rating criterion"
+  "DEPRECATED: Use giver_rating/receiver_rating instead. Optional performer rating criterion"
   performer_rating: IntCriterionInput
 }
 
@@ -349,10 +387,6 @@ input SceneFilterType {
   tag_count: IntCriterionInput
   "Filter to only include scenes with performers with these tags"
   performer_tags: HierarchicalMultiCriterionInput
-  "Filter to only include scenes where a given performer has this tag (joins performer_scene_tags)"
-  performer_scene_tags: HierarchicalMultiCriterionInput
-  "Filter to only include scenes where a given performer has a specific tag (compact pair input)"
-  performer_scene_tag_pair: PerformerSceneTagPairInput
   "Filter scenes that have performers that have been favorited"
   performer_favorite: Boolean
   "Filter scenes by performer age at time of scene"
@@ -413,32 +447,6 @@ input SceneFilterType {
   performer_rating_all: Boolean
   "Filter by scene markers"
   scene_marker_tags: SceneMarkerTagsCriterionInput
-
-  "Filter by performer scene tag with optional performer attributes per group. Requires that for each group, at least one performer on the scene has the specified tag and matches the optional attributes."
-  performer_scene_tags_with_attrs: PerformerSceneTagsWithAttrsCriterionInput
-}
-
-"A single group describing performer tags and optional attributes that a single performer must satisfy on a scene"
-input PerformerSceneTagGroupInput {
-  "Required tags the same performer must all have on the scene (from performer_scene_tags)"
-  tag_ids: [ID!]!
-  "Optional ISO country code (single)"
-  performer_country: String
-  "Optional ethnicity label (single, exact match; special-case expansions handled server-side)"
-  performer_ethnicity: String
-  "Optional multiple ISO country codes (OR match)"
-  performer_countries: [String!]
-  "Optional multiple ethnicity labels (OR match; special-case expansions handled server-side)"
-  performer_ethnicities: [String!]
-  "Optional performer rating (1-100) criterion applied to the matching performer"
-  performer_rating: IntCriterionInput
-}
-
-"Groups input for filtering scenes by performer scene tags with specific performer attributes"
-input PerformerSceneTagsWithAttrsCriterionInput {
-  groups: [PerformerSceneTagGroupInput!]!
-  "When true, any group may match (OR). When false or omitted, all groups must match (AND)."
-  match_any: Boolean
 }
 
 input MovieFilterType {
@@ -693,8 +701,6 @@ input TagFilterType {
 
   "Filter by number of performers with this tag"
   performer_count: IntCriterionInput
-  "Filter tags that have any performer_scene_tags entries (true) or none (false)"
-  has_performer_scene_tags: Boolean
 
   "Filter by number of studios with this tag"
   studio_count: IntCriterionInput
@@ -732,9 +738,6 @@ input TagFilterType {
   images_filter: ImageFilterType
   "Filter by related galleries that meet this criteria"
   galleries_filter: GalleryFilterType
-
-  "Filter to only include tags that appear on scenes containing these performers"
-  performer_scene_tags: HierarchicalMultiCriterionInput
 
   "Filter by creation time"
   created_at: TimestampCriterionInput
@@ -970,6 +973,46 @@ input MultiCriterionInput {
   excludes: [ID!]
 }
 
+"Filter by marker performers with giver/receiver role support"
+input MarkerPerformersFilterInput {
+  "Giver performer IDs to filter by"
+  giver_performer_ids: [ID!]
+  "Receiver performer IDs to filter by"
+  receiver_performer_ids: [ID!]
+  "Mode: 'AND' = both giver and receiver must match, 'OR' = either can match (default: 'OR')"
+  mode: String
+  "Modifier for the filter (INCLUDES, INCLUDES_ALL, EXCLUDES, IS_NULL, NOT_NULL)"
+  modifier: CriterionModifier!
+}
+
+"Filter performers by their scene marker participation"
+input PerformerMarkersCriterionInput {
+  "Conditions that must all be satisfied (performer must have markers matching ALL of these)"
+  include: [PerformerMarkerConditionInput!]
+  "Conditions that must not be satisfied (performer must NOT have markers matching ANY of these)"
+  exclude: [PerformerMarkerConditionInput!]
+}
+
+"A single condition for performer marker filtering"
+input PerformerMarkerConditionInput {
+  "Tag IDs to match on the marker (marker must have at least one of these tags)"
+  tag_ids: [ID!]!
+  "This performer's role on the marker: 'giver', 'receiver', or 'any' (default: 'any')"
+  role: String
+  "Filter by the performer's own ethnicities (OR match - performer must have one of these)"
+  self_ethnicities: [String!]
+  "Filter by the performer's own countries (OR match - performer must have one of these)"
+  self_countries: [String!]
+  "Filter by the performer's own rating criterion"
+  self_rating: IntCriterionInput
+  "Partner's ethnicities to filter by (OR match - partner must have one of these)"
+  partner_ethnicities: [String!]
+  "Partner's countries to filter by (OR match)"
+  partner_countries: [String!]
+  "Partner's rating criterion"
+  partner_rating: IntCriterionInput
+}
+
 input GenderCriterionInput {
   value: GenderEnum
   value_list: [GenderEnum!]
@@ -988,9 +1031,30 @@ input HierarchicalMultiCriterionInput {
   excludes: [ID!]
 }
 
-input PerformerSceneTagPairInput {
-  performer_id: ID!
-  tag_id: ID!
+"Filter performers by their role in scene markers"
+input PerformerRolesCriterionInput {
+  "Role type to filter by"
+  role: PerformerRoleEnum!
+  "Modifier for the filter"
+  modifier: CriterionModifier!
+}
+
+"Performer role types based on scene marker participation"
+enum PerformerRoleEnum {
+  "Performer is a giver in sex markers (top)"
+  SEX_GIVER
+  "Performer is a receiver in sex markers (bottom)"
+  SEX_RECEIVER
+  "Performer is a giver in oral markers"
+  ORAL_GIVER
+  "Performer is a receiver in oral markers"
+  ORAL_RECEIVER
+  "Performer has solo markers"
+  SOLO
+  "Performer is a giver in facial markers"
+  FACIAL_GIVER
+  "Performer is a receiver in facial markers"
+  FACIAL_RECEIVER
 }
 
 input DateCriterionInput {

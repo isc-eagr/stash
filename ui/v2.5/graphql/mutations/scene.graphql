@@ -118,6 +118,26 @@ mutation SceneAssignFile($input: AssignSceneFileInput!) {
   sceneAssignFile(input: $input)
 }
 
+mutation SaveSceneMultiSegmentLoopPreset($input: SceneMultiSegmentLoopPresetInput!) {
+  saveSceneMultiSegmentLoopPreset(input: $input) {
+    id
+    scene_id
+    name
+    enabled
+    current_segment_index
+    segments {
+      start
+      end
+    }
+    created_at
+    updated_at
+  }
+}
+
+mutation DeleteSceneMultiSegmentLoopPreset($scene_id: ID!, $name: String!) {
+  deleteSceneMultiSegmentLoopPreset(scene_id: $scene_id, name: $name)
+}
+
 mutation SceneMerge($input: SceneMergeInput!) {
   sceneMerge(input: $input) {
     id

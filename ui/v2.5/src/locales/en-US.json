@@ -45,19 +45,23 @@
             "mark_organized_label": "Mark as Organized on save"
         }
     },
-    "performer_scene_tags": "Performer Scene Tags",
-    "performer_scene_tags_with_attrs": "Performer Scene Tags + Attributes",
     "performer_country": "Performer Country",
     "performer_ethnicity": "Performer Ethnicity",
     "performer_rating": "Performer Rating",
     "scene_director": "Scene Director",
     "marker_performers": "Marker Performers",
+    "giver_performers": "Top Performers",
+    "receiver_performers": "Bottom Performers",
+    "mode": "Mode",
+    "mode_or": "OR (either)",
+    "mode_and": "AND (both)",
+    "marker_performers_mode_help": "OR = matches if top OR bottom matches. AND = matches only if BOTH top AND bottom match.",
     "marker_performer_ethnicity": "Marker Performer Ethnicity",
     "marker_performer_country": "Marker Performer Country",
     "marker_performer_rating": "Marker Performer Rating",
     "has_marker_performers": "Has Marker Performers",
-    "has_performer_scene_tags": "Has Performer Scene Tags",
     "filters": {
         "group": "Group"
-    }
+    },
+    "task_progress": "Task Progress"
 }

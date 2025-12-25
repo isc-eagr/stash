@@ -107,18 +107,13 @@ export interface IUIConfig {
 
   taggerConfig?: ITaggerConfig;
 
-  // Customizable tag names used for performer_scene_tags logic
-  // These allow users to configure their own tag labels that drive UI iconography.
-  sceneTagAliases?: {
-    straight?: string;
-    top?: string;
-    bottom?: string;
-    oralbottom?: string;
-    oraltop?: string;
-    solo?: string;
-    facialgiven?: string;
-    facialreceived?: string;
-    selffacial?: string;
+  // Tag IDs used for scene marker role categorization
+  // These determine which marker tags represent each role category
+  roleTagIds?: {
+    sexTagId?: string;    // Tag ID for sex markers
+    oralTagId?: string;   // Tag ID for oral markers  
+    soloTagId?: string;   // Tag ID for solo markers
+    facialTagId?: string; // Tag ID for facial markers
   };
 }
 

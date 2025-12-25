@@ -3,7 +3,6 @@ package sqlite
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/stashapp/stash/pkg/models"
@@ -146,8 +145,6 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		}),
 
 		qb.tagsCriterionHandler(sceneFilter.Tags),
-		qb.performerSceneTagsCriterionHandler(sceneFilter.PerformerSceneTags),
-		qb.performerSceneTagPairCriterionHandler(sceneFilter.PerformerSceneTagPair),
 		qb.tagCountCriterionHandler(sceneFilter.TagCount),
 		qb.performersCriterionHandler(sceneFilter.Performers),
 		qb.performerCountCriterionHandler(sceneFilter.PerformerCount),
@@ -159,7 +156,6 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		qb.galleriesCriterionHandler(sceneFilter.Galleries),
 		qb.performerTagsCriterionHandler(sceneFilter.PerformerTags),
 		qb.sceneMarkerTagsCriterionHandler(sceneFilter.SceneMarkerTags),
-		qb.performerSceneTagsWithAttrsCriterionHandler(sceneFilter.PerformerSceneTagsWithAttrs),
 		qb.performerFavoriteCriterionHandler(sceneFilter.PerformerFavorite),
 		qb.performerAgeCriterionHandler(sceneFilter.PerformerAge),
 		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
@@ -452,259 +448,6 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 	}
 }
 
-// performerSceneTagsWithAttrsCriterionHandler handles grouped filtering combining
-// performer_scene_tags with optional performer attributes. Each group must match
-// a distinct performer (similar to Scene Marker Tags). For duplicate groups, we
-// require multiple distinct performers matching the same criteria.
-func (qb *sceneFilterHandler) performerSceneTagsWithAttrsCriterionHandler(input *models.PerformerSceneTagsWithAttrsCriterionInput) criterionHandlerFunc {
-	return func(ctx context.Context, f *filterBuilder) {
-		if input == nil || len(input.Groups) == 0 {
-			return
-		}
-
-		// helper to expand ethnicity like global filters for consistency
-		expandEthnicity := func(s string) []string {
-			v := strings.TrimSpace(s)
-			if v == "" {
-				return nil
-			}
-			out := []string{v}
-			if strings.EqualFold(v, "Black") {
-				out = append(out, "Mixed", "Afrolatino")
-			}
-			if strings.EqualFold(v, "White") {
-				out = append(out, "Mixed")
-			}
-			if strings.EqualFold(v, "Latino") {
-				out = append(out, "Afrolatino")
-			}
-			return out
-		}
-
-		// helper to expand multiple ethnicities
-		expandEthnicities := func(ethnicities []string) []string {
-			var out []string
-			seen := make(map[string]bool)
-			for _, e := range ethnicities {
-				for _, exp := range expandEthnicity(e) {
-					if !seen[exp] {
-						seen[exp] = true
-						out = append(out, exp)
-					}
-				}
-			}
-			return out
-		}
-
-		// helper to get countries (use array if provided, fallback to single)
-		getCountries := func(g models.PerformerSceneTagGroupInput) []string {
-			if len(g.PerformerCountries) > 0 {
-				return g.PerformerCountries
-			}
-			if g.PerformerCountry != nil && strings.TrimSpace(*g.PerformerCountry) != "" {
-				return []string{strings.TrimSpace(*g.PerformerCountry)}
-			}
-			return nil
-		}
-
-		// helper to get ethnicities (use array if provided, fallback to single)
-		getEthnicities := func(g models.PerformerSceneTagGroupInput) []string {
-			if len(g.PerformerEthnicities) > 0 {
-				return expandEthnicities(g.PerformerEthnicities)
-			}
-			if g.PerformerEthnicity != nil && strings.TrimSpace(*g.PerformerEthnicity) != "" {
-				return expandEthnicity(*g.PerformerEthnicity)
-			}
-			return nil
-		}
-
-		matchAny := input.MatchAny != nil && *input.MatchAny
-
-		if matchAny {
-			// OR semantics: each group is independent, so we still use EXISTS
-			groupClauses := make([]string, 0, len(input.Groups))
-			allArgs := make([]interface{}, 0)
-			for _, g := range input.Groups {
-				if len(g.TagIDs) == 0 {
-					continue
-				}
-
-				where := []string{}
-				args := []interface{}{}
-
-				countries := getCountries(g)
-				if len(countries) > 0 {
-					ph := strings.Repeat("?,", len(countries))
-					ph = ph[:len(ph)-1]
-					where = append(where, fmt.Sprintf("p_group.country IN (%s)", ph))
-					for _, c := range countries {
-						args = append(args, c)
-					}
-				}
-
-				ethnicities := getEthnicities(g)
-				if len(ethnicities) > 0 {
-					ph := strings.Repeat("?,", len(ethnicities))
-					ph = ph[:len(ph)-1]
-					where = append(where, fmt.Sprintf("p_group.ethnicity IN (%s)", ph))
-					for _, v := range ethnicities {
-						args = append(args, v)
-					}
-				}
-
-				if g.PerformerRating != nil {
-					w, wargs := getIntWhereClause("p_group.rating", g.PerformerRating.Modifier, g.PerformerRating.Value, g.PerformerRating.Value2)
-					where = append(where, w)
-					args = append(args, wargs...)
-				}
-
-				tagPlaceholders := strings.Repeat("?,", len(g.TagIDs))
-				tagPlaceholders = tagPlaceholders[:len(tagPlaceholders)-1]
-				for _, tid := range g.TagIDs {
-					args = append(args, tid)
-				}
-
-				attrsClause := "1=1"
-				if len(where) > 0 {
-					attrsClause = strings.Join(where, " AND ")
-				}
-
-				clause := fmt.Sprintf(
-					"EXISTS (SELECT 1 FROM performer_scene_tags scene_pst_group JOIN performers p_group ON p_group.id = scene_pst_group.performer_id WHERE scene_pst_group.scene_id = scenes.id AND %s AND scene_pst_group.tag_id IN (%s) GROUP BY p_group.id HAVING COUNT(DISTINCT scene_pst_group.tag_id) = %d)",
-					attrsClause, tagPlaceholders, len(g.TagIDs),
-				)
-				groupClauses = append(groupClauses, clause)
-				allArgs = append(allArgs, args...)
-			}
-
-			// OR across groups in a single WHERE
-			grouped := make([]string, len(groupClauses))
-			for i, c := range groupClauses {
-				grouped[i] = fmt.Sprintf("(%s)", c)
-			}
-			f.addWhere(strings.Join(grouped, " OR "), allArgs...)
-		} else {
-			// AND semantics with distinct performers: group identical criteria
-			// and require sufficient distinct performers for each unique criteria set
-			type groupSignature struct {
-				tagIDsKey      string
-				countriesKey   string
-				ethnicitiesKey string
-				ratingModifier models.CriterionModifier
-				ratingValue    int
-				ratingValue2   *int
-			}
-
-			groupCounts := make(map[groupSignature]int)
-			groupDetails := make(map[groupSignature]models.PerformerSceneTagGroupInput)
-			groupCountriesExpanded := make(map[groupSignature][]string)
-			groupEthnicitiesExpanded := make(map[groupSignature][]string)
-
-			for _, g := range input.Groups {
-				if len(g.TagIDs) == 0 {
-					continue
-				}
-
-				// Build a unique signature for this group's criteria
-				tagIDs := append([]string(nil), g.TagIDs...)
-				sort.Strings(tagIDs)
-				tagKey := strings.Join(tagIDs, ",")
-
-				countries := getCountries(g)
-				sort.Strings(countries)
-				countriesKey := strings.Join(countries, ",")
-
-				ethnicities := getEthnicities(g)
-				sort.Strings(ethnicities)
-				ethnicitiesKey := strings.Join(ethnicities, ",")
-
-				sig := groupSignature{
-					tagIDsKey:      tagKey,
-					countriesKey:   countriesKey,
-					ethnicitiesKey: ethnicitiesKey,
-				}
-				if g.PerformerRating != nil {
-					sig.ratingModifier = g.PerformerRating.Modifier
-					sig.ratingValue = g.PerformerRating.Value
-					sig.ratingValue2 = g.PerformerRating.Value2
-				}
-
-				groupCounts[sig]++
-				if _, ok := groupDetails[sig]; !ok {
-					groupDetails[sig] = g
-					groupCountriesExpanded[sig] = countries
-					groupEthnicitiesExpanded[sig] = ethnicities
-				}
-			}
-
-			// For each unique group signature, require at least <count> distinct performers
-			for sig, multiplicity := range groupCounts {
-				g := groupDetails[sig]
-				where := []string{}
-				args := []interface{}{}
-
-				countries := groupCountriesExpanded[sig]
-				if len(countries) > 0 {
-					ph := strings.Repeat("?,", len(countries))
-					ph = ph[:len(ph)-1]
-					where = append(where, fmt.Sprintf("p_group.country IN (%s)", ph))
-					for _, c := range countries {
-						args = append(args, c)
-					}
-				}
-
-				ethnicities := groupEthnicitiesExpanded[sig]
-				if len(ethnicities) > 0 {
-					ph := strings.Repeat("?,", len(ethnicities))
-					ph = ph[:len(ph)-1]
-					where = append(where, fmt.Sprintf("p_group.ethnicity IN (%s)", ph))
-					for _, v := range ethnicities {
-						args = append(args, v)
-					}
-				}
-
-				if g.PerformerRating != nil {
-					w, wargs := getIntWhereClause("p_group.rating", g.PerformerRating.Modifier, g.PerformerRating.Value, g.PerformerRating.Value2)
-					where = append(where, w)
-					args = append(args, wargs...)
-				}
-
-				tagPlaceholders := strings.Repeat("?,", len(g.TagIDs))
-				tagPlaceholders = tagPlaceholders[:len(tagPlaceholders)-1]
-				for _, tid := range g.TagIDs {
-					args = append(args, tid)
-				}
-
-				attrsClause := "1=1"
-				if len(where) > 0 {
-					attrsClause = strings.Join(where, " AND ")
-				}
-
-				// Require at least <multiplicity> distinct performers matching the criteria
-				// Subquery finds performers who have ALL tags in the group, then counts them
-				clause := fmt.Sprintf(
-					`(
-SELECT COUNT(*)
-FROM (
-  SELECT p_group.id
-  FROM performer_scene_tags scene_pst_group
-  JOIN performers p_group ON p_group.id = scene_pst_group.performer_id
-  WHERE scene_pst_group.scene_id = scenes.id
-    AND %s
-    AND scene_pst_group.tag_id IN (%s)
-  GROUP BY p_group.id
-  HAVING COUNT(DISTINCT scene_pst_group.tag_id) = %d
-)
-) >= ?`,
-					attrsClause, tagPlaceholders, len(g.TagIDs),
-				)
-				args = append(args, multiplicity)
-				f.addWhere(clause, args...)
-			}
-		}
-	}
-}
-
 func (qb *sceneFilterHandler) addSceneFilesTable(f *filterBuilder) {
 	f.addLeftJoin(scenesFilesTable, "", "scenes_files.scene_id = scenes.id")
 }
@@ -917,34 +660,6 @@ func (qb *sceneFilterHandler) tagsCriterionHandler(tags *models.HierarchicalMult
 	}
 
 	return h.handler(tags)
-}
-
-func (qb *sceneFilterHandler) performerSceneTagsCriterionHandler(tags *models.HierarchicalMultiCriterionInput) criterionHandler {
-	// This handler filters scenes by tags recorded in the performer_scene_tags join table.
-	// It supports hierarchical tag inputs similar to the normal tags handler.
-	h := joinedHierarchicalMultiCriterionHandlerBuilder{
-		primaryTable:   sceneTable,
-		foreignTable:   tagTable,
-		foreignFK:      "tag_id",
-		relationsTable: "tags_relations",
-		joinAs:         "scene_pst",
-		joinTable:      "performer_scene_tags",
-		primaryFK:      sceneIDColumn,
-	}
-
-	return h.handler(tags)
-}
-
-func (qb *sceneFilterHandler) performerSceneTagPairCriterionHandler(pair *models.PerformerSceneTagPairInput) criterionHandler {
-	return criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
-		if pair == nil {
-			return
-		}
-
-		// Join the performer_scene_tags table and filter by performer_id and tag_id
-		f.addLeftJoin("performer_scene_tags", "scene_pst_pair", "scene_pst_pair.scene_id = scenes.id")
-		f.addWhere("scene_pst_pair.performer_id = ? AND scene_pst_pair.tag_id = ?", pair.PerformerID, pair.TagID)
-	})
 }
 
 func (qb *sceneFilterHandler) tagCountCriterionHandler(tagCount *models.IntCriterionInput) criterionHandlerFunc {

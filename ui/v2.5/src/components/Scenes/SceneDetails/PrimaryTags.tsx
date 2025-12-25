@@ -5,7 +5,7 @@ import { Button, Badge, Card, Collapse, Form } from "react-bootstrap";
 import TextUtils from "src/utils/text";
 import { markerTitle } from "src/core/markers";
 import { Icon } from "src/components/Shared/Icon";
-import { faChevronDown, faChevronRight } from "@fortawesome/free-solid-svg-icons";
+import { faChevronDown, faChevronRight, faArrowUp, faArrowDown } from "@fortawesome/free-solid-svg-icons";
 
 interface IPrimaryTags {
   sceneMarkers: GQL.SceneMarkerDataFragment[];
@@ -94,8 +94,16 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
         </Badge>
       ));
 
-      const performers = marker.performers?.map((performer) => (
-        <Badge key={performer.id} variant="primary" className="performer-item mr-1">
+      const giverPerformers = marker.giver_performers?.map((performer) => (
+        <Badge key={performer.id} variant="success" className="performer-item mr-1">
+          <Icon icon={faArrowUp} className="mr-1" />
+          {performer.name}
+        </Badge>
+      ));
+
+      const receiverPerformers = marker.receiver_performers?.map((performer) => (
+        <Badge key={performer.id} variant="info" className="performer-item mr-1">
+          <Icon icon={faArrowDown} className="mr-1" />
           {performer.name}
         </Badge>
       ));
@@ -122,8 +130,11 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
                 >
                   {markerTitle(marker)}
                 </Button>
-                {performers && performers.length > 0 && (
-                  <div className="mr-2">{performers}</div>
+                {giverPerformers && giverPerformers.length > 0 && (
+                  <div className="mr-2">{giverPerformers}</div>
+                )}
+                {receiverPerformers && receiverPerformers.length > 0 && (
+                  <div className="mr-2">{receiverPerformers}</div>
                 )}
                 <Button
                   variant="link"

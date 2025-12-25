@@ -176,8 +176,32 @@ type MultiCriterionInput struct {
 // SceneMarkerTagGroupInput represents a group for scene marker tags filtering
 // with optional performer attributes
 type SceneMarkerTagGroupInput struct {
-	TagIDs               []string           `json:"tag_ids"`
-	PerformerIDs         []string           `json:"performer_ids"`
+	TagIDs        []string `json:"tag_ids"`
+	ExcludeTagIDs []string `json:"exclude_tag_ids"` // Tags that must NOT be present on any marker
+	Depth         *int     `json:"depth"`
+
+	// Giver criteria
+	GiverPerformerIDs []string           `json:"giver_performer_ids"`
+	GiverEthnicities  []string           `json:"giver_ethnicities"`
+	GiverCountries    []string           `json:"giver_countries"`
+	GiverRating       *IntCriterionInput `json:"giver_rating"`
+
+	// Receiver criteria
+	ReceiverPerformerIDs []string           `json:"receiver_performer_ids"`
+	ReceiverEthnicities  []string           `json:"receiver_ethnicities"`
+	ReceiverCountries    []string           `json:"receiver_countries"`
+	ReceiverRating       *IntCriterionInput `json:"receiver_rating"`
+
+	// Both-roles criteria (performer must be BOTH giver AND receiver)
+	BothRolesPerformerIDs []string           `json:"both_roles_performer_ids"`
+	BothRolesEthnicities  []string           `json:"both_roles_ethnicities"`
+	BothRolesCountries    []string           `json:"both_roles_countries"`
+	BothRolesRating       *IntCriterionInput `json:"both_roles_rating"`
+
+	// Mode for performer matching
+	PerformerMode *string `json:"performer_mode"` // "AND" or "OR" (default: "OR")
+
+	// DEPRECATED: Use role-specific fields instead
 	PerformerCountries   []string           `json:"performer_countries"`
 	PerformerEthnicities []string           `json:"performer_ethnicities"`
 	PerformerRating      *IntCriterionInput `json:"performer_rating"`
@@ -251,31 +275,4 @@ type ImageFileFilterInput struct {
 	Format      *StringCriterionInput      `json:"format,omitempty"`
 	Resolution  *ResolutionCriterionInput  `json:"resolution,omitempty"`
 	Orientation *OrientationCriterionInput `json:"orientation,omitempty"`
-}
-
-// PerformerSceneTagPairInput is a compact input for filtering scenes by a performer+tag pair
-type PerformerSceneTagPairInput struct {
-	PerformerID string `json:"performer_id"`
-	TagID       string `json:"tag_id"`
-}
-
-// PerformerSceneTagGroupInput represents a single group in the
-// PerformerSceneTagsWithAttrsCriterionInput. Each group requires that at
-// least one performer on the scene has the specified tag (from
-// performer_scene_tags) and matches the optional attributes.
-type PerformerSceneTagGroupInput struct {
-	TagIDs               []string           `json:"tag_ids"`
-	PerformerCountry     *string            `json:"performer_country"`
-	PerformerEthnicity   *string            `json:"performer_ethnicity"`
-	PerformerCountries   []string           `json:"performer_countries"`
-	PerformerEthnicities []string           `json:"performer_ethnicities"`
-	PerformerRating      *IntCriterionInput `json:"performer_rating"`
-}
-
-// PerformerSceneTagsWithAttrsCriterionInput is a grouped input for filtering
-// scenes by performer_scene_tags combined with performer attributes. For each
-// group, at least one performer must match the tag and provided attributes.
-type PerformerSceneTagsWithAttrsCriterionInput struct {
-	Groups   []PerformerSceneTagGroupInput `json:"groups"`
-	MatchAny *bool                         `json:"match_any"`
 }

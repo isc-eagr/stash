@@ -497,3 +497,11 @@
   color: white;
   opacity: 0.75;
 }
+
+/* Fix performer role badges in slick slider - ensure horizontal layout */
+.slick-slide .performer-role-badges .category-icon-container {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 4px !important;
+}

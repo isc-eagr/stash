@@ -33,7 +33,6 @@ var (
 	performersAliasesJoinTable  = goqu.T(performersAliasesTable)
 	performersURLsJoinTable     = goqu.T(performerURLsTable)
 	performersTagsJoinTable     = goqu.T(performersTagsTable)
-	performerSceneTagsJoinTable = goqu.T("performer_scene_tags")
 	performersStashIDsJoinTable = goqu.T("performer_stash_ids")
 	performersCustomFieldsTable = goqu.T("performer_custom_fields")
 
@@ -296,16 +295,6 @@ var (
 			idColumn: performersTagsJoinTable.Col(performerIDColumn),
 		},
 		fkColumn:     performersTagsJoinTable.Col(tagIDColumn),
-		foreignTable: tagTableMgr,
-		orderBy:      tagTableSort,
-	}
-
-	performerSceneTagsTableMgr = &joinTable{
-		table: table{
-			table:    performerSceneTagsJoinTable,
-			idColumn: performerSceneTagsJoinTable.Col(performerIDColumn),
-		},
-		fkColumn:     performerSceneTagsJoinTable.Col(tagIDColumn),
 		foreignTable: tagTableMgr,
 		orderBy:      tagTableSort,
 	}

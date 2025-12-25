@@ -18,6 +18,8 @@ import {
   faStepBackward,
   faRepeat,
   faArrowLeft,
+  faArrowUp,
+  faArrowDown,
   faList,
   faTimes,
   faExpand,
@@ -28,6 +30,10 @@ import { markerTitle } from "src/core/markers";
 import cx from "classnames";
 import "./MarkerPlaylistPlayer.scss";
 
+function performerDisplayName(p: { name: string; disambiguation?: string | null }) {
+  return p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name;
+}
+
 interface IMarkerInfo {
   id: string;
   title: string;
@@ -37,6 +43,8 @@ interface IMarkerInfo {
   sceneTitle: string;
   streamUrl: string;
   previewUrl: string;
+  giverPerformerNames?: string[];
+  receiverPerformerNames?: string[];
 }
 
 export const MarkerPlaylistPlayer: React.FC = () => {
@@ -79,6 +87,15 @@ export const MarkerPlaylistPlayer: React.FC = () => {
           .map((m) => {
             // Use scene.paths.stream if available, otherwise construct the URL
             const streamUrl = m.scene.paths?.stream || `/scene/${m.scene.id}/stream`;
+
+            const giverPerformerNames = (m.giver_performers ?? [])
+              .map((p) => performerDisplayName(p))
+              .filter((n) => n.length > 0);
+
+            const receiverPerformerNames = (m.receiver_performers ?? [])
+              .map((p) => performerDisplayName(p))
+              .filter((n) => n.length > 0);
+
             return {
               id: m.id,
               title: markerTitle(m),
@@ -88,6 +105,8 @@ export const MarkerPlaylistPlayer: React.FC = () => {
               sceneTitle: m.scene.title || "Untitled Scene",
               streamUrl,
               previewUrl: m.preview,
+              giverPerformerNames: giverPerformerNames.length > 0 ? giverPerformerNames : undefined,
+              receiverPerformerNames: receiverPerformerNames.length > 0 ? receiverPerformerNames : undefined,
             };
           });
         
@@ -361,6 +380,18 @@ export const MarkerPlaylistPlayer: React.FC = () => {
             </span>
             <span className="marker-title">{currentMarker?.title}</span>
             <span className="scene-title">({currentMarker?.sceneTitle})</span>
+            {currentMarker?.giverPerformerNames && currentMarker.giverPerformerNames.length > 0 && (
+              <span className="marker-performers giver">
+                <Icon icon={faArrowUp} className="text-success mr-1" title="Top" />
+                {currentMarker.giverPerformerNames.join(", ")}
+              </span>
+            )}
+            {currentMarker?.receiverPerformerNames && currentMarker.receiverPerformerNames.length > 0 && (
+              <span className="marker-performers receiver">
+                <Icon icon={faArrowDown} className="text-info mr-1" title="Bottom" />
+                {currentMarker.receiverPerformerNames.join(", ")}
+              </span>
+            )}
           </div>
           
           <div className="player-controls">
@@ -439,6 +470,18 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                    <div className="marker-info">
                      <div className="marker-title">{marker.title}</div>
                      <div className="scene-title">{marker.sceneTitle}</div>
+                     {marker.giverPerformerNames && marker.giverPerformerNames.length > 0 && (
+                       <div className="marker-performers giver">
+                         <Icon icon={faArrowUp} className="text-success mr-1" />
+                         {marker.giverPerformerNames.join(", ")}
+                       </div>
+                     )}
+                     {marker.receiverPerformerNames && marker.receiverPerformerNames.length > 0 && (
+                       <div className="marker-performers receiver">
+                         <Icon icon={faArrowDown} className="text-info mr-1" />
+                         {marker.receiverPerformerNames.join(", ")}
+                       </div>
+                     )}
                      <div className="marker-times">
                        {formatTime(marker.seconds)}
                        {marker.end_seconds && ` - ${formatTime(marker.end_seconds)}`}

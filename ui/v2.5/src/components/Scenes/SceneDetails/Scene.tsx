@@ -593,7 +593,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     [scene]
   );
 
-  // Determine which icon to show based on scene tags (highest precedence: straight) and performer_scene_tags
+  // Determine which icon to show based on scene markers with role tags
   const iconToShow = useMemo(() => {
     type SceneIconToShow =
       | {
@@ -609,83 +609,55 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
         }
       | null;
 
-    type PerformerWithSceneTags = {
-      scene_tags?: Array<{ id: string; name: string }>;
-    };
+    // Get role tag IDs from configuration
+    const roleTagIds = configuration?.ui?.roleTagIds ?? {};
+    const sexTagId = roleTagIds.sexTagId;
+    const oralTagId = roleTagIds.oralTagId;
+    const soloTagId = roleTagIds.soloTagId;
 
-    // Highest precedence: straight tag at scene.tags
-    const cfg = configuration?.ui?.sceneTagAliases ?? {};
-    const tagStraight = (cfg.straight ?? "straight").toLowerCase();
-    const sceneTagNames = (scene.tags ?? []).map((t) => (t?.name ?? "").toLowerCase());
-    if (sceneTagNames.includes(tagStraight)) {
-      return {
-        type: "straight",
-        className: "scene-straight-icon",
-        title: "Scene contains straight tag",
-      } as SceneIconToShow;
-    }
-
-    if (!scene.performers || scene.performers.length === 0) return null;
-
-    const allTags = new Set<string>();
-
-    // Collect all unique tag names from performer_scene_tags
-    for (const p of scene.performers) {
-      const sceneTags = (p as unknown as PerformerWithSceneTags).scene_tags;
-      if (sceneTags) {
-        for (const tag of sceneTags) {
-          if (tag?.name) {
-            allTags.add(tag.name.toLowerCase());
-          }
+    // Get scene marker tag IDs
+    const markerTagIds = new Set<string>();
+    const sceneMarkers = (scene as any).scene_markers ?? [];
+    for (const marker of sceneMarkers) {
+      if (marker?.primary_tag?.id) {
+        markerTagIds.add(marker.primary_tag.id);
+      }
+      const markerTags: Array<{ id?: string }> = marker?.tags ?? [];
+      for (const tag of markerTags) {
+        if (tag?.id) {
+          markerTagIds.add(tag.id);
         }
       }
     }
 
-  const tagsArray = Array.from(allTags);
-
-  const tagTop = (cfg.top ?? "top").toLowerCase();
-  const tagBottom = (cfg.bottom ?? "bottom").toLowerCase();
-  const tagOralBottom = (cfg.oralbottom ?? "oralbottom").toLowerCase();
-  const tagOralTop = (cfg.oraltop ?? "oraltop").toLowerCase();
-  const tagSolo = (cfg.solo ?? "solo").toLowerCase();
-
-  // Check for mouth icon conditions (prioritized)
-  const hasOralBottomTag = tagsArray.includes(tagOralBottom);
-  const hasOralTopTag = tagsArray.includes(tagOralTop);
-  const hasTopTag = tagsArray.includes(tagTop);
-  const hasBottomTag = tagsArray.includes(tagBottom);
-
-    // Highest precedence: gay icon if Top and/or Bottom present
-    if (hasTopTag || hasBottomTag) {
+    // Priority: sex > oral > solo
+    if (sexTagId && markerTagIds.has(sexTagId)) {
       return {
-        type: "gay",
+        type: 'gay',
         className: "scene-gay-icon",
-        title: "Scene contains top/bottom tags",
+        title: "Scene has sex markers",
       } as SceneIconToShow;
     }
-
-    if ((hasOralBottomTag || hasOralTopTag) && !hasTopTag && !hasBottomTag) {
+    
+    if (oralTagId && markerTagIds.has(oralTagId)) {
       return {
-        type: "mouth",
+        type: 'mouth',
         className: "scene-mouth-icon",
-        title: "Scene contains oral tags",
+        title: "Scene has oral markers",
       } as SceneIconToShow;
     }
 
-    // Check for hand icon conditions (secondary)
-  const hasSoloTag = tagsArray.includes(tagSolo) || tagsArray.some(tag => tag.includes(tagSolo));
-
-    if (hasSoloTag && !hasTopTag && !hasBottomTag && !hasOralBottomTag && !hasOralTopTag) {
+    if (soloTagId && markerTagIds.has(soloTagId)) {
       return {
-        type: "hand",
+        type: 'hand',
         icon: faHand,
         className: "scene-hand-icon",
-        title: "Scene contains solo tags"
+        title: "Scene has solo markers"
       } as SceneIconToShow;
     }
 
     return null;
-  }, [scene.performers, scene.tags, configuration?.ui]);
+  }, [scene, configuration?.ui]);
 
   return (
     <>

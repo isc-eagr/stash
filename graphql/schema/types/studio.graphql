@@ -11,10 +11,13 @@ type Studio {
 
   image_path: String # Resolver
   scene_count(depth: Int, performer_id: ID): Int! # Resolver
-  sex_scene_count(depth: Int, top_tag: String, bottom_tag: String, performer_id: ID): Int! # Resolver - scenes with top/bottom tags
-  oral_scene_count(depth: Int, oral_top_tag: String, oral_bottom_tag: String, top_tag: String, bottom_tag: String, performer_id: ID): Int! # Resolver - scenes with oral tags but not top/bottom
-  solo_scene_count(depth: Int, solo_tag: String, top_tag: String, bottom_tag: String, oral_top_tag: String, oral_bottom_tag: String, performer_id: ID): Int! # Resolver - scenes with solo tags but not top/bottom/oral
-  facial_scene_count(depth: Int, facial_given_tag: String, facial_received_tag: String, performer_id: ID): Int! # Resolver - scenes with facialgiven or facialreceived tags
+  
+  # Role-based scene counts from scene_marker_performers
+  sex_scene_count(depth: Int, performer_id: ID): Int! # Resolver - scenes with sex markers
+  oral_scene_count(depth: Int, performer_id: ID): Int! # Resolver - scenes with oral markers but no sex markers
+  solo_scene_count(depth: Int, performer_id: ID): Int! # Resolver - scenes with solo markers but no sex/oral markers
+  facial_scene_count(depth: Int, performer_id: ID): Int! # Resolver - scenes with facial markers
+  
   unique_performer_count(depth: Int): Int! # Resolver - performers with only one scene in database and it's for this studio
   image_count(depth: Int, performer_id: ID): Int! # Resolver
   gallery_count(depth: Int, performer_id: ID): Int! # Resolver

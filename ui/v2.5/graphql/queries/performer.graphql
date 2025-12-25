@@ -37,3 +37,27 @@ query FindPerformersForSelect(
     }
   }
 }
+
+query PerformerCoPerformersByRole($performer_id: ID!) {
+  performerCoPerformersByRole(performer_id: $performer_id) {
+    sex_as_giver {
+      ...PerformerData
+    }
+    sex_as_receiver {
+      ...PerformerData
+    }
+    oral_as_giver {
+      ...PerformerData
+    }
+    oral_as_receiver {
+      ...PerformerData
+    }
+    facial_as_giver {
+      ...PerformerData
+    }
+    facial_as_receiver {
+      ...PerformerData
+    }
+    unique_count
+  }
+}

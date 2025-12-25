@@ -19,6 +19,7 @@ type PerformerFinder interface {
 	FindByStashIDStatus(ctx context.Context, hasStashID bool, stashboxEndpoint string) ([]*Performer, error)
 	FindByNames(ctx context.Context, names []string, nocase bool) ([]*Performer, error)
 	FindBySceneMarkerID(ctx context.Context, sceneMarkerID int) ([]*Performer, error)
+	FindBySceneMarkerIDWithRole(ctx context.Context, sceneMarkerID int, role string) ([]*Performer, error)
 }
 
 // PerformerQueryer provides methods to query performers.
@@ -52,8 +53,6 @@ type PerformerUpdater interface {
 	Update(ctx context.Context, updatedPerformer *UpdatePerformerInput) error
 	UpdatePartial(ctx context.Context, id int, updatedPerformer PerformerPartial) (*Performer, error)
 	UpdateImage(ctx context.Context, performerID int, image []byte) error
-	// SetSceneTags replaces the tags for a performer within a specific scene.
-	SetSceneTags(ctx context.Context, performerID int, sceneID int, tagIDs []int) error
 }
 
 // PerformerDestroyer provides methods to destroy performers.
@@ -81,9 +80,6 @@ type PerformerReader interface {
 	AliasLoader
 	StashIDLoader
 	TagIDLoader
-
-	// GetSceneTagIDs returns tag IDs attached to a performer for a specific scene
-	GetSceneTagIDs(ctx context.Context, performerID int, sceneID int) ([]int, error)
 	URLLoader
 
 	CustomFieldsReader

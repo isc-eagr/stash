@@ -150,8 +150,6 @@ type PerformerFilterType struct {
 	IsMissing *string `json:"is_missing"`
 	// Filter to only include performers with these tags
 	Tags *HierarchicalMultiCriterionInput `json:"tags"`
-	// Filter to only include performers where the performer has these scene tags (from performer_scene_tags)
-	PerformerSceneTags *HierarchicalMultiCriterionInput `json:"performer_scene_tags"`
 	// Filter by tag count
 	TagCount *IntCriterionInput `json:"tag_count"`
 	// Filter by scene count
@@ -192,6 +190,8 @@ type PerformerFilterType struct {
 	DeathDate *DateCriterionInput `json:"death_date"`
 	// Filter by related scenes that meet this criteria
 	ScenesFilter *SceneFilterType `json:"scenes_filter"`
+	// Filter to only include performers that have scene markers where they are giver/receiver
+	HasMarkers *string `json:"has_markers"`
 	// Filter by related images that meet this criteria
 	ImagesFilter *ImageFilterType `json:"images_filter"`
 	// Filter by related galleries that meet this criteria
@@ -207,6 +207,37 @@ type PerformerFilterType struct {
 
 	// Filter by custom fields
 	CustomFields []CustomFieldCriterionInput `json:"custom_fields"`
+
+	// Filter by scene marker participation with tag + role + partner attributes
+	PerformerMarkers *PerformerMarkersCriterionInput `json:"performer_markers"`
+}
+
+// PerformerMarkersCriterionInput filters performers by their scene marker participation
+type PerformerMarkersCriterionInput struct {
+	// Conditions that must all be satisfied (performer must have markers matching ALL of these)
+	Include []PerformerMarkerConditionInput `json:"include"`
+	// Conditions that must not be satisfied (performer must NOT have markers matching ANY of these)
+	Exclude []PerformerMarkerConditionInput `json:"exclude"`
+}
+
+// PerformerMarkerConditionInput defines a single condition for performer marker filtering
+type PerformerMarkerConditionInput struct {
+	// Tag IDs to match on the marker (marker must have at least one of these tags)
+	TagIDs []string `json:"tag_ids"`
+	// This performer's role on the marker: "giver", "receiver", or "any" (default: "any")
+	Role *string `json:"role"`
+	// Filter by the performer's own ethnicities (OR match)
+	SelfEthnicities []string `json:"self_ethnicities"`
+	// Filter by the performer's own countries (OR match)
+	SelfCountries []string `json:"self_countries"`
+	// Filter by the performer's own rating criterion
+	SelfRating *IntCriterionInput `json:"self_rating"`
+	// Partner's ethnicities to filter by (OR match)
+	PartnerEthnicities []string `json:"partner_ethnicities"`
+	// Partner's countries to filter by (OR match)
+	PartnerCountries []string `json:"partner_countries"`
+	// Partner's rating criterion
+	PartnerRating *IntCriterionInput `json:"partner_rating"`
 }
 
 type PerformerCreateInput struct {
@@ -284,11 +315,4 @@ type PerformerUpdateInput struct {
 	IgnoreAutoTag *bool          `json:"ignore_auto_tag"`
 
 	CustomFields CustomFieldsInput `json:"custom_fields"`
-	// Scene-scoped tags: list of scene -> tag ids
-	SceneTags []PerformerSceneTagsInput `json:"scene_tags"`
-}
-
-type PerformerSceneTagsInput struct {
-	SceneID string   `json:"scene_id"`
-	TagIds  []string `json:"tag_ids"`
 }

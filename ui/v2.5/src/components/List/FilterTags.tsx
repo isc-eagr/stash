@@ -15,7 +15,7 @@ import { CustomFieldsCriterion } from "src/models/list-filter/criteria/custom-fi
 import { useDebounce } from "src/hooks/debounce";
 import cx from "classnames";
 import { SceneMarkerTagsCriterion } from "src/models/list-filter/criteria/tags";
-import { CriterionModifier, useFindTagsForSelectQuery } from "src/core/generated-graphql";
+import { CriterionModifier, useFindTagsForSelectQuery, useFindPerformersForSelectQuery } from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
 
 type TagItemProps = PropsWithChildren<
@@ -117,13 +117,20 @@ interface IFilterTagsProps {
 
 const SceneMarkerTagsChipLabel: React.FC<{ criterion: SceneMarkerTagsCriterion }> = ({ criterion }) => {
   const intl = useIntl();
-  // Gather unresolved ids (labels equal to ids)
-  const unresolvedIds = React.useMemo(() => {
+  // Gather unresolved tag ids (labels equal to ids)
+  const unresolvedTagIds = React.useMemo(() => {
     const ids = new Set<string>();
     if (
       criterion.modifier === CriterionModifier.Equals ||
       criterion.modifier === CriterionModifier.NotEquals
     ) {
+      // Check extendedGroups for tags
+      criterion.extendedGroups.forEach((g) =>
+        (g.tags ?? []).forEach((t) => {
+          if (t.label === t.id) ids.add(t.id);
+        })
+      );
+      // Also check simple groups for backwards compatibility
       criterion.groups.forEach((g) =>
         g.forEach((t) => {
           if (t.label === t.id) ids.add(t.id);
@@ -137,35 +144,180 @@ const SceneMarkerTagsChipLabel: React.FC<{ criterion: SceneMarkerTagsCriterion }
     return Array.from(ids);
   }, [criterion]);
 
-  const { data } = useFindTagsForSelectQuery({
-    variables: unresolvedIds.length
-      ? { ids: unresolvedIds, filter: { per_page: unresolvedIds.length } }
+  // Gather unresolved performer ids (from both giver and receiver fields)
+  const unresolvedPerformerIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    if (
+      criterion.modifier === CriterionModifier.Equals ||
+      criterion.modifier === CriterionModifier.NotEquals
+    ) {
+      criterion.extendedGroups.forEach((g) => {
+        (g.giver_performer_ids ?? []).forEach((p: { id: string; label: string }) => {
+          if (p.label === p.id) ids.add(p.id);
+        });
+        (g.receiver_performer_ids ?? []).forEach((p: { id: string; label: string }) => {
+          if (p.label === p.id) ids.add(p.id);
+        });
+      });
+    }
+    return Array.from(ids);
+  }, [criterion]);
+
+  const { data: tagData } = useFindTagsForSelectQuery({
+    variables: unresolvedTagIds.length
+      ? { ids: unresolvedTagIds, filter: { per_page: unresolvedTagIds.length } }
       : { ids: [] },
-    skip: unresolvedIds.length === 0,
+    skip: unresolvedTagIds.length === 0,
   } as any);
 
-  const nameMap = React.useMemo(() => {
+  const { data: performerData } = useFindPerformersForSelectQuery({
+    variables: unresolvedPerformerIds.length
+      ? { ids: unresolvedPerformerIds, filter: { per_page: unresolvedPerformerIds.length } }
+      : { ids: [] },
+    skip: unresolvedPerformerIds.length === 0,
+  } as any);
+
+  const tagNameMap = React.useMemo(() => {
     const m = new Map<string, string>();
-    (data?.findTags?.tags ?? []).forEach((t) => m.set(t.id, t.name));
+    (tagData?.findTags?.tags ?? []).forEach((t) => m.set(t.id, t.name));
     return m;
-  }, [data]);
+  }, [tagData]);
+
+  const performerNameMap = React.useMemo(() => {
+    const m = new Map<string, string>();
+    (performerData?.findPerformers?.performers ?? []).forEach((p) => m.set(p.id, p.name ?? p.id));
+    return m;
+  }, [performerData]);
 
   const criterionLabel = intl.formatMessage({ id: (criterion as any).criterionOption.messageID });
   const modifierString = ModifierCriterion.getModifierLabel(intl, criterion.modifier as unknown as CriterionModifier);
+
+  // Check if any extendedGroup has extra attributes
+  const hasExtendedAttrs = criterion.extendedGroups.some(
+    (g) =>
+      (g.giver_performer_ids?.length ?? 0) > 0 ||
+      (g.giver_ethnicities?.length ?? 0) > 0 ||
+      (g.giver_countries?.length ?? 0) > 0 ||
+      g.giver_rating != null ||
+      (g.receiver_performer_ids?.length ?? 0) > 0 ||
+      (g.receiver_ethnicities?.length ?? 0) > 0 ||
+      (g.receiver_countries?.length ?? 0) > 0 ||
+      g.receiver_rating != null ||
+      (g.both_roles_performer_ids?.length ?? 0) > 0 ||
+      (g.both_roles_ethnicities?.length ?? 0) > 0 ||
+      (g.both_roles_countries?.length ?? 0) > 0 ||
+      g.both_roles_rating != null ||
+      (g.exclude_tags?.length ?? 0) > 0 ||
+      // DEPRECATED
+      (g.performer_countries?.length ?? 0) > 0 ||
+      (g.performer_ethnicities?.length ?? 0) > 0 ||
+      g.performer_rating != null ||
+      (g.depth != null && g.depth !== 0)
+  );
 
   let valueString = "";
   if (
     criterion.modifier === CriterionModifier.Equals ||
     criterion.modifier === CriterionModifier.NotEquals
   ) {
-    valueString = criterion.groups
-      .map((g) => `(${g
-        .map((v) => (v.label === v.id ? nameMap.get(v.id) ?? v.label : v.label))
-        .join(" + ")})`)
-      .join("; ");
+    if (hasExtendedAttrs) {
+      valueString = criterion.extendedGroups
+        .map((g) => {
+          const parts: string[] = [];
+          if (g.tags?.length) {
+            const tagStr = g.tags
+              .map((v: { id: string; label: string }) => (v.label === v.id ? tagNameMap.get(v.id) ?? v.label : v.label))
+              .join(" + ");
+            if (g.depth != null && g.depth !== 0) {
+              parts.push(`${tagStr} (+subs)`);
+            } else {
+              parts.push(tagStr);
+            }
+          }
+          if (g.exclude_tags?.length) {
+            const excludeStr = g.exclude_tags
+              .map((v: { id: string; label: string }) => (v.label === v.id ? tagNameMap.get(v.id) ?? v.label : v.label))
+              .join(",");
+            parts.push(`excl=${excludeStr}`);
+          }
+          // Top (giver) attributes
+          if (g.giver_performer_ids?.length) {
+            const perfStr = g.giver_performer_ids
+              .map((v: { id: string; label: string }) => (v.label === v.id ? performerNameMap.get(v.id) ?? v.label : v.label))
+              .join(",");
+            parts.push(`top=${perfStr}`);
+          }
+          if (g.giver_ethnicities?.length) parts.push(`top-eth=${g.giver_ethnicities.join(",")}`);
+          if (g.giver_countries?.length) parts.push(`top-ctry=${g.giver_countries.join(",")}`);
+          if (g.giver_rating) {
+            const mod = ModifierCriterion.getModifierLabel(intl, g.giver_rating.modifier);
+            if (g.giver_rating.modifier === CriterionModifier.Between || g.giver_rating.modifier === CriterionModifier.NotBetween) {
+              parts.push(`top-rating ${mod} ${g.giver_rating.value}..${g.giver_rating.value2 ?? ""}`);
+            } else {
+              parts.push(`top-rating ${mod} ${g.giver_rating.value}`);
+            }
+          }
+          // Bottom (receiver) attributes
+          if (g.receiver_performer_ids?.length) {
+            const perfStr = g.receiver_performer_ids
+              .map((v: { id: string; label: string }) => (v.label === v.id ? performerNameMap.get(v.id) ?? v.label : v.label))
+              .join(",");
+            parts.push(`btm=${perfStr}`);
+          }
+          if (g.receiver_ethnicities?.length) parts.push(`btm-eth=${g.receiver_ethnicities.join(",")}`);
+          if (g.receiver_countries?.length) parts.push(`btm-ctry=${g.receiver_countries.join(",")}`);
+          if (g.receiver_rating) {
+            const mod = ModifierCriterion.getModifierLabel(intl, g.receiver_rating.modifier);
+            if (g.receiver_rating.modifier === CriterionModifier.Between || g.receiver_rating.modifier === CriterionModifier.NotBetween) {
+              parts.push(`btm-rating ${mod} ${g.receiver_rating.value}..${g.receiver_rating.value2 ?? ""}`);
+            } else {
+              parts.push(`btm-rating ${mod} ${g.receiver_rating.value}`);
+            }
+          }
+          // Both roles attributes
+          if (g.both_roles_performer_ids?.length) {
+            const perfStr = g.both_roles_performer_ids
+              .map((v: { id: string; label: string }) => (v.label === v.id ? performerNameMap.get(v.id) ?? v.label : v.label))
+              .join(",");
+            parts.push(`both=${perfStr}`);
+          }
+          if (g.both_roles_ethnicities?.length) parts.push(`both-eth=${g.both_roles_ethnicities.join(",")}`);
+          if (g.both_roles_countries?.length) parts.push(`both-ctry=${g.both_roles_countries.join(",")}`);
+          if (g.both_roles_rating) {
+            const mod = ModifierCriterion.getModifierLabel(intl, g.both_roles_rating.modifier);
+            if (g.both_roles_rating.modifier === CriterionModifier.Between || g.both_roles_rating.modifier === CriterionModifier.NotBetween) {
+              parts.push(`both-rating ${mod} ${g.both_roles_rating.value}..${g.both_roles_rating.value2 ?? ""}`);
+            } else {
+              parts.push(`both-rating ${mod} ${g.both_roles_rating.value}`);
+            }
+          }
+          // DEPRECATED fields
+          if (g.performer_countries?.length) parts.push(`country=${g.performer_countries.join(",")}`);
+          if (g.performer_ethnicities?.length) parts.push(`ethnicity=${g.performer_ethnicities.join(",")}`);
+          if (g.performer_rating) {
+            const mod = ModifierCriterion.getModifierLabel(intl, g.performer_rating.modifier);
+            if (
+              g.performer_rating.modifier === CriterionModifier.Between ||
+              g.performer_rating.modifier === CriterionModifier.NotBetween
+            ) {
+              parts.push(`rating ${mod} ${g.performer_rating.value}..${g.performer_rating.value2 ?? ""}`);
+            } else {
+              parts.push(`rating ${mod} ${g.performer_rating.value}`);
+            }
+          }
+          return `(${parts.join(" ")})`;
+        })
+        .join("; ");
+    } else {
+      valueString = criterion.groups
+        .map((g) => `(${g
+          .map((v) => (v.label === v.id ? tagNameMap.get(v.id) ?? v.label : v.label))
+          .join(" + ")})`)
+        .join("; ");
+    }
   } else {
     valueString = criterion.items
-      .map((v) => (v.label === v.id ? nameMap.get(v.id) ?? v.label : v.label))
+      .map((v) => (v.label === v.id ? tagNameMap.get(v.id) ?? v.label : v.label))
       .join(", ");
   }
 

@@ -63,38 +63,51 @@ export const PerformerTagsCriterionOption = new BaseTagsCriterionOption(
   withoutEqualsModifierOptions
 );
 
-export const PerformerSceneTagsCriterionOption = new BaseTagsCriterionOption(
-  "performer_scene_tags",
-  "performer_scene_tags",
-  withoutEqualsModifierOptions
-);
-
 export const MarkerTagsCriterionOption = new BaseTagsCriterionOption(
   "marker_tags",
   "marker_tags",
   defaultModifierOptions
 );
 
-// Criterion option for the compact performer+tag pair input
-export const PerformerSceneTagPairCriterionOption = new CriterionOption({
-  messageID: "performer_scene_tag_pair",
-  type: "performer_scene_tag_pair",
-  hidden: true,
-  makeCriterion: () => new PerformerSceneTagsPairCriterion("", ""),
-});
-
 // Scene Marker Tags use grouped semantics for EQUALS (IS). Allow EQUALS here.
 // Supports extended groups with performer attributes (IDs, countries, ethnicities, rating)
+// Now with separate giver/receiver attribute fields and both_roles support
+export type RatingCriterion = {
+  modifier: CriterionModifier;
+  value: number;
+  value2?: number;
+} | null;
+
 export type SceneMarkerTagGroupUI = {
   tags?: ILabeledId[];
-  performer_ids?: ILabeledId[];
+  exclude_tags?: ILabeledId[];  // Tags that must NOT be present on any marker
+  depth?: number;
+  
+  // Giver criteria
+  giver_performer_ids?: ILabeledId[];
+  giver_ethnicities?: string[];
+  giver_countries?: string[];
+  giver_rating?: RatingCriterion;
+  
+  // Receiver criteria
+  receiver_performer_ids?: ILabeledId[];
+  receiver_ethnicities?: string[];
+  receiver_countries?: string[];
+  receiver_rating?: RatingCriterion;
+  
+  // Both-roles criteria (performer must be BOTH giver AND receiver)
+  both_roles_performer_ids?: ILabeledId[];
+  both_roles_ethnicities?: string[];
+  both_roles_countries?: string[];
+  both_roles_rating?: RatingCriterion;
+  
+  // Mode for performer matching
+  performer_mode?: "AND" | "OR";
+  
+  // DEPRECATED: Use role-specific fields instead
   performer_countries?: string[];
   performer_ethnicities?: string[];
-  performer_rating?: {
-    modifier: CriterionModifier;
-    value: number;
-    value2?: number;
-  } | null;
+  performer_rating?: RatingCriterion;
 };
 
 export class SceneMarkerTagsCriterion extends Criterion {
@@ -110,32 +123,63 @@ export class SceneMarkerTagsCriterion extends Criterion {
     super(option);
   }
 
+  private cloneRating(r: RatingCriterion): RatingCriterion {
+    return r ? { modifier: r.modifier, value: r.value, value2: r.value2 } : null;
+  }
+
   public cloneValues() {
     this.groups = this.groups.map((g) => g.map((v) => ({ ...v })));
     this.extendedGroups = this.extendedGroups.map((g) => ({
       tags: g.tags ? g.tags.map((t) => ({ ...t })) : undefined,
-      performer_ids: g.performer_ids ? g.performer_ids.map((p) => ({ ...p })) : undefined,
+      exclude_tags: g.exclude_tags ? g.exclude_tags.map((t) => ({ ...t })) : undefined,
+      depth: g.depth,
+      // Giver criteria
+      giver_performer_ids: g.giver_performer_ids ? g.giver_performer_ids.map((p) => ({ ...p })) : undefined,
+      giver_ethnicities: g.giver_ethnicities ? [...g.giver_ethnicities] : undefined,
+      giver_countries: g.giver_countries ? [...g.giver_countries] : undefined,
+      giver_rating: this.cloneRating(g.giver_rating ?? null),
+      // Receiver criteria
+      receiver_performer_ids: g.receiver_performer_ids ? g.receiver_performer_ids.map((p) => ({ ...p })) : undefined,
+      receiver_ethnicities: g.receiver_ethnicities ? [...g.receiver_ethnicities] : undefined,
+      receiver_countries: g.receiver_countries ? [...g.receiver_countries] : undefined,
+      receiver_rating: this.cloneRating(g.receiver_rating ?? null),
+      // Both-roles criteria
+      both_roles_performer_ids: g.both_roles_performer_ids ? g.both_roles_performer_ids.map((p) => ({ ...p })) : undefined,
+      both_roles_ethnicities: g.both_roles_ethnicities ? [...g.both_roles_ethnicities] : undefined,
+      both_roles_countries: g.both_roles_countries ? [...g.both_roles_countries] : undefined,
+      both_roles_rating: this.cloneRating(g.both_roles_rating ?? null),
+      // Mode
+      performer_mode: g.performer_mode,
+      // DEPRECATED fields
       performer_countries: g.performer_countries ? [...g.performer_countries] : undefined,
       performer_ethnicities: g.performer_ethnicities ? [...g.performer_ethnicities] : undefined,
-      performer_rating: g.performer_rating
-        ? {
-            modifier: g.performer_rating.modifier,
-            value: g.performer_rating.value,
-            value2: g.performer_rating.value2,
-          }
-        : null,
+      performer_rating: this.cloneRating(g.performer_rating ?? null),
     }));
     this.items = this.items.map((v) => ({ ...v }));
   }
 
-  // Check if extended groups have any performer attributes set
+  // Check if extended groups have any performer attributes or depth set
   private hasExtendedGroupAttrs(): boolean {
     return this.extendedGroups.some(
       (g) =>
-        (g.performer_ids?.length ?? 0) > 0 ||
+        (g.exclude_tags?.length ?? 0) > 0 ||
+        (g.giver_performer_ids?.length ?? 0) > 0 ||
+        (g.giver_ethnicities?.length ?? 0) > 0 ||
+        (g.giver_countries?.length ?? 0) > 0 ||
+        g.giver_rating != null ||
+        (g.receiver_performer_ids?.length ?? 0) > 0 ||
+        (g.receiver_ethnicities?.length ?? 0) > 0 ||
+        (g.receiver_countries?.length ?? 0) > 0 ||
+        g.receiver_rating != null ||
+        (g.both_roles_performer_ids?.length ?? 0) > 0 ||
+        (g.both_roles_ethnicities?.length ?? 0) > 0 ||
+        (g.both_roles_countries?.length ?? 0) > 0 ||
+        g.both_roles_rating != null ||
+        // DEPRECATED fields
         (g.performer_countries?.length ?? 0) > 0 ||
         (g.performer_ethnicities?.length ?? 0) > 0 ||
-        g.performer_rating != null
+        g.performer_rating != null ||
+        (g.depth != null && g.depth !== 0)
     );
   }
 
@@ -153,8 +197,27 @@ export class SceneMarkerTagsCriterion extends Criterion {
         valueString = this.extendedGroups
           .map((g) => {
             const parts: string[] = [];
-            if (g.tags?.length) parts.push(g.tags.map((t) => t.label).join(" + "));
-            if (g.performer_ids?.length) parts.push(`performers=${g.performer_ids.map((p) => p.label).join(",")}`);
+            if (g.tags?.length) {
+              const tagStr = g.tags.map((t) => t.label).join(" + ");
+              if (g.depth != null && g.depth !== 0) {
+                parts.push(`${tagStr} (+subs)`);
+              } else {
+                parts.push(tagStr);
+              }
+            }
+            // Giver info
+            if (g.giver_performer_ids?.length) parts.push(`giver=${g.giver_performer_ids.map((p) => p.label).join(",")}`);
+            if (g.giver_ethnicities?.length) parts.push(`giver_eth=${g.giver_ethnicities.join(",")}`);
+            if (g.giver_countries?.length) parts.push(`giver_ctry=${g.giver_countries.join(",")}`);
+            // Receiver info
+            if (g.receiver_performer_ids?.length) parts.push(`receiver=${g.receiver_performer_ids.map((p) => p.label).join(",")}`);
+            if (g.receiver_ethnicities?.length) parts.push(`receiver_eth=${g.receiver_ethnicities.join(",")}`);
+            if (g.receiver_countries?.length) parts.push(`receiver_ctry=${g.receiver_countries.join(",")}`);
+            // Both-roles info
+            if (g.both_roles_performer_ids?.length) parts.push(`both=${g.both_roles_performer_ids.map((p) => p.label).join(",")}`);
+            if (g.both_roles_ethnicities?.length) parts.push(`both_eth=${g.both_roles_ethnicities.join(",")}`);
+            if (g.both_roles_countries?.length) parts.push(`both_ctry=${g.both_roles_countries.join(",")}`);
+            // DEPRECATED fields for backwards compatibility display
             if (g.performer_countries?.length) parts.push(`country=${g.performer_countries.join(",")}`);
             if (g.performer_ethnicities?.length) parts.push(`ethnicity=${g.performer_ethnicities.join(",")}`);
             if (g.performer_rating) {
@@ -189,6 +252,10 @@ export class SceneMarkerTagsCriterion extends Criterion {
     );
   }
 
+  private serializeRating(r: RatingCriterion): { modifier: CriterionModifier; value: number; value2?: number } | undefined {
+    return r ? { modifier: r.modifier, value: r.value, value2: r.value2 } : undefined;
+  }
+
   public toQueryParams(): Record<string, unknown> {
     const base: Record<string, unknown> = {
       type: this.criterionOption.type,
@@ -206,16 +273,29 @@ export class SceneMarkerTagsCriterion extends Criterion {
         if (this.hasExtendedGroupAttrs()) {
           base.extendedGroups = this.extendedGroups.map((g) => ({
             tags: g.tags?.map((t) => ({ id: t.id, label: t.label })),
-            performer_ids: g.performer_ids?.map((p) => ({ id: p.id, label: p.label })),
+            exclude_tags: g.exclude_tags?.map((t) => ({ id: t.id, label: t.label })),
+            depth: g.depth,
+            // Giver
+            giver_performer_ids: g.giver_performer_ids?.map((p) => ({ id: p.id, label: p.label })),
+            giver_ethnicities: g.giver_ethnicities?.length ? g.giver_ethnicities : undefined,
+            giver_countries: g.giver_countries?.length ? g.giver_countries : undefined,
+            giver_rating: this.serializeRating(g.giver_rating ?? null),
+            // Receiver
+            receiver_performer_ids: g.receiver_performer_ids?.map((p) => ({ id: p.id, label: p.label })),
+            receiver_ethnicities: g.receiver_ethnicities?.length ? g.receiver_ethnicities : undefined,
+            receiver_countries: g.receiver_countries?.length ? g.receiver_countries : undefined,
+            receiver_rating: this.serializeRating(g.receiver_rating ?? null),
+            // Both-roles
+            both_roles_performer_ids: g.both_roles_performer_ids?.map((p) => ({ id: p.id, label: p.label })),
+            both_roles_ethnicities: g.both_roles_ethnicities?.length ? g.both_roles_ethnicities : undefined,
+            both_roles_countries: g.both_roles_countries?.length ? g.both_roles_countries : undefined,
+            both_roles_rating: this.serializeRating(g.both_roles_rating ?? null),
+            // Mode
+            performer_mode: g.performer_mode,
+            // DEPRECATED
             performer_countries: g.performer_countries?.length ? g.performer_countries : undefined,
             performer_ethnicities: g.performer_ethnicities?.length ? g.performer_ethnicities : undefined,
-            performer_rating: g.performer_rating
-              ? {
-                  modifier: g.performer_rating.modifier,
-                  value: g.performer_rating.value,
-                  value2: g.performer_rating.value2,
-                }
-              : undefined,
+            performer_rating: this.serializeRating(g.performer_rating ?? null),
           }));
         } else {
           base.groups = this.groups.map((g) => g.map((v) => v.id));
@@ -229,24 +309,59 @@ export class SceneMarkerTagsCriterion extends Criterion {
 
   public fromDecodedParams(i: Record<string, unknown>): void {
     try {
+      type ExtendedGroupRaw = {
+        tags?: Array<{ id: string; label: string }>;
+        exclude_tags?: Array<{ id: string; label: string }>;
+        depth?: number;
+        giver_performer_ids?: Array<{ id: string; label: string }>;
+        giver_ethnicities?: string[];
+        giver_countries?: string[];
+        giver_rating?: { modifier: CriterionModifier; value: number; value2?: number };
+        receiver_performer_ids?: Array<{ id: string; label: string }>;
+        receiver_ethnicities?: string[];
+        receiver_countries?: string[];
+        receiver_rating?: { modifier: CriterionModifier; value: number; value2?: number };
+        both_roles_performer_ids?: Array<{ id: string; label: string }>;
+        both_roles_ethnicities?: string[];
+        both_roles_countries?: string[];
+        both_roles_rating?: { modifier: CriterionModifier; value: number; value2?: number };
+        performer_mode?: "AND" | "OR";
+        // DEPRECATED
+        performer_countries?: string[];
+        performer_ethnicities?: string[];
+        performer_rating?: { modifier: CriterionModifier; value: number; value2?: number };
+      };
       const raw = i as {
         modifier?: CriterionModifier;
         value?: string[] | { groups?: string[][] };
         groups?: string[][];
-        extendedGroups?: Array<{
-          tags?: Array<{ id: string; label: string }>;
-          performer_ids?: Array<{ id: string; label: string }>;
-          performer_countries?: string[];
-          performer_ethnicities?: string[];
-          performer_rating?: { modifier: CriterionModifier; value: number; value2?: number };
-        }>;
+        extendedGroups?: ExtendedGroupRaw[];
       };
       if (raw.modifier) this.modifier = raw.modifier;
       
       if (raw.extendedGroups) {
         this.extendedGroups = raw.extendedGroups.map((g) => ({
           tags: g.tags?.map((t) => ({ id: t.id, label: t.label })),
-          performer_ids: g.performer_ids?.map((p) => ({ id: p.id, label: p.label })),
+          exclude_tags: g.exclude_tags?.map((t) => ({ id: t.id, label: t.label })),
+          depth: g.depth,
+          // Giver
+          giver_performer_ids: g.giver_performer_ids?.map((p) => ({ id: p.id, label: p.label })),
+          giver_ethnicities: g.giver_ethnicities,
+          giver_countries: g.giver_countries,
+          giver_rating: g.giver_rating ?? null,
+          // Receiver
+          receiver_performer_ids: g.receiver_performer_ids?.map((p) => ({ id: p.id, label: p.label })),
+          receiver_ethnicities: g.receiver_ethnicities,
+          receiver_countries: g.receiver_countries,
+          receiver_rating: g.receiver_rating ?? null,
+          // Both-roles
+          both_roles_performer_ids: g.both_roles_performer_ids?.map((p) => ({ id: p.id, label: p.label })),
+          both_roles_ethnicities: g.both_roles_ethnicities,
+          both_roles_countries: g.both_roles_countries,
+          both_roles_rating: g.both_roles_rating ?? null,
+          // Mode
+          performer_mode: g.performer_mode,
+          // DEPRECATED
           performer_countries: g.performer_countries,
           performer_ethnicities: g.performer_ethnicities,
           performer_rating: g.performer_rating ?? null,
@@ -274,6 +389,30 @@ export class SceneMarkerTagsCriterion extends Criterion {
     }
   }
 
+  private hasGroupContent(g: SceneMarkerTagGroupUI): boolean {
+    return (
+      (g.tags?.length ?? 0) > 0 ||
+      (g.exclude_tags?.length ?? 0) > 0 ||
+      (g.giver_performer_ids?.length ?? 0) > 0 ||
+      (g.giver_ethnicities?.length ?? 0) > 0 ||
+      (g.giver_countries?.length ?? 0) > 0 ||
+      g.giver_rating != null ||
+      (g.receiver_performer_ids?.length ?? 0) > 0 ||
+      (g.receiver_ethnicities?.length ?? 0) > 0 ||
+      (g.receiver_countries?.length ?? 0) > 0 ||
+      g.receiver_rating != null ||
+      (g.both_roles_performer_ids?.length ?? 0) > 0 ||
+      (g.both_roles_ethnicities?.length ?? 0) > 0 ||
+      (g.both_roles_countries?.length ?? 0) > 0 ||
+      g.both_roles_rating != null ||
+      // DEPRECATED
+      (g.performer_countries?.length ?? 0) > 0 ||
+      (g.performer_ethnicities?.length ?? 0) > 0 ||
+      g.performer_rating != null ||
+      (g.depth != null && g.depth !== 0)
+    );
+  }
+
   public applyToCriterionInput(input: Record<string, unknown>): void {
     if (
       this.modifier === CriterionModifier.IsNull ||
@@ -292,19 +431,32 @@ export class SceneMarkerTagsCriterion extends Criterion {
         input[this.criterionOption.type] = {
           modifier: this.modifier,
           groups_extended: this.extendedGroups
-            .filter((g) => (g.tags?.length ?? 0) > 0 || (g.performer_ids?.length ?? 0) > 0 || (g.performer_countries?.length ?? 0) > 0 || (g.performer_ethnicities?.length ?? 0) > 0 || g.performer_rating != null)
+            .filter((g) => this.hasGroupContent(g))
             .map((g) => ({
               tag_ids: g.tags?.map((t) => t.id) ?? [],
-              performer_ids: g.performer_ids?.map((p) => p.id) ?? undefined,
+              exclude_tag_ids: g.exclude_tags?.map((t) => t.id) ?? undefined,
+              depth: g.depth != null && g.depth !== 0 ? g.depth : undefined,
+              // Giver
+              giver_performer_ids: g.giver_performer_ids?.map((p) => p.id) ?? undefined,
+              giver_ethnicities: g.giver_ethnicities?.length ? g.giver_ethnicities : undefined,
+              giver_countries: g.giver_countries?.length ? g.giver_countries : undefined,
+              giver_rating: this.serializeRating(g.giver_rating ?? null),
+              // Receiver
+              receiver_performer_ids: g.receiver_performer_ids?.map((p) => p.id) ?? undefined,
+              receiver_ethnicities: g.receiver_ethnicities?.length ? g.receiver_ethnicities : undefined,
+              receiver_countries: g.receiver_countries?.length ? g.receiver_countries : undefined,
+              receiver_rating: this.serializeRating(g.receiver_rating ?? null),
+              // Both-roles
+              both_roles_performer_ids: g.both_roles_performer_ids?.map((p) => p.id) ?? undefined,
+              both_roles_ethnicities: g.both_roles_ethnicities?.length ? g.both_roles_ethnicities : undefined,
+              both_roles_countries: g.both_roles_countries?.length ? g.both_roles_countries : undefined,
+              both_roles_rating: this.serializeRating(g.both_roles_rating ?? null),
+              // Mode
+              performer_mode: g.performer_mode,
+              // DEPRECATED
               performer_countries: g.performer_countries?.length ? g.performer_countries : undefined,
               performer_ethnicities: g.performer_ethnicities?.length ? g.performer_ethnicities : undefined,
-              performer_rating: g.performer_rating
-                ? {
-                    modifier: g.performer_rating.modifier,
-                    value: g.performer_rating.value,
-                    value2: g.performer_rating.value2,
-                  }
-                : undefined,
+              performer_rating: this.serializeRating(g.performer_rating ?? null),
             })),
         };
       } else {
@@ -328,17 +480,33 @@ export class SceneMarkerTagsCriterion extends Criterion {
 
   public setFromSavedCriterion(criterion: unknown): void {
     try {
+      type SavedGroupExtended = {
+        tag_ids?: string[];
+        exclude_tag_ids?: string[];
+        depth?: number;
+        giver_performer_ids?: string[];
+        giver_ethnicities?: string[];
+        giver_countries?: string[];
+        giver_rating?: { modifier: CriterionModifier; value: number; value2?: number };
+        receiver_performer_ids?: string[];
+        receiver_ethnicities?: string[];
+        receiver_countries?: string[];
+        receiver_rating?: { modifier: CriterionModifier; value: number; value2?: number };
+        both_roles_performer_ids?: string[];
+        both_roles_ethnicities?: string[];
+        both_roles_countries?: string[];
+        both_roles_rating?: { modifier: CriterionModifier; value: number; value2?: number };
+        performer_mode?: "AND" | "OR";
+        // DEPRECATED
+        performer_countries?: string[];
+        performer_ethnicities?: string[];
+        performer_rating?: { modifier: CriterionModifier; value: number; value2?: number };
+      };
       const c = criterion as {
         modifier: CriterionModifier;
         value?: string[];
         groups?: string[][];
-        groups_extended?: Array<{
-          tag_ids?: string[];
-          performer_ids?: string[];
-          performer_countries?: string[];
-          performer_ethnicities?: string[];
-          performer_rating?: { modifier: CriterionModifier; value: number; value2?: number };
-        }>;
+        groups_extended?: SavedGroupExtended[];
       };
       this.modifier = c.modifier;
       if (
@@ -348,7 +516,26 @@ export class SceneMarkerTagsCriterion extends Criterion {
         if (c.groups_extended) {
           this.extendedGroups = c.groups_extended.map((g) => ({
             tags: g.tag_ids?.map((id) => ({ id, label: id })),
-            performer_ids: g.performer_ids?.map((id) => ({ id, label: id })),
+            exclude_tags: g.exclude_tag_ids?.map((id) => ({ id, label: id })),
+            depth: g.depth,
+            // Giver
+            giver_performer_ids: g.giver_performer_ids?.map((id) => ({ id, label: id })),
+            giver_ethnicities: g.giver_ethnicities,
+            giver_countries: g.giver_countries,
+            giver_rating: g.giver_rating ?? null,
+            // Receiver
+            receiver_performer_ids: g.receiver_performer_ids?.map((id) => ({ id, label: id })),
+            receiver_ethnicities: g.receiver_ethnicities,
+            receiver_countries: g.receiver_countries,
+            receiver_rating: g.receiver_rating ?? null,
+            // Both-roles
+            both_roles_performer_ids: g.both_roles_performer_ids?.map((id) => ({ id, label: id })),
+            both_roles_ethnicities: g.both_roles_ethnicities,
+            both_roles_countries: g.both_roles_countries,
+            both_roles_rating: g.both_roles_rating ?? null,
+            // Mode
+            performer_mode: g.performer_mode,
+            // DEPRECATED
             performer_countries: g.performer_countries,
             performer_ethnicities: g.performer_ethnicities,
             performer_rating: g.performer_rating ?? null,
@@ -392,6 +579,21 @@ export const SceneMarkerTagsCriterionOption = new ModifierCriterionOption({
   makeCriterion: (o) => new SceneMarkerTagsCriterion(o),
 });
 
+// Marker Tags with Performers: used on the Markers page to filter markers by tags + performer attributes
+export const MarkerTagsWithPerformersCriterionOption = new ModifierCriterionOption({
+  messageID: "marker_tags_with_performers",
+  type: "marker_tags_with_performers",
+  modifierOptions: [
+    CriterionModifier.Equals,
+    CriterionModifier.NotEquals,
+    CriterionModifier.IncludesAll,
+    CriterionModifier.Includes,
+  ],
+  defaultModifier: CriterionModifier.Equals,
+  inputType: "scene_tags",
+  makeCriterion: (o) => new SceneMarkerTagsCriterion(o),
+});
+
 // TODO - this requires using a nested studios_filter which needs to be added separately
 // export const StudioTagsCriterionOption = new BaseTagsCriterionOption(
 //   "studio_tags",
@@ -412,99 +614,4 @@ export const ChildTagsCriterionOption = new BaseTagsCriterionOption(
 );
 
 export class TagsCriterion extends IHierarchicalLabeledIdCriterion {}
-
-// Top-level variant for the Performers page: applies performer_scene_tags directly on performer filter
-class PerformerSceneTagsInPerformerFilterCriterion extends TagsCriterion {
-  public applyToCriterionInput(input: Record<string, unknown>): void {
-    type PerformerFilterInput = Record<string, unknown> & {
-      performer_scene_tags?: unknown;
-    };
-    (input as PerformerFilterInput).performer_scene_tags =
-      this.toCriterionInput();
-  }
-}
-
-// Criterion option exposed on /performers, using the same label as /scenes
-class PerformerSceneTagsInPerformerFilterOptionCls extends ModifierCriterionOption {
-  constructor() {
-    super({
-      messageID: "performer_scene_tags",
-      type: "performer_scene_tags",
-      inputType: "tags",
-      modifierOptions: withoutEqualsModifierOptions,
-      defaultModifier,
-      makeCriterion: () => new PerformerSceneTagsInPerformerFilterCriterion(this),
-    });
-  }
-}
-
-export const PerformerSceneTagsInPerformerFilterOption =
-  new PerformerSceneTagsInPerformerFilterOptionCls();
-
-// A lightweight criterion used to encode a performer+tag pair for the
-// performer_scene_tags criterion. This emits a value object of the form
-// { performerId, tagId } which the backend can interpret to filter scenes
-// by the performer/tag combination without requiring a separate performers
-// criterion.
-export class PerformerSceneTagsPairCriterion extends Criterion {
-  private _performerId: string;
-  private _tagId: string;
-
-  constructor(performerId: string, tagId: string) {
-    super(PerformerSceneTagPairCriterionOption);
-    this._performerId = performerId;
-    this._tagId = tagId;
-  }
-
-  public getLabel(_intl: IntlShape): string {
-    // mark parameter as used to satisfy @typescript-eslint/no-unused-vars
-    void _intl;
-    return "";
-  }
-
-  public toQueryParams(): Record<string, unknown> {
-    return {
-      type: this.criterionOption.type,
-      modifier: CriterionModifier.IncludesAll,
-      value: { performer_id: this._performerId, tag_id: this._tagId },
-    };
-  }
-
-  public fromDecodedParams(i: Record<string, unknown>): void {
-    try {
-      const raw = i as { value?: unknown };
-      type PairInputShape = {
-        performer_id?: string;
-        performerId?: string;
-        tag_id?: string;
-        tagId?: string;
-      };
-      const v = (raw.value ?? i) as PairInputShape;
-      const performerId = v.performer_id ?? v.performerId;
-      const tagId = v.tag_id ?? v.tagId;
-      if (performerId) this._performerId = performerId;
-      if (tagId) this._tagId = tagId;
-    } catch {
-      // ignore decode errors
-    }
-  }
-
-  public applyToCriterionInput(input: Record<string, unknown>): void {
-    input[this.criterionOption.type] = {
-      performer_id: this._performerId,
-      tag_id: this._tagId,
-    };
-  }
-
-  public applyToSavedCriterion(input: Record<string, unknown>): void {
-    input[this.criterionOption.type] = {
-      value: { performer_id: this._performerId, tag_id: this._tagId },
-      modifier: CriterionModifier.IncludesAll,
-    };
-  }
-
-  public setFromSavedCriterion(criterion: unknown): void {
-    this.fromDecodedParams(criterion as Record<string, unknown>);
-  }
-}
 

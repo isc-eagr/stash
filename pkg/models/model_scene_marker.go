@@ -42,3 +42,10 @@ func NewSceneMarkerPartial() SceneMarkerPartial {
 		UpdatedAt: NewOptionalTime(currentTime),
 	}
 }
+
+// MarkerPerformer represents a performer associated with a scene marker
+// along with their role (giver or receiver).
+type MarkerPerformer struct {
+	PerformerID int    `json:"performer_id"`
+	Role        string `json:"role"` // "giver" or "receiver"
+}

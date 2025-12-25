@@ -149,28 +149,29 @@ func (r *performerResolver) Tags(ctx context.Context, obj *models.Performer) (re
 }
 
 func (r *performerResolver) SceneTags(ctx context.Context, obj *models.Performer, sceneID string) (ret []*models.Tag, err error) {
+	// DEPRECATED: performer_scene_tags has been removed. Return empty array for backward compatibility.
+	return nil, nil
+}
+
+// SceneMarkerRoles returns the roles a performer has in a specific scene's markers
+func (r *performerResolver) SceneMarkerRoles(ctx context.Context, obj *models.Performer, sceneID string) (ret []string, err error) {
 	// convert sceneID to int
 	sid, err := strconv.Atoi(sceneID)
 	if err != nil {
 		return nil, err
 	}
 
-	var ids []int
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	sexTagID, oralTagID, soloTagID, facialTagID := getRoleTagIDs(uiConfig)
+
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		var err error
-		ids, err = r.repository.Performer.GetSceneTagIDs(ctx, obj.ID, sid)
+		ret, err = scene.GetPerformerMarkerRolesForScene(ctx, r.repository.SceneMarker, obj.ID, sid, sexTagID, oralTagID, soloTagID, facialTagID)
 		return err
 	}); err != nil {
 		return nil, err
 	}
 
-	if len(ids) == 0 {
-		return nil, nil
-	}
-
-	var errs []error
-	ret, errs = loaders.From(ctx).TagByID.LoadAll(ids)
-	return ret, firstError(errs)
+	return ret, nil
 }
 
 func (r *performerResolver) SceneCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
@@ -313,191 +314,204 @@ func (r *performerResolver) Movies(ctx context.Context, obj *models.Performer) (
 	return r.Groups(ctx, obj)
 }
 
-// SexSceneCount returns the count of scenes with top/bottom performer_scene_tags
-func (r *performerResolver) SexSceneCount(ctx context.Context, obj *models.Performer, topTag *string, bottomTag *string) (ret int, err error) {
-	// Get tag names from UI configuration if not provided
-	uiConfig := config.GetInstance().GetUIConfiguration()
-	sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
-
-	top := "top"
-	if topTag != nil {
-		top = *topTag
-	} else if sceneTagAliases != nil {
-		if t, ok := sceneTagAliases["top"].(string); ok && t != "" {
-			top = t
-		}
+// Helper to get role tag IDs from UI configuration
+func getRoleTagIDs(uiConfig map[string]interface{}) (sexTagID, oralTagID, soloTagID, facialTagID int) {
+	roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+	if roleTagIds == nil {
+		return 0, 0, 0, 0
 	}
 
-	bottom := "bottom"
-	if bottomTag != nil {
-		bottom = *bottomTag
-	} else if sceneTagAliases != nil {
-		if b, ok := sceneTagAliases["bottom"].(string); ok && b != "" {
-			bottom = b
-		}
+	if id, ok := roleTagIds["sexTagId"].(string); ok && id != "" {
+		sexTagID, _ = strconv.Atoi(id)
+	}
+	if id, ok := roleTagIds["oralTagId"].(string); ok && id != "" {
+		oralTagID, _ = strconv.Atoi(id)
+	}
+	if id, ok := roleTagIds["soloTagId"].(string); ok && id != "" {
+		soloTagID, _ = strconv.Atoi(id)
+	}
+	if id, ok := roleTagIds["facialTagId"].(string); ok && id != "" {
+		facialTagID, _ = strconv.Atoi(id)
+	}
+	return
+}
+
+// SexSceneCount returns the count of scenes with sex markers where performer participates
+func (r *performerResolver) SexSceneCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	sexTagID, _, _, _ := getRoleTagIDs(uiConfig)
+
+	if sexTagID == 0 {
+		return 0, nil
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerIDAndPerformerSceneTags(ctx, r.repository.Scene, r.repository.Tag, obj.ID, []string{top, bottom}, false)
+		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, sexTagID, "")
 		return err
 	}); err != nil {
 		return 0, err
 	}
-
 	return ret, nil
 }
 
-// OralSceneCount returns the count of scenes with oral tags but not top/bottom
-func (r *performerResolver) OralSceneCount(ctx context.Context, obj *models.Performer, oralTopTag *string, oralBottomTag *string, topTag *string, bottomTag *string) (ret int, err error) {
-	// Get tag names from UI configuration if not provided
+// SexGiverCount returns the count of scenes where performer is the giver in sex markers
+func (r *performerResolver) SexGiverCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
-	sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
+	sexTagID, _, _, _ := getRoleTagIDs(uiConfig)
 
-	oralTop := "oraltop"
-	if oralTopTag != nil {
-		oralTop = *oralTopTag
-	} else if sceneTagAliases != nil {
-		if ot, ok := sceneTagAliases["oraltop"].(string); ok && ot != "" {
-			oralTop = ot
-		}
-	}
-
-	oralBottom := "oralbottom"
-	if oralBottomTag != nil {
-		oralBottom = *oralBottomTag
-	} else if sceneTagAliases != nil {
-		if ob, ok := sceneTagAliases["oralbottom"].(string); ok && ob != "" {
-			oralBottom = ob
-		}
-	}
-
-	top := "top"
-	if topTag != nil {
-		top = *topTag
-	} else if sceneTagAliases != nil {
-		if t, ok := sceneTagAliases["top"].(string); ok && t != "" {
-			top = t
-		}
-	}
-
-	bottom := "bottom"
-	if bottomTag != nil {
-		bottom = *bottomTag
-	} else if sceneTagAliases != nil {
-		if b, ok := sceneTagAliases["bottom"].(string); ok && b != "" {
-			bottom = b
-		}
+	if sexTagID == 0 {
+		return 0, nil
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerIDAndPerformerSceneTagsWithExclusions(ctx, r.repository.Scene, r.repository.Tag, obj.ID, []string{oralTop, oralBottom}, []string{top, bottom})
+		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, sexTagID, "giver")
 		return err
 	}); err != nil {
 		return 0, err
 	}
-
 	return ret, nil
 }
 
-// SoloSceneCount returns the count of scenes with solo tags but not top/bottom/oral
-func (r *performerResolver) SoloSceneCount(ctx context.Context, obj *models.Performer, soloTag *string, topTag *string, bottomTag *string, oralTopTag *string, oralBottomTag *string) (ret int, err error) {
-	// Get tag names from UI configuration if not provided
+// SexReceiverCount returns the count of scenes where performer is the receiver in sex markers
+func (r *performerResolver) SexReceiverCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
-	sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
+	sexTagID, _, _, _ := getRoleTagIDs(uiConfig)
 
-	solo := "solo"
-	if soloTag != nil {
-		solo = *soloTag
-	} else if sceneTagAliases != nil {
-		if s, ok := sceneTagAliases["solo"].(string); ok && s != "" {
-			solo = s
-		}
-	}
-
-	top := "top"
-	if topTag != nil {
-		top = *topTag
-	} else if sceneTagAliases != nil {
-		if t, ok := sceneTagAliases["top"].(string); ok && t != "" {
-			top = t
-		}
-	}
-
-	bottom := "bottom"
-	if bottomTag != nil {
-		bottom = *bottomTag
-	} else if sceneTagAliases != nil {
-		if b, ok := sceneTagAliases["bottom"].(string); ok && b != "" {
-			bottom = b
-		}
-	}
-
-	oralTop := "oraltop"
-	if oralTopTag != nil {
-		oralTop = *oralTopTag
-	} else if sceneTagAliases != nil {
-		if ot, ok := sceneTagAliases["oraltop"].(string); ok && ot != "" {
-			oralTop = ot
-		}
-	}
-
-	oralBottom := "oralbottom"
-	if oralBottomTag != nil {
-		oralBottom = *oralBottomTag
-	} else if sceneTagAliases != nil {
-		if ob, ok := sceneTagAliases["oralbottom"].(string); ok && ob != "" {
-			oralBottom = ob
-		}
+	if sexTagID == 0 {
+		return 0, nil
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerIDAndPerformerSceneTagsWithExclusions(ctx, r.repository.Scene, r.repository.Tag, obj.ID, []string{solo}, []string{top, bottom, oralTop, oralBottom})
+		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, sexTagID, "receiver")
 		return err
 	}); err != nil {
 		return 0, err
 	}
-
 	return ret, nil
 }
 
-// FacialSceneCount returns the count of scenes with facialgiven or facialreceived performer_scene_tags
-func (r *performerResolver) FacialSceneCount(ctx context.Context, obj *models.Performer, facialGivenTag *string, facialReceivedTag *string) (ret int, err error) {
-	// Get tag names from UI configuration if not provided
+// OralSceneCount returns the count of scenes with oral markers (excluding sex scenes)
+func (r *performerResolver) OralSceneCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
-	sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
+	sexTagID, oralTagID, _, _ := getRoleTagIDs(uiConfig)
 
-	facialGiven := "facialgiven"
-	if facialGivenTag != nil {
-		facialGiven = *facialGivenTag
-	} else if sceneTagAliases != nil {
-		if fg, ok := sceneTagAliases["facialgiven"].(string); ok && fg != "" {
-			facialGiven = fg
-		}
-	}
-
-	facialReceived := "facialreceived"
-	if facialReceivedTag != nil {
-		facialReceived = *facialReceivedTag
-	} else if sceneTagAliases != nil {
-		if fr, ok := sceneTagAliases["facialreceived"].(string); ok && fr != "" {
-			facialReceived = fr
-		}
-	}
-
-	// Optional third facial tag: selffacial
-	selfFacial := "selffacial"
-	if sceneTagAliases != nil {
-		if sf, ok := sceneTagAliases["selffacial"].(string); ok && sf != "" {
-			selfFacial = sf
-		}
+	if oralTagID == 0 {
+		return 0, nil
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerIDAndPerformerSceneTags(ctx, r.repository.Scene, r.repository.Tag, obj.ID, []string{facialGiven, facialReceived, selfFacial}, false)
+		ret, err = scene.CountByPerformerMarkerRoleExcluding(ctx, r.repository.SceneMarker, obj.ID, oralTagID, "", sexTagID)
 		return err
 	}); err != nil {
 		return 0, err
 	}
+	return ret, nil
+}
 
+// OralGiverCount returns the count of scenes where performer is the giver in oral markers
+func (r *performerResolver) OralGiverCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	sexTagID, oralTagID, _, _ := getRoleTagIDs(uiConfig)
+
+	if oralTagID == 0 {
+		return 0, nil
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = scene.CountByPerformerMarkerRoleExcluding(ctx, r.repository.SceneMarker, obj.ID, oralTagID, "giver", sexTagID)
+		return err
+	}); err != nil {
+		return 0, err
+	}
+	return ret, nil
+}
+
+// OralReceiverCount returns the count of scenes where performer is the receiver in oral markers
+func (r *performerResolver) OralReceiverCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	sexTagID, oralTagID, _, _ := getRoleTagIDs(uiConfig)
+
+	if oralTagID == 0 {
+		return 0, nil
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = scene.CountByPerformerMarkerRoleExcluding(ctx, r.repository.SceneMarker, obj.ID, oralTagID, "receiver", sexTagID)
+		return err
+	}); err != nil {
+		return 0, err
+	}
+	return ret, nil
+}
+
+// SoloSceneCount returns the count of scenes with solo markers (excluding sex and oral scenes)
+func (r *performerResolver) SoloSceneCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	sexTagID, oralTagID, soloTagID, _ := getRoleTagIDs(uiConfig)
+
+	if soloTagID == 0 {
+		return 0, nil
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = scene.CountByPerformerMarkerRoleExcludingMultiple(ctx, r.repository.SceneMarker, obj.ID, soloTagID, "", []int{sexTagID, oralTagID})
+		return err
+	}); err != nil {
+		return 0, err
+	}
+	return ret, nil
+}
+
+// FacialSceneCount returns the count of scenes with facial markers (independent of other markers)
+func (r *performerResolver) FacialSceneCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	_, _, _, facialTagID := getRoleTagIDs(uiConfig)
+
+	if facialTagID == 0 {
+		return 0, nil
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, facialTagID, "")
+		return err
+	}); err != nil {
+		return 0, err
+	}
+	return ret, nil
+}
+
+// FacialGiverCount returns the count of scenes where performer is the giver in facial markers
+func (r *performerResolver) FacialGiverCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	_, _, _, facialTagID := getRoleTagIDs(uiConfig)
+
+	if facialTagID == 0 {
+		return 0, nil
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, facialTagID, "giver")
+		return err
+	}); err != nil {
+		return 0, err
+	}
+	return ret, nil
+}
+
+// FacialReceiverCount returns the count of scenes where performer is the receiver in facial markers
+func (r *performerResolver) FacialReceiverCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	_, _, _, facialTagID := getRoleTagIDs(uiConfig)
+
+	if facialTagID == 0 {
+		return 0, nil
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, facialTagID, "receiver")
+		return err
+	}); err != nil {
+		return 0, err
+	}
 	return ret, nil
 }

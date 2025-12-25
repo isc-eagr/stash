@@ -3,7 +3,6 @@ package sqlite
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/stashapp/stash/pkg/models"
@@ -50,7 +49,6 @@ func (qb *sceneMarkerFilterHandler) criterionHandler() criterionHandler {
 		qb.tagIDCriterionHandler(sceneMarkerFilter.TagID),
 		qb.tagsCriterionHandler(sceneMarkerFilter.Tags),
 		qb.sceneTagsCriterionHandler(sceneMarkerFilter.SceneTags),
-		qb.performerSceneTagsWithAttrsCriterionHandler(sceneMarkerFilter.PerformerSceneTagsWithAttrs),
 		qb.performersCriterionHandler(sceneMarkerFilter.Performers),
 		qb.studiosCriterionHandler(sceneMarkerFilter.Studios),
 		qb.sceneDirectorCriterionHandler(sceneMarkerFilter.SceneDirector),
@@ -277,11 +275,13 @@ func (qb *sceneMarkerFilterHandler) criterionHandler() criterionHandler {
 		&timestampCriterionHandler{sceneMarkerFilter.SceneUpdatedAt, "scenes.updated_at", qb.joinScenes},
 
 		// Marker performer filters (performers assigned directly to the marker via scene_marker_performers)
-		qb.markerPerformersCriterionHandler(sceneMarkerFilter.MarkerPerformers),
+		qb.markerPerformersFilterHandler(sceneMarkerFilter.MarkerPerformers),
 		qb.markerPerformerEthnicityCriterionHandler(sceneMarkerFilter.MarkerPerformerEthnicity),
 		qb.markerPerformerCountryCriterionHandler(sceneMarkerFilter.MarkerPerformerCountry),
 		qb.markerPerformerRatingCriterionHandler(sceneMarkerFilter.MarkerPerformerRating, sceneMarkerFilter.MarkerPerformerRatingAll),
 		qb.hasMarkerPerformersCriterionHandler(sceneMarkerFilter.HasMarkerPerformers),
+		// Combined marker tags with performer attributes filter
+		qb.markerTagsWithPerformersCriterionHandler(sceneMarkerFilter.MarkerTagsWithPerformers),
 
 		&relatedFilterHandler{
 			relatedIDCol:   "scenes.id",
@@ -291,255 +291,6 @@ func (qb *sceneMarkerFilterHandler) criterionHandler() criterionHandler {
 				qb.joinScenes(f)
 			},
 		},
-	}
-}
-
-// performerSceneTagsWithAttrsCriterionHandler for markers: mirrors the scene handler but applies to the marker's scene_id.
-func (qb *sceneMarkerFilterHandler) performerSceneTagsWithAttrsCriterionHandler(input *models.PerformerSceneTagsWithAttrsCriterionInput) criterionHandlerFunc {
-	return func(ctx context.Context, f *filterBuilder) {
-		if input == nil || len(input.Groups) == 0 {
-			return
-		}
-
-		expandEthnicity := func(s string) []string {
-			v := strings.TrimSpace(s)
-			if v == "" {
-				return nil
-			}
-			out := []string{v}
-			if strings.EqualFold(v, "Black") {
-				out = append(out, "Mixed", "Afrolatino")
-			}
-			if strings.EqualFold(v, "White") {
-				out = append(out, "Mixed")
-			}
-			if strings.EqualFold(v, "Latino") {
-				out = append(out, "Afrolatino")
-			}
-			return out
-		}
-
-		// helper to expand multiple ethnicities
-		expandEthnicities := func(ethnicities []string) []string {
-			var out []string
-			seen := make(map[string]bool)
-			for _, e := range ethnicities {
-				for _, exp := range expandEthnicity(e) {
-					if !seen[exp] {
-						seen[exp] = true
-						out = append(out, exp)
-					}
-				}
-			}
-			return out
-		}
-
-		// helper to get countries (use array if provided, fallback to single)
-		getCountries := func(g models.PerformerSceneTagGroupInput) []string {
-			if len(g.PerformerCountries) > 0 {
-				return g.PerformerCountries
-			}
-			if g.PerformerCountry != nil && strings.TrimSpace(*g.PerformerCountry) != "" {
-				return []string{strings.TrimSpace(*g.PerformerCountry)}
-			}
-			return nil
-		}
-
-		// helper to get ethnicities (use array if provided, fallback to single)
-		getEthnicities := func(g models.PerformerSceneTagGroupInput) []string {
-			if len(g.PerformerEthnicities) > 0 {
-				return expandEthnicities(g.PerformerEthnicities)
-			}
-			if g.PerformerEthnicity != nil && strings.TrimSpace(*g.PerformerEthnicity) != "" {
-				return expandEthnicity(*g.PerformerEthnicity)
-			}
-			return nil
-		}
-
-		matchAny := input.MatchAny != nil && *input.MatchAny
-
-		if matchAny {
-			// OR semantics: each group is independent, so we still use EXISTS
-			groupClauses := make([]string, 0, len(input.Groups))
-			allArgs := make([]interface{}, 0)
-			for _, g := range input.Groups {
-				if len(g.TagIDs) == 0 {
-					continue
-				}
-
-				where := []string{}
-				args := []interface{}{}
-
-				countries := getCountries(g)
-				if len(countries) > 0 {
-					ph := strings.Repeat("?,", len(countries))
-					ph = ph[:len(ph)-1]
-					where = append(where, fmt.Sprintf("p_group.country IN (%s)", ph))
-					for _, c := range countries {
-						args = append(args, c)
-					}
-				}
-
-				ethnicities := getEthnicities(g)
-				if len(ethnicities) > 0 {
-					ph := strings.Repeat("?,", len(ethnicities))
-					ph = ph[:len(ph)-1]
-					where = append(where, fmt.Sprintf("p_group.ethnicity IN (%s)", ph))
-					for _, v := range ethnicities {
-						args = append(args, v)
-					}
-				}
-
-				if g.PerformerRating != nil {
-					w, wargs := getIntWhereClause("p_group.rating", g.PerformerRating.Modifier, g.PerformerRating.Value, g.PerformerRating.Value2)
-					where = append(where, w)
-					args = append(args, wargs...)
-				}
-
-				tagPlaceholders := strings.Repeat("?,", len(g.TagIDs))
-				tagPlaceholders = tagPlaceholders[:len(tagPlaceholders)-1]
-				for _, tid := range g.TagIDs {
-					args = append(args, tid)
-				}
-
-				attrsClause := "1=1"
-				if len(where) > 0 {
-					attrsClause = strings.Join(where, " AND ")
-				}
-
-				clause := fmt.Sprintf(
-					"EXISTS (SELECT 1 FROM performer_scene_tags scene_pst_group JOIN performers p_group ON p_group.id = scene_pst_group.performer_id WHERE scene_pst_group.scene_id = scene_markers.scene_id AND %s AND scene_pst_group.tag_id IN (%s) GROUP BY p_group.id HAVING COUNT(DISTINCT scene_pst_group.tag_id) = %d)",
-					attrsClause, tagPlaceholders, len(g.TagIDs),
-				)
-				groupClauses = append(groupClauses, clause)
-				allArgs = append(allArgs, args...)
-			}
-
-			// OR across groups in a single WHERE
-			grouped := make([]string, len(groupClauses))
-			for i, c := range groupClauses {
-				grouped[i] = fmt.Sprintf("(%s)", c)
-			}
-			f.addWhere(strings.Join(grouped, " OR "), allArgs...)
-		} else {
-			// AND semantics with distinct performers: group identical criteria
-			// and require sufficient distinct performers for each unique criteria set
-			type groupSignature struct {
-				tagIDsKey      string
-				countriesKey   string
-				ethnicitiesKey string
-				ratingModifier models.CriterionModifier
-				ratingValue    int
-				ratingValue2   *int
-			}
-
-			groupCounts := make(map[groupSignature]int)
-			groupDetails := make(map[groupSignature]models.PerformerSceneTagGroupInput)
-			groupCountriesExpanded := make(map[groupSignature][]string)
-			groupEthnicitiesExpanded := make(map[groupSignature][]string)
-
-			for _, g := range input.Groups {
-				if len(g.TagIDs) == 0 {
-					continue
-				}
-
-				// Build a unique signature for this group's criteria
-				tagIDs := append([]string(nil), g.TagIDs...)
-				sort.Strings(tagIDs)
-				tagKey := strings.Join(tagIDs, ",")
-
-				countries := getCountries(g)
-				sort.Strings(countries)
-				countriesKey := strings.Join(countries, ",")
-
-				ethnicities := getEthnicities(g)
-				sort.Strings(ethnicities)
-				ethnicitiesKey := strings.Join(ethnicities, ",")
-
-				sig := groupSignature{
-					tagIDsKey:      tagKey,
-					countriesKey:   countriesKey,
-					ethnicitiesKey: ethnicitiesKey,
-				}
-				if g.PerformerRating != nil {
-					sig.ratingModifier = g.PerformerRating.Modifier
-					sig.ratingValue = g.PerformerRating.Value
-					sig.ratingValue2 = g.PerformerRating.Value2
-				}
-
-				groupCounts[sig]++
-				if _, ok := groupDetails[sig]; !ok {
-					groupDetails[sig] = g
-					groupCountriesExpanded[sig] = countries
-					groupEthnicitiesExpanded[sig] = ethnicities
-				}
-			}
-
-			// For each unique group signature, require at least <count> distinct performers
-			for sig, multiplicity := range groupCounts {
-				g := groupDetails[sig]
-				where := []string{}
-				args := []interface{}{}
-
-				countries := groupCountriesExpanded[sig]
-				if len(countries) > 0 {
-					ph := strings.Repeat("?,", len(countries))
-					ph = ph[:len(ph)-1]
-					where = append(where, fmt.Sprintf("p_group.country IN (%s)", ph))
-					for _, c := range countries {
-						args = append(args, c)
-					}
-				}
-
-				ethnicities := groupEthnicitiesExpanded[sig]
-				if len(ethnicities) > 0 {
-					ph := strings.Repeat("?,", len(ethnicities))
-					ph = ph[:len(ph)-1]
-					where = append(where, fmt.Sprintf("p_group.ethnicity IN (%s)", ph))
-					for _, v := range ethnicities {
-						args = append(args, v)
-					}
-				}
-
-				if g.PerformerRating != nil {
-					w, wargs := getIntWhereClause("p_group.rating", g.PerformerRating.Modifier, g.PerformerRating.Value, g.PerformerRating.Value2)
-					where = append(where, w)
-					args = append(args, wargs...)
-				}
-
-				tagPlaceholders := strings.Repeat("?,", len(g.TagIDs))
-				tagPlaceholders = tagPlaceholders[:len(tagPlaceholders)-1]
-				for _, tid := range g.TagIDs {
-					args = append(args, tid)
-				}
-
-				attrsClause := "1=1"
-				if len(where) > 0 {
-					attrsClause = strings.Join(where, " AND ")
-				}
-
-				// Require at least <multiplicity> distinct performers matching the criteria
-				// Subquery finds performers who have ALL tags in the group, then counts them
-				clause := fmt.Sprintf(
-					`(
-SELECT COUNT(*)
-FROM (
-  SELECT p_group.id
-  FROM performer_scene_tags scene_pst_group
-  JOIN performers p_group ON p_group.id = scene_pst_group.performer_id
-  WHERE scene_pst_group.scene_id = scene_markers.scene_id
-    AND %s
-    AND scene_pst_group.tag_id IN (%s)
-  GROUP BY p_group.id
-  HAVING COUNT(DISTINCT scene_pst_group.tag_id) = %d
-)
-) >= ?`,
-					attrsClause, tagPlaceholders, len(g.TagIDs),
-				)
-				args = append(args, multiplicity)
-				f.addWhere(clause, args...)
-			}
-		}
 	}
 }
 
@@ -712,61 +463,90 @@ func (qb *sceneMarkerFilterHandler) studiosCriterionHandler(studios *models.Hier
 	}
 }
 
-// markerPerformersCriterionHandler filters by performers assigned directly to the marker
-func (qb *sceneMarkerFilterHandler) markerPerformersCriterionHandler(performers *models.MultiCriterionInput) criterionHandlerFunc {
+// markerPerformersFilterHandler filters by performers assigned directly to the marker with giver/receiver role support
+func (qb *sceneMarkerFilterHandler) markerPerformersFilterHandler(input *models.MarkerPerformersFilterInput) criterionHandlerFunc {
 	return func(ctx context.Context, f *filterBuilder) {
-		if performers == nil || !performers.Modifier.IsValid() {
+		if input == nil || !input.Modifier.IsValid() {
 			return
 		}
 
-		if performers.Modifier == models.CriterionModifierIsNull {
+		hasGivers := len(input.GiverPerformerIDs) > 0
+		hasReceivers := len(input.ReceiverPerformerIDs) > 0
+
+		// Handle IS_NULL / NOT_NULL modifiers
+		if input.Modifier == models.CriterionModifierIsNull {
 			f.addWhere("NOT EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id)")
 			return
 		}
 
-		if performers.Modifier == models.CriterionModifierNotNull {
+		if input.Modifier == models.CriterionModifierNotNull {
 			f.addWhere("EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id)")
 			return
 		}
 
-		if len(performers.Value) == 0 {
+		if !hasGivers && !hasReceivers {
 			return
 		}
 
-		placeholders := strings.Repeat("?,", len(performers.Value))
-		placeholders = placeholders[:len(placeholders)-1]
-		args := make([]interface{}, len(performers.Value))
-		for i, v := range performers.Value {
-			args[i] = v
+		// Determine mode: AND (both must match) or OR (either can match)
+		modeAnd := false
+		if input.Mode != nil && strings.EqualFold(*input.Mode, "AND") {
+			modeAnd = true
 		}
 
-		existsMarkerPerformer := "EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id)"
+		// Build conditions for each role
+		buildRoleCondition := func(performerIDs []string, role string, modifier models.CriterionModifier) (string, []interface{}) {
+			if len(performerIDs) == 0 {
+				return "", nil
+			}
 
-		switch performers.Modifier {
-		case models.CriterionModifierIncludes:
-			clause := fmt.Sprintf("EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id AND smp.performer_id IN (%s))", placeholders)
-			f.addWhere(clause, args...)
-		case models.CriterionModifierIncludesAll:
-			for _, pid := range performers.Value {
-				f.addWhere("EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id AND smp.performer_id = ?)", pid)
+			placeholders := strings.Repeat("?,", len(performerIDs))
+			placeholders = placeholders[:len(placeholders)-1]
+			args := make([]interface{}, len(performerIDs))
+			for i, v := range performerIDs {
+				args[i] = v
 			}
-		case models.CriterionModifierEquals:
-			// Marker must have exactly these performers (no more, no less)
-			clause := fmt.Sprintf("NOT EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id AND smp.performer_id NOT IN (%s))", placeholders)
-			f.addWhere(clause, args...)
-			for _, pid := range performers.Value {
-				f.addWhere("EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id AND smp.performer_id = ?)", pid)
+
+			var clause string
+			switch modifier {
+			case models.CriterionModifierIncludes:
+				clause = fmt.Sprintf("EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id AND smp.role = '%s' AND smp.performer_id IN (%s))", role, placeholders)
+			case models.CriterionModifierIncludesAll:
+				// For IncludesAll, we need to ensure ALL specified performers exist with this role
+				clauses := make([]string, len(performerIDs))
+				allArgs := make([]interface{}, 0)
+				for i, pid := range performerIDs {
+					clauses[i] = fmt.Sprintf("EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id AND smp.role = '%s' AND smp.performer_id = ?)", role)
+					allArgs = append(allArgs, pid)
+				}
+				return "(" + strings.Join(clauses, " AND ") + ")", allArgs
+			case models.CriterionModifierExcludes:
+				clause = fmt.Sprintf("NOT EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id AND smp.role = '%s' AND smp.performer_id IN (%s))", role, placeholders)
+			default:
+				clause = fmt.Sprintf("EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id AND smp.role = '%s' AND smp.performer_id IN (%s))", role, placeholders)
 			}
-		case models.CriterionModifierNotEquals:
-			clause := fmt.Sprintf("NOT EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id AND smp.performer_id IN (%s))", placeholders)
-			f.addWhere(clause, args...)
-			f.addWhere(existsMarkerPerformer)
-		case models.CriterionModifierExcludes:
-			clause := fmt.Sprintf("NOT EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id AND smp.performer_id IN (%s))", placeholders)
-			f.addWhere(clause, args...)
-		default:
-			clause := fmt.Sprintf("EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id AND smp.performer_id IN (%s))", placeholders)
-			f.addWhere(clause, args...)
+			return clause, args
+		}
+
+		giverClause, giverArgs := buildRoleCondition(input.GiverPerformerIDs, "giver", input.Modifier)
+		receiverClause, receiverArgs := buildRoleCondition(input.ReceiverPerformerIDs, "receiver", input.Modifier)
+
+		if hasGivers && hasReceivers {
+			// Both giver and receiver specified
+			allArgs := append(giverArgs, receiverArgs...)
+			if modeAnd {
+				// AND mode: both conditions must match
+				f.addWhere(giverClause, giverArgs...)
+				f.addWhere(receiverClause, receiverArgs...)
+			} else {
+				// OR mode: either condition can match
+				combined := fmt.Sprintf("(%s OR %s)", giverClause, receiverClause)
+				f.addWhere(combined, allArgs...)
+			}
+		} else if hasGivers {
+			f.addWhere(giverClause, giverArgs...)
+		} else if hasReceivers {
+			f.addWhere(receiverClause, receiverArgs...)
 		}
 	}
 }
@@ -991,6 +771,385 @@ func (qb *sceneMarkerFilterHandler) hasMarkerPerformersCriterionHandler(hasPerfo
 		} else {
 			// Marker has no performers assigned
 			f.addWhere("NOT EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id)")
+		}
+	}
+}
+
+// markerTagsWithPerformersCriterionHandler filters markers by tags with performer attributes
+// This is similar to joinedSceneMarkerTagsHandler but operates directly on markers
+func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(input *models.SceneMarkerTagsCriterionInput) criterionHandlerFunc {
+	return func(ctx context.Context, f *filterBuilder) {
+		if input == nil {
+			return
+		}
+
+		// Helper to expand ethnicity selections
+		expandEthnicity := func(s string) []string {
+			v := strings.TrimSpace(s)
+			if v == "" {
+				return nil
+			}
+			out := []string{v}
+			if strings.EqualFold(v, "Black") {
+				out = append(out, "Mixed", "Afrolatino")
+			}
+			if strings.EqualFold(v, "White") {
+				out = append(out, "Mixed")
+			}
+			if strings.EqualFold(v, "Latino") {
+				out = append(out, "Afrolatino")
+			}
+			return out
+		}
+
+		expandEthnicities := func(ethnicities []string) []string {
+			var out []string
+			seen := make(map[string]bool)
+			for _, e := range ethnicities {
+				for _, exp := range expandEthnicity(e) {
+					if !seen[exp] {
+						seen[exp] = true
+						out = append(out, exp)
+					}
+				}
+			}
+			return out
+		}
+
+		switch input.Modifier {
+		case models.CriterionModifierIsNull, models.CriterionModifierNotNull:
+			var notClause string
+			if input.Modifier == models.CriterionModifierNotNull {
+				notClause = "NOT"
+			}
+			// Check presence/absence of marker tags
+			f.addLeftJoin("scene_markers_tags", "", "scene_markers.id = scene_markers_tags.scene_marker_id")
+			f.addWhere(fmt.Sprintf("scene_markers_tags.tag_id IS %s NULL", notClause))
+			return
+
+		case models.CriterionModifierEquals, models.CriterionModifierNotEquals:
+			// Handle extended groups with performer attributes
+			if len(input.GroupsExtended) > 0 {
+				groupClauses := make([]string, 0, len(input.GroupsExtended))
+				var allArgs []interface{}
+
+				for _, g := range input.GroupsExtended {
+					var groupConditions []string
+					var groupArgs []interface{}
+
+					// Expand tag IDs if depth is specified
+					tagIDs := g.TagIDs
+					if len(tagIDs) > 0 && g.Depth != nil && *g.Depth != 0 {
+						valuesClause, err := getHierarchicalValues(ctx, tagIDs, tagTable, "tags_relations", "parent_id", "child_id", g.Depth)
+						if err != nil {
+							f.setError(err)
+							return
+						}
+						var expandedIDs []string
+						expandQuery := fmt.Sprintf("SELECT DISTINCT column2 FROM (%s)", valuesClause)
+						if err := dbWrapper.Select(ctx, &expandedIDs, expandQuery); err != nil {
+							f.setError(err)
+							return
+						}
+						if len(expandedIDs) > 0 {
+							tagIDs = expandedIDs
+						}
+					}
+
+					// Tag matching: marker must have all specified tags
+					if len(tagIDs) > 0 {
+						for _, tagID := range tagIDs {
+							tagCond := `EXISTS (
+								SELECT 1 FROM scene_markers_tags smt 
+								WHERE smt.scene_marker_id = scene_markers.id 
+								AND smt.tag_id = ?
+							)`
+							groupConditions = append(groupConditions, tagCond)
+							groupArgs = append(groupArgs, tagID)
+						}
+					}
+
+					// Exclude tags: marker must NOT have any of these tags
+					if len(g.ExcludeTagIDs) > 0 {
+						ph := getInBinding(len(g.ExcludeTagIDs))
+						excludeCond := fmt.Sprintf(`NOT EXISTS (
+							SELECT 1 FROM scene_markers_tags smt 
+							WHERE smt.scene_marker_id = scene_markers.id 
+							AND smt.tag_id IN %s
+						)`, ph)
+						groupConditions = append(groupConditions, excludeCond)
+						for _, tid := range g.ExcludeTagIDs {
+							groupArgs = append(groupArgs, tid)
+						}
+					}
+
+					// Determine performer mode: AND or OR
+					performerModeAnd := false
+					if g.PerformerMode != nil && strings.EqualFold(*g.PerformerMode, "AND") {
+						performerModeAnd = true
+					}
+
+					// Build role-specific conditions
+					type roleCondition struct {
+						clause string
+						args   []interface{}
+					}
+
+					buildRoleCondition := func(role string, performerIDs []string, ethnicities []string, countries []string, rating *models.IntCriterionInput) *roleCondition {
+						var clauses []string
+						var args []interface{}
+
+						// Base role condition
+						baseClauses := []string{fmt.Sprintf("smp.role = '%s'", role)}
+
+						if len(performerIDs) > 0 {
+							ph := getInBinding(len(performerIDs))
+							baseClauses = append(baseClauses, fmt.Sprintf("smp.performer_id IN %s", ph))
+							for _, pid := range performerIDs {
+								args = append(args, pid)
+							}
+						}
+
+						if len(ethnicities) > 0 {
+							expanded := expandEthnicities(ethnicities)
+							ph := getInBinding(len(expanded))
+							baseClauses = append(baseClauses, fmt.Sprintf("p.ethnicity IN %s", ph))
+							for _, e := range expanded {
+								args = append(args, e)
+							}
+						}
+
+						if len(countries) > 0 {
+							ph := getInBinding(len(countries))
+							baseClauses = append(baseClauses, fmt.Sprintf("p.country IN %s", ph))
+							for _, c := range countries {
+								args = append(args, c)
+							}
+						}
+
+						if rating != nil {
+							w, wargs := getIntWhereClause("p.rating", rating.Modifier, rating.Value, rating.Value2)
+							baseClauses = append(baseClauses, w)
+							args = append(args, wargs...)
+						}
+
+						clauses = append(clauses, "("+strings.Join(baseClauses, " AND ")+")")
+
+						return &roleCondition{
+							clause: strings.Join(clauses, " AND "),
+							args:   args,
+						}
+					}
+
+					var roleConditions []*roleCondition
+
+					// Giver conditions
+					if len(g.GiverPerformerIDs) > 0 || len(g.GiverEthnicities) > 0 || len(g.GiverCountries) > 0 || g.GiverRating != nil {
+						rc := buildRoleCondition("giver", g.GiverPerformerIDs, g.GiverEthnicities, g.GiverCountries, g.GiverRating)
+						if rc.clause != "" {
+							roleConditions = append(roleConditions, rc)
+						}
+					}
+
+					// Receiver conditions
+					if len(g.ReceiverPerformerIDs) > 0 || len(g.ReceiverEthnicities) > 0 || len(g.ReceiverCountries) > 0 || g.ReceiverRating != nil {
+						rc := buildRoleCondition("receiver", g.ReceiverPerformerIDs, g.ReceiverEthnicities, g.ReceiverCountries, g.ReceiverRating)
+						if rc.clause != "" {
+							roleConditions = append(roleConditions, rc)
+						}
+					}
+
+					// Both-roles conditions
+					if len(g.BothRolesPerformerIDs) > 0 || len(g.BothRolesEthnicities) > 0 || len(g.BothRolesCountries) > 0 || g.BothRolesRating != nil {
+						// For "both", we need a performer who appears as BOTH giver AND receiver
+						// Use giver role for the EXISTS check, then verify same performer also has receiver role
+						var bothClauses []string
+						var bothArgs []interface{}
+
+						baseClause := "smp.role = 'giver'"
+						bothClauses = append(bothClauses, baseClause)
+
+						if len(g.BothRolesPerformerIDs) > 0 {
+							ph := getInBinding(len(g.BothRolesPerformerIDs))
+							bothClauses = append(bothClauses, fmt.Sprintf("smp.performer_id IN %s", ph))
+							for _, pid := range g.BothRolesPerformerIDs {
+								bothArgs = append(bothArgs, pid)
+							}
+						}
+
+						if len(g.BothRolesEthnicities) > 0 {
+							expanded := expandEthnicities(g.BothRolesEthnicities)
+							ph := getInBinding(len(expanded))
+							bothClauses = append(bothClauses, fmt.Sprintf("p.ethnicity IN %s", ph))
+							for _, e := range expanded {
+								bothArgs = append(bothArgs, e)
+							}
+						}
+
+						if len(g.BothRolesCountries) > 0 {
+							ph := getInBinding(len(g.BothRolesCountries))
+							bothClauses = append(bothClauses, fmt.Sprintf("p.country IN %s", ph))
+							for _, c := range g.BothRolesCountries {
+								bothArgs = append(bothArgs, c)
+							}
+						}
+
+						if g.BothRolesRating != nil {
+							w, wargs := getIntWhereClause("p.rating", g.BothRolesRating.Modifier, g.BothRolesRating.Value, g.BothRolesRating.Value2)
+							bothClauses = append(bothClauses, w)
+							bothArgs = append(bothArgs, wargs...)
+						}
+
+						// Add condition that same performer also has receiver role on this marker
+						bothClauses = append(bothClauses, `EXISTS (
+							SELECT 1 FROM scene_marker_performers smp2 
+							WHERE smp2.scene_marker_id = scene_markers.id 
+							AND smp2.performer_id = smp.performer_id 
+							AND smp2.role = 'receiver'
+						)`)
+
+						roleConditions = append(roleConditions, &roleCondition{
+							clause: "(" + strings.Join(bothClauses, " AND ") + ")",
+							args:   bothArgs,
+						})
+					}
+
+					// Build the performer EXISTS clause if we have role conditions
+					if len(roleConditions) > 0 {
+						var roleClauses []string
+						var roleArgs []interface{}
+
+						for _, rc := range roleConditions {
+							roleClauses = append(roleClauses, rc.clause)
+							roleArgs = append(roleArgs, rc.args...)
+						}
+
+						var roleWhere string
+						if performerModeAnd && len(roleClauses) > 1 {
+							// AND mode: each role condition must be satisfied (by possibly different performers)
+							for _, rc := range roleConditions {
+								existsClause := fmt.Sprintf(`EXISTS (
+									SELECT 1 FROM scene_marker_performers smp 
+									JOIN performers p ON p.id = smp.performer_id 
+									WHERE smp.scene_marker_id = scene_markers.id 
+									AND %s
+								)`, rc.clause)
+								groupConditions = append(groupConditions, existsClause)
+								groupArgs = append(groupArgs, rc.args...)
+							}
+						} else {
+							// OR mode: any role condition can match
+							roleWhere = strings.Join(roleClauses, " OR ")
+							existsClause := fmt.Sprintf(`EXISTS (
+								SELECT 1 FROM scene_marker_performers smp 
+								JOIN performers p ON p.id = smp.performer_id 
+								WHERE smp.scene_marker_id = scene_markers.id 
+								AND (%s)
+							)`, roleWhere)
+							groupConditions = append(groupConditions, existsClause)
+							groupArgs = append(groupArgs, roleArgs...)
+						}
+					}
+
+					if len(groupConditions) > 0 {
+						groupClause := "(" + strings.Join(groupConditions, " AND ") + ")"
+						groupClauses = append(groupClauses, groupClause)
+						allArgs = append(allArgs, groupArgs...)
+					}
+				}
+
+				if len(groupClauses) > 0 {
+					var finalClause string
+					if input.Modifier == models.CriterionModifierEquals {
+						// IS: at least one group must match
+						finalClause = "(" + strings.Join(groupClauses, " OR ") + ")"
+					} else {
+						// IS NOT: none of the groups should match
+						finalClause = "NOT (" + strings.Join(groupClauses, " OR ") + ")"
+					}
+					f.addWhere(finalClause, allArgs...)
+				}
+			} else if len(input.Groups) > 0 {
+				// Handle simple groups (just tag IDs)
+				groupClauses := make([]string, 0, len(input.Groups))
+				var allArgs []interface{}
+
+				for _, tagGroup := range input.Groups {
+					if len(tagGroup) == 0 {
+						continue
+					}
+					// All tags in this group must be present on the marker
+					var tagConditions []string
+					for _, tagID := range tagGroup {
+						tagCond := `EXISTS (
+							SELECT 1 FROM scene_markers_tags smt 
+							WHERE smt.scene_marker_id = scene_markers.id 
+							AND smt.tag_id = ?
+						)`
+						tagConditions = append(tagConditions, tagCond)
+						allArgs = append(allArgs, tagID)
+					}
+					groupClauses = append(groupClauses, "("+strings.Join(tagConditions, " AND ")+")")
+				}
+
+				if len(groupClauses) > 0 {
+					var finalClause string
+					if input.Modifier == models.CriterionModifierEquals {
+						finalClause = "(" + strings.Join(groupClauses, " OR ") + ")"
+					} else {
+						finalClause = "NOT (" + strings.Join(groupClauses, " OR ") + ")"
+					}
+					f.addWhere(finalClause, allArgs...)
+				}
+			}
+
+		case models.CriterionModifierIncludes, models.CriterionModifierIncludesAll:
+			// Simple tag inclusion - marker must have any/all of these tags
+			if len(input.Value) == 0 {
+				return
+			}
+
+			if input.Modifier == models.CriterionModifierIncludes {
+				// Any of the tags
+				ph := getInBinding(len(input.Value))
+				clause := fmt.Sprintf(`EXISTS (
+					SELECT 1 FROM scene_markers_tags smt 
+					WHERE smt.scene_marker_id = scene_markers.id 
+					AND smt.tag_id IN %s
+				)`, ph)
+				args := make([]interface{}, len(input.Value))
+				for i, v := range input.Value {
+					args[i] = v
+				}
+				f.addWhere(clause, args...)
+			} else {
+				// All of the tags
+				for _, tagID := range input.Value {
+					clause := `EXISTS (
+						SELECT 1 FROM scene_markers_tags smt 
+						WHERE smt.scene_marker_id = scene_markers.id 
+						AND smt.tag_id = ?
+					)`
+					f.addWhere(clause, tagID)
+				}
+			}
+
+		case models.CriterionModifierExcludes:
+			// Marker must not have any of these tags
+			if len(input.Value) == 0 {
+				return
+			}
+			ph := getInBinding(len(input.Value))
+			clause := fmt.Sprintf(`NOT EXISTS (
+				SELECT 1 FROM scene_markers_tags smt 
+				WHERE smt.scene_marker_id = scene_markers.id 
+				AND smt.tag_id IN %s
+			)`, ph)
+			args := make([]interface{}, len(input.Value))
+			for i, v := range input.Value {
+				args[i] = v
+			}
+			f.addWhere(clause, args...)
 		}
 	}
 }

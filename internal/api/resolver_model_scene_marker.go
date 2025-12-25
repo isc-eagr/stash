@@ -55,6 +55,27 @@ func (r *sceneMarkerResolver) Screenshot(ctx context.Context, obj *models.SceneM
 	return urlbuilders.NewSceneMarkerURLBuilder(baseURL, obj).GetScreenshotURL(), nil
 }
 
+func (r *sceneMarkerResolver) GiverPerformers(ctx context.Context, obj *models.SceneMarker) (ret []*models.Performer, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = r.repository.Performer.FindBySceneMarkerIDWithRole(ctx, obj.ID, "giver")
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func (r *sceneMarkerResolver) ReceiverPerformers(ctx context.Context, obj *models.SceneMarker) (ret []*models.Performer, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = r.repository.Performer.FindBySceneMarkerIDWithRole(ctx, obj.ID, "receiver")
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+// Performers returns all performers (givers + receivers) for backward compatibility
 func (r *sceneMarkerResolver) Performers(ctx context.Context, obj *models.SceneMarker) (ret []*models.Performer, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		ret, err = r.repository.Performer.FindBySceneMarkerID(ctx, obj.ID)

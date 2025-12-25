@@ -1,10 +1,11 @@
-import React, { useContext } from "react";
-import { Button, ButtonGroup } from "react-bootstrap";
+import React from "react";
+import { Badge } from "react-bootstrap";
+import { Link } from "react-router-dom";
 import { Icon } from "src/components/Shared/Icon";
-import { faHand } from "@fortawesome/free-solid-svg-icons";
+import { faHand, faArrowUp, faArrowDown } from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import NavUtils from "src/utils/navigation";
-import { ConfigurationContext } from "src/hooks/Config";
+import { useConfigurationContext } from "src/hooks/Config";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import goateeSvg from "src/assets/goatee.svg";
@@ -13,196 +14,185 @@ interface IPerformerCategoryStripProps {
   performer: GQL.PerformerDataFragment;
 }
 
+/**
+ * PerformerCategoryStrip - Shows marker-based role badges with giver/receiver breakdown
+ * Uses roleTagIds configuration for tag IDs and counts from performer data.
+ * Same style as performer card role badges but for the detail page.
+ */
 export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   performer,
 }) => {
-  const { configuration } = useContext(ConfigurationContext);
-  const cfg = (configuration?.ui as any)?.sceneTagAliases ?? {};
+  const { configuration } = useConfigurationContext();
+  
+  // Get role tag IDs from the new configuration
+  const roleTagIds = configuration?.ui?.roleTagIds ?? {};
+  const sexTagId = roleTagIds.sexTagId;
+  const oralTagId = roleTagIds.oralTagId;
+  const soloTagId = roleTagIds.soloTagId;
+  const facialTagId = roleTagIds.facialTagId;
 
-  // Query for tag IDs based on configured tag names
-  const topTagName = cfg.top ?? "top";
-  const bottomTagName = cfg.bottom ?? "bottom";
-  const oralTopTagName = cfg.oraltop ?? "oraltop";
-  const oralBottomTagName = cfg.oralbottom ?? "oralbottom";
-  const soloTagName = cfg.solo ?? "solo";
-  const facialGivenTagName = cfg.facialgiven ?? "facialgiven";
-  const facialReceivedTagName = cfg.facialreceived ?? "facialreceived";
-  const selfFacialTagName = cfg.selffacial ?? "selffacial";
+  // Get counts from performer - using giver/receiver fields
+  const p = performer as any;
+  const sexGiverCount = p.sex_giver_count ?? 0;
+  const sexReceiverCount = p.sex_receiver_count ?? 0;
+  const sexCount = p.sex_scene_count ?? 0;
+  
+  const oralGiverCount = p.oral_giver_count ?? 0;
+  const oralReceiverCount = p.oral_receiver_count ?? 0;
+  const oralCount = p.oral_scene_count ?? 0;
+  
+  const soloCount = p.solo_scene_count ?? 0;
+  
+  const facialGiverCount = p.facial_giver_count ?? 0;
+  const facialReceiverCount = p.facial_receiver_count ?? 0;
+  const facialCount = p.facial_scene_count ?? 0;
 
-  // Query all tags and filter client-side
-  const { data: tagsData } = GQL.useFindTagsQuery({
-    variables: {
-      filter: {
-        per_page: -1, // Get all tags
-      },
-    },
-  });
+  // Build roles to show (same logic as PerformerCard)
+  const rolesToShow: Array<{
+    category: 'sex' | 'oral' | 'solo' | 'facial';
+    count: number;
+    giverCount?: number;
+    receiverCount?: number;
+    tagId?: string;
+  }> = [];
 
-  // Map tag names to IDs
-  const allTags = tagsData?.findTags?.tags ?? [];
-  const topTag = allTags.find(
-    (t) => t.name.toLowerCase() === topTagName.toLowerCase()
-  );
-  const bottomTag = allTags.find(
-    (t) => t.name.toLowerCase() === bottomTagName.toLowerCase()
-  );
-  const oralTopTag = allTags.find(
-    (t) => t.name.toLowerCase() === oralTopTagName.toLowerCase()
-  );
-  const oralBottomTag = allTags.find(
-    (t) => t.name.toLowerCase() === oralBottomTagName.toLowerCase()
-  );
-  const soloTag = allTags.find(
-    (t) => t.name.toLowerCase() === soloTagName.toLowerCase()
-  );
-  const facialGivenTag = allTags.find(
-    (t) => t.name.toLowerCase() === facialGivenTagName.toLowerCase()
-  );
-  const facialReceivedTag = allTags.find(
-    (t) => t.name.toLowerCase() === facialReceivedTagName.toLowerCase()
-  );
-  const selfFacialTag = allTags.find(
-    (t) => t.name.toLowerCase() === selfFacialTagName.toLowerCase()
-  );
-
-  // Sex scenes (top/bottom tags) - gay icon
-  function maybeRenderSexScenesButton() {
-    if (!topTag || !bottomTag) return null;
-
-    const count = performer.sex_scene_count ?? 0;
-    const url = NavUtils.makePerformerDetailSexScenesUrl(
-      performer,
-      topTag.id,
-      topTag.name,
-      bottomTag.id,
-      bottomTag.name
-    );
-
-    return (
-      <Button
-        className="minimal scene-category-count sex-scene-count"
-        href={url}
-        title={`Sex scenes (${topTag.name}/${bottomTag.name})`}
-        disabled={count === 0}
-      >
-        <img src={gaySvg} alt="Sex" className="category-icon" />
-        <span>{count}</span>
-      </Button>
-    );
+  if (sexCount > 0 && sexTagId) {
+    rolesToShow.push({
+      category: 'sex',
+      count: sexCount,
+      giverCount: sexGiverCount,
+      receiverCount: sexReceiverCount,
+      tagId: sexTagId,
+    });
+  }
+  if (oralCount > 0 && oralTagId) {
+    rolesToShow.push({
+      category: 'oral',
+      count: oralCount,
+      giverCount: oralGiverCount,
+      receiverCount: oralReceiverCount,
+      tagId: oralTagId,
+    });
+  }
+  if (soloCount > 0 && soloTagId) {
+    rolesToShow.push({
+      category: 'solo',
+      count: soloCount,
+      tagId: soloTagId,
+    });
+  }
+  if (facialCount > 0 && facialTagId) {
+    rolesToShow.push({
+      category: 'facial',
+      count: facialCount,
+      giverCount: facialGiverCount,
+      receiverCount: facialReceiverCount,
+      tagId: facialTagId,
+    });
   }
 
-  // Oral scenes (oral tags without top/bottom) - mouth icon
-  function maybeRenderOralScenesButton() {
-    if (!oralTopTag || !oralBottomTag || !topTag || !bottomTag) return null;
+  // Only show if at least one role tag is configured
+  const hasAnyRoleTag = sexTagId || oralTagId || soloTagId || facialTagId;
+  if (!hasAnyRoleTag || rolesToShow.length === 0) return null;
 
-    const count = performer.oral_scene_count ?? 0;
-    const url = NavUtils.makePerformerDetailOralScenesUrl(
-      performer,
-      oralTopTag.id,
-      oralTopTag.name,
-      oralBottomTag.id,
-      oralBottomTag.name,
-      topTag.id,
-      topTag.name,
-      bottomTag.id,
-      bottomTag.name
-    );
-
-    return (
-      <Button
-        className="minimal scene-category-count oral-scene-count"
-        href={url}
-        title={`Oral scenes (${oralTopTag.name}/${oralBottomTag.name})`}
-        disabled={count === 0}
-      >
-        <img src={mouthSvg} alt="Oral" className="category-icon" />
-        <span>{count}</span>
-      </Button>
-    );
-  }
-
-  // Solo scenes (solo tags without top/bottom/oral) - hand icon
-  function maybeRenderSoloScenesButton() {
-    if (!soloTag || !topTag || !bottomTag || !oralTopTag || !oralBottomTag)
-      return null;
-
-    const count = performer.solo_scene_count ?? 0;
-    const url = NavUtils.makePerformerDetailSoloScenesUrl(
-      performer,
-      soloTag.id,
-      soloTag.name,
-      topTag.id,
-      topTag.name,
-      bottomTag.id,
-      bottomTag.name,
-      oralTopTag.id,
-      oralTopTag.name,
-      oralBottomTag.id,
-      oralBottomTag.name
-    );
-
-    return (
-      <Button
-        className="minimal scene-category-count solo-scene-count"
-        href={url}
-        title={`Solo scenes (${soloTag.name})`}
-        disabled={count === 0}
-      >
-        <Icon icon={faHand} className="category-icon-fa" />
-        <span>{count}</span>
-      </Button>
-    );
-  }
-
-  // Facial scenes (facialgiven or facialreceived) - goatee icon
-  function maybeRenderFacialScenesButton() {
-    // At least one facial tag must be configured/found
-    if (!facialGivenTag && !facialReceivedTag && !selfFacialTag) return null;
-
-    const count = performer.facial_scene_count ?? 0;
-    const primary1 = (facialGivenTag ?? selfFacialTag)!;
-    const primary2 = (facialReceivedTag ?? selfFacialTag)!;
-    const url = NavUtils.makePerformerDetailFacialScenesUrl(
-      performer,
-      primary1.id,
-      primary1.name,
-      primary2.id,
-      primary2.name,
-      selfFacialTag?.id,
-      selfFacialTag?.name
-    );
-
-    return (
-      <Button
-        className="minimal scene-category-count facial-scene-count ml-3"
-        href={url}
-        title={`Facial scenes`}
-        disabled={count === 0}
-      >
-        <img src={goateeSvg} alt="Facial" className="category-icon" />
-        <span>{count}</span>
-      </Button>
-    );
-  }
-
-  const hasCategoryButtons = !!(
-    topTag &&
-    bottomTag &&
-    oralTopTag &&
-    oralBottomTag &&
-    soloTag
-  );
-
-  if (!hasCategoryButtons) return null;
+  // Build exclude tags for oral (exclude sex) and solo (exclude sex + oral)
+  const getExcludeTagsForCategory = (category: 'sex' | 'oral' | 'solo' | 'facial') => {
+    const excludeTags: Array<{ id: string; label: string }> = [];
+    if (category === 'oral') {
+      // Oral should exclude sex tag
+      if (sexTagId) excludeTags.push({ id: sexTagId, label: 'Sex' });
+    } else if (category === 'solo') {
+      // Solo should exclude both sex and oral tags
+      if (sexTagId) excludeTags.push({ id: sexTagId, label: 'Sex' });
+      if (oralTagId) excludeTags.push({ id: oralTagId, label: 'Oral' });
+    }
+    return excludeTags.length > 0 ? excludeTags : undefined;
+  };
 
   return (
-    <div className="performer-category-strip scene-category-buttons d-flex align-items-center my-3">
-      <ButtonGroup>
-        {maybeRenderSexScenesButton()}
-        {maybeRenderOralScenesButton()}
-        {maybeRenderSoloScenesButton()}
-      </ButtonGroup>
-      {maybeRenderFacialScenesButton()}
+    <div className="performer-category-strip performer-role-badges d-flex align-items-center my-3">
+      {rolesToShow.map((role, idx) => {
+        const categoryIcon = 
+          role.category === 'sex' ? gaySvg :
+          role.category === 'oral' ? mouthSvg :
+          role.category === 'facial' ? goateeSvg :
+          null; // solo uses faHand
+        
+        const tagLabel = role.category.charAt(0).toUpperCase() + role.category.slice(1);
+        const excludeTags = getExcludeTagsForCategory(role.category);
+        
+        // URLs for clickable badges
+        const categoryUrl = role.tagId 
+          ? NavUtils.makePerformerMarkerScenesWithRoleUrl(performer, role.tagId, tagLabel, undefined, excludeTags)
+          : undefined;
+        const giverUrl = role.tagId 
+          ? NavUtils.makePerformerMarkerScenesWithRoleUrl(performer, role.tagId, tagLabel, "giver", excludeTags)
+          : undefined;
+        const receiverUrl = role.tagId 
+          ? NavUtils.makePerformerMarkerScenesWithRoleUrl(performer, role.tagId, tagLabel, "receiver", excludeTags)
+          : undefined;
+
+        const categoryIconElement = categoryIcon ? (
+          <img src={categoryIcon} alt={role.category} className="category-icon" />
+        ) : (
+          <Icon icon={faHand} className="category-icon-fa" />
+        );
+
+        return (
+          <div key={idx} className="role-badge-item">
+            {/* Category icon on top - clickable */}
+            <div className="category-icon-container">
+              {categoryUrl ? (
+                <Link to={categoryUrl} className="role-badge-link">
+                  {categoryIconElement}
+                  <span className="role-total-count">{role.count}</span>
+                </Link>
+              ) : (
+                <>
+                  {categoryIconElement}
+                  <span className="role-total-count">{role.count}</span>
+                </>
+              )}
+            </div>
+            
+            {/* Arrows below (only for sex/oral/facial, not solo) */}
+            {role.category !== 'solo' && (
+              <div className="role-arrows">
+                {(role.giverCount ?? 0) > 0 && (
+                  giverUrl ? (
+                    <Link to={giverUrl} className="role-badge-link">
+                      <Badge pill variant="success" className="arrow-badge giver-badge" style={{ fontSize: 10, padding: '3px 6px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Icon icon={faArrowUp} />
+                        <span className="arrow-count">{role.giverCount}</span>
+                      </Badge>
+                    </Link>
+                  ) : (
+                    <Badge pill variant="success" className="arrow-badge giver-badge" style={{ fontSize: 10, padding: '3px 6px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Icon icon={faArrowUp} />
+                      <span className="arrow-count">{role.giverCount}</span>
+                    </Badge>
+                  )
+                )}
+                {(role.receiverCount ?? 0) > 0 && (
+                  receiverUrl ? (
+                    <Link to={receiverUrl} className="role-badge-link">
+                      <Badge pill variant="info" className="arrow-badge receiver-badge" style={{ fontSize: 10, padding: '3px 6px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Icon icon={faArrowDown} />
+                        <span className="arrow-count">{role.receiverCount}</span>
+                      </Badge>
+                    </Link>
+                  ) : (
+                    <Badge pill variant="info" className="arrow-badge receiver-badge" style={{ fontSize: 10, padding: '3px 6px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Icon icon={faArrowDown} />
+                      <span className="arrow-count">{role.receiverCount}</span>
+                    </Badge>
+                  )
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };

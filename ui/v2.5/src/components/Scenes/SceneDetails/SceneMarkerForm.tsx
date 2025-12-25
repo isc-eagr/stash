@@ -19,8 +19,10 @@ import { formikUtils } from "src/utils/form";
 import { yupFormikValidate } from "src/utils/yup";
 import { Tag, TagSelect } from "src/components/Tags/TagSelect";
 import Select from "react-select";
+import { Icon } from "src/components/Shared/Icon";
+import { faArrowDown, faArrowUp } from "@fortawesome/free-solid-svg-icons";
 
-interface Performer {
+interface IPerformer {
   id: string;
   name: string;
   alias_list: string[];
@@ -47,7 +49,8 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
 
   const [primaryTag, setPrimaryTag] = useState<Tag>();
   const [tags, setTags] = useState<Tag[]>([]);
-  const [performers, setPerformers] = useState<Performer[]>([]);
+  const [giverPerformers, setGiverPerformers] = useState<IPerformer[]>([]);
+  const [receiverPerformers, setReceiverPerformers] = useState<IPerformer[]>([]);
 
   // Fetch scene to get available performers
   const { data: sceneData } = useFindScene(sceneID);
@@ -79,7 +82,8 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       ),
     primary_tag_id: yup.string().required(),
     tag_ids: yup.array(yup.string().required()).defined(),
-    performer_ids: yup.array(yup.string().required()).defined(),
+    giver_performer_ids: yup.array(yup.string().required()).defined(),
+    receiver_performer_ids: yup.array(yup.string().required()).defined(),
   });
 
   // useMemo to only run getPlayerPosition when the input marker actually changes
@@ -90,7 +94,8 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       end_seconds: marker?.end_seconds ?? null,
       primary_tag_id: marker?.primary_tag.id ?? "",
       tag_ids: marker?.tags.map((tag) => tag.id) ?? [],
-      performer_ids: marker?.performers?.map((p) => p.id) ?? [],
+      giver_performer_ids: marker?.giver_performers?.map((p) => p.id) ?? [],
+      receiver_performer_ids: marker?.receiver_performers?.map((p) => p.id) ?? [],
     }),
     [marker]
   );
@@ -117,10 +122,18 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     );
   }
 
-  function onSetPerformers(items: Performer[]) {
-    setPerformers(items);
+  function onSetGiverPerformers(items: IPerformer[]) {
+    setGiverPerformers(items);
     formik.setFieldValue(
-      "performer_ids",
+      "giver_performer_ids",
+      items.map((item) => item.id)
+    );
+  }
+
+  function onSetReceiverPerformers(items: IPerformer[]) {
+    setReceiverPerformers(items);
+    formik.setFieldValue(
+      "receiver_performer_ids",
       items.map((item) => item.id)
     );
   }
@@ -144,15 +157,26 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   }, [marker?.tags]);
 
   useEffect(() => {
-    setPerformers(
-      marker?.performers?.map((p) => ({
+    setGiverPerformers(
+      marker?.giver_performers?.map((p) => ({
         id: p.id,
         name: p.name,
         alias_list: p.alias_list ?? [],
         disambiguation: p.disambiguation,
       })) ?? []
     );
-  }, [marker?.performers]);
+  }, [marker?.giver_performers]);
+
+  useEffect(() => {
+    setReceiverPerformers(
+      marker?.receiver_performers?.map((p) => ({
+        id: p.id,
+        name: p.name,
+        alias_list: p.alias_list ?? [],
+        disambiguation: p.disambiguation,
+      })) ?? []
+    );
+  }, [marker?.receiver_performers]);
 
   async function onSave(input: InputValues) {
     try {
@@ -309,42 +333,86 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   function renderPerformersField() {
     if (scenePerformers.length === 0) return null;
     
-    const title = intl.formatMessage({ id: "performers" });
-    
     // Create options from scene performers only
     const performerOptions = scenePerformers.map((p) => ({
       value: p.id,
       label: p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name,
     }));
     
-    // Current selected values
-    const selectedValues = performers.map((p) => ({
+    // Giver performers
+    const giverTitle = intl.formatMessage({ id: "giver_performers", defaultMessage: "Top Performers" });
+    
+    const selectedGiverValues = giverPerformers.map((p) => ({
       value: p.id,
       label: p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name,
     }));
     
-    const control = (
-      <Select
-        classNamePrefix="react-select"
-        isMulti
-        options={performerOptions}
-        value={selectedValues}
-        onChange={(selected) => {
-          const selectedPerformers = (selected ?? []).map((opt) => {
-            const found = scenePerformers.find((p) => p.id === opt.value);
-            return found ?? { id: opt.value, name: opt.label, alias_list: [] };
-          });
-          onSetPerformers(selectedPerformers);
-        }}
-        placeholder={intl.formatMessage({ id: "actions.select_performers" })}
-        menuPortalTarget={document.body}
-        styles={{
-          menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-        }}
-      />
+    const giverControl = (
+      <div className="d-flex align-items-center">
+        <Icon icon={faArrowUp} className="text-success mr-2" title="Top" />
+        <div className="flex-grow-1">
+          <Select
+            classNamePrefix="react-select"
+            isMulti
+            options={performerOptions}
+            value={selectedGiverValues}
+            onChange={(selected) => {
+              const selectedPerformers = (selected ?? []).map((opt) => {
+                const found = scenePerformers.find((p) => p.id === opt.value);
+                return found ?? { id: opt.value, name: opt.label, alias_list: [] };
+              });
+              onSetGiverPerformers(selectedPerformers);
+            }}
+            placeholder={intl.formatMessage({ id: "actions.select_performers" })}
+            menuPortalTarget={document.body}
+            styles={{
+              menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+            }}
+          />
+        </div>
+      </div>
     );
 
-    return renderField("performer_ids", title, control, fullWidthProps);
+    // Receiver performers
+    const receiverTitle = intl.formatMessage({ id: "receiver_performers", defaultMessage: "Bottom Performers" });
+    
+    const selectedReceiverValues = receiverPerformers.map((p) => ({
+      value: p.id,
+      label: p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name,
+    }));
+    
+    const receiverControl = (
+      <div className="d-flex align-items-center">
+        <Icon icon={faArrowDown} className="text-info mr-2" title="Bottom" />
+        <div className="flex-grow-1">
+          <Select
+            classNamePrefix="react-select"
+            isMulti
+            options={performerOptions}
+            value={selectedReceiverValues}
+            onChange={(selected) => {
+              const selectedPerformers = (selected ?? []).map((opt) => {
+                const found = scenePerformers.find((p) => p.id === opt.value);
+                return found ?? { id: opt.value, name: opt.label, alias_list: [] };
+              });
+              onSetReceiverPerformers(selectedPerformers);
+            }}
+            placeholder={intl.formatMessage({ id: "actions.select_performers" })}
+            menuPortalTarget={document.body}
+            styles={{
+              menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+            }}
+          />
+        </div>
+      </div>
+    );
+
+    return (
+      <>
+        {renderField("giver_performer_ids", giverTitle, giverControl, fullWidthProps)}
+        {renderField("receiver_performer_ids", receiverTitle, receiverControl, fullWidthProps)}
+      </>
+    );
   }
 
   return (

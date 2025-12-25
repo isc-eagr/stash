@@ -10,9 +10,8 @@ import {
   ParentTagsCriterionOption,
   TagsCriterion,
   TagsCriterionOption,
-  PerformerSceneTagsPairCriterion,
-  PerformerSceneTagsInPerformerFilterOption,
-  PerformerSceneTagsCriterionOption,
+  SceneMarkerTagsCriterionOption,
+  SceneMarkerTagsCriterion,
 } from "src/models/list-filter/criteria/tags";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import {
@@ -32,6 +31,7 @@ import {
 } from "src/models/list-filter/criteria/criterion";
 import { EthnicityCriterion, EthnicityCriterionOption } from "src/models/list-filter/criteria/ethnicity";
 import { RatingCriterion, RatingCriterionOption } from "src/models/list-filter/criteria/rating";
+import { RatingSystemType, RatingStarPrecision } from "src/utils/rating";
 import { GalleriesCriterion } from "src/models/list-filter/criteria/galleries";
 import { PhashCriterion } from "src/models/list-filter/criteria/phash";
 import { ILabeledId, IHierarchicalLabelValue } from "src/models/list-filter/types";
@@ -179,7 +179,7 @@ const makePerformersEthnicityRatingUrl = (ethnicity: string, rating: number) => 
   filter.criteria.push(ethnicityCriterion);
   
   const ratingCriterion = new RatingCriterion(
-    { type: "STARS", starPrecision: "FULL" },
+    { type: RatingSystemType.Stars, starPrecision: RatingStarPrecision.Full },
     RatingCriterionOption
   );
   ratingCriterion.modifier = GQL.CriterionModifier.Equals;
@@ -246,7 +246,7 @@ const makeStudioSexScenesUrl = (
   filter.criteria.push(studioCriterion);
   
   // Add performer scene tags criterion (must include top OR bottom)
-  const tagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const tagsCriterion = new TagsCriterion(TagsCriterionOption);
   tagsCriterion.modifier = GQL.CriterionModifier.Includes;
   tagsCriterion.value = {
     items: [
@@ -285,7 +285,7 @@ const makeStudioOralScenesUrl = (
   filter.criteria.push(studioCriterion);
   
   // Add oral tags criterion (must include oral tags, exclude top/bottom)
-  const oralTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const oralTagsCriterion = new TagsCriterion(TagsCriterionOption);
   oralTagsCriterion.modifier = GQL.CriterionModifier.Includes;
   oralTagsCriterion.value = {
     items: [
@@ -329,7 +329,7 @@ const makeStudioSoloScenesUrl = (
   filter.criteria.push(studioCriterion);
   
   // Add solo tag criterion (must include solo, exclude top/bottom/oral tags)
-  const soloTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const soloTagsCriterion = new TagsCriterion(TagsCriterionOption);
   soloTagsCriterion.modifier = GQL.CriterionModifier.Includes;
   soloTagsCriterion.value = {
     items: [
@@ -370,7 +370,7 @@ const makeStudioFacialScenesUrl = (
   filter.criteria.push(studioCriterion);
 
   // Include facialgiven or facialreceived tags
-  const facialTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const facialTagsCriterion = new TagsCriterion(TagsCriterionOption);
   facialTagsCriterion.modifier = GQL.CriterionModifier.Includes;
   const items = [
     { id: facialGivenTagId, label: facialGivenTagLabel },
@@ -401,7 +401,7 @@ const makeStudioDetailSexScenesUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
   
   // Add performer scene tags criterion (must include top OR bottom)
-  const tagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const tagsCriterion = new TagsCriterion(TagsCriterionOption);
   tagsCriterion.modifier = GQL.CriterionModifier.Includes;
   tagsCriterion.value = {
     items: [
@@ -431,7 +431,7 @@ const makeStudioDetailOralScenesUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
   
   // Add oral tags criterion (must include oral tags, exclude top/bottom)
-  const oralTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const oralTagsCriterion = new TagsCriterion(TagsCriterionOption);
   oralTagsCriterion.modifier = GQL.CriterionModifier.Includes;
   oralTagsCriterion.value = {
     items: [
@@ -466,7 +466,7 @@ const makeStudioDetailSoloScenesUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
   
   // Add solo tag criterion (must include solo, exclude top/bottom/oral tags)
-  const soloTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const soloTagsCriterion = new TagsCriterion(TagsCriterionOption);
   soloTagsCriterion.modifier = GQL.CriterionModifier.Includes;
   soloTagsCriterion.value = {
     items: [
@@ -498,7 +498,7 @@ const makeStudioDetailFacialScenesUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
 
   // Include facialgiven or facialreceived tags
-  const facialTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const facialTagsCriterion = new TagsCriterion(TagsCriterionOption);
   facialTagsCriterion.modifier = GQL.CriterionModifier.Includes;
   const items = [
     { id: facialGivenTagId, label: facialGivenTagLabel },
@@ -525,7 +525,7 @@ const makeGlobalSexScenesUrl = (
 ) => {
   const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
   
-  const tagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const tagsCriterion = new TagsCriterion(TagsCriterionOption);
   tagsCriterion.modifier = GQL.CriterionModifier.Includes;
   tagsCriterion.value = {
     items: [
@@ -552,7 +552,7 @@ const makeGlobalOralScenesUrl = (
 ) => {
   const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
   
-  const oralTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const oralTagsCriterion = new TagsCriterion(TagsCriterionOption);
   oralTagsCriterion.modifier = GQL.CriterionModifier.Includes;
   oralTagsCriterion.value = {
     items: [
@@ -584,7 +584,7 @@ const makeGlobalSoloScenesUrl = (
 ) => {
   const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
   
-  const soloTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const soloTagsCriterion = new TagsCriterion(TagsCriterionOption);
   soloTagsCriterion.modifier = GQL.CriterionModifier.Includes;
   soloTagsCriterion.value = {
     items: [
@@ -613,7 +613,7 @@ const makeGlobalFacialScenesUrl = (
 ) => {
   const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
 
-  const facialTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const facialTagsCriterion = new TagsCriterion(TagsCriterionOption);
   facialTagsCriterion.modifier = GQL.CriterionModifier.Includes;
   const items = [
     { id: facialGivenTagId, label: facialGivenTagLabel },
@@ -659,7 +659,7 @@ const makePerformerStudioSexScenesUrl = (
   filter.criteria.push(studioCriterion);
   
   // Add performer scene tags criterion (must include top OR bottom)
-  const tagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const tagsCriterion = new TagsCriterion(TagsCriterionOption);
   tagsCriterion.modifier = GQL.CriterionModifier.Includes;
   tagsCriterion.value = {
     items: [
@@ -704,7 +704,7 @@ const makePerformerStudioOralScenesUrl = (
   filter.criteria.push(studioCriterion);
   
   // Add oral tags criterion (must include oral tags, exclude top/bottom)
-  const oralTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const oralTagsCriterion = new TagsCriterion(TagsCriterionOption);
   oralTagsCriterion.modifier = GQL.CriterionModifier.Includes;
   oralTagsCriterion.value = {
     items: [
@@ -754,7 +754,7 @@ const makePerformerStudioSoloScenesUrl = (
   filter.criteria.push(studioCriterion);
   
   // Add solo tag criterion (must include solo, exclude top/bottom/oral tags)
-  const soloTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const soloTagsCriterion = new TagsCriterion(TagsCriterionOption);
   soloTagsCriterion.modifier = GQL.CriterionModifier.Includes;
   soloTagsCriterion.value = {
     items: [
@@ -801,7 +801,7 @@ const makePerformerStudioFacialScenesUrl = (
   filter.criteria.push(studioCriterion);
 
   // Include facialgiven or facialreceived tags
-  const facialTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const facialTagsCriterion = new TagsCriterion(TagsCriterionOption);
   facialTagsCriterion.modifier = GQL.CriterionModifier.Includes;
   const items = [
     { id: facialGivenTagId, label: facialGivenTagLabel },
@@ -1003,7 +1003,7 @@ const makePerformerDetailSexScenesUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
   
   // Add performer scene tags criterion (must include top OR bottom)
-  const tagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const tagsCriterion = new TagsCriterion(TagsCriterionOption);
   tagsCriterion.modifier = GQL.CriterionModifier.Includes;
   tagsCriterion.value = {
     items: [
@@ -1033,7 +1033,7 @@ const makePerformerDetailOralScenesUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
   
   // Add oral tags criterion (must include oral tags, exclude top/bottom)
-  const oralTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const oralTagsCriterion = new TagsCriterion(TagsCriterionOption);
   oralTagsCriterion.modifier = GQL.CriterionModifier.Includes;
   oralTagsCriterion.value = {
     items: [
@@ -1068,7 +1068,7 @@ const makePerformerDetailSoloScenesUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
   
   // Add solo tag criterion (must include solo, exclude top/bottom/oral tags)
-  const soloTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const soloTagsCriterion = new TagsCriterion(TagsCriterionOption);
   soloTagsCriterion.modifier = GQL.CriterionModifier.Includes;
   soloTagsCriterion.value = {
     items: [
@@ -1100,7 +1100,7 @@ const makePerformerDetailFacialScenesUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
 
   // Include facialgiven or facialreceived tags
-  const facialTagsCriterion = new TagsCriterion(PerformerSceneTagsCriterionOption);
+  const facialTagsCriterion = new TagsCriterion(TagsCriterionOption);
   facialTagsCriterion.modifier = GQL.CriterionModifier.Includes;
   const items = [
     { id: facialGivenTagId, label: facialGivenTagLabel },
@@ -1117,6 +1117,155 @@ const makePerformerDetailFacialScenesUrl = (
   filter.criteria.push(facialTagsCriterion);
 
   return `/performers/${performer.id}/scenes?${filter.makeQueryParameters()}`;
+};
+
+// New marker-based performer scenes URL - filters scenes by marker tag
+const makePerformerMarkerScenesUrl = (
+  performer: Partial<GQL.PerformerDataFragment>,
+  tagId: string,
+  roleType: string
+) => {
+  if (!performer.id) return "#";
+  
+  // Navigate to scenes filtered by scene markers with this tag and performer
+  const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+  
+  // Add performer criterion
+  const performerCriterion = new PerformersCriterion();
+  performerCriterion.modifier = GQL.CriterionModifier.Includes;
+  performerCriterion.value = {
+    items: [{ id: performer.id, label: performer.name || `Performer ${performer.id}` }],
+    excluded: [],
+  };
+  filter.criteria.push(performerCriterion);
+  
+  // Add scene marker tags criterion using SceneMarkerTagsCriterion with items for INCLUDES
+  const markerTagsCriterion = new SceneMarkerTagsCriterion(SceneMarkerTagsCriterionOption);
+  markerTagsCriterion.modifier = GQL.CriterionModifier.Includes;
+  markerTagsCriterion.items = [{ id: tagId, label: roleType }];
+  filter.criteria.push(markerTagsCriterion);
+  
+  return `/performers/${performer.id}/scenes?${filter.makeQueryParameters()}`;
+};
+
+// Marker-based performer scenes URL with giver/receiver role filter
+// role: "giver" | "receiver" | undefined (any)
+// excludeTags: optional array of tag IDs to exclude from the filter
+const makePerformerMarkerScenesWithRoleUrl = (
+  performer: Partial<GQL.PerformerDataFragment>,
+  tagId: string,
+  tagLabel: string,
+  role?: "giver" | "receiver",
+  excludeTags?: Array<{ id: string; label: string }>
+) => {
+  if (!performer.id) return "#";
+  
+  const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+  
+  // Use SceneMarkerTagsCriterion with extended groups to filter by performer role
+  const markerTagsCriterion = new SceneMarkerTagsCriterion(SceneMarkerTagsCriterionOption);
+  markerTagsCriterion.modifier = GQL.CriterionModifier.Equals;
+  
+  const performerLabel = performer.name || `Performer ${performer.id}`;
+  const performerRef = { id: performer.id, label: performerLabel };
+  
+  if (role === "giver") {
+    markerTagsCriterion.extendedGroups = [{
+      tags: [{ id: tagId, label: tagLabel }],
+      exclude_tags: excludeTags,
+      giver_performer_ids: [performerRef],
+    }];
+  } else if (role === "receiver") {
+    markerTagsCriterion.extendedGroups = [{
+      tags: [{ id: tagId, label: tagLabel }],
+      exclude_tags: excludeTags,
+      receiver_performer_ids: [performerRef],
+    }];
+  } else {
+    // Any role - use both_roles or just include the performer in either role
+    markerTagsCriterion.extendedGroups = [{
+      tags: [{ id: tagId, label: tagLabel }],
+      exclude_tags: excludeTags,
+      giver_performer_ids: [performerRef],
+      receiver_performer_ids: [performerRef],
+      performer_mode: "OR",
+    }];
+  }
+  
+  // Sync groups for backwards compatibility
+  markerTagsCriterion.groups = markerTagsCriterion.extendedGroups
+    .filter((g) => g.tags?.length)
+    .map((g) => g.tags!);
+  
+  filter.criteria.push(markerTagsCriterion);
+  
+  return `/performers/${performer.id}/scenes?${filter.makeQueryParameters()}`;
+};
+
+const makeStudioMarkerScenesUrl = (
+  studio: Partial<GQL.StudioDataFragment>,
+  tagId: string,
+  roleType: string
+) => {
+  if (!studio.id) return "#";
+  
+  // Navigate to scenes filtered by studio and scene markers with this tag
+  const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+  
+  // Add studio criterion
+  const studioCriterion = new StudiosCriterion();
+  studioCriterion.value = {
+    items: [{ id: studio.id, label: studio.name || `Studio ${studio.id}` }],
+    excluded: [],
+    depth: 0,
+  };
+  filter.criteria.push(studioCriterion);
+  
+  // Add scene marker tags criterion using SceneMarkerTagsCriterion with items for INCLUDES
+  const markerTagsCriterion = new SceneMarkerTagsCriterion(SceneMarkerTagsCriterionOption);
+  markerTagsCriterion.modifier = GQL.CriterionModifier.Includes;
+  markerTagsCriterion.items = [{ id: tagId, label: roleType }];
+  filter.criteria.push(markerTagsCriterion);
+  
+  return `/scenes?${filter.makeQueryParameters()}`;
+};
+
+const makePerformerStudioMarkerScenesUrl = (
+  performerId: string,
+  studio: Partial<GQL.StudioDataFragment>,
+  tagId: string,
+  roleType: string
+) => {
+  if (!studio.id) return "#";
+  
+  // Navigate to scenes filtered by performer, studio, and scene markers with this tag
+  const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+  
+  // Add performer criterion
+  const performerCriterion = new PerformersCriterion();
+  performerCriterion.modifier = GQL.CriterionModifier.Includes;
+  performerCriterion.value = {
+    items: [{ id: performerId, label: `Performer ${performerId}` }],
+    excluded: [],
+  };
+  filter.criteria.push(performerCriterion);
+  
+  // Add studio criterion
+  const studioCriterion = new StudiosCriterion();
+  studioCriterion.value = {
+    items: [{ id: studio.id, label: studio.name || `Studio ${studio.id}` }],
+    excluded: [],
+    depth: 0,
+  };
+  filter.criteria.push(studioCriterion);
+  
+  // Add scene marker tags criterion using SceneMarkerTagsCriterion with items for INCLUDES
+  const markerTagsCriterion = new SceneMarkerTagsCriterion(SceneMarkerTagsCriterionOption);
+  markerTagsCriterion.modifier = GQL.CriterionModifier.Includes;
+  markerTagsCriterion.items = [{ id: tagId, label: roleType }];
+  filter.criteria.push(markerTagsCriterion);
+  
+  return `/scenes?${filter.makeQueryParameters()}`;
 };
 
 const makeChildStudiosUrl = (studio: Partial<GQL.StudioDataFragment>) => {
@@ -1198,48 +1347,32 @@ function makeTagFilter(mode: GQL.FilterMode, tag: INamedObject) {
 const makeTagScenesUrl = (tag: INamedObject, performer?: INamedObject) => {
   if (!tag.id) return "#";
 
-  // If a performer is provided, build a Scene filter that uses the
-  // performer_scene_tags criterion together with the performers criterion so
-  // the resulting /scenes page is scoped to that performer + tag pair.
+  // If a performer is provided, build a Scene Marker filter
+  // that links the performer and tag through scene_marker_performers
   if (performer && performer.id) {
-    const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
-
-      // Encode the performer+tag pair into a single performer_scene_tags criterion
-      // so the resulting /scenes page is scoped only by performer_scene_tags.
-      const tCrit = new PerformerSceneTagsPairCriterion(performer.id, tag.id);
-      filter.criteria.push(tCrit);
-
-    // Debug: log criterion objects and their encoded form so we can see why the tag criterion
-    // may be missing from the generated query string when a performer is provided.
-    try {
-      // eslint-disable-next-line no-console
-      console.debug("makeTagScenesUrl: filter.criteria", filter.criteria);
-      // eslint-disable-next-line no-console
-      console.debug(
-        "makeTagScenesUrl: toQueryParams",
-        filter.criteria.map((c) => c.toQueryParams())
-      );
-    } catch (e) {
-      /* ignore debug failures */
-    }
+    const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
+    
+    // Use TagsCriterion with SceneMarkerTagsCriterionOption to filter by the tag
+    const tagCriterion = new TagsCriterion(TagsCriterionOption);
+    tagCriterion.modifier = GQL.CriterionModifier.IncludesAll;
+    tagCriterion.value = {
+      items: [{ id: tag.id, label: tag.name || `Tag ${tag.id}` }],
+      excluded: [],
+      depth: 0,
+    };
+    filter.criteria.push(tagCriterion);
+    
+    // Add performers criterion
+    const performersCriterion = new PerformersCriterion();
+    performersCriterion.modifier = GQL.CriterionModifier.IncludesAll;
+    performersCriterion.value = {
+      items: [{ id: performer.id, label: performer.name || `Performer ${performer.id}` }],
+      excluded: [],
+    };
+    filter.criteria.push(performersCriterion);
 
     const params = filter.makeQueryParameters();
-
-    // Debug check: ensure the tag id is encoded in the query params when a performer is provided.
-    try {
-      if (!params.includes(tag.id)) {
-        // eslint-disable-next-line no-console
-        console.warn("makeTagScenesUrl: generated /scenes URL is missing tag id", {
-          tagId: tag.id,
-          performer,
-          params,
-        });
-      }
-    } catch (e) {
-      // ignore any errors in debug check
-    }
-
-    return `/scenes?${params}`;
+    return `/scenes/markers?${params}`;
   }
 
   return `/scenes?${makeTagFilter(GQL.FilterMode.Scenes, tag)}`;
@@ -1249,12 +1382,14 @@ const makeTagPerformersUrl = (tag: INamedObject) => {
   return `/performers?${makeTagFilter(GQL.FilterMode.Performers, tag)}`;
 };
 
-// Build a Performers URL filtered by performer_scene_tags (top-level performer filter),
-// encoding the criterion as: c=(type:"performer_scene_tags",modifier:"INCLUDES_ALL",value:(items:[{id,label}],excluded:[],depth:0))
+// Build a Scene Markers URL filtered by scene marker tags (linked through scene_marker_performers)
+// This links performers to tags via scene markers they're associated with
 const makeTagPerformersBySceneTagsUrl = (tag: INamedObject) => {
   if (!tag.id) return "#";
-  const filter = new ListFilterModel(GQL.FilterMode.Performers, undefined);
-  const criterion = new TagsCriterion(PerformerSceneTagsInPerformerFilterOption);
+  // Since performer_scene_tags is deprecated, redirect to scene markers filtered by tag
+  // where the user can see performers associated with that tag through scene markers
+  const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
+  const criterion = new TagsCriterion(TagsCriterionOption);
   criterion.modifier = GQL.CriterionModifier.IncludesAll;
   const value: IHierarchicalLabelValue = {
     items: [{ id: tag.id, label: tag.name || `Tag ${tag.id}` }],
@@ -1263,7 +1398,7 @@ const makeTagPerformersBySceneTagsUrl = (tag: INamedObject) => {
   };
   criterion.value = value;
   filter.criteria.push(criterion);
-  return `/performers?${filter.makeQueryParameters()}`;
+  return `/scenes/markers?${filter.makeQueryParameters()}`;
 };
 
 const makeTagStudiosUrl = (tag: INamedObject) => {
@@ -1415,6 +1550,48 @@ const makeSceneMarkersSceneUrl = (scene: GQL.SceneMarkerSceneDataFragment) => {
   return `/scenes/markers?${filter.makeQueryParameters()}`;
 };
 
+// URL to list scene markers filtered by a specific tag (primary or secondary)
+const makeSceneMarkersUrl = (tagId: string, tagName: string) => {
+  const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
+  const criterion = new SceneMarkerTagsCriterion(SceneMarkerTagsCriterionOption);
+  criterion.modifier = GQL.CriterionModifier.Includes;
+  criterion.items = [{ id: tagId, label: tagName }];
+  filter.criteria.push(criterion);
+  return `/scenes/markers?${filter.makeQueryParameters()}`;
+};
+
+// URL to list SCENES filtered by having markers with a specific tag
+// Use this for scene counts (e.g., sex_scene_count) - goes to /scenes, not /scenes/markers
+const makeScenesWithMarkerTagUrl = (tagId: string, tagName: string) => {
+  const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+  const criterion = new SceneMarkerTagsCriterion(SceneMarkerTagsCriterionOption);
+  criterion.modifier = GQL.CriterionModifier.Includes;
+  criterion.items = [{ id: tagId, label: tagName }];
+  filter.criteria.push(criterion);
+  return `/scenes?${filter.makeQueryParameters()}`;
+};
+
+// URL to list SCENES with exclusive marker tag filtering (includes tag, excludes other tags)
+// Used for hierarchical category counts: oral excludes sex, solo excludes sex+oral
+const makeScenesWithExclusiveMarkerTagUrl = (
+  includeTagId: string,
+  includeTagName: string,
+  excludeTagIds: Array<{ id: string; label: string }>
+) => {
+  const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
+  const criterion = new SceneMarkerTagsCriterion(SceneMarkerTagsCriterionOption);
+  criterion.modifier = GQL.CriterionModifier.Equals;
+  criterion.extendedGroups = [
+    {
+      tags: [{ id: includeTagId, label: includeTagName }],
+      exclude_tags: excludeTagIds,
+      depth: 0,
+    },
+  ];
+  filter.criteria.push(criterion);
+  return `/scenes?${filter.makeQueryParameters()}`;
+};
+
 export function handleUnsavedChanges(
   intl: IntlShape,
   basepath: string,
@@ -1453,6 +1630,10 @@ const NavUtils = {
   makePerformerDetailOralScenesUrl,
   makePerformerDetailSoloScenesUrl,
   makePerformerDetailFacialScenesUrl,
+  makePerformerMarkerScenesUrl,
+  makePerformerMarkerScenesWithRoleUrl,
+  makeStudioMarkerScenesUrl,
+  makePerformerStudioMarkerScenesUrl,
   makeGlobalSexScenesUrl,
   makeGlobalOralScenesUrl,
   makeGlobalSoloScenesUrl,
@@ -1494,6 +1675,9 @@ const NavUtils = {
   makeContainingGroupsUrl,
   makeSubGroupsUrl,
   makeSceneMarkersSceneUrl,
+  makeSceneMarkersUrl,
+  makeScenesWithMarkerTagUrl,
+  makeScenesWithExclusiveMarkerTagUrl,
 };
 
 export default NavUtils;

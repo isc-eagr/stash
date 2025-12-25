@@ -153,15 +153,11 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 
 		qb.tagsCriterionHandler(filter.Tags),
 
-		qb.performerSceneTagsCriterionHandler(filter.PerformerSceneTags),
-
 		qb.markerTagsCriterionHandler(filter.MarkerTags),
 
 		qb.studiosCriterionHandler(filter.Studios),
 
 		qb.groupsCriterionHandler(filter.Groups),
-
-		// Note: performer_scene_tags is already handled above
 
 		qb.appearsWithCriterionHandler(filter.Performers),
 
@@ -218,24 +214,27 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 			c:     filter.CustomFields,
 			idCol: "performers.id",
 		},
+
+		qb.hasMarkersCriterionHandler(filter.HasMarkers),
+
+		qb.performerMarkersCriterionHandler(filter.PerformerMarkers),
 	}
 }
 
-// Filters performers by tags recorded in the performer_scene_tags join table.
-// This matches performers that have at least one row in performer_scene_tags with a tag in the provided set
-// (supports hierarchy, includes/excludes, includes-all, null/not-null like other hierarchical tag filters).
-func (qb *performerFilterHandler) performerSceneTagsCriterionHandler(tags *models.HierarchicalMultiCriterionInput) criterionHandlerFunc {
-	h := joinedHierarchicalMultiCriterionHandlerBuilder{
-		primaryTable:   performerTable,
-		foreignTable:   tagTable,
-		foreignFK:      "tag_id",
-		relationsTable: "tags_relations",
-		joinAs:         "performer_pst",
-		joinTable:      "performer_scene_tags",
-		primaryFK:      performerIDColumn,
-	}
+// Filters performers by whether they have any scene marker where they are giver/receiver
+func (qb *performerFilterHandler) hasMarkersCriterionHandler(hasMarkers *string) criterionHandlerFunc {
+	return func(ctx context.Context, f *filterBuilder) {
+		if hasMarkers == nil || *hasMarkers == "" {
+			return
+		}
 
-	return h.handler(tags)
+		const existsClause = "EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.performer_id = performers.id AND smp.role IN ('giver','receiver'))"
+		if *hasMarkers == "true" {
+			f.addWhere(existsClause)
+		} else {
+			f.addWhere("NOT " + existsClause)
+		}
+	}
 }
 
 // Filters performers by scene marker tags.
@@ -818,6 +817,188 @@ func (qb *performerFilterHandler) appearsWithCriterionHandler(performers *models
 			f.addWith(fmt.Sprintf("%s AS (%s)", derivedPerformerPerformersTable, strings.Join(unions, " UNION ")))
 
 			f.addInnerJoin(derivedPerformerPerformersTable, "", fmt.Sprintf("performers.id = %s.performer_id", derivedPerformerPerformersTable))
+		}
+	}
+}
+
+// performerMarkersCriterionHandler filters performers by their scene marker participation
+// with support for include/exclude conditions, roles, and partner attributes.
+func (qb *performerFilterHandler) performerMarkersCriterionHandler(input *models.PerformerMarkersCriterionInput) criterionHandlerFunc {
+	return func(ctx context.Context, f *filterBuilder) {
+		if input == nil || (len(input.Include) == 0 && len(input.Exclude) == 0) {
+			return
+		}
+
+		// Helper to expand ethnicity selections
+		expandEthnicity := func(s string) []string {
+			v := strings.TrimSpace(s)
+			if v == "" {
+				return nil
+			}
+			out := []string{v}
+			if strings.EqualFold(v, "Black") {
+				out = append(out, "Mixed", "Afrolatino")
+			}
+			if strings.EqualFold(v, "White") {
+				out = append(out, "Mixed")
+			}
+			if strings.EqualFold(v, "Latino") {
+				out = append(out, "Afrolatino")
+			}
+			return out
+		}
+
+		expandEthnicities := func(ethnicities []string) []string {
+			var out []string
+			seen := make(map[string]bool)
+			for _, e := range ethnicities {
+				for _, exp := range expandEthnicity(e) {
+					if !seen[exp] {
+						seen[exp] = true
+						out = append(out, exp)
+					}
+				}
+			}
+			return out
+		}
+
+		// Build a condition that checks if a performer has a marker matching the given criteria
+		buildConditionSQL := func(cond models.PerformerMarkerConditionInput, exists bool) (string, []interface{}) {
+			var clauses []string
+			var args []interface{}
+
+			// Marker must have at least one of the specified tags (check both primary_tag_id and scene_markers_tags)
+			if len(cond.TagIDs) > 0 {
+				ph := getInBinding(len(cond.TagIDs))
+				tagClause := fmt.Sprintf(`(
+					sm.primary_tag_id IN %s
+					OR EXISTS (
+						SELECT 1 FROM scene_markers_tags smt 
+						WHERE smt.scene_marker_id = sm.id 
+						AND smt.tag_id IN %s
+					)
+				)`, ph, ph)
+				clauses = append(clauses, tagClause)
+				// Add tag IDs twice (once for primary_tag_id, once for scene_markers_tags)
+				for _, tid := range cond.TagIDs {
+					args = append(args, tid)
+				}
+				for _, tid := range cond.TagIDs {
+					args = append(args, tid)
+				}
+			}
+
+			// Determine role for this performer
+			role := "any"
+			if cond.Role != nil && *cond.Role != "" {
+				role = strings.ToLower(*cond.Role)
+			}
+
+			// Build the performer role condition
+			// smp = scene_marker_performers for this performer
+			if role == "giver" {
+				clauses = append(clauses, "smp.role = 'giver'")
+			} else if role == "receiver" {
+				clauses = append(clauses, "smp.role = 'receiver'")
+			}
+			// "any" role means no role constraint
+
+			// Self attributes - filter by the performer's own attributes
+			if len(cond.SelfEthnicities) > 0 {
+				expanded := expandEthnicities(cond.SelfEthnicities)
+				ph := getInBinding(len(expanded))
+				clauses = append(clauses, fmt.Sprintf("performers.ethnicity IN %s", ph))
+				for _, e := range expanded {
+					args = append(args, e)
+				}
+			}
+
+			if len(cond.SelfCountries) > 0 {
+				ph := getInBinding(len(cond.SelfCountries))
+				clauses = append(clauses, fmt.Sprintf("performers.country IN %s", ph))
+				for _, c := range cond.SelfCountries {
+					args = append(args, c)
+				}
+			}
+
+			if cond.SelfRating != nil {
+				w, wargs := getIntWhereClause("performers.rating", cond.SelfRating.Modifier, cond.SelfRating.Value, cond.SelfRating.Value2)
+				clauses = append(clauses, w)
+				args = append(args, wargs...)
+			}
+
+			// Partner attributes - check the OTHER performer on this marker
+			hasPartnerCondition := len(cond.PartnerEthnicities) > 0 || len(cond.PartnerCountries) > 0 || cond.PartnerRating != nil
+			if hasPartnerCondition {
+				var partnerClauses []string
+
+				if len(cond.PartnerEthnicities) > 0 {
+					expanded := expandEthnicities(cond.PartnerEthnicities)
+					ph := getInBinding(len(expanded))
+					partnerClauses = append(partnerClauses, fmt.Sprintf("partner.ethnicity IN %s", ph))
+					for _, e := range expanded {
+						args = append(args, e)
+					}
+				}
+
+				if len(cond.PartnerCountries) > 0 {
+					ph := getInBinding(len(cond.PartnerCountries))
+					partnerClauses = append(partnerClauses, fmt.Sprintf("partner.country IN %s", ph))
+					for _, c := range cond.PartnerCountries {
+						args = append(args, c)
+					}
+				}
+
+				if cond.PartnerRating != nil {
+					w, wargs := getIntWhereClause("partner.rating", cond.PartnerRating.Modifier, cond.PartnerRating.Value, cond.PartnerRating.Value2)
+					partnerClauses = append(partnerClauses, w)
+					args = append(args, wargs...)
+				}
+
+				// Partner exists on same marker with different performer_id
+				partnerExistsClause := fmt.Sprintf(`EXISTS (
+					SELECT 1 FROM scene_marker_performers smp_partner
+					JOIN performers partner ON partner.id = smp_partner.performer_id
+					WHERE smp_partner.scene_marker_id = sm.id
+					AND smp_partner.performer_id != performers.id
+					AND %s
+				)`, strings.Join(partnerClauses, " AND "))
+				clauses = append(clauses, partnerExistsClause)
+			}
+
+			whereClause := ""
+			if len(clauses) > 0 {
+				whereClause = " AND " + strings.Join(clauses, " AND ")
+			}
+
+			var sql string
+			if exists {
+				sql = fmt.Sprintf(`EXISTS (
+					SELECT 1 FROM scene_marker_performers smp
+					JOIN scene_markers sm ON sm.id = smp.scene_marker_id
+					WHERE smp.performer_id = performers.id%s
+				)`, whereClause)
+			} else {
+				sql = fmt.Sprintf(`NOT EXISTS (
+					SELECT 1 FROM scene_marker_performers smp
+					JOIN scene_markers sm ON sm.id = smp.scene_marker_id
+					WHERE smp.performer_id = performers.id%s
+				)`, whereClause)
+			}
+
+			return sql, args
+		}
+
+		// Process include conditions - all must match
+		for _, cond := range input.Include {
+			sql, args := buildConditionSQL(cond, true)
+			f.addWhere(sql, args...)
+		}
+
+		// Process exclude conditions - none should match
+		for _, cond := range input.Exclude {
+			sql, args := buildConditionSQL(cond, false)
+			f.addWhere(sql, args...)
 		}
 	}
 }

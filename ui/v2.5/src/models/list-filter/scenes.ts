@@ -25,8 +25,6 @@ import { StudiosCriterionOption } from "./criteria/studios";
 import { InteractiveCriterionOption } from "./criteria/interactive";
 import {
   PerformerTagsCriterionOption,
-  PerformerSceneTagsCriterionOption,
-  PerformerSceneTagPairCriterionOption,
   // StudioTagsCriterionOption,
   TagsCriterionOption,
   SceneMarkerTagsCriterionOption,
@@ -44,14 +42,19 @@ import { RatingCriterionOption, PerformerRatingCriterionOption } from "./criteri
 import { PathCriterionOption } from "./criteria/path";
 import { OrientationCriterionOption } from "./criteria/orientation";
 import { EthnicityCriterionOption } from "./criteria/ethnicity";
-import { PerformerSceneTagsWithAttrsCriterionOption } from "./criteria/performer-scene-tags-with-attrs";
 
 // Has Marker Performers criterion option
 const HasMarkerPerformersCriterionOption = new StringBooleanCriterionOption(
   "has_marker_performers",
   "has_marker_performers",
-  () => new StringBooleanCriterion(HasMarkerPerformersCriterionOption)
+  () => new HasMarkerPerformersCriterion()
 );
+
+class HasMarkerPerformersCriterion extends StringBooleanCriterion {
+  constructor() {
+    super(HasMarkerPerformersCriterionOption);
+  }
+}
 
 const defaultSortBy = "date";
 const sortByOptions = [
@@ -139,10 +142,6 @@ const criterionOptions = [
   TagsCriterionOption,
   createMandatoryNumberCriterionOption("tag_count"),
   PerformerTagsCriterionOption,
-  PerformerSceneTagsCriterionOption,
-  PerformerSceneTagsWithAttrsCriterionOption,
-  // compact performer+tag pair criterion
-  PerformerSceneTagPairCriterionOption,
   PerformersCriterionOption,
   createMandatoryNumberCriterionOption("performer_count"),
   PerformerAgeCriterionOption,

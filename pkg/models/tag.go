@@ -22,8 +22,6 @@ type TagFilterType struct {
 	GalleryCount *IntCriterionInput `json:"gallery_count"`
 	// Filter by number of performers with this tag
 	PerformerCount *IntCriterionInput `json:"performer_count"`
-	// Filter tags that have any performer_scene_tags entries (true) or none (false)
-	HasPerformerSceneTags *bool `json:"has_performer_scene_tags"`
 	// Filter by number of studios with this tag
 	StudioCount *IntCriterionInput `json:"studio_count"`
 	// Filter by number of groups with this tag
@@ -50,8 +48,6 @@ type TagFilterType struct {
 	ImagesFilter *ImageFilterType `json:"images_filter"`
 	// Filter by related galleries that meet this criteria
 	GalleriesFilter *GalleryFilterType `json:"galleries_filter"`
-	// Filter to only include tags that appear on scenes containing these performers
-	PerformerSceneTags *HierarchicalMultiCriterionInput `json:"performer_scene_tags"`
 	// Filter by created at
 	CreatedAt *TimestampCriterionInput `json:"created_at"`
 	// Filter by updated at

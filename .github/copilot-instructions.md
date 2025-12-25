@@ -52,6 +52,7 @@ The main developer feels burned out from his job, and this codebase is one of hi
 8. Response style and safety
    - When suggesting edits, include exact file paths and minimal patches. Prefer adding code near existing patterns (e.g., follow `resolver_model_*` naming and placement).
    - For changes affecting generated code, always update `gqlgen.yml` or run `make generate` and include generated diffs in PRs.
+   - Do not add database migrations to the default codebase. Instead, please add them as separate SQL files.
 
 9. Merging with upstream Stash releases
    - This is a custom fork with features layered on top of the official Stash releases.
@@ -75,4 +76,3 @@ The main developer feels burned out from his job, and this codebase is one of hi
    - **Removing a feature**: If upstream adds functionality that replaces a custom feature, remove the custom implementation and also remove the corresponding section from CUSTOM_FEATURES.md.
    - **After merging**: Review CUSTOM_FEATURES.md to ensure it still accurately reflects the current state of custom features.
 
-If anything important is missing or you want a different level of detail (more CI examples, cross-compilation steps, or contributor policies), tell me which areas to expand.

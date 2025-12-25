@@ -67,10 +67,6 @@ type SceneFilterType struct {
 	Tags *HierarchicalMultiCriterionInput `json:"tags"`
 	// Filter by tag count
 	TagCount *IntCriterionInput `json:"tag_count"`
-	// Filter to only include scenes with these tags where the performer+tag relation is stored in performer_scene_tags
-	PerformerSceneTags *HierarchicalMultiCriterionInput `json:"performer_scene_tags"`
-	// Compact pair input: filter to only include scenes where a specific performer has a specific tag
-	PerformerSceneTagPair *PerformerSceneTagPairInput `json:"performer_scene_tag_pair"`
 	// Filter to only include scenes with performers with these tags
 	PerformerTags *HierarchicalMultiCriterionInput `json:"performer_tags"`
 	// Filter scenes that have performers that have been favorited
@@ -91,8 +87,6 @@ type SceneFilterType struct {
 	PerformerCount *IntCriterionInput `json:"performer_count"`
 	// Filter by Scene Marker Tags
 	SceneMarkerTags *SceneMarkerTagsCriterionInput `json:"scene_marker_tags"`
-	// Filter by performer scene tag with optional performer attributes per group
-	PerformerSceneTagsWithAttrs *PerformerSceneTagsWithAttrsCriterionInput `json:"performer_scene_tags_with_attrs"`
 	// Filter by StashID
 	StashID *StringCriterionInput `json:"stash_id"`
 	// Filter by StashID Endpoint

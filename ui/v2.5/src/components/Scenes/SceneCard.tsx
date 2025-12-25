@@ -10,7 +10,7 @@ import { TruncatedText } from "../Shared/TruncatedText";
 import NavUtils from "src/utils/navigation";
 import TextUtils from "src/utils/text";
 import { SceneQueue } from "src/models/sceneQueue";
-import { useConfigurationContext, ConfigurationContext } from "src/hooks/Config";
+import { useConfigurationContext } from "src/hooks/Config";
 import { PerformerPopoverButton } from "../Shared/PerformerPopoverButton";
 import { GridCard } from "../Shared/GridCard/GridCard";
 import { RatingBanner } from "../Shared/RatingBanner";
@@ -222,91 +222,6 @@ const SceneCardPopovers = PatchComponent(
       );
     }
 
-    // Green PST (performer_scene_tags) button: shows all tags present on this scene via performer_scene_tags
-    function maybeRenderPerformerSceneTagsPopoverButton() {
-      // Only query if scene has performers (otherwise this button won't render anyway)
-      const hasPerformers = props.scene.performers.length > 0;
-      
-      // Use existing FindScene query hook which includes performers.scene_tags(scene_id: $id)
-      // Skip the query if there are no performers to avoid unnecessary queries
-      const { data } = GQL.useFindSceneQuery({
-        variables: { id: props.scene.id },
-        fetchPolicy: "cache-first",
-        skip: !hasPerformers,
-      });
-
-      // Aggregate unique tags across all performers for this scene
-      const { tags, counts } = useMemo(() => {
-        const uppercaseFirstComparator = (aName: string, bName: string) => {
-          const aN = aName ?? "";
-          const bN = bName ?? "";
-          const isAUpper = !!(
-            aN[0] && aN[0] !== aN[0].toLowerCase() && aN[0] === aN[0].toUpperCase()
-          );
-          const isBUpper = !!(
-            bN[0] && bN[0] !== bN[0].toLowerCase() && bN[0] === bN[0].toUpperCase()
-          );
-          if (isAUpper !== isBUpper) return isAUpper ? -1 : 1;
-          const lowerCmp = aN
-            .toLowerCase()
-            .localeCompare(bN.toLowerCase(), undefined, { sensitivity: "base" });
-          if (lowerCmp !== 0) return lowerCmp;
-          return aN.localeCompare(bN);
-        };
-
-        const m = new Map<string, { id: string; name: string }>();
-        const countMap = new Map<string, number>();
-        const performers = data?.findScene?.performers ?? [];
-        for (const p of performers) {
-          const t = (p as any).scene_tags as Array<{ id: string; name: string }> | undefined;
-          if (!t) continue;
-          for (const tag of t) {
-            if (tag?.id && !m.has(tag.id)) {
-              m.set(tag.id, { id: tag.id, name: tag.name });
-            }
-            if (tag?.id) {
-              countMap.set(tag.id, (countMap.get(tag.id) ?? 0) + 1);
-            }
-          }
-        }
-        // alphabetic with uppercase-first ordering
-        const sorted = Array.from(m.values()).sort((a, b) =>
-          uppercaseFirstComparator(a.name ?? "", b.name ?? "")
-        );
-        return { tags: sorted, counts: countMap };
-      }, [data]);
-
-  if (!tags || tags.length === 0) return;
-
-      const popoverContent = (
-        <div className="tag-tooltip">
-          {tags.map((t) => {
-            const c = counts.get(t.id) ?? 0;
-            return (
-              <Badge key={t.id} className="tag-item" variant="secondary">
-                {t.name}
-                {c > 0 ? ` (${c})` : ""}
-              </Badge>
-            );
-          })}
-        </div>
-      );
-
-      return (
-        <HoverPopover
-          className="tag-count performer-green"
-          placement="top"
-          content={popoverContent}
-        >
-          {/* Non-linking green tag button with count */}
-          <Button className="minimal performer-green">
-            <Icon icon={faTag} />
-            <span>{tags.length}</span>
-          </Button>
-        </HoverPopover>
-      );
-    }
-
     function maybeRenderOCounter() {
       if (props.scene.o_counter) {
         return <OCounterButton value={props.scene.o_counter} />;
@@ -392,7 +307,7 @@ const SceneCardPopovers = PatchComponent(
               {maybeRenderGroupPopoverButton()}
               {maybeRenderSceneMarkerPopoverButton()}
               {maybeRenderOCounter()}
-              {maybeRenderPerformerSceneTagsPopoverButton()}
+
               {maybeRenderGallery()}
               {maybeRenderOrganized()}
               {maybeRenderDupeCopies()}
@@ -428,31 +343,29 @@ const SceneCardDetails = PatchComponent(
 const SceneCardOverlays = PatchComponent(
   "SceneCard.Overlays",
   (props: ISceneCardProps) => {
-    const { configuration } = React.useContext(ConfigurationContext);
-    // Determine if the scene has any facial tags (facialgiven/facialreceived)
-    const { data: sceneData } = GQL.useFindSceneQuery({
-      variables: { id: props.scene.id },
-      fetchPolicy: "cache-first",
-    });
-
+    const { configuration } = useConfigurationContext();
+    
+    // Check if scene has facial markers based on configured facial tag ID
     const hasFacial = useMemo(() => {
-      const performers = sceneData?.findScene?.performers ?? [];
-      if (performers.length === 0) return false;
-      const allTags = new Set<string>();
-      for (const p of performers) {
-        const sceneTags = (p as any).scene_tags as Array<{ id: string; name: string }> | undefined;
-        if (sceneTags) {
-          for (const tag of sceneTags) {
-            if (tag?.name) allTags.add((tag.name || "").toLowerCase());
+      const roleTagIds = configuration?.ui?.roleTagIds ?? {};
+      const facialTagId = roleTagIds.facialTagId;
+      if (!facialTagId) return false;
+      
+      // Check scene markers for facial tag
+      const sceneMarkers = (props.scene as any).scene_markers ?? [];
+      for (const marker of sceneMarkers) {
+        if (marker?.primary_tag?.id === facialTagId) {
+          return true;
+        }
+        const markerTags: Array<{ id?: string }> = marker?.tags ?? [];
+        for (const tag of markerTags) {
+          if (tag?.id === facialTagId) {
+            return true;
           }
         }
       }
-      const cfg = (configuration?.ui as any)?.sceneTagAliases ?? {};
-      const tagFacialGiven = (cfg.facialgiven ?? "facialgiven").toLowerCase();
-      const tagFacialReceived = (cfg.facialreceived ?? "facialreceived").toLowerCase();
-      const tagSelfFacial = (cfg.selffacial ?? "selffacial").toLowerCase();
-      return allTags.has(tagFacialGiven) || allTags.has(tagFacialReceived) || allTags.has(tagSelfFacial);
-    }, [sceneData, configuration?.ui]);
+      return false;
+    }, [props.scene, configuration?.ui]);
 
     return (
       <>
@@ -565,110 +478,92 @@ export const SceneCard = PatchComponent(
       [props.scene]
     );
 
-    // Hook to determine if scene should show hand icon based on performer_scene_tags
-    const shouldShowHandIcon = useMemo(() => {
-      // Only check if scene has performers
-      const hasPerformers = props.scene.performers.length > 0;
-      if (!hasPerformers) return false;
-
-      // Query the scene data to get performer_scene_tags
-      // We'll use a separate effect to avoid hooks in conditionals
-      return true; // Placeholder, will be determined by actual query
-    }, [props.scene.performers.length]);
-
-    // Fetch scene tags for performers if needed
-    const { data: sceneData } = GQL.useFindSceneQuery({
-      variables: { id: props.scene.id },
-      fetchPolicy: "cache-first",
-      skip: !shouldShowHandIcon,
-    });
-
-    // Determine which icon to show based on scene tags (highest precedence: straight) and performer_scene_tags
+    // Determine which icon to show based on scene markers with role tags
     const iconToShow = useMemo(() => {
-      // Highest precedence: check scene.tags for straight
-      const cfg = configuration?.ui?.sceneTagAliases ?? {};
-      const tagStraight = (cfg.straight ?? "straight").toLowerCase();
-      const sceneTagNames = (props.scene.tags ?? []).map((t) => (t?.name ?? "").toLowerCase());
-      if (sceneTagNames.includes(tagStraight)) {
-        return {
-          type: 'straight',
-          className: 'scene-straight-icon',
-          title: 'Scene contains straight tag',
-        } as const;
-      }
+      // Get role tag IDs from configuration
+      const roleTagIds = configuration?.ui?.roleTagIds ?? {};
+      const sexTagId = roleTagIds.sexTagId;
+      const oralTagId = roleTagIds.oralTagId;
+      const soloTagId = roleTagIds.soloTagId;
+      const facialTagId = roleTagIds.facialTagId;
 
-      if (!sceneData?.findScene?.performers) return null;
+      // Helper to check if a tag matches (including parent/child relationships)
+      const tagMatches = (tag: any, targetId: string | undefined) => {
+        if (!targetId || !tag) return false;
+        if (tag.id === targetId) return true;
+        // Check if tag is a child of targetId
+        const parents = tag.parents ?? [];
+        return parents.some((p: any) => p.id === targetId);
+      };
 
-      const performers = sceneData.findScene.performers;
-      const allTags = new Set<string>();
-
-      // Collect all unique tag names from performer_scene_tags
-      for (const p of performers) {
-        const sceneTags = (p as any).scene_tags as Array<{ id: string; name: string }> | undefined;
-        if (sceneTags) {
-          for (const tag of sceneTags) {
-            if (tag?.name) {
-              allTags.add(tag.name.toLowerCase());
-            }
-          }
+      // Get scene marker tag IDs (including hierarchy)
+      const markerTagIds = new Set<string>();
+      const sceneMarkers = (props.scene as any).scene_markers ?? [];
+      for (const marker of sceneMarkers) {
+        // Check primary tag
+        if (marker?.primary_tag) {
+          if (sexTagId && tagMatches(marker.primary_tag, sexTagId)) markerTagIds.add(sexTagId);
+          if (oralTagId && tagMatches(marker.primary_tag, oralTagId)) markerTagIds.add(oralTagId);
+          if (soloTagId && tagMatches(marker.primary_tag, soloTagId)) markerTagIds.add(soloTagId);
+          if (facialTagId && tagMatches(marker.primary_tag, facialTagId)) markerTagIds.add(facialTagId);
+        }
+        // Check secondary tags
+        const markerTags = marker?.tags ?? [];
+        for (const tag of markerTags) {
+          if (sexTagId && tagMatches(tag, sexTagId)) markerTagIds.add(sexTagId);
+          if (oralTagId && tagMatches(tag, oralTagId)) markerTagIds.add(oralTagId);
+          if (soloTagId && tagMatches(tag, soloTagId)) markerTagIds.add(soloTagId);
+          if (facialTagId && tagMatches(tag, facialTagId)) markerTagIds.add(facialTagId);
         }
       }
 
-  const tagsArray = Array.from(allTags);
-
-  const cfg2 = configuration?.ui?.sceneTagAliases ?? {};
-  const tagTop = (cfg2.top ?? "top").toLowerCase();
-  const tagBottom = (cfg2.bottom ?? "bottom").toLowerCase();
-  const tagOralBottom = (cfg2.oralbottom ?? "oralbottom").toLowerCase();
-  const tagOralTop = (cfg2.oraltop ?? "oraltop").toLowerCase();
-  const tagSolo = (cfg2.solo ?? "solo").toLowerCase();
-
-  // Check for mouth icon conditions (prioritized)
-  const hasOralBottomTag = tagsArray.includes(tagOralBottom);
-  const hasOralTopTag = tagsArray.includes(tagOralTop);
-  const hasTopTag = tagsArray.includes(tagTop);
-  const hasBottomTag = tagsArray.includes(tagBottom);
-      // Highest precedence: gay icon if Top and/or Bottom present
-      if (hasTopTag || hasBottomTag) {
+      // Priority: sex > oral > solo > facial
+      if (sexTagId && markerTagIds.has(sexTagId)) {
         return {
           type: 'gay',
           className: "scene-gay-icon",
-          title: "Scene contains top/bottom tags",
+          title: "Scene has sex markers",
         };
       }
-      if ((hasOralBottomTag || hasOralTopTag) && !hasTopTag && !hasBottomTag) {
+      
+      if (oralTagId && markerTagIds.has(oralTagId)) {
         return {
           type: 'mouth',
           className: "scene-mouth-icon",
-          title: "Scene contains oral tags",
+          title: "Scene has oral markers",
         };
       }
 
-      // Check for hand icon conditions (secondary)
-  const hasSoloTag = tagsArray.includes(tagSolo) || tagsArray.some(tag => tag.includes(tagSolo));
-
-      if (hasSoloTag && !hasTopTag && !hasBottomTag && !hasOralBottomTag && !hasOralTopTag) {
+      if (soloTagId && markerTagIds.has(soloTagId)) {
         return {
           type: 'hand',
           icon: faHand,
           className: "scene-hand-icon",
-          title: "Scene contains solo tags"
+          title: "Scene has solo markers"
+        };
+      }
+
+      if (facialTagId && markerTagIds.has(facialTagId)) {
+        return {
+          type: 'goatee',
+          className: "scene-goatee-icon",
+          title: "Scene has facial markers"
         };
       }
 
       return null;
-  }, [sceneData, configuration?.ui]);
+  }, [props.scene, configuration?.ui]);
 
     const pretitleIcon = useMemo(() => {
       const pieces: JSX.Element[] = [];
       if (iconToShow) {
         const t = (iconToShow as any).type as string | undefined;
-        if (t === 'mouth' || t === 'gay' || t === 'straight') {
+        if (t === 'mouth' || t === 'gay' || t === 'straight' || t === 'goatee') {
           pieces.push(
             <img
               key="primary"
-              src={t === 'gay' ? gaySvg : t === 'straight' ? straightSvg : mouthSvg}
-              alt={(iconToShow as any).title || (t === 'gay' ? 'Gay' : t === 'straight' ? 'Straight' : 'Open Mouth')}
+              src={t === 'gay' ? gaySvg : t === 'straight' ? straightSvg : t === 'goatee' ? goateeSvg : mouthSvg}
+              alt={(iconToShow as any).title || (t === 'gay' ? 'Gay' : t === 'straight' ? 'Straight' : t === 'goatee' ? 'Facial' : 'Open Mouth')}
               title={(iconToShow as any).title}
               className={(iconToShow as any).className}
             />

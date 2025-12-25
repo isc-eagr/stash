@@ -45,7 +45,7 @@ interface ITagList {
   sceneCountOnly?: boolean;
   // optional callback invoked when the current list of tags is available/updated
   onTags?: (tags: GQL.TagDataFragment[]) => void;
-  // optional performer context; when present tag->scenes links should filter by performer_scene_tags
+  // optional performer context; when present tag->scenes links use scene markers
   performerId?: string;
   // optional performer name to display in generated performer criteria labels
   performerName?: string;

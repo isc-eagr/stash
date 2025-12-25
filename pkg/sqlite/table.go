@@ -250,13 +250,6 @@ func (t *joinTable) replaceJoins(ctx context.Context, id int, foreignIDs []int) 
 		return err
 	}
 
-	// if this is the scenes<->performers join table, delete any per-performer scene tags for removed performers
-	if len(removed) > 0 && t.table.table.GetTable() == performersScenesTable {
-		if err := deletePerformersSceneTags(ctx, id, removed); err != nil {
-			return err
-		}
-	}
-
 	return t.insertJoins(ctx, id, foreignIDs)
 }
 
@@ -280,27 +273,6 @@ func (t *joinTable) destroyJoins(ctx context.Context, id int, foreignIDs []int) 
 
 	if _, err := exec(ctx, q); err != nil {
 		return fmt.Errorf("destroying %s: %w", t.table.table.GetTable(), err)
-	}
-
-	// If removing performers from a scene, also remove any performer-scoped scene tags
-	if t.table.table.GetTable() == performersScenesTable {
-		if err := deletePerformersSceneTags(ctx, id, foreignIDs); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// deletePerformersSceneTags deletes rows from performer_scene_tags for the given scene and performer ids.
-func deletePerformersSceneTags(ctx context.Context, sceneID int, performerIDs []int) error {
-	// build delete: DELETE FROM performer_scene_tags WHERE scene_id = ? AND performer_id IN (?)
-	q := dialect.Delete(goqu.T("performer_scene_tags")).Where(
-		goqu.Ex{"scene_id": sceneID, "performer_id": goqu.Op{"IN": performerIDs}},
-	)
-
-	if _, err := exec(ctx, q); err != nil {
-		return fmt.Errorf("destroying performer_scene_tags for scene %d: %w", sceneID, err)
 	}
 
 	return nil

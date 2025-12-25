@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Button, ButtonGroup, ListGroup, Badge } from "react-bootstrap";
+import React, { useEffect, useState, useRef } from "react";
+import { Button, ButtonGroup, Collapse, Form, InputGroup } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Icon } from "src/components/Shared/Icon";
 import {
@@ -7,15 +7,18 @@ import {
   faTrash,
   faPlay,
   faStop,
-  faChevronUp,
-  faChevronDown,
-  faRepeat,
   faClock,
   faArrowUp,
   faArrowDown,
+  faSave,
+  faFolderOpen,
+  faTimes,
+  faChevronDown,
+  faChevronRight,
 } from "@fortawesome/free-solid-svg-icons";
 import TextUtils from "src/utils/text";
 import type { ILoopSegment } from "./multi-segment-loop";
+import cx from "classnames";
 
 interface IMultiSegmentLoopControlsProps {
   segments: ILoopSegment[];
@@ -31,7 +34,13 @@ interface IMultiSegmentLoopControlsProps {
   onReorderSegment: (fromIndex: number, toIndex: number) => void;
   onUpdateSegmentStart?: (id: string) => void;
   onUpdateSegmentEnd?: (id: string) => void;
+  presetNames?: string[];
+  onSavePreset?: (name: string) => void;
+  onLoadPreset?: (name: string) => void;
+  onDeletePreset?: (name: string) => void;
+  onClose?: () => void;
   collapsed?: boolean;
+  isFullscreen?: boolean;
 }
 
 export const MultiSegmentLoopControls: React.FC<IMultiSegmentLoopControlsProps> = ({
@@ -48,10 +57,34 @@ export const MultiSegmentLoopControls: React.FC<IMultiSegmentLoopControlsProps> 
   onReorderSegment,
   onUpdateSegmentStart,
   onUpdateSegmentEnd,
-  collapsed = true, // Default to collapsed
+  presetNames = [],
+  onSavePreset,
+  onLoadPreset,
+  onDeletePreset,
+  onClose,
+  collapsed = true,
+  isFullscreen = false,
 }) => {
   const intl = useIntl();
-  const [isExpanded, setIsExpanded] = useState(!collapsed);
+  const [presetsExpanded, setPresetsExpanded] = useState(false);
+  const [savePresetName, setSavePresetName] = useState("");
+  const [showSaveInput, setShowSaveInput] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<string>("");
+  const saveInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setSelectedPreset((prev) => {
+      if (!presetNames.length) return "";
+      if (prev && presetNames.includes(prev)) return prev;
+      return ""; // Keep None selected by default
+    });
+  }, [presetNames]);
+
+  useEffect(() => {
+    if (showSaveInput && saveInputRef.current) {
+      saveInputRef.current.focus();
+    }
+  }, [showSaveInput]);
 
   const formatTime = (seconds: number): string => {
     return TextUtils.secondsToTimestamp(seconds);
@@ -77,139 +110,127 @@ export const MultiSegmentLoopControls: React.FC<IMultiSegmentLoopControlsProps> 
     return segments.reduce((sum, seg) => sum + getSegmentDuration(seg), 0);
   };
 
-  if (!isExpanded) {
-    return (
-      <div className="multi-segment-loop-controls collapsed">
-        <Button
-          variant="link"
-          size="sm"
-          onClick={() => setIsExpanded(true)}
-          className="expand-toggle"
-          title={intl.formatMessage({ id: "multi_segment_loop.expand" })}
-        >
-          <Icon icon={faChevronDown} className="mr-1" />
-          <Icon icon={faRepeat} />
-          <span className="ml-1">
-            <FormattedMessage id="multi_segment_loop.title" />
-          </span>
-          {segments.length > 0 && (
-            <Badge variant="info" className="ml-2">
-              {segments.length}
-            </Badge>
-          )}
-          {enabled && (
-            <Badge variant="success" className="ml-1">
-              <FormattedMessage id="multi_segment_loop.on" />
-            </Badge>
-          )}
-        </Button>
-      </div>
+  const handleSavePreset = () => {
+    if (!onSavePreset || !savePresetName.trim()) return;
+    onSavePreset(savePresetName.trim());
+    setSavePresetName("");
+    setShowSaveInput(false);
+  };
+
+  const handleLoadPreset = () => {
+    if (!onLoadPreset || !selectedPreset) return;
+    onLoadPreset(selectedPreset);
+  };
+
+  const handleDeletePreset = () => {
+    if (!onDeletePreset || !selectedPreset) return;
+    const ok = window.confirm(
+      intl.formatMessage(
+        { id: "multi_segment_loop.delete_preset_confirm" },
+        { name: selectedPreset }
+      )
     );
-  }
+    if (ok) {
+      onDeletePreset(selectedPreset);
+    }
+  };
 
-  return (
-    <div className="multi-segment-loop-controls">
-      <div className="multi-segment-loop-header">
-        <Button
-          variant="link"
-          size="sm"
-          onClick={() => setIsExpanded(false)}
-          className="expand-toggle"
-          title={intl.formatMessage({ id: "multi_segment_loop.expand" })}
-        >
-          <Icon icon={faChevronUp} className="mr-1" />
-          <Icon icon={faRepeat} />
-          <span className="ml-1">
-            <FormattedMessage id="multi_segment_loop.title" />
-          </span>
+  const handleSaveKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSavePreset();
+    } else if (e.key === "Escape") {
+      setShowSaveInput(false);
+      setSavePresetName("");
+    }
+  };
+
+  const content = (
+    <div className={cx("multi-segment-loop-controls-v2", {
+      "modal-mode": !collapsed && onClose
+    })}>
+      {/* Header */}
+      <div className="msl-header">
+        <span className="msl-title">
+          <FormattedMessage id="multi_segment_loop.title" />
           {segments.length > 0 && (
-            <Badge variant="info" className="ml-2">
-              {segments.length}
-            </Badge>
+            <span className="msl-count">({segments.length})</span>
           )}
-          {enabled && (
-            <Badge variant="success" className="ml-1">
-              <FormattedMessage id="multi_segment_loop.on" />
-            </Badge>
-          )}
-        </Button>
-      </div>
-
-      <div className="multi-segment-loop-actions">
-        <ButtonGroup size="sm" className="mb-2">
+        </span>
+        {onClose && (
           <Button
-            variant={pendingStart !== null ? "warning" : "primary"}
-            onClick={onMarkPoint}
-            title={
-              pendingStart !== null
-                ? intl.formatMessage(
-                    { id: "multi_segment_loop.set_end" },
-                    { start: formatTime(pendingStart) }
-                  )
-                : intl.formatMessage({ id: "multi_segment_loop.set_start" })
-            }
-          >
-            <Icon icon={pendingStart !== null ? faClock : faPlus} />
-            <span className="ml-1">
-              {pendingStart !== null ? (
-                <FormattedMessage
-                  id="multi_segment_loop.set_end_short"
-                  values={{ time: formatTime(pendingStart) }}
-                />
-              ) : (
-                <FormattedMessage id="multi_segment_loop.add_segment" />
-              )}
-            </span>
-          </Button>
-          {pendingStart !== null && (
-            <Button variant="secondary" onClick={onCancelPending}>
-              <FormattedMessage id="actions.cancel" />
-            </Button>
-          )}
-        </ButtonGroup>
-
-        <ButtonGroup size="sm" className="mb-2 ml-2">
-          <Button
-            variant={enabled ? "success" : "outline-secondary"}
-            onClick={onToggleEnabled}
-            disabled={segments.length === 0}
-            title={intl.formatMessage({
-              id: enabled
-                ? "multi_segment_loop.disable"
-                : "multi_segment_loop.enable",
-            })}
-          >
-            <Icon icon={enabled ? faStop : faPlay} />
-            <span className="ml-1">
-              <FormattedMessage
-                id={
-                  enabled
-                    ? "multi_segment_loop.loop_on"
-                    : "multi_segment_loop.loop_off"
-                }
-              />
-            </span>
-          </Button>
-        </ButtonGroup>
-
-        {segments.length > 0 && (
-          <Button
-            variant="outline-danger"
+            variant="link"
             size="sm"
-            className="ml-2 mb-2"
-            onClick={onClearSegments}
+            onClick={onClose}
+            className="msl-close-btn"
+            title={intl.formatMessage({ id: "actions.close" })}
           >
-            <Icon icon={faTrash} />
-            <span className="ml-1">
-              <FormattedMessage id="multi_segment_loop.clear_all" />
-            </span>
+            <Icon icon={faTimes} />
           </Button>
         )}
       </div>
 
+      {/* Main Actions Row */}
+      <div className="msl-main-actions">
+        <Button
+          variant={pendingStart !== null ? "warning" : "outline-secondary"}
+          size="sm"
+          onClick={onMarkPoint}
+          className="msl-add-btn"
+          title={
+            pendingStart !== null
+              ? intl.formatMessage(
+                  { id: "multi_segment_loop.set_end" },
+                  { start: formatTime(pendingStart) }
+                )
+              : intl.formatMessage({ id: "multi_segment_loop.set_start" })
+          }
+        >
+          <Icon icon={pendingStart !== null ? faClock : faPlus} />
+          <span className="ml-1">
+            {pendingStart !== null
+              ? formatTime(pendingStart)
+              : intl.formatMessage({ id: "multi_segment_loop.add" })}
+          </span>
+        </Button>
+        {pendingStart !== null && (
+          <Button variant="outline-secondary" size="sm" onClick={onCancelPending}>
+            <Icon icon={faTimes} />
+          </Button>
+        )}
+        <Button
+          variant={enabled ? "success" : "outline-secondary"}
+          size="sm"
+          onClick={onToggleEnabled}
+          disabled={segments.length === 0}
+          className="msl-toggle-btn"
+          title={intl.formatMessage({
+            id: enabled ? "multi_segment_loop.disable" : "multi_segment_loop.enable",
+          })}
+        >
+          <Icon icon={enabled ? faStop : faPlay} />
+          <span className="ml-1">
+            {enabled
+              ? intl.formatMessage({ id: "multi_segment_loop.on" })
+              : intl.formatMessage({ id: "multi_segment_loop.off" })}
+          </span>
+        </Button>
+        {segments.length > 0 && (
+          <Button
+            variant="outline-danger"
+            size="sm"
+            onClick={onClearSegments}
+            title={intl.formatMessage({ id: "multi_segment_loop.clear_all" })}
+          >
+            <Icon icon={faTrash} />
+          </Button>
+        )}
+      </div>
+
+      {/* Segment List */}
       {segments.length > 0 && (
-        <>
-          <div className="multi-segment-loop-summary">
+        <div className="msl-segment-list">
+          <div className="msl-segment-list-header">
             <small className="text-muted">
               <FormattedMessage
                 id="multi_segment_loop.summary"
@@ -220,108 +241,242 @@ export const MultiSegmentLoopControls: React.FC<IMultiSegmentLoopControlsProps> 
               />
             </small>
           </div>
-
-          <ListGroup className="multi-segment-loop-list">
-            {segments.map((segment, index) => (
-              <ListGroup.Item
-                key={segment.id}
-                className={`segment-item ${
-                  enabled && index === currentSegmentIndex ? "active-segment" : ""
-                }`}
-                action
-                onClick={() => onJumpToSegment(index)}
-              >
-                <div className="segment-info">
-                  <span className="segment-number">{index + 1}.</span>
-                  <span className="segment-times">
-                    <span
-                      className={onUpdateSegmentStart ? "clickable-time" : ""}
-                      onClick={(e) => {
-                        if (onUpdateSegmentStart) {
-                          e.stopPropagation();
-                          onUpdateSegmentStart(segment.id);
-                        }
-                      }}
-                      title={onUpdateSegmentStart ? intl.formatMessage({ id: "multi_segment_loop.click_to_set_start" }) : undefined}
-                    >
-                      {formatTime(segment.start)}
-                    </span>
-                    {" - "}
-                    <span
-                      className={onUpdateSegmentEnd ? "clickable-time" : ""}
-                      onClick={(e) => {
-                        if (onUpdateSegmentEnd) {
-                          e.stopPropagation();
-                          onUpdateSegmentEnd(segment.id);
-                        }
-                      }}
-                      title={onUpdateSegmentEnd ? intl.formatMessage({ id: "multi_segment_loop.click_to_set_end" }) : undefined}
-                    >
-                      {formatTime(segment.end)}
-                    </span>
-                  </span>
-                  <span className="segment-duration">
-                    ({formatTime(getSegmentDuration(segment))})
-                  </span>
-                </div>
-                <div className="segment-actions">
-                  <ButtonGroup size="sm">
-                    <Button
-                      variant="link"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleMoveUp(index);
-                      }}
-                      disabled={index === 0}
-                      title={intl.formatMessage({
-                        id: "multi_segment_loop.move_up",
-                      })}
-                    >
-                      <Icon icon={faArrowUp} />
-                    </Button>
-                    <Button
-                      variant="link"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleMoveDown(index);
-                      }}
-                      disabled={index === segments.length - 1}
-                      title={intl.formatMessage({
-                        id: "multi_segment_loop.move_down",
-                      })}
-                    >
-                      <Icon icon={faArrowDown} />
-                    </Button>
-                    <Button
-                      variant="link"
-                      className="text-danger"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRemoveSegment(segment.id);
-                      }}
-                      title={intl.formatMessage({
-                        id: "multi_segment_loop.remove_segment",
-                      })}
-                    >
-                      <Icon icon={faTrash} />
-                    </Button>
-                  </ButtonGroup>
-                </div>
-              </ListGroup.Item>
-            ))}
-          </ListGroup>
-        </>
+          {segments.map((segment, index) => (
+            <div
+              key={segment.id}
+              className={cx("msl-segment-row", {
+                "msl-segment-active": enabled && index === currentSegmentIndex,
+              })}
+              onClick={() => onJumpToSegment(index)}
+            >
+              <span className="msl-segment-num">{index + 1}</span>
+              <span className="msl-segment-times">
+                <span
+                  className={cx("msl-time", { clickable: !!onUpdateSegmentStart })}
+                  onClick={(e) => {
+                    if (onUpdateSegmentStart) {
+                      e.stopPropagation();
+                      onUpdateSegmentStart(segment.id);
+                    }
+                  }}
+                  title={
+                    onUpdateSegmentStart
+                      ? intl.formatMessage({ id: "multi_segment_loop.click_to_set_start" })
+                      : undefined
+                  }
+                >
+                  {formatTime(segment.start)}
+                </span>
+                <span className="msl-time-sep">–</span>
+                <span
+                  className={cx("msl-time", { clickable: !!onUpdateSegmentEnd })}
+                  onClick={(e) => {
+                    if (onUpdateSegmentEnd) {
+                      e.stopPropagation();
+                      onUpdateSegmentEnd(segment.id);
+                    }
+                  }}
+                  title={
+                    onUpdateSegmentEnd
+                      ? intl.formatMessage({ id: "multi_segment_loop.click_to_set_end" })
+                      : undefined
+                  }
+                >
+                  {formatTime(segment.end)}
+                </span>
+              </span>
+              <span className="msl-segment-duration">
+                ({formatTime(getSegmentDuration(segment))})
+              </span>
+              <div className="msl-segment-actions">
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleMoveUp(index);
+                  }}
+                  disabled={index === 0}
+                  title={intl.formatMessage({ id: "multi_segment_loop.move_up" })}
+                >
+                  <Icon icon={faArrowUp} />
+                </Button>
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleMoveDown(index);
+                  }}
+                  disabled={index === segments.length - 1}
+                  title={intl.formatMessage({ id: "multi_segment_loop.move_down" })}
+                >
+                  <Icon icon={faArrowDown} />
+                </Button>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="text-danger"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveSegment(segment.id);
+                  }}
+                  title={intl.formatMessage({ id: "multi_segment_loop.remove_segment" })}
+                >
+                  <Icon icon={faTrash} />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       {segments.length === 0 && (
-        <div className="multi-segment-loop-empty">
+        <div className="msl-empty">
           <small className="text-muted">
             <FormattedMessage id="multi_segment_loop.no_segments" />
           </small>
         </div>
       )}
+
+      {/* Presets Section (Collapsible) */}
+      {(segments.length > 0 || presetNames.length > 0) && (
+        <div className="msl-presets-section">
+          <Button
+            variant="link"
+            size="sm"
+            className="msl-presets-toggle"
+            onClick={() => setPresetsExpanded(!presetsExpanded)}
+          >
+            <Icon icon={presetsExpanded ? faChevronDown : faChevronRight} />
+            <span className="ml-1">
+              <FormattedMessage id="multi_segment_loop.presets" />
+              {presetNames.length > 0 && (
+                <span className="msl-preset-count">({presetNames.length})</span>
+              )}
+            </span>
+          </Button>
+
+          <Collapse in={presetsExpanded}>
+            <div className="msl-presets-content">
+              {/* Save preset */}
+              {segments.length > 0 && onSavePreset && (
+                <div className="msl-preset-save">
+                  {showSaveInput ? (
+                    <InputGroup size="sm">
+                      <Form.Control
+                        ref={saveInputRef}
+                        type="text"
+                        placeholder={intl.formatMessage({
+                          id: "multi_segment_loop.preset_name_placeholder",
+                        })}
+                        value={savePresetName}
+                        onChange={(e) => setSavePresetName(e.target.value)}
+                        onKeyDown={handleSaveKeyDown}
+                      />
+                      <Button
+                        variant="success"
+                        onClick={handleSavePreset}
+                        disabled={!savePresetName.trim()}
+                      >
+                        <Icon icon={faSave} />
+                      </Button>
+                      <Button
+                        variant="outline-secondary"
+                        onClick={() => {
+                          setShowSaveInput(false);
+                          setSavePresetName("");
+                        }}
+                      >
+                        <Icon icon={faTimes} />
+                      </Button>
+                    </InputGroup>
+                  ) : (
+                    <Button
+                      variant="outline-secondary"
+                      size="sm"
+                      onClick={() => setShowSaveInput(true)}
+                      className="w-100"
+                    >
+                      <Icon icon={faSave} />
+                      <span className="ml-1">
+                        <FormattedMessage id="multi_segment_loop.save_config" />
+                      </span>
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {/* Load/Delete preset */}
+              {presetNames.length > 0 && (
+                <div className="msl-preset-load">
+                  <Form.Control
+                    as="select"
+                    size="sm"
+                    value={selectedPreset}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      setSelectedPreset(name);
+                      if (onLoadPreset && name) {
+                        onLoadPreset(name);
+                      }
+                    }}
+                    className="msl-preset-select"
+                  >
+                    <option value="">
+                      {intl.formatMessage({ id: "none", defaultMessage: "None" })}
+                    </option>
+                    {presetNames.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </Form.Control>
+                  <Button
+                    variant="outline-danger"
+                    size="sm"
+                    onClick={handleDeletePreset}
+                    disabled={!onDeletePreset || !selectedPreset}
+                    title={intl.formatMessage({ id: "actions.delete" })}
+                  >
+                    <Icon icon={faTrash} />
+                  </Button>
+                </div>
+              )}
+
+              {presetNames.length === 0 && (
+                <small className="text-muted d-block text-center mt-2">
+                  <FormattedMessage id="multi_segment_loop.no_saved_configs" />
+                </small>
+              )}
+            </div>
+          </Collapse>
+        </div>
+      )}
     </div>
   );
+
+  if (!collapsed && onClose) {
+    return (
+      <>
+        <div
+          className={cx("multi-segment-loop-modal-backdrop", {
+            "fullscreen-mode": isFullscreen,
+          })}
+          onClick={onClose}
+        />
+        <div
+          className={cx("multi-segment-loop-modal-container", {
+            "fullscreen-mode": isFullscreen,
+          })}
+        >
+          {content}
+        </div>
+      </>
+    );
+  }
+
+  return content;
 };
 
 export default MultiSegmentLoopControls;

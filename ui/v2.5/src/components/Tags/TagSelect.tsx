@@ -87,7 +87,7 @@ const _TagSelect: React.FC<TagSelectProps> = (props) => {
     filter.itemsPerPage = maxOptionsShown;
     filter.sortBy = "name";
     filter.sortDirection = GQL.SortDirectionEnum.Asc;
-    // Apply optional tag filter override to constrain results (e.g., only tags with performer_scene_tags)
+    // Apply optional tag filter override to constrain results
     const query = props.tagFilter
       ? await queryFindTagsForSelectWithTagFilter(
           filter,

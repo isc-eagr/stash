@@ -1,5 +1,13 @@
 package models
 
+// MarkerPerformersFilterInput is the input for filtering by marker performers with giver/receiver roles
+type MarkerPerformersFilterInput struct {
+	GiverPerformerIDs    []string          `json:"giver_performer_ids"`
+	ReceiverPerformerIDs []string          `json:"receiver_performer_ids"`
+	Mode                 *string           `json:"mode"` // "AND" or "OR" (default: "OR")
+	Modifier             CriterionModifier `json:"modifier"`
+}
+
 type SceneMarkerFilterType struct {
 	// Filter to only include scene markers with this tag
 	TagID *string `json:"tag_id"`
@@ -15,8 +23,6 @@ type SceneMarkerFilterType struct {
 	PerformerEthnicity *StringCriterionInput `json:"performer_ethnicity"`
 	// Filter to only include scene markers by performer country (scene performers)
 	PerformerCountry *StringCriterionInput `json:"performer_country"`
-	// Filter by performer scene tag with optional performer attributes per group (applied to the marker's scene)
-	PerformerSceneTagsWithAttrs *PerformerSceneTagsWithAttrsCriterionInput `json:"performer_scene_tags_with_attrs"`
 	// When true, all linked performers must satisfy the performer_rating condition; when false, at least one performer must satisfy it (default: true)
 	PerformerRatingAll *bool `json:"performer_rating_all"`
 
@@ -26,8 +32,8 @@ type SceneMarkerFilterType struct {
 	// Filter by whether the marker has an end time
 	HasEndTime *bool `json:"has_end_time"`
 
-	// Filter by performers assigned directly to the marker (via scene_marker_performers table)"
-	MarkerPerformers *MultiCriterionInput `json:"marker_performers"`
+	// Filter by performers assigned directly to the marker with giver/receiver role support
+	MarkerPerformers *MarkerPerformersFilterInput `json:"marker_performers"`
 	// Filter by ethnicity of performers assigned directly to the marker
 	MarkerPerformerEthnicity *StringCriterionInput `json:"marker_performer_ethnicity"`
 	// Filter by country of performers assigned directly to the marker
@@ -38,6 +44,9 @@ type SceneMarkerFilterType struct {
 	MarkerPerformerRatingAll *bool `json:"marker_performer_rating_all"`
 	// Filter by whether the marker has performers assigned directly to it
 	HasMarkerPerformers *string `json:"has_marker_performers"`
+
+	// Filter by marker tags with performer attributes (giver/receiver/both roles)
+	MarkerTagsWithPerformers *SceneMarkerTagsCriterionInput `json:"marker_tags_with_performers"`
 
 	// Filter to only include scene markers from these scenes
 	Scenes *MultiCriterionInput `json:"scenes"`

@@ -45,7 +45,7 @@ import {
 } from "src/utils/imageWall";
 import { defaultMaxOptionsShown } from "src/core/config";
 import { PatchComponent } from "src/patch";
-import { TagSelect, Tag as TagOption } from "src/components/Tags/TagSelect";
+import { TagIDSelect, Tag as TagOption } from "src/components/Tags/TagSelect";
 
 const allMenuItems = [
   { id: "scenes", headingID: "scenes" },
@@ -285,170 +285,80 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
           />
         </SettingSection>
 
-        <SettingSection headingID="config.ui.scene_tag_aliases.heading">
+        <SettingSection headingID="config.ui.role_tags.heading">
           <div className="setting-group">
             <div className="setting">
               <div>
                 <h3>
-                  {intl.formatMessage({ id: "config.ui.scene_tag_aliases.title" })}
+                  {intl.formatMessage({ id: "config.ui.role_tags.title" })}
                 </h3>
                 <div className="sub-heading">
-                  {intl.formatMessage({ id: "config.ui.scene_tag_aliases.description" })}
+                  {intl.formatMessage({ id: "config.ui.role_tags.description" })}
                 </div>
               </div>
               <div />
             </div>
           </div>
 
-          <Setting id="scene-tag-top" headingID="config.ui.scene_tag_aliases.top">
-            <TagSelect
+          <Setting id="role-tag-sex" headingID="config.ui.role_tags.sex">
+            <TagIDSelect
               isMulti={false}
               creatable={false}
-              noSelectionString={ui.sceneTagAliases?.top ?? ""}
+              ids={ui.roleTagIds?.sexTagId ? [ui.roleTagIds.sexTagId] : []}
               menuPortalTarget={document.body}
-              tagFilter={{ has_performer_scene_tags: true }}
               onSelect={(items: TagOption[]) =>
                 saveUI({
-                  sceneTagAliases: {
-                    ...(ui.sceneTagAliases ?? {}),
-                    top: items[0]?.name ?? "",
+                  roleTagIds: {
+                    ...(ui.roleTagIds ?? {}),
+                    sexTagId: items[0]?.id ?? undefined,
                   },
                 })
               }
             />
           </Setting>
-          <Setting
-            id="scene-tag-bottom"
-            headingID="config.ui.scene_tag_aliases.bottom"
-          >
-            <TagSelect
+          <Setting id="role-tag-oral" headingID="config.ui.role_tags.oral">
+            <TagIDSelect
               isMulti={false}
               creatable={false}
-              noSelectionString={ui.sceneTagAliases?.bottom ?? ""}
+              ids={ui.roleTagIds?.oralTagId ? [ui.roleTagIds.oralTagId] : []}
               menuPortalTarget={document.body}
-              tagFilter={{ has_performer_scene_tags: true }}
               onSelect={(items: TagOption[]) =>
                 saveUI({
-                  sceneTagAliases: {
-                    ...(ui.sceneTagAliases ?? {}),
-                    bottom: items[0]?.name ?? "",
+                  roleTagIds: {
+                    ...(ui.roleTagIds ?? {}),
+                    oralTagId: items[0]?.id ?? undefined,
                   },
                 })
               }
             />
           </Setting>
-          <Setting
-            id="scene-tag-oraltop"
-            headingID="config.ui.scene_tag_aliases.oraltop"
-          >
-            <TagSelect
+          <Setting id="role-tag-solo" headingID="config.ui.role_tags.solo">
+            <TagIDSelect
               isMulti={false}
               creatable={false}
-              noSelectionString={ui.sceneTagAliases?.oraltop ?? ""}
+              ids={ui.roleTagIds?.soloTagId ? [ui.roleTagIds.soloTagId] : []}
               menuPortalTarget={document.body}
-              tagFilter={{ has_performer_scene_tags: true }}
               onSelect={(items: TagOption[]) =>
                 saveUI({
-                  sceneTagAliases: {
-                    ...(ui.sceneTagAliases ?? {}),
-                    oraltop: items[0]?.name ?? "",
+                  roleTagIds: {
+                    ...(ui.roleTagIds ?? {}),
+                    soloTagId: items[0]?.id ?? undefined,
                   },
                 })
               }
             />
           </Setting>
-          <Setting
-            id="scene-tag-oralbottom"
-            headingID="config.ui.scene_tag_aliases.oralbottom"
-          >
-            <TagSelect
+          <Setting id="role-tag-facial" headingID="config.ui.role_tags.facial">
+            <TagIDSelect
               isMulti={false}
               creatable={false}
-              noSelectionString={ui.sceneTagAliases?.oralbottom ?? ""}
+              ids={ui.roleTagIds?.facialTagId ? [ui.roleTagIds.facialTagId] : []}
               menuPortalTarget={document.body}
-              tagFilter={{ has_performer_scene_tags: true }}
               onSelect={(items: TagOption[]) =>
                 saveUI({
-                  sceneTagAliases: {
-                    ...(ui.sceneTagAliases ?? {}),
-                    oralbottom: items[0]?.name ?? "",
-                  },
-                })
-              }
-            />
-          </Setting>
-          <Setting id="scene-tag-solo" headingID="config.ui.scene_tag_aliases.solo">
-            <TagSelect
-              isMulti={false}
-              creatable={false}
-              noSelectionString={ui.sceneTagAliases?.solo ?? ""}
-              menuPortalTarget={document.body}
-              tagFilter={{ has_performer_scene_tags: true }}
-              onSelect={(items: TagOption[]) =>
-                saveUI({
-                  sceneTagAliases: {
-                    ...(ui.sceneTagAliases ?? {}),
-                    solo: items[0]?.name ?? "",
-                  },
-                })
-              }
-            />
-          </Setting>
-          <Setting
-            id="scene-tag-facialgiven"
-            headingID="config.ui.scene_tag_aliases.facialgiven"
-          >
-            <TagSelect
-              isMulti={false}
-              creatable={false}
-              noSelectionString={ui.sceneTagAliases?.facialgiven ?? ""}
-              menuPortalTarget={document.body}
-              tagFilter={{ has_performer_scene_tags: true }}
-              onSelect={(items: TagOption[]) =>
-                saveUI({
-                  sceneTagAliases: {
-                    ...(ui.sceneTagAliases ?? {}),
-                    facialgiven: items[0]?.name ?? "",
-                  },
-                })
-              }
-            />
-          </Setting>
-          <Setting
-            id="scene-tag-facialreceived"
-            headingID="config.ui.scene_tag_aliases.facialreceived"
-          >
-            <TagSelect
-              isMulti={false}
-              creatable={false}
-              noSelectionString={ui.sceneTagAliases?.facialreceived ?? ""}
-              menuPortalTarget={document.body}
-              tagFilter={{ has_performer_scene_tags: true }}
-              onSelect={(items: TagOption[]) =>
-                saveUI({
-                  sceneTagAliases: {
-                    ...(ui.sceneTagAliases ?? {}),
-                    facialreceived: items[0]?.name ?? "",
-                  },
-                })
-              }
-            />
-          </Setting>
-          <Setting
-            id="scene-tag-selffacial"
-            headingID="config.ui.scene_tag_aliases.selffacial"
-          >
-            <TagSelect
-              isMulti={false}
-              creatable={false}
-              noSelectionString={ui.sceneTagAliases?.selffacial ?? ""}
-              menuPortalTarget={document.body}
-              tagFilter={{ has_performer_scene_tags: true }}
-              onSelect={(items: TagOption[]) =>
-                saveUI({
-                  sceneTagAliases: {
-                    ...(ui.sceneTagAliases ?? {}),
-                    selffacial: items[0]?.name ?? "",
+                  roleTagIds: {
+                    ...(ui.roleTagIds ?? {}),
+                    facialTagId: items[0]?.id ?? undefined,
                   },
                 })
               }

@@ -676,6 +676,16 @@ func (r *mutationResolver) SceneMarkerCreate(ctx context.Context, input SceneMar
 		return nil, fmt.Errorf("converting performer ids: %w", err)
 	}
 
+	// Handle giver/receiver performer IDs (new schema)
+	giverPerformerIDs, err := stringslice.StringSliceToIntSlice(input.GiverPerformerIds)
+	if err != nil {
+		return nil, fmt.Errorf("converting giver performer ids: %w", err)
+	}
+	receiverPerformerIDs, err := stringslice.StringSliceToIntSlice(input.ReceiverPerformerIds)
+	if err != nil {
+		return nil, fmt.Errorf("converting receiver performer ids: %w", err)
+	}
+
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.SceneMarker
 
@@ -691,9 +701,24 @@ func (r *mutationResolver) SceneMarkerCreate(ctx context.Context, input SceneMar
 			return err
 		}
 
-		// Save the marker performers (if any)
-		if len(performerIDs) > 0 {
-			return qb.UpdatePerformers(ctx, newMarker.ID, performerIDs)
+		// Save the marker performers
+		// Use giver/receiver if provided, otherwise fallback to legacy performer_ids (as giver for backward compat)
+		if len(giverPerformerIDs) > 0 || len(receiverPerformerIDs) > 0 {
+			if len(giverPerformerIDs) > 0 {
+				if err := qb.UpdateGiverPerformers(ctx, newMarker.ID, giverPerformerIDs); err != nil {
+					return err
+				}
+			}
+			if len(receiverPerformerIDs) > 0 {
+				if err := qb.UpdateReceiverPerformers(ctx, newMarker.ID, receiverPerformerIDs); err != nil {
+					return err
+				}
+			}
+		} else if len(performerIDs) > 0 {
+			// Legacy: treat performer_ids as giver performers for backward compatibility
+			if err := qb.UpdateGiverPerformers(ctx, newMarker.ID, performerIDs); err != nil {
+				return err
+			}
 		}
 		return nil
 	}); err != nil {
@@ -758,6 +783,25 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 		performerIDs, err = stringslice.StringSliceToIntSlice(input.PerformerIds)
 		if err != nil {
 			return nil, fmt.Errorf("converting performer ids: %w", err)
+		}
+	}
+
+	// Handle giver/receiver performer IDs (new schema)
+	var giverPerformerIDs []int
+	giverPerformerIdsIncluded := translator.hasField("giver_performer_ids")
+	if input.GiverPerformerIds != nil {
+		giverPerformerIDs, err = stringslice.StringSliceToIntSlice(input.GiverPerformerIds)
+		if err != nil {
+			return nil, fmt.Errorf("converting giver performer ids: %w", err)
+		}
+	}
+
+	var receiverPerformerIDs []int
+	receiverPerformerIdsIncluded := translator.hasField("receiver_performer_ids")
+	if input.ReceiverPerformerIds != nil {
+		receiverPerformerIDs, err = stringslice.StringSliceToIntSlice(input.ReceiverPerformerIds)
+		if err != nil {
+			return nil, fmt.Errorf("converting receiver performer ids: %w", err)
 		}
 	}
 
@@ -835,8 +879,22 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 		}
 
 		if performerIdsIncluded {
-			// Save the marker performers
-			if err := qb.UpdatePerformers(ctx, markerID, performerIDs); err != nil {
+			// Legacy: Save the marker performers using the old method (backward compatibility)
+			// This treats them as giver performers
+			if err := qb.UpdateGiverPerformers(ctx, markerID, performerIDs); err != nil {
+				return err
+			}
+		}
+
+		// Handle giver/receiver performer updates (new schema)
+		if giverPerformerIdsIncluded {
+			if err := qb.UpdateGiverPerformers(ctx, markerID, giverPerformerIDs); err != nil {
+				return err
+			}
+		}
+
+		if receiverPerformerIdsIncluded {
+			if err := qb.UpdateReceiverPerformers(ctx, markerID, receiverPerformerIDs); err != nil {
 				return err
 			}
 		}

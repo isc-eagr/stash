@@ -327,43 +327,6 @@ func (r *mutationResolver) PerformerUpdate(ctx context.Context, input models.Per
 			return err
 		}
 
-		// If scene-scoped tags provided, persist them in the performer_scene_tags join table.
-		// Input type: models.PerformerSceneTagsInput { SceneID string, TagIds []string }
-		if len(input.SceneTags) > 0 {
-			for _, st := range input.SceneTags {
-				// convert scene id
-				sid, err := strconv.Atoi(st.SceneID)
-				if err != nil {
-					return fmt.Errorf("converting scene id: %w", err)
-				}
-
-				// convert tag ids
-				var tids []int
-				for _, tid := range st.TagIds {
-					if tid == "" {
-						continue
-					}
-					i, err := strconv.Atoi(tid)
-					if err != nil {
-						return fmt.Errorf("converting tag id: %w", err)
-					}
-					tids = append(tids, i)
-				}
-
-				// Use the performer repository join manager to replace joins for this performer/scene.
-				// The joinTable API expects replaceJoins(ctx, id, []int) where id is the primary id
-				// We need to replace entries for the combination (performer_id, scene_id). There
-				// is no direct API to pass the scene_id as the fk; we'll construct a manual SQL
-				// replace using performersSceneTags table manager. For simplicity, call the underlying
-				// repository replace method on the performerSceneTagsTableMgr by using its repository.
-
-				// Persist scene-scoped tags via the PerformerStore helper
-				if err := qb.SetSceneTags(ctx, performerID, sid, tids); err != nil {
-					return err
-				}
-			}
-		}
-
 		// update image table
 		if imageIncluded {
 			if err := qb.UpdateImage(ctx, performerID, imageData); err != nil {

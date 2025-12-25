@@ -476,7 +476,7 @@ export const queryFindTagsForSelect = (filter: ListFilterModel) =>
   });
 
 // Variant that allows overriding/augmenting the tag_filter used for selects.
-// Useful for constraining TagSelect to subsets like only tags that have performer_scene_tags entries.
+// Useful for constraining TagSelect to subsets of tags.
 export const queryFindTagsForSelectWithTagFilter = (
   filter: ListFilterModel,
   tagFilterOverride?: GQL.TagFilterType
@@ -1502,6 +1502,8 @@ const sceneMarkerMutationImpactedQueries = [
 
 export const useSceneMarkerCreate = () =>
   GQL.useSceneMarkerCreateMutation({
+    refetchQueries: ["PerformerSceneMarkerRoles"],
+    awaitRefetchQueries: true,
     update(cache, result, { variables }) {
       if (!result.data?.sceneMarkerCreate || !variables) return;
 
@@ -1511,6 +1513,10 @@ export const useSceneMarkerCreate = () =>
         fieldName: "scene_markers",
       });
 
+      // Evict all performer queries to refresh role badges
+      cache.evict({ fieldName: "findPerformer" });
+      cache.gc();
+
       evictTypeFields(cache, sceneMarkerMutationImpactedTypeFields);
       evictQueries(cache, sceneMarkerMutationImpactedQueries);
     },
@@ -1518,6 +1524,8 @@ export const useSceneMarkerCreate = () =>
 
 export const useSceneMarkerUpdate = () =>
   GQL.useSceneMarkerUpdateMutation({
+    refetchQueries: ["PerformerSceneMarkerRoles"],
+    awaitRefetchQueries: true,
     update(cache, result, { variables }) {
       if (!result.data?.sceneMarkerUpdate || !variables) return;
 
@@ -1526,6 +1534,10 @@ export const useSceneMarkerUpdate = () =>
         id: cache.identify({ __typename: "Scene", id: variables.scene_id }),
         fieldName: "scene_markers",
       });
+
+      // Evict all performer queries to refresh role badges
+      cache.evict({ fieldName: "findPerformer" });
+      cache.gc();
 
       evictTypeFields(cache, sceneMarkerMutationImpactedTypeFields);
       evictQueries(cache, sceneMarkerMutationImpactedQueries);
@@ -1544,11 +1556,17 @@ export const useBulkSceneMarkerUpdate = () =>
 
 export const useSceneMarkerDestroy = () =>
   GQL.useSceneMarkerDestroyMutation({
+    refetchQueries: ["PerformerSceneMarkerRoles"],
+    awaitRefetchQueries: true,
     update(cache, result, { variables }) {
       if (!result.data?.sceneMarkerDestroy || !variables) return;
 
       const obj = { __typename: "SceneMarker", id: variables.id };
       cache.evict({ id: cache.identify(obj) });
+
+      // Evict all performer queries to refresh role badges
+      cache.evict({ fieldName: "findPerformer" });
+      cache.gc();
 
       evictTypeFields(cache, sceneMarkerMutationImpactedTypeFields);
       evictQueries(cache, sceneMarkerMutationImpactedQueries);
@@ -1560,6 +1578,8 @@ export const useSceneMarkersDestroy = (
 ) =>
   GQL.useSceneMarkersDestroyMutation({
     variables: input,
+    refetchQueries: ["PerformerSceneMarkerRoles"],
+    awaitRefetchQueries: true,
     update(cache, result) {
       if (!result.data?.sceneMarkersDestroy) return;
 
@@ -1567,6 +1587,10 @@ export const useSceneMarkersDestroy = (
         const obj = { __typename: "SceneMarker", id };
         cache.evict({ id: cache.identify(obj) });
       }
+
+      // Evict all performer queries to refresh role badges
+      cache.evict({ fieldName: "findPerformer" });
+      cache.gc();
 
       evictTypeFields(cache, sceneMarkerMutationImpactedTypeFields);
       evictQueries(cache, sceneMarkerMutationImpactedQueries);

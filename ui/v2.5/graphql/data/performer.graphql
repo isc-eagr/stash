@@ -30,6 +30,12 @@ fragment PerformerData on Performer {
   oral_scene_count
   solo_scene_count
   facial_scene_count
+  sex_giver_count
+  sex_receiver_count
+  oral_giver_count
+  oral_receiver_count
+  facial_giver_count
+  facial_receiver_count
 
   tags {
     ...SlimTagData

@@ -19,9 +19,26 @@ fragment SceneMarkerData on SceneMarker {
   tags {
     id
     name
+    parents {
+      id
+    }
   }
 
   performers {
+    id
+    name
+    alias_list
+    disambiguation
+  }
+
+  giver_performers {
+    id
+    name
+    alias_list
+    disambiguation
+  }
+
+  receiver_performers {
     id
     name
     alias_list
