@@ -132,15 +132,24 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
 
   return (
     <div className="scene-markers-panel">
-      <div className="d-flex align-items-center">
-        <Button onClick={() => onOpenEditor()}>
-          <FormattedMessage id="actions.create_marker" />
-        </Button>
+      <div className="d-flex align-items-center justify-content-between mb-2">
+        <div className="d-flex align-items-center" style={{ gap: "0.75rem" }}>
+          <Button onClick={() => onOpenEditor()}>
+            <FormattedMessage id="actions.create_marker" />
+          </Button>
 
+          <Button
+            disabled={selectedMarkerIds.size === 0}
+            onClick={onMoveSelectionToMultiLoop}
+          >
+            Add to Loop
+          </Button>
+        </div>
+        
         <Form.Check
-          className="ml-2 mb-0"
+          className="mb-0"
           type="checkbox"
-          label={intl.formatMessage({ id: "actions.select_all" })}
+          //label={intl.formatMessage({ id: "actions.select_all" })}
           checked={allSelected}
           disabled={totalMarkerCount === 0}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
@@ -162,31 +171,6 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
           onSelectMarker={toggleSingle}
           onSelectMarkers={setManySelected}
         />
-
-        <div className="d-flex justify-content-end mt-2">
-          <ButtonGroup>
-            <Button
-              variant="secondary"
-              disabled={selectedMarkerIds.size === 0}
-              onClick={onMoveSelectionToMultiLoop}
-            >
-              <FormattedMessage
-                id="actions.add_to_entity"
-                values={{
-                  entityType: intl.formatMessage({ id: "multi_segment_loop.title" }),
-                }}
-              />
-            </Button>
-            {selectedMarkerIds.size > 0 && (
-              <Button
-                variant="outline-secondary"
-                onClick={() => setSelectedMarkerIds(new Set())}
-              >
-                <FormattedMessage id="actions.clear" />
-              </Button>
-            )}
-          </ButtonGroup>
-        </div>
       </div>
     </div>
   );

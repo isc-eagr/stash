@@ -1199,6 +1199,15 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 				var performerClauses []string
 				var performerArgs []any
 
+				// Build the subquery variables upfront (needed for AND mode)
+				var subq string
+				var args []any
+
+				// When depth is specified and expanded, we match ANY of the expanded tags
+				// When no depth, we match ALL original tags
+				originalTagCount := len(g.TagIDs)
+				useIncludesLogic := len(tagIDs) > originalTagCount
+
 				if hasBothRolesCriteria {
 					// For both_roles: performer must appear as giver AND as receiver for matching markers
 					var bothRolesConditions []string
@@ -1250,10 +1259,67 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 				if giverCond != nil && receiverCond != nil {
 					if performerModeAnd {
 						// AND mode: both giver and receiver conditions must match
-						performerClauses = append(performerClauses, giverCond.clause)
-						performerArgs = append(performerArgs, giverCond.args...)
-						performerClauses = append(performerClauses, receiverCond.clause)
-						performerArgs = append(performerArgs, receiverCond.args...)
+						// Use two separate EXISTS checks since a single performer row can only have one role
+						tagPh := getInBinding(len(tagIDs))
+
+						if useIncludesLogic {
+							// With sub-tags: marker must have at least one of the expanded tags
+							subq = utils.StrFormat(`EXISTS (
+SELECT 1 FROM scene_markers sm
+WHERE sm.scene_id = {primaryTable}.id
+  AND EXISTS (
+    SELECT 1 FROM scene_marker_performers smp
+    JOIN performers p ON p.id = smp.performer_id
+    WHERE smp.scene_marker_id = sm.id AND `+giverCond.clause+`
+  )
+  AND EXISTS (
+    SELECT 1 FROM scene_marker_performers smp
+    JOIN performers p ON p.id = smp.performer_id
+    WHERE smp.scene_marker_id = sm.id AND `+receiverCond.clause+`
+  )
+  AND (
+    SELECT COUNT(*) FROM (
+      SELECT sm.primary_tag_id AS tag_id
+      UNION ALL
+      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
+    ) tags_per_marker
+    WHERE tag_id IN `+tagPh+`
+  ) >= 1
+)`, utils.StrFormatMap{"primaryTable": h.primaryTable})
+						} else {
+							// Without sub-tags: marker must have ALL original tags
+							subq = utils.StrFormat(`EXISTS (
+SELECT 1 FROM scene_markers sm
+WHERE sm.scene_id = {primaryTable}.id
+  AND EXISTS (
+    SELECT 1 FROM scene_marker_performers smp
+    JOIN performers p ON p.id = smp.performer_id
+    WHERE smp.scene_marker_id = sm.id AND `+giverCond.clause+`
+  )
+  AND EXISTS (
+    SELECT 1 FROM scene_marker_performers smp
+    JOIN performers p ON p.id = smp.performer_id
+    WHERE smp.scene_marker_id = sm.id AND `+receiverCond.clause+`
+  )
+  AND (
+    SELECT COUNT(DISTINCT tag_id) FROM (
+      SELECT sm.primary_tag_id AS tag_id
+      UNION ALL
+      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
+    ) tags_per_marker
+    WHERE tag_id IN `+tagPh+`
+  ) = `+fmt.Sprintf("%d", originalTagCount)+`
+)`, utils.StrFormatMap{"primaryTable": h.primaryTable})
+						}
+
+						args = append(args, giverCond.args...)
+						args = append(args, receiverCond.args...)
+						for _, tid := range tagIDs {
+							args = append(args, tid)
+						}
+
+						f.addWhere(subq, args...)
+						continue // Skip the normal subquery building below
 					} else {
 						// OR mode: either giver or receiver matches
 						combinedClause := fmt.Sprintf("(%s OR %s)", giverCond.clause, receiverCond.clause)
@@ -1268,15 +1334,6 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 					performerClauses = append(performerClauses, receiverCond.clause)
 					performerArgs = append(performerArgs, receiverCond.args...)
 				}
-
-				// Build the subquery
-				var subq string
-				var args []any
-
-				// When depth is specified and expanded, we match ANY of the expanded tags
-				// When no depth, we match ALL original tags
-				originalTagCount := len(g.TagIDs)
-				useIncludesLogic := len(tagIDs) > originalTagCount
 
 				if len(tagIDs) > 0 && len(performerClauses) > 0 {
 					// Both tags and performer conditions

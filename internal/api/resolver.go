@@ -467,26 +467,28 @@ WHERE sm.primary_tag_id IN (SELECT id FROM facial_tags)
 }
 
 // PerformersFacialGivenCount returns the number of distinct performers who have given facials.
-// Uses the configurable 'facialgiven' tag alias from UI config.
+// Uses roleTagIds.facialTagId from UI config.
 func (r *queryResolver) PerformersFacialGivenCount(ctx context.Context) (int, error) {
 	var count int
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		uiConfig := config.GetInstance().GetUIConfiguration()
-		sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
-		facialGivenTagName := "facialgiven"
-		if sceneTagAliases != nil {
-			if fg, ok := sceneTagAliases["facialgiven"].(string); ok && fg != "" {
-				facialGivenTagName = fg
+		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+		var facialTagID int
+		if roleTagIds != nil {
+			if facialID, ok := roleTagIds["facialTagId"].(string); ok && facialID != "" {
+				facialTagID, _ = strconv.Atoi(facialID)
 			}
+		}
+		if facialTagID == 0 {
+			return nil // No tag configured
 		}
 
 		db := manager.GetInstance().Database
 		query := `SELECT COUNT(DISTINCT smp.performer_id) 
 FROM scene_marker_performers smp 
 JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
-JOIN tags t ON t.id = sm.primary_tag_id 
-WHERE LOWER(TRIM(t.name)) = ? AND smp.role = 'giver'`
-		args := []interface{}{strings.ToLower(facialGivenTagName)}
+WHERE sm.primary_tag_id = ? AND smp.role = 'giver'`
+		args := []interface{}{facialTagID}
 		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
 			return err
@@ -516,26 +518,232 @@ WHERE LOWER(TRIM(t.name)) = ? AND smp.role = 'giver'`
 }
 
 // PerformersFacialReceivedCount returns the number of distinct performers who have received facials.
-// Uses the configurable 'facialreceived' tag alias from UI config.
+// Uses roleTagIds.facialTagId from UI config.
 func (r *queryResolver) PerformersFacialReceivedCount(ctx context.Context) (int, error) {
 	var count int
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		uiConfig := config.GetInstance().GetUIConfiguration()
-		sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
-		facialReceivedTagName := "facialreceived"
-		if sceneTagAliases != nil {
-			if fr, ok := sceneTagAliases["facialreceived"].(string); ok && fr != "" {
-				facialReceivedTagName = fr
+		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+		var facialTagID int
+		if roleTagIds != nil {
+			if facialID, ok := roleTagIds["facialTagId"].(string); ok && facialID != "" {
+				facialTagID, _ = strconv.Atoi(facialID)
 			}
+		}
+		if facialTagID == 0 {
+			return nil // No tag configured
 		}
 
 		db := manager.GetInstance().Database
 		query := `SELECT COUNT(DISTINCT smp.performer_id) 
 FROM scene_marker_performers smp 
 JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
-JOIN tags t ON t.id = sm.primary_tag_id 
-WHERE LOWER(TRIM(t.name)) = ? AND smp.role = 'receiver'`
-		args := []interface{}{strings.ToLower(facialReceivedTagName)}
+WHERE sm.primary_tag_id = ? AND smp.role = 'receiver'`
+		args := []interface{}{facialTagID}
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 {
+			switch v := rows[0][0].(type) {
+			case int64:
+				count = int(v)
+			case int:
+				count = v
+			case []byte:
+				i, _ := strconv.Atoi(string(v))
+				count = i
+			case string:
+				i, _ := strconv.Atoi(v)
+				count = i
+			default:
+				i, _ := strconv.Atoi(fmt.Sprint(v))
+				count = i
+			}
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// PerformersSexGivenCount returns the number of distinct performers who have been givers in sex markers.
+// Uses roleTagIds.sexTagId from UI config.
+func (r *queryResolver) PerformersSexGivenCount(ctx context.Context) (int, error) {
+	var count int
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+		var sexTagID int
+		if roleTagIds != nil {
+			if sexID, ok := roleTagIds["sexTagId"].(string); ok && sexID != "" {
+				sexTagID, _ = strconv.Atoi(sexID)
+			}
+		}
+		if sexTagID == 0 {
+			return nil // No tag configured
+		}
+
+		db := manager.GetInstance().Database
+		query := `SELECT COUNT(DISTINCT smp.performer_id) 
+FROM scene_marker_performers smp 
+JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
+WHERE sm.primary_tag_id = ? AND smp.role = 'giver'`
+		args := []interface{}{sexTagID}
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 {
+			switch v := rows[0][0].(type) {
+			case int64:
+				count = int(v)
+			case int:
+				count = v
+			case []byte:
+				i, _ := strconv.Atoi(string(v))
+				count = i
+			case string:
+				i, _ := strconv.Atoi(v)
+				count = i
+			default:
+				i, _ := strconv.Atoi(fmt.Sprint(v))
+				count = i
+			}
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// PerformersSexReceivedCount returns the number of distinct performers who have been receivers in sex markers.
+// Uses roleTagIds.sexTagId from UI config.
+func (r *queryResolver) PerformersSexReceivedCount(ctx context.Context) (int, error) {
+	var count int
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+		var sexTagID int
+		if roleTagIds != nil {
+			if sexID, ok := roleTagIds["sexTagId"].(string); ok && sexID != "" {
+				sexTagID, _ = strconv.Atoi(sexID)
+			}
+		}
+		if sexTagID == 0 {
+			return nil // No tag configured
+		}
+
+		db := manager.GetInstance().Database
+		query := `SELECT COUNT(DISTINCT smp.performer_id) 
+FROM scene_marker_performers smp 
+JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
+WHERE sm.primary_tag_id = ? AND smp.role = 'receiver'`
+		args := []interface{}{sexTagID}
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 {
+			switch v := rows[0][0].(type) {
+			case int64:
+				count = int(v)
+			case int:
+				count = v
+			case []byte:
+				i, _ := strconv.Atoi(string(v))
+				count = i
+			case string:
+				i, _ := strconv.Atoi(v)
+				count = i
+			default:
+				i, _ := strconv.Atoi(fmt.Sprint(v))
+				count = i
+			}
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// PerformersOralGivenCount returns the number of distinct performers who have been givers in oral markers.
+// Uses roleTagIds.oralTagId from UI config.
+func (r *queryResolver) PerformersOralGivenCount(ctx context.Context) (int, error) {
+	var count int
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+		var oralTagID int
+		if roleTagIds != nil {
+			if oralID, ok := roleTagIds["oralTagId"].(string); ok && oralID != "" {
+				oralTagID, _ = strconv.Atoi(oralID)
+			}
+		}
+		if oralTagID == 0 {
+			return nil // No tag configured
+		}
+
+		db := manager.GetInstance().Database
+		query := `SELECT COUNT(DISTINCT smp.performer_id) 
+FROM scene_marker_performers smp 
+JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
+WHERE sm.primary_tag_id = ? AND smp.role = 'giver'`
+		args := []interface{}{oralTagID}
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 {
+			switch v := rows[0][0].(type) {
+			case int64:
+				count = int(v)
+			case int:
+				count = v
+			case []byte:
+				i, _ := strconv.Atoi(string(v))
+				count = i
+			case string:
+				i, _ := strconv.Atoi(v)
+				count = i
+			default:
+				i, _ := strconv.Atoi(fmt.Sprint(v))
+				count = i
+			}
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// PerformersOralReceivedCount returns the number of distinct performers who have been receivers in oral markers.
+// Uses roleTagIds.oralTagId from UI config.
+func (r *queryResolver) PerformersOralReceivedCount(ctx context.Context) (int, error) {
+	var count int
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+		var oralTagID int
+		if roleTagIds != nil {
+			if oralID, ok := roleTagIds["oralTagId"].(string); ok && oralID != "" {
+				oralTagID, _ = strconv.Atoi(oralID)
+			}
+		}
+		if oralTagID == 0 {
+			return nil // No tag configured
+		}
+
+		db := manager.GetInstance().Database
+		query := `SELECT COUNT(DISTINCT smp.performer_id) 
+FROM scene_marker_performers smp 
+JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
+WHERE sm.primary_tag_id = ? AND smp.role = 'receiver'`
+		args := []interface{}{oralTagID}
 		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
 			return err

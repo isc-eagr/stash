@@ -43,10 +43,18 @@ extend type Query {
   sceneOrgasmCount: Int!
   "Get total number of facial markers (primary or secondary). Includes descendants of 'facial'."
   sceneFacialCount: Int!
-  "Get number of performers who have given facials (based on configurable tag alias)"
+  "Get number of performers who have given facials (based on roleTagIds.facialTagId)"
   performersFacialGivenCount: Int!
-  "Get number of performers who have received facials (based on configurable tag alias)"
+  "Get number of performers who have received facials (based on roleTagIds.facialTagId)"
   performersFacialReceivedCount: Int!
+  "Get number of performers who topped sexually (at least 1 sex marker as giver)"
+  performersSexGivenCount: Int!
+  "Get number of performers who bottomed sexually (at least 1 sex marker as receiver)"
+  performersSexReceivedCount: Int!
+  "Get number of performers who topped orally (at least 1 oral marker as giver)"
+  performersOralGivenCount: Int!
+  "Get number of performers who bottomed orally (at least 1 oral marker as receiver)"
+  performersOralReceivedCount: Int!
   "Get number of strict tops (have top/oraltop, no bottom/oralbottom tags)"
   performersStrictTopCount: Int!
   "Get number of strict bottoms (have bottom/oralbottom, no top/oraltop tags)"

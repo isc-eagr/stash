@@ -64,6 +64,34 @@ const PERFORMERS_FACIAL_RECEIVED_COUNT = gql`
   }
 `;
 
+// Performers who topped sexually (sex marker as giver)
+const PERFORMERS_SEX_GIVEN_COUNT = gql`
+  query PerformersSexGivenCount {
+    performersSexGivenCount
+  }
+`;
+
+// Performers who bottomed sexually (sex marker as receiver)
+const PERFORMERS_SEX_RECEIVED_COUNT = gql`
+  query PerformersSexReceivedCount {
+    performersSexReceivedCount
+  }
+`;
+
+// Performers who topped orally (oral marker as giver)
+const PERFORMERS_ORAL_GIVEN_COUNT = gql`
+  query PerformersOralGivenCount {
+    performersOralGivenCount
+  }
+`;
+
+// Performers who bottomed orally (oral marker as receiver)
+const PERFORMERS_ORAL_RECEIVED_COUNT = gql`
+  query PerformersOralReceivedCount {
+    performersOralReceivedCount
+  }
+`;
+
 const PERFORMERS_SOLO_ONLY_COUNT = gql`
   query PerformersSoloOnlyCount {
     performersSoloOnlyCount
@@ -101,6 +129,10 @@ export const CustomStats: React.FC = () => {
   const { data: facialCountData } = useQuery(FACIAL_TOTAL_COUNT);
   const { data: performersGivenData } = useQuery(PERFORMERS_FACIAL_GIVEN_COUNT);
   const { data: performersReceivedData } = useQuery(PERFORMERS_FACIAL_RECEIVED_COUNT);
+  const { data: sexGivenData } = useQuery(PERFORMERS_SEX_GIVEN_COUNT);
+  const { data: sexReceivedData } = useQuery(PERFORMERS_SEX_RECEIVED_COUNT);
+  const { data: oralGivenData } = useQuery(PERFORMERS_ORAL_GIVEN_COUNT);
+  const { data: oralReceivedData } = useQuery(PERFORMERS_ORAL_RECEIVED_COUNT);
   const { data: soloOnlyData } = useQuery(PERFORMERS_SOLO_ONLY_COUNT);
   const { data: oneSceneData } = useQuery(PERFORMERS_ONE_SCENE_COUNT);
   const { data: litersData } = useQuery(ESTIMATED_LITERS);
@@ -248,6 +280,10 @@ export const CustomStats: React.FC = () => {
         typeof facialCountData?.sceneFacialCount === "number" ||
         typeof performersGivenData?.performersFacialGivenCount === "number" ||
         typeof performersReceivedData?.performersFacialReceivedCount === "number" ||
+        typeof sexGivenData?.performersSexGivenCount === "number" ||
+        typeof sexReceivedData?.performersSexReceivedCount === "number" ||
+        typeof oralGivenData?.performersOralGivenCount === "number" ||
+        typeof oralReceivedData?.performersOralReceivedCount === "number" ||
         typeof soloOnlyData?.performersSoloOnlyCount === "number" ||
         typeof oneSceneData?.performersOneSceneCount === "number" ||
         typeof litersData?.estimatedLiters === "number" ||
@@ -300,6 +336,38 @@ export const CustomStats: React.FC = () => {
                 <FormattedNumber value={performersReceivedData.performersFacialReceivedCount} />
               </p>
               <p className="heading">Performers received facials</p>
+            </div>
+          )}
+          {typeof sexGivenData?.performersSexGivenCount === "number" && (
+            <div className="stats-element">
+              <p className="title">
+                <FormattedNumber value={sexGivenData.performersSexGivenCount} />
+              </p>
+              <p className="heading">Performers topped sexually</p>
+            </div>
+          )}
+          {typeof sexReceivedData?.performersSexReceivedCount === "number" && (
+            <div className="stats-element">
+              <p className="title">
+                <FormattedNumber value={sexReceivedData.performersSexReceivedCount} />
+              </p>
+              <p className="heading">Performers bottomed sexually</p>
+            </div>
+          )}
+          {typeof oralGivenData?.performersOralGivenCount === "number" && (
+            <div className="stats-element">
+              <p className="title">
+                <FormattedNumber value={oralGivenData.performersOralGivenCount} />
+              </p>
+              <p className="heading">Performers topped orally</p>
+            </div>
+          )}
+          {typeof oralReceivedData?.performersOralReceivedCount === "number" && (
+            <div className="stats-element">
+              <p className="title">
+                <FormattedNumber value={oralReceivedData.performersOralReceivedCount} />
+              </p>
+              <p className="heading">Performers bottomed orally</p>
             </div>
           )}
           {typeof soloOnlyData?.performersSoloOnlyCount === "number" && (

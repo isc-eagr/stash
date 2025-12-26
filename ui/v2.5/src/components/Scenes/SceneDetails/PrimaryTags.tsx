@@ -33,10 +33,13 @@ const PrimaryCard: React.FC<{
       <div 
         className="primary-card-header" 
         onClick={onToggle}
-        style={{ cursor: "pointer", display: "flex", alignItems: "center", padding: "0.25rem 0.5rem" }}
+        style={{ cursor: "pointer", display: "flex", alignItems: "center", padding: "0.5rem 0.75rem" }}
       >
+        <Icon icon={isOpen ? faChevronDown : faChevronRight} className="mr-2" style={{ fontSize: "0.9em" }} />
+        <h4 className="m-0 mr-2" title={tagName}>{tagName}</h4>
+        <Badge pill variant="info" className="marker-count-badge">{markers.length}</Badge>
         <Form.Check
-          className="mr-2"
+          className="ml-auto"
           type="checkbox"
           checked={selectAllChecked}
           onClick={(e) => e.stopPropagation()}
@@ -45,11 +48,6 @@ const PrimaryCard: React.FC<{
             onSelectAllChanged(e.currentTarget.checked);
           }}
         />
-        <Icon icon={isOpen ? faChevronDown : faChevronRight} className="mr-2" />
-        <div style={{ flex: 1, minWidth: 0, marginRight: "0.5rem" }}>
-          <h4 className="text-truncate m-0" title={tagName}>{tagName}</h4>
-        </div>
-        <Badge variant="info">{markers.length}</Badge>
       </div>
       <Collapse in={isOpen}>
         <Card.Body className="primary-card-body p-0">{markers}</Card.Body>
@@ -89,74 +87,72 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
 
     const markers = markersByTag[id].map((marker, index) => {
       const tags = marker.tags.map((tag) => (
-        <Badge key={tag.id} variant="secondary" className="tag-item">
+        <Badge key={tag.id} variant="secondary" className="tag-badge mr-1">
           {tag.name}
         </Badge>
       ));
 
       const giverPerformers = marker.giver_performers?.map((performer) => (
-        <Badge key={performer.id} variant="success" className="performer-item mr-1">
+        <Badge key={performer.id} variant="success" className="performer-badge mr-1">
           <Icon icon={faArrowUp} className="mr-1" />
           {performer.name}
         </Badge>
       ));
 
       const receiverPerformers = marker.receiver_performers?.map((performer) => (
-        <Badge key={performer.id} variant="info" className="performer-item mr-1">
+        <Badge key={performer.id} variant="info" className="performer-badge mr-1">
           <Icon icon={faArrowDown} className="mr-1" />
           {performer.name}
         </Badge>
       ));
 
       return (
-        <div key={marker.id} className={`marker-item p-1 ${index !== 0 ? "border-top" : ""}`}>
-          <div className="d-flex align-items-start">
+        <div key={marker.id} className="marker-item">
+          <div className="d-flex align-items-start justify-content-between">
+            <div className="flex-grow-1 min-w-0 marker-content">
+              <div className="d-flex align-items-center marker-main-row">
+                <Button 
+                  variant="link" 
+                  className="p-0 marker-title-btn" 
+                  onClick={() => onClickMarker(marker)}
+                  title={markerTitle(marker)}
+                >
+                  {markerTitle(marker)}
+                </Button>
+                <span className="marker-timestamp text-muted ml-2">
+                  {TextUtils.formatTimestampRange(
+                    marker.seconds,
+                    marker.end_seconds ?? undefined
+                  )}
+                </span>
+                <Button
+                  variant="link"
+                  className="marker-edit-btn p-0 ml-auto"
+                  onClick={() => onEdit(marker)}
+                >
+                  <FormattedMessage id="actions.edit" />
+                </Button>
+              </div>
+              <div className="d-flex align-items-center flex-wrap marker-badges">
+                {giverPerformers && giverPerformers.length > 0 && (
+                  <div className="mr-1">{giverPerformers}</div>
+                )}
+                {receiverPerformers && receiverPerformers.length > 0 && (
+                  <div className="mr-1">{receiverPerformers}</div>
+                )}
+                {tags && tags.length > 0 && (
+                  <div>{tags}</div>
+                )}
+              </div>
+            </div>
             <Form.Check
-              className="mr-2 mt-1"
+              className="marker-checkbox ml-3"
               type="checkbox"
               checked={selectedMarkerIds.has(marker.id)}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 onSelectMarker(marker.id, e.currentTarget.checked)
               }
             />
-            <div className="flex-grow-1 min-w-0">
-              <div className="d-flex align-items-center flex-wrap">
-                <Button 
-                  variant="link" 
-                  className="p-0 text-truncate text-left mr-2" 
-                  onClick={() => onClickMarker(marker)}
-                  title={markerTitle(marker)}
-                  style={{ maxWidth: "100%" }}
-                >
-                  {markerTitle(marker)}
-                </Button>
-                {giverPerformers && giverPerformers.length > 0 && (
-                  <div className="mr-2">{giverPerformers}</div>
-                )}
-                {receiverPerformers && receiverPerformers.length > 0 && (
-                  <div className="mr-2">{receiverPerformers}</div>
-                )}
-                <Button
-                  variant="link"
-                  className="ml-auto p-0 small text-muted"
-                  style={{ fontSize: "0.85em", flexShrink: 0 }}
-                  onClick={() => onEdit(marker)}
-                >
-                  <FormattedMessage id="actions.edit" />
-                </Button>
-              </div>
-              <div className="d-flex align-items-center flex-wrap small text-muted">
-                <span className="mr-2">
-                  {TextUtils.formatTimestampRange(
-                    marker.seconds,
-                    marker.end_seconds ?? undefined
-                  )}
-                </span>
-                {tags && tags.length > 0 && (
-                  <div>{tags}</div>
-                )}
-              </div>
-            </div>
           </div>
         </div>
       );
