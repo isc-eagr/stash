@@ -1274,3 +1274,16 @@ input[type="range"].blue-slider {
     }
   }
 }
+
+// Marker Queue Indicator - compact btn-group style
+.queue-count-btn {
+  &:disabled {
+    opacity: 1;
+    pointer-events: none;
+  }
+  
+  .badge {
+    font-size: 0.75em;
+    vertical-align: middle;
+  }
+}

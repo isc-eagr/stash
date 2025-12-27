@@ -5,6 +5,7 @@ import Mousetrap from "mousetrap";
 import * as GQL from "src/core/generated-graphql";
 import { PrimaryTags } from "./PrimaryTags";
 import { SceneMarkerForm } from "./SceneMarkerForm";
+import { markerTitle } from "src/core/markers";
 import type { ILoopSegmentInput } from "src/components/ScenePlayer/multi-segment-loop";
 
 interface ISceneMarkersPanelProps {
@@ -113,7 +114,8 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
       const start = m.seconds;
       const endRaw = m.end_seconds ?? m.seconds + 20;
       const end = endRaw > start ? endRaw : start + 1;
-      return { start, end };
+      const title = markerTitle(m);
+      return { start, end, title };
     });
 
     addMultiSegmentLoopSegments(segments);

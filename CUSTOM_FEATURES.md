@@ -491,7 +491,20 @@ An enhanced looping system for the scene player that allows you to define multip
 ### Overview
 A dedicated player page that allows you to select multiple markers from the Markers page (`/scenes/markers`) and play them sequentially in a loop. This works across different scenes - the player automatically loads each scene's video and seeks to the marker position.
 
-### Usage
+### Marker Playback Queue
+You can now build a queue of markers from different searches before playing them:
+
+1. Go to the Markers page (`/scenes/markers`)
+2. Enable selection mode and select markers
+3. Click the **"Add to Queue"** button (appears when markers are selected)
+4. Perform different searches and add more markers to the queue
+5. The queue indicator shows the count of queued markers
+6. Click the **Play** button on the queue indicator to play all queued markers
+7. Click the **Clear** button to empty the queue
+
+The queue persists across page navigations using localStorage.
+
+### Usage (Direct Play)
 1. Go to the Markers page (`/scenes/markers`)
 2. Enable selection mode by clicking the checkbox icon
 3. Select the markers you want to include in your playlist
@@ -504,11 +517,16 @@ A dedicated player page that allows you to select multiple markers from the Mark
 ### Files Created
 - `ui/v2.5/src/components/Scenes/MarkerPlaylistPlayer.tsx` - Main React component for the playlist player
 - `ui/v2.5/src/components/Scenes/MarkerPlaylistPlayer.scss` - Styles for the playlist player UI
+- `ui/v2.5/src/components/Scenes/MarkerQueueIndicator.tsx` - Queue indicator component showing count and controls
+- `ui/v2.5/src/hooks/MarkerQueue.tsx` - React context for managing the marker playback queue
 
 ### Files Modified
+- `ui/v2.5/src/App.tsx` - Added `MarkerQueueProvider` to the provider hierarchy
 - `ui/v2.5/src/components/Scenes/Scenes.tsx` - Added route for `/scenes/markers/player`
-- `ui/v2.5/src/components/Scenes/SceneMarkerList.tsx` - Added "Play Selected" operation button
-- `ui/v2.5/src/locales/en-GB.json` - Locale strings for `marker_playlist` section
+- `ui/v2.5/src/components/Scenes/SceneMarkerList.tsx` - Added "Add to Queue" and "Play Selected" operation buttons, integrated queue indicator
+- `ui/v2.5/src/components/Scenes/styles.scss` - Styling for the queue indicator
+- `ui/v2.5/src/locales/en-GB.json` - Locale strings for queue actions
+- `ui/v2.5/src/locales/en-US.json` - Locale strings for queue actions
 
 ### Features
 - Select any number of markers from the markers list
@@ -818,6 +836,84 @@ input PerformerMarkerPartnersCriterionInput {
 The old `performer_markers` filter with its complex include/exclude conditions was replaced with these two simpler filters. The UI is more intuitive and each filter has a specific purpose:
 - Use **Marker Tags** when you want to find performers based on what they did (the tags on their markers)
 - Use **Marker Partners** when you want to find performers based on who they worked with
+
+---
+
+## 21. Marker Playlist Save/Load
+
+### Overview
+Allows users to save and load marker playlists for later viewing. When viewing a marker playlist, users can save the current configuration (marker IDs and order) with a custom name and reload it later.
+
+### Database Schema
+**File:** `marker_playlists.up.sql`
+```sql
+CREATE TABLE IF NOT EXISTS marker_playlists (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  marker_ids TEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_marker_playlists_name
+  ON marker_playlists(name);
+```
+
+### GraphQL Schema Extensions
+**File:** `graphql/schema/types/marker-playlist.graphql`
+```graphql
+type MarkerPlaylist {
+  id: ID!
+  name: String!
+  marker_ids: [ID!]!
+  created_at: Time!
+  updated_at: Time!
+}
+
+input MarkerPlaylistCreateInput {
+  name: String!
+  marker_ids: [ID!]!
+}
+
+input MarkerPlaylistUpdateInput {
+  id: ID!
+  name: String
+  marker_ids: [ID!]
+}
+```
+
+**File:** `graphql/schema/schema.graphql`
+```graphql
+# Query additions
+findMarkerPlaylist(id: ID!): MarkerPlaylist
+findMarkerPlaylists: [MarkerPlaylist!]!
+
+# Mutation additions
+markerPlaylistCreate(input: MarkerPlaylistCreateInput!): MarkerPlaylist!
+markerPlaylistUpdate(input: MarkerPlaylistUpdateInput!): MarkerPlaylist!
+markerPlaylistDestroy(id: ID!): Boolean!
+```
+
+### UI Components
+**Files Modified:**
+- `ui/v2.5/src/components/Scenes/MarkerPlaylistPlayer.tsx`
+- `ui/v2.5/src/components/Scenes/MarkerPlaylistPlayer.scss`
+- `ui/v2.5/src/core/StashService.ts`
+
+**Features:**
+- Save button in player header to save current playlist
+- Load dropdown showing all saved playlists
+- Delete button (✕) next to each saved playlist
+- Modal for entering playlist name when saving
+- Toast notifications for success/error states
+
+### Usage
+1. Navigate to marker playlist player (`/scenes/markers/player?ids=X,Y,Z`)
+2. Click "Save" button in header
+3. Enter a name for the playlist
+4. Click "Load" dropdown to see all saved playlists
+5. Click on a playlist name to load it
+6. Click ✕ next to a playlist to delete it
 
 ---
 

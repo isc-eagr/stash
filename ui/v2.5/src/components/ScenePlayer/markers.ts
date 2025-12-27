@@ -6,6 +6,8 @@ export interface IMarker {
   seconds: number;
   end_seconds?: number | null;
   primaryTag: { name: string };
+  top_performers?: Array<{ id: string; name: string }>;
+  bottom_performers?: Array<{ id: string; name: string }>;
 }
 
 interface IMarkersOptions {
@@ -47,9 +49,28 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     });
   }
 
-  private showMarkerTooltip(title: string, layer: number = 0) {
+  private showMarkerTooltip(title: string, layer: number = 0, topPerformers?: Array<{ id: string; name: string }>, bottomPerformers?: Array<{ id: string; name: string }>) {
     if (!this.markerTooltip) return;
-    this.markerTooltip.innerText = title;
+    
+    let tooltipContent = title;
+    
+    // Add top performers with up arrows
+    if (topPerformers && topPerformers.length > 0) {
+      const topNames = topPerformers.map(p => `↑ ${p.name}`).join(", ");
+      tooltipContent += ` [${topNames}]`;
+    }
+    
+    // Add bottom performers with down arrows
+    if (bottomPerformers && bottomPerformers.length > 0) {
+      const bottomNames = bottomPerformers.map(p => `↓ ${p.name}`).join(", ");
+      if (topPerformers && topPerformers.length > 0) {
+        tooltipContent += ` [${bottomNames}]`;
+      } else {
+        tooltipContent += ` [${bottomNames}]`;
+      }
+    }
+    
+    this.markerTooltip.innerText = tooltipContent;
     this.markerTooltip.style.right = `${-this.markerTooltip.clientWidth / 2}px`;
     this.markerTooltip.style.top = `-${this.layerHeight * layer + 50}px`;
     this.markerTooltip.style.visibility = "visible";
@@ -95,7 +116,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
         this.tagColors[marker.primaryTag.name];
     }
     markerSet.dot.addEventListener("mouseenter", () => {
-      this.showMarkerTooltip(marker.title);
+      this.showMarkerTooltip(marker.title, 0, marker.top_performers, marker.bottom_performers);
       markerSet.dot?.toggleAttribute("marker-tooltip-shown", true);
     });
 
@@ -183,7 +204,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       e.stopPropagation();
     });
     markerSet.range.addEventListener("mouseenter", () => {
-      this.showMarkerTooltip(marker.title, layer);
+      this.showMarkerTooltip(marker.title, layer, marker.top_performers, marker.bottom_performers);
       markerSet.range?.toggleAttribute("marker-tooltip-shown", true);
     });
 

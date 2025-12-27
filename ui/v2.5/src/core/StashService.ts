@@ -1597,6 +1597,20 @@ export const useSceneMarkersDestroy = (
     },
   });
 
+// Marker Playlist hooks
+export const useFindMarkerPlaylistsQuery = () =>
+  GQL.useFindMarkerPlaylistsQuery();
+
+export const useMarkerPlaylistCreate = () =>
+  GQL.useMarkerPlaylistCreateMutation({
+    refetchQueries: ["FindMarkerPlaylists"],
+  });
+
+export const useMarkerPlaylistDestroy = () =>
+  GQL.useMarkerPlaylistDestroyMutation({
+    refetchQueries: ["FindMarkerPlaylists"],
+  });
+
 const galleryMutationImpactedTypeFields = {
   Scene: ["galleries"],
   Performer: ["gallery_count", "performer_count"],

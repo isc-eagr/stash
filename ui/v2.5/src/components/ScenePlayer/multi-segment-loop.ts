@@ -4,6 +4,7 @@ export interface ILoopSegment {
   id: string;
   start: number;
   end: number;
+  title?: string;
 }
 
 export type ILoopSegmentInput = Omit<ILoopSegment, "id">;
@@ -27,6 +28,7 @@ export type MultiSegmentLoopEvents = {
   enabledchange: (enabled: boolean) => void;
   currentsegmentchange: (index: number, segment: ILoopSegment | null) => void;
   segmentloop: (fromSegment: ILoopSegment, toSegment: ILoopSegment) => void;
+  loopsinglechange: (segmentId: string | null) => void;
 };
 
 class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
@@ -36,6 +38,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   private pendingStart: number | null = null;
   private checkInterval: number | null = null;
   private loopMargin: number = 0.1; // margin in seconds before end to trigger loop
+  private loopSingleId: string | null = null; // ID of segment to loop single
 
   // Timeline visualization elements
   private segmentMarkers: Map<string, HTMLDivElement> = new Map();
@@ -53,6 +56,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     fromSegment: ILoopSegment,
     toSegment: ILoopSegment
   ) => void;
+  private onLoopSingleChange?: (segmentId: string | null) => void;
 
   constructor(
     player: VideoJsPlayer,
@@ -125,6 +129,13 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   private advanceToNextSegment(): void {
     const fromSegment = this.segments[this.currentSegmentIndex];
 
+    // Check if single loop is enabled for the current segment
+    if (this.loopSingleId && fromSegment && this.loopSingleId === fromSegment.id) {
+      // Loop back to the start of the same segment
+      this.player.currentTime(fromSegment.start);
+      return;
+    }
+
     // Move to next segment, or wrap to first
     const nextIndex = (this.currentSegmentIndex + 1) % this.segments.length;
     this.currentSegmentIndex = nextIndex;
@@ -182,11 +193,12 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   /**
    * Add a new segment
    */
-  addSegment(start: number, end: number): ILoopSegment {
+  addSegment(start: number, end: number, title?: string): ILoopSegment {
     const segment: ILoopSegment = {
       id: this.generateId(),
       start: Math.min(start, end),
       end: Math.max(start, end),
+      title,
     };
     this.segments.push(segment);
     this.renderSegmentMarkers();
@@ -450,6 +462,51 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     this.onSegmentLoop = callback;
   }
 
+  setOnLoopSingleChange(callback: (segmentId: string | null) => void): void {
+    this.onLoopSingleChange = callback;
+  }
+
+  // Single segment loop methods
+
+  /**
+   * Get the ID of the segment that's set to loop single
+   */
+  getLoopSingleId(): string | null {
+    return this.loopSingleId;
+  }
+
+  /**
+   * Set a segment to loop single by ID. Pass null to disable single loop.
+   * When enabling, immediately jumps to that segment.
+   */
+  setLoopSingleId(segmentId: string | null): void {
+    this.loopSingleId = segmentId;
+    
+    // If enabling single loop, jump to that segment immediately
+    if (segmentId !== null) {
+      const segmentIndex = this.segments.findIndex((s) => s.id === segmentId);
+      if (segmentIndex !== -1) {
+        this.jumpToSegment(segmentIndex);
+      }
+    }
+    
+    this.updateActiveSegmentMarker();
+    if (this.onLoopSingleChange) {
+      this.onLoopSingleChange(segmentId);
+    }
+  }
+
+  /**
+   * Toggle single loop for a segment by ID
+   */
+  toggleLoopSingle(segmentId: string): void {
+    if (this.loopSingleId === segmentId) {
+      this.setLoopSingleId(null);
+    } else {
+      this.setLoopSingleId(segmentId);
+    }
+  }
+
   // Timeline visualization methods
 
   /**
@@ -494,6 +551,11 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     // Highlight current segment when enabled
     if (this.enabled && index === this.currentSegmentIndex) {
       rangeDiv.classList.add("active");
+    }
+
+    // Highlight single loop segment
+    if (this.loopSingleId === segment.id) {
+      rangeDiv.classList.add("loop-single");
     }
 
     // Add segment number label
@@ -560,6 +622,12 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
         marker.classList.add("active");
       } else {
         marker.classList.remove("active");
+      }
+      // Update single loop styling
+      if (this.loopSingleId === id) {
+        marker.classList.add("loop-single");
+      } else {
+        marker.classList.remove("loop-single");
       }
     });
   }

@@ -3,7 +3,7 @@ import React from "react";
 import { useHistory } from "react-router-dom";
 import { useIntl } from "react-intl";
 import Mousetrap from "mousetrap";
-import { faPlay, faRandom } from "@fortawesome/free-solid-svg-icons";
+import { faRandom } from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import {
   queryFindSceneMarkers,
@@ -11,6 +11,7 @@ import {
 } from "src/core/StashService";
 import NavUtils from "src/utils/navigation";
 import { ItemList, ItemListContext } from "../List/ItemList";
+import { useQueryResultContext } from "../List/ListProvider";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import { DisplayMode } from "src/models/list-filter/types";
 import { MarkerWallPanel } from "./SceneMarkerWallPanel";
@@ -19,7 +20,21 @@ import { SceneMarkerCardsGrid } from "./SceneMarkerCardsGrid";
 import { DeleteSceneMarkersDialog } from "./DeleteSceneMarkersDialog";
 import { EditSceneMarkersDialog } from "./EditSceneMarkersDialog";
 import { PatchComponent } from "src/patch";
-import { IItemListOperation } from "../List/FilteredListToolbar";
+import {
+  IItemListOperation,
+  IFilteredListToolbar,
+} from "../List/FilteredListToolbar";
+import { useMarkerQueue } from "src/hooks/MarkerQueue";
+import { MarkerQueueIndicator } from "./MarkerQueueIndicator";
+import { useToast } from "src/hooks/Toast";
+import { ListOperationButtons } from "../List/ListOperationButtons";
+import { useFilterOperations } from "../List/util";
+import { PageSizeSelector, SearchTermInput, SortBySelect } from "../List/ListFilter";
+import { ListViewButtonGroup } from "../List/ListViewOptions";
+import { SavedFilterDropdown } from "../List/SavedFilterList";
+import { FilterButton } from "../List/Filters/FilterButton";
+import { ButtonGroup, ButtonToolbar } from "react-bootstrap";
+import cx from "classnames";
 
 function getItems(result: GQL.FindSceneMarkersQueryResult) {
   return result?.data?.findSceneMarkers?.scene_markers ?? [];
@@ -42,6 +57,8 @@ export const SceneMarkerList: React.FC<ISceneMarkerList> = PatchComponent(
   ({ filterHook, view, alterQuery, extraOperations = [] }) => {
     const intl = useIntl();
     const history = useHistory();
+    const { queue, count: queueCount, addToQueue } = useMarkerQueue();
+    const Toast = useToast();
 
     const filterMode = GQL.FilterMode.SceneMarkers;
 
@@ -52,43 +69,7 @@ export const SceneMarkerList: React.FC<ISceneMarkerList> = PatchComponent(
         onClick: playRandom,
         icon: faRandom,
       },
-      {
-        text: intl.formatMessage({ id: "actions.play_selected" }),
-        onClick: playSelected,
-        icon: faPlay,
-        isDisplayed: (
-          _result: GQL.FindSceneMarkersQueryResult,
-          _filter: ListFilterModel,
-          selectedIds: Set<string>
-        ) => selectedIds.size > 0,
-      },
     ];
-
-    async function playSelected(
-      result: GQL.FindSceneMarkersQueryResult,
-      _filter: ListFilterModel,
-      selectedIds: Set<string>
-    ) {
-      if (
-        selectedIds.size > 0 &&
-        result.data?.findSceneMarkers?.scene_markers
-      ) {
-        // Filter to get only selected markers and store in sessionStorage
-        const allMarkers = result.data.findSceneMarkers.scene_markers;
-        const selectedMarkers = Array.from(selectedIds)
-          .map((id) => allMarkers.find((m) => m.id === id))
-          .filter((m): m is GQL.SceneMarkerDataFragment => m !== undefined);
-
-        // Store marker data in sessionStorage for the playlist player
-        sessionStorage.setItem(
-          "markerPlaylist",
-          JSON.stringify(selectedMarkers)
-        );
-
-        const idsParam = Array.from(selectedIds).join(",");
-        window.open(`/scenes/markers/player?ids=${idsParam}`, "_blank");
-      }
-    }
 
     function addKeybinds(
       result: GQL.FindSceneMarkersQueryResult,
@@ -176,6 +157,92 @@ export const SceneMarkerList: React.FC<ISceneMarkerList> = PatchComponent(
       );
     }
 
+    function renderToolbar(props: IFilteredListToolbar) {
+      const { filter, setFilter, showEditFilter, view: toolbarView, listSelect, onEdit, onDelete, operations } = props;
+      const filterOptions = filter.options;
+      const { setDisplayMode, setZoom } = useFilterOperations({ filter, setFilter });
+      const { selectedIds } = listSelect;
+      const hasSelection = selectedIds.size > 0;
+      const zoomable = filter.displayMode === DisplayMode.Grid || filter.displayMode === DisplayMode.Wall;
+      
+      // Get the query result to access markers for add to queue
+      const { result } = useQueryResultContext<GQL.FindSceneMarkersQueryResult, GQL.SceneMarkerDataFragment>();
+      
+      const handleAddToQueue = () => {
+        if (selectedIds.size > 0 && result.data?.findSceneMarkers?.scene_markers) {
+          const allMarkers = result.data.findSceneMarkers.scene_markers;
+          const selectedMarkers = Array.from(selectedIds)
+            .map((id) => allMarkers.find((m) => m.id === id))
+            .filter((m): m is GQL.SceneMarkerDataFragment => m !== undefined);
+
+          addToQueue(selectedMarkers);
+          Toast.success(
+            intl.formatMessage(
+              { id: "actions.added_to_queue" },
+              { count: selectedMarkers.length }
+            )
+          );
+          // Deselect all markers after adding to queue
+          listSelect.onSelectNone();
+        }
+      };
+
+      return (
+        <ButtonToolbar className={cx("filtered-list-toolbar", { "has-selection": hasSelection })}>
+          {/* Always show the filter controls, not the SelectionSection */}
+          <SearchTermInput filter={filter} onFilterUpdate={setFilter} />
+
+          <ButtonGroup>
+            <SavedFilterDropdown
+              filter={filter}
+              onSetFilter={setFilter}
+              view={toolbarView}
+            />
+            <FilterButton
+              onClick={() => showEditFilter()}
+              count={filter.count()}
+            />
+          </ButtonGroup>
+
+          <SortBySelect
+            sortBy={filter.sortBy}
+            sortDirection={filter.sortDirection}
+            options={filterOptions.sortByOptions}
+            onChangeSortBy={(e) => setFilter(filter.setSortBy(e ?? undefined))}
+            onChangeSortDirection={() => setFilter(filter.toggleSortDirection())}
+            onReshuffleRandomSort={() => setFilter(filter.reshuffleRandomSort())}
+          />
+
+          <PageSizeSelector
+            pageSize={filter.itemsPerPage}
+            setPageSize={(size) => setFilter(filter.setPageSize(size))}
+          />
+
+          {/* Queue indicator with add button */}
+          <MarkerQueueIndicator
+            onAddToQueue={handleAddToQueue}
+            selectedCount={selectedIds.size}
+          />
+          <ListOperationButtons
+            onSelectAll={listSelect.onSelectAll}
+            onSelectNone={listSelect.onSelectNone}
+            otherOperations={operations}
+            itemsSelected={hasSelection}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
+
+          <ListViewButtonGroup
+            displayMode={filter.displayMode}
+            displayModeOptions={filterOptions.displayModeOptions}
+            onSetDisplayMode={setDisplayMode}
+            zoomIndex={zoomable ? filter.zoomIndex : undefined}
+            onSetZoom={zoomable ? setZoom : undefined}
+          />
+        </ButtonToolbar>
+      );
+    }
+
     return (
       <ItemListContext
         filterMode={filterMode}
@@ -194,6 +261,7 @@ export const SceneMarkerList: React.FC<ISceneMarkerList> = PatchComponent(
           renderContent={renderContent}
           renderEditDialog={renderEditDialog}
           renderDeleteDialog={renderDeleteDialog}
+          renderToolbar={renderToolbar}
         />
       </ItemListContext>
     );

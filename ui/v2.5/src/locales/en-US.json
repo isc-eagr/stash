@@ -6,7 +6,13 @@
         "optimise_database": "Optimize Database",
         "add_group": "Add group",
         "clear": "Clear",
-        "back": "Back"
+        "back": "Back",
+        "add_to_queue": "Add to Queue",
+        "play_queue": "Play Queue",
+        "clear_queue": "Clear Queue",
+        "queue_count": "{count} in queue",
+        "queue_empty": "Queue is empty",
+        "added_to_queue": "Added {count} marker(s) to queue"
     },
     "config": {
         "tools": {
@@ -60,6 +66,9 @@
     "marker_performer_country": "Marker Performer Country",
     "marker_performer_rating": "Marker Performer Rating",
     "has_marker_performers": "Has Marker Performers",
+    "marker_playlist.move_up": "Move up",
+    "marker_playlist.move_down": "Move down",
+    "marker_playlist.delete": "Delete",
     "markers_filter.tags": "Markers: Tags",
     "markers_filter.top": "Markers: Top",
     "markers_filter.bottom": "Markers: Bottom",

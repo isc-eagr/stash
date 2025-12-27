@@ -78,28 +78,66 @@
     align-items: center;
     display: flex;
     justify-content: space-between;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.25rem;
+    flex-shrink: 0;
 
-    .back-btn {
-      color: #aaa;
+    .player-header-left,
+    .player-header-right {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .back-btn,
+    .save-playlist-btn,
+    .load-playlist-btn,
+    .toggle-playlist-btn {
+      color: #fff;
       text-decoration: none;
 
       &:hover {
-        color: #fff;
+        color: #ddd;
       }
     }
+  }
 
-    h5 {
-      color: #fff;
-      margin: 0;
-    }
+  .marker-playlist-dropdown {
+    max-height: 400px;
+    overflow-y: auto;
 
-    .toggle-playlist-btn {
-      color: #aaa;
+    .playlist-dropdown-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
 
       &:hover {
-        color: #fff;
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+
+      .playlist-name {
+        flex: 1;
+        cursor: pointer;
+      }
+
+      .delete-playlist-btn {
+        color: #dc3545;
+        padding: 0 0.5rem;
+        font-size: 1.2rem;
+        line-height: 1;
+        cursor: pointer;
+        background: none;
+        border: none;
+
+        &:hover {
+          color: #c82333;
+        }
+
+        &:focus {
+          outline: none;
+        }
       }
     }
   }
@@ -117,6 +155,8 @@
     flex: 1;
     flex-direction: column;
     min-width: 0;
+    min-height: 0;
+    overflow: hidden;
 
     &.full-width {
       flex: 1;
@@ -129,10 +169,16 @@
       min-height: 0;
       overflow: hidden;
       position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
 
       .video-player {
-        height: 100%;
+        max-height: 100%;
+        max-width: 100%;;
         width: 100%;
+        height: 100%;
         object-fit: contain;
       }
 
@@ -140,51 +186,119 @@
         height: 100%;
         width: 100%;
       }
+
+      .video-overlay-controls {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        display: flex;
+        gap: 0.5rem;
+        z-index: 10;
+        opacity: 0.7;
+        transition: opacity 0.3s;
+
+        &:hover {
+          opacity: 1;
+        }
+
+        .play-pause-btn {
+          border-radius: 50%;
+          font-size: 1.2rem;
+          height: 50px;
+          width: 50px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+        }
+
+        .fullscreen-btn {
+          height: 50px;
+          width: 50px;
+          border-radius: 4px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+        }
+      }
     }
 
     .now-playing {
-      align-items: center;
       background-color: rgba(0, 0, 0, 0.8);
+      padding: 0.75rem 1rem;
       display: flex;
+      flex-direction: column;
       gap: 0.5rem;
-      padding: 0.5rem 1rem;
+      flex-shrink: 0;
+
+      .now-playing-top {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .now-playing-scene {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .now-playing-performers {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
 
       .marker-number {
         background-color: rgba(255, 255, 255, 0.2);
         border-radius: 4px;
         font-size: 0.8rem;
         padding: 0.2rem 0.5rem;
+        flex-shrink: 0;
       }
 
       .marker-title {
         color: #fff;
         font-weight: bold;
+        font-size: 1rem;
       }
 
-      .scene-title {
-        color: #888;
-        font-size: 0.9rem;
-      }
-    }
-
-    .player-controls {
-      align-items: center;
-      background-color: rgba(0, 0, 0, 0.6);
-      border-radius: 0 0 4px 4px;
-      display: flex;
-      gap: 0.5rem;
-      justify-content: center;
-      padding: 0.75rem;
-
-      .play-pause-btn {
-        border-radius: 50%;
-        font-size: 1.2rem;
-        height: 50px;
-        width: 50px;
+      .single-loop-badge {
+        background-color: #6c98c6;
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        transition: background-color 0.2s;
+        
+        &:hover {
+          background-color: #5a86b4;
+        }
       }
 
-      .loop-btn {
-        margin-left: 1rem;
+      .scene-label {
+        color: #999;
+        font-size: 0.85rem;
+        flex-shrink: 0;
+      }
+
+      .scene-title-link {
+        color: #6c98c6;
+        font-size: 1.1rem;
+        font-weight: bold;
+        text-decoration: none;
+        transition: color 0.2s;
+
+        &:hover {
+          color: #8ab4d9;
+          text-decoration: underline;
+        }
+      }
+
+      .marker-performers {
+        font-size: 0.85rem;
+        color: #bbb;
+      }
+
+      .performer-icon-top {
+        color: #7a9d7a;
+      }
+
+      .performer-icon-bottom {
+        color: #7a9db8;
       }
     }
   }
@@ -234,8 +348,8 @@
         }
 
         &.active {
-          background-color: rgba(40, 167, 69, 0.3);
-          border-left: 3px solid #28a745;
+          background-color: rgba(108, 152, 198, 0.2);
+          border-left: 3px solid #6c98c6;
         }
 
         .marker-preview {
@@ -294,6 +408,50 @@
             .duration {
               color: #666;
               margin-left: 0.25rem;
+            }
+          }
+
+          .marker-performers {
+            font-size: 0.75rem;
+            color: #999;
+            margin-top: 0.25rem;
+          }
+
+          .performer-icon-top {
+            color: #7a9d7a;
+          }
+
+          .performer-icon-bottom {
+            color: #7a9db8;
+          }
+        }
+
+        .marker-action-btns {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+          margin-right: 0.5rem;
+          
+          .single-loop-btn {
+            padding: 0.25rem 0.4rem;
+            font-size: 0.7rem;
+            
+            &.btn-primary {
+              background-color: #6c98c6;
+              border-color: #6c98c6;
+              
+              &:hover {
+                background-color: #5a86b4;
+                border-color: #5a86b4;
+              }
+            }
+            
+            &.btn-outline-secondary {
+              opacity: 0.5;
+              
+              &:hover {
+                opacity: 1;
+              }
             }
           }
         }

@@ -12,6 +12,7 @@ import cloneDeep from "lodash-es/cloneDeep";
 import mergeWith from "lodash-es/mergeWith";
 import { ToastProvider } from "src/hooks/Toast";
 import { LightboxProvider } from "src/hooks/Lightbox/context";
+import { MarkerQueueProvider } from "src/hooks/MarkerQueue";
 import { initPolyfills } from "src/polyfills";
 
 import locales, { registerCountry } from "src/locales";
@@ -355,25 +356,27 @@ export const App: React.FC = () => {
         formats={intlFormats}
       >
         <ToastProvider>
-          <PluginsLoader>
-            <AppContainer>
-              <ConfigurationProvider configuration={config.data!.configuration}>
-                {maybeRenderReleaseNotes()}
-                <ConnectionMonitor />
-                <Suspense fallback={<LoadingIndicator />}>
-                  <LightboxProvider>
-                    <ManualProvider>
-                      <InteractiveProvider>
-                        <Helmet {...titleProps} />
-                        {maybeRenderNavbar()}
-                        <MainContainer>{renderContent()}</MainContainer>
-                      </InteractiveProvider>
-                    </ManualProvider>
-                  </LightboxProvider>
-                </Suspense>
-              </ConfigurationProvider>
-            </AppContainer>
-          </PluginsLoader>
+          <MarkerQueueProvider>
+            <PluginsLoader>
+              <AppContainer>
+                <ConfigurationProvider configuration={config.data!.configuration}>
+                  {maybeRenderReleaseNotes()}
+                  <ConnectionMonitor />
+                  <Suspense fallback={<LoadingIndicator />}>
+                    <LightboxProvider>
+                      <ManualProvider>
+                        <InteractiveProvider>
+                          <Helmet {...titleProps} />
+                          {maybeRenderNavbar()}
+                          <MainContainer>{renderContent()}</MainContainer>
+                        </InteractiveProvider>
+                      </ManualProvider>
+                    </LightboxProvider>
+                  </Suspense>
+                </ConfigurationProvider>
+              </AppContainer>
+            </PluginsLoader>
+          </MarkerQueueProvider>
         </ToastProvider>
       </IntlProvider>
     </ErrorBoundary>

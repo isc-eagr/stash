@@ -216,6 +216,8 @@ type MarkerFragment = Pick<GQL.SceneMarker, "title" | "seconds"> & {
   primary_tag: Pick<GQL.Tag, "name">;
   tags: Array<Pick<GQL.Tag, "name">>;
   performers?: Array<Pick<GQL.Performer, "name">>;
+  top_performers?: Array<Pick<GQL.Performer, "id" | "name">>;
+  bottom_performers?: Array<Pick<GQL.Performer, "id" | "name">>;
 };
 
 type SegmentPreset = {
@@ -238,12 +240,8 @@ function getMarkerTitle(marker: MarkerFragment) {
     }
   }
 
-  // Append performer names if present
-  if (marker.performers && marker.performers.length > 0) {
-    const performerNames = marker.performers.map((p) => p.name).join(", ");
-    ret += ` [${performerNames}]`;
-  }
-
+  // Performer names with roles are now shown in the tooltip with arrows
+  
   return ret;
 }
 
@@ -303,6 +301,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
     const [pendingStart, setPendingStart] = useState<number | null>(null);
     const [showPresetModal, setShowPresetModal] = useState(false);
+    const [loopSingleId, setLoopSingleId] = useState<string | null>(null);
 
     const [saveLoopPreset] = GQL.useSaveSceneMultiSegmentLoopPresetMutation();
     const [deleteLoopPreset] =
@@ -426,9 +425,9 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
           if (!multiSegmentPlugin) return;
 
           segments.forEach((s) => {
-            const { start, end: endRaw } = s;
+            const { start, end: endRaw, title } = s;
             const end = endRaw > start ? endRaw : start + 1;
-            multiSegmentPlugin.addSegment(start, end);
+            multiSegmentPlugin.addSegment(start, end, title);
           });
 
           // Force sync after adding segments from markers
@@ -622,6 +621,10 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         setCurrentSegmentIndex(index);
       });
 
+      multiSegmentPlugin.setOnLoopSingleChange((segmentId) => {
+        setLoopSingleId(segmentId);
+      });
+
       // Sync pending start
       const syncPending = () => {
         setPendingStart(multiSegmentPlugin.getPendingStart());
@@ -631,6 +634,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       setMultiSegments(multiSegmentPlugin.getSegments());
       setMultiSegmentEnabled(multiSegmentPlugin.isEnabled());
       setCurrentSegmentIndex(multiSegmentPlugin.getCurrentSegmentIndex());
+      setLoopSingleId(multiSegmentPlugin.getLoopSingleId());
       syncPending();
     }, [getPlayer]);
 
@@ -736,6 +740,21 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         multiSegmentPlugin.reorderSegment(fromIndex, toIndex);
         // Force sync after reorder
         setMultiSegments([...multiSegmentPlugin.getSegments()]);
+      },
+      [getPlayer]
+    );
+
+    const handleMultiSegmentToggleLoopSingle = useCallback(
+      (segmentId: string) => {
+        const player = getPlayer();
+        if (!player) return;
+
+        const multiSegmentPlugin = player.multiSegmentLoop?.() as
+          | MultiSegmentLoopPlugin
+          | undefined;
+        if (!multiSegmentPlugin) return;
+
+        multiSegmentPlugin.toggleLoopSingle(segmentId);
       },
       [getPlayer]
     );
@@ -1313,6 +1332,8 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         seconds: marker.seconds,
         end_seconds: marker.end_seconds ?? null,
         primaryTag: marker.primary_tag,
+        top_performers: marker.top_performers?.map((p) => ({ id: p.id, name: p.name })),
+        bottom_performers: marker.bottom_performers?.map((p) => ({ id: p.id, name: p.name })),
       }));
 
       const markers = player!.markers();
@@ -1587,6 +1608,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
               enabled={multiSegmentEnabled}
               currentSegmentIndex={currentSegmentIndex}
               pendingStart={pendingStart}
+              loopSingleId={loopSingleId}
               onMarkPoint={handleMultiSegmentMarkPoint}
               onCancelPending={handleMultiSegmentCancelPending}
               onToggleEnabled={handleMultiSegmentToggleEnabled}
@@ -1594,6 +1616,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
               onClearSegments={handleMultiSegmentClear}
               onJumpToSegment={handleMultiSegmentJumpTo}
               onReorderSegment={handleMultiSegmentReorder}
+              onToggleLoopSingle={handleMultiSegmentToggleLoopSingle}
               onUpdateSegmentStart={handleMultiSegmentUpdateStart}
               onUpdateSegmentEnd={handleMultiSegmentUpdateEnd}
               presetNames={segmentPresets.map((preset) => preset.name)}

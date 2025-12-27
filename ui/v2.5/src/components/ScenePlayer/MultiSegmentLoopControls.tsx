@@ -20,8 +20,7 @@ import {
   faFolderOpen,
   faTimes,
   faChevronDown,
-  faChevronRight,
-} from "@fortawesome/free-solid-svg-icons";
+  faChevronRight,  faRedo,} from "@fortawesome/free-solid-svg-icons";
 import TextUtils from "src/utils/text";
 import type { ILoopSegment } from "./multi-segment-loop";
 import cx from "classnames";
@@ -31,6 +30,7 @@ interface IMultiSegmentLoopControlsProps {
   enabled: boolean;
   currentSegmentIndex: number;
   pendingStart: number | null;
+  loopSingleId: string | null;
   onMarkPoint: () => void;
   onCancelPending: () => void;
   onToggleEnabled: () => void;
@@ -38,6 +38,7 @@ interface IMultiSegmentLoopControlsProps {
   onClearSegments: () => void;
   onJumpToSegment: (index: number) => void;
   onReorderSegment: (fromIndex: number, toIndex: number) => void;
+  onToggleLoopSingle: (id: string) => void;
   onUpdateSegmentStart?: (id: string) => void;
   onUpdateSegmentEnd?: (id: string) => void;
   presetNames?: string[];
@@ -56,6 +57,7 @@ export const MultiSegmentLoopControls: React.FC<
   enabled,
   currentSegmentIndex,
   pendingStart,
+  loopSingleId,
   onMarkPoint,
   onCancelPending,
   onToggleEnabled,
@@ -63,6 +65,7 @@ export const MultiSegmentLoopControls: React.FC<
   onClearSegments,
   onJumpToSegment,
   onReorderSegment,
+  onToggleLoopSingle,
   onUpdateSegmentStart,
   onUpdateSegmentEnd,
   presetNames = [],
@@ -262,6 +265,7 @@ export const MultiSegmentLoopControls: React.FC<
               key={segment.id}
               className={cx("msl-segment-row", {
                 "msl-segment-active": enabled && index === currentSegmentIndex,
+                "msl-segment-loop-single": loopSingleId === segment.id,
               })}
               onClick={() => onJumpToSegment(index)}
             >
@@ -308,11 +312,38 @@ export const MultiSegmentLoopControls: React.FC<
                 >
                   {formatTime(segment.end)}
                 </span>
+                {segment.title && (
+                  <span className="msl-segment-title" title={segment.title}>
+                    {segment.title}
+                  </span>
+                )}
               </span>
               <span className="msl-segment-duration">
                 ({formatTime(getSegmentDuration(segment))})
               </span>
               <div className="msl-segment-actions">
+                <Button
+                  variant={loopSingleId === segment.id ? "primary" : "link"}
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleLoopSingle(segment.id);
+                  }}
+                  title={
+                    loopSingleId === segment.id
+                      ? intl.formatMessage({
+                          id: "multi_segment_loop.disable_single_loop",
+                          defaultMessage: "Disable single segment loop",
+                        })
+                      : intl.formatMessage({
+                          id: "multi_segment_loop.enable_single_loop",
+                          defaultMessage: "Loop this segment",
+                        })
+                  }
+                  className="msl-loop-single-btn"
+                >
+                  <Icon icon={faRedo} />
+                </Button>
                 <Button
                   variant="link"
                   size="sm"
