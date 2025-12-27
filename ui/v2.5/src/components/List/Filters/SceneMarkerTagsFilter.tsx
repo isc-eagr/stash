@@ -1,16 +1,33 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { Badge, Button, Card, Col, Collapse, Form, Row } from "react-bootstrap";
-import Select, { components as selectComponents, OptionProps, MultiValueProps } from "react-select";
+import Select, {
+  components as selectComponents,
+  OptionProps,
+  MultiValueProps,
+} from "react-select";
 import { defineMessages, useIntl } from "react-intl";
 import { CriterionModifier, FilterMode } from "src/core/generated-graphql";
-import { SceneMarkerTagsCriterion, SceneMarkerTagGroupUI, RatingCriterion } from "src/models/list-filter/criteria/tags";
+import {
+  SceneMarkerTagsCriterion,
+  SceneMarkerTagGroupUI,
+  RatingCriterion,
+} from "src/models/list-filter/criteria/tags";
 import { Tag, TagIDSelect } from "src/components/Tags/TagSelect";
-import { PerformerIDSelect, Performer } from "src/components/Performers/PerformerSelect";
+import {
+  PerformerIDSelect,
+  Performer,
+} from "src/components/Performers/PerformerSelect";
 import { getCountries } from "src/utils/country";
 import { CountryFlag } from "src/components/Shared/CountryFlag";
 import { usePerformerEthnicitiesQuery } from "src/core/generated-graphql";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
-import { faChevronDown, faChevronRight, faArrowUp, faArrowDown, faArrowsUpDown } from "@fortawesome/free-solid-svg-icons";
+import {
+  faChevronDown,
+  faChevronRight,
+  faArrowUp,
+  faArrowDown,
+  faArrowsUpDown,
+} from "@fortawesome/free-solid-svg-icons";
 import { Icon } from "src/components/Shared/Icon";
 
 const messages = defineMessages({
@@ -23,7 +40,11 @@ const messages = defineMessages({
   rating: { id: "performer_rating", defaultMessage: "Rating" },
 });
 
-const ratingModifiers: { value: CriterionModifier; label: string; title: string }[] = [
+const ratingModifiers: {
+  value: CriterionModifier;
+  label: string;
+  title: string;
+}[] = [
   { value: CriterionModifier.Equals, label: "=", title: "Equals" },
   { value: CriterionModifier.NotEquals, label: "≠", title: "Not equals" },
   { value: CriterionModifier.GreaterThan, label: ">", title: "Greater than" },
@@ -34,14 +55,14 @@ const ratingModifiers: { value: CriterionModifier; label: string; title: string 
 
 const makeEmptyGroup = (): SceneMarkerTagGroupUI => ({
   tags: [],
-  giver_performer_ids: [],
-  giver_ethnicities: [],
-  giver_countries: [],
-  giver_rating: null,
-  receiver_performer_ids: [],
-  receiver_ethnicities: [],
-  receiver_countries: [],
-  receiver_rating: null,
+  top_performer_ids: [],
+  top_ethnicities: [],
+  top_countries: [],
+  top_rating: null,
+  bottom_performer_ids: [],
+  bottom_ethnicities: [],
+  bottom_countries: [],
+  bottom_rating: null,
   both_roles_performer_ids: [],
   both_roles_ethnicities: [],
   both_roles_countries: [],
@@ -65,7 +86,9 @@ interface RoleAttributeSectionProps {
   onCountriesChange: (values: string[]) => void;
   onRatingChange: (rating: RatingCriterion | null) => void;
   CountryOption: React.FC<OptionProps<{ label: string; value: string }, true>>;
-  CountryMultiValue: React.FC<MultiValueProps<{ label: string; value: string }, true>>;
+  CountryMultiValue: React.FC<
+    MultiValueProps<{ label: string; value: string }, true>
+  >;
 }
 
 const RoleAttributeSection: React.FC<RoleAttributeSectionProps> = ({
@@ -86,16 +109,19 @@ const RoleAttributeSection: React.FC<RoleAttributeSectionProps> = ({
   CountryMultiValue,
 }) => {
   const intl = useIntl();
-  
-  const hasContent = performerIds.length > 0 ||
+
+  const hasContent =
+    performerIds.length > 0 ||
     ethnicities.length > 0 ||
     countries.length > 0 ||
     rating != null;
-  
+
   const [isOpen, setIsOpen] = useState(hasContent);
 
   const currentModifier = rating?.modifier ?? CriterionModifier.Equals;
-  const currentModDef = ratingModifiers.find((m) => m.value === currentModifier);
+  const currentModDef = ratingModifiers.find(
+    (m) => m.value === currentModifier
+  );
 
   const onRatingModifierChange = (m: CriterionModifier) => {
     onRatingChange({
@@ -106,12 +132,18 @@ const RoleAttributeSection: React.FC<RoleAttributeSectionProps> = ({
   };
 
   const onRatingValueChange = (v: number) => {
-    if (!rating) return onRatingChange({ modifier: CriterionModifier.Equals, value: v });
+    if (!rating)
+      return onRatingChange({ modifier: CriterionModifier.Equals, value: v });
     onRatingChange({ ...rating, value: v });
   };
 
   const onRatingValue2Change = (v: number) => {
-    if (!rating) return onRatingChange({ modifier: CriterionModifier.Between, value: 0, value2: v });
+    if (!rating)
+      return onRatingChange({
+        modifier: CriterionModifier.Between,
+        value: 0,
+        value2: v,
+      });
     onRatingChange({ ...rating, value2: v });
   };
 
@@ -130,7 +162,9 @@ const RoleAttributeSection: React.FC<RoleAttributeSectionProps> = ({
       <Collapse in={isOpen}>
         <Card.Body>
           {/* Performers */}
-          <Form.Label className="mb-1">{intl.formatMessage(messages.performers)}</Form.Label>
+          <Form.Label className="mb-1">
+            {intl.formatMessage(messages.performers)}
+          </Form.Label>
           <PerformerIDSelect
             isMulti
             ids={performerIds.map((p) => p.id)}
@@ -141,31 +175,43 @@ const RoleAttributeSection: React.FC<RoleAttributeSectionProps> = ({
           {/* Ethnicity + Country */}
           <Row className="g-2 mt-2">
             <Col md={6}>
-              <Form.Label className="mb-1">{intl.formatMessage(messages.ethnicity)}</Form.Label>
+              <Form.Label className="mb-1">
+                {intl.formatMessage(messages.ethnicity)}
+              </Form.Label>
               <Select
                 classNamePrefix="react-select"
                 isMulti
                 isClearable
                 options={ethnicityOptions}
-                value={ethnicityOptions.filter((o) => ethnicities.includes(o.value))}
+                value={ethnicityOptions.filter((o) =>
+                  ethnicities.includes(o.value)
+                )}
                 placeholder="Any ethnicity"
-                onChange={(val) => onEthnicitiesChange(val.map(v => v.value))}
+                onChange={(val) => onEthnicitiesChange(val.map((v) => v.value))}
                 components={{ IndicatorSeparator: null }}
                 menuPortalTarget={document.body}
               />
             </Col>
             <Col md={6}>
-              <Form.Label className="mb-1">{intl.formatMessage(messages.country)}</Form.Label>
+              <Form.Label className="mb-1">
+                {intl.formatMessage(messages.country)}
+              </Form.Label>
               <Select
                 classNamePrefix="react-select"
                 isMulti
                 isClearable
                 options={countryOptions}
-                value={countryOptions.filter((o) => countries.includes(o.value))}
+                value={countryOptions.filter((o) =>
+                  countries.includes(o.value)
+                )}
                 placeholder="Any country"
-                onChange={(val) => onCountriesChange(val.map(v => v.value))}
+                onChange={(val) => onCountriesChange(val.map((v) => v.value))}
                 menuPortalTarget={document.body}
-                components={{ IndicatorSeparator: null, Option: CountryOption, MultiValue: CountryMultiValue }}
+                components={{
+                  IndicatorSeparator: null,
+                  Option: CountryOption,
+                  MultiValue: CountryMultiValue,
+                }}
               />
             </Col>
           </Row>
@@ -173,19 +219,30 @@ const RoleAttributeSection: React.FC<RoleAttributeSectionProps> = ({
           {/* Rating */}
           <Row className="g-2 mt-2">
             <Col md={12}>
-              <Form.Label className="mb-1">{intl.formatMessage(messages.rating)}</Form.Label>
+              <Form.Label className="mb-1">
+                {intl.formatMessage(messages.rating)}
+              </Form.Label>
               <div className="d-flex align-items-center gap-2 flex-wrap">
                 <Form.Control
                   as="select"
                   value={currentModifier}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onRatingModifierChange(e.target.value as unknown as CriterionModifier)}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                    onRatingModifierChange(
+                      e.target.value as unknown as CriterionModifier
+                    )
+                  }
                   size="sm"
                   className="w-auto"
                   title={currentModDef?.title}
                   aria-label={currentModDef?.title}
                 >
                   {ratingModifiers.map((m) => (
-                    <option key={m.value} value={m.value} title={m.title} aria-label={m.title}>
+                    <option
+                      key={m.value}
+                      value={m.value}
+                      title={m.title}
+                      aria-label={m.title}
+                    >
                       {m.label}
                     </option>
                   ))}
@@ -197,7 +254,8 @@ const RoleAttributeSection: React.FC<RoleAttributeSectionProps> = ({
                     valueRequired
                   />
                 </div>
-                {(rating?.modifier === CriterionModifier.Between || rating?.modifier === CriterionModifier.NotBetween) && (
+                {(rating?.modifier === CriterionModifier.Between ||
+                  rating?.modifier === CriterionModifier.NotBetween) && (
                   <div>
                     <RatingSystem
                       value={rating?.value2}
@@ -234,7 +292,7 @@ export const SceneMarkerTagsFilter: React.FC<{
   // Get description based on filter mode
   const filterDescription = useMemo(() => {
     if (filterMode === FilterMode.Scenes) {
-      return "Filter scenes by marker activity. Each marker group can specify tags and performer criteria (giver/receiver/both roles with attributes like ethnicity, country, rating).";
+      return "Filter scenes by marker activity. Each marker group can specify tags and performer criteria (top/bottom/both roles with attributes like ethnicity, country, rating).";
     }
     return null;
   }, [filterMode]);
@@ -300,28 +358,35 @@ export const SceneMarkerTagsFilter: React.FC<{
 
   // Country options
   const { locale } = useIntl();
-  const countryOptions = useMemo(() => getCountries(locale) as { label: string; value: string }[], [locale]);
+  const countryOptions = useMemo(
+    () => getCountries(locale) as { label: string; value: string }[],
+    [locale]
+  );
 
   // Custom option component with flag
-  const CountryOption: React.FC<OptionProps<{ label: string; value: string }, true>> = (optionProps) => {
+  const CountryOption: React.FC<
+    OptionProps<{ label: string; value: string }, true>
+  > = (optionProps) => {
     const { data } = optionProps;
     return (
       <selectComponents.Option {...optionProps}>
         <div className="d-flex align-items-center">
           <CountryFlag country={data.value} />
-          <span style={{ marginLeft: '0.5rem' }}>{data.label}</span>
+          <span style={{ marginLeft: "0.5rem" }}>{data.label}</span>
         </div>
       </selectComponents.Option>
     );
   };
 
-  const CountryMultiValue: React.FC<MultiValueProps<{ label: string; value: string }, true>> = (props) => {
+  const CountryMultiValue: React.FC<
+    MultiValueProps<{ label: string; value: string }, true>
+  > = (props) => {
     const { data } = props;
     return (
       <selectComponents.MultiValue {...props}>
         <div className="d-flex align-items-center">
           <CountryFlag country={data.value} />
-          <span style={{ marginLeft: '0.25rem' }}>{data.label}</span>
+          <span style={{ marginLeft: "0.25rem" }}>{data.label}</span>
         </div>
       </selectComponents.MultiValue>
     );
@@ -354,17 +419,17 @@ export const SceneMarkerTagsFilter: React.FC<{
     criterion.modifier === CriterionModifier.Equals ||
     criterion.modifier === CriterionModifier.NotEquals;
 
-  // Check if giver or receiver has criteria set (for showing performer mode)
-  const hasGiverReceiverCriteria = (group: SceneMarkerTagGroupUI) => {
+  // Check if top or bottom has criteria set (for showing performer mode)
+  const hasTopBottomCriteria = (group: SceneMarkerTagGroupUI) => {
     return (
-      (group.giver_performer_ids?.length ?? 0) > 0 ||
-      (group.giver_ethnicities?.length ?? 0) > 0 ||
-      (group.giver_countries?.length ?? 0) > 0 ||
-      group.giver_rating != null ||
-      (group.receiver_performer_ids?.length ?? 0) > 0 ||
-      (group.receiver_ethnicities?.length ?? 0) > 0 ||
-      (group.receiver_countries?.length ?? 0) > 0 ||
-      group.receiver_rating != null
+      (group.top_performer_ids?.length ?? 0) > 0 ||
+      (group.top_ethnicities?.length ?? 0) > 0 ||
+      (group.top_countries?.length ?? 0) > 0 ||
+      group.top_rating != null ||
+      (group.bottom_performer_ids?.length ?? 0) > 0 ||
+      (group.bottom_ethnicities?.length ?? 0) > 0 ||
+      (group.bottom_countries?.length ?? 0) > 0 ||
+      group.bottom_rating != null
     );
   };
 
@@ -378,8 +443,18 @@ export const SceneMarkerTagsFilter: React.FC<{
       {isGrouped ? (
         <div className="grouped-tags">
           {criterion.extendedGroups.map((group, idx) => (
-            <Card key={idx} className="mb-3 marker-group-card" style={{ backgroundColor: 'var(--card-bg, #1e2227)', border: '2px solid var(--primary, #137cbd)' }}>
-              <Card.Header className="d-flex align-items-center justify-content-between py-2" style={{ backgroundColor: 'var(--card-header-bg, #252a30)' }}>
+            <Card
+              key={idx}
+              className="mb-3 marker-group-card"
+              style={{
+                backgroundColor: "var(--card-bg, #1e2227)",
+                border: "2px solid var(--primary, #137cbd)",
+              }}
+            >
+              <Card.Header
+                className="d-flex align-items-center justify-content-between py-2"
+                style={{ backgroundColor: "var(--card-header-bg, #252a30)" }}
+              >
                 <strong>
                   {intl.formatMessage(messages.marker_label)} {idx + 1}
                 </strong>
@@ -394,7 +469,9 @@ export const SceneMarkerTagsFilter: React.FC<{
               </Card.Header>
               <Card.Body>
                 {/* Tags Section */}
-                <Form.Label className="mb-1 fw-bold">{intl.formatMessage(messages.tags)}</Form.Label>
+                <Form.Label className="mb-1 fw-bold">
+                  {intl.formatMessage(messages.tags)}
+                </Form.Label>
                 <TagIDSelect
                   isMulti
                   ids={(group.tags ?? []).map((t) => t.id)}
@@ -406,11 +483,15 @@ export const SceneMarkerTagsFilter: React.FC<{
                   label="Include Sub Tags"
                   className="mt-1 mb-3"
                   checked={group.depth === -1}
-                  onChange={(e) => onDepthChange(idx, e.currentTarget.checked ? -1 : undefined)}
+                  onChange={(e) =>
+                    onDepthChange(idx, e.currentTarget.checked ? -1 : undefined)
+                  }
                 />
 
                 {/* Exclude Tags Section */}
-                <Form.Label className="mb-1 fw-bold text-danger">Exclude Tags</Form.Label>
+                <Form.Label className="mb-1 fw-bold text-danger">
+                  Exclude Tags
+                </Form.Label>
                 <small className="d-block mb-1 text-muted">
                   Scenes with ANY of these tags on ANY marker will be excluded
                 </small>
@@ -424,42 +505,80 @@ export const SceneMarkerTagsFilter: React.FC<{
 
                 {/* Top Section */}
                 <RoleAttributeSection
-                  roleKey="giver"
+                  roleKey="top"
                   roleLabel="Top"
-                  roleIcon={<Badge pill variant="success" style={{ fontSize: 12, padding: '4px 8px' }}><Icon icon={faArrowUp} /></Badge>}
-                  performerIds={group.giver_performer_ids ?? []}
-                  ethnicities={group.giver_ethnicities ?? []}
-                  countries={group.giver_countries ?? []}
-                  rating={group.giver_rating ?? null}
+                  roleIcon={
+                    <Badge
+                      pill
+                      variant="success"
+                      style={{ fontSize: 12, padding: "4px 8px" }}
+                    >
+                      <Icon icon={faArrowUp} />
+                    </Badge>
+                  }
+                  performerIds={group.top_performer_ids ?? []}
+                  ethnicities={group.top_ethnicities ?? []}
+                  countries={group.top_countries ?? []}
+                  rating={group.top_rating ?? null}
                   countryOptions={countryOptions}
                   ethnicityOptions={ethnicityOptions}
-                  onPerformersChange={(performers) => 
-                    updateGroup(idx, { giver_performer_ids: performers.map((p) => ({ id: p.id, label: p.name ?? p.id })) })
+                  onPerformersChange={(performers) =>
+                    updateGroup(idx, {
+                      top_performer_ids: performers.map((p) => ({
+                        id: p.id,
+                        label: p.name ?? p.id,
+                      })),
+                    })
                   }
-                  onEthnicitiesChange={(values) => updateGroup(idx, { giver_ethnicities: values })}
-                  onCountriesChange={(values) => updateGroup(idx, { giver_countries: values })}
-                  onRatingChange={(rating) => updateGroup(idx, { giver_rating: rating })}
+                  onEthnicitiesChange={(values) =>
+                    updateGroup(idx, { top_ethnicities: values })
+                  }
+                  onCountriesChange={(values) =>
+                    updateGroup(idx, { top_countries: values })
+                  }
+                  onRatingChange={(rating) =>
+                    updateGroup(idx, { top_rating: rating })
+                  }
                   CountryOption={CountryOption}
                   CountryMultiValue={CountryMultiValue}
                 />
 
                 {/* Bottom Section */}
                 <RoleAttributeSection
-                  roleKey="receiver"
+                  roleKey="bottom"
                   roleLabel="Bottom"
-                  roleIcon={<Badge pill variant="info" style={{ fontSize: 12, padding: '4px 8px' }}><Icon icon={faArrowDown} /></Badge>}
-                  performerIds={group.receiver_performer_ids ?? []}
-                  ethnicities={group.receiver_ethnicities ?? []}
-                  countries={group.receiver_countries ?? []}
-                  rating={group.receiver_rating ?? null}
+                  roleIcon={
+                    <Badge
+                      pill
+                      variant="info"
+                      style={{ fontSize: 12, padding: "4px 8px" }}
+                    >
+                      <Icon icon={faArrowDown} />
+                    </Badge>
+                  }
+                  performerIds={group.bottom_performer_ids ?? []}
+                  ethnicities={group.bottom_ethnicities ?? []}
+                  countries={group.bottom_countries ?? []}
+                  rating={group.bottom_rating ?? null}
                   countryOptions={countryOptions}
                   ethnicityOptions={ethnicityOptions}
-                  onPerformersChange={(performers) => 
-                    updateGroup(idx, { receiver_performer_ids: performers.map((p) => ({ id: p.id, label: p.name ?? p.id })) })
+                  onPerformersChange={(performers) =>
+                    updateGroup(idx, {
+                      bottom_performer_ids: performers.map((p) => ({
+                        id: p.id,
+                        label: p.name ?? p.id,
+                      })),
+                    })
                   }
-                  onEthnicitiesChange={(values) => updateGroup(idx, { receiver_ethnicities: values })}
-                  onCountriesChange={(values) => updateGroup(idx, { receiver_countries: values })}
-                  onRatingChange={(rating) => updateGroup(idx, { receiver_rating: rating })}
+                  onEthnicitiesChange={(values) =>
+                    updateGroup(idx, { bottom_ethnicities: values })
+                  }
+                  onCountriesChange={(values) =>
+                    updateGroup(idx, { bottom_countries: values })
+                  }
+                  onRatingChange={(rating) =>
+                    updateGroup(idx, { bottom_rating: rating })
+                  }
                   CountryOption={CountryOption}
                   CountryMultiValue={CountryMultiValue}
                 />
@@ -468,27 +587,48 @@ export const SceneMarkerTagsFilter: React.FC<{
                 <RoleAttributeSection
                   roleKey="both_roles"
                   roleLabel="Both Roles (same performer as top AND bottom)"
-                  roleIcon={<Badge pill variant="warning" style={{ fontSize: 12, padding: '4px 8px' }}><Icon icon={faArrowsUpDown} /></Badge>}
+                  roleIcon={
+                    <Badge
+                      pill
+                      variant="warning"
+                      style={{ fontSize: 12, padding: "4px 8px" }}
+                    >
+                      <Icon icon={faArrowsUpDown} />
+                    </Badge>
+                  }
                   performerIds={group.both_roles_performer_ids ?? []}
                   ethnicities={group.both_roles_ethnicities ?? []}
                   countries={group.both_roles_countries ?? []}
                   rating={group.both_roles_rating ?? null}
                   countryOptions={countryOptions}
                   ethnicityOptions={ethnicityOptions}
-                  onPerformersChange={(performers) => 
-                    updateGroup(idx, { both_roles_performer_ids: performers.map((p) => ({ id: p.id, label: p.name ?? p.id })) })
+                  onPerformersChange={(performers) =>
+                    updateGroup(idx, {
+                      both_roles_performer_ids: performers.map((p) => ({
+                        id: p.id,
+                        label: p.name ?? p.id,
+                      })),
+                    })
                   }
-                  onEthnicitiesChange={(values) => updateGroup(idx, { both_roles_ethnicities: values })}
-                  onCountriesChange={(values) => updateGroup(idx, { both_roles_countries: values })}
-                  onRatingChange={(rating) => updateGroup(idx, { both_roles_rating: rating })}
+                  onEthnicitiesChange={(values) =>
+                    updateGroup(idx, { both_roles_ethnicities: values })
+                  }
+                  onCountriesChange={(values) =>
+                    updateGroup(idx, { both_roles_countries: values })
+                  }
+                  onRatingChange={(rating) =>
+                    updateGroup(idx, { both_roles_rating: rating })
+                  }
                   CountryOption={CountryOption}
                   CountryMultiValue={CountryMultiValue}
                 />
 
-                {/* Performer Mode: AND/OR (only if giver or receiver has criteria) */}
-                {hasGiverReceiverCriteria(group) && (
+                {/* Performer Mode: AND/OR (only if top or bottom has criteria) */}
+                {hasTopBottomCriteria(group) && (
                   <div className="mt-3 p-2 border rounded">
-                    <Form.Label className="mb-1 fw-bold">Top/Bottom Mode</Form.Label>
+                    <Form.Label className="mb-1 fw-bold">
+                      Top/Bottom Mode
+                    </Form.Label>
                     <div className="d-flex gap-3 align-items-center">
                       <Form.Check
                         inline

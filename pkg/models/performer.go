@@ -190,7 +190,7 @@ type PerformerFilterType struct {
 	DeathDate *DateCriterionInput `json:"death_date"`
 	// Filter by related scenes that meet this criteria
 	ScenesFilter *SceneFilterType `json:"scenes_filter"`
-	// Filter to only include performers that have scene markers where they are giver/receiver
+	// Filter to only include performers that have scene markers where they are top/bottom
 	HasMarkers *string `json:"has_markers"`
 	// Filter by related images that meet this criteria
 	ImagesFilter *ImageFilterType `json:"images_filter"`
@@ -210,6 +210,12 @@ type PerformerFilterType struct {
 
 	// Filter by scene marker participation with tag + role + partner attributes
 	PerformerMarkers *PerformerMarkersCriterionInput `json:"performer_markers"`
+
+	// Filter by markers with specific tags and performer's role on those markers
+	PerformerMarkerTags *PerformerMarkerTagsCriterionInput `json:"performer_marker_tags"`
+
+	// Filter by markers shared with partners having specific attributes
+	PerformerMarkerPartners *PerformerMarkerPartnersCriterionInput `json:"performer_marker_partners"`
 }
 
 // PerformerMarkersCriterionInput filters performers by their scene marker participation
@@ -224,7 +230,7 @@ type PerformerMarkersCriterionInput struct {
 type PerformerMarkerConditionInput struct {
 	// Tag IDs to match on the marker (marker must have at least one of these tags)
 	TagIDs []string `json:"tag_ids"`
-	// This performer's role on the marker: "giver", "receiver", or "any" (default: "any")
+	// This performer's role on the marker: "top", "bottom", or "any" (default: "any")
 	Role *string `json:"role"`
 	// Filter by the performer's own ethnicities (OR match)
 	SelfEthnicities []string `json:"self_ethnicities"`
@@ -238,6 +244,38 @@ type PerformerMarkerConditionInput struct {
 	PartnerCountries []string `json:"partner_countries"`
 	// Partner's rating criterion
 	PartnerRating *IntCriterionInput `json:"partner_rating"`
+}
+
+// PerformerMarkerTagsCriterionInput filters performers by markers with specific tags
+type PerformerMarkerTagsCriterionInput struct {
+	// Tag IDs to match on markers
+	TagIds []string `json:"tag_ids"`
+	// Performer's role on the marker: 'top', 'bottom', or 'any' (default: 'any')
+	Role *string `json:"role"`
+	// Depth for hierarchical tags
+	Depth *int `json:"depth"`
+	// Modifier for the filter (INCLUDES, INCLUDES_ALL, EXCLUDES)
+	Modifier CriterionModifier `json:"modifier"`
+}
+
+// PerformerMarkerPartnersCriterionInput filters performers by attributes of their marker partners
+type PerformerMarkerPartnersCriterionInput struct {
+	// Tag IDs to match on markers (optional)
+	TagIds []string `json:"tag_ids"`
+	// Depth for hierarchical tags
+	Depth *int `json:"depth"`
+	// Specific partner performers to filter by (OR match)
+	PartnerPerformerIds []string `json:"partner_performer_ids"`
+	// Partner's ethnicities to filter by (OR match)
+	PartnerEthnicities []string `json:"partner_ethnicities"`
+	// Partner's countries to filter by (OR match)
+	PartnerCountries []string `json:"partner_countries"`
+	// Partner's rating criterion
+	PartnerRating *IntCriterionInput `json:"partner_rating"`
+	// Partner's role: 'top', 'bottom', or 'any' (default: 'any')
+	PartnerRole *string `json:"partner_role"`
+	// Modifier for the filter (INCLUDES, EXCLUDES)
+	Modifier CriterionModifier `json:"modifier"`
 }
 
 type PerformerCreateInput struct {

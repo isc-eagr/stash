@@ -71,7 +71,7 @@ export const MarkerTagsCriterionOption = new BaseTagsCriterionOption(
 
 // Scene Marker Tags use grouped semantics for EQUALS (IS). Allow EQUALS here.
 // Supports extended groups with performer attributes (IDs, countries, ethnicities, rating)
-// Now with separate giver/receiver attribute fields and both_roles support
+// Now with separate top/bottom attribute fields and both_roles support
 export type RatingCriterion = {
   modifier: CriterionModifier;
   value: number;
@@ -80,30 +80,30 @@ export type RatingCriterion = {
 
 export type SceneMarkerTagGroupUI = {
   tags?: ILabeledId[];
-  exclude_tags?: ILabeledId[];  // Tags that must NOT be present on any marker
+  exclude_tags?: ILabeledId[]; // Tags that must NOT be present on any marker
   depth?: number;
-  
-  // Giver criteria
-  giver_performer_ids?: ILabeledId[];
-  giver_ethnicities?: string[];
-  giver_countries?: string[];
-  giver_rating?: RatingCriterion;
-  
-  // Receiver criteria
-  receiver_performer_ids?: ILabeledId[];
-  receiver_ethnicities?: string[];
-  receiver_countries?: string[];
-  receiver_rating?: RatingCriterion;
-  
-  // Both-roles criteria (performer must be BOTH giver AND receiver)
+
+  // Top criteria
+  top_performer_ids?: ILabeledId[];
+  top_ethnicities?: string[];
+  top_countries?: string[];
+  top_rating?: RatingCriterion;
+
+  // Bottom criteria
+  bottom_performer_ids?: ILabeledId[];
+  bottom_ethnicities?: string[];
+  bottom_countries?: string[];
+  bottom_rating?: RatingCriterion;
+
+  // Both-roles criteria (performer must be BOTH top AND bottom)
   both_roles_performer_ids?: ILabeledId[];
   both_roles_ethnicities?: string[];
   both_roles_countries?: string[];
   both_roles_rating?: RatingCriterion;
-  
+
   // Mode for performer matching
   performer_mode?: "AND" | "OR";
-  
+
   // DEPRECATED: Use role-specific fields instead
   performer_countries?: string[];
   performer_ethnicities?: string[];
@@ -124,35 +124,57 @@ export class SceneMarkerTagsCriterion extends Criterion {
   }
 
   private cloneRating(r: RatingCriterion): RatingCriterion {
-    return r ? { modifier: r.modifier, value: r.value, value2: r.value2 } : null;
+    return r
+      ? { modifier: r.modifier, value: r.value, value2: r.value2 }
+      : null;
   }
 
   public cloneValues() {
     this.groups = this.groups.map((g) => g.map((v) => ({ ...v })));
     this.extendedGroups = this.extendedGroups.map((g) => ({
       tags: g.tags ? g.tags.map((t) => ({ ...t })) : undefined,
-      exclude_tags: g.exclude_tags ? g.exclude_tags.map((t) => ({ ...t })) : undefined,
+      exclude_tags: g.exclude_tags
+        ? g.exclude_tags.map((t) => ({ ...t }))
+        : undefined,
       depth: g.depth,
-      // Giver criteria
-      giver_performer_ids: g.giver_performer_ids ? g.giver_performer_ids.map((p) => ({ ...p })) : undefined,
-      giver_ethnicities: g.giver_ethnicities ? [...g.giver_ethnicities] : undefined,
-      giver_countries: g.giver_countries ? [...g.giver_countries] : undefined,
-      giver_rating: this.cloneRating(g.giver_rating ?? null),
-      // Receiver criteria
-      receiver_performer_ids: g.receiver_performer_ids ? g.receiver_performer_ids.map((p) => ({ ...p })) : undefined,
-      receiver_ethnicities: g.receiver_ethnicities ? [...g.receiver_ethnicities] : undefined,
-      receiver_countries: g.receiver_countries ? [...g.receiver_countries] : undefined,
-      receiver_rating: this.cloneRating(g.receiver_rating ?? null),
+      // Top criteria
+      top_performer_ids: g.top_performer_ids
+        ? g.top_performer_ids.map((p) => ({ ...p }))
+        : undefined,
+      top_ethnicities: g.top_ethnicities ? [...g.top_ethnicities] : undefined,
+      top_countries: g.top_countries ? [...g.top_countries] : undefined,
+      top_rating: this.cloneRating(g.top_rating ?? null),
+      // Bottom criteria
+      bottom_performer_ids: g.bottom_performer_ids
+        ? g.bottom_performer_ids.map((p) => ({ ...p }))
+        : undefined,
+      bottom_ethnicities: g.bottom_ethnicities
+        ? [...g.bottom_ethnicities]
+        : undefined,
+      bottom_countries: g.bottom_countries
+        ? [...g.bottom_countries]
+        : undefined,
+      bottom_rating: this.cloneRating(g.bottom_rating ?? null),
       // Both-roles criteria
-      both_roles_performer_ids: g.both_roles_performer_ids ? g.both_roles_performer_ids.map((p) => ({ ...p })) : undefined,
-      both_roles_ethnicities: g.both_roles_ethnicities ? [...g.both_roles_ethnicities] : undefined,
-      both_roles_countries: g.both_roles_countries ? [...g.both_roles_countries] : undefined,
+      both_roles_performer_ids: g.both_roles_performer_ids
+        ? g.both_roles_performer_ids.map((p) => ({ ...p }))
+        : undefined,
+      both_roles_ethnicities: g.both_roles_ethnicities
+        ? [...g.both_roles_ethnicities]
+        : undefined,
+      both_roles_countries: g.both_roles_countries
+        ? [...g.both_roles_countries]
+        : undefined,
       both_roles_rating: this.cloneRating(g.both_roles_rating ?? null),
       // Mode
       performer_mode: g.performer_mode,
       // DEPRECATED fields
-      performer_countries: g.performer_countries ? [...g.performer_countries] : undefined,
-      performer_ethnicities: g.performer_ethnicities ? [...g.performer_ethnicities] : undefined,
+      performer_countries: g.performer_countries
+        ? [...g.performer_countries]
+        : undefined,
+      performer_ethnicities: g.performer_ethnicities
+        ? [...g.performer_ethnicities]
+        : undefined,
       performer_rating: this.cloneRating(g.performer_rating ?? null),
     }));
     this.items = this.items.map((v) => ({ ...v }));
@@ -163,14 +185,14 @@ export class SceneMarkerTagsCriterion extends Criterion {
     return this.extendedGroups.some(
       (g) =>
         (g.exclude_tags?.length ?? 0) > 0 ||
-        (g.giver_performer_ids?.length ?? 0) > 0 ||
-        (g.giver_ethnicities?.length ?? 0) > 0 ||
-        (g.giver_countries?.length ?? 0) > 0 ||
-        g.giver_rating != null ||
-        (g.receiver_performer_ids?.length ?? 0) > 0 ||
-        (g.receiver_ethnicities?.length ?? 0) > 0 ||
-        (g.receiver_countries?.length ?? 0) > 0 ||
-        g.receiver_rating != null ||
+        (g.top_performer_ids?.length ?? 0) > 0 ||
+        (g.top_ethnicities?.length ?? 0) > 0 ||
+        (g.top_countries?.length ?? 0) > 0 ||
+        g.top_rating != null ||
+        (g.bottom_performer_ids?.length ?? 0) > 0 ||
+        (g.bottom_ethnicities?.length ?? 0) > 0 ||
+        (g.bottom_countries?.length ?? 0) > 0 ||
+        g.bottom_rating != null ||
         (g.both_roles_performer_ids?.length ?? 0) > 0 ||
         (g.both_roles_ethnicities?.length ?? 0) > 0 ||
         (g.both_roles_countries?.length ?? 0) > 0 ||
@@ -184,8 +206,13 @@ export class SceneMarkerTagsCriterion extends Criterion {
   }
 
   public getLabel(intl: IntlShape): string {
-    const criterion = intl.formatMessage({ id: this.criterionOption.messageID });
-    const modifierString = ModifierCriterion.getModifierLabel(intl, this.modifier);
+    const criterion = intl.formatMessage({
+      id: this.criterionOption.messageID,
+    });
+    const modifierString = ModifierCriterion.getModifierLabel(
+      intl,
+      this.modifier
+    );
 
     let valueString = "";
     if (
@@ -205,28 +232,54 @@ export class SceneMarkerTagsCriterion extends Criterion {
                 parts.push(tagStr);
               }
             }
-            // Giver info
-            if (g.giver_performer_ids?.length) parts.push(`giver=${g.giver_performer_ids.map((p) => p.label).join(",")}`);
-            if (g.giver_ethnicities?.length) parts.push(`giver_eth=${g.giver_ethnicities.join(",")}`);
-            if (g.giver_countries?.length) parts.push(`giver_ctry=${g.giver_countries.join(",")}`);
-            // Receiver info
-            if (g.receiver_performer_ids?.length) parts.push(`receiver=${g.receiver_performer_ids.map((p) => p.label).join(",")}`);
-            if (g.receiver_ethnicities?.length) parts.push(`receiver_eth=${g.receiver_ethnicities.join(",")}`);
-            if (g.receiver_countries?.length) parts.push(`receiver_ctry=${g.receiver_countries.join(",")}`);
+            // Top info
+            if (g.top_performer_ids?.length)
+              parts.push(
+                `top=${g.top_performer_ids.map((p) => p.label).join(",")}`
+              );
+            if (g.top_ethnicities?.length)
+              parts.push(`top_eth=${g.top_ethnicities.join(",")}`);
+            if (g.top_countries?.length)
+              parts.push(`top_ctry=${g.top_countries.join(",")}`);
+            // Bottom info
+            if (g.bottom_performer_ids?.length)
+              parts.push(
+                `bottom=${g.bottom_performer_ids.map((p) => p.label).join(",")}`
+              );
+            if (g.bottom_ethnicities?.length)
+              parts.push(`bottom_eth=${g.bottom_ethnicities.join(",")}`);
+            if (g.bottom_countries?.length)
+              parts.push(`bottom_ctry=${g.bottom_countries.join(",")}`);
             // Both-roles info
-            if (g.both_roles_performer_ids?.length) parts.push(`both=${g.both_roles_performer_ids.map((p) => p.label).join(",")}`);
-            if (g.both_roles_ethnicities?.length) parts.push(`both_eth=${g.both_roles_ethnicities.join(",")}`);
-            if (g.both_roles_countries?.length) parts.push(`both_ctry=${g.both_roles_countries.join(",")}`);
+            if (g.both_roles_performer_ids?.length)
+              parts.push(
+                `both=${g.both_roles_performer_ids
+                  .map((p) => p.label)
+                  .join(",")}`
+              );
+            if (g.both_roles_ethnicities?.length)
+              parts.push(`both_eth=${g.both_roles_ethnicities.join(",")}`);
+            if (g.both_roles_countries?.length)
+              parts.push(`both_ctry=${g.both_roles_countries.join(",")}`);
             // DEPRECATED fields for backwards compatibility display
-            if (g.performer_countries?.length) parts.push(`country=${g.performer_countries.join(",")}`);
-            if (g.performer_ethnicities?.length) parts.push(`ethnicity=${g.performer_ethnicities.join(",")}`);
+            if (g.performer_countries?.length)
+              parts.push(`country=${g.performer_countries.join(",")}`);
+            if (g.performer_ethnicities?.length)
+              parts.push(`ethnicity=${g.performer_ethnicities.join(",")}`);
             if (g.performer_rating) {
-              const mod = ModifierCriterion.getModifierLabel(intl, g.performer_rating.modifier);
+              const mod = ModifierCriterion.getModifierLabel(
+                intl,
+                g.performer_rating.modifier
+              );
               if (
                 g.performer_rating.modifier === CriterionModifier.Between ||
                 g.performer_rating.modifier === CriterionModifier.NotBetween
               ) {
-                parts.push(`rating ${mod} ${g.performer_rating.value}..${g.performer_rating.value2 ?? ""}`);
+                parts.push(
+                  `rating ${mod} ${g.performer_rating.value}..${
+                    g.performer_rating.value2 ?? ""
+                  }`
+                );
               } else {
                 parts.push(`rating ${mod} ${g.performer_rating.value}`);
               }
@@ -252,8 +305,14 @@ export class SceneMarkerTagsCriterion extends Criterion {
     );
   }
 
-  private serializeRating(r: RatingCriterion): { modifier: CriterionModifier; value: number; value2?: number } | undefined {
-    return r ? { modifier: r.modifier, value: r.value, value2: r.value2 } : undefined;
+  private serializeRating(
+    r: RatingCriterion
+  ):
+    | { modifier: CriterionModifier; value: number; value2?: number }
+    | undefined {
+    return r
+      ? { modifier: r.modifier, value: r.value, value2: r.value2 }
+      : undefined;
   }
 
   public toQueryParams(): Record<string, unknown> {
@@ -273,28 +332,58 @@ export class SceneMarkerTagsCriterion extends Criterion {
         if (this.hasExtendedGroupAttrs()) {
           base.extendedGroups = this.extendedGroups.map((g) => ({
             tags: g.tags?.map((t) => ({ id: t.id, label: t.label })),
-            exclude_tags: g.exclude_tags?.map((t) => ({ id: t.id, label: t.label })),
+            exclude_tags: g.exclude_tags?.map((t) => ({
+              id: t.id,
+              label: t.label,
+            })),
             depth: g.depth,
-            // Giver
-            giver_performer_ids: g.giver_performer_ids?.map((p) => ({ id: p.id, label: p.label })),
-            giver_ethnicities: g.giver_ethnicities?.length ? g.giver_ethnicities : undefined,
-            giver_countries: g.giver_countries?.length ? g.giver_countries : undefined,
-            giver_rating: this.serializeRating(g.giver_rating ?? null),
-            // Receiver
-            receiver_performer_ids: g.receiver_performer_ids?.map((p) => ({ id: p.id, label: p.label })),
-            receiver_ethnicities: g.receiver_ethnicities?.length ? g.receiver_ethnicities : undefined,
-            receiver_countries: g.receiver_countries?.length ? g.receiver_countries : undefined,
-            receiver_rating: this.serializeRating(g.receiver_rating ?? null),
+            // Top
+            top_performer_ids: g.top_performer_ids?.map((p) => ({
+              id: p.id,
+              label: p.label,
+            })),
+            top_ethnicities: g.top_ethnicities?.length
+              ? g.top_ethnicities
+              : undefined,
+            top_countries: g.top_countries?.length
+              ? g.top_countries
+              : undefined,
+            top_rating: this.serializeRating(g.top_rating ?? null),
+            // Bottom
+            bottom_performer_ids: g.bottom_performer_ids?.map((p) => ({
+              id: p.id,
+              label: p.label,
+            })),
+            bottom_ethnicities: g.bottom_ethnicities?.length
+              ? g.bottom_ethnicities
+              : undefined,
+            bottom_countries: g.bottom_countries?.length
+              ? g.bottom_countries
+              : undefined,
+            bottom_rating: this.serializeRating(g.bottom_rating ?? null),
             // Both-roles
-            both_roles_performer_ids: g.both_roles_performer_ids?.map((p) => ({ id: p.id, label: p.label })),
-            both_roles_ethnicities: g.both_roles_ethnicities?.length ? g.both_roles_ethnicities : undefined,
-            both_roles_countries: g.both_roles_countries?.length ? g.both_roles_countries : undefined,
-            both_roles_rating: this.serializeRating(g.both_roles_rating ?? null),
+            both_roles_performer_ids: g.both_roles_performer_ids?.map((p) => ({
+              id: p.id,
+              label: p.label,
+            })),
+            both_roles_ethnicities: g.both_roles_ethnicities?.length
+              ? g.both_roles_ethnicities
+              : undefined,
+            both_roles_countries: g.both_roles_countries?.length
+              ? g.both_roles_countries
+              : undefined,
+            both_roles_rating: this.serializeRating(
+              g.both_roles_rating ?? null
+            ),
             // Mode
             performer_mode: g.performer_mode,
             // DEPRECATED
-            performer_countries: g.performer_countries?.length ? g.performer_countries : undefined,
-            performer_ethnicities: g.performer_ethnicities?.length ? g.performer_ethnicities : undefined,
+            performer_countries: g.performer_countries?.length
+              ? g.performer_countries
+              : undefined,
+            performer_ethnicities: g.performer_ethnicities?.length
+              ? g.performer_ethnicities
+              : undefined,
             performer_rating: this.serializeRating(g.performer_rating ?? null),
           }));
         } else {
@@ -313,23 +402,39 @@ export class SceneMarkerTagsCriterion extends Criterion {
         tags?: Array<{ id: string; label: string }>;
         exclude_tags?: Array<{ id: string; label: string }>;
         depth?: number;
-        giver_performer_ids?: Array<{ id: string; label: string }>;
-        giver_ethnicities?: string[];
-        giver_countries?: string[];
-        giver_rating?: { modifier: CriterionModifier; value: number; value2?: number };
-        receiver_performer_ids?: Array<{ id: string; label: string }>;
-        receiver_ethnicities?: string[];
-        receiver_countries?: string[];
-        receiver_rating?: { modifier: CriterionModifier; value: number; value2?: number };
+        top_performer_ids?: Array<{ id: string; label: string }>;
+        top_ethnicities?: string[];
+        top_countries?: string[];
+        top_rating?: {
+          modifier: CriterionModifier;
+          value: number;
+          value2?: number;
+        };
+        bottom_performer_ids?: Array<{ id: string; label: string }>;
+        bottom_ethnicities?: string[];
+        bottom_countries?: string[];
+        bottom_rating?: {
+          modifier: CriterionModifier;
+          value: number;
+          value2?: number;
+        };
         both_roles_performer_ids?: Array<{ id: string; label: string }>;
         both_roles_ethnicities?: string[];
         both_roles_countries?: string[];
-        both_roles_rating?: { modifier: CriterionModifier; value: number; value2?: number };
+        both_roles_rating?: {
+          modifier: CriterionModifier;
+          value: number;
+          value2?: number;
+        };
         performer_mode?: "AND" | "OR";
         // DEPRECATED
         performer_countries?: string[];
         performer_ethnicities?: string[];
-        performer_rating?: { modifier: CriterionModifier; value: number; value2?: number };
+        performer_rating?: {
+          modifier: CriterionModifier;
+          value: number;
+          value2?: number;
+        };
       };
       const raw = i as {
         modifier?: CriterionModifier;
@@ -338,24 +443,36 @@ export class SceneMarkerTagsCriterion extends Criterion {
         extendedGroups?: ExtendedGroupRaw[];
       };
       if (raw.modifier) this.modifier = raw.modifier;
-      
+
       if (raw.extendedGroups) {
         this.extendedGroups = raw.extendedGroups.map((g) => ({
           tags: g.tags?.map((t) => ({ id: t.id, label: t.label })),
-          exclude_tags: g.exclude_tags?.map((t) => ({ id: t.id, label: t.label })),
+          exclude_tags: g.exclude_tags?.map((t) => ({
+            id: t.id,
+            label: t.label,
+          })),
           depth: g.depth,
-          // Giver
-          giver_performer_ids: g.giver_performer_ids?.map((p) => ({ id: p.id, label: p.label })),
-          giver_ethnicities: g.giver_ethnicities,
-          giver_countries: g.giver_countries,
-          giver_rating: g.giver_rating ?? null,
-          // Receiver
-          receiver_performer_ids: g.receiver_performer_ids?.map((p) => ({ id: p.id, label: p.label })),
-          receiver_ethnicities: g.receiver_ethnicities,
-          receiver_countries: g.receiver_countries,
-          receiver_rating: g.receiver_rating ?? null,
+          // Top
+          top_performer_ids: g.top_performer_ids?.map((p) => ({
+            id: p.id,
+            label: p.label,
+          })),
+          top_ethnicities: g.top_ethnicities,
+          top_countries: g.top_countries,
+          top_rating: g.top_rating ?? null,
+          // Bottom
+          bottom_performer_ids: g.bottom_performer_ids?.map((p) => ({
+            id: p.id,
+            label: p.label,
+          })),
+          bottom_ethnicities: g.bottom_ethnicities,
+          bottom_countries: g.bottom_countries,
+          bottom_rating: g.bottom_rating ?? null,
           // Both-roles
-          both_roles_performer_ids: g.both_roles_performer_ids?.map((p) => ({ id: p.id, label: p.label })),
+          both_roles_performer_ids: g.both_roles_performer_ids?.map((p) => ({
+            id: p.id,
+            label: p.label,
+          })),
           both_roles_ethnicities: g.both_roles_ethnicities,
           both_roles_countries: g.both_roles_countries,
           both_roles_rating: g.both_roles_rating ?? null,
@@ -377,7 +494,9 @@ export class SceneMarkerTagsCriterion extends Criterion {
           this.modifier === CriterionModifier.Equals ||
           this.modifier === CriterionModifier.NotEquals
         ) {
-          this.groups = (groupIds ?? []).map((g) => g.map((id) => ({ id, label: id })));
+          this.groups = (groupIds ?? []).map((g) =>
+            g.map((id) => ({ id, label: id }))
+          );
           // Sync to extendedGroups
           this.extendedGroups = this.groups.map((g) => ({ tags: g }));
         } else if (valueIds) {
@@ -393,14 +512,14 @@ export class SceneMarkerTagsCriterion extends Criterion {
     return (
       (g.tags?.length ?? 0) > 0 ||
       (g.exclude_tags?.length ?? 0) > 0 ||
-      (g.giver_performer_ids?.length ?? 0) > 0 ||
-      (g.giver_ethnicities?.length ?? 0) > 0 ||
-      (g.giver_countries?.length ?? 0) > 0 ||
-      g.giver_rating != null ||
-      (g.receiver_performer_ids?.length ?? 0) > 0 ||
-      (g.receiver_ethnicities?.length ?? 0) > 0 ||
-      (g.receiver_countries?.length ?? 0) > 0 ||
-      g.receiver_rating != null ||
+      (g.top_performer_ids?.length ?? 0) > 0 ||
+      (g.top_ethnicities?.length ?? 0) > 0 ||
+      (g.top_countries?.length ?? 0) > 0 ||
+      g.top_rating != null ||
+      (g.bottom_performer_ids?.length ?? 0) > 0 ||
+      (g.bottom_ethnicities?.length ?? 0) > 0 ||
+      (g.bottom_countries?.length ?? 0) > 0 ||
+      g.bottom_rating != null ||
       (g.both_roles_performer_ids?.length ?? 0) > 0 ||
       (g.both_roles_ethnicities?.length ?? 0) > 0 ||
       (g.both_roles_countries?.length ?? 0) > 0 ||
@@ -436,27 +555,50 @@ export class SceneMarkerTagsCriterion extends Criterion {
               tag_ids: g.tags?.map((t) => t.id) ?? [],
               exclude_tag_ids: g.exclude_tags?.map((t) => t.id) ?? undefined,
               depth: g.depth != null && g.depth !== 0 ? g.depth : undefined,
-              // Giver
-              giver_performer_ids: g.giver_performer_ids?.map((p) => p.id) ?? undefined,
-              giver_ethnicities: g.giver_ethnicities?.length ? g.giver_ethnicities : undefined,
-              giver_countries: g.giver_countries?.length ? g.giver_countries : undefined,
-              giver_rating: this.serializeRating(g.giver_rating ?? null),
-              // Receiver
-              receiver_performer_ids: g.receiver_performer_ids?.map((p) => p.id) ?? undefined,
-              receiver_ethnicities: g.receiver_ethnicities?.length ? g.receiver_ethnicities : undefined,
-              receiver_countries: g.receiver_countries?.length ? g.receiver_countries : undefined,
-              receiver_rating: this.serializeRating(g.receiver_rating ?? null),
+              // Top
+              top_performer_ids:
+                g.top_performer_ids?.map((p) => p.id) ?? undefined,
+              top_ethnicities: g.top_ethnicities?.length
+                ? g.top_ethnicities
+                : undefined,
+              top_countries: g.top_countries?.length
+                ? g.top_countries
+                : undefined,
+              top_rating: this.serializeRating(g.top_rating ?? null),
+              // Bottom
+              bottom_performer_ids:
+                g.bottom_performer_ids?.map((p) => p.id) ?? undefined,
+              bottom_ethnicities: g.bottom_ethnicities?.length
+                ? g.bottom_ethnicities
+                : undefined,
+              bottom_countries: g.bottom_countries?.length
+                ? g.bottom_countries
+                : undefined,
+              bottom_rating: this.serializeRating(g.bottom_rating ?? null),
               // Both-roles
-              both_roles_performer_ids: g.both_roles_performer_ids?.map((p) => p.id) ?? undefined,
-              both_roles_ethnicities: g.both_roles_ethnicities?.length ? g.both_roles_ethnicities : undefined,
-              both_roles_countries: g.both_roles_countries?.length ? g.both_roles_countries : undefined,
-              both_roles_rating: this.serializeRating(g.both_roles_rating ?? null),
+              both_roles_performer_ids:
+                g.both_roles_performer_ids?.map((p) => p.id) ?? undefined,
+              both_roles_ethnicities: g.both_roles_ethnicities?.length
+                ? g.both_roles_ethnicities
+                : undefined,
+              both_roles_countries: g.both_roles_countries?.length
+                ? g.both_roles_countries
+                : undefined,
+              both_roles_rating: this.serializeRating(
+                g.both_roles_rating ?? null
+              ),
               // Mode
               performer_mode: g.performer_mode,
               // DEPRECATED
-              performer_countries: g.performer_countries?.length ? g.performer_countries : undefined,
-              performer_ethnicities: g.performer_ethnicities?.length ? g.performer_ethnicities : undefined,
-              performer_rating: this.serializeRating(g.performer_rating ?? null),
+              performer_countries: g.performer_countries?.length
+                ? g.performer_countries
+                : undefined,
+              performer_ethnicities: g.performer_ethnicities?.length
+                ? g.performer_ethnicities
+                : undefined,
+              performer_rating: this.serializeRating(
+                g.performer_rating ?? null
+              ),
             })),
         };
       } else {
@@ -484,23 +626,39 @@ export class SceneMarkerTagsCriterion extends Criterion {
         tag_ids?: string[];
         exclude_tag_ids?: string[];
         depth?: number;
-        giver_performer_ids?: string[];
-        giver_ethnicities?: string[];
-        giver_countries?: string[];
-        giver_rating?: { modifier: CriterionModifier; value: number; value2?: number };
-        receiver_performer_ids?: string[];
-        receiver_ethnicities?: string[];
-        receiver_countries?: string[];
-        receiver_rating?: { modifier: CriterionModifier; value: number; value2?: number };
+        top_performer_ids?: string[];
+        top_ethnicities?: string[];
+        top_countries?: string[];
+        top_rating?: {
+          modifier: CriterionModifier;
+          value: number;
+          value2?: number;
+        };
+        bottom_performer_ids?: string[];
+        bottom_ethnicities?: string[];
+        bottom_countries?: string[];
+        bottom_rating?: {
+          modifier: CriterionModifier;
+          value: number;
+          value2?: number;
+        };
         both_roles_performer_ids?: string[];
         both_roles_ethnicities?: string[];
         both_roles_countries?: string[];
-        both_roles_rating?: { modifier: CriterionModifier; value: number; value2?: number };
+        both_roles_rating?: {
+          modifier: CriterionModifier;
+          value: number;
+          value2?: number;
+        };
         performer_mode?: "AND" | "OR";
         // DEPRECATED
         performer_countries?: string[];
         performer_ethnicities?: string[];
-        performer_rating?: { modifier: CriterionModifier; value: number; value2?: number };
+        performer_rating?: {
+          modifier: CriterionModifier;
+          value: number;
+          value2?: number;
+        };
       };
       const c = criterion as {
         modifier: CriterionModifier;
@@ -518,18 +676,27 @@ export class SceneMarkerTagsCriterion extends Criterion {
             tags: g.tag_ids?.map((id) => ({ id, label: id })),
             exclude_tags: g.exclude_tag_ids?.map((id) => ({ id, label: id })),
             depth: g.depth,
-            // Giver
-            giver_performer_ids: g.giver_performer_ids?.map((id) => ({ id, label: id })),
-            giver_ethnicities: g.giver_ethnicities,
-            giver_countries: g.giver_countries,
-            giver_rating: g.giver_rating ?? null,
-            // Receiver
-            receiver_performer_ids: g.receiver_performer_ids?.map((id) => ({ id, label: id })),
-            receiver_ethnicities: g.receiver_ethnicities,
-            receiver_countries: g.receiver_countries,
-            receiver_rating: g.receiver_rating ?? null,
+            // Top
+            top_performer_ids: g.top_performer_ids?.map((id) => ({
+              id,
+              label: id,
+            })),
+            top_ethnicities: g.top_ethnicities,
+            top_countries: g.top_countries,
+            top_rating: g.top_rating ?? null,
+            // Bottom
+            bottom_performer_ids: g.bottom_performer_ids?.map((id) => ({
+              id,
+              label: id,
+            })),
+            bottom_ethnicities: g.bottom_ethnicities,
+            bottom_countries: g.bottom_countries,
+            bottom_rating: g.bottom_rating ?? null,
             // Both-roles
-            both_roles_performer_ids: g.both_roles_performer_ids?.map((id) => ({ id, label: id })),
+            both_roles_performer_ids: g.both_roles_performer_ids?.map((id) => ({
+              id,
+              label: id,
+            })),
             both_roles_ethnicities: g.both_roles_ethnicities,
             both_roles_countries: g.both_roles_countries,
             both_roles_rating: g.both_roles_rating ?? null,
@@ -545,7 +712,9 @@ export class SceneMarkerTagsCriterion extends Criterion {
             .filter((g) => g.tags?.length)
             .map((g) => g.tags!.map((t) => ({ id: t.id, label: t.label })));
         } else {
-          this.groups = (c.groups ?? []).map((g) => g.map((id) => ({ id, label: id })));
+          this.groups = (c.groups ?? []).map((g) =>
+            g.map((id) => ({ id, label: id }))
+          );
           this.extendedGroups = this.groups.map((g) => ({ tags: g }));
         }
         this.items = [];
@@ -580,19 +749,20 @@ export const SceneMarkerTagsCriterionOption = new ModifierCriterionOption({
 });
 
 // Marker Tags with Performers: used on the Markers page to filter markers by tags + performer attributes
-export const MarkerTagsWithPerformersCriterionOption = new ModifierCriterionOption({
-  messageID: "marker_tags_with_performers",
-  type: "marker_tags_with_performers",
-  modifierOptions: [
-    CriterionModifier.Equals,
-    CriterionModifier.NotEquals,
-    CriterionModifier.IncludesAll,
-    CriterionModifier.Includes,
-  ],
-  defaultModifier: CriterionModifier.Equals,
-  inputType: "scene_tags",
-  makeCriterion: (o) => new SceneMarkerTagsCriterion(o),
-});
+export const MarkerTagsWithPerformersCriterionOption =
+  new ModifierCriterionOption({
+    messageID: "marker_tags_with_performers",
+    type: "marker_tags_with_performers",
+    modifierOptions: [
+      CriterionModifier.Equals,
+      CriterionModifier.NotEquals,
+      CriterionModifier.IncludesAll,
+      CriterionModifier.Includes,
+    ],
+    defaultModifier: CriterionModifier.Equals,
+    inputType: "scene_tags",
+    makeCriterion: (o) => new SceneMarkerTagsCriterion(o),
+  });
 
 // TODO - this requires using a nested studios_filter which needs to be added separately
 // export const StudioTagsCriterionOption = new BaseTagsCriterionOption(
@@ -614,4 +784,3 @@ export const ChildTagsCriterionOption = new BaseTagsCriterionOption(
 );
 
 export class TagsCriterion extends IHierarchicalLabeledIdCriterion {}
-

@@ -54,9 +54,12 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     toSegment: ILoopSegment
   ) => void;
 
-  constructor(player: VideoJsPlayer, options?: Partial<IMultiSegmentLoopOptions>) {
+  constructor(
+    player: VideoJsPlayer,
+    options?: Partial<IMultiSegmentLoopOptions>
+  ) {
     super(player);
-    
+
     if (options?.segments) {
       this.segments = [...options.segments];
     }
@@ -86,9 +89,12 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     if (this.enabled && this.segments.length > 0) {
       const currentTime = this.player.currentTime();
       const currentSegment = this.segments[this.currentSegmentIndex];
-      
+
       // If we're not within any segment, jump to current segment start
-      if (currentSegment && (currentTime < currentSegment.start || currentTime > currentSegment.end)) {
+      if (
+        currentSegment &&
+        (currentTime < currentSegment.start || currentTime > currentSegment.end)
+      ) {
         this.player.currentTime(currentSegment.start);
       }
     }
@@ -118,19 +124,19 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
 
   private advanceToNextSegment(): void {
     const fromSegment = this.segments[this.currentSegmentIndex];
-    
+
     // Move to next segment, or wrap to first
     const nextIndex = (this.currentSegmentIndex + 1) % this.segments.length;
     this.currentSegmentIndex = nextIndex;
-    
+
     const toSegment = this.segments[this.currentSegmentIndex];
-    
+
     // Seek to start of next segment
     this.player.currentTime(toSegment.start);
-    
+
     // Update visual markers
     this.updateActiveSegmentMarker();
-    
+
     // Emit events
     if (this.onCurrentSegmentChange) {
       this.onCurrentSegmentChange(this.currentSegmentIndex, toSegment);
@@ -199,12 +205,12 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     if (index === -1) return false;
 
     this.segments.splice(index, 1);
-    
+
     // Adjust current segment index if needed
     if (this.currentSegmentIndex >= this.segments.length) {
       this.currentSegmentIndex = Math.max(0, this.segments.length - 1);
     }
-    
+
     this.renderSegmentMarkers();
     this.updateControlButton();
     if (this.onSegmentsChange) {
@@ -228,7 +234,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
 
     segment.start = Math.min(start, end);
     segment.end = Math.max(start, end);
-    
+
     this.renderSegmentMarkers();
     this.updateControlButton();
     if (this.onSegmentsChange) {
@@ -258,9 +264,13 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
    * Start creating a new segment at current time
    * Call this once to set start, call again to set end and create segment
    */
-  markPoint(): { action: "start" | "end"; segment?: ILoopSegment; pendingStart?: number } {
+  markPoint(): {
+    action: "start" | "end";
+    segment?: ILoopSegment;
+    pendingStart?: number;
+  } {
     const currentTime = this.player.currentTime();
-    
+
     if (this.pendingStart === null) {
       // First click - set start point
       this.pendingStart = currentTime;
@@ -303,7 +313,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   setEnabled(enabled: boolean): void {
     const wasEnabled = this.enabled;
     this.enabled = enabled;
-    
+
     if (enabled && !wasEnabled && this.segments.length > 0) {
       // When enabling, jump to the start of the first segment
       this.currentSegmentIndex = 0;
@@ -313,7 +323,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
         this.onCurrentSegmentChange(0, segment);
       }
     }
-    
+
     this.updateActiveSegmentMarker();
     this.updateControlButton();
     if (this.onEnabledChange) {
@@ -348,11 +358,11 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
    */
   jumpToSegment(index: number): boolean {
     if (index < 0 || index >= this.segments.length) return false;
-    
+
     this.currentSegmentIndex = index;
     const segment = this.segments[index];
     this.player.currentTime(segment.start);
-    
+
     this.updateActiveSegmentMarker();
     if (this.onCurrentSegmentChange) {
       this.onCurrentSegmentChange(index, segment);
@@ -374,9 +384,10 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
    */
   previousSegment(): void {
     if (this.segments.length === 0) return;
-    const prevIndex = this.currentSegmentIndex === 0 
-      ? this.segments.length - 1 
-      : this.currentSegmentIndex - 1;
+    const prevIndex =
+      this.currentSegmentIndex === 0
+        ? this.segments.length - 1
+        : this.currentSegmentIndex - 1;
     this.jumpToSegment(prevIndex);
   }
 
@@ -392,19 +403,25 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     ) {
       return false;
     }
-    
+
     const [segment] = this.segments.splice(fromIndex, 1);
     this.segments.splice(toIndex, 0, segment);
-    
+
     // Adjust current segment index to follow the segment if it was moved
     if (this.currentSegmentIndex === fromIndex) {
       this.currentSegmentIndex = toIndex;
-    } else if (fromIndex < this.currentSegmentIndex && toIndex >= this.currentSegmentIndex) {
+    } else if (
+      fromIndex < this.currentSegmentIndex &&
+      toIndex >= this.currentSegmentIndex
+    ) {
       this.currentSegmentIndex--;
-    } else if (fromIndex > this.currentSegmentIndex && toIndex <= this.currentSegmentIndex) {
+    } else if (
+      fromIndex > this.currentSegmentIndex &&
+      toIndex <= this.currentSegmentIndex
+    ) {
       this.currentSegmentIndex++;
     }
-    
+
     this.renderSegmentMarkers();
     if (this.onSegmentsChange) {
       this.onSegmentsChange(this.getSegments());
@@ -440,16 +457,18 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
    */
   renderSegmentMarkers(): void {
     this.clearSegmentMarkers();
-    
+
     const duration = this.player.duration();
-    const progressControl = this.player.el().querySelector(".vjs-progress-control");
-    
+    const progressControl = this.player
+      .el()
+      .querySelector(".vjs-progress-control");
+
     if (!progressControl || !duration) return;
-    
+
     this.segments.forEach((segment, index) => {
       this.renderSegmentMarker(segment, index, duration, progressControl);
     });
-    
+
     // Also render pending marker if exists
     this.renderPendingMarker();
   }
@@ -462,51 +481,57 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   ): void {
     const rangeDiv = document.createElement("div");
     rangeDiv.className = "vjs-multi-segment-marker";
-    
+
     const startPercent = (segment.start / duration) * 100;
     const widthPercent = ((segment.end - segment.start) / duration) * 100;
-    
+
     // Position similar to range markers in the markers plugin
-    rangeDiv.style.left = `calc(15px + ${startPercent}% - ${startPercent * 0.3}px)`;
+    rangeDiv.style.left = `calc(15px + ${startPercent}% - ${
+      startPercent * 0.3
+    }px)`;
     rangeDiv.style.width = `calc(${widthPercent}% - ${widthPercent * 0.3}px)`;
-    
+
     // Highlight current segment when enabled
     if (this.enabled && index === this.currentSegmentIndex) {
       rangeDiv.classList.add("active");
     }
-    
+
     // Add segment number label
     const label = document.createElement("span");
     label.className = "segment-label";
     label.textContent = String(index + 1);
     rangeDiv.appendChild(label);
-    
+
     // Click to jump to segment
     rangeDiv.addEventListener("click", (e) => {
       e.stopPropagation();
       this.jumpToSegment(index);
     });
-    
+
     parent.appendChild(rangeDiv);
     this.segmentMarkers.set(segment.id, rangeDiv);
   }
 
   private renderPendingMarker(): void {
     this.clearPendingMarker();
-    
+
     if (this.pendingStart === null) return;
-    
+
     const duration = this.player.duration();
-    const progressControl = this.player.el().querySelector(".vjs-progress-control");
-    
+    const progressControl = this.player
+      .el()
+      .querySelector(".vjs-progress-control");
+
     if (!progressControl || !duration) return;
-    
+
     const markerDiv = document.createElement("div");
     markerDiv.className = "vjs-multi-segment-pending-marker";
-    
+
     const startPercent = (this.pendingStart / duration) * 100;
-    markerDiv.style.left = `calc(15px + ${startPercent}% - ${startPercent * 0.3}px)`;
-    
+    markerDiv.style.left = `calc(15px + ${startPercent}% - ${
+      startPercent * 0.3
+    }px)`;
+
     progressControl.appendChild(markerDiv);
     this.pendingMarker = markerDiv;
   }
@@ -545,7 +570,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   private createControlButton(): void {
     const Button = videojs.getComponent("Button");
     const plugin = this;
-    
+
     class MultiSegmentLoopButton extends Button {
       constructor(player: VideoJsPlayer, options: Record<string, unknown>) {
         super(player, options);
@@ -578,11 +603,15 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     if (controlBar) {
       const button = new MultiSegmentLoopButton(this.player, {});
       this.controlButton = button;
-      
+
       // Add button before fullscreen button
       const fullscreenToggle = controlBar.getChild("FullscreenToggle");
       if (fullscreenToggle) {
-        controlBar.addChild(button, {}, controlBar.children().indexOf(fullscreenToggle));
+        controlBar.addChild(
+          button,
+          {},
+          controlBar.children().indexOf(fullscreenToggle)
+        );
       } else {
         controlBar.addChild(button);
       }

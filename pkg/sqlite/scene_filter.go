@@ -107,6 +107,12 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 
 		qb.hasMarkersCriterionHandler(sceneFilter.HasMarkers),
 		qb.hasMarkerPerformersCriterionHandler(sceneFilter.HasMarkerPerformers),
+		&joinedSceneMarkerTagsHandler{
+			criterion:      sceneFilter.SceneMarkerTags,
+			primaryTable:   sceneTable,
+			joinTable:      "scene_markers",
+			joinPrimaryKey: "scene_id",
+		},
 		qb.isMissingCriterionHandler(sceneFilter.IsMissing),
 		qb.urlsCriterionHandler(sceneFilter.URL),
 
@@ -155,7 +161,6 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 
 		qb.galleriesCriterionHandler(sceneFilter.Galleries),
 		qb.performerTagsCriterionHandler(sceneFilter.PerformerTags),
-		qb.sceneMarkerTagsCriterionHandler(sceneFilter.SceneMarkerTags),
 		qb.performerFavoriteCriterionHandler(sceneFilter.PerformerFavorite),
 		qb.performerAgeCriterionHandler(sceneFilter.PerformerAge),
 		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
@@ -775,15 +780,6 @@ func (qb *sceneFilterHandler) performerTagsCriterionHandler(tags *models.Hierarc
 		criterion:      tags,
 		primaryTable:   sceneTable,
 		joinTable:      performersScenesTable,
-		joinPrimaryKey: sceneIDColumn,
-	}
-}
-
-func (qb *sceneFilterHandler) sceneMarkerTagsCriterionHandler(tags *models.SceneMarkerTagsCriterionInput) criterionHandler {
-	return &joinedSceneMarkerTagsHandler{
-		criterion:      tags,
-		primaryTable:   sceneTable,
-		joinTable:      sceneMarkersTable,
 		joinPrimaryKey: sceneIDColumn,
 	}
 }

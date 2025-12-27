@@ -31,11 +31,13 @@
   display: none !important;
 }
 
-.marker-playlist-player video:fullscreen::-webkit-media-controls-overlay-play-button {
+.marker-playlist-player
+  video:fullscreen::-webkit-media-controls-overlay-play-button {
   display: none !important;
 }
 
-.marker-playlist-player video:fullscreen::-webkit-media-controls-start-playback-button {
+.marker-playlist-player
+  video:fullscreen::-webkit-media-controls-start-playback-button {
   display: none !important;
 }
 

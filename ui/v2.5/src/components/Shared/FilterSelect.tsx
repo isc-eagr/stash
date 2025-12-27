@@ -87,7 +87,7 @@ const SelectComponent = <T, IsMulti extends boolean>(
 
   const componentProps = {
     ...props,
-  styles,
+    styles,
     defaultOptions: true,
     isClearable: true,
     value: selectedOptions ?? null,

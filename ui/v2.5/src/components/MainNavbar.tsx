@@ -334,7 +334,10 @@ export const MainNavbar: React.FC = () => {
         >
           <Button
             className="minimal d-flex align-items-center h-100"
-            title={intl.formatMessage({ id: "task_progress", defaultMessage: "Task Progress" })}
+            title={intl.formatMessage({
+              id: "task_progress",
+              defaultMessage: "Task Progress",
+            })}
           >
             <Icon icon={faListCheck} />
           </Button>

@@ -573,7 +573,7 @@ export class PerformerEthnicityStringCriterionOption extends ModifierCriterionOp
       modifierOptions: [
         CriterionModifier.Equals,
         CriterionModifier.NotEquals,
-        CriterionModifier.Includes
+        CriterionModifier.Includes,
       ],
       defaultModifier: CriterionModifier.Equals,
       inputType: "text",
@@ -596,7 +596,7 @@ export class PerformerCountryStringCriterionOption extends ModifierCriterionOpti
       modifierOptions: [
         CriterionModifier.Equals,
         CriterionModifier.NotEquals,
-        CriterionModifier.Includes
+        CriterionModifier.Includes,
       ],
       defaultModifier: CriterionModifier.Equals,
       inputType: "text",
@@ -619,7 +619,7 @@ export class PerformerRatingStringCriterionOption extends ModifierCriterionOptio
       modifierOptions: [
         CriterionModifier.Equals,
         CriterionModifier.NotEquals,
-        CriterionModifier.Includes
+        CriterionModifier.Includes,
       ],
       defaultModifier: CriterionModifier.Equals,
       inputType: "text",
@@ -639,9 +639,7 @@ export class PerformerSceneMarkersCriterionOption extends ModifierCriterionOptio
     super({
       messageID,
       type: value,
-      modifierOptions: [
-        CriterionModifier.Includes
-      ],
+      modifierOptions: [CriterionModifier.Includes],
       defaultModifier: CriterionModifier.Equals,
       inputType: "text",
       makeCriterion: makeCriterion

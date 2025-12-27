@@ -7,7 +7,9 @@ import { View } from "../List/views";
 
 const SceneList = lazyComponent(() => import("./SceneList"));
 const SceneMarkerList = lazyComponent(() => import("./SceneMarkerList"));
-const MarkerPlaylistPlayer = lazyComponent(() => import("./MarkerPlaylistPlayer"));
+const MarkerPlaylistPlayer = lazyComponent(
+  () => import("./MarkerPlaylistPlayer")
+);
 const Scene = lazyComponent(() => import("./SceneDetails/Scene"));
 const SceneCreate = lazyComponent(() => import("./SceneDetails/SceneCreate"));
 
@@ -33,7 +35,11 @@ const SceneRoutes: React.FC = () => {
       <Switch>
         <Route exact path="/scenes" component={Scenes} />
         <Route exact path="/scenes/markers" component={SceneMarkers} />
-        <Route exact path="/scenes/markers/player" component={MarkerPlaylistPlayer} />
+        <Route
+          exact
+          path="/scenes/markers/player"
+          component={MarkerPlaylistPlayer}
+        />
         <Route exact path="/scenes/new" component={SceneCreate} />
         <Route path="/scenes/:id" component={Scene} />
       </Switch>

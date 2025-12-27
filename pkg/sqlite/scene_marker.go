@@ -473,16 +473,16 @@ func (qb *SceneMarkerStore) UpdatePerformers(ctx context.Context, id int, perfor
 	return sceneMarkerRepository.performers.replace(ctx, id, performerIDs)
 }
 
-// UpdateGiverPerformers replaces all giver performers for a scene marker.
-// It removes existing giver associations and adds new ones with role='giver'.
-func (qb *SceneMarkerStore) UpdateGiverPerformers(ctx context.Context, markerID int, performerIDs []int) error {
-	return qb.updatePerformersWithRole(ctx, markerID, performerIDs, "giver")
+// UpdateTopPerformers replaces all top performers for a scene marker.
+// It removes existing top associations and adds new ones with role='top'.
+func (qb *SceneMarkerStore) UpdateTopPerformers(ctx context.Context, markerID int, performerIDs []int) error {
+	return qb.updatePerformersWithRole(ctx, markerID, performerIDs, "top")
 }
 
-// UpdateReceiverPerformers replaces all receiver performers for a scene marker.
-// It removes existing receiver associations and adds new ones with role='receiver'.
-func (qb *SceneMarkerStore) UpdateReceiverPerformers(ctx context.Context, markerID int, performerIDs []int) error {
-	return qb.updatePerformersWithRole(ctx, markerID, performerIDs, "receiver")
+// UpdateBottomPerformers replaces all bottom performers for a scene marker.
+// It removes existing bottom associations and adds new ones with role='bottom'.
+func (qb *SceneMarkerStore) UpdateBottomPerformers(ctx context.Context, markerID int, performerIDs []int) error {
+	return qb.updatePerformersWithRole(ctx, markerID, performerIDs, "bottom")
 }
 
 // updatePerformersWithRole replaces all performers of a given role for a scene marker.

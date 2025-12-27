@@ -89,7 +89,10 @@ export const useContainerDimensions = <T extends HTMLElement = HTMLDivElement>(
     if (target.current) {
       const el = target.current as HTMLElement;
       const rect = el.getBoundingClientRect();
-      if (rect.width && Math.abs(dimension.width - rect.width) > sensitivityThreshold) {
+      if (
+        rect.width &&
+        Math.abs(dimension.width - rect.width) > sensitivityThreshold
+      ) {
         setDimension({ width: rect.width, height: rect.height });
       }
     }

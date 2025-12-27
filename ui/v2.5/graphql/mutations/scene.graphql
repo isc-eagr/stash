@@ -118,7 +118,9 @@ mutation SceneAssignFile($input: AssignSceneFileInput!) {
   sceneAssignFile(input: $input)
 }
 
-mutation SaveSceneMultiSegmentLoopPreset($input: SceneMultiSegmentLoopPresetInput!) {
+mutation SaveSceneMultiSegmentLoopPreset(
+  $input: SceneMultiSegmentLoopPresetInput!
+) {
   saveSceneMultiSegmentLoopPreset(input: $input) {
     id
     scene_id

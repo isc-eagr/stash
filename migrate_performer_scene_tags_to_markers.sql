@@ -2,8 +2,8 @@
 -- This is a ONE-TIME MANUAL migration script. Run it yourself when ready.
 -- 
 -- PREREQUISITES:
--- 1. You must have already created the scene_marker_performers table with giver/receiver roles
---    (scene_marker_performers_giver_receiver.sql should have been run first)
+-- 1. You must have already created the scene_marker_performers table with top/bottom roles
+--    (scene_marker_performers_top_bottom.sql should have been run first)
 -- 2. Configure the tag IDs below before running
 -- 3. Back up your database before running!
 --
@@ -26,8 +26,8 @@
 -- PRODUCTION TAG IDs:
 -- Tag ID for "Top" performer role: 62
 -- Tag ID for "Bottom" performer role: 63
--- Tag ID for "DickSucked" performer role (giver in oral): 249
--- Tag ID for "SuckedDick" performer role (receiver in oral): 251
+-- Tag ID for "DickSucked" performer role (top in oral): 249
+-- Tag ID for "SuckedDick" performer role (bottom in oral): 251
 
 -- scene_markers primary tag IDs (the tags that will be assigned to new markers)
 -- These are the category tags for the markers themselves
@@ -76,14 +76,14 @@ WHERE pst_top.tag_id = 62  -- Top tag
         AND sm.seconds = 0
   );
 
--- Now add the giver (top) to scene_marker_performers
+-- Now add the top to scene_marker_performers
 INSERT INTO scene_marker_performers (scene_marker_id, performer_id, role)
 SELECT 
     sm.id,
     pst_top.performer_id,
-    'giver'
+    'top'
 FROM scene_markers sm
-INNER JOIN performer_scene_tags pst_top 
+INNERT JOIN performer_scene_tags pst_top 
     ON sm.scene_id = pst_top.scene_id
 WHERE sm.primary_tag_id = 268  -- Sex tag
   AND sm.seconds = 0
@@ -92,15 +92,15 @@ WHERE sm.primary_tag_id = 268  -- Sex tag
       SELECT 1 FROM scene_marker_performers smp 
       WHERE smp.scene_marker_id = sm.id 
         AND smp.performer_id = pst_top.performer_id 
-        AND smp.role = 'giver'
+        AND smp.role = 'top'
   );
 
--- Add the receiver (bottom) to scene_marker_performers
+-- Add the bottom to scene_marker_performers
 INSERT INTO scene_marker_performers (scene_marker_id, performer_id, role)
 SELECT 
     sm.id,
     pst_bottom.performer_id,
-    'receiver'
+    'bottom'
 FROM scene_markers sm
 INNER JOIN performer_scene_tags pst_bottom 
     ON sm.scene_id = pst_bottom.scene_id
@@ -111,7 +111,7 @@ WHERE sm.primary_tag_id = 268  -- Sex tag
       SELECT 1 FROM scene_marker_performers smp 
       WHERE smp.scene_marker_id = sm.id 
         AND smp.performer_id = pst_bottom.performer_id 
-        AND smp.role = 'receiver'
+        AND smp.role = 'bottom'
   );
 
 -- ============================================================================
@@ -123,62 +123,62 @@ WHERE sm.primary_tag_id = 268  -- Sex tag
 -- First, create the scene_markers entries at position 0:00
 INSERT INTO scene_markers (scene_id, primary_tag_id, title, seconds, created_at, updated_at)
 SELECT DISTINCT 
-    pst_giver.scene_id,
+    pst_top.scene_id,
     196,  -- Use configured oral tag ID
     'Oral NEEDS ADJUSTING',
     0,
     datetime('now'),
     datetime('now')
-FROM performer_scene_tags pst_giver
-INNER JOIN performer_scene_tags pst_receiver 
-    ON pst_giver.scene_id = pst_receiver.scene_id
-    AND pst_giver.performer_id != pst_receiver.performer_id
-WHERE pst_giver.tag_id = 249  -- DickSucked tag
-  AND pst_receiver.tag_id = 251  -- SuckedDick tag
+FROM performer_scene_tags pst_top
+INNER JOIN performer_scene_tags pst_bottom 
+    ON pst_top.scene_id = pst_bottom.scene_id
+    AND pst_top.performer_id != pst_bottom.performer_id
+WHERE pst_top.tag_id = 249  -- DickSucked tag
+  AND pst_bottom.tag_id = 251  -- SuckedDick tag
   -- Only create if no oral marker already exists at 0:00 for this scene
   AND NOT EXISTS (
       SELECT 1 FROM scene_markers sm 
-      WHERE sm.scene_id = pst_giver.scene_id 
+      WHERE sm.scene_id = pst_top.scene_id 
         AND sm.primary_tag_id = 196 
         AND sm.seconds = 0
   );
 
--- Now add the giver (dicksucked) to scene_marker_performers
+-- Now add the top (dicksucked) to scene_marker_performers
 INSERT INTO scene_marker_performers (scene_marker_id, performer_id, role)
 SELECT 
     sm.id,
-    pst_giver.performer_id,
-    'giver'
+    pst_top.performer_id,
+    'top'
 FROM scene_markers sm
-INNER JOIN performer_scene_tags pst_giver 
-    ON sm.scene_id = pst_giver.scene_id
+INNER JOIN performer_scene_tags pst_top 
+    ON sm.scene_id = pst_top.scene_id
 WHERE sm.primary_tag_id = 196  -- Oral tag
   AND sm.seconds = 0
-  AND pst_giver.tag_id = 249  -- DickSucked tag
+  AND pst_top.tag_id = 249  -- DickSucked tag
   AND NOT EXISTS (
       SELECT 1 FROM scene_marker_performers smp 
       WHERE smp.scene_marker_id = sm.id 
-        AND smp.performer_id = pst_giver.performer_id 
-        AND smp.role = 'giver'
+        AND smp.performer_id = pst_top.performer_id 
+        AND smp.role = 'top'
   );
 
--- Add the receiver (suckeddick) to scene_marker_performers
+-- Add the bottom (suckeddick) to scene_marker_performers
 INSERT INTO scene_marker_performers (scene_marker_id, performer_id, role)
 SELECT 
     sm.id,
-    pst_receiver.performer_id,
-    'receiver'
+    pst_bottom.performer_id,
+    'bottom'
 FROM scene_markers sm
-INNER JOIN performer_scene_tags pst_receiver 
-    ON sm.scene_id = pst_receiver.scene_id
+INNER JOIN performer_scene_tags pst_bottom 
+    ON sm.scene_id = pst_bottom.scene_id
 WHERE sm.primary_tag_id = 196  -- Oral tag
   AND sm.seconds = 0
-  AND pst_receiver.tag_id = 251  -- SuckedDick tag
+  AND pst_bottom.tag_id = 251  -- SuckedDick tag
   AND NOT EXISTS (
       SELECT 1 FROM scene_marker_performers smp 
       WHERE smp.scene_marker_id = sm.id 
-        AND smp.performer_id = pst_receiver.performer_id 
-        AND smp.role = 'receiver'
+        AND smp.performer_id = pst_bottom.performer_id 
+        AND smp.role = 'bottom'
   );
 
 -- ============================================================================
@@ -219,13 +219,13 @@ WHERE pst.tag_id = 24  -- Solo performer tag in deprecated table
 -- ============================================================================
 
 -- For all jerk markers (configured solo tag ID = 24) in scenes with exactly 1 performer,
--- add that performer as the giver in scene_marker_performers
+-- add that performer as the top in scene_marker_performers
 
 INSERT INTO scene_marker_performers (scene_marker_id, performer_id, role)
 SELECT 
     sm.id,
     ps.performer_id,
-    'giver'
+    'top'
 FROM scene_markers sm
 INNER JOIN performers_scenes ps ON ps.scene_id = sm.scene_id
 WHERE sm.primary_tag_id = 24  -- Configured solo tag ID (Jerk)

@@ -1071,8 +1071,148 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 	case models.CriterionModifierEquals:
 		// Check if GroupsExtended is provided (with performer attributes)
 		if len(c.GroupsExtended) > 0 {
-			// Handle extended groups with performer attributes
+			// Group identical configurations to enforce uniqueness:
+			// If there are 5 identical groups (e.g., 5 groups with just "facial" tag),
+			// we need to find 5 DISTINCT markers matching that configuration.
+
+			// Helper to create a canonical key for a group configuration
+			type groupConfig struct {
+				tagIDs                []string
+				depth                 int
+				performerMode         string
+				topPerformerIDs       []string
+				topEthnicities        []string
+				topCountries          []string
+				topRating             string // serialized IntCriterionInput
+				bottomPerformerIDs    []string
+				bottomEthnicities     []string
+				bottomCountries       []string
+				bottomRating          string
+				bothRolesPerformerIDs []string
+				bothRolesEthnicities  []string
+				bothRolesCountries    []string
+				bothRolesRating       string
+				excludeTagIDs         []string
+			}
+
+			serializeRating := func(r *models.IntCriterionInput) string {
+				if r == nil {
+					return ""
+				}
+				v2 := ""
+				if r.Value2 != nil {
+					v2 = fmt.Sprintf("%d", *r.Value2)
+				}
+				return fmt.Sprintf("%s:%d:%s", r.Modifier, r.Value, v2)
+			}
+
+			makeGroupKey := func(g models.SceneMarkerTagGroupInput) groupConfig {
+				cfg := groupConfig{
+					tagIDs:        append([]string(nil), g.TagIDs...),
+					excludeTagIDs: append([]string(nil), g.ExcludeTagIDs...),
+					performerMode: "OR", // default
+				}
+				if g.Depth != nil {
+					cfg.depth = *g.Depth
+				}
+				if g.PerformerMode != nil {
+					cfg.performerMode = *g.PerformerMode
+				}
+
+				// Top performer fields (use new fields, fall back to deprecated)
+				cfg.topPerformerIDs = append([]string(nil), g.TopPerformerIDs...)
+				cfg.topEthnicities = append([]string(nil), g.TopEthnicities...)
+				cfg.topCountries = append([]string(nil), g.TopCountries...)
+				cfg.topRating = serializeRating(g.TopRating)
+				if len(cfg.topEthnicities) == 0 && len(g.PerformerEthnicities) > 0 {
+					cfg.topEthnicities = append([]string(nil), g.PerformerEthnicities...)
+				}
+				if len(cfg.topCountries) == 0 && len(g.PerformerCountries) > 0 {
+					cfg.topCountries = append([]string(nil), g.PerformerCountries...)
+				}
+				if cfg.topRating == "" && g.PerformerRating != nil {
+					cfg.topRating = serializeRating(g.PerformerRating)
+				}
+
+				// Bottom performer fields (use new fields, fall back to deprecated)
+				cfg.bottomPerformerIDs = append([]string(nil), g.BottomPerformerIDs...)
+				cfg.bottomEthnicities = append([]string(nil), g.BottomEthnicities...)
+				cfg.bottomCountries = append([]string(nil), g.BottomCountries...)
+				cfg.bottomRating = serializeRating(g.BottomRating)
+				if len(cfg.bottomEthnicities) == 0 && len(g.PerformerEthnicities) > 0 {
+					cfg.bottomEthnicities = append([]string(nil), g.PerformerEthnicities...)
+				}
+				if len(cfg.bottomCountries) == 0 && len(g.PerformerCountries) > 0 {
+					cfg.bottomCountries = append([]string(nil), g.PerformerCountries...)
+				}
+				if cfg.bottomRating == "" && g.PerformerRating != nil {
+					cfg.bottomRating = serializeRating(g.PerformerRating)
+				}
+
+				// Both roles performer fields
+				cfg.bothRolesPerformerIDs = append([]string(nil), g.BothRolesPerformerIDs...)
+				cfg.bothRolesEthnicities = append([]string(nil), g.BothRolesEthnicities...)
+				cfg.bothRolesCountries = append([]string(nil), g.BothRolesCountries...)
+				cfg.bothRolesRating = serializeRating(g.BothRolesRating)
+
+				// Sort all slices for canonical ordering
+				sort.Strings(cfg.tagIDs)
+				sort.Strings(cfg.excludeTagIDs)
+				sort.Strings(cfg.topPerformerIDs)
+				sort.Strings(cfg.topEthnicities)
+				sort.Strings(cfg.topCountries)
+				sort.Strings(cfg.bottomPerformerIDs)
+				sort.Strings(cfg.bottomEthnicities)
+				sort.Strings(cfg.bottomCountries)
+				sort.Strings(cfg.bothRolesPerformerIDs)
+				sort.Strings(cfg.bothRolesEthnicities)
+				sort.Strings(cfg.bothRolesCountries)
+
+				return cfg
+			}
+
+			// Group configurations by canonical key
+			type groupEntry struct {
+				config        groupConfig
+				originalGroup models.SceneMarkerTagGroupInput
+			}
+			configCounts := make(map[string]int)
+			configGroups := make(map[string]groupEntry)
+
 			for _, g := range c.GroupsExtended {
+				cfg := makeGroupKey(g)
+				// Serialize config to string key for grouping
+				keyParts := []string{
+					strings.Join(cfg.tagIDs, ","),
+					fmt.Sprintf("d%d", cfg.depth),
+					cfg.performerMode,
+					strings.Join(cfg.topPerformerIDs, ","),
+					strings.Join(cfg.topEthnicities, ","),
+					strings.Join(cfg.topCountries, ","),
+					cfg.topRating,
+					strings.Join(cfg.bottomPerformerIDs, ","),
+					strings.Join(cfg.bottomEthnicities, ","),
+					strings.Join(cfg.bottomCountries, ","),
+					cfg.bottomRating,
+					strings.Join(cfg.bothRolesPerformerIDs, ","),
+					strings.Join(cfg.bothRolesEthnicities, ","),
+					strings.Join(cfg.bothRolesCountries, ","),
+					cfg.bothRolesRating,
+					strings.Join(cfg.excludeTagIDs, ","),
+				}
+				key := strings.Join(keyParts, "|")
+				configCounts[key]++
+				if _, exists := configGroups[key]; !exists {
+					configGroups[key] = groupEntry{config: cfg, originalGroup: g}
+				}
+			}
+
+			// Now generate queries for each unique configuration
+			for key, multiplicity := range configCounts {
+				entry := configGroups[key]
+				g := entry.originalGroup
+				cfg := entry.config
+
 				// Expand tag IDs if depth is specified (for including sub-tags)
 				tagIDs := g.TagIDs
 				if len(tagIDs) > 0 && g.Depth != nil && *g.Depth != 0 {
@@ -1094,23 +1234,22 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 					}
 				}
 
-				// Determine performer mode: AND (both giver and receiver must match) or OR (either can match)
-				performerModeAnd := false
-				if g.PerformerMode != nil && strings.EqualFold(*g.PerformerMode, "AND") {
-					performerModeAnd = true
-				}
+				originalTagCount := len(g.TagIDs)
+				useIncludesLogic := len(tagIDs) > originalTagCount
 
-				// Helper to build role-specific condition with performer IDs and/or attributes
+				// Determine performer mode
+				performerModeAnd := strings.EqualFold(cfg.performerMode, "AND")
+
+				// Helper to build role-specific condition
 				type roleCondition struct {
 					clause string
 					args   []any
 				}
 
-				buildRoleCondition := func(role string, performerIDs []string, ethnicities []string, countries []string, rating *models.IntCriterionInput) *roleCondition {
+				buildRoleCondition := func(role string, performerIDs []string, ethnicities []string, countries []string, ratingStr string) *roleCondition {
 					var clauses []string
 					var args []any
 
-					// Start with role condition
 					baseClauses := []string{fmt.Sprintf("smp.role = '%s'", role)}
 
 					if len(performerIDs) > 0 {
@@ -1138,10 +1277,21 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 						}
 					}
 
-					if rating != nil {
-						w, wargs := getIntWhereClause("p.rating", rating.Modifier, rating.Value, rating.Value2)
-						baseClauses = append(baseClauses, w)
-						args = append(args, wargs...)
+					if ratingStr != "" {
+						// Deserialize rating (format: "modifier:value:value2")
+						parts := strings.Split(ratingStr, ":")
+						if len(parts) >= 2 {
+							modifier := models.CriterionModifier(parts[0])
+							value, _ := strconv.Atoi(parts[1])
+							var value2 *int
+							if len(parts) == 3 && parts[2] != "" {
+								v2, _ := strconv.Atoi(parts[2])
+								value2 = &v2
+							}
+							w, wargs := getIntWhereClause("p.rating", modifier, value, value2)
+							baseClauses = append(baseClauses, w)
+							args = append(args, wargs...)
+						}
 					}
 
 					clauses = append(clauses, "("+strings.Join(baseClauses, " AND ")+")")
@@ -1152,293 +1302,180 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 					}
 				}
 
-				// Build giver condition - use new fields if available, fall back to deprecated fields
-				var giverCond *roleCondition
-				giverEthnicities := g.GiverEthnicities
-				giverCountries := g.GiverCountries
-				giverRating := g.GiverRating
-				// Fall back to deprecated fields if new ones are empty
-				if len(giverEthnicities) == 0 && len(g.PerformerEthnicities) > 0 {
-					giverEthnicities = g.PerformerEthnicities
-				}
-				if len(giverCountries) == 0 && len(g.PerformerCountries) > 0 {
-					giverCountries = g.PerformerCountries
-				}
-				if giverRating == nil && g.PerformerRating != nil {
-					giverRating = g.PerformerRating
-				}
-				hasGiverCriteria := len(g.GiverPerformerIDs) > 0 || len(giverEthnicities) > 0 || len(giverCountries) > 0 || giverRating != nil
-				if hasGiverCriteria {
-					giverCond = buildRoleCondition("giver", g.GiverPerformerIDs, giverEthnicities, giverCountries, giverRating)
+				// Build role conditions
+				hasTopCriteria := len(cfg.topPerformerIDs) > 0 || len(cfg.topEthnicities) > 0 || len(cfg.topCountries) > 0 || cfg.topRating != ""
+				var topCond *roleCondition
+				if hasTopCriteria {
+					topCond = buildRoleCondition("top", cfg.topPerformerIDs, cfg.topEthnicities, cfg.topCountries, cfg.topRating)
 				}
 
-				// Build receiver condition - use new fields if available, fall back to deprecated fields
-				var receiverCond *roleCondition
-				receiverEthnicities := g.ReceiverEthnicities
-				receiverCountries := g.ReceiverCountries
-				receiverRating := g.ReceiverRating
-				// Fall back to deprecated fields if new ones are empty
-				if len(receiverEthnicities) == 0 && len(g.PerformerEthnicities) > 0 {
-					receiverEthnicities = g.PerformerEthnicities
-				}
-				if len(receiverCountries) == 0 && len(g.PerformerCountries) > 0 {
-					receiverCountries = g.PerformerCountries
-				}
-				if receiverRating == nil && g.PerformerRating != nil {
-					receiverRating = g.PerformerRating
-				}
-				hasReceiverCriteria := len(g.ReceiverPerformerIDs) > 0 || len(receiverEthnicities) > 0 || len(receiverCountries) > 0 || receiverRating != nil
-				if hasReceiverCriteria {
-					receiverCond = buildRoleCondition("receiver", g.ReceiverPerformerIDs, receiverEthnicities, receiverCountries, receiverRating)
+				hasBottomCriteria := len(cfg.bottomPerformerIDs) > 0 || len(cfg.bottomEthnicities) > 0 || len(cfg.bottomCountries) > 0 || cfg.bottomRating != ""
+				var bottomCond *roleCondition
+				if hasBottomCriteria {
+					bottomCond = buildRoleCondition("bottom", cfg.bottomPerformerIDs, cfg.bottomEthnicities, cfg.bottomCountries, cfg.bottomRating)
 				}
 
-				// Build both_roles condition (performer must be in BOTH giver and receiver roles)
-				hasBothRolesCriteria := len(g.BothRolesPerformerIDs) > 0 || len(g.BothRolesEthnicities) > 0 || len(g.BothRolesCountries) > 0 || g.BothRolesRating != nil
+				hasBothRolesCriteria := len(cfg.bothRolesPerformerIDs) > 0 || len(cfg.bothRolesEthnicities) > 0 || len(cfg.bothRolesCountries) > 0 || cfg.bothRolesRating != ""
 
-				// Build the final performer condition
-				var performerClauses []string
-				var performerArgs []any
+				// Build the WHERE clause for matching a single marker
+				var matchConditions []string
+				var matchArgs []any
 
-				// Build the subquery variables upfront (needed for AND mode)
-				var subq string
-				var args []any
+				// Tags condition
+				if len(tagIDs) > 0 {
+					tagPh := getInBinding(len(tagIDs))
+					if useIncludesLogic {
+						matchConditions = append(matchConditions, `(
+    SELECT COUNT(*) FROM (
+      SELECT sm.primary_tag_id AS tag_id
+      UNION ALL
+      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
+    ) tags_per_marker
+    WHERE tag_id IN `+tagPh+`
+  ) >= 1`)
+					} else {
+						matchConditions = append(matchConditions, `(
+    SELECT COUNT(DISTINCT tag_id) FROM (
+      SELECT sm.primary_tag_id AS tag_id
+      UNION ALL
+      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
+    ) tags_per_marker
+    WHERE tag_id IN `+tagPh+`
+  ) = `+fmt.Sprintf("%d", originalTagCount))
+					}
+					for _, tid := range tagIDs {
+						matchArgs = append(matchArgs, tid)
+					}
+				}
 
-				// When depth is specified and expanded, we match ANY of the expanded tags
-				// When no depth, we match ALL original tags
-				originalTagCount := len(g.TagIDs)
-				useIncludesLogic := len(tagIDs) > originalTagCount
-
+				// Performer conditions
 				if hasBothRolesCriteria {
-					// For both_roles: performer must appear as giver AND as receiver for matching markers
-					var bothRolesConditions []string
-					var bothRolesArgs []any
-
-					if len(g.BothRolesPerformerIDs) > 0 {
-						ph := getInBinding(len(g.BothRolesPerformerIDs))
-						bothRolesConditions = append(bothRolesConditions, fmt.Sprintf("p.id IN %s", ph))
-						for _, pid := range g.BothRolesPerformerIDs {
-							bothRolesArgs = append(bothRolesArgs, pid)
-						}
-					}
-					if len(g.BothRolesEthnicities) > 0 {
-						expanded := expandEthnicities(g.BothRolesEthnicities)
-						ph := getInBinding(len(expanded))
-						bothRolesConditions = append(bothRolesConditions, fmt.Sprintf("p.ethnicity IN %s", ph))
-						for _, e := range expanded {
-							bothRolesArgs = append(bothRolesArgs, e)
-						}
-					}
-					if len(g.BothRolesCountries) > 0 {
-						ph := getInBinding(len(g.BothRolesCountries))
-						bothRolesConditions = append(bothRolesConditions, fmt.Sprintf("p.country IN %s", ph))
-						for _, c := range g.BothRolesCountries {
-							bothRolesArgs = append(bothRolesArgs, c)
-						}
-					}
-					if g.BothRolesRating != nil {
-						w, wargs := getIntWhereClause("p.rating", g.BothRolesRating.Modifier, g.BothRolesRating.Value, g.BothRolesRating.Value2)
-						bothRolesConditions = append(bothRolesConditions, w)
-						bothRolesArgs = append(bothRolesArgs, wargs...)
-					}
-
-					performerCondition := strings.Join(bothRolesConditions, " AND ")
-					// This requires the performer to have BOTH 'giver' and 'receiver' entries
-					performerClauses = append(performerClauses, fmt.Sprintf(`EXISTS (
-						SELECT 1 FROM scene_marker_performers smp_g
-						JOIN performers p ON p.id = smp_g.performer_id
-						WHERE smp_g.scene_marker_id = sm.id AND smp_g.role = 'giver' AND %s
-					) AND EXISTS (
-						SELECT 1 FROM scene_marker_performers smp_r
-						JOIN performers p ON p.id = smp_r.performer_id  
-						WHERE smp_r.scene_marker_id = sm.id AND smp_r.role = 'receiver' AND %s
-					)`, performerCondition, performerCondition))
-					performerArgs = append(performerArgs, bothRolesArgs...)
-					performerArgs = append(performerArgs, bothRolesArgs...)
-				}
-
-				if giverCond != nil && receiverCond != nil {
+					// Both roles: performer must be in BOTH top and bottom
+					bothRolesCond := buildRoleCondition("top", cfg.bothRolesPerformerIDs, cfg.bothRolesEthnicities, cfg.bothRolesCountries, cfg.bothRolesRating)
+					matchConditions = append(matchConditions, `EXISTS (
+    SELECT 1 FROM scene_marker_performers smp_g
+    JOIN performers p ON p.id = smp_g.performer_id
+    WHERE smp_g.scene_marker_id = sm.id AND smp_g.role = 'top' AND `+bothRolesCond.clause+`
+  ) AND EXISTS (
+    SELECT 1 FROM scene_marker_performers smp_r
+    JOIN performers p ON p.id = smp_r.performer_id
+    WHERE smp_r.scene_marker_id = sm.id AND smp_r.role = 'bottom' AND `+bothRolesCond.clause+`
+  )`)
+					matchArgs = append(matchArgs, bothRolesCond.args...)
+					matchArgs = append(matchArgs, bothRolesCond.args...)
+				} else if topCond != nil && bottomCond != nil {
 					if performerModeAnd {
-						// AND mode: both giver and receiver conditions must match
-						// Use two separate EXISTS checks since a single performer row can only have one role
-						tagPh := getInBinding(len(tagIDs))
-
-						if useIncludesLogic {
-							// With sub-tags: marker must have at least one of the expanded tags
-							subq = utils.StrFormat(`EXISTS (
-SELECT 1 FROM scene_markers sm
-WHERE sm.scene_id = {primaryTable}.id
-  AND EXISTS (
+						// AND: both top and bottom must exist
+						matchConditions = append(matchConditions, `EXISTS (
     SELECT 1 FROM scene_marker_performers smp
     JOIN performers p ON p.id = smp.performer_id
-    WHERE smp.scene_marker_id = sm.id AND `+giverCond.clause+`
-  )
-  AND EXISTS (
+    WHERE smp.scene_marker_id = sm.id AND `+topCond.clause+`
+  ) AND EXISTS (
     SELECT 1 FROM scene_marker_performers smp
     JOIN performers p ON p.id = smp.performer_id
-    WHERE smp.scene_marker_id = sm.id AND `+receiverCond.clause+`
-  )
-  AND (
-    SELECT COUNT(*) FROM (
-      SELECT sm.primary_tag_id AS tag_id
-      UNION ALL
-      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
-    ) tags_per_marker
-    WHERE tag_id IN `+tagPh+`
-  ) >= 1
-)`, utils.StrFormatMap{"primaryTable": h.primaryTable})
-						} else {
-							// Without sub-tags: marker must have ALL original tags
-							subq = utils.StrFormat(`EXISTS (
-SELECT 1 FROM scene_markers sm
-WHERE sm.scene_id = {primaryTable}.id
-  AND EXISTS (
-    SELECT 1 FROM scene_marker_performers smp
-    JOIN performers p ON p.id = smp.performer_id
-    WHERE smp.scene_marker_id = sm.id AND `+giverCond.clause+`
-  )
-  AND EXISTS (
-    SELECT 1 FROM scene_marker_performers smp
-    JOIN performers p ON p.id = smp.performer_id
-    WHERE smp.scene_marker_id = sm.id AND `+receiverCond.clause+`
-  )
-  AND (
-    SELECT COUNT(DISTINCT tag_id) FROM (
-      SELECT sm.primary_tag_id AS tag_id
-      UNION ALL
-      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
-    ) tags_per_marker
-    WHERE tag_id IN `+tagPh+`
-  ) = `+fmt.Sprintf("%d", originalTagCount)+`
-)`, utils.StrFormatMap{"primaryTable": h.primaryTable})
-						}
-
-						args = append(args, giverCond.args...)
-						args = append(args, receiverCond.args...)
-						for _, tid := range tagIDs {
-							args = append(args, tid)
-						}
-
-						f.addWhere(subq, args...)
-						continue // Skip the normal subquery building below
+    WHERE smp.scene_marker_id = sm.id AND `+bottomCond.clause+`
+  )`)
+						matchArgs = append(matchArgs, topCond.args...)
+						matchArgs = append(matchArgs, bottomCond.args...)
 					} else {
-						// OR mode: either giver or receiver matches
-						combinedClause := fmt.Sprintf("(%s OR %s)", giverCond.clause, receiverCond.clause)
-						performerClauses = append(performerClauses, combinedClause)
-						performerArgs = append(performerArgs, giverCond.args...)
-						performerArgs = append(performerArgs, receiverCond.args...)
+						// OR: either top or bottom
+						combinedClause := fmt.Sprintf("(%s OR %s)", topCond.clause, bottomCond.clause)
+						matchConditions = append(matchConditions, `EXISTS (
+    SELECT 1 FROM scene_marker_performers smp
+    JOIN performers p ON p.id = smp.performer_id
+    WHERE smp.scene_marker_id = sm.id AND `+combinedClause+`
+  )`)
+						matchArgs = append(matchArgs, topCond.args...)
+						matchArgs = append(matchArgs, bottomCond.args...)
 					}
-				} else if giverCond != nil {
-					performerClauses = append(performerClauses, giverCond.clause)
-					performerArgs = append(performerArgs, giverCond.args...)
-				} else if receiverCond != nil {
-					performerClauses = append(performerClauses, receiverCond.clause)
-					performerArgs = append(performerArgs, receiverCond.args...)
+				} else if topCond != nil {
+					matchConditions = append(matchConditions, `EXISTS (
+    SELECT 1 FROM scene_marker_performers smp
+    JOIN performers p ON p.id = smp.performer_id
+    WHERE smp.scene_marker_id = sm.id AND `+topCond.clause+`
+  )`)
+					matchArgs = append(matchArgs, topCond.args...)
+				} else if bottomCond != nil {
+					matchConditions = append(matchConditions, `EXISTS (
+    SELECT 1 FROM scene_marker_performers smp
+    JOIN performers p ON p.id = smp.performer_id
+    WHERE smp.scene_marker_id = sm.id AND `+bottomCond.clause+`
+  )`)
+					matchArgs = append(matchArgs, bottomCond.args...)
 				}
 
-				if len(tagIDs) > 0 && len(performerClauses) > 0 {
-					// Both tags and performer conditions
-					tagPh := getInBinding(len(tagIDs))
-					performerCondition := strings.Join(performerClauses, " AND ")
-
-					if useIncludesLogic {
-						// With sub-tags: marker must have at least one of the expanded tags
-						subq = utils.StrFormat(`EXISTS (
-SELECT 1 FROM scene_markers sm
-JOIN scene_marker_performers smp ON smp.scene_marker_id = sm.id
-JOIN performers p ON p.id = smp.performer_id
-WHERE sm.scene_id = {primaryTable}.id
-  AND `+performerCondition+`
+				// Handle exclude-only groups (no include tags/performers, only excludes)
+				if len(matchConditions) == 0 && len(cfg.excludeTagIDs) > 0 {
+					// Check performer_mode to determine AND vs OR semantics
+					if performerModeAnd {
+						// AND mode: exclude only if scene has markers with ALL exclude tags (require each tag on distinct markers)
+						// For each exclude tag, require at least one marker with that tag
+						// Then use AND to combine (scene must have all of them to be excluded)
+						excludeConditions := make([]string, len(cfg.excludeTagIDs))
+						var excludeArgs []any
+						for i, tid := range cfg.excludeTagIDs {
+							excludeConditions[i] = utils.StrFormat(`EXISTS (
+SELECT 1 FROM scene_markers sm_excl`+fmt.Sprintf("%d", i)+`
+WHERE sm_excl`+fmt.Sprintf("%d", i)+`.scene_id = {primaryTable}.id
   AND (
-    SELECT COUNT(*) FROM (
-      SELECT sm.primary_tag_id AS tag_id
-      UNION ALL
-      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
-    ) tags_per_marker
-    WHERE tag_id IN `+tagPh+`
-  ) >= 1
+    sm_excl`+fmt.Sprintf("%d", i)+`.primary_tag_id = ?
+    OR EXISTS (
+      SELECT 1 FROM scene_markers_tags smt_excl`+fmt.Sprintf("%d", i)+`
+      WHERE smt_excl`+fmt.Sprintf("%d", i)+`.scene_marker_id = sm_excl`+fmt.Sprintf("%d", i)+`.id AND smt_excl`+fmt.Sprintf("%d", i)+`.tag_id = ?
+    )
+  )
 )`, utils.StrFormatMap{"primaryTable": h.primaryTable})
+							excludeArgs = append(excludeArgs, tid, tid)
+						}
+						// NOT (all exist) means exclude scenes that have ALL these tags
+						excludeSubq := "NOT (" + strings.Join(excludeConditions, " AND ") + ")"
+						f.addWhere(excludeSubq, excludeArgs...)
 					} else {
-						// Without sub-tags: marker must have ALL original tags
-						subq = utils.StrFormat(`EXISTS (
-SELECT 1 FROM scene_markers sm
-JOIN scene_marker_performers smp ON smp.scene_marker_id = sm.id
-JOIN performers p ON p.id = smp.performer_id
-WHERE sm.scene_id = {primaryTable}.id
-  AND `+performerCondition+`
+						// OR mode: exclude if scene has marker with ANY of these tags
+						excludePh := getInBinding(len(cfg.excludeTagIDs))
+						excludeSubq := utils.StrFormat(`NOT EXISTS (
+SELECT 1 FROM scene_markers sm_excl
+WHERE sm_excl.scene_id = {primaryTable}.id
   AND (
-    SELECT COUNT(DISTINCT tag_id) FROM (
-      SELECT sm.primary_tag_id AS tag_id
-      UNION ALL
-      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
-    ) tags_per_marker
-    WHERE tag_id IN `+tagPh+`
-  ) = `+fmt.Sprintf("%d", originalTagCount)+`
+    sm_excl.primary_tag_id IN `+excludePh+`
+    OR EXISTS (
+      SELECT 1 FROM scene_markers_tags smt_excl
+      WHERE smt_excl.scene_marker_id = sm_excl.id AND smt_excl.tag_id IN `+excludePh+`
+    )
+  )
 )`, utils.StrFormatMap{"primaryTable": h.primaryTable})
+						var excludeArgs []any
+						for _, tid := range cfg.excludeTagIDs {
+							excludeArgs = append(excludeArgs, tid)
+						}
+						for _, tid := range cfg.excludeTagIDs {
+							excludeArgs = append(excludeArgs, tid)
+						}
+						f.addWhere(excludeSubq, excludeArgs...)
 					}
-
-					args = append(args, performerArgs...)
-					for _, tid := range tagIDs {
-						args = append(args, tid)
-					}
-				} else if len(tagIDs) > 0 {
-					// Only tags, no performer conditions
-					tagPh := getInBinding(len(tagIDs))
-
-					if useIncludesLogic {
-						// With sub-tags: marker must have at least one of the expanded tags
-						subq = utils.StrFormat(`EXISTS (
-SELECT 1 FROM scene_markers sm
-WHERE sm.scene_id = {primaryTable}.id
-  AND (
-    SELECT COUNT(*) FROM (
-      SELECT sm.primary_tag_id AS tag_id
-      UNION ALL
-      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
-    ) tags_per_marker
-    WHERE tag_id IN `+tagPh+`
-  ) >= 1
-)`, utils.StrFormatMap{"primaryTable": h.primaryTable})
-					} else {
-						// Without sub-tags: marker must have ALL original tags
-						subq = utils.StrFormat(`EXISTS (
-SELECT 1 FROM scene_markers sm
-WHERE sm.scene_id = {primaryTable}.id
-  AND (
-    SELECT COUNT(DISTINCT tag_id) FROM (
-      SELECT sm.primary_tag_id AS tag_id
-      UNION ALL
-      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
-    ) tags_per_marker
-    WHERE tag_id IN `+tagPh+`
-  ) = `+fmt.Sprintf("%d", originalTagCount)+`
-)`, utils.StrFormatMap{"primaryTable": h.primaryTable})
-					}
-
-					for _, tid := range tagIDs {
-						args = append(args, tid)
-					}
-				} else if len(performerClauses) > 0 {
-					// Only performer conditions, no tags
-					performerCondition := strings.Join(performerClauses, " AND ")
-					subq = utils.StrFormat(`EXISTS (
-SELECT 1 FROM scene_markers sm
-JOIN scene_marker_performers smp ON smp.scene_marker_id = sm.id
-JOIN performers p ON p.id = smp.performer_id
-WHERE sm.scene_id = {primaryTable}.id
-  AND `+performerCondition+`
-)`, utils.StrFormatMap{"primaryTable": h.primaryTable})
-
-					args = append(args, performerArgs...)
-				} else {
-					// Empty group, skip
 					continue
 				}
 
-				f.addWhere(subq, args...)
+				if len(matchConditions) == 0 {
+					// Empty group with no excludes, skip
+					continue
+				}
 
-				// Handle exclude_tag_ids - scene must NOT have any markers with these tags
-				if len(g.ExcludeTagIDs) > 0 {
-					excludePh := getInBinding(len(g.ExcludeTagIDs))
+				// Build the COUNT(DISTINCT sm.id) query
+				whereClause := strings.Join(matchConditions, " AND ")
+				subq := utils.StrFormat(`(
+SELECT COUNT(DISTINCT sm.id)
+FROM scene_markers sm
+WHERE sm.scene_id = {primaryTable}.id
+  AND `+whereClause+`
+) >= ?`, utils.StrFormatMap{"primaryTable": h.primaryTable})
+
+				matchArgs = append(matchArgs, multiplicity)
+				f.addWhere(subq, matchArgs...)
+
+				// Handle exclude_tag_ids (for groups that also have include conditions)
+				if len(cfg.excludeTagIDs) > 0 {
+					excludePh := getInBinding(len(cfg.excludeTagIDs))
 					excludeSubq := utils.StrFormat(`NOT EXISTS (
 SELECT 1 FROM scene_markers sm_excl
 WHERE sm_excl.scene_id = {primaryTable}.id
@@ -1451,11 +1488,10 @@ WHERE sm_excl.scene_id = {primaryTable}.id
   )
 )`, utils.StrFormatMap{"primaryTable": h.primaryTable})
 					var excludeArgs []any
-					for _, tid := range g.ExcludeTagIDs {
+					for _, tid := range cfg.excludeTagIDs {
 						excludeArgs = append(excludeArgs, tid)
 					}
-					// Need to add the args twice (once for primary_tag_id, once for scene_markers_tags)
-					for _, tid := range g.ExcludeTagIDs {
+					for _, tid := range cfg.excludeTagIDs {
 						excludeArgs = append(excludeArgs, tid)
 					}
 					f.addWhere(excludeSubq, excludeArgs...)

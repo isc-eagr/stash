@@ -10,7 +10,10 @@ import { ImageIsMissingCriterionOption } from "./criteria/is-missing";
 import { OrganizedCriterionOption } from "./criteria/organized";
 import { PathCriterionOption } from "./criteria/path";
 import { PerformersCriterionOption } from "./criteria/performers";
-import { RatingCriterionOption, PerformerRatingCriterionOption } from "./criteria/rating";
+import {
+  RatingCriterionOption,
+  PerformerRatingCriterionOption,
+} from "./criteria/rating";
 import { ResolutionCriterionOption } from "./criteria/resolution";
 import { OrientationCriterionOption } from "./criteria/orientation";
 import { StudiosCriterionOption } from "./criteria/studios";
@@ -68,7 +71,8 @@ const criterionOptions = [
     ],
     defaultModifier: CriterionModifier.Equals,
     inputType: "text",
-    makeCriterion: (o) => new CountryCriterion(o as unknown as ModifierCriterionOption),
+    makeCriterion: (o) =>
+      new CountryCriterion(o as unknown as ModifierCriterionOption),
   }),
   PerformerRatingCriterionOption,
   createMandatoryNumberCriterionOption("tag_count"),

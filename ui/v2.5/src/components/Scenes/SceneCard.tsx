@@ -1,5 +1,11 @@
 import React, { useEffect, useMemo, useRef } from "react";
-import { Button, ButtonGroup, OverlayTrigger, Tooltip, Badge } from "react-bootstrap";
+import {
+  Button,
+  ButtonGroup,
+  OverlayTrigger,
+  Tooltip,
+  Badge,
+} from "react-bootstrap";
 import { useHistory } from "react-router-dom";
 import cx from "classnames";
 import * as GQL from "src/core/generated-graphql";
@@ -344,13 +350,13 @@ const SceneCardOverlays = PatchComponent(
   "SceneCard.Overlays",
   (props: ISceneCardProps) => {
     const { configuration } = useConfigurationContext();
-    
+
     // Check if scene has facial markers based on configured facial tag ID
     const hasFacial = useMemo(() => {
       const roleTagIds = configuration?.ui?.roleTagIds ?? {};
       const facialTagId = roleTagIds.facialTagId;
       if (!facialTagId) return false;
-      
+
       // Check scene markers for facial tag
       const sceneMarkers = (props.scene as any).scene_markers ?? [];
       for (const marker of sceneMarkers) {
@@ -502,33 +508,40 @@ export const SceneCard = PatchComponent(
       for (const marker of sceneMarkers) {
         // Check primary tag
         if (marker?.primary_tag) {
-          if (sexTagId && tagMatches(marker.primary_tag, sexTagId)) markerTagIds.add(sexTagId);
-          if (oralTagId && tagMatches(marker.primary_tag, oralTagId)) markerTagIds.add(oralTagId);
-          if (soloTagId && tagMatches(marker.primary_tag, soloTagId)) markerTagIds.add(soloTagId);
-          if (facialTagId && tagMatches(marker.primary_tag, facialTagId)) markerTagIds.add(facialTagId);
+          if (sexTagId && tagMatches(marker.primary_tag, sexTagId))
+            markerTagIds.add(sexTagId);
+          if (oralTagId && tagMatches(marker.primary_tag, oralTagId))
+            markerTagIds.add(oralTagId);
+          if (soloTagId && tagMatches(marker.primary_tag, soloTagId))
+            markerTagIds.add(soloTagId);
+          if (facialTagId && tagMatches(marker.primary_tag, facialTagId))
+            markerTagIds.add(facialTagId);
         }
         // Check secondary tags
         const markerTags = marker?.tags ?? [];
         for (const tag of markerTags) {
           if (sexTagId && tagMatches(tag, sexTagId)) markerTagIds.add(sexTagId);
-          if (oralTagId && tagMatches(tag, oralTagId)) markerTagIds.add(oralTagId);
-          if (soloTagId && tagMatches(tag, soloTagId)) markerTagIds.add(soloTagId);
-          if (facialTagId && tagMatches(tag, facialTagId)) markerTagIds.add(facialTagId);
+          if (oralTagId && tagMatches(tag, oralTagId))
+            markerTagIds.add(oralTagId);
+          if (soloTagId && tagMatches(tag, soloTagId))
+            markerTagIds.add(soloTagId);
+          if (facialTagId && tagMatches(tag, facialTagId))
+            markerTagIds.add(facialTagId);
         }
       }
 
       // Priority: sex > oral > solo > facial
       if (sexTagId && markerTagIds.has(sexTagId)) {
         return {
-          type: 'gay',
+          type: "gay",
           className: "scene-gay-icon",
           title: "Scene has sex markers",
         };
       }
-      
+
       if (oralTagId && markerTagIds.has(oralTagId)) {
         return {
-          type: 'mouth',
+          type: "mouth",
           className: "scene-mouth-icon",
           title: "Scene has oral markers",
         };
@@ -536,34 +549,56 @@ export const SceneCard = PatchComponent(
 
       if (soloTagId && markerTagIds.has(soloTagId)) {
         return {
-          type: 'hand',
+          type: "hand",
           icon: faHand,
           className: "scene-hand-icon",
-          title: "Scene has solo markers"
+          title: "Scene has solo markers",
         };
       }
 
       if (facialTagId && markerTagIds.has(facialTagId)) {
         return {
-          type: 'goatee',
+          type: "goatee",
           className: "scene-goatee-icon",
-          title: "Scene has facial markers"
+          title: "Scene has facial markers",
         };
       }
 
       return null;
-  }, [props.scene, configuration?.ui]);
+    }, [props.scene, configuration?.ui]);
 
     const pretitleIcon = useMemo(() => {
       const pieces: JSX.Element[] = [];
       if (iconToShow) {
         const t = (iconToShow as any).type as string | undefined;
-        if (t === 'mouth' || t === 'gay' || t === 'straight' || t === 'goatee') {
+        if (
+          t === "mouth" ||
+          t === "gay" ||
+          t === "straight" ||
+          t === "goatee"
+        ) {
           pieces.push(
             <img
               key="primary"
-              src={t === 'gay' ? gaySvg : t === 'straight' ? straightSvg : t === 'goatee' ? goateeSvg : mouthSvg}
-              alt={(iconToShow as any).title || (t === 'gay' ? 'Gay' : t === 'straight' ? 'Straight' : t === 'goatee' ? 'Facial' : 'Open Mouth')}
+              src={
+                t === "gay"
+                  ? gaySvg
+                  : t === "straight"
+                  ? straightSvg
+                  : t === "goatee"
+                  ? goateeSvg
+                  : mouthSvg
+              }
+              alt={
+                (iconToShow as any).title ||
+                (t === "gay"
+                  ? "Gay"
+                  : t === "straight"
+                  ? "Straight"
+                  : t === "goatee"
+                  ? "Facial"
+                  : "Open Mouth")
+              }
               title={(iconToShow as any).title}
               className={(iconToShow as any).className}
             />

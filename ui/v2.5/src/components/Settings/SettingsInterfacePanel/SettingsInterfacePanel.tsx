@@ -293,7 +293,9 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
                   {intl.formatMessage({ id: "config.ui.role_tags.title" })}
                 </h3>
                 <div className="sub-heading">
-                  {intl.formatMessage({ id: "config.ui.role_tags.description" })}
+                  {intl.formatMessage({
+                    id: "config.ui.role_tags.description",
+                  })}
                 </div>
               </div>
               <div />
@@ -352,7 +354,9 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
             <TagIDSelect
               isMulti={false}
               creatable={false}
-              ids={ui.roleTagIds?.facialTagId ? [ui.roleTagIds.facialTagId] : []}
+              ids={
+                ui.roleTagIds?.facialTagId ? [ui.roleTagIds.facialTagId] : []
+              }
               menuPortalTarget={document.body}
               onSelect={(items: TagOption[]) =>
                 saveUI({

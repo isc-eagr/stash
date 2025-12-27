@@ -110,9 +110,9 @@ export interface IUIConfig {
   // Tag IDs used for scene marker role categorization
   // These determine which marker tags represent each role category
   roleTagIds?: {
-    sexTagId?: string;    // Tag ID for sex markers
-    oralTagId?: string;   // Tag ID for oral markers  
-    soloTagId?: string;   // Tag ID for solo markers
+    sexTagId?: string; // Tag ID for sex markers
+    oralTagId?: string; // Tag ID for oral markers
+    soloTagId?: string; // Tag ID for solo markers
     facialTagId?: string; // Tag ID for facial markers
   };
 }

@@ -57,7 +57,7 @@ function useSceneMarkerCountByTag(tagId?: string) {
   return data?.findSceneMarkers?.count ?? 0;
 }
 
-  const TagCardPopovers: React.FC<IProps> = PatchComponent(
+const TagCardPopovers: React.FC<IProps> = PatchComponent(
   "TagCard.Popovers",
   ({ tag, sceneCountOnly, performerId, performerName }) => {
     // count scene markers with this tag that have performers assigned
@@ -71,7 +71,12 @@ function useSceneMarkerCountByTag(tagId?: string) {
               className="scene-count"
               type="scene"
               count={tag.scene_count}
-              url={NavUtils.makeTagScenesUrl(tag, performerId ? { id: performerId, name: performerName } : undefined)}
+              url={NavUtils.makeTagScenesUrl(
+                tag,
+                performerId
+                  ? { id: performerId, name: performerName }
+                  : undefined
+              )}
               showZero={false}
             />
           </ButtonGroup>
@@ -87,7 +92,10 @@ function useSceneMarkerCountByTag(tagId?: string) {
             className="scene-count"
             type="scene"
             count={tag.scene_count}
-            url={NavUtils.makeTagScenesUrl(tag, performerId ? { id: performerId, name: performerName } : undefined)}
+            url={NavUtils.makeTagScenesUrl(
+              tag,
+              performerId ? { id: performerId, name: performerName } : undefined
+            )}
             showZero={false}
           />
           <PopoverCountButton

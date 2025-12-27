@@ -676,14 +676,14 @@ func (r *mutationResolver) SceneMarkerCreate(ctx context.Context, input SceneMar
 		return nil, fmt.Errorf("converting performer ids: %w", err)
 	}
 
-	// Handle giver/receiver performer IDs (new schema)
-	giverPerformerIDs, err := stringslice.StringSliceToIntSlice(input.GiverPerformerIds)
+	// Handle top/bottom performer IDs (new schema)
+	topPerformerIDs, err := stringslice.StringSliceToIntSlice(input.TopPerformerIds)
 	if err != nil {
-		return nil, fmt.Errorf("converting giver performer ids: %w", err)
+		return nil, fmt.Errorf("converting top performer ids: %w", err)
 	}
-	receiverPerformerIDs, err := stringslice.StringSliceToIntSlice(input.ReceiverPerformerIds)
+	bottomPerformerIDs, err := stringslice.StringSliceToIntSlice(input.BottomPerformerIds)
 	if err != nil {
-		return nil, fmt.Errorf("converting receiver performer ids: %w", err)
+		return nil, fmt.Errorf("converting bottom performer ids: %w", err)
 	}
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
@@ -702,21 +702,21 @@ func (r *mutationResolver) SceneMarkerCreate(ctx context.Context, input SceneMar
 		}
 
 		// Save the marker performers
-		// Use giver/receiver if provided, otherwise fallback to legacy performer_ids (as giver for backward compat)
-		if len(giverPerformerIDs) > 0 || len(receiverPerformerIDs) > 0 {
-			if len(giverPerformerIDs) > 0 {
-				if err := qb.UpdateGiverPerformers(ctx, newMarker.ID, giverPerformerIDs); err != nil {
+		// Use top/bottom if provided, otherwise fallback to legacy performer_ids (as top for backward compat)
+		if len(topPerformerIDs) > 0 || len(bottomPerformerIDs) > 0 {
+			if len(topPerformerIDs) > 0 {
+				if err := qb.UpdateTopPerformers(ctx, newMarker.ID, topPerformerIDs); err != nil {
 					return err
 				}
 			}
-			if len(receiverPerformerIDs) > 0 {
-				if err := qb.UpdateReceiverPerformers(ctx, newMarker.ID, receiverPerformerIDs); err != nil {
+			if len(bottomPerformerIDs) > 0 {
+				if err := qb.UpdateBottomPerformers(ctx, newMarker.ID, bottomPerformerIDs); err != nil {
 					return err
 				}
 			}
 		} else if len(performerIDs) > 0 {
-			// Legacy: treat performer_ids as giver performers for backward compatibility
-			if err := qb.UpdateGiverPerformers(ctx, newMarker.ID, performerIDs); err != nil {
+			// Legacy: treat performer_ids as top performers for backward compatibility
+			if err := qb.UpdateTopPerformers(ctx, newMarker.ID, performerIDs); err != nil {
 				return err
 			}
 		}
@@ -786,22 +786,22 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 		}
 	}
 
-	// Handle giver/receiver performer IDs (new schema)
-	var giverPerformerIDs []int
-	giverPerformerIdsIncluded := translator.hasField("giver_performer_ids")
-	if input.GiverPerformerIds != nil {
-		giverPerformerIDs, err = stringslice.StringSliceToIntSlice(input.GiverPerformerIds)
+	// Handle top/bottom performer IDs (new schema)
+	var topPerformerIDs []int
+	topPerformerIdsIncluded := translator.hasField("top_performer_ids")
+	if input.TopPerformerIds != nil {
+		topPerformerIDs, err = stringslice.StringSliceToIntSlice(input.TopPerformerIds)
 		if err != nil {
-			return nil, fmt.Errorf("converting giver performer ids: %w", err)
+			return nil, fmt.Errorf("converting top performer ids: %w", err)
 		}
 	}
 
-	var receiverPerformerIDs []int
-	receiverPerformerIdsIncluded := translator.hasField("receiver_performer_ids")
-	if input.ReceiverPerformerIds != nil {
-		receiverPerformerIDs, err = stringslice.StringSliceToIntSlice(input.ReceiverPerformerIds)
+	var bottomPerformerIDs []int
+	bottomPerformerIdsIncluded := translator.hasField("bottom_performer_ids")
+	if input.BottomPerformerIds != nil {
+		bottomPerformerIDs, err = stringslice.StringSliceToIntSlice(input.BottomPerformerIds)
 		if err != nil {
-			return nil, fmt.Errorf("converting receiver performer ids: %w", err)
+			return nil, fmt.Errorf("converting bottom performer ids: %w", err)
 		}
 	}
 
@@ -880,21 +880,21 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 
 		if performerIdsIncluded {
 			// Legacy: Save the marker performers using the old method (backward compatibility)
-			// This treats them as giver performers
-			if err := qb.UpdateGiverPerformers(ctx, markerID, performerIDs); err != nil {
+			// This treats them as top performers
+			if err := qb.UpdateTopPerformers(ctx, markerID, performerIDs); err != nil {
 				return err
 			}
 		}
 
-		// Handle giver/receiver performer updates (new schema)
-		if giverPerformerIdsIncluded {
-			if err := qb.UpdateGiverPerformers(ctx, markerID, giverPerformerIDs); err != nil {
+		// Handle top/bottom performer updates (new schema)
+		if topPerformerIdsIncluded {
+			if err := qb.UpdateTopPerformers(ctx, markerID, topPerformerIDs); err != nil {
 				return err
 			}
 		}
 
-		if receiverPerformerIdsIncluded {
-			if err := qb.UpdateReceiverPerformers(ctx, markerID, receiverPerformerIDs); err != nil {
+		if bottomPerformerIdsIncluded {
+			if err := qb.UpdateBottomPerformers(ctx, markerID, bottomPerformerIDs); err != nil {
 				return err
 			}
 		}

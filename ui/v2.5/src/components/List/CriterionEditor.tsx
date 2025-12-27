@@ -32,7 +32,10 @@ import { CountryCriterion } from "src/models/list-filter/criteria/country";
 import { PerformerCountryFilter } from "./Filters/PerformerCountryFilter";
 import { StashIDCriterion } from "src/models/list-filter/criteria/stash-ids";
 import { StashIDFilter } from "./Filters/StashIDFilter";
-import { PerformerRatingCriterion, RatingCriterion } from "../../models/list-filter/criteria/rating";
+import {
+  PerformerRatingCriterion,
+  RatingCriterion,
+} from "../../models/list-filter/criteria/rating";
 import { EthnicityCriterion } from "../../models/list-filter/criteria/ethnicity";
 import { RatingFilter } from "./Filters/RatingFilter";
 import { PerformerRatingFilter } from "./Filters/PerformerRatingFilter";
@@ -44,7 +47,10 @@ import { PerformersCriterion } from "src/models/list-filter/criteria/performers"
 import PerformersFilter from "./Filters/PerformersFilter";
 import { StudiosCriterion } from "src/models/list-filter/criteria/studios";
 import StudiosFilter from "./Filters/StudiosFilter";
-import { TagsCriterion, SceneMarkerTagsCriterion } from "src/models/list-filter/criteria/tags";
+import {
+  TagsCriterion,
+  SceneMarkerTagsCriterion,
+} from "src/models/list-filter/criteria/tags";
 import TagsFilter from "./Filters/TagsFilter";
 import { SceneMarkerTagsFilter } from "./Filters/SceneMarkerTagsFilter";
 import { PhashCriterion } from "src/models/list-filter/criteria/phash";
@@ -53,10 +59,33 @@ import { PathCriterion } from "src/models/list-filter/criteria/path";
 import { ModifierSelectorButtons } from "./ModifierSelect";
 import { CustomFieldsCriterion } from "src/models/list-filter/criteria/custom-fields";
 import { CustomFieldsFilter } from "./Filters/CustomFieldsFilter";
-import { MarkerPerformersCriterion, markerPerformersModifierOptions } from "src/models/list-filter/criteria/marker-performers";
+import {
+  MarkerPerformersCriterion,
+  markerPerformersModifierOptions,
+} from "src/models/list-filter/criteria/marker-performers";
 import { MarkerPerformersFilter } from "./Filters/MarkerPerformersFilter";
 import { PerformerMarkersCriterion } from "src/models/list-filter/criteria/performer-markers";
 import { PerformerMarkersFilter } from "./Filters/PerformerMarkersFilter";
+import { PerformerMarkersExcludeCriterion } from "src/models/list-filter/criteria/performer-markers-exclude";
+import { PerformerMarkersExcludeFilter } from "./Filters/PerformerMarkersExcludeFilter";
+import { MarkerTagsCriterion } from "src/models/list-filter/criteria/marker-tags";
+import { MarkerTagsFilter } from "./Filters/MarkerTagsFilter";
+import { MarkerTopCriterion } from "src/models/list-filter/criteria/marker-top";
+import { MarkerTopFilter } from "./Filters/MarkerTopFilter";
+import { MarkerBottomCriterion } from "src/models/list-filter/criteria/marker-bottom";
+import { MarkerBottomFilter } from "./Filters/MarkerBottomFilter";
+import { ExcludeMarkerTagsCriterion } from "src/models/list-filter/criteria/exclude-marker-tags";
+import { ExcludeMarkerTagsFilter } from "./Filters/ExcludeMarkerTagsFilter";
+import {
+  SceneMarkersCriterion,
+  sceneMarkersModifierOptions,
+} from "src/models/list-filter/criteria/scene-markers";
+import { SceneMarkersFilter } from "./Filters/SceneMarkersFilter";
+import {
+  SceneMarkersExcludeCriterion,
+  sceneMarkersExcludeModifierOptions,
+} from "src/models/list-filter/criteria/scene-markers-exclude";
+import { SceneMarkersExcludeFilter } from "./Filters/SceneMarkersExcludeFilter";
 
 interface IGenericCriterionEditor {
   criterion: ModifierCriterion<CriterionValue>;
@@ -212,7 +241,7 @@ const GenericCriterionEditor: React.FC<IGenericCriterionEditor> = ({
       return (
         <DurationFilter criterion={criterion} onValueChanged={onValueChanged} />
       );
-  }
+    }
     if (criterion instanceof DateCriterion) {
       return (
         <DateFilter criterion={criterion} onValueChanged={onValueChanged} />
@@ -301,7 +330,9 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
       return (
         <div>
           <ModifierSelectorButtons
-            options={(c.criterionOption as ModifierCriterionOption).modifierOptions}
+            options={
+              (c.criterionOption as ModifierCriterionOption).modifierOptions
+            }
             value={c.modifier}
             onChanged={(m) => {
               const newC = c.clone() as SceneMarkerTagsCriterion;
@@ -358,6 +389,94 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
           criterion={c}
           setCriterion={(nc) => setCriterion(nc)}
         />
+      );
+    }
+
+    if (criterion instanceof PerformerMarkersExcludeCriterion) {
+      const c = criterion;
+      return (
+        <PerformerMarkersExcludeFilter
+          criterion={c}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof MarkerTagsCriterion) {
+      return (
+        <MarkerTagsFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof MarkerTopCriterion) {
+      return (
+        <MarkerTopFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof MarkerBottomCriterion) {
+      return (
+        <MarkerBottomFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof ExcludeMarkerTagsCriterion) {
+      return (
+        <ExcludeMarkerTagsFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof SceneMarkersCriterion) {
+      const c = criterion;
+      return (
+        <div>
+          <ModifierSelectorButtons
+            options={sceneMarkersModifierOptions}
+            value={c.modifier}
+            onChanged={(m) => {
+              const newC = c.clone() as SceneMarkersCriterion;
+              newC.modifier = m;
+              setCriterion(newC);
+            }}
+          />
+          <SceneMarkersFilter
+            criterion={c}
+            setCriterion={(nc) => setCriterion(nc)}
+          />
+        </div>
+      );
+    }
+
+    if (criterion instanceof SceneMarkersExcludeCriterion) {
+      const c = criterion;
+      return (
+        <div>
+          <ModifierSelectorButtons
+            options={sceneMarkersExcludeModifierOptions}
+            value={c.modifier}
+            onChanged={(m) => {
+              const newC = c.clone() as SceneMarkersExcludeCriterion;
+              newC.modifier = m;
+              setCriterion(newC);
+            }}
+          />
+          <SceneMarkersExcludeFilter
+            criterion={c}
+            setCriterion={(nc) => setCriterion(nc)}
+          />
+        </div>
       );
     }
 

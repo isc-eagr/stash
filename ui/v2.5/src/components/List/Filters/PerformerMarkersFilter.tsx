@@ -1,440 +1,613 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { Badge, Button, Card, Col, Collapse, Form, Row } from "react-bootstrap";
-import Select, { components as selectComponents, OptionProps, MultiValueProps } from "react-select";
-import { defineMessages, useIntl } from "react-intl";
+import React from "react";
+import { Badge, Button, Card, Col, Form, Row } from "react-bootstrap";
+import Select, {
+  components as selectComponents,
+  OptionProps,
+  MultiValueProps,
+} from "react-select";
+import { FormattedMessage, useIntl } from "react-intl";
 import { CriterionModifier } from "src/core/generated-graphql";
-import { PerformerMarkersCriterion, IPerformerMarkerCondition, makeEmptyCondition, IRatingValue } from "src/models/list-filter/criteria/performer-markers";
+import {
+  PerformerMarkersCriterion,
+  IPerformerMarkersGroup,
+} from "src/models/list-filter/criteria/performer-markers";
+import {
+  PerformerIDSelect,
+  Performer,
+} from "src/components/Performers/PerformerSelect";
 import { Tag, TagIDSelect } from "src/components/Tags/TagSelect";
+import { RatingCriterion } from "src/models/list-filter/criteria/tags";
 import { getCountries } from "src/utils/country";
 import { CountryFlag } from "src/components/Shared/CountryFlag";
 import { usePerformerEthnicitiesQuery } from "src/core/generated-graphql";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
-import { faChevronDown, faChevronRight, faPlus, faMinus, faTrash } from "@fortawesome/free-solid-svg-icons";
-import { Icon } from "src/components/Shared/Icon";
 
-const messages = defineMessages({
-  add_include: { id: "actions.add_include", defaultMessage: "Add include condition" },
-  add_exclude: { id: "actions.add_exclude", defaultMessage: "Add exclude condition" },
-  include_label: { id: "filters.include", defaultMessage: "Must have" },
-  exclude_label: { id: "filters.exclude", defaultMessage: "Must NOT have" },
-  tags: { id: "tags", defaultMessage: "Tags" },
-  role: { id: "role", defaultMessage: "Role" },
-  self: { id: "self", defaultMessage: "Self" },
-  partner: { id: "partner", defaultMessage: "Partner" },
-  country: { id: "performer_country", defaultMessage: "Country" },
-  ethnicity: { id: "performer_ethnicity", defaultMessage: "Ethnicity" },
-  rating: { id: "performer_rating", defaultMessage: "Rating" },
-});
-
-const ratingModifiers: { value: CriterionModifier; label: string; title: string }[] = [
+const ratingModifiers: {
+  value: CriterionModifier;
+  label: string;
+  title: string;
+}[] = [
   { value: CriterionModifier.Equals, label: "=", title: "Equals" },
   { value: CriterionModifier.NotEquals, label: "≠", title: "Not equals" },
   { value: CriterionModifier.GreaterThan, label: ">", title: "Greater than" },
   { value: CriterionModifier.LessThan, label: "<", title: "Less than" },
+  { value: CriterionModifier.Between, label: "↔", title: "Between" },
+  { value: CriterionModifier.NotBetween, label: "↮", title: "Not between" },
 ];
 
-interface ConditionEditorProps {
-  condition: IPerformerMarkerCondition;
-  onChange: (condition: IPerformerMarkerCondition) => void;
-  onRemove: () => void;
-  countryOptions: { label: string; value: string }[];
-  ethnicityOptions: { label: string; value: string }[];
-  CountryOption: React.FC<OptionProps<{ label: string; value: string }, true>>;
-  CountryMultiValue: React.FC<MultiValueProps<{ label: string; value: string }, true>>;
-  isInclude: boolean;
+// Country option with flag
+const CountryOption: React.FC<
+  OptionProps<{ label: string; value: string }, true>
+> = (props) => {
+  const { data } = props;
+  return (
+    <selectComponents.Option {...props}>
+      <CountryFlag country={data.value} className="me-2" />
+      {data.label}
+    </selectComponents.Option>
+  );
+};
+
+// Country multi-value with flag
+const CountryMultiValue: React.FC<
+  MultiValueProps<{ label: string; value: string }, true>
+> = (props) => {
+  const { data } = props;
+  return (
+    <selectComponents.MultiValue {...props}>
+      <CountryFlag country={data.value} className="me-1" />
+      {data.label}
+    </selectComponents.MultiValue>
+  );
+};
+
+interface IPerformerMarkersFilterProps {
+  criterion: PerformerMarkersCriterion;
+  setCriterion: (c: PerformerMarkersCriterion) => void;
 }
 
-const ConditionEditor: React.FC<ConditionEditorProps> = ({
-  condition,
-  onChange,
-  onRemove,
-  countryOptions,
-  ethnicityOptions,
-  CountryOption,
-  CountryMultiValue,
-  isInclude,
-}) => {
+interface IGroupEditorProps {
+  group: IPerformerMarkersGroup;
+  onUpdate: (updates: Partial<IPerformerMarkersGroup>) => void;
+}
+
+const GroupEditor: React.FC<IGroupEditorProps> = ({ group, onUpdate }) => {
   const intl = useIntl();
-  const [showSelf, setShowSelf] = useState(
-    condition.self_ethnicities.length > 0 ||
-    condition.self_countries.length > 0 ||
-    condition.self_rating != null
-  );
-  const [showPartner, setShowPartner] = useState(
-    condition.partner_ethnicities.length > 0 ||
-    condition.partner_countries.length > 0 ||
-    condition.partner_rating != null
-  );
 
-  const onTagsChange = useCallback((tags: Tag[]) => {
-    onChange({
-      ...condition,
-      tags: tags.map((t) => ({ id: t.id, label: t.name ?? "" })),
-    });
-  }, [condition, onChange]);
+  // Fetch ethnicity options
+  const { data: ethnicityData } = usePerformerEthnicitiesQuery();
+  const ethnicityOptions = React.useMemo(() => {
+    const ethnicities = ethnicityData?.performerEthnicities ?? [];
+    return ethnicities.map((e) => ({ label: e, value: e }));
+  }, [ethnicityData]);
 
-  const onRoleChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    onChange({
-      ...condition,
-      role: e.target.value as "giver" | "receiver" | "any",
-    });
-  }, [condition, onChange]);
+  // Country options
+  const countryOptions = React.useMemo(() => {
+    return getCountries().map((c) => ({ label: c.label, value: c.value }));
+  }, []);
 
-  // Self rating
-  const currentSelfRatingModifier = condition.self_rating?.modifier ?? CriterionModifier.GreaterThan;
-  const currentSelfRatingModDef = ratingModifiers.find((m) => m.value === currentSelfRatingModifier);
-
-  const onSelfRatingModifierChange = (m: CriterionModifier) => {
-    const current: IRatingValue = condition.self_rating ?? { modifier: m, value: 0 };
-    onChange({
-      ...condition,
-      self_rating: { ...current, modifier: m },
+  // Tags handler
+  const onTagsChange = (tags: Tag[]) => {
+    onUpdate({
+      tag_ids: tags.map((t) => ({
+        id: t.id,
+        label: t.name ?? t.id,
+      })),
     });
   };
 
-  const onSelfRatingChange = (value: number | null) => {
-    const current: IRatingValue = condition.self_rating ?? { modifier: CriterionModifier.GreaterThan, value: 0 };
-    onChange({
-      ...condition,
-      self_rating: value && value > 0 ? { ...current, value } : null,
+  const onDepthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onUpdate({ depth: e.target.checked ? -1 : 0 });
+  };
+
+  // Performer handlers
+  const onPerformerPerformersChange = (performers: Performer[]) => {
+    onUpdate({
+      performer_ids: performers.map((p) => ({
+        id: p.id,
+        label: p.name ?? p.id,
+      })),
     });
   };
 
-  // Partner rating
-  const currentRatingModifier = condition.partner_rating?.modifier ?? CriterionModifier.GreaterThan;
-  const currentRatingModDef = ratingModifiers.find((m) => m.value === currentRatingModifier);
+  const onPerformerEthnicitiesChange = (values: readonly { value: string }[]) => {
+    onUpdate({ performer_ethnicities: values.map((v) => v.value) });
+  };
+
+  const onPerformerCountriesChange = (values: readonly { value: string }[]) => {
+    onUpdate({ performer_countries: values.map((v) => v.value) });
+  };
+
+  const onPerformerRatingChange = (rating: RatingCriterion) => {
+    onUpdate({ performer_rating: rating });
+  };
+
+  const onPerformerRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newRole = e.target.value as "any" | "top" | "bottom";
+    onUpdate({ performer_role: newRole });
+  };
+
+  // Partner handlers
+  const onPartnerPerformersChange = (performers: Performer[]) => {
+    onUpdate({
+      partner_ids: performers.map((p) => ({
+        id: p.id,
+        label: p.name ?? p.id,
+      })),
+    });
+  };
+
+  const onPartnerEthnicitiesChange = (values: readonly { value: string }[]) => {
+    onUpdate({ partner_ethnicities: values.map((v) => v.value) });
+  };
+
+  const onPartnerCountriesChange = (values: readonly { value: string }[]) => {
+    onUpdate({ partner_countries: values.map((v) => v.value) });
+  };
+
+  const onPartnerRatingChange = (rating: RatingCriterion) => {
+    onUpdate({ partner_rating: rating });
+  };
+
+  const onPartnerRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newRole = e.target.value as "any" | "top" | "bottom";
+    onUpdate({ partner_role: newRole });
+  };
+
+  // Performer rating helpers
+  const performerRating = group.performer_rating;
+  const performerModifier = performerRating?.modifier ?? CriterionModifier.Equals;
+
+  const onPerformerRatingModifierChange = (m: CriterionModifier) => {
+    onPerformerRatingChange({
+      modifier: m,
+      value: performerRating?.value ?? 0,
+      value2: performerRating?.value2,
+    });
+  };
+
+  const onPerformerRatingValueChange = (v: number) => {
+    if (!performerRating) {
+      onPerformerRatingChange({ modifier: CriterionModifier.Equals, value: v });
+    } else {
+      onPerformerRatingChange({ ...performerRating, value: v });
+    }
+  };
+
+  const onPerformerRatingValue2Change = (v: number) => {
+    if (!performerRating) {
+      onPerformerRatingChange({
+        modifier: CriterionModifier.Between,
+        value: 0,
+        value2: v,
+      });
+    } else {
+      onPerformerRatingChange({ ...performerRating, value2: v });
+    }
+  };
+
+  // Partner rating helpers
+  const partnerRating = group.partner_rating;
+  const partnerModifier = partnerRating?.modifier ?? CriterionModifier.Equals;
 
   const onPartnerRatingModifierChange = (m: CriterionModifier) => {
-    const current: IRatingValue = condition.partner_rating ?? { modifier: m, value: 0 };
-    onChange({
-      ...condition,
-      partner_rating: { ...current, modifier: m },
+    onPartnerRatingChange({
+      modifier: m,
+      value: partnerRating?.value ?? 0,
+      value2: partnerRating?.value2,
     });
   };
 
-  const onPartnerRatingChange = (value: number | null) => {
-    const current: IRatingValue = condition.partner_rating ?? { modifier: CriterionModifier.GreaterThan, value: 0 };
-    onChange({
-      ...condition,
-      partner_rating: value && value > 0 ? { ...current, value } : null,
-    });
+  const onPartnerRatingValueChange = (v: number) => {
+    if (!partnerRating) {
+      onPartnerRatingChange({ modifier: CriterionModifier.Equals, value: v });
+    } else {
+      onPartnerRatingChange({ ...partnerRating, value: v });
+    }
+  };
+
+  const onPartnerRatingValue2Change = (v: number) => {
+    if (!partnerRating) {
+      onPartnerRatingChange({
+        modifier: CriterionModifier.Between,
+        value: 0,
+        value2: v,
+      });
+    } else {
+      onPartnerRatingChange({ ...partnerRating, value2: v });
+    }
+  };
+
+  // Disable role options based on other side's selection
+  const disablePerformerRoles = {
+    any: group.partner_role === "top" || group.partner_role === "bottom",
+    top: group.partner_role === "top",
+    bottom: group.partner_role === "bottom",
+  };
+
+  const disablePartnerRoles = {
+    any: group.performer_role === "top" || group.performer_role === "bottom",
+    top: group.performer_role === "top",
+    bottom: group.performer_role === "bottom",
   };
 
   return (
-    <Card className={`mb-2 border-${isInclude ? "success" : "danger"}`}>
-      <Card.Body className="p-2">
-        <Row className="align-items-center mb-2">
-          <Col xs="auto">
-            <Badge pill variant={isInclude ? "success" : "danger"}>
-              {isInclude ? <Icon icon={faPlus} /> : <Icon icon={faMinus} />}
-            </Badge>
-          </Col>
-          <Col>
-            <strong>{isInclude ? intl.formatMessage(messages.include_label) : intl.formatMessage(messages.exclude_label)}</strong>
-          </Col>
-          <Col xs="auto">
-            <Button variant="outline-danger" size="sm" onClick={onRemove}>
-              <Icon icon={faTrash} />
-            </Button>
-          </Col>
-        </Row>
-
-        {/* Tags */}
-        <Form.Group className="mb-2">
-          <Form.Label className="small mb-1">{intl.formatMessage(messages.tags)}</Form.Label>
+    <Card className="mb-3">
+      <Card.Body>
+        {/* Tags section at the top */}
+        <Form.Group className="mb-3">
+          <Form.Label>
+            <FormattedMessage id="tags" defaultMessage="Tags" />
+          </Form.Label>
           <TagIDSelect
-            ids={condition.tags.map((t) => t.id)}
-            onSelect={onTagsChange}
             isMulti
-            isClearable={false}
+            ids={group.tag_ids.map((t) => t.id)}
+            onSelect={onTagsChange}
+            menuPortalTarget={document.body}
           />
         </Form.Group>
 
-        {/* Role */}
-        <Form.Group className="mb-2">
-          <Form.Label className="small mb-1">{intl.formatMessage(messages.role)}</Form.Label>
-          <Form.Control
-            as="select"
-            value={condition.role}
-            onChange={onRoleChange}
-            className="form-control input-control"
-          >
-            <option value="any">Any role</option>
-            <option value="giver">Top (giver)</option>
-            <option value="receiver">Bottom (receiver)</option>
-          </Form.Control>
+        <Form.Group className="mb-3">
+          <Form.Check
+            type="checkbox"
+            id="include-sub-tags"
+            label={intl.formatMessage({
+              id: "include_sub_tags",
+              defaultMessage: "Include Sub Tags",
+            })}
+            checked={group.depth !== 0}
+            onChange={onDepthChange}
+          />
         </Form.Group>
 
-        {/* Self attributes toggle */}
-        <Button
-          variant="link"
-          className="p-0 mb-2"
-          onClick={() => setShowSelf(!showSelf)}
-        >
-          <Icon icon={showSelf ? faChevronDown : faChevronRight} className="me-1" />
-          {intl.formatMessage(messages.self)} attributes (this performer)
-        </Button>
+        <Row>
+          {/* Performer Column */}
+          <Col md={6}>
+            <h6 className="mb-3">
+              <FormattedMessage id="performer" defaultMessage="Performer" />
+            </h6>
 
-        <Collapse in={showSelf}>
-          <div className="ps-3 border-start">
-            {/* Self Ethnicity */}
-            <Form.Group className="mb-2">
-              <Form.Label className="small mb-1">{intl.formatMessage(messages.ethnicity)}</Form.Label>
-              <Select
+            {/* Performer Performers */}
+            <Form.Group className="mb-3">
+              <Form.Label>
+                <FormattedMessage id="performers" defaultMessage="Performers" />
+              </Form.Label>
+              <PerformerIDSelect
                 isMulti
-                classNamePrefix="react-select"
-                options={ethnicityOptions}
-                value={ethnicityOptions.filter((o) => condition.self_ethnicities.includes(o.value))}
-                onChange={(selected) =>
-                  onChange({
-                    ...condition,
-                    self_ethnicities: selected ? selected.map((o) => o.value) : [],
-                  })
-                }
-                placeholder="Any ethnicity"
+                ids={group.performer_ids.map((p) => p.id)}
+                onSelect={onPerformerPerformersChange}
+                menuPortalTarget={document.body}
               />
             </Form.Group>
 
-            {/* Self Country */}
-            <Form.Group className="mb-2">
-              <Form.Label className="small mb-1">{intl.formatMessage(messages.country)}</Form.Label>
-              <Select
-                isMulti
-                classNamePrefix="react-select"
-                options={countryOptions}
-                components={{ Option: CountryOption, MultiValue: CountryMultiValue }}
-                value={countryOptions.filter((o) => condition.self_countries.includes(o.value))}
-                onChange={(selected) =>
-                  onChange({
-                    ...condition,
-                    self_countries: selected ? selected.map((o) => o.value) : [],
-                  })
-                }
-                placeholder="Any country"
-              />
+            {/* Role dropdown */}
+            <Form.Group className="mb-3">
+              <Form.Label>
+                <FormattedMessage id="role" defaultMessage="Role" />
+              </Form.Label>
+              <Form.Control
+                as="select"
+                value={group.performer_role}
+                onChange={onPerformerRoleChange}
+              >
+                {!disablePerformerRoles.any && <option value="any">Any</option>}
+                {!disablePerformerRoles.top && <option value="top">Top</option>}
+                {!disablePerformerRoles.bottom && <option value="bottom">Bottom</option>}
+              </Form.Control>
             </Form.Group>
 
-            {/* Self Rating */}
-            <Form.Group className="mb-2">
-              <Form.Label className="small mb-1">{intl.formatMessage(messages.rating)}</Form.Label>
-              <div className="d-flex align-items-center gap-2">
-                <Form.Control
-                  as="select"
-                  className="form-control input-control w-auto"
-                  value={currentSelfRatingModifier}
-                  onChange={(e) => onSelfRatingModifierChange(e.target.value as CriterionModifier)}
-                  title={currentSelfRatingModDef?.title}
-                >
-                  {ratingModifiers.map((m) => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </Form.Control>
-                <RatingSystem
-                  value={condition.self_rating?.value ?? 0}
-                  onSetRating={onSelfRatingChange}
+            {/* Performer Ethnicity */}
+            <Form.Group
+              className="mb-3"
+              style={{
+                opacity: group.performer_ids.length > 0 ? 0.5 : 1,
+              }}
+            >
+              <Form.Label>
+                <FormattedMessage
+                  id="performer_ethnicity"
+                  defaultMessage="Ethnicity"
                 />
+              </Form.Label>
+              <Select
+                classNamePrefix="react-select"
+                isMulti
+                isClearable
+                isDisabled={group.performer_ids.length > 0}
+                options={ethnicityOptions}
+                value={ethnicityOptions.filter((o) =>
+                  group.performer_ethnicities.includes(o.value)
+                )}
+                placeholder={intl.formatMessage({
+                  id: "any_ethnicity",
+                  defaultMessage: "Any ethnicity",
+                })}
+                onChange={onPerformerEthnicitiesChange}
+                components={{ IndicatorSeparator: null }}
+                menuPortalTarget={document.body}
+              />
+            </Form.Group>
+
+            {/* Performer Country */}
+            <Form.Group
+              className="mb-3"
+              style={{
+                opacity: group.performer_ids.length > 0 ? 0.5 : 1,
+              }}
+            >
+              <Form.Label>
+                <FormattedMessage
+                  id="performer_country"
+                  defaultMessage="Country"
+                />
+              </Form.Label>
+              <Select
+                classNamePrefix="react-select"
+                isMulti
+                isClearable
+                isDisabled={group.performer_ids.length > 0}
+                options={countryOptions}
+                value={countryOptions.filter((o) =>
+                  group.performer_countries.includes(o.value)
+                )}
+                placeholder={intl.formatMessage({
+                  id: "any_country",
+                  defaultMessage: "Any country",
+                })}
+                onChange={onPerformerCountriesChange}
+                menuPortalTarget={document.body}
+                components={{
+                  IndicatorSeparator: null,
+                  Option: CountryOption,
+                  MultiValue: CountryMultiValue,
+                }}
+              />
+            </Form.Group>
+
+            {/* Performer Rating */}
+            <Form.Group
+              className="mb-3"
+              style={{
+                opacity: group.performer_ids.length > 0 ? 0.5 : 1,
+              }}
+            >
+              <Form.Label>
+                <FormattedMessage
+                  id="performer_rating"
+                  defaultMessage="Rating"
+                />
+              </Form.Label>
+              <div className="d-flex align-items-center gap-2 flex-wrap">
+                <div className="btn-group" role="group">
+                  {ratingModifiers.map((m) => (
+                    <Button
+                      key={m.value}
+                      variant={performerModifier === m.value ? "primary" : "secondary"}
+                      size="sm"
+                      onClick={() => onPerformerRatingModifierChange(m.value)}
+                      title={m.title}
+                      disabled={group.performer_ids.length > 0}
+                    >
+                      {m.label}
+                    </Button>
+                  ))}
+                </div>
+                <RatingSystem
+                  value={performerRating?.value}
+                  onSetRating={(value) => onPerformerRatingValueChange(value ?? 0)}
+                  valueRequired
+                  disabled={group.performer_ids.length > 0}
+                />
+                {(performerRating?.modifier === CriterionModifier.Between ||
+                  performerRating?.modifier === CriterionModifier.NotBetween) && (
+                  <RatingSystem
+                    value={performerRating?.value2}
+                    onSetRating={(value) => onPerformerRatingValue2Change(value ?? 0)}
+                    valueRequired
+                    disabled={group.performer_ids.length > 0}
+                  />
+                )}
+                {performerRating && (
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={() => onPerformerRatingChange(null)}
+                    disabled={group.performer_ids.length > 0}
+                  >
+                    <FormattedMessage id="actions.clear" defaultMessage="Clear" />
+                  </Button>
+                )}
               </div>
             </Form.Group>
-          </div>
-        </Collapse>
+          </Col>
 
-        {/* Partner toggle */}
-        <Button
-          variant="link"
-          className="p-0 mb-2"
-          onClick={() => setShowPartner(!showPartner)}
-        >
-          <Icon icon={showPartner ? faChevronDown : faChevronRight} className="me-1" />
-          {intl.formatMessage(messages.partner)} attributes
-        </Button>
+          {/* Partner Column */}
+          <Col md={6}>
+            <h6 className="mb-3">
+              <FormattedMessage id="partner" defaultMessage="Partner" />
+            </h6>
 
-        <Collapse in={showPartner}>
-          <div className="ps-3 border-start">
-            {/* Partner Ethnicity */}
-            <Form.Group className="mb-2">
-              <Form.Label className="small mb-1">{intl.formatMessage(messages.ethnicity)}</Form.Label>
-              <Select
+            {/* Partner Performers */}
+            <Form.Group className="mb-3">
+              <Form.Label>
+                <FormattedMessage id="performers" defaultMessage="Performers" />
+              </Form.Label>
+              <PerformerIDSelect
                 isMulti
+                ids={group.partner_ids.map((p) => p.id)}
+                onSelect={onPartnerPerformersChange}
+                menuPortalTarget={document.body}
+              />
+            </Form.Group>
+
+            {/* Role dropdown */}
+            <Form.Group className="mb-3">
+              <Form.Label>
+                <FormattedMessage id="role" defaultMessage="Role" />
+              </Form.Label>
+              <Form.Control
+                as="select"
+                value={group.partner_role}
+                onChange={onPartnerRoleChange}
+              >
+                {!disablePartnerRoles.any && <option value="any">Any</option>}
+                {!disablePartnerRoles.top && <option value="top">Top</option>}
+                {!disablePartnerRoles.bottom && <option value="bottom">Bottom</option>}
+              </Form.Control>
+            </Form.Group>
+
+            {/* Partner Ethnicity */}
+            <Form.Group
+              className="mb-3"
+              style={{
+                opacity: group.partner_ids.length > 0 ? 0.5 : 1,
+              }}
+            >
+              <Form.Label>
+                <FormattedMessage
+                  id="performer_ethnicity"
+                  defaultMessage="Ethnicity"
+                />
+              </Form.Label>
+              <Select
                 classNamePrefix="react-select"
+                isMulti
+                isClearable
+                isDisabled={group.partner_ids.length > 0}
                 options={ethnicityOptions}
-                value={ethnicityOptions.filter((o) => condition.partner_ethnicities.includes(o.value))}
-                onChange={(selected) =>
-                  onChange({
-                    ...condition,
-                    partner_ethnicities: selected ? selected.map((o) => o.value) : [],
-                  })
-                }
-                placeholder="Any ethnicity"
+                value={ethnicityOptions.filter((o) =>
+                  group.partner_ethnicities.includes(o.value)
+                )}
+                placeholder={intl.formatMessage({
+                  id: "any_ethnicity",
+                  defaultMessage: "Any ethnicity",
+                })}
+                onChange={onPartnerEthnicitiesChange}
+                components={{ IndicatorSeparator: null }}
+                menuPortalTarget={document.body}
               />
             </Form.Group>
 
             {/* Partner Country */}
-            <Form.Group className="mb-2">
-              <Form.Label className="small mb-1">{intl.formatMessage(messages.country)}</Form.Label>
+            <Form.Group
+              className="mb-3"
+              style={{
+                opacity: group.partner_ids.length > 0 ? 0.5 : 1,
+              }}
+            >
+              <Form.Label>
+                <FormattedMessage
+                  id="performer_country"
+                  defaultMessage="Country"
+                />
+              </Form.Label>
               <Select
-                isMulti
                 classNamePrefix="react-select"
+                isMulti
+                isClearable
+                isDisabled={group.partner_ids.length > 0}
                 options={countryOptions}
-                components={{ Option: CountryOption, MultiValue: CountryMultiValue }}
-                value={countryOptions.filter((o) => condition.partner_countries.includes(o.value))}
-                onChange={(selected) =>
-                  onChange({
-                    ...condition,
-                    partner_countries: selected ? selected.map((o) => o.value) : [],
-                  })
-                }
-                placeholder="Any country"
+                value={countryOptions.filter((o) =>
+                  group.partner_countries.includes(o.value)
+                )}
+                placeholder={intl.formatMessage({
+                  id: "any_country",
+                  defaultMessage: "Any country",
+                })}
+                onChange={onPartnerCountriesChange}
+                menuPortalTarget={document.body}
+                components={{
+                  IndicatorSeparator: null,
+                  Option: CountryOption,
+                  MultiValue: CountryMultiValue,
+                }}
               />
             </Form.Group>
 
             {/* Partner Rating */}
-            <Form.Group className="mb-2">
-              <Form.Label className="small mb-1">{intl.formatMessage(messages.rating)}</Form.Label>
-              <div className="d-flex align-items-center gap-2">
-                <Form.Control
-                  as="select"
-                  className="form-control input-control w-auto"
-                  value={currentRatingModifier}
-                  onChange={(e) => onPartnerRatingModifierChange(e.target.value as CriterionModifier)}
-                  title={currentRatingModDef?.title}
-                >
-                  {ratingModifiers.map((m) => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </Form.Control>
-                <RatingSystem
-                  value={condition.partner_rating?.value ?? 0}
-                  onSetRating={onPartnerRatingChange}
+            <Form.Group
+              className="mb-3"
+              style={{
+                opacity: group.partner_ids.length > 0 ? 0.5 : 1,
+              }}
+            >
+              <Form.Label>
+                <FormattedMessage
+                  id="performer_rating"
+                  defaultMessage="Rating"
                 />
+              </Form.Label>
+              <div className="d-flex align-items-center gap-2 flex-wrap">
+                <div className="btn-group" role="group">
+                  {ratingModifiers.map((m) => (
+                    <Button
+                      key={m.value}
+                      variant={partnerModifier === m.value ? "primary" : "secondary"}
+                      size="sm"
+                      onClick={() => onPartnerRatingModifierChange(m.value)}
+                      title={m.title}
+                      disabled={group.partner_ids.length > 0}
+                    >
+                      {m.label}
+                    </Button>
+                  ))}
+                </div>
+                <RatingSystem
+                  value={partnerRating?.value}
+                  onSetRating={(value) => onPartnerRatingValueChange(value ?? 0)}
+                  valueRequired
+                  disabled={group.partner_ids.length > 0}
+                />
+                {(partnerRating?.modifier === CriterionModifier.Between ||
+                  partnerRating?.modifier === CriterionModifier.NotBetween) && (
+                  <RatingSystem
+                    value={partnerRating?.value2}
+                    onSetRating={(value) => onPartnerRatingValue2Change(value ?? 0)}
+                    valueRequired
+                    disabled={group.partner_ids.length > 0}
+                  />
+                )}
+                {partnerRating && (
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    disabled={group.partner_ids.length > 0}
+                    onClick={() => onPartnerRatingChange(null)}
+                  >
+                    <FormattedMessage id="actions.clear" defaultMessage="Clear" />
+                  </Button>
+                )}
               </div>
             </Form.Group>
-          </div>
-        </Collapse>
+          </Col>
+        </Row>
       </Card.Body>
     </Card>
   );
 };
 
-interface PerformerMarkersFilterProps {
-  criterion: PerformerMarkersCriterion;
-  setCriterion: (c: PerformerMarkersCriterion) => void;
-}
-
-export const PerformerMarkersFilter: React.FC<PerformerMarkersFilterProps> = ({
+export const PerformerMarkersFilter: React.FC<IPerformerMarkersFilterProps> = ({
   criterion,
   setCriterion,
 }) => {
-  const intl = useIntl();
-
-  // Get ethnicity options from existing performers
-  const { data: ethnicitiesData } = usePerformerEthnicitiesQuery();
-  const ethnicityOptions = useMemo(() => {
-    const ethnicities = ethnicitiesData?.performerEthnicities || [];
-    return ethnicities
-      .filter((e) => e && e.trim())
-      .map((e) => ({ label: e!, value: e! }));
-  }, [ethnicitiesData]);
-
-  // Get country options
-  const countryOptions = useMemo(() => {
-    const countries = getCountries();
-    return countries.map((c) => ({ label: c.label, value: c.value }));
-  }, []);
-
-  // Country select components with flags
-  const CountryOption: React.FC<OptionProps<{ label: string; value: string }, true>> = (props) => (
-    <selectComponents.Option {...props}>
-      <CountryFlag country={props.data.value} className="me-2" />
-      {props.data.label}
-    </selectComponents.Option>
-  );
-
-  const CountryMultiValue: React.FC<MultiValueProps<{ label: string; value: string }, true>> = (props) => (
-    <selectComponents.MultiValue {...props}>
-      <CountryFlag country={props.data.value} className="me-1" />
-      {props.data.label}
-    </selectComponents.MultiValue>
-  );
-
-  const updateIncludeCondition = useCallback((index: number, condition: IPerformerMarkerCondition) => {
-    const newC = criterion.clone() as PerformerMarkersCriterion;
-    newC.value.include[index] = condition;
-    setCriterion(newC);
-  }, [criterion, setCriterion]);
-
-  const updateExcludeCondition = useCallback((index: number, condition: IPerformerMarkerCondition) => {
-    const newC = criterion.clone() as PerformerMarkersCriterion;
-    newC.value.exclude[index] = condition;
-    setCriterion(newC);
-  }, [criterion, setCriterion]);
-
-  const addIncludeCondition = useCallback(() => {
-    const newC = criterion.clone() as PerformerMarkersCriterion;
-    newC.value.include.push(makeEmptyCondition());
-    setCriterion(newC);
-  }, [criterion, setCriterion]);
-
-  const addExcludeCondition = useCallback(() => {
-    const newC = criterion.clone() as PerformerMarkersCriterion;
-    newC.value.exclude.push(makeEmptyCondition());
-    setCriterion(newC);
-  }, [criterion, setCriterion]);
-
-  const removeIncludeCondition = useCallback((index: number) => {
-    const newC = criterion.clone() as PerformerMarkersCriterion;
-    newC.value.include.splice(index, 1);
-    setCriterion(newC);
-  }, [criterion, setCriterion]);
-
-  const removeExcludeCondition = useCallback((index: number) => {
-    const newC = criterion.clone() as PerformerMarkersCriterion;
-    newC.value.exclude.splice(index, 1);
-    setCriterion(newC);
-  }, [criterion, setCriterion]);
+  const onUpdateGroup = (updates: Partial<IPerformerMarkersGroup>) => {
+    const c = criterion.clone() as PerformerMarkersCriterion;
+    c.updateGroup(updates);
+    setCriterion(c);
+  };
 
   return (
     <div className="performer-markers-filter">
-      {/* Include conditions */}
-      <div className="mb-3">
-        {criterion.value.include.map((condition, index) => (
-          <ConditionEditor
-            key={`include-${index}`}
-            condition={condition}
-            onChange={(c) => updateIncludeCondition(index, c)}
-            onRemove={() => removeIncludeCondition(index)}
-            countryOptions={countryOptions}
-            ethnicityOptions={ethnicityOptions}
-            CountryOption={CountryOption}
-            CountryMultiValue={CountryMultiValue}
-            isInclude={true}
-          />
-        ))}
-        <Button variant="outline-success" size="sm" onClick={addIncludeCondition}>
-          <Icon icon={faPlus} className="me-1" />
-          {intl.formatMessage(messages.add_include)}
-        </Button>
+      <div className="mb-3 text-muted small">
+        <FormattedMessage
+          id="performer_markers_filter_help"
+          defaultMessage="Find performers with markers matching these criteria. Use 'Includes All' for AND mode (both performer AND partner must match), 'Includes' for OR mode (either can match)."
+        />
       </div>
 
-      {/* Exclude conditions */}
-      <div>
-        {criterion.value.exclude.map((condition, index) => (
-          <ConditionEditor
-            key={`exclude-${index}`}
-            condition={condition}
-            onChange={(c) => updateExcludeCondition(index, c)}
-            onRemove={() => removeExcludeCondition(index)}
-            countryOptions={countryOptions}
-            ethnicityOptions={ethnicityOptions}
-            CountryOption={CountryOption}
-            CountryMultiValue={CountryMultiValue}
-            isInclude={false}
-          />
-        ))}
-        <Button variant="outline-danger" size="sm" onClick={addExcludeCondition}>
-          <Icon icon={faMinus} className="me-1" />
-          {intl.formatMessage(messages.add_exclude)}
-        </Button>
-      </div>
+      <GroupEditor group={criterion.value.group} onUpdate={onUpdateGroup} />
     </div>
   );
 };
+
+export default PerformerMarkersFilter;

@@ -281,7 +281,7 @@ func (qb *sceneMarkerFilterHandler) criterionHandler() criterionHandler {
 		qb.markerPerformerRatingCriterionHandler(sceneMarkerFilter.MarkerPerformerRating, sceneMarkerFilter.MarkerPerformerRatingAll),
 		qb.hasMarkerPerformersCriterionHandler(sceneMarkerFilter.HasMarkerPerformers),
 		// Combined marker tags with performer attributes filter
-		qb.markerTagsWithPerformersCriterionHandler(sceneMarkerFilter.MarkerTagsWithPerformers),
+		qb.markerTagsWithPerformersCriterionHandler(sceneMarkerFilter.SceneMarkerTags),
 
 		&relatedFilterHandler{
 			relatedIDCol:   "scenes.id",
@@ -463,15 +463,15 @@ func (qb *sceneMarkerFilterHandler) studiosCriterionHandler(studios *models.Hier
 	}
 }
 
-// markerPerformersFilterHandler filters by performers assigned directly to the marker with giver/receiver role support
+// markerPerformersFilterHandler filters by performers assigned directly to the marker with top/bottom role support
 func (qb *sceneMarkerFilterHandler) markerPerformersFilterHandler(input *models.MarkerPerformersFilterInput) criterionHandlerFunc {
 	return func(ctx context.Context, f *filterBuilder) {
 		if input == nil || !input.Modifier.IsValid() {
 			return
 		}
 
-		hasGivers := len(input.GiverPerformerIDs) > 0
-		hasReceivers := len(input.ReceiverPerformerIDs) > 0
+		hasTops := len(input.TopPerformerIDs) > 0
+		hasBottoms := len(input.BottomPerformerIDs) > 0
 
 		// Handle IS_NULL / NOT_NULL modifiers
 		if input.Modifier == models.CriterionModifierIsNull {
@@ -484,7 +484,7 @@ func (qb *sceneMarkerFilterHandler) markerPerformersFilterHandler(input *models.
 			return
 		}
 
-		if !hasGivers && !hasReceivers {
+		if !hasTops && !hasBottoms {
 			return
 		}
 
@@ -528,25 +528,25 @@ func (qb *sceneMarkerFilterHandler) markerPerformersFilterHandler(input *models.
 			return clause, args
 		}
 
-		giverClause, giverArgs := buildRoleCondition(input.GiverPerformerIDs, "giver", input.Modifier)
-		receiverClause, receiverArgs := buildRoleCondition(input.ReceiverPerformerIDs, "receiver", input.Modifier)
+		topClause, topArgs := buildRoleCondition(input.TopPerformerIDs, "top", input.Modifier)
+		bottomClause, bottomArgs := buildRoleCondition(input.BottomPerformerIDs, "bottom", input.Modifier)
 
-		if hasGivers && hasReceivers {
-			// Both giver and receiver specified
-			allArgs := append(giverArgs, receiverArgs...)
+		if hasTops && hasBottoms {
+			// Both top and bottom specified
+			allArgs := append(topArgs, bottomArgs...)
 			if modeAnd {
 				// AND mode: both conditions must match
-				f.addWhere(giverClause, giverArgs...)
-				f.addWhere(receiverClause, receiverArgs...)
+				f.addWhere(topClause, topArgs...)
+				f.addWhere(bottomClause, bottomArgs...)
 			} else {
 				// OR mode: either condition can match
-				combined := fmt.Sprintf("(%s OR %s)", giverClause, receiverClause)
+				combined := fmt.Sprintf("(%s OR %s)", topClause, bottomClause)
 				f.addWhere(combined, allArgs...)
 			}
-		} else if hasGivers {
-			f.addWhere(giverClause, giverArgs...)
-		} else if hasReceivers {
-			f.addWhere(receiverClause, receiverArgs...)
+		} else if hasTops {
+			f.addWhere(topClause, topArgs...)
+		} else if hasBottoms {
+			f.addWhere(bottomClause, bottomArgs...)
 		}
 	}
 }
@@ -857,27 +857,38 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 					}
 
 					// Tag matching: marker must have all specified tags
+					// Check BOTH primary_tag_id AND secondary tags in scene_markers_tags
 					if len(tagIDs) > 0 {
 						for _, tagID := range tagIDs {
-							tagCond := `EXISTS (
-								SELECT 1 FROM scene_markers_tags smt 
-								WHERE smt.scene_marker_id = scene_markers.id 
-								AND smt.tag_id = ?
+							tagCond := `(
+								scene_markers.primary_tag_id = ?
+								OR EXISTS (
+									SELECT 1 FROM scene_markers_tags smt 
+									WHERE smt.scene_marker_id = scene_markers.id 
+									AND smt.tag_id = ?
+								)
 							)`
 							groupConditions = append(groupConditions, tagCond)
-							groupArgs = append(groupArgs, tagID)
+							groupArgs = append(groupArgs, tagID, tagID)
 						}
 					}
 
-					// Exclude tags: marker must NOT have any of these tags
+					// Exclude tags: marker must NOT have any of these tags (primary OR secondary)
 					if len(g.ExcludeTagIDs) > 0 {
 						ph := getInBinding(len(g.ExcludeTagIDs))
-						excludeCond := fmt.Sprintf(`NOT EXISTS (
-							SELECT 1 FROM scene_markers_tags smt 
-							WHERE smt.scene_marker_id = scene_markers.id 
-							AND smt.tag_id IN %s
-						)`, ph)
+						excludeCond := fmt.Sprintf(`(
+							scene_markers.primary_tag_id NOT IN %s
+							AND NOT EXISTS (
+								SELECT 1 FROM scene_markers_tags smt 
+								WHERE smt.scene_marker_id = scene_markers.id 
+								AND smt.tag_id IN %s
+							)
+						)`, ph, ph)
 						groupConditions = append(groupConditions, excludeCond)
+						// Add args twice - once for primary_tag_id check, once for secondary tags check
+						for _, tid := range g.ExcludeTagIDs {
+							groupArgs = append(groupArgs, tid)
+						}
 						for _, tid := range g.ExcludeTagIDs {
 							groupArgs = append(groupArgs, tid)
 						}
@@ -943,17 +954,17 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 
 					var roleConditions []*roleCondition
 
-					// Giver conditions
-					if len(g.GiverPerformerIDs) > 0 || len(g.GiverEthnicities) > 0 || len(g.GiverCountries) > 0 || g.GiverRating != nil {
-						rc := buildRoleCondition("giver", g.GiverPerformerIDs, g.GiverEthnicities, g.GiverCountries, g.GiverRating)
+					// Top conditions
+					if len(g.TopPerformerIDs) > 0 || len(g.TopEthnicities) > 0 || len(g.TopCountries) > 0 || g.TopRating != nil {
+						rc := buildRoleCondition("top", g.TopPerformerIDs, g.TopEthnicities, g.TopCountries, g.TopRating)
 						if rc.clause != "" {
 							roleConditions = append(roleConditions, rc)
 						}
 					}
 
-					// Receiver conditions
-					if len(g.ReceiverPerformerIDs) > 0 || len(g.ReceiverEthnicities) > 0 || len(g.ReceiverCountries) > 0 || g.ReceiverRating != nil {
-						rc := buildRoleCondition("receiver", g.ReceiverPerformerIDs, g.ReceiverEthnicities, g.ReceiverCountries, g.ReceiverRating)
+					// Bottom conditions
+					if len(g.BottomPerformerIDs) > 0 || len(g.BottomEthnicities) > 0 || len(g.BottomCountries) > 0 || g.BottomRating != nil {
+						rc := buildRoleCondition("bottom", g.BottomPerformerIDs, g.BottomEthnicities, g.BottomCountries, g.BottomRating)
 						if rc.clause != "" {
 							roleConditions = append(roleConditions, rc)
 						}
@@ -961,12 +972,12 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 
 					// Both-roles conditions
 					if len(g.BothRolesPerformerIDs) > 0 || len(g.BothRolesEthnicities) > 0 || len(g.BothRolesCountries) > 0 || g.BothRolesRating != nil {
-						// For "both", we need a performer who appears as BOTH giver AND receiver
-						// Use giver role for the EXISTS check, then verify same performer also has receiver role
+						// For "both", we need a performer who appears as BOTH top AND bottom
+						// Use top role for the EXISTS check, then verify same performer also has bottom role
 						var bothClauses []string
 						var bothArgs []interface{}
 
-						baseClause := "smp.role = 'giver'"
+						baseClause := "smp.role = 'top'"
 						bothClauses = append(bothClauses, baseClause)
 
 						if len(g.BothRolesPerformerIDs) > 0 {
@@ -1000,12 +1011,12 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 							bothArgs = append(bothArgs, wargs...)
 						}
 
-						// Add condition that same performer also has receiver role on this marker
+						// Add condition that same performer also has bottom role on this marker
 						bothClauses = append(bothClauses, `EXISTS (
 							SELECT 1 FROM scene_marker_performers smp2 
 							WHERE smp2.scene_marker_id = scene_markers.id 
 							AND smp2.performer_id = smp.performer_id 
-							AND smp2.role = 'receiver'
+							AND smp2.role = 'bottom'
 						)`)
 
 						roleConditions = append(roleConditions, &roleCondition{

@@ -768,7 +768,12 @@ export const FilteredSceneList = (props: IFilteredScenes) => {
 
               <FilterTags
                 criteria={filter.criteria}
-                onEditCriterion={(c) => showEditFilter(c.criterionOption.type)}
+                onEditCriterion={(c) => {
+                  // For multi-instance criteria, need to pass the actual criterion
+                  // showEditFilter only supports passing type string, so multi-instance won't work well here
+                  // This is a limitation - the user should use the Edit Filter button instead
+                  showEditFilter(c.criterionOption.type);
+                }}
                 onRemoveCriterion={removeCriterion}
                 onRemoveAll={clearAllCriteria}
               />

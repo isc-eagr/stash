@@ -19,7 +19,7 @@ export const PerformerStudiosPanel: React.FC<IPerformerDetailsProps> =
     // StudioFilterType uses scenes_filter (nested SceneFilterType) to filter by performer
     const filterHook = (filter: ListFilterModel) => {
       filter.currentPage = 1;
-      
+
       // Set scenes_filter directly on the filter's customCriteria or extraCriteria
       // We use the overrideFilter to inject the scenes_filter with performer criterion
       const originalMakeFilter = filter.makeFilter.bind(filter);
@@ -35,7 +35,7 @@ export const PerformerStudiosPanel: React.FC<IPerformerDetailsProps> =
           },
         };
       };
-      
+
       return filter;
     };
 

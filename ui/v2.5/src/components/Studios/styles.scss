@@ -89,7 +89,7 @@
     &:focus:not(:disabled),
     &:active:not(:disabled) {
       background-color: transparent !important;
-      
+
       .category-icon {
         filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
         -webkit-filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
@@ -202,7 +202,7 @@
       &:focus:not(:disabled),
       &:active:not(:disabled) {
         background-color: transparent !important;
-        
+
         .category-icon {
           filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
           -webkit-filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;

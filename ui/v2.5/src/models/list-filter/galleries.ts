@@ -19,7 +19,10 @@ import {
 } from "./criteria/tags";
 import { ListFilterOptions, MediaSortByOptions } from "./filter-options";
 import { DisplayMode } from "./types";
-import { RatingCriterionOption, PerformerRatingCriterionOption } from "./criteria/rating";
+import {
+  RatingCriterionOption,
+  PerformerRatingCriterionOption,
+} from "./criteria/rating";
 import { PathCriterionOption } from "./criteria/path";
 import { CriterionModifier } from "src/core/generated-graphql";
 import { ModifierCriterionOption } from "./criteria/criterion";
@@ -74,7 +77,8 @@ const criterionOptions = [
     ],
     defaultModifier: CriterionModifier.Equals,
     inputType: "text",
-    makeCriterion: (o) => new CountryCriterion(o as unknown as ModifierCriterionOption),
+    makeCriterion: (o) =>
+      new CountryCriterion(o as unknown as ModifierCriterionOption),
   }),
   PerformerRatingCriterionOption,
   PerformersCriterionOption,

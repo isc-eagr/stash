@@ -30,7 +30,10 @@ import { markerTitle } from "src/core/markers";
 import cx from "classnames";
 import "./MarkerPlaylistPlayer.scss";
 
-function performerDisplayName(p: { name: string; disambiguation?: string | null }) {
+function performerDisplayName(p: {
+  name: string;
+  disambiguation?: string | null;
+}) {
   return p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name;
 }
 
@@ -43,15 +46,15 @@ interface IMarkerInfo {
   sceneTitle: string;
   streamUrl: string;
   previewUrl: string;
-  giverPerformerNames?: string[];
-  receiverPerformerNames?: string[];
+  topPerformerNames?: string[];
+  bottomPerformerNames?: string[];
 }
 
 export const MarkerPlaylistPlayer: React.FC = () => {
   const intl = useIntl();
   const history = useHistory();
   const location = useLocation();
-  
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [markers, setMarkers] = useState<IMarkerInfo[]>([]);
@@ -61,38 +64,41 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   const [showPlaylist, setShowPlaylist] = useState(true);
   const [loopEnabled, setLoopEnabled] = useState(true);
   const [currentSceneId, setCurrentSceneId] = useState<string>("");
-  
+
   // Parse marker IDs from URL
   const markerIds = useMemo(() => {
     const params = new URLSearchParams(location.search);
     const ids = params.get("ids");
     return ids ? ids.split(",") : [];
   }, [location.search]);
-  
+
   // Get marker data from sessionStorage (stored by SceneMarkerList)
   useEffect(() => {
     if (markerIds.length === 0) {
       setLoading(false);
       return;
     }
-    
+
     const storedData = sessionStorage.getItem("markerPlaylist");
     if (storedData) {
       try {
-        const parsedMarkers = JSON.parse(storedData) as GQL.SceneMarkerDataFragment[];
+        const parsedMarkers = JSON.parse(
+          storedData
+        ) as GQL.SceneMarkerDataFragment[];
         // Sort markers to maintain the order from the URL
         const sortedMarkers = markerIds
           .map((id) => parsedMarkers.find((m) => m.id === id))
           .filter((m): m is GQL.SceneMarkerDataFragment => m !== undefined)
           .map((m) => {
             // Use scene.paths.stream if available, otherwise construct the URL
-            const streamUrl = m.scene.paths?.stream || `/scene/${m.scene.id}/stream`;
+            const streamUrl =
+              m.scene.paths?.stream || `/scene/${m.scene.id}/stream`;
 
-            const giverPerformerNames = (m.giver_performers ?? [])
+            const topPerformerNames = (m.top_performers ?? [])
               .map((p) => performerDisplayName(p))
               .filter((n) => n.length > 0);
 
-            const receiverPerformerNames = (m.receiver_performers ?? [])
+            const bottomPerformerNames = (m.bottom_performers ?? [])
               .map((p) => performerDisplayName(p))
               .filter((n) => n.length > 0);
 
@@ -105,11 +111,15 @@ export const MarkerPlaylistPlayer: React.FC = () => {
               sceneTitle: m.scene.title || "Untitled Scene",
               streamUrl,
               previewUrl: m.preview,
-              giverPerformerNames: giverPerformerNames.length > 0 ? giverPerformerNames : undefined,
-              receiverPerformerNames: receiverPerformerNames.length > 0 ? receiverPerformerNames : undefined,
+              topPerformerNames:
+                topPerformerNames.length > 0 ? topPerformerNames : undefined,
+              bottomPerformerNames:
+                bottomPerformerNames.length > 0
+                  ? bottomPerformerNames
+                  : undefined,
             };
           });
-        
+
         setMarkers(sortedMarkers);
       } catch (e) {
         console.error("Failed to parse marker playlist data:", e);
@@ -117,64 +127,67 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     }
     setLoading(false);
   }, [markerIds]);
-  
+
   // Hack: Hide controls briefly when loading/seeking, then show again
   const showControlsHack = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
-      // Native controls are always hidden
-      video.controls = false; // controls removed, we use only custom controls below
+    // Native controls are always hidden
+    video.controls = false; // controls removed, we use only custom controls below
     setTimeout(() => {
       video.controls = true;
     }, 500); // 500ms delay, tweak as needed
   }, []);
 
   // Load a specific marker
-  const loadMarker = useCallback((index: number, autoPlay = true) => {
-    const video = videoRef.current;
-    if (!video || index < 0 || index >= markers.length) return;
+  const loadMarker = useCallback(
+    (index: number, autoPlay = true) => {
+      const video = videoRef.current;
+      if (!video || index < 0 || index >= markers.length) return;
       // No need to hack controls, native controls are always hidden
-    const marker = markers[index];
-    const needsNewSource = currentSceneId !== marker.sceneId;
-    
-    if (needsNewSource) {
-      // Load new video source
-      video.src = marker.streamUrl;
-      setCurrentSceneId(marker.sceneId);
-      
-      const handleLoadedMetadata = () => {
+      const marker = markers[index];
+      const needsNewSource = currentSceneId !== marker.sceneId;
+
+      if (needsNewSource) {
+        // Load new video source
+        video.src = marker.streamUrl;
+        setCurrentSceneId(marker.sceneId);
+
+        const handleLoadedMetadata = () => {
+          video.currentTime = marker.seconds;
+          if (autoPlay) {
+            video.play().catch(console.error);
+          }
+          video.removeEventListener("loadedmetadata", handleLoadedMetadata);
+        };
+        video.addEventListener("loadedmetadata", handleLoadedMetadata);
+        video.load();
+      } else {
+        // Same scene, just seek
         video.currentTime = marker.seconds;
+        // Always call play() if autoPlay - calling play() on an already playing video is a no-op
         if (autoPlay) {
           video.play().catch(console.error);
         }
-        video.removeEventListener("loadedmetadata", handleLoadedMetadata);
-      };
-      video.addEventListener("loadedmetadata", handleLoadedMetadata);
-      video.load();
-    } else {
-      // Same scene, just seek
-      video.currentTime = marker.seconds;
-      // Always call play() if autoPlay - calling play() on an already playing video is a no-op
-      if (autoPlay) {
-        video.play().catch(console.error);
       }
-    }
-    
-    setCurrentIndex(index);
-  }, [markers, currentSceneId, showControlsHack]);
-  
+
+      setCurrentIndex(index);
+    },
+    [markers, currentSceneId, showControlsHack]
+  );
+
   // Handle timeupdate to check for marker end
   useEffect(() => {
     const video = videoRef.current;
     if (!video || markers.length === 0) return;
-    
+
     const handleTimeUpdate = () => {
       const marker = markers[currentIndex];
       if (!marker) return;
-      
+
       const { currentTime } = video;
       const endTime = marker.end_seconds ?? marker.seconds + 20; // Default 20s if no end
-      
+
       if (currentTime >= endTime) {
         // Move to next marker
         const nextIndex = currentIndex + 1;
@@ -188,21 +201,21 @@ export const MarkerPlaylistPlayer: React.FC = () => {
         }
       }
     };
-    
+
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
-    
+
     video.addEventListener("timeupdate", handleTimeUpdate);
     video.addEventListener("play", handlePlay);
     video.addEventListener("pause", handlePause);
-    
+
     return () => {
       video.removeEventListener("timeupdate", handleTimeUpdate);
       video.removeEventListener("play", handlePlay);
       video.removeEventListener("pause", handlePause);
     };
   }, [markers, currentIndex, loopEnabled, loadMarker]);
-  
+
   // Load first marker when markers are ready
   const initialLoadedRef = useRef(false);
   useEffect(() => {
@@ -249,7 +262,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       video.play().catch(() => {});
     }
   }, [markers, currentIndex, currentSceneId]);
-  
+
   const handlePlayPause = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -259,31 +272,35 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       video.pause();
     }
   }, []);
-  
+
   const handleNext = useCallback(() => {
     if (markers.length === 0) return;
     const nextIndex = (currentIndex + 1) % markers.length;
     loadMarker(nextIndex);
   }, [markers, currentIndex, loadMarker]);
-  
+
   const handlePrevious = useCallback(() => {
     if (markers.length === 0) return;
-    const prevIndex = currentIndex === 0 ? markers.length - 1 : currentIndex - 1;
+    const prevIndex =
+      currentIndex === 0 ? markers.length - 1 : currentIndex - 1;
     loadMarker(prevIndex);
   }, [markers, currentIndex, loadMarker]);
-  
-  const handleJumpToMarker = useCallback((index: number) => {
-    loadMarker(index);
-  }, [loadMarker]);
-  
+
+  const handleJumpToMarker = useCallback(
+    (index: number) => {
+      loadMarker(index);
+    },
+    [loadMarker]
+  );
+
   const handleBack = useCallback(() => {
     history.goBack();
   }, [history]);
-  
+
   const handleFullscreen = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
-    
+
     if (video.requestFullscreen) {
       video.requestFullscreen();
     }
@@ -298,23 +315,23 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       videoElement.msRequestFullscreen();
     }
   }, []);
-  
+
   const formatTime = (seconds: number): string => {
     return TextUtils.secondsToTimestamp(seconds);
   };
-  
+
   const getMarkerDuration = (marker: IMarkerInfo): number => {
     return (marker.end_seconds ?? marker.seconds + 20) - marker.seconds;
   };
-  
+
   const getTotalDuration = (): number => {
     return markers.reduce((sum, m) => sum + getMarkerDuration(m), 0);
   };
-  
+
   if (loading) {
     return <LoadingIndicator />;
   }
-  
+
   if (markers.length === 0) {
     return (
       <div className="marker-playlist-player empty">
@@ -328,15 +345,15 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       </div>
     );
   }
-  
+
   const currentMarker = markers[currentIndex];
-  
+
   return (
     <div className="marker-playlist-player" ref={containerRef}>
       <Helmet>
         <title>Marker Playlist - Stash</title>
       </Helmet>
-      
+
       <div className="player-header">
         <Button variant="link" onClick={handleBack} className="back-btn">
           <Icon icon={faArrowLeft} />
@@ -356,44 +373,46 @@ export const MarkerPlaylistPlayer: React.FC = () => {
           onClick={() => setShowPlaylist(!showPlaylist)}
           className="toggle-playlist-btn"
         >
-          {showPlaylist ? (
-            <Icon icon={faTimes} />
-          ) : (
-            <Icon icon={faList} />
-          )}
+          {showPlaylist ? <Icon icon={faTimes} /> : <Icon icon={faList} />}
         </Button>
       </div>
-      
+
       <div className="player-container">
         <div className={cx("video-section", { "full-width": !showPlaylist })}>
           <div className="video-wrapper">
-            <video
-              ref={videoRef}
-              playsInline
-              className="video-player"
-            />
+            <video ref={videoRef} playsInline className="video-player" />
           </div>
-          
+
           <div className="now-playing">
             <span className="marker-number">
               {currentIndex + 1} / {markers.length}
             </span>
             <span className="marker-title">{currentMarker?.title}</span>
             <span className="scene-title">({currentMarker?.sceneTitle})</span>
-            {currentMarker?.giverPerformerNames && currentMarker.giverPerformerNames.length > 0 && (
-              <span className="marker-performers giver">
-                <Icon icon={faArrowUp} className="text-success mr-1" title="Top" />
-                {currentMarker.giverPerformerNames.join(", ")}
-              </span>
-            )}
-            {currentMarker?.receiverPerformerNames && currentMarker.receiverPerformerNames.length > 0 && (
-              <span className="marker-performers receiver">
-                <Icon icon={faArrowDown} className="text-info mr-1" title="Bottom" />
-                {currentMarker.receiverPerformerNames.join(", ")}
-              </span>
-            )}
+            {currentMarker?.topPerformerNames &&
+              currentMarker.topPerformerNames.length > 0 && (
+                <span className="marker-performers top">
+                  <Icon
+                    icon={faArrowUp}
+                    className="text-success mr-1"
+                    title="Top"
+                  />
+                  {currentMarker.topPerformerNames.join(", ")}
+                </span>
+              )}
+            {currentMarker?.bottomPerformerNames &&
+              currentMarker.bottomPerformerNames.length > 0 && (
+                <span className="marker-performers bottom">
+                  <Icon
+                    icon={faArrowDown}
+                    className="text-info mr-1"
+                    title="Bottom"
+                  />
+                  {currentMarker.bottomPerformerNames.join(", ")}
+                </span>
+              )}
           </div>
-          
+
           <div className="player-controls">
             <Button
               variant="secondary"
@@ -402,7 +421,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
             >
               <Icon icon={faStepBackward} />
             </Button>
-            
+
             <Button
               variant="primary"
               onClick={handlePlayPause}
@@ -410,7 +429,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
             >
               <Icon icon={isPlaying ? faPause : faPlay} />
             </Button>
-            
+
             <Button
               variant="secondary"
               onClick={handleNext}
@@ -418,7 +437,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
             >
               <Icon icon={faStepForward} />
             </Button>
-            
+
             <Button
               variant={loopEnabled ? "success" : "outline-secondary"}
               onClick={() => setLoopEnabled(!loopEnabled)}
@@ -427,7 +446,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
             >
               <Icon icon={faRepeat} />
             </Button>
-            
+
             <Button
               variant="secondary"
               onClick={handleFullscreen}
@@ -438,7 +457,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
             </Button>
           </div>
         </div>
-        
+
         {showPlaylist && (
           <div className="playlist-section">
             <div className="playlist-header">
@@ -452,101 +471,128 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                 />
               </small>
             </div>
-            
+
             <ListGroup className="marker-list">
-               {markers.map((marker, index) => (
-                 <ListGroup.Item
-                   key={marker.id}
-                   className={cx("marker-item", {
-                     active: index === currentIndex,
-                   })}
-                   action
-                   onClick={() => handleJumpToMarker(index)}
-                 >
-                   <div className="marker-preview">
-                     <img src={marker.previewUrl} alt={marker.title} />
-                     <span className="marker-number-badge">{index + 1}</span>
-                   </div>
-                   <div className="marker-info">
-                     <div className="marker-title">{marker.title}</div>
-                     <div className="scene-title">{marker.sceneTitle}</div>
-                     {marker.giverPerformerNames && marker.giverPerformerNames.length > 0 && (
-                       <div className="marker-performers giver">
-                         <Icon icon={faArrowUp} className="text-success mr-1" />
-                         {marker.giverPerformerNames.join(", ")}
-                       </div>
-                     )}
-                     {marker.receiverPerformerNames && marker.receiverPerformerNames.length > 0 && (
-                       <div className="marker-performers receiver">
-                         <Icon icon={faArrowDown} className="text-info mr-1" />
-                         {marker.receiverPerformerNames.join(", ")}
-                       </div>
-                     )}
-                     <div className="marker-times">
-                       {formatTime(marker.seconds)}
-                       {marker.end_seconds && ` - ${formatTime(marker.end_seconds)}`}
-                       <span className="duration">
-                         ({formatTime(getMarkerDuration(marker))})
-                       </span>
-                     </div>
-                   </div>
-                   <div className="marker-reorder-btns">
-                     <Button
-                       variant="outline-secondary"
-                       size="sm"
-                       disabled={index === 0}
-                       onClick={e => {
-                         e.stopPropagation();
-                         if (index > 0) {
-                           setMarkers(prev => {
-                             const arr = [...prev];
-                             [arr[index - 1], arr[index]] = [arr[index], arr[index - 1]];
-                             return arr;
-                           });
-                           setCurrentIndex(index - 1);
-                         }
-                       }}
-                       title={intl.formatMessage({ id: "marker_playlist.move_up", defaultMessage: "Move up" })}
-                     >↑</Button>
-                     <Button
-                       variant="outline-secondary"
-                       size="sm"
-                       disabled={index === markers.length - 1}
-                       onClick={e => {
-                         e.stopPropagation();
-                         if (index < markers.length - 1) {
-                           setMarkers(prev => {
-                             const arr = [...prev];
-                             [arr[index], arr[index + 1]] = [arr[index + 1], arr[index]];
-                             return arr;
-                           });
-                           setCurrentIndex(index + 1);
-                         }
-                       }}
-                       title={intl.formatMessage({ id: "marker_playlist.move_down", defaultMessage: "Move down" })}
-                     >↓</Button>
-                     <Button
-                       variant="outline-danger"
-                       size="sm"
-                       onClick={e => {
-                         e.stopPropagation();
-                         setMarkers(prev => {
-                           const arr = prev.filter((_, i) => i !== index);
-                           if (currentIndex === index) {
-                             let next = index;
-                             if (index >= arr.length) next = arr.length - 1;
-                             setCurrentIndex(next >= 0 ? next : 0);
-                           } else if (currentIndex > index) {
-                             setCurrentIndex(currentIndex - 1);
-                           }
-                           return arr;
-                         });
-                       }}
-                       title={intl.formatMessage({ id: "marker_playlist.delete", defaultMessage: "Delete" })}
-                     >✕</Button>
-                   </div>
-                 </ListGroup.Item>
-               ))}
+              {markers.map((marker, index) => (
+                <ListGroup.Item
+                  key={marker.id}
+                  className={cx("marker-item", {
+                    active: index === currentIndex,
+                  })}
+                  action
+                  onClick={() => handleJumpToMarker(index)}
+                >
+                  <div className="marker-preview">
+                    <img src={marker.previewUrl} alt={marker.title} />
+                    <span className="marker-number-badge">{index + 1}</span>
+                  </div>
+                  <div className="marker-info">
+                    <div className="marker-title">{marker.title}</div>
+                    <div className="scene-title">{marker.sceneTitle}</div>
+                    {marker.topPerformerNames &&
+                      marker.topPerformerNames.length > 0 && (
+                        <div className="marker-performers top">
+                          <Icon
+                            icon={faArrowUp}
+                            className="text-success mr-1"
+                          />
+                          {marker.topPerformerNames.join(", ")}
+                        </div>
+                      )}
+                    {marker.bottomPerformerNames &&
+                      marker.bottomPerformerNames.length > 0 && (
+                        <div className="marker-performers bottom">
+                          <Icon icon={faArrowDown} className="text-info mr-1" />
+                          {marker.bottomPerformerNames.join(", ")}
+                        </div>
+                      )}
+                    <div className="marker-times">
+                      {formatTime(marker.seconds)}
+                      {marker.end_seconds &&
+                        ` - ${formatTime(marker.end_seconds)}`}
+                      <span className="duration">
+                        ({formatTime(getMarkerDuration(marker))})
+                      </span>
+                    </div>
+                  </div>
+                  <div className="marker-reorder-btns">
+                    <Button
+                      variant="outline-secondary"
+                      size="sm"
+                      disabled={index === 0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (index > 0) {
+                          setMarkers((prev) => {
+                            const arr = [...prev];
+                            [arr[index - 1], arr[index]] = [
+                              arr[index],
+                              arr[index - 1],
+                            ];
+                            return arr;
+                          });
+                          setCurrentIndex(index - 1);
+                        }
+                      }}
+                      title={intl.formatMessage({
+                        id: "marker_playlist.move_up",
+                        defaultMessage: "Move up",
+                      })}
+                    >
+                      ↑
+                    </Button>
+                    <Button
+                      variant="outline-secondary"
+                      size="sm"
+                      disabled={index === markers.length - 1}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (index < markers.length - 1) {
+                          setMarkers((prev) => {
+                            const arr = [...prev];
+                            [arr[index], arr[index + 1]] = [
+                              arr[index + 1],
+                              arr[index],
+                            ];
+                            return arr;
+                          });
+                          setCurrentIndex(index + 1);
+                        }
+                      }}
+                      title={intl.formatMessage({
+                        id: "marker_playlist.move_down",
+                        defaultMessage: "Move down",
+                      })}
+                    >
+                      ↓
+                    </Button>
+                    <Button
+                      variant="outline-danger"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMarkers((prev) => {
+                          const arr = prev.filter((_, i) => i !== index);
+                          if (currentIndex === index) {
+                            let next = index;
+                            if (index >= arr.length) next = arr.length - 1;
+                            setCurrentIndex(next >= 0 ? next : 0);
+                          } else if (currentIndex > index) {
+                            setCurrentIndex(currentIndex - 1);
+                          }
+                          return arr;
+                        });
+                      }}
+                      title={intl.formatMessage({
+                        id: "marker_playlist.delete",
+                        defaultMessage: "Delete",
+                      })}
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                </ListGroup.Item>
+              ))}
             </ListGroup>
           </div>
         )}

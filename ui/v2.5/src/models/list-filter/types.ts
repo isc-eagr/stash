@@ -227,5 +227,12 @@ export type CriterionType =
   | "has_marker_performers"
   | "marker_tags_with_performers"
   | "performer_markers"
+  | "performer_marker_tags"
+  | "performer_marker_partners"
   | "scene_director"
-  | "has_end_time";
+  | "has_end_time"
+  | "marker_top"
+  | "marker_bottom"
+  | "marker_giver" // Legacy - migrates to marker_top
+  | "marker_receiver" // Legacy - migrates to marker_bottom
+  | "exclude_marker_tags";

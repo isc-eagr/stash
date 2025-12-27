@@ -105,13 +105,13 @@ const PerformerTabs: React.FC<{
   });
   const studiosCount = studiosData?.findStudios.count ?? 0;
 
-  // fetch count of markers directly assigned to this performer (as giver or receiver)
+  // fetch count of markers directly assigned to this performer (as top or bottom)
   const { data: performerMarkersData } = GQL.useFindSceneMarkersQuery({
     variables: {
       scene_marker_filter: {
         marker_performers: {
-          giver_performer_ids: [performer.id],
-          receiver_performer_ids: [performer.id],
+          top_performer_ids: [performer.id],
+          bottom_performer_ids: [performer.id],
           mode: "OR",
           modifier: GQL.CriterionModifier.Includes,
         },
@@ -120,13 +120,15 @@ const PerformerTabs: React.FC<{
       filter: { per_page: 1 },
     },
   });
-  const performerMarkersCount = performerMarkersData?.findSceneMarkers.count ?? 0;
+  const performerMarkersCount =
+    performerMarkersData?.findSceneMarkers.count ?? 0;
 
   // fetch unique co-performer count for "Appears With (By Role)" tab
   const { data: coPerformersData } = GQL.usePerformerCoPerformersByRoleQuery({
     variables: { performer_id: performer.id },
   });
-  const uniqueCoPerformerCount = coPerformersData?.performerCoPerformersByRole?.unique_count ?? 0;
+  const uniqueCoPerformerCount =
+    coPerformersData?.performerCoPerformersByRole?.unique_count ?? 0;
 
   const populatedDefaultTab = useMemo(() => {
     let ret: TabKey = "scenes";
@@ -255,27 +257,30 @@ const PerformerTabs: React.FC<{
 
       {/* HIDDEN: This tab is hidden in this fork but kept for upstream merge compatibility */}
       {false && (
-      <Tab
-        eventKey="appearswith"
-        title={
-          <TabTitleCounter
-            messageID="appears_with"
-            count={performer.performer_count}
-            abbreviateCounter={abbreviateCounter}
+        <Tab
+          eventKey="appearswith"
+          title={
+            <TabTitleCounter
+              messageID="appears_with"
+              count={performer.performer_count}
+              abbreviateCounter={abbreviateCounter}
+            />
+          }
+        >
+          <PerformerAppearsWithPanel
+            active={tabKey === "appearswith"}
+            performer={performer}
           />
-        }
-      >
-        <PerformerAppearsWithPanel
-          active={tabKey === "appearswith"}
-          performer={performer}
-        />
-      </Tab>
+        </Tab>
       )}
       <Tab
         eventKey="appearswithbyrole"
         title={
           <>
-            <FormattedMessage id="appears_with_by_role" defaultMessage="Appears With (By Role)" />
+            <FormattedMessage
+              id="appears_with_by_role"
+              defaultMessage="Appears With (By Role)"
+            />
             {uniqueCoPerformerCount > 0 && (
               <Counter
                 abbreviateCounter={abbreviateCounter}

@@ -296,7 +296,8 @@ textarea.scene-description {
   display: block;
   z-index: 2;
   filter: brightness(0) invert(1) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.8));
-  -webkit-filter: brightness(0) invert(1) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.8));
+  -webkit-filter: brightness(0) invert(1)
+    drop-shadow(0 2px 3px rgba(0, 0, 0, 0.8));
   pointer-events: none; /* prevent accidental clicks */
 }
 
@@ -404,18 +405,16 @@ textarea.scene-description {
   box-sizing: border-box;
   background: linear-gradient(
     135deg,
-    rgba(255, 215, 0, 0.30) 0%,
+    rgba(255, 215, 0, 0.3) 0%,
     rgba(255, 215, 0, 0.45) 25%,
-    rgba(255, 237, 78, 0.60) 50%,
+    rgba(255, 237, 78, 0.6) 50%,
     rgba(255, 215, 0, 0.45) 75%,
-    rgba(255, 215, 0, 0.30) 100%
+    rgba(255, 215, 0, 0.3) 100%
   );
   background-size: 200% 200%;
   border: none;
-  box-shadow:
-    0 0 12px rgba(212, 175, 55, 0.3),
-    0 2px 8px rgba(212, 175, 55, 0.2),
-    inset 0 2px 0 rgba(255, 237, 78, 0.4),
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.3),
+    0 2px 8px rgba(212, 175, 55, 0.2), inset 0 2px 0 rgba(255, 237, 78, 0.4),
     inset 0 -2px 0 rgba(184, 134, 11, 0.4);
   transition: all 0.3s ease;
   animation: metallic-shimmer 4s linear infinite alternate;
@@ -427,8 +426,7 @@ textarea.scene-description {
       rgba(255, 215, 0, 0.2) 50%,
       rgba(255, 215, 0, 0.23) 100%
     );
-    box-shadow:
-      0 0 15px rgba(212, 175, 55, 0.4),
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.4),
       0 2px 10px rgba(212, 175, 55, 0.3);
     transform: translateY(-2px);
     animation: none;
@@ -439,18 +437,16 @@ textarea.scene-description {
   box-sizing: border-box;
   background: linear-gradient(
     135deg,
-    rgba(200, 200, 200, 0.40) 0%,
+    rgba(200, 200, 200, 0.4) 0%,
     rgba(220, 220, 220, 0.55) 25%,
-    rgba(240, 240, 240, 0.70) 50%,
+    rgba(240, 240, 240, 0.7) 50%,
     rgba(220, 220, 220, 0.55) 75%,
-    rgba(200, 200, 200, 0.40) 100%
+    rgba(200, 200, 200, 0.4) 100%
   );
   background-size: 200% 200%;
   border: none;
-  box-shadow:
-    0 0 14px rgba(192, 192, 192, 0.45),
-    0 2px 8px rgba(192, 192, 192, 0.3),
-    inset 0 2px 0 rgba(240, 240, 240, 0.5),
+  box-shadow: 0 0 14px rgba(192, 192, 192, 0.45),
+    0 2px 8px rgba(192, 192, 192, 0.3), inset 0 2px 0 rgba(240, 240, 240, 0.5),
     inset 0 -2px 0 rgba(140, 140, 140, 0.5);
   transition: all 0.3s ease;
   animation: metallic-shimmer 4s linear infinite alternate;
@@ -462,8 +458,7 @@ textarea.scene-description {
       rgba(210, 210, 210, 0.3) 50%,
       rgba(220, 220, 220, 0.33) 100%
     );
-    box-shadow:
-      0 0 18px rgba(192, 192, 192, 0.55),
+    box-shadow: 0 0 18px rgba(192, 192, 192, 0.55),
       0 2px 10px rgba(192, 192, 192, 0.4);
     transform: translateY(-2px);
     animation: none;
@@ -474,18 +469,16 @@ textarea.scene-description {
   box-sizing: border-box;
   background: linear-gradient(
     135deg,
-    rgba(205, 127, 50, 0.30) 0%,
+    rgba(205, 127, 50, 0.3) 0%,
     rgba(205, 127, 50, 0.45) 25%,
-    rgba(230, 150, 80, 0.60) 50%,
+    rgba(230, 150, 80, 0.6) 50%,
     rgba(205, 127, 50, 0.45) 75%,
-    rgba(205, 127, 50, 0.30) 100%
+    rgba(205, 127, 50, 0.3) 100%
   );
   background-size: 200% 200%;
   border: none;
-  box-shadow:
-    0 0 12px rgba(184, 115, 51, 0.3),
-    0 2px 8px rgba(184, 115, 51, 0.2),
-    inset 0 2px 0 rgba(230, 150, 80, 0.4),
+  box-shadow: 0 0 12px rgba(184, 115, 51, 0.3),
+    0 2px 8px rgba(184, 115, 51, 0.2), inset 0 2px 0 rgba(230, 150, 80, 0.4),
     inset 0 -2px 0 rgba(140, 90, 40, 0.4);
   transition: all 0.3s ease;
   animation: metallic-shimmer 4s linear infinite alternate;
@@ -497,8 +490,7 @@ textarea.scene-description {
       rgba(205, 127, 50, 0.2) 50%,
       rgba(205, 127, 50, 0.23) 100%
     );
-    box-shadow:
-      0 0 15px rgba(184, 115, 51, 0.4),
+    box-shadow: 0 0 15px rgba(184, 115, 51, 0.4),
       0 2px 10px rgba(184, 115, 51, 0.3);
     transform: translateY(-2px);
     animation: none;
@@ -786,29 +778,29 @@ input[type="range"].blue-slider {
   .marker-item {
     padding: 0.4rem 0.75rem 0.4rem 2rem;
     transition: background-color 0.15s ease;
-    
+
     &:hover {
       background-color: rgba(255, 255, 255, 0.03);
-      
+
       .marker-edit-btn {
         opacity: 1;
       }
     }
-    
+
     .marker-checkbox {
       margin-top: 0.15rem;
       flex-shrink: 0;
     }
-    
+
     .marker-content {
       line-height: 1.3;
     }
-    
+
     .marker-main-row {
       margin-bottom: 0.25rem;
       gap: 0.5rem;
     }
-    
+
     .marker-title-btn {
       font-weight: 500;
       text-align: left;
@@ -816,47 +808,47 @@ input[type="range"].blue-slider {
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 350px;
-      
+
       &:hover {
         text-decoration: underline;
       }
     }
-    
+
     .marker-timestamp {
       font-size: 0.85em;
       white-space: nowrap;
       flex-shrink: 0;
     }
-    
+
     .marker-edit-btn {
       font-size: 0.8em;
       color: var(--muted-text-color, #999);
       opacity: 0;
       transition: opacity 0.15s ease;
       flex-shrink: 0;
-      
+
       &:hover {
         color: var(--primary-color, #007bff);
       }
     }
-    
+
     .marker-badges {
       gap: 0.25rem;
       margin-top: 0.15rem;
-      
+
       .badge {
         font-size: 0.75em;
         padding: 0.2em 0.5em;
         font-weight: 500;
       }
-      
+
       .performer-badge,
       .tag-badge {
         margin-bottom: 0.15rem;
       }
     }
   }
-  
+
   .wall .wall-item {
     height: inherit;
     min-height: 14rem;

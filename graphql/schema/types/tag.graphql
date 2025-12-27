@@ -75,7 +75,10 @@ type PerformerTagSceneCount {
 }
 
 extend type Query {
-  performerTagSceneCounts(performer_id: ID!, tag_ids: [ID!]!): [PerformerTagSceneCount!]!
+  performerTagSceneCounts(
+    performer_id: ID!
+    tag_ids: [ID!]!
+  ): [PerformerTagSceneCount!]!
 }
 
 input TagsMergeInput {

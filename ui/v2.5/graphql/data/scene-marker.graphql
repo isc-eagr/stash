@@ -31,14 +31,14 @@ fragment SceneMarkerData on SceneMarker {
     disambiguation
   }
 
-  giver_performers {
+  top_performers {
     id
     name
     alias_list
     disambiguation
   }
 
-  receiver_performers {
+  bottom_performers {
     id
     name
     alias_list

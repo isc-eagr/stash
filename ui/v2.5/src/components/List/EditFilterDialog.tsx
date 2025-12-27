@@ -18,6 +18,7 @@ import { ListFilterModel } from "src/models/list-filter/filter";
 import { getFilterOptions } from "src/models/list-filter/factory";
 import { FilterTags } from "./FilterTags";
 import { CriterionEditor } from "./CriterionEditor";
+import { MarkerFilterGroupProvider } from "./Filters/MarkerFilterGroupContext";
 import { Icon } from "../Shared/Icon";
 import {
   faChevronDown,
@@ -133,7 +134,7 @@ const CriterionOptionList: React.FC<ICriterionList> = ({
   function getFilterDescription(criterionType: CriterionType): string | null {
     if (filterMode === FilterMode.SceneMarkers) {
       if (criterionType === "marker_tags_with_performers") {
-        return "Filter scene markers by tag with associated performer criteria (giver/receiver roles, countries, ethnicities)";
+        return "Filter scene markers by tag with associated performer criteria (top/bottom roles, countries, ethnicities)";
       }
     }
     return null;
@@ -189,7 +190,9 @@ const CriterionOptionList: React.FC<ICriterionList> = ({
             <Card.Body>
               {getFilterDescription(c.type) && (
                 <div className="mb-2">
-                  <small className="text-muted">{getFilterDescription(c.type)}</small>
+                  <small className="text-muted">
+                    {getFilterDescription(c.type)}
+                  </small>
                 </div>
               )}
               <CriterionEditor
@@ -580,24 +583,29 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
                 onFilterUpdate={setCurrentFilter}
               />
             </div>
-            <CriterionOptionList
-              criteria={criteriaList}
-              currentCriterion={criterion}
-              setCriterion={replaceCriterion}
-              criterionOptions={unpinnedElements}
-              pinnedCriterionOptions={pinnedElements}
-              optionSelected={optionSelected}
-              selected={criterion?.criterionOption}
-              onRemoveCriterion={(c) => removeCriterionString(c)}
-              onTogglePin={(c) => onTogglePinFilter(c)}
-              externallySelected={!!editingCriterion}
-              filterMode={currentFilter.mode}
-            />
+            <MarkerFilterGroupProvider criteria={criteria}>
+              <CriterionOptionList
+                criteria={criteriaList}
+                currentCriterion={criterion}
+                setCriterion={replaceCriterion}
+                criterionOptions={unpinnedElements}
+                pinnedCriterionOptions={pinnedElements}
+                optionSelected={optionSelected}
+                selected={criterion?.criterionOption}
+                onRemoveCriterion={(c) => removeCriterionString(c)}
+                onTogglePin={(c) => onTogglePinFilter(c)}
+                externallySelected={!!editingCriterion}
+                filterMode={currentFilter.mode}
+              />
+            </MarkerFilterGroupProvider>
             {criteria.length > 0 && (
               <div>
                 <FilterTags
                   criteria={criteria}
-                  onEditCriterion={(c) => optionSelected(c.criterionOption)}
+                  onEditCriterion={(c) => {
+                    // All criteria are single-instance, use optionSelected to find/create
+                    optionSelected(c.criterionOption);
+                  }}
                   onRemoveCriterion={removeCriterion}
                   onRemoveAll={() => onClearAll()}
                 />

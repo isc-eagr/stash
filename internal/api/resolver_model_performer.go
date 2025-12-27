@@ -354,8 +354,8 @@ func (r *performerResolver) SexSceneCount(ctx context.Context, obj *models.Perfo
 	return ret, nil
 }
 
-// SexGiverCount returns the count of scenes where performer is the giver in sex markers
-func (r *performerResolver) SexGiverCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
+// SexTopCount returns the count of scenes where performer is the top in sex markers
+func (r *performerResolver) SexTopCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
 	sexTagID, _, _, _ := getRoleTagIDs(uiConfig)
 
@@ -364,7 +364,7 @@ func (r *performerResolver) SexGiverCount(ctx context.Context, obj *models.Perfo
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, sexTagID, "giver")
+		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, sexTagID, "top")
 		return err
 	}); err != nil {
 		return 0, err
@@ -372,8 +372,8 @@ func (r *performerResolver) SexGiverCount(ctx context.Context, obj *models.Perfo
 	return ret, nil
 }
 
-// SexReceiverCount returns the count of scenes where performer is the receiver in sex markers
-func (r *performerResolver) SexReceiverCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
+// SexBottomCount returns the count of scenes where performer is the bottom in sex markers
+func (r *performerResolver) SexBottomCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
 	sexTagID, _, _, _ := getRoleTagIDs(uiConfig)
 
@@ -382,7 +382,7 @@ func (r *performerResolver) SexReceiverCount(ctx context.Context, obj *models.Pe
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, sexTagID, "receiver")
+		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, sexTagID, "bottom")
 		return err
 	}); err != nil {
 		return 0, err
@@ -408,8 +408,8 @@ func (r *performerResolver) OralSceneCount(ctx context.Context, obj *models.Perf
 	return ret, nil
 }
 
-// OralGiverCount returns the count of scenes where performer is the giver in oral markers
-func (r *performerResolver) OralGiverCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
+// OralTopCount returns the count of scenes where performer is the top in oral markers
+func (r *performerResolver) OralTopCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
 	sexTagID, oralTagID, _, _ := getRoleTagIDs(uiConfig)
 
@@ -418,7 +418,7 @@ func (r *performerResolver) OralGiverCount(ctx context.Context, obj *models.Perf
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerMarkerRoleExcluding(ctx, r.repository.SceneMarker, obj.ID, oralTagID, "giver", sexTagID)
+		ret, err = scene.CountByPerformerMarkerRoleExcluding(ctx, r.repository.SceneMarker, obj.ID, oralTagID, "top", sexTagID)
 		return err
 	}); err != nil {
 		return 0, err
@@ -426,8 +426,8 @@ func (r *performerResolver) OralGiverCount(ctx context.Context, obj *models.Perf
 	return ret, nil
 }
 
-// OralReceiverCount returns the count of scenes where performer is the receiver in oral markers
-func (r *performerResolver) OralReceiverCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
+// OralBottomCount returns the count of scenes where performer is the bottom in oral markers
+func (r *performerResolver) OralBottomCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
 	sexTagID, oralTagID, _, _ := getRoleTagIDs(uiConfig)
 
@@ -436,7 +436,7 @@ func (r *performerResolver) OralReceiverCount(ctx context.Context, obj *models.P
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerMarkerRoleExcluding(ctx, r.repository.SceneMarker, obj.ID, oralTagID, "receiver", sexTagID)
+		ret, err = scene.CountByPerformerMarkerRoleExcluding(ctx, r.repository.SceneMarker, obj.ID, oralTagID, "bottom", sexTagID)
 		return err
 	}); err != nil {
 		return 0, err
@@ -480,8 +480,8 @@ func (r *performerResolver) FacialSceneCount(ctx context.Context, obj *models.Pe
 	return ret, nil
 }
 
-// FacialGiverCount returns the count of scenes where performer is the giver in facial markers
-func (r *performerResolver) FacialGiverCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
+// FacialTopCount returns the count of scenes where performer is the top in facial markers
+func (r *performerResolver) FacialTopCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
 	_, _, _, facialTagID := getRoleTagIDs(uiConfig)
 
@@ -490,7 +490,7 @@ func (r *performerResolver) FacialGiverCount(ctx context.Context, obj *models.Pe
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, facialTagID, "giver")
+		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, facialTagID, "top")
 		return err
 	}); err != nil {
 		return 0, err
@@ -498,8 +498,8 @@ func (r *performerResolver) FacialGiverCount(ctx context.Context, obj *models.Pe
 	return ret, nil
 }
 
-// FacialReceiverCount returns the count of scenes where performer is the receiver in facial markers
-func (r *performerResolver) FacialReceiverCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
+// FacialBottomCount returns the count of scenes where performer is the bottom in facial markers
+func (r *performerResolver) FacialBottomCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
 	_, _, _, facialTagID := getRoleTagIDs(uiConfig)
 
@@ -508,7 +508,7 @@ func (r *performerResolver) FacialReceiverCount(ctx context.Context, obj *models
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, facialTagID, "receiver")
+		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, facialTagID, "bottom")
 		return err
 	}); err != nil {
 		return 0, err

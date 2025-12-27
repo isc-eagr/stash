@@ -40,7 +40,14 @@ interface IStudioList {
 
 export const StudioList: React.FC<IStudioList> = PatchComponent(
   "StudioList",
-  ({ fromParent, filterHook, view, alterQuery, extraOperations = [], performerId }) => {
+  ({
+    fromParent,
+    filterHook,
+    view,
+    alterQuery,
+    extraOperations = [],
+    performerId,
+  }) => {
     const intl = useIntl();
     const history = useHistory();
     const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);

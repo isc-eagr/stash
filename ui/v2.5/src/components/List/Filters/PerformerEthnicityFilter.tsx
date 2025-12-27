@@ -24,7 +24,10 @@ export const PerformerEthnicityFilter: React.FC<{
       .split(",")
       .map((v) => v.trim())
       .filter((v) => v.length > 0);
-    return codes.map((v: string) => options.find((o: IOption) => o.value === v) || { label: v, value: v });
+    return codes.map(
+      (v: string) =>
+        options.find((o: IOption) => o.value === v) || { label: v, value: v }
+    );
   }, [criterion.value, options]);
 
   return (
@@ -35,13 +38,16 @@ export const PerformerEthnicityFilter: React.FC<{
         value={selectedValues}
         options={options}
         placeholder="Ethnicity"
-        onChange={(vals) => onValueChanged((vals as IOption[]).map((v) => v.value).join(","))}
+        onChange={(vals) =>
+          onValueChanged((vals as IOption[]).map((v) => v.value).join(","))
+        }
         components={{ IndicatorSeparator: null }}
         menuPortalTarget={document.body}
       />
       <div style={{ marginTop: 4 }}>
         <small className="text-muted">
-          Note: Afrolatino counts as Black and Latino; Mixed counts as Black and White.
+          Note: Afrolatino counts as Black and Latino; Mixed counts as Black and
+          White.
         </small>
       </div>
     </div>

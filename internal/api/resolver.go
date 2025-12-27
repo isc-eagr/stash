@@ -116,9 +116,6 @@ func (r *Resolver) Plugin() PluginResolver {
 func (r *Resolver) ConfigResult() ConfigResultResolver {
 	return &configResultResolver{r}
 }
-func (r *Resolver) PerformerFilterType() PerformerFilterTypeResolver {
-	return &performerFilterTypeResolver{r}
-}
 
 // NOTE: TagFilterType resolver stub removed temporarily to allow gqlgen
 // to run and generate the TagFilterTypeResolver interface. The stub will be
@@ -152,7 +149,6 @@ type folderResolver struct{ *Resolver }
 type savedFilterResolver struct{ *Resolver }
 type pluginResolver struct{ *Resolver }
 type configResultResolver struct{ *Resolver }
-type performerFilterTypeResolver struct{ *Resolver }
 
 func (r *Resolver) withTxn(ctx context.Context, fn func(ctx context.Context) error) error {
 	return r.repository.WithTxn(ctx, fn)
@@ -487,7 +483,7 @@ func (r *queryResolver) PerformersFacialGivenCount(ctx context.Context) (int, er
 		query := `SELECT COUNT(DISTINCT smp.performer_id) 
 FROM scene_marker_performers smp 
 JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
-WHERE sm.primary_tag_id = ? AND smp.role = 'giver'`
+WHERE sm.primary_tag_id = ? AND smp.role = 'top'`
 		args := []interface{}{facialTagID}
 		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
@@ -538,7 +534,7 @@ func (r *queryResolver) PerformersFacialReceivedCount(ctx context.Context) (int,
 		query := `SELECT COUNT(DISTINCT smp.performer_id) 
 FROM scene_marker_performers smp 
 JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
-WHERE sm.primary_tag_id = ? AND smp.role = 'receiver'`
+WHERE sm.primary_tag_id = ? AND smp.role = 'bottom'`
 		args := []interface{}{facialTagID}
 		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
@@ -568,7 +564,7 @@ WHERE sm.primary_tag_id = ? AND smp.role = 'receiver'`
 	return count, nil
 }
 
-// PerformersSexGivenCount returns the number of distinct performers who have been givers in sex markers.
+// PerformersSexGivenCount returns the number of distinct performers who have been tops in sex markers.
 // Uses roleTagIds.sexTagId from UI config.
 func (r *queryResolver) PerformersSexGivenCount(ctx context.Context) (int, error) {
 	var count int
@@ -589,7 +585,7 @@ func (r *queryResolver) PerformersSexGivenCount(ctx context.Context) (int, error
 		query := `SELECT COUNT(DISTINCT smp.performer_id) 
 FROM scene_marker_performers smp 
 JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
-WHERE sm.primary_tag_id = ? AND smp.role = 'giver'`
+WHERE sm.primary_tag_id = ? AND smp.role = 'top'`
 		args := []interface{}{sexTagID}
 		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
@@ -619,7 +615,7 @@ WHERE sm.primary_tag_id = ? AND smp.role = 'giver'`
 	return count, nil
 }
 
-// PerformersSexReceivedCount returns the number of distinct performers who have been receivers in sex markers.
+// PerformersSexReceivedCount returns the number of distinct performers who have been bottoms in sex markers.
 // Uses roleTagIds.sexTagId from UI config.
 func (r *queryResolver) PerformersSexReceivedCount(ctx context.Context) (int, error) {
 	var count int
@@ -640,7 +636,7 @@ func (r *queryResolver) PerformersSexReceivedCount(ctx context.Context) (int, er
 		query := `SELECT COUNT(DISTINCT smp.performer_id) 
 FROM scene_marker_performers smp 
 JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
-WHERE sm.primary_tag_id = ? AND smp.role = 'receiver'`
+WHERE sm.primary_tag_id = ? AND smp.role = 'bottom'`
 		args := []interface{}{sexTagID}
 		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
@@ -670,7 +666,7 @@ WHERE sm.primary_tag_id = ? AND smp.role = 'receiver'`
 	return count, nil
 }
 
-// PerformersOralGivenCount returns the number of distinct performers who have been givers in oral markers.
+// PerformersOralGivenCount returns the number of distinct performers who have been tops in oral markers.
 // Uses roleTagIds.oralTagId from UI config.
 func (r *queryResolver) PerformersOralGivenCount(ctx context.Context) (int, error) {
 	var count int
@@ -691,7 +687,7 @@ func (r *queryResolver) PerformersOralGivenCount(ctx context.Context) (int, erro
 		query := `SELECT COUNT(DISTINCT smp.performer_id) 
 FROM scene_marker_performers smp 
 JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
-WHERE sm.primary_tag_id = ? AND smp.role = 'giver'`
+WHERE sm.primary_tag_id = ? AND smp.role = 'top'`
 		args := []interface{}{oralTagID}
 		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
@@ -721,7 +717,7 @@ WHERE sm.primary_tag_id = ? AND smp.role = 'giver'`
 	return count, nil
 }
 
-// PerformersOralReceivedCount returns the number of distinct performers who have been receivers in oral markers.
+// PerformersOralReceivedCount returns the number of distinct performers who have been bottoms in oral markers.
 // Uses roleTagIds.oralTagId from UI config.
 func (r *queryResolver) PerformersOralReceivedCount(ctx context.Context) (int, error) {
 	var count int
@@ -742,7 +738,7 @@ func (r *queryResolver) PerformersOralReceivedCount(ctx context.Context) (int, e
 		query := `SELECT COUNT(DISTINCT smp.performer_id) 
 FROM scene_marker_performers smp 
 JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
-WHERE sm.primary_tag_id = ? AND smp.role = 'receiver'`
+WHERE sm.primary_tag_id = ? AND smp.role = 'bottom'`
 		args := []interface{}{oralTagID}
 		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {

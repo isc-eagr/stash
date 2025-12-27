@@ -69,18 +69,24 @@ export const SceneMarkerList: React.FC<ISceneMarkerList> = PatchComponent(
       _filter: ListFilterModel,
       selectedIds: Set<string>
     ) {
-      if (selectedIds.size > 0 && result.data?.findSceneMarkers?.scene_markers) {
+      if (
+        selectedIds.size > 0 &&
+        result.data?.findSceneMarkers?.scene_markers
+      ) {
         // Filter to get only selected markers and store in sessionStorage
         const allMarkers = result.data.findSceneMarkers.scene_markers;
         const selectedMarkers = Array.from(selectedIds)
           .map((id) => allMarkers.find((m) => m.id === id))
           .filter((m): m is GQL.SceneMarkerDataFragment => m !== undefined);
-        
+
         // Store marker data in sessionStorage for the playlist player
-        sessionStorage.setItem("markerPlaylist", JSON.stringify(selectedMarkers));
-        
+        sessionStorage.setItem(
+          "markerPlaylist",
+          JSON.stringify(selectedMarkers)
+        );
+
         const idsParam = Array.from(selectedIds).join(",");
-        window.open(`/scenes/markers/player?ids=${idsParam}`, '_blank');
+        window.open(`/scenes/markers/player?ids=${idsParam}`, "_blank");
       }
     }
 

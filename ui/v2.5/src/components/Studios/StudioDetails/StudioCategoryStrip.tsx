@@ -21,7 +21,7 @@ export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
   studio,
 }) => {
   const { configuration } = useConfigurationContext();
-  
+
   // Get role tag IDs from the new configuration
   const roleTagIds = configuration?.ui?.roleTagIds ?? {};
   const sexTagId = roleTagIds.sexTagId;
@@ -40,10 +40,10 @@ export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
 
   // Map tag IDs to tag objects
   const allTags = tagsData?.findTags?.tags ?? [];
-  const sexTag = allTags.find(t => t.id === sexTagId);
-  const oralTag = allTags.find(t => t.id === oralTagId);
-  const soloTag = allTags.find(t => t.id === soloTagId);
-  const facialTag = allTags.find(t => t.id === facialTagId);
+  const sexTag = allTags.find((t) => t.id === sexTagId);
+  const oralTag = allTags.find((t) => t.id === oralTagId);
+  const soloTag = allTags.find((t) => t.id === soloTagId);
+  const facialTag = allTags.find((t) => t.id === facialTagId);
 
   // Get counts from studio
   const studioAny = studio as any;
@@ -113,7 +113,11 @@ export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
   function maybeRenderFacialScenesButton() {
     if (!facialTag) return null;
 
-    const url = NavUtils.makeStudioMarkerScenesUrl(studio, facialTag.id, "Facial");
+    const url = NavUtils.makeStudioMarkerScenesUrl(
+      studio,
+      facialTag.id,
+      "Facial"
+    );
 
     return (
       <Button

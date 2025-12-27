@@ -11,13 +11,11 @@ type Studio {
 
   image_path: String # Resolver
   scene_count(depth: Int, performer_id: ID): Int! # Resolver
-  
   # Role-based scene counts from scene_marker_performers
   sex_scene_count(depth: Int, performer_id: ID): Int! # Resolver - scenes with sex markers
   oral_scene_count(depth: Int, performer_id: ID): Int! # Resolver - scenes with oral markers but no sex markers
   solo_scene_count(depth: Int, performer_id: ID): Int! # Resolver - scenes with solo markers but no sex/oral markers
   facial_scene_count(depth: Int, performer_id: ID): Int! # Resolver - scenes with facial markers
-  
   unique_performer_count(depth: Int): Int! # Resolver - performers with only one scene in database and it's for this studio
   image_count(depth: Int, performer_id: ID): Int! # Resolver
   gallery_count(depth: Int, performer_id: ID): Int! # Resolver

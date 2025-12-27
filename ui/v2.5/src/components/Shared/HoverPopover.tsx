@@ -28,7 +28,7 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
   }) => {
     const [show, setShow] = useState(false);
     const triggerRef = useRef<HTMLDivElement>(null);
-  const popoverRef = useRef<HTMLDivElement | null>(null);
+    const popoverRef = useRef<HTMLDivElement | null>(null);
     const enterTimer = useRef<number>();
     const leaveTimer = useRef<number>();
 

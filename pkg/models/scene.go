@@ -53,6 +53,8 @@ type SceneFilterType struct {
 	HasMarkers *string `json:"has_markers"`
 	// Filter to only include scenes with markers that have assigned performers. `true` or `false`
 	HasMarkerPerformers *string `json:"has_marker_performers"`
+	// Filter by scene marker tags with optional performer role criteria
+	SceneMarkerTags *SceneMarkerTagsCriterionInput `json:"scene_marker_tags"`
 	// Filter to only include scenes missing this property
 	IsMissing *string `json:"is_missing"`
 	// Filter to only include scenes with this studio
@@ -85,8 +87,6 @@ type SceneFilterType struct {
 	PerformerRatingAll *bool `json:"performer_rating_all"`
 	// Filter by performer count
 	PerformerCount *IntCriterionInput `json:"performer_count"`
-	// Filter by Scene Marker Tags
-	SceneMarkerTags *SceneMarkerTagsCriterionInput `json:"scene_marker_tags"`
 	// Filter by StashID
 	StashID *StringCriterionInput `json:"stash_id"`
 	// Filter by StashID Endpoint

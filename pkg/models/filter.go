@@ -180,19 +180,19 @@ type SceneMarkerTagGroupInput struct {
 	ExcludeTagIDs []string `json:"exclude_tag_ids"` // Tags that must NOT be present on any marker
 	Depth         *int     `json:"depth"`
 
-	// Giver criteria
-	GiverPerformerIDs []string           `json:"giver_performer_ids"`
-	GiverEthnicities  []string           `json:"giver_ethnicities"`
-	GiverCountries    []string           `json:"giver_countries"`
-	GiverRating       *IntCriterionInput `json:"giver_rating"`
+	// Top criteria
+	TopPerformerIDs []string           `json:"top_performer_ids"`
+	TopEthnicities  []string           `json:"top_ethnicities"`
+	TopCountries    []string           `json:"top_countries"`
+	TopRating       *IntCriterionInput `json:"top_rating"`
 
-	// Receiver criteria
-	ReceiverPerformerIDs []string           `json:"receiver_performer_ids"`
-	ReceiverEthnicities  []string           `json:"receiver_ethnicities"`
-	ReceiverCountries    []string           `json:"receiver_countries"`
-	ReceiverRating       *IntCriterionInput `json:"receiver_rating"`
+	// Bottom criteria
+	BottomPerformerIDs []string           `json:"bottom_performer_ids"`
+	BottomEthnicities  []string           `json:"bottom_ethnicities"`
+	BottomCountries    []string           `json:"bottom_countries"`
+	BottomRating       *IntCriterionInput `json:"bottom_rating"`
 
-	// Both-roles criteria (performer must be BOTH giver AND receiver)
+	// Both-roles criteria (performer must be BOTH top AND bottom)
 	BothRolesPerformerIDs []string           `json:"both_roles_performer_ids"`
 	BothRolesEthnicities  []string           `json:"both_roles_ethnicities"`
 	BothRolesCountries    []string           `json:"both_roles_countries"`

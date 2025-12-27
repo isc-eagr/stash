@@ -6,7 +6,7 @@ This document describes all custom features and modifications added on top of th
 
 ## Table of Contents
 
-1. [Scene Marker Performers (Giver/Receiver Roles)](#1-scene-marker-performers-giverreceiver-roles)
+1. [Scene Marker Performers (Top/Bottom Roles)](#1-scene-marker-performers-topbottom-roles)
 2. [Role Tag IDs Configuration](#2-role-tag-ids-configuration)
 3. [Scene Role Indicators (Top/Bottom/Oral/Solo/Facial)](#3-scene-role-indicators)
 4. [Custom Statistics Dashboard](#4-custom-statistics-dashboard)
@@ -25,23 +25,22 @@ This document describes all custom features and modifications added on top of th
 17. [Performer Studios Tab](#17-performer-studios-tab)
 18. [Marker Tags Filter for Performers](#18-marker-tags-filter-for-performers)
 19. [Performer-Filtered Studio Cards](#19-performer-filtered-studio-cards)
-20. [Performer Appears With By Role](#20-performer-appears-with-by-role)
-21. [Performer Roles Panel](#21-performer-roles-panel)
+20. [Performer Marker Filters](#20-performer-marker-filters)
 
 ---
 
-## 1. Scene Marker Performers (Giver/Receiver Roles)
+## 1. Scene Marker Performers (Top/Bottom Roles)
 
 ### Overview
-An extension to scene markers that allows assigning performers as "giver" or "receiver" for each marker. This replaces the old performer_scene_tags system with a more flexible marker-based approach.
+An extension to scene markers that allows assigning performers as "top" or "bottom" for each marker. This replaces the old performer_scene_tags system with a more flexible marker-based approach.
 
 ### Database Schema
-**File:** `scene_marker_performers_giver_receiver.sql`
+**File:** `scene_marker_performers_top_bottom.sql`
 ```sql
 CREATE TABLE IF NOT EXISTS `scene_marker_performers` (
   `scene_marker_id` integer NOT NULL,
   `performer_id` integer NOT NULL,
-  `role` TEXT NOT NULL DEFAULT 'giver',  -- 'giver' or 'receiver'
+  `role` TEXT NOT NULL DEFAULT 'top',  -- 'top' or 'bottom'
   PRIMARY KEY(`scene_marker_id`, `performer_id`, `role`),
   FOREIGN KEY(`scene_marker_id`) REFERENCES `scene_markers`(`id`) ON DELETE CASCADE,
   FOREIGN KEY(`performer_id`) REFERENCES `performers`(`id`) ON DELETE CASCADE
@@ -54,12 +53,12 @@ CREATE TABLE IF NOT EXISTS `scene_marker_performers` (
 - `GetPerformers` resolver on `SceneMarker` type
 
 **File:** `graphql/schema/types/performer.graphql`
-- Added giver/receiver count fields: `sex_giver_count`, `sex_receiver_count`, `oral_giver_count`, `oral_receiver_count`, `facial_giver_count`, `facial_receiver_count`
+- Added top/bottom count fields: `sex_top_count`, `sex_bottom_count`, `oral_top_count`, `oral_bottom_count`, `facial_top_count`, `facial_bottom_count`
 - `PerformerCoPerformersByRole` type for co-performer grouping by role
 - `performerCoPerformersByRole(performer_id: ID!)` query
 
 **File:** `graphql/schema/types/filters.graphql`
-- `MarkerPerformersFilterInput` with `giver_performer_ids`, `receiver_performer_ids`, `mode`, `modifier`
+- `MarkerPerformersFilterInput` with `top_performer_ids`, `bottom_performer_ids`, `mode`, `modifier`
 - `marker_performers` field in `SceneMarkerFilterType`
 
 ### Backend Files
@@ -70,7 +69,7 @@ CREATE TABLE IF NOT EXISTS `scene_marker_performers` (
 - `pkg/models/scene_marker.go` - MarkerPerformer model
 
 ### Frontend Files
-- `ui/v2.5/src/components/SceneMarkerPerformerEdit/SceneMarkerPerformerEdit.tsx` - Edit giver/receiver assignments
+- `ui/v2.5/src/components/SceneMarkerPerformerEdit/SceneMarkerPerformerEdit.tsx` - Edit top/bottom assignments
 - `ui/v2.5/graphql/queries/performer.graphql` - `PerformerCoPerformersByRole` query
 
 ---
@@ -104,14 +103,14 @@ Stored in UI config under `configuration.ui.roleTagIds`:
 Visual indicators on performer cards and scene cards showing role information based on marker assignments.
 
 ### Features
-- **Giver/Receiver counts**: Displayed on performer cards showing breakdown by role
+- **Top/Bottom counts**: Displayed on performer cards showing breakdown by role
 - **Category icons**: Gay icon (sex), Mouth icon (oral), Hand icon (solo), Goatee icon (facial)
 - **Scene card overlays**: Icons indicating what types of markers a scene has
 
 ### Files Modified
 - `ui/v2.5/src/components/Performers/PerformerCard.tsx`:
   - Role-based scene count popovers
-  - Category strip with giver/receiver breakdown
+  - Category strip with top/bottom breakdown
 
 - `ui/v2.5/src/components/Performers/PerformerDetails/PerformerCategoryStrip.tsx`:
   - Marker-based category buttons with counts
@@ -194,21 +193,21 @@ Allows filtering scenes by their marker tags with **role-specific performer attr
 - `INCLUDES`: Any scene with markers having any of the specified tags
 
 **Role-Specific Filtering:**
-Each marker group supports separate giver/receiver/both-roles attribute blocks:
-- **Giver** (↑): `giver_performer_ids`, `giver_ethnicities`, `giver_countries`, `giver_rating`
-- **Receiver** (↓): `receiver_performer_ids`, `receiver_ethnicities`, `receiver_countries`, `receiver_rating`
+Each marker group supports separate top/bottom/both-roles attribute blocks:
+- **Top** (↑): `top_performer_ids`, `top_ethnicities`, `top_countries`, `top_rating`
+- **Bottom** (↓): `bottom_performer_ids`, `bottom_ethnicities`, `bottom_countries`, `bottom_rating`
 - **Both Roles** (↕): `both_roles_performer_ids`, `both_roles_ethnicities`, `both_roles_countries`, `both_roles_rating`
-  - "Both Roles" finds performers who appear in BOTH giver AND receiver for the same marker type
+  - "Both Roles" finds performers who appear in BOTH top AND bottom for the same marker type
 
 **Use Cases:**
-1. "Scenes where the giver and receiver are both 5 stars" - Set giver_rating >= 5 AND receiver_rating >= 5 with AND mode
-2. "Scenes with facials by Colombian givers" - Set tag=facial, giver_countries=CO
-3. "Scenes where a performer is both giver AND receiver for oral" - Set tag=oral, both_roles populated
+1. "Scenes where the top and bottom are both 5 stars" - Set top_rating >= 5 AND bottom_rating >= 5 with AND mode
+2. "Scenes with facials by Colombian tops" - Set tag=facial, top_countries=CO
+3. "Scenes where a performer is both top AND bottom for oral" - Set tag=oral, both_roles populated
 4. "Scenes with 3+ facials" - Add 3 marker groups each with tag=facial using ALL modifier
 
 **Performer Mode:**
-- `OR`: Either giver or receiver matches (default)
-- `AND`: Both giver and receiver must match their respective criteria
+- `OR`: Either top or bottom matches (default)
+- `AND`: Both top and bottom must match their respective criteria
 
 > **Note:** The `performer_scene_tags` feature has been fully removed. Use Scene Marker Tags Filter instead.
 
@@ -355,7 +354,7 @@ input SceneFilterType {
 
 # Database Migration
 migrate_performer_scene_tags_to_markers.sql  # Migration from old system
-scene_marker_performers_giver_receiver.sql   # Scene marker performers schema
+scene_marker_performers_top_bottom.sql       # Scene marker performers schema
 
 # Backend
 internal/api/resolver.go                  # Custom resolvers (933+ lines added)
@@ -531,18 +530,18 @@ A dedicated player page that allows you to select multiple markers from the Mark
 ## 15. Scene Marker Performers
 
 ### Overview
-Adds the ability to associate one or more performers with individual scene markers, with **giver/receiver distinction**. This allows tagging which performers are featured in specific moments/activities within a scene, and whether they are the giver (top) or receiver (bottom) in that activity.
+Adds the ability to associate one or more performers with individual scene markers, with **top/bottom distinction**. This allows tagging which performers are featured in specific moments/activities within a scene, and whether they are the top (giving) or bottom (receiving) in that activity.
 
 ### Database Schema
 **File:** `scene_marker_performers.sql` (original standalone SQL at repo root)
 
-**File:** `scene_marker_performers_giver_receiver.sql` (migration for giver/receiver)
+**File:** `scene_marker_performers_top_bottom.sql` (migration for top/bottom)
 ```sql
 -- New schema with role column
 CREATE TABLE IF NOT EXISTS `scene_marker_performers` (
   `scene_marker_id` integer NOT NULL,
   `performer_id` integer NOT NULL,
-  `role` text NOT NULL DEFAULT 'giver' CHECK (`role` IN ('giver', 'receiver')),
+  `role` text NOT NULL DEFAULT 'top' CHECK (`role` IN ('top', 'bottom')),
   FOREIGN KEY (`scene_marker_id`) REFERENCES `scene_markers` (`id`) ON DELETE CASCADE,
   FOREIGN KEY (`performer_id`) REFERENCES `performers` (`id`) ON DELETE CASCADE
 );
@@ -555,56 +554,56 @@ CREATE INDEX `idx_scene_marker_performers_performer_role` ON `scene_marker_perfo
 
 ### GraphQL Schema Extensions
 **File:** `graphql/schema/types/scene-marker.graphql`
-- Added `giver_performers: [Performer!]!` resolver on `SceneMarker` type (performers giving the activity)
-- Added `receiver_performers: [Performer!]!` resolver on `SceneMarker` type (performers receiving the activity)
+- Added `top_performers: [Performer!]!` resolver on `SceneMarker` type (performers in the top/giving role)
+- Added `bottom_performers: [Performer!]!` resolver on `SceneMarker` type (performers in the bottom/receiving role)
 - Deprecated `performers: [Performer!]!` (returns all performers regardless of role)
-- Added `giver_performer_ids: [ID!]` to `SceneMarkerCreateInput` and `SceneMarkerUpdateInput`
-- Added `receiver_performer_ids: [ID!]` to `SceneMarkerCreateInput` and `SceneMarkerUpdateInput`
-- Deprecated `performer_ids` (kept for backward compatibility, treated as giver performers)
+- Added `top_performer_ids: [ID!]` to `SceneMarkerCreateInput` and `SceneMarkerUpdateInput`
+- Added `bottom_performer_ids: [ID!]` to `SceneMarkerCreateInput` and `SceneMarkerUpdateInput`
+- Deprecated `performer_ids` (kept for backward compatibility, treated as top performers)
 
 **File:** `graphql/schema/types/filters.graphql`
 - Added `SceneMarkerTagGroupInput` input type for extended scene marker tag filtering with performer attributes
 - Added `groups_extended: [SceneMarkerTagGroupInput!]` to `SceneMarkerTagsCriterionInput`
 - Added marker performer filters to `SceneMarkerFilterType`:
-  - `marker_performers: MultiCriterionInput` - Filter by performers assigned directly to the marker (both giver and receiver)
+  - `marker_performers: MultiCriterionInput` - Filter by performers assigned directly to the marker (both top and bottom)
   - `marker_performer_ethnicity: StringCriterionInput` - Filter by marker performer ethnicity
   - `marker_performer_country: StringCriterionInput` - Filter by marker performer country
   - `marker_performer_rating: IntCriterionInput` - Filter by marker performer rating
   - `marker_performer_rating_all: Boolean` - Whether all marker performers must satisfy rating condition
 
 ### Backend Files
-- `pkg/models/repository_scene_marker.go` - Added `UpdatePerformers`, `UpdateGiverPerformers`, `UpdateReceiverPerformers` methods to `SceneMarkerUpdater` interface
+- `pkg/models/repository_scene_marker.go` - Added `UpdatePerformers`, `UpdateTopPerformers`, `UpdateBottomPerformers` methods to `SceneMarkerUpdater` interface
 - `pkg/models/repository_performer.go` - Added `FindBySceneMarkerID`, `FindBySceneMarkerIDWithRole` methods to `PerformerFinder` interface
 - `pkg/models/scene_marker.go` - Added `MarkerPerformers`, `MarkerPerformerEthnicity`, `MarkerPerformerCountry`, `MarkerPerformerRating`, `MarkerPerformerRatingAll` fields
 - `pkg/models/filter.go` - Added `SceneMarkerTagGroupInput` struct with performer attributes
-- `pkg/sqlite/scene_marker.go` - Implemented `UpdatePerformers`, `UpdateGiverPerformers`, `UpdateReceiverPerformers` with role column handling
+- `pkg/sqlite/scene_marker.go` - Implemented `UpdatePerformers`, `UpdateTopPerformers`, `UpdateBottomPerformers` with role column handling
 - `pkg/sqlite/performer.go` - Implemented `FindBySceneMarkerID`, `FindBySceneMarkerIDWithRole` with goqu subquery and role filter
 - `pkg/sqlite/scene_marker_filter.go` - Added handler methods for marker performer filters
 - `pkg/sqlite/criterion_handlers.go` - Extended `joinedSceneMarkerTagsHandler` to support `GroupsExtended` with performer attributes
-- `internal/api/resolver_model_scene_marker.go` - Added `Performers`, `GiverPerformers`, `ReceiverPerformers` resolver methods
-- `internal/api/resolver_mutation_scene.go` - Updated `SceneMarkerCreate` and `SceneMarkerUpdate` mutations for giver/receiver
+- `internal/api/resolver_model_scene_marker.go` - Added `Performers`, `TopPerformers`, `BottomPerformers` resolver methods
+- `internal/api/resolver_mutation_scene.go` - Updated `SceneMarkerCreate` and `SceneMarkerUpdate` mutations for top/bottom
 
 ### Frontend Files
-- `ui/v2.5/graphql/data/scene-marker.graphql` - Added `giver_performers` and `receiver_performers` to SceneMarkerData fragment
-- `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkerForm.tsx` - Two separate performer dropdowns with arrow icons: Giver (↑ blue) and Receiver (↓ red)
-- `ui/v2.5/src/components/Scenes/SceneDetails/PrimaryTags.tsx` - Displays giver/receiver performers with color-coded badges and icons
-- `ui/v2.5/src/components/Scenes/MarkerPlaylistPlayer.tsx` - Shows giver/receiver performers with icons in the playlist player
+- `ui/v2.5/graphql/data/scene-marker.graphql` - Added `top_performers` and `bottom_performers` to SceneMarkerData fragment
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkerForm.tsx` - Two separate performer dropdowns with arrow icons: Top (↑ blue) and Bottom (↓ red)
+- `ui/v2.5/src/components/Scenes/SceneDetails/PrimaryTags.tsx` - Displays top/bottom performers with color-coded badges and icons
+- `ui/v2.5/src/components/Scenes/MarkerPlaylistPlayer.tsx` - Shows top/bottom performers with icons in the playlist player
 - `ui/v2.5/src/models/list-filter/criteria/tags.ts` - Extended `SceneMarkerTagsCriterion` with `extendedGroups` supporting performer attributes
 - `ui/v2.5/src/components/List/Filters/SceneMarkerTagsFilter.tsx` - Enhanced filter UI with performer, country, ethnicity, and rating selection per group
 - `ui/v2.5/src/models/list-filter/scene-markers.ts` - Added marker performer filter criterion options
 - `ui/v2.5/src/components/Performers/PerformerDetails/PerformerMarkersPanel.tsx` - NEW: Performer details panel reusing the Markers list, filtered by markers directly assigned to the performer
 - `ui/v2.5/src/components/Performers/PerformerDetails/Performer.tsx` - Added a "Markers" tab to performer details and marker count query
-- `ui/v2.5/src/locales/en-GB.json` - Added translations for giver_performers, receiver_performers
+- `ui/v2.5/src/locales/en-GB.json` - Added translations for top_performers, bottom_performers
 
 ### Features
-- **Giver/Receiver Distinction**: Each marker performer can be tagged as either giver (top) or receiver (bottom)
+- **Top/Bottom Distinction**: Each marker performer can be tagged as either top (giving) or bottom (receiving)
 - Select one or more performers from the scene's performers when creating/editing a marker
-- UI shows arrow-up (↑ blue) icon for givers and arrow-down (↓ red) icon for receivers
+- UI shows arrow-up (↑ blue) icon for tops and arrow-down (↓ red) icon for bottoms
 - Performers are displayed with role indicators in:
   - Scene marker form (editing)
   - PrimaryTags panel (scene details Markers tab)
   - MarkerPlaylistPlayer (playing markers)
-- **Scene Marker Tags Filter (on Scenes)**: Now supports separate role-specific attribute blocks for giver, receiver, and both-roles (performer appearing in BOTH roles). Each block can specify performer IDs, ethnicities, countries, and rating. This supersedes the retired `performer_scene_tags` filter.
+- **Scene Marker Tags Filter (on Scenes)**: Now supports separate role-specific attribute blocks for top, bottom, and both-roles (performer appearing in BOTH roles). Each block can specify performer IDs, ethnicities, countries, and rating. This supersedes the retired `performer_scene_tags` filter.
 - **Marker Performer Filters (on Markers page)**: New filters to find markers by their assigned performers (both roles):
   - Marker Performers - Filter by specific performers assigned to markers
   - Marker Performer Country - Filter by country of marker performers
@@ -666,7 +665,7 @@ extend type Query {
 
 ---
 
-## 18. Performer Studios Tab
+## 17. Performer Studios Tab
 
 ### Overview
 Adds a new "Studios" tab to the Performer detail page, showing all studios that the performer has scenes with.
@@ -684,7 +683,7 @@ Adds a new "Studios" tab to the Performer detail page, showing all studios that 
 
 ---
 
-## 19. Marker Tags Filter for Performers
+## 18. Marker Tags Filter for Performers
 
 ### Overview
 Adds a new "Marker Tags" filter to the Performers page that allows filtering performers based on scene marker tags. This filter finds performers who have at least one scene marker with all the selected tags.
@@ -727,7 +726,7 @@ Then checks if the marker has all/any/exactly the specified tags based on the mo
 
 ---
 
-## 20. Performer-Filtered Studio Cards
+## 19. Performer-Filtered Studio Cards
 
 ### Overview
 When viewing studios from a performer's Studios tab, the studio cards now hide category stat buttons (sex/oral/solo/facial/unique performers) since those stats represent studio-wide totals and are not filtered by the current performer.
@@ -744,6 +743,81 @@ When viewing studios from a performer's Studios tab, the studio cards now hide c
 - Basic scene count button still displayed (links to studio scenes page)
 - Prevents confusion from showing incorrect/unfiltered statistics
 - Fixed missing localization for "Select Performers" placeholder in marker form
+
+---
+
+## 20. Performer Marker Filters
+
+### Overview
+Replaced the complex unified `performer_markers` filter with two simpler, more intuitive filters for searching performers by their scene marker participation:
+- **Marker Tags**: Filter by markers with specific tags and the performer's role
+- **Marker Partners**: Filter by markers shared with partners having specific attributes
+
+### Files Created/Modified
+
+**New Criterion Files:**
+- `ui/v2.5/src/models/list-filter/criteria/performer-marker-tags.ts` - Tag-based marker filter with role selection
+- `ui/v2.5/src/models/list-filter/criteria/performer-marker-partners.ts` - Partner attribute-based marker filter
+
+**New Filter Component Files:**
+- `ui/v2.5/src/components/List/Filters/PerformerMarkerTagsFilter.tsx` - UI for marker tags filter
+- `ui/v2.5/src/components/List/Filters/PerformerMarkerPartnersFilter.tsx` - UI for marker partners filter
+
+**Modified Files:**
+- `ui/v2.5/src/models/list-filter/performers.ts` - Replaced `PerformerMarkersCriterionOption` with two new options
+- `ui/v2.5/src/models/list-filter/types.ts` - Added `performer_marker_tags` and `performer_marker_partners` to CriterionType
+- `ui/v2.5/src/components/List/CriterionEditor.tsx` - Added filter renderers for new criterion types
+- `graphql/schema/types/filters.graphql` - Added new input types: `PerformerMarkerTagsCriterionInput` and `PerformerMarkerPartnersCriterionInput`
+- `internal/api/resolver_filter_performer.go` - Added no-op resolvers for new filter types
+
+### Features
+
+**Marker Tags Filter:**
+- Select one or more tags using the standard tag selector
+- Choose performer's role on markers: Top, Bottom, or Any (both)
+- Supports standard tag filter modifiers: Includes All, Includes, Excludes, Is Null, Not Null
+- Searches for performers who have markers matching the tag(s) and role configuration
+
+**Marker Partners Filter:**
+- Filter by partner's ethnicity (multi-select)
+- Filter by partner's country (multi-select with flags)
+- Filter by partner's rating (with range operators)
+- Choose partner's role: Top, Bottom, or Any (both)
+- Supports modifiers: Includes, Excludes
+- Searches for performers who share markers with partners matching the specified criteria
+
+### GraphQL Schema
+
+```graphql
+input PerformerMarkerTagsCriterionInput {
+  "Tag IDs to match on markers"
+  tag_ids: [ID!]!
+  "Performer's role on the marker: 'top', 'bottom', or 'any' (default: 'any')"
+  role: String
+  "Depth for hierarchical tags"
+  depth: Int
+  "Modifier for the filter"
+  modifier: CriterionModifier!
+}
+
+input PerformerMarkerPartnersCriterionInput {
+  "Partner's ethnicities to filter by (OR match)"
+  partner_ethnicities: [String!]
+  "Partner's countries to filter by (OR match)"
+  partner_countries: [String!]
+  "Partner's rating criterion"
+  partner_rating: IntCriterionInput
+  "Partner's role: 'top', 'bottom', or 'any' (default: 'any')"
+  partner_role: String
+  "Modifier for the filter"
+  modifier: CriterionModifier!
+}
+```
+
+### Migration Notes
+The old `performer_markers` filter with its complex include/exclude conditions was replaced with these two simpler filters. The UI is more intuitive and each filter has a specific purpose:
+- Use **Marker Tags** when you want to find performers based on what they did (the tags on their markers)
+- Use **Marker Partners** when you want to find performers based on who they worked with
 
 ---
 

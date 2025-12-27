@@ -20,6 +20,7 @@ import { RatingCriterionOption } from "./criteria/rating";
 import { CustomFieldsCriterionOption } from "./criteria/custom-fields";
 import { GroupsCriterionOption } from "./criteria/groups";
 import { PerformerMarkersCriterionOption } from "./criteria/performer-markers";
+import { PerformerMarkersExcludeCriterionOption } from "./criteria/performer-markers-exclude";
 import { HasMarkersCriterionOption } from "./criteria/has-markers";
 
 const defaultSortBy = "name";
@@ -100,8 +101,10 @@ const criterionOptions = [
   PerformerIsMissingCriterionOption,
   TagsCriterionOption,
   HasMarkersCriterionOption,
-  // Performer Markers: filter by scene marker participation with tag + role + partner attributes
+  // Performer Markers: filter by markers with specific tags, performer role, and partner attributes
   PerformerMarkersCriterionOption,
+  // Performer Markers: Exclude - exclude performers with markers matching these criteria
+  PerformerMarkersExcludeCriterionOption,
   GroupsCriterionOption,
   StudiosCriterionOption,
   StashIDCriterionOption,

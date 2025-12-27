@@ -1,11 +1,11 @@
 package models
 
-// MarkerPerformersFilterInput is the input for filtering by marker performers with giver/receiver roles
+// MarkerPerformersFilterInput is the input for filtering by marker performers with top/bottom roles
 type MarkerPerformersFilterInput struct {
-	GiverPerformerIDs    []string          `json:"giver_performer_ids"`
-	ReceiverPerformerIDs []string          `json:"receiver_performer_ids"`
-	Mode                 *string           `json:"mode"` // "AND" or "OR" (default: "OR")
-	Modifier             CriterionModifier `json:"modifier"`
+	TopPerformerIDs    []string          `json:"top_performer_ids"`
+	BottomPerformerIDs []string          `json:"bottom_performer_ids"`
+	Mode               *string           `json:"mode"` // "AND" or "OR" (default: "OR")
+	Modifier           CriterionModifier `json:"modifier"`
 }
 
 type SceneMarkerFilterType struct {
@@ -32,7 +32,7 @@ type SceneMarkerFilterType struct {
 	// Filter by whether the marker has an end time
 	HasEndTime *bool `json:"has_end_time"`
 
-	// Filter by performers assigned directly to the marker with giver/receiver role support
+	// Filter by performers assigned directly to the marker with top/bottom role support
 	MarkerPerformers *MarkerPerformersFilterInput `json:"marker_performers"`
 	// Filter by ethnicity of performers assigned directly to the marker
 	MarkerPerformerEthnicity *StringCriterionInput `json:"marker_performer_ethnicity"`
@@ -45,8 +45,8 @@ type SceneMarkerFilterType struct {
 	// Filter by whether the marker has performers assigned directly to it
 	HasMarkerPerformers *string `json:"has_marker_performers"`
 
-	// Filter by marker tags with performer attributes (giver/receiver/both roles)
-	MarkerTagsWithPerformers *SceneMarkerTagsCriterionInput `json:"marker_tags_with_performers"`
+	// Filter by marker tags with performer attributes (top/bottom/both roles)
+	SceneMarkerTags *SceneMarkerTagsCriterionInput `json:"scene_marker_tags"`
 
 	// Filter to only include scene markers from these scenes
 	Scenes *MultiCriterionInput `json:"scenes"`

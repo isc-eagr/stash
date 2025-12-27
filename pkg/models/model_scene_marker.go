@@ -44,8 +44,8 @@ func NewSceneMarkerPartial() SceneMarkerPartial {
 }
 
 // MarkerPerformer represents a performer associated with a scene marker
-// along with their role (giver or receiver).
+// along with their role (top or bottom).
 type MarkerPerformer struct {
 	PerformerID int    `json:"performer_id"`
-	Role        string `json:"role"` // "giver" or "receiver"
+	Role        string `json:"role"` // "top" or "bottom"
 }

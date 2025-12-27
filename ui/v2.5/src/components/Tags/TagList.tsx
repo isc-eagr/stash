@@ -53,7 +53,15 @@ interface ITagList {
 
 export const TagList: React.FC<ITagList> = PatchComponent(
   "TagList",
-  ({ filterHook, alterQuery, extraOperations = [], sceneCountOnly = false, onTags, performerId, performerName }) => {
+  ({
+    filterHook,
+    alterQuery,
+    extraOperations = [],
+    sceneCountOnly = false,
+    onTags,
+    performerId,
+    performerName,
+  }) => {
     const Toast = useToast();
     const [deletingTag, setDeletingTag] =
       useState<Partial<GQL.TagListDataFragment> | null>(null);
@@ -281,7 +289,15 @@ export const TagList: React.FC<ITagList> = PatchComponent(
                   {/* If sceneCountOnly is set, render only the scenes count button */}
                   {sceneCountOnly ? (
                     <Button variant="secondary" className="tag-list-button">
-                      <Link to={NavUtils.makeTagScenesUrl(tag, performerId ? { id: performerId, name: performerName } : undefined)} className="tag-list-anchor">
+                      <Link
+                        to={NavUtils.makeTagScenesUrl(
+                          tag,
+                          performerId
+                            ? { id: performerId, name: performerName }
+                            : undefined
+                        )}
+                        className="tag-list-anchor"
+                      >
                         <FormattedMessage
                           id="countables.scenes"
                           values={{
@@ -302,7 +318,12 @@ export const TagList: React.FC<ITagList> = PatchComponent(
                       </Button>
                       <Button variant="secondary" className="tag-list-button">
                         <Link
-                          to={NavUtils.makeTagScenesUrl(tag, performerId ? { id: performerId, name: performerName } : undefined)}
+                          to={NavUtils.makeTagScenesUrl(
+                            tag,
+                            performerId
+                              ? { id: performerId, name: performerName }
+                              : undefined
+                          )}
                           className="tag-list-anchor"
                         >
                           <FormattedMessage
@@ -353,7 +374,10 @@ export const TagList: React.FC<ITagList> = PatchComponent(
                               count: tag.scene_marker_count ?? 0,
                             }}
                           />
-                          : <FormattedNumber value={tag.scene_marker_count ?? 0} />
+                          :{" "}
+                          <FormattedNumber
+                            value={tag.scene_marker_count ?? 0}
+                          />
                         </Link>
                       </Button>
                       <span className="tag-list-count">
@@ -367,7 +391,10 @@ export const TagList: React.FC<ITagList> = PatchComponent(
                           }
                         />
                       </span>
-                      <Button variant="danger" onClick={() => setDeletingTag(tag)}>
+                      <Button
+                        variant="danger"
+                        onClick={() => setDeletingTag(tag)}
+                      >
                         <Icon icon={faTrashAlt} color="danger" />
                       </Button>
                     </>

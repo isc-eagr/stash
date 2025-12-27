@@ -633,15 +633,15 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     // Priority: sex > oral > solo
     if (sexTagId && markerTagIds.has(sexTagId)) {
       return {
-        type: 'gay',
+        type: "gay",
         className: "scene-gay-icon",
         title: "Scene has sex markers",
       } as SceneIconToShow;
     }
-    
+
     if (oralTagId && markerTagIds.has(oralTagId)) {
       return {
-        type: 'mouth',
+        type: "mouth",
         className: "scene-mouth-icon",
         title: "Scene has oral markers",
       } as SceneIconToShow;
@@ -649,10 +649,10 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
     if (soloTagId && markerTagIds.has(soloTagId)) {
       return {
-        type: 'hand',
+        type: "hand",
         icon: faHand,
         className: "scene-hand-icon",
-        title: "Scene has solo markers"
+        title: "Scene has solo markers",
       } as SceneIconToShow;
     }
 
@@ -685,7 +685,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               </h1>
             )}
             <h3 className={cx("scene-header", { "no-studio": !scene.studio })}>
-              <span style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ display: "flex", alignItems: "center" }}>
                 {iconToShow?.type === "mouth" ? (
                   <img
                     src={mouthSvg}

@@ -1,6 +1,10 @@
 import { IntlShape } from "react-intl";
 import { getCountryByISO } from "src/utils/country";
-import { ModifierCriterionOption, StringCriterion, StringCriterionOption } from "./criterion";
+import {
+  ModifierCriterionOption,
+  StringCriterion,
+  StringCriterionOption,
+} from "./criterion";
 
 export const CountryCriterionOption = new StringCriterionOption({
   messageID: "country",
@@ -19,8 +23,6 @@ export class CountryCriterion extends StringCriterion {
       .map((v) => v.trim())
       .filter((v) => v.length > 0);
     if (values.length === 0) return "";
-    return values
-      .map((v) => getCountryByISO(v, intl.locale) ?? v)
-      .join(", ");
+    return values.map((v) => getCountryByISO(v, intl.locale) ?? v).join(", ");
   }
 }

@@ -19,7 +19,7 @@ import {
 } from "./criteria/groups";
 import { GalleriesCriterionOption } from "./criteria/galleries";
 import { OrganizedCriterionOption } from "./criteria/organized";
-import { PerformersCriterionOption} from "./criteria/performers";
+import { PerformersCriterionOption } from "./criteria/performers";
 import { ResolutionCriterionOption } from "./criteria/resolution";
 import { StudiosCriterionOption } from "./criteria/studios";
 import { InteractiveCriterionOption } from "./criteria/interactive";
@@ -27,8 +27,9 @@ import {
   PerformerTagsCriterionOption,
   // StudioTagsCriterionOption,
   TagsCriterionOption,
-  SceneMarkerTagsCriterionOption,
 } from "./criteria/tags";
+import { SceneMarkersCriterionOption } from "./criteria/scene-markers";
+import { SceneMarkersExcludeCriterionOption } from "./criteria/scene-markers-exclude";
 import { ListFilterOptions, MediaSortByOptions } from "./filter-options";
 import { DisplayMode } from "./types";
 import {
@@ -38,7 +39,10 @@ import {
 import { PerformerFavoriteCriterionOption } from "./criteria/favorite";
 import { CaptionsCriterionOption } from "./criteria/captions";
 import { StashIDCriterionOption } from "./criteria/stash-ids";
-import { RatingCriterionOption, PerformerRatingCriterionOption } from "./criteria/rating";
+import {
+  RatingCriterionOption,
+  PerformerRatingCriterionOption,
+} from "./criteria/rating";
 import { PathCriterionOption } from "./criteria/path";
 import { OrientationCriterionOption } from "./criteria/orientation";
 import { EthnicityCriterionOption } from "./criteria/ethnicity";
@@ -147,27 +151,29 @@ const criterionOptions = [
   PerformerAgeCriterionOption,
   PerformerFavoriteCriterionOption,
   EthnicityCriterionOption,
-    // Specialized country criterion using multi-select editor
-    new ModifierCriterionOption({
-      messageID: "performer_country",
-      type: "performer_country",
-      modifierOptions: [
-        // IS
-        CriterionModifier.Equals,
-        // IS NOT
-        CriterionModifier.NotEquals,
-        // INCLUDES (any one)
-        CriterionModifier.Includes,
-        // INCLUDES ALL (at least one from each selected country)
-        CriterionModifier.IncludesAll,
-      ],
-      defaultModifier: CriterionModifier.Equals,
-      inputType: "text",
-      makeCriterion: (o) => new CountryCriterion(o as unknown as ModifierCriterionOption),
-    }),
+  // Specialized country criterion using multi-select editor
+  new ModifierCriterionOption({
+    messageID: "performer_country",
+    type: "performer_country",
+    modifierOptions: [
+      // IS
+      CriterionModifier.Equals,
+      // IS NOT
+      CriterionModifier.NotEquals,
+      // INCLUDES (any one)
+      CriterionModifier.Includes,
+      // INCLUDES ALL (at least one from each selected country)
+      CriterionModifier.IncludesAll,
+    ],
+    defaultModifier: CriterionModifier.Equals,
+    inputType: "text",
+    makeCriterion: (o) =>
+      new CountryCriterion(o as unknown as ModifierCriterionOption),
+  }),
   PerformerRatingCriterionOption,
-  SceneMarkerTagsCriterionOption,
-    // StudioTagsCriterionOption,
+  SceneMarkersCriterionOption,
+  SceneMarkersExcludeCriterionOption,
+  // StudioTagsCriterionOption,
   StudiosCriterionOption,
   GroupsCriterionOption,
   LegacyMoviesCriterionOption,

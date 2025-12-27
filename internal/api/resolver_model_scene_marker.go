@@ -55,9 +55,9 @@ func (r *sceneMarkerResolver) Screenshot(ctx context.Context, obj *models.SceneM
 	return urlbuilders.NewSceneMarkerURLBuilder(baseURL, obj).GetScreenshotURL(), nil
 }
 
-func (r *sceneMarkerResolver) GiverPerformers(ctx context.Context, obj *models.SceneMarker) (ret []*models.Performer, err error) {
+func (r *sceneMarkerResolver) TopPerformers(ctx context.Context, obj *models.SceneMarker) (ret []*models.Performer, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = r.repository.Performer.FindBySceneMarkerIDWithRole(ctx, obj.ID, "giver")
+		ret, err = r.repository.Performer.FindBySceneMarkerIDWithRole(ctx, obj.ID, "top")
 		return err
 	}); err != nil {
 		return nil, err
@@ -65,9 +65,9 @@ func (r *sceneMarkerResolver) GiverPerformers(ctx context.Context, obj *models.S
 	return ret, nil
 }
 
-func (r *sceneMarkerResolver) ReceiverPerformers(ctx context.Context, obj *models.SceneMarker) (ret []*models.Performer, err error) {
+func (r *sceneMarkerResolver) BottomPerformers(ctx context.Context, obj *models.SceneMarker) (ret []*models.Performer, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = r.repository.Performer.FindBySceneMarkerIDWithRole(ctx, obj.ID, "receiver")
+		ret, err = r.repository.Performer.FindBySceneMarkerIDWithRole(ctx, obj.ID, "bottom")
 		return err
 	}); err != nil {
 		return nil, err
@@ -75,7 +75,7 @@ func (r *sceneMarkerResolver) ReceiverPerformers(ctx context.Context, obj *model
 	return ret, nil
 }
 
-// Performers returns all performers (givers + receivers) for backward compatibility
+// Performers returns all performers (tops + bottoms) for backward compatibility
 func (r *sceneMarkerResolver) Performers(ctx context.Context, obj *models.SceneMarker) (ret []*models.Performer, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		ret, err = r.repository.Performer.FindBySceneMarkerID(ctx, obj.ID)

@@ -94,68 +94,86 @@ func (r *queryResolver) PerformerCoPerformersByRole(ctx context.Context, perform
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		// Get sex co-performers
 		if roleTagIDs.sexTagID != 0 {
-			sexAsGiver, err := r.getCoPerformers(ctx, performerIDInt, roleTagIDs.sexTagID, "giver")
+			sexAsTopCounts, err := r.getCoPerformersWithCounts(ctx, performerIDInt, roleTagIDs.sexTagID, "top")
 			if err != nil {
 				return err
 			}
-			result.SexAsGiver = sexAsGiver
+			result.SexAsTop, err = r.convertToPerformerWithSceneCount(ctx, sexAsTopCounts)
+			if err != nil {
+				return err
+			}
 
-			sexAsReceiver, err := r.getCoPerformers(ctx, performerIDInt, roleTagIDs.sexTagID, "receiver")
+			sexAsBottomCounts, err := r.getCoPerformersWithCounts(ctx, performerIDInt, roleTagIDs.sexTagID, "bottom")
 			if err != nil {
 				return err
 			}
-			result.SexAsReceiver = sexAsReceiver
+			result.SexAsBottom, err = r.convertToPerformerWithSceneCount(ctx, sexAsBottomCounts)
+			if err != nil {
+				return err
+			}
 		}
 
 		// Get oral co-performers
 		if roleTagIDs.oralTagID != 0 {
-			oralAsGiver, err := r.getCoPerformers(ctx, performerIDInt, roleTagIDs.oralTagID, "giver")
+			oralAsTopCounts, err := r.getCoPerformersWithCounts(ctx, performerIDInt, roleTagIDs.oralTagID, "top")
 			if err != nil {
 				return err
 			}
-			result.OralAsGiver = oralAsGiver
+			result.OralAsTop, err = r.convertToPerformerWithSceneCount(ctx, oralAsTopCounts)
+			if err != nil {
+				return err
+			}
 
-			oralAsReceiver, err := r.getCoPerformers(ctx, performerIDInt, roleTagIDs.oralTagID, "receiver")
+			oralAsBottomCounts, err := r.getCoPerformersWithCounts(ctx, performerIDInt, roleTagIDs.oralTagID, "bottom")
 			if err != nil {
 				return err
 			}
-			result.OralAsReceiver = oralAsReceiver
+			result.OralAsBottom, err = r.convertToPerformerWithSceneCount(ctx, oralAsBottomCounts)
+			if err != nil {
+				return err
+			}
 		}
 
 		// Get facial co-performers
 		if roleTagIDs.facialTagID != 0 {
-			facialAsGiver, err := r.getCoPerformers(ctx, performerIDInt, roleTagIDs.facialTagID, "giver")
+			facialAsTopCounts, err := r.getCoPerformersWithCounts(ctx, performerIDInt, roleTagIDs.facialTagID, "top")
 			if err != nil {
 				return err
 			}
-			result.FacialAsGiver = facialAsGiver
+			result.FacialAsTop, err = r.convertToPerformerWithSceneCount(ctx, facialAsTopCounts)
+			if err != nil {
+				return err
+			}
 
-			facialAsReceiver, err := r.getCoPerformers(ctx, performerIDInt, roleTagIDs.facialTagID, "receiver")
+			facialAsBottomCounts, err := r.getCoPerformersWithCounts(ctx, performerIDInt, roleTagIDs.facialTagID, "bottom")
 			if err != nil {
 				return err
 			}
-			result.FacialAsReceiver = facialAsReceiver
+			result.FacialAsBottom, err = r.convertToPerformerWithSceneCount(ctx, facialAsBottomCounts)
+			if err != nil {
+				return err
+			}
 		}
 
 		// Calculate unique count across all roles
 		uniqueIDs := make(map[int]struct{})
-		for _, p := range result.SexAsGiver {
-			uniqueIDs[p.ID] = struct{}{}
+		for _, p := range result.SexAsTop {
+			uniqueIDs[p.Performer.ID] = struct{}{}
 		}
-		for _, p := range result.SexAsReceiver {
-			uniqueIDs[p.ID] = struct{}{}
+		for _, p := range result.SexAsBottom {
+			uniqueIDs[p.Performer.ID] = struct{}{}
 		}
-		for _, p := range result.OralAsGiver {
-			uniqueIDs[p.ID] = struct{}{}
+		for _, p := range result.OralAsTop {
+			uniqueIDs[p.Performer.ID] = struct{}{}
 		}
-		for _, p := range result.OralAsReceiver {
-			uniqueIDs[p.ID] = struct{}{}
+		for _, p := range result.OralAsBottom {
+			uniqueIDs[p.Performer.ID] = struct{}{}
 		}
-		for _, p := range result.FacialAsGiver {
-			uniqueIDs[p.ID] = struct{}{}
+		for _, p := range result.FacialAsTop {
+			uniqueIDs[p.Performer.ID] = struct{}{}
 		}
-		for _, p := range result.FacialAsReceiver {
-			uniqueIDs[p.ID] = struct{}{}
+		for _, p := range result.FacialAsBottom {
+			uniqueIDs[p.Performer.ID] = struct{}{}
 		}
 		result.UniqueCount = len(uniqueIDs)
 
@@ -204,12 +222,13 @@ func getRoleTagIDsFromUIConfig(uiConfig map[string]interface{}) roleTagIDsConfig
 }
 
 // getCoPerformers gets co-performers for a given performer based on tag and role
-func (r *queryResolver) getCoPerformers(ctx context.Context, performerID int, tagID int, performerRole string) ([]*models.Performer, error) {
+// Returns a map of performer ID to scene count
+func (r *queryResolver) getCoPerformersWithCounts(ctx context.Context, performerID int, tagID int, performerRole string) (map[int]int, error) {
 	// Find markers with this tag where the performer has the given role
 	// Then find other performers in those markers with the opposite role
-	oppositeRole := "receiver"
-	if performerRole == "receiver" {
-		oppositeRole = "giver"
+	oppositeRole := "bottom"
+	if performerRole == "bottom" {
+		oppositeRole = "top"
 	}
 
 	filter := &models.SceneMarkerFilterType{
@@ -221,21 +240,21 @@ func (r *queryResolver) getCoPerformers(ctx context.Context, performerID int, ta
 
 	// Filter to markers where our performer has the specified role
 	performerIDStr := strconv.Itoa(performerID)
-	giverIDs := []string{}
-	receiverIDs := []string{}
+	topIDs := []string{}
+	bottomIDs := []string{}
 
-	if performerRole == "giver" {
-		giverIDs = append(giverIDs, performerIDStr)
+	if performerRole == "top" {
+		topIDs = append(topIDs, performerIDStr)
 	} else {
-		receiverIDs = append(receiverIDs, performerIDStr)
+		bottomIDs = append(bottomIDs, performerIDStr)
 	}
 
 	mode := "OR"
 	filter.MarkerPerformers = &models.MarkerPerformersFilterInput{
-		GiverPerformerIDs:    giverIDs,
-		ReceiverPerformerIDs: receiverIDs,
-		Mode:                 &mode,
-		Modifier:             models.CriterionModifierIncludes,
+		TopPerformerIDs:    topIDs,
+		BottomPerformerIDs: bottomIDs,
+		Mode:               &mode,
+		Modifier:           models.CriterionModifierIncludes,
 	}
 
 	markers, _, err := r.repository.SceneMarker.Query(ctx, filter, nil)
@@ -244,7 +263,9 @@ func (r *queryResolver) getCoPerformers(ctx context.Context, performerID int, ta
 	}
 
 	// Collect performer IDs with the opposite role from these markers
-	coPerformerIDs := make(map[int]bool)
+	// Map of performer ID to scene IDs they appeared in
+	coPerformerScenes := make(map[int]map[int]bool)
+
 	for _, marker := range markers {
 		markerPerformers, err := r.repository.SceneMarker.GetPerformers(ctx, marker.ID)
 		if err != nil {
@@ -253,22 +274,39 @@ func (r *queryResolver) getCoPerformers(ctx context.Context, performerID int, ta
 
 		for _, mp := range markerPerformers {
 			if mp.PerformerID != performerID && mp.Role == oppositeRole {
-				coPerformerIDs[mp.PerformerID] = true
+				if coPerformerScenes[mp.PerformerID] == nil {
+					coPerformerScenes[mp.PerformerID] = make(map[int]bool)
+				}
+				coPerformerScenes[mp.PerformerID][marker.SceneID] = true
 			}
 		}
 	}
 
-	// Fetch the performer objects
-	var coPerformers []*models.Performer
-	for id := range coPerformerIDs {
-		p, err := r.repository.Performer.Find(ctx, id)
+	// Convert to scene counts
+	sceneCountsByPerformer := make(map[int]int)
+	for performerID, scenes := range coPerformerScenes {
+		sceneCountsByPerformer[performerID] = len(scenes)
+	}
+
+	return sceneCountsByPerformer, nil
+}
+
+// convertToPerformerWithSceneCount converts a map of performer IDs to scene counts to a slice of PerformerWithSceneCount
+func (r *queryResolver) convertToPerformerWithSceneCount(ctx context.Context, counts map[int]int) ([]*PerformerWithSceneCount, error) {
+	var result []*PerformerWithSceneCount
+
+	for performerID, count := range counts {
+		p, err := r.repository.Performer.Find(ctx, performerID)
 		if err != nil {
 			return nil, err
 		}
 		if p != nil {
-			coPerformers = append(coPerformers, p)
+			result = append(result, &PerformerWithSceneCount{
+				Performer:  p,
+				SceneCount: count,
+			})
 		}
 	}
 
-	return coPerformers, nil
+	return result, nil
 }

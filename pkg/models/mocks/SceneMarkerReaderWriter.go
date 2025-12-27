@@ -361,8 +361,8 @@ func (_m *SceneMarkerReaderWriter) UpdatePerformers(ctx context.Context, markerI
 	return r0
 }
 
-// UpdateGiverPerformers provides a mock function with given fields: ctx, markerID, performerIDs
-func (_m *SceneMarkerReaderWriter) UpdateGiverPerformers(ctx context.Context, markerID int, performerIDs []int) error {
+// UpdateTopPerformers provides a mock function with given fields: ctx, markerID, performerIDs
+func (_m *SceneMarkerReaderWriter) UpdateTopPerformers(ctx context.Context, markerID int, performerIDs []int) error {
 	ret := _m.Called(ctx, markerID, performerIDs)
 
 	var r0 error
@@ -375,8 +375,8 @@ func (_m *SceneMarkerReaderWriter) UpdateGiverPerformers(ctx context.Context, ma
 	return r0
 }
 
-// UpdateReceiverPerformers provides a mock function with given fields: ctx, markerID, performerIDs
-func (_m *SceneMarkerReaderWriter) UpdateReceiverPerformers(ctx context.Context, markerID int, performerIDs []int) error {
+// UpdateBottomPerformers provides a mock function with given fields: ctx, markerID, performerIDs
+func (_m *SceneMarkerReaderWriter) UpdateBottomPerformers(ctx context.Context, markerID int, performerIDs []int) error {
 	ret := _m.Called(ctx, markerID, performerIDs)
 
 	var r0 error

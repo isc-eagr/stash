@@ -2,7 +2,11 @@ import React from "react";
 import { Badge } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import { Icon } from "src/components/Shared/Icon";
-import { faHand, faArrowUp, faArrowDown } from "@fortawesome/free-solid-svg-icons";
+import {
+  faHand,
+  faArrowUp,
+  faArrowDown,
+} from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import NavUtils from "src/utils/navigation";
 import { useConfigurationContext } from "src/hooks/Config";
@@ -15,7 +19,7 @@ interface IPerformerCategoryStripProps {
 }
 
 /**
- * PerformerCategoryStrip - Shows marker-based role badges with giver/receiver breakdown
+ * PerformerCategoryStrip - Shows marker-based role badges with top/bottom breakdown
  * Uses roleTagIds configuration for tag IDs and counts from performer data.
  * Same style as performer card role badges but for the detail page.
  */
@@ -23,7 +27,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   performer,
 }) => {
   const { configuration } = useConfigurationContext();
-  
+
   // Get role tag IDs from the new configuration
   const roleTagIds = configuration?.ui?.roleTagIds ?? {};
   const sexTagId = roleTagIds.sexTagId;
@@ -31,62 +35,62 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   const soloTagId = roleTagIds.soloTagId;
   const facialTagId = roleTagIds.facialTagId;
 
-  // Get counts from performer - using giver/receiver fields
+  // Get counts from performer - using top/bottom fields
   const p = performer as any;
-  const sexGiverCount = p.sex_giver_count ?? 0;
-  const sexReceiverCount = p.sex_receiver_count ?? 0;
+  const sexTopCount = p.sex_top_count ?? 0;
+  const sexBottomCount = p.sex_bottom_count ?? 0;
   const sexCount = p.sex_scene_count ?? 0;
-  
-  const oralGiverCount = p.oral_giver_count ?? 0;
-  const oralReceiverCount = p.oral_receiver_count ?? 0;
+
+  const oralTopCount = p.oral_top_count ?? 0;
+  const oralBottomCount = p.oral_bottom_count ?? 0;
   const oralCount = p.oral_scene_count ?? 0;
-  
+
   const soloCount = p.solo_scene_count ?? 0;
-  
-  const facialGiverCount = p.facial_giver_count ?? 0;
-  const facialReceiverCount = p.facial_receiver_count ?? 0;
+
+  const facialTopCount = p.facial_top_count ?? 0;
+  const facialBottomCount = p.facial_bottom_count ?? 0;
   const facialCount = p.facial_scene_count ?? 0;
 
   // Build roles to show (same logic as PerformerCard)
   const rolesToShow: Array<{
-    category: 'sex' | 'oral' | 'solo' | 'facial';
+    category: "sex" | "oral" | "solo" | "facial";
     count: number;
-    giverCount?: number;
-    receiverCount?: number;
+    topCount?: number;
+    bottomCount?: number;
     tagId?: string;
   }> = [];
 
   if (sexCount > 0 && sexTagId) {
     rolesToShow.push({
-      category: 'sex',
+      category: "sex",
       count: sexCount,
-      giverCount: sexGiverCount,
-      receiverCount: sexReceiverCount,
+      topCount: sexTopCount,
+      bottomCount: sexBottomCount,
       tagId: sexTagId,
     });
   }
   if (oralCount > 0 && oralTagId) {
     rolesToShow.push({
-      category: 'oral',
+      category: "oral",
       count: oralCount,
-      giverCount: oralGiverCount,
-      receiverCount: oralReceiverCount,
+      topCount: oralTopCount,
+      bottomCount: oralBottomCount,
       tagId: oralTagId,
     });
   }
   if (soloCount > 0 && soloTagId) {
     rolesToShow.push({
-      category: 'solo',
+      category: "solo",
       count: soloCount,
       tagId: soloTagId,
     });
   }
   if (facialCount > 0 && facialTagId) {
     rolesToShow.push({
-      category: 'facial',
+      category: "facial",
       count: facialCount,
-      giverCount: facialGiverCount,
-      receiverCount: facialReceiverCount,
+      topCount: facialTopCount,
+      bottomCount: facialBottomCount,
       tagId: facialTagId,
     });
   }
@@ -96,15 +100,17 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   if (!hasAnyRoleTag || rolesToShow.length === 0) return null;
 
   // Build exclude tags for oral (exclude sex) and solo (exclude sex + oral)
-  const getExcludeTagsForCategory = (category: 'sex' | 'oral' | 'solo' | 'facial') => {
+  const getExcludeTagsForCategory = (
+    category: "sex" | "oral" | "solo" | "facial"
+  ) => {
     const excludeTags: Array<{ id: string; label: string }> = [];
-    if (category === 'oral') {
+    if (category === "oral") {
       // Oral should exclude sex tag
-      if (sexTagId) excludeTags.push({ id: sexTagId, label: 'Sex' });
-    } else if (category === 'solo') {
+      if (sexTagId) excludeTags.push({ id: sexTagId, label: "Sex" });
+    } else if (category === "solo") {
       // Solo should exclude both sex and oral tags
-      if (sexTagId) excludeTags.push({ id: sexTagId, label: 'Sex' });
-      if (oralTagId) excludeTags.push({ id: oralTagId, label: 'Oral' });
+      if (sexTagId) excludeTags.push({ id: sexTagId, label: "Sex" });
+      if (oralTagId) excludeTags.push({ id: oralTagId, label: "Oral" });
     }
     return excludeTags.length > 0 ? excludeTags : undefined;
   };
@@ -112,28 +118,54 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   return (
     <div className="performer-category-strip performer-role-badges d-flex align-items-center my-3">
       {rolesToShow.map((role, idx) => {
-        const categoryIcon = 
-          role.category === 'sex' ? gaySvg :
-          role.category === 'oral' ? mouthSvg :
-          role.category === 'facial' ? goateeSvg :
-          null; // solo uses faHand
-        
-        const tagLabel = role.category.charAt(0).toUpperCase() + role.category.slice(1);
+        const categoryIcon =
+          role.category === "sex"
+            ? gaySvg
+            : role.category === "oral"
+            ? mouthSvg
+            : role.category === "facial"
+            ? goateeSvg
+            : null; // solo uses faHand
+
+        const tagLabel =
+          role.category.charAt(0).toUpperCase() + role.category.slice(1);
         const excludeTags = getExcludeTagsForCategory(role.category);
-        
+
         // URLs for clickable badges
-        const categoryUrl = role.tagId 
-          ? NavUtils.makePerformerMarkerScenesWithRoleUrl(performer, role.tagId, tagLabel, undefined, excludeTags)
+        const categoryUrl = role.tagId
+          ? NavUtils.makePerformerMarkerScenesWithRoleUrl(
+              performer,
+              role.tagId,
+              tagLabel,
+              undefined,
+              excludeTags
+            )
           : undefined;
-        const giverUrl = role.tagId 
-          ? NavUtils.makePerformerMarkerScenesWithRoleUrl(performer, role.tagId, tagLabel, "giver", excludeTags)
+        const topUrl = role.tagId
+          ? NavUtils.makePerformerMarkerScenesWithRoleUrl(
+              performer,
+              role.tagId,
+              tagLabel,
+              "top",
+              excludeTags
+            )
           : undefined;
-        const receiverUrl = role.tagId 
-          ? NavUtils.makePerformerMarkerScenesWithRoleUrl(performer, role.tagId, tagLabel, "receiver", excludeTags)
+        const bottomUrl = role.tagId
+          ? NavUtils.makePerformerMarkerScenesWithRoleUrl(
+              performer,
+              role.tagId,
+              tagLabel,
+              "bottom",
+              excludeTags
+            )
           : undefined;
 
         const categoryIconElement = categoryIcon ? (
-          <img src={categoryIcon} alt={role.category} className="category-icon" />
+          <img
+            src={categoryIcon}
+            alt={role.category}
+            className="category-icon"
+          />
         ) : (
           <Icon icon={faHand} className="category-icon-fa" />
         );
@@ -154,40 +186,82 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                 </>
               )}
             </div>
-            
+
             {/* Arrows below (only for sex/oral/facial, not solo) */}
-            {role.category !== 'solo' && (
+            {role.category !== "solo" && (
               <div className="role-arrows">
-                {(role.giverCount ?? 0) > 0 && (
-                  giverUrl ? (
-                    <Link to={giverUrl} className="role-badge-link">
-                      <Badge pill variant="success" className="arrow-badge giver-badge" style={{ fontSize: 10, padding: '3px 6px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                {(role.topCount ?? 0) > 0 &&
+                  (topUrl ? (
+                    <Link to={topUrl} className="role-badge-link">
+                      <Badge
+                        pill
+                        variant="success"
+                        className="arrow-badge top-badge"
+                        style={{
+                          fontSize: 10,
+                          padding: "3px 6px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
                         <Icon icon={faArrowUp} />
-                        <span className="arrow-count">{role.giverCount}</span>
+                        <span className="arrow-count">{role.topCount}</span>
                       </Badge>
                     </Link>
                   ) : (
-                    <Badge pill variant="success" className="arrow-badge giver-badge" style={{ fontSize: 10, padding: '3px 6px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Badge
+                      pill
+                      variant="success"
+                      className="arrow-badge top-badge"
+                      style={{
+                        fontSize: 10,
+                        padding: "3px 6px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
                       <Icon icon={faArrowUp} />
-                      <span className="arrow-count">{role.giverCount}</span>
+                      <span className="arrow-count">{role.topCount}</span>
                     </Badge>
-                  )
-                )}
-                {(role.receiverCount ?? 0) > 0 && (
-                  receiverUrl ? (
-                    <Link to={receiverUrl} className="role-badge-link">
-                      <Badge pill variant="info" className="arrow-badge receiver-badge" style={{ fontSize: 10, padding: '3px 6px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  ))}
+                {(role.bottomCount ?? 0) > 0 &&
+                  (bottomUrl ? (
+                    <Link to={bottomUrl} className="role-badge-link">
+                      <Badge
+                        pill
+                        variant="info"
+                        className="arrow-badge bottom-badge"
+                        style={{
+                          fontSize: 10,
+                          padding: "3px 6px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
                         <Icon icon={faArrowDown} />
-                        <span className="arrow-count">{role.receiverCount}</span>
+                        <span className="arrow-count">{role.bottomCount}</span>
                       </Badge>
                     </Link>
                   ) : (
-                    <Badge pill variant="info" className="arrow-badge receiver-badge" style={{ fontSize: 10, padding: '3px 6px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Badge
+                      pill
+                      variant="info"
+                      className="arrow-badge bottom-badge"
+                      style={{
+                        fontSize: 10,
+                        padding: "3px 6px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
                       <Icon icon={faArrowDown} />
-                      <span className="arrow-count">{role.receiverCount}</span>
+                      <span className="arrow-count">{role.bottomCount}</span>
                     </Badge>
-                  )
-                )}
+                  ))}
               </div>
             )}
           </div>

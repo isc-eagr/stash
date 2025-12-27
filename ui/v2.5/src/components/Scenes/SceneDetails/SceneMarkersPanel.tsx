@@ -27,7 +27,9 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
   const [editingMarker, setEditingMarker] =
     useState<GQL.SceneMarkerDataFragment>();
-  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>(
+    {}
+  );
 
   const [selectedMarkerIds, setSelectedMarkerIds] = useState<Set<string>>(
     () => new Set()
@@ -145,7 +147,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
             Add to Loop
           </Button>
         </div>
-        
+
         <Form.Check
           className="mb-0"
           type="checkbox"
@@ -166,7 +168,9 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
           onClickMarker={onClickMarker}
           onEdit={onOpenEditor}
           expandedCards={expandedCards}
-          onToggleCard={(id: string) => setExpandedCards(prev => ({ ...prev, [id]: !prev[id] }))}
+          onToggleCard={(id: string) =>
+            setExpandedCards((prev) => ({ ...prev, [id]: !prev[id] }))
+          }
           selectedMarkerIds={selectedMarkerIds}
           onSelectMarker={toggleSingle}
           onSelectMarkers={setManySelected}

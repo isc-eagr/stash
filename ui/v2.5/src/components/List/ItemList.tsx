@@ -303,9 +303,9 @@ export const ItemList = <T extends QueryResult, E extends IHasID, M = unknown>(
 
   function onRemoveCriterion(removedCriterion: Criterion, valueIndex?: number) {
     if (valueIndex === undefined) {
-      updateFilter(
-        filter.removeCriterion(removedCriterion.criterionOption.type)
-      );
+      // Use removeCriterionById for criteria that can have multiple instances (like MarkerTagsCriterion)
+      // This also handles cascade deletion for marker filter groups
+      updateFilter(filter.removeCriterionById(removedCriterion.getId()));
     } else {
       updateFilter(
         filter.removeCustomFieldCriterion(
@@ -341,7 +341,12 @@ export const ItemList = <T extends QueryResult, E extends IHasID, M = unknown>(
       )}
       <FilterTags
         criteria={filter.criteria}
-        onEditCriterion={(c) => showEditFilter(c.criterionOption.type)}
+        onEditCriterion={(c) => {
+          // For multi-instance criteria, need to pass the actual criterion
+          // showEditFilter only supports passing type string, so multi-instance won't work well here
+          // This is a limitation - the user should use the Edit Filter button instead
+          showEditFilter(c.criterionOption.type);
+        }}
         onRemoveCriterion={onRemoveCriterion}
         onRemoveAll={() => onClearAllCriteria()}
       />

@@ -19,26 +19,26 @@ interface IPerformerRolesPanelProps {
 interface IRoleCardProps {
   title: string;
   icon: React.ReactNode;
-  giverCount: number;
-  receiverCount: number;
-  giverLabel: string;
-  receiverLabel: string;
-  onGiverClick: () => void;
-  onReceiverClick: () => void;
+  topCount: number;
+  bottomCount: number;
+  topLabel: string;
+  bottomLabel: string;
+  onTopClick: () => void;
+  onBottomClick: () => void;
 }
 
 const RoleCard: React.FC<IRoleCardProps> = ({
   title,
   icon,
-  giverCount,
-  receiverCount,
-  giverLabel,
-  receiverLabel,
-  onGiverClick,
-  onReceiverClick,
+  topCount,
+  bottomCount,
+  topLabel,
+  bottomLabel,
+  onTopClick,
+  onBottomClick,
 }) => {
-  const totalCount = giverCount + receiverCount;
-  
+  const totalCount = topCount + bottomCount;
+
   return (
     <Card className="role-card mb-3">
       <Card.Header className="d-flex align-items-center">
@@ -51,20 +51,22 @@ const RoleCard: React.FC<IRoleCardProps> = ({
           <Button
             variant="outline-info"
             className="role-stat-button flex-fill mr-2"
-            onClick={onGiverClick}
-            disabled={giverCount === 0}
+            onClick={onTopClick}
+            disabled={topCount === 0}
           >
-            <div className="role-stat-label text-muted small">{giverLabel}</div>
-            <div className="role-stat-count h4 mb-0">{giverCount}</div>
+            <div className="role-stat-label text-muted small">{topLabel}</div>
+            <div className="role-stat-count h4 mb-0">{topCount}</div>
           </Button>
           <Button
             variant="outline-warning"
             className="role-stat-button flex-fill ml-2"
-            onClick={onReceiverClick}
-            disabled={receiverCount === 0}
+            onClick={onBottomClick}
+            disabled={bottomCount === 0}
           >
-            <div className="role-stat-label text-muted small">{receiverLabel}</div>
-            <div className="role-stat-count h4 mb-0">{receiverCount}</div>
+            <div className="role-stat-label text-muted small">
+              {bottomLabel}
+            </div>
+            <div className="role-stat-count h4 mb-0">{bottomCount}</div>
           </Button>
         </div>
       </Card.Body>
@@ -75,7 +77,7 @@ const RoleCard: React.FC<IRoleCardProps> = ({
 export const PerformerRolesPanel: React.FC<IPerformerRolesPanelProps> =
   PatchComponent("PerformerRolesPanel", ({ active, performer }) => {
     const { configuration } = useConfigurationContext();
-    
+
     // Get role tag IDs from configuration
     const roleTagIds = configuration?.ui?.roleTagIds ?? {};
     const sexTagId = roleTagIds.sexTagId;
@@ -87,27 +89,27 @@ export const PerformerRolesPanel: React.FC<IPerformerRolesPanelProps> =
 
     // Check if any role tags are configured
     const hasAnyRoleTag = sexTagId || oralTagId || soloTagId || facialTagId;
-    
+
     if (!hasAnyRoleTag) {
       return (
         <div className="text-muted p-3">
-          <FormattedMessage 
-            id="no_role_tags_configured" 
-            defaultMessage="No role tags are configured. Go to Settings → Interface → Role Tags to configure Sex, Oral, Solo, and Facial tag IDs." 
+          <FormattedMessage
+            id="no_role_tags_configured"
+            defaultMessage="No role tags are configured. Go to Settings → Interface → Role Tags to configure Sex, Oral, Solo, and Facial tag IDs."
           />
         </div>
       );
     }
 
-    // Get counts from performer - using new giver/receiver fields
+    // Get counts from performer - using new top/bottom fields
     const p = performer as any;
-    const sexGiverCount = p.sex_giver_count ?? 0;
-    const sexReceiverCount = p.sex_receiver_count ?? 0;
-    const oralGiverCount = p.oral_giver_count ?? 0;
-    const oralReceiverCount = p.oral_receiver_count ?? 0;
+    const sexTopCount = p.sex_top_count ?? 0;
+    const sexBottomCount = p.sex_bottom_count ?? 0;
+    const oralTopCount = p.oral_top_count ?? 0;
+    const oralBottomCount = p.oral_bottom_count ?? 0;
     const soloCount = p.solo_scene_count ?? 0;
-    const facialGiverCount = p.facial_giver_count ?? 0;
-    const facialReceiverCount = p.facial_receiver_count ?? 0;
+    const facialTopCount = p.facial_top_count ?? 0;
+    const facialBottomCount = p.facial_bottom_count ?? 0;
 
     const navigateTo = (url: string) => {
       window.location.href = url;
@@ -118,20 +120,42 @@ export const PerformerRolesPanel: React.FC<IPerformerRolesPanelProps> =
         <h4 className="mb-4">
           <FormattedMessage id="marker_roles" defaultMessage="Marker Roles" />
         </h4>
-        
+
         <div className="row">
           {/* Sex Role Card */}
           {sexTagId && (
             <div className="col-md-6 col-lg-4">
               <RoleCard
                 title="Sex"
-                icon={<img src={gaySvg} alt="Sex" style={{ width: 24, height: 24 }} />}
-                giverCount={sexGiverCount}
-                receiverCount={sexReceiverCount}
-                giverLabel="Top"
-                receiverLabel="Bottom"
-                onGiverClick={() => navigateTo(NavUtils.makePerformerMarkerScenesUrl(performer, sexTagId, "Sex"))}
-                onReceiverClick={() => navigateTo(NavUtils.makePerformerMarkerScenesUrl(performer, sexTagId, "Sex"))}
+                icon={
+                  <img
+                    src={gaySvg}
+                    alt="Sex"
+                    style={{ width: 24, height: 24 }}
+                  />
+                }
+                topCount={sexTopCount}
+                bottomCount={sexBottomCount}
+                topLabel="Top"
+                bottomLabel="Bottom"
+                onTopClick={() =>
+                  navigateTo(
+                    NavUtils.makePerformerMarkerScenesUrl(
+                      performer,
+                      sexTagId,
+                      "Sex"
+                    )
+                  )
+                }
+                onBottomClick={() =>
+                  navigateTo(
+                    NavUtils.makePerformerMarkerScenesUrl(
+                      performer,
+                      sexTagId,
+                      "Sex"
+                    )
+                  )
+                }
               />
             </div>
           )}
@@ -141,13 +165,35 @@ export const PerformerRolesPanel: React.FC<IPerformerRolesPanelProps> =
             <div className="col-md-6 col-lg-4">
               <RoleCard
                 title="Oral"
-                icon={<img src={mouthSvg} alt="Oral" style={{ width: 24, height: 24 }} />}
-                giverCount={oralGiverCount}
-                receiverCount={oralReceiverCount}
-                giverLabel="Top"
-                receiverLabel="Bottom"
-                onGiverClick={() => navigateTo(NavUtils.makePerformerMarkerScenesUrl(performer, oralTagId, "Oral"))}
-                onReceiverClick={() => navigateTo(NavUtils.makePerformerMarkerScenesUrl(performer, oralTagId, "Oral"))}
+                icon={
+                  <img
+                    src={mouthSvg}
+                    alt="Oral"
+                    style={{ width: 24, height: 24 }}
+                  />
+                }
+                topCount={oralTopCount}
+                bottomCount={oralBottomCount}
+                topLabel="Top"
+                bottomLabel="Bottom"
+                onTopClick={() =>
+                  navigateTo(
+                    NavUtils.makePerformerMarkerScenesUrl(
+                      performer,
+                      oralTagId,
+                      "Oral"
+                    )
+                  )
+                }
+                onBottomClick={() =>
+                  navigateTo(
+                    NavUtils.makePerformerMarkerScenesUrl(
+                      performer,
+                      oralTagId,
+                      "Oral"
+                    )
+                  )
+                }
               />
             </div>
           )}
@@ -161,16 +207,28 @@ export const PerformerRolesPanel: React.FC<IPerformerRolesPanelProps> =
                     <Icon icon={faHand} />
                   </span>
                   <span className="role-title font-weight-bold">Solo</span>
-                  <span className="badge badge-primary ml-auto">{soloCount}</span>
+                  <span className="badge badge-primary ml-auto">
+                    {soloCount}
+                  </span>
                 </Card.Header>
                 <Card.Body>
                   <Button
                     variant="outline-secondary"
                     className="w-100"
-                    onClick={() => navigateTo(NavUtils.makePerformerMarkerScenesUrl(performer, soloTagId, "Solo"))}
+                    onClick={() =>
+                      navigateTo(
+                        NavUtils.makePerformerMarkerScenesUrl(
+                          performer,
+                          soloTagId,
+                          "Solo"
+                        )
+                      )
+                    }
                     disabled={soloCount === 0}
                   >
-                    <div className="role-stat-label text-muted small">Solo Scenes</div>
+                    <div className="role-stat-label text-muted small">
+                      Solo Scenes
+                    </div>
                     <div className="role-stat-count h4 mb-0">{soloCount}</div>
                   </Button>
                 </Card.Body>
@@ -183,13 +241,35 @@ export const PerformerRolesPanel: React.FC<IPerformerRolesPanelProps> =
             <div className="col-md-6 col-lg-4">
               <RoleCard
                 title="Facial"
-                icon={<img src={goateeSvg} alt="Facial" style={{ width: 24, height: 24 }} />}
-                giverCount={facialGiverCount}
-                receiverCount={facialReceiverCount}
-                giverLabel="Top"
-                receiverLabel="Bottom"
-                onGiverClick={() => navigateTo(NavUtils.makePerformerMarkerScenesUrl(performer, facialTagId, "Facial"))}
-                onReceiverClick={() => navigateTo(NavUtils.makePerformerMarkerScenesUrl(performer, facialTagId, "Facial"))}
+                icon={
+                  <img
+                    src={goateeSvg}
+                    alt="Facial"
+                    style={{ width: 24, height: 24 }}
+                  />
+                }
+                topCount={facialTopCount}
+                bottomCount={facialBottomCount}
+                topLabel="Top"
+                bottomLabel="Bottom"
+                onTopClick={() =>
+                  navigateTo(
+                    NavUtils.makePerformerMarkerScenesUrl(
+                      performer,
+                      facialTagId,
+                      "Facial"
+                    )
+                  )
+                }
+                onBottomClick={() =>
+                  navigateTo(
+                    NavUtils.makePerformerMarkerScenesUrl(
+                      performer,
+                      facialTagId,
+                      "Facial"
+                    )
+                  )
+                }
               />
             </div>
           )}

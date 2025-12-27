@@ -33,11 +33,11 @@ export const PerformerMarkersPanel: React.FC<IPerformerMarkersPanelProps> =
           next.criteria.push(criterion);
         }
 
-        // Force this panel to only show markers directly assigned to this performer (giver or receiver).
+        // Force this panel to only show markers directly assigned to this performer (top or bottom).
+        // Includes modifier = OR mode (matches if top OR bottom matches)
         criterion.modifier = GQL.CriterionModifier.Includes;
-        criterion.value.giver_performer_ids = [performerValue];
-        criterion.value.receiver_performer_ids = [performerValue];
-        criterion.value.mode = "OR";
+        criterion.value.top_performer_ids = [performerValue];
+        criterion.value.bottom_performer_ids = [performerValue];
 
         return next;
       },

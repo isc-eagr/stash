@@ -1,5 +1,11 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Button, ButtonGroup, Collapse, Form, InputGroup } from "react-bootstrap";
+import {
+  Button,
+  ButtonGroup,
+  Collapse,
+  Form,
+  InputGroup,
+} from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Icon } from "src/components/Shared/Icon";
 import {
@@ -43,7 +49,9 @@ interface IMultiSegmentLoopControlsProps {
   isFullscreen?: boolean;
 }
 
-export const MultiSegmentLoopControls: React.FC<IMultiSegmentLoopControlsProps> = ({
+export const MultiSegmentLoopControls: React.FC<
+  IMultiSegmentLoopControlsProps
+> = ({
   segments,
   enabled,
   currentSegmentIndex,
@@ -146,9 +154,11 @@ export const MultiSegmentLoopControls: React.FC<IMultiSegmentLoopControlsProps> 
   };
 
   const content = (
-    <div className={cx("multi-segment-loop-controls-v2", {
-      "modal-mode": !collapsed && onClose
-    })}>
+    <div
+      className={cx("multi-segment-loop-controls-v2", {
+        "modal-mode": !collapsed && onClose,
+      })}
+    >
       {/* Header */}
       <div className="msl-header">
         <span className="msl-title">
@@ -194,7 +204,11 @@ export const MultiSegmentLoopControls: React.FC<IMultiSegmentLoopControlsProps> 
           </span>
         </Button>
         {pendingStart !== null && (
-          <Button variant="outline-secondary" size="sm" onClick={onCancelPending}>
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            onClick={onCancelPending}
+          >
             <Icon icon={faTimes} />
           </Button>
         )}
@@ -205,7 +219,9 @@ export const MultiSegmentLoopControls: React.FC<IMultiSegmentLoopControlsProps> 
           disabled={segments.length === 0}
           className="msl-toggle-btn"
           title={intl.formatMessage({
-            id: enabled ? "multi_segment_loop.disable" : "multi_segment_loop.enable",
+            id: enabled
+              ? "multi_segment_loop.disable"
+              : "multi_segment_loop.enable",
           })}
         >
           <Icon icon={enabled ? faStop : faPlay} />
@@ -252,7 +268,9 @@ export const MultiSegmentLoopControls: React.FC<IMultiSegmentLoopControlsProps> 
               <span className="msl-segment-num">{index + 1}</span>
               <span className="msl-segment-times">
                 <span
-                  className={cx("msl-time", { clickable: !!onUpdateSegmentStart })}
+                  className={cx("msl-time", {
+                    clickable: !!onUpdateSegmentStart,
+                  })}
                   onClick={(e) => {
                     if (onUpdateSegmentStart) {
                       e.stopPropagation();
@@ -261,7 +279,9 @@ export const MultiSegmentLoopControls: React.FC<IMultiSegmentLoopControlsProps> 
                   }}
                   title={
                     onUpdateSegmentStart
-                      ? intl.formatMessage({ id: "multi_segment_loop.click_to_set_start" })
+                      ? intl.formatMessage({
+                          id: "multi_segment_loop.click_to_set_start",
+                        })
                       : undefined
                   }
                 >
@@ -269,7 +289,9 @@ export const MultiSegmentLoopControls: React.FC<IMultiSegmentLoopControlsProps> 
                 </span>
                 <span className="msl-time-sep">–</span>
                 <span
-                  className={cx("msl-time", { clickable: !!onUpdateSegmentEnd })}
+                  className={cx("msl-time", {
+                    clickable: !!onUpdateSegmentEnd,
+                  })}
                   onClick={(e) => {
                     if (onUpdateSegmentEnd) {
                       e.stopPropagation();
@@ -278,7 +300,9 @@ export const MultiSegmentLoopControls: React.FC<IMultiSegmentLoopControlsProps> 
                   }}
                   title={
                     onUpdateSegmentEnd
-                      ? intl.formatMessage({ id: "multi_segment_loop.click_to_set_end" })
+                      ? intl.formatMessage({
+                          id: "multi_segment_loop.click_to_set_end",
+                        })
                       : undefined
                   }
                 >
@@ -297,7 +321,9 @@ export const MultiSegmentLoopControls: React.FC<IMultiSegmentLoopControlsProps> 
                     handleMoveUp(index);
                   }}
                   disabled={index === 0}
-                  title={intl.formatMessage({ id: "multi_segment_loop.move_up" })}
+                  title={intl.formatMessage({
+                    id: "multi_segment_loop.move_up",
+                  })}
                 >
                   <Icon icon={faArrowUp} />
                 </Button>
@@ -309,7 +335,9 @@ export const MultiSegmentLoopControls: React.FC<IMultiSegmentLoopControlsProps> 
                     handleMoveDown(index);
                   }}
                   disabled={index === segments.length - 1}
-                  title={intl.formatMessage({ id: "multi_segment_loop.move_down" })}
+                  title={intl.formatMessage({
+                    id: "multi_segment_loop.move_down",
+                  })}
                 >
                   <Icon icon={faArrowDown} />
                 </Button>
@@ -321,7 +349,9 @@ export const MultiSegmentLoopControls: React.FC<IMultiSegmentLoopControlsProps> 
                     e.stopPropagation();
                     onRemoveSegment(segment.id);
                   }}
-                  title={intl.formatMessage({ id: "multi_segment_loop.remove_segment" })}
+                  title={intl.formatMessage({
+                    id: "multi_segment_loop.remove_segment",
+                  })}
                 >
                   <Icon icon={faTrash} />
                 </Button>
@@ -424,7 +454,10 @@ export const MultiSegmentLoopControls: React.FC<IMultiSegmentLoopControlsProps> 
                     className="msl-preset-select"
                   >
                     <option value="">
-                      {intl.formatMessage({ id: "none", defaultMessage: "None" })}
+                      {intl.formatMessage({
+                        id: "none",
+                        defaultMessage: "None",
+                      })}
                     </option>
                     {presetNames.map((name) => (
                       <option key={name} value={name}>

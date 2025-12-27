@@ -99,14 +99,14 @@ export const StudioCard: React.FC<IProps> = ({
 }) => {
   const [updateStudio] = useStudioUpdate();
   const { configuration } = useConfigurationContext();
-  
+
   // Get role tag IDs from the new configuration
   const roleTagIds = configuration?.ui?.roleTagIds ?? {};
   const sexTagId = roleTagIds.sexTagId;
   const oralTagId = roleTagIds.oralTagId;
   const soloTagId = roleTagIds.soloTagId;
   const facialTagId = roleTagIds.facialTagId;
-  
+
   // Query tags to get their names for display
   const { data: tagsData } = GQL.useFindTagsQuery({
     variables: {
@@ -118,11 +118,11 @@ export const StudioCard: React.FC<IProps> = ({
 
   // Map tag IDs to tag objects
   const allTags = tagsData?.findTags?.tags ?? [];
-  const sexTag = allTags.find(t => t.id === sexTagId);
-  const oralTag = allTags.find(t => t.id === oralTagId);
-  const soloTag = allTags.find(t => t.id === soloTagId);
-  const facialTag = allTags.find(t => t.id === facialTagId);
-  
+  const sexTag = allTags.find((t) => t.id === sexTagId);
+  const oralTag = allTags.find((t) => t.id === oralTagId);
+  const soloTag = allTags.find((t) => t.id === soloTagId);
+  const facialTag = allTags.find((t) => t.id === facialTagId);
+
   // When viewing from a performer's studios, fetch performer-filtered stats
   const { data: performerStatsData } = GQL.useFindStudioPerformerStatsQuery({
     variables: {
@@ -131,7 +131,7 @@ export const StudioCard: React.FC<IProps> = ({
     },
     skip: !performerId, // Only run this query when performerId is provided
   });
-  
+
   // Memoize the performer stats to avoid recalculating on every render
   const performerStats: PerformerStudioStats | null = useMemo(() => {
     if (!performerId || !performerStatsData?.findStudio) return null;
@@ -184,15 +184,21 @@ export const StudioCard: React.FC<IProps> = ({
   // Sex scenes (marker-based) - gay icon
   function maybeRenderSexScenesButton() {
     if (!sexTag) return null;
-    
+
     // Use performer-filtered stats when available, otherwise use studio stats
-    const count = performerStats?.sex_scene_count ?? (studio as any).sex_scene_count ?? 0;
+    const count =
+      performerStats?.sex_scene_count ?? (studio as any).sex_scene_count ?? 0;
     const url = performerId
-      ? NavUtils.makePerformerStudioMarkerScenesUrl(performerId, studio, sexTag.id, "Sex")
+      ? NavUtils.makePerformerStudioMarkerScenesUrl(
+          performerId,
+          studio,
+          sexTag.id,
+          "Sex"
+        )
       : NavUtils.makeStudioMarkerScenesUrl(studio, sexTag.id, "Sex");
 
     return (
-      <Button 
+      <Button
         className="minimal scene-category-count sex-scene-count"
         href={url}
         title={`Sex scenes (${sexTag.name})`}
@@ -207,15 +213,26 @@ export const StudioCard: React.FC<IProps> = ({
   // Oral scenes (marker-based) - mouth icon
   function maybeRenderOralScenesButton() {
     if (!oralTag) return null;
-    
+
     // Use performer-filtered stats when available, otherwise use studio stats
-    const count = performerStats?.oral_scene_count ?? (studio as any).oral_scene_count ?? 0;
+    const count =
+      performerStats?.oral_scene_count ?? (studio as any).oral_scene_count ?? 0;
+    
+    // Oral excludes sex markers
+    const excludeTags = sexTag ? [{ id: sexTag.id, label: sexTag.name }] : [];
+    
     const url = performerId
-      ? NavUtils.makePerformerStudioMarkerScenesUrl(performerId, studio, oralTag.id, "Oral")
-      : NavUtils.makeStudioMarkerScenesUrl(studio, oralTag.id, "Oral");
+      ? NavUtils.makePerformerStudioMarkerScenesUrl(
+          performerId,
+          studio,
+          oralTag.id,
+          "Oral",
+          excludeTags
+        )
+      : NavUtils.makeStudioMarkerScenesUrl(studio, oralTag.id, "Oral", excludeTags);
 
     return (
-      <Button 
+      <Button
         className="minimal scene-category-count oral-scene-count"
         href={url}
         title={`Oral scenes (${oralTag.name})`}
@@ -230,15 +247,28 @@ export const StudioCard: React.FC<IProps> = ({
   // Solo scenes (marker-based) - hand icon
   function maybeRenderSoloScenesButton() {
     if (!soloTag) return null;
-    
+
     // Use performer-filtered stats when available, otherwise use studio stats
-    const count = performerStats?.solo_scene_count ?? (studio as any).solo_scene_count ?? 0;
+    const count =
+      performerStats?.solo_scene_count ?? (studio as any).solo_scene_count ?? 0;
+    
+    // Solo excludes both sex and oral markers
+    const excludeTags = [];
+    if (sexTag) excludeTags.push({ id: sexTag.id, label: sexTag.name });
+    if (oralTag) excludeTags.push({ id: oralTag.id, label: oralTag.name });
+    
     const url = performerId
-      ? NavUtils.makePerformerStudioMarkerScenesUrl(performerId, studio, soloTag.id, "Solo")
-      : NavUtils.makeStudioMarkerScenesUrl(studio, soloTag.id, "Solo");
+      ? NavUtils.makePerformerStudioMarkerScenesUrl(
+          performerId,
+          studio,
+          soloTag.id,
+          "Solo",
+          excludeTags
+        )
+      : NavUtils.makeStudioMarkerScenesUrl(studio, soloTag.id, "Solo", excludeTags);
 
     return (
-      <Button 
+      <Button
         className="minimal scene-category-count solo-scene-count"
         href={url}
         title={`Solo scenes (${soloTag.name})`}
@@ -255,9 +285,17 @@ export const StudioCard: React.FC<IProps> = ({
     if (!facialTag) return null;
 
     // Use performer-filtered stats when available, otherwise use studio stats
-    const count = performerStats?.facial_scene_count ?? (studio as any).facial_scene_count ?? 0;
+    const count =
+      performerStats?.facial_scene_count ??
+      (studio as any).facial_scene_count ??
+      0;
     const url = performerId
-      ? NavUtils.makePerformerStudioMarkerScenesUrl(performerId, studio, facialTag.id, "Facial")
+      ? NavUtils.makePerformerStudioMarkerScenesUrl(
+          performerId,
+          studio,
+          facialTag.id,
+          "Facial"
+        )
       : NavUtils.makeStudioMarkerScenesUrl(studio, facialTag.id, "Facial");
 
     return (
@@ -394,7 +432,7 @@ export const StudioCard: React.FC<IProps> = ({
 
   function maybeRenderPopoverButtonGroup() {
     const hasCategoryButtons = !!(sexTag || oralTag || soloTag || facialTag);
-    
+
     if (
       studio.scene_count ||
       studio.image_count ||

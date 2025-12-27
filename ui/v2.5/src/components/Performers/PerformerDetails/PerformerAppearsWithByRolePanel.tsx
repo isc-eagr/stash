@@ -25,29 +25,36 @@ interface IPerformerAppearsWithByRolePanelProps {
   performer: GQL.PerformerDataFragment;
 }
 
+interface IPerformerWithCount {
+  performer: GQL.PerformerDataFragment;
+  sceneCount: number;
+}
+
 interface IRoleSectionProps {
   title: string;
   subtitle?: string;
-  performers: GQL.PerformerDataFragment[];
+  performers: IPerformerWithCount[];
   emptyMessage?: string;
-  currentPerformerId: string;
-  roleCategory: 'sex' | 'oral' | 'facial';
-  roleType: 'giver' | 'receiver';
+  currentPerformer: GQL.PerformerDataFragment;
+  roleCategory: "sex" | "oral" | "facial";
+  roleType: "top" | "bottom";
 }
 
-// Custom compact card for role panel - no role badges, just scene count
+// Custom compact card for role panel - shows scene count badge
 interface ICoPerformerCardProps {
   performer: GQL.PerformerDataFragment;
-  currentPerformerId: string;
-  roleCategory: 'sex' | 'oral' | 'facial';
-  roleType: 'giver' | 'receiver';
+  sceneCount: number;
+  currentPerformer: GQL.PerformerDataFragment;
+  roleCategory: "sex" | "oral" | "facial";
+  roleType: "top" | "bottom";
 }
 
-const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({ 
-  performer, 
-  currentPerformerId,
+const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
+  performer,
+  sceneCount,
+  currentPerformer,
   roleCategory,
-  roleType 
+  roleType,
 }) => {
   const intl = useIntl();
   const { configuration } = useConfigurationContext();
@@ -78,40 +85,55 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
 
   // Get role tag IDs
   const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-  const tagId = roleCategory === 'sex' ? roleTagIds.sexTagId :
-                roleCategory === 'oral' ? roleTagIds.oralTagId :
-                roleTagIds.facialTagId;
+  const tagId =
+    roleCategory === "sex"
+      ? roleTagIds.sexTagId
+      : roleCategory === "oral"
+      ? roleTagIds.oralTagId
+      : roleTagIds.facialTagId;
 
   // Build URL for shared scenes with both performers in this specific role
-  // Using scene_marker_tags criterion with giver/receiver performer IDs
+  // Using new scene_marker_tags filter structure with top/bottom performer attributes
   const tagLabel = roleCategory.charAt(0).toUpperCase() + roleCategory.slice(1);
-  
-  // Determine which performer is giver and which is receiver based on roleType
-  // roleType indicates the CURRENT performer's role
-  // If current performer was "giver", then co-performer was "receiver" and vice versa
-  const giverPerformerId = roleType === 'giver' ? currentPerformerId : performer.id;
-  const giverPerformerLabel = roleType === 'giver' ? "" : performer.name;
-  const receiverPerformerId = roleType === 'giver' ? performer.id : currentPerformerId;
-  const receiverPerformerLabel = roleType === 'giver' ? performer.name : "";
 
-  const sharedScenesUrl = tagId 
-    ? `/scenes?c=${encodeURIComponent(JSON.stringify({
-        "type": "scene_marker_tags",
-        "modifier": "EQUALS",
-        "extendedGroups": [{
-          "tags": [{ "id": tagId, "label": tagLabel }],
-          "giver_performer_ids": [{ "id": giverPerformerId, "label": giverPerformerLabel }],
-          "receiver_performer_ids": [{ "id": receiverPerformerId, "label": receiverPerformerLabel }],
-          "both_roles_performer_ids": [],
-          "performer_mode": "AND"
-        }]
-      }))}&sortby=date`
+  // Determine which performer is top and which is bottom based on roleType
+  // roleType indicates the CURRENT performer's role
+  // If current performer was "top", then co-performer was "bottom" and vice versa
+  const topPerformerId =
+    roleType === "top" ? currentPerformer.id : performer.id;
+  const topPerformerLabel =
+    roleType === "top" ? currentPerformer.name || "" : performer.name || "";
+  const bottomPerformerId =
+    roleType === "top" ? performer.id : currentPerformer.id;
+  const bottomPerformerLabel =
+    roleType === "top" ? performer.name || "" : currentPerformer.name || "";
+
+  const sharedScenesUrl = tagId
+    ? `/scenes?c=${encodeURIComponent(
+        JSON.stringify({
+          type: "scene_markers",
+          modifier: "INCLUDES_ALL",
+          groups: [
+            {
+              groupId: "A",
+              tag_ids: [{ id: tagId, label: tagLabel }],
+              depth: 0,
+              top_performer_ids: [{ id: topPerformerId, label: topPerformerLabel }],
+              top_ethnicities: [],
+              top_countries: [],
+              top_rating: null,
+              bottom_performer_ids: [{ id: bottomPerformerId, label: bottomPerformerLabel }],
+              bottom_ethnicities: [],
+              bottom_countries: [],
+              bottom_rating: null,
+            },
+          ],
+        })
+      )}&sortby=date`
     : undefined;
 
-  // Calculate shared scene count
-  // This is a placeholder - ideally this would come from the GraphQL query
-  // For now, we'll show a count button that navigates to the filtered scenes
-  const sharedSceneCount = 1; // Placeholder - should be calculated from backend
+  // Use the scene count from GraphQL query
+  const sharedSceneCount = sceneCount;
 
   // Determine rating class for special styling
   const getRatingClass = () => {
@@ -132,8 +154,25 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
         <GenderIcon className="gender-icon" gender={performer.gender} />
       }
       title={
-        <div>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
           <span className="performer-name">{performer.name}</span>
+          {sharedSceneCount > 1 && (
+            <span
+              className="badge badge-primary"
+              style={{
+                borderRadius: "50%",
+                width: "20px",
+                height: "20px",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "0.7rem",
+                padding: 0,
+              }}
+            >
+              {sharedSceneCount}
+            </span>
+          )}
           {performer.disambiguation && (
             <span className="performer-disambiguation">
               {` (${performer.disambiguation})`}
@@ -179,7 +218,7 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
         </div>
       }
       popovers={
-        sharedScenesUrl && (
+        sharedScenesUrl && sharedSceneCount > 0 ? (
           <>
             <hr />
             <ButtonGroup className="card-popovers">
@@ -191,7 +230,7 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
               />
             </ButtonGroup>
           </>
-        )
+        ) : undefined
       }
     />
   );
@@ -202,7 +241,7 @@ const RoleSection: React.FC<IRoleSectionProps> = ({
   subtitle,
   performers,
   emptyMessage,
-  currentPerformerId,
+  currentPerformer,
   roleCategory,
   roleType,
 }) => {
@@ -210,8 +249,11 @@ const RoleSection: React.FC<IRoleSectionProps> = ({
 
   return (
     <>
-      <div className="d-inline-block align-top mr-2 mb-2 ml-4" style={{ minWidth: '120px' }}>
-        <h6 className="mb-1" style={{ fontSize: '0.9rem', fontWeight: 600 }}>
+      <div
+        className="d-inline-block align-top mr-2 mb-2 ml-4"
+        style={{ minWidth: "120px" }}
+      >
+        <h6 className="mb-1" style={{ fontSize: "0.9rem", fontWeight: 600 }}>
           {title}
           {subtitle && <small className="text-muted ml-2">({subtitle})</small>}
         </h6>
@@ -219,10 +261,15 @@ const RoleSection: React.FC<IRoleSectionProps> = ({
       </div>
       {performers.length > 0 ? (
         performers.map((p) => (
-          <div key={p.id} className="d-inline-block align-top mr-2 mb-2" style={{ width: '180px' }}>
-            <CoPerformerCard 
-              performer={p} 
-              currentPerformerId={currentPerformerId}
+          <div
+            key={p.performer.id}
+            className="d-inline-block align-top mr-2 mb-2"
+            style={{ width: "180px" }}
+          >
+            <CoPerformerCard
+              performer={p.performer}
+              sceneCount={p.sceneCount}
+              currentPerformer={currentPerformer}
               roleCategory={roleCategory}
               roleType={roleType}
             />
@@ -238,13 +285,13 @@ const RoleSection: React.FC<IRoleSectionProps> = ({
 export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRolePanelProps> =
   PatchComponent("PerformerAppearsWithByRolePanel", ({ active, performer }) => {
     const { configuration } = useConfigurationContext();
-    
+
     // Get role tag IDs from configuration
     const roleTagIds = configuration?.ui?.roleTagIds ?? {};
     const hasSexTag = !!roleTagIds.sexTagId;
     const hasOralTag = !!roleTagIds.oralTagId;
     const hasFacialTag = !!roleTagIds.facialTagId;
-    
+
     // Query co-performers by role
     const { data, loading, error } = GQL.usePerformerCoPerformersByRoleQuery({
       variables: { performer_id: performer.id },
@@ -266,26 +313,45 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
     if (!coPerformers) {
       return (
         <div className="text-muted p-3">
-          <FormattedMessage id="no_performers_found" defaultMessage="No co-performers found" />
+          <FormattedMessage
+            id="no_performers_found"
+            defaultMessage="No co-performers found"
+          />
         </div>
       );
     }
 
+    // Map GraphQL response to IPerformerWithCount format
+    const mapToPerformerWithCount = (items: any[] | null | undefined): IPerformerWithCount[] => {
+      if (!items) return [];
+      return items.map((item) => ({
+        performer: item.performer,
+        sceneCount: item.scene_count,
+      }));
+    };
+
+    const sexAsTop = mapToPerformerWithCount(coPerformers.sex_as_top);
+    const sexAsBottom = mapToPerformerWithCount(coPerformers.sex_as_bottom);
+    const oralAsTop = mapToPerformerWithCount(coPerformers.oral_as_top);
+    const oralAsBottom = mapToPerformerWithCount(coPerformers.oral_as_bottom);
+    const facialAsTop = mapToPerformerWithCount(coPerformers.facial_as_top);
+    const facialAsBottom = mapToPerformerWithCount(coPerformers.facial_as_bottom);
+
     // Check if there's any data at all
-    const hasAnyData = 
-      (coPerformers.sex_as_giver?.length ?? 0) > 0 ||
-      (coPerformers.sex_as_receiver?.length ?? 0) > 0 ||
-      (coPerformers.oral_as_giver?.length ?? 0) > 0 ||
-      (coPerformers.oral_as_receiver?.length ?? 0) > 0 ||
-      (coPerformers.facial_as_giver?.length ?? 0) > 0 ||
-      (coPerformers.facial_as_receiver?.length ?? 0) > 0;
+    const hasAnyData =
+      sexAsTop.length > 0 ||
+      sexAsBottom.length > 0 ||
+      oralAsTop.length > 0 ||
+      oralAsBottom.length > 0 ||
+      facialAsTop.length > 0 ||
+      facialAsBottom.length > 0;
 
     if (!hasAnyData) {
       return (
         <div className="text-muted p-3">
-          <FormattedMessage 
-            id="no_co_performers_with_roles" 
-            defaultMessage="No co-performers with marker roles found. Add scene markers with giver/receiver assignments to see co-performers organized by role." 
+          <FormattedMessage
+            id="no_co_performers_with_roles"
+            defaultMessage="No co-performers with marker roles found. Add scene markers with top/bottom assignments to see co-performers organized by role."
           />
         </div>
       );
@@ -295,87 +361,129 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
       <div className="performer-appears-with-by-role-panel p-3">
         {/* Sex Section */}
         {hasSexTag && (
-          <div className="d-inline-block align-top mr-3 mb-3 p-3" style={{ 
-            backgroundColor: 'rgba(255, 255, 255, 0.05)', 
-            borderRadius: '8px',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
-          }}>
-            <div className="d-inline-block align-top mr-3 mb-2" style={{ minWidth: '60px' }}>
-              <img src={gaySvg} alt="Sex" style={{ width: '32px', height: '32px', filter: 'brightness(0) invert(1)' }} />
+          <div
+            className="d-inline-block align-top mr-3 mb-3 p-3"
+            style={{
+              backgroundColor: "rgba(255, 255, 255, 0.05)",
+              borderRadius: "8px",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+            }}
+          >
+            <div
+              className="d-inline-block align-top mr-3 mb-2"
+              style={{ minWidth: "60px" }}
+            >
+              <img
+                src={gaySvg}
+                alt="Sex"
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  filter: "brightness(0) invert(1)",
+                }}
+              />
             </div>
             <RoleSection
               title="Topped"
               subtitle=""
-              performers={coPerformers.sex_as_giver ?? []}
-              currentPerformerId={performer.id}
+              performers={sexAsTop}
+              currentPerformer={performer}
               roleCategory="sex"
-              roleType="giver"
+              roleType="top"
             />
             <RoleSection
               title="Bottomed For"
               subtitle=""
-              performers={coPerformers.sex_as_receiver ?? []}
-              currentPerformerId={performer.id}
+              performers={sexAsBottom}
+              currentPerformer={performer}
               roleCategory="sex"
-              roleType="receiver"
+              roleType="bottom"
             />
           </div>
         )}
 
         {/* Oral Section */}
         {hasOralTag && (
-          <div className="d-inline-block align-top mr-3 mb-3 p-3" style={{ 
-            backgroundColor: 'rgba(255, 255, 255, 0.05)', 
-            borderRadius: '8px',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
-          }}>
-            <div className="d-inline-block align-top mr-3 mb-2" style={{ minWidth: '60px' }}>
-              <img src={mouthSvg} alt="Oral" style={{ width: '32px', height: '32px', filter: 'brightness(0) invert(1)' }} />
+          <div
+            className="d-inline-block align-top mr-3 mb-3 p-3"
+            style={{
+              backgroundColor: "rgba(255, 255, 255, 0.05)",
+              borderRadius: "8px",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+            }}
+          >
+            <div
+              className="d-inline-block align-top mr-3 mb-2"
+              style={{ minWidth: "60px" }}
+            >
+              <img
+                src={mouthSvg}
+                alt="Oral"
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  filter: "brightness(0) invert(1)",
+                }}
+              />
             </div>
             <RoleSection
               title="Topped"
               subtitle=""
-              performers={coPerformers.oral_as_giver ?? []}
-              currentPerformerId={performer.id}
+              performers={oralAsTop}
+              currentPerformer={performer}
               roleCategory="oral"
-              roleType="giver"
+              roleType="top"
             />
             <RoleSection
               title="Bottomed For"
               subtitle=""
-              performers={coPerformers.oral_as_receiver ?? []}
-              currentPerformerId={performer.id}
+              performers={oralAsBottom}
+              currentPerformer={performer}
               roleCategory="oral"
-              roleType="receiver"
+              roleType="bottom"
             />
           </div>
         )}
 
         {/* Facial Section */}
         {hasFacialTag && (
-          <div className="d-inline-block align-top mr-3 mb-3 p-3" style={{ 
-            backgroundColor: 'rgba(255, 255, 255, 0.05)', 
-            borderRadius: '8px',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
-          }}>
-            <div className="d-inline-block align-top mr-3 mb-2" style={{ minWidth: '60px' }}>
-              <img src={goateeSvg} alt="Facial" style={{ width: '32px', height: '32px', filter: 'brightness(0) invert(1)' }} />
+          <div
+            className="d-inline-block align-top mr-3 mb-3 p-3"
+            style={{
+              backgroundColor: "rgba(255, 255, 255, 0.05)",
+              borderRadius: "8px",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+            }}
+          >
+            <div
+              className="d-inline-block align-top mr-3 mb-2"
+              style={{ minWidth: "60px" }}
+            >
+              <img
+                src={goateeSvg}
+                alt="Facial"
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  filter: "brightness(0) invert(1)",
+                }}
+              />
             </div>
             <RoleSection
               title="Given"
               subtitle=""
-              performers={coPerformers.facial_as_giver ?? []}
-              currentPerformerId={performer.id}
+              performers={facialAsTop}
+              currentPerformer={performer}
               roleCategory="facial"
-              roleType="giver"
+              roleType="top"
             />
             <RoleSection
               title="Received"
               subtitle=""
-              performers={coPerformers.facial_as_receiver ?? []}
-              currentPerformerId={performer.id}
+              performers={facialAsBottom}
+              currentPerformer={performer}
               roleCategory="facial"
-              roleType="receiver"
+              roleType="bottom"
             />
           </div>
         )}

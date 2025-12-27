@@ -33,9 +33,7 @@ export const PerformerCountryFilter: React.FC<{
       options={options}
       placeholder="Country"
       onChange={(vals) =>
-        onValueChanged(
-          (vals as IOption[]).map((v) => v.value).join(",")
-        )
+        onValueChanged((vals as IOption[]).map((v) => v.value).join(","))
       }
       components={{ IndicatorSeparator: null }}
       menuPortalTarget={document.body}

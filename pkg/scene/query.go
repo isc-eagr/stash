@@ -184,7 +184,7 @@ func CountByGroupID(ctx context.Context, r models.SceneQueryer, id int, depth *i
 }
 
 // CountByPerformerMarkerRole counts distinct scenes where a performer participates
-// in markers with the given primary tag and optionally a specific role (giver/receiver).
+// in markers with the given primary tag and optionally a specific role (top/bottom).
 // If role is empty, counts all markers with that tag regardless of role.
 func CountByPerformerMarkerRole(ctx context.Context, r models.SceneMarkerQueryer, performerID int, tagID int, role string) (int, error) {
 	if tagID == 0 {
@@ -200,26 +200,26 @@ func CountByPerformerMarkerRole(ctx context.Context, r models.SceneMarkerQueryer
 	}
 
 	// Add marker performer filter with role
-	giverIDs := []string{}
-	receiverIDs := []string{}
+	topIDs := []string{}
+	bottomIDs := []string{}
 	performerIDStr := strconv.Itoa(performerID)
 
-	if role == "giver" {
-		giverIDs = append(giverIDs, performerIDStr)
-	} else if role == "receiver" {
-		receiverIDs = append(receiverIDs, performerIDStr)
+	if role == "top" {
+		topIDs = append(topIDs, performerIDStr)
+	} else if role == "bottom" {
+		bottomIDs = append(bottomIDs, performerIDStr)
 	} else {
 		// Any role - check both
-		giverIDs = append(giverIDs, performerIDStr)
-		receiverIDs = append(receiverIDs, performerIDStr)
+		topIDs = append(topIDs, performerIDStr)
+		bottomIDs = append(bottomIDs, performerIDStr)
 	}
 
 	mode := "OR"
 	filter.MarkerPerformers = &models.MarkerPerformersFilterInput{
-		GiverPerformerIDs:    giverIDs,
-		ReceiverPerformerIDs: receiverIDs,
-		Mode:                 &mode,
-		Modifier:             models.CriterionModifierIncludes,
+		TopPerformerIDs:    topIDs,
+		BottomPerformerIDs: bottomIDs,
+		Mode:               &mode,
+		Modifier:           models.CriterionModifierIncludes,
 	}
 
 	// Use PerPage=-1 to get all results, not just the default 25
@@ -327,25 +327,25 @@ func getScenesByPerformerMarkerRole(ctx context.Context, r models.SceneMarkerQue
 		},
 	}
 
-	giverIDs := []string{}
-	receiverIDs := []string{}
+	topIDs := []string{}
+	bottomIDs := []string{}
 	performerIDStr := strconv.Itoa(performerID)
 
-	if role == "giver" {
-		giverIDs = append(giverIDs, performerIDStr)
-	} else if role == "receiver" {
-		receiverIDs = append(receiverIDs, performerIDStr)
+	if role == "top" {
+		topIDs = append(topIDs, performerIDStr)
+	} else if role == "bottom" {
+		bottomIDs = append(bottomIDs, performerIDStr)
 	} else {
-		giverIDs = append(giverIDs, performerIDStr)
-		receiverIDs = append(receiverIDs, performerIDStr)
+		topIDs = append(topIDs, performerIDStr)
+		bottomIDs = append(bottomIDs, performerIDStr)
 	}
 
 	mode := "OR"
 	filter.MarkerPerformers = &models.MarkerPerformersFilterInput{
-		GiverPerformerIDs:    giverIDs,
-		ReceiverPerformerIDs: receiverIDs,
-		Mode:                 &mode,
-		Modifier:             models.CriterionModifierIncludes,
+		TopPerformerIDs:    topIDs,
+		BottomPerformerIDs: bottomIDs,
+		Mode:               &mode,
+		Modifier:           models.CriterionModifierIncludes,
 	}
 
 	// Use PerPage=-1 to get all results, not just the default 25
@@ -366,8 +366,8 @@ func getScenesByPerformerMarkerRole(ctx context.Context, r models.SceneMarkerQue
 }
 
 // GetPerformerMarkerRolesForScene returns the roles a performer has in a specific scene's markers.
-// Returns array of strings like "sex_giver", "sex_receiver", "oral_giver", "oral_receiver",
-// "facial_giver", "facial_receiver", "solo" based on their participation in markers.
+// Returns array of strings like "sex_top", "sex_bottom", "oral_top", "oral_bottom",
+// "facial_top", "facial_bottom", "solo" based on their participation in markers.
 func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerReader, performerID int, sceneID int, sexTagID int, oralTagID int, soloTagID int, facialTagID int) ([]string, error) {
 	roles := []string{}
 
@@ -384,29 +384,29 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 	// Helper to check if a tag ID matches any role tag and add the role
 	addRoleForTag := func(tagID int, role string) {
 		if tagID == sexTagID {
-			if role == "giver" {
-				roles = appendIfNotExists(roles, "sex_giver")
-			} else if role == "receiver" {
-				roles = appendIfNotExists(roles, "sex_receiver")
+			if role == "top" {
+				roles = appendIfNotExists(roles, "sex_top")
+			} else if role == "bottom" {
+				roles = appendIfNotExists(roles, "sex_bottom")
 			}
 		} else if tagID == oralTagID {
-			if role == "giver" {
-				roles = appendIfNotExists(roles, "oral_giver")
-			} else if role == "receiver" {
-				roles = appendIfNotExists(roles, "oral_receiver")
+			if role == "top" {
+				roles = appendIfNotExists(roles, "oral_top")
+			} else if role == "bottom" {
+				roles = appendIfNotExists(roles, "oral_bottom")
 			}
 		} else if tagID == soloTagID {
 			roles = appendIfNotExists(roles, "solo")
 		} else if tagID == facialTagID {
-			if role == "giver" {
-				roles = appendIfNotExists(roles, "facial_giver")
-			} else if role == "receiver" {
-				roles = appendIfNotExists(roles, "facial_receiver")
+			if role == "top" {
+				roles = appendIfNotExists(roles, "facial_top")
+			} else if role == "bottom" {
+				roles = appendIfNotExists(roles, "facial_bottom")
 			}
 		}
 	}
 
-	// Check each marker to see if this performer is giver or receiver
+	// Check each marker to see if this performer is top or bottom
 	for _, marker := range markers {
 		performers, err := r.GetPerformers(ctx, marker.ID)
 		if err != nil {
@@ -632,25 +632,25 @@ func CountByStudioMarkerRole(ctx context.Context, markerQB models.SceneMarkerQue
 
 	// Add performer filter if specified
 	if performerID != nil {
-		giverIDs := []string{}
-		receiverIDs := []string{}
+		topIDs := []string{}
+		bottomIDs := []string{}
 		performerIDStr := strconv.Itoa(*performerID)
 
-		if role == "giver" {
-			giverIDs = append(giverIDs, performerIDStr)
-		} else if role == "receiver" {
-			receiverIDs = append(receiverIDs, performerIDStr)
+		if role == "top" {
+			topIDs = append(topIDs, performerIDStr)
+		} else if role == "bottom" {
+			bottomIDs = append(bottomIDs, performerIDStr)
 		} else {
-			giverIDs = append(giverIDs, performerIDStr)
-			receiverIDs = append(receiverIDs, performerIDStr)
+			topIDs = append(topIDs, performerIDStr)
+			bottomIDs = append(bottomIDs, performerIDStr)
 		}
 
 		mode := "OR"
 		filter.MarkerPerformers = &models.MarkerPerformersFilterInput{
-			GiverPerformerIDs:    giverIDs,
-			ReceiverPerformerIDs: receiverIDs,
-			Mode:                 &mode,
-			Modifier:             models.CriterionModifierIncludes,
+			TopPerformerIDs:    topIDs,
+			BottomPerformerIDs: bottomIDs,
+			Mode:               &mode,
+			Modifier:           models.CriterionModifierIncludes,
 		}
 	}
 
@@ -819,25 +819,25 @@ func getStudioScenesWithMarkerTag(ctx context.Context, markerQB models.SceneMark
 	}
 
 	if performerID != nil {
-		giverIDs := []string{}
-		receiverIDs := []string{}
+		topIDs := []string{}
+		bottomIDs := []string{}
 		performerIDStr := strconv.Itoa(*performerID)
 
-		if role == "giver" {
-			giverIDs = append(giverIDs, performerIDStr)
-		} else if role == "receiver" {
-			receiverIDs = append(receiverIDs, performerIDStr)
+		if role == "top" {
+			topIDs = append(topIDs, performerIDStr)
+		} else if role == "bottom" {
+			bottomIDs = append(bottomIDs, performerIDStr)
 		} else {
-			giverIDs = append(giverIDs, performerIDStr)
-			receiverIDs = append(receiverIDs, performerIDStr)
+			topIDs = append(topIDs, performerIDStr)
+			bottomIDs = append(bottomIDs, performerIDStr)
 		}
 
 		mode := "OR"
 		filter.MarkerPerformers = &models.MarkerPerformersFilterInput{
-			GiverPerformerIDs:    giverIDs,
-			ReceiverPerformerIDs: receiverIDs,
-			Mode:                 &mode,
-			Modifier:             models.CriterionModifierIncludes,
+			TopPerformerIDs:    topIDs,
+			BottomPerformerIDs: bottomIDs,
+			Mode:               &mode,
+			Modifier:           models.CriterionModifierIncludes,
 		}
 	}
 

@@ -1,6 +1,8 @@
 import { PerformersCriterionOption } from "./criteria/performers";
 import { MarkersScenesCriterionOption } from "./criteria/scenes";
-import { SceneTagsCriterionOption, TagsCriterionOption, MarkerTagsWithPerformersCriterionOption } from "./criteria/tags";
+// CUSTOM: TagsCriterionOption is still imported for potential future use but commented out in criterionOptions
+// Tags functionality is now integrated into MarkerPerformersCriterionOption
+import { SceneTagsCriterionOption, TagsCriterionOption } from "./criteria/tags";
 import { MarkerPerformersCriterionOption } from "./criteria/marker-performers";
 import { StudiosCriterionOption } from "./criteria/studios";
 import { ListFilterOptions } from "./filter-options";
@@ -46,21 +48,9 @@ const SceneDirectorCriterionOption = new ModifierCriterionOption({
   ],
   defaultModifier: CriterionModifier.Equals,
   inputType: "text",
-  makeCriterion: (o) => new StringCriterion(o as unknown as ModifierCriterionOption),
+  makeCriterion: (o) =>
+    new StringCriterion(o as unknown as ModifierCriterionOption),
 });
-
-// Has Marker Performers criterion option
-const HasMarkerPerformersCriterionOption = new StringBooleanCriterionOption(
-  "has_marker_performers",
-  "has_marker_performers",
-  () => new HasMarkerPerformersCriterion()
-);
-
-class HasMarkerPerformersCriterion extends StringBooleanCriterion {
-  constructor() {
-    super(HasMarkerPerformersCriterionOption);
-  }
-}
 
 // Has End Time criterion option
 const HasEndTimeCriterionOption = new BooleanCriterionOption(
@@ -76,7 +66,10 @@ class HasEndTimeCriterion extends BooleanCriterion {
 }
 
 const criterionOptions = [
-  TagsCriterionOption,
+  // CUSTOM: Commented out TagsCriterionOption - tags functionality is now integrated
+  // into MarkerPerformersCriterionOption for a unified filter experience.
+  // Preserving this comment for merge compatibility with upstream.
+  // TagsCriterionOption,
   MarkersScenesCriterionOption,
   SceneTagsCriterionOption,
   MarkerPerformersCriterionOption,
@@ -94,12 +87,10 @@ const criterionOptions = [
     ],
     defaultModifier: CriterionModifier.Equals,
     inputType: "text",
-    makeCriterion: (o) => new CountryCriterion(o as unknown as ModifierCriterionOption),
+    makeCriterion: (o) =>
+      new CountryCriterion(o as unknown as ModifierCriterionOption),
   }),
   PerformerRatingCriterionOption,
-  // Marker Tags with Performers: combines marker tags with performer attributes (giver/receiver/both roles)
-  MarkerTagsWithPerformersCriterionOption,
-  HasMarkerPerformersCriterionOption,
   HasEndTimeCriterionOption,
   SceneDirectorCriterionOption,
   createNullDurationCriterionOption("duration"),

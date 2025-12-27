@@ -36,11 +36,11 @@ type Performer {
   alias_list: [String!]!
   favorite: Boolean!
   tags: [Tag!]!
-  
+
   # Scene-context marker roles: returns this performer's roles in a specific scene's markers
-  # Returns array of role strings: "sex_giver", "sex_receiver", "oral_giver", "oral_receiver", "facial_giver", "facial_receiver", "solo"
+  # Returns array of role strings: "sex_top", "sex_bottom", "oral_top", "oral_bottom", "facial_top", "facial_bottom", "solo"
   scene_marker_roles(scene_id: ID!): [String!]!
-  
+
   ignore_auto_tag: Boolean!
 
   image_path: String # Resolver
@@ -51,26 +51,21 @@ type Performer {
   movie_count: Int! @deprecated(reason: "use group_count instead") # Resolver
   performer_count: Int! # Resolver
   o_counter: Int # Resolver
-  
   # Role-based scene counts from scene_marker_performers
   # Sex scenes: scenes with markers having the configured sex tag
   sex_scene_count: Int! # Resolver - total sex scenes
-  sex_giver_count: Int! # Resolver - sex scenes where performer is giver (top)
-  sex_receiver_count: Int! # Resolver - sex scenes where performer is receiver (bottom)
-  
-  # Oral scenes: scenes with oral markers but no sex markers  
+  sex_top_count: Int! # Resolver - sex scenes where performer is top
+  sex_bottom_count: Int! # Resolver - sex scenes where performer is bottom
+  # Oral scenes: scenes with oral markers but no sex markers
   oral_scene_count: Int! # Resolver - total oral scenes (excludes sex scenes)
-  oral_giver_count: Int! # Resolver - oral scenes where performer is giver
-  oral_receiver_count: Int! # Resolver - oral scenes where performer is receiver
-  
+  oral_top_count: Int! # Resolver - oral scenes where performer is top
+  oral_bottom_count: Int! # Resolver - oral scenes where performer is bottom
   # Solo scenes: scenes with solo markers but no sex/oral markers
   solo_scene_count: Int! # Resolver - total solo scenes
-  
   # Facial scenes: scenes with facial markers (independent of other markers)
   facial_scene_count: Int! # Resolver - total facial scenes
-  facial_giver_count: Int! # Resolver - facial scenes where performer is giver
-  facial_receiver_count: Int! # Resolver - facial scenes where performer is receiver
-  
+  facial_top_count: Int! # Resolver - facial scenes where performer is top
+  facial_bottom_count: Int! # Resolver - facial scenes where performer is bottom
   scenes: [Scene!]!
   stash_ids: [StashID!]!
   # rating expressed as 1-100
@@ -200,7 +195,6 @@ input BulkPerformerUpdateInput {
   ignore_auto_tag: Boolean
 
   custom_fields: CustomFieldsInput
-
 }
 
 input PerformerDestroyInput {
@@ -212,20 +206,26 @@ type FindPerformersResultType {
   performers: [Performer!]!
 }
 
+"A co-performer with the number of scenes they appeared together in that role"
+type PerformerWithSceneCount {
+  performer: Performer!
+  scene_count: Int!
+}
+
 "Co-performers grouped by their role relationship to a performer"
 type PerformerCoPerformersByRole {
-  "Performers who were receivers when this performer was giver in sex scenes"
-  sex_as_giver: [Performer!]!
-  "Performers who were givers when this performer was receiver in sex scenes"
-  sex_as_receiver: [Performer!]!
-  "Performers who were receivers when this performer was giver in oral scenes"
-  oral_as_giver: [Performer!]!
-  "Performers who were givers when this performer was receiver in oral scenes"
-  oral_as_receiver: [Performer!]!
-  "Performers who were receivers when this performer was giver in facial scenes"
-  facial_as_giver: [Performer!]!
-  "Performers who were givers when this performer was receiver in facial scenes"
-  facial_as_receiver: [Performer!]!
+  "Performers who were bottoms when this performer was top in sex scenes"
+  sex_as_top: [PerformerWithSceneCount!]!
+  "Performers who were tops when this performer was bottom in sex scenes"
+  sex_as_bottom: [PerformerWithSceneCount!]!
+  "Performers who were bottoms when this performer was top in oral scenes"
+  oral_as_top: [PerformerWithSceneCount!]!
+  "Performers who were tops when this performer was bottom in oral scenes"
+  oral_as_bottom: [PerformerWithSceneCount!]!
+  "Performers who were bottoms when this performer was top in facial scenes"
+  facial_as_top: [PerformerWithSceneCount!]!
+  "Performers who were tops when this performer was bottom in facial scenes"
+  facial_as_bottom: [PerformerWithSceneCount!]!
   "Total count of unique co-performers across all roles"
   unique_count: Int!
 }
