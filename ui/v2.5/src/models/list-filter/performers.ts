@@ -22,6 +22,7 @@ import { GroupsCriterionOption } from "./criteria/groups";
 import { PerformerMarkersCriterionOption } from "./criteria/performer-markers";
 import { PerformerMarkersExcludeCriterionOption } from "./criteria/performer-markers-exclude";
 import { HasMarkersCriterionOption } from "./criteria/has-markers";
+import { ProfileImageCountCriterionOption } from "./criteria/profile-image-count";
 
 const defaultSortBy = "name";
 const sortByOptions = [
@@ -113,6 +114,7 @@ const criterionOptions = [
   createMandatoryNumberCriterionOption("tag_count"),
   createMandatoryNumberCriterionOption("scene_count"),
   createMandatoryNumberCriterionOption("image_count"),
+  ProfileImageCountCriterionOption,
   createMandatoryNumberCriterionOption("gallery_count"),
   createMandatoryNumberCriterionOption("play_count"),
   createMandatoryNumberCriterionOption("o_counter", "o_count", {

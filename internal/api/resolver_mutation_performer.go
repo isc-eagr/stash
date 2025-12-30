@@ -11,6 +11,7 @@ import (
 	"github.com/stashapp/stash/pkg/plugin/hook"
 	"github.com/stashapp/stash/pkg/sliceutil/stringslice"
 	"github.com/stashapp/stash/pkg/utils"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 )
 
 const (
@@ -526,6 +527,23 @@ func (r *mutationResolver) PerformerImageUpload(ctx context.Context, performerID
 		checksum, err := r.repository.Blobs.Write(ctx, imageData)
 		if err != nil {
 			return fmt.Errorf("storing image blob: %w", err)
+		}
+
+		// Dedupe: if this performer already has an additional image pointing at this blob,
+		// return the existing row instead of inserting a duplicate.
+		existing, err := r.repository.PerformerImage.GetByPerformerID(ctx, performerIDInt)
+		if err != nil {
+			return fmt.Errorf("getting performer images for dedupe: %w", err)
+		}
+		for _, e := range existing {
+			if e != nil && e.ImageBlob == checksum {
+				return &gqlerror.Error{
+					Message: "Duplicate performer image (already uploaded)",
+					Extensions: map[string]any{
+						"code": "DUPLICATE_PERFORMER_IMAGE",
+					},
+				}
+			}
 		}
 
 		// Create the performer image entry

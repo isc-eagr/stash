@@ -36,8 +36,12 @@ const (
 	CriterionModifierNotEquals CriterionModifier = "NOT_EQUALS"
 	// >
 	CriterionModifierGreaterThan CriterionModifier = "GREATER_THAN"
+	// >=
+	CriterionModifierGreaterThanEquals CriterionModifier = "GREATER_THAN_EQUALS"
 	// <
 	CriterionModifierLessThan CriterionModifier = "LESS_THAN"
+	// <=
+	CriterionModifierLessThanEquals CriterionModifier = "LESS_THAN_EQUALS"
 	// IS NULL
 	CriterionModifierIsNull CriterionModifier = "IS_NULL"
 	// IS NOT NULL
@@ -60,7 +64,9 @@ var AllCriterionModifier = []CriterionModifier{
 	CriterionModifierEquals,
 	CriterionModifierNotEquals,
 	CriterionModifierGreaterThan,
+	CriterionModifierGreaterThanEquals,
 	CriterionModifierLessThan,
+	CriterionModifierLessThanEquals,
 	CriterionModifierIsNull,
 	CriterionModifierNotNull,
 	CriterionModifierIncludesAll,
@@ -74,7 +80,7 @@ var AllCriterionModifier = []CriterionModifier{
 
 func (e CriterionModifier) IsValid() bool {
 	switch e {
-	case CriterionModifierEquals, CriterionModifierNotEquals, CriterionModifierGreaterThan, CriterionModifierLessThan, CriterionModifierIsNull, CriterionModifierNotNull, CriterionModifierIncludesAll, CriterionModifierIncludes, CriterionModifierExcludes, CriterionModifierMatchesRegex, CriterionModifierNotMatchesRegex, CriterionModifierBetween, CriterionModifierNotBetween:
+	case CriterionModifierEquals, CriterionModifierNotEquals, CriterionModifierGreaterThan, CriterionModifierGreaterThanEquals, CriterionModifierLessThan, CriterionModifierLessThanEquals, CriterionModifierIsNull, CriterionModifierNotNull, CriterionModifierIncludesAll, CriterionModifierIncludes, CriterionModifierExcludes, CriterionModifierMatchesRegex, CriterionModifierNotMatchesRegex, CriterionModifierBetween, CriterionModifierNotBetween:
 		return true
 	}
 	return false
@@ -124,7 +130,7 @@ type IntCriterionInput struct {
 
 func (i IntCriterionInput) ValidModifier() bool {
 	switch i.Modifier {
-	case CriterionModifierEquals, CriterionModifierNotEquals, CriterionModifierGreaterThan, CriterionModifierLessThan, CriterionModifierIsNull, CriterionModifierNotNull, CriterionModifierBetween, CriterionModifierNotBetween:
+	case CriterionModifierEquals, CriterionModifierNotEquals, CriterionModifierGreaterThan, CriterionModifierGreaterThanEquals, CriterionModifierLessThan, CriterionModifierLessThanEquals, CriterionModifierIsNull, CriterionModifierNotNull, CriterionModifierBetween, CriterionModifierNotBetween:
 		return true
 	}
 	return false
@@ -138,7 +144,7 @@ type FloatCriterionInput struct {
 
 func (i FloatCriterionInput) ValidModifier() bool {
 	switch i.Modifier {
-	case CriterionModifierEquals, CriterionModifierNotEquals, CriterionModifierGreaterThan, CriterionModifierLessThan, CriterionModifierIsNull, CriterionModifierNotNull, CriterionModifierBetween, CriterionModifierNotBetween:
+	case CriterionModifierEquals, CriterionModifierNotEquals, CriterionModifierGreaterThan, CriterionModifierGreaterThanEquals, CriterionModifierLessThan, CriterionModifierLessThanEquals, CriterionModifierIsNull, CriterionModifierNotNull, CriterionModifierBetween, CriterionModifierNotBetween:
 		return true
 	}
 	return false

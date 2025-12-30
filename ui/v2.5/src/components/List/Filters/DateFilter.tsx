@@ -45,6 +45,7 @@ export const DateFilter: React.FC<IDateFilterProps> = ({
   let lowerControl: JSX.Element | null = null;
   if (
     criterion.modifier === CriterionModifier.GreaterThan ||
+    criterion.modifier === CriterionModifier.GreaterThanEquals ||
     criterion.modifier === CriterionModifier.Between ||
     criterion.modifier === CriterionModifier.NotBetween
   ) {
@@ -62,6 +63,7 @@ export const DateFilter: React.FC<IDateFilterProps> = ({
   let upperControl: JSX.Element | null = null;
   if (
     criterion.modifier === CriterionModifier.LessThan ||
+    criterion.modifier === CriterionModifier.LessThanEquals ||
     criterion.modifier === CriterionModifier.Between ||
     criterion.modifier === CriterionModifier.NotBetween
   ) {
@@ -69,14 +71,16 @@ export const DateFilter: React.FC<IDateFilterProps> = ({
       <Form.Group>
         <DateInput
           value={
-            (criterion.modifier === CriterionModifier.LessThan
+            (criterion.modifier === CriterionModifier.LessThan ||
+            criterion.modifier === CriterionModifier.LessThanEquals
               ? value?.value
               : value?.value2) ?? ""
           }
           onValueChange={(v) =>
             onChanged(
               v,
-              criterion.modifier === CriterionModifier.LessThan
+              criterion.modifier === CriterionModifier.LessThan ||
+                criterion.modifier === CriterionModifier.LessThanEquals
                 ? "value"
                 : "value2"
             )

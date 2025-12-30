@@ -27,6 +27,7 @@ This document describes all custom features and modifications added on top of th
 19. [Performer-Filtered Studio Cards](#19-performer-filtered-studio-cards)
 20. [Performer Marker Filters](#20-performer-marker-filters)
 21. [Multiple Performer Images](#21-multiple-performer-images)
+22. [Performer Filter: Profile Image Count](#22-performer-filter-profile-image-count)
 
 ---
 
@@ -967,6 +968,9 @@ type Performer {
 "Upload an additional image for a performer. Returns the new PerformerImage."
 performerImageUpload(performer_id: ID!, image: String!): PerformerImage!
 
+Notes:
+- Duplicate uploads (same underlying blob checksum for the same performer) are rejected with a GraphQL error code `DUPLICATE_PERFORMER_IMAGE`. The UI continues uploading the remaining files and shows a summary of uploaded vs skipped duplicates.
+
 "Delete an additional performer image by ID. Returns true if successful."
 performerImageDelete(id: ID!): Boolean!
 
@@ -1018,6 +1022,59 @@ None - uses existing blob storage system.
 - Additional images are only visible on the performer detail page
 - When an additional image is set as default, the old default is moved to additional images
 - Image controls are only visible on hover and only on the performer detail page
+
+---
+
+## 22. Performer Filter: Profile Image Count
+
+### Overview
+Adds a Performers list filter criterion for the count of *profile images* (the default performer image plus any additional performer images).
+
+This is intentionally separate from the existing `image_count` (which refers to “images the performer belongs to” via normal Stash relationships).
+
+### Count Definition
+For a performer row `performers.id`, the filter uses:
+
+```
+profile_image_count = (performers.image_blob IS NULL ? 0 : 1)
+                    + COUNT(performer_images WHERE performer_id = performers.id)
+```
+
+### GraphQL Schema Extensions
+**File Modified:** `graphql/schema/types/filters.graphql`
+- Added `profile_image_count: IntCriterionInput` to `PerformerFilterType`
+
+### Backend Implementation
+**Files Modified:**
+- `pkg/sqlite/performer_filter.go` - added `profileImageCountCriterionHandler`
+- `pkg/models/performer.go` - added `ProfileImageCount` on `PerformerFilterType`
+
+### Inclusive Comparator Support (>= / <=)
+To support the requested inclusive comparisons, two new criterion modifiers were added:
+- `GREATER_THAN_EQUALS` (>=)
+- `LESS_THAN_EQUALS` (<=)
+
+**Files Modified:**
+- `graphql/schema/types/filters.graphql` - added the enum values
+- `pkg/models/filter.go` - added new `CriterionModifier*Equals` constants + validation
+- `pkg/sqlite/sql.go` - added `>=` and `<=` numeric where-clause generation
+
+### UI Components
+**Files Created:**
+- `ui/v2.5/src/models/list-filter/criteria/profile-image-count.ts`
+
+**Files Modified:**
+- `ui/v2.5/src/models/list-filter/types.ts` - added `profile_image_count` criterion type
+- `ui/v2.5/src/models/list-filter/performers.ts` - registered the criterion option
+- `ui/v2.5/src/models/list-filter/criteria/criterion.ts` - added modifier label mappings
+- `ui/v2.5/src/components/List/Filters/NumberFilter.tsx` - renders inputs for `>=` / `<=`
+- `ui/v2.5/src/components/List/Filters/DateFilter.tsx`
+- `ui/v2.5/src/components/List/Filters/TimestampFilter.tsx`
+- `ui/v2.5/src/components/List/Filters/DurationFilter.tsx`
+- `ui/v2.5/src/components/List/Filters/RatingFilter.tsx`
+- `ui/v2.5/src/components/List/Filters/SidebarAgeFilter.tsx`
+- `ui/v2.5/src/components/List/Filters/SidebarDurationFilter.tsx`
+- `ui/v2.5/src/locales/en-GB.json` and `ui/v2.5/src/locales/en-US.json` - added label strings
 
 ---
 

@@ -72,24 +72,58 @@ export const PerformerImageManager: React.FC<IPerformerImageManagerProps> = ({
 
       setIsLoading(true);
       try {
+      const uploaded: string[] = [];
+      const skippedDuplicates: string[] = [];
+      const failed: string[] = [];
+
+      const isDuplicateError = (err: any): boolean => {
+        const gqlErrors = err?.graphQLErrors;
+        if (!Array.isArray(gqlErrors)) return false;
+        return gqlErrors.some((ge: any) => ge?.extensions?.code === "DUPLICATE_PERFORMER_IMAGE");
+      };
+
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
           const imageData = await readFileAsDataURL(file);
-          
+
+        try {
           await performerImageUpload({
             variables: {
               performer_id: performer.id,
               image: imageData,
             },
           });
+          uploaded.push(file.name);
+        } catch (err) {
+          if (isDuplicateError(err)) {
+            skippedDuplicates.push(file.name);
+          } else {
+            failed.push(file.name);
+          }
         }
-        Toast.success(`${files.length} image(s) uploaded successfully`);
-        
+        }
+
+      if (uploaded.length > 0) {
         // Small delay to ensure transaction commits
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
         await refetch();
-      } catch (error) {
-        Toast.error(error);
+      }
+
+      const parts: string[] = [];
+      if (uploaded.length > 0) parts.push(`Uploaded: ${uploaded.join(", ")}`);
+      if (skippedDuplicates.length > 0)
+        parts.push(`Skipped duplicates: ${skippedDuplicates.join(", ")}`);
+      if (failed.length > 0) parts.push(`Failed: ${failed.join(", ")}`);
+
+      if (failed.length > 0) {
+        Toast.toast({ content: parts.join("\n"), variant: "danger" });
+      } else if (skippedDuplicates.length > 0) {
+        Toast.toast({ content: parts.join("\n"), variant: "warning" });
+      } else {
+        Toast.toast({ content: parts.join("\n"), variant: "success" });
+      }
+    } catch (error) {
+      Toast.error(error);
       } finally {
         setIsLoading(false);
       }

@@ -95,5 +95,10 @@
     "filters": {
         "group": "Group"
     },
-    "task_progress": "Task Progress"
+    "task_progress": "Task Progress",
+    "profile_image_count": "Profile Image Count",
+    "criterion_modifier": {
+        "greater_than_equals": "is greater than or equal to",
+        "less_than_equals": "is less than or equal to"
+    }
 }

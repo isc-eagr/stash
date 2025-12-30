@@ -164,6 +164,7 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 		qb.tagCountCriterionHandler(filter.TagCount),
 		qb.sceneCountCriterionHandler(filter.SceneCount),
 		qb.imageCountCriterionHandler(filter.ImageCount),
+		qb.profileImageCountCriterionHandler(filter.ProfileImageCount),
 		qb.galleryCountCriterionHandler(filter.GalleryCount),
 		qb.playCounterCriterionHandler(filter.PlayCount),
 		qb.oCounterCriterionHandler(filter.OCounter),
@@ -466,6 +467,23 @@ func (qb *performerFilterHandler) imageCountCriterionHandler(count *models.IntCr
 	}
 
 	return h.handler(count)
+}
+
+func (qb *performerFilterHandler) profileImageCountCriterionHandler(count *models.IntCriterionInput) criterionHandlerFunc {
+	return func(ctx context.Context, f *filterBuilder) {
+		if count == nil {
+			return
+		}
+
+		lhs := "(" +
+			"(CASE WHEN performers.image_blob IS NULL THEN 0 ELSE 1 END)" +
+			" + " +
+			"(SELECT COUNT(*) FROM performer_images pi WHERE pi.performer_id = performers.id)" +
+			")"
+
+		clause, args := getIntCriterionWhereClause(lhs, *count)
+		f.addWhere(clause, args...)
+	}
 }
 
 func (qb *performerFilterHandler) galleryCountCriterionHandler(count *models.IntCriterionInput) criterionHandlerFunc {

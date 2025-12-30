@@ -240,8 +240,12 @@ func getNumericWhereClause(column string, modifier models.CriterionModifier, arg
 		return fmt.Sprintf("%s NOT BETWEEN ? AND ?", column), args
 	case models.CriterionModifierLessThan:
 		return fmt.Sprintf("%s < ?", column), singleArgs
+	case models.CriterionModifierLessThanEquals:
+		return fmt.Sprintf("%s <= ?", column), singleArgs
 	case models.CriterionModifierGreaterThan:
 		return fmt.Sprintf("%s > ?", column), singleArgs
+	case models.CriterionModifierGreaterThanEquals:
+		return fmt.Sprintf("%s >= ?", column), singleArgs
 	}
 
 	panic("unsupported numeric modifier type " + modifier)

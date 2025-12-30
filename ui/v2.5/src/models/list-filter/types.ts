@@ -169,6 +169,7 @@ export type CriterionType =
   | "scene_count"
   | "marker_count"
   | "image_count"
+  | "profile_image_count"
   | "gallery_count"
   | "performer_count"
   | "studio_count"

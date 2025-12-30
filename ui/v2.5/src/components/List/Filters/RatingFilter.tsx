@@ -49,7 +49,9 @@ export const RatingFilter: React.FC<IRatingFilterProps> = ({
     criterion.modifier === CriterionModifier.Equals ||
     criterion.modifier === CriterionModifier.NotEquals ||
     criterion.modifier === CriterionModifier.GreaterThan ||
-    criterion.modifier === CriterionModifier.LessThan
+    criterion.modifier === CriterionModifier.GreaterThanEquals ||
+    criterion.modifier === CriterionModifier.LessThan ||
+    criterion.modifier === CriterionModifier.LessThanEquals
   ) {
     return getRatingSystem("value");
   }
