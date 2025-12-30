@@ -80,6 +80,7 @@ type storeRepository struct {
 	Studio          *StudioStore
 	Tag             *TagStore
 	Group           *GroupStore
+	PerformerImage  *PerformerImageStore
 }
 
 type Database struct {
@@ -100,6 +101,7 @@ func NewDatabase() *Database {
 	galleryStore := NewGalleryStore(fileStore, folderStore)
 	blobStore := NewBlobStore(BlobStoreOptions{})
 	performerStore := NewPerformerStore(blobStore)
+	performerImageStore := NewPerformerImageStore(blobStore)
 	studioStore := NewStudioStore(blobStore)
 	tagStore := NewTagStore(blobStore)
 
@@ -115,6 +117,7 @@ func NewDatabase() *Database {
 		Gallery:         galleryStore,
 		GalleryChapter:  NewGalleryChapterStore(),
 		Performer:       performerStore,
+		PerformerImage:  performerImageStore,
 		Studio:          studioStore,
 		Tag:             tagStore,
 		Group:           NewGroupStore(blobStore),

@@ -12,6 +12,7 @@ import { RatingCriterion } from "./tags";
 // Value type for the marker performers criterion
 export interface IMarkerPerformersValue {
   tag_ids: ILabeledId[]; // Tags for filtering markers
+  include_subtags: boolean; // Include child tags (-1 depth when true)
   top_performer_ids: ILabeledId[];
   top_ethnicities: string[];
   top_countries: string[];
@@ -36,6 +37,7 @@ export class MarkerPerformersCriterion extends Criterion {
   public modifier: CriterionModifier = defaultModifier;
   public value: IMarkerPerformersValue = {
     tag_ids: [],
+    include_subtags: false,
     top_performer_ids: [],
     top_ethnicities: [],
     top_countries: [],
@@ -53,6 +55,7 @@ export class MarkerPerformersCriterion extends Criterion {
   protected cloneValues() {
     this.value = {
       tag_ids: this.value.tag_ids.map((t) => ({ ...t })),
+      include_subtags: this.value.include_subtags,
       top_performer_ids: this.value.top_performer_ids.map((p) => ({ ...p })),
       top_ethnicities: [...this.value.top_ethnicities],
       top_countries: [...this.value.top_countries],
@@ -90,7 +93,8 @@ export class MarkerPerformersCriterion extends Criterion {
     const parts: string[] = [];
     if (this.value.tag_ids.length > 0) {
       const tagNames = this.value.tag_ids.map((t) => t.label).join(", ");
-      parts.push(`Tags: ${tagNames}`);
+      const subtagsSuffix = this.value.include_subtags ? " (+subs)" : "";
+      parts.push(`Tags: ${tagNames}${subtagsSuffix}`);
     }
     if (this.value.top_performer_ids.length > 0) {
       const topNames = this.value.top_performer_ids
@@ -139,6 +143,7 @@ export class MarkerPerformersCriterion extends Criterion {
         id: t.id,
         label: t.label,
       })),
+      include_subtags: this.value.include_subtags,
       top_performer_ids: this.value.top_performer_ids.map((p) => ({
         id: p.id,
         label: p.label,
@@ -160,6 +165,7 @@ export class MarkerPerformersCriterion extends Criterion {
     const raw = params as {
       modifier?: CriterionModifier;
       tag_ids?: Array<{ id: string; label: string }>;
+      include_subtags?: boolean;
       top_performer_ids?: Array<{ id: string; label: string }>;
       top_ethnicities?: string[];
       top_countries?: string[];
@@ -177,6 +183,8 @@ export class MarkerPerformersCriterion extends Criterion {
         label: t.label,
       }));
     }
+    if (raw.include_subtags !== undefined)
+      this.value.include_subtags = raw.include_subtags;
     if (raw.top_performer_ids) {
       this.value.top_performer_ids = raw.top_performer_ids.map((p) => ({
         id: p.id,
@@ -232,6 +240,11 @@ export class MarkerPerformersCriterion extends Criterion {
       performer_mode: performerMode,
     };
 
+    // Add depth for subtags if enabled
+    if (this.value.include_subtags) {
+      group.depth = -1; // -1 means all descendants
+    }
+
     // Add top performer attributes if any
     if (this.value.top_performer_ids.length > 0) {
       group.top_performer_ids = this.value.top_performer_ids.map((p) => p.id);
@@ -276,6 +289,7 @@ export class MarkerPerformersCriterion extends Criterion {
         id: t.id,
         label: t.label,
       })),
+      include_subtags: this.value.include_subtags,
       top_performer_ids: this.value.top_performer_ids.map((p) => ({
         id: p.id,
         label: p.label,
@@ -297,6 +311,7 @@ export class MarkerPerformersCriterion extends Criterion {
   public setFromSavedCriterion(savedCriterion: Record<string, unknown>): void {
     const data = savedCriterion[this.criterionOption.type] as {
       tag_ids?: Array<{ id: string; label: string }>;
+      include_subtags?: boolean;
       top_performer_ids?: Array<{ id: string; label: string }>;
       top_ethnicities?: string[];
       top_countries?: string[];
@@ -317,6 +332,8 @@ export class MarkerPerformersCriterion extends Criterion {
         label: t.label,
       }));
     }
+    if (data.include_subtags !== undefined)
+      this.value.include_subtags = data.include_subtags;
     if (data.top_performer_ids) {
       this.value.top_performer_ids = data.top_performer_ids.map((p) => ({
         id: p.id,

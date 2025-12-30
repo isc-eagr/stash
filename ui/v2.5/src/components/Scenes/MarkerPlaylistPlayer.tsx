@@ -63,6 +63,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const videoWrapperRef = useRef<HTMLDivElement>(null);
   const [markers, setMarkers] = useState<IMarkerInfo[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -73,6 +74,8 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [loopSingleMarkerId, setLoopSingleMarkerId] = useState<string | null>(null);
   const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showFullscreenOverlay, setShowFullscreenOverlay] = useState(false);
+  const fullscreenOverlayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Save/Load playlist state
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -244,7 +247,16 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   // Track fullscreen state
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const isNowFullscreen = !!document.fullscreenElement;
+      setIsFullscreen(isNowFullscreen);
+      // Hide overlay when exiting fullscreen
+      if (!isNowFullscreen) {
+        setShowFullscreenOverlay(false);
+        if (fullscreenOverlayTimeoutRef.current) {
+          clearTimeout(fullscreenOverlayTimeoutRef.current);
+          fullscreenOverlayTimeoutRef.current = null;
+        }
+      }
     };
 
     document.addEventListener("fullscreenchange", handleFullscreenChange);
@@ -259,6 +271,38 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
     };
   }, []);
+
+  // Handle mouse movement in fullscreen to show/hide overlay
+  useEffect(() => {
+    const wrapper = videoWrapperRef.current;
+    if (!wrapper) return;
+
+    const handleMouseMove = () => {
+      if (!isFullscreen) return;
+      
+      // Show overlay
+      setShowFullscreenOverlay(true);
+      
+      // Clear existing timeout
+      if (fullscreenOverlayTimeoutRef.current) {
+        clearTimeout(fullscreenOverlayTimeoutRef.current);
+      }
+      
+      // Hide overlay after 3 seconds of inactivity
+      fullscreenOverlayTimeoutRef.current = setTimeout(() => {
+        setShowFullscreenOverlay(false);
+      }, 3000);
+    };
+
+    wrapper.addEventListener("mousemove", handleMouseMove);
+
+    return () => {
+      wrapper.removeEventListener("mousemove", handleMouseMove);
+      if (fullscreenOverlayTimeoutRef.current) {
+        clearTimeout(fullscreenOverlayTimeoutRef.current);
+      }
+    };
+  }, [isFullscreen]);
 
   // Load first marker when markers are ready
   const initialLoadedRef = useRef(false);
@@ -342,22 +386,22 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   }, [history]);
 
   const handleFullscreen = useCallback(() => {
-    const video = videoRef.current;
-    if (!video) return;
+    const wrapper = videoWrapperRef.current;
+    if (!wrapper) return;
 
     if (!isFullscreen) {
-      if (video.requestFullscreen) {
-        video.requestFullscreen();
+      if (wrapper.requestFullscreen) {
+        wrapper.requestFullscreen();
       } else {
         // Fallback for webkit browsers
-        const videoElement = video as HTMLVideoElement & {
+        const wrapperElement = wrapper as HTMLDivElement & {
           webkitRequestFullscreen?: () => void;
           msRequestFullscreen?: () => void;
         };
-        if (videoElement.webkitRequestFullscreen) {
-          videoElement.webkitRequestFullscreen();
-        } else if (videoElement.msRequestFullscreen) {
-          videoElement.msRequestFullscreen();
+        if (wrapperElement.webkitRequestFullscreen) {
+          wrapperElement.webkitRequestFullscreen();
+        } else if (wrapperElement.msRequestFullscreen) {
+          wrapperElement.msRequestFullscreen();
         }
       }
     } else {
@@ -621,8 +665,37 @@ export const MarkerPlaylistPlayer: React.FC = () => {
 
       <div className="player-container">
         <div className={cx("video-section", { "full-width": !showPlaylist })}>
-          <div className="video-wrapper" onClick={handleVideoClick}>
+          <div className="video-wrapper" ref={videoWrapperRef} onClick={handleVideoClick}>
             <video ref={videoRef} playsInline className="video-player" />
+            {/* Fullscreen performer overlay - shows on mouse movement */}
+            {isFullscreen && showFullscreenOverlay && 
+             ((currentMarker?.topPerformerNames && currentMarker.topPerformerNames.length > 0) || 
+              (currentMarker?.bottomPerformerNames && currentMarker.bottomPerformerNames.length > 0)) && (
+              <div className="fullscreen-performer-overlay">
+                {/* Only show arrows if marker has performers in BOTH roles (top and bottom) */}
+                {(() => {
+                  const showRoleArrows = (currentMarker?.topPerformerNames?.length ?? 0) > 0 && (currentMarker?.bottomPerformerNames?.length ?? 0) > 0;
+                  return (
+                    <>
+                      {currentMarker?.topPerformerNames &&
+                        currentMarker.topPerformerNames.length > 0 && (
+                          <div className="performer-info top">
+                            {showRoleArrows && <Icon icon={faArrowUp} className="performer-icon" />}
+                            <span>{currentMarker.topPerformerNames.join(", ")}</span>
+                          </div>
+                        )}
+                      {currentMarker?.bottomPerformerNames &&
+                        currentMarker.bottomPerformerNames.length > 0 && (
+                          <div className="performer-info bottom">
+                            {showRoleArrows && <Icon icon={faArrowDown} className="performer-icon" />}
+                            <span>{currentMarker.bottomPerformerNames.join(", ")}</span>
+                          </div>
+                        )}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
             <div className="video-overlay-controls">
               <Button
                 variant="primary"
@@ -673,11 +746,9 @@ export const MarkerPlaylistPlayer: React.FC = () => {
               <a 
                 href={`/scenes/${currentMarker?.sceneId}`}
                 className="scene-title-link"
-                onClick={(e) => {
-                  e.preventDefault();
-                  history.push(`/scenes/${currentMarker?.sceneId}`);
-                }}
-                title="Go to scene"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open scene in new tab"
               >
                 {currentMarker?.sceneTitle}
               </a>
@@ -685,28 +756,40 @@ export const MarkerPlaylistPlayer: React.FC = () => {
             {(currentMarker?.topPerformerNames && currentMarker.topPerformerNames.length > 0) || 
              (currentMarker?.bottomPerformerNames && currentMarker.bottomPerformerNames.length > 0) ? (
               <div className="now-playing-performers">
-                {currentMarker?.topPerformerNames &&
-                  currentMarker.topPerformerNames.length > 0 && (
-                    <span className="marker-performers top">
-                      <Icon
-                        icon={faArrowUp}
-                        className="performer-icon-top mr-1"
-                        title="Top"
-                      />
-                      {currentMarker.topPerformerNames.join(", ")}
-                    </span>
-                  )}
-                {currentMarker?.bottomPerformerNames &&
-                  currentMarker.bottomPerformerNames.length > 0 && (
-                    <span className="marker-performers bottom">
-                      <Icon
-                        icon={faArrowDown}
-                        className="performer-icon-bottom mr-1"
-                        title="Bottom"
-                      />
-                      {currentMarker.bottomPerformerNames.join(", ")}
-                    </span>
-                  )}
+                {/* Only show arrows if marker has performers in BOTH roles (top and bottom) */}
+                {(() => {
+                  const showRoleArrows = (currentMarker?.topPerformerNames?.length ?? 0) > 0 && (currentMarker?.bottomPerformerNames?.length ?? 0) > 0;
+                  return (
+                    <>
+                      {currentMarker?.topPerformerNames &&
+                        currentMarker.topPerformerNames.length > 0 && (
+                          <span className="marker-performers top">
+                            {showRoleArrows && (
+                              <Icon
+                                icon={faArrowUp}
+                                className="performer-icon-top mr-1"
+                                title="Top"
+                              />
+                            )}
+                            {currentMarker.topPerformerNames.join(", ")}
+                          </span>
+                        )}
+                      {currentMarker?.bottomPerformerNames &&
+                        currentMarker.bottomPerformerNames.length > 0 && (
+                          <span className="marker-performers bottom">
+                            {showRoleArrows && (
+                              <Icon
+                                icon={faArrowDown}
+                                className="performer-icon-bottom mr-1"
+                                title="Bottom"
+                              />
+                            )}
+                            {currentMarker.bottomPerformerNames.join(", ")}
+                          </span>
+                        )}
+                    </>
+                  );
+                })()}
               </div>
             ) : null}
           </div>
@@ -743,23 +826,35 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                   <div className="marker-info">
                     <div className="marker-title">{marker.title}</div>
                     <div className="scene-title">{marker.sceneTitle}</div>
-                    {marker.topPerformerNames &&
-                      marker.topPerformerNames.length > 0 && (
-                        <div className="marker-performers top">
-                          <Icon
-                            icon={faArrowUp}
-                            className="performer-icon-top mr-1"
-                          />
-                          {marker.topPerformerNames.join(", ")}
-                        </div>
-                      )}
-                    {marker.bottomPerformerNames &&
-                      marker.bottomPerformerNames.length > 0 && (
-                        <div className="marker-performers bottom">
-                          <Icon icon={faArrowDown} className="performer-icon-bottom mr-1" />
-                          {marker.bottomPerformerNames.join(", ")}
-                        </div>
-                      )}
+                    {/* Only show arrows if marker has performers in BOTH roles (top and bottom) */}
+                    {(() => {
+                      const showRoleArrows = (marker.topPerformerNames?.length ?? 0) > 0 && (marker.bottomPerformerNames?.length ?? 0) > 0;
+                      return (
+                        <>
+                          {marker.topPerformerNames &&
+                            marker.topPerformerNames.length > 0 && (
+                              <div className="marker-performers top">
+                                {showRoleArrows && (
+                                  <Icon
+                                    icon={faArrowUp}
+                                    className="performer-icon-top mr-1"
+                                  />
+                                )}
+                                {marker.topPerformerNames.join(", ")}
+                              </div>
+                            )}
+                          {marker.bottomPerformerNames &&
+                            marker.bottomPerformerNames.length > 0 && (
+                              <div className="marker-performers bottom">
+                                {showRoleArrows && (
+                                  <Icon icon={faArrowDown} className="performer-icon-bottom mr-1" />
+                                )}
+                                {marker.bottomPerformerNames.join(", ")}
+                              </div>
+                            )}
+                        </>
+                      );
+                    })()}
                     <div className="marker-times">
                       {formatTime(marker.seconds)}
                       {marker.end_seconds &&

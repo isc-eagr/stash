@@ -391,6 +391,13 @@ type Mutation {
   performerDestroy(input: PerformerDestroyInput!): Boolean!
   performersDestroy(ids: [ID!]!): Boolean!
   bulkPerformerUpdate(input: BulkPerformerUpdateInput!): [Performer!]
+  
+  "Upload an additional image for a performer. Returns the new PerformerImage."
+  performerImageUpload(performer_id: ID!, image: String!): PerformerImage!
+  "Delete an additional performer image by ID. Returns true if successful."
+  performerImageDelete(id: ID!): Boolean!
+  "Set an additional image as the default performer image. Returns the updated Performer."
+  performerImageSetDefault(id: ID!): Performer!
 
   studioCreate(input: StudioCreateInput!): Studio
   studioUpdate(input: StudioUpdateInput!): Studio

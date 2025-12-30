@@ -174,12 +174,27 @@
       justify-content: center;
       cursor: pointer;
 
+      // When the wrapper is fullscreen
+      &:fullscreen {
+        width: 100vw;
+        height: 100vh;
+        border-radius: 0;
+      }
+
       .video-player {
         max-height: 100%;
-        max-width: 100%;;
+        max-width: 100%;
         width: 100%;
         height: 100%;
         object-fit: contain;
+      }
+
+      // In fullscreen mode, video fills the wrapper
+      &:fullscreen .video-player {
+        width: 100%;
+        height: 100%;
+        max-width: 100vw;
+        max-height: 100vh;
       }
 
       .video-js {
@@ -457,6 +472,62 @@
         }
       }
     }
+  }
+}
+
+// Fullscreen performer overlay - positioned inside the video-wrapper
+.fullscreen-performer-overlay {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 9999;
+  pointer-events: none;
+  animation: fadeIn 0.3s ease-in-out;
+
+  .performer-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background-color: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    white-space: nowrap;
+
+    .performer-icon {
+      font-size: 1.1rem;
+    }
+
+    &.top {
+      .performer-icon {
+        color: #7adb7a;
+      }
+    }
+
+    &.bottom {
+      .performer-icon {
+        color: #7ac4db;
+      }
+    }
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
   }
 }
 

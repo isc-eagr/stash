@@ -856,12 +856,23 @@ func (qb *PerformerStore) GetImage(ctx context.Context, performerID int) ([]byte
 	return qb.blobJoinQueryBuilder.GetImage(ctx, performerID, performerImageBlobColumn)
 }
 
+func (qb *PerformerStore) GetImageBlob(ctx context.Context, performerID int) (*string, error) {
+	return qb.blobJoinQueryBuilder.getChecksum(ctx, performerID, performerImageBlobColumn)
+}
+
 func (qb *PerformerStore) HasImage(ctx context.Context, performerID int) (bool, error) {
 	return qb.blobJoinQueryBuilder.HasImage(ctx, performerID, performerImageBlobColumn)
 }
 
 func (qb *PerformerStore) UpdateImage(ctx context.Context, performerID int, image []byte) error {
 	return qb.blobJoinQueryBuilder.UpdateImage(ctx, performerID, performerImageBlobColumn, image)
+}
+
+func (qb *PerformerStore) UpdateImageBlob(ctx context.Context, performerID int, blobChecksum string) error {
+	// Bump updated_at so image URLs with ?t=<updated_at> cache-bust correctly.
+	sqlQuery := fmt.Sprintf("UPDATE %s SET %s = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", performerTable, performerImageBlobColumn)
+	_, err := dbWrapper.Exec(ctx, sqlQuery, blobChecksum, performerID)
+	return err
 }
 
 func (qb *PerformerStore) destroyImage(ctx context.Context, performerID int) error {

@@ -55,10 +55,12 @@ import { goBackOrReplace } from "src/utils/history";
 import { OCounterButton } from "src/components/Shared/CountButton";
 import { PerformerCategoryStrip } from "./PerformerCategoryStrip";
 import { Counter } from "src/components/Shared/Counter";
+import { PerformerImageManager } from "./PerformerImageManager";
 
 interface IProps {
   performer: GQL.PerformerDataFragment;
   tabKey?: TabKey;
+  refetch: () => Promise<any>;
 }
 
 interface IPerformerParams {
@@ -320,23 +322,43 @@ interface IPerformerHeaderImageProps {
   encodingImage: boolean;
   lightboxImages: ILightboxImage[];
   performer: GQL.PerformerDataFragment;
+  refetch: () => Promise<any>;
 }
 
 const PerformerHeaderImage: React.FC<IPerformerHeaderImageProps> =
   PatchComponent(
     "PerformerHeaderImage",
-    ({ encodingImage, activeImage, lightboxImages, performer }) => {
+    ({ encodingImage, activeImage, lightboxImages, performer, refetch }) => {
+      const [currentImage, setCurrentImage] = React.useState(activeImage);
+
+      React.useEffect(() => {
+        setCurrentImage(activeImage);
+      }, [activeImage]);
+
+      // Build lightbox images with current image as the displayed one
+      const currentLightboxImages = React.useMemo(
+        () => [{ paths: { thumbnail: currentImage, image: currentImage } }],
+        [currentImage]
+      );
+
       return (
         <HeaderImage encodingImage={encodingImage}>
           <div className="d-flex flex-column align-items-center">
-            {!!activeImage && (
-              <LightboxLink images={lightboxImages}>
-                <DetailImage
-                  className="performer"
-                  src={activeImage}
-                  alt={performer.name}
-                />
-              </LightboxLink>
+            {!!currentImage && (
+              <PerformerImageManager
+                performer={performer}
+                activeImage={currentImage}
+                onImageChange={setCurrentImage}
+                refetch={refetch}
+              >
+                <LightboxLink images={currentLightboxImages}>
+                  <DetailImage
+                    className="performer"
+                    src={currentImage}
+                    alt={performer.name}
+                  />
+                </LightboxLink>
+              </PerformerImageManager>
             )}
             <PerformerCategoryStrip performer={performer} />
           </div>
@@ -347,7 +369,7 @@ const PerformerHeaderImage: React.FC<IPerformerHeaderImageProps> =
 
 const PerformerPage: React.FC<IProps> = PatchComponent(
   "PerformerPage",
-  ({ performer, tabKey }) => {
+  ({ performer, tabKey, refetch }) => {
     const Toast = useToast();
     const history = useHistory();
     const intl = useIntl();
@@ -514,6 +536,7 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
               encodingImage={encodingImage}
               lightboxImages={lightboxImages}
               performer={performer}
+              refetch={refetch}
             />
             <div className="row">
               <div className="performer-head col">
@@ -622,9 +645,14 @@ const PerformerLoader: React.FC<RouteComponentProps<IPerformerParams>> = ({
   match,
 }) => {
   const { id, tab } = match.params;
-  const { data, loading, error } = useFindPerformer(id);
+  const { data, loading, error, refetch } = useFindPerformer(id);
 
   useScrollToTopOnMount();
+
+  // Wrap refetch to force network-only fetch (bypass Apollo cache)
+  const forceRefetch = React.useCallback(async () => {
+    return refetch({ fetchPolicy: "network-only" } as any);
+  }, [refetch]);
 
   if (loading) return <LoadingIndicator />;
   if (error) return <ErrorMessage error={error.message} />;
@@ -646,6 +674,7 @@ const PerformerLoader: React.FC<RouteComponentProps<IPerformerParams>> = ({
     <PerformerPage
       performer={data.findPerformer}
       tabKey={tab as TabKey | undefined}
+      refetch={forceRefetch}
     />
   );
 };

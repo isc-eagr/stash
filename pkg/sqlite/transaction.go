@@ -119,6 +119,7 @@ func (db *Database) Repository() models.Repository {
 	return models.Repository{
 		TxnManager:      db,
 		Blob:            db.Blobs,
+		Blobs:           db.Blobs,
 		File:            db.File,
 		Folder:          db.Folder,
 		Gallery:         db.Gallery,
@@ -126,6 +127,7 @@ func (db *Database) Repository() models.Repository {
 		Image:           db.Image,
 		Group:           db.Group,
 		Performer:       db.Performer,
+		PerformerImage:  db.PerformerImage,
 		Scene:           db.Scene,
 		SceneLoopPreset: db.SceneLoopPreset,
 		SceneMarker:     db.SceneMarker,

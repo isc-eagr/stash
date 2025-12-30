@@ -326,6 +326,14 @@ export const CustomStats: React.FC = () => {
               <p className="heading">Total orgasms</p>
             </div>
           )}
+          {typeof facialCountData?.sceneFacialCount === "number" && (
+            <div className="stats-element">
+              <p className="title">
+                <FormattedNumber value={facialCountData.sceneFacialCount} />
+              </p>
+              <p className="heading">Total facials</p>
+            </div>
+          )}
           {typeof litersData?.estimatedLiters === "number" && (
             <div className="stats-element">
               <p className="title">
@@ -348,14 +356,6 @@ export const CustomStats: React.FC = () => {
                 m
               </p>
               <p className="heading">Total penis meters</p>
-            </div>
-          )}
-          {typeof facialCountData?.sceneFacialCount === "number" && (
-            <div className="stats-element">
-              <p className="title">
-                <FormattedNumber value={facialCountData.sceneFacialCount} />
-              </p>
-              <p className="heading">Total facials</p>
             </div>
           )}
           {typeof performersGivenData?.performersFacialGivenCount ===

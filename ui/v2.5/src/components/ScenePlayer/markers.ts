@@ -54,15 +54,18 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     
     let tooltipContent = title;
     
-    // Add top performers with up arrows
+    // Only show arrows if marker has performers in BOTH roles (top and bottom)
+    const showRoleArrows = (topPerformers?.length ?? 0) > 0 && (bottomPerformers?.length ?? 0) > 0;
+    
+    // Add top performers (with up arrows only if both roles have performers)
     if (topPerformers && topPerformers.length > 0) {
-      const topNames = topPerformers.map(p => `↑ ${p.name}`).join(", ");
+      const topNames = topPerformers.map(p => showRoleArrows ? `↑ ${p.name}` : p.name).join(", ");
       tooltipContent += ` [${topNames}]`;
     }
     
-    // Add bottom performers with down arrows
+    // Add bottom performers (with down arrows only if both roles have performers)
     if (bottomPerformers && bottomPerformers.length > 0) {
-      const bottomNames = bottomPerformers.map(p => `↓ ${p.name}`).join(", ");
+      const bottomNames = bottomPerformers.map(p => showRoleArrows ? `↓ ${p.name}` : p.name).join(", ");
       if (topPerformers && topPerformers.length > 0) {
         tooltipContent += ` [${bottomNames}]`;
       } else {

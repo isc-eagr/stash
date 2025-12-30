@@ -60,6 +60,9 @@ func (r *Resolver) Mutation() MutationResolver {
 func (r *Resolver) Performer() PerformerResolver {
 	return &performerResolver{r}
 }
+func (r *Resolver) PerformerImage() PerformerImageResolver {
+	return &performerImageResolver{r}
+}
 func (r *Resolver) Query() QueryResolver {
 	return &queryResolver{r}
 }
@@ -130,6 +133,7 @@ type subscriptionResolver struct{ *Resolver }
 type galleryResolver struct{ *Resolver }
 type galleryChapterResolver struct{ *Resolver }
 type performerResolver struct{ *Resolver }
+type performerImageResolver struct{ *Resolver }
 type sceneResolver struct{ *Resolver }
 type sceneMarkerResolver struct{ *Resolver }
 type imageResolver struct{ *Resolver }
@@ -379,13 +383,32 @@ func (r *queryResolver) SceneOYearCounts(ctx context.Context) (ret []*SceneOYear
 }
 
 // SceneOrgasmCount returns the total number of orgasms in scenes using marker logic:
-// - Count markers where the primary tag name is 'orgasm' (case-insensitive)
-// - If that marker also has a secondary tag 'simultaneous', it counts as 2
+//   - Find markers where the primary tag is 'orgasm' or any descendant of 'orgasm', or
+//     where any secondary tag is 'orgasm' or any descendant of 'orgasm'
+//   - For each matching marker, count the number of 'top' performers on that marker
+//   - Each marker counts as the number of tops, with a minimum of 1 if no tops are assigned
 func (r *queryResolver) SceneOrgasmCount(ctx context.Context) (int, error) {
 	var count int
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		db := manager.GetInstance().Database
-		query := "SELECT SUM(1 + CASE WHEN EXISTS (SELECT 1 FROM scene_markers_tags smt2 JOIN tags t2 ON smt2.tag_id = t2.id WHERE smt2.scene_marker_id = sm.id AND LOWER(TRIM(t2.name)) = 'simultaneous') THEN 1 ELSE 0 END) AS total_orgasms FROM scene_markers sm JOIN tags t ON sm.primary_tag_id = t.id WHERE LOWER(TRIM(t.name)) = 'orgasm'"
+		query := `
+WITH RECURSIVE orgasm_tags(id) AS (
+  SELECT id FROM tags WHERE LOWER(TRIM(name)) = 'orgasm'
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
+),
+orgasm_markers AS (
+  SELECT DISTINCT sm.id
+  FROM scene_markers sm
+  LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+  WHERE sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
+     OR smt.tag_id IN (SELECT id FROM orgasm_tags)
+)
+SELECT COALESCE(SUM(CASE WHEN top_count > 0 THEN top_count ELSE 1 END), 0) AS total_orgasms
+FROM (
+  SELECT om.id, (SELECT COUNT(*) FROM scene_marker_performers smp WHERE smp.scene_marker_id = om.id AND smp.role = 'top') AS top_count
+  FROM orgasm_markers om
+) sub`
 		_, rows, err := db.QuerySQL(ctx, query, nil)
 		if err != nil {
 			return err
@@ -414,11 +437,12 @@ func (r *queryResolver) SceneOrgasmCount(ctx context.Context) (int, error) {
 	return count, nil
 }
 
-// SceneFacialCount returns the total number of facial markers.
+// SceneFacialCount returns the total number of facial events.
 // A marker counts if:
 // - its primary tag is 'facial' or any descendant of 'facial', or
 // - it has any secondary tag that is 'facial' or any descendant of 'facial'.
-// Each marker is counted once even if multiple matching tags are present.
+// For each matching marker, count the number of 'top' performers on that marker.
+// Each marker counts as the number of tops, with a minimum of 1 if no tops are assigned.
 func (r *queryResolver) SceneFacialCount(ctx context.Context) (int, error) {
 	var count int
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
@@ -428,12 +452,19 @@ WITH RECURSIVE facial_tags(id) AS (
   SELECT id FROM tags WHERE LOWER(TRIM(name)) = 'facial'
   UNION ALL
   SELECT tr.child_id FROM tags_relations tr JOIN facial_tags ft ON tr.parent_id = ft.id
+),
+facial_markers AS (
+  SELECT DISTINCT sm.id
+  FROM scene_markers sm
+  LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+  WHERE sm.primary_tag_id IN (SELECT id FROM facial_tags)
+     OR smt.tag_id IN (SELECT id FROM facial_tags)
 )
-SELECT COUNT(DISTINCT sm.id) AS cnt
-FROM scene_markers sm
-LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-WHERE sm.primary_tag_id IN (SELECT id FROM facial_tags)
-   OR smt.tag_id IN (SELECT id FROM facial_tags)`
+SELECT COALESCE(SUM(CASE WHEN top_count > 0 THEN top_count ELSE 1 END), 0) AS total_facials
+FROM (
+  SELECT fm.id, (SELECT COUNT(*) FROM scene_marker_performers smp WHERE smp.scene_marker_id = fm.id AND smp.role = 'top') AS top_count
+  FROM facial_markers fm
+) sub`
 		_, rows, err := db.QuerySQL(ctx, query, nil)
 		if err != nil {
 			return err

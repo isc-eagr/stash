@@ -117,13 +117,16 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
         </Badge>
       ));
 
+      // Only show arrows if marker has performers in BOTH roles (top and bottom)
+      const showRoleArrows = (marker.top_performers?.length ?? 0) > 0 && (marker.bottom_performers?.length ?? 0) > 0;
+
       const topPerformers = marker.top_performers?.map((performer) => (
         <Badge
           key={performer.id}
           variant="success"
           className="performer-badge mr-1"
         >
-          <Icon icon={faArrowUp} className="mr-1" />
+          {showRoleArrows && <Icon icon={faArrowUp} className="mr-1" />}
           {performer.name}
         </Badge>
       ));
@@ -134,7 +137,7 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
           variant="info"
           className="performer-badge mr-1"
         >
-          <Icon icon={faArrowDown} className="mr-1" />
+          {showRoleArrows && <Icon icon={faArrowDown} className="mr-1" />}
           {performer.name}
         </Badge>
       ));

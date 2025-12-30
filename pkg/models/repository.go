@@ -15,6 +15,7 @@ type Repository struct {
 	TxnManager TxnManager
 
 	Blob            BlobReader
+	Blobs           BlobStoreWriter
 	File            FileReaderWriter
 	Folder          FolderReaderWriter
 	Gallery         GalleryReaderWriter
@@ -22,6 +23,7 @@ type Repository struct {
 	Image           ImageReaderWriter
 	Group           GroupReaderWriter
 	Performer       PerformerReaderWriter
+	PerformerImage  PerformerImageReaderWriter
 	Scene           SceneReaderWriter
 	SceneLoopPreset SceneLoopPresetReaderWriter
 	SceneMarker     SceneMarkerReaderWriter

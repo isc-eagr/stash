@@ -839,7 +839,8 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 
 					// Expand tag IDs if depth is specified
 					tagIDs := g.TagIDs
-					if len(tagIDs) > 0 && g.Depth != nil && *g.Depth != 0 {
+					depthUsed := len(tagIDs) > 0 && g.Depth != nil && *g.Depth != 0
+					if depthUsed {
 						valuesClause, err := getHierarchicalValues(ctx, tagIDs, tagTable, "tags_relations", "parent_id", "child_id", g.Depth)
 						if err != nil {
 							f.setError(err)
@@ -856,20 +857,42 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 						}
 					}
 
-					// Tag matching: marker must have all specified tags
+					// Tag matching: when depth is used, marker must have ANY of the expanded tags (OR).
+					// Otherwise, marker must have all specified tags (AND).
 					// Check BOTH primary_tag_id AND secondary tags in scene_markers_tags
 					if len(tagIDs) > 0 {
-						for _, tagID := range tagIDs {
-							tagCond := `(
-								scene_markers.primary_tag_id = ?
+						if depthUsed {
+							// OR semantics for expanded tags - marker matches if it has ANY of the tags
+							ph := getInBinding(len(tagIDs))
+							tagCond := fmt.Sprintf(`(
+								scene_markers.primary_tag_id IN %s
 								OR EXISTS (
 									SELECT 1 FROM scene_markers_tags smt 
 									WHERE smt.scene_marker_id = scene_markers.id 
-									AND smt.tag_id = ?
+									AND smt.tag_id IN %s
 								)
-							)`
+							)`, ph, ph)
 							groupConditions = append(groupConditions, tagCond)
-							groupArgs = append(groupArgs, tagID, tagID)
+							for _, tid := range tagIDs {
+								groupArgs = append(groupArgs, tid)
+							}
+							for _, tid := range tagIDs {
+								groupArgs = append(groupArgs, tid)
+							}
+						} else {
+							// AND semantics - marker must have ALL specified tags
+							for _, tagID := range tagIDs {
+								tagCond := `(
+									scene_markers.primary_tag_id = ?
+									OR EXISTS (
+										SELECT 1 FROM scene_markers_tags smt 
+										WHERE smt.scene_marker_id = scene_markers.id 
+										AND smt.tag_id = ?
+									)
+								)`
+								groupConditions = append(groupConditions, tagCond)
+								groupArgs = append(groupArgs, tagID, tagID)
+							}
 						}
 					}
 

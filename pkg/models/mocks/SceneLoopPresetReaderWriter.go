@@ -30,7 +30,7 @@ func (_m *SceneLoopPresetReaderWriter) FindByScene(ctx context.Context, sceneID 
 	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
 		r1 = rf(ctx, sceneID)
 	} else {
-		r1, _ = ret.Error(1)
+		r1 = ret.Error(1)
 	}
 
 	return r0, r1
@@ -52,7 +52,7 @@ func (_m *SceneLoopPresetReaderWriter) FindBySceneAndName(ctx context.Context, s
 	if rf, ok := ret.Get(1).(func(context.Context, int, string) error); ok {
 		r1 = rf(ctx, sceneID, name)
 	} else {
-		r1, _ = ret.Error(1)
+		r1 = ret.Error(1)
 	}
 
 	return r0, r1
@@ -65,7 +65,7 @@ func (_m *SceneLoopPresetReaderWriter) Upsert(ctx context.Context, preset *model
 	if rf, ok := ret.Get(0).(func(context.Context, *models.SceneLoopPreset) error); ok {
 		r0 = rf(ctx, preset)
 	} else {
-		r0, _ = ret.Error(0)
+		r0 = ret.Error(0)
 	}
 
 	return r0
@@ -78,7 +78,7 @@ func (_m *SceneLoopPresetReaderWriter) DeleteBySceneAndName(ctx context.Context,
 	if rf, ok := ret.Get(0).(func(context.Context, int, string) error); ok {
 		r0 = rf(ctx, sceneID, name)
 	} else {
-		r0, _ = ret.Error(0)
+		r0 = ret.Error(0)
 	}
 
 	return r0

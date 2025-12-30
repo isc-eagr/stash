@@ -80,6 +80,16 @@ type Performer {
   movies: [Movie!]! @deprecated(reason: "use groups instead")
 
   custom_fields: Map!
+  
+  # Additional performer images (excluding the default image_path)
+  additional_images: [PerformerImage!]!
+}
+
+type PerformerImage {
+  id: ID!
+  performer_id: ID!
+  image_path: String!
+  position: Int!
 }
 
 input PerformerCreateInput {

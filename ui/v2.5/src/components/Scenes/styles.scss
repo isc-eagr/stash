@@ -396,6 +396,42 @@ textarea.scene-description {
   }
 }
 
+/* Scene marker card performer display */
+.scene-marker-card__performers {
+  margin: 0.25rem 0;
+  font-size: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+
+  .performer-chip-link {
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: none;
+    }
+  }
+
+  .performer-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: normal;
+    border-radius: 0.75rem;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+
+    &:hover {
+      filter: brightness(1.2);
+    }
+
+    .svg-inline--fa {
+      font-size: 0.65rem;
+    }
+  }
+}
+
 /* ===== ANIMATION OPTIONS FOR METALLIC SCENE CARDS ===== */
 /* Use the same keyframe animations defined in Performers/styles.scss */
 

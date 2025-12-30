@@ -36,6 +36,7 @@ fragment SceneMarkerData on SceneMarker {
     name
     alias_list
     disambiguation
+    image_path
   }
 
   bottom_performers {
@@ -43,6 +44,7 @@ fragment SceneMarkerData on SceneMarker {
     name
     alias_list
     disambiguation
+    image_path
   }
 }
 

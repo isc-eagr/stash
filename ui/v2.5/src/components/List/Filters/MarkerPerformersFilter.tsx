@@ -236,6 +236,20 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
           onSelect={onTagsChange}
           menuPortalTarget={document.body}
         />
+        <Form.Check
+          type="checkbox"
+          className="mt-1"
+          label={intl.formatMessage({
+            id: "include_sub_tags",
+            defaultMessage: "Include sub-tags",
+          })}
+          checked={criterion.value.include_subtags}
+          onChange={(e) => {
+            const c = criterion.clone() as MarkerPerformersCriterion;
+            c.value.include_subtags = e.currentTarget.checked;
+            setCriterion(c);
+          }}
+        />
       </Form.Group>
 
       <Row>

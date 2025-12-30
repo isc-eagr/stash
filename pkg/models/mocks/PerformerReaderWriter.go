@@ -429,6 +429,29 @@ func (_m *PerformerReaderWriter) GetImage(ctx context.Context, performerID int) 
 	return r0, r1
 }
 
+// GetImageBlob provides a mock function with given fields: ctx, performerID
+func (_m *PerformerReaderWriter) GetImageBlob(ctx context.Context, performerID int) (*string, error) {
+	ret := _m.Called(ctx, performerID)
+
+	var r0 *string
+	if rf, ok := ret.Get(0).(func(context.Context, int) *string); ok {
+		r0 = rf(ctx, performerID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*string)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = rf(ctx, performerID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetStashIDs provides a mock function with given fields: ctx, relatedID
 func (_m *PerformerReaderWriter) GetStashIDs(ctx context.Context, relatedID int) ([]models.StashID, error) {
 	ret := _m.Called(ctx, relatedID)
@@ -614,6 +637,20 @@ func (_m *PerformerReaderWriter) UpdateImage(ctx context.Context, performerID in
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, int, []byte) error); ok {
 		r0 = rf(ctx, performerID, image)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateImageBlob provides a mock function with given fields: ctx, performerID, blobChecksum
+func (_m *PerformerReaderWriter) UpdateImageBlob(ctx context.Context, performerID int, blobChecksum string) error {
+	ret := _m.Called(ctx, performerID, blobChecksum)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int, string) error); ok {
+		r0 = rf(ctx, performerID, blobChecksum)
 	} else {
 		r0 = ret.Error(0)
 	}

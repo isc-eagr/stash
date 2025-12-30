@@ -53,4 +53,31 @@ fragment PerformerData on Performer {
   weight
 
   custom_fields
+
+  additional_images {
+    id
+    performer_id
+    image_path
+    position
+  }
+}
+
+mutation PerformerImageUpload($performer_id: ID!, $image: String!) {
+  performerImageUpload(performer_id: $performer_id, image: $image) {
+    id
+    performer_id
+    image_path
+    position
+  }
+}
+
+mutation PerformerImageDelete($id: ID!) {
+  performerImageDelete(id: $id)
+}
+
+mutation PerformerImageSetDefault($id: ID!) {
+  performerImageSetDefault(id: $id) {
+    id
+    image_path
+  }
 }

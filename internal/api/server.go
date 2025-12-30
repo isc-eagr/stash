@@ -320,9 +320,11 @@ func (s *Server) Shutdown() {
 func (s *Server) getPerformerRoutes() chi.Router {
 	repo := s.manager.Repository
 	return performerRoutes{
-		routes:          routes{txnManager: repo.TxnManager},
-		performerFinder: repo.Performer,
-		sfwConfig:       s.manager.Config,
+		routes:               routes{txnManager: repo.TxnManager},
+		performerFinder:      repo.Performer,
+		performerImageFinder: repo.PerformerImage,
+		blobStore:            repo.Blobs,
+		sfwConfig:            s.manager.Config,
 	}.Routes()
 }
 

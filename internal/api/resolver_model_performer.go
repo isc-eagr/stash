@@ -515,3 +515,15 @@ func (r *performerResolver) FacialBottomCount(ctx context.Context, obj *models.P
 	}
 	return ret, nil
 }
+
+func (r *performerResolver) AdditionalImages(ctx context.Context, obj *models.Performer) ([]*models.PerformerImage, error) {
+	var images []*models.PerformerImage
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		var err error
+		images, err = r.repository.PerformerImage.GetByPerformerID(ctx, obj.ID)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return images, nil
+}

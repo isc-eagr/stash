@@ -27,6 +27,7 @@ import {
 import { useMarkerQueue } from "src/hooks/MarkerQueue";
 import { MarkerQueueIndicator } from "./MarkerQueueIndicator";
 import { useToast } from "src/hooks/Toast";
+import { useEffect } from "react";
 import { ListOperationButtons } from "../List/ListOperationButtons";
 import { useFilterOperations } from "../List/util";
 import { PageSizeSelector, SearchTermInput, SortBySelect } from "../List/ListFilter";
@@ -57,8 +58,15 @@ export const SceneMarkerList: React.FC<ISceneMarkerList> = PatchComponent(
   ({ filterHook, view, alterQuery, extraOperations = [] }) => {
     const intl = useIntl();
     const history = useHistory();
-    const { queue, count: queueCount, addToQueue } = useMarkerQueue();
+    const { queue, count: queueCount, addToQueue, clearQueue } = useMarkerQueue();
     const Toast = useToast();
+
+    // Clear the marker queue when navigating away from this page
+    useEffect(() => {
+      return () => {
+        clearQueue();
+      };
+    }, [clearQueue]);
 
     const filterMode = GQL.FilterMode.SceneMarkers;
 

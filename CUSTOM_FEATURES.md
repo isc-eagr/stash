@@ -26,6 +26,7 @@ This document describes all custom features and modifications added on top of th
 18. [Marker Tags Filter for Performers](#18-marker-tags-filter-for-performers)
 19. [Performer-Filtered Studio Cards](#19-performer-filtered-studio-cards)
 20. [Performer Marker Filters](#20-performer-marker-filters)
+21. [Multiple Performer Images](#21-multiple-performer-images)
 
 ---
 
@@ -131,9 +132,16 @@ A comprehensive statistics page showing scene categorization counts, performer e
 ### Features
 - Scene counts by category (sex, oral, solo, facial)
 - Performer ethnicity distribution with 5-star breakdown
-- Orgasm events by year
+- Orgasm events by year (includes orgasm tag and all its subtags/descendants)
 - Top/Bottom performer counts (strict and lenient)
 - Facial given/received counts
+
+### Orgasm & Facial Counting Logic
+The `sceneOrgasmCount` and `sceneFacialCount` resolvers use the following logic:
+- **Subtag Support**: Markers are counted if their primary tag OR any secondary tag is the target tag (e.g., "orgasm") or any of its descendants/subtags
+- **Top-based Counting**: For each matching marker, the count is the number of "top" performers assigned to that marker
+- **Minimum Count**: If a marker has no tops assigned, it counts as 1
+- **Example**: A marker with 2 orgasm subtags but 1 top = counts as 1. A marker with 1 subtag but 3 tops = counts as 3.
 
 ### GraphQL Queries (Custom)
 **File:** `graphql/schema/types/stats.graphql`
@@ -671,14 +679,14 @@ extend type Query {
 
 ### Backend Implementation
 **File:** `internal/api/resolver.go`
-- `EstimatedLiters` resolver: Queries total O-count and multiplies by 3ml (0.003L)
+- `EstimatedLiters` resolver: Uses `SceneOrgasmCount` (which counts tops on orgasm markers, including subtags) and multiplies by 3ml (0.003L)
 - `TotalPenisMeters` resolver: Sums performer penis lengths (defaulting to 17cm when null), converts to meters
 
 ### Frontend Files
 - `ui/v2.5/src/components/CustomStats.tsx` - Added display for estimated liters and total penis meters with formatted output
 
 ### Features
-- **Estimated Liters**: Calculates total orgasms × 3ml converted to liters, displayed with 2 decimal places and 💦 emoji
+- **Estimated Liters**: Calculates total orgasms (based on tops per orgasm marker, including subtags) × 3ml converted to liters, displayed with 2 decimal places
 - **Total Penis Meters**: Sums all performer penis lengths (uses 17cm default), displays in meters with 🍆 emoji
 
 ---
@@ -914,6 +922,102 @@ markerPlaylistDestroy(id: ID!): Boolean!
 4. Click "Load" dropdown to see all saved playlists
 5. Click on a playlist name to load it
 6. Click ✕ next to a playlist to delete it
+
+---
+
+## 21. Multiple Performer Images
+
+### Overview
+Allows performers to have multiple images in addition to their main image. Users can upload additional images, set any image as the default, and remove images. Only visible on the performer detail page with hover-activated controls.
+
+### Database Schema
+**Migration File:** `pkg/sqlite/migrations/76_performer_additional_images.up.sql`
+```sql
+CREATE TABLE `performer_images` (
+    `id` integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+    `performer_id` integer NOT NULL,
+    `image_blob` varchar(255) NOT NULL REFERENCES `blobs`(`checksum`),
+    `position` integer NOT NULL DEFAULT 0,
+    FOREIGN KEY (`performer_id`) REFERENCES `performers`(`id`) ON DELETE CASCADE
+);
+```
+
+### GraphQL Schema Extensions
+**Files Modified:**
+- `graphql/schema/types/performer.graphql`
+- `graphql/schema/schema.graphql`
+
+**New Types:**
+```graphql
+type PerformerImage {
+  id: ID!
+  performer_id: ID!
+  image_path: String!
+  position: Int!
+}
+
+type Performer {
+  # ... existing fields ...
+  additional_images: [PerformerImage!]!
+}
+```
+
+**New Mutations:**
+```graphql
+"Upload an additional image for a performer. Returns the new PerformerImage."
+performerImageUpload(performer_id: ID!, image: String!): PerformerImage!
+
+"Delete an additional performer image by ID. Returns true if successful."
+performerImageDelete(id: ID!): Boolean!
+
+"Set an additional image as the default performer image. Returns the updated Performer."
+performerImageSetDefault(id: ID!): Performer!
+```
+
+### Backend Implementation
+**Files Created:**
+- `pkg/models/model_performer_image.go` - PerformerImage model and interfaces
+- `pkg/sqlite/performer_image.go` - Database operations for performer images
+
+**Files Modified:**
+- `pkg/sqlite/database.go` - Added PerformerImageStore initialization
+- `pkg/models/repository.go` - Added PerformerImage and Blobs to Repository struct
+- `internal/api/resolver_model_performer.go` - Added AdditionalImages resolver
+- `internal/api/resolver_model_performer_image.go` - PerformerImage resolvers
+- `internal/api/resolver_mutation_performer.go` - Image upload/delete/set-default mutations
+- `internal/api/urlbuilders/performer.go` - Added PerformerImageURLBuilder
+- `internal/api/routes_performer.go` - Added HTTP route for serving additional images
+- `internal/api/server.go` - Wired up performer image dependencies
+- `internal/api/resolver.go` - Added performerImageResolver
+- `internal/api/routes_performer.go` - Added HTTP route for serving additional images
+- `internal/api/server.go` - Wired up performer image dependencies
+
+### UI Components
+**Files Created:**
+- `ui/v2.5/src/components/Performers/PerformerDetails/PerformerImageManager.tsx` - Image manager component with upload/delete/set-default controls
+- `ui/v2.5/src/components/Performers/PerformerDetails/PerformerImageManager.scss` - Styles for image manager overlay controls
+
+**Files Modified:**
+- `ui/v2.5/src/components/Performers/PerformerDetails/Performer.tsx` - Integrated PerformerImageManager
+- `ui/v2.5/graphql/data/performer.graphql` - Added additional_images field to PerformerData fragment
+
+### Configuration Dependencies
+None - uses existing blob storage system.
+
+### Usage
+1. Navigate to a performer detail page
+2. Hover over the performer image to reveal buttons
+3. Click "Upload Image" to add a new image (appears in carousel)
+4. Click "Remove" to delete the currently displayed image
+5. Click "Make Default" to set the current image as the main performer image
+6. The main `performers.image_blob` field remains unchanged for backward compatibility
+7. Additional images are stored separately in `performer_images` table
+
+### Notes
+- The default performer image (stored in `performers.image_blob`) continues to be displayed everywhere else in the app
+- Additional images are only visible on the performer detail page
+- When an additional image is set as default, the old default is moved to additional images
+- Image controls are only visible on hover and only on the performer detail page
 
 ---
 
