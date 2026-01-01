@@ -36,6 +36,7 @@ fragment PerformerData on Performer {
   oral_bottom_count
   facial_top_count
   facial_bottom_count
+  orgasm_top_count
 
   tags {
     ...SlimTagData

@@ -114,6 +114,7 @@ export interface IUIConfig {
     oralTagId?: string; // Tag ID for oral markers
     soloTagId?: string; // Tag ID for solo markers
     facialTagId?: string; // Tag ID for facial markers
+    orgasmTagId?: string; // Tag ID for orgasm markers
   };
 }
 

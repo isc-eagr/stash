@@ -42,6 +42,7 @@ import { OCounterButton } from "../Shared/CountButton";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import goateeSvg from "src/assets/goatee.svg";
+import spermsSvg from "src/assets/sperms.svg";
 
 export interface IPerformerCardExtraCriteria {
   scenes?: ModifierCriterion<CriterionValue>[];
@@ -530,7 +531,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
       const roleTagIds = configuration?.ui?.roleTagIds ?? {};
 
       // Determine which categories to show based on context
-      // Order: Sex, Oral, Solo, Facial (fixed order)
+      // Order: Sex, Oral, Solo, Facial, Orgasm (fixed order)
       let rolesToShow: Array<{
         category: "sex" | "oral" | "solo" | "facial";
         isTop?: boolean;
@@ -539,6 +540,9 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
         topCount?: number;
         bottomCount?: number;
       }> = [];
+
+      // Track orgasm count separately (orgasm only has "top" role)
+      let orgasmTopCount = 0;
 
       if (sceneId) {
         // Scene context: show roles based on marker roles in this scene only
@@ -554,6 +558,17 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
         const facialRoles = markerRoles.filter((r: string) =>
           r.startsWith("facial_")
         );
+        // Orgasm roles come as "orgasm_top_X" where X is the count
+        const orgasmRoles = markerRoles.filter((r: string) =>
+          r.startsWith("orgasm_top_")
+        );
+        if (orgasmRoles.length > 0 && roleTagIds.orgasmTagId) {
+          // Parse the count from "orgasm_top_X"
+          const match = orgasmRoles[0].match(/orgasm_top_(\d+)/);
+          if (match) {
+            orgasmTopCount = parseInt(match[1], 10);
+          }
+        }
 
         // Fixed order: Sex, Oral, Solo, Facial
         if (sexRoles.length > 0 && roleTagIds.sexTagId) {
@@ -589,6 +604,11 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
         const soloCount = performer.solo_scene_count ?? 0;
         const facialCount = performer.facial_scene_count ?? 0;
 
+        // Get orgasm count from performer data
+        if (roleTagIds.orgasmTagId) {
+          orgasmTopCount = performer.orgasm_top_count ?? 0;
+        }
+
         // Fixed order: Sex, Oral, Solo, Facial
         if (sexCount > 0 && roleTagIds.sexTagId) {
           rolesToShow.push({
@@ -622,7 +642,8 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
         }
       }
 
-      if (rolesToShow.length === 0) return null;
+      // If nothing to show (no roles and no orgasm), return null
+      if (rolesToShow.length === 0 && orgasmTopCount === 0) return null;
 
       // Helper to get tag ID for a category
       const getTagId = (category: "sex" | "oral" | "solo" | "facial") => {
@@ -655,6 +676,45 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
             excludeTags.push({ id: roleTagIds.oralTagId, label: "Oral" });
         }
         return excludeTags.length > 0 ? excludeTags : undefined;
+      };
+
+      // Render splash/orgasm icon (at the end of the strip)
+      const maybeRenderOrgasmSplash = () => {
+        if (orgasmTopCount === 0) return null;
+
+        const orgasmTagId = roleTagIds.orgasmTagId;
+        // Only make clickable outside scene context
+        const orgasmUrl = !sceneId && orgasmTagId
+          ? NavUtils.makePerformerOrgasmMarkersUrl(performer, orgasmTagId, "Orgasm")
+          : undefined;
+
+        const iconContent = (
+          <>
+            <img src={spermsSvg} alt="Orgasm" className="category-icon" />
+            {orgasmTopCount > 1 && (
+              <span className="role-total-count">{orgasmTopCount}</span>
+            )}
+          </>
+        );
+
+        return (
+          <div className="role-badge-item orgasm-badge">
+            <div className="category-icon-container">
+              {orgasmUrl ? (
+                <Link
+                  to={orgasmUrl}
+                  className="role-badge-link"
+                  onClick={(e) => e.stopPropagation()}
+                  title="Orgasm markers"
+                >
+                  {iconContent}
+                </Link>
+              ) : (
+                iconContent
+              )}
+            </div>
+          </div>
+        );
       };
 
       // Render badges with category icon on top, arrows below
@@ -838,6 +898,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
               </div>
             );
           })}
+          {maybeRenderOrgasmSplash()}
         </div>
       );
     }

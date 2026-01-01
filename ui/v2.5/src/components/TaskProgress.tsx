@@ -372,13 +372,6 @@ const TaskProgress: React.FC = () => {
                             <FormattedNumber value={tracker.initialValue} />{" "}
                             total
                           </span>
-                          <span>
-                            <FormattedNumber
-                              value={percentageComplete}
-                              maximumFractionDigits={1}
-                            />
-                            %
-                          </span>
                         </div>
                         <ProgressBar
                           now={percentageComplete}
@@ -392,6 +385,15 @@ const TaskProgress: React.FC = () => {
                               : "danger"
                           }
                         />
+                        <div className="mt-3 text-center">
+                          <div style={{ fontSize: "1.75rem", fontWeight: "bold" }}>
+                            <FormattedNumber
+                              value={percentageComplete}
+                              maximumFractionDigits={2}
+                            />
+                            %
+                          </div>
+                        </div>
                       </div>
                     </Card.Body>
                   </Card>

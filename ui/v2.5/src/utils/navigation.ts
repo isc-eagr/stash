@@ -50,6 +50,10 @@ import {
   MarkerTagsCriterion,
   MarkerTagsCriterionOption,
 } from "src/models/list-filter/criteria/marker-tags";
+import {
+  MarkerPerformersCriterion,
+  MarkerPerformersCriterionOption,
+} from "src/models/list-filter/criteria/marker-performers";
 
 function addExtraCriteria(dest: Criterion[], src?: Criterion[]) {
   if (src && src.length > 0) {
@@ -1828,6 +1832,37 @@ export function handleUnsavedChanges(
   };
 }
 
+// Navigate to scene markers where performer is "top" for a given tag (e.g., orgasm markers)
+const makePerformerOrgasmMarkersUrl = (
+  performer: Partial<GQL.PerformerDataFragment>,
+  tagId: string,
+  tagLabel: string
+) => {
+  if (!performer.id || !tagId) return "#";
+
+  const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
+
+  // Add marker performers criterion with the performer as top and the tag filter
+  const criterion = new MarkerPerformersCriterion(MarkerPerformersCriterionOption);
+  criterion.modifier = GQL.CriterionModifier.IncludesAll;
+  criterion.value = {
+    tag_ids: [{ id: tagId, label: tagLabel }],
+    include_subtags: true,
+    top_performer_ids: [{ id: performer.id, label: performer.name || `Performer ${performer.id}` }],
+    top_ethnicities: [],
+    top_countries: [],
+    top_rating: null,
+    bottom_performer_ids: [],
+    bottom_ethnicities: [],
+    bottom_countries: [],
+    bottom_rating: null,
+  };
+  filter.criteria.push(criterion);
+  filter.sortBy = "title";
+
+  return `/scenes/markers?${filter.makeQueryParameters()}`;
+};
+
 const NavUtils = {
   makePerformerScenesUrl,
   makePerformerImagesUrl,
@@ -1853,6 +1888,7 @@ const NavUtils = {
   makePerformerDetailFacialScenesUrl,
   makePerformerMarkerScenesUrl,
   makePerformerMarkerScenesWithRoleUrl,
+  makePerformerOrgasmMarkersUrl,
   makeStudioMarkerScenesUrl,
   makePerformerStudioMarkerScenesUrl,
   makeGlobalSexScenesUrl,

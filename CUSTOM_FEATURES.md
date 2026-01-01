@@ -278,6 +278,25 @@ type Studio {
 2. **Scene Tags Modal**: Modal dialog for editing scene-specific tags
 3. **Role Badges**: Top/Bottom visual indicators (see Section 3)
 4. **Tag Button**: Green tag icon showing scene tag count
+5. **Orgasm/Splash Icon**: Shows when performer has orgasm markers as "top"
+
+### Orgasm Splash Icon Feature
+The performer card displays a splash icon in the role badge strip when the performer has orgasm markers where they are marked as "top".
+
+**Scene Context (when viewing performers in a scene):**
+- Shows splash icon if performer has at least one orgasm marker as top in that specific scene
+- Shows count next to icon only if more than one orgasm marker
+- No number shown for single orgasm marker
+
+**Global Context (performers list, performer details):**
+- Shows splash icon with total count of orgasm markers as top across all scenes
+- Count always shown (since this is a cumulative total)
+- No icon shown if performer has no orgasm markers as top
+
+**Configuration:**
+- Requires `orgasmTagId` to be set in Settings → Interface → Role Tags
+- Uses `orgasm_top_count` GraphQL field for global counts
+- Uses `orgasm_top_X` in `scene_marker_roles` for scene-specific counts
 
 ### Props Added
 ```typescript
@@ -290,6 +309,17 @@ interface IPerformerCardProps {
   showTagCounts?: boolean;              // Show counts next to tags
 }
 ```
+
+### Related Files
+- `ui/v2.5/src/assets/splash.svg` - Orgasm splash icon
+- `ui/v2.5/graphql/data/performer.graphql` - Added `orgasm_top_count` field
+- `graphql/schema/types/performer.graphql` - Schema definition
+- `internal/api/resolver_model_performer.go` - Go resolver (`OrgasmTopCount`)
+- `pkg/scene/query.go` - Marker role extraction (`CountMarkersByPerformerRole` for counting actual markers)
+- `ui/v2.5/src/core/config.ts` - Added `orgasmTagId` config option
+- `ui/v2.5/src/components/Settings/SettingsInterfacePanel/SettingsInterfacePanel.tsx` - Settings UI
+- `ui/v2.5/src/locales/en-GB.json` - Localization string
+- `ui/v2.5/src/utils/navigation.ts` - Added `makePerformerOrgasmMarkersUrl` for clickable splash icon
 
 ---
 
@@ -307,6 +337,7 @@ interface IPerformerCardProps {
 - `ui/v2.5/src/assets/mouth.svg` - Oral scene icon
 - `ui/v2.5/src/assets/goatee.svg` - Facial scene icon
 - `ui/v2.5/src/assets/straight.svg` - Straight scene icon
+- `ui/v2.5/src/assets/splash.svg` - Orgasm/splash scene icon
 
 ---
 

@@ -191,6 +191,7 @@ type roleTagIDsConfig struct {
 	oralTagID   int
 	soloTagID   int
 	facialTagID int
+	orgasmTagID int
 }
 
 // getRoleTagIDsFromUIConfig extracts role tag IDs from UI configuration
@@ -216,6 +217,9 @@ func getRoleTagIDsFromUIConfig(uiConfig map[string]interface{}) roleTagIDsConfig
 	}
 	if facialTagID, ok := roleTagIDs["facialTagId"].(string); ok {
 		result.facialTagID, _ = strconv.Atoi(facialTagID)
+	}
+	if orgasmTagID, ok := roleTagIDs["orgasmTagId"].(string); ok {
+		result.orgasmTagID, _ = strconv.Atoi(orgasmTagID)
 	}
 
 	return result

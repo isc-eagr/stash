@@ -189,9 +189,9 @@
 /* Role badges in performer card details section (below age) */
 .performer-role-badges {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   margin-top: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 
   .role-badge-item {
     display: flex;
@@ -200,7 +200,7 @@
     gap: 4px;
     background: transparent;
     border-radius: 6px;
-    padding: 6px;
+    padding: 4px;
 
     .category-icon-container {
       display: flex;
@@ -759,6 +759,12 @@
 // Performer category count buttons (sex/oral/solo/facial)
 .performer-card,
 #performer-page {
+  // Apply rotation to all hand icons (faHand/category-icon-fa)
+  .category-icon-fa {
+    transform: rotate(-45deg);
+    display: inline-block;
+  }
+
   .scene-category-count {
     background-color: transparent !important;
     border: none !important;
@@ -776,8 +782,6 @@
     .category-icon-fa {
       font-size: 1em;
       color: #ffffff;
-      transform: rotate(-45deg);
-      display: inline-block;
     }
 
     &:hover,

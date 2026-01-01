@@ -204,7 +204,7 @@ export const PerformerRolesPanel: React.FC<IPerformerRolesPanelProps> =
               <Card className="role-card mb-3">
                 <Card.Header className="d-flex align-items-center">
                   <span className="role-icon mr-2">
-                    <Icon icon={faHand} />
+                    <Icon icon={faHand} className="category-icon-fa" />
                   </span>
                   <span className="role-title font-weight-bold">Solo</span>
                   <span className="badge badge-primary ml-auto">

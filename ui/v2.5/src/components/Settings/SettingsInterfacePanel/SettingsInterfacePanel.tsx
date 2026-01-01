@@ -368,6 +368,24 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
               }
             />
           </Setting>
+          <Setting id="role-tag-orgasm" headingID="config.ui.role_tags.orgasm">
+            <TagIDSelect
+              isMulti={false}
+              creatable={false}
+              ids={
+                ui.roleTagIds?.orgasmTagId ? [ui.roleTagIds.orgasmTagId] : []
+              }
+              menuPortalTarget={document.body}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  roleTagIds: {
+                    ...(ui.roleTagIds ?? {}),
+                    orgasmTagId: items[0]?.id ?? undefined,
+                  },
+                })
+              }
+            />
+          </Setting>
         </SettingSection>
 
         <SettingSection headingID="config.ui.desktop_integration.desktop_integration">

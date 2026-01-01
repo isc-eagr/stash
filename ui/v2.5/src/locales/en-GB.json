@@ -620,7 +620,8 @@
         "sex": "Sex marker tag",
         "oral": "Oral marker tag",
         "solo": "Solo marker tag",
-        "facial": "Facial marker tag"
+        "facial": "Facial marker tag",
+        "orgasm": "Orgasm marker tag"
       },
       "abbreviate_counters": {
         "description": "Abbreviate counters in cards and details view pages, for example \"1831\" will get formated to \"1.8K\".",

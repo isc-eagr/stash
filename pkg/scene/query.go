@@ -241,6 +241,57 @@ func CountByPerformerMarkerRole(ctx context.Context, r models.SceneMarkerQueryer
 	return len(sceneSet), nil
 }
 
+// CountMarkersByPerformerRole counts the actual number of markers (not scenes)
+// where a performer participates with the given tag and role.
+func CountMarkersByPerformerRole(ctx context.Context, r models.SceneMarkerQueryer, performerID int, tagID int, role string) (int, error) {
+	if tagID == 0 {
+		return 0, nil
+	}
+
+	// Build filter for scene markers
+	filter := &models.SceneMarkerFilterType{
+		Tags: &models.HierarchicalMultiCriterionInput{
+			Value:    []string{strconv.Itoa(tagID)},
+			Modifier: models.CriterionModifierIncludes,
+		},
+	}
+
+	// Add marker performer filter with role
+	topIDs := []string{}
+	bottomIDs := []string{}
+	performerIDStr := strconv.Itoa(performerID)
+
+	if role == "top" {
+		topIDs = append(topIDs, performerIDStr)
+	} else if role == "bottom" {
+		bottomIDs = append(bottomIDs, performerIDStr)
+	} else {
+		// Any role - check both
+		topIDs = append(topIDs, performerIDStr)
+		bottomIDs = append(bottomIDs, performerIDStr)
+	}
+
+	mode := "OR"
+	filter.MarkerPerformers = &models.MarkerPerformersFilterInput{
+		TopPerformerIDs:    topIDs,
+		BottomPerformerIDs: bottomIDs,
+		Mode:               &mode,
+		Modifier:           models.CriterionModifierIncludes,
+	}
+
+	// Use PerPage=-1 to get all results
+	allResults := -1
+	findFilter := &models.FindFilterType{PerPage: &allResults}
+
+	// Query markers and return the count
+	markers, _, err := r.Query(ctx, filter, findFilter)
+	if err != nil {
+		return 0, err
+	}
+
+	return len(markers), nil
+}
+
 // CountByPerformerMarkerRoleExcluding counts scenes where performer has markers with tagID
 // but excludes scenes that also have markers with excludeTagID.
 func CountByPerformerMarkerRoleExcluding(ctx context.Context, r models.SceneMarkerQueryer, performerID int, tagID int, role string, excludeTagID int) (int, error) {
@@ -367,8 +418,8 @@ func getScenesByPerformerMarkerRole(ctx context.Context, r models.SceneMarkerQue
 
 // GetPerformerMarkerRolesForScene returns the roles a performer has in a specific scene's markers.
 // Returns array of strings like "sex_top", "sex_bottom", "oral_top", "oral_bottom",
-// "facial_top", "facial_bottom", "solo" based on their participation in markers.
-func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerReader, performerID int, sceneID int, sexTagID int, oralTagID int, soloTagID int, facialTagID int) ([]string, error) {
+// "facial_top", "facial_bottom", "orgasm_top", "solo" based on their participation in markers.
+func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerReader, performerID int, sceneID int, sexTagID int, oralTagID int, soloTagID int, facialTagID int, orgasmTagID int) ([]string, error) {
 	roles := []string{}
 
 	// Query all markers for this scene using FindBySceneID
@@ -380,6 +431,9 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 	if len(markers) == 0 {
 		return roles, nil
 	}
+
+	// Track orgasm marker count for this performer as top (we need count, not just presence)
+	orgasmTopCount := 0
 
 	// Helper to check if a tag ID matches any role tag and add the role
 	addRoleForTag := func(tagID int, role string) {
@@ -402,6 +456,10 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 				roles = appendIfNotExists(roles, "facial_top")
 			} else if role == "bottom" {
 				roles = appendIfNotExists(roles, "facial_bottom")
+			}
+		} else if tagID == orgasmTagID {
+			if role == "top" {
+				orgasmTopCount++
 			}
 		}
 	}
@@ -434,6 +492,11 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 				addRoleForTag(tagID, role)
 			}
 		}
+	}
+
+	// Add orgasm roles with count suffix (orgasm_top_1, orgasm_top_2, etc.)
+	if orgasmTopCount > 0 {
+		roles = append(roles, fmt.Sprintf("orgasm_top_%d", orgasmTopCount))
 	}
 
 	return roles, nil

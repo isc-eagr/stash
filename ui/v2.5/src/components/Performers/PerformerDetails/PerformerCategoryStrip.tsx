@@ -13,6 +13,7 @@ import { useConfigurationContext } from "src/hooks/Config";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import goateeSvg from "src/assets/goatee.svg";
+import spermsSvg from "src/assets/sperms.svg";
 
 interface IPerformerCategoryStripProps {
   performer: GQL.PerformerDataFragment;
@@ -34,6 +35,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   const oralTagId = roleTagIds.oralTagId;
   const soloTagId = roleTagIds.soloTagId;
   const facialTagId = roleTagIds.facialTagId;
+  const orgasmTagId = roleTagIds.orgasmTagId;
 
   // Get counts from performer - using top/bottom fields
   const p = performer as any;
@@ -50,6 +52,8 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   const facialTopCount = p.facial_top_count ?? 0;
   const facialBottomCount = p.facial_bottom_count ?? 0;
   const facialCount = p.facial_scene_count ?? 0;
+
+  const orgasmTopCount = p.orgasm_top_count ?? 0;
 
   // Build roles to show (same logic as PerformerCard)
   const rolesToShow: Array<{
@@ -177,18 +181,26 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
               {categoryUrl ? (
                 <Link to={categoryUrl} className="role-badge-link">
                   {categoryIconElement}
-                  <span className="role-total-count">{role.count}</span>
+                  {role.category !== "solo" && (
+                    <span className="role-total-count">{role.count}</span>
+                  )}
                 </Link>
               ) : (
                 <>
                   {categoryIconElement}
-                  <span className="role-total-count">{role.count}</span>
+                  {role.category !== "solo" && (
+                    <span className="role-total-count">{role.count}</span>
+                  )}
                 </>
               )}
             </div>
 
-            {/* Arrows below (only for sex/oral/facial, not solo) */}
-            {role.category !== "solo" && (
+            {/* Count below for solo, arrows below for sex/oral/facial */}
+            {role.category === "solo" ? (
+              <div className="solo-count">
+                <span className="role-total-count">{role.count}</span>
+              </div>
+            ) : (
               <div className="role-arrows">
                 {(role.topCount ?? 0) > 0 &&
                   (topUrl ? (
@@ -267,6 +279,29 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
           </div>
         );
       })}
+
+      {/* Orgasm icon at the end */}
+      {orgasmTopCount > 0 && orgasmTagId && (
+        <div className="role-badge-item orgasm-badge">
+          <div className="category-icon-container">
+            <Link
+              to={NavUtils.makePerformerOrgasmMarkersUrl(
+                performer,
+                orgasmTagId,
+                "Orgasm"
+              )}
+              className="role-badge-link"
+            >
+              <img src={spermsSvg} alt="Orgasm" className="category-icon" />
+            </Link>
+          </div>
+          {orgasmTopCount > 1 && (
+            <div className="orgasm-count">
+              <span className="role-total-count">{orgasmTopCount}</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

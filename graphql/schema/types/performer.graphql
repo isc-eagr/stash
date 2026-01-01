@@ -66,6 +66,8 @@ type Performer {
   facial_scene_count: Int! # Resolver - total facial scenes
   facial_top_count: Int! # Resolver - facial scenes where performer is top
   facial_bottom_count: Int! # Resolver - facial scenes where performer is bottom
+  # Orgasm markers: count of orgasm markers where performer is top
+  orgasm_top_count: Int! # Resolver - orgasm markers where performer is top
   scenes: [Scene!]!
   stash_ids: [StashID!]!
   # rating expressed as 1-100
