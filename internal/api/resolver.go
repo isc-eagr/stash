@@ -383,17 +383,31 @@ func (r *queryResolver) SceneOYearCounts(ctx context.Context) (ret []*SceneOYear
 }
 
 // SceneOrgasmCount returns the total number of orgasms in scenes using marker logic:
-//   - Find markers where the primary tag is 'orgasm' or any descendant of 'orgasm', or
-//     where any secondary tag is 'orgasm' or any descendant of 'orgasm'
+//   - Find markers where the primary tag is the configured orgasm tag or any descendant of it, or
+//     where any secondary tag is the configured orgasm tag or any descendant of it
 //   - For each matching marker, count the number of 'top' performers on that marker
 //   - Each marker counts as the number of tops, with a minimum of 1 if no tops are assigned
+//
+// Uses roleTagIds.orgasmTagId from UI config and includes all subtags recursively.
 func (r *queryResolver) SceneOrgasmCount(ctx context.Context) (int, error) {
 	var count int
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+		var orgasmTagID int
+		if roleTagIds != nil {
+			if orgasmID, ok := roleTagIds["orgasmTagId"].(string); ok && orgasmID != "" {
+				orgasmTagID, _ = strconv.Atoi(orgasmID)
+			}
+		}
+		if orgasmTagID == 0 {
+			return nil // No tag configured
+		}
+
 		db := manager.GetInstance().Database
 		query := `
 WITH RECURSIVE orgasm_tags(id) AS (
-  SELECT id FROM tags WHERE LOWER(TRIM(name)) = 'orgasm'
+  SELECT id FROM tags WHERE id = ?
   UNION ALL
   SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
 ),
@@ -409,7 +423,8 @@ FROM (
   SELECT om.id, (SELECT COUNT(*) FROM scene_marker_performers smp WHERE smp.scene_marker_id = om.id AND smp.role = 'top') AS top_count
   FROM orgasm_markers om
 ) sub`
-		_, rows, err := db.QuerySQL(ctx, query, nil)
+		args := []interface{}{orgasmTagID}
+		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
 			return err
 		}
@@ -494,7 +509,7 @@ FROM (
 }
 
 // PerformersFacialGivenCount returns the number of distinct performers who have given facials.
-// Uses roleTagIds.facialTagId from UI config.
+// Uses roleTagIds.facialTagId from UI config and includes all subtags recursively.
 func (r *queryResolver) PerformersFacialGivenCount(ctx context.Context) (int, error) {
 	var count int
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
@@ -511,10 +526,23 @@ func (r *queryResolver) PerformersFacialGivenCount(ctx context.Context) (int, er
 		}
 
 		db := manager.GetInstance().Database
-		query := `SELECT COUNT(DISTINCT smp.performer_id) 
-FROM scene_marker_performers smp 
-JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
-WHERE sm.primary_tag_id = ? AND smp.role = 'top'`
+		query := `
+WITH RECURSIVE facial_tags(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN facial_tags ft ON tr.parent_id = ft.id
+),
+facial_markers AS (
+  SELECT DISTINCT sm.id
+  FROM scene_markers sm
+  LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+  WHERE sm.primary_tag_id IN (SELECT id FROM facial_tags)
+     OR smt.tag_id IN (SELECT id FROM facial_tags)
+)
+SELECT COUNT(DISTINCT smp.performer_id)
+FROM scene_marker_performers smp
+WHERE smp.scene_marker_id IN (SELECT id FROM facial_markers)
+  AND smp.role = 'top'`
 		args := []interface{}{facialTagID}
 		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
@@ -545,7 +573,7 @@ WHERE sm.primary_tag_id = ? AND smp.role = 'top'`
 }
 
 // PerformersFacialReceivedCount returns the number of distinct performers who have received facials.
-// Uses roleTagIds.facialTagId from UI config.
+// Uses roleTagIds.facialTagId from UI config and includes all subtags recursively.
 func (r *queryResolver) PerformersFacialReceivedCount(ctx context.Context) (int, error) {
 	var count int
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
@@ -562,10 +590,23 @@ func (r *queryResolver) PerformersFacialReceivedCount(ctx context.Context) (int,
 		}
 
 		db := manager.GetInstance().Database
-		query := `SELECT COUNT(DISTINCT smp.performer_id) 
-FROM scene_marker_performers smp 
-JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
-WHERE sm.primary_tag_id = ? AND smp.role = 'bottom'`
+		query := `
+WITH RECURSIVE facial_tags(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN facial_tags ft ON tr.parent_id = ft.id
+),
+facial_markers AS (
+  SELECT DISTINCT sm.id
+  FROM scene_markers sm
+  LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+  WHERE sm.primary_tag_id IN (SELECT id FROM facial_tags)
+     OR smt.tag_id IN (SELECT id FROM facial_tags)
+)
+SELECT COUNT(DISTINCT smp.performer_id)
+FROM scene_marker_performers smp
+WHERE smp.scene_marker_id IN (SELECT id FROM facial_markers)
+  AND smp.role = 'bottom'`
 		args := []interface{}{facialTagID}
 		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {

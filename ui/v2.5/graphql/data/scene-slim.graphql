@@ -38,6 +38,16 @@ fragment SlimSceneData on Scene {
     primary_tag {
       id
       name
+      parents {
+        id
+      }
+    }
+    tags {
+      id
+      name
+      parents {
+        id
+      }
     }
   }
 

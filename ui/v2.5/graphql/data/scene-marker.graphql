@@ -14,6 +14,9 @@ fragment SceneMarkerData on SceneMarker {
   primary_tag {
     id
     name
+    parents {
+      id
+    }
   }
 
   tags {

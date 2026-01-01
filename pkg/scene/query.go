@@ -183,19 +183,21 @@ func CountByGroupID(ctx context.Context, r models.SceneQueryer, id int, depth *i
 	return r.QueryCount(ctx, filter, nil)
 }
 
-// CountByPerformerMarkerRole counts distinct scenes where a performer participates
-// in markers with the given primary tag and optionally a specific role (top/bottom).
+// CountScenesByPerformerMarkerRole counts distinct scenes where a performer participates
+// in markers with the given primary tag (including subtags) and optionally a specific role (top/bottom).
 // If role is empty, counts all markers with that tag regardless of role.
-func CountByPerformerMarkerRole(ctx context.Context, r models.SceneMarkerQueryer, performerID int, tagID int, role string) (int, error) {
+func CountScenesByPerformerMarkerRole(ctx context.Context, r models.SceneMarkerQueryer, performerID int, tagID int, role string) (int, error) {
 	if tagID == 0 {
 		return 0, nil
 	}
 
-	// Build filter for scene markers
+	// Build filter for scene markers with recursive tag matching
+	allDepth := -1 // Include all subtags recursively
 	filter := &models.SceneMarkerFilterType{
 		Tags: &models.HierarchicalMultiCriterionInput{
 			Value:    []string{strconv.Itoa(tagID)},
 			Modifier: models.CriterionModifierIncludes,
+			Depth:    &allDepth,
 		},
 	}
 
@@ -248,11 +250,13 @@ func CountMarkersByPerformerRole(ctx context.Context, r models.SceneMarkerQuerye
 		return 0, nil
 	}
 
-	// Build filter for scene markers
+	// Build filter for scene markers with recursive tag matching
+	allDepth := -1 // Include all subtags recursively
 	filter := &models.SceneMarkerFilterType{
 		Tags: &models.HierarchicalMultiCriterionInput{
 			Value:    []string{strconv.Itoa(tagID)},
 			Modifier: models.CriterionModifierIncludes,
+			Depth:    &allDepth,
 		},
 	}
 
@@ -292,9 +296,9 @@ func CountMarkersByPerformerRole(ctx context.Context, r models.SceneMarkerQuerye
 	return len(markers), nil
 }
 
-// CountByPerformerMarkerRoleExcluding counts scenes where performer has markers with tagID
+// CountScenesByPerformerMarkerRoleExcluding counts scenes where performer has markers with tagID
 // but excludes scenes that also have markers with excludeTagID.
-func CountByPerformerMarkerRoleExcluding(ctx context.Context, r models.SceneMarkerQueryer, performerID int, tagID int, role string, excludeTagID int) (int, error) {
+func CountScenesByPerformerMarkerRoleExcluding(ctx context.Context, r models.SceneMarkerQueryer, performerID int, tagID int, role string, excludeTagID int) (int, error) {
 	if tagID == 0 {
 		return 0, nil
 	}
@@ -326,9 +330,9 @@ func CountByPerformerMarkerRoleExcluding(ctx context.Context, r models.SceneMark
 	return count, nil
 }
 
-// CountByPerformerMarkerRoleExcludingMultiple counts scenes where performer has markers with tagID
+// CountScenesByPerformerMarkerRoleExcludingMultiple counts scenes where performer has markers with tagID
 // but excludes scenes that also have markers with any of the excludeTagIDs.
-func CountByPerformerMarkerRoleExcludingMultiple(ctx context.Context, r models.SceneMarkerQueryer, performerID int, tagID int, role string, excludeTagIDs []int) (int, error) {
+func CountScenesByPerformerMarkerRoleExcludingMultiple(ctx context.Context, r models.SceneMarkerQueryer, performerID int, tagID int, role string, excludeTagIDs []int) (int, error) {
 	if tagID == 0 {
 		return 0, nil
 	}
@@ -371,10 +375,12 @@ func getScenesByPerformerMarkerRole(ctx context.Context, r models.SceneMarkerQue
 		return make(map[int]bool), nil
 	}
 
+	allDepth := -1 // Include all subtags recursively
 	filter := &models.SceneMarkerFilterType{
 		Tags: &models.HierarchicalMultiCriterionInput{
 			Value:    []string{strconv.Itoa(tagID)},
 			Modifier: models.CriterionModifierIncludes,
+			Depth:    &allDepth,
 		},
 	}
 
@@ -419,7 +425,8 @@ func getScenesByPerformerMarkerRole(ctx context.Context, r models.SceneMarkerQue
 // GetPerformerMarkerRolesForScene returns the roles a performer has in a specific scene's markers.
 // Returns array of strings like "sex_top", "sex_bottom", "oral_top", "oral_bottom",
 // "facial_top", "facial_bottom", "orgasm_top", "solo" based on their participation in markers.
-func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerReader, performerID int, sceneID int, sexTagID int, oralTagID int, soloTagID int, facialTagID int, orgasmTagID int) ([]string, error) {
+// Uses TagFinder to check if marker tags are descendants of the configured role tags.
+func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerReader, tagFinder models.TagFinder, performerID int, sceneID int, sexTagID int, oralTagID int, soloTagID int, facialTagID int, orgasmTagID int) ([]string, error) {
 	roles := []string{}
 
 	// Query all markers for this scene using FindBySceneID
@@ -432,32 +439,76 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 		return roles, nil
 	}
 
+	// Build sets of all descendant tag IDs for each role tag (for subtag matching)
+	sexTagSet := make(map[int]bool)
+	oralTagSet := make(map[int]bool)
+	soloTagSet := make(map[int]bool)
+	facialTagSet := make(map[int]bool)
+	orgasmTagSet := make(map[int]bool)
+
+	// Helper to build descendant set
+	buildDescendantSet := func(tagID int, tagSet map[int]bool) error {
+		if tagID == 0 {
+			return nil
+		}
+		tagSet[tagID] = true
+		descendants, err := tagFinder.FindAllDescendants(ctx, tagID, nil)
+		if err != nil {
+			return err
+		}
+		for _, d := range descendants {
+			tagSet[d.ID] = true
+		}
+		return nil
+	}
+
+	// Build all descendant sets
+	if err := buildDescendantSet(sexTagID, sexTagSet); err != nil {
+		return nil, err
+	}
+	if err := buildDescendantSet(oralTagID, oralTagSet); err != nil {
+		return nil, err
+	}
+	if err := buildDescendantSet(soloTagID, soloTagSet); err != nil {
+		return nil, err
+	}
+	if err := buildDescendantSet(facialTagID, facialTagSet); err != nil {
+		return nil, err
+	}
+	if err := buildDescendantSet(orgasmTagID, orgasmTagSet); err != nil {
+		return nil, err
+	}
+
 	// Track orgasm marker count for this performer as top (we need count, not just presence)
 	orgasmTopCount := 0
 
-	// Helper to check if a tag ID matches any role tag and add the role
+	// Helper to check if a tag ID matches any role tag (including subtags) and add the role
 	addRoleForTag := func(tagID int, role string) {
-		if tagID == sexTagID {
+		if sexTagSet[tagID] {
 			if role == "top" {
 				roles = appendIfNotExists(roles, "sex_top")
 			} else if role == "bottom" {
 				roles = appendIfNotExists(roles, "sex_bottom")
 			}
-		} else if tagID == oralTagID {
+		}
+		if oralTagSet[tagID] {
 			if role == "top" {
 				roles = appendIfNotExists(roles, "oral_top")
 			} else if role == "bottom" {
 				roles = appendIfNotExists(roles, "oral_bottom")
 			}
-		} else if tagID == soloTagID {
+		}
+		if soloTagSet[tagID] {
 			roles = appendIfNotExists(roles, "solo")
-		} else if tagID == facialTagID {
+		}
+		if facialTagSet[tagID] {
 			if role == "top" {
 				roles = appendIfNotExists(roles, "facial_top")
 			} else if role == "bottom" {
 				roles = appendIfNotExists(roles, "facial_bottom")
 			}
-		} else if tagID == orgasmTagID {
+		}
+		if orgasmTagSet[tagID] {
 			if role == "top" {
 				orgasmTopCount++
 			}
@@ -512,16 +563,18 @@ func appendIfNotExists(slice []string, s string) []string {
 	return append(slice, s)
 }
 
-// CountScenesWithMarkerTag counts distinct scenes that have markers with the given tag
+// CountScenesWithMarkerTag counts distinct scenes that have markers with the given tag or subtags
 func CountScenesWithMarkerTag(ctx context.Context, markerQB models.SceneMarkerQueryer, tagID int) (int, error) {
 	if tagID == 0 {
 		return 0, nil
 	}
 
+	allDepth := -1 // Include all subtags recursively
 	filter := &models.SceneMarkerFilterType{
 		Tags: &models.HierarchicalMultiCriterionInput{
 			Value:    []string{strconv.Itoa(tagID)},
 			Modifier: models.CriterionModifierIncludes,
+			Depth:    &allDepth,
 		},
 	}
 
@@ -542,7 +595,7 @@ func CountScenesWithMarkerTag(ctx context.Context, markerQB models.SceneMarkerQu
 	return len(sceneSet), nil
 }
 
-// CountScenesWithMarkerTagExcluding counts distinct scenes that have markers with tagID but not excludeTagID
+// CountScenesWithMarkerTagExcluding counts distinct scenes that have markers with tagID (or subtags) but not excludeTagID (or subtags)
 func CountScenesWithMarkerTagExcluding(ctx context.Context, markerQB models.SceneMarkerQueryer, tagID int, excludeTagID int) (int, error) {
 	if tagID == 0 {
 		return 0, nil
@@ -552,11 +605,13 @@ func CountScenesWithMarkerTagExcluding(ctx context.Context, markerQB models.Scen
 	allResults := -1
 	findFilter := &models.FindFilterType{PerPage: &allResults}
 
-	// Get scenes with the include tag
+	// Get scenes with the include tag (including subtags)
+	allDepth := -1
 	filter := &models.SceneMarkerFilterType{
 		Tags: &models.HierarchicalMultiCriterionInput{
 			Value:    []string{strconv.Itoa(tagID)},
 			Modifier: models.CriterionModifierIncludes,
+			Depth:    &allDepth,
 		},
 	}
 
@@ -574,11 +629,12 @@ func CountScenesWithMarkerTagExcluding(ctx context.Context, markerQB models.Scen
 		return len(includeScenes), nil
 	}
 
-	// Get scenes with the exclude tag
+	// Get scenes with the exclude tag (including subtags)
 	excludeFilter := &models.SceneMarkerFilterType{
 		Tags: &models.HierarchicalMultiCriterionInput{
 			Value:    []string{strconv.Itoa(excludeTagID)},
 			Modifier: models.CriterionModifierIncludes,
+			Depth:    &allDepth,
 		},
 	}
 
@@ -603,7 +659,7 @@ func CountScenesWithMarkerTagExcluding(ctx context.Context, markerQB models.Scen
 	return count, nil
 }
 
-// CountScenesWithMarkerTagExcludingMultiple counts scenes with tagID but none of excludeTagIDs
+// CountScenesWithMarkerTagExcludingMultiple counts scenes with tagID (or subtags) but none of excludeTagIDs (or subtags)
 func CountScenesWithMarkerTagExcludingMultiple(ctx context.Context, markerQB models.SceneMarkerQueryer, tagID int, excludeTagIDs []int) (int, error) {
 	if tagID == 0 {
 		return 0, nil
@@ -613,11 +669,13 @@ func CountScenesWithMarkerTagExcludingMultiple(ctx context.Context, markerQB mod
 	allResults := -1
 	findFilter := &models.FindFilterType{PerPage: &allResults}
 
-	// Get scenes with the include tag
+	// Get scenes with the include tag (including subtags)
+	allDepth := -1
 	filter := &models.SceneMarkerFilterType{
 		Tags: &models.HierarchicalMultiCriterionInput{
 			Value:    []string{strconv.Itoa(tagID)},
 			Modifier: models.CriterionModifierIncludes,
+			Depth:    &allDepth,
 		},
 	}
 
@@ -645,6 +703,7 @@ func CountScenesWithMarkerTagExcludingMultiple(ctx context.Context, markerQB mod
 			Tags: &models.HierarchicalMultiCriterionInput{
 				Value:    []string{strconv.Itoa(excludeTagID)},
 				Modifier: models.CriterionModifierIncludes,
+				Depth:    &allDepth,
 			},
 		}
 
@@ -669,7 +728,7 @@ func CountScenesWithMarkerTagExcludingMultiple(ctx context.Context, markerQB mod
 	return count, nil
 }
 
-// CountByStudioMarkerRole counts distinct scenes for a studio with markers having the given tag
+// CountByStudioMarkerRole counts distinct scenes for a studio with markers having the given tag or subtags
 func CountByStudioMarkerRole(ctx context.Context, markerQB models.SceneMarkerQueryer, sceneQB models.SceneQueryer, studioID int, depth *int, tagID int, role string, performerID *int) (int, error) {
 	if tagID == 0 {
 		return 0, nil
@@ -685,11 +744,13 @@ func CountByStudioMarkerRole(ctx context.Context, markerQB models.SceneMarkerQue
 		return 0, nil
 	}
 
-	// Build filter for markers with the tag
+	// Build filter for markers with the tag (including subtags)
+	allDepth := -1
 	filter := &models.SceneMarkerFilterType{
 		Tags: &models.HierarchicalMultiCriterionInput{
 			Value:    []string{strconv.Itoa(tagID)},
 			Modifier: models.CriterionModifierIncludes,
+			Depth:    &allDepth,
 		},
 	}
 
@@ -872,12 +933,14 @@ func getStudioSceneIDs(ctx context.Context, sceneQB models.SceneQueryer, studioI
 	return sceneSet, nil
 }
 
-// Helper to get scenes with a marker tag
+// Helper to get scenes with a marker tag (including subtags)
 func getStudioScenesWithMarkerTag(ctx context.Context, markerQB models.SceneMarkerQueryer, studioScenes map[int]bool, tagID int, role string, performerID *int) (map[int]bool, error) {
+	allDepth := -1 // Include all subtags recursively
 	filter := &models.SceneMarkerFilterType{
 		Tags: &models.HierarchicalMultiCriterionInput{
 			Value:    []string{strconv.Itoa(tagID)},
 			Modifier: models.CriterionModifierIncludes,
+			Depth:    &allDepth,
 		},
 	}
 

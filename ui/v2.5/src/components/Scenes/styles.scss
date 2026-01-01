@@ -817,10 +817,6 @@ input[type="range"].blue-slider {
 
     &:hover {
       background-color: rgba(255, 255, 255, 0.03);
-
-      .marker-edit-btn {
-        opacity: 1;
-      }
     }
 
     .marker-checkbox {
@@ -859,8 +855,6 @@ input[type="range"].blue-slider {
     .marker-edit-btn {
       font-size: 0.8em;
       color: var(--muted-text-color, #999);
-      opacity: 0;
-      transition: opacity 0.15s ease;
       flex-shrink: 0;
 
       &:hover {

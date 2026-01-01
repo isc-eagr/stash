@@ -351,21 +351,38 @@ const SceneCardOverlays = PatchComponent(
   (props: ISceneCardProps) => {
     const { configuration } = useConfigurationContext();
 
-    // Check if scene has facial markers based on configured facial tag ID
+    // Check if scene has facial markers based on configured facial tag ID (including subtags)
     const hasFacial = useMemo(() => {
       const roleTagIds = configuration?.ui?.roleTagIds ?? {};
       const facialTagId = roleTagIds.facialTagId;
       if (!facialTagId) return false;
 
-      // Check scene markers for facial tag
+      // Helper to check if a tag matches (including recursive parent/child relationships)
+      // Returns true if tag.id === targetId OR any ancestor of tag has id === targetId
+      const tagMatches = (
+        tag: { id?: string; parents?: Array<{ id?: string }> } | null | undefined,
+        targetId: string,
+        visited: Set<string> = new Set()
+      ): boolean => {
+        if (!tag || !tag.id) return false;
+        if (tag.id === targetId) return true;
+        // Prevent infinite loops
+        if (visited.has(tag.id)) return false;
+        visited.add(tag.id);
+        // Recursively check all parents (ancestors)
+        const parents = tag.parents ?? [];
+        return parents.some((p) => tagMatches(p as any, targetId, visited));
+      };
+
+      // Check scene markers for facial tag (including subtags)
       const sceneMarkers = (props.scene as any).scene_markers ?? [];
       for (const marker of sceneMarkers) {
-        if (marker?.primary_tag?.id === facialTagId) {
+        if (tagMatches(marker?.primary_tag, facialTagId)) {
           return true;
         }
-        const markerTags: Array<{ id?: string }> = marker?.tags ?? [];
+        const markerTags: Array<{ id?: string; parents?: Array<{ id?: string }> }> = marker?.tags ?? [];
         for (const tag of markerTags) {
-          if (tag?.id === facialTagId) {
+          if (tagMatches(tag, facialTagId)) {
             return true;
           }
         }
@@ -493,13 +510,17 @@ export const SceneCard = PatchComponent(
       const soloTagId = roleTagIds.soloTagId;
       const facialTagId = roleTagIds.facialTagId;
 
-      // Helper to check if a tag matches (including parent/child relationships)
-      const tagMatches = (tag: any, targetId: string | undefined) => {
+      // Helper to check if a tag matches (including recursive parent/child relationships)
+      // Returns true if tag.id === targetId OR any ancestor of tag has id === targetId
+      const tagMatches = (tag: any, targetId: string | undefined, visited: Set<string> = new Set()): boolean => {
         if (!targetId || !tag) return false;
         if (tag.id === targetId) return true;
-        // Check if tag is a child of targetId
+        // Prevent infinite loops
+        if (visited.has(tag.id)) return false;
+        visited.add(tag.id);
+        // Recursively check all parents (ancestors)
         const parents = tag.parents ?? [];
-        return parents.some((p: any) => p.id === targetId);
+        return parents.some((p: any) => tagMatches(p, targetId, visited));
       };
 
       // Get scene marker tag IDs (including hierarchy)
@@ -556,14 +577,7 @@ export const SceneCard = PatchComponent(
         };
       }
 
-      if (facialTagId && markerTagIds.has(facialTagId)) {
-        return {
-          type: "goatee",
-          className: "scene-goatee-icon",
-          title: "Scene has facial markers",
-        };
-      }
-
+      // Note: facial is intentionally not included here - it shows in the overlay instead
       return null;
     }, [props.scene, configuration?.ui]);
 

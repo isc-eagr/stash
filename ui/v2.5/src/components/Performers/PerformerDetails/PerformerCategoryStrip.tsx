@@ -17,15 +17,22 @@ import spermsSvg from "src/assets/sperms.svg";
 
 interface IPerformerCategoryStripProps {
   performer: GQL.PerformerDataFragment;
+  /** Scene ID for scene context - enables role badges based on marker roles */
+  sceneId?: string;
+  /** Marker roles in the current scene (used when sceneId is provided) */
+  markerRoles?: string[];
 }
 
 /**
  * PerformerCategoryStrip - Shows marker-based role badges with top/bottom breakdown
  * Uses roleTagIds configuration for tag IDs and counts from performer data.
- * Same style as performer card role badges but for the detail page.
+ * Can show global counts or scene-specific roles depending on context.
+ * Used in both performer cards (with sceneId/markerRoles) and detail pages (global).
  */
 export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   performer,
+  sceneId,
+  markerRoles = [],
 }) => {
   const { configuration } = useConfigurationContext();
 
@@ -37,71 +44,124 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   const facialTagId = roleTagIds.facialTagId;
   const orgasmTagId = roleTagIds.orgasmTagId;
 
-  // Get counts from performer - using top/bottom fields
   const p = performer as any;
-  const sexTopCount = p.sex_top_count ?? 0;
-  const sexBottomCount = p.sex_bottom_count ?? 0;
-  const sexCount = p.sex_scene_count ?? 0;
+  let orgasmTopCount = 0;
 
-  const oralTopCount = p.oral_top_count ?? 0;
-  const oralBottomCount = p.oral_bottom_count ?? 0;
-  const oralCount = p.oral_scene_count ?? 0;
-
-  const soloCount = p.solo_scene_count ?? 0;
-
-  const facialTopCount = p.facial_top_count ?? 0;
-  const facialBottomCount = p.facial_bottom_count ?? 0;
-  const facialCount = p.facial_scene_count ?? 0;
-
-  const orgasmTopCount = p.orgasm_top_count ?? 0;
-
-  // Build roles to show (same logic as PerformerCard)
-  const rolesToShow: Array<{
+  // Build roles to show based on context
+  let rolesToShow: Array<{
     category: "sex" | "oral" | "solo" | "facial";
-    count: number;
+    count?: number;
     topCount?: number;
     bottomCount?: number;
+    isTop?: boolean;
+    isBottom?: boolean;
     tagId?: string;
   }> = [];
 
-  if (sexCount > 0 && sexTagId) {
-    rolesToShow.push({
-      category: "sex",
-      count: sexCount,
-      topCount: sexTopCount,
-      bottomCount: sexBottomCount,
-      tagId: sexTagId,
-    });
-  }
-  if (oralCount > 0 && oralTagId) {
-    rolesToShow.push({
-      category: "oral",
-      count: oralCount,
-      topCount: oralTopCount,
-      bottomCount: oralBottomCount,
-      tagId: oralTagId,
-    });
-  }
-  if (soloCount > 0 && soloTagId) {
-    rolesToShow.push({
-      category: "solo",
-      count: soloCount,
-      tagId: soloTagId,
-    });
-  }
-  if (facialCount > 0 && facialTagId) {
-    rolesToShow.push({
-      category: "facial",
-      count: facialCount,
-      topCount: facialTopCount,
-      bottomCount: facialBottomCount,
-      tagId: facialTagId,
-    });
+  if (sceneId && markerRoles.length > 0) {
+    // Scene context: show roles based on marker roles in this scene only
+    const sexRoles = markerRoles.filter((r: string) =>
+      r.startsWith("sex_")
+    );
+    const oralRoles = markerRoles.filter((r: string) =>
+      r.startsWith("oral_")
+    );
+    const soloRoles = markerRoles.filter((r: string) => r === "solo");
+    const facialRoles = markerRoles.filter((r: string) =>
+      r.startsWith("facial_")
+    );
+    const orgasmRoles = markerRoles.filter((r: string) =>
+      r.startsWith("orgasm_top_")
+    );
+
+    // Parse orgasm count from "orgasm_top_X" format
+    if (orgasmRoles.length > 0 && orgasmTagId) {
+      const match = orgasmRoles[0].match(/orgasm_top_(\d+)/);
+      if (match) {
+        orgasmTopCount = parseInt(match[1], 10);
+      }
+    }
+
+    // Fixed order: Sex, Oral, Solo, Facial
+    if (sexRoles.length > 0 && sexTagId) {
+      rolesToShow.push({
+        category: "sex",
+        isTop: sexRoles.some((r: string) => r.endsWith("_top")),
+        isBottom: sexRoles.some((r: string) => r.endsWith("_bottom")),
+        tagId: sexTagId,
+      });
+    }
+    if (oralRoles.length > 0 && oralTagId) {
+      rolesToShow.push({
+        category: "oral",
+        isTop: oralRoles.some((r: string) => r.endsWith("_top")),
+        isBottom: oralRoles.some((r: string) => r.endsWith("_bottom")),
+        tagId: oralTagId,
+      });
+    }
+    if (soloRoles.length > 0 && soloTagId) {
+      rolesToShow.push({
+        category: "solo",
+        tagId: soloTagId,
+      });
+    }
+    if (facialRoles.length > 0 && facialTagId) {
+      rolesToShow.push({
+        category: "facial",
+        isTop: facialRoles.some((r: string) => r.endsWith("_top")),
+        isBottom: facialRoles.some((r: string) => r.endsWith("_bottom")),
+        tagId: facialTagId,
+      });
+    }
+  } else {
+    // Global context: show total counts from performer data
+    const sexCount = p.sex_scene_count ?? 0;
+    const oralCount = p.oral_scene_count ?? 0;
+    const soloCount = p.solo_scene_count ?? 0;
+    const facialCount = p.facial_scene_count ?? 0;
+
+    orgasmTopCount = p.orgasm_top_count ?? 0;
+
+    if (sexCount > 0 && sexTagId) {
+      rolesToShow.push({
+        category: "sex",
+        count: sexCount,
+        topCount: p.sex_top_count ?? 0,
+        bottomCount: p.sex_bottom_count ?? 0,
+        tagId: sexTagId,
+      });
+    }
+    if (oralCount > 0 && oralTagId) {
+      rolesToShow.push({
+        category: "oral",
+        count: oralCount,
+        topCount: p.oral_top_count ?? 0,
+        bottomCount: p.oral_bottom_count ?? 0,
+        tagId: oralTagId,
+      });
+    }
+    if (soloCount > 0 && soloTagId) {
+      rolesToShow.push({
+        category: "solo",
+        count: soloCount,
+        tagId: soloTagId,
+      });
+    }
+    if (facialCount > 0 && facialTagId) {
+      rolesToShow.push({
+        category: "facial",
+        count: facialCount,
+        topCount: p.facial_top_count ?? 0,
+        bottomCount: p.facial_bottom_count ?? 0,
+        tagId: facialTagId,
+      });
+    }
   }
 
   // Only show if at least one role tag is configured
   const hasAnyRoleTag = sexTagId || oralTagId || soloTagId || facialTagId;
-  if (!hasAnyRoleTag || rolesToShow.length === 0) return null;
+  if (!hasAnyRoleTag || (rolesToShow.length === 0 && orgasmTopCount === 0))
+    return null;
 
   // Build exclude tags for oral (exclude sex) and solo (exclude sex + oral)
   const getExcludeTagsForCategory = (
@@ -197,10 +257,85 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
 
             {/* Count below for solo, arrows below for sex/oral/facial */}
             {role.category === "solo" ? (
-              <div className="solo-count">
-                <span className="role-total-count">{role.count}</span>
+              <>
+                <div className="solo-count" style={{ visibility: sceneId && role.category === "solo" ? 'hidden' : 'visible' }}>
+                  <span className="role-total-count">{role.count ?? 1}</span>
+                </div>
+              </>
+            ) : sceneId ? (
+              // Scene context: show top/bottom indicators as badges
+              <div className="role-arrows">
+                {role.isTop &&
+                  (topUrl ? (
+                    <Link to={topUrl} className="role-badge-link">
+                      <Badge
+                        pill
+                        variant="success"
+                        className="arrow-badge top-badge"
+                        style={{
+                          fontSize: 10,
+                          padding: "3px 6px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <Icon icon={faArrowUp} />
+                      </Badge>
+                    </Link>
+                  ) : (
+                    <Badge
+                      pill
+                      variant="success"
+                      className="arrow-badge top-badge"
+                      style={{
+                        fontSize: 10,
+                        padding: "3px 6px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <Icon icon={faArrowUp} />
+                    </Badge>
+                  ))}
+                {role.isBottom &&
+                  (bottomUrl ? (
+                    <Link to={bottomUrl} className="role-badge-link">
+                      <Badge
+                        pill
+                        variant="info"
+                        className="arrow-badge bottom-badge"
+                        style={{
+                          fontSize: 10,
+                          padding: "3px 6px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <Icon icon={faArrowDown} />
+                      </Badge>
+                    </Link>
+                  ) : (
+                    <Badge
+                      pill
+                      variant="info"
+                      className="arrow-badge bottom-badge"
+                      style={{
+                        fontSize: 10,
+                        padding: "3px 6px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <Icon icon={faArrowDown} />
+                    </Badge>
+                  ))}
               </div>
             ) : (
+              // Global context: show counts with arrows
               <div className="role-arrows">
                 {(role.topCount ?? 0) > 0 &&
                   (topUrl ? (
@@ -295,11 +430,9 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
               <img src={spermsSvg} alt="Orgasm" className="category-icon" />
             </Link>
           </div>
-          {orgasmTopCount > 1 && (
-            <div className="orgasm-count">
-              <span className="role-total-count">{orgasmTopCount}</span>
-            </div>
-          )}
+          <div className="orgasm-count" style={{ visibility: sceneId && orgasmTopCount === 1 ? 'hidden' : 'visible' }}>
+            <span className="role-total-count">{orgasmTopCount}</span>
+          </div>
         </div>
       )}
     </div>

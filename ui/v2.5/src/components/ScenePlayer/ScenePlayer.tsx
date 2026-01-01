@@ -1554,7 +1554,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const isPortrait =
       file && file.height && file.width && file.height > file.width;
 
-    // Determine if the scene has any markers with the configured facial tag
+    // Determine if the scene has any markers with the configured facial tag or any of its subtags
     const hasFacial = useMemo(() => {
       const facialTagId = (
         configuration?.ui as unknown as {
@@ -1563,11 +1563,28 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       )?.roleTagIds?.facialTagId;
       if (!facialTagId) return false;
 
+      // Helper to check if a tag matches (including recursive parent/child relationships)
+      // Returns true if tag.id === targetId OR any ancestor of tag has id === targetId
+      const tagMatches = (
+        tag: { id: string; parents?: Array<{ id: string }> } | null | undefined,
+        targetId: string,
+        visited: Set<string> = new Set()
+      ): boolean => {
+        if (!tag) return false;
+        if (tag.id === targetId) return true;
+        // Prevent infinite loops
+        if (visited.has(tag.id)) return false;
+        visited.add(tag.id);
+        // Recursively check all parents (ancestors)
+        const parents = tag.parents ?? [];
+        return parents.some((p) => tagMatches(p as any, targetId, visited));
+      };
+
       const markers = scene.scene_markers ?? [];
-      // Check if any marker's primary_tag or tags contain the facial tag
+      // Check if any marker's primary_tag or tags match the facial tag (including subtags)
       return markers.some((marker) => {
-        if (marker.primary_tag?.id === facialTagId) return true;
-        return (marker.tags ?? []).some((tag) => tag.id === facialTagId);
+        if (tagMatches(marker.primary_tag, facialTagId)) return true;
+        return (marker.tags ?? []).some((tag) => tagMatches(tag, facialTagId));
       });
     }, [scene.scene_markers, configuration?.ui]);
 

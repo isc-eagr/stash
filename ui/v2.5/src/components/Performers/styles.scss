@@ -206,18 +206,25 @@
       display: flex;
       flex-direction: row;
       align-items: center;
+      justify-content: center;
       gap: 4px;
+      min-height: 20px;
 
       .category-icon {
         width: 20px;
         height: 20px;
         object-fit: contain;
         filter: brightness(0) invert(1); /* Make white */
+        flex-shrink: 0;
       }
 
       .category-icon-fa {
         font-size: 16px;
         color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
       }
 
       .role-total-count {
@@ -766,6 +773,9 @@
   }
 
   .scene-category-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
     background-color: transparent !important;
     border: none !important;
     box-shadow: none !important;
@@ -782,6 +792,14 @@
     .category-icon-fa {
       font-size: 1em;
       color: #ffffff;
+      display: flex;
+      align-items: center;
+    }
+
+    span {
+      min-width: 1em;
+      display: inline-block;
+      text-align: center;
     }
 
     &:hover,

@@ -165,7 +165,7 @@ func (r *performerResolver) SceneMarkerRoles(ctx context.Context, obj *models.Pe
 	sexTagID, oralTagID, soloTagID, facialTagID, orgasmTagID := getRoleTagIDs(uiConfig)
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.GetPerformerMarkerRolesForScene(ctx, r.repository.SceneMarker, obj.ID, sid, sexTagID, oralTagID, soloTagID, facialTagID, orgasmTagID)
+		ret, err = scene.GetPerformerMarkerRolesForScene(ctx, r.repository.SceneMarker, r.repository.Tag, obj.ID, sid, sexTagID, oralTagID, soloTagID, facialTagID, orgasmTagID)
 		return err
 	}); err != nil {
 		return nil, err
@@ -349,7 +349,7 @@ func (r *performerResolver) SexSceneCount(ctx context.Context, obj *models.Perfo
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, sexTagID, "")
+		ret, err = scene.CountScenesByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, sexTagID, "")
 		return err
 	}); err != nil {
 		return 0, err
@@ -367,7 +367,7 @@ func (r *performerResolver) SexTopCount(ctx context.Context, obj *models.Perform
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, sexTagID, "top")
+		ret, err = scene.CountScenesByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, sexTagID, "top")
 		return err
 	}); err != nil {
 		return 0, err
@@ -385,7 +385,7 @@ func (r *performerResolver) SexBottomCount(ctx context.Context, obj *models.Perf
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, sexTagID, "bottom")
+		ret, err = scene.CountScenesByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, sexTagID, "bottom")
 		return err
 	}); err != nil {
 		return 0, err
@@ -403,7 +403,7 @@ func (r *performerResolver) OralSceneCount(ctx context.Context, obj *models.Perf
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerMarkerRoleExcluding(ctx, r.repository.SceneMarker, obj.ID, oralTagID, "", sexTagID)
+		ret, err = scene.CountScenesByPerformerMarkerRoleExcluding(ctx, r.repository.SceneMarker, obj.ID, oralTagID, "", sexTagID)
 		return err
 	}); err != nil {
 		return 0, err
@@ -421,7 +421,7 @@ func (r *performerResolver) OralTopCount(ctx context.Context, obj *models.Perfor
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerMarkerRoleExcluding(ctx, r.repository.SceneMarker, obj.ID, oralTagID, "top", sexTagID)
+		ret, err = scene.CountScenesByPerformerMarkerRoleExcluding(ctx, r.repository.SceneMarker, obj.ID, oralTagID, "top", sexTagID)
 		return err
 	}); err != nil {
 		return 0, err
@@ -439,7 +439,7 @@ func (r *performerResolver) OralBottomCount(ctx context.Context, obj *models.Per
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerMarkerRoleExcluding(ctx, r.repository.SceneMarker, obj.ID, oralTagID, "bottom", sexTagID)
+		ret, err = scene.CountScenesByPerformerMarkerRoleExcluding(ctx, r.repository.SceneMarker, obj.ID, oralTagID, "bottom", sexTagID)
 		return err
 	}); err != nil {
 		return 0, err
@@ -457,7 +457,7 @@ func (r *performerResolver) SoloSceneCount(ctx context.Context, obj *models.Perf
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerMarkerRoleExcludingMultiple(ctx, r.repository.SceneMarker, obj.ID, soloTagID, "", []int{sexTagID, oralTagID})
+		ret, err = scene.CountScenesByPerformerMarkerRoleExcludingMultiple(ctx, r.repository.SceneMarker, obj.ID, soloTagID, "", []int{sexTagID, oralTagID})
 		return err
 	}); err != nil {
 		return 0, err
@@ -475,7 +475,7 @@ func (r *performerResolver) FacialSceneCount(ctx context.Context, obj *models.Pe
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, facialTagID, "")
+		ret, err = scene.CountScenesByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, facialTagID, "")
 		return err
 	}); err != nil {
 		return 0, err
@@ -493,7 +493,7 @@ func (r *performerResolver) FacialTopCount(ctx context.Context, obj *models.Perf
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, facialTagID, "top")
+		ret, err = scene.CountScenesByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, facialTagID, "top")
 		return err
 	}); err != nil {
 		return 0, err
@@ -511,7 +511,7 @@ func (r *performerResolver) FacialBottomCount(ctx context.Context, obj *models.P
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, facialTagID, "bottom")
+		ret, err = scene.CountScenesByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, facialTagID, "bottom")
 		return err
 	}); err != nil {
 		return 0, err
