@@ -483,7 +483,9 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 	orgasmTopCount := 0
 
 	// Helper to check if a tag ID matches any role tag (including subtags) and add the role
-	addRoleForTag := func(tagID int, role string) {
+	// Returns true if orgasm tag was matched (for deduplication)
+	addRoleForTag := func(tagID int, role string) bool {
+		matchedOrgasm := false
 		if sexTagSet[tagID] {
 			if role == "top" {
 				roles = appendIfNotExists(roles, "sex_top")
@@ -508,11 +510,10 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 				roles = appendIfNotExists(roles, "facial_bottom")
 			}
 		}
-		if orgasmTagSet[tagID] {
-			if role == "top" {
-				orgasmTopCount++
-			}
+		if orgasmTagSet[tagID] && role == "top" {
+			matchedOrgasm = true
 		}
+		return matchedOrgasm
 	}
 
 	// Check each marker to see if this performer is top or bottom
@@ -535,12 +536,26 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 
 			role := perf.Role
 
+			// Track if we've already counted this marker for orgasms (to avoid double-counting with primary + secondary tags)
+			markerCountedForOrgasm := false
+
 			// Check primary tag first
-			addRoleForTag(marker.PrimaryTagID, role)
+			if addRoleForTag(marker.PrimaryTagID, role) {
+				markerCountedForOrgasm = true
+			}
 
 			// Also check secondary/additional tags (e.g., facial as secondary tag on a sex marker)
 			for _, tagID := range secondaryTagIDs {
-				addRoleForTag(tagID, role)
+				matchedOrgasm := addRoleForTag(tagID, role)
+				// Only count orgasm once per marker even if multiple orgasm subtags are present
+				if matchedOrgasm && !markerCountedForOrgasm {
+					markerCountedForOrgasm = true
+				}
+			}
+
+			// Increment orgasm count once per marker if any orgasm tag matched
+			if markerCountedForOrgasm {
+				orgasmTopCount++
 			}
 		}
 	}
