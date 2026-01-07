@@ -82,6 +82,12 @@ export const MultiSegmentLoopControls: React.FC<
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string>("");
   const saveInputRef = useRef<HTMLInputElement>(null);
+  
+  // Draggable modal state
+  const [isDragging, setIsDragging] = useState(false);
+  const [modalPosition, setModalPosition] = useState<{ x: number; y: number } | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setSelectedPreset((prev) => {
@@ -96,6 +102,58 @@ export const MultiSegmentLoopControls: React.FC<
       saveInputRef.current.focus();
     }
   }, [showSaveInput]);
+
+  // Handle drag events
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Don't start drag if clicking on a button or interactive element
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input') || target.closest('select')) {
+      return;
+    }
+    
+    if (modalRef.current) {
+      setIsDragging(true);
+      const rect = modalRef.current.getBoundingClientRect();
+      
+      // If not yet positioned manually, capture current centered position
+      if (!modalPosition) {
+        setModalPosition({
+          x: rect.left,
+          y: rect.top,
+        });
+      }
+      
+      setDragOffset({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+    }
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDragging) {
+        setModalPosition({
+          x: e.clientX - dragOffset.x,
+          y: e.clientY - dragOffset.y,
+        });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, dragOffset]);
 
   const formatTime = (seconds: number): string => {
     return TextUtils.secondsToTimestamp(seconds);
@@ -163,7 +221,7 @@ export const MultiSegmentLoopControls: React.FC<
       })}
     >
       {/* Header */}
-      <div className="msl-header">
+      <div className="msl-header" style={{ cursor: (!collapsed && onClose) ? 'grab' : 'default' }}>
         <span className="msl-title">
           <FormattedMessage id="multi_segment_loop.title" />
           {segments.length > 0 && (
@@ -485,10 +543,7 @@ export const MultiSegmentLoopControls: React.FC<
                     className="msl-preset-select"
                   >
                     <option value="">
-                      {intl.formatMessage({
-                        id: "none",
-                        defaultMessage: "None",
-                      })}
+                      <FormattedMessage id="multi_segment_loop.select_config" />
                     </option>
                     {presetNames.map((name) => (
                       <option key={name} value={name}>
@@ -521,22 +576,32 @@ export const MultiSegmentLoopControls: React.FC<
   );
 
   if (!collapsed && onClose) {
+    const positionStyle = modalPosition 
+      ? {
+          position: 'fixed' as const,
+          left: `${modalPosition.x}px`,
+          top: `${modalPosition.y}px`,
+          transform: 'none',
+          zIndex: 1000,
+        }
+      : {
+          zIndex: 1000,
+        };
+
     return (
-      <>
-        <div
-          className={cx("multi-segment-loop-modal-backdrop", {
-            "fullscreen-mode": isFullscreen,
-          })}
-          onClick={onClose}
-        />
-        <div
-          className={cx("multi-segment-loop-modal-container", {
-            "fullscreen-mode": isFullscreen,
-          })}
-        >
-          {content}
-        </div>
-      </>
+      <div
+        ref={modalRef}
+        className={cx("multi-segment-loop-modal-container", {
+          "fullscreen-mode": isFullscreen,
+        })}
+        style={{
+          ...positionStyle,
+          cursor: isDragging ? 'grabbing' : 'auto',
+        }}
+        onMouseDown={handleMouseDown}
+      >
+        {content}
+      </div>
     );
   }
 

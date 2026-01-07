@@ -232,6 +232,8 @@ type PerformerMarkersCriterionInput struct {
 type PerformerMarkerConditionInput struct {
 	// Tag IDs to match on the marker (marker must have at least one of these tags)
 	TagIDs []string `json:"tag_ids"`
+	// Depth for hierarchical tag matching (0 = exact tags only, -1 = all sub-tags, positive = depth limit)
+	Depth *int `json:"depth"`
 	// This performer's role on the marker: "top", "bottom", or "any" (default: "any")
 	Role *string `json:"role"`
 	// Filter by the performer's own ethnicities (OR match)
@@ -240,6 +242,10 @@ type PerformerMarkerConditionInput struct {
 	SelfCountries []string `json:"self_countries"`
 	// Filter by the performer's own rating criterion
 	SelfRating *IntCriterionInput `json:"self_rating"`
+	// Specific partner performer IDs to filter by (OR match - must have marker with one of these partners)
+	PartnerPerformerIDs []string `json:"partner_performer_ids"`
+	// Partner's role on the marker: "top", "bottom", or "any" (default: "any")
+	PartnerRole *string `json:"partner_role"`
 	// Partner's ethnicities to filter by (OR match)
 	PartnerEthnicities []string `json:"partner_ethnicities"`
 	// Partner's countries to filter by (OR match)

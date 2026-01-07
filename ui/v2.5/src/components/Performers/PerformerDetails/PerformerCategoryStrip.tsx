@@ -6,6 +6,7 @@ import {
   faHand,
   faArrowUp,
   faArrowDown,
+  faUser,
 } from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import NavUtils from "src/utils/navigation";
@@ -58,7 +59,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     tagId?: string;
   }> = [];
 
-  if (sceneId && markerRoles.length > 0) {
+  if (sceneId) {
     // Scene context: show roles based on marker roles in this scene only
     const sexRoles = markerRoles.filter((r: string) =>
       r.startsWith("sex_")
@@ -82,7 +83,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       }
     }
 
-    // Fixed order: Sex, Oral, Solo, Facial
+    // Fixed order: Sex, Oral, Facial, Solo
     if (sexRoles.length > 0 && sexTagId) {
       rolesToShow.push({
         category: "sex",
@@ -99,18 +100,18 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         tagId: oralTagId,
       });
     }
-    if (soloRoles.length > 0 && soloTagId) {
-      rolesToShow.push({
-        category: "solo",
-        tagId: soloTagId,
-      });
-    }
     if (facialRoles.length > 0 && facialTagId) {
       rolesToShow.push({
         category: "facial",
         isTop: facialRoles.some((r: string) => r.endsWith("_top")),
         isBottom: facialRoles.some((r: string) => r.endsWith("_bottom")),
         tagId: facialTagId,
+      });
+    }
+    if (soloRoles.length > 0 && soloTagId) {
+      rolesToShow.push({
+        category: "solo",
+        tagId: soloTagId,
       });
     }
   } else {
@@ -120,9 +121,17 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     const soloCount = p.solo_scene_count ?? 0;
     const facialCount = p.facial_scene_count ?? 0;
 
+    const sexWithTopCount = p.sex_with_top_count ?? 0;
+    const sexWithBottomCount = p.sex_with_bottom_count ?? 0;
+    const oralWithTopCount = p.oral_with_top_count ?? 0;
+    const oralWithBottomCount = p.oral_with_bottom_count ?? 0;
+    const facialWithTopCount = p.facial_with_top_count ?? 0;
+    const facialWithBottomCount = p.facial_with_bottom_count ?? 0;
+
     orgasmTopCount = p.orgasm_top_count ?? 0;
 
-    if (sexCount > 0 && sexTagId) {
+    // Show category if performer has scenes OR has partner counts in that category
+    if ((sexCount > 0 || sexWithTopCount > 0 || sexWithBottomCount > 0) && sexTagId) {
       rolesToShow.push({
         category: "sex",
         count: sexCount,
@@ -131,7 +140,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         tagId: sexTagId,
       });
     }
-    if (oralCount > 0 && oralTagId) {
+    if ((oralCount > 0 || oralWithTopCount > 0 || oralWithBottomCount > 0) && oralTagId) {
       rolesToShow.push({
         category: "oral",
         count: oralCount,
@@ -140,20 +149,20 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         tagId: oralTagId,
       });
     }
-    if (soloCount > 0 && soloTagId) {
-      rolesToShow.push({
-        category: "solo",
-        count: soloCount,
-        tagId: soloTagId,
-      });
-    }
-    if (facialCount > 0 && facialTagId) {
+    if ((facialCount > 0 || facialWithTopCount > 0 || facialWithBottomCount > 0) && facialTagId) {
       rolesToShow.push({
         category: "facial",
         count: facialCount,
         topCount: p.facial_top_count ?? 0,
         bottomCount: p.facial_bottom_count ?? 0,
         tagId: facialTagId,
+      });
+    }
+    if (soloCount > 0 && soloTagId) {
+      rolesToShow.push({
+        category: "solo",
+        count: soloCount,
+        tagId: soloTagId,
       });
     }
   }
@@ -180,6 +189,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   };
 
   return (
+    <>
     <div className="performer-category-strip performer-role-badges d-flex align-items-center my-3">
       {rolesToShow.map((role, idx) => {
         const categoryIcon =
@@ -195,34 +205,131 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
           role.category.charAt(0).toUpperCase() + role.category.slice(1);
         const excludeTags = getExcludeTagsForCategory(role.category);
 
+        // Use depth -1 for oral and facial to include subtags
+        const markerDepth = role.category === "oral" || role.category === "facial" ? -1 : 0;
+
         // URLs for clickable badges
-        const categoryUrl = role.tagId
-          ? NavUtils.makePerformerMarkerScenesWithRoleUrl(
+        // Facial uses /scenes/markers URL, others use /scenes URL
+        let categoryUrl: string | undefined;
+        let topUrl: string | undefined;
+        let bottomUrl: string | undefined;
+        let partnerTopUrl: string | undefined;
+        let partnerBottomUrl: string | undefined;
+        let allPartnersUrl: string | undefined;
+
+        // Calculate unique partner count for this category
+        let uniquePartnerCount = 0;
+        if (role.category === "sex") {
+          uniquePartnerCount = p.sex_unique_partner_count ?? 0;
+        } else if (role.category === "oral") {
+          uniquePartnerCount = p.oral_unique_partner_count ?? 0;
+        } else if (role.category === "facial") {
+          uniquePartnerCount = p.facial_unique_partner_count ?? 0;
+        }
+
+        if (role.tagId) {
+          if (role.category === "facial") {
+            // Facial goes to /scenes/markers
+            categoryUrl = NavUtils.makePerformerFacialMarkersWithRoleUrl(
+              performer,
+              role.tagId,
+              tagLabel,
+              undefined
+            );
+            topUrl = NavUtils.makePerformerFacialMarkersWithRoleUrl(
+              performer,
+              role.tagId,
+              tagLabel,
+              "top"
+            );
+            bottomUrl = NavUtils.makePerformerFacialMarkersWithRoleUrl(
+              performer,
+              role.tagId,
+              tagLabel,
+              "bottom"
+            );
+            // Partner URLs for facial
+            partnerTopUrl = NavUtils.makePerformerPartnerPerformersUrl(
+              performer,
+              role.tagId,
+              tagLabel,
+              "facial",
+              "top"
+            );
+            partnerBottomUrl = NavUtils.makePerformerPartnerPerformersUrl(
+              performer,
+              role.tagId,
+              tagLabel,
+              "facial",
+              "bottom"
+            );
+            // All partners URL (any role)
+            allPartnersUrl = NavUtils.makePerformerAllPartnersUrl(
+              performer,
+              role.tagId,
+              tagLabel,
+              "facial"
+            );
+          } else if (role.category === "sex" || role.category === "oral") {
+            // Sex, oral go to /scenes
+            categoryUrl = NavUtils.makePerformerMarkerScenesWithRoleUrl(
               performer,
               role.tagId,
               tagLabel,
               undefined,
-              excludeTags
-            )
-          : undefined;
-        const topUrl = role.tagId
-          ? NavUtils.makePerformerMarkerScenesWithRoleUrl(
+              excludeTags,
+              markerDepth
+            );
+            topUrl = NavUtils.makePerformerMarkerScenesWithRoleUrl(
               performer,
               role.tagId,
               tagLabel,
               "top",
-              excludeTags
-            )
-          : undefined;
-        const bottomUrl = role.tagId
-          ? NavUtils.makePerformerMarkerScenesWithRoleUrl(
+              excludeTags,
+              markerDepth
+            );
+            bottomUrl = NavUtils.makePerformerMarkerScenesWithRoleUrl(
               performer,
               role.tagId,
               tagLabel,
               "bottom",
-              excludeTags
-            )
-          : undefined;
+              excludeTags,
+              markerDepth
+            );
+            // Partner URLs for sex/oral
+            partnerTopUrl = NavUtils.makePerformerPartnerPerformersUrl(
+              performer,
+              role.tagId,
+              tagLabel,
+              role.category,
+              "top"
+            );
+            partnerBottomUrl = NavUtils.makePerformerPartnerPerformersUrl(
+              performer,
+              role.tagId,
+              tagLabel,
+              role.category,
+              "bottom"
+            );
+            // All partners URL (any role)
+            allPartnersUrl = NavUtils.makePerformerAllPartnersUrl(
+              performer,
+              role.tagId,
+              tagLabel,
+              role.category
+            );
+          } else {
+            // Solo - no role-based URLs
+            categoryUrl = NavUtils.makePerformerMarkerScenesWithRoleUrl(
+              performer,
+              role.tagId,
+              tagLabel,
+              undefined,
+              excludeTags,
+              markerDepth
+            );
+          }
+        }
 
         const categoryIconElement = categoryIcon ? (
           <img
@@ -238,7 +345,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
           <div key={idx} className="role-badge-item">
             {/* Category icon on top - clickable */}
             <div className="category-icon-container">
-              {categoryUrl ? (
+              {categoryUrl && !sceneId ? (
                 <Link to={categoryUrl} className="role-badge-link">
                   {categoryIconElement}
                   {role.category !== "solo" && (
@@ -263,82 +370,47 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                 </div>
               </>
             ) : sceneId ? (
-              // Scene context: show top/bottom indicators as badges
+              // Scene context: show top/bottom indicators as badges (not clickable)
               <div className="role-arrows">
-                {role.isTop &&
-                  (topUrl ? (
-                    <Link to={topUrl} className="role-badge-link">
-                      <Badge
-                        pill
-                        variant="success"
-                        className="arrow-badge top-badge"
-                        style={{
-                          fontSize: 10,
-                          padding: "3px 6px",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
-                        <Icon icon={faArrowUp} />
-                      </Badge>
-                    </Link>
-                  ) : (
-                    <Badge
-                      pill
-                      variant="success"
-                      className="arrow-badge top-badge"
-                      style={{
-                        fontSize: 10,
-                        padding: "3px 6px",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                      }}
-                    >
-                      <Icon icon={faArrowUp} />
-                    </Badge>
-                  ))}
-                {role.isBottom &&
-                  (bottomUrl ? (
-                    <Link to={bottomUrl} className="role-badge-link">
-                      <Badge
-                        pill
-                        variant="info"
-                        className="arrow-badge bottom-badge"
-                        style={{
-                          fontSize: 10,
-                          padding: "3px 6px",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
-                        <Icon icon={faArrowDown} />
-                      </Badge>
-                    </Link>
-                  ) : (
-                    <Badge
-                      pill
-                      variant="info"
-                      className="arrow-badge bottom-badge"
-                      style={{
-                        fontSize: 10,
-                        padding: "3px 6px",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                      }}
-                    >
-                      <Icon icon={faArrowDown} />
-                    </Badge>
-                  ))}
+                {role.isTop && (
+                  <Badge
+                    pill
+                    variant="success"
+                    className="arrow-badge top-badge"
+                    style={{
+                      fontSize: 10,
+                      padding: "3px 6px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <Icon icon={faArrowUp} />
+                  </Badge>
+                )}
+                {role.isBottom && (
+                  <Badge
+                    pill
+                    variant="info"
+                    className="arrow-badge bottom-badge"
+                    style={{
+                      fontSize: 10,
+                      padding: "3px 6px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <Icon icon={faArrowDown} />
+                  </Badge>
+                )}
               </div>
             ) : (
               // Global context: show counts with arrows
-              <div className="role-arrows">
-                {(role.topCount ?? 0) > 0 &&
-                  (topUrl ? (
+              <>
+                {/* Row 2: Scene top/bottom counts */}
+                <div className="role-arrows">
+                  {topUrl && (role.topCount ?? 0) > 0 ? (
                     <Link to={topUrl} className="role-badge-link">
                       <Badge
                         pill
@@ -350,10 +422,11 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                           display: "inline-flex",
                           alignItems: "center",
                           gap: 4,
+                          visibility: (role.topCount ?? 0) > 0 ? 'visible' : 'hidden',
                         }}
                       >
                         <Icon icon={faArrowUp} />
-                        <span className="arrow-count">{role.topCount}</span>
+                        <span className="arrow-count">{role.topCount || 0}</span>
                       </Badge>
                     </Link>
                   ) : (
@@ -367,14 +440,14 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                         display: "inline-flex",
                         alignItems: "center",
                         gap: 4,
+                        visibility: (role.topCount ?? 0) > 0 ? 'visible' : 'hidden',
                       }}
                     >
                       <Icon icon={faArrowUp} />
-                      <span className="arrow-count">{role.topCount}</span>
+                      <span className="arrow-count">{role.topCount || 0}</span>
                     </Badge>
-                  ))}
-                {(role.bottomCount ?? 0) > 0 &&
-                  (bottomUrl ? (
+                  )}
+                  {bottomUrl && (role.bottomCount ?? 0) > 0 ? (
                     <Link to={bottomUrl} className="role-badge-link">
                       <Badge
                         pill
@@ -386,10 +459,11 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                           display: "inline-flex",
                           alignItems: "center",
                           gap: 4,
+                          visibility: (role.bottomCount ?? 0) > 0 ? 'visible' : 'hidden',
                         }}
                       >
                         <Icon icon={faArrowDown} />
-                        <span className="arrow-count">{role.bottomCount}</span>
+                        <span className="arrow-count">{role.bottomCount || 0}</span>
                       </Badge>
                     </Link>
                   ) : (
@@ -403,13 +477,160 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                         display: "inline-flex",
                         alignItems: "center",
                         gap: 4,
+                        visibility: (role.bottomCount ?? 0) > 0 ? 'visible' : 'hidden',
                       }}
                     >
                       <Icon icon={faArrowDown} />
-                      <span className="arrow-count">{role.bottomCount}</span>
+                      <span className="arrow-count">{role.bottomCount || 0}</span>
                     </Badge>
-                  ))}
-              </div>
+                  )}
+                </div>
+
+                {/* Row 3: Unique partner count - COMMENTED OUT FOR NOW
+                {uniquePartnerCount > 0 && (
+                  <div className="category-icon-container unique-partners-row">
+                    {allPartnersUrl ? (
+                      <Link to={allPartnersUrl} className="role-badge-link">
+                        {categoryIconElement}
+                        <span className="role-total-count">{uniquePartnerCount}</span>
+                      </Link>
+                    ) : (
+                      <>
+                        {categoryIconElement}
+                        <span className="role-total-count">{uniquePartnerCount}</span>
+                      </>
+                    )}
+                  </div>
+                )}
+                */}
+
+                {/* Row 4: Partner count badges - COMMENTED OUT FOR NOW
+                <div className="role-arrows">
+                  {partnerTopUrl && (
+                    (role.category === "sex" && (p.sex_with_top_count ?? 0) > 0) ||
+                    (role.category === "oral" && (p.oral_with_top_count ?? 0) > 0) ||
+                    (role.category === "facial" && (p.facial_with_top_count ?? 0) > 0)
+                  ) ? (
+                    <Link to={partnerTopUrl} className="role-badge-link">
+                      <Badge
+                        pill
+                        variant="success"
+                        className="arrow-badge top-badge"
+                        style={{
+                          fontSize: 10,
+                          padding: "3px 6px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <Icon icon={faUser} />
+                        <span className="arrow-count">
+                          {role.category === "sex"
+                            ? p.sex_with_top_count || 0
+                            : role.category === "oral"
+                            ? p.oral_with_top_count || 0
+                            : role.category === "facial"
+                            ? p.facial_with_top_count || 0
+                            : 0}
+                        </span>
+                      </Badge>
+                    </Link>
+                  ) : (
+                    <Badge
+                      pill
+                      variant="success"
+                      className="arrow-badge top-badge"
+                      style={{
+                        fontSize: 10,
+                        padding: "3px 6px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        visibility:
+                          (role.category === "sex" && (p.sex_with_top_count ?? 0) > 0) ||
+                          (role.category === "oral" && (p.oral_with_top_count ?? 0) > 0) ||
+                          (role.category === "facial" && (p.facial_with_top_count ?? 0) > 0)
+                            ? 'visible'
+                            : 'hidden',
+                      }}
+                    >
+                      <Icon icon={faUser} />
+                      <span className="arrow-count">
+                        {role.category === "sex"
+                          ? p.sex_with_top_count || 0
+                          : role.category === "oral"
+                          ? p.oral_with_top_count || 0
+                          : role.category === "facial"
+                          ? p.facial_with_top_count || 0
+                          : 0}
+                      </span>
+                    </Badge>
+                  )}
+                  {partnerBottomUrl && (
+                    (role.category === "sex" && (p.sex_with_bottom_count ?? 0) > 0) ||
+                    (role.category === "oral" && (p.oral_with_bottom_count ?? 0) > 0) ||
+                    (role.category === "facial" && (p.facial_with_bottom_count ?? 0) > 0)
+                  ) ? (
+                    <Link to={partnerBottomUrl} className="role-badge-link">
+                      <Badge
+                        pill
+                        variant="info"
+                        className="arrow-badge bottom-badge"
+                        style={{
+                          fontSize: 10,
+                          padding: "3px 6px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <Icon icon={faUser} />
+                        <span className="arrow-count">
+                          {role.category === "sex"
+                            ? p.sex_with_bottom_count || 0
+                            : role.category === "oral"
+                            ? p.oral_with_bottom_count || 0
+                            : role.category === "facial"
+                            ? p.facial_with_bottom_count || 0
+                            : 0}
+                        </span>
+                      </Badge>
+                    </Link>
+                  ) : (
+                    <Badge
+                      pill
+                      variant="info"
+                      className="arrow-badge bottom-badge"
+                      style={{
+                        fontSize: 10,
+                        padding: "3px 6px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        visibility:
+                          (role.category === "sex" && (p.sex_with_bottom_count ?? 0) > 0) ||
+                          (role.category === "oral" && (p.oral_with_bottom_count ?? 0) > 0) ||
+                          (role.category === "facial" && (p.facial_with_bottom_count ?? 0) > 0)
+                            ? 'visible'
+                            : 'hidden',
+                      }}
+                    >
+                      <Icon icon={faUser} />
+                      <span className="arrow-count">
+                        {role.category === "sex"
+                          ? p.sex_with_bottom_count || 0
+                          : role.category === "oral"
+                          ? p.oral_with_bottom_count || 0
+                          : role.category === "facial"
+                          ? p.facial_with_bottom_count || 0
+                          : 0}
+                      </span>
+                    </Badge>
+                  )}
+                </div>
+                */}
+              </>
             )}
           </div>
         );
@@ -436,5 +657,6 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         </div>
       )}
     </div>
+  </>
   );
 };

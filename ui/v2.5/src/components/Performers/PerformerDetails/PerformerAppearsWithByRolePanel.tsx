@@ -108,6 +108,9 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
   const bottomPerformerLabel =
     roleType === "top" ? performer.name || "" : currentPerformer.name || "";
 
+  // Use depth -1 for oral and facial to include subtags
+  const markerDepth = roleCategory === "sex" ? 0 : -1;
+
   const sharedScenesUrl = tagId
     ? `/scenes?c=${encodeURIComponent(
         JSON.stringify({
@@ -117,7 +120,7 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
             {
               groupId: "A",
               tag_ids: [{ id: tagId, label: tagLabel }],
-              depth: 0,
+              depth: markerDepth,
               top_performer_ids: [{ id: topPerformerId, label: topPerformerLabel }],
               top_ethnicities: [],
               top_countries: [],
@@ -171,11 +174,6 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
               }}
             >
               {sharedSceneCount}
-            </span>
-          )}
-          {performer.disambiguation && (
-            <span className="performer-disambiguation">
-              {` (${performer.disambiguation})`}
             </span>
           )}
         </div>
@@ -248,37 +246,50 @@ const RoleSection: React.FC<IRoleSectionProps> = ({
   if (performers.length === 0 && !emptyMessage) return null;
 
   return (
-    <>
-      <div
-        className="d-inline-block align-top mr-2 mb-2 ml-4"
-        style={{ minWidth: "120px" }}
-      >
-        <h6 className="mb-1" style={{ fontSize: "0.9rem", fontWeight: 600 }}>
+    <div
+      className="role-section mb-3"
+      style={{
+        display: "block",
+        width: "100%",
+        borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+        paddingBottom: "12px",
+      }}
+    >
+      <div className="role-section-header mb-2" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <h6 className="mb-0" style={{ fontSize: "0.9rem", fontWeight: 600 }}>
           {title}
           {subtitle && <small className="text-muted ml-2">({subtitle})</small>}
         </h6>
         <span className="badge badge-secondary">{performers.length}</span>
       </div>
-      {performers.length > 0 ? (
-        performers.map((p) => (
-          <div
-            key={p.performer.id}
-            className="d-inline-block align-top mr-2 mb-2"
-            style={{ width: "180px" }}
-          >
-            <CoPerformerCard
-              performer={p.performer}
-              sceneCount={p.sceneCount}
-              currentPerformer={currentPerformer}
-              roleCategory={roleCategory}
-              roleType={roleType}
-            />
-          </div>
-        ))
-      ) : emptyMessage ? (
-        <span className="text-muted d-inline-block mr-2">{emptyMessage}</span>
-      ) : null}
-    </>
+      <div
+        className="role-section-performers"
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "8px",
+        }}
+      >
+        {performers.length > 0 ? (
+          performers.map((p) => (
+            <div
+              key={p.performer.id}
+              style={{ width: "180px" }}
+            >
+              <CoPerformerCard
+                performer={p.performer}
+                sceneCount={p.sceneCount}
+                currentPerformer={currentPerformer}
+                roleCategory={roleCategory}
+                roleType={roleType}
+              />
+            </div>
+          ))
+        ) : emptyMessage ? (
+          <span className="text-muted">{emptyMessage}</span>
+        ) : null}
+      </div>
+    </div>
   );
 };
 
@@ -362,7 +373,7 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
         {/* Sex Section */}
         {hasSexTag && (
           <div
-            className="d-inline-block align-top mr-3 mb-3 p-3"
+            className="category-section mb-4 p-3"
             style={{
               backgroundColor: "rgba(255, 255, 255, 0.05)",
               borderRadius: "8px",
@@ -370,8 +381,8 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
             }}
           >
             <div
-              className="d-inline-block align-top mr-3 mb-2"
-              style={{ minWidth: "60px" }}
+              className="category-header mb-3"
+              style={{ display: "flex", alignItems: "center", gap: "12px" }}
             >
               <img
                 src={gaySvg}
@@ -382,6 +393,7 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
                   filter: "brightness(0) invert(1)",
                 }}
               />
+              <h5 className="mb-0" style={{ fontWeight: 600 }}>Sex</h5>
             </div>
             <RoleSection
               title="Topped"
@@ -405,7 +417,7 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
         {/* Oral Section */}
         {hasOralTag && (
           <div
-            className="d-inline-block align-top mr-3 mb-3 p-3"
+            className="category-section mb-4 p-3"
             style={{
               backgroundColor: "rgba(255, 255, 255, 0.05)",
               borderRadius: "8px",
@@ -413,8 +425,8 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
             }}
           >
             <div
-              className="d-inline-block align-top mr-3 mb-2"
-              style={{ minWidth: "60px" }}
+              className="category-header mb-3"
+              style={{ display: "flex", alignItems: "center", gap: "12px" }}
             >
               <img
                 src={mouthSvg}
@@ -425,6 +437,7 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
                   filter: "brightness(0) invert(1)",
                 }}
               />
+              <h5 className="mb-0" style={{ fontWeight: 600 }}>Oral</h5>
             </div>
             <RoleSection
               title="Topped"
@@ -448,7 +461,7 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
         {/* Facial Section */}
         {hasFacialTag && (
           <div
-            className="d-inline-block align-top mr-3 mb-3 p-3"
+            className="category-section mb-4 p-3"
             style={{
               backgroundColor: "rgba(255, 255, 255, 0.05)",
               borderRadius: "8px",
@@ -456,8 +469,8 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
             }}
           >
             <div
-              className="d-inline-block align-top mr-3 mb-2"
-              style={{ minWidth: "60px" }}
+              className="category-header mb-3"
+              style={{ display: "flex", alignItems: "center", gap: "12px" }}
             >
               <img
                 src={goateeSvg}
@@ -468,6 +481,7 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
                   filter: "brightness(0) invert(1)",
                 }}
               />
+              <h5 className="mb-0" style={{ fontWeight: 600 }}>Facial</h5>
             </div>
             <RoleSection
               title="Given"

@@ -885,28 +885,56 @@ func (qb *performerFilterHandler) performerMarkersCriterionHandler(input *models
 		}
 
 		// Build a condition that checks if a performer has a marker matching the given criteria
-		buildConditionSQL := func(cond models.PerformerMarkerConditionInput, exists bool) (string, []interface{}) {
+		// Returns sql, args, and an error (for hierarchical tag expansion)
+		buildConditionSQL := func(cond models.PerformerMarkerConditionInput, exists bool) (string, []interface{}, error) {
 			var clauses []string
 			var args []interface{}
 
 			// Marker must have at least one of the specified tags (check both primary_tag_id and scene_markers_tags)
+			// Support hierarchical depth for sub-tag matching
 			if len(cond.TagIDs) > 0 {
-				ph := getInBinding(len(cond.TagIDs))
-				tagClause := fmt.Sprintf(`(
-					sm.primary_tag_id IN %s
-					OR EXISTS (
-						SELECT 1 FROM scene_markers_tags smt 
-						WHERE smt.scene_marker_id = sm.id 
-						AND smt.tag_id IN %s
-					)
-				)`, ph, ph)
-				clauses = append(clauses, tagClause)
-				// Add tag IDs twice (once for primary_tag_id, once for scene_markers_tags)
-				for _, tid := range cond.TagIDs {
-					args = append(args, tid)
+				// Check if we need hierarchical expansion
+				depthVal := 0
+				if cond.Depth != nil {
+					depthVal = *cond.Depth
 				}
-				for _, tid := range cond.TagIDs {
-					args = append(args, tid)
+
+				if depthVal == 0 {
+					// Simple case: exact tag match only
+					ph := getInBinding(len(cond.TagIDs))
+					tagClause := fmt.Sprintf(`(
+						sm.primary_tag_id IN %s
+						OR EXISTS (
+							SELECT 1 FROM scene_markers_tags smt 
+							WHERE smt.scene_marker_id = sm.id 
+							AND smt.tag_id IN %s
+						)
+					)`, ph, ph)
+					clauses = append(clauses, tagClause)
+					// Add tag IDs twice (once for primary_tag_id, once for scene_markers_tags)
+					for _, tid := range cond.TagIDs {
+						args = append(args, tid)
+					}
+					for _, tid := range cond.TagIDs {
+						args = append(args, tid)
+					}
+				} else {
+					// Hierarchical case: expand tags to include sub-tags
+					valuesClause, err := getHierarchicalValues(ctx, cond.TagIDs, tagTable, "tags_relations", "parent_id", "child_id", cond.Depth)
+					if err != nil {
+						return "", nil, err
+					}
+
+					// Use the expanded tag values (column2 contains the actual tag id to match)
+					tagClause := fmt.Sprintf(`(
+						sm.primary_tag_id IN (SELECT column2 FROM (%s))
+						OR EXISTS (
+							SELECT 1 FROM scene_markers_tags smt 
+							WHERE smt.scene_marker_id = sm.id 
+							AND smt.tag_id IN (SELECT column2 FROM (%s))
+						)
+					)`, valuesClause, valuesClause)
+					clauses = append(clauses, tagClause)
 				}
 			}
 
@@ -949,10 +977,32 @@ func (qb *performerFilterHandler) performerMarkersCriterionHandler(input *models
 				args = append(args, wargs...)
 			}
 
+			// Determine partner role constraint
+			partnerRole := "any"
+			if cond.PartnerRole != nil && *cond.PartnerRole != "" {
+				partnerRole = strings.ToLower(*cond.PartnerRole)
+			}
+
 			// Partner attributes - check the OTHER performer on this marker
-			hasPartnerCondition := len(cond.PartnerEthnicities) > 0 || len(cond.PartnerCountries) > 0 || cond.PartnerRating != nil
+			hasPartnerCondition := len(cond.PartnerPerformerIDs) > 0 || len(cond.PartnerEthnicities) > 0 || len(cond.PartnerCountries) > 0 || cond.PartnerRating != nil || partnerRole != "any"
 			if hasPartnerCondition {
 				var partnerClauses []string
+
+				// Filter by specific partner performer IDs
+				if len(cond.PartnerPerformerIDs) > 0 {
+					ph := getInBinding(len(cond.PartnerPerformerIDs))
+					partnerClauses = append(partnerClauses, fmt.Sprintf("partner.id IN %s", ph))
+					for _, pid := range cond.PartnerPerformerIDs {
+						args = append(args, pid)
+					}
+				}
+
+				// Partner role clause
+				if partnerRole == "top" {
+					partnerClauses = append(partnerClauses, "smp_partner.role = 'top'")
+				} else if partnerRole == "bottom" {
+					partnerClauses = append(partnerClauses, "smp_partner.role = 'bottom'")
+				}
 
 				if len(cond.PartnerEthnicities) > 0 {
 					expanded := expandEthnicities(cond.PartnerEthnicities)
@@ -1008,18 +1058,26 @@ func (qb *performerFilterHandler) performerMarkersCriterionHandler(input *models
 				)`, whereClause)
 			}
 
-			return sql, args
+			return sql, args, nil
 		}
 
 		// Process include conditions - all must match
 		for _, cond := range input.Include {
-			sql, args := buildConditionSQL(cond, true)
+			sql, args, err := buildConditionSQL(cond, true)
+			if err != nil {
+				f.setError(err)
+				return
+			}
 			f.addWhere(sql, args...)
 		}
 
 		// Process exclude conditions - none should match
 		for _, cond := range input.Exclude {
-			sql, args := buildConditionSQL(cond, false)
+			sql, args, err := buildConditionSQL(cond, false)
+			if err != nil {
+				f.setError(err)
+				return
+			}
 			f.addWhere(sql, args...)
 		}
 	}

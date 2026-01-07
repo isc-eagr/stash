@@ -1210,12 +1210,14 @@ const makePerformerMarkerScenesUrl = (
 // Marker-based performer scenes URL with top/bottom role filter
 // role: "top" | "bottom" | undefined (any)
 // excludeTags: optional array of tag IDs to exclude from the filter
+// markerDepth: depth for subtag matching (0 = exact, -1 = all subtags)
 const makePerformerMarkerScenesWithRoleUrl = (
   performer: Partial<GQL.PerformerDataFragment>,
   tagId: string,
   tagLabel: string,
   role?: "top" | "bottom",
-  excludeTags?: Array<{ id: string; label: string }>
+  excludeTags?: Array<{ id: string; label: string }>,
+  markerDepth: number = 0
 ) => {
   if (!performer.id) return "#";
 
@@ -1226,7 +1228,7 @@ const makePerformerMarkerScenesWithRoleUrl = (
   const includeGroup: any = {
     groupId: "A",
     tag_ids: [{ id: tagId, label: tagLabel }],
-    depth: 0,
+    depth: markerDepth,
     top_performer_ids: [],
     top_ethnicities: [],
     top_countries: [],
@@ -1288,7 +1290,8 @@ const makeStudioMarkerScenesUrl = (
   studio: Partial<GQL.StudioDataFragment>,
   tagId: string,
   roleType: string,
-  excludeTags?: Array<{ id: string; label: string }>
+  excludeTags?: Array<{ id: string; label: string }>,
+  markerDepth: number = 0
 ) => {
   if (!studio.id) return "#";
 
@@ -1315,7 +1318,7 @@ const makeStudioMarkerScenesUrl = (
         {
           groupId: "A",
           tag_ids: [{ id: tagId, label: roleType }],
-          depth: 0,
+          depth: markerDepth,
           top_performer_ids: [],
           top_ethnicities: [],
           top_countries: [],
@@ -1362,7 +1365,8 @@ const makePerformerStudioMarkerScenesUrl = (
   studio: Partial<GQL.StudioDataFragment>,
   tagId: string,
   roleType: string,
-  excludeTags?: Array<{ id: string; label: string }>
+  excludeTags?: Array<{ id: string; label: string }>,
+  markerDepth: number = 0
 ) => {
   if (!studio.id) return "#";
 
@@ -1391,7 +1395,7 @@ const makePerformerStudioMarkerScenesUrl = (
         {
           groupId: "A",
           tag_ids: [{ id: tagId, label: roleType }],
-          depth: 0,
+          depth: markerDepth,
           top_performer_ids: [performerRef],
           top_ethnicities: [],
           top_countries: [],
@@ -1735,7 +1739,8 @@ const makeSceneMarkersUrl = (tagId: string, tagName: string) => {
 
 // URL to list SCENES filtered by having markers with a specific tag
 // Use this for scene counts (e.g., sex_scene_count) - goes to /scenes, not /scenes/markers
-const makeScenesWithMarkerTagUrl = (tagId: string, tagName: string) => {
+// markerDepth: 0 for exact match, -1 for all subtags
+const makeScenesWithMarkerTagUrl = (tagId: string, tagName: string, markerDepth: number = 0) => {
   return `/scenes?c=${encodeURIComponent(
     JSON.stringify({
       type: "scene_markers",
@@ -1744,7 +1749,7 @@ const makeScenesWithMarkerTagUrl = (tagId: string, tagName: string) => {
         {
           groupId: "A",
           tag_ids: [{ id: tagId, label: tagName }],
-          depth: 0,
+          depth: markerDepth,
           top_performer_ids: [],
           top_ethnicities: [],
           top_countries: [],
@@ -1761,10 +1766,12 @@ const makeScenesWithMarkerTagUrl = (tagId: string, tagName: string) => {
 
 // URL to list SCENES with exclusive marker tag filtering (includes tag, excludes other tags)
 // Used for hierarchical category counts: oral excludes sex, solo excludes sex+oral
+// markerDepth: 0 for exact match, -1 for all subtags
 const makeScenesWithExclusiveMarkerTagUrl = (
   includeTagId: string,
   includeTagName: string,
-  excludeTagIds: Array<{ id: string; label: string }>
+  excludeTagIds: Array<{ id: string; label: string }>,
+  markerDepth: number = 0
 ) => {
   // Build include criterion
   let url = `/scenes?c=${encodeURIComponent(
@@ -1775,7 +1782,7 @@ const makeScenesWithExclusiveMarkerTagUrl = (
         {
           groupId: "A",
           tag_ids: [{ id: includeTagId, label: includeTagName }],
-          depth: 0,
+          depth: markerDepth,
           top_performer_ids: [],
           top_ethnicities: [],
           top_countries: [],
@@ -1863,6 +1870,124 @@ const makePerformerOrgasmMarkersUrl = (
   return `/scenes/markers?${filter.makeQueryParameters()}`;
 };
 
+// Navigate to scene markers for facial/oral with role filter (goes to /scenes/markers, not /scenes)
+// Similar to orgasm markers URL but with configurable role and depth
+const makePerformerFacialMarkersWithRoleUrl = (
+  performer: Partial<GQL.PerformerDataFragment>,
+  tagId: string,
+  tagLabel: string,
+  role?: "top" | "bottom"
+) => {
+  if (!performer.id || !tagId) return "#";
+
+  const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
+
+  // Add marker performers criterion with role filter
+  const criterion = new MarkerPerformersCriterion(MarkerPerformersCriterionOption);
+  criterion.modifier = GQL.CriterionModifier.IncludesAll;
+  
+  const performerRef = { id: performer.id, label: performer.name || `Performer ${performer.id}` };
+  
+  criterion.value = {
+    tag_ids: [{ id: tagId, label: tagLabel }],
+    include_subtags: true,
+    top_performer_ids: role === "top" || !role ? [performerRef] : [],
+    top_ethnicities: [],
+    top_countries: [],
+    top_rating: null,
+    bottom_performer_ids: role === "bottom" || !role ? [performerRef] : [],
+    bottom_ethnicities: [],
+    bottom_countries: [],
+    bottom_rating: null,
+  };
+  filter.criteria.push(criterion);
+  filter.sortBy = "title";
+
+  return `/scenes/markers?${filter.makeQueryParameters()}`;
+};
+
+// Generate URL to filter performers by partner markers (e.g., "who has performer X been a top/bottom with")
+// category: "sex" | "oral" | "facial"
+// partnerRole: "top" | "bottom" - the role of the partners we're looking for
+const makePerformerPartnerPerformersUrl = (
+  performer: Partial<GQL.PerformerDataFragment>,
+  tagId: string,
+  tagLabel: string,
+  category: "sex" | "oral" | "facial",
+  partnerRole: "top" | "bottom"
+) => {
+  if (!performer.id) return "#";
+
+  const performerLabel = performer.name || `Performer ${performer.id}`;
+  const performerRef = { id: performer.id, label: performerLabel };
+
+  // Use depth -1 for oral and facial to include subtags
+  const markerDepth = category === "oral" || category === "facial" ? -1 : 0;
+
+  const criterionData = {
+    type: "performer_markers",
+    modifier: "INCLUDES_ALL",
+    group: {
+      tag_ids: [{ id: tagId, label: tagLabel }],
+      depth: markerDepth,
+      performer_ids: [],
+      performer_ethnicities: [],
+      performer_countries: [],
+      performer_rating: null,
+      performer_role: "any",
+      partner_ids: [performerRef],
+      partner_ethnicities: [],
+      partner_countries: [],
+      partner_rating: null,
+      partner_role: partnerRole,
+    },
+  };
+
+  return `/performers?c=${encodeURIComponent(
+    JSON.stringify(criterionData)
+  )}&sortby=name`;
+};
+
+// Generate URL to filter all performers who have been partners with this performer in a category
+// (regardless of role - both tops and bottoms)
+const makePerformerAllPartnersUrl = (
+  performer: Partial<GQL.PerformerDataFragment>,
+  tagId: string,
+  tagLabel: string,
+  category: "sex" | "oral" | "facial"
+) => {
+  if (!performer.id) return "#";
+
+  const performerLabel = performer.name || `Performer ${performer.id}`;
+  const performerRef = { id: performer.id, label: performerLabel };
+
+  // Use depth -1 for oral and facial to include subtags
+  const markerDepth = category === "oral" || category === "facial" ? -1 : 0;
+
+  const criterionData = {
+    type: "performer_markers",
+    modifier: "INCLUDES_ALL",
+    group: {
+      tag_ids: [{ id: tagId, label: tagLabel }],
+      depth: markerDepth,
+      performer_ids: [],
+      performer_ethnicities: [],
+      performer_countries: [],
+      performer_rating: null,
+      performer_role: "any",
+      partner_ids: [performerRef],
+      partner_ethnicities: [],
+      partner_countries: [],
+      partner_rating: null,
+      partner_role: "any", // Any role - get all partners
+    },
+  };
+
+  return `/performers?c=${encodeURIComponent(
+    JSON.stringify(criterionData)
+  )}&sortby=name`;
+};
+
 const NavUtils = {
   makePerformerScenesUrl,
   makePerformerImagesUrl,
@@ -1888,7 +2013,10 @@ const NavUtils = {
   makePerformerDetailFacialScenesUrl,
   makePerformerMarkerScenesUrl,
   makePerformerMarkerScenesWithRoleUrl,
+  makePerformerPartnerPerformersUrl,
+  makePerformerAllPartnersUrl,
   makePerformerOrgasmMarkersUrl,
+  makePerformerFacialMarkersWithRoleUrl,
   makeStudioMarkerScenesUrl,
   makePerformerStudioMarkerScenesUrl,
   makeGlobalSexScenesUrl,

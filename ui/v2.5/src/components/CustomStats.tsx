@@ -170,14 +170,15 @@ export const CustomStats: React.FC = () => {
     return NavUtils.makeScenesWithMarkerTagUrl(sexTag.id, sexTag.name);
   };
 
-  // Oral: has oral markers BUT NOT sex markers
+  // Oral: has oral markers BUT NOT sex markers (depth -1 to include subtags)
   const makeOralScenesUrl = () => {
     if (!oralTag) return "#";
     const excludeTags = sexTag ? [{ id: sexTag.id, label: sexTag.name }] : [];
     return NavUtils.makeScenesWithExclusiveMarkerTagUrl(
       oralTag.id,
       oralTag.name,
-      excludeTags
+      excludeTags,
+      -1
     );
   };
 
@@ -194,10 +195,10 @@ export const CustomStats: React.FC = () => {
     );
   };
 
-  // Facial: has facial markers (no exclusions for now)
+  // Facial: has facial markers (depth -1 to include subtags)
   const makeFacialScenesUrl = () => {
     if (!facialTag) return "#";
-    return NavUtils.makeScenesWithMarkerTagUrl(facialTag.id, facialTag.name);
+    return NavUtils.makeScenesWithMarkerTagUrl(facialTag.id, facialTag.name, -1);
   };
 
   // Helper to create performer filter URLs with scene count

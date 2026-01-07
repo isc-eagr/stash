@@ -538,6 +538,265 @@ func (r *performerResolver) OrgasmTopCount(ctx context.Context, obj *models.Perf
 	return ret, nil
 }
 
+// SexWithTopCount returns the count of unique performers this performer has topped sexually
+func (r *performerResolver) SexWithTopCount(ctx context.Context, obj *models.Performer) (int, error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	sexTagID, _, _, _, _ := getRoleTagIDs(uiConfig)
+	if sexTagID == 0 {
+		return 0, nil
+	}
+
+	counts, err := r.getCoPerformersWithCounts(ctx, obj.ID, sexTagID, "top", 0)
+	if err != nil {
+		return 0, err
+	}
+	return len(counts), nil
+}
+
+// SexWithBottomCount returns the count of unique performers this performer has bottomed for sexually
+func (r *performerResolver) SexWithBottomCount(ctx context.Context, obj *models.Performer) (int, error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	sexTagID, _, _, _, _ := getRoleTagIDs(uiConfig)
+	if sexTagID == 0 {
+		return 0, nil
+	}
+
+	counts, err := r.getCoPerformersWithCounts(ctx, obj.ID, sexTagID, "bottom", 0)
+	if err != nil {
+		return 0, err
+	}
+	return len(counts), nil
+}
+
+// OralWithTopCount returns the count of unique performers this performer has topped orally
+func (r *performerResolver) OralWithTopCount(ctx context.Context, obj *models.Performer) (int, error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	_, oralTagID, _, _, _ := getRoleTagIDs(uiConfig)
+	if oralTagID == 0 {
+		return 0, nil
+	}
+
+	counts, err := r.getCoPerformersWithCounts(ctx, obj.ID, oralTagID, "top", -1)
+	if err != nil {
+		return 0, err
+	}
+	return len(counts), nil
+}
+
+// OralWithBottomCount returns the count of unique performers this performer has bottomed for orally
+func (r *performerResolver) OralWithBottomCount(ctx context.Context, obj *models.Performer) (int, error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	_, oralTagID, _, _, _ := getRoleTagIDs(uiConfig)
+	if oralTagID == 0 {
+		return 0, nil
+	}
+
+	counts, err := r.getCoPerformersWithCounts(ctx, obj.ID, oralTagID, "bottom", -1)
+	if err != nil {
+		return 0, err
+	}
+	return len(counts), nil
+}
+
+// FacialWithTopCount returns the count of unique performers this performer has given facials to
+func (r *performerResolver) FacialWithTopCount(ctx context.Context, obj *models.Performer) (int, error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	_, _, _, facialTagID, _ := getRoleTagIDs(uiConfig)
+	if facialTagID == 0 {
+		return 0, nil
+	}
+
+	counts, err := r.getCoPerformersWithCounts(ctx, obj.ID, facialTagID, "top", -1)
+	if err != nil {
+		return 0, err
+	}
+	return len(counts), nil
+}
+
+// FacialWithBottomCount returns the count of unique performers this performer has received facials from
+func (r *performerResolver) FacialWithBottomCount(ctx context.Context, obj *models.Performer) (int, error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	_, _, _, facialTagID, _ := getRoleTagIDs(uiConfig)
+	if facialTagID == 0 {
+		return 0, nil
+	}
+
+	counts, err := r.getCoPerformersWithCounts(ctx, obj.ID, facialTagID, "bottom", -1)
+	if err != nil {
+		return 0, err
+	}
+	return len(counts), nil
+}
+
+// SexUniquePartnerCount returns the count of unique performers this performer has been with sexually (any role)
+func (r *performerResolver) SexUniquePartnerCount(ctx context.Context, obj *models.Performer) (int, error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	sexTagID, _, _, _, _ := getRoleTagIDs(uiConfig)
+	if sexTagID == 0 {
+		return 0, nil
+	}
+
+	// Get both top and bottom partners, then merge and deduplicate
+	topPartners, err := r.getCoPerformersWithCounts(ctx, obj.ID, sexTagID, "top", 0)
+	if err != nil {
+		return 0, err
+	}
+	bottomPartners, err := r.getCoPerformersWithCounts(ctx, obj.ID, sexTagID, "bottom", 0)
+	if err != nil {
+		return 0, err
+	}
+
+	// Merge both maps to get unique performer IDs
+	uniquePartners := make(map[int]bool)
+	for performerID := range topPartners {
+		uniquePartners[performerID] = true
+	}
+	for performerID := range bottomPartners {
+		uniquePartners[performerID] = true
+	}
+
+	return len(uniquePartners), nil
+}
+
+// OralUniquePartnerCount returns the count of unique performers this performer has been with orally (any role)
+func (r *performerResolver) OralUniquePartnerCount(ctx context.Context, obj *models.Performer) (int, error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	_, oralTagID, _, _, _ := getRoleTagIDs(uiConfig)
+	if oralTagID == 0 {
+		return 0, nil
+	}
+
+	// Get both top and bottom partners, then merge and deduplicate
+	topPartners, err := r.getCoPerformersWithCounts(ctx, obj.ID, oralTagID, "top", -1)
+	if err != nil {
+		return 0, err
+	}
+	bottomPartners, err := r.getCoPerformersWithCounts(ctx, obj.ID, oralTagID, "bottom", -1)
+	if err != nil {
+		return 0, err
+	}
+
+	// Merge both maps to get unique performer IDs
+	uniquePartners := make(map[int]bool)
+	for performerID := range topPartners {
+		uniquePartners[performerID] = true
+	}
+	for performerID := range bottomPartners {
+		uniquePartners[performerID] = true
+	}
+
+	return len(uniquePartners), nil
+}
+
+// FacialUniquePartnerCount returns the count of unique performers this performer has been with in facial scenes (any role)
+func (r *performerResolver) FacialUniquePartnerCount(ctx context.Context, obj *models.Performer) (int, error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	_, _, _, facialTagID, _ := getRoleTagIDs(uiConfig)
+	if facialTagID == 0 {
+		return 0, nil
+	}
+
+	// Get both top and bottom partners, then merge and deduplicate
+	topPartners, err := r.getCoPerformersWithCounts(ctx, obj.ID, facialTagID, "top", -1)
+	if err != nil {
+		return 0, err
+	}
+	bottomPartners, err := r.getCoPerformersWithCounts(ctx, obj.ID, facialTagID, "bottom", -1)
+	if err != nil {
+		return 0, err
+	}
+
+	// Merge both maps to get unique performer IDs
+	uniquePartners := make(map[int]bool)
+	for performerID := range topPartners {
+		uniquePartners[performerID] = true
+	}
+	for performerID := range bottomPartners {
+		uniquePartners[performerID] = true
+	}
+
+	return len(uniquePartners), nil
+}
+
+// getCoPerformersWithCounts gets co-performers for a given performer based on tag and role
+// Returns a map of performer ID to scene count
+// depth: 0 for exact tag match, -1 for including all subtags
+func (r *performerResolver) getCoPerformersWithCounts(ctx context.Context, performerID int, tagID int, performerRole string, depth int) (map[int]int, error) {
+	// Find markers with this tag where the performer has the given role
+	// Then find other performers in those markers with the opposite role
+	oppositeRole := "bottom"
+	if performerRole == "bottom" {
+		oppositeRole = "top"
+	}
+
+	filter := &models.SceneMarkerFilterType{
+		Tags: &models.HierarchicalMultiCriterionInput{
+			Value:    []string{strconv.Itoa(tagID)},
+			Modifier: models.CriterionModifierIncludes,
+			Depth:    &depth,
+		},
+	}
+
+	// Filter to markers where our performer has the specified role
+	performerIDStr := strconv.Itoa(performerID)
+	topIDs := []string{}
+	bottomIDs := []string{}
+
+	if performerRole == "top" {
+		topIDs = append(topIDs, performerIDStr)
+	} else {
+		bottomIDs = append(bottomIDs, performerIDStr)
+	}
+
+	mode := "OR"
+	filter.MarkerPerformers = &models.MarkerPerformersFilterInput{
+		TopPerformerIDs:    topIDs,
+		BottomPerformerIDs: bottomIDs,
+		Mode:               &mode,
+		Modifier:           models.CriterionModifierIncludes,
+	}
+
+	var sceneCountsByPerformer map[int]int
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		markers, _, err := r.repository.SceneMarker.Query(ctx, filter, nil)
+		if err != nil {
+			return err
+		}
+
+		// Collect performer IDs with the opposite role from these markers
+		// Map of performer ID to scene IDs they appeared in
+		coPerformerScenes := make(map[int]map[int]bool)
+
+		for _, marker := range markers {
+			markerPerformers, err := r.repository.SceneMarker.GetPerformers(ctx, marker.ID)
+			if err != nil {
+				return err
+			}
+
+			for _, mp := range markerPerformers {
+				if mp.PerformerID != performerID && mp.Role == oppositeRole {
+					if coPerformerScenes[mp.PerformerID] == nil {
+						coPerformerScenes[mp.PerformerID] = make(map[int]bool)
+					}
+					coPerformerScenes[mp.PerformerID][marker.SceneID] = true
+				}
+			}
+		}
+
+		// Convert to scene counts
+		sceneCountsByPerformer = make(map[int]int)
+		for performerID, scenes := range coPerformerScenes {
+			sceneCountsByPerformer[performerID] = len(scenes)
+		}
+
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return sceneCountsByPerformer, nil
+}
+
 func (r *performerResolver) AdditionalImages(ctx context.Context, obj *models.Performer) ([]*models.PerformerImage, error) {
 	var images []*models.PerformerImage
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {

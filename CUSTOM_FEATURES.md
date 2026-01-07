@@ -28,6 +28,7 @@ This document describes all custom features and modifications added on top of th
 20. [Performer Marker Filters](#20-performer-marker-filters)
 21. [Multiple Performer Images](#21-multiple-performer-images)
 22. [Performer Filter: Profile Image Count](#22-performer-filter-profile-image-count)
+23. [Performer Partner Count Badges](#23-performer-partner-count-badges)
 
 ---
 
@@ -1109,5 +1110,76 @@ To support the requested inclusive comparisons, two new criterion modifiers were
 
 ---
 
-*Last Updated: December 2025*
+## 23. Performer Partner Count Badges
+
+### Overview
+Adds partner count badges to performer cards and detail pages (outside scene context) showing the number of unique performers they've topped/bottomed for in each role category (sex, oral, facial). These appear as a second row below the existing scene count badges, with a person icon to differentiate them from scene counts.
+
+### GraphQL Schema Extensions
+**File Modified:** `graphql/schema/types/performer.graphql`
+- Added `sex_with_top_count: Int!` - Count of unique performers this performer has topped sexually
+- Added `sex_with_bottom_count: Int!` - Count of unique performers this performer has bottomed for sexually
+- Added `oral_with_top_count: Int!` - Count of unique performers this performer has topped orally
+- Added `oral_with_bottom_count: Int!` - Count of unique performers this performer has bottomed for orally
+- Added `facial_with_top_count: Int!` - Count of unique performers this performer has given facials to
+- Added `facial_with_bottom_count: Int!` - Count of unique performers this performer has received facials from
+
+### Backend Implementation
+**Files Modified:**
+- `internal/api/resolver_model_performer.go` - Added six new resolver functions:
+  - `SexWithTopCount()` - Queries co-performers where this performer was top in sex scenes
+  - `SexWithBottomCount()` - Queries co-performers where this performer was bottom in sex scenes
+  - `OralWithTopCount()` - Queries co-performers where this performer was top in oral scenes
+  - `OralWithBottomCount()` - Queries co-performers where this performer was bottom in oral scenes
+  - `FacialWithTopCount()` - Queries co-performers where this performer gave facials
+  - `FacialWithBottomCount()` - Queries co-performers where this performer received facials
+  - `getCoPerformersWithCounts()` - Helper method copied from queryResolver to get co-performer counts
+
+### UI Components
+**Files Modified:**
+- `ui/v2.5/graphql/data/performer.graphql` - Added the six partner count fields to PerformerData fragment
+- `ui/v2.5/src/components/Performers/PerformerDetails/PerformerCategoryStrip.tsx` - Added partner count badges section:
+  - Only shown when NOT in scene context (when sceneId is not provided)
+  - Uses person icon (faUser) combined with arrow icons to indicate top/bottom
+  - Smaller font size and styling to distinguish from scene count badges
+  - Category icons (gay/mouth/goatee) shown with reduced opacity (0.7)
+  - Green badges for "topped" counts, blue badges for "bottomed for" counts
+
+### Display Logic
+- **Scene context (sceneId provided)**: Shows only scene-specific role indicators (no partner counts)
+- **Non-scene context (performer cards, detail page)**: Shows both scene count badges AND partner count badges
+- Partner count badges are displayed in a separate row below the scene count badges
+- Each badge shows: category icon + person icon + arrow (up/down) + count
+
+### Configuration Dependencies
+- Uses existing `configuration.ui.roleTagIds` for sex/oral/facial tag IDs
+- No additional configuration needed
+
+### Usage
+Partner count badges appear on:
+1. Performer cards in performer list view
+2. Performer detail page category strip
+3. Any other non-scene contexts where performer cards are shown
+
+The badges do NOT appear:
+- In scene performer cards (scene context)
+- When viewing performers within a specific scene
+
+### Visual Design
+```
+[Scene Counts Row]
+🍆 42 (total) ↑30 ↓12    👄 28 ↑18 ↓10    💦 15 ↑10 ↓5
+
+[Partner Counts Row - NEW]
+🍆 👤↑ 8    🍆 👤↓ 5    👄 👤↑ 12    👄 👤↓ 6    💦 👤↑ 7    💦 👤↓ 3
+```
+
+Where:
+- Top row = number of scenes in each category with top/bottom breakdown
+- Bottom row = number of unique partners in each category with top/bottom breakdown
+- 👤 = person icon to indicate these are partner counts, not scene counts
+
+---
+
+*Last Updated: January 2026*
 *Base Version: Stash v0.30.0*

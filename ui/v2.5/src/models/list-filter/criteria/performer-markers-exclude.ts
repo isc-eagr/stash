@@ -238,6 +238,7 @@ export class PerformerMarkersExcludeCriterion extends Criterion {
     // Build a single condition from our group
     const condition: Record<string, unknown> = {
       tag_ids: g.tag_ids.map((t) => t.id),
+      depth: g.depth,
     };
 
     // Role (performer's role on the marker)
@@ -262,7 +263,10 @@ export class PerformerMarkersExcludeCriterion extends Criterion {
 
     // Partner attributes
     if (g.partner_ids.length > 0) {
-      // Note: GraphQL schema doesn't have partner_performer_ids
+      condition.partner_performer_ids = g.partner_ids.map((p) => p.id);
+    }
+    if (g.partner_role !== "any") {
+      condition.partner_role = g.partner_role;
     }
     if (g.partner_ethnicities.length > 0) {
       condition.partner_ethnicities = g.partner_ethnicities;

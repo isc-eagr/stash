@@ -221,15 +221,17 @@ export const StudioCard: React.FC<IProps> = ({
     // Oral excludes sex markers
     const excludeTags = sexTag ? [{ id: sexTag.id, label: sexTag.name }] : [];
     
+    // Use depth -1 to include subtags
     const url = performerId
       ? NavUtils.makePerformerStudioMarkerScenesUrl(
           performerId,
           studio,
           oralTag.id,
           "Oral",
-          excludeTags
+          excludeTags,
+          -1
         )
-      : NavUtils.makeStudioMarkerScenesUrl(studio, oralTag.id, "Oral", excludeTags);
+      : NavUtils.makeStudioMarkerScenesUrl(studio, oralTag.id, "Oral", excludeTags, -1);
 
     return (
       <Button
@@ -289,14 +291,17 @@ export const StudioCard: React.FC<IProps> = ({
       performerStats?.facial_scene_count ??
       (studio as any).facial_scene_count ??
       0;
+    // Use depth -1 to include subtags
     const url = performerId
       ? NavUtils.makePerformerStudioMarkerScenesUrl(
           performerId,
           studio,
           facialTag.id,
-          "Facial"
+          "Facial",
+          undefined,
+          -1
         )
-      : NavUtils.makeStudioMarkerScenesUrl(studio, facialTag.id, "Facial");
+      : NavUtils.makeStudioMarkerScenesUrl(studio, facialTag.id, "Facial", undefined, -1);
 
     return (
       <Button

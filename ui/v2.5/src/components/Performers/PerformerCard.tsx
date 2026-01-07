@@ -26,6 +26,9 @@ import GenderIcon from "./GenderIcon";
 import {
   faLink,
   faTag,
+  faArrowUp,
+  faArrowDown,
+  faHand,
 } from "@fortawesome/free-solid-svg-icons";
 import { faInstagram, faTwitter } from "@fortawesome/free-brands-svg-icons";
 import { RatingBanner } from "../Shared/RatingBanner";
@@ -37,6 +40,9 @@ import { ExternalLinksButton } from "../Shared/ExternalLinksButton";
 import { useConfigurationContext } from "src/hooks/Config";
 import { OCounterButton } from "../Shared/CountButton";
 import { PerformerCategoryStrip } from "./PerformerDetails/PerformerCategoryStrip";
+import gaySvg from "src/assets/gay.svg";
+import mouthSvg from "src/assets/mouth.svg";
+import goateeSvg from "src/assets/goatee.svg";
 
 export interface IPerformerCardExtraCriteria {
   scenes?: ModifierCriterion<CriterionValue>[];

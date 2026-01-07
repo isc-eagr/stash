@@ -68,6 +68,17 @@ type Performer {
   facial_bottom_count: Int! # Resolver - facial scenes where performer is bottom
   # Orgasm markers: count of orgasm markers where performer is top
   orgasm_top_count: Int! # Resolver - orgasm markers where performer is top
+  # Partner counts: number of unique performers this performer has topped/bottomed for in each category
+  sex_with_top_count: Int! # Resolver - unique performers this performer has topped sexually
+  sex_with_bottom_count: Int! # Resolver - unique performers this performer has bottomed for sexually
+  oral_with_top_count: Int! # Resolver - unique performers this performer has topped orally
+  oral_with_bottom_count: Int! # Resolver - unique performers this performer has bottomed for orally
+  facial_with_top_count: Int! # Resolver - unique performers this performer has given facials to
+  facial_with_bottom_count: Int! # Resolver - unique performers this performer has received facials from
+  # Total unique partner counts: unique performers across both roles
+  sex_unique_partner_count: Int! # Resolver - unique performers in sex scenes (top or bottom)
+  oral_unique_partner_count: Int! # Resolver - unique performers in oral scenes (top or bottom)
+  facial_unique_partner_count: Int! # Resolver - unique performers in facial scenes (top or bottom)
   scenes: [Scene!]!
   stash_ids: [StashID!]!
   # rating expressed as 1-100

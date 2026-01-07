@@ -4,7 +4,7 @@ import {
   NumberCriterion,
 } from "src/models/list-filter/criteria/criterion";
 
-export const ProfileImageCountCriterionOption = new ModifierCriterionOption({
+export const ProfileImageCountCriterionOption: ModifierCriterionOption = new ModifierCriterionOption({
   messageID: "profile_image_count",
   type: "profile_image_count",
   modifierOptions: [

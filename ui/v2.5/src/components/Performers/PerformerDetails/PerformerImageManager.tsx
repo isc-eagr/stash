@@ -221,16 +221,18 @@ export const PerformerImageManager: React.FC<IPerformerImageManagerProps> = ({
   const handlePrevious = () => {
     const newIndex = currentImageIndex > 0 ? currentImageIndex - 1 : allImages.length - 1;
     setCurrentImageIndex(newIndex);
-    if (allImages[newIndex]?.path) {
-      onImageChange(allImages[newIndex].path);
+    const path = allImages[newIndex]?.path;
+    if (path) {
+      onImageChange(path);
     }
   };
 
   const handleNext = () => {
     const newIndex = currentImageIndex < allImages.length - 1 ? currentImageIndex + 1 : 0;
     setCurrentImageIndex(newIndex);
-    if (allImages[newIndex]?.path) {
-      onImageChange(allImages[newIndex].path);
+    const path = allImages[newIndex]?.path;
+    if (path) {
+      onImageChange(path);
     }
   };
 

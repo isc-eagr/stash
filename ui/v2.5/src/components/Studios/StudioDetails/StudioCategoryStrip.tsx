@@ -75,7 +75,8 @@ export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
   function maybeRenderOralScenesButton() {
     if (!oralTag) return null;
 
-    const url = NavUtils.makeStudioMarkerScenesUrl(studio, oralTag.id, "Oral");
+    // Use depth -1 to include subtags
+    const url = NavUtils.makeStudioMarkerScenesUrl(studio, oralTag.id, "Oral", undefined, -1);
 
     return (
       <Button
@@ -113,10 +114,13 @@ export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
   function maybeRenderFacialScenesButton() {
     if (!facialTag) return null;
 
+    // Use depth -1 to include subtags
     const url = NavUtils.makeStudioMarkerScenesUrl(
       studio,
       facialTag.id,
-      "Facial"
+      "Facial",
+      undefined,
+      -1
     );
 
     return (

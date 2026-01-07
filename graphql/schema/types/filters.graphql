@@ -1003,6 +1003,8 @@ input PerformerMarkersCriterionInput {
 input PerformerMarkerConditionInput {
   "Tag IDs to match on the marker (marker must have at least one of these tags)"
   tag_ids: [ID!]!
+  "Depth for hierarchical tag matching (0 = exact tags only, -1 = all sub-tags, positive = depth limit)"
+  depth: Int
   "This performer's role on the marker: 'top', 'bottom', or 'any' (default: 'any')"
   role: String
   "Filter by the performer's own ethnicities (OR match - performer must have one of these)"
@@ -1011,6 +1013,10 @@ input PerformerMarkerConditionInput {
   self_countries: [String!]
   "Filter by the performer's own rating criterion"
   self_rating: IntCriterionInput
+  "Specific partner performer IDs to filter by (OR match - must have marker with one of these partners)"
+  partner_performer_ids: [ID!]
+  "Partner's role on the marker: 'top', 'bottom', or 'any' (default: 'any')"
+  partner_role: String
   "Partner's ethnicities to filter by (OR match - partner must have one of these)"
   partner_ethnicities: [String!]
   "Partner's countries to filter by (OR match)"
