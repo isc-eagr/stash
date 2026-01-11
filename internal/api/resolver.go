@@ -454,17 +454,30 @@ FROM (
 
 // SceneFacialCount returns the total number of facial events.
 // A marker counts if:
-// - its primary tag is 'facial' or any descendant of 'facial', or
-// - it has any secondary tag that is 'facial' or any descendant of 'facial'.
+// - its primary tag is the configured facial tag or any descendant of it, or
+// - it has any secondary tag that is the configured facial tag or any descendant of it.
 // For each matching marker, count the number of 'top' performers on that marker.
 // Each marker counts as the number of tops, with a minimum of 1 if no tops are assigned.
+// Uses roleTagIds.facialTagId from UI config and includes all subtags recursively.
 func (r *queryResolver) SceneFacialCount(ctx context.Context) (int, error) {
 	var count int
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+		var facialTagID int
+		if roleTagIds != nil {
+			if facialID, ok := roleTagIds["facialTagId"].(string); ok && facialID != "" {
+				facialTagID, _ = strconv.Atoi(facialID)
+			}
+		}
+		if facialTagID == 0 {
+			return nil // No tag configured
+		}
+
 		db := manager.GetInstance().Database
 		query := `
 WITH RECURSIVE facial_tags(id) AS (
-  SELECT id FROM tags WHERE LOWER(TRIM(name)) = 'facial'
+  SELECT id FROM tags WHERE id = ?
   UNION ALL
   SELECT tr.child_id FROM tags_relations tr JOIN facial_tags ft ON tr.parent_id = ft.id
 ),
@@ -480,7 +493,8 @@ FROM (
   SELECT fm.id, (SELECT COUNT(*) FROM scene_marker_performers smp WHERE smp.scene_marker_id = fm.id AND smp.role = 'top') AS top_count
   FROM facial_markers fm
 ) sub`
-		_, rows, err := db.QuerySQL(ctx, query, nil)
+		args := []interface{}{facialTagID}
+		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
 			return err
 		}
@@ -840,52 +854,64 @@ WHERE sm.primary_tag_id = ? AND smp.role = 'bottom'`
 	return count, nil
 }
 
-// PerformersStrictTopCount returns the number of performers who have top/oraltop tags but no bottom/oralbottom tags.
+// PerformersStrictTopCount returns the number of performers who have 'top' role in sex/oral/facial markers but no 'bottom' role in any of those.
+// Uses roleTagIds.sexTagId, roleTagIds.oralTagId, and roleTagIds.facialTagId from UI config.
 func (r *queryResolver) PerformersStrictTopCount(ctx context.Context) (int, error) {
 	var count int
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		uiConfig := config.GetInstance().GetUIConfiguration()
-		sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
-		topTagName := "top"
-		bottomTagName := "bottom"
-		oralTopTagName := "oraltop"
-		oralBottomTagName := "oralbottom"
-		if sceneTagAliases != nil {
-			if t, ok := sceneTagAliases["top"].(string); ok && t != "" {
-				topTagName = t
+		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+		var sexTagID, oralTagID, facialTagID int
+		if roleTagIds != nil {
+			if sexID, ok := roleTagIds["sexTagId"].(string); ok && sexID != "" {
+				sexTagID, _ = strconv.Atoi(sexID)
 			}
-			if b, ok := sceneTagAliases["bottom"].(string); ok && b != "" {
-				bottomTagName = b
+			if oralID, ok := roleTagIds["oralTagId"].(string); ok && oralID != "" {
+				oralTagID, _ = strconv.Atoi(oralID)
 			}
-			if ot, ok := sceneTagAliases["oraltop"].(string); ok && ot != "" {
-				oralTopTagName = ot
+			if facialID, ok := roleTagIds["facialTagId"].(string); ok && facialID != "" {
+				facialTagID, _ = strconv.Atoi(facialID)
 			}
-			if ob, ok := sceneTagAliases["oralbottom"].(string); ok && ob != "" {
-				oralBottomTagName = ob
-			}
+		}
+		if sexTagID == 0 && oralTagID == 0 && facialTagID == 0 {
+			return nil // No tags configured
 		}
 
 		db := manager.GetInstance().Database
-		query := `
+
+		// Build tag list for the query
+		var tagIDs []string
+		if sexTagID > 0 {
+			tagIDs = append(tagIDs, strconv.Itoa(sexTagID))
+		}
+		if oralTagID > 0 {
+			tagIDs = append(tagIDs, strconv.Itoa(oralTagID))
+		}
+		if facialTagID > 0 {
+			tagIDs = append(tagIDs, strconv.Itoa(facialTagID))
+		}
+
+		if len(tagIDs) == 0 {
+			return nil
+		}
+
+		tagList := strings.Join(tagIDs, ",")
+		query := fmt.Sprintf(`
 SELECT COUNT(DISTINCT smp.performer_id)
 FROM scene_marker_performers smp
 JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-JOIN tags t ON t.id = sm.primary_tag_id
-WHERE LOWER(TRIM(t.name)) IN (?, ?)
+LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+WHERE smp.role = 'top'
+  AND (sm.primary_tag_id IN (%s) OR smt.tag_id IN (%s))
   AND smp.performer_id NOT IN (
     SELECT DISTINCT smp2.performer_id
     FROM scene_marker_performers smp2
     JOIN scene_markers sm2 ON sm2.id = smp2.scene_marker_id
-    JOIN tags t2 ON t2.id = sm2.primary_tag_id
-    WHERE LOWER(TRIM(t2.name)) IN (?, ?)
-  )`
-		args := []interface{}{
-			strings.ToLower(topTagName),
-			strings.ToLower(oralTopTagName),
-			strings.ToLower(bottomTagName),
-			strings.ToLower(oralBottomTagName),
-		}
-		_, rows, err := db.QuerySQL(ctx, query, args)
+    LEFT JOIN scene_markers_tags smt2 ON smt2.scene_marker_id = sm2.id
+    WHERE smp2.role = 'bottom'
+      AND (sm2.primary_tag_id IN (%s) OR smt2.tag_id IN (%s))
+  )`, tagList, tagList, tagList, tagList)
+		_, rows, err := db.QuerySQL(ctx, query, nil)
 		if err != nil {
 			return err
 		}
@@ -913,52 +939,64 @@ WHERE LOWER(TRIM(t.name)) IN (?, ?)
 	return count, nil
 }
 
-// PerformersStrictBottomCount returns the number of performers who have bottom/oralbottom tags but no top/oraltop tags.
+// PerformersStrictBottomCount returns the number of performers who have 'bottom' role in sex/oral/facial markers but no 'top' role in any of those.
+// Uses roleTagIds.sexTagId, roleTagIds.oralTagId, and roleTagIds.facialTagId from UI config.
 func (r *queryResolver) PerformersStrictBottomCount(ctx context.Context) (int, error) {
 	var count int
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		uiConfig := config.GetInstance().GetUIConfiguration()
-		sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
-		topTagName := "top"
-		bottomTagName := "bottom"
-		oralTopTagName := "oraltop"
-		oralBottomTagName := "oralbottom"
-		if sceneTagAliases != nil {
-			if t, ok := sceneTagAliases["top"].(string); ok && t != "" {
-				topTagName = t
+		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+		var sexTagID, oralTagID, facialTagID int
+		if roleTagIds != nil {
+			if sexID, ok := roleTagIds["sexTagId"].(string); ok && sexID != "" {
+				sexTagID, _ = strconv.Atoi(sexID)
 			}
-			if b, ok := sceneTagAliases["bottom"].(string); ok && b != "" {
-				bottomTagName = b
+			if oralID, ok := roleTagIds["oralTagId"].(string); ok && oralID != "" {
+				oralTagID, _ = strconv.Atoi(oralID)
 			}
-			if ot, ok := sceneTagAliases["oraltop"].(string); ok && ot != "" {
-				oralTopTagName = ot
+			if facialID, ok := roleTagIds["facialTagId"].(string); ok && facialID != "" {
+				facialTagID, _ = strconv.Atoi(facialID)
 			}
-			if ob, ok := sceneTagAliases["oralbottom"].(string); ok && ob != "" {
-				oralBottomTagName = ob
-			}
+		}
+		if sexTagID == 0 && oralTagID == 0 && facialTagID == 0 {
+			return nil // No tags configured
 		}
 
 		db := manager.GetInstance().Database
-		query := `
+
+		// Build tag list for the query
+		var tagIDs []string
+		if sexTagID > 0 {
+			tagIDs = append(tagIDs, strconv.Itoa(sexTagID))
+		}
+		if oralTagID > 0 {
+			tagIDs = append(tagIDs, strconv.Itoa(oralTagID))
+		}
+		if facialTagID > 0 {
+			tagIDs = append(tagIDs, strconv.Itoa(facialTagID))
+		}
+
+		if len(tagIDs) == 0 {
+			return nil
+		}
+
+		tagList := strings.Join(tagIDs, ",")
+		query := fmt.Sprintf(`
 SELECT COUNT(DISTINCT smp.performer_id)
 FROM scene_marker_performers smp
 JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-JOIN tags t ON t.id = sm.primary_tag_id
-WHERE LOWER(TRIM(t.name)) IN (?, ?)
+LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+WHERE smp.role = 'bottom'
+  AND (sm.primary_tag_id IN (%s) OR smt.tag_id IN (%s))
   AND smp.performer_id NOT IN (
     SELECT DISTINCT smp2.performer_id
     FROM scene_marker_performers smp2
     JOIN scene_markers sm2 ON sm2.id = smp2.scene_marker_id
-    JOIN tags t2 ON t2.id = sm2.primary_tag_id
-    WHERE LOWER(TRIM(t2.name)) IN (?, ?)
-  )`
-		args := []interface{}{
-			strings.ToLower(bottomTagName),
-			strings.ToLower(oralBottomTagName),
-			strings.ToLower(topTagName),
-			strings.ToLower(oralTopTagName),
-		}
-		_, rows, err := db.QuerySQL(ctx, query, args)
+    LEFT JOIN scene_markers_tags smt2 ON smt2.scene_marker_id = sm2.id
+    WHERE smp2.role = 'top'
+      AND (sm2.primary_tag_id IN (%s) OR smt2.tag_id IN (%s))
+  )`, tagList, tagList, tagList, tagList)
+		_, rows, err := db.QuerySQL(ctx, query, nil)
 		if err != nil {
 			return err
 		}

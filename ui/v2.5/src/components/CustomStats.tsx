@@ -104,6 +104,18 @@ const PERFORMERS_ONE_SCENE_COUNT = gql`
   }
 `;
 
+const PERFORMERS_STRICT_TOP_COUNT = gql`
+  query PerformersStrictTopCount {
+    performersStrictTopCount
+  }
+`;
+
+const PERFORMERS_STRICT_BOTTOM_COUNT = gql`
+  query PerformersStrictBottomCount {
+    performersStrictBottomCount
+  }
+`;
+
 // Estimated liters from orgasms (orgasm count × 3ml)
 const ESTIMATED_LITERS = gql`
   query EstimatedLiters {
@@ -135,6 +147,8 @@ export const CustomStats: React.FC = () => {
   const { data: oralReceivedData } = useQuery(PERFORMERS_ORAL_RECEIVED_COUNT);
   const { data: soloOnlyData } = useQuery(PERFORMERS_SOLO_ONLY_COUNT);
   const { data: oneSceneData } = useQuery(PERFORMERS_ONE_SCENE_COUNT);
+  const { data: strictTopData } = useQuery(PERFORMERS_STRICT_TOP_COUNT);
+  const { data: strictBottomData } = useQuery(PERFORMERS_STRICT_BOTTOM_COUNT);
   const { data: litersData } = useQuery(ESTIMATED_LITERS);
   const { data: metersData } = useQuery(TOTAL_PENIS_METERS);
 
@@ -201,6 +215,9 @@ export const CustomStats: React.FC = () => {
     return NavUtils.makeScenesWithMarkerTagUrl(facialTag.id, facialTag.name, -1);
   };
 
+  // Helper to generate random sort ID
+  const getRandomSortId = () => Math.floor(Math.random() * 100000000);
+
   // Helper to create performer filter URLs with scene count
   const makePerformerSceneCountUrl = (sceneCount: number) => {
     const filter = new ListFilterModel(GQL.FilterMode.Performers, undefined);
@@ -210,7 +227,142 @@ export const CustomStats: React.FC = () => {
       (criterion as any).value = sceneCount;
       filter.criteria.push(criterion);
     }
-    return `/performers?${filter.makeQueryParameters()}`;
+    return `/performers?${filter.makeQueryParameters()}&sortby=random_${getRandomSortId()}`;
+  };
+
+  // Helper to create performer marker URLs with role
+  const makePerformerMarkerRoleUrl = (
+    tag: { id: string; name: string } | undefined,
+    role: "top" | "bottom",
+    depth: number = -1
+  ) => {
+    if (!tag) return "#";
+    const criterionData = {
+      type: "performer_markers",
+      modifier: "INCLUDES_ALL",
+      group: {
+        tag_ids: [{ id: tag.id, label: tag.name }],
+        depth,
+        performer_ids: [],
+        performer_ethnicities: [],
+        performer_countries: [],
+        performer_rating: null,
+        performer_role: role,
+        partner_ids: [],
+        partner_ethnicities: [],
+        partner_countries: [],
+        partner_rating: null,
+        partner_role: "any",
+      },
+    };
+    return `/performers?c=${encodeURIComponent(JSON.stringify(criterionData))}&sortby=random_${getRandomSortId()}`;
+  };
+
+  // Helper to create solo-only performers URL (has solo markers but not sex/oral)
+  const makeSoloOnlyPerformersUrl = () => {
+    if (!soloTag) return "#";
+    const criteria = [];
+    
+    // Include solo markers as top
+    criteria.push({
+      type: "performer_markers",
+      modifier: "INCLUDES_ALL",
+      group: {
+        tag_ids: [{ id: soloTag.id, label: soloTag.name }],
+        depth: -1,
+        performer_ids: [],
+        performer_ethnicities: [],
+        performer_countries: [],
+        performer_rating: null,
+        performer_role: "top",
+        partner_ids: [],
+        partner_ethnicities: [],
+        partner_countries: [],
+        partner_rating: null,
+        partner_role: "any",
+      },
+    });
+
+    // Exclude sex and oral markers
+    const excludeTags = [];
+    if (oralTag) excludeTags.push({ id: oralTag.id, label: oralTag.name });
+    if (sexTag) excludeTags.push({ id: sexTag.id, label: sexTag.name });
+    
+    if (excludeTags.length > 0) {
+      criteria.push({
+        type: "performer_markers_exclude",
+        modifier: "INCLUDES_ALL",
+        group: {
+          tag_ids: excludeTags,
+          depth: 0,
+          performer_ids: [],
+          performer_ethnicities: [],
+          performer_countries: [],
+          performer_rating: null,
+          performer_role: "any",
+          partner_ids: [],
+          partner_ethnicities: [],
+          partner_countries: [],
+          partner_rating: null,
+          partner_role: "any",
+        },
+      });
+    }
+
+    return `/performers?${criteria.map(c => `c=${encodeURIComponent(JSON.stringify(c))}`).join('&')}&sortby=random_${getRandomSortId()}`;
+  };
+
+  // Helper to create strict top/bottom URLs
+  const makeStrictRoleUrl = (role: "top" | "bottom") => {
+    const allTags = [];
+    if (sexTag) allTags.push({ id: sexTag.id, label: sexTag.name });
+    if (oralTag) allTags.push({ id: oralTag.id, label: oralTag.name });
+    if (facialTag) allTags.push({ id: facialTag.id, label: facialTag.name });
+    
+    if (allTags.length === 0) return "#";
+
+    const oppositeRole = role === "top" ? "bottom" : "top";
+    
+    const criteria = [
+      {
+        type: "performer_markers",
+        modifier: "INCLUDES_ALL",
+        group: {
+          tag_ids: allTags,
+          depth: 0,
+          performer_ids: [],
+          performer_ethnicities: [],
+          performer_countries: [],
+          performer_rating: null,
+          performer_role: role,
+          partner_ids: [],
+          partner_ethnicities: [],
+          partner_countries: [],
+          partner_rating: null,
+          partner_role: "any",
+        },
+      },
+      {
+        type: "performer_markers_exclude",
+        modifier: "INCLUDES_ALL",
+        group: {
+          tag_ids: allTags,
+          depth: 0,
+          performer_ids: [],
+          performer_ethnicities: [],
+          performer_countries: [],
+          performer_rating: null,
+          performer_role: oppositeRole,
+          partner_ids: [],
+          partner_ethnicities: [],
+          partner_countries: [],
+          partner_rating: null,
+          partner_role: "any",
+        },
+      },
+    ];
+
+    return `/performers?${criteria.map(c => `c=${encodeURIComponent(JSON.stringify(c))}`).join('&')}&sortby=random_${getRandomSortId()}`;
   };
 
   if (error) return <span>{error.message}</span>;
@@ -307,15 +459,6 @@ export const CustomStats: React.FC = () => {
       {/* Orgasm + Facial Stats */}
       {(typeof orgasmCountData?.sceneOrgasmCount === "number" ||
         typeof facialCountData?.sceneFacialCount === "number" ||
-        typeof performersGivenData?.performersFacialGivenCount === "number" ||
-        typeof performersReceivedData?.performersFacialReceivedCount ===
-          "number" ||
-        typeof sexGivenData?.performersSexGivenCount === "number" ||
-        typeof sexReceivedData?.performersSexReceivedCount === "number" ||
-        typeof oralGivenData?.performersOralGivenCount === "number" ||
-        typeof oralReceivedData?.performersOralReceivedCount === "number" ||
-        typeof soloOnlyData?.performersSoloOnlyCount === "number" ||
-        typeof oneSceneData?.performersOneSceneCount === "number" ||
         typeof litersData?.estimatedLiters === "number" ||
         typeof metersData?.totalPenisMeters === "number") && (
         <div className="col col-sm-8 m-sm-auto row stats">
@@ -359,71 +502,130 @@ export const CustomStats: React.FC = () => {
               <p className="heading">Total penis meters</p>
             </div>
           )}
-          {typeof performersGivenData?.performersFacialGivenCount ===
-            "number" && (
-            <div className="stats-element">
-              <p className="title">
-                <FormattedNumber
-                  value={performersGivenData.performersFacialGivenCount}
-                />
-              </p>
-              <p className="heading">Performers given facials</p>
-            </div>
-          )}
-          {typeof performersReceivedData?.performersFacialReceivedCount ===
-            "number" && (
-            <div className="stats-element">
-              <p className="title">
-                <FormattedNumber
-                  value={performersReceivedData.performersFacialReceivedCount}
-                />
-              </p>
-              <p className="heading">Performers received facials</p>
-            </div>
-          )}
+        </div>
+      )}
+
+      {/* Performer Role Stats - in order: Top, Bottom, Strict Top, Strict Bottom, Oral Tops, Oral Bottoms, Facial Tops, Facial Bottoms */}
+      {(typeof sexGivenData?.performersSexGivenCount === "number" ||
+        typeof sexReceivedData?.performersSexReceivedCount === "number" ||
+        typeof strictTopData?.performersStrictTopCount === "number" ||
+        typeof strictBottomData?.performersStrictBottomCount === "number" ||
+        typeof oralGivenData?.performersOralGivenCount === "number" ||
+        typeof oralReceivedData?.performersOralReceivedCount === "number" ||
+        typeof performersGivenData?.performersFacialGivenCount === "number" ||
+        typeof performersReceivedData?.performersFacialReceivedCount ===
+          "number") && (
+        <div className="col col-sm-8 m-sm-auto row stats mt-4">
           {typeof sexGivenData?.performersSexGivenCount === "number" && (
             <div className="stats-element">
               <p className="title">
-                <FormattedNumber value={sexGivenData.performersSexGivenCount} />
+                <Link to={makePerformerMarkerRoleUrl(sexTag, "top")}>
+                  <FormattedNumber value={sexGivenData.performersSexGivenCount} />
+                </Link>
               </p>
-              <p className="heading">Performers topped sexually</p>
+              <p className="heading">Tops</p>
             </div>
           )}
           {typeof sexReceivedData?.performersSexReceivedCount === "number" && (
             <div className="stats-element">
               <p className="title">
-                <FormattedNumber
-                  value={sexReceivedData.performersSexReceivedCount}
-                />
+                <Link to={makePerformerMarkerRoleUrl(sexTag, "bottom")}>
+                  <FormattedNumber
+                    value={sexReceivedData.performersSexReceivedCount}
+                  />
+                </Link>
               </p>
-              <p className="heading">Performers bottomed sexually</p>
+              <p className="heading">Bottoms</p>
+            </div>
+          )}
+          {typeof strictTopData?.performersStrictTopCount === "number" && (
+            <div className="stats-element">
+              <p className="title">
+                <Link to={makeStrictRoleUrl("top")}>
+                  <FormattedNumber
+                    value={strictTopData.performersStrictTopCount}
+                  />
+                </Link>
+              </p>
+              <p className="heading">Strict Tops</p>
+            </div>
+          )}
+          {typeof strictBottomData?.performersStrictBottomCount === "number" && (
+            <div className="stats-element">
+              <p className="title">
+                <Link to={makeStrictRoleUrl("bottom")}>
+                  <FormattedNumber
+                    value={strictBottomData.performersStrictBottomCount}
+                  />
+                </Link>
+              </p>
+              <p className="heading">Strict Bottoms</p>
             </div>
           )}
           {typeof oralGivenData?.performersOralGivenCount === "number" && (
             <div className="stats-element">
               <p className="title">
-                <FormattedNumber
-                  value={oralGivenData.performersOralGivenCount}
-                />
+                <Link to={makePerformerMarkerRoleUrl(oralTag, "top")}>
+                  <FormattedNumber
+                    value={oralGivenData.performersOralGivenCount}
+                  />
+                </Link>
               </p>
-              <p className="heading">Performers topped orally</p>
+              <p className="heading">Oral Tops</p>
             </div>
           )}
           {typeof oralReceivedData?.performersOralReceivedCount ===
             "number" && (
             <div className="stats-element">
               <p className="title">
-                <FormattedNumber
-                  value={oralReceivedData.performersOralReceivedCount}
-                />
+                <Link to={makePerformerMarkerRoleUrl(oralTag, "bottom")}>
+                  <FormattedNumber
+                    value={oralReceivedData.performersOralReceivedCount}
+                  />
+                </Link>
               </p>
-              <p className="heading">Performers bottomed orally</p>
+              <p className="heading">Oral Bottoms</p>
             </div>
           )}
+          {typeof performersGivenData?.performersFacialGivenCount ===
+            "number" && (
+            <div className="stats-element">
+              <p className="title">
+                <Link to={makePerformerMarkerRoleUrl(facialTag, "top")}>
+                  <FormattedNumber
+                    value={performersGivenData.performersFacialGivenCount}
+                  />
+                </Link>
+              </p>
+              <p className="heading">Facial Tops</p>
+            </div>
+          )}
+          {typeof performersReceivedData?.performersFacialReceivedCount ===
+            "number" && (
+            <div className="stats-element">
+              <p className="title">
+                <Link to={makePerformerMarkerRoleUrl(facialTag, "bottom")}>
+                  <FormattedNumber
+                    value={performersReceivedData.performersFacialReceivedCount}
+                  />
+                </Link>
+              </p>
+              <p className="heading">Facial Bottoms</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Other Performer Stats */}
+      {(typeof soloOnlyData?.performersSoloOnlyCount === "number" ||
+        typeof oneSceneData?.performersOneSceneCount === "number") && (
+        <div className="col col-sm-8 m-sm-auto row stats mt-4">
           {typeof soloOnlyData?.performersSoloOnlyCount === "number" && (
             <div className="stats-element">
               <p className="title">
-                <FormattedNumber value={soloOnlyData.performersSoloOnlyCount} />
+                <Link to={makeSoloOnlyPerformersUrl()}>
+                  <FormattedNumber value={soloOnlyData.performersSoloOnlyCount} />
+                </Link>
               </p>
               <p className="heading">Solo only performers</p>
             </div>

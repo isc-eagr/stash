@@ -184,7 +184,8 @@ const makePerformersEthnicityUrl = (ethnicity: string) => {
   criterion.modifier = GQL.CriterionModifier.Equals;
   criterion.value = ethnicity;
   filter.criteria.push(criterion);
-  return `/performers?${filter.makeQueryParameters()}`;
+  const randomId = Math.floor(Math.random() * 100000000);
+  return `/performers?${filter.makeQueryParameters()}&sortby=random_${randomId}`;
 };
 
 const makePerformersEthnicityRatingUrl = (
@@ -208,7 +209,8 @@ const makePerformersEthnicityRatingUrl = (
   ratingCriterion.value = { value: rating, value2: undefined };
   filter.criteria.push(ratingCriterion);
 
-  return `/performers?${filter.makeQueryParameters()}`;
+  const randomId = Math.floor(Math.random() * 100000000);
+  return `/performers?${filter.makeQueryParameters()}&sortby=random_${randomId}`;
 };
 
 const makeStudioScenesUrl = (studio: Partial<GQL.StudioDataFragment>) => {

@@ -248,28 +248,47 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
               tagLabel,
               "bottom"
             );
-            // Partner URLs for facial
-            partnerTopUrl = NavUtils.makePerformerPartnerPerformersUrl(
-              performer,
-              role.tagId,
-              tagLabel,
-              "facial",
-              "top"
-            );
-            partnerBottomUrl = NavUtils.makePerformerPartnerPerformersUrl(
-              performer,
-              role.tagId,
-              tagLabel,
-              "facial",
-              "bottom"
-            );
-            // All partners URL (any role)
-            allPartnersUrl = NavUtils.makePerformerAllPartnersUrl(
-              performer,
-              role.tagId,
-              tagLabel,
-              "facial"
-            );
+            
+            // Partner URLs for facial (goes to /scenes/markers)
+            const performerRef = { id: performer.id, label: performer.name || `Performer ${performer.id}` };
+            
+            // Facial top partner: performer is top (giver), showing scenes
+            partnerTopUrl = `/scenes/markers?c=${encodeURIComponent(
+              JSON.stringify({
+                type: "marker_performers",
+                modifier: "INCLUDES_ALL",
+                tag_ids: [{ id: role.tagId, label: tagLabel }],
+                include_subtags: true,
+                top_performer_ids: [performerRef],
+                top_ethnicities: [],
+                top_countries: [],
+                top_rating: null,
+                bottom_performer_ids: [],
+                bottom_ethnicities: [],
+                bottom_countries: [],
+                bottom_rating: null,
+              })
+            )}&sortby=title`;
+            
+            // Facial bottom partner: performer is bottom (receiver), showing scenes
+            partnerBottomUrl = `/scenes/markers?c=${encodeURIComponent(
+              JSON.stringify({
+                type: "marker_performers",
+                modifier: "INCLUDES_ALL",
+                tag_ids: [{ id: role.tagId, label: tagLabel }],
+                include_subtags: true,
+                top_performer_ids: [],
+                top_ethnicities: [],
+                top_countries: [],
+                top_rating: null,
+                bottom_performer_ids: [performerRef],
+                bottom_ethnicities: [],
+                bottom_countries: [],
+                bottom_rating: null,
+              })
+            )}&sortby=title`;
+            
+            allPartnersUrl = `/performers/${performer.id}/appearswithbyrole`;
           } else if (role.category === "sex" || role.category === "oral") {
             // Sex, oral go to /scenes
             categoryUrl = NavUtils.makePerformerMarkerScenesWithRoleUrl(
@@ -296,28 +315,53 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
               excludeTags,
               markerDepth
             );
-            // Partner URLs for sex/oral
-            partnerTopUrl = NavUtils.makePerformerPartnerPerformersUrl(
-              performer,
-              role.tagId,
-              tagLabel,
-              role.category,
-              "top"
-            );
-            partnerBottomUrl = NavUtils.makePerformerPartnerPerformersUrl(
-              performer,
-              role.tagId,
-              tagLabel,
-              role.category,
-              "bottom"
-            );
-            // All partners URL (any role)
-            allPartnersUrl = NavUtils.makePerformerAllPartnersUrl(
-              performer,
-              role.tagId,
-              tagLabel,
-              role.category
-            );
+            
+            // Partner URLs for sex/oral (goes to /scenes)
+            const performerRef = { id: performer.id, label: performer.name || `Performer ${performer.id}` };
+            
+            // Sex/oral top partner: performer is top, showing scenes
+            partnerTopUrl = `/scenes?c=${encodeURIComponent(
+              JSON.stringify({
+                type: "scene_markers",
+                modifier: "INCLUDES_ALL",
+                groups: [{
+                  groupId: "A",
+                  tag_ids: [{ id: role.tagId, label: tagLabel }],
+                  depth: markerDepth,
+                  top_performer_ids: [performerRef],
+                  top_ethnicities: [],
+                  top_countries: [],
+                  top_rating: null,
+                  bottom_performer_ids: [],
+                  bottom_ethnicities: [],
+                  bottom_countries: [],
+                  bottom_rating: null,
+                }],
+              })
+            )}&sortby=date`;
+            
+            // Sex/oral bottom partner: performer is bottom, showing scenes
+            partnerBottomUrl = `/scenes?c=${encodeURIComponent(
+              JSON.stringify({
+                type: "scene_markers",
+                modifier: "INCLUDES_ALL",
+                groups: [{
+                  groupId: "A",
+                  tag_ids: [{ id: role.tagId, label: tagLabel }],
+                  depth: markerDepth,
+                  top_performer_ids: [],
+                  top_ethnicities: [],
+                  top_countries: [],
+                  top_rating: null,
+                  bottom_performer_ids: [performerRef],
+                  bottom_ethnicities: [],
+                  bottom_countries: [],
+                  bottom_rating: null,
+                }],
+              })
+            )}&sortby=date`;
+            
+            allPartnersUrl = `/performers/${performer.id}/appearswithbyrole`;
           } else {
             // Solo - no role-based URLs
             categoryUrl = NavUtils.makePerformerMarkerScenesWithRoleUrl(
@@ -408,7 +452,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
             ) : (
               // Global context: show counts with arrows
               <>
-                {/* Row 2: Scene top/bottom counts */}
+                {/* Row 2: Scene top/bottom counts 
                 <div className="role-arrows">
                   {topUrl && (role.topCount ?? 0) > 0 ? (
                     <Link to={topUrl} className="role-badge-link">
@@ -485,26 +529,27 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                     </Badge>
                   )}
                 </div>
+                */}
 
-                {/* Row 3: Unique partner count - COMMENTED OUT FOR NOW
+                {/* Row 3: Unique partner count*/}
                 {uniquePartnerCount > 0 && (
                   <div className="category-icon-container unique-partners-row">
                     {allPartnersUrl ? (
                       <Link to={allPartnersUrl} className="role-badge-link">
-                        {categoryIconElement}
+                        <Icon icon={faUser} style={{ color: "white" }} />
                         <span className="role-total-count">{uniquePartnerCount}</span>
                       </Link>
                     ) : (
                       <>
-                        {categoryIconElement}
+                        <Icon icon={faUser} style={{ color: "white" }} />
                         <span className="role-total-count">{uniquePartnerCount}</span>
                       </>
                     )}
                   </div>
                 )}
-                */}
+                
 
-                {/* Row 4: Partner count badges - COMMENTED OUT FOR NOW
+                {/* Row 4: Partner count badges*/}
                 <div className="role-arrows">
                   {partnerTopUrl && (
                     (role.category === "sex" && (p.sex_with_top_count ?? 0) > 0) ||
@@ -524,7 +569,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                           gap: 4,
                         }}
                       >
-                        <Icon icon={faUser} />
+                        <Icon icon={faArrowUp} />
                         <span className="arrow-count">
                           {role.category === "sex"
                             ? p.sex_with_top_count || 0
@@ -555,7 +600,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                             : 'hidden',
                       }}
                     >
-                      <Icon icon={faUser} />
+                      <Icon icon={faArrowUp} />
                       <span className="arrow-count">
                         {role.category === "sex"
                           ? p.sex_with_top_count || 0
@@ -585,7 +630,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                           gap: 4,
                         }}
                       >
-                        <Icon icon={faUser} />
+                        <Icon icon={faArrowDown} />
                         <span className="arrow-count">
                           {role.category === "sex"
                             ? p.sex_with_bottom_count || 0
@@ -616,7 +661,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                             : 'hidden',
                       }}
                     >
-                      <Icon icon={faUser} />
+                      <Icon icon={faArrowDown} />
                       <span className="arrow-count">
                         {role.category === "sex"
                           ? p.sex_with_bottom_count || 0
@@ -629,7 +674,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                     </Badge>
                   )}
                 </div>
-                */}
+                
               </>
             )}
           </div>
