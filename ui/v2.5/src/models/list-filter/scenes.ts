@@ -46,6 +46,7 @@ import {
 import { PathCriterionOption } from "./criteria/path";
 import { OrientationCriterionOption } from "./criteria/orientation";
 import { EthnicityCriterionOption } from "./criteria/ethnicity";
+import { SceneCustomFiltersCriterionOption } from "./criteria/custom-filters";
 
 // Has Marker Performers criterion option
 const HasMarkerPerformersCriterionOption = new StringBooleanCriterionOption(
@@ -57,19 +58,6 @@ const HasMarkerPerformersCriterionOption = new StringBooleanCriterionOption(
 class HasMarkerPerformersCriterion extends StringBooleanCriterion {
   constructor() {
     super(HasMarkerPerformersCriterionOption);
-  }
-}
-
-// Multiple Orgasms criterion option - filters scenes where any performer has 2+ orgasm markers as top
-const MultipleOrgasmsCriterionOption = new StringBooleanCriterionOption(
-  "multiple_orgasms",
-  "multiple_orgasms",
-  () => new MultipleOrgasmsCriterion()
-);
-
-class MultipleOrgasmsCriterion extends StringBooleanCriterion {
-  constructor() {
-    super(MultipleOrgasmsCriterionOption);
   }
 }
 
@@ -156,7 +144,7 @@ const criterionOptions = [
   createMandatoryTimestampCriterionOption("last_played_at"),
   HasMarkersCriterionOption,
   HasMarkerPerformersCriterionOption,
-  MultipleOrgasmsCriterionOption,
+  SceneCustomFiltersCriterionOption,
   SceneIsMissingCriterionOption,
   TagsCriterionOption,
   createMandatoryNumberCriterionOption("tag_count"),

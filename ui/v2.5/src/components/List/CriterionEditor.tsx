@@ -86,6 +86,14 @@ import {
   sceneMarkersExcludeModifierOptions,
 } from "src/models/list-filter/criteria/scene-markers-exclude";
 import { SceneMarkersExcludeFilter } from "./Filters/SceneMarkersExcludeFilter";
+import {
+  SceneCustomFiltersCriterion,
+  PerformerCustomFiltersCriterion,
+} from "src/models/list-filter/criteria/custom-filters";
+import {
+  SceneCustomFiltersFilter,
+  PerformerCustomFiltersFilter,
+} from "./Filters/CustomFiltersFilter";
 
 interface IGenericCriterionEditor {
   criterion: ModifierCriterion<CriterionValue>;
@@ -477,6 +485,24 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
             setCriterion={(nc) => setCriterion(nc)}
           />
         </div>
+      );
+    }
+
+    if (criterion instanceof SceneCustomFiltersCriterion) {
+      return (
+        <SceneCustomFiltersFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof PerformerCustomFiltersCriterion) {
+      return (
+        <PerformerCustomFiltersFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
       );
     }
 

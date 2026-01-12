@@ -104,17 +104,6 @@ const PERFORMERS_ONE_SCENE_COUNT = gql`
   }
 `;
 
-const PERFORMERS_STRICT_TOP_COUNT = gql`
-  query PerformersStrictTopCount {
-    performersStrictTopCount
-  }
-`;
-
-const PERFORMERS_STRICT_BOTTOM_COUNT = gql`
-  query PerformersStrictBottomCount {
-    performersStrictBottomCount
-  }
-`;
 
 // Estimated liters from orgasms (orgasm count × 3ml)
 const ESTIMATED_LITERS = gql`
@@ -131,6 +120,10 @@ const TOTAL_PENIS_METERS = gql`
 `;
 
 export const CustomStats: React.FC = () => {
+  // Get configuration FIRST so we can use it in queries
+  const { configuration } = useConfigurationContext();
+  const roleTagIds = configuration?.ui?.roleTagIds ?? {};
+
   const { data: statsData, error, loading } = useStats();
   const { data: ethData } = usePerformerEthnicityCountsQuery();
   const { data: fiveStarData } = useQuery(PERFORMER_ETHNICITY_FIVE_STAR_COUNTS);
@@ -147,15 +140,106 @@ export const CustomStats: React.FC = () => {
   const { data: oralReceivedData } = useQuery(PERFORMERS_ORAL_RECEIVED_COUNT);
   const { data: soloOnlyData } = useQuery(PERFORMERS_SOLO_ONLY_COUNT);
   const { data: oneSceneData } = useQuery(PERFORMERS_ONE_SCENE_COUNT);
-  const { data: strictTopData } = useQuery(PERFORMERS_STRICT_TOP_COUNT);
-  const { data: strictBottomData } = useQuery(PERFORMERS_STRICT_BOTTOM_COUNT);
+  // Use findPerformers with custom_filters to get counts
+  const { data: strictTopData } = useQuery(
+    gql`
+      query FindPerformersStrictTop($filter: FindFilterType, $performer_filter: PerformerFilterType) {
+        findPerformers(filter: $filter, performer_filter: $performer_filter) {
+          count
+        }
+      }
+    `,
+    {
+      variables: {
+        filter: { per_page: 1 },
+        performer_filter: {
+          custom_filters: {
+            type: "strict_tops",
+            sex_tag_id: roleTagIds?.sexTagId,
+            oral_tag_id: roleTagIds?.oralTagId,
+            facial_tag_id: roleTagIds?.facialTagId,
+          },
+        },
+      },
+      skip: !roleTagIds?.sexTagId,
+    }
+  );
+
+  const { data: lenientTopData } = useQuery(
+    gql`
+      query FindPerformersLenientTop($filter: FindFilterType, $performer_filter: PerformerFilterType) {
+        findPerformers(filter: $filter, performer_filter: $performer_filter) {
+          count
+        }
+      }
+    `,
+    {
+      variables: {
+        filter: { per_page: 1 },
+        performer_filter: {
+          custom_filters: {
+            type: "lenient_tops",
+            sex_tag_id: roleTagIds?.sexTagId,
+            oral_tag_id: roleTagIds?.oralTagId,
+            facial_tag_id: roleTagIds?.facialTagId,
+          },
+        },
+      },
+      skip: !roleTagIds?.sexTagId,
+    }
+  );
+
+  const { data: strictBottomData } = useQuery(
+    gql`
+      query FindPerformersStrictBottom($filter: FindFilterType, $performer_filter: PerformerFilterType) {
+        findPerformers(filter: $filter, performer_filter: $performer_filter) {
+          count
+        }
+      }
+    `,
+    {
+      variables: {
+        filter: { per_page: 1 },
+        performer_filter: {
+          custom_filters: {
+            type: "strict_bottoms",
+            sex_tag_id: roleTagIds?.sexTagId,
+            oral_tag_id: roleTagIds?.oralTagId,
+            facial_tag_id: roleTagIds?.facialTagId,
+          },
+        },
+      },
+      skip: !roleTagIds?.sexTagId,
+    }
+  );
+
+  const { data: lenientBottomData } = useQuery(
+    gql`
+      query FindPerformersLenientBottom($filter: FindFilterType, $performer_filter: PerformerFilterType) {
+        findPerformers(filter: $filter, performer_filter: $performer_filter) {
+          count
+        }
+      }
+    `,
+    {
+      variables: {
+        filter: { per_page: 1 },
+        performer_filter: {
+          custom_filters: {
+            type: "lenient_bottoms",
+            sex_tag_id: roleTagIds?.sexTagId,
+            oral_tag_id: roleTagIds?.oralTagId,
+            facial_tag_id: roleTagIds?.facialTagId,
+          },
+        },
+      },
+      skip: !roleTagIds?.sexTagId,
+    }
+  );
   const { data: litersData } = useQuery(ESTIMATED_LITERS);
   const { data: metersData } = useQuery(TOTAL_PENIS_METERS);
 
-  const { configuration } = useConfigurationContext();
-
-  // Get role tag IDs from the new configuration
-  const roleTagIds = configuration?.ui?.roleTagIds ?? {};
+  // Extract individual tag IDs for convenience
   const sexTagId = roleTagIds.sexTagId;
   const oralTagId = roleTagIds.oralTagId;
   const soloTagId = roleTagIds.soloTagId;
@@ -312,57 +396,14 @@ export const CustomStats: React.FC = () => {
     return `/performers?${criteria.map(c => `c=${encodeURIComponent(JSON.stringify(c))}`).join('&')}&sortby=random_${getRandomSortId()}`;
   };
 
-  // Helper to create strict top/bottom URLs
-  const makeStrictRoleUrl = (role: "top" | "bottom") => {
-    const allTags = [];
-    if (sexTag) allTags.push({ id: sexTag.id, label: sexTag.name });
-    if (oralTag) allTags.push({ id: oralTag.id, label: oralTag.name });
-    if (facialTag) allTags.push({ id: facialTag.id, label: facialTag.name });
-    
-    if (allTags.length === 0) return "#";
+  // Helper to create custom filter URLs
+  const makeCustomFilterUrl = (filterType: "strict_tops" | "lenient_tops" | "strict_bottoms" | "lenient_bottoms") => {
+    const criterion = {
+      type: "custom_filters",
+      value: filterType,
+    };
 
-    const oppositeRole = role === "top" ? "bottom" : "top";
-    
-    const criteria = [
-      {
-        type: "performer_markers",
-        modifier: "INCLUDES_ALL",
-        group: {
-          tag_ids: allTags,
-          depth: 0,
-          performer_ids: [],
-          performer_ethnicities: [],
-          performer_countries: [],
-          performer_rating: null,
-          performer_role: role,
-          partner_ids: [],
-          partner_ethnicities: [],
-          partner_countries: [],
-          partner_rating: null,
-          partner_role: "any",
-        },
-      },
-      {
-        type: "performer_markers_exclude",
-        modifier: "INCLUDES_ALL",
-        group: {
-          tag_ids: allTags,
-          depth: 0,
-          performer_ids: [],
-          performer_ethnicities: [],
-          performer_countries: [],
-          performer_rating: null,
-          performer_role: oppositeRole,
-          partner_ids: [],
-          partner_ethnicities: [],
-          partner_countries: [],
-          partner_rating: null,
-          partner_role: "any",
-        },
-      },
-    ];
-
-    return `/performers?${criteria.map(c => `c=${encodeURIComponent(JSON.stringify(c))}`).join('&')}&sortby=random_${getRandomSortId()}`;
+    return `/performers?c=${encodeURIComponent(JSON.stringify(criterion))}&sortby=random_${getRandomSortId()}`;
   };
 
   if (error) return <span>{error.message}</span>;
@@ -505,11 +546,13 @@ export const CustomStats: React.FC = () => {
         </div>
       )}
 
-      {/* Performer Role Stats - in order: Top, Bottom, Strict Top, Strict Bottom, Oral Tops, Oral Bottoms, Facial Tops, Facial Bottoms */}
+      {/* Performer Role Stats - in order: Top, Bottom, Strict Top, Lenient Top, Strict Bottom, Lenient Bottom, Oral Tops, Oral Bottoms, Facial Tops, Facial Bottoms */}
       {(typeof sexGivenData?.performersSexGivenCount === "number" ||
         typeof sexReceivedData?.performersSexReceivedCount === "number" ||
-        typeof strictTopData?.performersStrictTopCount === "number" ||
-        typeof strictBottomData?.performersStrictBottomCount === "number" ||
+        typeof strictTopData?.findPerformers?.count === "number" ||
+        typeof lenientTopData?.findPerformers?.count === "number" ||
+        typeof strictBottomData?.findPerformers?.count === "number" ||
+        typeof lenientBottomData?.findPerformers?.count === "number" ||
         typeof oralGivenData?.performersOralGivenCount === "number" ||
         typeof oralReceivedData?.performersOralReceivedCount === "number" ||
         typeof performersGivenData?.performersFacialGivenCount === "number" ||
@@ -538,28 +581,52 @@ export const CustomStats: React.FC = () => {
               <p className="heading">Bottoms</p>
             </div>
           )}
-          {typeof strictTopData?.performersStrictTopCount === "number" && (
+          {typeof strictTopData?.findPerformers?.count === "number" && (
             <div className="stats-element">
               <p className="title">
-                <Link to={makeStrictRoleUrl("top")}>
+                <Link to={makeCustomFilterUrl("strict_tops")}>
                   <FormattedNumber
-                    value={strictTopData.performersStrictTopCount}
+                    value={strictTopData.findPerformers.count}
                   />
                 </Link>
               </p>
               <p className="heading">Strict Tops</p>
             </div>
           )}
-          {typeof strictBottomData?.performersStrictBottomCount === "number" && (
+          {typeof lenientTopData?.findPerformers?.count === "number" && (
             <div className="stats-element">
               <p className="title">
-                <Link to={makeStrictRoleUrl("bottom")}>
+                <Link to={makeCustomFilterUrl("lenient_tops")}>
                   <FormattedNumber
-                    value={strictBottomData.performersStrictBottomCount}
+                    value={lenientTopData.findPerformers.count}
+                  />
+                </Link>
+              </p>
+              <p className="heading">Lenient Tops</p>
+            </div>
+          )}
+          {typeof strictBottomData?.findPerformers?.count === "number" && (
+            <div className="stats-element">
+              <p className="title">
+                <Link to={makeCustomFilterUrl("strict_bottoms")}>
+                  <FormattedNumber
+                    value={strictBottomData.findPerformers.count}
                   />
                 </Link>
               </p>
               <p className="heading">Strict Bottoms</p>
+            </div>
+          )}
+          {typeof lenientBottomData?.findPerformers?.count === "number" && (
+            <div className="stats-element">
+              <p className="title">
+                <Link to={makeCustomFilterUrl("lenient_bottoms")}>
+                  <FormattedNumber
+                    value={lenientBottomData.findPerformers.count}
+                  />
+                </Link>
+              </p>
+              <p className="heading">Lenient Bottoms</p>
             </div>
           )}
           {typeof oralGivenData?.performersOralGivenCount === "number" && (

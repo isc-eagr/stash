@@ -23,6 +23,7 @@ import { PerformerMarkersCriterionOption } from "./criteria/performer-markers";
 import { PerformerMarkersExcludeCriterionOption } from "./criteria/performer-markers-exclude";
 import { HasMarkersCriterionOption } from "./criteria/has-markers";
 import { ProfileImageCountCriterionOption } from "./criteria/profile-image-count";
+import { PerformerCustomFiltersCriterionOption } from "./criteria/custom-filters";
 
 const defaultSortBy = "name";
 const sortByOptions = [
@@ -102,6 +103,8 @@ const criterionOptions = [
   PerformerIsMissingCriterionOption,
   TagsCriterionOption,
   HasMarkersCriterionOption,
+  // Custom Filters: predefined complex filters (strict_tops, lenient_tops, strict_bottoms, lenient_bottoms)
+  PerformerCustomFiltersCriterionOption,
   // Performer Markers: filter by markers with specific tags, performer role, and partner attributes
   PerformerMarkersCriterionOption,
   // Performer Markers: Exclude - exclude performers with markers matching these criteria

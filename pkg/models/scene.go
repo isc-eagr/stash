@@ -8,6 +8,16 @@ type PHashDuplicationCriterionInput struct {
 	Distance *int `json:"distance"`
 }
 
+// CustomSceneFilterInput is the input for custom scene filters
+type CustomSceneFilterInput struct {
+	// The filter type: multiple_orgasms, versatile_scenes
+	Type string `json:"type"`
+	// The tag ID for 'sex' markers
+	SexTagID *string `json:"sex_tag_id"`
+	// The tag ID for 'orgasm' markers
+	OrgasmTagID *string `json:"orgasm_tag_id"`
+}
+
 type SceneFilterType struct {
 	OperatorFilter[SceneFilterType]
 	ID       *IntCriterionInput    `json:"id"`
@@ -55,8 +65,9 @@ type SceneFilterType struct {
 	HasMarkers *string `json:"has_markers"`
 	// Filter to only include scenes with markers that have assigned performers. `true` or `false`
 	HasMarkerPerformers *string `json:"has_marker_performers"`
-	// Filter scenes with multiple orgasm markers by the same top performer. `true` or `false`
-	MultipleOrgasms *string `json:"multiple_orgasms"`
+	// Custom scene filters: predefined complex filters.
+	// Options: 'multiple_orgasms', 'versatile_scenes'
+	CustomFilters *CustomSceneFilterInput `json:"custom_filters"`
 	// Filter by scene marker tags with optional performer role criteria
 	SceneMarkerTags *SceneMarkerTagsCriterionInput `json:"scene_marker_tags"`
 	// Filter to only include scenes missing this property

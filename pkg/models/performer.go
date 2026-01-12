@@ -194,6 +194,9 @@ type PerformerFilterType struct {
 	ScenesFilter *SceneFilterType `json:"scenes_filter"`
 	// Filter to only include performers that have scene markers where they are top/bottom
 	HasMarkers *string `json:"has_markers"`
+	// Custom performer filters: predefined complex filters.
+	// Options: 'strict_tops', 'lenient_tops', 'strict_bottoms', 'lenient_bottoms'
+	CustomFilters *CustomPerformerFilterInput `json:"custom_filters"`
 	// Filter by related images that meet this criteria
 	ImagesFilter *ImageFilterType `json:"images_filter"`
 	// Filter by related galleries that meet this criteria
@@ -218,6 +221,18 @@ type PerformerFilterType struct {
 
 	// Filter by markers shared with partners having specific attributes
 	PerformerMarkerPartners *PerformerMarkerPartnersCriterionInput `json:"performer_marker_partners"`
+}
+
+// CustomPerformerFilterInput is the input for custom performer filters
+type CustomPerformerFilterInput struct {
+	// The filter type: strict_tops, lenient_tops, strict_bottoms, lenient_bottoms
+	Type string `json:"type"`
+	// The tag ID for 'sex' markers
+	SexTagID *string `json:"sex_tag_id"`
+	// The tag ID for 'oral' markers
+	OralTagID *string `json:"oral_tag_id"`
+	// The tag ID for 'facial' markers
+	FacialTagID *string `json:"facial_tag_id"`
 }
 
 // PerformerMarkersCriterionInput filters performers by their scene marker participation

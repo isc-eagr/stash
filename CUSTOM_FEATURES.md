@@ -233,29 +233,44 @@ Each marker group supports separate top/bottom/both-roles attribute blocks:
 #### 6.5 Performer Rating Filter (for Scenes)
 **File:** `ui/v2.5/src/components/List/Filters/PerformerRatingFilter.tsx` - NEW
 
-#### 6.6 Multiple Orgasms Filter
-**Overview:** Boolean filter for scenes where any performer has more than 1 orgasm marker as "top" in the same scene.
+#### 6.6 Custom Filters
+**Overview:** Radio-button based filters with predefined complex filter options for both scenes and performers.
 
-**Purpose:** Quickly find scenes with multiple orgasms from the same top performer.
+**Purpose:** Provide quick access to commonly-used complex filtering scenarios without requiring multiple filter configurations.
 
 **Files:**
-- `graphql/schema/types/filters.graphql` - Added `multiple_orgasms: String` to `SceneFilterType`
-- `pkg/models/scene.go` - Added `MultipleOrgasms` field to `SceneFilterType` struct
-- `pkg/sqlite/scene_filter.go` - `multipleOrgasmsCriterionHandler` implementation
-- `ui/v2.5/src/models/list-filter/types.ts` - Added `"multiple_orgasms"` to `CriterionType`
-- `ui/v2.5/src/models/list-filter/scenes.ts` - `MultipleOrgasmsCriterionOption` and `MultipleOrgasmsCriterion` class
-- `ui/v2.5/src/locales/en-US.json` - Translation string
+- `graphql/schema/types/filters.graphql` - Added `custom_filters: String` to both `SceneFilterType` and `PerformerFilterType`
+- `pkg/models/scene.go` - Added `CustomFilters` field to `SceneFilterType` struct
+- `pkg/models/performer.go` - Added `CustomFilters` field to `PerformerFilterType` struct
+- `pkg/sqlite/scene_filter.go` - `customFiltersCriterionHandler` for scenes
+- `pkg/sqlite/performer_filter.go` - `customFiltersCriterionHandler` for performers
+- `ui/v2.5/src/models/list-filter/types.ts` - Added `"custom_filters"` to `CriterionType`
+- `ui/v2.5/src/models/list-filter/criteria/custom-filters.ts` - NEW: Criterion classes for custom filters
+- `ui/v2.5/src/models/list-filter/scenes.ts` - Added `SceneCustomFiltersCriterionOption`
+- `ui/v2.5/src/models/list-filter/performers.ts` - Added `PerformerCustomFiltersCriterionOption`
+- `ui/v2.5/src/components/List/Filters/OptionFilter.tsx` - Enhanced with translated labels for custom_filters
+- `ui/v2.5/src/locales/en-GB.json` - Base translation strings for all filter options
+- `ui/v2.5/src/locales/en-US.json` - US English override translations
+
+**Scene Custom Filters:**
+- **Multiple Orgasms:** Scenes where any performer has 2+ orgasm markers as "top" (same as legacy filter)
+- **Versatile Scenes:** Scenes where ALL performers have at least one sexTagId marker as "top" AND at least one as "bottom"
+
+**Performer Custom Filters:**
+- **Strict Tops:** Performers with zero sexTagId/oralTagId/facialTagId markers as bottom, but at least one sexTagId as top
+- **Lenient Tops:** Performers with at least one sexTagId as top, zero sexTagId as bottom, and at least one oralTagId or facialTagId as bottom
+- **Strict Bottoms:** Performers with zero sexTagId/oralTagId/facialTagId markers as top, but at least one sexTagId as bottom
+- **Lenient Bottoms:** Performers with at least one sexTagId as bottom, zero sexTagId as top, and at least one oralTagId or facialTagId as top
 
 **How it works:**
-1. Finds the "Orgasm" tag by name (case-insensitive)
-2. Recursively includes all descendant tags (subtags of Orgasm)
-3. For each scene, finds markers where the primary tag is in the orgasm tag family
-4. Checks if any performer appears as "top" on 2+ of those markers
-5. Returns `true` if such a performer exists, `false` otherwise
+1. Uses recursive CTEs to find tag families (Sex, Oral, Facial) including all descendant tags
+2. Checks scene_marker_performers table for role assignments (top/bottom)
+3. Applies complex EXISTS/NOT EXISTS conditions based on the selected filter
 
 **UI Usage:**
-- Filter appears in Scenes page under "Multiple Orgasms"
-- Options: `true` (has multiple orgasms) or `false` (does not have multiple orgasms)
+- Filter appears in Scenes page under "Custom Filters" with radio button options
+- Filter appears in Performers page under "Custom Filters" with radio button options
+- Only one option can be selected at a time
 
 ### Backend Filter Implementations
 - `pkg/sqlite/scene_filter.go` - Scene filter handlers for all new criteria

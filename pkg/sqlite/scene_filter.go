@@ -108,7 +108,7 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 
 		qb.hasMarkersCriterionHandler(sceneFilter.HasMarkers),
 		qb.hasMarkerPerformersCriterionHandler(sceneFilter.HasMarkerPerformers),
-		qb.multipleOrgasmsCriterionHandler(sceneFilter.MultipleOrgasms),
+		qb.customFiltersCriterionHandler(sceneFilter.CustomFilters),
 		&joinedSceneMarkerTagsHandler{
 			criterion:      sceneFilter.SceneMarkerTags,
 			primaryTable:   sceneTable,
@@ -595,28 +595,27 @@ func (qb *sceneFilterHandler) hasMarkerPerformersCriterionHandler(hasMarkerPerfo
 	}
 }
 
-// multipleOrgasmsCriterionHandler filters scenes where any performer has more than 1 orgasm marker as "top".
-// An "orgasm marker" is a marker whose primary tag is named "Orgasm" (case-insensitive) or a descendant of that tag.
-// The filter looks for scenes where the same performer appears as "top" on 2+ orgasm markers.
-func (qb *sceneFilterHandler) multipleOrgasmsCriterionHandler(multipleOrgasms *string) criterionHandlerFunc {
+// customFiltersCriterionHandler applies predefined complex filters for scenes.
+// Options:
+// - 'multiple_orgasms': Scenes where any performer has 2+ orgasm markers as top
+// - 'versatile_scenes': Scenes where ALL performers have at least one sexTagId marker as top AND at least one as bottom
+func (qb *sceneFilterHandler) customFiltersCriterionHandler(customFilters *models.CustomSceneFilterInput) criterionHandlerFunc {
 	return func(ctx context.Context, f *filterBuilder) {
-		if multipleOrgasms == nil || *multipleOrgasms == "" {
+		if customFilters == nil || customFilters.Type == "" {
 			return
 		}
 
-		// SQL query explanation:
-		// 1. Find the "Orgasm" tag by name (case-insensitive)
-		// 2. Recursively find all descendant tags using tags_relations
-		// 3. Find all scene markers where the primary tag is in the orgasm tag family
-		// 4. Join with scene_marker_performers to get performers with role='top'
-		// 5. Group by scene_id and performer_id to count how many orgasm markers each performer has as top
-		// 6. Filter for performers with count > 1
+		switch customFilters.Type {
+		case "multiple_orgasms":
+			// Use orgasmTagId if provided, otherwise return early
+			if customFilters.OrgasmTagID == nil || *customFilters.OrgasmTagID == "" {
+				return
+			}
+			orgasmTagID := *customFilters.OrgasmTagID
 
-		if *multipleOrgasms == "true" {
-			// Scene has at least one performer who is "top" on more than 1 orgasm marker
-			f.addWhere(`EXISTS (
+			f.addWhere(fmt.Sprintf(`EXISTS (
 				WITH RECURSIVE orgasm_tags(id) AS (
-					SELECT id FROM tags WHERE LOWER(name) = 'orgasm'
+					SELECT id FROM tags WHERE id = %s
 					UNION ALL
 					SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
 				)
@@ -627,23 +626,54 @@ func (qb *sceneFilterHandler) multipleOrgasmsCriterionHandler(multipleOrgasms *s
 				  AND sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
 				GROUP BY smp.performer_id
 				HAVING COUNT(DISTINCT sm.id) > 1
-			)`)
-		} else {
-			// Scene does NOT have any performer who is "top" on more than 1 orgasm marker
-			f.addWhere(`NOT EXISTS (
-				WITH RECURSIVE orgasm_tags(id) AS (
-					SELECT id FROM tags WHERE LOWER(name) = 'orgasm'
-					UNION ALL
-					SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
+			)`, orgasmTagID))
+
+		case "versatile_scenes":
+			// Use sexTagId if provided, otherwise return early
+			if customFilters.SexTagID == nil || *customFilters.SexTagID == "" {
+				return
+			}
+			sexTagID := *customFilters.SexTagID
+
+			f.addWhere(fmt.Sprintf(`
+				-- Get all performers in this scene
+				(SELECT COUNT(DISTINCT ps.performer_id) FROM performers_scenes ps WHERE ps.scene_id = scenes.id) > 0
+				AND
+				-- Count performers who have BOTH a top and a bottom marker for sexTagId
+				(SELECT COUNT(DISTINCT ps.performer_id)
+				 FROM performers_scenes ps
+				 WHERE ps.scene_id = scenes.id) =
+				(SELECT COUNT(DISTINCT ps.performer_id)
+				 FROM performers_scenes ps
+				 WHERE ps.scene_id = scenes.id
+				   AND EXISTS (
+					 WITH RECURSIVE sex_tags_top(id) AS (
+					   SELECT id FROM tags WHERE id = %s
+					   UNION ALL
+					   SELECT tr.child_id FROM tags_relations tr JOIN sex_tags_top st ON tr.parent_id = st.id
+					 )
+					 SELECT 1 FROM scene_markers sm
+					 JOIN scene_marker_performers smp ON smp.scene_marker_id = sm.id
+					 WHERE sm.scene_id = scenes.id
+					   AND smp.performer_id = ps.performer_id
+					   AND smp.role = 'top'
+					   AND sm.primary_tag_id IN (SELECT id FROM sex_tags_top)
+				   )
+				   AND EXISTS (
+					 WITH RECURSIVE sex_tags_bottom(id) AS (
+					   SELECT id FROM tags WHERE id = %s
+					   UNION ALL
+					   SELECT tr.child_id FROM tags_relations tr JOIN sex_tags_bottom st ON tr.parent_id = st.id
+					 )
+					 SELECT 1 FROM scene_markers sm2
+					 JOIN scene_marker_performers smp2 ON smp2.scene_marker_id = sm2.id
+					 WHERE sm2.scene_id = scenes.id
+					   AND smp2.performer_id = ps.performer_id
+					   AND smp2.role = 'bottom'
+					   AND sm2.primary_tag_id IN (SELECT id FROM sex_tags_bottom)
+				   )
 				)
-				SELECT 1
-				FROM scene_markers sm
-				JOIN scene_marker_performers smp ON smp.scene_marker_id = sm.id AND smp.role = 'top'
-				WHERE sm.scene_id = scenes.id
-				  AND sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
-				GROUP BY smp.performer_id
-				HAVING COUNT(DISTINCT sm.id) > 1
-			)`)
+			`, sexTagID, sexTagID))
 		}
 	}
 }
