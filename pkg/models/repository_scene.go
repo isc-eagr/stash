@@ -133,6 +133,7 @@ type SceneWriter interface {
 	SceneDestroyer
 
 	AddFileID(ctx context.Context, id int, fileID FileID) error
+	RemoveFileID(ctx context.Context, sceneID int, fileID FileID) error
 	AddGalleryIDs(ctx context.Context, sceneID int, galleryIDs []int) error
 	AssignFiles(ctx context.Context, sceneID int, fileID []FileID) error
 

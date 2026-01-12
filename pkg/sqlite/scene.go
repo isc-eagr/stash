@@ -635,6 +635,7 @@ func (qb *SceneStore) GetManyFileIDs(ctx context.Context, ids []int) ([][]models
 }
 
 func (qb *SceneStore) FindByFileID(ctx context.Context, fileID models.FileID) ([]*models.Scene, error) {
+	// First check scenes_files table
 	sq := dialect.From(scenesFilesJoinTable).Select(scenesFilesJoinTable.Col(sceneIDColumn)).Where(
 		scenesFilesJoinTable.Col(fileIDColumn).Eq(fileID),
 	)
@@ -642,6 +643,24 @@ func (qb *SceneStore) FindByFileID(ctx context.Context, fileID models.FileID) ([
 	ret, err := qb.findBySubquery(ctx, sq)
 	if err != nil {
 		return nil, fmt.Errorf("getting scenes by file id %d: %w", fileID, err)
+	}
+
+	if len(ret) > 0 {
+		return ret, nil
+	}
+
+	// Also check scene_release_files table - if a file is part of a release, return the parent scene
+	releaseFilesTable := goqu.T("scene_release_files")
+	releasesTable := goqu.T("scene_releases")
+
+	sqReleases := dialect.From(releaseFilesTable).
+		Select(releasesTable.Col("scene_id")).
+		InnerJoin(releasesTable, goqu.On(releaseFilesTable.Col("release_id").Eq(releasesTable.Col("id")))).
+		Where(releaseFilesTable.Col("file_id").Eq(fileID))
+
+	ret, err = qb.findBySubquery(ctx, sqReleases)
+	if err != nil {
+		return nil, fmt.Errorf("getting scenes by release file id %d: %w", fileID, err)
 	}
 
 	return ret, nil
@@ -1126,6 +1145,7 @@ var sceneSortOptions = sortOptions{
 	"created_at",
 	"code",
 	"date",
+	"effective_date",
 	"file_count",
 	"filesize",
 	"duration",
@@ -1279,9 +1299,19 @@ func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindF
 			// When sorting ascending, NULLs are first by default. Coalescing to the MAX int value supported by sqlite
 			fallback = "9223372036854775807"
 		}
+		// Use effective_date (min of scene date and release dates) for age calculation
+		effectiveDateExpr := fmt.Sprintf(
+			`COALESCE(
+				MIN(COALESCE(%s.date, '9999-12-31'), COALESCE((SELECT MIN(date) FROM %s WHERE scene_id = %s.id), '9999-12-31')),
+				%s.date,
+				(SELECT MIN(date) FROM %s WHERE scene_id = %s.id)
+			)`,
+			sceneTable, sceneReleaseTable, sceneTable, sceneTable, sceneReleaseTable, sceneTable,
+		)
 		query.sortAndPagination += fmt.Sprintf(
-			" ORDER BY (SELECT COALESCE(%s(JulianDay(scenes.date) - JulianDay(performers.birthdate)), %s) FROM %s as performers INNER JOIN %s AS aggregation WHERE performers.id = aggregation.%s AND aggregation.%s = %s.id) %s",
+			" ORDER BY (SELECT COALESCE(%s(JulianDay(%s) - JulianDay(performers.birthdate)), %s) FROM %s as performers INNER JOIN %s AS aggregation WHERE performers.id = aggregation.%s AND aggregation.%s = %s.id) %s",
 			aggregation,
+			effectiveDateExpr,
 			fallback,
 			performerTable,
 			performersScenesTable,
@@ -1293,6 +1323,18 @@ func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindF
 	case "studio":
 		query.joinSort(studioTable, "", "scenes.studio_id = studios.id")
 		query.sortAndPagination += getSort("name", direction, studioTable)
+	case "effective_date":
+		// Sort by the earliest date among scene.date and release dates
+		// Use a subquery to compute the minimum
+		effectiveDateExpr := fmt.Sprintf(
+			`COALESCE(
+				MIN(COALESCE(%s.date, '9999-12-31'), COALESCE((SELECT MIN(date) FROM %s WHERE scene_id = %s.id), '9999-12-31')),
+				%s.date,
+				(SELECT MIN(date) FROM %s WHERE scene_id = %s.id)
+			)`,
+			sceneTable, sceneReleaseTable, sceneTable, sceneTable, sceneReleaseTable, sceneTable,
+		)
+		query.sortAndPagination += fmt.Sprintf(" ORDER BY %s %s", effectiveDateExpr, getSortDirection(direction))
 	default:
 		query.sortAndPagination += getSort(sort, direction, "scenes")
 	}
@@ -1408,6 +1450,17 @@ func (qb *SceneStore) GetGroups(ctx context.Context, id int) (ret []models.Group
 func (qb *SceneStore) AddFileID(ctx context.Context, id int, fileID models.FileID) error {
 	const firstPrimary = false
 	return scenesFilesTableMgr.insertJoins(ctx, id, firstPrimary, []models.FileID{fileID})
+}
+
+// RemoveFileID removes a file from a scene's file associations
+func (qb *SceneStore) RemoveFileID(ctx context.Context, sceneID int, fileID models.FileID) error {
+	q := dialect.Delete(scenesFilesJoinTable).Where(
+		scenesFilesJoinTable.Col(sceneIDColumn).Eq(sceneID),
+		scenesFilesJoinTable.Col(fileIDColumn).Eq(fileID),
+	)
+
+	_, err := exec(ctx, q)
+	return err
 }
 
 func (qb *SceneStore) GetPerformerIDs(ctx context.Context, id int) ([]int, error) {

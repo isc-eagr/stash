@@ -1081,10 +1081,12 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 				depth                 int
 				performerMode         string
 				topPerformerIDs       []string
+				topAnyCount           int // Minimum number of ANY top performers required
 				topEthnicities        []string
 				topCountries          []string
 				topRating             string // serialized IntCriterionInput
 				bottomPerformerIDs    []string
+				bottomAnyCount        int // Minimum number of ANY bottom performers required
 				bottomEthnicities     []string
 				bottomCountries       []string
 				bottomRating          string
@@ -1121,6 +1123,9 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 
 				// Top performer fields (use new fields, fall back to deprecated)
 				cfg.topPerformerIDs = append([]string(nil), g.TopPerformerIDs...)
+				if g.TopAnyCount != nil {
+					cfg.topAnyCount = *g.TopAnyCount
+				}
 				cfg.topEthnicities = append([]string(nil), g.TopEthnicities...)
 				cfg.topCountries = append([]string(nil), g.TopCountries...)
 				cfg.topRating = serializeRating(g.TopRating)
@@ -1136,6 +1141,9 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 
 				// Bottom performer fields (use new fields, fall back to deprecated)
 				cfg.bottomPerformerIDs = append([]string(nil), g.BottomPerformerIDs...)
+				if g.BottomAnyCount != nil {
+					cfg.bottomAnyCount = *g.BottomAnyCount
+				}
 				cfg.bottomEthnicities = append([]string(nil), g.BottomEthnicities...)
 				cfg.bottomCountries = append([]string(nil), g.BottomCountries...)
 				cfg.bottomRating = serializeRating(g.BottomRating)
@@ -1187,10 +1195,12 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 					fmt.Sprintf("d%d", cfg.depth),
 					cfg.performerMode,
 					strings.Join(cfg.topPerformerIDs, ","),
+					fmt.Sprintf("tac%d", cfg.topAnyCount),
 					strings.Join(cfg.topEthnicities, ","),
 					strings.Join(cfg.topCountries, ","),
 					cfg.topRating,
 					strings.Join(cfg.bottomPerformerIDs, ","),
+					fmt.Sprintf("bac%d", cfg.bottomAnyCount),
 					strings.Join(cfg.bottomEthnicities, ","),
 					strings.Join(cfg.bottomCountries, ","),
 					cfg.bottomRating,
@@ -1303,16 +1313,24 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 				}
 
 				// Build role conditions
-				hasTopCriteria := len(cfg.topPerformerIDs) > 0 || len(cfg.topEthnicities) > 0 || len(cfg.topCountries) > 0 || cfg.topRating != ""
+				hasTopCriteria := len(cfg.topPerformerIDs) > 0 || cfg.topAnyCount > 0 || len(cfg.topEthnicities) > 0 || len(cfg.topCountries) > 0 || cfg.topRating != ""
 				var topCond *roleCondition
-				if hasTopCriteria {
+				if hasTopCriteria && len(cfg.topPerformerIDs) > 0 {
+					// Specific performer IDs specified
 					topCond = buildRoleCondition("top", cfg.topPerformerIDs, cfg.topEthnicities, cfg.topCountries, cfg.topRating)
+				} else if hasTopCriteria && (len(cfg.topEthnicities) > 0 || len(cfg.topCountries) > 0 || cfg.topRating != "") {
+					// Ethnicity/country/rating criteria without specific IDs
+					topCond = buildRoleCondition("top", nil, cfg.topEthnicities, cfg.topCountries, cfg.topRating)
 				}
 
-				hasBottomCriteria := len(cfg.bottomPerformerIDs) > 0 || len(cfg.bottomEthnicities) > 0 || len(cfg.bottomCountries) > 0 || cfg.bottomRating != ""
+				hasBottomCriteria := len(cfg.bottomPerformerIDs) > 0 || cfg.bottomAnyCount > 0 || len(cfg.bottomEthnicities) > 0 || len(cfg.bottomCountries) > 0 || cfg.bottomRating != ""
 				var bottomCond *roleCondition
-				if hasBottomCriteria {
+				if hasBottomCriteria && len(cfg.bottomPerformerIDs) > 0 {
+					// Specific performer IDs specified
 					bottomCond = buildRoleCondition("bottom", cfg.bottomPerformerIDs, cfg.bottomEthnicities, cfg.bottomCountries, cfg.bottomRating)
+				} else if hasBottomCriteria && (len(cfg.bottomEthnicities) > 0 || len(cfg.bottomCountries) > 0 || cfg.bottomRating != "") {
+					// Ethnicity/country/rating criteria without specific IDs
+					bottomCond = buildRoleCondition("bottom", nil, cfg.bottomEthnicities, cfg.bottomCountries, cfg.bottomRating)
 				}
 
 				hasBothRolesCriteria := len(cfg.bothRolesPerformerIDs) > 0 || len(cfg.bothRolesEthnicities) > 0 || len(cfg.bothRolesCountries) > 0 || cfg.bothRolesRating != ""
@@ -1402,6 +1420,37 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
     WHERE smp.scene_marker_id = sm.id AND `+bottomCond.clause+`
   )`)
 					matchArgs = append(matchArgs, bottomCond.args...)
+				}
+
+				// Handle "any" count conditions (require at least N distinct performers in a role)
+				// These are applied in addition to or instead of specific performer ID checks
+				if cfg.topAnyCount > 0 && topCond == nil {
+					// Only any count specified for tops, no specific performers
+					matchConditions = append(matchConditions, fmt.Sprintf(`(
+    SELECT COUNT(DISTINCT smp.performer_id) FROM scene_marker_performers smp
+    WHERE smp.scene_marker_id = sm.id AND smp.role = 'top'
+  ) >= %d`, cfg.topAnyCount))
+				} else if cfg.topAnyCount > 0 && topCond != nil {
+					// Both specific performers and any count - the any count acts as a minimum
+					// Already have the specific performer condition, add the count condition
+					matchConditions = append(matchConditions, fmt.Sprintf(`(
+    SELECT COUNT(DISTINCT smp.performer_id) FROM scene_marker_performers smp
+    WHERE smp.scene_marker_id = sm.id AND smp.role = 'top'
+  ) >= %d`, cfg.topAnyCount))
+				}
+
+				if cfg.bottomAnyCount > 0 && bottomCond == nil {
+					// Only any count specified for bottoms, no specific performers
+					matchConditions = append(matchConditions, fmt.Sprintf(`(
+    SELECT COUNT(DISTINCT smp.performer_id) FROM scene_marker_performers smp
+    WHERE smp.scene_marker_id = sm.id AND smp.role = 'bottom'
+  ) >= %d`, cfg.bottomAnyCount))
+				} else if cfg.bottomAnyCount > 0 && bottomCond != nil {
+					// Both specific performers and any count - the any count acts as a minimum
+					matchConditions = append(matchConditions, fmt.Sprintf(`(
+    SELECT COUNT(DISTINCT smp.performer_id) FROM scene_marker_performers smp
+    WHERE smp.scene_marker_id = sm.id AND smp.role = 'bottom'
+  ) >= %d`, cfg.bottomAnyCount))
 				}
 
 				// Handle exclude-only groups (no include tags/performers, only excludes)

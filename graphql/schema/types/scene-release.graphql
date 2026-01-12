@@ -1,0 +1,82 @@
+"A release represents an alternate version/release of a scene (e.g., from a different studio)"
+type SceneRelease {
+  id: ID!
+  "The parent scene this release belongs to"
+  scene: Scene!
+  title: String
+  code: String
+  details: String
+  director: String
+  url: String
+  date: String
+  studio: Studio
+  "Cover image paths for this release"
+  paths: SceneReleasePaths!
+  "Video files associated with this release"
+  files: [VideoFile!]!
+  "Galleries associated with this release"
+  galleries: [Gallery!]!
+  "Stream URLs for this release's files"
+  streams: [SceneStreamEndpoint!]!
+  "Order for display/playback priority"
+  play_order: Int!
+  created_at: Time!
+  updated_at: Time!
+}
+
+type SceneReleasePaths {
+  screenshot: String
+}
+
+input SceneReleaseCreateInput {
+  "The scene this release belongs to"
+  scene_id: ID!
+  title: String
+  code: String
+  details: String
+  director: String
+  url: String
+  date: String
+  studio_id: ID
+  "This should be a URL or a base64 encoded data URL"
+  cover_image: String
+  "Gallery IDs to associate with this release"
+  gallery_ids: [ID!]
+  "File IDs to associate with this release. First file will be primary."
+  file_ids: [ID!]
+  "Order for display/playback priority"
+  play_order: Int
+}
+
+input SceneReleaseUpdateInput {
+  id: ID!
+  title: String
+  code: String
+  details: String
+  director: String
+  url: String
+  date: String
+  studio_id: ID
+  "This should be a URL or a base64 encoded data URL"
+  cover_image: String
+  "Gallery IDs to associate with this release"
+  gallery_ids: [ID!]
+  "File IDs to associate with this release. First file will be primary."
+  file_ids: [ID!]
+  "Order for display/playback priority"
+  play_order: Int
+  "Set the primary file for this release"
+  primary_file_id: ID
+}
+
+input SceneReleaseDestroyInput {
+  id: ID!
+}
+
+"Input for converting an existing scene into a release of another scene"
+input ConvertSceneToReleaseInput {
+  "The scene ID to convert into a release"
+  source_scene_id: ID!
+  "The scene ID that will become the parent of the new release"
+  target_scene_id: ID!
+}

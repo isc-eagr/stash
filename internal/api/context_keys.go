@@ -8,6 +8,7 @@ const (
 	galleryKey key = 0
 	performerKey
 	sceneKey
+	sceneReleaseKey
 	studioKey
 	groupKey
 	tagKey

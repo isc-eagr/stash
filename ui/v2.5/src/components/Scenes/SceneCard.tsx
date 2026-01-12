@@ -332,7 +332,7 @@ const SceneCardDetails = PatchComponent(
   (props: ISceneCardProps) => {
     return (
       <div className="scene-card__details">
-        <span className="scene-card__date">{props.scene.date}</span>
+        <span className="scene-card__date">{props.scene.effective_date ?? props.scene.date}</span>
         <span className="file-path extra-scene-info">
           {objectPath(props.scene)}
         </span>

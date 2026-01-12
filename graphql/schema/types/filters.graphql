@@ -278,6 +278,8 @@ input SceneMarkerTagGroupInput {
 
   "Top performer IDs - marker must have at least one of these performers as top"
   top_performer_ids: [ID!]
+  "Minimum number of ANY top performers required (e.g., 3 = at least 3 different tops)"
+  top_any_count: Int
   "Top performer ethnicities (OR match; expansions handled server-side)"
   top_ethnicities: [String!]
   "Top performer countries (OR match)"
@@ -287,6 +289,8 @@ input SceneMarkerTagGroupInput {
 
   "Bottom performer IDs - marker must have at least one of these performers as bottom"
   bottom_performer_ids: [ID!]
+  "Minimum number of ANY bottom performers required (e.g., 2 = at least 2 different bottoms)"
+  bottom_any_count: Int
   "Bottom performer ethnicities (OR match; expansions handled server-side)"
   bottom_ethnicities: [String!]
   "Bottom performer countries (OR match)"
@@ -347,6 +351,8 @@ input SceneFilterType {
   path: StringCriterionInput
   "Filter by file count"
   file_count: IntCriterionInput
+  "Filter by release count"
+  release_count: IntCriterionInput
   # rating expressed as 1-100
   rating100: IntCriterionInput
   "Filter by organized"
@@ -373,6 +379,8 @@ input SceneFilterType {
   has_markers: String
   "Filter to only include scenes with markers that have assigned performers. `true` or `false`"
   has_marker_performers: String
+  "Filter scenes with multiple orgasm markers by the same top performer. `true` or `false`"
+  multiple_orgasms: String
   "Filter by scene marker tags with optional performer role criteria"
   scene_marker_tags: SceneMarkerTagsCriterionInput
   "Filter to only include scenes missing this property"
@@ -419,6 +427,8 @@ input SceneFilterType {
   last_played_at: TimestampCriterionInput
   "Filter by date"
   date: DateCriterionInput
+  "Filter by effective date (earliest date among scene date and release dates)"
+  effective_date: DateCriterionInput
   "Filter by creation time"
   created_at: TimestampCriterionInput
   "Filter by last update time"

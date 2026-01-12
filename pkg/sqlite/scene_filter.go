@@ -59,6 +59,7 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		intCriterionHandler(sceneFilter.ID, "scenes.id", nil),
 		pathCriterionHandler(sceneFilter.Path, "folders.path", "files.basename", qb.addFoldersTable),
 		qb.fileCountCriterionHandler(sceneFilter.FileCount),
+		qb.releaseCountCriterionHandler(sceneFilter.ReleaseCount),
 		stringCriterionHandler(sceneFilter.Title, "scenes.title"),
 		stringCriterionHandler(sceneFilter.Code, "scenes.code"),
 		stringCriterionHandler(sceneFilter.Details, "scenes.details"),
@@ -107,6 +108,7 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 
 		qb.hasMarkersCriterionHandler(sceneFilter.HasMarkers),
 		qb.hasMarkerPerformersCriterionHandler(sceneFilter.HasMarkerPerformers),
+		qb.multipleOrgasmsCriterionHandler(sceneFilter.MultipleOrgasms),
 		&joinedSceneMarkerTagsHandler{
 			criterion:      sceneFilter.SceneMarkerTags,
 			primaryTable:   sceneTable,
@@ -382,6 +384,7 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		}),
 		qb.phashDuplicatedCriterionHandler(sceneFilter.Duplicated, qb.addSceneFilesTable),
 		&dateCriterionHandler{sceneFilter.Date, "scenes.date", nil},
+		qb.effectiveDateCriterionHandler(sceneFilter.EffectiveDate),
 		&timestampCriterionHandler{sceneFilter.CreatedAt, "scenes.created_at", nil},
 		&timestampCriterionHandler{sceneFilter.UpdatedAt, "scenes.updated_at", nil},
 
@@ -502,6 +505,35 @@ func (qb *sceneFilterHandler) fileCountCriterionHandler(fileCount *models.IntCri
 	return h.handler(fileCount)
 }
 
+func (qb *sceneFilterHandler) releaseCountCriterionHandler(releaseCount *models.IntCriterionInput) criterionHandlerFunc {
+	h := countCriterionHandlerBuilder{
+		primaryTable: sceneTable,
+		joinTable:    sceneReleaseTable,
+		primaryFK:    sceneIDColumn,
+	}
+
+	return h.handler(releaseCount)
+}
+
+func (qb *sceneFilterHandler) effectiveDateCriterionHandler(effectiveDate *models.DateCriterionInput) criterionHandlerFunc {
+	return func(ctx context.Context, f *filterBuilder) {
+		if effectiveDate == nil {
+			return
+		}
+
+		// Compute effective_date as the minimum of scene.date and all release dates
+		// Using a subquery: COALESCE(MIN(scene.date, (SELECT MIN(date) FROM scene_releases WHERE scene_id = scenes.id)), scene.date, (SELECT MIN(date) FROM scene_releases WHERE scene_id = scenes.id))
+		effectiveDateExpr := fmt.Sprintf(`COALESCE(
+			MIN(COALESCE(%s.date, '9999-12-31'), COALESCE((SELECT MIN(date) FROM %s WHERE scene_id = %s.id), '9999-12-31')),
+			%s.date,
+			(SELECT MIN(date) FROM %s WHERE scene_id = %s.id)
+		)`, sceneTable, sceneReleaseTable, sceneTable, sceneTable, sceneReleaseTable, sceneTable)
+
+		clause, args := getDateCriterionWhereClause(effectiveDateExpr, *effectiveDate)
+		f.addWhere(clause, args...)
+	}
+}
+
 func (qb *sceneFilterHandler) phashDuplicatedCriterionHandler(duplicatedFilter *models.PHashDuplicationCriterionInput, addJoinFn func(f *filterBuilder)) criterionHandlerFunc {
 	return func(ctx context.Context, f *filterBuilder) {
 		// TODO: Wishlist item: Implement Distance matching
@@ -559,6 +591,59 @@ func (qb *sceneFilterHandler) hasMarkerPerformersCriterionHandler(hasMarkerPerfo
 		} else {
 			// Scene has no markers with performers (either no markers or markers have no performers)
 			f.addWhere("NOT EXISTS (SELECT 1 FROM scene_markers sm JOIN scene_marker_performers smp ON smp.scene_marker_id = sm.id WHERE sm.scene_id = scenes.id)")
+		}
+	}
+}
+
+// multipleOrgasmsCriterionHandler filters scenes where any performer has more than 1 orgasm marker as "top".
+// An "orgasm marker" is a marker whose primary tag is named "Orgasm" (case-insensitive) or a descendant of that tag.
+// The filter looks for scenes where the same performer appears as "top" on 2+ orgasm markers.
+func (qb *sceneFilterHandler) multipleOrgasmsCriterionHandler(multipleOrgasms *string) criterionHandlerFunc {
+	return func(ctx context.Context, f *filterBuilder) {
+		if multipleOrgasms == nil || *multipleOrgasms == "" {
+			return
+		}
+
+		// SQL query explanation:
+		// 1. Find the "Orgasm" tag by name (case-insensitive)
+		// 2. Recursively find all descendant tags using tags_relations
+		// 3. Find all scene markers where the primary tag is in the orgasm tag family
+		// 4. Join with scene_marker_performers to get performers with role='top'
+		// 5. Group by scene_id and performer_id to count how many orgasm markers each performer has as top
+		// 6. Filter for performers with count > 1
+
+		if *multipleOrgasms == "true" {
+			// Scene has at least one performer who is "top" on more than 1 orgasm marker
+			f.addWhere(`EXISTS (
+				WITH RECURSIVE orgasm_tags(id) AS (
+					SELECT id FROM tags WHERE LOWER(name) = 'orgasm'
+					UNION ALL
+					SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
+				)
+				SELECT 1
+				FROM scene_markers sm
+				JOIN scene_marker_performers smp ON smp.scene_marker_id = sm.id AND smp.role = 'top'
+				WHERE sm.scene_id = scenes.id
+				  AND sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
+				GROUP BY smp.performer_id
+				HAVING COUNT(DISTINCT sm.id) > 1
+			)`)
+		} else {
+			// Scene does NOT have any performer who is "top" on more than 1 orgasm marker
+			f.addWhere(`NOT EXISTS (
+				WITH RECURSIVE orgasm_tags(id) AS (
+					SELECT id FROM tags WHERE LOWER(name) = 'orgasm'
+					UNION ALL
+					SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
+				)
+				SELECT 1
+				FROM scene_markers sm
+				JOIN scene_marker_performers smp ON smp.scene_marker_id = sm.id AND smp.role = 'top'
+				WHERE sm.scene_id = scenes.id
+				  AND sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
+				GROUP BY smp.performer_id
+				HAVING COUNT(DISTINCT sm.id) > 1
+			)`)
 		}
 	}
 }

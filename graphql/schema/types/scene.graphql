@@ -45,6 +45,8 @@ type Scene {
   url: String @deprecated(reason: "Use urls")
   urls: [String!]!
   date: String
+  "The earliest date among the scene's own date and all release dates"
+  effective_date: String
   # rating expressed as 1-100
   rating100: Int
   organized: Boolean!
@@ -71,7 +73,10 @@ type Scene {
   files: [VideoFile!]!
   paths: ScenePathsType! # Resolver
   scene_markers: [SceneMarker!]!
+  "All galleries associated with this scene (including release galleries)"
   galleries: [Gallery!]!
+  "Only galleries directly associated with this scene (excluding release galleries)"
+  direct_galleries: [Gallery!]!
   studio: Studio
   groups: [SceneGroup!]!
   movies: [SceneMovie!]! @deprecated(reason: "Use groups")
@@ -83,6 +88,9 @@ type Scene {
   sceneStreams: [SceneStreamEndpoint!]!
 
   multi_segment_loop_presets: [MultiSegmentLoopPreset!]!
+
+  "Alternate releases of this scene (e.g., from different studios)"
+  releases: [SceneRelease!]!
 }
 
 input SceneMovieInput {

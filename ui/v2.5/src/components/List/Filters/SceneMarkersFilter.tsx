@@ -22,6 +22,11 @@ import {
   PerformerIDSelect,
   Performer,
 } from "src/components/Performers/PerformerSelect";
+import {
+  PerformerWithAnySelect,
+  isAnyPerformerId,
+  ANY_PERFORMER_ID,
+} from "src/components/Performers/PerformerWithAnySelect";
 import { Tag, TagIDSelect } from "src/components/Tags/TagSelect";
 import {
   faArrowUp,
@@ -123,11 +128,16 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
 
   // Top handlers
   const onTopPerformersChange = (performers: Performer[]) => {
+    // Separate real performers from "(Any)" entries
+    const realPerformers = performers.filter((p) => !isAnyPerformerId(p.id));
+    const anyCount = performers.filter((p) => isAnyPerformerId(p.id)).length;
+
     onUpdate({
-      top_performer_ids: performers.map((p) => ({
+      top_performer_ids: realPerformers.map((p) => ({
         id: p.id,
         label: p.name ?? p.id,
       })),
+      top_any_count: anyCount,
     });
   };
 
@@ -145,11 +155,16 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
 
   // Bottom handlers
   const onBottomPerformersChange = (performers: Performer[]) => {
+    // Separate real performers from "(Any)" entries
+    const realPerformers = performers.filter((p) => !isAnyPerformerId(p.id));
+    const anyCount = performers.filter((p) => isAnyPerformerId(p.id)).length;
+
     onUpdate({
-      bottom_performer_ids: performers.map((p) => ({
+      bottom_performer_ids: realPerformers.map((p) => ({
         id: p.id,
         label: p.name ?? p.id,
       })),
+      bottom_any_count: anyCount,
     });
   };
 
@@ -294,9 +309,13 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
               <Form.Label>
                 <FormattedMessage id="performers" defaultMessage="Performers" />
               </Form.Label>
-              <PerformerIDSelect
-                isMulti
-                ids={group.top_performer_ids.map((p) => p.id)}
+              <PerformerWithAnySelect
+                ids={[
+                  ...group.top_performer_ids.map((p) => p.id),
+                  ...Array.from({ length: group.top_any_count || 0 }).map(
+                    (_, i) => `${ANY_PERFORMER_ID}_${i}`
+                  ),
+                ]}
                 onSelect={onTopPerformersChange}
                 menuPortalTarget={document.body}
               />
@@ -446,9 +465,13 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
               <Form.Label>
                 <FormattedMessage id="performers" defaultMessage="Performers" />
               </Form.Label>
-              <PerformerIDSelect
-                isMulti
-                ids={group.bottom_performer_ids.map((p) => p.id)}
+              <PerformerWithAnySelect
+                ids={[
+                  ...group.bottom_performer_ids.map((p) => p.id),
+                  ...Array.from({ length: group.bottom_any_count || 0 }).map(
+                    (_, i) => `${ANY_PERFORMER_ID}_${i}`
+                  ),
+                ]}
                 onSelect={onBottomPerformersChange}
                 menuPortalTarget={document.body}
               />

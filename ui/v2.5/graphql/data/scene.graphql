@@ -6,6 +6,7 @@ fragment SceneData on Scene {
   director
   urls
   date
+  effective_date
   rating100
   o_counter
   organized
@@ -46,6 +47,10 @@ fragment SceneData on Scene {
   }
 
   galleries {
+    ...SlimGalleryData
+  }
+
+  direct_galleries {
     ...SlimGalleryData
   }
 
@@ -92,6 +97,40 @@ fragment SceneData on Scene {
     }
     created_at
     updated_at
+  }
+
+  releases {
+    ...SceneReleaseData
+  }
+}
+
+fragment SceneReleaseData on SceneRelease {
+  id
+  title
+  code
+  details
+  director
+  url
+  date
+  play_order
+  created_at
+  updated_at
+  studio {
+    ...SlimStudioData
+  }
+  paths {
+    screenshot
+  }
+  files {
+    ...VideoFileData
+  }
+  galleries {
+    ...SlimGalleryData
+  }
+  streams {
+    url
+    mime_type
+    label
   }
 }
 

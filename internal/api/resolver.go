@@ -69,6 +69,9 @@ func (r *Resolver) Query() QueryResolver {
 func (r *Resolver) Scene() SceneResolver {
 	return &sceneResolver{r}
 }
+func (r *Resolver) SceneRelease() SceneReleaseResolver {
+	return &sceneReleaseResolver{r}
+}
 func (r *Resolver) Image() ImageResolver {
 	return &imageResolver{r}
 }
@@ -135,6 +138,7 @@ type galleryChapterResolver struct{ *Resolver }
 type performerResolver struct{ *Resolver }
 type performerImageResolver struct{ *Resolver }
 type sceneResolver struct{ *Resolver }
+type sceneReleaseResolver struct{ *Resolver }
 type sceneMarkerResolver struct{ *Resolver }
 type imageResolver struct{ *Resolver }
 type studioResolver struct{ *Resolver }

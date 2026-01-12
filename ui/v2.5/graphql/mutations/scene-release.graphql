@@ -1,0 +1,21 @@
+mutation SceneReleaseCreate($input: SceneReleaseCreateInput!) {
+  sceneReleaseCreate(input: $input) {
+    ...SceneReleaseData
+  }
+}
+
+mutation SceneReleaseUpdate($input: SceneReleaseUpdateInput!) {
+  sceneReleaseUpdate(input: $input) {
+    ...SceneReleaseData
+  }
+}
+
+mutation SceneReleaseDestroy($input: SceneReleaseDestroyInput!) {
+  sceneReleaseDestroy(input: $input)
+}
+
+mutation ConvertSceneToRelease($input: ConvertSceneToReleaseInput!) {
+  convertSceneToRelease(input: $input) {
+    ...SceneReleaseData
+  }
+}

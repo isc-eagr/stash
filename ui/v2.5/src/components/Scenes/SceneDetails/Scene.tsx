@@ -84,6 +84,9 @@ const SceneGroupPanel = lazyComponent(() => import("./SceneGroupPanel"));
 const SceneGalleriesPanel = lazyComponent(
   () => import("./SceneGalleriesPanel")
 );
+const SceneReleasesPanel = lazyComponent(
+  () => import("./SceneReleasesPanel")
+);
 const DeleteScenesDialog = lazyComponent(() => import("../DeleteScenesDialog"));
 const GenerateDialog = lazyComponent(
   () => import("../../Dialogs/GenerateDialog")
@@ -158,6 +161,9 @@ interface IProps {
   collapsed: boolean;
   setCollapsed: (state: boolean) => void;
   setContinuePlaylist: (value: boolean) => void;
+  onRefetch: () => void;
+  activeReleaseId: string | null;
+  setActiveReleaseId: (id: string | null) => void;
 }
 
 interface ISceneParams {
@@ -188,6 +194,8 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     collapsed,
     setCollapsed,
     setContinuePlaylist,
+    activeReleaseId,
+    setActiveReleaseId,
   } = props;
 
   const Toast = useToast();
@@ -498,6 +506,12 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               </Nav.Link>
             </Nav.Item>
             <Nav.Item>
+              <Nav.Link eventKey="scene-releases-panel">
+                Releases
+                <Counter count={scene.releases?.length ?? 0} hideZero />
+              </Nav.Link>
+            </Nav.Item>
+            <Nav.Item>
               <Nav.Link eventKey="scene-file-info-panel">
                 <FormattedMessage id="file_info" />
                 <Counter count={scene.files.length} hideZero hideOne />
@@ -559,6 +573,14 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
           )}
           <Tab.Pane eventKey="scene-video-filter-panel">
             <SceneVideoFilterPanel scene={scene} />
+          </Tab.Pane>
+          <Tab.Pane eventKey="scene-releases-panel">
+            <SceneReleasesPanel
+              scene={scene}
+              activeReleaseId={activeReleaseId}
+              onSetActiveRelease={setActiveReleaseId}
+              onRefetch={props.onRefetch}
+            />
           </Tab.Pane>
           <Tab.Pane
             className="file-info-panel"
@@ -720,8 +742,8 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
           </div>
 
           <div className="scene-subheader">
-            <span className="date" data-value={scene.date}>
-              {!!scene.date && <FormattedDate value={scene.date} />}
+            <span className="date" data-value={scene.effective_date ?? scene.date ?? undefined}>
+              {(scene.effective_date ?? scene.date) && <FormattedDate value={(scene.effective_date ?? scene.date)!} />}
             </span>
             <VideoFrameRateResolution
               width={file?.width}
@@ -791,7 +813,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
 }) => {
   const { id } = match.params;
   const { configuration } = useConfigurationContext();
-  const { data, loading, error } = useFindScene(id);
+  const { data, loading, error, refetch } = useFindScene(id);
 
   const [scene, setScene] = useState<GQL.SceneDataFragment>();
 
@@ -841,6 +863,31 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
 
   const [queueTotal, setQueueTotal] = useState(0);
   const [queueStart, setQueueStart] = useState(1);
+
+  // State for active release playback
+  const [activeReleaseId, setActiveReleaseId] = useState<string | null>(null);
+
+  // Create a modified scene for player that uses release files and streams when a release is active
+  const sceneForPlayer = useMemo((): GQL.SceneDataFragment | undefined => {
+    if (!scene) {
+      return undefined;
+    }
+    if (!activeReleaseId || !scene.releases) {
+      return scene;
+    }
+    
+    const activeRelease = scene.releases.find(r => r.id === activeReleaseId);
+    if (!activeRelease || !activeRelease.files || activeRelease.files.length === 0) {
+      return scene;
+    }
+    
+    // Swap the scene files and streams with release files and streams
+    return {
+      ...scene,
+      files: activeRelease.files,
+      sceneStreams: activeRelease.streams,
+    };
+  }, [scene, activeReleaseId]);
 
   const autoplay = queryParams.get("autoplay") === "true";
   const autoPlayOnSelected =
@@ -1074,11 +1121,14 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
         collapsed={collapsed}
         setCollapsed={setCollapsed}
         setContinuePlaylist={setContinuePlaylist}
+        onRefetch={refetch}
+        activeReleaseId={activeReleaseId}
+        setActiveReleaseId={setActiveReleaseId}
       />
       <div className={`scene-player-container ${collapsed ? "expanded" : ""}`}>
         <ScenePlayer
-          key="ScenePlayer"
-          scene={scene}
+          key={`ScenePlayer-${activeReleaseId || 'main'}`}
+          scene={sceneForPlayer!}
           hideScrubberOverride={hideScrubber}
           autoplay={autoplay}
           permitLoop={!continuePlaylist}

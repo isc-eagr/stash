@@ -358,6 +358,15 @@ type Mutation {
 
   sceneAssignFile(input: AssignSceneFileInput!): Boolean!
 
+  "Create a new release for a scene"
+  sceneReleaseCreate(input: SceneReleaseCreateInput!): SceneRelease
+  "Update an existing scene release"
+  sceneReleaseUpdate(input: SceneReleaseUpdateInput!): SceneRelease
+  "Delete a scene release. Files will be reassigned to the parent scene."
+  sceneReleaseDestroy(input: SceneReleaseDestroyInput!): Boolean!
+  "Convert an existing scene into a release of another scene"
+  convertSceneToRelease(input: ConvertSceneToReleaseInput!): SceneRelease
+
   imageUpdate(input: ImageUpdateInput!): Image
   bulkImageUpdate(input: BulkImageUpdateInput!): [Image!]
   imageDestroy(input: ImageDestroyInput!): Boolean!

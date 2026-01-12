@@ -29,6 +29,9 @@ This document describes all custom features and modifications added on top of th
 21. [Multiple Performer Images](#21-multiple-performer-images)
 22. [Performer Filter: Profile Image Count](#22-performer-filter-profile-image-count)
 23. [Performer Partner Count Badges](#23-performer-partner-count-badges)
+24. [Scene Releases](#24-scene-releases)
+25. [Effective Date](#25-effective-date)
+26. [(Any) Performer Count for Scene Marker Filters](#26-any-performer-count-for-scene-marker-filters)
 
 ---
 
@@ -229,6 +232,30 @@ Each marker group supports separate top/bottom/both-roles attribute blocks:
 
 #### 6.5 Performer Rating Filter (for Scenes)
 **File:** `ui/v2.5/src/components/List/Filters/PerformerRatingFilter.tsx` - NEW
+
+#### 6.6 Multiple Orgasms Filter
+**Overview:** Boolean filter for scenes where any performer has more than 1 orgasm marker as "top" in the same scene.
+
+**Purpose:** Quickly find scenes with multiple orgasms from the same top performer.
+
+**Files:**
+- `graphql/schema/types/filters.graphql` - Added `multiple_orgasms: String` to `SceneFilterType`
+- `pkg/models/scene.go` - Added `MultipleOrgasms` field to `SceneFilterType` struct
+- `pkg/sqlite/scene_filter.go` - `multipleOrgasmsCriterionHandler` implementation
+- `ui/v2.5/src/models/list-filter/types.ts` - Added `"multiple_orgasms"` to `CriterionType`
+- `ui/v2.5/src/models/list-filter/scenes.ts` - `MultipleOrgasmsCriterionOption` and `MultipleOrgasmsCriterion` class
+- `ui/v2.5/src/locales/en-US.json` - Translation string
+
+**How it works:**
+1. Finds the "Orgasm" tag by name (case-insensitive)
+2. Recursively includes all descendant tags (subtags of Orgasm)
+3. For each scene, finds markers where the primary tag is in the orgasm tag family
+4. Checks if any performer appears as "top" on 2+ of those markers
+5. Returns `true` if such a performer exists, `false` otherwise
+
+**UI Usage:**
+- Filter appears in Scenes page under "Multiple Orgasms"
+- Options: `true` (has multiple orgasms) or `false` (does not have multiple orgasms)
 
 ### Backend Filter Implementations
 - `pkg/sqlite/scene_filter.go` - Scene filter handlers for all new criteria
@@ -1178,6 +1205,296 @@ Where:
 - Top row = number of scenes in each category with top/bottom breakdown
 - Bottom row = number of unique partners in each category with top/bottom breakdown
 - 👤 = person icon to indicate these are partner counts, not scene counts
+
+---
+
+## 24. Scene Releases
+
+### Overview
+Scene Releases allow a single scene to have multiple alternate versions or releases from different studios. This is common when content is licensed across multiple platforms or studios - the same scene may be released on Studio A's site first, then later on Studio B's site with different metadata, cover art, or even re-encoded video files.
+
+Each scene can have multiple releases, and each release can have:
+- Its own title, code, details, director, URL, and date
+- Its own studio association
+- Its own cover image
+- Its own video files
+- Its own associated galleries
+- A playback order for prioritizing which release to play
+
+### Database Schema
+**File:** `scene_releases.up.sql`
+```sql
+-- Main releases table - stores release metadata
+CREATE TABLE IF NOT EXISTS `scene_releases` (
+    `id` integer primary key autoincrement NOT NULL,
+    `scene_id` integer NOT NULL,
+    `title` varchar(255),
+    `code` varchar(255),
+    `details` text,
+    `director` varchar(255),
+    `url` varchar(255),
+    `date` date,
+    `date_precision` tinyint,
+    `studio_id` integer,
+    `cover_blob` varchar(255),
+    `play_order` integer NOT NULL DEFAULT 0,
+    `created_at` datetime NOT NULL,
+    `updated_at` datetime NOT NULL,
+    FOREIGN KEY(`scene_id`) REFERENCES `scenes`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY(`studio_id`) REFERENCES `studios`(`id`) ON DELETE SET NULL
+);
+
+-- Files associated with releases
+CREATE TABLE IF NOT EXISTS `scene_release_files` (
+    `release_id` integer NOT NULL,
+    `file_id` integer NOT NULL,
+    `primary` boolean NOT NULL DEFAULT 0,
+    PRIMARY KEY(`release_id`, `file_id`),
+    FOREIGN KEY(`release_id`) REFERENCES `scene_releases`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY(`file_id`) REFERENCES `files`(`id`) ON DELETE CASCADE
+);
+
+-- Galleries associated with releases
+CREATE TABLE IF NOT EXISTS `scene_release_galleries` (
+    `release_id` integer NOT NULL,
+    `gallery_id` integer NOT NULL,
+    PRIMARY KEY(`release_id`, `gallery_id`),
+    FOREIGN KEY(`release_id`) REFERENCES `scene_releases`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY(`gallery_id`) REFERENCES `galleries`(`id`) ON DELETE CASCADE
+);
+```
+
+### GraphQL Schema
+**File:** `graphql/schema/types/scene-release.graphql`
+```graphql
+type SceneRelease {
+  id: ID!
+  scene: Scene!
+  title: String
+  code: String
+  details: String
+  director: String
+  url: String
+  date: String
+  studio: Studio
+  paths: SceneReleasePaths!
+  files: [VideoFile!]!
+  galleries: [Gallery!]!
+  streams: [SceneStreamEndpoint!]!
+  play_order: Int!
+  created_at: Time!
+  updated_at: Time!
+}
+
+type SceneReleasePaths {
+  screenshot: String
+}
+
+input SceneReleaseCreateInput {
+  scene_id: ID!
+  title: String
+  code: String
+  details: String
+  director: String
+  url: String
+  date: String
+  studio_id: ID
+  cover_image: String
+  gallery_ids: [ID!]
+  file_ids: [ID!]
+  play_order: Int
+}
+
+input SceneReleaseUpdateInput {
+  id: ID!
+  title: String
+  code: String
+  details: String
+  director: String
+  url: String
+  date: String
+  studio_id: ID
+  cover_image: String
+  gallery_ids: [ID!]
+  file_ids: [ID!]
+  play_order: Int
+  primary_file_id: ID
+}
+
+input SceneReleaseDestroyInput {
+  id: ID!
+}
+
+input ConvertSceneToReleaseInput {
+  source_scene_id: ID!
+  target_scene_id: ID!
+}
+```
+
+**File:** `graphql/schema/types/scene.graphql` (additions)
+```graphql
+type Scene {
+  # ... existing fields ...
+  "Alternate releases of this scene (e.g., from different studios)"
+  releases: [SceneRelease!]!
+}
+```
+
+### Backend Files
+- `pkg/models/model_scene_release.go` - SceneRelease model definition
+- `pkg/sqlite/scene_release.go` - SQLite repository for scene releases
+- `internal/api/resolver_model_scene_release.go` - GraphQL resolvers for SceneRelease type
+- `internal/api/resolver_mutation_scene_release.go` - Mutation resolvers (create, update, destroy, convert)
+
+### Frontend Files
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneReleasesPanel.tsx` - Main UI panel for managing releases
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneSelectorDialog.tsx` - Dialog for selecting a scene to convert to release
+- `ui/v2.5/graphql/data/scene-release.graphql` - GraphQL fragment for SceneRelease data
+- `ui/v2.5/graphql/mutations/scene-release.graphql` - GraphQL mutations
+- `ui/v2.5/src/core/StashService.ts` - React hooks for mutations
+
+### Features
+1. **Create Release**: Add a new release with custom metadata to any scene
+2. **Edit Release**: Modify release metadata, cover image, files, and galleries
+3. **Delete Release**: Remove a release from a scene
+4. **Convert Scene to Release**: Take an existing scene and convert it into a release of another scene, preserving all metadata
+5. **Playback Selection**: Mark a release for playback to switch the scene player to that release's files
+6. **Color-coded Metadata Comparison**: Release metadata (duration, fps, resolution) is color-coded compared to the main scene (green=better, red=worse, white=same)
+7. **Clickable Gallery Links**: Gallery associations link directly to the gallery page
+
+### Filter Support
+- `release_count: IntCriterionInput` - Filter scenes by number of releases
+
+---
+
+## 25. Effective Date
+
+### Overview
+Scenes can now have an "effective date" which is computed as the earliest date among the scene's own date and all release dates. This is useful when a scene was originally released on one date by one studio, but later re-released by another studio - the effective date shows when the scene was first available.
+
+### GraphQL Schema Changes
+**File:** `graphql/schema/types/scene.graphql`
+```graphql
+type Scene {
+  # ... existing fields ...
+  "The earliest date among the scene's own date and all release dates"
+  effective_date: String
+}
+```
+
+**File:** `graphql/schema/types/filters.graphql`
+```graphql
+input SceneFilterType {
+  # ... existing filters ...
+  "Filter by effective date (earliest date among scene date and release dates)"
+  effective_date: DateCriterionInput
+}
+```
+
+### Backend Files Modified
+- `internal/api/resolver_model_scene.go` - Added `EffectiveDate` resolver that computes min(scene.date, release dates)
+- `pkg/models/scene.go` - Added `EffectiveDate *DateCriterionInput` to SceneFilterType
+- `pkg/sqlite/scene_filter.go` - Added `effectiveDateCriterionHandler` for filtering by effective date
+- `pkg/sqlite/scene.go` - Added `effective_date` to sort options and updated `performer_age` sort to use effective_date
+
+### Frontend Files Modified
+- `ui/v2.5/graphql/data/scene.graphql` - Added effective_date to SceneData fragment
+- `ui/v2.5/graphql/data/scene-slim.graphql` - Added effective_date to SlimSceneData fragment
+- `ui/v2.5/src/components/Scenes/SceneCard.tsx` - Display effective_date on scene cards
+- `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx` - Display effective_date in scene header
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneDetailPanel.tsx` - Use effective_date for performer age calculation
+- `ui/v2.5/src/components/Scenes/SceneListTable.tsx` - Display effective_date in table
+- `ui/v2.5/src/components/Scenes/SceneWallPanel.tsx` - Display effective_date in wall view
+- `ui/v2.5/src/components/Tagger/scenes/TaggerScene.tsx` - Display effective_date in tagger
+- `ui/v2.5/src/models/list-filter/scenes.ts` - Added effective_date filter and sort options
+- `ui/v2.5/src/models/list-filter/types.ts` - Added effective_date to CriterionType
+- `ui/v2.5/src/locales/en-GB.json` - Added translation for "Effective Date"
+
+### Usage
+- Scene cards, detail pages, and list views automatically display the effective date
+- Filter scenes by effective date in the scene list filter panel
+- Sort scenes by effective date in the sort dropdown
+- Performer age calculations in scene context use effective date
+
+### Behavior
+- If a scene has no releases, effective_date equals scene.date
+- If a scene has releases, effective_date is the minimum of scene.date and all release.date values
+- Null dates are ignored in the minimum calculation
+- Falls back to scene.date if it exists and releases have no dates
+
+---
+
+## 26. (Any) Performer Count for Scene Marker Filters
+
+### Overview
+Allows filtering scene markers by a minimum count of "any" top or bottom performers, rather than requiring specific performers. For example: "Show markers with at least 3 tops" without specifying which performers.
+
+### Use Cases
+- Find markers with gangbang scenarios (e.g., 3+ tops)
+- Find MMF or FFM markers by performer count
+- Filter by performer density without knowing specific performers
+
+### GraphQL Schema Changes
+**File:** `graphql/schema/types/filters.graphql`
+```graphql
+input SceneMarkerTagGroupInput {
+  ...
+  top_any_count: Int        # Minimum number of any top performers
+  bottom_any_count: Int     # Minimum number of any bottom performers
+}
+```
+
+### Backend Changes
+**File:** `pkg/models/filter.go`
+- Added `TopAnyCount *int` and `BottomAnyCount *int` to `SceneMarkerTagGroupInput` struct
+
+**File:** `pkg/sqlite/criterion_handlers.go`
+- Updated `joinedSceneMarkerTagsHandler` to generate SQL for counting performers by role
+- SQL pattern: `(SELECT COUNT(DISTINCT performer_id) FROM scene_marker_performers WHERE scene_marker_id = sm.id AND role = 'top/bottom') >= N`
+
+### Frontend Criterion Changes
+**File:** `ui/v2.5/src/models/list-filter/criteria/scene-markers.ts`
+- Added `top_any_count` and `bottom_any_count` to `ISceneMarkersGroup` interface
+
+**File:** `ui/v2.5/src/models/list-filter/criteria/scene-markers-exclude.ts`
+- Added `top_any_count` and `bottom_any_count` to `ISceneMarkersExcludeGroup` interface
+
+**File:** `ui/v2.5/src/models/list-filter/criteria/marker-top.ts`
+- Added `any_count` to `IMarkerTopFilter` interface
+
+**File:** `ui/v2.5/src/models/list-filter/criteria/marker-bottom.ts`
+- Added `any_count` to `IMarkerBottomFilter` interface
+
+**File:** `ui/v2.5/src/models/list-filter/filter.ts`
+- Updated `MarkerTopData` and `GroupExtended` types to include any_count fields
+- Updated aggregation logic to map any_count to GraphQL input
+
+### Frontend UI Changes
+**File:** `ui/v2.5/src/components/List/Filters/SceneMarkersFilter.tsx`
+- Added "(Any) Performer Count" number input for top and bottom columns
+- Disabled when specific performers are selected
+
+**File:** `ui/v2.5/src/components/List/Filters/SceneMarkersExcludeFilter.tsx`
+- Same changes as SceneMarkersFilter.tsx
+
+**File:** `ui/v2.5/src/components/List/Filters/MarkerTopFilter.tsx`
+- Added "(Any) Performer Count" number input
+
+**File:** `ui/v2.5/src/components/List/Filters/MarkerBottomFilter.tsx`
+- Same changes as MarkerTopFilter.tsx
+
+### i18n Strings
+**File:** `ui/v2.5/src/locales/en-US.json`
+- `any_performer_count`: "(Any) Performer Count"
+- `any_performer_count_placeholder`: "e.g. 2 means at least 2"
+- `any_performer_count_help`: "Minimum number of (any) top performers on this marker"
+- `bottom_any_performer_count_help`: "Minimum number of (any) bottom performers on this marker"
+
+### Behavior
+- The (Any) count field is disabled when specific performers are selected
+- Count of 0 means no minimum (field is ignored)
+- Counts are additive with other filter criteria (AND logic)
+- Works in both include and exclude marker filter modes
 
 ---
 

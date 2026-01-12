@@ -9,9 +9,11 @@ import { FormattedMessage, useIntl } from "react-intl";
 import { CriterionModifier } from "src/core/generated-graphql";
 import { MarkerPerformersCriterion } from "src/models/list-filter/criteria/marker-performers";
 import {
-  PerformerIDSelect,
-  Performer,
-} from "src/components/Performers/PerformerSelect";
+  PerformerWithAnySelect,
+  isAnyPerformerId,
+  ANY_PERFORMER_ID,
+} from "src/components/Performers/PerformerWithAnySelect";
+import { Performer } from "src/components/Performers/PerformerSelect";
 import { Tag, TagIDSelect } from "src/components/Tags/TagSelect";
 import { faArrowUp, faArrowDown } from "@fortawesome/free-solid-svg-icons";
 import { Icon } from "src/components/Shared/Icon";
@@ -95,11 +97,16 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
 
   // Top handlers
   const onTopPerformersChange = (performers: Performer[]) => {
+    // Separate real performers from "(Any)" entries
+    const realPerformers = performers.filter((p) => !isAnyPerformerId(p.id));
+    const anyCount = performers.filter((p) => isAnyPerformerId(p.id)).length;
+
     const c = criterion.clone() as MarkerPerformersCriterion;
-    c.value.top_performer_ids = performers.map((p) => ({
+    c.value.top_performer_ids = realPerformers.map((p) => ({
       id: p.id,
       label: p.name ?? p.id,
     }));
+    c.value.top_any_count = anyCount;
     setCriterion(c);
   };
 
@@ -123,11 +130,16 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
 
   // Bottom handlers
   const onBottomPerformersChange = (performers: Performer[]) => {
+    // Separate real performers from "(Any)" entries
+    const realPerformers = performers.filter((p) => !isAnyPerformerId(p.id));
+    const anyCount = performers.filter((p) => isAnyPerformerId(p.id)).length;
+
     const c = criterion.clone() as MarkerPerformersCriterion;
-    c.value.bottom_performer_ids = performers.map((p) => ({
+    c.value.bottom_performer_ids = realPerformers.map((p) => ({
       id: p.id,
       label: p.name ?? p.id,
     }));
+    c.value.bottom_any_count = anyCount;
     setCriterion(c);
   };
 
@@ -272,9 +284,13 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
             <Form.Label>
               <FormattedMessage id="performers" defaultMessage="Performers" />
             </Form.Label>
-            <PerformerIDSelect
-              isMulti
-              ids={criterion.value.top_performer_ids.map((p) => p.id)}
+            <PerformerWithAnySelect
+              ids={[
+                ...criterion.value.top_performer_ids.map((p) => p.id),
+                ...Array.from({ length: criterion.value.top_any_count || 0 }).map(
+                  (_, i) => `${ANY_PERFORMER_ID}_${i}`
+                ),
+              ]}
               onSelect={onTopPerformersChange}
               menuPortalTarget={document.body}
             />
@@ -421,9 +437,13 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
             <Form.Label>
               <FormattedMessage id="performers" defaultMessage="Performers" />
             </Form.Label>
-            <PerformerIDSelect
-              isMulti
-              ids={criterion.value.bottom_performer_ids.map((p) => p.id)}
+            <PerformerWithAnySelect
+              ids={[
+                ...criterion.value.bottom_performer_ids.map((p) => p.id),
+                ...Array.from({ length: criterion.value.bottom_any_count || 0 }).map(
+                  (_, i) => `${ANY_PERFORMER_ID}_${i}`
+                ),
+              ]}
               onSelect={onBottomPerformersChange}
               menuPortalTarget={document.body}
             />

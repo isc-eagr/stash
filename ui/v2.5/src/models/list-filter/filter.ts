@@ -520,10 +520,12 @@ export class ListFilterModel {
       tag_ids: string[];
       depth?: number;
       top_performer_ids?: string[];
+      top_any_count?: number;
       top_ethnicities?: string[];
       top_countries?: string[];
       top_rating?: { modifier: string; value: number; value2?: number };
       bottom_performer_ids?: string[];
+      bottom_any_count?: number;
       bottom_ethnicities?: string[];
       bottom_countries?: string[];
       bottom_rating?: { modifier: string; value: number; value2?: number };
@@ -555,10 +557,12 @@ export class ListFilterModel {
       exclude_tag_ids?: string[];
       depth?: number;
       top_performer_ids?: string[];
+      top_any_count?: number;
       top_ethnicities?: string[];
       top_countries?: string[];
       top_rating?: { modifier: string; value: number; value2?: number };
       bottom_performer_ids?: string[];
+      bottom_any_count?: number;
       bottom_ethnicities?: string[];
       bottom_countries?: string[];
       bottom_rating?: { modifier: string; value: number; value2?: number };

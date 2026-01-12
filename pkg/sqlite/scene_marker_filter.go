@@ -840,47 +840,49 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 					// Expand tag IDs if depth is specified
 					tagIDs := g.TagIDs
 					depthUsed := len(tagIDs) > 0 && g.Depth != nil && *g.Depth != 0
-					if depthUsed {
-						valuesClause, err := getHierarchicalValues(ctx, tagIDs, tagTable, "tags_relations", "parent_id", "child_id", g.Depth)
-						if err != nil {
-							f.setError(err)
-							return
-						}
-						var expandedIDs []string
-						expandQuery := fmt.Sprintf("SELECT DISTINCT column2 FROM (%s)", valuesClause)
-						if err := dbWrapper.Select(ctx, &expandedIDs, expandQuery); err != nil {
-							f.setError(err)
-							return
-						}
-						if len(expandedIDs) > 0 {
-							tagIDs = expandedIDs
-						}
-					}
 
-					// Tag matching: when depth is used, marker must have ANY of the expanded tags (OR).
-					// Otherwise, marker must have all specified tags (AND).
-					// Check BOTH primary_tag_id AND secondary tags in scene_markers_tags
+					// Tag matching: Check BOTH primary_tag_id AND secondary tags in scene_markers_tags
 					if len(tagIDs) > 0 {
 						if depthUsed {
-							// OR semantics for expanded tags - marker matches if it has ANY of the tags
-							ph := getInBinding(len(tagIDs))
-							tagCond := fmt.Sprintf(`(
-								scene_markers.primary_tag_id IN %s
-								OR EXISTS (
-									SELECT 1 FROM scene_markers_tags smt 
-									WHERE smt.scene_marker_id = scene_markers.id 
-									AND smt.tag_id IN %s
-								)
-							)`, ph, ph)
-							groupConditions = append(groupConditions, tagCond)
-							for _, tid := range tagIDs {
-								groupArgs = append(groupArgs, tid)
-							}
-							for _, tid := range tagIDs {
-								groupArgs = append(groupArgs, tid)
+							// When depth is used with multiple tags, expand EACH tag separately
+							// to maintain AND semantics between the original tags
+							// e.g., "GOAT or GOAT-subtag" AND "orgasm or orgasm-subtag"
+							for _, tagID := range tagIDs {
+								// Expand this single tag to include its descendants
+								valuesClause, err := getHierarchicalValues(ctx, []string{tagID}, tagTable, "tags_relations", "parent_id", "child_id", g.Depth)
+								if err != nil {
+									f.setError(err)
+									return
+								}
+								var expandedIDs []string
+								expandQuery := fmt.Sprintf("SELECT DISTINCT column2 FROM (%s)", valuesClause)
+								if err := dbWrapper.Select(ctx, &expandedIDs, expandQuery); err != nil {
+									f.setError(err)
+									return
+								}
+
+								if len(expandedIDs) > 0 {
+									// Marker must have this tag OR any of its descendants (OR within this tag group)
+									ph := getInBinding(len(expandedIDs))
+									tagCond := fmt.Sprintf(`(
+										scene_markers.primary_tag_id IN %s
+										OR EXISTS (
+											SELECT 1 FROM scene_markers_tags smt 
+											WHERE smt.scene_marker_id = scene_markers.id 
+											AND smt.tag_id IN %s
+										)
+									)`, ph, ph)
+									groupConditions = append(groupConditions, tagCond)
+									for _, tid := range expandedIDs {
+										groupArgs = append(groupArgs, tid)
+									}
+									for _, tid := range expandedIDs {
+										groupArgs = append(groupArgs, tid)
+									}
+								}
 							}
 						} else {
-							// AND semantics - marker must have ALL specified tags
+							// AND semantics - marker must have ALL specified tags (no depth)
 							for _, tagID := range tagIDs {
 								tagCond := `(
 									scene_markers.primary_tag_id = ?
@@ -1083,6 +1085,24 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 							groupConditions = append(groupConditions, existsClause)
 							groupArgs = append(groupArgs, roleArgs...)
 						}
+					}
+
+					// Handle TopAnyCount - require at least N distinct top performers
+					if g.TopAnyCount != nil && *g.TopAnyCount > 0 {
+						anyCountClause := fmt.Sprintf(`(
+							SELECT COUNT(DISTINCT smp.performer_id) FROM scene_marker_performers smp
+							WHERE smp.scene_marker_id = scene_markers.id AND smp.role = 'top'
+						) >= %d`, *g.TopAnyCount)
+						groupConditions = append(groupConditions, anyCountClause)
+					}
+
+					// Handle BottomAnyCount - require at least N distinct bottom performers
+					if g.BottomAnyCount != nil && *g.BottomAnyCount > 0 {
+						anyCountClause := fmt.Sprintf(`(
+							SELECT COUNT(DISTINCT smp.performer_id) FROM scene_marker_performers smp
+							WHERE smp.scene_marker_id = scene_markers.id AND smp.role = 'bottom'
+						) >= %d`, *g.BottomAnyCount)
+						groupConditions = append(groupConditions, anyCountClause)
 					}
 
 					if len(groupConditions) > 0 {

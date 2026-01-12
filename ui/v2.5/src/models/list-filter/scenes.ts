@@ -60,10 +60,24 @@ class HasMarkerPerformersCriterion extends StringBooleanCriterion {
   }
 }
 
+// Multiple Orgasms criterion option - filters scenes where any performer has 2+ orgasm markers as top
+const MultipleOrgasmsCriterionOption = new StringBooleanCriterionOption(
+  "multiple_orgasms",
+  "multiple_orgasms",
+  () => new MultipleOrgasmsCriterion()
+);
+
+class MultipleOrgasmsCriterion extends StringBooleanCriterion {
+  constructor() {
+    super(MultipleOrgasmsCriterionOption);
+  }
+}
+
 const defaultSortBy = "date";
 const sortByOptions = [
   "organized",
   "date",
+  "effective_date",
   "file_count",
   "filesize",
   "duration",
@@ -142,6 +156,7 @@ const criterionOptions = [
   createMandatoryTimestampCriterionOption("last_played_at"),
   HasMarkersCriterionOption,
   HasMarkerPerformersCriterionOption,
+  MultipleOrgasmsCriterionOption,
   SceneIsMissingCriterionOption,
   TagsCriterionOption,
   createMandatoryNumberCriterionOption("tag_count"),
@@ -184,7 +199,9 @@ const criterionOptions = [
   CaptionsCriterionOption,
   createMandatoryNumberCriterionOption("interactive_speed"),
   createMandatoryNumberCriterionOption("file_count"),
+  createMandatoryNumberCriterionOption("release_count"),
   createDateCriterionOption("date"),
+  createDateCriterionOption("effective_date"),
   createMandatoryTimestampCriterionOption("created_at"),
   createMandatoryTimestampCriterionOption("updated_at"),
 ];

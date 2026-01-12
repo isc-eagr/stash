@@ -1886,7 +1886,7 @@ const makePerformerFacialMarkersWithRoleUrl = (
 
   // Add marker performers criterion with role filter
   const criterion = new MarkerPerformersCriterion(MarkerPerformersCriterionOption);
-  criterion.modifier = GQL.CriterionModifier.IncludesAll;
+  criterion.modifier = GQL.CriterionModifier.Includes;
   
   const performerRef = { id: performer.id, label: performer.name || `Performer ${performer.id}` };
   

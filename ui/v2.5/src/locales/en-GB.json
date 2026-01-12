@@ -145,6 +145,7 @@
     },
     "skip": "Skip",
     "split": "Split",
+    "split_as_release": "Split as Release",
     "stop": "Stop",
     "submit": "Submit",
     "submit_stash_box": "Submit to Stash-Box",
@@ -932,6 +933,7 @@
   "descending": "Descending",
   "description": "Description",
   "detail": "Detail",
+  "effective_date": "Effective Date",
   "details": "Details",
   "developmentVersion": "Development Version",
   "dialogs": {
@@ -1142,6 +1144,7 @@
   "files": "files",
   "files_amount": "{value} files",
   "filesize": "File Size",
+  "release_count": "Release Count",
   "filter": "Filter",
   "filter_name": "Filter name",
   "filters": "Filters",

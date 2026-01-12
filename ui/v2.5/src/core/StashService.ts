@@ -1611,6 +1611,58 @@ export const useMarkerPlaylistDestroy = () =>
     refetchQueries: ["FindMarkerPlaylists"],
   });
 
+// Scene Release hooks
+export const useSceneReleaseCreate = () =>
+  GQL.useSceneReleaseCreateMutation({
+    update(cache, result, { variables }) {
+      if (!result.data?.sceneReleaseCreate || !variables) return;
+
+      // Refetch linked scene's release list
+      cache.evict({
+        id: cache.identify({ __typename: "Scene", id: variables.input.scene_id }),
+        fieldName: "releases",
+      });
+      cache.gc();
+    },
+  });
+
+export const useSceneReleaseUpdate = () =>
+  GQL.useSceneReleaseUpdateMutation({
+    update(cache, result) {
+      if (!result.data?.sceneReleaseUpdate) return;
+      cache.gc();
+    },
+  });
+
+export const useSceneReleaseDestroy = () =>
+  GQL.useSceneReleaseDestroyMutation({
+    update(cache, result, { variables }) {
+      if (!result.data?.sceneReleaseDestroy || !variables) return;
+
+      const obj = { __typename: "SceneRelease", id: variables.input.id };
+      cache.evict({ id: cache.identify(obj) });
+      cache.gc();
+    },
+  });
+
+export const useConvertSceneToRelease = () =>
+  GQL.useConvertSceneToReleaseMutation({
+    update(cache, result, { variables }) {
+      if (!result.data?.convertSceneToRelease || !variables) return;
+
+      // Evict the source scene since it was deleted
+      const sourceObj = { __typename: "Scene", id: variables.input.source_scene_id };
+      cache.evict({ id: cache.identify(sourceObj) });
+
+      // Refetch target scene's release list
+      cache.evict({
+        id: cache.identify({ __typename: "Scene", id: variables.input.target_scene_id }),
+        fieldName: "releases",
+      });
+      cache.gc();
+    },
+  });
+
 const galleryMutationImpactedTypeFields = {
   Scene: ["galleries"],
   Performer: ["gallery_count", "performer_count"],

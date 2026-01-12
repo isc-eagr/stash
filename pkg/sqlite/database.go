@@ -75,6 +75,7 @@ type storeRepository struct {
 	Scene           *SceneStore
 	SceneMarker     *SceneMarkerStore
 	SceneLoopPreset *SceneLoopPresetStore
+	SceneRelease    *SceneReleaseStore
 	Performer       *PerformerStore
 	SavedFilter     *SavedFilterStore
 	Studio          *StudioStore
@@ -113,6 +114,7 @@ func NewDatabase() *Database {
 		Scene:           NewSceneStore(r, blobStore),
 		SceneMarker:     NewSceneMarkerStore(),
 		SceneLoopPreset: NewSceneLoopPresetStore(),
+		SceneRelease:    NewSceneReleaseStore(r, blobStore),
 		Image:           NewImageStore(r),
 		Gallery:         galleryStore,
 		GalleryChapter:  NewGalleryChapterStore(),

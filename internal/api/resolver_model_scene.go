@@ -74,6 +74,38 @@ func (r *sceneResolver) Date(ctx context.Context, obj *models.Scene) (*string, e
 	return nil, nil
 }
 
+func (r *sceneResolver) EffectiveDate(ctx context.Context, obj *models.Scene) (*string, error) {
+	// Start with scene's own date
+	var minDate *models.Date
+	if obj.Date != nil {
+		minDate = obj.Date
+	}
+
+	// Load releases and find the minimum date
+	var releases []*models.SceneRelease
+	if err := r.withTxn(ctx, func(ctx context.Context) error {
+		var err error
+		releases, err = r.repository.SceneRelease.FindBySceneID(ctx, obj.ID)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+
+	for _, release := range releases {
+		if release.Date != nil {
+			if minDate == nil || release.Date.Time.Before(minDate.Time) {
+				minDate = release.Date
+			}
+		}
+	}
+
+	if minDate != nil {
+		result := minDate.String()
+		return &result, nil
+	}
+	return nil, nil
+}
+
 func (r *sceneResolver) Files(ctx context.Context, obj *models.Scene) ([]*VideoFile, error) {
 	files, err := r.getFiles(ctx, obj)
 	if err != nil {
@@ -162,6 +194,53 @@ func (r *sceneResolver) Captions(ctx context.Context, obj *models.Scene) (ret []
 }
 
 func (r *sceneResolver) Galleries(ctx context.Context, obj *models.Scene) (ret []*models.Gallery, err error) {
+	if !obj.GalleryIDs.Loaded() {
+		if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+			return obj.LoadGalleryIDs(ctx, r.repository.Scene)
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	// Collect all gallery IDs (scene's direct galleries + release galleries)
+	galleryIDSet := make(map[int]struct{})
+	for _, id := range obj.GalleryIDs.List() {
+		galleryIDSet[id] = struct{}{}
+	}
+
+	// Load galleries from releases
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		releases, err := r.repository.SceneRelease.FindBySceneID(ctx, obj.ID)
+		if err != nil {
+			return err
+		}
+		for _, release := range releases {
+			releaseGalleryIDs, err := r.repository.SceneRelease.GetGalleryIDs(ctx, release.ID)
+			if err != nil {
+				return err
+			}
+			for _, gid := range releaseGalleryIDs {
+				galleryIDSet[gid] = struct{}{}
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	// Convert set to slice
+	allGalleryIDs := make([]int, 0, len(galleryIDSet))
+	for id := range galleryIDSet {
+		allGalleryIDs = append(allGalleryIDs, id)
+	}
+
+	var errs []error
+	ret, errs = loaders.From(ctx).GalleryByID.LoadAll(allGalleryIDs)
+	return ret, firstError(errs)
+}
+
+// DirectGalleries returns only galleries directly associated with the scene (excluding release galleries)
+func (r *sceneResolver) DirectGalleries(ctx context.Context, obj *models.Scene) (ret []*models.Gallery, err error) {
 	if !obj.GalleryIDs.Loaded() {
 		if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 			return obj.LoadGalleryIDs(ctx, r.repository.Scene)
@@ -409,4 +488,16 @@ func (r *sceneResolver) OHistory(ctx context.Context, obj *models.Scene) ([]*tim
 	}
 
 	return ptrRet, nil
+}
+
+func (r *sceneResolver) Releases(ctx context.Context, obj *models.Scene) ([]*models.SceneRelease, error) {
+	var ret []*models.SceneRelease
+	if err := r.withTxn(ctx, func(ctx context.Context) error {
+		var err error
+		ret, err = r.repository.SceneRelease.FindBySceneID(ctx, obj.ID)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
 }

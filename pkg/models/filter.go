@@ -188,12 +188,14 @@ type SceneMarkerTagGroupInput struct {
 
 	// Top criteria
 	TopPerformerIDs []string           `json:"top_performer_ids"`
+	TopAnyCount     *int               `json:"top_any_count"` // Minimum number of ANY top performers required
 	TopEthnicities  []string           `json:"top_ethnicities"`
 	TopCountries    []string           `json:"top_countries"`
 	TopRating       *IntCriterionInput `json:"top_rating"`
 
 	// Bottom criteria
 	BottomPerformerIDs []string           `json:"bottom_performer_ids"`
+	BottomAnyCount     *int               `json:"bottom_any_count"` // Minimum number of ANY bottom performers required
 	BottomEthnicities  []string           `json:"bottom_ethnicities"`
 	BottomCountries    []string           `json:"bottom_countries"`
 	BottomRating       *IntCriterionInput `json:"bottom_rating"`

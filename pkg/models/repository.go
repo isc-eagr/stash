@@ -27,6 +27,7 @@ type Repository struct {
 	Scene           SceneReaderWriter
 	SceneLoopPreset SceneLoopPresetReaderWriter
 	SceneMarker     SceneMarkerReaderWriter
+	SceneRelease    SceneReleaseReaderWriter
 	Studio          StudioReaderWriter
 	Tag             TagReaderWriter
 	SavedFilter     SavedFilterReaderWriter

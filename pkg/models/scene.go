@@ -27,6 +27,8 @@ type SceneFilterType struct {
 	Path *StringCriterionInput `json:"path"`
 	// Filter by file count
 	FileCount *IntCriterionInput `json:"file_count"`
+	// Filter by release count
+	ReleaseCount *IntCriterionInput `json:"release_count"`
 	// Filter by rating expressed as 1-100
 	Rating100 *IntCriterionInput `json:"rating100"`
 	// Filter by organized
@@ -53,6 +55,8 @@ type SceneFilterType struct {
 	HasMarkers *string `json:"has_markers"`
 	// Filter to only include scenes with markers that have assigned performers. `true` or `false`
 	HasMarkerPerformers *string `json:"has_marker_performers"`
+	// Filter scenes with multiple orgasm markers by the same top performer. `true` or `false`
+	MultipleOrgasms *string `json:"multiple_orgasms"`
 	// Filter by scene marker tags with optional performer role criteria
 	SceneMarkerTags *SceneMarkerTagsCriterionInput `json:"scene_marker_tags"`
 	// Filter to only include scenes missing this property
@@ -109,6 +113,8 @@ type SceneFilterType struct {
 	LastPlayedAt *TimestampCriterionInput `json:"last_played_at"`
 	// Filter by date
 	Date *DateCriterionInput `json:"date"`
+	// Filter by effective date (earliest date among scene date and release dates)
+	EffectiveDate *DateCriterionInput `json:"effective_date"`
 	// Filter by related galleries that meet this criteria
 	GalleriesFilter *GalleryFilterType `json:"galleries_filter"`
 	// Filter by related performers that meet this criteria
