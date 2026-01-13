@@ -19,6 +19,7 @@ import {
   BooleanCriterionOption,
   BooleanCriterion,
 } from "./criteria/criterion";
+import { SceneMarkerCustomFiltersCriterionOption } from "./criteria/custom-filters";
 
 const defaultSortBy = "title";
 const sortByOptions = [
@@ -74,6 +75,7 @@ const criterionOptions = [
   StudiosCriterionOption,
   HasEndTimeCriterionOption,
   SceneDirectorCriterionOption,
+  SceneMarkerCustomFiltersCriterionOption,
   createNullDurationCriterionOption("duration"),
   createMandatoryTimestampCriterionOption("created_at"),
   createMandatoryTimestampCriterionOption("updated_at"),

@@ -27,13 +27,11 @@ export interface ISceneMarkersGroup {
   depth: number; // 0 = no sub-tags, -1 = all sub-tags
   // Top performer criteria
   top_performer_ids: ILabeledId[];
-  top_any_count: number; // Minimum number of ANY top performers required
   top_ethnicities: string[];
   top_countries: string[];
   top_rating: RatingCriterion;
   // Bottom performer criteria
   bottom_performer_ids: ILabeledId[];
-  bottom_any_count: number; // Minimum number of ANY bottom performers required
   bottom_ethnicities: string[];
   bottom_countries: string[];
   bottom_rating: RatingCriterion;
@@ -53,12 +51,10 @@ function createEmptyGroup(groupId: string): ISceneMarkersGroup {
     tag_ids: [],
     depth: 0,
     top_performer_ids: [],
-    top_any_count: 0,
     top_ethnicities: [],
     top_countries: [],
     top_rating: null,
     bottom_performer_ids: [],
-    bottom_any_count: 0,
     bottom_ethnicities: [],
     bottom_countries: [],
     bottom_rating: null,
@@ -94,12 +90,10 @@ export class SceneMarkersCriterion extends Criterion {
         tag_ids: g.tag_ids.map((t) => ({ ...t })),
         depth: g.depth,
         top_performer_ids: g.top_performer_ids.map((p) => ({ ...p })),
-        top_any_count: g.top_any_count,
         top_ethnicities: [...g.top_ethnicities],
         top_countries: [...g.top_countries],
         top_rating: g.top_rating ? { ...g.top_rating } : null,
         bottom_performer_ids: g.bottom_performer_ids.map((p) => ({ ...p })),
-        bottom_any_count: g.bottom_any_count,
         bottom_ethnicities: [...g.bottom_ethnicities],
         bottom_countries: [...g.bottom_countries],
         bottom_rating: g.bottom_rating ? { ...g.bottom_rating } : null,
@@ -162,10 +156,10 @@ export class SceneMarkersCriterion extends Criterion {
       if (g.tag_ids.length > 0) {
         parts.push(g.tag_ids.map((t) => t.label).join(", "));
       }
-      if (g.top_performer_ids.length > 0 || g.top_any_count > 0 || g.top_ethnicities.length > 0) {
+      if (g.top_performer_ids.length > 0 || g.top_ethnicities.length > 0) {
         parts.push("Top: ...");
       }
-      if (g.bottom_performer_ids.length > 0 || g.bottom_any_count > 0 || g.bottom_ethnicities.length > 0) {
+      if (g.bottom_performer_ids.length > 0 || g.bottom_ethnicities.length > 0) {
         parts.push("Bottom: ...");
       }
       return `${g.groupId}: ${parts.join(" + ") || "..."}`;
@@ -182,12 +176,10 @@ export class SceneMarkersCriterion extends Criterion {
       (g) =>
         g.tag_ids.length > 0 ||
         g.top_performer_ids.length > 0 ||
-        g.top_any_count > 0 ||
         g.top_ethnicities.length > 0 ||
         g.top_countries.length > 0 ||
         g.top_rating !== null ||
         g.bottom_performer_ids.length > 0 ||
-        g.bottom_any_count > 0 ||
         g.bottom_ethnicities.length > 0 ||
         g.bottom_countries.length > 0 ||
         g.bottom_rating !== null
@@ -206,7 +198,6 @@ export class SceneMarkersCriterion extends Criterion {
           id: p.id,
           label: p.label,
         })),
-        top_any_count: g.top_any_count,
         top_ethnicities: g.top_ethnicities,
         top_countries: g.top_countries,
         top_rating: g.top_rating,
@@ -214,7 +205,6 @@ export class SceneMarkersCriterion extends Criterion {
           id: p.id,
           label: p.label,
         })),
-        bottom_any_count: g.bottom_any_count,
         bottom_ethnicities: g.bottom_ethnicities,
         bottom_countries: g.bottom_countries,
         bottom_rating: g.bottom_rating,
@@ -230,12 +220,10 @@ export class SceneMarkersCriterion extends Criterion {
         tag_ids: Array<{ id: string; label: string }>;
         depth: number;
         top_performer_ids: Array<{ id: string; label: string }>;
-        top_any_count: number;
         top_ethnicities: string[];
         top_countries: string[];
         top_rating: RatingCriterion;
         bottom_performer_ids: Array<{ id: string; label: string }>;
-        bottom_any_count: number;
         bottom_ethnicities: string[];
         bottom_countries: string[];
         bottom_rating: RatingCriterion;
@@ -252,7 +240,6 @@ export class SceneMarkersCriterion extends Criterion {
           id: p.id,
           label: p.label,
         })),
-        top_any_count: g.top_any_count ?? 0,
         top_ethnicities: g.top_ethnicities,
         top_countries: g.top_countries,
         top_rating: g.top_rating,
@@ -260,7 +247,6 @@ export class SceneMarkersCriterion extends Criterion {
           id: p.id,
           label: p.label,
         })),
-        bottom_any_count: g.bottom_any_count ?? 0,
         bottom_ethnicities: g.bottom_ethnicities,
         bottom_countries: g.bottom_countries,
         bottom_rating: g.bottom_rating,
@@ -298,9 +284,6 @@ export class SceneMarkersCriterion extends Criterion {
       if (g.top_performer_ids.length > 0) {
         group.top_performer_ids = g.top_performer_ids.map((p) => p.id);
       }
-      if (g.top_any_count > 0) {
-        group.top_any_count = g.top_any_count;
-      }
       if (g.top_ethnicities.length > 0) {
         group.top_ethnicities = g.top_ethnicities;
       }
@@ -314,9 +297,6 @@ export class SceneMarkersCriterion extends Criterion {
       // Bottom performer attributes
       if (g.bottom_performer_ids.length > 0) {
         group.bottom_performer_ids = g.bottom_performer_ids.map((p) => p.id);
-      }
-      if (g.bottom_any_count > 0) {
-        group.bottom_any_count = g.bottom_any_count;
       }
       if (g.bottom_ethnicities.length > 0) {
         group.bottom_ethnicities = g.bottom_ethnicities;
@@ -351,7 +331,6 @@ export class SceneMarkersCriterion extends Criterion {
           id: p.id,
           label: p.label,
         })),
-        top_any_count: g.top_any_count,
         top_ethnicities: g.top_ethnicities,
         top_countries: g.top_countries,
         top_rating: g.top_rating,
@@ -359,7 +338,6 @@ export class SceneMarkersCriterion extends Criterion {
           id: p.id,
           label: p.label,
         })),
-        bottom_any_count: g.bottom_any_count,
         bottom_ethnicities: g.bottom_ethnicities,
         bottom_countries: g.bottom_countries,
         bottom_rating: g.bottom_rating,
@@ -375,12 +353,10 @@ export class SceneMarkersCriterion extends Criterion {
         tag_ids: Array<{ id: string; label: string }>;
         depth: number;
         top_performer_ids: Array<{ id: string; label: string }>;
-        top_any_count: number;
         top_ethnicities: string[];
         top_countries: string[];
         top_rating: RatingCriterion;
         bottom_performer_ids: Array<{ id: string; label: string }>;
-        bottom_any_count: number;
         bottom_ethnicities: string[];
         bottom_countries: string[];
         bottom_rating: RatingCriterion;
@@ -399,7 +375,6 @@ export class SceneMarkersCriterion extends Criterion {
           id: p.id,
           label: p.label,
         })),
-        top_any_count: g.top_any_count ?? 0,
         top_ethnicities: g.top_ethnicities,
         top_countries: g.top_countries,
         top_rating: g.top_rating,
@@ -407,7 +382,6 @@ export class SceneMarkersCriterion extends Criterion {
           id: p.id,
           label: p.label,
         })),
-        bottom_any_count: g.bottom_any_count ?? 0,
         bottom_ethnicities: g.bottom_ethnicities,
         bottom_countries: g.bottom_countries,
         bottom_rating: g.bottom_rating,

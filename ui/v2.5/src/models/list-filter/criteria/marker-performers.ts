@@ -14,12 +14,10 @@ export interface IMarkerPerformersValue {
   tag_ids: ILabeledId[]; // Tags for filtering markers
   include_subtags: boolean; // Include child tags (-1 depth when true)
   top_performer_ids: ILabeledId[];
-  top_any_count: number; // Number of (Any) top performers
   top_ethnicities: string[];
   top_countries: string[];
   top_rating: RatingCriterion;
   bottom_performer_ids: ILabeledId[];
-  bottom_any_count: number; // Number of (Any) bottom performers
   bottom_ethnicities: string[];
   bottom_countries: string[];
   bottom_rating: RatingCriterion;
@@ -41,12 +39,10 @@ export class MarkerPerformersCriterion extends Criterion {
     tag_ids: [],
     include_subtags: false,
     top_performer_ids: [],
-    top_any_count: 0,
     top_ethnicities: [],
     top_countries: [],
     top_rating: null,
     bottom_performer_ids: [],
-    bottom_any_count: 0,
     bottom_ethnicities: [],
     bottom_countries: [],
     bottom_rating: null,
@@ -61,14 +57,12 @@ export class MarkerPerformersCriterion extends Criterion {
       tag_ids: this.value.tag_ids.map((t) => ({ ...t })),
       include_subtags: this.value.include_subtags,
       top_performer_ids: this.value.top_performer_ids.map((p) => ({ ...p })),
-      top_any_count: this.value.top_any_count,
       top_ethnicities: [...this.value.top_ethnicities],
       top_countries: [...this.value.top_countries],
       top_rating: this.value.top_rating ? { ...this.value.top_rating } : null,
       bottom_performer_ids: this.value.bottom_performer_ids.map((p) => ({
         ...p,
       })),
-      bottom_any_count: this.value.bottom_any_count,
       bottom_ethnicities: [...this.value.bottom_ethnicities],
       bottom_countries: [...this.value.bottom_countries],
       bottom_rating: this.value.bottom_rating
@@ -154,7 +148,6 @@ export class MarkerPerformersCriterion extends Criterion {
         id: p.id,
         label: p.label,
       })),
-      top_any_count: this.value.top_any_count,
       top_ethnicities: this.value.top_ethnicities,
       top_countries: this.value.top_countries,
       top_rating: this.value.top_rating,
@@ -162,7 +155,6 @@ export class MarkerPerformersCriterion extends Criterion {
         id: p.id,
         label: p.label,
       })),
-      bottom_any_count: this.value.bottom_any_count,
       bottom_ethnicities: this.value.bottom_ethnicities,
       bottom_countries: this.value.bottom_countries,
       bottom_rating: this.value.bottom_rating,
@@ -175,12 +167,10 @@ export class MarkerPerformersCriterion extends Criterion {
       tag_ids?: Array<{ id: string; label: string }>;
       include_subtags?: boolean;
       top_performer_ids?: Array<{ id: string; label: string }>;
-      top_any_count?: number;
       top_ethnicities?: string[];
       top_countries?: string[];
       top_rating?: RatingCriterion;
       bottom_performer_ids?: Array<{ id: string; label: string }>;
-      bottom_any_count?: number;
       bottom_ethnicities?: string[];
       bottom_countries?: string[];
       bottom_rating?: RatingCriterion;
@@ -201,8 +191,6 @@ export class MarkerPerformersCriterion extends Criterion {
         label: p.label,
       }));
     }
-    if (raw.top_any_count !== undefined)
-      this.value.top_any_count = raw.top_any_count;
     if (raw.top_ethnicities) this.value.top_ethnicities = raw.top_ethnicities;
     if (raw.top_countries) this.value.top_countries = raw.top_countries;
     if (raw.top_rating) this.value.top_rating = raw.top_rating;
@@ -212,8 +200,6 @@ export class MarkerPerformersCriterion extends Criterion {
         label: p.label,
       }));
     }
-    if (raw.bottom_any_count !== undefined)
-      this.value.bottom_any_count = raw.bottom_any_count;
     if (raw.bottom_ethnicities)
       this.value.bottom_ethnicities = raw.bottom_ethnicities;
     if (raw.bottom_countries)
@@ -263,9 +249,6 @@ export class MarkerPerformersCriterion extends Criterion {
     if (this.value.top_performer_ids.length > 0) {
       group.top_performer_ids = this.value.top_performer_ids.map((p) => p.id);
     }
-    if (this.value.top_any_count > 0) {
-      group.top_any_count = this.value.top_any_count;
-    }
     if (this.value.top_ethnicities.length > 0) {
       group.top_ethnicities = this.value.top_ethnicities;
     }
@@ -281,9 +264,6 @@ export class MarkerPerformersCriterion extends Criterion {
       group.bottom_performer_ids = this.value.bottom_performer_ids.map(
         (p) => p.id
       );
-    }
-    if (this.value.bottom_any_count > 0) {
-      group.bottom_any_count = this.value.bottom_any_count;
     }
     if (this.value.bottom_ethnicities.length > 0) {
       group.bottom_ethnicities = this.value.bottom_ethnicities;
@@ -314,7 +294,6 @@ export class MarkerPerformersCriterion extends Criterion {
         id: p.id,
         label: p.label,
       })),
-      top_any_count: this.value.top_any_count,
       top_ethnicities: this.value.top_ethnicities,
       top_countries: this.value.top_countries,
       top_rating: this.value.top_rating,
@@ -322,7 +301,6 @@ export class MarkerPerformersCriterion extends Criterion {
         id: p.id,
         label: p.label,
       })),
-      bottom_any_count: this.value.bottom_any_count,
       bottom_ethnicities: this.value.bottom_ethnicities,
       bottom_countries: this.value.bottom_countries,
       bottom_rating: this.value.bottom_rating,
@@ -335,12 +313,10 @@ export class MarkerPerformersCriterion extends Criterion {
       tag_ids?: Array<{ id: string; label: string }>;
       include_subtags?: boolean;
       top_performer_ids?: Array<{ id: string; label: string }>;
-      top_any_count?: number;
       top_ethnicities?: string[];
       top_countries?: string[];
       top_rating?: RatingCriterion;
       bottom_performer_ids?: Array<{ id: string; label: string }>;
-      bottom_any_count?: number;
       bottom_ethnicities?: string[];
       bottom_countries?: string[];
       bottom_rating?: RatingCriterion;
@@ -364,8 +340,6 @@ export class MarkerPerformersCriterion extends Criterion {
         label: p.label,
       }));
     }
-    if (data.top_any_count !== undefined)
-      this.value.top_any_count = data.top_any_count;
     if (data.top_ethnicities) this.value.top_ethnicities = data.top_ethnicities;
     if (data.top_countries) this.value.top_countries = data.top_countries;
     if (data.top_rating) this.value.top_rating = data.top_rating;
@@ -375,8 +349,6 @@ export class MarkerPerformersCriterion extends Criterion {
         label: p.label,
       }));
     }
-    if (data.bottom_any_count !== undefined)
-      this.value.bottom_any_count = data.bottom_any_count;
     if (data.bottom_ethnicities)
       this.value.bottom_ethnicities = data.bottom_ethnicities;
     if (data.bottom_countries)

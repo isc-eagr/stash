@@ -1,5 +1,17 @@
 package models
 
+// CustomSceneMarkerFilterInput is the input for custom scene marker filters
+type CustomSceneMarkerFilterInput struct {
+	// The filter type: circular_oral, simultaneous_orgasm, self_facial
+	Type string `json:"type"`
+	// The tag ID for 'oral' markers
+	OralTagID *string `json:"oral_tag_id"`
+	// The tag ID for 'orgasm' markers
+	OrgasmTagID *string `json:"orgasm_tag_id"`
+	// The tag ID for 'facial' markers
+	FacialTagID *string `json:"facial_tag_id"`
+}
+
 // MarkerPerformersFilterInput is the input for filtering by marker performers with top/bottom roles
 type MarkerPerformersFilterInput struct {
 	TopPerformerIDs    []string          `json:"top_performer_ids"`
@@ -66,6 +78,9 @@ type SceneMarkerFilterType struct {
 	SceneUpdatedAt *TimestampCriterionInput `json:"scene_updated_at"`
 	// Filter by related scenes that meet this criteria
 	SceneFilter *SceneFilterType `json:"scene_filter"`
+	// Custom scene marker filters: predefined complex filters
+	// Options: 'circular_oral', 'simultaneous_orgasm', 'self_facial'
+	CustomFilters *CustomSceneMarkerFilterInput `json:"custom_filters"`
 }
 
 type MarkerStringsResultType struct {

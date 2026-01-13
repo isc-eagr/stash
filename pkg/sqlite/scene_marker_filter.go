@@ -291,6 +291,8 @@ func (qb *sceneMarkerFilterHandler) criterionHandler() criterionHandler {
 				qb.joinScenes(f)
 			},
 		},
+		// Custom scene marker filters
+		qb.customFiltersCriterionHandler(sceneMarkerFilter.CustomFilters),
 	}
 }
 
@@ -1204,6 +1206,143 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 				args[i] = v
 			}
 			f.addWhere(clause, args...)
+		}
+	}
+}
+
+// customFiltersCriterionHandler applies predefined complex filters for scene markers.
+// Options:
+// - 'circular_oral': Markers tagged with oralTagId (or subtag) where all performers are both tops and bottoms
+// - 'simultaneous_orgasm': Markers tagged with orgasmTagId (or subtag) with 2 or more tops
+// - 'self_facial': Markers tagged with facialTagId (or subtag) where at least one performer is both top and bottom
+// Note: All tag checks include both primary_tag_id and secondary tags (scene_markers_tags)
+func (qb *sceneMarkerFilterHandler) customFiltersCriterionHandler(customFilters *models.CustomSceneMarkerFilterInput) criterionHandlerFunc {
+	return func(ctx context.Context, f *filterBuilder) {
+		if customFilters == nil || customFilters.Type == "" {
+			return
+		}
+
+		switch customFilters.Type {
+		case "circular_oral":
+			// Use oralTagId if provided, otherwise return early
+			if customFilters.OralTagID == nil || *customFilters.OralTagID == "" {
+				return
+			}
+			oralTagID := *customFilters.OralTagID
+
+			// Markers tagged with oralTagId (or a subtag) where ALL performers are both tops and bottoms
+			f.addWhere(fmt.Sprintf(`
+				-- Marker must be tagged with oralTagId or a descendant (primary or secondary)
+				(scene_markers.primary_tag_id IN (
+					WITH RECURSIVE oral_tags(id) AS (
+						SELECT id FROM tags WHERE id = %s
+						UNION ALL
+						SELECT tr.child_id FROM tags_relations tr JOIN oral_tags ot ON tr.parent_id = ot.id
+					)
+					SELECT id FROM oral_tags
+				)
+				OR EXISTS (
+					WITH RECURSIVE oral_tags(id) AS (
+						SELECT id FROM tags WHERE id = %s
+						UNION ALL
+						SELECT tr.child_id FROM tags_relations tr JOIN oral_tags ot ON tr.parent_id = ot.id
+					)
+					SELECT 1 FROM scene_markers_tags smt WHERE smt.scene_marker_id = scene_markers.id AND smt.tag_id IN (SELECT id FROM oral_tags)
+				))
+				-- Marker must have at least one performer
+				AND EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id)
+				-- All performers on this marker must be both top AND bottom
+				AND NOT EXISTS (
+					SELECT 1 FROM scene_marker_performers smp 
+					WHERE smp.scene_marker_id = scene_markers.id
+					AND smp.performer_id NOT IN (
+						SELECT smp2.performer_id 
+						FROM scene_marker_performers smp2 
+						WHERE smp2.scene_marker_id = scene_markers.id AND smp2.role = 'top'
+					)
+				)
+				AND NOT EXISTS (
+					SELECT 1 FROM scene_marker_performers smp 
+					WHERE smp.scene_marker_id = scene_markers.id
+					AND smp.performer_id NOT IN (
+						SELECT smp2.performer_id 
+						FROM scene_marker_performers smp2 
+						WHERE smp2.scene_marker_id = scene_markers.id AND smp2.role = 'bottom'
+					)
+				)
+			`, oralTagID, oralTagID))
+
+		case "simultaneous_orgasm":
+			// Use orgasmTagId if provided, otherwise return early
+			if customFilters.OrgasmTagID == nil || *customFilters.OrgasmTagID == "" {
+				return
+			}
+			orgasmTagID := *customFilters.OrgasmTagID
+
+			// Markers tagged with orgasmTagId (or subtag) that have 2 or more tops
+			f.addWhere(fmt.Sprintf(`
+				-- Marker must be tagged with orgasmTagId or a descendant (primary or secondary)
+				(scene_markers.primary_tag_id IN (
+					WITH RECURSIVE orgasm_tags(id) AS (
+						SELECT id FROM tags WHERE id = %s
+						UNION ALL
+						SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
+					)
+					SELECT id FROM orgasm_tags
+				)
+				OR EXISTS (
+					WITH RECURSIVE orgasm_tags(id) AS (
+						SELECT id FROM tags WHERE id = %s
+						UNION ALL
+						SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
+					)
+					SELECT 1 FROM scene_markers_tags smt WHERE smt.scene_marker_id = scene_markers.id AND smt.tag_id IN (SELECT id FROM orgasm_tags)
+				))
+				-- Marker must have 2 or more tops
+				AND (
+					SELECT COUNT(DISTINCT smp.performer_id)
+					FROM scene_marker_performers smp
+					WHERE smp.scene_marker_id = scene_markers.id AND smp.role = 'top'
+				) >= 2
+			`, orgasmTagID, orgasmTagID))
+
+		case "self_facial":
+			// Use facialTagId if provided, otherwise return early
+			if customFilters.FacialTagID == nil || *customFilters.FacialTagID == "" {
+				return
+			}
+			facialTagID := *customFilters.FacialTagID
+
+			// Markers tagged with facialTagId (or subtag) where at least one performer is both top and bottom
+			f.addWhere(fmt.Sprintf(`
+				-- Marker must be tagged with facialTagId or a descendant (primary or secondary)
+				(scene_markers.primary_tag_id IN (
+					WITH RECURSIVE facial_tags(id) AS (
+						SELECT id FROM tags WHERE id = %s
+						UNION ALL
+						SELECT tr.child_id FROM tags_relations tr JOIN facial_tags ft ON tr.parent_id = ft.id
+					)
+					SELECT id FROM facial_tags
+				)
+				OR EXISTS (
+					WITH RECURSIVE facial_tags(id) AS (
+						SELECT id FROM tags WHERE id = %s
+						UNION ALL
+						SELECT tr.child_id FROM tags_relations tr JOIN facial_tags ft ON tr.parent_id = ft.id
+					)
+					SELECT 1 FROM scene_markers_tags smt WHERE smt.scene_marker_id = scene_markers.id AND smt.tag_id IN (SELECT id FROM facial_tags)
+				))
+				-- At least one performer must be both top AND bottom on this marker
+				AND EXISTS (
+					SELECT smp.performer_id
+					FROM scene_marker_performers smp
+					WHERE smp.scene_marker_id = scene_markers.id AND smp.role = 'top'
+					INTERSECT
+					SELECT smp2.performer_id
+					FROM scene_marker_performers smp2
+					WHERE smp2.scene_marker_id = scene_markers.id AND smp2.role = 'bottom'
+				)
+			`, facialTagID, facialTagID))
 		}
 	}
 }

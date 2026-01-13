@@ -111,16 +111,32 @@ input CustomPerformerFilterInput {
   facial_tag_id: ID
 }
 
-"""
-Custom scene filter input with tag IDs for role-based filtering.
+"""Custom scene filter input with tag IDs for role-based filtering.
 """
 input CustomSceneFilterInput {
-  "The filter type: multiple_orgasms, versatile_scenes"
+  "The filter type: multiple_orgasms, versatile_scenes, circular_oral, simultaneous_orgasm, self_facial"
   type: String!
   "The tag ID for 'sex' markers (from roleTagIds.sexTagId)"
   sex_tag_id: ID
   "The tag ID for 'orgasm' markers (from roleTagIds.orgasmTagId)"
   orgasm_tag_id: ID
+  "The tag ID for 'oral' markers (from roleTagIds.oralTagId)"
+  oral_tag_id: ID
+  "The tag ID for 'facial' markers (from roleTagIds.facialTagId)"
+  facial_tag_id: ID
+}
+
+"""Custom scene marker filter input with tag IDs for role-based filtering.
+"""
+input CustomSceneMarkerFilterInput {
+  "The filter type: circular_oral, simultaneous_orgasm, self_facial"
+  type: String!
+  "The tag ID for 'oral' markers (from roleTagIds.oralTagId)"
+  oral_tag_id: ID
+  "The tag ID for 'orgasm' markers (from roleTagIds.orgasmTagId)"
+  orgasm_tag_id: ID
+  "The tag ID for 'facial' markers (from roleTagIds.facialTagId)"
+  facial_tag_id: ID
 }
 
 input PerformerFilterType {
@@ -291,6 +307,11 @@ input SceneMarkerFilterType {
   scene_updated_at: TimestampCriterionInput
   "Filter by related scenes that meet this criteria"
   scene_filter: SceneFilterType
+  """
+  Custom scene marker filters: predefined complex filters.
+  Options: 'circular_oral', 'simultaneous_orgasm'
+  """
+  custom_filters: CustomSceneMarkerFilterInput
 }
 
 "Groups of tag IDs used for Scene Marker Tags 'IS' filter. Each inner list represents the set of tags that must all be present on a single marker."

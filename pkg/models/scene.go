@@ -10,12 +10,16 @@ type PHashDuplicationCriterionInput struct {
 
 // CustomSceneFilterInput is the input for custom scene filters
 type CustomSceneFilterInput struct {
-	// The filter type: multiple_orgasms, versatile_scenes
+	// The filter type: multiple_orgasms, versatile_scenes, circular_oral, simultaneous_orgasm, self_facial
 	Type string `json:"type"`
 	// The tag ID for 'sex' markers
 	SexTagID *string `json:"sex_tag_id"`
 	// The tag ID for 'orgasm' markers
 	OrgasmTagID *string `json:"orgasm_tag_id"`
+	// The tag ID for 'oral' markers
+	OralTagID *string `json:"oral_tag_id"`
+	// The tag ID for 'facial' markers
+	FacialTagID *string `json:"facial_tag_id"`
 }
 
 type SceneFilterType struct {

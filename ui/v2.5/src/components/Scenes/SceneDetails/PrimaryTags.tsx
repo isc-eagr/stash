@@ -156,9 +156,30 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
                   {markerTitle(marker)}
                 </Button>
                 <span className="marker-timestamp text-muted ml-2">
-                  {TextUtils.formatTimestampRange(
-                    marker.seconds,
-                    marker.end_seconds ?? undefined
+                  <Button
+                    variant="link"
+                    className="p-0 text-muted"
+                    onClick={() => onClickMarker(marker)}
+                    title="Seek to start"
+                  >
+                    {TextUtils.secondsToTimestamp(marker.seconds)}
+                  </Button>
+                  {marker.end_seconds !== null && marker.end_seconds !== undefined && (
+                    <>
+                      <span>-</span>
+                      <Button
+                        variant="link"
+                        className="p-0 text-muted"
+                        onClick={() => {
+                          // Create a fake marker with seconds set to end_seconds for seeking
+                          const endMarker = { ...marker, seconds: marker.end_seconds! };
+                          onClickMarker(endMarker);
+                        }}
+                        title="Seek to end"
+                      >
+                        {TextUtils.secondsToTimestamp(marker.end_seconds)}
+                      </Button>
+                    </>
                   )}
                 </span>
                 <Button

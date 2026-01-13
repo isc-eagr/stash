@@ -31,7 +31,7 @@ This document describes all custom features and modifications added on top of th
 23. [Performer Partner Count Badges](#23-performer-partner-count-badges)
 24. [Scene Releases](#24-scene-releases)
 25. [Effective Date](#25-effective-date)
-26. [(Any) Performer Count for Scene Marker Filters](#26-any-performer-count-for-scene-marker-filters)
+26. [Clickable Marker End Timestamps](#26-clickable-marker-end-timestamps)
 
 ---
 
@@ -242,11 +242,14 @@ Each marker group supports separate top/bottom/both-roles attribute blocks:
 - `graphql/schema/types/filters.graphql` - Added `custom_filters: String` to both `SceneFilterType` and `PerformerFilterType`
 - `pkg/models/scene.go` - Added `CustomFilters` field to `SceneFilterType` struct
 - `pkg/models/performer.go` - Added `CustomFilters` field to `PerformerFilterType` struct
+- `pkg/models/scene_marker.go` - Added `CustomSceneMarkerFilterInput` struct and `CustomFilters` field to `SceneMarkerFilterType`
 - `pkg/sqlite/scene_filter.go` - `customFiltersCriterionHandler` for scenes
 - `pkg/sqlite/performer_filter.go` - `customFiltersCriterionHandler` for performers
+- `pkg/sqlite/scene_marker_filter.go` - `customFiltersCriterionHandler` for scene markers
 - `ui/v2.5/src/models/list-filter/types.ts` - Added `"custom_filters"` to `CriterionType`
-- `ui/v2.5/src/models/list-filter/criteria/custom-filters.ts` - NEW: Criterion classes for custom filters
+- `ui/v2.5/src/models/list-filter/criteria/custom-filters.ts` - NEW: Criterion classes for custom filters (Scene, Performer, and SceneMarker)
 - `ui/v2.5/src/models/list-filter/scenes.ts` - Added `SceneCustomFiltersCriterionOption`
+- `ui/v2.5/src/models/list-filter/scene-markers.ts` - Added `SceneMarkerCustomFiltersCriterionOption`
 - `ui/v2.5/src/models/list-filter/performers.ts` - Added `PerformerCustomFiltersCriterionOption`
 - `ui/v2.5/src/components/List/Filters/OptionFilter.tsx` - Enhanced with translated labels for custom_filters
 - `ui/v2.5/src/locales/en-GB.json` - Base translation strings for all filter options
@@ -255,6 +258,12 @@ Each marker group supports separate top/bottom/both-roles attribute blocks:
 **Scene Custom Filters:**
 - **Multiple Orgasms:** Scenes where any performer has 2+ orgasm markers as "top" (same as legacy filter)
 - **Versatile Scenes:** Scenes where ALL performers have at least one sexTagId marker as "top" AND at least one as "bottom"
+- **Circular Oral:** Scenes with a marker tagged with oralTagId (or a subtag) where ALL performers are both tops and bottoms on the same marker
+- **Simultaneous Orgasm:** Scenes with a marker tagged with orgasmTagId (or a subtag) that has 2 or more tops
+
+**Scene Marker Custom Filters:**
+- **Circular Oral:** Markers tagged with oralTagId (or a subtag) where ALL performers are both tops and bottoms on the same marker
+- **Simultaneous Orgasm:** Markers tagged with orgasmTagId (or a subtag) that have 2 or more tops
 
 **Performer Custom Filters:**
 - **Strict Tops:** Performers with zero sexTagId/oralTagId/facialTagId markers as bottom, but at least one sexTagId as top
@@ -270,6 +279,7 @@ Each marker group supports separate top/bottom/both-roles attribute blocks:
 **UI Usage:**
 - Filter appears in Scenes page under "Custom Filters" with radio button options
 - Filter appears in Performers page under "Custom Filters" with radio button options
+- Filter appears in Markers page (/scenes/markers) under "Custom Filters" with radio button options
 - Only one option can be selected at a time
 
 ### Backend Filter Implementations
@@ -1439,77 +1449,28 @@ input SceneFilterType {
 
 ---
 
-## 26. (Any) Performer Count for Scene Marker Filters
+## 26. Clickable Marker End Timestamps
 
 ### Overview
-Allows filtering scene markers by a minimum count of "any" top or bottom performers, rather than requiring specific performers. For example: "Show markers with at least 3 tops" without specifying which performers.
+In the Scene detail page's Markers tab, both the start and end timestamps of markers are now clickable. Clicking a timestamp will seek the video player to that position, making it easy to quickly navigate to either the beginning or end of any marker.
 
 ### Use Cases
-- Find markers with gangbang scenarios (e.g., 3+ tops)
-- Find MMF or FFM markers by performer count
-- Filter by performer density without knowing specific performers
+- Quickly jump to the start or end of any marker
+- Review marker boundaries without manual seeking
+- Efficiently navigate through long scenes with multiple markers
 
-### GraphQL Schema Changes
-**File:** `graphql/schema/types/filters.graphql`
-```graphql
-input SceneMarkerTagGroupInput {
-  ...
-  top_any_count: Int        # Minimum number of any top performers
-  bottom_any_count: Int     # Minimum number of any bottom performers
-}
-```
-
-### Backend Changes
-**File:** `pkg/models/filter.go`
-- Added `TopAnyCount *int` and `BottomAnyCount *int` to `SceneMarkerTagGroupInput` struct
-
-**File:** `pkg/sqlite/criterion_handlers.go`
-- Updated `joinedSceneMarkerTagsHandler` to generate SQL for counting performers by role
-- SQL pattern: `(SELECT COUNT(DISTINCT performer_id) FROM scene_marker_performers WHERE scene_marker_id = sm.id AND role = 'top/bottom') >= N`
-
-### Frontend Criterion Changes
-**File:** `ui/v2.5/src/models/list-filter/criteria/scene-markers.ts`
-- Added `top_any_count` and `bottom_any_count` to `ISceneMarkersGroup` interface
-
-**File:** `ui/v2.5/src/models/list-filter/criteria/scene-markers-exclude.ts`
-- Added `top_any_count` and `bottom_any_count` to `ISceneMarkersExcludeGroup` interface
-
-**File:** `ui/v2.5/src/models/list-filter/criteria/marker-top.ts`
-- Added `any_count` to `IMarkerTopFilter` interface
-
-**File:** `ui/v2.5/src/models/list-filter/criteria/marker-bottom.ts`
-- Added `any_count` to `IMarkerBottomFilter` interface
-
-**File:** `ui/v2.5/src/models/list-filter/filter.ts`
-- Updated `MarkerTopData` and `GroupExtended` types to include any_count fields
-- Updated aggregation logic to map any_count to GraphQL input
-
-### Frontend UI Changes
-**File:** `ui/v2.5/src/components/List/Filters/SceneMarkersFilter.tsx`
-- Added "(Any) Performer Count" number input for top and bottom columns
-- Disabled when specific performers are selected
-
-**File:** `ui/v2.5/src/components/List/Filters/SceneMarkersExcludeFilter.tsx`
-- Same changes as SceneMarkersFilter.tsx
-
-**File:** `ui/v2.5/src/components/List/Filters/MarkerTopFilter.tsx`
-- Added "(Any) Performer Count" number input
-
-**File:** `ui/v2.5/src/components/List/Filters/MarkerBottomFilter.tsx`
-- Same changes as MarkerTopFilter.tsx
-
-### i18n Strings
-**File:** `ui/v2.5/src/locales/en-US.json`
-- `any_performer_count`: "(Any) Performer Count"
-- `any_performer_count_placeholder`: "e.g. 2 means at least 2"
-- `any_performer_count_help`: "Minimum number of (any) top performers on this marker"
-- `bottom_any_performer_count_help`: "Minimum number of (any) bottom performers on this marker"
+### Frontend Changes
+**File:** `ui/v2.5/src/components/Scenes/SceneDetails/PrimaryTags.tsx`
+- Replaced static timestamp text with two clickable `<Button>` elements
+- Start timestamp: Seeks to marker's start position (marker.seconds)
+- End timestamp: Seeks to marker's end position (marker.end_seconds)
+- Both buttons use the same `onClickMarker` callback with appropriate seconds value
 
 ### Behavior
-- The (Any) count field is disabled when specific performers are selected
-- Count of 0 means no minimum (field is ignored)
-- Counts are additive with other filter criteria (AND logic)
-- Works in both include and exclude marker filter modes
+- Clicking the start timestamp seeks to `marker.seconds`
+- Clicking the end timestamp creates a modified marker object with `seconds` set to `end_seconds` and passes it to `onClickMarker`
+- Visual styling matches the original timestamp display using `text-muted` class
+- Buttons use minimal styling (`variant="link"`) for seamless integration
 
 ---
 

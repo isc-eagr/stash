@@ -251,6 +251,7 @@ func (qb *performerFilterHandler) hasMarkersCriterionHandler(hasMarkers *string)
 // - 'lenient_tops': Performers with at least one sexTagId as top, zero sexTagId as bottom, and at least one oralTagId or facialTagId as bottom
 // - 'strict_bottoms': Performers with zero sexTagId/oralTagId/facialTagId markers as top, but at least one sexTagId as bottom
 // - 'lenient_bottoms': Performers with at least one sexTagId as bottom, zero sexTagId as top, and at least one oralTagId or facialTagId as top
+// Note: All tag checks include both primary_tag_id and secondary tags (scene_markers_tags)
 func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *models.CustomPerformerFilterInput) criterionHandlerFunc {
 	return func(ctx context.Context, f *filterBuilder) {
 		if customFilters == nil || customFilters.Type == "" {
@@ -286,6 +287,11 @@ func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *m
 			)`, cteName, tagID, cteName)
 		}
 
+		// Helper to create tag match condition (primary or secondary)
+		tagMatchCondition := func(cteName string) string {
+			return fmt.Sprintf(`(sm.primary_tag_id IN (SELECT id FROM %s) OR EXISTS (SELECT 1 FROM scene_markers_tags smt WHERE smt.scene_marker_id = sm.id AND smt.tag_id IN (SELECT id FROM %s)))`, cteName, cteName)
+		}
+
 		sexTagsCTE := tagFamilyCTE("sex_tags", sexTagID)
 
 		switch customFilters.Type {
@@ -301,8 +307,8 @@ func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *m
 					JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 					WHERE smp.performer_id = performers.id
 					  AND smp.role = 'top'
-					  AND sm.primary_tag_id IN (SELECT id FROM sex_tags)
-				)`, sexTagsCTE))
+					  AND %s
+				)`, sexTagsCTE, tagMatchCondition("sex_tags")))
 
 			// Must NOT have sex tag as bottom
 			conditions = append(conditions, fmt.Sprintf(`
@@ -312,8 +318,8 @@ func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *m
 					JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 					WHERE smp.performer_id = performers.id
 					  AND smp.role = 'bottom'
-					  AND sm.primary_tag_id IN (SELECT id FROM sex_tags)
-				)`, sexTagsCTE))
+					  AND %s
+				)`, sexTagsCTE, tagMatchCondition("sex_tags")))
 
 			// Must NOT have oral tag as bottom (if provided)
 			if oralTagID != "" {
@@ -325,8 +331,8 @@ func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *m
 						JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 						WHERE smp.performer_id = performers.id
 						  AND smp.role = 'bottom'
-						  AND sm.primary_tag_id IN (SELECT id FROM oral_tags)
-					)`, oralTagsCTE))
+						  AND %s
+					)`, oralTagsCTE, tagMatchCondition("oral_tags")))
 			}
 
 			// Must NOT have facial tag as bottom (if provided)
@@ -339,8 +345,8 @@ func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *m
 						JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 						WHERE smp.performer_id = performers.id
 						  AND smp.role = 'bottom'
-						  AND sm.primary_tag_id IN (SELECT id FROM facial_tags)
-					)`, facialTagsCTE))
+						  AND %s
+					)`, facialTagsCTE, tagMatchCondition("facial_tags")))
 			}
 
 			f.addWhere(strings.Join(conditions, " AND "))
@@ -357,8 +363,8 @@ func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *m
 					JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 					WHERE smp.performer_id = performers.id
 					  AND smp.role = 'top'
-					  AND sm.primary_tag_id IN (SELECT id FROM sex_tags)
-				)`, sexTagsCTE))
+					  AND %s
+				)`, sexTagsCTE, tagMatchCondition("sex_tags")))
 
 			// Must NOT have sex tag as bottom
 			conditions = append(conditions, fmt.Sprintf(`
@@ -368,8 +374,8 @@ func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *m
 					JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 					WHERE smp.performer_id = performers.id
 					  AND smp.role = 'bottom'
-					  AND sm.primary_tag_id IN (SELECT id FROM sex_tags)
-				)`, sexTagsCTE))
+					  AND %s
+				)`, sexTagsCTE, tagMatchCondition("sex_tags")))
 
 			// Must have at least one oral OR facial tag as bottom
 			var orConditions []string
@@ -382,8 +388,8 @@ func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *m
 						JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 						WHERE smp.performer_id = performers.id
 						  AND smp.role = 'bottom'
-						  AND sm.primary_tag_id IN (SELECT id FROM oral_tags)
-					)`, oralTagsCTE))
+						  AND %s
+					)`, oralTagsCTE, tagMatchCondition("oral_tags")))
 			}
 			if facialTagID != "" {
 				facialTagsCTE := tagFamilyCTE("facial_tags", facialTagID)
@@ -394,8 +400,8 @@ func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *m
 						JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 						WHERE smp.performer_id = performers.id
 						  AND smp.role = 'bottom'
-						  AND sm.primary_tag_id IN (SELECT id FROM facial_tags)
-					)`, facialTagsCTE))
+						  AND %s
+					)`, facialTagsCTE, tagMatchCondition("facial_tags")))
 			}
 			if len(orConditions) > 0 {
 				conditions = append(conditions, "("+strings.Join(orConditions, " OR ")+")")
@@ -415,8 +421,8 @@ func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *m
 					JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 					WHERE smp.performer_id = performers.id
 					  AND smp.role = 'bottom'
-					  AND sm.primary_tag_id IN (SELECT id FROM sex_tags)
-				)`, sexTagsCTE))
+					  AND %s
+				)`, sexTagsCTE, tagMatchCondition("sex_tags")))
 
 			// Must NOT have sex tag as top
 			conditions = append(conditions, fmt.Sprintf(`
@@ -426,8 +432,8 @@ func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *m
 					JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 					WHERE smp.performer_id = performers.id
 					  AND smp.role = 'top'
-					  AND sm.primary_tag_id IN (SELECT id FROM sex_tags)
-				)`, sexTagsCTE))
+					  AND %s
+				)`, sexTagsCTE, tagMatchCondition("sex_tags")))
 
 			// Must NOT have oral tag as top (if provided)
 			if oralTagID != "" {
@@ -439,8 +445,8 @@ func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *m
 						JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 						WHERE smp.performer_id = performers.id
 						  AND smp.role = 'top'
-						  AND sm.primary_tag_id IN (SELECT id FROM oral_tags)
-					)`, oralTagsCTE))
+						  AND %s
+					)`, oralTagsCTE, tagMatchCondition("oral_tags")))
 			}
 
 			// Must NOT have facial tag as top (if provided)
@@ -453,8 +459,8 @@ func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *m
 						JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 						WHERE smp.performer_id = performers.id
 						  AND smp.role = 'top'
-						  AND sm.primary_tag_id IN (SELECT id FROM facial_tags)
-					)`, facialTagsCTE))
+						  AND %s
+					)`, facialTagsCTE, tagMatchCondition("facial_tags")))
 			}
 
 			f.addWhere(strings.Join(conditions, " AND "))
@@ -471,8 +477,8 @@ func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *m
 					JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 					WHERE smp.performer_id = performers.id
 					  AND smp.role = 'bottom'
-					  AND sm.primary_tag_id IN (SELECT id FROM sex_tags)
-				)`, sexTagsCTE))
+					  AND %s
+				)`, sexTagsCTE, tagMatchCondition("sex_tags")))
 
 			// Must NOT have sex tag as top
 			conditions = append(conditions, fmt.Sprintf(`
@@ -482,8 +488,8 @@ func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *m
 					JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 					WHERE smp.performer_id = performers.id
 					  AND smp.role = 'top'
-					  AND sm.primary_tag_id IN (SELECT id FROM sex_tags)
-				)`, sexTagsCTE))
+					  AND %s
+				)`, sexTagsCTE, tagMatchCondition("sex_tags")))
 
 			// Must have at least one oral OR facial tag as top
 			var orConditions []string
@@ -496,8 +502,8 @@ func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *m
 						JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 						WHERE smp.performer_id = performers.id
 						  AND smp.role = 'top'
-						  AND sm.primary_tag_id IN (SELECT id FROM oral_tags)
-					)`, oralTagsCTE))
+						  AND %s
+					)`, oralTagsCTE, tagMatchCondition("oral_tags")))
 			}
 			if facialTagID != "" {
 				facialTagsCTE := tagFamilyCTE("facial_tags", facialTagID)
@@ -508,8 +514,8 @@ func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *m
 						JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 						WHERE smp.performer_id = performers.id
 						  AND smp.role = 'top'
-						  AND sm.primary_tag_id IN (SELECT id FROM facial_tags)
-					)`, facialTagsCTE))
+						  AND %s
+					)`, facialTagsCTE, tagMatchCondition("facial_tags")))
 			}
 			if len(orConditions) > 0 {
 				conditions = append(conditions, "("+strings.Join(orConditions, " OR ")+")")

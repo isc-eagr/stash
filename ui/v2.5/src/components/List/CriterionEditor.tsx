@@ -89,10 +89,12 @@ import { SceneMarkersExcludeFilter } from "./Filters/SceneMarkersExcludeFilter";
 import {
   SceneCustomFiltersCriterion,
   PerformerCustomFiltersCriterion,
+  SceneMarkerCustomFiltersCriterion,
 } from "src/models/list-filter/criteria/custom-filters";
 import {
   SceneCustomFiltersFilter,
   PerformerCustomFiltersFilter,
+  SceneMarkerCustomFiltersFilter,
 } from "./Filters/CustomFiltersFilter";
 
 interface IGenericCriterionEditor {
@@ -500,6 +502,15 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
     if (criterion instanceof PerformerCustomFiltersCriterion) {
       return (
         <PerformerCustomFiltersFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof SceneMarkerCustomFiltersCriterion) {
+      return (
+        <SceneMarkerCustomFiltersFilter
           criterion={criterion}
           setCriterion={(nc) => setCriterion(nc)}
         />
