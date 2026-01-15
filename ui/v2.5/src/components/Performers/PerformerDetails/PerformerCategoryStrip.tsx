@@ -39,11 +39,11 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
 
   // Get role tag IDs from the new configuration
   const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-  const sexTagId = roleTagIds.sexTagId;
-  const oralTagId = roleTagIds.oralTagId;
-  const soloTagId = roleTagIds.soloTagId;
-  const facialTagId = roleTagIds.facialTagId;
-  const orgasmTagId = roleTagIds.orgasmTagId;
+  const {sexTagId} = roleTagIds;
+  const {oralTagId} = roleTagIds;
+  const {soloTagId} = roleTagIds;
+  const {facialTagId} = roleTagIds;
+  const {orgasmTagId} = roleTagIds;
 
   const p = performer as any;
   let orgasmTopCount = 0;

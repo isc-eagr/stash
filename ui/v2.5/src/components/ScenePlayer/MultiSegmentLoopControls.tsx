@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import {
   Button,
-  ButtonGroup,
   Collapse,
   Form,
   InputGroup,
@@ -17,7 +16,6 @@ import {
   faArrowUp,
   faArrowDown,
   faSave,
-  faFolderOpen,
   faTimes,
   faChevronDown,
   faChevronRight,  faRedo,} from "@fortawesome/free-solid-svg-icons";
@@ -186,7 +184,8 @@ export const MultiSegmentLoopControls: React.FC<
     setShowSaveInput(false);
   };
 
-  const handleLoadPreset = () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleLoadPreset = () => {
     if (!onLoadPreset || !selectedPreset) return;
     onLoadPreset(selectedPreset);
   };

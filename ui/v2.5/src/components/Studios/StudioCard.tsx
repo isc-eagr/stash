@@ -19,7 +19,7 @@ import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import goateeSvg from "src/assets/goatee.svg";
 
-interface PerformerStudioStats {
+interface IPerformerStudioStats {
   scene_count: number;
   sex_scene_count: number;
   oral_scene_count: number;
@@ -102,10 +102,10 @@ export const StudioCard: React.FC<IProps> = ({
 
   // Get role tag IDs from the new configuration
   const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-  const sexTagId = roleTagIds.sexTagId;
-  const oralTagId = roleTagIds.oralTagId;
-  const soloTagId = roleTagIds.soloTagId;
-  const facialTagId = roleTagIds.facialTagId;
+  const {sexTagId} = roleTagIds;
+  const {oralTagId} = roleTagIds;
+  const {soloTagId} = roleTagIds;
+  const {facialTagId} = roleTagIds;
 
   // Query tags to get their names for display
   const { data: tagsData } = GQL.useFindTagsQuery({
@@ -133,7 +133,7 @@ export const StudioCard: React.FC<IProps> = ({
   });
 
   // Memoize the performer stats to avoid recalculating on every render
-  const performerStats: PerformerStudioStats | null = useMemo(() => {
+  const performerStats: IPerformerStudioStats | null = useMemo(() => {
     if (!performerId || !performerStatsData?.findStudio) return null;
     const s = performerStatsData.findStudio;
     return {
@@ -187,6 +187,7 @@ export const StudioCard: React.FC<IProps> = ({
 
     // Use performer-filtered stats when available, otherwise use studio stats
     const count =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       performerStats?.sex_scene_count ?? (studio as any).sex_scene_count ?? 0;
     const url = performerId
       ? NavUtils.makePerformerStudioMarkerScenesUrl(
@@ -216,6 +217,7 @@ export const StudioCard: React.FC<IProps> = ({
 
     // Use performer-filtered stats when available, otherwise use studio stats
     const count =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       performerStats?.oral_scene_count ?? (studio as any).oral_scene_count ?? 0;
     
     // Oral excludes sex markers
@@ -252,6 +254,7 @@ export const StudioCard: React.FC<IProps> = ({
 
     // Use performer-filtered stats when available, otherwise use studio stats
     const count =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       performerStats?.solo_scene_count ?? (studio as any).solo_scene_count ?? 0;
     
     // Solo excludes both sex and oral markers
@@ -289,6 +292,7 @@ export const StudioCard: React.FC<IProps> = ({
     // Use performer-filtered stats when available, otherwise use studio stats
     const count =
       performerStats?.facial_scene_count ??
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (studio as any).facial_scene_count ??
       0;
     // Use depth -1 to include subtags

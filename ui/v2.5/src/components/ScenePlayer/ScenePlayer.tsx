@@ -63,6 +63,10 @@ import type {
 } from "./multi-segment-loop";
 import { MultiSegmentLoopControls } from "./MultiSegmentLoopControls";
 
+// Performer image overlay components
+import { PerformerImageSelectModal } from "./PerformerImageSelectModal";
+import { PerformerImageOverlay } from "./PerformerImageOverlay";
+
 // register videojs plugins
 airplay(videojs);
 chromecast(videojs);
@@ -302,6 +306,13 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const [pendingStart, setPendingStart] = useState<number | null>(null);
     const [showPresetModal, setShowPresetModal] = useState(false);
     const [loopSingleId, setLoopSingleId] = useState<string | null>(null);
+
+    // Performer image overlay state
+    const [showImageOverlayModal, setShowImageOverlayModal] = useState(false);
+    const [selectedOverlayImages, setSelectedOverlayImages] = useState<
+      { id: string; url: string }[]
+    >([]);
+    const [overlaysVisible, setOverlaysVisible] = useState(true);
 
     const [saveLoopPreset] = GQL.useSaveSceneMultiSegmentLoopPresetMutation();
     const [deleteLoopPreset] =
@@ -1005,6 +1016,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         }
 
         // Store update function for later use
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (toggleButton as any).__updateState = updateToggleState;
 
         return true;
@@ -1016,6 +1028,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       const updateButtonState = () => {
         const toggleBtn = controlBar.querySelector(
           ".vjs-multi-segment-toggle"
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ) as any;
         toggleBtn?.__updateState?.();
       };
@@ -1036,6 +1049,116 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         clearInterval(checkPluginReady);
       };
     }, [getPlayer]);
+
+    // Create performer image overlay button in control bar
+    useEffect(() => {
+      const player = getPlayer();
+      if (!player) return;
+
+      const controlBar = player.el()?.querySelector(".vjs-control-bar");
+      if (!controlBar) return;
+
+      // Check if button already exists
+      if (controlBar.querySelector(".vjs-performer-image-overlay-btn")) return;
+
+      // Create the image select button
+      const overlayButton = document.createElement("div");
+      overlayButton.className = "vjs-performer-image-overlay-btn vjs-button";
+      overlayButton.setAttribute("role", "button");
+      overlayButton.tabIndex = 0;
+      overlayButton.setAttribute("title", "Select Performer Images");
+
+      const iconSpan = document.createElement("span");
+      iconSpan.className = "vjs-icon-placeholder";
+      iconSpan.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="16" height="16" fill="currentColor"><path d="M0 96C0 60.7 28.7 32 64 32H448c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96zM323.8 202.5c-4.5-6.6-11.9-10.5-19.8-10.5s-15.4 3.9-19.8 10.5l-87 127.6L170.7 297c-4.6-5.7-11.5-9-18.7-9s-14.2 3.3-18.7 9l-64 80c-5.8 7.2-6.9 17.1-2.9 25.4s12.4 13.6 21.6 13.6h96 32H424c8.9 0 17.1-4.9 21.2-12.8s3.6-17.4-1.4-24.7l-120-176zM112 192a48 48 0 1 0 0-96 48 48 0 1 0 0 96z"/></svg>`;
+      overlayButton.appendChild(iconSpan);
+
+      // Click handler - open the image selection modal
+      overlayButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setShowImageOverlayModal(true);
+      });
+
+      // Create the show/hide toggle button
+      const toggleButton = document.createElement("div");
+      toggleButton.className = "vjs-performer-image-toggle-btn vjs-button";
+      toggleButton.setAttribute("role", "button");
+      toggleButton.tabIndex = 0;
+      toggleButton.setAttribute("title", "Toggle Image Visibility");
+      toggleButton.style.display = "none"; // Hidden until images are selected
+
+      const toggleIconSpan = document.createElement("span");
+      toggleIconSpan.className = "vjs-icon-placeholder";
+      // Eye icon for visibility toggle
+      toggleIconSpan.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" width="16" height="16" fill="currentColor"><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM144 256a144 144 0 1 1 288 0 144 144 0 1 1 -288 0zm144-64c0 35.3-28.7 64-64 64c-7.1 0-13.9-1.2-20.3-3.3c-5.5-1.8-11.9 1.6-11.7 7.4c.3 6.9 1.3 13.8 3.2 20.7c13.7 51.2 66.4 81.6 117.6 67.9s81.6-66.4 67.9-117.6c-11.1-41.5-47.8-69.4-88.6-71.1c-5.8-.2-9.2 6.1-7.4 11.7c2.1 6.4 3.3 13.2 3.3 20.3z"/></svg>`;
+      toggleButton.appendChild(toggleIconSpan);
+
+      // Click handler - toggle visibility
+      toggleButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setOverlaysVisible((prev) => !prev);
+      });
+
+      // Insert before playback rate button (same position pattern as multi-segment loop)
+      const playbackRateBtn = controlBar.querySelector(".vjs-playback-rate");
+      const multiSegmentEdit = controlBar.querySelector(".vjs-multi-segment-edit");
+      
+      // Insert both buttons together - overlay button first, then toggle button right after it
+      if (multiSegmentEdit && multiSegmentEdit.nextSibling) {
+        controlBar.insertBefore(overlayButton, multiSegmentEdit.nextSibling);
+        // Insert toggle right after overlay button
+        if (overlayButton.nextSibling) {
+          controlBar.insertBefore(toggleButton, overlayButton.nextSibling);
+        } else {
+          controlBar.appendChild(toggleButton);
+        }
+      } else if (playbackRateBtn) {
+        controlBar.insertBefore(overlayButton, playbackRateBtn);
+        controlBar.insertBefore(toggleButton, playbackRateBtn);
+      } else {
+        const fullscreenBtn = controlBar.querySelector(".vjs-fullscreen-control");
+        if (fullscreenBtn) {
+          controlBar.insertBefore(overlayButton, fullscreenBtn);
+          controlBar.insertBefore(toggleButton, fullscreenBtn);
+        } else {
+          controlBar.appendChild(overlayButton);
+          controlBar.appendChild(toggleButton);
+        }
+      }
+    }, [getPlayer]);
+
+    // Update performer image overlay buttons based on state
+    useEffect(() => {
+      const player = getPlayer();
+      if (!player) return;
+
+      const controlBar = player.el()?.querySelector(".vjs-control-bar");
+      const overlayBtn = controlBar?.querySelector(".vjs-performer-image-overlay-btn") as HTMLElement | null;
+      const toggleBtn = controlBar?.querySelector(".vjs-performer-image-toggle-btn") as HTMLElement | null;
+
+      // Show/hide toggle button based on whether images are selected
+      if (toggleBtn) {
+        toggleBtn.style.display = selectedOverlayImages.length > 0 ? "" : "none";
+        
+        // Update toggle button appearance based on visibility state
+        if (overlaysVisible) {
+          toggleBtn.classList.remove("hidden-state");
+          toggleBtn.setAttribute("title", "Hide Performer Images");
+        } else {
+          toggleBtn.classList.add("hidden-state");
+          toggleBtn.setAttribute("title", "Show Performer Images");
+        }
+      }
+
+      // Update button active state based on selected images
+      if (overlayBtn) {
+        if (selectedOverlayImages.length > 0) {
+          overlayBtn.classList.add("active");
+        } else {
+          overlayBtn.classList.remove("active");
+        }
+      }
+    }, [getPlayer, selectedOverlayImages.length, overlaysVisible]);
 
     useEffect(() => {
       if (scene.interactive && interactiveInitialised) {
@@ -1577,6 +1700,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         visited.add(tag.id);
         // Recursively check all parents (ancestors)
         const parents = tag.parents ?? [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return parents.some((p) => tagMatches(p as any, targetId, visited));
       };
 
@@ -1646,6 +1770,31 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             />,
             fullscreen && _player?.el() ? _player.el()! : document.body
           )}
+        {/* Performer Image Overlay Modal */}
+        {showImageOverlayModal &&
+          createPortal(
+            <PerformerImageSelectModal
+              performerIds={scene.performers.map((p) => p.id)}
+              galleryIds={[
+                ...(scene.galleries?.map((g) => g.id) ?? []),
+                ...(scene.releases?.flatMap((r) => r.galleries?.map((g) => g.id) ?? []) ?? []),
+              ]}
+              selectedImages={selectedOverlayImages}
+              onConfirm={(images) => setSelectedOverlayImages(images)}
+              onClose={() => setShowImageOverlayModal(false)}
+              isFullscreen={fullscreen}
+            />,
+            fullscreen && _player?.el() ? _player.el()! : document.body
+          )}
+        {/* Performer Image Overlays */}
+        {selectedOverlayImages.length > 0 && (
+          <PerformerImageOverlay
+            images={selectedOverlayImages}
+            portalTarget={(_player?.el() as HTMLElement) ?? null}
+            isFullscreen={fullscreen}
+            overlaysVisible={overlaysVisible}
+          />
+        )}
       </div>
     );
   }

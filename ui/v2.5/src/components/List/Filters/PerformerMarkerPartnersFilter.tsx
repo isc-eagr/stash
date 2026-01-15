@@ -6,10 +6,9 @@ import Select, {
   OptionProps,
   MultiValueProps,
 } from "react-select";
-import { CriterionModifier } from "src/core/generated-graphql";
+import { CriterionModifier , usePerformerEthnicitiesQuery } from "src/core/generated-graphql";
 import { getCountries } from "src/utils/country";
 import { CountryFlag } from "src/components/Shared/CountryFlag";
-import { usePerformerEthnicitiesQuery } from "src/core/generated-graphql";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import {
   PerformerMarkerPartnersCriterion,
@@ -21,7 +20,6 @@ import {
   PerformerIDSelect,
   Performer,
 } from "src/components/Performers/PerformerSelect";
-import { ILabeledId } from "src/models/list-filter/types";
 
 const ratingModifiers: {
   value: CriterionModifier;
@@ -119,7 +117,8 @@ const PerformerMarkerPartnersFilter: React.FC<
 
   const currentRating = criterion.value.partner_rating;
   const currentModifier = currentRating?.modifier ?? CriterionModifier.Equals;
-  const currentModDef = ratingModifiers.find(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _currentModDef = ratingModifiers.find(
     (m) => m.value === currentModifier
   );
 

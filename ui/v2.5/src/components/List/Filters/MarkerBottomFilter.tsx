@@ -6,14 +6,13 @@ import Select, {
   MultiValueProps,
 } from "react-select";
 import { FormattedMessage, useIntl } from "react-intl";
-import { CriterionModifier } from "src/core/generated-graphql";
+import { CriterionModifier , usePerformerEthnicitiesQuery } from "src/core/generated-graphql";
 import {
   PerformerIDSelect,
   Performer,
 } from "src/components/Performers/PerformerSelect";
 import { getCountries } from "src/utils/country";
 import { CountryFlag } from "src/components/Shared/CountryFlag";
-import { usePerformerEthnicitiesQuery } from "src/core/generated-graphql";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import { faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { Icon } from "src/components/Shared/Icon";

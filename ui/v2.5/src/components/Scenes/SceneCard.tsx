@@ -4,7 +4,6 @@ import {
   ButtonGroup,
   OverlayTrigger,
   Tooltip,
-  Badge,
 } from "react-bootstrap";
 import { useHistory } from "react-router-dom";
 import cx from "classnames";
@@ -354,7 +353,7 @@ const SceneCardOverlays = PatchComponent(
     // Check if scene has facial markers based on configured facial tag ID (including subtags)
     const hasFacial = useMemo(() => {
       const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-      const facialTagId = roleTagIds.facialTagId;
+      const {facialTagId} = roleTagIds;
       if (!facialTagId) return false;
 
       // Helper to check if a tag matches (including recursive parent/child relationships)
@@ -371,10 +370,12 @@ const SceneCardOverlays = PatchComponent(
         visited.add(tag.id);
         // Recursively check all parents (ancestors)
         const parents = tag.parents ?? [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return parents.some((p) => tagMatches(p as any, targetId, visited));
       };
 
       // Check scene markers for facial tag (including subtags)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sceneMarkers = (props.scene as any).scene_markers ?? [];
       for (const marker of sceneMarkers) {
         if (tagMatches(marker?.primary_tag, facialTagId)) {
@@ -505,13 +506,14 @@ export const SceneCard = PatchComponent(
     const iconToShow = useMemo(() => {
       // Get role tag IDs from configuration
       const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-      const sexTagId = roleTagIds.sexTagId;
-      const oralTagId = roleTagIds.oralTagId;
-      const soloTagId = roleTagIds.soloTagId;
-      const facialTagId = roleTagIds.facialTagId;
+      const {sexTagId} = roleTagIds;
+      const {oralTagId} = roleTagIds;
+      const {soloTagId} = roleTagIds;
+      const {facialTagId} = roleTagIds;
 
       // Helper to check if a tag matches (including recursive parent/child relationships)
       // Returns true if tag.id === targetId OR any ancestor of tag has id === targetId
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const tagMatches = (tag: any, targetId: string | undefined, visited: Set<string> = new Set()): boolean => {
         if (!targetId || !tag) return false;
         if (tag.id === targetId) return true;
@@ -520,11 +522,13 @@ export const SceneCard = PatchComponent(
         visited.add(tag.id);
         // Recursively check all parents (ancestors)
         const parents = tag.parents ?? [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return parents.some((p: any) => tagMatches(p, targetId, visited));
       };
 
       // Get scene marker tag IDs (including hierarchy)
       const markerTagIds = new Set<string>();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sceneMarkers = (props.scene as any).scene_markers ?? [];
       for (const marker of sceneMarkers) {
         // Check primary tag
@@ -584,6 +588,7 @@ export const SceneCard = PatchComponent(
     const pretitleIcon = useMemo(() => {
       const pieces: JSX.Element[] = [];
       if (iconToShow) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const t = (iconToShow as any).type as string | undefined;
         if (
           t === "mouth" ||
@@ -604,6 +609,7 @@ export const SceneCard = PatchComponent(
                   : mouthSvg
               }
               alt={
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 (iconToShow as any).title ||
                 (t === "gay"
                   ? "Gay"
@@ -613,7 +619,9 @@ export const SceneCard = PatchComponent(
                   ? "Facial"
                   : "Open Mouth")
               }
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               title={(iconToShow as any).title}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               className={(iconToShow as any).className}
             />
           );
@@ -622,8 +630,11 @@ export const SceneCard = PatchComponent(
           pieces.push(
             <Icon
               key="primary"
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               icon={(iconToShow as any).icon!}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               className={(iconToShow as any).className}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               title={(iconToShow as any).title}
             />
           );

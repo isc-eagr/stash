@@ -38,6 +38,7 @@ export class PerformerMarkerTagsCriterion extends Criterion {
   };
 
   constructor(option?: CriterionOption) {
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     super(option ?? PerformerMarkerTagsCriterionOption);
   }
 

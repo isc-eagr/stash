@@ -6,7 +6,7 @@ import Select, {
   MultiValueProps,
 } from "react-select";
 import { FormattedMessage, useIntl } from "react-intl";
-import { CriterionModifier } from "src/core/generated-graphql";
+import { CriterionModifier , usePerformerEthnicitiesQuery } from "src/core/generated-graphql";
 import { MarkerPerformersCriterion } from "src/models/list-filter/criteria/marker-performers";
 import {
   PerformerIDSelect,
@@ -18,7 +18,6 @@ import { Icon } from "src/components/Shared/Icon";
 import { RatingCriterion } from "src/models/list-filter/criteria/tags";
 import { getCountries } from "src/utils/country";
 import { CountryFlag } from "src/components/Shared/CountryFlag";
-import { usePerformerEthnicitiesQuery } from "src/core/generated-graphql";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 
 const ratingModifiers: {
@@ -160,7 +159,8 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
   // Top rating helpers
   const topRating = criterion.value.top_rating;
   const topModifier = topRating?.modifier ?? CriterionModifier.Equals;
-  const topModDef = ratingModifiers.find((m) => m.value === topModifier);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _topModDef = ratingModifiers.find((m) => m.value === topModifier);
 
   const onTopRatingModifierChange = (m: CriterionModifier) => {
     onTopRatingChange({
@@ -193,7 +193,8 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
   // Bottom rating helpers
   const bottomRating = criterion.value.bottom_rating;
   const bottomModifier = bottomRating?.modifier ?? CriterionModifier.Equals;
-  const bottomModDef = ratingModifiers.find((m) => m.value === bottomModifier);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _bottomModDef = ratingModifiers.find((m) => m.value === bottomModifier);
 
   const onBottomRatingModifierChange = (m: CriterionModifier) => {
     onBottomRatingChange({

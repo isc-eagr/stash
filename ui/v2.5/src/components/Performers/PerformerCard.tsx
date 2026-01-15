@@ -13,9 +13,6 @@ import { TagLink } from "../Shared/TagLink";
 import {
   Button,
   ButtonGroup,
-  Badge,
-  OverlayTrigger,
-  Tooltip,
 } from "react-bootstrap";
 import {
   ModifierCriterion,
@@ -72,10 +69,10 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     const roleTagIds = configuration?.ui?.roleTagIds ?? {};
 
     // Get configured tag IDs directly (no need to query by name)
-    const sexTagId = roleTagIds.sexTagId;
-    const oralTagId = roleTagIds.oralTagId;
-    const soloTagId = roleTagIds.soloTagId;
-    const facialTagId = roleTagIds.facialTagId;
+    const {sexTagId} = roleTagIds;
+    const {oralTagId} = roleTagIds;
+    const {soloTagId} = roleTagIds;
+    const {facialTagId} = roleTagIds;
 
     function maybeRenderScenesPopoverButton() {
       if (!performer.scene_count) return;
@@ -187,7 +184,8 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     }
 
     // Sex scenes - gay icon with top/bottom sub-counts
-    function maybeRenderSexScenesButton() {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    function _maybeRenderSexScenesButton() {
       if (!sexTagId) return null;
 
       const count = performer.sex_scene_count ?? 0;
@@ -227,7 +225,8 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     }
 
     // Oral scenes - mouth icon with top/bottom sub-counts
-    function maybeRenderOralScenesButton() {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    function _maybeRenderOralScenesButton() {
       if (!oralTagId) return null;
 
       const count = performer.oral_scene_count ?? 0;
@@ -267,7 +266,8 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     }
 
     // Solo scenes - hand icon (no top/bottom for solo)
-    function maybeRenderSoloScenesButton() {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    function _maybeRenderSoloScenesButton() {
       if (!soloTagId) return null;
 
       const count = performer.solo_scene_count ?? 0;
@@ -291,7 +291,8 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     }
 
     // Facial scenes - goatee icon with top/bottom sub-counts
-    function maybeRenderFacialScenesButton() {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    function _maybeRenderFacialScenesButton() {
       if (!facialTagId) return null;
 
       const count = performer.facial_scene_count ?? 0;
@@ -331,7 +332,8 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     }
 
     // Check if any role tag is configured
-    const hasCategoryButtons = !!(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _hasCategoryButtons = !!(
       sexTagId ||
       oralTagId ||
       soloTagId ||
@@ -488,7 +490,8 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Details",
   ({ performer, ageFromDate, sceneId }) => {
     const intl = useIntl();
-    const { configuration } = useConfigurationContext();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { configuration: _configuration } = useConfigurationContext();
 
     const age = TextUtils.age(
       performer.birthdate,

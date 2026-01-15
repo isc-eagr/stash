@@ -80,10 +80,10 @@ export const PerformerRolesPanel: React.FC<IPerformerRolesPanelProps> =
 
     // Get role tag IDs from configuration
     const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-    const sexTagId = roleTagIds.sexTagId;
-    const oralTagId = roleTagIds.oralTagId;
-    const soloTagId = roleTagIds.soloTagId;
-    const facialTagId = roleTagIds.facialTagId;
+    const {sexTagId} = roleTagIds;
+    const {oralTagId} = roleTagIds;
+    const {soloTagId} = roleTagIds;
+    const {facialTagId} = roleTagIds;
 
     if (!active) return null;
 

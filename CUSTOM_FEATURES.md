@@ -32,6 +32,7 @@ This document describes all custom features and modifications added on top of th
 24. [Scene Releases](#24-scene-releases)
 25. [Effective Date](#25-effective-date)
 26. [Clickable Marker End Timestamps](#26-clickable-marker-end-timestamps)
+27. [Performer Image Overlay on Video Player](#27-performer-image-overlay-on-video-player)
 
 ---
 
@@ -1471,6 +1472,65 @@ In the Scene detail page's Markers tab, both the start and end timestamps of mar
 - Clicking the end timestamp creates a modified marker object with `seconds` set to `end_seconds` and passes it to `onClickMarker`
 - Visual styling matches the original timestamp display using `text-muted` class
 - Buttons use minimal styling (`variant="link"`) for seamless integration
+
+---
+
+## 27. Performer Image Overlay on Video Player
+
+### Overview
+A new feature in the scene video player that allows overlaying up to 2 images on top of the video. Images are selected from the image library filtered by the scene's performers. Overlays are draggable, resizable, and can be hidden by clicking on them. Works in both normal and fullscreen modes.
+
+### Use Cases
+- Display performer reference images while watching a scene
+- Compare performer appearances across different content
+- Quick reference for performer identification during playback
+
+### Frontend Changes
+
+**New Files:**
+- `ui/v2.5/src/components/ScenePlayer/PerformerImageSelectModal.tsx`
+  - Modal component for browsing and selecting performer images
+  - Uses `useFindImagesLazyQuery` with performer filter
+  - Paginated grid display with 40 images per page
+  - Allows selecting up to 2 images
+  - Displays thumbnails in grid, confirms with full image URLs
+
+- `ui/v2.5/src/components/ScenePlayer/PerformerImageOverlay.tsx`
+  - Overlay component that renders selected images on the video
+  - Uses `createPortal` for proper z-index handling in fullscreen
+  - Draggable positioning with mouse events
+  - Resizable with corner handle (maintains aspect ratio feel)
+  - Click-to-hide functionality
+  - Reports hidden count to parent for badge display
+
+**Modified Files:**
+- `ui/v2.5/src/components/ScenePlayer/ScenePlayer.tsx`
+  - Added imports for new components
+  - Added state: `showImageOverlayModal`, `selectedOverlayImages`, `hiddenOverlayCount`
+  - Added useEffect to create control bar button (image icon SVG)
+  - Added useEffect to update button badge when overlays are hidden
+  - Added portal renders for modal and overlay components
+
+- `ui/v2.5/src/components/ScenePlayer/styles.scss`
+  - `.vjs-performer-image-overlay-btn` - Control bar button styling with badge
+  - `.performer-image-select-backdrop` / `.performer-image-select-modal` - Modal styling
+  - `.pis-*` classes - Modal header, content, grid, pagination, footer
+  - `.performer-image-overlay` - Overlay styling with drag/resize handles
+
+### Behavior
+1. Click the image icon button in the video player control bar
+2. Modal opens showing all images belonging to scene performers (paginated)
+3. Select up to 2 images by clicking on thumbnails
+4. Confirm selection - overlays appear on video
+5. Drag overlays to reposition, use corner handle to resize
+6. Click on an overlay to hide it (badge shows hidden count)
+7. Reopen modal and confirm to show hidden overlays again
+8. State resets on page reload (no persistence)
+
+### Dependencies
+- Uses existing `GQL.useFindImagesLazyQuery` for image querying
+- Uses existing `CriterionModifier.Includes` for performer filtering
+- Uses `createPortal` from React for fullscreen overlay support
 
 ---
 

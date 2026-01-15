@@ -10,6 +10,7 @@ import {
   useFindImagesMetadata,
 } from "src/core/StashService";
 import { ItemList, ItemListContext, showWhenSelected } from "../List/ItemList";
+import { useQueryResultContext } from "../List/ListProvider";
 import { useLightbox } from "src/hooks/Lightbox/hooks";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import { DisplayMode } from "src/models/list-filter/types";
@@ -24,9 +25,24 @@ import { objectTitle } from "src/core/files";
 import { useConfigurationContext } from "src/hooks/Config";
 import { ImageGridCard } from "./ImageGridCard";
 import { View } from "../List/views";
-import { IItemListOperation } from "../List/FilteredListToolbar";
+import { IFilteredListToolbar, IItemListOperation } from "../List/FilteredListToolbar";
 import { FileSize } from "../Shared/FileSize";
 import { PatchComponent } from "src/patch";
+import { ImageQueueIndicator } from "./ImageQueueIndicator";
+import { useImageQueue } from "src/hooks/ImageQueue";
+import { useToast } from "src/hooks/Toast";
+import { ButtonToolbar, ButtonGroup } from "react-bootstrap";
+import {
+  SearchTermInput,
+  SortBySelect,
+  PageSizeSelector,
+} from "../List/ListFilter";
+import { SavedFilterDropdown } from "../List/SavedFilterList";
+import { FilterButton } from "../List/Filters/FilterButton";
+import { ListOperationButtons } from "../List/ListOperationButtons";
+import { ListViewButtonGroup } from "../List/ListViewOptions";
+import { useFilterOperations } from "../List/util";
+import cx from "classnames";
 
 interface IImageWallProps {
   images: GQL.SlimImageDataFragment[];
@@ -459,6 +475,100 @@ export const ImageList: React.FC<IImageList> = PatchComponent(
       return <DeleteImagesDialog selected={selectedImages} onClose={onClose} />;
     }
 
+    function renderToolbar(props: IFilteredListToolbar) {
+      const {
+        filter,
+        setFilter,
+        showEditFilter,
+        view: toolbarView,
+        listSelect,
+        onEdit,
+        onDelete,
+        operations,
+      } = props;
+      const filterOptions = filter.options;
+      const { setDisplayMode, setZoom } = useFilterOperations({
+        filter,
+        setFilter,
+      });
+      const { selectedIds } = listSelect;
+      const hasSelection = selectedIds.size > 0;
+      const zoomable =
+        filter.displayMode === DisplayMode.Grid ||
+        filter.displayMode === DisplayMode.Wall;
+
+      // Get the query result to access images for add to queue
+      const { result } =
+        useQueryResultContext<
+          GQL.FindImagesQueryResult,
+          GQL.SlimImageDataFragment
+        >();
+
+      // Get selected images for the queue indicator
+      const selectedImages = useMemo(() => {
+        if (!result.data?.findImages?.images) return [];
+        return Array.from(selectedIds)
+          .map((id) => result.data?.findImages?.images.find((img) => img.id === id))
+          .filter((img): img is GQL.SlimImageDataFragment => img !== undefined);
+      }, [result.data?.findImages?.images, selectedIds]);
+
+      return (
+        <ButtonToolbar
+          className={cx("filtered-list-toolbar", {
+            "has-selection": hasSelection,
+          })}
+        >
+          <SearchTermInput filter={filter} onFilterUpdate={setFilter} />
+
+          <ButtonGroup>
+            <SavedFilterDropdown
+              filter={filter}
+              onSetFilter={setFilter}
+              view={toolbarView}
+            />
+            <FilterButton
+              onClick={() => showEditFilter()}
+              count={filter.count()}
+            />
+          </ButtonGroup>
+
+          <SortBySelect
+            sortBy={filter.sortBy}
+            sortDirection={filter.sortDirection}
+            options={filterOptions.sortByOptions}
+            onChangeSortBy={(e) => setFilter(filter.setSortBy(e ?? undefined))}
+            onChangeSortDirection={() => setFilter(filter.toggleSortDirection())}
+            onReshuffleRandomSort={() => setFilter(filter.reshuffleRandomSort())}
+          />
+
+          <PageSizeSelector
+            pageSize={filter.itemsPerPage}
+            setPageSize={(size) => setFilter(filter.setPageSize(size))}
+          />
+
+          <ListOperationButtons
+            onSelectAll={listSelect.onSelectAll}
+            onSelectNone={listSelect.onSelectNone}
+            otherOperations={operations}
+            itemsSelected={hasSelection}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
+
+          <ListViewButtonGroup
+            displayMode={filter.displayMode}
+            displayModeOptions={filterOptions.displayModeOptions}
+            onSetDisplayMode={setDisplayMode}
+            zoomIndex={zoomable ? filter.zoomIndex : undefined}
+            onSetZoom={zoomable ? setZoom : undefined}
+          />
+
+          {/* Image queue indicator - visually separated at the end */}
+          <ImageQueueIndicator selectedImages={selectedImages} className="ml-2" />
+        </ButtonToolbar>
+      );
+    }
+
     return (
       <ItemListContext
         filterMode={filterMode}
@@ -479,6 +589,7 @@ export const ImageList: React.FC<IImageList> = PatchComponent(
           renderEditDialog={renderEditDialog}
           renderDeleteDialog={renderDeleteDialog}
           renderMetadataByline={renderMetadataByline}
+          renderToolbar={renderToolbar}
         />
       </ItemListContext>
     );

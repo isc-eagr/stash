@@ -24,10 +24,10 @@ export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
 
   // Get role tag IDs from the new configuration
   const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-  const sexTagId = roleTagIds.sexTagId;
-  const oralTagId = roleTagIds.oralTagId;
-  const soloTagId = roleTagIds.soloTagId;
-  const facialTagId = roleTagIds.facialTagId;
+  const {sexTagId} = roleTagIds;
+  const {oralTagId} = roleTagIds;
+  const {soloTagId} = roleTagIds;
+  const {facialTagId} = roleTagIds;
 
   // Query all tags to get their names for display
   const { data: tagsData } = GQL.useFindTagsQuery({

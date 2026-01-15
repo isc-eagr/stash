@@ -13,7 +13,7 @@ import Select, {
   MultiValueProps,
 } from "react-select";
 import { FormattedMessage, useIntl } from "react-intl";
-import { CriterionModifier } from "src/core/generated-graphql";
+import { CriterionModifier , usePerformerEthnicitiesQuery } from "src/core/generated-graphql";
 import {
   SceneMarkersExcludeCriterion,
   ISceneMarkersExcludeGroup,
@@ -33,7 +33,6 @@ import { Icon } from "src/components/Shared/Icon";
 import { RatingCriterion } from "src/models/list-filter/criteria/tags";
 import { getCountries } from "src/utils/country";
 import { CountryFlag } from "src/components/Shared/CountryFlag";
-import { usePerformerEthnicitiesQuery } from "src/core/generated-graphql";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 
 const ratingModifiers: {

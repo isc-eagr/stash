@@ -1,24 +1,11 @@
-import React, { useMemo } from "react";
-import {
-  CriterionModifier,
-  TagDataFragment,
-  TagFilterType,
-  useFindTagsForSelectQuery,
-} from "src/core/generated-graphql";
-import { sortByRelevance } from "src/utils/query";
-import { ListFilterModel } from "src/models/list-filter/filter";
-import {
-  IUseQueryHookProps,
-  makeQueryVariables,
-  setObjectFilter,
-} from "./LabeledIdFilter";
+import React from "react";
+import { CriterionModifier } from "src/core/generated-graphql";
 import { PerformerMarkerTagsCriterion } from "src/models/list-filter/criteria/performer-marker-tags";
 import { ModifierSelectorButtons } from "../ModifierSelect";
 import { ModifierCriterionOption } from "src/models/list-filter/criteria/criterion";
 import { Form } from "react-bootstrap";
 import { useIntl } from "react-intl";
-import { TagSelect } from "src/components/Tags/TagSelect";
-import { ILabeledId } from "src/models/list-filter/types";
+import { TagSelect, Tag } from "src/components/Tags/TagSelect";
 
 interface IPerformerMarkerTagsFilter {
   criterion: PerformerMarkerTagsCriterion;
@@ -37,16 +24,19 @@ const PerformerMarkerTagsFilter: React.FC<IPerformerMarkerTagsFilter> = ({
     setCriterion(newC);
   };
 
-  const handleTagsChange = (tags: { id: string; name: string }[]) => {
+  const handleTagsChange = (tags: Tag[]) => {
     const newC = criterion.clone() as PerformerMarkerTagsCriterion;
-    newC.value.tag_ids = tags.map((t) => ({ id: t.id, label: t.name }));
+    newC.value.tag_ids = tags.map((t) => ({ id: t.id, label: t.name ?? t.id }));
     setCriterion(newC);
   };
 
+  // Cast to Tag[] - the TagSelect component only really uses id and name
   const currentTags = criterion.value.tag_ids.map((t) => ({
     id: t.id,
     name: t.label,
-  })) as any[];
+    aliases: [],
+    stash_ids: [],
+  })) as Tag[];
 
   return (
     <div>

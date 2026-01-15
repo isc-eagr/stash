@@ -1,22 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useLazyQuery } from "@apollo/client";
 import { FormattedMessage, FormattedNumber } from "react-intl";
-import { LoadingIndicator } from "./Shared/LoadingIndicator";
 import { Button, Form, Card, ProgressBar } from "react-bootstrap";
 import { TagSelect, Tag } from "./Tags/TagSelect";
 import { Icon } from "./Shared/Icon";
-import {
-  faPlus,
-  faTrash,
-  faEdit,
-  faSave,
-  faTimes,
-} from "@fortawesome/free-solid-svg-icons";
+import { faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import { useConfigureUISetting, useStats } from "src/core/StashService";
 import { useConfigurationContext } from "src/hooks/Config";
 
-interface ProgressTracker {
+interface IProgressTracker {
   id: string;
   name: string;
   initialValue: number;
@@ -31,9 +24,8 @@ const TaskProgress: React.FC = () => {
   const [saveUISetting] = useConfigureUISetting();
   const { data: statsData, loading: statsLoading } = useStats();
 
-  const [trackers, setTrackers] = useState<ProgressTracker[]>([]);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [newTracker, setNewTracker] = useState<Partial<ProgressTracker>>({
+  const [trackers, setTrackers] = useState<IProgressTracker[]>([]);
+  const [newTracker, setNewTracker] = useState<Partial<IProgressTracker>>({
     name: "",
     initialValue: 0,
     tagId: "",
@@ -45,6 +37,7 @@ const TaskProgress: React.FC = () => {
   // Load trackers from UI config on mount
   useEffect(() => {
     if (configuration?.ui) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const stored = (configuration.ui as any)[UI_KEY];
       if (stored && Array.isArray(stored)) {
         setTrackers(stored);
@@ -53,7 +46,7 @@ const TaskProgress: React.FC = () => {
   }, [configuration]);
 
   // Save trackers to backend whenever they change
-  const saveTrackers = async (newTrackers: ProgressTracker[]) => {
+  const saveTrackers = async (newTrackers: IProgressTracker[]) => {
     try {
       await saveUISetting({
         variables: {
@@ -132,7 +125,7 @@ const TaskProgress: React.FC = () => {
       return;
     }
 
-    const tracker: ProgressTracker = {
+    const tracker: IProgressTracker = {
       id: Date.now().toString(),
       name: newTracker.name,
       initialValue: newTracker.initialValue,
@@ -155,7 +148,7 @@ const TaskProgress: React.FC = () => {
     setSceneCounts(newCounts);
   };
 
-  const calculatePercentage = (tracker: ProgressTracker): number => {
+  const calculatePercentage = (tracker: IProgressTracker): number => {
     const count = sceneCounts[tracker.id] ?? 0;
     if (tracker.initialValue === 0) return 0;
     const done = tracker.initialValue - count;

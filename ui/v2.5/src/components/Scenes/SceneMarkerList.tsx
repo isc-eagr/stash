@@ -226,11 +226,6 @@ export const SceneMarkerList: React.FC<ISceneMarkerList> = PatchComponent(
             setPageSize={(size) => setFilter(filter.setPageSize(size))}
           />
 
-          {/* Queue indicator with add button */}
-          <MarkerQueueIndicator
-            onAddToQueue={handleAddToQueue}
-            selectedCount={selectedIds.size}
-          />
           <ListOperationButtons
             onSelectAll={listSelect.onSelectAll}
             onSelectNone={listSelect.onSelectNone}
@@ -246,6 +241,13 @@ export const SceneMarkerList: React.FC<ISceneMarkerList> = PatchComponent(
             onSetDisplayMode={setDisplayMode}
             zoomIndex={zoomable ? filter.zoomIndex : undefined}
             onSetZoom={zoomable ? setZoom : undefined}
+          />
+
+          {/* Queue indicator with add button - visually separated at the end */}
+          <MarkerQueueIndicator
+            className="ml-2"
+            onAddToQueue={handleAddToQueue}
+            selectedCount={selectedIds.size}
           />
         </ButtonToolbar>
       );

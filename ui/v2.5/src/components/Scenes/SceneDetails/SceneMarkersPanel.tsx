@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
-import { Button, ButtonGroup, Form } from "react-bootstrap";
-import { FormattedMessage, useIntl } from "react-intl";
+import { Button, Form } from "react-bootstrap";
+import { FormattedMessage } from "react-intl";
 import Mousetrap from "mousetrap";
 import * as GQL from "src/core/generated-graphql";
 import { PrimaryTags } from "./PrimaryTags";
@@ -21,7 +21,6 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   onClickMarker,
   addMultiSegmentLoopSegments,
 }) => {
-  const intl = useIntl();
   const { data, loading } = GQL.useFindSceneMarkerTagsQuery({
     variables: { id: sceneId },
   });
@@ -153,7 +152,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
         <Form.Check
           className="mb-0"
           type="checkbox"
-          //label={intl.formatMessage({ id: "actions.select_all" })}
+          // label={intl.formatMessage({ id: "actions.select_all" })}
           checked={allSelected}
           disabled={totalMarkerCount === 0}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>

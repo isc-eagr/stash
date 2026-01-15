@@ -24,13 +24,8 @@ import {
   CriterionValue,
   StringCriterion,
   createStringCriterionOption,
-  createPerformerEthnicityStringCriterionOption,
   Criterion,
 } from "src/models/list-filter/criteria/criterion";
-import {
-  EthnicityCriterion,
-  EthnicityCriterionOption,
-} from "src/models/list-filter/criteria/ethnicity";
 import {
   RatingCriterion,
   RatingCriterionOption,
@@ -996,7 +991,9 @@ const makeStudioUniquePerformersUrl = (
 
   const sceneCountCriterion = filter.makeCriterion("scene_count");
   if (sceneCountCriterion) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (sceneCountCriterion as any).modifier = GQL.CriterionModifier.Equals;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (sceneCountCriterion as any).value = 1;
     filter.criteria.push(sceneCountCriterion);
   }
@@ -1012,7 +1009,9 @@ const makeStudioDetailUniquePerformersUrl = (
 
   const sceneCountCriterion = filter.makeCriterion("scene_count");
   if (sceneCountCriterion) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (sceneCountCriterion as any).modifier = GQL.CriterionModifier.Equals;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (sceneCountCriterion as any).value = 1;
     filter.criteria.push(sceneCountCriterion);
   }
@@ -1227,6 +1226,7 @@ const makePerformerMarkerScenesWithRoleUrl = (
   const performerRef = { id: performer.id, label: performerLabel };
 
   // Build the include group
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const includeGroup: any = {
     groupId: "A",
     tag_ids: [{ id: tagId, label: tagLabel }],

@@ -110,7 +110,7 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
       markerIDsForTag.length > 0 &&
       markerIDsForTag.every((mid) => selectedMarkerIds.has(mid));
 
-    const markers = markersByTag[id].map((marker, index) => {
+    const markers = markersByTag[id].map((marker) => {
       const tags = marker.tags.map((tag) => (
         <Badge key={tag.id} variant="secondary" className="tag-badge mr-1">
           {tag.name}

@@ -633,9 +633,9 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
     // Get role tag IDs from configuration
     const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-    const sexTagId = roleTagIds.sexTagId;
-    const oralTagId = roleTagIds.oralTagId;
-    const soloTagId = roleTagIds.soloTagId;
+    const {sexTagId} = roleTagIds;
+    const {oralTagId} = roleTagIds;
+    const {soloTagId} = roleTagIds;
 
     // Get scene marker tag IDs
     const markerTagIds = new Set<string>();

@@ -47,6 +47,7 @@ export class PerformerMarkerPartnersCriterion extends Criterion {
   };
 
   constructor(option?: CriterionOption) {
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     super(option ?? PerformerMarkerPartnersCriterionOption);
   }
 

@@ -1,32 +1,29 @@
 import React, { createContext, useContext, useMemo } from "react";
 import { Criterion } from "src/models/list-filter/criteria/criterion";
-import {
-  MarkerTagsCriterion,
-  IMarkerTagGroup,
-} from "src/models/list-filter/criteria/marker-tags";
+import { MarkerTagsCriterion } from "src/models/list-filter/criteria/marker-tags";
 
-export interface MarkerTagGroupInfo {
+export interface IMarkerTagGroupInfo {
   groupId: string;
   tagLabels: string[];
   depth: number;
   performerMode: "AND" | "OR";
 }
 
-interface MarkerFilterGroupContextValue {
-  groups: MarkerTagGroupInfo[];
+interface IMarkerFilterGroupContextValue {
+  groups: IMarkerTagGroupInfo[];
   hasGroups: boolean;
 }
 
-const MarkerFilterGroupContext = createContext<MarkerFilterGroupContextValue>({
+const MarkerFilterGroupContext = createContext<IMarkerFilterGroupContextValue>({
   groups: [],
   hasGroups: false,
 });
 
-export function useMarkerFilterGroups(): MarkerFilterGroupContextValue {
+export function useMarkerFilterGroups(): IMarkerFilterGroupContextValue {
   return useContext(MarkerFilterGroupContext);
 }
 
-interface MarkerFilterGroupProviderProps {
+interface IMarkerFilterGroupProviderProps {
   criteria: Criterion[];
   children: React.ReactNode;
 }
@@ -36,7 +33,7 @@ interface MarkerFilterGroupProviderProps {
  * and exposes them as selectable groups for Top/Bottom filters.
  */
 export const MarkerFilterGroupProvider: React.FC<
-  MarkerFilterGroupProviderProps
+  IMarkerFilterGroupProviderProps
 > = ({ criteria, children }) => {
   const value = useMemo(() => {
     // Find the MarkerTagsCriterion (there should be at most one)
@@ -44,7 +41,7 @@ export const MarkerFilterGroupProvider: React.FC<
       (c): c is MarkerTagsCriterion => c instanceof MarkerTagsCriterion
     );
 
-    const groups: MarkerTagGroupInfo[] = markerTagsCriterion
+    const groups: IMarkerTagGroupInfo[] = markerTagsCriterion
       ? markerTagsCriterion.value.groups.map((g) => ({
           groupId: g.groupId,
           tagLabels: g.tags.map((t) => t.label),

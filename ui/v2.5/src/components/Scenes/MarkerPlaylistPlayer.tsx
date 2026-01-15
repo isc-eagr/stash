@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useHistory, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { Button, ListGroup, Badge, Form, Modal, Dropdown } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
@@ -14,11 +14,7 @@ import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import {
   faPlay,
   faPause,
-  faStepForward,
-  faStepBackward,
-  faRepeat,
   faRedo,
-  faArrowLeft,
   faArrowUp,
   faArrowDown,
   faList,
@@ -57,7 +53,6 @@ interface IMarkerInfo {
 
 export const MarkerPlaylistPlayer: React.FC = () => {
   const intl = useIntl();
-  const history = useHistory();
   const location = useLocation();
   const Toast = useToast();
 
@@ -69,7 +64,8 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showPlaylist, setShowPlaylist] = useState(true);
-  const [loopEnabled, setLoopEnabled] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [loopEnabled, _setLoopEnabled] = useState(true);
   const [currentSceneId, setCurrentSceneId] = useState<string>("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [loopSingleMarkerId, setLoopSingleMarkerId] = useState<string | null>(null);
@@ -150,7 +146,8 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   }, [markerIds]);
 
   // Hack: Hide controls briefly when loading/seeking, then show again
-  const showControlsHack = useCallback(() => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _showControlsHack = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
     // Native controls are always hidden
@@ -194,7 +191,8 @@ export const MarkerPlaylistPlayer: React.FC = () => {
 
       setCurrentIndex(index);
     },
-    [markers, currentSceneId, showControlsHack]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [markers, currentSceneId]
   );
 
   // Handle timeupdate to check for marker end
@@ -361,13 +359,15 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     }
   }, []);
 
-  const handleNext = useCallback(() => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleNext = useCallback(() => {
     if (markers.length === 0) return;
     const nextIndex = (currentIndex + 1) % markers.length;
     loadMarker(nextIndex);
   }, [markers, currentIndex, loadMarker]);
 
-  const handlePrevious = useCallback(() => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handlePrevious = useCallback(() => {
     if (markers.length === 0) return;
     const prevIndex =
       currentIndex === 0 ? markers.length - 1 : currentIndex - 1;
@@ -380,10 +380,6 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     },
     [loadMarker]
   );
-
-  const handleBack = useCallback(() => {
-    history.push("/scenes");
-  }, [history]);
 
   const handleFullscreen = useCallback(() => {
     const wrapper = videoWrapperRef.current;
@@ -491,6 +487,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       setShowSaveModal(false);
       setPlaylistName("");
       refetchPlaylists();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       const errorMessage = err?.message || String(err);
       if (errorMessage.includes("UNIQUE constraint failed")) {
@@ -530,10 +527,6 @@ export const MarkerPlaylistPlayer: React.FC = () => {
         <h4>
           <FormattedMessage id="marker_playlist.no_markers" />
         </h4>
-        <Button variant="secondary" onClick={handleBack}>
-          <Icon icon={faArrowLeft} className="mr-2" />
-          <FormattedMessage id="actions.back" />
-        </Button>
       </div>
     );
   }
@@ -548,12 +541,6 @@ export const MarkerPlaylistPlayer: React.FC = () => {
 
       <div className="player-header">
         <div className="player-header-left">
-          <Button variant="secondary" onClick={handleBack} className="back-btn" size="sm">
-            <Icon icon={faArrowLeft} />
-            <span className="ml-2">
-              <FormattedMessage id="actions.back" />
-            </span>
-          </Button>
         </div>
         <div className="player-header-right">
           <Button
@@ -696,6 +683,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                 })()}
               </div>
             )}
+            {!isFullscreen && (
             <div className="video-overlay-controls">
               <Button
                 variant="primary"
@@ -720,6 +708,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                 <Icon icon={faExpand} />
               </Button>
             </div>
+            )}
           </div>
 
           <div className="now-playing">

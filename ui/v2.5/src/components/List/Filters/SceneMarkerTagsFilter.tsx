@@ -6,7 +6,7 @@ import Select, {
   MultiValueProps,
 } from "react-select";
 import { defineMessages, useIntl } from "react-intl";
-import { CriterionModifier, FilterMode } from "src/core/generated-graphql";
+import { CriterionModifier, FilterMode , usePerformerEthnicitiesQuery } from "src/core/generated-graphql";
 import {
   SceneMarkerTagsCriterion,
   SceneMarkerTagGroupUI,
@@ -19,7 +19,6 @@ import {
 } from "src/components/Performers/PerformerSelect";
 import { getCountries } from "src/utils/country";
 import { CountryFlag } from "src/components/Shared/CountryFlag";
-import { usePerformerEthnicitiesQuery } from "src/core/generated-graphql";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import {
   faChevronDown,
@@ -71,7 +70,7 @@ const makeEmptyGroup = (): SceneMarkerTagGroupUI => ({
 });
 
 // Reusable component for role-specific attribute section
-interface RoleAttributeSectionProps {
+interface IRoleAttributeSectionProps {
   roleKey: string;
   roleLabel: string;
   roleIcon: React.ReactNode;
@@ -91,7 +90,8 @@ interface RoleAttributeSectionProps {
   >;
 }
 
-const RoleAttributeSection: React.FC<RoleAttributeSectionProps> = ({
+const RoleAttributeSection: React.FC<IRoleAttributeSectionProps> = ({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   roleKey,
   roleLabel,
   roleIcon,

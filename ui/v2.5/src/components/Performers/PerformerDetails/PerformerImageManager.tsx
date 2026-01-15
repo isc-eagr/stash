@@ -67,7 +67,7 @@ export const PerformerImageManager: React.FC<IPerformerImageManagerProps> = ({
     input.accept = "image/*";
     input.multiple = true;
     input.onchange = async (e: Event) => {
-      const files = (e.target as HTMLInputElement).files;
+      const {files} = (e.target as HTMLInputElement);
       if (!files || files.length === 0) return;
 
       setIsLoading(true);

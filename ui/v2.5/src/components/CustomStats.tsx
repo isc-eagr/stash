@@ -240,10 +240,10 @@ export const CustomStats: React.FC = () => {
   const { data: metersData } = useQuery(TOTAL_PENIS_METERS);
 
   // Extract individual tag IDs for convenience
-  const sexTagId = roleTagIds.sexTagId;
-  const oralTagId = roleTagIds.oralTagId;
-  const soloTagId = roleTagIds.soloTagId;
-  const facialTagId = roleTagIds.facialTagId;
+  const {sexTagId} = roleTagIds;
+  const {oralTagId} = roleTagIds;
+  const {soloTagId} = roleTagIds;
+  const {facialTagId} = roleTagIds;
 
   // Query tags to get their names (for display and URL generation)
   const { data: tagsData } = GQL.useFindTagsQuery({
@@ -307,7 +307,9 @@ export const CustomStats: React.FC = () => {
     const filter = new ListFilterModel(GQL.FilterMode.Performers, undefined);
     const criterion = filter.makeCriterion("scene_count");
     if (criterion) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (criterion as any).modifier = GQL.CriterionModifier.Equals;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (criterion as any).value = sceneCount;
       filter.criteria.push(criterion);
     }
@@ -475,6 +477,7 @@ export const CustomStats: React.FC = () => {
                 <Button
                   className="stats-category-button facial-stats-button ml-4"
                   href={makeFacialScenesUrl()}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   disabled={(statsData as any).stats.facial_scene_count === 0}
                 >
                   <img
@@ -484,6 +487,7 @@ export const CustomStats: React.FC = () => {
                   />
                   <span className="ml-2">
                     <FormattedNumber
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       value={(statsData as any).stats.facial_scene_count ?? 0}
                     />
                   </span>

@@ -1462,3 +1462,320 @@ $sceneTabWidth: 450px;
     }
   }
 }
+
+// Performer Image Overlay Button in control bar
+.video-js .vjs-performer-image-overlay-btn {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+
+  .vjs-icon-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    svg {
+      fill: currentColor;
+    }
+  }
+
+  &.active {
+    color: #6c98c6;
+  }
+
+  &:hover {
+    color: #fff;
+  }
+
+  .vjs-pio-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background-color: #dc3545;
+    color: #fff;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 1px 4px;
+    border-radius: 8px;
+    min-width: 14px;
+    text-align: center;
+    line-height: 1.2;
+  }
+}
+
+// Performer Image Select Modal
+.performer-image-select-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &.fullscreen-mode {
+    position: absolute;
+  }
+}
+
+.performer-image-select-modal {
+  background-color: #1a1a1a;
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+  max-width: 90vw;
+  max-height: 85vh;
+  width: 700px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  &.fullscreen-mode {
+    max-width: 85vw;
+    max-height: 80vh;
+  }
+
+  .pis-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #333;
+    background-color: #222;
+
+    .pis-title {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+
+      .pis-selection-count {
+        color: #888;
+        font-weight: normal;
+        margin-left: 0.5rem;
+      }
+    }
+
+    .pis-close-btn {
+      color: #888;
+      padding: 0.25rem;
+
+      &:hover {
+        color: #fff;
+      }
+    }
+  }
+
+  .pis-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    min-height: 200px;
+
+    .pis-tag-filter {
+      margin-bottom: 0.75rem;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 4px;
+      padding: 0.5rem;
+    }
+
+    .pis-loading,
+    .pis-error,
+    .pis-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      height: 150px;
+      color: #888;
+    }
+
+    .pis-error {
+      color: #dc3545;
+    }
+  }
+
+  .pis-image-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.5rem;
+
+    .pis-image-item {
+      position: relative;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.15s, opacity 0.15s;
+      display: flex;
+      flex-direction: column;
+
+      .pis-image-wrapper {
+        position: relative;
+        aspect-ratio: 1;
+        overflow: hidden;
+        border-radius: 2px;
+
+        img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .pis-selected-badge {
+          display: none;
+          position: absolute;
+          top: 4px;
+          right: 4px;
+          background-color: #28a745;
+          color: #fff;
+          font-size: 11px;
+          font-weight: bold;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          align-items: center;
+          justify-content: center;
+        }
+      }
+
+      &:hover {
+        border-color: #6c98c6;
+      }
+
+      &.selected {
+        border-color: #28a745;
+
+        .pis-selected-badge {
+          display: flex;
+        }
+      }
+
+      &.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+
+        &:hover {
+          border-color: transparent;
+        }
+      }
+
+      .pis-performer-names {
+        color: #888;
+        font-size: 10px;
+        padding: 3px 2px 1px;
+        text-align: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+  }
+
+  .pis-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid #333;
+    background-color: #1e1e1e;
+
+    .pis-page-info {
+      color: #888;
+      font-size: 0.875rem;
+      min-width: 60px;
+      text-align: center;
+    }
+  }
+
+  .pis-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid #333;
+    background-color: #222;
+
+    .pis-footer-right {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+  }
+}
+
+// Performer Image Overlay (on video)
+.performer-image-overlay {
+  position: fixed;
+  z-index: 10000;
+  cursor: grab;
+  user-select: none;
+  overflow: hidden;
+
+  &.dragging {
+    cursor: grabbing;
+  }
+
+  &:hover {
+    .pio-resize-handle {
+      opacity: 1;
+    }
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+  }
+
+  .pio-resize-handle {
+    position: absolute;
+    bottom: 0px;
+    right: 0px;
+    width: 12px;
+    height: 12px;
+    cursor: se-resize;
+    opacity: 0;
+    transition: opacity 0.15s;
+    background: linear-gradient(135deg, transparent 50%, rgba(255, 255, 255, 0.5) 50%);
+  }
+}
+
+// Performer image toggle button
+.video-js .vjs-performer-image-toggle-btn {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5em;
+  color: #fff;
+  transition: color 0.15s;
+
+  &:hover {
+    color: #6c98c6;
+  }
+
+  &.hidden-state {
+    color: #888;
+
+    &:hover {
+      color: #fff;
+    }
+  }
+
+  .vjs-icon-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
