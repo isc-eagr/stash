@@ -15,6 +15,7 @@ import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import goateeSvg from "src/assets/goatee.svg";
 import spermsSvg from "src/assets/sperms.svg";
+import feetSvg from "src/assets/feet.svg";
 
 interface IPerformerCategoryStripProps {
   performer: GQL.PerformerDataFragment;
@@ -44,9 +45,11 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   const {soloTagId} = roleTagIds;
   const {facialTagId} = roleTagIds;
   const {orgasmTagId} = roleTagIds;
+  const {feetTagId} = roleTagIds;
 
   const p = performer as any;
   let orgasmTopCount = 0;
+  let feetTopCount = 0;
 
   // Build roles to show based on context
   let rolesToShow: Array<{
@@ -80,6 +83,19 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       const match = orgasmRoles[0].match(/orgasm_top_(\d+)/);
       if (match) {
         orgasmTopCount = parseInt(match[1], 10);
+      }
+    }
+
+    // Check for feet roles (feet_top_X format)
+    const feetRoles = markerRoles.filter((r: string) =>
+      r.startsWith("feet_top_")
+    );
+
+    // Parse feet count from "feet_top_X" format
+    if (feetRoles.length > 0 && feetTagId) {
+      const match = feetRoles[0].match(/feet_top_(\d+)/);
+      if (match) {
+        feetTopCount = parseInt(match[1], 10);
       }
     }
 
@@ -129,6 +145,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     const facialWithBottomCount = p.facial_with_bottom_count ?? 0;
 
     orgasmTopCount = p.orgasm_top_count ?? 0;
+    feetTopCount = p.feet_top_count ?? 0;
 
     // Show category if performer has scenes OR has partner counts in that category
     if ((sexCount > 0 || sexWithTopCount > 0 || sexWithBottomCount > 0) && sexTagId) {
@@ -169,7 +186,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
 
   // Only show if at least one role tag is configured
   const hasAnyRoleTag = sexTagId || oralTagId || soloTagId || facialTagId;
-  if (!hasAnyRoleTag || (rolesToShow.length === 0 && orgasmTopCount === 0))
+  if (!hasAnyRoleTag || (rolesToShow.length === 0 && orgasmTopCount === 0 && feetTopCount === 0))
     return null;
 
   // Build exclude tags for oral (exclude sex) and solo (exclude sex + oral)
@@ -410,7 +427,13 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
             {role.category === "solo" ? (
               <>
                 <div className="solo-count" style={{ visibility: sceneId && role.category === "solo" ? 'hidden' : 'visible' }}>
-                  <span className="role-total-count">{role.count ?? 1}</span>
+                  {categoryUrl && !sceneId ? (
+                    <Link to={categoryUrl} className="role-badge-link">
+                      <span className="role-total-count">{role.count ?? 1}</span>
+                    </Link>
+                  ) : (
+                    <span className="role-total-count">{role.count ?? 1}</span>
+                  )}
                 </div>
               </>
             ) : sceneId ? (
@@ -697,8 +720,61 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
             </Link>
           </div>
           <div className="orgasm-count" style={{ visibility: sceneId && orgasmTopCount === 1 ? 'hidden' : 'visible' }}>
-            <span className="role-total-count">{orgasmTopCount}</span>
+            <Link
+              to={NavUtils.makePerformerOrgasmMarkersUrl(
+                performer,
+                orgasmTagId,
+                "Orgasm"
+              )}
+              className="role-badge-link"
+            >
+              <span className="role-total-count">{orgasmTopCount}</span>
+            </Link>
           </div>
+        </div>
+      )}
+
+      {/* Feet icon */}
+      {feetTopCount > 0 && feetTagId && (
+        <div className="role-badge-item feet-badge">
+          <div className="category-icon-container">
+            {!sceneId ? (
+              <Link
+                to={NavUtils.makePerformerFeetMarkersUrl(
+                  performer,
+                  feetTagId,
+                  "Feet"
+                )}
+                className="role-badge-link"
+              >
+                <img
+                  src={feetSvg}
+                  alt="Feet"
+                  className="category-icon"
+                />
+              </Link>
+            ) : (
+              <img
+                src={feetSvg}
+                alt="Feet"
+                className="category-icon"
+              />
+            )}
+          </div>
+          {!sceneId && (
+            <div className="feet-count">
+              <Link
+                to={NavUtils.makePerformerFeetMarkersUrl(
+                  performer,
+                  feetTagId,
+                  "Feet"
+                )}
+                className="role-badge-link"
+              >
+                <span className="role-total-count">{feetTopCount}</span>
+              </Link>
+            </div>
+          )}
         </div>
       )}
     </div>

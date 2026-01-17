@@ -1,6 +1,6 @@
 @import "video.js/dist/video-js.css";
 @import "videojs-mobile-ui/dist/videojs-mobile-ui.css";
-@import "videojs-seek-buttons/dist/videojs-seek-buttons.css";
+@import "videojs-seek-buttons/dist/videojs-seek-buttons.css"; // Needed for BigButtonGroup on touch
 @import "@silvermine/videojs-chromecast/dist/silvermine-videojs-chromecast.css";
 @import "@silvermine/videojs-airplay/dist/silvermine-videojs-airplay.css";
 
@@ -347,6 +347,81 @@ $sceneTabWidth: 450px;
     -ms-transform: scale(-1, 1);
     -webkit-transform: scale(-1, 1);
     transform: scale(-1, 1);
+  }
+
+  // Custom seek menu buttons with hover dropdown
+  .vjs-seek-menu-button {
+    cursor: pointer;
+    position: relative;
+
+    // Use the replay icon from videojs fonts
+    .vjs-icon-placeholder::before {
+      font-family: VideoJS;
+      content: "\f11a"; // replay/refresh icon
+      font-size: 1.8em;
+      line-height: 1.67;
+    }
+
+    &.skip-forward .vjs-icon-placeholder::before {
+      transform: scaleX(-1);
+    }
+
+    // Display the seconds value
+    &::after {
+      content: attr(data-seek-seconds);
+      position: absolute;
+      bottom: 0.3em;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.55em;
+      color: #fff;
+      pointer-events: none;
+    }
+
+    .vjs-menu {
+      display: none;
+      position: absolute;
+      top: 100%;
+      bottom: auto;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(43, 51, 63, 0.9);
+      border-radius: 0.3em;
+      width: 2em;
+      margin-top: -13px;
+      z-index: 100;
+    }
+
+    &:hover .vjs-menu,
+    &:focus .vjs-menu,
+    &[aria-expanded="true"] .vjs-menu {
+      display: block;
+    }
+
+    .vjs-menu-content {
+      list-style: none;
+      margin: 0;
+      padding: 0.4em 0;
+      max-height: none;
+    }
+
+    .vjs-menu-item {
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.9em;
+      padding: 0.4em 0.3em;
+      text-align: center;
+      white-space: nowrap;
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+      }
+
+      &.vjs-selected {
+        background-color: rgba(255, 255, 255, 0.3);
+        font-weight: bold;
+      }
+    }
   }
 
   @media (pointer: coarse) {

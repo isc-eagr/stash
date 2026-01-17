@@ -622,7 +622,8 @@
         "oral": "Oral marker tag",
         "solo": "Solo marker tag",
         "facial": "Facial marker tag",
-        "orgasm": "Orgasm marker tag"
+        "orgasm": "Orgasm marker tag",
+        "feet": "Feet marker tag"
       },
       "abbreviate_counters": {
         "description": "Abbreviate counters in cards and details view pages, for example \"1831\" will get formated to \"1.8K\".",
@@ -1681,12 +1682,13 @@
     "no_segments": "No segments defined. Click 'Add' to mark a start point.",
     "summary": "{count} segments, total duration: {duration}",
     "presets": "Presets",
-    "save_config": "Save Config",
-    "load_config": "Load Config",
+    "save_config": "Save Preset",
+    "select_config": "Select Preset...",
+    "load_config": "Load Preset",
     "saved_configs": "Saved: {presets}",
-    "no_saved_configs": "No saved configurations yet.",
-    "save_prompt": "Enter a name to save this segment configuration:",
-    "load_prompt": "Enter a saved configuration name to load (available: {presets})",
+    "no_saved_configs": "No saved presets yet.",
+    "save_prompt": "Enter a name to save this segment preset:",
+    "load_prompt": "Enter a saved preset name to load (available: {presets})",
     "default_preset_name": "Loop {index}",
     "preset_name_placeholder": "Enter preset name...",
     "delete_preset_confirm": "Delete preset \"{name}\"?"

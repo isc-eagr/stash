@@ -424,9 +424,9 @@ func getScenesByPerformerMarkerRole(ctx context.Context, r models.SceneMarkerQue
 
 // GetPerformerMarkerRolesForScene returns the roles a performer has in a specific scene's markers.
 // Returns array of strings like "sex_top", "sex_bottom", "oral_top", "oral_bottom",
-// "facial_top", "facial_bottom", "orgasm_top", "solo" based on their participation in markers.
+// "facial_top", "facial_bottom", "orgasm_top", "feet_top", "solo" based on their participation in markers.
 // Uses TagFinder to check if marker tags are descendants of the configured role tags.
-func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerReader, tagFinder models.TagFinder, performerID int, sceneID int, sexTagID int, oralTagID int, soloTagID int, facialTagID int, orgasmTagID int) ([]string, error) {
+func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerReader, tagFinder models.TagFinder, performerID int, sceneID int, sexTagID int, oralTagID int, soloTagID int, facialTagID int, orgasmTagID int, feetTagID int) ([]string, error) {
 	roles := []string{}
 
 	// Query all markers for this scene using FindBySceneID
@@ -445,6 +445,7 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 	soloTagSet := make(map[int]bool)
 	facialTagSet := make(map[int]bool)
 	orgasmTagSet := make(map[int]bool)
+	feetTagSet := make(map[int]bool)
 
 	// Helper to build descendant set
 	buildDescendantSet := func(tagID int, tagSet map[int]bool) error {
@@ -478,14 +479,19 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 	if err := buildDescendantSet(orgasmTagID, orgasmTagSet); err != nil {
 		return nil, err
 	}
+	if err := buildDescendantSet(feetTagID, feetTagSet); err != nil {
+		return nil, err
+	}
 
-	// Track orgasm marker count for this performer as top (we need count, not just presence)
+	// Track orgasm and feet marker counts for this performer as top (we need count, not just presence)
 	orgasmTopCount := 0
+	feetTopCount := 0
 
 	// Helper to check if a tag ID matches any role tag (including subtags) and add the role
-	// Returns true if orgasm tag was matched (for deduplication)
-	addRoleForTag := func(tagID int, role string) bool {
+	// Returns matched flags: (matchedOrgasm, matchedFeet)
+	addRoleForTag := func(tagID int, role string) (bool, bool) {
 		matchedOrgasm := false
+		matchedFeet := false
 		if sexTagSet[tagID] {
 			if role == "top" {
 				roles = appendIfNotExists(roles, "sex_top")
@@ -513,7 +519,10 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 		if orgasmTagSet[tagID] && role == "top" {
 			matchedOrgasm = true
 		}
-		return matchedOrgasm
+		if feetTagSet[tagID] && role == "top" {
+			matchedFeet = true
+		}
+		return matchedOrgasm, matchedFeet
 	}
 
 	// Check each marker to see if this performer is top or bottom
@@ -536,20 +545,29 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 
 			role := perf.Role
 
-			// Track if we've already counted this marker for orgasms (to avoid double-counting with primary + secondary tags)
+			// Track if we've already counted this marker for orgasms/feet (to avoid double-counting with primary + secondary tags)
 			markerCountedForOrgasm := false
+			markerCountedForFeet := false
 
 			// Check primary tag first
-			if addRoleForTag(marker.PrimaryTagID, role) {
+			matchedOrgasm, matchedFeet := addRoleForTag(marker.PrimaryTagID, role)
+			if matchedOrgasm {
 				markerCountedForOrgasm = true
+			}
+			if matchedFeet {
+				markerCountedForFeet = true
 			}
 
 			// Also check secondary/additional tags (e.g., facial as secondary tag on a sex marker)
 			for _, tagID := range secondaryTagIDs {
-				matchedOrgasm := addRoleForTag(tagID, role)
+				matchedOrgasm, matchedFeet := addRoleForTag(tagID, role)
 				// Only count orgasm once per marker even if multiple orgasm subtags are present
 				if matchedOrgasm && !markerCountedForOrgasm {
 					markerCountedForOrgasm = true
+				}
+				// Only count feet once per marker even if multiple feet subtags are present
+				if matchedFeet && !markerCountedForFeet {
+					markerCountedForFeet = true
 				}
 			}
 
@@ -557,12 +575,22 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 			if markerCountedForOrgasm {
 				orgasmTopCount++
 			}
+
+			// Increment feet count once per marker if any feet tag matched
+			if markerCountedForFeet {
+				feetTopCount++
+			}
 		}
 	}
 
 	// Add orgasm roles with count suffix (orgasm_top_1, orgasm_top_2, etc.)
 	if orgasmTopCount > 0 {
 		roles = append(roles, fmt.Sprintf("orgasm_top_%d", orgasmTopCount))
+	}
+
+	// Add feet roles with count suffix (feet_top_1, feet_top_2, etc.)
+	if feetTopCount > 0 {
+		roles = append(roles, fmt.Sprintf("feet_top_%d", feetTopCount))
 	}
 
 	return roles, nil

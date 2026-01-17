@@ -33,6 +33,7 @@ This document describes all custom features and modifications added on top of th
 25. [Effective Date](#25-effective-date)
 26. [Clickable Marker End Timestamps](#26-clickable-marker-end-timestamps)
 27. [Performer Image Overlay on Video Player](#27-performer-image-overlay-on-video-player)
+28. [Image Viewer](#28-image-viewer)
 
 ---
 
@@ -1531,6 +1532,138 @@ A new feature in the scene video player that allows overlaying up to 2 images on
 - Uses existing `GQL.useFindImagesLazyQuery` for image querying
 - Uses existing `CriterionModifier.Includes` for performer filtering
 - Uses `createPortal` from React for fullscreen overlay support
+
+---
+
+## 28. Image Viewer
+
+### Overview
+A dedicated full-page image viewer allowing users to view and manipulate multiple images simultaneously from the Images page. Images can be dragged around the screen, resized, hidden, and arranged in any layout. Perfect for comparing images side-by-side, organizing visual collections, or doing detailed image review.
+
+### Usage
+1. Go to the Images page (`/images`)
+2. Enable selection mode and select the images you want to view
+3. Click the "View Selected" button (appears when images are selected)
+4. A new viewer page opens with all selected images displayed
+5. Images are initially positioned in a grid pattern (or centered if only one)
+6. Drag images to reposition them anywhere on the screen
+7. Click-and-drag the resize handle (bottom-right corner of each image) to resize
+8. Click the close button (X) on an image to hide it
+9. Use the fullscreen button to enter fullscreen mode
+10. State is not persisted; clearing the browser or navigating away resets the viewer
+
+### URL and Storage
+- **Route:** `/images/viewer?ids=1,2,3` - Comma-separated image IDs
+- **Storage:** Image data is stored in `sessionStorage` under key `"imageViewerQueue"`
+- **Data Format:** Array of `SlimImageDataFragment` objects containing image paths and metadata
+
+### Frontend Files
+
+**New Files:**
+- `ui/v2.5/src/components/Images/ImageViewer.tsx` - Main viewer component
+  - `DraggableImage` sub-component for individual draggable/resizable image overlays
+  - Uses ref-based state management for drag/resize tracking
+  - Fullscreen API support with proper event listener cleanup
+  - Maintains aspect ratio when resizing images
+  - Grid layout calculation for multiple images
+
+- `ui/v2.5/src/components/Images/ImageQueueIndicator.tsx` - Queue indicator component
+  - Displays count of images in queue badge
+  - Shows "Play" button to open viewer
+  - Shows "Clear" button to empty queue
+  - Manages `sessionStorage` persistence
+
+- `ui/v2.5/src/components/Images/ImageViewer.scss` - Viewer styles
+  - `.image-viewer-container` - Main container styling
+  - `.image-viewer-header` - Header with fullscreen button
+  - `.image-viewer-overlay` - Individual image overlay styling
+  - `.iv-close-btn` - Close button styling
+  - `.iv-resize-handle` - Resize handle styling with drag cursor
+  - `.image-viewer-empty` - Empty state messaging
+
+**Modified Files:**
+- `ui/v2.5/src/components/Images/Images.tsx`
+  - Added lazy-loaded `ImageViewer` component import
+  - Added route: `<Route exact path="/images/viewer" component={ImageViewer} />`
+
+- `ui/v2.5/src/components/Images/ImageList.tsx`
+  - Integrated `ImageQueueIndicator` component
+  - Added "Add to Queue" and "View Selected" operation buttons
+  - Queue management tied to `sessionStorage`
+
+### Features
+
+#### Dragging
+- Click anywhere on an image to drag it
+- Dragging is disabled on the close button and resize handle
+- Drag offset is tracked to prevent image jumping
+- Mouse move/up listeners are attached only during drag
+
+#### Resizing
+- Click and drag the resize handle (bottom-right corner) to resize
+- Maintains natural image aspect ratio (calculated on image load)
+- Minimum size enforced at 80px
+- Display height calculated as `width / aspectRatio`
+
+#### Close/Hide
+- Click the X button to hide an image (state set to `visible: false`)
+- Hidden count is displayed in window title
+- Removing all images shows empty state message
+
+#### Fullscreen
+- Fullscreen button in header (only shown when not in fullscreen)
+- Uses Fullscreen API: `requestFullscreen()` / `exitFullscreen()`
+- Listens to `fullscreenchange` event to track state
+- Header auto-hides when entering fullscreen (layout handled by container)
+
+#### Layout
+
+**Grid Layout (Multiple Images):**
+```
+- Calculates imagesPerRow = ceil(sqrt(imageCount))
+- Positions images in rows with 20px spacing
+- First image: (20, 60)
+- Subsequent images offset by (DEFAULT_SIZE + spacing) in x/y
+- 60px top offset accounts for header
+```
+
+**Single Image:**
+- Centers the image on screen
+- Positioned at `((viewportWidth - 300) / 2, (viewportHeight - 300) / 2)`
+
+### State Management
+- **Images Array:** `IOverlayState[]` containing id, url, x, y, width, visible
+- **Fullscreen State:** Tracked via `isFullscreen` boolean
+- **Position Updates:** `updatePosition(id, x, y)` - Updates x,y coordinates
+- **Size Updates:** `updateSize(id, width)` - Updates width (height recalculated from aspect ratio)
+- **Visibility Updates:** `removeImage(id)` - Sets visible to false
+
+### Data Flow
+1. User selects images on Images page
+2. Images are stored in `sessionStorage` via `ImageQueueIndicator`
+3. User clicks "View Selected" → navigates to `/images/viewer?ids=1,2,3`
+4. `ImageViewer` reads image IDs from URL params
+5. `ImageViewer` retrieves image data from `sessionStorage`
+6. Images are positioned and rendered as draggable overlays
+7. User manipulates images (drag/resize/hide)
+8. On page unload or navigation, viewer state is lost (not persisted beyond session)
+
+### Styling Constants
+- `DEFAULT_SIZE: 300` - Default image width in pixels
+- `MIN_SIZE: 80` - Minimum resizable width
+- `spacing: 20` - Gap between grid-positioned images
+- Header height offset: `60px`
+
+### Performance Considerations
+- Uses `useCallback` to memoize event handlers
+- Mouse event listeners only attached during drag/resize operations
+- Images are lazy-loaded with natural dimensions calculated on load
+- React reconciliation minimized via ref-based position tracking
+
+### Browser Compatibility
+- Fullscreen API supported in modern browsers
+- Fallback: fullscreen button disabled if `document.fullscreenElement` is unavailable
+- Mouse/touch events use standard APIs compatible with all major browsers
 
 ---
 

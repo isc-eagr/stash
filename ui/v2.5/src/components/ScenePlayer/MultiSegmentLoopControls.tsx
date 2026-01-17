@@ -204,6 +204,9 @@ export const MultiSegmentLoopControls: React.FC<
   };
 
   const handleSaveKeyDown = (e: React.KeyboardEvent) => {
+    // Stop propagation to prevent video player keyboard shortcuts
+    e.stopPropagation();
+    
     if (e.key === "Enter") {
       e.preventDefault();
       handleSavePreset();
@@ -542,7 +545,7 @@ export const MultiSegmentLoopControls: React.FC<
                     className="msl-preset-select"
                   >
                     <option value="">
-                      <FormattedMessage id="multi_segment_loop.select_config" />
+                      {intl.formatMessage({ id: "multi_segment_loop.select_config" })}
                     </option>
                     {presetNames.map((name) => (
                       <option key={name} value={name}>

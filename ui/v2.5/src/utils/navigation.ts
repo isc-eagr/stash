@@ -1874,6 +1874,37 @@ const makePerformerOrgasmMarkersUrl = (
   return `/scenes/markers?${filter.makeQueryParameters()}`;
 };
 
+// Navigate to scenes with feet markers where performer is "top"
+const makePerformerFeetMarkersUrl = (
+  performer: Partial<GQL.PerformerDataFragment>,
+  tagId: string,
+  tagLabel: string
+) => {
+  if (!performer.id || !tagId) return "#";
+
+  return `/scenes?c=${encodeURIComponent(
+    JSON.stringify({
+      type: "scene_markers",
+      modifier: "INCLUDES_ALL",
+      groups: [
+        {
+          groupId: "A",
+          tag_ids: [{ id: tagId, label: tagLabel }],
+          depth: -1, // Include subtags
+          top_performer_ids: [{ id: performer.id, label: performer.name || `Performer ${performer.id}` }],
+          top_ethnicities: [],
+          top_countries: [],
+          top_rating: null,
+          bottom_performer_ids: [],
+          bottom_ethnicities: [],
+          bottom_countries: [],
+          bottom_rating: null,
+        },
+      ],
+    })
+  )}&sortby=date`;
+};
+
 // Navigate to scene markers for facial/oral with role filter (goes to /scenes/markers, not /scenes)
 // Similar to orgasm markers URL but with configurable role and depth
 const makePerformerFacialMarkersWithRoleUrl = (
@@ -2022,6 +2053,7 @@ const NavUtils = {
   makePerformerPartnerPerformersUrl,
   makePerformerAllPartnersUrl,
   makePerformerOrgasmMarkersUrl,
+  makePerformerFeetMarkersUrl,
   makePerformerFacialMarkersWithRoleUrl,
   makeStudioMarkerScenesUrl,
   makePerformerStudioMarkerScenesUrl,

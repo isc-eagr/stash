@@ -11,7 +11,8 @@ import videojs, { VideoJsPlayer, VideoJsPlayerOptions } from "video.js";
 import useScript from "src/hooks/useScript";
 import "videojs-contrib-dash";
 import "videojs-mobile-ui";
-import "videojs-seek-buttons";
+import "videojs-seek-buttons"; // Still needed for BigButtonGroup on touch devices
+import "./seek-buttons"; // Our custom seek buttons with menu for control bar
 import { UAParser } from "ua-parser-js";
 import "./live";
 import "./PlaylistButtons";
@@ -535,7 +536,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
           sourceSelector: {},
           persistVolume: {},
           bigButtons: {},
-          seekButtons: {
+          seekButtonsMenu: {
             forward: 10,
             back: 10,
           },

@@ -202,6 +202,8 @@
     background: transparent;
     border-radius: 6px;
     padding: 4px;
+    min-width: 0; /* Allow shrinking to prevent overflow */
+    flex-shrink: 1; /* Allow items to shrink if needed */
 
     .category-icon-container {
       display: flex;
@@ -212,8 +214,8 @@
       min-height: 20px;
 
       .category-icon {
-        width: 20px;
-        height: 20px;
+        width: 18px; /* Slightly smaller to fit 6 columns */
+        height: 18px;
         object-fit: contain;
         filter: brightness(0) invert(1); /* Make white */
         flex-shrink: 0;
@@ -233,6 +235,16 @@
         font-weight: 600;
         color: white;
         line-height: 1;
+      }
+    }
+
+    .role-badge-link {
+      color: inherit;
+      text-decoration: none;
+
+      &:hover {
+        color: inherit;
+        text-decoration: none;
       }
     }
 

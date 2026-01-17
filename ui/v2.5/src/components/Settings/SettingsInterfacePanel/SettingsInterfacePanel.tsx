@@ -386,6 +386,24 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
               }
             />
           </Setting>
+          <Setting id="role-tag-feet" headingID="config.ui.role_tags.feet">
+            <TagIDSelect
+              isMulti={false}
+              creatable={false}
+              ids={
+                ui.roleTagIds?.feetTagId ? [ui.roleTagIds.feetTagId] : []
+              }
+              menuPortalTarget={document.body}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  roleTagIds: {
+                    ...(ui.roleTagIds ?? {}),
+                    feetTagId: items[0]?.id ?? undefined,
+                  },
+                })
+              }
+            />
+          </Setting>
         </SettingSection>
 
         <SettingSection headingID="config.ui.desktop_integration.desktop_integration">

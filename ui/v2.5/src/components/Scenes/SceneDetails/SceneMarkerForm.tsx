@@ -12,7 +12,7 @@ import {
 } from "src/core/StashService";
 import { DurationInput } from "src/components/Shared/DurationInput";
 import { MarkerTitleSuggest } from "src/components/Shared/Select";
-import { getPlayerPosition } from "src/components/ScenePlayer/util";
+import { getPlayerPosition, getPlayer } from "src/components/ScenePlayer/util";
 import { useToast } from "src/hooks/Toast";
 import isEqual from "lodash-es/isEqual";
 import { formikUtils } from "src/utils/form";
@@ -286,6 +286,12 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         onReset={() =>
           formik.setFieldValue("seconds", getPlayerPosition() ?? 0)
         }
+        onSeekTo={() => {
+          const player = getPlayer();
+          if (player && formik.values.seconds !== null) {
+            player.currentTime(formik.values.seconds);
+          }
+        }}
         error={error}
       />
     );
@@ -305,6 +311,12 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
           onReset={() =>
             formik.setFieldValue("end_seconds", getPlayerPosition() ?? 0)
           }
+          onSeekTo={() => {
+            const player = getPlayer();
+            if (player && formik.values.end_seconds !== null) {
+              player.currentTime(formik.values.end_seconds);
+            }
+          }}
           error={error}
         />
         {formik.touched.end_seconds && formik.errors.end_seconds && (
