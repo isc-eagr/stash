@@ -494,6 +494,8 @@ export const MultiSegmentLoopControls: React.FC<
                         value={savePresetName}
                         onChange={(e) => setSavePresetName(e.target.value)}
                         onKeyDown={handleSaveKeyDown}
+                        onKeyPress={(e: React.KeyboardEvent) => e.stopPropagation()}
+                        onKeyUp={(e: React.KeyboardEvent) => e.stopPropagation()}
                       />
                       <Button
                         variant="success"
