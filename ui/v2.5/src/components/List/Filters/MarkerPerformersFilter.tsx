@@ -1,12 +1,6 @@
 import React from "react";
 import { Badge, Button, Col, Form, Row } from "react-bootstrap";
-import Select, {
-  components as selectComponents,
-  OptionProps,
-  MultiValueProps,
-} from "react-select";
 import { FormattedMessage, useIntl } from "react-intl";
-import { CriterionModifier , usePerformerEthnicitiesQuery } from "src/core/generated-graphql";
 import { MarkerPerformersCriterion } from "src/models/list-filter/criteria/marker-performers";
 import {
   PerformerIDSelect,
@@ -15,49 +9,8 @@ import {
 import { Tag, TagIDSelect } from "src/components/Tags/TagSelect";
 import { faArrowUp, faArrowDown } from "@fortawesome/free-solid-svg-icons";
 import { Icon } from "src/components/Shared/Icon";
-import { RatingCriterion } from "src/models/list-filter/criteria/tags";
-import { getCountries } from "src/utils/country";
-import { CountryFlag } from "src/components/Shared/CountryFlag";
-import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
-
-const ratingModifiers: {
-  value: CriterionModifier;
-  label: string;
-  title: string;
-}[] = [
-  { value: CriterionModifier.Equals, label: "=", title: "Equals" },
-  { value: CriterionModifier.NotEquals, label: "≠", title: "Not equals" },
-  { value: CriterionModifier.GreaterThan, label: ">", title: "Greater than" },
-  { value: CriterionModifier.LessThan, label: "<", title: "Less than" },
-  { value: CriterionModifier.Between, label: "↔", title: "Between" },
-  { value: CriterionModifier.NotBetween, label: "↮", title: "Not between" },
-];
-
-// Country option with flag
-const CountryOption: React.FC<
-  OptionProps<{ label: string; value: string }, true>
-> = (props) => {
-  const { data } = props;
-  return (
-    <selectComponents.Option {...props}>
-      <CountryFlag country={data.value} className="me-2" />
-      {data.label}
-    </selectComponents.Option>
-  );
-};
-
-// Country multi-value with flag
-const CountryMultiValue: React.FC<
-  MultiValueProps<{ label: string; value: string }, true>
-> = (props) => {
-  const { data } = props;
-  return (
-    <selectComponents.MultiValue {...props}>
-      <CountryFlag country={data.value} className="me-1" />
-      {data.label}
-    </selectComponents.MultiValue>
-  );
-};
+import { UnnamedPerformersManager } from "./UnnamedPerformerManager";
+import { IUnnamedPerformer, isUnnamedPerformerId } from "src/models/list-filter/criteria/unnamed-performer";
 
 interface IMarkerPerformersFilterProps {
   criterion: MarkerPerformersCriterion;
@@ -70,18 +23,6 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
 }) => {
   const intl = useIntl();
 
-  // Fetch ethnicity options
-  const { data: ethnicityData } = usePerformerEthnicitiesQuery();
-  const ethnicityOptions = React.useMemo(() => {
-    const ethnicities = ethnicityData?.performerEthnicities ?? [];
-    return ethnicities.map((e) => ({ label: e, value: e }));
-  }, [ethnicityData]);
-
-  // Country options
-  const countryOptions = React.useMemo(() => {
-    return getCountries().map((c) => ({ label: c.label, value: c.value }));
-  }, []);
-
   // Tags handler
   const onTagsChange = (tags: Tag[]) => {
     const c = criterion.clone() as MarkerPerformersCriterion;
@@ -92,7 +33,7 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
     setCriterion(c);
   };
 
-  // Top handlers
+  // Top performers handler
   const onTopPerformersChange = (performers: Performer[]) => {
     const c = criterion.clone() as MarkerPerformersCriterion;
     c.value.top_performer_ids = performers.map((p) => ({
@@ -102,25 +43,7 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
     setCriterion(c);
   };
 
-  const onTopEthnicitiesChange = (values: readonly { value: string }[]) => {
-    const c = criterion.clone() as MarkerPerformersCriterion;
-    c.value.top_ethnicities = values.map((v) => v.value);
-    setCriterion(c);
-  };
-
-  const onTopCountriesChange = (values: readonly { value: string }[]) => {
-    const c = criterion.clone() as MarkerPerformersCriterion;
-    c.value.top_countries = values.map((v) => v.value);
-    setCriterion(c);
-  };
-
-  const onTopRatingChange = (rating: RatingCriterion) => {
-    const c = criterion.clone() as MarkerPerformersCriterion;
-    c.value.top_rating = rating;
-    setCriterion(c);
-  };
-
-  // Bottom handlers
+  // Bottom performers handler
   const onBottomPerformersChange = (performers: Performer[]) => {
     const c = criterion.clone() as MarkerPerformersCriterion;
     c.value.bottom_performer_ids = performers.map((p) => ({
@@ -130,98 +53,21 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
     setCriterion(c);
   };
 
-  const onBottomEthnicitiesChange = (values: readonly { value: string }[]) => {
+  // Unnamed performers handler
+  const onUnnamedPerformersChange = (performers: IUnnamedPerformer[]) => {
     const c = criterion.clone() as MarkerPerformersCriterion;
-    c.value.bottom_ethnicities = values.map((v) => v.value);
+    c.value.unnamed_performers = performers;
+    
+    // Remove any unnamed performer selections that no longer exist
+    const validIds = new Set(performers.map((p) => p.id));
+    c.value.top_performer_ids = c.value.top_performer_ids.filter(
+      (p) => !isUnnamedPerformerId(p.id) || validIds.has(p.id)
+    );
+    c.value.bottom_performer_ids = c.value.bottom_performer_ids.filter(
+      (p) => !isUnnamedPerformerId(p.id) || validIds.has(p.id)
+    );
+    
     setCriterion(c);
-  };
-
-  const onBottomCountriesChange = (values: readonly { value: string }[]) => {
-    const c = criterion.clone() as MarkerPerformersCriterion;
-    c.value.bottom_countries = values.map((v) => v.value);
-    setCriterion(c);
-  };
-
-  const onBottomRatingChange = (rating: RatingCriterion) => {
-    const c = criterion.clone() as MarkerPerformersCriterion;
-    c.value.bottom_rating = rating;
-    setCriterion(c);
-  };
-
-  // Don't show inputs for IS_NULL/NOT_NULL modifiers
-  if (
-    criterion.modifier === CriterionModifier.IsNull ||
-    criterion.modifier === CriterionModifier.NotNull
-  ) {
-    return null;
-  }
-
-  // Top rating helpers
-  const topRating = criterion.value.top_rating;
-  const topModifier = topRating?.modifier ?? CriterionModifier.Equals;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _topModDef = ratingModifiers.find((m) => m.value === topModifier);
-
-  const onTopRatingModifierChange = (m: CriterionModifier) => {
-    onTopRatingChange({
-      modifier: m,
-      value: topRating?.value ?? 0,
-      value2: topRating?.value2,
-    });
-  };
-
-  const onTopRatingValueChange = (v: number) => {
-    if (!topRating) {
-      onTopRatingChange({ modifier: CriterionModifier.Equals, value: v });
-    } else {
-      onTopRatingChange({ ...topRating, value: v });
-    }
-  };
-
-  const onTopRatingValue2Change = (v: number) => {
-    if (!topRating) {
-      onTopRatingChange({
-        modifier: CriterionModifier.Between,
-        value: 0,
-        value2: v,
-      });
-    } else {
-      onTopRatingChange({ ...topRating, value2: v });
-    }
-  };
-
-  // Bottom rating helpers
-  const bottomRating = criterion.value.bottom_rating;
-  const bottomModifier = bottomRating?.modifier ?? CriterionModifier.Equals;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _bottomModDef = ratingModifiers.find((m) => m.value === bottomModifier);
-
-  const onBottomRatingModifierChange = (m: CriterionModifier) => {
-    onBottomRatingChange({
-      modifier: m,
-      value: bottomRating?.value ?? 0,
-      value2: bottomRating?.value2,
-    });
-  };
-
-  const onBottomRatingValueChange = (v: number) => {
-    if (!bottomRating) {
-      onBottomRatingChange({ modifier: CriterionModifier.Equals, value: v });
-    } else {
-      onBottomRatingChange({ ...bottomRating, value: v });
-    }
-  };
-
-  const onBottomRatingValue2Change = (v: number) => {
-    if (!bottomRating) {
-      onBottomRatingChange({
-        modifier: CriterionModifier.Between,
-        value: 0,
-        value2: v,
-      });
-    } else {
-      onBottomRatingChange({ ...bottomRating, value2: v });
-    }
   };
 
   return (
@@ -253,6 +99,48 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
         />
       </Form.Group>
 
+      {/* Unnamed Performers Manager */}
+      <UnnamedPerformersManager
+        performers={criterion.value.unnamed_performers ?? []}
+        onPerformersChange={onUnnamedPerformersChange}
+      />
+
+      {/* Performer Mode Toggle (AND/OR) */}
+      <Form.Group className="mb-3">
+        <Form.Check
+          type="switch"
+          id="performer-mode-switch"
+          label={
+            criterion.value.performer_mode === "OR"
+              ? intl.formatMessage({
+                  id: "performer_mode_or",
+                  defaultMessage: "Match Top OR Bottom",
+                })
+              : intl.formatMessage({
+                  id: "performer_mode_and",
+                  defaultMessage: "Match Top AND Bottom",
+                })
+          }
+          checked={criterion.value.performer_mode === "OR"}
+          onChange={(e) => {
+            const c = criterion.clone() as MarkerPerformersCriterion;
+            c.value.performer_mode = e.currentTarget.checked ? "OR" : "AND";
+            setCriterion(c);
+          }}
+        />
+        <Form.Text className="text-muted">
+          {criterion.value.performer_mode === "OR"
+            ? intl.formatMessage({
+                id: "performer_mode_or_description",
+                defaultMessage: "Top criteria matches OR Bottom criteria matches",
+              })
+            : intl.formatMessage({
+                id: "performer_mode_and_description",
+                defaultMessage: "Top criteria matches AND Bottom criteria matches",
+              })}
+        </Form.Text>
+      </Form.Group>
+
       <Row>
         {/* Top Column */}
         <Col md={6}>
@@ -275,131 +163,57 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
             </Form.Label>
             <PerformerIDSelect
               isMulti
-              ids={criterion.value.top_performer_ids.map((p) => p.id)}
-              onSelect={onTopPerformersChange}
-              menuPortalTarget={document.body}
-            />
-          </Form.Group>
-
-          {/* Top Ethnicity */}
-          <Form.Group
-            className="mb-3"
-            style={{
-              opacity: criterion.value.top_performer_ids.length > 0 ? 0.5 : 1,
-            }}
-          >
-            <Form.Label>
-              <FormattedMessage
-                id="performer_ethnicity"
-                defaultMessage="Ethnicity"
-              />
-            </Form.Label>
-            <Select
-              classNamePrefix="react-select"
-              isMulti
-              isClearable
-              isDisabled={criterion.value.top_performer_ids.length > 0}
-              options={ethnicityOptions}
-              value={ethnicityOptions.filter((o) =>
-                criterion.value.top_ethnicities.includes(o.value)
-              )}
-              placeholder={intl.formatMessage({
-                id: "any_ethnicity",
-                defaultMessage: "Any ethnicity",
-              })}
-              onChange={onTopEthnicitiesChange}
-              components={{ IndicatorSeparator: null }}
-              menuPortalTarget={document.body}
-            />
-          </Form.Group>
-
-          {/* Top Country */}
-          <Form.Group
-            className="mb-3"
-            style={{
-              opacity: criterion.value.top_performer_ids.length > 0 ? 0.5 : 1,
-            }}
-          >
-            <Form.Label>
-              <FormattedMessage
-                id="performer_country"
-                defaultMessage="Country"
-              />
-            </Form.Label>
-            <Select
-              classNamePrefix="react-select"
-              isMulti
-              isClearable
-              isDisabled={criterion.value.top_performer_ids.length > 0}
-              options={countryOptions}
-              value={countryOptions.filter((o) =>
-                criterion.value.top_countries.includes(o.value)
-              )}
-              placeholder={intl.formatMessage({
-                id: "any_country",
-                defaultMessage: "Any country",
-              })}
-              onChange={onTopCountriesChange}
-              menuPortalTarget={document.body}
-              components={{
-                IndicatorSeparator: null,
-                Option: CountryOption,
-                MultiValue: CountryMultiValue,
+              ids={criterion.value.top_performer_ids.filter((p) => !isUnnamedPerformerId(p.id)).map((p) => p.id)}
+              onSelect={(performers) => {
+                // Merge with any unnamed performer selections
+                const unnamedIds = criterion.value.top_performer_ids
+                  .filter((p) => isUnnamedPerformerId(p.id));
+                const c = criterion.clone() as MarkerPerformersCriterion;
+                c.value.top_performer_ids = [
+                  ...unnamedIds,
+                  ...performers.map((p) => ({ id: p.id, label: p.name ?? p.id })),
+                ];
+                setCriterion(c);
               }}
+              menuPortalTarget={document.body}
             />
-          </Form.Group>
-
-          {/* Top Rating */}
-          <Form.Group
-            className="mb-3"
-            style={{
-              opacity: criterion.value.top_performer_ids.length > 0 ? 0.5 : 1,
-            }}
-          >
-            <Form.Label>
-              <FormattedMessage id="performer_rating" defaultMessage="Rating" />
-            </Form.Label>
-            <div className="d-flex align-items-center gap-2 flex-wrap">
-              <div className="btn-group" role="group">
-                {ratingModifiers.map((m) => (
-                  <Button
-                    key={m.value}
-                    variant={topModifier === m.value ? "primary" : "secondary"}
-                    size="sm"
-                    onClick={() => onTopRatingModifierChange(m.value)}
-                    title={m.title}
-                    disabled={criterion.value.top_performer_ids.length > 0}
-                  >
-                    {m.label}
-                  </Button>
-                ))}
+            {/* Unnamed performer quick-select buttons */}
+            {(criterion.value.unnamed_performers?.length ?? 0) > 0 && (
+              <div className="unnamed-performer-quick-select mt-2">
+                <small className="text-muted me-2">
+                  <FormattedMessage id="unnamed_performers" defaultMessage="Unnamed:" />
+                </small>
+                {(criterion.value.unnamed_performers ?? []).map((up) => {
+                  const isSelected = criterion.value.top_performer_ids.some(
+                    (p) => p.id === up.id
+                  );
+                  return (
+                    <Button
+                      key={up.id}
+                      size="sm"
+                      variant={isSelected ? "info" : "outline-info"}
+                      className="me-1 mb-1"
+                      onClick={() => {
+                        const c = criterion.clone() as MarkerPerformersCriterion;
+                        if (isSelected) {
+                          c.value.top_performer_ids = c.value.top_performer_ids.filter(
+                            (p) => p.id !== up.id
+                          );
+                        } else {
+                          c.value.top_performer_ids = [
+                            ...c.value.top_performer_ids,
+                            { id: up.id, label: up.label },
+                          ];
+                        }
+                        setCriterion(c);
+                      }}
+                    >
+                      {up.label}
+                    </Button>
+                  );
+                })}
               </div>
-              <RatingSystem
-                value={topRating?.value}
-                onSetRating={(value) => onTopRatingValueChange(value ?? 0)}
-                valueRequired
-                disabled={criterion.value.top_performer_ids.length > 0}
-              />
-              {(topRating?.modifier === CriterionModifier.Between ||
-                topRating?.modifier === CriterionModifier.NotBetween) && (
-                <RatingSystem
-                  value={topRating?.value2}
-                  onSetRating={(value) => onTopRatingValue2Change(value ?? 0)}
-                  valueRequired
-                  disabled={criterion.value.top_performer_ids.length > 0}
-                />
-              )}
-              {topRating && (
-                <Button
-                  variant="outline-secondary"
-                  size="sm"
-                  onClick={() => onTopRatingChange(null)}
-                  disabled={criterion.value.top_performer_ids.length > 0}
-                >
-                  <FormattedMessage id="actions.clear" defaultMessage="Clear" />
-                </Button>
-              )}
-            </div>
+            )}
           </Form.Group>
         </Col>
 
@@ -424,133 +238,57 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
             </Form.Label>
             <PerformerIDSelect
               isMulti
-              ids={criterion.value.bottom_performer_ids.map((p) => p.id)}
-              onSelect={onBottomPerformersChange}
-              menuPortalTarget={document.body}
-            />
-          </Form.Group>
-
-          {/* Bottom Ethnicity */}
-          <Form.Group
-            className="mb-3"
-            style={{
-              opacity: criterion.value.bottom_performer_ids.length > 0 ? 0.5 : 1,
-            }}
-          >
-            <Form.Label>
-              <FormattedMessage
-                id="performer_ethnicity"
-                defaultMessage="Ethnicity"
-              />
-            </Form.Label>
-            <Select
-              classNamePrefix="react-select"
-              isMulti
-              isClearable
-              isDisabled={criterion.value.bottom_performer_ids.length > 0}
-              options={ethnicityOptions}
-              value={ethnicityOptions.filter((o) =>
-                criterion.value.bottom_ethnicities.includes(o.value)
-              )}
-              placeholder={intl.formatMessage({
-                id: "any_ethnicity",
-                defaultMessage: "Any ethnicity",
-              })}
-              onChange={onBottomEthnicitiesChange}
-              components={{ IndicatorSeparator: null }}
-              menuPortalTarget={document.body}
-            />
-          </Form.Group>
-
-          {/* Bottom Country */}
-          <Form.Group
-            className="mb-3"
-            style={{
-              opacity: criterion.value.bottom_performer_ids.length > 0 ? 0.5 : 1,
-            }}
-          >
-            <Form.Label>
-              <FormattedMessage
-                id="performer_country"
-                defaultMessage="Country"
-              />
-            </Form.Label>
-            <Select
-              classNamePrefix="react-select"
-              isMulti
-              isClearable
-              isDisabled={criterion.value.bottom_performer_ids.length > 0}
-              options={countryOptions}
-              value={countryOptions.filter((o) =>
-                criterion.value.bottom_countries.includes(o.value)
-              )}
-              placeholder={intl.formatMessage({
-                id: "any_country",
-                defaultMessage: "Any country",
-              })}
-              onChange={onBottomCountriesChange}
-              menuPortalTarget={document.body}
-              components={{
-                IndicatorSeparator: null,
-                Option: CountryOption,
-                MultiValue: CountryMultiValue,
+              ids={criterion.value.bottom_performer_ids.filter((p) => !isUnnamedPerformerId(p.id)).map((p) => p.id)}
+              onSelect={(performers) => {
+                // Merge with any unnamed performer selections
+                const unnamedIds = criterion.value.bottom_performer_ids
+                  .filter((p) => isUnnamedPerformerId(p.id));
+                const c = criterion.clone() as MarkerPerformersCriterion;
+                c.value.bottom_performer_ids = [
+                  ...unnamedIds,
+                  ...performers.map((p) => ({ id: p.id, label: p.name ?? p.id })),
+                ];
+                setCriterion(c);
               }}
+              menuPortalTarget={document.body}
             />
-          </Form.Group>
-
-          {/* Bottom Rating */}
-          <Form.Group
-            className="mb-3"
-            style={{
-              opacity: criterion.value.bottom_performer_ids.length > 0 ? 0.5 : 1,
-            }}
-          >
-            <Form.Label>
-              <FormattedMessage id="performer_rating" defaultMessage="Rating" />
-            </Form.Label>
-            <div className="d-flex align-items-center gap-2 flex-wrap">
-              <div className="btn-group" role="group">
-                {ratingModifiers.map((m) => (
-                  <Button
-                    key={m.value}
-                    variant={bottomModifier === m.value ? "primary" : "secondary"}
-                    size="sm"
-                    onClick={() => onBottomRatingModifierChange(m.value)}
-                    title={m.title}
-                    disabled={criterion.value.bottom_performer_ids.length > 0}
-                  >
-                    {m.label}
-                  </Button>
-                ))}
+            {/* Unnamed performer quick-select buttons */}
+            {(criterion.value.unnamed_performers?.length ?? 0) > 0 && (
+              <div className="unnamed-performer-quick-select mt-2">
+                <small className="text-muted me-2">
+                  <FormattedMessage id="unnamed_performers" defaultMessage="Unnamed:" />
+                </small>
+                {(criterion.value.unnamed_performers ?? []).map((up) => {
+                  const isSelected = criterion.value.bottom_performer_ids.some(
+                    (p) => p.id === up.id
+                  );
+                  return (
+                    <Button
+                      key={up.id}
+                      size="sm"
+                      variant={isSelected ? "info" : "outline-info"}
+                      className="me-1 mb-1"
+                      onClick={() => {
+                        const c = criterion.clone() as MarkerPerformersCriterion;
+                        if (isSelected) {
+                          c.value.bottom_performer_ids = c.value.bottom_performer_ids.filter(
+                            (p) => p.id !== up.id
+                          );
+                        } else {
+                          c.value.bottom_performer_ids = [
+                            ...c.value.bottom_performer_ids,
+                            { id: up.id, label: up.label },
+                          ];
+                        }
+                        setCriterion(c);
+                      }}
+                    >
+                      {up.label}
+                    </Button>
+                  );
+                })}
               </div>
-              <RatingSystem
-                value={bottomRating?.value}
-                onSetRating={(value) => onBottomRatingValueChange(value ?? 0)}
-                valueRequired
-                disabled={criterion.value.bottom_performer_ids.length > 0}
-              />
-              {(bottomRating?.modifier === CriterionModifier.Between ||
-                bottomRating?.modifier === CriterionModifier.NotBetween) && (
-                <RatingSystem
-                  value={bottomRating?.value2}
-                  onSetRating={(value) =>
-                    onBottomRatingValue2Change(value ?? 0)
-                  }
-                  valueRequired
-                  disabled={criterion.value.bottom_performer_ids.length > 0}
-                />
-              )}
-              {bottomRating && (
-                <Button
-                  variant="outline-secondary"
-                  size="sm"
-                  disabled={criterion.value.bottom_performer_ids.length > 0}
-                  onClick={() => onBottomRatingChange(null)}
-                >
-                  <FormattedMessage id="actions.clear" defaultMessage="Clear" />
-                </Button>
-              )}
-            </div>
+            )}
           </Form.Group>
         </Col>
       </Row>

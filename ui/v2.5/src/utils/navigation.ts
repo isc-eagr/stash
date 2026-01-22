@@ -1867,6 +1867,7 @@ const makePerformerOrgasmMarkersUrl = (
     bottom_ethnicities: [],
     bottom_countries: [],
     bottom_rating: null,
+    unnamed_performers: [],
   };
   filter.criteria.push(criterion);
   filter.sortBy = "title";
@@ -1936,6 +1937,7 @@ const makePerformerFacialMarkersWithRoleUrl = (
     bottom_ethnicities: [],
     bottom_countries: [],
     bottom_rating: null,
+    unnamed_performers: [],
   };
   filter.criteria.push(criterion);
   filter.sortBy = "title";

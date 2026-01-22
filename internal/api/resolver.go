@@ -1413,7 +1413,8 @@ func (r *queryResolver) Stats(ctx context.Context) (*StatsResultType, error) {
 		}
 
 		// Count oral scenes (scenes with oral markers but not sex markers)
-		oralSceneCount, err := scene.CountScenesWithMarkerTagExcluding(ctx, sceneMarkerQB, oralTagID, sexTagID)
+		// Exclude self-oral markers where top == bottom performers
+		oralSceneCount, err := scene.CountScenesWithMarkerTagExcluding(ctx, sceneMarkerQB, oralTagID, sexTagID, true)
 		if err != nil {
 			return err
 		}
@@ -1728,6 +1729,154 @@ func (r *queryResolver) TotalPenisMeters(ctx context.Context) (float64, error) {
 	}
 	// Convert cm to meters
 	return totalCm / 100.0, nil
+}
+
+// TotalOrgasmTime calculates the total time (in seconds) of all orgasm markers.
+// For each orgasm marker, the duration is (end_seconds - seconds), or 20 seconds if end_seconds is NULL.
+// Duration is multiplied by the number of top performers (or 1 if no tops assigned).
+// Uses roleTagIds.orgasmTagId from UI config and includes all subtags recursively.
+func (r *queryResolver) TotalOrgasmTime(ctx context.Context) (float64, error) {
+	var totalSeconds float64
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+		var orgasmTagID int
+		if roleTagIds != nil {
+			if orgasmID, ok := roleTagIds["orgasmTagId"].(string); ok && orgasmID != "" {
+				orgasmTagID, _ = strconv.Atoi(orgasmID)
+			}
+		}
+		if orgasmTagID == 0 {
+			return nil // No tag configured
+		}
+
+		db := manager.GetInstance().Database
+		query := `
+WITH RECURSIVE orgasm_tags(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
+),
+orgasm_markers AS (
+  SELECT DISTINCT sm.id, sm.seconds, sm.end_seconds
+  FROM scene_markers sm
+  LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+  WHERE sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
+     OR smt.tag_id IN (SELECT id FROM orgasm_tags)
+)
+SELECT COALESCE(SUM(
+  (CASE WHEN end_seconds IS NOT NULL THEN end_seconds - seconds ELSE 20.0 END) 
+  * 
+  (CASE WHEN top_count > 0 THEN top_count ELSE 1 END)
+), 0) AS total_time
+FROM (
+  SELECT om.id, om.seconds, om.end_seconds,
+    (SELECT COUNT(*) FROM scene_marker_performers smp WHERE smp.scene_marker_id = om.id AND smp.role = 'top') AS top_count
+  FROM orgasm_markers om
+) sub`
+		args := []interface{}{orgasmTagID}
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 && rows[0][0] != nil {
+			switch v := rows[0][0].(type) {
+			case float64:
+				totalSeconds = v
+			case int64:
+				totalSeconds = float64(v)
+			case int:
+				totalSeconds = float64(v)
+			case []byte:
+				f, _ := strconv.ParseFloat(string(v), 64)
+				totalSeconds = f
+			case string:
+				f, _ := strconv.ParseFloat(v, 64)
+				totalSeconds = f
+			default:
+				f, _ := strconv.ParseFloat(fmt.Sprint(v), 64)
+				totalSeconds = f
+			}
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return totalSeconds, nil
+}
+
+// TotalFacialTime calculates the total time (in seconds) of all facial markers.
+// For each facial marker, the duration is (end_seconds - seconds), or 20 seconds if end_seconds is NULL.
+// Duration is multiplied by the number of top performers (or 1 if no tops assigned).
+// Uses roleTagIds.facialTagId from UI config and includes all subtags recursively.
+func (r *queryResolver) TotalFacialTime(ctx context.Context) (float64, error) {
+	var totalSeconds float64
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+		var facialTagID int
+		if roleTagIds != nil {
+			if facialID, ok := roleTagIds["facialTagId"].(string); ok && facialID != "" {
+				facialTagID, _ = strconv.Atoi(facialID)
+			}
+		}
+		if facialTagID == 0 {
+			return nil // No tag configured
+		}
+
+		db := manager.GetInstance().Database
+		query := `
+WITH RECURSIVE facial_tags(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN facial_tags ft ON tr.parent_id = ft.id
+),
+facial_markers AS (
+  SELECT DISTINCT sm.id, sm.seconds, sm.end_seconds
+  FROM scene_markers sm
+  LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+  WHERE sm.primary_tag_id IN (SELECT id FROM facial_tags)
+     OR smt.tag_id IN (SELECT id FROM facial_tags)
+)
+SELECT COALESCE(SUM(
+  (CASE WHEN end_seconds IS NOT NULL THEN end_seconds - seconds ELSE 20.0 END) 
+  * 
+  (CASE WHEN top_count > 0 THEN top_count ELSE 1 END)
+), 0) AS total_time
+FROM (
+  SELECT fm.id, fm.seconds, fm.end_seconds,
+    (SELECT COUNT(*) FROM scene_marker_performers smp WHERE smp.scene_marker_id = fm.id AND smp.role = 'top') AS top_count
+  FROM facial_markers fm
+) sub`
+		args := []interface{}{facialTagID}
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 && rows[0][0] != nil {
+			switch v := rows[0][0].(type) {
+			case float64:
+				totalSeconds = v
+			case int64:
+				totalSeconds = float64(v)
+			case int:
+				totalSeconds = float64(v)
+			case []byte:
+				f, _ := strconv.ParseFloat(string(v), 64)
+				totalSeconds = f
+			case string:
+				f, _ := strconv.ParseFloat(v, 64)
+				totalSeconds = f
+			default:
+				f, _ := strconv.ParseFloat(fmt.Sprint(v), 64)
+				totalSeconds = f
+			}
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return totalSeconds, nil
 }
 
 func firstError(errs []error) error {

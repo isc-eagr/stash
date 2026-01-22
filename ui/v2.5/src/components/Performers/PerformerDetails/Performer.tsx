@@ -111,19 +111,40 @@ const PerformerTabs: React.FC<{
   const { data: performerMarkersData } = GQL.useFindSceneMarkersQuery({
     variables: {
       scene_marker_filter: {
-        marker_performers: {
-          top_performer_ids: [performer.id],
-          bottom_performer_ids: [performer.id],
-          mode: "OR",
-          modifier: GQL.CriterionModifier.Includes,
+        scene_marker_tags: {
+          modifier: GQL.CriterionModifier.Equals,
+          groups_extended: [
+            {
+              tag_ids: [],
+              top_performer_ids: [performer.id],
+            },
+          ],
         },
       },
       // no need to fetch actual markers here; we only use the count
       filter: { per_page: 1 },
     },
   });
+  // Also count bottom markers
+  const { data: performerBottomMarkersData } = GQL.useFindSceneMarkersQuery({
+    variables: {
+      scene_marker_filter: {
+        scene_marker_tags: {
+          modifier: GQL.CriterionModifier.Equals,
+          groups_extended: [
+            {
+              tag_ids: [],
+              bottom_performer_ids: [performer.id],
+            },
+          ],
+        },
+      },
+      filter: { per_page: 1 },
+    },
+  });
   const performerMarkersCount =
-    performerMarkersData?.findSceneMarkers.count ?? 0;
+    (performerMarkersData?.findSceneMarkers.count ?? 0) +
+    (performerBottomMarkersData?.findSceneMarkers.count ?? 0);
 
   // fetch unique co-performer count for "Appears With (By Role)" tab
   const { data: coPerformersData } = GQL.usePerformerCoPerformersByRoleQuery({

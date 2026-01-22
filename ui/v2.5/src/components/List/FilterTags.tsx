@@ -223,22 +223,9 @@ const SceneMarkerTagsChipLabel: React.FC<{
   const hasExtendedAttrs = criterion.extendedGroups.some(
     (g) =>
       (g.top_performer_ids?.length ?? 0) > 0 ||
-      (g.top_ethnicities?.length ?? 0) > 0 ||
-      (g.top_countries?.length ?? 0) > 0 ||
-      g.top_rating != null ||
       (g.bottom_performer_ids?.length ?? 0) > 0 ||
-      (g.bottom_ethnicities?.length ?? 0) > 0 ||
-      (g.bottom_countries?.length ?? 0) > 0 ||
-      g.bottom_rating != null ||
       (g.both_roles_performer_ids?.length ?? 0) > 0 ||
-      (g.both_roles_ethnicities?.length ?? 0) > 0 ||
-      (g.both_roles_countries?.length ?? 0) > 0 ||
-      g.both_roles_rating != null ||
       (g.exclude_tags?.length ?? 0) > 0 ||
-      // DEPRECATED
-      (g.performer_countries?.length ?? 0) > 0 ||
-      (g.performer_ethnicities?.length ?? 0) > 0 ||
-      g.performer_rating != null ||
       (g.depth != null && g.depth !== 0)
   );
 
@@ -282,28 +269,6 @@ const SceneMarkerTagsChipLabel: React.FC<{
               .join(",");
             parts.push(`top=${perfStr}`);
           }
-          if (g.top_ethnicities?.length)
-            parts.push(`top-eth=${g.top_ethnicities.join(",")}`);
-          if (g.top_countries?.length)
-            parts.push(`top-ctry=${g.top_countries.join(",")}`);
-          if (g.top_rating) {
-            const mod = ModifierCriterion.getModifierLabel(
-              intl,
-              g.top_rating.modifier
-            );
-            if (
-              g.top_rating.modifier === CriterionModifier.Between ||
-              g.top_rating.modifier === CriterionModifier.NotBetween
-            ) {
-              parts.push(
-                `top-rating ${mod} ${g.top_rating.value}..${
-                  g.top_rating.value2 ?? ""
-                }`
-              );
-            } else {
-              parts.push(`top-rating ${mod} ${g.top_rating.value}`);
-            }
-          }
           // Bottom attributes
           if (g.bottom_performer_ids?.length) {
             const perfStr = g.bottom_performer_ids
@@ -315,28 +280,6 @@ const SceneMarkerTagsChipLabel: React.FC<{
               .join(",");
             parts.push(`btm=${perfStr}`);
           }
-          if (g.bottom_ethnicities?.length)
-            parts.push(`btm-eth=${g.bottom_ethnicities.join(",")}`);
-          if (g.bottom_countries?.length)
-            parts.push(`btm-ctry=${g.bottom_countries.join(",")}`);
-          if (g.bottom_rating) {
-            const mod = ModifierCriterion.getModifierLabel(
-              intl,
-              g.bottom_rating.modifier
-            );
-            if (
-              g.bottom_rating.modifier === CriterionModifier.Between ||
-              g.bottom_rating.modifier === CriterionModifier.NotBetween
-            ) {
-              parts.push(
-                `btm-rating ${mod} ${g.bottom_rating.value}..${
-                  g.bottom_rating.value2 ?? ""
-                }`
-              );
-            } else {
-              parts.push(`btm-rating ${mod} ${g.bottom_rating.value}`);
-            }
-          }
           // Both roles attributes
           if (g.both_roles_performer_ids?.length) {
             const perfStr = g.both_roles_performer_ids
@@ -347,51 +290,6 @@ const SceneMarkerTagsChipLabel: React.FC<{
               )
               .join(",");
             parts.push(`both=${perfStr}`);
-          }
-          if (g.both_roles_ethnicities?.length)
-            parts.push(`both-eth=${g.both_roles_ethnicities.join(",")}`);
-          if (g.both_roles_countries?.length)
-            parts.push(`both-ctry=${g.both_roles_countries.join(",")}`);
-          if (g.both_roles_rating) {
-            const mod = ModifierCriterion.getModifierLabel(
-              intl,
-              g.both_roles_rating.modifier
-            );
-            if (
-              g.both_roles_rating.modifier === CriterionModifier.Between ||
-              g.both_roles_rating.modifier === CriterionModifier.NotBetween
-            ) {
-              parts.push(
-                `both-rating ${mod} ${g.both_roles_rating.value}..${
-                  g.both_roles_rating.value2 ?? ""
-                }`
-              );
-            } else {
-              parts.push(`both-rating ${mod} ${g.both_roles_rating.value}`);
-            }
-          }
-          // DEPRECATED fields
-          if (g.performer_countries?.length)
-            parts.push(`country=${g.performer_countries.join(",")}`);
-          if (g.performer_ethnicities?.length)
-            parts.push(`ethnicity=${g.performer_ethnicities.join(",")}`);
-          if (g.performer_rating) {
-            const mod = ModifierCriterion.getModifierLabel(
-              intl,
-              g.performer_rating.modifier
-            );
-            if (
-              g.performer_rating.modifier === CriterionModifier.Between ||
-              g.performer_rating.modifier === CriterionModifier.NotBetween
-            ) {
-              parts.push(
-                `rating ${mod} ${g.performer_rating.value}..${
-                  g.performer_rating.value2 ?? ""
-                }`
-              );
-            } else {
-              parts.push(`rating ${mod} ${g.performer_rating.value}`);
-            }
           }
           return `(${parts.join(" ")})`;
         })

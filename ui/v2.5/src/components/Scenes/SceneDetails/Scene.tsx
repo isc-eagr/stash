@@ -637,17 +637,59 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     const {oralTagId} = roleTagIds;
     const {soloTagId} = roleTagIds;
 
+    // Helper to check if a marker has the same performer as both top and bottom
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const isOralWithSameTopBottom = (marker: any): boolean => {
+      const topPerformers = marker?.top_performers ?? [];
+      const bottomPerformers = marker?.bottom_performers ?? [];
+      
+      // If there are no performers on either side, it's not a self-oral
+      if (topPerformers.length === 0 && bottomPerformers.length === 0) return false;
+      
+      // If only one side has performers, it's not self-oral
+      if (topPerformers.length === 0 || bottomPerformers.length === 0) return false;
+      
+      // Check if all top performers are also bottom performers and vice versa
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const topIds = new Set(topPerformers.map((p: any) => p.id));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bottomIds = new Set(bottomPerformers.map((p: any) => p.id));
+      
+      // They must have the same performers on both sides
+      if (topIds.size !== bottomIds.size) return false;
+      for (const id of topIds) {
+        if (!bottomIds.has(id)) return false;
+      }
+      return true;
+    };
+
     // Get scene marker tag IDs
     const markerTagIds = new Set<string>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sceneMarkers = (scene as any).scene_markers ?? [];
     for (const marker of sceneMarkers) {
+      // Check if this is an oral marker
+      const isOralMarker = 
+        (marker?.primary_tag?.id && marker.primary_tag.id === oralTagId) ||
+        (marker?.tags ?? []).some((tag: { id?: string }) => tag?.id === oralTagId);
+      
+      // For oral markers, only count them if top != bottom
+      if (isOralMarker && oralTagId) {
+        if (!isOralWithSameTopBottom(marker)) {
+          markerTagIds.add(oralTagId);
+        }
+      }
+
+      // Add non-oral tag IDs normally
       if (marker?.primary_tag?.id) {
-        markerTagIds.add(marker.primary_tag.id);
+        if (marker.primary_tag.id === sexTagId) markerTagIds.add(marker.primary_tag.id);
+        if (marker.primary_tag.id === soloTagId) markerTagIds.add(marker.primary_tag.id);
       }
       const markerTags: Array<{ id?: string }> = marker?.tags ?? [];
       for (const tag of markerTags) {
         if (tag?.id) {
-          markerTagIds.add(tag.id);
+          if (tag.id === sexTagId) markerTagIds.add(tag.id);
+          if (tag.id === soloTagId) markerTagIds.add(tag.id);
         }
       }
     }

@@ -71,4 +71,8 @@ extend type Query {
   estimatedLiters: Float!
   "Get total meters of combined penis lengths (default 17cm if missing, converted to meters)"
   totalPenisMeters: Float!
+  "Get total time (in seconds) of all orgasm markers. Uses 20s default if no end time."
+  totalOrgasmTime: Float!
+  "Get total time (in seconds) of all facial markers. Uses 20s default if no end time."
+  totalFacialTime: Float!
 }

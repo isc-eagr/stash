@@ -34,6 +34,7 @@ This document describes all custom features and modifications added on top of th
 26. [Clickable Marker End Timestamps](#26-clickable-marker-end-timestamps)
 27. [Performer Image Overlay on Video Player](#27-performer-image-overlay-on-video-player)
 28. [Image Viewer](#28-image-viewer)
+29. [Unnamed Performers in Marker Filters](#29-unnamed-performers-in-marker-filters)
 
 ---
 
@@ -79,6 +80,7 @@ CREATE TABLE IF NOT EXISTS `scene_marker_performers` (
 ### Frontend Files
 - `ui/v2.5/src/components/SceneMarkerPerformerEdit/SceneMarkerPerformerEdit.tsx` - Edit top/bottom assignments
 - `ui/v2.5/graphql/queries/performer.graphql` - `PerformerCoPerformersByRole` query
+- `ui/v2.5/src/components/Performers/PerformerDetails/PerformerAppearsWithByRolePanel.tsx` - "Appears With (By Role)" tab showing co-performers grouped by role category (sex/oral/facial) and position (topped/bottomed for). Performers are sorted alphabetically within each role section.
 
 ---
 
@@ -114,6 +116,7 @@ Visual indicators on performer cards and scene cards showing role information ba
 - **Top/Bottom counts**: Displayed on performer cards showing breakdown by role
 - **Category icons**: Gay icon (sex), Mouth icon (oral), Hand icon (solo), Goatee icon (facial)
 - **Scene card overlays**: Icons indicating what types of markers a scene has
+- **Oral marker filtering**: Oral markers are only counted for scene categorization if the top and bottom performers are different. If a marker has the same performer as both top and bottom (e.g., self-oral), it is ignored for categorization purposes. This ensures scenes with only solo + self-oral markers are correctly categorized as solo scenes.
 
 ### Files Modified
 - `ui/v2.5/src/components/Performers/PerformerCard.tsx`:
@@ -125,6 +128,13 @@ Visual indicators on performer cards and scene cards showing role information ba
 
 - `ui/v2.5/src/components/Scenes/SceneCard.tsx`:
   - Scene card overlays showing marker categories
+  - Added `top_performers` and `bottom_performers` to slim scene marker data for oral marker filtering
+
+- `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx`:
+  - Scene title icon based on marker categories with oral marker filtering
+
+- `ui/v2.5/graphql/data/scene-slim.graphql`:
+  - Added `top_performers { id }` and `bottom_performers { id }` to scene_markers fragment
 
 ---
 
@@ -258,14 +268,11 @@ Each marker group supports separate top/bottom/both-roles attribute blocks:
 - `ui/v2.5/src/locales/en-US.json` - US English override translations
 
 **Scene Custom Filters:**
-- **Multiple Orgasms:** Scenes where any performer has 2+ orgasm markers as "top" (same as legacy filter)
 - **Versatile Scenes:** Scenes where ALL performers have at least one sexTagId marker as "top" AND at least one as "bottom"
 - **Circular Oral:** Scenes with a marker tagged with oralTagId (or a subtag) where ALL performers are both tops and bottoms on the same marker
-- **Simultaneous Orgasm:** Scenes with a marker tagged with orgasmTagId (or a subtag) that has 2 or more tops
 
 **Scene Marker Custom Filters:**
 - **Circular Oral:** Markers tagged with oralTagId (or a subtag) where ALL performers are both tops and bottoms on the same marker
-- **Simultaneous Orgasm:** Markers tagged with orgasmTagId (or a subtag) that have 2 or more tops
 
 **Performer Custom Filters:**
 - **Strict Tops:** Performers with zero sexTagId/oralTagId/facialTagId markers as bottom, but at least one sexTagId as top
@@ -304,7 +311,7 @@ Quick-access buttons on studio cards and detail pages showing scene counts by ca
 
 ### Button Types
 - **Sex Scenes** (gay icon): Scenes with top AND bottom performers
-- **Oral Scenes** (mouth icon): Scenes with oral tags but no sex tags
+- **Oral Scenes** (mouth icon): Scenes with oral tags but no sex tags (excludes self-oral markers where top == bottom performers)
 - **Solo Scenes** (hand icon): Scenes with solo tag only
 - **Facial Scenes** (goatee icon): Scenes with facial tags
 - **Unique Performers** (user-plus icon): Count of distinct performers
@@ -677,6 +684,8 @@ CREATE INDEX `idx_scene_marker_performers_performer_role` ON `scene_marker_perfo
 **File:** `graphql/schema/types/filters.graphql`
 - Added `SceneMarkerTagGroupInput` input type for extended scene marker tag filtering with performer attributes
 - Added `groups_extended: [SceneMarkerTagGroupInput!]` to `SceneMarkerTagsCriterionInput`
+- Added `groups_extended_exclude: [SceneMarkerTagGroupInput!]` to `SceneMarkerTagsCriterionInput` for exclusion groups with full performer criteria
+- Added `exclude_modifier: CriterionModifier` to `SceneMarkerTagsCriterionInput` for controlling exclusion logic (INCLUDES_ALL = all groups must match, INCLUDES = any match excludes)
 - Added marker performer filters to `SceneMarkerFilterType`:
   - `marker_performers: MultiCriterionInput` - Filter by performers assigned directly to the marker (both top and bottom)
   - `marker_performer_ethnicity: StringCriterionInput` - Filter by marker performer ethnicity
@@ -753,7 +762,7 @@ Adds a Studio filter criterion to the Scene Markers filter page, allowing filter
 ## 17. Extended Custom Statistics
 
 ### Overview
-Adds two new statistics to the Custom Stats page: estimated liters (from orgasms) and total penis meters (sum of performer penis lengths).
+Adds additional statistics to the Custom Stats page: estimated liters (from orgasms), total penis meters (sum of performer penis lengths), total orgasm time, and total facial time. Also adds clickable links for Total Orgasms and Total Facials counts.
 
 ### GraphQL Schema Extensions
 **File:** `graphql/schema/types/stats.graphql`
@@ -761,6 +770,8 @@ Adds two new statistics to the Custom Stats page: estimated liters (from orgasms
 extend type Query {
   estimatedLiters: Float!
   totalPenisMeters: Float!
+  totalOrgasmTime: Float!
+  totalFacialTime: Float!
 }
 ```
 
@@ -768,17 +779,23 @@ extend type Query {
 **File:** `internal/api/resolver.go`
 - `EstimatedLiters` resolver: Uses `SceneOrgasmCount` (which counts tops on orgasm markers, including subtags) and multiplies by 3ml (0.003L)
 - `TotalPenisMeters` resolver: Sums performer penis lengths (defaulting to 17cm when null), converts to meters
+- `TotalOrgasmTime` resolver: Sums duration of all orgasm markers (uses end_seconds - seconds, or 20s default if no end time)
+- `TotalFacialTime` resolver: Sums duration of all facial markers (uses end_seconds - seconds, or 20s default if no end time)
 
 ### Frontend Files
-- `ui/v2.5/src/components/CustomStats.tsx` - Added display for estimated liters and total penis meters with formatted output
+- `ui/v2.5/src/components/CustomStats.tsx` - Added display for estimated liters, total penis meters, total orgasm time, total facial time, and clickable links for Total Orgasms/Facials counts
 
 ### Features
 - **Estimated Liters**: Calculates total orgasms (based on tops per orgasm marker, including subtags) × 3ml converted to liters, displayed with 2 decimal places
 - **Total Penis Meters**: Sums all performer penis lengths (uses 17cm default), displays in meters with 🍆 emoji
+- **Total Orgasm Time**: Sum of all orgasm marker durations (end_seconds - seconds), using 20s default when no end timestamp
+- **Total Facial Time**: Sum of all facial marker durations (end_seconds - seconds), using 20s default when no end timestamp
+- **Clickable Total Orgasms**: Links to Markers page filtered by orgasm tag (using configured orgasmTagId)
+- **Clickable Total Facials**: Links to Markers page filtered by facial tag (using configured facialTagId)
 
 ---
 
-## 17. Performer Studios Tab
+## 18. Performer Studios Tab
 
 ### Overview
 Adds a new "Studios" tab to the Performer detail page, showing all studios that the performer has scenes with.
@@ -1664,6 +1681,57 @@ A dedicated full-page image viewer allowing users to view and manipulate multipl
 - Fullscreen API supported in modern browsers
 - Fallback: fullscreen button disabled if `document.fullscreenElement` is unavailable
 - Mouse/touch events use standard APIs compatible with all major browsers
+
+---
+
+## 29. Unnamed Performers in Marker Filters
+
+### Overview
+A feature that allows users to define "unnamed performers" (Performer A, Performer B, etc.) within filter contexts. These virtual performers are defined by criteria (ethnicity, country, rating) and can be selected in the Top/Bottom dropdowns of marker filters. This enables searches like:
+- "Find markers where the same Black 5-star performer is both top AND bottom"
+- "Find markers where Performer A (Mexican, 4-star) is top and Performer B (Black, 5-star) is also top"
+
+### Use Cases
+1. **Same performer in both roles**: When an unnamed performer is selected in BOTH top and bottom dropdowns, the backend uses `both_roles_*` criteria to ensure the SAME performer matching those criteria appears in both roles
+2. **Different unnamed performers**: When different unnamed performers are in top vs bottom, each applies their own criteria independently
+3. **Mixed with named performers**: Unnamed performers can be combined with regular named performer selections
+
+### Files Created
+- `ui/v2.5/src/models/list-filter/criteria/unnamed-performer.ts` - Type definitions and utility functions for unnamed performers
+- `ui/v2.5/src/components/List/Filters/UnnamedPerformerManager.tsx` - React component for managing unnamed performers (add/edit/delete)
+- `ui/v2.5/src/components/List/Filters/PerformerSelectWithUnnamed.tsx` - Enhanced performer select that includes unnamed performers
+
+### Files Modified
+- `ui/v2.5/src/models/list-filter/criteria/marker-performers.ts` - Added `unnamed_performers` array to criterion value, updated all serialization/deserialization methods, enhanced `applyToCriterionInput` to translate unnamed performers to backend criteria
+- `ui/v2.5/src/components/List/Filters/MarkerPerformersFilter.tsx` - Integrated UnnamedPerformersManager, added quick-select buttons for unnamed performers in Top/Bottom sections
+- `ui/v2.5/src/locales/en-US.json` - Added localization strings for unnamed performers
+
+### Filters Implemented (2 of 5)
+1. ✅ **Markers** (Markers page, `/scenes/markers`) - MarkerPerformersFilter
+2. ⏳ **Scene Markers** (Scenes page, `/scenes`) - SceneMarkersFilter
+3. ✅ **Scene Markers: Exclude** (Scenes page, `/scenes`) - SceneMarkersExcludeFilter (fixed via `groups_extended_exclude` field)
+4. ⏳ **Markers** (Performers page, `/performers`) - PerformerMarkersFilter
+5. ⏳ **Markers: Exclude** (Performers page, `/performers`) - PerformerMarkersExcludeFilter
+
+### Backend Support
+The backend already supports `both_roles_ethnicities`, `both_roles_countries`, and `both_roles_rating` fields in `SceneMarkerTagGroupInput`, which the unnamed performer feature leverages when the same unnamed performer is selected in both Top and Bottom.
+
+### Data Structure
+```typescript
+interface IUnnamedPerformer {
+  id: string;        // e.g., "unnamed-A"
+  label: string;     // e.g., "Performer A"
+  letter: string;    // e.g., "A"
+  ethnicities: string[];
+  countries: string[];
+  rating: IUnnamedPerformerRating | null;
+}
+```
+
+### Future Work
+- Implement unnamed performers in remaining 4 filters (follow pattern from MarkerPerformersFilter)
+- Consider adding more criteria fields (age range, height, etc.)
+- Persist unnamed performer definitions across filters for reuse
 
 ---
 

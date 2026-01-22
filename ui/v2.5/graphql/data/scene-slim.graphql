@@ -50,6 +50,12 @@ fragment SlimSceneData on Scene {
         id
       }
     }
+    top_performers {
+      id
+    }
+    bottom_performers {
+      id
+    }
   }
 
   galleries {

@@ -268,21 +268,6 @@ input SceneMarkerFilterType {
   "Filter by whether the marker has an end time"
   has_end_time: Boolean
 
-  "Filter by performers assigned directly to the marker with top/bottom role support"
-  marker_performers: MarkerPerformersFilterInput
-    @deprecated(reason: "Use marker_tags_with_performers instead")
-  "Filter by ethnicity of performers assigned directly to the marker"
-  marker_performer_ethnicity: StringCriterionInput
-    @deprecated(reason: "Use marker_tags_with_performers instead")
-  "Filter by country of performers assigned directly to the marker (comma-separated ISO codes)"
-  marker_performer_country: StringCriterionInput
-    @deprecated(reason: "Use marker_tags_with_performers instead")
-  "Filter by rating of performers assigned directly to the marker (1-100)"
-  marker_performer_rating: IntCriterionInput
-    @deprecated(reason: "Use marker_tags_with_performers instead")
-  "When true, all marker performers must satisfy the marker_performer_rating condition; when false, at least one (default: true)"
-  marker_performer_rating_all: Boolean
-    @deprecated(reason: "Use marker_tags_with_performers instead")
   "Filter by whether the marker has performers assigned directly to it"
   has_marker_performers: String
 
@@ -319,6 +304,39 @@ input TagIdGroupsInput {
   groups: [[ID!]!]
 }
 
+"Specifies a minimum count of performers with a given ethnicity"
+input EthnicityCountInput {
+  "The ethnicity to match (expansions handled server-side)"
+  ethnicity: String!
+  "Minimum number of distinct performers with this ethnicity required"
+  min_count: Int!
+}
+
+"Specifies a minimum count of performers from a given country"
+input CountryCountInput {
+  "The country code to match"
+  country: String!
+  "Minimum number of distinct performers from this country required"
+  min_count: Int!
+}
+
+"""
+Criteria for an unnamed performer slot. Each slot must match a DISTINCT performer
+that satisfies ALL the specified criteria (AND logic within, must be distinct between slots).
+The ID is used to correlate the same unnamed performer across different marker groups -
+ensuring the same actual performer matches in all groups where this ID is used.
+"""
+input UnnamedPerformerCriterionInput {
+  "Unique ID for this unnamed performer (used to correlate across marker groups)"
+  id: String
+  "Ethnicities the performer must have (OR match within; expansions handled server-side)"
+  ethnicities: [String!]
+  "Countries the performer must be from (OR match within)"
+  countries: [String!]
+  "Rating criterion the performer must satisfy"
+  rating: IntCriterionInput
+}
+
 "Group for scene marker tags filtering with optional performer attributes"
 input SceneMarkerTagGroupInput {
   "Tag IDs that must be present on the marker"
@@ -336,6 +354,10 @@ input SceneMarkerTagGroupInput {
   top_ethnicities: [String!]
   "Top performer countries (OR match)"
   top_countries: [String!]
+  "Minimum counts per ethnicity for top performers (AND logic between entries)"
+  top_ethnicity_counts: [EthnicityCountInput!]
+  "Minimum counts per country for top performers (AND logic between entries)"
+  top_country_counts: [CountryCountInput!]
   "Top performer rating criterion"
   top_rating: IntCriterionInput
 
@@ -347,6 +369,10 @@ input SceneMarkerTagGroupInput {
   bottom_ethnicities: [String!]
   "Bottom performer countries (OR match)"
   bottom_countries: [String!]
+  "Minimum counts per ethnicity for bottom performers (AND logic between entries)"
+  bottom_ethnicity_counts: [EthnicityCountInput!]
+  "Minimum counts per country for bottom performers (AND logic between entries)"
+  bottom_country_counts: [CountryCountInput!]
   "Bottom performer rating criterion"
   bottom_rating: IntCriterionInput
 
@@ -356,8 +382,29 @@ input SceneMarkerTagGroupInput {
   both_roles_ethnicities: [String!]
   "Both-roles performer countries (OR match)"
   both_roles_countries: [String!]
+  "Minimum counts per ethnicity for both-roles performers (AND logic between entries)"
+  both_roles_ethnicity_counts: [EthnicityCountInput!]
+  "Minimum counts per country for both-roles performers (AND logic between entries)"
+  both_roles_country_counts: [CountryCountInput!]
   "Both-roles performer rating criterion"
   both_roles_rating: IntCriterionInput
+
+  """
+  Unnamed performer slots for top role. Each entry must match a DISTINCT performer
+  that satisfies all criteria in that entry. E.g., two entries with ethnicity=Black
+  requires two distinct Black performers as top.
+  """
+  top_unnamed_performers: [UnnamedPerformerCriterionInput!]
+  """
+  Unnamed performer slots for bottom role. Each entry must match a DISTINCT performer
+  that satisfies all criteria in that entry.
+  """
+  bottom_unnamed_performers: [UnnamedPerformerCriterionInput!]
+  """
+  Unnamed performer slots for both-roles. Each entry must match a DISTINCT performer
+  who appears as BOTH top AND bottom and satisfies all criteria.
+  """
+  both_roles_unnamed_performers: [UnnamedPerformerCriterionInput!]
 
   "Mode for performer matching: 'AND' = top AND bottom must match, 'OR' = either can match (default: 'OR')"
   performer_mode: String
@@ -378,6 +425,19 @@ input SceneMarkerTagsCriterionInput {
   groups: [[ID!]]
   "Extended groups with performer attributes (used when groups_extended is provided)"
   groups_extended: [SceneMarkerTagGroupInput!]
+  """
+  Exclusion groups with full performer criteria. Each group defines a marker pattern that,
+  when matched, causes the scene to be excluded from results.
+  - exclude_modifier 'INCLUDES_ALL': ALL groups must match for exclusion (AND logic)
+  - exclude_modifier 'INCLUDES': ANY group matching causes exclusion (OR logic)
+  """
+  groups_extended_exclude: [SceneMarkerTagGroupInput!]
+  """
+  Modifier for exclusion groups logic:
+  - INCLUDES_ALL: ALL exclusion groups must match for the scene to be excluded
+  - INCLUDES: ANY exclusion group matching causes the scene to be excluded
+  """
+  exclude_modifier: CriterionModifier
 }
 
 input SceneFilterType {
@@ -1042,18 +1102,6 @@ input MultiCriterionInput {
   value: [ID!]
   modifier: CriterionModifier!
   excludes: [ID!]
-}
-
-"Filter by marker performers with top/bottom role support"
-input MarkerPerformersFilterInput {
-  "Top performer IDs to filter by"
-  top_performer_ids: [ID!]
-  "Bottom performer IDs to filter by"
-  bottom_performer_ids: [ID!]
-  "Mode: 'AND' = both top and bottom must match, 'OR' = either can match (default: 'OR')"
-  mode: String
-  "Modifier for the filter (INCLUDES, INCLUDES_ALL, EXCLUDES, IS_NULL, NOT_NULL)"
-  modifier: CriterionModifier!
 }
 
 "Filter performers by their scene marker participation"

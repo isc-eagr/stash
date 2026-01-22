@@ -179,6 +179,28 @@ type MultiCriterionInput struct {
 	Excludes []string          `json:"excludes"`
 }
 
+// EthnicityCountInput specifies a minimum count of performers with a given ethnicity
+type EthnicityCountInput struct {
+	Ethnicity string `json:"ethnicity"`
+	MinCount  int    `json:"min_count"`
+}
+
+// CountryCountInput specifies a minimum count of performers from a given country
+type CountryCountInput struct {
+	Country  string `json:"country"`
+	MinCount int    `json:"min_count"`
+}
+
+// UnnamedPerformerCriterionInput represents criteria for matching a distinct performer
+// Each slot must match a DIFFERENT performer that satisfies ALL the criteria
+// The ID is used to correlate the same unnamed performer across different marker groups
+type UnnamedPerformerCriterionInput struct {
+	ID          *string            `json:"id"` // Used to correlate across marker groups
+	Ethnicities []string           `json:"ethnicities"`
+	Countries   []string           `json:"countries"`
+	Rating      *IntCriterionInput `json:"rating"`
+}
+
 // SceneMarkerTagGroupInput represents a group for scene marker tags filtering
 // with optional performer attributes
 type SceneMarkerTagGroupInput struct {
@@ -187,24 +209,35 @@ type SceneMarkerTagGroupInput struct {
 	Depth         *int     `json:"depth"`
 
 	// Top criteria
-	TopPerformerIDs []string           `json:"top_performer_ids"`
-	TopAnyCount     *int               `json:"top_any_count"` // Minimum number of ANY top performers required
-	TopEthnicities  []string           `json:"top_ethnicities"`
-	TopCountries    []string           `json:"top_countries"`
-	TopRating       *IntCriterionInput `json:"top_rating"`
+	TopPerformerIDs    []string              `json:"top_performer_ids"`
+	TopAnyCount        *int                  `json:"top_any_count"` // Minimum number of ANY top performers required
+	TopEthnicities     []string              `json:"top_ethnicities"`
+	TopCountries       []string              `json:"top_countries"`
+	TopEthnicityCounts []EthnicityCountInput `json:"top_ethnicity_counts"`
+	TopCountryCounts   []CountryCountInput   `json:"top_country_counts"`
+	TopRating          *IntCriterionInput    `json:"top_rating"`
 
 	// Bottom criteria
-	BottomPerformerIDs []string           `json:"bottom_performer_ids"`
-	BottomAnyCount     *int               `json:"bottom_any_count"` // Minimum number of ANY bottom performers required
-	BottomEthnicities  []string           `json:"bottom_ethnicities"`
-	BottomCountries    []string           `json:"bottom_countries"`
-	BottomRating       *IntCriterionInput `json:"bottom_rating"`
+	BottomPerformerIDs    []string              `json:"bottom_performer_ids"`
+	BottomAnyCount        *int                  `json:"bottom_any_count"` // Minimum number of ANY bottom performers required
+	BottomEthnicities     []string              `json:"bottom_ethnicities"`
+	BottomCountries       []string              `json:"bottom_countries"`
+	BottomEthnicityCounts []EthnicityCountInput `json:"bottom_ethnicity_counts"`
+	BottomCountryCounts   []CountryCountInput   `json:"bottom_country_counts"`
+	BottomRating          *IntCriterionInput    `json:"bottom_rating"`
 
 	// Both-roles criteria (performer must be BOTH top AND bottom)
-	BothRolesPerformerIDs []string           `json:"both_roles_performer_ids"`
-	BothRolesEthnicities  []string           `json:"both_roles_ethnicities"`
-	BothRolesCountries    []string           `json:"both_roles_countries"`
-	BothRolesRating       *IntCriterionInput `json:"both_roles_rating"`
+	BothRolesPerformerIDs    []string              `json:"both_roles_performer_ids"`
+	BothRolesEthnicities     []string              `json:"both_roles_ethnicities"`
+	BothRolesCountries       []string              `json:"both_roles_countries"`
+	BothRolesEthnicityCounts []EthnicityCountInput `json:"both_roles_ethnicity_counts"`
+	BothRolesCountryCounts   []CountryCountInput   `json:"both_roles_country_counts"`
+	BothRolesRating          *IntCriterionInput    `json:"both_roles_rating"`
+
+	// Unnamed performer slots - each must match a DISTINCT performer satisfying all criteria
+	TopUnnamedPerformers       []UnnamedPerformerCriterionInput `json:"top_unnamed_performers"`
+	BottomUnnamedPerformers    []UnnamedPerformerCriterionInput `json:"bottom_unnamed_performers"`
+	BothRolesUnnamedPerformers []UnnamedPerformerCriterionInput `json:"both_roles_unnamed_performers"`
 
 	// Mode for performer matching
 	PerformerMode *string `json:"performer_mode"` // "AND" or "OR" (default: "OR")
@@ -227,6 +260,13 @@ type SceneMarkerTagsCriterionInput struct {
 	Groups [][]string `json:"groups"`
 	// Extended groups with performer attributes
 	GroupsExtended []SceneMarkerTagGroupInput `json:"groups_extended"`
+	// Exclusion groups with full performer criteria. Each group defines a marker pattern that,
+	// when matched, causes the scene to be excluded from results.
+	GroupsExtendedExclude []SceneMarkerTagGroupInput `json:"groups_extended_exclude"`
+	// Modifier for exclusion groups logic:
+	// - INCLUDES_ALL: ALL exclusion groups must match for the scene to be excluded
+	// - INCLUDES: ANY exclusion group matching causes the scene to be excluded
+	ExcludeModifier *CriterionModifier `json:"exclude_modifier"`
 }
 
 type DateCriterionInput struct {

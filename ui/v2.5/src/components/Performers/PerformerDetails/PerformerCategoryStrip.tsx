@@ -34,9 +34,12 @@ interface IPerformerCategoryStripProps {
 export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   performer,
   sceneId,
-  markerRoles = [],
+  markerRoles: markerRolesProp = [],
 }) => {
   const { configuration } = useConfigurationContext();
+  
+  // Extra safety: ensure markerRoles is always an array
+  const markerRoles = markerRolesProp ?? [];
 
   // Get role tag IDs from the new configuration
   const roleTagIds = configuration?.ui?.roleTagIds ?? {};
@@ -188,6 +191,9 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   const hasAnyRoleTag = sexTagId || oralTagId || soloTagId || facialTagId;
   if (!hasAnyRoleTag || (rolesToShow.length === 0 && orgasmTopCount === 0 && feetTopCount === 0))
     return null;
+  
+  // Extra safety: ensure rolesToShow is always an array
+  const safeRolesToShow = rolesToShow ?? [];
 
   // Build exclude tags for oral (exclude sex) and solo (exclude sex + oral)
   const getExcludeTagsForCategory = (
@@ -208,7 +214,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   return (
     <>
     <div className="performer-category-strip performer-role-badges d-flex align-items-center my-3">
-      {rolesToShow.map((role, idx) => {
+      {safeRolesToShow.map((role, idx) => {
         const categoryIcon =
           role.category === "sex"
             ? gaySvg
@@ -277,13 +283,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                 tag_ids: [{ id: role.tagId, label: tagLabel }],
                 include_subtags: true,
                 top_performer_ids: [performerRef],
-                top_ethnicities: [],
-                top_countries: [],
-                top_rating: null,
                 bottom_performer_ids: [],
-                bottom_ethnicities: [],
-                bottom_countries: [],
-                bottom_rating: null,
               })
             )}&sortby=title`;
             
@@ -295,13 +295,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                 tag_ids: [{ id: role.tagId, label: tagLabel }],
                 include_subtags: true,
                 top_performer_ids: [],
-                top_ethnicities: [],
-                top_countries: [],
-                top_rating: null,
                 bottom_performer_ids: [performerRef],
-                bottom_ethnicities: [],
-                bottom_countries: [],
-                bottom_rating: null,
               })
             )}&sortby=title`;
             
@@ -346,13 +340,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                   tag_ids: [{ id: role.tagId, label: tagLabel }],
                   depth: markerDepth,
                   top_performer_ids: [performerRef],
-                  top_ethnicities: [],
-                  top_countries: [],
-                  top_rating: null,
                   bottom_performer_ids: [],
-                  bottom_ethnicities: [],
-                  bottom_countries: [],
-                  bottom_rating: null,
                 }],
               })
             )}&sortby=date`;
@@ -367,13 +355,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                   tag_ids: [{ id: role.tagId, label: tagLabel }],
                   depth: markerDepth,
                   top_performer_ids: [],
-                  top_ethnicities: [],
-                  top_countries: [],
-                  top_rating: null,
                   bottom_performer_ids: [performerRef],
-                  bottom_ethnicities: [],
-                  bottom_countries: [],
-                  bottom_rating: null,
                 }],
               })
             )}&sortby=date`;

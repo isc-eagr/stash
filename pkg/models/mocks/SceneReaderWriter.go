@@ -30,6 +30,20 @@ func (_m *SceneReaderWriter) AddFileID(ctx context.Context, id int, fileID model
 	return r0
 }
 
+// RemoveFileID provides a mock function with given fields: ctx, sceneID, fileID
+func (_m *SceneReaderWriter) RemoveFileID(ctx context.Context, sceneID int, fileID models.FileID) error {
+	ret := _m.Called(ctx, sceneID, fileID)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int, models.FileID) error); ok {
+		r0 = rf(ctx, sceneID, fileID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // AddGalleryIDs provides a mock function with given fields: ctx, sceneID, galleryIDs
 func (_m *SceneReaderWriter) AddGalleryIDs(ctx context.Context, sceneID int, galleryIDs []int) error {
 	ret := _m.Called(ctx, sceneID, galleryIDs)

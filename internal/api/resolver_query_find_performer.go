@@ -236,31 +236,30 @@ func (r *queryResolver) getCoPerformersWithCounts(ctx context.Context, performer
 		oppositeRole = "top"
 	}
 
-	filter := &models.SceneMarkerFilterType{
-		Tags: &models.HierarchicalMultiCriterionInput{
-			Value:    []string{strconv.Itoa(tagID)},
-			Modifier: models.CriterionModifierIncludes,
-			Depth:    &depth,
-		},
-	}
-
-	// Filter to markers where our performer has the specified role
+	// Build filter using SceneMarkerTags with groups_extended
 	performerIDStr := strconv.Itoa(performerID)
-	topIDs := []string{}
-	bottomIDs := []string{}
+	tagIDStr := strconv.Itoa(tagID)
 
-	if performerRole == "top" {
-		topIDs = append(topIDs, performerIDStr)
-	} else {
-		bottomIDs = append(bottomIDs, performerIDStr)
+	group := models.SceneMarkerTagGroupInput{
+		TagIDs: []string{tagIDStr},
+		Depth:  &depth,
 	}
 
-	mode := "OR"
-	filter.MarkerPerformers = &models.MarkerPerformersFilterInput{
-		TopPerformerIDs:    topIDs,
-		BottomPerformerIDs: bottomIDs,
-		Mode:               &mode,
-		Modifier:           models.CriterionModifierIncludes,
+	// Set the performer in the appropriate role
+	if performerRole == "top" {
+		group.TopPerformerIDs = []string{performerIDStr}
+	} else {
+		group.BottomPerformerIDs = []string{performerIDStr}
+	}
+
+	performerMode := "OR"
+	group.PerformerMode = &performerMode
+
+	filter := &models.SceneMarkerFilterType{
+		SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+			Modifier:       models.CriterionModifierEquals,
+			GroupsExtended: []models.SceneMarkerTagGroupInput{group},
+		},
 	}
 
 	markers, _, err := r.repository.SceneMarker.Query(ctx, filter, nil)

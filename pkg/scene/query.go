@@ -216,12 +216,15 @@ func CountScenesByPerformerMarkerRole(ctx context.Context, r models.SceneMarkerQ
 		bottomIDs = append(bottomIDs, performerIDStr)
 	}
 
-	mode := "OR"
-	filter.MarkerPerformers = &models.MarkerPerformersFilterInput{
+	group := models.SceneMarkerTagGroupInput{
 		TopPerformerIDs:    topIDs,
 		BottomPerformerIDs: bottomIDs,
-		Mode:               &mode,
-		Modifier:           models.CriterionModifierIncludes,
+	}
+	performerMode := "OR"
+	group.PerformerMode = &performerMode
+	filter.SceneMarkerTags = &models.SceneMarkerTagsCriterionInput{
+		Modifier:       models.CriterionModifierEquals,
+		GroupsExtended: []models.SceneMarkerTagGroupInput{group},
 	}
 
 	// Use PerPage=-1 to get all results, not just the default 25
@@ -275,12 +278,15 @@ func CountMarkersByPerformerRole(ctx context.Context, r models.SceneMarkerQuerye
 		bottomIDs = append(bottomIDs, performerIDStr)
 	}
 
-	mode := "OR"
-	filter.MarkerPerformers = &models.MarkerPerformersFilterInput{
+	group := models.SceneMarkerTagGroupInput{
 		TopPerformerIDs:    topIDs,
 		BottomPerformerIDs: bottomIDs,
-		Mode:               &mode,
-		Modifier:           models.CriterionModifierIncludes,
+	}
+	performerMode := "OR"
+	group.PerformerMode = &performerMode
+	filter.SceneMarkerTags = &models.SceneMarkerTagsCriterionInput{
+		Modifier:       models.CriterionModifierEquals,
+		GroupsExtended: []models.SceneMarkerTagGroupInput{group},
 	}
 
 	// Use PerPage=-1 to get all results
@@ -397,12 +403,15 @@ func getScenesByPerformerMarkerRole(ctx context.Context, r models.SceneMarkerQue
 		bottomIDs = append(bottomIDs, performerIDStr)
 	}
 
-	mode := "OR"
-	filter.MarkerPerformers = &models.MarkerPerformersFilterInput{
+	group := models.SceneMarkerTagGroupInput{
 		TopPerformerIDs:    topIDs,
 		BottomPerformerIDs: bottomIDs,
-		Mode:               &mode,
-		Modifier:           models.CriterionModifierIncludes,
+	}
+	performerMode := "OR"
+	group.PerformerMode = &performerMode
+	filter.SceneMarkerTags = &models.SceneMarkerTagsCriterionInput{
+		Modifier:       models.CriterionModifierEquals,
+		GroupsExtended: []models.SceneMarkerTagGroupInput{group},
 	}
 
 	// Use PerPage=-1 to get all results, not just the default 25
@@ -638,8 +647,45 @@ func CountScenesWithMarkerTag(ctx context.Context, markerQB models.SceneMarkerQu
 	return len(sceneSet), nil
 }
 
+// isSelfOralMarker checks if a marker has the same set of performer IDs in top and bottom roles
+// This indicates a "self-oral" scenario which shouldn't count as a real oral scene
+func isSelfOralMarker(performers []*models.MarkerPerformer) bool {
+	topIDs := make(map[int]bool)
+	bottomIDs := make(map[int]bool)
+
+	for _, p := range performers {
+		if p.Role == "top" {
+			topIDs[p.PerformerID] = true
+		} else if p.Role == "bottom" {
+			bottomIDs[p.PerformerID] = true
+		}
+	}
+
+	// If there are no performers on either side, it's not self-oral
+	if len(topIDs) == 0 && len(bottomIDs) == 0 {
+		return false
+	}
+
+	// If only one side has performers, it's not self-oral
+	if len(topIDs) == 0 || len(bottomIDs) == 0 {
+		return false
+	}
+
+	// They must have the same performers on both sides
+	if len(topIDs) != len(bottomIDs) {
+		return false
+	}
+	for id := range topIDs {
+		if !bottomIDs[id] {
+			return false
+		}
+	}
+	return true
+}
+
 // CountScenesWithMarkerTagExcluding counts distinct scenes that have markers with tagID (or subtags) but not excludeTagID (or subtags)
-func CountScenesWithMarkerTagExcluding(ctx context.Context, markerQB models.SceneMarkerQueryer, tagID int, excludeTagID int) (int, error) {
+// When excludeSelfOral is true, markers where top performers == bottom performers are excluded (used for oral tag counting)
+func CountScenesWithMarkerTagExcluding(ctx context.Context, markerQB models.SceneMarkerReader, tagID int, excludeTagID int, excludeSelfOral bool) (int, error) {
 	if tagID == 0 {
 		return 0, nil
 	}
@@ -665,6 +711,16 @@ func CountScenesWithMarkerTagExcluding(ctx context.Context, markerQB models.Scen
 
 	includeScenes := make(map[int]bool)
 	for _, m := range markers {
+		// If excludeSelfOral is true, skip markers where top == bottom performers
+		if excludeSelfOral {
+			performers, err := markerQB.GetPerformers(ctx, m.ID)
+			if err != nil {
+				return 0, err
+			}
+			if isSelfOralMarker(performers) {
+				continue
+			}
+		}
 		includeScenes[m.SceneID] = true
 	}
 
@@ -703,7 +759,7 @@ func CountScenesWithMarkerTagExcluding(ctx context.Context, markerQB models.Scen
 }
 
 // CountScenesWithMarkerTagExcludingMultiple counts scenes with tagID (or subtags) but none of excludeTagIDs (or subtags)
-func CountScenesWithMarkerTagExcludingMultiple(ctx context.Context, markerQB models.SceneMarkerQueryer, tagID int, excludeTagIDs []int) (int, error) {
+func CountScenesWithMarkerTagExcludingMultiple(ctx context.Context, markerQB models.SceneMarkerReader, tagID int, excludeTagIDs []int) (int, error) {
 	if tagID == 0 {
 		return 0, nil
 	}
@@ -812,12 +868,15 @@ func CountByStudioMarkerRole(ctx context.Context, markerQB models.SceneMarkerQue
 			bottomIDs = append(bottomIDs, performerIDStr)
 		}
 
-		mode := "OR"
-		filter.MarkerPerformers = &models.MarkerPerformersFilterInput{
+		group := models.SceneMarkerTagGroupInput{
 			TopPerformerIDs:    topIDs,
 			BottomPerformerIDs: bottomIDs,
-			Mode:               &mode,
-			Modifier:           models.CriterionModifierIncludes,
+		}
+		performerMode := "OR"
+		group.PerformerMode = &performerMode
+		filter.SceneMarkerTags = &models.SceneMarkerTagsCriterionInput{
+			Modifier:       models.CriterionModifierEquals,
+			GroupsExtended: []models.SceneMarkerTagGroupInput{group},
 		}
 	}
 
@@ -1001,12 +1060,15 @@ func getStudioScenesWithMarkerTag(ctx context.Context, markerQB models.SceneMark
 			bottomIDs = append(bottomIDs, performerIDStr)
 		}
 
-		mode := "OR"
-		filter.MarkerPerformers = &models.MarkerPerformersFilterInput{
+		group := models.SceneMarkerTagGroupInput{
 			TopPerformerIDs:    topIDs,
 			BottomPerformerIDs: bottomIDs,
-			Mode:               &mode,
-			Modifier:           models.CriterionModifierIncludes,
+		}
+		performerMode := "OR"
+		group.PerformerMode = &performerMode
+		filter.SceneMarkerTags = &models.SceneMarkerTagsCriterionInput{
+			Modifier:       models.CriterionModifierEquals,
+			GroupsExtended: []models.SceneMarkerTagGroupInput{group},
 		}
 	}
 

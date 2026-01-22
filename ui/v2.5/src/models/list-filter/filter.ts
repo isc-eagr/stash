@@ -635,40 +635,30 @@ export class ListFilterModel {
     // Add new scene marker include groups
     groups_extended.push(...includeGroups);
     
-    // Add new scene marker exclude groups
-    // INCLUDES_ALL mode: merge all exclude tags into ONE group (require ALL to match before excluding)
-    // INCLUDES mode: separate groups (exclude if ANY group matches)
+    // Build groups_extended_exclude from exclude groups with full performer criteria
+    // These go into a separate field so the backend can apply NOT EXISTS with full criteria
+    const groups_extended_exclude: GroupExtended[] = [];
     if (excludeGroups.length > 0) {
-      if (excludeModifier === "INCLUDES_ALL") {
-        // Merge all exclude group tags into a single exclude_tag_ids array
-        // This creates a group that requires ALL tags to be present before excluding
-        const allExcludeTags: string[] = [];
-        for (const eg of excludeGroups) {
-          allExcludeTags.push(...(eg.tag_ids as string[]));
-        }
-        groups_extended.push({
-          tag_ids: [],
-          exclude_tag_ids: allExcludeTags,
-          performer_mode: "AND", // All exclude tags must be present
-        });
-      } else {
-        // INCLUDES mode (OR): each exclude group is separate
-        for (const eg of excludeGroups) {
-          groups_extended.push({
-            ...eg,
-            tag_ids: [],
-            exclude_tag_ids: eg.tag_ids,
-          });
-        }
+      for (const eg of excludeGroups) {
+        // Pass the full exclude group as-is (including performer criteria)
+        groups_extended_exclude.push(eg);
       }
     }
 
-    if (groups_extended.length > 0) {
+    if (groups_extended.length > 0 || groups_extended_exclude.length > 0) {
       // Use EQUALS modifier by default (AND semantics between groups)
-      output.scene_marker_tags = {
+      const sceneMarkerTags: Record<string, unknown> = {
         modifier: "EQUALS",
-        groups_extended,
       };
+      if (groups_extended.length > 0) {
+        sceneMarkerTags.groups_extended = groups_extended;
+      }
+      if (groups_extended_exclude.length > 0) {
+        sceneMarkerTags.groups_extended_exclude = groups_extended_exclude;
+        // Pass the exclude modifier so backend knows AND vs OR semantics
+        sceneMarkerTags.exclude_modifier = excludeModifier ?? "INCLUDES_ALL";
+      }
+      output.scene_marker_tags = sceneMarkerTags;
     }
   }
 

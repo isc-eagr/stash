@@ -12,14 +12,6 @@ type CustomSceneMarkerFilterInput struct {
 	FacialTagID *string `json:"facial_tag_id"`
 }
 
-// MarkerPerformersFilterInput is the input for filtering by marker performers with top/bottom roles
-type MarkerPerformersFilterInput struct {
-	TopPerformerIDs    []string          `json:"top_performer_ids"`
-	BottomPerformerIDs []string          `json:"bottom_performer_ids"`
-	Mode               *string           `json:"mode"` // "AND" or "OR" (default: "OR")
-	Modifier           CriterionModifier `json:"modifier"`
-}
-
 type SceneMarkerFilterType struct {
 	// Filter to only include scene markers with this tag
 	TagID *string `json:"tag_id"`
@@ -44,16 +36,6 @@ type SceneMarkerFilterType struct {
 	// Filter by whether the marker has an end time
 	HasEndTime *bool `json:"has_end_time"`
 
-	// Filter by performers assigned directly to the marker with top/bottom role support
-	MarkerPerformers *MarkerPerformersFilterInput `json:"marker_performers"`
-	// Filter by ethnicity of performers assigned directly to the marker
-	MarkerPerformerEthnicity *StringCriterionInput `json:"marker_performer_ethnicity"`
-	// Filter by country of performers assigned directly to the marker
-	MarkerPerformerCountry *StringCriterionInput `json:"marker_performer_country"`
-	// Filter by rating of performers assigned directly to the marker (1-100)
-	MarkerPerformerRating *IntCriterionInput `json:"marker_performer_rating"`
-	// When true, all marker performers must satisfy the marker_performer_rating condition; when false, at least one (default: true)
-	MarkerPerformerRatingAll *bool `json:"marker_performer_rating_all"`
 	// Filter by whether the marker has performers assigned directly to it
 	HasMarkerPerformers *string `json:"has_marker_performers"`
 

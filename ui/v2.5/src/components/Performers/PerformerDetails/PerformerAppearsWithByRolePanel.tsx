@@ -332,13 +332,19 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
       );
     }
 
-    // Map GraphQL response to IPerformerWithCount format
+    // Map GraphQL response to IPerformerWithCount format and sort alphabetically by performer name
     const mapToPerformerWithCount = (items: any[] | null | undefined): IPerformerWithCount[] => {
       if (!items) return [];
-      return items.map((item) => ({
-        performer: item.performer,
-        sceneCount: item.scene_count,
-      }));
+      return items
+        .map((item) => ({
+          performer: item.performer,
+          sceneCount: item.scene_count,
+        }))
+        .sort((a, b) => {
+          const nameA = (a.performer.name ?? "").toLowerCase();
+          const nameB = (b.performer.name ?? "").toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
     };
 
     const sexAsTop = mapToPerformerWithCount(coPerformers.sex_as_top);

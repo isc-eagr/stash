@@ -25,7 +25,7 @@ export const SceneCustomFiltersCriterionOption = new CriterionOption({
 export class SceneCustomFiltersCriterion extends Criterion {
   public value: string = "";
   private roleTagIds: IUIConfig['roleTagIds'];
-  public static readonly options = ["multiple_orgasms", "versatile_scenes", "circular_oral", "simultaneous_orgasm", "self_facial"];
+  public static readonly options = ["versatile_scenes", "circular_oral"];
 
   constructor(config?: ConfigDataFragment) {
     super(SceneCustomFiltersCriterionOption);
@@ -181,7 +181,7 @@ export const SceneMarkerCustomFiltersCriterionOption = new CriterionOption({
 export class SceneMarkerCustomFiltersCriterion extends Criterion {
   public value: string = "";
   private roleTagIds: IUIConfig['roleTagIds'];
-  public static readonly options = ["circular_oral", "simultaneous_orgasm", "self_facial"];
+  public static readonly options = ["circular_oral"];
 
   constructor(config?: ConfigDataFragment) {
     super(SceneMarkerCustomFiltersCriterionOption);

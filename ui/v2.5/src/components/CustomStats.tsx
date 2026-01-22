@@ -119,6 +119,20 @@ const TOTAL_PENIS_METERS = gql`
   }
 `;
 
+// Total orgasm time (sum of orgasm marker lengths, 20s default if no end time)
+const TOTAL_ORGASM_TIME = gql`
+  query TotalOrgasmTime {
+    totalOrgasmTime
+  }
+`;
+
+// Total facial time (sum of facial marker lengths, 20s default if no end time)
+const TOTAL_FACIAL_TIME = gql`
+  query TotalFacialTime {
+    totalFacialTime
+  }
+`;
+
 export const CustomStats: React.FC = () => {
   // Get configuration FIRST so we can use it in queries
   const { configuration } = useConfigurationContext();
@@ -238,6 +252,8 @@ export const CustomStats: React.FC = () => {
   );
   const { data: litersData } = useQuery(ESTIMATED_LITERS);
   const { data: metersData } = useQuery(TOTAL_PENIS_METERS);
+  const { data: orgasmTimeData } = useQuery(TOTAL_ORGASM_TIME);
+  const { data: facialTimeData } = useQuery(TOTAL_FACIAL_TIME);
 
   // Extract individual tag IDs for convenience
   const {sexTagId} = roleTagIds;
@@ -408,6 +424,41 @@ export const CustomStats: React.FC = () => {
     return `/performers?c=${encodeURIComponent(JSON.stringify(criterion))}&sortby=random_${getRandomSortId()}`;
   };
 
+  // Helper to create marker page URLs for Total Orgasms/Facials links
+  const makeMarkersTagUrl = (tag: { id: string; name: string } | undefined) => {
+    if (!tag) return "#";
+    const criterionData = {
+      type: "marker_performers",
+      modifier: "INCLUDES_ALL",
+      tag_ids: [{ id: tag.id, label: tag.name }],
+      include_subtags: true,
+      top_performer_ids: [],
+      top_ethnicities: [],
+      top_countries: [],
+      top_rating: null,
+      bottom_performer_ids: [],
+      bottom_ethnicities: [],
+      bottom_countries: [],
+      bottom_rating: null,
+    };
+    return `/scenes/markers?c=${encodeURIComponent(JSON.stringify(criterionData))}&sortby=title`;
+  };
+
+  // Helper to format seconds into a human-readable duration string
+  const formatDuration = (totalSeconds: number): string => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.round(totalSeconds % 60);
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m ${seconds}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    } else {
+      return `${seconds}s`;
+    }
+  };
+
   if (error) return <span>{error.message}</span>;
   if (loading || !statsData) return <LoadingIndicator />;
 
@@ -504,23 +555,45 @@ export const CustomStats: React.FC = () => {
       {/* Orgasm + Facial Stats */}
       {(typeof orgasmCountData?.sceneOrgasmCount === "number" ||
         typeof facialCountData?.sceneFacialCount === "number" ||
+        typeof orgasmTimeData?.totalOrgasmTime === "number" ||
+        typeof facialTimeData?.totalFacialTime === "number" ||
         typeof litersData?.estimatedLiters === "number" ||
         typeof metersData?.totalPenisMeters === "number") && (
         <div className="col col-sm-8 m-sm-auto row stats">
           {typeof orgasmCountData?.sceneOrgasmCount === "number" && (
             <div className="stats-element">
               <p className="title">
-                <FormattedNumber value={orgasmCountData.sceneOrgasmCount} />
+                <Link to={makeMarkersTagUrl(allTags.find((t) => t.id === roleTagIds.orgasmTagId))}>
+                  <FormattedNumber value={orgasmCountData.sceneOrgasmCount} />
+                </Link>
               </p>
               <p className="heading">Total orgasms</p>
+            </div>
+          )}
+          {typeof orgasmTimeData?.totalOrgasmTime === "number" && orgasmTimeData.totalOrgasmTime > 0 && (
+            <div className="stats-element">
+              <p className="title">
+                {formatDuration(orgasmTimeData.totalOrgasmTime)}
+              </p>
+              <p className="heading">Total orgasm time</p>
             </div>
           )}
           {typeof facialCountData?.sceneFacialCount === "number" && (
             <div className="stats-element">
               <p className="title">
-                <FormattedNumber value={facialCountData.sceneFacialCount} />
+                <Link to={makeMarkersTagUrl(allTags.find((t) => t.id === roleTagIds.facialTagId))}>
+                  <FormattedNumber value={facialCountData.sceneFacialCount} />
+                </Link>
               </p>
               <p className="heading">Total facials</p>
+            </div>
+          )}
+          {typeof facialTimeData?.totalFacialTime === "number" && facialTimeData.totalFacialTime > 0 && (
+            <div className="stats-element">
+              <p className="title">
+                {formatDuration(facialTimeData.totalFacialTime)}
+              </p>
+              <p className="heading">Total facial time</p>
             </div>
           )}
           {typeof litersData?.estimatedLiters === "number" && (

@@ -61,7 +61,6 @@ import { CustomFieldsCriterion } from "src/models/list-filter/criteria/custom-fi
 import { CustomFieldsFilter } from "./Filters/CustomFieldsFilter";
 import {
   MarkerPerformersCriterion,
-  markerPerformersModifierOptions,
 } from "src/models/list-filter/criteria/marker-performers";
 import { MarkerPerformersFilter } from "./Filters/MarkerPerformersFilter";
 import { PerformerMarkersCriterion } from "src/models/list-filter/criteria/performer-markers";
@@ -375,15 +374,6 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
       const c = criterion;
       return (
         <div>
-          <ModifierSelectorButtons
-            options={markerPerformersModifierOptions}
-            value={c.modifier}
-            onChanged={(m) => {
-              const newC = c.clone() as MarkerPerformersCriterion;
-              newC.modifier = m;
-              setCriterion(newC);
-            }}
-          />
           <MarkerPerformersFilter
             criterion={c}
             setCriterion={(nc) => setCriterion(nc)}
