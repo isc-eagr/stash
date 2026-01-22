@@ -289,6 +289,10 @@ func (qb *sceneMarkerFilterHandler) criterionHandler() criterionHandler {
 		}),
 		qb.scenesCriterionHandler(sceneMarkerFilter.Scenes),
 		floatCriterionHandler(sceneMarkerFilter.Duration, "COALESCE(scene_markers.end_seconds - scene_markers.seconds, NULL)", nil),
+		// Marker length filter: uses COALESCE to treat NULL end_seconds as 20 seconds
+		intCriterionHandler(sceneMarkerFilter.MarkerLength, "CAST(COALESCE(scene_markers.end_seconds - scene_markers.seconds, 20) AS INTEGER)", nil),
+		// Scene performer count filter: counts performers on the marker's scene
+		qb.scenePerformerCountCriterionHandler(sceneMarkerFilter.ScenePerformerCount),
 		&timestampCriterionHandler{sceneMarkerFilter.CreatedAt, "scene_markers.created_at", nil},
 		&timestampCriterionHandler{sceneMarkerFilter.UpdatedAt, "scene_markers.updated_at", nil},
 		&dateCriterionHandler{sceneMarkerFilter.SceneDate, "scenes.date", qb.joinScenes},
@@ -479,6 +483,22 @@ func (qb *sceneMarkerFilterHandler) studiosCriterionHandler(studios *models.Hier
 		}
 
 		h.handler(studios).handle(ctx, f)
+	}
+}
+
+// scenePerformerCountCriterionHandler filters by the number of performers on the marker's scene
+func (qb *sceneMarkerFilterHandler) scenePerformerCountCriterionHandler(count *models.IntCriterionInput) criterionHandlerFunc {
+	return func(ctx context.Context, f *filterBuilder) {
+		if count == nil {
+			return
+		}
+
+		// Join scenes to get the scene_id for performer count
+		qb.joinScenes(f)
+
+		// Create a subquery to count performers on the scene
+		countColumn := "(SELECT COUNT(*) FROM performers_scenes ps WHERE ps.scene_id = scene_markers.scene_id)"
+		intCriterionHandler(count, countColumn, nil)(ctx, f)
 	}
 }
 

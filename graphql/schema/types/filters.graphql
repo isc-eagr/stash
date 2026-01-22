@@ -280,6 +280,10 @@ input SceneMarkerFilterType {
   studios: HierarchicalMultiCriterionInput
   "Filter by duration (in seconds)"
   duration: FloatCriterionInput
+  "Filter by marker length in seconds. Markers without end time are treated as 20 seconds."
+  marker_length: IntCriterionInput
+  "Filter by the number of performers in the scene"
+  scene_performer_count: IntCriterionInput
   "Filter by creation time"
   created_at: TimestampCriterionInput
   "Filter by last update time"

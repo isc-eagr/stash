@@ -63,6 +63,11 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
     onUpdate({ depth: e.target.checked ? -1 : 0 });
   };
 
+  // Performer mode toggle handler
+  const onPerformerModeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onUpdate({ performer_mode: e.target.checked ? "OR" : "AND" });
+  };
+
   // Top handlers
   const onTopPerformersChange = (performers: Performer[]) => {
     onUpdate({
@@ -164,6 +169,40 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
             checked={group.depth !== 0}
             onChange={onDepthChange}
           />
+        </Form.Group>
+
+        {/* Performer mode toggle - AND vs OR mode */}
+        <Form.Group className="mb-3">
+          <Form.Check
+            type="checkbox"
+            id={`performer-mode-${group.groupId}`}
+            label={
+              group.performer_mode === "OR"
+                ? intl.formatMessage({
+                    id: "match_top_or_bottom",
+                    defaultMessage: "Match Top OR Bottom",
+                  })
+                : intl.formatMessage({
+                    id: "match_top_and_bottom",
+                    defaultMessage: "Match Top AND Bottom",
+                  })
+            }
+            checked={group.performer_mode === "OR"}
+            onChange={onPerformerModeChange}
+          />
+          <Form.Text className="text-muted">
+            {group.performer_mode === "OR" ? (
+              <FormattedMessage
+                id="marker_performers_or_description"
+                defaultMessage="Excludes markers where ANY selected performer appears in matching role"
+              />
+            ) : (
+              <FormattedMessage
+                id="marker_performers_and_description"
+                defaultMessage="Excludes markers where ALL selected performers appear in matching roles"
+              />
+            )}
+          </Form.Text>
         </Form.Group>
 
         <Row>
@@ -332,7 +371,7 @@ export const SceneMarkersExcludeFilter: React.FC<ISceneMarkersExcludeFilterProps
       <div className="mb-3 text-muted small">
         <FormattedMessage
           id="scene_markers_exclude_filter_help"
-          defaultMessage="Exclude scenes with markers matching these configurations. Each marker group must match a UNIQUE marker in the scene to be excluded. Use 'Includes All' for AND mode (both top AND bottom must match), 'Includes' for OR mode (either can match)."
+          defaultMessage="Exclude scenes with markers matching these configurations. A scene is excluded if it has markers that match ALL groups. Each group must match a UNIQUE marker. Toggle 'Match Top OR Bottom' per group to control performer matching."
         />
       </div>
 

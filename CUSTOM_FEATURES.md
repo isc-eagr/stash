@@ -116,7 +116,6 @@ Visual indicators on performer cards and scene cards showing role information ba
 - **Top/Bottom counts**: Displayed on performer cards showing breakdown by role
 - **Category icons**: Gay icon (sex), Mouth icon (oral), Hand icon (solo), Goatee icon (facial)
 - **Scene card overlays**: Icons indicating what types of markers a scene has
-- **Oral marker filtering**: Oral markers are only counted for scene categorization if the top and bottom performers are different. If a marker has the same performer as both top and bottom (e.g., self-oral), it is ignored for categorization purposes. This ensures scenes with only solo + self-oral markers are correctly categorized as solo scenes.
 
 ### Files Modified
 - `ui/v2.5/src/components/Performers/PerformerCard.tsx`:
@@ -311,7 +310,7 @@ Quick-access buttons on studio cards and detail pages showing scene counts by ca
 
 ### Button Types
 - **Sex Scenes** (gay icon): Scenes with top AND bottom performers
-- **Oral Scenes** (mouth icon): Scenes with oral tags but no sex tags (excludes self-oral markers where top == bottom performers)
+- **Oral Scenes** (mouth icon): Scenes with oral tags but no sex tags
 - **Solo Scenes** (hand icon): Scenes with solo tag only
 - **Facial Scenes** (goatee icon): Scenes with facial tags
 - **Unique Performers** (user-plus icon): Count of distinct performers

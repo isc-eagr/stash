@@ -279,11 +279,13 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
             partnerTopUrl = `/scenes/markers?c=${encodeURIComponent(
               JSON.stringify({
                 type: "marker_performers",
-                modifier: "INCLUDES_ALL",
+                modifier: "EQUALS",
                 tag_ids: [{ id: role.tagId, label: tagLabel }],
                 include_subtags: true,
+                performer_mode: "AND",
                 top_performer_ids: [performerRef],
                 bottom_performer_ids: [],
+                unnamed_performers: [],
               })
             )}&sortby=title`;
             
@@ -291,11 +293,13 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
             partnerBottomUrl = `/scenes/markers?c=${encodeURIComponent(
               JSON.stringify({
                 type: "marker_performers",
-                modifier: "INCLUDES_ALL",
+                modifier: "EQUALS",
                 tag_ids: [{ id: role.tagId, label: tagLabel }],
                 include_subtags: true,
+                performer_mode: "AND",
                 top_performer_ids: [],
                 bottom_performer_ids: [performerRef],
+                unnamed_performers: [],
               })
             )}&sortby=title`;
             
@@ -334,14 +338,16 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
             partnerTopUrl = `/scenes?c=${encodeURIComponent(
               JSON.stringify({
                 type: "scene_markers",
-                modifier: "INCLUDES_ALL",
+                modifier: "EQUALS",
                 groups: [{
                   groupId: "A",
                   tag_ids: [{ id: role.tagId, label: tagLabel }],
                   depth: markerDepth,
+                  performer_mode: "AND",
                   top_performer_ids: [performerRef],
                   bottom_performer_ids: [],
                 }],
+                unnamed_performers: [],
               })
             )}&sortby=date`;
             
@@ -349,14 +355,16 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
             partnerBottomUrl = `/scenes?c=${encodeURIComponent(
               JSON.stringify({
                 type: "scene_markers",
-                modifier: "INCLUDES_ALL",
+                modifier: "EQUALS",
                 groups: [{
                   groupId: "A",
                   tag_ids: [{ id: role.tagId, label: tagLabel }],
                   depth: markerDepth,
+                  performer_mode: "AND",
                   top_performer_ids: [],
                   bottom_performer_ids: [performerRef],
                 }],
+                unnamed_performers: [],
               })
             )}&sortby=date`;
             

@@ -13,7 +13,6 @@ import {
   ISceneMarkersGroup,
 } from "src/models/list-filter/criteria/scene-markers";
 import { IUnnamedPerformer, isUnnamedPerformerId } from "src/models/list-filter/criteria/unnamed-performer";
-import { CriterionModifier } from "src/core/generated-graphql";
 import {
   PerformerIDSelect,
   Performer,
@@ -62,6 +61,11 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
 
   const onDepthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onUpdate({ depth: e.target.checked ? -1 : 0 });
+  };
+
+  // Performer mode toggle handler
+  const onPerformerModeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onUpdate({ performer_mode: e.target.checked ? "OR" : "AND" });
   };
 
   // Top handlers
@@ -165,6 +169,38 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
             checked={group.depth !== 0}
             onChange={onDepthChange}
           />
+        </Form.Group>
+
+        {/* Performer Mode Toggle (AND/OR) */}
+        <Form.Group className="mb-3">
+          <Form.Check
+            type="switch"
+            id={`performer-mode-switch-${group.groupId}`}
+            label={
+              group.performer_mode === "OR"
+                ? intl.formatMessage({
+                    id: "performer_mode_or",
+                    defaultMessage: "Match Top OR Bottom",
+                  })
+                : intl.formatMessage({
+                    id: "performer_mode_and",
+                    defaultMessage: "Match Top AND Bottom",
+                  })
+            }
+            checked={group.performer_mode === "OR"}
+            onChange={onPerformerModeChange}
+          />
+          <Form.Text className="text-muted">
+            {group.performer_mode === "OR"
+              ? intl.formatMessage({
+                  id: "performer_mode_or_description",
+                  defaultMessage: "Top criteria matches OR Bottom criteria matches",
+                })
+              : intl.formatMessage({
+                  id: "performer_mode_and_description",
+                  defaultMessage: "Top criteria matches AND Bottom criteria matches",
+                })}
+          </Form.Text>
         </Form.Group>
 
         <Row>
@@ -291,8 +327,6 @@ export const SceneMarkersFilter: React.FC<ISceneMarkersFilterProps> = ({
   criterion,
   setCriterion,
 }) => {
-  const intl = useIntl();
-
   const onAddGroup = () => {
     const c = criterion.clone() as SceneMarkersCriterion;
     c.addGroup();
@@ -311,15 +345,6 @@ export const SceneMarkersFilter: React.FC<ISceneMarkersFilterProps> = ({
   const onDeleteGroup = (groupId: string) => {
     const c = criterion.clone() as SceneMarkersCriterion;
     c.removeGroup(groupId);
-    setCriterion(c);
-  };
-
-  // Handler for toggling performer mode (AND vs OR)
-  const onPerformerModeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const c = criterion.clone() as SceneMarkersCriterion;
-    c.modifier = e.target.checked 
-      ? CriterionModifier.Includes  // OR mode
-      : CriterionModifier.IncludesAll; // AND mode
     setCriterion(c);
   };
 
@@ -345,31 +370,6 @@ export const SceneMarkersFilter: React.FC<ISceneMarkersFilterProps> = ({
           defaultMessage="Find scenes with markers matching these configurations. Each marker group must match a UNIQUE marker in the scene."
         />
       </div>
-
-      {/* Performer Mode Toggle */}
-      <Card className="mb-3" bg="light">
-        <Card.Body className="py-2">
-          <Form.Check
-            type="switch"
-            id="performer-mode-toggle"
-            label={
-              <strong>
-                {criterion.modifier === CriterionModifier.Includes
-                  ? intl.formatMessage({
-                      id: "performer_mode_or",
-                      defaultMessage: "OR Mode: Either Top OR Bottom must match",
-                    })
-                  : intl.formatMessage({
-                      id: "performer_mode_and",
-                      defaultMessage: "AND Mode: Both Top AND Bottom must match",
-                    })}
-              </strong>
-            }
-            checked={criterion.modifier === CriterionModifier.Includes}
-            onChange={onPerformerModeChange}
-          />
-        </Card.Body>
-      </Card>
 
       {/* Unnamed Performers Manager at criterion level - shared across all groups */}
       <UnnamedPerformersManager

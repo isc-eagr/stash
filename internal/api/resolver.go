@@ -1178,56 +1178,99 @@ WHERE LOWER(TRIM(t.name)) = ?
 	return count, nil
 }
 
-// PerformersSoloOnlyCount returns the number of performers who have the solo tag but no position tags.
+// PerformersSoloOnlyCount returns the number of performers who have solo markers but no oral/sex markers.
+// Uses roleTagIds.soloTagId, oralTagId, sexTagId from UI config with depth -1 (include subtags).
 func (r *queryResolver) PerformersSoloOnlyCount(ctx context.Context) (int, error) {
 	var count int
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		uiConfig := config.GetInstance().GetUIConfiguration()
-		sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
-		soloTagName := "solo"
-		topTagName := "top"
-		bottomTagName := "bottom"
-		oralTopTagName := "oraltop"
-		oralBottomTagName := "oralbottom"
-		if sceneTagAliases != nil {
-			if s, ok := sceneTagAliases["solo"].(string); ok && s != "" {
-				soloTagName = s
+		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+		var soloTagID, oralTagID, sexTagID int
+		if roleTagIds != nil {
+			if id, ok := roleTagIds["soloTagId"].(string); ok && id != "" {
+				soloTagID, _ = strconv.Atoi(id)
 			}
-			if t, ok := sceneTagAliases["top"].(string); ok && t != "" {
-				topTagName = t
+			if id, ok := roleTagIds["oralTagId"].(string); ok && id != "" {
+				oralTagID, _ = strconv.Atoi(id)
 			}
-			if b, ok := sceneTagAliases["bottom"].(string); ok && b != "" {
-				bottomTagName = b
+			if id, ok := roleTagIds["sexTagId"].(string); ok && id != "" {
+				sexTagID, _ = strconv.Atoi(id)
 			}
-			if ot, ok := sceneTagAliases["oraltop"].(string); ok && ot != "" {
-				oralTopTagName = ot
-			}
-			if ob, ok := sceneTagAliases["oralbottom"].(string); ok && ob != "" {
-				oralBottomTagName = ob
-			}
+		}
+		if soloTagID == 0 {
+			return nil // No solo tag configured
 		}
 
 		db := manager.GetInstance().Database
+
+		// Build exclude tag list
+		var excludeTagIDs []int
+		if oralTagID != 0 {
+			excludeTagIDs = append(excludeTagIDs, oralTagID)
+		}
+		if sexTagID != 0 {
+			excludeTagIDs = append(excludeTagIDs, sexTagID)
+		}
+
+		// Query with hierarchical tag expansion (depth -1 = all descendants)
+		// This matches the frontend performer_markers filter behavior
 		query := `
+WITH RECURSIVE solo_family(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN solo_family sf ON tr.parent_id = sf.id
+)
 SELECT COUNT(DISTINCT smp.performer_id)
 FROM scene_marker_performers smp
 JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-JOIN tags t ON t.id = sm.primary_tag_id
-WHERE LOWER(TRIM(t.name)) = ?
+WHERE (
+  sm.primary_tag_id IN (SELECT id FROM solo_family)
+  OR EXISTS (SELECT 1 FROM scene_markers_tags smt WHERE smt.scene_marker_id = sm.id AND smt.tag_id IN (SELECT id FROM solo_family))
+)`
+
+		args := []interface{}{soloTagID}
+
+		// Add exclusion clause if we have exclude tags
+		if len(excludeTagIDs) > 0 {
+			// Build CTE for each exclude tag family
+			var excludeCTEs []string
+			var excludeConditions []string
+			for i, tagID := range excludeTagIDs {
+				cteName := fmt.Sprintf("exclude_family_%d", i)
+				excludeCTEs = append(excludeCTEs, fmt.Sprintf(`
+%s(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN %s ef ON tr.parent_id = ef.id
+)`, cteName, cteName))
+				args = append(args, tagID)
+				excludeConditions = append(excludeConditions, fmt.Sprintf(`
   AND smp.performer_id NOT IN (
     SELECT DISTINCT smp2.performer_id
     FROM scene_marker_performers smp2
     JOIN scene_markers sm2 ON sm2.id = smp2.scene_marker_id
-    JOIN tags t2 ON t2.id = sm2.primary_tag_id
-    WHERE LOWER(TRIM(t2.name)) IN (?, ?, ?, ?)
-  )`
-		args := []interface{}{
-			strings.ToLower(soloTagName),
-			strings.ToLower(topTagName),
-			strings.ToLower(bottomTagName),
-			strings.ToLower(oralTopTagName),
-			strings.ToLower(oralBottomTagName),
+    WHERE sm2.primary_tag_id IN (SELECT id FROM %s)
+       OR EXISTS (SELECT 1 FROM scene_markers_tags smt2 WHERE smt2.scene_marker_id = sm2.id AND smt2.tag_id IN (SELECT id FROM %s))
+  )`, cteName, cteName))
+			}
+
+			// Rebuild query with exclude CTEs
+			query = `
+WITH RECURSIVE solo_family(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN solo_family sf ON tr.parent_id = sf.id
+),` + strings.Join(excludeCTEs, ",") + `
+SELECT COUNT(DISTINCT smp.performer_id)
+FROM scene_marker_performers smp
+JOIN scene_markers sm ON sm.id = smp.scene_marker_id
+WHERE (
+  sm.primary_tag_id IN (SELECT id FROM solo_family)
+  OR EXISTS (SELECT 1 FROM scene_markers_tags smt WHERE smt.scene_marker_id = sm.id AND smt.tag_id IN (SELECT id FROM solo_family))
+)` + strings.Join(excludeConditions, "")
+			// args already has soloTagID as first element, followed by exclude tag IDs
 		}
+
 		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
 			return err
@@ -1413,8 +1456,7 @@ func (r *queryResolver) Stats(ctx context.Context) (*StatsResultType, error) {
 		}
 
 		// Count oral scenes (scenes with oral markers but not sex markers)
-		// Exclude self-oral markers where top == bottom performers
-		oralSceneCount, err := scene.CountScenesWithMarkerTagExcluding(ctx, sceneMarkerQB, oralTagID, sexTagID, true)
+		oralSceneCount, err := scene.CountScenesWithMarkerTagExcluding(ctx, sceneMarkerQB, oralTagID, sexTagID)
 		if err != nil {
 			return err
 		}

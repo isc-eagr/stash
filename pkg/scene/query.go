@@ -647,45 +647,8 @@ func CountScenesWithMarkerTag(ctx context.Context, markerQB models.SceneMarkerQu
 	return len(sceneSet), nil
 }
 
-// isSelfOralMarker checks if a marker has the same set of performer IDs in top and bottom roles
-// This indicates a "self-oral" scenario which shouldn't count as a real oral scene
-func isSelfOralMarker(performers []*models.MarkerPerformer) bool {
-	topIDs := make(map[int]bool)
-	bottomIDs := make(map[int]bool)
-
-	for _, p := range performers {
-		if p.Role == "top" {
-			topIDs[p.PerformerID] = true
-		} else if p.Role == "bottom" {
-			bottomIDs[p.PerformerID] = true
-		}
-	}
-
-	// If there are no performers on either side, it's not self-oral
-	if len(topIDs) == 0 && len(bottomIDs) == 0 {
-		return false
-	}
-
-	// If only one side has performers, it's not self-oral
-	if len(topIDs) == 0 || len(bottomIDs) == 0 {
-		return false
-	}
-
-	// They must have the same performers on both sides
-	if len(topIDs) != len(bottomIDs) {
-		return false
-	}
-	for id := range topIDs {
-		if !bottomIDs[id] {
-			return false
-		}
-	}
-	return true
-}
-
 // CountScenesWithMarkerTagExcluding counts distinct scenes that have markers with tagID (or subtags) but not excludeTagID (or subtags)
-// When excludeSelfOral is true, markers where top performers == bottom performers are excluded (used for oral tag counting)
-func CountScenesWithMarkerTagExcluding(ctx context.Context, markerQB models.SceneMarkerReader, tagID int, excludeTagID int, excludeSelfOral bool) (int, error) {
+func CountScenesWithMarkerTagExcluding(ctx context.Context, markerQB models.SceneMarkerReader, tagID int, excludeTagID int) (int, error) {
 	if tagID == 0 {
 		return 0, nil
 	}
@@ -711,16 +674,6 @@ func CountScenesWithMarkerTagExcluding(ctx context.Context, markerQB models.Scen
 
 	includeScenes := make(map[int]bool)
 	for _, m := range markers {
-		// If excludeSelfOral is true, skip markers where top == bottom performers
-		if excludeSelfOral {
-			performers, err := markerQB.GetPerformers(ctx, m.ID)
-			if err != nil {
-				return 0, err
-			}
-			if isSelfOralMarker(performers) {
-				continue
-			}
-		}
 		includeScenes[m.SceneID] = true
 	}
 

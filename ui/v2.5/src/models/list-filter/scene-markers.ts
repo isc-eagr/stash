@@ -18,6 +18,7 @@ import {
   StringCriterion,
   BooleanCriterionOption,
   BooleanCriterion,
+  NumberCriterion,
 } from "./criteria/criterion";
 import { SceneMarkerCustomFiltersCriterionOption } from "./criteria/custom-filters";
 
@@ -63,6 +64,35 @@ class HasEndTimeCriterion extends BooleanCriterion {
   }
 }
 
+// Marker Length criterion option (Equals, >=, <=)
+// Markers with no end time are treated as 20 seconds
+const MarkerLengthCriterionOption: ModifierCriterionOption = new ModifierCriterionOption({
+  messageID: "marker_length",
+  type: "marker_length",
+  modifierOptions: [
+    CriterionModifier.Equals,
+    CriterionModifier.GreaterThanEquals,
+    CriterionModifier.LessThanEquals,
+  ],
+  defaultModifier: CriterionModifier.Equals,
+  inputType: "number",
+  makeCriterion: () => new NumberCriterion(MarkerLengthCriterionOption),
+});
+
+// Scene Performer Count criterion option (Equals, >=, <=)
+const ScenePerformerCountCriterionOption: ModifierCriterionOption = new ModifierCriterionOption({
+  messageID: "scene_performer_count",
+  type: "scene_performer_count",
+  modifierOptions: [
+    CriterionModifier.Equals,
+    CriterionModifier.GreaterThanEquals,
+    CriterionModifier.LessThanEquals,
+  ],
+  defaultModifier: CriterionModifier.Equals,
+  inputType: "number",
+  makeCriterion: () => new NumberCriterion(ScenePerformerCountCriterionOption),
+});
+
 const criterionOptions = [
   // CUSTOM: Commented out TagsCriterionOption - tags functionality is now integrated
   // into MarkerPerformersCriterionOption for a unified filter experience.
@@ -77,6 +107,8 @@ const criterionOptions = [
   SceneDirectorCriterionOption,
   SceneMarkerCustomFiltersCriterionOption,
   createNullDurationCriterionOption("duration"),
+  MarkerLengthCriterionOption,
+  ScenePerformerCountCriterionOption,
   createMandatoryTimestampCriterionOption("created_at"),
   createMandatoryTimestampCriterionOption("updated_at"),
   createDateCriterionOption("scene_date"),

@@ -529,6 +529,10 @@ export class ListFilterModel {
       bottom_ethnicities?: string[];
       bottom_countries?: string[];
       bottom_rating?: { modifier: string; value: number; value2?: number };
+      both_roles_performer_ids?: string[];
+      both_roles_ethnicities?: string[];
+      both_roles_countries?: string[];
+      both_roles_rating?: { modifier: string; value: number; value2?: number };
       performer_mode?: "AND" | "OR";
     };
     const includeGroups =

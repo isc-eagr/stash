@@ -26,6 +26,8 @@ export interface ISceneMarkersGroup {
   // Tags
   tag_ids: ILabeledId[];
   depth: number; // 0 = no sub-tags, -1 = all sub-tags
+  // Performer mode: AND = both top AND bottom must match, OR = top OR bottom can match
+  performer_mode: "AND" | "OR";
   // Top performer criteria (can include unnamed performer IDs)
   top_performer_ids: ILabeledId[];
   // Bottom performer criteria (can include unnamed performer IDs)
@@ -48,22 +50,21 @@ function createEmptyGroup(groupId: string): ISceneMarkersGroup {
     groupId,
     tag_ids: [],
     depth: 0,
+    performer_mode: "AND",
     top_performer_ids: [],
     bottom_performer_ids: [],
   };
 }
 
-const modifierOptions = [
-  CriterionModifier.IncludesAll,
-  CriterionModifier.Includes,
-];
+// Simplified: Always use EQUALS modifier
+const modifierOptions = [CriterionModifier.Equals];
 
-const defaultModifier = CriterionModifier.IncludesAll;
+const defaultModifier = CriterionModifier.Equals;
 
 /**
  * SceneMarkersCriterion - A criterion for filtering scenes by their markers.
  * Supports multiple marker groups, each with tags and top/bottom performer criteria.
- * The modifier controls performer mode: INCLUDES_ALL = AND, INCLUDES = OR
+ * Each group has its own performer_mode (AND/OR).
  */
 export class SceneMarkersCriterion extends Criterion {
   public modifier: CriterionModifier = defaultModifier;
@@ -82,6 +83,7 @@ export class SceneMarkersCriterion extends Criterion {
         groupId: g.groupId,
         tag_ids: g.tag_ids.map((t) => ({ ...t })),
         depth: g.depth,
+        performer_mode: g.performer_mode,
         top_performer_ids: g.top_performer_ids.map((p) => ({ ...p })),
         bottom_performer_ids: g.bottom_performer_ids.map((p) => ({ ...p })),
       })),
@@ -155,12 +157,11 @@ export class SceneMarkersCriterion extends Criterion {
       if (g.bottom_performer_ids.length > 0) {
         parts.push("Bottom: ...");
       }
-      return `${g.groupId}: ${parts.join(" + ") || "..."}`;
+      const modeLabel = g.performer_mode === "OR" ? "OR" : "AND";
+      return `${g.groupId}(${modeLabel}): ${parts.join(" + ") || "..."}`;
     });
 
-    const modeLabel =
-      this.modifier === CriterionModifier.IncludesAll ? "AND" : "OR";
-    return `${criterion} (${modeLabel}): ${groupLabels.join(" | ")}`;
+    return `${criterion}: ${groupLabels.join(" | ")}`;
   }
 
   public isValid(): boolean {
@@ -184,6 +185,7 @@ export class SceneMarkersCriterion extends Criterion {
         groupId: g.groupId,
         tag_ids: g.tag_ids.map((t) => ({ id: t.id, label: t.label })),
         depth: g.depth,
+        performer_mode: g.performer_mode,
         top_performer_ids: g.top_performer_ids.map((p) => ({
           id: p.id,
           label: p.label,
@@ -212,6 +214,7 @@ export class SceneMarkersCriterion extends Criterion {
         groupId: string;
         tag_ids: Array<{ id: string; label: string }>;
         depth: number;
+        performer_mode?: "AND" | "OR";
         top_performer_ids: Array<{ id: string; label: string }>;
         bottom_performer_ids: Array<{ id: string; label: string }>;
       }>;
@@ -224,6 +227,7 @@ export class SceneMarkersCriterion extends Criterion {
         groupId: g.groupId,
         tag_ids: g.tag_ids.map((t) => ({ id: t.id, label: t.label })),
         depth: g.depth,
+        performer_mode: g.performer_mode ?? "AND",
         top_performer_ids: g.top_performer_ids.map((p) => ({
           id: p.id,
           label: p.label,
@@ -252,19 +256,14 @@ export class SceneMarkersCriterion extends Criterion {
   }
 
   public applyToCriterionInput(input: Record<string, unknown>): void {
-    // Performer mode: INCLUDES = OR, INCLUDES_ALL = AND
-    const performerMode =
-      this.modifier === CriterionModifier.Includes ? "OR" : "AND";
-
-    // Use EQUALS modifier for including matching markers
-    const sceneMarkerTagsModifier = CriterionModifier.Equals;
-
     // Helper to get unnamed performer definition by ID
     const getUnnamedDef = (id: string) =>
       (this.value.unnamed_performers ?? []).find((up) => up.id === id);
 
     // Build groups_extended from our groups
     const groups_extended = this.value.groups.map((g) => {
+      // Each group has its own performer_mode
+      const performerMode = g.performer_mode ?? "AND";
       const group: Record<string, unknown> = {
         tag_ids: g.tag_ids.map((t) => t.id),
         performer_mode: performerMode,
@@ -424,6 +423,7 @@ export class SceneMarkersCriterion extends Criterion {
         groupId: g.groupId,
         tag_ids: g.tag_ids.map((t) => ({ id: t.id, label: t.label })),
         depth: g.depth,
+        performer_mode: g.performer_mode,
         top_performer_ids: g.top_performer_ids.map((p) => ({
           id: p.id,
           label: p.label,
@@ -452,6 +452,7 @@ export class SceneMarkersCriterion extends Criterion {
         groupId: string;
         tag_ids: Array<{ id: string; label: string }>;
         depth: number;
+        performer_mode?: "AND" | "OR";
         top_performer_ids: Array<{ id: string; label: string }>;
         bottom_performer_ids: Array<{ id: string; label: string }>;
       }>;
@@ -466,6 +467,7 @@ export class SceneMarkersCriterion extends Criterion {
         groupId: g.groupId,
         tag_ids: g.tag_ids.map((t) => ({ id: t.id, label: t.label })),
         depth: g.depth,
+        performer_mode: g.performer_mode ?? "AND",
         top_performer_ids: g.top_performer_ids.map((p) => ({
           id: p.id,
           label: p.label,

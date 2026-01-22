@@ -296,7 +296,7 @@ export const CustomStats: React.FC = () => {
     );
   };
 
-  // Solo: has solo markers BUT NOT sex OR oral markers
+  // Solo: has solo markers BUT NOT sex OR oral markers (depth -1 to include subtags)
   const makeSoloScenesUrl = () => {
     if (!soloTag) return "#";
     const excludeTags = [];
@@ -305,7 +305,8 @@ export const CustomStats: React.FC = () => {
     return NavUtils.makeScenesWithExclusiveMarkerTagUrl(
       soloTag.id,
       soloTag.name,
-      excludeTags
+      excludeTags,
+      -1 // Use depth -1 for both include and exclude to catch all subtags
     );
   };
 
@@ -333,10 +334,12 @@ export const CustomStats: React.FC = () => {
   };
 
   // Helper to create performer marker URLs with role
+  // Note: depth 0 = exact tag match only, depth -1 = includes all subtags
+  // Backend oral/facial counts use exact primary_tag_id match, so we use depth 0 to match
   const makePerformerMarkerRoleUrl = (
     tag: { id: string; name: string } | undefined,
     role: "top" | "bottom",
-    depth: number = -1
+    depth: number = 0
   ) => {
     if (!tag) return "#";
     const criterionData = {
@@ -396,7 +399,7 @@ export const CustomStats: React.FC = () => {
         modifier: "INCLUDES_ALL",
         group: {
           tag_ids: excludeTags,
-          depth: 0,
+          depth: -1, // Use depth -1 to exclude all subtags
           performer_ids: [],
           performer_ethnicities: [],
           performer_countries: [],

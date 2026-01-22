@@ -1402,6 +1402,8 @@
   "scene_tags": "Scene Tags",
   "scene_updated_at": "Scene Updated At",
   "marker_tags": "Marker Tags",
+  "marker_length": "Marker Length",
+  "scene_performer_count": "Scene Performer Count",
   "marker_tags_with_performers": "Markers",
   "performer_markers": "Markers",
   "performer_markers_exclude": "Markers: Exclude",

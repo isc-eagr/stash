@@ -232,6 +232,8 @@ export type CriterionType =
   | "performer_marker_partners"
   | "scene_director"
   | "has_end_time"
+  | "marker_length"
+  | "scene_performer_count"
   | "marker_top"
   | "marker_bottom"
   | "marker_giver" // Legacy - migrates to marker_top

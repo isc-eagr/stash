@@ -48,6 +48,10 @@ type SceneMarkerFilterType struct {
 	Studios *HierarchicalMultiCriterionInput `json:"studios"`
 	// Filter by duration (in seconds)
 	Duration *FloatCriterionInput `json:"duration"`
+	// Filter by marker length in seconds. Markers without end time are treated as 20 seconds.
+	MarkerLength *IntCriterionInput `json:"marker_length"`
+	// Filter by the number of performers in the scene
+	ScenePerformerCount *IntCriterionInput `json:"scene_performer_count"`
 	// Filter by created at
 	CreatedAt *TimestampCriterionInput `json:"created_at"`
 	// Filter by updated at

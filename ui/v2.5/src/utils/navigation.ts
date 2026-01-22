@@ -1184,26 +1184,22 @@ const makePerformerMarkerScenesUrl = (
   const performerLabel = performer.name || `Performer ${performer.id}`;
   const performerRef = { id: performer.id, label: performerLabel };
 
-  // For any role (top OR bottom), put the performer in both arrays
+  // For any role (top OR bottom), put the performer in both arrays with OR mode
   return `/scenes?c=${encodeURIComponent(
     JSON.stringify({
       type: "scene_markers",
-      modifier: "INCLUDES",
+      modifier: "EQUALS",
       groups: [
         {
           groupId: "A",
           tag_ids: [{ id: tagId, label: roleType }],
           depth: 0,
+          performer_mode: "OR",
           top_performer_ids: [performerRef],
-          top_ethnicities: [],
-          top_countries: [],
-          top_rating: null,
           bottom_performer_ids: [performerRef],
-          bottom_ethnicities: [],
-          bottom_countries: [],
-          bottom_rating: null,
         },
       ],
+      unnamed_performers: [],
     })
   )}&sortby=date`;
 };
@@ -1231,14 +1227,9 @@ const makePerformerMarkerScenesWithRoleUrl = (
     groupId: "A",
     tag_ids: [{ id: tagId, label: tagLabel }],
     depth: markerDepth,
+    performer_mode: role ? "AND" : "OR", // OR when any role, AND when specific role
     top_performer_ids: [],
-    top_ethnicities: [],
-    top_countries: [],
-    top_rating: null,
     bottom_performer_ids: [],
-    bottom_ethnicities: [],
-    bottom_countries: [],
-    bottom_rating: null,
   };
 
   // Add role-specific performer
@@ -1247,7 +1238,7 @@ const makePerformerMarkerScenesWithRoleUrl = (
   } else if (role === "bottom") {
     includeGroup.bottom_performer_ids = [performerRef];
   } else {
-    // Any role - put performer in both
+    // Any role - put performer in both with OR mode
     includeGroup.top_performer_ids = [performerRef];
     includeGroup.bottom_performer_ids = [performerRef];
   }
@@ -1255,8 +1246,9 @@ const makePerformerMarkerScenesWithRoleUrl = (
   let url = `/scenes?c=${encodeURIComponent(
     JSON.stringify({
       type: "scene_markers",
-      modifier: "INCLUDES",
+      modifier: "EQUALS",
       groups: [includeGroup],
+      unnamed_performers: [],
     })
   )}`;
 
@@ -1265,22 +1257,18 @@ const makePerformerMarkerScenesWithRoleUrl = (
     const excludeGroups = excludeTags.map((tag, index) => ({
       groupId: String.fromCharCode(66 + index), // B, C, D...
       tag_ids: [tag],
-      depth: 0,
+      depth: markerDepth,
+      performer_mode: "AND",
       top_performer_ids: [],
-      top_ethnicities: [],
-      top_countries: [],
-      top_rating: null,
       bottom_performer_ids: [],
-      bottom_ethnicities: [],
-      bottom_countries: [],
-      bottom_rating: null,
     }));
 
     url += `&c=${encodeURIComponent(
       JSON.stringify({
         type: "scene_markers_exclude",
-        modifier: "INCLUDES",
+        modifier: "EQUALS",
         groups: excludeGroups,
+        unnamed_performers: [],
       })
     )}`;
   }
@@ -1315,22 +1303,18 @@ const makeStudioMarkerScenesUrl = (
   url += `&c=${encodeURIComponent(
     JSON.stringify({
       type: "scene_markers",
-      modifier: "INCLUDES",
+      modifier: "EQUALS",
       groups: [
         {
           groupId: "A",
           tag_ids: [{ id: tagId, label: roleType }],
           depth: markerDepth,
+          performer_mode: "AND",
           top_performer_ids: [],
-          top_ethnicities: [],
-          top_countries: [],
-          top_rating: null,
           bottom_performer_ids: [],
-          bottom_ethnicities: [],
-          bottom_countries: [],
-          bottom_rating: null,
         },
       ],
+      unnamed_performers: [],
     })
   )}`;
 
@@ -1339,22 +1323,18 @@ const makeStudioMarkerScenesUrl = (
     const excludeGroups = excludeTags.map((tag, index) => ({
       groupId: String.fromCharCode(66 + index), // B, C, D...
       tag_ids: [tag],
-      depth: 0,
+      depth: markerDepth,
+      performer_mode: "AND",
       top_performer_ids: [],
-      top_ethnicities: [],
-      top_countries: [],
-      top_rating: null,
       bottom_performer_ids: [],
-      bottom_ethnicities: [],
-      bottom_countries: [],
-      bottom_rating: null,
     }));
 
     url += `&c=${encodeURIComponent(
       JSON.stringify({
         type: "scene_markers_exclude",
-        modifier: "INCLUDES_ALL",
+        modifier: "EQUALS",
         groups: excludeGroups,
+        unnamed_performers: [],
       })
     )}`;
   }
@@ -1392,22 +1372,18 @@ const makePerformerStudioMarkerScenesUrl = (
   url += `&c=${encodeURIComponent(
     JSON.stringify({
       type: "scene_markers",
-      modifier: "INCLUDES",
+      modifier: "EQUALS",
       groups: [
         {
           groupId: "A",
           tag_ids: [{ id: tagId, label: roleType }],
           depth: markerDepth,
+          performer_mode: "OR",
           top_performer_ids: [performerRef],
-          top_ethnicities: [],
-          top_countries: [],
-          top_rating: null,
           bottom_performer_ids: [performerRef],
-          bottom_ethnicities: [],
-          bottom_countries: [],
-          bottom_rating: null,
         },
       ],
+      unnamed_performers: [],
     })
   )}`;
 
@@ -1416,22 +1392,18 @@ const makePerformerStudioMarkerScenesUrl = (
     const excludeGroups = excludeTags.map((tag, index) => ({
       groupId: String.fromCharCode(66 + index), // B, C, D...
       tag_ids: [tag],
-      depth: 0,
+      depth: markerDepth,
+      performer_mode: "AND",
       top_performer_ids: [],
-      top_ethnicities: [],
-      top_countries: [],
-      top_rating: null,
       bottom_performer_ids: [],
-      bottom_ethnicities: [],
-      bottom_countries: [],
-      bottom_rating: null,
     }));
 
     url += `&c=${encodeURIComponent(
       JSON.stringify({
         type: "scene_markers_exclude",
-        modifier: "INCLUDES_ALL",
+        modifier: "EQUALS",
         groups: excludeGroups,
+        unnamed_performers: [],
       })
     )}`;
   }
@@ -1746,22 +1718,18 @@ const makeScenesWithMarkerTagUrl = (tagId: string, tagName: string, markerDepth:
   return `/scenes?c=${encodeURIComponent(
     JSON.stringify({
       type: "scene_markers",
-      modifier: "INCLUDES",
+      modifier: "EQUALS",
       groups: [
         {
           groupId: "A",
           tag_ids: [{ id: tagId, label: tagName }],
           depth: markerDepth,
+          performer_mode: "AND",
           top_performer_ids: [],
-          top_ethnicities: [],
-          top_countries: [],
-          top_rating: null,
           bottom_performer_ids: [],
-          bottom_ethnicities: [],
-          bottom_countries: [],
-          bottom_rating: null,
         },
       ],
+      unnamed_performers: [],
     })
   )}&sortby=date`;
 };
@@ -1779,22 +1747,18 @@ const makeScenesWithExclusiveMarkerTagUrl = (
   let url = `/scenes?c=${encodeURIComponent(
     JSON.stringify({
       type: "scene_markers",
-      modifier: "INCLUDES",
+      modifier: "EQUALS",
       groups: [
         {
           groupId: "A",
           tag_ids: [{ id: includeTagId, label: includeTagName }],
           depth: markerDepth,
+          performer_mode: "AND",
           top_performer_ids: [],
-          top_ethnicities: [],
-          top_countries: [],
-          top_rating: null,
           bottom_performer_ids: [],
-          bottom_ethnicities: [],
-          bottom_countries: [],
-          bottom_rating: null,
         },
       ],
+      unnamed_performers: [],
     })
   )}`;
 
@@ -1803,22 +1767,18 @@ const makeScenesWithExclusiveMarkerTagUrl = (
     const excludeGroups = excludeTagIds.map((tag, index) => ({
       groupId: String.fromCharCode(66 + index), // B, C, D...
       tag_ids: [tag],
-      depth: 0,
+      depth: markerDepth,
+      performer_mode: "AND",
       top_performer_ids: [],
-      top_ethnicities: [],
-      top_countries: [],
-      top_rating: null,
       bottom_performer_ids: [],
-      bottom_ethnicities: [],
-      bottom_countries: [],
-      bottom_rating: null,
     }));
 
     url += `&c=${encodeURIComponent(
       JSON.stringify({
         type: "scene_markers_exclude",
-        modifier: "INCLUDES",
+        modifier: "EQUALS",
         groups: excludeGroups,
+        unnamed_performers: [],
       })
     )}`;
   }
@@ -1868,6 +1828,7 @@ const makePerformerOrgasmMarkersUrl = (
     bottom_countries: [],
     bottom_rating: null,
     unnamed_performers: [],
+    performer_mode: "AND",
   };
   filter.criteria.push(criterion);
   filter.sortBy = "title";
@@ -1886,22 +1847,18 @@ const makePerformerFeetMarkersUrl = (
   return `/scenes?c=${encodeURIComponent(
     JSON.stringify({
       type: "scene_markers",
-      modifier: "INCLUDES_ALL",
+      modifier: "EQUALS",
       groups: [
         {
           groupId: "A",
           tag_ids: [{ id: tagId, label: tagLabel }],
           depth: -1, // Include subtags
+          performer_mode: "AND",
           top_performer_ids: [{ id: performer.id, label: performer.name || `Performer ${performer.id}` }],
-          top_ethnicities: [],
-          top_countries: [],
-          top_rating: null,
           bottom_performer_ids: [],
-          bottom_ethnicities: [],
-          bottom_countries: [],
-          bottom_rating: null,
         },
       ],
+      unnamed_performers: [],
     })
   )}&sortby=date`;
 };
@@ -1916,33 +1873,23 @@ const makePerformerFacialMarkersWithRoleUrl = (
 ) => {
   if (!performer.id || !tagId) return "#";
 
-  const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
-
-  // Add marker performers criterion with role filter
-  const criterion = new MarkerPerformersCriterion(MarkerPerformersCriterionOption);
-  criterion.modifier = GQL.CriterionModifier.Includes;
-  
   const performerRef = { id: performer.id, label: performer.name || `Performer ${performer.id}` };
-  
-  criterion.value = {
+
+  // Build the criterion using new format
+  // For overall (no role): performer in either top OR bottom (performer_mode: "OR")
+  // For specific role: performer in that role only
+  const criterionData = {
+    type: "marker_performers",
+    modifier: "INCLUDES",
     tag_ids: [{ id: tagId, label: tagLabel }],
     include_subtags: true,
+    performer_mode: role ? "AND" : "OR", // OR for overall to match either role
     top_performer_ids: role === "top" || !role ? [performerRef] : [],
-    top_any_count: 0,
-    top_ethnicities: [],
-    top_countries: [],
-    top_rating: null,
     bottom_performer_ids: role === "bottom" || !role ? [performerRef] : [],
-    bottom_any_count: 0,
-    bottom_ethnicities: [],
-    bottom_countries: [],
-    bottom_rating: null,
     unnamed_performers: [],
   };
-  filter.criteria.push(criterion);
-  filter.sortBy = "title";
 
-  return `/scenes/markers?${filter.makeQueryParameters()}`;
+  return `/scenes/markers?c=${encodeURIComponent(JSON.stringify(criterionData))}&sortby=title`;
 };
 
 // Generate URL to filter performers by partner markers (e.g., "who has performer X been a top/bottom with")
