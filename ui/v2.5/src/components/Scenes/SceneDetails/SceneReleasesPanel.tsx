@@ -441,8 +441,9 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                                 return "#fff";
                               };
 
+                              // For duration, compare at the second level to avoid millisecond differences
                               const durationColor = f.duration && sceneFile?.duration 
-                                ? getColor(f.duration, sceneFile.duration, true) 
+                                ? getColor(Math.floor(f.duration), Math.floor(sceneFile.duration), true) 
                                 : "#fff";
                               const fpsColor = f.frame_rate && sceneFile?.frame_rate 
                                 ? getColor(f.frame_rate, sceneFile.frame_rate, true) 
@@ -450,6 +451,12 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                               const resolutionColor = f.height && sceneFile?.height 
                                 ? getColor(f.height, sceneFile.height, true) 
                                 : "#fff";
+                              const fileSizeColor = f.size && sceneFile?.size 
+                                ? getColor(f.size, sceneFile.size, true) 
+                                : "#fff";
+
+                              // Format file size
+                              const fileSizeInfo = f.size ? TextUtils.fileSize(f.size) : null;
 
                               return (
                                 <div key={f.id} style={{ fontWeight: "bold", fontSize: "1.1em" }}>
@@ -461,13 +468,19 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                                   {f.duration && f.frame_rate && <span style={{ color: "#fff" }}> | </span>}
                                   {f.frame_rate && (
                                     <span style={{ color: fpsColor }}>
-                                      {intl.formatNumber(f.frame_rate)} fps
+                                      {intl.formatNumber(f.frame_rate, { maximumFractionDigits: 2, minimumFractionDigits: 0 })} fps
                                     </span>
                                   )}
                                   {f.frame_rate && f.width && f.height && <span style={{ color: "#fff" }}> | </span>}
                                   {f.width && f.height && (
                                     <span style={{ color: resolutionColor }}>
                                       {TextUtils.resolution(f.width, f.height)}
+                                    </span>
+                                  )}
+                                  {f.width && f.height && fileSizeInfo && <span style={{ color: "#fff" }}> | </span>}
+                                  {fileSizeInfo && (
+                                    <span style={{ color: fileSizeColor }}>
+                                      {intl.formatNumber(fileSizeInfo.size, { maximumFractionDigits: TextUtils.fileSizeFractionalDigits(fileSizeInfo.unit) })} {TextUtils.formatFileSizeUnit(fileSizeInfo.unit)}
                                     </span>
                                   )}
                                 </div>

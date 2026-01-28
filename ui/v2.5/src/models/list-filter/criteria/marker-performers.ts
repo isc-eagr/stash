@@ -364,7 +364,8 @@ export class MarkerPerformersCriterion extends Criterion {
   }
 
   public setFromSavedCriterion(savedCriterion: Record<string, unknown>): void {
-    const data = savedCriterion[this.criterionOption.type] as {
+    // savedCriterion is already the criterion data, not a wrapper object
+    const data = savedCriterion as {
       tag_ids?: Array<{ id: string; label: string }>;
       include_subtags?: boolean;
       performer_mode?: "AND" | "OR";

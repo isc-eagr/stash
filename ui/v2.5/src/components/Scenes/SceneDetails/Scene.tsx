@@ -637,32 +637,6 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     const {oralTagId} = roleTagIds;
     const {soloTagId} = roleTagIds;
 
-    // Helper to check if a marker has the same performer as both top and bottom
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const isOralWithSameTopBottom = (marker: any): boolean => {
-      const topPerformers = marker?.top_performers ?? [];
-      const bottomPerformers = marker?.bottom_performers ?? [];
-      
-      // If there are no performers on either side, it's not a self-oral
-      if (topPerformers.length === 0 && bottomPerformers.length === 0) return false;
-      
-      // If only one side has performers, it's not self-oral
-      if (topPerformers.length === 0 || bottomPerformers.length === 0) return false;
-      
-      // Check if all top performers are also bottom performers and vice versa
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const topIds = new Set(topPerformers.map((p: any) => p.id));
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const bottomIds = new Set(bottomPerformers.map((p: any) => p.id));
-      
-      // They must have the same performers on both sides
-      if (topIds.size !== bottomIds.size) return false;
-      for (const id of topIds) {
-        if (!bottomIds.has(id)) return false;
-      }
-      return true;
-    };
-
     // Get scene marker tag IDs
     const markerTagIds = new Set<string>();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -673,11 +647,9 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
         (marker?.primary_tag?.id && marker.primary_tag.id === oralTagId) ||
         (marker?.tags ?? []).some((tag: { id?: string }) => tag?.id === oralTagId);
       
-      // For oral markers, only count them if top != bottom
+      // Add oral markers to tag set
       if (isOralMarker && oralTagId) {
-        if (!isOralWithSameTopBottom(marker)) {
-          markerTagIds.add(oralTagId);
-        }
+        markerTagIds.add(oralTagId);
       }
 
       // Add non-oral tag IDs normally

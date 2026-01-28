@@ -53,6 +53,9 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   const p = performer as any;
   let orgasmTopCount = 0;
   let feetTopCount = 0;
+  let sceneFacialTopCount = 0;
+  let sceneFacialBottomCount = 0;
+  let sceneFacialTotalCount = 0;
 
   // Build roles to show based on context
   let rolesToShow: Array<{
@@ -74,8 +77,12 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       r.startsWith("oral_")
     );
     const soloRoles = markerRoles.filter((r: string) => r === "solo");
-    const facialRoles = markerRoles.filter((r: string) =>
-      r.startsWith("facial_")
+    // Facial roles now come as "facial_top_X" and "facial_bottom_X" with counts
+    const facialTopRoles = markerRoles.filter((r: string) =>
+      r.startsWith("facial_top_")
+    );
+    const facialBottomRoles = markerRoles.filter((r: string) =>
+      r.startsWith("facial_bottom_")
     );
     const orgasmRoles = markerRoles.filter((r: string) =>
       r.startsWith("orgasm_top_")
@@ -102,6 +109,25 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       }
     }
 
+    // Parse facial top count from "facial_top_X" format
+    if (facialTopRoles.length > 0 && facialTagId) {
+      const match = facialTopRoles[0].match(/facial_top_(\d+)/);
+      if (match) {
+        sceneFacialTopCount = parseInt(match[1], 10);
+      }
+    }
+
+    // Parse facial bottom count from "facial_bottom_X" format
+    if (facialBottomRoles.length > 0 && facialTagId) {
+      const match = facialBottomRoles[0].match(/facial_bottom_(\d+)/);
+      if (match) {
+        sceneFacialBottomCount = parseInt(match[1], 10);
+      }
+    }
+
+    // Calculate total facial count for this scene
+    sceneFacialTotalCount = sceneFacialTopCount + sceneFacialBottomCount;
+
     // Fixed order: Sex, Oral, Facial, Solo
     if (sexRoles.length > 0 && sexTagId) {
       rolesToShow.push({
@@ -119,11 +145,15 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         tagId: oralTagId,
       });
     }
-    if (facialRoles.length > 0 && facialTagId) {
+    // Facial now shows counts in scene context
+    if ((facialTopRoles.length > 0 || facialBottomRoles.length > 0) && facialTagId) {
       rolesToShow.push({
         category: "facial",
-        isTop: facialRoles.some((r: string) => r.endsWith("_top")),
-        isBottom: facialRoles.some((r: string) => r.endsWith("_bottom")),
+        count: sceneFacialTotalCount,
+        topCount: sceneFacialTopCount,
+        bottomCount: sceneFacialBottomCount,
+        isTop: sceneFacialTopCount > 0,
+        isBottom: sceneFacialBottomCount > 0,
         tagId: facialTagId,
       });
     }
@@ -427,7 +457,8 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                 </div>
               </>
             ) : sceneId ? (
-              // Scene context: show top/bottom indicators as badges (not clickable)
+              // Scene context: show top/bottom indicators as badges
+              // For facial, show counts like global context; for sex/oral just show arrows
               <div className="role-arrows">
                 {role.isTop && (
                   <Badge
@@ -443,6 +474,9 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                     }}
                   >
                     <Icon icon={faArrowUp} />
+                    {role.category === "facial" && (role.count ?? 0) > 1 && (
+                      <span className="arrow-count">{role.topCount}</span>
+                    )}
                   </Badge>
                 )}
                 {role.isBottom && (
@@ -459,6 +493,9 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                     }}
                   >
                     <Icon icon={faArrowDown} />
+                    {role.category === "facial" && (role.count ?? 0) > 1 && (
+                      <span className="arrow-count">{role.bottomCount}</span>
+                    )}
                   </Badge>
                 )}
               </div>

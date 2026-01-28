@@ -207,6 +207,81 @@ export class SceneMarkersExcludeCriterion extends Criterion {
     };
   }
 
+  protected encodeValue(): unknown {
+    return {
+      groups: this.value.groups.map((g) => ({
+        groupId: g.groupId,
+        tag_ids: g.tag_ids.map((t) => ({ id: t.id, label: t.label })),
+        depth: g.depth,
+        performer_mode: g.performer_mode,
+        top_performer_ids: g.top_performer_ids.map((p) => ({
+          id: p.id,
+          label: p.label,
+        })),
+        bottom_performer_ids: g.bottom_performer_ids.map((p) => ({
+          id: p.id,
+          label: p.label,
+        })),
+      })),
+      unnamed_performers: (this.value.unnamed_performers ?? []).map((up) => ({
+        id: up.id,
+        label: up.label,
+        letter: up.letter,
+        ethnicities: up.ethnicities,
+        countries: up.countries,
+        rating: up.rating,
+      })),
+    };
+  }
+
+  protected decodeValue(v: unknown): void {
+    if (!v) return;
+    
+    const raw = v as {
+      groups?: Array<{
+        groupId: string;
+        tag_ids: Array<{ id: string; label: string }>;
+        depth: number;
+        performer_mode?: "AND" | "OR";
+        top_performer_ids: Array<{ id: string; label: string }>;
+        bottom_performer_ids: Array<{ id: string; label: string }>;
+      }>;
+      unnamed_performers?: IUnnamedPerformer[];
+    };
+
+    if (raw.groups) {
+      this.value.groups = raw.groups.map((g) => ({
+        groupId: g.groupId,
+        tag_ids: g.tag_ids.map((t) => ({ id: t.id, label: t.label })),
+        depth: g.depth,
+        performer_mode: g.performer_mode ?? "AND",
+        top_performer_ids: g.top_performer_ids.map((p) => ({
+          id: p.id,
+          label: p.label,
+        })),
+        bottom_performer_ids: g.bottom_performer_ids.map((p) => ({
+          id: p.id,
+          label: p.label,
+        })),
+      }));
+      // Update counter to avoid ID collisions
+      const maxChar = Math.max(
+        ...this.value.groups.map((grp) => grp.groupId.charCodeAt(0)),
+        64
+      );
+      groupIdCounter = maxChar - 64;
+    }
+    // Load unnamed performers at criterion level
+    if (raw.unnamed_performers) {
+      this.value.unnamed_performers = raw.unnamed_performers.map((up) => ({
+        ...up,
+        ethnicities: [...up.ethnicities],
+        countries: [...up.countries],
+        rating: up.rating ? { ...up.rating } : null,
+      }));
+    }
+  }
+
   public fromDecodedParams(params: Record<string, unknown>): void {
     const raw = params as {
       modifier?: CriterionModifier;
@@ -450,7 +525,7 @@ export class SceneMarkersExcludeCriterion extends Criterion {
   }
 
   public setFromSavedCriterion(savedCriterion: Record<string, unknown>): void {
-    const data = savedCriterion[this.criterionOption.type] as {
+    const data = savedCriterion as {
       modifier?: CriterionModifier;
       groups?: Array<{
         groupId: string;

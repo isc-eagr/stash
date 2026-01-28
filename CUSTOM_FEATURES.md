@@ -359,6 +359,13 @@ The performer card displays a splash icon in the role badge strip when the perfo
 - Uses `orgasm_top_count` GraphQL field for global counts
 - Uses `orgasm_top_X` in `scene_marker_roles` for scene-specific counts
 
+### Facial Counts in Scene Context
+The performer card displays facial counts (top/bottom) when viewing performers in a scene context:
+- Shows total facial count in the category icon container
+- Shows top/bottom arrows with individual counts (e.g., "↑2 ↓1")
+- Uses `facial_top_X` and `facial_bottom_X` in `scene_marker_roles` for scene-specific counts
+- Matches the global context behavior but scoped to the current scene only
+
 ### Props Added
 ```typescript
 interface IPerformerCardProps {

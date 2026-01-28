@@ -526,33 +526,6 @@ export const SceneCard = PatchComponent(
         return parents.some((p: any) => tagMatches(p, targetId, visited));
       };
 
-      // Helper to check if a marker is an "oral" marker where top == bottom (same performer)
-      // Returns true if the marker has the same set of performer IDs in top and bottom
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const isOralWithSameTopBottom = (marker: any): boolean => {
-        const topPerformers = marker?.top_performers ?? [];
-        const bottomPerformers = marker?.bottom_performers ?? [];
-        
-        // If there are no performers on either side, it's not a self-oral
-        if (topPerformers.length === 0 && bottomPerformers.length === 0) return false;
-        
-        // If only one side has performers, it's not self-oral
-        if (topPerformers.length === 0 || bottomPerformers.length === 0) return false;
-        
-        // Check if all top performers are also bottom performers and vice versa
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const topIds = new Set(topPerformers.map((p: any) => p.id));
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const bottomIds = new Set(bottomPerformers.map((p: any) => p.id));
-        
-        // They must have the same performers on both sides
-        if (topIds.size !== bottomIds.size) return false;
-        for (const id of topIds) {
-          if (!bottomIds.has(id)) return false;
-        }
-        return true;
-      };
-
       // Get scene marker tag IDs (including hierarchy)
       const markerTagIds = new Set<string>();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -573,11 +546,9 @@ export const SceneCard = PatchComponent(
           }
         }
 
-        // For oral markers, only count them if top != bottom
-        if (isOralMarker) {
-          if (!isOralWithSameTopBottom(marker)) {
-            if (oralTagId) markerTagIds.add(oralTagId);
-          }
+        // Add oral markers to tag set
+        if (isOralMarker && oralTagId) {
+          markerTagIds.add(oralTagId);
         }
 
         // Check primary tag for non-oral tags

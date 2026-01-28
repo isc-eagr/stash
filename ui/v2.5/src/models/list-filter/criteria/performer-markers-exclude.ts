@@ -160,6 +160,76 @@ export class PerformerMarkersExcludeCriterion extends Criterion {
     );
   }
 
+  protected encodeValue(): unknown {
+    const g = this.value.group;
+    return {
+      group: {
+        tag_ids: g.tag_ids.map((t) => ({ id: t.id, label: t.label })),
+        depth: g.depth,
+        performer_ids: g.performer_ids.map((p) => ({
+          id: p.id,
+          label: p.label,
+        })),
+        performer_ethnicities: g.performer_ethnicities,
+        performer_countries: g.performer_countries,
+        performer_rating: g.performer_rating,
+        performer_role: g.performer_role,
+        partner_ids: g.partner_ids.map((p) => ({
+          id: p.id,
+          label: p.label,
+        })),
+        partner_ethnicities: g.partner_ethnicities,
+        partner_countries: g.partner_countries,
+        partner_rating: g.partner_rating,
+        partner_role: g.partner_role,
+      },
+    };
+  }
+
+  protected decodeValue(v: unknown): void {
+    if (!v) return;
+    
+    const raw = v as {
+      group?: {
+        tag_ids: Array<{ id: string; label: string }>;
+        depth: number;
+        performer_ids: Array<{ id: string; label: string }>;
+        performer_ethnicities: string[];
+        performer_countries: string[];
+        performer_rating: RatingCriterion;
+        performer_role: "any" | "top" | "bottom";
+        partner_ids: Array<{ id: string; label: string }>;
+        partner_ethnicities: string[];
+        partner_countries: string[];
+        partner_rating: RatingCriterion;
+        partner_role: "any" | "top" | "bottom";
+      };
+    };
+
+    if (raw.group) {
+      this.value.group = {
+        tag_ids: raw.group.tag_ids.map((t) => ({ id: t.id, label: t.label })),
+        depth: raw.group.depth,
+        performer_ids: raw.group.performer_ids.map((p) => ({
+          id: p.id,
+          label: p.label,
+        })),
+        performer_ethnicities: raw.group.performer_ethnicities,
+        performer_countries: raw.group.performer_countries,
+        performer_rating: raw.group.performer_rating,
+        performer_role: raw.group.performer_role,
+        partner_ids: raw.group.partner_ids.map((p) => ({
+          id: p.id,
+          label: p.label,
+        })),
+        partner_ethnicities: raw.group.partner_ethnicities,
+        partner_countries: raw.group.partner_countries,
+        partner_rating: raw.group.partner_rating,
+        partner_role: raw.group.partner_role,
+      };
+    }
+  }
+
   public toQueryParams(): Record<string, unknown> {
     const g = this.value.group;
     return {
@@ -292,9 +362,9 @@ export class PerformerMarkersExcludeCriterion extends Criterion {
   }
 
   public setFromSavedCriterion(savedCriterion: Record<string, unknown>): void {
-    const data = savedCriterion[this.criterionOption.type];
-    if (data) {
-      this.fromDecodedParams(data as Record<string, unknown>);
+    // savedCriterion is already the criterion data, not a wrapper
+    if (savedCriterion) {
+      this.fromDecodedParams(savedCriterion);
     }
   }
 }
