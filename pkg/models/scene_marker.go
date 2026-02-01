@@ -12,6 +12,14 @@ type CustomSceneMarkerFilterInput struct {
 	FacialTagID *string `json:"facial_tag_id"`
 }
 
+// HasRolesCriterionInput is the input for filtering markers by performer roles (tops/bottoms)
+type HasRolesCriterionInput struct {
+	// When true: has at least one top; when false: has no tops
+	HasTops bool `json:"has_tops"`
+	// When true: has at least one bottom; when false: has no bottoms
+	HasBottoms bool `json:"has_bottoms"`
+}
+
 type SceneMarkerFilterType struct {
 	// Filter to only include scene markers with this tag
 	TagID *string `json:"tag_id"`
@@ -67,6 +75,8 @@ type SceneMarkerFilterType struct {
 	// Custom scene marker filters: predefined complex filters
 	// Options: 'circular_oral', 'simultaneous_orgasm', 'self_facial'
 	CustomFilters *CustomSceneMarkerFilterInput `json:"custom_filters"`
+	// Filter by marker roles (tops/bottoms)
+	HasRoles *HasRolesCriterionInput `json:"has_roles"`
 }
 
 type MarkerStringsResultType struct {

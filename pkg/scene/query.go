@@ -433,9 +433,16 @@ func getScenesByPerformerMarkerRole(ctx context.Context, r models.SceneMarkerQue
 
 // GetPerformerMarkerRolesForScene returns the roles a performer has in a specific scene's markers.
 // Returns array of strings like "sex_top", "sex_bottom", "oral_top", "oral_bottom",
-// "facial_top_X", "facial_bottom_X" (with counts), "orgasm_top_X", "feet_top_X", "solo"
-// based on their participation in markers.
+// "facial_top_X", "facial_bottom_X" (with counts), "facial_unique_X" (unique markers),
+// "sex_top_partners_X", "sex_bottom_partners_X" (unique partners per role),
+// "oral_top_partners_X", "oral_bottom_partners_X" (unique partners per role),
+// "facial_top_partners_X", "facial_bottom_partners_X" (unique partners per role),
+// "orgasm_top_X", "feet_top_X", "solo" based on their participation in markers.
 // Uses TagFinder to check if marker tags are descendants of the configured role tags.
+//
+// Note: facial_unique_X represents the actual number of distinct facial markers,
+// preventing double-counting when a performer is both top and bottom in the same marker.
+// Partner counts represent unique performers (by ID) with opposite role in the same markers.
 func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerReader, tagFinder models.TagFinder, performerID int, sceneID int, sexTagID int, oralTagID int, soloTagID int, facialTagID int, orgasmTagID int, feetTagID int) ([]string, error) {
 	roles := []string{}
 
@@ -499,14 +506,28 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 	facialTopCount := 0
 	facialBottomCount := 0
 
+	// Track unique facial marker IDs to avoid double-counting when performer is both top and bottom
+	facialMarkerIDs := make(map[int]bool)
+
+	// Track unique partner IDs for each role category (for scene-specific partner counts)
+	sexTopPartnerIDs := make(map[int]bool)
+	sexBottomPartnerIDs := make(map[int]bool)
+	oralTopPartnerIDs := make(map[int]bool)
+	oralBottomPartnerIDs := make(map[int]bool)
+	facialTopPartnerIDs := make(map[int]bool)
+	facialBottomPartnerIDs := make(map[int]bool)
+
 	// Helper to check if a tag ID matches any role tag (including subtags) and add the role
-	// Returns matched flags: (matchedOrgasm, matchedFeet, matchedFacialTop, matchedFacialBottom)
-	addRoleForTag := func(tagID int, role string) (bool, bool, bool, bool) {
+	// Returns matched flags: (matchedSex, matchedOral, matchedOrgasm, matchedFeet, matchedFacialTop, matchedFacialBottom)
+	addRoleForTag := func(tagID int, role string) (bool, bool, bool, bool, bool, bool) {
+		matchedSex := false
+		matchedOral := false
 		matchedOrgasm := false
 		matchedFeet := false
 		matchedFacialTop := false
 		matchedFacialBottom := false
 		if sexTagSet[tagID] {
+			matchedSex = true
 			if role == "top" {
 				roles = appendIfNotExists(roles, "sex_top")
 			} else if role == "bottom" {
@@ -514,6 +535,7 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 			}
 		}
 		if oralTagSet[tagID] {
+			matchedOral = true
 			if role == "top" {
 				roles = appendIfNotExists(roles, "oral_top")
 			} else if role == "bottom" {
@@ -536,7 +558,7 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 		if feetTagSet[tagID] && role == "top" {
 			matchedFeet = true
 		}
-		return matchedOrgasm, matchedFeet, matchedFacialTop, matchedFacialBottom
+		return matchedSex, matchedOral, matchedOrgasm, matchedFeet, matchedFacialTop, matchedFacialBottom
 	}
 
 	// Check each marker to see if this performer is top or bottom
@@ -552,21 +574,48 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 			return nil, err
 		}
 
+		// Track if this marker is a facial marker for unique counting
+		markerIsFacial := false
+
+		// Track what tags matched for this marker and the performer's roles (can be both top AND bottom)
+		markerMatchedSex := false
+		markerMatchedOral := false
+		markerMatchedFacial := false
+		performerWasTopInMarker := false
+		performerWasBottomInMarker := false
+
 		for _, perf := range performers {
 			if perf.PerformerID != performerID {
 				continue
 			}
 
 			role := perf.Role
+			// Track ALL roles the performer has in this marker (they can be both top and bottom)
+			if role == "top" {
+				performerWasTopInMarker = true
+			}
+			if role == "bottom" {
+				performerWasBottomInMarker = true
+			}
 
 			// Track if we've already counted this marker for orgasms/feet/facials (to avoid double-counting with primary + secondary tags)
 			markerCountedForOrgasm := false
 			markerCountedForFeet := false
 			markerCountedForFacialTop := false
 			markerCountedForFacialBottom := false
+			markerCountedForSex := false
+			markerCountedForOral := false
 
 			// Check primary tag first
-			matchedOrgasm, matchedFeet, matchedFacialTop, matchedFacialBottom := addRoleForTag(marker.PrimaryTagID, role)
+			matchedSex, matchedOral, matchedOrgasm, matchedFeet, matchedFacialTop, matchedFacialBottom := addRoleForTag(marker.PrimaryTagID, role)
+			if matchedSex {
+				markerCountedForSex = true
+				markerMatchedSex = true
+			}
+			if matchedOral {
+				markerCountedForOral = true
+				markerMatchedOral = true
+			}
 			if matchedOrgasm {
 				markerCountedForOrgasm = true
 			}
@@ -575,14 +624,28 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 			}
 			if matchedFacialTop {
 				markerCountedForFacialTop = true
+				markerIsFacial = true
+				markerMatchedFacial = true
 			}
 			if matchedFacialBottom {
 				markerCountedForFacialBottom = true
+				markerIsFacial = true
+				markerMatchedFacial = true
 			}
 
 			// Also check secondary/additional tags (e.g., facial as secondary tag on a sex marker)
 			for _, tagID := range secondaryTagIDs {
-				matchedOrgasm, matchedFeet, matchedFacialTop, matchedFacialBottom := addRoleForTag(tagID, role)
+				matchedSex, matchedOral, matchedOrgasm, matchedFeet, matchedFacialTop, matchedFacialBottom := addRoleForTag(tagID, role)
+				// Only count sex once per marker
+				if matchedSex && !markerCountedForSex {
+					markerCountedForSex = true
+					markerMatchedSex = true
+				}
+				// Only count oral once per marker
+				if matchedOral && !markerCountedForOral {
+					markerCountedForOral = true
+					markerMatchedOral = true
+				}
 				// Only count orgasm once per marker even if multiple orgasm subtags are present
 				if matchedOrgasm && !markerCountedForOrgasm {
 					markerCountedForOrgasm = true
@@ -594,10 +657,14 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 				// Only count facial top once per marker
 				if matchedFacialTop && !markerCountedForFacialTop {
 					markerCountedForFacialTop = true
+					markerIsFacial = true
+					markerMatchedFacial = true
 				}
 				// Only count facial bottom once per marker
 				if matchedFacialBottom && !markerCountedForFacialBottom {
 					markerCountedForFacialBottom = true
+					markerIsFacial = true
+					markerMatchedFacial = true
 				}
 			}
 
@@ -611,13 +678,62 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 				feetTopCount++
 			}
 
-			// Increment facial counts once per marker
+			// Increment facial counts once per marker (DEPRECATED - will be replaced by unique count)
 			if markerCountedForFacialTop {
 				facialTopCount++
 			}
 			if markerCountedForFacialBottom {
 				facialBottomCount++
 			}
+		}
+
+		// After processing this performer's roles, track unique partners (opposite role performers)
+		if markerMatchedSex || markerMatchedOral || markerMatchedFacial {
+			for _, perf := range performers {
+				if perf.PerformerID == performerID {
+					continue // Skip the target performer
+				}
+
+				partnerID := perf.PerformerID
+				partnerRole := perf.Role
+
+				// Track sex partners (opposite role only)
+				// If target was top and partner was bottom, track as sexTopPartner
+				// If target was bottom and partner was top, track as sexBottomPartner
+				if markerMatchedSex {
+					if performerWasTopInMarker && partnerRole == "bottom" {
+						sexTopPartnerIDs[partnerID] = true
+					}
+					if performerWasBottomInMarker && partnerRole == "top" {
+						sexBottomPartnerIDs[partnerID] = true
+					}
+				}
+
+				// Track oral partners (opposite role only)
+				if markerMatchedOral {
+					if performerWasTopInMarker && partnerRole == "bottom" {
+						oralTopPartnerIDs[partnerID] = true
+					}
+					if performerWasBottomInMarker && partnerRole == "top" {
+						oralBottomPartnerIDs[partnerID] = true
+					}
+				}
+
+				// Track facial partners (opposite role only)
+				if markerMatchedFacial {
+					if performerWasTopInMarker && partnerRole == "bottom" {
+						facialTopPartnerIDs[partnerID] = true
+					}
+					if performerWasBottomInMarker && partnerRole == "top" {
+						facialBottomPartnerIDs[partnerID] = true
+					}
+				}
+			}
+		}
+
+		// After processing all performer roles in this marker, track unique facial marker
+		if markerIsFacial {
+			facialMarkerIDs[marker.ID] = true
 		}
 	}
 
@@ -627,6 +743,79 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 	}
 	if facialBottomCount > 0 {
 		roles = append(roles, fmt.Sprintf("facial_bottom_%d", facialBottomCount))
+	}
+
+	// Add unique facial count (number of distinct facial markers, not counting same marker twice)
+	facialUniqueCount := len(facialMarkerIDs)
+	if facialUniqueCount > 0 {
+		roles = append(roles, fmt.Sprintf("facial_unique_%d", facialUniqueCount))
+	}
+
+	// Add partner counts for sex, oral, and facial (scene-specific unique partner counts)
+	sexTopPartnerCount := len(sexTopPartnerIDs)
+	if sexTopPartnerCount > 0 {
+		roles = append(roles, fmt.Sprintf("sex_top_partners_%d", sexTopPartnerCount))
+	}
+	sexBottomPartnerCount := len(sexBottomPartnerIDs)
+	if sexBottomPartnerCount > 0 {
+		roles = append(roles, fmt.Sprintf("sex_bottom_partners_%d", sexBottomPartnerCount))
+	}
+
+	// Calculate unique sex partners (across both top and bottom roles)
+	sexAllPartnerIDs := make(map[int]bool)
+	for id := range sexTopPartnerIDs {
+		sexAllPartnerIDs[id] = true
+	}
+	for id := range sexBottomPartnerIDs {
+		sexAllPartnerIDs[id] = true
+	}
+	sexAllPartnerCount := len(sexAllPartnerIDs)
+	if sexAllPartnerCount > 0 {
+		roles = append(roles, fmt.Sprintf("sex_all_partners_%d", sexAllPartnerCount))
+	}
+
+	oralTopPartnerCount := len(oralTopPartnerIDs)
+	if oralTopPartnerCount > 0 {
+		roles = append(roles, fmt.Sprintf("oral_top_partners_%d", oralTopPartnerCount))
+	}
+	oralBottomPartnerCount := len(oralBottomPartnerIDs)
+	if oralBottomPartnerCount > 0 {
+		roles = append(roles, fmt.Sprintf("oral_bottom_partners_%d", oralBottomPartnerCount))
+	}
+
+	// Calculate unique oral partners (across both top and bottom roles)
+	oralAllPartnerIDs := make(map[int]bool)
+	for id := range oralTopPartnerIDs {
+		oralAllPartnerIDs[id] = true
+	}
+	for id := range oralBottomPartnerIDs {
+		oralAllPartnerIDs[id] = true
+	}
+	oralAllPartnerCount := len(oralAllPartnerIDs)
+	if oralAllPartnerCount > 0 {
+		roles = append(roles, fmt.Sprintf("oral_all_partners_%d", oralAllPartnerCount))
+	}
+
+	facialTopPartnerCount := len(facialTopPartnerIDs)
+	if facialTopPartnerCount > 0 {
+		roles = append(roles, fmt.Sprintf("facial_top_partners_%d", facialTopPartnerCount))
+	}
+	facialBottomPartnerCount := len(facialBottomPartnerIDs)
+	if facialBottomPartnerCount > 0 {
+		roles = append(roles, fmt.Sprintf("facial_bottom_partners_%d", facialBottomPartnerCount))
+	}
+
+	// Calculate unique facial partners (across both top and bottom roles)
+	facialAllPartnerIDs := make(map[int]bool)
+	for id := range facialTopPartnerIDs {
+		facialAllPartnerIDs[id] = true
+	}
+	for id := range facialBottomPartnerIDs {
+		facialAllPartnerIDs[id] = true
+	}
+	facialAllPartnerCount := len(facialAllPartnerIDs)
+	if facialAllPartnerCount > 0 {
+		roles = append(roles, fmt.Sprintf("facial_all_partners_%d", facialAllPartnerCount))
 	}
 
 	// Add orgasm roles with count suffix (orgasm_top_1, orgasm_top_2, etc.)

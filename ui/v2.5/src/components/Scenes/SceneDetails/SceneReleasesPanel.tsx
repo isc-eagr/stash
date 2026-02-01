@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Button, Card, Badge, Modal, Form, Accordion, Row, Col } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
+import { useHistory } from "react-router-dom";
 import { DateInput } from "src/components/Shared/DateInput";
 import { ImageInput } from "src/components/Shared/ImageInput";
 import * as GQL from "src/core/generated-graphql";
@@ -8,12 +9,15 @@ import {
   useSceneReleaseCreate,
   useSceneReleaseUpdate,
   useSceneReleaseDestroy,
+  useSceneReleaseAddFile,
+  useSceneReleaseRemoveFile,
   useConvertSceneToRelease,
+  useConvertReleaseToScene,
 } from "src/core/StashService";
 import { useToast } from "src/hooks/Toast";
 import { Icon } from "src/components/Shared/Icon";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
-import { faPlay, faPlus, faTrash, faExchangeAlt, faPencilAlt, faChevronDown, faChevronRight } from "@fortawesome/free-solid-svg-icons";
+import { faPlay, faPlus, faTrash, faExchangeAlt, faPencilAlt, faChevronDown, faChevronRight, faFile, faFilm, faMinus } from "@fortawesome/free-solid-svg-icons";
 import SceneSelectorDialog from "./SceneSelectorDialog";
 import { Studio, StudioSelect } from "src/components/Studios/StudioSelect";
 import { Gallery, GallerySelect } from "src/components/Galleries/GallerySelect";
@@ -59,13 +63,20 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
 }) => {
   const intl = useIntl();
   const Toast = useToast();
+  const history = useHistory();
 
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [editingReleaseId, setEditingReleaseId] = useState<string | null>(null);
   const [showSceneSelectorModal, setShowSceneSelectorModal] = useState(false);
+  const [pendingConvertSceneId, setPendingConvertSceneId] = useState<string | null>(null); // scene selected, waiting for options
+  const [convertSceneOptions, setConvertSceneOptions] = useState({ transferOHistory: false, transferMarkers: false });
+  const [showAddFileModal, setShowAddFileModal] = useState<string | null>(null); // release ID
+  const [showConvertToSceneModal, setShowConvertToSceneModal] = useState<string | null>(null); // release ID
+  const [convertOptions, setConvertOptions] = useState({ transferOHistory: false, transferMarkers: false });
   const [formData, setFormData] = useState<IReleaseFormData>(emptyFormData);
   const [expandedReleases, setExpandedReleases] = useState<Set<string>>(new Set());
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
+  const [showRemoveFileModal, setShowRemoveFileModal] = useState<{ releaseId: string; fileId: string; fileName: string } | null>(null);
 
   // For studio and gallery selects
   const [selectedStudio, setSelectedStudio] = useState<Studio | null>(null);
@@ -74,7 +85,10 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
   const [createRelease, { loading: creating }] = useSceneReleaseCreate();
   const [updateRelease, { loading: updating }] = useSceneReleaseUpdate();
   const [destroyRelease, { loading: destroying }] = useSceneReleaseDestroy();
+  const [addFileToRelease, { loading: addingFile }] = useSceneReleaseAddFile();
+  const [removeFileFromRelease, { loading: removingFile }] = useSceneReleaseRemoveFile();
   const [convertScene, { loading: converting }] = useConvertSceneToRelease();
+  const [convertReleaseToScene, { loading: convertingToScene }] = useConvertReleaseToScene();
 
   const releases = scene.releases ?? [];
 
@@ -87,6 +101,20 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
       return a.date.localeCompare(b.date);
     });
   }, [releases]);
+
+  // Get file IDs that are already used in releases
+  const usedFileIds = useMemo(() => {
+    const ids = new Set<string>();
+    releases.forEach(release => {
+      release.files.forEach(file => ids.add(file.id));
+    });
+    return ids;
+  }, [releases]);
+
+  // Available files from scene that are not already in a release
+  const availableFiles = useMemo(() => {
+    return (scene.files ?? []).filter(file => !usedFileIds.has(file.id));
+  }, [scene.files, usedFileIds]);
 
   const openNewReleaseModal = () => {
     setEditingReleaseId(null);
@@ -145,6 +173,14 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
             },
           },
         });
+        // Clear broken image state for this release so it re-fetches the new image
+        if (formData.cover_image) {
+          setBrokenImages(prev => {
+            const next = new Set(prev);
+            next.delete(editingReleaseId);
+            return next;
+          });
+        }
         Toast.success(intl.formatMessage({ id: "toast.updated_entity" }, { entity: "release" }));
       } else {
         await createRelease({
@@ -197,12 +233,87 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
           input: {
             source_scene_id: sourceSceneId,
             target_scene_id: scene.id,
+            transfer_o_history: convertSceneOptions.transferOHistory,
+            transfer_markers: convertSceneOptions.transferMarkers,
           },
         },
       });
       Toast.success(intl.formatMessage({ id: "toast.created_entity" }, { entity: "release" }));
       setShowSceneSelectorModal(false);
+      setPendingConvertSceneId(null);
+      setConvertSceneOptions({ transferOHistory: false, transferMarkers: false });
       onRefetch();
+    } catch (e) {
+      Toast.error(e);
+    }
+  };
+
+  const onSceneSelected = (sceneId: string) => {
+    // When scene is selected, show options modal instead of immediately converting
+    setPendingConvertSceneId(sceneId);
+    setShowSceneSelectorModal(false);
+  };
+
+  const handleAddFile = async (releaseId: string, fileIdOrPath: string, isPath: boolean = false) => {
+    try {
+      await addFileToRelease({
+        variables: {
+          input: {
+            release_id: releaseId,
+            file_id: isPath ? undefined : fileIdOrPath,
+            file_path: isPath ? fileIdOrPath : undefined,
+          },
+        },
+      });
+      Toast.success("File added to release");
+      setShowAddFileModal(null);
+      onRefetch();
+    } catch (e) {
+      Toast.error(e);
+    }
+  };
+
+  const handleRemoveFile = async (releaseId: string, fileId: string, deleteFromFilesystem: boolean) => {
+    try {
+      await removeFileFromRelease({
+        variables: {
+          input: {
+            release_id: releaseId,
+            file_id: fileId,
+            delete_from_filesystem: deleteFromFilesystem,
+          },
+        },
+      });
+      Toast.success(deleteFromFilesystem ? "File removed and deleted from filesystem" : "File removed from release");
+      setShowRemoveFileModal(null);
+      onRefetch();
+    } catch (e) {
+      Toast.error(e);
+    }
+  };
+
+  const handleConvertToScene = async () => {
+    if (!showConvertToSceneModal) return;
+    
+    try {
+      const result = await convertReleaseToScene({
+        variables: {
+          input: {
+            release_id: showConvertToSceneModal,
+            transfer_o_history: convertOptions.transferOHistory,
+            transfer_markers: convertOptions.transferMarkers,
+          },
+        },
+      });
+      Toast.success("Release converted to scene");
+      setShowConvertToSceneModal(null);
+      setConvertOptions({ transferOHistory: false, transferMarkers: false });
+      onRefetch();
+      
+      // Navigate to the new scene
+      if (result.data?.convertReleaseToScene?.id) {
+        history.push(`/scenes/${result.data.convertReleaseToScene.id}`);
+      }
     } catch (e) {
       Toast.error(e);
     }
@@ -240,7 +351,7 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
     setBrokenImages(prev => new Set(prev).add(releaseId));
   };
 
-  const isLoading = creating || updating || destroying || converting;
+  const isLoading = creating || updating || destroying || converting || addingFile || removingFile || convertingToScene;
 
   const renderCoverImage = () => {
     // Show preview of new image if set, otherwise show existing image for edit mode
@@ -260,7 +371,7 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
         return (
           <img
             className="scene-cover mb-2"
-            src={release.paths.screenshot}
+            src={`${release.paths.screenshot}?t=${new Date(release.updated_at).getTime()}`}
             alt={intl.formatMessage({ id: "cover_image" })}
             style={{ maxWidth: "100%", maxHeight: "200px" }}
             onError={() => handleImageError(editingReleaseId)}
@@ -344,6 +455,15 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                       </Button>
                     )}
                     <Button
+                      variant="outline-info"
+                      size="sm"
+                      className="mr-1"
+                      onClick={() => setShowAddFileModal(release.id)}
+                      title="Add file to release"
+                    >
+                      <Icon icon={faFile} />
+                    </Button>
+                    <Button
                       variant="outline-primary"
                       size="sm"
                       className="mr-1"
@@ -351,6 +471,15 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                       title={intl.formatMessage({ id: "actions.edit" })}
                     >
                       <Icon icon={faPencilAlt} />
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="mr-1"
+                      onClick={() => setShowConvertToSceneModal(release.id)}
+                      title="Convert to scene"
+                    >
+                      <Icon icon={faFilm} />
                     </Button>
                     <Button
                       variant="outline-danger"
@@ -368,7 +497,7 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                     {hasScreenshot ? (
                       <div className="mb-3">
                         <img
-                          src={release.paths.screenshot!}
+                          src={`${release.paths.screenshot!}?t=${new Date(release.updated_at).getTime()}`}
                           alt={release.title || "Release cover"}
                           className="img-fluid rounded w-100"
                           onError={() => handleImageError(release.id)}
@@ -418,8 +547,21 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                           <dt className="col-sm-3">Files</dt>
                           <dd className="col-sm-9">
                             {release.files.map((f) => (
-                              <div key={f.id}>
+                              <div key={f.id} className="d-flex align-items-center justify-content-between mb-1">
                                 <a href={`file:///${f.path.replace(/\\/g, '/')}`}>{f.path}</a>
+                                <Button
+                                  variant="outline-danger"
+                                  size="sm"
+                                  className="ml-2"
+                                  onClick={() => setShowRemoveFileModal({
+                                    releaseId: release.id,
+                                    fileId: f.id,
+                                    fileName: f.path.split(/[\\/]/).pop() || f.path
+                                  })}
+                                  title="Remove file from release"
+                                >
+                                  <Icon icon={faMinus} />
+                                </Button>
                               </div>
                             ))}
                           </dd>
@@ -640,11 +782,203 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
       {/* Scene Selector Modal */}
       {showSceneSelectorModal && (
         <SceneSelectorDialog
-          onSelect={(sceneId) => handleConvertScene(sceneId)}
+          onSelect={onSceneSelected}
           onClose={() => setShowSceneSelectorModal(false)}
           excludeIds={[scene.id]}
         />
       )}
+
+      {/* Convert Scene Options Modal */}
+      <Modal show={!!pendingConvertSceneId} onHide={() => { setPendingConvertSceneId(null); setConvertSceneOptions({ transferOHistory: false, transferMarkers: false }); }}>
+        <Modal.Header closeButton>
+          <Modal.Title>Convert Scene to Release</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>The selected scene will be converted into a release of this scene. All its files and metadata will be preserved in the new release.</p>
+          <p><strong>Note:</strong> The source scene will be deleted after conversion.</p>
+          
+          <Form.Group className="mb-3">
+            <Form.Check
+              type="checkbox"
+              id="convertSceneTransferOHistory"
+              label="Transfer O-history from source scene to this scene"
+              checked={convertSceneOptions.transferOHistory}
+              onChange={(e) => setConvertSceneOptions(prev => ({ ...prev, transferOHistory: e.target.checked }))}
+            />
+            <Form.Text className="text-muted">
+              If enabled, all O-dates from the source scene will be transferred to this scene.
+            </Form.Text>
+          </Form.Group>
+
+          <Form.Group className="mb-3">
+            <Form.Check
+              type="checkbox"
+              id="convertSceneTransferMarkers"
+              label="Transfer markers from source scene to this scene"
+              checked={convertSceneOptions.transferMarkers}
+              onChange={(e) => setConvertSceneOptions(prev => ({ ...prev, transferMarkers: e.target.checked }))}
+            />
+            <Form.Text className="text-muted">
+              If enabled, all scene markers from the source scene will be transferred to this scene.
+            </Form.Text>
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => { setPendingConvertSceneId(null); setConvertSceneOptions({ transferOHistory: false, transferMarkers: false }); }}>
+            <FormattedMessage id="actions.cancel" />
+          </Button>
+          <Button variant="primary" onClick={() => pendingConvertSceneId && handleConvertScene(pendingConvertSceneId)} disabled={converting}>
+            Convert to Release
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Add File Modal */}
+      <Modal show={!!showAddFileModal} onHide={() => setShowAddFileModal(null)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Add File to Release</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {availableFiles.length === 0 ? (
+            <p className="text-muted">No available files. All scene files are already assigned to releases.</p>
+          ) : (
+            <div className="list-group">
+              {availableFiles.map((file) => (
+                <button
+                  key={file.id}
+                  type="button"
+                  className="list-group-item list-group-item-action"
+                  onClick={() => showAddFileModal && handleAddFile(showAddFileModal, file.id, false)}
+                  disabled={addingFile}
+                >
+                  <div className="d-flex justify-content-between align-items-center">
+                    <div>
+                      <div className="font-weight-bold">{file.path.split(/[\\/]/).pop()}</div>
+                      <small className="text-muted">{file.path}</small>
+                    </div>
+                    <div className="text-right">
+                      {file.width && file.height && (
+                        <span className="badge badge-secondary mr-1">
+                          {TextUtils.resolution(file.width, file.height)}
+                        </span>
+                      )}
+                      {file.size && (
+                        <span className="badge badge-info">
+                          {TextUtils.fileSize(file.size).size.toFixed(1)} {TextUtils.formatFileSizeUnit(TextUtils.fileSize(file.size).unit)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowAddFileModal(null)}>
+            <FormattedMessage id="actions.cancel" />
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Convert to Scene Modal */}
+      <Modal show={!!showConvertToSceneModal} onHide={() => setShowConvertToSceneModal(null)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Convert Release to Scene</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>This will convert the release into a new standalone scene, keeping all its data (title, date, studio, etc.) and associated file(s).</p>
+          <p><strong>Note:</strong> The release will be deleted and a new scene will be created.</p>
+          
+          <Form.Group className="mb-3">
+            <Form.Check
+              type="checkbox"
+              id="transferOHistory"
+              label="Transfer O-history from parent scene"
+              checked={convertOptions.transferOHistory}
+              onChange={(e) => setConvertOptions(prev => ({ ...prev, transferOHistory: e.target.checked }))}
+            />
+            <Form.Text className="text-muted">
+              If enabled, all O-dates from the parent scene will be transferred to the new scene.
+            </Form.Text>
+          </Form.Group>
+
+          <Form.Group className="mb-3">
+            <Form.Check
+              type="checkbox"
+              id="transferMarkers"
+              label="Transfer markers from parent scene"
+              checked={convertOptions.transferMarkers}
+              onChange={(e) => setConvertOptions(prev => ({ ...prev, transferMarkers: e.target.checked }))}
+            />
+            <Form.Text className="text-muted">
+              If enabled, all scene markers from the parent scene will be transferred to the new scene.
+            </Form.Text>
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowConvertToSceneModal(null)}>
+            <FormattedMessage id="actions.cancel" />
+          </Button>
+          <Button variant="primary" onClick={handleConvertToScene} disabled={convertingToScene}>
+            Convert to Scene
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Remove File Modal */}
+      <Modal show={!!showRemoveFileModal} onHide={() => setShowRemoveFileModal(null)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Remove File from Release</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>
+            How would you like to remove <strong>{showRemoveFileModal?.fileName}</strong> from this release?
+          </p>
+          
+          <div className="d-grid gap-2">
+            <Button
+              variant="warning"
+              className="mb-2"
+              onClick={() => showRemoveFileModal && handleRemoveFile(
+                showRemoveFileModal.releaseId,
+                showRemoveFileModal.fileId,
+                false
+              )}
+              disabled={removingFile}
+            >
+              Remove from release only
+              <br />
+              <small className="text-muted">(keeps the file on disk)</small>
+            </Button>
+            
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (showRemoveFileModal && window.confirm(
+                  `⚠️ DESTRUCTIVE ACTION\n\nThis will permanently delete "${showRemoveFileModal.fileName}" from your filesystem!\n\nAre you absolutely sure?`
+                )) {
+                  handleRemoveFile(
+                    showRemoveFileModal.releaseId,
+                    showRemoveFileModal.fileId,
+                    true
+                  );
+                }
+              }}
+              disabled={removingFile}
+            >
+              Remove and DELETE from filesystem
+              <br />
+              <small>(permanent - cannot be undone!)</small>
+            </Button>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowRemoveFileModal(null)}>
+            <FormattedMessage id="actions.cancel" />
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

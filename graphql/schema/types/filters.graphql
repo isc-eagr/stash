@@ -301,6 +301,23 @@ input SceneMarkerFilterType {
   Options: 'circular_oral', 'simultaneous_orgasm'
   """
   custom_filters: CustomSceneMarkerFilterInput
+
+  """
+  Filter by marker roles (tops/bottoms).
+  Both checked: markers with at least 1 top and at least 1 bottom
+  has_tops checked, has_bottoms unchecked: markers with at least 1 top and 0 bottoms
+  has_tops unchecked, has_bottoms checked: markers with 0 tops and at least 1 bottom
+  none checked: markers with 0 tops and 0 bottoms
+  """
+  has_roles: HasRolesCriterionInput
+}
+
+"Input for filtering markers by their performer roles (tops/bottoms)"
+input HasRolesCriterionInput {
+  "When true: has at least one top; when false: has no tops"
+  has_tops: Boolean!
+  "When true: has at least one bottom; when false: has no bottoms"
+  has_bottoms: Boolean!
 }
 
 "Groups of tag IDs used for Scene Marker Tags 'IS' filter. Each inner list represents the set of tags that must all be present on a single marker."

@@ -23,18 +23,32 @@ interface IPerformerCategoryStripProps {
   sceneId?: string;
   /** Marker roles in the current scene (used when sceneId is provided) */
   markerRoles?: string[];
+  /** Number of performers in the scene - used to determine whether to show partner counts */
+  scenePerformerCount?: number;
 }
 
 /**
  * PerformerCategoryStrip - Shows marker-based role badges with top/bottom breakdown
  * Uses roleTagIds configuration for tag IDs and counts from performer data.
  * Can show global counts or scene-specific roles depending on context.
+ * 
+ * Scene Context (sceneId provided):
+ * - Shows roles based on markers in that specific scene
+ * - Count = total unique partners (sex/oral) or unique markers (facial)
+ * - Top/Bottom counts = unique partners for that role in the scene
+ * 
+ * Global Context (no sceneId):
+ * - Shows cumulative counts across all scenes
+ * - Count = total scenes
+ * - Top/Bottom counts = scenes where performer had that role
+ * 
  * Used in both performer cards (with sceneId/markerRoles) and detail pages (global).
  */
 export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   performer,
   sceneId,
   markerRoles: markerRolesProp = [],
+  scenePerformerCount = 0,
 }) => {
   const { configuration } = useConfigurationContext();
   
@@ -56,6 +70,18 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   let sceneFacialTopCount = 0;
   let sceneFacialBottomCount = 0;
   let sceneFacialTotalCount = 0;
+  let sceneFacialUniqueCount = 0; // Unique marker count from backend
+  
+  // Scene-specific partner counts (unique partners per role)
+  let sceneSexTopPartners = 0;
+  let sceneSexBottomPartners = 0;
+  let sceneSexAllPartners = 0; // Unique across both roles
+  let sceneOralTopPartners = 0;
+  let sceneOralBottomPartners = 0;
+  let sceneOralAllPartners = 0; // Unique across both roles
+  let sceneFacialTopPartners = 0;
+  let sceneFacialBottomPartners = 0;
+  let sceneFacialAllPartners = 0; // Unique across both roles
 
   // Build roles to show based on context
   let rolesToShow: Array<{
@@ -83,6 +109,9 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     );
     const facialBottomRoles = markerRoles.filter((r: string) =>
       r.startsWith("facial_bottom_")
+    );
+    const facialUniqueRoles = markerRoles.filter((r: string) =>
+      r.startsWith("facial_unique_")
     );
     const orgasmRoles = markerRoles.filter((r: string) =>
       r.startsWith("orgasm_top_")
@@ -125,13 +154,76 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       }
     }
 
+    // Parse unique facial marker count from "facial_unique_X" format (preferred)
+    if (facialUniqueRoles.length > 0 && facialTagId) {
+      const match = facialUniqueRoles[0].match(/facial_unique_(\d+)/);
+      if (match) {
+        sceneFacialUniqueCount = parseInt(match[1], 10);
+      }
+    }
+
     // Calculate total facial count for this scene
-    sceneFacialTotalCount = sceneFacialTopCount + sceneFacialBottomCount;
+    // Prefer the unique count from backend (which correctly handles when performer is both top and bottom)
+    // Fall back to max of top/bottom if unique count not available (for backward compatibility)
+    sceneFacialTotalCount = sceneFacialUniqueCount > 0 
+      ? sceneFacialUniqueCount 
+      : Math.max(sceneFacialTopCount, sceneFacialBottomCount);
+    
+    // Parse partner counts from marker roles (sex_top_partners_3, oral_bottom_partners_2, etc.)
+    const sexTopPartnerRoles = markerRoles.filter((r: string) => r.startsWith("sex_top_partners_"));
+    const sexBottomPartnerRoles = markerRoles.filter((r: string) => r.startsWith("sex_bottom_partners_"));
+    const sexAllPartnerRoles = markerRoles.filter((r: string) => r.startsWith("sex_all_partners_"));
+    const oralTopPartnerRoles = markerRoles.filter((r: string) => r.startsWith("oral_top_partners_"));
+    const oralBottomPartnerRoles = markerRoles.filter((r: string) => r.startsWith("oral_bottom_partners_"));
+    const oralAllPartnerRoles = markerRoles.filter((r: string) => r.startsWith("oral_all_partners_"));
+    const facialTopPartnerRoles = markerRoles.filter((r: string) => r.startsWith("facial_top_partners_"));
+    const facialBottomPartnerRoles = markerRoles.filter((r: string) => r.startsWith("facial_bottom_partners_"));
+    const facialAllPartnerRoles = markerRoles.filter((r: string) => r.startsWith("facial_all_partners_"));
+    
+    if (sexTopPartnerRoles.length > 0) {
+      const match = sexTopPartnerRoles[0].match(/sex_top_partners_(\d+)/);
+      if (match) sceneSexTopPartners = parseInt(match[1], 10);
+    }
+    if (sexBottomPartnerRoles.length > 0) {
+      const match = sexBottomPartnerRoles[0].match(/sex_bottom_partners_(\d+)/);
+      if (match) sceneSexBottomPartners = parseInt(match[1], 10);
+    }
+    if (sexAllPartnerRoles.length > 0) {
+      const match = sexAllPartnerRoles[0].match(/sex_all_partners_(\d+)/);
+      if (match) sceneSexAllPartners = parseInt(match[1], 10);
+    }
+    if (oralTopPartnerRoles.length > 0) {
+      const match = oralTopPartnerRoles[0].match(/oral_top_partners_(\d+)/);
+      if (match) sceneOralTopPartners = parseInt(match[1], 10);
+    }
+    if (oralBottomPartnerRoles.length > 0) {
+      const match = oralBottomPartnerRoles[0].match(/oral_bottom_partners_(\d+)/);
+      if (match) sceneOralBottomPartners = parseInt(match[1], 10);
+    }
+    if (oralAllPartnerRoles.length > 0) {
+      const match = oralAllPartnerRoles[0].match(/oral_all_partners_(\d+)/);
+      if (match) sceneOralAllPartners = parseInt(match[1], 10);
+    }
+    if (facialTopPartnerRoles.length > 0) {
+      const match = facialTopPartnerRoles[0].match(/facial_top_partners_(\d+)/);
+      if (match) sceneFacialTopPartners = parseInt(match[1], 10);
+    }
+    if (facialBottomPartnerRoles.length > 0) {
+      const match = facialBottomPartnerRoles[0].match(/facial_bottom_partners_(\d+)/);
+      if (match) sceneFacialBottomPartners = parseInt(match[1], 10);
+    }
+    if (facialAllPartnerRoles.length > 0) {
+      const match = facialAllPartnerRoles[0].match(/facial_all_partners_(\d+)/);
+      if (match) sceneFacialAllPartners = parseInt(match[1], 10);
+    }
 
     // Fixed order: Sex, Oral, Facial, Solo
     if (sexRoles.length > 0 && sexTagId) {
       rolesToShow.push({
         category: "sex",
+        count: sceneSexAllPartners, // Unique partners across both roles (no double-counting)
+        topCount: sceneSexTopPartners,
+        bottomCount: sceneSexBottomPartners,
         isTop: sexRoles.some((r: string) => r.endsWith("_top")),
         isBottom: sexRoles.some((r: string) => r.endsWith("_bottom")),
         tagId: sexTagId,
@@ -140,6 +232,9 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     if (oralRoles.length > 0 && oralTagId) {
       rolesToShow.push({
         category: "oral",
+        count: sceneOralAllPartners, // Unique partners across both roles (no double-counting)
+        topCount: sceneOralTopPartners,
+        bottomCount: sceneOralBottomPartners,
         isTop: oralRoles.some((r: string) => r.endsWith("_top")),
         isBottom: oralRoles.some((r: string) => r.endsWith("_bottom")),
         tagId: oralTagId,
@@ -149,9 +244,9 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     if ((facialTopRoles.length > 0 || facialBottomRoles.length > 0) && facialTagId) {
       rolesToShow.push({
         category: "facial",
-        count: sceneFacialTotalCount,
-        topCount: sceneFacialTopCount,
-        bottomCount: sceneFacialBottomCount,
+        count: sceneFacialAllPartners, // Unique partners across both roles (no double-counting)
+        topCount: sceneFacialTopPartners,
+        bottomCount: sceneFacialBottomPartners,
         isTop: sceneFacialTopCount > 0,
         isBottom: sceneFacialBottomCount > 0,
         tagId: facialTagId,
@@ -436,7 +531,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
               ) : (
                 <>
                   {categoryIconElement}
-                  {role.category !== "solo" && (
+                  {role.category !== "solo" && !(sceneId && scenePerformerCount <= 2) && (
                     <span className="role-total-count">{role.count}</span>
                   )}
                 </>
@@ -457,48 +552,50 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                 </div>
               </>
             ) : sceneId ? (
-              // Scene context: show top/bottom indicators as badges
-              // For facial, show counts like global context; for sex/oral just show arrows
-              <div className="role-arrows">
-                {role.isTop && (
-                  <Badge
-                    pill
-                    variant="success"
-                    className="arrow-badge top-badge"
-                    style={{
-                      fontSize: 10,
-                      padding: "3px 6px",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                  >
-                    <Icon icon={faArrowUp} />
-                    {role.category === "facial" && (role.count ?? 0) > 1 && (
-                      <span className="arrow-count">{role.topCount}</span>
-                    )}
-                  </Badge>
-                )}
-                {role.isBottom && (
-                  <Badge
-                    pill
-                    variant="info"
-                    className="arrow-badge bottom-badge"
-                    style={{
-                      fontSize: 10,
-                      padding: "3px 6px",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                  >
-                    <Icon icon={faArrowDown} />
-                    {role.category === "facial" && (role.count ?? 0) > 1 && (
-                      <span className="arrow-count">{role.bottomCount}</span>
-                    )}
-                  </Badge>
-                )}
-              </div>
+              // Scene context: show partner counts only if > 2 performers, otherwise just arrows
+              <>
+                {/* Top/Bottom role indicators */}
+                <div className="role-arrows">
+                  {role.isTop && (
+                    <Badge
+                      pill
+                      variant="success"
+                      className="arrow-badge top-badge"
+                      style={{
+                        fontSize: 10,
+                        padding: "3px 6px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <Icon icon={faArrowUp} />
+                      {scenePerformerCount > 2 && (
+                        <span className="arrow-count">{role.topCount || 0}</span>
+                      )}
+                    </Badge>
+                  )}
+                  {role.isBottom && (
+                    <Badge
+                      pill
+                      variant="info"
+                      className="arrow-badge bottom-badge"
+                      style={{
+                        fontSize: 10,
+                        padding: "3px 6px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <Icon icon={faArrowDown} />
+                      {scenePerformerCount > 2 && (
+                        <span className="arrow-count">{role.bottomCount || 0}</span>
+                      )}
+                    </Badge>
+                  )}
+                </div>
+              </>
             ) : (
               // Global context: show counts with arrows
               <>

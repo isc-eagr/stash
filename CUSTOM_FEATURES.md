@@ -35,6 +35,7 @@ This document describes all custom features and modifications added on top of th
 27. [Performer Image Overlay on Video Player](#27-performer-image-overlay-on-video-player)
 28. [Image Viewer](#28-image-viewer)
 29. [Unnamed Performers in Marker Filters](#29-unnamed-performers-in-marker-filters)
+30. [Has Roles Filter for Markers](#30-has-roles-filter-for-markers)
 
 ---
 
@@ -1375,9 +1376,27 @@ input SceneReleaseDestroyInput {
   id: ID!
 }
 
+input SceneReleaseAddFileInput {
+  release_id: ID!
+  file_id: ID  # Mutually exclusive with file_path
+  file_path: String  # Mutually exclusive with file_id - path to file in filesystem
+}
+
+input SceneReleaseRemoveFileInput {
+  release_id: ID!
+  file_id: ID!
+  delete_from_filesystem: Boolean  # If true, deletes the file from disk
+}
+
 input ConvertSceneToReleaseInput {
   source_scene_id: ID!
   target_scene_id: ID!
+}
+
+input ConvertReleaseToSceneInput {
+  release_id: ID!
+  transfer_o_history: Boolean
+  transfer_markers: Boolean
 }
 ```
 
@@ -1391,13 +1410,13 @@ type Scene {
 ```
 
 ### Backend Files
-- `pkg/models/model_scene_release.go` - SceneRelease model definition
-- `pkg/sqlite/scene_release.go` - SQLite repository for scene releases
+- `pkg/models/model_scene_release.go` - SceneRelease model definition with SceneReleaseFileHandler interface including RemoveFileID method
+- `pkg/sqlite/scene_release.go` - SQLite repository for scene releases including AddFileID and RemoveFileID
 - `internal/api/resolver_model_scene_release.go` - GraphQL resolvers for SceneRelease type
-- `internal/api/resolver_mutation_scene_release.go` - Mutation resolvers (create, update, destroy, convert)
+- `internal/api/resolver_mutation_scene_release.go` - Mutation resolvers (create, update, destroy, convert, add file by ID or path, remove file with optional filesystem deletion)
 
 ### Frontend Files
-- `ui/v2.5/src/components/Scenes/SceneDetails/SceneReleasesPanel.tsx` - Main UI panel for managing releases
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneReleasesPanel.tsx` - Main UI panel for managing releases with file add/remove modals
 - `ui/v2.5/src/components/Scenes/SceneDetails/SceneSelectorDialog.tsx` - Dialog for selecting a scene to convert to release
 - `ui/v2.5/graphql/data/scene-release.graphql` - GraphQL fragment for SceneRelease data
 - `ui/v2.5/graphql/mutations/scene-release.graphql` - GraphQL mutations
@@ -1407,10 +1426,20 @@ type Scene {
 1. **Create Release**: Add a new release with custom metadata to any scene
 2. **Edit Release**: Modify release metadata, cover image, files, and galleries
 3. **Delete Release**: Remove a release from a scene
-4. **Convert Scene to Release**: Take an existing scene and convert it into a release of another scene, preserving all metadata
-5. **Playback Selection**: Mark a release for playback to switch the scene player to that release's files
-6. **Color-coded Metadata Comparison**: Release metadata (duration, fps, resolution) is color-coded compared to the main scene (green=better, red=worse, white=same)
-7. **Clickable Gallery Links**: Gallery associations link directly to the gallery page
+4. **Convert Scene to Release**: Take an existing scene and convert it into a release of another scene, preserving all metadata. Options to transfer o-history and markers from source scene to target scene.
+5. **Convert Release to Scene**: Convert a release back into a standalone scene, optionally transferring o-history and markers from the parent scene. Works even if the release has no files.
+6. **Add File to Release**: Add a file to a release using two methods:
+   - Browse for file using folder browser (with collapsible file navigation)
+   - Select from parent scene's files
+   - Note: File must already be scanned into the database
+7. **Remove File from Release**: Remove a file from a release with two options:
+   - Remove from release only (keeps file on disk)
+   - Remove and DELETE from filesystem (permanent deletion with confirmation warning)
+8. **Playback Selection**: Mark a release for playback to switch the scene player to that release's files
+9. **Color-coded Metadata Comparison**: Release metadata (duration, fps, resolution) is color-coded compared to the main scene (green=better, red=worse, white=same)
+10. **Clickable Gallery Links**: Gallery associations link directly to the gallery page
+11. **Releases sorted by date**: Releases are displayed in ascending date order (earliest first)
+12. **Instant image updates**: Cover images are reflected immediately after saving without page reload
 
 ### Filter Support
 - `release_count: IntCriterionInput` - Filter scenes by number of releases
@@ -1738,6 +1767,61 @@ interface IUnnamedPerformer {
 - Implement unnamed performers in remaining 4 filters (follow pattern from MarkerPerformersFilter)
 - Consider adding more criteria fields (age range, height, etc.)
 - Persist unnamed performer definitions across filters for reuse
+
+---
+
+## 30. Has Roles Filter for Markers
+
+### Overview
+A new filter in the Markers page (`/scenes/markers`) called "Has Roles" that allows filtering markers based on whether they have performers assigned as tops and/or bottoms. This filter uses a simple 2-checkbox UI:
+
+- **Has Tops**: When checked, filter for markers with at least one top performer
+- **Has Bottoms**: When checked, filter for markers with at least one bottom performer
+
+### Use Cases
+1. **Both checked**: Find markers with at least 1 top AND at least 1 bottom
+2. **Has Tops only**: Find markers with at least 1 top AND 0 bottoms
+3. **Has Bottoms only**: Find markers with 0 tops AND at least 1 bottom
+4. **None checked**: Find markers with 0 tops AND 0 bottoms
+
+### GraphQL Schema Changes
+**File:** `graphql/schema/types/filters.graphql`
+```graphql
+"Input for filtering markers by their performer roles (tops/bottoms)"
+input HasRolesCriterionInput {
+  "When true: has at least one top; when false: has no tops"
+  has_tops: Boolean!
+  "When true: has at least one bottom; when false: has no bottoms"
+  has_bottoms: Boolean!
+}
+```
+
+Added to `SceneMarkerFilterType`:
+```graphql
+has_roles: HasRolesCriterionInput
+```
+
+### Backend Files Modified
+- `pkg/models/scene_marker.go` - Added `HasRolesCriterionInput` struct with two boolean fields and `HasRoles` field to `SceneMarkerFilterType`
+- `pkg/sqlite/scene_marker_filter.go` - Added `hasRolesCriterionHandler` function with simple AND logic
+
+### Frontend Files Created
+- `ui/v2.5/src/models/list-filter/criteria/has-roles.ts` - Criterion class and option for the Has Roles filter
+- `ui/v2.5/src/components/List/Filters/HasRolesFilter.tsx` - React component with 2-checkbox UI
+
+### Frontend Files Modified
+- `ui/v2.5/src/models/list-filter/types.ts` - Added `has_roles` to `CriterionType`
+- `ui/v2.5/src/models/list-filter/scene-markers.ts` - Added `HasRolesCriterionOptionInstance` to criterion options
+- `ui/v2.5/src/components/List/CriterionEditor.tsx` - Added rendering case for `HasRolesCriterion`
+- `ui/v2.5/src/locales/en-US.json` - Added localization strings
+
+### Filter Behavior
+| Has Tops | Has Bottoms | Result |
+|----------|-------------|--------|
+| ✓ | ✓ | Markers with at least 1 top AND at least 1 bottom |
+| ✓ | ✗ | Markers with at least 1 top AND zero bottoms |
+| ✗ | ✓ | Markers with zero tops AND at least 1 bottom |
+| ✗ | ✗ | Markers with zero tops AND zero bottoms |
 
 ---
 

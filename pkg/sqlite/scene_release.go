@@ -341,6 +341,16 @@ func (qb *SceneReleaseStore) AddFileID(ctx context.Context, releaseID int, fileI
 	return sceneReleaseFilesTableMgr.insertJoins(ctx, releaseID, firstPrimary, []models.FileID{fileID})
 }
 
+func (qb *SceneReleaseStore) RemoveFileID(ctx context.Context, releaseID int, fileID models.FileID) error {
+	q := dialect.Delete(sceneReleaseFilesJoinTable).Where(
+		sceneReleaseFilesJoinTable.Col(sceneReleaseIDColumn).Eq(releaseID),
+		sceneReleaseFilesJoinTable.Col(fileIDColumn).Eq(fileID),
+	)
+
+	_, err := exec(ctx, q)
+	return err
+}
+
 // FileExistsInSceneReleases checks if a file belongs to any release of the given scene
 func (qb *SceneReleaseStore) FileExistsInSceneReleases(ctx context.Context, sceneID int, fileID models.FileID) (bool, error) {
 	query := `

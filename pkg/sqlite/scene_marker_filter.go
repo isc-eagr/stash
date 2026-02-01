@@ -314,6 +314,8 @@ func (qb *sceneMarkerFilterHandler) criterionHandler() criterionHandler {
 		},
 		// Custom scene marker filters
 		qb.customFiltersCriterionHandler(sceneMarkerFilter.CustomFilters),
+		// Has roles filter (tops/bottoms)
+		qb.hasRolesCriterionHandler(sceneMarkerFilter.HasRoles),
 	}
 }
 
@@ -515,6 +517,37 @@ func (qb *sceneMarkerFilterHandler) hasMarkerPerformersCriterionHandler(hasPerfo
 		} else {
 			// Marker has no performers assigned
 			f.addWhere("NOT EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id)")
+		}
+	}
+}
+
+// hasRolesCriterionHandler filters markers by whether they have tops/bottoms assigned.
+// - Both true: markers with at least 1 top AND at least 1 bottom
+// - HasTops true, HasBottoms false: markers with at least 1 top AND 0 bottoms
+// - HasTops false, HasBottoms true: markers with 0 tops AND at least 1 bottom
+// - Both false: markers with 0 tops AND 0 bottoms
+func (qb *sceneMarkerFilterHandler) hasRolesCriterionHandler(input *models.HasRolesCriterionInput) criterionHandlerFunc {
+	return func(ctx context.Context, f *filterBuilder) {
+		if input == nil {
+			return
+		}
+
+		// Filter by tops
+		if input.HasTops {
+			// Has at least one performer as top
+			f.addWhere("EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id AND smp.role = 'top')")
+		} else {
+			// Has no performers as tops
+			f.addWhere("NOT EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id AND smp.role = 'top')")
+		}
+
+		// Filter by bottoms
+		if input.HasBottoms {
+			// Has at least one performer as bottom
+			f.addWhere("EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id AND smp.role = 'bottom')")
+		} else {
+			// Has no performers as bottoms
+			f.addWhere("NOT EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id AND smp.role = 'bottom')")
 		}
 	}
 }

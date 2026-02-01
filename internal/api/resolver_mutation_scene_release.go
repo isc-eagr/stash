@@ -3,9 +3,12 @@ package api
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 
+	"github.com/stashapp/stash/pkg/logger"
 	"github.com/stashapp/stash/pkg/models"
+	"github.com/stashapp/stash/pkg/txn"
 	"github.com/stashapp/stash/pkg/utils"
 )
 
@@ -295,6 +298,9 @@ func (r *mutationResolver) ConvertSceneToRelease(ctx context.Context, input Conv
 		return nil, fmt.Errorf("source and target scene cannot be the same")
 	}
 
+	transferOHistory := input.TransferOHistory != nil && *input.TransferOHistory
+	transferMarkers := input.TransferMarkers != nil && *input.TransferMarkers
+
 	var ret *models.SceneRelease
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		// Load the source scene
@@ -369,14 +375,32 @@ func (r *mutationResolver) ConvertSceneToRelease(ctx context.Context, input Conv
 			}
 		}
 
-		// Delete markers associated with the source scene
+		// Transfer o-history from source scene to target scene if requested
+		if transferOHistory {
+			if err := r.repository.Scene.TransferOHistory(ctx, sourceSceneID, targetSceneID); err != nil {
+				return err
+			}
+		}
+
+		// Handle markers: transfer to target scene or delete
 		markers, err := r.repository.SceneMarker.FindBySceneID(ctx, sourceSceneID)
 		if err != nil {
 			return err
 		}
-		for _, marker := range markers {
-			if err := r.repository.SceneMarker.Destroy(ctx, marker.ID); err != nil {
-				return err
+		if transferMarkers {
+			// Transfer markers to target scene
+			for _, marker := range markers {
+				marker.SceneID = targetSceneID
+				if err := r.repository.SceneMarker.Update(ctx, marker); err != nil {
+					return err
+				}
+			}
+		} else {
+			// Delete markers associated with the source scene
+			for _, marker := range markers {
+				if err := r.repository.SceneMarker.Destroy(ctx, marker.ID); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -403,6 +427,287 @@ func (r *mutationResolver) ConvertSceneToRelease(ctx context.Context, input Conv
 		}
 
 		ret = &newRelease
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+func (r *mutationResolver) SceneReleaseAddFile(ctx context.Context, input SceneReleaseAddFileInput) (*models.SceneRelease, error) {
+	releaseID, err := strconv.Atoi(input.ReleaseID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid release_id: %w", err)
+	}
+
+	// Validate input: either file_id or file_path must be provided, but not both
+	if input.FileID == nil && input.FilePath == nil {
+		return nil, fmt.Errorf("either file_id or file_path must be provided")
+	}
+	if input.FileID != nil && input.FilePath != nil {
+		return nil, fmt.Errorf("cannot provide both file_id and file_path")
+	}
+
+	var fileID int
+	if input.FileID != nil {
+		fileID, err = strconv.Atoi(*input.FileID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid file_id: %w", err)
+		}
+	}
+
+	var ret *models.SceneRelease
+	if err := r.withTxn(ctx, func(ctx context.Context) error {
+		// Verify release exists and get its scene ID
+		release, err := r.repository.SceneRelease.Find(ctx, releaseID)
+		if err != nil {
+			return err
+		}
+		if release == nil {
+			return fmt.Errorf("scene release with id %d not found", releaseID)
+		}
+
+		// If file_path is provided, look up or error
+		if input.FilePath != nil {
+			// Look up file by path
+			existingFile, err := r.repository.File.FindByPath(ctx, *input.FilePath, true)
+			if err != nil {
+				return fmt.Errorf("looking up file by path: %w", err)
+			}
+			if existingFile == nil {
+				return fmt.Errorf("file not found at path %q. Please run a library scan first to add this file to the database", *input.FilePath)
+			}
+			fileID = int(existingFile.Base().ID)
+		}
+
+		// Check if file exists
+		files, err := r.repository.File.Find(ctx, models.FileID(fileID))
+		if err != nil {
+			return err
+		}
+		if len(files) == 0 {
+			return fmt.Errorf("file with id %d not found", fileID)
+		}
+
+		// Check if file is a video file
+		if _, ok := files[0].(*models.VideoFile); !ok {
+			return fmt.Errorf("file with id %d is not a video file", fileID)
+		}
+
+		// Add file to release
+		if err := r.repository.SceneRelease.AddFileID(ctx, releaseID, models.FileID(fileID)); err != nil {
+			return err
+		}
+
+		// Reload the release with updated data
+		ret, err = r.repository.SceneRelease.Find(ctx, releaseID)
+		if err != nil {
+			return err
+		}
+
+		// Eagerly load galleries
+		if err := ret.LoadGalleryIDs(ctx, r.repository.SceneRelease); err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+func (r *mutationResolver) ConvertReleaseToScene(ctx context.Context, input ConvertReleaseToSceneInput) (*models.Scene, error) {
+	releaseID, err := strconv.Atoi(input.ReleaseID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid release_id: %w", err)
+	}
+
+	transferOHistory := input.TransferOHistory != nil && *input.TransferOHistory
+	transferMarkers := input.TransferMarkers != nil && *input.TransferMarkers
+
+	var ret *models.Scene
+	if err := r.withTxn(ctx, func(ctx context.Context) error {
+		// Get the release
+		release, err := r.repository.SceneRelease.Find(ctx, releaseID)
+		if err != nil {
+			return err
+		}
+		if release == nil {
+			return fmt.Errorf("release with id %d not found", releaseID)
+		}
+
+		parentSceneID := release.SceneID
+
+		// Get release's file IDs
+		fileIDs, err := r.repository.SceneRelease.GetFileIDs(ctx, releaseID)
+		if err != nil {
+			return err
+		}
+
+		// Get release's gallery IDs
+		if err := release.LoadGalleryIDs(ctx, r.repository.SceneRelease); err != nil {
+			return err
+		}
+
+		// Get release cover
+		cover, err := r.repository.SceneRelease.GetCover(ctx, releaseID)
+		if err != nil {
+			return err
+		}
+
+		// Create a new scene from release data
+		newScene := models.NewScene()
+		newScene.Title = release.Title
+		newScene.Code = release.Code
+		newScene.Details = release.Details
+		newScene.Director = release.Director
+		newScene.Date = release.Date
+		newScene.StudioID = release.StudioID
+
+		// Set URL if present
+		if release.URL != "" {
+			newScene.URLs = models.NewRelatedStrings([]string{release.URL})
+		}
+
+		// Set gallery IDs
+		if release.GalleryIDs.Loaded() && len(release.GalleryIDs.List()) > 0 {
+			newScene.GalleryIDs = release.GalleryIDs
+		}
+
+		// Create the scene with file IDs
+		if err := r.repository.Scene.Create(ctx, &newScene, fileIDs); err != nil {
+			return err
+		}
+
+		// Set the cover if exists
+		if len(cover) > 0 {
+			if err := r.repository.Scene.UpdateCover(ctx, newScene.ID, cover); err != nil {
+				return err
+			}
+		}
+
+		// Transfer o-history from parent scene if requested
+		if transferOHistory {
+			if err := r.repository.Scene.TransferOHistory(ctx, parentSceneID, newScene.ID); err != nil {
+				return err
+			}
+		}
+
+		// Transfer markers from parent scene if requested
+		if transferMarkers {
+			markers, err := r.repository.SceneMarker.FindBySceneID(ctx, parentSceneID)
+			if err != nil {
+				return err
+			}
+			for _, marker := range markers {
+				marker.SceneID = newScene.ID
+				if err := r.repository.SceneMarker.Update(ctx, marker); err != nil {
+					return err
+				}
+			}
+		}
+
+		// Delete the release (files are automatically unlinked)
+		if err := r.repository.SceneRelease.Destroy(ctx, releaseID); err != nil {
+			return err
+		}
+
+		ret = &newScene
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+func (r *mutationResolver) SceneReleaseRemoveFile(ctx context.Context, input SceneReleaseRemoveFileInput) (*models.SceneRelease, error) {
+	releaseID, err := strconv.Atoi(input.ReleaseID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid release_id: %w", err)
+	}
+
+	fileID, err := strconv.Atoi(input.FileID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid file_id: %w", err)
+	}
+
+	deleteFromFilesystem := input.DeleteFromFilesystem != nil && *input.DeleteFromFilesystem
+
+	var ret *models.SceneRelease
+	if err := r.withTxn(ctx, func(ctx context.Context) error {
+		// Verify release exists
+		release, err := r.repository.SceneRelease.Find(ctx, releaseID)
+		if err != nil {
+			return err
+		}
+		if release == nil {
+			return fmt.Errorf("scene release with id %d not found", releaseID)
+		}
+
+		// Check if file exists in the release
+		fileIDs, err := r.repository.SceneRelease.GetFileIDs(ctx, releaseID)
+		if err != nil {
+			return err
+		}
+
+		found := false
+		for _, fid := range fileIDs {
+			if fid == models.FileID(fileID) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("file with id %d not found in release %d", fileID, releaseID)
+		}
+
+		// Remove file from release
+		if err := r.repository.SceneRelease.RemoveFileID(ctx, releaseID, models.FileID(fileID)); err != nil {
+			return err
+		}
+
+		// If requested, delete the file from the filesystem
+		if deleteFromFilesystem {
+			files, err := r.repository.File.Find(ctx, models.FileID(fileID))
+			if err != nil {
+				return err
+			}
+			if len(files) == 0 {
+				return fmt.Errorf("file with id %d not found", fileID)
+			}
+
+			path := files[0].Base().Path
+
+			// Destroy the file record from the database
+			if err := r.repository.File.Destroy(ctx, models.FileID(fileID)); err != nil {
+				return fmt.Errorf("destroying file record: %w", err)
+			}
+
+			// Delete the file from the filesystem (done after transaction commits)
+			// Use a post-commit hook to delete the file
+			txn.AddPostCommitHook(ctx, func(ctx context.Context) {
+				if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+					// Log the error but don't fail the operation
+					logger.Errorf("Failed to delete file %s from filesystem: %v", path, err)
+				}
+			})
+		}
+
+		// Reload the release with updated data
+		ret, err = r.repository.SceneRelease.Find(ctx, releaseID)
+		if err != nil {
+			return err
+		}
+
+		// Eagerly load galleries
+		if err := ret.LoadGalleryIDs(ctx, r.repository.SceneRelease); err != nil {
+			return err
+		}
+
 		return nil
 	}); err != nil {
 		return nil, err

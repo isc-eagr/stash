@@ -60,6 +60,8 @@ interface IPerformerCardProps {
   extraCriteria?: IPerformerCardExtraCriteria;
   /** Scene ID for scene context - enables role badges based on marker roles */
   sceneId?: string;
+  /** Number of performers in the scene - used to determine whether to show partner counts */
+  scenePerformerCount?: number;
 }
 
 const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
@@ -488,7 +490,7 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
 
 const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Details",
-  ({ performer, ageFromDate, sceneId }) => {
+  ({ performer, ageFromDate, sceneId, scenePerformerCount }) => {
     const intl = useIntl();
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { configuration: _configuration } = useConfigurationContext();
@@ -539,6 +541,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
           performer={performer}
           sceneId={sceneId}
           markerRoles={markerRoles}
+          scenePerformerCount={scenePerformerCount}
         />
       </>
     );

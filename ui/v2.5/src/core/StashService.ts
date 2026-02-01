@@ -1645,6 +1645,28 @@ export const useSceneReleaseDestroy = () =>
     },
   });
 
+export const useSceneReleaseAddFile = () =>
+  GQL.useSceneReleaseAddFileMutation({
+    update(cache, result) {
+      if (!result.data?.sceneReleaseAddFile) return;
+      cache.gc();
+    },
+  });
+
+export const useSceneReleaseRemoveFile = () =>
+  GQL.useSceneReleaseRemoveFileMutation({
+    update(cache, result, { variables }) {
+      if (!result.data?.sceneReleaseRemoveFile || !variables) return;
+      // Evict the file from cache if it was deleted
+      if (variables.input.delete_from_filesystem) {
+        cache.evict({
+          id: cache.identify({ __typename: "VideoFile", id: variables.input.file_id }),
+        });
+      }
+      cache.gc();
+    },
+  });
+
 export const useConvertSceneToRelease = () =>
   GQL.useConvertSceneToReleaseMutation({
     update(cache, result, { variables }) {
@@ -1659,6 +1681,22 @@ export const useConvertSceneToRelease = () =>
         id: cache.identify({ __typename: "Scene", id: variables.input.target_scene_id }),
         fieldName: "releases",
       });
+      cache.gc();
+    },
+  });
+
+export const useConvertReleaseToScene = () =>
+  GQL.useConvertReleaseToSceneMutation({
+    update(cache, result, { variables }) {
+      if (!result.data?.convertReleaseToScene || !variables) return;
+
+      // Evict the release since it was deleted
+      const releaseObj = { __typename: "SceneRelease", id: variables.input.release_id };
+      cache.evict({ id: cache.identify(releaseObj) });
+
+      // Update stats
+      updateStats(cache, "scene_count", 1);
+
       cache.gc();
     },
   });

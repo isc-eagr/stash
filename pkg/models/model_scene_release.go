@@ -127,6 +127,7 @@ type SceneReleaseFileHandler interface {
 	GetFileIDs(ctx context.Context, releaseID int) ([]FileID, error)
 	GetFiles(ctx context.Context, releaseID int) ([]*VideoFile, error)
 	AddFileID(ctx context.Context, releaseID int, fileID FileID) error
+	RemoveFileID(ctx context.Context, releaseID int, fileID FileID) error
 	AssignFilesToScene(ctx context.Context, releaseID int, sceneID int) error
 	FileExistsInSceneReleases(ctx context.Context, sceneID int, fileID FileID) (bool, error)
 }

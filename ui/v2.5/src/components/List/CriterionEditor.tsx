@@ -95,6 +95,8 @@ import {
   PerformerCustomFiltersFilter,
   SceneMarkerCustomFiltersFilter,
 } from "./Filters/CustomFiltersFilter";
+import { HasRolesCriterion } from "src/models/list-filter/criteria/has-roles";
+import { HasRolesFilter } from "./Filters/HasRolesFilter";
 
 interface IGenericCriterionEditor {
   criterion: ModifierCriterion<CriterionValue>;
@@ -501,6 +503,15 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
     if (criterion instanceof SceneMarkerCustomFiltersCriterion) {
       return (
         <SceneMarkerCustomFiltersFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof HasRolesCriterion) {
+      return (
+        <HasRolesFilter
           criterion={criterion}
           setCriterion={(nc) => setCriterion(nc)}
         />

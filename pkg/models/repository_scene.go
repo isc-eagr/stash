@@ -118,6 +118,7 @@ type OHistoryWriter interface {
 	AddO(ctx context.Context, id int, dates []time.Time) ([]time.Time, error)
 	DeleteO(ctx context.Context, id int, dates []time.Time) ([]time.Time, error)
 	ResetO(ctx context.Context, id int) (int, error)
+	TransferOHistory(ctx context.Context, fromID int, toID int) error
 }
 
 type ViewHistoryWriter interface {

@@ -73,10 +73,44 @@ input SceneReleaseDestroyInput {
   id: ID!
 }
 
+"Input for adding a file to an existing release"
+input SceneReleaseAddFileInput {
+  "The release ID to add the file to"
+  release_id: ID!
+  "The file ID to add (mutually exclusive with file_path)"
+  file_id: ID
+  "The file path to add from the filesystem (mutually exclusive with file_id). If the file is not already in the database, it will be scanned and added."
+  file_path: String
+}
+
+"Input for removing a file from an existing release"
+input SceneReleaseRemoveFileInput {
+  "The release ID to remove the file from"
+  release_id: ID!
+  "The file ID to remove"
+  file_id: ID!
+  "If true, the file will be deleted from the filesystem. If false, the file will only be unlinked from the release."
+  delete_from_filesystem: Boolean
+}
+
 "Input for converting an existing scene into a release of another scene"
 input ConvertSceneToReleaseInput {
   "The scene ID to convert into a release"
   source_scene_id: ID!
   "The scene ID that will become the parent of the new release"
   target_scene_id: ID!
+  "Whether to transfer o-count/o-history from the source scene to the target scene"
+  transfer_o_history: Boolean
+  "Whether to transfer markers from the source scene to the target scene"
+  transfer_markers: Boolean
+}
+
+"Input for converting a release into a new scene"
+input ConvertReleaseToSceneInput {
+  "The release ID to convert into a scene"
+  release_id: ID!
+  "Whether to transfer o-count/o-history from the parent scene"
+  transfer_o_history: Boolean
+  "Whether to transfer markers from the parent scene"
+  transfer_markers: Boolean
 }

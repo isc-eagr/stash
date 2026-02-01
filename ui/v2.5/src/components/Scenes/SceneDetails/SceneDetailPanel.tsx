@@ -54,6 +54,7 @@ export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
         performer={performer}
         ageFromDate={props.scene.effective_date ?? props.scene.date ?? undefined}
         sceneId={props.scene.id}
+        scenePerformerCount={performers.length}
       />
     ));
 

@@ -21,6 +21,7 @@ import {
   NumberCriterion,
 } from "./criteria/criterion";
 import { SceneMarkerCustomFiltersCriterionOption } from "./criteria/custom-filters";
+import { HasRolesCriterionOptionInstance } from "./criteria/has-roles";
 
 const defaultSortBy = "title";
 const sortByOptions = [
@@ -104,6 +105,7 @@ const criterionOptions = [
   PerformersCriterionOption,
   StudiosCriterionOption,
   HasEndTimeCriterionOption,
+  HasRolesCriterionOptionInstance,
   SceneDirectorCriterionOption,
   SceneMarkerCustomFiltersCriterionOption,
   createNullDurationCriterionOption("duration"),

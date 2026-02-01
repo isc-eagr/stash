@@ -1325,6 +1325,20 @@ func (_m *SceneReaderWriter) ResetO(ctx context.Context, id int) (int, error) {
 	return r0, r1
 }
 
+// TransferOHistory provides a mock function with given fields: ctx, fromID, toID
+func (_m *SceneReaderWriter) TransferOHistory(ctx context.Context, fromID int, toID int) error {
+	ret := _m.Called(ctx, fromID, toID)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int, int) error); ok {
+		r0 = rf(ctx, fromID, toID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // SaveActivity provides a mock function with given fields: ctx, sceneID, resumeTime, playDuration
 func (_m *SceneReaderWriter) SaveActivity(ctx context.Context, sceneID int, resumeTime *float64, playDuration *float64) (bool, error) {
 	ret := _m.Called(ctx, sceneID, resumeTime, playDuration)

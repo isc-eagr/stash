@@ -44,6 +44,9 @@
     "favourite": "Favorite",
     "hair_color": "Hair Color",
     "has_end_time": "Has End Time",
+    "has_roles": "Has Roles",
+    "has_tops": "Has Tops",
+    "has_bottoms": "Has Bottoms",
     "organized": "Organized",
     "performer_favorite": "Performer Favorited",
     "component_tagger": {
