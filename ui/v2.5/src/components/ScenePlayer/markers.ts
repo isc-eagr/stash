@@ -10,6 +10,13 @@ export interface IMarker {
   bottom_performers?: Array<{ id: string; name: string }>;
 }
 
+export interface INegativeMarker {
+  id: string;
+  name: string;
+  start_seconds: number;
+  end_seconds: number;
+}
+
 interface IMarkersOptions {
   markers?: IMarker[];
 }
@@ -21,6 +28,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     range?: HTMLDivElement;
     containedRanges?: HTMLDivElement[];
   }[] = [];
+  private negativeMarkerDivs: HTMLDivElement[] = [];
   private markerTooltip: HTMLElement | null = null;
   private defaultTooltip: HTMLElement | null = null;
 
@@ -49,7 +57,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     });
   }
 
-  private showMarkerTooltip(title: string, layer: number = 0, topPerformers?: Array<{ id: string; name: string }>, bottomPerformers?: Array<{ id: string; name: string }>) {
+  private showMarkerTooltip(title: string, layer: number = 0, topPerformers?: Array<{ id: string; name: string }>, bottomPerformers?: Array<{ id: string; name: string }>, isNegativeMarker: boolean = false) {
     if (!this.markerTooltip) return;
     
     let tooltipContent = title;
@@ -77,6 +85,14 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     this.markerTooltip.style.right = `${-this.markerTooltip.clientWidth / 2}px`;
     this.markerTooltip.style.top = `-${this.layerHeight * layer + 50}px`;
     this.markerTooltip.style.visibility = "visible";
+    
+    // Style differently for negative markers
+    if (isNegativeMarker) {
+      this.markerTooltip.classList.add("vjs-marker-tooltip-negative");
+    } else {
+      this.markerTooltip.classList.remove("vjs-marker-tooltip-negative");
+    }
+    
     if (this.defaultTooltip) this.defaultTooltip.style.visibility = "hidden";
   }
 
@@ -315,6 +331,62 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     }
     this.markers = [];
     this.markerDivs = [];
+    
+    // Also clear negative markers
+    for (const div of this.negativeMarkerDivs) {
+      div.remove();
+    }
+    this.negativeMarkerDivs = [];
+  }
+
+  // Add negative markers (displayed in red)
+  addNegativeMarkers(negativeMarkers: INegativeMarker[]) {
+    const duration = this.player.duration();
+    const parent = this.player.el().querySelector(".vjs-progress-control");
+    if (!parent || !duration) return;
+
+    for (const marker of negativeMarkers) {
+      const rangeDiv = videojs.dom.createEl("div") as HTMLDivElement;
+      rangeDiv.className = "vjs-marker-range vjs-negative-marker-range";
+
+      const startPercent = (marker.start_seconds / duration) * 100;
+      const widthPercent =
+        ((marker.end_seconds - marker.start_seconds) / duration) * 100;
+
+      rangeDiv.style.left = `calc(15px + ${startPercent}% - ${
+        startPercent * 0.3
+      }px)`;
+      rangeDiv.style.width = `calc(${widthPercent}% - ${widthPercent * 0.3}px)`;
+      rangeDiv.style.bottom = "0px";
+      rangeDiv.style.display = "block";
+      // Force red color for negative markers
+      rangeDiv.style.backgroundColor = "#dc3545";
+      rangeDiv.style.opacity = "0.7";
+
+      rangeDiv.addEventListener("mouseenter", () => {
+        const title = marker.name || "Skip Section";
+        this.showMarkerTooltip(title, 0, undefined, undefined, true);
+        rangeDiv.toggleAttribute("marker-tooltip-shown", true);
+      });
+
+      rangeDiv.addEventListener("mouseout", () => {
+        this.hideMarkerTooltip();
+        rangeDiv.toggleAttribute("marker-tooltip-shown", false);
+      });
+
+      rangeDiv.addEventListener("pointermove", (e) => {
+        e.stopPropagation();
+      });
+      rangeDiv.addEventListener("pointerover", (e) => {
+        e.stopPropagation();
+      });
+      rangeDiv.addEventListener("pointerout", (e) => {
+        e.stopPropagation();
+      });
+
+      parent.appendChild(rangeDiv);
+      this.negativeMarkerDivs.push(rangeDiv);
+    }
   }
 
   // Implementing the findColors method
@@ -418,9 +490,14 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
   }
 
   // Convert hue to RGB color in hex format
+  // Avoids red hues (0-30 and 330-360) to reserve red for negative markers
   private hueToColor(hue: number): string {
+    // Remap hue to avoid red range (reserve 0-30 and 330-360 for negative markers)
+    // Map the range [0, 360) to [30, 330) to avoid reds
+    const remappedHue = 30 + (hue % 360) * (300 / 360);
+    
     // Convert hue from degrees to [0, 1)
-    const hueNormalized = hue / 360.0;
+    const hueNormalized = remappedHue / 360.0;
     const saturation = 0.65;
     const value = 0.95;
     const rgb = this.hsvToRgb(hueNormalized, saturation, value);

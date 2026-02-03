@@ -99,6 +99,16 @@ fragment SceneData on Scene {
     updated_at
   }
 
+  negative_markers {
+    id
+    scene_id
+    name
+    start_seconds
+    end_seconds
+    created_at
+    updated_at
+  }
+
   releases {
     ...SceneReleaseData
   }

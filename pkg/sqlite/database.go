@@ -66,22 +66,23 @@ func (e *MismatchedSchemaVersionError) Error() string {
 }
 
 type storeRepository struct {
-	Blobs           *BlobStore
-	File            *FileStore
-	Folder          *FolderStore
-	Image           *ImageStore
-	Gallery         *GalleryStore
-	GalleryChapter  *GalleryChapterStore
-	Scene           *SceneStore
-	SceneMarker     *SceneMarkerStore
-	SceneLoopPreset *SceneLoopPresetStore
-	SceneRelease    *SceneReleaseStore
-	Performer       *PerformerStore
-	SavedFilter     *SavedFilterStore
-	Studio          *StudioStore
-	Tag             *TagStore
-	Group           *GroupStore
-	PerformerImage  *PerformerImageStore
+	Blobs               *BlobStore
+	File                *FileStore
+	Folder              *FolderStore
+	Image               *ImageStore
+	Gallery             *GalleryStore
+	GalleryChapter      *GalleryChapterStore
+	Scene               *SceneStore
+	SceneMarker         *SceneMarkerStore
+	SceneLoopPreset     *SceneLoopPresetStore
+	SceneNegativeMarker *SceneNegativeMarkerStore
+	SceneRelease        *SceneReleaseStore
+	Performer           *PerformerStore
+	SavedFilter         *SavedFilterStore
+	Studio              *StudioStore
+	Tag                 *TagStore
+	Group               *GroupStore
+	PerformerImage      *PerformerImageStore
 }
 
 type Database struct {
@@ -108,22 +109,23 @@ func NewDatabase() *Database {
 
 	r := &storeRepository{}
 	*r = storeRepository{
-		Blobs:           blobStore,
-		File:            fileStore,
-		Folder:          folderStore,
-		Scene:           NewSceneStore(r, blobStore),
-		SceneMarker:     NewSceneMarkerStore(),
-		SceneLoopPreset: NewSceneLoopPresetStore(),
-		SceneRelease:    NewSceneReleaseStore(r, blobStore),
-		Image:           NewImageStore(r),
-		Gallery:         galleryStore,
-		GalleryChapter:  NewGalleryChapterStore(),
-		Performer:       performerStore,
-		PerformerImage:  performerImageStore,
-		Studio:          studioStore,
-		Tag:             tagStore,
-		Group:           NewGroupStore(blobStore),
-		SavedFilter:     NewSavedFilterStore(),
+		Blobs:               blobStore,
+		File:                fileStore,
+		Folder:              folderStore,
+		Scene:               NewSceneStore(r, blobStore),
+		SceneMarker:         NewSceneMarkerStore(),
+		SceneLoopPreset:     NewSceneLoopPresetStore(),
+		SceneNegativeMarker: NewSceneNegativeMarkerStore(),
+		SceneRelease:        NewSceneReleaseStore(r, blobStore),
+		Image:               NewImageStore(r),
+		Gallery:             galleryStore,
+		GalleryChapter:      NewGalleryChapterStore(),
+		Performer:           performerStore,
+		PerformerImage:      performerImageStore,
+		Studio:              studioStore,
+		Tag:                 tagStore,
+		Group:               NewGroupStore(blobStore),
+		SavedFilter:         NewSavedFilterStore(),
 	}
 
 	ret := &Database{

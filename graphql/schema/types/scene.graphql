@@ -89,6 +89,9 @@ type Scene {
 
   multi_segment_loop_presets: [MultiSegmentLoopPreset!]!
 
+  "Negative markers - time ranges to skip during playback"
+  negative_markers: [SceneNegativeMarker!]!
+
   "Alternate releases of this scene (e.g., from different studios)"
   releases: [SceneRelease!]!
 }
@@ -322,4 +325,29 @@ input SceneMultiSegmentLoopPresetInput {
   enabled: Boolean!
   current_segment_index: Int!
   segments: [MultiSegmentLoopSegmentInput!]!
+}
+
+# Negative markers - time ranges to skip during playback
+type SceneNegativeMarker {
+  id: ID!
+  scene_id: ID!
+  name: String!
+  start_seconds: Float!
+  end_seconds: Float!
+  created_at: Time!
+  updated_at: Time!
+}
+
+input SceneNegativeMarkerCreateInput {
+  scene_id: ID!
+  name: String!
+  start_seconds: Float!
+  end_seconds: Float!
+}
+
+input SceneNegativeMarkerUpdateInput {
+  id: ID!
+  name: String
+  start_seconds: Float
+  end_seconds: Float
 }

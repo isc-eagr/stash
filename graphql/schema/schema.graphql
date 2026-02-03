@@ -33,6 +33,9 @@ type Query {
   "Find multi-segment loop presets for a scene"
   findSceneMultiSegmentLoopPresets(scene_id: ID!): [MultiSegmentLoopPreset!]!
 
+  "Find negative markers for a scene"
+  findSceneNegativeMarkers(scene_id: ID!): [SceneNegativeMarker!]!
+
   "A function which queries Scene objects"
   findScenes(
     scene_filter: SceneFilterType
@@ -308,6 +311,15 @@ type Mutation {
     input: SceneMultiSegmentLoopPresetInput!
   ): MultiSegmentLoopPreset!
   deleteSceneMultiSegmentLoopPreset(scene_id: ID!, name: String!): Boolean!
+
+  # Negative markers - time ranges to skip during playback
+  sceneNegativeMarkerCreate(
+    input: SceneNegativeMarkerCreateInput!
+  ): SceneNegativeMarker!
+  sceneNegativeMarkerUpdate(
+    input: SceneNegativeMarkerUpdateInput!
+  ): SceneNegativeMarker!
+  sceneNegativeMarkerDestroy(id: ID!): Boolean!
 
   "Increments the o-counter for a scene. Returns the new value"
   sceneIncrementO(id: ID!): Int! @deprecated(reason: "Use sceneAddO instead")

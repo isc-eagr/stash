@@ -302,6 +302,87 @@ func CountMarkersByPerformerRole(ctx context.Context, r models.SceneMarkerQuerye
 	return len(markers), nil
 }
 
+// CountMarkersByPerformerRoleWithSecondary counts markers where performer has role and the marker
+// has the tagID in either primary or secondary tags (including subtags).
+func CountMarkersByPerformerRoleWithSecondary(ctx context.Context, r models.SceneMarkerReader, tagFinder models.TagFinder, performerID int, tagID int, role string) (int, error) {
+	if tagID == 0 {
+		return 0, nil
+	}
+
+	// Build filter for markers where performer has the role (no tag filter yet)
+	topIDs := []string{}
+	bottomIDs := []string{}
+	performerIDStr := strconv.Itoa(performerID)
+
+	if role == "top" {
+		topIDs = append(topIDs, performerIDStr)
+	} else if role == "bottom" {
+		bottomIDs = append(bottomIDs, performerIDStr)
+	} else {
+		// Any role - check both
+		topIDs = append(topIDs, performerIDStr)
+		bottomIDs = append(bottomIDs, performerIDStr)
+	}
+
+	group := models.SceneMarkerTagGroupInput{
+		TopPerformerIDs:    topIDs,
+		BottomPerformerIDs: bottomIDs,
+	}
+	performerMode := "OR"
+	group.PerformerMode = &performerMode
+	filter := &models.SceneMarkerFilterType{
+		SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+			Modifier:       models.CriterionModifierEquals,
+			GroupsExtended: []models.SceneMarkerTagGroupInput{group},
+		},
+	}
+
+	// Use PerPage=-1 to get all results
+	allResults := -1
+	findFilter := &models.FindFilterType{PerPage: &allResults}
+
+	// Query markers
+	markers, _, err := r.Query(ctx, filter, findFilter)
+	if err != nil {
+		return 0, err
+	}
+
+	// Build tag set including all descendants
+	tagSet := make(map[int]bool)
+	tagSet[tagID] = true
+	descendants, err := tagFinder.FindAllDescendants(ctx, tagID, nil)
+	if err != nil {
+		return 0, err
+	}
+	for _, d := range descendants {
+		tagSet[d.ID] = true
+	}
+
+	// Now filter markers to only include those with tagID in primary OR secondary tags
+	count := 0
+	for _, marker := range markers {
+		// Check primary tag
+		if tagSet[marker.PrimaryTagID] {
+			count++
+			continue
+		}
+
+		// Check secondary tags
+		secondaryTagIDs, err := r.GetTagIDs(ctx, marker.ID)
+		if err != nil {
+			return 0, err
+		}
+		for _, secondaryTagID := range secondaryTagIDs {
+			if tagSet[secondaryTagID] {
+				count++
+				break // Only count once per marker
+			}
+		}
+	}
+
+	return count, nil
+}
+
 // CountScenesByPerformerMarkerRoleExcluding counts scenes where performer has markers with tagID
 // but excludes scenes that also have markers with excludeTagID.
 func CountScenesByPerformerMarkerRoleExcluding(ctx context.Context, r models.SceneMarkerQueryer, performerID int, tagID int, role string, excludeTagID int) (int, error) {

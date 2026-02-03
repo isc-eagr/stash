@@ -66,6 +66,12 @@ type Performer {
   facial_scene_count: Int! # Resolver - total facial scenes
   facial_top_count: Int! # Resolver - facial scenes where performer is top
   facial_bottom_count: Int! # Resolver - facial scenes where performer is bottom
+  # Facial marker counts: count of individual markers (not scenes)
+  facial_marker_count: Int! # Resolver - total facial markers
+  facial_marker_top_count: Int! # Resolver - facial markers where performer is top
+  facial_marker_bottom_count: Int! # Resolver - facial markers where performer is bottom
+  facial_marker_with_top_count: Int! # Resolver - total facial markers where performer topped (not condensed by scene)
+  facial_marker_with_bottom_count: Int! # Resolver - total facial markers where performer bottomed (not condensed by scene)
   # Orgasm markers: count of orgasm markers where performer is top
   orgasm_top_count: Int! # Resolver - orgasm markers where performer is top
   # Feet markers: count of distinct scenes with feet markers where performer is top

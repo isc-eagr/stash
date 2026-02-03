@@ -367,6 +367,36 @@ The performer card displays facial counts (top/bottom) when viewing performers i
 - Uses `facial_top_X` and `facial_bottom_X` in `scene_marker_roles` for scene-specific counts
 - Matches the global context behavior but scoped to the current scene only
 
+### Facial Marker Counts (Global Context)
+**Added: February 2026**
+
+For facial markers specifically, global context now shows **individual marker counts** instead of scene counts to match the granularity of scene context. This ensures that multiple facials by the same performer in the same scene are properly counted separately.
+
+**GraphQL Schema Changes:**
+- `graphql/schema/types/performer.graphql` - Added three new fields:
+  - `facial_marker_count: Int!` - Total count of facial markers (not scenes)
+  - `facial_marker_top_count: Int!` - Count of facial markers where performer is top
+  - `facial_marker_bottom_count: Int!` - Count of facial markers where performer is bottom
+
+**Backend Changes:**
+- `internal/api/resolver_model_performer.go` - Added three new resolvers:
+  - `FacialMarkerCount()` - Uses `CountMarkersByPerformerRole` instead of `CountScenesByPerformerMarkerRole`
+  - `FacialMarkerTopCount()` - Uses `CountMarkersByPerformerRole` with "top" role
+  - `FacialMarkerBottomCount()` - Uses `CountMarkersByPerformerRole` with "bottom" role
+- These resolvers call `scene.CountMarkersByPerformerRole()` which counts individual markers rather than distinct scenes
+
+**Frontend Changes:**
+- `ui/v2.5/graphql/data/performer.graphql` - Added `facial_marker_count`, `facial_marker_top_count`, `facial_marker_bottom_count` to performer query
+- `ui/v2.5/src/components/Performers/PerformerDetails/PerformerCategoryStrip.tsx` - Updated global context to use marker counts:
+  - `facialCount` uses `p.facial_marker_count` (instead of `p.facial_scene_count`)
+  - `topCount` uses `p.facial_marker_top_count` (instead of `p.facial_top_count`)
+  - `bottomCount` uses `p.facial_marker_bottom_count` (instead of `p.facial_bottom_count`)
+
+**Behavior:**
+- Sex and oral counts remain scene-based in global context (showing scenes, not markers)
+- Facial counts now show marker-based counts globally to match scene context precision
+- Example: If a scene has 2 facials by the same performer to the same receiver, global context shows "2" instead of "1"
+
 ### Props Added
 ```typescript
 interface IPerformerCardProps {

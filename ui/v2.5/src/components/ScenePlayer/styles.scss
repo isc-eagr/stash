@@ -314,6 +314,13 @@ $sceneTabWidth: 450px;
     position: absolute;
     transform: translateY(-28px);
     transition: none;
+    
+    // Negative markers are displayed in red
+    &.vjs-negative-marker-range {
+      background-color: rgba(220, 53, 69, 0.7) !important;
+      box-shadow: 0 0 4px rgba(220, 53, 69, 0.5);
+      z-index: 5;
+    }
   }
 
   .vjs-marker-tooltip {
@@ -331,6 +338,13 @@ $sceneTabWidth: 450px;
     visibility: hidden;
     white-space: nowrap;
     z-index: 1;
+    
+    // Style for negative markers - red background
+    &.vjs-marker-tooltip-negative {
+      background-color: rgba(220, 53, 69, 0.9);
+      color: #fff;
+      border: 1px solid #dc3545;
+    }
   }
 
   .vjs-text-track-settings select {
@@ -685,6 +699,33 @@ $sceneTabWidth: 450px;
   }
 }
 
+// Negative markers container (sits on top of scrubber)
+.scrubber-negative-markers {
+  height: 100%;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 2;
+}
+
+// Individual negative marker bar (red stripe on scrubber)
+.scrubber-negative-marker {
+  background-color: rgba(220, 53, 69, 0.6);
+  border-radius: 2px;
+  height: 100%;
+  min-width: 4px;
+  pointer-events: auto;
+  position: absolute;
+  top: 0;
+  cursor: pointer;
+
+  &:hover {
+    background-color: rgba(220, 53, 69, 0.85);
+  }
+}
+
 .scrubber-item {
   color: white;
   display: flex;
@@ -900,6 +941,57 @@ $sceneTabWidth: 450px;
 
   &:hover .vjs-icon-placeholder {
     text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+  }
+
+  // Preset count badge
+  .vjs-multi-segment-badge {
+    position: absolute;
+    top: -2px;
+    right: -6px;
+    background-color: #137cbd;
+    color: #fff;
+    font-size: 10px;
+    font-weight: bold;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+}
+
+// Negative marker skip toggle button
+.video-js .vjs-control-bar .vjs-negative-marker-skip-btn {
+  cursor: pointer;
+  position: relative;
+  z-index: 10;
+  padding: 0 0.5em;
+  margin-right: 0.5em;
+
+  .vjs-icon-placeholder {
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+
+    svg {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+    }
+  }
+
+  &.vjs-negative-skip-active .vjs-icon-placeholder {
+    color: #dc3545;
+  }
+
+  &:hover .vjs-icon-placeholder {
+    color: #fff;
   }
 }
 

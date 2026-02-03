@@ -308,6 +308,10 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const [showPresetModal, setShowPresetModal] = useState(false);
     const [loopSingleId, setLoopSingleId] = useState<string | null>(null);
 
+    // Negative marker skipping - enabled by default
+    const [negativeMarkerSkipEnabled, setNegativeMarkerSkipEnabled] = useState(true);
+    const lastSkipTimeRef = useRef<number>(0); // Prevent rapid re-skipping
+
     // Performer image overlay state
     const [showImageOverlayModal, setShowImageOverlayModal] = useState(false);
     const [selectedOverlayImages, setSelectedOverlayImages] = useState<
@@ -935,7 +939,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         toggleText.textContent = "Loop OFF";
         toggleButton.appendChild(toggleText);
 
-        // Create edit button (pencil icon)
+        // Create edit button (pencil icon with preset count badge)
         const editButton = document.createElement("div");
         editButton.className = "vjs-multi-segment-edit vjs-button";
         editButton.setAttribute("role", "button");
@@ -945,6 +949,15 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         editIcon.className = "vjs-icon-placeholder";
         editIcon.textContent = "✏️";
         editButton.appendChild(editIcon);
+
+        // Create preset count badge
+        const presetBadge = document.createElement("span");
+        presetBadge.className = "vjs-multi-segment-badge";
+        presetBadge.textContent = segmentPresets.length.toString();
+        if (segmentPresets.length === 0) {
+          presetBadge.style.display = "none";
+        }
+        editButton.appendChild(presetBadge);
 
         // Update toggle button state
         const updateToggleState = () => {
@@ -1050,6 +1063,88 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         clearInterval(checkPluginReady);
       };
     }, [getPlayer]);
+
+    // Update preset badge count when segmentPresets changes
+    useEffect(() => {
+      const player = getPlayer();
+      if (!player) return;
+
+      const controlBar = player.el()?.querySelector(".vjs-control-bar");
+      if (!controlBar) return;
+
+      const badge = controlBar.querySelector(".vjs-multi-segment-badge") as HTMLElement | null;
+      if (badge) {
+        const count = segmentPresets.length;
+        badge.textContent = count.toString();
+        badge.style.display = count > 0 ? "" : "none";
+      }
+      // segmentPresets.length is derived from segmentPresets, no need to add separately
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [getPlayer, segmentPresets]);
+
+    // Create negative marker skip toggle button in control bar
+    useEffect(() => {
+      const player = getPlayer();
+      if (!player) return;
+
+      const controlBar = player.el()?.querySelector(".vjs-control-bar");
+      if (!controlBar) return;
+
+      const negativeMarkers = scene.negative_markers ?? [];
+      
+      // Remove existing button if present
+      const existingBtn = controlBar.querySelector(".vjs-negative-marker-skip-btn");
+      if (existingBtn) {
+        existingBtn.remove();
+      }
+
+      // Only show button if there are negative markers
+      if (negativeMarkers.length === 0) return;
+
+      // Create the skip toggle button
+      const skipButton = document.createElement("div");
+      skipButton.className = "vjs-negative-marker-skip-btn vjs-button";
+      skipButton.setAttribute("role", "button");
+      skipButton.tabIndex = 0;
+      skipButton.setAttribute("title", "Toggle Skip Negative Markers");
+
+      const skipIcon = document.createElement("span");
+      skipIcon.className = "vjs-icon-placeholder";
+      skipIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="16" height="16" fill="currentColor"><path d="M52.5 440.6c-9.5 7.9-22.8 9.7-34.1 4.4S0 428.4 0 416V96C0 83.6 7.2 72.3 18.4 67s24.5-3.6 34.1 4.4l192 160L224 224V96c0-12.4 7.2-23.7 18.4-29s24.5-3.6 34.1 4.4l192 160c7.3 6.1 11.5 15.1 11.5 24.6s-4.2 18.5-11.5 24.6l-192 160c-9.5 7.9-22.8 9.7-34.1 4.4s-18.4-16.6-18.4-29V288l-20.5 17.1-192 160z"/></svg>`;
+      skipButton.appendChild(skipIcon);
+
+      // Apply initial state
+      if (negativeMarkerSkipEnabled) {
+        skipButton.classList.add("vjs-negative-skip-active");
+      }
+
+      // Click handler
+      skipButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setNegativeMarkerSkipEnabled((prev) => {
+          const newState = !prev;
+          if (newState) {
+            skipButton.classList.add("vjs-negative-skip-active");
+          } else {
+            skipButton.classList.remove("vjs-negative-skip-active");
+          }
+          return newState;
+        });
+      });
+
+      // Insert after multi-segment loop toggle or at the start
+      const multiSegmentToggle = controlBar.querySelector(".vjs-multi-segment-toggle");
+      if (multiSegmentToggle) {
+        controlBar.insertBefore(skipButton, multiSegmentToggle);
+      } else {
+        const playbackRateBtn = controlBar.querySelector(".vjs-playback-rate");
+        if (playbackRateBtn) {
+          controlBar.insertBefore(skipButton, playbackRateBtn);
+        } else {
+          controlBar.appendChild(skipButton);
+        }
+      }
+    }, [getPlayer, scene.negative_markers, negativeMarkerSkipEnabled]);
 
     // Create performer image overlay button in control bar
     useEffect(() => {
@@ -1282,6 +1377,44 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       };
     }, [getPlayer, interactiveClient, scene]);
 
+    // Negative marker skip logic
+    useEffect(() => {
+      const player = getPlayer();
+      if (!player) return;
+
+      const negativeMarkers = scene.negative_markers ?? [];
+      if (negativeMarkers.length === 0) return;
+
+      function checkNegativeMarkers(this: VideoJsPlayer) {
+        if (!negativeMarkerSkipEnabled) return;
+        if (this.paused()) return;
+
+        const currentTime = this.currentTime();
+        const now = Date.now();
+
+        // Prevent rapid re-skipping (debounce 500ms)
+        if (now - lastSkipTimeRef.current < 500) return;
+
+        for (const marker of negativeMarkers) {
+          if (
+            currentTime >= marker.start_seconds &&
+            currentTime < marker.end_seconds
+          ) {
+            // Skip to end of this negative marker
+            lastSkipTimeRef.current = now;
+            this.currentTime(marker.end_seconds);
+            break;
+          }
+        }
+      }
+
+      player.on("timeupdate", checkNegativeMarkers);
+
+      return () => {
+        player.off("timeupdate", checkNegativeMarkers);
+      };
+    }, [getPlayer, scene.negative_markers, negativeMarkerSkipEnabled]);
+
     useEffect(() => {
       const player = getPlayer();
       if (!player) return;
@@ -1491,6 +1624,17 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       requestAnimationFrame(() => {
         markers.addDotMarkers(timestampMarkers);
         markers.addRangeMarkers(rangeMarkers);
+        
+        // Add negative markers (displayed in red)
+        const negativeMarkers = scene.negative_markers ?? [];
+        if (negativeMarkers.length > 0) {
+          markers.addNegativeMarkers(negativeMarkers.map(m => ({
+            id: m.id,
+            name: m.name,
+            start_seconds: m.start_seconds,
+            end_seconds: m.end_seconds,
+          })));
+        }
       });
     }, [getPlayer, scene, uiConfig]);
 

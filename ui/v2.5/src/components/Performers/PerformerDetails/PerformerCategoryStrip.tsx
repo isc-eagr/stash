@@ -244,9 +244,9 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     if ((facialTopRoles.length > 0 || facialBottomRoles.length > 0) && facialTagId) {
       rolesToShow.push({
         category: "facial",
-        count: sceneFacialAllPartners, // Unique partners across both roles (no double-counting)
-        topCount: sceneFacialTopPartners,
-        bottomCount: sceneFacialBottomPartners,
+        count: sceneFacialTotalCount, // Total facial count (not unique partners)
+        topCount: sceneFacialTopCount, // Actual top count (not unique partners)
+        bottomCount: sceneFacialBottomCount, // Actual bottom count (not unique partners)
         isTop: sceneFacialTopCount > 0,
         isBottom: sceneFacialBottomCount > 0,
         tagId: facialTagId,
@@ -263,14 +263,16 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     const sexCount = p.sex_scene_count ?? 0;
     const oralCount = p.oral_scene_count ?? 0;
     const soloCount = p.solo_scene_count ?? 0;
-    const facialCount = p.facial_scene_count ?? 0;
+    // Use marker count for facial (unique markers) instead of scene count
+    const facialCount = p.facial_marker_count ?? 0;
 
     const sexWithTopCount = p.sex_with_top_count ?? 0;
     const sexWithBottomCount = p.sex_with_bottom_count ?? 0;
     const oralWithTopCount = p.oral_with_top_count ?? 0;
     const oralWithBottomCount = p.oral_with_bottom_count ?? 0;
-    const facialWithTopCount = p.facial_with_top_count ?? 0;
-    const facialWithBottomCount = p.facial_with_bottom_count ?? 0;
+    // Use marker counts for facial "with" counts (unique markers) instead of scene counts
+    const facialWithTopCount = p.facial_marker_with_top_count ?? 0;
+    const facialWithBottomCount = p.facial_marker_with_bottom_count ?? 0;
 
     orgasmTopCount = p.orgasm_top_count ?? 0;
     feetTopCount = p.feet_top_count ?? 0;
@@ -298,8 +300,9 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       rolesToShow.push({
         category: "facial",
         count: facialCount,
-        topCount: p.facial_top_count ?? 0,
-        bottomCount: p.facial_bottom_count ?? 0,
+        // Use marker counts (unique markers) for facial in global context
+        topCount: p.facial_marker_top_count ?? 0,
+        bottomCount: p.facial_marker_bottom_count ?? 0,
         tagId: facialTagId,
       });
     }
@@ -334,6 +337,64 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       if (oralTagId) excludeTags.push({ id: oralTagId, label: "Oral" });
     }
     return excludeTags.length > 0 ? excludeTags : undefined;
+  };
+
+  // Generate tooltip text based on context and category
+  const getTooltipText = (
+    category: "sex" | "oral" | "solo" | "facial",
+    type: "total" | "top" | "bottom",
+    count: number
+  ) => {
+    const name = p.name || "Performer";
+    const categoryLabel = category.charAt(0).toUpperCase() + category.slice(1);
+    
+    if (category === "solo") {
+      return sceneId 
+        ? `${name} has solo markers in this scene`
+        : `${name} has appeared in ${count} solo scene${count !== 1 ? 's' : ''}`;
+    }
+
+    if (sceneId) {
+      // Scene context
+      if (type === "total") {
+        if (category === "facial") {
+          return `${name} participated in ${count} facial${count !== 1 ? 's' : ''} in this scene`;
+        }
+        return `${name} has ${count} ${category} partner${count !== 1 ? 's' : ''} in this scene`;
+      } else if (type === "top") {
+        if (category === "facial") {
+          return `${name} gave ${count} facial${count !== 1 ? 's' : ''} in this scene`;
+        }
+        return scenePerformerCount > 2
+          ? `${name} has ${count} ${category} partner${count !== 1 ? 's' : ''} as top in this scene`
+          : `${name} was ${category} top in this scene`;
+      } else {
+        if (category === "facial") {
+          return `${name} received ${count} facial${count !== 1 ? 's' : ''} in this scene`;
+        }
+        return scenePerformerCount > 2
+          ? `${name} has ${count} ${category} partner${count !== 1 ? 's' : ''} as bottom in this scene`
+          : `${name} was ${category} bottom in this scene`;
+      }
+    } else {
+      // Global context
+      if (type === "total") {
+        if (category === "facial") {
+          return `${name} has ${count} total facial marker${count !== 1 ? 's' : ''}`;
+        }
+        return `${name} has appeared in ${count} ${category} scene${count !== 1 ? 's' : ''}`;
+      } else if (type === "top") {
+        if (category === "facial") {
+          return `${name} has given ${count} facial${count !== 1 ? 's' : ''}`;
+        }
+        return `${name} has topped ${count} unique partner${count !== 1 ? 's' : ''} in ${category}`;
+      } else {
+        if (category === "facial") {
+          return `${name} has received ${count} facial${count !== 1 ? 's' : ''}`;
+        }
+        return `${name} has bottomed for ${count} unique partner${count !== 1 ? 's' : ''} in ${category}`;
+      }
+    }
   };
 
   return (
@@ -520,7 +581,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         return (
           <div key={idx} className="role-badge-item">
             {/* Category icon on top - clickable */}
-            <div className="category-icon-container">
+            <div className="category-icon-container" title={role.count ? getTooltipText(role.category, "total", role.count) : undefined}>
               {categoryUrl && !sceneId ? (
                 <Link to={categoryUrl} className="role-badge-link">
                   {categoryIconElement}
@@ -561,6 +622,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                       pill
                       variant="success"
                       className="arrow-badge top-badge"
+                      title={getTooltipText(role.category, "top", role.topCount || 0)}
                       style={{
                         fontSize: 10,
                         padding: "3px 6px",
@@ -580,6 +642,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                       pill
                       variant="info"
                       className="arrow-badge bottom-badge"
+                      title={getTooltipText(role.category, "bottom", role.bottomCount || 0)}
                       style={{
                         fontSize: 10,
                         padding: "3px 6px",
@@ -607,6 +670,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                         pill
                         variant="success"
                         className="arrow-badge top-badge"
+                        title={getTooltipText(role.category, "top", role.topCount || 0)}
                         style={{
                           fontSize: 10,
                           padding: "3px 6px",
@@ -625,6 +689,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                       pill
                       variant="success"
                       className="arrow-badge top-badge"
+                      title={getTooltipText(role.category, "top", role.topCount || 0)}
                       style={{
                         fontSize: 10,
                         padding: "3px 6px",
@@ -644,6 +709,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                         pill
                         variant="info"
                         className="arrow-badge bottom-badge"
+                        title={getTooltipText(role.category, "bottom", role.bottomCount || 0)}
                         style={{
                           fontSize: 10,
                           padding: "3px 6px",
@@ -662,6 +728,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                       pill
                       variant="info"
                       className="arrow-badge bottom-badge"
+                      title={getTooltipText(role.category, "bottom", role.bottomCount || 0)}
                       style={{
                         fontSize: 10,
                         padding: "3px 6px",
@@ -680,7 +747,10 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
 
                 {/* Row 3: Unique partner count*/}
                 {uniquePartnerCount > 0 && (
-                  <div className="category-icon-container unique-partners-row">
+                  <div 
+                    className="category-icon-container unique-partners-row"
+                    title={`${p.name || "Performer"} has been with ${uniquePartnerCount} unique partner${uniquePartnerCount !== 1 ? 's' : ''} in ${role.category}`}
+                  >
                     {allPartnersUrl ? (
                       <Link to={allPartnersUrl} className="role-badge-link">
                         <Icon icon={faUser} style={{ color: "white" }} />
@@ -701,13 +771,24 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                   {partnerTopUrl && (
                     (role.category === "sex" && (p.sex_with_top_count ?? 0) > 0) ||
                     (role.category === "oral" && (p.oral_with_top_count ?? 0) > 0) ||
-                    (role.category === "facial" && (p.facial_with_top_count ?? 0) > 0)
+                    (role.category === "facial" && (p.facial_marker_with_top_count ?? 0) > 0)
                   ) ? (
                     <Link to={partnerTopUrl} className="role-badge-link">
                       <Badge
                         pill
                         variant="success"
                         className="arrow-badge top-badge"
+                        title={getTooltipText(
+                          role.category,
+                          "top",
+                          role.category === "sex"
+                            ? p.sex_with_top_count || 0
+                            : role.category === "oral"
+                            ? p.oral_with_top_count || 0
+                            : role.category === "facial"
+                            ? p.facial_marker_with_top_count || 0
+                            : 0
+                        )}
                         style={{
                           fontSize: 10,
                           padding: "3px 6px",
@@ -723,7 +804,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                             : role.category === "oral"
                             ? p.oral_with_top_count || 0
                             : role.category === "facial"
-                            ? p.facial_with_top_count || 0
+                            ? p.facial_marker_with_top_count || 0
                             : 0}
                         </span>
                       </Badge>
@@ -733,6 +814,17 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                       pill
                       variant="success"
                       className="arrow-badge top-badge"
+                      title={getTooltipText(
+                        role.category,
+                        "top",
+                        role.category === "sex"
+                          ? p.sex_with_top_count || 0
+                          : role.category === "oral"
+                          ? p.oral_with_top_count || 0
+                          : role.category === "facial"
+                          ? p.facial_marker_with_top_count || 0
+                          : 0
+                      )}
                       style={{
                         fontSize: 10,
                         padding: "3px 6px",
@@ -742,7 +834,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                         visibility:
                           (role.category === "sex" && (p.sex_with_top_count ?? 0) > 0) ||
                           (role.category === "oral" && (p.oral_with_top_count ?? 0) > 0) ||
-                          (role.category === "facial" && (p.facial_with_top_count ?? 0) > 0)
+                        (role.category === "facial" && (p.facial_marker_with_top_count ?? 0) > 0)
                             ? 'visible'
                             : 'hidden',
                       }}
@@ -754,7 +846,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                           : role.category === "oral"
                           ? p.oral_with_top_count || 0
                           : role.category === "facial"
-                          ? p.facial_with_top_count || 0
+                          ? p.facial_marker_with_top_count || 0
                           : 0}
                       </span>
                     </Badge>
@@ -762,13 +854,24 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                   {partnerBottomUrl && (
                     (role.category === "sex" && (p.sex_with_bottom_count ?? 0) > 0) ||
                     (role.category === "oral" && (p.oral_with_bottom_count ?? 0) > 0) ||
-                    (role.category === "facial" && (p.facial_with_bottom_count ?? 0) > 0)
+                    (role.category === "facial" && (p.facial_marker_with_bottom_count ?? 0) > 0)
                   ) ? (
                     <Link to={partnerBottomUrl} className="role-badge-link">
                       <Badge
                         pill
                         variant="info"
                         className="arrow-badge bottom-badge"
+                        title={getTooltipText(
+                          role.category,
+                          "bottom",
+                          role.category === "sex"
+                            ? p.sex_with_bottom_count || 0
+                            : role.category === "oral"
+                            ? p.oral_with_bottom_count || 0
+                            : role.category === "facial"
+                            ? p.facial_marker_with_bottom_count || 0
+                            : 0
+                        )}
                         style={{
                           fontSize: 10,
                           padding: "3px 6px",
@@ -784,7 +887,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                             : role.category === "oral"
                             ? p.oral_with_bottom_count || 0
                             : role.category === "facial"
-                            ? p.facial_with_bottom_count || 0
+                            ? p.facial_marker_with_bottom_count || 0
                             : 0}
                         </span>
                       </Badge>
@@ -794,6 +897,17 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                       pill
                       variant="info"
                       className="arrow-badge bottom-badge"
+                      title={getTooltipText(
+                        role.category,
+                        "bottom",
+                        role.category === "sex"
+                          ? p.sex_with_bottom_count || 0
+                          : role.category === "oral"
+                          ? p.oral_with_bottom_count || 0
+                          : role.category === "facial"
+                          ? p.facial_marker_with_bottom_count || 0
+                          : 0
+                      )}
                       style={{
                         fontSize: 10,
                         padding: "3px 6px",
@@ -803,7 +917,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                         visibility:
                           (role.category === "sex" && (p.sex_with_bottom_count ?? 0) > 0) ||
                           (role.category === "oral" && (p.oral_with_bottom_count ?? 0) > 0) ||
-                          (role.category === "facial" && (p.facial_with_bottom_count ?? 0) > 0)
+                        (role.category === "facial" && (p.facial_marker_with_bottom_count ?? 0) > 0)
                             ? 'visible'
                             : 'hidden',
                       }}
@@ -815,7 +929,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                           : role.category === "oral"
                           ? p.oral_with_bottom_count || 0
                           : role.category === "facial"
-                          ? p.facial_with_bottom_count || 0
+                          ? p.facial_marker_with_bottom_count || 0
                           : 0}
                       </span>
                     </Badge>
@@ -831,7 +945,13 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       {/* Orgasm icon at the end */}
       {orgasmTopCount > 0 && orgasmTagId && (
         <div className="role-badge-item orgasm-badge">
-          <div className="category-icon-container">
+          <div 
+            className="category-icon-container"
+            title={sceneId 
+              ? `${p.name || "Performer"} had ${orgasmTopCount} orgasm${orgasmTopCount !== 1 ? 's' : ''} in this scene`
+              : `${p.name || "Performer"} has ${orgasmTopCount} total orgasm${orgasmTopCount !== 1 ? 's' : ''}`
+            }
+          >
             <Link
               to={NavUtils.makePerformerOrgasmMarkersUrl(
                 performer,
@@ -861,7 +981,13 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       {/* Feet icon */}
       {feetTopCount > 0 && feetTagId && (
         <div className="role-badge-item feet-badge">
-          <div className="category-icon-container">
+          <div 
+            className="category-icon-container"
+            title={sceneId 
+              ? `${p.name || "Performer"} has feet markers in this scene`
+              : `${p.name || "Performer"} has appeared in ${feetTopCount} scene${feetTopCount !== 1 ? 's' : ''} with feet markers`
+            }
+          >
             {!sceneId ? (
               <Link
                 to={NavUtils.makePerformerFeetMarkersUrl(

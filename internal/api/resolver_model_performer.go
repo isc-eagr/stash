@@ -496,6 +496,7 @@ func (r *performerResolver) FacialTopCount(ctx context.Context, obj *models.Perf
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		// Count SCENES (not markers) where performer is top
 		ret, err = scene.CountScenesByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, facialTagID, "top")
 		return err
 	}); err != nil {
@@ -514,7 +515,103 @@ func (r *performerResolver) FacialBottomCount(ctx context.Context, obj *models.P
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		// Count SCENES (not markers) where performer is bottom
 		ret, err = scene.CountScenesByPerformerMarkerRole(ctx, r.repository.SceneMarker, obj.ID, facialTagID, "bottom")
+		return err
+	}); err != nil {
+		return 0, err
+	}
+	return ret, nil
+}
+
+// FacialMarkerCount returns the count of facial markers (individual markers, not scenes)
+func (r *performerResolver) FacialMarkerCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	_, _, _, facialTagID, _, _ := getRoleTagIDs(uiConfig)
+
+	if facialTagID == 0 {
+		return 0, nil
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		// Count markers with facial tag in primary OR secondary tags
+		ret, err = scene.CountMarkersByPerformerRoleWithSecondary(ctx, r.repository.SceneMarker, r.repository.Tag, obj.ID, facialTagID, "")
+		return err
+	}); err != nil {
+		return 0, err
+	}
+	return ret, nil
+}
+
+// FacialMarkerTopCount returns the count of facial markers where performer is the top
+func (r *performerResolver) FacialMarkerTopCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	_, _, _, facialTagID, _, _ := getRoleTagIDs(uiConfig)
+
+	if facialTagID == 0 {
+		return 0, nil
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		// Count markers with facial tag in primary OR secondary tags where performer is top
+		ret, err = scene.CountMarkersByPerformerRoleWithSecondary(ctx, r.repository.SceneMarker, r.repository.Tag, obj.ID, facialTagID, "top")
+		return err
+	}); err != nil {
+		return 0, err
+	}
+	return ret, nil
+}
+
+// FacialMarkerBottomCount returns the count of facial markers where performer is the bottom
+func (r *performerResolver) FacialMarkerBottomCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	_, _, _, facialTagID, _, _ := getRoleTagIDs(uiConfig)
+
+	if facialTagID == 0 {
+		return 0, nil
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		// Count markers with facial tag in primary OR secondary tags where performer is bottom
+		ret, err = scene.CountMarkersByPerformerRoleWithSecondary(ctx, r.repository.SceneMarker, r.repository.Tag, obj.ID, facialTagID, "bottom")
+		return err
+	}); err != nil {
+		return 0, err
+	}
+	return ret, nil
+}
+
+// FacialMarkerWithTopCount returns the count of facial markers with performers this performer has topped
+func (r *performerResolver) FacialMarkerWithTopCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	_, _, _, facialTagID, _, _ := getRoleTagIDs(uiConfig)
+
+	if facialTagID == 0 {
+		return 0, nil
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		// Count ALL markers where this performer is top, checking both primary and secondary tags
+		ret, err = scene.CountMarkersByPerformerRoleWithSecondary(ctx, r.repository.SceneMarker, r.repository.Tag, obj.ID, facialTagID, "top")
+		return err
+	}); err != nil {
+		return 0, err
+	}
+	return ret, nil
+}
+
+// FacialMarkerWithBottomCount returns the count of facial markers with performers this performer has bottomed for
+func (r *performerResolver) FacialMarkerWithBottomCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	_, _, _, facialTagID, _, _ := getRoleTagIDs(uiConfig)
+
+	if facialTagID == 0 {
+		return 0, nil
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		// Count ALL markers where this performer is bottom, checking both primary and secondary tags
+		ret, err = scene.CountMarkersByPerformerRoleWithSecondary(ctx, r.repository.SceneMarker, r.repository.Tag, obj.ID, facialTagID, "bottom")
 		return err
 	}); err != nil {
 		return 0, err

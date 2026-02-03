@@ -140,6 +140,38 @@ mutation DeleteSceneMultiSegmentLoopPreset($scene_id: ID!, $name: String!) {
   deleteSceneMultiSegmentLoopPreset(scene_id: $scene_id, name: $name)
 }
 
+mutation SceneNegativeMarkerCreate(
+  $input: SceneNegativeMarkerCreateInput!
+) {
+  sceneNegativeMarkerCreate(input: $input) {
+    id
+    scene_id
+    name
+    start_seconds
+    end_seconds
+    created_at
+    updated_at
+  }
+}
+
+mutation SceneNegativeMarkerUpdate(
+  $input: SceneNegativeMarkerUpdateInput!
+) {
+  sceneNegativeMarkerUpdate(input: $input) {
+    id
+    scene_id
+    name
+    start_seconds
+    end_seconds
+    created_at
+    updated_at
+  }
+}
+
+mutation SceneNegativeMarkerDestroy($id: ID!) {
+  sceneNegativeMarkerDestroy(id: $id)
+}
+
 mutation SceneMerge($input: SceneMergeInput!) {
   sceneMerge(input: $input) {
     id

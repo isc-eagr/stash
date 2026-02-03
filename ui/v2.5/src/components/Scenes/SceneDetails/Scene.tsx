@@ -77,6 +77,7 @@ const ExternalPlayerButton = lazyComponent(
 
 const QueueViewer = lazyComponent(() => import("./QueueViewer"));
 const SceneMarkersPanel = lazyComponent(() => import("./SceneMarkersPanel"));
+const SceneNegativeMarkersPanel = lazyComponent(() => import("./SceneNegativeMarkersPanel"));
 const SceneFileInfoPanel = lazyComponent(() => import("./SceneFileInfoPanel"));
 const SceneDetailPanel = lazyComponent(() => import("./SceneDetailPanel"));
 const SceneHistoryPanel = lazyComponent(() => import("./SceneHistoryPanel"));
@@ -478,6 +479,12 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                 <FormattedMessage id="markers" />
               </Nav.Link>
             </Nav.Item>
+            <Nav.Item>
+              <Nav.Link eventKey="scene-negative-markers-panel">
+                <FormattedMessage id="negative_markers" defaultMessage="Skip" />
+                <Counter count={scene.negative_markers?.length ?? 0} hideZero />
+              </Nav.Link>
+            </Nav.Item>
             {scene.groups.length > 0 ? (
               <Nav.Item>
                 <Nav.Link eventKey="scene-group-panel">
@@ -558,6 +565,13 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               onClickMarker={onClickMarker}
               isVisible={activeTabKey === "scene-markers-panel"}
               addMultiSegmentLoopSegments={addMultiSegmentLoopSegments}
+            />
+          </Tab.Pane>
+          <Tab.Pane eventKey="scene-negative-markers-panel">
+            <SceneNegativeMarkersPanel
+              scene={scene}
+              isVisible={activeTabKey === "scene-negative-markers-panel"}
+              onRefetch={props.onRefetch}
             />
           </Tab.Pane>
           <Tab.Pane eventKey="scene-group-panel">
