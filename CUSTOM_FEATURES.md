@@ -316,6 +316,32 @@ Quick-access buttons on studio cards and detail pages showing scene counts by ca
 - **Facial Scenes** (goatee icon): Scenes with facial tags
 - **Unique Performers** (user-plus icon): Count of distinct performers
 
+### Studio Sorting by Category Counts
+**Added: February 2026**
+
+Studios can now be sorted by their scene category counts (sex, oral, solo, facial). Both ascending and descending directions are supported.
+
+**Backend Files:**
+- `pkg/sqlite/role_tag_provider.go` - NEW: Configuration provider for role tag IDs
+- `pkg/sqlite/studio.go` - Sort queries for marker-based counts
+
+**Frontend Files:**
+- `ui/v2.5/src/models/list-filter/studios.ts` - Sort options
+
+**Manager Files:**
+- `internal/manager/init.go` - Initialize role tag provider
+- `internal/manager/manager.go` - Role tag provider implementation
+
+**Translation Keys:**
+- `ui/v2.5/src/locales/en-GB.json` - sex_scene_count, oral_scene_count, solo_scene_count, facial_scene_count
+
+**New Sort Options:**
+- `sex_scenes_count` - Sort by scenes with sex markers
+- `oral_scenes_count` - Sort by scenes with oral markers (excludes sex)
+- `solo_scenes_count` - Sort by scenes with solo markers (excludes sex/oral)
+- `facial_scenes_count` - Sort by scenes with facial markers
+- `unique_performers_count` - Sort by count of performers with only 1 scene (and it's for this studio)
+
 ### Studio GraphQL Extensions
 **File:** `graphql/schema/types/studio.graphql`
 ```graphql
