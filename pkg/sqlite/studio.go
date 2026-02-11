@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 
 	"github.com/doug-martin/goqu/v9"
 	"github.com/doug-martin/goqu/v9/exp"
@@ -13,9 +14,42 @@ import (
 	"gopkg.in/guregu/null.v4"
 	"gopkg.in/guregu/null.v4/zero"
 
+	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/studio"
 )
+
+// RoleTagIDs holds the configured role tag IDs from UI config
+type RoleTagIDs struct {
+	SexTagID    int
+	OralTagID   int
+	SoloTagID   int
+	FacialTagID int
+}
+
+// GetRoleTagIDs retrieves role tag IDs from UI configuration
+func GetRoleTagIDs() RoleTagIDs {
+	result := RoleTagIDs{}
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+	if roleTagIds == nil {
+		return result
+	}
+
+	if id, ok := roleTagIds["sexTagId"].(string); ok && id != "" {
+		result.SexTagID, _ = strconv.Atoi(id)
+	}
+	if id, ok := roleTagIds["oralTagId"].(string); ok && id != "" {
+		result.OralTagID, _ = strconv.Atoi(id)
+	}
+	if id, ok := roleTagIds["soloTagId"].(string); ok && id != "" {
+		result.SoloTagID, _ = strconv.Atoi(id)
+	}
+	if id, ok := roleTagIds["facialTagId"].(string); ok && id != "" {
+		result.FacialTagID, _ = strconv.Atoi(id)
+	}
+	return result
+}
 
 const (
 	studioTable    = "studios"

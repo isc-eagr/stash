@@ -190,9 +190,6 @@ func initJobManager(cfg *config.Config) *job.Manager {
 func (s *Manager) postInit(ctx context.Context) error {
 	s.RefreshConfig()
 
-	// Initialize the role tag provider for sqlite sorting
-	s.initRoleTagProvider()
-
 	s.SessionStore = session.NewStore(s.Config)
 	s.PluginCache.RegisterSessionStore(s.SessionStore)
 

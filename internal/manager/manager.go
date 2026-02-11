@@ -444,29 +444,3 @@ func (s *Manager) Shutdown() {
 		logger.Errorf("Error closing database: %s", err)
 	}
 }
-
-// initRoleTagProvider sets up the role tag provider for sqlite sorting
-func (s *Manager) initRoleTagProvider() {
-	sqlite.SetRoleTagProvider(func() sqlite.RoleTagIDs {
-		uiConfig := s.Config.GetUIConfiguration()
-		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
-		if roleTagIds == nil {
-			return sqlite.RoleTagIDs{}
-		}
-
-		var result sqlite.RoleTagIDs
-		if id, ok := roleTagIds["sexTagId"].(string); ok && id != "" {
-			fmt.Sscanf(id, "%d", &result.SexTagID)
-		}
-		if id, ok := roleTagIds["oralTagId"].(string); ok && id != "" {
-			fmt.Sscanf(id, "%d", &result.OralTagID)
-		}
-		if id, ok := roleTagIds["soloTagId"].(string); ok && id != "" {
-			fmt.Sscanf(id, "%d", &result.SoloTagID)
-		}
-		if id, ok := roleTagIds["facialTagId"].(string); ok && id != "" {
-			fmt.Sscanf(id, "%d", &result.FacialTagID)
-		}
-		return result
-	})
-}

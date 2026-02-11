@@ -1069,8 +1069,8 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 		return
 
 	case models.CriterionModifierEquals:
-		// Check if GroupsExtended is provided (with performer attributes)
-		if len(c.GroupsExtended) > 0 {
+		// Check if GroupsExtended or GroupsExtendedExclude is provided (with performer attributes)
+		if len(c.GroupsExtended) > 0 || len(c.GroupsExtendedExclude) > 0 {
 			// Group identical configurations to enforce uniqueness:
 			// If there are 5 identical groups (e.g., 5 groups with just "facial" tag),
 			// we need to find 5 DISTINCT markers matching that configuration.
