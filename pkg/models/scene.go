@@ -22,6 +22,20 @@ type CustomSceneFilterInput struct {
 	FacialTagID *string `json:"facial_tag_id"`
 }
 
+// SceneTypeFilterInput is the input for filtering scenes by type (sex, oral, solo, facial)
+type SceneTypeFilterInput struct {
+	// Selected scene types to filter by
+	Types []string `json:"types"`
+	// The tag ID for 'sex' markers
+	SexTagID *string `json:"sex_tag_id"`
+	// The tag ID for 'oral' markers
+	OralTagID *string `json:"oral_tag_id"`
+	// The tag ID for 'solo' markers
+	SoloTagID *string `json:"solo_tag_id"`
+	// The tag ID for 'facial' markers
+	FacialTagID *string `json:"facial_tag_id"`
+}
+
 type SceneFilterType struct {
 	OperatorFilter[SceneFilterType]
 	ID       *IntCriterionInput    `json:"id"`
@@ -72,6 +86,8 @@ type SceneFilterType struct {
 	// Custom scene filters: predefined complex filters.
 	// Options: 'multiple_orgasms', 'versatile_scenes'
 	CustomFilters *CustomSceneFilterInput `json:"custom_filters"`
+	// Filter by scene type based on marker tags
+	SceneType *SceneTypeFilterInput `json:"scene_type"`
 	// Filter by scene marker tags with optional performer role criteria
 	SceneMarkerTags *SceneMarkerTagsCriterionInput `json:"scene_marker_tags"`
 	// Filter to only include scenes missing this property

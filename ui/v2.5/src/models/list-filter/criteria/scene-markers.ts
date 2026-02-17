@@ -44,6 +44,11 @@ export interface ISceneMarkersValue {
   unnamed_performers: IUnnamedPerformer[];
 }
 
+type AutoExcludeOnMarkerRule = {
+  matchTagIdSet: Set<string>;
+  excludeTagIdsOnMarker: string[];
+};
+
 // Default empty group
 function createEmptyGroup(groupId: string): ISceneMarkersGroup {
   return {
@@ -331,6 +336,10 @@ export class SceneMarkersCriterion extends Criterion {
   }
 
   public applyToCriterionInput(input: Record<string, unknown>): void {
+    const autoExcludeRule = (this as unknown as {
+      __autoExcludeOnMarkerRule?: AutoExcludeOnMarkerRule;
+    }).__autoExcludeOnMarkerRule;
+
     // Helper to get unnamed performer definition by ID
     const getUnnamedDef = (id: string) =>
       (this.value.unnamed_performers ?? []).find((up) => up.id === id);
@@ -343,6 +352,14 @@ export class SceneMarkersCriterion extends Criterion {
         tag_ids: g.tag_ids.map((t) => t.id),
         performer_mode: performerMode,
       };
+
+      if (
+        autoExcludeRule?.matchTagIdSet?.size &&
+        autoExcludeRule.excludeTagIdsOnMarker?.length &&
+        g.tag_ids.some((t) => autoExcludeRule.matchTagIdSet.has(t.id))
+      ) {
+        group.exclude_tag_ids_on_marker = autoExcludeRule.excludeTagIdsOnMarker;
+      }
 
       // Depth
       if (g.depth !== 0) {

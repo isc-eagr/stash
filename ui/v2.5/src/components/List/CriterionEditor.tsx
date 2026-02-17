@@ -91,10 +91,18 @@ import {
   SceneMarkerCustomFiltersCriterion,
 } from "src/models/list-filter/criteria/custom-filters";
 import {
+  SceneSceneTypeCriterion,
+  PerformerSceneTypeCriterion,
+} from "src/models/list-filter/criteria/scene-type";
+import {
   SceneCustomFiltersFilter,
   PerformerCustomFiltersFilter,
   SceneMarkerCustomFiltersFilter,
 } from "./Filters/CustomFiltersFilter";
+import {
+  SceneSceneTypeFilter,
+  PerformerSceneTypeFilter,
+} from "./Filters/SceneTypeFilter";
 import { HasRolesCriterion } from "src/models/list-filter/criteria/has-roles";
 import { HasRolesFilter } from "./Filters/HasRolesFilter";
 
@@ -491,9 +499,27 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
       );
     }
 
+    if (criterion instanceof SceneSceneTypeCriterion) {
+      return (
+        <SceneSceneTypeFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
     if (criterion instanceof PerformerCustomFiltersCriterion) {
       return (
         <PerformerCustomFiltersFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof PerformerSceneTypeCriterion) {
+      return (
+        <PerformerSceneTypeFilter
           criterion={criterion}
           setCriterion={(nc) => setCriterion(nc)}
         />

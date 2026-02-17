@@ -116,6 +116,7 @@ export interface IUIConfig {
     facialTagId?: string; // Tag ID for facial markers
     orgasmTagId?: string; // Tag ID for orgasm markers
     feetTagId?: string; // Tag ID for feet markers
+    secondCameraTagId?: string; // Tag ID for 2nd camera markers (excluded from orgasm/facial counts)
   };
 }
 

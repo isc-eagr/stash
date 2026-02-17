@@ -1098,6 +1098,7 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 				bothRolesRating            string
 				bothRolesUnnamedPerformers []models.UnnamedPerformerCriterionInput // Unnamed performers for both roles
 				excludeTagIDs              []string
+				excludeTagIDsOnMarker      []string
 			}
 
 			serializeRating := func(r *models.IntCriterionInput) string {
@@ -1139,9 +1140,10 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 
 			makeGroupKey := func(g models.SceneMarkerTagGroupInput) groupConfig {
 				cfg := groupConfig{
-					tagIDs:        append([]string(nil), g.TagIDs...),
-					excludeTagIDs: append([]string(nil), g.ExcludeTagIDs...),
-					performerMode: "OR", // default
+					tagIDs:                append([]string(nil), g.TagIDs...),
+					excludeTagIDs:         append([]string(nil), g.ExcludeTagIDs...),
+					excludeTagIDsOnMarker: append([]string(nil), g.ExcludeTagIDsOnMarker...),
+					performerMode:         "OR", // default
 				}
 				if g.Depth != nil {
 					cfg.depth = *g.Depth
@@ -1209,6 +1211,7 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 				// Sort all slices for canonical ordering
 				sort.Strings(cfg.tagIDs)
 				sort.Strings(cfg.excludeTagIDs)
+				sort.Strings(cfg.excludeTagIDsOnMarker)
 				sort.Strings(cfg.topPerformerIDs)
 				sort.Strings(cfg.topEthnicities)
 				sort.Strings(cfg.topCountries)
@@ -1255,6 +1258,7 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 					cfg.bothRolesRating,
 					serializeUnnamedPerformers(cfg.bothRolesUnnamedPerformers),
 					strings.Join(cfg.excludeTagIDs, ","),
+					strings.Join(cfg.excludeTagIDsOnMarker, ","),
 				}
 				key := strings.Join(keyParts, "|")
 				configCounts[key]++
@@ -1266,13 +1270,13 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 			// Secondary grouping: when multiple configs differ ONLY by unnamed performer IDs
 			// (but have the same tag IDs and performer characteristics), they're functionally
 			// equivalent and should be merged to require that many DISTINCT markers.
-			// 
+			//
 			// This handles cases like:
 			// - Group A: top=unnamed-A(Black), bottom=unnamed-B(Black)
 			// - Group B: top=unnamed-B(Black), bottom=unnamed-A(Black)
 			// Both produce the same SQL condition (Black top + Black bottom), so a single
 			// marker would match both. We need to sum their multiplicities.
-			
+
 			// Create a key that ignores unnamed performer IDs, only keeping characteristics
 			serializeUnnamedPerformersNoID := func(ups []models.UnnamedPerformerCriterionInput) string {
 				if len(ups) == 0 {
@@ -1296,7 +1300,7 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 				sort.Strings(parts)
 				return strings.Join(parts, ";")
 			}
-			
+
 			makeCharacteristicsKey := func(cfg groupConfig) string {
 				keyParts := []string{
 					strings.Join(cfg.tagIDs, ","),
@@ -1320,6 +1324,7 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 					cfg.bothRolesRating,
 					serializeUnnamedPerformersNoID(cfg.bothRolesUnnamedPerformers),
 					strings.Join(cfg.excludeTagIDs, ","),
+					strings.Join(cfg.excludeTagIDsOnMarker, ","),
 				}
 				return strings.Join(keyParts, "|")
 			}
@@ -1501,6 +1506,24 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
   ) = `+fmt.Sprintf("%d", originalTagCount))
 					}
 					for _, tid := range tagIDs {
+						matchArgs = append(matchArgs, tid)
+					}
+				}
+
+				// Marker-level exclude tags: marker must NOT have any of these tags
+				if len(cfg.excludeTagIDsOnMarker) > 0 {
+					exclPh := getInBinding(len(cfg.excludeTagIDsOnMarker))
+					matchConditions = append(matchConditions, `NOT (
+		sm.primary_tag_id IN `+exclPh+`
+		OR EXISTS (
+			SELECT 1 FROM scene_markers_tags mt_excl
+			WHERE mt_excl.scene_marker_id = sm.id AND mt_excl.tag_id IN `+exclPh+`
+		)
+	)`)
+					for _, tid := range cfg.excludeTagIDsOnMarker {
+						matchArgs = append(matchArgs, tid)
+					}
+					for _, tid := range cfg.excludeTagIDsOnMarker {
 						matchArgs = append(matchArgs, tid)
 					}
 				}
@@ -1929,6 +1952,28 @@ WHERE sm_excl.scene_id = {primaryTable}.id
 						tagCondClause = "1=1"
 					}
 
+					// Marker-level exclude tags: marker must NOT have any of these tags
+					var markerExcludeClause string
+					var markerExcludeArgs []any
+					if len(cfg.excludeTagIDsOnMarker) > 0 {
+						exclPh := getInBinding(len(cfg.excludeTagIDsOnMarker))
+						markerExcludeClause = fmt.Sprintf(`NOT (
+							sm_check.primary_tag_id IN %s
+							OR EXISTS (
+								SELECT 1 FROM scene_markers_tags smt_excl
+								WHERE smt_excl.scene_marker_id = sm_check.id AND smt_excl.tag_id IN %s
+							)
+						)`, exclPh, exclPh)
+						for _, tid := range cfg.excludeTagIDsOnMarker {
+							markerExcludeArgs = append(markerExcludeArgs, tid)
+						}
+						for _, tid := range cfg.excludeTagIDsOnMarker {
+							markerExcludeArgs = append(markerExcludeArgs, tid)
+						}
+					} else {
+						markerExcludeClause = "1=1"
+					}
+
 					// Build role condition
 					roleCondClause := "1=1"
 					if role != "" {
@@ -1947,14 +1992,16 @@ JOIN performers p_check ON p_check.id = smp_check.performer_id
 WHERE sm_check.scene_id = {primaryTable}.id
   AND `+roleCondClause+`
   AND `+tagCondClause+`
+	AND `+markerExcludeClause+`
   AND `+perfCondClause+`
 GROUP BY smp_check.performer_id
 HAVING COUNT(DISTINCT sm_check.id) >= ?
 )`, utils.StrFormatMap{"primaryTable": h.primaryTable})
 
 					var allArgs []any
-					allArgs = append(allArgs, perfCondArgs...)
 					allArgs = append(allArgs, tagCondArgs...)
+					allArgs = append(allArgs, markerExcludeArgs...)
+					allArgs = append(allArgs, perfCondArgs...)
 					allArgs = append(allArgs, multiplicity)
 					f.addWhere(subq, allArgs...)
 

@@ -399,9 +399,13 @@ func (r *queryResolver) SceneOrgasmCount(ctx context.Context) (int, error) {
 		uiConfig := config.GetInstance().GetUIConfiguration()
 		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
 		var orgasmTagID int
+		var secondCameraTagID int
 		if roleTagIds != nil {
 			if orgasmID, ok := roleTagIds["orgasmTagId"].(string); ok && orgasmID != "" {
 				orgasmTagID, _ = strconv.Atoi(orgasmID)
+			}
+			if scID, ok := roleTagIds["secondCameraTagId"].(string); ok && scID != "" {
+				secondCameraTagID, _ = strconv.Atoi(scID)
 			}
 		}
 		if orgasmTagID == 0 {
@@ -409,25 +413,44 @@ func (r *queryResolver) SceneOrgasmCount(ctx context.Context) (int, error) {
 		}
 
 		db := manager.GetInstance().Database
+
+		// Build optional 2nd camera exclusion clause
+		secondCameraCTE := ""
+		secondCameraExclude := ""
+		args := []interface{}{orgasmTagID}
+		if secondCameraTagID > 0 {
+			secondCameraCTE = `,
+second_camera_tags(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN second_camera_tags sct ON tr.parent_id = sct.id
+)`
+			secondCameraExclude = `
+  AND sm.id NOT IN (
+    SELECT smt2.scene_marker_id FROM scene_markers_tags smt2
+    WHERE smt2.tag_id IN (SELECT id FROM second_camera_tags)
+  )`
+			args = append(args, secondCameraTagID)
+		}
+
 		query := `
 WITH RECURSIVE orgasm_tags(id) AS (
   SELECT id FROM tags WHERE id = ?
   UNION ALL
   SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
-),
+)` + secondCameraCTE + `,
 orgasm_markers AS (
   SELECT DISTINCT sm.id
   FROM scene_markers sm
   LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-  WHERE sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
-     OR smt.tag_id IN (SELECT id FROM orgasm_tags)
+  WHERE (sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
+     OR smt.tag_id IN (SELECT id FROM orgasm_tags))` + secondCameraExclude + `
 )
 SELECT COALESCE(SUM(CASE WHEN top_count > 0 THEN top_count ELSE 1 END), 0) AS total_orgasms
 FROM (
   SELECT om.id, (SELECT COUNT(*) FROM scene_marker_performers smp WHERE smp.scene_marker_id = om.id AND smp.role = 'top') AS top_count
   FROM orgasm_markers om
 ) sub`
-		args := []interface{}{orgasmTagID}
 		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
 			return err
@@ -469,9 +492,13 @@ func (r *queryResolver) SceneFacialCount(ctx context.Context) (int, error) {
 		uiConfig := config.GetInstance().GetUIConfiguration()
 		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
 		var facialTagID int
+		var secondCameraTagID int
 		if roleTagIds != nil {
 			if facialID, ok := roleTagIds["facialTagId"].(string); ok && facialID != "" {
 				facialTagID, _ = strconv.Atoi(facialID)
+			}
+			if scID, ok := roleTagIds["secondCameraTagId"].(string); ok && scID != "" {
+				secondCameraTagID, _ = strconv.Atoi(scID)
 			}
 		}
 		if facialTagID == 0 {
@@ -479,25 +506,44 @@ func (r *queryResolver) SceneFacialCount(ctx context.Context) (int, error) {
 		}
 
 		db := manager.GetInstance().Database
+
+		// Build optional 2nd camera exclusion clause
+		secondCameraCTE := ""
+		secondCameraExclude := ""
+		args := []interface{}{facialTagID}
+		if secondCameraTagID > 0 {
+			secondCameraCTE = `,
+second_camera_tags(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN second_camera_tags sct ON tr.parent_id = sct.id
+)`
+			secondCameraExclude = `
+  AND sm.id NOT IN (
+    SELECT smt2.scene_marker_id FROM scene_markers_tags smt2
+    WHERE smt2.tag_id IN (SELECT id FROM second_camera_tags)
+  )`
+			args = append(args, secondCameraTagID)
+		}
+
 		query := `
 WITH RECURSIVE facial_tags(id) AS (
   SELECT id FROM tags WHERE id = ?
   UNION ALL
   SELECT tr.child_id FROM tags_relations tr JOIN facial_tags ft ON tr.parent_id = ft.id
-),
+)` + secondCameraCTE + `,
 facial_markers AS (
   SELECT DISTINCT sm.id
   FROM scene_markers sm
   LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-  WHERE sm.primary_tag_id IN (SELECT id FROM facial_tags)
-     OR smt.tag_id IN (SELECT id FROM facial_tags)
+  WHERE (sm.primary_tag_id IN (SELECT id FROM facial_tags)
+     OR smt.tag_id IN (SELECT id FROM facial_tags))` + secondCameraExclude + `
 )
 SELECT COALESCE(SUM(CASE WHEN top_count > 0 THEN top_count ELSE 1 END), 0) AS total_facials
 FROM (
   SELECT fm.id, (SELECT COUNT(*) FROM scene_marker_performers smp WHERE smp.scene_marker_id = fm.id AND smp.role = 'top') AS top_count
   FROM facial_markers fm
 ) sub`
-		args := []interface{}{facialTagID}
 		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
 			return err
@@ -1783,9 +1829,13 @@ func (r *queryResolver) TotalOrgasmTime(ctx context.Context) (float64, error) {
 		uiConfig := config.GetInstance().GetUIConfiguration()
 		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
 		var orgasmTagID int
+		var secondCameraTagID int
 		if roleTagIds != nil {
 			if orgasmID, ok := roleTagIds["orgasmTagId"].(string); ok && orgasmID != "" {
 				orgasmTagID, _ = strconv.Atoi(orgasmID)
+			}
+			if scID, ok := roleTagIds["secondCameraTagId"].(string); ok && scID != "" {
+				secondCameraTagID, _ = strconv.Atoi(scID)
 			}
 		}
 		if orgasmTagID == 0 {
@@ -1793,18 +1843,38 @@ func (r *queryResolver) TotalOrgasmTime(ctx context.Context) (float64, error) {
 		}
 
 		db := manager.GetInstance().Database
+
+		// Build optional 2nd camera exclusion clause
+		secondCameraCTE := ""
+		secondCameraExclude := ""
+		args := []interface{}{orgasmTagID}
+		if secondCameraTagID > 0 {
+			secondCameraCTE = `,
+second_camera_tags(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN second_camera_tags sct ON tr.parent_id = sct.id
+)`
+			secondCameraExclude = `
+  AND sm.id NOT IN (
+    SELECT smt2.scene_marker_id FROM scene_markers_tags smt2
+    WHERE smt2.tag_id IN (SELECT id FROM second_camera_tags)
+  )`
+			args = append(args, secondCameraTagID)
+		}
+
 		query := `
 WITH RECURSIVE orgasm_tags(id) AS (
   SELECT id FROM tags WHERE id = ?
   UNION ALL
   SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
-),
+)` + secondCameraCTE + `,
 orgasm_markers AS (
   SELECT DISTINCT sm.id, sm.seconds, sm.end_seconds
   FROM scene_markers sm
   LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-  WHERE sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
-     OR smt.tag_id IN (SELECT id FROM orgasm_tags)
+  WHERE (sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
+     OR smt.tag_id IN (SELECT id FROM orgasm_tags))` + secondCameraExclude + `
 )
 SELECT COALESCE(SUM(
   (CASE WHEN end_seconds IS NOT NULL THEN end_seconds - seconds ELSE 20.0 END) 
@@ -1816,7 +1886,6 @@ FROM (
     (SELECT COUNT(*) FROM scene_marker_performers smp WHERE smp.scene_marker_id = om.id AND smp.role = 'top') AS top_count
   FROM orgasm_markers om
 ) sub`
-		args := []interface{}{orgasmTagID}
 		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
 			return err
@@ -1857,9 +1926,13 @@ func (r *queryResolver) TotalFacialTime(ctx context.Context) (float64, error) {
 		uiConfig := config.GetInstance().GetUIConfiguration()
 		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
 		var facialTagID int
+		var secondCameraTagID int
 		if roleTagIds != nil {
 			if facialID, ok := roleTagIds["facialTagId"].(string); ok && facialID != "" {
 				facialTagID, _ = strconv.Atoi(facialID)
+			}
+			if scID, ok := roleTagIds["secondCameraTagId"].(string); ok && scID != "" {
+				secondCameraTagID, _ = strconv.Atoi(scID)
 			}
 		}
 		if facialTagID == 0 {
@@ -1867,18 +1940,38 @@ func (r *queryResolver) TotalFacialTime(ctx context.Context) (float64, error) {
 		}
 
 		db := manager.GetInstance().Database
+
+		// Build optional 2nd camera exclusion clause
+		secondCameraCTE := ""
+		secondCameraExclude := ""
+		args := []interface{}{facialTagID}
+		if secondCameraTagID > 0 {
+			secondCameraCTE = `,
+second_camera_tags(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN second_camera_tags sct ON tr.parent_id = sct.id
+)`
+			secondCameraExclude = `
+  AND sm.id NOT IN (
+    SELECT smt2.scene_marker_id FROM scene_markers_tags smt2
+    WHERE smt2.tag_id IN (SELECT id FROM second_camera_tags)
+  )`
+			args = append(args, secondCameraTagID)
+		}
+
 		query := `
 WITH RECURSIVE facial_tags(id) AS (
   SELECT id FROM tags WHERE id = ?
   UNION ALL
   SELECT tr.child_id FROM tags_relations tr JOIN facial_tags ft ON tr.parent_id = ft.id
-),
+)` + secondCameraCTE + `,
 facial_markers AS (
   SELECT DISTINCT sm.id, sm.seconds, sm.end_seconds
   FROM scene_markers sm
   LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-  WHERE sm.primary_tag_id IN (SELECT id FROM facial_tags)
-     OR smt.tag_id IN (SELECT id FROM facial_tags)
+  WHERE (sm.primary_tag_id IN (SELECT id FROM facial_tags)
+     OR smt.tag_id IN (SELECT id FROM facial_tags))` + secondCameraExclude + `
 )
 SELECT COALESCE(SUM(
   (CASE WHEN end_seconds IS NOT NULL THEN end_seconds - seconds ELSE 20.0 END) 
@@ -1890,7 +1983,6 @@ FROM (
     (SELECT COUNT(*) FROM scene_marker_performers smp WHERE smp.scene_marker_id = fm.id AND smp.role = 'top') AS top_count
   FROM facial_markers fm
 ) sub`
-		args := []interface{}{facialTagID}
 		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
 			return err

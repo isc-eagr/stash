@@ -24,6 +24,7 @@ import { PerformerMarkersExcludeCriterionOption } from "./criteria/performer-mar
 import { HasMarkersCriterionOption } from "./criteria/has-markers";
 import { ProfileImageCountCriterionOption } from "./criteria/profile-image-count";
 import { PerformerCustomFiltersCriterionOption } from "./criteria/custom-filters";
+import { PerformerSceneTypeCriterionOption } from "./criteria/scene-type";
 
 const defaultSortBy = "name";
 const sortByOptions = [
@@ -105,6 +106,8 @@ const criterionOptions = [
   HasMarkersCriterionOption,
   // Custom Filters: predefined complex filters (strict_tops, lenient_tops, strict_bottoms, lenient_bottoms)
   PerformerCustomFiltersCriterionOption,
+  // Scene Type: filter performers by scene type (sex, oral, solo, facial)
+  PerformerSceneTypeCriterionOption,
   // Performer Markers: filter by markers with specific tags, performer role, and partner attributes
   PerformerMarkersCriterionOption,
   // Performer Markers: Exclude - exclude performers with markers matching these criteria

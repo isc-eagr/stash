@@ -204,9 +204,10 @@ type UnnamedPerformerCriterionInput struct {
 // SceneMarkerTagGroupInput represents a group for scene marker tags filtering
 // with optional performer attributes
 type SceneMarkerTagGroupInput struct {
-	TagIDs        []string `json:"tag_ids"`
-	ExcludeTagIDs []string `json:"exclude_tag_ids"` // Tags that must NOT be present on any marker
-	Depth         *int     `json:"depth"`
+	TagIDs                []string `json:"tag_ids"`
+	ExcludeTagIDs         []string `json:"exclude_tag_ids"`           // Tags that must NOT be present on any marker
+	ExcludeTagIDsOnMarker []string `json:"exclude_tag_ids_on_marker"` // Tags that must NOT be present on the matched marker
+	Depth                 *int     `json:"depth"`
 
 	// Top criteria
 	TopPerformerIDs    []string              `json:"top_performer_ids"`

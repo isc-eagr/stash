@@ -76,6 +76,8 @@ type Performer {
   orgasm_top_count: Int! # Resolver - orgasm markers where performer is top
   # Feet markers: count of distinct scenes with feet markers where performer is top
   feet_top_count: Int! # Resolver - distinct scenes with feet markers where performer is top
+  # Feet marker count: count of feet markers where performer is top (not scene count)
+  feet_marker_count: Int! # Resolver - feet markers where performer is top
   # Partner counts: number of unique performers this performer has topped/bottomed for in each category
   sex_with_top_count: Int! # Resolver - unique performers this performer has topped sexually
   sex_with_bottom_count: Int! # Resolver - unique performers this performer has bottomed for sexually

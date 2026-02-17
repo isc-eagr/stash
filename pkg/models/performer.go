@@ -197,6 +197,8 @@ type PerformerFilterType struct {
 	// Custom performer filters: predefined complex filters.
 	// Options: 'strict_tops', 'lenient_tops', 'strict_bottoms', 'lenient_bottoms'
 	CustomFilters *CustomPerformerFilterInput `json:"custom_filters"`
+	// Filter by scene type based on marker tags
+	SceneType *SceneTypeFilterInput `json:"scene_type"`
 	// Filter by related images that meet this criteria
 	ImagesFilter *ImageFilterType `json:"images_filter"`
 	// Filter by related galleries that meet this criteria

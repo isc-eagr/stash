@@ -99,7 +99,7 @@ func (r *studioResolver) SceneCount(ctx context.Context, obj *models.Studio, dep
 // SexSceneCount returns the count of scenes with sex markers
 func (r *studioResolver) SexSceneCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
-	sexTagID, _, _, _, _, _ := getRoleTagIDs(uiConfig)
+	sexTagID, _, _, _, _, _, _ := getRoleTagIDs(uiConfig)
 
 	if sexTagID == 0 {
 		return 0, nil
@@ -127,7 +127,7 @@ func (r *studioResolver) SexSceneCount(ctx context.Context, obj *models.Studio, 
 // OralSceneCount returns the count of scenes with oral markers but not sex markers
 func (r *studioResolver) OralSceneCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
-	sexTagID, oralTagID, _, _, _, _ := getRoleTagIDs(uiConfig)
+	sexTagID, oralTagID, _, _, _, _, _ := getRoleTagIDs(uiConfig)
 
 	if oralTagID == 0 {
 		return 0, nil
@@ -155,7 +155,7 @@ func (r *studioResolver) OralSceneCount(ctx context.Context, obj *models.Studio,
 // SoloSceneCount returns the count of scenes with solo markers but not sex/oral markers
 func (r *studioResolver) SoloSceneCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
-	sexTagID, oralTagID, soloTagID, _, _, _ := getRoleTagIDs(uiConfig)
+	sexTagID, oralTagID, soloTagID, _, _, _, _ := getRoleTagIDs(uiConfig)
 
 	if soloTagID == 0 {
 		return 0, nil
@@ -183,7 +183,7 @@ func (r *studioResolver) SoloSceneCount(ctx context.Context, obj *models.Studio,
 // FacialSceneCount returns the count of scenes with facial markers (independent of other markers)
 func (r *studioResolver) FacialSceneCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
-	_, _, _, facialTagID, _, _ := getRoleTagIDs(uiConfig)
+	_, _, _, facialTagID, _, _, _ := getRoleTagIDs(uiConfig)
 
 	if facialTagID == 0 {
 		return 0, nil

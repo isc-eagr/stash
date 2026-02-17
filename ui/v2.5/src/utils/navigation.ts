@@ -1836,7 +1836,7 @@ const makePerformerOrgasmMarkersUrl = (
   return `/scenes/markers?${filter.makeQueryParameters()}`;
 };
 
-// Navigate to scenes with feet markers where performer is "top"
+// Navigate to scene markers where performer has feet markers
 const makePerformerFeetMarkersUrl = (
   performer: Partial<GQL.PerformerDataFragment>,
   tagId: string,
@@ -1844,23 +1844,31 @@ const makePerformerFeetMarkersUrl = (
 ) => {
   if (!performer.id || !tagId) return "#";
 
-  return `/scenes?c=${encodeURIComponent(
-    JSON.stringify({
-      type: "scene_markers",
-      modifier: "EQUALS",
-      groups: [
-        {
-          groupId: "A",
-          tag_ids: [{ id: tagId, label: tagLabel }],
-          depth: -1, // Include subtags
-          performer_mode: "AND",
-          top_performer_ids: [{ id: performer.id, label: performer.name || `Performer ${performer.id}` }],
-          bottom_performer_ids: [],
-        },
-      ],
-      unnamed_performers: [],
-    })
-  )}&sortby=date`;
+  const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
+
+  // Add marker performers criterion with the performer as top and the tag filter
+  const criterion = new MarkerPerformersCriterion(MarkerPerformersCriterionOption);
+  criterion.modifier = GQL.CriterionModifier.IncludesAll;
+  criterion.value = {
+    tag_ids: [{ id: tagId, label: tagLabel }],
+    include_subtags: true,
+    top_performer_ids: [{ id: performer.id, label: performer.name || `Performer ${performer.id}` }],
+    top_any_count: 0,
+    top_ethnicities: [],
+    top_countries: [],
+    top_rating: null,
+    bottom_performer_ids: [],
+    bottom_any_count: 0,
+    bottom_ethnicities: [],
+    bottom_countries: [],
+    bottom_rating: null,
+    unnamed_performers: [],
+    performer_mode: "AND",
+  };
+  filter.criteria.push(criterion);
+  filter.sortBy = "title";
+
+  return `/scenes/markers?${filter.makeQueryParameters()}`;
 };
 
 // Navigate to scene markers for facial/oral with role filter (goes to /scenes/markers, not /scenes)

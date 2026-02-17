@@ -275,7 +275,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     const facialWithBottomCount = p.facial_marker_with_bottom_count ?? 0;
 
     orgasmTopCount = p.orgasm_top_count ?? 0;
-    feetTopCount = p.feet_top_count ?? 0;
+    feetTopCount = p.feet_marker_count ?? 0;
 
     // Show category if performer has scenes OR has partner counts in that category
     if ((sexCount > 0 || sexWithTopCount > 0 || sexWithBottomCount > 0) && sexTagId) {
@@ -984,8 +984,8 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
           <div 
             className="category-icon-container"
             title={sceneId 
-              ? `${p.name || "Performer"} has feet markers in this scene`
-              : `${p.name || "Performer"} has appeared in ${feetTopCount} scene${feetTopCount !== 1 ? 's' : ''} with feet markers`
+              ? `${p.name || "Performer"} has ${feetTopCount} feet marker${feetTopCount !== 1 ? 's' : ''} in this scene`
+              : `${p.name || "Performer"} has ${feetTopCount} total feet marker${feetTopCount !== 1 ? 's' : ''}`
             }
           >
             {!sceneId ? (

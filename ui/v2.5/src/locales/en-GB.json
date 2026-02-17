@@ -623,7 +623,8 @@
         "solo": "Solo marker tag",
         "facial": "Facial marker tag",
         "orgasm": "Orgasm marker tag",
-        "feet": "Feet marker tag"
+        "feet": "Feet marker tag",
+        "second_camera": "2nd Camera marker tag (excluded from counts)"
       },
       "abbreviate_counters": {
         "description": "Abbreviate counters in cards and details view pages, for example \"1831\" will get formated to \"1.8K\".",
@@ -1269,6 +1270,19 @@
   "custom_filters.strict_bottoms_desc": "Performers with sex markers as bottom, and no sex/oral/facial markers as top",
   "custom_filters.lenient_bottoms": "Lenient Bottoms",
   "custom_filters.lenient_bottoms_desc": "Performers with sex markers as bottom and none as top, but has oral/facial as top",
+  "scene_type": "Scene Type",
+  "scene_type.sex": "Sex Scene",
+  "scene_type.sex_desc": "Scenes with at least one sex marker",
+  "scene_type.sex_performer_desc": "Performer has participated in at least one sex scene",
+  "scene_type.oral": "Oral Scene",
+  "scene_type.oral_desc": "Scenes with oral markers but no sex markers",
+  "scene_type.oral_performer_desc": "Performer has participated in at least one oral scene",
+  "scene_type.solo": "Solo Scene",
+  "scene_type.solo_desc": "Scenes with solo markers but no sex or oral markers",
+  "scene_type.solo_performer_desc": "Performer has participated in at least one solo scene",
+  "scene_type.facial": "Facial Scene",
+  "scene_type.facial_desc": "Scenes with at least one facial marker",
+  "scene_type.facial_performer_desc": "Performer has participated in at least one facial scene",
   "package_manager": {
     "add_source": "Add Source",
     "check_for_updates": "Check for Updates",

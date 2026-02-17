@@ -47,6 +47,7 @@ import { PathCriterionOption } from "./criteria/path";
 import { OrientationCriterionOption } from "./criteria/orientation";
 import { EthnicityCriterionOption } from "./criteria/ethnicity";
 import { SceneCustomFiltersCriterionOption } from "./criteria/custom-filters";
+import { SceneSceneTypeCriterionOption } from "./criteria/scene-type";
 
 // Has Marker Performers criterion option
 const HasMarkerPerformersCriterionOption = new StringBooleanCriterionOption(
@@ -145,6 +146,7 @@ const criterionOptions = [
   HasMarkersCriterionOption,
   HasMarkerPerformersCriterionOption,
   SceneCustomFiltersCriterionOption,
+  SceneSceneTypeCriterionOption,
   SceneIsMissingCriterionOption,
   TagsCriterionOption,
   createMandatoryNumberCriterionOption("tag_count"),

@@ -404,6 +404,24 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
               }
             />
           </Setting>
+          <Setting id="role-tag-second-camera" headingID="config.ui.role_tags.second_camera">
+            <TagIDSelect
+              isMulti={false}
+              creatable={false}
+              ids={
+                ui.roleTagIds?.secondCameraTagId ? [ui.roleTagIds.secondCameraTagId] : []
+              }
+              menuPortalTarget={document.body}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  roleTagIds: {
+                    ...(ui.roleTagIds ?? {}),
+                    secondCameraTagId: items[0]?.id ?? undefined,
+                  },
+                })
+              }
+            />
+          </Setting>
         </SettingSection>
 
         <SettingSection headingID="config.ui.desktop_integration.desktop_integration">

@@ -304,7 +304,8 @@ func CountMarkersByPerformerRole(ctx context.Context, r models.SceneMarkerQuerye
 
 // CountMarkersByPerformerRoleWithSecondary counts markers where performer has role and the marker
 // has the tagID in either primary or secondary tags (including subtags).
-func CountMarkersByPerformerRoleWithSecondary(ctx context.Context, r models.SceneMarkerReader, tagFinder models.TagFinder, performerID int, tagID int, role string) (int, error) {
+// Optional excludeTagIDs will exclude markers that have any of those tags (or descendants) as secondary tags.
+func CountMarkersByPerformerRoleWithSecondary(ctx context.Context, r models.SceneMarkerReader, tagFinder models.TagFinder, performerID int, tagID int, role string, excludeTagIDs ...int) (int, error) {
 	if tagID == 0 {
 		return 0, nil
 	}
@@ -358,26 +359,72 @@ func CountMarkersByPerformerRoleWithSecondary(ctx context.Context, r models.Scen
 		tagSet[d.ID] = true
 	}
 
-	// Now filter markers to only include those with tagID in primary OR secondary tags
-	count := 0
-	for _, marker := range markers {
-		// Check primary tag
-		if tagSet[marker.PrimaryTagID] {
-			count++
+	// Build exclude tag set if excludeTagIDs are provided
+	excludeTagSet := make(map[int]bool)
+	for _, excludeTagID := range excludeTagIDs {
+		if excludeTagID == 0 {
 			continue
 		}
+		excludeTagSet[excludeTagID] = true
+		excludeDescendants, err := tagFinder.FindAllDescendants(ctx, excludeTagID, nil)
+		if err != nil {
+			return 0, err
+		}
+		for _, d := range excludeDescendants {
+			excludeTagSet[d.ID] = true
+		}
+	}
 
-		// Check secondary tags
+	// Now filter markers to only include those with tagID in primary OR secondary tags
+	// Also exclude markers that have any exclude tag in their secondary tags
+	count := 0
+	for _, marker := range markers {
+		matched := false
+		// Check primary tag
+		if tagSet[marker.PrimaryTagID] {
+			matched = true
+		}
+
+		// Check secondary tags for match and exclusion
 		secondaryTagIDs, err := r.GetTagIDs(ctx, marker.ID)
 		if err != nil {
 			return 0, err
 		}
-		for _, secondaryTagID := range secondaryTagIDs {
-			if tagSet[secondaryTagID] {
-				count++
-				break // Only count once per marker
+
+		if !matched {
+			for _, secondaryTagID := range secondaryTagIDs {
+				if tagSet[secondaryTagID] {
+					matched = true
+					break
+				}
 			}
 		}
+
+		if !matched {
+			continue
+		}
+
+		// Check if marker should be excluded (has 2nd camera tag or similar)
+		if len(excludeTagSet) > 0 {
+			excluded := false
+			// Check if primary tag is in exclude set
+			if excludeTagSet[marker.PrimaryTagID] {
+				excluded = true
+			}
+			if !excluded {
+				for _, secondaryTagID := range secondaryTagIDs {
+					if excludeTagSet[secondaryTagID] {
+						excluded = true
+						break
+					}
+				}
+			}
+			if excluded {
+				continue
+			}
+		}
+
+		count++
 	}
 
 	return count, nil
@@ -524,7 +571,7 @@ func getScenesByPerformerMarkerRole(ctx context.Context, r models.SceneMarkerQue
 // Note: facial_unique_X represents the actual number of distinct facial markers,
 // preventing double-counting when a performer is both top and bottom in the same marker.
 // Partner counts represent unique performers (by ID) with opposite role in the same markers.
-func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerReader, tagFinder models.TagFinder, performerID int, sceneID int, sexTagID int, oralTagID int, soloTagID int, facialTagID int, orgasmTagID int, feetTagID int) ([]string, error) {
+func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerReader, tagFinder models.TagFinder, performerID int, sceneID int, sexTagID int, oralTagID int, soloTagID int, facialTagID int, orgasmTagID int, feetTagID int, secondCameraTagID int) ([]string, error) {
 	roles := []string{}
 
 	// Query all markers for this scene using FindBySceneID
@@ -544,6 +591,7 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 	facialTagSet := make(map[int]bool)
 	orgasmTagSet := make(map[int]bool)
 	feetTagSet := make(map[int]bool)
+	secondCameraTagSet := make(map[int]bool)
 
 	// Helper to build descendant set
 	buildDescendantSet := func(tagID int, tagSet map[int]bool) error {
@@ -578,6 +626,9 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 		return nil, err
 	}
 	if err := buildDescendantSet(feetTagID, feetTagSet); err != nil {
+		return nil, err
+	}
+	if err := buildDescendantSet(secondCameraTagID, secondCameraTagSet); err != nil {
 		return nil, err
 	}
 
@@ -653,6 +704,23 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 		secondaryTagIDs, err := r.GetTagIDs(ctx, marker.ID)
 		if err != nil {
 			return nil, err
+		}
+
+		// Check if this marker has the 2nd camera tag (primary or secondary)
+		// If so, skip it from orgasm and facial counting (but sex/oral/solo roles still apply)
+		markerIsSecondCamera := false
+		if len(secondCameraTagSet) > 0 {
+			if secondCameraTagSet[marker.PrimaryTagID] {
+				markerIsSecondCamera = true
+			}
+			if !markerIsSecondCamera {
+				for _, tagID := range secondaryTagIDs {
+					if secondCameraTagSet[tagID] {
+						markerIsSecondCamera = true
+						break
+					}
+				}
+			}
 		}
 
 		// Track if this marker is a facial marker for unique counting
@@ -750,7 +818,8 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 			}
 
 			// Increment orgasm count once per marker if any orgasm tag matched
-			if markerCountedForOrgasm {
+			// Skip markers tagged with 2nd camera (duplicate angle, not a separate orgasm)
+			if markerCountedForOrgasm && !markerIsSecondCamera {
 				orgasmTopCount++
 			}
 
@@ -760,10 +829,11 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 			}
 
 			// Increment facial counts once per marker (DEPRECATED - will be replaced by unique count)
-			if markerCountedForFacialTop {
+			// Skip markers tagged with 2nd camera (duplicate angle, not a separate facial)
+			if markerCountedForFacialTop && !markerIsSecondCamera {
 				facialTopCount++
 			}
-			if markerCountedForFacialBottom {
+			if markerCountedForFacialBottom && !markerIsSecondCamera {
 				facialBottomCount++
 			}
 		}
@@ -813,7 +883,8 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 		}
 
 		// After processing all performer roles in this marker, track unique facial marker
-		if markerIsFacial {
+		// Skip markers tagged with 2nd camera (duplicate angle, not a separate facial)
+		if markerIsFacial && !markerIsSecondCamera {
 			facialMarkerIDs[marker.ID] = true
 		}
 	}

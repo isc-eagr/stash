@@ -126,6 +126,22 @@ input CustomSceneFilterInput {
   facial_tag_id: ID
 }
 
+"""Scene type filter input for categorizing scenes by marker type.
+Types: 'sex' (has sex marker), 'oral' (has oral marker, no sex), 'solo' (has solo marker, no sex/oral), 'facial' (has facial marker).
+"""
+input SceneTypeFilterInput {
+  "Selected scene types to filter by (ANDed together)"
+  types: [String!]!
+  "The tag ID for 'sex' markers (from roleTagIds.sexTagId)"
+  sex_tag_id: ID
+  "The tag ID for 'oral' markers (from roleTagIds.oralTagId)"
+  oral_tag_id: ID
+  "The tag ID for 'solo' markers (from roleTagIds.soloTagId)"
+  solo_tag_id: ID
+  "The tag ID for 'facial' markers (from roleTagIds.facialTagId)"
+  facial_tag_id: ID
+}
+
 """Custom scene marker filter input with tag IDs for role-based filtering.
 """
 input CustomSceneMarkerFilterInput {
@@ -231,6 +247,8 @@ input PerformerFilterType {
   Options: 'strict_tops', 'lenient_tops', 'strict_bottoms', 'lenient_bottoms'
   """
   custom_filters: CustomPerformerFilterInput
+  "Filter by scene type (sex, oral, solo, facial) — performer must have markers in scenes matching each selected type"
+  scene_type: SceneTypeFilterInput
   "Filter to only include performers that have at least one scene marker with all the selected tags"
   marker_tags: HierarchicalMultiCriterionInput
     @deprecated(reason: "Use performer_markers instead")
@@ -364,6 +382,8 @@ input SceneMarkerTagGroupInput {
   tag_ids: [ID!]!
   "Tag IDs that must NOT be present on any marker in the scene"
   exclude_tag_ids: [ID!]
+  "Tag IDs that must NOT be present on the matched marker itself"
+  exclude_tag_ids_on_marker: [ID!]
   "Include child tags up to this depth. -1 = all descendants, 0 = no children (default)"
   depth: Int
 
@@ -517,6 +537,8 @@ input SceneFilterType {
   Options: 'multiple_orgasms', 'versatile_scenes'
   """
   custom_filters: CustomSceneFilterInput
+  "Filter by scene type (sex, oral, solo, facial) based on marker tags"
+  scene_type: SceneTypeFilterInput
   "Filter by scene marker tags with optional performer role criteria"
   scene_marker_tags: SceneMarkerTagsCriterionInput
   "Filter to only include scenes missing this property"

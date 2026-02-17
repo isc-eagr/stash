@@ -36,6 +36,8 @@ This document describes all custom features and modifications added on top of th
 28. [Image Viewer](#28-image-viewer)
 29. [Unnamed Performers in Marker Filters](#29-unnamed-performers-in-marker-filters)
 30. [Has Roles Filter for Markers](#30-has-roles-filter-for-markers)
+31. [Scene Type Filter](#31-scene-type-filter)
+32. [2nd Camera Tag Exclusion](#32-2nd-camera-tag-exclusion)
 
 ---
 
@@ -1881,5 +1883,106 @@ has_roles: HasRolesCriterionInput
 
 ---
 
-*Last Updated: January 2026*
+## 31. Scene Type Filter
+
+### Overview
+A new "Scene Type" filter available on both the Scenes page and Performers page. Classifies scenes by their marker content into 4 types: Sex, Oral, Solo, and Facial. Tag hierarchy (subtags) and secondary tags are fully supported.
+
+**Scene type definitions:**
+- **Sex Scene**: Scene has at least one marker matching the configured sex tag (or subtag/secondary tag)
+- **Oral Scene**: Scene has at least one oral marker AND zero sex markers
+- **Solo Scene**: Scene has at least one solo marker AND zero sex or oral markers
+- **Facial Scene**: Scene has at least one facial marker (independent of other types)
+
+**Scenes page behavior:** Sex/Oral/Solo are mutually exclusive (radio buttons). Facial is an independent checkbox that can be combined with any of the other three.
+
+**Performers page behavior:** All 4 types are independent checkboxes. Multiple selections use AND logic — performer must have marker-level participation (via `scene_marker_performers`) in at least one scene qualifying as each selected type.
+
+### Configuration Dependencies
+Requires `roleTagIds` to be configured in Settings > Interface:
+- `sexTagId` — Tag ID for sex markers
+- `oralTagId` — Tag ID for oral markers
+- `soloTagId` — Tag ID for solo markers
+- `facialTagId` — Tag ID for facial markers
+
+### GraphQL Schema Changes
+**New input type** in `graphql/schema/types/filters.graphql`:
+```graphql
+input SceneTypeFilterInput {
+  types: [String!]!
+  sex_tag_id: ID
+  oral_tag_id: ID
+  solo_tag_id: ID
+  facial_tag_id: ID
+}
+```
+**New fields:**
+- `SceneFilterType.scene_type: SceneTypeFilterInput`
+- `PerformerFilterType.scene_type: SceneTypeFilterInput`
+
+### Files Created
+- `ui/v2.5/src/models/list-filter/criteria/scene-type.ts` — Criterion classes for Scenes and Performers
+- `ui/v2.5/src/components/List/Filters/SceneTypeFilter.tsx` — Filter UI components
+
+### Files Modified
+- `graphql/schema/types/filters.graphql` — Added `SceneTypeFilterInput` and fields on `SceneFilterType`/`PerformerFilterType`
+- `pkg/models/scene.go` — Added `SceneTypeFilterInput` struct and `SceneType` field on `SceneFilterType`
+- `pkg/models/performer.go` — Added `SceneType` field on `PerformerFilterType`
+- `pkg/sqlite/scene_filter.go` — Added `sceneTypeCriterionHandler` with recursive CTE subquery logic
+- `pkg/sqlite/performer_filter.go` — Added `sceneTypeCriterionHandler` with marker-level performer participation logic
+- `ui/v2.5/src/models/list-filter/types.ts` — Added `"scene_type"` to `CriterionType` union
+- `ui/v2.5/src/models/list-filter/scenes.ts` — Registered `SceneSceneTypeCriterionOption`
+- `ui/v2.5/src/models/list-filter/performers.ts` — Registered `PerformerSceneTypeCriterionOption`
+- `ui/v2.5/src/components/List/CriterionEditor.tsx` — Added dispatch for Scene/Performer scene type filters
+- `ui/v2.5/src/locales/en-GB.json` — Added i18n entries
+- `ui/v2.5/src/locales/en-US.json` — Added i18n entries
+
+---
+
+## 32. 2nd Camera Tag Exclusion
+
+### Overview
+Adds a configurable "2nd Camera" tag (`secondCameraTagId`) that marks orgasm/facial markers as duplicate camera angles. Markers tagged with this tag are **excluded** from counting in statistics and PerformerCategoryStrip calculations. On the main **Scenes** page, the **Scene Markers** filter ignores markers tagged `2ndcamera` when filtering by the configured orgasm tag (or any of its descendants).
+
+### Configuration
+- Added `secondCameraTagId` to the `roleTagIds` UI configuration (Settings → Interface → Role Tags)
+- Works like other role tag IDs (sexTagId, oralTagId, etc.) — configurable via a tag picker dropdown
+
+### Exclusion Behavior
+Markers with the 2nd camera tag (or any of its descendants) are **excluded** from:
+- **PerformerCategoryStrip** (both scene context and global context):
+  - Orgasm top count
+  - Facial top/bottom/unique counts
+  - Facial marker partner counts
+- **Custom Stats** (stats dashboard):
+  - Total Orgasms (`sceneOrgasmCount`)
+  - Total Orgasm Time (`totalOrgasmTime`)
+  - Total Facials (`sceneFacialCount`)
+  - Total Facial Time (`totalFacialTime`)
+  - Estimated Liters (`estimatedLiters`, derived from orgasm count)
+
+Markers with the 2nd camera tag are **included** (treated normally) in:
+- Markers page / Markers filter
+- Scene/marker browsing and playback
+
+Markers with the 2nd camera tag are **excluded** from matching the configured orgasm tag in:
+- Scenes page / Scene Markers filter (Scenes page only)
+
+### Files Modified
+- `ui/v2.5/src/core/config.ts` — Added `secondCameraTagId` to `roleTagIds` interface
+- `ui/v2.5/src/locales/en-GB.json` — Added `"second_camera"` locale string under `role_tags`
+- `ui/v2.5/src/components/Settings/SettingsInterfacePanel/SettingsInterfacePanel.tsx` — Added tag picker for 2nd Camera marker tag
+- `ui/v2.5/src/models/list-filter/criteria/scene-markers.ts` — Added support for injecting marker-level exclude tags into the Scene Markers filter output
+- `ui/v2.5/src/components/Scenes/SceneList.tsx` — Injects `exclude_tag_ids_on_marker` for orgasm Scene Markers filtering on the main Scenes page
+- `graphql/schema/types/filters.graphql` — Added `exclude_tag_ids_on_marker` to `SceneMarkerTagGroupInput`
+- `internal/api/resolver_model_performer.go` — Added `secondCameraTagID` to `getRoleTagIDs()` return values; updated all call sites; passed exclusion to facial/orgasm counting functions and `GetPerformerMarkerRolesForScene`
+- `internal/api/resolver_model_studio.go` — Updated `getRoleTagIDs` call sites for new 7th return value
+- `internal/api/resolver.go` — Added 2nd camera exclusion SQL CTE to `SceneOrgasmCount`, `SceneFacialCount`, `TotalOrgasmTime`, `TotalFacialTime`
+- `pkg/models/filter.go` — Added `ExcludeTagIDsOnMarker` to `SceneMarkerTagGroupInput`
+- `pkg/sqlite/criterion_handlers.go` — Implements marker-level exclude tags for Scene Marker Tag groups
+- `pkg/scene/query.go` — Added `secondCameraTagID` parameter to `GetPerformerMarkerRolesForScene`; builds descendant tag set and skips orgasm/facial counting for 2nd camera markers; added optional `excludeTagIDs` variadic parameter to `CountMarkersByPerformerRoleWithSecondary`
+
+---
+
+*Last Updated: February 2026*
 *Base Version: Stash v0.30.0*

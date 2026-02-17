@@ -239,4 +239,5 @@ export type CriterionType =
   | "marker_giver" // Legacy - migrates to marker_top
   | "marker_receiver" // Legacy - migrates to marker_bottom
   | "exclude_marker_tags"
-  | "has_roles";
+  | "has_roles"
+  | "scene_type";

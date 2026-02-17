@@ -221,6 +221,8 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 
 		qb.customFiltersCriterionHandler(filter.CustomFilters),
 
+		qb.sceneTypeCriterionHandler(filter.SceneType),
+
 		qb.performerMarkersCriterionHandler(filter.PerformerMarkers),
 
 		qb.performerMarkerTagsCriterionHandler(filter.PerformerMarkerTags),
@@ -523,6 +525,182 @@ func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *m
 
 			f.addWhere(strings.Join(conditions, " AND "))
 		}
+	}
+}
+
+// sceneTypeCriterionHandler filters performers by scene type based on marker-level participation.
+// For each selected type, the performer must have at least one scene_marker_performers entry
+// on a marker in a scene that qualifies as that type.
+// Scene type definitions:
+// - 'sex': Scene has at least one marker matching sexTagId
+// - 'oral': Scene has at least one oral marker and zero sex markers
+// - 'solo': Scene has at least one solo marker and zero sex/oral markers
+// - 'facial': Scene has at least one facial marker
+// Multiple types are ANDed: performer must participate in at least one qualifying scene for EACH type.
+func (qb *performerFilterHandler) sceneTypeCriterionHandler(sceneType *models.SceneTypeFilterInput) criterionHandlerFunc {
+	return func(ctx context.Context, f *filterBuilder) {
+		if sceneType == nil || len(sceneType.Types) == 0 {
+			return
+		}
+
+		// Extract tag IDs
+		sexTagID := ""
+		oralTagID := ""
+		soloTagID := ""
+		facialTagID := ""
+		if sceneType.SexTagID != nil {
+			sexTagID = *sceneType.SexTagID
+		}
+		if sceneType.OralTagID != nil {
+			oralTagID = *sceneType.OralTagID
+		}
+		if sceneType.SoloTagID != nil {
+			soloTagID = *sceneType.SoloTagID
+		}
+		if sceneType.FacialTagID != nil {
+			facialTagID = *sceneType.FacialTagID
+		}
+
+		var conditions []string
+
+		for _, t := range sceneType.Types {
+			switch t {
+			case "sex":
+				if sexTagID == "" {
+					continue
+				}
+				// Performer has a marker in a scene that has a sex marker
+				conditions = append(conditions, fmt.Sprintf(`EXISTS (
+					WITH RECURSIVE pst_sex_tags(id) AS (
+						SELECT id FROM tags WHERE id = %s
+						UNION ALL
+						SELECT tr.child_id FROM tags_relations tr JOIN pst_sex_tags tf ON tr.parent_id = tf.id
+					)
+					SELECT 1 FROM scene_marker_performers smp_st
+					JOIN scene_markers sm_inner ON sm_inner.id = smp_st.scene_marker_id
+					WHERE smp_st.performer_id = performers.id
+					  AND EXISTS (
+						SELECT 1 FROM scene_markers sm_check
+						WHERE sm_check.scene_id = sm_inner.scene_id
+						  AND (sm_check.primary_tag_id IN (SELECT id FROM pst_sex_tags)
+						       OR EXISTS (SELECT 1 FROM scene_markers_tags smt_check WHERE smt_check.scene_marker_id = sm_check.id AND smt_check.tag_id IN (SELECT id FROM pst_sex_tags)))
+					  )
+				)`, sexTagID))
+
+			case "oral":
+				if oralTagID == "" {
+					continue
+				}
+				// Build the scene-qualifies condition: has oral, no sex
+				var sexExclusionCTE, sexExclusionCheck string
+				if sexTagID != "" {
+					sexExclusionCTE = fmt.Sprintf(`, pst_sex_excl_oral(id) AS (
+						SELECT id FROM tags WHERE id = %s
+						UNION ALL
+						SELECT tr.child_id FROM tags_relations tr JOIN pst_sex_excl_oral tf ON tr.parent_id = tf.id
+					)`, sexTagID)
+					sexExclusionCheck = ` AND NOT EXISTS (
+						SELECT 1 FROM scene_markers sm_excl2
+						WHERE sm_excl2.scene_id = sm_inner.scene_id
+						  AND (sm_excl2.primary_tag_id IN (SELECT id FROM pst_sex_excl_oral)
+						       OR EXISTS (SELECT 1 FROM scene_markers_tags smt_excl2 WHERE smt_excl2.scene_marker_id = sm_excl2.id AND smt_excl2.tag_id IN (SELECT id FROM pst_sex_excl_oral)))
+					)`
+				}
+				conditions = append(conditions, fmt.Sprintf(`EXISTS (
+					WITH RECURSIVE pst_oral_tags(id) AS (
+						SELECT id FROM tags WHERE id = %s
+						UNION ALL
+						SELECT tr.child_id FROM tags_relations tr JOIN pst_oral_tags tf ON tr.parent_id = tf.id
+					)%s
+					SELECT 1 FROM scene_marker_performers smp_st
+					JOIN scene_markers sm_inner ON sm_inner.id = smp_st.scene_marker_id
+					WHERE smp_st.performer_id = performers.id
+					  AND EXISTS (
+						SELECT 1 FROM scene_markers sm_check
+						WHERE sm_check.scene_id = sm_inner.scene_id
+						  AND (sm_check.primary_tag_id IN (SELECT id FROM pst_oral_tags)
+						       OR EXISTS (SELECT 1 FROM scene_markers_tags smt_check WHERE smt_check.scene_marker_id = sm_check.id AND smt_check.tag_id IN (SELECT id FROM pst_oral_tags)))
+					  )%s
+				)`, oralTagID, sexExclusionCTE, sexExclusionCheck))
+
+			case "solo":
+				if soloTagID == "" {
+					continue
+				}
+				// Build exclusion CTEs and conditions
+				var exclusionCTEs, exclusions string
+				if sexTagID != "" {
+					exclusionCTEs += fmt.Sprintf(`, pst_sex_excl_solo(id) AS (
+						SELECT id FROM tags WHERE id = %s
+						UNION ALL
+						SELECT tr.child_id FROM tags_relations tr JOIN pst_sex_excl_solo tf ON tr.parent_id = tf.id
+					)`, sexTagID)
+					exclusions += ` AND NOT EXISTS (
+						SELECT 1 FROM scene_markers sm_excl3
+						WHERE sm_excl3.scene_id = sm_inner.scene_id
+						  AND (sm_excl3.primary_tag_id IN (SELECT id FROM pst_sex_excl_solo)
+						       OR EXISTS (SELECT 1 FROM scene_markers_tags smt_excl3 WHERE smt_excl3.scene_marker_id = sm_excl3.id AND smt_excl3.tag_id IN (SELECT id FROM pst_sex_excl_solo)))
+					)`
+				}
+				if oralTagID != "" {
+					exclusionCTEs += fmt.Sprintf(`, pst_oral_excl_solo(id) AS (
+						SELECT id FROM tags WHERE id = %s
+						UNION ALL
+						SELECT tr.child_id FROM tags_relations tr JOIN pst_oral_excl_solo tf ON tr.parent_id = tf.id
+					)`, oralTagID)
+					exclusions += ` AND NOT EXISTS (
+						SELECT 1 FROM scene_markers sm_excl4
+						WHERE sm_excl4.scene_id = sm_inner.scene_id
+						  AND (sm_excl4.primary_tag_id IN (SELECT id FROM pst_oral_excl_solo)
+						       OR EXISTS (SELECT 1 FROM scene_markers_tags smt_excl4 WHERE smt_excl4.scene_marker_id = sm_excl4.id AND smt_excl4.tag_id IN (SELECT id FROM pst_oral_excl_solo)))
+					)`
+				}
+				conditions = append(conditions, fmt.Sprintf(`EXISTS (
+					WITH RECURSIVE pst_solo_tags(id) AS (
+						SELECT id FROM tags WHERE id = %s
+						UNION ALL
+						SELECT tr.child_id FROM tags_relations tr JOIN pst_solo_tags tf ON tr.parent_id = tf.id
+					)%s
+					SELECT 1 FROM scene_marker_performers smp_st
+					JOIN scene_markers sm_inner ON sm_inner.id = smp_st.scene_marker_id
+					WHERE smp_st.performer_id = performers.id
+					  AND EXISTS (
+						SELECT 1 FROM scene_markers sm_check
+						WHERE sm_check.scene_id = sm_inner.scene_id
+						  AND (sm_check.primary_tag_id IN (SELECT id FROM pst_solo_tags)
+						       OR EXISTS (SELECT 1 FROM scene_markers_tags smt_check WHERE smt_check.scene_marker_id = sm_check.id AND smt_check.tag_id IN (SELECT id FROM pst_solo_tags)))
+					  )%s
+				)`, soloTagID, exclusionCTEs, exclusions))
+
+			case "facial":
+				if facialTagID == "" {
+					continue
+				}
+				conditions = append(conditions, fmt.Sprintf(`EXISTS (
+					WITH RECURSIVE pst_facial_tags(id) AS (
+						SELECT id FROM tags WHERE id = %s
+						UNION ALL
+						SELECT tr.child_id FROM tags_relations tr JOIN pst_facial_tags tf ON tr.parent_id = tf.id
+					)
+					SELECT 1 FROM scene_marker_performers smp_st
+					JOIN scene_markers sm_inner ON sm_inner.id = smp_st.scene_marker_id
+					WHERE smp_st.performer_id = performers.id
+					  AND EXISTS (
+						SELECT 1 FROM scene_markers sm_check
+						WHERE sm_check.scene_id = sm_inner.scene_id
+						  AND (sm_check.primary_tag_id IN (SELECT id FROM pst_facial_tags)
+						       OR EXISTS (SELECT 1 FROM scene_markers_tags smt_check WHERE smt_check.scene_marker_id = sm_check.id AND smt_check.tag_id IN (SELECT id FROM pst_facial_tags)))
+					  )
+				)`, facialTagID))
+			}
+		}
+
+		if len(conditions) == 0 {
+			return
+		}
+
+		// Join all conditions with AND
+		f.addWhere(strings.Join(conditions, " AND "))
 	}
 }
 

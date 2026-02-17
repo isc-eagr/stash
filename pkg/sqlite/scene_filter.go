@@ -109,6 +109,7 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		qb.hasMarkersCriterionHandler(sceneFilter.HasMarkers),
 		qb.hasMarkerPerformersCriterionHandler(sceneFilter.HasMarkerPerformers),
 		qb.customFiltersCriterionHandler(sceneFilter.CustomFilters),
+		qb.sceneTypeCriterionHandler(sceneFilter.SceneType),
 		&joinedSceneMarkerTagsHandler{
 			criterion:      sceneFilter.SceneMarkerTags,
 			primaryTable:   sceneTable,
@@ -698,6 +699,118 @@ func (qb *sceneFilterHandler) customFiltersCriterionHandler(customFilters *model
 				  )
 			)`, oralTagID))
 		}
+	}
+}
+
+// sceneTypeCriterionHandler filters scenes by type based on marker tags.
+// Types:
+// - 'sex': Scene has at least one marker matching sexTagId (or subtag/secondary)
+// - 'oral': Scene has at least one marker matching oralTagId, and zero markers matching sexTagId
+// - 'solo': Scene has at least one marker matching soloTagId, and zero matching sexTagId or oralTagId
+// - 'facial': Scene has at least one marker matching facialTagId
+// Multiple types are ANDed together.
+func (qb *sceneFilterHandler) sceneTypeCriterionHandler(sceneType *models.SceneTypeFilterInput) criterionHandlerFunc {
+	return func(ctx context.Context, f *filterBuilder) {
+		if sceneType == nil || len(sceneType.Types) == 0 {
+			return
+		}
+
+		// Extract tag IDs
+		sexTagID := ""
+		oralTagID := ""
+		soloTagID := ""
+		facialTagID := ""
+		if sceneType.SexTagID != nil {
+			sexTagID = *sceneType.SexTagID
+		}
+		if sceneType.OralTagID != nil {
+			oralTagID = *sceneType.OralTagID
+		}
+		if sceneType.SoloTagID != nil {
+			soloTagID = *sceneType.SoloTagID
+		}
+		if sceneType.FacialTagID != nil {
+			facialTagID = *sceneType.FacialTagID
+		}
+
+		// Helper: generate EXISTS clause with CTE for a tag family match
+		existsMarkerForTag := func(cteName, tagID string) string {
+			return fmt.Sprintf(`EXISTS (
+				WITH RECURSIVE %s(id) AS (
+					SELECT id FROM tags WHERE id = %s
+					UNION ALL
+					SELECT tr.child_id FROM tags_relations tr JOIN %s tf ON tr.parent_id = tf.id
+				)
+				SELECT 1 FROM scene_markers sm
+				WHERE sm.scene_id = scenes.id
+				  AND (sm.primary_tag_id IN (SELECT id FROM %s)
+				       OR EXISTS (SELECT 1 FROM scene_markers_tags smt WHERE smt.scene_marker_id = sm.id AND smt.tag_id IN (SELECT id FROM %s)))
+			)`, cteName, tagID, cteName, cteName, cteName)
+		}
+
+		// Helper: generate NOT EXISTS clause with CTE for a tag family match
+		notExistsMarkerForTag := func(cteName, tagID string) string {
+			return fmt.Sprintf(`NOT EXISTS (
+				WITH RECURSIVE %s(id) AS (
+					SELECT id FROM tags WHERE id = %s
+					UNION ALL
+					SELECT tr.child_id FROM tags_relations tr JOIN %s tf ON tr.parent_id = tf.id
+				)
+				SELECT 1 FROM scene_markers sm
+				WHERE sm.scene_id = scenes.id
+				  AND (sm.primary_tag_id IN (SELECT id FROM %s)
+				       OR EXISTS (SELECT 1 FROM scene_markers_tags smt WHERE smt.scene_marker_id = sm.id AND smt.tag_id IN (SELECT id FROM %s)))
+			)`, cteName, tagID, cteName, cteName, cteName)
+		}
+
+		var conditions []string
+
+		for _, t := range sceneType.Types {
+			switch t {
+			case "sex":
+				if sexTagID == "" {
+					continue
+				}
+				conditions = append(conditions, existsMarkerForTag("sex_tags_st", sexTagID))
+
+			case "oral":
+				if oralTagID == "" {
+					continue
+				}
+				conditions = append(conditions, existsMarkerForTag("oral_tags_st", oralTagID))
+				// Exclude scenes with sex markers
+				if sexTagID != "" {
+					conditions = append(conditions, notExistsMarkerForTag("sex_excl_oral_st", sexTagID))
+				}
+
+			case "solo":
+				if soloTagID == "" {
+					continue
+				}
+				conditions = append(conditions, existsMarkerForTag("solo_tags_st", soloTagID))
+				// Exclude scenes with sex markers
+				if sexTagID != "" {
+					conditions = append(conditions, notExistsMarkerForTag("sex_excl_solo_st", sexTagID))
+				}
+				// Exclude scenes with oral markers
+				if oralTagID != "" {
+					conditions = append(conditions, notExistsMarkerForTag("oral_excl_solo_st", oralTagID))
+				}
+
+			case "facial":
+				if facialTagID == "" {
+					continue
+				}
+				conditions = append(conditions, existsMarkerForTag("facial_tags_st", facialTagID))
+			}
+		}
+
+		if len(conditions) == 0 {
+			return
+		}
+
+		// Join all conditions with AND
+		f.addWhere(strings.Join(conditions, " AND "))
 	}
 }
 

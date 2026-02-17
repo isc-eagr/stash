@@ -43,6 +43,7 @@ fragment PerformerData on Performer {
   facial_marker_with_bottom_count
   orgasm_top_count
   feet_top_count
+  feet_marker_count
   sex_with_top_count
   sex_with_bottom_count
   oral_with_top_count
