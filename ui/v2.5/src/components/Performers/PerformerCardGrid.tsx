@@ -28,23 +28,20 @@ export const PerformerCardGrid: React.FC<IPerformerCardGrid> = ({
 
   return (
     <div className="row justify-content-center" ref={componentRef}>
-      {/* Avoid initial layout thrash: only render cards after width is known */}
-      {cardWidth
-        ? performers.map((p) => (
-            <PerformerCard
-              key={p.id}
-              cardWidth={cardWidth}
-              performer={p}
-              zoomIndex={zoomIndex}
-              selecting={selectedIds.size > 0}
-              selected={selectedIds.has(p.id)}
-              onSelectedChanged={(selected: boolean, shiftKey: boolean) =>
-                onSelectChange(p.id, selected, shiftKey)
-              }
-              extraCriteria={extraCriteria}
-            />
-          ))
-        : null}
+      {performers.map((p) => (
+        <PerformerCard
+          key={p.id}
+          cardWidth={cardWidth}
+          performer={p}
+          zoomIndex={zoomIndex}
+          selecting={selectedIds.size > 0}
+          selected={selectedIds.has(p.id)}
+          onSelectedChanged={(selected: boolean, shiftKey: boolean) =>
+            onSelectChange(p.id, selected, shiftKey)
+          }
+          extraCriteria={extraCriteria}
+        />
+      ))}
     </div>
   );
 };

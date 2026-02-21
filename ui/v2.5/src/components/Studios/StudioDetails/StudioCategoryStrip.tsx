@@ -4,7 +4,7 @@ import { Icon } from "src/components/Shared/Icon";
 import { faHand, faUserPlus } from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import NavUtils from "src/utils/navigation";
-import { useConfigurationContext } from "src/hooks/Config";
+import { useRoleTags } from "src/hooks/useRoleTags";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import goateeSvg from "src/assets/goatee.svg";
@@ -20,30 +20,8 @@ interface IStudioCategoryStripProps {
 export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
   studio,
 }) => {
-  const { configuration } = useConfigurationContext();
-
-  // Get role tag IDs from the new configuration
-  const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-  const {sexTagId} = roleTagIds;
-  const {oralTagId} = roleTagIds;
-  const {soloTagId} = roleTagIds;
-  const {facialTagId} = roleTagIds;
-
-  // Query all tags to get their names for display
-  const { data: tagsData } = GQL.useFindTagsQuery({
-    variables: {
-      filter: {
-        per_page: -1, // Get all tags
-      },
-    },
-  });
-
-  // Map tag IDs to tag objects
-  const allTags = tagsData?.findTags?.tags ?? [];
-  const sexTag = allTags.find((t) => t.id === sexTagId);
-  const oralTag = allTags.find((t) => t.id === oralTagId);
-  const soloTag = allTags.find((t) => t.id === soloTagId);
-  const facialTag = allTags.find((t) => t.id === facialTagId);
+  // Use shared hook to get role tags (Apollo-cached, no redundant queries)
+  const { sexTag, oralTag, soloTag, facialTag } = useRoleTags();
 
   // Get counts from studio
   const studioAny = studio as any;

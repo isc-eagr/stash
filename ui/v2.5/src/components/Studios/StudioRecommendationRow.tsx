@@ -7,6 +7,7 @@ import { ListFilterModel } from "src/models/list-filter/filter";
 import { getSlickSliderSettings } from "src/core/recommendations";
 import { RecommendationRow } from "../FrontPage/RecommendationRow";
 import { FormattedMessage } from "react-intl";
+import { useRoleTags } from "src/hooks/useRoleTags";
 
 interface IProps {
   isTouch: boolean;
@@ -17,6 +18,7 @@ interface IProps {
 export const StudioRecommendationRow: React.FC<IProps> = (props) => {
   const result = useFindStudios(props.filter);
   const cardCount = result.data?.findStudios.count;
+  const roleTags = useRoleTags();
 
   if (!result.loading && !cardCount) {
     return null;
@@ -46,7 +48,7 @@ export const StudioRecommendationRow: React.FC<IProps> = (props) => {
               ></div>
             ))
           : result.data?.findStudios.studios.map((s) => (
-              <StudioCard key={s.id} studio={s} hideParent={true} />
+              <StudioCard key={s.id} studio={s} hideParent={true} roleTags={roleTags} />
             ))}
       </Slider>
     </RecommendationRow>

@@ -9,7 +9,7 @@ query FindStudios($filter: FindFilterType, $studio_filter: StudioFilterType) {
 
 query FindStudio($id: ID!) {
   findStudio(id: $id) {
-    ...StudioData
+    ...StudioDetailData
   }
 }
 

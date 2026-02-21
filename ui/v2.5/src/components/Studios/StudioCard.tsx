@@ -14,7 +14,6 @@ import { FavoriteIcon } from "../Shared/FavoriteIcon";
 import { useStudioUpdate } from "src/core/StashService";
 import { faTag, faHand, faUserPlus } from "@fortawesome/free-solid-svg-icons";
 import { OCounterButton } from "../Shared/CountButton";
-import { useConfigurationContext } from "src/hooks/Config";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import goateeSvg from "src/assets/goatee.svg";
@@ -31,6 +30,13 @@ interface IPerformerStudioStats {
   o_counter: number | null | undefined;
 }
 
+export interface IRoleTags {
+  sexTag: { id: string; name: string } | null;
+  oralTag: { id: string; name: string } | null;
+  soloTag: { id: string; name: string } | null;
+  facialTag: { id: string; name: string } | null;
+}
+
 interface IProps {
   studio: GQL.StudioDataFragment;
   cardWidth?: number;
@@ -40,6 +46,7 @@ interface IProps {
   zoomIndex?: number;
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
   performerId?: string;
+  roleTags?: IRoleTags;
 }
 
 function maybeRenderParent(
@@ -96,32 +103,16 @@ export const StudioCard: React.FC<IProps> = ({
   zoomIndex,
   onSelectedChanged,
   performerId,
+  roleTags,
 }) => {
   const [updateStudio] = useStudioUpdate();
-  const { configuration } = useConfigurationContext();
 
-  // Get role tag IDs from the new configuration
-  const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-  const {sexTagId} = roleTagIds;
-  const {oralTagId} = roleTagIds;
-  const {soloTagId} = roleTagIds;
-  const {facialTagId} = roleTagIds;
-
-  // Query tags to get their names for display
-  const { data: tagsData } = GQL.useFindTagsQuery({
-    variables: {
-      filter: {
-        per_page: -1, // Get all tags
-      },
-    },
-  });
-
-  // Map tag IDs to tag objects
-  const allTags = tagsData?.findTags?.tags ?? [];
-  const sexTag = allTags.find((t) => t.id === sexTagId);
-  const oralTag = allTags.find((t) => t.id === oralTagId);
-  const soloTag = allTags.find((t) => t.id === soloTagId);
-  const facialTag = allTags.find((t) => t.id === facialTagId);
+  // Use pre-fetched role tags from parent (StudioCardGrid)
+  // Falls back to null when roleTags not provided
+  const sexTag = roleTags?.sexTag ?? null;
+  const oralTag = roleTags?.oralTag ?? null;
+  const soloTag = roleTags?.soloTag ?? null;
+  const facialTag = roleTags?.facialTag ?? null;
 
   // When viewing from a performer's studios, fetch performer-filtered stats
   const { data: performerStatsData } = GQL.useFindStudioPerformerStatsQuery({

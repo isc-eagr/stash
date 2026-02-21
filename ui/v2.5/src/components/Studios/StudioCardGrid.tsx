@@ -5,6 +5,7 @@ import {
   useContainerDimensions,
 } from "../Shared/GridCard/GridCard";
 import { StudioCard } from "./StudioCard";
+import { useRoleTags } from "src/hooks/useRoleTags";
 
 interface IStudioCardGrid {
   studios: GQL.StudioDataFragment[];
@@ -28,6 +29,9 @@ export const StudioCardGrid: React.FC<IStudioCardGrid> = ({
   const [componentRef, { width: containerWidth }] = useContainerDimensions();
   const cardWidth = useCardWidth(containerWidth, zoomIndex, zoomWidths);
 
+  // Single query for just the role tags (shared hook, Apollo-cached)
+  const roleTags = useRoleTags();
+
   return (
     <div className="row justify-content-center" ref={componentRef}>
       {studios.map((studio) => (
@@ -43,6 +47,7 @@ export const StudioCardGrid: React.FC<IStudioCardGrid> = ({
             onSelectChange(studio.id, selected, shiftKey)
           }
           performerId={performerId}
+          roleTags={roleTags}
         />
       ))}
     </div>
