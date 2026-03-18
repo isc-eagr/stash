@@ -34,8 +34,8 @@ export const PerformerMarkersPanel: React.FC<IPerformerMarkersPanelProps> =
         }
 
         // Force this panel to only show markers directly assigned to this performer (top or bottom).
-        // Includes modifier = OR mode (matches if top OR bottom matches)
         criterion.modifier = GQL.CriterionModifier.Includes;
+        criterion.value.performer_mode = "OR";
         criterion.value.top_performer_ids = [performerValue];
         criterion.value.bottom_performer_ids = [performerValue];
 
