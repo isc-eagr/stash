@@ -822,6 +822,26 @@ func (qb *StudioStore) sortByUniquePerformerCount(direction string) string {
 	) %s`, getSortDirection(direction))
 }
 
+// sortByOCount sorts by the total o-count for a studio, which is the sum of:
+// - scene o_dates counts (entries in scenes_o_dates for scenes belonging to the studio)
+// - image o_counter values (o_counter column in images belonging to the studio)
+func (qb *StudioStore) sortByOCount(direction string) string {
+	return fmt.Sprintf(` ORDER BY COALESCE((
+		SELECT COUNT(*)
+		FROM %s sod
+		INNER JOIN %s s ON sod.%s = s.id
+		WHERE s.%s = studios.id
+	), 0) + COALESCE((
+		SELECT SUM(o_counter)
+		FROM %s
+		WHERE %s = studios.id
+	), 0) %s`,
+		scenesODatesTable, sceneTable, sceneIDColumn, studioIDColumn,
+		imageTable, studioIDColumn,
+		getSortDirection(direction),
+	)
+}
+
 var studioSortOptions = sortOptions{
 	"child_count",
 	"created_at",
@@ -829,6 +849,7 @@ var studioSortOptions = sortOptions{
 	"id",
 	"images_count",
 	"name",
+	"o_count",
 	"scenes_count",
 	"scenes_duration",
 	"sex_scenes_count",
@@ -880,6 +901,8 @@ func (qb *StudioStore) getStudioSort(findFilter *models.FindFilterType) (string,
 		sortQuery += qb.sortBySoloSceneCount(direction)
 	case "facial_scenes_count":
 		sortQuery += qb.sortByFacialSceneCount(direction)
+	case "o_count":
+		sortQuery += qb.sortByOCount(direction)
 	case "unique_performers_count":
 		sortQuery += qb.sortByUniquePerformerCount(direction)
 	default:

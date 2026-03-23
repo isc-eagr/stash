@@ -22,6 +22,8 @@ import {
   faExpand,
   faSave,
   faFolderOpen,
+  faChevronLeft,
+  faChevronRight,
 } from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import TextUtils from "src/utils/text";
@@ -286,10 +288,10 @@ export const MarkerPlaylistPlayer: React.FC = () => {
         clearTimeout(fullscreenOverlayTimeoutRef.current);
       }
       
-      // Hide overlay after 3 seconds of inactivity
+      // Hide overlay and cursor after 2 seconds of inactivity
       fullscreenOverlayTimeoutRef.current = setTimeout(() => {
         setShowFullscreenOverlay(false);
-      }, 3000);
+      }, 2000);
     };
 
     wrapper.addEventListener("mousemove", handleMouseMove);
@@ -359,15 +361,13 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     }
   }, []);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _handleNext = useCallback(() => {
+  const handleNext = useCallback(() => {
     if (markers.length === 0) return;
     const nextIndex = (currentIndex + 1) % markers.length;
     loadMarker(nextIndex);
   }, [markers, currentIndex, loadMarker]);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _handlePrevious = useCallback(() => {
+  const handlePrevious = useCallback(() => {
     if (markers.length === 0) return;
     const prevIndex =
       currentIndex === 0 ? markers.length - 1 : currentIndex - 1;
@@ -419,16 +419,25 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   }, [isFullscreen]);
 
   const handleVideoClick = useCallback(() => {
-    if (!isFullscreen) return;
+    // In fullscreen, reset controls/cursor visibility on any click
+    if (isFullscreen) {
+      setShowFullscreenOverlay(true);
+      if (fullscreenOverlayTimeoutRef.current) {
+        clearTimeout(fullscreenOverlayTimeoutRef.current);
+      }
+      fullscreenOverlayTimeoutRef.current = setTimeout(() => {
+        setShowFullscreenOverlay(false);
+      }, 2000);
+    }
 
-    // Clear any existing timeout
+    // Single click → play/pause; double click → toggle fullscreen (both modes)
     if (clickTimeoutRef.current) {
       clearTimeout(clickTimeoutRef.current);
       clickTimeoutRef.current = null;
-      // This is a double click - exit fullscreen
+      // Double click - toggle fullscreen
       handleFullscreen();
     } else {
-      // This is potentially a single click - wait to see if double click comes
+      // Potentially a single click - wait to disambiguate from double click
       clickTimeoutRef.current = setTimeout(() => {
         clickTimeoutRef.current = null;
         // Single click - toggle play/pause
@@ -652,7 +661,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
 
       <div className="player-container">
         <div className={cx("video-section", { "full-width": !showPlaylist })}>
-          <div className="video-wrapper" ref={videoWrapperRef} onClick={handleVideoClick}>
+          <div className="video-wrapper" ref={videoWrapperRef} onClick={handleVideoClick} style={{ cursor: isFullscreen && !showFullscreenOverlay ? 'none' : undefined }}>
             <video ref={videoRef} playsInline className="video-player" />
             {/* Fullscreen performer overlay - shows on mouse movement */}
             {isFullscreen && showFullscreenOverlay && 
@@ -682,6 +691,25 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                   );
                 })()}
               </div>
+            )}
+            {/* Fullscreen navigation buttons - prev/next marker */}
+            {isFullscreen && showFullscreenOverlay && markers.length > 1 && (
+              <>
+                <button
+                  className="fullscreen-nav-btn prev"
+                  onClick={(e) => { e.stopPropagation(); handlePrevious(); }}
+                  title="Previous marker"
+                >
+                  <Icon icon={faChevronLeft} />
+                </button>
+                <button
+                  className="fullscreen-nav-btn next"
+                  onClick={(e) => { e.stopPropagation(); handleNext(); }}
+                  title="Next marker"
+                >
+                  <Icon icon={faChevronRight} />
+                </button>
+              </>
             )}
             {!isFullscreen && (
             <div className="video-overlay-controls">

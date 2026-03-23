@@ -343,6 +343,7 @@ Studios can now be sorted by their scene category counts (sex, oral, solo, facia
 - `solo_scenes_count` - Sort by scenes with solo markers (excludes sex/oral)
 - `facial_scenes_count` - Sort by scenes with facial markers
 - `unique_performers_count` - Sort by count of performers with only 1 scene (and it's for this studio)
+- `o_count` - Sort by total O-count (sum of scene o_dates + image o_counter for the studio)
 
 ### Studio GraphQL Extensions
 **File:** `graphql/schema/types/studio.graphql`

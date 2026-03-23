@@ -231,6 +231,37 @@
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
         }
       }
+
+      .fullscreen-nav-btn {
+        align-items: center;
+        background: rgba(0, 0, 0, 0.55);
+        border: none;
+        border-radius: 50%;
+        color: #fff;
+        cursor: pointer;
+        display: flex;
+        font-size: 1.4rem;
+        height: 56px;
+        justify-content: center;
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        transition: background 0.2s, opacity 0.3s;
+        width: 56px;
+        z-index: 10000;
+
+        &:hover {
+          background: rgba(0, 0, 0, 0.85);
+        }
+
+        &.prev {
+          left: 1.5rem;
+        }
+
+        &.next {
+          right: 1.5rem;
+        }
+      }
     }
 
     .now-playing {

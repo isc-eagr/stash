@@ -60,6 +60,10 @@ const sortByOptions = [
       messageID: "unique_performer_count",
       value: "unique_performers_count",
     },
+    {
+      messageID: "o_count",
+      value: "o_count",
+    },
   ]);
 
 const displayModeOptions = [DisplayMode.Grid, DisplayMode.Tagger];
