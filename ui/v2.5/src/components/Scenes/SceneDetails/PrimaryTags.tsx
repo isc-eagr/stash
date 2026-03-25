@@ -164,7 +164,7 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
                   >
                     {TextUtils.secondsToTimestamp(marker.seconds)}
                   </Button>
-                  {marker.end_seconds !== null && marker.end_seconds !== undefined && (
+                  {marker.end_seconds !== null && marker.end_seconds !== undefined ? (
                     <>
                       <span>-</span>
                       <Button
@@ -179,7 +179,12 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
                       >
                         {TextUtils.secondsToTimestamp(marker.end_seconds)}
                       </Button>
+                      <span className="ml-1">
+                        ({TextUtils.formatDurationRange(marker.end_seconds - marker.seconds)})
+                      </span>
                     </>
+                  ) : (
+                    <span className="ml-1">(20s)</span>
                   )}
                 </span>
                 <Button

@@ -21,6 +21,7 @@ import { Tag, TagSelect } from "src/components/Tags/TagSelect";
 import Select from "react-select";
 import { Icon } from "src/components/Shared/Icon";
 import { faArrowDown, faArrowUp } from "@fortawesome/free-solid-svg-icons";
+import TextUtils from "src/utils/text";
 
 interface IPerformer {
   id: string;
@@ -330,6 +331,33 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     return renderField("end_seconds", title, control);
   }
 
+  function renderDurationField() {
+    const { seconds, end_seconds } = formik.values;
+    const title = intl.formatMessage({
+      id: "duration",
+      defaultMessage: "Duration",
+    });
+
+    let duration: number;
+    if (end_seconds === null || end_seconds === undefined) {
+      duration = 20; // Default 20s when no end time
+    } else if (end_seconds < seconds) {
+      return null; // Invalid range
+    } else {
+      duration = end_seconds - seconds;
+    }
+
+    const control = (
+      <Form.Control
+        plaintext
+        readOnly
+        value={TextUtils.formatDurationRange(duration)}
+      />
+    );
+
+    return renderField("duration_display", title, control);
+  }
+
   function renderTagsField() {
     const title = intl.formatMessage({ id: "tags" });
     const control = (
@@ -455,6 +483,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         {renderPrimaryTagField()}
         {renderTimeField()}
         {renderEndTimeField()}
+        {renderDurationField()}
         {renderTagsField()}
         {renderPerformersField()}
       </div>

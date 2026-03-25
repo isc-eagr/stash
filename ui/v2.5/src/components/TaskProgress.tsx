@@ -33,6 +33,8 @@ const TaskProgress: React.FC = () => {
   });
   const [sceneCounts, setSceneCounts] = useState<Record<string, number>>({});
   const [organizedCount, setOrganizedCount] = useState<number>(0);
+  const [itemsPerDay, setItemsPerDay] = useState<Record<string, number>>({});
+  const [overallItemsPerDay, setOverallItemsPerDay] = useState<number>(0);
 
   // Load trackers from UI config on mount
   useEffect(() => {
@@ -312,6 +314,47 @@ const TaskProgress: React.FC = () => {
                   }
                 />
               </div>
+              {/* Completion estimate calculator for overall progress */}
+              {(() => {
+                const remaining = Math.max(
+                  (statsData?.stats.scene_count ?? 0) - organizedCount,
+                  0
+                );
+                if (remaining <= 0) return null;
+                return (
+                  <div className="mt-2 pt-2 border-top">
+                    <div className="d-flex align-items-center mb-1" style={{ gap: "0.4rem" }}>
+                      <small className="text-muted text-nowrap">Items/day:</small>
+                      <Form.Control
+                        type="number"
+                        min="1"
+                        size="sm"
+                        style={{ width: "70px" }}
+                        value={overallItemsPerDay || ""}
+                        onChange={(e) =>
+                          setOverallItemsPerDay(parseInt(e.target.value) || 0)
+                        }
+                        placeholder="e.g. 5"
+                      />
+                    </div>
+                    {overallItemsPerDay > 0 && (() => {
+                      const daysLeft = Math.ceil(remaining / overallItemsPerDay);
+                      const completionDate = new Date();
+                      completionDate.setDate(completionDate.getDate() + daysLeft);
+                      const dateStr = completionDate.toLocaleDateString("en-US", {
+                        month: "2-digit",
+                        day: "2-digit",
+                        year: "numeric",
+                      });
+                      return (
+                        <small className="text-muted" style={{ lineHeight: 1.3, display: "block" }}>
+                          Done by <strong>{dateStr}</strong> ({daysLeft} day{daysLeft !== 1 ? "s" : ""}) at {overallItemsPerDay}/day
+                        </small>
+                      );
+                    })()}
+                  </div>
+                );
+              })()}
             </Card.Body>
           </Card>
         )}
@@ -388,6 +431,45 @@ const TaskProgress: React.FC = () => {
                           </div>
                         </div>
                       </div>
+
+                      {/* Completion estimate calculator */}
+                      {count > 0 && (
+                        <div className="mt-2 pt-2 border-top">
+                          <div className="d-flex align-items-center mb-1" style={{ gap: "0.4rem" }}>
+                            <small className="text-muted text-nowrap">Items/day:</small>
+                            <Form.Control
+                              type="number"
+                              min="1"
+                              size="sm"
+                              style={{ width: "70px" }}
+                              value={itemsPerDay[tracker.id] ?? ""}
+                              onChange={(e) =>
+                                setItemsPerDay((prev) => ({
+                                  ...prev,
+                                  [tracker.id]: parseInt(e.target.value) || 0,
+                                }))
+                              }
+                              placeholder="e.g. 5"
+                            />
+                          </div>
+                          {(itemsPerDay[tracker.id] ?? 0) > 0 && (() => {
+                            const perDay = itemsPerDay[tracker.id];
+                            const daysLeft = Math.ceil(count / perDay);
+                            const completionDate = new Date();
+                            completionDate.setDate(completionDate.getDate() + daysLeft);
+                            const dateStr = completionDate.toLocaleDateString("en-US", {
+                              month: "2-digit",
+                              day: "2-digit",
+                              year: "numeric",
+                            });
+                            return (
+                              <small className="text-muted" style={{ lineHeight: 1.3, display: "block" }}>
+                                Done by <strong>{dateStr}</strong> ({daysLeft} day{daysLeft !== 1 ? "s" : ""}) at {perDay}/day
+                              </small>
+                            );
+                          })()}
+                        </div>
+                      )}
                     </Card.Body>
                   </Card>
                 </div>

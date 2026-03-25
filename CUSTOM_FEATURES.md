@@ -38,6 +38,8 @@ This document describes all custom features and modifications added on top of th
 30. [Has Roles Filter for Markers](#30-has-roles-filter-for-markers)
 31. [Scene Type Filter](#31-scene-type-filter)
 32. [2nd Camera Tag Exclusion](#32-2nd-camera-tag-exclusion)
+33. [Marker Duration Display](#33-marker-duration-display)
+34. [Task Progress Completion Estimate](#34-task-progress-completion-estimate)
 
 ---
 
@@ -1985,5 +1987,38 @@ Markers with the 2nd camera tag are **excluded** from matching the configured or
 
 ---
 
-*Last Updated: February 2026*
+## 33. Marker Duration Display
+
+### Overview
+Displays the calculated duration between a marker's start and end time in both view and edit modes. For example: `1:00 - 1:45 (45s)`. Makes it easy to see at a glance how long each marker segment is.
+
+### View Mode
+In the scene Markers tab (PrimaryTags card), when a marker has an end time, the duration is shown in parentheses after the time range.
+
+### Edit Mode
+In the marker edit form (SceneMarkerForm), a read-only "Duration" field appears below the end time field showing the full computed duration (e.g., `1:00 - 1:45 (45s)`).
+
+### Files Modified
+- `ui/v2.5/src/utils/text.ts` — Added `formatDurationRange()` utility function (formats seconds into human-readable `Xh Xm Xs` format)
+- `ui/v2.5/src/components/Scenes/SceneDetails/PrimaryTags.tsx` — Added duration display after end timestamp in marker view
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkerForm.tsx` — Added computed read-only duration field in edit form
+
+---
+
+## 34. Task Progress Completion Estimate
+
+### Overview
+Adds a small calculator widget to each task progress tracker card (and the Overall Progress card) that estimates when the task will be completed based on a user-entered items-per-day rate. Not persisted — just an ephemeral in-page calculator.
+
+### Behavior
+- Each tracker card shows an "Items/day" input at the bottom when items remain
+- When a value is entered, it displays: "Done by MM/DD/YYYY (X days) at Y/day"
+- The Overall Progress card also includes the same widget for the total unorganized scene count
+
+### Files Modified
+- `ui/v2.5/src/components/TaskProgress.tsx` — Added `itemsPerDay` state map and `overallItemsPerDay` state; added completion estimate widget to each tracker card and the Overall Progress card
+
+---
+
+*Last Updated: March 2026*
 *Base Version: Stash v0.30.0*
