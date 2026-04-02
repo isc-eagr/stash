@@ -213,6 +213,7 @@ func Initialize() (*Server, error) {
 
 	r.Mount("/performer", server.getPerformerRoutes())
 	r.Mount("/scene", server.getSceneRoutes())
+	r.Mount("/scene-release", server.getSceneReleaseRoutes())
 	r.Mount("/gallery", server.getGalleryRoutes())
 	r.Mount("/image", server.getImageRoutes())
 	r.Mount("/studio", server.getStudioRoutes())
@@ -349,9 +350,11 @@ func (s *Server) Shutdown() {
 func (s *Server) getPerformerRoutes() chi.Router {
 	repo := s.manager.Repository
 	return performerRoutes{
-		routes:          routes{txnManager: repo.TxnManager},
-		performerFinder: repo.Performer,
-		sfwConfig:       s.manager.Config,
+		routes:               routes{txnManager: repo.TxnManager},
+		performerFinder:      repo.Performer,
+		performerImageFinder: repo.PerformerImage,
+		blobStore:            repo.Blobs,
+		sfwConfig:            s.manager.Config,
 	}.Routes()
 }
 
@@ -364,6 +367,14 @@ func (s *Server) getSceneRoutes() chi.Router {
 		captionFinder:     repo.File,
 		sceneMarkerFinder: repo.SceneMarker,
 		tagFinder:         repo.Tag,
+	}.Routes()
+}
+
+func (s *Server) getSceneReleaseRoutes() chi.Router {
+	repo := s.manager.Repository
+	return sceneReleaseRoutes{
+		routes:        routes{txnManager: repo.TxnManager},
+		releaseFinder: repo.SceneRelease,
 	}.Routes()
 }
 

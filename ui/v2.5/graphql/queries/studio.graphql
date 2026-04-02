@@ -9,7 +9,22 @@ query FindStudios($filter: FindFilterType, $studio_filter: StudioFilterType) {
 
 query FindStudio($id: ID!) {
   findStudio(id: $id) {
-    ...StudioData
+    ...StudioDetailData
+  }
+}
+
+query FindStudioPerformerStats($id: ID!, $performerId: ID!) {
+  findStudio(id: $id) {
+    id
+    scene_count(performer_id: $performerId)
+    sex_scene_count(performer_id: $performerId)
+    oral_scene_count(performer_id: $performerId)
+    solo_scene_count(performer_id: $performerId)
+    facial_scene_count(performer_id: $performerId)
+    group_count(performer_id: $performerId)
+    image_count(performer_id: $performerId)
+    gallery_count(performer_id: $performerId)
+    o_counter(performer_id: $performerId)
   }
 }
 

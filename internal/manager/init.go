@@ -47,12 +47,13 @@ func Initialize(cfg *config.Config, l *log.Logger) (*Manager, error) {
 	pluginCache := plugin.NewCache(cfg)
 
 	sceneService := &scene.Service{
-		File:             db.File,
-		Repository:       db.Scene,
-		MarkerRepository: db.SceneMarker,
-		PluginCache:      pluginCache,
-		Paths:            mgrPaths,
-		Config:           cfg,
+		File:                   db.File,
+		Repository:             db.Scene,
+		MarkerRepository:       db.SceneMarker,
+		SceneReleaseRepository: db.SceneRelease,
+		PluginCache:            pluginCache,
+		Paths:                  mgrPaths,
+		Config:                 cfg,
 	}
 
 	imageService := &image.Service{

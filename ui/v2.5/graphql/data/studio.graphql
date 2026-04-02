@@ -1,3 +1,4 @@
+# Light fragment used by list pages and cards (no depth variants)
 fragment StudioData on Studio {
   id
   name
@@ -19,15 +20,15 @@ fragment StudioData on Studio {
   organized
   image_path
   scene_count
-  scene_count_all: scene_count(depth: -1)
+  sex_scene_count
+  oral_scene_count
+  solo_scene_count
+  facial_scene_count
+  unique_performer_count
   image_count
-  image_count_all: image_count(depth: -1)
   gallery_count
-  gallery_count_all: gallery_count(depth: -1)
   performer_count
-  performer_count_all: performer_count(depth: -1)
   group_count
-  group_count_all: group_count(depth: -1)
   stash_ids {
     stash_id
     endpoint
@@ -42,6 +43,21 @@ fragment StudioData on Studio {
   }
   o_counter
   custom_fields
+}
+
+# Full fragment used by studio detail page (includes depth/child-studio counts)
+fragment StudioDetailData on Studio {
+  ...StudioData
+  scene_count_all: scene_count(depth: -1)
+  sex_scene_count_all: sex_scene_count(depth: -1)
+  oral_scene_count_all: oral_scene_count(depth: -1)
+  solo_scene_count_all: solo_scene_count(depth: -1)
+  facial_scene_count_all: facial_scene_count(depth: -1)
+  unique_performer_count_all: unique_performer_count(depth: -1)
+  image_count_all: image_count(depth: -1)
+  gallery_count_all: gallery_count(depth: -1)
+  performer_count_all: performer_count(depth: -1)
+  group_count_all: group_count(depth: -1)
 }
 
 fragment SelectStudioData on Studio {

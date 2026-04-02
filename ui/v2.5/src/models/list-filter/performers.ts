@@ -19,6 +19,12 @@ import { CountryCriterionOption } from "./criteria/country";
 import { RatingCriterionOption } from "./criteria/rating";
 import { CustomFieldsCriterionOption } from "./criteria/custom-fields";
 import { GroupsCriterionOption } from "./criteria/groups";
+import { PerformerMarkersCriterionOption } from "./criteria/performer-markers";
+import { PerformerMarkersExcludeCriterionOption } from "./criteria/performer-markers-exclude";
+import { HasMarkersCriterionOption } from "./criteria/has-markers";
+import { ProfileImageCountCriterionOption } from "./criteria/profile-image-count";
+import { PerformerCustomFiltersCriterionOption } from "./criteria/custom-filters";
+import { PerformerSceneTypeCriterionOption } from "./criteria/scene-type";
 
 const defaultSortBy = "name";
 const sortByOptions = [
@@ -99,6 +105,15 @@ const criterionOptions = [
   CircumcisedCriterionOption,
   PerformerIsMissingCriterionOption,
   TagsCriterionOption,
+  HasMarkersCriterionOption,
+  // Custom Filters: predefined complex filters (strict_tops, lenient_tops, strict_bottoms, lenient_bottoms)
+  PerformerCustomFiltersCriterionOption,
+  // Scene Type: filter performers by scene type (sex, oral, solo, facial)
+  PerformerSceneTypeCriterionOption,
+  // Performer Markers: filter by markers with specific tags, performer role, and partner attributes
+  PerformerMarkersCriterionOption,
+  // Performer Markers: Exclude - exclude performers with markers matching these criteria
+  PerformerMarkersExcludeCriterionOption,
   GroupsCriterionOption,
   StudiosCriterionOption,
   StashIDCriterionOption,
@@ -107,6 +122,7 @@ const criterionOptions = [
   createMandatoryNumberCriterionOption("tag_count"),
   createMandatoryNumberCriterionOption("scene_count"),
   createMandatoryNumberCriterionOption("image_count"),
+  ProfileImageCountCriterionOption,
   createMandatoryNumberCriterionOption("gallery_count"),
   createMandatoryNumberCriterionOption("play_count"),
   createMandatoryNumberCriterionOption("o_counter", "o_count", {

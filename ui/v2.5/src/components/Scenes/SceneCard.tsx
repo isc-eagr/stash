@@ -1,5 +1,10 @@
 import React, { useEffect, useMemo, useRef } from "react";
-import { Button, ButtonGroup, OverlayTrigger, Tooltip } from "react-bootstrap";
+import {
+  Button,
+  ButtonGroup,
+  OverlayTrigger,
+  Tooltip,
+} from "react-bootstrap";
 import { useHistory } from "react-router-dom";
 import cx from "classnames";
 import * as GQL from "src/core/generated-graphql";
@@ -19,10 +24,12 @@ import {
   faBox,
   faCopy,
   faFilm,
+  faHand,
   faImages,
   faMapMarkerAlt,
   faTag,
 } from "@fortawesome/free-solid-svg-icons";
+// Using emoji for oral indicator
 import { objectPath, objectTitle } from "src/core/files";
 import { PreviewScrubber } from "./PreviewScrubber";
 import { PatchComponent } from "src/patch";
@@ -31,6 +38,10 @@ import { GroupTag } from "../Groups/GroupTag";
 import { FileSize } from "../Shared/FileSize";
 import { OCounterButton } from "../Shared/CountButton";
 import { defaultPreviewVolume } from "src/core/config";
+import mouthSvg from "src/assets/mouth.svg";
+import gaySvg from "src/assets/gay.svg";
+import straightSvg from "src/assets/straight.svg";
+import goateeSvg from "src/assets/goatee.svg";
 
 interface IScenePreviewProps {
   isPortrait: boolean;
@@ -310,6 +321,7 @@ const SceneCardPopovers = PatchComponent(
               {maybeRenderGroupPopoverButton()}
               {maybeRenderSceneMarkerPopoverButton()}
               {maybeRenderOCounter()}
+
               {maybeRenderGallery()}
               {maybeRenderOrganized()}
               {maybeRenderDupeCopies()}
@@ -328,7 +340,7 @@ const SceneCardDetails = PatchComponent(
   (props: ISceneCardProps) => {
     return (
       <div className="scene-card__details">
-        <span className="scene-card__date">{props.scene.date}</span>
+        <span className="scene-card__date">{props.scene.effective_date ?? props.scene.date}</span>
         <span className="file-path extra-scene-info">
           {objectPath(props.scene)}
         </span>
@@ -345,13 +357,62 @@ const SceneCardDetails = PatchComponent(
 const SceneCardOverlays = PatchComponent(
   "SceneCard.Overlays",
   (props: ISceneCardProps) => {
-    const ret = useMemo(() => {
-      return (
-        <StudioOverlay studio={props.scene.studio} disabled={props.selecting} />
-      );
-    }, [props.scene.studio, props.selecting]);
+    const { configuration } = useConfigurationContext();
 
-    return ret;
+    // Check if scene has facial markers based on configured facial tag ID (including subtags)
+    const hasFacial = useMemo(() => {
+      const roleTagIds = configuration?.ui?.roleTagIds ?? {};
+      const {facialTagId} = roleTagIds;
+      if (!facialTagId) return false;
+
+      // Helper to check if a tag matches (including recursive parent/child relationships)
+      // Returns true if tag.id === targetId OR any ancestor of tag has id === targetId
+      const tagMatches = (
+        tag: { id?: string; parents?: Array<{ id?: string }> } | null | undefined,
+        targetId: string,
+        visited: Set<string> = new Set()
+      ): boolean => {
+        if (!tag || !tag.id) return false;
+        if (tag.id === targetId) return true;
+        // Prevent infinite loops
+        if (visited.has(tag.id)) return false;
+        visited.add(tag.id);
+        // Recursively check all parents (ancestors)
+        const parents = tag.parents ?? [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return parents.some((p) => tagMatches(p as any, targetId, visited));
+      };
+
+      // Check scene markers for facial tag (including subtags)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sceneMarkers = (props.scene as any).scene_markers ?? [];
+      for (const marker of sceneMarkers) {
+        if (tagMatches(marker?.primary_tag, facialTagId)) {
+          return true;
+        }
+        const markerTags: Array<{ id?: string; parents?: Array<{ id?: string }> }> = marker?.tags ?? [];
+        for (const tag of markerTags) {
+          if (tagMatches(tag, facialTagId)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }, [props.scene, configuration?.ui]);
+
+    return (
+      <>
+        <StudioOverlay studio={props.scene.studio} disabled={props.selecting} />
+        {hasFacial && (
+          <img
+            className="scene-facial-overlay"
+            src={goateeSvg}
+            alt="Facial"
+            title="Facial tags present"
+          />
+        )}
+      </>
+    );
   }
 );
 
@@ -457,6 +518,164 @@ export const SceneCard = PatchComponent(
       [props.scene]
     );
 
+    // Determine which icon to show based on scene markers with role tags
+    const iconToShow = useMemo(() => {
+      // Get role tag IDs from configuration
+      const roleTagIds = configuration?.ui?.roleTagIds ?? {};
+      const {sexTagId} = roleTagIds;
+      const {oralTagId} = roleTagIds;
+      const {soloTagId} = roleTagIds;
+      const {facialTagId} = roleTagIds;
+
+      // Helper to check if a tag matches (including recursive parent/child relationships)
+      // Returns true if tag.id === targetId OR any ancestor of tag has id === targetId
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tagMatches = (tag: any, targetId: string | undefined, visited: Set<string> = new Set()): boolean => {
+        if (!targetId || !tag) return false;
+        if (tag.id === targetId) return true;
+        // Prevent infinite loops
+        if (visited.has(tag.id)) return false;
+        visited.add(tag.id);
+        // Recursively check all parents (ancestors)
+        const parents = tag.parents ?? [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return parents.some((p: any) => tagMatches(p, targetId, visited));
+      };
+
+      // Get scene marker tag IDs (including hierarchy)
+      const markerTagIds = new Set<string>();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sceneMarkers = (props.scene as any).scene_markers ?? [];
+      for (const marker of sceneMarkers) {
+        // Determine if this marker is an oral marker
+        let isOralMarker = false;
+        if (marker?.primary_tag && oralTagId && tagMatches(marker.primary_tag, oralTagId)) {
+          isOralMarker = true;
+        }
+        if (!isOralMarker) {
+          const markerTags = marker?.tags ?? [];
+          for (const tag of markerTags) {
+            if (oralTagId && tagMatches(tag, oralTagId)) {
+              isOralMarker = true;
+              break;
+            }
+          }
+        }
+
+        // Add oral markers to tag set
+        if (isOralMarker && oralTagId) {
+          markerTagIds.add(oralTagId);
+        }
+
+        // Check primary tag for non-oral tags
+        if (marker?.primary_tag) {
+          if (sexTagId && tagMatches(marker.primary_tag, sexTagId))
+            markerTagIds.add(sexTagId);
+          if (soloTagId && tagMatches(marker.primary_tag, soloTagId))
+            markerTagIds.add(soloTagId);
+          if (facialTagId && tagMatches(marker.primary_tag, facialTagId))
+            markerTagIds.add(facialTagId);
+        }
+        // Check secondary tags for non-oral tags
+        const markerTags = marker?.tags ?? [];
+        for (const tag of markerTags) {
+          if (sexTagId && tagMatches(tag, sexTagId)) markerTagIds.add(sexTagId);
+          if (soloTagId && tagMatches(tag, soloTagId))
+            markerTagIds.add(soloTagId);
+          if (facialTagId && tagMatches(tag, facialTagId))
+            markerTagIds.add(facialTagId);
+        }
+      }
+
+      // Priority: sex > oral > solo > facial
+      if (sexTagId && markerTagIds.has(sexTagId)) {
+        return {
+          type: "gay",
+          className: "scene-gay-icon",
+          title: "Scene has sex markers",
+        };
+      }
+
+      if (oralTagId && markerTagIds.has(oralTagId)) {
+        return {
+          type: "mouth",
+          className: "scene-mouth-icon",
+          title: "Scene has oral markers",
+        };
+      }
+
+      if (soloTagId && markerTagIds.has(soloTagId)) {
+        return {
+          type: "hand",
+          icon: faHand,
+          className: "scene-hand-icon",
+          title: "Scene has solo markers",
+        };
+      }
+
+      // Note: facial is intentionally not included here - it shows in the overlay instead
+      return null;
+    }, [props.scene, configuration?.ui]);
+
+    const pretitleIcon = useMemo(() => {
+      const pieces: JSX.Element[] = [];
+      if (iconToShow) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const t = (iconToShow as any).type as string | undefined;
+        if (
+          t === "mouth" ||
+          t === "gay" ||
+          t === "straight" ||
+          t === "goatee"
+        ) {
+          pieces.push(
+            <img
+              key="primary"
+              src={
+                t === "gay"
+                  ? gaySvg
+                  : t === "straight"
+                  ? straightSvg
+                  : t === "goatee"
+                  ? goateeSvg
+                  : mouthSvg
+              }
+              alt={
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (iconToShow as any).title ||
+                (t === "gay"
+                  ? "Gay"
+                  : t === "straight"
+                  ? "Straight"
+                  : t === "goatee"
+                  ? "Facial"
+                  : "Open Mouth")
+              }
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              title={(iconToShow as any).title}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              className={(iconToShow as any).className}
+            />
+          );
+        } else {
+          // fallback for hand/others using FontAwesome
+          pieces.push(
+            <Icon
+              key="primary"
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              icon={(iconToShow as any).icon!}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              className={(iconToShow as any).className}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              title={(iconToShow as any).title}
+            />
+          );
+        }
+      }
+      if (pieces.length === 0) return undefined;
+      return <>{pieces}</>;
+    }, [iconToShow]);
+
     function zoomIndex() {
       if (!props.compact && props.zoomIndex !== undefined) {
         return `zoom-${props.zoomIndex}`;
@@ -473,6 +692,21 @@ export const SceneCard = PatchComponent(
       return "";
     }
 
+    function getRatingClass() {
+      // Exclude home page from rating effects
+      const isHomePage =
+        window.location.pathname === "/" ||
+        window.location.pathname === "/frontpage";
+      if (isHomePage) return "";
+
+      const rating = props.scene.rating100;
+      // 5 stars = 100, 4 stars = 80, 3 stars = 60
+      if (rating === 100) return "rating-5-stars";
+      if (rating === 80) return "rating-4-stars";
+      if (rating === 60) return "rating-3-stars";
+      return "";
+    }
+
     const cont = configuration?.interface.continuePlaylistDefault ?? false;
 
     const sceneLink = props.queue
@@ -484,9 +718,10 @@ export const SceneCard = PatchComponent(
 
     return (
       <GridCard
-        className={`scene-card ${zoomIndex()} ${filelessClass()}`}
+        className={`scene-card ${zoomIndex()} ${filelessClass()} ${getRatingClass()}`}
         url={sceneLink}
         title={objectTitle(props.scene)}
+        pretitleIcon={pretitleIcon}
         width={props.width}
         linkClassName="scene-card-link"
         thumbnailSectionClassName="video-section"

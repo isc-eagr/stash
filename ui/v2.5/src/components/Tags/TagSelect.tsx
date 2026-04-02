@@ -12,6 +12,7 @@ import {
   useTagCreate,
   queryFindTagsByIDForSelect,
   queryFindTagsForSelect,
+  queryFindTagsForSelectWithTagFilter,
 } from "src/core/StashService";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useIntl } from "react-intl";
@@ -65,6 +66,10 @@ export type TagSelectProps = IFilterProps &
     hoverPlacement?: Placement;
     hoverPlacementLabel?: Placement;
     excludeIds?: string[];
+    // When true, suppress TagPopover hovers for options and selected chips
+    disableHoverPopovers?: boolean;
+    // Optional extra tag filter constraints applied server-side when loading options
+    tagFilter?: Partial<GQL.TagFilterType>;
   };
 
 const _TagSelect: React.FC<TagSelectProps> = (props) => {
@@ -133,7 +138,11 @@ const _TagSelect: React.FC<TagSelectProps> = (props) => {
     thisOptionProps = {
       ...optionProps,
       children: (
-        <TagPopover id={object.id} placement={props.hoverPlacement ?? "right"}>
+        <TagPopover
+          id={object.id}
+          placement={props.hoverPlacement ?? "right"}
+          hide={props.disableHoverPopovers}
+        >
           <span className="react-select-image-option">
             {/* the following code causes re-rendering issues when selecting tags */}
             {/* <TagPopover
@@ -177,6 +186,7 @@ const _TagSelect: React.FC<TagSelectProps> = (props) => {
         <TagPopover
           id={object.id}
           placement={props.hoverPlacementLabel ?? "top"}
+          hide={props.disableHoverPopovers}
         >
           <span>{object.name}</span>
         </TagPopover>

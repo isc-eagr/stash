@@ -8,6 +8,13 @@ type SceneMarker {
   end_seconds: Float
   primary_tag: Tag!
   tags: [Tag!]!
+  "Top performers associated with this marker (active/top role). Only performers assigned to the parent scene are selectable."
+  top_performers: [Performer!]!
+  "Bottom performers associated with this marker (passive/bottom role). Only performers assigned to the parent scene are selectable."
+  bottom_performers: [Performer!]!
+  "All performers associated with this marker (tops + bottoms, for backward compatibility)"
+  performers: [Performer!]!
+    @deprecated(reason: "Use top_performers and bottom_performers instead")
   created_at: Time!
   updated_at: Time!
 
@@ -28,6 +35,12 @@ input SceneMarkerCreateInput {
   scene_id: ID!
   primary_tag_id: ID!
   tag_ids: [ID!]
+  "Top performer IDs (active/top role). Must be performers already assigned to the scene."
+  top_performer_ids: [ID!]
+  "Bottom performer IDs (passive/bottom role). Must be performers already assigned to the scene."
+  bottom_performer_ids: [ID!]
+  "Deprecated: Use top_performer_ids and bottom_performer_ids instead. For backward compatibility, these will be treated as top performers."
+  performer_ids: [ID!]
 }
 
 input SceneMarkerUpdateInput {
@@ -40,6 +53,12 @@ input SceneMarkerUpdateInput {
   scene_id: ID
   primary_tag_id: ID
   tag_ids: [ID!]
+  "Top performer IDs (active/top role). Must be performers already assigned to the scene."
+  top_performer_ids: [ID!]
+  "Bottom performer IDs (passive/bottom role). Must be performers already assigned to the scene."
+  bottom_performer_ids: [ID!]
+  "Deprecated: Use top_performer_ids and bottom_performer_ids instead."
+  performer_ids: [ID!]
 }
 
 input BulkSceneMarkerUpdateInput {

@@ -8,6 +8,7 @@ import { CheckboxGroup } from "./CheckboxGroup";
 import { SettingSection } from "../SettingSection";
 import {
   BooleanSetting,
+  Setting,
   ModalSetting,
   NumberSetting,
   SelectSetting,
@@ -44,6 +45,7 @@ import {
 } from "src/utils/imageWall";
 import { defaultMaxOptionsShown, defaultPreviewVolume } from "src/core/config";
 import { PatchComponent } from "src/patch";
+import { TagIDSelect, Tag as TagOption } from "src/components/Tags/TagSelect";
 
 const allMenuItems = [
   { id: "scenes", headingID: "scenes" },
@@ -292,6 +294,145 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
           />
         </SettingSection>
 
+        <SettingSection headingID="config.ui.role_tags.heading">
+          <div className="setting-group">
+            <div className="setting">
+              <div>
+                <h3>
+                  {intl.formatMessage({ id: "config.ui.role_tags.title" })}
+                </h3>
+                <div className="sub-heading">
+                  {intl.formatMessage({
+                    id: "config.ui.role_tags.description",
+                  })}
+                </div>
+              </div>
+              <div />
+            </div>
+          </div>
+
+          <Setting id="role-tag-sex" headingID="config.ui.role_tags.sex">
+            <TagIDSelect
+              isMulti={false}
+              creatable={false}
+              ids={ui.roleTagIds?.sexTagId ? [ui.roleTagIds.sexTagId] : []}
+              menuPortalTarget={document.body}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  roleTagIds: {
+                    ...(ui.roleTagIds ?? {}),
+                    sexTagId: items[0]?.id ?? undefined,
+                  },
+                })
+              }
+            />
+          </Setting>
+          <Setting id="role-tag-oral" headingID="config.ui.role_tags.oral">
+            <TagIDSelect
+              isMulti={false}
+              creatable={false}
+              ids={ui.roleTagIds?.oralTagId ? [ui.roleTagIds.oralTagId] : []}
+              menuPortalTarget={document.body}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  roleTagIds: {
+                    ...(ui.roleTagIds ?? {}),
+                    oralTagId: items[0]?.id ?? undefined,
+                  },
+                })
+              }
+            />
+          </Setting>
+          <Setting id="role-tag-solo" headingID="config.ui.role_tags.solo">
+            <TagIDSelect
+              isMulti={false}
+              creatable={false}
+              ids={ui.roleTagIds?.soloTagId ? [ui.roleTagIds.soloTagId] : []}
+              menuPortalTarget={document.body}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  roleTagIds: {
+                    ...(ui.roleTagIds ?? {}),
+                    soloTagId: items[0]?.id ?? undefined,
+                  },
+                })
+              }
+            />
+          </Setting>
+          <Setting id="role-tag-facial" headingID="config.ui.role_tags.facial">
+            <TagIDSelect
+              isMulti={false}
+              creatable={false}
+              ids={
+                ui.roleTagIds?.facialTagId ? [ui.roleTagIds.facialTagId] : []
+              }
+              menuPortalTarget={document.body}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  roleTagIds: {
+                    ...(ui.roleTagIds ?? {}),
+                    facialTagId: items[0]?.id ?? undefined,
+                  },
+                })
+              }
+            />
+          </Setting>
+          <Setting id="role-tag-orgasm" headingID="config.ui.role_tags.orgasm">
+            <TagIDSelect
+              isMulti={false}
+              creatable={false}
+              ids={
+                ui.roleTagIds?.orgasmTagId ? [ui.roleTagIds.orgasmTagId] : []
+              }
+              menuPortalTarget={document.body}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  roleTagIds: {
+                    ...(ui.roleTagIds ?? {}),
+                    orgasmTagId: items[0]?.id ?? undefined,
+                  },
+                })
+              }
+            />
+          </Setting>
+          <Setting id="role-tag-feet" headingID="config.ui.role_tags.feet">
+            <TagIDSelect
+              isMulti={false}
+              creatable={false}
+              ids={
+                ui.roleTagIds?.feetTagId ? [ui.roleTagIds.feetTagId] : []
+              }
+              menuPortalTarget={document.body}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  roleTagIds: {
+                    ...(ui.roleTagIds ?? {}),
+                    feetTagId: items[0]?.id ?? undefined,
+                  },
+                })
+              }
+            />
+          </Setting>
+          <Setting id="role-tag-second-camera" headingID="config.ui.role_tags.second_camera">
+            <TagIDSelect
+              isMulti={false}
+              creatable={false}
+              ids={
+                ui.roleTagIds?.secondCameraTagId ? [ui.roleTagIds.secondCameraTagId] : []
+              }
+              menuPortalTarget={document.body}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  roleTagIds: {
+                    ...(ui.roleTagIds ?? {}),
+                    secondCameraTagId: items[0]?.id ?? undefined,
+                  },
+                })
+              }
+            />
+          </Setting>
+        </SettingSection>
+
         <SettingSection headingID="config.ui.desktop_integration.desktop_integration">
           <BooleanSetting
             id="skip-browser"
@@ -489,6 +630,14 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
             headingID="config.ui.scene_player.options.show_ab_loop_controls"
             checked={ui.showAbLoopControls ?? undefined}
             onChange={(v) => saveUI({ showAbLoopControls: v })}
+          />
+
+          <BooleanSetting
+            id="show-multi-segment-loop"
+            headingID="config.ui.scene_player.options.show_multi_segment_loop_controls"
+            subHeadingID="config.ui.scene_player.options.show_multi_segment_loop_controls_desc"
+            checked={ui.showMultiSegmentLoopControls ?? undefined}
+            onChange={(v) => saveUI({ showMultiSegmentLoopControls: v })}
           />
         </SettingSection>
         <SettingSection headingID="config.ui.tag_panel.heading">

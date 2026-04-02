@@ -305,6 +305,11 @@
   height: 150px;
 }
 
+/* Ensure consistent performer card width in carousel on desktop */
+.slick-list .performer-card.card {
+  width: 20rem;
+}
+
 @media (max-width: 576px) {
   .slick-list .scene-card.card,
   .slick-list .studio-card.card,
@@ -498,4 +503,12 @@
 // but this is a quick fix to prevent breaking existing styles
 .recommendation-row .card.zoom-1 {
   width: 320px;
+}
+
+/* Fix performer role badges in slick slider - ensure horizontal layout */
+.slick-slide .performer-role-badges .category-icon-container {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 4px !important;
 }

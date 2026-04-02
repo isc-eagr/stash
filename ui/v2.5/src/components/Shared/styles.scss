@@ -252,6 +252,12 @@ button.collapse-button {
   }
 }
 
+/* Allow hover popovers to be resized to match their target when JS sets inline width */
+.hover-popover-content.popover {
+  /* keep default max-width to prevent oversized popovers */
+  max-width: 32rem;
+}
+
 .ErrorMessage-container {
   display: flex;
   justify-content: center;

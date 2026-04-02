@@ -4,6 +4,7 @@ import { StudioCard } from "./StudioCard";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import { PatchComponent } from "src/patch";
 import { FilteredRecommendationRow } from "../FrontPage/FilteredRecommendationRow";
+import { useRoleTags } from "src/hooks/useRoleTags";
 
 interface IProps {
   isTouch: boolean;
@@ -16,6 +17,7 @@ export const StudioRecommendationRow: React.FC<IProps> = PatchComponent(
   (props) => {
     const result = useFindStudios(props.filter);
     const count = result.data?.findStudios.count ?? 0;
+    const roleTags = useRoleTags();
 
     return (
       <FilteredRecommendationRow
@@ -35,7 +37,7 @@ export const StudioRecommendationRow: React.FC<IProps> = PatchComponent(
               ></div>
             ))
           : result.data?.findStudios.studios.map((s) => (
-              <StudioCard key={s.id} studio={s} hideParent={true} />
+              <StudioCard key={s.id} studio={s} hideParent={true} roleTags={roleTags} />
             ))}
       </FilteredRecommendationRow>
     );

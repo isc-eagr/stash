@@ -14,11 +14,40 @@ fragment SceneMarkerData on SceneMarker {
   primary_tag {
     id
     name
+    parents {
+      id
+    }
   }
 
   tags {
     id
     name
+    parents {
+      id
+    }
+  }
+
+  performers {
+    id
+    name
+    alias_list
+    disambiguation
+  }
+
+  top_performers {
+    id
+    name
+    alias_list
+    disambiguation
+    image_path
+  }
+
+  bottom_performers {
+    id
+    name
+    alias_list
+    disambiguation
+    image_path
   }
 }
 
@@ -29,6 +58,9 @@ fragment SceneMarkerSceneData on Scene {
     width
     height
     path
+  }
+  paths {
+    stream
   }
   performers {
     id

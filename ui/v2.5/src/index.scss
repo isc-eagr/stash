@@ -1183,6 +1183,85 @@ div.dropdown-menu {
     text-align: center;
     text-transform: uppercase;
   }
+
+  &-category-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    font-size: 3vw;
+
+    @media (max-width: 576px) {
+      font-size: 16px;
+    }
+
+    &:hover,
+    &:focus,
+    &:active,
+    &:focus-visible {
+      background-color: transparent !important;
+      color: inherit !important;
+      border: none !important;
+      box-shadow: none !important;
+      outline: none !important;
+      text-decoration: none !important;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background-color: transparent !important;
+      border: none !important;
+    }
+
+    .stats-category-icon {
+      width: 1.5em;
+      height: 1.5em;
+      display: inline-block;
+      vertical-align: -0.125em;
+      filter: brightness(0) invert(1);
+      -webkit-filter: brightness(0) invert(1);
+    }
+
+    .stats-category-icon-fa {
+      font-size: 1.5em;
+      color: #ffffff;
+      transform: rotate(-45deg);
+      display: inline-block;
+    }
+  }
+
+  &-category-button.oral-stats-button,
+  &-category-button.solo-stats-button {
+    &:hover:not(:disabled),
+    &:focus:not(:disabled),
+    &:active:not(:disabled) {
+      .stats-category-icon {
+        filter: brightness(0) invert(1) !important;
+        -webkit-filter: brightness(0) invert(1) !important;
+      }
+
+      .stats-category-icon-fa {
+        color: #ffffff !important;
+      }
+    }
+  }
+
+  &-category-button.sex-stats-button {
+    &:hover:not(:disabled),
+    &:focus:not(:disabled),
+    &:active:not(:disabled) {
+      background-color: transparent !important;
+
+      .stats-category-icon {
+        filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
+        -webkit-filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
+      }
+    }
+  }
 }
 
 $detailTabWidth: calc(100% / 3);

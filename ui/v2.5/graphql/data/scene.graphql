@@ -6,6 +6,7 @@ fragment SceneData on Scene {
   director
   urls
   date
+  effective_date
   rating100
   o_counter
   organized
@@ -49,6 +50,10 @@ fragment SceneData on Scene {
     ...SlimGalleryData
   }
 
+  direct_galleries {
+    ...SlimGalleryData
+  }
+
   studio {
     ...SlimStudioData
   }
@@ -81,6 +86,64 @@ fragment SceneData on Scene {
   }
 
   custom_fields
+
+  multi_segment_loop_presets {
+    id
+    scene_id
+    name
+    enabled
+    current_segment_index
+    segments {
+      start
+      end
+    }
+    created_at
+    updated_at
+  }
+
+  negative_markers {
+    id
+    scene_id
+    name
+    start_seconds
+    end_seconds
+    created_at
+    updated_at
+  }
+
+  releases {
+    ...SceneReleaseData
+  }
+}
+
+fragment SceneReleaseData on SceneRelease {
+  id
+  title
+  code
+  details
+  director
+  url
+  date
+  play_order
+  created_at
+  updated_at
+  studio {
+    ...SlimStudioData
+  }
+  paths {
+    screenshot
+  }
+  files {
+    ...VideoFileData
+  }
+  galleries {
+    ...SlimGalleryData
+  }
+  streams {
+    url
+    mime_type
+    label
+  }
 }
 
 fragment SelectSceneData on Scene {

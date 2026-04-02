@@ -534,6 +534,23 @@ const stripQuotes = (text: string) => {
  */
 const addQuotes = (text: string) => `"${text}"`;
 
+/**
+ * Formats a duration in seconds into a human-readable short form.
+ * e.g. 45 → "45s", 90 → "1m 30s", 3661 → "1h 1m 1s"
+ */
+const formatDurationRange = (totalSeconds: number): string => {
+  const secs = Math.round(Math.abs(totalSeconds));
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+
+  const parts: string[] = [];
+  if (h > 0) parts.push(`${h}h`);
+  if (m > 0) parts.push(`${m}m`);
+  if (s > 0 || parts.length === 0) parts.push(`${s}s`);
+  return parts.join(" ");
+};
+
 const TextUtils = {
   fileSize,
   formatFileSizeUnit,
@@ -559,6 +576,7 @@ const TextUtils = {
   abbreviateCounter,
   stripQuotes,
   addQuotes,
+  formatDurationRange,
 };
 
 export default TextUtils;

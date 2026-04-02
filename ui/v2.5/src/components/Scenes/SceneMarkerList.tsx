@@ -3,6 +3,7 @@ import React, { useCallback, useEffect } from "react";
 import { useHistory } from "react-router-dom";
 import { FormattedMessage, useIntl } from "react-intl";
 import Mousetrap from "mousetrap";
+import { faRandom } from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import {
   queryFindSceneMarkers,
@@ -10,6 +11,7 @@ import {
 } from "src/core/StashService";
 import NavUtils from "src/utils/navigation";
 import { useFilteredItemList } from "../List/ItemList";
+import { ItemList, ItemListContext } from "../List/ItemList";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import { DisplayMode } from "src/models/list-filter/types";
 import { MarkerWallPanel } from "./SceneMarkerWallPanel";
@@ -46,7 +48,11 @@ import { LoadedContent } from "../List/PagedList";
 import useFocus from "src/utils/focus";
 import { SidebarPerformersFilter } from "../List/Filters/PerformersFilter";
 import { SidebarTagsFilter } from "../List/Filters/TagsFilter";
+import { SceneTagsCriterionOption } from "src/models/list-filter/criteria/tags";
 import { Button } from "react-bootstrap";
+import { useMarkerQueue } from "src/hooks/MarkerQueue";
+import { MarkerQueueIndicator } from "./MarkerQueueIndicator";
+import { useToast } from "src/hooks/Toast";
 
 const SceneMarkerList: React.FC<{
   markers: GQL.SceneMarkerDataFragment[];
@@ -175,6 +181,7 @@ const SidebarContent: React.FC<{
           filterHook={filterHook}
         />
         <SidebarTagsFilter
+          option={SceneTagsCriterionOption}
           filter={filter}
           setFilter={setFilter}
           filterHook={filterHook}
@@ -202,6 +209,16 @@ export const FilteredSceneMarkerList = PatchComponent(
   "FilteredSceneMarkerList",
   (props: ISceneMarkerList) => {
     const intl = useIntl();
+    const history = useHistory();
+    const { queue, count: queueCount, addToQueue, clearQueue } = useMarkerQueue();
+    const Toast = useToast();
+
+    // Clear the marker queue when navigating away from this page
+    useEffect(() => {
+      return () => {
+        clearQueue();
+      };
+    }, [clearQueue]);
 
     const searchFocus = useFocus();
 
@@ -367,6 +384,23 @@ export const FilteredSceneMarkerList = PatchComponent(
     // render
     if (sidebarStateLoading) return null;
 
+    const handleAddToQueue = () => {
+      if (selectedIds.size > 0) {
+        const selectedMarkers = Array.from(selectedIds)
+          .map((id) => items.find((m) => m.id === id))
+          .filter((m): m is GQL.SceneMarkerDataFragment => m !== undefined);
+
+        addToQueue(selectedMarkers);
+        Toast.success(
+          intl.formatMessage(
+            { id: "actions.added_to_queue" },
+            { count: selectedMarkers.length }
+          )
+        );
+        onSelectNone();
+      }
+    };
+
     const operations = (
       <ListOperations
         items={items.length}
@@ -414,6 +448,13 @@ export const FilteredSceneMarkerList = PatchComponent(
                 operationComponent={operations}
                 view={view}
                 zoomable
+                extraToolbarContent={
+                  <MarkerQueueIndicator
+                    className="ml-2"
+                    onAddToQueue={handleAddToQueue}
+                    selectedCount={selectedIds.size}
+                  />
+                }
               />
 
               <FilterTags

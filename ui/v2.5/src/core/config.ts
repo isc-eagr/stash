@@ -88,6 +88,9 @@ export interface IUIConfig {
 
   showAbLoopControls?: boolean;
 
+  // if true, multi-segment loop controls will be shown below the scene player
+  showMultiSegmentLoopControls?: boolean;
+
   // maximum number of items to shown in the dropdown list - defaults to 200
   // upper limit of 1000
   maxOptionsShown?: number;
@@ -110,6 +113,18 @@ export interface IUIConfig {
   taggerConfig?: ITaggerConfig;
 
   title?: string;
+
+  // Tag IDs used for scene marker role categorization
+  // These determine which marker tags represent each role category
+  roleTagIds?: {
+    sexTagId?: string; // Tag ID for sex markers
+    oralTagId?: string; // Tag ID for oral markers
+    soloTagId?: string; // Tag ID for solo markers
+    facialTagId?: string; // Tag ID for facial markers
+    orgasmTagId?: string; // Tag ID for orgasm markers
+    feetTagId?: string; // Tag ID for feet markers
+    secondCameraTagId?: string; // Tag ID for 2nd camera markers (excluded from orgasm/facial counts)
+  };
 }
 
 export function getFrontPageContent(

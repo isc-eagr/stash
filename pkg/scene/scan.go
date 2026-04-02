@@ -39,6 +39,11 @@ type ScanGalleryFinderUpdater interface {
 	AddSceneIDs(ctx context.Context, galleryID int, sceneIDs []int) error
 }
 
+// ReleaseFileChecker checks if a file belongs to a scene release
+type ReleaseFileChecker interface {
+	FileExistsInSceneReleases(ctx context.Context, sceneID int, fileID models.FileID) (bool, error)
+}
+
 type ScanGenerator interface {
 	Generate(ctx context.Context, s *models.Scene, f *models.VideoFile) error
 }
@@ -47,9 +52,10 @@ type ScanHandler struct {
 	CreatorUpdater       ScanCreatorUpdater
 	GalleryFinderUpdater ScanGalleryFinderUpdater
 
-	ScanGenerator  ScanGenerator
-	CaptionUpdater video.CaptionUpdater
-	PluginCache    *plugin.Cache
+	ReleaseFileChecker ReleaseFileChecker
+	ScanGenerator      ScanGenerator
+	CaptionUpdater     video.CaptionUpdater
+	PluginCache        *plugin.Cache
 
 	FileNamingAlgorithm models.HashAlgorithm
 	Paths               *paths.Paths
@@ -163,6 +169,19 @@ func (h *ScanHandler) associateExisting(ctx context.Context, existing []*models.
 			if sf.ID == f.ID {
 				found = true
 				break
+			}
+		}
+
+		// Also check if file exists in any release of this scene
+		if !found && h.ReleaseFileChecker != nil {
+			inRelease, err := h.ReleaseFileChecker.FileExistsInSceneReleases(ctx, s.ID, f.ID)
+			if err != nil {
+				return fmt.Errorf("checking release files: %w", err)
+			}
+			if inRelease {
+				// File belongs to a release - skip adding to scene
+				logger.Debugf("File %s already belongs to a release of scene %s, skipping", f.Path, s.DisplayName())
+				found = true
 			}
 		}
 

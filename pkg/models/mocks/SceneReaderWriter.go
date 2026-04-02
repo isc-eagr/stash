@@ -30,6 +30,20 @@ func (_m *SceneReaderWriter) AddFileID(ctx context.Context, id int, fileID model
 	return r0
 }
 
+// RemoveFileID provides a mock function with given fields: ctx, sceneID, fileID
+func (_m *SceneReaderWriter) RemoveFileID(ctx context.Context, sceneID int, fileID models.FileID) error {
+	ret := _m.Called(ctx, sceneID, fileID)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int, models.FileID) error); ok {
+		r0 = rf(ctx, sceneID, fileID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // AddGalleryIDs provides a mock function with given fields: ctx, sceneID, galleryIDs
 func (_m *SceneReaderWriter) AddGalleryIDs(ctx context.Context, sceneID int, galleryIDs []int) error {
 	ret := _m.Called(ctx, sceneID, galleryIDs)
@@ -1229,20 +1243,20 @@ func (_m *SceneReaderWriter) OCountByPerformerID(ctx context.Context, performerI
 	return r0, r1
 }
 
-// OCountByStudioID provides a mock function with given fields: ctx, studioID
-func (_m *SceneReaderWriter) OCountByStudioID(ctx context.Context, studioID int) (int, error) {
-	ret := _m.Called(ctx, studioID)
+// OCountByStudioID provides a mock function with given fields: ctx, studioID, performerID
+func (_m *SceneReaderWriter) OCountByStudioID(ctx context.Context, studioID int, performerID *string) (int, error) {
+	ret := _m.Called(ctx, studioID, performerID)
 
 	var r0 int
-	if rf, ok := ret.Get(0).(func(context.Context, int) int); ok {
-		r0 = rf(ctx, studioID)
+	if rf, ok := ret.Get(0).(func(context.Context, int, *string) int); ok {
+		r0 = rf(ctx, studioID, performerID)
 	} else {
 		r0 = ret.Get(0).(int)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
-		r1 = rf(ctx, studioID)
+	if rf, ok := ret.Get(1).(func(context.Context, int, *string) error); ok {
+		r1 = rf(ctx, studioID, performerID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1355,6 +1369,20 @@ func (_m *SceneReaderWriter) ResetO(ctx context.Context, id int) (int, error) {
 	}
 
 	return r0, r1
+}
+
+// TransferOHistory provides a mock function with given fields: ctx, fromID, toID
+func (_m *SceneReaderWriter) TransferOHistory(ctx context.Context, fromID int, toID int) error {
+	ret := _m.Called(ctx, fromID, toID)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int, int) error); ok {
+		r0 = rf(ctx, fromID, toID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // SaveActivity provides a mock function with given fields: ctx, sceneID, resumeTime, playDuration

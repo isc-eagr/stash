@@ -505,6 +505,23 @@ export const queryFindTagsForSelect = (filter: ListFilterModel) =>
     },
   });
 
+// Variant that allows overriding/augmenting the tag_filter used for selects.
+// Useful for constraining TagSelect to subsets of tags.
+export const queryFindTagsForSelectWithTagFilter = (
+  filter: ListFilterModel,
+  tagFilterOverride?: GQL.TagFilterType
+) =>
+  client.query<GQL.FindTagsForSelectQuery>({
+    query: GQL.FindTagsForSelectDocument,
+    variables: {
+      filter: filter.makeFindFilter(),
+      tag_filter: {
+        ...(filter.makeFilter() as GQL.TagFilterType),
+        ...(tagFilterOverride ?? ({} as GQL.TagFilterType)),
+      },
+    },
+  });
+
 export const useFindSavedFilter = (id: string) =>
   GQL.useFindSavedFilterQuery({
     variables: { id },
@@ -1535,6 +1552,8 @@ const sceneMarkerMutationImpactedQueries = [
 
 export const useSceneMarkerCreate = () =>
   GQL.useSceneMarkerCreateMutation({
+    refetchQueries: ["PerformerSceneMarkerRoles"],
+    awaitRefetchQueries: true,
     update(cache, result, { variables }) {
       if (!result.data?.sceneMarkerCreate || !variables) return;
 
@@ -1544,6 +1563,10 @@ export const useSceneMarkerCreate = () =>
         fieldName: "scene_markers",
       });
 
+      // Evict all performer queries to refresh role badges
+      cache.evict({ fieldName: "findPerformer" });
+      cache.gc();
+
       evictTypeFields(cache, sceneMarkerMutationImpactedTypeFields);
       evictQueries(cache, sceneMarkerMutationImpactedQueries);
     },
@@ -1551,6 +1574,8 @@ export const useSceneMarkerCreate = () =>
 
 export const useSceneMarkerUpdate = () =>
   GQL.useSceneMarkerUpdateMutation({
+    refetchQueries: ["PerformerSceneMarkerRoles"],
+    awaitRefetchQueries: true,
     update(cache, result, { variables }) {
       if (!result.data?.sceneMarkerUpdate || !variables) return;
 
@@ -1559,6 +1584,10 @@ export const useSceneMarkerUpdate = () =>
         id: cache.identify({ __typename: "Scene", id: variables.scene_id }),
         fieldName: "scene_markers",
       });
+
+      // Evict all performer queries to refresh role badges
+      cache.evict({ fieldName: "findPerformer" });
+      cache.gc();
 
       evictTypeFields(cache, sceneMarkerMutationImpactedTypeFields);
       evictQueries(cache, sceneMarkerMutationImpactedQueries);
@@ -1577,11 +1606,17 @@ export const useBulkSceneMarkerUpdate = () =>
 
 export const useSceneMarkerDestroy = () =>
   GQL.useSceneMarkerDestroyMutation({
+    refetchQueries: ["PerformerSceneMarkerRoles"],
+    awaitRefetchQueries: true,
     update(cache, result, { variables }) {
       if (!result.data?.sceneMarkerDestroy || !variables) return;
 
       const obj = { __typename: "SceneMarker", id: variables.id };
       cache.evict({ id: cache.identify(obj) });
+
+      // Evict all performer queries to refresh role badges
+      cache.evict({ fieldName: "findPerformer" });
+      cache.gc();
 
       evictTypeFields(cache, sceneMarkerMutationImpactedTypeFields);
       evictQueries(cache, sceneMarkerMutationImpactedQueries);
@@ -1593,6 +1628,8 @@ export const useSceneMarkersDestroy = (
 ) =>
   GQL.useSceneMarkersDestroyMutation({
     variables: input,
+    refetchQueries: ["PerformerSceneMarkerRoles"],
+    awaitRefetchQueries: true,
     update(cache, result) {
       if (!result.data?.sceneMarkersDestroy) return;
 
@@ -1601,8 +1638,116 @@ export const useSceneMarkersDestroy = (
         cache.evict({ id: cache.identify(obj) });
       }
 
+      // Evict all performer queries to refresh role badges
+      cache.evict({ fieldName: "findPerformer" });
+      cache.gc();
+
       evictTypeFields(cache, sceneMarkerMutationImpactedTypeFields);
       evictQueries(cache, sceneMarkerMutationImpactedQueries);
+    },
+  });
+
+// Marker Playlist hooks
+export const useFindMarkerPlaylistsQuery = () =>
+  GQL.useFindMarkerPlaylistsQuery();
+
+export const useMarkerPlaylistCreate = () =>
+  GQL.useMarkerPlaylistCreateMutation({
+    refetchQueries: ["FindMarkerPlaylists"],
+  });
+
+export const useMarkerPlaylistDestroy = () =>
+  GQL.useMarkerPlaylistDestroyMutation({
+    refetchQueries: ["FindMarkerPlaylists"],
+  });
+
+// Scene Release hooks
+export const useSceneReleaseCreate = () =>
+  GQL.useSceneReleaseCreateMutation({
+    update(cache, result, { variables }) {
+      if (!result.data?.sceneReleaseCreate || !variables) return;
+
+      // Refetch linked scene's release list
+      cache.evict({
+        id: cache.identify({ __typename: "Scene", id: variables.input.scene_id }),
+        fieldName: "releases",
+      });
+      cache.gc();
+    },
+  });
+
+export const useSceneReleaseUpdate = () =>
+  GQL.useSceneReleaseUpdateMutation({
+    update(cache, result) {
+      if (!result.data?.sceneReleaseUpdate) return;
+      cache.gc();
+    },
+  });
+
+export const useSceneReleaseDestroy = () =>
+  GQL.useSceneReleaseDestroyMutation({
+    update(cache, result, { variables }) {
+      if (!result.data?.sceneReleaseDestroy || !variables) return;
+
+      const obj = { __typename: "SceneRelease", id: variables.input.id };
+      cache.evict({ id: cache.identify(obj) });
+      cache.gc();
+    },
+  });
+
+export const useSceneReleaseAddFile = () =>
+  GQL.useSceneReleaseAddFileMutation({
+    update(cache, result) {
+      if (!result.data?.sceneReleaseAddFile) return;
+      cache.gc();
+    },
+  });
+
+export const useSceneReleaseRemoveFile = () =>
+  GQL.useSceneReleaseRemoveFileMutation({
+    update(cache, result, { variables }) {
+      if (!result.data?.sceneReleaseRemoveFile || !variables) return;
+      // Evict the file from cache if it was deleted
+      if (variables.input.delete_from_filesystem) {
+        cache.evict({
+          id: cache.identify({ __typename: "VideoFile", id: variables.input.file_id }),
+        });
+      }
+      cache.gc();
+    },
+  });
+
+export const useConvertSceneToRelease = () =>
+  GQL.useConvertSceneToReleaseMutation({
+    update(cache, result, { variables }) {
+      if (!result.data?.convertSceneToRelease || !variables) return;
+
+      // Evict the source scene since it was deleted
+      const sourceObj = { __typename: "Scene", id: variables.input.source_scene_id };
+      cache.evict({ id: cache.identify(sourceObj) });
+
+      // Refetch target scene's release list
+      cache.evict({
+        id: cache.identify({ __typename: "Scene", id: variables.input.target_scene_id }),
+        fieldName: "releases",
+      });
+      cache.gc();
+    },
+  });
+
+export const useConvertReleaseToScene = () =>
+  GQL.useConvertReleaseToSceneMutation({
+    update(cache, result, { variables }) {
+      if (!result.data?.convertReleaseToScene || !variables) return;
+
+      // Evict the release since it was deleted
+      const releaseObj = { __typename: "SceneRelease", id: variables.input.release_id };
+      cache.evict({ id: cache.identify(releaseObj) });
+
+      // Update stats
+      updateStats(cache, "scene_count", 1);
+
+      cache.gc();
     },
   });
 

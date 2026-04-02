@@ -2,9 +2,11 @@ package api
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/stashapp/stash/internal/api/loaders"
 	"github.com/stashapp/stash/internal/api/urlbuilders"
+	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/gallery"
 	"github.com/stashapp/stash/pkg/group"
 	"github.com/stashapp/stash/pkg/image"
@@ -83,9 +85,9 @@ func (r *studioResolver) Tags(ctx context.Context, obj *models.Studio) (ret []*m
 	return ret, firstError(errs)
 }
 
-func (r *studioResolver) SceneCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
+func (r *studioResolver) SceneCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByStudioID(ctx, r.repository.Scene, obj.ID, depth)
+		ret, err = scene.CountByStudioID(ctx, r.repository.Scene, obj.ID, depth, performerID)
 		return err
 	}); err != nil {
 		return 0, err
@@ -94,8 +96,128 @@ func (r *studioResolver) SceneCount(ctx context.Context, obj *models.Studio, dep
 	return ret, nil
 }
 
-func (r *studioResolver) ImageCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
+// SexSceneCount returns the count of scenes with sex markers
+func (r *studioResolver) SexSceneCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	sexTagID, _, _, _, _, _, _ := getRoleTagIDs(uiConfig)
+
+	if sexTagID == 0 {
+		return 0, nil
+	}
+
+	var perfID *int
+	if performerID != nil {
+		id, err := strconv.Atoi(*performerID)
+		if err != nil {
+			return 0, err
+		}
+		perfID = &id
+	}
+
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = scene.CountByStudioMarkerRole(ctx, r.repository.SceneMarker, r.repository.Scene, obj.ID, depth, sexTagID, "", perfID)
+		return err
+	}); err != nil {
+		return 0, err
+	}
+
+	return ret, nil
+}
+
+// OralSceneCount returns the count of scenes with oral markers but not sex markers
+func (r *studioResolver) OralSceneCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	sexTagID, oralTagID, _, _, _, _, _ := getRoleTagIDs(uiConfig)
+
+	if oralTagID == 0 {
+		return 0, nil
+	}
+
+	var perfID *int
+	if performerID != nil {
+		id, err := strconv.Atoi(*performerID)
+		if err != nil {
+			return 0, err
+		}
+		perfID = &id
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = scene.CountByStudioMarkerRoleExcluding(ctx, r.repository.SceneMarker, r.repository.Scene, obj.ID, depth, oralTagID, "", sexTagID, perfID)
+		return err
+	}); err != nil {
+		return 0, err
+	}
+
+	return ret, nil
+}
+
+// SoloSceneCount returns the count of scenes with solo markers but not sex/oral markers
+func (r *studioResolver) SoloSceneCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	sexTagID, oralTagID, soloTagID, _, _, _, _ := getRoleTagIDs(uiConfig)
+
+	if soloTagID == 0 {
+		return 0, nil
+	}
+
+	var perfID *int
+	if performerID != nil {
+		id, err := strconv.Atoi(*performerID)
+		if err != nil {
+			return 0, err
+		}
+		perfID = &id
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = scene.CountByStudioMarkerRoleExcludingMultiple(ctx, r.repository.SceneMarker, r.repository.Scene, obj.ID, depth, soloTagID, "", []int{sexTagID, oralTagID}, perfID)
+		return err
+	}); err != nil {
+		return 0, err
+	}
+
+	return ret, nil
+}
+
+// FacialSceneCount returns the count of scenes with facial markers (independent of other markers)
+func (r *studioResolver) FacialSceneCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	_, _, _, facialTagID, _, _, _ := getRoleTagIDs(uiConfig)
+
+	if facialTagID == 0 {
+		return 0, nil
+	}
+
+	var perfID *int
+	if performerID != nil {
+		id, err := strconv.Atoi(*performerID)
+		if err != nil {
+			return 0, err
+		}
+		perfID = &id
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = scene.CountByStudioMarkerRole(ctx, r.repository.SceneMarker, r.repository.Scene, obj.ID, depth, facialTagID, "", perfID)
+		return err
+	}); err != nil {
+		return 0, err
+	}
+
+	return ret, nil
+}
+
+func (r *studioResolver) ImageCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		if performerID != nil {
+			perfID, err := strconv.Atoi(*performerID)
+			if err != nil {
+				return err
+			}
+			ret, err = image.CountByStudioIDAndPerformerID(ctx, r.repository.Image, obj.ID, perfID, depth)
+			return err
+		}
 		ret, err = image.CountByStudioID(ctx, r.repository.Image, obj.ID, depth)
 		return err
 	}); err != nil {
@@ -105,8 +227,16 @@ func (r *studioResolver) ImageCount(ctx context.Context, obj *models.Studio, dep
 	return ret, nil
 }
 
-func (r *studioResolver) GalleryCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
+func (r *studioResolver) GalleryCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		if performerID != nil {
+			perfID, err := strconv.Atoi(*performerID)
+			if err != nil {
+				return err
+			}
+			ret, err = gallery.CountByStudioIDAndPerformerID(ctx, r.repository.Gallery, obj.ID, perfID, depth)
+			return err
+		}
 		ret, err = gallery.CountByStudioID(ctx, r.repository.Gallery, obj.ID, depth)
 		return err
 	}); err != nil {
@@ -127,9 +257,20 @@ func (r *studioResolver) PerformerCount(ctx context.Context, obj *models.Studio,
 	return ret, nil
 }
 
-func (r *studioResolver) GroupCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
+func (r *studioResolver) UniquePerformerCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = group.CountByStudioID(ctx, r.repository.Group, obj.ID, depth)
+		ret, err = performer.CountUniqueByStudioID(ctx, r.repository.Performer, obj.ID, depth)
+		return err
+	}); err != nil {
+		return 0, err
+	}
+
+	return ret, nil
+}
+
+func (r *studioResolver) GroupCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = group.CountByStudioID(ctx, r.repository.Group, obj.ID, depth, performerID)
 		return err
 	}); err != nil {
 		return 0, err
@@ -140,19 +281,19 @@ func (r *studioResolver) GroupCount(ctx context.Context, obj *models.Studio, dep
 
 // deprecated
 func (r *studioResolver) MovieCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
-	return r.GroupCount(ctx, obj, depth)
+	return r.GroupCount(ctx, obj, depth, nil)
 }
 
-func (r *studioResolver) OCounter(ctx context.Context, obj *models.Studio) (ret *int, err error) {
+func (r *studioResolver) OCounter(ctx context.Context, obj *models.Studio, performerID *string) (ret *int, err error) {
 	var res_scene int
 	var res_image int
 	var res int
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		res_scene, err = r.repository.Scene.OCountByStudioID(ctx, obj.ID)
+		res_scene, err = r.repository.Scene.OCountByStudioID(ctx, obj.ID, performerID)
 		if err != nil {
 			return err
 		}
-		res_image, err = r.repository.Image.OCountByStudioID(ctx, obj.ID)
+		res_image, err = r.repository.Image.OCountByStudioID(ctx, obj.ID, performerID)
 		return err
 	}); err != nil {
 		return nil, err

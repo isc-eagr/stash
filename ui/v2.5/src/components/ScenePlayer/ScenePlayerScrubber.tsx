@@ -318,6 +318,31 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
     });
   }
 
+  function renderNegativeMarkers() {
+    if (!spriteItems) return;
+    const negativeMarkers = scene.negative_markers ?? [];
+    if (negativeMarkers.length === 0) return null;
+
+    return negativeMarkers.map((marker, index) => {
+      const { duration } = file;
+      const leftPos = (scrubWidth * marker.start_seconds) / duration;
+      const markerWidth = (scrubWidth * (marker.end_seconds - marker.start_seconds)) / duration;
+      const style: CSSProperties = { 
+        left: `${leftPos}px`,
+        width: `${Math.max(markerWidth, 4)}px`,
+      };
+
+      return (
+        <div
+          key={`neg-${index}`}
+          className="scrubber-negative-marker"
+          style={style}
+          title={marker.name || "Skip Section"}
+        />
+      );
+    });
+  }
+
   function renderSprites() {
     if (!scene.paths.vtt) return;
 
@@ -360,6 +385,7 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
         <div className="scrubber-viewport">
           <div ref={sliderEl} className="scrubber-slider">
             <div className="scrubber-tags">{renderTags()}</div>
+            <div className="scrubber-negative-markers">{renderNegativeMarkers()}</div>
             {renderSprites()}
           </div>
         </div>

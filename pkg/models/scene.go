@@ -26,6 +26,34 @@ type FileDuplicationCriterionInput struct {
 	Phash *bool `json:"phash"`
 }
 
+// CustomSceneFilterInput is the input for custom scene filters
+type CustomSceneFilterInput struct {
+	// The filter type: multiple_orgasms, versatile_scenes, circular_oral, simultaneous_orgasm, self_facial
+	Type string `json:"type"`
+	// The tag ID for 'sex' markers
+	SexTagID *string `json:"sex_tag_id"`
+	// The tag ID for 'orgasm' markers
+	OrgasmTagID *string `json:"orgasm_tag_id"`
+	// The tag ID for 'oral' markers
+	OralTagID *string `json:"oral_tag_id"`
+	// The tag ID for 'facial' markers
+	FacialTagID *string `json:"facial_tag_id"`
+}
+
+// SceneTypeFilterInput is the input for filtering scenes by type (sex, oral, solo, facial)
+type SceneTypeFilterInput struct {
+	// Selected scene types to filter by
+	Types []string `json:"types"`
+	// The tag ID for 'sex' markers
+	SexTagID *string `json:"sex_tag_id"`
+	// The tag ID for 'oral' markers
+	OralTagID *string `json:"oral_tag_id"`
+	// The tag ID for 'solo' markers
+	SoloTagID *string `json:"solo_tag_id"`
+	// The tag ID for 'facial' markers
+	FacialTagID *string `json:"facial_tag_id"`
+}
+
 type SceneFilterType struct {
 	OperatorFilter[SceneFilterType]
 	ID       *IntCriterionInput    `json:"id"`
@@ -45,6 +73,8 @@ type SceneFilterType struct {
 	Path *StringCriterionInput `json:"path"`
 	// Filter by file count
 	FileCount *IntCriterionInput `json:"file_count"`
+	// Filter by release count
+	ReleaseCount *IntCriterionInput `json:"release_count"`
 	// Filter by rating expressed as 1-100
 	Rating100 *IntCriterionInput `json:"rating100"`
 	// Filter by organized
@@ -69,6 +99,15 @@ type SceneFilterType struct {
 	Duration *IntCriterionInput `json:"duration"`
 	// Filter to only include scenes which have markers. `true` or `false`
 	HasMarkers *string `json:"has_markers"`
+	// Filter to only include scenes with markers that have assigned performers. `true` or `false`
+	HasMarkerPerformers *string `json:"has_marker_performers"`
+	// Custom scene filters: predefined complex filters.
+	// Options: 'multiple_orgasms', 'versatile_scenes'
+	CustomFilters *CustomSceneFilterInput `json:"custom_filters"`
+	// Filter by scene type based on marker tags
+	SceneType *SceneTypeFilterInput `json:"scene_type"`
+	// Filter by scene marker tags with optional performer role criteria
+	SceneMarkerTags *SceneMarkerTagsCriterionInput `json:"scene_marker_tags"`
 	// Filter to only include scenes missing this property
 	IsMissing *string `json:"is_missing"`
 	// Filter to only include scenes with this studio
@@ -91,6 +130,14 @@ type SceneFilterType struct {
 	PerformerAge *IntCriterionInput `json:"performer_age"`
 	// Filter to only include scenes with these performers
 	Performers *MultiCriterionInput `json:"performers"`
+	// Filter by performer ethnicity
+	PerformerEthnicity *StringCriterionInput `json:"performer_ethnicity"`
+	// Filter by performer ethnicity
+	PerformerCountry *StringCriterionInput `json:"performer_country"`
+	// Filter by performer rating (1-100)
+	PerformerRating *IntCriterionInput `json:"performer_rating"`
+	// When true, all linked performers must satisfy performer_rating; when false, any matching performer is sufficient
+	PerformerRatingAll *bool `json:"performer_rating_all"`
 	// Filter by performer count
 	PerformerCount *IntCriterionInput `json:"performer_count"`
 	// Filter by StashID
@@ -119,6 +166,8 @@ type SceneFilterType struct {
 	LastPlayedAt *TimestampCriterionInput `json:"last_played_at"`
 	// Filter by date
 	Date *DateCriterionInput `json:"date"`
+	// Filter by effective date (earliest date among scene date and release dates)
+	EffectiveDate *DateCriterionInput `json:"effective_date"`
 	// Filter by related galleries that meet this criteria
 	GalleriesFilter *GalleryFilterType `json:"galleries_filter"`
 	// Filter by related performers that meet this criteria

@@ -14,19 +14,24 @@ type TxnManager interface {
 type Repository struct {
 	TxnManager TxnManager
 
-	Blob           BlobReader
-	File           FileReaderWriter
-	Folder         FolderReaderWriter
-	Gallery        GalleryReaderWriter
-	GalleryChapter GalleryChapterReaderWriter
-	Image          ImageReaderWriter
-	Group          GroupReaderWriter
-	Performer      PerformerReaderWriter
-	Scene          SceneReaderWriter
-	SceneMarker    SceneMarkerReaderWriter
-	Studio         StudioReaderWriter
-	Tag            TagReaderWriter
-	SavedFilter    SavedFilterReaderWriter
+	Blob                BlobReader
+	Blobs               BlobStoreWriter
+	File                FileReaderWriter
+	Folder              FolderReaderWriter
+	Gallery             GalleryReaderWriter
+	GalleryChapter      GalleryChapterReaderWriter
+	Image               ImageReaderWriter
+	Group               GroupReaderWriter
+	Performer           PerformerReaderWriter
+	PerformerImage      PerformerImageReaderWriter
+	Scene               SceneReaderWriter
+	SceneLoopPreset     SceneLoopPresetReaderWriter
+	SceneNegativeMarker SceneNegativeMarkerReaderWriter
+	SceneMarker         SceneMarkerReaderWriter
+	SceneRelease        SceneReleaseReaderWriter
+	Studio              StudioReaderWriter
+	Tag                 TagReaderWriter
+	SavedFilter         SavedFilterReaderWriter
 }
 
 func (r *Repository) WithTxn(ctx context.Context, fn txn.TxnFunc) error {

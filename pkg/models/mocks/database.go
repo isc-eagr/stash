@@ -11,18 +11,20 @@ import (
 )
 
 type Database struct {
-	File           *FileReaderWriter
-	Folder         *FolderReaderWriter
-	Gallery        *GalleryReaderWriter
-	GalleryChapter *GalleryChapterReaderWriter
-	Image          *ImageReaderWriter
-	Group          *GroupReaderWriter
-	Performer      *PerformerReaderWriter
-	Scene          *SceneReaderWriter
-	SceneMarker    *SceneMarkerReaderWriter
-	Studio         *StudioReaderWriter
-	Tag            *TagReaderWriter
-	SavedFilter    *SavedFilterReaderWriter
+	File                *FileReaderWriter
+	Folder              *FolderReaderWriter
+	Gallery             *GalleryReaderWriter
+	GalleryChapter      *GalleryChapterReaderWriter
+	Image               *ImageReaderWriter
+	Group               *GroupReaderWriter
+	Performer           *PerformerReaderWriter
+	Scene               *SceneReaderWriter
+	SceneLoopPreset     *SceneLoopPresetReaderWriter
+	SceneNegativeMarker *SceneNegativeMarkerReaderWriter
+	SceneMarker         *SceneMarkerReaderWriter
+	Studio              *StudioReaderWriter
+	Tag                 *TagReaderWriter
+	SavedFilter         *SavedFilterReaderWriter
 }
 
 func (*Database) Begin(ctx context.Context, exclusive bool) (context.Context, error) {
@@ -60,18 +62,20 @@ func (*Database) Reset() error {
 
 func NewDatabase() *Database {
 	return &Database{
-		File:           &FileReaderWriter{},
-		Folder:         &FolderReaderWriter{},
-		Gallery:        &GalleryReaderWriter{},
-		GalleryChapter: &GalleryChapterReaderWriter{},
-		Image:          &ImageReaderWriter{},
-		Group:          &GroupReaderWriter{},
-		Performer:      &PerformerReaderWriter{},
-		Scene:          &SceneReaderWriter{},
-		SceneMarker:    &SceneMarkerReaderWriter{},
-		Studio:         &StudioReaderWriter{},
-		Tag:            &TagReaderWriter{},
-		SavedFilter:    &SavedFilterReaderWriter{},
+		File:                &FileReaderWriter{},
+		Folder:              &FolderReaderWriter{},
+		Gallery:             &GalleryReaderWriter{},
+		GalleryChapter:      &GalleryChapterReaderWriter{},
+		Image:               &ImageReaderWriter{},
+		Group:               &GroupReaderWriter{},
+		Performer:           &PerformerReaderWriter{},
+		Scene:               &SceneReaderWriter{},
+		SceneLoopPreset:     &SceneLoopPresetReaderWriter{},
+		SceneNegativeMarker: &SceneNegativeMarkerReaderWriter{},
+		SceneMarker:         &SceneMarkerReaderWriter{},
+		Studio:              &StudioReaderWriter{},
+		Tag:                 &TagReaderWriter{},
+		SavedFilter:         &SavedFilterReaderWriter{},
 	}
 }
 
@@ -84,6 +88,8 @@ func (db *Database) AssertExpectations(t mock.TestingT) {
 	db.Group.AssertExpectations(t)
 	db.Performer.AssertExpectations(t)
 	db.Scene.AssertExpectations(t)
+	db.SceneLoopPreset.AssertExpectations(t)
+	db.SceneNegativeMarker.AssertExpectations(t)
 	db.SceneMarker.AssertExpectations(t)
 	db.Studio.AssertExpectations(t)
 	db.Tag.AssertExpectations(t)
@@ -102,18 +108,20 @@ func (db *Database) WithTxnCtx(fn func(ctx context.Context)) {
 
 func (db *Database) Repository() models.Repository {
 	return models.Repository{
-		TxnManager:     db,
-		File:           db.File,
-		Folder:         db.Folder,
-		Gallery:        db.Gallery,
-		GalleryChapter: db.GalleryChapter,
-		Image:          db.Image,
-		Group:          db.Group,
-		Performer:      db.Performer,
-		Scene:          db.Scene,
-		SceneMarker:    db.SceneMarker,
-		Studio:         db.Studio,
-		Tag:            db.Tag,
-		SavedFilter:    db.SavedFilter,
+		TxnManager:          db,
+		File:                db.File,
+		Folder:              db.Folder,
+		Gallery:             db.Gallery,
+		GalleryChapter:      db.GalleryChapter,
+		Image:               db.Image,
+		Group:               db.Group,
+		Performer:           db.Performer,
+		Scene:               db.Scene,
+		SceneLoopPreset:     db.SceneLoopPreset,
+		SceneNegativeMarker: db.SceneNegativeMarker,
+		SceneMarker:         db.SceneMarker,
+		Studio:              db.Studio,
+		Tag:                 db.Tag,
+		SavedFilter:         db.SavedFilter,
 	}
 }

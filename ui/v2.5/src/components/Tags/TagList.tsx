@@ -53,9 +53,20 @@ const TagList: React.FC<{
   filter: ListFilterModel;
   selectedIds: Set<string>;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
+  sceneCountOnly?: boolean;
+  performerId?: string;
+  performerName?: string;
 }> = PatchComponent(
   "TagList",
-  ({ tags, filter, selectedIds, onSelectChange }) => {
+  ({
+    tags,
+    filter,
+    selectedIds,
+    onSelectChange,
+    sceneCountOnly = false,
+    performerId,
+    performerName,
+  }) => {
     if (tags.length === 0 && filter.displayMode !== DisplayMode.Tagger) {
       return null;
     }
@@ -67,6 +78,9 @@ const TagList: React.FC<{
           zoomIndex={filter.zoomIndex}
           selectedIds={selectedIds}
           onSelectChange={onSelectChange}
+          sceneCountOnly={sceneCountOnly}
+          performerId={performerId}
+          performerName={performerName}
         />
       );
     }
@@ -192,6 +206,14 @@ interface ITagList {
   filterHook?: (filter: ListFilterModel) => ListFilterModel;
   alterQuery?: boolean;
   extraOperations?: IItemListOperation<GQL.FindTagsForListQueryResult>[];
+  // if true only render the scene-count button on tag cards/list rows
+  sceneCountOnly?: boolean;
+  // optional callback invoked when the current list of tags is available/updated
+  onTags?: (tags: GQL.TagDataFragment[]) => void;
+  // optional performer context; when present tag->scenes links use scene markers
+  performerId?: string;
+  // optional performer name to display in generated performer criteria labels
+  performerName?: string;
 }
 
 export const FilteredTagList = PatchComponent(
@@ -202,7 +224,15 @@ export const FilteredTagList = PatchComponent(
 
     const searchFocus = useFocus();
 
-    const { filterHook, alterQuery, extraOperations = [] } = props;
+    const {
+      filterHook,
+      alterQuery,
+      extraOperations = [],
+      sceneCountOnly = false,
+      onTags,
+      performerId,
+      performerName,
+    } = props;
 
     const view = View.Tags;
 
@@ -290,7 +320,7 @@ export const FilteredTagList = PatchComponent(
       showModal(
         <ExportDialog
           exportInput={{
-            studios: {
+            tags: {
               ids: Array.from(selectedIds.values()),
               all: all,
             },
@@ -467,6 +497,9 @@ export const FilteredTagList = PatchComponent(
                   tags={items}
                   selectedIds={selectedIds}
                   onSelectChange={onSelectChange}
+                  sceneCountOnly={sceneCountOnly}
+                  performerId={performerId}
+                  performerName={performerName}
                 />
               </LoadedContent>
 

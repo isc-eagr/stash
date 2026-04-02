@@ -67,7 +67,8 @@ export const SidebarAgeFilter: React.FC<ISidebarFilter> = ({
       if (preset.max === null) {
         // For "60+" preset
         if (
-          criterion.modifier === CriterionModifier.GreaterThan &&
+          (criterion.modifier === CriterionModifier.GreaterThan ||
+            criterion.modifier === CriterionModifier.GreaterThanEquals) &&
           criterion.value.value === preset.min
         ) {
           return preset.id;
@@ -87,7 +88,8 @@ export const SidebarAgeFilter: React.FC<ISidebarFilter> = ({
     // Check if it's a custom range or custom GreaterThan
     if (
       criterion.modifier === CriterionModifier.Between ||
-      criterion.modifier === CriterionModifier.GreaterThan
+      criterion.modifier === CriterionModifier.GreaterThan ||
+      criterion.modifier === CriterionModifier.GreaterThanEquals
     ) {
       return "custom";
     }

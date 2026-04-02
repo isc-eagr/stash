@@ -45,6 +45,8 @@ type Scene {
   url: String @deprecated(reason: "Use urls")
   urls: [String!]!
   date: String
+  "The earliest date among the scene's own date and all release dates"
+  effective_date: String
   # rating expressed as 1-100
   rating100: Int
   organized: Boolean!
@@ -71,7 +73,10 @@ type Scene {
   files: [VideoFile!]!
   paths: ScenePathsType! # Resolver
   scene_markers: [SceneMarker!]!
+  "All galleries associated with this scene (including release galleries)"
   galleries: [Gallery!]!
+  "Only galleries directly associated with this scene (excluding release galleries)"
+  direct_galleries: [Gallery!]!
   studio: Studio
   groups: [SceneGroup!]!
   movies: [SceneMovie!]! @deprecated(reason: "Use groups")
@@ -83,6 +88,14 @@ type Scene {
 
   "Return valid stream paths"
   sceneStreams: [SceneStreamEndpoint!]!
+
+  multi_segment_loop_presets: [MultiSegmentLoopPreset!]!
+
+  "Negative markers - time ranges to skip during playback"
+  negative_markers: [SceneNegativeMarker!]!
+
+  "Alternate releases of this scene (e.g., from different studios)"
+  releases: [SceneRelease!]!
 }
 
 input SceneMovieInput {
@@ -295,4 +308,58 @@ input SceneMergeInput {
 type HistoryMutationResult {
   count: Int!
   history: [Time!]!
+}
+
+type MultiSegmentLoopSegment {
+  start: Float!
+  end: Float!
+}
+
+type MultiSegmentLoopPreset {
+  id: ID!
+  scene_id: ID!
+  name: String!
+  enabled: Boolean!
+  current_segment_index: Int!
+  segments: [MultiSegmentLoopSegment!]!
+  created_at: Time!
+  updated_at: Time!
+}
+
+input MultiSegmentLoopSegmentInput {
+  start: Float!
+  end: Float!
+}
+
+input SceneMultiSegmentLoopPresetInput {
+  scene_id: ID!
+  name: String!
+  enabled: Boolean!
+  current_segment_index: Int!
+  segments: [MultiSegmentLoopSegmentInput!]!
+}
+
+# Negative markers - time ranges to skip during playback
+type SceneNegativeMarker {
+  id: ID!
+  scene_id: ID!
+  name: String!
+  start_seconds: Float!
+  end_seconds: Float!
+  created_at: Time!
+  updated_at: Time!
+}
+
+input SceneNegativeMarkerCreateInput {
+  scene_id: ID!
+  name: String!
+  start_seconds: Float!
+  end_seconds: Float!
+}
+
+input SceneNegativeMarkerUpdateInput {
+  id: ID!
+  name: String
+  start_seconds: Float
+  end_seconds: Float
 }

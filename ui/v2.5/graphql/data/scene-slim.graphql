@@ -6,6 +6,7 @@ fragment SlimSceneData on Scene {
   director
   urls
   date
+  effective_date
   rating100
   o_counter
   organized
@@ -38,6 +39,22 @@ fragment SlimSceneData on Scene {
     primary_tag {
       id
       name
+      parents {
+        id
+      }
+    }
+    tags {
+      id
+      name
+      parents {
+        id
+      }
+    }
+    top_performers {
+      id
+    }
+    bottom_performers {
+      id
     }
   }
 

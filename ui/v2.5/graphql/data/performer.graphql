@@ -27,6 +27,33 @@ fragment PerformerData on Performer {
   group_count
   performer_count
   o_counter
+  sex_scene_count
+  oral_scene_count
+  solo_scene_count
+  facial_scene_count
+  sex_top_count
+  sex_bottom_count
+  oral_top_count
+  oral_bottom_count
+  facial_top_count
+  facial_bottom_count
+  facial_marker_count
+  facial_marker_top_count
+  facial_marker_bottom_count
+  facial_marker_with_top_count
+  facial_marker_with_bottom_count
+  orgasm_top_count
+  feet_top_count
+  feet_marker_count
+  sex_with_top_count
+  sex_with_bottom_count
+  oral_with_top_count
+  oral_with_bottom_count
+  facial_with_top_count
+  facial_with_bottom_count
+  sex_unique_partner_count
+  oral_unique_partner_count
+  facial_unique_partner_count
 
   tags {
     ...SlimTagData
@@ -44,4 +71,31 @@ fragment PerformerData on Performer {
   weight
 
   custom_fields
+
+  additional_images {
+    id
+    performer_id
+    image_path
+    position
+  }
+}
+
+mutation PerformerImageUpload($performer_id: ID!, $image: String!) {
+  performerImageUpload(performer_id: $performer_id, image: $image) {
+    id
+    performer_id
+    image_path
+    position
+  }
+}
+
+mutation PerformerImageDelete($id: ID!) {
+  performerImageDelete(id: $id)
+}
+
+mutation PerformerImageSetDefault($id: ID!) {
+  performerImageSetDefault(id: $id) {
+    id
+    image_path
+  }
 }

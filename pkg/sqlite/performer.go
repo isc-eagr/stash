@@ -543,6 +543,33 @@ func (qb *PerformerStore) FindByGalleryID(ctx context.Context, galleryID int) ([
 	return ret, nil
 }
 
+func (qb *PerformerStore) FindBySceneMarkerID(ctx context.Context, sceneMarkerID int) ([]*models.Performer, error) {
+	sq := dialect.From(goqu.T("scene_marker_performers")).Select(goqu.C("performer_id")).Where(
+		goqu.C("scene_marker_id").Eq(sceneMarkerID),
+	)
+	ret, err := qb.findBySubquery(ctx, sq)
+
+	if err != nil {
+		return nil, fmt.Errorf("getting performers for scene marker %d: %w", sceneMarkerID, err)
+	}
+
+	return ret, nil
+}
+
+func (qb *PerformerStore) FindBySceneMarkerIDWithRole(ctx context.Context, sceneMarkerID int, role string) ([]*models.Performer, error) {
+	sq := dialect.From(goqu.T("scene_marker_performers")).Select(goqu.C("performer_id")).Where(
+		goqu.C("scene_marker_id").Eq(sceneMarkerID),
+		goqu.C("role").Eq(role),
+	)
+	ret, err := qb.findBySubquery(ctx, sq)
+
+	if err != nil {
+		return nil, fmt.Errorf("getting %s performers for scene marker %d: %w", role, sceneMarkerID, err)
+	}
+
+	return ret, nil
+}
+
 func (qb *PerformerStore) FindByNames(ctx context.Context, names []string, nocase bool) ([]*models.Performer, error) {
 	clause := "name "
 	if nocase {
@@ -888,12 +915,23 @@ func (qb *PerformerStore) GetImage(ctx context.Context, performerID int) ([]byte
 	return qb.blobJoinQueryBuilder.GetImage(ctx, performerID, performerImageBlobColumn)
 }
 
+func (qb *PerformerStore) GetImageBlob(ctx context.Context, performerID int) (*string, error) {
+	return qb.blobJoinQueryBuilder.getChecksum(ctx, performerID, performerImageBlobColumn)
+}
+
 func (qb *PerformerStore) HasImage(ctx context.Context, performerID int) (bool, error) {
 	return qb.blobJoinQueryBuilder.HasImage(ctx, performerID, performerImageBlobColumn)
 }
 
 func (qb *PerformerStore) UpdateImage(ctx context.Context, performerID int, image []byte) error {
 	return qb.blobJoinQueryBuilder.UpdateImage(ctx, performerID, performerImageBlobColumn, image)
+}
+
+func (qb *PerformerStore) UpdateImageBlob(ctx context.Context, performerID int, blobChecksum string) error {
+	// Bump updated_at so image URLs with ?t=<updated_at> cache-bust correctly.
+	sqlQuery := fmt.Sprintf("UPDATE %s SET %s = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", performerTable, performerImageBlobColumn)
+	_, err := dbWrapper.Exec(ctx, sqlQuery, blobChecksum, performerID)
+	return err
 }
 
 func (qb *PerformerStore) destroyImage(ctx context.Context, performerID int) error {

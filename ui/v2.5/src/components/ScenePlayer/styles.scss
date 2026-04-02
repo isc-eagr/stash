@@ -1,6 +1,6 @@
 @import "video.js/dist/video-js.css";
 @import "videojs-mobile-ui/dist/videojs-mobile-ui.css";
-@import "videojs-seek-buttons/dist/videojs-seek-buttons.css";
+@import "videojs-seek-buttons/dist/videojs-seek-buttons.css"; // Needed for BigButtonGroup on touch
 @import "@silvermine/videojs-chromecast/dist/silvermine-videojs-chromecast.css";
 @import "@silvermine/videojs-airplay/dist/silvermine-videojs-airplay.css";
 
@@ -111,7 +111,6 @@ $sceneTabWidth: 450px;
       content: "\f101";
       font-size: 1em;
       line-height: 1;
-      margin-left: 1rem;
       padding: 0.3em;
       position: relative;
       z-index: 2;
@@ -125,7 +124,6 @@ $sceneTabWidth: 450px;
       content: "\f103";
       font-size: 1em;
       line-height: 1;
-      margin-right: 1rem;
       padding: 0.3em;
       position: relative;
       z-index: 2;
@@ -133,17 +131,7 @@ $sceneTabWidth: 450px;
 
     &.vjs-icon-play-circle::after,
     &.vjs-icon-cancel::after {
-      background-color: rgb(255 255 255 / 70%);
-      border-radius: 8px;
-      content: "";
-      height: 2.5rem;
-      left: 50%;
-      opacity: 0.7;
-      position: absolute;
-      top: 50%;
-      transform: translate(-50%, -50%) rotate(90deg);
-      width: 1rem;
-      z-index: 1;
+      display: none;
     }
 
     &:hover {
@@ -326,6 +314,13 @@ $sceneTabWidth: 450px;
     position: absolute;
     transform: translateY(-28px);
     transition: none;
+    
+    // Negative markers are displayed in red
+    &.vjs-negative-marker-range {
+      background-color: rgba(220, 53, 69, 0.7) !important;
+      box-shadow: 0 0 4px rgba(220, 53, 69, 0.5);
+      z-index: 5;
+    }
   }
 
   .vjs-marker-tooltip {
@@ -343,6 +338,13 @@ $sceneTabWidth: 450px;
     visibility: hidden;
     white-space: nowrap;
     z-index: 1;
+    
+    // Style for negative markers - red background
+    &.vjs-marker-tooltip-negative {
+      background-color: rgba(220, 53, 69, 0.9);
+      color: #fff;
+      border: 1px solid #dc3545;
+    }
   }
 
   .vjs-text-track-settings select {
@@ -359,6 +361,81 @@ $sceneTabWidth: 450px;
     -ms-transform: scale(-1, 1);
     -webkit-transform: scale(-1, 1);
     transform: scale(-1, 1);
+  }
+
+  // Custom seek menu buttons with hover dropdown
+  .vjs-seek-menu-button {
+    cursor: pointer;
+    position: relative;
+
+    // Use the replay icon from videojs fonts
+    .vjs-icon-placeholder::before {
+      font-family: VideoJS;
+      content: "\f11a"; // replay/refresh icon
+      font-size: 1.8em;
+      line-height: 1.67;
+    }
+
+    &.skip-forward .vjs-icon-placeholder::before {
+      transform: scaleX(-1);
+    }
+
+    // Display the seconds value
+    &::after {
+      content: attr(data-seek-seconds);
+      position: absolute;
+      bottom: 0.3em;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.55em;
+      color: #fff;
+      pointer-events: none;
+    }
+
+    .vjs-menu {
+      display: none;
+      position: absolute;
+      top: 100%;
+      bottom: auto;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(43, 51, 63, 0.9);
+      border-radius: 0.3em;
+      width: 2em;
+      margin-top: -13px;
+      z-index: 100;
+    }
+
+    &:hover .vjs-menu,
+    &:focus .vjs-menu,
+    &[aria-expanded="true"] .vjs-menu {
+      display: block;
+    }
+
+    .vjs-menu-content {
+      list-style: none;
+      margin: 0;
+      padding: 0.4em 0;
+      max-height: none;
+    }
+
+    .vjs-menu-item {
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.9em;
+      padding: 0.4em 0.3em;
+      text-align: center;
+      white-space: nowrap;
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+      }
+
+      &.vjs-selected {
+        background-color: rgba(255, 255, 255, 0.3);
+        font-weight: bold;
+      }
+    }
   }
 
   @media (pointer: coarse) {
@@ -479,6 +556,15 @@ $sceneTabWidth: 450px;
 
 .scene-player-container {
   padding-right: 15px;
+}
+
+/* Enlarge facial overlay only on the Scene detail player */
+.scene-player-container .scene-facial-overlay {
+  width: 3rem;
+  height: 3rem;
+  filter: brightness(0) invert(1) drop-shadow(0 3px 5px rgba(0, 0, 0, 0.8));
+  -webkit-filter: brightness(0) invert(1)
+    drop-shadow(0 3px 5px rgba(0, 0, 0, 0.8));
 }
 
 .scrubber-wrapper {
@@ -613,6 +699,33 @@ $sceneTabWidth: 450px;
   }
 }
 
+// Negative markers container (sits on top of scrubber)
+.scrubber-negative-markers {
+  height: 100%;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 2;
+}
+
+// Individual negative marker bar (red stripe on scrubber)
+.scrubber-negative-marker {
+  background-color: rgba(220, 53, 69, 0.6);
+  border-radius: 2px;
+  height: 100%;
+  min-width: 4px;
+  pointer-events: auto;
+  position: absolute;
+  top: 0;
+  cursor: pointer;
+
+  &:hover {
+    background-color: rgba(220, 53, 69, 0.85);
+  }
+}
+
 .scrubber-item {
   color: white;
   display: flex;
@@ -697,5 +810,1139 @@ $sceneTabWidth: 450px;
       flex: 0 0 calc(100% - 15px);
       max-width: calc(100% - 15px);
     }
+  }
+}
+
+// Multi-segment loop dropdown button in control bar
+.video-js .vjs-control-bar .vjs-multi-segment-dropdown {
+  cursor: pointer;
+  position: relative;
+  z-index: 10;
+  margin-right: 2.5em;
+
+  .vjs-icon-placeholder::before {
+    content: "⟳⟳";
+    color: #fff;
+    font-size: 1.6em;
+    line-height: 1.85;
+  }
+
+  &.vjs-multi-segment-active .vjs-icon-placeholder::before {
+    color: #28a745;
+  }
+
+  .vjs-menu {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(30, 30, 30, 0.95);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    min-width: 160px;
+    padding: 4px 0;
+    margin-bottom: 8px;
+    z-index: 100;
+  }
+
+  &[aria-expanded="true"] .vjs-menu {
+    display: block;
+  }
+
+  .vjs-menu-content {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .vjs-menu-item {
+    color: #fff;
+    cursor: pointer;
+    font-size: 0.85em;
+    padding: 8px 12px;
+    text-align: left;
+    white-space: nowrap;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.15);
+    }
+
+    &.vjs-disabled {
+      color: #666;
+      cursor: not-allowed;
+
+      &:hover {
+        background-color: transparent;
+      }
+    }
+
+    &.vjs-menu-separator {
+      color: #666;
+      cursor: default;
+      font-size: 0.75em;
+      padding: 4px 12px;
+      text-align: center;
+
+      &:hover {
+        background-color: transparent;
+      }
+    }
+
+    .vjs-menu-item-text {
+      display: block;
+    }
+  }
+}
+
+// Multi-segment loop toggle button (Loop ON/OFF)
+.video-js .vjs-control-bar .vjs-multi-segment-toggle {
+  cursor: pointer;
+  position: relative;
+  z-index: 10;
+  padding: 0 0.5em;
+
+  .vjs-multi-segment-toggle-text {
+    color: #fff;
+    font-size: 0.9em;
+    font-weight: 500;
+    line-height: 2.2;
+    white-space: nowrap;
+  }
+
+  &.vjs-multi-segment-active .vjs-multi-segment-toggle-text {
+    color: #28a745;
+  }
+
+  &.vjs-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &:not(.vjs-disabled):hover .vjs-multi-segment-toggle-text {
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+  }
+}
+
+// Multi-segment loop edit button (pencil icon)
+.video-js .vjs-control-bar .vjs-multi-segment-edit {
+  cursor: pointer;
+  position: relative;
+  z-index: 10;
+  margin-right: 1em;
+
+  .vjs-icon-placeholder {
+    color: #fff;
+    font-size: 1.5em;
+    line-height: 1.5;
+    display: inline-block;
+    filter: grayscale(100%) brightness(200%);
+  }
+
+  &:hover .vjs-icon-placeholder {
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+  }
+
+  // Preset count badge
+  .vjs-multi-segment-badge {
+    position: absolute;
+    top: -2px;
+    right: -6px;
+    background-color: #137cbd;
+    color: #fff;
+    font-size: 10px;
+    font-weight: bold;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+}
+
+// Negative marker skip toggle button
+.video-js .vjs-control-bar .vjs-negative-marker-skip-btn {
+  cursor: pointer;
+  position: relative;
+  z-index: 10;
+  padding: 0 0.5em;
+  margin-right: 0.5em;
+
+  .vjs-icon-placeholder {
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+
+    svg {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+    }
+  }
+
+  &.vjs-negative-skip-active .vjs-icon-placeholder {
+    color: #dc3545;
+  }
+
+  &:hover .vjs-icon-placeholder {
+    color: #fff;
+  }
+}
+
+// Ensure autostart button doesn't overlap with dropdown
+.video-js .vjs-control-bar .vjs-autostart-button {
+  position: relative;
+  z-index: 5;
+
+  &.vjs-icon-play-circle::before {
+    margin-left: 0;
+  }
+
+  &.vjs-icon-cancel::before {
+    margin-right: 0;
+  }
+
+  // Remove the large overlay that blocks clicks
+  &.vjs-icon-play-circle::after,
+  &.vjs-icon-cancel::after {
+    display: none;
+  }
+}
+
+// Multi-segment loop styles - V2 compact design
+.multi-segment-loop-controls-v2 {
+  background-color: rgba(0, 0, 0, 0.9);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  color: #fff;
+  max-width: 380px;
+  min-width: 320px;
+  padding: 0.75rem;
+
+  .msl-header {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+    .msl-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .msl-count {
+      color: #888;
+      font-weight: normal;
+      margin-left: 0.25rem;
+    }
+
+    .msl-close-btn {
+      color: #888;
+      padding: 0;
+
+      &:hover {
+        color: #fff;
+      }
+    }
+  }
+
+  .msl-main-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-bottom: 0.5rem;
+
+    .btn {
+      font-size: 0.8rem;
+    }
+  }
+
+  .msl-segment-list {
+    margin-bottom: 0.5rem;
+    max-height: 180px;
+    overflow-y: auto;
+
+    .msl-segment-list-header {
+      margin-bottom: 0.35rem;
+    }
+  }
+
+  .msl-segment-row {
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    font-size: 0.8rem;
+    gap: 0.5rem;
+    margin-bottom: 2px;
+    padding: 0.35rem 0.5rem;
+    transition: background-color 0.15s;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    &.msl-segment-active {
+      background-color: rgba(40, 167, 69, 0.3);
+      border-left: 3px solid #28a745;
+    }
+
+    &.msl-segment-loop-single {
+      background-color: rgba(108, 152, 198, 0.25);
+      
+      &.msl-segment-active {
+        background-color: rgba(108, 152, 198, 0.4);
+        border-left-color: #6c98c6;
+      }
+    }
+
+    .msl-segment-num {
+      color: #888;
+      font-weight: bold;
+      min-width: 1.2rem;
+    }
+
+    .msl-segment-times {
+      font-family: monospace;
+      flex: 1;
+
+      .msl-time {
+        &.clickable {
+          border-bottom: 1px dashed #666;
+          cursor: pointer;
+          padding: 0 2px;
+
+          &:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            border-bottom-color: #fff;
+            color: #4fc3f7;
+          }
+        }
+      }
+
+      .msl-time-sep {
+        color: #666;
+        margin: 0 0.25rem;
+      }
+
+      .msl-segment-title {
+        color: #aaa;
+        font-family: inherit;
+        font-size: 0.8rem;
+        margin-left: 0.5rem;
+        max-width: 120px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+
+    .msl-segment-duration {
+      color: #666;
+      font-size: 0.75rem;
+    }
+
+    .msl-segment-actions {
+      display: flex;
+      gap: 0;
+
+      .btn {
+        color: #888;
+        padding: 0.1rem 0.25rem;
+
+        &:hover {
+          color: #fff;
+        }
+
+        &.text-danger:hover {
+          color: #dc3545;
+        }
+
+        &:disabled {
+          color: #444;
+        }
+      }
+
+      .msl-loop-single-btn {
+        &.btn-primary {
+          background-color: #6c98c6;
+          border-color: #6c98c6;
+          color: #fff;
+          padding: 0.1rem 0.35rem;
+          
+          &:hover {
+            background-color: #5a86b4;
+            border-color: #5a86b4;
+          }
+        }
+        
+        &.btn-link {
+          color: #666;
+          
+          &:hover {
+            color: #6c98c6;
+          }
+        }
+      }
+    }
+  }
+
+  .msl-empty {
+    color: #666;
+    font-style: italic;
+    padding: 0.75rem 0;
+    text-align: center;
+  }
+
+  .msl-presets-section {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: 0.5rem;
+    padding-top: 0.35rem;
+
+    .msl-presets-toggle {
+      color: #888;
+      font-size: 0.8rem;
+      padding: 0.25rem 0;
+      text-decoration: none;
+
+      &:hover {
+        color: #fff;
+      }
+
+      .msl-preset-count {
+        color: #666;
+        margin-left: 0.25rem;
+      }
+    }
+
+    .msl-presets-content {
+      padding-top: 0.5rem;
+    }
+
+    .msl-preset-save {
+      margin-bottom: 0.5rem;
+
+      .input-group {
+        .form-control {
+          background-color: #222;
+          border-color: #444;
+          color: #fff;
+
+          &::placeholder {
+            color: #666;
+          }
+
+          &:focus {
+            border-color: #666;
+            box-shadow: none;
+          }
+        }
+      }
+    }
+
+    .msl-preset-load {
+      display: flex;
+      gap: 0.35rem;
+
+      .msl-preset-select {
+        background-color: #222;
+        border-color: #444;
+        color: #fff;
+        flex: 1;
+
+        &:focus {
+          border-color: #666;
+          box-shadow: none;
+        }
+      }
+    }
+  }
+}
+
+// Modal for preset controls
+.multi-segment-loop-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 99999;
+
+  &.fullscreen-mode {
+    position: absolute;
+  }
+}
+
+.multi-segment-loop-modal-container {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 100000;
+  max-width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+
+  &.fullscreen-mode {
+    position: absolute;
+  }
+
+  .multi-segment-loop-controls-v2.modal-mode {
+    min-width: 400px;
+    max-width: 500px;
+
+    .msl-header {
+      margin-bottom: 0.75rem;
+
+      .msl-close-btn {
+        color: #aaa;
+        padding: 0.25rem;
+
+        &:hover {
+          color: #fff;
+        }
+      }
+    }
+  }
+}
+
+// Multi-segment loop styles
+.multi-segment-loop-floating {
+  bottom: 5.5rem;
+  max-height: 65vh;
+  pointer-events: none;
+  position: fixed;
+  right: 1rem;
+  width: 360px;
+  z-index: 1200;
+
+  @media (max-width: 992px) {
+    bottom: 4rem;
+    left: 1rem;
+    right: 1rem;
+    width: auto;
+  }
+}
+
+.multi-segment-loop-inline-host {
+  position: relative;
+}
+
+.multi-segment-loop-inline {
+  position: absolute;
+  bottom: 140%;
+  right: 0;
+  pointer-events: none;
+  z-index: 1500;
+
+  .multi-segment-loop-controls {
+    pointer-events: auto;
+    min-width: 320px;
+    margin: 0;
+  }
+}
+
+.multi-segment-loop-controls {
+  background-color: rgba(0, 0, 0, 0.85);
+  border-radius: 4px;
+  margin-top: 0;
+  padding: 0.75rem;
+  pointer-events: auto;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.35);
+
+  &.collapsed {
+    background-color: transparent;
+    margin-top: 0;
+    padding: 0;
+
+    .expand-toggle {
+      color: #888;
+      font-size: 0.8rem;
+      padding: 0.25rem 0.5rem;
+      text-decoration: none;
+
+      &:hover {
+        color: #fff;
+      }
+
+      .badge {
+        font-size: 0.7rem;
+      }
+    }
+  }
+
+  .multi-segment-loop-header {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+
+    h6 {
+      color: #fff;
+      font-size: 0.85rem;
+      margin: 0;
+    }
+
+    .collapse-btn {
+      color: #aaa;
+      padding: 0;
+
+      &:hover {
+        color: #fff;
+      }
+    }
+  }
+
+  .multi-segment-loop-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .multi-segment-loop-summary {
+    color: #aaa;
+    margin-bottom: 0.5rem;
+    margin-top: 0.25rem;
+  }
+
+  .multi-segment-loop-presets {
+    color: #888;
+    margin-bottom: 0.35rem;
+    margin-top: 0.25rem;
+
+    .preset-picker {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+
+      .preset-picker-row {
+        gap: 0.35rem;
+        align-items: center;
+
+        select {
+          background-color: #111;
+          border-color: #444;
+          color: #ddd;
+
+          &:focus {
+            border-color: #888;
+            box-shadow: 0 0 0 0.1rem rgba(255, 255, 255, 0.15);
+          }
+        }
+      }
+    }
+  }
+
+  .multi-segment-loop-empty {
+    color: #666;
+    font-style: italic;
+    padding: 0.5rem 0;
+    text-align: center;
+  }
+
+  .multi-segment-loop-list {
+    max-height: 200px;
+    overflow-y: auto;
+
+    .segment-item {
+      align-items: center;
+      background-color: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      font-size: 0.85rem;
+      justify-content: space-between;
+      padding: 0.4rem 0.6rem;
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+      }
+
+      &.active-segment {
+        background-color: rgba(40, 167, 69, 0.4);
+        border-left: 3px solid #28a745;
+      }
+
+      .segment-info {
+        display: flex;
+        gap: 0.5rem;
+
+        .segment-number {
+          color: #aaa;
+          font-weight: bold;
+          min-width: 1.5rem;
+        }
+
+        .segment-times {
+          font-family: monospace;
+
+          .clickable-time {
+            border-bottom: 1px dashed #888;
+            cursor: pointer;
+            padding: 0 2px;
+
+            &:hover {
+              background-color: rgba(255, 255, 255, 0.2);
+              border-bottom-color: #fff;
+              color: #4fc3f7;
+            }
+          }
+        }
+
+        .segment-duration {
+          color: #888;
+          font-size: 0.8rem;
+        }
+      }
+
+      .segment-actions {
+        .btn-link {
+          color: #aaa;
+          padding: 0.1rem 0.3rem;
+
+          &:hover {
+            color: #fff;
+          }
+
+          &.text-danger:hover {
+            color: #dc3545;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Multi-segment markers on timeline
+.video-js {
+  .vjs-multi-segment-marker {
+    background-color: rgba(40, 167, 69, 0.6);
+    border: 1px solid rgba(40, 167, 69, 0.9);
+    border-radius: 2px;
+    cursor: pointer;
+    height: 8px;
+    min-width: 8px;
+    position: absolute;
+    transform: translateY(-34px);
+    transition: background-color 0.2s;
+    z-index: 99;
+
+    &:hover {
+      background-color: rgba(40, 167, 69, 0.9);
+    }
+
+    &.active {
+      background-color: rgba(40, 167, 69, 0.9);
+      border-color: #28a745;
+      box-shadow: 0 0 4px rgba(40, 167, 69, 0.8);
+    }
+
+    &.loop-single {
+      background-color: rgba(108, 152, 198, 0.8);
+      border-color: #6c98c6;
+      
+      &.active {
+        background-color: rgba(108, 152, 198, 1);
+        box-shadow: 0 0 6px rgba(108, 152, 198, 0.9);
+      }
+    }
+
+    .segment-label {
+      background-color: rgba(0, 0, 0, 0.7);
+      border-radius: 2px;
+      color: #fff;
+      font-size: 9px;
+      font-weight: bold;
+      left: 50%;
+      padding: 1px 3px;
+      pointer-events: none;
+      position: absolute;
+      top: -14px;
+      transform: translateX(-50%);
+    }
+  }
+
+  .vjs-multi-segment-pending-marker {
+    background-color: rgba(255, 193, 7, 0.9);
+    border-radius: 50%;
+    box-shadow: 0 0 6px rgba(255, 193, 7, 0.8);
+    height: 10px;
+    position: absolute;
+    transform: translateY(-36px);
+    width: 10px;
+    z-index: 100;
+
+    &::after {
+      animation: pulse 1s infinite;
+      background-color: rgba(255, 193, 7, 0.4);
+      border-radius: 50%;
+      content: "";
+      height: 100%;
+      left: 0;
+      position: absolute;
+      top: 0;
+      width: 100%;
+    }
+  }
+
+  // Multi-segment loop control button
+  .vjs-multi-segment-loop-button {
+    cursor: pointer;
+
+    &::before {
+      content: "⟲";
+      font-size: 1.8em;
+      line-height: 1.67;
+    }
+
+    &.vjs-multi-segment-loop-active {
+      color: #28a745;
+    }
+
+    &:hover {
+      color: inherit;
+    }
+  }
+
+  @keyframes pulse {
+    0% {
+      transform: scale(1);
+    }
+
+    50% {
+      transform: scale(1.5);
+    }
+
+    100% {
+      transform: scale(1);
+    }
+  }
+}
+
+// Performer Image Overlay Button in control bar
+.video-js .vjs-performer-image-overlay-btn {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+
+  .vjs-icon-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    svg {
+      fill: currentColor;
+    }
+  }
+
+  &.active {
+    color: #6c98c6;
+  }
+
+  &:hover {
+    color: #fff;
+  }
+
+  .vjs-pio-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background-color: #dc3545;
+    color: #fff;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 1px 4px;
+    border-radius: 8px;
+    min-width: 14px;
+    text-align: center;
+    line-height: 1.2;
+  }
+}
+
+// Performer Image Select Modal
+.performer-image-select-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &.fullscreen-mode {
+    position: absolute;
+  }
+}
+
+.performer-image-select-modal {
+  background-color: #1a1a1a;
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+  max-width: 90vw;
+  max-height: 85vh;
+  width: 700px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  &.fullscreen-mode {
+    max-width: 85vw;
+    max-height: 80vh;
+  }
+
+  .pis-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #333;
+    background-color: #222;
+
+    .pis-title {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+
+      .pis-selection-count {
+        color: #888;
+        font-weight: normal;
+        margin-left: 0.5rem;
+      }
+    }
+
+    .pis-close-btn {
+      color: #888;
+      padding: 0.25rem;
+
+      &:hover {
+        color: #fff;
+      }
+    }
+  }
+
+  .pis-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    min-height: 200px;
+
+    .pis-tag-filter {
+      margin-bottom: 0.75rem;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 4px;
+      padding: 0.5rem;
+    }
+
+    .pis-loading,
+    .pis-error,
+    .pis-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      height: 150px;
+      color: #888;
+    }
+
+    .pis-error {
+      color: #dc3545;
+    }
+  }
+
+  .pis-image-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.5rem;
+
+    .pis-image-item {
+      position: relative;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.15s, opacity 0.15s;
+      display: flex;
+      flex-direction: column;
+
+      .pis-image-wrapper {
+        position: relative;
+        aspect-ratio: 1;
+        overflow: hidden;
+        border-radius: 2px;
+
+        img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .pis-selected-badge {
+          display: none;
+          position: absolute;
+          top: 4px;
+          right: 4px;
+          background-color: #28a745;
+          color: #fff;
+          font-size: 11px;
+          font-weight: bold;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          align-items: center;
+          justify-content: center;
+        }
+      }
+
+      &:hover {
+        border-color: #6c98c6;
+      }
+
+      &.selected {
+        border-color: #28a745;
+
+        .pis-selected-badge {
+          display: flex;
+        }
+      }
+
+      &.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+
+        &:hover {
+          border-color: transparent;
+        }
+      }
+
+      .pis-performer-names {
+        color: #888;
+        font-size: 10px;
+        padding: 3px 2px 1px;
+        text-align: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+  }
+
+  .pis-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid #333;
+    background-color: #1e1e1e;
+
+    .pis-page-info {
+      color: #888;
+      font-size: 0.875rem;
+      min-width: 60px;
+      text-align: center;
+    }
+  }
+
+  .pis-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid #333;
+    background-color: #222;
+
+    .pis-footer-right {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+  }
+}
+
+// Performer Image Overlay (on video)
+.performer-image-overlay {
+  position: fixed;
+  z-index: 10000;
+  cursor: grab;
+  user-select: none;
+  overflow: hidden;
+
+  &.dragging {
+    cursor: grabbing;
+  }
+
+  &:hover {
+    .pio-resize-handle {
+      opacity: 1;
+    }
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+  }
+
+  .pio-resize-handle {
+    position: absolute;
+    bottom: 0px;
+    right: 0px;
+    width: 12px;
+    height: 12px;
+    cursor: se-resize;
+    opacity: 0;
+    transition: opacity 0.15s;
+    background: linear-gradient(135deg, transparent 50%, rgba(255, 255, 255, 0.5) 50%);
+  }
+}
+
+// Performer image toggle button
+.video-js .vjs-performer-image-toggle-btn {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5em;
+  color: #fff;
+  transition: color 0.15s;
+
+  &:hover {
+    color: #6c98c6;
+  }
+
+  &.hidden-state {
+    color: #888;
+
+    &:hover {
+      color: #fff;
+    }
+  }
+
+  .vjs-icon-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }

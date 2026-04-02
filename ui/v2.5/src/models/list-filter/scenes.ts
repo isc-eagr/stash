@@ -5,7 +5,12 @@ import {
   createDateCriterionOption,
   createMandatoryTimestampCriterionOption,
   createDurationCriterionOption,
+  ModifierCriterionOption,
+  StringBooleanCriterionOption,
+  StringBooleanCriterion,
 } from "./criteria/criterion";
+import { CountryCriterion } from "./criteria/country";
+import { CriterionModifier } from "src/core/generated-graphql";
 import { HasMarkersCriterionOption } from "./criteria/has-markers";
 import { SceneIsMissingCriterionOption } from "./criteria/is-missing";
 import {
@@ -23,6 +28,8 @@ import {
   // StudioTagsCriterionOption,
   TagsCriterionOption,
 } from "./criteria/tags";
+import { SceneMarkersCriterionOption } from "./criteria/scene-markers";
+import { SceneMarkersExcludeCriterionOption } from "./criteria/scene-markers-exclude";
 import { ListFilterOptions, MediaSortByOptions } from "./filter-options";
 import { DisplayMode } from "./types";
 import {
@@ -32,16 +39,36 @@ import {
 import { PerformerFavoriteCriterionOption } from "./criteria/favorite";
 import { CaptionsCriterionOption } from "./criteria/captions";
 import { StashIDCriterionOption } from "./criteria/stash-ids";
-import { RatingCriterionOption } from "./criteria/rating";
+import {
+  RatingCriterionOption,
+  PerformerRatingCriterionOption,
+} from "./criteria/rating";
 import { PathCriterionOption } from "./criteria/path";
 import { OrientationCriterionOption } from "./criteria/orientation";
 import { CustomFieldsCriterionOption } from "./criteria/custom-fields";
 import { FolderCriterionOption } from "./criteria/folder";
+import { EthnicityCriterionOption } from "./criteria/ethnicity";
+import { SceneCustomFiltersCriterionOption } from "./criteria/custom-filters";
+import { SceneSceneTypeCriterionOption } from "./criteria/scene-type";
+
+// Has Marker Performers criterion option
+const HasMarkerPerformersCriterionOption = new StringBooleanCriterionOption(
+  "has_marker_performers",
+  "has_marker_performers",
+  () => new HasMarkerPerformersCriterion()
+);
+
+class HasMarkerPerformersCriterion extends StringBooleanCriterion {
+  constructor() {
+    super(HasMarkerPerformersCriterionOption);
+  }
+}
 
 const defaultSortBy = "date";
 const sortByOptions = [
   "organized",
   "date",
+  "effective_date",
   "file_count",
   "filesize",
   "duration",
@@ -121,6 +148,9 @@ const criterionOptions = [
   createMandatoryNumberCriterionOption("play_count"),
   createMandatoryTimestampCriterionOption("last_played_at"),
   HasMarkersCriterionOption,
+  HasMarkerPerformersCriterionOption,
+  SceneCustomFiltersCriterionOption,
+  SceneSceneTypeCriterionOption,
   SceneIsMissingCriterionOption,
   TagsCriterionOption,
   createMandatoryNumberCriterionOption("tag_count"),
@@ -129,6 +159,29 @@ const criterionOptions = [
   createMandatoryNumberCriterionOption("performer_count"),
   PerformerAgeCriterionOption,
   PerformerFavoriteCriterionOption,
+  EthnicityCriterionOption,
+  // Specialized country criterion using multi-select editor
+  new ModifierCriterionOption({
+    messageID: "performer_country",
+    type: "performer_country",
+    modifierOptions: [
+      // IS
+      CriterionModifier.Equals,
+      // IS NOT
+      CriterionModifier.NotEquals,
+      // INCLUDES (any one)
+      CriterionModifier.Includes,
+      // INCLUDES ALL (at least one from each selected country)
+      CriterionModifier.IncludesAll,
+    ],
+    defaultModifier: CriterionModifier.Equals,
+    inputType: "text",
+    makeCriterion: (o) =>
+      new CountryCriterion(o as unknown as ModifierCriterionOption),
+  }),
+  PerformerRatingCriterionOption,
+  SceneMarkersCriterionOption,
+  SceneMarkersExcludeCriterionOption,
   // StudioTagsCriterionOption,
   StudiosCriterionOption,
   GroupsCriterionOption,
@@ -141,7 +194,9 @@ const criterionOptions = [
   CaptionsCriterionOption,
   createMandatoryNumberCriterionOption("interactive_speed"),
   createMandatoryNumberCriterionOption("file_count"),
+  createMandatoryNumberCriterionOption("release_count"),
   createDateCriterionOption("date"),
+  createDateCriterionOption("effective_date"),
   createMandatoryTimestampCriterionOption("created_at"),
   createMandatoryTimestampCriterionOption("updated_at"),
   CustomFieldsCriterionOption,

@@ -1,13 +1,27 @@
 import { PerformersCriterionOption } from "./criteria/performers";
 import { MarkersScenesCriterionOption } from "./criteria/scenes";
+// CUSTOM: TagsCriterionOption is still imported for potential future use but commented out in criterionOptions
+// Tags functionality is now integrated into MarkerPerformersCriterionOption
 import { SceneTagsCriterionOption, TagsCriterionOption } from "./criteria/tags";
+import { MarkerPerformersCriterionOption } from "./criteria/marker-performers";
+import { StudiosCriterionOption } from "./criteria/studios";
 import { ListFilterOptions } from "./filter-options";
+import { ModifierCriterionOption } from "./criteria/criterion";
+import { CriterionModifier } from "src/core/generated-graphql";
 import { DisplayMode } from "./types";
 import {
   createDateCriterionOption,
   createMandatoryTimestampCriterionOption,
   createNullDurationCriterionOption,
+  StringBooleanCriterionOption,
+  StringBooleanCriterion,
+  StringCriterion,
+  BooleanCriterionOption,
+  BooleanCriterion,
+  NumberCriterion,
 } from "./criteria/criterion";
+import { SceneMarkerCustomFiltersCriterionOption } from "./criteria/custom-filters";
+import { HasRolesCriterionOptionInstance } from "./criteria/has-roles";
 
 const defaultSortBy = "title";
 const sortByOptions = [
@@ -19,12 +33,84 @@ const sortByOptions = [
   "scenes_updated_at",
 ].map(ListFilterOptions.createSortBy);
 const displayModeOptions = [DisplayMode.Grid, DisplayMode.Wall];
+
+// Scene Director criterion option
+const SceneDirectorCriterionOption = new ModifierCriterionOption({
+  messageID: "scene_director",
+  type: "scene_director",
+  modifierOptions: [
+    CriterionModifier.Equals,
+    CriterionModifier.NotEquals,
+    CriterionModifier.Includes,
+    CriterionModifier.Excludes,
+    CriterionModifier.IsNull,
+    CriterionModifier.NotNull,
+  ],
+  defaultModifier: CriterionModifier.Equals,
+  inputType: "text",
+  makeCriterion: (o) =>
+    new StringCriterion(o as unknown as ModifierCriterionOption),
+});
+
+// Has End Time criterion option
+const HasEndTimeCriterionOption = new BooleanCriterionOption(
+  "has_end_time",
+  "has_end_time",
+  () => new HasEndTimeCriterion()
+);
+
+class HasEndTimeCriterion extends BooleanCriterion {
+  constructor() {
+    super(HasEndTimeCriterionOption);
+  }
+}
+
+// Marker Length criterion option (Equals, >=, <=)
+// Markers with no end time are treated as 20 seconds
+const MarkerLengthCriterionOption: ModifierCriterionOption = new ModifierCriterionOption({
+  messageID: "marker_length",
+  type: "marker_length",
+  modifierOptions: [
+    CriterionModifier.Equals,
+    CriterionModifier.GreaterThanEquals,
+    CriterionModifier.LessThanEquals,
+  ],
+  defaultModifier: CriterionModifier.Equals,
+  inputType: "number",
+  makeCriterion: () => new NumberCriterion(MarkerLengthCriterionOption),
+});
+
+// Scene Performer Count criterion option (Equals, >=, <=)
+const ScenePerformerCountCriterionOption: ModifierCriterionOption = new ModifierCriterionOption({
+  messageID: "scene_performer_count",
+  type: "scene_performer_count",
+  modifierOptions: [
+    CriterionModifier.Equals,
+    CriterionModifier.GreaterThanEquals,
+    CriterionModifier.LessThanEquals,
+  ],
+  defaultModifier: CriterionModifier.Equals,
+  inputType: "number",
+  makeCriterion: () => new NumberCriterion(ScenePerformerCountCriterionOption),
+});
+
 const criterionOptions = [
-  TagsCriterionOption,
+  // CUSTOM: Commented out TagsCriterionOption - tags functionality is now integrated
+  // into MarkerPerformersCriterionOption for a unified filter experience.
+  // Preserving this comment for merge compatibility with upstream.
+  // TagsCriterionOption,
   MarkersScenesCriterionOption,
   SceneTagsCriterionOption,
+  MarkerPerformersCriterionOption,
   PerformersCriterionOption,
+  StudiosCriterionOption,
+  HasEndTimeCriterionOption,
+  HasRolesCriterionOptionInstance,
+  SceneDirectorCriterionOption,
+  SceneMarkerCustomFiltersCriterionOption,
   createNullDurationCriterionOption("duration"),
+  MarkerLengthCriterionOption,
+  ScenePerformerCountCriterionOption,
   createMandatoryTimestampCriterionOption("created_at"),
   createMandatoryTimestampCriterionOption("updated_at"),
   createDateCriterionOption("scene_date"),

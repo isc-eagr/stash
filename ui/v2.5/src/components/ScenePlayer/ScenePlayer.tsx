@@ -6,11 +6,13 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import videojs, { VideoJsPlayer, VideoJsPlayerOptions } from "video.js";
 import useScript from "src/hooks/useScript";
 import "videojs-contrib-dash";
 import "videojs-mobile-ui";
-import "videojs-seek-buttons";
+import "videojs-seek-buttons"; // Still needed for BigButtonGroup on touch devices
+import "./seek-buttons"; // Our custom seek buttons with menu for control bar
 import { UAParser } from "ua-parser-js";
 import "./live";
 import "./PlaylistButtons";
@@ -50,6 +52,21 @@ import chromecast from "@silvermine/videojs-chromecast";
 import abLoopPlugin from "videojs-abloop";
 import ScreenUtils from "src/utils/screen";
 import { PatchComponent } from "src/patch";
+import goateeSvg from "src/assets/goatee.svg";
+
+// Multi-segment loop plugin
+import "./multi-segment-loop";
+import type MultiSegmentLoopPlugin from "./multi-segment-loop";
+import type {
+  ILoopSegment,
+  ILoopSegmentInput,
+  IMultiSegmentLoopApi,
+} from "./multi-segment-loop";
+import { MultiSegmentLoopControls } from "./MultiSegmentLoopControls";
+
+// Performer image overlay components
+import { PerformerImageSelectModal } from "./PerformerImageSelectModal";
+import { PerformerImageOverlay } from "./PerformerImageOverlay";
 
 // register videojs plugins
 airplay(videojs);
@@ -203,18 +220,33 @@ function handleHotkeys(player: VideoJsPlayer, event: videojs.KeyboardEvent) {
 type MarkerFragment = Pick<GQL.SceneMarker, "title" | "seconds"> & {
   primary_tag: Pick<GQL.Tag, "name">;
   tags: Array<Pick<GQL.Tag, "name">>;
+  performers?: Array<Pick<GQL.Performer, "name">>;
+  top_performers?: Array<Pick<GQL.Performer, "id" | "name">>;
+  bottom_performers?: Array<Pick<GQL.Performer, "id" | "name">>;
+};
+
+type SegmentPreset = {
+  id?: string;
+  name: string;
+  segments: ILoopSegmentInput[];
+  enabled: boolean;
+  currentSegmentIndex: number;
 };
 
 function getMarkerTitle(marker: MarkerFragment) {
+  let ret = "";
+
   if (marker.title) {
-    return marker.title;
+    ret = marker.title;
+  } else {
+    ret = marker.primary_tag.name;
+    if (marker.tags.length) {
+      ret += `, ${marker.tags.map((t) => t.name).join(", ")}`;
+    }
   }
 
-  let ret = marker.primary_tag.name;
-  if (marker.tags.length) {
-    ret += `, ${marker.tags.map((t) => t.name).join(", ")}`;
-  }
-
+  // Performer names with roles are now shown in the tooltip with arrows
+  
   return ret;
 }
 
@@ -225,6 +257,7 @@ interface IScenePlayerProps {
   permitLoop?: boolean;
   initialTimestamp: number;
   sendSetTimestamp: (setTimestamp: (value: number) => void) => void;
+  sendMultiSegmentLoopApi?: (api: IMultiSegmentLoopApi) => void;
   onComplete: () => void;
   onNext: () => void;
   onPrevious: () => void;
@@ -239,6 +272,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     permitLoop = true,
     initialTimestamp: _initialTimestamp,
     sendSetTimestamp,
+    sendMultiSegmentLoopApi,
     onComplete,
     onNext,
     onPrevious,
@@ -266,6 +300,50 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
 
     const [fullscreen, setFullscreen] = useState(false);
     const [showScrubber, setShowScrubber] = useState(false);
+    const [segmentPresets, setSegmentPresets] = useState<SegmentPreset[]>([]);
+    const [multiSegments, setMultiSegments] = useState<ILoopSegment[]>([]);
+    const [multiSegmentEnabled, setMultiSegmentEnabled] = useState(false);
+    const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
+    const [pendingStart, setPendingStart] = useState<number | null>(null);
+    const [showPresetModal, setShowPresetModal] = useState(false);
+    const [loopSingleId, setLoopSingleId] = useState<string | null>(null);
+
+    // Negative marker skipping - enabled by default
+    const [negativeMarkerSkipEnabled, setNegativeMarkerSkipEnabled] = useState(true);
+    const lastSkipTimeRef = useRef<number>(0); // Prevent rapid re-skipping
+
+    // Performer image overlay state
+    const [showImageOverlayModal, setShowImageOverlayModal] = useState(false);
+    const [selectedOverlayImages, setSelectedOverlayImages] = useState<
+      { id: string; url: string }[]
+    >([]);
+    const [overlaysVisible, setOverlaysVisible] = useState(true);
+
+    const [saveLoopPreset] = GQL.useSaveSceneMultiSegmentLoopPresetMutation();
+    const [deleteLoopPreset] =
+      GQL.useDeleteSceneMultiSegmentLoopPresetMutation();
+
+    const handleDeleteSegmentPreset = useCallback(
+      async (name: string) => {
+        const preset = segmentPresets.find(
+          (p) => p.name.toLowerCase() === name.toLowerCase()
+        );
+
+        if (!preset) return;
+
+        try {
+          await deleteLoopPreset({
+            variables: { scene_id: scene.id, name: preset.name },
+          });
+          setSegmentPresets((prev) =>
+            prev.filter((p) => p.name.toLowerCase() !== name.toLowerCase())
+          );
+        } catch (error) {
+          console.warn("Failed to delete multi-segment loop preset", error);
+        }
+      },
+      [segmentPresets, deleteLoopPreset, scene.id]
+    );
 
     const started = useRef(false);
     const auto = useRef(false);
@@ -332,6 +410,83 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       });
     }, [sendSetTimestamp, getPlayer]);
 
+    useEffect(() => {
+      const presets = (scene.multi_segment_loop_presets ?? []).map(
+        (preset) => ({
+          id: preset.id ?? undefined,
+          name: preset.name,
+          enabled: preset.enabled ?? false,
+          currentSegmentIndex: preset.current_segment_index ?? 0,
+          segments: (preset.segments ?? []).map((s) => ({
+            start: s.start ?? 0,
+            end: s.end ?? 0,
+          })),
+        })
+      );
+
+      setSegmentPresets(presets);
+    }, [scene.multi_segment_loop_presets]);
+
+    useEffect(() => {
+      if (!sendMultiSegmentLoopApi) return;
+
+      sendMultiSegmentLoopApi({
+        addSegments: (segments: ILoopSegmentInput[]) => {
+          const player = getPlayer();
+          if (!player) return;
+
+          const multiSegmentPlugin = player.multiSegmentLoop?.() as
+            | MultiSegmentLoopPlugin
+            | undefined;
+          if (!multiSegmentPlugin) return;
+
+          segments.forEach((s) => {
+            const { start, end: endRaw, title } = s;
+            const end = endRaw > start ? endRaw : start + 1;
+            multiSegmentPlugin.addSegment(start, end, title);
+          });
+
+          // Force sync after adding segments from markers
+          setMultiSegments([...multiSegmentPlugin.getSegments()]);
+        },
+        setSegments: (segments: ILoopSegmentInput[]) => {
+          const player = getPlayer();
+          if (!player) return;
+
+          const multiSegmentPlugin = player.multiSegmentLoop?.() as
+            | MultiSegmentLoopPlugin
+            | undefined;
+          if (!multiSegmentPlugin) return;
+
+          const normalized: ILoopSegmentInput[] = segments.map((s) => ({
+            start: s.start,
+            end: s.end > s.start ? s.end : s.start + 1,
+          }));
+
+          multiSegmentPlugin.setSegments(
+            normalized.map((s) => ({
+              id: `imported_${Date.now()}_${Math.random()
+                .toString(36)
+                .slice(2)}`,
+              start: s.start,
+              end: s.end,
+            }))
+          );
+        },
+        clearSegments: () => {
+          const player = getPlayer();
+          if (!player) return;
+
+          const multiSegmentPlugin = player.multiSegmentLoop?.() as
+            | MultiSegmentLoopPlugin
+            | undefined;
+          if (!multiSegmentPlugin) return;
+
+          multiSegmentPlugin.clearSegments();
+        },
+      });
+    }, [sendMultiSegmentLoopApi, getPlayer]);
+
     // Initialize VideoJS player
     useEffect(() => {
       const options: VideoJsPlayerOptions = {
@@ -385,7 +540,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
           sourceSelector: {},
           persistVolume: {},
           bigButtons: {},
-          seekButtons: {
+          seekButtonsMenu: {
             forward: 10,
             back: 10,
           },
@@ -404,6 +559,12 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             pauseAfterLooping: false,
             pauseBeforeLooping: false,
             createButtons: uiConfig?.showAbLoopControls ?? false,
+          },
+          multiSegmentLoop: {
+            segments: [],
+            enabled: false,
+            currentSegmentIndex: 0,
+            createButton: false, // We create our own consolidated dropdown button
           },
           mediaSession: {},
           wakeSentinel: {},
@@ -452,6 +613,648 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       skipButtons.setForwardHandler(onNext);
       skipButtons.setBackwardHandler(onPrevious);
     }, [getPlayer, onNext, onPrevious]);
+
+    // Multi-segment loop plugin setup
+    useEffect(() => {
+      const player = getPlayer();
+      if (!player) return;
+
+      const multiSegmentPlugin = player.multiSegmentLoop?.() as
+        | MultiSegmentLoopPlugin
+        | undefined;
+      if (!multiSegmentPlugin) return;
+
+      // Set up callbacks to sync state with React
+      multiSegmentPlugin.setOnSegmentsChange((segments) => {
+        setMultiSegments([...segments]);
+      });
+
+      multiSegmentPlugin.setOnEnabledChange((enabled) => {
+        setMultiSegmentEnabled(enabled);
+      });
+
+      multiSegmentPlugin.setOnCurrentSegmentChange((index) => {
+        setCurrentSegmentIndex(index);
+      });
+
+      multiSegmentPlugin.setOnLoopSingleChange((segmentId) => {
+        setLoopSingleId(segmentId);
+      });
+
+      // Sync pending start
+      const syncPending = () => {
+        setPendingStart(multiSegmentPlugin.getPendingStart());
+      };
+
+      // Initial sync
+      setMultiSegments(multiSegmentPlugin.getSegments());
+      setMultiSegmentEnabled(multiSegmentPlugin.isEnabled());
+      setCurrentSegmentIndex(multiSegmentPlugin.getCurrentSegmentIndex());
+      setLoopSingleId(multiSegmentPlugin.getLoopSingleId());
+      syncPending();
+    }, [getPlayer]);
+
+    // Multi-segment loop control handlers
+    const handleMultiSegmentMarkPoint = useCallback(() => {
+      const player = getPlayer();
+      if (!player) return;
+
+      const multiSegmentPlugin = player.multiSegmentLoop?.() as
+        | MultiSegmentLoopPlugin
+        | undefined;
+      if (!multiSegmentPlugin) return;
+
+      multiSegmentPlugin.markPoint();
+      setPendingStart(multiSegmentPlugin.getPendingStart());
+      // Force sync segments after marking (in case callback doesn't trigger)
+      setMultiSegments([...multiSegmentPlugin.getSegments()]);
+    }, [getPlayer]);
+
+    const handleMultiSegmentCancelPending = useCallback(() => {
+      const player = getPlayer();
+      if (!player) return;
+
+      const multiSegmentPlugin = player.multiSegmentLoop?.() as
+        | MultiSegmentLoopPlugin
+        | undefined;
+      if (!multiSegmentPlugin) return;
+
+      multiSegmentPlugin.cancelPending();
+      setPendingStart(null);
+    }, [getPlayer]);
+
+    const handleMultiSegmentToggleEnabled = useCallback(() => {
+      const player = getPlayer();
+      if (!player) return;
+
+      const multiSegmentPlugin = player.multiSegmentLoop?.() as
+        | MultiSegmentLoopPlugin
+        | undefined;
+      if (!multiSegmentPlugin) return;
+
+      multiSegmentPlugin.toggleEnabled();
+      // Force sync enabled state
+      setMultiSegmentEnabled(multiSegmentPlugin.isEnabled());
+    }, [getPlayer]);
+
+    const handleMultiSegmentRemove = useCallback(
+      (id: string) => {
+        const player = getPlayer();
+        if (!player) return;
+
+        const multiSegmentPlugin = player.multiSegmentLoop?.() as
+          | MultiSegmentLoopPlugin
+          | undefined;
+        if (!multiSegmentPlugin) return;
+
+        multiSegmentPlugin.removeSegment(id);
+        // Force sync after remove
+        setMultiSegments([...multiSegmentPlugin.getSegments()]);
+      },
+      [getPlayer]
+    );
+
+    const handleMultiSegmentClear = useCallback(() => {
+      const player = getPlayer();
+      if (!player) return;
+
+      const multiSegmentPlugin = player.multiSegmentLoop?.() as
+        | MultiSegmentLoopPlugin
+        | undefined;
+      if (!multiSegmentPlugin) return;
+
+      multiSegmentPlugin.clearSegments();
+      // Force sync after clear
+      setMultiSegments([...multiSegmentPlugin.getSegments()]);
+    }, [getPlayer]);
+
+    const handleMultiSegmentJumpTo = useCallback(
+      (index: number) => {
+        const player = getPlayer();
+        if (!player) return;
+
+        const multiSegmentPlugin = player.multiSegmentLoop?.() as
+          | MultiSegmentLoopPlugin
+          | undefined;
+        if (!multiSegmentPlugin) return;
+
+        multiSegmentPlugin.jumpToSegment(index);
+      },
+      [getPlayer]
+    );
+
+    const handleMultiSegmentReorder = useCallback(
+      (fromIndex: number, toIndex: number) => {
+        const player = getPlayer();
+        if (!player) return;
+
+        const multiSegmentPlugin = player.multiSegmentLoop?.() as
+          | MultiSegmentLoopPlugin
+          | undefined;
+        if (!multiSegmentPlugin) return;
+
+        multiSegmentPlugin.reorderSegment(fromIndex, toIndex);
+        // Force sync after reorder
+        setMultiSegments([...multiSegmentPlugin.getSegments()]);
+      },
+      [getPlayer]
+    );
+
+    const handleMultiSegmentToggleLoopSingle = useCallback(
+      (segmentId: string) => {
+        const player = getPlayer();
+        if (!player) return;
+
+        const multiSegmentPlugin = player.multiSegmentLoop?.() as
+          | MultiSegmentLoopPlugin
+          | undefined;
+        if (!multiSegmentPlugin) return;
+
+        multiSegmentPlugin.toggleLoopSingle(segmentId);
+      },
+      [getPlayer]
+    );
+
+    const handleMultiSegmentUpdateStart = useCallback(
+      (id: string) => {
+        const player = getPlayer();
+        if (!player) return;
+
+        const multiSegmentPlugin = player.multiSegmentLoop?.() as
+          | MultiSegmentLoopPlugin
+          | undefined;
+        if (!multiSegmentPlugin) return;
+
+        const currentTime = player.currentTime() || 0;
+        const segment = multiSegmentPlugin
+          .getSegments()
+          .find((s) => s.id === id);
+        if (!segment) return;
+
+        multiSegmentPlugin.updateSegment(id, currentTime, segment.end);
+      },
+      [getPlayer]
+    );
+
+    const handleMultiSegmentUpdateEnd = useCallback(
+      (id: string) => {
+        const player = getPlayer();
+        if (!player) return;
+
+        const multiSegmentPlugin = player.multiSegmentLoop?.() as
+          | MultiSegmentLoopPlugin
+          | undefined;
+        if (!multiSegmentPlugin) return;
+
+        const currentTime = player.currentTime() || 0;
+        const segment = multiSegmentPlugin
+          .getSegments()
+          .find((s) => s.id === id);
+        if (!segment) return;
+
+        multiSegmentPlugin.updateSegment(id, segment.start, currentTime);
+      },
+      [getPlayer]
+    );
+
+    const handleSaveSegmentPreset = useCallback(
+      async (name: string) => {
+        if (multiSegments.length === 0) return false;
+
+        const presetInput: GQL.SceneMultiSegmentLoopPresetInput = {
+          scene_id: scene.id,
+          name,
+          enabled: multiSegmentEnabled,
+          current_segment_index: currentSegmentIndex,
+          segments: multiSegments.map(({ start, end }) => ({ start, end })),
+        };
+
+        try {
+          const result = await saveLoopPreset({
+            variables: { input: presetInput },
+          });
+          const saved = result.data?.saveSceneMultiSegmentLoopPreset;
+          if (!saved) return false;
+
+          const updated: SegmentPreset = {
+            id: saved.id ?? undefined,
+            name: saved.name,
+            enabled: saved.enabled ?? false,
+            currentSegmentIndex: saved.current_segment_index ?? 0,
+            segments: (saved.segments ?? []).map((s) => ({
+              start: s.start ?? 0,
+              end: s.end ?? 0,
+            })),
+          };
+
+          setSegmentPresets((prev) => {
+            const index = prev.findIndex(
+              (p) => p.name.toLowerCase() === updated.name.toLowerCase()
+            );
+            const next = [...prev];
+            if (index >= 0) {
+              next[index] = updated;
+            } else {
+              next.push(updated);
+            }
+            return next;
+          });
+
+          return true;
+        } catch (error) {
+          console.warn("Failed to save multi-segment loop preset", error);
+          return false;
+        }
+      },
+      [
+        multiSegments,
+        multiSegmentEnabled,
+        currentSegmentIndex,
+        scene.id,
+        saveLoopPreset,
+      ]
+    );
+
+    const handleLoadSegmentPreset = useCallback(
+      (name: string) => {
+        const player = getPlayer();
+        if (!player) return false;
+
+        const multiSegmentPlugin = player.multiSegmentLoop?.() as
+          | MultiSegmentLoopPlugin
+          | undefined;
+        if (!multiSegmentPlugin) return false;
+
+        const preset = segmentPresets.find(
+          (p) => p.name.toLowerCase() === name.toLowerCase()
+        );
+
+        if (!preset) return false;
+
+        multiSegmentPlugin.clearSegments();
+        preset.segments.forEach(({ start, end }) => {
+          multiSegmentPlugin.addSegment(start, end);
+        });
+
+        const shouldEnable = preset.enabled && preset.segments.length > 0;
+        multiSegmentPlugin.setEnabled(shouldEnable);
+
+        if (shouldEnable && preset.segments.length > 0) {
+          const targetIndex = Math.min(
+            preset.currentSegmentIndex,
+            preset.segments.length - 1
+          );
+          multiSegmentPlugin.jumpToSegment(targetIndex);
+        }
+
+        // Force sync all state after loading
+        setMultiSegments([...multiSegmentPlugin.getSegments()]);
+        setMultiSegmentEnabled(multiSegmentPlugin.isEnabled());
+        setCurrentSegmentIndex(multiSegmentPlugin.getCurrentSegmentIndex());
+        setPendingStart(multiSegmentPlugin.getPendingStart());
+        return true;
+      },
+      [getPlayer, segmentPresets]
+    );
+
+    // Create multi-segment loop buttons in control bar
+    useEffect(() => {
+      const player = getPlayer();
+      if (!player) return;
+
+      const controlBar = player.el()?.querySelector(".vjs-control-bar");
+      if (!controlBar) return;
+
+      const createButtons = () => {
+        if (controlBar.querySelector(".vjs-multi-segment-toggle")) return true;
+
+        // Create toggle button (Loop ON/OFF)
+        const toggleButton = document.createElement("div");
+        toggleButton.className = "vjs-multi-segment-toggle vjs-button";
+        toggleButton.setAttribute("role", "button");
+        toggleButton.tabIndex = 0;
+
+        const toggleText = document.createElement("span");
+        toggleText.className = "vjs-multi-segment-toggle-text";
+        toggleText.textContent = "Loop OFF";
+        toggleButton.appendChild(toggleText);
+
+        // Create edit button (pencil icon with preset count badge)
+        const editButton = document.createElement("div");
+        editButton.className = "vjs-multi-segment-edit vjs-button";
+        editButton.setAttribute("role", "button");
+        editButton.tabIndex = 0;
+
+        const editIcon = document.createElement("span");
+        editIcon.className = "vjs-icon-placeholder";
+        editIcon.textContent = "✏️";
+        editButton.appendChild(editIcon);
+
+        // Create preset count badge
+        const presetBadge = document.createElement("span");
+        presetBadge.className = "vjs-multi-segment-badge";
+        presetBadge.textContent = segmentPresets.length.toString();
+        if (segmentPresets.length === 0) {
+          presetBadge.style.display = "none";
+        }
+        editButton.appendChild(presetBadge);
+
+        // Update toggle button state
+        const updateToggleState = () => {
+          const multiSegmentPlugin = player.multiSegmentLoop?.() as
+            | MultiSegmentLoopPlugin
+            | undefined;
+          const isEnabled = multiSegmentPlugin?.isEnabled() ?? false;
+          const hasSegments =
+            (multiSegmentPlugin?.getSegments()?.length ?? 0) > 0;
+
+          toggleText.textContent = isEnabled ? "Loop ON" : "Loop OFF";
+
+          if (isEnabled && hasSegments) {
+            toggleButton.classList.add("vjs-multi-segment-active");
+          } else {
+            toggleButton.classList.remove("vjs-multi-segment-active");
+          }
+
+          // Disable toggle if no segments
+          if (!hasSegments) {
+            toggleButton.classList.add("vjs-disabled");
+            toggleButton.setAttribute("aria-disabled", "true");
+          } else {
+            toggleButton.classList.remove("vjs-disabled");
+            toggleButton.removeAttribute("aria-disabled");
+          }
+        };
+
+        // Toggle button click handler
+        toggleButton.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const multiSegmentPlugin = player.multiSegmentLoop?.() as
+            | MultiSegmentLoopPlugin
+            | undefined;
+          if (!multiSegmentPlugin) return;
+
+          const hasSegments =
+            (multiSegmentPlugin.getSegments()?.length ?? 0) > 0;
+          if (!hasSegments) return;
+
+          multiSegmentPlugin.toggleEnabled();
+          updateToggleState();
+          // Force sync React state so modal Play button updates
+          setMultiSegmentEnabled(multiSegmentPlugin.isEnabled());
+        });
+
+        // Edit button click handler
+        editButton.addEventListener("click", (e) => {
+          e.stopPropagation();
+          setShowPresetModal(true);
+        });
+
+        // Insert buttons to the left of playback rate (1x) button
+        const playbackRateBtn = controlBar.querySelector(".vjs-playback-rate");
+        if (playbackRateBtn) {
+          controlBar.insertBefore(editButton, playbackRateBtn);
+          controlBar.insertBefore(toggleButton, editButton);
+        } else {
+          // Fallback: insert before fullscreen
+          const fullscreenBtn = controlBar.querySelector(
+            ".vjs-fullscreen-control"
+          );
+          if (fullscreenBtn) {
+            controlBar.insertBefore(editButton, fullscreenBtn);
+            controlBar.insertBefore(toggleButton, editButton);
+          } else {
+            controlBar.appendChild(toggleButton);
+            controlBar.appendChild(editButton);
+          }
+        }
+
+        // Store update function for later use
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (toggleButton as any).__updateState = updateToggleState;
+
+        return true;
+      };
+
+      createButtons();
+
+      // Update button state when segments or enabled state changes
+      const updateButtonState = () => {
+        const toggleBtn = controlBar.querySelector(
+          ".vjs-multi-segment-toggle"
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ) as any;
+        toggleBtn?.__updateState?.();
+      };
+
+      // Watch for plugin state changes
+      const checkPluginReady = setInterval(() => {
+        const multiSegmentPlugin = player.multiSegmentLoop?.() as
+          | MultiSegmentLoopPlugin
+          | undefined;
+        if (multiSegmentPlugin) {
+          clearInterval(checkPluginReady);
+          multiSegmentPlugin.setOnEnabledChange(updateButtonState);
+          multiSegmentPlugin.setOnSegmentsChange(updateButtonState);
+        }
+      }, 100);
+
+      return () => {
+        clearInterval(checkPluginReady);
+      };
+    }, [getPlayer]);
+
+    // Update preset badge count when segmentPresets changes
+    useEffect(() => {
+      const player = getPlayer();
+      if (!player) return;
+
+      const controlBar = player.el()?.querySelector(".vjs-control-bar");
+      if (!controlBar) return;
+
+      const badge = controlBar.querySelector(".vjs-multi-segment-badge") as HTMLElement | null;
+      if (badge) {
+        const count = segmentPresets.length;
+        badge.textContent = count.toString();
+        badge.style.display = count > 0 ? "" : "none";
+      }
+      // segmentPresets.length is derived from segmentPresets, no need to add separately
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [getPlayer, segmentPresets]);
+
+    // Create negative marker skip toggle button in control bar
+    useEffect(() => {
+      const player = getPlayer();
+      if (!player) return;
+
+      const controlBar = player.el()?.querySelector(".vjs-control-bar");
+      if (!controlBar) return;
+
+      const negativeMarkers = scene.negative_markers ?? [];
+      
+      // Remove existing button if present
+      const existingBtn = controlBar.querySelector(".vjs-negative-marker-skip-btn");
+      if (existingBtn) {
+        existingBtn.remove();
+      }
+
+      // Only show button if there are negative markers
+      if (negativeMarkers.length === 0) return;
+
+      // Create the skip toggle button
+      const skipButton = document.createElement("div");
+      skipButton.className = "vjs-negative-marker-skip-btn vjs-button";
+      skipButton.setAttribute("role", "button");
+      skipButton.tabIndex = 0;
+      skipButton.setAttribute("title", "Toggle Skip Negative Markers");
+
+      const skipIcon = document.createElement("span");
+      skipIcon.className = "vjs-icon-placeholder";
+      skipIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="16" height="16" fill="currentColor"><path d="M52.5 440.6c-9.5 7.9-22.8 9.7-34.1 4.4S0 428.4 0 416V96C0 83.6 7.2 72.3 18.4 67s24.5-3.6 34.1 4.4l192 160L224 224V96c0-12.4 7.2-23.7 18.4-29s24.5-3.6 34.1 4.4l192 160c7.3 6.1 11.5 15.1 11.5 24.6s-4.2 18.5-11.5 24.6l-192 160c-9.5 7.9-22.8 9.7-34.1 4.4s-18.4-16.6-18.4-29V288l-20.5 17.1-192 160z"/></svg>`;
+      skipButton.appendChild(skipIcon);
+
+      // Apply initial state
+      if (negativeMarkerSkipEnabled) {
+        skipButton.classList.add("vjs-negative-skip-active");
+      }
+
+      // Click handler
+      skipButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setNegativeMarkerSkipEnabled((prev) => {
+          const newState = !prev;
+          if (newState) {
+            skipButton.classList.add("vjs-negative-skip-active");
+          } else {
+            skipButton.classList.remove("vjs-negative-skip-active");
+          }
+          return newState;
+        });
+      });
+
+      // Insert after multi-segment loop toggle or at the start
+      const multiSegmentToggle = controlBar.querySelector(".vjs-multi-segment-toggle");
+      if (multiSegmentToggle) {
+        controlBar.insertBefore(skipButton, multiSegmentToggle);
+      } else {
+        const playbackRateBtn = controlBar.querySelector(".vjs-playback-rate");
+        if (playbackRateBtn) {
+          controlBar.insertBefore(skipButton, playbackRateBtn);
+        } else {
+          controlBar.appendChild(skipButton);
+        }
+      }
+    }, [getPlayer, scene.negative_markers, negativeMarkerSkipEnabled]);
+
+    // Create performer image overlay button in control bar
+    useEffect(() => {
+      const player = getPlayer();
+      if (!player) return;
+
+      const controlBar = player.el()?.querySelector(".vjs-control-bar");
+      if (!controlBar) return;
+
+      // Check if button already exists
+      if (controlBar.querySelector(".vjs-performer-image-overlay-btn")) return;
+
+      // Create the image select button
+      const overlayButton = document.createElement("div");
+      overlayButton.className = "vjs-performer-image-overlay-btn vjs-button";
+      overlayButton.setAttribute("role", "button");
+      overlayButton.tabIndex = 0;
+      overlayButton.setAttribute("title", "Select Performer Images");
+
+      const iconSpan = document.createElement("span");
+      iconSpan.className = "vjs-icon-placeholder";
+      iconSpan.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="16" height="16" fill="currentColor"><path d="M0 96C0 60.7 28.7 32 64 32H448c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96zM323.8 202.5c-4.5-6.6-11.9-10.5-19.8-10.5s-15.4 3.9-19.8 10.5l-87 127.6L170.7 297c-4.6-5.7-11.5-9-18.7-9s-14.2 3.3-18.7 9l-64 80c-5.8 7.2-6.9 17.1-2.9 25.4s12.4 13.6 21.6 13.6h96 32H424c8.9 0 17.1-4.9 21.2-12.8s3.6-17.4-1.4-24.7l-120-176zM112 192a48 48 0 1 0 0-96 48 48 0 1 0 0 96z"/></svg>`;
+      overlayButton.appendChild(iconSpan);
+
+      // Click handler - open the image selection modal
+      overlayButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setShowImageOverlayModal(true);
+      });
+
+      // Create the show/hide toggle button
+      const toggleButton = document.createElement("div");
+      toggleButton.className = "vjs-performer-image-toggle-btn vjs-button";
+      toggleButton.setAttribute("role", "button");
+      toggleButton.tabIndex = 0;
+      toggleButton.setAttribute("title", "Toggle Image Visibility");
+      toggleButton.style.display = "none"; // Hidden until images are selected
+
+      const toggleIconSpan = document.createElement("span");
+      toggleIconSpan.className = "vjs-icon-placeholder";
+      // Eye icon for visibility toggle
+      toggleIconSpan.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" width="16" height="16" fill="currentColor"><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM144 256a144 144 0 1 1 288 0 144 144 0 1 1 -288 0zm144-64c0 35.3-28.7 64-64 64c-7.1 0-13.9-1.2-20.3-3.3c-5.5-1.8-11.9 1.6-11.7 7.4c.3 6.9 1.3 13.8 3.2 20.7c13.7 51.2 66.4 81.6 117.6 67.9s81.6-66.4 67.9-117.6c-11.1-41.5-47.8-69.4-88.6-71.1c-5.8-.2-9.2 6.1-7.4 11.7c2.1 6.4 3.3 13.2 3.3 20.3z"/></svg>`;
+      toggleButton.appendChild(toggleIconSpan);
+
+      // Click handler - toggle visibility
+      toggleButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setOverlaysVisible((prev) => !prev);
+      });
+
+      // Insert before playback rate button (same position pattern as multi-segment loop)
+      const playbackRateBtn = controlBar.querySelector(".vjs-playback-rate");
+      const multiSegmentEdit = controlBar.querySelector(".vjs-multi-segment-edit");
+      
+      // Insert both buttons together - overlay button first, then toggle button right after it
+      if (multiSegmentEdit && multiSegmentEdit.nextSibling) {
+        controlBar.insertBefore(overlayButton, multiSegmentEdit.nextSibling);
+        // Insert toggle right after overlay button
+        if (overlayButton.nextSibling) {
+          controlBar.insertBefore(toggleButton, overlayButton.nextSibling);
+        } else {
+          controlBar.appendChild(toggleButton);
+        }
+      } else if (playbackRateBtn) {
+        controlBar.insertBefore(overlayButton, playbackRateBtn);
+        controlBar.insertBefore(toggleButton, playbackRateBtn);
+      } else {
+        const fullscreenBtn = controlBar.querySelector(".vjs-fullscreen-control");
+        if (fullscreenBtn) {
+          controlBar.insertBefore(overlayButton, fullscreenBtn);
+          controlBar.insertBefore(toggleButton, fullscreenBtn);
+        } else {
+          controlBar.appendChild(overlayButton);
+          controlBar.appendChild(toggleButton);
+        }
+      }
+    }, [getPlayer]);
+
+    // Update performer image overlay buttons based on state
+    useEffect(() => {
+      const player = getPlayer();
+      if (!player) return;
+
+      const controlBar = player.el()?.querySelector(".vjs-control-bar");
+      const overlayBtn = controlBar?.querySelector(".vjs-performer-image-overlay-btn") as HTMLElement | null;
+      const toggleBtn = controlBar?.querySelector(".vjs-performer-image-toggle-btn") as HTMLElement | null;
+
+      // Show/hide toggle button based on whether images are selected
+      if (toggleBtn) {
+        toggleBtn.style.display = selectedOverlayImages.length > 0 ? "" : "none";
+        
+        // Update toggle button appearance based on visibility state
+        if (overlaysVisible) {
+          toggleBtn.classList.remove("hidden-state");
+          toggleBtn.setAttribute("title", "Hide Performer Images");
+        } else {
+          toggleBtn.classList.add("hidden-state");
+          toggleBtn.setAttribute("title", "Show Performer Images");
+        }
+      }
+
+      // Update button active state based on selected images
+      if (overlayBtn) {
+        if (selectedOverlayImages.length > 0) {
+          overlayBtn.classList.add("active");
+        } else {
+          overlayBtn.classList.remove("active");
+        }
+      }
+    }, [getPlayer, selectedOverlayImages.length, overlaysVisible]);
 
     useEffect(() => {
       if (scene.interactive && interactiveInitialised) {
@@ -573,6 +1376,44 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         clearTimeout(playingTimer.current);
       };
     }, [getPlayer, interactiveClient, scene]);
+
+    // Negative marker skip logic
+    useEffect(() => {
+      const player = getPlayer();
+      if (!player) return;
+
+      const negativeMarkers = scene.negative_markers ?? [];
+      if (negativeMarkers.length === 0) return;
+
+      function checkNegativeMarkers(this: VideoJsPlayer) {
+        if (!negativeMarkerSkipEnabled) return;
+        if (this.paused()) return;
+
+        const currentTime = this.currentTime();
+        const now = Date.now();
+
+        // Prevent rapid re-skipping (debounce 500ms)
+        if (now - lastSkipTimeRef.current < 500) return;
+
+        for (const marker of negativeMarkers) {
+          if (
+            currentTime >= marker.start_seconds &&
+            currentTime < marker.end_seconds
+          ) {
+            // Skip to end of this negative marker
+            lastSkipTimeRef.current = now;
+            this.currentTime(marker.end_seconds);
+            break;
+          }
+        }
+      }
+
+      player.on("timeupdate", checkNegativeMarkers);
+
+      return () => {
+        player.off("timeupdate", checkNegativeMarkers);
+      };
+    }, [getPlayer, scene.negative_markers, negativeMarkerSkipEnabled]);
 
     useEffect(() => {
       const player = getPlayer();
@@ -748,6 +1589,8 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         seconds: marker.seconds,
         end_seconds: marker.end_seconds ?? null,
         primaryTag: marker.primary_tag,
+        top_performers: marker.top_performers?.map((p) => ({ id: p.id, name: p.name })),
+        bottom_performers: marker.bottom_performers?.map((p) => ({ id: p.id, name: p.name })),
       }));
 
       const markers = player!.markers();
@@ -781,6 +1624,17 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       requestAnimationFrame(() => {
         markers.addDotMarkers(timestampMarkers);
         markers.addRangeMarkers(rangeMarkers);
+        
+        // Add negative markers (displayed in red)
+        const negativeMarkers = scene.negative_markers ?? [];
+        if (negativeMarkers.length > 0) {
+          markers.addNegativeMarkers(negativeMarkers.map(m => ({
+            id: m.id,
+            name: m.name,
+            start_seconds: m.start_seconds,
+            end_seconds: m.end_seconds,
+          })));
+        }
       });
     }, [getPlayer, scene, uiConfig]);
 
@@ -959,6 +1813,12 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       const player = getPlayer();
       if (!player) return;
 
+      // Don't intercept keyboard events when typing in input fields
+      const target = event.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+        return;
+      }
+
       if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
         return;
       }
@@ -976,6 +1836,41 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const isPortrait =
       file && file.height && file.width && file.height > file.width;
 
+    // Determine if the scene has any markers with the configured facial tag or any of its subtags
+    const hasFacial = useMemo(() => {
+      const facialTagId = (
+        configuration?.ui as unknown as {
+          roleTagIds?: { facialTagId?: string };
+        }
+      )?.roleTagIds?.facialTagId;
+      if (!facialTagId) return false;
+
+      // Helper to check if a tag matches (including recursive parent/child relationships)
+      // Returns true if tag.id === targetId OR any ancestor of tag has id === targetId
+      const tagMatches = (
+        tag: { id: string; parents?: Array<{ id: string }> } | null | undefined,
+        targetId: string,
+        visited: Set<string> = new Set()
+      ): boolean => {
+        if (!tag) return false;
+        if (tag.id === targetId) return true;
+        // Prevent infinite loops
+        if (visited.has(tag.id)) return false;
+        visited.add(tag.id);
+        // Recursively check all parents (ancestors)
+        const parents = tag.parents ?? [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return parents.some((p) => tagMatches(p as any, targetId, visited));
+      };
+
+      const markers = scene.scene_markers ?? [];
+      // Check if any marker's primary_tag or tags match the facial tag (including subtags)
+      return markers.some((marker) => {
+        if (tagMatches(marker.primary_tag, facialTagId)) return true;
+        return (marker.tags ?? []).some((tag) => tagMatches(tag, facialTagId));
+      });
+    }, [scene.scene_markers, configuration?.ui]);
+
     return (
       <div
         className={cx("VideoPlayer", {
@@ -984,7 +1879,16 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         })}
         onKeyDownCapture={onKeyDown}
       >
-        <div className="video-wrapper" ref={videoRef} />
+        <div className="video-wrapper" ref={videoRef}>
+          {hasFacial && (
+            <img
+              className="scene-facial-overlay"
+              src={goateeSvg}
+              alt="Facial"
+              title="Facial tags present"
+            />
+          )}
+        </div>
         {scene.interactive &&
           (interactiveState !== ConnectionState.Ready ||
             getPlayer()?.paused()) && <SceneInteractiveStatus />}
@@ -995,6 +1899,59 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             time={time}
             onSeek={onScrubberSeek}
             onScroll={onScrubberScroll}
+          />
+        )}
+        {showPresetModal &&
+          createPortal(
+            <MultiSegmentLoopControls
+              segments={multiSegments}
+              enabled={multiSegmentEnabled}
+              currentSegmentIndex={currentSegmentIndex}
+              pendingStart={pendingStart}
+              loopSingleId={loopSingleId}
+              onMarkPoint={handleMultiSegmentMarkPoint}
+              onCancelPending={handleMultiSegmentCancelPending}
+              onToggleEnabled={handleMultiSegmentToggleEnabled}
+              onRemoveSegment={handleMultiSegmentRemove}
+              onClearSegments={handleMultiSegmentClear}
+              onJumpToSegment={handleMultiSegmentJumpTo}
+              onReorderSegment={handleMultiSegmentReorder}
+              onToggleLoopSingle={handleMultiSegmentToggleLoopSingle}
+              onUpdateSegmentStart={handleMultiSegmentUpdateStart}
+              onUpdateSegmentEnd={handleMultiSegmentUpdateEnd}
+              presetNames={segmentPresets.map((preset) => preset.name)}
+              onSavePreset={handleSaveSegmentPreset}
+              onLoadPreset={handleLoadSegmentPreset}
+              onDeletePreset={handleDeleteSegmentPreset}
+              onClose={() => setShowPresetModal(false)}
+              collapsed={false}
+              isFullscreen={fullscreen}
+            />,
+            fullscreen && _player?.el() ? _player.el()! : document.body
+          )}
+        {/* Performer Image Overlay Modal */}
+        {showImageOverlayModal &&
+          createPortal(
+            <PerformerImageSelectModal
+              performerIds={scene.performers.map((p) => p.id)}
+              galleryIds={[
+                ...(scene.galleries?.map((g) => g.id) ?? []),
+                ...(scene.releases?.flatMap((r) => r.galleries?.map((g) => g.id) ?? []) ?? []),
+              ]}
+              selectedImages={selectedOverlayImages}
+              onConfirm={(images) => setSelectedOverlayImages(images)}
+              onClose={() => setShowImageOverlayModal(false)}
+              isFullscreen={fullscreen}
+            />,
+            fullscreen && _player?.el() ? _player.el()! : document.body
+          )}
+        {/* Performer Image Overlays */}
+        {selectedOverlayImages.length > 0 && (
+          <PerformerImageOverlay
+            images={selectedOverlayImages}
+            portalTarget={(_player?.el() as HTMLElement) ?? null}
+            isFullscreen={fullscreen}
+            overlaysVisible={overlaysVisible}
           />
         )}
       </div>

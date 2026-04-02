@@ -367,9 +367,78 @@ export const FilteredSceneList = PatchComponent(
     const history = useHistory();
     const location = useLocation();
 
+    const { configuration } = useConfigurationContext();
+
     const searchFocus = useFocus();
 
     const { filterHook, defaultSort, view, alterQuery, fromGroupId } = props;
+
+    const configuredOrgasmTagId = configuration?.ui?.roleTagIds?.orgasmTagId;
+    const configuredSecondCameraTagId =
+      configuration?.ui?.roleTagIds?.secondCameraTagId;
+
+    const orgasmDescendantsResult = GQL.useFindTagsQuery({
+      variables: {
+        filter: {
+          per_page: 5000,
+        },
+        tag_filter: {
+          parents: {
+            modifier: GQL.CriterionModifier.Includes,
+            value: configuredOrgasmTagId ? [configuredOrgasmTagId] : [],
+            depth: -1,
+          },
+        },
+      },
+      skip: view !== View.Scenes || !configuredOrgasmTagId,
+    });
+
+    const orgasmTagIdSet = useMemo(() => {
+      const set = new Set<string>();
+      if (configuredOrgasmTagId) set.add(configuredOrgasmTagId);
+      for (const t of orgasmDescendantsResult.data?.findTags?.tags ?? []) {
+        set.add(t.id);
+      }
+      return set;
+    }, [configuredOrgasmTagId, orgasmDescendantsResult.data]);
+
+    const effectiveFilterHook = useCallback(
+      (filter: ListFilterModel) => {
+        const next = filterHook ? filterHook(filter) : filter;
+
+        if (view !== View.Scenes) {
+          return next;
+        }
+
+        if (!configuredOrgasmTagId || !configuredSecondCameraTagId) {
+          return next;
+        }
+
+        if (orgasmTagIdSet.size === 0) {
+          return next;
+        }
+
+        for (const c of next.criteria) {
+          if (c.criterionOption.type !== "scene_markers") continue;
+
+          (
+            c as unknown as { __autoExcludeOnMarkerRule?: unknown }
+          ).__autoExcludeOnMarkerRule = {
+            matchTagIdSet: orgasmTagIdSet,
+            excludeTagIdsOnMarker: [configuredSecondCameraTagId],
+          };
+        }
+
+        return next;
+      },
+      [
+        filterHook,
+        view,
+        configuredOrgasmTagId,
+        configuredSecondCameraTagId,
+        orgasmTagIdSet,
+      ]
+    );
 
     // States
     const {
@@ -392,7 +461,7 @@ export const FilteredSceneList = PatchComponent(
           useResult: useFindScenes,
           getCount: (r) => r.data?.findScenes.count ?? 0,
           getItems: (r) => r.data?.findScenes.scenes ?? [],
-          filterHook,
+          filterHook: effectiveFilterHook,
         },
       });
 
@@ -653,7 +722,7 @@ export const FilteredSceneList = PatchComponent(
                 <SidebarContent
                   filter={filter}
                   setFilter={setFilter}
-                  filterHook={filterHook}
+                  filterHook={effectiveFilterHook}
                   showEditFilter={showEditFilter}
                   view={view}
                   sidebarOpen={showSidebar}
@@ -679,9 +748,12 @@ export const FilteredSceneList = PatchComponent(
 
                 <FilterTags
                   criteria={filter.criteria}
-                  onEditCriterion={(c) =>
-                    showEditFilter(c.criterionOption.type)
-                  }
+                  onEditCriterion={(c) => {
+                    // For multi-instance criteria, need to pass the actual criterion
+                    // showEditFilter only supports passing type string, so multi-instance won't work well here
+                    // This is a limitation - the user should use the Edit Filter button instead
+                    showEditFilter(c.criterionOption.type);
+                  }}
                   onRemoveCriterion={removeCriterion}
                   onRemoveAll={clearAllCriteria}
                 />

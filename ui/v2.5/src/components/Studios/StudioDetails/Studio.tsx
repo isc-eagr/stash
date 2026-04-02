@@ -30,6 +30,7 @@ import {
   StudioDetailsPanel,
 } from "./StudioDetailsPanel";
 import { StudioGroupsPanel } from "./StudioGroupsPanel";
+import { StudioCategoryStrip } from "./StudioCategoryStrip";
 import { faTrashAlt } from "@fortawesome/free-solid-svg-icons";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import { DetailImage } from "src/components/Shared/DetailImage";
@@ -52,7 +53,7 @@ import { OCounterButton } from "src/components/Shared/CountButton";
 import { OrganizedButton } from "src/components/Scenes/SceneDetails/OrganizedButton";
 
 interface IProps {
-  studio: GQL.StudioDataFragment;
+  studio: GQL.StudioDetailDataFragment;
   tabKey?: TabKey;
 }
 
@@ -78,7 +79,7 @@ function isTabKey(tab: string): tab is TabKey {
 
 const StudioTabs: React.FC<{
   tabKey?: TabKey;
-  studio: GQL.StudioDataFragment;
+  studio: GQL.StudioDetailDataFragment;
   abbreviateCounter: boolean;
   showAllCounts?: boolean;
 }> = ({ tabKey, studio, abbreviateCounter, showAllCounts = false }) => {
@@ -467,15 +468,18 @@ const StudioPage: React.FC<IProps> = ({ studio, tabKey }) => {
           show={enableBackgroundImage && !isEditing}
         />
         <div className="detail-container">
-          <HeaderImage encodingImage={encodingImage}>
-            {studioImage && (
-              <DetailImage
-                className="logo"
-                alt={studio.name}
-                src={studioImage}
-              />
-            )}
-          </HeaderImage>
+          <div className="detail-header-image-wrapper">
+            <HeaderImage encodingImage={encodingImage}>
+              {studioImage && (
+                <DetailImage
+                  className="logo"
+                  alt={studio.name}
+                  src={studioImage}
+                />
+              )}
+            </HeaderImage>
+            {!isEditing && <StudioCategoryStrip studio={studio} />}
+          </div>
           <div className="row">
             <div className="studio-head col">
               <DetailTitle name={studio.name ?? ""} classNamePrefix="studio">
