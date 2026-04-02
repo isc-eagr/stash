@@ -15,7 +15,6 @@ import {
   ModifierValue,
   modifierValueToModifier,
 } from "./LabeledIdFilter";
-import { useIntl } from "react-intl";
 
 interface IOptionsFilter {
   criterion: ModifierCriterion<CriterionValue>;

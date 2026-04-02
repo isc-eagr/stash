@@ -8,6 +8,7 @@ import {
 import {
   ChildTagsCriterionOption,
   ParentTagsCriterionOption,
+  SceneTagsCriterionOption,
   TagsCriterion,
   TagsCriterionOption,
 } from "src/models/list-filter/criteria/tags";
@@ -1554,7 +1555,17 @@ const makeTagStudiosUrl = (tag: INamedObject) => {
 };
 
 const makeTagSceneMarkersUrl = (tag: INamedObject) => {
-  return `/scenes/markers?${makeTagFilter(GQL.FilterMode.SceneMarkers, tag)}`;
+  // Use SceneTagsCriterionOption (type "scene_tags") instead of generic TagsCriterionOption
+  // because TagsCriterionOption is not a valid criterion for the SceneMarkers filter mode
+  const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
+  const criterion = new TagsCriterion(SceneTagsCriterionOption);
+  criterion.value = {
+    items: [{ id: tag.id, label: tag.name || `Tag ${tag.id}` }],
+    excluded: [],
+    depth: 0,
+  };
+  filter.criteria.push(criterion);
+  return `/scenes/markers?${filter.makeQueryParameters()}`;
 };
 
 const makeTagGalleriesUrl = (tag: INamedObject) => {
