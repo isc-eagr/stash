@@ -208,7 +208,6 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
                 {bottomPerformers && bottomPerformers.length > 0 && (
                   <div className="mr-1">{bottomPerformers}</div>
                 )}
-                {tags && tags.length > 0 && <div>{tags}</div>}
               </div>
             </div>
             <Form.Check
@@ -220,23 +219,7 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
               }
             />
           </div>
-          <div className="d-flex align-items-center">
-            <div>
-              {TextUtils.formatTimestampRange(
-                marker.seconds,
-                marker.end_seconds ?? undefined
-              )}
-            </div>
-            {showAbLoopControls && marker.end_seconds != null && (
-              <Button
-                variant="link"
-                className="ml-2 p-0"
-                onClick={() => onLoopMarker(marker)}
-              >
-                Loop
-              </Button>
-            )}
-          </div>
+
           <div className="card-section centered">{tags}</div>
         </div>
       );
