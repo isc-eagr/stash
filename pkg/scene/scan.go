@@ -39,10 +39,12 @@ type ScanGalleryFinderUpdater interface {
 	AddSceneIDs(ctx context.Context, galleryID int, sceneIDs []int) error
 }
 
-// ReleaseFileChecker checks if a file belongs to a scene release
+// CUSTOM: begin - ReleaseFileChecker checks if a file belongs to a scene release
 type ReleaseFileChecker interface {
 	FileExistsInSceneReleases(ctx context.Context, sceneID int, fileID models.FileID) (bool, error)
 }
+
+// CUSTOM: end
 
 type ScanGenerator interface {
 	Generate(ctx context.Context, s *models.Scene, f *models.VideoFile) error
@@ -52,7 +54,7 @@ type ScanHandler struct {
 	CreatorUpdater       ScanCreatorUpdater
 	GalleryFinderUpdater ScanGalleryFinderUpdater
 
-	ReleaseFileChecker ReleaseFileChecker
+	ReleaseFileChecker ReleaseFileChecker // CUSTOM
 	ScanGenerator      ScanGenerator
 	CaptionUpdater     video.CaptionUpdater
 	PluginCache        *plugin.Cache
@@ -172,7 +174,7 @@ func (h *ScanHandler) associateExisting(ctx context.Context, existing []*models.
 			}
 		}
 
-		// Also check if file exists in any release of this scene
+		// CUSTOM: begin - check if file exists in any release of this scene
 		if !found && h.ReleaseFileChecker != nil {
 			inRelease, err := h.ReleaseFileChecker.FileExistsInSceneReleases(ctx, s.ID, f.ID)
 			if err != nil {
@@ -184,6 +186,7 @@ func (h *ScanHandler) associateExisting(ctx context.Context, existing []*models.
 				found = true
 			}
 		}
+		// CUSTOM: end
 
 		if !found {
 			logger.Infof("Adding %s to scene %s", f.Path, s.DisplayName())

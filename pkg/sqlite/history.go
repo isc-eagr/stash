@@ -93,7 +93,3 @@ func (qb *oDateManager) DeleteO(ctx context.Context, id int, dates []time.Time) 
 func (qb *oDateManager) ResetO(ctx context.Context, id int) (int, error) {
 	return qb.tableMgr.deleteAllDates(ctx, id)
 }
-
-func (qb *oDateManager) TransferOHistory(ctx context.Context, fromID int, toID int) error {
-	return qb.tableMgr.transferDates(ctx, fromID, toID)
-}

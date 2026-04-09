@@ -6,7 +6,7 @@ import {
 } from "../Shared/GridCard/GridCard";
 import { StudioCard } from "./StudioCard";
 import { PatchComponent } from "src/patch";
-import { useRoleTags } from "src/hooks/useRoleTags";
+import { useRoleTags } from "src/hooks/useRoleTags"; // CUSTOM
 
 interface IStudioCardGrid {
   studios: GQL.StudioDataFragment[];
@@ -14,7 +14,7 @@ interface IStudioCardGrid {
   selectedIds: Set<string>;
   zoomIndex: number;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
-  performerId?: string;
+  performerId?: string; // CUSTOM
 }
 
 const zoomWidths = [280, 340, 420, 560];
@@ -27,13 +27,13 @@ export const StudioCardGrid: React.FC<IStudioCardGrid> = PatchComponent(
     selectedIds,
     zoomIndex,
     onSelectChange,
-    performerId,
+    performerId, // CUSTOM
   }) => {
     const [componentRef, { width: containerWidth }] = useContainerDimensions();
     const cardWidth = useCardWidth(containerWidth, zoomIndex, zoomWidths);
 
-    // Single query for just the role tags (shared hook, Apollo-cached)
-    const roleTags = useRoleTags();
+    // CUSTOM: Single query for just the role tags (shared hook, Apollo-cached)
+    const roleTags = useRoleTags(); // CUSTOM
 
     return (
       <div className="row justify-content-center" ref={componentRef}>
@@ -49,8 +49,8 @@ export const StudioCardGrid: React.FC<IStudioCardGrid> = PatchComponent(
             onSelectedChanged={(selected: boolean, shiftKey: boolean) =>
               onSelectChange(studio.id, selected, shiftKey)
             }
-            performerId={performerId}
-            roleTags={roleTags}
+            performerId={performerId} // CUSTOM
+            roleTags={roleTags} // CUSTOM
           />
         ))}
       </div>

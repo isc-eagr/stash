@@ -6,16 +6,20 @@ export interface IMarker {
   seconds: number;
   end_seconds?: number | null;
   primaryTag: { name: string };
+  // CUSTOM: begin - performer roles on markers
   top_performers?: Array<{ id: string; name: string }>;
   bottom_performers?: Array<{ id: string; name: string }>;
+  // CUSTOM: end
 }
 
+// CUSTOM: begin - negative marker interface
 export interface INegativeMarker {
   id: string;
   name: string;
   start_seconds: number;
   end_seconds: number;
 }
+// CUSTOM: end
 
 interface IMarkersOptions {
   markers?: IMarker[];
@@ -28,7 +32,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     range?: HTMLDivElement;
     containedRanges?: HTMLDivElement[];
   }[] = [];
-  private negativeMarkerDivs: HTMLDivElement[] = [];
+  private negativeMarkerDivs: HTMLDivElement[] = []; // CUSTOM
   private markerTooltip: HTMLElement | null = null;
   private defaultTooltip: HTMLElement | null = null;
 
@@ -57,6 +61,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     });
   }
 
+  // CUSTOM: begin - enhanced tooltip with performer roles and negative marker styling
   private showMarkerTooltip(title: string, layer: number = 0, topPerformers?: Array<{ id: string; name: string }>, bottomPerformers?: Array<{ id: string; name: string }>, isNegativeMarker: boolean = false) {
     if (!this.markerTooltip) return;
     
@@ -95,6 +100,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     
     if (this.defaultTooltip) this.defaultTooltip.style.visibility = "hidden";
   }
+  // CUSTOM: end
 
   private hideMarkerTooltip() {
     if (this.markerTooltip) this.markerTooltip.style.visibility = "hidden";
@@ -135,7 +141,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
         this.tagColors[marker.primaryTag.name];
     }
     markerSet.dot.addEventListener("mouseenter", () => {
-      this.showMarkerTooltip(marker.title, 0, marker.top_performers, marker.bottom_performers);
+      this.showMarkerTooltip(marker.title, 0, marker.top_performers, marker.bottom_performers); // CUSTOM: performer roles
       markerSet.dot?.toggleAttribute("marker-tooltip-shown", true);
     });
 
@@ -223,7 +229,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       e.stopPropagation();
     });
     markerSet.range.addEventListener("mouseenter", () => {
-      this.showMarkerTooltip(marker.title, layer, marker.top_performers, marker.bottom_performers);
+      this.showMarkerTooltip(marker.title, layer, marker.top_performers, marker.bottom_performers); // CUSTOM: performer roles
       markerSet.range?.toggleAttribute("marker-tooltip-shown", true);
     });
 
@@ -332,14 +338,15 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     this.markers = [];
     this.markerDivs = [];
     
-    // Also clear negative markers
+    // CUSTOM: begin - clear negative markers
     for (const div of this.negativeMarkerDivs) {
       div.remove();
     }
     this.negativeMarkerDivs = [];
+    // CUSTOM: end
   }
 
-  // Add negative markers (displayed in red)
+  // CUSTOM: begin - add negative markers (displayed in red)
   addNegativeMarkers(negativeMarkers: INegativeMarker[]) {
     const duration = this.player.duration();
     const parent = this.player.el().querySelector(".vjs-progress-control");
@@ -388,6 +395,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       this.negativeMarkerDivs.push(rangeDiv);
     }
   }
+  // CUSTOM: end
 
   // Implementing the findColors method
   findColors(tagNames: string[]) {
@@ -490,7 +498,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
   }
 
   // Convert hue to RGB color in hex format
-  // Avoids red hues (0-30 and 330-360) to reserve red for negative markers
+  // CUSTOM: begin - avoids red hues (0-30 and 330-360) to reserve red for negative markers
   private hueToColor(hue: number): string {
     // Remap hue to avoid red range (reserve 0-30 and 330-360 for negative markers)
     // Map the range [0, 360) to [30, 330) to avoid reds
@@ -507,6 +515,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     )}${this.toHex(Math.round(alpha * 255))}`;
     return rgbColor;
   }
+  // CUSTOM: end
 
   // Convert HSV to RGB
   private hsvToRgb(h: number, s: number, v: number): [number, number, number] {

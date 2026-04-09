@@ -18,8 +18,8 @@ type PerformerFinder interface {
 	FindByStashID(ctx context.Context, stashID StashID) ([]*Performer, error)
 	FindByStashIDStatus(ctx context.Context, hasStashID bool, stashboxEndpoint string) ([]*Performer, error)
 	FindByNames(ctx context.Context, names []string, nocase bool) ([]*Performer, error)
-	FindBySceneMarkerID(ctx context.Context, sceneMarkerID int) ([]*Performer, error)
-	FindBySceneMarkerIDWithRole(ctx context.Context, sceneMarkerID int, role string) ([]*Performer, error)
+	FindBySceneMarkerID(ctx context.Context, sceneMarkerID int) ([]*Performer, error)                      // CUSTOM
+	FindBySceneMarkerIDWithRole(ctx context.Context, sceneMarkerID int, role string) ([]*Performer, error) // CUSTOM
 }
 
 // PerformerQueryer provides methods to query performers.
@@ -53,7 +53,7 @@ type PerformerUpdater interface {
 	Update(ctx context.Context, updatedPerformer *UpdatePerformerInput) error
 	UpdatePartial(ctx context.Context, id int, updatedPerformer PerformerPartial) (*Performer, error)
 	UpdateImage(ctx context.Context, performerID int, image []byte) error
-	UpdateImageBlob(ctx context.Context, performerID int, blobChecksum string) error
+	UpdateImageBlob(ctx context.Context, performerID int, blobChecksum string) error // CUSTOM
 }
 
 // PerformerDestroyer provides methods to destroy performers.
@@ -87,7 +87,7 @@ type PerformerReader interface {
 
 	All(ctx context.Context) ([]*Performer, error)
 	GetImage(ctx context.Context, performerID int) ([]byte, error)
-	GetImageBlob(ctx context.Context, performerID int) (*string, error)
+	GetImageBlob(ctx context.Context, performerID int) (*string, error) // CUSTOM
 	HasImage(ctx context.Context, performerID int) (bool, error)
 }
 

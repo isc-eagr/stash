@@ -199,7 +199,7 @@ func (_m *SceneMarkerReaderWriter) GetMarkerStrings(ctx context.Context, q *stri
 	return r0, r1
 }
 
-// GetPerformers provides a mock function with given fields: ctx, markerID
+// CUSTOM: begin - GetPerformers provides a mock function with given fields: ctx, markerID
 func (_m *SceneMarkerReaderWriter) GetPerformers(ctx context.Context, markerID int) ([]*models.MarkerPerformer, error) {
 	ret := _m.Called(ctx, markerID)
 
@@ -221,6 +221,8 @@ func (_m *SceneMarkerReaderWriter) GetPerformers(ctx context.Context, markerID i
 
 	return r0, r1
 }
+
+// CUSTOM: end
 
 // GetTagIDs provides a mock function with given fields: ctx, relatedID
 func (_m *SceneMarkerReaderWriter) GetTagIDs(ctx context.Context, relatedID int) ([]int, error) {
@@ -347,7 +349,7 @@ func (_m *SceneMarkerReaderWriter) UpdateTags(ctx context.Context, markerID int,
 	return r0
 }
 
-// UpdatePerformers provides a mock function with given fields: ctx, markerID, performerIDs
+// CUSTOM: begin - UpdatePerformers provides a mock function with given fields: ctx, markerID, performerIDs
 func (_m *SceneMarkerReaderWriter) UpdatePerformers(ctx context.Context, markerID int, performerIDs []int) error {
 	ret := _m.Called(ctx, markerID, performerIDs)
 
@@ -388,6 +390,8 @@ func (_m *SceneMarkerReaderWriter) UpdateBottomPerformers(ctx context.Context, m
 
 	return r0
 }
+
+// CUSTOM: end
 
 // Wall provides a mock function with given fields: ctx, q
 func (_m *SceneMarkerReaderWriter) Wall(ctx context.Context, q *string) ([]*models.SceneMarker, error) {

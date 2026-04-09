@@ -1,7 +1,7 @@
 import { IntlShape } from "react-intl";
 import { getCountryByISO } from "src/utils/country";
 import {
-  ModifierCriterionOption,
+  ModifierCriterionOption, // CUSTOM: added for optional constructor param
   StringCriterion,
   StringCriterionOption,
 } from "./criterion";
@@ -13,10 +13,11 @@ export const CountryCriterionOption = new StringCriterionOption({
 });
 
 export class CountryCriterion extends StringCriterion {
-  constructor(option?: ModifierCriterionOption) {
+  constructor(option?: ModifierCriterionOption) { // CUSTOM: added optional param
     super(option ?? CountryCriterionOption);
   }
 
+  // CUSTOM: begin - rewritten to support comma-separated multi-country values
   protected getLabelValue(intl: IntlShape) {
     const values = (this.value || "")
       .split(",")
@@ -25,4 +26,5 @@ export class CountryCriterion extends StringCriterion {
     if (values.length === 0) return "";
     return values.map((v) => getCountryByISO(v, intl.locale) ?? v).join(", ");
   }
+  // CUSTOM: end
 }

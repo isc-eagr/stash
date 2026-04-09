@@ -1,5 +1,6 @@
 package models
 
+// CUSTOM: begin
 // CustomSceneMarkerFilterInput is the input for custom scene marker filters
 type CustomSceneMarkerFilterInput struct {
 	// The filter type: circular_oral, simultaneous_orgasm, self_facial
@@ -20,6 +21,8 @@ type HasRolesCriterionInput struct {
 	HasBottoms bool `json:"has_bottoms"`
 }
 
+// CUSTOM: end
+
 type SceneMarkerFilterType struct {
 	// Filter to only include scene markers with this tag
 	TagID *string `json:"tag_id"`
@@ -29,6 +32,7 @@ type SceneMarkerFilterType struct {
 	SceneTags *HierarchicalMultiCriterionInput `json:"scene_tags"`
 	// Filter to only include scene markers with these performers (scene performers)
 	Performers *MultiCriterionInput `json:"performers"`
+	// CUSTOM: begin
 	// Filter by performer rating (scene performers, 1-100)
 	PerformerRating *IntCriterionInput `json:"performer_rating"`
 	// Filter to only include scene markers by performer ethnicity (scene performers)
@@ -49,17 +53,20 @@ type SceneMarkerFilterType struct {
 
 	// Filter by marker tags with performer attributes (top/bottom/both roles)
 	SceneMarkerTags *SceneMarkerTagsCriterionInput `json:"scene_marker_tags"`
+	// CUSTOM: end
 
 	// Filter to only include scene markers from these scenes
 	Scenes *MultiCriterionInput `json:"scenes"`
 	// Filter to only include scene markers from scenes belonging to these studios
-	Studios *HierarchicalMultiCriterionInput `json:"studios"`
+	Studios *HierarchicalMultiCriterionInput `json:"studios"` // CUSTOM
 	// Filter by duration (in seconds)
 	Duration *FloatCriterionInput `json:"duration"`
+	// CUSTOM: begin
 	// Filter by marker length in seconds. Markers without end time are treated as 20 seconds.
 	MarkerLength *IntCriterionInput `json:"marker_length"`
 	// Filter by the number of performers in the scene
 	ScenePerformerCount *IntCriterionInput `json:"scene_performer_count"`
+	// CUSTOM: end
 	// Filter by created at
 	CreatedAt *TimestampCriterionInput `json:"created_at"`
 	// Filter by updated at
@@ -72,11 +79,13 @@ type SceneMarkerFilterType struct {
 	SceneUpdatedAt *TimestampCriterionInput `json:"scene_updated_at"`
 	// Filter by related scenes that meet this criteria
 	SceneFilter *SceneFilterType `json:"scene_filter"`
+	// CUSTOM: begin
 	// Custom scene marker filters: predefined complex filters
 	// Options: 'circular_oral', 'simultaneous_orgasm', 'self_facial'
 	CustomFilters *CustomSceneMarkerFilterInput `json:"custom_filters"`
 	// Filter by marker roles (tops/bottoms)
 	HasRoles *HasRolesCriterionInput `json:"has_roles"`
+	// CUSTOM: end
 }
 
 type MarkerStringsResultType struct {

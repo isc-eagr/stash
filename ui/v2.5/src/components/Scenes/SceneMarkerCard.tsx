@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Badge, Button, ButtonGroup } from "react-bootstrap";
+import { Badge, Button, ButtonGroup } from "react-bootstrap"; // CUSTOM: added Badge
 import * as GQL from "src/core/generated-graphql";
 import { Icon } from "../Shared/Icon";
 import { TagLink } from "../Shared/TagLink";
@@ -8,7 +8,7 @@ import NavUtils from "src/utils/navigation";
 import TextUtils from "src/utils/text";
 import { useConfigurationContext } from "src/hooks/Config";
 import { GridCard } from "../Shared/GridCard/GridCard";
-import { faTag, faArrowUp, faArrowDown } from "@fortawesome/free-solid-svg-icons";
+import { faTag, faArrowUp, faArrowDown } from "@fortawesome/free-solid-svg-icons"; // CUSTOM: added faArrowUp, faArrowDown
 import { markerTitle } from "src/core/markers";
 import { Link } from "react-router-dom";
 import { objectTitle } from "src/core/files";
@@ -93,6 +93,7 @@ const SceneMarkerCardPopovers = PatchComponent(
 const SceneMarkerCardDetails = PatchComponent(
   "SceneMarkerCard.Details",
   (props: ISceneMarkerCardProps) => {
+    // CUSTOM: begin - performer chips with role arrows
     // Only show arrows if marker has performers in BOTH roles (top and bottom)
     const showRoleArrows = props.marker.top_performers.length > 0 && props.marker.bottom_performers.length > 0;
 
@@ -129,6 +130,7 @@ const SceneMarkerCardDetails = PatchComponent(
         </Link>
       </HoverPopover>
     );
+    // CUSTOM: end
 
     return (
       <div className="scene-marker-card__details">
@@ -138,6 +140,7 @@ const SceneMarkerCardDetails = PatchComponent(
             props.marker.end_seconds ?? undefined
           )}
         </span>
+        {/* CUSTOM: begin - performer chips display */}
         {(props.marker.top_performers.length > 0 || props.marker.bottom_performers.length > 0) && (
           <div className="scene-marker-card__performers">
             {props.marker.top_performers.map((p) =>
@@ -148,9 +151,10 @@ const SceneMarkerCardDetails = PatchComponent(
             )}
           </div>
         )}
+        {/* CUSTOM: end */}
         <TruncatedText
           className="scene-marker-card__scene"
-          lineCount={2}
+          lineCount={2} // CUSTOM: was 3
           text={
             <Link to={NavUtils.makeSceneMarkersSceneUrl(props.marker.scene)}>
               {objectTitle(props.marker.scene)}

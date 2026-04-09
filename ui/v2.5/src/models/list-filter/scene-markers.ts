@@ -3,25 +3,25 @@ import { MarkersScenesCriterionOption } from "./criteria/scenes";
 // CUSTOM: TagsCriterionOption is still imported for potential future use but commented out in criterionOptions
 // Tags functionality is now integrated into MarkerPerformersCriterionOption
 import { SceneTagsCriterionOption, TagsCriterionOption } from "./criteria/tags";
-import { MarkerPerformersCriterionOption } from "./criteria/marker-performers";
-import { StudiosCriterionOption } from "./criteria/studios";
+import { MarkerPerformersCriterionOption } from "./criteria/marker-performers"; // CUSTOM
+import { StudiosCriterionOption } from "./criteria/studios"; // CUSTOM
 import { ListFilterOptions } from "./filter-options";
-import { ModifierCriterionOption } from "./criteria/criterion";
-import { CriterionModifier } from "src/core/generated-graphql";
+import { ModifierCriterionOption } from "./criteria/criterion"; // CUSTOM
+import { CriterionModifier } from "src/core/generated-graphql"; // CUSTOM
 import { DisplayMode } from "./types";
 import {
   createDateCriterionOption,
   createMandatoryTimestampCriterionOption,
   createNullDurationCriterionOption,
-  StringBooleanCriterionOption,
-  StringBooleanCriterion,
-  StringCriterion,
-  BooleanCriterionOption,
-  BooleanCriterion,
-  NumberCriterion,
+  StringBooleanCriterionOption, // CUSTOM
+  StringBooleanCriterion, // CUSTOM
+  StringCriterion, // CUSTOM
+  BooleanCriterionOption, // CUSTOM
+  BooleanCriterion, // CUSTOM
+  NumberCriterion, // CUSTOM
 } from "./criteria/criterion";
-import { SceneMarkerCustomFiltersCriterionOption } from "./criteria/custom-filters";
-import { HasRolesCriterionOptionInstance } from "./criteria/has-roles";
+import { SceneMarkerCustomFiltersCriterionOption } from "./criteria/custom-filters"; // CUSTOM
+import { HasRolesCriterionOptionInstance } from "./criteria/has-roles"; // CUSTOM
 
 const defaultSortBy = "title";
 const sortByOptions = [
@@ -34,6 +34,7 @@ const sortByOptions = [
 ].map(ListFilterOptions.createSortBy);
 const displayModeOptions = [DisplayMode.Grid, DisplayMode.Wall];
 
+// CUSTOM: begin
 // Scene Director criterion option
 const SceneDirectorCriterionOption = new ModifierCriterionOption({
   messageID: "scene_director",
@@ -93,6 +94,7 @@ const ScenePerformerCountCriterionOption: ModifierCriterionOption = new Modifier
   inputType: "number",
   makeCriterion: () => new NumberCriterion(ScenePerformerCountCriterionOption),
 });
+// CUSTOM: end
 
 const criterionOptions = [
   // CUSTOM: Commented out TagsCriterionOption - tags functionality is now integrated
@@ -101,16 +103,16 @@ const criterionOptions = [
   // TagsCriterionOption,
   MarkersScenesCriterionOption,
   SceneTagsCriterionOption,
-  MarkerPerformersCriterionOption,
+  MarkerPerformersCriterionOption, // CUSTOM
   PerformersCriterionOption,
-  StudiosCriterionOption,
-  HasEndTimeCriterionOption,
-  HasRolesCriterionOptionInstance,
-  SceneDirectorCriterionOption,
-  SceneMarkerCustomFiltersCriterionOption,
+  StudiosCriterionOption, // CUSTOM
+  HasEndTimeCriterionOption, // CUSTOM
+  HasRolesCriterionOptionInstance, // CUSTOM
+  SceneDirectorCriterionOption, // CUSTOM
+  SceneMarkerCustomFiltersCriterionOption, // CUSTOM
   createNullDurationCriterionOption("duration"),
-  MarkerLengthCriterionOption,
-  ScenePerformerCountCriterionOption,
+  MarkerLengthCriterionOption, // CUSTOM
+  ScenePerformerCountCriterionOption, // CUSTOM
   createMandatoryTimestampCriterionOption("created_at"),
   createMandatoryTimestampCriterionOption("updated_at"),
   createDateCriterionOption("scene_date"),

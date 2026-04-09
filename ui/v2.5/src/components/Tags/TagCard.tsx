@@ -12,7 +12,7 @@ import { Icon } from "../Shared/Icon";
 import { faHeart } from "@fortawesome/free-solid-svg-icons";
 import cx from "classnames";
 import { useTagUpdate } from "src/core/StashService";
-import { gql, useQuery } from "@apollo/client";
+import { gql, useQuery } from "@apollo/client"; // CUSTOM
 
 interface IProps {
   tag: GQL.TagDataFragment | GQL.TagListDataFragment;
@@ -21,13 +21,16 @@ interface IProps {
   selecting?: boolean;
   selected?: boolean;
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
+  // CUSTOM: begin - extra TagCard props
   // when true only render the scene-count popover/button
   sceneCountOnly?: boolean;
   // optional performer context - when provided scene links use scene markers
   performerId?: string;
   performerName?: string;
+  // CUSTOM: end
 }
 
+// CUSTOM: begin - GQL query + hook for scene marker count by tag
 // Query to count scene markers with this tag (represents performer associations via scene_marker_performers)
 const COUNT_MARKERS_BY_TAG = gql`
   query CountMarkersByTag($scene_marker_filter: SceneMarkerFilterType) {
@@ -56,10 +59,12 @@ function useSceneMarkerCountByTag(tagId?: string) {
 
   return data?.findSceneMarkers?.count ?? 0;
 }
+// CUSTOM: end
 
 const TagCardPopovers: React.FC<IProps> = PatchComponent(
   "TagCard.Popovers",
-  ({ tag, sceneCountOnly, performerId, performerName }) => {
+  ({ tag, sceneCountOnly, performerId, performerName }) => { // CUSTOM: extra destructured props
+    // CUSTOM: begin - scene marker count + sceneCountOnly early return
     // count scene markers with this tag that have performers assigned
     const sceneMarkerCount = useSceneMarkerCountByTag(tag.id);
     if (sceneCountOnly) {
@@ -83,6 +88,7 @@ const TagCardPopovers: React.FC<IProps> = PatchComponent(
         </>
       );
     }
+    // CUSTOM: end
 
     return (
       <>
@@ -92,10 +98,12 @@ const TagCardPopovers: React.FC<IProps> = PatchComponent(
             className="scene-count"
             type="scene"
             count={tag.scene_count}
+            // CUSTOM: begin - performer context in URL
             url={NavUtils.makeTagScenesUrl(
               tag,
               performerId ? { id: performerId, name: performerName } : undefined
             )}
+            // CUSTOM: end
             showZero={false}
           />
           <PopoverCountButton
@@ -133,6 +141,7 @@ const TagCardPopovers: React.FC<IProps> = PatchComponent(
             url={NavUtils.makeTagPerformersUrl(tag)}
             showZero={false}
           />
+          {/* CUSTOM: begin - performer-green scene marker count */}
           {/* Scene markers with this tag that have performers */}
           <PopoverCountButton
             className="performer-count performer-green"
@@ -141,6 +150,7 @@ const TagCardPopovers: React.FC<IProps> = PatchComponent(
             url={NavUtils.makeTagPerformersBySceneTagsUrl(tag)}
             showZero={false}
           />
+          {/* CUSTOM: end */}
           <PopoverCountButton
             className="studio-count"
             type="studio"

@@ -19,7 +19,7 @@ export enum View {
   PerformerGalleries = "performer_galleries",
   PerformerImages = "performer_images",
   PerformerGroups = "performer_groups",
-  PerformerMarkers = "performer_markers",
+  PerformerMarkers = "performer_markers", // CUSTOM
   PerformerAppearsWith = "performer_appears_with",
 
   StudioGalleries = "studio_galleries",

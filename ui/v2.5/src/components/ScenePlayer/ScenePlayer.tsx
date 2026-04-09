@@ -6,13 +6,13 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
+import { createPortal } from "react-dom"; // CUSTOM
 import videojs, { VideoJsPlayer, VideoJsPlayerOptions } from "video.js";
 import useScript from "src/hooks/useScript";
 import "videojs-contrib-dash";
 import "videojs-mobile-ui";
-import "videojs-seek-buttons"; // Still needed for BigButtonGroup on touch devices
-import "./seek-buttons"; // Our custom seek buttons with menu for control bar
+import "videojs-seek-buttons"; // CUSTOM: still needed for BigButtonGroup on touch devices
+import "./seek-buttons"; // CUSTOM: our custom seek buttons with menu for control bar
 import { UAParser } from "ua-parser-js";
 import "./live";
 import "./PlaylistButtons";
@@ -52,6 +52,7 @@ import chromecast from "@silvermine/videojs-chromecast";
 import abLoopPlugin from "videojs-abloop";
 import ScreenUtils from "src/utils/screen";
 import { PatchComponent } from "src/patch";
+// CUSTOM: begin - custom imports (goatee, multi-segment loop, performer image overlay)
 import goateeSvg from "src/assets/goatee.svg";
 
 // Multi-segment loop plugin
@@ -67,6 +68,7 @@ import { MultiSegmentLoopControls } from "./MultiSegmentLoopControls";
 // Performer image overlay components
 import { PerformerImageSelectModal } from "./PerformerImageSelectModal";
 import { PerformerImageOverlay } from "./PerformerImageOverlay";
+// CUSTOM: end
 
 // register videojs plugins
 airplay(videojs);
@@ -220,11 +222,12 @@ function handleHotkeys(player: VideoJsPlayer, event: videojs.KeyboardEvent) {
 type MarkerFragment = Pick<GQL.SceneMarker, "title" | "seconds"> & {
   primary_tag: Pick<GQL.Tag, "name">;
   tags: Array<Pick<GQL.Tag, "name">>;
-  performers?: Array<Pick<GQL.Performer, "name">>;
-  top_performers?: Array<Pick<GQL.Performer, "id" | "name">>;
-  bottom_performers?: Array<Pick<GQL.Performer, "id" | "name">>;
+  performers?: Array<Pick<GQL.Performer, "name">>; // CUSTOM
+  top_performers?: Array<Pick<GQL.Performer, "id" | "name">>; // CUSTOM
+  bottom_performers?: Array<Pick<GQL.Performer, "id" | "name">>; // CUSTOM
 };
 
+// CUSTOM: begin - SegmentPreset type for multi-segment loop presets
 type SegmentPreset = {
   id?: string;
   name: string;
@@ -232,9 +235,10 @@ type SegmentPreset = {
   enabled: boolean;
   currentSegmentIndex: number;
 };
+// CUSTOM: end
 
 function getMarkerTitle(marker: MarkerFragment) {
-  let ret = "";
+  let ret = ""; // CUSTOM: restructured to append performer info
 
   if (marker.title) {
     ret = marker.title;
@@ -245,7 +249,7 @@ function getMarkerTitle(marker: MarkerFragment) {
     }
   }
 
-  // Performer names with roles are now shown in the tooltip with arrows
+  // CUSTOM: Performer names with roles are now shown in the tooltip with arrows
   
   return ret;
 }
@@ -257,7 +261,7 @@ interface IScenePlayerProps {
   permitLoop?: boolean;
   initialTimestamp: number;
   sendSetTimestamp: (setTimestamp: (value: number) => void) => void;
-  sendMultiSegmentLoopApi?: (api: IMultiSegmentLoopApi) => void;
+  sendMultiSegmentLoopApi?: (api: IMultiSegmentLoopApi) => void; // CUSTOM
   onComplete: () => void;
   onNext: () => void;
   onPrevious: () => void;
@@ -272,7 +276,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     permitLoop = true,
     initialTimestamp: _initialTimestamp,
     sendSetTimestamp,
-    sendMultiSegmentLoopApi,
+    sendMultiSegmentLoopApi, // CUSTOM
     onComplete,
     onNext,
     onPrevious,
@@ -300,6 +304,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
 
     const [fullscreen, setFullscreen] = useState(false);
     const [showScrubber, setShowScrubber] = useState(false);
+    // CUSTOM: begin - multi-segment loop, negative marker, performer overlay state + handlers
     const [segmentPresets, setSegmentPresets] = useState<SegmentPreset[]>([]);
     const [multiSegments, setMultiSegments] = useState<ILoopSegment[]>([]);
     const [multiSegmentEnabled, setMultiSegmentEnabled] = useState(false);
@@ -344,6 +349,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       },
       [segmentPresets, deleteLoopPreset, scene.id]
     );
+    // CUSTOM: end
 
     const started = useRef(false);
     const auto = useRef(false);
@@ -410,6 +416,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       });
     }, [sendSetTimestamp, getPlayer]);
 
+    // CUSTOM: begin - load multi-segment loop presets from scene data
     useEffect(() => {
       const presets = (scene.multi_segment_loop_presets ?? []).map(
         (preset) => ({
@@ -486,6 +493,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         },
       });
     }, [sendMultiSegmentLoopApi, getPlayer]);
+    // CUSTOM: end
 
     // Initialize VideoJS player
     useEffect(() => {
@@ -540,7 +548,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
           sourceSelector: {},
           persistVolume: {},
           bigButtons: {},
-          seekButtonsMenu: {
+          seekButtonsMenu: { // CUSTOM: renamed from seekButtons
             forward: 10,
             back: 10,
           },
@@ -560,12 +568,14 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             pauseBeforeLooping: false,
             createButtons: uiConfig?.showAbLoopControls ?? false,
           },
+          // CUSTOM: begin - multi-segment loop plugin config
           multiSegmentLoop: {
             segments: [],
             enabled: false,
             currentSegmentIndex: 0,
             createButton: false, // We create our own consolidated dropdown button
           },
+          // CUSTOM: end
           mediaSession: {},
           wakeSentinel: {},
         },
@@ -614,6 +624,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       skipButtons.setBackwardHandler(onPrevious);
     }, [getPlayer, onNext, onPrevious]);
 
+    // CUSTOM: begin - multi-segment loop plugin setup, handlers, control bar buttons, negative marker skip, performer image overlay buttons
     // Multi-segment loop plugin setup
     useEffect(() => {
       const player = getPlayer();
@@ -1255,6 +1266,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         }
       }
     }, [getPlayer, selectedOverlayImages.length, overlaysVisible]);
+    // CUSTOM: end
 
     useEffect(() => {
       if (scene.interactive && interactiveInitialised) {
@@ -1377,6 +1389,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       };
     }, [getPlayer, interactiveClient, scene]);
 
+    // CUSTOM: begin - negative marker skip logic
     // Negative marker skip logic
     useEffect(() => {
       const player = getPlayer();
@@ -1414,6 +1427,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         player.off("timeupdate", checkNegativeMarkers);
       };
     }, [getPlayer, scene.negative_markers, negativeMarkerSkipEnabled]);
+    // CUSTOM: end
 
     useEffect(() => {
       const player = getPlayer();
@@ -1589,8 +1603,8 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         seconds: marker.seconds,
         end_seconds: marker.end_seconds ?? null,
         primaryTag: marker.primary_tag,
-        top_performers: marker.top_performers?.map((p) => ({ id: p.id, name: p.name })),
-        bottom_performers: marker.bottom_performers?.map((p) => ({ id: p.id, name: p.name })),
+        top_performers: marker.top_performers?.map((p) => ({ id: p.id, name: p.name })), // CUSTOM
+        bottom_performers: marker.bottom_performers?.map((p) => ({ id: p.id, name: p.name })), // CUSTOM
       }));
 
       const markers = player!.markers();
@@ -1625,7 +1639,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         markers.addDotMarkers(timestampMarkers);
         markers.addRangeMarkers(rangeMarkers);
         
-        // Add negative markers (displayed in red)
+        // CUSTOM: begin - add negative markers (displayed in red)
         const negativeMarkers = scene.negative_markers ?? [];
         if (negativeMarkers.length > 0) {
           markers.addNegativeMarkers(negativeMarkers.map(m => ({
@@ -1635,6 +1649,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             end_seconds: m.end_seconds,
           })));
         }
+        // CUSTOM: end
       });
     }, [getPlayer, scene, uiConfig]);
 
@@ -1813,11 +1828,12 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       const player = getPlayer();
       if (!player) return;
 
-      // Don't intercept keyboard events when typing in input fields
+      // CUSTOM: begin - don't intercept keyboard events when typing in input fields
       const target = event.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
         return;
       }
+      // CUSTOM: end
 
       if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
         return;
@@ -1836,6 +1852,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const isPortrait =
       file && file.height && file.width && file.height > file.width;
 
+    // CUSTOM: begin - determine if scene has markers with facial tag
     // Determine if the scene has any markers with the configured facial tag or any of its subtags
     const hasFacial = useMemo(() => {
       const facialTagId = (
@@ -1870,6 +1887,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         return (marker.tags ?? []).some((tag) => tagMatches(tag, facialTagId));
       });
     }, [scene.scene_markers, configuration?.ui]);
+    // CUSTOM: end
 
     return (
       <div
@@ -1880,6 +1898,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         onKeyDownCapture={onKeyDown}
       >
         <div className="video-wrapper" ref={videoRef}>
+          {/* CUSTOM: begin - facial goatee overlay */}
           {hasFacial && (
             <img
               className="scene-facial-overlay"
@@ -1888,6 +1907,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
               title="Facial tags present"
             />
           )}
+          {/* CUSTOM: end */}
         </div>
         {scene.interactive &&
           (interactiveState !== ConnectionState.Ready ||
@@ -1901,6 +1921,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             onScroll={onScrubberScroll}
           />
         )}
+        {/* CUSTOM: begin - multi-segment loop controls, performer image overlay modal, performer image overlays */}
         {showPresetModal &&
           createPortal(
             <MultiSegmentLoopControls
@@ -1954,6 +1975,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             overlaysVisible={overlaysVisible}
           />
         )}
+        {/* CUSTOM: end */}
       </div>
     );
   }

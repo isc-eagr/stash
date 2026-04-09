@@ -213,7 +213,7 @@ func Initialize() (*Server, error) {
 
 	r.Mount("/performer", server.getPerformerRoutes())
 	r.Mount("/scene", server.getSceneRoutes())
-	r.Mount("/scene-release", server.getSceneReleaseRoutes())
+	r.Mount("/scene-release", server.getSceneReleaseRoutes()) // CUSTOM: scene release routes
 	r.Mount("/gallery", server.getGalleryRoutes())
 	r.Mount("/image", server.getImageRoutes())
 	r.Mount("/studio", server.getStudioRoutes())
@@ -352,8 +352,8 @@ func (s *Server) getPerformerRoutes() chi.Router {
 	return performerRoutes{
 		routes:               routes{txnManager: repo.TxnManager},
 		performerFinder:      repo.Performer,
-		performerImageFinder: repo.PerformerImage,
-		blobStore:            repo.Blobs,
+		performerImageFinder: repo.PerformerImage, // CUSTOM: performer additional images
+		blobStore:            repo.Blobs,          // CUSTOM: performer additional images
 		sfwConfig:            s.manager.Config,
 	}.Routes()
 }
@@ -370,13 +370,7 @@ func (s *Server) getSceneRoutes() chi.Router {
 	}.Routes()
 }
 
-func (s *Server) getSceneReleaseRoutes() chi.Router {
-	repo := s.manager.Repository
-	return sceneReleaseRoutes{
-		routes:        routes{txnManager: repo.TxnManager},
-		releaseFinder: repo.SceneRelease,
-	}.Routes()
-}
+// CUSTOM: getSceneReleaseRoutes is in server_custom.go
 
 func (s *Server) getGalleryRoutes() chi.Router {
 	repo := s.manager.Repository

@@ -82,7 +82,7 @@ export interface IFilteredListToolbar {
   zoomable?: boolean;
   filterable?: boolean;
   sortable?: boolean;
-  extraToolbarContent?: React.ReactNode;
+  extraToolbarContent?: React.ReactNode; // CUSTOM
 }
 
 export const FilteredListToolbar: React.FC<IFilteredListToolbar> = ({
@@ -98,7 +98,7 @@ export const FilteredListToolbar: React.FC<IFilteredListToolbar> = ({
   zoomable = false,
   filterable = true,
   sortable = true,
-  extraToolbarContent,
+  extraToolbarContent, // CUSTOM
 }) => {
   const filterOptions = filter.options;
   const { setDisplayMode, setZoom } = useFilterOperations({
@@ -186,7 +186,7 @@ export const FilteredListToolbar: React.FC<IFilteredListToolbar> = ({
         onSetZoom={zoomable ? setZoom : undefined}
       />
 
-      {extraToolbarContent}
+      {extraToolbarContent} {/* CUSTOM */}
     </ButtonToolbar>
   );
 };

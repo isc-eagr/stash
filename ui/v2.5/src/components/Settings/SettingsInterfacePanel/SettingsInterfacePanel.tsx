@@ -8,7 +8,7 @@ import { CheckboxGroup } from "./CheckboxGroup";
 import { SettingSection } from "../SettingSection";
 import {
   BooleanSetting,
-  Setting,
+  Setting, // CUSTOM
   ModalSetting,
   NumberSetting,
   SelectSetting,
@@ -45,7 +45,7 @@ import {
 } from "src/utils/imageWall";
 import { defaultMaxOptionsShown, defaultPreviewVolume } from "src/core/config";
 import { PatchComponent } from "src/patch";
-import { TagIDSelect, Tag as TagOption } from "src/components/Tags/TagSelect";
+import { TagIDSelect, Tag as TagOption } from "src/components/Tags/TagSelect"; // CUSTOM
 
 const allMenuItems = [
   { id: "scenes", headingID: "scenes" },
@@ -294,6 +294,7 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
           />
         </SettingSection>
 
+        {/* CUSTOM: begin */}
         <SettingSection headingID="config.ui.role_tags.heading">
           <div className="setting-group">
             <div className="setting">
@@ -432,6 +433,7 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
             />
           </Setting>
         </SettingSection>
+        {/* CUSTOM: end */}
 
         <SettingSection headingID="config.ui.desktop_integration.desktop_integration">
           <BooleanSetting
@@ -632,6 +634,7 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
             onChange={(v) => saveUI({ showAbLoopControls: v })}
           />
 
+          {/* CUSTOM: begin */}
           <BooleanSetting
             id="show-multi-segment-loop"
             headingID="config.ui.scene_player.options.show_multi_segment_loop_controls"
@@ -639,6 +642,7 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
             checked={ui.showMultiSegmentLoopControls ?? undefined}
             onChange={(v) => saveUI({ showMultiSegmentLoopControls: v })}
           />
+          {/* CUSTOM: end */}
         </SettingSection>
         <SettingSection headingID="config.ui.tag_panel.heading">
           <BooleanSetting

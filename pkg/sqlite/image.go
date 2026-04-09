@@ -700,13 +700,13 @@ func (qb *ImageStore) OCountByPerformerID(ctx context.Context, performerID int) 
 	return ret, nil
 }
 
-func (qb *ImageStore) OCountByStudioID(ctx context.Context, studioID int, performerID *string) (int, error) {
+func (qb *ImageStore) OCountByStudioID(ctx context.Context, studioID int, performerID *string) (int, error) { // CUSTOM: added performerID param
 	table := qb.table()
 	q := dialect.Select(goqu.COALESCE(goqu.SUM("o_counter"), 0)).From(table).Where(
 		table.Col(studioIDColumn).Eq(studioID),
 	)
 
-	// If performerID is provided, filter by images that have this performer
+	// CUSTOM: If performerID is provided, filter by images that have this performer
 	if performerID != nil && *performerID != "" {
 		performersTable := goqu.T(performersImagesTable)
 		q = q.InnerJoin(
@@ -714,6 +714,7 @@ func (qb *ImageStore) OCountByStudioID(ctx context.Context, studioID int, perfor
 			goqu.On(table.Col(idColumn).Eq(performersTable.Col(imageIDColumn))),
 		).Where(performersTable.Col(performerIDColumn).Eq(*performerID))
 	}
+	// END CUSTOM
 
 	var ret int
 	if err := querySimple(ctx, q, &ret); err != nil {

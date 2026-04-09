@@ -210,9 +210,11 @@ export function useFilterOperations(props: {
 
   const removeCriterion = useCallback(
     (removedCriterion: Criterion) => {
+      // CUSTOM: begin
       // Use removeCriterionById for criteria that can have multiple instances
       // This also handles cascade deletion for marker filter groups
       setFilter((cv) => cv.removeCriterionById(removedCriterion.getId()));
+      // CUSTOM: end
     },
     [setFilter]
   );

@@ -305,10 +305,12 @@
   height: 150px;
 }
 
+/* CUSTOM: begin */
 /* Ensure consistent performer card width in carousel on desktop */
 .slick-list .performer-card.card {
   width: 20rem;
 }
+/* CUSTOM: end */
 
 @media (max-width: 576px) {
   .slick-list .scene-card.card,
@@ -505,6 +507,7 @@
   width: 320px;
 }
 
+/* CUSTOM: begin */
 /* Fix performer role badges in slick slider - ensure horizontal layout */
 .slick-slide .performer-role-badges .category-icon-container {
   display: flex !important;
@@ -512,3 +515,4 @@
   align-items: center !important;
   gap: 4px !important;
 }
+/* CUSTOM: end */

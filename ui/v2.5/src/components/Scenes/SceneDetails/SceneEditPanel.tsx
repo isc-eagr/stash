@@ -98,14 +98,14 @@ export const SceneEditPanel: React.FC<IProps> = ({
 
   useEffect(() => {
     setGalleries(
-      scene.direct_galleries?.map((g) => ({
+      scene.direct_galleries?.map((g) => ({ // CUSTOM: direct_galleries
         id: g.id,
         title: galleryTitle(g),
         files: g.files,
         folder: g.folder,
       })) ?? []
     );
-  }, [scene.direct_galleries]);
+  }, [scene.direct_galleries]); // CUSTOM: direct_galleries
 
   useEffect(() => {
     setPerformers(scene.performers ?? []);
@@ -155,7 +155,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
       urls: scene.urls ?? [],
       date: scene.date ?? "",
       director: scene.director ?? "",
-      gallery_ids: (scene.direct_galleries ?? []).map((g) => g.id),
+      gallery_ids: (scene.direct_galleries ?? []).map((g) => g.id), // CUSTOM: direct_galleries
       studio_id: scene.studio?.id ?? null,
       performer_ids: (scene.performers ?? []).map((p) => p.id),
       groups: (scene.groups ?? []).map((m) => {

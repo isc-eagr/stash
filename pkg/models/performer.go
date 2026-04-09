@@ -163,7 +163,7 @@ type PerformerFilterType struct {
 	// Filter by image count
 	ImageCount *IntCriterionInput `json:"image_count"`
 	// Filter by profile image count (default performer image + additional performer images)
-	ProfileImageCount *IntCriterionInput `json:"profile_image_count"`
+	ProfileImageCount *IntCriterionInput `json:"profile_image_count"` // CUSTOM
 	// Filter by gallery count
 	GalleryCount *IntCriterionInput `json:"gallery_count"`
 	// Filter by play count
@@ -200,6 +200,7 @@ type PerformerFilterType struct {
 	DeathDate *DateCriterionInput `json:"death_date"`
 	// Filter by related scenes that meet this criteria
 	ScenesFilter *SceneFilterType `json:"scenes_filter"`
+	// CUSTOM: begin
 	// Filter to only include performers that have scene markers where they are top/bottom
 	HasMarkers *string `json:"has_markers"`
 	// Custom performer filters: predefined complex filters.
@@ -207,6 +208,7 @@ type PerformerFilterType struct {
 	CustomFilters *CustomPerformerFilterInput `json:"custom_filters"`
 	// Filter by scene type based on marker tags
 	SceneType *SceneTypeFilterInput `json:"scene_type"`
+	// CUSTOM: end
 	// Filter by related images that meet this criteria
 	ImagesFilter *ImageFilterType `json:"images_filter"`
 	// Filter by related galleries that meet this criteria
@@ -216,7 +218,7 @@ type PerformerFilterType struct {
 	// Filter by related scene markers (via scene) that meet this criteria
 	MarkersFilter *SceneMarkerFilterType `json:"markers_filter"`
 	// Filter to only include performers that have at least one scene marker with all the selected tags
-	MarkerTags *HierarchicalMultiCriterionInput `json:"marker_tags"`
+	MarkerTags *HierarchicalMultiCriterionInput `json:"marker_tags"` // CUSTOM
 	// Filter by created at
 	CreatedAt *TimestampCriterionInput `json:"created_at"`
 	// Filter by updated at
@@ -225,6 +227,7 @@ type PerformerFilterType struct {
 	// Filter by custom fields
 	CustomFields []CustomFieldCriterionInput `json:"custom_fields"`
 
+	// CUSTOM: begin
 	// Filter by scene marker participation with tag + role + partner attributes
 	PerformerMarkers *PerformerMarkersCriterionInput `json:"performer_markers"`
 
@@ -312,6 +315,8 @@ type PerformerMarkerPartnersCriterionInput struct {
 	// Modifier for the filter (INCLUDES, EXCLUDES)
 	Modifier CriterionModifier `json:"modifier"`
 }
+
+// CUSTOM: end
 
 type PerformerCreateInput struct {
 	Name           string           `json:"name"`

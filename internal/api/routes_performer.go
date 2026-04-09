@@ -18,10 +18,12 @@ type PerformerFinder interface {
 	GetImage(ctx context.Context, performerID int) ([]byte, error)
 }
 
+// CUSTOM: performer additional images support
 type PerformerImageFinder interface {
 	models.PerformerImageGetter
 }
 
+// CUSTOM: performer additional images support
 type BlobStoreReader interface {
 	Read(ctx context.Context, checksum string) ([]byte, error)
 }
@@ -33,8 +35,8 @@ type sfwConfig interface {
 type performerRoutes struct {
 	routes
 	performerFinder      PerformerFinder
-	performerImageFinder PerformerImageFinder
-	blobStore            BlobStoreReader
+	performerImageFinder PerformerImageFinder // CUSTOM: performer additional images
+	blobStore            BlobStoreReader      // CUSTOM: performer additional images
 	sfwConfig            sfwConfig
 }
 
@@ -46,6 +48,7 @@ func (rs performerRoutes) Routes() chi.Router {
 		r.Get("/image", rs.Image)
 	})
 
+	// CUSTOM: performer additional images route
 	r.Route("/image/{imageId}", func(r chi.Router) {
 		r.Get("/", rs.AdditionalImage)
 	})
@@ -101,37 +104,4 @@ func (rs performerRoutes) PerformerCtx(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), performerKey, performer)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
-}
-
-func (rs performerRoutes) AdditionalImage(w http.ResponseWriter, r *http.Request) {
-	imageIDStr := chi.URLParam(r, "imageId")
-	imageID, err := strconv.Atoi(imageIDStr)
-	if err != nil {
-		http.Error(w, http.StatusText(404), 404)
-		return
-	}
-
-	var image []byte
-	readTxnErr := rs.withReadTxn(r, func(ctx context.Context) error {
-		// Get the performer image record
-		performerImage, err := rs.performerImageFinder.Get(ctx, imageID)
-		if err != nil {
-			return err
-		}
-
-		// Get the blob data
-		image, err = rs.blobStore.Read(ctx, performerImage.ImageBlob)
-		return err
-	})
-
-	if errors.Is(readTxnErr, context.Canceled) {
-		return
-	}
-	if readTxnErr != nil {
-		logger.Warnf("read transaction error on fetch performer additional image: %v", readTxnErr)
-		http.Error(w, http.StatusText(404), 404)
-		return
-	}
-
-	utils.ServeImage(w, r, image)
 }

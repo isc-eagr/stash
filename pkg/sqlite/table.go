@@ -225,7 +225,7 @@ func (t *joinTable) insertJoins(ctx context.Context, id int, foreignIDs []int) e
 }
 
 func (t *joinTable) replaceJoins(ctx context.Context, id int, foreignIDs []int) error {
-	// get existing foreign keys so we can determine which ones were removed
+	// CUSTOM: get existing foreign keys so we can determine which ones were removed
 	existing, err := t.get(ctx, id)
 	if err != nil {
 		return err
@@ -245,6 +245,7 @@ func (t *joinTable) replaceJoins(ctx context.Context, id int, foreignIDs []int) 
 			removed = append(removed, e)
 		}
 	}
+	// END CUSTOM
 
 	if err := t.destroy(ctx, []int{id}); err != nil {
 		return err
@@ -1141,21 +1142,6 @@ func (t *viewHistoryTable) deleteAllDates(ctx context.Context, id int) (int, err
 	}
 
 	return t.getCount(ctx, id)
-}
-
-func (t *viewHistoryTable) transferDates(ctx context.Context, fromID int, toID int) error {
-	table := t.table.table
-
-	// Use Set with the identifier expression directly using SET clause
-	q := dialect.Update(table).Set(
-		goqu.C(t.idColumn.GetCol().(string)).Set(toID),
-	).Where(t.idColumn.Eq(fromID))
-
-	if _, err := exec(ctx, q); err != nil {
-		return fmt.Errorf("transferring dates from %d to %d: %w", fromID, toID, err)
-	}
-
-	return nil
 }
 
 type sqler interface {

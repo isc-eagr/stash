@@ -100,22 +100,6 @@ func CountByStudioID(ctx context.Context, r QueryCounter, id int, depth *int) (i
 	return r.QueryCount(ctx, filter, nil)
 }
 
-func CountByStudioIDAndPerformerID(ctx context.Context, r QueryCounter, studioID int, performerID int, depth *int) (int, error) {
-	filter := &models.ImageFilterType{
-		Studios: &models.HierarchicalMultiCriterionInput{
-			Value:    []string{strconv.Itoa(studioID)},
-			Modifier: models.CriterionModifierIncludes,
-			Depth:    depth,
-		},
-		Performers: &models.MultiCriterionInput{
-			Value:    []string{strconv.Itoa(performerID)},
-			Modifier: models.CriterionModifierIncludes,
-		},
-	}
-
-	return r.QueryCount(ctx, filter, nil)
-}
-
 func CountByTagID(ctx context.Context, r QueryCounter, id int, depth *int) (int, error) {
 	filter := &models.ImageFilterType{
 		Tags: &models.HierarchicalMultiCriterionInput{

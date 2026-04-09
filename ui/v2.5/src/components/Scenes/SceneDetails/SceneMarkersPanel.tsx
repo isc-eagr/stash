@@ -1,19 +1,21 @@
-import React, { useMemo, useState, useEffect, useCallback } from "react";
-import { Button, Form } from "react-bootstrap";
+import React, { useMemo, useState, useEffect, useCallback } from "react"; // CUSTOM: added useMemo, useCallback
+import { Button, Form } from "react-bootstrap"; // CUSTOM: added Form
 import { FormattedMessage } from "react-intl";
 import Mousetrap from "mousetrap";
 import * as GQL from "src/core/generated-graphql";
 import { PrimaryTags } from "./PrimaryTags";
 import { SceneMarkerForm } from "./SceneMarkerForm";
+// CUSTOM: begin
 import { markerTitle } from "src/core/markers";
 import type { ILoopSegmentInput } from "src/components/ScenePlayer/multi-segment-loop";
+// CUSTOM: end
 
 interface ISceneMarkersPanelProps {
   sceneId: string;
   isVisible: boolean;
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   onLoopMarker: (marker: GQL.SceneMarkerDataFragment) => void;
-  addMultiSegmentLoopSegments: (segments: ILoopSegmentInput[]) => void;
+  addMultiSegmentLoopSegments: (segments: ILoopSegmentInput[]) => void; // CUSTOM
 }
 
 export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
@@ -21,7 +23,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   isVisible,
   onClickMarker,
   onLoopMarker,
-  addMultiSegmentLoopSegments,
+  addMultiSegmentLoopSegments, // CUSTOM
 }) => {
   const { data, loading } = GQL.useFindSceneMarkerTagsQuery({
     variables: { id: sceneId },
@@ -29,6 +31,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
   const [editingMarker, setEditingMarker] =
     useState<GQL.SceneMarkerDataFragment>();
+  // CUSTOM: begin – expandable cards, selection state, memoized callbacks & markers
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>(
     {}
   );
@@ -55,6 +58,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
       ),
     [data?.sceneMarkerTags]
   );
+  // CUSTOM: end
 
   // set up hotkeys
   useEffect(() => {
@@ -67,6 +71,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     };
   });
 
+  // CUSTOM: begin – marker selection & multi-segment loop
   // Keep selection in sync with currently-loaded markers
   useEffect(() => {
     const validIDs = new Set(sceneMarkers.map((m) => m.id));
@@ -122,6 +127,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     addMultiSegmentLoopSegments(segments);
     setSelectedMarkerIds(new Set());
   }, [addMultiSegmentLoopSegments, sceneMarkers, selectedMarkerIds]);
+  // CUSTOM: end
 
   if (isEditorOpen) {
     return (
@@ -137,6 +143,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
 
   return (
     <div className="scene-markers-panel">
+      {/* CUSTOM: begin – toolbar with loop button & select-all */}
       <div className="d-flex align-items-center justify-content-between mb-2">
         <div className="d-flex align-items-center" style={{ gap: "0.75rem" }}>
           <Button onClick={() => onOpenEditor()}>
@@ -165,12 +172,14 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
           }
         />
       </div>
+      {/* CUSTOM: end */}
       <div className="container">
         <PrimaryTags
           sceneMarkers={sceneMarkers}
           onClickMarker={onClickMarker}
           onLoopMarker={onLoopMarker}
           onEdit={onOpenEditor}
+          // CUSTOM: begin – expandable card & selection props
           expandedCards={expandedCards}
           onToggleCard={(id: string) =>
             setExpandedCards((prev) => ({ ...prev, [id]: !prev[id] }))
@@ -178,6 +187,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
           selectedMarkerIds={selectedMarkerIds}
           onSelectMarker={toggleSingle}
           onSelectMarkers={setManySelected}
+          // CUSTOM: end
         />
       </div>
     </div>

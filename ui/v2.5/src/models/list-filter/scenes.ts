@@ -5,12 +5,12 @@ import {
   createDateCriterionOption,
   createMandatoryTimestampCriterionOption,
   createDurationCriterionOption,
-  ModifierCriterionOption,
-  StringBooleanCriterionOption,
-  StringBooleanCriterion,
+  ModifierCriterionOption, // CUSTOM
+  StringBooleanCriterionOption, // CUSTOM
+  StringBooleanCriterion, // CUSTOM
 } from "./criteria/criterion";
-import { CountryCriterion } from "./criteria/country";
-import { CriterionModifier } from "src/core/generated-graphql";
+import { CountryCriterion } from "./criteria/country"; // CUSTOM
+import { CriterionModifier } from "src/core/generated-graphql"; // CUSTOM
 import { HasMarkersCriterionOption } from "./criteria/has-markers";
 import { SceneIsMissingCriterionOption } from "./criteria/is-missing";
 import {
@@ -28,8 +28,8 @@ import {
   // StudioTagsCriterionOption,
   TagsCriterionOption,
 } from "./criteria/tags";
-import { SceneMarkersCriterionOption } from "./criteria/scene-markers";
-import { SceneMarkersExcludeCriterionOption } from "./criteria/scene-markers-exclude";
+import { SceneMarkersCriterionOption } from "./criteria/scene-markers"; // CUSTOM
+import { SceneMarkersExcludeCriterionOption } from "./criteria/scene-markers-exclude"; // CUSTOM
 import { ListFilterOptions, MediaSortByOptions } from "./filter-options";
 import { DisplayMode } from "./types";
 import {
@@ -41,17 +41,17 @@ import { CaptionsCriterionOption } from "./criteria/captions";
 import { StashIDCriterionOption } from "./criteria/stash-ids";
 import {
   RatingCriterionOption,
-  PerformerRatingCriterionOption,
+  PerformerRatingCriterionOption, // CUSTOM
 } from "./criteria/rating";
 import { PathCriterionOption } from "./criteria/path";
 import { OrientationCriterionOption } from "./criteria/orientation";
 import { CustomFieldsCriterionOption } from "./criteria/custom-fields";
 import { FolderCriterionOption } from "./criteria/folder";
-import { EthnicityCriterionOption } from "./criteria/ethnicity";
-import { SceneCustomFiltersCriterionOption } from "./criteria/custom-filters";
-import { SceneSceneTypeCriterionOption } from "./criteria/scene-type";
+import { EthnicityCriterionOption } from "./criteria/ethnicity"; // CUSTOM
+import { SceneCustomFiltersCriterionOption } from "./criteria/custom-filters"; // CUSTOM
+import { SceneSceneTypeCriterionOption } from "./criteria/scene-type"; // CUSTOM
 
-// Has Marker Performers criterion option
+// CUSTOM: begin - Has Marker Performers criterion option
 const HasMarkerPerformersCriterionOption = new StringBooleanCriterionOption(
   "has_marker_performers",
   "has_marker_performers",
@@ -63,12 +63,13 @@ class HasMarkerPerformersCriterion extends StringBooleanCriterion {
     super(HasMarkerPerformersCriterionOption);
   }
 }
+// CUSTOM: end
 
 const defaultSortBy = "date";
 const sortByOptions = [
   "organized",
   "date",
-  "effective_date",
+  "effective_date", // CUSTOM
   "file_count",
   "filesize",
   "duration",
@@ -148,9 +149,9 @@ const criterionOptions = [
   createMandatoryNumberCriterionOption("play_count"),
   createMandatoryTimestampCriterionOption("last_played_at"),
   HasMarkersCriterionOption,
-  HasMarkerPerformersCriterionOption,
-  SceneCustomFiltersCriterionOption,
-  SceneSceneTypeCriterionOption,
+  HasMarkerPerformersCriterionOption, // CUSTOM
+  SceneCustomFiltersCriterionOption, // CUSTOM
+  SceneSceneTypeCriterionOption, // CUSTOM
   SceneIsMissingCriterionOption,
   TagsCriterionOption,
   createMandatoryNumberCriterionOption("tag_count"),
@@ -159,6 +160,7 @@ const criterionOptions = [
   createMandatoryNumberCriterionOption("performer_count"),
   PerformerAgeCriterionOption,
   PerformerFavoriteCriterionOption,
+  // CUSTOM: begin
   EthnicityCriterionOption,
   // Specialized country criterion using multi-select editor
   new ModifierCriterionOption({
@@ -182,6 +184,7 @@ const criterionOptions = [
   PerformerRatingCriterionOption,
   SceneMarkersCriterionOption,
   SceneMarkersExcludeCriterionOption,
+  // CUSTOM: end
   // StudioTagsCriterionOption,
   StudiosCriterionOption,
   GroupsCriterionOption,
@@ -194,9 +197,9 @@ const criterionOptions = [
   CaptionsCriterionOption,
   createMandatoryNumberCriterionOption("interactive_speed"),
   createMandatoryNumberCriterionOption("file_count"),
-  createMandatoryNumberCriterionOption("release_count"),
+  createMandatoryNumberCriterionOption("release_count"), // CUSTOM
   createDateCriterionOption("date"),
-  createDateCriterionOption("effective_date"),
+  createDateCriterionOption("effective_date"), // CUSTOM
   createMandatoryTimestampCriterionOption("created_at"),
   createMandatoryTimestampCriterionOption("updated_at"),
   CustomFieldsCriterionOption,

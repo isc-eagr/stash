@@ -88,8 +88,10 @@ export interface IUIConfig {
 
   showAbLoopControls?: boolean;
 
+  // CUSTOM: begin
   // if true, multi-segment loop controls will be shown below the scene player
   showMultiSegmentLoopControls?: boolean;
+  // CUSTOM: end
 
   // maximum number of items to shown in the dropdown list - defaults to 200
   // upper limit of 1000
@@ -114,6 +116,7 @@ export interface IUIConfig {
 
   title?: string;
 
+  // CUSTOM: begin
   // Tag IDs used for scene marker role categorization
   // These determine which marker tags represent each role category
   roleTagIds?: {
@@ -125,6 +128,7 @@ export interface IUIConfig {
     feetTagId?: string; // Tag ID for feet markers
     secondCameraTagId?: string; // Tag ID for 2nd camera markers (excluded from orgasm/facial counts)
   };
+  // CUSTOM: end
 }
 
 export function getFrontPageContent(

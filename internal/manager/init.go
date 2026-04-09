@@ -50,7 +50,7 @@ func Initialize(cfg *config.Config, l *log.Logger) (*Manager, error) {
 		File:                   db.File,
 		Repository:             db.Scene,
 		MarkerRepository:       db.SceneMarker,
-		SceneReleaseRepository: db.SceneRelease,
+		SceneReleaseRepository: db.SceneRelease, // CUSTOM
 		PluginCache:            pluginCache,
 		Paths:                  mgrPaths,
 		Config:                 cfg,

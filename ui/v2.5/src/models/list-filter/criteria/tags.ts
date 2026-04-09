@@ -2,13 +2,13 @@ import { CriterionModifier } from "src/core/generated-graphql";
 import {
   ModifierCriterionOption,
   IHierarchicalLabeledIdCriterion,
-  Criterion,
-  CriterionOption,
-  ModifierCriterion,
+  Criterion, // CUSTOM
+  CriterionOption, // CUSTOM
+  ModifierCriterion, // CUSTOM
 } from "./criterion";
-import { IntlShape } from "react-intl";
+import { IntlShape } from "react-intl"; // CUSTOM
 import { CriterionType } from "../types";
-import { ILabeledId } from "../types";
+import { ILabeledId } from "../types"; // CUSTOM
 
 const defaultModifierOptions = [
   CriterionModifier.IncludesAll,
@@ -63,6 +63,7 @@ export const PerformerTagsCriterionOption = new BaseTagsCriterionOption(
   withoutEqualsModifierOptions
 );
 
+// CUSTOM: begin
 export const MarkerTagsCriterionOption = new BaseTagsCriterionOption(
   "marker_tags",
   "marker_tags",
@@ -763,6 +764,7 @@ export const MarkerTagsWithPerformersCriterionOption =
     inputType: "scene_tags",
     makeCriterion: (o) => new SceneMarkerTagsCriterion(o),
   });
+// CUSTOM: end
 
 // TODO - this requires using a nested studios_filter which needs to be added separately
 // export const StudioTagsCriterionOption = new BaseTagsCriterionOption(

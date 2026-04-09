@@ -38,6 +38,7 @@ query FindPerformersForSelect(
   }
 }
 
+# CUSTOM: begin
 query PerformerCoPerformersByRole($performer_id: ID!) {
   performerCoPerformersByRole(performer_id: $performer_id) {
     sex_as_top {
@@ -79,3 +80,4 @@ query PerformerCoPerformersByRole($performer_id: ID!) {
     unique_count
   }
 }
+# CUSTOM: end

@@ -33,7 +33,7 @@ export const PerformersCriterionOption = new ModifierCriterionOption({
 });
 
 export class PerformersCriterion extends ModifierCriterion<ILabeledValueListValue> {
-  constructor(option?: ModifierCriterionOption) {
+  constructor(option?: ModifierCriterionOption) { // CUSTOM: added optional param
     super(option ?? PerformersCriterionOption, { items: [], excluded: [] });
   }
 

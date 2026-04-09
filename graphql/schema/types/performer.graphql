@@ -38,11 +38,6 @@ type Performer {
   alias_list: [String!]!
   favorite: Boolean!
   tags: [Tag!]!
-
-  # Scene-context marker roles: returns this performer's roles in a specific scene's markers
-  # Returns array of role strings: "sex_top", "sex_bottom", "oral_top", "oral_bottom", "facial_top", "facial_bottom", "solo"
-  scene_marker_roles(scene_id: ID!): [String!]!
-
   ignore_auto_tag: Boolean!
 
   image_path: String # Resolver
@@ -53,44 +48,6 @@ type Performer {
   movie_count: Int! @deprecated(reason: "use group_count instead") # Resolver
   performer_count: Int! # Resolver
   o_counter: Int # Resolver
-  # Role-based scene counts from scene_marker_performers
-  # Sex scenes: scenes with markers having the configured sex tag
-  sex_scene_count: Int! # Resolver - total sex scenes
-  sex_top_count: Int! # Resolver - sex scenes where performer is top
-  sex_bottom_count: Int! # Resolver - sex scenes where performer is bottom
-  # Oral scenes: scenes with oral markers but no sex markers
-  oral_scene_count: Int! # Resolver - total oral scenes (excludes sex scenes)
-  oral_top_count: Int! # Resolver - oral scenes where performer is top
-  oral_bottom_count: Int! # Resolver - oral scenes where performer is bottom
-  # Solo scenes: scenes with solo markers but no sex/oral markers
-  solo_scene_count: Int! # Resolver - total solo scenes
-  # Facial scenes: scenes with facial markers (independent of other markers)
-  facial_scene_count: Int! # Resolver - total facial scenes
-  facial_top_count: Int! # Resolver - facial scenes where performer is top
-  facial_bottom_count: Int! # Resolver - facial scenes where performer is bottom
-  # Facial marker counts: count of individual markers (not scenes)
-  facial_marker_count: Int! # Resolver - total facial markers
-  facial_marker_top_count: Int! # Resolver - facial markers where performer is top
-  facial_marker_bottom_count: Int! # Resolver - facial markers where performer is bottom
-  facial_marker_with_top_count: Int! # Resolver - total facial markers where performer topped (not condensed by scene)
-  facial_marker_with_bottom_count: Int! # Resolver - total facial markers where performer bottomed (not condensed by scene)
-  # Orgasm markers: count of orgasm markers where performer is top
-  orgasm_top_count: Int! # Resolver - orgasm markers where performer is top
-  # Feet markers: count of distinct scenes with feet markers where performer is top
-  feet_top_count: Int! # Resolver - distinct scenes with feet markers where performer is top
-  # Feet marker count: count of feet markers where performer is top (not scene count)
-  feet_marker_count: Int! # Resolver - feet markers where performer is top
-  # Partner counts: number of unique performers this performer has topped/bottomed for in each category
-  sex_with_top_count: Int! # Resolver - unique performers this performer has topped sexually
-  sex_with_bottom_count: Int! # Resolver - unique performers this performer has bottomed for sexually
-  oral_with_top_count: Int! # Resolver - unique performers this performer has topped orally
-  oral_with_bottom_count: Int! # Resolver - unique performers this performer has bottomed for orally
-  facial_with_top_count: Int! # Resolver - unique performers this performer has given facials to
-  facial_with_bottom_count: Int! # Resolver - unique performers this performer has received facials from
-  # Total unique partner counts: unique performers across both roles
-  sex_unique_partner_count: Int! # Resolver - unique performers in sex scenes (top or bottom)
-  oral_unique_partner_count: Int! # Resolver - unique performers in oral scenes (top or bottom)
-  facial_unique_partner_count: Int! # Resolver - unique performers in facial scenes (top or bottom)
   scenes: [Scene!]!
   stash_ids: [StashID!]!
   # rating expressed as 1-100
@@ -105,16 +62,6 @@ type Performer {
   movies: [Movie!]! @deprecated(reason: "use groups instead")
 
   custom_fields: Map!
-  
-  # Additional performer images (excluding the default image_path)
-  additional_images: [PerformerImage!]!
-}
-
-type PerformerImage {
-  id: ID!
-  performer_id: ID!
-  image_path: String!
-  position: Int!
 }
 
 input PerformerCreateInput {
@@ -255,33 +202,4 @@ input PerformerMergeInput {
   destination: ID!
   # values defined here will override values in the destination
   values: PerformerUpdateInput
-}
-
-"A co-performer with the number of scenes they appeared together in that role"
-type PerformerWithSceneCount {
-  performer: Performer!
-  scene_count: Int!
-}
-
-"Co-performers grouped by their role relationship to a performer"
-type PerformerCoPerformersByRole {
-  "Performers who were bottoms when this performer was top in sex scenes"
-  sex_as_top: [PerformerWithSceneCount!]!
-  "Performers who were tops when this performer was bottom in sex scenes"
-  sex_as_bottom: [PerformerWithSceneCount!]!
-  "Performers who were bottoms when this performer was top in oral scenes"
-  oral_as_top: [PerformerWithSceneCount!]!
-  "Performers who were tops when this performer was bottom in oral scenes"
-  oral_as_bottom: [PerformerWithSceneCount!]!
-  "Performers who were bottoms when this performer was top in facial scenes"
-  facial_as_top: [PerformerWithSceneCount!]!
-  "Performers who were tops when this performer was bottom in facial scenes"
-  facial_as_bottom: [PerformerWithSceneCount!]!
-  "Total count of unique co-performers across all roles"
-  unique_count: Int!
-}
-
-extend type Query {
-  "Get co-performers grouped by their role relationship to the given performer"
-  performerCoPerformersByRole(performer_id: ID!): PerformerCoPerformersByRole!
 }

@@ -1,0 +1,68 @@
+# CUSTOM: All custom Stats fields, types, and queries.
+# This file uses 'extend type' to add fields to the upstream StatsResultType
+# without modifying the upstream stats.graphql file.
+# See CUSTOM_FEATURES.md for documentation.
+
+extend type StatsResultType {
+  sex_scene_count: Int!
+  oral_scene_count: Int!
+  solo_scene_count: Int!
+  facial_scene_count: Int!
+}
+
+"Count of performers grouped by ethnicity"
+type PerformerEthnicityCount {
+  ethnicity: String!
+  count: Int!
+}
+
+"Count of scene orgasm events grouped by year"
+type SceneOYearCount {
+  year: Int!
+  count: Int!
+}
+
+extend type Query {
+  "Get a count of performers per ethnicity (non-empty only), sorted by highest count first"
+  performerEthnicityCounts: [PerformerEthnicityCount!]!
+  "Get a count of 5-star performers per ethnicity (non-empty only), sorted by highest count first"
+  performerEthnicityFiveStarCounts: [PerformerEthnicityCount!]!
+  "Get a count of scene orgasm events grouped by year (ascending by year)"
+  sceneOYearCounts: [SceneOYearCount!]!
+  "Get total number of 'orgasm' marker-tag entries across all scene markers"
+  sceneOrgasmCount: Int!
+  "Get total number of facial markers (primary or secondary). Includes descendants of 'facial'."
+  sceneFacialCount: Int!
+  "Get number of performers who have given facials (based on roleTagIds.facialTagId)"
+  performersFacialGivenCount: Int!
+  "Get number of performers who have received facials (based on roleTagIds.facialTagId)"
+  performersFacialReceivedCount: Int!
+  "Get number of performers who topped sexually (at least 1 sex marker as top)"
+  performersSexGivenCount: Int!
+  "Get number of performers who bottomed sexually (at least 1 sex marker as bottom)"
+  performersSexReceivedCount: Int!
+  "Get number of performers who topped orally (at least 1 oral marker as top)"
+  performersOralGivenCount: Int!
+  "Get number of performers who bottomed orally (at least 1 oral marker as bottom)"
+  performersOralReceivedCount: Int!
+  "Get number of strict tops (have top/oraltop, no bottom/oralbottom tags)"
+  performersStrictTopCount: Int!
+  "Get number of strict bottoms (have bottom/oralbottom, no top/oraltop tags)"
+  performersStrictBottomCount: Int!
+  "Get number of lenient tops (have top/oraltop, no bottom tag)"
+  performersLenientTopCount: Int!
+  "Get number of lenient bottoms (have bottom/oralbottom, no top tag)"
+  performersLenientBottomCount: Int!
+  "Get number of performers with only the solo tag"
+  performersSoloOnlyCount: Int!
+  "Get number of performers with only one scene"
+  performersOneSceneCount: Int!
+  "Get estimated liters produced from orgasms (orgasm count × 3ml)"
+  estimatedLiters: Float!
+  "Get total meters of combined penis lengths (default 17cm if missing, converted to meters)"
+  totalPenisMeters: Float!
+  "Get total time (in seconds) of all orgasm markers. Uses 20s default if no end time."
+  totalOrgasmTime: Float!
+  "Get total time (in seconds) of all facial markers. Uses 20s default if no end time."
+  totalFacialTime: Float!
+}

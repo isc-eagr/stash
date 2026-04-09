@@ -15,7 +15,7 @@ type Repository struct {
 	TxnManager TxnManager
 
 	Blob                BlobReader
-	Blobs               BlobStoreWriter
+	Blobs               BlobStoreWriter // CUSTOM
 	File                FileReaderWriter
 	Folder              FolderReaderWriter
 	Gallery             GalleryReaderWriter
@@ -23,12 +23,12 @@ type Repository struct {
 	Image               ImageReaderWriter
 	Group               GroupReaderWriter
 	Performer           PerformerReaderWriter
-	PerformerImage      PerformerImageReaderWriter
+	PerformerImage      PerformerImageReaderWriter // CUSTOM
 	Scene               SceneReaderWriter
-	SceneLoopPreset     SceneLoopPresetReaderWriter
-	SceneNegativeMarker SceneNegativeMarkerReaderWriter
+	SceneLoopPreset     SceneLoopPresetReaderWriter     // CUSTOM
+	SceneNegativeMarker SceneNegativeMarkerReaderWriter // CUSTOM
 	SceneMarker         SceneMarkerReaderWriter
-	SceneRelease        SceneReleaseReaderWriter
+	SceneRelease        SceneReleaseReaderWriter // CUSTOM
 	Studio              StudioReaderWriter
 	Tag                 TagReaderWriter
 	SavedFilter         SavedFilterReaderWriter

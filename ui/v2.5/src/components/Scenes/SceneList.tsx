@@ -373,6 +373,7 @@ export const FilteredSceneList = PatchComponent(
 
     const { filterHook, defaultSort, view, alterQuery, fromGroupId } = props;
 
+    // CUSTOM: begin - auto-exclude second camera tag on orgasm marker filter
     const configuredOrgasmTagId = configuration?.ui?.roleTagIds?.orgasmTagId;
     const configuredSecondCameraTagId =
       configuration?.ui?.roleTagIds?.secondCameraTagId;
@@ -439,6 +440,7 @@ export const FilteredSceneList = PatchComponent(
         orgasmTagIdSet,
       ]
     );
+    // CUSTOM: end
 
     // States
     const {
@@ -461,7 +463,7 @@ export const FilteredSceneList = PatchComponent(
           useResult: useFindScenes,
           getCount: (r) => r.data?.findScenes.count ?? 0,
           getItems: (r) => r.data?.findScenes.scenes ?? [],
-          filterHook: effectiveFilterHook,
+          filterHook: effectiveFilterHook, // CUSTOM: effectiveFilterHook
         },
       });
 
@@ -722,7 +724,7 @@ export const FilteredSceneList = PatchComponent(
                 <SidebarContent
                   filter={filter}
                   setFilter={setFilter}
-                  filterHook={effectiveFilterHook}
+                  filterHook={effectiveFilterHook} // CUSTOM: effectiveFilterHook
                   showEditFilter={showEditFilter}
                   view={view}
                   sidebarOpen={showSidebar}
@@ -749,9 +751,11 @@ export const FilteredSceneList = PatchComponent(
                 <FilterTags
                   criteria={filter.criteria}
                   onEditCriterion={(c) => {
+                    // CUSTOM: begin - multi-instance criteria comment
                     // For multi-instance criteria, need to pass the actual criterion
                     // showEditFilter only supports passing type string, so multi-instance won't work well here
                     // This is a limitation - the user should use the Edit Filter button instead
+                    // CUSTOM: end
                     showEditFilter(c.criterionOption.type);
                   }}
                   onRemoveCriterion={removeCriterion}

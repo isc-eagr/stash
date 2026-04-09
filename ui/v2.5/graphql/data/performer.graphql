@@ -27,6 +27,7 @@ fragment PerformerData on Performer {
   group_count
   performer_count
   o_counter
+  # CUSTOM: begin
   sex_scene_count
   oral_scene_count
   solo_scene_count
@@ -54,6 +55,7 @@ fragment PerformerData on Performer {
   sex_unique_partner_count
   oral_unique_partner_count
   facial_unique_partner_count
+  # CUSTOM: end
 
   tags {
     ...SlimTagData
@@ -72,14 +74,17 @@ fragment PerformerData on Performer {
 
   custom_fields
 
+  # CUSTOM: begin
   additional_images {
     id
     performer_id
     image_path
     position
   }
+  # CUSTOM: end
 }
 
+# CUSTOM: begin
 mutation PerformerImageUpload($performer_id: ID!, $image: String!) {
   performerImageUpload(performer_id: $performer_id, image: $image) {
     id
@@ -99,3 +104,4 @@ mutation PerformerImageSetDefault($id: ID!) {
     image_path
   }
 }
+# CUSTOM: end

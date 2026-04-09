@@ -45,7 +45,7 @@ export const DateFilter: React.FC<IDateFilterProps> = ({
   let lowerControl: JSX.Element | null = null;
   if (
     criterion.modifier === CriterionModifier.GreaterThan ||
-    criterion.modifier === CriterionModifier.GreaterThanEquals ||
+    criterion.modifier === CriterionModifier.GreaterThanEquals || // CUSTOM
     criterion.modifier === CriterionModifier.Between ||
     criterion.modifier === CriterionModifier.NotBetween
   ) {
@@ -63,7 +63,7 @@ export const DateFilter: React.FC<IDateFilterProps> = ({
   let upperControl: JSX.Element | null = null;
   if (
     criterion.modifier === CriterionModifier.LessThan ||
-    criterion.modifier === CriterionModifier.LessThanEquals ||
+    criterion.modifier === CriterionModifier.LessThanEquals || // CUSTOM
     criterion.modifier === CriterionModifier.Between ||
     criterion.modifier === CriterionModifier.NotBetween
   ) {
@@ -72,7 +72,7 @@ export const DateFilter: React.FC<IDateFilterProps> = ({
         <DateInput
           value={
             (criterion.modifier === CriterionModifier.LessThan ||
-            criterion.modifier === CriterionModifier.LessThanEquals
+            criterion.modifier === CriterionModifier.LessThanEquals // CUSTOM
               ? value?.value
               : value?.value2) ?? ""
           }
@@ -80,7 +80,7 @@ export const DateFilter: React.FC<IDateFilterProps> = ({
             onChanged(
               v,
               criterion.modifier === CriterionModifier.LessThan ||
-                criterion.modifier === CriterionModifier.LessThanEquals
+                criterion.modifier === CriterionModifier.LessThanEquals // CUSTOM
                 ? "value"
                 : "value2"
             )

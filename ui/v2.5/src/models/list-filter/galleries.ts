@@ -21,15 +21,15 @@ import { ListFilterOptions, MediaSortByOptions } from "./filter-options";
 import { DisplayMode } from "./types";
 import {
   RatingCriterionOption,
-  PerformerRatingCriterionOption,
+  PerformerRatingCriterionOption, // CUSTOM
 } from "./criteria/rating";
 import { PathCriterionOption } from "./criteria/path";
 import { CustomFieldsCriterionOption } from "./criteria/custom-fields";
 import { ParentFolderCriterionOption } from "./criteria/folder";
-import { CriterionModifier } from "src/core/generated-graphql";
-import { ModifierCriterionOption } from "./criteria/criterion";
-import { CountryCriterion } from "./criteria/country";
-import { EthnicityCriterionOption } from "./criteria/ethnicity";
+import { CriterionModifier } from "src/core/generated-graphql"; // CUSTOM
+import { ModifierCriterionOption } from "./criteria/criterion"; // CUSTOM
+import { CountryCriterion } from "./criteria/country"; // CUSTOM
+import { EthnicityCriterionOption } from "./criteria/ethnicity"; // CUSTOM
 
 const defaultSortBy = "path";
 
@@ -71,6 +71,7 @@ const criterionOptions = [
   HasChaptersCriterionOption,
   createMandatoryNumberCriterionOption("tag_count"),
   PerformerTagsCriterionOption,
+  // CUSTOM: begin
   EthnicityCriterionOption,
   new ModifierCriterionOption({
     messageID: "performer_country",
@@ -87,6 +88,7 @@ const criterionOptions = [
       new CountryCriterion(o as unknown as ModifierCriterionOption),
   }),
   PerformerRatingCriterionOption,
+  // CUSTOM: end
   PerformersCriterionOption,
   createMandatoryNumberCriterionOption("performer_count"),
   PerformerAgeCriterionOption,

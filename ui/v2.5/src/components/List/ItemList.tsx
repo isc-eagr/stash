@@ -89,6 +89,7 @@ export function useFilteredItemList<
   };
 }
 
+// CUSTOM: begin
 interface IItemListProps<T extends QueryResult, E extends IHasID, M = unknown> {
   view?: View;
   otherOperations?: IItemListOperation<T>[];
@@ -431,6 +432,7 @@ export const ItemListContext = <
     </FilterContext>
   );
 };
+// CUSTOM: end
 
 export const showWhenSelected = <T extends QueryResult>(
   result: T,

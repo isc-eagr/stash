@@ -1,6 +1,8 @@
 # Custom Features Documentation
 
-This document describes all custom features and modifications added on top of the official Stash v0.30.0 release. Future AI agents handling merge conflicts should use this as a reference to understand what needs to be preserved.
+This document describes all custom features and modifications added on top of the official Stash v0.31.0 release. Future AI agents handling merge conflicts should use this as a reference to understand what needs to be preserved.
+
+> **Code conventions:** All custom code follows the `_custom` naming and inline marker conventions described in [`CUSTOM_CODE_CONVENTIONS.md`](CUSTOM_CODE_CONVENTIONS.md).
 
 ---
 

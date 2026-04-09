@@ -95,9 +95,11 @@
 }
 
 .performer-card {
+  /* CUSTOM: begin - removed fixed base width */
   /* Remove fixed base width to avoid layout jump when JS-calculated width applies.
      Other grids (scenes, galleries, images) rely on the inline width from GridCard
      without a CSS default, so align performers with that pattern. */
+  /* CUSTOM: end */
 
   @media (max-width: 576px) {
     width: 100%;
@@ -140,10 +142,12 @@
     }
   }
 
+  /* CUSTOM: begin - reserve space for two-line title */
   /* Reserve space for a two-line title to avoid reflow during font load */
   .card-section-title {
     min-height: 2.6rem; /* ~2 lines at ~1.2-1.3 line-height */
   }
+  /* CUSTOM: end */
 
   &:hover button.btn.favorite-button.not-favorite {
     opacity: 1;
@@ -151,6 +155,7 @@
 
   &__age {
     color: $muted-gray;
+    /* CUSTOM: begin - reserve space and normalize font for age line */
     /* Reserve space even when age is not present */
     min-height: 1.1rem; /* roughly one line of body text */
     /* Ensure age line doesn't inherit heading styles when rendered inside the title */
@@ -162,6 +167,7 @@
     text-transform: none;
     letter-spacing: normal;
     font-family: $font-family-base; /* ensure body font family, not heading */
+    /* CUSTOM: end */
   }
 
   // allow country string to be shown, but disable by default
@@ -174,14 +180,17 @@
   &.performer-card {
     padding: 0 0 1rem 0;
 
+    /* CUSTOM: begin - keep gender icon aligned with top of name block */
     /* Keep gender icon aligned with the top of the name block,
        not vertically centered when tags add extra rows */
     .card-section-title.flex-aligned {
       align-items: flex-start;
     }
+    /* CUSTOM: end */
   }
 }
 
+/* CUSTOM: begin - role badges, scene tags, metallic cards, tag editor, scene modal */
 /* Role badges in performer card details section (below age) */
 .performer-role-badges {
   display: flex;
@@ -875,3 +884,4 @@
     }
   }
 }
+/* CUSTOM: end */

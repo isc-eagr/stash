@@ -1184,6 +1184,7 @@ div.dropdown-menu {
     text-transform: uppercase;
   }
 
+  /* CUSTOM: begin */
   &-category-button {
     display: inline-flex;
     align-items: center;
@@ -1262,6 +1263,7 @@ div.dropdown-menu {
       }
     }
   }
+  /* CUSTOM: end */
 }
 
 $detailTabWidth: calc(100% / 3);

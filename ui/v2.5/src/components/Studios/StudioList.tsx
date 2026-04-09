@@ -53,10 +53,10 @@ const StudioList: React.FC<{
   selectedIds: Set<string>;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
   fromParent?: boolean;
-  performerId?: string;
+  performerId?: string; // CUSTOM
 }> = PatchComponent(
   "StudioList",
-  ({ studios, filter, selectedIds, onSelectChange, fromParent, performerId }) => {
+  ({ studios, filter, selectedIds, onSelectChange, fromParent, performerId }) => { // CUSTOM: performerId
     if (studios.length === 0 && filter.displayMode !== DisplayMode.Tagger) {
       return null;
     }
@@ -69,7 +69,7 @@ const StudioList: React.FC<{
           fromParent={fromParent}
           selectedIds={selectedIds}
           onSelectChange={onSelectChange}
-          performerId={performerId}
+          performerId={performerId} // CUSTOM
         />
       );
     }
@@ -157,7 +157,7 @@ interface IStudioList {
   view?: View;
   alterQuery?: boolean;
   extraOperations?: IItemListOperation<GQL.FindStudiosQueryResult>[];
-  performerId?: string;
+  performerId?: string; // CUSTOM
 }
 
 function useViewRandom(filter: ListFilterModel, count: number) {
@@ -205,7 +205,7 @@ export const FilteredStudioList = PatchComponent(
 
     const searchFocus = useFocus();
 
-    const { filterHook, view, alterQuery, extraOperations = [], performerId } = props;
+    const { filterHook, view, alterQuery, extraOperations = [], performerId } = props; // CUSTOM: performerId
 
     // States
     const {
@@ -440,7 +440,7 @@ export const FilteredStudioList = PatchComponent(
                   studios={items}
                   selectedIds={selectedIds}
                   onSelectChange={onSelectChange}
-                  performerId={performerId}
+                  performerId={performerId} // CUSTOM
                 />
               </LoadedContent>
 

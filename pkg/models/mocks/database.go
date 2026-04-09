@@ -19,8 +19,8 @@ type Database struct {
 	Group               *GroupReaderWriter
 	Performer           *PerformerReaderWriter
 	Scene               *SceneReaderWriter
-	SceneLoopPreset     *SceneLoopPresetReaderWriter
-	SceneNegativeMarker *SceneNegativeMarkerReaderWriter
+	SceneLoopPreset     *SceneLoopPresetReaderWriter     // CUSTOM
+	SceneNegativeMarker *SceneNegativeMarkerReaderWriter // CUSTOM
 	SceneMarker         *SceneMarkerReaderWriter
 	Studio              *StudioReaderWriter
 	Tag                 *TagReaderWriter
@@ -70,8 +70,8 @@ func NewDatabase() *Database {
 		Group:               &GroupReaderWriter{},
 		Performer:           &PerformerReaderWriter{},
 		Scene:               &SceneReaderWriter{},
-		SceneLoopPreset:     &SceneLoopPresetReaderWriter{},
-		SceneNegativeMarker: &SceneNegativeMarkerReaderWriter{},
+		SceneLoopPreset:     &SceneLoopPresetReaderWriter{},     // CUSTOM
+		SceneNegativeMarker: &SceneNegativeMarkerReaderWriter{}, // CUSTOM
 		SceneMarker:         &SceneMarkerReaderWriter{},
 		Studio:              &StudioReaderWriter{},
 		Tag:                 &TagReaderWriter{},
@@ -88,8 +88,8 @@ func (db *Database) AssertExpectations(t mock.TestingT) {
 	db.Group.AssertExpectations(t)
 	db.Performer.AssertExpectations(t)
 	db.Scene.AssertExpectations(t)
-	db.SceneLoopPreset.AssertExpectations(t)
-	db.SceneNegativeMarker.AssertExpectations(t)
+	db.SceneLoopPreset.AssertExpectations(t)     // CUSTOM
+	db.SceneNegativeMarker.AssertExpectations(t) // CUSTOM
 	db.SceneMarker.AssertExpectations(t)
 	db.Studio.AssertExpectations(t)
 	db.Tag.AssertExpectations(t)
@@ -117,8 +117,8 @@ func (db *Database) Repository() models.Repository {
 		Group:               db.Group,
 		Performer:           db.Performer,
 		Scene:               db.Scene,
-		SceneLoopPreset:     db.SceneLoopPreset,
-		SceneNegativeMarker: db.SceneNegativeMarker,
+		SceneLoopPreset:     db.SceneLoopPreset,     // CUSTOM
+		SceneNegativeMarker: db.SceneNegativeMarker, // CUSTOM
 		SceneMarker:         db.SceneMarker,
 		Studio:              db.Studio,
 		Tag:                 db.Tag,

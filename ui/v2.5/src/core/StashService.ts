@@ -505,6 +505,7 @@ export const queryFindTagsForSelect = (filter: ListFilterModel) =>
     },
   });
 
+// CUSTOM: begin
 // Variant that allows overriding/augmenting the tag_filter used for selects.
 // Useful for constraining TagSelect to subsets of tags.
 export const queryFindTagsForSelectWithTagFilter = (
@@ -521,6 +522,7 @@ export const queryFindTagsForSelectWithTagFilter = (
       },
     },
   });
+// CUSTOM: end
 
 export const useFindSavedFilter = (id: string) =>
   GQL.useFindSavedFilterQuery({
@@ -1552,8 +1554,8 @@ const sceneMarkerMutationImpactedQueries = [
 
 export const useSceneMarkerCreate = () =>
   GQL.useSceneMarkerCreateMutation({
-    refetchQueries: ["PerformerSceneMarkerRoles"],
-    awaitRefetchQueries: true,
+    refetchQueries: ["PerformerSceneMarkerRoles"], // CUSTOM
+    awaitRefetchQueries: true, // CUSTOM
     update(cache, result, { variables }) {
       if (!result.data?.sceneMarkerCreate || !variables) return;
 
@@ -1563,9 +1565,11 @@ export const useSceneMarkerCreate = () =>
         fieldName: "scene_markers",
       });
 
+      // CUSTOM: begin
       // Evict all performer queries to refresh role badges
       cache.evict({ fieldName: "findPerformer" });
       cache.gc();
+      // CUSTOM: end
 
       evictTypeFields(cache, sceneMarkerMutationImpactedTypeFields);
       evictQueries(cache, sceneMarkerMutationImpactedQueries);
@@ -1574,8 +1578,8 @@ export const useSceneMarkerCreate = () =>
 
 export const useSceneMarkerUpdate = () =>
   GQL.useSceneMarkerUpdateMutation({
-    refetchQueries: ["PerformerSceneMarkerRoles"],
-    awaitRefetchQueries: true,
+    refetchQueries: ["PerformerSceneMarkerRoles"], // CUSTOM
+    awaitRefetchQueries: true, // CUSTOM
     update(cache, result, { variables }) {
       if (!result.data?.sceneMarkerUpdate || !variables) return;
 
@@ -1585,9 +1589,11 @@ export const useSceneMarkerUpdate = () =>
         fieldName: "scene_markers",
       });
 
+      // CUSTOM: begin
       // Evict all performer queries to refresh role badges
       cache.evict({ fieldName: "findPerformer" });
       cache.gc();
+      // CUSTOM: end
 
       evictTypeFields(cache, sceneMarkerMutationImpactedTypeFields);
       evictQueries(cache, sceneMarkerMutationImpactedQueries);
@@ -1606,17 +1612,19 @@ export const useBulkSceneMarkerUpdate = () =>
 
 export const useSceneMarkerDestroy = () =>
   GQL.useSceneMarkerDestroyMutation({
-    refetchQueries: ["PerformerSceneMarkerRoles"],
-    awaitRefetchQueries: true,
+    refetchQueries: ["PerformerSceneMarkerRoles"], // CUSTOM
+    awaitRefetchQueries: true, // CUSTOM
     update(cache, result, { variables }) {
       if (!result.data?.sceneMarkerDestroy || !variables) return;
 
       const obj = { __typename: "SceneMarker", id: variables.id };
       cache.evict({ id: cache.identify(obj) });
 
+      // CUSTOM: begin
       // Evict all performer queries to refresh role badges
       cache.evict({ fieldName: "findPerformer" });
       cache.gc();
+      // CUSTOM: end
 
       evictTypeFields(cache, sceneMarkerMutationImpactedTypeFields);
       evictQueries(cache, sceneMarkerMutationImpactedQueries);
@@ -1628,8 +1636,8 @@ export const useSceneMarkersDestroy = (
 ) =>
   GQL.useSceneMarkersDestroyMutation({
     variables: input,
-    refetchQueries: ["PerformerSceneMarkerRoles"],
-    awaitRefetchQueries: true,
+    refetchQueries: ["PerformerSceneMarkerRoles"], // CUSTOM
+    awaitRefetchQueries: true, // CUSTOM
     update(cache, result) {
       if (!result.data?.sceneMarkersDestroy) return;
 
@@ -1638,15 +1646,18 @@ export const useSceneMarkersDestroy = (
         cache.evict({ id: cache.identify(obj) });
       }
 
+      // CUSTOM: begin
       // Evict all performer queries to refresh role badges
       cache.evict({ fieldName: "findPerformer" });
       cache.gc();
+      // CUSTOM: end
 
       evictTypeFields(cache, sceneMarkerMutationImpactedTypeFields);
       evictQueries(cache, sceneMarkerMutationImpactedQueries);
     },
   });
 
+// CUSTOM: begin
 // Marker Playlist hooks
 export const useFindMarkerPlaylistsQuery = () =>
   GQL.useFindMarkerPlaylistsQuery();
@@ -1750,6 +1761,7 @@ export const useConvertReleaseToScene = () =>
       cache.gc();
     },
   });
+// CUSTOM: end
 
 const galleryMutationImpactedTypeFields = {
   Scene: ["galleries"],

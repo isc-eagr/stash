@@ -73,15 +73,15 @@ const SelectComponent = <T, IsMulti extends boolean>(
     }),
     container: (base, state) => ({
       ...base,
-      // Ensure the control itself appears above nearby elements when focused
-      zIndex: state.isFocused ? 1000 : base.zIndex,
+      // Ensure the control itself appears above nearby elements when focused // CUSTOM
+      zIndex: state.isFocused ? 1000 : base.zIndex, // CUSTOM
     }),
     multiValueRemove: (base, state) => ({
       ...base,
       color: state.isFocused ? base.color : "#333333",
     }),
-    // When using menuPortalTarget, this style controls the portal container; set a high z-index
-    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+    // When using menuPortalTarget, this style controls the portal container; set a high z-index // CUSTOM
+    menuPortal: (base) => ({ ...base, zIndex: 9999 }), // CUSTOM
   };
 
   const componentProps = {

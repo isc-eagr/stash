@@ -1,7 +1,7 @@
 import cloneDeep from "lodash-es/cloneDeep";
 import React, { useMemo } from "react";
 import { Form } from "react-bootstrap";
-import { useIntl } from "react-intl";
+import { useIntl } from "react-intl"; // CUSTOM: moved import
 import {
   CriterionValue,
   ModifierCriterion,
@@ -26,7 +26,7 @@ export const OptionFilter: React.FC<IOptionsFilter> = ({
   setCriterion,
 }) => {
   const intl = useIntl();
-  const criterionType = criterion.criterionOption.type;
+  const criterionType = criterion.criterionOption.type; // CUSTOM
 
   function onSelect(v: string) {
     const c = cloneDeep(criterion);
@@ -39,6 +39,7 @@ export const OptionFilter: React.FC<IOptionsFilter> = ({
     setCriterion(c);
   }
 
+  // CUSTOM: begin - translated labels for custom_filters options
   function getOptionLabel(optionValue: string): string {
     // Try to find a translated label for custom_filters options
     if (criterionType === "custom_filters") {
@@ -52,6 +53,7 @@ export const OptionFilter: React.FC<IOptionsFilter> = ({
     // Fall back to the raw value
     return optionValue;
   }
+  // CUSTOM: end
 
   const { options } = criterion.modifierCriterionOption();
 
@@ -64,7 +66,7 @@ export const OptionFilter: React.FC<IOptionsFilter> = ({
           onChange={() => onSelect(o.toString())}
           checked={criterion.value === o.toString()}
           type="radio"
-          label={getOptionLabel(o.toString())}
+          label={getOptionLabel(o.toString())} // CUSTOM
         />
       ))}
     </div>

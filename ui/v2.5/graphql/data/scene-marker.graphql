@@ -14,19 +14,24 @@ fragment SceneMarkerData on SceneMarker {
   primary_tag {
     id
     name
+    # CUSTOM: begin
     parents {
       id
     }
+    # CUSTOM: end
   }
 
   tags {
     id
     name
+    # CUSTOM: begin
     parents {
       id
     }
+    # CUSTOM: end
   }
 
+  # CUSTOM: begin
   performers {
     id
     name
@@ -49,6 +54,7 @@ fragment SceneMarkerData on SceneMarker {
     disambiguation
     image_path
   }
+  # CUSTOM: end
 }
 
 fragment SceneMarkerSceneData on Scene {
@@ -59,9 +65,11 @@ fragment SceneMarkerSceneData on Scene {
     height
     path
   }
+  # CUSTOM: begin
   paths {
     stream
   }
+  # CUSTOM: end
   performers {
     id
     name

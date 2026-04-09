@@ -1,4 +1,4 @@
-﻿import React, { useMemo } from "react";
+﻿import React, { useMemo } from "react"; // CUSTOM: added useMemo
 import { Link } from "react-router-dom";
 import * as GQL from "src/core/generated-graphql";
 import NavUtils from "src/utils/navigation";
@@ -13,8 +13,9 @@ import { PopoverCountButton } from "../Shared/PopoverCountButton";
 import { RatingBanner } from "../Shared/RatingBanner";
 import { FavoriteIcon } from "../Shared/FavoriteIcon";
 import { useStudioUpdate } from "src/core/StashService";
-import { faTag, faBox, faHand, faUserPlus } from "@fortawesome/free-solid-svg-icons";
+import { faTag, faBox, faHand, faUserPlus } from "@fortawesome/free-solid-svg-icons"; // CUSTOM: added faHand, faUserPlus
 import { OCounterButton } from "../Shared/CountButton";
+// CUSTOM: begin
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import goateeSvg from "src/assets/goatee.svg";
@@ -37,6 +38,7 @@ export interface IRoleTags {
   soloTag: { id: string; name: string } | null;
   facialTag: { id: string; name: string } | null;
 }
+// CUSTOM: end
 
 interface IProps {
   studio: GQL.StudioDataFragment;
@@ -46,8 +48,10 @@ interface IProps {
   selected?: boolean;
   zoomIndex?: number;
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
+  // CUSTOM: begin
   performerId?: string;
   roleTags?: IRoleTags;
+  // CUSTOM: end
 }
 
 function maybeRenderParent(
@@ -105,11 +109,14 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
     selected,
     zoomIndex,
     onSelectedChanged,
+    // CUSTOM: begin
     performerId,
     roleTags,
+    // CUSTOM: end
   }) => {
     const [updateStudio] = useStudioUpdate();
 
+    // CUSTOM: begin - role tags + performer-filtered stats
     // Use pre-fetched role tags from parent (StudioCardGrid)
     // Falls back to null when roleTags not provided
     const sexTag = roleTags?.sexTag ?? null;
@@ -142,6 +149,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         o_counter: s.o_counter,
       };
     }, [performerId, performerStatsData]);
+    // CUSTOM: end
 
     function onToggleFavorite(v: boolean) {
       if (studio.id) {

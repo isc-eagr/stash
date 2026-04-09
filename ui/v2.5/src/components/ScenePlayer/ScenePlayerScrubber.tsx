@@ -318,6 +318,7 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
     });
   }
 
+  // CUSTOM: begin - negative markers on scrubber
   function renderNegativeMarkers() {
     if (!spriteItems) return;
     const negativeMarkers = scene.negative_markers ?? [];
@@ -342,6 +343,7 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
       );
     });
   }
+  // CUSTOM: end
 
   function renderSprites() {
     if (!scene.paths.vtt) return;
@@ -385,7 +387,7 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
         <div className="scrubber-viewport">
           <div ref={sliderEl} className="scrubber-slider">
             <div className="scrubber-tags">{renderTags()}</div>
-            <div className="scrubber-negative-markers">{renderNegativeMarkers()}</div>
+            <div className="scrubber-negative-markers">{renderNegativeMarkers()}</div> {/* CUSTOM */}
             {renderSprites()}
           </div>
         </div>

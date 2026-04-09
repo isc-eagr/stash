@@ -18,7 +18,7 @@ import { ListFilterModel } from "src/models/list-filter/filter";
 import { getFilterOptions } from "src/models/list-filter/factory";
 import { FilterTags } from "./FilterTags";
 import { CriterionEditor } from "./CriterionEditor";
-import { MarkerFilterGroupProvider } from "./Filters/MarkerFilterGroupContext";
+import { MarkerFilterGroupProvider } from "./Filters/MarkerFilterGroupContext"; // CUSTOM
 import { Icon } from "../Shared/Icon";
 import {
   faChevronDown,
@@ -51,7 +51,7 @@ interface ICriterionList {
   onRemoveCriterion: (c: string) => void;
   onTogglePin: (c: CriterionOption) => void;
   externallySelected?: boolean;
-  filterMode?: FilterMode;
+  filterMode?: FilterMode; // CUSTOM
 }
 
 const CriterionOptionList: React.FC<ICriterionList> = ({
@@ -65,7 +65,7 @@ const CriterionOptionList: React.FC<ICriterionList> = ({
   onRemoveCriterion,
   onTogglePin,
   externallySelected = false,
-  filterMode,
+  filterMode, // CUSTOM
 }) => {
   const { configuration } = useConfigurationContext();
   const { sfwContentMode } = configuration.interface;
@@ -130,6 +130,7 @@ const CriterionOptionList: React.FC<ICriterionList> = ({
     return prevCriterion;
   }
 
+  // CUSTOM: begin
   // Get filter descriptions for specific criteria based on filter mode
   function getFilterDescription(criterionType: CriterionType): string | null {
     if (filterMode === FilterMode.SceneMarkers) {
@@ -139,6 +140,7 @@ const CriterionOptionList: React.FC<ICriterionList> = ({
     }
     return null;
   }
+  // CUSTOM: end
 
   function removeClicked(ev: React.MouseEvent, t: string) {
     // needed to prevent the nav item from being selected
@@ -188,6 +190,7 @@ const CriterionOptionList: React.FC<ICriterionList> = ({
           {(type === c.type && currentCriterion) ||
           (prevType === c.type && prevCriterion) ? (
             <Card.Body>
+              {/* CUSTOM: begin */}
               {getFilterDescription(c.type) && (
                 <div className="mb-2">
                   <small className="text-muted">
@@ -195,10 +198,11 @@ const CriterionOptionList: React.FC<ICriterionList> = ({
                   </small>
                 </div>
               )}
+              {/* CUSTOM: end */}
               <CriterionEditor
                 criterion={getReleventCriterion(c.type)!}
                 setCriterion={setCriterion}
-                filterMode={filterMode}
+                filterMode={filterMode} // CUSTOM
               />
             </Card.Body>
           ) : (
@@ -583,7 +587,7 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
                 onFilterUpdate={setCurrentFilter}
               />
             </div>
-            <MarkerFilterGroupProvider criteria={criteria}>
+            <MarkerFilterGroupProvider criteria={criteria}>{/* CUSTOM: begin */}
               <CriterionOptionList
                 criteria={criteriaList}
                 currentCriterion={criterion}
@@ -595,17 +599,17 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
                 onRemoveCriterion={(c) => removeCriterionString(c)}
                 onTogglePin={(c) => onTogglePinFilter(c)}
                 externallySelected={!!editingCriterion}
-                filterMode={currentFilter.mode}
+                filterMode={currentFilter.mode} // CUSTOM
               />
-            </MarkerFilterGroupProvider>
+            </MarkerFilterGroupProvider>{/* CUSTOM: end */}
             {criteria.length > 0 && (
               <div>
                 <FilterTags
                   criteria={criteria}
-                  onEditCriterion={(c) => {
+                  onEditCriterion={(c) => { // CUSTOM: begin
                     // All criteria are single-instance, use optionSelected to find/create
                     optionSelected(c.criterionOption);
-                  }}
+                  }} // CUSTOM: end
                   onRemoveCriterion={removeCriterion}
                   onRemoveAll={() => onClearAll()}
                 />

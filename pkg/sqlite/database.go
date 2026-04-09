@@ -74,15 +74,15 @@ type storeRepository struct {
 	GalleryChapter      *GalleryChapterStore
 	Scene               *SceneStore
 	SceneMarker         *SceneMarkerStore
-	SceneLoopPreset     *SceneLoopPresetStore
-	SceneNegativeMarker *SceneNegativeMarkerStore
-	SceneRelease        *SceneReleaseStore
+	SceneLoopPreset     *SceneLoopPresetStore     // CUSTOM
+	SceneNegativeMarker *SceneNegativeMarkerStore // CUSTOM
+	SceneRelease        *SceneReleaseStore        // CUSTOM
 	Performer           *PerformerStore
 	SavedFilter         *SavedFilterStore
 	Studio              *StudioStore
 	Tag                 *TagStore
 	Group               *GroupStore
-	PerformerImage      *PerformerImageStore
+	PerformerImage      *PerformerImageStore // CUSTOM
 }
 
 type Database struct {
@@ -103,7 +103,7 @@ func NewDatabase() *Database {
 	galleryStore := NewGalleryStore(fileStore, folderStore)
 	blobStore := NewBlobStore(BlobStoreOptions{})
 	performerStore := NewPerformerStore(blobStore)
-	performerImageStore := NewPerformerImageStore(blobStore)
+	performerImageStore := NewPerformerImageStore(blobStore) // CUSTOM
 	studioStore := NewStudioStore(blobStore)
 	tagStore := NewTagStore(blobStore)
 
@@ -114,14 +114,14 @@ func NewDatabase() *Database {
 		Folder:              folderStore,
 		Scene:               NewSceneStore(r, blobStore),
 		SceneMarker:         NewSceneMarkerStore(),
-		SceneLoopPreset:     NewSceneLoopPresetStore(),
-		SceneNegativeMarker: NewSceneNegativeMarkerStore(),
-		SceneRelease:        NewSceneReleaseStore(r, blobStore),
+		SceneLoopPreset:     NewSceneLoopPresetStore(),          // CUSTOM
+		SceneNegativeMarker: NewSceneNegativeMarkerStore(),      // CUSTOM
+		SceneRelease:        NewSceneReleaseStore(r, blobStore), // CUSTOM
 		Image:               NewImageStore(r),
 		Gallery:             galleryStore,
 		GalleryChapter:      NewGalleryChapterStore(),
 		Performer:           performerStore,
-		PerformerImage:      performerImageStore,
+		PerformerImage:      performerImageStore, // CUSTOM
 		Studio:              studioStore,
 		Tag:                 tagStore,
 		Group:               NewGroupStore(blobStore),

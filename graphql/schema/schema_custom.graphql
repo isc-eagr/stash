@@ -1,0 +1,62 @@
+# CUSTOM: All custom queries and mutations.
+# This file uses 'extend type' to add to the upstream Query and Mutation types
+# without modifying the upstream schema.graphql file.
+# See CUSTOM_FEATURES.md for documentation.
+
+extend type Query {
+  "Find multi-segment loop presets for a scene"
+  findSceneMultiSegmentLoopPresets(scene_id: ID!): [MultiSegmentLoopPreset!]!
+
+  "Find negative markers for a scene"
+  findSceneNegativeMarkers(scene_id: ID!): [SceneNegativeMarker!]!
+
+  "Find a marker playlist by ID"
+  findMarkerPlaylist(id: ID!): MarkerPlaylist
+  "Find all marker playlists"
+  findMarkerPlaylists: [MarkerPlaylist!]!
+
+  "Get distinct performer ethnicities"
+  performerEthnicities: [String!]!
+}
+
+extend type Mutation {
+  saveSceneMultiSegmentLoopPreset(
+    input: SceneMultiSegmentLoopPresetInput!
+  ): MultiSegmentLoopPreset!
+  deleteSceneMultiSegmentLoopPreset(scene_id: ID!, name: String!): Boolean!
+
+  # Negative markers - time ranges to skip during playback
+  sceneNegativeMarkerCreate(
+    input: SceneNegativeMarkerCreateInput!
+  ): SceneNegativeMarker!
+  sceneNegativeMarkerUpdate(
+    input: SceneNegativeMarkerUpdateInput!
+  ): SceneNegativeMarker!
+  sceneNegativeMarkerDestroy(id: ID!): Boolean!
+
+  markerPlaylistCreate(input: MarkerPlaylistCreateInput!): MarkerPlaylist!
+  markerPlaylistUpdate(input: MarkerPlaylistUpdateInput!): MarkerPlaylist!
+  markerPlaylistDestroy(id: ID!): Boolean!
+
+  "Create a new release for a scene"
+  sceneReleaseCreate(input: SceneReleaseCreateInput!): SceneRelease
+  "Update an existing scene release"
+  sceneReleaseUpdate(input: SceneReleaseUpdateInput!): SceneRelease
+  "Delete a scene release. Files will be reassigned to the parent scene."
+  sceneReleaseDestroy(input: SceneReleaseDestroyInput!): Boolean!
+  "Add a file to an existing scene release"
+  sceneReleaseAddFile(input: SceneReleaseAddFileInput!): SceneRelease
+  "Remove a file from an existing scene release"
+  sceneReleaseRemoveFile(input: SceneReleaseRemoveFileInput!): SceneRelease
+  "Convert an existing scene into a release of another scene"
+  convertSceneToRelease(input: ConvertSceneToReleaseInput!): SceneRelease
+  "Convert a release into a new scene"
+  convertReleaseToScene(input: ConvertReleaseToSceneInput!): Scene
+
+  "Upload an additional image for a performer. Returns the new PerformerImage."
+  performerImageUpload(performer_id: ID!, image: String!): PerformerImage!
+  "Delete an additional performer image by ID. Returns true if successful."
+  performerImageDelete(id: ID!): Boolean!
+  "Set an additional image as the default performer image. Returns the updated Performer."
+  performerImageSetDefault(id: ID!): Performer!
+}

@@ -29,7 +29,7 @@ import {
   faHeart,
   faImage,
   faImages,
-  faListCheck,
+  faListCheck, // CUSTOM
   faMapMarkerAlt,
   faPlayCircle,
   faQuestionCircle,
@@ -327,6 +327,7 @@ export const MainNavbar: React.FC = () => {
             <Icon icon={faChartColumn} />
           </Button>
         </NavLink>
+        {/* CUSTOM: begin */}
         <NavLink
           className="nav-utility"
           exact
@@ -343,6 +344,7 @@ export const MainNavbar: React.FC = () => {
             <Icon icon={faListCheck} />
           </Button>
         </NavLink>
+        {/* CUSTOM: end */}
         <NavLink
           className="nav-utility"
           exact

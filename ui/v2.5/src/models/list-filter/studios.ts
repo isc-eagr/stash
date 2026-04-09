@@ -43,6 +43,7 @@ const sortByOptions = [
       messageID: "subsidiary_studio_count",
       value: "child_count",
     },
+    // CUSTOM: begin
     {
       messageID: "sex_scene_count",
       value: "sex_scenes_count",
@@ -67,6 +68,7 @@ const sortByOptions = [
       messageID: "o_count",
       value: "o_count",
     },
+    // CUSTOM: end
   ]);
 
 const displayModeOptions = [DisplayMode.Grid, DisplayMode.Tagger];

@@ -39,16 +39,16 @@ export const RatingCriterionOption = new ModifierCriterionOption({
   makeCriterion: (o, config) =>
     new RatingCriterion(
       getRatingSystemOptions(config),
-      o as unknown as ModifierCriterionOption
+      o as unknown as ModifierCriterionOption // CUSTOM: pass option override
     ),
   inputType: "number",
 });
 
 export class RatingCriterion extends ModifierCriterion<INumberValue> {
   ratingSystem: RatingSystemOptions;
-  option: ModifierCriterionOption;
+  option: ModifierCriterionOption; // CUSTOM
 
-  constructor(
+  constructor( // CUSTOM: begin - added optionOverride parameter
     ratingSystem: RatingSystemOptions,
     optionOverride?: ModifierCriterionOption
   ) {
@@ -56,7 +56,7 @@ export class RatingCriterion extends ModifierCriterion<INumberValue> {
     super(opt, { value: 0, value2: undefined });
     this.ratingSystem = ratingSystem;
     this.option = opt;
-  }
+  } // CUSTOM: end
 
   public cloneValues() {
     this.value = { ...this.value };
@@ -112,6 +112,7 @@ export class RatingCriterion extends ModifierCriterion<INumberValue> {
   }
 }
 
+// CUSTOM: begin
 // Specialized criterion for performer rating with an extra 'all/any' toggle
 export class PerformerRatingCriterion extends RatingCriterion {
   public matchAll = true;
@@ -176,3 +177,4 @@ export const PerformerRatingCriterionOption = new ModifierCriterionOption({
     ),
   inputType: "number",
 });
+// CUSTOM: end

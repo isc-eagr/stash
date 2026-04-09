@@ -9,10 +9,11 @@ query FindStudios($filter: FindFilterType, $studio_filter: StudioFilterType) {
 
 query FindStudio($id: ID!) {
   findStudio(id: $id) {
-    ...StudioDetailData
+    ...StudioDetailData # CUSTOM: modified
   }
 }
 
+# CUSTOM: begin
 query FindStudioPerformerStats($id: ID!, $performerId: ID!) {
   findStudio(id: $id) {
     id
@@ -27,6 +28,7 @@ query FindStudioPerformerStats($id: ID!, $performerId: ID!) {
     o_counter(performer_id: $performerId)
   }
 }
+# CUSTOM: end
 
 query FindStudiosForSelect(
   $filter: FindFilterType

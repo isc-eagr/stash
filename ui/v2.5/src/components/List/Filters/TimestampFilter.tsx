@@ -58,7 +58,7 @@ export const TimestampFilter: React.FC<ITimestampFilterProps> = ({
   let lowerControl: JSX.Element | null = null;
   if (
     criterion.modifier === CriterionModifier.GreaterThan ||
-    criterion.modifier === CriterionModifier.GreaterThanEquals ||
+    criterion.modifier === CriterionModifier.GreaterThanEquals || // CUSTOM
     criterion.modifier === CriterionModifier.Between ||
     criterion.modifier === CriterionModifier.NotBetween
   ) {
@@ -89,7 +89,7 @@ export const TimestampFilter: React.FC<ITimestampFilterProps> = ({
   let upperControl: JSX.Element | null = null;
   if (
     criterion.modifier === CriterionModifier.LessThan ||
-    criterion.modifier === CriterionModifier.LessThanEquals ||
+    criterion.modifier === CriterionModifier.LessThanEquals || // CUSTOM
     criterion.modifier === CriterionModifier.Between ||
     criterion.modifier === CriterionModifier.NotBetween
   ) {
@@ -98,7 +98,7 @@ export const TimestampFilter: React.FC<ITimestampFilterProps> = ({
         <DateInput
           value={
             (criterion.modifier === CriterionModifier.LessThan ||
-            criterion.modifier === CriterionModifier.LessThanEquals
+            criterion.modifier === CriterionModifier.LessThanEquals // CUSTOM
               ? value?.value
               : value?.value2) ?? ""
           }
@@ -106,7 +106,7 @@ export const TimestampFilter: React.FC<ITimestampFilterProps> = ({
             onChanged(
               v,
               criterion.modifier === CriterionModifier.LessThan ||
-                criterion.modifier === CriterionModifier.LessThanEquals
+                criterion.modifier === CriterionModifier.LessThanEquals // CUSTOM
                 ? "value"
                 : "value2"
             )

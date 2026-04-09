@@ -37,11 +37,11 @@ const (
 	// >
 	CriterionModifierGreaterThan CriterionModifier = "GREATER_THAN"
 	// >=
-	CriterionModifierGreaterThanEquals CriterionModifier = "GREATER_THAN_EQUALS"
+	CriterionModifierGreaterThanEquals CriterionModifier = "GREATER_THAN_EQUALS" // CUSTOM
 	// <
 	CriterionModifierLessThan CriterionModifier = "LESS_THAN"
 	// <=
-	CriterionModifierLessThanEquals CriterionModifier = "LESS_THAN_EQUALS"
+	CriterionModifierLessThanEquals CriterionModifier = "LESS_THAN_EQUALS" // CUSTOM
 	// IS NULL
 	CriterionModifierIsNull CriterionModifier = "IS_NULL"
 	// IS NOT NULL
@@ -64,9 +64,9 @@ var AllCriterionModifier = []CriterionModifier{
 	CriterionModifierEquals,
 	CriterionModifierNotEquals,
 	CriterionModifierGreaterThan,
-	CriterionModifierGreaterThanEquals,
+	CriterionModifierGreaterThanEquals, // CUSTOM
 	CriterionModifierLessThan,
-	CriterionModifierLessThanEquals,
+	CriterionModifierLessThanEquals, // CUSTOM
 	CriterionModifierIsNull,
 	CriterionModifierNotNull,
 	CriterionModifierIncludesAll,
@@ -80,7 +80,7 @@ var AllCriterionModifier = []CriterionModifier{
 
 func (e CriterionModifier) IsValid() bool {
 	switch e {
-	case CriterionModifierEquals, CriterionModifierNotEquals, CriterionModifierGreaterThan, CriterionModifierGreaterThanEquals, CriterionModifierLessThan, CriterionModifierLessThanEquals, CriterionModifierIsNull, CriterionModifierNotNull, CriterionModifierIncludesAll, CriterionModifierIncludes, CriterionModifierExcludes, CriterionModifierMatchesRegex, CriterionModifierNotMatchesRegex, CriterionModifierBetween, CriterionModifierNotBetween:
+	case CriterionModifierEquals, CriterionModifierNotEquals, CriterionModifierGreaterThan, CriterionModifierGreaterThanEquals, CriterionModifierLessThan, CriterionModifierLessThanEquals, CriterionModifierIsNull, CriterionModifierNotNull, CriterionModifierIncludesAll, CriterionModifierIncludes, CriterionModifierExcludes, CriterionModifierMatchesRegex, CriterionModifierNotMatchesRegex, CriterionModifierBetween, CriterionModifierNotBetween: // CUSTOM: added GreaterThanEquals, LessThanEquals
 		return true
 	}
 	return false
@@ -130,7 +130,7 @@ type IntCriterionInput struct {
 
 func (i IntCriterionInput) ValidModifier() bool {
 	switch i.Modifier {
-	case CriterionModifierEquals, CriterionModifierNotEquals, CriterionModifierGreaterThan, CriterionModifierGreaterThanEquals, CriterionModifierLessThan, CriterionModifierLessThanEquals, CriterionModifierIsNull, CriterionModifierNotNull, CriterionModifierBetween, CriterionModifierNotBetween:
+	case CriterionModifierEquals, CriterionModifierNotEquals, CriterionModifierGreaterThan, CriterionModifierGreaterThanEquals, CriterionModifierLessThan, CriterionModifierLessThanEquals, CriterionModifierIsNull, CriterionModifierNotNull, CriterionModifierBetween, CriterionModifierNotBetween: // CUSTOM: added GreaterThanEquals, LessThanEquals
 		return true
 	}
 	return false
@@ -144,7 +144,7 @@ type FloatCriterionInput struct {
 
 func (i FloatCriterionInput) ValidModifier() bool {
 	switch i.Modifier {
-	case CriterionModifierEquals, CriterionModifierNotEquals, CriterionModifierGreaterThan, CriterionModifierGreaterThanEquals, CriterionModifierLessThan, CriterionModifierLessThanEquals, CriterionModifierIsNull, CriterionModifierNotNull, CriterionModifierBetween, CriterionModifierNotBetween:
+	case CriterionModifierEquals, CriterionModifierNotEquals, CriterionModifierGreaterThan, CriterionModifierGreaterThanEquals, CriterionModifierLessThan, CriterionModifierLessThanEquals, CriterionModifierIsNull, CriterionModifierNotNull, CriterionModifierBetween, CriterionModifierNotBetween: // CUSTOM: added GreaterThanEquals, LessThanEquals
 		return true
 	}
 	return false
@@ -179,6 +179,7 @@ type MultiCriterionInput struct {
 	Excludes []string          `json:"excludes"`
 }
 
+// CUSTOM: begin
 // EthnicityCountInput specifies a minimum count of performers with a given ethnicity
 type EthnicityCountInput struct {
 	Ethnicity string `json:"ethnicity"`
@@ -269,6 +270,8 @@ type SceneMarkerTagsCriterionInput struct {
 	// - INCLUDES: ANY exclusion group matching causes the scene to be excluded
 	ExcludeModifier *CriterionModifier `json:"exclude_modifier"`
 }
+
+// CUSTOM: end
 
 type DateCriterionInput struct {
 	Value    string            `json:"value"`

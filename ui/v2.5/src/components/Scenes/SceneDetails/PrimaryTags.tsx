@@ -1,10 +1,11 @@
 import React from "react";
 import { FormattedMessage } from "react-intl";
 import * as GQL from "src/core/generated-graphql";
-import { Button, Badge, Card, Collapse, Form } from "react-bootstrap";
+import { Button, Badge, Card, Collapse, Form } from "react-bootstrap"; // CUSTOM: added Collapse, Form
 import TextUtils from "src/utils/text";
 import { markerTitle } from "src/core/markers";
 import { useConfigurationContext } from "src/hooks/Config";
+// CUSTOM: begin - icon imports for collapsible cards and performer roles
 import { Icon } from "src/components/Shared/Icon";
 import {
   faChevronDown,
@@ -12,19 +13,23 @@ import {
   faArrowUp,
   faArrowDown,
 } from "@fortawesome/free-solid-svg-icons";
+// CUSTOM: end
 
 interface IPrimaryTags {
   sceneMarkers: GQL.SceneMarkerDataFragment[];
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   onLoopMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   onEdit: (marker: GQL.SceneMarkerDataFragment) => void;
+  // CUSTOM: begin - collapsible cards and selection props
   expandedCards: Record<string, boolean>;
   onToggleCard: (id: string) => void;
   selectedMarkerIds: Set<string>;
   onSelectMarker: (id: string, selected: boolean) => void;
   onSelectMarkers: (ids: string[], selected: boolean) => void;
+  // CUSTOM: end
 }
 
+// CUSTOM: begin - collapsible PrimaryCard component
 const PrimaryCard: React.FC<{
   id: string;
   tagName: string;
@@ -82,17 +87,20 @@ const PrimaryCard: React.FC<{
     </Card>
   );
 };
+// CUSTOM: end
 
 export const PrimaryTags: React.FC<IPrimaryTags> = ({
   sceneMarkers,
   onClickMarker,
   onLoopMarker,
   onEdit,
+  // CUSTOM: begin - new destructured props
   expandedCards,
   onToggleCard,
   selectedMarkerIds,
   onSelectMarker,
   onSelectMarkers,
+  // CUSTOM: end
 }) => {
   const { configuration } = useConfigurationContext();
   const showAbLoopControls = configuration?.ui?.showAbLoopControls;
@@ -111,10 +119,12 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
   });
 
   const primaryCards = Object.keys(markersByTag).map((id) => {
+    // CUSTOM: begin - per-tag selection tracking
     const markerIDsForTag = markersByTag[id].map((m) => m.id);
     const allSelectedForTag =
       markerIDsForTag.length > 0 &&
       markerIDsForTag.every((mid) => selectedMarkerIds.has(mid));
+    // CUSTOM: end
 
     const markers = markersByTag[id].map((marker) => {
       const tags = marker.tags.map((tag) => (
@@ -123,6 +133,7 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
         </Badge>
       ));
 
+      // CUSTOM: begin - performer role badges with arrows
       // Only show arrows if marker has performers in BOTH roles (top and bottom)
       const showRoleArrows = (marker.top_performers?.length ?? 0) > 0 && (marker.bottom_performers?.length ?? 0) > 0;
 
@@ -147,6 +158,7 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
           {performer.name}
         </Badge>
       ));
+      // CUSTOM: end
 
       return (
         <div key={marker.id} className="marker-item">

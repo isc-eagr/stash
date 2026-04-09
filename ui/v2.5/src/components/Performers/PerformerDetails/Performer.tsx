@@ -14,7 +14,7 @@ import {
 } from "src/core/StashService";
 import { DetailsEditNavbar } from "src/components/Shared/DetailsEditNavbar";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
-// Button imported above; removed unused ButtonGroup and duplicate import of react-bootstrap
+// CUSTOM: Button imported above; removed unused ButtonGroup and duplicate import of react-bootstrap
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { useToast } from "src/hooks/Toast";
 import { useConfigurationContext } from "src/hooks/Config";
@@ -27,10 +27,12 @@ import { PerformerScenesPanel } from "./PerformerScenesPanel";
 import { PerformerGalleriesPanel } from "./PerformerGalleriesPanel";
 import { PerformerGroupsPanel } from "./PerformerGroupsPanel";
 import { PerformerImagesPanel } from "./PerformerImagesPanel";
-import { PerformerMarkersPanel } from "./PerformerMarkersPanel";
+import { PerformerMarkersPanel } from "./PerformerMarkersPanel"; // CUSTOM
 import { PerformerAppearsWithPanel } from "./performerAppearsWithPanel";
+// CUSTOM: begin
 import { PerformerAppearsWithByRolePanel } from "./PerformerAppearsWithByRolePanel";
 import { PerformerStudiosPanel } from "./PerformerStudiosPanel";
+// CUSTOM: end
 import { PerformerEditPanel } from "./PerformerEditPanel";
 import { PerformerMergeModal } from "../PerformerMergeDialog";
 import { PerformerSubmitButton } from "./PerformerSubmitButton";
@@ -54,14 +56,16 @@ import { PatchComponent } from "src/patch";
 import { ILightboxImage } from "src/hooks/Lightbox/types";
 import { goBackOrReplace } from "src/utils/history";
 import { OCounterButton } from "src/components/Shared/CountButton";
+// CUSTOM: begin
 import { PerformerCategoryStrip } from "./PerformerCategoryStrip";
 import { Counter } from "src/components/Shared/Counter";
 import { PerformerImageManager } from "./PerformerImageManager";
+// CUSTOM: end
 
 interface IProps {
   performer: GQL.PerformerDataFragment;
   tabKey?: TabKey;
-  refetch: () => Promise<any>;
+  refetch: () => Promise<any>; // CUSTOM
 }
 
 interface IPerformerParams {
@@ -75,10 +79,12 @@ const validTabs = [
   "galleries",
   "images",
   "groups",
+  // CUSTOM: begin
   "markers",
   "studios",
+  // CUSTOM: end
   "appearswith",
-  "appearswithbyrole",
+  "appearswithbyrole", // CUSTOM
 ] as const;
 type TabKey = (typeof validTabs)[number];
 
@@ -91,6 +97,7 @@ const PerformerTabs: React.FC<{
   performer: GQL.PerformerDataFragment;
   abbreviateCounter: boolean;
 }> = ({ tabKey, performer, abbreviateCounter }) => {
+  // CUSTOM: begin - fetch studios count, markers count, co-performer count
   // fetch count of studios where this performer has scenes
   const { data: studiosData } = GQL.useFindStudiosQuery({
     variables: {
@@ -153,6 +160,7 @@ const PerformerTabs: React.FC<{
   });
   const uniqueCoPerformerCount =
     coPerformersData?.performerCoPerformersByRole?.unique_count ?? 0;
+  // CUSTOM: end
 
   const populatedDefaultTab = useMemo(() => {
     let ret: TabKey = "scenes";
@@ -260,6 +268,7 @@ const PerformerTabs: React.FC<{
         />
       </Tab>
 
+      {/* CUSTOM: begin - Markers tab */}
       <Tab
         eventKey="markers"
         title={
@@ -278,7 +287,9 @@ const PerformerTabs: React.FC<{
           performer={performer}
         />
       </Tab>
+      {/* CUSTOM: end */}
 
+      {/* CUSTOM: begin - hidden appears-with, appears-with-by-role, studios tabs */}
       {/* HIDDEN: This tab is hidden in this fork but kept for upstream merge compatibility */}
       {false && (
         <Tab
@@ -334,6 +345,7 @@ const PerformerTabs: React.FC<{
           performer={performer}
         />
       </Tab>
+      {/* CUSTOM: end */}
     </Tabs>
   );
 };
@@ -344,12 +356,13 @@ interface IPerformerHeaderImageProps {
   encodingImage: boolean;
   lightboxImages: ILightboxImage[];
   performer: GQL.PerformerDataFragment;
-  refetch: () => Promise<any>;
+  refetch: () => Promise<any>; // CUSTOM
 }
 
 const PerformerHeaderImage: React.FC<IPerformerHeaderImageProps> =
   PatchComponent(
     "PerformerHeaderImage",
+    // CUSTOM: begin - PerformerImageManager, currentImage state, PerformerCategoryStrip
     ({ encodingImage, activeImage, lightboxImages, performer, refetch }) => {
       const [currentImage, setCurrentImage] = React.useState(activeImage);
 
@@ -388,10 +401,11 @@ const PerformerHeaderImage: React.FC<IPerformerHeaderImageProps> =
       );
     }
   );
+// CUSTOM: end
 
 const PerformerPage: React.FC<IProps> = PatchComponent(
   "PerformerPage",
-  ({ performer, tabKey, refetch }) => {
+  ({ performer, tabKey, refetch }) => { // CUSTOM: added refetch
     const Toast = useToast();
     const history = useHistory();
     const intl = useIntl();
@@ -586,7 +600,7 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
               encodingImage={encodingImage}
               lightboxImages={lightboxImages}
               performer={performer}
-              refetch={refetch}
+              refetch={refetch} // CUSTOM
             />
             <div className="row">
               <div className="performer-head col">
@@ -699,14 +713,16 @@ const PerformerLoader: React.FC<RouteComponentProps<IPerformerParams>> = ({
   match,
 }) => {
   const { id, tab } = match.params;
-  const { data, loading, error, refetch } = useFindPerformer(id);
+  const { data, loading, error, refetch } = useFindPerformer(id); // CUSTOM: added refetch
 
   useScrollToTopOnMount();
 
+  // CUSTOM: begin - wrap refetch to force network-only fetch
   // Wrap refetch to force network-only fetch (bypass Apollo cache)
   const forceRefetch = React.useCallback(async () => {
     return refetch({ fetchPolicy: "network-only" } as any);
   }, [refetch]);
+  // CUSTOM: end
 
   if (loading) return <LoadingIndicator />;
   if (error) return <ErrorMessage error={error.message} />;
@@ -728,7 +744,7 @@ const PerformerLoader: React.FC<RouteComponentProps<IPerformerParams>> = ({
     <PerformerPage
       performer={data.findPerformer}
       tabKey={tab as TabKey | undefined}
-      refetch={forceRefetch}
+      refetch={forceRefetch} // CUSTOM
     />
   );
 };

@@ -1,4 +1,4 @@
-# Light fragment used by list pages and cards (no depth variants)
+# Light fragment used by list pages and cards (no depth variants) # CUSTOM
 fragment StudioData on Studio {
   id
   name
@@ -20,11 +20,13 @@ fragment StudioData on Studio {
   organized
   image_path
   scene_count
+  # CUSTOM: begin
   sex_scene_count
   oral_scene_count
   solo_scene_count
   facial_scene_count
   unique_performer_count
+  # CUSTOM: end
   image_count
   gallery_count
   performer_count
@@ -45,6 +47,7 @@ fragment StudioData on Studio {
   custom_fields
 }
 
+# CUSTOM: begin
 # Full fragment used by studio detail page (includes depth/child-studio counts)
 fragment StudioDetailData on Studio {
   ...StudioData
@@ -59,6 +62,7 @@ fragment StudioDetailData on Studio {
   performer_count_all: performer_count(depth: -1)
   group_count_all: group_count(depth: -1)
 }
+# CUSTOM: end
 
 fragment SelectStudioData on Studio {
   id

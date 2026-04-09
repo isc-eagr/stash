@@ -24,12 +24,11 @@ import {
   faBox,
   faCopy,
   faFilm,
-  faHand,
+  faHand, // CUSTOM
   faImages,
   faMapMarkerAlt,
   faTag,
 } from "@fortawesome/free-solid-svg-icons";
-// Using emoji for oral indicator
 import { objectPath, objectTitle } from "src/core/files";
 import { PreviewScrubber } from "./PreviewScrubber";
 import { PatchComponent } from "src/patch";
@@ -38,10 +37,12 @@ import { GroupTag } from "../Groups/GroupTag";
 import { FileSize } from "../Shared/FileSize";
 import { OCounterButton } from "../Shared/CountButton";
 import { defaultPreviewVolume } from "src/core/config";
+// CUSTOM: begin - role icon SVG imports
 import mouthSvg from "src/assets/mouth.svg";
 import gaySvg from "src/assets/gay.svg";
 import straightSvg from "src/assets/straight.svg";
 import goateeSvg from "src/assets/goatee.svg";
+// CUSTOM: end
 
 interface IScenePreviewProps {
   isPortrait: boolean;
@@ -340,7 +341,7 @@ const SceneCardDetails = PatchComponent(
   (props: ISceneCardProps) => {
     return (
       <div className="scene-card__details">
-        <span className="scene-card__date">{props.scene.effective_date ?? props.scene.date}</span>
+        <span className="scene-card__date">{props.scene.effective_date ?? props.scene.date}</span> {/* CUSTOM: effective_date */}
         <span className="file-path extra-scene-info">
           {objectPath(props.scene)}
         </span>
@@ -354,6 +355,7 @@ const SceneCardDetails = PatchComponent(
   }
 );
 
+// CUSTOM: begin - SceneCardOverlays rewrite for facial overlay
 const SceneCardOverlays = PatchComponent(
   "SceneCard.Overlays",
   (props: ISceneCardProps) => {
@@ -415,6 +417,7 @@ const SceneCardOverlays = PatchComponent(
     );
   }
 );
+// CUSTOM: end
 
 interface ISceneSpecsOverlay {
   scene: GQL.SlimSceneDataFragment;
@@ -518,6 +521,7 @@ export const SceneCard = PatchComponent(
       [props.scene]
     );
 
+    // CUSTOM: begin - role tag icon logic
     // Determine which icon to show based on scene markers with role tags
     const iconToShow = useMemo(() => {
       // Get role tag IDs from configuration
@@ -675,6 +679,7 @@ export const SceneCard = PatchComponent(
       if (pieces.length === 0) return undefined;
       return <>{pieces}</>;
     }, [iconToShow]);
+    // CUSTOM: end
 
     function zoomIndex() {
       if (!props.compact && props.zoomIndex !== undefined) {
@@ -692,6 +697,7 @@ export const SceneCard = PatchComponent(
       return "";
     }
 
+    // CUSTOM: begin - rating-based card styling
     function getRatingClass() {
       // Exclude home page from rating effects
       const isHomePage =
@@ -706,6 +712,7 @@ export const SceneCard = PatchComponent(
       if (rating === 60) return "rating-3-stars";
       return "";
     }
+    // CUSTOM: end
 
     const cont = configuration?.interface.continuePlaylistDefault ?? false;
 
@@ -718,10 +725,10 @@ export const SceneCard = PatchComponent(
 
     return (
       <GridCard
-        className={`scene-card ${zoomIndex()} ${filelessClass()} ${getRatingClass()}`}
+        className={`scene-card ${zoomIndex()} ${filelessClass()} ${getRatingClass()}`} // CUSTOM: getRatingClass
         url={sceneLink}
         title={objectTitle(props.scene)}
-        pretitleIcon={pretitleIcon}
+        pretitleIcon={pretitleIcon} // CUSTOM
         width={props.width}
         linkClassName="scene-card-link"
         thumbnailSectionClassName="video-section"

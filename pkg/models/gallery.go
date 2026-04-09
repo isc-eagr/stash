@@ -55,6 +55,7 @@ type GalleryFilterType struct {
 	ScenesFilter *SceneFilterType `json:"scenes_filter"`
 	// Filter by related images that meet this criteria
 	ImagesFilter *ImageFilterType `json:"images_filter"`
+	// CUSTOM: begin
 	// Filter galleries by performers' rating (1-100)
 	PerformerRating *IntCriterionInput `json:"performer_rating"`
 	// When true, all linked performers must satisfy the performer_rating condition; when false, at least one performer must satisfy it (default: true).
@@ -63,6 +64,7 @@ type GalleryFilterType struct {
 	PerformerCountry *StringCriterionInput `json:"performer_country"`
 	// Filter by performer ethnicity
 	PerformerEthnicity *StringCriterionInput `json:"performer_ethnicity"`
+	// CUSTOM: end
 	// Filter by related performers that meet this criteria
 	PerformersFilter *PerformerFilterType `json:"performers_filter"`
 	// Filter by related studios that meet this criteria

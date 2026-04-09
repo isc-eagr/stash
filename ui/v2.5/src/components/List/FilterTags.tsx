@@ -9,7 +9,7 @@ import { Badge, BadgeProps, Button, Overlay, Popover } from "react-bootstrap";
 import {
   Criterion,
   UnsupportedCriterion,
-  ModifierCriterion,
+  ModifierCriterion, // CUSTOM
 } from "src/models/list-filter/criteria/criterion";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Icon } from "../Shared/Icon";
@@ -22,6 +22,7 @@ import { BsPrefixProps, ReplaceProps } from "react-bootstrap/esm/helpers";
 import { CustomFieldsCriterion } from "src/models/list-filter/criteria/custom-fields";
 import { useDebounce } from "src/hooks/debounce";
 import cx from "classnames";
+// CUSTOM: begin - marker criterion imports
 import { SceneMarkerTagsCriterion } from "src/models/list-filter/criteria/tags";
 import { MarkerTagsCriterion } from "src/models/list-filter/criteria/marker-tags";
 import { MarkerTopCriterion } from "src/models/list-filter/criteria/marker-top";
@@ -32,6 +33,7 @@ import {
   useFindTagsForSelectQuery,
   useFindPerformersForSelectQuery,
 } from "src/core/generated-graphql";
+// CUSTOM: end
 import { useConfigurationContext } from "src/hooks/Config";
 
 type TagItemProps = PropsWithChildren<
@@ -142,6 +144,7 @@ interface IFilterTagsProps {
   truncateOnOverflow?: boolean;
 }
 
+// CUSTOM: begin - chip label components for custom marker criteria
 const SceneMarkerTagsChipLabel: React.FC<{
   criterion: SceneMarkerTagsCriterion;
 }> = ({ criterion }) => {
@@ -624,6 +627,7 @@ const ExcludeMarkerTagsChipLabel: React.FC<{
     </span>
   );
 };
+// CUSTOM: end
 
 export const FilterTags: React.FC<IFilterTagsProps> = ({
   searchTerm,
@@ -789,6 +793,7 @@ export const FilterTags: React.FC<IFilterTagsProps> = ({
       <FilterTag
         key={criterion.getId()}
         label={
+          // CUSTOM: begin - custom chip labels for marker criteria
           criterion instanceof SceneMarkerTagsCriterion ? (
             <SceneMarkerTagsChipLabel criterion={criterion} />
           ) : criterion instanceof MarkerTagsCriterion ? (
@@ -800,6 +805,7 @@ export const FilterTags: React.FC<IFilterTagsProps> = ({
           ) : criterion instanceof ExcludeMarkerTagsCriterion ? (
             <ExcludeMarkerTagsChipLabel criterion={criterion} />
           ) : (
+            // CUSTOM: end
             criterion.getLabel(intl, sfwContentMode)
           )
         }

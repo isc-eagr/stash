@@ -101,7 +101,7 @@ export const SidebarDurationFilter: React.FC<ISidebarFilter> = ({
         // For "40+ min" preset
         if (
           (criterion.modifier === CriterionModifier.GreaterThan ||
-            criterion.modifier === CriterionModifier.GreaterThanEquals) &&
+            criterion.modifier === CriterionModifier.GreaterThanEquals) && // CUSTOM
           criterion.value.value === preset.min
         ) {
           return preset.id;
@@ -122,7 +122,7 @@ export const SidebarDurationFilter: React.FC<ISidebarFilter> = ({
     if (
       criterion.modifier === CriterionModifier.Between ||
       criterion.modifier === CriterionModifier.GreaterThan ||
-      criterion.modifier === CriterionModifier.GreaterThanEquals
+      criterion.modifier === CriterionModifier.GreaterThanEquals // CUSTOM
     ) {
       return "custom";
     }

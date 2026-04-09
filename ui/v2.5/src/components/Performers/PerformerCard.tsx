@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useIntl } from "react-intl";
-import { gql, useQuery } from "@apollo/client";
+import { gql, useQuery } from "@apollo/client"; // CUSTOM
 import * as GQL from "src/core/generated-graphql";
 import NavUtils from "src/utils/navigation";
 import TextUtils from "src/utils/text";
@@ -20,6 +20,7 @@ import {
 } from "src/models/list-filter/criteria/criterion";
 import { PopoverCountButton } from "../Shared/PopoverCountButton";
 import GenderIcon from "./GenderIcon";
+// CUSTOM: begin
 import {
   faLink,
   faTag,
@@ -27,6 +28,7 @@ import {
   faArrowDown,
   faHand,
 } from "@fortawesome/free-solid-svg-icons";
+// CUSTOM: end
 import { faInstagram, faTwitter } from "@fortawesome/free-brands-svg-icons";
 import { RatingBanner } from "../Shared/RatingBanner";
 import { usePerformerUpdate } from "src/core/StashService";
@@ -36,10 +38,12 @@ import { PatchComponent } from "src/patch";
 import { ExternalLinksButton } from "../Shared/ExternalLinksButton";
 import { useConfigurationContext } from "src/hooks/Config";
 import { OCounterButton } from "../Shared/CountButton";
+// CUSTOM: begin
 import { PerformerCategoryStrip } from "./PerformerDetails/PerformerCategoryStrip";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import goateeSvg from "src/assets/goatee.svg";
+// CUSTOM: end
 
 export interface IPerformerCardExtraCriteria {
   scenes?: ModifierCriterion<CriterionValue>[];
@@ -58,15 +62,18 @@ interface IPerformerCardProps {
   zoomIndex?: number;
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
   extraCriteria?: IPerformerCardExtraCriteria;
+  // CUSTOM: begin
   /** Scene ID for scene context - enables role badges based on marker roles */
   sceneId?: string;
   /** Number of performers in the scene - used to determine whether to show partner counts */
   scenePerformerCount?: number;
+  // CUSTOM: end
 }
 
 const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Popovers",
   ({ performer, extraCriteria }) => {
+    // CUSTOM: begin
     const { configuration } = useConfigurationContext();
     const roleTagIds = configuration?.ui?.roleTagIds ?? {};
 
@@ -75,6 +82,7 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     const {oralTagId} = roleTagIds;
     const {soloTagId} = roleTagIds;
     const {facialTagId} = roleTagIds;
+    // CUSTOM: end
 
     function maybeRenderScenesPopoverButton() {
       if (!performer.scene_count) return;
@@ -133,6 +141,7 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
       return <OCounterButton value={performer.o_counter} />;
     }
 
+    // CUSTOM: begin - modified tag popover (sorted, safe null checks)
     function maybeRenderTagPopoverButton() {
       // Use global performer tags for the hover popover
       const displayTags = performer.tags ?? [];
@@ -165,8 +174,9 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
         </HoverPopover>
       );
     }
+    // CUSTOM: end
 
-    // Removed Performers page green tag navigation button per request.
+    // Removed Performers page green tag navigation button per request. // CUSTOM
 
     function maybeRenderGroupsPopoverButton() {
       if (!performer.group_count) return;
@@ -185,6 +195,7 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
       );
     }
 
+    // CUSTOM: begin - sex/oral/solo/facial scene category buttons
     // Sex scenes - gay icon with top/bottom sub-counts
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     function _maybeRenderSexScenesButton() {
@@ -352,11 +363,12 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     );
 
     if (hasAnyPopover) {
+    // CUSTOM: end
       return (
         <>
           <hr />
           <ButtonGroup className="card-popovers">
-            {maybeRenderTagPopoverButton()}
+            {maybeRenderTagPopoverButton()} {/* CUSTOM: moved before scenes */}
             {maybeRenderScenesPopoverButton()}
             {maybeRenderGroupsPopoverButton()}
             {maybeRenderImagesPopoverButton()}
@@ -490,6 +502,7 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
 
 const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Details",
+  // CUSTOM: begin - added sceneId, scenePerformerCount props; scene marker roles query
   ({ performer, ageFromDate, sceneId, scenePerformerCount }) => {
     const intl = useIntl();
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -511,6 +524,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
       { age, years_old: ageL10String }
     );
 
+    // CUSTOM: begin - scene marker roles query
     // Query for scene marker roles when in scene context
     const SCENE_MARKER_ROLES_QUERY = gql`
       query PerformerSceneMarkerRoles($performer_id: ID!, $scene_id: ID!) {
@@ -528,9 +542,11 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
     });
 
     const markerRoles = rolesData?.findPerformer?.scene_marker_roles ?? [];
+    // CUSTOM: end
 
     return (
       <>
+        {/* CUSTOM: begin - modified age display + PerformerCategoryStrip */}
         {/* Age line */}
         <div className="performer-card__age">
           {age !== 0 ? ageString : "\u00A0"}
@@ -543,10 +559,12 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
           markerRoles={markerRoles}
           scenePerformerCount={scenePerformerCount}
         />
+        {/* CUSTOM: end */}
       </>
     );
   }
 );
+// CUSTOM: end
 
 const PerformerCardImage: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Image",
@@ -555,7 +573,7 @@ const PerformerCardImage: React.FC<IPerformerCardProps> = PatchComponent(
       <>
         <img
           loading="lazy"
-          decoding="async"
+          decoding="async" // CUSTOM
           className="performer-card-image"
           alt={performer.name ?? ""}
           src={performer.image_path ?? ""}
@@ -576,7 +594,7 @@ const PerformerCardTitle: React.FC<IPerformerCardProps> = PatchComponent(
             {` (${performer.disambiguation})`}
           </span>
         )}
-        {/* Age and scene-tag strip moved to details to align with the gender icon */}
+        {/* CUSTOM: Age and scene-tag strip moved to details to align with the gender icon */}
       </div>
     );
   }
@@ -594,6 +612,7 @@ export const PerformerCard: React.FC<IPerformerCardProps> = PatchComponent(
       zoomIndex,
     } = props;
 
+    // CUSTOM: begin - rating class for metallic card styling
     // Determine rating class for special styling
     // Only apply on non-home pages (exclude /scenes, /images, /galleries, etc. when viewed from home)
     const getRatingClass = () => {
@@ -609,10 +628,11 @@ export const PerformerCard: React.FC<IPerformerCardProps> = PatchComponent(
       if (performer.rating100 === 60) return "rating-3-stars";
       return "";
     };
+    // CUSTOM: end
 
     return (
       <GridCard
-        className={`performer-card zoom-${zoomIndex} ${getRatingClass()}`}
+        className={`performer-card zoom-${zoomIndex} ${getRatingClass()}`} // CUSTOM: added getRatingClass()
         url={`/performers/${performer.id}`}
         width={cardWidth}
         pretitleIcon={

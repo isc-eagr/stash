@@ -23,6 +23,7 @@
     opacity: 1;
   }
 
+  /* CUSTOM: begin - scene category count buttons */
   .scene-category-count {
     display: inline-flex;
     align-items: center;
@@ -96,9 +97,11 @@
       }
     }
   }
+  /* CUSTOM: end */
 }
 
 #studio-page {
+  /* CUSTOM: begin - detail header image wrapper */
   .detail-header-image-wrapper {
     float: left;
     height: 100%;
@@ -122,6 +125,7 @@
       justify-content: center;
     }
   }
+  /* CUSTOM: end */
 
   .studio-head {
     .name-icons {
@@ -135,6 +139,7 @@
     }
   }
 
+  /* CUSTOM: begin - studio category strip */
   .studio-category-strip {
     .scene-category-count {
       display: inline-flex;
@@ -210,6 +215,7 @@
       }
     }
   }
+  /* CUSTOM: end */
 
   .rating-number .text-input {
     width: auto;

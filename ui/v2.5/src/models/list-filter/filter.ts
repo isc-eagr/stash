@@ -10,9 +10,9 @@ import { getFilterOptions } from "./factory";
 import { CriterionType, DisplayMode, SavedUIOptions } from "./types";
 import { ListFilterOptions } from "./filter-options";
 import { CustomFieldsCriterion } from "./criteria/custom-fields";
-import { MarkerTagsCriterion } from "./criteria/marker-tags";
-import { MarkerTopCriterion } from "./criteria/marker-top";
-import { MarkerBottomCriterion } from "./criteria/marker-bottom";
+import { MarkerTagsCriterion } from "./criteria/marker-tags"; // CUSTOM
+import { MarkerTopCriterion } from "./criteria/marker-top"; // CUSTOM
+import { MarkerBottomCriterion } from "./criteria/marker-bottom"; // CUSTOM
 
 interface IDecodedParams {
   perPage?: number;
@@ -434,22 +434,25 @@ export class ListFilterModel {
     return query.join("&");
   }
 
+// CUSTOM: begin
   /**
    * Map of old criterion type names to new type names for backwards compatibility.
    * When URLs or saved filters use old type names, they'll be migrated to new ones.
    */
-  private static readonly TYPE_MIGRATIONS: Record<string, CriterionType> = {
+  private static readonly TYPE_MIGRATIONS: Record<string, CriterionType> = {   
     marker_giver: "marker_top" as CriterionType,
     marker_receiver: "marker_bottom" as CriterionType,
   };
+  // CUSTOM: end
 
   public makeCriterion(type: CriterionType) {
     const { criterionOptions } = getFilterOptions(this.mode);
 
-    // Apply type migrations for backwards compatibility
+    // CUSTOM: begin - Apply type migrations for backwards compatibility
     const migratedType = ListFilterModel.TYPE_MIGRATIONS[type] ?? type;
 
     const option = criterionOptions.find((o) => o.type === migratedType);
+    // CUSTOM: end
 
     if (!option) {
       return new UnsupportedCriterionOption(type).makeCriterion(this.config);
@@ -474,12 +477,14 @@ export class ListFilterModel {
       c.applyToCriterionInput(output);
     }
 
-    // Aggregate marker-related criteria into scene_marker_tags structure
+    // CUSTOM: begin - Aggregate marker-related criteria into scene_marker_tags structure
     this.aggregateMarkerCriteria(output);
+    // CUSTOM: end
 
     return output;
   }
 
+  // CUSTOM: begin
   /**
    * Aggregates the new marker filter criteria (MarkerTagsCriterion, MarkerTopCriterion,
    * MarkerBottomCriterion, ExcludeMarkerTagsCriterion) into the scene_marker_tags
@@ -665,6 +670,7 @@ export class ListFilterModel {
       output.scene_marker_tags = sceneMarkerTags;
     }
   }
+  // CUSTOM: end
 
   // TODO - this needs to just use makeFilter, but it needs a migration
   public makeSavedFilter() {
@@ -733,6 +739,7 @@ export class ListFilterModel {
     return ret;
   }
 
+  // CUSTOM: begin
   /**
    * Remove a criterion by its unique ID (from getId()).
    * Also handles cascade deletion for marker filter groups:
@@ -768,6 +775,7 @@ export class ListFilterModel {
     ret.currentPage = 1;
     return ret;
   }
+  // CUSTOM: end
 
   public removeCustomFieldCriterion(type: CriterionType, index: number) {
     const ret = this.clone();

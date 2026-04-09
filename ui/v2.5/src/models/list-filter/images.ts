@@ -12,7 +12,7 @@ import { PathCriterionOption } from "./criteria/path";
 import { PerformersCriterionOption } from "./criteria/performers";
 import {
   RatingCriterionOption,
-  PerformerRatingCriterionOption,
+  PerformerRatingCriterionOption, // CUSTOM
 } from "./criteria/rating";
 import { ResolutionCriterionOption } from "./criteria/resolution";
 import { OrientationCriterionOption } from "./criteria/orientation";
@@ -27,10 +27,10 @@ import { GalleriesCriterionOption } from "./criteria/galleries";
 import { PhashCriterionOption } from "./criteria/phash";
 import { CustomFieldsCriterionOption } from "./criteria/custom-fields";
 import { FolderCriterionOption } from "./criteria/folder";
-import { EthnicityCriterionOption } from "./criteria/ethnicity";
-import { CriterionModifier } from "src/core/generated-graphql";
-import { ModifierCriterionOption } from "./criteria/criterion";
-import { CountryCriterion } from "./criteria/country";
+import { EthnicityCriterionOption } from "./criteria/ethnicity"; // CUSTOM
+import { CriterionModifier } from "src/core/generated-graphql"; // CUSTOM
+import { ModifierCriterionOption } from "./criteria/criterion"; // CUSTOM
+import { CountryCriterion } from "./criteria/country"; // CUSTOM
 
 const defaultSortBy = "path";
 
@@ -73,6 +73,7 @@ const criterionOptions = [
   ImageIsMissingCriterionOption,
   TagsCriterionOption,
   RatingCriterionOption,
+  // CUSTOM: begin
   EthnicityCriterionOption,
   new ModifierCriterionOption({
     messageID: "performer_country",
@@ -89,6 +90,7 @@ const criterionOptions = [
       new CountryCriterion(o as unknown as ModifierCriterionOption),
   }),
   PerformerRatingCriterionOption,
+  // CUSTOM: end
   createMandatoryNumberCriterionOption("tag_count"),
   PerformerTagsCriterionOption,
   PerformersCriterionOption,

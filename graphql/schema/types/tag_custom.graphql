@@ -1,0 +1,16 @@
+# CUSTOM: All custom Tag queries and types.
+# This file uses 'extend type' to add queries related to tags
+# without modifying the upstream tag.graphql file.
+# See CUSTOM_FEATURES.md for documentation.
+
+type PerformerTagSceneCount {
+  tag_id: ID!
+  count: Int!
+}
+
+extend type Query {
+  performerTagSceneCounts(
+    performer_id: ID!
+    tag_ids: [ID!]!
+  ): [PerformerTagSceneCount!]!
+}

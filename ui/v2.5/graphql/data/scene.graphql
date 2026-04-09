@@ -6,7 +6,7 @@ fragment SceneData on Scene {
   director
   urls
   date
-  effective_date
+  effective_date # CUSTOM
   rating100
   o_counter
   organized
@@ -50,9 +50,11 @@ fragment SceneData on Scene {
     ...SlimGalleryData
   }
 
+  # CUSTOM: begin
   direct_galleries {
     ...SlimGalleryData
   }
+  # CUSTOM: end
 
   studio {
     ...SlimStudioData
@@ -87,6 +89,7 @@ fragment SceneData on Scene {
 
   custom_fields
 
+  # CUSTOM: begin
   multi_segment_loop_presets {
     id
     scene_id
@@ -114,8 +117,10 @@ fragment SceneData on Scene {
   releases {
     ...SceneReleaseData
   }
+  # CUSTOM: end
 }
 
+# CUSTOM: begin
 fragment SceneReleaseData on SceneRelease {
   id
   title
@@ -145,6 +150,7 @@ fragment SceneReleaseData on SceneRelease {
     label
   }
 }
+# CUSTOM: end
 
 fragment SelectSceneData on Scene {
   id

@@ -19,6 +19,7 @@ func CountByStudioID(ctx context.Context, r models.PerformerQueryer, id int, dep
 	return r.QueryCount(ctx, filter, nil)
 }
 
+// CUSTOM: begin - CountUniqueByStudioID counts performers with exactly 1 scene for a studio
 func CountUniqueByStudioID(ctx context.Context, r models.PerformerQueryer, id int, depth *int) (int, error) {
 	filter := &models.PerformerFilterType{
 		Studios: &models.HierarchicalMultiCriterionInput{
@@ -34,6 +35,8 @@ func CountUniqueByStudioID(ctx context.Context, r models.PerformerQueryer, id in
 
 	return r.QueryCount(ctx, filter, nil)
 }
+
+// CUSTOM: end
 
 func CountByGroupID(ctx context.Context, r models.PerformerQueryer, id int, depth *int) (int, error) {
 	filter := &models.PerformerFilterType{

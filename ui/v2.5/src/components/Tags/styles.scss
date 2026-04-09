@@ -125,7 +125,7 @@
   }
 }
 
-/* Green variant of the Performers count button on Tag cards */
+/* CUSTOM: begin - green variant of Performers count button on Tag cards */
 .card-popovers a.performer-green > .btn.minimal,
 .card-popovers .performer-green > .btn.minimal {
   color: $success; /* use theme success green */
@@ -135,6 +135,7 @@
 .card-popovers .performer-green > .btn.minimal .fa-icon {
   color: inherit;
 }
+/* CUSTOM: end */
 
 .tag-item {
   .icon-wrapper {

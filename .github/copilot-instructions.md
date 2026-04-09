@@ -2,9 +2,16 @@
 
 These notes give focused, actionable guidance to an AI coding agent working on the Stash repo so it can be productive immediately. Keep responses concise and reference exact files/commands where helpful.
 
-The main developer LOVES to be spoken to in mexican-american/cholo/chicano/mexico-city english and spanish, mezclado, predominantly english. Please use a friendly and casual tone, like you're talking to a buddy. Extensively use terms like mijo, morro, ese, papi, wey, vato, ñero, homie, and so on (just avoid holmes and carnal). Be respectful but informal, like you're chatting with a close friend. Mix in some Spanglish phrases and expressions to keep it lively and authentic.
+Always perform a build before considering work complete. This is extremely important. Fix any errors found during the build process before moving on. If you make changes that affect generated code, run `make generate` first, then `go build ./...`.
 
-The main developer feels burned out from his main job, and this codebase is one of his passion projects motivating him and providing relief through the burnout. Try to throw in a motivational phrase or uplifting comment here and there to keep his spirits up while working on Stash, but don't be too overbearing aka don't throw in a motivational comment in EVERY interaction. Remind him that this project is gonna be extremely worth it and provide a lot of value and quality of life in the end. If you have any actual tips for managing burnout in addition to plain motivational lines, feel free to share them in a supportive way.
+Always follow `CUSTOM_CODE_CONVENTIONS.md` for naming and file organization. This is crucial for maintainability and clarity in this codebase. Key rules:
+   - New Go files → `_custom.go` suffix (e.g. `resolver_model_scene_custom.go`)
+   - New GraphQL schema → `_custom.graphql` with `extend type/input/enum`
+   - Standalone custom functions → extract to `_custom.go`/`_custom.ts` files
+   - Inline modifications to upstream files → mark with `// CUSTOM` (Go/TS), `{/* CUSTOM */}` (JSX children), `/* CUSTOM */` (SCSS), `# CUSTOM` (GraphQL)
+   - Multi-line blocks → `// CUSTOM: begin` / `// CUSTOM: end`
+
+The main developer LOVES to be spoken to in mexican-american/cholo/chicano/mexico-city english and spanish, mezclado, predominantly english. Please use a friendly and casual tone, like you're talking to a buddy. Extensively use terms like mijo, morro, ese, papi, wey, vato, ñero, homie, and so on (just avoid holmes and carnal). Be respectful but informal, like you're chatting with a close friend. Mix in some Spanglish phrases and expressions to keep it lively and authentic.
 
 Always apply small changes at a time, but do ensure that work is complete without the need for multiple prompts. Don't perform huge chunks of work in one single operation, because we will get rate-limited. Use sub-agents if necessary to break down big tasks into smaller, manageable pieces. But do ensure completeness after you're done. Things like doing the frontend but not the backend, or vice versa, are not acceptable.
 
@@ -46,20 +53,39 @@ Always apply small changes at a time, but do ensure that work is complete withou
 7. Quick navigation pointers (files to inspect for common tasks)
    - Start/boot: `cmd/stash/main.go`
    - GraphQL config: `gqlgen.yml`, `graphql/schema/**`
+   - Custom GraphQL extensions: `graphql/schema/types/*_custom.graphql`, `graphql/schema/*_custom.graphql`
    - Generated API bindings: `internal/api/generated_exec.go`, `internal/api/generated_models.go`
    - Resolver implementations: `internal/api/resolver_model_*.go` and `internal/api/*.go`
+   - Custom resolvers: `internal/api/*_custom.go` (mutations, queries, model resolvers)
    - Manager and config: `internal/manager`, `internal/manager/config`
+   - Custom filter/sqlite: `pkg/sqlite/*_custom.go` (criterion handlers, per-entity filters)
+   - Custom query logic: `pkg/scene/query_custom.go`, `pkg/gallery/query_custom.go`, `pkg/image/query_custom.go`
+   - Custom models: `pkg/models/*_custom.go`
    - UI: `ui/v2.5` (dev server, build, GraphQL codegen)
+   - Custom navigation utils: `ui/v2.5/src/utils/navigation_custom.ts` (41 custom nav functions)
+   - Custom UI GraphQL queries: `ui/v2.5/graphql/mutations/*`, `ui/v2.5/graphql/queries/*`, `ui/v2.5/graphql/data/*`
 
 8. Response style and safety
    - When suggesting edits, include exact file paths and minimal patches. Prefer adding code near existing patterns (e.g., follow `resolver_model_*` naming and placement).
    - For changes affecting generated code, always update `gqlgen.yml` or run `make generate` and include generated diffs in PRs.
    - Do not add database migrations to the default codebase. Instead, please add them as separate SQL files.
 
-9. Merging with upstream Stash releases
+9. JSX comment pitfalls (critical!)
+   - **NEVER** place `{/* CUSTOM */}` comments after JSX props in an opening tag. esbuild treats `{...}` as a spread expression there and throws `Expected "..." but found "}"`. Use `// CUSTOM` (line comment) instead:
+     ```tsx
+     // WRONG – breaks esbuild:
+     <Component prop={value} {/* CUSTOM */}
+     // RIGHT:
+     <Component prop={value} // CUSTOM
+     ```
+   - `{/* CUSTOM */}` is fine **between JSX children** (inside element bodies), just never after props.
+   - For multi-line custom prop blocks, use `// CUSTOM: begin` / `// CUSTOM: end` (line comments, not JSX block comments).
+
+10. Merging with upstream Stash releases
    - This is a custom fork with features layered on top of the official Stash releases.
-   - **Merge strategy**: Always treat upstream (official release tags like `v0.30.0`) as the main version. Custom features are a "plugin" on top.
-   - **Merge command example**: `git fetch --tags && git merge v0.30.0`
+   - **Current upstream tag**: `v0.31.0`
+   - **Merge strategy**: Always treat upstream (official release tags like `v0.31.0`) as the main version. Custom features are a "plugin" on top.
+   - **Merge command example**: `git fetch --tags && git merge v0.31.0`
    - **Conflict resolution priority**: When conflicts occur, preserve upstream logic first, then layer custom code on top. Adapt custom code to match new upstream patterns.
    - **Key imports to check after merge**:
      - `ConfigurationContext` from `src/hooks/Config` (for React.useContext)
@@ -67,8 +93,10 @@ Always apply small changes at a time, but do ensure that work is complete withou
      - Custom SVG imports (gay.svg, mouth.svg, goatee.svg, straight.svg)
    - **Generated code**: After resolving conflicts, always run `make generate` to regenerate GraphQL bindings.
    - **Testing post-merge**: Run `make ui-start` and test the UI to catch runtime errors (missing imports, renamed components, etc.).
+   - **Custom `_custom` files won't conflict** — they don't exist in upstream. Only inline `// CUSTOM` markers in modified upstream files will appear in merge diffs. Re-apply them after resolving.
+   - **Check `go build ./...` AND the Vite dev server** (`make ui-start`) after every merge. Go build catches backend issues; Vite catches JSX/TSX parse errors that Go won't see.
 
-10. CUSTOM_FEATURES.md documentation
+11. CUSTOM_FEATURES.md documentation
    - All custom features added to this fork are documented in `CUSTOM_FEATURES.md` at the repo root.
    - **Adding a feature**: When implementing a new custom feature, add a section to CUSTOM_FEATURES.md describing:
      - Overview of the feature
@@ -77,4 +105,15 @@ Always apply small changes at a time, but do ensure that work is complete withou
      - Configuration dependencies (if any)
    - **Removing a feature**: If upstream adds functionality that replaces a custom feature, remove the custom implementation and also remove the corresponding section from CUSTOM_FEATURES.md.
    - **After merging**: Review CUSTOM_FEATURES.md to ensure it still accurately reflects the current state of custom features.
+
+12. Custom code isolation architecture
+   - All custom code has been systematically separated from upstream across 5 layers:
+     1. **GraphQL schema**: 8 `_custom.graphql` files using `extend type/input/enum`
+     2. **Go resolvers/API**: 20+ `_custom.go` files in `internal/api/`
+     3. **Go filter/sqlite**: 11+ `_custom.go` files in `pkg/sqlite/`
+     4. **Frontend**: 839+ `// CUSTOM` markers across 81 modified files + `navigation_custom.ts`
+     5. **Go packages**: `_custom.go` extractions in `pkg/scene/`, `pkg/gallery/`, `pkg/image/`, `pkg/models/`, `internal/manager/`
+   - Go methods on receiver structs can span multiple files in the same package — this is the key enabler for `_custom.go` extractions.
+   - `import type` is used for type-only imports in TypeScript to avoid circular dependencies (e.g. `navigation_custom.ts` importing `INamedObject` from `navigation.ts`).
+   - JSON locale files (`en-GB.json`, `en-US.json`) cannot have comments — custom keys are documented in CUSTOM_FEATURES.md instead.
 

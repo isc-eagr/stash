@@ -16,7 +16,7 @@ type Service struct {
 	File                   models.FileReaderWriter
 	Repository             models.SceneReaderWriter
 	MarkerRepository       models.SceneMarkerReaderWriter
-	SceneReleaseRepository models.SceneReleaseReaderWriter
+	SceneReleaseRepository models.SceneReleaseReaderWriter // CUSTOM
 	PluginCache            *plugin.Cache
 
 	Paths  *paths.Paths

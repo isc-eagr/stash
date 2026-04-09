@@ -118,6 +118,7 @@ mutation SceneAssignFile($input: AssignSceneFileInput!) {
   sceneAssignFile(input: $input)
 }
 
+# CUSTOM: begin
 mutation SaveSceneMultiSegmentLoopPreset(
   $input: SceneMultiSegmentLoopPresetInput!
 ) {
@@ -171,6 +172,7 @@ mutation SceneNegativeMarkerUpdate(
 mutation SceneNegativeMarkerDestroy($id: ID!) {
   sceneNegativeMarkerDestroy(id: $id)
 }
+# CUSTOM: end
 
 mutation SceneMerge($input: SceneMergeInput!) {
   sceneMerge(input: $input) {

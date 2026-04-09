@@ -8,7 +8,7 @@ const (
 	galleryKey key = 0
 	performerKey
 	sceneKey
-	sceneReleaseKey
+	sceneReleaseKey // CUSTOM: scene release routes
 	studioKey
 	groupKey
 	tagKey
