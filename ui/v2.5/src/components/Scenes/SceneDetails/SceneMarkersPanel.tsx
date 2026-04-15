@@ -1,17 +1,21 @@
-import React, { useState, useEffect } from "react";
-import { Button } from "react-bootstrap";
+import React, { useMemo, useState, useEffect, useCallback } from "react"; // CUSTOM: added useMemo, useCallback
+import { Button, Form } from "react-bootstrap"; // CUSTOM: added Form
 import { FormattedMessage } from "react-intl";
 import Mousetrap from "mousetrap";
 import * as GQL from "src/core/generated-graphql";
-import { MarkerWallPanel } from "src/components/Wall/WallPanel";
 import { PrimaryTags } from "./PrimaryTags";
 import { SceneMarkerForm } from "./SceneMarkerForm";
+// CUSTOM: begin
+import { markerTitle } from "src/core/markers";
+import type { ILoopSegmentInput } from "src/components/ScenePlayer/multi-segment-loop";
+// CUSTOM: end
 
 interface ISceneMarkersPanelProps {
   sceneId: string;
   isVisible: boolean;
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   onLoopMarker: (marker: GQL.SceneMarkerDataFragment) => void;
+  addMultiSegmentLoopSegments: (segments: ILoopSegmentInput[]) => void; // CUSTOM
 }
 
 export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
@@ -19,6 +23,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   isVisible,
   onClickMarker,
   onLoopMarker,
+  addMultiSegmentLoopSegments, // CUSTOM
 }) => {
   const { data, loading } = GQL.useFindSceneMarkerTagsQuery({
     variables: { id: sceneId },
@@ -26,6 +31,34 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
   const [editingMarker, setEditingMarker] =
     useState<GQL.SceneMarkerDataFragment>();
+  // CUSTOM: begin – expandable cards, selection state, memoized callbacks & markers
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>(
+    {}
+  );
+
+  const [selectedMarkerIds, setSelectedMarkerIds] = useState<Set<string>>(
+    () => new Set()
+  );
+
+  const onOpenEditor = useCallback((marker?: GQL.SceneMarkerDataFragment) => {
+    setIsEditorOpen(true);
+    setEditingMarker(marker ?? undefined);
+  }, []);
+
+  const closeEditor = useCallback(() => {
+    setEditingMarker(undefined);
+    setIsEditorOpen(false);
+  }, []);
+
+  const sceneMarkers = useMemo(
+    () =>
+      (data?.sceneMarkerTags.map((tag) => tag.scene_markers) ?? []).reduce(
+        (prev, current) => [...prev, ...current],
+        [] as GQL.SceneMarkerDataFragment[]
+      ),
+    [data?.sceneMarkerTags]
+  );
+  // CUSTOM: end
 
   // set up hotkeys
   useEffect(() => {
@@ -38,19 +71,65 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     };
   });
 
-  if (loading) return null;
+  // CUSTOM: begin – marker selection & multi-segment loop
+  // Keep selection in sync with currently-loaded markers
+  useEffect(() => {
+    const validIDs = new Set(sceneMarkers.map((m) => m.id));
+    setSelectedMarkerIds((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (validIDs.has(id)) next.add(id);
+      });
+      return next;
+    });
+  }, [sceneMarkers]);
 
-  function onOpenEditor(marker?: GQL.SceneMarkerDataFragment) {
-    setIsEditorOpen(true);
-    setEditingMarker(marker ?? undefined);
-  }
+  const totalMarkerCount = sceneMarkers.length;
+  const allSelected =
+    totalMarkerCount > 0 && selectedMarkerIds.size === totalMarkerCount;
 
-  const closeEditor = () => {
-    setEditingMarker(undefined);
-    setIsEditorOpen(false);
-  };
+  const setManySelected = useCallback((ids: string[], selected: boolean) => {
+    setSelectedMarkerIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => {
+        if (selected) next.add(id);
+        else next.delete(id);
+      });
+      return next;
+    });
+  }, []);
 
-  if (isEditorOpen)
+  const toggleSingle = useCallback((id: string, selected: boolean) => {
+    setSelectedMarkerIds((prev) => {
+      const next = new Set(prev);
+      if (selected) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const onMoveSelectionToMultiLoop = useCallback(() => {
+    if (selectedMarkerIds.size === 0) return;
+
+    const selectedMarkers = sceneMarkers
+      .filter((m) => selectedMarkerIds.has(m.id))
+      .sort((a, b) => a.seconds - b.seconds);
+
+    const segments: ILoopSegmentInput[] = selectedMarkers.map((m) => {
+      const start = m.seconds;
+      const endRaw = m.end_seconds ?? m.seconds + 20;
+      const end = endRaw > start ? endRaw : start + 1;
+      const title = markerTitle(m);
+      return { start, end, title };
+    });
+
+    addMultiSegmentLoopSegments(segments);
+    setSelectedMarkerIds(new Set());
+  }, [addMultiSegmentLoopSegments, sceneMarkers, selectedMarkerIds]);
+  // CUSTOM: end
+
+  if (isEditorOpen) {
     return (
       <SceneMarkerForm
         sceneID={sceneId}
@@ -58,32 +137,59 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
         onClose={closeEditor}
       />
     );
+  }
 
-  const sceneMarkers = (
-    data?.sceneMarkerTags.map((tag) => tag.scene_markers) ?? []
-  ).reduce((prev, current) => [...prev, ...current], []);
+  if (loading) return null;
 
   return (
     <div className="scene-markers-panel">
-      <Button onClick={() => onOpenEditor()}>
-        <FormattedMessage id="actions.create_marker" />
-      </Button>
+      {/* CUSTOM: begin – toolbar with loop button & select-all */}
+      <div className="d-flex align-items-center justify-content-between mb-2">
+        <div className="d-flex align-items-center" style={{ gap: "0.75rem" }}>
+          <Button onClick={() => onOpenEditor()}>
+            <FormattedMessage id="actions.create_marker" />
+          </Button>
+
+          <Button
+            disabled={selectedMarkerIds.size === 0}
+            onClick={onMoveSelectionToMultiLoop}
+          >
+            Add to Loop
+          </Button>
+        </div>
+
+        <Form.Check
+          className="mb-0"
+          type="checkbox"
+          // label={intl.formatMessage({ id: "actions.select_all" })}
+          checked={allSelected}
+          disabled={totalMarkerCount === 0}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            setManySelected(
+              sceneMarkers.map((m) => m.id),
+              e.currentTarget.checked
+            )
+          }
+        />
+      </div>
+      {/* CUSTOM: end */}
       <div className="container">
         <PrimaryTags
           sceneMarkers={sceneMarkers}
           onClickMarker={onClickMarker}
           onLoopMarker={onLoopMarker}
           onEdit={onOpenEditor}
+          // CUSTOM: begin – expandable card & selection props
+          expandedCards={expandedCards}
+          onToggleCard={(id: string) =>
+            setExpandedCards((prev) => ({ ...prev, [id]: !prev[id] }))
+          }
+          selectedMarkerIds={selectedMarkerIds}
+          onSelectMarker={toggleSingle}
+          onSelectMarkers={setManySelected}
+          // CUSTOM: end
         />
       </div>
-      <MarkerWallPanel
-        markers={sceneMarkers}
-        clickHandler={(e, marker) => {
-          e.preventDefault();
-          window.scrollTo(0, 0);
-          onClickMarker(marker);
-        }}
-      />
     </div>
   );
 };

@@ -666,9 +666,15 @@ var studioSortOptions = sortOptions{
 	"images_count",
 	"latest_scene",
 	"name",
+	"o_count", // CUSTOM
 	"scenes_count",
 	"scenes_duration",
 	"scenes_size",
+	"sex_scenes_count",        // CUSTOM
+	"oral_scenes_count",       // CUSTOM
+	"solo_scenes_count",       // CUSTOM
+	"facial_scenes_count",     // CUSTOM
+	"unique_performers_count", // CUSTOM
 	"random",
 	"rating",
 	"tag_count",
@@ -709,6 +715,18 @@ func (qb *StudioStore) getStudioSort(findFilter *models.FindFilterType) (string,
 		sortQuery += getCountSort(studioTable, studioTable, studioParentIDColumn, direction)
 	case "latest_scene":
 		sortQuery += qb.sortByLatestScene(direction)
+	case "sex_scenes_count": // CUSTOM
+		sortQuery += qb.sortBySexSceneCount(direction)
+	case "oral_scenes_count": // CUSTOM
+		sortQuery += qb.sortByOralSceneCount(direction)
+	case "solo_scenes_count": // CUSTOM
+		sortQuery += qb.sortBySoloSceneCount(direction)
+	case "facial_scenes_count": // CUSTOM
+		sortQuery += qb.sortByFacialSceneCount(direction)
+	case "o_count": // CUSTOM
+		sortQuery += qb.sortByOCount(direction)
+	case "unique_performers_count": // CUSTOM
+		sortQuery += qb.sortByUniquePerformerCount(direction)
 	default:
 		sortQuery += getSort(sort, direction, "studios")
 	}

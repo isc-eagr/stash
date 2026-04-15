@@ -1,0 +1,18 @@
+type MarkerPlaylist {
+  id: ID!
+  name: String!
+  marker_ids: [ID!]!
+  created_at: Time!
+  updated_at: Time!
+}
+
+input MarkerPlaylistCreateInput {
+  name: String!
+  marker_ids: [ID!]!
+}
+
+input MarkerPlaylistUpdateInput {
+  id: ID!
+  name: String
+  marker_ids: [ID!]
+}

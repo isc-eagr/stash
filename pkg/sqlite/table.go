@@ -225,6 +225,28 @@ func (t *joinTable) insertJoins(ctx context.Context, id int, foreignIDs []int) e
 }
 
 func (t *joinTable) replaceJoins(ctx context.Context, id int, foreignIDs []int) error {
+	// CUSTOM: get existing foreign keys so we can determine which ones were removed
+	existing, err := t.get(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	// compute removed = existing - foreignIDs
+	var removed []int
+	for _, e := range existing {
+		found := false
+		for _, n := range foreignIDs {
+			if e == n {
+				found = true
+				break
+			}
+		}
+		if !found {
+			removed = append(removed, e)
+		}
+	}
+	// END CUSTOM
+
 	if err := t.destroy(ctx, []int{id}); err != nil {
 		return err
 	}

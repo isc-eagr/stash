@@ -117,19 +117,24 @@ func (db *Database) IsLocked(err error) bool {
 
 func (db *Database) Repository() models.Repository {
 	return models.Repository{
-		TxnManager:     db,
-		Blob:           db.Blobs,
-		File:           db.File,
-		Folder:         db.Folder,
-		Gallery:        db.Gallery,
-		GalleryChapter: db.GalleryChapter,
-		Image:          db.Image,
-		Group:          db.Group,
-		Performer:      db.Performer,
-		Scene:          db.Scene,
-		SceneMarker:    db.SceneMarker,
-		Studio:         db.Studio,
-		Tag:            db.Tag,
-		SavedFilter:    db.SavedFilter,
+		TxnManager:          db,
+		Blob:                db.Blobs,
+		Blobs:               db.Blobs, // CUSTOM
+		File:                db.File,
+		Folder:              db.Folder,
+		Gallery:             db.Gallery,
+		GalleryChapter:      db.GalleryChapter,
+		Image:               db.Image,
+		Group:               db.Group,
+		Performer:           db.Performer,
+		PerformerImage:      db.PerformerImage, // CUSTOM
+		Scene:               db.Scene,
+		SceneLoopPreset:     db.SceneLoopPreset,     // CUSTOM
+		SceneNegativeMarker: db.SceneNegativeMarker, // CUSTOM
+		SceneMarker:         db.SceneMarker,
+		SceneRelease:        db.SceneRelease, // CUSTOM
+		Studio:              db.Studio,
+		Tag:                 db.Tag,
+		SavedFilter:         db.SavedFilter,
 	}
 }

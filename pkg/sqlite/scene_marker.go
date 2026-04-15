@@ -89,8 +89,9 @@ func (r *sceneMarkerRowRecord) fromPartial(o models.SceneMarkerPartial) {
 type sceneMarkerRepositoryType struct {
 	repository
 
-	scenes repository
-	tags   joinRepository
+	scenes     repository
+	tags       joinRepository
+	performers joinRepository // CUSTOM
 }
 
 var (
@@ -110,6 +111,13 @@ var (
 			},
 			fkColumn: tagIDColumn,
 		},
+		performers: joinRepository{ // CUSTOM
+			repository: repository{
+				tableName: "scene_marker_performers",
+				idColumn:  "scene_marker_id",
+			},
+			fkColumn: performerIDColumn,
+		}, // END CUSTOM
 	}
 )
 

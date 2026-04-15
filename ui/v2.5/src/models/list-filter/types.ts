@@ -177,6 +177,7 @@ export type CriterionType =
   | "scene_count"
   | "marker_count"
   | "image_count"
+  | "profile_image_count" // CUSTOM
   | "gallery_count"
   | "performer_count"
   | "studio_count"
@@ -204,12 +205,19 @@ export type CriterionType =
   | "performer_favorite"
   | "favorite"
   | "performer_age"
+  | "performer_country" // CUSTOM
+  | "performer_ethnicity" // CUSTOM
+  | "performer_rating" // CUSTOM
+  | "scene_marker_tags" // CUSTOM
   | "duplicated"
   | "ignore_auto_tag"
   | "file_count"
+  | "release_count" // CUSTOM
   | "stash_id_endpoint"
   | "stash_id_count"
+  | "marker_tags" // CUSTOM
   | "date"
+  | "effective_date" // CUSTOM
   | "created_at"
   | "updated_at"
   | "birthdate"
@@ -225,4 +233,24 @@ export type CriterionType =
   | "sort_name"
   | "custom_fields"
   | "folder"
-  | "parent_folder";
+  | "parent_folder"
+  // CUSTOM: begin
+  | "custom_filters"
+  | "marker_performers"
+  | "has_marker_performers"
+  | "marker_tags_with_performers"
+  | "performer_markers"
+  | "performer_marker_tags"
+  | "performer_marker_partners"
+  | "scene_director"
+  | "has_end_time"
+  | "marker_length"
+  | "scene_performer_count"
+  | "marker_top"
+  | "marker_bottom"
+  | "marker_giver" // Legacy - migrates to marker_top
+  | "marker_receiver" // Legacy - migrates to marker_bottom
+  | "exclude_marker_tags"
+  | "has_roles"
+  | "scene_type";
+  // CUSTOM: end

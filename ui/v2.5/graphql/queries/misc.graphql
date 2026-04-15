@@ -22,6 +22,12 @@ query Stats {
     total_play_duration
     total_play_count
     scenes_played
+    # CUSTOM: begin
+    sex_scene_count
+    oral_scene_count
+    solo_scene_count
+    facial_scene_count
+    # CUSTOM: end
   }
 }
 
@@ -46,3 +52,26 @@ query LatestVersion {
     url
   }
 }
+
+# CUSTOM: begin
+# Distinct performer ethnicities for filters
+query PerformerEthnicities {
+  performerEthnicities
+}
+
+# Performers by ethnicity for Stats page
+query PerformerEthnicityCounts {
+  performerEthnicityCounts {
+    ethnicity
+    count
+  }
+}
+
+# 5-star performers by ethnicity for Stats page
+query PerformerEthnicityFiveStarCounts {
+  performerEthnicityFiveStarCounts {
+    ethnicity
+    count
+  }
+}
+# CUSTOM: end

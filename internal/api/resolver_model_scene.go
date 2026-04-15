@@ -170,9 +170,43 @@ func (r *sceneResolver) Galleries(ctx context.Context, obj *models.Scene) (ret [
 		}
 	}
 
+	// CUSTOM: Merge release galleries with direct galleries
+	// Collect all gallery IDs (scene's direct galleries + release galleries)
+	galleryIDSet := make(map[int]struct{})
+	for _, id := range obj.GalleryIDs.List() {
+		galleryIDSet[id] = struct{}{}
+	}
+
+	// Load galleries from releases
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		releases, err := r.repository.SceneRelease.FindBySceneID(ctx, obj.ID)
+		if err != nil {
+			return err
+		}
+		for _, release := range releases {
+			releaseGalleryIDs, err := r.repository.SceneRelease.GetGalleryIDs(ctx, release.ID)
+			if err != nil {
+				return err
+			}
+			for _, gid := range releaseGalleryIDs {
+				galleryIDSet[gid] = struct{}{}
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	// Convert set to slice
+	allGalleryIDs := make([]int, 0, len(galleryIDSet))
+	for id := range galleryIDSet {
+		allGalleryIDs = append(allGalleryIDs, id)
+	}
+
 	var errs []error
-	ret, errs = loaders.From(ctx).GalleryByID.LoadAll(obj.GalleryIDs.List())
+	ret, errs = loaders.From(ctx).GalleryByID.LoadAll(allGalleryIDs)
 	return ret, firstError(errs)
+	// END CUSTOM
 }
 
 func (r *sceneResolver) Studio(ctx context.Context, obj *models.Scene) (ret *models.Studio, err error) {

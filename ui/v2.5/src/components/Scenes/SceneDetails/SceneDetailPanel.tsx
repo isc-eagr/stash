@@ -48,11 +48,14 @@ export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
   function renderPerformers() {
     if (props.scene.performers.length === 0) return;
     const performers = sortPerformers(props.scene.performers);
+
     const cards = performers.map((performer) => (
       <PerformerCard
         key={performer.id}
         performer={performer}
-        ageFromDate={props.scene.date ?? undefined}
+        ageFromDate={props.scene.effective_date ?? props.scene.date ?? undefined} // CUSTOM
+        sceneId={props.scene.id} // CUSTOM
+        scenePerformerCount={performers.length} // CUSTOM
       />
     ));
 

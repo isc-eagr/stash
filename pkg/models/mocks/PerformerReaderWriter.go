@@ -222,6 +222,52 @@ func (_m *PerformerReaderWriter) FindBySceneID(ctx context.Context, sceneID int)
 	return r0, r1
 }
 
+// FindBySceneMarkerID provides a mock function with given fields: ctx, sceneMarkerID
+func (_m *PerformerReaderWriter) FindBySceneMarkerID(ctx context.Context, sceneMarkerID int) ([]*models.Performer, error) {
+	ret := _m.Called(ctx, sceneMarkerID)
+
+	var r0 []*models.Performer
+	if rf, ok := ret.Get(0).(func(context.Context, int) []*models.Performer); ok {
+		r0 = rf(ctx, sceneMarkerID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*models.Performer)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = rf(ctx, sceneMarkerID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindBySceneMarkerIDWithRole provides a mock function with given fields: ctx, sceneMarkerID, role
+func (_m *PerformerReaderWriter) FindBySceneMarkerIDWithRole(ctx context.Context, sceneMarkerID int, role string) ([]*models.Performer, error) {
+	ret := _m.Called(ctx, sceneMarkerID, role)
+
+	var r0 []*models.Performer
+	if rf, ok := ret.Get(0).(func(context.Context, int, string) []*models.Performer); ok {
+		r0 = rf(ctx, sceneMarkerID, role)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*models.Performer)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int, string) error); ok {
+		r1 = rf(ctx, sceneMarkerID, role)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindByStashID provides a mock function with given fields: ctx, stashID
 func (_m *PerformerReaderWriter) FindByStashID(ctx context.Context, stashID models.StashID) ([]*models.Performer, error) {
 	ret := _m.Called(ctx, stashID)
@@ -370,6 +416,29 @@ func (_m *PerformerReaderWriter) GetImage(ctx context.Context, performerID int) 
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]byte)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = rf(ctx, performerID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetImageBlob provides a mock function with given fields: ctx, performerID
+func (_m *PerformerReaderWriter) GetImageBlob(ctx context.Context, performerID int) (*string, error) {
+	ret := _m.Called(ctx, performerID)
+
+	var r0 *string
+	if rf, ok := ret.Get(0).(func(context.Context, int) *string); ok {
+		r0 = rf(ctx, performerID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*string)
 		}
 	}
 
@@ -582,6 +651,20 @@ func (_m *PerformerReaderWriter) UpdateImage(ctx context.Context, performerID in
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, int, []byte) error); ok {
 		r0 = rf(ctx, performerID, image)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateImageBlob provides a mock function with given fields: ctx, performerID, blobChecksum
+func (_m *PerformerReaderWriter) UpdateImageBlob(ctx context.Context, performerID int, blobChecksum string) error {
+	ret := _m.Called(ctx, performerID, blobChecksum)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int, string) error); ok {
+		r0 = rf(ctx, performerID, blobChecksum)
 	} else {
 		r0 = ret.Error(0)
 	}

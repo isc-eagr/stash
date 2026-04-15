@@ -2,6 +2,7 @@ import {
   faChevronDown,
   faChevronUp,
   faClock,
+  faArrowRight, // CUSTOM
 } from "@fortawesome/free-solid-svg-icons";
 import React, { useMemo, useState } from "react";
 import { Button, ButtonGroup, InputGroup, Form } from "react-bootstrap";
@@ -13,6 +14,7 @@ interface IProps {
   value: number | null | undefined;
   setValue(value: number | null): void;
   onReset?(): void;
+  onSeekTo?(): void; // CUSTOM
   className?: string;
   placeholder?: string;
   error?: string;
@@ -26,6 +28,7 @@ export const DurationInput: React.FC<IProps> = ({
   value,
   setValue,
   onReset,
+  onSeekTo, // CUSTOM
   className,
   placeholder,
   error,
@@ -98,6 +101,18 @@ export const DurationInput: React.FC<IProps> = ({
     }
   }
 
+  // CUSTOM: begin
+  function maybeRenderSeekTo() {
+    if (onSeekTo) {
+      return (
+        <Button variant="secondary" onClick={() => onSeekTo()}>
+          <Icon icon={faArrowRight} />
+        </Button>
+      );
+    }
+  }
+  // CUSTOM: end
+
   const inputValue = useMemo(() => {
     if (tmpValue !== undefined) {
       return tmpValue;
@@ -127,6 +142,7 @@ export const DurationInput: React.FC<IProps> = ({
         />
         <InputGroup.Append>
           {maybeRenderReset()}
+          {maybeRenderSeekTo()} {/* CUSTOM */}
           {renderButtons()}
         </InputGroup.Append>
         <Form.Control.Feedback type="invalid">{error}</Form.Control.Feedback>

@@ -18,14 +18,26 @@ type PerformerFinder interface {
 	GetImage(ctx context.Context, performerID int) ([]byte, error)
 }
 
+// CUSTOM: performer additional images support
+type PerformerImageFinder interface {
+	models.PerformerImageGetter
+}
+
+// CUSTOM: performer additional images support
+type BlobStoreReader interface {
+	Read(ctx context.Context, checksum string) ([]byte, error)
+}
+
 type sfwConfig interface {
 	GetSFWContentMode() bool
 }
 
 type performerRoutes struct {
 	routes
-	performerFinder PerformerFinder
-	sfwConfig       sfwConfig
+	performerFinder      PerformerFinder
+	performerImageFinder PerformerImageFinder // CUSTOM: performer additional images
+	blobStore            BlobStoreReader      // CUSTOM: performer additional images
+	sfwConfig            sfwConfig
 }
 
 func (rs performerRoutes) Routes() chi.Router {
@@ -34,6 +46,11 @@ func (rs performerRoutes) Routes() chi.Router {
 	r.Route("/{performerId}", func(r chi.Router) {
 		r.Use(rs.PerformerCtx)
 		r.Get("/image", rs.Image)
+	})
+
+	// CUSTOM: performer additional images route
+	r.Route("/image/{imageId}", func(r chi.Router) {
+		r.Get("/", rs.AdditionalImage)
 	})
 
 	return r

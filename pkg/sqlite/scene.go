@@ -37,6 +37,7 @@ const (
 	sceneViewDateColumn   = "view_date"
 	scenesODatesTable     = "scenes_o_dates"
 	sceneODateColumn      = "o_date"
+	sceneMarkersTable     = "scene_markers" // CUSTOM
 
 	sceneCoverBlobColumn = "cover_blob"
 )
@@ -640,6 +641,7 @@ func (qb *SceneStore) GetManyFileIDs(ctx context.Context, ids []int) ([][]models
 }
 
 func (qb *SceneStore) FindByFileID(ctx context.Context, fileID models.FileID) ([]*models.Scene, error) {
+	// CUSTOM: First check scenes_files table
 	sq := dialect.From(scenesFilesJoinTable).Select(scenesFilesJoinTable.Col(sceneIDColumn)).Where(
 		scenesFilesJoinTable.Col(fileIDColumn).Eq(fileID),
 	)
@@ -648,6 +650,25 @@ func (qb *SceneStore) FindByFileID(ctx context.Context, fileID models.FileID) ([
 	if err != nil {
 		return nil, fmt.Errorf("getting scenes by file id %d: %w", fileID, err)
 	}
+
+	// CUSTOM: Also check scene_release_files table - if a file is part of a release, return the parent scene
+	if len(ret) > 0 {
+		return ret, nil
+	}
+
+	releaseFilesTable := goqu.T("scene_release_files")
+	releasesTable := goqu.T("scene_releases")
+
+	sqReleases := dialect.From(releaseFilesTable).
+		Select(releasesTable.Col("scene_id")).
+		InnerJoin(releasesTable, goqu.On(releaseFilesTable.Col("release_id").Eq(releasesTable.Col("id")))).
+		Where(releaseFilesTable.Col("file_id").Eq(fileID))
+
+	ret, err = qb.findBySubquery(ctx, sqReleases)
+	if err != nil {
+		return nil, fmt.Errorf("getting scenes by release file id %d: %w", fileID, err)
+	}
+	// END CUSTOM
 
 	return ret, nil
 }
@@ -826,7 +847,7 @@ func (qb *SceneStore) OCountByGroupID(ctx context.Context, groupID int) (int, er
 	return ret, nil
 }
 
-func (qb *SceneStore) OCountByStudioID(ctx context.Context, studioID int) (int, error) {
+func (qb *SceneStore) OCountByStudioID(ctx context.Context, studioID int, performerID *string) (int, error) { // CUSTOM: added performerID param
 	table := qb.table()
 	oHistoryTable := goqu.T(scenesODatesTable)
 
@@ -834,6 +855,16 @@ func (qb *SceneStore) OCountByStudioID(ctx context.Context, studioID int) (int, 
 		oHistoryTable,
 		goqu.On(table.Col(idColumn).Eq(oHistoryTable.Col(sceneIDColumn))),
 	).Where(table.Col(studioIDColumn).Eq(studioID))
+
+	// CUSTOM: If performerID is provided, filter by scenes that have this performer
+	if performerID != nil && *performerID != "" {
+		performersTable := goqu.T(performersScenesTable)
+		q = q.InnerJoin(
+			performersTable,
+			goqu.On(table.Col(idColumn).Eq(performersTable.Col(sceneIDColumn))),
+		).Where(performersTable.Col(performerIDColumn).Eq(*performerID))
+	}
+	// END CUSTOM
 
 	var ret int
 	if err := querySimple(ctx, q, &ret); err != nil {
@@ -1122,6 +1153,7 @@ var sceneSortOptions = sortOptions{
 	"created_at",
 	"code",
 	"date",
+	"effective_date", // CUSTOM
 	"file_count",
 	"filesize",
 	"duration",
@@ -1279,9 +1311,19 @@ func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindF
 			// When sorting ascending, NULLs are first by default. Coalescing to the MAX int value supported by sqlite
 			fallback = "9223372036854775807"
 		}
+		// CUSTOM: Use effective_date (min of scene date and release dates) for age calculation
+		effectiveDateExpr := fmt.Sprintf(
+			`COALESCE(
+				MIN(COALESCE(%s.date, '9999-12-31'), COALESCE((SELECT MIN(date) FROM %s WHERE scene_id = %s.id), '9999-12-31')),
+				%s.date,
+				(SELECT MIN(date) FROM %s WHERE scene_id = %s.id)
+			)`,
+			sceneTable, sceneReleaseTable, sceneTable, sceneTable, sceneReleaseTable, sceneTable,
+		)
 		query.sortAndPagination += fmt.Sprintf(
-			" ORDER BY (SELECT COALESCE(%s(JulianDay(scenes.date) - JulianDay(performers.birthdate)), %s) FROM %s as performers INNER JOIN %s AS aggregation WHERE performers.id = aggregation.%s AND aggregation.%s = %s.id) %s",
+			" ORDER BY (SELECT COALESCE(%s(JulianDay(%s) - JulianDay(performers.birthdate)), %s) FROM %s as performers INNER JOIN %s AS aggregation WHERE performers.id = aggregation.%s AND aggregation.%s = %s.id) %s",
 			aggregation,
+			effectiveDateExpr, // CUSTOM: was scenes.date
 			fallback,
 			performerTable,
 			performersScenesTable,
@@ -1293,6 +1335,19 @@ func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindF
 	case "studio":
 		query.joinSort(studioTable, "", "scenes.studio_id = studios.id")
 		query.sortAndPagination += getSort("name", direction, studioTable)
+	case "effective_date": // CUSTOM
+		// Sort by the earliest date among scene.date and release dates
+		// Use a subquery to compute the minimum
+		effectiveDateExpr := fmt.Sprintf(
+			`COALESCE(
+				MIN(COALESCE(%s.date, '9999-12-31'), COALESCE((SELECT MIN(date) FROM %s WHERE scene_id = %s.id), '9999-12-31')),
+				%s.date,
+				(SELECT MIN(date) FROM %s WHERE scene_id = %s.id)
+			)`,
+			sceneTable, sceneReleaseTable, sceneTable, sceneTable, sceneReleaseTable, sceneTable,
+		)
+		query.sortAndPagination += fmt.Sprintf(" ORDER BY %s %s", effectiveDateExpr, getSortDirection(direction))
+		// END CUSTOM
 	default:
 		query.sortAndPagination += getSort(sort, direction, "scenes")
 	}

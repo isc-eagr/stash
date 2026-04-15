@@ -97,6 +97,9 @@ func (qb *imageFilterHandler) criterionHandler() criterionHandler {
 		qb.performerTagsCriterionHandler(imageFilter.PerformerTags),
 		qb.performerFavoriteCriterionHandler(imageFilter.PerformerFavorite),
 		qb.performerAgeCriterionHandler(imageFilter.PerformerAge),
+		qb.performerEthnicityCriterionHandler(imageFilter.PerformerEthnicity),                           // CUSTOM
+		qb.performerCountryCriterionHandler(imageFilter.PerformerCountry),                               // CUSTOM
+		qb.performerRatingCriterionHandler(imageFilter.PerformerRating, imageFilter.PerformerRatingAll), // CUSTOM
 		&timestampCriterionHandler{imageFilter.CreatedAt, "images.created_at", nil},
 		&timestampCriterionHandler{imageFilter.UpdatedAt, "images.updated_at", nil},
 

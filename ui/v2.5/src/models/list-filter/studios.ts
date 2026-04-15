@@ -43,6 +43,32 @@ const sortByOptions = [
       messageID: "subsidiary_studio_count",
       value: "child_count",
     },
+    // CUSTOM: begin
+    {
+      messageID: "sex_scene_count",
+      value: "sex_scenes_count",
+    },
+    {
+      messageID: "oral_scene_count",
+      value: "oral_scenes_count",
+    },
+    {
+      messageID: "solo_scene_count",
+      value: "solo_scenes_count",
+    },
+    {
+      messageID: "facial_scene_count",
+      value: "facial_scenes_count",
+    },
+    {
+      messageID: "unique_performer_count",
+      value: "unique_performers_count",
+    },
+    {
+      messageID: "o_count",
+      value: "o_count",
+    },
+    // CUSTOM: end
   ]);
 
 const displayModeOptions = [DisplayMode.Grid, DisplayMode.Tagger];

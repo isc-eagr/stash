@@ -14,6 +14,7 @@ import {
 } from "src/core/StashService";
 import { DetailsEditNavbar } from "src/components/Shared/DetailsEditNavbar";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
+// CUSTOM: Button imported above; removed unused ButtonGroup and duplicate import of react-bootstrap
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { useToast } from "src/hooks/Toast";
 import { useConfigurationContext } from "src/hooks/Config";
@@ -26,7 +27,12 @@ import { PerformerScenesPanel } from "./PerformerScenesPanel";
 import { PerformerGalleriesPanel } from "./PerformerGalleriesPanel";
 import { PerformerGroupsPanel } from "./PerformerGroupsPanel";
 import { PerformerImagesPanel } from "./PerformerImagesPanel";
+import { PerformerMarkersPanel } from "./PerformerMarkersPanel"; // CUSTOM
 import { PerformerAppearsWithPanel } from "./performerAppearsWithPanel";
+// CUSTOM: begin
+import { PerformerAppearsWithByRolePanel } from "./PerformerAppearsWithByRolePanel";
+import { PerformerStudiosPanel } from "./PerformerStudiosPanel";
+// CUSTOM: end
 import { PerformerEditPanel } from "./PerformerEditPanel";
 import { PerformerMergeModal } from "../PerformerMergeDialog";
 import { PerformerSubmitButton } from "./PerformerSubmitButton";
@@ -50,10 +56,16 @@ import { PatchComponent } from "src/patch";
 import { ILightboxImage } from "src/hooks/Lightbox/types";
 import { goBackOrReplace } from "src/utils/history";
 import { OCounterButton } from "src/components/Shared/CountButton";
+// CUSTOM: begin
+import { PerformerCategoryStrip } from "./PerformerCategoryStrip";
+import { Counter } from "src/components/Shared/Counter";
+import { PerformerImageManager } from "./PerformerImageManager";
+// CUSTOM: end
 
 interface IProps {
   performer: GQL.PerformerDataFragment;
   tabKey?: TabKey;
+  refetch: () => Promise<any>; // CUSTOM
 }
 
 interface IPerformerParams {
@@ -67,7 +79,12 @@ const validTabs = [
   "galleries",
   "images",
   "groups",
+  // CUSTOM: begin
+  "markers",
+  "studios",
+  // CUSTOM: end
   "appearswith",
+  "appearswithbyrole", // CUSTOM
 ] as const;
 type TabKey = (typeof validTabs)[number];
 
@@ -80,6 +97,71 @@ const PerformerTabs: React.FC<{
   performer: GQL.PerformerDataFragment;
   abbreviateCounter: boolean;
 }> = ({ tabKey, performer, abbreviateCounter }) => {
+  // CUSTOM: begin - fetch studios count, markers count, co-performer count
+  // fetch count of studios where this performer has scenes
+  const { data: studiosData } = GQL.useFindStudiosQuery({
+    variables: {
+      studio_filter: {
+        scenes_filter: {
+          performers: {
+            modifier: GQL.CriterionModifier.Includes,
+            value: [performer.id],
+          },
+        },
+      },
+      // no need to fetch actual studios here; we only use the count
+      filter: { per_page: 1 },
+    },
+  });
+  const studiosCount = studiosData?.findStudios.count ?? 0;
+
+  // fetch count of markers directly assigned to this performer (as top or bottom)
+  const { data: performerMarkersData } = GQL.useFindSceneMarkersQuery({
+    variables: {
+      scene_marker_filter: {
+        scene_marker_tags: {
+          modifier: GQL.CriterionModifier.Equals,
+          groups_extended: [
+            {
+              tag_ids: [],
+              top_performer_ids: [performer.id],
+            },
+          ],
+        },
+      },
+      // no need to fetch actual markers here; we only use the count
+      filter: { per_page: 1 },
+    },
+  });
+  // Also count bottom markers
+  const { data: performerBottomMarkersData } = GQL.useFindSceneMarkersQuery({
+    variables: {
+      scene_marker_filter: {
+        scene_marker_tags: {
+          modifier: GQL.CriterionModifier.Equals,
+          groups_extended: [
+            {
+              tag_ids: [],
+              bottom_performer_ids: [performer.id],
+            },
+          ],
+        },
+      },
+      filter: { per_page: 1 },
+    },
+  });
+  const performerMarkersCount =
+    (performerMarkersData?.findSceneMarkers.count ?? 0) +
+    (performerBottomMarkersData?.findSceneMarkers.count ?? 0);
+
+  // fetch unique co-performer count for "Appears With (By Role)" tab
+  const { data: coPerformersData } = GQL.usePerformerCoPerformersByRoleQuery({
+    variables: { performer_id: performer.id },
+  });
+  const uniqueCoPerformerCount =
+    coPerformersData?.performerCoPerformersByRole?.unique_count ?? 0;
+  // CUSTOM: end
+
   const populatedDefaultTab = useMemo(() => {
     let ret: TabKey = "scenes";
     if (performer.scene_count == 0) {
@@ -186,21 +268,84 @@ const PerformerTabs: React.FC<{
         />
       </Tab>
 
+      {/* CUSTOM: begin - Markers tab */}
       <Tab
-        eventKey="appearswith"
+        eventKey="markers"
+        title={
+          <>
+            <FormattedMessage id="markers" defaultMessage="Markers" />
+            <Counter
+              count={performerMarkersCount}
+              abbreviateCounter={abbreviateCounter}
+              hideZero
+            />
+          </>
+        }
+      >
+        <PerformerMarkersPanel
+          active={tabKey === "markers"}
+          performer={performer}
+        />
+      </Tab>
+      {/* CUSTOM: end */}
+
+      {/* CUSTOM: begin - hidden appears-with, appears-with-by-role, studios tabs */}
+      {/* HIDDEN: This tab is hidden in this fork but kept for upstream merge compatibility */}
+      {false && (
+        <Tab
+          eventKey="appearswith"
+          title={
+            <TabTitleCounter
+              messageID="appears_with"
+              count={performer.performer_count}
+              abbreviateCounter={abbreviateCounter}
+            />
+          }
+        >
+          <PerformerAppearsWithPanel
+            active={tabKey === "appearswith"}
+            performer={performer}
+          />
+        </Tab>
+      )}
+      <Tab
+        eventKey="appearswithbyrole"
+        title={
+          <>
+            <FormattedMessage
+              id="appears_with_by_role"
+              defaultMessage="Appears With (By Role)"
+            />
+            {uniqueCoPerformerCount > 0 && (
+              <Counter
+                abbreviateCounter={abbreviateCounter}
+                count={uniqueCoPerformerCount}
+              />
+            )}
+          </>
+        }
+      >
+        <PerformerAppearsWithByRolePanel
+          active={tabKey === "appearswithbyrole"}
+          performer={performer}
+        />
+      </Tab>
+      <Tab
+        eventKey="studios"
         title={
           <TabTitleCounter
-            messageID="appears_with"
-            count={performer.performer_count}
+            messageID="studios"
+            count={studiosCount}
             abbreviateCounter={abbreviateCounter}
           />
         }
       >
-        <PerformerAppearsWithPanel
-          active={tabKey === "appearswith"}
+        <PerformerStudiosPanel
+          active={tabKey === "studios"}
           performer={performer}
         />
       </Tab>
+      {/* CUSTOM: end */}
     </Tabs>
   );
 };
@@ -211,31 +356,56 @@ interface IPerformerHeaderImageProps {
   encodingImage: boolean;
   lightboxImages: ILightboxImage[];
   performer: GQL.PerformerDataFragment;
+  refetch: () => Promise<any>; // CUSTOM
 }
 
 const PerformerHeaderImage: React.FC<IPerformerHeaderImageProps> =
   PatchComponent(
     "PerformerHeaderImage",
-    ({ encodingImage, activeImage, lightboxImages, performer }) => {
+    // CUSTOM: begin - PerformerImageManager, currentImage state, PerformerCategoryStrip
+    ({ encodingImage, activeImage, lightboxImages, performer, refetch }) => {
+      const [currentImage, setCurrentImage] = React.useState(activeImage);
+
+      React.useEffect(() => {
+        setCurrentImage(activeImage);
+      }, [activeImage]);
+
+      // Build lightbox images with current image as the displayed one
+      const currentLightboxImages = React.useMemo(
+        () => [{ paths: { thumbnail: currentImage, image: currentImage } }],
+        [currentImage]
+      );
+
       return (
         <HeaderImage encodingImage={encodingImage}>
-          {!!activeImage && (
-            <LightboxLink images={lightboxImages}>
-              <DetailImage
-                className="performer"
-                src={activeImage}
-                alt={performer.name}
-              />
-            </LightboxLink>
-          )}
+          <div className="d-flex flex-column align-items-center">
+            {!!currentImage && (
+              <PerformerImageManager
+                performer={performer}
+                activeImage={currentImage}
+                onImageChange={setCurrentImage}
+                refetch={refetch}
+              >
+                <LightboxLink images={currentLightboxImages}>
+                  <DetailImage
+                    className="performer"
+                    src={currentImage}
+                    alt={performer.name}
+                  />
+                </LightboxLink>
+              </PerformerImageManager>
+            )}
+            <PerformerCategoryStrip performer={performer} />
+          </div>
         </HeaderImage>
       );
     }
   );
+// CUSTOM: end
 
 const PerformerPage: React.FC<IProps> = PatchComponent(
   "PerformerPage",
-  ({ performer, tabKey }) => {
+  ({ performer, tabKey, refetch }) => { // CUSTOM: added refetch
     const Toast = useToast();
     const history = useHistory();
     const intl = useIntl();
@@ -430,6 +600,7 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
               encodingImage={encodingImage}
               lightboxImages={lightboxImages}
               performer={performer}
+              refetch={refetch} // CUSTOM
             />
             <div className="row">
               <div className="performer-head col">
@@ -542,9 +713,16 @@ const PerformerLoader: React.FC<RouteComponentProps<IPerformerParams>> = ({
   match,
 }) => {
   const { id, tab } = match.params;
-  const { data, loading, error } = useFindPerformer(id);
+  const { data, loading, error, refetch } = useFindPerformer(id); // CUSTOM: added refetch
 
   useScrollToTopOnMount();
+
+  // CUSTOM: begin - wrap refetch to force network-only fetch
+  // Wrap refetch to force network-only fetch (bypass Apollo cache)
+  const forceRefetch = React.useCallback(async () => {
+    return refetch({ fetchPolicy: "network-only" } as any);
+  }, [refetch]);
+  // CUSTOM: end
 
   if (loading) return <LoadingIndicator />;
   if (error) return <ErrorMessage error={error.message} />;
@@ -566,6 +744,7 @@ const PerformerLoader: React.FC<RouteComponentProps<IPerformerParams>> = ({
     <PerformerPage
       performer={data.findPerformer}
       tabKey={tab as TabKey | undefined}
+      refetch={forceRefetch} // CUSTOM
     />
   );
 };

@@ -118,6 +118,62 @@ mutation SceneAssignFile($input: AssignSceneFileInput!) {
   sceneAssignFile(input: $input)
 }
 
+# CUSTOM: begin
+mutation SaveSceneMultiSegmentLoopPreset(
+  $input: SceneMultiSegmentLoopPresetInput!
+) {
+  saveSceneMultiSegmentLoopPreset(input: $input) {
+    id
+    scene_id
+    name
+    enabled
+    current_segment_index
+    segments {
+      start
+      end
+    }
+    created_at
+    updated_at
+  }
+}
+
+mutation DeleteSceneMultiSegmentLoopPreset($scene_id: ID!, $name: String!) {
+  deleteSceneMultiSegmentLoopPreset(scene_id: $scene_id, name: $name)
+}
+
+mutation SceneNegativeMarkerCreate(
+  $input: SceneNegativeMarkerCreateInput!
+) {
+  sceneNegativeMarkerCreate(input: $input) {
+    id
+    scene_id
+    name
+    start_seconds
+    end_seconds
+    created_at
+    updated_at
+  }
+}
+
+mutation SceneNegativeMarkerUpdate(
+  $input: SceneNegativeMarkerUpdateInput!
+) {
+  sceneNegativeMarkerUpdate(input: $input) {
+    id
+    scene_id
+    name
+    start_seconds
+    end_seconds
+    created_at
+    updated_at
+  }
+}
+
+mutation SceneNegativeMarkerDestroy($id: ID!) {
+  sceneNegativeMarkerDestroy(id: $id)
+}
+# CUSTOM: end
+
 mutation SceneMerge($input: SceneMergeInput!) {
   sceneMerge(input: $input) {
     id

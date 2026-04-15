@@ -40,13 +40,24 @@ func (qb *sceneMarkerFilterHandler) criterionHandler() criterionHandler {
 		qb.tagsCriterionHandler(sceneMarkerFilter.Tags),
 		qb.sceneTagsCriterionHandler(sceneMarkerFilter.SceneTags),
 		qb.performersCriterionHandler(sceneMarkerFilter.Performers),
+		qb.studiosCriterionHandler(sceneMarkerFilter.Studios),                       // CUSTOM
+		qb.sceneDirectorCriterionHandler(sceneMarkerFilter.SceneDirector),           // CUSTOM
+		qb.hasEndTimeCriterionHandler(sceneMarkerFilter.HasEndTime),                 // CUSTOM
+		qb.performerEthnicityCriterionHandler(sceneMarkerFilter.PerformerEthnicity), // CUSTOM
+		qb.performerCountryCriterionHandler(sceneMarkerFilter.PerformerCountry),     // CUSTOM
+		qb.performerRatingCriterionHandler(sceneMarkerFilter),                       // CUSTOM
 		qb.scenesCriterionHandler(sceneMarkerFilter.Scenes),
 		floatCriterionHandler(sceneMarkerFilter.Duration, "COALESCE(scene_markers.end_seconds - scene_markers.seconds, NULL)", nil),
+		intCriterionHandler(sceneMarkerFilter.MarkerLength, "CAST(COALESCE(scene_markers.end_seconds - scene_markers.seconds, 20) AS INTEGER)", nil), // CUSTOM
+		qb.scenePerformerCountCriterionHandler(sceneMarkerFilter.ScenePerformerCount),                                                                // CUSTOM
 		&timestampCriterionHandler{sceneMarkerFilter.CreatedAt, "scene_markers.created_at", nil},
 		&timestampCriterionHandler{sceneMarkerFilter.UpdatedAt, "scene_markers.updated_at", nil},
 		&dateCriterionHandler{sceneMarkerFilter.SceneDate, "scenes.date", qb.joinScenes},
 		&timestampCriterionHandler{sceneMarkerFilter.SceneCreatedAt, "scenes.created_at", qb.joinScenes},
 		&timestampCriterionHandler{sceneMarkerFilter.SceneUpdatedAt, "scenes.updated_at", qb.joinScenes},
+
+		qb.hasMarkerPerformersCriterionHandler(sceneMarkerFilter.HasMarkerPerformers),  // CUSTOM
+		qb.markerTagsWithPerformersCriterionHandler(sceneMarkerFilter.SceneMarkerTags), // CUSTOM
 
 		&relatedFilterHandler{
 			relatedIDCol:   "scenes.id",
@@ -56,6 +67,8 @@ func (qb *sceneMarkerFilterHandler) criterionHandler() criterionHandler {
 				qb.joinScenes(f)
 			},
 		},
+		qb.customFiltersCriterionHandler(sceneMarkerFilter.CustomFilters), // CUSTOM
+		qb.hasRolesCriterionHandler(sceneMarkerFilter.HasRoles),           // CUSTOM
 	}
 }
 

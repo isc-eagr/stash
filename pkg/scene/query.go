@@ -121,13 +121,22 @@ func FilterFromPaths(paths []string) *models.SceneFilterType {
 	return ret
 }
 
-func CountByStudioID(ctx context.Context, r models.SceneQueryer, id int, depth *int) (int, error) {
+// CUSTOM: added performerID parameter to filter scenes by performer within a studio
+func CountByStudioID(ctx context.Context, r models.SceneQueryer, id int, depth *int, performerID *string) (int, error) {
 	filter := &models.SceneFilterType{
 		Studios: &models.HierarchicalMultiCriterionInput{
 			Value:    []string{strconv.Itoa(id)},
 			Modifier: models.CriterionModifierIncludes,
 			Depth:    depth,
 		},
+	}
+
+	// CUSTOM: Add performer filter if specified
+	if performerID != nil && *performerID != "" {
+		filter.Performers = &models.MultiCriterionInput{
+			Value:    []string{*performerID},
+			Modifier: models.CriterionModifierIncludes,
+		}
 	}
 
 	return r.QueryCount(ctx, filter, nil)

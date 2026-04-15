@@ -727,6 +727,23 @@ func (r *mutationResolver) SceneMarkerCreate(ctx context.Context, input SceneMar
 		return nil, fmt.Errorf("converting tag ids: %w", err)
 	}
 
+	// CUSTOM: begin - scene marker performer IDs (top/bottom)
+	performerIDs, err := stringslice.StringSliceToIntSlice(input.PerformerIds)
+	if err != nil {
+		return nil, fmt.Errorf("converting performer ids: %w", err)
+	}
+
+	// Handle top/bottom performer IDs (new schema)
+	topPerformerIDs, err := stringslice.StringSliceToIntSlice(input.TopPerformerIds)
+	if err != nil {
+		return nil, fmt.Errorf("converting top performer ids: %w", err)
+	}
+	bottomPerformerIDs, err := stringslice.StringSliceToIntSlice(input.BottomPerformerIds)
+	if err != nil {
+		return nil, fmt.Errorf("converting bottom performer ids: %w", err)
+	}
+	// CUSTOM: end - scene marker performer IDs
+
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.SceneMarker
 
@@ -738,7 +755,32 @@ func (r *mutationResolver) SceneMarkerCreate(ctx context.Context, input SceneMar
 		// Save the marker tags
 		// If this tag is the primary tag, then let's not add it.
 		tagIDs = sliceutil.Exclude(tagIDs, []int{newMarker.PrimaryTagID})
-		return qb.UpdateTags(ctx, newMarker.ID, tagIDs)
+		// CUSTOM: begin - save marker performers (top/bottom)
+		if err := qb.UpdateTags(ctx, newMarker.ID, tagIDs); err != nil {
+			return err
+		}
+
+		// Save the marker performers
+		// Use top/bottom if provided, otherwise fallback to legacy performer_ids (as top for backward compat)
+		if len(topPerformerIDs) > 0 || len(bottomPerformerIDs) > 0 {
+			if len(topPerformerIDs) > 0 {
+				if err := qb.UpdateTopPerformers(ctx, newMarker.ID, topPerformerIDs); err != nil {
+					return err
+				}
+			}
+			if len(bottomPerformerIDs) > 0 {
+				if err := qb.UpdateBottomPerformers(ctx, newMarker.ID, bottomPerformerIDs); err != nil {
+					return err
+				}
+			}
+		} else if len(performerIDs) > 0 {
+			// Legacy: treat performer_ids as top performers for backward compatibility
+			if err := qb.UpdateTopPerformers(ctx, newMarker.ID, performerIDs); err != nil {
+				return err
+			}
+		}
+		return nil
+		// CUSTOM: end - save marker performers (top/bottom)
 	}); err != nil {
 		return nil, err
 	}
@@ -794,6 +836,36 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 			return nil, fmt.Errorf("converting tag ids: %w", err)
 		}
 	}
+
+	// CUSTOM: begin - scene marker performer IDs for update (top/bottom)
+	var performerIDs []int
+	performerIdsIncluded := translator.hasField("performer_ids")
+	if input.PerformerIds != nil {
+		performerIDs, err = stringslice.StringSliceToIntSlice(input.PerformerIds)
+		if err != nil {
+			return nil, fmt.Errorf("converting performer ids: %w", err)
+		}
+	}
+
+	// Handle top/bottom performer IDs (new schema)
+	var topPerformerIDs []int
+	topPerformerIdsIncluded := translator.hasField("top_performer_ids")
+	if input.TopPerformerIds != nil {
+		topPerformerIDs, err = stringslice.StringSliceToIntSlice(input.TopPerformerIds)
+		if err != nil {
+			return nil, fmt.Errorf("converting top performer ids: %w", err)
+		}
+	}
+
+	var bottomPerformerIDs []int
+	bottomPerformerIdsIncluded := translator.hasField("bottom_performer_ids")
+	if input.BottomPerformerIds != nil {
+		bottomPerformerIDs, err = stringslice.StringSliceToIntSlice(input.BottomPerformerIds)
+		if err != nil {
+			return nil, fmt.Errorf("converting bottom performer ids: %w", err)
+		}
+	}
+	// CUSTOM: end - scene marker performer IDs for update
 
 	mgr := manager.GetInstance()
 	trashPath := mgr.Config.GetDeleteTrashPath()
@@ -867,6 +939,29 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 				return err
 			}
 		}
+
+		// CUSTOM: begin - update marker performers (top/bottom)
+		if performerIdsIncluded {
+			// Legacy: Save the marker performers using the old method (backward compatibility)
+			// This treats them as top performers
+			if err := qb.UpdateTopPerformers(ctx, markerID, performerIDs); err != nil {
+				return err
+			}
+		}
+
+		// Handle top/bottom performer updates (new schema)
+		if topPerformerIdsIncluded {
+			if err := qb.UpdateTopPerformers(ctx, markerID, topPerformerIDs); err != nil {
+				return err
+			}
+		}
+
+		if bottomPerformerIdsIncluded {
+			if err := qb.UpdateBottomPerformers(ctx, markerID, bottomPerformerIDs); err != nil {
+				return err
+			}
+		}
+		// CUSTOM: end - update marker performers (top/bottom)
 
 		return nil
 	}); err != nil {

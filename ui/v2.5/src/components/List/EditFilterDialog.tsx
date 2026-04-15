@@ -18,6 +18,7 @@ import { ListFilterModel } from "src/models/list-filter/filter";
 import { getFilterOptions } from "src/models/list-filter/factory";
 import { FilterTags } from "./FilterTags";
 import { CriterionEditor } from "./CriterionEditor";
+import { MarkerFilterGroupProvider } from "./Filters/MarkerFilterGroupContext"; // CUSTOM
 import { Icon } from "../Shared/Icon";
 import {
   faChevronDown,
@@ -50,6 +51,7 @@ interface ICriterionList {
   onRemoveCriterion: (c: string) => void;
   onTogglePin: (c: CriterionOption) => void;
   externallySelected?: boolean;
+  filterMode?: FilterMode; // CUSTOM
 }
 
 const CriterionOptionList: React.FC<ICriterionList> = ({
@@ -63,6 +65,7 @@ const CriterionOptionList: React.FC<ICriterionList> = ({
   onRemoveCriterion,
   onTogglePin,
   externallySelected = false,
+  filterMode, // CUSTOM
 }) => {
   const { configuration } = useConfigurationContext();
   const { sfwContentMode } = configuration.interface;
@@ -127,6 +130,18 @@ const CriterionOptionList: React.FC<ICriterionList> = ({
     return prevCriterion;
   }
 
+  // CUSTOM: begin
+  // Get filter descriptions for specific criteria based on filter mode
+  function getFilterDescription(criterionType: CriterionType): string | null {
+    if (filterMode === FilterMode.SceneMarkers) {
+      if (criterionType === "marker_tags_with_performers") {
+        return "Filter scene markers by tag with associated performer criteria (top/bottom roles, countries, ethnicities)";
+      }
+    }
+    return null;
+  }
+  // CUSTOM: end
+
   function removeClicked(ev: React.MouseEvent, t: string) {
     // needed to prevent the nav item from being selected
     ev.stopPropagation();
@@ -175,9 +190,19 @@ const CriterionOptionList: React.FC<ICriterionList> = ({
           {(type === c.type && currentCriterion) ||
           (prevType === c.type && prevCriterion) ? (
             <Card.Body>
+              {/* CUSTOM: begin */}
+              {getFilterDescription(c.type) && (
+                <div className="mb-2">
+                  <small className="text-muted">
+                    {getFilterDescription(c.type)}
+                  </small>
+                </div>
+              )}
+              {/* CUSTOM: end */}
               <CriterionEditor
                 criterion={getReleventCriterion(c.type)!}
                 setCriterion={setCriterion}
+                filterMode={filterMode} // CUSTOM
               />
             </Card.Body>
           ) : (
@@ -562,23 +587,29 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
                 onFilterUpdate={setCurrentFilter}
               />
             </div>
-            <CriterionOptionList
-              criteria={criteriaList}
-              currentCriterion={criterion}
-              setCriterion={replaceCriterion}
-              criterionOptions={unpinnedElements}
-              pinnedCriterionOptions={pinnedElements}
-              optionSelected={optionSelected}
-              selected={criterion?.criterionOption}
-              onRemoveCriterion={(c) => removeCriterionString(c)}
-              onTogglePin={(c) => onTogglePinFilter(c)}
-              externallySelected={!!editingCriterion}
-            />
+            <MarkerFilterGroupProvider criteria={criteria}>{/* CUSTOM: begin */}
+              <CriterionOptionList
+                criteria={criteriaList}
+                currentCriterion={criterion}
+                setCriterion={replaceCriterion}
+                criterionOptions={unpinnedElements}
+                pinnedCriterionOptions={pinnedElements}
+                optionSelected={optionSelected}
+                selected={criterion?.criterionOption}
+                onRemoveCriterion={(c) => removeCriterionString(c)}
+                onTogglePin={(c) => onTogglePinFilter(c)}
+                externallySelected={!!editingCriterion}
+                filterMode={currentFilter.mode} // CUSTOM
+              />
+            </MarkerFilterGroupProvider>{/* CUSTOM: end */}
             {criteria.length > 0 && (
               <div>
                 <FilterTags
                   criteria={criteria}
-                  onEditCriterion={(c) => optionSelected(c.criterionOption)}
+                  onEditCriterion={(c) => { // CUSTOM: begin
+                    // All criteria are single-instance, use optionSelected to find/create
+                    optionSelected(c.criterionOption);
+                  }} // CUSTOM: end
                   onRemoveCriterion={removeCriterion}
                   onRemoveAll={() => onClearAll()}
                 />

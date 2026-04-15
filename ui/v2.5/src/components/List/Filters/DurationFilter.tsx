@@ -27,11 +27,15 @@ export const DurationFilter: React.FC<IDurationFilterProps> = ({
     let placeholder: string;
     if (
       criterion.modifier === CriterionModifier.GreaterThan ||
+      criterion.modifier === CriterionModifier.GreaterThanEquals || // CUSTOM
       criterion.modifier === CriterionModifier.Between ||
       criterion.modifier === CriterionModifier.NotBetween
     ) {
       placeholder = intl.formatMessage({ id: "criterion.greater_than" });
-    } else if (criterion.modifier === CriterionModifier.LessThan) {
+    } else if (
+      criterion.modifier === CriterionModifier.LessThan ||
+      criterion.modifier === CriterionModifier.LessThanEquals // CUSTOM
+    ) {
       placeholder = intl.formatMessage({ id: "criterion.less_than" });
     } else {
       placeholder = intl.formatMessage({ id: "criterion.value" });

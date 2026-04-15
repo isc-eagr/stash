@@ -37,3 +37,47 @@ query FindPerformersForSelect(
     }
   }
 }
+
+# CUSTOM: begin
+query PerformerCoPerformersByRole($performer_id: ID!) {
+  performerCoPerformersByRole(performer_id: $performer_id) {
+    sex_as_top {
+      performer {
+        ...PerformerData
+      }
+      scene_count
+    }
+    sex_as_bottom {
+      performer {
+        ...PerformerData
+      }
+      scene_count
+    }
+    oral_as_top {
+      performer {
+        ...PerformerData
+      }
+      scene_count
+    }
+    oral_as_bottom {
+      performer {
+        ...PerformerData
+      }
+      scene_count
+    }
+    facial_as_top {
+      performer {
+        ...PerformerData
+      }
+      scene_count
+    }
+    facial_as_bottom {
+      performer {
+        ...PerformerData
+      }
+      scene_count
+    }
+    unique_count
+  }
+}
+# CUSTOM: end

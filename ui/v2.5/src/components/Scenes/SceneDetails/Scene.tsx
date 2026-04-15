@@ -40,7 +40,13 @@ import {
   faEllipsisV,
   faChevronRight,
   faChevronLeft,
+  faHand, // CUSTOM
 } from "@fortawesome/free-solid-svg-icons";
+// CUSTOM: begin - role icon SVG imports
+import mouthSvg from "src/assets/mouth.svg";
+import gaySvg from "src/assets/gay.svg";
+import straightSvg from "src/assets/straight.svg";
+// CUSTOM: end
 import { objectPath, objectTitle } from "src/core/files";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import TextUtils from "src/utils/text";
@@ -57,6 +63,13 @@ import { SceneMergeModal } from "../SceneMergeDialog";
 import { goBackOrReplace } from "src/utils/history";
 import { FormattedDate } from "src/components/Shared/Date";
 import { StudioLogo } from "src/components/Shared/StudioLogo";
+// CUSTOM: begin - multi-segment loop and icon imports
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
+import type {
+  IMultiSegmentLoopApi,
+  ILoopSegmentInput,
+} from "src/components/ScenePlayer/multi-segment-loop";
+// CUSTOM: end
 
 const SubmitStashBoxDraft = lazyComponent(
   () => import("src/components/Dialogs/SubmitDraft")
@@ -74,6 +87,7 @@ const ExternalPlayerButton = lazyComponent(
 
 const QueueViewer = lazyComponent(() => import("./QueueViewer"));
 const SceneMarkersPanel = lazyComponent(() => import("./SceneMarkersPanel"));
+const SceneNegativeMarkersPanel = lazyComponent(() => import("./SceneNegativeMarkersPanel")); // CUSTOM
 const SceneFileInfoPanel = lazyComponent(() => import("./SceneFileInfoPanel"));
 const SceneDetailPanel = lazyComponent(() => import("./SceneDetailPanel"));
 const SceneHistoryPanel = lazyComponent(() => import("./SceneHistoryPanel"));
@@ -81,6 +95,11 @@ const SceneGroupPanel = lazyComponent(() => import("./SceneGroupPanel"));
 const SceneGalleriesPanel = lazyComponent(
   () => import("./SceneGalleriesPanel")
 );
+// CUSTOM: begin - SceneReleasesPanel lazy import
+const SceneReleasesPanel = lazyComponent(
+  () => import("./SceneReleasesPanel")
+);
+// CUSTOM: end
 const DeleteScenesDialog = lazyComponent(() => import("../DeleteScenesDialog"));
 const GenerateDialog = lazyComponent(
   () => import("../../Dialogs/GenerateDialog")
@@ -140,6 +159,7 @@ const VideoFrameRateResolution: React.FC<{
 interface IProps {
   scene: GQL.SceneDataFragment;
   setTimestamp: (num: number) => void;
+  addMultiSegmentLoopSegments: (segments: ILoopSegmentInput[]) => void; // CUSTOM
   queueScenes: QueuedScene[];
   onQueueNext: () => void;
   onQueuePrevious: () => void;
@@ -154,6 +174,9 @@ interface IProps {
   collapsed: boolean;
   setCollapsed: (state: boolean) => void;
   setContinuePlaylist: (value: boolean) => void;
+  onRefetch: () => void; // CUSTOM
+  activeReleaseId: string | null; // CUSTOM
+  setActiveReleaseId: (id: string | null) => void; // CUSTOM
 }
 
 interface ISceneParams {
@@ -169,6 +192,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const {
     scene,
     setTimestamp,
+    addMultiSegmentLoopSegments, // CUSTOM
     queueScenes,
     onQueueNext,
     onQueuePrevious,
@@ -183,6 +207,8 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     collapsed,
     setCollapsed,
     setContinuePlaylist,
+    activeReleaseId, // CUSTOM
+    setActiveReleaseId, // CUSTOM
   } = props;
 
   const Toast = useToast();
@@ -540,6 +566,14 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                 <FormattedMessage id="markers" />
               </Nav.Link>
             </Nav.Item>
+            {/* CUSTOM: begin - negative markers tab */}
+            <Nav.Item>
+              <Nav.Link eventKey="scene-negative-markers-panel">
+                <FormattedMessage id="negative_markers" defaultMessage="Skip" />
+                <Counter count={scene.negative_markers?.length ?? 0} hideZero />
+              </Nav.Link>
+            </Nav.Item>
+            {/* CUSTOM: end */}
             {scene.groups.length > 0 ? (
               <Nav.Item>
                 <Nav.Link eventKey="scene-group-panel">
@@ -567,6 +601,14 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                 <FormattedMessage id="effect_filters.name" />
               </Nav.Link>
             </Nav.Item>
+            {/* CUSTOM: begin - releases tab */}
+            <Nav.Item>
+              <Nav.Link eventKey="scene-releases-panel">
+                Releases
+                <Counter count={scene.releases?.length ?? 0} hideZero />
+              </Nav.Link>
+            </Nav.Item>
+            {/* CUSTOM: end */}
             <Nav.Item>
               <Nav.Link eventKey="scene-file-info-panel">
                 <FormattedMessage id="file_info" />
@@ -614,8 +656,18 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               onClickMarker={onClickMarker}
               onLoopMarker={onLoopMarker}
               isVisible={activeTabKey === "scene-markers-panel"}
+              addMultiSegmentLoopSegments={addMultiSegmentLoopSegments} // CUSTOM
             />
           </Tab.Pane>
+          {/* CUSTOM: begin - negative markers pane */}
+          <Tab.Pane eventKey="scene-negative-markers-panel">
+            <SceneNegativeMarkersPanel
+              scene={scene}
+              isVisible={activeTabKey === "scene-negative-markers-panel"}
+              onRefetch={props.onRefetch}
+            />
+          </Tab.Pane>
+          {/* CUSTOM: end */}
           <Tab.Pane eventKey="scene-group-panel">
             <SceneGroupPanel scene={scene} />
           </Tab.Pane>
@@ -630,6 +682,16 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
           <Tab.Pane eventKey="scene-video-filter-panel">
             <SceneVideoFilterPanel scene={scene} />
           </Tab.Pane>
+          {/* CUSTOM: begin - releases pane */}
+          <Tab.Pane eventKey="scene-releases-panel">
+            <SceneReleasesPanel
+              scene={scene}
+              activeReleaseId={activeReleaseId}
+              onSetActiveRelease={setActiveReleaseId}
+              onRefetch={props.onRefetch}
+            />
+          </Tab.Pane>
+          {/* CUSTOM: end */}
           <Tab.Pane
             className="file-info-panel"
             eventKey="scene-file-info-panel"
@@ -663,6 +725,88 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     [scene]
   );
 
+  // CUSTOM: begin - role tag icon logic
+  // Determine which icon to show based on scene markers with role tags
+  const iconToShow = useMemo(() => {
+    type SceneIconToShow =
+      | {
+          type: "straight" | "gay" | "mouth";
+          className: string;
+          title: string;
+        }
+      | {
+          type: "hand";
+          icon: IconDefinition;
+          className: string;
+          title: string;
+        }
+      | null;
+
+    // Get role tag IDs from configuration
+    const roleTagIds = configuration?.ui?.roleTagIds ?? {};
+    const {sexTagId} = roleTagIds;
+    const {oralTagId} = roleTagIds;
+    const {soloTagId} = roleTagIds;
+
+    // Get scene marker tag IDs
+    const markerTagIds = new Set<string>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sceneMarkers = (scene as any).scene_markers ?? [];
+    for (const marker of sceneMarkers) {
+      // Check if this is an oral marker
+      const isOralMarker = 
+        (marker?.primary_tag?.id && marker.primary_tag.id === oralTagId) ||
+        (marker?.tags ?? []).some((tag: { id?: string }) => tag?.id === oralTagId);
+      
+      // Add oral markers to tag set
+      if (isOralMarker && oralTagId) {
+        markerTagIds.add(oralTagId);
+      }
+
+      // Add non-oral tag IDs normally
+      if (marker?.primary_tag?.id) {
+        if (marker.primary_tag.id === sexTagId) markerTagIds.add(marker.primary_tag.id);
+        if (marker.primary_tag.id === soloTagId) markerTagIds.add(marker.primary_tag.id);
+      }
+      const markerTags: Array<{ id?: string }> = marker?.tags ?? [];
+      for (const tag of markerTags) {
+        if (tag?.id) {
+          if (tag.id === sexTagId) markerTagIds.add(tag.id);
+          if (tag.id === soloTagId) markerTagIds.add(tag.id);
+        }
+      }
+    }
+
+    // Priority: sex > oral > solo
+    if (sexTagId && markerTagIds.has(sexTagId)) {
+      return {
+        type: "gay",
+        className: "scene-gay-icon",
+        title: "Scene has sex markers",
+      } as SceneIconToShow;
+    }
+
+    if (oralTagId && markerTagIds.has(oralTagId)) {
+      return {
+        type: "mouth",
+        className: "scene-mouth-icon",
+        title: "Scene has oral markers",
+      } as SceneIconToShow;
+    }
+
+    if (soloTagId && markerTagIds.has(soloTagId)) {
+      return {
+        type: "hand",
+        icon: faHand,
+        className: "scene-hand-icon",
+        title: "Scene has solo markers",
+      } as SceneIconToShow;
+    }
+
+    return null;
+  }, [scene, configuration?.ui]);
+  // CUSTOM: end
+
   return (
     <>
       <Helmet>
@@ -680,13 +824,45 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
           <div className="scene-header-container">
             <StudioLogo studio={scene.studio} showText={showStudioText} />
             <h3 className={cx("scene-header", { "no-studio": !scene.studio })}>
-              <TruncatedText lineCount={2} text={title} />
+              {/* CUSTOM: begin - role icon in header */}
+              <span style={{ display: "flex", alignItems: "center" }}>
+                {iconToShow?.type === "mouth" ? (
+                  <img
+                    src={mouthSvg}
+                    alt={iconToShow.title}
+                    title={iconToShow.title}
+                    className={iconToShow.className}
+                  />
+                ) : iconToShow?.type === "gay" ? (
+                  <img
+                    src={gaySvg}
+                    alt={iconToShow.title}
+                    title={iconToShow.title}
+                    className={iconToShow.className}
+                  />
+                ) : iconToShow?.type === "straight" ? (
+                  <img
+                    src={straightSvg}
+                    alt={iconToShow.title}
+                    title={iconToShow.title}
+                    className={iconToShow.className}
+                  />
+                ) : iconToShow?.type === "hand" ? (
+                  <Icon
+                    icon={iconToShow.icon}
+                    className={iconToShow.className}
+                    title={iconToShow.title}
+                  />
+                ) : null}
+                <TruncatedText lineCount={2} text={title} />
+              </span>
+              {/* CUSTOM: end */}
             </h3>
           </div>
 
           <div className="scene-subheader">
-            <span className="date" data-value={scene.date}>
-              {!!scene.date && <FormattedDate value={scene.date} />}
+            <span className="date" data-value={scene.effective_date ?? scene.date ?? undefined}> {/* CUSTOM: effective_date */}
+              {(scene.effective_date ?? scene.date) && <FormattedDate value={(scene.effective_date ?? scene.date)!} />} {/* CUSTOM: effective_date */}
             </span>
             <VideoFrameRateResolution
               width={file?.width}
@@ -756,7 +932,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
 }) => {
   const { id } = match.params;
   const { configuration } = useConfigurationContext();
-  const { data, loading, error } = useFindScene(id);
+  const { data, loading, error, refetch } = useFindScene(id); // CUSTOM: refetch
 
   const [scene, setScene] = useState<GQL.SceneDataFragment>();
 
@@ -794,6 +970,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
   );
 
   const _setTimestamp = useRef<(value: number) => void>();
+  const _multiSegmentLoopApi = useRef<IMultiSegmentLoopApi | null>(null); // CUSTOM
   const initialTimestamp = useMemo(() => {
     const t = queryParams.get("t");
     if (!t) return 0;
@@ -805,6 +982,33 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
 
   const [queueTotal, setQueueTotal] = useState(0);
   const [queueStart, setQueueStart] = useState(1);
+
+  // CUSTOM: begin - active release playback state
+  // State for active release playback
+  const [activeReleaseId, setActiveReleaseId] = useState<string | null>(null);
+
+  // Create a modified scene for player that uses release files and streams when a release is active
+  const sceneForPlayer = useMemo((): GQL.SceneDataFragment | undefined => {
+    if (!scene) {
+      return undefined;
+    }
+    if (!activeReleaseId || !scene.releases) {
+      return scene;
+    }
+    
+    const activeRelease = scene.releases.find(r => r.id === activeReleaseId);
+    if (!activeRelease || !activeRelease.files || activeRelease.files.length === 0) {
+      return scene;
+    }
+    
+    // Swap the scene files and streams with release files and streams
+    return {
+      ...scene,
+      files: activeRelease.files,
+      sceneStreams: activeRelease.streams,
+    };
+  }, [scene, activeReleaseId]);
+  // CUSTOM: end
 
   const autoplay = queryParams.get("autoplay") === "true";
   const autoPlayOnSelected =
@@ -818,6 +1022,16 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
   function getSetTimestamp(fn: (value: number) => void) {
     _setTimestamp.current = fn;
   }
+
+  // CUSTOM: begin - multi-segment loop API
+  function getMultiSegmentLoopApi(api: IMultiSegmentLoopApi) {
+    _multiSegmentLoopApi.current = api;
+  }
+
+  function addMultiSegmentLoopSegments(segments: ILoopSegmentInput[]) {
+    _multiSegmentLoopApi.current?.addSegments(segments);
+  }
+  // CUSTOM: end
 
   function setTimestamp(value: number) {
     if (_setTimestamp.current) {
@@ -984,7 +1198,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
     ) {
       loadScene(queueScenes[currentQueueIndex + 1].id);
     } else {
-      goBackOrReplace(history, "/scenes");
+      history.goBack(); // CUSTOM: goBack instead of goBackOrReplace
     }
   }
 
@@ -1015,6 +1229,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
       <ScenePage
         scene={scene}
         setTimestamp={setTimestamp}
+        addMultiSegmentLoopSegments={addMultiSegmentLoopSegments}
         queueScenes={queueScenes}
         queueStart={queueStart}
         onDelete={onDelete}
@@ -1029,16 +1244,20 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
         collapsed={collapsed}
         setCollapsed={setCollapsed}
         setContinuePlaylist={setContinuePlaylist}
+        onRefetch={refetch} // CUSTOM
+        activeReleaseId={activeReleaseId} // CUSTOM
+        setActiveReleaseId={setActiveReleaseId} // CUSTOM
       />
       <div className={`scene-player-container ${collapsed ? "expanded" : ""}`}>
         <ScenePlayer
-          key="ScenePlayer"
-          scene={scene}
+          key={`ScenePlayer-${activeReleaseId || 'main'}`} // CUSTOM: release-aware key
+          scene={sceneForPlayer!} // CUSTOM: sceneForPlayer
           hideScrubberOverride={hideScrubber}
           autoplay={autoplay}
           permitLoop={!continuePlaylist}
           initialTimestamp={initialTimestamp}
           sendSetTimestamp={getSetTimestamp}
+          sendMultiSegmentLoopApi={getMultiSegmentLoopApi} // CUSTOM
           onComplete={onComplete}
           onNext={() => queueNext(true)}
           onPrevious={() => queuePrevious(true)}

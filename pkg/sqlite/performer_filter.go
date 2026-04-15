@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/stashapp/stash/pkg/models"
-	"github.com/stashapp/stash/pkg/utils"
+	"github.com/stashapp/stash/pkg/utils" // CUSTOM: logger import is in performer_filter_custom.go
 )
 
 type performerFilterHandler struct {
@@ -209,6 +209,8 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 
 		qb.tagsCriterionHandler(filter.Tags),
 
+		qb.markerTagsCriterionHandler(filter.MarkerTags), // CUSTOM
+
 		qb.studiosCriterionHandler(filter.Studios),
 
 		qb.groupsCriterionHandler(filter.Groups),
@@ -219,6 +221,7 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 		qb.sceneCountCriterionHandler(filter.SceneCount),
 		qb.markerCountCriterionHandler(filter.MarkerCount),
 		qb.imageCountCriterionHandler(filter.ImageCount),
+		qb.profileImageCountCriterionHandler(filter.ProfileImageCount), // CUSTOM
 		qb.galleryCountCriterionHandler(filter.GalleryCount),
 		qb.playCounterCriterionHandler(filter.PlayCount),
 		qb.oCounterCriterionHandler(filter.OCounter),
@@ -279,6 +282,13 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 			c:     filter.CustomFields,
 			idCol: "performers.id",
 		},
+
+		qb.hasMarkersCriterionHandler(filter.HasMarkers),                           // CUSTOM
+		qb.customFiltersCriterionHandler(filter.CustomFilters),                     // CUSTOM
+		qb.sceneTypeCriterionHandler(filter.SceneType),                             // CUSTOM
+		qb.performerMarkersCriterionHandler(filter.PerformerMarkers),               // CUSTOM
+		qb.performerMarkerTagsCriterionHandler(filter.PerformerMarkerTags),         // CUSTOM
+		qb.performerMarkerPartnersCriterionHandler(filter.PerformerMarkerPartners), // CUSTOM
 	}
 }
 

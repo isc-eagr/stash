@@ -102,6 +102,9 @@ func (qb *galleryFilterHandler) criterionHandler() criterionHandler {
 		qb.imageCountCriterionHandler(filter.ImageCount),
 		qb.performerFavoriteCriterionHandler(filter.PerformerFavorite),
 		qb.performerAgeCriterionHandler(filter.PerformerAge),
+		qb.performerEthnicityCriterionHandler(filter.PerformerEthnicity),                      // CUSTOM
+		qb.performerCountryCriterionHandler(filter.PerformerCountry),                          // CUSTOM
+		qb.performerRatingCriterionHandler(filter.PerformerRating, filter.PerformerRatingAll), // CUSTOM
 		&dateCriterionHandler{filter.Date, "galleries.date", nil},
 		&timestampCriterionHandler{filter.CreatedAt, "galleries.created_at", nil},
 		&timestampCriterionHandler{filter.UpdatedAt, "galleries.updated_at", nil},

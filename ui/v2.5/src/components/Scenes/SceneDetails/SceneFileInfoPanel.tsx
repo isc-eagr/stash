@@ -12,7 +12,12 @@ import { DeleteFilesDialog } from "src/components/Shared/DeleteFilesDialog";
 import { RevealInFilesystemButton } from "src/components/Shared/RevealInFilesystemButton";
 import { ReassignFilesDialog } from "src/components/Shared/ReassignFilesDialog";
 import * as GQL from "src/core/generated-graphql";
-import { mutateSceneSetPrimaryFile } from "src/core/StashService";
+// CUSTOM: begin - release imports
+import {
+  mutateSceneSetPrimaryFile,
+  useSceneReleaseCreate,
+} from "src/core/StashService";
+// CUSTOM: end
 import { useToast } from "src/hooks/Toast";
 import NavUtils from "src/utils/navigation";
 import TextUtils from "src/utils/text";
@@ -29,6 +34,7 @@ interface IFileInfoPanelProps {
   onSetPrimaryFile?: () => void;
   onDeleteFile?: () => void;
   onReassign?: () => void;
+  onSplitAsRelease?: () => void; // CUSTOM
   loading?: boolean;
 }
 
@@ -150,6 +156,17 @@ const FileInfoPanel: React.FC<IFileInfoPanelProps> = (
           <Button className="edit-button" onClick={onSplit}>
             <FormattedMessage id="actions.split" />
           </Button>
+          {/* CUSTOM: begin - split as release button */}
+          {props.onSplitAsRelease && (
+            <Button
+              className="edit-button"
+              disabled={props.loading}
+              onClick={props.onSplitAsRelease}
+            >
+              <FormattedMessage id="actions.split_as_release" />
+            </Button>
+          )}
+          {/* CUSTOM: end */}
           <Button
             variant="danger"
             disabled={props.loading}
@@ -176,6 +193,29 @@ const _SceneFileInfoPanel: React.FC<ISceneFileInfoPanelProps> = (
   const [deletingFile, setDeletingFile] = useState<GQL.VideoFileDataFragment>();
   const [reassigningFile, setReassigningFile] =
     useState<GQL.VideoFileDataFragment>();
+
+  // CUSTOM: begin - release creation
+  const [createRelease] = useSceneReleaseCreate();
+
+  async function onSplitAsRelease(file: GQL.VideoFileDataFragment) {
+    try {
+      setLoading(true);
+      await createRelease({
+        variables: {
+          input: {
+            scene_id: props.scene.id,
+            file_ids: [file.id],
+          },
+        },
+      });
+      Toast.success("File split as release");
+    } catch (e) {
+      Toast.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }
+  // CUSTOM: end
 
   function renderStashIDs() {
     if (!props.scene.stash_ids.length) {
@@ -276,6 +316,7 @@ const _SceneFileInfoPanel: React.FC<ISceneFileInfoPanelProps> = (
                   onSetPrimaryFile={() => onSetPrimaryFile(file.id)}
                   onDeleteFile={() => setDeletingFile(file)}
                   onReassign={() => setReassigningFile(file)}
+                  onSplitAsRelease={() => onSplitAsRelease(file)} // CUSTOM
                   loading={loading}
                 />
               </Card.Body>
@@ -284,7 +325,7 @@ const _SceneFileInfoPanel: React.FC<ISceneFileInfoPanelProps> = (
         ))}
       </Accordion>
     );
-  }, [props.scene, loading, Toast, deletingFile, reassigningFile]);
+  }, [props.scene, loading, Toast, deletingFile, reassigningFile, createRelease]); // CUSTOM: added createRelease dep
 
   return (
     <>

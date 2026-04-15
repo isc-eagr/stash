@@ -1,6 +1,7 @@
 import cloneDeep from "lodash-es/cloneDeep";
 import React, { useMemo } from "react";
 import { Form } from "react-bootstrap";
+import { useIntl } from "react-intl"; // CUSTOM: moved import
 import {
   CriterionValue,
   ModifierCriterion,
@@ -14,7 +15,6 @@ import {
   ModifierValue,
   modifierValueToModifier,
 } from "./LabeledIdFilter";
-import { useIntl } from "react-intl";
 
 interface IOptionsFilter {
   criterion: ModifierCriterion<CriterionValue>;
@@ -25,6 +25,9 @@ export const OptionFilter: React.FC<IOptionsFilter> = ({
   criterion,
   setCriterion,
 }) => {
+  const intl = useIntl();
+  const criterionType = criterion.criterionOption.type; // CUSTOM
+
   function onSelect(v: string) {
     const c = cloneDeep(criterion);
     if (c.value === v) {
@@ -35,6 +38,22 @@ export const OptionFilter: React.FC<IOptionsFilter> = ({
 
     setCriterion(c);
   }
+
+  // CUSTOM: begin - translated labels for custom_filters options
+  function getOptionLabel(optionValue: string): string {
+    // Try to find a translated label for custom_filters options
+    if (criterionType === "custom_filters") {
+      const messageId = `custom_filters.${optionValue}`;
+      const translated = intl.formatMessage({ id: messageId });
+      // If we got the translation key back, the message doesn't exist
+      if (translated !== messageId) {
+        return translated;
+      }
+    }
+    // Fall back to the raw value
+    return optionValue;
+  }
+  // CUSTOM: end
 
   const { options } = criterion.modifierCriterionOption();
 
@@ -47,7 +66,7 @@ export const OptionFilter: React.FC<IOptionsFilter> = ({
           onChange={() => onSelect(o.toString())}
           checked={criterion.value === o.toString()}
           type="radio"
-          label={o.toString()}
+          label={getOptionLabel(o.toString())} // CUSTOM
         />
       ))}
     </div>

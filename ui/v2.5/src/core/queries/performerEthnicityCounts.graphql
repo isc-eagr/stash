@@ -1,0 +1,6 @@
+query PerformerEthnicityCounts {
+  performerEthnicityCounts {
+    ethnicity
+    count
+  }
+}

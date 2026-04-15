@@ -45,7 +45,7 @@ type SceneCounter interface {
 	CountMissingOSHash(ctx context.Context) (int, error)
 	OCountByPerformerID(ctx context.Context, performerID int) (int, error)
 	OCountByGroupID(ctx context.Context, groupID int) (int, error)
-	OCountByStudioID(ctx context.Context, studioID int) (int, error)
+	OCountByStudioID(ctx context.Context, studioID int, performerID *string) (int, error) // CUSTOM: added performerID param
 }
 
 // SceneCreator provides methods to create scenes.
@@ -119,6 +119,7 @@ type OHistoryWriter interface {
 	AddO(ctx context.Context, id int, dates []time.Time) ([]time.Time, error)
 	DeleteO(ctx context.Context, id int, dates []time.Time) ([]time.Time, error)
 	ResetO(ctx context.Context, id int) (int, error)
+	TransferOHistory(ctx context.Context, fromID int, toID int) error // CUSTOM
 }
 
 type ViewHistoryWriter interface {
@@ -134,6 +135,7 @@ type SceneWriter interface {
 	SceneDestroyer
 
 	AddFileID(ctx context.Context, id int, fileID FileID) error
+	RemoveFileID(ctx context.Context, sceneID int, fileID FileID) error // CUSTOM
 	AddGalleryIDs(ctx context.Context, sceneID int, galleryIDs []int) error
 	AssignFiles(ctx context.Context, sceneID int, fileID []FileID) error
 

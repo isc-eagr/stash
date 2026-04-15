@@ -122,6 +122,21 @@ func (s *Service) Destroy(ctx context.Context, scene *models.Scene, fileDeleter 
 		}
 	}
 
+	// CUSTOM: begin - Delete all releases associated with the scene
+	releaseQB := s.SceneReleaseRepository
+	if releaseQB != nil {
+		releases, err := releaseQB.FindBySceneID(ctx, scene.ID)
+		if err != nil {
+			return err
+		}
+		for _, release := range releases {
+			if err := releaseQB.Destroy(ctx, release.ID); err != nil {
+				return err
+			}
+		}
+	}
+	// CUSTOM: end
+
 	if deleteFile {
 		if err := s.deleteFiles(ctx, scene, fileDeleter); err != nil {
 			return err

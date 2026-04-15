@@ -4,6 +4,7 @@ import React, {
   useMemo,
   useRef,
   useState,
+  useEffect, // CUSTOM
 } from "react";
 import { Card, Form } from "react-bootstrap";
 import { Link } from "react-router-dom";
@@ -62,7 +63,13 @@ export const useContainerDimensions = <T extends HTMLElement = HTMLDivElement>(
 ): [MutableRefObject<T | null>, IDimension] => {
   const target = useRef<T | null>(null);
   const [dimension, setDimension] = useState<IDimension>({
-    width: 0,
+    // CUSTOM: begin
+    // Seed with a reasonable initial width to avoid a 0 -> measured jump.
+    width:
+      typeof window !== "undefined" && typeof window.innerWidth === "number"
+        ? window.innerWidth
+        : 0,
+    // CUSTOM: end
     height: 0,
   });
 
@@ -79,6 +86,23 @@ export const useContainerDimensions = <T extends HTMLElement = HTMLDivElement>(
   }, 50);
 
   useResizeObserver(target, debouncedSetDimension);
+
+  // CUSTOM: begin
+  // Initialize with the actual element size on mount to avoid a second-pass reflow
+  useEffect(() => {
+    if (target.current) {
+      const el = target.current as HTMLElement;
+      const rect = el.getBoundingClientRect();
+      if (
+        rect.width &&
+        Math.abs(dimension.width - rect.width) > sensitivityThreshold
+      ) {
+        setDimension({ width: rect.width, height: rect.height });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // CUSTOM: end
 
   return [target, dimension];
 };

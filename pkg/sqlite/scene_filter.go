@@ -57,6 +57,7 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		intCriterionHandler(sceneFilter.ID, "scenes.id", nil),
 		pathCriterionHandler(sceneFilter.Path, "folders.path", "files.basename", qb.addFoldersTable),
 		qb.fileCountCriterionHandler(sceneFilter.FileCount),
+		qb.releaseCountCriterionHandler(sceneFilter.ReleaseCount), // CUSTOM
 		stringCriterionHandler(sceneFilter.Title, "scenes.title"),
 		stringCriterionHandler(sceneFilter.Code, "scenes.code"),
 		stringCriterionHandler(sceneFilter.Details, "scenes.details"),
@@ -117,6 +118,15 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		qb.codecCriterionHandler(sceneFilter.AudioCodec, "video_files.audio_codec", qb.addVideoFilesTable),
 
 		qb.hasMarkersCriterionHandler(sceneFilter.HasMarkers),
+		qb.hasMarkerPerformersCriterionHandler(sceneFilter.HasMarkerPerformers), // CUSTOM
+		qb.customFiltersCriterionHandler(sceneFilter.CustomFilters),             // CUSTOM
+		qb.sceneTypeCriterionHandler(sceneFilter.SceneType),                     // CUSTOM
+		&joinedSceneMarkerTagsHandler{ // CUSTOM
+			criterion:      sceneFilter.SceneMarkerTags,
+			primaryTable:   sceneTable,
+			joinTable:      "scene_markers",
+			joinPrimaryKey: "scene_id",
+		},
 		qb.isMissingCriterionHandler(sceneFilter.IsMissing),
 		qb.urlsCriterionHandler(sceneFilter.URL),
 
@@ -174,7 +184,11 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		qb.performerTagsCriterionHandler(sceneFilter.PerformerTags),
 		qb.performerFavoriteCriterionHandler(sceneFilter.PerformerFavorite),
 		qb.performerAgeCriterionHandler(sceneFilter.PerformerAge),
+		qb.performerEthnicityCriterionHandler(sceneFilter.PerformerEthnicity),                           // CUSTOM
+		qb.performerCountryCriterionHandler(sceneFilter.PerformerCountry),                               // CUSTOM
+		qb.performerRatingCriterionHandler(sceneFilter.PerformerRating, sceneFilter.PerformerRatingAll), // CUSTOM
 		qb.duplicatedCriterionHandler(sceneFilter.Duplicated),
+		qb.effectiveDateCriterionHandler(sceneFilter.EffectiveDate), // CUSTOM
 		&dateCriterionHandler{sceneFilter.Date, "scenes.date", nil},
 		&timestampCriterionHandler{sceneFilter.CreatedAt, "scenes.created_at", nil},
 		&timestampCriterionHandler{sceneFilter.UpdatedAt, "scenes.updated_at", nil},

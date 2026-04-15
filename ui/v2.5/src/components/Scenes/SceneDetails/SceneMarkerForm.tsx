@@ -8,18 +8,33 @@ import {
   useSceneMarkerCreate,
   useSceneMarkerUpdate,
   useSceneMarkerDestroy,
+  useFindScene, // CUSTOM
 } from "src/core/StashService";
 import { DurationInput } from "src/components/Shared/DurationInput";
 import { MarkerTitleSuggest } from "src/components/Shared/Select";
 import {
   getAbLoopPlugin,
   getPlayerPosition,
+  getPlayer, // CUSTOM
 } from "src/components/ScenePlayer/util";
 import { useToast } from "src/hooks/Toast";
 import isEqual from "lodash-es/isEqual";
 import { formikUtils } from "src/utils/form";
 import { yupFormikValidate } from "src/utils/yup";
 import { Tag, TagSelect } from "src/components/Tags/TagSelect";
+// CUSTOM: begin – performer selection imports & type
+import Select from "react-select";
+import { Icon } from "src/components/Shared/Icon";
+import { faArrowDown, faArrowUp } from "@fortawesome/free-solid-svg-icons";
+import TextUtils from "src/utils/text";
+
+interface IPerformer {
+  id: string;
+  name: string;
+  alias_list: string[];
+  disambiguation?: string | null;
+}
+// CUSTOM: end
 
 interface ISceneMarkerForm {
   sceneID: string;
@@ -41,6 +56,23 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
 
   const [primaryTag, setPrimaryTag] = useState<Tag>();
   const [tags, setTags] = useState<Tag[]>([]);
+  // CUSTOM: begin – performer state & scene data
+  const [topPerformers, setTopPerformers] = useState<IPerformer[]>([]);
+  const [bottomPerformers, setBottomPerformers] = useState<IPerformer[]>([]);
+
+  // Fetch scene to get available performers
+  const { data: sceneData } = useFindScene(sceneID);
+  const scenePerformers = useMemo(() => {
+    return (
+      sceneData?.findScene?.performers?.map((p) => ({
+        id: p.id,
+        name: p.name,
+        alias_list: p.alias_list ?? [],
+        disambiguation: p.disambiguation,
+      })) ?? []
+    );
+  }, [sceneData]);
+  // CUSTOM: end
 
   const isNew = marker === undefined;
 
@@ -61,6 +93,8 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       ),
     primary_tag_id: yup.string().required(),
     tag_ids: yup.array(yup.string().required()).defined(),
+    top_performer_ids: yup.array(yup.string().required()).defined(), // CUSTOM
+    bottom_performer_ids: yup.array(yup.string().required()).defined(), // CUSTOM
   });
 
   // useMemo to only run getPlayerPosition when the input marker actually changes
@@ -95,6 +129,8 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       end_seconds: marker?.end_seconds ?? null,
       primary_tag_id: marker?.primary_tag.id ?? "",
       tag_ids: marker?.tags.map((tag) => tag.id) ?? [],
+      top_performer_ids: marker?.top_performers?.map((p) => p.id) ?? [], // CUSTOM
+      bottom_performer_ids: marker?.bottom_performers?.map((p) => p.id) ?? [], // CUSTOM
     };
   }, [marker]);
 
@@ -120,6 +156,24 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     );
   }
 
+  // CUSTOM: begin – performer setter functions
+  function onSetTopPerformers(items: IPerformer[]) {
+    setTopPerformers(items);
+    formik.setFieldValue(
+      "top_performer_ids",
+      items.map((item) => item.id)
+    );
+  }
+
+  function onSetBottomPerformers(items: IPerformer[]) {
+    setBottomPerformers(items);
+    formik.setFieldValue(
+      "bottom_performer_ids",
+      items.map((item) => item.id)
+    );
+  }
+  // CUSTOM: end
+
   useEffect(() => {
     setPrimaryTag(
       marker?.primary_tag
@@ -137,6 +191,30 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       })) ?? []
     );
   }, [marker?.tags]);
+
+  // CUSTOM: begin – sync performer state from marker
+  useEffect(() => {
+    setTopPerformers(
+      marker?.top_performers?.map((p) => ({
+        id: p.id,
+        name: p.name,
+        alias_list: p.alias_list ?? [],
+        disambiguation: p.disambiguation,
+      })) ?? []
+    );
+  }, [marker?.top_performers]);
+
+  useEffect(() => {
+    setBottomPerformers(
+      marker?.bottom_performers?.map((p) => ({
+        id: p.id,
+        name: p.name,
+        alias_list: p.alias_list ?? [],
+        disambiguation: p.disambiguation,
+      })) ?? []
+    );
+  }, [marker?.bottom_performers]);
+  // CUSTOM: end
 
   async function onSave(input: InputValues) {
     try {
@@ -244,6 +322,14 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         onReset={() =>
           formik.setFieldValue("seconds", getPlayerPosition() ?? 0)
         }
+        // CUSTOM: begin – seek-to-time
+        onSeekTo={() => {
+          const player = getPlayer();
+          if (player && formik.values.seconds !== null) {
+            player.currentTime(formik.values.seconds);
+          }
+        }}
+        // CUSTOM: end
         error={error}
       />
     );
@@ -263,6 +349,14 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
           onReset={() =>
             formik.setFieldValue("end_seconds", getPlayerPosition() ?? 0)
           }
+          // CUSTOM: begin – seek-to-time
+          onSeekTo={() => {
+            const player = getPlayer();
+            if (player && formik.values.end_seconds !== null) {
+              player.currentTime(formik.values.end_seconds);
+            }
+          }}
+          // CUSTOM: end
           error={error}
         />
         {formik.touched.end_seconds && formik.errors.end_seconds && (
@@ -275,6 +369,35 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
 
     return renderField("end_seconds", title, control);
   }
+
+  // CUSTOM: begin – duration display field
+  function renderDurationField() {
+    const { seconds, end_seconds } = formik.values;
+    const title = intl.formatMessage({
+      id: "duration",
+      defaultMessage: "Duration",
+    });
+
+    let duration: number;
+    if (end_seconds === null || end_seconds === undefined) {
+      duration = 20; // Default 20s when no end time
+    } else if (end_seconds < seconds) {
+      return null; // Invalid range
+    } else {
+      duration = end_seconds - seconds;
+    }
+
+    const control = (
+      <Form.Control
+        plaintext
+        readOnly
+        value={TextUtils.formatDurationRange(duration)}
+      />
+    );
+
+    return renderField("duration_display", title, control);
+  }
+  // CUSTOM: end
 
   function renderTagsField() {
     const title = intl.formatMessage({ id: "tags" });
@@ -290,6 +413,112 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     return renderField("tag_ids", title, control, fullWidthProps);
   }
 
+  // CUSTOM: begin – performer picker (top/bottom)
+  function renderPerformersField() {
+    if (scenePerformers.length === 0) return null;
+
+    // Create options from scene performers only
+    const performerOptions = scenePerformers.map((p) => ({
+      value: p.id,
+      label: p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name,
+    }));
+
+    // Top performers
+    const topTitle = intl.formatMessage({
+      id: "top_performers",
+      defaultMessage: "Top Performers",
+    });
+
+    const selectedTopValues = topPerformers.map((p) => ({
+      value: p.id,
+      label: p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name,
+    }));
+
+    const topControl = (
+      <div className="d-flex align-items-center">
+        <Icon icon={faArrowUp} className="text-success mr-2" title="Top" />
+        <div className="flex-grow-1">
+          <Select
+            classNamePrefix="react-select"
+            isMulti
+            options={performerOptions}
+            value={selectedTopValues}
+            onChange={(selected) => {
+              const selectedPerformers = (selected ?? []).map((opt) => {
+                const found = scenePerformers.find((p) => p.id === opt.value);
+                return (
+                  found ?? { id: opt.value, name: opt.label, alias_list: [] }
+                );
+              });
+              onSetTopPerformers(selectedPerformers);
+            }}
+            placeholder={intl.formatMessage({
+              id: "actions.select_performers",
+            })}
+            menuPortalTarget={document.body}
+            styles={{
+              menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+            }}
+          />
+        </div>
+      </div>
+    );
+
+    // Bottom performers
+    const bottomTitle = intl.formatMessage({
+      id: "bottom_performers",
+      defaultMessage: "Bottom Performers",
+    });
+
+    const selectedBottomValues = bottomPerformers.map((p) => ({
+      value: p.id,
+      label: p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name,
+    }));
+
+    const bottomControl = (
+      <div className="d-flex align-items-center">
+        <Icon icon={faArrowDown} className="text-info mr-2" title="Bottom" />
+        <div className="flex-grow-1">
+          <Select
+            classNamePrefix="react-select"
+            isMulti
+            options={performerOptions}
+            value={selectedBottomValues}
+            onChange={(selected) => {
+              const selectedPerformers = (selected ?? []).map((opt) => {
+                const found = scenePerformers.find((p) => p.id === opt.value);
+                return (
+                  found ?? { id: opt.value, name: opt.label, alias_list: [] }
+                );
+              });
+              onSetBottomPerformers(selectedPerformers);
+            }}
+            placeholder={intl.formatMessage({
+              id: "actions.select_performers",
+            })}
+            menuPortalTarget={document.body}
+            styles={{
+              menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+            }}
+          />
+        </div>
+      </div>
+    );
+
+    return (
+      <>
+        {renderField("top_performer_ids", topTitle, topControl, fullWidthProps)}
+        {renderField(
+          "bottom_performer_ids",
+          bottomTitle,
+          bottomControl,
+          fullWidthProps
+        )}
+      </>
+    );
+  }
+  // CUSTOM: end
+
   return (
     <Form noValidate onSubmit={formik.handleSubmit}>
       <div className="form-container px-3">
@@ -297,7 +526,10 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         {renderPrimaryTagField()}
         {renderTimeField()}
         {renderEndTimeField()}
+        {renderDurationField()}
         {renderTagsField()}
+        {renderPerformersField()}
+        {/* ^^^ CUSTOM: renderDurationField + renderPerformersField */}
       </div>
       <div className="buttons-container px-3">
         <div className="d-flex">

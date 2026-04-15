@@ -53,9 +53,24 @@ const TagList: React.FC<{
   filter: ListFilterModel;
   selectedIds: Set<string>;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
+  // CUSTOM: begin
+  sceneCountOnly?: boolean;
+  performerId?: string;
+  performerName?: string;
+  // CUSTOM: end
 }> = PatchComponent(
   "TagList",
-  ({ tags, filter, selectedIds, onSelectChange }) => {
+  ({
+    tags,
+    filter,
+    selectedIds,
+    onSelectChange,
+    // CUSTOM: begin
+    sceneCountOnly = false,
+    performerId,
+    performerName,
+    // CUSTOM: end
+  }) => {
     if (tags.length === 0 && filter.displayMode !== DisplayMode.Tagger) {
       return null;
     }
@@ -67,6 +82,9 @@ const TagList: React.FC<{
           zoomIndex={filter.zoomIndex}
           selectedIds={selectedIds}
           onSelectChange={onSelectChange}
+          sceneCountOnly={sceneCountOnly} // CUSTOM
+          performerId={performerId} // CUSTOM
+          performerName={performerName} // CUSTOM
         />
       );
     }
@@ -192,6 +210,16 @@ interface ITagList {
   filterHook?: (filter: ListFilterModel) => ListFilterModel;
   alterQuery?: boolean;
   extraOperations?: IItemListOperation<GQL.FindTagsForListQueryResult>[];
+  // CUSTOM: begin - extra TagList props
+  // if true only render the scene-count button on tag cards/list rows
+  sceneCountOnly?: boolean;
+  // optional callback invoked when the current list of tags is available/updated
+  onTags?: (tags: GQL.TagDataFragment[]) => void;
+  // optional performer context; when present tag->scenes links use scene markers
+  performerId?: string;
+  // optional performer name to display in generated performer criteria labels
+  performerName?: string;
+  // CUSTOM: end
 }
 
 export const FilteredTagList = PatchComponent(
@@ -202,7 +230,17 @@ export const FilteredTagList = PatchComponent(
 
     const searchFocus = useFocus();
 
-    const { filterHook, alterQuery, extraOperations = [] } = props;
+    const {
+      filterHook,
+      alterQuery,
+      extraOperations = [],
+      // CUSTOM: begin
+      sceneCountOnly = false,
+      onTags,
+      performerId,
+      performerName,
+      // CUSTOM: end
+    } = props;
 
     const view = View.Tags;
 
@@ -467,6 +505,9 @@ export const FilteredTagList = PatchComponent(
                   tags={items}
                   selectedIds={selectedIds}
                   onSelectChange={onSelectChange}
+                  sceneCountOnly={sceneCountOnly} // CUSTOM
+                  performerId={performerId} // CUSTOM
+                  performerName={performerName} // CUSTOM
                 />
               </LoadedContent>
 

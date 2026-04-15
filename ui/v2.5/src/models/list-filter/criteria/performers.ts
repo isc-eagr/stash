@@ -33,8 +33,8 @@ export const PerformersCriterionOption = new ModifierCriterionOption({
 });
 
 export class PerformersCriterion extends ModifierCriterion<ILabeledValueListValue> {
-  constructor() {
-    super(PerformersCriterionOption, { items: [], excluded: [] });
+  constructor(option?: ModifierCriterionOption) { // CUSTOM: added optional param
+    super(option ?? PerformersCriterionOption, { items: [], excluded: [] });
   }
 
   public cloneValues() {

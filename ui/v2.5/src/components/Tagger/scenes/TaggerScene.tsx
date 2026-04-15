@@ -41,8 +41,8 @@ const TaggerSceneDetails: React.FC<ITaggerSceneDetails> = ({ scene }) => {
             <h4>{objectTitle(scene)}</h4>
             <h5>
               {scene.studio?.name}
-              {scene.studio?.name && scene.date && ` • `}
-              {scene.date}
+              {scene.studio?.name && (scene.effective_date ?? scene.date) && ` • `} {/* CUSTOM */}
+              {scene.effective_date ?? scene.date} {/* CUSTOM */}
             </h5>
             <TruncatedText text={scene.details ?? ""} lineCount={3} />
           </div>

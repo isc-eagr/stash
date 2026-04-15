@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Button, ButtonGroup } from "react-bootstrap";
+import { Badge, Button, ButtonGroup } from "react-bootstrap"; // CUSTOM: added Badge
 import * as GQL from "src/core/generated-graphql";
 import { Icon } from "../Shared/Icon";
 import { TagLink } from "../Shared/TagLink";
@@ -8,7 +8,7 @@ import NavUtils from "src/utils/navigation";
 import TextUtils from "src/utils/text";
 import { useConfigurationContext } from "src/hooks/Config";
 import { GridCard } from "../Shared/GridCard/GridCard";
-import { faTag } from "@fortawesome/free-solid-svg-icons";
+import { faTag, faArrowUp, faArrowDown } from "@fortawesome/free-solid-svg-icons"; // CUSTOM: added faArrowUp, faArrowDown
 import { markerTitle } from "src/core/markers";
 import { Link } from "react-router-dom";
 import { objectTitle } from "src/core/files";
@@ -93,6 +93,45 @@ const SceneMarkerCardPopovers = PatchComponent(
 const SceneMarkerCardDetails = PatchComponent(
   "SceneMarkerCard.Details",
   (props: ISceneMarkerCardProps) => {
+    // CUSTOM: begin - performer chips with role arrows
+    // Only show arrows if marker has performers in BOTH roles (top and bottom)
+    const showRoleArrows = props.marker.top_performers.length > 0 && props.marker.bottom_performers.length > 0;
+
+    const renderPerformerChip = (
+      performer: typeof props.marker.top_performers[0],
+      variant: "success" | "info",
+      showArrow: boolean,
+      arrowIcon: typeof faArrowUp
+    ) => (
+      <HoverPopover
+        key={performer.id}
+        className="performer-hover-popover"
+        placement="top"
+        content={
+          <div className="performer-tag-container">
+            <Link
+              to={`/performers/${performer.id}`}
+              className="performer-tag col m-auto zoom-2"
+            >
+              <img
+                className="image-thumbnail"
+                alt={performer.name ?? ""}
+                src={performer.image_path ?? ""}
+              />
+            </Link>
+          </div>
+        }
+      >
+        <Link to={`/performers/${performer.id}`} className="performer-chip-link">
+          <Badge variant={variant} className="performer-chip mr-1">
+            {showArrow && <Icon icon={arrowIcon} className="mr-1" />}
+            {performer.name}
+          </Badge>
+        </Link>
+      </HoverPopover>
+    );
+    // CUSTOM: end
+
     return (
       <div className="scene-marker-card__details">
         <span className="scene-marker-card__time">
@@ -101,9 +140,21 @@ const SceneMarkerCardDetails = PatchComponent(
             props.marker.end_seconds ?? undefined
           )}
         </span>
+        {/* CUSTOM: begin - performer chips display */}
+        {(props.marker.top_performers.length > 0 || props.marker.bottom_performers.length > 0) && (
+          <div className="scene-marker-card__performers">
+            {props.marker.top_performers.map((p) =>
+              renderPerformerChip(p, "success", showRoleArrows, faArrowUp)
+            )}
+            {props.marker.bottom_performers.map((p) =>
+              renderPerformerChip(p, "info", showRoleArrows, faArrowDown)
+            )}
+          </div>
+        )}
+        {/* CUSTOM: end */}
         <TruncatedText
           className="scene-marker-card__scene"
-          lineCount={3}
+          lineCount={2} // CUSTOM: was 3
           text={
             <Link to={NavUtils.makeSceneMarkersSceneUrl(props.marker.scene)}>
               {objectTitle(props.marker.scene)}

@@ -6,7 +6,20 @@ export interface IMarker {
   seconds: number;
   end_seconds?: number | null;
   primaryTag: { name: string };
+  // CUSTOM: begin - performer roles on markers
+  top_performers?: Array<{ id: string; name: string }>;
+  bottom_performers?: Array<{ id: string; name: string }>;
+  // CUSTOM: end
 }
+
+// CUSTOM: begin - negative marker interface
+export interface INegativeMarker {
+  id: string;
+  name: string;
+  start_seconds: number;
+  end_seconds: number;
+}
+// CUSTOM: end
 
 interface IMarkersOptions {
   markers?: IMarker[];
@@ -19,6 +32,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     range?: HTMLDivElement;
     containedRanges?: HTMLDivElement[];
   }[] = [];
+  private negativeMarkerDivs: HTMLDivElement[] = []; // CUSTOM
   private markerTooltip: HTMLElement | null = null;
   private defaultTooltip: HTMLElement | null = null;
 
@@ -47,14 +61,46 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     });
   }
 
-  private showMarkerTooltip(title: string, layer: number = 0) {
+  // CUSTOM: begin - enhanced tooltip with performer roles and negative marker styling
+  private showMarkerTooltip(title: string, layer: number = 0, topPerformers?: Array<{ id: string; name: string }>, bottomPerformers?: Array<{ id: string; name: string }>, isNegativeMarker: boolean = false) {
     if (!this.markerTooltip) return;
-    this.markerTooltip.innerText = title;
+    
+    let tooltipContent = title;
+    
+    // Only show arrows if marker has performers in BOTH roles (top and bottom)
+    const showRoleArrows = (topPerformers?.length ?? 0) > 0 && (bottomPerformers?.length ?? 0) > 0;
+    
+    // Add top performers (with up arrows only if both roles have performers)
+    if (topPerformers && topPerformers.length > 0) {
+      const topNames = topPerformers.map(p => showRoleArrows ? `↑ ${p.name}` : p.name).join(", ");
+      tooltipContent += ` [${topNames}]`;
+    }
+    
+    // Add bottom performers (with down arrows only if both roles have performers)
+    if (bottomPerformers && bottomPerformers.length > 0) {
+      const bottomNames = bottomPerformers.map(p => showRoleArrows ? `↓ ${p.name}` : p.name).join(", ");
+      if (topPerformers && topPerformers.length > 0) {
+        tooltipContent += ` [${bottomNames}]`;
+      } else {
+        tooltipContent += ` [${bottomNames}]`;
+      }
+    }
+    
+    this.markerTooltip.innerText = tooltipContent;
     this.markerTooltip.style.right = `${-this.markerTooltip.clientWidth / 2}px`;
     this.markerTooltip.style.top = `-${this.layerHeight * layer + 50}px`;
     this.markerTooltip.style.visibility = "visible";
+    
+    // Style differently for negative markers
+    if (isNegativeMarker) {
+      this.markerTooltip.classList.add("vjs-marker-tooltip-negative");
+    } else {
+      this.markerTooltip.classList.remove("vjs-marker-tooltip-negative");
+    }
+    
     if (this.defaultTooltip) this.defaultTooltip.style.visibility = "hidden";
   }
+  // CUSTOM: end
 
   private hideMarkerTooltip() {
     if (this.markerTooltip) this.markerTooltip.style.visibility = "hidden";
@@ -95,7 +141,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
         this.tagColors[marker.primaryTag.name];
     }
     markerSet.dot.addEventListener("mouseenter", () => {
-      this.showMarkerTooltip(marker.title);
+      this.showMarkerTooltip(marker.title, 0, marker.top_performers, marker.bottom_performers); // CUSTOM: performer roles
       markerSet.dot?.toggleAttribute("marker-tooltip-shown", true);
     });
 
@@ -183,7 +229,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       e.stopPropagation();
     });
     markerSet.range.addEventListener("mouseenter", () => {
-      this.showMarkerTooltip(marker.title, layer);
+      this.showMarkerTooltip(marker.title, layer, marker.top_performers, marker.bottom_performers); // CUSTOM: performer roles
       markerSet.range?.toggleAttribute("marker-tooltip-shown", true);
     });
 
@@ -291,7 +337,65 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     }
     this.markers = [];
     this.markerDivs = [];
+    
+    // CUSTOM: begin - clear negative markers
+    for (const div of this.negativeMarkerDivs) {
+      div.remove();
+    }
+    this.negativeMarkerDivs = [];
+    // CUSTOM: end
   }
+
+  // CUSTOM: begin - add negative markers (displayed in red)
+  addNegativeMarkers(negativeMarkers: INegativeMarker[]) {
+    const duration = this.player.duration();
+    const parent = this.player.el().querySelector(".vjs-progress-control");
+    if (!parent || !duration) return;
+
+    for (const marker of negativeMarkers) {
+      const rangeDiv = videojs.dom.createEl("div") as HTMLDivElement;
+      rangeDiv.className = "vjs-marker-range vjs-negative-marker-range";
+
+      const startPercent = (marker.start_seconds / duration) * 100;
+      const widthPercent =
+        ((marker.end_seconds - marker.start_seconds) / duration) * 100;
+
+      rangeDiv.style.left = `calc(15px + ${startPercent}% - ${
+        startPercent * 0.3
+      }px)`;
+      rangeDiv.style.width = `calc(${widthPercent}% - ${widthPercent * 0.3}px)`;
+      rangeDiv.style.bottom = "0px";
+      rangeDiv.style.display = "block";
+      // Force red color for negative markers
+      rangeDiv.style.backgroundColor = "#dc3545";
+      rangeDiv.style.opacity = "0.7";
+
+      rangeDiv.addEventListener("mouseenter", () => {
+        const title = marker.name || "Skip Section";
+        this.showMarkerTooltip(title, 0, undefined, undefined, true);
+        rangeDiv.toggleAttribute("marker-tooltip-shown", true);
+      });
+
+      rangeDiv.addEventListener("mouseout", () => {
+        this.hideMarkerTooltip();
+        rangeDiv.toggleAttribute("marker-tooltip-shown", false);
+      });
+
+      rangeDiv.addEventListener("pointermove", (e) => {
+        e.stopPropagation();
+      });
+      rangeDiv.addEventListener("pointerover", (e) => {
+        e.stopPropagation();
+      });
+      rangeDiv.addEventListener("pointerout", (e) => {
+        e.stopPropagation();
+      });
+
+      parent.appendChild(rangeDiv);
+      this.negativeMarkerDivs.push(rangeDiv);
+    }
+  }
+  // CUSTOM: end
 
   // Implementing the findColors method
   findColors(tagNames: string[]) {
@@ -394,9 +498,14 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
   }
 
   // Convert hue to RGB color in hex format
+  // CUSTOM: begin - avoids red hues (0-30 and 330-360) to reserve red for negative markers
   private hueToColor(hue: number): string {
+    // Remap hue to avoid red range (reserve 0-30 and 330-360 for negative markers)
+    // Map the range [0, 360) to [30, 330) to avoid reds
+    const remappedHue = 30 + (hue % 360) * (300 / 360);
+    
     // Convert hue from degrees to [0, 1)
-    const hueNormalized = hue / 360.0;
+    const hueNormalized = remappedHue / 360.0;
     const saturation = 0.65;
     const value = 0.95;
     const rgb = this.hsvToRgb(hueNormalized, saturation, value);
@@ -406,6 +515,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     )}${this.toHex(Math.round(alpha * 255))}`;
     return rgbColor;
   }
+  // CUSTOM: end
 
   // Convert HSV to RGB
   private hsvToRgb(h: number, s: number, v: number): [number, number, number] {

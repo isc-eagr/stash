@@ -73,7 +73,7 @@ export const SceneListTable: React.FC<ISceneListTableProps> = (
     );
   };
 
-  const DateCell = (scene: GQL.SlimSceneDataFragment) => <>{scene.date}</>;
+  const DateCell = (scene: GQL.SlimSceneDataFragment) => <>{scene.effective_date ?? scene.date}</>; {/* CUSTOM */}
 
   const RatingCell = (scene: GQL.SlimSceneDataFragment) => (
     <RatingSystem

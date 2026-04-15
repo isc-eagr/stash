@@ -38,7 +38,7 @@ type ImageCounter interface {
 	CountByGalleryID(ctx context.Context, galleryID int) (int, error)
 	OCount(ctx context.Context) (int, error)
 	OCountByPerformerID(ctx context.Context, performerID int) (int, error)
-	OCountByStudioID(ctx context.Context, studioID int) (int, error)
+	OCountByStudioID(ctx context.Context, studioID int, performerID *string) (int, error) // CUSTOM: added performerID param
 }
 
 // ImageCreator provides methods to create images.

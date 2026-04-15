@@ -12,13 +12,28 @@ interface ITagCardGrid {
   selectedIds: Set<string>;
   zoomIndex: number;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
+  // CUSTOM: begin
+  sceneCountOnly?: boolean;
+  performerId?: string;
+  performerName?: string;
+  // CUSTOM: end
 }
 
 const zoomWidths = [280, 340, 480, 640];
 
 export const TagCardGrid: React.FC<ITagCardGrid> = PatchComponent(
   "TagCardGrid",
-  ({ tags, selectedIds, zoomIndex, onSelectChange }) => {
+  ({
+    tags,
+    selectedIds,
+    zoomIndex,
+    onSelectChange,
+    // CUSTOM: begin
+    sceneCountOnly = false,
+    performerId,
+    performerName,
+    // CUSTOM: end
+  }) => {
     const [componentRef, { width: containerWidth }] = useContainerDimensions();
     const cardWidth = useCardWidth(containerWidth, zoomIndex, zoomWidths);
 
@@ -35,6 +50,9 @@ export const TagCardGrid: React.FC<ITagCardGrid> = PatchComponent(
             onSelectedChanged={(selected: boolean, shiftKey: boolean) =>
               onSelectChange(tag.id, selected, shiftKey)
             }
+            sceneCountOnly={sceneCountOnly} // CUSTOM
+            performerId={performerId} // CUSTOM
+            performerName={performerName} // CUSTOM
           />
         ))}
       </div>

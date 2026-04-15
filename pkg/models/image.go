@@ -51,6 +51,16 @@ type ImageFilterType struct {
 	PerformerFavorite *bool `json:"performer_favorite"`
 	// Filter images by performer age at time of image
 	PerformerAge *IntCriterionInput `json:"performer_age"`
+	// CUSTOM: begin
+	// Filter images by performers' rating (1-100)
+	PerformerRating *IntCriterionInput `json:"performer_rating"`
+	// When true, all linked performers must satisfy the performer_rating condition; when false, at least one performer must satisfy it (default: true).
+	PerformerRatingAll *bool `json:"performer_rating_all"`
+	// Filter by performer country
+	PerformerCountry *StringCriterionInput `json:"performer_country"`
+	// Filter by performer ethnicity
+	PerformerEthnicity *StringCriterionInput `json:"performer_ethnicity"`
+	// CUSTOM: end
 	// Filter to only include images with these galleries
 	Galleries *MultiCriterionInput `json:"galleries"`
 	// Filter by related galleries that meet this criteria

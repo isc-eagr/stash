@@ -1,23 +1,106 @@
 import React from "react";
 import { FormattedMessage } from "react-intl";
 import * as GQL from "src/core/generated-graphql";
-import { Button, Badge, Card } from "react-bootstrap";
+import { Button, Badge, Card, Collapse, Form } from "react-bootstrap"; // CUSTOM: added Collapse, Form
 import TextUtils from "src/utils/text";
 import { markerTitle } from "src/core/markers";
 import { useConfigurationContext } from "src/hooks/Config";
+// CUSTOM: begin - icon imports for collapsible cards and performer roles
+import { Icon } from "src/components/Shared/Icon";
+import {
+  faChevronDown,
+  faChevronRight,
+  faArrowUp,
+  faArrowDown,
+} from "@fortawesome/free-solid-svg-icons";
+// CUSTOM: end
 
 interface IPrimaryTags {
   sceneMarkers: GQL.SceneMarkerDataFragment[];
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   onLoopMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   onEdit: (marker: GQL.SceneMarkerDataFragment) => void;
+  // CUSTOM: begin - collapsible cards and selection props
+  expandedCards: Record<string, boolean>;
+  onToggleCard: (id: string) => void;
+  selectedMarkerIds: Set<string>;
+  onSelectMarker: (id: string, selected: boolean) => void;
+  onSelectMarkers: (ids: string[], selected: boolean) => void;
+  // CUSTOM: end
 }
+
+// CUSTOM: begin - collapsible PrimaryCard component
+const PrimaryCard: React.FC<{
+  id: string;
+  tagName: string;
+  markers: JSX.Element[];
+  isOpen: boolean;
+  onToggle: () => void;
+  selectAllChecked: boolean;
+  onSelectAllChanged: (selected: boolean) => void;
+}> = ({
+  id,
+  tagName,
+  markers,
+  isOpen,
+  onToggle,
+  selectAllChecked,
+  onSelectAllChanged,
+}) => {
+  return (
+    <Card className="primary-card primary-card-tall col-12" key={id}>
+      <div
+        className="primary-card-header"
+        onClick={onToggle}
+        style={{
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          padding: "0.5rem 0.75rem",
+        }}
+      >
+        <Icon
+          icon={isOpen ? faChevronDown : faChevronRight}
+          className="mr-2"
+          style={{ fontSize: "0.9em" }}
+        />
+        <h4 className="m-0 mr-2" title={tagName}>
+          {tagName}
+        </h4>
+        <Badge pill variant="info" className="marker-count-badge">
+          {markers.length}
+        </Badge>
+        <Form.Check
+          className="ml-auto"
+          type="checkbox"
+          checked={selectAllChecked}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+            e.stopPropagation();
+            onSelectAllChanged(e.currentTarget.checked);
+          }}
+        />
+      </div>
+      <Collapse in={isOpen}>
+        <Card.Body className="primary-card-body p-0">{markers}</Card.Body>
+      </Collapse>
+    </Card>
+  );
+};
+// CUSTOM: end
 
 export const PrimaryTags: React.FC<IPrimaryTags> = ({
   sceneMarkers,
   onClickMarker,
   onLoopMarker,
   onEdit,
+  // CUSTOM: begin - new destructured props
+  expandedCards,
+  onToggleCard,
+  selectedMarkerIds,
+  onSelectMarker,
+  onSelectMarkers,
+  // CUSTOM: end
 }) => {
   const { configuration } = useConfigurationContext();
   const showAbLoopControls = configuration?.ui?.showAbLoopControls;
@@ -36,55 +119,137 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
   });
 
   const primaryCards = Object.keys(markersByTag).map((id) => {
+    // CUSTOM: begin - per-tag selection tracking
+    const markerIDsForTag = markersByTag[id].map((m) => m.id);
+    const allSelectedForTag =
+      markerIDsForTag.length > 0 &&
+      markerIDsForTag.every((mid) => selectedMarkerIds.has(mid));
+    // CUSTOM: end
+
     const markers = markersByTag[id].map((marker) => {
       const tags = marker.tags.map((tag) => (
-        <Badge key={tag.id} variant="secondary" className="tag-item">
+        <Badge key={tag.id} variant="secondary" className="tag-badge mr-1">
           {tag.name}
         </Badge>
       ));
 
+      // CUSTOM: begin - performer role badges with arrows
+      // Only show arrows if marker has performers in BOTH roles (top and bottom)
+      const showRoleArrows = (marker.top_performers?.length ?? 0) > 0 && (marker.bottom_performers?.length ?? 0) > 0;
+
+      const topPerformers = marker.top_performers?.map((performer) => (
+        <Badge
+          key={performer.id}
+          variant="success"
+          className="performer-badge mr-1"
+        >
+          {showRoleArrows && <Icon icon={faArrowUp} className="mr-1" />}
+          {performer.name}
+        </Badge>
+      ));
+
+      const bottomPerformers = marker.bottom_performers?.map((performer) => (
+        <Badge
+          key={performer.id}
+          variant="info"
+          className="performer-badge mr-1"
+        >
+          {showRoleArrows && <Icon icon={faArrowDown} className="mr-1" />}
+          {performer.name}
+        </Badge>
+      ));
+      // CUSTOM: end
+
       return (
-        <div key={marker.id}>
-          <hr />
-          <div className="row">
-            <Button variant="link" onClick={() => onClickMarker(marker)}>
-              {markerTitle(marker)}
-            </Button>
-            <Button
-              variant="link"
-              className="ml-auto"
-              onClick={() => onEdit(marker)}
-            >
-              <FormattedMessage id="actions.edit" />
-            </Button>
-          </div>
-          <div className="d-flex align-items-center">
-            <div>
-              {TextUtils.formatTimestampRange(
-                marker.seconds,
-                marker.end_seconds ?? undefined
-              )}
+        <div key={marker.id} className="marker-item">
+          <div className="d-flex align-items-start justify-content-between">
+            <div className="flex-grow-1 min-w-0 marker-content">
+              <div className="d-flex align-items-center marker-main-row">
+                <Button
+                  variant="link"
+                  className="p-0 marker-title-btn"
+                  onClick={() => onClickMarker(marker)}
+                  title={markerTitle(marker)}
+                >
+                  {markerTitle(marker)}
+                </Button>
+                <span className="marker-timestamp text-muted ml-2">
+                  <Button
+                    variant="link"
+                    className="p-0 text-muted"
+                    onClick={() => onClickMarker(marker)}
+                    title="Seek to start"
+                  >
+                    {TextUtils.secondsToTimestamp(marker.seconds)}
+                  </Button>
+                  {marker.end_seconds !== null && marker.end_seconds !== undefined ? (
+                    <>
+                      <span>-</span>
+                      <Button
+                        variant="link"
+                        className="p-0 text-muted"
+                        onClick={() => {
+                          // Create a fake marker with seconds set to end_seconds for seeking
+                          const endMarker = { ...marker, seconds: marker.end_seconds! };
+                          onClickMarker(endMarker);
+                        }}
+                        title="Seek to end"
+                      >
+                        {TextUtils.secondsToTimestamp(marker.end_seconds)}
+                      </Button>
+                      <span className="ml-1">
+                        ({TextUtils.formatDurationRange(marker.end_seconds - marker.seconds)})
+                      </span>
+                    </>
+                  ) : (
+                    <span className="ml-1">(20s)</span>
+                  )}
+                </span>
+                <Button
+                  variant="link"
+                  className="marker-edit-btn p-0 ml-auto"
+                  onClick={() => onEdit(marker)}
+                >
+                  <FormattedMessage id="actions.edit" />
+                </Button>
+              </div>
+              <div className="d-flex align-items-center flex-wrap marker-badges">
+                {topPerformers && topPerformers.length > 0 && (
+                  <div className="mr-1">{topPerformers}</div>
+                )}
+                {bottomPerformers && bottomPerformers.length > 0 && (
+                  <div className="mr-1">{bottomPerformers}</div>
+                )}
+              </div>
             </div>
-            {showAbLoopControls && marker.end_seconds != null && (
-              <Button
-                variant="link"
-                className="ml-2 p-0"
-                onClick={() => onLoopMarker(marker)}
-              >
-                Loop
-              </Button>
-            )}
+            <Form.Check
+              className="marker-checkbox ml-3"
+              type="checkbox"
+              checked={selectedMarkerIds.has(marker.id)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                onSelectMarker(marker.id, e.currentTarget.checked)
+              }
+            />
           </div>
+
           <div className="card-section centered">{tags}</div>
         </div>
       );
     });
 
     return (
-      <Card className="primary-card col-12 col-sm-6 col-xl-6" key={id}>
-        <h3>{primaryTagNames[id]}</h3>
-        <Card.Body className="primary-card-body">{markers}</Card.Body>
-      </Card>
+      <PrimaryCard
+        key={id}
+        id={id}
+        tagName={primaryTagNames[id]}
+        markers={markers}
+        isOpen={expandedCards[id] || false}
+        onToggle={() => onToggleCard(id)}
+        selectAllChecked={allSelectedForTag}
+        onSelectAllChanged={(selected) =>
+          onSelectMarkers(markerIDsForTag, selected)
+        }
+      />
     );
   });
 

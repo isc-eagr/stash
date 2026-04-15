@@ -1,6 +1,6 @@
 import cloneDeep from "lodash-es/cloneDeep";
 import React, { useCallback, useMemo } from "react";
-import { CriterionModifier } from "src/core/generated-graphql";
+import { CriterionModifier, FilterMode } from "src/core/generated-graphql"; // CUSTOM: added FilterMode
 import {
   DurationCriterion,
   CriterionValue,
@@ -12,6 +12,7 @@ import {
   TimestampCriterion,
   BooleanCriterion,
   Criterion,
+  ModifierCriterionOption, // CUSTOM
 } from "src/models/list-filter/criteria/criterion";
 import {
   criterionIsHierarchicalLabelValue,
@@ -28,11 +29,19 @@ import { InputFilter } from "./Filters/InputFilter";
 import { DateFilter } from "./Filters/DateFilter";
 import { TimestampFilter } from "./Filters/TimestampFilter";
 import { CountryCriterion } from "src/models/list-filter/criteria/country";
-import { CountrySelect } from "../Shared/CountrySelect";
+import { PerformerCountryFilter } from "./Filters/PerformerCountryFilter"; // CUSTOM: replaced CountrySelect
 import { StashIDCriterion } from "src/models/list-filter/criteria/stash-ids";
 import { StashIDFilter } from "./Filters/StashIDFilter";
-import { RatingCriterion } from "../../models/list-filter/criteria/rating";
+// CUSTOM: begin - additional rating/ethnicity imports
+import {
+  PerformerRatingCriterion,
+  RatingCriterion,
+} from "../../models/list-filter/criteria/rating";
+import { EthnicityCriterion } from "../../models/list-filter/criteria/ethnicity";
 import { RatingFilter } from "./Filters/RatingFilter";
+import { PerformerRatingFilter } from "./Filters/PerformerRatingFilter";
+import { PerformerEthnicityFilter } from "./Filters/PerformerEthnicityFilter";
+// CUSTOM: end
 import { BooleanFilter } from "./Filters/BooleanFilter";
 import { OptionFilter, OptionListFilter } from "./Filters/OptionFilter";
 import { PathFilter } from "./Filters/PathFilter";
@@ -40,12 +49,18 @@ import { PerformersCriterion } from "src/models/list-filter/criteria/performers"
 import PerformersFilter from "./Filters/PerformersFilter";
 import { StudiosCriterion } from "src/models/list-filter/criteria/studios";
 import StudiosFilter from "./Filters/StudiosFilter";
-import { TagsCriterion } from "src/models/list-filter/criteria/tags";
+// CUSTOM: begin - SceneMarkerTagsCriterion in tags import
+import {
+  TagsCriterion,
+  SceneMarkerTagsCriterion,
+} from "src/models/list-filter/criteria/tags";
+// CUSTOM: end
 import TagsFilter from "./Filters/TagsFilter";
 import {
   PhashCriterion,
   DuplicatedCriterion,
 } from "src/models/list-filter/criteria/phash";
+import { SceneMarkerTagsFilter } from "./Filters/SceneMarkerTagsFilter"; // CUSTOM
 import { PhashFilter } from "./Filters/PhashFilter";
 import { DuplicatedFilter } from "./Filters/DuplicateFilter";
 import { PathCriterion } from "src/models/list-filter/criteria/path";
@@ -57,6 +72,54 @@ import {
   FolderCriterion,
   ParentFolderCriterion,
 } from "src/models/list-filter/criteria/folder";
+// CUSTOM: begin - marker/performer/scene-type/custom-filter imports
+import {
+  MarkerPerformersCriterion,
+} from "src/models/list-filter/criteria/marker-performers";
+import { MarkerPerformersFilter } from "./Filters/MarkerPerformersFilter";
+import { PerformerMarkersCriterion } from "src/models/list-filter/criteria/performer-markers";
+import { PerformerMarkersFilter } from "./Filters/PerformerMarkersFilter";
+import { PerformerMarkersExcludeCriterion } from "src/models/list-filter/criteria/performer-markers-exclude";
+import { PerformerMarkersExcludeFilter } from "./Filters/PerformerMarkersExcludeFilter";
+import { MarkerTagsCriterion } from "src/models/list-filter/criteria/marker-tags";
+import { MarkerTagsFilter } from "./Filters/MarkerTagsFilter";
+import { MarkerTopCriterion } from "src/models/list-filter/criteria/marker-top";
+import { MarkerTopFilter } from "./Filters/MarkerTopFilter";
+import { MarkerBottomCriterion } from "src/models/list-filter/criteria/marker-bottom";
+import { MarkerBottomFilter } from "./Filters/MarkerBottomFilter";
+import { ExcludeMarkerTagsCriterion } from "src/models/list-filter/criteria/exclude-marker-tags";
+import { ExcludeMarkerTagsFilter } from "./Filters/ExcludeMarkerTagsFilter";
+import {
+  SceneMarkersCriterion,
+  sceneMarkersModifierOptions,
+} from "src/models/list-filter/criteria/scene-markers";
+import { SceneMarkersFilter } from "./Filters/SceneMarkersFilter";
+import {
+  SceneMarkersExcludeCriterion,
+  sceneMarkersExcludeModifierOptions,
+} from "src/models/list-filter/criteria/scene-markers-exclude";
+import { SceneMarkersExcludeFilter } from "./Filters/SceneMarkersExcludeFilter";
+import {
+  SceneCustomFiltersCriterion,
+  PerformerCustomFiltersCriterion,
+  SceneMarkerCustomFiltersCriterion,
+} from "src/models/list-filter/criteria/custom-filters";
+import {
+  SceneSceneTypeCriterion,
+  PerformerSceneTypeCriterion,
+} from "src/models/list-filter/criteria/scene-type";
+import {
+  SceneCustomFiltersFilter,
+  PerformerCustomFiltersFilter,
+  SceneMarkerCustomFiltersFilter,
+} from "./Filters/CustomFiltersFilter";
+import {
+  SceneSceneTypeFilter,
+  PerformerSceneTypeFilter,
+} from "./Filters/SceneTypeFilter";
+import { HasRolesCriterion } from "src/models/list-filter/criteria/has-roles";
+import { HasRolesFilter } from "./Filters/HasRolesFilter";
+// CUSTOM: end
 
 interface IGenericCriterionEditor {
   criterion: ModifierCriterion<CriterionValue>;
@@ -169,6 +232,7 @@ const GenericCriterionEditor: React.FC<IGenericCriterionEditor> = ({
         />
       );
     }
+    // SceneMarkerTagsCriterion is handled by a specialized editor outside GenericCriterionEditor // CUSTOM
 
     if (
       criterion instanceof FolderCriterion ||
@@ -244,6 +308,31 @@ const GenericCriterionEditor: React.FC<IGenericCriterionEditor> = ({
         <NumberFilter criterion={criterion} onValueChanged={onValueChanged} />
       );
     }
+    // CUSTOM: begin - EthnicityCriterion handler
+    if (criterion instanceof EthnicityCriterion) {
+      return (
+        <PerformerEthnicityFilter
+          criterion={criterion}
+          onValueChanged={(v) => onValueChanged(v)}
+        />
+      );
+    }
+    // CUSTOM: end
+    // CUSTOM: begin - PerformerRatingCriterion handler
+    if (criterion instanceof PerformerRatingCriterion) {
+      return (
+        <PerformerRatingFilter
+          criterion={criterion}
+          onValueChanged={(v) => onValueChanged(v)}
+          onMatchAllChanged={(v) => {
+            const c = cloneDeep(criterion);
+            c.matchAll = v;
+            setCriterion(c);
+          }}
+        />
+      );
+    }
+    // CUSTOM: end
     if (criterion instanceof RatingCriterion) {
       return (
         <RatingFilter criterion={criterion} onValueChanged={onValueChanged} />
@@ -254,19 +343,16 @@ const GenericCriterionEditor: React.FC<IGenericCriterionEditor> = ({
         <PhashFilter criterion={criterion} onValueChanged={onValueChanged} />
       );
     }
-    if (
-      criterion instanceof CountryCriterion &&
-      (criterion.modifier === CriterionModifier.Equals ||
-        criterion.modifier === CriterionModifier.NotEquals)
-    ) {
+    // CUSTOM: begin - replaced CountrySelect with PerformerCountryFilter
+    if (criterion instanceof CountryCriterion) {
       return (
-        <CountrySelect
-          value={criterion.value}
-          onChange={(v) => onValueChanged(v)}
-          menuPortalTarget={document.body}
+        <PerformerCountryFilter
+          criterion={criterion}
+          onValueChanged={(v) => onValueChanged(v)}
         />
       );
     }
+    // CUSTOM: end
     return (
       <InputFilter criterion={criterion} onValueChanged={onValueChanged} />
     );
@@ -283,13 +369,42 @@ const GenericCriterionEditor: React.FC<IGenericCriterionEditor> = ({
 interface ICriterionEditor {
   criterion: Criterion;
   setCriterion: (c: Criterion) => void;
+  filterMode?: FilterMode; // CUSTOM
 }
 
 export const CriterionEditor: React.FC<ICriterionEditor> = ({
   criterion,
   setCriterion,
+  filterMode, // CUSTOM
 }) => {
   const filterControl = useMemo(() => {
+    // CUSTOM: begin - SceneMarkerTagsCriterion editor
+    if (criterion instanceof SceneMarkerTagsCriterion) {
+      // Custom editor with modifier selector
+      const c = criterion;
+      return (
+        <div>
+          <ModifierSelectorButtons
+            options={
+              (c.criterionOption as ModifierCriterionOption).modifierOptions
+            }
+            value={c.modifier}
+            onChanged={(m) => {
+              const newC = c.clone() as SceneMarkerTagsCriterion;
+              newC.modifier = m;
+              setCriterion(newC);
+            }}
+          />
+          <SceneMarkerTagsFilter
+            criterion={c as SceneMarkerTagsCriterion}
+            setCriterion={(nc) => setCriterion(nc)}
+            filterMode={filterMode}
+          />
+        </div>
+      );
+    }
+    // CUSTOM: end
+
     if (criterion instanceof BooleanCriterion) {
       return (
         <BooleanFilter criterion={criterion} setCriterion={setCriterion} />
@@ -308,6 +423,172 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
       );
     }
 
+    // CUSTOM: begin - marker/performer/scene-type/custom-filter criterion handlers
+    if (criterion instanceof MarkerPerformersCriterion) {
+      const c = criterion;
+      return (
+        <div>
+          <MarkerPerformersFilter
+            criterion={c}
+            setCriterion={(nc) => setCriterion(nc)}
+          />
+        </div>
+      );
+    }
+
+    if (criterion instanceof PerformerMarkersCriterion) {
+      const c = criterion;
+      return (
+        <PerformerMarkersFilter
+          criterion={c}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof PerformerMarkersExcludeCriterion) {
+      const c = criterion;
+      return (
+        <PerformerMarkersExcludeFilter
+          criterion={c}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof MarkerTagsCriterion) {
+      return (
+        <MarkerTagsFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof MarkerTopCriterion) {
+      return (
+        <MarkerTopFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof MarkerBottomCriterion) {
+      return (
+        <MarkerBottomFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof ExcludeMarkerTagsCriterion) {
+      return (
+        <ExcludeMarkerTagsFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof SceneMarkersCriterion) {
+      const c = criterion;
+      return (
+        <div>
+          <ModifierSelectorButtons
+            options={sceneMarkersModifierOptions}
+            value={c.modifier}
+            onChanged={(m) => {
+              const newC = c.clone() as SceneMarkersCriterion;
+              newC.modifier = m;
+              setCriterion(newC);
+            }}
+          />
+          <SceneMarkersFilter
+            criterion={c}
+            setCriterion={(nc) => setCriterion(nc)}
+          />
+        </div>
+      );
+    }
+
+    if (criterion instanceof SceneMarkersExcludeCriterion) {
+      const c = criterion;
+      return (
+        <div>
+          <ModifierSelectorButtons
+            options={sceneMarkersExcludeModifierOptions}
+            value={c.modifier}
+            onChanged={(m) => {
+              const newC = c.clone() as SceneMarkersExcludeCriterion;
+              newC.modifier = m;
+              setCriterion(newC);
+            }}
+          />
+          <SceneMarkersExcludeFilter
+            criterion={c}
+            setCriterion={(nc) => setCriterion(nc)}
+          />
+        </div>
+      );
+    }
+
+    if (criterion instanceof SceneCustomFiltersCriterion) {
+      return (
+        <SceneCustomFiltersFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof SceneSceneTypeCriterion) {
+      return (
+        <SceneSceneTypeFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof PerformerCustomFiltersCriterion) {
+      return (
+        <PerformerCustomFiltersFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof PerformerSceneTypeCriterion) {
+      return (
+        <PerformerSceneTypeFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof SceneMarkerCustomFiltersCriterion) {
+      return (
+        <SceneMarkerCustomFiltersFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof HasRolesCriterion) {
+      return (
+        <HasRolesFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+    // CUSTOM: end
+
     if (criterion instanceof ModifierCriterion) {
       return (
         <GenericCriterionEditor
@@ -318,7 +599,7 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
     }
 
     return null;
-  }, [criterion, setCriterion]);
+  }, [criterion, setCriterion, filterMode]); // CUSTOM: added filterMode dep
 
   return <div className="criterion-editor">{filterControl}</div>;
 };

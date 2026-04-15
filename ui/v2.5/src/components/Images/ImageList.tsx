@@ -16,6 +16,7 @@ import {
   useFindImagesMetadata,
 } from "src/core/StashService";
 import { useFilteredItemList } from "../List/ItemList";
+import { ItemList, ItemListContext, showWhenSelected } from "../List/ItemList"; // CUSTOM
 import { useLightbox } from "src/hooks/Lightbox/hooks";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import { DisplayMode } from "src/models/list-filter/types";
@@ -67,6 +68,7 @@ import { OrganizedCriterionOption } from "src/models/list-filter/criteria/organi
 import { SidebarAgeFilter } from "../List/Filters/SidebarAgeFilter";
 import { PerformerAgeCriterionOption } from "src/models/list-filter/images";
 import { SidebarFolderFilter } from "../List/Filters/FolderFilter";
+import { ImageQueueIndicator } from "./ImageQueueIndicator"; // CUSTOM
 
 interface IImageWallProps {
   images: GQL.SlimImageDataFragment[];
@@ -709,6 +711,17 @@ export const FilteredImageList = PatchComponent(
       },
     ];
 
+    // CUSTOM: begin
+    // Get selected images for the queue indicator
+    const selectedImages = useMemo(() => {
+      return Array.from(selectedIds)
+        .map((id) => items.find((img) => img.id === id))
+        .filter(
+          (img): img is GQL.SlimImageDataFragment => img !== undefined
+        );
+    }, [items, selectedIds]);
+    // CUSTOM: end
+
     // render
     if (sidebarStateLoading) return null;
 
@@ -737,6 +750,12 @@ export const FilteredImageList = PatchComponent(
           operationComponent={operations}
           view={view}
           zoomable
+          extraToolbarContent={ // CUSTOM: begin
+            <ImageQueueIndicator
+              selectedImages={selectedImages}
+              className="ml-2"
+            />
+          } // CUSTOM: end
         />
 
         <FilterTags

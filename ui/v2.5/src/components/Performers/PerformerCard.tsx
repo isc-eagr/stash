@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useIntl } from "react-intl";
+import { gql, useQuery } from "@apollo/client"; // CUSTOM
 import * as GQL from "src/core/generated-graphql";
 import NavUtils from "src/utils/navigation";
 import TextUtils from "src/utils/text";
@@ -9,14 +10,25 @@ import { CountryFlag } from "../Shared/CountryFlag";
 import { HoverPopover } from "../Shared/HoverPopover";
 import { Icon } from "../Shared/Icon";
 import { TagLink } from "../Shared/TagLink";
-import { Button, ButtonGroup } from "react-bootstrap";
+import {
+  Button,
+  ButtonGroup,
+} from "react-bootstrap";
 import {
   ModifierCriterion,
   CriterionValue,
 } from "src/models/list-filter/criteria/criterion";
 import { PopoverCountButton } from "../Shared/PopoverCountButton";
 import GenderIcon from "./GenderIcon";
-import { faLink, faTag } from "@fortawesome/free-solid-svg-icons";
+// CUSTOM: begin
+import {
+  faLink,
+  faTag,
+  faArrowUp,
+  faArrowDown,
+  faHand,
+} from "@fortawesome/free-solid-svg-icons";
+// CUSTOM: end
 import { faInstagram, faTwitter } from "@fortawesome/free-brands-svg-icons";
 import { RatingBanner } from "../Shared/RatingBanner";
 import { usePerformerUpdate } from "src/core/StashService";
@@ -26,6 +38,12 @@ import { PatchComponent } from "src/patch";
 import { ExternalLinksButton } from "../Shared/ExternalLinksButton";
 import { useConfigurationContext } from "src/hooks/Config";
 import { OCounterButton } from "../Shared/CountButton";
+// CUSTOM: begin
+import { PerformerCategoryStrip } from "./PerformerDetails/PerformerCategoryStrip";
+import gaySvg from "src/assets/gay.svg";
+import mouthSvg from "src/assets/mouth.svg";
+import goateeSvg from "src/assets/goatee.svg";
+// CUSTOM: end
 
 export interface IPerformerCardExtraCriteria {
   scenes?: ModifierCriterion<CriterionValue>[];
@@ -44,11 +62,28 @@ interface IPerformerCardProps {
   zoomIndex?: number;
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
   extraCriteria?: IPerformerCardExtraCriteria;
+  // CUSTOM: begin
+  /** Scene ID for scene context - enables role badges based on marker roles */
+  sceneId?: string;
+  /** Number of performers in the scene - used to determine whether to show partner counts */
+  scenePerformerCount?: number;
+  // CUSTOM: end
 }
 
 const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Popovers",
   ({ performer, extraCriteria }) => {
+    // CUSTOM: begin
+    const { configuration } = useConfigurationContext();
+    const roleTagIds = configuration?.ui?.roleTagIds ?? {};
+
+    // Get configured tag IDs directly (no need to query by name)
+    const {sexTagId} = roleTagIds;
+    const {oralTagId} = roleTagIds;
+    const {soloTagId} = roleTagIds;
+    const {facialTagId} = roleTagIds;
+    // CUSTOM: end
+
     function maybeRenderScenesPopoverButton() {
       if (!performer.scene_count) return;
 
@@ -106,22 +141,42 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
       return <OCounterButton value={performer.o_counter} />;
     }
 
+    // CUSTOM: begin - modified tag popover (sorted, safe null checks)
     function maybeRenderTagPopoverButton() {
-      if (performer.tags.length <= 0) return;
+      // Use global performer tags for the hover popover
+      const displayTags = performer.tags ?? [];
 
-      const popoverContent = performer.tags.map((tag) => (
-        <TagLink key={tag.id} linkType="performer" tag={tag} />
+      if (!displayTags || displayTags.length <= 0) {
+        // no tag-count rendered when there are no tags (original behavior)
+        return null;
+      }
+
+      const sortedDisplayTags = [...displayTags].sort((a, b) =>
+        (a?.name ?? "").localeCompare(b?.name ?? "", undefined, {
+          sensitivity: "base",
+        })
+      );
+
+      const popoverContent: JSX.Element[] = sortedDisplayTags.map((tag) => (
+        <TagLink
+          key={tag.id}
+          linkType="performer"
+          tag={{ id: tag.id, name: tag.name ?? undefined }}
+        />
       ));
 
       return (
         <HoverPopover placement="bottom" content={popoverContent}>
           <Button className="minimal tag-count">
             <Icon icon={faTag} />
-            <span>{performer.tags.length}</span>
+            <span>{displayTags.length}</span>
           </Button>
         </HoverPopover>
       );
     }
+    // CUSTOM: end
+
+    // Removed Performers page green tag navigation button per request. // CUSTOM
 
     function maybeRenderGroupsPopoverButton() {
       if (!performer.group_count) return;
@@ -140,23 +195,184 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
       );
     }
 
-    if (
+    // CUSTOM: begin - sex/oral/solo/facial scene category buttons
+    // Sex scenes - gay icon with top/bottom sub-counts
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    function _maybeRenderSexScenesButton() {
+      if (!sexTagId) return null;
+
+      const count = performer.sex_scene_count ?? 0;
+      const topCount = performer.sex_top_count ?? 0;
+      const bottomCount = performer.sex_bottom_count ?? 0;
+      const url = NavUtils.makePerformerMarkerScenesUrl(
+        performer,
+        sexTagId,
+        "sex"
+      );
+
+      return (
+        <HoverPopover
+          placement="bottom"
+          content={
+            <div className="role-counts">
+              <div>
+                <Icon icon={faArrowUp} /> Top: {topCount}
+              </div>
+              <div>
+                <Icon icon={faArrowDown} /> Bottom: {bottomCount}
+              </div>
+            </div>
+          }
+        >
+          <Button
+            className="minimal scene-category-count sex-scene-count"
+            href={url}
+            title="Sex scenes"
+            disabled={count === 0}
+          >
+            <img src={gaySvg} alt="Sex" className="category-icon" />
+            <span>{count}</span>
+          </Button>
+        </HoverPopover>
+      );
+    }
+
+    // Oral scenes - mouth icon with top/bottom sub-counts
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    function _maybeRenderOralScenesButton() {
+      if (!oralTagId) return null;
+
+      const count = performer.oral_scene_count ?? 0;
+      const topCount = performer.oral_top_count ?? 0;
+      const bottomCount = performer.oral_bottom_count ?? 0;
+      const url = NavUtils.makePerformerMarkerScenesUrl(
+        performer,
+        oralTagId,
+        "oral"
+      );
+
+      return (
+        <HoverPopover
+          placement="bottom"
+          content={
+            <div className="role-counts">
+              <div>
+                <Icon icon={faArrowUp} /> Top: {topCount}
+              </div>
+              <div>
+                <Icon icon={faArrowDown} /> Bottom: {bottomCount}
+              </div>
+            </div>
+          }
+        >
+          <Button
+            className="minimal scene-category-count oral-scene-count"
+            href={url}
+            title="Oral scenes"
+            disabled={count === 0}
+          >
+            <img src={mouthSvg} alt="Oral" className="category-icon" />
+            <span>{count}</span>
+          </Button>
+        </HoverPopover>
+      );
+    }
+
+    // Solo scenes - hand icon (no top/bottom for solo)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    function _maybeRenderSoloScenesButton() {
+      if (!soloTagId) return null;
+
+      const count = performer.solo_scene_count ?? 0;
+      const url = NavUtils.makePerformerMarkerScenesUrl(
+        performer,
+        soloTagId,
+        "solo"
+      );
+
+      return (
+        <Button
+          className="minimal scene-category-count solo-scene-count"
+          href={url}
+          title="Solo scenes"
+          disabled={count === 0}
+        >
+          <Icon icon={faHand} className="category-icon-fa" />
+          <span>{count}</span>
+        </Button>
+      );
+    }
+
+    // Facial scenes - goatee icon with top/bottom sub-counts
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    function _maybeRenderFacialScenesButton() {
+      if (!facialTagId) return null;
+
+      const count = performer.facial_scene_count ?? 0;
+      const topCount = performer.facial_top_count ?? 0;
+      const bottomCount = performer.facial_bottom_count ?? 0;
+      const url = NavUtils.makePerformerMarkerScenesUrl(
+        performer,
+        facialTagId,
+        "facial"
+      );
+
+      return (
+        <HoverPopover
+          placement="bottom"
+          content={
+            <div className="role-counts">
+              <div>
+                <Icon icon={faArrowUp} /> Top: {topCount}
+              </div>
+              <div>
+                <Icon icon={faArrowDown} /> Bottom: {bottomCount}
+              </div>
+            </div>
+          }
+        >
+          <Button
+            className="minimal scene-category-count facial-scene-count"
+            href={url}
+            title="Facial scenes"
+            disabled={count === 0}
+          >
+            <img src={goateeSvg} alt="Facial" className="category-icon" />
+            <span>{count}</span>
+          </Button>
+        </HoverPopover>
+      );
+    }
+
+    // Check if any role tag is configured
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _hasCategoryButtons = !!(
+      sexTagId ||
+      oralTagId ||
+      soloTagId ||
+      facialTagId
+    );
+
+    const hasAnyPopover = !!(
       performer.scene_count ||
       performer.image_count ||
       performer.gallery_count ||
       performer.tags.length > 0 ||
       performer.o_counter ||
       performer.group_count
-    ) {
+    );
+
+    if (hasAnyPopover) {
+    // CUSTOM: end
       return (
         <>
           <hr />
           <ButtonGroup className="card-popovers">
+            {maybeRenderTagPopoverButton()} {/* CUSTOM: moved before scenes */}
             {maybeRenderScenesPopoverButton()}
             {maybeRenderGroupsPopoverButton()}
             {maybeRenderImagesPopoverButton()}
             {maybeRenderGalleriesPopoverButton()}
-            {maybeRenderTagPopoverButton()}
             {maybeRenderOCounter()}
           </ButtonGroup>
         </>
@@ -286,8 +502,12 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
 
 const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Details",
-  ({ performer, ageFromDate }) => {
+  // CUSTOM: begin - added sceneId, scenePerformerCount props; scene marker roles query
+  ({ performer, ageFromDate, sceneId, scenePerformerCount }) => {
     const intl = useIntl();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { configuration: _configuration } = useConfigurationContext();
+
     const age = TextUtils.age(
       performer.birthdate,
       ageFromDate ?? performer.death_date
@@ -304,17 +524,47 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
       { age, years_old: ageL10String }
     );
 
+    // CUSTOM: begin - scene marker roles query
+    // Query for scene marker roles when in scene context
+    const SCENE_MARKER_ROLES_QUERY = gql`
+      query PerformerSceneMarkerRoles($performer_id: ID!, $scene_id: ID!) {
+        findPerformer(id: $performer_id) {
+          id
+          scene_marker_roles(scene_id: $scene_id)
+        }
+      }
+    `;
+
+    const { data: rolesData } = useQuery(SCENE_MARKER_ROLES_QUERY, {
+      variables: { performer_id: performer.id, scene_id: sceneId },
+      skip: !sceneId,
+      fetchPolicy: "cache-and-network",
+    });
+
+    const markerRoles = rolesData?.findPerformer?.scene_marker_roles ?? [];
+    // CUSTOM: end
+
     return (
       <>
-        {age !== 0 ? (
-          <div className="performer-card__age">{ageString}</div>
-        ) : (
-          ""
-        )}
+        {/* CUSTOM: begin - modified age display + PerformerCategoryStrip */}
+        {/* Age line */}
+        <div className="performer-card__age">
+          {age !== 0 ? ageString : "\u00A0"}
+        </div>
+
+        {/* Role badges using shared component */}
+        <PerformerCategoryStrip 
+          performer={performer}
+          sceneId={sceneId}
+          markerRoles={markerRoles}
+          scenePerformerCount={scenePerformerCount}
+        />
+        {/* CUSTOM: end */}
       </>
     );
   }
 );
+// CUSTOM: end
 
 const PerformerCardImage: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Image",
@@ -323,6 +573,7 @@ const PerformerCardImage: React.FC<IPerformerCardProps> = PatchComponent(
       <>
         <img
           loading="lazy"
+          decoding="async" // CUSTOM
           className="performer-card-image"
           alt={performer.name ?? ""}
           src={performer.image_path ?? ""}
@@ -343,6 +594,7 @@ const PerformerCardTitle: React.FC<IPerformerCardProps> = PatchComponent(
             {` (${performer.disambiguation})`}
           </span>
         )}
+        {/* CUSTOM: Age and scene-tag strip moved to details to align with the gender icon */}
       </div>
     );
   }
@@ -360,9 +612,27 @@ export const PerformerCard: React.FC<IPerformerCardProps> = PatchComponent(
       zoomIndex,
     } = props;
 
+    // CUSTOM: begin - rating class for metallic card styling
+    // Determine rating class for special styling
+    // Only apply on non-home pages (exclude /scenes, /images, /galleries, etc. when viewed from home)
+    const getRatingClass = () => {
+      // Check if we're on the home page by looking at the current location
+      const isHomePage =
+        window.location.pathname === "/" ||
+        window.location.pathname === "/frontpage";
+
+      if (isHomePage || !performer.rating100) return "";
+      // 5 stars = 100, 4 stars = 80, 3 stars = 60
+      if (performer.rating100 === 100) return "rating-5-stars";
+      if (performer.rating100 === 80) return "rating-4-stars";
+      if (performer.rating100 === 60) return "rating-3-stars";
+      return "";
+    };
+    // CUSTOM: end
+
     return (
       <GridCard
-        className={`performer-card zoom-${zoomIndex}`}
+        className={`performer-card zoom-${zoomIndex} ${getRatingClass()}`} // CUSTOM: added getRatingClass()
         url={`/performers/${performer.id}`}
         width={cardWidth}
         pretitleIcon={
