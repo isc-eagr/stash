@@ -71,6 +71,76 @@ const sortByOptions = [
       value: "last_o_at",
       sfwMessageID: "last_o_at_sfw",
     },
+    // CUSTOM: begin - role-based metric sort options
+    {
+      messageID: "sex_scene_count",
+      value: "sex_scenes_count",
+    },
+    {
+      messageID: "oral_scene_count",
+      value: "oral_scenes_count",
+    },
+    {
+      messageID: "facial_scene_count",
+      value: "facial_scenes_count",
+    },
+    {
+      messageID: "solo_scene_count",
+      value: "solo_scenes_count",
+    },
+    {
+      messageID: "orgasm_count",
+      value: "orgasm_count",
+    },
+    {
+      messageID: "feet_markers_count",
+      value: "feet_markers_count",
+    },
+    {
+      messageID: "facial_given_count",
+      value: "facial_given_count",
+    },
+    {
+      messageID: "facial_received_count",
+      value: "facial_received_count",
+    },
+    {
+      messageID: "sex_unique_partners",
+      value: "sex_unique_partners",
+    },
+    {
+      messageID: "oral_unique_partners",
+      value: "oral_unique_partners",
+    },
+    {
+      messageID: "facial_unique_partners",
+      value: "facial_unique_partners",
+    },
+    {
+      messageID: "sex_topped_partners",
+      value: "sex_topped_partners",
+    },
+    {
+      messageID: "oral_topped_partners",
+      value: "oral_topped_partners",
+    },
+    {
+      messageID: "facial_topped_partners",
+      value: "facial_topped_partners",
+    },
+    {
+      messageID: "sex_bottomed_partners",
+      value: "sex_bottomed_partners",
+    },
+    {
+      messageID: "oral_bottomed_partners",
+      value: "oral_bottomed_partners",
+    },
+    {
+      messageID: "facial_bottomed_partners",
+      value: "facial_bottomed_partners",
+    },
+    // CUSTOM: end
   ]);
 
 const displayModeOptions = [

@@ -1,6 +1,7 @@
 package sqlite
 
-// CUSTOM: Methods for performer store supporting scene marker performers and image blob operations.
+// CUSTOM: Methods for performer store supporting scene marker performers, image blob operations,
+// and role-based metric sort options.
 
 import (
 	"context"
@@ -46,4 +47,213 @@ func (qb *PerformerStore) UpdateImageBlob(ctx context.Context, performerID int, 
 	sqlQuery := fmt.Sprintf("UPDATE %s SET %s = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", performerTable, performerImageBlobColumn)
 	_, err := dbWrapper.Exec(ctx, sqlQuery, blobChecksum, performerID)
 	return err
+}
+
+// ============================================================
+// Role-based metric sort functions for performers
+// ============================================================
+
+// tagHierarchyCondition generates a SQL EXISTS condition that matches a tag ID
+// including all descendants up to 4 levels deep. Uses both primary_tag_id and
+// secondary tags (scene_markers_tags). The smAlias is the scene_markers table alias.
+func tagHierarchyCondition(smAlias string, tagID int) string {
+	return fmt.Sprintf(`EXISTS (
+			SELECT 1 FROM (
+				SELECT %[1]s.primary_tag_id AS tag_id
+				UNION ALL
+				SELECT smt.tag_id FROM scene_markers_tags smt WHERE smt.scene_marker_id = %[1]s.id
+			) marker_tags
+			WHERE marker_tags.tag_id = %[2]d
+			   OR marker_tags.tag_id IN (SELECT child_id FROM tags_relations WHERE parent_id = %[2]d)
+			   OR marker_tags.tag_id IN (SELECT tr2.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id WHERE tr1.parent_id = %[2]d)
+			   OR marker_tags.tag_id IN (SELECT tr3.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id WHERE tr1.parent_id = %[2]d)
+			   OR marker_tags.tag_id IN (SELECT tr4.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id JOIN tags_relations tr4 ON tr4.parent_id = tr3.child_id WHERE tr1.parent_id = %[2]d)
+		)`, smAlias, tagID)
+}
+
+// sceneExclusionForTag generates a NOT IN clause that excludes scenes having markers
+// matching the given tag (including descendants). Uses both primary and secondary tags.
+func sceneExclusionForTag(smAlias string, tagID int) string {
+	if tagID == 0 {
+		return ""
+	}
+	return fmt.Sprintf(`
+		AND %[1]s.scene_id NOT IN (
+			SELECT DISTINCT sm_excl.scene_id
+			FROM scene_markers sm_excl
+			WHERE EXISTS (
+				SELECT 1 FROM (
+					SELECT sm_excl.primary_tag_id AS tag_id
+					UNION ALL
+					SELECT smt_excl.tag_id FROM scene_markers_tags smt_excl WHERE smt_excl.scene_marker_id = sm_excl.id
+				) excl_tags
+				WHERE excl_tags.tag_id = %[2]d
+				   OR excl_tags.tag_id IN (SELECT child_id FROM tags_relations WHERE parent_id = %[2]d)
+				   OR excl_tags.tag_id IN (SELECT tr2.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id WHERE tr1.parent_id = %[2]d)
+				   OR excl_tags.tag_id IN (SELECT tr3.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id WHERE tr1.parent_id = %[2]d)
+				   OR excl_tags.tag_id IN (SELECT tr4.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id JOIN tags_relations tr4 ON tr4.parent_id = tr3.child_id WHERE tr1.parent_id = %[2]d)
+			)
+		)`, smAlias, tagID)
+}
+
+// sortByPerformerMarkerSceneCount generates an ORDER BY for counting distinct scenes
+// where the performer has markers matching the tag (including descendants).
+func (qb *PerformerStore) sortByPerformerMarkerSceneCount(tagID int, excludeTagIDs []int, direction string) string {
+	if tagID == 0 {
+		return fmt.Sprintf(" ORDER BY 0 %s", getSortDirection(direction))
+	}
+
+	exclusions := ""
+	for _, excl := range excludeTagIDs {
+		exclusions += sceneExclusionForTag("sm", excl)
+	}
+
+	return fmt.Sprintf(` ORDER BY COALESCE((
+		SELECT COUNT(DISTINCT sm.scene_id)
+		FROM scene_marker_performers smp
+		JOIN scene_markers sm ON smp.scene_marker_id = sm.id
+		WHERE smp.performer_id = performers.id
+		AND %s
+		%s
+	), 0) %s`, tagHierarchyCondition("sm", tagID), exclusions, getSortDirection(direction))
+}
+
+// sortByPerformerSexSceneCount sorts performers by their sex scene count.
+func (qb *PerformerStore) sortByPerformerSexSceneCount(direction string) string {
+	tags := GetRoleTagIDs()
+	return qb.sortByPerformerMarkerSceneCount(tags.SexTagID, nil, direction)
+}
+
+// sortByPerformerOralSceneCount sorts performers by oral scene count (excluding sex scenes).
+func (qb *PerformerStore) sortByPerformerOralSceneCount(direction string) string {
+	tags := GetRoleTagIDs()
+	return qb.sortByPerformerMarkerSceneCount(tags.OralTagID, []int{tags.SexTagID}, direction)
+}
+
+// sortByPerformerFacialSceneCount sorts performers by facial scene count (independent).
+func (qb *PerformerStore) sortByPerformerFacialSceneCount(direction string) string {
+	tags := GetRoleTagIDs()
+	return qb.sortByPerformerMarkerSceneCount(tags.FacialTagID, nil, direction)
+}
+
+// sortByPerformerSoloSceneCount sorts performers by solo scene count (excluding sex and oral).
+func (qb *PerformerStore) sortByPerformerSoloSceneCount(direction string) string {
+	tags := GetRoleTagIDs()
+	return qb.sortByPerformerMarkerSceneCount(tags.SoloTagID, []int{tags.SexTagID, tags.OralTagID}, direction)
+}
+
+// sortByPerformerOrgasmCount sorts performers by total orgasm marker count (performer as top).
+func (qb *PerformerStore) sortByPerformerOrgasmCount(direction string) string {
+	tags := GetRoleTagIDs()
+	if tags.OrgasmTagID == 0 {
+		return fmt.Sprintf(" ORDER BY 0 %s", getSortDirection(direction))
+	}
+
+	return fmt.Sprintf(` ORDER BY COALESCE((
+		SELECT COUNT(*)
+		FROM scene_marker_performers smp
+		JOIN scene_markers sm ON smp.scene_marker_id = sm.id
+		WHERE smp.performer_id = performers.id
+		AND smp.role = 'top'
+		AND %s
+	), 0) %s`, tagHierarchyCondition("sm", tags.OrgasmTagID), getSortDirection(direction))
+}
+
+// sortByPerformerFeetMarkerCount sorts performers by individual feet marker count where performer is top.
+func (qb *PerformerStore) sortByPerformerFeetMarkerCount(direction string) string {
+	tags := GetRoleTagIDs()
+	if tags.FeetTagID == 0 {
+		return fmt.Sprintf(" ORDER BY 0 %s", getSortDirection(direction))
+	}
+
+	return fmt.Sprintf(` ORDER BY COALESCE((
+		SELECT COUNT(*)
+		FROM scene_marker_performers smp
+		JOIN scene_markers sm ON smp.scene_marker_id = sm.id
+		WHERE smp.performer_id = performers.id
+		AND smp.role = 'top'
+		AND %s
+	), 0) %s`, tagHierarchyCondition("sm", tags.FeetTagID), getSortDirection(direction))
+}
+
+// sortByPerformerFacialMarkerCount sorts performers by individual facial marker count for a given role.
+// role="top" = facials given; role="bottom" = facials received.
+func (qb *PerformerStore) sortByPerformerFacialMarkerCount(role string, direction string) string {
+	tags := GetRoleTagIDs()
+	if tags.FacialTagID == 0 {
+		return fmt.Sprintf(" ORDER BY 0 %s", getSortDirection(direction))
+	}
+
+	return fmt.Sprintf(` ORDER BY COALESCE((
+		SELECT COUNT(*)
+		FROM scene_marker_performers smp
+		JOIN scene_markers sm ON smp.scene_marker_id = sm.id
+		WHERE smp.performer_id = performers.id
+		AND smp.role = '%s'
+		AND %s
+	), 0) %s`, role, tagHierarchyCondition("sm", tags.FacialTagID), getSortDirection(direction))
+}
+
+// sortByPerformerUniquePartners sorts performers by unique partner count for a category.
+// Partners are counted across both top and bottom roles (merged, deduplicated).
+func (qb *PerformerStore) sortByPerformerUniquePartners(category string, direction string) string {
+	tags := GetRoleTagIDs()
+	var tagID int
+	switch category {
+	case "sex":
+		tagID = tags.SexTagID
+	case "oral":
+		tagID = tags.OralTagID
+	case "facial":
+		tagID = tags.FacialTagID
+	}
+	if tagID == 0 {
+		return fmt.Sprintf(" ORDER BY 0 %s", getSortDirection(direction))
+	}
+
+	return fmt.Sprintf(` ORDER BY COALESCE((
+		SELECT COUNT(DISTINCT smp2.performer_id)
+		FROM scene_marker_performers smp1
+		JOIN scene_markers sm ON smp1.scene_marker_id = sm.id
+		JOIN scene_marker_performers smp2 ON smp2.scene_marker_id = smp1.scene_marker_id
+		WHERE smp1.performer_id = performers.id
+		AND smp2.performer_id != performers.id
+		AND ((smp1.role = 'top' AND smp2.role = 'bottom') OR (smp1.role = 'bottom' AND smp2.role = 'top'))
+		AND %s
+	), 0) %s`, tagHierarchyCondition("sm", tagID), getSortDirection(direction))
+}
+
+// sortByPerformerRolePartners sorts performers by unique partner count for a specific role.
+// role="top" counts partners this performer has topped; role="bottom" counts partners who topped them.
+func (qb *PerformerStore) sortByPerformerRolePartners(category string, role string, direction string) string {
+	tags := GetRoleTagIDs()
+	var tagID int
+	switch category {
+	case "sex":
+		tagID = tags.SexTagID
+	case "oral":
+		tagID = tags.OralTagID
+	case "facial":
+		tagID = tags.FacialTagID
+	}
+	if tagID == 0 {
+		return fmt.Sprintf(" ORDER BY 0 %s", getSortDirection(direction))
+	}
+
+	oppositeRole := "bottom"
+	if role == "bottom" {
+		oppositeRole = "top"
+	}
+
+	return fmt.Sprintf(` ORDER BY COALESCE((
+		SELECT COUNT(DISTINCT smp2.performer_id)
+		FROM scene_marker_performers smp1
+		JOIN scene_markers sm ON smp1.scene_marker_id = sm.id
+		JOIN scene_marker_performers smp2 ON smp2.scene_marker_id = smp1.scene_marker_id
+		WHERE smp1.performer_id = performers.id
+		AND smp1.role = '%s'
+		AND smp2.role = '%s'
+		AND smp2.performer_id != performers.id
+		AND %s
+	), 0) %s`, role, oppositeRole, tagHierarchyCondition("sm", tagID), getSortDirection(direction))
 }

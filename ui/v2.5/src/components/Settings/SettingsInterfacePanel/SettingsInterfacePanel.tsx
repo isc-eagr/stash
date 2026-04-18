@@ -378,6 +378,28 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
               }
             />
           </Setting>
+          {/* CUSTOM: begin - really hot tag setting */}
+          <Setting id="role-tag-really-hot" headingID="config.ui.role_tags.really_hot">
+            <TagIDSelect
+              isMulti={false}
+              creatable={false}
+              ids={
+                ui.roleTagIds?.reallyHotTagId
+                  ? [ui.roleTagIds.reallyHotTagId]
+                  : []
+              }
+              menuPortalTarget={document.body}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  roleTagIds: {
+                    ...(ui.roleTagIds ?? {}),
+                    reallyHotTagId: items[0]?.id ?? undefined,
+                  },
+                })
+              }
+            />
+          </Setting>
+          {/* CUSTOM: end */}
           <Setting id="role-tag-orgasm" headingID="config.ui.role_tags.orgasm">
             <TagIDSelect
               isMulti={false}

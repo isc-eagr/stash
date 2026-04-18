@@ -463,6 +463,7 @@ interface IPerformerCardProps {
 ### Features Added
 1. **Performer Scene Tags Button**: Green button showing aggregated performer scene tags for the scene
 2. **Role Icons on Overlay**: Visual indicators for scene type (gay, oral, solo, facial)
+3. **Gold Goatee (Really Hot Facial)**: Goatee icon displays in gold when a scene has a marker tagged with BOTH the configured Facial tag AND the new Really Hot qualifier tag. White goatee shows for plain facial markers; gold goatee takes precedence when the really-hot combo is found. Configurable via Settings → Interface → Role Tags → "Really Hot qualifier tag". Applies to both the scene card overlay and the in-scene player overlay.
 
 ### Custom Assets Added
 - `ui/v2.5/src/assets/gay.svg` - Gay/sex scene icon

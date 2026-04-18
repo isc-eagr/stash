@@ -127,6 +127,7 @@ export interface IUIConfig {
     orgasmTagId?: string; // Tag ID for orgasm markers
     feetTagId?: string; // Tag ID for feet markers
     secondCameraTagId?: string; // Tag ID for 2nd camera markers (excluded from orgasm/facial counts)
+    reallyHotTagId?: string; // Tag ID for "really hot" qualifier (gold goatee when combined with facial)
   };
   // CUSTOM: end
 }

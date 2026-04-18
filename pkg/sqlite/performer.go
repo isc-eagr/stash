@@ -829,6 +829,25 @@ var performerSortOptions = sortOptions{
 	"tag_count",
 	"updated_at",
 	"weight",
+	// CUSTOM: begin - role-based metric sort options
+	"sex_scenes_count",
+	"oral_scenes_count",
+	"facial_scenes_count",
+	"solo_scenes_count",
+	"orgasm_count",
+	"feet_markers_count",
+	"facial_given_count",
+	"facial_received_count",
+	"sex_unique_partners",
+	"oral_unique_partners",
+	"facial_unique_partners",
+	"sex_topped_partners",
+	"oral_topped_partners",
+	"facial_topped_partners",
+	"sex_bottomed_partners",
+	"oral_bottomed_partners",
+	"facial_bottomed_partners",
+	// CUSTOM: end
 }
 
 func (qb *PerformerStore) getPerformerSort(findFilter *models.FindFilterType) (string, error) {
@@ -871,6 +890,42 @@ func (qb *PerformerStore) getPerformerSort(findFilter *models.FindFilterType) (s
 		sortQuery += qb.sortByLastOAt(direction)
 	case "latest_scene":
 		sortQuery += qb.sortByLatestScene(direction)
+	// CUSTOM: begin - role-based metric sort options
+	case "sex_scenes_count":
+		sortQuery += qb.sortByPerformerSexSceneCount(direction)
+	case "oral_scenes_count":
+		sortQuery += qb.sortByPerformerOralSceneCount(direction)
+	case "facial_scenes_count":
+		sortQuery += qb.sortByPerformerFacialSceneCount(direction)
+	case "solo_scenes_count":
+		sortQuery += qb.sortByPerformerSoloSceneCount(direction)
+	case "orgasm_count":
+		sortQuery += qb.sortByPerformerOrgasmCount(direction)
+	case "feet_markers_count": // CUSTOM
+		sortQuery += qb.sortByPerformerFeetMarkerCount(direction)
+	case "facial_given_count": // CUSTOM
+		sortQuery += qb.sortByPerformerFacialMarkerCount("top", direction)
+	case "facial_received_count": // CUSTOM
+		sortQuery += qb.sortByPerformerFacialMarkerCount("bottom", direction)
+	case "sex_unique_partners":
+		sortQuery += qb.sortByPerformerUniquePartners("sex", direction)
+	case "oral_unique_partners":
+		sortQuery += qb.sortByPerformerUniquePartners("oral", direction)
+	case "facial_unique_partners":
+		sortQuery += qb.sortByPerformerUniquePartners("facial", direction)
+	case "sex_topped_partners":
+		sortQuery += qb.sortByPerformerRolePartners("sex", "top", direction)
+	case "oral_topped_partners":
+		sortQuery += qb.sortByPerformerRolePartners("oral", "top", direction)
+	case "facial_topped_partners":
+		sortQuery += qb.sortByPerformerRolePartners("facial", "top", direction)
+	case "sex_bottomed_partners":
+		sortQuery += qb.sortByPerformerRolePartners("sex", "bottom", direction)
+	case "oral_bottomed_partners":
+		sortQuery += qb.sortByPerformerRolePartners("oral", "bottom", direction)
+	case "facial_bottomed_partners":
+		sortQuery += qb.sortByPerformerRolePartners("facial", "bottom", direction)
+	// CUSTOM: end
 	default:
 		sortQuery += getSort(sort, direction, "performers")
 	}

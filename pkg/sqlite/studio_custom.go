@@ -13,6 +13,8 @@ type RoleTagIDs struct {
 	OralTagID   int
 	SoloTagID   int
 	FacialTagID int
+	OrgasmTagID int // CUSTOM: added for performer orgasm sort
+	FeetTagID   int // CUSTOM: added for performer feet sort
 }
 
 // GetRoleTagIDs retrieves role tag IDs from UI configuration
@@ -35,6 +37,12 @@ func GetRoleTagIDs() RoleTagIDs {
 	}
 	if id, ok := roleTagIds["facialTagId"].(string); ok && id != "" {
 		result.FacialTagID, _ = strconv.Atoi(id)
+	}
+	if id, ok := roleTagIds["orgasmTagId"].(string); ok && id != "" {
+		result.OrgasmTagID, _ = strconv.Atoi(id)
+	}
+	if id, ok := roleTagIds["feetTagId"].(string); ok && id != "" {
+		result.FeetTagID, _ = strconv.Atoi(id)
 	}
 	return result
 }

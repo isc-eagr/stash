@@ -573,6 +573,42 @@ $sceneTabWidth: 450px;
   -webkit-filter: brightness(0) invert(1)
     drop-shadow(0 3px 5px rgba(0, 0, 0, 0.8));
 }
+
+/* Red goatee for really hot facial in scene player with gold glow shimmer */
+.scene-player-container .scene-facial-overlay--gold {
+  filter: invert(27%) sepia(51%) saturate(2300%) hue-rotate(1deg)
+    drop-shadow(0 0 8px rgba(255, 215, 0, 0.8))
+    drop-shadow(0 0 16px rgba(212, 175, 55, 0.6))
+    drop-shadow(0 3px 5px rgba(0, 0, 0, 0.8));
+  -webkit-filter: invert(27%) sepia(51%) saturate(2300%) hue-rotate(1deg)
+    drop-shadow(0 0 8px rgba(255, 215, 0, 0.8))
+    drop-shadow(0 0 16px rgba(212, 175, 55, 0.6))
+    drop-shadow(0 3px 5px rgba(0, 0, 0, 0.8));
+  animation: goatee-red-shimmer-player 3s ease-in-out infinite;
+}
+
+@keyframes goatee-red-shimmer-player {
+  0%, 100% {
+    filter: invert(27%) sepia(51%) saturate(2300%) hue-rotate(1deg)
+      drop-shadow(0 0 8px rgba(255, 215, 0, 0.8))
+      drop-shadow(0 0 16px rgba(212, 175, 55, 0.6))
+      drop-shadow(0 3px 5px rgba(0, 0, 0, 0.8));
+    -webkit-filter: invert(27%) sepia(51%) saturate(2300%) hue-rotate(1deg)
+      drop-shadow(0 0 8px rgba(255, 215, 0, 0.8))
+      drop-shadow(0 0 16px rgba(212, 175, 55, 0.6))
+      drop-shadow(0 3px 5px rgba(0, 0, 0, 0.8));
+  }
+  50% {
+    filter: invert(27%) sepia(51%) saturate(2400%) hue-rotate(1deg)
+      drop-shadow(0 0 12px rgba(255, 215, 0, 1))
+      drop-shadow(0 0 20px rgba(212, 175, 55, 0.8))
+      drop-shadow(0 3px 5px rgba(0, 0, 0, 0.8));
+    -webkit-filter: invert(27%) sepia(51%) saturate(2400%) hue-rotate(1deg)
+      drop-shadow(0 0 12px rgba(255, 215, 0, 1))
+      drop-shadow(0 0 20px rgba(212, 175, 55, 0.8))
+      drop-shadow(0 3px 5px rgba(0, 0, 0, 0.8));
+  }
+}
 /* CUSTOM: end */
 
 .scrubber-wrapper {

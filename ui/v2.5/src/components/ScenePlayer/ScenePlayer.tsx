@@ -1852,41 +1852,53 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const isPortrait =
       file && file.height && file.width && file.height > file.width;
 
-    // CUSTOM: begin - determine if scene has markers with facial tag
+    // CUSTOM: begin - determine if scene has markers with facial / really hot facial tag
+    // Helper to check if a tag matches (including recursive parent/child relationships)
+    const tagMatchesScenePlayer = (
+      tag: { id: string; parents?: Array<{ id: string }> } | null | undefined,
+      targetId: string,
+      visited: Set<string> = new Set()
+    ): boolean => {
+      if (!tag) return false;
+      if (tag.id === targetId) return true;
+      if (visited.has(tag.id)) return false;
+      visited.add(tag.id);
+      const parents = tag.parents ?? [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return parents.some((p) => tagMatchesScenePlayer(p as any, targetId, visited));
+    };
+
+    const markerHasTagScenePlayer = (
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      marker: any,
+      tagId: string
+    ): boolean => {
+      if (tagMatchesScenePlayer(marker?.primary_tag, tagId)) return true;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (marker?.tags ?? []).some((t: any) => tagMatchesScenePlayer(t, tagId));
+    };
+
+    const roleTagIds = (
+      configuration?.ui as unknown as { roleTagIds?: { facialTagId?: string; reallyHotTagId?: string } }
+    )?.roleTagIds ?? {};
+
     // Determine if the scene has any markers with the configured facial tag or any of its subtags
     const hasFacial = useMemo(() => {
-      const facialTagId = (
-        configuration?.ui as unknown as {
-          roleTagIds?: { facialTagId?: string };
-        }
-      )?.roleTagIds?.facialTagId;
+      const { facialTagId } = roleTagIds;
       if (!facialTagId) return false;
-
-      // Helper to check if a tag matches (including recursive parent/child relationships)
-      // Returns true if tag.id === targetId OR any ancestor of tag has id === targetId
-      const tagMatches = (
-        tag: { id: string; parents?: Array<{ id: string }> } | null | undefined,
-        targetId: string,
-        visited: Set<string> = new Set()
-      ): boolean => {
-        if (!tag) return false;
-        if (tag.id === targetId) return true;
-        // Prevent infinite loops
-        if (visited.has(tag.id)) return false;
-        visited.add(tag.id);
-        // Recursively check all parents (ancestors)
-        const parents = tag.parents ?? [];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return parents.some((p) => tagMatches(p as any, targetId, visited));
-      };
-
       const markers = scene.scene_markers ?? [];
-      // Check if any marker's primary_tag or tags match the facial tag (including subtags)
-      return markers.some((marker) => {
-        if (tagMatches(marker.primary_tag, facialTagId)) return true;
-        return (marker.tags ?? []).some((tag) => tagMatches(tag, facialTagId));
-      });
-    }, [scene.scene_markers, configuration?.ui]);
+      return markers.some((marker) => markerHasTagScenePlayer(marker, facialTagId));
+    }, [scene.scene_markers, configuration?.ui]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Gold goatee: scene has a marker with BOTH facial tag AND really hot tag
+    const hasReallyHotFacial = useMemo(() => {
+      const { facialTagId, reallyHotTagId } = roleTagIds;
+      if (!facialTagId || !reallyHotTagId) return false;
+      const markers = scene.scene_markers ?? [];
+      return markers.some((marker) =>
+        markerHasTagScenePlayer(marker, facialTagId) && markerHasTagScenePlayer(marker, reallyHotTagId)
+      );
+    }, [scene.scene_markers, configuration?.ui]); // eslint-disable-line react-hooks/exhaustive-deps
     // CUSTOM: end
 
     return (
@@ -1898,8 +1910,16 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         onKeyDownCapture={onKeyDown}
       >
         <div className="video-wrapper" ref={videoRef}>
-          {/* CUSTOM: begin - facial goatee overlay */}
-          {hasFacial && (
+          {/* CUSTOM: begin - facial goatee overlay (white) or gold (really hot facial) */}
+          {hasReallyHotFacial && (
+            <img
+              className="scene-facial-overlay scene-facial-overlay--gold"
+              src={goateeSvg}
+              alt="Facial (Really Hot)"
+              title="Really hot facial marker present"
+            />
+          )}
+          {!hasReallyHotFacial && hasFacial && (
             <img
               className="scene-facial-overlay"
               src={goateeSvg}

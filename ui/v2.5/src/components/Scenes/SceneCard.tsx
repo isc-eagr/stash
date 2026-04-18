@@ -361,51 +361,67 @@ const SceneCardOverlays = PatchComponent(
   (props: ISceneCardProps) => {
     const { configuration } = useConfigurationContext();
 
+    // Helper to check if a tag matches (including recursive parent/child relationships)
+    const tagMatches = (
+      tag: { id?: string; parents?: Array<{ id?: string }> } | null | undefined,
+      targetId: string,
+      visited: Set<string> = new Set()
+    ): boolean => {
+      if (!tag || !tag.id) return false;
+      if (tag.id === targetId) return true;
+      if (visited.has(tag.id)) return false;
+      visited.add(tag.id);
+      const parents = tag.parents ?? [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return parents.some((p) => tagMatches(p as any, targetId, visited));
+    };
+
+    // Returns true if a marker has a given tag (primary or secondary, including subtags)
+    const markerHasTag = (
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      marker: any,
+      tagId: string
+    ): boolean => {
+      if (tagMatches(marker?.primary_tag, tagId)) return true;
+      const markerTags: Array<{ id?: string; parents?: Array<{ id?: string }> }> = marker?.tags ?? [];
+      return markerTags.some((t) => tagMatches(t, tagId));
+    };
+
     // Check if scene has facial markers based on configured facial tag ID (including subtags)
     const hasFacial = useMemo(() => {
       const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-      const {facialTagId} = roleTagIds;
+      const { facialTagId } = roleTagIds;
       if (!facialTagId) return false;
-
-      // Helper to check if a tag matches (including recursive parent/child relationships)
-      // Returns true if tag.id === targetId OR any ancestor of tag has id === targetId
-      const tagMatches = (
-        tag: { id?: string; parents?: Array<{ id?: string }> } | null | undefined,
-        targetId: string,
-        visited: Set<string> = new Set()
-      ): boolean => {
-        if (!tag || !tag.id) return false;
-        if (tag.id === targetId) return true;
-        // Prevent infinite loops
-        if (visited.has(tag.id)) return false;
-        visited.add(tag.id);
-        // Recursively check all parents (ancestors)
-        const parents = tag.parents ?? [];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return parents.some((p) => tagMatches(p as any, targetId, visited));
-      };
-
-      // Check scene markers for facial tag (including subtags)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sceneMarkers = (props.scene as any).scene_markers ?? [];
-      for (const marker of sceneMarkers) {
-        if (tagMatches(marker?.primary_tag, facialTagId)) {
-          return true;
-        }
-        const markerTags: Array<{ id?: string; parents?: Array<{ id?: string }> }> = marker?.tags ?? [];
-        for (const tag of markerTags) {
-          if (tagMatches(tag, facialTagId)) {
-            return true;
-          }
-        }
-      }
-      return false;
-    }, [props.scene, configuration?.ui]);
+      return sceneMarkers.some((marker: any) => markerHasTag(marker, facialTagId));
+    }, [props.scene, configuration?.ui]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Check if scene has a marker with BOTH facial tag AND really hot tag (gold goatee)
+    const hasReallyHotFacial = useMemo(() => {
+      const roleTagIds = configuration?.ui?.roleTagIds ?? {};
+      const { facialTagId, reallyHotTagId } = roleTagIds;
+      if (!facialTagId || !reallyHotTagId) return false;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sceneMarkers = (props.scene as any).scene_markers ?? [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return sceneMarkers.some((marker: any) =>
+        markerHasTag(marker, facialTagId) && markerHasTag(marker, reallyHotTagId)
+      );
+    }, [props.scene, configuration?.ui]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
       <>
         <StudioOverlay studio={props.scene.studio} disabled={props.selecting} />
-        {hasFacial && (
+        {hasReallyHotFacial && (
+          <img
+            className="scene-facial-overlay scene-facial-overlay--gold"
+            src={goateeSvg}
+            alt="Facial (Really Hot)"
+            title="Really hot facial marker present"
+          />
+        )}
+        {!hasReallyHotFacial && hasFacial && (
           <img
             className="scene-facial-overlay"
             src={goateeSvg}
