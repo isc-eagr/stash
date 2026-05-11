@@ -154,7 +154,7 @@ export const CustomStats: React.FC = () => {
   const { data: oralReceivedData } = useQuery(PERFORMERS_ORAL_RECEIVED_COUNT);
   const { data: soloOnlyData } = useQuery(PERFORMERS_SOLO_ONLY_COUNT);
   const { data: oneSceneData } = useQuery(PERFORMERS_ONE_SCENE_COUNT);
-  // Use findPerformers with custom_filters to get counts
+  // CUSTOM: begin - Use findPerformers with partners filter to get counts
   const { data: strictTopData } = useQuery(
     gql`
       query FindPerformersStrictTop($filter: FindFilterType, $performer_filter: PerformerFilterType) {
@@ -167,15 +167,14 @@ export const CustomStats: React.FC = () => {
       variables: {
         filter: { per_page: 1 },
         performer_filter: {
-          custom_filters: {
-            type: "strict_tops",
-            sex_tag_id: roleTagIds?.sexTagId,
-            oral_tag_id: roleTagIds?.oralTagId,
-            facial_tag_id: roleTagIds?.facialTagId,
+          partners: {
+            sex_topped: { value: 0, modifier: "GREATER_THAN" },
+            sex_bottomed: { value: 0, modifier: "EQUALS" },
+            oral_bottomed: { value: 0, modifier: "EQUALS" },
+            facial_bottomed: { value: 0, modifier: "EQUALS" },
           },
         },
       },
-      skip: !roleTagIds?.sexTagId,
     }
   );
 
@@ -191,15 +190,13 @@ export const CustomStats: React.FC = () => {
       variables: {
         filter: { per_page: 1 },
         performer_filter: {
-          custom_filters: {
-            type: "lenient_tops",
-            sex_tag_id: roleTagIds?.sexTagId,
-            oral_tag_id: roleTagIds?.oralTagId,
-            facial_tag_id: roleTagIds?.facialTagId,
+          partners: {
+            sex_topped: { value: 0, modifier: "GREATER_THAN" },
+            sex_bottomed: { value: 0, modifier: "EQUALS" },
+            any_non_sex_bottomed: { value: 0, modifier: "GREATER_THAN" },
           },
         },
       },
-      skip: !roleTagIds?.sexTagId,
     }
   );
 
@@ -215,15 +212,14 @@ export const CustomStats: React.FC = () => {
       variables: {
         filter: { per_page: 1 },
         performer_filter: {
-          custom_filters: {
-            type: "strict_bottoms",
-            sex_tag_id: roleTagIds?.sexTagId,
-            oral_tag_id: roleTagIds?.oralTagId,
-            facial_tag_id: roleTagIds?.facialTagId,
+          partners: {
+            sex_bottomed: { value: 0, modifier: "GREATER_THAN" },
+            sex_topped: { value: 0, modifier: "EQUALS" },
+            oral_topped: { value: 0, modifier: "EQUALS" },
+            facial_topped: { value: 0, modifier: "EQUALS" },
           },
         },
       },
-      skip: !roleTagIds?.sexTagId,
     }
   );
 
@@ -239,17 +235,16 @@ export const CustomStats: React.FC = () => {
       variables: {
         filter: { per_page: 1 },
         performer_filter: {
-          custom_filters: {
-            type: "lenient_bottoms",
-            sex_tag_id: roleTagIds?.sexTagId,
-            oral_tag_id: roleTagIds?.oralTagId,
-            facial_tag_id: roleTagIds?.facialTagId,
+          partners: {
+            sex_bottomed: { value: 0, modifier: "GREATER_THAN" },
+            sex_topped: { value: 0, modifier: "EQUALS" },
+            any_non_sex_topped: { value: 0, modifier: "GREATER_THAN" },
           },
         },
       },
-      skip: !roleTagIds?.sexTagId,
     }
   );
+  // CUSTOM: end
   const { data: litersData } = useQuery(ESTIMATED_LITERS);
   const { data: metersData } = useQuery(TOTAL_PENIS_METERS);
   const { data: orgasmTimeData } = useQuery(TOTAL_ORGASM_TIME);
@@ -417,13 +412,12 @@ export const CustomStats: React.FC = () => {
     return `/performers?${criteria.map(c => `c=${encodeURIComponent(JSON.stringify(c))}`).join('&')}&sortby=random_${getRandomSortId()}`;
   };
 
-  // Helper to create custom filter URLs
-  const makeCustomFilterUrl = (filterType: "strict_tops" | "lenient_tops" | "strict_bottoms" | "lenient_bottoms") => {
+  // CUSTOM: Helper to create partners filter URLs for stat card links
+  const makePartnersFilterUrl = (value: Record<string, unknown>) => {
     const criterion = {
-      type: "custom_filters",
-      value: filterType,
+      type: "partners",
+      value: JSON.stringify(value),
     };
-
     return `/performers?c=${encodeURIComponent(JSON.stringify(criterion))}&sortby=random_${getRandomSortId()}`;
   };
 
@@ -664,7 +658,7 @@ export const CustomStats: React.FC = () => {
           {typeof strictTopData?.findPerformers?.count === "number" && (
             <div className="stats-element">
               <p className="title">
-                <Link to={makeCustomFilterUrl("strict_tops")}>
+                <Link to={makePartnersFilterUrl({ sex_topped: { modifier: "GREATER_THAN", value: 0 }, sex_bottomed: { modifier: "EQUALS", value: 0 }, oral_bottomed: { modifier: "EQUALS", value: 0 }, facial_bottomed: { modifier: "EQUALS", value: 0 } })}>
                   <FormattedNumber
                     value={strictTopData.findPerformers.count}
                   />
@@ -676,7 +670,7 @@ export const CustomStats: React.FC = () => {
           {typeof lenientTopData?.findPerformers?.count === "number" && (
             <div className="stats-element">
               <p className="title">
-                <Link to={makeCustomFilterUrl("lenient_tops")}>
+                <Link to={makePartnersFilterUrl({ sex_topped: { modifier: "GREATER_THAN", value: 0 }, sex_bottomed: { modifier: "EQUALS", value: 0 }, any_non_sex_bottomed: { modifier: "GREATER_THAN", value: 0 } })}>
                   <FormattedNumber
                     value={lenientTopData.findPerformers.count}
                   />
@@ -688,7 +682,7 @@ export const CustomStats: React.FC = () => {
           {typeof strictBottomData?.findPerformers?.count === "number" && (
             <div className="stats-element">
               <p className="title">
-                <Link to={makeCustomFilterUrl("strict_bottoms")}>
+                <Link to={makePartnersFilterUrl({ sex_bottomed: { modifier: "GREATER_THAN", value: 0 }, sex_topped: { modifier: "EQUALS", value: 0 }, oral_topped: { modifier: "EQUALS", value: 0 }, facial_topped: { modifier: "EQUALS", value: 0 } })}>
                   <FormattedNumber
                     value={strictBottomData.findPerformers.count}
                   />
@@ -700,7 +694,7 @@ export const CustomStats: React.FC = () => {
           {typeof lenientBottomData?.findPerformers?.count === "number" && (
             <div className="stats-element">
               <p className="title">
-                <Link to={makeCustomFilterUrl("lenient_bottoms")}>
+                <Link to={makePartnersFilterUrl({ sex_bottomed: { modifier: "GREATER_THAN", value: 0 }, sex_topped: { modifier: "EQUALS", value: 0 }, any_non_sex_topped: { modifier: "GREATER_THAN", value: 0 } })}>
                   <FormattedNumber
                     value={lenientBottomData.findPerformers.count}
                   />

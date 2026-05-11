@@ -456,6 +456,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
               id: "actions.select_performers",
             })}
             menuPortalTarget={document.body}
+            menuPlacement="auto"
             styles={{
               menuPortal: (base) => ({ ...base, zIndex: 9999 }),
             }}
@@ -497,6 +498,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
               id: "actions.select_performers",
             })}
             menuPortalTarget={document.body}
+            menuPlacement="top"
             styles={{
               menuPortal: (base) => ({ ...base, zIndex: 9999 }),
             }}

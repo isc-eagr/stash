@@ -23,12 +23,12 @@ export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
   // Use shared hook to get role tags (Apollo-cached, no redundant queries)
   const { sexTag, oralTag, soloTag, facialTag } = useRoleTags();
 
-  // Get counts from studio
-  const studioAny = studio as any;
-  const sexCount = studioAny.sex_scene_count ?? 0;
-  const oralCount = studioAny.oral_scene_count ?? 0;
-  const soloCount = studioAny.solo_scene_count ?? 0;
-  const facialCount = studioAny.facial_scene_count ?? 0;
+  // Get counts from studio_role_counts batch field // CUSTOM
+  const roleCounts = studio.studio_role_counts;
+  const sexCount = roleCounts?.sex_scene_count ?? 0;
+  const oralCount = roleCounts?.oral_scene_count ?? 0;
+  const soloCount = roleCounts?.solo_scene_count ?? 0;
+  const facialCount = roleCounts?.facial_scene_count ?? 0;
 
   // Sex scenes (marker-based) - gay icon
   function maybeRenderSexScenesButton() {

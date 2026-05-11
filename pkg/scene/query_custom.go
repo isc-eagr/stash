@@ -3,7 +3,9 @@ package scene
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/stashapp/stash/pkg/models"
 )
@@ -220,6 +222,17 @@ func CountMarkersByPerformerRoleWithSecondary(ctx context.Context, r models.Scen
 
 	// Now filter markers to only include those with tagID in primary OR secondary tags
 	// Also exclude markers that have any exclude tag in their secondary tags
+	// CUSTOM: begin - batch-fetch all secondary tag IDs to eliminate N+1 queries
+	markerIDs := make([]int, len(markers))
+	for i, m := range markers {
+		markerIDs[i] = m.ID
+	}
+	allSecondaryTagIDs, err := r.GetTagIDsForMarkers(ctx, markerIDs)
+	if err != nil {
+		return 0, err
+	}
+	// CUSTOM: end
+
 	count := 0
 	for _, marker := range markers {
 		matched := false
@@ -229,10 +242,7 @@ func CountMarkersByPerformerRoleWithSecondary(ctx context.Context, r models.Scen
 		}
 
 		// Check secondary tags for match and exclusion
-		secondaryTagIDs, err := r.GetTagIDs(ctx, marker.ID)
-		if err != nil {
-			return 0, err
-		}
+		secondaryTagIDs := allSecondaryTagIDs[marker.ID] // CUSTOM: use batched result
 
 		if !matched {
 			for _, secondaryTagID := range secondaryTagIDs {
@@ -251,6 +261,145 @@ func CountMarkersByPerformerRoleWithSecondary(ctx context.Context, r models.Scen
 		if len(excludeTagSet) > 0 {
 			excluded := false
 			// Check if primary tag is in exclude set
+			if excludeTagSet[marker.PrimaryTagID] {
+				excluded = true
+			}
+			if !excluded {
+				for _, secondaryTagID := range secondaryTagIDs {
+					if excludeTagSet[secondaryTagID] {
+						excluded = true
+						break
+					}
+				}
+			}
+			if excluded {
+				continue
+			}
+		}
+
+		count++
+	}
+
+	return count, nil
+}
+
+// CountMarkersByStudioRoleWithSecondary counts markers in studio scenes where performer has role and the marker
+// has the tagID in either primary or secondary tags (including subtags).
+// Optional excludeTagIDs will exclude markers that have any of those tags (or descendants).
+func CountMarkersByStudioRoleWithSecondary(ctx context.Context, markerQB models.SceneMarkerReader, sceneQB models.SceneQueryer, tagFinder models.TagFinder, studioID int, depth *int, performerID int, tagID int, role string, excludeTagIDs ...int) (int, error) {
+	if tagID == 0 {
+		return 0, nil
+	}
+
+	studioScenes, err := getStudioSceneIDs(ctx, sceneQB, studioID, depth, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	if len(studioScenes) == 0 {
+		return 0, nil
+	}
+
+	topIDs := []string{}
+	bottomIDs := []string{}
+	performerIDStr := strconv.Itoa(performerID)
+
+	if role == "top" {
+		topIDs = append(topIDs, performerIDStr)
+	} else if role == "bottom" {
+		bottomIDs = append(bottomIDs, performerIDStr)
+	} else {
+		topIDs = append(topIDs, performerIDStr)
+		bottomIDs = append(bottomIDs, performerIDStr)
+	}
+
+	group := models.SceneMarkerTagGroupInput{
+		TopPerformerIDs:    topIDs,
+		BottomPerformerIDs: bottomIDs,
+	}
+	performerMode := "OR"
+	group.PerformerMode = &performerMode
+	filter := &models.SceneMarkerFilterType{
+		SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+			Modifier:       models.CriterionModifierEquals,
+			GroupsExtended: []models.SceneMarkerTagGroupInput{group},
+		},
+	}
+
+	allResults := -1
+	findFilter := &models.FindFilterType{PerPage: &allResults}
+
+	markers, _, err := markerQB.Query(ctx, filter, findFilter)
+	if err != nil {
+		return 0, err
+	}
+
+	tagSet := make(map[int]bool)
+	tagSet[tagID] = true
+	descendants, err := tagFinder.FindAllDescendants(ctx, tagID, nil)
+	if err != nil {
+		return 0, err
+	}
+	for _, d := range descendants {
+		tagSet[d.ID] = true
+	}
+
+	excludeTagSet := make(map[int]bool)
+	for _, excludeTagID := range excludeTagIDs {
+		if excludeTagID == 0 {
+			continue
+		}
+		excludeTagSet[excludeTagID] = true
+		excludeDescendants, err := tagFinder.FindAllDescendants(ctx, excludeTagID, nil)
+		if err != nil {
+			return 0, err
+		}
+		for _, d := range excludeDescendants {
+			excludeTagSet[d.ID] = true
+		}
+	}
+
+	count := 0
+	// CUSTOM: begin - batch-fetch all secondary tag IDs to eliminate N+1 queries
+	studioMarkerIDs := make([]int, 0, len(markers))
+	for _, marker := range markers {
+		if studioScenes[marker.SceneID] {
+			studioMarkerIDs = append(studioMarkerIDs, marker.ID)
+		}
+	}
+	allStudioSecondaryTagIDs, err := markerQB.GetTagIDsForMarkers(ctx, studioMarkerIDs)
+	if err != nil {
+		return 0, err
+	}
+	// CUSTOM: end
+
+	for _, marker := range markers {
+		if !studioScenes[marker.SceneID] {
+			continue
+		}
+
+		matched := false
+		if tagSet[marker.PrimaryTagID] {
+			matched = true
+		}
+
+		secondaryTagIDs := allStudioSecondaryTagIDs[marker.ID] // CUSTOM: use batched result
+
+		if !matched {
+			for _, secondaryTagID := range secondaryTagIDs {
+				if tagSet[secondaryTagID] {
+					matched = true
+					break
+				}
+			}
+		}
+
+		if !matched {
+			continue
+		}
+
+		if len(excludeTagSet) > 0 {
+			excluded := false
 			if excludeTagSet[marker.PrimaryTagID] {
 				excluded = true
 			}
@@ -517,7 +666,7 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 				roles = appendIfNotExists(roles, "oral_bottom")
 			}
 		}
-		if soloTagSet[tagID] {
+		if soloTagSet[tagID] && role == "top" { // CUSTOM: only top role counts as jerk/solo
 			roles = appendIfNotExists(roles, "solo")
 		}
 		if facialTagSet[tagID] {
@@ -537,17 +686,24 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 	}
 
 	// Check each marker to see if this performer is top or bottom
-	for _, marker := range markers {
-		performers, err := r.GetPerformers(ctx, marker.ID)
-		if err != nil {
-			return nil, err
-		}
+	// CUSTOM: begin - batch-fetch performer and tag associations to eliminate N+1 queries
+	sceneMarkerIDs := make([]int, len(markers))
+	for i, m := range markers {
+		sceneMarkerIDs[i] = m.ID
+	}
+	allScenePerformers, err := r.GetPerformersForMarkers(ctx, sceneMarkerIDs)
+	if err != nil {
+		return nil, err
+	}
+	allSceneSecondaryTags, err := r.GetTagIDsForMarkers(ctx, sceneMarkerIDs)
+	if err != nil {
+		return nil, err
+	}
+	// CUSTOM: end
 
-		// Get secondary/additional tag IDs for this marker
-		secondaryTagIDs, err := r.GetTagIDs(ctx, marker.ID)
-		if err != nil {
-			return nil, err
-		}
+	for _, marker := range markers {
+		performers := allScenePerformers[marker.ID]         // CUSTOM: use batched result
+		secondaryTagIDs := allSceneSecondaryTags[marker.ID] // CUSTOM: use batched result
 
 		// Check if this marker has the 2nd camera tag (primary or secondary)
 		// If so, skip it from orgasm and facial counting (but sex/oral/solo roles still apply)
@@ -812,6 +968,32 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 	if facialAllPartnerCount > 0 {
 		roles = append(roles, fmt.Sprintf("facial_all_partners_%d", facialAllPartnerCount))
 	}
+
+	// CUSTOM: begin - emit partner ID strings so the frontend can show mini performer images
+	// Format: "<category>_top_pids:<id1>,<id2>..." and "<category>_bottom_pids:..."
+	// Only emitted when there are partners; IDs are sorted for determinism.
+	emitSortedPartnerPIDs := func(prefix string, ids map[int]bool) {
+		if len(ids) == 0 {
+			return
+		}
+		sorted := make([]int, 0, len(ids))
+		for id := range ids {
+			sorted = append(sorted, id)
+		}
+		sort.Ints(sorted)
+		parts := make([]string, len(sorted))
+		for i, id := range sorted {
+			parts[i] = strconv.Itoa(id)
+		}
+		roles = append(roles, prefix+strings.Join(parts, ","))
+	}
+	emitSortedPartnerPIDs("sex_top_pids:", sexTopPartnerIDs)
+	emitSortedPartnerPIDs("sex_bottom_pids:", sexBottomPartnerIDs)
+	emitSortedPartnerPIDs("oral_top_pids:", oralTopPartnerIDs)
+	emitSortedPartnerPIDs("oral_bottom_pids:", oralBottomPartnerIDs)
+	emitSortedPartnerPIDs("facial_top_pids:", facialTopPartnerIDs)
+	emitSortedPartnerPIDs("facial_bottom_pids:", facialBottomPartnerIDs)
+	// CUSTOM: end
 
 	// Add orgasm roles with count suffix (orgasm_top_1, orgasm_top_2, etc.)
 	if orgasmTopCount > 0 {
@@ -1164,6 +1346,126 @@ func CountByStudioMarkerRoleExcludingMultiple(ctx context.Context, markerQB mode
 	return count, nil
 }
 
+// GetCoPerformersWithCountsByStudio gets co-performers for a given performer based on tag and role,
+// filtered to scenes that belong to the given studio/depth. Returns a map of performer ID to distinct scene count.
+// tagDepth: 0 for exact tag match, -1 for including all subtags.
+func GetCoPerformersWithCountsByStudio(ctx context.Context, markerQB models.SceneMarkerReader, sceneQB models.SceneQueryer, studioID int, studioDepth *int, performerID int, tagID int, performerRole string, tagDepth int) (map[int]int, error) {
+	if tagID == 0 {
+		return map[int]int{}, nil
+	}
+
+	studioScenes, err := getStudioSceneIDs(ctx, sceneQB, studioID, studioDepth, &performerID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(studioScenes) == 0 {
+		return map[int]int{}, nil
+	}
+
+	oppositeRole := "bottom"
+	if performerRole == "bottom" {
+		oppositeRole = "top"
+	}
+
+	performerIDStr := strconv.Itoa(performerID)
+	tagIDStr := strconv.Itoa(tagID)
+
+	group := models.SceneMarkerTagGroupInput{
+		TagIDs: []string{tagIDStr},
+		Depth:  &tagDepth,
+	}
+
+	if performerRole == "top" {
+		group.TopPerformerIDs = []string{performerIDStr}
+	} else {
+		group.BottomPerformerIDs = []string{performerIDStr}
+	}
+
+	performerMode := "OR"
+	group.PerformerMode = &performerMode
+
+	filter := &models.SceneMarkerFilterType{
+		SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+			Modifier:       models.CriterionModifierEquals,
+			GroupsExtended: []models.SceneMarkerTagGroupInput{group},
+		},
+	}
+
+	allResults := -1
+	findFilter := &models.FindFilterType{PerPage: &allResults}
+
+	markers, _, err := markerQB.Query(ctx, filter, findFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	coPerformerScenes := make(map[int]map[int]bool)
+	// CUSTOM: begin - batch-fetch performer associations to eliminate N+1 queries
+	studioCoMarkerIDs := make([]int, 0, len(markers))
+	for _, marker := range markers {
+		if studioScenes[marker.SceneID] {
+			studioCoMarkerIDs = append(studioCoMarkerIDs, marker.ID)
+		}
+	}
+	allCoPerformers, err := markerQB.GetPerformersForMarkers(ctx, studioCoMarkerIDs)
+	if err != nil {
+		return nil, err
+	}
+	// CUSTOM: end
+
+	for _, marker := range markers {
+		if !studioScenes[marker.SceneID] {
+			continue
+		}
+
+		markerPerformers := allCoPerformers[marker.ID] // CUSTOM: use batched result
+
+		for _, mp := range markerPerformers {
+			if mp.PerformerID != performerID && mp.Role == oppositeRole {
+				if coPerformerScenes[mp.PerformerID] == nil {
+					coPerformerScenes[mp.PerformerID] = make(map[int]bool)
+				}
+				coPerformerScenes[mp.PerformerID][marker.SceneID] = true
+			}
+		}
+	}
+
+	sceneCountsByPerformer := make(map[int]int)
+	for coPerformerID, scenes := range coPerformerScenes {
+		sceneCountsByPerformer[coPerformerID] = len(scenes)
+	}
+
+	return sceneCountsByPerformer, nil
+}
+
+// GetTotalUniqueCoPerformersByStudio gets the total count of unique co-performers for a performer within a studio,
+// combining both top and bottom roles. Returns the count of unique performers across both roles.
+func GetTotalUniqueCoPerformersByStudio(ctx context.Context, markerQB models.SceneMarkerReader, sceneQB models.SceneQueryer, studioID int, studioDepth *int, performerID int, tagID int, tagDepth int) (int, error) {
+	// Get co-performers for top role
+	topCoPerformers, err := GetCoPerformersWithCountsByStudio(ctx, markerQB, sceneQB, studioID, studioDepth, performerID, tagID, "top", tagDepth)
+	if err != nil {
+		return 0, err
+	}
+
+	// Get co-performers for bottom role
+	bottomCoPerformers, err := GetCoPerformersWithCountsByStudio(ctx, markerQB, sceneQB, studioID, studioDepth, performerID, tagID, "bottom", tagDepth)
+	if err != nil {
+		return 0, err
+	}
+
+	// Combine the two sets (unique performers that appear in either role)
+	uniqueSet := make(map[int]bool)
+	for performerID := range topCoPerformers {
+		uniqueSet[performerID] = true
+	}
+	for performerID := range bottomCoPerformers {
+		uniqueSet[performerID] = true
+	}
+
+	return len(uniqueSet), nil
+}
+
 // getStudioSceneIDs is a helper to get studio scene IDs.
 func getStudioSceneIDs(ctx context.Context, sceneQB models.SceneQueryer, studioID int, depth *int, performerID *int) (map[int]bool, error) {
 	filter := &models.SceneFilterType{
@@ -1264,3 +1566,549 @@ func getStudioScenesWithMarkerTag(ctx context.Context, markerQB models.SceneMark
 
 	return sceneSet, nil
 }
+
+// CUSTOM: begin - batched studio role count helpers (eliminate redundant getStudioSceneIDs calls)
+
+// StudioRoleCountsData holds batched non-performer-filtered role counts.
+// Returned by GetStudioRoleCounts; the resolver maps it to the generated StudioRoleCounts GQL model.
+type StudioRoleCountsData struct {
+	SexSceneCount    int
+	OralSceneCount   int
+	SoloSceneCount   int
+	FacialSceneCount int
+}
+
+// GetStudioRoleCounts computes sex/oral/solo/facial scene counts in a single batch,
+// calling getStudioSceneIDs exactly once instead of once per field.
+func GetStudioRoleCounts(
+	ctx context.Context,
+	markerQB models.SceneMarkerQueryer,
+	sceneQB models.SceneQueryer,
+	studioID int,
+	depth *int,
+	sexTagID, oralTagID, soloTagID, facialTagID int,
+) (*StudioRoleCountsData, error) {
+	result := &StudioRoleCountsData{}
+
+	studioScenes, err := getStudioSceneIDs(ctx, sceneQB, studioID, depth, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(studioScenes) == 0 {
+		return result, nil
+	}
+
+	var sexScenes, oralScenes map[int]bool
+
+	if sexTagID != 0 {
+		sexScenes, err = getStudioScenesWithMarkerTag(ctx, markerQB, studioScenes, sexTagID, "", nil)
+		if err != nil {
+			return nil, err
+		}
+		result.SexSceneCount = len(sexScenes)
+	}
+
+	if oralTagID != 0 {
+		rawOral, err := getStudioScenesWithMarkerTag(ctx, markerQB, studioScenes, oralTagID, "", nil)
+		if err != nil {
+			return nil, err
+		}
+		oralScenes = rawOral
+		n := 0
+		for id := range rawOral {
+			if !sexScenes[id] {
+				n++
+			}
+		}
+		result.OralSceneCount = n
+	}
+
+	if soloTagID != 0 {
+		rawSolo, err := getStudioScenesWithMarkerTag(ctx, markerQB, studioScenes, soloTagID, "", nil)
+		if err != nil {
+			return nil, err
+		}
+		n := 0
+		for id := range rawSolo {
+			if !sexScenes[id] && !oralScenes[id] {
+				n++
+			}
+		}
+		result.SoloSceneCount = n
+	}
+
+	if facialTagID != 0 {
+		rawFacial, err := getStudioScenesWithMarkerTag(ctx, markerQB, studioScenes, facialTagID, "", nil)
+		if err != nil {
+			return nil, err
+		}
+		result.FacialSceneCount = len(rawFacial)
+	}
+
+	return result, nil
+}
+
+// StudioPerformerRoleStatsData holds all batched performer-filtered role stats.
+// Returned by GetStudioPerformerRoleStats; the resolver maps it to the generated GQL model.
+type StudioPerformerRoleStatsData struct {
+	SexSceneCount               int
+	SexTopCount                 int
+	SexBottomCount              int
+	SexWithTopCount             int
+	SexWithBottomCount          int
+	OralSceneCount              int
+	OralTopCount                int
+	OralBottomCount             int
+	OralWithTopCount            int
+	OralWithBottomCount         int
+	SoloSceneCount              int
+	FacialSceneCount            int
+	FacialTopCount              int
+	FacialBottomCount           int
+	FacialMarkerWithTopCount    int
+	FacialMarkerWithBottomCount int
+	SexUniquePartnerCount       int
+	OralUniquePartnerCount      int
+	FacialUniquePartnerCount    int
+	OrgasmTopCount              int
+	FacialMarkerCount           int
+	FeetTopCount                int
+}
+
+// GetStudioPerformerRoleStats computes all marker-based role stats for a performer within a studio in one batch.
+// It calls getStudioSceneIDs at most twice (once with performer filter, once without) instead of once per resolver.
+func GetStudioPerformerRoleStats(
+	ctx context.Context,
+	markerQB models.SceneMarkerReader,
+	sceneQB models.SceneQueryer,
+	tagFinder models.TagFinder,
+	studioID int,
+	depth *int,
+	performerID int,
+	sexTagID, oralTagID, soloTagID, facialTagID, orgasmTagID, feetTagID, secondCameraTagID int,
+) (*StudioPerformerRoleStatsData, error) {
+	result := &StudioPerformerRoleStatsData{}
+	perfIDPtr := &performerID
+
+	// === Groups A + C: performer-filtered studio scenes (called ONCE) ===
+	studioPerformerScenes, err := getStudioSceneIDs(ctx, sceneQB, studioID, depth, perfIDPtr)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(studioPerformerScenes) > 0 {
+		// --- Group A: scene-level counts via getStudioScenesWithMarkerTag ---
+		var rawSexScenes, rawOralScenes map[int]bool
+
+		if sexTagID != 0 {
+			rawSexScenes, err = getStudioScenesWithMarkerTag(ctx, markerQB, studioPerformerScenes, sexTagID, "", perfIDPtr)
+			if err != nil {
+				return nil, err
+			}
+			result.SexSceneCount = len(rawSexScenes)
+
+			rawSexTop, err := getStudioScenesWithMarkerTag(ctx, markerQB, studioPerformerScenes, sexTagID, "top", perfIDPtr)
+			if err != nil {
+				return nil, err
+			}
+			result.SexTopCount = len(rawSexTop)
+
+			rawSexBottom, err := getStudioScenesWithMarkerTag(ctx, markerQB, studioPerformerScenes, sexTagID, "bottom", perfIDPtr)
+			if err != nil {
+				return nil, err
+			}
+			result.SexBottomCount = len(rawSexBottom)
+		}
+
+		if oralTagID != 0 {
+			rawOral, err := getStudioScenesWithMarkerTag(ctx, markerQB, studioPerformerScenes, oralTagID, "", perfIDPtr)
+			if err != nil {
+				return nil, err
+			}
+			rawOralScenes = rawOral
+			n := 0
+			for id := range rawOral {
+				if !rawSexScenes[id] {
+					n++
+				}
+			}
+			result.OralSceneCount = n
+
+			rawOralTop, err := getStudioScenesWithMarkerTag(ctx, markerQB, studioPerformerScenes, oralTagID, "top", perfIDPtr)
+			if err != nil {
+				return nil, err
+			}
+			nTop := 0
+			for id := range rawOralTop {
+				if !rawSexScenes[id] {
+					nTop++
+				}
+			}
+			result.OralTopCount = nTop
+
+			rawOralBottom, err := getStudioScenesWithMarkerTag(ctx, markerQB, studioPerformerScenes, oralTagID, "bottom", perfIDPtr)
+			if err != nil {
+				return nil, err
+			}
+			nBottom := 0
+			for id := range rawOralBottom {
+				if !rawSexScenes[id] {
+					nBottom++
+				}
+			}
+			result.OralBottomCount = nBottom
+		}
+
+		if soloTagID != 0 {
+			rawSolo, err := getStudioScenesWithMarkerTag(ctx, markerQB, studioPerformerScenes, soloTagID, "top", perfIDPtr)
+			if err != nil {
+				return nil, err
+			}
+			n := 0
+			for id := range rawSolo {
+				if !rawSexScenes[id] && !rawOralScenes[id] {
+					n++
+				}
+			}
+			result.SoloSceneCount = n
+		}
+
+		if facialTagID != 0 {
+			rawFacial, err := getStudioScenesWithMarkerTag(ctx, markerQB, studioPerformerScenes, facialTagID, "", perfIDPtr)
+			if err != nil {
+				return nil, err
+			}
+			result.FacialSceneCount = len(rawFacial)
+
+			rawFacialTop, err := getStudioScenesWithMarkerTag(ctx, markerQB, studioPerformerScenes, facialTagID, "top", perfIDPtr)
+			if err != nil {
+				return nil, err
+			}
+			result.FacialTopCount = len(rawFacialTop)
+
+			rawFacialBottom, err := getStudioScenesWithMarkerTag(ctx, markerQB, studioPerformerScenes, facialTagID, "bottom", perfIDPtr)
+			if err != nil {
+				return nil, err
+			}
+			result.FacialBottomCount = len(rawFacialBottom)
+		}
+
+		// --- Group C: co-performer counts (reuse studioPerformerScenes) ---
+		if sexTagID != 0 {
+			sexTop, err := getCoPerformersWithCountsInScenes(ctx, markerQB, studioPerformerScenes, performerID, sexTagID, "top", 0)
+			if err != nil {
+				return nil, err
+			}
+			result.SexWithTopCount = len(sexTop)
+
+			sexBottom, err := getCoPerformersWithCountsInScenes(ctx, markerQB, studioPerformerScenes, performerID, sexTagID, "bottom", 0)
+			if err != nil {
+				return nil, err
+			}
+			result.SexWithBottomCount = len(sexBottom)
+
+			uniqueSex := make(map[int]bool)
+			for id := range sexTop {
+				uniqueSex[id] = true
+			}
+			for id := range sexBottom {
+				uniqueSex[id] = true
+			}
+			result.SexUniquePartnerCount = len(uniqueSex)
+		}
+
+		if oralTagID != 0 {
+			oralTop, err := getCoPerformersWithCountsInScenes(ctx, markerQB, studioPerformerScenes, performerID, oralTagID, "top", -1)
+			if err != nil {
+				return nil, err
+			}
+			result.OralWithTopCount = len(oralTop)
+
+			oralBottom, err := getCoPerformersWithCountsInScenes(ctx, markerQB, studioPerformerScenes, performerID, oralTagID, "bottom", -1)
+			if err != nil {
+				return nil, err
+			}
+			result.OralWithBottomCount = len(oralBottom)
+
+			uniqueOral := make(map[int]bool)
+			for id := range oralTop {
+				uniqueOral[id] = true
+			}
+			for id := range oralBottom {
+				uniqueOral[id] = true
+			}
+			result.OralUniquePartnerCount = len(uniqueOral)
+		}
+
+		if facialTagID != 0 {
+			facialTop, err := getCoPerformersWithCountsInScenes(ctx, markerQB, studioPerformerScenes, performerID, facialTagID, "top", -1)
+			if err != nil {
+				return nil, err
+			}
+			facialBottom, err := getCoPerformersWithCountsInScenes(ctx, markerQB, studioPerformerScenes, performerID, facialTagID, "bottom", -1)
+			if err != nil {
+				return nil, err
+			}
+			uniqueFacial := make(map[int]bool)
+			for id := range facialTop {
+				uniqueFacial[id] = true
+			}
+			for id := range facialBottom {
+				uniqueFacial[id] = true
+			}
+			result.FacialUniquePartnerCount = len(uniqueFacial)
+		}
+	}
+
+	// === Group B: marker counts (getStudioSceneIDs WITHOUT performer filter) ===
+	allStudioScenes, err := getStudioSceneIDs(ctx, sceneQB, studioID, depth, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(allStudioScenes) > 0 {
+		if facialTagID != 0 {
+			result.FacialMarkerWithTopCount, err = countMarkersByRoleWithSecondaryInScenes(ctx, markerQB, allStudioScenes, tagFinder, performerID, facialTagID, "top", secondCameraTagID)
+			if err != nil {
+				return nil, err
+			}
+			result.FacialMarkerWithBottomCount, err = countMarkersByRoleWithSecondaryInScenes(ctx, markerQB, allStudioScenes, tagFinder, performerID, facialTagID, "bottom", secondCameraTagID)
+			if err != nil {
+				return nil, err
+			}
+			result.FacialMarkerCount, err = countMarkersByRoleWithSecondaryInScenes(ctx, markerQB, allStudioScenes, tagFinder, performerID, facialTagID, "", secondCameraTagID)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if orgasmTagID != 0 {
+			result.OrgasmTopCount, err = countMarkersByRoleWithSecondaryInScenes(ctx, markerQB, allStudioScenes, tagFinder, performerID, orgasmTagID, "top", secondCameraTagID)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if feetTagID != 0 {
+			result.FeetTopCount, err = countMarkersByRoleWithSecondaryInScenes(ctx, markerQB, allStudioScenes, tagFinder, performerID, feetTagID, "top", secondCameraTagID)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// getCoPerformersWithCountsInScenes is like GetCoPerformersWithCountsByStudio but accepts
+// a pre-fetched studioScenes map, eliminating the redundant getStudioSceneIDs call.
+func getCoPerformersWithCountsInScenes(
+	ctx context.Context,
+	markerQB models.SceneMarkerReader,
+	studioScenes map[int]bool,
+	performerID int,
+	tagID int,
+	performerRole string,
+	tagDepth int,
+) (map[int]int, error) {
+	if tagID == 0 {
+		return map[int]int{}, nil
+	}
+
+	oppositeRole := "bottom"
+	if performerRole == "bottom" {
+		oppositeRole = "top"
+	}
+
+	performerIDStr := strconv.Itoa(performerID)
+	tagIDStr := strconv.Itoa(tagID)
+
+	group := models.SceneMarkerTagGroupInput{
+		TagIDs: []string{tagIDStr},
+		Depth:  &tagDepth,
+	}
+
+	if performerRole == "top" {
+		group.TopPerformerIDs = []string{performerIDStr}
+	} else {
+		group.BottomPerformerIDs = []string{performerIDStr}
+	}
+
+	performerMode := "OR"
+	group.PerformerMode = &performerMode
+
+	filter := &models.SceneMarkerFilterType{
+		SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+			Modifier:       models.CriterionModifierEquals,
+			GroupsExtended: []models.SceneMarkerTagGroupInput{group},
+		},
+	}
+
+	allResults := -1
+	findFilter := &models.FindFilterType{PerPage: &allResults}
+
+	markers, _, err := markerQB.Query(ctx, filter, findFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	studioMarkerIDs := make([]int, 0, len(markers))
+	for _, marker := range markers {
+		if studioScenes[marker.SceneID] {
+			studioMarkerIDs = append(studioMarkerIDs, marker.ID)
+		}
+	}
+	allCoPerformers, err := markerQB.GetPerformersForMarkers(ctx, studioMarkerIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	coPerformerScenes := make(map[int]map[int]bool)
+	for _, marker := range markers {
+		if !studioScenes[marker.SceneID] {
+			continue
+		}
+		for _, mp := range allCoPerformers[marker.ID] {
+			if mp.PerformerID != performerID && mp.Role == oppositeRole {
+				if coPerformerScenes[mp.PerformerID] == nil {
+					coPerformerScenes[mp.PerformerID] = make(map[int]bool)
+				}
+				coPerformerScenes[mp.PerformerID][marker.SceneID] = true
+			}
+		}
+	}
+
+	result := make(map[int]int, len(coPerformerScenes))
+	for coID, scenes := range coPerformerScenes {
+		result[coID] = len(scenes)
+	}
+	return result, nil
+}
+
+// countMarkersByRoleWithSecondaryInScenes is like CountMarkersByStudioRoleWithSecondary but
+// accepts a pre-fetched allStudioScenes map, eliminating the redundant getStudioSceneIDs call.
+func countMarkersByRoleWithSecondaryInScenes(
+	ctx context.Context,
+	markerQB models.SceneMarkerReader,
+	allStudioScenes map[int]bool,
+	tagFinder models.TagFinder,
+	performerID int,
+	tagID int,
+	role string,
+	excludeTagIDs ...int,
+) (int, error) {
+	if tagID == 0 {
+		return 0, nil
+	}
+
+	topIDs := []string{}
+	bottomIDs := []string{}
+	performerIDStr := strconv.Itoa(performerID)
+
+	if role == "top" {
+		topIDs = append(topIDs, performerIDStr)
+	} else if role == "bottom" {
+		bottomIDs = append(bottomIDs, performerIDStr)
+	} else {
+		topIDs = append(topIDs, performerIDStr)
+		bottomIDs = append(bottomIDs, performerIDStr)
+	}
+
+	group := models.SceneMarkerTagGroupInput{
+		TopPerformerIDs:    topIDs,
+		BottomPerformerIDs: bottomIDs,
+	}
+	performerMode := "OR"
+	group.PerformerMode = &performerMode
+	filter := &models.SceneMarkerFilterType{
+		SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+			Modifier:       models.CriterionModifierEquals,
+			GroupsExtended: []models.SceneMarkerTagGroupInput{group},
+		},
+	}
+
+	allResults := -1
+	findFilter := &models.FindFilterType{PerPage: &allResults}
+
+	markers, _, err := markerQB.Query(ctx, filter, findFilter)
+	if err != nil {
+		return 0, err
+	}
+
+	tagSet := make(map[int]bool)
+	tagSet[tagID] = true
+	descendants, err := tagFinder.FindAllDescendants(ctx, tagID, nil)
+	if err != nil {
+		return 0, err
+	}
+	for _, d := range descendants {
+		tagSet[d.ID] = true
+	}
+
+	excludeTagSet := make(map[int]bool)
+	for _, excludeTagID := range excludeTagIDs {
+		if excludeTagID == 0 {
+			continue
+		}
+		excludeTagSet[excludeTagID] = true
+		excDesc, err := tagFinder.FindAllDescendants(ctx, excludeTagID, nil)
+		if err != nil {
+			return 0, err
+		}
+		for _, d := range excDesc {
+			excludeTagSet[d.ID] = true
+		}
+	}
+
+	studioMarkerIDs := make([]int, 0, len(markers))
+	for _, marker := range markers {
+		if allStudioScenes[marker.SceneID] {
+			studioMarkerIDs = append(studioMarkerIDs, marker.ID)
+		}
+	}
+	allSecondaryTagIDs, err := markerQB.GetTagIDsForMarkers(ctx, studioMarkerIDs)
+	if err != nil {
+		return 0, err
+	}
+
+	count := 0
+	for _, marker := range markers {
+		if !allStudioScenes[marker.SceneID] {
+			continue
+		}
+
+		secondaryTagIDs := allSecondaryTagIDs[marker.ID]
+
+		matched := tagSet[marker.PrimaryTagID]
+		if !matched {
+			for _, stid := range secondaryTagIDs {
+				if tagSet[stid] {
+					matched = true
+					break
+				}
+			}
+		}
+		if !matched {
+			continue
+		}
+
+		if len(excludeTagSet) > 0 {
+			excluded := excludeTagSet[marker.PrimaryTagID]
+			if !excluded {
+				for _, stid := range secondaryTagIDs {
+					if excludeTagSet[stid] {
+						excluded = true
+						break
+					}
+				}
+			}
+			if excluded {
+				continue
+			}
+		}
+
+		count++
+	}
+
+	return count, nil
+}
+
+// CUSTOM: end

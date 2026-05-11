@@ -35,6 +35,22 @@ export default defineConfig(() => {
       sourcemap: sourcemap,
       reportCompressedSize: false,
     },
+    // CUSTOM: begin - silence third-party Sass deprecations until upstream deps migrate
+    css: {
+      preprocessorOptions: {
+        scss: {
+          quietDeps: true,
+          silenceDeprecations: [
+            "legacy-js-api",
+            "import",
+            "global-builtin",
+            "color-functions",
+            "abs-percent",
+          ],
+        },
+      },
+    },
+    // CUSTOM: end
     optimizeDeps: {
       entries: "src/index.tsx",
     },

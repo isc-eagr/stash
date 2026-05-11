@@ -77,6 +77,67 @@ INNER JOIN video_files ON (files.id == video_files.file_id)
 ORDER BY files.size DESC;
 `
 
+func deleteSceneMarkerPerformerAssociations(ctx context.Context, sceneID int, performerIDs []int) error {
+	performerIDs = sliceutil.AppendUniques(nil, performerIDs)
+	if len(performerIDs) == 0 {
+		return nil
+	}
+
+	query := `DELETE FROM scene_marker_performers
+		WHERE performer_id IN ` + getInBinding(len(performerIDs)) + `
+		AND scene_marker_id IN (SELECT id FROM scene_markers WHERE scene_id = ?)`
+
+	args := make([]interface{}, 0, len(performerIDs)+1)
+	for _, performerID := range performerIDs {
+		args = append(args, performerID)
+	}
+	args = append(args, sceneID)
+
+	if _, err := dbWrapper.Exec(ctx, query, args...); err != nil {
+		return fmt.Errorf("deleting scene marker performer associations for scene %d: %w", sceneID, err)
+	}
+
+	return nil
+}
+
+func removedScenePerformerIDs(existing []int, update *models.UpdateIDs) []int {
+	if update == nil {
+		return nil
+	}
+
+	switch update.Mode {
+	case models.RelationshipUpdateModeRemove:
+		return update.IDs
+	case models.RelationshipUpdateModeSet:
+		removed := make([]int, 0, len(existing))
+		for _, performerID := range existing {
+			if !slices.Contains(update.IDs, performerID) {
+				removed = append(removed, performerID)
+			}
+		}
+		return removed
+	default:
+		return nil
+	}
+}
+
+func getRemovedScenePerformerIDs(ctx context.Context, sceneID int, update *models.UpdateIDs) ([]int, error) {
+	if update == nil {
+		return nil, nil
+	}
+
+	if update.Mode != models.RelationshipUpdateModeSet && update.Mode != models.RelationshipUpdateModeRemove {
+		return nil, nil
+	}
+
+	existing, err := scenesPerformersTableMgr.get(ctx, sceneID)
+	if err != nil {
+		return nil, fmt.Errorf("getting existing scene performers for scene %d: %w", sceneID, err)
+	}
+
+	return removedScenePerformerIDs(existing, update), nil
+}
+
 type sceneRow struct {
 	ID            int         `db:"id" goqu:"skipinsert"`
 	Title         zero.String `db:"title"`
@@ -390,6 +451,14 @@ func (qb *SceneStore) UpdatePartial(ctx context.Context, id int, partial models.
 		}
 	}
 	if partial.PerformerIDs != nil {
+		removedPerformerIDs, err := getRemovedScenePerformerIDs(ctx, id, partial.PerformerIDs)
+		if err != nil {
+			return nil, err
+		}
+		if err := deleteSceneMarkerPerformerAssociations(ctx, id, removedPerformerIDs); err != nil {
+			return nil, err
+		}
+
 		if err := scenesPerformersTableMgr.modifyJoins(ctx, id, partial.PerformerIDs.IDs, partial.PerformerIDs.Mode); err != nil {
 			return nil, err
 		}
@@ -438,6 +507,17 @@ func (qb *SceneStore) Update(ctx context.Context, updatedObject *models.Scene) e
 	}
 
 	if updatedObject.PerformerIDs.Loaded() {
+		removedPerformerIDs, err := getRemovedScenePerformerIDs(ctx, updatedObject.ID, &models.UpdateIDs{
+			IDs:  updatedObject.PerformerIDs.List(),
+			Mode: models.RelationshipUpdateModeSet,
+		})
+		if err != nil {
+			return err
+		}
+		if err := deleteSceneMarkerPerformerAssociations(ctx, updatedObject.ID, removedPerformerIDs); err != nil {
+			return err
+		}
+
 		if err := scenesPerformersTableMgr.replaceJoins(ctx, updatedObject.ID, updatedObject.PerformerIDs.List()); err != nil {
 			return err
 		}

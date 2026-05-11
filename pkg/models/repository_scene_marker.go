@@ -65,7 +65,9 @@ type SceneMarkerReader interface {
 	All(ctx context.Context) ([]*SceneMarker, error)
 	Wall(ctx context.Context, q *string) ([]*SceneMarker, error)
 	GetMarkerStrings(ctx context.Context, q *string, sort *string) ([]*MarkerStringsResultType, error)
-	GetPerformers(ctx context.Context, markerID int) ([]*MarkerPerformer, error) // CUSTOM
+	GetPerformers(ctx context.Context, markerID int) ([]*MarkerPerformer, error)                      // CUSTOM
+	GetPerformersForMarkers(ctx context.Context, markerIDs []int) (map[int][]*MarkerPerformer, error) // CUSTOM
+	GetTagIDsForMarkers(ctx context.Context, markerIDs []int) (map[int][]int, error)                  // CUSTOM
 }
 
 // SceneMarkerWriter provides all methods to modify scene markers.

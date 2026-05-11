@@ -8,6 +8,7 @@ import (
 
 	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/models"
+	"github.com/stashapp/stash/pkg/scene"
 )
 
 // PerformerCoPerformersByRole returns performers grouped by their role relationship with a given performer
@@ -89,6 +90,114 @@ func (r *queryResolver) PerformerCoPerformersByRole(ctx context.Context, perform
 		}
 
 		// Calculate unique count across all roles
+		uniqueIDs := make(map[int]struct{})
+		for _, p := range result.SexAsTop {
+			uniqueIDs[p.Performer.ID] = struct{}{}
+		}
+		for _, p := range result.SexAsBottom {
+			uniqueIDs[p.Performer.ID] = struct{}{}
+		}
+		for _, p := range result.OralAsTop {
+			uniqueIDs[p.Performer.ID] = struct{}{}
+		}
+		for _, p := range result.OralAsBottom {
+			uniqueIDs[p.Performer.ID] = struct{}{}
+		}
+		for _, p := range result.FacialAsTop {
+			uniqueIDs[p.Performer.ID] = struct{}{}
+		}
+		for _, p := range result.FacialAsBottom {
+			uniqueIDs[p.Performer.ID] = struct{}{}
+		}
+		result.UniqueCount = len(uniqueIDs)
+
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// StudioPerformerCoPerformersByRole returns co-performers scoped to a specific studio (and optional depth).
+// CUSTOM
+func (r *queryResolver) StudioPerformerCoPerformersByRole(ctx context.Context, performerID string, studioID string, depth *int) (*PerformerCoPerformersByRole, error) {
+	performerIDInt, err := strconv.Atoi(performerID)
+	if err != nil {
+		return nil, err
+	}
+	studioIDInt, err := strconv.Atoi(studioID)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := config.GetInstance()
+	uiConfig := cfg.GetUIConfiguration()
+	roleTagIDs := getRoleTagIDsFromUIConfig(uiConfig)
+
+	result := &PerformerCoPerformersByRole{}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		if roleTagIDs.sexTagID != 0 {
+			topCounts, err := scene.GetCoPerformersWithCountsByStudio(ctx, r.repository.SceneMarker, r.repository.Scene, studioIDInt, depth, performerIDInt, roleTagIDs.sexTagID, "top", 0)
+			if err != nil {
+				return err
+			}
+			result.SexAsTop, err = r.convertToPerformerWithSceneCount(ctx, topCounts)
+			if err != nil {
+				return err
+			}
+
+			bottomCounts, err := scene.GetCoPerformersWithCountsByStudio(ctx, r.repository.SceneMarker, r.repository.Scene, studioIDInt, depth, performerIDInt, roleTagIDs.sexTagID, "bottom", 0)
+			if err != nil {
+				return err
+			}
+			result.SexAsBottom, err = r.convertToPerformerWithSceneCount(ctx, bottomCounts)
+			if err != nil {
+				return err
+			}
+		}
+
+		if roleTagIDs.oralTagID != 0 {
+			topCounts, err := scene.GetCoPerformersWithCountsByStudio(ctx, r.repository.SceneMarker, r.repository.Scene, studioIDInt, depth, performerIDInt, roleTagIDs.oralTagID, "top", -1)
+			if err != nil {
+				return err
+			}
+			result.OralAsTop, err = r.convertToPerformerWithSceneCount(ctx, topCounts)
+			if err != nil {
+				return err
+			}
+
+			bottomCounts, err := scene.GetCoPerformersWithCountsByStudio(ctx, r.repository.SceneMarker, r.repository.Scene, studioIDInt, depth, performerIDInt, roleTagIDs.oralTagID, "bottom", -1)
+			if err != nil {
+				return err
+			}
+			result.OralAsBottom, err = r.convertToPerformerWithSceneCount(ctx, bottomCounts)
+			if err != nil {
+				return err
+			}
+		}
+
+		if roleTagIDs.facialTagID != 0 {
+			topCounts, err := scene.GetCoPerformersWithCountsByStudio(ctx, r.repository.SceneMarker, r.repository.Scene, studioIDInt, depth, performerIDInt, roleTagIDs.facialTagID, "top", -1)
+			if err != nil {
+				return err
+			}
+			result.FacialAsTop, err = r.convertToPerformerWithSceneCount(ctx, topCounts)
+			if err != nil {
+				return err
+			}
+
+			bottomCounts, err := scene.GetCoPerformersWithCountsByStudio(ctx, r.repository.SceneMarker, r.repository.Scene, studioIDInt, depth, performerIDInt, roleTagIDs.facialTagID, "bottom", -1)
+			if err != nil {
+				return err
+			}
+			result.FacialAsBottom, err = r.convertToPerformerWithSceneCount(ctx, bottomCounts)
+			if err != nil {
+				return err
+			}
+		}
+
 		uniqueIDs := make(map[int]struct{})
 		for _, p := range result.SexAsTop {
 			uniqueIDs[p.Performer.ID] = struct{}{}
@@ -200,16 +309,23 @@ func (r *queryResolver) getCoPerformersWithCounts(ctx context.Context, performer
 		return nil, err
 	}
 
+	// CUSTOM: begin - batch-fetch performer associations to eliminate N+1 queries
+	markerIDs := make([]int, len(markers))
+	for i, m := range markers {
+		markerIDs[i] = m.ID
+	}
+	allMarkerPerformers, err := r.repository.SceneMarker.GetPerformersForMarkers(ctx, markerIDs)
+	if err != nil {
+		return nil, err
+	}
+	// CUSTOM: end
+
 	// Collect performer IDs with the opposite role from these markers
 	// Map of performer ID to scene IDs they appeared in
 	coPerformerScenes := make(map[int]map[int]bool)
 
 	for _, marker := range markers {
-		markerPerformers, err := r.repository.SceneMarker.GetPerformers(ctx, marker.ID)
-		if err != nil {
-			return nil, err
-		}
-
+		markerPerformers := allMarkerPerformers[marker.ID] // CUSTOM: use batched result
 		for _, mp := range markerPerformers {
 			if mp.PerformerID != performerID && mp.Role == oppositeRole {
 				if coPerformerScenes[mp.PerformerID] == nil {

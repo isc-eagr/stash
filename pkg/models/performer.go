@@ -203,9 +203,8 @@ type PerformerFilterType struct {
 	// CUSTOM: begin
 	// Filter to only include performers that have scene markers where they are top/bottom
 	HasMarkers *string `json:"has_markers"`
-	// Custom performer filters: predefined complex filters.
-	// Options: 'strict_tops', 'lenient_tops', 'strict_bottoms', 'lenient_bottoms'
-	CustomFilters *CustomPerformerFilterInput `json:"custom_filters"`
+	// Filter by partner counts (topped/bottomed/unique × sex/oral/facial)
+	Partners *PerformerPartnersFilterInput `json:"partners"`
 	// Filter by scene type based on marker tags
 	SceneType *SceneTypeFilterInput `json:"scene_type"`
 	// CUSTOM: end
@@ -238,17 +237,26 @@ type PerformerFilterType struct {
 	PerformerMarkerPartners *PerformerMarkerPartnersCriterionInput `json:"performer_marker_partners"`
 }
 
-// CustomPerformerFilterInput is the input for custom performer filters
-type CustomPerformerFilterInput struct {
-	// The filter type: strict_tops, lenient_tops, strict_bottoms, lenient_bottoms
-	Type string `json:"type"`
-	// The tag ID for 'sex' markers
-	SexTagID *string `json:"sex_tag_id"`
-	// The tag ID for 'oral' markers
-	OralTagID *string `json:"oral_tag_id"`
-	// The tag ID for 'facial' markers
-	FacialTagID *string `json:"facial_tag_id"`
-}
+// PerformerPartnersFilterInput filters performers by partner counts across role/category combinations.
+// Metrics within a row are combined with that row's operator (AND/OR). Rows are always AND-ed.
+type PerformerPartnersFilterInput struct { // CUSTOM: begin
+	SexTopped        *IntCriterionInput `json:"sex_topped"`
+	OralTopped       *IntCriterionInput `json:"oral_topped"`
+	FacialTopped     *IntCriterionInput `json:"facial_topped"`
+	ToppedOperator   *string            `json:"topped_operator"`   // "AND" (default) or "OR"
+	SexBottomed      *IntCriterionInput `json:"sex_bottomed"`
+	OralBottomed     *IntCriterionInput `json:"oral_bottomed"`
+	FacialBottomed   *IntCriterionInput `json:"facial_bottomed"`
+	BottomedOperator *string            `json:"bottomed_operator"` // "AND" (default) or "OR"
+	SexUnique        *IntCriterionInput `json:"sex_unique"`
+	OralUnique       *IntCriterionInput `json:"oral_unique"`
+	FacialUnique     *IntCriterionInput `json:"facial_unique"`
+	UniqueOperator   *string            `json:"unique_operator"`   // "AND" (default) or "OR"
+	// Backend-only: oral OR facial bottomed partners combined (for lenient tops stat)
+	AnyNonSexBottomed *IntCriterionInput `json:"any_non_sex_bottomed"`
+	// Backend-only: oral OR facial topped partners combined (for lenient bottoms stat)
+	AnyNonSexTopped *IntCriterionInput `json:"any_non_sex_topped"`
+} // CUSTOM: end
 
 // PerformerMarkersCriterionInput filters performers by their scene marker participation
 type PerformerMarkersCriterionInput struct {

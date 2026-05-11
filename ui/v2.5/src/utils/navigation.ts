@@ -77,6 +77,7 @@ import {
   makePerformerFacialMarkersWithRoleUrl,
   makePerformerPartnerPerformersUrl,
   makePerformerAllPartnersUrl,
+  withStudioScope,
 } from "./navigation_custom";
 // CUSTOM: end
 
@@ -602,6 +603,7 @@ const NavUtils = {
   makePerformerOrgasmMarkersUrl,
   makePerformerFeetMarkersUrl,
   makePerformerFacialMarkersWithRoleUrl,
+    withStudioScope,
   makeStudioMarkerScenesUrl,
   makePerformerStudioMarkerScenesUrl,
   makeGlobalSexScenesUrl,

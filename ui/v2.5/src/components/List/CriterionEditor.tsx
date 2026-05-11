@@ -101,18 +101,18 @@ import {
 import { SceneMarkersExcludeFilter } from "./Filters/SceneMarkersExcludeFilter";
 import {
   SceneCustomFiltersCriterion,
-  PerformerCustomFiltersCriterion,
   SceneMarkerCustomFiltersCriterion,
 } from "src/models/list-filter/criteria/custom-filters";
+import { PerformerPartnersCriterion } from "src/models/list-filter/criteria/performer-partners"; // CUSTOM
 import {
   SceneSceneTypeCriterion,
   PerformerSceneTypeCriterion,
 } from "src/models/list-filter/criteria/scene-type";
 import {
   SceneCustomFiltersFilter,
-  PerformerCustomFiltersFilter,
   SceneMarkerCustomFiltersFilter,
 } from "./Filters/CustomFiltersFilter";
+import { PerformerPartnersFilter } from "./Filters/PerformerPartnersFilter"; // CUSTOM
 import {
   SceneSceneTypeFilter,
   PerformerSceneTypeFilter,
@@ -552,9 +552,9 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
       );
     }
 
-    if (criterion instanceof PerformerCustomFiltersCriterion) {
+    if (criterion instanceof PerformerPartnersCriterion) { // CUSTOM
       return (
-        <PerformerCustomFiltersFilter
+        <PerformerPartnersFilter
           criterion={criterion}
           setCriterion={(nc) => setCriterion(nc)}
         />

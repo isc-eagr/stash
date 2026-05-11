@@ -22,10 +22,31 @@ import goateeSvg from "src/assets/goatee.svg";
 
 interface IPerformerStudioStats {
   scene_count: number;
-  sex_scene_count: number;
-  oral_scene_count: number;
-  solo_scene_count: number;
-  facial_scene_count: number;
+  role_stats: { // CUSTOM: nested from studio_performer_role_stats batch field
+    sex_scene_count: number;
+    oral_scene_count: number;
+    solo_scene_count: number;
+    facial_scene_count: number;
+    sex_top_count: number;
+    sex_bottom_count: number;
+    sex_with_top_count: number;
+    sex_with_bottom_count: number;
+    oral_top_count: number;
+    oral_bottom_count: number;
+    oral_with_top_count: number;
+    oral_with_bottom_count: number;
+    facial_top_count: number;
+    facial_bottom_count: number;
+    facial_marker_with_top_count: number;
+    facial_marker_with_bottom_count: number;
+    sex_unique_partner_count: number;
+    oral_unique_partner_count: number;
+    facial_unique_partner_count: number;
+    orgasm_top_count: number;
+    facial_marker_count: number;
+    feet_top_count: number;
+    solo_scene_count: number;
+  } | null | undefined;
   group_count: number;
   image_count: number;
   gallery_count: number;
@@ -139,10 +160,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       const s = performerStatsData.findStudio;
       return {
         scene_count: s.scene_count,
-        sex_scene_count: s.sex_scene_count,
-        oral_scene_count: s.oral_scene_count,
-        solo_scene_count: s.solo_scene_count,
-        facial_scene_count: s.facial_scene_count,
+        role_stats: s.studio_performer_role_stats ?? null, // CUSTOM: from batched resolver
         group_count: s.group_count,
         image_count: s.image_count,
         gallery_count: s.gallery_count,
@@ -189,9 +207,8 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       if (!sexTag) return null;
 
       // Use performer-filtered stats when available, otherwise use studio stats
-      const count =
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        performerStats?.sex_scene_count ?? (studio as any).sex_scene_count ?? 0;
+      const count = // CUSTOM: batched fields
+        performerStats?.role_stats?.sex_scene_count ?? studio.studio_role_counts?.sex_scene_count ?? 0;
       const url = performerId
         ? NavUtils.makePerformerStudioMarkerScenesUrl(
             performerId,
@@ -219,9 +236,8 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       if (!oralTag) return null;
 
       // Use performer-filtered stats when available, otherwise use studio stats
-      const count =
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        performerStats?.oral_scene_count ?? (studio as any).oral_scene_count ?? 0;
+      const count = // CUSTOM: batched fields
+        performerStats?.role_stats?.oral_scene_count ?? studio.studio_role_counts?.oral_scene_count ?? 0;
 
       // Oral excludes sex markers
       const excludeTags = sexTag ? [{ id: sexTag.id, label: sexTag.name }] : [];
@@ -256,9 +272,8 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       if (!soloTag) return null;
 
       // Use performer-filtered stats when available, otherwise use studio stats
-      const count =
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        performerStats?.solo_scene_count ?? (studio as any).solo_scene_count ?? 0;
+      const count = // CUSTOM: batched fields
+        performerStats?.role_stats?.solo_scene_count ?? studio.studio_role_counts?.solo_scene_count ?? 0;
 
       // Solo excludes both sex and oral markers
       const excludeTags = [];
@@ -293,11 +308,8 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       if (!facialTag) return null;
 
       // Use performer-filtered stats when available, otherwise use studio stats
-      const count =
-        performerStats?.facial_scene_count ??
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (studio as any).facial_scene_count ??
-        0;
+      const count = // CUSTOM: batched fields
+        performerStats?.role_stats?.facial_scene_count ?? studio.studio_role_counts?.facial_scene_count ?? 0;
       // Use depth -1 to include subtags
       const url = performerId
         ? NavUtils.makePerformerStudioMarkerScenesUrl(

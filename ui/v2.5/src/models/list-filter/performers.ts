@@ -24,7 +24,7 @@ import { PerformerMarkersCriterionOption } from "./criteria/performer-markers";
 import { PerformerMarkersExcludeCriterionOption } from "./criteria/performer-markers-exclude";
 import { HasMarkersCriterionOption } from "./criteria/has-markers";
 import { ProfileImageCountCriterionOption } from "./criteria/profile-image-count";
-import { PerformerCustomFiltersCriterionOption } from "./criteria/custom-filters";
+import { PerformerPartnersCriterionOption } from "./criteria/performer-partners"; // CUSTOM
 import { PerformerSceneTypeCriterionOption } from "./criteria/scene-type";
 // CUSTOM: end
 
@@ -179,8 +179,8 @@ const criterionOptions = [
   TagsCriterionOption,
   // CUSTOM: begin
   HasMarkersCriterionOption,
-  // Custom Filters: predefined complex filters (strict_tops, lenient_tops, strict_bottoms, lenient_bottoms)
-  PerformerCustomFiltersCriterionOption,
+  // Partners: filter by partner counts across role/category combos
+  PerformerPartnersCriterionOption, // CUSTOM
   // Scene Type: filter performers by scene type (sex, oral, solo, facial)
   PerformerSceneTypeCriterionOption,
   // Performer Markers: filter by markers with specific tags, performer role, and partner attributes

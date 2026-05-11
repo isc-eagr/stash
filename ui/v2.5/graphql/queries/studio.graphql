@@ -14,17 +14,39 @@ query FindStudio($id: ID!) {
 }
 
 # CUSTOM: begin
-query FindStudioPerformerStats($id: ID!, $performerId: ID!) {
+query FindStudioPerformerStats($id: ID!, $performerId: ID!, $depth: Int) {
   findStudio(id: $id) {
     id
-    scene_count(performer_id: $performerId)
-    sex_scene_count(performer_id: $performerId)
-    oral_scene_count(performer_id: $performerId)
-    solo_scene_count(performer_id: $performerId)
-    facial_scene_count(performer_id: $performerId)
-    group_count(performer_id: $performerId)
-    image_count(performer_id: $performerId)
-    gallery_count(performer_id: $performerId)
+    scene_count(depth: $depth, performer_id: $performerId)
+    # CUSTOM: begin - replaced ~21 individual role-count fields with one batched call
+    studio_performer_role_stats(performer_id: $performerId, depth: $depth) {
+      sex_scene_count
+      sex_top_count
+      sex_bottom_count
+      sex_with_top_count
+      sex_with_bottom_count
+      oral_scene_count
+      oral_top_count
+      oral_bottom_count
+      oral_with_top_count
+      oral_with_bottom_count
+      solo_scene_count
+      facial_scene_count
+      facial_top_count
+      facial_bottom_count
+      facial_marker_with_top_count
+      facial_marker_with_bottom_count
+      sex_unique_partner_count
+      oral_unique_partner_count
+      facial_unique_partner_count
+      orgasm_top_count
+      facial_marker_count
+      feet_top_count
+    }
+    # CUSTOM: end
+    group_count(depth: $depth, performer_id: $performerId)
+    image_count(depth: $depth, performer_id: $performerId)
+    gallery_count(depth: $depth, performer_id: $performerId)
     o_counter(performer_id: $performerId)
   }
 }

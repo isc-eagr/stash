@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/stashapp/stash/pkg/logger"
 	"github.com/stashapp/stash/pkg/models"
 )
 
@@ -51,277 +50,155 @@ func (qb *performerFilterHandler) hasMarkersCriterionHandler(hasMarkers *string)
 // - 'strict_bottoms': Performers with zero sexTagId/oralTagId/facialTagId markers as top, but at least one sexTagId as bottom
 // - 'lenient_bottoms': Performers with at least one sexTagId as bottom, zero sexTagId as top, and at least one oralTagId or facialTagId as top
 // Note: All tag checks include both primary_tag_id and secondary tags (scene_markers_tags)
-func (qb *performerFilterHandler) customFiltersCriterionHandler(customFilters *models.CustomPerformerFilterInput) criterionHandlerFunc {
+// partnersCriterionHandler filters performers by partner counts across role/category combinations.
+// Each non-nil metric generates an independent WHERE clause using a COALESCE subquery.
+// The any_non_sex_bottomed/topped fields handle the OR case for lenient stat links.
+func (qb *performerFilterHandler) partnersCriterionHandler(partners *models.PerformerPartnersFilterInput) criterionHandlerFunc {
 	return func(ctx context.Context, f *filterBuilder) {
-		if customFilters == nil || customFilters.Type == "" {
+		if partners == nil {
 			return
 		}
 
-		// Get tag IDs from the input (these come from roleTagIds in the UI config)
-		sexTagID := ""
-		oralTagID := ""
-		facialTagID := ""
-		if customFilters.SexTagID != nil {
-			sexTagID = *customFilters.SexTagID
+		tags := GetRoleTagIDs()
+
+		// addNonSexRoleMetric counts distinct partners across BOTH oral and facial tags combined
+		// (OR logic — used for lenient top/bottom stat links via any_non_sex_bottomed/topped).
+		addNonSexRoleMetric := func(role string, criterion *models.IntCriterionInput) {
+			if criterion == nil {
+				return
+			}
+			oppositeRole := "bottom"
+			if role == "bottom" {
+				oppositeRole = "top"
+			}
+			var tagConditions []string
+			if tags.OralTagID != 0 {
+				tagConditions = append(tagConditions, tagHierarchyCondition("sm", tags.OralTagID))
+			}
+			if tags.FacialTagID != 0 {
+				tagConditions = append(tagConditions, tagHierarchyCondition("sm", tags.FacialTagID))
+			}
+			if len(tagConditions) == 0 {
+				return
+			}
+			lhs := fmt.Sprintf(`COALESCE((
+				SELECT COUNT(DISTINCT smp2.performer_id)
+				FROM scene_marker_performers smp1
+				JOIN scene_markers sm ON smp1.scene_marker_id = sm.id
+				JOIN scene_marker_performers smp2 ON smp2.scene_marker_id = smp1.scene_marker_id
+				WHERE smp1.performer_id = performers.id
+				AND smp1.role = '%s'
+				AND smp2.role = '%s'
+				AND smp2.performer_id != performers.id
+				AND (%s)
+			), 0)`, role, oppositeRole, strings.Join(tagConditions, " OR "))
+			clause, args := getIntCriterionWhereClause(lhs, *criterion)
+			f.addWhere(clause, args...)
 		}
-		if customFilters.OralTagID != nil {
-			oralTagID = *customFilters.OralTagID
+
+		// applyRowMetrics applies a group of metrics using a row-level operator (AND/OR).
+		// Each metric generates a WHERE clause string. For AND (default), each clause is added
+		// individually via f.addWhere. For OR, all clauses are joined with OR in a single group.
+		applyRowMetrics := func(operator *string, clauses ...func() (string, []interface{})) {
+			useOR := operator != nil && *operator == "OR"
+			type clauseResult struct {
+				sql  string
+				args []interface{}
+			}
+			var results []clauseResult
+			for _, fn := range clauses {
+				sql, args := fn()
+				if sql != "" {
+					results = append(results, clauseResult{sql, args})
+				}
+			}
+			if len(results) == 0 {
+				return
+			}
+			if !useOR || len(results) == 1 {
+				for _, r := range results {
+					f.addWhere(r.sql, r.args...)
+				}
+				return
+			}
+			// OR: combine all clauses into a single (A OR B OR C) group
+			parts := make([]string, len(results))
+			var allArgs []interface{}
+			for i, r := range results {
+				parts[i] = "(" + r.sql + ")"
+				allArgs = append(allArgs, r.args...)
+			}
+			f.addWhere("("+strings.Join(parts, " OR ")+")", allArgs...)
 		}
-		if customFilters.FacialTagID != nil {
-			facialTagID = *customFilters.FacialTagID
+
+		// makeRoleClause returns (sql, args) for a role-based partner count metric.
+		makeRoleClause := func(tagID int, role string, criterion *models.IntCriterionInput) (string, []interface{}) {
+			if criterion == nil || tagID == 0 {
+				return "", nil
+			}
+			oppositeRole := "bottom"
+			if role == "bottom" {
+				oppositeRole = "top"
+			}
+			lhs := fmt.Sprintf(`COALESCE((
+				SELECT COUNT(DISTINCT smp2.performer_id)
+				FROM scene_marker_performers smp1
+				JOIN scene_markers sm ON smp1.scene_marker_id = sm.id
+				JOIN scene_marker_performers smp2 ON smp2.scene_marker_id = smp1.scene_marker_id
+				WHERE smp1.performer_id = performers.id
+				AND smp1.role = '%s'
+				AND smp2.role = '%s'
+				AND smp2.performer_id != performers.id
+				AND %s
+			), 0)`, role, oppositeRole, tagHierarchyCondition("sm", tagID))
+			return getIntCriterionWhereClause(lhs, *criterion)
 		}
 
-		// If required tag IDs are not provided, log and return
-		if sexTagID == "" {
-			logger.Debug("customFiltersCriterionHandler: sexTagID is required but not provided")
-			return
+		// makeUniqueClause returns (sql, args) for a unique-partner count metric.
+		makeUniqueClause := func(tagID int, criterion *models.IntCriterionInput) (string, []interface{}) {
+			if criterion == nil || tagID == 0 {
+				return "", nil
+			}
+			lhs := fmt.Sprintf(`COALESCE((
+				SELECT COUNT(DISTINCT smp2.performer_id)
+				FROM scene_marker_performers smp1
+				JOIN scene_markers sm ON smp1.scene_marker_id = sm.id
+				JOIN scene_marker_performers smp2 ON smp2.scene_marker_id = smp1.scene_marker_id
+				WHERE smp1.performer_id = performers.id
+				AND smp2.performer_id != performers.id
+				AND ((smp1.role = 'top' AND smp2.role = 'bottom') OR (smp1.role = 'bottom' AND smp2.role = 'top'))
+				AND %s
+			), 0)`, tagHierarchyCondition("sm", tagID))
+			return getIntCriterionWhereClause(lhs, *criterion)
 		}
 
-		// Helper function to create CTE for a tag and its descendants
-		tagFamilyCTE := func(cteName, tagID string) string {
-			return fmt.Sprintf(`WITH RECURSIVE %s(id) AS (
-				SELECT id FROM tags WHERE id = %s
-				UNION ALL
-				SELECT tr.child_id FROM tags_relations tr JOIN %s tf ON tr.parent_id = tf.id
-			)`, cteName, tagID, cteName)
-		}
+		// Topped row
+		applyRowMetrics(
+			partners.ToppedOperator,
+			func() (string, []interface{}) { return makeRoleClause(tags.SexTagID, "top", partners.SexTopped) },
+			func() (string, []interface{}) { return makeRoleClause(tags.OralTagID, "top", partners.OralTopped) },
+			func() (string, []interface{}) { return makeRoleClause(tags.FacialTagID, "top", partners.FacialTopped) },
+		)
 
-		// Helper to create tag match condition (primary or secondary)
-		tagMatchCondition := func(cteName string) string {
-			return fmt.Sprintf(`(sm.primary_tag_id IN (SELECT id FROM %s) OR EXISTS (SELECT 1 FROM scene_markers_tags smt WHERE smt.scene_marker_id = sm.id AND smt.tag_id IN (SELECT id FROM %s)))`, cteName, cteName)
-		}
+		// Bottomed row
+		applyRowMetrics(
+			partners.BottomedOperator,
+			func() (string, []interface{}) { return makeRoleClause(tags.SexTagID, "bottom", partners.SexBottomed) },
+			func() (string, []interface{}) { return makeRoleClause(tags.OralTagID, "bottom", partners.OralBottomed) },
+			func() (string, []interface{}) { return makeRoleClause(tags.FacialTagID, "bottom", partners.FacialBottomed) },
+		)
 
-		sexTagsCTE := tagFamilyCTE("sex_tags", sexTagID)
+		// Unique row
+		applyRowMetrics(
+			partners.UniqueOperator,
+			func() (string, []interface{}) { return makeUniqueClause(tags.SexTagID, partners.SexUnique) },
+			func() (string, []interface{}) { return makeUniqueClause(tags.OralTagID, partners.OralUnique) },
+			func() (string, []interface{}) { return makeUniqueClause(tags.FacialTagID, partners.FacialUnique) },
+		)
 
-		switch customFilters.Type {
-		case "strict_tops":
-			// Zero sexTagId/oralTagId/facialTagId as bottom, at least one sexTagId as top
-			var conditions []string
-
-			// Must have at least one sex tag as top
-			conditions = append(conditions, fmt.Sprintf(`
-				EXISTS (
-					%s
-					SELECT 1 FROM scene_marker_performers smp
-					JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-					WHERE smp.performer_id = performers.id
-					  AND smp.role = 'top'
-					  AND %s
-				)`, sexTagsCTE, tagMatchCondition("sex_tags")))
-
-			// Must NOT have sex tag as bottom
-			conditions = append(conditions, fmt.Sprintf(`
-				NOT EXISTS (
-					%s
-					SELECT 1 FROM scene_marker_performers smp
-					JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-					WHERE smp.performer_id = performers.id
-					  AND smp.role = 'bottom'
-					  AND %s
-				)`, sexTagsCTE, tagMatchCondition("sex_tags")))
-
-			// Must NOT have oral tag as bottom (if provided)
-			if oralTagID != "" {
-				oralTagsCTE := tagFamilyCTE("oral_tags", oralTagID)
-				conditions = append(conditions, fmt.Sprintf(`
-					NOT EXISTS (
-						%s
-						SELECT 1 FROM scene_marker_performers smp
-						JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-						WHERE smp.performer_id = performers.id
-						  AND smp.role = 'bottom'
-						  AND %s
-					)`, oralTagsCTE, tagMatchCondition("oral_tags")))
-			}
-
-			// Must NOT have facial tag as bottom (if provided)
-			if facialTagID != "" {
-				facialTagsCTE := tagFamilyCTE("facial_tags", facialTagID)
-				conditions = append(conditions, fmt.Sprintf(`
-					NOT EXISTS (
-						%s
-						SELECT 1 FROM scene_marker_performers smp
-						JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-						WHERE smp.performer_id = performers.id
-						  AND smp.role = 'bottom'
-						  AND %s
-					)`, facialTagsCTE, tagMatchCondition("facial_tags")))
-			}
-
-			f.addWhere(strings.Join(conditions, " AND "))
-
-		case "lenient_tops":
-			// At least one sexTagId as top, zero sexTagId as bottom, at least one oralTagId or facialTagId as bottom
-			var conditions []string
-
-			// Must have at least one sex tag as top
-			conditions = append(conditions, fmt.Sprintf(`
-				EXISTS (
-					%s
-					SELECT 1 FROM scene_marker_performers smp
-					JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-					WHERE smp.performer_id = performers.id
-					  AND smp.role = 'top'
-					  AND %s
-				)`, sexTagsCTE, tagMatchCondition("sex_tags")))
-
-			// Must NOT have sex tag as bottom
-			conditions = append(conditions, fmt.Sprintf(`
-				NOT EXISTS (
-					%s
-					SELECT 1 FROM scene_marker_performers smp
-					JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-					WHERE smp.performer_id = performers.id
-					  AND smp.role = 'bottom'
-					  AND %s
-				)`, sexTagsCTE, tagMatchCondition("sex_tags")))
-
-			// Must have at least one oral OR facial tag as bottom
-			var orConditions []string
-			if oralTagID != "" {
-				oralTagsCTE := tagFamilyCTE("oral_tags", oralTagID)
-				orConditions = append(orConditions, fmt.Sprintf(`
-					EXISTS (
-						%s
-						SELECT 1 FROM scene_marker_performers smp
-						JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-						WHERE smp.performer_id = performers.id
-						  AND smp.role = 'bottom'
-						  AND %s
-					)`, oralTagsCTE, tagMatchCondition("oral_tags")))
-			}
-			if facialTagID != "" {
-				facialTagsCTE := tagFamilyCTE("facial_tags", facialTagID)
-				orConditions = append(orConditions, fmt.Sprintf(`
-					EXISTS (
-						%s
-						SELECT 1 FROM scene_marker_performers smp
-						JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-						WHERE smp.performer_id = performers.id
-						  AND smp.role = 'bottom'
-						  AND %s
-					)`, facialTagsCTE, tagMatchCondition("facial_tags")))
-			}
-			if len(orConditions) > 0 {
-				conditions = append(conditions, "("+strings.Join(orConditions, " OR ")+")")
-			}
-
-			f.addWhere(strings.Join(conditions, " AND "))
-
-		case "strict_bottoms":
-			// Zero sexTagId/oralTagId/facialTagId as top, at least one sexTagId as bottom
-			var conditions []string
-
-			// Must have at least one sex tag as bottom
-			conditions = append(conditions, fmt.Sprintf(`
-				EXISTS (
-					%s
-					SELECT 1 FROM scene_marker_performers smp
-					JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-					WHERE smp.performer_id = performers.id
-					  AND smp.role = 'bottom'
-					  AND %s
-				)`, sexTagsCTE, tagMatchCondition("sex_tags")))
-
-			// Must NOT have sex tag as top
-			conditions = append(conditions, fmt.Sprintf(`
-				NOT EXISTS (
-					%s
-					SELECT 1 FROM scene_marker_performers smp
-					JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-					WHERE smp.performer_id = performers.id
-					  AND smp.role = 'top'
-					  AND %s
-				)`, sexTagsCTE, tagMatchCondition("sex_tags")))
-
-			// Must NOT have oral tag as top (if provided)
-			if oralTagID != "" {
-				oralTagsCTE := tagFamilyCTE("oral_tags", oralTagID)
-				conditions = append(conditions, fmt.Sprintf(`
-					NOT EXISTS (
-						%s
-						SELECT 1 FROM scene_marker_performers smp
-						JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-						WHERE smp.performer_id = performers.id
-						  AND smp.role = 'top'
-						  AND %s
-					)`, oralTagsCTE, tagMatchCondition("oral_tags")))
-			}
-
-			// Must NOT have facial tag as top (if provided)
-			if facialTagID != "" {
-				facialTagsCTE := tagFamilyCTE("facial_tags", facialTagID)
-				conditions = append(conditions, fmt.Sprintf(`
-					NOT EXISTS (
-						%s
-						SELECT 1 FROM scene_marker_performers smp
-						JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-						WHERE smp.performer_id = performers.id
-						  AND smp.role = 'top'
-						  AND %s
-					)`, facialTagsCTE, tagMatchCondition("facial_tags")))
-			}
-
-			f.addWhere(strings.Join(conditions, " AND "))
-
-		case "lenient_bottoms":
-			// At least one sexTagId as bottom, zero sexTagId as top, at least one oralTagId or facialTagId as top
-			var conditions []string
-
-			// Must have at least one sex tag as bottom
-			conditions = append(conditions, fmt.Sprintf(`
-				EXISTS (
-					%s
-					SELECT 1 FROM scene_marker_performers smp
-					JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-					WHERE smp.performer_id = performers.id
-					  AND smp.role = 'bottom'
-					  AND %s
-				)`, sexTagsCTE, tagMatchCondition("sex_tags")))
-
-			// Must NOT have sex tag as top
-			conditions = append(conditions, fmt.Sprintf(`
-				NOT EXISTS (
-					%s
-					SELECT 1 FROM scene_marker_performers smp
-					JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-					WHERE smp.performer_id = performers.id
-					  AND smp.role = 'top'
-					  AND %s
-				)`, sexTagsCTE, tagMatchCondition("sex_tags")))
-
-			// Must have at least one oral OR facial tag as top
-			var orConditions []string
-			if oralTagID != "" {
-				oralTagsCTE := tagFamilyCTE("oral_tags", oralTagID)
-				orConditions = append(orConditions, fmt.Sprintf(`
-					EXISTS (
-						%s
-						SELECT 1 FROM scene_marker_performers smp
-						JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-						WHERE smp.performer_id = performers.id
-						  AND smp.role = 'top'
-						  AND %s
-					)`, oralTagsCTE, tagMatchCondition("oral_tags")))
-			}
-			if facialTagID != "" {
-				facialTagsCTE := tagFamilyCTE("facial_tags", facialTagID)
-				orConditions = append(orConditions, fmt.Sprintf(`
-					EXISTS (
-						%s
-						SELECT 1 FROM scene_marker_performers smp
-						JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-						WHERE smp.performer_id = performers.id
-						  AND smp.role = 'top'
-						  AND %s
-					)`, facialTagsCTE, tagMatchCondition("facial_tags")))
-			}
-			if len(orConditions) > 0 {
-				conditions = append(conditions, "("+strings.Join(orConditions, " OR ")+")")
-			}
-
-			f.addWhere(strings.Join(conditions, " AND "))
-		}
+		// Backend-only OR-combined fields (not exposed in UI, used by CustomStats)
+		addNonSexRoleMetric("bottom", partners.AnyNonSexBottomed)
+		addNonSexRoleMetric("top", partners.AnyNonSexTopped)
 	}
 }
 

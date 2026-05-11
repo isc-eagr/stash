@@ -236,6 +236,7 @@ export type CriterionType =
   | "parent_folder"
   // CUSTOM: begin
   | "custom_filters"
+  | "partners" // CUSTOM
   | "marker_performers"
   | "has_marker_performers"
   | "marker_tags_with_performers"

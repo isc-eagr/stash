@@ -1492,3 +1492,43 @@ export const makePerformerAllPartnersUrl = (
     JSON.stringify(criterionData)
   )}&sortby=name`;
 };
+
+/**
+ * Prepend a studio `c=` criterion to a `/scenes` or `/scenes/markers` URL so the list
+ * stays scoped to the given studio/depth.  The criterion is inserted right after the `?`
+ * so any existing `c=` params remain intact.
+ *
+ * For scene marker URLs (`/scenes/markers`) the criterion type is still `"studios"` —
+ * SceneMarkerFilterType has a top-level `studios` field that the filter parser handles.
+ */
+// CUSTOM: begin
+export const withStudioScope = (
+  url: string,
+  studioId: string,
+  studioLabel: string,
+  studioDepth: number = 0
+): string => {
+  if (!studioId || url === "#") return url;
+
+  const studioCriterion = encodeURIComponent(
+    JSON.stringify({
+      type: "studios",
+      modifier: "INCLUDES",
+      value: {
+        items: [{ id: studioId, label: studioLabel }],
+        excluded: [],
+        depth: studioDepth,
+      },
+    })
+  );
+
+  const insertAt = url.indexOf("?");
+  if (insertAt === -1) {
+    return `${url}?c=${studioCriterion}`;
+  }
+  // Insert studio criterion right after the `?`
+  const base = url.slice(0, insertAt + 1);
+  const rest = url.slice(insertAt + 1);
+  return `${base}c=${studioCriterion}${rest ? `&${rest}` : ""}`;
+};
+// CUSTOM: end

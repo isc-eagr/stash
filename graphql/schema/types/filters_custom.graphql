@@ -7,20 +7,6 @@
 # New standalone input types (not extensions of upstream types)
 # ============================================================
 
-"""
-Custom performer filter input with tag IDs for role-based filtering.
-"""
-input CustomPerformerFilterInput {
-  "The filter type: strict_tops, lenient_tops, strict_bottoms, lenient_bottoms"
-  type: String!
-  "The tag ID for 'sex' markers (from roleTagIds.sexTagId)"
-  sex_tag_id: ID
-  "The tag ID for 'oral' markers (from roleTagIds.oralTagId)"
-  oral_tag_id: ID
-  "The tag ID for 'facial' markers (from roleTagIds.facialTagId)"
-  facial_tag_id: ID
-}
-
 """Custom scene filter input with tag IDs for role-based filtering.
 """
 input CustomSceneFilterInput {
@@ -286,16 +272,50 @@ input PerformerMarkerPartnersCriterionInput {
 # Extensions to upstream filter input types
 # ============================================================
 
+"""
+Filter performers by partner counts across role categories.
+Each metric independently applies EQUALS / GREATER_THAN / LESS_THAN.
+Metrics within a row (Topped / Bottomed / Unique) are combined with that row's operator (AND / OR).
+Rows are always combined with AND.
+"""
+input PerformerPartnersFilterInput {
+  "Count of distinct performers this performer has topped in sex markers"
+  sex_topped: IntCriterionInput
+  "Count of distinct performers this performer has topped in oral markers"
+  oral_topped: IntCriterionInput
+  "Count of distinct performers this performer has topped in facial markers"
+  facial_topped: IntCriterionInput
+  "Operator to combine topped metrics: 'AND' (default) or 'OR'"
+  topped_operator: String
+  "Count of distinct performers this performer has bottomed for in sex markers"
+  sex_bottomed: IntCriterionInput
+  "Count of distinct performers this performer has bottomed for in oral markers"
+  oral_bottomed: IntCriterionInput
+  "Count of distinct performers this performer has bottomed for in facial markers"
+  facial_bottomed: IntCriterionInput
+  "Operator to combine bottomed metrics: 'AND' (default) or 'OR'"
+  bottomed_operator: String
+  "Count of distinct sex partners (both directions)"
+  sex_unique: IntCriterionInput
+  "Count of distinct oral partners (both directions)"
+  oral_unique: IntCriterionInput
+  "Count of distinct facial partners (both directions)"
+  facial_unique: IntCriterionInput
+  "Operator to combine unique metrics: 'AND' (default) or 'OR'"
+  unique_operator: String
+  "Backend-only: count of distinct oral+facial bottomed partners (OR logic for lenient tops stat)"
+  any_non_sex_bottomed: IntCriterionInput
+  "Backend-only: count of distinct oral+facial topped partners (OR logic for lenient bottoms stat)"
+  any_non_sex_topped: IntCriterionInput
+}
+
 extend input PerformerFilterType {
   "Filter by profile image count (default performer image + additional performer images)"
   profile_image_count: IntCriterionInput
   "Filter to only include performers that have scene markers where they are top/bottom"
   has_markers: String
-  """
-  Custom performer filters: predefined complex filters.
-  Options: 'strict_tops', 'lenient_tops', 'strict_bottoms', 'lenient_bottoms'
-  """
-  custom_filters: CustomPerformerFilterInput
+  "Filter by partner counts (topped/bottomed/unique × sex/oral/facial)"
+  partners: PerformerPartnersFilterInput
   "Filter by scene type (sex, oral, solo, facial) — performer must have markers in scenes matching each selected type"
   scene_type: SceneTypeFilterInput
   "Filter to only include performers that have at least one scene marker with all the selected tags"

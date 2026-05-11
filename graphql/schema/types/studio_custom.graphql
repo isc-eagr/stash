@@ -4,11 +4,70 @@
 # that must remain as inline changes in studio.graphql marked with # CUSTOM comments.
 # See CUSTOM_FEATURES.md for documentation.
 
+# StudioRoleCounts: all non-performer-filtered role-based scene counts in a single batch resolver.
+# Replaces individual sex_scene_count / oral_scene_count / solo_scene_count / facial_scene_count
+# calls in the studio list/detail pages, cutting getStudioSceneIDs calls from 4 down to 1.
+type StudioRoleCounts {
+  sex_scene_count: Int!
+  oral_scene_count: Int!
+  solo_scene_count: Int!
+  facial_scene_count: Int!
+}
+
+# StudioPerformerRoleStats: all performer-filtered marker-based counts in one batch resolver.
+# Replaces the ~21 individual field calls in FindStudioPerformerStats, cutting
+# getStudioSceneIDs calls from 21+ down to 2 (one with performer filter, one without).
+type StudioPerformerRoleStats {
+  sex_scene_count: Int!
+  sex_top_count: Int!
+  sex_bottom_count: Int!
+  sex_with_top_count: Int!
+  sex_with_bottom_count: Int!
+  oral_scene_count: Int!
+  oral_top_count: Int!
+  oral_bottom_count: Int!
+  oral_with_top_count: Int!
+  oral_with_bottom_count: Int!
+  solo_scene_count: Int!
+  facial_scene_count: Int!
+  facial_top_count: Int!
+  facial_bottom_count: Int!
+  facial_marker_with_top_count: Int!
+  facial_marker_with_bottom_count: Int!
+  sex_unique_partner_count: Int!
+  oral_unique_partner_count: Int!
+  facial_unique_partner_count: Int!
+  orgasm_top_count: Int!
+  facial_marker_count: Int!
+  feet_top_count: Int!
+}
+
 extend type Studio {
   # Role-based scene counts from scene_marker_performers
   sex_scene_count(depth: Int, performer_id: ID): Int! # Resolver - scenes with sex markers
+  sex_top_count(depth: Int, performer_id: ID): Int! # Resolver - sex scenes where performer is top
+  sex_bottom_count(depth: Int, performer_id: ID): Int! # Resolver - sex scenes where performer is bottom
+  sex_with_top_count(depth: Int, performer_id: ID): Int! # Resolver - unique performers this performer has topped sexually within the studio
+  sex_with_bottom_count(depth: Int, performer_id: ID): Int! # Resolver - unique performers this performer has bottomed for sexually within the studio
   oral_scene_count(depth: Int, performer_id: ID): Int! # Resolver - scenes with oral markers but no sex markers
+  oral_top_count(depth: Int, performer_id: ID): Int! # Resolver - oral scenes where performer is top
+  oral_bottom_count(depth: Int, performer_id: ID): Int! # Resolver - oral scenes where performer is bottom
+  oral_with_top_count(depth: Int, performer_id: ID): Int! # Resolver - unique performers this performer has topped orally within the studio
+  oral_with_bottom_count(depth: Int, performer_id: ID): Int! # Resolver - unique performers this performer has bottomed for orally within the studio
   solo_scene_count(depth: Int, performer_id: ID): Int! # Resolver - scenes with solo markers but no sex/oral markers
   facial_scene_count(depth: Int, performer_id: ID): Int! # Resolver - scenes with facial markers
+  facial_top_count(depth: Int, performer_id: ID): Int! # Resolver - facial scenes where performer is top
+  facial_bottom_count(depth: Int, performer_id: ID): Int! # Resolver - facial scenes where performer is bottom
+  facial_marker_count(depth: Int, performer_id: ID): Int! # CUSTOM - facial markers count (individual markers, like global facial_marker_count)
+  facial_marker_with_top_count(depth: Int, performer_id: ID): Int! # Resolver - facial markers where performer is top within the studio
+  facial_marker_with_bottom_count(depth: Int, performer_id: ID): Int! # Resolver - facial markers where performer is bottom within the studio
+  sex_unique_partner_count(depth: Int, performer_id: ID): Int! # Resolver - total unique sex partners within the studio (combined top+bottom)
+  oral_unique_partner_count(depth: Int, performer_id: ID): Int! # Resolver - total unique oral partners within the studio (combined top+bottom)
+  facial_unique_partner_count(depth: Int, performer_id: ID): Int! # Resolver - total unique facial partners within the studio (combined top+bottom)
+  orgasm_top_count(depth: Int, performer_id: ID): Int! # Resolver - orgasm markers where performer is top
+  feet_top_count(depth: Int, performer_id: ID): Int! # CUSTOM - feet markers where performer is top
   unique_performer_count(depth: Int): Int! # Resolver - performers with only one scene in database and it's for this studio
+  # Batched resolvers - replace N individual field calls with one resolver per studio
+  studio_role_counts(depth: Int): StudioRoleCounts! # CUSTOM: batched sex/oral/solo/facial scene counts (no performer filter)
+  studio_performer_role_stats(performer_id: ID!, depth: Int): StudioPerformerRoleStats! # CUSTOM: batched all marker-based stats for one performer
 }

@@ -643,7 +643,7 @@ func (qb *PerformerStore) makeQuery(ctx context.Context, performerFilter *models
 	}
 
 	var err error
-	query.sortAndPagination, err = qb.getPerformerSort(findFilter)
+	query.sortAndPagination, err = qb.getPerformerSort(findFilter, performerFilter) // CUSTOM: pass performerFilter for studio-scoped sorting
 	if err != nil {
 		return nil, err
 	}
@@ -850,7 +850,7 @@ var performerSortOptions = sortOptions{
 	// CUSTOM: end
 }
 
-func (qb *PerformerStore) getPerformerSort(findFilter *models.FindFilterType) (string, error) {
+func (qb *PerformerStore) getPerformerSort(findFilter *models.FindFilterType, performerFilter *models.PerformerFilterType) (string, error) { // CUSTOM: added performerFilter for studio-scoped sorting
 	var sort string
 	var direction string
 	if findFilter == nil {
@@ -865,6 +865,18 @@ func (qb *PerformerStore) getPerformerSort(findFilter *models.FindFilterType) (s
 	if err := performerSortOptions.validateSort(sort); err != nil {
 		return "", err
 	}
+
+	// CUSTOM: begin - compute studio SQL for studio-scoped custom sorts
+	// When a studio filter is active, the 'studio' CTE is defined in the WITH clause.
+	// We pass a SQL snippet to custom sort functions so they can filter scene_markers
+	// by scenes in that studio, making the sort studio-scoped instead of global.
+	studioSQL := ""
+	if performerFilter != nil && performerFilter.Studios != nil &&
+		performerFilter.Studios.Modifier == models.CriterionModifierIncludes &&
+		len(performerFilter.Studios.Value) > 0 {
+		studioSQL = " AND sm.scene_id IN (SELECT id FROM scenes WHERE studio_id IN (SELECT item_id FROM studio))"
+	}
+	// CUSTOM: end
 
 	sortQuery := ""
 	switch sort {
@@ -892,39 +904,39 @@ func (qb *PerformerStore) getPerformerSort(findFilter *models.FindFilterType) (s
 		sortQuery += qb.sortByLatestScene(direction)
 	// CUSTOM: begin - role-based metric sort options
 	case "sex_scenes_count":
-		sortQuery += qb.sortByPerformerSexSceneCount(direction)
+		sortQuery += qb.sortByPerformerSexSceneCount(direction, studioSQL)
 	case "oral_scenes_count":
-		sortQuery += qb.sortByPerformerOralSceneCount(direction)
+		sortQuery += qb.sortByPerformerOralSceneCount(direction, studioSQL)
 	case "facial_scenes_count":
-		sortQuery += qb.sortByPerformerFacialSceneCount(direction)
+		sortQuery += qb.sortByPerformerFacialSceneCount(direction, studioSQL)
 	case "solo_scenes_count":
-		sortQuery += qb.sortByPerformerSoloSceneCount(direction)
+		sortQuery += qb.sortByPerformerSoloSceneCount(direction, studioSQL)
 	case "orgasm_count":
-		sortQuery += qb.sortByPerformerOrgasmCount(direction)
+		sortQuery += qb.sortByPerformerOrgasmCount(direction, studioSQL)
 	case "feet_markers_count": // CUSTOM
-		sortQuery += qb.sortByPerformerFeetMarkerCount(direction)
+		sortQuery += qb.sortByPerformerFeetMarkerCount(direction, studioSQL)
 	case "facial_given_count": // CUSTOM
-		sortQuery += qb.sortByPerformerFacialMarkerCount("top", direction)
+		sortQuery += qb.sortByPerformerFacialMarkerCount("top", direction, studioSQL)
 	case "facial_received_count": // CUSTOM
-		sortQuery += qb.sortByPerformerFacialMarkerCount("bottom", direction)
+		sortQuery += qb.sortByPerformerFacialMarkerCount("bottom", direction, studioSQL)
 	case "sex_unique_partners":
-		sortQuery += qb.sortByPerformerUniquePartners("sex", direction)
+		sortQuery += qb.sortByPerformerUniquePartners("sex", direction, studioSQL)
 	case "oral_unique_partners":
-		sortQuery += qb.sortByPerformerUniquePartners("oral", direction)
+		sortQuery += qb.sortByPerformerUniquePartners("oral", direction, studioSQL)
 	case "facial_unique_partners":
-		sortQuery += qb.sortByPerformerUniquePartners("facial", direction)
+		sortQuery += qb.sortByPerformerUniquePartners("facial", direction, studioSQL)
 	case "sex_topped_partners":
-		sortQuery += qb.sortByPerformerRolePartners("sex", "top", direction)
+		sortQuery += qb.sortByPerformerRolePartners("sex", "top", direction, studioSQL)
 	case "oral_topped_partners":
-		sortQuery += qb.sortByPerformerRolePartners("oral", "top", direction)
+		sortQuery += qb.sortByPerformerRolePartners("oral", "top", direction, studioSQL)
 	case "facial_topped_partners":
-		sortQuery += qb.sortByPerformerRolePartners("facial", "top", direction)
+		sortQuery += qb.sortByPerformerRolePartners("facial", "top", direction, studioSQL)
 	case "sex_bottomed_partners":
-		sortQuery += qb.sortByPerformerRolePartners("sex", "bottom", direction)
+		sortQuery += qb.sortByPerformerRolePartners("sex", "bottom", direction, studioSQL)
 	case "oral_bottomed_partners":
-		sortQuery += qb.sortByPerformerRolePartners("oral", "bottom", direction)
+		sortQuery += qb.sortByPerformerRolePartners("oral", "bottom", direction, studioSQL)
 	case "facial_bottomed_partners":
-		sortQuery += qb.sortByPerformerRolePartners("facial", "bottom", direction)
+		sortQuery += qb.sortByPerformerRolePartners("facial", "bottom", direction, studioSQL)
 	// CUSTOM: end
 	default:
 		sortQuery += getSort(sort, direction, "performers")

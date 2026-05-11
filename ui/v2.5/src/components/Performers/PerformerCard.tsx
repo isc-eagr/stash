@@ -51,6 +51,37 @@ export interface IPerformerCardExtraCriteria {
   galleries?: ModifierCriterion<CriterionValue>[];
   groups?: ModifierCriterion<CriterionValue>[];
   performer?: ILabeledId;
+  studio?: ILabeledId & { depth?: number };
+}
+
+interface IPerformerStudioStats {
+  scene_count: number;
+  sex_scene_count: number;
+  sex_top_count: number;
+  sex_bottom_count: number;
+  sex_with_top_count: number;
+  sex_with_bottom_count: number;
+  sex_unique_partner_count: number;
+  oral_scene_count: number;
+  oral_top_count: number;
+  oral_bottom_count: number;
+  oral_with_top_count: number;
+  oral_with_bottom_count: number;
+  oral_unique_partner_count: number;
+  solo_scene_count: number;
+  facial_scene_count: number;
+  facial_top_count: number;
+  facial_bottom_count: number;
+  facial_marker_with_top_count: number;
+  facial_marker_with_bottom_count: number;
+  facial_unique_partner_count: number;
+  group_count: number;
+  image_count: number;
+  gallery_count: number;
+  o_counter?: number | null;
+  orgasm_top_count: number;
+  facial_marker_count: number; // CUSTOM
+  feet_top_count: number; // CUSTOM
 }
 
 interface IPerformerCardProps {
@@ -67,12 +98,16 @@ interface IPerformerCardProps {
   sceneId?: string;
   /** Number of performers in the scene - used to determine whether to show partner counts */
   scenePerformerCount?: number;
+  /** All performers in the scene, used to show mini images in partner tooltips */
+  scenePartnerPerformers?: Pick<GQL.Performer, "id" | "name" | "image_path">[];
+  /** Studio-filtered stats used when the card is rendered from a studio performer view */
+  studioStats?: IPerformerStudioStats | null;
   // CUSTOM: end
 }
 
 const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Popovers",
-  ({ performer, extraCriteria }) => {
+  ({ performer, extraCriteria, studioStats }) => {
     // CUSTOM: begin
     const { configuration } = useConfigurationContext();
     const roleTagIds = configuration?.ui?.roleTagIds ?? {};
@@ -82,16 +117,22 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     const {oralTagId} = roleTagIds;
     const {soloTagId} = roleTagIds;
     const {facialTagId} = roleTagIds;
+
+    const sceneCount = studioStats?.scene_count ?? performer.scene_count;
+    const imageCount = studioStats?.image_count ?? performer.image_count;
+    const galleryCount = studioStats?.gallery_count ?? performer.gallery_count;
+    const groupCount = studioStats?.group_count ?? performer.group_count;
+    const oCounter = studioStats?.o_counter ?? performer.o_counter;
     // CUSTOM: end
 
     function maybeRenderScenesPopoverButton() {
-      if (!performer.scene_count) return;
+      if (!sceneCount) return;
 
       return (
         <PopoverCountButton
           className="scene-count"
           type="scene"
-          count={performer.scene_count}
+          count={sceneCount}
           url={NavUtils.makePerformerScenesUrl(
             performer,
             extraCriteria?.performer,
@@ -102,13 +143,13 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     }
 
     function maybeRenderImagesPopoverButton() {
-      if (!performer.image_count) return;
+      if (!imageCount) return;
 
       return (
         <PopoverCountButton
           className="image-count"
           type="image"
-          count={performer.image_count}
+          count={imageCount}
           url={NavUtils.makePerformerImagesUrl(
             performer,
             extraCriteria?.performer,
@@ -119,13 +160,13 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     }
 
     function maybeRenderGalleriesPopoverButton() {
-      if (!performer.gallery_count) return;
+      if (!galleryCount) return;
 
       return (
         <PopoverCountButton
           className="gallery-count"
           type="gallery"
-          count={performer.gallery_count}
+          count={galleryCount}
           url={NavUtils.makePerformerGalleriesUrl(
             performer,
             extraCriteria?.performer,
@@ -136,9 +177,9 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     }
 
     function maybeRenderOCounter() {
-      if (!performer.o_counter) return;
+      if (!oCounter) return;
 
-      return <OCounterButton value={performer.o_counter} />;
+      return <OCounterButton value={oCounter} />;
     }
 
     // CUSTOM: begin - modified tag popover (sorted, safe null checks)
@@ -179,13 +220,13 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     // Removed Performers page green tag navigation button per request. // CUSTOM
 
     function maybeRenderGroupsPopoverButton() {
-      if (!performer.group_count) return;
+      if (!groupCount) return;
 
       return (
         <PopoverCountButton
           className="group-count"
           type="group"
-          count={performer.group_count}
+          count={groupCount}
           url={NavUtils.makePerformerGroupsUrl(
             performer,
             extraCriteria?.performer,
@@ -354,12 +395,12 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     );
 
     const hasAnyPopover = !!(
-      performer.scene_count ||
-      performer.image_count ||
-      performer.gallery_count ||
+      sceneCount ||
+      imageCount ||
+      galleryCount ||
       performer.tags.length > 0 ||
-      performer.o_counter ||
-      performer.group_count
+      oCounter ||
+      groupCount
     );
 
     if (hasAnyPopover) {
@@ -502,8 +543,8 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
 
 const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Details",
-  // CUSTOM: begin - added sceneId, scenePerformerCount props; scene marker roles query
-  ({ performer, ageFromDate, sceneId, scenePerformerCount }) => {
+  // CUSTOM: begin - added sceneId, scenePerformerCount, scenePartnerPerformers props; scene marker roles query
+  ({ performer, ageFromDate, sceneId, scenePerformerCount, scenePartnerPerformers, studioStats, extraCriteria }) => {
     const intl = useIntl();
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { configuration: _configuration } = useConfigurationContext();
@@ -558,6 +599,10 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
           sceneId={sceneId}
           markerRoles={markerRoles}
           scenePerformerCount={scenePerformerCount}
+          scenePartnerPerformers={scenePartnerPerformers} // CUSTOM
+          globalStatsOverride={studioStats}
+          hideUniquePartnerCounts={false}
+          studioContext={extraCriteria?.studio ? { id: extraCriteria.studio.id, label: extraCriteria.studio.label, depth: extraCriteria.studio.depth ?? 0 } : undefined} // CUSTOM
         />
         {/* CUSTOM: end */}
       </>
@@ -610,7 +655,32 @@ export const PerformerCard: React.FC<IPerformerCardProps> = PatchComponent(
       selected,
       onSelectedChanged,
       zoomIndex,
+      extraCriteria,
     } = props;
+
+    const studioId = extraCriteria?.studio?.id;
+    const studioDepth = extraCriteria?.studio?.depth ?? 0;
+    const { data: studioStatsData } = GQL.useFindStudioPerformerStatsQuery({
+      variables: {
+        id: studioId ?? "",
+        performerId: performer.id,
+        depth: studioDepth,
+      },
+      skip: !studioId,
+    });
+
+    const studioStats = studioStatsData?.findStudio
+      ? {
+          scene_count: studioStatsData.findStudio.scene_count,
+          // CUSTOM: begin - all role counts now from studio_performer_role_stats batch field
+          ...studioStatsData.findStudio.studio_performer_role_stats,
+          // CUSTOM: end
+          group_count: studioStatsData.findStudio.group_count,
+          image_count: studioStatsData.findStudio.image_count,
+          gallery_count: studioStatsData.findStudio.gallery_count,
+          o_counter: studioStatsData.findStudio.o_counter,
+        }
+      : null;
 
     // CUSTOM: begin - rating class for metallic card styling
     // Determine rating class for special styling
@@ -641,8 +711,8 @@ export const PerformerCard: React.FC<IPerformerCardProps> = PatchComponent(
         title={<PerformerCardTitle {...props} />}
         image={<PerformerCardImage {...props} />}
         overlays={<PerformerCardOverlays {...props} />}
-        details={<PerformerCardDetails {...props} />}
-        popovers={<PerformerCardPopovers {...props} />}
+        details={<PerformerCardDetails {...props} studioStats={studioStats} />}
+        popovers={<PerformerCardPopovers {...props} studioStats={studioStats} />}
         selected={selected}
         selecting={selecting}
         onSelectedChanged={onSelectedChanged}

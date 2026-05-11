@@ -187,7 +187,7 @@ func (r *performerResolver) SoloSceneCount(ctx context.Context, obj *models.Perf
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountScenesByPerformerMarkerRoleExcludingMultiple(ctx, r.repository.SceneMarker, obj.ID, soloTagID, "", []int{sexTagID, oralTagID})
+		ret, err = scene.CountScenesByPerformerMarkerRoleExcludingMultiple(ctx, r.repository.SceneMarker, obj.ID, soloTagID, "top", []int{sexTagID, oralTagID}) // CUSTOM: only top role counts as jerk/solo
 		return err
 	}); err != nil {
 		return 0, err
@@ -387,15 +387,15 @@ func (r *performerResolver) FeetTopCount(ctx context.Context, obj *models.Perfor
 // FeetMarkerCount returns the count of feet markers where performer is the top
 func (r *performerResolver) FeetMarkerCount(ctx context.Context, obj *models.Performer) (ret int, err error) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
-	_, _, _, _, _, feetTagID, _ := getRoleTagIDs(uiConfig)
+	_, _, _, _, _, feetTagID, secondCameraTagID := getRoleTagIDs(uiConfig)
 
 	if feetTagID == 0 {
 		return 0, nil
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		// Use CountMarkersByPerformerRole to count actual markers, not scenes
-		ret, err = scene.CountMarkersByPerformerRole(ctx, r.repository.SceneMarker, obj.ID, feetTagID, "top")
+		// Use WithSecondary to exclude 2nd camera markers, consistent with FacialMarkerCount / OrgasmTopCount
+		ret, err = scene.CountMarkersByPerformerRoleWithSecondary(ctx, r.repository.SceneMarker, r.repository.Tag, obj.ID, feetTagID, "top", secondCameraTagID) // CUSTOM
 		return err
 	}); err != nil {
 		return 0, err
@@ -627,16 +627,23 @@ func (r *performerResolver) getCoPerformersWithCounts(ctx context.Context, perfo
 			return err
 		}
 
+		// CUSTOM: begin - batch-fetch performer associations to eliminate N+1 queries
+		markerIDs := make([]int, len(markers))
+		for i, m := range markers {
+			markerIDs[i] = m.ID
+		}
+		allMarkerPerformers, err := r.repository.SceneMarker.GetPerformersForMarkers(ctx, markerIDs)
+		if err != nil {
+			return err
+		}
+		// CUSTOM: end
+
 		// Collect performer IDs with the opposite role from these markers
 		// Map of performer ID to scene IDs they appeared in
 		coPerformerScenes := make(map[int]map[int]bool)
 
 		for _, marker := range markers {
-			markerPerformers, err := r.repository.SceneMarker.GetPerformers(ctx, marker.ID)
-			if err != nil {
-				return err
-			}
-
+			markerPerformers := allMarkerPerformers[marker.ID] // CUSTOM: use batched result
 			for _, mp := range markerPerformers {
 				if mp.PerformerID != performerID && mp.Role == oppositeRole {
 					if coPerformerScenes[mp.PerformerID] == nil {

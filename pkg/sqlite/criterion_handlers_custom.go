@@ -373,29 +373,12 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 				g := entry.originalGroup
 				cfg := entry.config
 
-				// Expand tag IDs if depth is specified (for including sub-tags)
+				// CUSTOM: begin - depth expansion is done per-tag in the Tags condition block below
 				tagIDs := g.TagIDs
-				if len(tagIDs) > 0 && g.Depth != nil && *g.Depth != 0 {
-					// Use hierarchical expansion to include descendant tags
-					valuesClause, err := getHierarchicalValues(ctx, tagIDs, tagTable, "tags_relations", "parent_id", "child_id", g.Depth)
-					if err != nil {
-						f.setError(err)
-						return
-					}
-					// Extract just the child tag IDs from the VALUES clause using a query
-					var expandedIDs []string
-					expandQuery := fmt.Sprintf("SELECT DISTINCT column2 FROM (%s)", valuesClause)
-					if err := dbWrapper.Select(ctx, &expandedIDs, expandQuery); err != nil {
-						f.setError(err)
-						return
-					}
-					if len(expandedIDs) > 0 {
-						tagIDs = expandedIDs
-					}
-				}
+				depthUsed := len(tagIDs) > 0 && g.Depth != nil && *g.Depth != 0
 
 				originalTagCount := len(g.TagIDs)
-				useIncludesLogic := len(tagIDs) > originalTagCount
+				// CUSTOM: end
 
 				// Determine performer mode
 				performerModeAnd := strings.EqualFold(cfg.performerMode, "AND")
@@ -496,19 +479,43 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 				var matchConditions []string
 				var matchArgs []any
 
-				// Tags condition
+				// CUSTOM: begin - Tags condition with per-tag depth expansion
+				// When depth != 0, expand each original tag independently so the marker must
+				// have at least one tag from EACH family (AND across families). Without depth,
+				// the marker must have ALL the exact original tags.
 				if len(tagIDs) > 0 {
-					tagPh := getInBinding(len(tagIDs))
-					if useIncludesLogic {
-						matchConditions = append(matchConditions, `(
-    SELECT COUNT(*) FROM (
-      SELECT sm.primary_tag_id AS tag_id
-      UNION ALL
-      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
-    ) tags_per_marker
-    WHERE tag_id IN `+tagPh+`
-  ) >= 1`)
+					if depthUsed {
+						for _, originalTagID := range g.TagIDs {
+							valuesClause, err := getHierarchicalValues(ctx, []string{originalTagID}, tagTable, "tags_relations", "parent_id", "child_id", g.Depth)
+							if err != nil {
+								f.setError(err)
+								return
+							}
+							var expandedIDs []string
+							expandQuery := fmt.Sprintf("SELECT DISTINCT column2 FROM (%s)", valuesClause)
+							if err := dbWrapper.Select(ctx, &expandedIDs, expandQuery); err != nil {
+								f.setError(err)
+								return
+							}
+							if len(expandedIDs) > 0 {
+								ph := getInBinding(len(expandedIDs))
+								matchConditions = append(matchConditions, `(
+    sm.primary_tag_id IN `+ph+`
+    OR EXISTS (
+        SELECT 1 FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id AND mt2.tag_id IN `+ph+`
+    )
+)`)
+								for _, tid := range expandedIDs {
+									matchArgs = append(matchArgs, tid)
+								}
+								for _, tid := range expandedIDs {
+									matchArgs = append(matchArgs, tid)
+								}
+							}
+						}
 					} else {
+						// Exact tag match: all original tags must be present on this marker
+						tagPh := getInBinding(len(tagIDs))
 						matchConditions = append(matchConditions, `(
     SELECT COUNT(DISTINCT tag_id) FROM (
       SELECT sm.primary_tag_id AS tag_id
@@ -517,11 +524,12 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
     ) tags_per_marker
     WHERE tag_id IN `+tagPh+`
   ) = `+fmt.Sprintf("%d", originalTagCount))
-					}
-					for _, tid := range tagIDs {
-						matchArgs = append(matchArgs, tid)
+						for _, tid := range tagIDs {
+							matchArgs = append(matchArgs, tid)
+						}
 					}
 				}
+				// CUSTOM: end
 
 				// Marker-level exclude tags: marker must NOT have any of these tags
 				if len(cfg.excludeTagIDsOnMarker) > 0 {

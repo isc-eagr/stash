@@ -98,7 +98,8 @@ func sceneExclusionForTag(smAlias string, tagID int) string {
 
 // sortByPerformerMarkerSceneCount generates an ORDER BY for counting distinct scenes
 // where the performer has markers matching the tag (including descendants).
-func (qb *PerformerStore) sortByPerformerMarkerSceneCount(tagID int, excludeTagIDs []int, direction string) string {
+// studioSQL (optional) restricts counting to scenes in the active studio.
+func (qb *PerformerStore) sortByPerformerMarkerSceneCount(tagID int, excludeTagIDs []int, direction string, studioSQL string) string {
 	if tagID == 0 {
 		return fmt.Sprintf(" ORDER BY 0 %s", getSortDirection(direction))
 	}
@@ -115,35 +116,36 @@ func (qb *PerformerStore) sortByPerformerMarkerSceneCount(tagID int, excludeTagI
 		WHERE smp.performer_id = performers.id
 		AND %s
 		%s
-	), 0) %s`, tagHierarchyCondition("sm", tagID), exclusions, getSortDirection(direction))
+		%s
+	), 0) %s`, tagHierarchyCondition("sm", tagID), exclusions, studioSQL, getSortDirection(direction))
 }
 
 // sortByPerformerSexSceneCount sorts performers by their sex scene count.
-func (qb *PerformerStore) sortByPerformerSexSceneCount(direction string) string {
+func (qb *PerformerStore) sortByPerformerSexSceneCount(direction string, studioSQL string) string {
 	tags := GetRoleTagIDs()
-	return qb.sortByPerformerMarkerSceneCount(tags.SexTagID, nil, direction)
+	return qb.sortByPerformerMarkerSceneCount(tags.SexTagID, nil, direction, studioSQL)
 }
 
 // sortByPerformerOralSceneCount sorts performers by oral scene count (excluding sex scenes).
-func (qb *PerformerStore) sortByPerformerOralSceneCount(direction string) string {
+func (qb *PerformerStore) sortByPerformerOralSceneCount(direction string, studioSQL string) string {
 	tags := GetRoleTagIDs()
-	return qb.sortByPerformerMarkerSceneCount(tags.OralTagID, []int{tags.SexTagID}, direction)
+	return qb.sortByPerformerMarkerSceneCount(tags.OralTagID, []int{tags.SexTagID}, direction, studioSQL)
 }
 
 // sortByPerformerFacialSceneCount sorts performers by facial scene count (independent).
-func (qb *PerformerStore) sortByPerformerFacialSceneCount(direction string) string {
+func (qb *PerformerStore) sortByPerformerFacialSceneCount(direction string, studioSQL string) string {
 	tags := GetRoleTagIDs()
-	return qb.sortByPerformerMarkerSceneCount(tags.FacialTagID, nil, direction)
+	return qb.sortByPerformerMarkerSceneCount(tags.FacialTagID, nil, direction, studioSQL)
 }
 
 // sortByPerformerSoloSceneCount sorts performers by solo scene count (excluding sex and oral).
-func (qb *PerformerStore) sortByPerformerSoloSceneCount(direction string) string {
+func (qb *PerformerStore) sortByPerformerSoloSceneCount(direction string, studioSQL string) string {
 	tags := GetRoleTagIDs()
-	return qb.sortByPerformerMarkerSceneCount(tags.SoloTagID, []int{tags.SexTagID, tags.OralTagID}, direction)
+	return qb.sortByPerformerMarkerSceneCount(tags.SoloTagID, []int{tags.SexTagID, tags.OralTagID}, direction, studioSQL)
 }
 
 // sortByPerformerOrgasmCount sorts performers by total orgasm marker count (performer as top).
-func (qb *PerformerStore) sortByPerformerOrgasmCount(direction string) string {
+func (qb *PerformerStore) sortByPerformerOrgasmCount(direction string, studioSQL string) string {
 	tags := GetRoleTagIDs()
 	if tags.OrgasmTagID == 0 {
 		return fmt.Sprintf(" ORDER BY 0 %s", getSortDirection(direction))
@@ -156,11 +158,12 @@ func (qb *PerformerStore) sortByPerformerOrgasmCount(direction string) string {
 		WHERE smp.performer_id = performers.id
 		AND smp.role = 'top'
 		AND %s
-	), 0) %s`, tagHierarchyCondition("sm", tags.OrgasmTagID), getSortDirection(direction))
+		%s
+	), 0) %s`, tagHierarchyCondition("sm", tags.OrgasmTagID), studioSQL, getSortDirection(direction))
 }
 
 // sortByPerformerFeetMarkerCount sorts performers by individual feet marker count where performer is top.
-func (qb *PerformerStore) sortByPerformerFeetMarkerCount(direction string) string {
+func (qb *PerformerStore) sortByPerformerFeetMarkerCount(direction string, studioSQL string) string {
 	tags := GetRoleTagIDs()
 	if tags.FeetTagID == 0 {
 		return fmt.Sprintf(" ORDER BY 0 %s", getSortDirection(direction))
@@ -173,12 +176,13 @@ func (qb *PerformerStore) sortByPerformerFeetMarkerCount(direction string) strin
 		WHERE smp.performer_id = performers.id
 		AND smp.role = 'top'
 		AND %s
-	), 0) %s`, tagHierarchyCondition("sm", tags.FeetTagID), getSortDirection(direction))
+		%s
+	), 0) %s`, tagHierarchyCondition("sm", tags.FeetTagID), studioSQL, getSortDirection(direction))
 }
 
 // sortByPerformerFacialMarkerCount sorts performers by individual facial marker count for a given role.
 // role="top" = facials given; role="bottom" = facials received.
-func (qb *PerformerStore) sortByPerformerFacialMarkerCount(role string, direction string) string {
+func (qb *PerformerStore) sortByPerformerFacialMarkerCount(role string, direction string, studioSQL string) string {
 	tags := GetRoleTagIDs()
 	if tags.FacialTagID == 0 {
 		return fmt.Sprintf(" ORDER BY 0 %s", getSortDirection(direction))
@@ -191,12 +195,14 @@ func (qb *PerformerStore) sortByPerformerFacialMarkerCount(role string, directio
 		WHERE smp.performer_id = performers.id
 		AND smp.role = '%s'
 		AND %s
-	), 0) %s`, role, tagHierarchyCondition("sm", tags.FacialTagID), getSortDirection(direction))
+		%s
+	), 0) %s`, role, tagHierarchyCondition("sm", tags.FacialTagID), studioSQL, getSortDirection(direction))
 }
 
 // sortByPerformerUniquePartners sorts performers by unique partner count for a category.
 // Partners are counted across both top and bottom roles (merged, deduplicated).
-func (qb *PerformerStore) sortByPerformerUniquePartners(category string, direction string) string {
+// studioSQL (optional) restricts counting to scenes in the active studio.
+func (qb *PerformerStore) sortByPerformerUniquePartners(category string, direction string, studioSQL string) string {
 	tags := GetRoleTagIDs()
 	var tagID int
 	switch category {
@@ -220,12 +226,14 @@ func (qb *PerformerStore) sortByPerformerUniquePartners(category string, directi
 		AND smp2.performer_id != performers.id
 		AND ((smp1.role = 'top' AND smp2.role = 'bottom') OR (smp1.role = 'bottom' AND smp2.role = 'top'))
 		AND %s
-	), 0) %s`, tagHierarchyCondition("sm", tagID), getSortDirection(direction))
+		%s
+	), 0) %s`, tagHierarchyCondition("sm", tagID), studioSQL, getSortDirection(direction))
 }
 
 // sortByPerformerRolePartners sorts performers by unique partner count for a specific role.
 // role="top" counts partners this performer has topped; role="bottom" counts partners who topped them.
-func (qb *PerformerStore) sortByPerformerRolePartners(category string, role string, direction string) string {
+// studioSQL (optional) restricts counting to scenes in the active studio.
+func (qb *PerformerStore) sortByPerformerRolePartners(category string, role string, direction string, studioSQL string) string {
 	tags := GetRoleTagIDs()
 	var tagID int
 	switch category {
@@ -255,5 +263,6 @@ func (qb *PerformerStore) sortByPerformerRolePartners(category string, role stri
 		AND smp2.role = '%s'
 		AND smp2.performer_id != performers.id
 		AND %s
-	), 0) %s`, role, oppositeRole, tagHierarchyCondition("sm", tagID), getSortDirection(direction))
+		%s
+	), 0) %s`, role, oppositeRole, tagHierarchyCondition("sm", tagID), studioSQL, getSortDirection(direction))
 }

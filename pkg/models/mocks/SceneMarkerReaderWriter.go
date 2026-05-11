@@ -222,6 +222,52 @@ func (_m *SceneMarkerReaderWriter) GetPerformers(ctx context.Context, markerID i
 	return r0, r1
 }
 
+// GetPerformersForMarkers provides a mock function with given fields: ctx, markerIDs // CUSTOM
+func (_m *SceneMarkerReaderWriter) GetPerformersForMarkers(ctx context.Context, markerIDs []int) (map[int][]*models.MarkerPerformer, error) {
+	ret := _m.Called(ctx, markerIDs)
+
+	var r0 map[int][]*models.MarkerPerformer
+	if rf, ok := ret.Get(0).(func(context.Context, []int) map[int][]*models.MarkerPerformer); ok {
+		r0 = rf(ctx, markerIDs)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[int][]*models.MarkerPerformer)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, []int) error); ok {
+		r1 = rf(ctx, markerIDs)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetTagIDsForMarkers provides a mock function with given fields: ctx, markerIDs // CUSTOM
+func (_m *SceneMarkerReaderWriter) GetTagIDsForMarkers(ctx context.Context, markerIDs []int) (map[int][]int, error) {
+	ret := _m.Called(ctx, markerIDs)
+
+	var r0 map[int][]int
+	if rf, ok := ret.Get(0).(func(context.Context, []int) map[int][]int); ok {
+		r0 = rf(ctx, markerIDs)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[int][]int)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, []int) error); ok {
+		r1 = rf(ctx, markerIDs)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CUSTOM: end
 
 // GetTagIDs provides a mock function with given fields: ctx, relatedID

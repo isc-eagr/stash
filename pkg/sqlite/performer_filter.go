@@ -284,7 +284,7 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 		},
 
 		qb.hasMarkersCriterionHandler(filter.HasMarkers),                           // CUSTOM
-		qb.customFiltersCriterionHandler(filter.CustomFilters),                     // CUSTOM
+		qb.partnersCriterionHandler(filter.Partners),                               // CUSTOM
 		qb.sceneTypeCriterionHandler(filter.SceneType),                             // CUSTOM
 		qb.performerMarkersCriterionHandler(filter.PerformerMarkers),               // CUSTOM
 		qb.performerMarkerTagsCriterionHandler(filter.PerformerMarkerTags),         // CUSTOM
