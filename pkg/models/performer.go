@@ -243,7 +243,7 @@ type PerformerPartnersFilterInput struct { // CUSTOM: begin
 	SexTopped        *IntCriterionInput `json:"sex_topped"`
 	OralTopped       *IntCriterionInput `json:"oral_topped"`
 	FacialTopped     *IntCriterionInput `json:"facial_topped"`
-	ToppedOperator   *string            `json:"topped_operator"`   // "AND" (default) or "OR"
+	ToppedOperator   *string            `json:"topped_operator"` // "AND" (default) or "OR"
 	SexBottomed      *IntCriterionInput `json:"sex_bottomed"`
 	OralBottomed     *IntCriterionInput `json:"oral_bottomed"`
 	FacialBottomed   *IntCriterionInput `json:"facial_bottomed"`
@@ -251,7 +251,7 @@ type PerformerPartnersFilterInput struct { // CUSTOM: begin
 	SexUnique        *IntCriterionInput `json:"sex_unique"`
 	OralUnique       *IntCriterionInput `json:"oral_unique"`
 	FacialUnique     *IntCriterionInput `json:"facial_unique"`
-	UniqueOperator   *string            `json:"unique_operator"`   // "AND" (default) or "OR"
+	UniqueOperator   *string            `json:"unique_operator"` // "AND" (default) or "OR"
 	// Backend-only: oral OR facial bottomed partners combined (for lenient tops stat)
 	AnyNonSexBottomed *IntCriterionInput `json:"any_non_sex_bottomed"`
 	// Backend-only: oral OR facial topped partners combined (for lenient bottoms stat)

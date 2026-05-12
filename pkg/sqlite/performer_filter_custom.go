@@ -185,7 +185,9 @@ func (qb *performerFilterHandler) partnersCriterionHandler(partners *models.Perf
 			partners.BottomedOperator,
 			func() (string, []interface{}) { return makeRoleClause(tags.SexTagID, "bottom", partners.SexBottomed) },
 			func() (string, []interface{}) { return makeRoleClause(tags.OralTagID, "bottom", partners.OralBottomed) },
-			func() (string, []interface{}) { return makeRoleClause(tags.FacialTagID, "bottom", partners.FacialBottomed) },
+			func() (string, []interface{}) {
+				return makeRoleClause(tags.FacialTagID, "bottom", partners.FacialBottomed)
+			},
 		)
 
 		// Unique row
