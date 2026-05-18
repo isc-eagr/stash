@@ -167,6 +167,8 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         o_counter: s.o_counter,
       };
     }, [performerId, performerStatsData]);
+
+    const performerScopedCountsReady = !performerId || !!performerStats;
     // CUSTOM: end
 
     function onToggleFavorite(v: boolean) {
@@ -184,8 +186,11 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
 
     function maybeRenderScenesPopoverButton() {
-      // Use performer-filtered scene count when available
-      const count = performerStats?.scene_count ?? studio.scene_count;
+      if (!performerScopedCountsReady) return null;
+
+      const count = performerId
+        ? (performerStats?.scene_count ?? 0)
+        : studio.scene_count;
       if (!count) return;
 
       const url = performerId
@@ -205,10 +210,11 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
     // Sex scenes (marker-based) - gay icon
     function maybeRenderSexScenesButton() {
       if (!sexTag) return null;
+      if (!performerScopedCountsReady) return null;
 
-      // Use performer-filtered stats when available, otherwise use studio stats
-      const count = // CUSTOM: batched fields
-        performerStats?.role_stats?.sex_scene_count ?? studio.studio_role_counts?.sex_scene_count ?? 0;
+      const count = performerId
+        ? (performerStats?.role_stats?.sex_scene_count ?? 0)
+        : (studio.studio_role_counts?.sex_scene_count ?? 0);
       const url = performerId
         ? NavUtils.makePerformerStudioMarkerScenesUrl(
             performerId,
@@ -234,10 +240,11 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
     // Oral scenes (marker-based) - mouth icon
     function maybeRenderOralScenesButton() {
       if (!oralTag) return null;
+      if (!performerScopedCountsReady) return null;
 
-      // Use performer-filtered stats when available, otherwise use studio stats
-      const count = // CUSTOM: batched fields
-        performerStats?.role_stats?.oral_scene_count ?? studio.studio_role_counts?.oral_scene_count ?? 0;
+      const count = performerId
+        ? (performerStats?.role_stats?.oral_scene_count ?? 0)
+        : (studio.studio_role_counts?.oral_scene_count ?? 0);
 
       // Oral excludes sex markers
       const excludeTags = sexTag ? [{ id: sexTag.id, label: sexTag.name }] : [];
@@ -270,10 +277,11 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
     // Solo scenes (marker-based) - hand icon
     function maybeRenderSoloScenesButton() {
       if (!soloTag) return null;
+      if (!performerScopedCountsReady) return null;
 
-      // Use performer-filtered stats when available, otherwise use studio stats
-      const count = // CUSTOM: batched fields
-        performerStats?.role_stats?.solo_scene_count ?? studio.studio_role_counts?.solo_scene_count ?? 0;
+      const count = performerId
+        ? (performerStats?.role_stats?.solo_scene_count ?? 0)
+        : (studio.studio_role_counts?.solo_scene_count ?? 0);
 
       // Solo excludes both sex and oral markers
       const excludeTags = [];
@@ -306,10 +314,11 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
     // Facial scenes (marker-based) - goatee icon
     function maybeRenderFacialScenesButton() {
       if (!facialTag) return null;
+      if (!performerScopedCountsReady) return null;
 
-      // Use performer-filtered stats when available, otherwise use studio stats
-      const count = // CUSTOM: batched fields
-        performerStats?.role_stats?.facial_scene_count ?? studio.studio_role_counts?.facial_scene_count ?? 0;
+      const count = performerId
+        ? (performerStats?.role_stats?.facial_scene_count ?? 0)
+        : (studio.studio_role_counts?.facial_scene_count ?? 0);
       // Use depth -1 to include subtags
       const url = performerId
         ? NavUtils.makePerformerStudioMarkerScenesUrl(
@@ -360,7 +369,11 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
     }
 
     function maybeRenderImagesPopoverButton() {
-      const count = performerStats?.image_count ?? studio.image_count;
+      if (!performerScopedCountsReady) return null;
+
+      const count = performerId
+        ? (performerStats?.image_count ?? 0)
+        : studio.image_count;
       if (!count) return;
 
       const url = performerId
@@ -378,7 +391,11 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
     }
 
     function maybeRenderGalleriesPopoverButton() {
-      const count = performerStats?.gallery_count ?? studio.gallery_count;
+      if (!performerScopedCountsReady) return null;
+
+      const count = performerId
+        ? (performerStats?.gallery_count ?? 0)
+        : studio.gallery_count;
       if (!count) return;
 
       const url = performerId
@@ -396,8 +413,11 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
     }
 
     function maybeRenderGroupsPopoverButton() {
-      // Use performer-filtered group count when available
-      const count = performerStats?.group_count ?? studio.group_count;
+      if (!performerScopedCountsReady) return null;
+
+      const count = performerId
+        ? (performerStats?.group_count ?? 0)
+        : studio.group_count;
       if (!count) return;
 
       const url = performerId
@@ -447,8 +467,11 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
     }
 
     function maybeRenderOCounter() {
-      // Use performer-filtered o_counter when available
-      const count = performerStats?.o_counter ?? studio.o_counter;
+      if (!performerScopedCountsReady) return null;
+
+      const count = performerId
+        ? (performerStats?.o_counter ?? 0)
+        : studio.o_counter;
       if (!count) return;
 
       return <OCounterButton value={count} />;
@@ -476,6 +499,10 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
     }
 
     function maybeRenderPopoverButtonGroup() {
+      if (!performerScopedCountsReady) {
+        return null;
+      }
+
       const hasCategoryButtons = !!(sexTag || oralTag || soloTag || facialTag);
 
       if (

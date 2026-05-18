@@ -116,7 +116,7 @@ export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
 
   // Unique performers (performers with only 1 scene in database, for this studio)
   function maybeRenderUniquePerformersButton() {
-    const count = studioAny.unique_performer_count ?? 0;
+    const count = studio.unique_performer_count ?? 0;
     if (count === 0) return null;
 
     const url = NavUtils.makeStudioDetailUniquePerformersUrl(studio);
