@@ -1609,6 +1609,11 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
 
       const markers = player!.markers();
 
+      // CUSTOM: provide known duration so markers render before playback (preload=none means player.duration() is 0 until play)
+      if (file?.duration) {
+        markers.setFallbackDuration(file.duration);
+      }
+
       const uniqueTagNames = markerData
         .map((marker) => marker.primaryTag.name)
         .filter((value, index, self) => self.indexOf(value) === index);
@@ -1650,8 +1655,19 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
           })));
         }
         // CUSTOM: end
+
+        // CUSTOM: begin - add O timestamp markers (gold glowing dots)
+        const oTimestampEntries = (scene.o_timestamps ?? [])
+          .map((ts, i) =>
+            ts !== null && ts !== undefined
+              ? { ts, date: (scene.o_history ?? [])[i] ?? "" }
+              : null
+          )
+          .filter((x): x is { ts: number; date: string } => x !== null);
+        markers.addOTimestampMarkers(oTimestampEntries);
+        // CUSTOM: end
       });
-    }, [getPlayer, scene, uiConfig]);
+    }, [getPlayer, scene, uiConfig, file]); // CUSTOM: file added so duration is current when scene changes
 
     useEffect(() => {
       const player = getPlayer();
@@ -1668,12 +1684,16 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         loadMarkers();
       };
 
-      // Ensure markers are added after player is fully ready and sources are loaded
-      if (player.readyState() >= 1) {
-        loadMarkers();
-      } else {
+      // CUSTOM: begin - always load markers immediately so indicators are visible before play is pressed.
+      // With preload=none, readyState is 0 until the user presses play, so the old else-branch (only
+      // registering loadedmetadata) meant markers never appeared until playback started.
+      // We now always call loadMarkers() right away (using the fallback duration from scene file data),
+      // and also register loadedmetadata so markers are re-drawn with the real duration once metadata loads.
+      loadMarkers();
+      if (player.readyState() < 1) {
         player.on("loadedmetadata", handleLoadMetadata);
       }
+      // CUSTOM: end
 
       return () => {
         player.off("loadedmetadata", handleLoadMetadata);

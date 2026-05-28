@@ -33,12 +33,20 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     containedRanges?: HTMLDivElement[];
   }[] = [];
   private negativeMarkerDivs: HTMLDivElement[] = []; // CUSTOM
+  private oTimestampDivs: HTMLDivElement[] = []; // CUSTOM
   private markerTooltip: HTMLElement | null = null;
   private defaultTooltip: HTMLElement | null = null;
 
   private layerHeight: number = 9;
 
   private tagColors: { [tag: string]: string } = {};
+
+  private _fallbackDuration: number = 0; // CUSTOM: used when player.duration() is 0 (preload=none, not started yet)
+
+  // CUSTOM: set known duration before playback begins so markers render on the seek bar before play is pressed
+  setFallbackDuration(duration: number) {
+    this._fallbackDuration = duration;
+  }
 
   constructor(player: VideoJsPlayer) {
     super(player);
@@ -108,7 +116,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
   }
 
   addDotMarker(marker: IMarker) {
-    const duration = this.player.duration();
+    const duration = this.player.duration() || this._fallbackDuration; // CUSTOM
     const markerSet: {
       dot?: HTMLDivElement;
       range?: HTMLDivElement;
@@ -162,7 +170,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
   }
 
   private renderRangeMarkers(markers: IMarker[], layer: number) {
-    const duration = this.player.duration();
+    const duration = this.player.duration() || this._fallbackDuration; // CUSTOM
     const parent = this.player.el().querySelector(".vjs-progress-control");
     const seekBar = this.player.el().querySelector(".vjs-progress-holder");
     if (!seekBar || !parent || !duration) return;
@@ -344,11 +352,18 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     }
     this.negativeMarkerDivs = [];
     // CUSTOM: end
+
+    // CUSTOM: begin - clear O timestamp markers
+    for (const div of this.oTimestampDivs) {
+      div.remove();
+    }
+    this.oTimestampDivs = [];
+    // CUSTOM: end
   }
 
   // CUSTOM: begin - add negative markers (displayed in red)
   addNegativeMarkers(negativeMarkers: INegativeMarker[]) {
-    const duration = this.player.duration();
+    const duration = this.player.duration() || this._fallbackDuration; // CUSTOM
     const parent = this.player.el().querySelector(".vjs-progress-control");
     if (!parent || !duration) return;
 
@@ -393,6 +408,42 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
 
       parent.appendChild(rangeDiv);
       this.negativeMarkerDivs.push(rangeDiv);
+    }
+  }
+  // CUSTOM: end
+
+  // CUSTOM: begin - add O timestamp markers (gold glowing dots on the seek bar)
+  addOTimestampMarkers(entries: Array<{ ts: number; date: string }>) {
+    const duration = this.player.duration() || this._fallbackDuration; // CUSTOM
+    const seekBar = this.player.el().querySelector(".vjs-progress-holder");
+    if (!seekBar || !duration || entries.length === 0) return;
+
+    // Cluster: keep only one timestamp per 10-second window
+    const sorted = [...entries].sort((a, b) => a.ts - b.ts);
+    const clustered: Array<{ ts: number; date: string }> = [];
+    let lastKept = -Infinity;
+    for (const entry of sorted) {
+      if (entry.ts - lastKept >= 10) {
+        clustered.push(entry);
+        lastKept = entry.ts;
+      }
+    }
+
+    for (const { ts, date } of clustered) {
+      const dot = videojs.dom.createEl("div") as HTMLDivElement;
+      dot.className = "vjs-o-timestamp-marker";
+      dot.style.left = `calc(${(ts / duration) * 100}% - 3px)`;
+      // CUSTOM: tooltip shows the date the O was recorded
+      const label = date ? new Date(date).toLocaleString(undefined, {
+        year: "numeric", month: "short", day: "numeric",
+        hour: "numeric", minute: "2-digit",
+      }) : "O";
+      dot.title = `O on ${label}`;
+
+      dot.addEventListener("click", () => this.player.currentTime(ts));
+
+      seekBar.appendChild(dot);
+      this.oTimestampDivs.push(dot);
     }
   }
   // CUSTOM: end
@@ -498,11 +549,23 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
   }
 
   // Convert hue to RGB color in hex format
-  // CUSTOM: begin - avoids red hues (0-30 and 330-360) to reserve red for negative markers
+  // CUSTOM: begin - avoids red hues (0-30 and 330-360) and gold hues (~45-65°)
+  //   to reserve red for negative markers and gold for O timestamp markers
   private hueToColor(hue: number): string {
-    // Remap hue to avoid red range (reserve 0-30 and 330-360 for negative markers)
-    // Map the range [0, 360) to [30, 330) to avoid reds
-    const remappedHue = 30 + (hue % 360) * (300 / 360);
+    // Step 1: Remap [0,360) → [30,330) to avoid reds (used by negative markers)
+    let remappedHue = 30 + (hue % 360) * (300 / 360);
+
+    // Step 2: Also skip the gold band [45,65) to reserve it for O timestamp markers.
+    // If we land inside [45,65), push to 65. Then re-compress the remaining space.
+    const GOLD_START = 45;
+    const GOLD_END = 65;
+    if (remappedHue >= GOLD_START && remappedHue < GOLD_END) {
+      remappedHue = GOLD_END;
+    } else if (remappedHue >= GOLD_END) {
+      // Shift everything above gold band down so colors remain evenly spread.
+      const goldWidth = GOLD_END - GOLD_START;
+      remappedHue = remappedHue - goldWidth;
+    }
     
     // Convert hue from degrees to [0, 1)
     const hueNormalized = remappedHue / 360.0;

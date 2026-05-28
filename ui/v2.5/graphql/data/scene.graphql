@@ -25,6 +25,7 @@ fragment SceneData on Scene {
 
   play_history
   o_history
+  o_timestamps # CUSTOM
 
   files {
     ...VideoFileData

@@ -14,6 +14,7 @@ import {
   mutateMetadataScan,
   useFindScene,
   useSceneIncrementO,
+  useSceneRecordOAtTimestamp, // CUSTOM
   useSceneGenerateScreenshot,
   useSceneUpdate,
   queryFindScenes,
@@ -223,6 +224,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const boxes = configuration?.general?.stashBoxes ?? [];
 
   const [incrementO] = useSceneIncrementO(scene.id);
+  const [recordOAtTimestamp] = useSceneRecordOAtTimestamp(scene.id); // CUSTOM
 
   const [incrementPlay] = useSceneIncrementPlayCount();
 
@@ -242,13 +244,22 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState<boolean>(false);
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
 
+  // CUSTOM: begin - Record O with video timestamp when available
   const onIncrementOClick = async () => {
     try {
-      await incrementO();
+      const playerPos = getPlayerPosition();
+      if (playerPos !== undefined) {
+        await recordOAtTimestamp({
+          variables: { id: scene.id, video_timestamp: playerPos },
+        });
+      } else {
+        await incrementO();
+      }
     } catch (e) {
       Toast.error(e);
     }
   };
+  // CUSTOM: end
 
   function setRating(v: number | null) {
     updateScene({

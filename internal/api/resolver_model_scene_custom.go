@@ -67,3 +67,20 @@ func (r *sceneResolver) Releases(ctx context.Context, obj *models.Scene) ([]*mod
 	}
 	return ret, nil
 }
+
+// OTimestamps returns the list of video timestamps (in seconds) where O events
+// were recorded via the player for this scene.
+func (r *sceneResolver) OTimestamps(ctx context.Context, obj *models.Scene) ([]*float64, error) {
+	var ret []*float64
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		var err error
+		ret, err = r.repository.Scene.GetOVideoTimestamps(ctx, obj.ID)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	if ret == nil {
+		ret = []*float64{}
+	}
+	return ret, nil
+}

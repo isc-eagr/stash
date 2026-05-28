@@ -765,6 +765,72 @@ export const useSceneIncrementO = (id: string) =>
     },
   });
 
+// CUSTOM: Records an O at the current video player timestamp.
+export const useSceneRecordOAtTimestamp = (id: string) =>
+  GQL.useSceneRecordOAtTimestampMutation({
+    update(cache, result, { variables }) { // CUSTOM: add variables to update o_timestamps
+      const mutationResult = result.data?.sceneRecordOAtTimestamp;
+      if (!mutationResult) return;
+
+      const { history } = mutationResult;
+
+      const scene = cache.readFragment<GQL.SlimSceneDataFragment>({
+        id: cache.identify({ __typename: "Scene", id }),
+        fragment: GQL.SlimSceneDataFragmentDoc,
+        fragmentName: "SlimSceneData",
+      });
+
+      if (scene) {
+        for (const performer of scene.performers) {
+          cache.modify({
+            id: cache.identify(performer),
+            fields: {
+              o_counter(value) {
+                return value + 1;
+              },
+            },
+          });
+        }
+      } else {
+        evictTypeFields(cache, {
+          Performer: ["o_counter"],
+        });
+      }
+
+      updateStats(cache, "total_o_count", 1);
+
+      cache.modify({
+        id: cache.identify({ __typename: "Scene", id }),
+        fields: {
+          o_history() {
+            return history;
+          },
+        },
+      });
+
+      // CUSTOM: begin - prepend the new video timestamp to the parallel o_timestamps array
+      const videoTimestamp = variables?.video_timestamp;
+      cache.modify({
+        id: cache.identify({ __typename: "Scene", id }),
+        fields: {
+          o_timestamps(existing) {
+            const cur = Array.isArray(existing) ? (existing as Array<number | null>) : [];
+            // New O is the latest, so it goes at position 0 (parallel to o_history newest-first)
+            return [videoTimestamp ?? null, ...cur];
+          },
+        },
+      });
+      // CUSTOM: end
+
+      updateO(cache, "Scene", id, history.length);
+
+      evictQueries(cache, [
+        GQL.FindScenesDocument,
+        GQL.FindPerformersDocument,
+      ]);
+    },
+  });
+
 export const useSceneDecrementO = (id: string) =>
   GQL.useSceneDeleteOMutation({
     variables: { id },
@@ -811,6 +877,13 @@ export const useSceneDecrementO = (id: string) =>
           },
         },
       });
+
+      // CUSTOM: evict o_timestamps so it refetches — we don't know which entry had a timestamp
+      cache.evict({
+        id: cache.identify({ __typename: "Scene", id }),
+        fieldName: "o_timestamps",
+      });
+      cache.gc();
 
       updateO(cache, "Scene", id, history.length);
       evictQueries(cache, [
@@ -869,6 +942,10 @@ export const useSceneResetO = (id: string) =>
           o_history() {
             const ret: string[] = [];
             return ret;
+          },
+          // CUSTOM: clear o_timestamps since all O entries are removed
+          o_timestamps() {
+            return [];
           },
         },
       });

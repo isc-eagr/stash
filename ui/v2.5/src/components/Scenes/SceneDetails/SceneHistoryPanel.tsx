@@ -24,6 +24,7 @@ import * as GQL from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useToast } from "src/hooks/Toast";
 import { TextField } from "src/utils/field";
+import { getPlayer } from "src/components/ScenePlayer/util"; // CUSTOM
 import TextUtils from "src/utils/text";
 
 const History: React.FC<{
@@ -32,7 +33,10 @@ const History: React.FC<{
   unknownDate?: string;
   onRemove: (date: string) => void;
   noneID: string;
-}> = ({ className, history, unknownDate, noneID, onRemove }) => {
+  // CUSTOM: begin - optional parallel video timestamps + seek callback
+  videoTimestamps?: Array<number | null>;
+  // CUSTOM: end
+}> = ({ className, history, unknownDate, noneID, onRemove, videoTimestamps }) => { // CUSTOM: videoTimestamps
   const intl = useIntl();
 
   if (history.length === 0) {
@@ -57,6 +61,28 @@ const History: React.FC<{
         {history.map((playdate, index) => (
           <li key={index}>
             <span>{renderDate(playdate)}</span>
+            {/* CUSTOM: begin - show video position badge */}
+            {(() => {
+              const ts = videoTimestamps?.[index];
+              if (ts === null || ts === undefined) return null;
+              const h = Math.floor(ts / 3600);
+              const m = Math.floor((ts % 3600) / 60);
+              const s = Math.floor(ts % 60);
+              const label = h > 0
+                ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+                : `${m}:${String(s).padStart(2, "0")}`;
+              return (
+                <button
+                  type="button"
+                  className="o-video-ts-badge btn btn-link p-0 ms-2"
+                  onClick={() => getPlayer()?.currentTime(ts)}
+                  title={`Seek to ${label}`}
+                >
+                  ({label})
+                </button>
+              );
+            })()}
+            {/* CUSTOM: end */}
             <Button
               className="remove-date-button"
               size="sm"
@@ -442,6 +468,7 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
           noneID={noneMessageID}
           unknownDate={scene.created_at}
           onRemove={(t) => handleDeleteODate(t)}
+          videoTimestamps={scene.o_timestamps ?? []} // CUSTOM
         />
       </div>
     </div>

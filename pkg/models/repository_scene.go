@@ -86,6 +86,7 @@ type ODateReader interface {
 	GetAllOCount(ctx context.Context) (int, error)
 	GetODates(ctx context.Context, relatedID int) ([]time.Time, error)
 	GetManyODates(ctx context.Context, ids []int) ([][]time.Time, error)
+	GetOVideoTimestamps(ctx context.Context, id int) ([]*float64, error) // CUSTOM
 }
 
 // SceneReader provides all methods to read scenes.
@@ -119,7 +120,8 @@ type OHistoryWriter interface {
 	AddO(ctx context.Context, id int, dates []time.Time) ([]time.Time, error)
 	DeleteO(ctx context.Context, id int, dates []time.Time) ([]time.Time, error)
 	ResetO(ctx context.Context, id int) (int, error)
-	TransferOHistory(ctx context.Context, fromID int, toID int) error // CUSTOM
+	TransferOHistory(ctx context.Context, fromID int, toID int) error                              // CUSTOM
+	AddOAtVideoTimestamp(ctx context.Context, id int, videoTimestamp float64) ([]time.Time, error) // CUSTOM
 }
 
 type ViewHistoryWriter interface {

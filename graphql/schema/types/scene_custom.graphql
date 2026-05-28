@@ -17,6 +17,9 @@ extend type Scene {
 
   "Alternate releases of this scene (e.g., from different studios)"
   releases: [SceneRelease!]!
+
+  "Video timestamps (seconds, parallel to o_history, null for entries recorded without a video position)"
+  o_timestamps: [Float]!
 }
 
 type MultiSegmentLoopSegment {

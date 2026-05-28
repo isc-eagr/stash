@@ -59,4 +59,7 @@ extend type Mutation {
   performerImageDelete(id: ID!): Boolean!
   "Set an additional image as the default performer image. Returns the updated Performer."
   performerImageSetDefault(id: ID!): Performer!
+
+  "Record an O at the current video player position (adds timestamp to the O record)"
+  sceneRecordOAtTimestamp(id: ID!, video_timestamp: Float!): HistoryMutationResult!
 }
