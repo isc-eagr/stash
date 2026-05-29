@@ -718,6 +718,46 @@ The queue persists across page navigations using localStorage.
 
 ---
 
+## Marker Viewer
+
+A multi-panel viewer for scene markers, accessible from the Markers page (`/scenes/markers`). Separate from the sequential marker playlist player, the viewer displays all queued markers **simultaneously** in independent, draggable and resizable video panels on a black canvas.
+
+### Usage
+1. Go to the Markers page (`/scenes/markers`)
+2. Enable selection mode by clicking the checkbox icon
+3. Select the markers you want to view
+4. Click the **+** (Add to Queue) button in the queue toolbar to add them
+5. Click the **grid icon** (Open Viewer, `faThLarge`) button to open the viewer in a new tab
+6. All queued markers play simultaneously as floating video panels
+7. Drag panels by their title bar to reposition them
+8. Resize panels by dragging the bottom-right or top-left corner handles
+9. Close individual panels with the **×** button in each title bar
+10. Click the fullscreen button in the header to go fullscreen
+
+### Supported Actions
+- **Move** – drag the title bar
+- **Resize** – drag the SE (bottom-right) or NW (top-left) resize handles
+- **Close individual panel** – × button in title bar
+- **Fullscreen** – header button
+
+### Files Created
+- `ui/v2.5/src/components/Scenes/MarkerViewer.tsx` - Main viewer component
+- `ui/v2.5/src/components/Scenes/MarkerViewer.scss` - Styles for the viewer
+
+### Files Modified
+- `ui/v2.5/src/components/Scenes/MarkerQueueIndicator.tsx` - Added "Open Viewer" (`faThLarge`) button
+- `ui/v2.5/src/components/Scenes/Scenes.tsx` - Added route for `/scenes/markers/viewer`
+- `ui/v2.5/src/locales/en-US.json` - Added `actions.open_viewer` locale string
+- `ui/v2.5/src/locales/en-GB.json` - Added `actions.open_viewer` locale string
+
+### URL Parameters
+- `/scenes/markers/viewer?ids=1,2,3` - Comma-separated list of marker IDs to display
+
+### Queue Storage
+Marker data is stored in `sessionStorage` under the key `markerViewerQueue` before the viewer tab is opened.
+
+---
+
 ## 15. Scene Marker Performers
 
 ### Overview

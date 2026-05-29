@@ -12,7 +12,8 @@
         "clear_queue": "Clear Queue",
         "queue_count": "{count} in queue",
         "queue_empty": "Queue is empty",
-        "added_to_queue": "Added {count} marker(s) to queue"
+        "added_to_queue": "Added {count} marker(s) to queue",
+        "open_viewer": "Open Viewer"
     },
     "config": {
         "tools": {

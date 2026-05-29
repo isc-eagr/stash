@@ -1,7 +1,7 @@
 import React from "react";
 import { Badge, Button, ButtonGroup } from "react-bootstrap";
 import { useIntl } from "react-intl";
-import { faList, faPlay, faPlus, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { faList, faPlay, faPlus, faTimes, faThLarge } from "@fortawesome/free-solid-svg-icons";
 import { Icon } from "src/components/Shared/Icon";
 import { useMarkerQueue } from "src/hooks/MarkerQueue";
 
@@ -32,6 +32,19 @@ export const MarkerQueueIndicator: React.FC<IMarkerQueueIndicatorProps> = ({
     window.open(`/scenes/markers/player?ids=${idsParam}`, "_blank");
   };
 
+  // CUSTOM: begin - marker viewer handler
+  const handleOpenViewer = () => {
+    if (count === 0) return;
+
+    // Store the queue markers in sessionStorage for the viewer
+    sessionStorage.setItem("markerViewerQueue", JSON.stringify(queue));
+
+    // Build the IDs param
+    const idsParam = queue.map((m) => m.id).join(",");
+    window.open(`/scenes/markers/viewer?ids=${idsParam}`, "_blank");
+  };
+  // CUSTOM: end
+
   const handleClearQueue = () => {
     clearQueue();
   };
@@ -54,7 +67,7 @@ export const MarkerQueueIndicator: React.FC<IMarkerQueueIndicatorProps> = ({
           <Icon icon={faPlus} />
         </Button>
       )}
-      {/* Queue count, play, clear - shown when queue has items */}
+      {/* Queue count, play, viewer, clear - shown when queue has items */}
       {count > 0 && (
         <>
           <Button
@@ -75,6 +88,15 @@ export const MarkerQueueIndicator: React.FC<IMarkerQueueIndicatorProps> = ({
           >
             <Icon icon={faPlay} />
           </Button>
+          {/* CUSTOM: begin - open marker viewer button */}
+          <Button
+            variant="secondary"
+            onClick={handleOpenViewer}
+            title={intl.formatMessage({ id: "actions.open_viewer" })}
+          >
+            <Icon icon={faThLarge} />
+          </Button>
+          {/* CUSTOM: end */}
           <Button
             variant="danger"
             onClick={handleClearQueue}
