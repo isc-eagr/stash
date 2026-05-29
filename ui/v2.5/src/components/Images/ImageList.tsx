@@ -16,7 +16,6 @@ import {
   useFindImagesMetadata,
 } from "src/core/StashService";
 import { useFilteredItemList } from "../List/ItemList";
-import { ItemList, ItemListContext, showWhenSelected } from "../List/ItemList"; // CUSTOM
 import { useLightbox } from "src/hooks/Lightbox/hooks";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import { DisplayMode } from "src/models/list-filter/types";
@@ -69,6 +68,7 @@ import { SidebarAgeFilter } from "../List/Filters/SidebarAgeFilter";
 import { PerformerAgeCriterionOption } from "src/models/list-filter/images";
 import { SidebarFolderFilter } from "../List/Filters/FolderFilter";
 import { ImageQueueIndicator } from "./ImageQueueIndicator"; // CUSTOM
+import { useImageQueue } from "src/hooks/ImageQueue"; // CUSTOM
 
 interface IImageWallProps {
   images: GQL.SlimImageDataFragment[];
@@ -515,8 +515,17 @@ export const FilteredImageList = PatchComponent(
   "FilteredImageList",
   (props: IImageList) => {
     const intl = useIntl();
+    const { clearQueue } = useImageQueue(); // CUSTOM
 
     const [slideshowRunning, setSlideshowRunning] = useState<boolean>(false);
+
+    // CUSTOM: begin - clear viewer queue when leaving the images page
+    useEffect(() => {
+      return () => {
+        clearQueue();
+      };
+    }, [clearQueue]);
+    // CUSTOM: end
 
     const searchFocus = useFocus();
 
@@ -716,9 +725,7 @@ export const FilteredImageList = PatchComponent(
     const selectedImages = useMemo(() => {
       return Array.from(selectedIds)
         .map((id) => items.find((img) => img.id === id))
-        .filter(
-          (img): img is GQL.SlimImageDataFragment => img !== undefined
-        );
+        .filter((img): img is GQL.SlimImageDataFragment => img !== undefined);
     }, [items, selectedIds]);
     // CUSTOM: end
 
@@ -750,7 +757,8 @@ export const FilteredImageList = PatchComponent(
           operationComponent={operations}
           view={view}
           zoomable
-          extraToolbarContent={ // CUSTOM: begin
+          extraToolbarContent={
+            // CUSTOM: begin
             <ImageQueueIndicator
               selectedImages={selectedImages}
               className="ml-2"

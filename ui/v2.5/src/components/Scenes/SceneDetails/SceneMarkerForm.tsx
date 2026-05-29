@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Button, Form } from "react-bootstrap";
+import { Button, Col, Form, Row } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import { useFormik } from "formik";
 import * as yup from "yup";
@@ -119,6 +119,8 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
           end_seconds: endSeconds,
           primary_tag_id: "",
           tag_ids: [],
+          top_performer_ids: [],
+          bottom_performer_ids: [],
         };
       }
     }
@@ -395,7 +397,12 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       />
     );
 
-    return renderField("duration_display", title, control);
+    return (
+      <Form.Group as={Row} data-field="duration_display">
+        <Form.Label {...splitProps.labelProps}>{title}</Form.Label>
+        <Col {...splitProps.fieldProps}>{control}</Col>
+      </Form.Group>
+    );
   }
   // CUSTOM: end
 

@@ -59,6 +59,8 @@ import { useZoomKeybinds } from "../List/ZoomSlider";
 import { FilteredListToolbar } from "../List/FilteredListToolbar";
 import { FilterTags } from "../List/FilterTags";
 import { SidebarFolderFilter } from "../List/Filters/FolderFilter";
+import { SceneViewerQueueIndicator } from "./SceneViewerQueueIndicator"; // CUSTOM
+import { useSceneViewerQueue } from "src/hooks/SceneViewerQueue"; // CUSTOM
 
 function renderMetadataByline(result: GQL.FindScenesQueryResult) {
   const duration = result?.data?.findScenes?.duration;
@@ -366,12 +368,21 @@ export const FilteredSceneList = PatchComponent(
     const intl = useIntl();
     const history = useHistory();
     const location = useLocation();
+    const { clearQueue } = useSceneViewerQueue(); // CUSTOM
 
     const { configuration } = useConfigurationContext();
 
     const searchFocus = useFocus();
 
     const { filterHook, defaultSort, view, alterQuery, fromGroupId } = props;
+
+    // CUSTOM: begin - clear scene viewer queue when leaving the scene list
+    useEffect(() => {
+      return () => {
+        clearQueue();
+      };
+    }, [clearQueue]);
+    // CUSTOM: end
 
     // CUSTOM: begin - auto-exclude second camera tag on orgasm marker filter
     const configuredOrgasmTagId = configuration?.ui?.roleTagIds?.orgasmTagId;
@@ -746,6 +757,13 @@ export const FilteredSceneList = PatchComponent(
                   operationComponent={operations}
                   view={view}
                   zoomable
+                  extraToolbarContent={
+                    <SceneViewerQueueIndicator
+                      className="ml-2"
+                      selectedScenes={selectedItems}
+                      onQueued={onSelectNone}
+                    />
+                  }
                 />
 
                 <FilterTags

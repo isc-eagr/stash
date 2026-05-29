@@ -268,7 +268,7 @@ $sceneTabWidth: 450px;
     }
 
     .vjs-menu-item.vjs-source-menu-item-error:not(.vjs-selected) {
-      color: $text-muted;
+      color: #6c757d;
     }
 
     .vjs-menu-item.vjs-source-menu-item-error {
@@ -314,7 +314,7 @@ $sceneTabWidth: 450px;
     position: absolute;
     transform: translateY(-28px);
     transition: none;
-    
+
     /* CUSTOM: begin – negative marker range styling */
     // Negative markers are displayed in red
     &.vjs-negative-marker-range {
@@ -359,7 +359,7 @@ $sceneTabWidth: 450px;
     visibility: hidden;
     white-space: nowrap;
     z-index: 1;
-    
+
     /* CUSTOM: begin – negative marker tooltip */
     // Style for negative markers - red background
     &.vjs-marker-tooltip-negative {
@@ -607,7 +607,8 @@ $sceneTabWidth: 450px;
 }
 
 @keyframes goatee-red-shimmer-player {
-  0%, 100% {
+  0%,
+  100% {
     filter: invert(27%) sepia(51%) saturate(2300%) hue-rotate(1deg)
       drop-shadow(0 0 8px rgba(255, 215, 0, 0.8))
       drop-shadow(0 0 16px rgba(212, 175, 55, 0.6))
@@ -649,7 +650,7 @@ $sceneTabWidth: 450px;
 .scrubber-button {
   background-color: transparent;
   border: 1px solid #555;
-  color: $link-color;
+  color: #48aff0;
   cursor: pointer;
   font-size: 1.1rem;
   font-weight: 800;
@@ -847,7 +848,7 @@ $sceneTabWidth: 450px;
     button {
       background-color: transparent;
       border: 0;
-      color: $link-color;
+      color: #48aff0;
       cursor: pointer;
       font-size: 10px;
       font-weight: 800;
@@ -1164,7 +1165,7 @@ $sceneTabWidth: 450px;
 
     &.msl-segment-loop-single {
       background-color: rgba(108, 152, 198, 0.25);
-      
+
       &.msl-segment-active {
         background-color: rgba(108, 152, 198, 0.4);
         border-left-color: #6c98c6;
@@ -1244,16 +1245,16 @@ $sceneTabWidth: 450px;
           border-color: #6c98c6;
           color: #fff;
           padding: 0.1rem 0.35rem;
-          
+
           &:hover {
             background-color: #5a86b4;
             border-color: #5a86b4;
           }
         }
-        
+
         &.btn-link {
           color: #666;
-          
+
           &:hover {
             color: #6c98c6;
           }
@@ -1617,7 +1618,7 @@ $sceneTabWidth: 450px;
     &.loop-single {
       background-color: rgba(108, 152, 198, 0.8);
       border-color: #6c98c6;
-      
+
       &.active {
         background-color: rgba(108, 152, 198, 1);
         box-shadow: 0 0 6px rgba(108, 152, 198, 0.9);
@@ -2026,7 +2027,11 @@ $sceneTabWidth: 450px;
     cursor: nw-resize;
     opacity: 0;
     transition: opacity 0.15s;
-    background: linear-gradient(315deg, transparent 50%, rgba(255, 255, 255, 0.5) 50%);
+    background: linear-gradient(
+      315deg,
+      transparent 50%,
+      rgba(255, 255, 255, 0.5) 50%
+    );
   }
 
   .pio-resize-handle {
@@ -2038,7 +2043,11 @@ $sceneTabWidth: 450px;
     cursor: se-resize;
     opacity: 0;
     transition: opacity 0.15s;
-    background: linear-gradient(135deg, transparent 50%, rgba(255, 255, 255, 0.5) 50%);
+    background: linear-gradient(
+      135deg,
+      transparent 50%,
+      rgba(255, 255, 255, 0.5) 50%
+    );
   }
 
   // Crop handles – thin bars on each edge

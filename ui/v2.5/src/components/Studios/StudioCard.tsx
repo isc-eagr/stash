@@ -13,7 +13,12 @@ import { PopoverCountButton } from "../Shared/PopoverCountButton";
 import { RatingBanner } from "../Shared/RatingBanner";
 import { FavoriteIcon } from "../Shared/FavoriteIcon";
 import { useStudioUpdate } from "src/core/StashService";
-import { faTag, faBox, faHand, faUserPlus } from "@fortawesome/free-solid-svg-icons"; // CUSTOM: added faHand, faUserPlus
+import {
+  faTag,
+  faBox,
+  faHand,
+  faUserPlus,
+} from "@fortawesome/free-solid-svg-icons"; // CUSTOM: added faHand, faUserPlus
 import { OCounterButton } from "../Shared/CountButton";
 // CUSTOM: begin
 import gaySvg from "src/assets/gay.svg";
@@ -22,31 +27,34 @@ import goateeSvg from "src/assets/goatee.svg";
 
 interface IPerformerStudioStats {
   scene_count: number;
-  role_stats: { // CUSTOM: nested from studio_performer_role_stats batch field
-    sex_scene_count: number;
-    oral_scene_count: number;
-    solo_scene_count: number;
-    facial_scene_count: number;
-    sex_top_count: number;
-    sex_bottom_count: number;
-    sex_with_top_count: number;
-    sex_with_bottom_count: number;
-    oral_top_count: number;
-    oral_bottom_count: number;
-    oral_with_top_count: number;
-    oral_with_bottom_count: number;
-    facial_top_count: number;
-    facial_bottom_count: number;
-    facial_marker_with_top_count: number;
-    facial_marker_with_bottom_count: number;
-    sex_unique_partner_count: number;
-    oral_unique_partner_count: number;
-    facial_unique_partner_count: number;
-    orgasm_top_count: number;
-    facial_marker_count: number;
-    feet_top_count: number;
-    solo_scene_count: number;
-  } | null | undefined;
+  role_stats:
+    | {
+        // CUSTOM: nested from studio_performer_role_stats batch field
+        sex_scene_count: number;
+        oral_scene_count: number;
+        solo_scene_count: number;
+        facial_scene_count: number;
+        sex_top_count: number;
+        sex_bottom_count: number;
+        sex_with_top_count: number;
+        sex_with_bottom_count: number;
+        oral_top_count: number;
+        oral_bottom_count: number;
+        oral_with_top_count: number;
+        oral_with_bottom_count: number;
+        facial_top_count: number;
+        facial_bottom_count: number;
+        facial_marker_with_top_count: number;
+        facial_marker_with_bottom_count: number;
+        sex_unique_partner_count: number;
+        oral_unique_partner_count: number;
+        facial_unique_partner_count: number;
+        orgasm_top_count: number;
+        facial_marker_count: number;
+        feet_top_count: number;
+      }
+    | null
+    | undefined;
   group_count: number;
   image_count: number;
   gallery_count: number;
@@ -184,12 +192,11 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       }
     }
 
-
     function maybeRenderScenesPopoverButton() {
       if (!performerScopedCountsReady) return null;
 
       const count = performerId
-        ? (performerStats?.scene_count ?? 0)
+        ? performerStats?.scene_count ?? 0
         : studio.scene_count;
       if (!count) return;
 
@@ -213,8 +220,8 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       if (!performerScopedCountsReady) return null;
 
       const count = performerId
-        ? (performerStats?.role_stats?.sex_scene_count ?? 0)
-        : (studio.studio_role_counts?.sex_scene_count ?? 0);
+        ? performerStats?.role_stats?.sex_scene_count ?? 0
+        : studio.studio_role_counts?.sex_scene_count ?? 0;
       const url = performerId
         ? NavUtils.makePerformerStudioMarkerScenesUrl(
             performerId,
@@ -243,8 +250,8 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       if (!performerScopedCountsReady) return null;
 
       const count = performerId
-        ? (performerStats?.role_stats?.oral_scene_count ?? 0)
-        : (studio.studio_role_counts?.oral_scene_count ?? 0);
+        ? performerStats?.role_stats?.oral_scene_count ?? 0
+        : studio.studio_role_counts?.oral_scene_count ?? 0;
 
       // Oral excludes sex markers
       const excludeTags = sexTag ? [{ id: sexTag.id, label: sexTag.name }] : [];
@@ -259,7 +266,13 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
             excludeTags,
             -1
           )
-        : NavUtils.makeStudioMarkerScenesUrl(studio, oralTag.id, "Oral", excludeTags, -1);
+        : NavUtils.makeStudioMarkerScenesUrl(
+            studio,
+            oralTag.id,
+            "Oral",
+            excludeTags,
+            -1
+          );
 
       return (
         <Button
@@ -280,8 +293,8 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       if (!performerScopedCountsReady) return null;
 
       const count = performerId
-        ? (performerStats?.role_stats?.solo_scene_count ?? 0)
-        : (studio.studio_role_counts?.solo_scene_count ?? 0);
+        ? performerStats?.role_stats?.solo_scene_count ?? 0
+        : studio.studio_role_counts?.solo_scene_count ?? 0;
 
       // Solo excludes both sex and oral markers
       const excludeTags = [];
@@ -296,7 +309,12 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
             "Solo",
             excludeTags
           )
-        : NavUtils.makeStudioMarkerScenesUrl(studio, soloTag.id, "Solo", excludeTags);
+        : NavUtils.makeStudioMarkerScenesUrl(
+            studio,
+            soloTag.id,
+            "Solo",
+            excludeTags
+          );
 
       return (
         <Button
@@ -317,8 +335,8 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       if (!performerScopedCountsReady) return null;
 
       const count = performerId
-        ? (performerStats?.role_stats?.facial_scene_count ?? 0)
-        : (studio.studio_role_counts?.facial_scene_count ?? 0);
+        ? performerStats?.role_stats?.facial_scene_count ?? 0
+        : studio.studio_role_counts?.facial_scene_count ?? 0;
       // Use depth -1 to include subtags
       const url = performerId
         ? NavUtils.makePerformerStudioMarkerScenesUrl(
@@ -329,7 +347,13 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
             undefined,
             -1
           )
-        : NavUtils.makeStudioMarkerScenesUrl(studio, facialTag.id, "Facial", undefined, -1);
+        : NavUtils.makeStudioMarkerScenesUrl(
+            studio,
+            facialTag.id,
+            "Facial",
+            undefined,
+            -1
+          );
 
       return (
         <Button
@@ -372,7 +396,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       if (!performerScopedCountsReady) return null;
 
       const count = performerId
-        ? (performerStats?.image_count ?? 0)
+        ? performerStats?.image_count ?? 0
         : studio.image_count;
       if (!count) return;
 
@@ -394,7 +418,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       if (!performerScopedCountsReady) return null;
 
       const count = performerId
-        ? (performerStats?.gallery_count ?? 0)
+        ? performerStats?.gallery_count ?? 0
         : studio.gallery_count;
       if (!count) return;
 
@@ -416,7 +440,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       if (!performerScopedCountsReady) return null;
 
       const count = performerId
-        ? (performerStats?.group_count ?? 0)
+        ? performerStats?.group_count ?? 0
         : studio.group_count;
       if (!count) return;
 
@@ -470,7 +494,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       if (!performerScopedCountsReady) return null;
 
       const count = performerId
-        ? (performerStats?.o_counter ?? 0)
+        ? performerStats?.o_counter ?? 0
         : studio.o_counter;
       if (!count) return;
 
@@ -578,7 +602,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
             className="hide-not-favorite"
           />
         }
-        popovers={maybeRenderPopoverButtonGroup()}
+        popovers={maybeRenderPopoverButtonGroup() ?? undefined}
         selected={selected}
         selecting={selecting}
         onSelectedChanged={onSelectedChanged}

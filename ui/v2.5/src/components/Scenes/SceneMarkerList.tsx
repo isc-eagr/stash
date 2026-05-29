@@ -3,7 +3,6 @@ import React, { useCallback, useEffect } from "react";
 import { useHistory } from "react-router-dom";
 import { FormattedMessage, useIntl } from "react-intl";
 import Mousetrap from "mousetrap";
-import { faRandom } from "@fortawesome/free-solid-svg-icons"; // CUSTOM
 import * as GQL from "src/core/generated-graphql";
 import {
   queryFindSceneMarkers,
@@ -11,7 +10,6 @@ import {
 } from "src/core/StashService";
 import NavUtils from "src/utils/navigation";
 import { useFilteredItemList } from "../List/ItemList";
-import { ItemList, ItemListContext } from "../List/ItemList"; // CUSTOM
 import { ListFilterModel } from "src/models/list-filter/filter";
 import { DisplayMode } from "src/models/list-filter/types";
 import { MarkerWallPanel } from "./SceneMarkerWallPanel";
@@ -212,8 +210,7 @@ export const FilteredSceneMarkerList = PatchComponent(
   (props: ISceneMarkerList) => {
     const intl = useIntl();
     // CUSTOM: begin - marker queue
-    const history = useHistory();
-    const { queue, count: queueCount, addToQueue, clearQueue } = useMarkerQueue();
+    const { addToQueue, clearQueue } = useMarkerQueue();
     const Toast = useToast();
 
     // Clear the marker queue when navigating away from this page

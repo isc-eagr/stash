@@ -24,6 +24,24 @@ export interface IPerformerPartnersValue {
   unique_operator?: "AND" | "OR"; // default AND
 }
 
+const metricKeys = [
+  "sex_topped",
+  "oral_topped",
+  "facial_topped",
+  "sex_bottomed",
+  "oral_bottomed",
+  "facial_bottomed",
+  "sex_unique",
+  "oral_unique",
+  "facial_unique",
+] as const;
+
+const operatorKeys = [
+  "topped_operator",
+  "bottomed_operator",
+  "unique_operator",
+] as const;
+
 export const PerformerPartnersCriterionOption = new CriterionOption({
   messageID: "partners",
   type: "partners" as CriterionType,
@@ -43,27 +61,27 @@ export class PerformerPartnersCriterion extends Criterion {
 
   public isValid(): boolean {
     // Only valid if at least one metric has a defined value
-    return Object.values(this.value).some((m) => m !== undefined && m.value !== undefined);
+    return metricKeys.some((k) => this.value[k]?.value !== undefined);
   }
 
   public getLabel(intl: IntlShape): string {
     const criterionLabel = intl.formatMessage({ id: "partners" });
-    const metricKeys = Object.keys(this.value) as Array<keyof IPerformerPartnersValue>;
-    if (metricKeys.length === 0) return criterionLabel;
+    const configuredMetricKeys = metricKeys.filter(
+      (k) => this.value[k]?.value !== undefined
+    );
+    if (configuredMetricKeys.length === 0) return criterionLabel;
 
-    const parts = metricKeys
-      .filter((k) => this.value[k] !== undefined && this.value[k]!.value !== undefined)
-      .map((k) => {
-        const metric = this.value[k]!;
-        const metricLabel = intl.formatMessage({ id: k });
-        const modLabel =
-          metric.modifier === CriterionModifier.GreaterThan
-            ? ">"
-            : metric.modifier === CriterionModifier.LessThan
-            ? "<"
-            : "=";
-        return `${metricLabel} ${modLabel} ${metric.value}`;
-      });
+    const parts = configuredMetricKeys.map((k) => {
+      const metric = this.value[k]!;
+      const metricLabel = intl.formatMessage({ id: k });
+      const modLabel =
+        metric.modifier === CriterionModifier.GreaterThan
+          ? ">"
+          : metric.modifier === CriterionModifier.LessThan
+          ? "<"
+          : "=";
+      return `${metricLabel} ${modLabel} ${metric.value}`;
+    });
 
     return `${criterionLabel}: ${parts.join(", ")}`;
   }
@@ -89,15 +107,6 @@ export class PerformerPartnersCriterion extends Criterion {
   public applyToCriterionInput(input: Record<string, unknown>): void {
     if (!this.isValid()) return;
 
-    const metricKeys = [
-      "sex_topped", "oral_topped", "facial_topped",
-      "sex_bottomed", "oral_bottomed", "facial_bottomed",
-      "sex_unique", "oral_unique", "facial_unique",
-    ] as const;
-    const operatorKeys = [
-      "topped_operator", "bottomed_operator", "unique_operator",
-    ] as const;
-
     const partners: Record<string, unknown> = {};
     for (const k of metricKeys) {
       const metric = this.value[k];
@@ -116,7 +125,7 @@ export class PerformerPartnersCriterion extends Criterion {
   }
 
   public applyToSavedCriterion(input: Record<string, unknown>): void {
-    input["partners"] = { value: JSON.stringify(this.value) };
+    input.partners = { value: JSON.stringify(this.value) };
   }
 
   public setFromSavedCriterion(criterion: unknown): void {

@@ -1,7 +1,12 @@
 import React, { useCallback } from "react";
 import { Badge, Button, ButtonGroup } from "react-bootstrap";
 import { Icon } from "src/components/Shared/Icon";
-import { faList, faPlay, faPlus, faTimes } from "@fortawesome/free-solid-svg-icons";
+import {
+  faList,
+  faPlay,
+  faPlus,
+  faTimes,
+} from "@fortawesome/free-solid-svg-icons";
 import { useImageQueue } from "src/hooks/ImageQueue";
 import * as GQL from "src/core/generated-graphql";
 import { useIntl } from "react-intl";
@@ -29,12 +34,8 @@ export const ImageQueueIndicator: React.FC<IImageQueueIndicatorProps> = ({
   const handlePlayQueue = useCallback(() => {
     if (queue.length === 0) return;
 
-    // Store queue data in sessionStorage for the viewer
-    sessionStorage.setItem("imageViewerQueue", JSON.stringify(queue));
-
-    // Build URL with image IDs
     const idsParam = queue.map((img) => img.id).join(",");
-    window.open(`/images/viewer?ids=${idsParam}`, "_blank");
+    window.open(`/viewer?images=${idsParam}`, "_blank");
   }, [queue]);
 
   const handleClearQueue = useCallback(() => {
@@ -76,7 +77,10 @@ export const ImageQueueIndicator: React.FC<IImageQueueIndicatorProps> = ({
         <>
           <Button
             variant="secondary"
-            title={intl.formatMessage({ id: "actions.queue_count" }, { count: queue.length })}
+            title={intl.formatMessage(
+              { id: "actions.queue_count" },
+              { count: queue.length }
+            )}
             disabled
             className="queue-count-btn"
           >

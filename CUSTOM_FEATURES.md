@@ -676,7 +676,7 @@ You can now build a queue of markers from different searches before playing them
 6. Click the **Play** button on the queue indicator to play all queued markers
 7. Click the **Clear** button to empty the queue
 
-The queue persists across page navigations using localStorage.
+The queue is in-memory only and is cleared when leaving the marker list.
 
 ### Usage (Direct Play)
 1. Go to the Markers page (`/scenes/markers`)
@@ -754,8 +754,36 @@ A multi-panel viewer for scene markers, accessible from the Markers page (`/scen
 ### URL Parameters
 - `/scenes/markers/viewer?ids=1,2,3` - Comma-separated list of marker IDs to display
 
-### Queue Storage
-Marker data is stored in `sessionStorage` under the key `markerViewerQueue` before the viewer tab is opened.
+### Data Loading
+The viewer reads marker IDs from the `ids` URL parameter and fetches marker data directly.
+
+---
+
+## Multi Scene Viewer
+
+A multi-panel viewer for full scenes, accessible from the Scenes page (`/scenes`). It shares the marker viewer's video panel behavior: scenes open simultaneously as draggable, resizable, looping video panels on a black canvas with fullscreen and reflow controls. Scene panels use the same custom Video.js controls as the scene player, including source selection, seek controls, VTT thumbnails, captions, scene marker/negative marker/O timestamp timeline indicators, and multi-segment loop controls. Performer image overlay controls are intentionally excluded from this viewer.
+
+### Usage
+1. Go to the Scenes page (`/scenes`)
+2. Select scenes
+3. Click the **+** button in the viewer queue toolbar
+4. Click the **grid icon** button to open `/scenes/viewer?ids=1,2,3`
+5. Drag, resize, close, fullscreen, and reflow panels as in the marker viewer
+
+### Files Created
+- `ui/v2.5/src/components/Scenes/MultiVideoViewer.tsx` - Shared video panel viewer used by marker and scene viewers
+- `ui/v2.5/src/components/Scenes/SceneViewer.tsx` - Scene data adapter for the shared viewer
+- `ui/v2.5/src/components/Scenes/SceneViewerQueueIndicator.tsx` - Scenes toolbar queue controls
+- `ui/v2.5/src/hooks/SceneViewerQueue.tsx` - In-memory scene viewer queue context
+
+### Files Modified
+- `ui/v2.5/src/App.tsx` - Added `SceneViewerQueueProvider`
+- `ui/v2.5/src/components/Scenes/Scenes.tsx` - Added route for `/scenes/viewer`
+- `ui/v2.5/src/components/Scenes/SceneList.tsx` - Added scene viewer queue controls to the scenes toolbar
+- `ui/v2.5/src/components/Scenes/MarkerViewer.tsx` - Refactored to use the shared viewer component
+
+### Data Loading
+The viewer reads scene IDs from the `ids` URL parameter and fetches scene data directly. No session storage is used.
 
 ---
 
@@ -1711,8 +1739,7 @@ A dedicated full-page image viewer allowing users to view and manipulate multipl
 
 ### URL and Storage
 - **Route:** `/images/viewer?ids=1,2,3` - Comma-separated image IDs
-- **Storage:** Image data is stored in `sessionStorage` under key `"imageViewerQueue"`
-- **Data Format:** Array of `SlimImageDataFragment` objects containing image paths and metadata
+- **Data Loading:** The viewer reads image IDs from the `ids` URL parameter and fetches image data directly
 
 ### Frontend Files
 
@@ -1728,7 +1755,7 @@ A dedicated full-page image viewer allowing users to view and manipulate multipl
   - Displays count of images in queue badge
   - Shows "Play" button to open viewer
   - Shows "Clear" button to empty queue
-  - Manages `sessionStorage` persistence
+  - Opens the viewer URL with queued image IDs
 
 - `ui/v2.5/src/components/Images/ImageViewer.scss` - Viewer styles
   - `.image-viewer-container` - Main container styling
@@ -1746,7 +1773,7 @@ A dedicated full-page image viewer allowing users to view and manipulate multipl
 - `ui/v2.5/src/components/Images/ImageList.tsx`
   - Integrated `ImageQueueIndicator` component
   - Added "Add to Queue" and "View Selected" operation buttons
-  - Queue management tied to `sessionStorage`
+  - Clears the in-memory viewer queue when leaving the images page
 
 ### Features
 
@@ -1797,10 +1824,10 @@ A dedicated full-page image viewer allowing users to view and manipulate multipl
 
 ### Data Flow
 1. User selects images on Images page
-2. Images are stored in `sessionStorage` via `ImageQueueIndicator`
+2. Images are added to the in-memory viewer queue
 3. User clicks "View Selected" → navigates to `/images/viewer?ids=1,2,3`
 4. `ImageViewer` reads image IDs from URL params
-5. `ImageViewer` retrieves image data from `sessionStorage`
+5. `ImageViewer` fetches image data for those IDs
 6. Images are positioned and rendered as draggable overlays
 7. User manipulates images (drag/resize/hide)
 8. On page unload or navigation, viewer state is lost (not persisted beyond session)

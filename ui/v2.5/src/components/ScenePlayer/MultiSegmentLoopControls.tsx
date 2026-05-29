@@ -1,10 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import {
-  Button,
-  Collapse,
-  Form,
-  InputGroup,
-} from "react-bootstrap";
+import { Button, Collapse, Form, InputGroup } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Icon } from "src/components/Shared/Icon";
 import {
@@ -18,7 +13,9 @@ import {
   faSave,
   faTimes,
   faChevronDown,
-  faChevronRight,  faRedo,} from "@fortawesome/free-solid-svg-icons";
+  faChevronRight,
+  faRedo,
+} from "@fortawesome/free-solid-svg-icons";
 import TextUtils from "src/utils/text";
 import type { ILoopSegment } from "./multi-segment-loop";
 import cx from "classnames";
@@ -46,6 +43,7 @@ interface IMultiSegmentLoopControlsProps {
   onClose?: () => void;
   collapsed?: boolean;
   isFullscreen?: boolean;
+  zIndex?: number;
 }
 
 export const MultiSegmentLoopControls: React.FC<
@@ -73,6 +71,7 @@ export const MultiSegmentLoopControls: React.FC<
   onClose,
   collapsed = true,
   isFullscreen = false,
+  zIndex = 100000,
 }) => {
   const intl = useIntl();
   const [presetsExpanded, setPresetsExpanded] = useState(false);
@@ -80,10 +79,13 @@ export const MultiSegmentLoopControls: React.FC<
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string>("");
   const saveInputRef = useRef<HTMLInputElement>(null);
-  
+
   // Draggable modal state
   const [isDragging, setIsDragging] = useState(false);
-  const [modalPosition, setModalPosition] = useState<{ x: number; y: number } | null>(null);
+  const [modalPosition, setModalPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -105,14 +107,18 @@ export const MultiSegmentLoopControls: React.FC<
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     // Don't start drag if clicking on a button or interactive element
     const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('input') || target.closest('select')) {
+    if (
+      target.closest("button") ||
+      target.closest("input") ||
+      target.closest("select")
+    ) {
       return;
     }
-    
+
     if (modalRef.current) {
       setIsDragging(true);
       const rect = modalRef.current.getBoundingClientRect();
-      
+
       // If not yet positioned manually, capture current centered position
       if (!modalPosition) {
         setModalPosition({
@@ -120,7 +126,7 @@ export const MultiSegmentLoopControls: React.FC<
           y: rect.top,
         });
       }
-      
+
       setDragOffset({
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
@@ -143,13 +149,13 @@ export const MultiSegmentLoopControls: React.FC<
     };
 
     if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
     }
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isDragging, dragOffset]);
 
@@ -206,7 +212,7 @@ export const MultiSegmentLoopControls: React.FC<
   const handleSaveKeyDown = (e: React.KeyboardEvent) => {
     // Stop propagation to prevent video player keyboard shortcuts
     e.stopPropagation();
-    
+
     if (e.key === "Enter") {
       e.preventDefault();
       handleSavePreset();
@@ -223,7 +229,10 @@ export const MultiSegmentLoopControls: React.FC<
       })}
     >
       {/* Header */}
-      <div className="msl-header" style={{ cursor: (!collapsed && onClose) ? 'grab' : 'default' }}>
+      <div
+        className="msl-header"
+        style={{ cursor: !collapsed && onClose ? "grab" : "default" }}
+      >
         <span className="msl-title">
           <FormattedMessage id="multi_segment_loop.title" />
           {segments.length > 0 && (
@@ -494,8 +503,12 @@ export const MultiSegmentLoopControls: React.FC<
                         value={savePresetName}
                         onChange={(e) => setSavePresetName(e.target.value)}
                         onKeyDown={handleSaveKeyDown}
-                        onKeyPress={(e: React.KeyboardEvent) => e.stopPropagation()}
-                        onKeyUp={(e: React.KeyboardEvent) => e.stopPropagation()}
+                        onKeyPress={(e: React.KeyboardEvent) =>
+                          e.stopPropagation()
+                        }
+                        onKeyUp={(e: React.KeyboardEvent) =>
+                          e.stopPropagation()
+                        }
                       />
                       <Button
                         variant="success"
@@ -547,7 +560,9 @@ export const MultiSegmentLoopControls: React.FC<
                     className="msl-preset-select"
                   >
                     <option value="">
-                      {intl.formatMessage({ id: "multi_segment_loop.select_config" })}
+                      {intl.formatMessage({
+                        id: "multi_segment_loop.select_config",
+                      })}
                     </option>
                     {presetNames.map((name) => (
                       <option key={name} value={name}>
@@ -580,16 +595,16 @@ export const MultiSegmentLoopControls: React.FC<
   );
 
   if (!collapsed && onClose) {
-    const positionStyle = modalPosition 
+    const positionStyle = modalPosition
       ? {
-          position: 'fixed' as const,
+          position: "fixed" as const,
           left: `${modalPosition.x}px`,
           top: `${modalPosition.y}px`,
-          transform: 'none',
-          zIndex: 1000,
+          transform: "none",
+          zIndex,
         }
       : {
-          zIndex: 1000,
+          zIndex,
         };
 
     return (
@@ -600,7 +615,7 @@ export const MultiSegmentLoopControls: React.FC<
         })}
         style={{
           ...positionStyle,
-          cursor: isDragging ? 'grabbing' : 'auto',
+          cursor: isDragging ? "grabbing" : "auto",
         }}
         onMouseDown={handleMouseDown}
       >

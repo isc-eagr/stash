@@ -1,8 +1,10 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react"; // CUSTOM: added useMemo, useCallback
 import { Button, Form } from "react-bootstrap"; // CUSTOM: added Form
+import { faThLarge } from "@fortawesome/free-solid-svg-icons";
 import { FormattedMessage } from "react-intl";
 import Mousetrap from "mousetrap";
 import * as GQL from "src/core/generated-graphql";
+import { Icon } from "src/components/Shared/Icon";
 import { PrimaryTags } from "./PrimaryTags";
 import { SceneMarkerForm } from "./SceneMarkerForm";
 // CUSTOM: begin
@@ -127,6 +129,19 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     addMultiSegmentLoopSegments(segments);
     setSelectedMarkerIds(new Set());
   }, [addMultiSegmentLoopSegments, sceneMarkers, selectedMarkerIds]);
+
+  const onOpenSelectedMarkersInViewer = useCallback(() => {
+    if (selectedMarkerIds.size === 0) return;
+
+    const idsParam = sceneMarkers
+      .filter((m) => selectedMarkerIds.has(m.id))
+      .sort((a, b) => a.seconds - b.seconds)
+      .map((m) => m.id)
+      .join(",");
+
+    window.open(`/viewer?markers=${idsParam}`, "_blank");
+    setSelectedMarkerIds(new Set());
+  }, [sceneMarkers, selectedMarkerIds]);
   // CUSTOM: end
 
   if (isEditorOpen) {
@@ -155,6 +170,14 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
             onClick={onMoveSelectionToMultiLoop}
           >
             Add to Loop
+          </Button>
+
+          <Button
+            disabled={selectedMarkerIds.size === 0}
+            onClick={onOpenSelectedMarkersInViewer}
+            title="Open selected markers in viewer"
+          >
+            <Icon icon={faThLarge} />
           </Button>
         </div>
 

@@ -5,9 +5,17 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { gql, useQuery } from "@apollo/client";
 import { useLocation } from "react-router-dom";
 import { Helmet } from "react-helmet";
-import { Button, ListGroup, Badge, Form, Modal, Dropdown } from "react-bootstrap";
+import {
+  Button,
+  ListGroup,
+  Badge,
+  Form,
+  Modal,
+  Dropdown,
+} from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Icon } from "src/components/Shared/Icon";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
@@ -29,9 +37,30 @@ import * as GQL from "src/core/generated-graphql";
 import TextUtils from "src/utils/text";
 import { markerTitle } from "src/core/markers";
 import cx from "classnames";
-import { useFindMarkerPlaylistsQuery, useMarkerPlaylistCreate, useMarkerPlaylistDestroy } from "src/core/StashService";
+import {
+  useFindMarkerPlaylistsQuery,
+  useMarkerPlaylistCreate,
+  useMarkerPlaylistDestroy,
+} from "src/core/StashService";
 import { useToast } from "src/hooks/Toast";
 import "./MarkerPlaylistPlayer.scss";
+
+const FIND_MARKERS_FOR_PLAYLIST = gql`
+  query FindMarkersForPlaylist($ids: [ID!]) {
+    findSceneMarkers(ids: $ids) {
+      scene_markers {
+        ...SceneMarkerData
+      }
+    }
+  }
+  ${GQL.SceneMarkerDataFragmentDoc}
+`;
+
+interface IFindMarkersForPlaylistResult {
+  findSceneMarkers: {
+    scene_markers: GQL.SceneMarkerDataFragment[];
+  };
+}
 
 function performerDisplayName(p: {
   name: string;
@@ -61,26 +90,31 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoWrapperRef = useRef<HTMLDivElement>(null);
+  const initialLoadedRef = useRef(false);
   const [markers, setMarkers] = useState<IMarkerInfo[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [showPlaylist, setShowPlaylist] = useState(true);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [loopEnabled, _setLoopEnabled] = useState(true);
   const [currentSceneId, setCurrentSceneId] = useState<string>("");
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [loopSingleMarkerId, setLoopSingleMarkerId] = useState<string | null>(null);
+  const [loopSingleMarkerId, setLoopSingleMarkerId] = useState<string | null>(
+    null
+  );
   const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showFullscreenOverlay, setShowFullscreenOverlay] = useState(false);
-  const fullscreenOverlayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
+  const fullscreenOverlayTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+
   // Save/Load playlist state
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [playlistName, setPlaylistName] = useState("");
   const [showLoadDropdown, setShowLoadDropdown] = useState(false);
 
-  const { data: playlistsData, refetch: refetchPlaylists } = useFindMarkerPlaylistsQuery();
+  const { data: playlistsData, refetch: refetchPlaylists } =
+    useFindMarkerPlaylistsQuery();
   const [createPlaylist] = useMarkerPlaylistCreate();
   const [destroyPlaylist] = useMarkerPlaylistDestroy();
 
@@ -88,64 +122,64 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   const markerIds = useMemo(() => {
     const params = new URLSearchParams(location.search);
     const ids = params.get("ids");
-    return ids ? ids.split(",") : [];
+    return ids ? ids.split(",").filter(Boolean) : [];
   }, [location.search]);
 
-  // Get marker data from sessionStorage (stored by SceneMarkerList)
+  const { data, loading } = useQuery<IFindMarkersForPlaylistResult>(
+    FIND_MARKERS_FOR_PLAYLIST,
+    {
+      skip: markerIds.length === 0,
+      variables: { ids: markerIds },
+    }
+  );
+
   useEffect(() => {
     if (markerIds.length === 0) {
-      setLoading(false);
+      setMarkers([]);
       return;
     }
 
-    const storedData = sessionStorage.getItem("markerPlaylist");
-    if (storedData) {
-      try {
-        const parsedMarkers = JSON.parse(
-          storedData
-        ) as GQL.SceneMarkerDataFragment[];
-        // Sort markers to maintain the order from the URL
-        const sortedMarkers = markerIds
-          .map((id) => parsedMarkers.find((m) => m.id === id))
-          .filter((m): m is GQL.SceneMarkerDataFragment => m !== undefined)
-          .map((m) => {
-            // Use scene.paths.stream if available, otherwise construct the URL
-            const streamUrl =
-              m.scene.paths?.stream || `/scene/${m.scene.id}/stream`;
+    const fetchedMarkers = data?.findSceneMarkers.scene_markers;
+    if (!fetchedMarkers) return;
 
-            const topPerformerNames = (m.top_performers ?? [])
-              .map((p) => performerDisplayName(p))
-              .filter((n) => n.length > 0);
+    // Sort markers to maintain the order from the URL
+    const sortedMarkers = markerIds
+      .map((id) => fetchedMarkers.find((m) => m.id === id))
+      .filter((m): m is GQL.SceneMarkerDataFragment => m !== undefined)
+      .map((m) => {
+        // Use scene.paths.stream if available, otherwise construct the URL
+        const streamUrl =
+          m.scene.paths?.stream || `/scene/${m.scene.id}/stream`;
 
-            const bottomPerformerNames = (m.bottom_performers ?? [])
-              .map((p) => performerDisplayName(p))
-              .filter((n) => n.length > 0);
+        const topPerformerNames = (m.top_performers ?? [])
+          .map((p) => performerDisplayName(p))
+          .filter((n) => n.length > 0);
 
-            return {
-              id: m.id,
-              title: markerTitle(m),
-              seconds: m.seconds,
-              end_seconds: m.end_seconds ?? null,
-              sceneId: m.scene.id,
-              sceneTitle: m.scene.title || "Untitled Scene",
-              streamUrl,
-              previewUrl: m.preview,
-              topPerformerNames:
-                topPerformerNames.length > 0 ? topPerformerNames : undefined,
-              bottomPerformerNames:
-                bottomPerformerNames.length > 0
-                  ? bottomPerformerNames
-                  : undefined,
-            };
-          });
+        const bottomPerformerNames = (m.bottom_performers ?? [])
+          .map((p) => performerDisplayName(p))
+          .filter((n) => n.length > 0);
 
-        setMarkers(sortedMarkers);
-      } catch (e) {
-        console.error("Failed to parse marker playlist data:", e);
-      }
-    }
-    setLoading(false);
-  }, [markerIds]);
+        return {
+          id: m.id,
+          title: markerTitle(m),
+          seconds: m.seconds,
+          end_seconds: m.end_seconds ?? null,
+          sceneId: m.scene.id,
+          sceneTitle: m.scene.title || "Untitled Scene",
+          streamUrl,
+          previewUrl: m.preview,
+          topPerformerNames:
+            topPerformerNames.length > 0 ? topPerformerNames : undefined,
+          bottomPerformerNames:
+            bottomPerformerNames.length > 0 ? bottomPerformerNames : undefined,
+        };
+      });
+
+    setMarkers(sortedMarkers);
+    setCurrentIndex(0);
+    setCurrentSceneId("");
+    initialLoadedRef.current = false;
+  }, [data?.findSceneMarkers.scene_markers, markerIds]);
 
   // Hack: Hide controls briefly when loading/seeking, then show again
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -216,7 +250,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
           video.currentTime = marker.seconds;
           return;
         }
-        
+
         // Move to next marker
         const nextIndex = currentIndex + 1;
         if (nextIndex < markers.length) {
@@ -266,9 +300,18 @@ export const MarkerPlaylistPlayer: React.FC = () => {
 
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
-      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
-      document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
-      document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
+      document.removeEventListener(
+        "webkitfullscreenchange",
+        handleFullscreenChange
+      );
+      document.removeEventListener(
+        "mozfullscreenchange",
+        handleFullscreenChange
+      );
+      document.removeEventListener(
+        "MSFullscreenChange",
+        handleFullscreenChange
+      );
     };
   }, []);
 
@@ -279,15 +322,15 @@ export const MarkerPlaylistPlayer: React.FC = () => {
 
     const handleMouseMove = () => {
       if (!isFullscreen) return;
-      
+
       // Show overlay
       setShowFullscreenOverlay(true);
-      
+
       // Clear existing timeout
       if (fullscreenOverlayTimeoutRef.current) {
         clearTimeout(fullscreenOverlayTimeoutRef.current);
       }
-      
+
       // Hide overlay and cursor after 2 seconds of inactivity
       fullscreenOverlayTimeoutRef.current = setTimeout(() => {
         setShowFullscreenOverlay(false);
@@ -305,7 +348,6 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   }, [isFullscreen]);
 
   // Load first marker when markers are ready
-  const initialLoadedRef = useRef(false);
   useEffect(() => {
     if (markers.length === 0) {
       initialLoadedRef.current = false;
@@ -459,9 +501,18 @@ export const MarkerPlaylistPlayer: React.FC = () => {
 
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
-      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
-      document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
-      document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
+      document.removeEventListener(
+        "webkitfullscreenchange",
+        handleFullscreenChange
+      );
+      document.removeEventListener(
+        "mozfullscreenchange",
+        handleFullscreenChange
+      );
+      document.removeEventListener(
+        "MSFullscreenChange",
+        handleFullscreenChange
+      );
     };
   }, []);
 
@@ -496,35 +547,43 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       setShowSaveModal(false);
       setPlaylistName("");
       refetchPlaylists();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       const errorMessage = err?.message || String(err);
       if (errorMessage.includes("UNIQUE constraint failed")) {
-        Toast.error(`A playlist named "${playlistName}" already exists. Please choose a different name.`);
+        Toast.error(
+          `A playlist named "${playlistName}" already exists. Please choose a different name.`
+        );
       } else {
         Toast.error(`Failed to save playlist: ${errorMessage}`);
       }
     }
   }, [playlistName, markers, createPlaylist, Toast, refetchPlaylists]);
 
-  const handleLoadPlaylist = useCallback((playlist: { id: string; marker_ids: string[] }) => {
-    const idsParam = playlist.marker_ids.join(",");
-    window.location.href = `/scenes/markers/player?ids=${idsParam}`;
-  }, []);
+  const handleLoadPlaylist = useCallback(
+    (playlist: { id: string; marker_ids: string[] }) => {
+      const idsParam = playlist.marker_ids.join(",");
+      window.location.href = `/scenes/markers/player?ids=${idsParam}`;
+    },
+    []
+  );
 
-  const handleDeletePlaylist = useCallback(async (id: string, name: string) => {
-    if (!window.confirm(`Delete playlist "${name}"?`)) {
-      return;
-    }
+  const handleDeletePlaylist = useCallback(
+    async (id: string, name: string) => {
+      if (!window.confirm(`Delete playlist "${name}"?`)) {
+        return;
+      }
 
-    try {
-      await destroyPlaylist({ variables: { id } });
-      Toast.success(`Playlist "${name}" deleted`);
-      refetchPlaylists();
-    } catch (err) {
-      Toast.error(`Failed to delete playlist: ${err}`);
-    }
-  }, [destroyPlaylist, Toast, refetchPlaylists]);
+      try {
+        await destroyPlaylist({ variables: { id } });
+        Toast.success(`Playlist "${name}" deleted`);
+        refetchPlaylists();
+      } catch (err) {
+        Toast.error(`Failed to delete playlist: ${err}`);
+      }
+    },
+    [destroyPlaylist, Toast, refetchPlaylists]
+  );
 
   if (loading) {
     return <LoadingIndicator />;
@@ -549,8 +608,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       </Helmet>
 
       <div className="player-header">
-        <div className="player-header-left">
-        </div>
+        <div className="player-header-left"></div>
         <div className="player-header-right">
           <Button
             variant="secondary"
@@ -573,7 +631,8 @@ export const MarkerPlaylistPlayer: React.FC = () => {
               <span className="ml-2 d-none d-md-inline">Load</span>
             </Dropdown.Toggle>
             <Dropdown.Menu align="right" className="marker-playlist-dropdown">
-              {(!playlistsData?.findMarkerPlaylists || playlistsData.findMarkerPlaylists.length === 0) ? (
+              {!playlistsData?.findMarkerPlaylists ||
+              playlistsData.findMarkerPlaylists.length === 0 ? (
                 <Dropdown.Item disabled>No saved playlists</Dropdown.Item>
               ) : (
                 playlistsData.findMarkerPlaylists.map((playlist) => (
@@ -597,7 +656,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                       role="button"
                       tabIndex={0}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
+                        if (e.key === "Enter" || e.key === " ") {
                           e.stopPropagation();
                           handleDeletePlaylist(playlist.id, playlist.name);
                         }
@@ -661,50 +720,83 @@ export const MarkerPlaylistPlayer: React.FC = () => {
 
       <div className="player-container">
         <div className={cx("video-section", { "full-width": !showPlaylist })}>
-          <div className="video-wrapper" ref={videoWrapperRef} onClick={handleVideoClick} style={{ cursor: isFullscreen && !showFullscreenOverlay ? 'none' : undefined }}>
+          <div
+            className="video-wrapper"
+            ref={videoWrapperRef}
+            onClick={handleVideoClick}
+            style={{
+              cursor:
+                isFullscreen && !showFullscreenOverlay ? "none" : undefined,
+            }}
+          >
             <video ref={videoRef} playsInline className="video-player" />
             {/* Fullscreen performer overlay - shows on mouse movement */}
-            {isFullscreen && showFullscreenOverlay && 
-             ((currentMarker?.topPerformerNames && currentMarker.topPerformerNames.length > 0) || 
-              (currentMarker?.bottomPerformerNames && currentMarker.bottomPerformerNames.length > 0)) && (
-              <div className="fullscreen-performer-overlay">
-                {/* Only show arrows if marker has performers in BOTH roles (top and bottom) */}
-                {(() => {
-                  const showRoleArrows = (currentMarker?.topPerformerNames?.length ?? 0) > 0 && (currentMarker?.bottomPerformerNames?.length ?? 0) > 0;
-                  return (
-                    <>
-                      {currentMarker?.topPerformerNames &&
-                        currentMarker.topPerformerNames.length > 0 && (
-                          <div className="performer-info top">
-                            {showRoleArrows && <Icon icon={faArrowUp} className="performer-icon" />}
-                            <span>{currentMarker.topPerformerNames.join(", ")}</span>
-                          </div>
-                        )}
-                      {currentMarker?.bottomPerformerNames &&
-                        currentMarker.bottomPerformerNames.length > 0 && (
-                          <div className="performer-info bottom">
-                            {showRoleArrows && <Icon icon={faArrowDown} className="performer-icon" />}
-                            <span>{currentMarker.bottomPerformerNames.join(", ")}</span>
-                          </div>
-                        )}
-                    </>
-                  );
-                })()}
-              </div>
-            )}
+            {isFullscreen &&
+              showFullscreenOverlay &&
+              ((currentMarker?.topPerformerNames &&
+                currentMarker.topPerformerNames.length > 0) ||
+                (currentMarker?.bottomPerformerNames &&
+                  currentMarker.bottomPerformerNames.length > 0)) && (
+                <div className="fullscreen-performer-overlay">
+                  {/* Only show arrows if marker has performers in BOTH roles (top and bottom) */}
+                  {(() => {
+                    const showRoleArrows =
+                      (currentMarker?.topPerformerNames?.length ?? 0) > 0 &&
+                      (currentMarker?.bottomPerformerNames?.length ?? 0) > 0;
+                    return (
+                      <>
+                        {currentMarker?.topPerformerNames &&
+                          currentMarker.topPerformerNames.length > 0 && (
+                            <div className="performer-info top">
+                              {showRoleArrows && (
+                                <Icon
+                                  icon={faArrowUp}
+                                  className="performer-icon"
+                                />
+                              )}
+                              <span>
+                                {currentMarker.topPerformerNames.join(", ")}
+                              </span>
+                            </div>
+                          )}
+                        {currentMarker?.bottomPerformerNames &&
+                          currentMarker.bottomPerformerNames.length > 0 && (
+                            <div className="performer-info bottom">
+                              {showRoleArrows && (
+                                <Icon
+                                  icon={faArrowDown}
+                                  className="performer-icon"
+                                />
+                              )}
+                              <span>
+                                {currentMarker.bottomPerformerNames.join(", ")}
+                              </span>
+                            </div>
+                          )}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
             {/* Fullscreen navigation buttons - prev/next marker */}
             {isFullscreen && showFullscreenOverlay && markers.length > 1 && (
               <>
                 <button
                   className="fullscreen-nav-btn prev"
-                  onClick={(e) => { e.stopPropagation(); handlePrevious(); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePrevious();
+                  }}
                   title="Previous marker"
                 >
                   <Icon icon={faChevronLeft} />
                 </button>
                 <button
                   className="fullscreen-nav-btn next"
-                  onClick={(e) => { e.stopPropagation(); handleNext(); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleNext();
+                  }}
                   title="Next marker"
                 >
                   <Icon icon={faChevronRight} />
@@ -712,30 +804,30 @@ export const MarkerPlaylistPlayer: React.FC = () => {
               </>
             )}
             {!isFullscreen && (
-            <div className="video-overlay-controls">
-              <Button
-                variant="primary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePlayPause();
-                }}
-                className="play-pause-btn"
-                title={isPlaying ? "Pause" : "Play"}
-              >
-                <Icon icon={isPlaying ? faPause : faPlay} />
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleFullscreen();
-                }}
-                title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-                className="fullscreen-btn"
-              >
-                <Icon icon={faExpand} />
-              </Button>
-            </div>
+              <div className="video-overlay-controls">
+                <Button
+                  variant="primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePlayPause();
+                  }}
+                  className="play-pause-btn"
+                  title={isPlaying ? "Pause" : "Play"}
+                >
+                  <Icon icon={isPlaying ? faPause : faPlay} />
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleFullscreen();
+                  }}
+                  title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                  className="fullscreen-btn"
+                >
+                  <Icon icon={faExpand} />
+                </Button>
+              </div>
             )}
           </div>
 
@@ -746,8 +838,8 @@ export const MarkerPlaylistPlayer: React.FC = () => {
               </span>
               <span className="marker-title">{currentMarker?.title}</span>
               {loopSingleMarkerId === currentMarker?.id && (
-                <Badge 
-                  variant="info" 
+                <Badge
+                  variant="info"
                   className="single-loop-badge"
                   onClick={() => setLoopSingleMarkerId(null)}
                   style={{ cursor: "pointer" }}
@@ -760,7 +852,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
             </div>
             <div className="now-playing-scene">
               <span className="scene-label">Scene:</span>
-              <a 
+              <a
                 href={`/scenes/${currentMarker?.sceneId}`}
                 className="scene-title-link"
                 target="_blank"
@@ -770,12 +862,16 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                 {currentMarker?.sceneTitle}
               </a>
             </div>
-            {(currentMarker?.topPerformerNames && currentMarker.topPerformerNames.length > 0) || 
-             (currentMarker?.bottomPerformerNames && currentMarker.bottomPerformerNames.length > 0) ? (
+            {(currentMarker?.topPerformerNames &&
+              currentMarker.topPerformerNames.length > 0) ||
+            (currentMarker?.bottomPerformerNames &&
+              currentMarker.bottomPerformerNames.length > 0) ? (
               <div className="now-playing-performers">
                 {/* Only show arrows if marker has performers in BOTH roles (top and bottom) */}
                 {(() => {
-                  const showRoleArrows = (currentMarker?.topPerformerNames?.length ?? 0) > 0 && (currentMarker?.bottomPerformerNames?.length ?? 0) > 0;
+                  const showRoleArrows =
+                    (currentMarker?.topPerformerNames?.length ?? 0) > 0 &&
+                    (currentMarker?.bottomPerformerNames?.length ?? 0) > 0;
                   return (
                     <>
                       {currentMarker?.topPerformerNames &&
@@ -845,7 +941,9 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                     <div className="scene-title">{marker.sceneTitle}</div>
                     {/* Only show arrows if marker has performers in BOTH roles (top and bottom) */}
                     {(() => {
-                      const showRoleArrows = (marker.topPerformerNames?.length ?? 0) > 0 && (marker.bottomPerformerNames?.length ?? 0) > 0;
+                      const showRoleArrows =
+                        (marker.topPerformerNames?.length ?? 0) > 0 &&
+                        (marker.bottomPerformerNames?.length ?? 0) > 0;
                       return (
                         <>
                           {marker.topPerformerNames &&
@@ -864,7 +962,10 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                             marker.bottomPerformerNames.length > 0 && (
                               <div className="marker-performers bottom">
                                 {showRoleArrows && (
-                                  <Icon icon={faArrowDown} className="performer-icon-bottom mr-1" />
+                                  <Icon
+                                    icon={faArrowDown}
+                                    className="performer-icon-bottom mr-1"
+                                  />
                                 )}
                                 {marker.bottomPerformerNames.join(", ")}
                               </div>
@@ -883,7 +984,11 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                   </div>
                   <div className="marker-action-btns">
                     <Button
-                      variant={loopSingleMarkerId === marker.id ? "primary" : "outline-secondary"}
+                      variant={
+                        loopSingleMarkerId === marker.id
+                          ? "primary"
+                          : "outline-secondary"
+                      }
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();

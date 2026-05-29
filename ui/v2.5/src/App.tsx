@@ -14,6 +14,7 @@ import { ToastProvider } from "src/hooks/Toast";
 import { LightboxProvider } from "src/hooks/Lightbox/context";
 import { MarkerQueueProvider } from "src/hooks/MarkerQueue"; // CUSTOM
 import { ImageQueueProvider } from "src/hooks/ImageQueue"; // CUSTOM
+import { SceneViewerQueueProvider } from "src/hooks/SceneViewerQueue"; // CUSTOM
 import { initPolyfills } from "src/polyfills";
 
 import locales, { registerCountry } from "src/locales";
@@ -77,6 +78,9 @@ const Galleries = lazyComponent(
 const Groups = lazyComponent(() => import("./components/Groups/Groups"));
 const Tags = lazyComponent(() => import("./components/Tags/Tags"));
 const Images = lazyComponent(() => import("./components/Images/Images"));
+const UnifiedViewer = lazyComponent(
+  () => import("./components/Viewers/UnifiedViewer")
+); // CUSTOM
 const Setup = lazyComponent(() => import("./components/Setup/Setup"));
 const Migrate = lazyComponent(() => import("./components/Setup/Migrate"));
 
@@ -256,6 +260,7 @@ export const App: React.FC = () => {
         <Suspense fallback={<LoadingIndicator />}>
           <Switch>
             <Route exact path="/" component={FrontPage} />
+            <Route exact path="/viewer" component={UnifiedViewer} />
             <Route path="/scenes" component={Scenes} />
             <Route path="/images" component={Images} />
             <Route path="/galleries" component={Galleries} />
@@ -265,7 +270,8 @@ export const App: React.FC = () => {
             <Route path="/groups" component={Groups} />
             <Route path="/stats" component={Stats} />
             <Route path="/customstats" component={CustomStats} /> {/* CUSTOM */}
-            <Route path="/task-progress" component={TaskProgress} /> {/* CUSTOM */}
+            <Route path="/task-progress" component={TaskProgress} />{" "}
+            {/* CUSTOM */}
             <Route path="/settings" component={Settings} />
             <Route
               path="/sceneFilenameParser"
@@ -359,35 +365,41 @@ export const App: React.FC = () => {
         formats={intlFormats}
       >
         <ToastProvider>
-          <MarkerQueueProvider>{/* CUSTOM: begin */}
-            <ImageQueueProvider>
-              <PluginsLoader
-                disableCustomizations={
-                  config.data?.configuration?.interface?.disableCustomizations ??
-                  false
-                }
-              >
-                <AppContainer>
-                  <ConfigurationProvider configuration={config.data!.configuration}>
-                    {maybeRenderReleaseNotes()}
-                    <ConnectionMonitor />
-                    <TroubleshootingModeOverlay />
-                    <Suspense fallback={<LoadingIndicator />}>
-                      <LightboxProvider>
-                        <ManualProvider>
-                          <InteractiveProvider>
-                            <Helmet {...titleProps} />
-                            {maybeRenderNavbar()}
-                            <MainContainer>{renderContent()}</MainContainer>
-                          </InteractiveProvider>
-                        </ManualProvider>
-                      </LightboxProvider>
-                    </Suspense>
-                  </ConfigurationProvider>
-                </AppContainer>
-              </PluginsLoader>
-            </ImageQueueProvider>
-          </MarkerQueueProvider>{/* CUSTOM: end */}
+          <MarkerQueueProvider>
+            {/* CUSTOM: begin */}
+            <SceneViewerQueueProvider>
+              <ImageQueueProvider>
+                <PluginsLoader
+                  disableCustomizations={
+                    config.data?.configuration?.interface
+                      ?.disableCustomizations ?? false
+                  }
+                >
+                  <AppContainer>
+                    <ConfigurationProvider
+                      configuration={config.data!.configuration}
+                    >
+                      {maybeRenderReleaseNotes()}
+                      <ConnectionMonitor />
+                      <TroubleshootingModeOverlay />
+                      <Suspense fallback={<LoadingIndicator />}>
+                        <LightboxProvider>
+                          <ManualProvider>
+                            <InteractiveProvider>
+                              <Helmet {...titleProps} />
+                              {maybeRenderNavbar()}
+                              <MainContainer>{renderContent()}</MainContainer>
+                            </InteractiveProvider>
+                          </ManualProvider>
+                        </LightboxProvider>
+                      </Suspense>
+                    </ConfigurationProvider>
+                  </AppContainer>
+                </PluginsLoader>
+              </ImageQueueProvider>
+            </SceneViewerQueueProvider>
+          </MarkerQueueProvider>
+          {/* CUSTOM: end */}
         </ToastProvider>
       </IntlProvider>
     </ErrorBoundary>

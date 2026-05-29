@@ -2,13 +2,10 @@ import React, {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
 import * as GQL from "src/core/generated-graphql";
-
-const STORAGE_KEY = "markerPlaybackQueue";
 
 interface IMarkerQueueContext {
   /** The list of markers in the queue */
@@ -29,28 +26,6 @@ const MarkerQueueContext = createContext<IMarkerQueueContext | null>(null);
 
 export const MarkerQueueProvider: React.FC = ({ children }) => {
   const [queue, setQueue] = useState<GQL.SceneMarkerDataFragment[]>([]);
-
-  // Load queue from localStorage on mount
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as GQL.SceneMarkerDataFragment[];
-        setQueue(parsed);
-      }
-    } catch (e) {
-      console.error("Failed to load marker queue from storage:", e);
-    }
-  }, []);
-
-  // Persist queue to localStorage whenever it changes
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
-    } catch (e) {
-      console.error("Failed to save marker queue to storage:", e);
-    }
-  }, [queue]);
 
   const addToQueue = useCallback((markers: GQL.SceneMarkerDataFragment[]) => {
     setQueue((prev) => {

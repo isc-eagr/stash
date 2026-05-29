@@ -45,6 +45,38 @@
     font-size: 0.9rem;
     margin-left: auto;
   }
+
+  .viewer-add-controls {
+    align-items: center;
+    display: flex;
+    flex: 1;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .viewer-add-select {
+    align-items: center;
+    color: #cfcfcf;
+    display: flex;
+    gap: 0.35rem;
+    min-width: 0;
+
+    .viewer-select__control {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.18);
+      min-height: 32px;
+    }
+
+    .viewer-select__single-value,
+    .viewer-select__input-container,
+    .viewer-select__placeholder {
+      color: #e7e7e7;
+    }
+
+    .viewer-select__value-container {
+      padding: 0 0.45rem;
+    }
+  }
 }
 
 .mv-fab {
@@ -180,14 +212,14 @@
     }
 
     .mv-performer-overlay {
-      position: absolute;
-      bottom: 40px; // above native video controls
-      left: 50%;
-      transform: translateX(-50%);
       display: flex;
       flex-direction: column;
       gap: 4px;
+      left: 50%;
       pointer-events: auto;
+      position: absolute;
+      top: 36px;
+      transform: translateX(-50%);
       z-index: 2;
 
       .mv-performer-info {
@@ -263,4 +295,3 @@
     border-radius: 0 0 4px 0;
   }
 }
-

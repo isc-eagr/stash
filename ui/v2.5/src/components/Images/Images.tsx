@@ -7,7 +7,7 @@ import { FilteredImageList } from "./ImageList";
 import { View } from "../List/views";
 import { lazyComponent } from "src/utils/lazyComponent"; // CUSTOM
 
-const ImageViewer = lazyComponent(() => import("./ImageViewer")); // CUSTOM
+const UnifiedViewer = lazyComponent(() => import("../Viewers/UnifiedViewer")); // CUSTOM
 
 const Images: React.FC = () => {
   return <FilteredImageList view={View.Images} />;
@@ -20,7 +20,8 @@ const ImageRoutes: React.FC = () => {
       <Helmet {...titleProps} />
       <Switch>
         <Route exact path="/images" component={Images} />
-        <Route exact path="/images/viewer" component={ImageViewer} /> {/* CUSTOM */}
+        <Route exact path="/images/viewer" component={UnifiedViewer} />{" "}
+        {/* CUSTOM */}
         <Route path="/images/:id" component={Image} />
       </Switch>
     </>

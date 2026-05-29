@@ -1,4 +1,11 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import React, {
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
+import { gql, useQuery } from "@apollo/client";
 import { useLocation } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { Button } from "react-bootstrap";
@@ -15,18 +22,35 @@ import * as GQL from "src/core/generated-graphql";
 import cx from "classnames";
 import "./ImageViewer.scss";
 
-interface IOverlayState {
+const FIND_IMAGES_FOR_VIEWER = gql`
+  query FindImagesForViewer($ids: [ID!]) {
+    findImages(ids: $ids) {
+      images {
+        ...SlimImageData
+      }
+    }
+  }
+  ${GQL.SlimImageDataFragmentDoc}
+`;
+
+interface IFindImagesForViewerResult {
+  findImages: {
+    images: GQL.SlimImageDataFragment[];
+  };
+}
+
+export interface IOverlayState {
   id: string;
   url: string;
   x: number;
   y: number;
   width: number;
   visible: boolean;
-  rotation: number;     // 0 | 90 | 180 | 270
-  cropTop: number;      // 0–50 percent
-  cropRight: number;    // 0–50 percent
-  cropBottom: number;   // 0–50 percent
-  cropLeft: number;     // 0–50 percent
+  rotation: number; // 0 | 90 | 180 | 270
+  cropTop: number; // 0–50 percent
+  cropRight: number; // 0–50 percent
+  cropBottom: number; // 0–50 percent
+  cropLeft: number; // 0–50 percent
   zIndex: number;
 }
 
@@ -37,14 +61,21 @@ const BASE_Z = 100000;
 // Converts visual (screen-space) crop percentages to local (pre-rotation) CSS inset values.
 // clip-path is applied before transform, so we must remap based on rotation.
 function visualToLocalClipPath(
-  vTop: number, vRight: number, vBottom: number, vLeft: number,
+  vTop: number,
+  vRight: number,
+  vBottom: number,
+  vLeft: number,
   rotation: number
 ): string {
   switch (rotation) {
-    case 90:  return `inset(${vRight}% ${vBottom}% ${vLeft}% ${vTop}%)`;
-    case 180: return `inset(${vBottom}% ${vLeft}% ${vTop}% ${vRight}%)`;
-    case 270: return `inset(${vLeft}% ${vTop}% ${vRight}% ${vBottom}%)`;
-    default:  return `inset(${vTop}% ${vRight}% ${vBottom}% ${vLeft}%)`;
+    case 90:
+      return `inset(${vRight}% ${vBottom}% ${vLeft}% ${vTop}%)`;
+    case 180:
+      return `inset(${vBottom}% ${vLeft}% ${vTop}% ${vRight}%)`;
+    case 270:
+      return `inset(${vLeft}% ${vTop}% ${vRight}% ${vBottom}%)`;
+    default:
+      return `inset(${vTop}% ${vRight}% ${vBottom}% ${vLeft}%)`;
   }
 }
 
@@ -57,7 +88,11 @@ function getRotatorStyle(
   containerH: number
 ): React.CSSProperties {
   if (rotation === 0 || rotation === 180) {
-    return { width: "100%", height: "100%", transform: `rotate(${rotation}deg)` };
+    return {
+      width: "100%",
+      height: "100%",
+      transform: `rotate(${rotation}deg)`,
+    };
   }
   // 90 or 270: pre-rotation width = containerH, height = containerW
   return {
@@ -77,12 +112,17 @@ interface IDraggableImageProps {
   onSizeChange: (width: number) => void;
   onClose: () => void;
   onRotate: () => void;
-  onCropChange: (top: number, right: number, bottom: number, left: number) => void;
+  onCropChange: (
+    top: number,
+    right: number,
+    bottom: number,
+    left: number
+  ) => void;
   onBringToFront: () => void;
   onSendToBack: () => void;
 }
 
-const DraggableImage: React.FC<IDraggableImageProps> = ({
+export const DraggableImage: React.FC<IDraggableImageProps> = ({
   overlay,
   onPositionChange,
   onSizeChange,
@@ -98,12 +138,23 @@ const DraggableImage: React.FC<IDraggableImageProps> = ({
   const [isResizingTL, setIsResizingTL] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [resizeStart, setResizeStart] = useState({ x: 0, w: 0 });
-  const [resizeTLStart, setResizeTLStart] = useState({ x: 0, w: 0, xPos: 0, yPos: 0 }); // CUSTOM
+  const [resizeTLStart, setResizeTLStart] = useState({
+    x: 0,
+    w: 0,
+    xPos: 0,
+    yPos: 0,
+  }); // CUSTOM
   const [aspectRatio, setAspectRatio] = useState<number>(1);
 
   // crop drag state
-  const [cropEdge, setCropEdge] = useState<"top"|"right"|"bottom"|"left"|null>(null);
-  const [cropDragStart, setCropDragStart] = useState({ pos: 0, value: 0, size: 0 });
+  const [cropEdge, setCropEdge] = useState<
+    "top" | "right" | "bottom" | "left" | null
+  >(null);
+  const [cropDragStart, setCropDragStart] = useState({
+    pos: 0,
+    value: 0,
+    size: 0,
+  });
 
   // When rotated 90/270 the visual w/h swap
   const isSwapped = overlay.rotation === 90 || overlay.rotation === 270;
@@ -145,7 +196,12 @@ const DraggableImage: React.FC<IDraggableImageProps> = ({
     e.preventDefault();
     e.stopPropagation();
     setIsResizingTL(true);
-    setResizeTLStart({ x: e.clientX, w: overlay.width, xPos: overlay.x, yPos: overlay.y }); // CUSTOM
+    setResizeTLStart({
+      x: e.clientX,
+      w: overlay.width,
+      xPos: overlay.x,
+      yPos: overlay.y,
+    }); // CUSTOM
   };
 
   const handleCropMouseDown = (
@@ -155,12 +211,18 @@ const DraggableImage: React.FC<IDraggableImageProps> = ({
     e.preventDefault();
     e.stopPropagation();
     const rect = containerRef.current?.getBoundingClientRect();
-    const size = edge === "top" || edge === "bottom" ? (rect?.height ?? 1) : (rect?.width ?? 1);
+    const size =
+      edge === "top" || edge === "bottom"
+        ? rect?.height ?? 1
+        : rect?.width ?? 1;
     const currentValue =
-      edge === "top" ? overlay.cropTop
-      : edge === "right" ? overlay.cropRight
-      : edge === "bottom" ? overlay.cropBottom
-      : overlay.cropLeft;
+      edge === "top"
+        ? overlay.cropTop
+        : edge === "right"
+        ? overlay.cropRight
+        : edge === "bottom"
+        ? overlay.cropBottom
+        : overlay.cropLeft;
     const pos = edge === "top" || edge === "bottom" ? e.clientY : e.clientX;
     setCropEdge(edge);
     setCropDragStart({ pos, value: currentValue, size });
@@ -172,7 +234,10 @@ const DraggableImage: React.FC<IDraggableImageProps> = ({
         onPositionChange(e.clientX - dragOffset.x, e.clientY - dragOffset.y);
       }
       if (isResizing) {
-        const newWidth = Math.max(MIN_SIZE, resizeStart.w + (e.clientX - resizeStart.x));
+        const newWidth = Math.max(
+          MIN_SIZE,
+          resizeStart.w + (e.clientX - resizeStart.x)
+        );
         onSizeChange(newWidth);
       }
       if (isResizingTL) {
@@ -190,13 +255,17 @@ const DraggableImage: React.FC<IDraggableImageProps> = ({
       }
       if (cropEdge) {
         const delta = (edge: typeof cropEdge) => {
-          if (edge === "top" || edge === "bottom") return e.clientY - cropDragStart.pos;
+          if (edge === "top" || edge === "bottom")
+            return e.clientY - cropDragStart.pos;
           return e.clientX - cropDragStart.pos;
         };
         const d = delta(cropEdge);
         const pct = (d / cropDragStart.size) * 100;
         const flipSign = cropEdge === "right" || cropEdge === "bottom" ? -1 : 1;
-        const newVal = Math.max(0, Math.min(99, cropDragStart.value + flipSign * pct));
+        const newVal = Math.max(
+          0,
+          Math.min(99, cropDragStart.value + flipSign * pct)
+        );
         const t = cropEdge === "top" ? newVal : overlay.cropTop;
         const r = cropEdge === "right" ? newVal : overlay.cropRight;
         const b = cropEdge === "bottom" ? newVal : overlay.cropBottom;
@@ -220,12 +289,30 @@ const DraggableImage: React.FC<IDraggableImageProps> = ({
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDragging, isResizing, isResizingTL, cropEdge, dragOffset, resizeStart, resizeTLStart, cropDragStart, overlay, onPositionChange, onSizeChange, onCropChange]);
+  }, [
+    isDragging,
+    isResizing,
+    isResizingTL,
+    cropEdge,
+    dragOffset,
+    resizeStart,
+    resizeTLStart,
+    cropDragStart,
+    overlay,
+    aspectRatio,
+    isSwapped,
+    onPositionChange,
+    onSizeChange,
+    onCropChange,
+  ]);
 
   if (!overlay.visible) return null;
 
   const clipPath = visualToLocalClipPath(
-    overlay.cropTop, overlay.cropRight, overlay.cropBottom, overlay.cropLeft,
+    overlay.cropTop,
+    overlay.cropRight,
+    overlay.cropBottom,
+    overlay.cropLeft,
     overlay.rotation
   );
 
@@ -246,11 +333,20 @@ const DraggableImage: React.FC<IDraggableImageProps> = ({
       onMouseDown={handleMouseDown}
     >
       {/* controls bar – appears on hover, tracks visible image top-left corner */}
-      <div className="iv-controls-bar" style={{ top: `calc(${overlay.cropTop}% - 32px)`, left: `${overlay.cropLeft}%` }}>
+      <div
+        className="iv-controls-bar"
+        style={{
+          top: `calc(${overlay.cropTop}% - 32px)`,
+          left: `${overlay.cropLeft}%`,
+        }}
+      >
         <button
           type="button"
           className="iv-ctrl-btn"
-          onClick={(e) => { e.stopPropagation(); onRotate(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRotate();
+          }}
           title="Rotate 90°"
         >
           <Icon icon={faRedo} />
@@ -258,7 +354,10 @@ const DraggableImage: React.FC<IDraggableImageProps> = ({
         <button
           type="button"
           className="iv-ctrl-btn"
-          onClick={(e) => { e.stopPropagation(); onBringToFront(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onBringToFront();
+          }}
           title="Bring to front"
         >
           <Icon icon={faArrowUp} />
@@ -266,7 +365,10 @@ const DraggableImage: React.FC<IDraggableImageProps> = ({
         <button
           type="button"
           className="iv-ctrl-btn"
-          onClick={(e) => { e.stopPropagation(); onSendToBack(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSendToBack();
+          }}
           title="Send to back"
         >
           <Icon icon={faArrowDown} />
@@ -274,7 +376,10 @@ const DraggableImage: React.FC<IDraggableImageProps> = ({
         <button
           type="button"
           className="iv-ctrl-btn iv-ctrl-close"
-          onClick={(e) => { e.stopPropagation(); onClose(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
           title="Remove"
         >
           <Icon icon={faTimes} />
@@ -282,37 +387,52 @@ const DraggableImage: React.FC<IDraggableImageProps> = ({
       </div>
 
       {/* image: rotated via wrapper so container always matches visual bounds */}
-      <div style={getRotatorStyle(overlay.rotation, overlay.width, displayHeight)}>
+      <div
+        style={getRotatorStyle(overlay.rotation, overlay.width, displayHeight)}
+      >
         <img
           src={overlay.url}
           alt="Viewer overlay"
           draggable={false}
           onLoad={handleImageLoad}
-          style={{ width: "100%", height: "100%", objectFit: "contain", clipPath }}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            clipPath,
+          }}
         />
       </div>
 
       {/* crop handles */}
       <div
-        className={cx("iv-crop-handle iv-crop-top", { "iv-crop-active": overlay.cropTop > 0 })}
+        className={cx("iv-crop-handle iv-crop-top", {
+          "iv-crop-active": overlay.cropTop > 0,
+        })}
         style={{ top: `${overlay.cropTop}%` }}
         onMouseDown={(e) => handleCropMouseDown(e, "top")}
         title="Crop top"
       />
       <div
-        className={cx("iv-crop-handle iv-crop-right", { "iv-crop-active": overlay.cropRight > 0 })}
+        className={cx("iv-crop-handle iv-crop-right", {
+          "iv-crop-active": overlay.cropRight > 0,
+        })}
         style={{ right: `${overlay.cropRight}%` }}
         onMouseDown={(e) => handleCropMouseDown(e, "right")}
         title="Crop right"
       />
       <div
-        className={cx("iv-crop-handle iv-crop-bottom", { "iv-crop-active": overlay.cropBottom > 0 })}
+        className={cx("iv-crop-handle iv-crop-bottom", {
+          "iv-crop-active": overlay.cropBottom > 0,
+        })}
         style={{ bottom: `${overlay.cropBottom}%` }}
         onMouseDown={(e) => handleCropMouseDown(e, "bottom")}
         title="Crop bottom"
       />
       <div
-        className={cx("iv-crop-handle iv-crop-left", { "iv-crop-active": overlay.cropLeft > 0 })}
+        className={cx("iv-crop-handle iv-crop-left", {
+          "iv-crop-active": overlay.cropLeft > 0,
+        })}
         style={{ left: `${overlay.cropLeft}%` }}
         onMouseDown={(e) => handleCropMouseDown(e, "left")}
         title="Crop left"
@@ -326,7 +446,10 @@ const DraggableImage: React.FC<IDraggableImageProps> = ({
       />
       <div
         className="iv-resize-handle"
-        style={{ bottom: `${overlay.cropBottom}%`, right: `${overlay.cropRight}%` }}
+        style={{
+          bottom: `${overlay.cropBottom}%`,
+          right: `${overlay.cropRight}%`,
+        }}
         onMouseDown={handleResizeMouseDown}
         title="Drag to resize"
       />
@@ -338,7 +461,6 @@ export const ImageViewer: React.FC = () => {
   const location = useLocation();
   const containerRef = useRef<HTMLDivElement>(null);
   const [images, setImages] = useState<IOverlayState[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [nextZ, setNextZ] = useState(BASE_Z + 1);
 
@@ -346,64 +468,73 @@ export const ImageViewer: React.FC = () => {
   const imageIds = useMemo(() => {
     const params = new URLSearchParams(location.search);
     const ids = params.get("ids");
-    return ids ? ids.split(",") : [];
+    return ids ? ids.split(",").filter(Boolean) : [];
   }, [location.search]);
 
-  // Get image data from sessionStorage
+  const { data, loading } = useQuery<IFindImagesForViewerResult>(
+    FIND_IMAGES_FOR_VIEWER,
+    {
+      skip: imageIds.length === 0,
+      variables: { ids: imageIds },
+    }
+  );
+
   useEffect(() => {
     if (imageIds.length === 0) {
-      setLoading(false);
+      setImages([]);
       return;
     }
 
-    const storedData = sessionStorage.getItem("imageViewerQueue");
-    if (storedData) {
-      try {
-        const parsedImages = JSON.parse(storedData) as GQL.SlimImageDataFragment[];
-        
-        // Position images in a grid pattern
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
-        const imagesPerRow = Math.ceil(Math.sqrt(parsedImages.length));
-        const spacing = 20;
+    const fetchedImages = data?.findImages.images;
+    if (!fetchedImages) return;
 
-        const sortedImages = imageIds
-          .map((id) => parsedImages.find((img) => img.id === id))
-          .filter((img): img is GQL.SlimImageDataFragment => img !== undefined)
-          .map((img, index) => {
-            const row = Math.floor(index / imagesPerRow);
-            const col = index % imagesPerRow;
-            const x = spacing + col * (DEFAULT_SIZE + spacing);
-            const y = 60 + row * (DEFAULT_SIZE + spacing); // 60px for header
+    // Position images in a grid pattern
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const imagesPerRow = Math.ceil(Math.sqrt(fetchedImages.length));
+    const spacing = 20;
 
-            // Center if there's only one image
-            const singleX = (viewportWidth - DEFAULT_SIZE) / 2;
-            const singleY = (viewportHeight - DEFAULT_SIZE) / 2;
+    const sortedImages = imageIds
+      .map((id) => fetchedImages.find((img) => img.id === id))
+      .filter((img): img is GQL.SlimImageDataFragment => img !== undefined)
+      .map((img, index) => {
+        const row = Math.floor(index / imagesPerRow);
+        const col = index % imagesPerRow;
+        const x = spacing + col * (DEFAULT_SIZE + spacing);
+        const y = 60 + row * (DEFAULT_SIZE + spacing); // 60px for header
 
-            return {
-              id: img.id,
-              url: img.paths?.image || "",
-              x: parsedImages.length === 1 ? singleX : x,
-              y: parsedImages.length === 1 ? singleY : y,
-              width: DEFAULT_SIZE,
-              visible: true,
-              rotation: 0,
-              cropTop: 0,
-              cropRight: 0,
-              cropBottom: 0,
-              cropLeft: 0,
-              zIndex: BASE_Z + index,
-            };
-          });
+        // Center if there's only one image
+        const singleX = (viewportWidth - DEFAULT_SIZE) / 2;
+        const singleY = (viewportHeight - DEFAULT_SIZE) / 2;
 
-        setImages(sortedImages);
-        setNextZ(BASE_Z + sortedImages.length);
-      } catch (e) {
-        console.error("Failed to parse image viewer data:", e);
-      }
+        return {
+          id: img.id,
+          url: img.paths?.image || "",
+          x: fetchedImages.length === 1 ? singleX : x,
+          y: fetchedImages.length === 1 ? singleY : y,
+          width: DEFAULT_SIZE,
+          visible: true,
+          rotation: 0,
+          cropTop: 0,
+          cropRight: 0,
+          cropBottom: 0,
+          cropLeft: 0,
+          zIndex: BASE_Z + index,
+        };
+      });
+
+    setImages(sortedImages);
+    setNextZ(BASE_Z + sortedImages.length);
+  }, [data?.findImages.images, imageIds]);
+
+  useEffect(() => {
+    if (loading) {
+      return;
     }
-    setLoading(false);
-  }, [imageIds]);
+    if (imageIds.length > 0 && !data?.findImages.images) {
+      setImages([]);
+    }
+  }, [data?.findImages.images, imageIds.length, loading]);
 
   const updatePosition = useCallback((id: string, x: number, y: number) => {
     setImages((prev) =>
@@ -418,7 +549,9 @@ export const ImageViewer: React.FC = () => {
   }, []);
 
   const removeImage = useCallback((id: string) => {
-    setImages((prev) => prev.map((img) => (img.id === id ? { ...img, visible: false } : img)));
+    setImages((prev) =>
+      prev.map((img) => (img.id === id ? { ...img, visible: false } : img))
+    );
   }, []);
 
   const rotateImage = useCallback((id: string) => {
@@ -443,7 +576,13 @@ export const ImageViewer: React.FC = () => {
       setImages((prev) =>
         prev.map((img) =>
           img.id === id
-            ? { ...img, cropTop: top, cropRight: right, cropBottom: bottom, cropLeft: left }
+            ? {
+                ...img,
+                cropTop: top,
+                cropRight: right,
+                cropBottom: bottom,
+                cropLeft: left,
+              }
             : img
         )
       );
@@ -500,7 +639,7 @@ export const ImageViewer: React.FC = () => {
     return (
       <div className="image-viewer-container empty">
         <div className="image-viewer-empty">
-          <p>No images in queue. Select images from the Images page and add them to the queue.</p>
+          <p>No images found for this viewer URL.</p>
         </div>
       </div>
     );

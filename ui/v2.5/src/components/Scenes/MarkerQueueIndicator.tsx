@@ -1,7 +1,13 @@
 import React from "react";
 import { Badge, Button, ButtonGroup } from "react-bootstrap";
 import { useIntl } from "react-intl";
-import { faList, faPlay, faPlus, faTimes, faThLarge } from "@fortawesome/free-solid-svg-icons";
+import {
+  faList,
+  faPlay,
+  faPlus,
+  faTimes,
+  faThLarge,
+} from "@fortawesome/free-solid-svg-icons";
 import { Icon } from "src/components/Shared/Icon";
 import { useMarkerQueue } from "src/hooks/MarkerQueue";
 
@@ -24,10 +30,6 @@ export const MarkerQueueIndicator: React.FC<IMarkerQueueIndicatorProps> = ({
   const handlePlayQueue = () => {
     if (count === 0) return;
 
-    // Store the queue markers in sessionStorage for the player
-    sessionStorage.setItem("markerPlaylist", JSON.stringify(queue));
-
-    // Build the IDs param
     const idsParam = queue.map((m) => m.id).join(",");
     window.open(`/scenes/markers/player?ids=${idsParam}`, "_blank");
   };
@@ -36,12 +38,8 @@ export const MarkerQueueIndicator: React.FC<IMarkerQueueIndicatorProps> = ({
   const handleOpenViewer = () => {
     if (count === 0) return;
 
-    // Store the queue markers in sessionStorage for the viewer
-    sessionStorage.setItem("markerViewerQueue", JSON.stringify(queue));
-
-    // Build the IDs param
     const idsParam = queue.map((m) => m.id).join(",");
-    window.open(`/scenes/markers/viewer?ids=${idsParam}`, "_blank");
+    window.open(`/viewer?markers=${idsParam}`, "_blank");
   };
   // CUSTOM: end
 

@@ -15,8 +15,8 @@ interface IPerformerPartnersFilterProps {
   setCriterion: (criterion: Criterion) => void;
 }
 
-type MetricKey = keyof IPerformerPartnersValue;
 type OperatorKey = "topped_operator" | "bottomed_operator" | "unique_operator";
+type MetricKey = Exclude<keyof IPerformerPartnersValue, OperatorKey>;
 
 const MODIFIERS = [
   { value: CriterionModifier.Equals, label: "=" },
@@ -24,7 +24,11 @@ const MODIFIERS = [
   { value: CriterionModifier.LessThan, label: "<" },
 ];
 
-const ROWS: Array<{ labelKey: string; keys: MetricKey[]; operatorKey: OperatorKey }> = [
+const ROWS: Array<{
+  labelKey: string;
+  keys: MetricKey[];
+  operatorKey: OperatorKey;
+}> = [
   {
     labelKey: "partners.topped",
     keys: ["sex_topped", "oral_topped", "facial_topped"],
@@ -89,7 +93,12 @@ export const PerformerPartnersFilter: React.FC<
       const num = Number.isNaN(raw) ? undefined : raw;
       if (e.target.value === "") {
         // Clearing value: keep the modifier so the user can re-enter a value later
-        updateMetric(key, metric !== undefined ? { modifier: metric.modifier, value: undefined } : undefined);
+        updateMetric(
+          key,
+          metric !== undefined
+            ? { modifier: metric.modifier, value: undefined }
+            : undefined
+        );
       } else {
         updateMetric(key, { modifier, value: num });
       }
@@ -98,7 +107,11 @@ export const PerformerPartnersFilter: React.FC<
     return (
       <td
         key={key}
-        style={{ paddingLeft: "0.25rem", paddingRight: "0.25rem", paddingBottom: "0.5rem" }}
+        style={{
+          paddingLeft: "0.25rem",
+          paddingRight: "0.25rem",
+          paddingBottom: "0.5rem",
+        }}
       >
         <div style={{ display: "flex", gap: "0.2rem", alignItems: "center" }}>
           <Form.Control
