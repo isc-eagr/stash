@@ -57,6 +57,9 @@ type Generator struct {
 	MarkerPaths  MarkerPaths
 	ScenePaths   ScenePaths
 	Overwrite    bool
+	// HighQualityMarkers controls whether marker video/webp previews are generated
+	// at source resolution (true) or downscaled to 640px (false). // CUSTOM
+	HighQualityMarkers bool // CUSTOM
 }
 
 type generateFn func(lockCtx *fsutil.LockContext, tmpFn string) error

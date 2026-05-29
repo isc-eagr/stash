@@ -432,6 +432,8 @@
       "maximum_streaming_transcode_size_head": "Maximum streaming transcode size",
       "maximum_transcode_size_desc": "Maximum size for generated transcodes.",
       "maximum_transcode_size_head": "Maximum transcode size",
+      "marker_preview_source_quality_desc": "Generate marker video and image previews at the source video resolution. Existing markers generated at the other quality mode will be regenerated automatically.",
+      "marker_preview_source_quality_head": "Generate markers at source quality",
       "metadata_path": {
         "description": "Directory location used when performing a full export or import.",
         "heading": "Metadata path"

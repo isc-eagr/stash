@@ -42,6 +42,7 @@ This document describes all custom features and modifications added on top of th
 32. [2nd Camera Tag Exclusion](#32-2nd-camera-tag-exclusion)
 33. [Marker Duration Display](#33-marker-duration-display)
 34. [Task Progress Completion Estimate](#34-task-progress-completion-estimate)
+35. [Marker Source-Quality Generation](#35-marker-source-quality-generation)
 
 ---
 
@@ -2065,3 +2066,59 @@ Adds a small calculator widget to each task progress tracker card (and the Overa
 
 *Last Updated: March 2026*
 *Base Version: Stash v0.30.0*
+
+---
+
+## 35. Marker Source-Quality Generation
+
+### Overview
+Adds a new system setting to control marker preview quality:
+- `false` (default): marker video/webp previews are generated at low quality (640px width)
+- `true`: marker video/webp previews are generated at original source quality (no width downscale)
+
+When the setting is switched, generation detects markers that were created under the previous mode and regenerates only those mismatched marker files.
+
+### Configuration
+**GraphQL Schema Files:**
+- `graphql/schema/types/config_custom.graphql` - extends `ConfigGeneralInput` and `ConfigGeneralResult` with `markerPreviewSourceQuality`
+
+**Backend Config Files:**
+- `internal/manager/config/config_custom.go` - custom key + getter
+- `internal/manager/config/config.go` - default value registration
+
+### Backend Implementation
+**Files Modified:**
+- `pkg/scene/generate/generator.go`
+  - Added `HighQualityMarkers` option to generation pipeline
+- `pkg/scene/generate/marker_preview.go`
+  - Applies width scaling only for low-quality mode
+- `internal/manager/task_generate.go`
+  - Passes marker quality mode from config into generate tasks
+- `internal/manager/task_generate_markers.go`
+  - Integrates quality-mismatch checks into marker task requirements and generation flow
+
+**File Created:**
+- `internal/manager/task_generate_markers_custom.go`
+  - Detects quality mismatch by probing existing marker dimensions (webp/mp4)
+  - Deletes mismatched marker artifacts before generation so only required files regenerate
+
+### API/Resolver Integration
+**Files Modified:**
+- `internal/api/resolver_mutation_configure.go`
+  - Persists `markerPreviewSourceQuality` changes
+- `internal/api/resolver_query_configuration.go`
+  - Exposes `markerPreviewSourceQuality` in config query responses
+
+### Frontend Integration
+**Files Modified:**
+- `ui/v2.5/src/components/Settings/SettingsSystemPanel.tsx`
+  - Added toggle in Preview Generation section
+- `ui/v2.5/graphql/data/config.graphql`
+  - Added field to config fragment
+- `ui/v2.5/src/locales/en-GB.json`
+  - Added UI strings for the new setting
+
+### Behavior Notes
+- Markers already generated in the currently selected mode are left untouched.
+- Markers generated in the opposite mode are selectively regenerated.
+- Screenshot markers are unaffected by this setting.

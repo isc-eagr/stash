@@ -1,0 +1,14 @@
+# CUSTOM: Marker preview quality setting.
+# Extends ConfigGeneralInput and ConfigGeneralResult to expose
+# the markerPreviewSourceQuality config option.
+# See CUSTOM_FEATURES.md for documentation.
+
+extend input ConfigGeneralInput {
+  "Generate marker video/webp previews at source video resolution instead of downscaled 640px"
+  markerPreviewSourceQuality: Boolean
+}
+
+extend type ConfigGeneralResult {
+  "Generate marker video/webp previews at source video resolution instead of downscaled 640px"
+  markerPreviewSourceQuality: Boolean!
+}

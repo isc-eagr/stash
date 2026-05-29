@@ -21,6 +21,7 @@ type GenerateMarkersTask struct {
 	VideoPreview bool
 	ImagePreview bool
 	Screenshot   bool
+	HighQualityMarkers bool // CUSTOM: generate marker previews at source resolution
 
 	generator *generate.Generator
 }
@@ -116,6 +117,12 @@ func (t *GenerateMarkersTask) generateMarker(videoFile *models.VideoFile, scene 
 
 	g := t.generator
 
+	// CUSTOM: begin - delete quality-mismatched files so generator regenerates them
+	if !g.Overwrite {
+		t.deleteQualityMismatchedFiles(sceneHash, int(seconds), videoFile.Width)
+	}
+	// CUSTOM: end
+
 	if t.VideoPreview {
 		if err := g.MarkerPreviewVideo(context.TODO(), videoFile.Path, sceneHash, seconds, sceneMarker.EndSeconds, instance.Config.GetPreviewAudio()); err != nil {
 			logger.Errorf("[generator] failed to generate marker video: %v", err)
@@ -151,11 +158,21 @@ func (t *GenerateMarkersTask) markersNeeded(ctx context.Context) int {
 	}
 
 	sceneHash := t.Scene.GetHash(t.fileNamingAlgorithm)
+	// CUSTOM: begin - get source width for quality mismatch detection
+	sourceWidth := 0
+	if vf := t.Scene.Files.Primary(); vf != nil {
+		sourceWidth = vf.Width
+	}
+	// CUSTOM: end
 	for _, sceneMarker := range sceneMarkers {
 		seconds := int(sceneMarker.Seconds)
 
 		if t.Overwrite || !t.markerExists(sceneHash, seconds) {
 			markers++
+		// CUSTOM: begin - also count markers that need quality regeneration
+		} else if t.markerQualityMismatch(sceneHash, seconds, sourceWidth) {
+			markers++
+		// CUSTOM: end
 		}
 	}
 
