@@ -124,12 +124,12 @@ func (j *GenerateJob) Execute(ctx context.Context, progress *job.Progress) error
 		}
 
 		g := &generate.Generator{
-			Encoder:      instance.FFMpeg,
-			FFMpegConfig: instance.Config,
-			LockManager:  instance.ReadLockManager,
-			MarkerPaths:  instance.Paths.SceneMarkers,
-			ScenePaths:   instance.Paths.Scene,
-			Overwrite:    j.overwrite,
+			Encoder:            instance.FFMpeg,
+			FFMpegConfig:       instance.Config,
+			LockManager:        instance.ReadLockManager,
+			MarkerPaths:        instance.Paths.SceneMarkers,
+			ScenePaths:         instance.Paths.Scene,
+			Overwrite:          j.overwrite,
 			HighQualityMarkers: instance.Config.GetMarkerPreviewSourceQuality(), // CUSTOM
 		}
 

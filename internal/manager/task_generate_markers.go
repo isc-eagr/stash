@@ -18,9 +18,9 @@ type GenerateMarkersTask struct {
 	Overwrite           bool
 	fileNamingAlgorithm models.HashAlgorithm
 
-	VideoPreview bool
-	ImagePreview bool
-	Screenshot   bool
+	VideoPreview       bool
+	ImagePreview       bool
+	Screenshot         bool
 	HighQualityMarkers bool // CUSTOM: generate marker previews at source resolution
 
 	generator *generate.Generator
@@ -169,10 +169,10 @@ func (t *GenerateMarkersTask) markersNeeded(ctx context.Context) int {
 
 		if t.Overwrite || !t.markerExists(sceneHash, seconds) {
 			markers++
-		// CUSTOM: begin - also count markers that need quality regeneration
+			// CUSTOM: begin - also count markers that need quality regeneration
 		} else if t.markerQualityMismatch(sceneHash, seconds, sourceWidth) {
 			markers++
-		// CUSTOM: end
+			// CUSTOM: end
 		}
 	}
 
