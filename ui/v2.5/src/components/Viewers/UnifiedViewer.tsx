@@ -1,14 +1,26 @@
-import React, { useCallback, useMemo } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { gql, useQuery } from "@apollo/client";
 import { useHistory, useLocation } from "react-router-dom";
-import AsyncSelect from "react-select/async";
-import { SingleValue, StylesConfig } from "react-select";
+import { Button, ButtonGroup, Modal } from "react-bootstrap";
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import {
+  faChevronLeft,
+  faChevronRight,
   faFilm,
   faImage,
   faMapMarkerAlt,
+  faPlus,
+  faTimes,
 } from "@fortawesome/free-solid-svg-icons";
+import { faSquareCheck } from "@fortawesome/free-regular-svg-icons";
 import { UAParser } from "ua-parser-js";
+import cx from "classnames";
 import * as GQL from "src/core/generated-graphql";
 import { objectTitle } from "src/core/files";
 import { markerTitle } from "src/core/markers";
@@ -18,6 +30,11 @@ import {
   queryFindScenesForSelect,
 } from "src/core/StashService";
 import { Icon } from "src/components/Shared/Icon";
+import { SearchTermInput, SortBySelect } from "src/components/List/ListFilter";
+import { SavedFilterDropdown } from "src/components/List/SavedFilterList";
+import { FilterButton } from "src/components/List/Filters/FilterButton";
+import { EditFilterDialog } from "src/components/List/EditFilterDialog";
+import { View } from "src/components/List/views";
 import { languageMap } from "src/utils/caption";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import {
@@ -204,27 +221,56 @@ interface IFindScenesForViewerResult {
   };
 }
 
-interface IViewerSelectOption {
-  value: string;
-  label: string;
-}
-
 type ViewerKind = "images" | "markers" | "scenes";
 
-const selectStyles: StylesConfig<IViewerSelectOption, false> = {
-  container: (base) => ({
-    ...base,
-    minWidth: 220,
-  }),
-  menuPortal: (base) => ({
-    ...base,
-    zIndex: 300000,
-  }),
-  option: (base) => ({
-    ...base,
-    color: "#111",
-  }),
+const VIEWER_SEARCH_PAGE_SIZE = 40;
+
+interface IViewerSearchResult {
+  id: string;
+  title: string;
+  subtitle?: string;
+  imageUrl?: string | null;
+}
+
+interface IViewerKindConfig {
+  icon: IconDefinition;
+  label: string;
+  filterMode: GQL.FilterMode;
+  view: View;
+}
+
+const viewerKindConfig: Record<ViewerKind, IViewerKindConfig> = {
+  images: {
+    icon: faImage,
+    label: "Images",
+    filterMode: GQL.FilterMode.Images,
+    view: View.Images,
+  },
+  markers: {
+    icon: faMapMarkerAlt,
+    label: "Markers",
+    filterMode: GQL.FilterMode.SceneMarkers,
+    view: View.SceneMarkers,
+  },
+  scenes: {
+    icon: faFilm,
+    label: "Scenes",
+    filterMode: GQL.FilterMode.Scenes,
+    view: View.Scenes,
+  },
 };
+
+function makeSearchFilter(kind: ViewerKind) {
+  const filter = new ListFilterModel(viewerKindConfig[kind].filterMode);
+  filter.itemsPerPage = VIEWER_SEARCH_PAGE_SIZE;
+  return filter;
+}
+
+function normalizeSearchFilter(filter: ListFilterModel) {
+  const nextFilter = filter.clone();
+  nextFilter.itemsPerPage = VIEWER_SEARCH_PAGE_SIZE;
+  return nextFilter;
+}
 
 function splitIds(value: string | null) {
   if (!value) return [];
@@ -309,39 +355,335 @@ function getTextTracks(scene: ISceneForViewer) {
   });
 }
 
-const ViewerAddSelect: React.FC<{
-  icon: typeof faImage;
-  placeholder: string;
-  loadOptions: (input: string) => Promise<IViewerSelectOption[]>;
-  onSelect: (id: string) => void;
-}> = ({ icon, placeholder, loadOptions, onSelect }) => {
-  const handleChange = (option: SingleValue<IViewerSelectOption>) => {
-    if (option) {
-      onSelect(option.value);
+const ViewerSearchButton: React.FC<{
+  kind: ViewerKind;
+  onClick: () => void;
+}> = ({ kind, onClick }) => {
+  const config = viewerKindConfig[kind];
+
+  return (
+    <Button
+      className="viewer-search-button"
+      onClick={onClick}
+      size="sm"
+      title={`Add ${config.label.toLowerCase()}`}
+      variant="secondary"
+    >
+      <Icon icon={config.icon} />
+      <span>{config.label}</span>
+    </Button>
+  );
+};
+
+const ViewerSearchModal: React.FC<{
+  kind: ViewerKind | null;
+  currentIds: string[];
+  onAdd: (kind: ViewerKind, ids: string[]) => void;
+  onClose: () => void;
+}> = ({ kind, currentIds, onAdd, onClose }) => {
+  const [filter, setFilter] = useState(() => makeSearchFilter("images"));
+  const [results, setResults] = useState<IViewerSearchResult[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [showFilterDialog, setShowFilterDialog] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const updateFilter = useCallback((nextFilter: ListFilterModel) => {
+    setFilter(normalizeSearchFilter(nextFilter));
+  }, []);
+
+  useEffect(() => {
+    if (!kind) {
+      setResults([]);
+      setSelectedIds(new Set());
+      setTotalCount(0);
+      return;
     }
+
+    setFilter(makeSearchFilter(kind));
+    setResults([]);
+    setSelectedIds(new Set());
+    setTotalCount(0);
+    setShowFilterDialog(false);
+  }, [kind]);
+
+  useEffect(() => {
+    setSelectedIds(
+      (prev) => new Set([...prev].filter((id) => !currentIds.includes(id)))
+    );
+  }, [currentIds]);
+
+  useEffect(() => {
+    if (!kind) return;
+
+    let cancelled = false;
+
+    const runSearch = async () => {
+      setLoading(true);
+
+      try {
+        if (kind === "images") {
+          const query = await queryFindImages(filter);
+          if (cancelled) return;
+
+          setTotalCount(query.data.findImages.count);
+          setResults(
+            query.data.findImages.images
+              .filter((image) => !currentIds.includes(image.id))
+              .map((image) => ({
+                id: image.id,
+                title: objectTitle(image) || `Image ${image.id}`,
+                subtitle: image.galleries?.[0]?.title ?? undefined,
+                imageUrl: image.paths?.thumbnail ?? image.paths?.preview,
+              }))
+          );
+        } else if (kind === "markers") {
+          const query = await queryFindSceneMarkers(filter);
+          if (cancelled) return;
+
+          setTotalCount(query.data.findSceneMarkers.count);
+          setResults(
+            query.data.findSceneMarkers.scene_markers
+              .filter((marker) => !currentIds.includes(marker.id))
+              .map((marker) => ({
+                id: marker.id,
+                title:
+                  markerTitle(marker) ||
+                  marker.scene?.title ||
+                  `Marker ${marker.id}`,
+                subtitle: marker.scene?.title ?? undefined,
+                imageUrl: marker.screenshot || marker.preview,
+              }))
+          );
+        } else {
+          const query = await queryFindScenesForSelect(filter);
+          if (cancelled) return;
+
+          setTotalCount(query.data.findScenes.count);
+          setResults(
+            query.data.findScenes.scenes
+              .filter((scene) => !currentIds.includes(scene.id))
+              .map((scene) => ({
+                id: scene.id,
+                title: objectTitle(scene) || `Scene ${scene.id}`,
+                subtitle:
+                  scene.studio?.name ??
+                  scene.files?.find((file) => file.path)?.path,
+                imageUrl: scene.paths?.screenshot,
+              }))
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    runSearch();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentIds, filter, kind]);
+
+  if (!kind) return null;
+
+  const config = viewerKindConfig[kind];
+  const filterOptions = filter.options;
+  const totalPages = Math.max(
+    1,
+    Math.ceil(totalCount / VIEWER_SEARCH_PAGE_SIZE)
+  );
+  const canPageBack = filter.currentPage > 1;
+  const canPageForward = filter.currentPage < totalPages;
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const selectVisible = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      results.forEach((result) => next.add(result.id));
+      return next;
+    });
+  };
+
+  const addSelected = () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    onAdd(kind, ids);
+    onClose();
+  };
+
+  const changePage = (page: number) => {
+    updateFilter(filter.changePage(page));
   };
 
   return (
-    <div className="viewer-add-select">
-      <Icon icon={icon} />
-      <AsyncSelect<IViewerSelectOption, false>
-        cacheOptions
-        classNamePrefix="viewer-select"
-        isClearable
-        loadOptions={loadOptions}
-        menuPortalTarget={document.body}
-        onChange={handleChange}
-        placeholder={placeholder}
-        styles={selectStyles}
-        value={null}
-      />
-    </div>
+    <Modal
+      backdropClassName="viewer-search-backdrop"
+      centered
+      className="viewer-search-modal"
+      onHide={onClose}
+      show
+    >
+      <Modal.Header closeButton>
+        <Modal.Title>
+          <Icon icon={config.icon} />
+          <span>Add {config.label}</span>
+        </Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <div className="viewer-search-toolbar filtered-list-toolbar">
+          <SearchTermInput filter={filter} onFilterUpdate={updateFilter} />
+          <ButtonGroup>
+            <SavedFilterDropdown
+              filter={filter}
+              onSetFilter={updateFilter}
+              view={config.view}
+            />
+            <FilterButton
+              count={filter.count()}
+              onClick={() => setShowFilterDialog(true)}
+            />
+          </ButtonGroup>
+          <SortBySelect
+            sortBy={filter.sortBy}
+            sortDirection={filter.sortDirection}
+            options={filterOptions.sortByOptions}
+            onChangeSortBy={(eventKey) =>
+              updateFilter(filter.setSortBy(eventKey ?? undefined))
+            }
+            onChangeSortDirection={() =>
+              updateFilter(filter.toggleSortDirection())
+            }
+            onReshuffleRandomSort={() =>
+              updateFilter(filter.reshuffleRandomSort())
+            }
+          />
+          <ButtonGroup className="viewer-search-selection">
+            <Button
+              disabled={selectedIds.size === 0}
+              onClick={() => setSelectedIds(new Set())}
+              title="Clear selection"
+              variant="secondary"
+            >
+              <Icon icon={faTimes} />
+            </Button>
+            <span className="viewer-search-selection-count">
+              {selectedIds.size}
+            </span>
+            <Button
+              disabled={results.length === 0}
+              onClick={selectVisible}
+              title="Select visible results"
+              variant="secondary"
+            >
+              <Icon icon={faSquareCheck} />
+            </Button>
+          </ButtonGroup>
+          <Button
+            className="viewer-search-add-selected"
+            disabled={selectedIds.size === 0}
+            onClick={addSelected}
+            title="Add selected"
+            variant="primary"
+          >
+            <Icon icon={faPlus} />
+          </Button>
+          <ButtonGroup className="viewer-search-pagination">
+            <Button
+              disabled={!canPageBack || loading}
+              onClick={() => changePage(filter.currentPage - 1)}
+              title="Previous page"
+              variant="secondary"
+            >
+              <Icon icon={faChevronLeft} />
+            </Button>
+            <span className="viewer-search-page-count">
+              {filter.currentPage}/{totalPages}
+            </span>
+            <Button
+              disabled={!canPageForward || loading}
+              onClick={() => changePage(filter.currentPage + 1)}
+              title="Next page"
+              variant="secondary"
+            >
+              <Icon icon={faChevronRight} />
+            </Button>
+          </ButtonGroup>
+        </div>
+        <div className="viewer-search-results">
+          {loading && <div className="viewer-search-status">Searching...</div>}
+          {!loading && results.length === 0 && (
+            <div className="viewer-search-status">No results found.</div>
+          )}
+          {!loading &&
+            results.map((result) => {
+              const selected = selectedIds.has(result.id);
+              return (
+                <button
+                  aria-pressed={selected}
+                  className={cx("viewer-search-result", { selected })}
+                  key={result.id}
+                  onClick={() => toggleSelected(result.id)}
+                  type="button"
+                >
+                  {result.imageUrl ? (
+                    <img alt="" loading="lazy" src={result.imageUrl} />
+                  ) : (
+                    <span className="viewer-search-result-fallback">
+                      <Icon icon={config.icon} />
+                    </span>
+                  )}
+                  <span className="viewer-search-result-text">
+                    <span className="viewer-search-result-title">
+                      {result.title}
+                    </span>
+                    {result.subtitle && (
+                      <span className="viewer-search-result-subtitle">
+                        {result.subtitle}
+                      </span>
+                    )}
+                  </span>
+                  <span className="viewer-search-result-add">
+                    <Icon icon={selected ? faSquareCheck : faPlus} />
+                  </span>
+                </button>
+              );
+            })}
+        </div>
+        {showFilterDialog && (
+          <EditFilterDialog
+            filter={filter}
+            onApply={(nextFilter) => {
+              updateFilter(nextFilter);
+              setShowFilterDialog(false);
+            }}
+            onCancel={() => setShowFilterDialog(false)}
+          />
+        )}
+      </Modal.Body>
+    </Modal>
   );
 };
 
 export const UnifiedViewer: React.FC = () => {
   const history = useHistory();
   const location = useLocation();
+  const [activeSearchKind, setActiveSearchKind] = useState<ViewerKind | null>(
+    null
+  );
   const isSafari = useMemo(
     () => UAParser().browser.name?.includes("Safari") ?? false,
     []
@@ -370,19 +712,23 @@ export const UnifiedViewer: React.FC = () => {
           : legacyIds,
     };
   }, [location.pathname, location.search]);
+  const viewerIdsRef = useRef<Record<ViewerKind, string[]>>({
+    images: imageIds,
+    markers: markerIds,
+    scenes: sceneIds,
+  });
 
-  const updateViewerIds = useCallback(
-    (kind: ViewerKind, id: string) => {
-      const next = {
-        images: [...imageIds],
-        markers: [...markerIds],
-        scenes: [...sceneIds],
-      };
+  useEffect(() => {
+    viewerIdsRef.current = {
+      images: imageIds,
+      markers: markerIds,
+      scenes: sceneIds,
+    };
+  }, [imageIds, markerIds, sceneIds]);
 
-      if (!next[kind].includes(id)) {
-        next[kind].push(id);
-      }
-
+  const writeViewerIds = useCallback(
+    (next: Record<ViewerKind, string[]>) => {
+      viewerIdsRef.current = next;
       const params = new URLSearchParams();
       if (next.images.length > 0) params.set("images", next.images.join(","));
       if (next.markers.length > 0)
@@ -395,7 +741,53 @@ export const UnifiedViewer: React.FC = () => {
         search: search ? `?${search}` : "",
       });
     },
-    [history, imageIds, markerIds, sceneIds]
+    [history]
+  );
+
+  const addViewerIds = useCallback(
+    (kind: ViewerKind, ids: string[]) => {
+      const { current } = viewerIdsRef;
+      const next = {
+        images: [...current.images],
+        markers: [...current.markers],
+        scenes: [...current.scenes],
+      };
+
+      ids.forEach((id) => {
+        if (!next[kind].includes(id)) {
+          next[kind].push(id);
+        }
+      });
+
+      writeViewerIds(next);
+    },
+    [writeViewerIds]
+  );
+
+  const removeViewerItem = useCallback(
+    (id: string) => {
+      const [kind, rawId] = id.split(":");
+      const key =
+        kind === "image"
+          ? "images"
+          : kind === "marker"
+          ? "markers"
+          : kind === "scene"
+          ? "scenes"
+          : undefined;
+
+      if (!key || !rawId) return;
+
+      const { current } = viewerIdsRef;
+      const next = {
+        images: [...current.images],
+        markers: [...current.markers],
+        scenes: [...current.scenes],
+      };
+      next[key] = next[key].filter((value) => value !== rawId);
+      writeViewerIds(next);
+    },
+    [writeViewerIds]
   );
 
   const imagesQuery = useQuery<IFindImagesForViewerResult>(
@@ -420,61 +812,6 @@ export const UnifiedViewer: React.FC = () => {
     }
   );
 
-  const loadImageOptions = useCallback(
-    async (input: string) => {
-      if (!input.trim()) return [];
-      const filter = new ListFilterModel(GQL.FilterMode.Images);
-      filter.searchTerm = input;
-      filter.itemsPerPage = 30;
-
-      const query = await queryFindImages(filter);
-      return query.data.findImages.images
-        .filter((image) => !imageIds.includes(image.id))
-        .map((image) => ({
-          value: image.id,
-          label: objectTitle(image) || `Image ${image.id}`,
-        }));
-    },
-    [imageIds]
-  );
-
-  const loadMarkerOptions = useCallback(
-    async (input: string) => {
-      if (!input.trim()) return [];
-      const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers);
-      filter.searchTerm = input;
-      filter.itemsPerPage = 30;
-
-      const query = await queryFindSceneMarkers(filter);
-      return query.data.findSceneMarkers.scene_markers
-        .filter((marker) => !markerIds.includes(marker.id))
-        .map((marker) => ({
-          value: marker.id,
-          label:
-            markerTitle(marker) || marker.scene?.title || `Marker ${marker.id}`,
-        }));
-    },
-    [markerIds]
-  );
-
-  const loadSceneOptions = useCallback(
-    async (input: string) => {
-      if (!input.trim()) return [];
-      const filter = new ListFilterModel(GQL.FilterMode.Scenes);
-      filter.searchTerm = input;
-      filter.itemsPerPage = 30;
-
-      const query = await queryFindScenesForSelect(filter);
-      return query.data.findScenes.scenes
-        .filter((scene) => !sceneIds.includes(scene.id))
-        .map((scene) => ({
-          value: scene.id,
-          label: objectTitle(scene) || `Scene ${scene.id}`,
-        }));
-    },
-    [sceneIds]
-  );
-
   const imageItems = useMemo<IImageViewerItem[]>(() => {
     const fetchedImages = imagesQuery.data?.findImages.images ?? [];
     return imageIds
@@ -494,10 +831,13 @@ export const UnifiedViewer: React.FC = () => {
     return (markersQuery.data?.findSceneMarkers.scene_markers ?? []).map(
       (marker) => ({
         id: viewerId("marker", marker.id),
-        streamUrl: marker.stream,
+        streamUrl:
+          marker.scene?.paths?.stream || `/scene/${marker.scene.id}/stream`,
         title:
           markerTitle(marker) || marker.scene?.title || `Marker ${marker.id}`,
         sceneId: marker.scene?.id ?? undefined,
+        startTime: marker.seconds,
+        endTime: marker.end_seconds ?? null,
         topPerformerNames: (marker.top_performers ?? [])
           .map(performerDisplayName)
           .filter(Boolean),
@@ -598,43 +938,53 @@ export const UnifiedViewer: React.FC = () => {
     [imageIds]
   );
 
+  const activeSearchIds = useMemo(() => {
+    if (activeSearchKind === "images") return imageIds;
+    if (activeSearchKind === "markers") return markerIds;
+    if (activeSearchKind === "scenes") return sceneIds;
+    return [];
+  }, [activeSearchKind, imageIds, markerIds, sceneIds]);
+
   const headerContent = (
     <div className="viewer-add-controls">
-      <ViewerAddSelect
-        icon={faImage}
-        loadOptions={loadImageOptions}
-        onSelect={(id) => updateViewerIds("images", id)}
-        placeholder="Add image"
+      <ViewerSearchButton
+        kind="images"
+        onClick={() => setActiveSearchKind("images")}
       />
-      <ViewerAddSelect
-        icon={faMapMarkerAlt}
-        loadOptions={loadMarkerOptions}
-        onSelect={(id) => updateViewerIds("markers", id)}
-        placeholder="Add marker"
+      <ViewerSearchButton
+        kind="markers"
+        onClick={() => setActiveSearchKind("markers")}
       />
-      <ViewerAddSelect
-        icon={faFilm}
-        loadOptions={loadSceneOptions}
-        onSelect={(id) => updateViewerIds("scenes", id)}
-        placeholder="Add scene"
+      <ViewerSearchButton
+        kind="scenes"
+        onClick={() => setActiveSearchKind("scenes")}
       />
     </div>
   );
 
   return (
-    <MultiVideoViewer
-      emptyMessage="No viewer items selected."
-      headerContent={headerContent}
-      imageItems={imageItems}
-      imageOrderedIds={orderedImageIds}
-      itemLabel="item"
-      items={videoItems}
-      loading={
-        imagesQuery.loading || markersQuery.loading || scenesQuery.loading
-      }
-      orderedIds={orderedVideoIds}
-      title="Viewer"
-    />
+    <>
+      <MultiVideoViewer
+        emptyMessage="No viewer items selected."
+        headerContent={headerContent}
+        imageItems={imageItems}
+        imageOrderedIds={orderedImageIds}
+        itemLabel="item"
+        items={videoItems}
+        loading={
+          imagesQuery.loading || markersQuery.loading || scenesQuery.loading
+        }
+        onRemoveItem={removeViewerItem}
+        orderedIds={orderedVideoIds}
+        title="Viewer"
+      />
+      <ViewerSearchModal
+        currentIds={activeSearchIds}
+        kind={activeSearchKind}
+        onAdd={addViewerIds}
+        onClose={() => setActiveSearchKind(null)}
+      />
+    </>
   );
 };
 

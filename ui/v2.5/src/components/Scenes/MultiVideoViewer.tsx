@@ -82,6 +82,8 @@ export interface IVideoViewerItem {
   streamUrl: string;
   title: string;
   sceneId?: string;
+  startTime?: number;
+  endTime?: number | null;
   customControls?: boolean;
   posterUrl?: string | null;
   vttUrl?: string | null;
@@ -223,12 +225,117 @@ function computeImageLayout(
   });
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), Math.max(min, max));
+}
+
+function createAppendedVideoOverlay(
+  item: IVideoViewerItem,
+  index: number
+): IOverlayState {
+  const videoAR = 16 / 9;
+  const vpWidth = window.innerWidth;
+  const vpHeight = window.innerHeight;
+  const maxWidth = Math.max(MIN_WIDTH, vpWidth - LAYOUT_SPACING * 4);
+  const maxHeight = Math.max(
+    MIN_HEIGHT,
+    vpHeight - HEADER_H - LAYOUT_SPACING * 4
+  );
+  let width = Math.min(420, maxWidth);
+  let height = Math.round(width / videoAR);
+
+  if (height > maxHeight) {
+    height = maxHeight;
+    width = Math.round(height * videoAR);
+  }
+
+  const offset = (index % 8) * 28;
+
+  return {
+    ...item,
+    x: clamp(
+      LAYOUT_SPACING * 2 + offset,
+      LAYOUT_SPACING,
+      vpWidth - width - LAYOUT_SPACING
+    ),
+    y: clamp(
+      HEADER_H + LAYOUT_SPACING * 2 + offset,
+      LAYOUT_SPACING,
+      vpHeight - height - LAYOUT_SPACING
+    ),
+    width,
+    height,
+    visible: true,
+    zIndex: BASE_Z + index,
+  };
+}
+
+function createAppendedImageOverlay(
+  item: IImageViewerItem,
+  index: number
+): IImageOverlayState {
+  const vpWidth = window.innerWidth;
+  const vpHeight = window.innerHeight;
+  const maxSize = Math.max(
+    120,
+    Math.min(
+      vpWidth - IMAGE_SPACING * 2,
+      vpHeight - HEADER_H - IMAGE_SPACING * 2
+    )
+  );
+  const width = Math.min(IMAGE_DEFAULT_SIZE, maxSize);
+  const offset = (index % 8) * 24;
+
+  return {
+    id: item.id,
+    url: item.url,
+    x: clamp(
+      IMAGE_SPACING + offset,
+      IMAGE_SPACING,
+      vpWidth - width - IMAGE_SPACING
+    ),
+    y: clamp(
+      HEADER_H + IMAGE_SPACING + offset,
+      IMAGE_SPACING,
+      vpHeight - width - IMAGE_SPACING
+    ),
+    width,
+    visible: true,
+    rotation: 0,
+    cropTop: 0,
+    cropRight: 0,
+    cropBottom: 0,
+    cropLeft: 0,
+    zIndex: BASE_Z + 5000 + index,
+  };
+}
+
+function getOrderedVideoItems(
+  allItems: IVideoViewerItem[],
+  orderedIds: string[]
+) {
+  return orderedIds
+    .map((id) => allItems.find((item) => item.id === id))
+    .filter((item): item is IVideoViewerItem => item !== undefined);
+}
+
+function getOrderedImageItems(
+  allItems: IImageViewerItem[],
+  orderedIds: string[]
+) {
+  return orderedIds
+    .map((id) => allItems.find((item) => item.id === id))
+    .filter((item): item is IImageViewerItem => item !== undefined);
+}
+
 interface IDraggableVideoProps {
   overlay: IOverlayState;
   mouseActive: boolean;
   onPositionChange: (x: number, y: number) => void;
   onSizeChange: (width: number, height: number) => void;
   onClose: () => void;
+  onBringToFront: () => void;
+  onSendToBack: () => void;
 }
 
 interface IVideoJsPanelProps {
@@ -1126,9 +1233,19 @@ const DraggableVideo: React.FC<IDraggableVideoProps> = ({
   onPositionChange,
   onSizeChange,
   onClose,
+  onBringToFront,
+  onSendToBack,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const suppressClickRef = useRef(false);
+  const dragStartRef = useRef<{
+    pointerX: number;
+    pointerY: number;
+    overlayX: number;
+    overlayY: number;
+    committed: boolean;
+  } | null>(null);
 
   const snapToVideoAR = useCallback(() => {
     const v = videoRef.current;
@@ -1144,7 +1261,6 @@ const DraggableVideo: React.FC<IDraggableVideoProps> = ({
   }, [overlay.width]);
   const [isResizing, setIsResizing] = useState(false);
   const [isResizingTL, setIsResizingTL] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, w: 0, h: 0 });
   const [resizeTLStart, setResizeTLStart] = useState({
     x: 0,
@@ -1155,12 +1271,42 @@ const DraggableVideo: React.FC<IDraggableVideoProps> = ({
     yPos: 0,
   });
 
-  const handleTitleBarMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleFrameMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
-    if (target.closest(".mv-close-btn")) return;
-    e.preventDefault();
+    if (
+      e.button !== 0 ||
+      target.closest(
+        [
+          ".mv-close-btn",
+          ".mv-layer-btn",
+          ".mv-resize-handle",
+          ".mv-resize-handle-tl",
+          ".vjs-control-bar",
+          ".vjs-menu",
+          ".vjs-modal-dialog",
+          "button",
+          "a",
+          "input",
+          "select",
+          "textarea",
+        ].join(",")
+      )
+    ) {
+      return;
+    }
+
+    if (target.closest(".mv-titlebar")) {
+      e.preventDefault();
+    }
+
     setIsDragging(true);
-    setDragOffset({ x: e.clientX - overlay.x, y: e.clientY - overlay.y });
+    dragStartRef.current = {
+      pointerX: e.clientX,
+      pointerY: e.clientY,
+      overlayX: overlay.x,
+      overlayY: overlay.y,
+      committed: false,
+    };
   };
 
   const handleResizeMouseDown = (e: React.MouseEvent) => {
@@ -1189,10 +1335,57 @@ const DraggableVideo: React.FC<IDraggableVideoProps> = ({
     });
   };
 
+  const getLoopEndTime = useCallback(() => {
+    if (overlay.startTime === undefined) return undefined;
+    return overlay.endTime && overlay.endTime > overlay.startTime
+      ? overlay.endTime
+      : overlay.startTime + 20;
+  }, [overlay.endTime, overlay.startTime]);
+
+  const handleNativeLoadedMetadata = useCallback(
+    (e: React.SyntheticEvent<HTMLVideoElement>) => {
+      snapToVideoAR();
+      if (overlay.startTime !== undefined) {
+        e.currentTarget.currentTime = overlay.startTime;
+      }
+    },
+    [overlay.startTime, snapToVideoAR]
+  );
+
+  const handleNativeTimeUpdate = useCallback(
+    (e: React.SyntheticEvent<HTMLVideoElement>) => {
+      if (overlay.startTime === undefined) return;
+
+      const video = e.currentTarget;
+      const endTime = getLoopEndTime();
+      if (endTime === undefined) return;
+
+      if (video.currentTime < overlay.startTime - 0.25) {
+        video.currentTime = overlay.startTime;
+      } else if (video.currentTime >= endTime) {
+        video.currentTime = overlay.startTime;
+      }
+    },
+    [getLoopEndTime, overlay.startTime]
+  );
+
   useEffect(() => {
+    let clickResetTimer: ReturnType<typeof setTimeout> | undefined;
+
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging) {
-        onPositionChange(e.clientX - dragOffset.x, e.clientY - dragOffset.y);
+        const start = dragStartRef.current;
+        if (!start) return;
+
+        const dx = e.clientX - start.pointerX;
+        const dy = e.clientY - start.pointerY;
+        if (!start.committed && Math.abs(dx) + Math.abs(dy) < 4) {
+          return;
+        }
+
+        start.committed = true;
+        suppressClickRef.current = true;
+        onPositionChange(start.overlayX + dx, start.overlayY + dy);
       }
       if (isResizing) {
         const dw = e.clientX - resizeStart.x;
@@ -1215,6 +1408,12 @@ const DraggableVideo: React.FC<IDraggableVideoProps> = ({
 
     const handleMouseUp = () => {
       setIsDragging(false);
+      dragStartRef.current = null;
+      if (suppressClickRef.current) {
+        clickResetTimer = setTimeout(() => {
+          suppressClickRef.current = false;
+        }, 0);
+      }
       setIsResizing(false);
       setIsResizingTL(false);
     };
@@ -1226,12 +1425,14 @@ const DraggableVideo: React.FC<IDraggableVideoProps> = ({
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
+      if (clickResetTimer) {
+        clearTimeout(clickResetTimer);
+      }
     };
   }, [
     isDragging,
     isResizing,
     isResizingTL,
-    dragOffset,
     resizeStart,
     resizeTLStart,
     overlay,
@@ -1239,11 +1440,20 @@ const DraggableVideo: React.FC<IDraggableVideoProps> = ({
     onSizeChange,
   ]);
 
+  const handleClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!suppressClickRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    suppressClickRef.current = false;
+  };
+
   if (!overlay.visible) return null;
 
   return (
     <div
       className={cx("mv-overlay", { dragging: isDragging })}
+      onClickCapture={handleClickCapture}
+      onMouseDown={handleFrameMouseDown}
       style={{
         left: overlay.x,
         top: overlay.y,
@@ -1252,10 +1462,32 @@ const DraggableVideo: React.FC<IDraggableVideoProps> = ({
         zIndex: overlay.zIndex,
       }}
     >
-      <div className="mv-titlebar" onMouseDown={handleTitleBarMouseDown}>
+      <div className="mv-titlebar">
         <span className="mv-title" title={overlay.title}>
           {overlay.title}
         </span>
+        <button
+          type="button"
+          className="mv-layer-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            onBringToFront();
+          }}
+          title="Bring to front"
+        >
+          <Icon icon={faArrowUp} />
+        </button>
+        <button
+          type="button"
+          className="mv-layer-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSendToBack();
+          }}
+          title="Send to back"
+        >
+          <Icon icon={faArrowDown} />
+        </button>
         <button
           type="button"
           className="mv-close-btn"
@@ -1281,9 +1513,14 @@ const DraggableVideo: React.FC<IDraggableVideoProps> = ({
             loop
             muted
             controls
+            controlsList="nodownload noplaybackrate"
+            disablePictureInPicture
             preload="auto"
-            className="mv-video"
-            onLoadedMetadata={snapToVideoAR}
+            className={cx("mv-video", {
+              "mv-marker-range-video": overlay.startTime !== undefined,
+            })}
+            onLoadedMetadata={handleNativeLoadedMetadata}
+            onTimeUpdate={handleNativeTimeUpdate}
           />
         )}
         {mouseActive &&
@@ -1366,6 +1603,7 @@ interface IMultiVideoViewerProps {
   imageItems?: IImageViewerItem[];
   imageOrderedIds?: string[];
   headerContent?: ReactNode;
+  onRemoveItem?: (id: string) => void;
 }
 
 export const MultiVideoViewer: React.FC<IMultiVideoViewerProps> = ({
@@ -1378,6 +1616,7 @@ export const MultiVideoViewer: React.FC<IMultiVideoViewerProps> = ({
   imageItems = [],
   imageOrderedIds = [],
   headerContent,
+  onRemoveItem,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [overlays, setOverlays] = useState<IOverlayState[]>([]);
@@ -1387,7 +1626,8 @@ export const MultiVideoViewer: React.FC<IMultiVideoViewerProps> = ({
   const [mouseActive, setMouseActive] = useState(false);
   const mouseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const itemsRef = useRef<IVideoViewerItem[]>([]);
-  const imageItemsRef = useRef<IImageViewerItem[]>([]);
+  const videoLayoutInitializedRef = useRef(false);
+  const imageLayoutInitializedRef = useRef(false);
 
   useEffect(() => {
     const handleMouseMove = () => {
@@ -1406,39 +1646,134 @@ export const MultiVideoViewer: React.FC<IMultiVideoViewerProps> = ({
     itemsRef.current = items;
 
     if (orderedIds.length === 0) {
+      videoLayoutInitializedRef.current = true;
       setOverlays([]);
       return;
     }
 
-    const layouts = computeLayout(
-      items,
-      orderedIds,
-      window.innerWidth,
-      window.innerHeight,
-      HEADER_H
-    );
-    setOverlays(layouts);
-  }, [items, orderedIds]);
+    const orderedItems = getOrderedVideoItems(items, orderedIds);
+    const validIds = new Set(orderedIds);
+
+    if (!videoLayoutInitializedRef.current) {
+      if (
+        orderedItems.length === 0 ||
+        (loading && orderedItems.length < orderedIds.length)
+      ) {
+        setOverlays((prev) =>
+          prev.filter((overlay) => validIds.has(overlay.id))
+        );
+        return;
+      }
+
+      setOverlays(
+        computeLayout(
+          items,
+          orderedIds,
+          window.innerWidth,
+          window.innerHeight,
+          HEADER_H
+        )
+      );
+      videoLayoutInitializedRef.current = true;
+      return;
+    }
+
+    setOverlays((prev) => {
+      const itemById = new Map(orderedItems.map((item) => [item.id, item]));
+      const existing = prev
+        .filter((overlay) => validIds.has(overlay.id))
+        .map((overlay) => {
+          const item = itemById.get(overlay.id);
+          return item
+            ? {
+                ...item,
+                x: overlay.x,
+                y: overlay.y,
+                width: overlay.width,
+                height: overlay.height,
+                visible: overlay.visible,
+                zIndex: overlay.zIndex,
+              }
+            : overlay;
+        });
+      const existingIds = new Set(existing.map((overlay) => overlay.id));
+      const additions = orderedItems
+        .filter((item) => !existingIds.has(item.id))
+        .map((item, index) =>
+          createAppendedVideoOverlay(item, existing.length + index)
+        );
+
+      return [...existing, ...additions];
+    });
+  }, [items, loading, orderedIds]);
 
   useEffect(() => {
-    imageItemsRef.current = imageItems;
-
     if (imageOrderedIds.length === 0) {
+      imageLayoutInitializedRef.current = true;
       setImageOverlays([]);
       return;
     }
 
-    const layouts = computeImageLayout(
-      imageItems,
-      imageOrderedIds,
-      window.innerWidth,
-      window.innerHeight,
-      HEADER_H,
-      orderedIds.length > 0
+    const orderedItems = getOrderedImageItems(imageItems, imageOrderedIds);
+    const validIds = new Set(imageOrderedIds);
+
+    if (!imageLayoutInitializedRef.current) {
+      if (
+        orderedItems.length === 0 ||
+        (loading && orderedItems.length < imageOrderedIds.length)
+      ) {
+        setImageOverlays((prev) =>
+          prev.filter((overlay) => validIds.has(overlay.id))
+        );
+        return;
+      }
+
+      const layouts = computeImageLayout(
+        imageItems,
+        imageOrderedIds,
+        window.innerWidth,
+        window.innerHeight,
+        HEADER_H,
+        orderedIds.length > 0 || itemsRef.current.length > 0
+      );
+      setImageOverlays(layouts);
+      imageLayoutInitializedRef.current = true;
+      return;
+    }
+
+    setImageOverlays((prev) => {
+      const itemById = new Map(orderedItems.map((item) => [item.id, item]));
+      const existing = prev
+        .filter((overlay) => validIds.has(overlay.id))
+        .map((overlay) => {
+          const item = itemById.get(overlay.id);
+          return item
+            ? {
+                ...overlay,
+                url: item.url,
+              }
+            : overlay;
+        });
+      const existingIds = new Set(existing.map((overlay) => overlay.id));
+      const additions = orderedItems
+        .filter((item) => !existingIds.has(item.id))
+        .map((item, index) =>
+          createAppendedImageOverlay(item, existing.length + index)
+        );
+      return [...existing, ...additions];
+    });
+  }, [imageItems, imageOrderedIds, loading, orderedIds.length]);
+
+  useEffect(() => {
+    setNextImageZ(
+      (prev) =>
+        Math.max(
+          prev,
+          BASE_Z + 5000,
+          ...imageOverlays.map((image) => image.zIndex)
+        ) + 1
     );
-    setImageOverlays(layouts);
-    setNextImageZ(BASE_Z + 5000 + layouts.length);
-  }, [imageItems, imageOrderedIds, orderedIds.length]);
+  }, [imageOverlays]);
 
   const updatePosition = useCallback((id: string, x: number, y: number) => {
     setOverlays((prev) => prev.map((o) => (o.id === id ? { ...o, x, y } : o)));
@@ -1453,11 +1788,45 @@ export const MultiVideoViewer: React.FC<IMultiVideoViewerProps> = ({
     []
   );
 
-  const removeOverlay = useCallback((id: string) => {
-    setOverlays((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, visible: false } : o))
-    );
-  }, []);
+  const bringVideoToFront = useCallback(
+    (id: string) => {
+      setOverlays((prev) => {
+        const maxZ = Math.max(
+          BASE_Z,
+          ...prev.map((overlay) => overlay.zIndex),
+          ...imageOverlays.map((image) => image.zIndex)
+        );
+        return prev.map((overlay) =>
+          overlay.id === id ? { ...overlay, zIndex: maxZ + 1 } : overlay
+        );
+      });
+    },
+    [imageOverlays]
+  );
+
+  const sendVideoToBack = useCallback(
+    (id: string) => {
+      setOverlays((prev) => {
+        const minZ = Math.min(
+          BASE_Z,
+          ...prev.map((overlay) => overlay.zIndex),
+          ...imageOverlays.map((image) => image.zIndex)
+        );
+        return prev.map((overlay) =>
+          overlay.id === id ? { ...overlay, zIndex: minZ - 1 } : overlay
+        );
+      });
+    },
+    [imageOverlays]
+  );
+
+  const removeOverlay = useCallback(
+    (id: string) => {
+      onRemoveItem?.(id);
+      setOverlays((prev) => prev.filter((o) => o.id !== id));
+    },
+    [onRemoveItem]
+  );
 
   const updateImagePosition = useCallback(
     (id: string, x: number, y: number) => {
@@ -1474,13 +1843,13 @@ export const MultiVideoViewer: React.FC<IMultiVideoViewerProps> = ({
     );
   }, []);
 
-  const removeImageOverlay = useCallback((id: string) => {
-    setImageOverlays((prev) =>
-      prev.map((image) =>
-        image.id === id ? { ...image, visible: false } : image
-      )
-    );
-  }, []);
+  const removeImageOverlay = useCallback(
+    (id: string) => {
+      onRemoveItem?.(id);
+      setImageOverlays((prev) => prev.filter((image) => image.id !== id));
+    },
+    [onRemoveItem]
+  );
 
   const rotateImage = useCallback((id: string) => {
     setImageOverlays((prev) =>
@@ -1545,55 +1914,27 @@ export const MultiVideoViewer: React.FC<IMultiVideoViewerProps> = ({
     [overlays]
   );
 
-  const reflowLayout = useCallback((vpWidth?: number, vpHeight?: number) => {
-    const allItems = itemsRef.current;
-    const allImageItems = imageItemsRef.current;
-    const w = vpWidth ?? window.innerWidth;
-    const h = vpHeight ?? window.innerHeight;
+  const reflowVideoLayout = useCallback(() => {
+    const bounds = containerRef.current?.getBoundingClientRect();
+    const width = bounds?.width ?? window.innerWidth;
+    const height = bounds?.height ?? window.innerHeight;
 
-    if (allItems.length > 0) {
-      setOverlays((prev) => {
-        const visibleIds = prev.filter((o) => o.visible).map((o) => o.id);
-        const newLayouts = computeLayout(allItems, visibleIds, w, h, 0);
-        return prev.map((o) => {
-          if (!o.visible) return o;
-          const n = newLayouts.find((l) => l.id === o.id);
-          return n ? { ...n, height: o.height, zIndex: o.zIndex } : o;
-        });
-      });
-    }
+    setOverlays((prev) => {
+      const visibleIds = prev
+        .filter((overlay) => overlay.visible)
+        .map((o) => o.id);
+      const layouts = computeLayout(prev, visibleIds, width, height, 0);
 
-    if (allImageItems.length > 0) {
-      setImageOverlays((prev) => {
-        const visibleIds = prev
-          .filter((image) => image.visible)
-          .map((image) => image.id);
-        const newLayouts = computeImageLayout(
-          allImageItems,
-          visibleIds,
-          w,
-          h,
-          0,
-          allItems.length > 0
-        );
-        return prev.map((image) => {
-          if (!image.visible) return image;
-          const n = newLayouts.find((layout) => layout.id === image.id);
-          return n
-            ? {
-                ...n,
-                cropBottom: image.cropBottom,
-                cropLeft: image.cropLeft,
-                cropRight: image.cropRight,
-                cropTop: image.cropTop,
-                rotation: image.rotation,
-                width: image.width,
-                zIndex: image.zIndex,
-              }
-            : image;
-        });
+      return prev.map((overlay) => {
+        const nextLayout = layouts.find((layout) => layout.id === overlay.id);
+        return nextLayout
+          ? {
+              ...nextLayout,
+              zIndex: overlay.zIndex,
+            }
+          : overlay;
       });
-    }
+    });
   }, []);
 
   const toggleFullscreen = useCallback(() => {
@@ -1608,17 +1949,13 @@ export const MultiVideoViewer: React.FC<IMultiVideoViewerProps> = ({
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      const isNowFullscreen = !!document.fullscreenElement;
-      setIsFullscreen(isNowFullscreen);
-      if (isNowFullscreen) {
-        reflowLayout(screen.width, screen.height);
-      }
+      setIsFullscreen(!!document.fullscreenElement);
     };
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
     };
-  }, [reflowLayout]);
+  }, []);
 
   if (loading && overlays.length === 0 && imageOverlays.length === 0) {
     return <LoadingIndicator />;
@@ -1669,8 +2006,8 @@ export const MultiVideoViewer: React.FC<IMultiVideoViewerProps> = ({
           <Button
             variant="secondary"
             className="mv-fab-btn"
-            onClick={() => reflowLayout()}
-            title="Reflow layout"
+            onClick={reflowVideoLayout}
+            title="Reflow markers and scenes"
           >
             <Icon icon={faThLarge} />
           </Button>
@@ -1689,6 +2026,8 @@ export const MultiVideoViewer: React.FC<IMultiVideoViewerProps> = ({
           onPositionChange={(x, y) => updatePosition(overlay.id, x, y)}
           onSizeChange={(w, h) => updateSize(overlay.id, w, h)}
           onClose={() => removeOverlay(overlay.id)}
+          onBringToFront={() => bringVideoToFront(overlay.id)}
+          onSendToBack={() => sendVideoToBack(overlay.id)}
         />
       ))}
       {imageOverlays.map((overlay) => (
