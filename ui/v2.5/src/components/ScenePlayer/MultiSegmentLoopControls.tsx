@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Button, Collapse, Form, InputGroup } from "react-bootstrap";
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Icon } from "src/components/Shared/Icon";
 import {
@@ -10,6 +11,7 @@ import {
   faClock,
   faArrowUp,
   faArrowDown,
+  faMinus,
   faSave,
   faTimes,
   faChevronDown,
@@ -36,6 +38,8 @@ interface IMultiSegmentLoopControlsProps {
   onToggleLoopSingle: (id: string) => void;
   onUpdateSegmentStart?: (id: string) => void;
   onUpdateSegmentEnd?: (id: string) => void;
+  onAdjustSegmentStart?: (id: string, deltaSeconds: number) => void;
+  onAdjustSegmentEnd?: (id: string, deltaSeconds: number) => void;
   presetNames?: string[];
   onSavePreset?: (name: string) => void;
   onLoadPreset?: (name: string) => void;
@@ -64,6 +68,8 @@ export const MultiSegmentLoopControls: React.FC<
   onToggleLoopSingle,
   onUpdateSegmentStart,
   onUpdateSegmentEnd,
+  onAdjustSegmentStart,
+  onAdjustSegmentEnd,
   presetNames = [],
   onSavePreset,
   onLoadPreset,
@@ -182,6 +188,22 @@ export const MultiSegmentLoopControls: React.FC<
   const getTotalDuration = (): number => {
     return segments.reduce((sum, seg) => sum + getSegmentDuration(seg), 0);
   };
+
+  const renderNudgeButton = (
+    label: string,
+    icon: IconDefinition,
+    onClick: (e: React.MouseEvent) => void
+  ) => (
+    <Button
+      variant="link"
+      size="sm"
+      className="msl-nudge-btn"
+      onClick={onClick}
+      title={label}
+    >
+      <Icon icon={icon} />
+    </Button>
+  );
 
   const handleSavePreset = () => {
     if (!onSavePreset || !savePresetName.trim()) return;
@@ -340,6 +362,11 @@ export const MultiSegmentLoopControls: React.FC<
             >
               <span className="msl-segment-num">{index + 1}</span>
               <span className="msl-segment-times">
+                {onAdjustSegmentStart &&
+                  renderNudgeButton("Start -1s", faMinus, (e) => {
+                    e.stopPropagation();
+                    onAdjustSegmentStart(segment.id, -1);
+                  })}
                 <span
                   className={cx("msl-time", {
                     clickable: !!onUpdateSegmentStart,
@@ -360,7 +387,17 @@ export const MultiSegmentLoopControls: React.FC<
                 >
                   {formatTime(segment.start)}
                 </span>
+                {onAdjustSegmentStart &&
+                  renderNudgeButton("Start +1s", faPlus, (e) => {
+                    e.stopPropagation();
+                    onAdjustSegmentStart(segment.id, 1);
+                  })}
                 <span className="msl-time-sep">–</span>
+                {onAdjustSegmentEnd &&
+                  renderNudgeButton("End -1s", faMinus, (e) => {
+                    e.stopPropagation();
+                    onAdjustSegmentEnd(segment.id, -1);
+                  })}
                 <span
                   className={cx("msl-time", {
                     clickable: !!onUpdateSegmentEnd,
@@ -381,6 +418,11 @@ export const MultiSegmentLoopControls: React.FC<
                 >
                   {formatTime(segment.end)}
                 </span>
+                {onAdjustSegmentEnd &&
+                  renderNudgeButton("End +1s", faPlus, (e) => {
+                    e.stopPropagation();
+                    onAdjustSegmentEnd(segment.id, 1);
+                  })}
                 {segment.title && (
                   <span className="msl-segment-title" title={segment.title}>
                     {segment.title}

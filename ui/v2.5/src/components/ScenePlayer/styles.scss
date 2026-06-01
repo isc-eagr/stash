@@ -1179,8 +1179,11 @@ $sceneTabWidth: 450px;
     }
 
     .msl-segment-times {
+      align-items: center;
+      display: inline-flex;
       font-family: monospace;
       flex: 1;
+      gap: 2px;
 
       .msl-time {
         &.clickable {
@@ -1193,6 +1196,23 @@ $sceneTabWidth: 450px;
             border-bottom-color: #fff;
             color: #4fc3f7;
           }
+        }
+      }
+
+      .msl-nudge-btn.btn {
+        align-items: center;
+        color: #777;
+        display: inline-flex;
+        font-size: 0.58rem;
+        height: 18px;
+        justify-content: center;
+        line-height: 1;
+        padding: 0;
+        width: 18px;
+
+        &:hover {
+          color: #fff;
+          text-decoration: none;
         }
       }
 

@@ -1024,6 +1024,40 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
     [getMultiSegmentPlugin, getPlayer, syncAndRenderMultiSegmentState]
   );
 
+  const handleMultiSegmentAdjustStart = useCallback(
+    (id: string, deltaSeconds: number) => {
+      const plugin = getMultiSegmentPlugin();
+      const segment = plugin?.getSegments().find((s) => s.id === id);
+      if (!plugin || !segment) return;
+      const nextStart = Math.max(
+        0,
+        Math.min(segment.end - 0.1, segment.start + deltaSeconds)
+      );
+      plugin.updateSegment(id, nextStart, segment.end);
+      syncAndRenderMultiSegmentState();
+    },
+    [getMultiSegmentPlugin, syncAndRenderMultiSegmentState]
+  );
+
+  const handleMultiSegmentAdjustEnd = useCallback(
+    (id: string, deltaSeconds: number) => {
+      const player = getPlayer();
+      const plugin = getMultiSegmentPlugin();
+      const segment = plugin?.getSegments().find((s) => s.id === id);
+      if (!player || !plugin || !segment) return;
+      const duration = player.duration();
+      const maxEnd =
+        Number.isFinite(duration) && duration > 0 ? duration : Infinity;
+      const nextEnd = Math.min(
+        maxEnd,
+        Math.max(segment.start + 0.1, segment.end + deltaSeconds)
+      );
+      plugin.updateSegment(id, segment.start, nextEnd);
+      syncAndRenderMultiSegmentState();
+    },
+    [getMultiSegmentPlugin, getPlayer, syncAndRenderMultiSegmentState]
+  );
+
   const handleSaveSegmentPreset = useCallback(
     async (name: string) => {
       if (!overlay.sceneId || multiSegments.length === 0) return false;
@@ -1212,6 +1246,8 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
             onToggleLoopSingle={handleMultiSegmentToggleLoopSingle}
             onUpdateSegmentStart={handleMultiSegmentUpdateStart}
             onUpdateSegmentEnd={handleMultiSegmentUpdateEnd}
+            onAdjustSegmentStart={handleMultiSegmentAdjustStart}
+            onAdjustSegmentEnd={handleMultiSegmentAdjustEnd}
             presetNames={segmentPresets.map((preset) => preset.name)}
             onSavePreset={handleSaveSegmentPreset}
             onLoadPreset={handleLoadSegmentPreset}

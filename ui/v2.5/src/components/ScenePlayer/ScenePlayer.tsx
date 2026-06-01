@@ -70,6 +70,16 @@ import { PerformerImageSelectModal } from "./PerformerImageSelectModal";
 import { PerformerImageOverlay } from "./PerformerImageOverlay";
 // CUSTOM: end
 
+type ScenePlayerTagTree = {
+  id: string;
+  parents?: ScenePlayerTagTree[];
+};
+
+type ScenePlayerMarkerWithTags = {
+  primary_tag?: ScenePlayerTagTree | null;
+  tags?: ScenePlayerTagTree[] | null;
+};
+
 // register videojs plugins
 airplay(videojs);
 chromecast(videojs);
@@ -250,7 +260,7 @@ function getMarkerTitle(marker: MarkerFragment) {
   }
 
   // CUSTOM: Performer names with roles are now shown in the tooltip with arrows
-  
+
   return ret;
 }
 
@@ -314,7 +324,8 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const [loopSingleId, setLoopSingleId] = useState<string | null>(null);
 
     // Negative marker skipping - enabled by default
-    const [negativeMarkerSkipEnabled, setNegativeMarkerSkipEnabled] = useState(true);
+    const [negativeMarkerSkipEnabled, setNegativeMarkerSkipEnabled] =
+      useState(true);
     const lastSkipTimeRef = useRef<number>(0); // Prevent rapid re-skipping
 
     // Performer image overlay state
@@ -548,7 +559,8 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
           sourceSelector: {},
           persistVolume: {},
           bigButtons: {},
-          seekButtonsMenu: { // CUSTOM: renamed from seekButtons
+          seekButtonsMenu: {
+            // CUSTOM: renamed from seekButtons
             forward: 10,
             back: 10,
           },
@@ -828,6 +840,57 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       [getPlayer]
     );
 
+    const handleMultiSegmentAdjustStart = useCallback(
+      (id: string, deltaSeconds: number) => {
+        const player = getPlayer();
+        if (!player) return;
+
+        const multiSegmentPlugin = player.multiSegmentLoop?.() as
+          | MultiSegmentLoopPlugin
+          | undefined;
+        if (!multiSegmentPlugin) return;
+
+        const segment = multiSegmentPlugin
+          .getSegments()
+          .find((s) => s.id === id);
+        if (!segment) return;
+
+        const nextStart = Math.max(
+          0,
+          Math.min(segment.end - 0.1, segment.start + deltaSeconds)
+        );
+        multiSegmentPlugin.updateSegment(id, nextStart, segment.end);
+      },
+      [getPlayer]
+    );
+
+    const handleMultiSegmentAdjustEnd = useCallback(
+      (id: string, deltaSeconds: number) => {
+        const player = getPlayer();
+        if (!player) return;
+
+        const multiSegmentPlugin = player.multiSegmentLoop?.() as
+          | MultiSegmentLoopPlugin
+          | undefined;
+        if (!multiSegmentPlugin) return;
+
+        const segment = multiSegmentPlugin
+          .getSegments()
+          .find((s) => s.id === id);
+        if (!segment) return;
+
+        const duration = player.duration();
+        const maxEnd =
+          Number.isFinite(duration) && duration > 0 ? duration : Infinity;
+        const nextEnd = Math.min(
+          maxEnd,
+          Math.max(segment.start + 0.1, segment.end + deltaSeconds)
+        );
+        multiSegmentPlugin.updateSegment(id, segment.start, nextEnd);
+      },
+      [getPlayer]
+    );
+
     const handleSaveSegmentPreset = useCallback(
       async (name: string) => {
         if (multiSegments.length === 0) return false;
@@ -1053,7 +1116,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       const updateButtonState = () => {
         const toggleBtn = controlBar.querySelector(
           ".vjs-multi-segment-toggle"
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ) as any;
         toggleBtn?.__updateState?.();
       };
@@ -1073,7 +1136,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       return () => {
         clearInterval(checkPluginReady);
       };
-    }, [getPlayer]);
+    }, [getPlayer, segmentPresets.length]);
 
     // Update preset badge count when segmentPresets changes
     useEffect(() => {
@@ -1083,7 +1146,9 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       const controlBar = player.el()?.querySelector(".vjs-control-bar");
       if (!controlBar) return;
 
-      const badge = controlBar.querySelector(".vjs-multi-segment-badge") as HTMLElement | null;
+      const badge = controlBar.querySelector(
+        ".vjs-multi-segment-badge"
+      ) as HTMLElement | null;
       if (badge) {
         const count = segmentPresets.length;
         badge.textContent = count.toString();
@@ -1102,9 +1167,11 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       if (!controlBar) return;
 
       const negativeMarkers = scene.negative_markers ?? [];
-      
+
       // Remove existing button if present
-      const existingBtn = controlBar.querySelector(".vjs-negative-marker-skip-btn");
+      const existingBtn = controlBar.querySelector(
+        ".vjs-negative-marker-skip-btn"
+      );
       if (existingBtn) {
         existingBtn.remove();
       }
@@ -1144,7 +1211,9 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       });
 
       // Insert after multi-segment loop toggle or at the start
-      const multiSegmentToggle = controlBar.querySelector(".vjs-multi-segment-toggle");
+      const multiSegmentToggle = controlBar.querySelector(
+        ".vjs-multi-segment-toggle"
+      );
       if (multiSegmentToggle) {
         controlBar.insertBefore(skipButton, multiSegmentToggle);
       } else {
@@ -1208,8 +1277,10 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
 
       // Insert before playback rate button (same position pattern as multi-segment loop)
       const playbackRateBtn = controlBar.querySelector(".vjs-playback-rate");
-      const multiSegmentEdit = controlBar.querySelector(".vjs-multi-segment-edit");
-      
+      const multiSegmentEdit = controlBar.querySelector(
+        ".vjs-multi-segment-edit"
+      );
+
       // Insert both buttons together - overlay button first, then toggle button right after it
       if (multiSegmentEdit && multiSegmentEdit.nextSibling) {
         controlBar.insertBefore(overlayButton, multiSegmentEdit.nextSibling);
@@ -1223,7 +1294,9 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         controlBar.insertBefore(overlayButton, playbackRateBtn);
         controlBar.insertBefore(toggleButton, playbackRateBtn);
       } else {
-        const fullscreenBtn = controlBar.querySelector(".vjs-fullscreen-control");
+        const fullscreenBtn = controlBar.querySelector(
+          ".vjs-fullscreen-control"
+        );
         if (fullscreenBtn) {
           controlBar.insertBefore(overlayButton, fullscreenBtn);
           controlBar.insertBefore(toggleButton, fullscreenBtn);
@@ -1240,13 +1313,18 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       if (!player) return;
 
       const controlBar = player.el()?.querySelector(".vjs-control-bar");
-      const overlayBtn = controlBar?.querySelector(".vjs-performer-image-overlay-btn") as HTMLElement | null;
-      const toggleBtn = controlBar?.querySelector(".vjs-performer-image-toggle-btn") as HTMLElement | null;
+      const overlayBtn = controlBar?.querySelector(
+        ".vjs-performer-image-overlay-btn"
+      ) as HTMLElement | null;
+      const toggleBtn = controlBar?.querySelector(
+        ".vjs-performer-image-toggle-btn"
+      ) as HTMLElement | null;
 
       // Show/hide toggle button based on whether images are selected
       if (toggleBtn) {
-        toggleBtn.style.display = selectedOverlayImages.length > 0 ? "" : "none";
-        
+        toggleBtn.style.display =
+          selectedOverlayImages.length > 0 ? "" : "none";
+
         // Update toggle button appearance based on visibility state
         if (overlaysVisible) {
           toggleBtn.classList.remove("hidden-state");
@@ -1603,8 +1681,14 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         seconds: marker.seconds,
         end_seconds: marker.end_seconds ?? null,
         primaryTag: marker.primary_tag,
-        top_performers: marker.top_performers?.map((p) => ({ id: p.id, name: p.name })), // CUSTOM
-        bottom_performers: marker.bottom_performers?.map((p) => ({ id: p.id, name: p.name })), // CUSTOM
+        top_performers: marker.top_performers?.map((p) => ({
+          id: p.id,
+          name: p.name,
+        })), // CUSTOM
+        bottom_performers: marker.bottom_performers?.map((p) => ({
+          id: p.id,
+          name: p.name,
+        })), // CUSTOM
       }));
 
       const markers = player!.markers();
@@ -1643,16 +1727,18 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       requestAnimationFrame(() => {
         markers.addDotMarkers(timestampMarkers);
         markers.addRangeMarkers(rangeMarkers);
-        
+
         // CUSTOM: begin - add negative markers (displayed in red)
         const negativeMarkers = scene.negative_markers ?? [];
         if (negativeMarkers.length > 0) {
-          markers.addNegativeMarkers(negativeMarkers.map(m => ({
-            id: m.id,
-            name: m.name,
-            start_seconds: m.start_seconds,
-            end_seconds: m.end_seconds,
-          })));
+          markers.addNegativeMarkers(
+            negativeMarkers.map((m) => ({
+              id: m.id,
+              name: m.name,
+              start_seconds: m.start_seconds,
+              end_seconds: m.end_seconds,
+            }))
+          );
         }
         // CUSTOM: end
 
@@ -1850,7 +1936,11 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
 
       // CUSTOM: begin - don't intercept keyboard events when typing in input fields
       const target = event.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
         return;
       }
       // CUSTOM: end
@@ -1875,7 +1965,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     // CUSTOM: begin - determine if scene has markers with facial / really hot facial tag
     // Helper to check if a tag matches (including recursive parent/child relationships)
     const tagMatchesScenePlayer = (
-      tag: { id: string; parents?: Array<{ id: string }> } | null | undefined,
+      tag: ScenePlayerTagTree | null | undefined,
       targetId: string,
       visited: Set<string> = new Set()
     ): boolean => {
@@ -1884,30 +1974,32 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       if (visited.has(tag.id)) return false;
       visited.add(tag.id);
       const parents = tag.parents ?? [];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return parents.some((p) => tagMatchesScenePlayer(p as any, targetId, visited));
+      return parents.some((p) => tagMatchesScenePlayer(p, targetId, visited));
     };
 
     const markerHasTagScenePlayer = (
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      marker: any,
+      marker: ScenePlayerMarkerWithTags,
       tagId: string
     ): boolean => {
       if (tagMatchesScenePlayer(marker?.primary_tag, tagId)) return true;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (marker?.tags ?? []).some((t: any) => tagMatchesScenePlayer(t, tagId));
+      return (marker?.tags ?? []).some((t) => tagMatchesScenePlayer(t, tagId));
     };
 
-    const roleTagIds = (
-      configuration?.ui as unknown as { roleTagIds?: { facialTagId?: string; reallyHotTagId?: string } }
-    )?.roleTagIds ?? {};
+    const roleTagIds =
+      (
+        configuration?.ui as unknown as {
+          roleTagIds?: { facialTagId?: string; reallyHotTagId?: string };
+        }
+      )?.roleTagIds ?? {};
 
     // Determine if the scene has any markers with the configured facial tag or any of its subtags
     const hasFacial = useMemo(() => {
       const { facialTagId } = roleTagIds;
       if (!facialTagId) return false;
       const markers = scene.scene_markers ?? [];
-      return markers.some((marker) => markerHasTagScenePlayer(marker, facialTagId));
+      return markers.some((marker) =>
+        markerHasTagScenePlayer(marker, facialTagId)
+      );
     }, [scene.scene_markers, configuration?.ui]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Gold goatee: scene has a marker with BOTH facial tag AND really hot tag
@@ -1915,8 +2007,10 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       const { facialTagId, reallyHotTagId } = roleTagIds;
       if (!facialTagId || !reallyHotTagId) return false;
       const markers = scene.scene_markers ?? [];
-      return markers.some((marker) =>
-        markerHasTagScenePlayer(marker, facialTagId) && markerHasTagScenePlayer(marker, reallyHotTagId)
+      return markers.some(
+        (marker) =>
+          markerHasTagScenePlayer(marker, facialTagId) &&
+          markerHasTagScenePlayer(marker, reallyHotTagId)
       );
     }, [scene.scene_markers, configuration?.ui]); // eslint-disable-line react-hooks/exhaustive-deps
     // CUSTOM: end
@@ -1980,6 +2074,8 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
               onToggleLoopSingle={handleMultiSegmentToggleLoopSingle}
               onUpdateSegmentStart={handleMultiSegmentUpdateStart}
               onUpdateSegmentEnd={handleMultiSegmentUpdateEnd}
+              onAdjustSegmentStart={handleMultiSegmentAdjustStart}
+              onAdjustSegmentEnd={handleMultiSegmentAdjustEnd}
               presetNames={segmentPresets.map((preset) => preset.name)}
               onSavePreset={handleSaveSegmentPreset}
               onLoadPreset={handleLoadSegmentPreset}
@@ -1997,7 +2093,9 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
               performerIds={scene.performers.map((p) => p.id)}
               galleryIds={[
                 ...(scene.galleries?.map((g) => g.id) ?? []),
-                ...(scene.releases?.flatMap((r) => r.galleries?.map((g) => g.id) ?? []) ?? []),
+                ...(scene.releases?.flatMap(
+                  (r) => r.galleries?.map((g) => g.id) ?? []
+                ) ?? []),
               ]}
               selectedImages={selectedOverlayImages}
               onConfirm={(images) => setSelectedOverlayImages(images)}
