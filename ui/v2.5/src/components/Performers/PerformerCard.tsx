@@ -38,11 +38,15 @@ import { PatchComponent } from "src/patch";
 import { ExternalLinksButton } from "../Shared/ExternalLinksButton";
 import { useConfigurationContext } from "src/hooks/Config";
 import { OCounterButton } from "../Shared/CountButton";
+import {
+  getRatingCardClass,
+  isRatingCardHomePage,
+} from "src/utils/ratingCardStyles_custom"; // CUSTOM
 // CUSTOM: begin
 import { PerformerCategoryStrip } from "./PerformerDetails/PerformerCategoryStrip";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
-import goateeSvg from "src/assets/goatee.svg";
+import facialPng from "src/assets/facial.png"; // CUSTOM
 // CUSTOM: end
 
 export interface IPerformerCardExtraCriteria {
@@ -344,7 +348,7 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
       );
     }
 
-    // Facial scenes - goatee icon with top/bottom sub-counts
+    // Facial scenes - facial icon with top/bottom sub-counts
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     function _maybeRenderFacialScenesButton() {
       if (!facialTagId) return null;
@@ -378,7 +382,7 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
             title="Facial scenes"
             disabled={count === 0}
           >
-            <img src={goateeSvg} alt="Facial" className="category-icon" />
+            <img src={facialPng} alt="Facial" className="category-icon" />
             <span>{count}</span>
           </Button>
         </HoverPopover>
@@ -657,6 +661,7 @@ export const PerformerCard: React.FC<IPerformerCardProps> = PatchComponent(
       zoomIndex,
       extraCriteria,
     } = props;
+    const { configuration } = useConfigurationContext(); // CUSTOM
 
     const studioId = extraCriteria?.studio?.id;
     const studioDepth = extraCriteria?.studio?.depth ?? 0;
@@ -686,17 +691,13 @@ export const PerformerCard: React.FC<IPerformerCardProps> = PatchComponent(
     // Determine rating class for special styling
     // Only apply on non-home pages (exclude /scenes, /images, /galleries, etc. when viewed from home)
     const getRatingClass = () => {
-      // Check if we're on the home page by looking at the current location
-      const isHomePage =
-        window.location.pathname === "/" ||
-        window.location.pathname === "/frontpage";
-
-      if (isHomePage || !performer.rating100) return "";
-      // 5 stars = 100, 4 stars = 80, 3 stars = 60
-      if (performer.rating100 === 100) return "rating-5-stars";
-      if (performer.rating100 === 80) return "rating-4-stars";
-      if (performer.rating100 === 60) return "rating-3-stars";
-      return "";
+      return getRatingCardClass({
+        rating: performer.rating100,
+        tags: performer.tags,
+        goatTagId: configuration?.ui?.roleTagIds?.goatTagId,
+        theme: configuration?.ui?.ratingCardTheme,
+        disabled: isRatingCardHomePage(),
+      });
     };
     // CUSTOM: end
 

@@ -12,7 +12,7 @@ import { Link } from "react-router-dom";
 import NavUtils from "src/utils/navigation";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
-import goateeSvg from "src/assets/goatee.svg";
+import facialPng from "src/assets/facial.png"; // CUSTOM
 import { useConfigurationContext } from "src/hooks/Config";
 import { ListFilterModel } from "src/models/list-filter/filter";
 
@@ -529,7 +529,7 @@ export const CustomStats: React.FC = () => {
                   disabled={(statsData as any).stats.facial_scene_count === 0}
                 >
                   <img
-                    src={goateeSvg}
+                    src={facialPng}
                     alt="Facial"
                     className="stats-category-icon"
                   />

@@ -8,10 +8,13 @@ import {
 import {
   ChildTagsCriterionOption,
   ParentTagsCriterionOption,
-  SceneTagsCriterionOption, // CUSTOM
   TagsCriterion,
   TagsCriterionOption,
 } from "src/models/list-filter/criteria/tags";
+import {
+  MarkerPerformersCriterion, // CUSTOM
+  MarkerPerformersCriterionOption, // CUSTOM
+} from "src/models/list-filter/criteria/marker-performers";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import {
   ContainingGroupsCriterionOption,
@@ -390,17 +393,29 @@ const makeTagStudiosUrl = (tag: INamedObject) => {
   return `/studios?${makeTagFilter(GQL.FilterMode.Studios, tag)}`;
 };
 
-// CUSTOM: begin - use SceneTagsCriterionOption instead of generic TagsCriterionOption
-// because TagsCriterionOption is not a valid criterion for the SceneMarkers filter mode
+// CUSTOM: begin - use marker_performers so TagCard marker links match the Markers filter UI
 const makeTagSceneMarkersUrl = (tag: INamedObject) => {
   const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
-  const criterion = new TagsCriterion(SceneTagsCriterionOption);
+  const criterion = new MarkerPerformersCriterion(MarkerPerformersCriterionOption);
+  criterion.modifier = GQL.CriterionModifier.Equals;
   criterion.value = {
-    items: [{ id: tag.id, label: tag.name || `Tag ${tag.id}` }],
-    excluded: [],
-    depth: 0,
+    tag_ids: [{ id: tag.id, label: tag.name || `Tag ${tag.id}` }],
+    include_subtags: false,
+    performer_mode: "AND",
+    top_performer_ids: [],
+    top_any_count: 0,
+    top_ethnicities: [],
+    top_countries: [],
+    top_rating: null,
+    bottom_performer_ids: [],
+    bottom_any_count: 0,
+    bottom_ethnicities: [],
+    bottom_countries: [],
+    bottom_rating: null,
+    unnamed_performers: [],
   };
   filter.criteria.push(criterion);
+  filter.sortBy = "title";
   return `/scenes/markers?${filter.makeQueryParameters()}`;
 };
 // CUSTOM: end

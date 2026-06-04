@@ -12,6 +12,12 @@ import { RatingBanner } from "../Shared/RatingBanner";
 import { faPlayCircle, faTag } from "@fortawesome/free-solid-svg-icons";
 import { RelatedGroupPopoverButton } from "./RelatedGroupPopover";
 import { OCounterButton } from "../Shared/CountButton";
+import cx from "classnames"; // CUSTOM
+import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
+import {
+  getRatingCardClass,
+  isRatingCardHomePage,
+} from "src/utils/ratingCardStyles_custom"; // CUSTOM
 
 const Description: React.FC<{
   sceneNumber?: number;
@@ -61,6 +67,19 @@ export const GroupCard: React.FC<IProps> = PatchComponent(
     fromGroupId,
     onMove,
   }) => {
+    // CUSTOM: begin - premium/classic rating card styling
+    const { configuration } = useConfigurationContext();
+    const ratingCardTheme = configuration?.ui?.ratingCardTheme;
+    const goatTagId = configuration?.ui?.roleTagIds?.goatTagId;
+    const ratingCardClass = getRatingCardClass({
+      rating: group.rating100,
+      tags: group.tags,
+      goatTagId,
+      theme: ratingCardTheme,
+      disabled: isRatingCardHomePage(),
+    });
+    // CUSTOM: end
+
     const groupDescription = useMemo(() => {
       if (!fromGroupId) {
         return undefined;
@@ -149,7 +168,7 @@ export const GroupCard: React.FC<IProps> = PatchComponent(
 
     return (
       <GridCard
-        className={`group-card zoom-${zoomIndex}`}
+        className={cx("group-card", `zoom-${zoomIndex}`, ratingCardClass)} // CUSTOM
         objectId={group.id}
         onMove={onMove}
         url={`/groups/${group.id}`}

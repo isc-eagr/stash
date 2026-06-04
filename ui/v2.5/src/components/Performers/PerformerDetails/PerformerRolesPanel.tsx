@@ -9,7 +9,7 @@ import { faHand } from "@fortawesome/free-solid-svg-icons";
 import NavUtils from "src/utils/navigation";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
-import goateeSvg from "src/assets/goatee.svg";
+import facialPng from "src/assets/facial.png"; // CUSTOM
 
 interface IPerformerRolesPanelProps {
   active: boolean;
@@ -243,7 +243,7 @@ export const PerformerRolesPanel: React.FC<IPerformerRolesPanelProps> =
                 title="Facial"
                 icon={
                   <img
-                    src={goateeSvg}
+                    src={facialPng}
                     alt="Facial"
                     style={{ width: 24, height: 24 }}
                   />

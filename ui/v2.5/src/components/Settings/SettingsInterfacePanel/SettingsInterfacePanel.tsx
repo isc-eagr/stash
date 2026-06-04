@@ -46,6 +46,7 @@ import {
 import { defaultMaxOptionsShown, defaultPreviewVolume } from "src/core/config";
 import { PatchComponent } from "src/patch";
 import { TagIDSelect, Tag as TagOption } from "src/components/Tags/TagSelect"; // CUSTOM
+import { defaultRatingCardTheme } from "src/utils/ratingCardStyles_custom"; // CUSTOM
 
 const allMenuItems = [
   { id: "scenes", headingID: "scenes" },
@@ -400,6 +401,28 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
             />
           </Setting>
           {/* CUSTOM: end */}
+          {/* CUSTOM: begin - GOAT tag setting */}
+          <Setting id="role-tag-goat" headingID="config.ui.role_tags.goat">
+            <TagIDSelect
+              isMulti={false}
+              creatable={false}
+              ids={
+                ui.roleTagIds?.goatTagId
+                  ? [ui.roleTagIds.goatTagId]
+                  : []
+              }
+              menuPortalTarget={document.body}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  roleTagIds: {
+                    ...(ui.roleTagIds ?? {}),
+                    goatTagId: items[0]?.id ?? undefined,
+                  },
+                })
+              }
+            />
+          </Setting>
+          {/* CUSTOM: end */}
           <Setting id="role-tag-orgasm" headingID="config.ui.role_tags.orgasm">
             <TagIDSelect
               isMulti={false}
@@ -454,6 +477,33 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
               }
             />
           </Setting>
+        </SettingSection>
+        {/* CUSTOM: end */}
+
+        {/* CUSTOM: begin - rating card theme selector */}
+        <SettingSection headingID="config.ui.card_rating_styles.heading">
+          <SelectSetting
+            id="rating-card-theme"
+            headingID="config.ui.card_rating_styles.theme.heading"
+            subHeadingID="config.ui.card_rating_styles.theme.description"
+            value={ui.ratingCardTheme ?? defaultRatingCardTheme}
+            onChange={(v) =>
+              saveUI({
+                ratingCardTheme: v as "premium" | "classic",
+              })
+            }
+          >
+            <option value="premium">
+              {intl.formatMessage({
+                id: "config.ui.card_rating_styles.theme.options.premium",
+              })}
+            </option>
+            <option value="classic">
+              {intl.formatMessage({
+                id: "config.ui.card_rating_styles.theme.options.classic",
+              })}
+            </option>
+          </SelectSetting>
         </SettingSection>
         {/* CUSTOM: end */}
 

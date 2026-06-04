@@ -16,6 +16,11 @@ import { PatchComponent } from "src/patch";
 import { PerformerPopoverButton } from "../Shared/PerformerPopoverButton";
 import { ScenePreview } from "./SceneCard";
 import { TruncatedText } from "../Shared/TruncatedText";
+import cx from "classnames"; // CUSTOM
+import {
+  getRatingCardClass,
+  isRatingCardHomePage,
+} from "src/utils/ratingCardStyles_custom"; // CUSTOM
 
 interface ISceneMarkerCardProps {
   marker: GQL.SceneMarkerDataFragment;
@@ -216,6 +221,22 @@ const SceneMarkerCardImage = PatchComponent(
 export const SceneMarkerCard = PatchComponent(
   "SceneMarkerCard",
   (props: ISceneMarkerCardProps) => {
+    // CUSTOM: begin - GOAT/prismatic marker card styling
+    const { configuration } = useConfigurationContext();
+    const ratingCardTheme = configuration?.ui?.ratingCardTheme;
+    const goatTagId = configuration?.ui?.roleTagIds?.goatTagId;
+    const markerTags = useMemo(
+      () => [props.marker.primary_tag, ...props.marker.tags],
+      [props.marker.primary_tag, props.marker.tags]
+    );
+    const ratingCardClass = getRatingCardClass({
+      tags: markerTags,
+      goatTagId,
+      theme: ratingCardTheme,
+      disabled: isRatingCardHomePage(),
+    });
+    // CUSTOM: end
+
     function zoomIndex() {
       if (!props.compact && props.zoomIndex !== undefined) {
         return `zoom-${props.zoomIndex}`;
@@ -226,7 +247,7 @@ export const SceneMarkerCard = PatchComponent(
 
     return (
       <GridCard
-        className={`scene-marker-card ${zoomIndex()}`}
+        className={cx("scene-marker-card", zoomIndex(), ratingCardClass)} // CUSTOM
         url={NavUtils.makeSceneMarkerUrl(props.marker)}
         title={markerTitle(props.marker)}
         width={props.cardWidth}

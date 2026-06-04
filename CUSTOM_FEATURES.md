@@ -43,6 +43,8 @@ This document describes all custom features and modifications added on top of th
 33. [Marker Duration Display](#33-marker-duration-display)
 34. [Task Progress Completion Estimate](#34-task-progress-completion-estimate)
 35. [Marker Source-Quality Generation](#35-marker-source-quality-generation)
+36. [Premium Rating Card Styles](#36-premium-rating-card-styles)
+37. [Rating Advisor Modals](#37-rating-advisor-modals)
 
 ---
 
@@ -122,7 +124,7 @@ Visual indicators on performer cards and scene cards showing role information ba
 
 ### Features
 - **Top/Bottom counts**: Displayed on performer cards showing breakdown by role
-- **Category icons**: Gay icon (sex), Mouth icon (oral), Hand icon (solo), Goatee icon (facial)
+- **Category icons**: Gay icon (sex), Mouth icon (oral), Hand icon (solo), Facial icon (facial)
 - **Scene card overlays**: Icons indicating what types of markers a scene has
 
 ### Files Modified
@@ -200,7 +202,8 @@ A widget for tracking progress on tagging tasks. Users can define trackers linke
 ### Features
 - Create/edit/delete progress trackers
 - Each tracker has: name, initial count, linked tag
-- Shows current count vs initial (progress bar)
+- Shows current tagged item count vs initial (progress bar)
+- Linked tags count all directly tagged item types: scenes, scene markers, images, galleries, performers, studios, and groups
 - Persisted in UI configuration
 
 ---
@@ -320,7 +323,7 @@ Quick-access buttons on studio cards and detail pages showing scene counts by ca
 - **Sex Scenes** (gay icon): Scenes with top AND bottom performers
 - **Oral Scenes** (mouth icon): Scenes with oral tags but no sex tags
 - **Solo Scenes** (hand icon): Scenes with solo tag only
-- **Facial Scenes** (goatee icon): Scenes with facial tags
+- **Facial Scenes** (facial icon): Scenes with facial tags
 - **Unique Performers** (user-plus icon): Count of distinct performers
 
 ### Studio Sorting by Category Counts
@@ -464,12 +467,12 @@ interface IPerformerCardProps {
 ### Features Added
 1. **Performer Scene Tags Button**: Green button showing aggregated performer scene tags for the scene
 2. **Role Icons on Overlay**: Visual indicators for scene type (gay, oral, solo, facial)
-3. **Gold Goatee (Really Hot Facial)**: Goatee icon displays in gold when a scene has a marker tagged with BOTH the configured Facial tag AND the new Really Hot qualifier tag. White goatee shows for plain facial markers; gold goatee takes precedence when the really-hot combo is found. Configurable via Settings → Interface → Role Tags → "Really Hot qualifier tag". Applies to both the scene card overlay and the in-scene player overlay.
+3. **Gold Facial Icon (Really Hot Facial)**: Facial icon displays in gold when a scene has a marker tagged with BOTH the configured Facial tag AND the new Really Hot qualifier tag. White facial icon shows for plain facial markers; gold facial icon takes precedence when the really-hot combo is found. Configurable via Settings → Interface → Role Tags → "Really Hot qualifier tag". Applies to both the scene card overlay and the in-scene player overlay.
 
 ### Custom Assets Added
 - `ui/v2.5/src/assets/gay.svg` - Gay/sex scene icon
 - `ui/v2.5/src/assets/mouth.svg` - Oral scene icon
-- `ui/v2.5/src/assets/goatee.svg` - Facial scene icon
+- `ui/v2.5/src/assets/facial.png` - Facial scene icon
 - `ui/v2.5/src/assets/straight.svg` - Straight scene icon
 - `ui/v2.5/src/assets/splash.svg` - Orgasm/splash scene icon
 
@@ -548,7 +551,7 @@ ui/v2.5/src/components/Studios/StudioDetails/StudioCategoryStrip.tsx
 
 # Frontend - Assets
 ui/v2.5/src/assets/gay.svg
-ui/v2.5/src/assets/goatee.svg
+ui/v2.5/src/assets/facial.png
 ui/v2.5/src/assets/mouth.svg
 ui/v2.5/src/assets/straight.svg
 
@@ -593,7 +596,7 @@ When merging with upstream Stash releases:
 3. **Key imports to preserve**:
    - `ConfigurationContext` from `src/hooks/Config` (for useContext usage)
    - `useConfigurationContext` from `src/hooks/Config` (hook version)
-   - Custom SVG imports (gay.svg, mouth.svg, goatee.svg, straight.svg)
+   - Custom image imports (gay.svg, mouth.svg, facial.png, straight.svg)
 4. **Preserve custom props** on components (sceneHasExplicitTopBottom, showTagButton, etc.)
 5. **Check filter criteria files** - often need merging of new criterion types
 6. **GraphQL schema files** - merge carefully, add custom types after upstream types
@@ -1353,7 +1356,7 @@ Adds partner count badges to performer cards and detail pages (outside scene con
   - Only shown when NOT in scene context (when sceneId is not provided)
   - Uses person icon (faUser) combined with arrow icons to indicate top/bottom
   - Smaller font size and styling to distinguish from scene count badges
-  - Category icons (gay/mouth/goatee) shown with reduced opacity (0.7)
+  - Category icons (gay/mouth/facial) shown with reduced opacity (0.7)
   - Green badges for "topped" counts, blue badges for "bottomed for" counts
 
 ### Display Logic
@@ -2149,3 +2152,108 @@ When the setting is switched, generation detects markers that were created under
 - Markers already generated in the currently selected mode are left untouched.
 - Markers generated in the opposite mode are selectively regenerated.
 - Screenshot markers are unaffected by this setting.
+
+---
+
+## 36. Premium Rating Card Styles
+
+### Overview
+Adds a configurable visual theme for Bronze, Silver, Gold, and Prismatic scene, performer, image, gallery, group, and studio cards using 100-based ratings:
+- `premium` (default): black card shell with radiant bronze/silver/gold outline accents
+- `classic`: preserves the original metallic shimmer styles and adds a matching prismatic GOAT style
+
+Rating-based card styling uses these thresholds:
+- 60-72: Bronze
+- 73-83: Silver
+- 84-89: Gold
+- 90-100: Prismatic
+
+GOAT-tagged cards use a prismatic override independent of rating. The GOAT override applies when the configured GOAT tag is directly attached to the card item and takes precedence over rating-based styling. Scene markers do not have ratings, so only the GOAT/prismatic override is applied to marker cards.
+
+### Configuration
+Stored in UI config:
+```typescript
+configuration.ui.ratingCardTheme = "premium" | "classic"
+configuration.ui.roleTagIds.goatTagId = "<tag id>"
+```
+
+### Files Modified
+- `ui/v2.5/src/components/Scenes/SceneCard.tsx` - Uses shared rating card class helper for scene cards
+- `ui/v2.5/src/components/Scenes/SceneMarkerCard.tsx` - Uses the GOAT/prismatic override for marker cards
+- `ui/v2.5/src/components/Performers/PerformerCard.tsx` - Uses shared rating card class helper for performer cards
+- `ui/v2.5/src/components/Performers/PerformerDetails/PerformerAppearsWithByRolePanel.tsx` - Applies the same card style logic to co-performer cards
+- `ui/v2.5/src/components/Images/ImageCard.tsx` - Uses shared rating card class helper for image cards
+- `ui/v2.5/src/components/Galleries/GalleryCard.tsx` - Uses shared rating card class helper for gallery cards
+- `ui/v2.5/src/components/Groups/GroupCard.tsx` - Uses shared rating card class helper for group cards
+- `ui/v2.5/src/components/Studios/StudioCard.tsx` - Uses shared rating card class helper for studio cards
+- `ui/v2.5/src/components/Settings/SettingsInterfacePanel/SettingsInterfacePanel.tsx` - Adds rating card theme selector and GOAT tag picker
+- `ui/v2.5/src/core/config.ts` - Adds `ratingCardTheme` and `goatTagId` UI config typing
+- `ui/v2.5/src/index.scss` - Imports the custom rating card stylesheet
+- `ui/v2.5/src/locales/en-GB.json` - Adds UI strings for the theme selector and GOAT tag setting
+
+### Files Added
+- `ui/v2.5/src/utils/ratingCardStyles_custom.ts` - Shared class selection helper for rating tiers and GOAT override
+- `ui/v2.5/src/components/Shared/ratingCardStyles_custom.scss` - Premium/prismatic card shell styling
+
+---
+
+## 37. Rating Advisor Modals
+
+### Overview
+Adds scene and performer rating advisor buttons next to the existing detail-page rating controls. Each button opens a modal questionnaire with weighted 0-n criteria and live scoring. The modal only suggests a rating tier and rating100 value; it does not save or mutate the actual scene/performer rating.
+
+### Scene Advisor
+Uses a weighted 10-point scene rubric designed for 100-based ratings:
+- Performer attractiveness: each raw point is worth 0.4, up to 4.0
+- Energy / sex quality: each raw point is worth 0.3, up to 3.0
+- Orgasm / climax payoff: each raw point is worth 0.5, up to 2.0
+- Standout moment: each raw point is worth 0.5, up to 1.0
+
+Bonus section:
+- Theme / fantasy / uniform factor (+0.5 when present)
+- Oral-only scene (+0.5 when present)
+- Standout act / position / dynamic (+0.5 when present)
+- Group scene with 4+ performers (+0.5 when present)
+- God-tier orgasm bonus (+2.0 when present)
+
+Penalty section:
+- No orgasm (-1.0 when present)
+- Production / visual quality (-1.0 when quality actively works against the scene)
+
+Scene score conversion:
+- 0.0-5.9: Plain
+- 6.0-7.2: Bronze
+- 7.3-8.3: Silver
+- 8.4-8.9: Gold
+- 9.0-10.0: Elite / Prismatic
+
+Bonus points can help reach the 10.0 cap, but they do not increase the displayed rating above 10.0.
+
+### Performer Advisor
+Uses a weighted 10-point performer rubric designed for 100-based ratings:
+- Attractiveness: each raw point is worth 0.3, up to 3.0
+- Sexual performance: each raw point is worth 0.2, up to 2.0
+- Ethnicity / racial appeal: each raw point is worth 0.5, up to 1.5
+- Body type: each raw point is worth 0.5, up to 1.5
+- Masculinity: each raw point is worth 0.5, up to 1.5
+
+Bonus section:
+- Consistency (+0.5 when present)
+- Dick (+0.5 when present)
+- Tattoos (+0.5 when present)
+
+Bonus points can help reach the 10.0 cap, but they do not increase the displayed rating above 10.0.
+
+Performer score conversion:
+- 0.0-5.9: Plain
+- 6.0-7.2: Bronze
+- 7.3-8.3: Silver
+- 8.4-8.9: Gold
+- 9.0-10.0: Elite / Prismatic
+
+### Files Modified
+- `ui/v2.5/src/components/Shared/RatingAdvisor_custom.tsx` - Shared advisor modal, scoring definitions, and button component
+- `ui/v2.5/src/components/Shared/ratingAdvisor_custom.scss` - Advisor modal styling
+- `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx` - Scene detail advisor button
+- `ui/v2.5/src/components/Performers/PerformerDetails/Performer.tsx` - Performer detail advisor button
+- `ui/v2.5/src/index.scss` - Imports advisor styling

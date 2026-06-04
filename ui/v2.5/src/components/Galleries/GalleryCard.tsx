@@ -17,6 +17,11 @@ import { GalleryPreviewScrubber } from "./GalleryPreviewScrubber";
 import cx from "classnames";
 import { useHistory } from "react-router-dom";
 import { PatchComponent } from "src/patch";
+import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
+import {
+  getRatingCardClass,
+  isRatingCardHomePage,
+} from "src/utils/ratingCardStyles_custom"; // CUSTOM
 
 interface IGalleryPreviewProps {
   gallery: GQL.SlimGalleryDataFragment;
@@ -234,9 +239,22 @@ const GalleryCardImage = PatchComponent(
 export const GalleryCard = PatchComponent(
   "GalleryCard",
   (props: IGalleryCardProps) => {
+    // CUSTOM: begin - premium/classic rating card styling
+    const { configuration } = useConfigurationContext();
+    const ratingCardTheme = configuration?.ui?.ratingCardTheme;
+    const goatTagId = configuration?.ui?.roleTagIds?.goatTagId;
+    const ratingCardClass = getRatingCardClass({
+      rating: props.gallery.rating100,
+      tags: props.gallery.tags,
+      goatTagId,
+      theme: ratingCardTheme,
+      disabled: isRatingCardHomePage(),
+    });
+    // CUSTOM: end
+
     return (
       <GridCard
-        className={`gallery-card zoom-${props.zoomIndex}`}
+        className={cx("gallery-card", `zoom-${props.zoomIndex}`, ratingCardClass)} // CUSTOM
         url={`/galleries/${props.gallery.id}`}
         width={props.cardWidth}
         title={galleryTitle(props.gallery)}

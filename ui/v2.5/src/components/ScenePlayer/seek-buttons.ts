@@ -7,7 +7,7 @@ interface ISeekButtonsOptions {
 }
 
 const SEEK_OPTIONS = [5, 10, 20, 30];
-const DEFAULT_SEEK = 10;
+const DEFAULT_SEEK = 5; // CUSTOM
 
 // Menu item for seek duration selection
 class SeekMenuItem extends videojs.getComponent("MenuItem") {

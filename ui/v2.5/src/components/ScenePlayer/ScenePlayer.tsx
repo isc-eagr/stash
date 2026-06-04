@@ -53,7 +53,7 @@ import abLoopPlugin from "videojs-abloop";
 import ScreenUtils from "src/utils/screen";
 import { PatchComponent } from "src/patch";
 // CUSTOM: begin - custom imports (goatee, multi-segment loop, performer image overlay)
-import goateeSvg from "src/assets/goatee.svg";
+import facialPng from "src/assets/facial.png"; // CUSTOM
 
 // Multi-segment loop plugin
 import "./multi-segment-loop";
@@ -561,8 +561,8 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
           bigButtons: {},
           seekButtonsMenu: {
             // CUSTOM: renamed from seekButtons
-            forward: 10,
-            back: 10,
+            forward: 5, // CUSTOM
+            back: 5, // CUSTOM
           },
           skipButtons: {},
           trackActivity: {},
@@ -2028,7 +2028,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
           {hasReallyHotFacial && (
             <img
               className="scene-facial-overlay scene-facial-overlay--gold"
-              src={goateeSvg}
+              src={facialPng}
               alt="Facial (Really Hot)"
               title="Really hot facial marker present"
             />
@@ -2036,7 +2036,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
           {!hasReallyHotFacial && hasFacial && (
             <img
               className="scene-facial-overlay"
-              src={goateeSvg}
+              src={facialPng}
               alt="Facial"
               title="Facial tags present"
             />

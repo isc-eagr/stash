@@ -31,7 +31,7 @@ const TaskProgress: React.FC = () => {
     tagId: "",
     tagName: "",
   });
-  const [sceneCounts, setSceneCounts] = useState<Record<string, number>>({});
+  const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
   const [organizedCount, setOrganizedCount] = useState<number>(0);
   const [itemsPerDay, setItemsPerDay] = useState<Record<string, number>>({});
   const [overallItemsPerDay, setOverallItemsPerDay] = useState<number>(0);
@@ -61,8 +61,8 @@ const TaskProgress: React.FC = () => {
     }
   };
 
-  // Query to count scenes by tag
-  const [fetchSceneCount] = useLazyQuery(GQL.FindScenesDocument, {
+  // CUSTOM: Query to count all tagged item types for progress trackers
+  const [fetchTagCount] = useLazyQuery(GQL.FindTagDocument, {
     fetchPolicy: "network-only",
   });
 
@@ -92,35 +92,41 @@ const TaskProgress: React.FC = () => {
     fetchOrganized();
   }, [fetchOrganizedScenes]);
 
-  // Fetch scene counts for all trackers
+  // Fetch tagged item counts for all trackers
   useEffect(() => {
+    const getTrackedItemCount = (tag: GQL.TagDataFragment): number =>
+      tag.scene_count +
+      tag.scene_marker_count +
+      tag.image_count +
+      tag.gallery_count +
+      tag.performer_count +
+      tag.studio_count +
+      tag.group_count;
+
     const fetchCounts = async () => {
       const counts: Record<string, number> = {};
       for (const tracker of trackers) {
         try {
-          const { data } = await fetchSceneCount({
+          const { data } = await fetchTagCount({
             variables: {
-              scene_filter: {
-                tags: {
-                  value: [tracker.tagId],
-                  modifier: GQL.CriterionModifier.Includes,
-                },
-              },
+              id: tracker.tagId,
             },
           });
-          counts[tracker.id] = data?.findScenes?.count ?? 0;
+          counts[tracker.id] = data?.findTag
+            ? getTrackedItemCount(data.findTag)
+            : 0;
         } catch (e) {
           console.error(`Failed to fetch count for tracker ${tracker.id}:`, e);
           counts[tracker.id] = 0;
         }
       }
-      setSceneCounts(counts);
+      setItemCounts(counts);
     };
 
     if (trackers.length > 0) {
       fetchCounts();
     }
-  }, [trackers, fetchSceneCount]);
+  }, [trackers, fetchTagCount]);
 
   const addTracker = () => {
     if (!newTracker.name || !newTracker.tagId || !newTracker.initialValue) {
@@ -145,13 +151,13 @@ const TaskProgress: React.FC = () => {
     const newTrackers = trackers.filter((t) => t.id !== id);
     setTrackers(newTrackers);
     saveTrackers(newTrackers);
-    const newCounts = { ...sceneCounts };
+    const newCounts = { ...itemCounts };
     delete newCounts[id];
-    setSceneCounts(newCounts);
+    setItemCounts(newCounts);
   };
 
   const calculatePercentage = (tracker: IProgressTracker): number => {
-    const count = sceneCounts[tracker.id] ?? 0;
+    const count = itemCounts[tracker.id] ?? 0;
     if (tracker.initialValue === 0) return 0;
     const done = tracker.initialValue - count;
     return Math.max((done / tracker.initialValue) * 100, 0);
@@ -372,7 +378,7 @@ const TaskProgress: React.FC = () => {
         ) : (
           <div className="row">
             {trackers.map((tracker) => {
-              const count = sceneCounts[tracker.id] ?? 0;
+              const count = itemCounts[tracker.id] ?? 0;
               const done = tracker.initialValue - count;
               const percentageComplete = calculatePercentage(tracker);
 

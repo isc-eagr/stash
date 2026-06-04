@@ -37,11 +37,15 @@ import { GroupTag } from "../Groups/GroupTag";
 import { FileSize } from "../Shared/FileSize";
 import { OCounterButton } from "../Shared/CountButton";
 import { defaultPreviewVolume } from "src/core/config";
+import {
+  getRatingCardClass,
+  isRatingCardHomePage,
+} from "src/utils/ratingCardStyles_custom"; // CUSTOM
 // CUSTOM: begin - role icon SVG imports
 import mouthSvg from "src/assets/mouth.svg";
 import gaySvg from "src/assets/gay.svg";
 import straightSvg from "src/assets/straight.svg";
-import goateeSvg from "src/assets/goatee.svg";
+import facialPng from "src/assets/facial.png"; // CUSTOM
 // CUSTOM: end
 
 interface IScenePreviewProps {
@@ -397,7 +401,7 @@ const SceneCardOverlays = PatchComponent(
       return sceneMarkers.some((marker: any) => markerHasTag(marker, facialTagId));
     }, [props.scene, configuration?.ui]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Check if scene has a marker with BOTH facial tag AND really hot tag (gold goatee)
+    // Check if scene has a marker with BOTH facial tag AND really hot tag (gold facial icon)
     const hasReallyHotFacial = useMemo(() => {
       const roleTagIds = configuration?.ui?.roleTagIds ?? {};
       const { facialTagId, reallyHotTagId } = roleTagIds;
@@ -416,7 +420,7 @@ const SceneCardOverlays = PatchComponent(
         {hasReallyHotFacial && (
           <img
             className="scene-facial-overlay scene-facial-overlay--gold"
-            src={goateeSvg}
+            src={facialPng}
             alt="Facial (Really Hot)"
             title="Really hot facial marker present"
           />
@@ -424,7 +428,7 @@ const SceneCardOverlays = PatchComponent(
         {!hasReallyHotFacial && hasFacial && (
           <img
             className="scene-facial-overlay"
-            src={goateeSvg}
+            src={facialPng}
             alt="Facial"
             title="Facial tags present"
           />
@@ -657,7 +661,7 @@ export const SceneCard = PatchComponent(
                   : t === "straight"
                   ? straightSvg
                   : t === "goatee"
-                  ? goateeSvg
+                  ? facialPng
                   : mouthSvg
               }
               alt={
@@ -715,18 +719,13 @@ export const SceneCard = PatchComponent(
 
     // CUSTOM: begin - rating-based card styling
     function getRatingClass() {
-      // Exclude home page from rating effects
-      const isHomePage =
-        window.location.pathname === "/" ||
-        window.location.pathname === "/frontpage";
-      if (isHomePage) return "";
-
-      const rating = props.scene.rating100;
-      // 5 stars = 100, 4 stars = 80, 3 stars = 60
-      if (rating === 100) return "rating-5-stars";
-      if (rating === 80) return "rating-4-stars";
-      if (rating === 60) return "rating-3-stars";
-      return "";
+      return getRatingCardClass({
+        rating: props.scene.rating100,
+        tags: props.scene.tags,
+        goatTagId: configuration?.ui?.roleTagIds?.goatTagId,
+        theme: configuration?.ui?.ratingCardTheme,
+        disabled: isRatingCardHomePage(),
+      });
     }
     // CUSTOM: end
 

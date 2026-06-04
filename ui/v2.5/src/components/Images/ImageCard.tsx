@@ -19,6 +19,11 @@ import { PatchComponent } from "src/patch";
 import { TruncatedText } from "../Shared/TruncatedText";
 import { StudioOverlay } from "../Shared/GridCard/StudioOverlay";
 import { OCounterButton } from "../Shared/CountButton";
+import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
+import {
+  getRatingCardClass,
+  isRatingCardHomePage,
+} from "src/utils/ratingCardStyles_custom"; // CUSTOM
 
 interface IImageCardProps {
   image: GQL.SlimImageDataFragment;
@@ -210,9 +215,22 @@ const ImageCardImage = PatchComponent(
 export const ImageCard: React.FC<IImageCardProps> = PatchComponent(
   "ImageCard",
   (props: IImageCardProps) => {
+    // CUSTOM: begin - premium/classic rating card styling
+    const { configuration } = useConfigurationContext();
+    const ratingCardTheme = configuration?.ui?.ratingCardTheme;
+    const goatTagId = configuration?.ui?.roleTagIds?.goatTagId;
+    const ratingCardClass = getRatingCardClass({
+      rating: props.image.rating100,
+      tags: props.image.tags,
+      goatTagId,
+      theme: ratingCardTheme,
+      disabled: isRatingCardHomePage(),
+    });
+    // CUSTOM: end
+
     return (
       <GridCard
-        className={`image-card zoom-${props.zoomIndex}`}
+        className={cx("image-card", `zoom-${props.zoomIndex}`, ratingCardClass)} // CUSTOM
         url={`/images/${props.image.id}`}
         width={props.cardWidth}
         title={imageTitle(props.image)}

@@ -7,7 +7,7 @@ import NavUtils from "src/utils/navigation";
 import { useRoleTags } from "src/hooks/useRoleTags";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
-import goateeSvg from "src/assets/goatee.svg";
+import facialPng from "src/assets/facial.png"; // CUSTOM
 
 interface IStudioCategoryStripProps {
   studio: GQL.StudioDataFragment;
@@ -88,7 +88,7 @@ export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
     );
   }
 
-  // Facial scenes (marker-based) - goatee icon
+  // Facial scenes (marker-based) - facial icon
   function maybeRenderFacialScenesButton() {
     if (!facialTag) return null;
 
@@ -108,7 +108,7 @@ export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
         title={`Facial scenes (${facialTag.name})`}
         disabled={facialCount === 0}
       >
-        <img src={goateeSvg} alt="Facial" className="category-icon" />
+        <img src={facialPng} alt="Facial" className="category-icon" />
         <span>{facialCount}</span>
       </Button>
     );

@@ -117,6 +117,9 @@ export interface IUIConfig {
   title?: string;
 
   // CUSTOM: begin
+  // Styling option for rating-highlighted scene and performer cards
+  ratingCardTheme?: "premium" | "classic";
+
   // Tag IDs used for scene marker role categorization
   // These determine which marker tags represent each role category
   roleTagIds?: {
@@ -127,7 +130,8 @@ export interface IUIConfig {
     orgasmTagId?: string; // Tag ID for orgasm markers
     feetTagId?: string; // Tag ID for feet markers
     secondCameraTagId?: string; // Tag ID for 2nd camera markers (excluded from orgasm/facial counts)
-    reallyHotTagId?: string; // Tag ID for "really hot" qualifier (gold goatee when combined with facial)
+    reallyHotTagId?: string; // Tag ID for "really hot" qualifier (gold facial icon when combined with facial)
+    goatTagId?: string; // Tag ID for GOAT card styling override
   };
   // CUSTOM: end
 }

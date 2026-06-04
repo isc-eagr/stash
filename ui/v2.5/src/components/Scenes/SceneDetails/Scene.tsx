@@ -50,6 +50,7 @@ import straightSvg from "src/assets/straight.svg";
 // CUSTOM: end
 import { objectPath, objectTitle } from "src/core/files";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
+import { RatingAdvisorButton } from "src/components/Shared/RatingAdvisor_custom"; // CUSTOM
 import TextUtils from "src/utils/text";
 import {
   OCounterButton,
@@ -884,6 +885,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
           <div className="scene-toolbar">
             <span className="scene-toolbar-group">
+              <RatingAdvisorButton entityType="scene" /> {/* CUSTOM */}
               <RatingSystem
                 value={scene.rating100}
                 onSetRating={setRating}

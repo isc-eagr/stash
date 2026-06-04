@@ -666,10 +666,22 @@
         "oral": "Oral marker tag",
         "solo": "Solo marker tag",
         "facial": "Facial marker tag",
-        "really_hot": "Really Hot qualifier tag (gold goatee when combined with facial)",
+        "really_hot": "Really Hot qualifier tag (gold facial icon when combined with facial)",
+        "goat": "GOAT tag (prismatic card override)",
         "orgasm": "Orgasm marker tag",
         "feet": "Feet marker tag",
         "second_camera": "2nd Camera marker tag (excluded from counts)"
+      },
+      "card_rating_styles": {
+        "heading": "Card Rating Styles",
+        "theme": {
+          "heading": "Scene and performer card style",
+          "description": "Choose how 100-based Bronze, Silver, Gold, and Prismatic scene and performer cards are styled. GOAT-tagged cards use the prismatic override.",
+          "options": {
+            "premium": "Premium radiant outline",
+            "classic": "Classic metallic shimmer"
+          }
+        }
       },
       "abbreviate_counters": {
         "description": "Abbreviate counters in cards and details view pages, for example \"1831\" will get formated to \"1.8K\".",

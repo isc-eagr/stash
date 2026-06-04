@@ -15,7 +15,7 @@ import NavUtils from "src/utils/navigation";
 import { useConfigurationContext } from "src/hooks/Config";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
-import goateeSvg from "src/assets/goatee.svg";
+import facialPng from "src/assets/facial.png"; // CUSTOM
 import spermsSvg from "src/assets/sperms.svg";
 import feetSvg from "src/assets/feet.svg";
 
@@ -521,7 +521,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
             : role.category === "oral"
             ? mouthSvg
             : role.category === "facial"
-            ? goateeSvg
+            ? facialPng
             : null; // solo uses faHand
 
         const tagLabel =

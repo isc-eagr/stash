@@ -19,6 +19,7 @@ import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { useToast } from "src/hooks/Toast";
 import { useConfigurationContext } from "src/hooks/Config";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
+import { RatingAdvisorButton } from "src/components/Shared/RatingAdvisor_custom"; // CUSTOM
 import {
   CompressedPerformerDetailsPanel,
   PerformerDetailsPanel,
@@ -625,6 +626,7 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                 </DetailTitle>
                 <AliasList aliases={performer.alias_list} />
                 <div className="quality-group">
+                  <RatingAdvisorButton entityType="performer" /> {/* CUSTOM */}
                   <RatingSystem
                     value={performer.rating100}
                     onSetRating={(value) => setRating(value)}

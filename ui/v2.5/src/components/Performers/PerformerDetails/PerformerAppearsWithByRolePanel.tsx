@@ -18,7 +18,8 @@ import { useIntl } from "react-intl";
 import { PopoverCountButton } from "../../Shared/PopoverCountButton";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
-import goateeSvg from "src/assets/goatee.svg";
+import facialPng from "src/assets/facial.png"; // CUSTOM
+import { getRatingCardClass } from "src/utils/ratingCardStyles_custom"; // CUSTOM
 
 interface IPerformerAppearsWithByRolePanelProps {
   active: boolean;
@@ -140,12 +141,12 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
 
   // Determine rating class for special styling
   const getRatingClass = () => {
-    if (!performer.rating100) return "";
-    // 5 stars = 100, 4 stars = 80, 3 stars = 60
-    if (performer.rating100 === 100) return "rating-5-stars";
-    if (performer.rating100 === 80) return "rating-4-stars";
-    if (performer.rating100 === 60) return "rating-3-stars";
-    return "";
+    return getRatingCardClass({
+      rating: performer.rating100,
+      tags: performer.tags,
+      goatTagId: roleTagIds.goatTagId,
+      theme: configuration?.ui?.ratingCardTheme,
+    });
   };
 
   return (
@@ -479,7 +480,7 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
               style={{ display: "flex", alignItems: "center", gap: "12px" }}
             >
               <img
-                src={goateeSvg}
+                src={facialPng}
                 alt="Facial"
                 style={{
                   width: "32px",

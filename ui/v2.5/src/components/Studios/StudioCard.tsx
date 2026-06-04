@@ -20,10 +20,16 @@ import {
   faUserPlus,
 } from "@fortawesome/free-solid-svg-icons"; // CUSTOM: added faHand, faUserPlus
 import { OCounterButton } from "../Shared/CountButton";
+import cx from "classnames"; // CUSTOM
+import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
+import {
+  getRatingCardClass,
+  isRatingCardHomePage,
+} from "src/utils/ratingCardStyles_custom"; // CUSTOM
 // CUSTOM: begin
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
-import goateeSvg from "src/assets/goatee.svg";
+import facialPng from "src/assets/facial.png"; // CUSTOM
 
 interface IPerformerStudioStats {
   scene_count: number;
@@ -144,6 +150,18 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
     // CUSTOM: end
   }) => {
     const [updateStudio] = useStudioUpdate();
+    // CUSTOM: begin - premium/classic rating card styling
+    const { configuration } = useConfigurationContext();
+    const ratingCardTheme = configuration?.ui?.ratingCardTheme;
+    const goatTagId = configuration?.ui?.roleTagIds?.goatTagId;
+    const ratingCardClass = getRatingCardClass({
+      rating: studio.rating100,
+      tags: studio.tags,
+      goatTagId,
+      theme: ratingCardTheme,
+      disabled: isRatingCardHomePage(),
+    });
+    // CUSTOM: end
 
     // CUSTOM: begin - role tags + performer-filtered stats
     // Use pre-fetched role tags from parent (StudioCardGrid)
@@ -329,7 +347,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       );
     }
 
-    // Facial scenes (marker-based) - goatee icon
+    // Facial scenes (marker-based) - facial icon
     function maybeRenderFacialScenesButton() {
       if (!facialTag) return null;
       if (!performerScopedCountsReady) return null;
@@ -362,7 +380,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
           title={`Facial scenes (${facialTag.name})`}
           disabled={count === 0}
         >
-          <img src={goateeSvg} alt="Facial" className="category-icon" />
+          <img src={facialPng} alt="Facial" className="category-icon" />
           <span>{count}</span>
         </Button>
       );
@@ -574,7 +592,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
     return (
       <GridCard
-        className={`studio-card zoom-${zoomIndex}`}
+        className={cx("studio-card", `zoom-${zoomIndex}`, ratingCardClass)} // CUSTOM
         url={`/studios/${studio.id}`}
         width={cardWidth}
         title={studio.name}
