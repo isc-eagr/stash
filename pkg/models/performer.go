@@ -180,6 +180,8 @@ type PerformerFilterType struct {
 	Rating100 *IntCriterionInput `json:"rating100"`
 	// Filter by metallic card style after rating thresholds and tag overrides
 	MetallicRating *MultiCriterionInput `json:"metallic_rating"` // CUSTOM
+	// Filter by stored rating criteria, bonuses, and penalties
+	RatingCriteria *RatingCriteriaFilterInput `json:"rating_criteria"` // CUSTOM
 	// Filter by url
 	URL *StringCriterionInput `json:"url"`
 	// Filter by hair color

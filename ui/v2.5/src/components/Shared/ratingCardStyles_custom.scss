@@ -21,6 +21,32 @@
   }
 }
 
+@keyframes rating-card-royal-sapphire-aura {
+  0%,
+  100% {
+    box-shadow: 0 0 18px rgba(37, 99, 235, 0.34),
+      0 0 34px rgba(18, 63, 159, 0.28), 0 14px 30px rgba(0, 0, 0, 0.46),
+      inset 0 0 32px rgba(56, 189, 248, 0.1);
+  }
+
+  50% {
+    box-shadow: 0 0 24px rgba(59, 130, 246, 0.46),
+      0 0 48px rgba(18, 63, 159, 0.36), 0 14px 32px rgba(0, 0, 0, 0.5),
+      inset 0 0 34px rgba(56, 189, 248, 0.12);
+  }
+}
+
+@keyframes rating-card-royal-sapphire-swipe {
+  0% {
+    transform: translateX(-145%) skewX(-18deg);
+  }
+
+  42%,
+  100% {
+    transform: translateX(145%) skewX(-18deg);
+  }
+}
+
 @keyframes rating-card-classic-royal-sapphire-shimmer {
   0% {
     background-position: 0% 50%, -120% 0%;
@@ -42,6 +68,38 @@
 
   100% {
     background-position: 100% 50%;
+  }
+}
+
+:is(
+    .scene-card,
+    .performer-card,
+    .image-card,
+    .gallery-card,
+    .group-card,
+    .studio-card,
+    .scene-marker-card
+  ).rating-card-theme-premium.rating-royal-sapphire {
+  animation: rating-card-royal-sapphire-aura 5.8s ease-in-out infinite;
+
+  &::after {
+    background: linear-gradient(
+      98deg,
+      transparent 0%,
+      rgba(96, 165, 250, 0) 28%,
+      rgba(96, 165, 250, 0.08) 44%,
+      rgba(147, 197, 253, 0.18) 50%,
+      rgba(37, 99, 235, 0.1) 56%,
+      transparent 72%
+    );
+    content: "";
+    inset: -12% -30%;
+    mix-blend-mode: screen;
+    opacity: 0.42;
+    pointer-events: none;
+    position: absolute;
+    z-index: 2;
+    animation: rating-card-royal-sapphire-swipe 8.5s ease-in-out infinite;
   }
 }
 

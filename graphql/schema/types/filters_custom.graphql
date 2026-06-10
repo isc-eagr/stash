@@ -312,9 +312,27 @@ input PerformerPartnersFilterInput {
   any_non_sex_topped: IntCriterionInput
 }
 
+input RatingScoreCriterionFilterInput {
+  key: String!
+  value: FloatCriterionInput!
+}
+
+input RatingScorePresenceFilterInput {
+  key: String!
+  value: Boolean!
+}
+
+input RatingCriteriaFilterInput {
+  criteria: [RatingScoreCriterionFilterInput!]
+  bonuses: [RatingScorePresenceFilterInput!]
+  penalties: [RatingScorePresenceFilterInput!]
+}
+
 extend input PerformerFilterType {
   "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, royal_sapphire."
   metallic_rating: MultiCriterionInput
+  "Filter by stored performer rating criteria, bonuses, and penalties from the rating advisor."
+  rating_criteria: RatingCriteriaFilterInput
   "Filter by profile image count (default performer image + additional performer images)"
   profile_image_count: IntCriterionInput
   "Filter to only include performers that have scene markers where they are top/bottom"
@@ -372,6 +390,8 @@ extend input SceneMarkerFilterType {
 extend input SceneFilterType {
   "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, royal_sapphire."
   metallic_rating: MultiCriterionInput
+  "Filter by stored scene rating criteria, bonuses, and penalties from the rating advisor."
+  rating_criteria: RatingCriteriaFilterInput
   "Filter by release count"
   release_count: IntCriterionInput
   "Filter to only include scenes with markers that have assigned performers. `true` or `false`"

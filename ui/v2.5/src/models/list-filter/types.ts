@@ -256,5 +256,6 @@ export type CriterionType =
   | "scene_markers"
   | "scene_markers_exclude"
   | "has_roles"
-  | "scene_type";
+  | "scene_type"
+  | "rating_criteria";
 // CUSTOM: end

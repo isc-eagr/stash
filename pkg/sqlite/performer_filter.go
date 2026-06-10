@@ -184,6 +184,7 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 		stringCriterionHandler(filter.Piercings, tableName+".piercings"),
 		intCriterionHandler(filter.Rating100, tableName+".rating", nil),
 		metallicRatingCriterionHandler(filter.MetallicRating, tableName, tableName+".rating", "performers_tags", "performer_id", "performer"), // CUSTOM
+		ratingCriteriaCriterionHandler(filter.RatingCriteria, models.RatingEntityPerformer, tableName),                                        // CUSTOM
 		stringCriterionHandler(filter.HairColor, tableName+".hair_color"),
 		qb.urlsCriterionHandler(filter.URL),
 		intCriterionHandler(filter.Weight, tableName+".weight", nil),

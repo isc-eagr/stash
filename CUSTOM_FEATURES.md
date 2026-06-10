@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS `scene_marker_performers` (
 ### Frontend Files
 - `ui/v2.5/src/components/SceneMarkerPerformerEdit/SceneMarkerPerformerEdit.tsx` - Edit top/bottom assignments
 - `ui/v2.5/graphql/queries/performer.graphql` - `PerformerCoPerformersByRole` query
-- `ui/v2.5/src/components/Performers/PerformerDetails/PerformerAppearsWithByRolePanel.tsx` - "Appears With (By Role)" tab showing co-performers grouped by role category (sex/oral/facial) and position (topped/bottomed for). Performers are sorted alphabetically within each role section.
+- `ui/v2.5/src/components/Performers/PerformerDetails/PerformerAppearsWithByRolePanel.tsx` - "Partners" tab showing co-performers grouped by role category (sex/oral/facial) and position (topped/bottomed for). Performers are sorted alphabetically within each role section.
 
 ---
 
@@ -2262,7 +2262,7 @@ Scene score conversion:
 - 8.4-8.9: Gold
 - 9.0-10.0: Elite / Royal Sapphire
 
-Bonus points can help reach the 10.0 cap, but they do not increase the displayed rating above 10.0.
+Bonus points can push the stored/displayed 0-100 rating above 100 when the weighted score exceeds 10.0.
 
 ### Performer Rating System
 Uses a weighted 10-point performer rubric designed for 100-based ratings:
@@ -2278,7 +2278,7 @@ Bonus section:
 - Tattoos (+0.5 when present)
 - Unlikely top (+0.5 when present)
 
-Bonus points can help reach the 10.0 cap, but they do not increase the displayed rating above 10.0.
+Bonus points can push the stored/displayed 0-100 rating above 100 when the weighted score exceeds 10.0.
 
 Performer score conversion:
 - 0.0-5.9: Plain
@@ -2286,6 +2286,9 @@ Performer score conversion:
 - 7.3-8.3: Silver
 - 8.4-8.9: Gold
 - 9.0-10.0: Elite / Royal Sapphire
+
+### Rating Criteria Filters
+Scenes and performers each expose one combined "Rating Criteria" filter. Inside that filter, numeric dimensions support `=`, `>=`, `<=`, and `BETWEEN`; bonus and penalty rows use presence checks for "has" or "does not have". The frontend serializes the selected rows into a shared `rating_criteria` GraphQL input.
 
 ### Files Modified
 - `ui/v2.5/src/components/Shared/RatingAdvisor_custom.tsx` - Shared rating modal, scoring definitions, persistence mutation, and button component
@@ -2295,6 +2298,12 @@ Performer score conversion:
 - `ui/v2.5/src/components/Shared/Rating/RatingSystem.tsx` - Forces ratings to display as 0-100 values
 - `ui/v2.5/src/components/Shared/Rating/RatingNumber.tsx` - Simplifies manual ratings to a plain 0-100 input
 - `ui/v2.5/src/index.scss` - Imports advisor styling
+- `ui/v2.5/src/components/List/styles.scss` - Adds layout for the combined rating criteria filter
+- `graphql/schema/types/filters_custom.graphql` - Adds `rating_criteria` scene/performer filter input
+- `pkg/models/scene.go`, `pkg/models/performer.go` - Adds rating criteria filter fields
+- `pkg/sqlite/scene_filter.go`, `pkg/sqlite/performer_filter.go` - Hooks rating criteria filters into scene/performer queries
+- `ui/v2.5/src/models/list-filter/scenes.ts`, `ui/v2.5/src/models/list-filter/performers.ts` - Registers rating criteria filter options
+- `ui/v2.5/src/locales/en-GB.json`, `ui/v2.5/src/locales/en-US.json` - Adds rating criteria filter labels
 
 ### Files Added
 - `rating_scores.up.sql` - Standalone manual SQL script for generic persisted rating score tables
@@ -2302,3 +2311,7 @@ Performer score conversion:
 - `internal/api/resolver_rating_score_custom.go` - Rating score query/mutation resolvers
 - `pkg/models/rating_score_custom.go` - Generic rating score model and repository interfaces
 - `pkg/sqlite/rating_score_custom.go` - SQLite score store and rating recalculation logic
+- `pkg/models/rating_criteria_filter_custom.go` - Generic rating criteria filter input models
+- `pkg/sqlite/rating_criteria_filter_custom.go` - Shared SQLite predicates for criteria/bonus/penalty filters
+- `ui/v2.5/src/models/list-filter/criteria/rating-criteria_custom.ts` - Frontend rating criteria filter criterion classes
+- `ui/v2.5/src/components/List/Filters/RatingCriteriaFilter_custom.tsx` - Combined rating criteria filter editor

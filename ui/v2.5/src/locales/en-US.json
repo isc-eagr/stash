@@ -5,7 +5,9 @@
         "customise": "Customize",
         "optimise_database": "Optimize Database",
         "add_group": "Add group",
+        "add": "Add",
         "clear": "Clear",
+        "remove": "Remove",
         "back": "Back",
         "add_to_queue": "Add to Queue",
         "play_queue": "Play Queue",
@@ -58,6 +60,12 @@
     "performer_country": "Performer Country",
     "performer_ethnicity": "Performer Ethnicity",
     "performer_rating": "Performer Rating",
+    "rating_criteria": "Rating Criteria",
+    "rating_criteria.dimensions": "Dimensions",
+    "rating_criteria.bonuses": "Bonuses",
+    "rating_criteria.penalties": "Penalties",
+    "rating_criteria.has": "Has",
+    "rating_criteria.does_not_have": "Does not have",
     "scene_director": "Scene Director",
     "marker_performers": "Markers",
     "top_performers": "Top Performers",
@@ -143,6 +151,11 @@
     },
     "task_progress": "Task Progress",
     "profile_image_count": "Profile Image Count",
+    "criterion": {
+        "any": "Any",
+        "value": "Value",
+        "less_than": "Less than"
+    },
     "criterion_modifier": {
         "greater_than_equals": "is greater than or equal to",
         "less_than_equals": "is less than or equal to"

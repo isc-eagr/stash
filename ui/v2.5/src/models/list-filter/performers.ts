@@ -18,6 +18,7 @@ import { CriterionType, DisplayMode } from "./types";
 import { CountryCriterionOption } from "./criteria/country";
 import { RatingCriterionOption } from "./criteria/rating";
 import { MetallicRatingCriterionOption } from "./criteria/metallic-rating_custom"; // CUSTOM
+import { PerformerRatingCriteriaCriterionOption } from "./criteria/rating-criteria_custom"; // CUSTOM
 import { CustomFieldsCriterionOption } from "./criteria/custom-fields";
 import { GroupsCriterionOption } from "./criteria/groups";
 // CUSTOM: begin
@@ -195,6 +196,7 @@ const criterionOptions = [
   createStringCriterionOption("url"),
   RatingCriterionOption,
   MetallicRatingCriterionOption, // CUSTOM
+  PerformerRatingCriteriaCriterionOption, // CUSTOM
   createMandatoryNumberCriterionOption("tag_count"),
   createMandatoryNumberCriterionOption("scene_count"),
   createMandatoryNumberCriterionOption("image_count"),

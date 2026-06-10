@@ -44,6 +44,7 @@ import {
   PerformerRatingCriterionOption, // CUSTOM
 } from "./criteria/rating";
 import { MetallicRatingCriterionOption } from "./criteria/metallic-rating_custom"; // CUSTOM
+import { SceneRatingCriteriaCriterionOption } from "./criteria/rating-criteria_custom"; // CUSTOM
 import { PathCriterionOption } from "./criteria/path";
 import { OrientationCriterionOption } from "./criteria/orientation";
 import { CustomFieldsCriterionOption } from "./criteria/custom-fields";
@@ -136,6 +137,7 @@ const criterionOptions = [
   OrganizedCriterionOption,
   RatingCriterionOption,
   MetallicRatingCriterionOption, // CUSTOM
+  SceneRatingCriteriaCriterionOption, // CUSTOM
   createMandatoryNumberCriterionOption("o_counter", "o_count", {
     sfwMessageID: "o_count_sfw",
   }),

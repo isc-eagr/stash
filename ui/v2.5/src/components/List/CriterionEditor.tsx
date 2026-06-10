@@ -119,6 +119,8 @@ import {
 } from "./Filters/SceneTypeFilter";
 import { HasRolesCriterion } from "src/models/list-filter/criteria/has-roles";
 import { HasRolesFilter } from "./Filters/HasRolesFilter";
+import { RatingCriteriaCriterion } from "src/models/list-filter/criteria/rating-criteria_custom";
+import { RatingCriteriaFilter } from "./Filters/RatingCriteriaFilter_custom";
 // CUSTOM: end
 
 interface IGenericCriterionEditor {
@@ -401,6 +403,17 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
             filterMode={filterMode}
           />
         </div>
+      );
+    }
+    // CUSTOM: end
+
+    // CUSTOM: begin - combined rating criteria filter editor
+    if (criterion instanceof RatingCriteriaCriterion) {
+      return (
+        <RatingCriteriaFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
       );
     }
     // CUSTOM: end

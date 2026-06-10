@@ -153,7 +153,7 @@ const PerformerTabs: React.FC<{
     (performerMarkersData?.findSceneMarkers.count ?? 0) +
     (performerBottomMarkersData?.findSceneMarkers.count ?? 0);
 
-  // fetch unique co-performer count for "Appears With (By Role)" tab
+  // fetch unique co-performer count for "Partners" tab
   const { data: coPerformersData } = GQL.usePerformerCoPerformersByRoleQuery({
     variables: { performer_id: performer.id },
   });
@@ -313,7 +313,7 @@ const PerformerTabs: React.FC<{
           <>
             <FormattedMessage
               id="appears_with_by_role"
-              defaultMessage="Appears With (By Role)"
+              defaultMessage="Partners"
             />
             {uniqueCoPerformerCount > 0 && (
               <Counter

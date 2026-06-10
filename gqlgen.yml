@@ -135,6 +135,12 @@ models:
     model: github.com/stashapp/stash/pkg/scraper.Source
   SavedFindFilterType:
     model: github.com/stashapp/stash/pkg/models.FindFilterType
+  RatingCriteriaFilterInput:
+    model: github.com/stashapp/stash/pkg/models.RatingCriteriaFilterInput
+  RatingScoreCriterionFilterInput:
+    model: github.com/stashapp/stash/pkg/models.RatingScoreCriterionFilterInput
+  RatingScorePresenceFilterInput:
+    model: github.com/stashapp/stash/pkg/models.RatingScorePresenceFilterInput
   # force resolvers
   ConfigResult:
     fields:
