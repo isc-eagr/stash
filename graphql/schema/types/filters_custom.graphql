@@ -7,7 +7,8 @@
 # New standalone input types (not extensions of upstream types)
 # ============================================================
 
-"""Custom scene filter input with tag IDs for role-based filtering.
+"""
+Custom scene filter input with tag IDs for role-based filtering.
 """
 input CustomSceneFilterInput {
   "The filter type: multiple_orgasms, versatile_scenes, circular_oral, simultaneous_orgasm, self_facial"
@@ -22,7 +23,8 @@ input CustomSceneFilterInput {
   facial_tag_id: ID
 }
 
-"""Scene type filter input for categorizing scenes by marker type.
+"""
+Scene type filter input for categorizing scenes by marker type.
 Types: 'sex' (has sex marker), 'oral' (has oral marker, no sex), 'solo' (has solo marker, no sex/oral), 'facial' (has facial marker).
 """
 input SceneTypeFilterInput {
@@ -38,7 +40,8 @@ input SceneTypeFilterInput {
   facial_tag_id: ID
 }
 
-"""Custom scene marker filter input with tag IDs for role-based filtering.
+"""
+Custom scene marker filter input with tag IDs for role-based filtering.
 """
 input CustomSceneMarkerFilterInput {
   "The filter type: circular_oral, simultaneous_orgasm, self_facial"
@@ -310,7 +313,7 @@ input PerformerPartnersFilterInput {
 }
 
 extend input PerformerFilterType {
-  "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, prismatic."
+  "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, royal_sapphire."
   metallic_rating: MultiCriterionInput
   "Filter by profile image count (default performer image + additional performer images)"
   profile_image_count: IntCriterionInput
@@ -367,7 +370,7 @@ extend input SceneMarkerFilterType {
 }
 
 extend input SceneFilterType {
-  "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, prismatic."
+  "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, royal_sapphire."
   metallic_rating: MultiCriterionInput
   "Filter by release count"
   release_count: IntCriterionInput
@@ -395,7 +398,7 @@ extend input SceneFilterType {
 }
 
 extend input GalleryFilterType {
-  "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, prismatic."
+  "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, royal_sapphire."
   metallic_rating: MultiCriterionInput
   "Filter galleries by performers' rating (1-100)"
   performer_rating: IntCriterionInput
@@ -408,7 +411,7 @@ extend input GalleryFilterType {
 }
 
 extend input ImageFilterType {
-  "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, prismatic."
+  "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, royal_sapphire."
   metallic_rating: MultiCriterionInput
   "Filter images by performers' rating (1-100)"
   performer_rating: IntCriterionInput
@@ -421,12 +424,12 @@ extend input ImageFilterType {
 }
 
 extend input GroupFilterType {
-  "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, prismatic."
+  "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, royal_sapphire."
   metallic_rating: MultiCriterionInput
 }
 
 extend input StudioFilterType {
-  "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, prismatic."
+  "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, royal_sapphire."
   metallic_rating: MultiCriterionInput
 }
 

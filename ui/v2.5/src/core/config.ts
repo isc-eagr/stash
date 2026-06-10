@@ -124,25 +124,25 @@ export interface IUIConfig {
       bronze?: number;
       silver?: number;
       gold?: number;
-      prismatic?: number;
+      royalSapphire?: number;
     };
     performer?: {
       bronze?: number;
       silver?: number;
       gold?: number;
-      prismatic?: number;
+      royalSapphire?: number;
     };
     // Legacy flat shape from early configurable threshold builds.
     bronze?: number;
     silver?: number;
     gold?: number;
-    prismatic?: number;
+    royalSapphire?: number;
   };
   ratingCardOverrideTagIds?: {
     bronzeTagId?: string;
     silverTagId?: string;
     goldTagId?: string;
-    prismaticTagId?: string;
+    royalSapphireTagId?: string;
   };
 
   // Tag IDs used for scene marker role categorization

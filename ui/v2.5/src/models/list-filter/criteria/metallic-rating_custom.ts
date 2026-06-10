@@ -1,18 +1,14 @@
 import { CriterionModifier } from "src/core/generated-graphql";
-import {
-  ModifierCriterionOption,
-  MultiStringCriterion,
-} from "./criterion";
+import { ModifierCriterionOption, MultiStringCriterion } from "./criterion";
 
 // CUSTOM: begin - metallic rating filter
-export const metallicRatingIncludeNonMetallicValue =
-  "__include_non_metallic__";
+export const metallicRatingIncludeNonMetallicValue = "__include_non_metallic__";
 
 const metallicRatingOptions = [
   "bronze",
   "silver",
   "gold",
-  "prismatic",
+  "royal_sapphire",
   metallicRatingIncludeNonMetallicValue,
 ];
 
@@ -47,7 +43,9 @@ export class MetallicRatingCriterion extends MultiStringCriterion {
     return {
       value,
       modifier: this.modifier,
-      excludes: includeNonMetallic ? [metallicRatingIncludeNonMetallicValue] : [],
+      excludes: includeNonMetallic
+        ? [metallicRatingIncludeNonMetallicValue]
+        : [],
     };
   }
 }
@@ -55,6 +53,9 @@ export class MetallicRatingCriterion extends MultiStringCriterion {
 export function formatMetallicRatingOptionLabel(value: string) {
   if (value === metallicRatingIncludeNonMetallicValue) {
     return "Exclude non-metallic cards";
+  }
+  if (value === "royal_sapphire") {
+    return "Royal Sapphire";
   }
 
   return value.charAt(0).toUpperCase() + value.slice(1);

@@ -207,7 +207,7 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
 
     function saveRatingCardThreshold(
       entityType: "scene" | "performer",
-      key: "bronze" | "silver" | "gold" | "prismatic",
+      key: "bronze" | "silver" | "gold" | "royalSapphire",
       value: number
     ) {
       const currentThresholds = ui.ratingCardThresholds ?? {};
@@ -229,7 +229,7 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
     }
 
     function saveRatingCardOverrideTag(
-      key: "bronzeTagId" | "silverTagId" | "goldTagId" | "prismaticTagId",
+      key: "bronzeTagId" | "silverTagId" | "goldTagId" | "royalSapphireTagId",
       items: TagOption[]
     ) {
       saveUI({
@@ -430,7 +430,10 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
             />
           </Setting>
           {/* CUSTOM: begin - really hot tag setting */}
-          <Setting id="role-tag-really-hot" headingID="config.ui.role_tags.really_hot">
+          <Setting
+            id="role-tag-really-hot"
+            headingID="config.ui.role_tags.really_hot"
+          >
             <TagIDSelect
               isMulti={false}
               creatable={false}
@@ -456,11 +459,7 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
             <TagIDSelect
               isMulti={false}
               creatable={false}
-              ids={
-                ui.roleTagIds?.goatTagId
-                  ? [ui.roleTagIds.goatTagId]
-                  : []
-              }
+              ids={ui.roleTagIds?.goatTagId ? [ui.roleTagIds.goatTagId] : []}
               menuPortalTarget={document.body}
               onSelect={(items: TagOption[]) =>
                 saveUI({
@@ -495,9 +494,7 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
             <TagIDSelect
               isMulti={false}
               creatable={false}
-              ids={
-                ui.roleTagIds?.feetTagId ? [ui.roleTagIds.feetTagId] : []
-              }
+              ids={ui.roleTagIds?.feetTagId ? [ui.roleTagIds.feetTagId] : []}
               menuPortalTarget={document.body}
               onSelect={(items: TagOption[]) =>
                 saveUI({
@@ -509,12 +506,17 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
               }
             />
           </Setting>
-          <Setting id="role-tag-second-camera" headingID="config.ui.role_tags.second_camera">
+          <Setting
+            id="role-tag-second-camera"
+            headingID="config.ui.role_tags.second_camera"
+          >
             <TagIDSelect
               isMulti={false}
               creatable={false}
               ids={
-                ui.roleTagIds?.secondCameraTagId ? [ui.roleTagIds.secondCameraTagId] : []
+                ui.roleTagIds?.secondCameraTagId
+                  ? [ui.roleTagIds.secondCameraTagId]
+                  : []
               }
               menuPortalTarget={document.body}
               onSelect={(items: TagOption[]) =>
@@ -609,20 +611,20 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
             />
           </Setting>
           <Setting
-            headingID="config.ui.card_rating_styles.override_tags.prismatic.heading"
+            headingID="config.ui.card_rating_styles.override_tags.royalSapphire.heading"
             subHeadingID="config.ui.card_rating_styles.override_tags.description"
           >
             <TagIDSelect
               isMulti={false}
               creatable={false}
               ids={
-                ui.ratingCardOverrideTagIds?.prismaticTagId
-                  ? [ui.ratingCardOverrideTagIds.prismaticTagId]
+                ui.ratingCardOverrideTagIds?.royalSapphireTagId
+                  ? [ui.ratingCardOverrideTagIds.royalSapphireTagId]
                   : []
               }
               menuPortalTarget={document.body}
               onSelect={(items: TagOption[]) =>
-                saveRatingCardOverrideTag("prismaticTagId", items)
+                saveRatingCardOverrideTag("royalSapphireTagId", items)
               }
             />
           </Setting>
@@ -648,12 +650,12 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
             onChange={(v) => saveRatingCardThreshold("scene", "gold", v)}
           />
           <NumberSetting
-            id="scene-rating-card-threshold-prismatic"
-            headingID="config.ui.card_rating_styles.thresholds.scene.prismatic.heading"
+            id="scene-rating-card-threshold-royalSapphire"
+            headingID="config.ui.card_rating_styles.thresholds.scene.royalSapphire.heading"
             subHeadingID="config.ui.card_rating_styles.thresholds.description"
-            value={sceneRatingCardThresholds.prismatic}
+            value={sceneRatingCardThresholds.royalSapphire}
             onChange={(v) =>
-              saveRatingCardThreshold("scene", "prismatic", v)
+              saveRatingCardThreshold("scene", "royalSapphire", v)
             }
           />
           <NumberSetting
@@ -678,12 +680,12 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
             onChange={(v) => saveRatingCardThreshold("performer", "gold", v)}
           />
           <NumberSetting
-            id="performer-rating-card-threshold-prismatic"
-            headingID="config.ui.card_rating_styles.thresholds.performer.prismatic.heading"
+            id="performer-rating-card-threshold-royalSapphire"
+            headingID="config.ui.card_rating_styles.thresholds.performer.royalSapphire.heading"
             subHeadingID="config.ui.card_rating_styles.thresholds.description"
-            value={performerRatingCardThresholds.prismatic}
+            value={performerRatingCardThresholds.royalSapphire}
             onChange={(v) =>
-              saveRatingCardThreshold("performer", "prismatic", v)
+              saveRatingCardThreshold("performer", "royalSapphire", v)
             }
           />
         </SettingSection>

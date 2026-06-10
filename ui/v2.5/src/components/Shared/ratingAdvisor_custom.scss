@@ -100,15 +100,28 @@
     }
   }
 
-  &.rating-advisor-summary-prismatic > div {
-    background:
-      linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.08)),
-      linear-gradient(120deg, #ff5f6d, #ffc371, #6ee7b7, #60a5fa, #c084fc);
-    border-color: rgba(255, 255, 255, 0.86);
-    color: #15151a;
+  &.rating-advisor-summary-royal-sapphire > div {
+    background: radial-gradient(
+        circle at 18% 0%,
+        rgba(208, 235, 255, 0.72),
+        rgba(255, 255, 255, 0) 38%
+      ),
+      linear-gradient(
+        116deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.38) 46%,
+        rgba(255, 255, 255, 0) 62%
+      ),
+      linear-gradient(135deg, #031a44, #075ec8 42%, #38bdf8 72%, #01245c);
+    border-color: rgba(185, 225, 255, 0.96);
+    box-shadow: 0 0.45rem 1.4rem rgba(0, 35, 95, 0.42),
+      0 0 1.4rem rgba(56, 189, 248, 0.46),
+      inset 0 0 1rem rgba(219, 242, 255, 0.2);
+    color: #eef8ff;
+    text-shadow: 0 0 0.55rem rgba(125, 211, 252, 0.64);
 
     span {
-      color: rgba(21, 21, 26, 0.72);
+      color: rgba(224, 242, 254, 0.78);
     }
   }
 }

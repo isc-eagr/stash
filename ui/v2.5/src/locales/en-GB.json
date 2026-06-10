@@ -669,7 +669,7 @@
         "solo": "Solo marker tag",
         "facial": "Facial marker tag",
         "really_hot": "Really Hot qualifier tag (gold facial icon when combined with facial)",
-        "goat": "GOAT tag (prismatic card override)",
+        "goat": "GOAT tag (Royal Sapphire card override)",
         "orgasm": "Orgasm marker tag",
         "feet": "Feet marker tag",
         "second_camera": "2nd Camera marker tag (excluded from counts)"
@@ -678,7 +678,7 @@
         "heading": "Card Rating Styles",
         "theme": {
           "heading": "Scene and performer card style",
-          "description": "Choose how 100-based Bronze, Silver, Gold, and Prismatic scene and performer cards are styled. GOAT-tagged cards use the prismatic override.",
+          "description": "Choose how 100-based Bronze, Silver, Gold, and Royal Sapphire scene and performer cards are styled. GOAT-tagged cards use the Royal Sapphire override.",
           "options": {
             "premium": "Premium radiant outline",
             "classic": "Classic metallic shimmer"
@@ -695,8 +695,8 @@
           "gold": {
             "heading": "Gold override tag"
           },
-          "prismatic": {
-            "heading": "Prismatic override tag"
+          "royalSapphire": {
+            "heading": "Royal Sapphire override tag"
           }
         },
         "thresholds": {
@@ -711,8 +711,8 @@
             "gold": {
               "heading": "Scene gold threshold"
             },
-            "prismatic": {
-              "heading": "Scene prismatic threshold"
+            "royalSapphire": {
+              "heading": "Scene Royal Sapphire threshold"
             }
           },
           "performer": {
@@ -725,8 +725,8 @@
             "gold": {
               "heading": "Performer gold threshold"
             },
-            "prismatic": {
-              "heading": "Performer prismatic threshold"
+            "royalSapphire": {
+              "heading": "Performer Royal Sapphire threshold"
             }
           }
         }

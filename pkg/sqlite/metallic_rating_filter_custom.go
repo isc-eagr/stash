@@ -15,23 +15,23 @@ const (
 	metallicTierBronze              = "bronze"
 	metallicTierSilver              = "silver"
 	metallicTierGold                = "gold"
-	metallicTierPrismatic           = "prismatic"
+	metallicTierRoyalSapphire       = "royal_sapphire"
 	metallicIncludeNonMetallicCards = "__include_non_metallic__"
 )
 
 type metallicRatingThresholds struct {
-	bronze    int
-	silver    int
-	gold      int
-	prismatic int
+	bronze        int
+	silver        int
+	gold          int
+	royalSapphire int
 }
 
 type metallicRatingOverrideTags struct {
-	bronze    string
-	silver    string
-	gold      string
-	prismatic string
-	goat      string
+	bronze        string
+	silver        string
+	gold          string
+	royalSapphire string
+	goat          string
 }
 
 type metallicRatingFilterConfig struct {
@@ -44,10 +44,10 @@ type metallicRatingFilterConfig struct {
 }
 
 var defaultMetallicRatingThresholds = metallicRatingThresholds{
-	bronze:    60,
-	silver:    73,
-	gold:      84,
-	prismatic: 90,
+	bronze:        60,
+	silver:        73,
+	gold:          84,
+	royalSapphire: 90,
 }
 
 func metallicRatingCriterionHandler(
@@ -124,7 +124,7 @@ func normalizeMetallicRatingTiers(values []string) []string {
 	for _, value := range values {
 		tier := strings.ToLower(strings.TrimSpace(value))
 		switch tier {
-		case metallicTierBronze, metallicTierSilver, metallicTierGold, metallicTierPrismatic:
+		case metallicTierBronze, metallicTierSilver, metallicTierGold, metallicTierRoyalSapphire:
 			if !seen[tier] {
 				ret = append(ret, tier)
 				seen[tier] = true
@@ -153,7 +153,7 @@ func (c metallicRatingFilterConfig) anyMetallicClause() sqlClause {
 		metallicTierBronze,
 		metallicTierSilver,
 		metallicTierGold,
-		metallicTierPrismatic,
+		metallicTierRoyalSapphire,
 	})
 }
 
@@ -179,9 +179,9 @@ func (c metallicRatingFilterConfig) ratingRangeClause(tier string) sqlClause {
 	case metallicTierSilver:
 		return makeClause(fmt.Sprintf("%s >= ? AND %s < ?", c.ratingColumn, c.ratingColumn), c.thresholds.silver, c.thresholds.gold)
 	case metallicTierGold:
-		return makeClause(fmt.Sprintf("%s >= ? AND %s < ?", c.ratingColumn, c.ratingColumn), c.thresholds.gold, c.thresholds.prismatic)
-	case metallicTierPrismatic:
-		return makeClause(fmt.Sprintf("%s >= ?", c.ratingColumn), c.thresholds.prismatic)
+		return makeClause(fmt.Sprintf("%s >= ? AND %s < ?", c.ratingColumn, c.ratingColumn), c.thresholds.gold, c.thresholds.royalSapphire)
+	case metallicTierRoyalSapphire:
+		return makeClause(fmt.Sprintf("%s >= ?", c.ratingColumn), c.thresholds.royalSapphire)
 	default:
 		return makeClause("0 = 1")
 	}
@@ -195,8 +195,8 @@ func (c metallicRatingFilterConfig) overrideTagIDsForTier(tier string) []string 
 		return nonEmptyStrings(c.overrides.silver)
 	case metallicTierGold:
 		return nonEmptyStrings(c.overrides.gold)
-	case metallicTierPrismatic:
-		return nonEmptyStrings(c.overrides.prismatic, c.overrides.goat)
+	case metallicTierRoyalSapphire:
+		return nonEmptyStrings(c.overrides.royalSapphire, c.overrides.goat)
 	default:
 		return nil
 	}
@@ -205,11 +205,11 @@ func (c metallicRatingFilterConfig) overrideTagIDsForTier(tier string) []string 
 func (c metallicRatingFilterConfig) higherPriorityOverrideTagIDsForTier(tier string) []string {
 	switch tier {
 	case metallicTierBronze:
-		return nonEmptyStrings(c.overrides.silver, c.overrides.gold, c.overrides.prismatic, c.overrides.goat)
+		return nonEmptyStrings(c.overrides.silver, c.overrides.gold, c.overrides.royalSapphire, c.overrides.goat)
 	case metallicTierSilver:
-		return nonEmptyStrings(c.overrides.gold, c.overrides.prismatic, c.overrides.goat)
+		return nonEmptyStrings(c.overrides.gold, c.overrides.royalSapphire, c.overrides.goat)
 	case metallicTierGold:
-		return nonEmptyStrings(c.overrides.prismatic, c.overrides.goat)
+		return nonEmptyStrings(c.overrides.royalSapphire, c.overrides.goat)
 	default:
 		return nil
 	}
@@ -220,7 +220,7 @@ func (c metallicRatingFilterConfig) allOverrideTagIDs() []string {
 		c.overrides.bronze,
 		c.overrides.silver,
 		c.overrides.gold,
-		c.overrides.prismatic,
+		c.overrides.royalSapphire,
 		c.overrides.goat,
 	)
 }
@@ -295,8 +295,8 @@ func applyMetallicThresholdMap(thresholds *metallicRatingThresholds, values map[
 	if value, ok := intConfigValue(values["gold"]); ok {
 		thresholds.gold = clampMetallicThreshold(value)
 	}
-	if value, ok := intConfigValue(values["prismatic"]); ok {
-		thresholds.prismatic = clampMetallicThreshold(value)
+	if value, ok := intConfigValue(values["royalSapphire"]); ok {
+		thresholds.royalSapphire = clampMetallicThreshold(value)
 	}
 }
 
@@ -306,11 +306,11 @@ func getMetallicRatingOverrideTags() metallicRatingOverrideTags {
 	roleTags := mapValue(uiConfig, "roleTagIds")
 
 	return metallicRatingOverrideTags{
-		bronze:    stringConfigValue(overrideTags["bronzeTagId"]),
-		silver:    stringConfigValue(overrideTags["silverTagId"]),
-		gold:      stringConfigValue(overrideTags["goldTagId"]),
-		prismatic: stringConfigValue(overrideTags["prismaticTagId"]),
-		goat:      stringConfigValue(roleTags["goatTagId"]),
+		bronze:        stringConfigValue(overrideTags["bronzeTagId"]),
+		silver:        stringConfigValue(overrideTags["silverTagId"]),
+		gold:          stringConfigValue(overrideTags["goldTagId"]),
+		royalSapphire: stringConfigValue(overrideTags["royalSapphireTagId"]),
+		goat:          stringConfigValue(roleTags["goatTagId"]),
 	}
 }
 

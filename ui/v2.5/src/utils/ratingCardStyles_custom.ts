@@ -6,7 +6,7 @@ export interface IRatingCardThresholds {
   bronze?: number;
   silver?: number;
   gold?: number;
-  prismatic?: number;
+  royalSapphire?: number;
 }
 
 export interface IRatingCardThresholdConfig extends IRatingCardThresholds {
@@ -18,14 +18,14 @@ export interface IRatingCardOverrideTagIds {
   bronzeTagId?: string | null;
   silverTagId?: string | null;
   goldTagId?: string | null;
-  prismaticTagId?: string | null;
+  royalSapphireTagId?: string | null;
 }
 
 export const defaultRatingCardThresholds: Required<IRatingCardThresholds> = {
   bronze: 60,
   silver: 73,
   gold: 84,
-  prismatic: 90,
+  royalSapphire: 90,
 };
 
 interface IRatingCardTag {
@@ -76,9 +76,9 @@ export function normalizeRatingCardThresholds(
       thresholds?.gold,
       defaultRatingCardThresholds.gold
     ),
-    prismatic: normalizeThreshold(
-      thresholds?.prismatic,
-      defaultRatingCardThresholds.prismatic
+    royalSapphire: normalizeThreshold(
+      thresholds?.royalSapphire,
+      defaultRatingCardThresholds.royalSapphire
     ),
   };
 }
@@ -105,7 +105,8 @@ function getRatingTierClass(
     thresholdEntity
   );
 
-  if (rating >= normalizedThresholds.prismatic) return "rating-goat";
+  if (rating >= normalizedThresholds.royalSapphire)
+    return "rating-royal-sapphire";
   if (rating >= normalizedThresholds.gold) return "rating-5-stars";
   if (rating >= normalizedThresholds.silver) return "rating-4-stars";
   if (rating >= normalizedThresholds.bronze) return "rating-3-stars";
@@ -118,10 +119,10 @@ function getRatingTierOverrideClass(
   goatTagId?: string | null
 ): string {
   if (
-    hasConfiguredTag(tags, overrideTagIds?.prismaticTagId) ||
+    hasConfiguredTag(tags, overrideTagIds?.royalSapphireTagId) ||
     hasConfiguredTag(tags, goatTagId)
   ) {
-    return "rating-goat";
+    return "rating-royal-sapphire";
   }
   if (hasConfiguredTag(tags, overrideTagIds?.goldTagId)) {
     return "rating-5-stars";

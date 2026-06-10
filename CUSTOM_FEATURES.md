@@ -2163,17 +2163,17 @@ Adds a second system setting to skip that existing-file quality check:
 ## 36. Premium Rating Card Styles
 
 ### Overview
-Adds a configurable visual theme for Bronze, Silver, Gold, and Prismatic scene, performer, image, gallery, group, and studio cards using 100-based ratings:
-- `premium` (default): black card shell with radiant bronze/silver/gold outline accents
-- `classic`: preserves the original metallic shimmer styles and adds a matching prismatic GOAT style
+Adds a configurable visual theme for Bronze, Silver, Gold, and Royal Sapphire scene, performer, image, gallery, group, and studio cards using 100-based ratings:
+- `premium` (default): black card shell with radiant bronze/silver/gold/Royal Sapphire outline accents
+- `classic`: preserves the original metallic shimmer styles and adds a matching Royal Sapphire GOAT style
 
 Rating-based card styling uses these thresholds:
 - 60-72: Bronze
 - 73-83: Silver
 - 84-89: Gold
-- 90-100: Prismatic
+- 90-100: Royal Sapphire
 
-Configured override tags can force Bronze, Silver, Gold, or Prismatic styling independent of rating. The legacy GOAT tag remains a prismatic override. Overrides take precedence over rating-based thresholds.
+Configured override tags can force Bronze, Silver, Gold, or Royal Sapphire styling independent of rating. The legacy GOAT tag remains a Royal Sapphire override. Overrides take precedence over rating-based thresholds.
 
 ### Configuration
 Stored in UI config:
@@ -2184,30 +2184,30 @@ configuration.ui.ratingCardThresholds = {
     bronze: 60,
     silver: 73,
     gold: 84,
-    prismatic: 90
+    royalSapphire: 90
   },
   performer: {
     bronze: 60,
     silver: 73,
     gold: 84,
-    prismatic: 90
+    royalSapphire: 90
   }
 }
 configuration.ui.ratingCardOverrideTagIds = {
   bronzeTagId: "<tag id>",
   silverTagId: "<tag id>",
   goldTagId: "<tag id>",
-  prismaticTagId: "<tag id>"
+  royalSapphireTagId: "<tag id>"
 }
 configuration.ui.roleTagIds.goatTagId = "<tag id>"
 ```
 
 ### Metallic Rating Filter
-Adds a `metallic_rating` filter to scenes, performers, images, galleries, groups, and studios. The filter matches the final card style after configured tag overrides and rating thresholds are applied, and supports include/exclude modifiers for `bronze`, `silver`, `gold`, and `prismatic`.
+Adds a `metallic_rating` filter to scenes, performers, images, galleries, groups, and studios. The filter matches the final card style after configured tag overrides and rating thresholds are applied, and supports include/exclude modifiers for `bronze`, `silver`, `gold`, and `royal_sapphire` (displayed as Royal Sapphire).
 
 ### Files Modified
 - `ui/v2.5/src/components/Scenes/SceneCard.tsx` - Uses shared rating card class helper for scene cards
-- `ui/v2.5/src/components/Scenes/SceneMarkerCard.tsx` - Uses the GOAT/prismatic override for marker cards
+- `ui/v2.5/src/components/Scenes/SceneMarkerCard.tsx` - Uses the GOAT/Royal Sapphire override for marker cards
 - `ui/v2.5/src/components/Performers/PerformerCard.tsx` - Uses shared rating card class helper for performer cards
 - `ui/v2.5/src/components/Performers/PerformerDetails/PerformerAppearsWithByRolePanel.tsx` - Applies the same card style logic to co-performer cards
 - `ui/v2.5/src/components/Images/ImageCard.tsx` - Uses shared rating card class helper for image cards
@@ -2226,7 +2226,7 @@ Adds a `metallic_rating` filter to scenes, performers, images, galleries, groups
 
 ### Files Added
 - `ui/v2.5/src/utils/ratingCardStyles_custom.ts` - Shared class selection helper for rating tiers, configurable thresholds, and GOAT override
-- `ui/v2.5/src/components/Shared/ratingCardStyles_custom.scss` - Premium/prismatic card shell styling
+- `ui/v2.5/src/components/Shared/ratingCardStyles_custom.scss` - Premium/Royal Sapphire card shell styling
 
 ---
 
@@ -2260,7 +2260,7 @@ Scene score conversion:
 - 6.0-7.2: Bronze
 - 7.3-8.3: Silver
 - 8.4-8.9: Gold
-- 9.0-10.0: Elite / Prismatic
+- 9.0-10.0: Elite / Royal Sapphire
 
 Bonus points can help reach the 10.0 cap, but they do not increase the displayed rating above 10.0.
 
@@ -2285,7 +2285,7 @@ Performer score conversion:
 - 6.0-7.2: Bronze
 - 7.3-8.3: Silver
 - 8.4-8.9: Gold
-- 9.0-10.0: Elite / Prismatic
+- 9.0-10.0: Elite / Royal Sapphire
 
 ### Files Modified
 - `ui/v2.5/src/components/Shared/RatingAdvisor_custom.tsx` - Shared rating modal, scoring definitions, persistence mutation, and button component

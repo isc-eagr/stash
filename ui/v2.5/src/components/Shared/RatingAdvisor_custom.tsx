@@ -67,8 +67,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Performer Attractiveness",
     max: 10,
     weight: 0.4,
-    hint:
-      "Overall physical appeal: face, body impression, styling, sex appeal, visual magnetism, and immediate appeal.",
+    hint: "Overall physical appeal: face, body impression, styling, sex appeal, visual magnetism, and immediate appeal.",
     choices: [
       {
         value: 0,
@@ -143,8 +142,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Energy / sex quality",
     max: 10,
     weight: 0.3,
-    hint:
-      "How much the sex, pacing, interaction, reactions, rhythm, and overall scene energy make the scene feel alive and satisfying.",
+    hint: "How much the sex, pacing, interaction, reactions, rhythm, and overall scene energy make the scene feel alive and satisfying.",
     choices: [
       {
         value: 0,
@@ -219,8 +217,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Orgasm quality",
     max: 4,
     weight: 0.5,
-    hint:
-      "How much the orgasm adds heat; and whether the scene has facials.",
+    hint: "How much the orgasm adds heat; and whether the scene has facials.",
     choices: [
       {
         value: 0,
@@ -253,8 +250,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Theme / fantasy / uniform factor",
     max: 0.5,
     section: "bonus",
-    hint:
-      "Optional bonus for a theme, fantasy, setting, or uniform concept that clearly increases appeal.",
+    hint: "Optional bonus for a theme, fantasy, setting, or uniform concept that clearly increases appeal.",
     choices: [
       {
         value: 0,
@@ -275,8 +271,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Oral-only scene",
     max: 0.5,
     section: "bonus",
-    hint:
-      "Optional bonus when the scene is oral-only and that format improves its appeal. If absent, it does not hurt the score.",
+    hint: "Optional bonus when the scene is oral-only and that format improves its appeal. If absent, it does not hurt the score.",
     choices: [
       {
         value: 0,
@@ -297,8 +292,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Standout act / position / dynamic",
     max: 0.5,
     section: "bonus",
-    hint:
-      "Optional bonus when a specific act, position, role dynamic, or sexual setup makes the scene more distinctive.",
+    hint: "Optional bonus when a specific act, position, role dynamic, or sexual setup makes the scene more distinctive.",
     choices: [
       {
         value: 0,
@@ -319,8 +313,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Group scene with 4+ performers",
     max: 0.5,
     section: "bonus",
-    hint:
-      "Optional bonus when a group scene has more than 3 performers and the larger lineup improves the appeal.",
+    hint: "Optional bonus when a group scene has more than 3 performers and the larger lineup improves the appeal.",
     choices: [
       {
         value: 0,
@@ -341,8 +334,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "God-tier orgasm bonus",
     max: 2,
     section: "bonus",
-    hint:
-      "Optional bonus for a payoff so memorable that it pushes the whole scene into special territory.",
+    hint: "Optional bonus for a payoff so memorable that it pushes the whole scene into special territory.",
     choices: [
       {
         value: 0,
@@ -363,8 +355,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Standout moment",
     max: 2,
     weight: 0.5,
-    hint:
-      "Whether the scene has a specific memorable moment that sticks beyond the general setup.",
+    hint: "Whether the scene has a specific memorable moment that sticks beyond the general setup.",
     choices: [
       {
         value: 0,
@@ -391,8 +382,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "No orgasm",
     max: 0,
     section: "penalty",
-    hint:
-      "Penalty when there is no orgasm payoff, or the scene cuts away before anything useful happens.",
+    hint: "Penalty when there is no orgasm payoff, or the scene cuts away before anything useful happens.",
     choices: [
       {
         value: 0,
@@ -413,8 +403,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Production / visual quality",
     max: 0,
     section: "penalty",
-    hint:
-      "Negative adjustment for distracting production problems. Select it only when the scene's visual or technical quality actively works against it.",
+    hint: "Negative adjustment for distracting production problems. Select it only when the scene's visual or technical quality actively works against it.",
     choices: [
       {
         value: 0,
@@ -438,8 +427,7 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Face",
     max: 10,
     weight: 0.3,
-    hint:
-      "Facial attractiveness: features, expression, gaze, smile, grooming, styling, and how strongly his face pulls your attention.",
+    hint: "Facial attractiveness: features, expression, gaze, smile, grooming, styling, and how strongly his face pulls your attention.",
     choices: [
       {
         value: 0,
@@ -514,8 +502,7 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Body",
     max: 10,
     weight: 0.3,
-    hint:
-      "Body appeal: build, proportions, musculature, thickness, posture, movement, and how strongly his body matches your taste.",
+    hint: "Body appeal: build, proportions, musculature, thickness, posture, movement, and how strongly his body matches your taste.",
     choices: [
       {
         value: 0,
@@ -590,8 +577,7 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Sexual performance",
     max: 10,
     weight: 0.2,
-    hint:
-      "On-screen presence, charisma, confidence, chemistry, reactions, intensity, rhythm, and scene energy.",
+    hint: "On-screen presence, charisma, confidence, chemistry, reactions, intensity, rhythm, and scene energy.",
     choices: [
       {
         value: 0,
@@ -666,8 +652,7 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Ethnicity / racial appeal",
     max: 3,
     weight: 1 / 3,
-    hint:
-      "Personal ethnic appeal based on known metadata, skin tone, self-presentation, or how you catalog the performer.",
+    hint: "Personal ethnic appeal based on known metadata, skin tone, self-presentation, or how you catalog the performer.",
     choices: [
       {
         value: 0,
@@ -700,8 +685,7 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Masculinity",
     max: 3,
     weight: 1 / 3,
-    hint:
-      "Ruggedness, confidence, dominance, roughness, voice, styling, body language, working-class energy, bro energy, uniform compatibility, or traditionally masculine presentation.",
+    hint: "Ruggedness, confidence, dominance, roughness, voice, styling, body language, working-class energy, bro energy, uniform compatibility, or traditionally masculine presentation.",
     choices: [
       {
         value: 0,
@@ -734,8 +718,7 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Consistency",
     max: 0.5,
     section: "bonus",
-    hint:
-      "Optional bonus when he maintains a strong pull across scenes instead of being a one-scene flash in the pan.",
+    hint: "Optional bonus when he maintains a strong pull across scenes instead of being a one-scene flash in the pan.",
     choices: [
       {
         value: 0,
@@ -756,8 +739,7 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Dick",
     max: 0.5,
     section: "bonus",
-    hint:
-      "Optional bonus when dick size, shape, look, hardness, or presentation improves performer appeal.",
+    hint: "Optional bonus when dick size, shape, look, hardness, or presentation improves performer appeal.",
     choices: [
       {
         value: 0,
@@ -778,8 +760,7 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Tattoos",
     max: 0.5,
     section: "bonus",
-    hint:
-      "Optional bonus when tattoos add edge, recognizability, identity, or visual appeal. If absent, it does not hurt the score.",
+    hint: "Optional bonus when tattoos add edge, recognizability, identity, or visual appeal. If absent, it does not hurt the score.",
     choices: [
       {
         value: 0,
@@ -800,8 +781,7 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Unlikely top",
     max: 0.5,
     section: "bonus",
-    hint:
-      "Optional bonus when he visually reads like a bottom but is actually a top, and that contrast makes him hotter.",
+    hint: "Optional bonus when he visually reads like a bottom but is actually a top, and that contrast makes him hotter.",
     choices: [
       {
         value: 0,
@@ -835,7 +815,8 @@ function getInitialScores(
     const persistedScore = persistedScores?.find(
       (score) =>
         score.key === metric.key &&
-        normalizePersistedScoreSection(score.section) === getMetricSection(metric)
+        normalizePersistedScoreSection(score.section) ===
+          getMetricSection(metric)
     );
     ret[metric.key] = persistedScore?.raw_value ?? 0;
     return ret;
@@ -873,7 +854,9 @@ function formatMetricContribution(metric: IAdvisorMetric, score: number) {
   }
 
   const maxValue = getMetricMaxScore(metric);
-  return `${formatRatingPointNumber(value)} / ${formatRatingPointNumber(maxValue)}`;
+  return `${formatRatingPointNumber(value)} / ${formatRatingPointNumber(
+    maxValue
+  )}`;
 }
 
 function getSceneSuggestion(
@@ -882,11 +865,11 @@ function getSceneSuggestion(
 ): IRatingSuggestion {
   const rating100 = Math.round(total * 10);
 
-  if (rating100 >= thresholds.prismatic) {
+  if (rating100 >= thresholds.royalSapphire) {
     return {
       rating100,
-      tier: "Elite / Prismatic",
-      tierClassName: "prismatic",
+      tier: "Elite / Royal Sapphire",
+      tierClassName: "royal-sapphire",
     };
   }
   if (rating100 >= thresholds.gold) {
@@ -937,7 +920,9 @@ const RatingAdvisorModal: React.FC<{
   const [scores, setScores] = useState(() =>
     getInitialScores(metrics, ratingScores)
   );
-  const [hoverScores, setHoverScores] = useState<Record<string, number | undefined>>({});
+  const [hoverScores, setHoverScores] = useState<
+    Record<string, number | undefined>
+  >({});
 
   useEffect(() => {
     if (advisorScoresData?.ratingScores) {
@@ -1033,7 +1018,9 @@ const RatingAdvisorModal: React.FC<{
             step={1}
             value={score}
             disabled={savingScore}
-            onChange={(event) => void setScore(metric, event.currentTarget.value)}
+            onChange={(event) =>
+              void setScore(metric, event.currentTarget.value)
+            }
           />
         )}
         <div className="rating-advisor-selected">

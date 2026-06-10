@@ -221,7 +221,7 @@ const SceneMarkerCardImage = PatchComponent(
 export const SceneMarkerCard = PatchComponent(
   "SceneMarkerCard",
   (props: ISceneMarkerCardProps) => {
-    // CUSTOM: begin - GOAT/prismatic marker card styling
+    // CUSTOM: begin - GOAT/Royal Sapphire marker card styling
     const { configuration } = useConfigurationContext();
     const ratingCardTheme = configuration?.ui?.ratingCardTheme;
     const goatTagId = configuration?.ui?.roleTagIds?.goatTagId;
