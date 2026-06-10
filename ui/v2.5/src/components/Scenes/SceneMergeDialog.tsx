@@ -24,7 +24,6 @@ import {
 } from "../Shared/ScrapeDialog/ScrapeDialogRow";
 import { ScrapeDialog } from "../Shared/ScrapeDialog/ScrapeDialog";
 import { clone, uniq } from "lodash-es";
-import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import { ModalComponent } from "../Shared/Modal";
 import { sortStoredIdObjects, uniqIDStoredIDs } from "src/utils/data";
 import {
@@ -77,9 +76,6 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
     new ScrapeResult<string>(dest.date)
   );
 
-  const [rating, setRating] = useState(
-    new ZeroableScrapeResult<number>(dest.rating100)
-  );
   // zero values can be treated as missing for these fields
   const [oCounter, setOCounter] = useState(
     new ScrapeResult<number>(dest.o_counter)
@@ -256,14 +252,6 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
       )
     );
 
-    setRating(
-      new ScrapeResult(
-        dest.rating100,
-        sources.find((s) => s.rating100)?.rating100,
-        !dest.rating100
-      )
-    );
-
     setOCounter(
       new ScrapeResult(
         dest.o_counter ?? 0,
@@ -350,7 +338,6 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
         code,
         url,
         date,
-        rating,
         oCounter,
         galleries,
         studio,
@@ -368,7 +355,6 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
     code,
     url,
     date,
-    rating,
     oCounter,
     galleries,
     studio,
@@ -428,14 +414,6 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
           placeholder="YYYY-MM-DD"
           result={date}
           onChange={(value) => setDate(value)}
-        />
-        <ScrapeDialogRow
-          field="rating"
-          title={intl.formatMessage({ id: "rating" })}
-          result={rating}
-          originalField={<RatingSystem value={rating.originalValue} disabled />}
-          newField={<RatingSystem value={rating.newValue} disabled />}
-          onChange={(value) => setRating(value)}
         />
         <ScrapeDialogRow
           field="o_count"
@@ -625,7 +603,6 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
         code: code.getNewValue(),
         urls: url.getNewValue(),
         date: date.getNewValue(),
-        rating100: rating.getNewValue(),
         o_counter: oCounter.getNewValue(),
         play_count: playCount.getNewValue(),
         play_duration: playDuration.getNewValue(),

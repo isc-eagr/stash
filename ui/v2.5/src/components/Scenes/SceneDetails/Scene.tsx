@@ -49,14 +49,12 @@ import gaySvg from "src/assets/gay.svg";
 import straightSvg from "src/assets/straight.svg";
 // CUSTOM: end
 import { objectPath, objectTitle } from "src/core/files";
-import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import { RatingAdvisorButton } from "src/components/Shared/RatingAdvisor_custom"; // CUSTOM
 import TextUtils from "src/utils/text";
 import {
   OCounterButton,
   ViewCountButton,
 } from "src/components/Shared/CountButton";
-import { useRatingKeybinds } from "src/hooks/keybinds";
 import { lazyComponent } from "src/utils/lazyComponent";
 import cx from "classnames";
 import { TruncatedText } from "src/components/Shared/TruncatedText";
@@ -261,23 +259,6 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     }
   };
   // CUSTOM: end
-
-  function setRating(v: number | null) {
-    updateScene({
-      variables: {
-        input: {
-          id: scene.id,
-          rating100: v,
-        },
-      },
-    });
-  }
-
-  useRatingKeybinds(
-    true,
-    configuration?.ui.ratingSystemOptions?.type,
-    setRating
-  );
 
   // set up hotkeys
   useEffect(() => {
@@ -885,13 +866,13 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
           <div className="scene-toolbar">
             <span className="scene-toolbar-group">
-              <RatingAdvisorButton entityType="scene" /> {/* CUSTOM */}
-              <RatingSystem
-                value={scene.rating100}
-                onSetRating={setRating}
-                clickToRate
-                withoutContext
-              />
+              <RatingAdvisorButton
+                entityType="scene"
+                entityId={scene.id}
+                rating100={scene.rating100}
+                ratingScores={scene.rating_scores}
+                onRatingSaved={props.onRefetch}
+              /> {/* CUSTOM */}
             </span>
             <span className="scene-toolbar-group">
               <span>

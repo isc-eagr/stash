@@ -8,6 +8,7 @@ import {
 import { FavoriteStudioCriterionOption } from "./criteria/favorite";
 import { StudioIsMissingCriterionOption } from "./criteria/is-missing";
 import { RatingCriterionOption } from "./criteria/rating";
+import { MetallicRatingCriterionOption } from "./criteria/metallic-rating_custom"; // CUSTOM
 import { StashIDCriterionOption } from "./criteria/stash-ids";
 import { ParentStudiosCriterionOption } from "./criteria/studios";
 import { TagsCriterionOption } from "./criteria/tags";
@@ -80,6 +81,7 @@ const criterionOptions = [
   StudioIsMissingCriterionOption,
   TagsCriterionOption,
   RatingCriterionOption,
+  MetallicRatingCriterionOption, // CUSTOM
   createBooleanCriterionOption("ignore_auto_tag"),
   createBooleanCriterionOption("organized"),
   createMandatoryNumberCriterionOption("tag_count"),

@@ -119,6 +119,31 @@ export interface IUIConfig {
   // CUSTOM: begin
   // Styling option for rating-highlighted scene and performer cards
   ratingCardTheme?: "premium" | "classic";
+  ratingCardThresholds?: {
+    scene?: {
+      bronze?: number;
+      silver?: number;
+      gold?: number;
+      prismatic?: number;
+    };
+    performer?: {
+      bronze?: number;
+      silver?: number;
+      gold?: number;
+      prismatic?: number;
+    };
+    // Legacy flat shape from early configurable threshold builds.
+    bronze?: number;
+    silver?: number;
+    gold?: number;
+    prismatic?: number;
+  };
+  ratingCardOverrideTagIds?: {
+    bronzeTagId?: string;
+    silverTagId?: string;
+    goldTagId?: string;
+    prismaticTagId?: string;
+  };
 
   // Tag IDs used for scene marker role categorization
   // These determine which marker tags represent each role category

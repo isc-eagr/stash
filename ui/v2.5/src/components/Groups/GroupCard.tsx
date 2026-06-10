@@ -76,6 +76,8 @@ export const GroupCard: React.FC<IProps> = PatchComponent(
       tags: group.tags,
       goatTagId,
       theme: ratingCardTheme,
+      thresholds: configuration?.ui?.ratingCardThresholds,
+      overrideTagIds: configuration?.ui?.ratingCardOverrideTagIds,
       disabled: isRatingCardHomePage(),
     });
     // CUSTOM: end
@@ -183,7 +185,7 @@ export const GroupCard: React.FC<IProps> = PatchComponent(
               alt={group.name ?? ""}
               src={group.front_image_path ?? ""}
             />
-            <RatingBanner rating={group.rating100} />
+            <RatingBanner rating={group.rating100} compact />
           </>
         }
         details={

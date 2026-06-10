@@ -1,0 +1,49 @@
+# CUSTOM: Generic persisted rating score rows for scene and performer rating systems.
+
+type RatingScore {
+  id: ID!
+  entity_type: String!
+  entity_id: ID!
+  section: String!
+  key: String!
+  raw_value: Float!
+  weighted_value: Float!
+  label: String
+  created_at: Time!
+  updated_at: Time!
+}
+
+input RatingScoreInput {
+  "Supported values: scene, performer"
+  entity_type: String!
+  entity_id: ID!
+  "Supported values: criterion, bonus, penalty"
+  section: String!
+  key: String!
+  raw_value: Float!
+  weighted_value: Float!
+  label: String
+}
+
+type RatingScoreUpdateResult {
+  entity_type: String!
+  entity_id: ID!
+  rating100: Int!
+  scores: [RatingScore!]!
+}
+
+extend type Scene {
+  rating_scores: [RatingScore!]!
+}
+
+extend type Performer {
+  rating_scores: [RatingScore!]!
+}
+
+extend type Query {
+  ratingScores(entity_type: String!, entity_id: ID!): [RatingScore!]!
+}
+
+extend type Mutation {
+  ratingScoreSet(input: RatingScoreInput!): RatingScoreUpdateResult!
+}

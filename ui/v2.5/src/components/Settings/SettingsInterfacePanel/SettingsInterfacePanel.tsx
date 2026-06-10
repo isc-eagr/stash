@@ -46,7 +46,11 @@ import {
 import { defaultMaxOptionsShown, defaultPreviewVolume } from "src/core/config";
 import { PatchComponent } from "src/patch";
 import { TagIDSelect, Tag as TagOption } from "src/components/Tags/TagSelect"; // CUSTOM
-import { defaultRatingCardTheme } from "src/utils/ratingCardStyles_custom"; // CUSTOM
+import {
+  defaultRatingCardTheme,
+  getRatingCardThresholdsForEntity,
+  normalizeRatingCardThresholds,
+} from "src/utils/ratingCardStyles_custom"; // CUSTOM
 
 const allMenuItems = [
   { id: "scenes", headingID: "scenes" },
@@ -190,6 +194,52 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
 
     if (error) return <h1>{error.message}</h1>;
     if (loading) return <LoadingIndicator />;
+
+    // CUSTOM: begin - configurable rating card thresholds
+    const sceneRatingCardThresholds = getRatingCardThresholdsForEntity(
+      ui.ratingCardThresholds,
+      "scene"
+    );
+    const performerRatingCardThresholds = getRatingCardThresholdsForEntity(
+      ui.ratingCardThresholds,
+      "performer"
+    );
+
+    function saveRatingCardThreshold(
+      entityType: "scene" | "performer",
+      key: "bronze" | "silver" | "gold" | "prismatic",
+      value: number
+    ) {
+      const currentThresholds = ui.ratingCardThresholds ?? {};
+      const currentEntityThresholds = normalizeRatingCardThresholds(
+        entityType === "performer"
+          ? currentThresholds.performer ?? currentThresholds
+          : currentThresholds.scene ?? currentThresholds
+      );
+
+      saveUI({
+        ratingCardThresholds: {
+          ...currentThresholds,
+          [entityType]: {
+            ...currentEntityThresholds,
+            [key]: value,
+          },
+        },
+      });
+    }
+
+    function saveRatingCardOverrideTag(
+      key: "bronzeTagId" | "silverTagId" | "goldTagId" | "prismaticTagId",
+      items: TagOption[]
+    ) {
+      saveUI({
+        ratingCardOverrideTagIds: {
+          ...(ui.ratingCardOverrideTagIds ?? {}),
+          [key]: items[0]?.id ?? undefined,
+        },
+      });
+    }
+    // CUSTOM: end
 
     // https://en.wikipedia.org/wiki/List_of_language_names
 
@@ -504,6 +554,138 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
               })}
             </option>
           </SelectSetting>
+          <Setting
+            headingID="config.ui.card_rating_styles.override_tags.bronze.heading"
+            subHeadingID="config.ui.card_rating_styles.override_tags.description"
+          >
+            <TagIDSelect
+              isMulti={false}
+              creatable={false}
+              ids={
+                ui.ratingCardOverrideTagIds?.bronzeTagId
+                  ? [ui.ratingCardOverrideTagIds.bronzeTagId]
+                  : []
+              }
+              menuPortalTarget={document.body}
+              onSelect={(items: TagOption[]) =>
+                saveRatingCardOverrideTag("bronzeTagId", items)
+              }
+            />
+          </Setting>
+          <Setting
+            headingID="config.ui.card_rating_styles.override_tags.silver.heading"
+            subHeadingID="config.ui.card_rating_styles.override_tags.description"
+          >
+            <TagIDSelect
+              isMulti={false}
+              creatable={false}
+              ids={
+                ui.ratingCardOverrideTagIds?.silverTagId
+                  ? [ui.ratingCardOverrideTagIds.silverTagId]
+                  : []
+              }
+              menuPortalTarget={document.body}
+              onSelect={(items: TagOption[]) =>
+                saveRatingCardOverrideTag("silverTagId", items)
+              }
+            />
+          </Setting>
+          <Setting
+            headingID="config.ui.card_rating_styles.override_tags.gold.heading"
+            subHeadingID="config.ui.card_rating_styles.override_tags.description"
+          >
+            <TagIDSelect
+              isMulti={false}
+              creatable={false}
+              ids={
+                ui.ratingCardOverrideTagIds?.goldTagId
+                  ? [ui.ratingCardOverrideTagIds.goldTagId]
+                  : []
+              }
+              menuPortalTarget={document.body}
+              onSelect={(items: TagOption[]) =>
+                saveRatingCardOverrideTag("goldTagId", items)
+              }
+            />
+          </Setting>
+          <Setting
+            headingID="config.ui.card_rating_styles.override_tags.prismatic.heading"
+            subHeadingID="config.ui.card_rating_styles.override_tags.description"
+          >
+            <TagIDSelect
+              isMulti={false}
+              creatable={false}
+              ids={
+                ui.ratingCardOverrideTagIds?.prismaticTagId
+                  ? [ui.ratingCardOverrideTagIds.prismaticTagId]
+                  : []
+              }
+              menuPortalTarget={document.body}
+              onSelect={(items: TagOption[]) =>
+                saveRatingCardOverrideTag("prismaticTagId", items)
+              }
+            />
+          </Setting>
+          <NumberSetting
+            id="scene-rating-card-threshold-bronze"
+            headingID="config.ui.card_rating_styles.thresholds.scene.bronze.heading"
+            subHeadingID="config.ui.card_rating_styles.thresholds.description"
+            value={sceneRatingCardThresholds.bronze}
+            onChange={(v) => saveRatingCardThreshold("scene", "bronze", v)}
+          />
+          <NumberSetting
+            id="scene-rating-card-threshold-silver"
+            headingID="config.ui.card_rating_styles.thresholds.scene.silver.heading"
+            subHeadingID="config.ui.card_rating_styles.thresholds.description"
+            value={sceneRatingCardThresholds.silver}
+            onChange={(v) => saveRatingCardThreshold("scene", "silver", v)}
+          />
+          <NumberSetting
+            id="scene-rating-card-threshold-gold"
+            headingID="config.ui.card_rating_styles.thresholds.scene.gold.heading"
+            subHeadingID="config.ui.card_rating_styles.thresholds.description"
+            value={sceneRatingCardThresholds.gold}
+            onChange={(v) => saveRatingCardThreshold("scene", "gold", v)}
+          />
+          <NumberSetting
+            id="scene-rating-card-threshold-prismatic"
+            headingID="config.ui.card_rating_styles.thresholds.scene.prismatic.heading"
+            subHeadingID="config.ui.card_rating_styles.thresholds.description"
+            value={sceneRatingCardThresholds.prismatic}
+            onChange={(v) =>
+              saveRatingCardThreshold("scene", "prismatic", v)
+            }
+          />
+          <NumberSetting
+            id="performer-rating-card-threshold-bronze"
+            headingID="config.ui.card_rating_styles.thresholds.performer.bronze.heading"
+            subHeadingID="config.ui.card_rating_styles.thresholds.description"
+            value={performerRatingCardThresholds.bronze}
+            onChange={(v) => saveRatingCardThreshold("performer", "bronze", v)}
+          />
+          <NumberSetting
+            id="performer-rating-card-threshold-silver"
+            headingID="config.ui.card_rating_styles.thresholds.performer.silver.heading"
+            subHeadingID="config.ui.card_rating_styles.thresholds.description"
+            value={performerRatingCardThresholds.silver}
+            onChange={(v) => saveRatingCardThreshold("performer", "silver", v)}
+          />
+          <NumberSetting
+            id="performer-rating-card-threshold-gold"
+            headingID="config.ui.card_rating_styles.thresholds.performer.gold.heading"
+            subHeadingID="config.ui.card_rating_styles.thresholds.description"
+            value={performerRatingCardThresholds.gold}
+            onChange={(v) => saveRatingCardThreshold("performer", "gold", v)}
+          />
+          <NumberSetting
+            id="performer-rating-card-threshold-prismatic"
+            headingID="config.ui.card_rating_styles.thresholds.performer.prismatic.heading"
+            subHeadingID="config.ui.card_rating_styles.thresholds.description"
+            value={performerRatingCardThresholds.prismatic}
+            onChange={(v) =>
+              saveRatingCardThreshold("performer", "prismatic", v)
+            }
+          />
         </SettingSection>
         {/* CUSTOM: end */}
 

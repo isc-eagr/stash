@@ -87,6 +87,7 @@ func (qb *galleryFilterHandler) criterionHandler() criterionHandler {
 		qb.parentFolderCriterionHandler(filter.ParentFolder),
 		qb.fileCountCriterionHandler(filter.FileCount),
 		intCriterionHandler(filter.Rating100, "galleries.rating", nil),
+		metallicRatingCriterionHandler(filter.MetallicRating, "galleries", "galleries.rating", "galleries_tags", "gallery_id", "scene"), // CUSTOM
 		qb.urlsCriterionHandler(filter.URL),
 		boolCriterionHandler(filter.Organized, "galleries.organized", nil),
 		qb.missingCriterionHandler(filter.IsMissing),

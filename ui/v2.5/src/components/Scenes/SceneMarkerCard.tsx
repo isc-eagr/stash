@@ -233,6 +233,8 @@ export const SceneMarkerCard = PatchComponent(
       tags: markerTags,
       goatTagId,
       theme: ratingCardTheme,
+      thresholds: configuration?.ui?.ratingCardThresholds,
+      overrideTagIds: configuration?.ui?.ratingCardOverrideTagIds,
       disabled: isRatingCardHomePage(),
     });
     // CUSTOM: end

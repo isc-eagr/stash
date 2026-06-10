@@ -6,7 +6,6 @@ import * as GQL from "src/core/generated-graphql";
 import { ModalComponent } from "../Shared/Modal";
 import { useToast } from "src/hooks/Toast";
 import { MultiSet } from "../Shared/MultiSet";
-import { RatingSystem } from "../Shared/Rating/RatingSystem";
 import {
   getAggregateInputValue,
   getAggregateState,
@@ -39,7 +38,6 @@ interface IListOperationProps {
 const performerFields = [
   "favorite",
   "disambiguation",
-  "rating100",
   "gender",
   "birthdate",
   "death_date",
@@ -127,13 +125,6 @@ export const EditPerformersDialog: React.FC<IListOperationProps> = (
       ...updateInput,
       tag_ids: tagIds,
     };
-
-    // we don't have unset functionality for the rating star control
-    // so need to determine if we are setting a rating or not
-    performerInput.rating100 = getAggregateInputValue(
-      updateInput.rating100,
-      aggregateState.rating100
-    );
 
     // gender dropdown doesn't have unset functionality
     // so need to determine what we are setting
@@ -262,16 +253,6 @@ export const EditPerformersDialog: React.FC<IListOperationProps> = (
         isRunning={isUpdating}
       >
         <Form>
-          <BulkUpdateFormGroup name="rating">
-            <RatingSystem
-              value={updateInput.rating100}
-              onSetRating={(value) =>
-                setUpdateField({ rating100: value ?? undefined })
-              }
-              disabled={isUpdating}
-            />
-          </BulkUpdateFormGroup>
-
           <Form.Group controlId="favorite">
             <IndeterminateCheckbox
               setChecked={(checked) => setUpdateField({ favorite: checked })}

@@ -21,6 +21,8 @@ type ImageFilterType struct {
 	FileCount *IntCriterionInput `json:"file_count"`
 	// Filter by rating expressed as 1-100
 	Rating100 *IntCriterionInput `json:"rating100"`
+	// Filter by metallic card style after rating thresholds and tag overrides
+	MetallicRating *MultiCriterionInput `json:"metallic_rating"` // CUSTOM
 	// Filter by date
 	Date *DateCriterionInput `json:"date"`
 	// Filter by url

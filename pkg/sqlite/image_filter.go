@@ -79,6 +79,7 @@ func (qb *imageFilterHandler) criterionHandler() criterionHandler {
 		pathCriterionHandler(imageFilter.Path, "folders.path", "files.basename", imageRepository.addFoldersTable),
 		qb.fileCountCriterionHandler(imageFilter.FileCount),
 		intCriterionHandler(imageFilter.Rating100, "images.rating", nil),
+		metallicRatingCriterionHandler(imageFilter.MetallicRating, "images", "images.rating", "images_tags", "image_id", "scene"), // CUSTOM
 		intCriterionHandler(imageFilter.OCounter, "images.o_counter", nil),
 		boolCriterionHandler(imageFilter.Organized, "images.organized", nil),
 		&dateCriterionHandler{imageFilter.Date, "images.date", nil},

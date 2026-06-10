@@ -513,6 +513,9 @@
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
-  gap: 4px !important;
+  gap: 0.16rem !important;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 /* CUSTOM: end */

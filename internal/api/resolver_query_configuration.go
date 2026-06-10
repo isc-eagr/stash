@@ -106,7 +106,8 @@ func makeConfigGeneralResult() *ConfigGeneralResult {
 		PreviewSegmentDuration:        config.GetPreviewSegmentDuration(),
 		PreviewExcludeStart:           config.GetPreviewExcludeStart(),
 		PreviewExcludeEnd:             config.GetPreviewExcludeEnd(),
-		MarkerPreviewSourceQuality:    config.GetMarkerPreviewSourceQuality(), // CUSTOM
+		MarkerPreviewSourceQuality:    config.GetMarkerPreviewSourceQuality(),    // CUSTOM
+		MarkerPreviewSkipQualityCheck: config.GetMarkerPreviewSkipQualityCheck(), // CUSTOM
 		PreviewPreset:                 config.GetPreviewPreset(),
 		TranscodeHardwareAcceleration: config.GetTranscodeHardwareAcceleration(),
 		MaxTranscodeSize:              &maxTranscodeSize,

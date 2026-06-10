@@ -201,6 +201,7 @@ export const EditGroupsDialog: React.FC<IListOperationProps> = (
               onSetRating={(value) =>
                 setUpdateField({ rating100: value ?? undefined })
               }
+              max={100} // CUSTOM
               disabled={isUpdating}
             />
           </BulkUpdateFormGroup>

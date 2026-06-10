@@ -1,8 +1,16 @@
-import React, { useMemo, useState } from "react";
+import { gql, useQuery } from "@apollo/client";
+import React, { useEffect, useMemo, useState } from "react";
 import { Badge, Button, Form } from "react-bootstrap";
 import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
-import { Icon } from "src/components/Shared/Icon";
 import { ModalComponent } from "src/components/Shared/Modal";
+import { RatingNumber } from "src/components/Shared/Rating/RatingNumber";
+import * as GQL from "src/core/generated-graphql";
+import { useConfigurationContext } from "src/hooks/Config";
+import { useToast } from "src/hooks/Toast";
+import {
+  getRatingCardThresholdsForEntity,
+  normalizeRatingCardThresholds,
+} from "src/utils/ratingCardStyles_custom";
 
 type AdvisorEntity = "scene" | "performer";
 
@@ -24,21 +32,39 @@ interface IAdvisorMetric {
 }
 
 interface IRatingSuggestion {
-  stars?: number;
-  rating10?: number;
   rating100: number;
   tier: string;
   tierClassName: string;
 }
 
+interface IAdvisorPersistedScore {
+  section?: string | null;
+  key?: string | null;
+  raw_value?: number | null;
+}
+
 interface IRatingAdvisorButtonProps {
   entityType: AdvisorEntity;
+  entityId: string;
+  rating100?: number | null;
+  ratingScores?: readonly IAdvisorPersistedScore[] | null;
+  onRatingSaved?: () => void | Promise<unknown>;
 }
+
+const RatingAdvisorScoresQuery = gql`
+  query RatingAdvisorScores($entity_type: String!, $entity_id: ID!) {
+    ratingScores(entity_type: $entity_type, entity_id: $entity_id) {
+      section
+      key
+      raw_value
+    }
+  }
+`;
 
 const sceneMetrics: IAdvisorMetric[] = [
   {
     key: "performerAppeal",
-    title: "Performer attractiveness",
+    title: "Performer Attractiveness",
     max: 10,
     weight: 0.4,
     hint:
@@ -408,18 +434,18 @@ const sceneMetrics: IAdvisorMetric[] = [
 
 const performerMetrics: IAdvisorMetric[] = [
   {
-    key: "attractiveness",
-    title: "Attractiveness",
+    key: "face",
+    title: "Face",
     max: 10,
     weight: 0.3,
     hint:
-      "Overall physical appeal: face, body impression, styling, sex appeal, visual magnetism, and immediate appeal.",
+      "Facial attractiveness: features, expression, gaze, smile, grooming, styling, and how strongly his face pulls your attention.",
     choices: [
       {
         value: 0,
-        label: "Not attractive",
+        label: "Not facially attractive",
         description:
-          "Pick this when he is only relevant because of the scene, the theme, or another performer.",
+          "Pick this when his face works against your attraction even if other parts of him may still work.",
       },
       {
         value: 1,
@@ -443,7 +469,7 @@ const performerMetrics: IAdvisorMetric[] = [
         value: 4,
         label: "Decent",
         description:
-          "Decent-looking, but you would not watch a scene just because he is in it.",
+          "Decent face, but you would not watch a scene just because of his look.",
       },
       {
         value: 5,
@@ -471,15 +497,91 @@ const performerMetrics: IAdvisorMetric[] = [
       },
       {
         value: 9,
-        label: "Elite attractiveness",
+        label: "Elite face",
         description:
-          "Rare visual appeal, like he hits your type in a way most performers do not.",
+          "Rare facial appeal, like he hits your type in a way most performers do not.",
       },
       {
         value: 10,
         label: "Near-perfect",
         description:
-          "Near-perfect for your taste, the kind of look that makes him a favorite-type performer.",
+          "Near-perfect face for your taste, the kind of look that makes him a favorite-type performer.",
+      },
+    ],
+  },
+  {
+    key: "body",
+    title: "Body",
+    max: 10,
+    weight: 0.3,
+    hint:
+      "Body appeal: build, proportions, musculature, thickness, posture, movement, and how strongly his body matches your taste.",
+    choices: [
+      {
+        value: 0,
+        label: "Works against preference",
+        description:
+          "His body works against your attraction even if other traits are okay.",
+      },
+      {
+        value: 1,
+        label: "Very low",
+        description:
+          "Very little body appeal for your taste; the build is actively not what you want.",
+      },
+      {
+        value: 2,
+        label: "Mostly not your type",
+        description:
+          "Mostly not your body type, though there may be one small detail that works.",
+      },
+      {
+        value: 3,
+        label: "Some appeal",
+        description:
+          "Some body appeal, but the overall build is still weak for your taste.",
+      },
+      {
+        value: 4,
+        label: "Decent",
+        description:
+          "Decent body, but not a build that would pull you into a scene by itself.",
+      },
+      {
+        value: 5,
+        label: "Attractive enough",
+        description:
+          "Attractive enough body that his presence improves a scene when the rest is working.",
+      },
+      {
+        value: 6,
+        label: "Clearly attractive",
+        description:
+          "Clearly attractive body; he is a noticeable visual plus before performance enters the picture.",
+      },
+      {
+        value: 7,
+        label: "Very attractive",
+        description:
+          "Very attractive body, the kind of build that gives him immediate visual draw.",
+      },
+      {
+        value: 8,
+        label: "Extremely attractive",
+        description:
+          "Extremely attractive body; his build is one of the main reasons you would click.",
+      },
+      {
+        value: 9,
+        label: "Elite body",
+        description:
+          "Rare body appeal, like the build lands exactly in your preferred lane.",
+      },
+      {
+        value: 10,
+        label: "Near-perfect",
+        description:
+          "Near-perfect body for your taste, the kind of build that makes him a favorite-type performer.",
       },
     ],
   },
@@ -563,7 +665,7 @@ const performerMetrics: IAdvisorMetric[] = [
     key: "ethnicity",
     title: "Ethnicity / racial appeal",
     max: 3,
-    weight: 0.5,
+    weight: 1 / 3,
     hint:
       "Personal ethnic appeal based on known metadata, skin tone, self-presentation, or how you catalog the performer.",
     choices: [
@@ -594,44 +696,10 @@ const performerMetrics: IAdvisorMetric[] = [
     ],
   },
   {
-    key: "bodyType",
-    title: "Body type",
-    max: 3,
-    weight: 0.5,
-    hint:
-      "Preference order: athletic, average, lean, muscular, chubby, twink, fat/bearish.",
-    choices: [
-      {
-        value: 0,
-        label: "Works against preference",
-        description:
-          "His body type works against your taste, like it makes him less appealing even if other traits are okay.",
-      },
-      {
-        value: 1,
-        label: "Not aligned",
-        description:
-          "Not really aligned with your taste, like too twink, too chubby, or just not the build you usually want.",
-      },
-      {
-        value: 2,
-        label: "Some appeal",
-        description:
-          "His body has appeal, but is not ideal. Muscular or lean/slim body types fall here.",
-      },
-      {
-        value: 3,
-        label: "Strong preference match",
-        description:
-          "Strong match: athletic, attractive average/everyday, or another build that really works for you.",
-      },
-    ],
-  },
-  {
     key: "masculinity",
     title: "Masculinity",
     max: 3,
-    weight: 0.5,
+    weight: 1 / 3,
     hint:
       "Ruggedness, confidence, dominance, roughness, voice, styling, body language, working-class energy, bro energy, uniform compatibility, or traditionally masculine presentation.",
     choices: [
@@ -727,11 +795,49 @@ const performerMetrics: IAdvisorMetric[] = [
       },
     ],
   },
+  {
+    key: "unlikelyTop",
+    title: "Unlikely top",
+    max: 0.5,
+    section: "bonus",
+    hint:
+      "Optional bonus when he visually reads like a bottom but is actually a top, and that contrast makes him hotter.",
+    choices: [
+      {
+        value: 0,
+        label: "No bonus",
+        description:
+          "No bonus: he does not have that unlikely-top contrast, or it does not affect his appeal.",
+      },
+      {
+        value: 0.5,
+        label: "Unlikely top bonus",
+        description:
+          "Use this when the contrast between bottom-coded visuals and actual top energy makes him more interesting or hot.",
+      },
+    ],
+  },
 ];
 
-function getInitialScores(metrics: IAdvisorMetric[]) {
+function getMetricSection(metric: IAdvisorMetric) {
+  return metric.section ?? "criterion";
+}
+
+function normalizePersistedScoreSection(section?: string | null) {
+  return (section ?? "criterion").trim().toLowerCase();
+}
+
+function getInitialScores(
+  metrics: IAdvisorMetric[],
+  persistedScores?: readonly IAdvisorPersistedScore[] | null
+) {
   return metrics.reduce<Record<string, number>>((ret, metric) => {
-    ret[metric.key] = 0;
+    const persistedScore = persistedScores?.find(
+      (score) =>
+        score.key === metric.key &&
+        normalizePersistedScoreSection(score.section) === getMetricSection(metric)
+    );
+    ret[metric.key] = persistedScore?.raw_value ?? 0;
     return ret;
   }, {});
 }
@@ -750,50 +856,99 @@ function getMetricMaxScore(metric: IAdvisorMetric) {
   return metric.max * (metric.weight ?? 1);
 }
 
-function formatAdvisorScore(value: number, forceDecimal = false) {
-  if (forceDecimal) {
-    return value.toFixed(1);
-  }
-
-  return Number.isInteger(value) ? value.toString() : value.toFixed(1);
+function formatRatingPointNumber(value: number) {
+  return Math.round(value * 10).toString();
 }
 
-function getSceneSuggestion(total: number): IRatingSuggestion {
-  const rating10 = Math.round(total * 10) / 10;
-  const rating100 = Math.round(rating10 * 10);
+function formatRatingContribution(value: number) {
+  const ratingPoints = Math.round(value * 10);
+  return ratingPoints > 0 ? `+${ratingPoints}` : ratingPoints.toString();
+}
 
-  if (rating10 >= 9) {
+function formatMetricContribution(metric: IAdvisorMetric, score: number) {
+  const value = getChoiceScore(metric, score);
+
+  if (metric.section === "bonus" || metric.section === "penalty") {
+    return formatRatingContribution(value);
+  }
+
+  const maxValue = getMetricMaxScore(metric);
+  return `${formatRatingPointNumber(value)} / ${formatRatingPointNumber(maxValue)}`;
+}
+
+function getSceneSuggestion(
+  total: number,
+  thresholds: ReturnType<typeof normalizeRatingCardThresholds>
+): IRatingSuggestion {
+  const rating100 = Math.round(total * 10);
+
+  if (rating100 >= thresholds.prismatic) {
     return {
-      rating10,
       rating100,
       tier: "Elite / Prismatic",
       tierClassName: "prismatic",
     };
   }
-  if (rating10 >= 8.4) {
-    return { rating10, rating100, tier: "Gold", tierClassName: "gold" };
+  if (rating100 >= thresholds.gold) {
+    return { rating100, tier: "Gold", tierClassName: "gold" };
   }
-  if (rating10 >= 7.3) {
-    return { rating10, rating100, tier: "Silver", tierClassName: "silver" };
+  if (rating100 >= thresholds.silver) {
+    return { rating100, tier: "Silver", tierClassName: "silver" };
   }
-  if (rating10 >= 6) {
-    return { rating10, rating100, tier: "Bronze", tierClassName: "bronze" };
+  if (rating100 >= thresholds.bronze) {
+    return { rating100, tier: "Bronze", tierClassName: "bronze" };
   }
 
-  return { rating10, rating100, tier: "Plain", tierClassName: "plain" };
+  return { rating100, tier: "Plain", tierClassName: "plain" };
 }
 
-function getPerformerSuggestion(total: number): IRatingSuggestion {
-  return getSceneSuggestion(total);
+function getPerformerSuggestion(
+  total: number,
+  thresholds: ReturnType<typeof normalizeRatingCardThresholds>
+): IRatingSuggestion {
+  return getSceneSuggestion(total, thresholds);
 }
 
 const RatingAdvisorModal: React.FC<{
   entityType: AdvisorEntity;
+  entityId: string;
+  ratingScores?: readonly IAdvisorPersistedScore[] | null;
+  onRatingSaved?: () => void | Promise<unknown>;
   onClose: () => void;
-}> = ({ entityType, onClose }) => {
+}> = ({ entityType, entityId, ratingScores, onRatingSaved, onClose }) => {
+  const { configuration } = useConfigurationContext();
+  const Toast = useToast();
+  const [setRatingScore, { loading: savingScore }] =
+    GQL.useRatingScoreSetMutation();
   const metrics = entityType === "scene" ? sceneMetrics : performerMetrics;
-  const [scores, setScores] = useState(() => getInitialScores(metrics));
+  const { data: advisorScoresData } = useQuery<{
+    ratingScores: IAdvisorPersistedScore[];
+  }>(RatingAdvisorScoresQuery, {
+    variables: { entity_type: entityType, entity_id: entityId },
+    fetchPolicy: "cache-and-network",
+  });
+  const thresholds = getRatingCardThresholdsForEntity(
+    configuration?.ui?.ratingCardThresholds,
+    entityType
+  );
+  const [persistedScores, setPersistedScores] = useState<
+    readonly IAdvisorPersistedScore[] | null | undefined
+  >(ratingScores);
+  const [scores, setScores] = useState(() =>
+    getInitialScores(metrics, ratingScores)
+  );
   const [hoverScores, setHoverScores] = useState<Record<string, number | undefined>>({});
+
+  useEffect(() => {
+    if (advisorScoresData?.ratingScores) {
+      setPersistedScores(advisorScoresData.ratingScores);
+    }
+  }, [advisorScoresData]);
+
+  useEffect(() => {
+    setScores(getInitialScores(metrics, persistedScores));
+  }, [metrics, persistedScores]);
+
   const total = useMemo(
     () =>
       metrics.reduce(
@@ -802,25 +957,55 @@ const RatingAdvisorModal: React.FC<{
       ),
     [metrics, scores]
   );
-  const scoreCap = 10;
-  const scoringTotal = Math.max(0, Math.min(total, scoreCap));
-  const maxTotal = scoreCap;
+  const scoringTotal = Math.max(0, total);
   const suggestion =
     entityType === "scene"
-      ? getSceneSuggestion(scoringTotal)
-      : getPerformerSuggestion(scoringTotal);
+      ? getSceneSuggestion(scoringTotal, thresholds)
+      : getPerformerSuggestion(scoringTotal, thresholds);
 
-  function setScore(metric: IAdvisorMetric, value: string) {
+  async function setScore(metric: IAdvisorMetric, value: string) {
     const numericValue = Number(value);
+    const normalizedValue = Number.isNaN(numericValue) ? 0 : numericValue;
+    const previousValue = scores[metric.key];
+    const selectedChoice = metric.choices.find(
+      (choice) => choice.value === normalizedValue
+    );
+    const weightedValue = getChoiceScore(metric, normalizedValue);
+
     setScores((current) => ({
       ...current,
-      [metric.key]: Number.isNaN(numericValue) ? 0 : numericValue,
+      [metric.key]: normalizedValue,
     }));
+
+    try {
+      const result = await setRatingScore({
+        variables: {
+          input: {
+            entity_type: entityType,
+            entity_id: entityId,
+            section: getMetricSection(metric),
+            key: metric.key,
+            raw_value: normalizedValue,
+            weighted_value: weightedValue,
+            label: selectedChoice?.label,
+          },
+        },
+      });
+      if (result.data?.ratingScoreSet?.scores) {
+        setPersistedScores(result.data.ratingScoreSet.scores);
+      }
+      await onRatingSaved?.();
+    } catch (e) {
+      setScores((current) => ({
+        ...current,
+        [metric.key]: previousValue,
+      }));
+      Toast.error(e);
+    }
   }
 
   function renderMetric(metric: IAdvisorMetric) {
     const score = scores[metric.key];
-    const forceDecimal = true;
     const selected = metric.choices.find((choice) => choice.value === score);
     const hoverScore = hoverScores[metric.key];
     const preview =
@@ -837,8 +1022,7 @@ const RatingAdvisorModal: React.FC<{
             <p>{metric.hint}</p>
           </div>
           <Badge variant="secondary">
-            {formatAdvisorScore(getChoiceScore(metric, score), forceDecimal)}/
-            {formatAdvisorScore(getMetricMaxScore(metric), forceDecimal)}
+            {formatMetricContribution(metric, score)}
           </Badge>
         </div>
         {showRange && (
@@ -848,7 +1032,8 @@ const RatingAdvisorModal: React.FC<{
             max={metric.max}
             step={1}
             value={score}
-            onChange={(event) => setScore(metric, event.currentTarget.value)}
+            disabled={savingScore}
+            onChange={(event) => void setScore(metric, event.currentTarget.value)}
           />
         )}
         <div className="rating-advisor-selected">
@@ -874,7 +1059,8 @@ const RatingAdvisorModal: React.FC<{
                   [metric.key]: undefined,
                 }))
               }
-              onClick={() => setScore(metric, choice.value.toString())}
+              disabled={savingScore}
+              onClick={() => void setScore(metric, choice.value.toString())}
               type="button"
             >
               <strong>{choice.value}</strong>
@@ -890,7 +1076,7 @@ const RatingAdvisorModal: React.FC<{
     <ModalComponent
       show
       onHide={onClose}
-      header={`${entityType === "scene" ? "Scene" : "Performer"} rating advisor`}
+      header={`${entityType === "scene" ? "Scene" : "Performer"} rating system`}
       icon={faWandMagicSparkles}
       cancel={{ onClick: onClose, variant: "secondary" }}
       accept={{ onClick: onClose }}
@@ -901,27 +1087,17 @@ const RatingAdvisorModal: React.FC<{
         className={`rating-advisor-summary rating-advisor-summary-${suggestion.tierClassName}`}
       >
         <div>
-          <span>Total</span>
-          <strong>
-            {formatAdvisorScore(scoringTotal, true)}/
-            {formatAdvisorScore(maxTotal, true)}
-          </strong>
-        </div>
-        <div>
-          <span>Suggested tier</span>
+          <span>Current tier</span>
           <strong>{suggestion.tier}</strong>
         </div>
         <div>
-          <span>Suggested rating</span>
-          <strong>
-            {formatAdvisorScore(suggestion.rating10 ?? 0, true)}/10 (
-            {suggestion.rating100}/100)
-          </strong>
+          <span>Rating</span>
+          <strong>{suggestion.rating100}</strong>
         </div>
       </div>
       <p className="rating-advisor-note">
-        This is only a suggestion. Set the actual rating manually when it feels
-        right.
+        Selections save immediately and recalculate the rating stored on this
+        item.
       </p>
       <div className="rating-advisor-metrics">
         {metrics
@@ -946,6 +1122,10 @@ const RatingAdvisorModal: React.FC<{
 
 export const RatingAdvisorButton: React.FC<IRatingAdvisorButtonProps> = ({
   entityType,
+  entityId,
+  rating100,
+  ratingScores,
+  onRatingSaved,
 }) => {
   const [showAdvisor, setShowAdvisor] = useState(false);
 
@@ -954,14 +1134,17 @@ export const RatingAdvisorButton: React.FC<IRatingAdvisorButtonProps> = ({
       <Button
         className="rating-advisor-button"
         onClick={() => setShowAdvisor(true)}
-        title="Open rating advisor"
+        title="Open rating system"
         variant="secondary"
       >
-        <Icon icon={faWandMagicSparkles} />
+        <RatingNumber value={rating100 ?? null} disabled withoutContext />
       </Button>
       {showAdvisor && (
         <RatingAdvisorModal
           entityType={entityType}
+          entityId={entityId}
+          ratingScores={ratingScores}
+          onRatingSaved={onRatingSaved}
           onClose={() => setShowAdvisor(false)}
         />
       )}

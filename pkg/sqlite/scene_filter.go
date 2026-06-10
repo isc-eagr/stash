@@ -106,6 +106,7 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		},
 
 		intCriterionHandler(sceneFilter.Rating100, "scenes.rating", nil),
+		metallicRatingCriterionHandler(sceneFilter.MetallicRating, "scenes", "scenes.rating", "scenes_tags", "scene_id", "scene"), // CUSTOM
 		qb.oCountCriterionHandler(sceneFilter.OCounter),
 		boolCriterionHandler(sceneFilter.Organized, "scenes.organized", nil),
 

@@ -2,6 +2,32 @@ export type RatingCardTheme = "premium" | "classic";
 
 export const defaultRatingCardTheme: RatingCardTheme = "premium";
 
+export interface IRatingCardThresholds {
+  bronze?: number;
+  silver?: number;
+  gold?: number;
+  prismatic?: number;
+}
+
+export interface IRatingCardThresholdConfig extends IRatingCardThresholds {
+  scene?: IRatingCardThresholds;
+  performer?: IRatingCardThresholds;
+}
+
+export interface IRatingCardOverrideTagIds {
+  bronzeTagId?: string | null;
+  silverTagId?: string | null;
+  goldTagId?: string | null;
+  prismaticTagId?: string | null;
+}
+
+export const defaultRatingCardThresholds: Required<IRatingCardThresholds> = {
+  bronze: 60,
+  silver: 73,
+  gold: 84,
+  prismatic: 90,
+};
+
 interface IRatingCardTag {
   id?: string | null;
 }
@@ -28,12 +54,85 @@ function hasConfiguredTag(
   return !!tagId && !!tags?.some((tag) => tag?.id === tagId);
 }
 
-function getRatingTierClass(rating?: number | null): string {
+function normalizeThreshold(value: number | undefined, fallback: number) {
+  if (value === undefined || Number.isNaN(value)) return fallback;
+
+  return Math.max(0, Math.round(value));
+}
+
+export function normalizeRatingCardThresholds(
+  thresholds?: IRatingCardThresholds | null
+): Required<IRatingCardThresholds> {
+  return {
+    bronze: normalizeThreshold(
+      thresholds?.bronze,
+      defaultRatingCardThresholds.bronze
+    ),
+    silver: normalizeThreshold(
+      thresholds?.silver,
+      defaultRatingCardThresholds.silver
+    ),
+    gold: normalizeThreshold(
+      thresholds?.gold,
+      defaultRatingCardThresholds.gold
+    ),
+    prismatic: normalizeThreshold(
+      thresholds?.prismatic,
+      defaultRatingCardThresholds.prismatic
+    ),
+  };
+}
+
+export function getRatingCardThresholdsForEntity(
+  thresholds?: IRatingCardThresholdConfig | null,
+  entityType: "scene" | "performer" = "scene"
+): Required<IRatingCardThresholds> {
+  const entityThresholds =
+    entityType === "performer" ? thresholds?.performer : thresholds?.scene;
+
+  return normalizeRatingCardThresholds(entityThresholds ?? thresholds);
+}
+
+function getRatingTierClass(
+  rating?: number | null,
+  thresholds?: IRatingCardThresholdConfig | null,
+  thresholdEntity?: "scene" | "performer"
+): string {
   if (rating === undefined || rating === null) return "";
-  if (rating >= 90) return "rating-goat";
-  if (rating >= 84) return "rating-5-stars";
-  if (rating >= 73) return "rating-4-stars";
-  if (rating >= 60) return "rating-3-stars";
+
+  const normalizedThresholds = getRatingCardThresholdsForEntity(
+    thresholds,
+    thresholdEntity
+  );
+
+  if (rating >= normalizedThresholds.prismatic) return "rating-goat";
+  if (rating >= normalizedThresholds.gold) return "rating-5-stars";
+  if (rating >= normalizedThresholds.silver) return "rating-4-stars";
+  if (rating >= normalizedThresholds.bronze) return "rating-3-stars";
+  return "";
+}
+
+function getRatingTierOverrideClass(
+  tags: readonly IRatingCardTag[] | null | undefined,
+  overrideTagIds?: IRatingCardOverrideTagIds | null,
+  goatTagId?: string | null
+): string {
+  if (
+    hasConfiguredTag(tags, overrideTagIds?.prismaticTagId) ||
+    hasConfiguredTag(tags, goatTagId)
+  ) {
+    return "rating-goat";
+  }
+  if (hasConfiguredTag(tags, overrideTagIds?.goldTagId)) {
+    return "rating-5-stars";
+  }
+  if (hasConfiguredTag(tags, overrideTagIds?.silverTagId)) {
+    return "rating-4-stars";
+  }
+  if (hasConfiguredTag(tags, overrideTagIds?.bronzeTagId)) {
+    return "rating-3-stars";
+  }
+
   return "";
 }
 
@@ -41,24 +140,33 @@ export function getRatingCardClass({
   rating,
   tags,
   goatTagId,
+  overrideTagIds,
   theme,
+  thresholds,
+  thresholdEntity,
   disabled,
 }: {
   rating?: number | null;
   tags?: readonly IRatingCardTag[] | null;
   goatTagId?: string | null;
+  overrideTagIds?: IRatingCardOverrideTagIds | null;
   theme?: string | null;
+  thresholds?: IRatingCardThresholdConfig | null;
+  thresholdEntity?: "scene" | "performer";
   disabled?: boolean;
 }): string {
   if (disabled) return "";
 
   const themeClass = `rating-card-theme-${normalizeRatingCardTheme(theme)}`;
 
-  if (hasConfiguredTag(tags, goatTagId)) {
-    return `${themeClass} rating-goat`;
-  }
+  const overrideClass = getRatingTierOverrideClass(
+    tags,
+    overrideTagIds,
+    goatTagId
+  );
+  if (overrideClass) return `${themeClass} ${overrideClass}`;
 
-  const tierClass = getRatingTierClass(rating);
+  const tierClass = getRatingTierClass(rating, thresholds, thresholdEntity);
   if (!tierClass) return "";
 
   return `${themeClass} ${tierClass}`;

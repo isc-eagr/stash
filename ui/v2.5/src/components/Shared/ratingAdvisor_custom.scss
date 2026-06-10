@@ -1,9 +1,37 @@
 .rating-advisor-button {
   align-items: center;
+  background: transparent !important;
+  border: 0;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: inherit;
+  cursor: pointer !important;
   display: inline-flex;
   gap: 0.35rem;
-  margin-right: 0.5rem;
+  line-height: 1;
+  padding: 0 !important;
   white-space: nowrap;
+
+  &:hover,
+  &:focus,
+  &:active {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    color: inherit !important;
+    cursor: pointer !important;
+  }
+
+  .rating-number {
+    cursor: pointer !important;
+    font-size: 1rem;
+
+    &.disabled,
+    *,
+    .rating-number-value {
+      cursor: pointer !important;
+    }
+  }
 }
 
 .rating-advisor-dialog {
@@ -18,7 +46,7 @@
 .rating-advisor-summary {
   display: grid;
   gap: 0.85rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: -0.25rem 0 1.25rem;
   position: sticky;
   top: 0;

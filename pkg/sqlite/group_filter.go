@@ -67,6 +67,7 @@ func (qb *groupFilterHandler) criterionHandler() criterionHandler {
 		stringCriterionHandler(groupFilter.Director, "groups.director"),
 		stringCriterionHandler(groupFilter.Synopsis, "groups.description"),
 		intCriterionHandler(groupFilter.Rating100, "groups.rating", nil),
+		metallicRatingCriterionHandler(groupFilter.MetallicRating, "groups", "groups.rating", "groups_tags", "group_id", "scene"), // CUSTOM
 		floatIntCriterionHandler(groupFilter.Duration, "groups.duration", nil),
 		qb.missingCriterionHandler(groupFilter.IsMissing),
 		qb.urlsCriterionHandler(groupFilter.URL),

@@ -25,6 +25,7 @@ fragment ConfigGeneralData on ConfigGeneralResult {
   previewExcludeStart
   previewExcludeEnd
   markerPreviewSourceQuality # CUSTOM
+  markerPreviewSkipQualityCheck # CUSTOM
   previewPreset
   transcodeHardwareAcceleration
   maxTranscodeSize

@@ -434,6 +434,8 @@
       "maximum_transcode_size_head": "Maximum transcode size",
       "marker_preview_source_quality_desc": "Generate marker video and image previews at the source video resolution. Existing markers generated at the other quality mode will be regenerated automatically.",
       "marker_preview_source_quality_head": "Generate markers at source quality",
+      "marker_preview_skip_quality_check_desc": "When marker previews already exist, skip checking whether they were generated at the current quality mode. Generate will only create missing marker previews unless overwrite is enabled.",
+      "marker_preview_skip_quality_check_head": "Skip marker quality check",
       "metadata_path": {
         "description": "Directory location used when performing a full export or import.",
         "heading": "Metadata path"
@@ -680,6 +682,52 @@
           "options": {
             "premium": "Premium radiant outline",
             "classic": "Classic metallic shimmer"
+          }
+        },
+        "override_tags": {
+          "description": "Cards with this tag use the matching metallic style before rating thresholds are checked.",
+          "bronze": {
+            "heading": "Bronze override tag"
+          },
+          "silver": {
+            "heading": "Silver override tag"
+          },
+          "gold": {
+            "heading": "Gold override tag"
+          },
+          "prismatic": {
+            "heading": "Prismatic override tag"
+          }
+        },
+        "thresholds": {
+          "description": "Stored and displayed as direct 100-based rating values.",
+          "scene": {
+            "bronze": {
+              "heading": "Scene bronze threshold"
+            },
+            "silver": {
+              "heading": "Scene silver threshold"
+            },
+            "gold": {
+              "heading": "Scene gold threshold"
+            },
+            "prismatic": {
+              "heading": "Scene prismatic threshold"
+            }
+          },
+          "performer": {
+            "bronze": {
+              "heading": "Performer bronze threshold"
+            },
+            "silver": {
+              "heading": "Performer silver threshold"
+            },
+            "gold": {
+              "heading": "Performer gold threshold"
+            },
+            "prismatic": {
+              "heading": "Performer prismatic threshold"
+            }
           }
         }
       },
@@ -1490,6 +1538,7 @@
   "queue": "Queue",
   "random": "Random",
   "rating": "Rating",
+  "metallic_rating": "Metallic Rating",
   "recently_added_objects": "Recently Added {objects}",
   "recently_released_objects": "Recently Released {objects}",
   "refer_to": "Please see {link}.",

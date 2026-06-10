@@ -14,6 +14,7 @@ import {
   RatingCriterionOption,
   PerformerRatingCriterionOption, // CUSTOM
 } from "./criteria/rating";
+import { MetallicRatingCriterionOption } from "./criteria/metallic-rating_custom"; // CUSTOM
 import { ResolutionCriterionOption } from "./criteria/resolution";
 import { OrientationCriterionOption } from "./criteria/orientation";
 import { StudiosCriterionOption } from "./criteria/studios";
@@ -73,6 +74,7 @@ const criterionOptions = [
   ImageIsMissingCriterionOption,
   TagsCriterionOption,
   RatingCriterionOption,
+  MetallicRatingCriterionOption, // CUSTOM
   // CUSTOM: begin
   EthnicityCriterionOption,
   new ModifierCriterionOption({

@@ -67,6 +67,18 @@ fragment PerformerData on Performer {
     updated_at
   }
   rating100
+  rating_scores {
+    id
+    entity_type
+    entity_id
+    section
+    key
+    raw_value
+    weighted_value
+    label
+    created_at
+    updated_at
+  }
   details
   death_date
   hair_color

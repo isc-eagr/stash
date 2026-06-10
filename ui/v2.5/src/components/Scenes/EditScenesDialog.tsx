@@ -7,9 +7,7 @@ import { StudioSelect } from "../Shared/Select";
 import { ModalComponent } from "../Shared/Modal";
 import { MultiSet } from "../Shared/MultiSet";
 import { useToast } from "src/hooks/Toast";
-import { RatingSystem } from "../Shared/Rating/RatingSystem";
 import {
-  getAggregateInputValue,
   getAggregateGroupIds,
   getAggregatePerformerIds,
   getAggregateStateObject,
@@ -29,7 +27,6 @@ interface IListOperationProps {
 
 const sceneFields = [
   "code",
-  "rating100",
   "details",
   "organized",
   "director",
@@ -110,13 +107,6 @@ export const EditScenesDialog: React.FC<IListOperationProps> = (
       group_ids: groupIds,
     };
 
-    // we don't have unset functionality for the rating star control
-    // so need to determine if we are setting a rating or not
-    sceneInput.rating100 = getAggregateInputValue(
-      updateInput.rating100,
-      aggregateState.state.rating100
-    );
-
     return sceneInput;
   }
 
@@ -163,16 +153,6 @@ export const EditScenesDialog: React.FC<IListOperationProps> = (
         isRunning={isUpdating}
       >
         <Form>
-          <BulkUpdateFormGroup name="rating">
-            <RatingSystem
-              value={updateInput.rating100}
-              onSetRating={(value) =>
-                setUpdateField({ rating100: value ?? undefined })
-              }
-              disabled={isUpdating}
-            />
-          </BulkUpdateFormGroup>
-
           <BulkUpdateFormGroup name="scene_code">
             <BulkUpdateTextInput
               value={updateInput.code}

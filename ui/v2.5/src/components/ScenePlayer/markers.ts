@@ -57,7 +57,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
 
       const parent = player
         .el()
-        .querySelector(".vjs-progress-holder .vjs-mouse-display");
+        .querySelector(".vjs-progress-control");
       if (parent) parent.appendChild(tooltip);
       this.markerTooltip = tooltip;
 
@@ -70,7 +70,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
   }
 
   // CUSTOM: begin - enhanced tooltip with performer roles and negative marker styling
-  private showMarkerTooltip(title: string, layer: number = 0, topPerformers?: Array<{ id: string; name: string }>, bottomPerformers?: Array<{ id: string; name: string }>, isNegativeMarker: boolean = false) {
+  private showMarkerTooltip(title: string, layer: number = 0, topPerformers?: Array<{ id: string; name: string }>, bottomPerformers?: Array<{ id: string; name: string }>, isNegativeMarker: boolean = false, target?: HTMLElement) {
     if (!this.markerTooltip) return;
     
     let tooltipContent = title;
@@ -95,9 +95,29 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     }
     
     this.markerTooltip.innerText = tooltipContent;
-    this.markerTooltip.style.right = `${-this.markerTooltip.clientWidth / 2}px`;
-    this.markerTooltip.style.top = `-${this.layerHeight * layer + 50}px`;
+    this.markerTooltip.style.top = `-${this.layerHeight * layer + 24}px`;
     this.markerTooltip.style.visibility = "visible";
+    this.markerTooltip.style.transform = "translateX(-50%)";
+    this.markerTooltip.style.right = "";
+
+    // CUSTOM: begin - keep marker tooltips inside the player timeline edges
+    const parent = this.markerTooltip.parentElement;
+    if (parent && target) {
+      const parentRect = parent.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const padding = 6;
+      this.markerTooltip.style.maxWidth = `${Math.max(parentRect.width - padding * 2, 0)}px`;
+      const tooltipWidth = this.markerTooltip.offsetWidth;
+      const halfWidth = tooltipWidth / 2;
+      const targetCenter = targetRect.left + targetRect.width / 2 - parentRect.left;
+      const minCenter = halfWidth + padding;
+      const maxCenter = parentRect.width - halfWidth - padding;
+      const left = maxCenter < minCenter
+        ? parentRect.width / 2
+        : Math.max(minCenter, Math.min(targetCenter, maxCenter));
+      this.markerTooltip.style.left = `${left}px`;
+    }
+    // CUSTOM: end
     
     // Style differently for negative markers
     if (isNegativeMarker) {
@@ -149,7 +169,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
         this.tagColors[marker.primaryTag.name];
     }
     markerSet.dot.addEventListener("mouseenter", () => {
-      this.showMarkerTooltip(marker.title, 0, marker.top_performers, marker.bottom_performers); // CUSTOM: performer roles
+      this.showMarkerTooltip(marker.title, 0, marker.top_performers, marker.bottom_performers, false, markerSet.dot); // CUSTOM: performer roles
       markerSet.dot?.toggleAttribute("marker-tooltip-shown", true);
     });
 
@@ -237,7 +257,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       e.stopPropagation();
     });
     markerSet.range.addEventListener("mouseenter", () => {
-      this.showMarkerTooltip(marker.title, layer, marker.top_performers, marker.bottom_performers); // CUSTOM: performer roles
+      this.showMarkerTooltip(marker.title, layer, marker.top_performers, marker.bottom_performers, false, markerSet.range); // CUSTOM: performer roles
       markerSet.range?.toggleAttribute("marker-tooltip-shown", true);
     });
 
@@ -387,7 +407,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
 
       rangeDiv.addEventListener("mouseenter", () => {
         const title = marker.name || "Skip Section";
-        this.showMarkerTooltip(title, 0, undefined, undefined, true);
+        this.showMarkerTooltip(title, 0, undefined, undefined, true, rangeDiv);
         rangeDiv.toggleAttribute("marker-tooltip-shown", true);
       });
 
@@ -438,9 +458,16 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
         year: "numeric", month: "short", day: "numeric",
         hour: "numeric", minute: "2-digit",
       }) : "O";
-      dot.title = `O on ${label}`;
 
       dot.addEventListener("click", () => this.player.currentTime(ts));
+      dot.addEventListener("mouseenter", () => {
+        this.showMarkerTooltip(`O on ${label}`, 0, undefined, undefined, false, dot);
+        dot.toggleAttribute("marker-tooltip-shown", true);
+      });
+      dot.addEventListener("mouseout", () => {
+        this.hideMarkerTooltip();
+        dot.toggleAttribute("marker-tooltip-shown", false);
+      });
 
       seekBar.appendChild(dot);
       this.oTimestampDivs.push(dot);

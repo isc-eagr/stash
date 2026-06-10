@@ -178,6 +178,8 @@ type PerformerFilterType struct {
 	StashIDsEndpoint *StashIDsCriterionInput `json:"stash_ids_endpoint"`
 	// Filter by rating expressed as 1-100
 	Rating100 *IntCriterionInput `json:"rating100"`
+	// Filter by metallic card style after rating thresholds and tag overrides
+	MetallicRating *MultiCriterionInput `json:"metallic_rating"` // CUSTOM
 	// Filter by url
 	URL *StringCriterionInput `json:"url"`
 	// Filter by hair color

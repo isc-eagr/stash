@@ -218,11 +218,13 @@
   /* CUSTOM: end */
 
   .rating-number .text-input {
-    width: auto;
+    width: 4.75rem;
   }
 
   .quality-group {
+    align-items: center;
     display: inline-flex;
+    gap: 0.5rem;
     margin-top: 0.25rem;
   }
 

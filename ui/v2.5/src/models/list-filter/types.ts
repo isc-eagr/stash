@@ -125,6 +125,7 @@ export interface IOptionType {
 export type CriterionType =
   | "path"
   | "rating100"
+  | "metallic_rating" // CUSTOM
   | "organized"
   | "o_counter"
   | "resolution"

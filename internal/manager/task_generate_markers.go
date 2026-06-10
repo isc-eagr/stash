@@ -22,6 +22,7 @@ type GenerateMarkersTask struct {
 	ImagePreview       bool
 	Screenshot         bool
 	HighQualityMarkers bool // CUSTOM: generate marker previews at source resolution
+	SkipQualityCheck   bool // CUSTOM: skip existing marker quality mismatch detection
 
 	generator *generate.Generator
 }
@@ -118,8 +119,8 @@ func (t *GenerateMarkersTask) generateMarker(videoFile *models.VideoFile, scene 
 	g := t.generator
 
 	// CUSTOM: begin - delete quality-mismatched files so generator regenerates them
-	if !g.Overwrite {
-		t.deleteQualityMismatchedFiles(sceneHash, int(seconds), videoFile.Width)
+	if !g.Overwrite && !t.SkipQualityCheck {
+		t.deleteQualityMismatchedFiles(sceneHash, int(seconds), videoFile.Width, videoFile.Height)
 	}
 	// CUSTOM: end
 
@@ -158,10 +159,12 @@ func (t *GenerateMarkersTask) markersNeeded(ctx context.Context) int {
 	}
 
 	sceneHash := t.Scene.GetHash(t.fileNamingAlgorithm)
-	// CUSTOM: begin - get source width for quality mismatch detection
+	// CUSTOM: begin - get source dimensions for quality mismatch detection
 	sourceWidth := 0
+	sourceHeight := 0
 	if vf := t.Scene.Files.Primary(); vf != nil {
 		sourceWidth = vf.Width
+		sourceHeight = vf.Height
 	}
 	// CUSTOM: end
 	for _, sceneMarker := range sceneMarkers {
@@ -170,7 +173,7 @@ func (t *GenerateMarkersTask) markersNeeded(ctx context.Context) int {
 		if t.Overwrite || !t.markerExists(sceneHash, seconds) {
 			markers++
 			// CUSTOM: begin - also count markers that need quality regeneration
-		} else if t.markerQualityMismatch(sceneHash, seconds, sourceWidth) {
+		} else if !t.SkipQualityCheck && t.markerQualityMismatch(sceneHash, seconds, sourceWidth, sourceHeight) {
 			markers++
 			// CUSTOM: end
 		}

@@ -416,6 +416,13 @@ export const SettingsConfigurationPanel: React.FC = () => {
           checked={general.markerPreviewSourceQuality ?? false}
           onChange={(v) => saveGeneral({ markerPreviewSourceQuality: v })}
         />
+        <BooleanSetting
+          id="marker-preview-skip-quality-check"
+          headingID="config.general.marker_preview_skip_quality_check_head"
+          subHeadingID="config.general.marker_preview_skip_quality_check_desc"
+          checked={general.markerPreviewSkipQualityCheck ?? false}
+          onChange={(v) => saveGeneral({ markerPreviewSkipQualityCheck: v })}
+        />
         {/* CUSTOM: end */}
 
         <ModalSetting<VideoPreviewSettingsInput>

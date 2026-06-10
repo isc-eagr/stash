@@ -480,7 +480,8 @@ func (j *GenerateJob) queueSceneJobs(ctx context.Context, g *generate.Generator,
 			VideoPreview:        j.input.Markers,
 			ImagePreview:        j.input.MarkerImagePreviews,
 			Screenshot:          j.input.MarkerScreenshots,
-			HighQualityMarkers:  instance.Config.GetMarkerPreviewSourceQuality(), // CUSTOM
+			HighQualityMarkers:  instance.Config.GetMarkerPreviewSourceQuality(),    // CUSTOM
+			SkipQualityCheck:    instance.Config.GetMarkerPreviewSkipQualityCheck(), // CUSTOM
 
 			generator: g,
 		}
@@ -553,7 +554,8 @@ func (j *GenerateJob) queueMarkerJob(g *generate.Generator, marker *models.Scene
 		VideoPreview:        j.input.Markers,
 		ImagePreview:        j.input.MarkerImagePreviews,
 		Screenshot:          j.input.MarkerScreenshots,
-		HighQualityMarkers:  instance.Config.GetMarkerPreviewSourceQuality(), // CUSTOM
+		HighQualityMarkers:  instance.Config.GetMarkerPreviewSourceQuality(),    // CUSTOM
+		SkipQualityCheck:    instance.Config.GetMarkerPreviewSkipQualityCheck(), // CUSTOM
 		generator:           g,
 	}
 	j.totals.markers++

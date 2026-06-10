@@ -629,7 +629,7 @@
   }
 
   .performer-role-badges .role-badge-item {
-    background: rgba(255, 255, 255, 0.018);
+    background: transparent !important;
   }
 
   .performer-role-badges .arrow-badge {
@@ -1400,5 +1400,69 @@
   .count-button .btn {
     color: rgb(var(--rating-card-text-rgb)) !important;
   }
+}
+
+:is(
+    .scene-card,
+    .performer-card,
+    .image-card,
+    .gallery-card,
+    .group-card,
+    .studio-card
+  )
+  .rating-banner.rating-banner-compact {
+  align-items: center !important;
+  animation: none !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: #111 !important;
+  display: inline-flex !important;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.62)) !important;
+  font-size: 0.78rem !important;
+  font-weight: 800 !important;
+  height: 2.75rem !important;
+  justify-content: center !important;
+  left: 0.45rem !important;
+  letter-spacing: 0 !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+  right: auto !important;
+  text-shadow: none !important;
+  text-transform: none !important;
+  top: 0.45rem !important;
+  transform: none !important;
+  width: 2.75rem !important;
+
+  &.rating-banner-wide {
+    font-size: 0.66rem !important;
+  }
+
+  .rating-banner-compact-star {
+    background: #ffe35c !important;
+    color: var(--rating-card-star-text, rgba(10, 12, 14, 0.92)) !important;
+    height: 2.75rem !important;
+    width: 2.75rem !important;
+  }
+}
+
+:is(
+    .scene-card,
+    .performer-card,
+    .image-card,
+    .gallery-card,
+    .group-card,
+    .studio-card
+  ):is(.rating-card-theme-premium, .rating-card-theme-classic):is(
+    .rating-3-stars,
+    .rating-4-stars,
+    .rating-5-stars,
+    .rating-goat
+  )
+  .rating-banner.rating-banner-compact {
+  --rating-card-star-text: rgba(10, 12, 14, 0.92);
+  filter:
+    drop-shadow(0 0 6px rgba(255, 227, 92, 0.42))
+    drop-shadow(0 2px 4px rgba(0, 0, 0, 0.62)) !important;
 }
 /* CUSTOM: end */

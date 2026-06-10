@@ -1,39 +1,32 @@
 import React from "react";
 import { FormattedMessage } from "react-intl";
-import {
-  convertToRatingFormat,
-  defaultRatingSystemOptions,
-  RatingStarPrecision,
-  RatingSystemType,
-} from "src/utils/rating";
-import { useConfigurationContext } from "src/hooks/Config";
 
 interface IProps {
   rating?: number | null;
+  compact?: boolean;
 }
 
-export const RatingBanner: React.FC<IProps> = ({ rating }) => {
-  const { configuration: config } = useConfigurationContext();
-  const ratingSystemOptions =
-    config?.ui.ratingSystemOptions ?? defaultRatingSystemOptions;
-  const isLegacy =
-    ratingSystemOptions.type === RatingSystemType.Stars &&
-    ratingSystemOptions.starPrecision === RatingStarPrecision.Full;
+export const RatingBanner: React.FC<IProps> = ({ rating, compact = false }) => {
+  const classBucket = Math.min(20, Math.trunc((rating ?? 0) / 5));
+  const isWideRating = (rating ?? 0) >= 100;
 
-  const convertedRating = convertToRatingFormat(
-    rating ?? undefined,
-    ratingSystemOptions
-  );
-
-  return rating ? (
+  return rating !== undefined && rating !== null ? (
     <div
-      className={
-        isLegacy
-          ? `rating-banner rating-${convertedRating}`
-          : `rating-banner rating-100-${Math.trunc(rating / 5)}`
-      }
+      className={`rating-banner ${
+        compact ? "rating-banner-compact" : ""
+      } ${
+        isWideRating ? "rating-banner-wide" : ""
+      } rating-100-${classBucket}`}
     >
-      <FormattedMessage id="rating" />: {convertedRating}
+      {compact ? (
+        <span className="rating-banner-compact-star" aria-label="Rating">
+          {rating}
+        </span>
+      ) : (
+        <>
+          <FormattedMessage id="rating" />: {rating}
+        </>
+      )}
     </div>
   ) : (
     <></>

@@ -83,6 +83,7 @@ type storeRepository struct {
 	Tag                 *TagStore
 	Group               *GroupStore
 	PerformerImage      *PerformerImageStore // CUSTOM
+	RatingScore         *RatingScoreStore    // CUSTOM
 }
 
 type Database struct {
@@ -125,6 +126,7 @@ func NewDatabase() *Database {
 		Studio:              studioStore,
 		Tag:                 tagStore,
 		Group:               NewGroupStore(blobStore),
+		RatingScore:         NewRatingScoreStore(), // CUSTOM
 		SavedFilter:         NewSavedFilterStore(),
 	}
 

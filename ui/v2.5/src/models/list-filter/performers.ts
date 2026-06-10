@@ -17,6 +17,7 @@ import { ListFilterOptions } from "./filter-options";
 import { CriterionType, DisplayMode } from "./types";
 import { CountryCriterionOption } from "./criteria/country";
 import { RatingCriterionOption } from "./criteria/rating";
+import { MetallicRatingCriterionOption } from "./criteria/metallic-rating_custom"; // CUSTOM
 import { CustomFieldsCriterionOption } from "./criteria/custom-fields";
 import { GroupsCriterionOption } from "./criteria/groups";
 // CUSTOM: begin
@@ -193,6 +194,7 @@ const criterionOptions = [
   StashIDCriterionOption,
   createStringCriterionOption("url"),
   RatingCriterionOption,
+  MetallicRatingCriterionOption, // CUSTOM
   createMandatoryNumberCriterionOption("tag_count"),
   createMandatoryNumberCriterionOption("scene_count"),
   createMandatoryNumberCriterionOption("image_count"),

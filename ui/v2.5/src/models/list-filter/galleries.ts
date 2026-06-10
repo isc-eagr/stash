@@ -23,6 +23,7 @@ import {
   RatingCriterionOption,
   PerformerRatingCriterionOption, // CUSTOM
 } from "./criteria/rating";
+import { MetallicRatingCriterionOption } from "./criteria/metallic-rating_custom"; // CUSTOM
 import { PathCriterionOption } from "./criteria/path";
 import { CustomFieldsCriterionOption } from "./criteria/custom-fields";
 import { ParentFolderCriterionOption } from "./criteria/folder";
@@ -64,6 +65,7 @@ const criterionOptions = [
   ParentFolderCriterionOption,
   createStringCriterionOption("checksum", "media_info.md5"),
   RatingCriterionOption,
+  MetallicRatingCriterionOption, // CUSTOM
   OrganizedCriterionOption,
   AverageResolutionCriterionOption,
   GalleryIsMissingCriterionOption,

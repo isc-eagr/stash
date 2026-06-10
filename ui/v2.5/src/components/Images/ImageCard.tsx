@@ -206,7 +206,7 @@ const ImageCardImage = PatchComponent(
             </div>
           ) : undefined}
         </div>
-        <RatingBanner rating={props.image.rating100} />
+        <RatingBanner rating={props.image.rating100} compact />
       </>
     );
   }
@@ -224,6 +224,8 @@ export const ImageCard: React.FC<IImageCardProps> = PatchComponent(
       tags: props.image.tags,
       goatTagId,
       theme: ratingCardTheme,
+      thresholds: configuration?.ui?.ratingCardThresholds,
+      overrideTagIds: configuration?.ui?.ratingCardOverrideTagIds,
       disabled: isRatingCardHomePage(),
     });
     // CUSTOM: end

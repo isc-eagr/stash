@@ -6,9 +6,13 @@
 extend input ConfigGeneralInput {
   "Generate marker video/webp previews at source video resolution instead of downscaled 640px"
   markerPreviewSourceQuality: Boolean
+  "Skip checking existing marker previews for source/low quality mismatches during marker generation"
+  markerPreviewSkipQualityCheck: Boolean
 }
 
 extend type ConfigGeneralResult {
   "Generate marker video/webp previews at source video resolution instead of downscaled 640px"
   markerPreviewSourceQuality: Boolean!
+  "Skip checking existing marker previews for source/low quality mismatches during marker generation"
+  markerPreviewSkipQualityCheck: Boolean!
 }

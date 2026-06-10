@@ -146,6 +146,9 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
       tags: performer.tags,
       goatTagId: roleTagIds.goatTagId,
       theme: configuration?.ui?.ratingCardTheme,
+      thresholds: configuration?.ui?.ratingCardThresholds,
+      overrideTagIds: configuration?.ui?.ratingCardOverrideTagIds,
+      thresholdEntity: "performer",
     });
   };
 
@@ -196,7 +199,9 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
             size="2x"
             className="hide-not-favorite"
           />
-          {performer.rating100 && <RatingBanner rating={performer.rating100} />}
+          {performer.rating100 && (
+            <RatingBanner rating={performer.rating100} compact />
+          )}
           {performer.country && (
             <Link to={NavUtils.makePerformersCountryUrl(performer)}>
               <CountryFlag

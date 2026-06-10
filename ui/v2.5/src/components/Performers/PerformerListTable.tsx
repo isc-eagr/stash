@@ -5,10 +5,10 @@ import { useIntl } from "react-intl";
 import { Button } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import * as GQL from "src/core/generated-graphql";
+import { usePerformerUpdate } from "src/core/StashService";
 import { Icon } from "../Shared/Icon";
 import NavUtils from "src/utils/navigation";
 import { faHeart } from "@fortawesome/free-solid-svg-icons";
-import { usePerformerUpdate } from "src/core/StashService";
 import { useTableColumns } from "src/hooks/useTableColumns";
 import { RatingSystem } from "../Shared/Rating/RatingSystem";
 import cx from "classnames";
@@ -35,21 +35,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
   props: IPerformerListTableProps
 ) => {
   const intl = useIntl();
-
   const [updatePerformer] = usePerformerUpdate();
-
-  function setRating(v: number | null, performerId: string) {
-    if (performerId) {
-      updatePerformer({
-        variables: {
-          input: {
-            id: performerId,
-            rating100: v,
-          },
-        },
-      });
-    }
-  }
 
   function setFavorite(v: boolean, performerId: string) {
     if (performerId) {
@@ -108,8 +94,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
   const RatingCell = (performer: GQL.PerformerDataFragment) => (
     <RatingSystem
       value={performer.rating100}
-      onSetRating={(value) => setRating(value, performer.id)}
-      clickToRate
+      disabled
     />
   );
 

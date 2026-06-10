@@ -13,10 +13,12 @@ export interface IRatingSystemProps {
   onSetRating?: (value: number | null) => void;
   disabled?: boolean;
   valueRequired?: boolean;
+  max?: number;
   // if true, requires a click first to edit the rating
   clickToRate?: boolean;
   // true if we should indicate that this is a rating
   withoutContext?: boolean;
+  orMore?: boolean;
 }
 
 export const RatingSystem = PatchComponent(
@@ -36,18 +38,20 @@ export const RatingSystem = PatchComponent(
             ratingSystemOptions.starPrecision ?? defaultRatingStarPrecision
           }
           valueRequired={props.valueRequired}
-        />
-      );
-    } else {
-      return (
-        <RatingNumber
-          value={props.value ?? null}
-          onSetRating={props.onSetRating}
-          disabled={props.disabled}
-          clickToRate={props.clickToRate}
-          withoutContext={props.withoutContext}
+          orMore={props.orMore}
         />
       );
     }
+
+    return (
+      <RatingNumber
+        value={props.value ?? null}
+        onSetRating={props.onSetRating}
+        disabled={props.disabled}
+        clickToRate={props.clickToRate}
+        max={props.max}
+        withoutContext={props.withoutContext}
+      />
+    );
   }
 );

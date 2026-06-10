@@ -310,6 +310,8 @@ input PerformerPartnersFilterInput {
 }
 
 extend input PerformerFilterType {
+  "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, prismatic."
+  metallic_rating: MultiCriterionInput
   "Filter by profile image count (default performer image + additional performer images)"
   profile_image_count: IntCriterionInput
   "Filter to only include performers that have scene markers where they are top/bottom"
@@ -365,6 +367,8 @@ extend input SceneMarkerFilterType {
 }
 
 extend input SceneFilterType {
+  "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, prismatic."
+  metallic_rating: MultiCriterionInput
   "Filter by release count"
   release_count: IntCriterionInput
   "Filter to only include scenes with markers that have assigned performers. `true` or `false`"
@@ -391,6 +395,8 @@ extend input SceneFilterType {
 }
 
 extend input GalleryFilterType {
+  "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, prismatic."
+  metallic_rating: MultiCriterionInput
   "Filter galleries by performers' rating (1-100)"
   performer_rating: IntCriterionInput
   "When true, all linked performers must satisfy the performer_rating condition; when false, at least one performer must satisfy it (default: true)."
@@ -402,6 +408,8 @@ extend input GalleryFilterType {
 }
 
 extend input ImageFilterType {
+  "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, prismatic."
+  metallic_rating: MultiCriterionInput
   "Filter images by performers' rating (1-100)"
   performer_rating: IntCriterionInput
   "When true, all linked performers must satisfy the performer_rating condition; when false, at least one performer must satisfy it (default: true)."
@@ -410,6 +418,16 @@ extend input ImageFilterType {
   performer_country: StringCriterionInput
   "Filter by performer ethnicity"
   performer_ethnicity: StringCriterionInput
+}
+
+extend input GroupFilterType {
+  "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, prismatic."
+  metallic_rating: MultiCriterionInput
+}
+
+extend input StudioFilterType {
+  "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, prismatic."
+  metallic_rating: MultiCriterionInput
 }
 
 extend enum CriterionModifier {

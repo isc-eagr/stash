@@ -896,6 +896,57 @@ div.dropdown-menu {
   transform: rotate(-36deg);
 }
 
+.rating-banner.rating-banner-compact {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: #111;
+  display: inline-flex;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.62));
+  font-size: 0.78rem;
+  font-weight: 800;
+  height: 2.75rem;
+  justify-content: center;
+  left: 0.45rem;
+  letter-spacing: 0;
+  line-height: 1rem;
+  padding: 0;
+  right: auto;
+  text-transform: none;
+  text-shadow: none;
+  top: 0.45rem;
+  transform: none;
+  width: 2.75rem;
+}
+
+.rating-banner.rating-banner-compact.rating-banner-wide {
+  font-size: 0.66rem;
+}
+
+.rating-banner-compact-star {
+  align-items: center;
+  background: #d8a33c;
+  clip-path: polygon(
+    50% 0%,
+    61% 35%,
+    98% 35%,
+    68% 56%,
+    79% 91%,
+    50% 70%,
+    21% 91%,
+    32% 56%,
+    2% 35%,
+    39% 35%
+  );
+  display: inline-flex;
+  height: 2.75rem;
+  justify-content: center;
+  line-height: 1;
+  padding-top: 0.08rem;
+  width: 2.75rem;
+}
+
 .card {
   background-color: $card-bg;
   border-radius: 3px;

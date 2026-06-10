@@ -404,6 +404,7 @@ const GroupPage: React.FC<IProps> = ({ group, tabKey }) => {
               <RatingSystem
                 value={group.rating100}
                 onSetRating={(value) => setRating(value)}
+                max={100} // CUSTOM
                 clickToRate
                 withoutContext
               />

@@ -230,7 +230,7 @@ const GalleryCardImage = PatchComponent(
           }}
           disabled={props.selecting}
         />
-        <RatingBanner rating={props.gallery.rating100} />
+        <RatingBanner rating={props.gallery.rating100} compact />
       </>
     );
   }
@@ -248,6 +248,8 @@ export const GalleryCard = PatchComponent(
       tags: props.gallery.tags,
       goatTagId,
       theme: ratingCardTheme,
+      thresholds: configuration?.ui?.ratingCardThresholds,
+      overrideTagIds: configuration?.ui?.ratingCardOverrideTagIds,
       disabled: isRatingCardHomePage(),
     });
     // CUSTOM: end

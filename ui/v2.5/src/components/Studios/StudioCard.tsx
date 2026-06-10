@@ -159,6 +159,8 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       tags: studio.tags,
       goatTagId,
       theme: ratingCardTheme,
+      thresholds: configuration?.ui?.ratingCardThresholds,
+      overrideTagIds: configuration?.ui?.ratingCardOverrideTagIds,
       disabled: isRatingCardHomePage(),
     });
     // CUSTOM: end
@@ -609,7 +611,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
           <div className="studio-card__details">
             {maybeRenderParent(studio, hideParent)}
             {maybeRenderChildren(studio)}
-            <RatingBanner rating={studio.rating100} />
+            <RatingBanner rating={studio.rating100} compact />
           </div>
         }
         overlays={

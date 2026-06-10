@@ -18,6 +18,7 @@ type Database struct {
 	Image               *ImageReaderWriter
 	Group               *GroupReaderWriter
 	Performer           *PerformerReaderWriter
+	RatingScore         *RatingScoreReaderWriter // CUSTOM
 	Scene               *SceneReaderWriter
 	SceneLoopPreset     *SceneLoopPresetReaderWriter     // CUSTOM
 	SceneNegativeMarker *SceneNegativeMarkerReaderWriter // CUSTOM
@@ -69,6 +70,7 @@ func NewDatabase() *Database {
 		Image:               &ImageReaderWriter{},
 		Group:               &GroupReaderWriter{},
 		Performer:           &PerformerReaderWriter{},
+		RatingScore:         &RatingScoreReaderWriter{}, // CUSTOM
 		Scene:               &SceneReaderWriter{},
 		SceneLoopPreset:     &SceneLoopPresetReaderWriter{},     // CUSTOM
 		SceneNegativeMarker: &SceneNegativeMarkerReaderWriter{}, // CUSTOM
@@ -87,6 +89,7 @@ func (db *Database) AssertExpectations(t mock.TestingT) {
 	db.Image.AssertExpectations(t)
 	db.Group.AssertExpectations(t)
 	db.Performer.AssertExpectations(t)
+	db.RatingScore.AssertExpectations(t) // CUSTOM
 	db.Scene.AssertExpectations(t)
 	db.SceneLoopPreset.AssertExpectations(t)     // CUSTOM
 	db.SceneNegativeMarker.AssertExpectations(t) // CUSTOM
@@ -116,6 +119,7 @@ func (db *Database) Repository() models.Repository {
 		Image:               db.Image,
 		Group:               db.Group,
 		Performer:           db.Performer,
+		RatingScore:         db.RatingScore, // CUSTOM
 		Scene:               db.Scene,
 		SceneLoopPreset:     db.SceneLoopPreset,     // CUSTOM
 		SceneNegativeMarker: db.SceneNegativeMarker, // CUSTOM

@@ -11,6 +11,7 @@ import { PerformersCriterionOption } from "./criteria/performers";
 import { ListFilterOptions } from "./filter-options";
 import { DisplayMode } from "./types";
 import { RatingCriterionOption } from "./criteria/rating";
+import { MetallicRatingCriterionOption } from "./criteria/metallic-rating_custom"; // CUSTOM
 // import { StudioTagsCriterionOption } from "./criteria/tags";
 import { TagsCriterionOption } from "./criteria/tags";
 import {
@@ -53,6 +54,7 @@ const criterionOptions = [
   createStringCriterionOption("synopsis"),
   createDurationCriterionOption("duration"),
   RatingCriterionOption,
+  MetallicRatingCriterionOption, // CUSTOM
   PerformersCriterionOption,
   createDateCriterionOption("date"),
   createMandatoryNumberCriterionOption("o_counter", "o_count", {

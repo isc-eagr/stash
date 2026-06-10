@@ -8,7 +8,6 @@ import { objectTitle } from "src/core/files";
 import { galleryTitle } from "src/core/galleries";
 import SceneQueue from "src/models/sceneQueue";
 import { RatingSystem } from "../Shared/Rating/RatingSystem";
-import { useSceneUpdate } from "src/core/StashService";
 import { IColumn, ListTable } from "../List/ListTable";
 import { useTableColumns } from "src/hooks/useTableColumns";
 import { FileSize } from "../Shared/FileSize";
@@ -26,21 +25,6 @@ export const SceneListTable: React.FC<ISceneListTableProps> = (
   props: ISceneListTableProps
 ) => {
   const intl = useIntl();
-
-  const [updateScene] = useSceneUpdate();
-
-  function setRating(v: number | null, sceneId: string) {
-    if (sceneId) {
-      updateScene({
-        variables: {
-          input: {
-            id: sceneId,
-            rating100: v,
-          },
-        },
-      });
-    }
-  }
 
   const CoverImageCell = (scene: GQL.SlimSceneDataFragment, index: number) => {
     const title = objectTitle(scene);
@@ -78,8 +62,7 @@ export const SceneListTable: React.FC<ISceneListTableProps> = (
   const RatingCell = (scene: GQL.SlimSceneDataFragment) => (
     <RatingSystem
       value={scene.rating100}
-      onSetRating={(value) => setRating(value, scene.id)}
-      clickToRate
+      disabled
     />
   );
 

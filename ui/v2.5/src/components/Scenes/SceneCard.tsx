@@ -523,7 +523,7 @@ const SceneCardImage = PatchComponent(
           onScrubberClick={onScrubberClick}
           disabled={props.selecting}
         />
-        <RatingBanner rating={props.scene.rating100} />
+        <RatingBanner rating={props.scene.rating100} compact />
         <SceneSpecsOverlay scene={props.scene} />
         {maybeRenderInteractiveSpeedOverlay()}
       </>
@@ -724,6 +724,8 @@ export const SceneCard = PatchComponent(
         tags: props.scene.tags,
         goatTagId: configuration?.ui?.roleTagIds?.goatTagId,
         theme: configuration?.ui?.ratingCardTheme,
+        thresholds: configuration?.ui?.ratingCardThresholds,
+        overrideTagIds: configuration?.ui?.ratingCardOverrideTagIds,
         disabled: isRatingCardHomePage(),
       });
     }

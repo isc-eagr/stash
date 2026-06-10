@@ -128,6 +128,7 @@ func (db *Database) Repository() models.Repository {
 		Group:               db.Group,
 		Performer:           db.Performer,
 		PerformerImage:      db.PerformerImage, // CUSTOM
+		RatingScore:         db.RatingScore,    // CUSTOM
 		Scene:               db.Scene,
 		SceneLoopPreset:     db.SceneLoopPreset,     // CUSTOM
 		SceneNegativeMarker: db.SceneNegativeMarker, // CUSTOM

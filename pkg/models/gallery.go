@@ -21,6 +21,8 @@ type GalleryFilterType struct {
 	IsZip *bool `json:"is_zip"`
 	// Filter by rating expressed as 1-100
 	Rating100 *IntCriterionInput `json:"rating100"`
+	// Filter by metallic card style after rating thresholds and tag overrides
+	MetallicRating *MultiCriterionInput `json:"metallic_rating"` // CUSTOM
 	// Filter by organized
 	Organized *bool `json:"organized"`
 	// Filter by average image resolution

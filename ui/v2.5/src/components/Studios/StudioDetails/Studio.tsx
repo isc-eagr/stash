@@ -510,6 +510,7 @@ const StudioPage: React.FC<IProps> = ({ studio, tabKey }) => {
                 <RatingSystem
                   value={studio.rating100}
                   onSetRating={(value) => setRating(value)}
+                  max={100} // CUSTOM
                   clickToRate
                   withoutContext
                 />

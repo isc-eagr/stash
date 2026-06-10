@@ -44,7 +44,7 @@ This document describes all custom features and modifications added on top of th
 34. [Task Progress Completion Estimate](#34-task-progress-completion-estimate)
 35. [Marker Source-Quality Generation](#35-marker-source-quality-generation)
 36. [Premium Rating Card Styles](#36-premium-rating-card-styles)
-37. [Rating Advisor Modals](#37-rating-advisor-modals)
+37. [Persisted Rating System](#37-persisted-rating-system)
 
 ---
 
@@ -2108,9 +2108,13 @@ Adds a new system setting to control marker preview quality:
 
 When the setting is switched, generation detects markers that were created under the previous mode and regenerates only those mismatched marker files.
 
+Adds a second system setting to skip that existing-file quality check:
+- `false` (default): existing marker previews are probed for quality mismatches
+- `true`: existing marker previews are trusted, so Generate only creates missing marker preview files unless overwrite is enabled
+
 ### Configuration
 **GraphQL Schema Files:**
-- `graphql/schema/types/config_custom.graphql` - extends `ConfigGeneralInput` and `ConfigGeneralResult` with `markerPreviewSourceQuality`
+- `graphql/schema/types/config_custom.graphql` - extends `ConfigGeneralInput` and `ConfigGeneralResult` with `markerPreviewSourceQuality` and `markerPreviewSkipQualityCheck`
 
 **Backend Config Files:**
 - `internal/manager/config/config_custom.go` - custom key + getter
@@ -2131,13 +2135,14 @@ When the setting is switched, generation detects markers that were created under
 - `internal/manager/task_generate_markers_custom.go`
   - Detects quality mismatch by probing existing marker dimensions (webp/mp4)
   - Deletes mismatched marker artifacts before generation so only required files regenerate
+  - Treats either source width or source height as valid in source-quality mode to handle rotation metadata materialized by ffmpeg
 
 ### API/Resolver Integration
 **Files Modified:**
 - `internal/api/resolver_mutation_configure.go`
-  - Persists `markerPreviewSourceQuality` changes
+  - Persists `markerPreviewSourceQuality` and `markerPreviewSkipQualityCheck` changes
 - `internal/api/resolver_query_configuration.go`
-  - Exposes `markerPreviewSourceQuality` in config query responses
+  - Exposes `markerPreviewSourceQuality` and `markerPreviewSkipQualityCheck` in config query responses
 
 ### Frontend Integration
 **Files Modified:**
@@ -2168,14 +2173,37 @@ Rating-based card styling uses these thresholds:
 - 84-89: Gold
 - 90-100: Prismatic
 
-GOAT-tagged cards use a prismatic override independent of rating. The GOAT override applies when the configured GOAT tag is directly attached to the card item and takes precedence over rating-based styling. Scene markers do not have ratings, so only the GOAT/prismatic override is applied to marker cards.
+Configured override tags can force Bronze, Silver, Gold, or Prismatic styling independent of rating. The legacy GOAT tag remains a prismatic override. Overrides take precedence over rating-based thresholds.
 
 ### Configuration
 Stored in UI config:
 ```typescript
 configuration.ui.ratingCardTheme = "premium" | "classic"
+configuration.ui.ratingCardThresholds = {
+  scene: {
+    bronze: 60,
+    silver: 73,
+    gold: 84,
+    prismatic: 90
+  },
+  performer: {
+    bronze: 60,
+    silver: 73,
+    gold: 84,
+    prismatic: 90
+  }
+}
+configuration.ui.ratingCardOverrideTagIds = {
+  bronzeTagId: "<tag id>",
+  silverTagId: "<tag id>",
+  goldTagId: "<tag id>",
+  prismaticTagId: "<tag id>"
+}
 configuration.ui.roleTagIds.goatTagId = "<tag id>"
 ```
+
+### Metallic Rating Filter
+Adds a `metallic_rating` filter to scenes, performers, images, galleries, groups, and studios. The filter matches the final card style after configured tag overrides and rating thresholds are applied, and supports include/exclude modifiers for `bronze`, `silver`, `gold`, and `prismatic`.
 
 ### Files Modified
 - `ui/v2.5/src/components/Scenes/SceneCard.tsx` - Uses shared rating card class helper for scene cards
@@ -2186,21 +2214,28 @@ configuration.ui.roleTagIds.goatTagId = "<tag id>"
 - `ui/v2.5/src/components/Galleries/GalleryCard.tsx` - Uses shared rating card class helper for gallery cards
 - `ui/v2.5/src/components/Groups/GroupCard.tsx` - Uses shared rating card class helper for group cards
 - `ui/v2.5/src/components/Studios/StudioCard.tsx` - Uses shared rating card class helper for studio cards
-- `ui/v2.5/src/components/Settings/SettingsInterfacePanel/SettingsInterfacePanel.tsx` - Adds rating card theme selector and GOAT tag picker
-- `ui/v2.5/src/core/config.ts` - Adds `ratingCardTheme` and `goatTagId` UI config typing
+- `ui/v2.5/src/components/Settings/SettingsInterfacePanel/SettingsInterfacePanel.tsx` - Adds rating card theme, threshold, and override tag settings
+- `ui/v2.5/src/core/config.ts` - Adds rating card theme, thresholds, and override tag UI config typing
+- `graphql/schema/types/filters_custom.graphql` - Adds `metallic_rating` filter fields
+- `pkg/sqlite/metallic_rating_filter_custom.go` - Shared backend metallic style filter predicate
+- `pkg/sqlite/*_filter.go` - Hooks metallic rating filters into scene, performer, image, gallery, group, and studio filters
+- `ui/v2.5/src/models/list-filter/criteria/metallic-rating_custom.ts` - Frontend metallic rating criterion
+- `ui/v2.5/src/models/list-filter/{scenes,performers,images,galleries,groups,studios}.ts` - Registers the metallic rating filter
 - `ui/v2.5/src/index.scss` - Imports the custom rating card stylesheet
 - `ui/v2.5/src/locales/en-GB.json` - Adds UI strings for the theme selector and GOAT tag setting
 
 ### Files Added
-- `ui/v2.5/src/utils/ratingCardStyles_custom.ts` - Shared class selection helper for rating tiers and GOAT override
+- `ui/v2.5/src/utils/ratingCardStyles_custom.ts` - Shared class selection helper for rating tiers, configurable thresholds, and GOAT override
 - `ui/v2.5/src/components/Shared/ratingCardStyles_custom.scss` - Premium/prismatic card shell styling
 
 ---
 
-## 37. Rating Advisor Modals
+## 37. Persisted Rating System
 
 ### Overview
-Adds scene and performer rating advisor buttons next to the existing detail-page rating controls. Each button opens a modal questionnaire with weighted 0-n criteria and live scoring. The modal only suggests a rating tier and rating100 value; it does not save or mutate the actual scene/performer rating.
+Adds scene and performer rating system buttons next to the detail-page rating display. Each button opens a modal questionnaire with weighted criteria and live scoring. Selecting a criterion value persists that row to custom rating score tables, recalculates the overall `rating100`, and updates the scene/performer rating immediately.
+
+Suggested tiers use the same configurable 100-based thresholds as the premium/classic card effects. Scene and performer thresholds are configured separately.
 
 ### Scene Advisor
 Uses a weighted 10-point scene rubric designed for 100-based ratings:
@@ -2229,18 +2264,19 @@ Scene score conversion:
 
 Bonus points can help reach the 10.0 cap, but they do not increase the displayed rating above 10.0.
 
-### Performer Advisor
+### Performer Rating System
 Uses a weighted 10-point performer rubric designed for 100-based ratings:
-- Attractiveness: each raw point is worth 0.3, up to 3.0
+- Face: each raw point is worth 0.3, up to 3.0
+- Body: each raw point is worth 0.3, up to 3.0
 - Sexual performance: each raw point is worth 0.2, up to 2.0
-- Ethnicity / racial appeal: each raw point is worth 0.5, up to 1.5
-- Body type: each raw point is worth 0.5, up to 1.5
-- Masculinity: each raw point is worth 0.5, up to 1.5
+- Ethnicity / racial appeal: each raw point is worth 1/3, up to 1.0
+- Masculinity: each raw point is worth 1/3, up to 1.0
 
 Bonus section:
 - Consistency (+0.5 when present)
 - Dick (+0.5 when present)
 - Tattoos (+0.5 when present)
+- Unlikely top (+0.5 when present)
 
 Bonus points can help reach the 10.0 cap, but they do not increase the displayed rating above 10.0.
 
@@ -2252,8 +2288,17 @@ Performer score conversion:
 - 9.0-10.0: Elite / Prismatic
 
 ### Files Modified
-- `ui/v2.5/src/components/Shared/RatingAdvisor_custom.tsx` - Shared advisor modal, scoring definitions, and button component
+- `ui/v2.5/src/components/Shared/RatingAdvisor_custom.tsx` - Shared rating modal, scoring definitions, persistence mutation, and button component
 - `ui/v2.5/src/components/Shared/ratingAdvisor_custom.scss` - Advisor modal styling
 - `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx` - Scene detail advisor button
 - `ui/v2.5/src/components/Performers/PerformerDetails/Performer.tsx` - Performer detail advisor button
+- `ui/v2.5/src/components/Shared/Rating/RatingSystem.tsx` - Forces ratings to display as 0-100 values
+- `ui/v2.5/src/components/Shared/Rating/RatingNumber.tsx` - Simplifies manual ratings to a plain 0-100 input
 - `ui/v2.5/src/index.scss` - Imports advisor styling
+
+### Files Added
+- `rating_scores.up.sql` - Standalone manual SQL script for generic persisted rating score tables
+- `graphql/schema/types/rating_custom.graphql` - Rating score GraphQL types and mutation
+- `internal/api/resolver_rating_score_custom.go` - Rating score query/mutation resolvers
+- `pkg/models/rating_score_custom.go` - Generic rating score model and repository interfaces
+- `pkg/sqlite/rating_score_custom.go` - SQLite score store and rating recalculation logic

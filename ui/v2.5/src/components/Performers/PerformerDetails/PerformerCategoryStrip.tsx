@@ -140,6 +140,42 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     },
     [studioContext, studioMiniData, globalMiniData]
   );
+
+  const getAllMiniPartners = useCallback(
+    (
+      category: "sex" | "oral" | "facial"
+    ): Array<{ id: string; name: string; image_path?: string | null }> => {
+      const partnersById = new Map<
+        string,
+        { id: string; name: string; image_path?: string | null }
+      >();
+      for (const partner of [
+        ...getMiniPartners(category, "top"),
+        ...getMiniPartners(category, "bottom"),
+      ]) {
+        partnersById.set(partner.id, partner);
+      }
+      return [...partnersById.values()].sort((a, b) =>
+        (a.name ?? "").localeCompare(b.name ?? "", undefined, {
+          sensitivity: "base",
+        })
+      );
+    },
+    [getMiniPartners]
+  );
+
+  const renderMiniPartnerRows = useCallback(
+    (partners: Array<{ id: string; name: string; image_path?: string | null }>) =>
+      partners.map((partner) => (
+        <div className="performer-tag-container row" key={partner.id}>
+          <Link to={`/performers/${partner.id}`} className="performer-tag col m-auto zoom-2">
+            <img className="image-thumbnail" alt={partner.name ?? ""} src={partner.image_path ?? ""} />
+          </Link>
+          <PerformerLink performer={partner} className="d-block" />
+        </div>
+      )),
+    []
+  );
   // CUSTOM: end
 
   const p = performer as any;
@@ -513,7 +549,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
 
   return (
     <>
-    <div className="performer-category-strip performer-role-badges d-flex align-items-center my-3">
+    <div className="performer-category-strip performer-role-badges my-3">
       {safeRolesToShow.map((role, idx) => {
         const categoryIcon =
           role.category === "sex"
@@ -803,6 +839,19 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                       </HoverPopover>
                     ) : badgeEl;
                   })()}
+                  {!role.isTop && (
+                    <Badge
+                      pill
+                      variant="success"
+                      className="arrow-badge top-badge role-badge-placeholder"
+                      aria-hidden="true"
+                    >
+                      <Icon icon={faArrowUp} />
+                      {scenePerformerCount > 2 && (
+                        <span className="arrow-count">0</span>
+                      )}
+                    </Badge>
+                  )}
                   {role.isBottom && (() => {
                     const bottomPartners = scenePerformerCount > 2
                       ? (role.bottomPids ?? []).map((pid) => scenePartnerPerformers?.find((p2) => p2.id === pid)).filter(Boolean) as Pick<GQL.Performer, "id" | "name" | "image_path">[]
@@ -844,6 +893,19 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                       </HoverPopover>
                     ) : badgeEl;
                   })()}
+                  {!role.isBottom && (
+                    <Badge
+                      pill
+                      variant="info"
+                      className="arrow-badge bottom-badge role-badge-placeholder"
+                      aria-hidden="true"
+                    >
+                      <Icon icon={faArrowDown} />
+                      {scenePerformerCount > 2 && (
+                        <span className="arrow-count">0</span>
+                      )}
+                    </Badge>
+                  )}
                 </div>
                 {/* CUSTOM: end */}
               </>
@@ -934,24 +996,34 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                 */}
 
                 {/* Row 3: Unique partner count*/}
-                {uniquePartnerCount > 0 && (
-                  <div 
-                    className="category-icon-container unique-partners-row"
-                    title={`${p.name || "Performer"} has been with ${uniquePartnerCount} unique partner${uniquePartnerCount !== 1 ? 's' : ''} in ${role.category}`}
+                {uniquePartnerCount > 0 && (() => {
+                  const allPartners = getAllMiniPartners(role.category);
+                  return (
+                  <HoverPopover
+                    placement="bottom"
+                    onOpen={handleArrowHover}
+                    content={renderMiniPartnerRows(allPartners)}
                   >
-                    {allPartnersUrl ? (
-                      <Link to={allPartnersUrl} className="role-badge-link">
-                        <Icon icon={faUser} style={{ color: "white" }} />
-                        <span className="role-total-count">{uniquePartnerCount}</span>
-                      </Link>
-                    ) : (
-                      <>
-                        <Icon icon={faUser} style={{ color: "white" }} />
-                        <span className="role-total-count">{uniquePartnerCount}</span>
-                      </>
-                    )}
-                  </div>
-                )}
+                    <div className="category-icon-container unique-partners-row">
+                      {allPartnersUrl ? (
+                        <Link
+                          to={allPartnersUrl}
+                          className="role-badge-link"
+                          title={`${p.name || "Performer"} has been with ${uniquePartnerCount} unique partner${uniquePartnerCount !== 1 ? 's' : ''} in ${role.category}`}
+                        >
+                          <Icon icon={faUser} style={{ color: "white" }} />
+                          <span className="role-total-count">{uniquePartnerCount}</span>
+                        </Link>
+                      ) : (
+                        <span title={`${p.name || "Performer"} has been with ${uniquePartnerCount} unique partner${uniquePartnerCount !== 1 ? 's' : ''} in ${role.category}`}>
+                          <Icon icon={faUser} style={{ color: "white" }} />
+                          <span className="role-total-count">{uniquePartnerCount}</span>
+                        </span>
+                      )}
+                    </div>
+                  </HoverPopover>
+                  );
+                })()}
                 
 
                 {/* Row 4: Partner count badges with lazy mini images on hover */}

@@ -94,9 +94,32 @@
 }
 
 .rating-number {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  display: inline-flex;
+  gap: 0.35rem;
+  line-height: 1;
+  padding: 0;
+  vertical-align: middle;
+
   .fa-icon {
     color: gold;
     margin-left: 0;
+  }
+
+  .rating-number-value {
+    display: inline-block;
+    min-width: 1.35rem;
+    text-align: left;
+  }
+
+  .text-input.form-control {
+    height: 1.75rem;
+    line-height: 1.2;
+    padding: 0.1rem 0.35rem;
+    width: 4.75rem;
   }
 
   .edit-rating-button {
@@ -104,7 +127,16 @@
   }
 
   &.disabled {
-    align-items: center;
-    display: inline-flex;
+    cursor: default;
+  }
+
+  &.rating-number-display {
+    cursor: pointer;
+
+    &:hover,
+    &:focus {
+      color: #fff;
+      text-decoration: none;
+    }
   }
 }

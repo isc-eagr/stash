@@ -1,0 +1,19 @@
+mutation RatingScoreSet($input: RatingScoreInput!) {
+  ratingScoreSet(input: $input) {
+    entity_type
+    entity_id
+    rating100
+    scores {
+      id
+      entity_type
+      entity_id
+      section
+      key
+      raw_value
+      weighted_value
+      label
+      created_at
+      updated_at
+    }
+  }
+}

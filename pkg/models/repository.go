@@ -24,6 +24,7 @@ type Repository struct {
 	Group               GroupReaderWriter
 	Performer           PerformerReaderWriter
 	PerformerImage      PerformerImageReaderWriter // CUSTOM
+	RatingScore         RatingScoreReaderWriter    // CUSTOM
 	Scene               SceneReaderWriter
 	SceneLoopPreset     SceneLoopPresetReaderWriter     // CUSTOM
 	SceneNegativeMarker SceneNegativeMarkerReaderWriter // CUSTOM

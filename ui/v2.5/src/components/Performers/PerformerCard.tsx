@@ -449,10 +449,10 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
     }
 
     function maybeRenderRatingBanner() {
-      if (!performer.rating100) {
+      if (performer.rating100 === undefined || performer.rating100 === null) {
         return;
       }
-      return <RatingBanner rating={performer.rating100} />;
+      return <RatingBanner rating={performer.rating100} compact />;
     }
 
     function maybeRenderFlag() {
@@ -696,6 +696,9 @@ export const PerformerCard: React.FC<IPerformerCardProps> = PatchComponent(
         tags: performer.tags,
         goatTagId: configuration?.ui?.roleTagIds?.goatTagId,
         theme: configuration?.ui?.ratingCardTheme,
+        thresholds: configuration?.ui?.ratingCardThresholds,
+        overrideTagIds: configuration?.ui?.ratingCardOverrideTagIds,
+        thresholdEntity: "performer",
         disabled: isRatingCardHomePage(),
       });
     };

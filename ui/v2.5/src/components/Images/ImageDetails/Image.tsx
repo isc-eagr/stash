@@ -351,6 +351,7 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
             <RatingSystem
               value={image.rating100}
               onSetRating={setRating}
+              max={100} // CUSTOM
               clickToRate
               withoutContext
             />

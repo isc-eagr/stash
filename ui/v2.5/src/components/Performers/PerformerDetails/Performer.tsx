@@ -18,7 +18,6 @@ import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { useToast } from "src/hooks/Toast";
 import { useConfigurationContext } from "src/hooks/Config";
-import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import { RatingAdvisorButton } from "src/components/Shared/RatingAdvisor_custom"; // CUSTOM
 import {
   CompressedPerformerDetailsPanel,
@@ -37,7 +36,6 @@ import { PerformerStudiosPanel } from "./PerformerStudiosPanel";
 import { PerformerEditPanel } from "./PerformerEditPanel";
 import { PerformerMergeModal } from "../PerformerMergeDialog";
 import { PerformerSubmitButton } from "./PerformerSubmitButton";
-import { useRatingKeybinds } from "src/hooks/keybinds";
 import { DetailImage } from "src/components/Shared/DetailImage";
 import { useLoadStickyHeader } from "src/hooks/detailsPanel";
 import { useScrollToTopOnMount } from "src/hooks/scrollToTop";
@@ -485,12 +483,6 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
       );
     }
 
-    useRatingKeybinds(
-      true,
-      configuration?.ui.ratingSystemOptions?.type,
-      setRating
-    );
-
     // set up hotkeys
     useEffect(() => {
       Mousetrap.bind("e", () => toggleEditing());
@@ -557,19 +549,6 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
       }
     }
 
-    function setRating(v: number | null) {
-      if (performer.id) {
-        updatePerformer({
-          variables: {
-            input: {
-              id: performer.id,
-              rating100: v,
-            },
-          },
-        });
-      }
-    }
-
     if (isDestroying)
       return (
         <LoadingIndicator
@@ -626,13 +605,13 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                 </DetailTitle>
                 <AliasList aliases={performer.alias_list} />
                 <div className="quality-group">
-                  <RatingAdvisorButton entityType="performer" /> {/* CUSTOM */}
-                  <RatingSystem
-                    value={performer.rating100}
-                    onSetRating={(value) => setRating(value)}
-                    clickToRate
-                    withoutContext
-                  />
+                  <RatingAdvisorButton
+                    entityType="performer"
+                    entityId={performer.id}
+                    rating100={performer.rating100}
+                    ratingScores={performer.rating_scores}
+                    onRatingSaved={refetch}
+                  /> {/* CUSTOM */}
                   {!!performer.o_counter && (
                     <OCounterButton value={performer.o_counter} />
                   )}
