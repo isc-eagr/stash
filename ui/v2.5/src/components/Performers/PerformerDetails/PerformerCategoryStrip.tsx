@@ -18,9 +18,10 @@ import mouthSvg from "src/assets/mouth.svg";
 import facialPng from "src/assets/facial.png"; // CUSTOM
 import spermsSvg from "src/assets/sperms.svg";
 import feetSvg from "src/assets/feet.svg";
+import type { PerformerListData } from "../performerTypes_custom"; // CUSTOM
 
 interface IPerformerCategoryStripProps {
-  performer: GQL.PerformerDataFragment;
+  performer: PerformerListData;
   /** Scene ID for scene context - enables role badges based on marker roles */
   sceneId?: string;
   /** Marker roles in the current scene (used when sceneId is provided) */
@@ -64,17 +65,17 @@ interface IPerformerCategoryStripProps {
  * PerformerCategoryStrip - Shows marker-based role badges with top/bottom breakdown
  * Uses roleTagIds configuration for tag IDs and counts from performer data.
  * Can show global counts or scene-specific roles depending on context.
- * 
+ *
  * Scene Context (sceneId provided):
  * - Shows roles based on markers in that specific scene
  * - Count = total unique partners (sex/oral) or unique markers (facial)
  * - Top/Bottom counts = unique partners for that role in the scene
- * 
+ *
  * Global Context (no sceneId):
  * - Shows cumulative counts across all scenes
  * - Count = total scenes
  * - Top/Bottom counts = scenes where performer had that role
- * 
+ *
  * Used in both performer cards (with sceneId/markerRoles) and detail pages (global).
  */
 export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
@@ -88,18 +89,18 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   studioContext, // CUSTOM
 }) => {
   const { configuration } = useConfigurationContext();
-  
+
   // Extra safety: ensure markerRoles is always an array
   const markerRoles = markerRolesProp ?? [];
 
   // Get role tag IDs from the new configuration
   const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-  const {sexTagId} = roleTagIds;
-  const {oralTagId} = roleTagIds;
-  const {soloTagId} = roleTagIds;
-  const {facialTagId} = roleTagIds;
-  const {orgasmTagId} = roleTagIds;
-  const {feetTagId} = roleTagIds;
+  const { sexTagId } = roleTagIds;
+  const { oralTagId } = roleTagIds;
+  const { soloTagId } = roleTagIds;
+  const { facialTagId } = roleTagIds;
+  const { orgasmTagId } = roleTagIds;
+  const { feetTagId } = roleTagIds;
 
   // CUSTOM: begin - lazy queries for global/studio partner mini images
   const [fetchGlobalMiniImages, { data: globalMiniData }] =
@@ -122,7 +123,12 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     } else {
       fetchGlobalMiniImages({ variables: { performer_id: performer.id } });
     }
-  }, [performer.id, studioContext, fetchGlobalMiniImages, fetchStudioMiniImages]);
+  }, [
+    performer.id,
+    studioContext,
+    fetchGlobalMiniImages,
+    fetchStudioMiniImages,
+  ]);
 
   // Helper: get the array of PerformerWithSceneCount for a category+direction from the lazy query result
   const getMiniPartners = useCallback(
@@ -135,7 +141,12 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         : globalMiniData?.performerCoPerformersByRole;
       if (!src) return [];
       const key = `${category}_as_${direction}` as keyof typeof src;
-      const list = src[key] as Array<{ performer: { id: string; name: string; image_path?: string | null }; scene_count: number }> | undefined;
+      const list = src[key] as
+        | Array<{
+            performer: { id: string; name: string; image_path?: string | null };
+            scene_count: number;
+          }>
+        | undefined;
       return (list ?? []).map((x) => x.performer);
     },
     [studioContext, studioMiniData, globalMiniData]
@@ -165,27 +176,42 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   );
 
   const renderMiniPartnerRows = useCallback(
-    (partners: Array<{ id: string; name: string; image_path?: string | null }>) =>
-      partners.map((partner) => (
-        <div className="performer-tag-container row" key={partner.id}>
-          <Link to={`/performers/${partner.id}`} className="performer-tag col m-auto zoom-2">
-            <img className="image-thumbnail" alt={partner.name ?? ""} src={partner.image_path ?? ""} />
-          </Link>
-          <PerformerLink performer={partner} className="d-block" />
-        </div>
-      )),
+    (
+      partners: Array<{ id: string; name: string; image_path?: string | null }>
+    ) => (
+      <div className="performer-hover-grid">
+        {partners.map((partner) => (
+          <div
+            className="performer-tag-container performer-hover-row"
+            key={partner.id}
+          >
+            <Link
+              to={`/performers/${partner.id}`}
+              className="performer-tag performer-hover-image-link zoom-2"
+            >
+              <img
+                className="image-thumbnail performer-hover-image-thumbnail"
+                alt={partner.name ?? ""}
+                src={partner.image_path ?? ""}
+              />
+            </Link>
+            <PerformerLink performer={partner} className="d-block" />
+          </div>
+        ))}
+      </div>
+    ),
     []
   );
   // CUSTOM: end
 
-  const p = performer as any;
+  const p = performer;
   let orgasmTopCount = 0;
   let feetTopCount = 0;
   let sceneFacialTopCount = 0;
   let sceneFacialBottomCount = 0;
   let sceneFacialTotalCount = 0;
   let sceneFacialUniqueCount = 0; // Unique marker count from backend
-  
+
   // Scene-specific partner counts (unique partners per role)
   let sceneSexTopPartners = 0;
   let sceneSexBottomPartners = 0;
@@ -193,9 +219,6 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   let sceneOralTopPartners = 0;
   let sceneOralBottomPartners = 0;
   let sceneOralAllPartners = 0; // Unique across both roles
-  let sceneFacialTopPartners = 0;
-  let sceneFacialBottomPartners = 0;
-  let sceneFacialAllPartners = 0; // Unique across both roles
 
   // Build roles to show based on context
   let rolesToShow: Array<{
@@ -212,12 +235,8 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
 
   if (sceneId) {
     // Scene context: show roles based on marker roles in this scene only
-    const sexRoles = markerRoles.filter((r: string) =>
-      r.startsWith("sex_")
-    );
-    const oralRoles = markerRoles.filter((r: string) =>
-      r.startsWith("oral_")
-    );
+    const sexRoles = markerRoles.filter((r: string) => r.startsWith("sex_"));
+    const oralRoles = markerRoles.filter((r: string) => r.startsWith("oral_"));
     const soloRoles = markerRoles.filter((r: string) => r === "solo");
     // Facial roles now come as "facial_top_X" and "facial_bottom_X" with counts
     const facialTopRoles = markerRoles.filter((r: string) =>
@@ -281,21 +300,30 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     // Calculate total facial count for this scene
     // Prefer the unique count from backend (which correctly handles when performer is both top and bottom)
     // Fall back to max of top/bottom if unique count not available (for backward compatibility)
-    sceneFacialTotalCount = sceneFacialUniqueCount > 0 
-      ? sceneFacialUniqueCount 
-      : Math.max(sceneFacialTopCount, sceneFacialBottomCount);
-    
+    sceneFacialTotalCount =
+      sceneFacialUniqueCount > 0
+        ? sceneFacialUniqueCount
+        : Math.max(sceneFacialTopCount, sceneFacialBottomCount);
+
     // Parse partner counts from marker roles (sex_top_partners_3, oral_bottom_partners_2, etc.)
-    const sexTopPartnerRoles = markerRoles.filter((r: string) => r.startsWith("sex_top_partners_"));
-    const sexBottomPartnerRoles = markerRoles.filter((r: string) => r.startsWith("sex_bottom_partners_"));
-    const sexAllPartnerRoles = markerRoles.filter((r: string) => r.startsWith("sex_all_partners_"));
-    const oralTopPartnerRoles = markerRoles.filter((r: string) => r.startsWith("oral_top_partners_"));
-    const oralBottomPartnerRoles = markerRoles.filter((r: string) => r.startsWith("oral_bottom_partners_"));
-    const oralAllPartnerRoles = markerRoles.filter((r: string) => r.startsWith("oral_all_partners_"));
-    const facialTopPartnerRoles = markerRoles.filter((r: string) => r.startsWith("facial_top_partners_"));
-    const facialBottomPartnerRoles = markerRoles.filter((r: string) => r.startsWith("facial_bottom_partners_"));
-    const facialAllPartnerRoles = markerRoles.filter((r: string) => r.startsWith("facial_all_partners_"));
-    
+    const sexTopPartnerRoles = markerRoles.filter((r: string) =>
+      r.startsWith("sex_top_partners_")
+    );
+    const sexBottomPartnerRoles = markerRoles.filter((r: string) =>
+      r.startsWith("sex_bottom_partners_")
+    );
+    const sexAllPartnerRoles = markerRoles.filter((r: string) =>
+      r.startsWith("sex_all_partners_")
+    );
+    const oralTopPartnerRoles = markerRoles.filter((r: string) =>
+      r.startsWith("oral_top_partners_")
+    );
+    const oralBottomPartnerRoles = markerRoles.filter((r: string) =>
+      r.startsWith("oral_bottom_partners_")
+    );
+    const oralAllPartnerRoles = markerRoles.filter((r: string) =>
+      r.startsWith("oral_all_partners_")
+    );
     if (sexTopPartnerRoles.length > 0) {
       const match = sexTopPartnerRoles[0].match(/sex_top_partners_(\d+)/);
       if (match) sceneSexTopPartners = parseInt(match[1], 10);
@@ -313,26 +341,15 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       if (match) sceneOralTopPartners = parseInt(match[1], 10);
     }
     if (oralBottomPartnerRoles.length > 0) {
-      const match = oralBottomPartnerRoles[0].match(/oral_bottom_partners_(\d+)/);
+      const match = oralBottomPartnerRoles[0].match(
+        /oral_bottom_partners_(\d+)/
+      );
       if (match) sceneOralBottomPartners = parseInt(match[1], 10);
     }
     if (oralAllPartnerRoles.length > 0) {
       const match = oralAllPartnerRoles[0].match(/oral_all_partners_(\d+)/);
       if (match) sceneOralAllPartners = parseInt(match[1], 10);
     }
-    if (facialTopPartnerRoles.length > 0) {
-      const match = facialTopPartnerRoles[0].match(/facial_top_partners_(\d+)/);
-      if (match) sceneFacialTopPartners = parseInt(match[1], 10);
-    }
-    if (facialBottomPartnerRoles.length > 0) {
-      const match = facialBottomPartnerRoles[0].match(/facial_bottom_partners_(\d+)/);
-      if (match) sceneFacialBottomPartners = parseInt(match[1], 10);
-    }
-    if (facialAllPartnerRoles.length > 0) {
-      const match = facialAllPartnerRoles[0].match(/facial_all_partners_(\d+)/);
-      if (match) sceneFacialAllPartners = parseInt(match[1], 10);
-    }
-
     // CUSTOM: begin - parse partner performer ID strings for mini image tooltips
     // Format: "sex_top_pids:3,7,12" etc.
     const parsePIDs = (prefix: string): string[] => {
@@ -340,7 +357,10 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       if (!role) return [];
       const idx = role.indexOf(":");
       if (idx < 0) return [];
-      return role.slice(idx + 1).split(",").filter(Boolean);
+      return role
+        .slice(idx + 1)
+        .split(",")
+        .filter(Boolean);
     };
     const sexTopPids = parsePIDs("sex_top_pids:");
     const sexBottomPids = parsePIDs("sex_bottom_pids:");
@@ -378,7 +398,10 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       });
     }
     // Facial now shows counts in scene context
-    if ((facialTopRoles.length > 0 || facialBottomRoles.length > 0) && facialTagId) {
+    if (
+      (facialTopRoles.length > 0 || facialBottomRoles.length > 0) &&
+      facialTagId
+    ) {
       rolesToShow.push({
         category: "facial",
         count: sceneFacialTotalCount, // Total facial count (not unique partners)
@@ -399,25 +422,51 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     }
   } else {
     // Global context: show total counts from performer data
-    const sexCount = globalStatsOverride?.sex_scene_count ?? p.sex_scene_count ?? 0;
-    const oralCount = globalStatsOverride?.oral_scene_count ?? p.oral_scene_count ?? 0;
-    const soloCount = globalStatsOverride?.solo_scene_count ?? p.solo_scene_count ?? 0;
+    const sexCount =
+      globalStatsOverride?.sex_scene_count ?? p.sex_scene_count ?? 0;
+    const oralCount =
+      globalStatsOverride?.oral_scene_count ?? p.oral_scene_count ?? 0;
+    const soloCount =
+      globalStatsOverride?.solo_scene_count ?? p.solo_scene_count ?? 0;
     // Use marker count for facial (unique markers) instead of scene count
-    const facialCount = globalStatsOverride?.facial_marker_count ?? p.facial_marker_count ?? 0; // CUSTOM - use facial_marker_count from override (individual markers, not scenes)
-    const sexTopCount = globalStatsOverride?.sex_top_count ?? p.sex_top_count ?? 0;
-    const sexBottomCount = globalStatsOverride?.sex_bottom_count ?? p.sex_bottom_count ?? 0;
-    const oralTopCount = globalStatsOverride?.oral_top_count ?? p.oral_top_count ?? 0;
-    const oralBottomCount = globalStatsOverride?.oral_bottom_count ?? p.oral_bottom_count ?? 0;
-    const facialTopCount = globalStatsOverride?.facial_top_count ?? p.facial_marker_top_count ?? 0;
-    const facialBottomCount = globalStatsOverride?.facial_bottom_count ?? p.facial_marker_bottom_count ?? 0;
+    const facialCount =
+      globalStatsOverride?.facial_marker_count ?? p.facial_marker_count ?? 0; // CUSTOM - use facial_marker_count from override (individual markers, not scenes)
+    const sexTopCount =
+      globalStatsOverride?.sex_top_count ?? p.sex_top_count ?? 0;
+    const sexBottomCount =
+      globalStatsOverride?.sex_bottom_count ?? p.sex_bottom_count ?? 0;
+    const oralTopCount =
+      globalStatsOverride?.oral_top_count ?? p.oral_top_count ?? 0;
+    const oralBottomCount =
+      globalStatsOverride?.oral_bottom_count ?? p.oral_bottom_count ?? 0;
+    const facialTopCount =
+      globalStatsOverride?.facial_top_count ?? p.facial_marker_top_count ?? 0;
+    const facialBottomCount =
+      globalStatsOverride?.facial_bottom_count ??
+      p.facial_marker_bottom_count ??
+      0;
 
-    const sexWithTopCount = globalStatsOverride?.sex_with_top_count ?? p.sex_with_top_count ?? 0;
-    const sexWithBottomCount = globalStatsOverride?.sex_with_bottom_count ?? p.sex_with_bottom_count ?? 0;
-    const oralWithTopCount = globalStatsOverride?.oral_with_top_count ?? p.oral_with_top_count ?? 0;
-    const oralWithBottomCount = globalStatsOverride?.oral_with_bottom_count ?? p.oral_with_bottom_count ?? 0;
+    const sexWithTopCount =
+      globalStatsOverride?.sex_with_top_count ?? p.sex_with_top_count ?? 0;
+    const sexWithBottomCount =
+      globalStatsOverride?.sex_with_bottom_count ??
+      p.sex_with_bottom_count ??
+      0;
+    const oralWithTopCount =
+      globalStatsOverride?.oral_with_top_count ?? p.oral_with_top_count ?? 0;
+    const oralWithBottomCount =
+      globalStatsOverride?.oral_with_bottom_count ??
+      p.oral_with_bottom_count ??
+      0;
     // Use marker counts for facial "with" counts (unique markers) instead of scene counts
-    const facialWithTopCount = globalStatsOverride?.facial_marker_with_top_count ?? p.facial_marker_with_top_count ?? 0;
-    const facialWithBottomCount = globalStatsOverride?.facial_marker_with_bottom_count ?? p.facial_marker_with_bottom_count ?? 0;
+    const facialWithTopCount =
+      globalStatsOverride?.facial_marker_with_top_count ??
+      p.facial_marker_with_top_count ??
+      0;
+    const facialWithBottomCount =
+      globalStatsOverride?.facial_marker_with_bottom_count ??
+      p.facial_marker_with_bottom_count ??
+      0;
 
     if (globalStatsOverride) {
       orgasmTopCount = globalStatsOverride.orgasm_top_count ?? 0;
@@ -428,7 +477,10 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     }
 
     // Show category if performer has scenes OR has partner counts in that category
-      if ((sexCount > 0 || sexWithTopCount > 0 || sexWithBottomCount > 0) && sexTagId) {
+    if (
+      (sexCount > 0 || sexWithTopCount > 0 || sexWithBottomCount > 0) &&
+      sexTagId
+    ) {
       rolesToShow.push({
         category: "sex",
         count: sexCount,
@@ -437,7 +489,10 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         tagId: sexTagId,
       });
     }
-      if ((oralCount > 0 || oralWithTopCount > 0 || oralWithBottomCount > 0) && oralTagId) {
+    if (
+      (oralCount > 0 || oralWithTopCount > 0 || oralWithBottomCount > 0) &&
+      oralTagId
+    ) {
       rolesToShow.push({
         category: "oral",
         count: oralCount,
@@ -446,7 +501,12 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         tagId: oralTagId,
       });
     }
-      if ((facialCount > 0 || facialWithTopCount > 0 || facialWithBottomCount > 0) && facialTagId) {
+    if (
+      (facialCount > 0 ||
+        facialWithTopCount > 0 ||
+        facialWithBottomCount > 0) &&
+      facialTagId
+    ) {
       rolesToShow.push({
         category: "facial",
         count: facialCount,
@@ -467,9 +527,12 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
 
   // Only show if at least one role tag is configured
   const hasAnyRoleTag = sexTagId || oralTagId || soloTagId || facialTagId;
-  if (!hasAnyRoleTag || (rolesToShow.length === 0 && orgasmTopCount === 0 && feetTopCount === 0))
+  if (
+    !hasAnyRoleTag ||
+    (rolesToShow.length === 0 && orgasmTopCount === 0 && feetTopCount === 0)
+  )
     return null;
-  
+
   // Extra safety: ensure rolesToShow is always an array
   const safeRolesToShow = rolesToShow ?? [];
 
@@ -496,423 +559,559 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     count: number
   ) => {
     const name = p.name || "Performer";
-    const categoryLabel = category.charAt(0).toUpperCase() + category.slice(1);
-    
     if (category === "solo") {
-      return sceneId 
+      return sceneId
         ? `${name} has solo markers in this scene`
-        : `${name} has appeared in ${count} solo scene${count !== 1 ? 's' : ''}`;
+        : `${name} has appeared in ${count} solo scene${
+            count !== 1 ? "s" : ""
+          }`;
     }
 
     if (sceneId) {
       // Scene context
       if (type === "total") {
         if (category === "facial") {
-          return `${name} participated in ${count} facial${count !== 1 ? 's' : ''} in this scene`;
+          return `${name} participated in ${count} facial${
+            count !== 1 ? "s" : ""
+          } in this scene`;
         }
-        return `${name} has ${count} ${category} partner${count !== 1 ? 's' : ''} in this scene`;
+        return `${name} has ${count} ${category} partner${
+          count !== 1 ? "s" : ""
+        } in this scene`;
       } else if (type === "top") {
         if (category === "facial") {
-          return `${name} gave ${count} facial${count !== 1 ? 's' : ''} in this scene`;
+          return `${name} gave ${count} facial${
+            count !== 1 ? "s" : ""
+          } in this scene`;
         }
         return scenePerformerCount > 2
-          ? `${name} has ${count} ${category} partner${count !== 1 ? 's' : ''} as top in this scene`
+          ? `${name} has ${count} ${category} partner${
+              count !== 1 ? "s" : ""
+            } as top in this scene`
           : `${name} was ${category} top in this scene`;
       } else {
         if (category === "facial") {
-          return `${name} received ${count} facial${count !== 1 ? 's' : ''} in this scene`;
+          return `${name} received ${count} facial${
+            count !== 1 ? "s" : ""
+          } in this scene`;
         }
         return scenePerformerCount > 2
-          ? `${name} has ${count} ${category} partner${count !== 1 ? 's' : ''} as bottom in this scene`
+          ? `${name} has ${count} ${category} partner${
+              count !== 1 ? "s" : ""
+            } as bottom in this scene`
           : `${name} was ${category} bottom in this scene`;
       }
     } else {
       // Global context
       if (type === "total") {
         if (category === "facial") {
-          return `${name} has ${count} total facial marker${count !== 1 ? 's' : ''}`;
+          return `${name} has ${count} total facial marker${
+            count !== 1 ? "s" : ""
+          }`;
         }
-        return `${name} has appeared in ${count} ${category} scene${count !== 1 ? 's' : ''}`;
+        return `${name} has appeared in ${count} ${category} scene${
+          count !== 1 ? "s" : ""
+        }`;
       } else if (type === "top") {
         if (category === "facial") {
-          return `${name} has given ${count} facial${count !== 1 ? 's' : ''}`;
+          return `${name} has given ${count} facial${count !== 1 ? "s" : ""}`;
         }
-        return `${name} has topped ${count} unique partner${count !== 1 ? 's' : ''} in ${category}`;
+        return `${name} has topped ${count} unique partner${
+          count !== 1 ? "s" : ""
+        } in ${category}`;
       } else {
         if (category === "facial") {
-          return `${name} has received ${count} facial${count !== 1 ? 's' : ''}`;
+          return `${name} has received ${count} facial${
+            count !== 1 ? "s" : ""
+          }`;
         }
-        return `${name} has bottomed for ${count} unique partner${count !== 1 ? 's' : ''} in ${category}`;
+        return `${name} has bottomed for ${count} unique partner${
+          count !== 1 ? "s" : ""
+        } in ${category}`;
       }
     }
   };
 
   return (
     <>
-    <div className="performer-category-strip performer-role-badges my-3">
-      {safeRolesToShow.map((role, idx) => {
-        const categoryIcon =
-          role.category === "sex"
-            ? gaySvg
-            : role.category === "oral"
-            ? mouthSvg
-            : role.category === "facial"
-            ? facialPng
-            : null; // solo uses faHand
+      <div className="performer-category-strip performer-role-badges my-3">
+        {safeRolesToShow.map((role, idx) => {
+          const categoryIcon =
+            role.category === "sex"
+              ? gaySvg
+              : role.category === "oral"
+              ? mouthSvg
+              : role.category === "facial"
+              ? facialPng
+              : null; // solo uses faHand
 
-        const tagLabel =
-          role.category.charAt(0).toUpperCase() + role.category.slice(1);
-        const excludeTags = getExcludeTagsForCategory(role.category);
+          const tagLabel =
+            role.category.charAt(0).toUpperCase() + role.category.slice(1);
+          const excludeTags = getExcludeTagsForCategory(role.category);
 
-        // Use depth -1 for oral and facial to include subtags
-        const markerDepth = role.category === "oral" || role.category === "facial" ? -1 : 0;
+          // Use depth -1 for oral and facial to include subtags
+          const markerDepth =
+            role.category === "oral" || role.category === "facial" ? -1 : 0;
 
-        // URLs for clickable badges
-        // Facial uses /scenes/markers URL, others use /scenes URL
-        let categoryUrl: string | undefined;
-        let topUrl: string | undefined;
-        let bottomUrl: string | undefined;
-        let partnerTopUrl: string | undefined;
-        let partnerBottomUrl: string | undefined;
-        let allPartnersUrl: string | undefined;
+          // URLs for clickable badges
+          // Facial uses /scenes/markers URL, others use /scenes URL
+          let categoryUrl: string | undefined;
+          let topUrl: string | undefined;
+          let bottomUrl: string | undefined;
+          let partnerTopUrl: string | undefined;
+          let partnerBottomUrl: string | undefined;
+          let allPartnersUrl: string | undefined;
 
-        // Calculate unique partner count for this category
-        let uniquePartnerCount = 0;
-        if (hideUniquePartnerCounts) {
-          uniquePartnerCount = 0;
-        } else if (role.category === "sex") {
-          uniquePartnerCount = globalStatsOverride?.sex_unique_partner_count ?? p.sex_unique_partner_count ?? 0;
-        } else if (role.category === "oral") {
-          uniquePartnerCount = globalStatsOverride?.oral_unique_partner_count ?? p.oral_unique_partner_count ?? 0;
-        } else if (role.category === "facial") {
-          uniquePartnerCount = globalStatsOverride?.facial_unique_partner_count ?? p.facial_unique_partner_count ?? 0;
-        }
+          // Calculate unique partner count for this category
+          let uniquePartnerCount = 0;
+          if (hideUniquePartnerCounts) {
+            uniquePartnerCount = 0;
+          } else if (role.category === "sex") {
+            uniquePartnerCount =
+              globalStatsOverride?.sex_unique_partner_count ??
+              p.sex_unique_partner_count ??
+              0;
+          } else if (role.category === "oral") {
+            uniquePartnerCount =
+              globalStatsOverride?.oral_unique_partner_count ??
+              p.oral_unique_partner_count ??
+              0;
+          } else if (role.category === "facial") {
+            uniquePartnerCount =
+              globalStatsOverride?.facial_unique_partner_count ??
+              p.facial_unique_partner_count ??
+              0;
+          }
 
-        const partnerTopCount =
-          role.category === "sex"
-            ? globalStatsOverride?.sex_with_top_count ?? p.sex_with_top_count ?? 0
-            : role.category === "oral"
-            ? globalStatsOverride?.oral_with_top_count ?? p.oral_with_top_count ?? 0
-            : role.category === "facial"
-            ? globalStatsOverride?.facial_marker_with_top_count ?? p.facial_marker_with_top_count ?? 0
-            : 0;
-        const partnerBottomCount =
-          role.category === "sex"
-            ? globalStatsOverride?.sex_with_bottom_count ?? p.sex_with_bottom_count ?? 0
-            : role.category === "oral"
-            ? globalStatsOverride?.oral_with_bottom_count ?? p.oral_with_bottom_count ?? 0
-            : role.category === "facial"
-            ? globalStatsOverride?.facial_marker_with_bottom_count ?? p.facial_marker_with_bottom_count ?? 0
-            : 0;
+          const partnerTopCount =
+            role.category === "sex"
+              ? globalStatsOverride?.sex_with_top_count ??
+                p.sex_with_top_count ??
+                0
+              : role.category === "oral"
+              ? globalStatsOverride?.oral_with_top_count ??
+                p.oral_with_top_count ??
+                0
+              : role.category === "facial"
+              ? globalStatsOverride?.facial_marker_with_top_count ??
+                p.facial_marker_with_top_count ??
+                0
+              : 0;
+          const partnerBottomCount =
+            role.category === "sex"
+              ? globalStatsOverride?.sex_with_bottom_count ??
+                p.sex_with_bottom_count ??
+                0
+              : role.category === "oral"
+              ? globalStatsOverride?.oral_with_bottom_count ??
+                p.oral_with_bottom_count ??
+                0
+              : role.category === "facial"
+              ? globalStatsOverride?.facial_marker_with_bottom_count ??
+                p.facial_marker_with_bottom_count ??
+                0
+              : 0;
 
-        if (role.tagId) {
-          if (role.category === "facial") {
-            // Facial goes to /scenes/markers
-            categoryUrl = NavUtils.makePerformerFacialMarkersWithRoleUrl(
-              performer,
-              role.tagId,
-              tagLabel,
-              undefined
-            );
-            topUrl = NavUtils.makePerformerFacialMarkersWithRoleUrl(
-              performer,
-              role.tagId,
-              tagLabel,
-              "top"
-            );
-            bottomUrl = NavUtils.makePerformerFacialMarkersWithRoleUrl(
-              performer,
-              role.tagId,
-              tagLabel,
-              "bottom"
-            );
-            
-            // Partner URLs for facial (goes to /scenes/markers)
-            const performerRef = { id: performer.id, label: performer.name || `Performer ${performer.id}` };
-            
-            // Facial top partner: performer is top (giver), showing scenes
-            partnerTopUrl = `/scenes/markers?c=${encodeURIComponent(
-              JSON.stringify({
-                type: "marker_performers",
-                modifier: "EQUALS",
-                tag_ids: [{ id: role.tagId, label: tagLabel }],
-                include_subtags: true,
-                performer_mode: "AND",
-                top_performer_ids: [performerRef],
-                bottom_performer_ids: [],
-                unnamed_performers: [],
-              })
-            )}&sortby=title`;
-            
-            // Facial bottom partner: performer is bottom (receiver), showing scenes
-            partnerBottomUrl = `/scenes/markers?c=${encodeURIComponent(
-              JSON.stringify({
-                type: "marker_performers",
-                modifier: "EQUALS",
-                tag_ids: [{ id: role.tagId, label: tagLabel }],
-                include_subtags: true,
-                performer_mode: "AND",
-                top_performer_ids: [],
-                bottom_performer_ids: [performerRef],
-                unnamed_performers: [],
-              })
-            )}&sortby=title`;
-            
-            allPartnersUrl = `/performers/${performer.id}/appearswithbyrole`;
-          } else if (role.category === "sex" || role.category === "oral") {
-            // Sex, oral go to /scenes
-            categoryUrl = NavUtils.makePerformerMarkerScenesWithRoleUrl(
-              performer,
-              role.tagId,
-              tagLabel,
-              undefined,
-              excludeTags,
-              markerDepth
-            );
-            topUrl = NavUtils.makePerformerMarkerScenesWithRoleUrl(
-              performer,
-              role.tagId,
-              tagLabel,
-              "top",
-              excludeTags,
-              markerDepth
-            );
-            bottomUrl = NavUtils.makePerformerMarkerScenesWithRoleUrl(
-              performer,
-              role.tagId,
-              tagLabel,
-              "bottom",
-              excludeTags,
-              markerDepth
-            );
-            
-            // Partner URLs for sex/oral (goes to /scenes)
-            const performerRef = { id: performer.id, label: performer.name || `Performer ${performer.id}` };
-            
-            // Sex/oral top partner: performer is top, showing scenes
-            partnerTopUrl = `/scenes?c=${encodeURIComponent(
-              JSON.stringify({
-                type: "scene_markers",
-                modifier: "EQUALS",
-                groups: [{
-                  groupId: "A",
+          if (role.tagId) {
+            if (role.category === "facial") {
+              // Facial goes to /scenes/markers
+              categoryUrl = NavUtils.makePerformerFacialMarkersWithRoleUrl(
+                performer,
+                role.tagId,
+                tagLabel,
+                undefined
+              );
+              topUrl = NavUtils.makePerformerFacialMarkersWithRoleUrl(
+                performer,
+                role.tagId,
+                tagLabel,
+                "top"
+              );
+              bottomUrl = NavUtils.makePerformerFacialMarkersWithRoleUrl(
+                performer,
+                role.tagId,
+                tagLabel,
+                "bottom"
+              );
+
+              // Partner URLs for facial (goes to /scenes/markers)
+              const performerRef = {
+                id: performer.id,
+                label: performer.name || `Performer ${performer.id}`,
+              };
+
+              // Facial top partner: performer is top (giver), showing scenes
+              partnerTopUrl = `/scenes/markers?c=${encodeURIComponent(
+                JSON.stringify({
+                  type: "marker_performers",
+                  modifier: "EQUALS",
                   tag_ids: [{ id: role.tagId, label: tagLabel }],
-                  depth: markerDepth,
+                  include_subtags: true,
                   performer_mode: "AND",
                   top_performer_ids: [performerRef],
                   bottom_performer_ids: [],
-                }],
-                unnamed_performers: [],
-              })
-            )}&sortby=date`;
-            
-            // Sex/oral bottom partner: performer is bottom, showing scenes
-            partnerBottomUrl = `/scenes?c=${encodeURIComponent(
-              JSON.stringify({
-                type: "scene_markers",
-                modifier: "EQUALS",
-                groups: [{
-                  groupId: "A",
+                  unnamed_performers: [],
+                })
+              )}&sortby=title`;
+
+              // Facial bottom partner: performer is bottom (receiver), showing scenes
+              partnerBottomUrl = `/scenes/markers?c=${encodeURIComponent(
+                JSON.stringify({
+                  type: "marker_performers",
+                  modifier: "EQUALS",
                   tag_ids: [{ id: role.tagId, label: tagLabel }],
-                  depth: markerDepth,
+                  include_subtags: true,
                   performer_mode: "AND",
                   top_performer_ids: [],
                   bottom_performer_ids: [performerRef],
-                }],
-                unnamed_performers: [],
-              })
-            )}&sortby=date`;
-            
-            allPartnersUrl = `/performers/${performer.id}/appearswithbyrole`;
-          } else {
-            // Solo - no role-based URLs
-            categoryUrl = NavUtils.makePerformerMarkerScenesWithRoleUrl(
-              performer,
-              role.tagId,
-              tagLabel,
-              undefined,
-              excludeTags,
-              markerDepth
-            );
+                  unnamed_performers: [],
+                })
+              )}&sortby=title`;
+
+              allPartnersUrl = `/performers/${performer.id}/appearswithbyrole`;
+            } else if (role.category === "sex" || role.category === "oral") {
+              // Sex, oral go to /scenes
+              categoryUrl = NavUtils.makePerformerMarkerScenesWithRoleUrl(
+                performer,
+                role.tagId,
+                tagLabel,
+                undefined,
+                excludeTags,
+                markerDepth
+              );
+              topUrl = NavUtils.makePerformerMarkerScenesWithRoleUrl(
+                performer,
+                role.tagId,
+                tagLabel,
+                "top",
+                excludeTags,
+                markerDepth
+              );
+              bottomUrl = NavUtils.makePerformerMarkerScenesWithRoleUrl(
+                performer,
+                role.tagId,
+                tagLabel,
+                "bottom",
+                excludeTags,
+                markerDepth
+              );
+
+              // Partner URLs for sex/oral (goes to /scenes)
+              const performerRef = {
+                id: performer.id,
+                label: performer.name || `Performer ${performer.id}`,
+              };
+
+              // Sex/oral top partner: performer is top, showing scenes
+              partnerTopUrl = `/scenes?c=${encodeURIComponent(
+                JSON.stringify({
+                  type: "scene_markers",
+                  modifier: "EQUALS",
+                  groups: [
+                    {
+                      groupId: "A",
+                      tag_ids: [{ id: role.tagId, label: tagLabel }],
+                      depth: markerDepth,
+                      performer_mode: "AND",
+                      top_performer_ids: [performerRef],
+                      bottom_performer_ids: [],
+                    },
+                  ],
+                  unnamed_performers: [],
+                })
+              )}&sortby=date`;
+
+              // Sex/oral bottom partner: performer is bottom, showing scenes
+              partnerBottomUrl = `/scenes?c=${encodeURIComponent(
+                JSON.stringify({
+                  type: "scene_markers",
+                  modifier: "EQUALS",
+                  groups: [
+                    {
+                      groupId: "A",
+                      tag_ids: [{ id: role.tagId, label: tagLabel }],
+                      depth: markerDepth,
+                      performer_mode: "AND",
+                      top_performer_ids: [],
+                      bottom_performer_ids: [performerRef],
+                    },
+                  ],
+                  unnamed_performers: [],
+                })
+              )}&sortby=date`;
+
+              allPartnersUrl = `/performers/${performer.id}/appearswithbyrole`;
+            } else {
+              // Solo - no role-based URLs
+              categoryUrl = NavUtils.makePerformerMarkerScenesWithRoleUrl(
+                performer,
+                role.tagId,
+                tagLabel,
+                undefined,
+                excludeTags,
+                markerDepth
+              );
+            }
           }
-        }
 
-        // CUSTOM: begin - scope all badge URLs to studio when studioContext is set
-        if (studioContext) {
-          const sc = studioContext;
-          if (categoryUrl) categoryUrl = NavUtils.withStudioScope(categoryUrl, sc.id, sc.label, sc.depth);
-          if (topUrl) topUrl = NavUtils.withStudioScope(topUrl, sc.id, sc.label, sc.depth);
-          if (bottomUrl) bottomUrl = NavUtils.withStudioScope(bottomUrl, sc.id, sc.label, sc.depth);
-          if (partnerTopUrl) partnerTopUrl = NavUtils.withStudioScope(partnerTopUrl, sc.id, sc.label, sc.depth);
-          if (partnerBottomUrl) partnerBottomUrl = NavUtils.withStudioScope(partnerBottomUrl, sc.id, sc.label, sc.depth);
-        }
-        // CUSTOM: end
+          // CUSTOM: begin - scope all badge URLs to studio when studioContext is set
+          if (studioContext) {
+            const sc = studioContext;
+            if (categoryUrl)
+              categoryUrl = NavUtils.withStudioScope(
+                categoryUrl,
+                sc.id,
+                sc.label,
+                sc.depth
+              );
+            if (topUrl)
+              topUrl = NavUtils.withStudioScope(
+                topUrl,
+                sc.id,
+                sc.label,
+                sc.depth
+              );
+            if (bottomUrl)
+              bottomUrl = NavUtils.withStudioScope(
+                bottomUrl,
+                sc.id,
+                sc.label,
+                sc.depth
+              );
+            if (partnerTopUrl)
+              partnerTopUrl = NavUtils.withStudioScope(
+                partnerTopUrl,
+                sc.id,
+                sc.label,
+                sc.depth
+              );
+            if (partnerBottomUrl)
+              partnerBottomUrl = NavUtils.withStudioScope(
+                partnerBottomUrl,
+                sc.id,
+                sc.label,
+                sc.depth
+              );
+          }
+          // CUSTOM: end
 
-        const categoryIconElement = categoryIcon ? (
-          <img
-            src={categoryIcon}
-            alt={role.category}
-            className="category-icon"
-          />
-        ) : (
-          <Icon icon={faHand} className="category-icon-fa" />
-        );
+          const categoryIconElement = categoryIcon ? (
+            <img
+              src={categoryIcon}
+              alt={role.category}
+              className="category-icon"
+            />
+          ) : (
+            <Icon icon={faHand} className="category-icon-fa" />
+          );
 
-        return (
-          <div key={idx} className="role-badge-item">
-            {/* Category icon on top - clickable */}
-            <div className="category-icon-container" title={role.count ? getTooltipText(role.category, "total", role.count) : undefined}>
-              {categoryUrl && !sceneId ? (
-                <Link to={categoryUrl} className="role-badge-link">
-                  {categoryIconElement}
-                  {role.category !== "solo" && (
-                    <span className="role-total-count">{role.count}</span>
-                  )}
-                </Link>
-              ) : (
+          return (
+            <div key={idx} className="role-badge-item">
+              {/* Category icon on top - clickable */}
+              <div
+                className="category-icon-container"
+                title={
+                  role.count
+                    ? getTooltipText(role.category, "total", role.count)
+                    : undefined
+                }
+              >
+                {categoryUrl && !sceneId ? (
+                  <Link to={categoryUrl} className="role-badge-link">
+                    {categoryIconElement}
+                    {role.category !== "solo" && (
+                      <span className="role-total-count">{role.count}</span>
+                    )}
+                  </Link>
+                ) : (
+                  <>
+                    {categoryIconElement}
+                    {role.category !== "solo" &&
+                      !(sceneId && scenePerformerCount <= 2) && (
+                        <span className="role-total-count">{role.count}</span>
+                      )}
+                  </>
+                )}
+              </div>
+
+              {/* Count below for solo, arrows below for sex/oral/facial */}
+              {role.category === "solo" ? (
                 <>
-                  {categoryIconElement}
-                  {role.category !== "solo" && !(sceneId && scenePerformerCount <= 2) && (
-                    <span className="role-total-count">{role.count}</span>
-                  )}
+                  <div
+                    className="solo-count"
+                    style={{
+                      visibility:
+                        sceneId && role.category === "solo"
+                          ? "hidden"
+                          : "visible",
+                    }}
+                  >
+                    {categoryUrl && !sceneId ? (
+                      <Link to={categoryUrl} className="role-badge-link">
+                        <span className="role-total-count">
+                          {role.count ?? 1}
+                        </span>
+                      </Link>
+                    ) : (
+                      <span className="role-total-count">
+                        {role.count ?? 1}
+                      </span>
+                    )}
+                  </div>
                 </>
-              )}
-            </div>
-
-            {/* Count below for solo, arrows below for sex/oral/facial */}
-            {role.category === "solo" ? (
-              <>
-                <div className="solo-count" style={{ visibility: sceneId && role.category === "solo" ? 'hidden' : 'visible' }}>
-                  {categoryUrl && !sceneId ? (
-                    <Link to={categoryUrl} className="role-badge-link">
-                      <span className="role-total-count">{role.count ?? 1}</span>
-                    </Link>
-                  ) : (
-                    <span className="role-total-count">{role.count ?? 1}</span>
-                  )}
-                </div>
-              </>
-            ) : sceneId ? (
-              // Scene context: show partner counts only if > 2 performers, otherwise just arrows
-              <>
-                {/* Top/Bottom role indicators */}
-                {/* CUSTOM: begin - show mini performer images on hover when > 2 performers in scene */}
-                <div className="role-arrows">
-                  {role.isTop && (() => {
-                    const topPartners = scenePerformerCount > 2
-                      ? (role.topPids ?? []).map((pid) => scenePartnerPerformers?.find((p2) => p2.id === pid)).filter(Boolean) as Pick<GQL.Performer, "id" | "name" | "image_path">[]
-                      : [];
-                    const badgeEl = (
+              ) : sceneId ? (
+                // Scene context: show partner counts only if > 2 performers, otherwise just arrows
+                <>
+                  {/* Top/Bottom role indicators */}
+                  {/* CUSTOM: begin - show mini performer images on hover when > 2 performers in scene */}
+                  <div className="role-arrows">
+                    {role.isTop &&
+                      (() => {
+                        const topPartners =
+                          scenePerformerCount > 2
+                            ? ((role.topPids ?? [])
+                                .map((pid) =>
+                                  scenePartnerPerformers?.find(
+                                    (p2) => p2.id === pid
+                                  )
+                                )
+                                .filter(Boolean) as Pick<
+                                GQL.Performer,
+                                "id" | "name" | "image_path"
+                              >[])
+                            : [];
+                        const badgeEl = (
+                          <Badge
+                            pill
+                            variant="success"
+                            className="arrow-badge top-badge"
+                            title={
+                              topPartners.length === 0
+                                ? getTooltipText(
+                                    role.category,
+                                    "top",
+                                    role.topCount || 0
+                                  )
+                                : undefined
+                            }
+                            style={{
+                              fontSize: 10,
+                              padding: "3px 6px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                            }}
+                          >
+                            <Icon icon={faArrowUp} />
+                            {scenePerformerCount > 2 && (
+                              <span className="arrow-count">
+                                {role.topCount || 0}
+                              </span>
+                            )}
+                          </Badge>
+                        );
+                        return topPartners.length > 0 ? (
+                          <HoverPopover
+                            key="top"
+                            placement="bottom"
+                            content={renderMiniPartnerRows(topPartners)}
+                          >
+                            {badgeEl}
+                          </HoverPopover>
+                        ) : (
+                          badgeEl
+                        );
+                      })()}
+                    {!role.isTop && (
                       <Badge
                         pill
                         variant="success"
-                        className="arrow-badge top-badge"
-                        title={topPartners.length === 0 ? getTooltipText(role.category, "top", role.topCount || 0) : undefined}
-                        style={{
-                          fontSize: 10,
-                          padding: "3px 6px",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
+                        className="arrow-badge top-badge role-badge-placeholder"
+                        aria-hidden="true"
                       >
                         <Icon icon={faArrowUp} />
                         {scenePerformerCount > 2 && (
-                          <span className="arrow-count">{role.topCount || 0}</span>
+                          <span className="arrow-count">0</span>
                         )}
                       </Badge>
-                    );
-                    return topPartners.length > 0 ? (
-                      <HoverPopover
-                        key="top"
-                        placement="bottom"
-                        content={topPartners.map((tp) => (
-                          <div className="performer-tag-container row" key={tp.id}>
-                            <Link to={`/performers/${tp.id}`} className="performer-tag col m-auto zoom-2">
-                              <img className="image-thumbnail" alt={tp.name ?? ""} src={tp.image_path ?? ""} />
-                            </Link>
-                            <PerformerLink performer={tp} className="d-block" />
-                          </div>
-                        ))}
-                      >
-                        {badgeEl}
-                      </HoverPopover>
-                    ) : badgeEl;
-                  })()}
-                  {!role.isTop && (
-                    <Badge
-                      pill
-                      variant="success"
-                      className="arrow-badge top-badge role-badge-placeholder"
-                      aria-hidden="true"
-                    >
-                      <Icon icon={faArrowUp} />
-                      {scenePerformerCount > 2 && (
-                        <span className="arrow-count">0</span>
-                      )}
-                    </Badge>
-                  )}
-                  {role.isBottom && (() => {
-                    const bottomPartners = scenePerformerCount > 2
-                      ? (role.bottomPids ?? []).map((pid) => scenePartnerPerformers?.find((p2) => p2.id === pid)).filter(Boolean) as Pick<GQL.Performer, "id" | "name" | "image_path">[]
-                      : [];
-                    const badgeEl = (
+                    )}
+                    {role.isBottom &&
+                      (() => {
+                        const bottomPartners =
+                          scenePerformerCount > 2
+                            ? ((role.bottomPids ?? [])
+                                .map((pid) =>
+                                  scenePartnerPerformers?.find(
+                                    (p2) => p2.id === pid
+                                  )
+                                )
+                                .filter(Boolean) as Pick<
+                                GQL.Performer,
+                                "id" | "name" | "image_path"
+                              >[])
+                            : [];
+                        const badgeEl = (
+                          <Badge
+                            pill
+                            variant="info"
+                            className="arrow-badge bottom-badge"
+                            title={
+                              bottomPartners.length === 0
+                                ? getTooltipText(
+                                    role.category,
+                                    "bottom",
+                                    role.bottomCount || 0
+                                  )
+                                : undefined
+                            }
+                            style={{
+                              fontSize: 10,
+                              padding: "3px 6px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                            }}
+                          >
+                            <Icon icon={faArrowDown} />
+                            {scenePerformerCount > 2 && (
+                              <span className="arrow-count">
+                                {role.bottomCount || 0}
+                              </span>
+                            )}
+                          </Badge>
+                        );
+                        return bottomPartners.length > 0 ? (
+                          <HoverPopover
+                            key="bottom"
+                            placement="bottom"
+                            content={renderMiniPartnerRows(bottomPartners)}
+                          >
+                            {badgeEl}
+                          </HoverPopover>
+                        ) : (
+                          badgeEl
+                        );
+                      })()}
+                    {!role.isBottom && (
                       <Badge
                         pill
                         variant="info"
-                        className="arrow-badge bottom-badge"
-                        title={bottomPartners.length === 0 ? getTooltipText(role.category, "bottom", role.bottomCount || 0) : undefined}
-                        style={{
-                          fontSize: 10,
-                          padding: "3px 6px",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
+                        className="arrow-badge bottom-badge role-badge-placeholder"
+                        aria-hidden="true"
                       >
                         <Icon icon={faArrowDown} />
                         {scenePerformerCount > 2 && (
-                          <span className="arrow-count">{role.bottomCount || 0}</span>
+                          <span className="arrow-count">0</span>
                         )}
                       </Badge>
-                    );
-                    return bottomPartners.length > 0 ? (
-                      <HoverPopover
-                        key="bottom"
-                        placement="bottom"
-                        content={bottomPartners.map((bp) => (
-                          <div className="performer-tag-container row" key={bp.id}>
-                            <Link to={`/performers/${bp.id}`} className="performer-tag col m-auto zoom-2">
-                              <img className="image-thumbnail" alt={bp.name ?? ""} src={bp.image_path ?? ""} />
-                            </Link>
-                            <PerformerLink performer={bp} className="d-block" />
-                          </div>
-                        ))}
-                      >
-                        {badgeEl}
-                      </HoverPopover>
-                    ) : badgeEl;
-                  })()}
-                  {!role.isBottom && (
-                    <Badge
-                      pill
-                      variant="info"
-                      className="arrow-badge bottom-badge role-badge-placeholder"
-                      aria-hidden="true"
-                    >
-                      <Icon icon={faArrowDown} />
-                      {scenePerformerCount > 2 && (
-                        <span className="arrow-count">0</span>
-                      )}
-                    </Badge>
-                  )}
-                </div>
-                {/* CUSTOM: end */}
-              </>
-            ) : (
-              // Global context: show counts with arrows
-              <>
-                {/* Row 2: Scene top/bottom counts 
+                    )}
+                  </div>
+                  {/* CUSTOM: end */}
+                </>
+              ) : (
+                // Global context: show counts with arrows
+                <>
+                  {/* Row 2: Scene top/bottom counts 
                 <div className="role-arrows">
                   {topUrl && (role.topCount ?? 0) > 0 ? (
                     <Link to={topUrl} className="role-badge-link">
@@ -995,260 +1194,344 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                 </div>
                 */}
 
-                {/* Row 3: Unique partner count*/}
-                {uniquePartnerCount > 0 && (() => {
-                  const allPartners = getAllMiniPartners(role.category);
-                  return (
-                  <HoverPopover
-                    placement="bottom"
-                    onOpen={handleArrowHover}
-                    content={renderMiniPartnerRows(allPartners)}
-                  >
-                    <div className="category-icon-container unique-partners-row">
-                      {allPartnersUrl ? (
-                        <Link
-                          to={allPartnersUrl}
-                          className="role-badge-link"
-                          title={`${p.name || "Performer"} has been with ${uniquePartnerCount} unique partner${uniquePartnerCount !== 1 ? 's' : ''} in ${role.category}`}
+                  {/* Row 3: Unique partner count*/}
+                  {uniquePartnerCount > 0 &&
+                    (() => {
+                      const allPartners = getAllMiniPartners(role.category);
+                      return (
+                        <HoverPopover
+                          placement="bottom"
+                          onOpen={handleArrowHover}
+                          content={renderMiniPartnerRows(allPartners)}
                         >
-                          <Icon icon={faUser} style={{ color: "white" }} />
-                          <span className="role-total-count">{uniquePartnerCount}</span>
-                        </Link>
+                          <div className="category-icon-container unique-partners-row">
+                            {allPartnersUrl ? (
+                              <Link
+                                to={allPartnersUrl}
+                                className="role-badge-link"
+                                title={`${
+                                  p.name || "Performer"
+                                } has been with ${uniquePartnerCount} unique partner${
+                                  uniquePartnerCount !== 1 ? "s" : ""
+                                } in ${role.category}`}
+                              >
+                                <Icon
+                                  icon={faUser}
+                                  style={{ color: "white" }}
+                                />
+                                <span className="role-total-count">
+                                  {uniquePartnerCount}
+                                </span>
+                              </Link>
+                            ) : (
+                              <span
+                                title={`${
+                                  p.name || "Performer"
+                                } has been with ${uniquePartnerCount} unique partner${
+                                  uniquePartnerCount !== 1 ? "s" : ""
+                                } in ${role.category}`}
+                              >
+                                <Icon
+                                  icon={faUser}
+                                  style={{ color: "white" }}
+                                />
+                                <span className="role-total-count">
+                                  {uniquePartnerCount}
+                                </span>
+                              </span>
+                            )}
+                          </div>
+                        </HoverPopover>
+                      );
+                    })()}
+
+                  {/* Row 4: Partner count badges with lazy mini images on hover */}
+                  {/* CUSTOM: begin - HoverPopover with lazy-loaded partner images */}
+                  <div className="role-arrows">
+                    {/* Top partner badge */}
+                    {(() => {
+                      const topBadge =
+                        partnerTopUrl && partnerTopCount > 0 ? (
+                          <Link to={partnerTopUrl} className="role-badge-link">
+                            <Badge
+                              pill
+                              variant="success"
+                              className="arrow-badge top-badge"
+                              title={getTooltipText(
+                                role.category,
+                                "top",
+                                partnerTopCount
+                              )}
+                              style={{
+                                fontSize: 10,
+                                padding: "3px 6px",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                              }}
+                            >
+                              <Icon icon={faArrowUp} />
+                              <span className="arrow-count">
+                                {partnerTopCount}
+                              </span>
+                            </Badge>
+                          </Link>
+                        ) : (
+                          <Badge
+                            pill
+                            variant="success"
+                            className="arrow-badge top-badge"
+                            title={getTooltipText(
+                              role.category,
+                              "top",
+                              partnerTopCount
+                            )}
+                            style={{
+                              fontSize: 10,
+                              padding: "3px 6px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              visibility:
+                                partnerTopCount > 0 ? "visible" : "hidden",
+                            }}
+                          >
+                            <Icon icon={faArrowUp} />
+                            <span className="arrow-count">
+                              {partnerTopCount}
+                            </span>
+                          </Badge>
+                        );
+                      if (partnerTopCount <= 0) return topBadge;
+                      const topPartners = getMiniPartners(role.category, "top");
+                      return topPartners.length > 0 ? (
+                        <HoverPopover
+                          placement="bottom"
+                          onOpen={handleArrowHover}
+                          content={renderMiniPartnerRows(topPartners)}
+                        >
+                          {topBadge}
+                        </HoverPopover>
                       ) : (
-                        <span title={`${p.name || "Performer"} has been with ${uniquePartnerCount} unique partner${uniquePartnerCount !== 1 ? 's' : ''} in ${role.category}`}>
-                          <Icon icon={faUser} style={{ color: "white" }} />
-                          <span className="role-total-count">{uniquePartnerCount}</span>
-                        </span>
-                      )}
-                    </div>
-                  </HoverPopover>
-                  );
-                })()}
-                
-
-                {/* Row 4: Partner count badges with lazy mini images on hover */}
-                {/* CUSTOM: begin - HoverPopover with lazy-loaded partner images */}
-                <div className="role-arrows">
-                  {/* Top partner badge */}
-                  {(() => {
-                    const topBadge = partnerTopUrl && partnerTopCount > 0 ? (
-                      <Link to={partnerTopUrl} className="role-badge-link">
-                        <Badge
-                          pill
-                          variant="success"
-                          className="arrow-badge top-badge"
-                          title={getTooltipText(role.category, "top", partnerTopCount)}
-                          style={{
-                            fontSize: 10,
-                            padding: "3px 6px",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                          }}
+                        <HoverPopover
+                          placement="bottom"
+                          onOpen={handleArrowHover}
+                          content={[]}
                         >
-                          <Icon icon={faArrowUp} />
-                          <span className="arrow-count">{partnerTopCount}</span>
-                        </Badge>
-                      </Link>
-                    ) : (
-                      <Badge
-                        pill
-                        variant="success"
-                        className="arrow-badge top-badge"
-                        title={getTooltipText(role.category, "top", partnerTopCount)}
-                        style={{
-                          fontSize: 10,
-                          padding: "3px 6px",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                          visibility: partnerTopCount > 0 ? 'visible' : 'hidden',
-                        }}
-                      >
-                        <Icon icon={faArrowUp} />
-                        <span className="arrow-count">{partnerTopCount}</span>
-                      </Badge>
-                    );
-                    if (partnerTopCount <= 0) return topBadge;
-                    const topPartners = getMiniPartners(role.category, "top");
-                    return topPartners.length > 0 ? (
-                      <HoverPopover
-                        placement="bottom"
-                        onOpen={handleArrowHover}
-                        content={topPartners.map((tp) => (
-                          <div className="performer-tag-container row" key={tp.id}>
-                            <Link to={`/performers/${tp.id}`} className="performer-tag col m-auto zoom-2">
-                              <img className="image-thumbnail" alt={tp.name ?? ""} src={tp.image_path ?? ""} />
-                            </Link>
-                            <PerformerLink performer={tp} className="d-block" />
-                          </div>
-                        ))}
-                      >
-                        {topBadge}
-                      </HoverPopover>
-                    ) : (
-                      <HoverPopover placement="bottom" onOpen={handleArrowHover} content={[]}>
-                        {topBadge}
-                      </HoverPopover>
-                    );
-                  })()}
-                  {/* Bottom partner badge */}
-                  {(() => {
-                    const bottomBadge = partnerBottomUrl && partnerBottomCount > 0 ? (
-                      <Link to={partnerBottomUrl} className="role-badge-link">
-                        <Badge
-                          pill
-                          variant="info"
-                          className="arrow-badge bottom-badge"
-                          title={getTooltipText(role.category, "bottom", partnerBottomCount)}
-                          style={{
-                            fontSize: 10,
-                            padding: "3px 6px",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                          }}
+                          {topBadge}
+                        </HoverPopover>
+                      );
+                    })()}
+                    {/* Bottom partner badge */}
+                    {(() => {
+                      const bottomBadge =
+                        partnerBottomUrl && partnerBottomCount > 0 ? (
+                          <Link
+                            to={partnerBottomUrl}
+                            className="role-badge-link"
+                          >
+                            <Badge
+                              pill
+                              variant="info"
+                              className="arrow-badge bottom-badge"
+                              title={getTooltipText(
+                                role.category,
+                                "bottom",
+                                partnerBottomCount
+                              )}
+                              style={{
+                                fontSize: 10,
+                                padding: "3px 6px",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                              }}
+                            >
+                              <Icon icon={faArrowDown} />
+                              <span className="arrow-count">
+                                {partnerBottomCount}
+                              </span>
+                            </Badge>
+                          </Link>
+                        ) : (
+                          <Badge
+                            pill
+                            variant="info"
+                            className="arrow-badge bottom-badge"
+                            title={getTooltipText(
+                              role.category,
+                              "bottom",
+                              partnerBottomCount
+                            )}
+                            style={{
+                              fontSize: 10,
+                              padding: "3px 6px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              visibility:
+                                partnerBottomCount > 0 ? "visible" : "hidden",
+                            }}
+                          >
+                            <Icon icon={faArrowDown} />
+                            <span className="arrow-count">
+                              {partnerBottomCount}
+                            </span>
+                          </Badge>
+                        );
+                      if (partnerBottomCount <= 0) return bottomBadge;
+                      const bottomPartners = getMiniPartners(
+                        role.category,
+                        "bottom"
+                      );
+                      return bottomPartners.length > 0 ? (
+                        <HoverPopover
+                          placement="bottom"
+                          onOpen={handleArrowHover}
+                          content={renderMiniPartnerRows(bottomPartners)}
                         >
-                          <Icon icon={faArrowDown} />
-                          <span className="arrow-count">{partnerBottomCount}</span>
-                        </Badge>
-                      </Link>
-                    ) : (
-                      <Badge
-                        pill
-                        variant="info"
-                        className="arrow-badge bottom-badge"
-                        title={getTooltipText(role.category, "bottom", partnerBottomCount)}
-                        style={{
-                          fontSize: 10,
-                          padding: "3px 6px",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                          visibility: partnerBottomCount > 0 ? 'visible' : 'hidden',
-                        }}
-                      >
-                        <Icon icon={faArrowDown} />
-                        <span className="arrow-count">{partnerBottomCount}</span>
-                      </Badge>
-                    );
-                    if (partnerBottomCount <= 0) return bottomBadge;
-                    const bottomPartners = getMiniPartners(role.category, "bottom");
-                    return bottomPartners.length > 0 ? (
-                      <HoverPopover
-                        placement="bottom"
-                        onOpen={handleArrowHover}
-                        content={bottomPartners.map((bp) => (
-                          <div className="performer-tag-container row" key={bp.id}>
-                            <Link to={`/performers/${bp.id}`} className="performer-tag col m-auto zoom-2">
-                              <img className="image-thumbnail" alt={bp.name ?? ""} src={bp.image_path ?? ""} />
-                            </Link>
-                            <PerformerLink performer={bp} className="d-block" />
-                          </div>
-                        ))}
-                      >
-                        {bottomBadge}
-                      </HoverPopover>
-                    ) : (
-                      <HoverPopover placement="bottom" onOpen={handleArrowHover} content={[]}>
-                        {bottomBadge}
-                      </HoverPopover>
-                    );
-                  })()}
-                </div>
-                {/* CUSTOM: end */}
-              </>
-            )}
-          </div>
-        );
-      })}
-
-      {/* Orgasm icon at the end */}
-      {orgasmTopCount > 0 && orgasmTagId && (
-        // CUSTOM: begin - scoped orgasm URL
-        (() => {
-          let orgasmUrl = NavUtils.makePerformerOrgasmMarkersUrl(performer, orgasmTagId, "Orgasm");
-          if (studioContext) orgasmUrl = NavUtils.withStudioScope(orgasmUrl, studioContext.id, studioContext.label, studioContext.depth);
-          return (
-        <div className="role-badge-item orgasm-badge">
-          <div 
-            className="category-icon-container"
-            title={sceneId 
-              ? `${p.name || "Performer"} had ${orgasmTopCount} orgasm${orgasmTopCount !== 1 ? 's' : ''} in this scene`
-              : `${p.name || "Performer"} has ${orgasmTopCount} total orgasm${orgasmTopCount !== 1 ? 's' : ''}`
-            }
-          >
-            <Link
-              to={orgasmUrl}
-              className="role-badge-link"
-            >
-              <img src={spermsSvg} alt="Orgasm" className="category-icon" />
-            </Link>
-          </div>
-          <div className="orgasm-count" style={{ visibility: sceneId && orgasmTopCount === 1 ? 'hidden' : 'visible' }}>
-            <Link
-              to={orgasmUrl}
-              className="role-badge-link"
-            >
-              <span className="role-total-count">{orgasmTopCount}</span>
-            </Link>
-          </div>
-        </div>
-          );
-        })()
-        // CUSTOM: end
-      )}
-
-      {/* Feet icon */}
-      {feetTopCount > 0 && feetTagId && (
-        // CUSTOM: begin - scoped feet URL
-        (() => {
-          let feetUrl = NavUtils.makePerformerFeetMarkersUrl(performer, feetTagId, "Feet");
-          if (studioContext) feetUrl = NavUtils.withStudioScope(feetUrl, studioContext.id, studioContext.label, studioContext.depth);
-          return (
-        <div className="role-badge-item feet-badge">
-          <div 
-            className="category-icon-container"
-            title={sceneId 
-              ? `${p.name || "Performer"} has ${feetTopCount} feet marker${feetTopCount !== 1 ? 's' : ''} in this scene`
-              : `${p.name || "Performer"} has ${feetTopCount} total feet marker${feetTopCount !== 1 ? 's' : ''}`
-            }
-          >
-            {!sceneId ? (
-              <Link
-                to={feetUrl}
-                className="role-badge-link"
-              >
-                <img
-                  src={feetSvg}
-                  alt="Feet"
-                  className="category-icon"
-                />
-              </Link>
-            ) : (
-              <img
-                src={feetSvg}
-                alt="Feet"
-                className="category-icon"
-              />
-            )}
-          </div>
-          {!sceneId && (
-            <div className="feet-count">
-              <Link
-                to={feetUrl}
-                className="role-badge-link"
-              >
-                <span className="role-total-count">{feetTopCount}</span>
-              </Link>
+                          {bottomBadge}
+                        </HoverPopover>
+                      ) : (
+                        <HoverPopover
+                          placement="bottom"
+                          onOpen={handleArrowHover}
+                          content={[]}
+                        >
+                          {bottomBadge}
+                        </HoverPopover>
+                      );
+                    })()}
+                  </div>
+                  {/* CUSTOM: end */}
+                </>
+              )}
             </div>
-          )}
-        </div>
           );
-        })()
-        // CUSTOM: end
-      )}
-    </div>
-  </>
+        })}
+
+        {/* Orgasm icon at the end */}
+        {
+          orgasmTopCount > 0 &&
+            orgasmTagId &&
+            // CUSTOM: begin - scoped orgasm URL
+            (() => {
+              let orgasmUrl = NavUtils.makePerformerOrgasmMarkersUrl(
+                performer,
+                orgasmTagId,
+                "Orgasm"
+              );
+              if (studioContext)
+                orgasmUrl = NavUtils.withStudioScope(
+                  orgasmUrl,
+                  studioContext.id,
+                  studioContext.label,
+                  studioContext.depth
+                );
+              return (
+                <div className="role-badge-item orgasm-badge">
+                  <div
+                    className="category-icon-container"
+                    title={
+                      sceneId
+                        ? `${
+                            p.name || "Performer"
+                          } had ${orgasmTopCount} orgasm${
+                            orgasmTopCount !== 1 ? "s" : ""
+                          } in this scene`
+                        : `${
+                            p.name || "Performer"
+                          } has ${orgasmTopCount} total orgasm${
+                            orgasmTopCount !== 1 ? "s" : ""
+                          }`
+                    }
+                  >
+                    <Link to={orgasmUrl} className="role-badge-link">
+                      <img
+                        src={spermsSvg}
+                        alt="Orgasm"
+                        className="category-icon"
+                      />
+                    </Link>
+                  </div>
+                  <div
+                    className="orgasm-count"
+                    style={{
+                      visibility:
+                        sceneId && orgasmTopCount === 1 ? "hidden" : "visible",
+                    }}
+                  >
+                    <Link to={orgasmUrl} className="role-badge-link">
+                      <span className="role-total-count">{orgasmTopCount}</span>
+                    </Link>
+                  </div>
+                </div>
+              );
+            })()
+          // CUSTOM: end
+        }
+
+        {/* Feet icon */}
+        {
+          feetTopCount > 0 &&
+            feetTagId &&
+            // CUSTOM: begin - scoped feet URL
+            (() => {
+              let feetUrl = NavUtils.makePerformerFeetMarkersUrl(
+                performer,
+                feetTagId,
+                "Feet"
+              );
+              if (studioContext)
+                feetUrl = NavUtils.withStudioScope(
+                  feetUrl,
+                  studioContext.id,
+                  studioContext.label,
+                  studioContext.depth
+                );
+              return (
+                <div className="role-badge-item feet-badge">
+                  <div
+                    className="category-icon-container"
+                    title={
+                      sceneId
+                        ? `${
+                            p.name || "Performer"
+                          } has ${feetTopCount} feet marker${
+                            feetTopCount !== 1 ? "s" : ""
+                          } in this scene`
+                        : `${
+                            p.name || "Performer"
+                          } has ${feetTopCount} total feet marker${
+                            feetTopCount !== 1 ? "s" : ""
+                          }`
+                    }
+                  >
+                    {!sceneId ? (
+                      <Link to={feetUrl} className="role-badge-link">
+                        <img
+                          src={feetSvg}
+                          alt="Feet"
+                          className="category-icon"
+                        />
+                      </Link>
+                    ) : (
+                      <img src={feetSvg} alt="Feet" className="category-icon" />
+                    )}
+                  </div>
+                  {!sceneId && (
+                    <div className="feet-count">
+                      <Link to={feetUrl} className="role-badge-link">
+                        <span className="role-total-count">{feetTopCount}</span>
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              );
+            })()
+          // CUSTOM: end
+        }
+      </div>
+    </>
   );
 };

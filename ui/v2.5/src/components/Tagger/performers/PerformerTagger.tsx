@@ -28,6 +28,7 @@ import { separateNamesAndStashIds } from "src/utils/stashIds";
 import { ExternalLink } from "src/components/Shared/ExternalLink";
 import { useTaggerConfig } from "../config";
 import { StashBoxSelectorField } from "../StashBoxSelector";
+import type { PerformerListData } from "src/components/Performers/performerTypes_custom"; // CUSTOM
 
 type JobFragment = Pick<
   GQL.Job,
@@ -37,7 +38,7 @@ type JobFragment = Pick<
 const CLASSNAME = "PerformerTagger";
 
 interface IPerformerBatchUpdateModal {
-  performers: GQL.PerformerDataFragment[];
+  performers: PerformerListData[];
   isIdle: boolean;
   selectedEndpoint: { endpoint: string; index: number };
   onBatchUpdate: (queryAll: boolean, refresh: boolean) => void;
@@ -235,7 +236,7 @@ const PerformerBatchAddModal: React.FC<IPerformerBatchAddModal> = ({
 };
 
 interface IPerformerTaggerListProps {
-  performers: GQL.PerformerDataFragment[];
+  performers: PerformerListData[];
   selectedEndpoint: { endpoint: string; index: number };
   isIdle: boolean;
   config: ITaggerConfig;
@@ -376,7 +377,7 @@ const PerformerTaggerList: React.FC<IPerformerTaggerListProps> = ({
   }
 
   const handlePerformerUpdate = async (
-    existing: GQL.PerformerDataFragment,
+    existing: PerformerListData,
     input: GQL.PerformerCreateInput
   ) => {
     setModalPerformer(undefined);
@@ -622,7 +623,7 @@ const PerformerTaggerList: React.FC<IPerformerTaggerListProps> = ({
 };
 
 interface ITaggerProps {
-  performers: GQL.PerformerDataFragment[];
+  performers: PerformerListData[];
 }
 
 export const PerformerTagger: React.FC<ITaggerProps> = ({ performers }) => {

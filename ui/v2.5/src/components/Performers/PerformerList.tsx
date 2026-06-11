@@ -58,6 +58,7 @@ import { FavoritePerformerCriterionOption } from "src/models/list-filter/criteri
 import { SidebarBooleanFilter } from "../List/Filters/BooleanFilter";
 import { SidebarOptionFilter } from "../List/Filters/OptionFilter";
 import { GenderCriterionOption } from "src/models/list-filter/criteria/gender";
+import type { PerformerListData } from "./performerTypes_custom"; // CUSTOM
 
 export const FormatHeight = (height?: number | null) => {
   const intl = useIntl();
@@ -200,7 +201,7 @@ interface IPerformerList {
 }
 
 const PerformerList: React.FC<{
-  performers: GQL.PerformerDataFragment[];
+  performers: PerformerListData[];
   filter: ListFilterModel;
   selectedIds: Set<string>;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;

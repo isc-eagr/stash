@@ -22,7 +22,10 @@ func (r *mutationResolver) SceneRecordOAtTimestamp(ctx context.Context, id strin
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		updatedTimes, err = r.repository.Scene.AddOAtVideoTimestamp(ctx, sceneID, videoTimestamp)
-		return err
+		if err != nil {
+			return err
+		}
+		return r.recalculateSceneODateRatingBonus(ctx, sceneID)
 	}); err != nil {
 		return nil, err
 	}

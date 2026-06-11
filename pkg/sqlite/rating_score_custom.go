@@ -195,6 +195,11 @@ func (s *RatingScoreStore) RecalculateRating(ctx context.Context, entityType str
 	}
 
 	rating100 := int(math.Round(math.Max(0, total) * 10))
+	orgasmBonus, err := s.countOrgasmRatingBonus(ctx, normalizedEntityType, entityID)
+	if err != nil {
+		return 0, err
+	}
+	rating100 += orgasmBonus
 
 	var table string
 	switch normalizedEntityType {
@@ -215,4 +220,29 @@ func (s *RatingScoreStore) RecalculateRating(ctx context.Context, entityType str
 	}
 
 	return rating100, nil
+}
+
+func (s *RatingScoreStore) countOrgasmRatingBonus(ctx context.Context, entityType string, entityID int) (int, error) {
+	var count int
+	var query string
+
+	switch entityType {
+	case models.RatingEntityScene:
+		query = fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE %s = ?", scenesODatesTable, sceneIDColumn)
+	case models.RatingEntityPerformer:
+		query = fmt.Sprintf(`
+			SELECT COUNT(sod.%s)
+			FROM %s ps
+			JOIN %s sod ON sod.%s = ps.%s
+			WHERE ps.%s = ?
+		`, sceneODateColumn, performersScenesTable, scenesODatesTable, sceneIDColumn, sceneIDColumn, performerIDColumn)
+	default:
+		return 0, fmt.Errorf("unsupported rating entity type %q", entityType)
+	}
+
+	if err := dbWrapper.Get(ctx, &count, query, entityID); err != nil {
+		return 0, fmt.Errorf("counting orgasm rating bonus for %s %d: %w", entityType, entityID, err)
+	}
+
+	return count / 3, nil
 }

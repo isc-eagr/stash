@@ -175,7 +175,27 @@ When merging a new upstream release:
 
 ---
 
-## 5. File Inventory Summary
+## 5. Fast Compilation and Validation Checks
+
+Use these quicker checks during development instead of defaulting to full production or release builds every time. Agents should complete the relevant compilation/check, not a full production/release build, unless explicitly requested.
+
+- **Backend compile check:** `go build ./cmd/stash`
+  - Use `go build -o <tmp>/stash-check ./cmd/stash` if you want to avoid touching the repo binary.
+  - If Git VCS stamping fails in a local checkout, use `go build -buildvcs=false ./cmd/stash` for a fast compile sanity check.
+- **Frontend changed-file check:** `make validate-ui-quick`
+  - Runs lint/style/format checks only on changed UI files and intentionally skips slow `tsc --noEmit`.
+- **Frontend changed-file formatting:** `make fmt-ui-quick`
+- **TypeScript compile check:** `cd ui/v2.5 && npm run check`
+- **Vite parse/bundle fallback:** `cd ui/v2.5 && npm run build` or `make ui-only`
+  - Use this only when JSX/TSX parsing risk is not covered by faster checks.
+- **Generated-code changes:** run `make generate` first, then `go build ./...`.
+- **PowerShell npm note:** if `npm` is blocked by script execution policy, call `npm.cmd` or the local `.CMD` shim in `ui/v2.5/node_modules/.bin`.
+
+These are fast checks, not replacements for broader tests when behavior or generated code changes.
+
+---
+
+## 6. File Inventory Summary
 
 ### Extracted `_custom` files (Phase 1-5)
 

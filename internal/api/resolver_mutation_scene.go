@@ -1307,7 +1307,10 @@ func (r *mutationResolver) SceneIncrementO(ctx context.Context, id string) (ret 
 		qb := r.repository.Scene
 
 		updatedTimes, err = qb.AddO(ctx, sceneID, nil)
-		return err
+		if err != nil {
+			return err
+		}
+		return r.recalculateSceneODateRatingBonus(ctx, sceneID)
 	}); err != nil {
 		return 0, err
 	}
@@ -1328,7 +1331,10 @@ func (r *mutationResolver) SceneDecrementO(ctx context.Context, id string) (ret 
 		qb := r.repository.Scene
 
 		updatedTimes, err = qb.DeleteO(ctx, sceneID, nil)
-		return err
+		if err != nil {
+			return err
+		}
+		return r.recalculateSceneODateRatingBonus(ctx, sceneID)
 	}); err != nil {
 		return 0, err
 	}
@@ -1346,7 +1352,10 @@ func (r *mutationResolver) SceneResetO(ctx context.Context, id string) (ret int,
 		qb := r.repository.Scene
 
 		ret, err = qb.ResetO(ctx, sceneID)
-		return err
+		if err != nil {
+			return err
+		}
+		return r.recalculateSceneODateRatingBonus(ctx, sceneID)
 	}); err != nil {
 		return 0, err
 	}
@@ -1373,7 +1382,10 @@ func (r *mutationResolver) SceneAddO(ctx context.Context, id string, t []*time.T
 		qb := r.repository.Scene
 
 		updatedTimes, err = qb.AddO(ctx, sceneID, times)
-		return err
+		if err != nil {
+			return err
+		}
+		return r.recalculateSceneODateRatingBonus(ctx, sceneID)
 	}); err != nil {
 		return nil, err
 	}
@@ -1402,7 +1414,10 @@ func (r *mutationResolver) SceneDeleteO(ctx context.Context, id string, t []*tim
 		qb := r.repository.Scene
 
 		updatedTimes, err = qb.DeleteO(ctx, sceneID, times)
-		return err
+		if err != nil {
+			return err
+		}
+		return r.recalculateSceneODateRatingBonus(ctx, sceneID)
 	}); err != nil {
 		return nil, err
 	}

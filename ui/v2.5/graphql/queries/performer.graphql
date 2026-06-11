@@ -10,6 +10,15 @@ query FindPerformers(
   ) {
     count
     performers {
+      ...PerformerListData
+    }
+  }
+}
+
+query FindPerformersByID($performer_ids: [Int!]) {
+  findPerformers(performer_ids: $performer_ids) {
+    count
+    performers {
       ...PerformerData
     }
   }
@@ -83,24 +92,116 @@ query PerformerCoPerformersByRole($performer_id: ID!) {
 
 query PerformerCoPerformersMiniImages($performer_id: ID!) {
   performerCoPerformersByRole(performer_id: $performer_id) {
-    sex_as_top { performer { id name image_path } scene_count }
-    sex_as_bottom { performer { id name image_path } scene_count }
-    oral_as_top { performer { id name image_path } scene_count }
-    oral_as_bottom { performer { id name image_path } scene_count }
-    facial_as_top { performer { id name image_path } scene_count }
-    facial_as_bottom { performer { id name image_path } scene_count }
+    sex_as_top {
+      performer {
+        id
+        name
+        image_path
+      }
+      scene_count
+    }
+    sex_as_bottom {
+      performer {
+        id
+        name
+        image_path
+      }
+      scene_count
+    }
+    oral_as_top {
+      performer {
+        id
+        name
+        image_path
+      }
+      scene_count
+    }
+    oral_as_bottom {
+      performer {
+        id
+        name
+        image_path
+      }
+      scene_count
+    }
+    facial_as_top {
+      performer {
+        id
+        name
+        image_path
+      }
+      scene_count
+    }
+    facial_as_bottom {
+      performer {
+        id
+        name
+        image_path
+      }
+      scene_count
+    }
     unique_count
   }
 }
 
-query StudioPerformerCoPerformersMiniImages($performer_id: ID!, $studio_id: ID!, $depth: Int) {
-  studioPerformerCoPerformersByRole(performer_id: $performer_id, studio_id: $studio_id, depth: $depth) {
-    sex_as_top { performer { id name image_path } scene_count }
-    sex_as_bottom { performer { id name image_path } scene_count }
-    oral_as_top { performer { id name image_path } scene_count }
-    oral_as_bottom { performer { id name image_path } scene_count }
-    facial_as_top { performer { id name image_path } scene_count }
-    facial_as_bottom { performer { id name image_path } scene_count }
+query StudioPerformerCoPerformersMiniImages(
+  $performer_id: ID!
+  $studio_id: ID!
+  $depth: Int
+) {
+  studioPerformerCoPerformersByRole(
+    performer_id: $performer_id
+    studio_id: $studio_id
+    depth: $depth
+  ) {
+    sex_as_top {
+      performer {
+        id
+        name
+        image_path
+      }
+      scene_count
+    }
+    sex_as_bottom {
+      performer {
+        id
+        name
+        image_path
+      }
+      scene_count
+    }
+    oral_as_top {
+      performer {
+        id
+        name
+        image_path
+      }
+      scene_count
+    }
+    oral_as_bottom {
+      performer {
+        id
+        name
+        image_path
+      }
+      scene_count
+    }
+    facial_as_top {
+      performer {
+        id
+        name
+        image_path
+      }
+      scene_count
+    }
+    facial_as_bottom {
+      performer {
+        id
+        name
+        image_path
+      }
+      scene_count
+    }
     unique_count
   }
 }

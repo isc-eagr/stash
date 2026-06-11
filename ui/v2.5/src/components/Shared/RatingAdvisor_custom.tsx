@@ -58,6 +58,7 @@ const RatingAdvisorScoresQuery = gql`
       key
       raw_value
     }
+    ratingOrgasmCount(entity_type: $entity_type, entity_id: $entity_id)
   }
 `;
 
@@ -101,9 +102,9 @@ const sceneMetrics: IAdvisorMetric[] = [
       },
       {
         value: 5,
-        label: "Attractive enough",
+        label: "Good",
         description:
-          "Attractive enough that his presence improves a scene, especially if the scene is already good.",
+          "Good face; his presence improves a scene, especially if the scene is already good.",
       },
       {
         value: 6,
@@ -304,7 +305,7 @@ const sceneMetrics: IAdvisorMetric[] = [
         value: 0.5,
         label: "Standout dynamic",
         description:
-          "Pick this when a position, act, power dynamic, role setup, or specific sex beat makes the scene hotter.",
+          "For sex and oral scenes, this means the scene has stomping, feet sucking, dirty talk, sperm eating, or another specific act or dynamic that makes the scene more memorable. For solo scenes, select this if the scene has feet, sperm on camera, or another specific act or dynamic that makes it more memorable.",
       },
     ],
   },
@@ -461,9 +462,9 @@ const performerMetrics: IAdvisorMetric[] = [
       },
       {
         value: 5,
-        label: "Attractive enough",
+        label: "Good",
         description:
-          "Attractive enough that his presence improves a scene, especially if the scene is already good.",
+          "Good face; his presence improves a scene, especially if the scene is already good.",
       },
       {
         value: 6,
@@ -536,9 +537,9 @@ const performerMetrics: IAdvisorMetric[] = [
       },
       {
         value: 5,
-        label: "Attractive enough",
+        label: "Good",
         description:
-          "Attractive enough body that his presence improves a scene when the rest is working.",
+          "Good body; his presence improves a scene when the rest is working.",
       },
       {
         value: 6,
@@ -906,6 +907,7 @@ const RatingAdvisorModal: React.FC<{
   const metrics = entityType === "scene" ? sceneMetrics : performerMetrics;
   const { data: advisorScoresData } = useQuery<{
     ratingScores: IAdvisorPersistedScore[];
+    ratingOrgasmCount: number;
   }>(RatingAdvisorScoresQuery, {
     variables: { entity_type: entityType, entity_id: entityId },
     fetchPolicy: "cache-and-network",
@@ -934,13 +936,16 @@ const RatingAdvisorModal: React.FC<{
     setScores(getInitialScores(metrics, persistedScores));
   }, [metrics, persistedScores]);
 
+  const orgasmCount = advisorScoresData?.ratingOrgasmCount ?? 0;
+  const orgasmBonus = Math.floor(orgasmCount / 3);
   const total = useMemo(
     () =>
       metrics.reduce(
         (sum, metric) => sum + getChoiceScore(metric, scores[metric.key]),
         0
-      ),
-    [metrics, scores]
+      ) +
+      orgasmBonus / 10,
+    [metrics, orgasmBonus, scores]
   );
   const scoringTotal = Math.max(0, total);
   const suggestion =
@@ -1059,6 +1064,33 @@ const RatingAdvisorModal: React.FC<{
     );
   }
 
+  function renderOrgasmBonus() {
+    return (
+      <section className="rating-advisor-metric" key="orgasm-count-bonus">
+        <div className="rating-advisor-metric-header">
+          <div>
+            <h5>Orgasm count bonus</h5>
+            <p>
+              Permanent bonus from recorded orgasms: +1 rating point for every 3
+              orgasms.
+            </p>
+          </div>
+          <Badge variant="secondary">
+            {formatRatingContribution(orgasmBonus / 10)}
+          </Badge>
+        </div>
+        <div className="rating-advisor-selected">
+          <strong>
+            {orgasmCount} orgasms - {orgasmBonus} bonus points
+          </strong>
+          <span>
+            This bonus is calculated automatically and cannot be edited.
+          </span>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <ModalComponent
       show
@@ -1090,9 +1122,8 @@ const RatingAdvisorModal: React.FC<{
         {metrics
           .filter((metric) => metric.section === undefined)
           .map(renderMetric)}
-        {metrics.some((metric) => metric.section === "bonus") && (
-          <div className="rating-advisor-section-heading">Bonus</div>
-        )}
+        <div className="rating-advisor-section-heading">Bonus</div>
+        {renderOrgasmBonus()}
         {metrics
           .filter((metric) => metric.section === "bonus")
           .map(renderMetric)}

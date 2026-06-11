@@ -430,6 +430,8 @@
         white-space: nowrap;
         text-decoration: none;
         cursor: pointer;
+        overflow: visible;
+        position: relative;
         transition: background 0.15s;
 
         &:hover {
@@ -440,6 +442,15 @@
 
         .mv-performer-icon {
           font-size: 0.7rem;
+        }
+
+        .performer-chip-inline-preview {
+          bottom: auto;
+          top: calc(100% + 0.5rem);
+        }
+
+        &:hover .performer-chip-inline-preview {
+          display: block;
         }
       }
 

@@ -852,7 +852,9 @@ CREATE INDEX `idx_scene_marker_performers_performer_role` ON `scene_marker_perfo
 - `ui/v2.5/graphql/data/scene-marker.graphql` - Added `top_performers` and `bottom_performers` to SceneMarkerData fragment
 - `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkerForm.tsx` - Two separate performer dropdowns with arrow icons: Top (↑ blue) and Bottom (↓ red)
 - `ui/v2.5/src/components/Scenes/SceneDetails/PrimaryTags.tsx` - Displays top/bottom performers with color-coded badges and icons
-- `ui/v2.5/src/components/Scenes/MarkerPlaylistPlayer.tsx` - Shows top/bottom performers with icons in the playlist player
+- `ui/v2.5/src/components/Scenes/MarkerPlaylistPlayer.tsx` - Shows top/bottom performers with icons in the playlist player, including hover profile images in both normal and fullscreen modes
+- `ui/v2.5/src/components/Scenes/MultiVideoViewer.tsx` - Shows marker/scene performer chips with hover profile images in the marker viewer
+- `ui/v2.5/src/index.scss` - Shared larger performer image hover layout allowing three performers per row
 - `ui/v2.5/src/models/list-filter/criteria/tags.ts` - Extended `SceneMarkerTagsCriterion` with `extendedGroups` supporting performer attributes
 - `ui/v2.5/src/components/List/Filters/SceneMarkerTagsFilter.tsx` - Enhanced filter UI with performer, country, ethnicity, and rating selection per group
 - `ui/v2.5/src/models/list-filter/scene-markers.ts` - Added marker performer filter criterion options
@@ -868,6 +870,7 @@ CREATE INDEX `idx_scene_marker_performers_performer_role` ON `scene_marker_perfo
   - Scene marker form (editing)
   - PrimaryTags panel (scene details Markers tab)
   - MarkerPlaylistPlayer (playing markers)
+- Marker player and marker viewer role chips show larger performer profile images on hover and the marker player chips hide after idle in both normal and fullscreen modes
 - **Scene Marker Tags Filter (on Scenes)**: Now supports separate role-specific attribute blocks for top, bottom, and both-roles (performer appearing in BOTH roles). Each block can specify performer IDs, ethnicities, countries, and rating. This supersedes the retired `performer_scene_tags` filter.
 - **Marker Performer Filters (on Markers page)**: New filters to find markers by their assigned performers (both roles):
   - Marker Performers - Filter by specific performers assigned to markers
@@ -1358,6 +1361,7 @@ Adds partner count badges to performer cards and detail pages (outside scene con
   - Smaller font size and styling to distinguish from scene count badges
   - Category icons (gay/mouth/facial) shown with reduced opacity (0.7)
   - Green badges for "topped" counts, blue badges for "bottomed for" counts
+  - Partner badge hover popovers use the shared larger performer image layout
 
 ### Display Logic
 - **Scene context (sceneId provided)**: Shows only scene-specific role indicators (no partner counts)
@@ -2237,6 +2241,9 @@ Adds scene and performer rating system buttons next to the detail-page rating di
 
 Suggested tiers use the same configurable 100-based thresholds as the premium/classic card effects. Scene and performer thresholds are configured separately.
 
+Both scene and performer advisor ratings also include a non-editable orgasm count bonus. The bonus is calculated from `scenes_o_dates` as +1 rating point for every 3 recorded orgasms on the scene or performer.
+When scene o-history is added, deleted, reset, or recorded with a video timestamp, the stored advisor rating is recalculated for that scene and any attached performers that already have persisted advisor scores.
+
 ### Scene Advisor
 Uses a weighted 10-point scene rubric designed for 100-based ratings:
 - Performer attractiveness: each raw point is worth 0.4, up to 4.0
@@ -2245,6 +2252,7 @@ Uses a weighted 10-point scene rubric designed for 100-based ratings:
 - Standout moment: each raw point is worth 0.5, up to 1.0
 
 Bonus section:
+- Orgasm count bonus (+1 rating point for every 3 recorded orgasms, automatic and read-only)
 - Theme / fantasy / uniform factor (+0.5 when present)
 - Oral-only scene (+0.5 when present)
 - Standout act / position / dynamic (+0.5 when present)
@@ -2273,6 +2281,7 @@ Uses a weighted 10-point performer rubric designed for 100-based ratings:
 - Masculinity: each raw point is worth 1/3, up to 1.0
 
 Bonus section:
+- Orgasm count bonus (+1 rating point for every 3 recorded orgasms, automatic and read-only)
 - Consistency (+0.5 when present)
 - Dick (+0.5 when present)
 - Tattoos (+0.5 when present)
@@ -2293,6 +2302,9 @@ Scenes and performers each expose one combined "Rating Criteria" filter. Inside 
 ### Files Modified
 - `ui/v2.5/src/components/Shared/RatingAdvisor_custom.tsx` - Shared rating modal, scoring definitions, persistence mutation, and button component
 - `ui/v2.5/src/components/Shared/ratingAdvisor_custom.scss` - Advisor modal styling
+- `ui/v2.5/graphql/data/performer.graphql` - Adds a list-only performer fragment so performer lists do not fetch detail-only rating scores and additional image rows
+- `ui/v2.5/graphql/queries/performer.graphql` - Uses the list-only performer fragment for performer lists and keeps a full-data by-ID query for merge/detail workflows
+- `ui/v2.5/src/core/StashService.ts` - Routes by-ID performer loads through the full-data query
 - `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx` - Scene detail advisor button
 - `ui/v2.5/src/components/Performers/PerformerDetails/Performer.tsx` - Performer detail advisor button
 - `ui/v2.5/src/components/Shared/Rating/RatingSystem.tsx` - Forces ratings to display as 0-100 values
@@ -2307,7 +2319,7 @@ Scenes and performers each expose one combined "Rating Criteria" filter. Inside 
 
 ### Files Added
 - `rating_scores.up.sql` - Standalone manual SQL script for generic persisted rating score tables
-- `graphql/schema/types/rating_custom.graphql` - Rating score GraphQL types and mutation
+- `graphql/schema/types/rating_custom.graphql` - Rating score GraphQL types, mutation, and read-only orgasm-count query
 - `internal/api/resolver_rating_score_custom.go` - Rating score query/mutation resolvers
 - `pkg/models/rating_score_custom.go` - Generic rating score model and repository interfaces
 - `pkg/sqlite/rating_score_custom.go` - SQLite score store and rating recalculation logic
@@ -2315,3 +2327,4 @@ Scenes and performers each expose one combined "Rating Criteria" filter. Inside 
 - `pkg/sqlite/rating_criteria_filter_custom.go` - Shared SQLite predicates for criteria/bonus/penalty filters
 - `ui/v2.5/src/models/list-filter/criteria/rating-criteria_custom.ts` - Frontend rating criteria filter criterion classes
 - `ui/v2.5/src/components/List/Filters/RatingCriteriaFilter_custom.tsx` - Combined rating criteria filter editor
+- `ui/v2.5/src/components/Performers/performerTypes_custom.ts` - Shared performer list/card data type for the lean list query

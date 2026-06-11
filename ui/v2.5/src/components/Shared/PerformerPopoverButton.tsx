@@ -21,26 +21,33 @@ export const PerformerPopoverButton: React.FC<IProps> = ({
   linkType,
 }) => {
   const sorted = sortPerformers(performers);
-  const popoverContent = sorted.map((performer) => (
-    <div className="performer-tag-container row" key={performer.id}>
-      <Link
-        to={`/performers/${performer.id}`}
-        className="performer-tag col m-auto zoom-2"
-      >
-        <img
-          className="image-thumbnail"
-          alt={performer.name ?? ""}
-          src={performer.image_path ?? ""}
-        />
-      </Link>
-      <PerformerLink
-        key={performer.id}
-        performer={performer}
-        className="d-block"
-        linkType={linkType}
-      />
+  const popoverContent = (
+    <div className="performer-hover-grid">
+      {sorted.map((performer) => (
+        <div
+          className="performer-tag-container performer-hover-row"
+          key={performer.id}
+        >
+          <Link
+            to={`/performers/${performer.id}`}
+            className="performer-tag performer-hover-image-link zoom-2"
+          >
+            <img
+              className="image-thumbnail performer-hover-image-thumbnail"
+              alt={performer.name ?? ""}
+              src={performer.image_path ?? ""}
+            />
+          </Link>
+          <PerformerLink
+            key={performer.id}
+            performer={performer}
+            className="d-block"
+            linkType={linkType}
+          />
+        </div>
+      ))}
     </div>
-  ));
+  ); // CUSTOM
 
   return (
     <HoverPopover

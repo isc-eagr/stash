@@ -361,8 +361,8 @@ export const queryFindPerformers = (filter: ListFilterModel) =>
   });
 
 export const queryFindPerformersByID = (performerIDs: number[]) =>
-  client.query<GQL.FindPerformersQuery>({
-    query: GQL.FindPerformersDocument,
+  client.query<GQL.FindPerformersByIdQuery>({
+    query: GQL.FindPerformersByIdDocument,
     variables: {
       performer_ids: performerIDs,
     },
@@ -768,7 +768,8 @@ export const useSceneIncrementO = (id: string) =>
 // CUSTOM: Records an O at the current video player timestamp.
 export const useSceneRecordOAtTimestamp = (id: string) =>
   GQL.useSceneRecordOAtTimestampMutation({
-    update(cache, result, { variables }) { // CUSTOM: add variables to update o_timestamps
+    update(cache, result, { variables }) {
+      // CUSTOM: add variables to update o_timestamps
       const mutationResult = result.data?.sceneRecordOAtTimestamp;
       if (!mutationResult) return;
 
@@ -814,7 +815,9 @@ export const useSceneRecordOAtTimestamp = (id: string) =>
         id: cache.identify({ __typename: "Scene", id }),
         fields: {
           o_timestamps(existing) {
-            const cur = Array.isArray(existing) ? (existing as Array<number | null>) : [];
+            const cur = Array.isArray(existing)
+              ? (existing as Array<number | null>)
+              : [];
             // New O is the latest, so it goes at position 0 (parallel to o_history newest-first)
             return [videoTimestamp ?? null, ...cur];
           },
@@ -824,10 +827,7 @@ export const useSceneRecordOAtTimestamp = (id: string) =>
 
       updateO(cache, "Scene", id, history.length);
 
-      evictQueries(cache, [
-        GQL.FindScenesDocument,
-        GQL.FindPerformersDocument,
-      ]);
+      evictQueries(cache, [GQL.FindScenesDocument, GQL.FindPerformersDocument]);
     },
   });
 
@@ -1757,7 +1757,10 @@ export const useSceneReleaseCreate = () =>
 
       // Refetch linked scene's release list
       cache.evict({
-        id: cache.identify({ __typename: "Scene", id: variables.input.scene_id }),
+        id: cache.identify({
+          __typename: "Scene",
+          id: variables.input.scene_id,
+        }),
         fieldName: "releases",
       });
       cache.gc();
@@ -1798,7 +1801,10 @@ export const useSceneReleaseRemoveFile = () =>
       // Evict the file from cache if it was deleted
       if (variables.input.delete_from_filesystem) {
         cache.evict({
-          id: cache.identify({ __typename: "VideoFile", id: variables.input.file_id }),
+          id: cache.identify({
+            __typename: "VideoFile",
+            id: variables.input.file_id,
+          }),
         });
       }
       cache.gc();
@@ -1811,12 +1817,18 @@ export const useConvertSceneToRelease = () =>
       if (!result.data?.convertSceneToRelease || !variables) return;
 
       // Evict the source scene since it was deleted
-      const sourceObj = { __typename: "Scene", id: variables.input.source_scene_id };
+      const sourceObj = {
+        __typename: "Scene",
+        id: variables.input.source_scene_id,
+      };
       cache.evict({ id: cache.identify(sourceObj) });
 
       // Refetch target scene's release list
       cache.evict({
-        id: cache.identify({ __typename: "Scene", id: variables.input.target_scene_id }),
+        id: cache.identify({
+          __typename: "Scene",
+          id: variables.input.target_scene_id,
+        }),
         fieldName: "releases",
       });
       cache.gc();
@@ -1829,7 +1841,10 @@ export const useConvertReleaseToScene = () =>
       if (!result.data?.convertReleaseToScene || !variables) return;
 
       // Evict the release since it was deleted
-      const releaseObj = { __typename: "SceneRelease", id: variables.input.release_id };
+      const releaseObj = {
+        __typename: "SceneRelease",
+        id: variables.input.release_id,
+      };
       cache.evict({ id: cache.identify(releaseObj) });
 
       // Update stats

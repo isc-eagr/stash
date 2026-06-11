@@ -42,6 +42,7 @@ extend type Performer {
 
 extend type Query {
   ratingScores(entity_type: String!, entity_id: ID!): [RatingScore!]!
+  ratingOrgasmCount(entity_type: String!, entity_id: ID!): Int!
 }
 
 extend type Mutation {

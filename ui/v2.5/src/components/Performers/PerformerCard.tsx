@@ -10,10 +10,7 @@ import { CountryFlag } from "../Shared/CountryFlag";
 import { HoverPopover } from "../Shared/HoverPopover";
 import { Icon } from "../Shared/Icon";
 import { TagLink } from "../Shared/TagLink";
-import {
-  Button,
-  ButtonGroup,
-} from "react-bootstrap";
+import { Button, ButtonGroup } from "react-bootstrap";
 import {
   ModifierCriterion,
   CriterionValue,
@@ -47,6 +44,7 @@ import { PerformerCategoryStrip } from "./PerformerDetails/PerformerCategoryStri
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import facialPng from "src/assets/facial.png"; // CUSTOM
+import type { PerformerListData } from "./performerTypes_custom";
 // CUSTOM: end
 
 export interface IPerformerCardExtraCriteria {
@@ -89,7 +87,7 @@ interface IPerformerStudioStats {
 }
 
 interface IPerformerCardProps {
-  performer: GQL.PerformerDataFragment;
+  performer: PerformerListData;
   cardWidth?: number;
   ageFromDate?: string;
   selecting?: boolean;
@@ -117,10 +115,10 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     const roleTagIds = configuration?.ui?.roleTagIds ?? {};
 
     // Get configured tag IDs directly (no need to query by name)
-    const {sexTagId} = roleTagIds;
-    const {oralTagId} = roleTagIds;
-    const {soloTagId} = roleTagIds;
-    const {facialTagId} = roleTagIds;
+    const { sexTagId } = roleTagIds;
+    const { oralTagId } = roleTagIds;
+    const { soloTagId } = roleTagIds;
+    const { facialTagId } = roleTagIds;
 
     const sceneCount = studioStats?.scene_count ?? performer.scene_count;
     const imageCount = studioStats?.image_count ?? performer.image_count;
@@ -408,7 +406,7 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     );
 
     if (hasAnyPopover) {
-    // CUSTOM: end
+      // CUSTOM: end
       return (
         <>
           <hr />
@@ -548,7 +546,15 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
 const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Details",
   // CUSTOM: begin - added sceneId, scenePerformerCount, scenePartnerPerformers props; scene marker roles query
-  ({ performer, ageFromDate, sceneId, scenePerformerCount, scenePartnerPerformers, studioStats, extraCriteria }) => {
+  ({
+    performer,
+    ageFromDate,
+    sceneId,
+    scenePerformerCount,
+    scenePartnerPerformers,
+    studioStats,
+    extraCriteria,
+  }) => {
     const intl = useIntl();
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { configuration: _configuration } = useConfigurationContext();
@@ -598,7 +604,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
         </div>
 
         {/* Role badges using shared component */}
-        <PerformerCategoryStrip 
+        <PerformerCategoryStrip
           performer={performer}
           sceneId={sceneId}
           markerRoles={markerRoles}
@@ -606,7 +612,15 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
           scenePartnerPerformers={scenePartnerPerformers} // CUSTOM
           globalStatsOverride={studioStats}
           hideUniquePartnerCounts={false}
-          studioContext={extraCriteria?.studio ? { id: extraCriteria.studio.id, label: extraCriteria.studio.label, depth: extraCriteria.studio.depth ?? 0 } : undefined} // CUSTOM
+          studioContext={
+            extraCriteria?.studio
+              ? {
+                  id: extraCriteria.studio.id,
+                  label: extraCriteria.studio.label,
+                  depth: extraCriteria.studio.depth ?? 0,
+                }
+              : undefined
+          } // CUSTOM
         />
         {/* CUSTOM: end */}
       </>
@@ -716,7 +730,9 @@ export const PerformerCard: React.FC<IPerformerCardProps> = PatchComponent(
         image={<PerformerCardImage {...props} />}
         overlays={<PerformerCardOverlays {...props} />}
         details={<PerformerCardDetails {...props} studioStats={studioStats} />}
-        popovers={<PerformerCardPopovers {...props} studioStats={studioStats} />}
+        popovers={
+          <PerformerCardPopovers {...props} studioStats={studioStats} />
+        }
         selected={selected}
         selecting={selecting}
         onSelectedChanged={onSelectedChanged}

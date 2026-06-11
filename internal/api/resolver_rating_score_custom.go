@@ -63,6 +63,41 @@ func (r *Resolver) ensureRatingScoreEntityExists(ctx context.Context, entityType
 	return nil
 }
 
+func (r *Resolver) recalculateRatingIfAdvisorScoresExist(ctx context.Context, entityType string, entityID int) error {
+	scores, err := r.repository.RatingScore.FindByEntity(ctx, entityType, entityID)
+	if err != nil {
+		return err
+	}
+	if len(scores) == 0 {
+		return nil
+	}
+
+	_, err = r.repository.RatingScore.RecalculateRating(ctx, entityType, entityID)
+	return err
+}
+
+func (r *Resolver) recalculateSceneODateRatingBonus(ctx context.Context, sceneID int) error {
+	if err := r.recalculateRatingIfAdvisorScoresExist(ctx, models.RatingEntityScene, sceneID); err != nil {
+		return err
+	}
+
+	performers, err := r.repository.Performer.FindBySceneID(ctx, sceneID)
+	if err != nil {
+		return err
+	}
+
+	for _, performer := range performers {
+		if performer == nil {
+			continue
+		}
+		if err := r.recalculateRatingIfAdvisorScoresExist(ctx, models.RatingEntityPerformer, performer.ID); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (r *mutationResolver) RatingScoreSet(ctx context.Context, input models.RatingScoreInput) (ret *models.RatingScoreUpdateResult, err error) {
 	score, err := normalizeRatingScoreInput(input)
 	if err != nil {
@@ -111,6 +146,30 @@ func (r *queryResolver) RatingScores(ctx context.Context, entityType string, ent
 		return err
 	}); err != nil {
 		return nil, err
+	}
+
+	return ret, nil
+}
+
+func (r *queryResolver) RatingOrgasmCount(ctx context.Context, entityType string, entityID string) (ret int, err error) {
+	id, err := strconv.Atoi(entityID)
+	if err != nil {
+		return 0, fmt.Errorf("converting entity id: %w", err)
+	}
+
+	normalizedEntityType := strings.ToLower(strings.TrimSpace(entityType))
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		switch normalizedEntityType {
+		case models.RatingEntityScene:
+			ret, err = r.repository.Scene.GetOCount(ctx, id)
+		case models.RatingEntityPerformer:
+			ret, err = r.repository.Scene.OCountByPerformerID(ctx, id)
+		default:
+			err = fmt.Errorf("%w: unsupported rating entity type %q", ErrInput, entityType)
+		}
+		return err
+	}); err != nil {
+		return 0, err
 	}
 
 	return ret, nil

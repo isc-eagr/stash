@@ -19,6 +19,7 @@ import {
 import { FormattedMessage, useIntl } from "react-intl";
 import { Icon } from "src/components/Shared/Icon";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
+import { HoverPopover } from "src/components/Shared/HoverPopover"; // CUSTOM
 import {
   faPlay,
   faPause,
@@ -69,6 +70,15 @@ function performerDisplayName(p: {
   return p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name;
 }
 
+// CUSTOM: begin - marker performer chip hover data
+interface IPerformerHoverPerformer {
+  id: string;
+  name: string;
+  image_path?: string | null;
+  disambiguation?: string | null;
+}
+// CUSTOM: end
+
 interface IMarkerInfo {
   id: string;
   title: string;
@@ -78,8 +88,8 @@ interface IMarkerInfo {
   sceneTitle: string;
   streamUrl: string;
   previewUrl: string;
-  topPerformerNames?: string[];
-  bottomPerformerNames?: string[];
+  topPerformers?: IPerformerHoverPerformer[]; // CUSTOM
+  bottomPerformers?: IPerformerHoverPerformer[]; // CUSTOM
 }
 
 export const MarkerPlaylistPlayer: React.FC = () => {
@@ -151,13 +161,19 @@ export const MarkerPlaylistPlayer: React.FC = () => {
         const streamUrl =
           m.scene.paths?.stream || `/scene/${m.scene.id}/stream`;
 
-        const topPerformerNames = (m.top_performers ?? [])
-          .map((p) => performerDisplayName(p))
-          .filter((n) => n.length > 0);
+        const topPerformers = (m.top_performers ?? []).map((p) => ({
+          id: p.id,
+          name: performerDisplayName(p),
+          image_path: p.image_path,
+          disambiguation: p.disambiguation,
+        }));
 
-        const bottomPerformerNames = (m.bottom_performers ?? [])
-          .map((p) => performerDisplayName(p))
-          .filter((n) => n.length > 0);
+        const bottomPerformers = (m.bottom_performers ?? []).map((p) => ({
+          id: p.id,
+          name: performerDisplayName(p),
+          image_path: p.image_path,
+          disambiguation: p.disambiguation,
+        }));
 
         return {
           id: m.id,
@@ -168,10 +184,9 @@ export const MarkerPlaylistPlayer: React.FC = () => {
           sceneTitle: m.scene.title || "Untitled Scene",
           streamUrl,
           previewUrl: m.preview,
-          topPerformerNames:
-            topPerformerNames.length > 0 ? topPerformerNames : undefined,
-          bottomPerformerNames:
-            bottomPerformerNames.length > 0 ? bottomPerformerNames : undefined,
+          topPerformers: topPerformers.length > 0 ? topPerformers : undefined,
+          bottomPerformers:
+            bottomPerformers.length > 0 ? bottomPerformers : undefined,
         };
       });
 
@@ -315,37 +330,33 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     };
   }, []);
 
-  // Handle mouse movement in fullscreen to show/hide overlay
+  // CUSTOM: begin - Handle mouse movement in all player modes to show/hide performer chips
+  const showPlayerOverlay = useCallback(() => {
+    setShowFullscreenOverlay(true);
+
+    if (fullscreenOverlayTimeoutRef.current) {
+      clearTimeout(fullscreenOverlayTimeoutRef.current);
+    }
+
+    fullscreenOverlayTimeoutRef.current = setTimeout(() => {
+      setShowFullscreenOverlay(false);
+    }, 2000);
+  }, []);
+
   useEffect(() => {
     const wrapper = videoWrapperRef.current;
     if (!wrapper) return;
 
-    const handleMouseMove = () => {
-      if (!isFullscreen) return;
-
-      // Show overlay
-      setShowFullscreenOverlay(true);
-
-      // Clear existing timeout
-      if (fullscreenOverlayTimeoutRef.current) {
-        clearTimeout(fullscreenOverlayTimeoutRef.current);
-      }
-
-      // Hide overlay and cursor after 2 seconds of inactivity
-      fullscreenOverlayTimeoutRef.current = setTimeout(() => {
-        setShowFullscreenOverlay(false);
-      }, 2000);
-    };
-
-    wrapper.addEventListener("mousemove", handleMouseMove);
+    wrapper.addEventListener("mousemove", showPlayerOverlay);
 
     return () => {
-      wrapper.removeEventListener("mousemove", handleMouseMove);
+      wrapper.removeEventListener("mousemove", showPlayerOverlay);
       if (fullscreenOverlayTimeoutRef.current) {
         clearTimeout(fullscreenOverlayTimeoutRef.current);
       }
     };
-  }, [isFullscreen]);
+  }, [showPlayerOverlay]);
+  // CUSTOM: end
 
   // Load first marker when markers are ready
   useEffect(() => {
@@ -600,6 +611,123 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   }
 
   const currentMarker = markers[currentIndex];
+  const currentTopPerformers = currentMarker?.topPerformers ?? [];
+  const currentBottomPerformers = currentMarker?.bottomPerformers ?? [];
+  const currentMarkerHasPerformers =
+    currentTopPerformers.length > 0 || currentBottomPerformers.length > 0;
+
+  // CUSTOM: begin - shared marker performer chips with hover images
+  const renderPerformerChips = (
+    performers: IPerformerHoverPerformer[],
+    role: "top" | "bottom",
+    showRoleArrows: boolean,
+    compact = false,
+    inlinePreview = false
+  ) =>
+    performers.map((performer) => {
+      const chip = (
+        <a
+          href={`/performers/${performer.id}`}
+          className={cx("marker-performer-chip", role, {
+            compact,
+          })}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {showRoleArrows && (
+            <Icon
+              icon={role === "top" ? faArrowUp : faArrowDown}
+              className={
+                role === "top" ? "performer-icon-top" : "performer-icon-bottom"
+              }
+              title={role === "top" ? "Top" : "Bottom"}
+            />
+          )}
+          <span>{performer.name}</span>
+          {inlinePreview && (
+            <span className="performer-chip-inline-preview">
+              <img
+                alt={performer.name ?? ""}
+                src={performer.image_path ?? ""}
+              />
+            </span>
+          )}
+        </a>
+      );
+
+      if (inlinePreview)
+        return <React.Fragment key={performer.id}>{chip}</React.Fragment>;
+
+      return (
+        <HoverPopover
+          key={performer.id}
+          className="marker-performer-hover-trigger"
+          placement="top"
+          content={
+            <div className="performer-hover-grid">
+              <div className="performer-tag-container performer-hover-row">
+                <a
+                  href={`/performers/${performer.id}`}
+                  className="performer-tag performer-hover-image-link zoom-2"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <img
+                    className="image-thumbnail performer-hover-image-thumbnail"
+                    alt={performer.name ?? ""}
+                    src={performer.image_path ?? ""}
+                  />
+                </a>
+              </div>
+            </div>
+          }
+        >
+          {chip}
+        </HoverPopover>
+      );
+    });
+
+  const renderCurrentPerformerOverlay = () => {
+    if (!showFullscreenOverlay || !currentMarkerHasPerformers) return null;
+
+    const showRoleArrows =
+      currentTopPerformers.length > 0 && currentBottomPerformers.length > 0;
+
+    return (
+      <div
+        className={cx("fullscreen-performer-overlay", {
+          "normal-mode": !isFullscreen,
+        })}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {currentTopPerformers.length > 0 && (
+          <div className="performer-info top">
+            {renderPerformerChips(
+              currentTopPerformers,
+              "top",
+              showRoleArrows,
+              false,
+              true
+            )}
+          </div>
+        )}
+        {currentBottomPerformers.length > 0 && (
+          <div className="performer-info bottom">
+            {renderPerformerChips(
+              currentBottomPerformers,
+              "bottom",
+              showRoleArrows,
+              false,
+              true
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+  // CUSTOM: end
 
   return (
     <div className="marker-playlist-player" ref={containerRef}>
@@ -724,60 +852,14 @@ export const MarkerPlaylistPlayer: React.FC = () => {
             className="video-wrapper"
             ref={videoWrapperRef}
             onClick={handleVideoClick}
+            onMouseMove={showPlayerOverlay}
             style={{
               cursor:
                 isFullscreen && !showFullscreenOverlay ? "none" : undefined,
             }}
           >
             <video ref={videoRef} playsInline className="video-player" />
-            {/* Fullscreen performer overlay - shows on mouse movement */}
-            {isFullscreen &&
-              showFullscreenOverlay &&
-              ((currentMarker?.topPerformerNames &&
-                currentMarker.topPerformerNames.length > 0) ||
-                (currentMarker?.bottomPerformerNames &&
-                  currentMarker.bottomPerformerNames.length > 0)) && (
-                <div className="fullscreen-performer-overlay">
-                  {/* Only show arrows if marker has performers in BOTH roles (top and bottom) */}
-                  {(() => {
-                    const showRoleArrows =
-                      (currentMarker?.topPerformerNames?.length ?? 0) > 0 &&
-                      (currentMarker?.bottomPerformerNames?.length ?? 0) > 0;
-                    return (
-                      <>
-                        {currentMarker?.topPerformerNames &&
-                          currentMarker.topPerformerNames.length > 0 && (
-                            <div className="performer-info top">
-                              {showRoleArrows && (
-                                <Icon
-                                  icon={faArrowUp}
-                                  className="performer-icon"
-                                />
-                              )}
-                              <span>
-                                {currentMarker.topPerformerNames.join(", ")}
-                              </span>
-                            </div>
-                          )}
-                        {currentMarker?.bottomPerformerNames &&
-                          currentMarker.bottomPerformerNames.length > 0 && (
-                            <div className="performer-info bottom">
-                              {showRoleArrows && (
-                                <Icon
-                                  icon={faArrowDown}
-                                  className="performer-icon"
-                                />
-                              )}
-                              <span>
-                                {currentMarker.bottomPerformerNames.join(", ")}
-                              </span>
-                            </div>
-                          )}
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
+            {renderCurrentPerformerOverlay()}
             {/* Fullscreen navigation buttons - prev/next marker */}
             {isFullscreen && showFullscreenOverlay && markers.length > 1 && (
               <>
@@ -862,44 +944,35 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                 {currentMarker?.sceneTitle}
               </a>
             </div>
-            {(currentMarker?.topPerformerNames &&
-              currentMarker.topPerformerNames.length > 0) ||
-            (currentMarker?.bottomPerformerNames &&
-              currentMarker.bottomPerformerNames.length > 0) ? (
+            {currentMarkerHasPerformers ? (
               <div className="now-playing-performers">
                 {/* Only show arrows if marker has performers in BOTH roles (top and bottom) */}
                 {(() => {
                   const showRoleArrows =
-                    (currentMarker?.topPerformerNames?.length ?? 0) > 0 &&
-                    (currentMarker?.bottomPerformerNames?.length ?? 0) > 0;
+                    currentTopPerformers.length > 0 &&
+                    currentBottomPerformers.length > 0;
                   return (
                     <>
-                      {currentMarker?.topPerformerNames &&
-                        currentMarker.topPerformerNames.length > 0 && (
-                          <span className="marker-performers top">
-                            {showRoleArrows && (
-                              <Icon
-                                icon={faArrowUp}
-                                className="performer-icon-top mr-1"
-                                title="Top"
-                              />
-                            )}
-                            {currentMarker.topPerformerNames.join(", ")}
-                          </span>
-                        )}
-                      {currentMarker?.bottomPerformerNames &&
-                        currentMarker.bottomPerformerNames.length > 0 && (
-                          <span className="marker-performers bottom">
-                            {showRoleArrows && (
-                              <Icon
-                                icon={faArrowDown}
-                                className="performer-icon-bottom mr-1"
-                                title="Bottom"
-                              />
-                            )}
-                            {currentMarker.bottomPerformerNames.join(", ")}
-                          </span>
-                        )}
+                      {currentTopPerformers.length > 0 && (
+                        <span className="marker-performers top">
+                          {renderPerformerChips(
+                            currentTopPerformers,
+                            "top",
+                            showRoleArrows,
+                            true
+                          )}
+                        </span>
+                      )}
+                      {currentBottomPerformers.length > 0 && (
+                        <span className="marker-performers bottom">
+                          {renderPerformerChips(
+                            currentBottomPerformers,
+                            "bottom",
+                            showRoleArrows,
+                            true
+                          )}
+                        </span>
+                      )}
                     </>
                   );
                 })()}
@@ -942,32 +1015,30 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                     {/* Only show arrows if marker has performers in BOTH roles (top and bottom) */}
                     {(() => {
                       const showRoleArrows =
-                        (marker.topPerformerNames?.length ?? 0) > 0 &&
-                        (marker.bottomPerformerNames?.length ?? 0) > 0;
+                        (marker.topPerformers?.length ?? 0) > 0 &&
+                        (marker.bottomPerformers?.length ?? 0) > 0;
                       return (
                         <>
-                          {marker.topPerformerNames &&
-                            marker.topPerformerNames.length > 0 && (
+                          {marker.topPerformers &&
+                            marker.topPerformers.length > 0 && (
                               <div className="marker-performers top">
-                                {showRoleArrows && (
-                                  <Icon
-                                    icon={faArrowUp}
-                                    className="performer-icon-top mr-1"
-                                  />
+                                {renderPerformerChips(
+                                  marker.topPerformers,
+                                  "top",
+                                  showRoleArrows,
+                                  true
                                 )}
-                                {marker.topPerformerNames.join(", ")}
                               </div>
                             )}
-                          {marker.bottomPerformerNames &&
-                            marker.bottomPerformerNames.length > 0 && (
+                          {marker.bottomPerformers &&
+                            marker.bottomPerformers.length > 0 && (
                               <div className="marker-performers bottom">
-                                {showRoleArrows && (
-                                  <Icon
-                                    icon={faArrowDown}
-                                    className="performer-icon-bottom mr-1"
-                                  />
+                                {renderPerformerChips(
+                                  marker.bottomPerformers,
+                                  "bottom",
+                                  showRoleArrows,
+                                  true
                                 )}
-                                {marker.bottomPerformerNames.join(", ")}
                               </div>
                             )}
                         </>

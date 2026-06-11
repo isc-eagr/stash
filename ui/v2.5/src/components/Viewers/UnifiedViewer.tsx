@@ -42,6 +42,7 @@ import {
   IVideoViewerItem,
   MultiVideoViewer,
 } from "src/components/Scenes/MultiVideoViewer";
+import { ErrorMessage } from "src/components/Shared/ErrorMessage"; // CUSTOM
 
 const FIND_UNIFIED_VIEWER_IMAGES = gql`
   query FindUnifiedViewerImages($ids: [ID!]) {
@@ -130,6 +131,7 @@ const FIND_UNIFIED_VIEWER_SCENES = gql`
           id
           name
           disambiguation
+          image_path
         }
       }
     }
@@ -212,6 +214,7 @@ interface ISceneForViewer {
     id: string;
     name: string;
     disambiguation?: string | null;
+    image_path?: string | null;
   }[];
 }
 
@@ -287,8 +290,10 @@ function splitIds(value: string | null) {
 
 function firstIds(params: URLSearchParams, keys: string[]) {
   for (const key of keys) {
-    const ids = splitIds(params.get(key));
+    // CUSTOM: begin - support pasted viewer URLs with repeated or singular params
+    const ids = params.getAll(key).flatMap(splitIds);
     if (ids.length > 0) return ids;
+    // CUSTOM: end
   }
   return [];
 }
@@ -690,24 +695,32 @@ export const UnifiedViewer: React.FC = () => {
   );
 
   const { imageIds, markerIds, sceneIds } = useMemo(() => {
-    const params = new URLSearchParams(location.search);
+    // CUSTOM: begin - make pasted viewer URLs survive cold app boot
+    const search = location.search || window.location.search;
+    const pathname = location.pathname || window.location.pathname;
+    const params = new URLSearchParams(search);
+    // CUSTOM: end
     const legacyIds = splitIds(params.get("ids"));
-    const imageParamIds = firstIds(params, ["images", "image_ids"]);
-    const markerParamIds = firstIds(params, ["markers", "marker_ids"]);
-    const sceneParamIds = firstIds(params, ["scenes", "scene_ids"]);
+    const imageParamIds = firstIds(params, ["images", "image", "image_ids"]);
+    const markerParamIds = firstIds(params, [
+      "markers",
+      "marker",
+      "marker_ids",
+    ]);
+    const sceneParamIds = firstIds(params, ["scenes", "scene", "scene_ids"]);
 
     return {
       imageIds:
-        imageParamIds.length > 0 || location.pathname !== "/images/viewer"
+        imageParamIds.length > 0 || pathname !== "/images/viewer"
           ? imageParamIds
           : legacyIds,
       markerIds:
         markerParamIds.length > 0 ||
-        location.pathname !== "/scenes/markers/viewer"
+        pathname !== "/scenes/markers/viewer"
           ? markerParamIds
           : legacyIds,
       sceneIds:
-        sceneParamIds.length > 0 || location.pathname !== "/scenes/viewer"
+        sceneParamIds.length > 0 || pathname !== "/scenes/viewer"
           ? sceneParamIds
           : legacyIds,
     };
@@ -844,6 +857,18 @@ export const UnifiedViewer: React.FC = () => {
         bottomPerformerNames: (marker.bottom_performers ?? [])
           .map(performerDisplayName)
           .filter(Boolean),
+        topPerformers: (marker.top_performers ?? []).map((p) => ({
+          id: p.id,
+          name: performerDisplayName(p),
+          image_path: p.image_path,
+          disambiguation: p.disambiguation,
+        })),
+        bottomPerformers: (marker.bottom_performers ?? []).map((p) => ({
+          id: p.id,
+          name: performerDisplayName(p),
+          image_path: p.image_path,
+          disambiguation: p.disambiguation,
+        })),
       })
     );
   }, [markersQuery.data?.findSceneMarkers.scene_markers]);
@@ -918,6 +943,12 @@ export const UnifiedViewer: React.FC = () => {
         topPerformerNames: (scene.performers ?? [])
           .map(performerDisplayName)
           .filter(Boolean),
+        topPerformers: (scene.performers ?? []).map((performer) => ({
+          id: performer.id,
+          name: performerDisplayName(performer),
+          image_path: performer.image_path,
+          disambiguation: performer.disambiguation,
+        })),
       };
     });
   }, [isSafari, scenesQuery.data?.findScenes.scenes]);
@@ -961,6 +992,15 @@ export const UnifiedViewer: React.FC = () => {
       />
     </div>
   );
+
+  const loadError =
+    imagesQuery.error?.message ||
+    markersQuery.error?.message ||
+    scenesQuery.error?.message;
+
+  if (loadError) {
+    return <ErrorMessage error={loadError} />;
+  }
 
   return (
     <>

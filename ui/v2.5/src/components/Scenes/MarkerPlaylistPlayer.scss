@@ -309,7 +309,7 @@
         font-size: 0.75rem;
         padding: 0.25rem 0.5rem;
         transition: background-color 0.2s;
-        
+
         &:hover {
           background-color: #5a86b4;
         }
@@ -335,6 +335,9 @@
       }
 
       .marker-performers {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
         font-size: 0.85rem;
         color: #bbb;
       }
@@ -458,9 +461,19 @@
           }
 
           .marker-performers {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
             font-size: 0.75rem;
             color: #999;
             margin-top: 0.25rem;
+            max-width: 100%;
+
+            .marker-performer-hover-trigger,
+            .marker-performer-chip.compact {
+              max-width: 100%;
+              min-width: 0;
+            }
           }
 
           .performer-icon-top {
@@ -477,24 +490,24 @@
           flex-direction: column;
           gap: 0.25rem;
           margin-right: 0.5rem;
-          
+
           .single-loop-btn {
             padding: 0.25rem 0.4rem;
             font-size: 0.7rem;
-            
+
             &.btn-primary {
               background-color: #6c98c6;
               border-color: #6c98c6;
-              
+
               &:hover {
                 background-color: #5a86b4;
                 border-color: #5a86b4;
               }
             }
-            
+
             &.btn-outline-secondary {
               opacity: 0.5;
-              
+
               &:hover {
                 opacity: 1;
               }
@@ -516,16 +529,21 @@
   flex-direction: column;
   gap: 0.5rem;
   z-index: 9999;
-  pointer-events: none;
+  pointer-events: auto;
   animation: fadeIn 0.3s ease-in-out;
+
+  &.normal-mode {
+    bottom: 1rem;
+  }
 
   .performer-info {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    flex-wrap: wrap;
+    gap: 0.4rem;
     background-color: rgba(0, 0, 0, 0.75);
     backdrop-filter: blur(4px);
-    padding: 0.75rem 1.5rem;
+    padding: 0.55rem 0.75rem;
     border-radius: 8px;
     font-size: 1.25rem;
     font-weight: 500;
@@ -550,6 +568,52 @@
     }
   }
 }
+
+/* CUSTOM: begin - marker player performer hover chips */
+.marker-performer-chip {
+  align-items: center;
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  gap: 0.35rem;
+  line-height: 1.2;
+  max-width: min(18rem, 70vw);
+  overflow: visible;
+  padding: 0.35rem 0.7rem;
+  position: relative;
+  text-decoration: none;
+
+  &:hover {
+    color: #fff;
+    filter: brightness(1.12);
+    text-decoration: none;
+  }
+
+  &.top {
+    background: rgba(40, 130, 70, 0.82);
+  }
+
+  &.bottom {
+    background: rgba(45, 125, 160, 0.82);
+  }
+
+  &.compact {
+    font-size: 0.8rem;
+    line-height: 1.2;
+    padding: 0.24rem 0.5rem;
+  }
+
+  > span:not(.performer-chip-inline-preview) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.marker-performer-chip:hover .performer-chip-inline-preview {
+  display: block;
+}
+/* CUSTOM: end */
 
 @keyframes fadeIn {
   from {

@@ -77,6 +77,15 @@ export interface IVideoViewerSegmentPreset {
   }>;
 }
 
+// CUSTOM: begin - performer hover data for viewer overlay chips
+interface IPerformerHoverPerformer {
+  id: string;
+  name: string;
+  image_path?: string | null;
+  disambiguation?: string | null;
+}
+// CUSTOM: end
+
 export interface IVideoViewerItem {
   id: string;
   streamUrl: string;
@@ -96,6 +105,8 @@ export interface IVideoViewerItem {
   segmentPresets?: IVideoViewerSegmentPreset[];
   topPerformerNames?: string[];
   bottomPerformerNames?: string[];
+  topPerformers?: IPerformerHoverPerformer[]; // CUSTOM
+  bottomPerformers?: IPerformerHoverPerformer[]; // CUSTOM
 }
 
 export interface IImageViewerItem {
@@ -1483,6 +1494,49 @@ const DraggableVideo: React.FC<IDraggableVideoProps> = ({
     suppressClickRef.current = false;
   };
 
+  // CUSTOM: begin - performer chips with hover images
+  const topPerformers = overlay.topPerformers ?? [];
+  const bottomPerformers = overlay.bottomPerformers ?? [];
+  const hasPerformerObjects =
+    topPerformers.length > 0 || bottomPerformers.length > 0;
+  const hasPerformerNames =
+    (overlay.topPerformerNames?.length ?? 0) > 0 ||
+    (overlay.bottomPerformerNames?.length ?? 0) > 0;
+  const showArrows = hasPerformerObjects
+    ? topPerformers.length > 0 && bottomPerformers.length > 0
+    : (overlay.topPerformerNames?.length ?? 0) > 0 &&
+      (overlay.bottomPerformerNames?.length ?? 0) > 0;
+
+  const renderPerformerChips = (
+    performers: IPerformerHoverPerformer[],
+    role: "top" | "bottom"
+  ) =>
+    performers.map((performer) => (
+      <a
+        key={performer.id}
+        className={cx("mv-performer-info", {
+          "mv-performer-top": role === "top",
+          "mv-performer-bottom": role === "bottom",
+        })}
+        href={`/performers/${performer.id}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {showArrows && (
+          <Icon
+            icon={role === "top" ? faArrowUp : faArrowDown}
+            className="mv-performer-icon"
+          />
+        )}
+        <span>{performer.name}</span>
+        <span className="performer-chip-inline-preview">
+          <img alt={performer.name ?? ""} src={performer.image_path ?? ""} />
+        </span>
+      </a>
+    ));
+  // CUSTOM: end
+
   if (!overlay.visible) return null;
 
   return (
@@ -1559,60 +1613,40 @@ const DraggableVideo: React.FC<IDraggableVideoProps> = ({
             onTimeUpdate={handleNativeTimeUpdate}
           />
         )}
-        {mouseActive &&
-          ((overlay.topPerformerNames?.length ?? 0) > 0 ||
-            (overlay.bottomPerformerNames?.length ?? 0) > 0) && (
-            <div className="mv-performer-overlay">
-              {(() => {
-                const showArrows =
-                  (overlay.topPerformerNames?.length ?? 0) > 0 &&
-                  (overlay.bottomPerformerNames?.length ?? 0) > 0;
-                const sceneHref = overlay.sceneId
-                  ? `/scenes/${overlay.sceneId}`
-                  : undefined;
-                return (
-                  <>
-                    {overlay.topPerformerNames &&
-                      overlay.topPerformerNames.length > 0 && (
-                        <a
-                          className="mv-performer-info mv-performer-top"
-                          href={sceneHref}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {showArrows && (
-                            <Icon
-                              icon={faArrowUp}
-                              className="mv-performer-icon"
-                            />
-                          )}
-                          <span>{overlay.topPerformerNames.join(", ")}</span>
-                        </a>
+        {mouseActive && (hasPerformerObjects || hasPerformerNames) && (
+          <div className="mv-performer-overlay">
+            {hasPerformerObjects ? (
+              <>
+                {renderPerformerChips(topPerformers, "top")}
+                {renderPerformerChips(bottomPerformers, "bottom")}
+              </>
+            ) : (
+              <>
+                {overlay.topPerformerNames &&
+                  overlay.topPerformerNames.length > 0 && (
+                    <span className="mv-performer-info mv-performer-top">
+                      {showArrows && (
+                        <Icon icon={faArrowUp} className="mv-performer-icon" />
                       )}
-                    {overlay.bottomPerformerNames &&
-                      overlay.bottomPerformerNames.length > 0 && (
-                        <a
-                          className="mv-performer-info mv-performer-bottom"
-                          href={sceneHref}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {showArrows && (
-                            <Icon
-                              icon={faArrowDown}
-                              className="mv-performer-icon"
-                            />
-                          )}
-                          <span>{overlay.bottomPerformerNames.join(", ")}</span>
-                        </a>
+                      <span>{overlay.topPerformerNames.join(", ")}</span>
+                    </span>
+                  )}
+                {overlay.bottomPerformerNames &&
+                  overlay.bottomPerformerNames.length > 0 && (
+                    <span className="mv-performer-info mv-performer-bottom">
+                      {showArrows && (
+                        <Icon
+                          icon={faArrowDown}
+                          className="mv-performer-icon"
+                        />
                       )}
-                  </>
-                );
-              })()}
-            </div>
-          )}
+                      <span>{overlay.bottomPerformerNames.join(", ")}</span>
+                    </span>
+                  )}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div

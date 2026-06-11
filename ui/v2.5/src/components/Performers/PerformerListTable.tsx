@@ -4,7 +4,6 @@ import React from "react";
 import { useIntl } from "react-intl";
 import { Button } from "react-bootstrap";
 import { Link } from "react-router-dom";
-import * as GQL from "src/core/generated-graphql";
 import { usePerformerUpdate } from "src/core/StashService";
 import { Icon } from "../Shared/Icon";
 import NavUtils from "src/utils/navigation";
@@ -22,9 +21,10 @@ import {
 import TextUtils from "src/utils/text";
 import { getCountryByISO } from "src/utils/country";
 import { IColumn, ListTable } from "../List/ListTable";
+import type { PerformerListData } from "./performerTypes_custom"; // CUSTOM
 
 interface IPerformerListTableProps {
-  performers: GQL.PerformerDataFragment[];
+  performers: PerformerListData[];
   selectedIds: Set<string>;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
 }
@@ -50,7 +50,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     }
   }
 
-  const ImageCell = (performer: GQL.PerformerDataFragment) => (
+  const ImageCell = (performer: PerformerListData) => (
     <Link to={`/performers/${performer.id}`}>
       <img
         loading="lazy"
@@ -61,7 +61,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     </Link>
   );
 
-  const NameCell = (performer: GQL.PerformerDataFragment) => (
+  const NameCell = (performer: PerformerListData) => (
     <Link to={`/performers/${performer.id}`}>
       <div className="ellips-data" title={performer.name}>
         {performer.name}
@@ -74,7 +74,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     </Link>
   );
 
-  const AliasesCell = (performer: GQL.PerformerDataFragment) => {
+  const AliasesCell = (performer: PerformerListData) => {
     let aliases = performer.alias_list ? performer.alias_list.join(", ") : "";
     return (
       <span className="ellips-data" title={aliases}>
@@ -83,7 +83,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     );
   };
 
-  const GenderCell = (performer: GQL.PerformerDataFragment) => (
+  const GenderCell = (performer: PerformerListData) => (
     <>
       {performer.gender
         ? intl.formatMessage({ id: "gender_types." + performer.gender })
@@ -91,14 +91,11 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     </>
   );
 
-  const RatingCell = (performer: GQL.PerformerDataFragment) => (
-    <RatingSystem
-      value={performer.rating100}
-      disabled
-    />
+  const RatingCell = (performer: PerformerListData) => (
+    <RatingSystem value={performer.rating100} disabled />
   );
 
-  const AgeCell = (performer: GQL.PerformerDataFragment) => (
+  const AgeCell = (performer: PerformerListData) => (
     <span
       title={
         performer.birthdate
@@ -112,11 +109,11 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     </span>
   );
 
-  const DeathdateCell = (performer: GQL.PerformerDataFragment) => (
+  const DeathdateCell = (performer: PerformerListData) => (
     <>{performer.death_date}</>
   );
 
-  const FavoriteCell = (performer: GQL.PerformerDataFragment) => (
+  const FavoriteCell = (performer: PerformerListData) => (
     <Button
       className={cx(
         "minimal",
@@ -128,7 +125,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     </Button>
   );
 
-  const CountryCell = (performer: GQL.PerformerDataFragment) => {
+  const CountryCell = (performer: PerformerListData) => {
     const { locale } = useIntl();
     return (
       <span className="ellips-data">
@@ -137,65 +134,65 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     );
   };
 
-  const EthnicityCell = (performer: GQL.PerformerDataFragment) => (
+  const EthnicityCell = (performer: PerformerListData) => (
     <>{performer.ethnicity}</>
   );
 
-  const MeasurementsCell = (performer: GQL.PerformerDataFragment) => (
+  const MeasurementsCell = (performer: PerformerListData) => (
     <span className="ellips-data">{performer.measurements}</span>
   );
 
-  const FakeTitsCell = (performer: GQL.PerformerDataFragment) => (
+  const FakeTitsCell = (performer: PerformerListData) => (
     <>{performer.fake_tits}</>
   );
 
-  const PenisLengthCell = (performer: GQL.PerformerDataFragment) => (
+  const PenisLengthCell = (performer: PerformerListData) => (
     <>{FormatPenisLength(performer.penis_length)}</>
   );
 
-  const CircumcisedCell = (performer: GQL.PerformerDataFragment) => (
+  const CircumcisedCell = (performer: PerformerListData) => (
     <>{FormatCircumcised(performer.circumcised)}</>
   );
 
-  const HairColorCell = (performer: GQL.PerformerDataFragment) => (
+  const HairColorCell = (performer: PerformerListData) => (
     <span className="ellips-data">{performer.hair_color}</span>
   );
 
-  const EyeColorCell = (performer: GQL.PerformerDataFragment) => (
+  const EyeColorCell = (performer: PerformerListData) => (
     <>{performer.eye_color}</>
   );
 
-  const HeightCell = (performer: GQL.PerformerDataFragment) => (
+  const HeightCell = (performer: PerformerListData) => (
     <>{FormatHeight(performer.height_cm)}</>
   );
 
-  const WeightCell = (performer: GQL.PerformerDataFragment) => (
+  const WeightCell = (performer: PerformerListData) => (
     <>{FormatWeight(performer.weight)}</>
   );
 
-  const CareerLengthCell = (performer: GQL.PerformerDataFragment) => (
+  const CareerLengthCell = (performer: PerformerListData) => (
     <>{formatYearRange(performer.career_start, performer.career_end) ?? ""}</>
   );
 
-  const SceneCountCell = (performer: GQL.PerformerDataFragment) => (
+  const SceneCountCell = (performer: PerformerListData) => (
     <Link to={NavUtils.makePerformerScenesUrl(performer)}>
       <span>{performer.scene_count}</span>
     </Link>
   );
 
-  const GalleryCountCell = (performer: GQL.PerformerDataFragment) => (
+  const GalleryCountCell = (performer: PerformerListData) => (
     <Link to={NavUtils.makePerformerGalleriesUrl(performer)}>
       <span>{performer.gallery_count}</span>
     </Link>
   );
 
-  const ImageCountCell = (performer: GQL.PerformerDataFragment) => (
+  const ImageCountCell = (performer: PerformerListData) => (
     <Link to={NavUtils.makePerformerImagesUrl(performer)}>
       <span>{performer.image_count}</span>
     </Link>
   );
 
-  const OCounterCell = (performer: GQL.PerformerDataFragment) => (
+  const OCounterCell = (performer: PerformerListData) => (
     <>{performer.o_counter}</>
   );
 
@@ -204,10 +201,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     label: string;
     defaultShow?: boolean;
     mandatory?: boolean;
-    render?: (
-      scene: GQL.PerformerDataFragment,
-      index: number
-    ) => React.ReactNode;
+    render?: (scene: PerformerListData, index: number) => React.ReactNode;
   }
 
   const allColumns: IColumnSpec[] = [
@@ -354,7 +348,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
 
   const columnRenderFuncs: Record<
     string,
-    (scene: GQL.PerformerDataFragment, index: number) => React.ReactNode
+    (scene: PerformerListData, index: number) => React.ReactNode
   > = {};
   allColumns.forEach((col) => {
     if (col.render) {
@@ -364,7 +358,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
 
   function renderCell(
     column: IColumn,
-    performer: GQL.PerformerDataFragment,
+    performer: PerformerListData,
     index: number
   ) {
     const render = columnRenderFuncs[column.value];

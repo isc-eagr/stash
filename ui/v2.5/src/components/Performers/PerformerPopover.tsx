@@ -18,7 +18,7 @@ export const PerformerPopoverCard: React.FC<IPeromerPopoverCardProps> = ({
 
   if (loading)
     return (
-      <div className="tag-popover-card-placeholder">
+      <div className="tag-popover-card-placeholder performer-popover-card-placeholder">
         <LoadingIndicator card={true} message={""} />
       </div>
     );
@@ -29,7 +29,7 @@ export const PerformerPopoverCard: React.FC<IPeromerPopoverCardProps> = ({
   const performer = data.findPerformer;
 
   return (
-    <div className="tag-popover-card">
+    <div className="tag-popover-card performer-popover-card">
       <PerformerCard performer={performer} zoomIndex={0} />
     </div>
   );

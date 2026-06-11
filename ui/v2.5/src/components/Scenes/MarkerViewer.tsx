@@ -58,6 +58,18 @@ export const MarkerViewer: React.FC = () => {
       bottomPerformerNames: (m.bottom_performers ?? [])
         .map(performerDisplayName)
         .filter(Boolean),
+      topPerformers: (m.top_performers ?? []).map((p) => ({
+        id: p.id,
+        name: performerDisplayName(p),
+        image_path: p.image_path,
+        disambiguation: p.disambiguation,
+      })),
+      bottomPerformers: (m.bottom_performers ?? []).map((p) => ({
+        id: p.id,
+        name: performerDisplayName(p),
+        image_path: p.image_path,
+        disambiguation: p.disambiguation,
+      })),
     }));
   }, [data?.findSceneMarkers.scene_markers]);
 

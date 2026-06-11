@@ -2,7 +2,7 @@
 
 These notes give focused, actionable guidance to an AI coding agent working on the Stash repo so it can be productive immediately. Keep responses concise and reference exact files/commands where helpful.
 
-Always perform a build before considering work complete. This is extremely important. Fix any errors found during the build process before moving on. If you make changes that affect generated code, run `make generate` first, then `go build ./...`.
+Always perform a compilation/check before considering work complete. This is extremely important. Fix any errors found during the compile/check process before moving on. If you make changes that affect generated code, run `make generate` first, then `go build ./...`. Do not do a full production/release build unless explicitly requested; use the fastest relevant compilation/check command for the files you changed.
 
 Always follow `CUSTOM_CODE_CONVENTIONS.md` for naming and file organization. This is crucial for maintainability and clarity in this codebase. Key rules:
    - New Go files → `_custom.go` suffix (e.g. `resolver_model_scene_custom.go`)
@@ -24,7 +24,19 @@ Always apply small changes at a time, but do ensure that work is complete withou
 2. Common developer workflows (exact commands)
    - Install UI deps (run once): `make pre-ui` (on Windows use `mingw32-make pre-ui`).
    - Generate GraphQL/codegen (after schema changes): `make generate` (also runs UI generation). Alternatively run `go generate ./cmd/stash` to regenerate backend.
-   - Build backend binary: `make stash` (or `make build` for both `stash` and `phasher`). For release builds: `make build-release`.
+   - Backend binary commands, only when an actual binary is needed: `make stash` (or `make build` for both `stash` and `phasher`). For release builds: `make build-release`.
+   - Fast backend compile check: `go build ./cmd/stash` (or `go build -o <tmp>/stash-check ./cmd/stash` to avoid touching the repo binary). Use this for backend-only or mixed changes before reaching for release builds.
+   - Fast frontend checks:
+     - Changed-file lint/format check: `make validate-ui-quick` (skips slow `tsc --noEmit`).
+     - Changed-file formatting: `make fmt-ui-quick`.
+     - TypeScript-only compile check: `cd ui/v2.5 && npm run check`.
+     - Vite parse/bundle fallback without full backend, only when JSX/TSX parsing risk is not covered by faster checks: `cd ui/v2.5 && npm run build` or `make ui-only`.
+     - On PowerShell, if npm is blocked by script execution policy, call `npm.cmd` or the local `.CMD` shim in `ui/v2.5/node_modules/.bin`.
+   - Suggested quick verification by change type:
+     - Go-only: `go build ./cmd/stash` (add `go test ./...` when behavior changed).
+     - UI-only: `make validate-ui-quick`, then `cd ui/v2.5 && npm run check` when TypeScript types may be affected.
+     - JSX/TSX parse risk: prefer `cd ui/v2.5 && npm run check`; use `cd ui/v2.5 && npm run build` only when a Vite/esbuild parse/bundle check is specifically needed.
+     - GraphQL/schema/generated changes: run `make generate` first, then `go build ./...`.
    - Run dev server: `make server-start` (uses `.local` and `config.yml`). In separate terminal run `make ui-start` to run the UI in dev mode.
    - Run tests (fast): `make test`. Run integration tests too: `make it` (adds `integration` build tag).
    - Lint: `make lint` (uses `golangci-lint`).
@@ -47,7 +59,7 @@ Always apply small changes at a time, but do ensure that work is complete withou
 
 6. Testing and CI hints
    - Unit tests: `go test ./...` (wrapped by `make test`). Integration tests require `make it` (build tag `integration`).
-   - Frontend tests / validation: `make validate-ui` and `make ui` for build artifacts used by backend.
+   - Frontend tests / validation: prefer `make validate-ui-quick` and `cd ui/v2.5 && npm run check`; use `make validate-ui` or `make ui` only when broader validation or backend UI artifacts are explicitly needed.
    - Linting and formatting: `make fmt` for Go, `make fmt-ui` for UI. Use `make validate` to run full checks required by PRs.
 
 7. Quick navigation pointers (files to inspect for common tasks)

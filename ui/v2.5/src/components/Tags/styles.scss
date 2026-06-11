@@ -125,6 +125,18 @@
   }
 }
 
+/* CUSTOM: begin - larger performer card popover */
+.performer-popover-card-placeholder {
+  max-width: 320px;
+}
+
+.tag-popover-card.performer-popover-card {
+  .card {
+    width: 320px;
+  }
+}
+/* CUSTOM: end */
+
 /* CUSTOM: begin - green variant of Performers count button on Tag cards */
 .card-popovers a.performer-green > .btn.minimal,
 .card-popovers .performer-green > .btn.minimal {

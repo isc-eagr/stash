@@ -71,6 +71,7 @@ const FIND_SCENES_FOR_VIEWER = gql`
           id
           name
           disambiguation
+          image_path
         }
       }
     }
@@ -141,6 +142,7 @@ interface ISceneForViewer {
     id: string;
     name: string;
     disambiguation?: string | null;
+    image_path?: string | null;
   }[];
 }
 
@@ -299,6 +301,12 @@ export const SceneViewer: React.FC = () => {
         topPerformerNames: (scene.performers ?? [])
           .map(performerDisplayName)
           .filter(Boolean),
+        topPerformers: (scene.performers ?? []).map((performer) => ({
+          id: performer.id,
+          name: performerDisplayName(performer),
+          image_path: performer.image_path,
+          disambiguation: performer.disambiguation,
+        })),
       };
     });
   }, [data?.findScenes.scenes, isSafari]);
