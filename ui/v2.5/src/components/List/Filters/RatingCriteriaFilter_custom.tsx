@@ -4,10 +4,10 @@ import { Button, Form } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import { CriterionModifier } from "src/core/generated-graphql";
 import {
+  IRatingCriteriaChoice,
+  IRatingCriteriaNumericDefinition,
+  IRatingCriteriaPresenceDefinition,
   RatingCriteriaCriterion,
-  RatingCriteriaChoice,
-  RatingCriteriaNumericDefinition,
-  RatingCriteriaPresenceDefinition,
   RatingPresenceSection,
   ratingCriteriaModifierOptions,
 } from "src/models/list-filter/criteria/rating-criteria_custom";
@@ -19,16 +19,16 @@ interface IRatingCriteriaFilter {
   setCriterion: (c: RatingCriteriaCriterion) => void;
 }
 
-function firstChoice(definition: RatingCriteriaNumericDefinition) {
+function firstChoice(definition: IRatingCriteriaNumericDefinition) {
   return definition.choices[0]?.value ?? 0;
 }
 
-function lastChoice(definition: RatingCriteriaNumericDefinition) {
+function lastChoice(definition: IRatingCriteriaNumericDefinition) {
   return definition.choices[definition.choices.length - 1]?.value ?? 0;
 }
 
 function choiceIndex(
-  definition: RatingCriteriaNumericDefinition,
+  definition: IRatingCriteriaNumericDefinition,
   value: number | undefined
 ) {
   if (value === undefined) {
@@ -48,7 +48,7 @@ function choiceIndex(
   }, 0);
 }
 
-function choiceLabel(choice: RatingCriteriaChoice) {
+function choiceLabel(choice: IRatingCriteriaChoice) {
   return `${choice.value} - ${choice.label}`;
 }
 
@@ -63,7 +63,7 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
     setCriterion(next);
   }
 
-  function enableNumeric(definition: RatingCriteriaNumericDefinition) {
+  function enableNumeric(definition: IRatingCriteriaNumericDefinition) {
     const next = cloneDeep(criterion);
     next.value.criteria[definition.key] = {
       modifier: CriterionModifier.GreaterThanEquals,
@@ -76,7 +76,7 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
   }
 
   function updateNumericModifier(
-    definition: RatingCriteriaNumericDefinition,
+    definition: IRatingCriteriaNumericDefinition,
     modifier: CriterionModifier
   ) {
     const next = cloneDeep(criterion);
@@ -93,7 +93,7 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
   }
 
   function updateNumericValue(
-    definition: RatingCriteriaNumericDefinition,
+    definition: IRatingCriteriaNumericDefinition,
     property: "value" | "value2",
     choiceIndexValue: string
   ) {
@@ -106,7 +106,7 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
     updateCriterion(next);
   }
 
-  function clearNumeric(definition: RatingCriteriaNumericDefinition) {
+  function clearNumeric(definition: IRatingCriteriaNumericDefinition) {
     const next = cloneDeep(criterion);
     delete next.value.criteria[definition.key];
     updateCriterion(next);
@@ -114,7 +114,7 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
 
   function updatePresence(
     section: RatingPresenceSection,
-    definition: RatingCriteriaPresenceDefinition,
+    definition: IRatingCriteriaPresenceDefinition,
     value: string
   ) {
     const next = cloneDeep(criterion);
@@ -127,7 +127,7 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
   }
 
   function renderSlider(
-    definition: RatingCriteriaNumericDefinition,
+    definition: IRatingCriteriaNumericDefinition,
     property: "value" | "value2",
     labelID: string,
     value: number | undefined
@@ -160,14 +160,18 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
         />
         <datalist id={listId}>
           {definition.choices.map((choice, index) => (
-            <option key={choice.value} value={index} label={`${choice.value}`} />
+            <option
+              key={choice.value}
+              value={index}
+              label={`${choice.value}`}
+            />
           ))}
         </datalist>
       </Form.Group>
     );
   }
 
-  function renderNumeric(definition: RatingCriteriaNumericDefinition) {
+  function renderNumeric(definition: IRatingCriteriaNumericDefinition) {
     const current = criterion.value.criteria[definition.key];
     if (!current) {
       return (
@@ -190,7 +194,9 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
           <ModifierSelectorButtons
             options={ratingCriteriaModifierOptions}
             value={current.modifier}
-            onChanged={(modifier) => updateNumericModifier(definition, modifier)}
+            onChanged={(modifier) =>
+              updateNumericModifier(definition, modifier)
+            }
           />
           {renderSlider(
             definition,
@@ -200,14 +206,13 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
               : "criterion.value",
             current.value.value
           )}
-          {current.modifier === CriterionModifier.Between && (
+          {current.modifier === CriterionModifier.Between &&
             renderSlider(
               definition,
               "value2",
               "criterion.less_than",
               current.value.value2
-            )
-          )}
+            )}
           <Button
             className="rating-criteria-filter-action"
             onClick={() => clearNumeric(definition)}
@@ -219,7 +224,7 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
     );
   }
 
-  function renderPresence(definition: RatingCriteriaPresenceDefinition) {
+  function renderPresence(definition: IRatingCriteriaPresenceDefinition) {
     const current = criterion.value[definition.section][definition.key];
     return (
       <Form.Group className="rating-criteria-filter-row" key={definition.key}>
@@ -236,9 +241,7 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
               event.currentTarget.value
             )
           }
-          value={
-            current === undefined ? "" : current ? "true" : "false"
-          }
+          value={current === undefined ? "" : current ? "true" : "false"}
         >
           <option value="">
             {intl.formatMessage({ id: "criterion.any" })}

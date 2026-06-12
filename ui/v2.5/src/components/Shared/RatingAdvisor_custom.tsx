@@ -798,6 +798,27 @@ const performerMetrics: IAdvisorMetric[] = [
       },
     ],
   },
+  {
+    key: "feminine",
+    title: "Feminine",
+    max: 0,
+    section: "penalty",
+    hint: "Penalty when a performer's feminine presentation lowers his appeal for your rating.",
+    choices: [
+      {
+        value: 0,
+        label: "No penalty",
+        description:
+          "No penalty here; his presentation does not reduce your attraction.",
+      },
+      {
+        value: -1,
+        label: "Feminine penalty",
+        description:
+          "Use this when the performer reads too feminine for your taste and it meaningfully lowers the rating.",
+      },
+    ],
+  },
 ];
 
 function getMetricSection(metric: IAdvisorMetric) {

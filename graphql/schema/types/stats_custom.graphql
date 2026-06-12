@@ -22,6 +22,19 @@ type SceneOYearCount {
   count: Int!
 }
 
+"Highest count of scene O events on a single date"
+type SceneODayStat {
+  date: String!
+  count: Int!
+}
+
+"Longest date range between scene O events"
+type SceneODrySpell {
+  days: Int!
+  start_date: String!
+  end_date: String!
+}
+
 extend type Query {
   "Get a count of performers per ethnicity (non-empty only), sorted by highest count first"
   performerEthnicityCounts: [PerformerEthnicityCount!]!
@@ -29,6 +42,10 @@ extend type Query {
   performerEthnicityFiveStarCounts: [PerformerEthnicityCount!]!
   "Get a count of scene orgasm events grouped by year (ascending by year)"
   sceneOYearCounts: [SceneOYearCount!]!
+  "Get the date with the highest number of recorded scene O events"
+  mostOsInDay: SceneODayStat
+  "Get the longest period without a recorded scene O event"
+  longestPeriodWithoutO: SceneODrySpell
   "Get total number of 'orgasm' marker-tag entries across all scene markers"
   sceneOrgasmCount: Int!
   "Get total number of facial markers (primary or secondary). Includes descendants of 'facial'."

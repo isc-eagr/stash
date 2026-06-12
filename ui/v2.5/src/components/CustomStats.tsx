@@ -36,6 +36,27 @@ const SCENE_O_YEAR_COUNTS = gql`
   }
 `;
 
+// Highest number of scene O events recorded on one date
+const MOST_OS_IN_DAY = gql`
+  query MostOsInDay {
+    mostOsInDay {
+      date
+      count
+    }
+  }
+`;
+
+// Longest period without a recorded scene O event
+const LONGEST_PERIOD_WITHOUT_O = gql`
+  query LongestPeriodWithoutO {
+    longestPeriodWithoutO {
+      days
+      start_date
+      end_date
+    }
+  }
+`;
+
 // Total orgasm marker-tag entries (tag name == 'orgasm')
 const ORGASM_TOTAL_COUNT = gql`
   query SceneOrgasmCount {
@@ -104,7 +125,6 @@ const PERFORMERS_ONE_SCENE_COUNT = gql`
   }
 `;
 
-
 // Estimated liters from orgasms (orgasm count × 3ml)
 const ESTIMATED_LITERS = gql`
   query EstimatedLiters {
@@ -142,6 +162,10 @@ export const CustomStats: React.FC = () => {
   const { data: ethData } = usePerformerEthnicityCountsQuery();
   const { data: fiveStarData } = useQuery(PERFORMER_ETHNICITY_FIVE_STAR_COUNTS);
   const { data: oYearData } = useQuery(SCENE_O_YEAR_COUNTS);
+  const { data: mostOsInDayData } = useQuery(MOST_OS_IN_DAY);
+  const { data: longestPeriodWithoutOData } = useQuery(
+    LONGEST_PERIOD_WITHOUT_O
+  );
   const { data: orgasmCountData } = useQuery(ORGASM_TOTAL_COUNT);
   const { data: facialCountData } = useQuery(FACIAL_TOTAL_COUNT);
   const { data: performersGivenData } = useQuery(PERFORMERS_FACIAL_GIVEN_COUNT);
@@ -157,7 +181,10 @@ export const CustomStats: React.FC = () => {
   // CUSTOM: begin - Use findPerformers with partners filter to get counts
   const { data: strictTopData } = useQuery(
     gql`
-      query FindPerformersStrictTop($filter: FindFilterType, $performer_filter: PerformerFilterType) {
+      query FindPerformersStrictTop(
+        $filter: FindFilterType
+        $performer_filter: PerformerFilterType
+      ) {
         findPerformers(filter: $filter, performer_filter: $performer_filter) {
           count
         }
@@ -180,7 +207,10 @@ export const CustomStats: React.FC = () => {
 
   const { data: lenientTopData } = useQuery(
     gql`
-      query FindPerformersLenientTop($filter: FindFilterType, $performer_filter: PerformerFilterType) {
+      query FindPerformersLenientTop(
+        $filter: FindFilterType
+        $performer_filter: PerformerFilterType
+      ) {
         findPerformers(filter: $filter, performer_filter: $performer_filter) {
           count
         }
@@ -202,7 +232,10 @@ export const CustomStats: React.FC = () => {
 
   const { data: strictBottomData } = useQuery(
     gql`
-      query FindPerformersStrictBottom($filter: FindFilterType, $performer_filter: PerformerFilterType) {
+      query FindPerformersStrictBottom(
+        $filter: FindFilterType
+        $performer_filter: PerformerFilterType
+      ) {
         findPerformers(filter: $filter, performer_filter: $performer_filter) {
           count
         }
@@ -225,7 +258,10 @@ export const CustomStats: React.FC = () => {
 
   const { data: lenientBottomData } = useQuery(
     gql`
-      query FindPerformersLenientBottom($filter: FindFilterType, $performer_filter: PerformerFilterType) {
+      query FindPerformersLenientBottom(
+        $filter: FindFilterType
+        $performer_filter: PerformerFilterType
+      ) {
         findPerformers(filter: $filter, performer_filter: $performer_filter) {
           count
         }
@@ -251,10 +287,10 @@ export const CustomStats: React.FC = () => {
   const { data: facialTimeData } = useQuery(TOTAL_FACIAL_TIME);
 
   // Extract individual tag IDs for convenience
-  const {sexTagId} = roleTagIds;
-  const {oralTagId} = roleTagIds;
-  const {soloTagId} = roleTagIds;
-  const {facialTagId} = roleTagIds;
+  const { sexTagId } = roleTagIds;
+  const { oralTagId } = roleTagIds;
+  const { soloTagId } = roleTagIds;
+  const { facialTagId } = roleTagIds;
 
   // Query tags to get their names (for display and URL generation)
   const { data: tagsData } = GQL.useFindTagsQuery({
@@ -308,7 +344,11 @@ export const CustomStats: React.FC = () => {
   // Facial: has facial markers (depth -1 to include subtags)
   const makeFacialScenesUrl = () => {
     if (!facialTag) return "#";
-    return NavUtils.makeScenesWithMarkerTagUrl(facialTag.id, facialTag.name, -1);
+    return NavUtils.makeScenesWithMarkerTagUrl(
+      facialTag.id,
+      facialTag.name,
+      -1
+    );
   };
 
   // Helper to generate random sort ID
@@ -355,14 +395,16 @@ export const CustomStats: React.FC = () => {
         partner_role: "any",
       },
     };
-    return `/performers?c=${encodeURIComponent(JSON.stringify(criterionData))}&sortby=random_${getRandomSortId()}`;
+    return `/performers?c=${encodeURIComponent(
+      JSON.stringify(criterionData)
+    )}&sortby=random_${getRandomSortId()}`;
   };
 
   // Helper to create solo-only performers URL (has solo markers but not sex/oral)
   const makeSoloOnlyPerformersUrl = () => {
     if (!soloTag) return "#";
     const criteria = [];
-    
+
     // Include solo markers as top
     criteria.push({
       type: "performer_markers",
@@ -387,7 +429,7 @@ export const CustomStats: React.FC = () => {
     const excludeTags = [];
     if (oralTag) excludeTags.push({ id: oralTag.id, label: oralTag.name });
     if (sexTag) excludeTags.push({ id: sexTag.id, label: sexTag.name });
-    
+
     if (excludeTags.length > 0) {
       criteria.push({
         type: "performer_markers_exclude",
@@ -409,7 +451,9 @@ export const CustomStats: React.FC = () => {
       });
     }
 
-    return `/performers?${criteria.map(c => `c=${encodeURIComponent(JSON.stringify(c))}`).join('&')}&sortby=random_${getRandomSortId()}`;
+    return `/performers?${criteria
+      .map((c) => `c=${encodeURIComponent(JSON.stringify(c))}`)
+      .join("&")}&sortby=random_${getRandomSortId()}`;
   };
 
   // CUSTOM: Helper to create partners filter URLs for stat card links
@@ -418,7 +462,9 @@ export const CustomStats: React.FC = () => {
       type: "partners",
       value: JSON.stringify(value),
     };
-    return `/performers?c=${encodeURIComponent(JSON.stringify(criterion))}&sortby=random_${getRandomSortId()}`;
+    return `/performers?c=${encodeURIComponent(
+      JSON.stringify(criterion)
+    )}&sortby=random_${getRandomSortId()}`;
   };
 
   // Helper to create marker page URLs for Total Orgasms/Facials links
@@ -438,7 +484,9 @@ export const CustomStats: React.FC = () => {
       bottom_countries: [],
       bottom_rating: null,
     };
-    return `/scenes/markers?c=${encodeURIComponent(JSON.stringify(criterionData))}&sortby=title`;
+    return `/scenes/markers?c=${encodeURIComponent(
+      JSON.stringify(criterionData)
+    )}&sortby=title`;
   };
 
   // Helper to format seconds into a human-readable duration string
@@ -446,7 +494,7 @@ export const CustomStats: React.FC = () => {
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = Math.round(totalSeconds % 60);
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes}m ${seconds}s`;
     } else if (minutes > 0) {
@@ -560,39 +608,49 @@ export const CustomStats: React.FC = () => {
           {typeof orgasmCountData?.sceneOrgasmCount === "number" && (
             <div className="stats-element">
               <p className="title">
-                <Link to={makeMarkersTagUrl(allTags.find((t) => t.id === roleTagIds.orgasmTagId))}>
+                <Link
+                  to={makeMarkersTagUrl(
+                    allTags.find((t) => t.id === roleTagIds.orgasmTagId)
+                  )}
+                >
                   <FormattedNumber value={orgasmCountData.sceneOrgasmCount} />
                 </Link>
               </p>
               <p className="heading">Total orgasms</p>
             </div>
           )}
-          {typeof orgasmTimeData?.totalOrgasmTime === "number" && orgasmTimeData.totalOrgasmTime > 0 && (
-            <div className="stats-element">
-              <p className="title">
-                {formatDuration(orgasmTimeData.totalOrgasmTime)}
-              </p>
-              <p className="heading">Total orgasm time</p>
-            </div>
-          )}
+          {typeof orgasmTimeData?.totalOrgasmTime === "number" &&
+            orgasmTimeData.totalOrgasmTime > 0 && (
+              <div className="stats-element">
+                <p className="title">
+                  {formatDuration(orgasmTimeData.totalOrgasmTime)}
+                </p>
+                <p className="heading">Total orgasm time</p>
+              </div>
+            )}
           {typeof facialCountData?.sceneFacialCount === "number" && (
             <div className="stats-element">
               <p className="title">
-                <Link to={makeMarkersTagUrl(allTags.find((t) => t.id === roleTagIds.facialTagId))}>
+                <Link
+                  to={makeMarkersTagUrl(
+                    allTags.find((t) => t.id === roleTagIds.facialTagId)
+                  )}
+                >
                   <FormattedNumber value={facialCountData.sceneFacialCount} />
                 </Link>
               </p>
               <p className="heading">Total facials</p>
             </div>
           )}
-          {typeof facialTimeData?.totalFacialTime === "number" && facialTimeData.totalFacialTime > 0 && (
-            <div className="stats-element">
-              <p className="title">
-                {formatDuration(facialTimeData.totalFacialTime)}
-              </p>
-              <p className="heading">Total facial time</p>
-            </div>
-          )}
+          {typeof facialTimeData?.totalFacialTime === "number" &&
+            facialTimeData.totalFacialTime > 0 && (
+              <div className="stats-element">
+                <p className="title">
+                  {formatDuration(facialTimeData.totalFacialTime)}
+                </p>
+                <p className="heading">Total facial time</p>
+              </div>
+            )}
           {typeof litersData?.estimatedLiters === "number" && (
             <div className="stats-element">
               <p className="title">
@@ -620,6 +678,37 @@ export const CustomStats: React.FC = () => {
         </div>
       )}
 
+      {/* O Date Stats - recorded O dates only, starting October 3 2023 */}
+      {(mostOsInDayData?.mostOsInDay ||
+        longestPeriodWithoutOData?.longestPeriodWithoutO) && (
+        <div className="col col-sm-8 m-sm-auto row stats mt-4">
+          {mostOsInDayData?.mostOsInDay && (
+            <div className="stats-element">
+              <p className="title">
+                <FormattedNumber value={mostOsInDayData.mostOsInDay.count} />
+              </p>
+              <p className="heading">Most O&apos;s in a day</p>
+              <p className="heading">{mostOsInDayData.mostOsInDay.date}</p>
+            </div>
+          )}
+          {longestPeriodWithoutOData?.longestPeriodWithoutO && (
+            <div className="stats-element">
+              <p className="title">
+                <FormattedNumber
+                  value={longestPeriodWithoutOData.longestPeriodWithoutO.days}
+                />{" "}
+                days
+              </p>
+              <p className="heading">Longest period without an O</p>
+              <p className="heading">
+                {longestPeriodWithoutOData.longestPeriodWithoutO.start_date} -{" "}
+                {longestPeriodWithoutOData.longestPeriodWithoutO.end_date}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Performer Role Stats - in order: Top, Bottom, Strict Top, Lenient Top, Strict Bottom, Lenient Bottom, Oral Tops, Oral Bottoms, Facial Tops, Facial Bottoms */}
       {(typeof sexGivenData?.performersSexGivenCount === "number" ||
         typeof sexReceivedData?.performersSexReceivedCount === "number" ||
@@ -637,7 +726,9 @@ export const CustomStats: React.FC = () => {
             <div className="stats-element">
               <p className="title">
                 <Link to={makePerformerMarkerRoleUrl(sexTag, "top")}>
-                  <FormattedNumber value={sexGivenData.performersSexGivenCount} />
+                  <FormattedNumber
+                    value={sexGivenData.performersSexGivenCount}
+                  />
                 </Link>
               </p>
               <p className="heading">Tops</p>
@@ -658,10 +749,15 @@ export const CustomStats: React.FC = () => {
           {typeof strictTopData?.findPerformers?.count === "number" && (
             <div className="stats-element">
               <p className="title">
-                <Link to={makePartnersFilterUrl({ sex_topped: { modifier: "GREATER_THAN", value: 0 }, sex_bottomed: { modifier: "EQUALS", value: 0 }, oral_bottomed: { modifier: "EQUALS", value: 0 }, facial_bottomed: { modifier: "EQUALS", value: 0 } })}>
-                  <FormattedNumber
-                    value={strictTopData.findPerformers.count}
-                  />
+                <Link
+                  to={makePartnersFilterUrl({
+                    sex_topped: { modifier: "GREATER_THAN", value: 0 },
+                    sex_bottomed: { modifier: "EQUALS", value: 0 },
+                    oral_bottomed: { modifier: "EQUALS", value: 0 },
+                    facial_bottomed: { modifier: "EQUALS", value: 0 },
+                  })}
+                >
+                  <FormattedNumber value={strictTopData.findPerformers.count} />
                 </Link>
               </p>
               <p className="heading">Strict Tops</p>
@@ -670,7 +766,16 @@ export const CustomStats: React.FC = () => {
           {typeof lenientTopData?.findPerformers?.count === "number" && (
             <div className="stats-element">
               <p className="title">
-                <Link to={makePartnersFilterUrl({ sex_topped: { modifier: "GREATER_THAN", value: 0 }, sex_bottomed: { modifier: "EQUALS", value: 0 }, any_non_sex_bottomed: { modifier: "GREATER_THAN", value: 0 } })}>
+                <Link
+                  to={makePartnersFilterUrl({
+                    sex_topped: { modifier: "GREATER_THAN", value: 0 },
+                    sex_bottomed: { modifier: "EQUALS", value: 0 },
+                    any_non_sex_bottomed: {
+                      modifier: "GREATER_THAN",
+                      value: 0,
+                    },
+                  })}
+                >
                   <FormattedNumber
                     value={lenientTopData.findPerformers.count}
                   />
@@ -682,7 +787,14 @@ export const CustomStats: React.FC = () => {
           {typeof strictBottomData?.findPerformers?.count === "number" && (
             <div className="stats-element">
               <p className="title">
-                <Link to={makePartnersFilterUrl({ sex_bottomed: { modifier: "GREATER_THAN", value: 0 }, sex_topped: { modifier: "EQUALS", value: 0 }, oral_topped: { modifier: "EQUALS", value: 0 }, facial_topped: { modifier: "EQUALS", value: 0 } })}>
+                <Link
+                  to={makePartnersFilterUrl({
+                    sex_bottomed: { modifier: "GREATER_THAN", value: 0 },
+                    sex_topped: { modifier: "EQUALS", value: 0 },
+                    oral_topped: { modifier: "EQUALS", value: 0 },
+                    facial_topped: { modifier: "EQUALS", value: 0 },
+                  })}
+                >
                   <FormattedNumber
                     value={strictBottomData.findPerformers.count}
                   />
@@ -694,7 +806,13 @@ export const CustomStats: React.FC = () => {
           {typeof lenientBottomData?.findPerformers?.count === "number" && (
             <div className="stats-element">
               <p className="title">
-                <Link to={makePartnersFilterUrl({ sex_bottomed: { modifier: "GREATER_THAN", value: 0 }, sex_topped: { modifier: "EQUALS", value: 0 }, any_non_sex_topped: { modifier: "GREATER_THAN", value: 0 } })}>
+                <Link
+                  to={makePartnersFilterUrl({
+                    sex_bottomed: { modifier: "GREATER_THAN", value: 0 },
+                    sex_topped: { modifier: "EQUALS", value: 0 },
+                    any_non_sex_topped: { modifier: "GREATER_THAN", value: 0 },
+                  })}
+                >
                   <FormattedNumber
                     value={lenientBottomData.findPerformers.count}
                   />
@@ -765,7 +883,9 @@ export const CustomStats: React.FC = () => {
             <div className="stats-element">
               <p className="title">
                 <Link to={makeSoloOnlyPerformersUrl()}>
-                  <FormattedNumber value={soloOnlyData.performersSoloOnlyCount} />
+                  <FormattedNumber
+                    value={soloOnlyData.performersSoloOnlyCount}
+                  />
                 </Link>
               </p>
               <p className="heading">Solo only performers</p>

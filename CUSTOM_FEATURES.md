@@ -924,7 +924,7 @@ Adds a Studio filter criterion to the Scene Markers filter page, allowing filter
 ## 17. Extended Custom Statistics
 
 ### Overview
-Adds additional statistics to the Custom Stats page: estimated liters (from orgasms), total penis meters (sum of performer penis lengths), total orgasm time, and total facial time. Also adds clickable links for Total Orgasms and Total Facials counts.
+Adds additional statistics to the Custom Stats page: estimated liters (from orgasms), total penis meters (sum of performer penis lengths), total orgasm time, total facial time, most O's in a day, and longest period without an O. Also adds clickable links for Total Orgasms and Total Facials counts.
 
 ### GraphQL Schema Extensions
 **File:** `graphql/schema/types/stats.graphql`
@@ -934,6 +934,8 @@ extend type Query {
   totalPenisMeters: Float!
   totalOrgasmTime: Float!
   totalFacialTime: Float!
+  mostOsInDay: SceneODayStat
+  longestPeriodWithoutO: SceneODrySpell
 }
 ```
 
@@ -943,15 +945,19 @@ extend type Query {
 - `TotalPenisMeters` resolver: Sums performer penis lengths (defaulting to 17cm when null), converts to meters
 - `TotalOrgasmTime` resolver: Sums duration of all orgasm markers (uses end_seconds - seconds, or 20s default if no end time)
 - `TotalFacialTime` resolver: Sums duration of all facial markers (uses end_seconds - seconds, or 20s default if no end time)
+- `MostOsInDay` resolver: Groups `scenes_o_dates` by date and returns the highest daily O count, ignoring dates before October 3, 2023 when O-date tracking began
+- `LongestPeriodWithoutO` resolver: Finds the longest gap between recorded O dates from October 3, 2023 onward, including the current dry spell through today
 
 ### Frontend Files
-- `ui/v2.5/src/components/CustomStats.tsx` - Added display for estimated liters, total penis meters, total orgasm time, total facial time, and clickable links for Total Orgasms/Facials counts
+- `ui/v2.5/src/components/CustomStats.tsx` - Added display for estimated liters, total penis meters, total orgasm time, total facial time, most O's in a day, longest period without an O, and clickable links for Total Orgasms/Facials counts
 
 ### Features
 - **Estimated Liters**: Calculates total orgasms (based on tops per orgasm marker, including subtags) × 3ml converted to liters, displayed with 2 decimal places
 - **Total Penis Meters**: Sums all performer penis lengths (uses 17cm default), displays in meters with 🍆 emoji
 - **Total Orgasm Time**: Sum of all orgasm marker durations (end_seconds - seconds), using 20s default when no end timestamp
 - **Total Facial Time**: Sum of all facial marker durations (end_seconds - seconds), using 20s default when no end timestamp
+- **Most O's in a Day**: Displays the maximum number of recorded O events on a single date and the date it happened, counting only O dates from October 3, 2023 onward
+- **Longest Period Without an O**: Displays the longest O-free day count and date range from October 3, 2023 onward
 - **Clickable Total Orgasms**: Links to Markers page filtered by orgasm tag (using configured orgasmTagId)
 - **Clickable Total Facials**: Links to Markers page filtered by facial tag (using configured facialTagId)
 
@@ -2314,6 +2320,8 @@ Performer score conversion:
 
 ### Rating Criteria Filters
 Scenes and performers each expose one combined "Rating Criteria" filter. Inside that filter, numeric dimensions support `=`, `>=`, `<=`, and `BETWEEN`; bonus and penalty rows use presence checks for "has" or "does not have". The frontend serializes the selected rows into a shared `rating_criteria` GraphQL input.
+
+Performer rating criteria include a feminine performer penalty, exposed both in the performer Rating Advisor and the performer Rating Criteria filter.
 
 ### Files Modified
 - `ui/v2.5/src/components/Shared/RatingAdvisor_custom.tsx` - Shared rating modal, scoring definitions, persistence mutation, and button component

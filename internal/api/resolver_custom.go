@@ -4,13 +4,14 @@ package api
 // added to this fork. These are NOT present in upstream Stash.
 
 import (
-"context"
-"fmt"
-"strconv"
-"strings"
+	"context"
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
 
-"github.com/stashapp/stash/internal/manager"
-"github.com/stashapp/stash/internal/manager/config"
+	"github.com/stashapp/stash/internal/manager"
+	"github.com/stashapp/stash/internal/manager/config"
 )
 
 // CUSTOM: Custom resolver types for extended GraphQL types
@@ -18,15 +19,17 @@ type performerImageResolver struct{ *Resolver }
 type sceneReleaseResolver struct{ *Resolver }
 type sceneMultiSegmentLoopPresetInputResolver struct{ *Resolver }
 
+const sceneODateTrackingStart = "2023-10-03"
+
 // CUSTOM: Factory methods for custom resolver types
 func (r *Resolver) PerformerImage() PerformerImageResolver {
-return &performerImageResolver{r}
+	return &performerImageResolver{r}
 }
 func (r *Resolver) SceneRelease() SceneReleaseResolver {
-return &sceneReleaseResolver{r}
+	return &sceneReleaseResolver{r}
 }
 func (r *Resolver) SceneMultiSegmentLoopPresetInput() SceneMultiSegmentLoopPresetInputResolver {
-return &sceneMultiSegmentLoopPresetInputResolver{r}
+	return &sceneMultiSegmentLoopPresetInputResolver{r}
 }
 
 // NOTE: TagFilterType resolver stub removed temporarily to allow gqlgen
@@ -216,6 +219,117 @@ func (r *queryResolver) SceneOYearCounts(ctx context.Context) (ret []*SceneOYear
 			out = append(out, &SceneOYearCount{Year: yearInt, Count: cnt})
 		}
 		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+// MostOsInDay returns the single date with the highest recorded scene O count.
+func (r *queryResolver) MostOsInDay(ctx context.Context) (ret *SceneODayStat, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := "SELECT date(o_date) AS day, COUNT(*) AS cnt FROM scenes_o_dates WHERE o_date IS NOT NULL AND date(o_date) >= date(?) GROUP BY day ORDER BY cnt DESC, day ASC LIMIT 1"
+		_, rows, err := db.QuerySQL(ctx, query, []interface{}{sceneODateTrackingStart})
+		if err != nil {
+			return err
+		}
+		if len(rows) == 0 || len(rows[0]) < 2 {
+			return nil
+		}
+
+		var count int
+		switch v := rows[0][1].(type) {
+		case int64:
+			count = int(v)
+		case int:
+			count = v
+		case []byte:
+			count, _ = strconv.Atoi(string(v))
+		case string:
+			count, _ = strconv.Atoi(v)
+		default:
+			count, _ = strconv.Atoi(fmt.Sprint(v))
+		}
+
+		ret = &SceneODayStat{
+			Date:  fmt.Sprint(rows[0][0]),
+			Count: count,
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+// LongestPeriodWithoutO returns the longest gap between recorded scene O dates,
+// including the current gap from the most recent O date through today.
+func (r *queryResolver) LongestPeriodWithoutO(ctx context.Context) (ret *SceneODrySpell, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := "SELECT DISTINCT date(o_date) AS day FROM scenes_o_dates WHERE o_date IS NOT NULL AND date(o_date) >= date(?) ORDER BY day ASC"
+		_, rows, err := db.QuerySQL(ctx, query, []interface{}{sceneODateTrackingStart})
+		if err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			return nil
+		}
+
+		dates := make([]time.Time, 0, len(rows))
+		for _, row := range rows {
+			if len(row) == 0 || row[0] == nil {
+				continue
+			}
+			day, parseErr := time.Parse("2006-01-02", fmt.Sprint(row[0]))
+			if parseErr != nil {
+				return parseErr
+			}
+			dates = append(dates, day)
+		}
+		if len(dates) == 0 {
+			return nil
+		}
+
+		bestDays := -1
+		bestStart := dates[0]
+		bestEnd := dates[0]
+		for i := 1; i < len(dates); i++ {
+			days := int(dates[i].Sub(dates[i-1]).Hours()/24) - 1
+			if days > bestDays {
+				bestDays = days
+				bestStart = dates[i-1].AddDate(0, 0, 1)
+				bestEnd = dates[i].AddDate(0, 0, -1)
+			}
+		}
+
+		today, parseErr := time.Parse("2006-01-02", time.Now().Format("2006-01-02"))
+		if parseErr != nil {
+			return parseErr
+		}
+		lastDate := dates[len(dates)-1]
+		currentDays := int(today.Sub(lastDate).Hours() / 24)
+		if currentDays > bestDays {
+			bestDays = currentDays
+			bestStart = lastDate.AddDate(0, 0, 1)
+			bestEnd = today
+			if currentDays == 0 {
+				bestStart = today
+			}
+		}
+		if bestDays < 0 {
+			bestDays = 0
+			bestStart = lastDate
+			bestEnd = lastDate
+		}
+
+		ret = &SceneODrySpell{
+			Days:      bestDays,
+			StartDate: bestStart.Format("2006-01-02"),
+			EndDate:   bestEnd.Format("2006-01-02"),
+		}
 		return nil
 	}); err != nil {
 		return nil, err
@@ -1221,7 +1335,6 @@ FROM (
 	return count, nil
 }
 
-
 func (r *queryResolver) PerformerTagSceneCounts(ctx context.Context, performer_id string, tag_ids []string) ([]*PerformerTagSceneCount, error) {
 	// parse performer id
 	pid, err := strconv.Atoi(performer_id)
@@ -1560,4 +1673,3 @@ FROM (
 	}
 	return totalSeconds, nil
 }
-

@@ -184,12 +184,49 @@ Use these quicker checks during development instead of defaulting to full produc
   - If Git VCS stamping fails in a local checkout, use `go build -buildvcs=false ./cmd/stash` for a fast compile sanity check.
 - **Frontend changed-file check:** `make validate-ui-quick`
   - Runs lint/style/format checks only on changed UI files and intentionally skips slow `tsc --noEmit`.
+  - On Windows this target can fail with `-n was unexpected at this time`; use the direct `npm.cmd` commands below when that happens.
 - **Frontend changed-file formatting:** `make fmt-ui-quick`
 - **TypeScript compile check:** `cd ui/v2.5 && npm run check`
 - **Vite parse/bundle fallback:** `cd ui/v2.5 && npm run build` or `make ui-only`
   - Use this only when JSX/TSX parsing risk is not covered by faster checks.
-- **Generated-code changes:** run `make generate` first, then `go build ./...`.
+- **Generated-code changes:** run `make generate` first, then compile the narrowest package set that covers the change. Use `go build ./cmd/stash` for resolver/query-only GraphQL changes, and `go build ./...` for generated/shared-package changes that need the full repo compile.
 - **PowerShell npm note:** if `npm` is blocked by script execution policy, call `npm.cmd` or the local `.CMD` shim in `ui/v2.5/node_modules/.bin`.
+
+### Windows commands that worked in the June 2026 sanity pass
+
+Use these from PowerShell/cmd when the Makefile quick UI target is too slow or fails under Windows shell parsing:
+
+- `mingw32-make generate`
+- `go build ./cmd/stash`
+- `go build ./...` only when the change needs a full repo compile
+- `cd ui/v2.5 && npm.cmd run eslint -- src/components/CustomStats.tsx src/components/Shared/RatingAdvisor_custom.tsx src/models/list-filter/criteria/rating-criteria_custom.ts src/components/List/Filters/RatingCriteriaFilter_custom.tsx`
+- `cd ui/v2.5 && npm.cmd run prettier -- --check src/components/CustomStats.tsx src/components/Shared/RatingAdvisor_custom.tsx src/models/list-filter/criteria/rating-criteria_custom.ts src/components/List/Filters/RatingCriteriaFilter_custom.tsx ../../graphql/schema/types/stats_custom.graphql ../../CUSTOM_FEATURES.md`
+- `cd ui/v2.5 && npm.cmd run check`
+- `git diff --check`
+
+For future work, replace the explicit UI file list with the TS/TSX/SCSS/GraphQL/Markdown files touched in the current change.
+
+### Windows sandbox command startup hiccup
+
+Agent shell commands may intermittently fail before the command itself runs with:
+
+```text
+windows sandbox: spawn setup refresh
+```
+
+This is a sandbox/tooling startup failure, not a Stash compile, lint, git, npm, Go, or Makefile failure. When this happens:
+
+- Retry the command once in the sandbox.
+- If it fails again and the command is needed to complete the task, rerun the same command with `sandbox_permissions: "require_escalated"`.
+- Keep escalation scoped: use the same command, a short justification, and a narrow `prefix_rule` such as `["rg"]`, `["Get-Content"]`, `["git", "status"]`, `["go", "build"]`, or `["npm.cmd", "run", "prettier"]`.
+- Do not change the verification plan or skip checks just because this startup hiccup appeared.
+
+### Simpler end-of-turn sanity pass
+
+- Docs-only: `git diff --check`, plus targeted prettier check for touched markdown.
+- Go-only: `gofmt` touched Go files, then `go build ./cmd/stash`.
+- UI-only: targeted `npm.cmd run eslint -- <changed ts/tsx files>` and targeted `npm.cmd run prettier -- --check <changed ui files>` from `ui/v2.5`; add `npm.cmd run check` only if TypeScript types/imports are affected.
+- GraphQL/schema: `mingw32-make generate`, then `go build ./cmd/stash`; add `npm.cmd run check` if UI GraphQL/types are touched, and use `go build ./...` only for broad generated/shared-package impact.
 
 These are fast checks, not replacements for broader tests when behavior or generated code changes.
 

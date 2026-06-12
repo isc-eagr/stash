@@ -6,43 +6,43 @@ import { CriterionType, INumberValue } from "../types";
 // CUSTOM: begin - combined rating criteria filters
 export type RatingPresenceSection = "bonuses" | "penalties";
 
-export interface RatingCriteriaNumericDefinition {
+export interface IRatingCriteriaNumericDefinition {
   key: string;
   label: string;
-  choices: RatingCriteriaChoice[];
+  choices: IRatingCriteriaChoice[];
 }
 
-export interface RatingCriteriaChoice {
+export interface IRatingCriteriaChoice {
   value: number;
   label: string;
 }
 
-export interface RatingCriteriaPresenceDefinition {
+export interface IRatingCriteriaPresenceDefinition {
   key: string;
   label: string;
   section: RatingPresenceSection;
 }
 
-export interface RatingCriteriaNumericValue {
+export interface IRatingCriteriaNumericValue {
   modifier: CriterionModifier;
   value: INumberValue;
 }
 
-export interface RatingCriteriaValue {
-  criteria: Record<string, RatingCriteriaNumericValue | undefined>;
+export interface IRatingCriteriaValue {
+  criteria: Record<string, IRatingCriteriaNumericValue | undefined>;
   bonuses: Record<string, boolean | undefined>;
   penalties: Record<string, boolean | undefined>;
 }
 
-interface RatingCriteriaCriterionOptionParams {
+interface IRatingCriteriaCriterionOptionParams {
   type: CriterionType;
   messageID: string;
-  criteria: RatingCriteriaNumericDefinition[];
-  bonuses: RatingCriteriaPresenceDefinition[];
-  penalties: RatingCriteriaPresenceDefinition[];
+  criteria: IRatingCriteriaNumericDefinition[];
+  bonuses: IRatingCriteriaPresenceDefinition[];
+  penalties: IRatingCriteriaPresenceDefinition[];
 }
 
-interface RatingCriteriaCriterionInput {
+interface IRatingCriteriaCriterionInput {
   criteria?: {
     key: string;
     value: {
@@ -210,7 +210,7 @@ const masculinityChoices = [
   },
 ];
 
-function emptyRatingCriteriaValue(): RatingCriteriaValue {
+function emptyRatingCriteriaValue(): IRatingCriteriaValue {
   return {
     criteria: {},
     bonuses: {},
@@ -240,13 +240,13 @@ function normalizeNumberValue(value: unknown): INumberValue {
   };
 }
 
-function normalizeValue(value: unknown): RatingCriteriaValue {
+function normalizeValue(value: unknown): IRatingCriteriaValue {
   const ret = emptyRatingCriteriaValue();
   if (typeof value !== "object" || value === null) {
     return ret;
   }
 
-  const data = value as RatingCriteriaValue;
+  const data = value as IRatingCriteriaValue;
   for (const [key, criterion] of Object.entries(data.criteria ?? {})) {
     if (!criterion) continue;
 
@@ -269,7 +269,7 @@ function normalizeValue(value: unknown): RatingCriteriaValue {
   return ret;
 }
 
-function isNumberCriterionValid(criterion: RatingCriteriaNumericValue) {
+function isNumberCriterionValid(criterion: IRatingCriteriaNumericValue) {
   const { value, value2 } = criterion.value;
   if (value === undefined) {
     return false;
@@ -286,11 +286,11 @@ function isNumberCriterionValid(criterion: RatingCriteriaNumericValue) {
 }
 
 export class RatingCriteriaCriterionOption extends CriterionOption {
-  public readonly criteria: RatingCriteriaNumericDefinition[];
-  public readonly bonuses: RatingCriteriaPresenceDefinition[];
-  public readonly penalties: RatingCriteriaPresenceDefinition[];
+  public readonly criteria: IRatingCriteriaNumericDefinition[];
+  public readonly bonuses: IRatingCriteriaPresenceDefinition[];
+  public readonly penalties: IRatingCriteriaPresenceDefinition[];
 
-  constructor(options: RatingCriteriaCriterionOptionParams) {
+  constructor(options: IRatingCriteriaCriterionOptionParams) {
     super({
       messageID: options.messageID,
       type: options.type,
@@ -304,11 +304,7 @@ export class RatingCriteriaCriterionOption extends CriterionOption {
 }
 
 export class RatingCriteriaCriterion extends Criterion {
-  public value: RatingCriteriaValue = emptyRatingCriteriaValue();
-
-  constructor(option: RatingCriteriaCriterionOption) {
-    super(option);
-  }
+  public value: IRatingCriteriaValue = emptyRatingCriteriaValue();
 
   public get ratingCriteriaOption() {
     return this.criterionOption as RatingCriteriaCriterionOption;
@@ -357,9 +353,7 @@ export class RatingCriteriaCriterion extends Criterion {
 
     const criteria = Object.entries(this.value.criteria)
       .filter(
-        (
-          entry
-        ): entry is [string, RatingCriteriaNumericValue] =>
+        (entry): entry is [string, IRatingCriteriaNumericValue] =>
           !!entry[1] && isNumberCriterionValid(entry[1])
       )
       .map(([key, criterion]) => ({
@@ -385,7 +379,7 @@ export class RatingCriteriaCriterion extends Criterion {
         value: value ?? false,
       }));
 
-    const ratingCriteriaInput: RatingCriteriaCriterionInput = {
+    const ratingCriteriaInput: IRatingCriteriaCriterionInput = {
       criteria,
       bonuses,
       penalties,
@@ -410,7 +404,7 @@ export class RatingCriteriaCriterion extends Criterion {
 
   private selectedCount() {
     const criteriaCount = Object.values(this.value.criteria).filter(
-      (criterion): criterion is RatingCriteriaNumericValue =>
+      (criterion): criterion is IRatingCriteriaNumericValue =>
         !!criterion && isNumberCriterionValid(criterion)
     ).length;
 
@@ -546,6 +540,12 @@ export const PerformerRatingCriteriaCriterionOption =
         section: "bonuses",
       },
     ],
-    penalties: [],
+    penalties: [
+      {
+        key: "feminine",
+        label: "Feminine Penalty",
+        section: "penalties",
+      },
+    ],
   });
 // CUSTOM: end

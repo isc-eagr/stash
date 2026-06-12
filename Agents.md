@@ -2,7 +2,7 @@
 
 These notes give focused, actionable guidance to an AI coding agent working on the Stash repo so it can be productive immediately. Keep responses concise and reference exact files/commands where helpful.
 
-Always perform a compilation/check before considering work complete. This is extremely important. Fix any errors found during the compile/check process before moving on. If you make changes that affect generated code, run `make generate` first, then `go build ./...`. Do not do a full production/release build unless explicitly requested; use the fastest relevant compilation/check command for the files you changed.
+Always perform a compilation/check before considering work complete. This is extremely important. Fix any errors found during the compile/check process before moving on. Do not do a full production/release build unless explicitly requested; use the fastest relevant compilation/check command for the files you changed. If you make changes that affect generated code, run `make generate` first, then use the narrowest compile check that still covers the changed surface; use `go build ./...` when schema/generated/shared-package changes require the full repo compile.
 
 Always follow `CUSTOM_CODE_CONVENTIONS.md` for naming and file organization. This is crucial for maintainability and clarity in this codebase. Key rules:
    - New Go files → `_custom.go` suffix (e.g. `resolver_model_scene_custom.go`)
@@ -32,11 +32,22 @@ Always apply small changes at a time, but do ensure that work is complete withou
      - TypeScript-only compile check: `cd ui/v2.5 && npm run check`.
      - Vite parse/bundle fallback without full backend, only when JSX/TSX parsing risk is not covered by faster checks: `cd ui/v2.5 && npm run build` or `make ui-only`.
      - On PowerShell, if npm is blocked by script execution policy, call `npm.cmd` or the local `.CMD` shim in `ui/v2.5/node_modules/.bin`.
+   - Windows sanity pass that worked in this repo/session:
+     - `mingw32-make generate` for GraphQL/schema/codegen changes.
+     - `go build ./cmd/stash` for backend-only or ordinary mixed backend/UI changes.
+     - `go build ./...` only for generated-code, shared package, or broad backend changes that need the full repo compile.
+     - `cd ui/v2.5 && npm.cmd run eslint -- <changed ts/tsx files>` for targeted UI lint.
+     - `cd ui/v2.5 && npm.cmd run prettier -- --check <changed ui/graphql/md files>` for targeted format validation.
+     - `cd ui/v2.5 && npm.cmd run check` only when TypeScript types/imports/generated UI types changed.
+     - `git diff --check` for a cheap final whitespace/conflict-marker sanity pass.
+     - Note: `mingw32-make validate-ui-quick` may fail under Windows `cmd` with `-n was unexpected at this time`; when that happens, run the direct `npm.cmd` eslint/prettier commands above instead.
+     - Note: Windows sandbox command startup can intermittently fail with `windows sandbox: spawn setup refresh`, even for simple read-only commands. Treat this as a sandbox/tooling hiccup, not a repo failure: retry once, and if the command is needed to complete the task, rerun the same command with `sandbox_permissions: "require_escalated"` and a narrow `prefix_rule`.
    - Suggested quick verification by change type:
      - Go-only: `go build ./cmd/stash` (add `go test ./...` when behavior changed).
-     - UI-only: `make validate-ui-quick`, then `cd ui/v2.5 && npm run check` when TypeScript types may be affected.
+     - UI-only: targeted `npm.cmd run eslint -- <changed files>` and `npm.cmd run prettier -- --check <changed files>` from `ui/v2.5`; add `npm.cmd run check` when TypeScript types may be affected.
      - JSX/TSX parse risk: prefer `cd ui/v2.5 && npm run check`; use `cd ui/v2.5 && npm run build` only when a Vite/esbuild parse/bundle check is specifically needed.
-     - GraphQL/schema/generated changes: run `make generate` first, then `go build ./...`.
+     - GraphQL/schema/generated changes: run `mingw32-make generate` on Windows (or `make generate` elsewhere), then `go build ./cmd/stash` for resolver/query-only changes or `go build ./...` for broad generated/shared changes.
+     - Docs-only: `git diff --check` plus prettier check on the touched markdown is enough.
    - Run dev server: `make server-start` (uses `.local` and `config.yml`). In separate terminal run `make ui-start` to run the UI in dev mode.
    - Run tests (fast): `make test`. Run integration tests too: `make it` (adds `integration` build tag).
    - Lint: `make lint` (uses `golangci-lint`).
