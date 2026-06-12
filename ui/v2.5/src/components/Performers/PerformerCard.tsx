@@ -56,8 +56,7 @@ export interface IPerformerCardExtraCriteria {
   studio?: ILabeledId & { depth?: number };
 }
 
-interface IPerformerStudioStats {
-  scene_count: number;
+export interface IPerformerRoleStats {
   sex_scene_count: number;
   sex_top_count: number;
   sex_bottom_count: number;
@@ -77,13 +76,17 @@ interface IPerformerStudioStats {
   facial_marker_with_top_count: number;
   facial_marker_with_bottom_count: number;
   facial_unique_partner_count: number;
+  orgasm_top_count: number;
+  facial_marker_count: number; // CUSTOM
+  feet_top_count: number; // CUSTOM
+}
+
+interface IPerformerStudioStats extends IPerformerRoleStats {
+  scene_count: number;
   group_count: number;
   image_count: number;
   gallery_count: number;
   o_counter?: number | null;
-  orgasm_top_count: number;
-  facial_marker_count: number; // CUSTOM
-  feet_top_count: number; // CUSTOM
 }
 
 interface IPerformerCardProps {
@@ -104,6 +107,8 @@ interface IPerformerCardProps {
   scenePartnerPerformers?: Pick<GQL.Performer, "id" | "name" | "image_path">[];
   /** Studio-filtered stats used when the card is rendered from a studio performer view */
   studioStats?: IPerformerStudioStats | null;
+  /** Lazily loaded global role stats used to avoid heavy role-count work in the initial list query */
+  roleStats?: IPerformerRoleStats | null;
   // CUSTOM: end
 }
 
@@ -553,6 +558,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
     scenePerformerCount,
     scenePartnerPerformers,
     studioStats,
+    roleStats,
     extraCriteria,
   }) => {
     const intl = useIntl();
@@ -610,7 +616,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
           markerRoles={markerRoles}
           scenePerformerCount={scenePerformerCount}
           scenePartnerPerformers={scenePartnerPerformers} // CUSTOM
-          globalStatsOverride={studioStats}
+          globalStatsOverride={studioStats ?? roleStats}
           hideUniquePartnerCounts={false}
           studioContext={
             extraCriteria?.studio

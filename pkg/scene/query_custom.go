@@ -2111,4 +2111,597 @@ func countMarkersByRoleWithSecondaryInScenes(
 	return count, nil
 }
 
+// PerformerRoleStatsData holds all role stats needed by performer cards.
+// Returned by GetPerformerRoleStatsBatch so card grids can fetch all stats in one resolver.
+type PerformerRoleStatsData struct {
+	PerformerID                 int
+	SexSceneCount               int
+	SexTopCount                 int
+	SexBottomCount              int
+	SexWithTopCount             int
+	SexWithBottomCount          int
+	OralSceneCount              int
+	OralTopCount                int
+	OralBottomCount             int
+	OralWithTopCount            int
+	OralWithBottomCount         int
+	SoloSceneCount              int
+	FacialSceneCount            int
+	FacialTopCount              int
+	FacialBottomCount           int
+	FacialMarkerWithTopCount    int
+	FacialMarkerWithBottomCount int
+	SexUniquePartnerCount       int
+	OralUniquePartnerCount      int
+	FacialUniquePartnerCount    int
+	OrgasmTopCount              int
+	FacialMarkerCount           int
+	FeetTopCount                int
+}
+
+// GetPerformerRoleStatsBatch computes all performer-card role stats for a page of performers.
+// It replaces N performers * many field resolvers with a small set of marker queries plus
+// batched performer/tag association fetches.
+func GetPerformerRoleStatsBatch(
+	ctx context.Context,
+	markerQB models.SceneMarkerReader,
+	tagFinder models.TagFinder,
+	performerIDs []int,
+	sexTagID, oralTagID, soloTagID, facialTagID, orgasmTagID, feetTagID, secondCameraTagID int,
+) (map[int]*PerformerRoleStatsData, error) {
+	result := make(map[int]*PerformerRoleStatsData, len(performerIDs))
+	targets := make(map[int]bool, len(performerIDs))
+	targetIDs := make([]int, 0, len(performerIDs))
+	for _, id := range performerIDs {
+		if id == 0 || targets[id] {
+			continue
+		}
+		targets[id] = true
+		targetIDs = append(targetIDs, id)
+		result[id] = &PerformerRoleStatsData{PerformerID: id}
+	}
+	if len(targetIDs) == 0 {
+		return result, nil
+	}
+
+	sexScenes, err := collectPrimaryTagScenesForPerformers(ctx, markerQB, tagFinder, targetIDs, targets, sexTagID, "")
+	if err != nil {
+		return nil, err
+	}
+	sexTopScenes, err := collectPrimaryTagScenesForPerformers(ctx, markerQB, tagFinder, targetIDs, targets, sexTagID, "top")
+	if err != nil {
+		return nil, err
+	}
+	sexBottomScenes, err := collectPrimaryTagScenesForPerformers(ctx, markerQB, tagFinder, targetIDs, targets, sexTagID, "bottom")
+	if err != nil {
+		return nil, err
+	}
+	for id, stats := range result {
+		stats.SexSceneCount = len(sexScenes[id])
+		stats.SexTopCount = len(sexTopScenes[id])
+		stats.SexBottomCount = len(sexBottomScenes[id])
+	}
+
+	oralScenes, err := collectPrimaryTagScenesForPerformers(ctx, markerQB, tagFinder, targetIDs, targets, oralTagID, "")
+	if err != nil {
+		return nil, err
+	}
+	oralTopScenes, err := collectPrimaryTagScenesForPerformers(ctx, markerQB, tagFinder, targetIDs, targets, oralTagID, "top")
+	if err != nil {
+		return nil, err
+	}
+	oralBottomScenes, err := collectPrimaryTagScenesForPerformers(ctx, markerQB, tagFinder, targetIDs, targets, oralTagID, "bottom")
+	if err != nil {
+		return nil, err
+	}
+	for id, stats := range result {
+		stats.OralSceneCount = countScenesExcluding(oralScenes[id], sexScenes[id])
+		stats.OralTopCount = countScenesExcluding(oralTopScenes[id], sexScenes[id])
+		stats.OralBottomCount = countScenesExcluding(oralBottomScenes[id], sexScenes[id])
+	}
+
+	soloScenes, err := collectPrimaryTagScenesForPerformers(ctx, markerQB, tagFinder, targetIDs, targets, soloTagID, "top")
+	if err != nil {
+		return nil, err
+	}
+	for id, stats := range result {
+		stats.SoloSceneCount = countScenesExcluding(soloScenes[id], sexScenes[id], oralScenes[id])
+	}
+
+	facialScenes, err := collectPrimaryTagScenesForPerformers(ctx, markerQB, tagFinder, targetIDs, targets, facialTagID, "")
+	if err != nil {
+		return nil, err
+	}
+	for id, stats := range result {
+		stats.FacialSceneCount = len(facialScenes[id])
+	}
+
+	if err := fillMarkerRoleStatsWithSecondary(ctx, markerQB, tagFinder, targetIDs, targets, result, facialTagID, orgasmTagID, feetTagID, secondCameraTagID); err != nil {
+		return nil, err
+	}
+	if err := fillPartnerStats(ctx, markerQB, tagFinder, targetIDs, targets, result, sexTagID, oralTagID, facialTagID); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func collectPrimaryTagScenesForPerformers(
+	ctx context.Context,
+	markerQB models.SceneMarkerReader,
+	tagFinder models.TagFinder,
+	performerIDs []int,
+	targets map[int]bool,
+	tagID int,
+	role string,
+) (map[int]map[int]bool, error) {
+	ret := make(map[int]map[int]bool, len(targets))
+	for id := range targets {
+		ret[id] = make(map[int]bool)
+	}
+	if tagID == 0 {
+		return ret, nil
+	}
+
+	rows, _, err := queryPerformerMarkerRoleRows(ctx, markerQB, tagFinder, performerIDs, tagID, -1, role)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, row := range rows {
+		if !targets[row.PerformerID] || !roleMatches(row.Role, role) {
+			continue
+		}
+		ret[row.PerformerID][row.SceneID] = true
+	}
+
+	return ret, nil
+}
+
+func fillMarkerRoleStatsWithSecondary(
+	ctx context.Context,
+	markerQB models.SceneMarkerReader,
+	tagFinder models.TagFinder,
+	performerIDs []int,
+	targets map[int]bool,
+	result map[int]*PerformerRoleStatsData,
+	facialTagID, orgasmTagID, feetTagID, secondCameraTagID int,
+) error {
+	facialTags, err := expandedTagSet(ctx, tagFinder, facialTagID)
+	if err != nil {
+		return err
+	}
+	orgasmTags, err := expandedTagSet(ctx, tagFinder, orgasmTagID)
+	if err != nil {
+		return err
+	}
+	feetTags, err := expandedTagSet(ctx, tagFinder, feetTagID)
+	if err != nil {
+		return err
+	}
+	secondCameraTags, err := expandedTagSet(ctx, tagFinder, secondCameraTagID)
+	if err != nil {
+		return err
+	}
+	if len(facialTags) == 0 && len(orgasmTags) == 0 && len(feetTags) == 0 {
+		return nil
+	}
+
+	rows, _, err := queryPerformerMarkerRoleRows(ctx, markerQB, tagFinder, performerIDs, 0, -1, "")
+	if err != nil {
+		return err
+	}
+	markerIDs := markerIDsFromRoleRows(rows)
+	tagsByMarker, err := markerQB.GetTagIDsForMarkers(ctx, markerIDs)
+	if err != nil {
+		return err
+	}
+
+	countedFacialAny := make(map[int]map[int]bool)
+	for _, row := range rows {
+		allTagIDs := append([]int{row.PrimaryTagID}, tagsByMarker[row.SceneMarkerID]...)
+		if containsAnyTag(allTagIDs, secondCameraTags) {
+			continue
+		}
+
+		hasFacial := containsAnyTag(allTagIDs, facialTags)
+		hasOrgasm := containsAnyTag(allTagIDs, orgasmTags)
+		hasFeet := containsAnyTag(allTagIDs, feetTags)
+		if !hasFacial && !hasOrgasm && !hasFeet {
+			continue
+		}
+
+		if !targets[row.PerformerID] {
+			continue
+		}
+		stats := result[row.PerformerID]
+		if hasFacial {
+			if countedFacialAny[row.SceneMarkerID] == nil {
+				countedFacialAny[row.SceneMarkerID] = make(map[int]bool)
+			}
+			if !countedFacialAny[row.SceneMarkerID][row.PerformerID] && (row.Role == "top" || row.Role == "bottom") {
+				stats.FacialMarkerCount++
+				countedFacialAny[row.SceneMarkerID][row.PerformerID] = true
+			}
+			if row.Role == "top" {
+				stats.FacialTopCount++
+				stats.FacialMarkerWithTopCount++
+			}
+			if row.Role == "bottom" {
+				stats.FacialBottomCount++
+				stats.FacialMarkerWithBottomCount++
+			}
+		}
+		if row.Role == "top" {
+			if hasOrgasm {
+				stats.OrgasmTopCount++
+			}
+			if hasFeet {
+				stats.FeetTopCount++
+			}
+		}
+	}
+
+	return nil
+}
+
+func fillPartnerStats(
+	ctx context.Context,
+	markerQB models.SceneMarkerReader,
+	tagFinder models.TagFinder,
+	performerIDs []int,
+	targets map[int]bool,
+	result map[int]*PerformerRoleStatsData,
+	sexTagID, oralTagID, facialTagID int,
+) error {
+	type partnerSets struct {
+		asTop    map[int]map[int]bool
+		asBottom map[int]map[int]bool
+	}
+
+	collect := func(tagID int, depth int) (*partnerSets, error) {
+		ret := &partnerSets{
+			asTop:    make(map[int]map[int]bool, len(targets)),
+			asBottom: make(map[int]map[int]bool, len(targets)),
+		}
+		for id := range targets {
+			ret.asTop[id] = make(map[int]bool)
+			ret.asBottom[id] = make(map[int]bool)
+		}
+		if tagID == 0 {
+			return ret, nil
+		}
+
+		partnerRows, usedFastPath, err := queryPerformerPartnerRoleRows(ctx, markerQB, tagFinder, performerIDs, tagID, depth)
+		if err != nil {
+			return nil, err
+		}
+		if usedFastPath {
+			for _, row := range partnerRows {
+				if !targets[row.PerformerID] {
+					continue
+				}
+				switch row.Role {
+				case "top":
+					ret.asTop[row.PerformerID][row.PartnerID] = true
+				case "bottom":
+					ret.asBottom[row.PerformerID][row.PartnerID] = true
+				}
+			}
+			return ret, nil
+		}
+
+		rows, performersByMarker, err := queryPerformerMarkerRoleRows(ctx, markerQB, tagFinder, performerIDs, tagID, depth, "")
+		if err != nil {
+			return nil, err
+		}
+
+		seenMarkers := make(map[int]bool)
+		for _, row := range rows {
+			if seenMarkers[row.SceneMarkerID] {
+				continue
+			}
+			seenMarkers[row.SceneMarkerID] = true
+
+			tops := make([]int, 0)
+			bottoms := make([]int, 0)
+			for _, mp := range performersByMarker[row.SceneMarkerID] {
+				switch mp.Role {
+				case "top":
+					tops = append(tops, mp.PerformerID)
+				case "bottom":
+					bottoms = append(bottoms, mp.PerformerID)
+				}
+			}
+			for _, id := range tops {
+				if !targets[id] {
+					continue
+				}
+				for _, partnerID := range bottoms {
+					if partnerID != id {
+						ret.asTop[id][partnerID] = true
+					}
+				}
+			}
+			for _, id := range bottoms {
+				if !targets[id] {
+					continue
+				}
+				for _, partnerID := range tops {
+					if partnerID != id {
+						ret.asBottom[id][partnerID] = true
+					}
+				}
+			}
+		}
+
+		return ret, nil
+	}
+
+	sexPartners, err := collect(sexTagID, 0)
+	if err != nil {
+		return err
+	}
+	oralPartners, err := collect(oralTagID, -1)
+	if err != nil {
+		return err
+	}
+	facialPartners, err := collect(facialTagID, -1)
+	if err != nil {
+		return err
+	}
+
+	for id, stats := range result {
+		stats.SexWithTopCount = len(sexPartners.asTop[id])
+		stats.SexWithBottomCount = len(sexPartners.asBottom[id])
+		stats.SexUniquePartnerCount = countUniqueInts(sexPartners.asTop[id], sexPartners.asBottom[id])
+		stats.OralWithTopCount = len(oralPartners.asTop[id])
+		stats.OralWithBottomCount = len(oralPartners.asBottom[id])
+		stats.OralUniquePartnerCount = countUniqueInts(oralPartners.asTop[id], oralPartners.asBottom[id])
+		stats.FacialUniquePartnerCount = countUniqueInts(facialPartners.asTop[id], facialPartners.asBottom[id])
+	}
+
+	return nil
+}
+
+type performerMarkerRoleRowReader interface {
+	FindPerformerMarkerRoleRows(ctx context.Context, performerIDs []int, tagIDs []int, role string) ([]*models.PerformerMarkerRoleRow, error)
+}
+
+type performerPartnerRoleRowReader interface {
+	FindPerformerPartnerRoleRows(ctx context.Context, performerIDs []int, tagIDs []int) ([]*models.PerformerPartnerRoleRow, error)
+}
+
+func queryPerformerPartnerRoleRows(
+	ctx context.Context,
+	markerQB models.SceneMarkerReader,
+	tagFinder models.TagFinder,
+	performerIDs []int,
+	tagID int,
+	depth int,
+) ([]*models.PerformerPartnerRoleRow, bool, error) {
+	fastReader, ok := markerQB.(performerPartnerRoleRowReader)
+	if !ok {
+		return nil, false, nil
+	}
+
+	tagIDs, err := expandedTagIDs(ctx, tagFinder, tagID, depth)
+	if err != nil {
+		return nil, false, err
+	}
+	rows, err := fastReader.FindPerformerPartnerRoleRows(ctx, performerIDs, tagIDs)
+	if err != nil {
+		return nil, false, err
+	}
+	return rows, true, nil
+}
+
+func queryPerformerMarkerRoleRows(
+	ctx context.Context,
+	markerQB models.SceneMarkerReader,
+	tagFinder models.TagFinder,
+	performerIDs []int,
+	tagID int,
+	depth int,
+	role string,
+) ([]*models.PerformerMarkerRoleRow, map[int][]*models.MarkerPerformer, error) {
+	if fastReader, ok := markerQB.(performerMarkerRoleRowReader); ok {
+		tagIDs, err := expandedTagIDs(ctx, tagFinder, tagID, depth)
+		if err != nil {
+			return nil, nil, err
+		}
+		rows, err := fastReader.FindPerformerMarkerRoleRows(ctx, performerIDs, tagIDs, role)
+		if err != nil {
+			return nil, nil, err
+		}
+		performersByMarker, err := markerQB.GetPerformersForMarkers(ctx, markerIDsFromRoleRows(rows))
+		if err != nil {
+			return nil, nil, err
+		}
+		return rows, performersByMarker, nil
+	}
+
+	performerIDStrings := performerIDStringsFromInts(performerIDs)
+	markers, performersByMarker, err := queryMarkersForPerformerBatch(ctx, markerQB, performerIDStrings, tagID, depth, role)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	targets := make(map[int]bool, len(performerIDs))
+	for _, id := range performerIDs {
+		targets[id] = true
+	}
+
+	rows := make([]*models.PerformerMarkerRoleRow, 0)
+	for _, marker := range markers {
+		for _, mp := range performersByMarker[marker.ID] {
+			if !targets[mp.PerformerID] || !roleMatches(mp.Role, role) {
+				continue
+			}
+			rows = append(rows, &models.PerformerMarkerRoleRow{
+				SceneMarkerID: marker.ID,
+				SceneID:       marker.SceneID,
+				PrimaryTagID:  marker.PrimaryTagID,
+				PerformerID:   mp.PerformerID,
+				Role:          mp.Role,
+			})
+		}
+	}
+
+	return rows, performersByMarker, nil
+}
+
+func queryMarkersForPerformerBatch(
+	ctx context.Context,
+	markerQB models.SceneMarkerReader,
+	performerIDStrings []string,
+	tagID int,
+	depth int,
+	role string,
+) ([]*models.SceneMarker, map[int][]*models.MarkerPerformer, error) {
+	group := models.SceneMarkerTagGroupInput{}
+	if tagID != 0 {
+		group.TagIDs = []string{strconv.Itoa(tagID)}
+		group.Depth = &depth
+	}
+	switch role {
+	case "top":
+		group.TopPerformerIDs = performerIDStrings
+	case "bottom":
+		group.BottomPerformerIDs = performerIDStrings
+	default:
+		group.TopPerformerIDs = performerIDStrings
+		group.BottomPerformerIDs = performerIDStrings
+	}
+	performerMode := "OR"
+	group.PerformerMode = &performerMode
+
+	filter := &models.SceneMarkerFilterType{
+		SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+			Modifier:       models.CriterionModifierEquals,
+			GroupsExtended: []models.SceneMarkerTagGroupInput{group},
+		},
+	}
+	allResults := -1
+	findFilter := &models.FindFilterType{PerPage: &allResults}
+
+	markers, _, err := markerQB.Query(ctx, filter, findFilter)
+	if err != nil {
+		return nil, nil, err
+	}
+	markerIDs := make([]int, len(markers))
+	for i, marker := range markers {
+		markerIDs[i] = marker.ID
+	}
+	performersByMarker, err := markerQB.GetPerformersForMarkers(ctx, markerIDs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return markers, performersByMarker, nil
+}
+
+func expandedTagIDs(ctx context.Context, tagFinder models.TagFinder, tagID int, depth int) ([]int, error) {
+	if tagID == 0 {
+		return nil, nil
+	}
+
+	ret := []int{tagID}
+	if depth == 0 {
+		return ret, nil
+	}
+
+	descendants, err := tagFinder.FindAllDescendants(ctx, tagID, nil)
+	if err != nil {
+		return nil, err
+	}
+	for _, tag := range descendants {
+		ret = append(ret, tag.ID)
+	}
+	return ret, nil
+}
+
+func expandedTagSet(ctx context.Context, tagFinder models.TagFinder, tagID int) (map[int]bool, error) {
+	ret := make(map[int]bool)
+	if tagID == 0 {
+		return ret, nil
+	}
+	ret[tagID] = true
+	descendants, err := tagFinder.FindAllDescendants(ctx, tagID, nil)
+	if err != nil {
+		return nil, err
+	}
+	for _, tag := range descendants {
+		ret[tag.ID] = true
+	}
+	return ret, nil
+}
+
+func containsAnyTag(tagIDs []int, tagSet map[int]bool) bool {
+	if len(tagSet) == 0 {
+		return false
+	}
+	for _, tagID := range tagIDs {
+		if tagSet[tagID] {
+			return true
+		}
+	}
+	return false
+}
+
+func roleMatches(actual string, expected string) bool {
+	return expected == "" || actual == expected
+}
+
+func countScenesExcluding(sceneSet map[int]bool, exclusions ...map[int]bool) int {
+	count := 0
+	for sceneID := range sceneSet {
+		excluded := false
+		for _, exclusion := range exclusions {
+			if exclusion[sceneID] {
+				excluded = true
+				break
+			}
+		}
+		if !excluded {
+			count++
+		}
+	}
+	return count
+}
+
+func countUniqueInts(sets ...map[int]bool) int {
+	unique := make(map[int]bool)
+	for _, set := range sets {
+		for id := range set {
+			unique[id] = true
+		}
+	}
+	return len(unique)
+}
+
+func performerIDStringsFromInts(ids []int) []string {
+	ret := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if id == 0 {
+			continue
+		}
+		ret = append(ret, strconv.Itoa(id))
+	}
+	return ret
+}
+
+func markerIDsFromRoleRows(rows []*models.PerformerMarkerRoleRow) []int {
+	ret := make([]int, 0, len(rows))
+	seen := make(map[int]bool, len(rows))
+	for _, row := range rows {
+		if seen[row.SceneMarkerID] {
+			continue
+		}
+		seen[row.SceneMarkerID] = true
+		ret = append(ret, row.SceneMarkerID)
+	}
+	return ret
+}
+
 // CUSTOM: end

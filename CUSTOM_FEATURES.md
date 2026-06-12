@@ -434,6 +434,22 @@ For facial markers specifically, global context now shows **individual marker co
 - Facial counts now show marker-based counts globally to match scene context precision
 - Example: If a scene has 2 facials by the same performer to the same receiver, global context shows "2" instead of "1"
 
+### Batched Lazy Role Stats (Performer Cards)
+Performer list cards no longer request role and partner-count resolver fields in the initial `PerformerListData` fragment. The card grid renders the base cards first, then lazily requests all role stats for the visible performers through one batched GraphQL query.
+
+**GraphQL Schema Changes:**
+- `graphql/schema/types/performer_custom.graphql` - Added `PerformerRoleStats` and `performerRoleStats(performer_ids: [ID!]!)`
+
+**Backend Changes:**
+- `internal/api/resolver_query_find_performer_custom.go` - Added the `PerformerRoleStats` query resolver
+- `pkg/scene/query_custom.go` - Added `GetPerformerRoleStatsBatch`, which calculates all card metrics for a page of performers from batched scene-marker queries and batched marker performer/tag fetches
+
+**Frontend Changes:**
+- `ui/v2.5/graphql/data/performer.graphql` - Removed role-count fields from the initial list fragment
+- `ui/v2.5/src/components/Performers/performerRoleStats_custom.ts` - Shared lazy loader for `performerRoleStats`
+- `ui/v2.5/src/components/Performers/PerformerCardGrid.tsx` and `PerformerRecommendationRow.tsx` - Lazy-load role stats for list and home page cards, then pass the results to existing card rendering
+- `ui/v2.5/src/components/Performers/PerformerCard.tsx` - Accepts lazily loaded role stats without changing the rendered card layout
+
 ### Props Added
 ```typescript
 interface IPerformerCardProps {

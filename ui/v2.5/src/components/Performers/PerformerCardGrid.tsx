@@ -1,6 +1,8 @@
 import React from "react";
-import { IPerformerCardExtraCriteria, PerformerCard } from "./PerformerCard";
+import { PerformerCard } from "./PerformerCard";
+import type { IPerformerCardExtraCriteria } from "./PerformerCard";
 import type { PerformerListData } from "./performerTypes_custom";
+import { usePerformerCardRoleStats } from "./performerRoleStats_custom"; // CUSTOM
 import {
   useCardWidth,
   useContainerDimensions,
@@ -22,6 +24,10 @@ export const PerformerCardGrid: React.FC<IPerformerCardGrid> = PatchComponent(
   ({ performers, selectedIds, zoomIndex, onSelectChange, extraCriteria }) => {
     const [componentRef, { width: containerWidth }] = useContainerDimensions();
     const cardWidth = useCardWidth(containerWidth, zoomIndex, zoomWidths);
+    const roleStatsByPerformerID = usePerformerCardRoleStats(
+      performers,
+      !!extraCriteria?.studio
+    ); // CUSTOM
 
     return (
       <div className="row justify-content-center" ref={componentRef}>
@@ -37,6 +43,7 @@ export const PerformerCardGrid: React.FC<IPerformerCardGrid> = PatchComponent(
               onSelectChange(p.id, selected, shiftKey)
             }
             extraCriteria={extraCriteria}
+            roleStats={roleStatsByPerformerID.get(p.id) ?? null}
           />
         ))}
       </div>

@@ -227,6 +227,71 @@ func (r *queryResolver) StudioPerformerCoPerformersByRole(ctx context.Context, p
 	return result, nil
 }
 
+// PerformerRoleStats returns all performer-card role stats for the provided performers in one batch.
+// CUSTOM
+func (r *queryResolver) PerformerRoleStats(ctx context.Context, performerIDs []string) ([]*PerformerRoleStats, error) {
+	ids := make([]int, 0, len(performerIDs))
+	for _, id := range performerIDs {
+		parsed, err := strconv.Atoi(id)
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, parsed)
+	}
+
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	sexTagID, oralTagID, soloTagID, facialTagID, orgasmTagID, feetTagID, secondCameraTagID := getRoleTagIDs(uiConfig)
+
+	var statsByPerformer map[int]*scene.PerformerRoleStatsData
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		var err error
+		statsByPerformer, err = scene.GetPerformerRoleStatsBatch(ctx, r.repository.SceneMarker, r.repository.Tag, ids, sexTagID, oralTagID, soloTagID, facialTagID, orgasmTagID, feetTagID, secondCameraTagID)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+
+	ret := make([]*PerformerRoleStats, 0, len(ids))
+	added := make(map[int]bool, len(ids))
+	for _, id := range ids {
+		if added[id] {
+			continue
+		}
+		added[id] = true
+		data := statsByPerformer[id]
+		if data == nil {
+			data = &scene.PerformerRoleStatsData{PerformerID: id}
+		}
+		ret = append(ret, &PerformerRoleStats{
+			PerformerID:                 strconv.Itoa(data.PerformerID),
+			SexSceneCount:               data.SexSceneCount,
+			SexTopCount:                 data.SexTopCount,
+			SexBottomCount:              data.SexBottomCount,
+			SexWithTopCount:             data.SexWithTopCount,
+			SexWithBottomCount:          data.SexWithBottomCount,
+			OralSceneCount:              data.OralSceneCount,
+			OralTopCount:                data.OralTopCount,
+			OralBottomCount:             data.OralBottomCount,
+			OralWithTopCount:            data.OralWithTopCount,
+			OralWithBottomCount:         data.OralWithBottomCount,
+			SoloSceneCount:              data.SoloSceneCount,
+			FacialSceneCount:            data.FacialSceneCount,
+			FacialTopCount:              data.FacialTopCount,
+			FacialBottomCount:           data.FacialBottomCount,
+			FacialMarkerWithTopCount:    data.FacialMarkerWithTopCount,
+			FacialMarkerWithBottomCount: data.FacialMarkerWithBottomCount,
+			SexUniquePartnerCount:       data.SexUniquePartnerCount,
+			OralUniquePartnerCount:      data.OralUniquePartnerCount,
+			FacialUniquePartnerCount:    data.FacialUniquePartnerCount,
+			OrgasmTopCount:              data.OrgasmTopCount,
+			FacialMarkerCount:           data.FacialMarkerCount,
+			FeetTopCount:                data.FeetTopCount,
+		})
+	}
+
+	return ret, nil
+}
+
 // roleTagIDsConfig holds the configured role tag IDs
 type roleTagIDsConfig struct {
 	sexTagID    int

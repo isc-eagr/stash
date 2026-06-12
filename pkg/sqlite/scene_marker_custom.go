@@ -170,3 +170,237 @@ func (qb *SceneMarkerStore) GetTagIDsForMarkers(ctx context.Context, markerIDs [
 
 	return result, nil
 }
+
+// FindPerformerMarkerRoleRows fetches compact marker-role rows for many performers using
+// performer_id IN (...) instead of the generic filter's page-size-dependent OR/EXISTS chain.
+// CUSTOM
+func (qb *SceneMarkerStore) FindPerformerMarkerRoleRows(ctx context.Context, performerIDs []int, tagIDs []int, role string) ([]*models.PerformerMarkerRoleRow, error) {
+	performerIDs = uniquePositiveInts(performerIDs)
+	tagIDs = uniquePositiveInts(tagIDs)
+	if len(performerIDs) == 0 {
+		return nil, nil
+	}
+
+	type performerMarkerRoleSQLRow struct {
+		SceneMarkerID int    `db:"scene_marker_id"`
+		SceneID       int    `db:"scene_id"`
+		PrimaryTagID  int    `db:"primary_tag_id"`
+		PerformerID   int    `db:"performer_id"`
+		Role          string `db:"role"`
+	}
+
+	const maxBindParams = 900
+	tagBindCount := 0
+	if len(tagIDs) > 0 {
+		tagBindCount = len(tagIDs) * 2
+	}
+	roleBindCount := 0
+	if role != "" {
+		roleBindCount = 1
+	}
+	performerChunkSize := maxBindParams - tagBindCount - roleBindCount
+	if performerChunkSize > 300 {
+		performerChunkSize = 300
+	}
+	if performerChunkSize < 1 {
+		performerChunkSize = 1
+	}
+
+	var ret []*models.PerformerMarkerRoleRow
+	seen := make(map[string]bool)
+	for i := 0; i < len(performerIDs); i += performerChunkSize {
+		end := i + performerChunkSize
+		if end > len(performerIDs) {
+			end = len(performerIDs)
+		}
+		performerChunk := performerIDs[i:end]
+
+		whereParts := []string{
+			fmt.Sprintf("smp.performer_id IN (%s)", sqlitePlaceholders(len(performerChunk))),
+		}
+		args := make([]interface{}, 0, len(performerChunk)+roleBindCount+tagBindCount)
+		for _, id := range performerChunk {
+			args = append(args, id)
+		}
+
+		if role != "" {
+			whereParts = append(whereParts, "smp.role = ?")
+			args = append(args, role)
+		}
+
+		if len(tagIDs) > 0 {
+			tagPlaceholders := sqlitePlaceholders(len(tagIDs))
+			whereParts = append(whereParts, fmt.Sprintf(`(
+				sm.primary_tag_id IN (%s)
+				OR EXISTS (
+					SELECT 1
+					FROM scene_markers_tags smt
+					WHERE smt.scene_marker_id = sm.id
+					AND smt.tag_id IN (%s)
+				)
+			)`, tagPlaceholders, tagPlaceholders))
+			for _, id := range tagIDs {
+				args = append(args, id)
+			}
+			for _, id := range tagIDs {
+				args = append(args, id)
+			}
+		}
+
+		query := fmt.Sprintf(`
+			SELECT DISTINCT
+				sm.id AS scene_marker_id,
+				sm.scene_id,
+				sm.primary_tag_id,
+				smp.performer_id,
+				smp.role
+			FROM scene_markers sm
+			JOIN scene_marker_performers smp ON smp.scene_marker_id = sm.id
+			WHERE %s
+		`, strings.Join(whereParts, " AND "))
+
+		var rows []performerMarkerRoleSQLRow
+		if err := dbWrapper.Select(ctx, &rows, query, args...); err != nil {
+			return nil, fmt.Errorf("querying performer marker role rows: %w", err)
+		}
+
+		for _, row := range rows {
+			key := fmt.Sprintf("%d:%d:%s", row.SceneMarkerID, row.PerformerID, row.Role)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			ret = append(ret, &models.PerformerMarkerRoleRow{
+				SceneMarkerID: row.SceneMarkerID,
+				SceneID:       row.SceneID,
+				PrimaryTagID:  row.PrimaryTagID,
+				PerformerID:   row.PerformerID,
+				Role:          row.Role,
+			})
+		}
+	}
+
+	return ret, nil
+}
+
+// FindPerformerPartnerRoleRows fetches distinct partner relationships for many performers
+// in one tag-scoped query. This avoids loading all marker performers and deduping partners
+// in Go for every performer card.
+// CUSTOM
+func (qb *SceneMarkerStore) FindPerformerPartnerRoleRows(ctx context.Context, performerIDs []int, tagIDs []int) ([]*models.PerformerPartnerRoleRow, error) {
+	performerIDs = uniquePositiveInts(performerIDs)
+	tagIDs = uniquePositiveInts(tagIDs)
+	if len(performerIDs) == 0 {
+		return nil, nil
+	}
+
+	type performerPartnerRoleSQLRow struct {
+		PerformerID int    `db:"performer_id"`
+		Role        string `db:"role"`
+		PartnerID   int    `db:"partner_id"`
+	}
+
+	const maxBindParams = 900
+	tagBindCount := 0
+	if len(tagIDs) > 0 {
+		tagBindCount = len(tagIDs) * 2
+	}
+	performerChunkSize := maxBindParams - tagBindCount
+	if performerChunkSize > 300 {
+		performerChunkSize = 300
+	}
+	if performerChunkSize < 1 {
+		performerChunkSize = 1
+	}
+
+	var ret []*models.PerformerPartnerRoleRow
+	seen := make(map[string]bool)
+	for i := 0; i < len(performerIDs); i += performerChunkSize {
+		end := i + performerChunkSize
+		if end > len(performerIDs) {
+			end = len(performerIDs)
+		}
+		performerChunk := performerIDs[i:end]
+
+		whereParts := []string{
+			fmt.Sprintf("target.performer_id IN (%s)", sqlitePlaceholders(len(performerChunk))),
+			"target.role IN ('top', 'bottom')",
+			"partner.performer_id <> target.performer_id",
+			`(
+				(target.role = 'top' AND partner.role = 'bottom')
+				OR (target.role = 'bottom' AND partner.role = 'top')
+			)`,
+		}
+		args := make([]interface{}, 0, len(performerChunk)+tagBindCount)
+		for _, id := range performerChunk {
+			args = append(args, id)
+		}
+
+		if len(tagIDs) > 0 {
+			tagPlaceholders := sqlitePlaceholders(len(tagIDs))
+			whereParts = append(whereParts, fmt.Sprintf(`(
+				sm.primary_tag_id IN (%s)
+				OR EXISTS (
+					SELECT 1
+					FROM scene_markers_tags smt
+					WHERE smt.scene_marker_id = sm.id
+					AND smt.tag_id IN (%s)
+				)
+			)`, tagPlaceholders, tagPlaceholders))
+			for _, id := range tagIDs {
+				args = append(args, id)
+			}
+			for _, id := range tagIDs {
+				args = append(args, id)
+			}
+		}
+
+		query := fmt.Sprintf(`
+			SELECT DISTINCT
+				target.performer_id,
+				target.role,
+				partner.performer_id AS partner_id
+			FROM scene_markers sm
+			JOIN scene_marker_performers target ON target.scene_marker_id = sm.id
+			JOIN scene_marker_performers partner ON partner.scene_marker_id = sm.id
+			WHERE %s
+		`, strings.Join(whereParts, " AND "))
+
+		var rows []performerPartnerRoleSQLRow
+		if err := dbWrapper.Select(ctx, &rows, query, args...); err != nil {
+			return nil, fmt.Errorf("querying performer partner role rows: %w", err)
+		}
+
+		for _, row := range rows {
+			key := fmt.Sprintf("%d:%s:%d", row.PerformerID, row.Role, row.PartnerID)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			ret = append(ret, &models.PerformerPartnerRoleRow{
+				PerformerID: row.PerformerID,
+				Role:        row.Role,
+				PartnerID:   row.PartnerID,
+			})
+		}
+	}
+
+	return ret, nil
+}
+
+func sqlitePlaceholders(n int) string {
+	return strings.TrimRight(strings.Repeat("?,", n), ",")
+}
+
+func uniquePositiveInts(values []int) []int {
+	ret := make([]int, 0, len(values))
+	seen := make(map[int]bool, len(values))
+	for _, value := range values {
+		if value <= 0 || seen[value] {
+			continue
+		}
+		seen[value] = true
+		ret = append(ret, value)
+	}
+	return ret
+}

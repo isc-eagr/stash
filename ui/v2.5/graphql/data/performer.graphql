@@ -126,33 +126,7 @@ fragment PerformerListData on Performer {
   group_count
   performer_count
   o_counter
-  sex_scene_count
-  oral_scene_count
-  solo_scene_count
-  facial_scene_count
-  sex_top_count
-  sex_bottom_count
-  oral_top_count
-  oral_bottom_count
-  facial_top_count
-  facial_bottom_count
-  facial_marker_count
-  facial_marker_top_count
-  facial_marker_bottom_count
-  facial_marker_with_top_count
-  facial_marker_with_bottom_count
-  orgasm_top_count
-  feet_top_count
-  feet_marker_count
-  sex_with_top_count
-  sex_with_bottom_count
-  oral_with_top_count
-  oral_with_bottom_count
-  facial_with_top_count
-  facial_with_bottom_count
-  sex_unique_partner_count
-  oral_unique_partner_count
-  facial_unique_partner_count
+  # CUSTOM: role-count fields are lazy-loaded by performer cards.
 
   tags {
     ...SlimTagData

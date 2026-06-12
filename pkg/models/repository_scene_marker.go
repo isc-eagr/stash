@@ -2,6 +2,24 @@ package models
 
 import "context"
 
+// PerformerMarkerRoleRow is a compact row for batched marker-role lookups.
+// CUSTOM
+type PerformerMarkerRoleRow struct {
+	SceneMarkerID int
+	SceneID       int
+	PrimaryTagID  int
+	PerformerID   int
+	Role          string
+}
+
+// PerformerPartnerRoleRow is a compact row for batched partner-count lookups.
+// CUSTOM
+type PerformerPartnerRoleRow struct {
+	PerformerID int
+	Role        string
+	PartnerID   int
+}
+
 // SceneMarkerGetter provides methods to get scene markers by ID.
 type SceneMarkerGetter interface {
 	// TODO - rename this to Find and remove existing method
