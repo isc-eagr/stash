@@ -16,6 +16,15 @@ type PerformerEthnicityCount {
   count: Int!
 }
 
+"Count of performers grouped by ethnicity and rating-card tier"
+type PerformerEthnicityTierCount {
+  ethnicity: String!
+  bronze: Int!
+  silver: Int!
+  gold: Int!
+  royal_sapphire: Int!
+}
+
 "Count of scene orgasm events grouped by year"
 type SceneOYearCount {
   year: Int!
@@ -40,6 +49,8 @@ extend type Query {
   performerEthnicityCounts: [PerformerEthnicityCount!]!
   "Get a count of 5-star performers per ethnicity (non-empty only), sorted by highest count first"
   performerEthnicityFiveStarCounts: [PerformerEthnicityCount!]!
+  "Get performer rating-tier counts per ethnicity (non-empty only), sorted by highest tier total first"
+  performerEthnicityTierCounts: [PerformerEthnicityTierCount!]!
   "Get a count of scene orgasm events grouped by year (ascending by year)"
   sceneOYearCounts: [SceneOYearCount!]!
   "Get the date with the highest number of recorded scene O events"

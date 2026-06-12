@@ -16,12 +16,15 @@ import facialPng from "src/assets/facial.png"; // CUSTOM
 import { useConfigurationContext } from "src/hooks/Config";
 import { ListFilterModel } from "src/models/list-filter/filter";
 
-// Five-star performers by ethnicity
-const PERFORMER_ETHNICITY_FIVE_STAR_COUNTS = gql`
-  query PerformerEthnicityFiveStarCounts {
-    performerEthnicityFiveStarCounts {
+// Performer rating tiers by ethnicity
+const PERFORMER_ETHNICITY_TIER_COUNTS = gql`
+  query PerformerEthnicityTierCounts {
+    performerEthnicityTierCounts {
       ethnicity
-      count
+      bronze
+      silver
+      gold
+      royal_sapphire
     }
   }
 `;
@@ -160,7 +163,7 @@ export const CustomStats: React.FC = () => {
 
   const { data: statsData, error, loading } = useStats();
   const { data: ethData } = usePerformerEthnicityCountsQuery();
-  const { data: fiveStarData } = useQuery(PERFORMER_ETHNICITY_FIVE_STAR_COUNTS);
+  const { data: tierData } = useQuery(PERFORMER_ETHNICITY_TIER_COUNTS);
   const { data: oYearData } = useQuery(SCENE_O_YEAR_COUNTS);
   const { data: mostOsInDayData } = useQuery(MOST_OS_IN_DAY);
   const { data: longestPeriodWithoutOData } = useQuery(
@@ -291,6 +294,24 @@ export const CustomStats: React.FC = () => {
   const { oralTagId } = roleTagIds;
   const { soloTagId } = roleTagIds;
   const { facialTagId } = roleTagIds;
+  const performerRatingTiers = [
+    {
+      key: "bronze",
+      label: "Bronze",
+    },
+    {
+      key: "silver",
+      label: "Silver",
+    },
+    {
+      key: "gold",
+      label: "Gold",
+    },
+    {
+      key: "royal_sapphire",
+      label: "Sapphire",
+    },
+  ] as const;
 
   // Query tags to get their names (for display and URL generation)
   const { data: tagsData } = GQL.useFindTagsQuery({
@@ -908,7 +929,7 @@ export const CustomStats: React.FC = () => {
 
       {/* Ethnicity reports side-by-side */}
       {(ethData?.performerEthnicityCounts?.length ?? 0) > 0 ||
-      (fiveStarData?.performerEthnicityFiveStarCounts?.length ?? 0) > 0 ? (
+      (tierData?.performerEthnicityTierCounts?.length ?? 0) > 0 ? (
         <div className="row justify-content-center mt-5">
           {(ethData?.performerEthnicityCounts?.length ?? 0) > 0 ? (
             <div className="col-12 col-md-auto" style={{ maxWidth: 420 }}>
@@ -959,15 +980,15 @@ export const CustomStats: React.FC = () => {
             </div>
           ) : null}
 
-          {(fiveStarData?.performerEthnicityFiveStarCounts?.length ?? 0) > 0 ? (
+          {(tierData?.performerEthnicityTierCounts?.length ?? 0) > 0 ? (
             <div
               className="col-12 col-md-auto mt-4 mt-md-0 ml-md-4"
-              style={{ maxWidth: 420 }}
+              style={{ maxWidth: 620 }}
             >
               <h5 className="mb-3">
                 <FormattedMessage
-                  id="stats.five_star_performers_by_ethnicity"
-                  defaultMessage="5-star performers by ethnicity"
+                  id="stats.tier_performers_by_ethnicity"
+                  defaultMessage="Tier performers by ethnicity"
                 />
               </h5>
               <div className="table-responsive">
@@ -980,31 +1001,51 @@ export const CustomStats: React.FC = () => {
                           defaultMessage="Ethnicity"
                         />
                       </th>
-                      <th className="text-right">
-                        <FormattedMessage
-                          id="performers"
-                          defaultMessage="Performers"
-                        />
-                      </th>
+                      {performerRatingTiers.map((tier) => (
+                        <th key={tier.key} className="text-right">
+                          {tier.label}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {fiveStarData!.performerEthnicityFiveStarCounts.map(
-                      (row: { ethnicity: string; count: number }) => (
-                        <tr key={`5star-${row.ethnicity}`}>
+                    {tierData!.performerEthnicityTierCounts.map(
+                      (row: {
+                        ethnicity: string;
+                        bronze: number;
+                        silver: number;
+                        gold: number;
+                        royal_sapphire: number;
+                      }) => (
+                        <tr key={`tiers-${row.ethnicity}`}>
                           <td>
                             <Link
-                              to={NavUtils.makePerformersEthnicityRatingUrl(
-                                row.ethnicity,
-                                100
+                              to={NavUtils.makePerformersEthnicityUrl(
+                                row.ethnicity
                               )}
                             >
                               {row.ethnicity}
                             </Link>
                           </td>
-                          <td className="text-right">
-                            <FormattedNumber value={row.count} />
-                          </td>
+                          {performerRatingTiers.map((tier) => {
+                            const count = row[tier.key];
+                            return (
+                              <td key={tier.key} className="text-right">
+                                {count > 0 ? (
+                                  <Link
+                                    to={NavUtils.makePerformersEthnicityMetallicRatingUrl(
+                                      row.ethnicity,
+                                      tier.key
+                                    )}
+                                  >
+                                    <FormattedNumber value={count} />
+                                  </Link>
+                                ) : (
+                                  <FormattedNumber value={count} />
+                                )}
+                              </td>
+                            );
+                          })}
                         </tr>
                       )
                     )}

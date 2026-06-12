@@ -157,7 +157,7 @@ A comprehensive statistics page showing scene categorization counts, performer e
 
 ### Features
 - Scene counts by category (sex, oral, solo, facial)
-- Performer ethnicity distribution with 5-star breakdown
+- Performer ethnicity distribution with Bronze/Silver/Gold/Sapphire metallic rating-tier breakdown, including configured override tags
 - Orgasm events by year (includes orgasm tag and all its subtags/descendants)
 - Top/Bottom performer counts (strict and lenient)
 - Facial given/received counts
@@ -174,7 +174,7 @@ The `sceneOrgasmCount` and `sceneFacialCount` resolvers use the following logic:
 ```graphql
 extend type Query {
   performerEthnicityCounts: [PerformerEthnicityCount!]!
-  performerEthnicityFiveStarCounts: [PerformerEthnicityCount!]!
+  performerEthnicityTierCounts: [PerformerEthnicityTierCount!]!
   sceneOYearCounts: [SceneOYearCount!]!
   sceneOrgasmCount: Int!
   sceneFacialCount: Int!
@@ -577,7 +577,7 @@ ui/v2.5/src/models/list-filter/criteria/ethnicity.ts
 # Frontend - GraphQL Queries
 ui/v2.5/src/core/queries/performerEthnicities.graphql
 ui/v2.5/src/core/queries/performerEthnicityCounts.graphql
-ui/v2.5/src/core/queries/performerEthnicityFiveStarCounts.graphql
+ui/v2.5/src/core/queries/performerEthnicityTierCounts.graphql
 ```
 
 ### Heavily Modified Files (>100 lines changed)

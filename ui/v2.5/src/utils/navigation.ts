@@ -40,7 +40,9 @@ import { objectTitle } from "src/core/files";
 // CUSTOM: begin - import all custom navigation functions
 import {
   makePerformersEthnicityUrl,
+  makePerformersEthnicityMetallicRatingUrl,
   makePerformersEthnicityRatingUrl,
+  makePerformersEthnicityRatingRangeUrl,
   makePerformerStudioScenesUrl,
   makeStudioSexScenesUrl,
   makeStudioOralScenesUrl,
@@ -396,7 +398,9 @@ const makeTagStudiosUrl = (tag: INamedObject) => {
 // CUSTOM: begin - use marker_performers so TagCard marker links match the Markers filter UI
 const makeTagSceneMarkersUrl = (tag: INamedObject) => {
   const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
-  const criterion = new MarkerPerformersCriterion(MarkerPerformersCriterionOption);
+  const criterion = new MarkerPerformersCriterion(
+    MarkerPerformersCriterionOption
+  );
   criterion.modifier = GQL.CriterionModifier.Equals;
   criterion.value = {
     tag_ids: [{ id: tag.id, label: tag.name || `Tag ${tag.id}` }],
@@ -594,7 +598,9 @@ const NavUtils = {
   makePerformersCountryUrl,
   // CUSTOM: begin
   makePerformersEthnicityUrl,
+  makePerformersEthnicityMetallicRatingUrl,
   makePerformersEthnicityRatingUrl,
+  makePerformersEthnicityRatingRangeUrl,
   makePerformerStudioScenesUrl,
   // CUSTOM: end
   makeStudioScenesUrl,
@@ -618,7 +624,7 @@ const NavUtils = {
   makePerformerOrgasmMarkersUrl,
   makePerformerFeetMarkersUrl,
   makePerformerFacialMarkersWithRoleUrl,
-    withStudioScope,
+  withStudioScope,
   makeStudioMarkerScenesUrl,
   makePerformerStudioMarkerScenesUrl,
   makeGlobalSexScenesUrl,

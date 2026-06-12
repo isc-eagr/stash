@@ -21,6 +21,28 @@ type sceneMultiSegmentLoopPresetInputResolver struct{ *Resolver }
 
 const sceneODateTrackingStart = "2023-10-03"
 
+type customRatingTierThresholds struct {
+	bronze        int
+	silver        int
+	gold          int
+	royalSapphire int
+}
+
+type customRatingTierOverrideTags struct {
+	bronze        string
+	silver        string
+	gold          string
+	royalSapphire string
+	goat          string
+}
+
+var defaultCustomRatingTierThresholds = customRatingTierThresholds{
+	bronze:        60,
+	silver:        73,
+	gold:          84,
+	royalSapphire: 90,
+}
+
 // CUSTOM: Factory methods for custom resolver types
 func (r *Resolver) PerformerImage() PerformerImageResolver {
 	return &performerImageResolver{r}
@@ -168,6 +190,309 @@ func (r *queryResolver) PerformerEthnicityFiveStarCounts(ctx context.Context) (r
 		return nil, err
 	}
 	return ret, nil
+}
+
+// PerformerEthnicityTierCounts returns final metallic card-style counts grouped by
+// non-empty ethnicity. It mirrors the performers metallic_rating filter semantics,
+// including override tags and higher-priority override precedence.
+func (r *queryResolver) PerformerEthnicityTierCounts(ctx context.Context) (ret []*PerformerEthnicityTierCount, err error) {
+	thresholds := getCustomPerformerRatingTierThresholds()
+	overrides := getCustomRatingTierOverrideTags()
+	bronzeClause, bronzeArgs := customRatingTierSQLClause("bronze", thresholds, overrides)
+	silverClause, silverArgs := customRatingTierSQLClause("silver", thresholds, overrides)
+	goldClause, goldArgs := customRatingTierSQLClause("gold", thresholds, overrides)
+	royalSapphireClause, royalSapphireArgs := customRatingTierSQLClause("royal_sapphire", thresholds, overrides)
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := fmt.Sprintf(`
+SELECT
+  ethnicity,
+  SUM(CASE WHEN %s THEN 1 ELSE 0 END) AS bronze_count,
+  SUM(CASE WHEN %s THEN 1 ELSE 0 END) AS silver_count,
+  SUM(CASE WHEN %s THEN 1 ELSE 0 END) AS gold_count,
+  SUM(CASE WHEN %s THEN 1 ELSE 0 END) AS royal_sapphire_count
+FROM performers
+WHERE ethnicity IS NOT NULL
+  AND TRIM(ethnicity) <> ''
+GROUP BY ethnicity
+HAVING bronze_count + silver_count + gold_count + royal_sapphire_count > 0
+ORDER BY bronze_count + silver_count + gold_count + royal_sapphire_count DESC, ethnicity ASC`,
+			bronzeClause,
+			silverClause,
+			goldClause,
+			royalSapphireClause,
+		)
+		args := append([]interface{}{}, bronzeArgs...)
+		args = append(args, silverArgs...)
+		args = append(args, goldArgs...)
+		args = append(args, royalSapphireArgs...)
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+		out := make([]*PerformerEthnicityTierCount, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 5 {
+				continue
+			}
+			out = append(out, &PerformerEthnicityTierCount{
+				Ethnicity:     customStringValue(row[0]),
+				Bronze:        customIntValue(row[1]),
+				Silver:        customIntValue(row[2]),
+				Gold:          customIntValue(row[3]),
+				RoyalSapphire: customIntValue(row[4]),
+			})
+		}
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func customRatingTierSQLClause(tier string, thresholds customRatingTierThresholds, overrides customRatingTierOverrideTags) (string, []interface{}) {
+	var clauses []string
+	var args []interface{}
+
+	if overrideTagIDs := customOverrideTagIDsForTier(tier, overrides); len(overrideTagIDs) > 0 {
+		noHigherPriorityClause, noHigherPriorityArgs := customHasNoAnyPerformerTagClause(
+			customHigherPriorityOverrideTagIDsForTier(tier, overrides),
+		)
+		hasOverrideClause, hasOverrideArgs := customHasAnyPerformerTagClause(overrideTagIDs)
+		clauses = append(clauses, fmt.Sprintf("(%s AND %s)", noHigherPriorityClause, hasOverrideClause))
+		args = append(args, noHigherPriorityArgs...)
+		args = append(args, hasOverrideArgs...)
+	}
+
+	noOverrideClause, noOverrideArgs := customHasNoAnyPerformerTagClause(customAllOverrideTagIDs(overrides))
+	ratingClause, ratingArgs := customRatingRangeSQLClause(tier, thresholds)
+	clauses = append(clauses, fmt.Sprintf("(%s AND %s)", noOverrideClause, ratingClause))
+	args = append(args, noOverrideArgs...)
+	args = append(args, ratingArgs...)
+
+	return "(" + strings.Join(clauses, " OR ") + ")", args
+}
+
+func customRatingRangeSQLClause(tier string, thresholds customRatingTierThresholds) (string, []interface{}) {
+	switch tier {
+	case "bronze":
+		return "rating >= ? AND rating < ?", []interface{}{thresholds.bronze, thresholds.silver}
+	case "silver":
+		return "rating >= ? AND rating < ?", []interface{}{thresholds.silver, thresholds.gold}
+	case "gold":
+		return "rating >= ? AND rating < ?", []interface{}{thresholds.gold, thresholds.royalSapphire}
+	case "royal_sapphire":
+		return "rating >= ?", []interface{}{thresholds.royalSapphire}
+	default:
+		return "0 = 1", nil
+	}
+}
+
+func customOverrideTagIDsForTier(tier string, overrides customRatingTierOverrideTags) []string {
+	switch tier {
+	case "bronze":
+		return customNonEmptyStrings(overrides.bronze)
+	case "silver":
+		return customNonEmptyStrings(overrides.silver)
+	case "gold":
+		return customNonEmptyStrings(overrides.gold)
+	case "royal_sapphire":
+		return customNonEmptyStrings(overrides.royalSapphire, overrides.goat)
+	default:
+		return nil
+	}
+}
+
+func customHigherPriorityOverrideTagIDsForTier(tier string, overrides customRatingTierOverrideTags) []string {
+	switch tier {
+	case "bronze":
+		return customNonEmptyStrings(overrides.silver, overrides.gold, overrides.royalSapphire, overrides.goat)
+	case "silver":
+		return customNonEmptyStrings(overrides.gold, overrides.royalSapphire, overrides.goat)
+	case "gold":
+		return customNonEmptyStrings(overrides.royalSapphire, overrides.goat)
+	default:
+		return nil
+	}
+}
+
+func customAllOverrideTagIDs(overrides customRatingTierOverrideTags) []string {
+	return customNonEmptyStrings(
+		overrides.bronze,
+		overrides.silver,
+		overrides.gold,
+		overrides.royalSapphire,
+		overrides.goat,
+	)
+}
+
+func customHasAnyPerformerTagClause(tagIDs []string) (string, []interface{}) {
+	if len(tagIDs) == 0 {
+		return "0 = 1", nil
+	}
+
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(tagIDs)), ",")
+	return fmt.Sprintf(
+		"EXISTS (SELECT 1 FROM performers_tags prt WHERE prt.performer_id = performers.id AND prt.tag_id IN (%s))",
+		placeholders,
+	), customStringSliceToInterfaces(tagIDs)
+}
+
+func customHasNoAnyPerformerTagClause(tagIDs []string) (string, []interface{}) {
+	if len(tagIDs) == 0 {
+		return "1 = 1", nil
+	}
+
+	hasAnyClause, args := customHasAnyPerformerTagClause(tagIDs)
+	return "NOT " + hasAnyClause, args
+}
+
+func getCustomPerformerRatingTierThresholds() customRatingTierThresholds {
+	ret := defaultCustomRatingTierThresholds
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	thresholds := customMapValue(uiConfig, "ratingCardThresholds")
+	if performerThresholds := customMapValue(thresholds, "performer"); performerThresholds != nil {
+		applyCustomRatingTierThresholds(&ret, performerThresholds)
+	} else {
+		applyCustomRatingTierThresholds(&ret, thresholds)
+	}
+	return ret
+}
+
+func getCustomRatingTierOverrideTags() customRatingTierOverrideTags {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	overrideTags := customMapValue(uiConfig, "ratingCardOverrideTagIds")
+	roleTags := customMapValue(uiConfig, "roleTagIds")
+
+	return customRatingTierOverrideTags{
+		bronze:        customStringConfigValue(overrideTags["bronzeTagId"]),
+		silver:        customStringConfigValue(overrideTags["silverTagId"]),
+		gold:          customStringConfigValue(overrideTags["goldTagId"]),
+		royalSapphire: customStringConfigValue(overrideTags["royalSapphireTagId"]),
+		goat:          customStringConfigValue(roleTags["goatTagId"]),
+	}
+}
+
+func applyCustomRatingTierThresholds(thresholds *customRatingTierThresholds, values map[string]interface{}) {
+	if values == nil {
+		return
+	}
+	if value, ok := customIntConfigValue(values["bronze"]); ok {
+		thresholds.bronze = customClampRatingThreshold(value)
+	}
+	if value, ok := customIntConfigValue(values["silver"]); ok {
+		thresholds.silver = customClampRatingThreshold(value)
+	}
+	if value, ok := customIntConfigValue(values["gold"]); ok {
+		thresholds.gold = customClampRatingThreshold(value)
+	}
+	if value, ok := customIntConfigValue(values["royalSapphire"]); ok {
+		thresholds.royalSapphire = customClampRatingThreshold(value)
+	}
+}
+
+func customStringConfigValue(value interface{}) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprint(value))
+}
+
+func customMapValue(values map[string]interface{}, key string) map[string]interface{} {
+	if values == nil {
+		return nil
+	}
+	switch typed := values[key].(type) {
+	case map[string]interface{}:
+		return typed
+	case map[interface{}]interface{}:
+		ret := make(map[string]interface{}, len(typed))
+		for k, v := range typed {
+			if keyString, ok := k.(string); ok {
+				ret[keyString] = v
+			}
+		}
+		return ret
+	default:
+		return nil
+	}
+}
+
+func customNonEmptyStrings(values ...string) []string {
+	var ret []string
+	seen := map[string]bool{}
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" && !seen[trimmed] {
+			ret = append(ret, trimmed)
+			seen[trimmed] = true
+		}
+	}
+	return ret
+}
+
+func customStringSliceToInterfaces(values []string) []interface{} {
+	ret := make([]interface{}, len(values))
+	for i, value := range values {
+		ret[i] = value
+	}
+	return ret
+}
+
+func customIntConfigValue(value interface{}) (int, bool) {
+	switch typed := value.(type) {
+	case int:
+		return typed, true
+	case int64:
+		return int(typed), true
+	case float64:
+		return int(typed), true
+	case float32:
+		return int(typed), true
+	case string:
+		parsed, err := strconv.Atoi(typed)
+		return parsed, err == nil
+	default:
+		return 0, false
+	}
+}
+
+func customClampRatingThreshold(value int) int {
+	if value < 0 {
+		return 0
+	}
+	return value
+}
+
+func customStringValue(value interface{}) string {
+	switch typed := value.(type) {
+	case string:
+		return typed
+	case []byte:
+		return string(typed)
+	default:
+		return fmt.Sprint(typed)
+	}
+}
+
+func customIntValue(value interface{}) int {
+	switch typed := value.(type) {
+	case int64:
+		return int(typed)
+	case int:
+		return typed
+	case []byte:
+		i, _ := strconv.Atoi(string(typed))
+		return i
+	case string:
+		i, _ := strconv.Atoi(typed)
+		return i
+	default:
+		i, _ := strconv.Atoi(fmt.Sprint(typed))
+		return i
+	}
 }
 
 // SceneOYearCounts returns counts of scene orgasm events grouped by year ascending.

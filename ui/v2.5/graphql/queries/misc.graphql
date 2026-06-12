@@ -67,11 +67,14 @@ query PerformerEthnicityCounts {
   }
 }
 
-# 5-star performers by ethnicity for Stats page
-query PerformerEthnicityFiveStarCounts {
-  performerEthnicityFiveStarCounts {
+# Performer rating tiers by ethnicity for Stats page
+query PerformerEthnicityTierCounts {
+  performerEthnicityTierCounts {
     ethnicity
-    count
+    bronze
+    silver
+    gold
+    royal_sapphire
   }
 }
 # CUSTOM: end

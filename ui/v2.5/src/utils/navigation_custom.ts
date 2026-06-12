@@ -15,10 +15,7 @@ import {
   RatingCriterion,
   RatingCriterionOption,
 } from "src/models/list-filter/criteria/rating";
-import {
-  RatingSystemType,
-  RatingStarPrecision,
-} from "src/utils/rating";
+import { RatingSystemType, RatingStarPrecision } from "src/utils/rating";
 import { IHierarchicalLabelValue } from "src/models/list-filter/types";
 import {
   MarkerTagsCriterion,
@@ -65,6 +62,62 @@ export const makePerformersEthnicityRatingUrl = (
 
   const randomId = Math.floor(Math.random() * 100000000);
   return `/performers?${filter.makeQueryParameters()}&sortby=random_${randomId}`;
+};
+
+export const makePerformersEthnicityRatingRangeUrl = (
+  ethnicity: string,
+  minRating: number,
+  maxRatingExclusive?: number
+) => {
+  const filter = new ListFilterModel(GQL.FilterMode.Performers, undefined);
+
+  const ethnicityCriterion = new StringCriterion(
+    createStringCriterionOption("ethnicity")
+  );
+  ethnicityCriterion.modifier = GQL.CriterionModifier.Equals;
+  ethnicityCriterion.value = ethnicity;
+  filter.criteria.push(ethnicityCriterion);
+
+  const ratingCriterion = new RatingCriterion(
+    { type: RatingSystemType.Stars, starPrecision: RatingStarPrecision.Full },
+    RatingCriterionOption
+  );
+  ratingCriterion.modifier = GQL.CriterionModifier.Between;
+  ratingCriterion.value = {
+    value: minRating,
+    value2: maxRatingExclusive === undefined ? 100000 : maxRatingExclusive - 1,
+  };
+  filter.criteria.push(ratingCriterion);
+
+  const randomId = Math.floor(Math.random() * 100000000);
+  return `/performers?${filter.makeQueryParameters()}&sortby=random_${randomId}`;
+};
+
+const encodeCustomFilterCriterion = (criterion: Record<string, unknown>) =>
+  encodeURI(JSON.stringify(criterion).replace(/^\{/, "(").replace(/\}$/, ")"))
+    .replaceAll("?", encodeURIComponent("?"))
+    .replaceAll("#", encodeURIComponent("#"))
+    .replaceAll("&", encodeURIComponent("&"))
+    .replaceAll(";", encodeURIComponent(";"))
+    .replaceAll("=", encodeURIComponent("="))
+    .replaceAll("+", encodeURIComponent("+"));
+
+export const makePerformersEthnicityMetallicRatingUrl = (
+  ethnicity: string,
+  tier: "bronze" | "silver" | "gold" | "royal_sapphire"
+) => {
+  const ethnicityCriterion = encodeCustomFilterCriterion({
+    type: "ethnicity",
+    modifier: "EQUALS",
+    value: ethnicity,
+  });
+  const metallicRatingCriterion = encodeCustomFilterCriterion({
+    type: "metallic_rating",
+    modifier: "INCLUDES",
+    value: [tier],
+  });
+
+  return `/performers?c=${ethnicityCriterion}&c=${metallicRatingCriterion}&sortby=name`;
 };
 
 export const makePerformerStudioScenesUrl = (
@@ -1240,7 +1293,11 @@ export const makeSceneMarkersUrl = (tagId: string, tagName: string) => {
 // URL to list SCENES filtered by having markers with a specific tag
 // Use this for scene counts (e.g., sex_scene_count) - goes to /scenes, not /scenes/markers
 // markerDepth: 0 for exact match, -1 for all subtags
-export const makeScenesWithMarkerTagUrl = (tagId: string, tagName: string, markerDepth: number = 0) => {
+export const makeScenesWithMarkerTagUrl = (
+  tagId: string,
+  tagName: string,
+  markerDepth: number = 0
+) => {
   return `/scenes?c=${encodeURIComponent(
     JSON.stringify({
       type: "scene_markers",
@@ -1323,12 +1380,19 @@ export const makePerformerOrgasmMarkersUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
 
   // Add marker performers criterion with the performer as top and the tag filter
-  const criterion = new MarkerPerformersCriterion(MarkerPerformersCriterionOption);
+  const criterion = new MarkerPerformersCriterion(
+    MarkerPerformersCriterionOption
+  );
   criterion.modifier = GQL.CriterionModifier.IncludesAll;
   criterion.value = {
     tag_ids: [{ id: tagId, label: tagLabel }],
     include_subtags: true,
-    top_performer_ids: [{ id: performer.id, label: performer.name || `Performer ${performer.id}` }],
+    top_performer_ids: [
+      {
+        id: performer.id,
+        label: performer.name || `Performer ${performer.id}`,
+      },
+    ],
     top_any_count: 0,
     top_ethnicities: [],
     top_countries: [],
@@ -1358,12 +1422,19 @@ export const makePerformerFeetMarkersUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
 
   // Add marker performers criterion with the performer as top and the tag filter
-  const criterion = new MarkerPerformersCriterion(MarkerPerformersCriterionOption);
+  const criterion = new MarkerPerformersCriterion(
+    MarkerPerformersCriterionOption
+  );
   criterion.modifier = GQL.CriterionModifier.IncludesAll;
   criterion.value = {
     tag_ids: [{ id: tagId, label: tagLabel }],
     include_subtags: true,
-    top_performer_ids: [{ id: performer.id, label: performer.name || `Performer ${performer.id}` }],
+    top_performer_ids: [
+      {
+        id: performer.id,
+        label: performer.name || `Performer ${performer.id}`,
+      },
+    ],
     top_any_count: 0,
     top_ethnicities: [],
     top_countries: [],
@@ -1392,7 +1463,10 @@ export const makePerformerFacialMarkersWithRoleUrl = (
 ) => {
   if (!performer.id || !tagId) return "#";
 
-  const performerRef = { id: performer.id, label: performer.name || `Performer ${performer.id}` };
+  const performerRef = {
+    id: performer.id,
+    label: performer.name || `Performer ${performer.id}`,
+  };
 
   // Build the criterion using new format
   // For overall (no role): performer in either top OR bottom (performer_mode: "OR")
@@ -1408,7 +1482,9 @@ export const makePerformerFacialMarkersWithRoleUrl = (
     unnamed_performers: [],
   };
 
-  return `/scenes/markers?c=${encodeURIComponent(JSON.stringify(criterionData))}&sortby=title`;
+  return `/scenes/markers?c=${encodeURIComponent(
+    JSON.stringify(criterionData)
+  )}&sortby=title`;
 };
 
 // Generate URL to filter performers by partner markers (e.g., "who has performer X been a top/bottom with")
