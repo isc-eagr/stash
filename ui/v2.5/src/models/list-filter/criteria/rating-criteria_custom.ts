@@ -135,7 +135,7 @@ const performanceChoices = [
   "Very strong",
   "Excellent",
   "Elite",
-  "Scene-selling",
+  "Perfect",
 ].map((label, value) => ({ value, label }));
 
 const payoffChoices = [

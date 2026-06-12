@@ -729,7 +729,7 @@ export const CustomStats: React.FC = () => {
         </div>
       )}
 
-      {/* O Date Stats - recorded O dates only, starting October 3 2023 */}
+      {/* O Date Stats - recorded O dates only, starting March 8 2024 */}
       {(mostOsInDayData?.mostOsInDay ||
         longestPeriodWithoutOData?.longestPeriodWithoutO) && (
         <div className="col col-sm-8 m-sm-auto row stats mt-4">

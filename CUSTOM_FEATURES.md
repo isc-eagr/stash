@@ -45,6 +45,7 @@ This document describes all custom features and modifications added on top of th
 35. [Marker Source-Quality Generation](#35-marker-source-quality-generation)
 36. [Premium Rating Card Styles](#36-premium-rating-card-styles)
 37. [Persisted Rating System](#37-persisted-rating-system)
+38. [Mobile Production Deploy Workflow](#38-mobile-production-deploy-workflow)
 
 ---
 
@@ -945,8 +946,8 @@ extend type Query {
 - `TotalPenisMeters` resolver: Sums performer penis lengths (defaulting to 17cm when null), converts to meters
 - `TotalOrgasmTime` resolver: Sums duration of all orgasm markers (uses end_seconds - seconds, or 20s default if no end time)
 - `TotalFacialTime` resolver: Sums duration of all facial markers (uses end_seconds - seconds, or 20s default if no end time)
-- `MostOsInDay` resolver: Groups `scenes_o_dates` by date and returns the highest daily O count, ignoring dates before October 3, 2023 when O-date tracking began
-- `LongestPeriodWithoutO` resolver: Finds the longest gap between recorded O dates from October 3, 2023 onward, including the current dry spell through today
+- `MostOsInDay` resolver: Groups `scenes_o_dates` by date and returns the highest daily O count, ignoring dates before March 8, 2024 when reliable O-date tracking began
+- `LongestPeriodWithoutO` resolver: Finds the longest gap between recorded O dates from March 8, 2024 onward, including the current dry spell through today
 
 ### Frontend Files
 - `ui/v2.5/src/components/CustomStats.tsx` - Added display for estimated liters, total penis meters, total orgasm time, total facial time, most O's in a day, longest period without an O, and clickable links for Total Orgasms/Facials counts
@@ -956,8 +957,8 @@ extend type Query {
 - **Total Penis Meters**: Sums all performer penis lengths (uses 17cm default), displays in meters with 🍆 emoji
 - **Total Orgasm Time**: Sum of all orgasm marker durations (end_seconds - seconds), using 20s default when no end timestamp
 - **Total Facial Time**: Sum of all facial marker durations (end_seconds - seconds), using 20s default when no end timestamp
-- **Most O's in a Day**: Displays the maximum number of recorded O events on a single date and the date it happened, counting only O dates from October 3, 2023 onward
-- **Longest Period Without an O**: Displays the longest O-free day count and date range from October 3, 2023 onward
+- **Most O's in a Day**: Displays the maximum number of recorded O events on a single date and the date it happened, counting only O dates from March 8, 2024 onward
+- **Longest Period Without an O**: Displays the longest O-free day count and date range from March 8, 2024 onward
 - **Clickable Total Orgasms**: Links to Markers page filtered by orgasm tag (using configured orgasmTagId)
 - **Clickable Total Facials**: Links to Markers page filtered by facial tag (using configured facialTagId)
 
@@ -2352,3 +2353,28 @@ Performer rating criteria include a feminine performer penalty, exposed both in 
 - `ui/v2.5/src/models/list-filter/criteria/rating-criteria_custom.ts` - Frontend rating criteria filter criterion classes
 - `ui/v2.5/src/components/List/Filters/RatingCriteriaFilter_custom.tsx` - Combined rating criteria filter editor
 - `ui/v2.5/src/components/Performers/performerTypes_custom.ts` - Shared performer list/card data type for the lean list query
+
+---
+
+## 38. Mobile Production Deploy Workflow
+
+### Overview
+Adds a one-command Windows deploy flow for mobile Codex sessions. The wrapper builds the release binary, stops the two local production Stash instances, backs up each existing executable, copies the new `stash.exe`, and restarts both instances.
+
+Restarted Stash processes are launched hidden with stdout/stderr redirected into each instance's `.deploy-logs` directory. This keeps mobile/agent shells from hanging after a successful deploy because the long-running Stash process is not holding the deploy command's output handles open.
+
+### Files Added
+- `deploy_prod_custom.bat` - Batch entry point for easy execution from mobile/remote shells
+- `scripts/deploy_prod_custom.ps1` - PowerShell deploy script with build, stop, backup, copy, and restart steps
+
+### Usage
+Run from the repository root:
+```bat
+deploy_prod_custom.bat
+```
+
+Optional flags:
+```bat
+deploy_prod_custom.bat -SkipBuild
+deploy_prod_custom.bat -SkipStart
+```

@@ -129,3 +129,6 @@ Always apply small changes at a time, but do ensure that work is complete withou
    - `import type` is used for type-only imports in TypeScript to avoid circular dependencies (e.g. `navigation_custom.ts` importing `INamedObject` from `navigation.ts`).
    - JSON locale files (`en-GB.json`, `en-US.json`) cannot have comments — custom keys are documented in CUSTOM_FEATURES.md instead.
 
+13. Explicit requests for production deployments.
+   - We have a script to deploy to production, but it should only be run when explicitly requested by the main developer. Do not run production deployment scripts without direct instruction to do so.
+   - The script is located at C:\Code\stash\deploy_prod_custom.bat and should be run from the command line with appropriate permissions.

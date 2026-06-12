@@ -277,14 +277,12 @@ const sceneMetrics: IAdvisorMetric[] = [
       {
         value: 0,
         label: "Not oral-only",
-        description:
-          "Not an oral-only scene.",
+        description: "Not an oral-only scene.",
       },
       {
         value: 0.5,
         label: "Oral-only bonus",
-        description:
-          "Oral-only scene.",
+        description: "Oral-only scene.",
       },
     ],
   },
@@ -319,14 +317,12 @@ const sceneMetrics: IAdvisorMetric[] = [
       {
         value: 0,
         label: "No group bonus",
-        description:
-          "No bonus: the scene has 3 or fewer performers.",
+        description: "No bonus: the scene has 3 or fewer performers.",
       },
       {
         value: 0.5,
         label: "Large group bonus",
-        description:
-          "Group scene with 4 or more performers.",
+        description: "Group scene with 4 or more performers.",
       },
     ],
   },
@@ -636,13 +632,13 @@ const performerMetrics: IAdvisorMetric[] = [
       },
       {
         value: 9,
-        label: "Elite",
+        label: "Near-Perfect",
         description:
           "He has that magnetic, highly rewatchable quality where you trust him to elevate a scene.",
       },
       {
         value: 10,
-        label: "Scene-selling",
+        label: "Perfect",
         description:
           "His presence alone can sell a scene; if his name is attached, you are already interested.",
       },

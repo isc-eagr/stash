@@ -19,7 +19,8 @@ type performerImageResolver struct{ *Resolver }
 type sceneReleaseResolver struct{ *Resolver }
 type sceneMultiSegmentLoopPresetInputResolver struct{ *Resolver }
 
-const sceneODateTrackingStart = "2023-10-03"
+const sceneODateTrackingStart = "2024-03-08"
+const sceneODateMostOsExcludedDay = "2025-09-08"
 
 type customRatingTierThresholds struct {
 	bronze        int
@@ -555,8 +556,8 @@ func (r *queryResolver) SceneOYearCounts(ctx context.Context) (ret []*SceneOYear
 func (r *queryResolver) MostOsInDay(ctx context.Context) (ret *SceneODayStat, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		db := manager.GetInstance().Database
-		query := "SELECT date(o_date) AS day, COUNT(*) AS cnt FROM scenes_o_dates WHERE o_date IS NOT NULL AND date(o_date) >= date(?) GROUP BY day ORDER BY cnt DESC, day ASC LIMIT 1"
-		_, rows, err := db.QuerySQL(ctx, query, []interface{}{sceneODateTrackingStart})
+		query := "SELECT date(o_date) AS day, COUNT(*) AS cnt FROM scenes_o_dates WHERE o_date IS NOT NULL AND date(o_date) >= date(?) AND date(o_date) <> date(?) GROUP BY day ORDER BY cnt DESC, day ASC LIMIT 1"
+		_, rows, err := db.QuerySQL(ctx, query, []interface{}{sceneODateTrackingStart, sceneODateMostOsExcludedDay})
 		if err != nil {
 			return err
 		}
