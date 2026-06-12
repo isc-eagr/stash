@@ -164,7 +164,7 @@ const standoutChoices = [
   },
   {
     value: 1,
-    label: "One noticeable moment",
+    label: "One or two noticeable moments",
   },
   {
     value: 2,

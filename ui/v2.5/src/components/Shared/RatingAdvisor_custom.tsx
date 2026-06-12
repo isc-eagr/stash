@@ -74,7 +74,7 @@ const sceneMetrics: IAdvisorMetric[] = [
         value: 0,
         label: "Not attractive",
         description:
-          "Pick this when he is only relevant because of the scene, the theme, or another performer.",
+          "Pick this when he is only relevant because of another performer, the scene, or the theme.",
       },
       {
         value: 1,
@@ -84,7 +84,7 @@ const sceneMetrics: IAdvisorMetric[] = [
       },
       {
         value: 2,
-        label: "Mostly not your type",
+        label: "Low",
         description:
           "Mostly not your type, though there may be one small thing that works.",
       },
@@ -126,15 +126,15 @@ const sceneMetrics: IAdvisorMetric[] = [
       },
       {
         value: 9,
-        label: "Elite attractiveness",
+        label: "Near-perfect",
         description:
-          "Rare visual appeal, like he hits your type in a way most performers do not.",
+          "Near-perfect for your taste, he fits your type in pretty much every way.",
       },
       {
         value: 10,
-        label: "Near-perfect",
+        label: "Perfect",
         description:
-          "Near-perfect for your taste, the kind of look that makes him a favorite-type performer.",
+          "Perfect for your taste, like he hits your type in a way most performers do not.",
       },
     ],
   },
@@ -201,13 +201,13 @@ const sceneMetrics: IAdvisorMetric[] = [
       },
       {
         value: 9,
-        label: "Elite",
+        label: "Near-perfect quality",
         description:
           "The sex quality is one of the first things you would mention when explaining why the scene is hot.",
       },
       {
         value: 10,
-        label: "All-time sex quality",
+        label: "Perfect quality",
         description:
           "This is the rare scene where the sex quality alone can carry it, even without extra bonuses.",
       },
@@ -278,13 +278,13 @@ const sceneMetrics: IAdvisorMetric[] = [
         value: 0,
         label: "Not oral-only",
         description:
-          "No bonus here; either it is not oral-only, or being oral-only does not make it hotter for you.",
+          "Not an oral-only scene.",
       },
       {
         value: 0.5,
         label: "Oral-only bonus",
         description:
-          "Use this when the oral-only focus is part of the appeal, like the scene works because it stays on that lane.",
+          "Oral-only scene.",
       },
     ],
   },
@@ -320,13 +320,13 @@ const sceneMetrics: IAdvisorMetric[] = [
         value: 0,
         label: "No group bonus",
         description:
-          "No bonus: the scene has 3 or fewer performers, or the group size does not make it hotter.",
+          "No bonus: the scene has 3 or fewer performers.",
       },
       {
         value: 0.5,
         label: "Large group bonus",
         description:
-          "Use this when 4+ performers make the scene feel bigger, busier, hotter, or more memorable.",
+          "Group scene with 4 or more performers.",
       },
     ],
   },
@@ -347,7 +347,7 @@ const sceneMetrics: IAdvisorMetric[] = [
         value: 2,
         label: "God-tier orgasms",
         description:
-          "This is payoff-you-remember territory: the orgasm or facial is central to why the scene is special.",
+          "The orgasm or facial is central to why the scene is special.",
       },
     ],
   },
@@ -366,9 +366,9 @@ const sceneMetrics: IAdvisorMetric[] = [
       },
       {
         value: 1,
-        label: "One noticeable moment",
+        label: "One or two noticeable moments",
         description:
-          "There is one nice moment, angle, reaction, line, pose, or beat that makes you go, okay, that was hot.",
+          "There is one or two nice moments, angles, reactions, lines, poses, or beats that make you go, okay, that was hot.",
       },
       {
         value: 2,
@@ -486,15 +486,15 @@ const performerMetrics: IAdvisorMetric[] = [
       },
       {
         value: 9,
-        label: "Elite face",
+        label: "Near-perfect",
         description:
-          "Rare facial appeal, like he hits your type in a way most performers do not.",
+          "Near-perfect for your taste, his face fits your type in pretty much every way.",
       },
       {
         value: 10,
-        label: "Near-perfect",
+        label: "Perfect",
         description:
-          "Near-perfect face for your taste, the kind of look that makes him a favorite-type performer.",
+          "Perfect for your taste, like his face hits your type in a way most performers do not.",
       },
     ],
   },
@@ -561,15 +561,15 @@ const performerMetrics: IAdvisorMetric[] = [
       },
       {
         value: 9,
-        label: "Elite body",
+        label: "Near-perfect",
         description:
-          "Rare body appeal, like the build lands exactly in your preferred lane.",
+          "Near-perfect for your taste, his body fits your type in pretty much every way.",
       },
       {
         value: 10,
-        label: "Near-perfect",
+        label: "Perfect",
         description:
-          "Near-perfect body for your taste, the kind of build that makes him a favorite-type performer.",
+          "Perfect for your taste, like his body hits your type in a way most performers do not.",
       },
     ],
   },

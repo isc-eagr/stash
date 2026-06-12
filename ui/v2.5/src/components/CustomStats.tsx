@@ -16,6 +16,20 @@ import facialPng from "src/assets/facial.png"; // CUSTOM
 import { useConfigurationContext } from "src/hooks/Config";
 import { ListFilterModel } from "src/models/list-filter/filter";
 
+type PerformerEthnicityTierKey =
+  | "bronze"
+  | "silver"
+  | "gold"
+  | "royal_sapphire";
+
+type PerformerEthnicityTierRow = {
+  ethnicity: string;
+  bronze: number;
+  silver: number;
+  gold: number;
+  royal_sapphire: number;
+};
+
 // Performer rating tiers by ethnicity
 const PERFORMER_ETHNICITY_TIER_COUNTS = gql`
   query PerformerEthnicityTierCounts {
@@ -312,6 +326,22 @@ export const CustomStats: React.FC = () => {
       label: "Sapphire",
     },
   ] as const;
+  const performerEthnicityTierRows = (tierData?.performerEthnicityTierCounts ??
+    []) as PerformerEthnicityTierRow[];
+  const performerRatingTierTotals = performerRatingTiers.reduce(
+    (acc, tier) => ({
+      ...acc,
+      [tier.key]: performerEthnicityTierRows.reduce(
+        (sum, row) => sum + row[tier.key],
+        0
+      ),
+    }),
+    {} as Record<PerformerEthnicityTierKey, number>
+  );
+  const performerRatingTierGrandTotal = performerRatingTiers.reduce(
+    (sum, tier) => sum + performerRatingTierTotals[tier.key],
+    0
+  );
 
   // Query tags to get their names (for display and URL generation)
   const { data: tagsData } = GQL.useFindTagsQuery({
@@ -929,7 +959,7 @@ export const CustomStats: React.FC = () => {
 
       {/* Ethnicity reports side-by-side */}
       {(ethData?.performerEthnicityCounts?.length ?? 0) > 0 ||
-      (tierData?.performerEthnicityTierCounts?.length ?? 0) > 0 ? (
+      performerEthnicityTierRows.length > 0 ? (
         <div className="row justify-content-center mt-5">
           {(ethData?.performerEthnicityCounts?.length ?? 0) > 0 ? (
             <div className="col-12 col-md-auto" style={{ maxWidth: 420 }}>
@@ -980,10 +1010,10 @@ export const CustomStats: React.FC = () => {
             </div>
           ) : null}
 
-          {(tierData?.performerEthnicityTierCounts?.length ?? 0) > 0 ? (
+          {performerEthnicityTierRows.length > 0 ? (
             <div
               className="col-12 col-md-auto mt-4 mt-md-0 ml-md-4"
-              style={{ maxWidth: 620 }}
+              style={{ maxWidth: 700 }}
             >
               <h5 className="mb-3">
                 <FormattedMessage
@@ -1006,17 +1036,15 @@ export const CustomStats: React.FC = () => {
                           {tier.label}
                         </th>
                       ))}
+                      <th className="text-right">Total</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {tierData!.performerEthnicityTierCounts.map(
-                      (row: {
-                        ethnicity: string;
-                        bronze: number;
-                        silver: number;
-                        gold: number;
-                        royal_sapphire: number;
-                      }) => (
+                    {performerEthnicityTierRows.map((row) => {
+                      const rowTotal =
+                        row.bronze + row.silver + row.gold + row.royal_sapphire;
+
+                      return (
                         <tr key={`tiers-${row.ethnicity}`}>
                           <td>
                             <Link
@@ -1046,10 +1074,47 @@ export const CustomStats: React.FC = () => {
                               </td>
                             );
                           })}
+                          <td className="text-right">
+                            <Link
+                              to={NavUtils.makePerformersEthnicityAnyMetallicRatingUrl(
+                                row.ethnicity
+                              )}
+                            >
+                              <FormattedNumber value={rowTotal} />
+                            </Link>
+                          </td>
                         </tr>
-                      )
-                    )}
+                      );
+                    })}
                   </tbody>
+                  <tfoot>
+                    <tr>
+                      <th>Total</th>
+                      {performerRatingTiers.map((tier) => {
+                        const total = performerRatingTierTotals[tier.key];
+                        return (
+                          <th key={tier.key} className="text-right">
+                            {total > 0 ? (
+                              <Link
+                                to={NavUtils.makePerformersMetallicRatingUrl(
+                                  tier.key
+                                )}
+                              >
+                                <FormattedNumber value={total} />
+                              </Link>
+                            ) : (
+                              <FormattedNumber value={total} />
+                            )}
+                          </th>
+                        );
+                      })}
+                      <th className="text-right">
+                        <FormattedNumber
+                          value={performerRatingTierGrandTotal}
+                        />
+                      </th>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>

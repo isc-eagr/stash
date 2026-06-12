@@ -40,9 +40,11 @@ import { objectTitle } from "src/core/files";
 // CUSTOM: begin - import all custom navigation functions
 import {
   makePerformersEthnicityUrl,
+  makePerformersEthnicityAnyMetallicRatingUrl,
   makePerformersEthnicityMetallicRatingUrl,
   makePerformersEthnicityRatingUrl,
   makePerformersEthnicityRatingRangeUrl,
+  makePerformersMetallicRatingUrl,
   makePerformerStudioScenesUrl,
   makeStudioSexScenesUrl,
   makeStudioOralScenesUrl,
@@ -598,9 +600,11 @@ const NavUtils = {
   makePerformersCountryUrl,
   // CUSTOM: begin
   makePerformersEthnicityUrl,
+  makePerformersEthnicityAnyMetallicRatingUrl,
   makePerformersEthnicityMetallicRatingUrl,
   makePerformersEthnicityRatingUrl,
   makePerformersEthnicityRatingRangeUrl,
+  makePerformersMetallicRatingUrl,
   makePerformerStudioScenesUrl,
   // CUSTOM: end
   makeStudioScenesUrl,

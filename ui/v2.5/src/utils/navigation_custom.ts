@@ -120,6 +120,35 @@ export const makePerformersEthnicityMetallicRatingUrl = (
   return `/performers?c=${ethnicityCriterion}&c=${metallicRatingCriterion}&sortby=name`;
 };
 
+export const makePerformersEthnicityAnyMetallicRatingUrl = (
+  ethnicity: string
+) => {
+  const ethnicityCriterion = encodeCustomFilterCriterion({
+    type: "ethnicity",
+    modifier: "EQUALS",
+    value: ethnicity,
+  });
+  const metallicRatingCriterion = encodeCustomFilterCriterion({
+    type: "metallic_rating",
+    modifier: "INCLUDES",
+    value: ["bronze", "silver", "gold", "royal_sapphire"],
+  });
+
+  return `/performers?c=${ethnicityCriterion}&c=${metallicRatingCriterion}&sortby=name`;
+};
+
+export const makePerformersMetallicRatingUrl = (
+  tier: "bronze" | "silver" | "gold" | "royal_sapphire"
+) => {
+  const metallicRatingCriterion = encodeCustomFilterCriterion({
+    type: "metallic_rating",
+    modifier: "INCLUDES",
+    value: [tier],
+  });
+
+  return `/performers?c=${metallicRatingCriterion}&sortby=name`;
+};
+
 export const makePerformerStudioScenesUrl = (
   performerId: string,
   studio: Partial<GQL.StudioDataFragment>
