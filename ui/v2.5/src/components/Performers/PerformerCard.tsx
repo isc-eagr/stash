@@ -17,15 +17,7 @@ import {
 } from "src/models/list-filter/criteria/criterion";
 import { PopoverCountButton } from "../Shared/PopoverCountButton";
 import GenderIcon from "./GenderIcon";
-// CUSTOM: begin
-import {
-  faLink,
-  faTag,
-  faArrowUp,
-  faArrowDown,
-  faHand,
-} from "@fortawesome/free-solid-svg-icons";
-// CUSTOM: end
+import { faLink, faTag } from "@fortawesome/free-solid-svg-icons"; // CUSTOM
 import { faInstagram, faTwitter } from "@fortawesome/free-brands-svg-icons";
 import { RatingBanner } from "../Shared/RatingBanner";
 import { usePerformerUpdate } from "src/core/StashService";
@@ -41,9 +33,6 @@ import {
 } from "src/utils/ratingCardStyles_custom"; // CUSTOM
 // CUSTOM: begin
 import { PerformerCategoryStrip } from "./PerformerDetails/PerformerCategoryStrip";
-import gaySvg from "src/assets/gay.svg";
-import mouthSvg from "src/assets/mouth.svg";
-import facialPng from "src/assets/facial.png"; // CUSTOM
 import type { PerformerListData } from "./performerTypes_custom";
 // CUSTOM: end
 
@@ -115,22 +104,11 @@ interface IPerformerCardProps {
 const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Popovers",
   ({ performer, extraCriteria, studioStats }) => {
-    // CUSTOM: begin
-    const { configuration } = useConfigurationContext();
-    const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-
-    // Get configured tag IDs directly (no need to query by name)
-    const { sexTagId } = roleTagIds;
-    const { oralTagId } = roleTagIds;
-    const { soloTagId } = roleTagIds;
-    const { facialTagId } = roleTagIds;
-
     const sceneCount = studioStats?.scene_count ?? performer.scene_count;
     const imageCount = studioStats?.image_count ?? performer.image_count;
     const galleryCount = studioStats?.gallery_count ?? performer.gallery_count;
     const groupCount = studioStats?.group_count ?? performer.group_count;
     const oCounter = studioStats?.o_counter ?? performer.o_counter;
-    // CUSTOM: end
 
     function maybeRenderScenesPopoverButton() {
       if (!sceneCount) return;
@@ -243,164 +221,6 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
       );
     }
 
-    // CUSTOM: begin - sex/oral/solo/facial scene category buttons
-    // Sex scenes - gay icon with top/bottom sub-counts
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    function _maybeRenderSexScenesButton() {
-      if (!sexTagId) return null;
-
-      const count = performer.sex_scene_count ?? 0;
-      const topCount = performer.sex_top_count ?? 0;
-      const bottomCount = performer.sex_bottom_count ?? 0;
-      const url = NavUtils.makePerformerMarkerScenesUrl(
-        performer,
-        sexTagId,
-        "sex"
-      );
-
-      return (
-        <HoverPopover
-          placement="bottom"
-          content={
-            <div className="role-counts">
-              <div>
-                <Icon icon={faArrowUp} /> Top: {topCount}
-              </div>
-              <div>
-                <Icon icon={faArrowDown} /> Bottom: {bottomCount}
-              </div>
-            </div>
-          }
-        >
-          <Button
-            className="minimal scene-category-count sex-scene-count"
-            href={url}
-            title="Sex scenes"
-            disabled={count === 0}
-          >
-            <img src={gaySvg} alt="Sex" className="category-icon" />
-            <span>{count}</span>
-          </Button>
-        </HoverPopover>
-      );
-    }
-
-    // Oral scenes - mouth icon with top/bottom sub-counts
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    function _maybeRenderOralScenesButton() {
-      if (!oralTagId) return null;
-
-      const count = performer.oral_scene_count ?? 0;
-      const topCount = performer.oral_top_count ?? 0;
-      const bottomCount = performer.oral_bottom_count ?? 0;
-      const url = NavUtils.makePerformerMarkerScenesUrl(
-        performer,
-        oralTagId,
-        "oral"
-      );
-
-      return (
-        <HoverPopover
-          placement="bottom"
-          content={
-            <div className="role-counts">
-              <div>
-                <Icon icon={faArrowUp} /> Top: {topCount}
-              </div>
-              <div>
-                <Icon icon={faArrowDown} /> Bottom: {bottomCount}
-              </div>
-            </div>
-          }
-        >
-          <Button
-            className="minimal scene-category-count oral-scene-count"
-            href={url}
-            title="Oral scenes"
-            disabled={count === 0}
-          >
-            <img src={mouthSvg} alt="Oral" className="category-icon" />
-            <span>{count}</span>
-          </Button>
-        </HoverPopover>
-      );
-    }
-
-    // Solo scenes - hand icon (no top/bottom for solo)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    function _maybeRenderSoloScenesButton() {
-      if (!soloTagId) return null;
-
-      const count = performer.solo_scene_count ?? 0;
-      const url = NavUtils.makePerformerMarkerScenesUrl(
-        performer,
-        soloTagId,
-        "solo"
-      );
-
-      return (
-        <Button
-          className="minimal scene-category-count solo-scene-count"
-          href={url}
-          title="Solo scenes"
-          disabled={count === 0}
-        >
-          <Icon icon={faHand} className="category-icon-fa" />
-          <span>{count}</span>
-        </Button>
-      );
-    }
-
-    // Facial scenes - facial icon with top/bottom sub-counts
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    function _maybeRenderFacialScenesButton() {
-      if (!facialTagId) return null;
-
-      const count = performer.facial_scene_count ?? 0;
-      const topCount = performer.facial_top_count ?? 0;
-      const bottomCount = performer.facial_bottom_count ?? 0;
-      const url = NavUtils.makePerformerMarkerScenesUrl(
-        performer,
-        facialTagId,
-        "facial"
-      );
-
-      return (
-        <HoverPopover
-          placement="bottom"
-          content={
-            <div className="role-counts">
-              <div>
-                <Icon icon={faArrowUp} /> Top: {topCount}
-              </div>
-              <div>
-                <Icon icon={faArrowDown} /> Bottom: {bottomCount}
-              </div>
-            </div>
-          }
-        >
-          <Button
-            className="minimal scene-category-count facial-scene-count"
-            href={url}
-            title="Facial scenes"
-            disabled={count === 0}
-          >
-            <img src={facialPng} alt="Facial" className="category-icon" />
-            <span>{count}</span>
-          </Button>
-        </HoverPopover>
-      );
-    }
-
-    // Check if any role tag is configured
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _hasCategoryButtons = !!(
-      sexTagId ||
-      oralTagId ||
-      soloTagId ||
-      facialTagId
-    );
-
     const hasAnyPopover = !!(
       sceneCount ||
       imageCount ||
@@ -411,7 +231,6 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     );
 
     if (hasAnyPopover) {
-      // CUSTOM: end
       return (
         <>
           <hr />
@@ -562,8 +381,6 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
     extraCriteria,
   }) => {
     const intl = useIntl();
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { configuration: _configuration } = useConfigurationContext();
 
     const age = TextUtils.age(
       performer.birthdate,

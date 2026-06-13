@@ -1,23 +1,19 @@
 import { PerformersCriterionOption } from "./criteria/performers";
 import { MarkersScenesCriterionOption } from "./criteria/scenes";
-// CUSTOM: TagsCriterionOption is still imported for potential future use but commented out in criterionOptions
-// Tags functionality is now integrated into MarkerPerformersCriterionOption
-import { SceneTagsCriterionOption, TagsCriterionOption } from "./criteria/tags";
+import { SceneTagsCriterionOption } from "./criteria/tags";
 import { MarkerPerformersCriterionOption } from "./criteria/marker-performers"; // CUSTOM
 import { StudiosCriterionOption } from "./criteria/studios"; // CUSTOM
 import { ListFilterOptions } from "./filter-options";
-import { ModifierCriterionOption } from "./criteria/criterion"; // CUSTOM
 import { CriterionModifier } from "src/core/generated-graphql"; // CUSTOM
 import { DisplayMode } from "./types";
 import {
   createDateCriterionOption,
   createMandatoryTimestampCriterionOption,
   createNullDurationCriterionOption,
-  StringBooleanCriterionOption, // CUSTOM
-  StringBooleanCriterion, // CUSTOM
   StringCriterion, // CUSTOM
   BooleanCriterionOption, // CUSTOM
   BooleanCriterion, // CUSTOM
+  ModifierCriterionOption, // CUSTOM
   NumberCriterion, // CUSTOM
 } from "./criteria/criterion";
 import { SceneMarkerCustomFiltersCriterionOption } from "./criteria/custom-filters"; // CUSTOM
@@ -68,32 +64,35 @@ class HasEndTimeCriterion extends BooleanCriterion {
 
 // Marker Length criterion option (Equals, >=, <=)
 // Markers with no end time are treated as 20 seconds
-const MarkerLengthCriterionOption: ModifierCriterionOption = new ModifierCriterionOption({
-  messageID: "marker_length",
-  type: "marker_length",
-  modifierOptions: [
-    CriterionModifier.Equals,
-    CriterionModifier.GreaterThanEquals,
-    CriterionModifier.LessThanEquals,
-  ],
-  defaultModifier: CriterionModifier.Equals,
-  inputType: "number",
-  makeCriterion: () => new NumberCriterion(MarkerLengthCriterionOption),
-});
+const MarkerLengthCriterionOption: ModifierCriterionOption =
+  new ModifierCriterionOption({
+    messageID: "marker_length",
+    type: "marker_length",
+    modifierOptions: [
+      CriterionModifier.Equals,
+      CriterionModifier.GreaterThanEquals,
+      CriterionModifier.LessThanEquals,
+    ],
+    defaultModifier: CriterionModifier.Equals,
+    inputType: "number",
+    makeCriterion: () => new NumberCriterion(MarkerLengthCriterionOption),
+  });
 
 // Scene Performer Count criterion option (Equals, >=, <=)
-const ScenePerformerCountCriterionOption: ModifierCriterionOption = new ModifierCriterionOption({
-  messageID: "scene_performer_count",
-  type: "scene_performer_count",
-  modifierOptions: [
-    CriterionModifier.Equals,
-    CriterionModifier.GreaterThanEquals,
-    CriterionModifier.LessThanEquals,
-  ],
-  defaultModifier: CriterionModifier.Equals,
-  inputType: "number",
-  makeCriterion: () => new NumberCriterion(ScenePerformerCountCriterionOption),
-});
+const ScenePerformerCountCriterionOption: ModifierCriterionOption =
+  new ModifierCriterionOption({
+    messageID: "scene_performer_count",
+    type: "scene_performer_count",
+    modifierOptions: [
+      CriterionModifier.Equals,
+      CriterionModifier.GreaterThanEquals,
+      CriterionModifier.LessThanEquals,
+    ],
+    defaultModifier: CriterionModifier.Equals,
+    inputType: "number",
+    makeCriterion: () =>
+      new NumberCriterion(ScenePerformerCountCriterionOption),
+  });
 // CUSTOM: end
 
 const criterionOptions = [

@@ -1,4 +1,5 @@
 import {
+  ModifierCriterionOption, // CUSTOM
   createMandatoryNumberCriterionOption,
   createStringCriterionOption,
   createDateCriterionOption,
@@ -28,7 +29,6 @@ import { PathCriterionOption } from "./criteria/path";
 import { CustomFieldsCriterionOption } from "./criteria/custom-fields";
 import { ParentFolderCriterionOption } from "./criteria/folder";
 import { CriterionModifier } from "src/core/generated-graphql"; // CUSTOM
-import { ModifierCriterionOption } from "./criteria/criterion"; // CUSTOM
 import { CountryCriterion } from "./criteria/country"; // CUSTOM
 import { EthnicityCriterionOption } from "./criteria/ethnicity"; // CUSTOM
 

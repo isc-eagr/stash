@@ -29,8 +29,67 @@ var ratingScoreTables = []ratingScoreSectionTable{
 	{section: models.RatingScoreSectionPenalty, table: ratingPenaltyScoresTable},
 }
 
+var defaultSceneRatingScoreKeys = map[string]map[string]struct{}{
+	models.RatingScoreSectionCriterion: {
+		"performerAppeal": {},
+		"chemistry":       {},
+		"payoff":          {},
+		"standout":        {},
+	},
+	models.RatingScoreSectionBonus: {
+		"theme":         {},
+		"oralOnly":      {},
+		"standoutAct":   {},
+		"largeGroup":    {},
+		"godTierOrgasm": {},
+		"goatElement":   {},
+		"unlikelyTop":   {},
+	},
+	models.RatingScoreSectionPenalty: {
+		"noOrgasm":   {},
+		"production": {},
+	},
+}
+
+var soloSceneRatingScoreKeys = map[string]map[string]struct{}{
+	models.RatingScoreSectionCriterion: {
+		"soloPerformerAppeal": {},
+		"cameraWork":          {},
+	},
+	models.RatingScoreSectionBonus: {
+		"orgasmBonus":            {},
+		"feetBonus":              {},
+		"outstandingPerformance": {},
+		"goatElement":            {},
+		"theme":                  {},
+	},
+	models.RatingScoreSectionPenalty: {
+		"noOrgasm":   {},
+		"production": {},
+	},
+}
+
+var performerRatingScoreKeys = map[string]map[string]struct{}{
+	models.RatingScoreSectionCriterion: {
+		"face":        {},
+		"body":        {},
+		"performance": {},
+		"ethnicity":   {},
+		"masculinity": {},
+	},
+	models.RatingScoreSectionBonus: {
+		"consistency":  {},
+		"dick":         {},
+		"tattoosBonus": {},
+	},
+	models.RatingScoreSectionPenalty: {
+		"feminine": {},
+	},
+}
+
 type ratingScoreRow struct {
 	ID            int            `db:"id"`
+	Section       string         `db:"section"`
 	EntityType    string         `db:"entity_type"`
 	EntityID      int            `db:"entity_id"`
 	Key           string         `db:"key"`
@@ -88,28 +147,146 @@ func ratingScoreTableForSection(section string) (string, string, error) {
 	return "", "", fmt.Errorf("unsupported rating score section %q", section)
 }
 
+func ratingScoreRowsForEntityQuery() string {
+	return fmt.Sprintf(`
+		SELECT section, id, entity_type, entity_id, key, raw_value, weighted_value, label, created_at, updated_at
+		FROM (
+			SELECT 0 AS section_order, '%s' AS section, id, entity_type, entity_id, key, raw_value, weighted_value, label, created_at, updated_at
+			FROM %s
+			WHERE entity_type = ? AND entity_id = ?
+			UNION ALL
+			SELECT 1 AS section_order, '%s' AS section, id, entity_type, entity_id, key, raw_value, weighted_value, label, created_at, updated_at
+			FROM %s
+			WHERE entity_type = ? AND entity_id = ?
+			UNION ALL
+			SELECT 2 AS section_order, '%s' AS section, id, entity_type, entity_id, key, raw_value, weighted_value, label, created_at, updated_at
+			FROM %s
+			WHERE entity_type = ? AND entity_id = ?
+		)
+		ORDER BY section_order, key
+	`,
+		models.RatingScoreSectionCriterion,
+		ratingCriteriaScoresTable,
+		models.RatingScoreSectionBonus,
+		ratingBonusScoresTable,
+		models.RatingScoreSectionPenalty,
+		ratingPenaltyScoresTable,
+	)
+}
+
+func ratingScoreKeyAllowed(allowed map[string]map[string]struct{}, section string, key string) bool {
+	sectionKeys, ok := allowed[section]
+	if !ok {
+		return false
+	}
+	_, ok = sectionKeys[key]
+	return ok
+}
+
+func sceneHasRatingMarkerTagQuery(tagID int) string {
+	return fmt.Sprintf(`EXISTS (
+		SELECT 1
+		FROM %s sm
+		WHERE sm.%s = ?
+		AND %s
+	)`, sceneMarkerTable, sceneIDColumn, tagHierarchyCondition("sm", tagID))
+}
+
+func sceneLacksRatingMarkerTagQuery(tagID int) string {
+	return fmt.Sprintf(`NOT EXISTS (
+		SELECT 1
+		FROM %s sm
+		WHERE sm.%s = ?
+		AND %s
+	)`, sceneMarkerTable, sceneIDColumn, tagHierarchyCondition("sm", tagID))
+}
+
+func sceneUsesSoloRating(ctx context.Context, sceneID int) (bool, error) {
+	tags := GetRoleTagIDs()
+	if tags.SoloTagID == 0 {
+		return false, nil
+	}
+
+	clauses := []string{sceneHasRatingMarkerTagQuery(tags.SoloTagID)}
+	args := []interface{}{sceneID}
+
+	if tags.SexTagID != 0 {
+		clauses = append(clauses, sceneLacksRatingMarkerTagQuery(tags.SexTagID))
+		args = append(args, sceneID)
+	}
+	if tags.OralTagID != 0 {
+		clauses = append(clauses, sceneLacksRatingMarkerTagQuery(tags.OralTagID))
+		args = append(args, sceneID)
+	}
+
+	var isSolo bool
+	query := "SELECT " + strings.Join(clauses, " AND ")
+	if err := dbWrapper.Get(ctx, &isSolo, query, args...); err != nil {
+		return false, fmt.Errorf("detecting solo scene rating mode for scene %d: %w", sceneID, err)
+	}
+
+	return isSolo, nil
+}
+
+func (s *RatingScoreStore) scoreRowsForRating(ctx context.Context, entityType string, entityID int) ([]ratingScoreRow, error) {
+	var rows []ratingScoreRow
+	query := ratingScoreRowsForEntityQuery()
+	if err := dbWrapper.Select(
+		ctx,
+		&rows,
+		query,
+		entityType, entityID,
+		entityType, entityID,
+		entityType, entityID,
+	); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("finding rating scores: %w", err)
+	}
+
+	allowed := performerRatingScoreKeys
+	if entityType == models.RatingEntityScene {
+		isSolo, err := sceneUsesSoloRating(ctx, entityID)
+		if err != nil {
+			return nil, err
+		}
+
+		allowed = defaultSceneRatingScoreKeys
+		if isSolo {
+			allowed = soloSceneRatingScoreKeys
+		}
+	}
+
+	filtered := rows[:0]
+	for _, row := range rows {
+		if ratingScoreKeyAllowed(allowed, row.Section, row.Key) {
+			filtered = append(filtered, row)
+		}
+	}
+
+	return filtered, nil
+}
+
 func (s *RatingScoreStore) FindByEntity(ctx context.Context, entityType string, entityID int) ([]*models.RatingScore, error) {
 	normalizedEntityType, err := normalizeRatingEntityType(entityType)
 	if err != nil {
 		return nil, err
 	}
 
-	var ret []*models.RatingScore
-	for _, sectionTable := range ratingScoreTables {
-		var rows []ratingScoreRow
-		query := fmt.Sprintf(`
-			SELECT id, entity_type, entity_id, key, raw_value, weighted_value, label, created_at, updated_at
-			FROM %s
-			WHERE entity_type = ? AND entity_id = ?
-			ORDER BY key
-		`, sectionTable.table)
-		if err := dbWrapper.Select(ctx, &rows, query, normalizedEntityType, entityID); err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("finding rating scores in %s: %w", sectionTable.table, err)
-		}
+	var rows []ratingScoreRow
+	query := ratingScoreRowsForEntityQuery()
+	if err := dbWrapper.Select(
+		ctx,
+		&rows,
+		query,
+		normalizedEntityType, entityID,
+		normalizedEntityType, entityID,
+		normalizedEntityType, entityID,
+	); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("finding rating scores: %w", err)
+	}
 
-		for _, row := range rows {
-			ret = append(ret, row.resolve(sectionTable.section))
-		}
+	var ret []*models.RatingScore
+	for _, row := range rows {
+		ret = append(ret, row.resolve(row.Section))
 	}
 
 	return ret, nil
@@ -178,22 +355,15 @@ func (s *RatingScoreStore) RecalculateRating(ctx context.Context, entityType str
 		return 0, err
 	}
 
-	var total float64
-	for _, sectionTable := range ratingScoreTables {
-		var sectionTotal sql.NullFloat64
-		query := fmt.Sprintf(`
-			SELECT COALESCE(SUM(weighted_value), 0)
-			FROM %s
-			WHERE entity_type = ? AND entity_id = ?
-		`, sectionTable.table)
-		if err := dbWrapper.Get(ctx, &sectionTotal, query, normalizedEntityType, entityID); err != nil {
-			return 0, fmt.Errorf("summing %s: %w", sectionTable.table, err)
-		}
-		if sectionTotal.Valid {
-			total += sectionTotal.Float64
-		}
+	rows, err := s.scoreRowsForRating(ctx, normalizedEntityType, entityID)
+	if err != nil {
+		return 0, err
 	}
 
+	total := 0.0
+	for _, row := range rows {
+		total += row.WeightedValue
+	}
 	rating100 := int(math.Round(math.Max(0, total) * 10))
 	orgasmBonus, err := s.countOrgasmRatingBonus(ctx, normalizedEntityType, entityID)
 	if err != nil {
@@ -244,5 +414,20 @@ func (s *RatingScoreStore) countOrgasmRatingBonus(ctx context.Context, entityTyp
 		return 0, fmt.Errorf("counting orgasm rating bonus for %s %d: %w", entityType, entityID, err)
 	}
 
-	return count / 3, nil
+	return calculateOrgasmRatingBonus(entityType, count), nil
+}
+
+func calculateOrgasmRatingBonus(entityType string, count int) int {
+	if count < 3 {
+		return 0
+	}
+
+	switch entityType {
+	case models.RatingEntityScene:
+		return count - 2
+	case models.RatingEntityPerformer:
+		return 1 + ((count - 3) / 2)
+	default:
+		return 0
+	}
 }

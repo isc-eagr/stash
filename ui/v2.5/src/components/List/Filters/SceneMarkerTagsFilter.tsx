@@ -6,7 +6,11 @@ import Select, {
   MultiValueProps,
 } from "react-select";
 import { defineMessages, useIntl } from "react-intl";
-import { CriterionModifier, FilterMode , usePerformerEthnicitiesQuery } from "src/core/generated-graphql";
+import {
+  CriterionModifier,
+  FilterMode,
+  usePerformerEthnicitiesQuery,
+} from "src/core/generated-graphql";
 import {
   SceneMarkerTagsCriterion,
   SceneMarkerTagGroupUI,
@@ -71,7 +75,6 @@ const makeEmptyGroup = (): SceneMarkerTagGroupUI => ({
 
 // Reusable component for role-specific attribute section
 interface IRoleAttributeSectionProps {
-  roleKey: string;
   roleLabel: string;
   roleIcon: React.ReactNode;
   performerIds: { id: string; label?: string }[];
@@ -91,8 +94,6 @@ interface IRoleAttributeSectionProps {
 }
 
 const RoleAttributeSection: React.FC<IRoleAttributeSectionProps> = ({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  roleKey,
   roleLabel,
   roleIcon,
   performerIds,
@@ -505,7 +506,6 @@ export const SceneMarkerTagsFilter: React.FC<{
 
                 {/* Top Section */}
                 <RoleAttributeSection
-                  roleKey="top"
                   roleLabel="Top"
                   roleIcon={
                     <Badge
@@ -545,7 +545,6 @@ export const SceneMarkerTagsFilter: React.FC<{
 
                 {/* Bottom Section */}
                 <RoleAttributeSection
-                  roleKey="bottom"
                   roleLabel="Bottom"
                   roleIcon={
                     <Badge
@@ -585,7 +584,6 @@ export const SceneMarkerTagsFilter: React.FC<{
 
                 {/* Both Roles Section */}
                 <RoleAttributeSection
-                  roleKey="both_roles"
                   roleLabel="Both Roles (same performer as top AND bottom)"
                   roleIcon={
                     <Badge

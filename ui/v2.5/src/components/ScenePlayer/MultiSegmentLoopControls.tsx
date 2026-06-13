@@ -156,12 +156,6 @@ export const MultiSegmentLoopControls: React.FC<
     setShowSaveInput(false);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _handleLoadPreset = () => {
-    if (!onLoadPreset || !selectedPreset) return;
-    onLoadPreset(selectedPreset);
-  };
-
   const handleDeletePreset = () => {
     if (!onDeletePreset || !selectedPreset) return;
     const ok = window.confirm(

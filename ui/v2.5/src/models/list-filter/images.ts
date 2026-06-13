@@ -1,4 +1,5 @@
 import {
+  ModifierCriterionOption, // CUSTOM
   createMandatoryNumberCriterionOption,
   createMandatoryStringCriterionOption,
   createStringCriterionOption,
@@ -30,7 +31,6 @@ import { CustomFieldsCriterionOption } from "./criteria/custom-fields";
 import { FolderCriterionOption } from "./criteria/folder";
 import { EthnicityCriterionOption } from "./criteria/ethnicity"; // CUSTOM
 import { CriterionModifier } from "src/core/generated-graphql"; // CUSTOM
-import { ModifierCriterionOption } from "./criteria/criterion"; // CUSTOM
 import { CountryCriterion } from "./criteria/country"; // CUSTOM
 
 const defaultSortBy = "path";

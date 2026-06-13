@@ -60,7 +60,6 @@ import cx from "classnames";
 import { TruncatedText } from "src/components/Shared/TruncatedText";
 import { PatchComponent, PatchContainerComponent } from "src/patch";
 import { SceneMergeModal } from "../SceneMergeDialog";
-import { goBackOrReplace } from "src/utils/history";
 import { FormattedDate } from "src/components/Shared/Date";
 import { StudioLogo } from "src/components/Shared/StudioLogo";
 // CUSTOM: begin - multi-segment loop and icon imports
@@ -87,7 +86,9 @@ const ExternalPlayerButton = lazyComponent(
 
 const QueueViewer = lazyComponent(() => import("./QueueViewer"));
 const SceneMarkersPanel = lazyComponent(() => import("./SceneMarkersPanel"));
-const SceneNegativeMarkersPanel = lazyComponent(() => import("./SceneNegativeMarkersPanel")); // CUSTOM
+const SceneNegativeMarkersPanel = lazyComponent(
+  () => import("./SceneNegativeMarkersPanel")
+); // CUSTOM
 const SceneFileInfoPanel = lazyComponent(() => import("./SceneFileInfoPanel"));
 const SceneDetailPanel = lazyComponent(() => import("./SceneDetailPanel"));
 const SceneHistoryPanel = lazyComponent(() => import("./SceneHistoryPanel"));
@@ -96,9 +97,7 @@ const SceneGalleriesPanel = lazyComponent(
   () => import("./SceneGalleriesPanel")
 );
 // CUSTOM: begin - SceneReleasesPanel lazy import
-const SceneReleasesPanel = lazyComponent(
-  () => import("./SceneReleasesPanel")
-);
+const SceneReleasesPanel = lazyComponent(() => import("./SceneReleasesPanel"));
 // CUSTOM: end
 const DeleteScenesDialog = lazyComponent(() => import("../DeleteScenesDialog"));
 const GenerateDialog = lazyComponent(
@@ -365,25 +364,6 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     setTimestamp(marker.seconds);
   }
 
-  function onLoopMarker(marker: GQL.SceneMarkerDataFragment) {
-    if (marker.end_seconds == null) return;
-
-    setTimestamp(marker.seconds);
-    const start = Math.min(marker.seconds, marker.end_seconds);
-    const end = Math.max(marker.seconds, marker.end_seconds);
-    const abLoopPlugin = getAbLoopPlugin();
-    const opts = abLoopPlugin?.getOptions();
-
-    if (opts && abLoopPlugin) {
-      abLoopPlugin.setOptions({
-        ...opts,
-        start,
-        end,
-        enabled: true,
-      });
-    }
-  }
-
   async function onRescan() {
     await mutateMetadataScan({
       paths: [objectPath(scene)],
@@ -647,7 +627,6 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             <SceneMarkersPanel
               sceneId={scene.id}
               onClickMarker={onClickMarker}
-              onLoopMarker={onLoopMarker}
               isVisible={activeTabKey === "scene-markers-panel"}
               addMultiSegmentLoopSegments={addMultiSegmentLoopSegments} // CUSTOM
             />
@@ -737,9 +716,9 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
     // Get role tag IDs from configuration
     const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-    const {sexTagId} = roleTagIds;
-    const {oralTagId} = roleTagIds;
-    const {soloTagId} = roleTagIds;
+    const { sexTagId } = roleTagIds;
+    const { oralTagId } = roleTagIds;
+    const { soloTagId } = roleTagIds;
 
     // Get scene marker tag IDs
     const markerTagIds = new Set<string>();
@@ -747,10 +726,12 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     const sceneMarkers = (scene as any).scene_markers ?? [];
     for (const marker of sceneMarkers) {
       // Check if this is an oral marker
-      const isOralMarker = 
+      const isOralMarker =
         (marker?.primary_tag?.id && marker.primary_tag.id === oralTagId) ||
-        (marker?.tags ?? []).some((tag: { id?: string }) => tag?.id === oralTagId);
-      
+        (marker?.tags ?? []).some(
+          (tag: { id?: string }) => tag?.id === oralTagId
+        );
+
       // Add oral markers to tag set
       if (isOralMarker && oralTagId) {
         markerTagIds.add(oralTagId);
@@ -758,8 +739,10 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
       // Add non-oral tag IDs normally
       if (marker?.primary_tag?.id) {
-        if (marker.primary_tag.id === sexTagId) markerTagIds.add(marker.primary_tag.id);
-        if (marker.primary_tag.id === soloTagId) markerTagIds.add(marker.primary_tag.id);
+        if (marker.primary_tag.id === sexTagId)
+          markerTagIds.add(marker.primary_tag.id);
+        if (marker.primary_tag.id === soloTagId)
+          markerTagIds.add(marker.primary_tag.id);
       }
       const markerTags: Array<{ id?: string }> = marker?.tags ?? [];
       for (const tag of markerTags) {
@@ -854,8 +837,16 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
           </div>
 
           <div className="scene-subheader">
-            <span className="date" data-value={scene.effective_date ?? scene.date ?? undefined}> {/* CUSTOM: effective_date */}
-              {(scene.effective_date ?? scene.date) && <FormattedDate value={(scene.effective_date ?? scene.date)!} />} {/* CUSTOM: effective_date */}
+            <span
+              className="date"
+              data-value={scene.effective_date ?? scene.date ?? undefined}
+            >
+              {" "}
+              {/* CUSTOM: effective_date */}
+              {(scene.effective_date ?? scene.date) && (
+                <FormattedDate value={(scene.effective_date ?? scene.date)!} />
+              )}{" "}
+              {/* CUSTOM: effective_date */}
             </span>
             <VideoFrameRateResolution
               width={file?.width}
@@ -869,10 +860,14 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               <RatingAdvisorButton
                 entityType="scene"
                 entityId={scene.id}
+                sceneRatingMode={
+                  iconToShow?.type === "hand" ? "solo" : "default"
+                }
                 rating100={scene.rating100}
                 ratingScores={scene.rating_scores}
                 onRatingSaved={props.onRefetch}
-              /> {/* CUSTOM */}
+              />{" "}
+              {/* CUSTOM */}
             </span>
             <span className="scene-toolbar-group">
               <span>
@@ -989,12 +984,16 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
     if (!activeReleaseId || !scene.releases) {
       return scene;
     }
-    
-    const activeRelease = scene.releases.find(r => r.id === activeReleaseId);
-    if (!activeRelease || !activeRelease.files || activeRelease.files.length === 0) {
+
+    const activeRelease = scene.releases.find((r) => r.id === activeReleaseId);
+    if (
+      !activeRelease ||
+      !activeRelease.files ||
+      activeRelease.files.length === 0
+    ) {
       return scene;
     }
-    
+
     // Swap the scene files and streams with release files and streams
     return {
       ...scene,
@@ -1244,7 +1243,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
       />
       <div className={`scene-player-container ${collapsed ? "expanded" : ""}`}>
         <ScenePlayer
-          key={`ScenePlayer-${activeReleaseId || 'main'}`} // CUSTOM: release-aware key
+          key={`ScenePlayer-${activeReleaseId || "main"}`} // CUSTOM: release-aware key
           scene={sceneForPlayer!} // CUSTOM: sceneForPlayer
           hideScrubberOverride={hideScrubber}
           autoplay={autoplay}

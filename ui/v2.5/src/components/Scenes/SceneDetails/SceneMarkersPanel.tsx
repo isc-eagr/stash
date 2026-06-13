@@ -16,7 +16,6 @@ interface ISceneMarkersPanelProps {
   sceneId: string;
   isVisible: boolean;
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
-  onLoopMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   addMultiSegmentLoopSegments: (segments: ILoopSegmentInput[]) => void; // CUSTOM
 }
 
@@ -24,7 +23,6 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   sceneId,
   isVisible,
   onClickMarker,
-  onLoopMarker,
   addMultiSegmentLoopSegments, // CUSTOM
 }) => {
   const { data, loading } = GQL.useFindSceneMarkerTagsQuery({
@@ -200,7 +198,6 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
         <PrimaryTags
           sceneMarkers={sceneMarkers}
           onClickMarker={onClickMarker}
-          onLoopMarker={onLoopMarker}
           onEdit={onOpenEditor}
           // CUSTOM: begin – expandable card & selection props
           expandedCards={expandedCards}

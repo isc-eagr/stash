@@ -4,7 +4,6 @@ import * as GQL from "src/core/generated-graphql";
 import { Button, Badge, Card, Collapse, Form } from "react-bootstrap"; // CUSTOM: added Collapse, Form
 import TextUtils from "src/utils/text";
 import { markerTitle } from "src/core/markers";
-import { useConfigurationContext } from "src/hooks/Config";
 // CUSTOM: begin - icon imports for collapsible cards and performer roles
 import { Icon } from "src/components/Shared/Icon";
 import {
@@ -18,7 +17,6 @@ import {
 interface IPrimaryTags {
   sceneMarkers: GQL.SceneMarkerDataFragment[];
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
-  onLoopMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   onEdit: (marker: GQL.SceneMarkerDataFragment) => void;
   // CUSTOM: begin - collapsible cards and selection props
   expandedCards: Record<string, boolean>;
@@ -92,7 +90,6 @@ const PrimaryCard: React.FC<{
 export const PrimaryTags: React.FC<IPrimaryTags> = ({
   sceneMarkers,
   onClickMarker,
-  onLoopMarker,
   onEdit,
   // CUSTOM: begin - new destructured props
   expandedCards,
@@ -102,9 +99,6 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
   onSelectMarkers,
   // CUSTOM: end
 }) => {
-  const { configuration } = useConfigurationContext();
-  const showAbLoopControls = configuration?.ui?.showAbLoopControls;
-
   if (!sceneMarkers?.length) return <div />;
 
   const primaryTagNames: Record<string, string> = {};
@@ -135,7 +129,9 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
 
       // CUSTOM: begin - performer role badges with arrows
       // Only show arrows if marker has performers in BOTH roles (top and bottom)
-      const showRoleArrows = (marker.top_performers?.length ?? 0) > 0 && (marker.bottom_performers?.length ?? 0) > 0;
+      const showRoleArrows =
+        (marker.top_performers?.length ?? 0) > 0 &&
+        (marker.bottom_performers?.length ?? 0) > 0;
 
       const topPerformers = marker.top_performers?.map((performer) => (
         <Badge
@@ -182,7 +178,8 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
                   >
                     {TextUtils.secondsToTimestamp(marker.seconds)}
                   </Button>
-                  {marker.end_seconds !== null && marker.end_seconds !== undefined ? (
+                  {marker.end_seconds !== null &&
+                  marker.end_seconds !== undefined ? (
                     <>
                       <span>-</span>
                       <Button
@@ -190,7 +187,10 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
                         className="p-0 text-muted"
                         onClick={() => {
                           // Create a fake marker with seconds set to end_seconds for seeking
-                          const endMarker = { ...marker, seconds: marker.end_seconds! };
+                          const endMarker = {
+                            ...marker,
+                            seconds: marker.end_seconds!,
+                          };
                           onClickMarker(endMarker);
                         }}
                         title="Seek to end"
@@ -198,7 +198,11 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
                         {TextUtils.secondsToTimestamp(marker.end_seconds)}
                       </Button>
                       <span className="ml-1">
-                        ({TextUtils.formatDurationRange(marker.end_seconds - marker.seconds)})
+                        (
+                        {TextUtils.formatDurationRange(
+                          marker.end_seconds - marker.seconds
+                        )}
+                        )
                       </span>
                     </>
                   ) : (

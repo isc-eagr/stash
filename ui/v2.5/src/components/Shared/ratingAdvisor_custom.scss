@@ -1,35 +1,33 @@
-.rating-advisor-button {
+.rating-advisor-button.btn {
   align-items: center;
-  background: transparent !important;
+  background: transparent;
   border: 0;
-  border-color: transparent !important;
-  box-shadow: none !important;
+  box-shadow: none;
   color: inherit;
-  cursor: pointer !important;
+  cursor: pointer;
   display: inline-flex;
   gap: 0.35rem;
   line-height: 1;
-  padding: 0 !important;
+  padding: 0;
   white-space: nowrap;
 
   &:hover,
   &:focus,
   &:active {
-    background: transparent !important;
-    border-color: transparent !important;
-    box-shadow: none !important;
-    color: inherit !important;
-    cursor: pointer !important;
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    color: inherit;
+    cursor: pointer;
   }
 
   .rating-number {
-    cursor: pointer !important;
+    cursor: pointer;
     font-size: 1rem;
 
     &.disabled,
-    *,
     .rating-number-value {
-      cursor: pointer !important;
+      cursor: pointer;
     }
   }
 }
@@ -178,6 +176,17 @@
   display: grid;
   gap: 0.15rem;
   margin-top: 0.35rem;
+
+  > div {
+    display: grid;
+    gap: 0.15rem;
+    grid-area: 1 / 1;
+  }
+
+  .rating-advisor-selected-sizer {
+    pointer-events: none;
+    visibility: hidden;
+  }
 
   span {
     color: rgba(255, 255, 255, 0.72);

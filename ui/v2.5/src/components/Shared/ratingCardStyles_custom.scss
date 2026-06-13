@@ -1,4 +1,5 @@
 /* CUSTOM: begin - premium rating card themes */
+/* stylelint-disable at-rule-empty-line-before, color-hex-length, comment-empty-line-before, declaration-no-important, order/properties-alphabetical-order, selector-class-pattern -- custom card skins intentionally override upstream card, BEM, and FontAwesome selectors */
 @keyframes rating-card-text-gradient-shimmer {
   0% {
     background-position: 0% 50%;
@@ -1101,9 +1102,7 @@
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.78), 0 0 3px rgba(0, 0, 0, 0.45);
     animation: rating-card-classic-royal-sapphire-shimmer 8s ease-in-out
       infinite;
-    color: #fff !important;
     line-height: 1.2;
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.78), 0 0 3px rgba(0, 0, 0, 0.45);
   }
 
   .card-section-title > .TruncatedText,
@@ -1281,4 +1280,7 @@
   filter: drop-shadow(0 0 7px rgba(255, 227, 92, 0.5))
     drop-shadow(0 2px 4px rgba(0, 0, 0, 0.64)) !important;
 }
+
+/* stylelint-enable at-rule-empty-line-before, color-hex-length, comment-empty-line-before, declaration-no-important, order/properties-alphabetical-order, selector-class-pattern */
+
 /* CUSTOM: end */

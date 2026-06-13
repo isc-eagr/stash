@@ -46,6 +46,7 @@ interface IAdvisorPersistedScore {
 interface IRatingAdvisorButtonProps {
   entityType: AdvisorEntity;
   entityId: string;
+  sceneRatingMode?: "default" | "solo";
   rating100?: number | null;
   ratingScores?: readonly IAdvisorPersistedScore[] | null;
   onRatingSaved?: () => void | Promise<unknown>;
@@ -348,6 +349,48 @@ const sceneMetrics: IAdvisorMetric[] = [
     ],
   },
   {
+    key: "goatElement",
+    title: "GOAT element",
+    max: 2,
+    section: "bonus",
+    hint: "Optional bonus when any scene content has the GOAT tag or a GOAT-level element, even if the rest of the scene is not as strong.",
+    choices: [
+      {
+        value: 0,
+        label: "No GOAT element",
+        description:
+          "No extra bonus here; the scene does not have a GOAT-tagged or GOAT-level content element.",
+      },
+      {
+        value: 2,
+        label: "GOAT element",
+        description:
+          "Use this for GOAT-tagged content, like a GOAT blowjob or another standout GOAT element that elevates the scene.",
+      },
+    ],
+  },
+  {
+    key: "unlikelyTop",
+    title: "Unlikely top",
+    max: 0.5,
+    section: "bonus",
+    hint: "Optional bonus when a performer visually reads like a bottom but tops in this scene, and that contrast makes the scene hotter.",
+    choices: [
+      {
+        value: 0,
+        label: "No bonus",
+        description:
+          "No bonus: the scene does not have that unlikely-top contrast, or it does not affect its appeal.",
+      },
+      {
+        value: 0.5,
+        label: "Unlikely top bonus",
+        description:
+          "Use this when the contrast between bottom-coded visuals and actual top energy makes the scene more interesting or hot.",
+      },
+    ],
+  },
+  {
     key: "standout",
     title: "Standout moment",
     max: 2,
@@ -416,6 +459,136 @@ const sceneMetrics: IAdvisorMetric[] = [
       },
     ],
   },
+];
+
+const soloSceneMetrics: IAdvisorMetric[] = [
+  {
+    key: "soloPerformerAppeal",
+    title: "Performer Attractiveness",
+    max: 10,
+    weight: 0.7,
+    hint: "Overall solo performer appeal: face, body, styling, sex appeal, visual magnetism, and immediate draw.",
+    choices: sceneMetrics[0].choices,
+  },
+  {
+    key: "cameraWork",
+    title: "Angles and camera work",
+    max: 5,
+    weight: 0.6,
+    hint: "How much the framing, angles, movement, focus, lighting, and shot choices make the solo scene hotter.",
+    choices: [
+      {
+        value: 0,
+        label: "Works against it",
+        description:
+          "The camera actively hurts the scene: bad framing, weak angles, distracting focus, or missed action.",
+      },
+      {
+        value: 1,
+        label: "Weak",
+        description:
+          "A few usable shots, but the camera mostly fails to show the scene in a satisfying way.",
+      },
+      {
+        value: 2,
+        label: "Serviceable",
+        description:
+          "The camera gets the basics, but the angles do not add much heat.",
+      },
+      {
+        value: 3,
+        label: "Good",
+        description:
+          "Solid angles and framing that help the solo performance land.",
+      },
+      {
+        value: 4,
+        label: "Excellent",
+        description:
+          "Strong camera work with hot framing, clear payoff, and angles that meaningfully improve the scene.",
+      },
+      {
+        value: 5,
+        label: "Perfect",
+        description:
+          "Exactly the angles and camera work you want from a solo scene; the shooting style is a major reason it works.",
+      },
+    ],
+  },
+  {
+    key: "orgasmBonus",
+    title: "Orgasm",
+    max: 1,
+    section: "bonus",
+    hint: "Solo-only bonus when the orgasm payoff is present and helps the scene.",
+    choices: [
+      {
+        value: 0,
+        label: "No orgasm bonus",
+        description:
+          "No extra bonus here; either there is no useful payoff or it does not improve the scene.",
+      },
+      {
+        value: 1,
+        label: "Orgasm bonus",
+        description:
+          "The scene has an orgasm payoff that meaningfully improves the solo scene.",
+        scoreValue: 1,
+      },
+    ],
+  },
+  {
+    key: "feetBonus",
+    title: "Feet",
+    max: 1,
+    section: "bonus",
+    hint: "Solo-only bonus when feet meaningfully improve the scene.",
+    choices: [
+      {
+        value: 0,
+        label: "No feet bonus",
+        description:
+          "No extra bonus here; feet are absent, incidental, or not part of why the scene works.",
+      },
+      {
+        value: 1,
+        label: "Feet bonus",
+        description:
+          "Feet are present in a way that meaningfully improves the solo scene.",
+        scoreValue: 1,
+      },
+    ],
+  },
+  {
+    key: "outstandingPerformance",
+    title: "Outstanding performance",
+    max: 1,
+    section: "bonus",
+    hint: "Solo-only bonus when the performer brings unusually strong energy, charisma, intensity, or presence.",
+    choices: [
+      {
+        value: 0,
+        label: "No performance bonus",
+        description:
+          "No extra bonus here; the solo performance may be fine, but it is not the reason the scene stands out.",
+      },
+      {
+        value: 1,
+        label: "Outstanding performance",
+        description:
+          "Use this when the solo performer brings exceptional energy, reactions, confidence, intensity, or presence.",
+        scoreValue: 1,
+      },
+    ],
+  },
+  {
+    ...sceneMetrics.find((metric) => metric.key === "theme")!,
+  },
+  {
+    ...sceneMetrics.find((metric) => metric.key === "goatElement")!,
+  },
+  sceneMetrics.find((metric) => metric.key === "noOrgasm")!,
+  sceneMetrics.find((metric) => metric.key === "production")!,
 ];
 
 const performerMetrics: IAdvisorMetric[] = [
@@ -774,27 +947,6 @@ const performerMetrics: IAdvisorMetric[] = [
     ],
   },
   {
-    key: "unlikelyTop",
-    title: "Unlikely top",
-    max: 0.5,
-    section: "bonus",
-    hint: "Optional bonus when he visually reads like a bottom but is actually a top, and that contrast makes him hotter.",
-    choices: [
-      {
-        value: 0,
-        label: "No bonus",
-        description:
-          "No bonus: he does not have that unlikely-top contrast, or it does not affect his appeal.",
-      },
-      {
-        value: 0.5,
-        label: "Unlikely top bonus",
-        description:
-          "Use this when the contrast between bottom-coded visuals and actual top energy makes him more interesting or hot.",
-      },
-    ],
-  },
-  {
     key: "feminine",
     title: "Feminine",
     max: 0,
@@ -877,6 +1029,32 @@ function formatMetricContribution(metric: IAdvisorMetric, score: number) {
   )}`;
 }
 
+function calculateOrgasmBonus(entityType: AdvisorEntity, count: number) {
+  if (count < 3) {
+    return 0;
+  }
+
+  if (entityType === "scene") {
+    return count - 2;
+  }
+
+  return 1 + Math.floor((count - 3) / 2);
+}
+
+function getOrgasmBonusDescription(entityType: AdvisorEntity) {
+  if (entityType === "scene") {
+    return "Permanent bonus from recorded orgasms: +1 rating point on the 3rd orgasm, then +1 for each orgasm after that.";
+  }
+
+  return "Permanent bonus from recorded orgasms: +1 rating point on the 3rd orgasm, then +1 for every 2 orgasms after that.";
+}
+
+function getLongestChoiceDescription(metric: IAdvisorMetric) {
+  return metric.choices.reduce((longest, choice) =>
+    choice.description.length > longest.description.length ? choice : longest
+  );
+}
+
 function getSceneSuggestion(
   total: number,
   thresholds: ReturnType<typeof normalizeRatingCardThresholds>
@@ -903,25 +1081,31 @@ function getSceneSuggestion(
   return { rating100, tier: "Plain", tierClassName: "plain" };
 }
 
-function getPerformerSuggestion(
-  total: number,
-  thresholds: ReturnType<typeof normalizeRatingCardThresholds>
-): IRatingSuggestion {
-  return getSceneSuggestion(total, thresholds);
-}
-
 const RatingAdvisorModal: React.FC<{
   entityType: AdvisorEntity;
   entityId: string;
+  sceneRatingMode?: "default" | "solo";
   ratingScores?: readonly IAdvisorPersistedScore[] | null;
   onRatingSaved?: () => void | Promise<unknown>;
   onClose: () => void;
-}> = ({ entityType, entityId, ratingScores, onRatingSaved, onClose }) => {
+}> = ({
+  entityType,
+  entityId,
+  sceneRatingMode = "default",
+  ratingScores,
+  onRatingSaved,
+  onClose,
+}) => {
   const { configuration } = useConfigurationContext();
   const Toast = useToast();
   const [setRatingScore, { loading: savingScore }] =
     GQL.useRatingScoreSetMutation();
-  const metrics = entityType === "scene" ? sceneMetrics : performerMetrics;
+  const metrics =
+    entityType === "scene" && sceneRatingMode === "solo"
+      ? soloSceneMetrics
+      : entityType === "scene"
+      ? sceneMetrics
+      : performerMetrics;
   const { data: advisorScoresData } = useQuery<{
     ratingScores: IAdvisorPersistedScore[];
     ratingOrgasmCount: number;
@@ -954,7 +1138,7 @@ const RatingAdvisorModal: React.FC<{
   }, [metrics, persistedScores]);
 
   const orgasmCount = advisorScoresData?.ratingOrgasmCount ?? 0;
-  const orgasmBonus = Math.floor(orgasmCount / 3);
+  const orgasmBonus = calculateOrgasmBonus(entityType, orgasmCount);
   const total = useMemo(
     () =>
       metrics.reduce(
@@ -965,10 +1149,7 @@ const RatingAdvisorModal: React.FC<{
     [metrics, orgasmBonus, scores]
   );
   const scoringTotal = Math.max(0, total);
-  const suggestion =
-    entityType === "scene"
-      ? getSceneSuggestion(scoringTotal, thresholds)
-      : getPerformerSuggestion(scoringTotal, thresholds);
+  const suggestion = getSceneSuggestion(scoringTotal, thresholds);
 
   async function setScore(metric: IAdvisorMetric, value: string) {
     const numericValue = Number(value);
@@ -1017,6 +1198,7 @@ const RatingAdvisorModal: React.FC<{
     const hoverScore = hoverScores[metric.key];
     const preview =
       metric.choices.find((choice) => choice.value === hoverScore) ?? selected;
+    const previewSizer = getLongestChoiceDescription(metric);
     const showRange =
       metric.choices.length === metric.max + 1 &&
       metric.choices.every((choice, index) => choice.value === index);
@@ -1046,10 +1228,18 @@ const RatingAdvisorModal: React.FC<{
           />
         )}
         <div className="rating-advisor-selected">
-          <strong>
-            {preview?.value} - {preview?.label}
-          </strong>
-          <span>{preview?.description}</span>
+          <div className="rating-advisor-selected-preview">
+            <strong>
+              {preview?.value} - {preview?.label}
+            </strong>
+            <span>{preview?.description}</span>
+          </div>
+          <div className="rating-advisor-selected-sizer" aria-hidden="true">
+            <strong>
+              {previewSizer.value} - {previewSizer.label}
+            </strong>
+            <span>{previewSizer.description}</span>
+          </div>
         </div>
         <div className="rating-advisor-choice-list">
           {metric.choices.map((choice) => (
@@ -1087,10 +1277,7 @@ const RatingAdvisorModal: React.FC<{
         <div className="rating-advisor-metric-header">
           <div>
             <h5>Orgasm count bonus</h5>
-            <p>
-              Permanent bonus from recorded orgasms: +1 rating point for every 3
-              orgasms.
-            </p>
+            <p>{getOrgasmBonusDescription(entityType)}</p>
           </div>
           <Badge variant="secondary">
             {formatRatingContribution(orgasmBonus / 10)}
@@ -1158,6 +1345,7 @@ const RatingAdvisorModal: React.FC<{
 export const RatingAdvisorButton: React.FC<IRatingAdvisorButtonProps> = ({
   entityType,
   entityId,
+  sceneRatingMode,
   rating100,
   ratingScores,
   onRatingSaved,
@@ -1178,6 +1366,7 @@ export const RatingAdvisorButton: React.FC<IRatingAdvisorButtonProps> = ({
         <RatingAdvisorModal
           entityType={entityType}
           entityId={entityId}
+          sceneRatingMode={sceneRatingMode}
           ratingScores={ratingScores}
           onRatingSaved={onRatingSaved}
           onClose={() => setShowAdvisor(false)}

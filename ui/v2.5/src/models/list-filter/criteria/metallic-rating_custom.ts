@@ -18,10 +18,6 @@ const modifierOptions = [
 ];
 
 export class MetallicRatingCriterion extends MultiStringCriterion {
-  constructor(type: ModifierCriterionOption) {
-    super(type);
-  }
-
   protected getLabelValue() {
     return this.value
       .filter((value) => value !== metallicRatingIncludeNonMetallicValue)

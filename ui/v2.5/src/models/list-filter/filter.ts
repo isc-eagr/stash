@@ -434,12 +434,12 @@ export class ListFilterModel {
     return query.join("&");
   }
 
-// CUSTOM: begin
+  // CUSTOM: begin
   /**
    * Map of old criterion type names to new type names for backwards compatibility.
    * When URLs or saved filters use old type names, they'll be migrated to new ones.
    */
-  private static readonly TYPE_MIGRATIONS: Record<string, CriterionType> = {   
+  private static readonly TYPE_MIGRATIONS: Record<string, CriterionType> = {
     marker_giver: "marker_top" as CriterionType,
     marker_receiver: "marker_bottom" as CriterionType,
   };
@@ -504,7 +504,6 @@ export class ListFilterModel {
       countries: string[];
       rating: { modifier: string; value: number; value2?: number } | null;
     };
-    type MarkerBottomData = MarkerTopData;
     type ExcludeData = {
       groupId: string;
       tags: string[];
@@ -519,7 +518,7 @@ export class ListFilterModel {
       (output._markerBottomCriteria as MarkerTopData[] | undefined) ?? [];
     const excludes =
       (output._excludeMarkerTagsCriteria as ExcludeData[] | undefined) ?? [];
-    
+
     // New scene marker filters (groups_extended format)
     type GroupExtended = {
       tag_ids: string[];
@@ -544,7 +543,9 @@ export class ListFilterModel {
       (output._sceneMarkerIncludeCriteria as GroupExtended[] | undefined) ?? [];
     const excludeGroups =
       (output._sceneMarkerExcludeCriteria as GroupExtended[] | undefined) ?? [];
-    const excludeModifier = output._sceneMarkerExcludeModifier as string | undefined;
+    const excludeModifier = output._sceneMarkerExcludeModifier as
+      | string
+      | undefined;
 
     // Clean up temporary keys
     delete output._markerTagsCriteria;
@@ -556,7 +557,12 @@ export class ListFilterModel {
     delete output._sceneMarkerExcludeModifier;
 
     // If there are no marker criteria, nothing to do
-    if (markerTags.length === 0 && excludes.length === 0 && includeGroups.length === 0 && excludeGroups.length === 0) {
+    if (
+      markerTags.length === 0 &&
+      excludes.length === 0 &&
+      includeGroups.length === 0 &&
+      excludeGroups.length === 0
+    ) {
       return;
     }
 
@@ -640,10 +646,10 @@ export class ListFilterModel {
     const groups_extended = Array.from(groupsMap.values()).filter(
       (g) => g.tag_ids.length > 0 || (g.exclude_tag_ids?.length ?? 0) > 0
     );
-    
+
     // Add new scene marker include groups
     groups_extended.push(...includeGroups);
-    
+
     // Build groups_extended_exclude from exclude groups with full performer criteria
     // These go into a separate field so the backend can apply NOT EXISTS with full criteria
     const groups_extended_exclude: GroupExtended[] = [];

@@ -2264,7 +2264,7 @@ Adds scene and performer rating system buttons next to the detail-page rating di
 
 Suggested tiers use the same configurable 100-based thresholds as the premium/classic card effects. Scene and performer thresholds are configured separately.
 
-Both scene and performer advisor ratings also include a non-editable orgasm count bonus. The bonus is calculated from `scenes_o_dates` as +1 rating point for every 3 recorded orgasms on the scene or performer.
+Both scene and performer advisor ratings also include a non-editable orgasm count bonus. For scenes, the bonus is calculated from `scenes_o_dates` as +1 rating point on the 3rd recorded orgasm, then +1 for each orgasm after that. For performers, the bonus is +1 rating point on the 3rd recorded orgasm, then +1 for every 2 orgasms after that.
 When scene o-history is added, deleted, reset, or recorded with a video timestamp, the stored advisor rating is recalculated for that scene and any attached performers that already have persisted advisor scores.
 
 ### Scene Advisor
@@ -2274,13 +2274,27 @@ Uses a weighted 10-point scene rubric designed for 100-based ratings:
 - Orgasm / climax payoff: each raw point is worth 0.5, up to 2.0
 - Standout moment: each raw point is worth 0.5, up to 1.0
 
+Solo scenes use a separate scene rubric when the scene is detected as solo by the same role-tag logic that renders the hand icon:
+- Performer attractiveness: each raw point is worth 0.7, up to 7.0
+- Angles and camera work: each raw point is worth 0.6, up to 3.0
+
 Bonus section:
-- Orgasm count bonus (+1 rating point for every 3 recorded orgasms, automatic and read-only)
+- Orgasm count bonus (+1 rating point on the 3rd recorded orgasm, then +1 for each orgasm after that; automatic and read-only)
 - Theme / fantasy / uniform factor (+0.5 when present)
 - Oral-only scene (+0.5 when present)
 - Standout act / position / dynamic (+0.5 when present)
 - Group scene with 4+ performers (+0.5 when present)
 - God-tier orgasm bonus (+2.0 when present)
+- GOAT element (+2.0 when present)
+- Unlikely top (+0.5 when present)
+
+Solo scene bonus section:
+- Orgasm count bonus (+1 rating point on the 3rd recorded orgasm, then +1 for each orgasm after that; automatic and read-only)
+- Orgasm bonus (+1.0 when present)
+- Feet bonus (+1.0 when present)
+- Outstanding performance (+1.0 when present)
+- GOAT element (+2.0 when present)
+- Theme / fantasy / uniform factor (+0.5 when present)
 
 Penalty section:
 - No orgasm (-1.0 when present)
@@ -2304,11 +2318,10 @@ Uses a weighted 10-point performer rubric designed for 100-based ratings:
 - Masculinity: each raw point is worth 1/3, up to 1.0
 
 Bonus section:
-- Orgasm count bonus (+1 rating point for every 3 recorded orgasms, automatic and read-only)
+- Orgasm count bonus (+1 rating point on the 3rd recorded orgasm, then +1 for every 2 orgasms after that; automatic and read-only)
 - Consistency (+0.5 when present)
 - Dick (+0.5 when present)
 - Tattoos (+0.5 when present)
-- Unlikely top (+0.5 when present)
 
 Bonus points can push the stored/displayed 0-100 rating above 100 when the weighted score exceeds 10.0.
 
@@ -2344,6 +2357,8 @@ Performer rating criteria include a feminine performer penalty, exposed both in 
 
 ### Files Added
 - `rating_scores.up.sql` - Standalone manual SQL script for generic persisted rating score tables
+- `rating_orgasm_bonus_recalculate_custom.sql` - Standalone manual SQL script to recalculate existing persisted advisor ratings after orgasm bonus rule changes
+- `rating_remove_performer_unlikely_top_bonus_custom.sql` - Standalone manual SQL script to remove performer-level Unlikely Top bonus rows and recalculate affected performers
 - `graphql/schema/types/rating_custom.graphql` - Rating score GraphQL types, mutation, and read-only orgasm-count query
 - `internal/api/resolver_rating_score_custom.go` - Rating score query/mutation resolvers
 - `pkg/models/rating_score_custom.go` - Generic rating score model and repository interfaces
