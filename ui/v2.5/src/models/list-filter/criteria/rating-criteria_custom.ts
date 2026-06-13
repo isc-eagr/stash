@@ -172,6 +172,33 @@ const standoutChoices = [
   },
 ];
 
+const cameraWorkChoices = [
+  {
+    value: 0,
+    label: "Works against it",
+  },
+  {
+    value: 1,
+    label: "Weak",
+  },
+  {
+    value: 2,
+    label: "Serviceable",
+  },
+  {
+    value: 3,
+    label: "Good",
+  },
+  {
+    value: 4,
+    label: "Excellent",
+  },
+  {
+    value: 5,
+    label: "Perfect",
+  },
+];
+
 const ethnicityChoices = [
   {
     value: 0,
@@ -445,6 +472,16 @@ export const SceneRatingCriteriaCriterionOption =
         label: "Standout Moment",
         choices: standoutChoices,
       },
+      {
+        key: "soloPerformerAppeal",
+        label: "Solo Performer Attractiveness",
+        choices: appealChoices,
+      },
+      {
+        key: "cameraWork",
+        label: "Angles and Camera Work",
+        choices: cameraWorkChoices,
+      },
     ],
     bonuses: [
       {
@@ -470,6 +507,31 @@ export const SceneRatingCriteriaCriterionOption =
       {
         key: "godTierOrgasm",
         label: "God-Tier Orgasm Bonus",
+        section: "bonuses",
+      },
+      {
+        key: "goatElement",
+        label: "GOAT Element Bonus",
+        section: "bonuses",
+      },
+      {
+        key: "unlikelyTop",
+        label: "Unlikely Top Bonus",
+        section: "bonuses",
+      },
+      {
+        key: "orgasmBonus",
+        label: "Solo Orgasm Bonus",
+        section: "bonuses",
+      },
+      {
+        key: "feetBonus",
+        label: "Solo Feet Bonus",
+        section: "bonuses",
+      },
+      {
+        key: "outstandingPerformance",
+        label: "Solo Performance Bonus",
         section: "bonuses",
       },
     ],
@@ -532,11 +594,6 @@ export const PerformerRatingCriteriaCriterionOption =
       {
         key: "tattoosBonus",
         label: "Tattoos Bonus",
-        section: "bonuses",
-      },
-      {
-        key: "unlikelyTop",
-        label: "Unlikely Top Bonus",
         section: "bonuses",
       },
     ],
