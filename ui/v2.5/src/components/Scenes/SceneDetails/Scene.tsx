@@ -99,6 +99,7 @@ const SceneGalleriesPanel = lazyComponent(
 // CUSTOM: begin - SceneReleasesPanel lazy import
 const SceneReleasesPanel = lazyComponent(() => import("./SceneReleasesPanel"));
 // CUSTOM: end
+const SceneStatsPanel = lazyComponent(() => import("./SceneStatsPanel")); // CUSTOM
 const DeleteScenesDialog = lazyComponent(() => import("../DeleteScenesDialog"));
 const GenerateDialog = lazyComponent(
   () => import("../../Dialogs/GenerateDialog")
@@ -593,6 +594,11 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                 <FormattedMessage id="history" />
               </Nav.Link>
             </Nav.Item>
+            {/* CUSTOM: begin - stats tab */}
+            <Nav.Item>
+              <Nav.Link eventKey="scene-stats-panel">Stats</Nav.Link>
+            </Nav.Item>
+            {/* CUSTOM: end */}
             <Nav.Item>
               <Nav.Link eventKey="scene-edit-panel">
                 <FormattedMessage id="actions.edit" />
@@ -681,6 +687,11 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
           <Tab.Pane eventKey="scene-history-panel">
             <SceneHistoryPanel scene={scene} />
           </Tab.Pane>
+          {/* CUSTOM: begin - stats pane */}
+          <Tab.Pane eventKey="scene-stats-panel">
+            <SceneStatsPanel scene={scene} />
+          </Tab.Pane>
+          {/* CUSTOM: end */}
         </ScenePageTabContent>
       </Tab.Content>
     </Tab.Container>

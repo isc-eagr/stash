@@ -14,6 +14,23 @@ type StudioRoleCounts {
   facial_scene_count: Int!
 }
 
+# CUSTOM: begin
+type StudioActivityStats {
+  total_seconds: Float!
+  sex_seconds: Float!
+  oral_seconds: Float!
+  solo_seconds: Float!
+  other_seconds: Float!
+  sex_percent: Float!
+  oral_percent: Float!
+  solo_percent: Float!
+  other_percent: Float!
+  sex_scene_count: Int!
+  oral_scene_count: Int!
+  solo_scene_count: Int!
+}
+# CUSTOM: end
+
 # StudioPerformerRoleStats: all performer-filtered marker-based counts in one batch resolver.
 # Replaces the ~21 individual field calls in FindStudioPerformerStats, cutting
 # getStudioSceneIDs calls from 21+ down to 2 (one with performer filter, one without).
@@ -69,5 +86,9 @@ extend type Studio {
   unique_performer_count(depth: Int): Int! # Resolver - performers with only one scene in database and it's for this studio
   # Batched resolvers - replace N individual field calls with one resolver per studio
   studio_role_counts(depth: Int): StudioRoleCounts! # CUSTOM: batched sex/oral/solo/facial scene counts (no performer filter)
-  studio_performer_role_stats(performer_id: ID!, depth: Int): StudioPerformerRoleStats! # CUSTOM: batched all marker-based stats for one performer
+  studio_activity_stats(depth: Int): StudioActivityStats! # CUSTOM: duration percentages for configured activity tags
+  studio_performer_role_stats(
+    performer_id: ID!
+    depth: Int
+  ): StudioPerformerRoleStats! # CUSTOM: batched all marker-based stats for one performer
 }

@@ -586,6 +586,14 @@
       inset 0 0 10px rgba(var(--rating-card-accent-rgb), 0.08);
   }
 
+  .performer-role-badges .top-badge.arrow-badge {
+    border-color: rgba(40, 167, 69, 0.9) !important;
+  }
+
+  .performer-role-badges .bottom-badge.arrow-badge {
+    border-color: rgba(23, 162, 184, 0.92) !important;
+  }
+
   .rating-banner {
     display: none;
   }
@@ -873,6 +881,14 @@
     background: rgba(var(--rating-card-accent-rgb), 0.12);
     border: 1px solid rgba(var(--rating-card-accent-rgb), 0.28);
     color: rgb(var(--rating-card-name-rgb));
+  }
+
+  .performer-role-badges .top-badge.arrow-badge {
+    border-color: rgba(40, 167, 69, 0.88) !important;
+  }
+
+  .performer-role-badges .bottom-badge.arrow-badge {
+    border-color: rgba(23, 162, 184, 0.9) !important;
   }
 
   hr {
@@ -1189,6 +1205,14 @@
     background: rgba(56, 189, 248, 0.12);
     border: 1px solid rgba(125, 211, 252, 0.34);
     color: rgb(var(--rating-card-name-rgb));
+  }
+
+  .performer-role-badges .top-badge.arrow-badge {
+    border-color: rgba(40, 167, 69, 0.92) !important;
+  }
+
+  .performer-role-badges .bottom-badge.arrow-badge {
+    border-color: rgba(23, 162, 184, 0.94) !important;
   }
 
   hr {

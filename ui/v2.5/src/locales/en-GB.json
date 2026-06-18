@@ -672,7 +672,8 @@
         "goat": "GOAT tag (Royal Sapphire card override)",
         "orgasm": "Orgasm marker tag",
         "feet": "Feet marker tag",
-        "second_camera": "2nd Camera marker tag (excluded from counts)"
+        "second_camera": "2nd Camera marker tag (excluded from counts)",
+        "o_stats_exclusions": "O stats tag exclusions"
       },
       "card_rating_styles": {
         "heading": "Card Rating Styles",

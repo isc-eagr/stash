@@ -46,10 +46,32 @@ extend type Performer {
   sex_unique_partner_count: Int! # Resolver - unique performers in sex scenes (top or bottom)
   oral_unique_partner_count: Int! # Resolver - unique performers in oral scenes (top or bottom)
   facial_unique_partner_count: Int! # Resolver - unique performers in facial scenes (top or bottom)
-
   # Additional performer images (excluding the default image_path)
   additional_images: [PerformerImage!]!
+
+  # CUSTOM: Total marker-duration stats for configured sex/oral/solo activity tags.
+  activity_stats: PerformerActivityStats!
 }
+
+# CUSTOM: begin
+type PerformerActivityStats {
+  total_activity_seconds: Float!
+  sex_seconds: Float!
+  sex_top_seconds: Float!
+  sex_bottom_seconds: Float!
+  oral_seconds: Float!
+  oral_top_seconds: Float!
+  oral_bottom_seconds: Float!
+  solo_seconds: Float!
+  sex_percent: Float!
+  oral_percent: Float!
+  solo_percent: Float!
+  sex_top_percent: Float!
+  sex_bottom_percent: Float!
+  oral_top_percent: Float!
+  oral_bottom_percent: Float!
+}
+# CUSTOM: end
 
 type PerformerImage {
   id: ID!
@@ -113,6 +135,12 @@ extend type Query {
   performerRoleStats(performer_ids: [ID!]!): [PerformerRoleStats!]!
   "Get co-performers grouped by their role relationship to the given performer"
   performerCoPerformersByRole(performer_id: ID!): PerformerCoPerformersByRole!
+  "Get the exact unique co-performer count across all marker-role relationships" # CUSTOM
+  performerCoPerformerCount(performer_id: ID!): Int! # CUSTOM
   "Get co-performers grouped by role relationship within a specific studio scope" # CUSTOM
-  studioPerformerCoPerformersByRole(performer_id: ID!, studio_id: ID!, depth: Int): PerformerCoPerformersByRole! # CUSTOM
+  studioPerformerCoPerformersByRole(
+    performer_id: ID!
+    studio_id: ID!
+    depth: Int
+  ): PerformerCoPerformersByRole! # CUSTOM
 }

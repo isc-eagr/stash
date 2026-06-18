@@ -36,6 +36,7 @@ fragment SlimSceneData on Scene {
     id
     title
     seconds
+    end_seconds # CUSTOM
     primary_tag {
       id
       name

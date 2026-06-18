@@ -94,6 +94,8 @@ interface IPerformerCardProps {
   scenePerformerCount?: number;
   /** All performers in the scene, used to show mini images in partner tooltips */
   scenePartnerPerformers?: Pick<GQL.Performer, "id" | "name" | "image_path">[];
+  /** Scene markers used for scene-context role duration percentages */
+  sceneRoleDurationMarkers?: GQL.SceneDataFragment["scene_markers"];
   /** Studio-filtered stats used when the card is rendered from a studio performer view */
   studioStats?: IPerformerStudioStats | null;
   /** Lazily loaded global role stats used to avoid heavy role-count work in the initial list query */
@@ -376,6 +378,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
     sceneId,
     scenePerformerCount,
     scenePartnerPerformers,
+    sceneRoleDurationMarkers,
     studioStats,
     roleStats,
     extraCriteria,
@@ -433,6 +436,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
           markerRoles={markerRoles}
           scenePerformerCount={scenePerformerCount}
           scenePartnerPerformers={scenePartnerPerformers} // CUSTOM
+          sceneRoleDurationMarkers={sceneRoleDurationMarkers} // CUSTOM
           globalStatsOverride={studioStats ?? roleStats}
           hideUniquePartnerCounts={false}
           studioContext={

@@ -47,7 +47,7 @@ query FindStudioPerformerStats($id: ID!, $performerId: ID!, $depth: Int) {
     group_count(depth: $depth, performer_id: $performerId)
     image_count(depth: $depth, performer_id: $performerId)
     gallery_count(depth: $depth, performer_id: $performerId)
-    o_counter(performer_id: $performerId)
+    o_counter(depth: $depth, performer_id: $performerId)
   }
 }
 # CUSTOM: end

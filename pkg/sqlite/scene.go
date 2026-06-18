@@ -927,14 +927,26 @@ func (qb *SceneStore) OCountByGroupID(ctx context.Context, groupID int) (int, er
 	return ret, nil
 }
 
-func (qb *SceneStore) OCountByStudioID(ctx context.Context, studioID int, performerID *string) (int, error) { // CUSTOM: added performerID param
+func (qb *SceneStore) OCountByStudioID(ctx context.Context, studioID int, depth *int, performerID *string) (int, error) { // CUSTOM: added depth and performerID params
 	table := qb.table()
 	oHistoryTable := goqu.T(scenesODatesTable)
 
 	q := dialect.Select(goqu.COUNT("*")).From(table).InnerJoin(
 		oHistoryTable,
 		goqu.On(table.Col(idColumn).Eq(oHistoryTable.Col(sceneIDColumn))),
-	).Where(table.Col(studioIDColumn).Eq(studioID))
+	)
+
+	// CUSTOM: begin - include child studios when a depth is provided
+	if depth != nil && *depth != 0 {
+		valuesClause, err := getHierarchicalValues(ctx, []string{strconv.Itoa(studioID)}, studioTable, "", "parent_id", "child_id", depth)
+		if err != nil {
+			return 0, err
+		}
+		q = q.Where(goqu.L(fmt.Sprintf("%s.%s IN (SELECT column2 FROM (%s))", sceneTable, studioIDColumn, valuesClause)))
+	} else {
+		q = q.Where(table.Col(studioIDColumn).Eq(studioID))
+	}
+	// CUSTOM: end
 
 	// CUSTOM: If performerID is provided, filter by scenes that have this performer
 	if performerID != nil && *performerID != "" {

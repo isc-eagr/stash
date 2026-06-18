@@ -552,6 +552,76 @@ func (r *queryResolver) SceneOYearCounts(ctx context.Context) (ret []*SceneOYear
 	return ret, nil
 }
 
+// SceneOCountsByTag returns timestamped scene O events grouped by marker tags
+// covering each event's video timestamp. Primary and secondary marker tags are
+// both counted, with each tag counted once per O event.
+func (r *queryResolver) SceneOCountsByTag(ctx context.Context) (ret []*SceneOCountByTag, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := `
+WITH covered_o_tags AS (
+  SELECT DISTINCT
+    od.scene_id,
+    od.o_date,
+    od.video_timestamp,
+    t.id AS tag_id,
+    t.name AS tag_name
+  FROM scenes_o_dates od
+  JOIN scene_markers sm ON sm.scene_id = od.scene_id
+  JOIN tags t ON t.id = sm.primary_tag_id
+  WHERE od.video_timestamp IS NOT NULL
+    AND sm.end_seconds IS NOT NULL
+    AND od.video_timestamp >= sm.seconds
+    AND od.video_timestamp <= sm.end_seconds
+
+  UNION
+
+  SELECT DISTINCT
+    od.scene_id,
+    od.o_date,
+    od.video_timestamp,
+    t.id AS tag_id,
+    t.name AS tag_name
+  FROM scenes_o_dates od
+  JOIN scene_markers sm ON sm.scene_id = od.scene_id
+  JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+  JOIN tags t ON t.id = smt.tag_id
+  WHERE od.video_timestamp IS NOT NULL
+    AND sm.end_seconds IS NOT NULL
+    AND od.video_timestamp >= sm.seconds
+    AND od.video_timestamp <= sm.end_seconds
+)
+SELECT tag_id, tag_name, COUNT(*) AS cnt
+FROM covered_o_tags
+GROUP BY tag_id, tag_name
+ORDER BY cnt DESC, tag_name ASC`
+
+		_, rows, err := db.QuerySQL(ctx, query, nil)
+		if err != nil {
+			return err
+		}
+
+		out := make([]*SceneOCountByTag, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 3 {
+				continue
+			}
+
+			out = append(out, &SceneOCountByTag{
+				TagID:   fmt.Sprint(row[0]),
+				TagName: fmt.Sprint(row[1]),
+				Count:   customIntValue(row[2]),
+			})
+		}
+
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 // MostOsInDay returns the single date with the highest recorded scene O count.
 func (r *queryResolver) MostOsInDay(ctx context.Context) (ret *SceneODayStat, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {

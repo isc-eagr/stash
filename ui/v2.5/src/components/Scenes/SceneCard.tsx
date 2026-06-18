@@ -1,10 +1,5 @@
 import React, { useEffect, useMemo, useRef } from "react";
-import {
-  Button,
-  ButtonGroup,
-  OverlayTrigger,
-  Tooltip,
-} from "react-bootstrap";
+import { Button, ButtonGroup, OverlayTrigger, Tooltip } from "react-bootstrap";
 import { useHistory } from "react-router-dom";
 import cx from "classnames";
 import * as GQL from "src/core/generated-graphql";
@@ -22,6 +17,7 @@ import { RatingBanner } from "../Shared/RatingBanner";
 import { FormattedMessage } from "react-intl";
 import {
   faBox,
+  faClock, // CUSTOM
   faCopy,
   faFilm,
   faHand, // CUSTOM
@@ -147,13 +143,188 @@ const Description: React.FC<{
   );
 };
 
+// CUSTOM: begin - scene activity duration metrics
+type SceneMarkerTag = {
+  id?: string;
+  parents?: SceneMarkerTag[];
+};
+
+type SceneActivityCategory = "sex" | "oral" | "solo";
+
+type SceneActivityMetric = {
+  key: SceneActivityCategory | "other";
+  label: string;
+  percent: number;
+};
+
+type SceneActivityInterval = {
+  start: number;
+  end: number;
+};
+
+type SceneActivityRoleTagIds = {
+  sexTagId?: string;
+  oralTagId?: string;
+  soloTagId?: string;
+};
+
+type SceneCardTitleIcon =
+  | {
+      type: "gay" | "mouth" | "straight" | "goatee";
+      className: string;
+      title: string;
+    }
+  | {
+      type: "hand";
+      icon: typeof faHand;
+      className: string;
+      title: string;
+    };
+
+function sceneActivityMarkerPrimaryTagIsOnlyTag(
+  marker: GQL.SlimSceneDataFragment["scene_markers"][number],
+  targetId: string | undefined
+): boolean {
+  if (!targetId) return false;
+  return marker.primary_tag.id === targetId && marker.tags.length === 0;
+}
+
+function mergeSceneActivityIntervals(
+  intervals: SceneActivityInterval[]
+): SceneActivityInterval[] {
+  const sorted = [...intervals].sort((a, b) => a.start - b.start);
+  const merged: SceneActivityInterval[] = [];
+
+  sorted.forEach((interval) => {
+    const last = merged[merged.length - 1];
+    if (!last || interval.start > last.end) {
+      merged.push({ ...interval });
+      return;
+    }
+
+    last.end = Math.max(last.end, interval.end);
+  });
+
+  return merged;
+}
+
+function getSceneActivityDuration(intervals: SceneActivityInterval[]) {
+  return mergeSceneActivityIntervals(intervals).reduce(
+    (sum, interval) => sum + interval.end - interval.start,
+    0
+  );
+}
+
+function getSceneActivityPercent(duration: number, sceneDuration: number) {
+  return Math.round((duration / sceneDuration) * 100);
+}
+
+function getSceneActivityMetrics(
+  scene: GQL.SlimSceneDataFragment,
+  roleTagIds: SceneActivityRoleTagIds
+): SceneActivityMetric[] | undefined {
+  const sceneDuration = scene.files[0]?.duration ?? 0;
+  if (sceneDuration <= 0) return undefined;
+
+  const intervalsByCategory: Record<
+    SceneActivityCategory,
+    SceneActivityInterval[]
+  > = {
+    sex: [],
+    oral: [],
+    solo: [],
+  };
+
+  scene.scene_markers.forEach((marker) => {
+    if (marker.end_seconds === null || marker.end_seconds === undefined) {
+      return;
+    }
+
+    const interval = {
+      start: Math.max(0, Math.min(marker.seconds, sceneDuration)),
+      end: Math.max(0, Math.min(marker.end_seconds, sceneDuration)),
+    };
+
+    if (interval.end <= interval.start) return;
+
+    if (sceneActivityMarkerPrimaryTagIsOnlyTag(marker, roleTagIds.sexTagId)) {
+      intervalsByCategory.sex.push(interval);
+    }
+
+    if (sceneActivityMarkerPrimaryTagIsOnlyTag(marker, roleTagIds.oralTagId)) {
+      intervalsByCategory.oral.push(interval);
+    }
+
+    if (sceneActivityMarkerPrimaryTagIsOnlyTag(marker, roleTagIds.soloTagId)) {
+      intervalsByCategory.solo.push(interval);
+    }
+  });
+
+  const allActivityIntervals = [
+    ...intervalsByCategory.sex,
+    ...intervalsByCategory.oral,
+    ...intervalsByCategory.solo,
+  ];
+
+  if (allActivityIntervals.length === 0) return undefined;
+
+  const coveredDuration = getSceneActivityDuration(allActivityIntervals);
+
+  return [
+    {
+      key: "sex",
+      label: "Sex",
+      percent: getSceneActivityPercent(
+        getSceneActivityDuration(intervalsByCategory.sex),
+        sceneDuration
+      ),
+    },
+    {
+      key: "oral",
+      label: "Oral",
+      percent: getSceneActivityPercent(
+        getSceneActivityDuration(intervalsByCategory.oral),
+        sceneDuration
+      ),
+    },
+    {
+      key: "solo",
+      label: "Solo",
+      percent: getSceneActivityPercent(
+        getSceneActivityDuration(intervalsByCategory.solo),
+        sceneDuration
+      ),
+    },
+    {
+      key: "other",
+      label: "Other",
+      percent: getSceneActivityPercent(
+        Math.max(0, sceneDuration - coveredDuration),
+        sceneDuration
+      ),
+    },
+  ];
+}
+// CUSTOM: end
+
 const SceneCardPopovers = PatchComponent(
   "SceneCard.Popovers",
   (props: ISceneCardProps) => {
+    const { configuration } = useConfigurationContext(); // CUSTOM
     const file = useMemo(
       () => (props.scene.files.length > 0 ? props.scene.files[0] : undefined),
       [props.scene]
     );
+    // CUSTOM: begin - scene activity duration metrics
+    const activityMetrics = useMemo(
+      () =>
+        getSceneActivityMetrics(
+          props.scene,
+          configuration?.ui?.roleTagIds ?? {}
+        ),
+      [configuration?.ui?.roleTagIds, props.scene]
+    );
+    // CUSTOM: end
 
     const sceneNumber = useMemo(() => {
       if (!props.fromGroupId) {
@@ -304,6 +475,62 @@ const SceneCardPopovers = PatchComponent(
       }
     }
 
+    // CUSTOM: begin - scene activity duration metrics
+    function maybeRenderActivityMetrics() {
+      if (!activityMetrics) return;
+
+      return (
+        <div className="scene-activity-metrics">
+          {activityMetrics.map((metric) => {
+            const tooltip = `${metric.label}: ${metric.percent}%`;
+            const tooltipId = `scene-activity-${props.scene.id}-${metric.key}`;
+
+            return (
+              <OverlayTrigger
+                key={metric.key}
+                overlay={<Tooltip id={tooltipId}>{tooltip}</Tooltip>}
+                placement="bottom"
+              >
+                <span
+                  className={`scene-activity-metric scene-activity-metric--${metric.key}`}
+                  aria-label={tooltip}
+                >
+                  {metric.key === "sex" && (
+                    <img
+                      className="scene-activity-metric__svg"
+                      src={gaySvg}
+                      alt=""
+                    />
+                  )}
+                  {metric.key === "oral" && (
+                    <img
+                      className="scene-activity-metric__svg"
+                      src={mouthSvg}
+                      alt=""
+                    />
+                  )}
+                  {metric.key === "solo" && (
+                    <Icon
+                      icon={faHand}
+                      className="scene-activity-metric__hand"
+                    />
+                  )}
+                  {metric.key === "other" && (
+                    <Icon
+                      icon={faClock}
+                      className="scene-activity-metric__other"
+                    />
+                  )}
+                  <span>{metric.percent}%</span>
+                </span>
+              </OverlayTrigger>
+            );
+          })}
+        </div>
+      );
+    }
+    // CUSTOM: end
+
     function maybeRenderPopoverButtonGroup() {
       if (
         !props.compact &&
@@ -331,6 +558,7 @@ const SceneCardPopovers = PatchComponent(
               {maybeRenderOrganized()}
               {maybeRenderDupeCopies()}
             </ButtonGroup>
+            {maybeRenderActivityMetrics()}
           </>
         );
       }
@@ -345,7 +573,10 @@ const SceneCardDetails = PatchComponent(
   (props: ISceneCardProps) => {
     return (
       <div className="scene-card__details">
-        <span className="scene-card__date">{props.scene.effective_date ?? props.scene.date}</span> {/* CUSTOM: effective_date */}
+        <span className="scene-card__date">
+          {props.scene.effective_date ?? props.scene.date}
+        </span>{" "}
+        {/* CUSTOM: effective_date */}
         <span className="file-path extra-scene-info">
           {objectPath(props.scene)}
         </span>
@@ -382,12 +613,14 @@ const SceneCardOverlays = PatchComponent(
 
     // Returns true if a marker has a given tag (primary or secondary, including subtags)
     const markerHasTag = (
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      marker: any,
+      marker: GQL.SlimSceneDataFragment["scene_markers"][number],
       tagId: string
     ): boolean => {
       if (tagMatches(marker?.primary_tag, tagId)) return true;
-      const markerTags: Array<{ id?: string; parents?: Array<{ id?: string }> }> = marker?.tags ?? [];
+      const markerTags: Array<{
+        id?: string;
+        parents?: Array<{ id?: string }>;
+      }> = marker?.tags ?? [];
       return markerTags.some((t) => tagMatches(t, tagId));
     };
 
@@ -396,9 +629,8 @@ const SceneCardOverlays = PatchComponent(
       const roleTagIds = configuration?.ui?.roleTagIds ?? {};
       const { facialTagId } = roleTagIds;
       if (!facialTagId) return false;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sceneMarkers = (props.scene as any).scene_markers ?? [];
-      return sceneMarkers.some((marker: any) => markerHasTag(marker, facialTagId));
+      const sceneMarkers = props.scene.scene_markers ?? [];
+      return sceneMarkers.some((marker) => markerHasTag(marker, facialTagId));
     }, [props.scene, configuration?.ui]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Check if scene has a marker with BOTH facial tag AND really hot tag (gold facial icon)
@@ -406,11 +638,11 @@ const SceneCardOverlays = PatchComponent(
       const roleTagIds = configuration?.ui?.roleTagIds ?? {};
       const { facialTagId, reallyHotTagId } = roleTagIds;
       if (!facialTagId || !reallyHotTagId) return false;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sceneMarkers = (props.scene as any).scene_markers ?? [];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return sceneMarkers.some((marker: any) =>
-        markerHasTag(marker, facialTagId) && markerHasTag(marker, reallyHotTagId)
+      const sceneMarkers = props.scene.scene_markers ?? [];
+      return sceneMarkers.some(
+        (marker) =>
+          markerHasTag(marker, facialTagId) &&
+          markerHasTag(marker, reallyHotTagId)
       );
     }, [props.scene, configuration?.ui]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -543,37 +775,42 @@ export const SceneCard = PatchComponent(
 
     // CUSTOM: begin - role tag icon logic
     // Determine which icon to show based on scene markers with role tags
-    const iconToShow = useMemo(() => {
+    const iconToShow = useMemo<SceneCardTitleIcon | null>(() => {
       // Get role tag IDs from configuration
       const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-      const {sexTagId} = roleTagIds;
-      const {oralTagId} = roleTagIds;
-      const {soloTagId} = roleTagIds;
-      const {facialTagId} = roleTagIds;
+      const { sexTagId } = roleTagIds;
+      const { oralTagId } = roleTagIds;
+      const { soloTagId } = roleTagIds;
+      const { facialTagId } = roleTagIds;
 
       // Helper to check if a tag matches (including recursive parent/child relationships)
       // Returns true if tag.id === targetId OR any ancestor of tag has id === targetId
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tagMatches = (tag: any, targetId: string | undefined, visited: Set<string> = new Set()): boolean => {
-        if (!targetId || !tag) return false;
+      const tagMatches = (
+        tag: SceneMarkerTag | null | undefined,
+        targetId: string | undefined,
+        visited: Set<string> = new Set()
+      ): boolean => {
+        if (!targetId || !tag?.id) return false;
         if (tag.id === targetId) return true;
         // Prevent infinite loops
         if (visited.has(tag.id)) return false;
         visited.add(tag.id);
         // Recursively check all parents (ancestors)
         const parents = tag.parents ?? [];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return parents.some((p: any) => tagMatches(p, targetId, visited));
+        return parents.some((p) => tagMatches(p, targetId, visited));
       };
 
       // Get scene marker tag IDs (including hierarchy)
       const markerTagIds = new Set<string>();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sceneMarkers = (props.scene as any).scene_markers ?? [];
+      const sceneMarkers = props.scene.scene_markers ?? [];
       for (const marker of sceneMarkers) {
         // Determine if this marker is an oral marker
         let isOralMarker = false;
-        if (marker?.primary_tag && oralTagId && tagMatches(marker.primary_tag, oralTagId)) {
+        if (
+          marker?.primary_tag &&
+          oralTagId &&
+          tagMatches(marker.primary_tag, oralTagId)
+        ) {
           isOralMarker = true;
         }
         if (!isOralMarker) {
@@ -644,54 +881,31 @@ export const SceneCard = PatchComponent(
     const pretitleIcon = useMemo(() => {
       const pieces: JSX.Element[] = [];
       if (iconToShow) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const t = (iconToShow as any).type as string | undefined;
-        if (
-          t === "mouth" ||
-          t === "gay" ||
-          t === "straight" ||
-          t === "goatee"
-        ) {
+        if (iconToShow.type === "hand") {
+          pieces.push(
+            <Icon
+              key="primary"
+              icon={iconToShow.icon}
+              className={iconToShow.className}
+              title={iconToShow.title}
+            />
+          );
+        } else {
           pieces.push(
             <img
               key="primary"
               src={
-                t === "gay"
+                iconToShow.type === "gay"
                   ? gaySvg
-                  : t === "straight"
+                  : iconToShow.type === "straight"
                   ? straightSvg
-                  : t === "goatee"
+                  : iconToShow.type === "goatee"
                   ? facialPng
                   : mouthSvg
               }
-              alt={
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (iconToShow as any).title ||
-                (t === "gay"
-                  ? "Gay"
-                  : t === "straight"
-                  ? "Straight"
-                  : t === "goatee"
-                  ? "Facial"
-                  : "Open Mouth")
-              }
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              title={(iconToShow as any).title}
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              className={(iconToShow as any).className}
-            />
-          );
-        } else {
-          // fallback for hand/others using FontAwesome
-          pieces.push(
-            <Icon
-              key="primary"
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              icon={(iconToShow as any).icon!}
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              className={(iconToShow as any).className}
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              title={(iconToShow as any).title}
+              alt={iconToShow.title}
+              title={iconToShow.title}
+              className={iconToShow.className}
             />
           );
         }

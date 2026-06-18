@@ -16,6 +16,7 @@ import { useStudioUpdate } from "src/core/StashService";
 import {
   faTag,
   faBox,
+  faClock, // CUSTOM
   faHand,
   faUserPlus,
 } from "@fortawesome/free-solid-svg-icons"; // CUSTOM: added faHand, faUserPlus
@@ -542,12 +543,105 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       }
     }
 
+    // CUSTOM: begin - studio activity duration metrics
+    function maybeRenderActivityMetrics() {
+      if (performerId) return null;
+
+      const stats = studio.studio_activity_stats;
+      if (!stats || stats.total_seconds <= 0) return null;
+
+      const metrics = [
+        {
+          key: "sex",
+          label: "Sex",
+          percent: Math.round(stats.sex_percent),
+          sceneCount: stats.sex_scene_count,
+        },
+        {
+          key: "oral",
+          label: "Oral",
+          percent: Math.round(stats.oral_percent),
+          sceneCount: stats.oral_scene_count,
+        },
+        {
+          key: "solo",
+          label: "Solo",
+          percent: Math.round(stats.solo_percent),
+          sceneCount: stats.solo_scene_count,
+        },
+        {
+          key: "other",
+          label: "Other",
+          percent: Math.round(stats.other_percent),
+          sceneCount: null,
+        },
+      ];
+
+      return (
+        <div className="studio-activity-metrics">
+          {metrics.map((metric) => {
+            const tooltip =
+              metric.sceneCount === null
+                ? `${metric.label}: ${metric.percent}%`
+                : `${metric.label}: ${metric.percent}% (${metric.sceneCount} scenes)`;
+            const tooltipId = `studio-activity-${studio.id}-${metric.key}`;
+
+            return (
+              <OverlayTrigger
+                key={metric.key}
+                overlay={<Tooltip id={tooltipId}>{tooltip}</Tooltip>}
+                placement="bottom"
+              >
+                <span
+                  className={`studio-activity-metric studio-activity-metric--${metric.key}`}
+                  aria-label={tooltip}
+                >
+                  {metric.key === "sex" && (
+                    <img
+                      className="studio-activity-metric__svg"
+                      src={gaySvg}
+                      alt=""
+                    />
+                  )}
+                  {metric.key === "oral" && (
+                    <img
+                      className="studio-activity-metric__svg"
+                      src={mouthSvg}
+                      alt=""
+                    />
+                  )}
+                  {metric.key === "solo" && (
+                    <Icon
+                      icon={faHand}
+                      className="studio-activity-metric__hand"
+                    />
+                  )}
+                  {metric.key === "other" && (
+                    <Icon
+                      icon={faClock}
+                      className="studio-activity-metric__other"
+                    />
+                  )}
+                  <span>{metric.percent}%</span>
+                </span>
+              </OverlayTrigger>
+            );
+          })}
+        </div>
+      );
+    }
+    // CUSTOM: end
+
     function maybeRenderPopoverButtonGroup() {
       if (!performerScopedCountsReady) {
         return null;
       }
 
       const hasCategoryButtons = !!(sexTag || oralTag || soloTag || facialTag);
+      const hasActivityMetrics =
+        !performerId &&
+        !!studio.studio_activity_stats &&
+        studio.studio_activity_stats.total_seconds > 0; // CUSTOM
 
       if (
         studio.scene_count ||
@@ -558,6 +652,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         studio.o_counter ||
         studio.tags.length > 0 ||
         hasCategoryButtons ||
+        hasActivityMetrics || // CUSTOM
         studio.organized
       ) {
         return (
@@ -576,6 +671,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
                 </div>
               </>
             )}
+            {maybeRenderActivityMetrics()}
             <hr />
             <ButtonGroup className="card-popovers">
               {maybeRenderScenesPopoverButton()}
@@ -611,16 +707,18 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
           <div className="studio-card__details">
             {maybeRenderParent(studio, hideParent)}
             {maybeRenderChildren(studio)}
-            <RatingBanner rating={studio.rating100} compact />
           </div>
         }
         overlays={
-          <FavoriteIcon
-            favorite={studio.favorite}
-            onToggleFavorite={(v) => onToggleFavorite(v)}
-            size="2x"
-            className="hide-not-favorite"
-          />
+          <>
+            <FavoriteIcon
+              favorite={studio.favorite}
+              onToggleFavorite={(v) => onToggleFavorite(v)}
+              size="2x"
+              className="hide-not-favorite"
+            />
+            <RatingBanner rating={studio.rating100} compact />
+          </>
         }
         popovers={maybeRenderPopoverButtonGroup() ?? undefined}
         selected={selected}

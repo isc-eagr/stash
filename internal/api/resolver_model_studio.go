@@ -164,16 +164,16 @@ func (r *studioResolver) MovieCount(ctx context.Context, obj *models.Studio, dep
 	return r.GroupCount(ctx, obj, depth, nil) // CUSTOM: pass nil performerID for deprecated path
 }
 
-func (r *studioResolver) OCounter(ctx context.Context, obj *models.Studio, performerID *string) (ret *int, err error) { // CUSTOM: added performerID
+func (r *studioResolver) OCounter(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret *int, err error) { // CUSTOM: added depth and performerID
 	var res_scene int
 	var res_image int
 	var res int
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		res_scene, err = r.repository.Scene.OCountByStudioID(ctx, obj.ID, performerID) // CUSTOM: pass performerID
+		res_scene, err = r.repository.Scene.OCountByStudioID(ctx, obj.ID, depth, performerID) // CUSTOM: pass depth and performerID
 		if err != nil {
 			return err
 		}
-		res_image, err = r.repository.Image.OCountByStudioID(ctx, obj.ID, performerID) // CUSTOM: pass performerID
+		res_image, err = r.repository.Image.OCountByStudioID(ctx, obj.ID, depth, performerID) // CUSTOM: pass depth and performerID
 		return err
 	}); err != nil {
 		return nil, err

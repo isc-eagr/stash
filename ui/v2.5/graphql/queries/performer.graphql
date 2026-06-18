@@ -52,42 +52,46 @@ query PerformerCoPerformersByRole($performer_id: ID!) {
   performerCoPerformersByRole(performer_id: $performer_id) {
     sex_as_top {
       performer {
-        ...PerformerData
+        ...PerformerListData
       }
       scene_count
     }
     sex_as_bottom {
       performer {
-        ...PerformerData
+        ...PerformerListData
       }
       scene_count
     }
     oral_as_top {
       performer {
-        ...PerformerData
+        ...PerformerListData
       }
       scene_count
     }
     oral_as_bottom {
       performer {
-        ...PerformerData
+        ...PerformerListData
       }
       scene_count
     }
     facial_as_top {
       performer {
-        ...PerformerData
+        ...PerformerListData
       }
       scene_count
     }
     facial_as_bottom {
       performer {
-        ...PerformerData
+        ...PerformerListData
       }
       scene_count
     }
     unique_count
   }
+}
+
+query PerformerCoPerformerCount($performer_id: ID!) {
+  performerCoPerformerCount(performer_id: $performer_id)
 }
 
 query PerformerCoPerformersMiniImages($performer_id: ID!) {

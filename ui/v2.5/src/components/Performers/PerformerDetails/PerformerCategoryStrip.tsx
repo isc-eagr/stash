@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from "react"; // CUSTOM
+import React, { useCallback, useMemo, useRef } from "react"; // CUSTOM
 import { Badge } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import { Icon } from "src/components/Shared/Icon";
@@ -30,6 +30,8 @@ interface IPerformerCategoryStripProps {
   scenePerformerCount?: number;
   /** All performers in the scene, used to show mini images in partner tooltips (scene context only) */
   scenePartnerPerformers?: Pick<GQL.Performer, "id" | "name" | "image_path">[]; // CUSTOM
+  /** Scene markers used for scene-context top/bottom duration percentages */
+  sceneRoleDurationMarkers?: GQL.SceneDataFragment["scene_markers"]; // CUSTOM
   /** Optional scoped totals used outside scene context, for example studio-filtered performer cards */
   globalStatsOverride?: {
     sex_scene_count: number;
@@ -61,6 +63,41 @@ interface IPerformerCategoryStripProps {
   studioContext?: { id: string; label: string; depth: number }; // CUSTOM
 }
 
+// CUSTOM: begin - scene-context role duration percentages
+type SceneRoleCategory = "sex" | "oral";
+type SceneRoleDirection = "top" | "bottom";
+type SceneRoleInterval = { start: number; end: number };
+type SceneRoleDurationPercentages = Record<
+  SceneRoleCategory,
+  Partial<Record<SceneRoleDirection, number>>
+>;
+
+const mergeSceneRoleIntervals = (
+  intervals: SceneRoleInterval[]
+): SceneRoleInterval[] => {
+  const sorted = [...intervals].sort((a, b) => a.start - b.start);
+  const merged: SceneRoleInterval[] = [];
+
+  sorted.forEach((interval) => {
+    const last = merged[merged.length - 1];
+    if (!last || interval.start > last.end) {
+      merged.push({ ...interval });
+      return;
+    }
+
+    last.end = Math.max(last.end, interval.end);
+  });
+
+  return merged;
+};
+
+const getSceneRoleDuration = (intervals: SceneRoleInterval[]) =>
+  mergeSceneRoleIntervals(intervals).reduce(
+    (sum, interval) => sum + interval.end - interval.start,
+    0
+  );
+// CUSTOM: end
+
 /**
  * PerformerCategoryStrip - Shows marker-based role badges with top/bottom breakdown
  * Uses roleTagIds configuration for tag IDs and counts from performer data.
@@ -84,6 +121,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   markerRoles: markerRolesProp = [],
   scenePerformerCount = 0,
   scenePartnerPerformers, // CUSTOM
+  sceneRoleDurationMarkers, // CUSTOM
   globalStatsOverride,
   hideUniquePartnerCounts = false,
   studioContext, // CUSTOM
@@ -101,6 +139,85 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   const { facialTagId } = roleTagIds;
   const { orgasmTagId } = roleTagIds;
   const { feetTagId } = roleTagIds;
+
+  // CUSTOM: begin - scene-context role duration percentages
+  const sceneRoleDurationPercentages = useMemo(() => {
+    const emptyPercentages: SceneRoleDurationPercentages = {
+      sex: {},
+      oral: {},
+    };
+
+    if (!sceneId || !sceneRoleDurationMarkers) return emptyPercentages;
+
+    const intervals: Record<
+      SceneRoleCategory,
+      {
+        all: SceneRoleInterval[];
+        top: SceneRoleInterval[];
+        bottom: SceneRoleInterval[];
+      }
+    > = {
+      sex: { all: [], top: [], bottom: [] },
+      oral: { all: [], top: [], bottom: [] },
+    };
+
+    sceneRoleDurationMarkers.forEach((marker) => {
+      const category: SceneRoleCategory | undefined =
+        marker.primary_tag.id === sexTagId && marker.tags.length === 0
+          ? "sex"
+          : marker.primary_tag.id === oralTagId && marker.tags.length === 0
+          ? "oral"
+          : undefined;
+
+      if (!category) return;
+      if (marker.end_seconds === null || marker.end_seconds === undefined) {
+        return;
+      }
+
+      const interval = {
+        start: marker.seconds,
+        end: marker.end_seconds,
+      };
+
+      if (interval.end <= interval.start) return;
+
+      intervals[category].all.push(interval);
+
+      if (marker.top_performers.some((top) => top.id === performer.id)) {
+        intervals[category].top.push(interval);
+      }
+
+      if (
+        marker.bottom_performers.some((bottom) => bottom.id === performer.id)
+      ) {
+        intervals[category].bottom.push(interval);
+      }
+    });
+
+    const percentages: SceneRoleDurationPercentages = {
+      sex: {},
+      oral: {},
+    };
+
+    (["sex", "oral"] as const).forEach((category) => {
+      const totalDuration = getSceneRoleDuration(intervals[category].all);
+      if (totalDuration <= 0) return;
+
+      (["top", "bottom"] as const).forEach((direction) => {
+        const roleDuration = getSceneRoleDuration(
+          intervals[category][direction]
+        );
+        if (roleDuration <= 0) return;
+
+        percentages[category][direction] = Math.round(
+          (roleDuration / totalDuration) * 100
+        );
+      });
+    });
+
+    return percentages;
+  }, [performer.id, sceneId, sceneRoleDurationMarkers, sexTagId, oralTagId]);
+  // CUSTOM: end
 
   // CUSTOM: begin - lazy queries for global/studio partner mini images
   const [fetchGlobalMiniImages, { data: globalMiniData }] =
@@ -229,6 +346,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     isTop?: boolean;
     isBottom?: boolean;
     tagId?: string;
+    roleDurationPercentages?: Partial<Record<"top" | "bottom", number>>; // CUSTOM
     topPids?: string[]; // CUSTOM: partner performer IDs for top role mini images
     bottomPids?: string[]; // CUSTOM: partner performer IDs for bottom role mini images
   }> = [];
@@ -380,6 +498,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         isTop: sexRoles.some((r: string) => r.endsWith("_top")),
         isBottom: sexRoles.some((r: string) => r.endsWith("_bottom")),
         tagId: sexTagId,
+        roleDurationPercentages: sceneRoleDurationPercentages.sex, // CUSTOM
         topPids: sexTopPids, // CUSTOM
         bottomPids: sexBottomPids, // CUSTOM
       });
@@ -393,6 +512,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         isTop: oralRoles.some((r: string) => r.endsWith("_top")),
         isBottom: oralRoles.some((r: string) => r.endsWith("_bottom")),
         tagId: oralTagId,
+        roleDurationPercentages: sceneRoleDurationPercentages.oral, // CUSTOM
         topPids: oralTopPids, // CUSTOM
         bottomPids: oralBottomPids, // CUSTOM
       });
@@ -906,7 +1026,14 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
           );
 
           return (
-            <div key={idx} className="role-badge-item">
+            <div
+              key={idx}
+              className={
+                sceneId
+                  ? "role-badge-item scene-context-role-badge-item"
+                  : "role-badge-item"
+              }
+            >
               {/* Category icon on top - clickable */}
               <div
                 className="category-icon-container"
@@ -964,7 +1091,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                 <>
                   {/* Top/Bottom role indicators */}
                   {/* CUSTOM: begin - show mini performer images on hover when > 2 performers in scene */}
-                  <div className="role-arrows">
+                  <div className="role-arrows scene-role-arrows">
                     {role.isTop &&
                       (() => {
                         const topPartners =
@@ -984,7 +1111,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                           <Badge
                             pill
                             variant="success"
-                            className="arrow-badge top-badge"
+                            className="arrow-badge top-badge scene-role-badge"
                             title={
                               topPartners.length === 0
                                 ? getTooltipText(
@@ -1002,10 +1129,18 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                               gap: 4,
                             }}
                           >
-                            <Icon icon={faArrowUp} />
-                            {scenePerformerCount > 2 && (
-                              <span className="arrow-count">
-                                {role.topCount || 0}
+                            <span className="arrow-main">
+                              <Icon icon={faArrowUp} />
+                              {scenePerformerCount > 2 && (
+                                <span className="arrow-count">
+                                  {role.topCount || 0}
+                                </span>
+                              )}
+                            </span>
+                            {role.roleDurationPercentages?.top !==
+                              undefined && (
+                              <span className="arrow-percent">
+                                {role.roleDurationPercentages.top}%
                               </span>
                             )}
                           </Badge>
@@ -1026,13 +1161,15 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                       <Badge
                         pill
                         variant="success"
-                        className="arrow-badge top-badge role-badge-placeholder"
+                        className="arrow-badge top-badge scene-role-badge role-badge-placeholder"
                         aria-hidden="true"
                       >
-                        <Icon icon={faArrowUp} />
-                        {scenePerformerCount > 2 && (
-                          <span className="arrow-count">0</span>
-                        )}
+                        <span className="arrow-main">
+                          <Icon icon={faArrowUp} />
+                          {scenePerformerCount > 2 && (
+                            <span className="arrow-count">0</span>
+                          )}
+                        </span>
                       </Badge>
                     )}
                     {role.isBottom &&
@@ -1054,7 +1191,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                           <Badge
                             pill
                             variant="info"
-                            className="arrow-badge bottom-badge"
+                            className="arrow-badge bottom-badge scene-role-badge"
                             title={
                               bottomPartners.length === 0
                                 ? getTooltipText(
@@ -1072,10 +1209,18 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                               gap: 4,
                             }}
                           >
-                            <Icon icon={faArrowDown} />
-                            {scenePerformerCount > 2 && (
-                              <span className="arrow-count">
-                                {role.bottomCount || 0}
+                            <span className="arrow-main">
+                              <Icon icon={faArrowDown} />
+                              {scenePerformerCount > 2 && (
+                                <span className="arrow-count">
+                                  {role.bottomCount || 0}
+                                </span>
+                              )}
+                            </span>
+                            {role.roleDurationPercentages?.bottom !==
+                              undefined && (
+                              <span className="arrow-percent">
+                                {role.roleDurationPercentages.bottom}%
                               </span>
                             )}
                           </Badge>
@@ -1096,13 +1241,15 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                       <Badge
                         pill
                         variant="info"
-                        className="arrow-badge bottom-badge role-badge-placeholder"
+                        className="arrow-badge bottom-badge scene-role-badge role-badge-placeholder"
                         aria-hidden="true"
                       >
-                        <Icon icon={faArrowDown} />
-                        {scenePerformerCount > 2 && (
-                          <span className="arrow-count">0</span>
-                        )}
+                        <span className="arrow-main">
+                          <Icon icon={faArrowDown} />
+                          {scenePerformerCount > 2 && (
+                            <span className="arrow-count">0</span>
+                          )}
+                        </span>
                       </Badge>
                     )}
                   </div>

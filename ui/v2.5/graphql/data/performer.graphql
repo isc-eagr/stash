@@ -55,6 +55,23 @@ fragment PerformerData on Performer {
   sex_unique_partner_count
   oral_unique_partner_count
   facial_unique_partner_count
+  activity_stats {
+    total_activity_seconds
+    sex_seconds
+    sex_top_seconds
+    sex_bottom_seconds
+    oral_seconds
+    oral_top_seconds
+    oral_bottom_seconds
+    solo_seconds
+    sex_percent
+    oral_percent
+    solo_percent
+    sex_top_percent
+    sex_bottom_percent
+    oral_top_percent
+    oral_bottom_percent
+  }
   # CUSTOM: end
 
   tags {

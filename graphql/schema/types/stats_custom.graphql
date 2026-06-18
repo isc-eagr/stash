@@ -44,6 +44,15 @@ type SceneODrySpell {
   end_date: String!
 }
 
+# CUSTOM: begin
+"Count of timestamped scene O events grouped by marker tag at that timestamp"
+type SceneOCountByTag {
+  tag_id: ID!
+  tag_name: String!
+  count: Int!
+}
+# CUSTOM: end
+
 extend type Query {
   "Get a count of performers per ethnicity (non-empty only), sorted by highest count first"
   performerEthnicityCounts: [PerformerEthnicityCount!]!
@@ -57,6 +66,8 @@ extend type Query {
   mostOsInDay: SceneODayStat
   "Get the longest period without a recorded scene O event"
   longestPeriodWithoutO: SceneODrySpell
+  "Get timestamped scene O events grouped by marker primary and secondary tags covering the O timestamp"
+  sceneOCountsByTag: [SceneOCountByTag!]!
   "Get total number of 'orgasm' marker-tag entries across all scene markers"
   sceneOrgasmCount: Int!
   "Get total number of facial markers (primary or secondary). Includes descendants of 'facial'."

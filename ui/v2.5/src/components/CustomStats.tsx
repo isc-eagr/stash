@@ -30,6 +30,12 @@ type PerformerEthnicityTierRow = {
   royal_sapphire: number;
 };
 
+type SceneOCountByTagRow = {
+  tag_id: string;
+  tag_name: string;
+  count: number;
+};
+
 // Performer rating tiers by ethnicity
 const PERFORMER_ETHNICITY_TIER_COUNTS = gql`
   query PerformerEthnicityTierCounts {
@@ -48,6 +54,17 @@ const SCENE_O_YEAR_COUNTS = gql`
   query SceneOYearCounts {
     sceneOYearCounts {
       year
+      count
+    }
+  }
+`;
+
+// Timestamped scene O counts grouped by marker tags covering the O timestamp
+const SCENE_O_COUNTS_BY_TAG = gql`
+  query SceneOCountsByTag {
+    sceneOCountsByTag {
+      tag_id
+      tag_name
       count
     }
   }
@@ -179,6 +196,7 @@ export const CustomStats: React.FC = () => {
   const { data: ethData } = usePerformerEthnicityCountsQuery();
   const { data: tierData } = useQuery(PERFORMER_ETHNICITY_TIER_COUNTS);
   const { data: oYearData } = useQuery(SCENE_O_YEAR_COUNTS);
+  const { data: oCountsByTagData } = useQuery(SCENE_O_COUNTS_BY_TAG);
   const { data: mostOsInDayData } = useQuery(MOST_OS_IN_DAY);
   const { data: longestPeriodWithoutOData } = useQuery(
     LONGEST_PERIOD_WITHOUT_O
@@ -342,6 +360,12 @@ export const CustomStats: React.FC = () => {
     (sum, tier) => sum + performerRatingTierTotals[tier.key],
     0
   );
+  const oCountsByTagRows = React.useMemo(() => {
+    const excludedTagIds = new Set(roleTagIds.oStatsExcludedTagIds ?? []);
+    return (
+      (oCountsByTagData?.sceneOCountsByTag ?? []) as SceneOCountByTagRow[]
+    ).filter((row) => !excludedTagIds.has(row.tag_id));
+  }, [oCountsByTagData?.sceneOCountsByTag, roleTagIds.oStatsExcludedTagIds]);
 
   // Query tags to get their names (for display and URL generation)
   const { data: tagsData } = GQL.useFindTagsQuery({
@@ -1145,6 +1169,43 @@ export const CustomStats: React.FC = () => {
                       </tr>
                     )
                   )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {oCountsByTagRows.length > 0 ? (
+        <div className="row justify-content-center mt-5">
+          <div className="col-12 col-md-auto" style={{ maxWidth: 520 }}>
+            <h5 className="mb-3">Scene O Counts by Marker Tag</h5>
+            <div className="table-responsive">
+              <table className="table table-sm table-striped mb-0">
+                <thead>
+                  <tr>
+                    <th>Tag</th>
+                    <th className="text-right">O&apos;s</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {oCountsByTagRows.map((row) => (
+                    <tr key={`otag-${row.tag_id}`}>
+                      <td>
+                        <Link
+                          to={NavUtils.makeTagSceneMarkersUrl({
+                            id: row.tag_id,
+                            name: row.tag_name,
+                          })}
+                        >
+                          {row.tag_name}
+                        </Link>
+                      </td>
+                      <td className="text-right">
+                        <FormattedNumber value={row.count} />
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

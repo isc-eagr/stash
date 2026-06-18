@@ -529,6 +529,25 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
               }
             />
           </Setting>
+          <Setting
+            id="role-tag-o-stats-exclusions"
+            headingID="config.ui.role_tags.o_stats_exclusions"
+          >
+            <TagIDSelect
+              isMulti
+              creatable={false}
+              ids={ui.roleTagIds?.oStatsExcludedTagIds ?? []}
+              menuPortalTarget={document.body}
+              onSelect={(items: TagOption[]) =>
+                saveUI({
+                  roleTagIds: {
+                    ...(ui.roleTagIds ?? {}),
+                    oStatsExcludedTagIds: items.map((item) => item.id),
+                  },
+                })
+              }
+            />
+          </Setting>
         </SettingSection>
         {/* CUSTOM: end */}
 

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import * as GQL from "src/core/generated-graphql";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { useConfigurationContext } from "src/hooks/Config";
-import { FormattedMessage } from "react-intl";
+import { FormattedMessage, useIntl } from "react-intl";
 import { PatchComponent } from "src/patch";
 import { GridCard } from "../../Shared/GridCard/GridCard";
 import { CountryFlag } from "../../Shared/CountryFlag";
@@ -14,12 +14,12 @@ import { usePerformerUpdate } from "src/core/StashService";
 import { ButtonGroup } from "react-bootstrap";
 import NavUtils from "src/utils/navigation";
 import TextUtils from "src/utils/text";
-import { useIntl } from "react-intl";
 import { PopoverCountButton } from "../../Shared/PopoverCountButton";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import facialPng from "src/assets/facial.png"; // CUSTOM
 import { getRatingCardClass } from "src/utils/ratingCardStyles_custom"; // CUSTOM
+import type { PerformerListData } from "../performerTypes_custom"; // CUSTOM
 
 interface IPerformerAppearsWithByRolePanelProps {
   active: boolean;
@@ -27,7 +27,7 @@ interface IPerformerAppearsWithByRolePanelProps {
 }
 
 interface IPerformerWithCount {
-  performer: GQL.PerformerDataFragment;
+  performer: PerformerListData;
   sceneCount: number;
 }
 
@@ -43,7 +43,7 @@ interface IRoleSectionProps {
 
 // Custom compact card for role panel - shows scene count badge
 interface ICoPerformerCardProps {
-  performer: GQL.PerformerDataFragment;
+  performer: PerformerListData;
   sceneCount: number;
   currentPerformer: GQL.PerformerDataFragment;
   roleCategory: "sex" | "oral" | "facial";
@@ -122,11 +122,15 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
               groupId: "A",
               tag_ids: [{ id: tagId, label: tagLabel }],
               depth: markerDepth,
-              top_performer_ids: [{ id: topPerformerId, label: topPerformerLabel }],
+              top_performer_ids: [
+                { id: topPerformerId, label: topPerformerLabel },
+              ],
               top_ethnicities: [],
               top_countries: [],
               top_rating: null,
-              bottom_performer_ids: [{ id: bottomPerformerId, label: bottomPerformerLabel }],
+              bottom_performer_ids: [
+                { id: bottomPerformerId, label: bottomPerformerLabel },
+              ],
               bottom_ethnicities: [],
               bottom_countries: [],
               bottom_rating: null,
@@ -261,7 +265,10 @@ const RoleSection: React.FC<IRoleSectionProps> = ({
         paddingBottom: "12px",
       }}
     >
-      <div className="role-section-header mb-2" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      <div
+        className="role-section-header mb-2"
+        style={{ display: "flex", alignItems: "center", gap: "10px" }}
+      >
         <h6 className="mb-0" style={{ fontSize: "0.9rem", fontWeight: 600 }}>
           {title}
           {subtitle && <small className="text-muted ml-2">({subtitle})</small>}
@@ -278,10 +285,7 @@ const RoleSection: React.FC<IRoleSectionProps> = ({
       >
         {performers.length > 0 ? (
           performers.map((p) => (
-            <div
-              key={p.performer.id}
-              style={{ width: "180px" }}
-            >
+            <div key={p.performer.id} style={{ width: "180px" }}>
               <CoPerformerCard
                 performer={p.performer}
                 sceneCount={p.sceneCount}
@@ -339,7 +343,12 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
     }
 
     // Map GraphQL response to IPerformerWithCount format and sort alphabetically by performer name
-    const mapToPerformerWithCount = (items: any[] | null | undefined): IPerformerWithCount[] => {
+    type CoPerformerItem =
+      GQL.PerformerCoPerformersByRoleQuery["performerCoPerformersByRole"]["sex_as_top"][number];
+
+    const mapToPerformerWithCount = (
+      items: CoPerformerItem[] | null | undefined
+    ): IPerformerWithCount[] => {
       if (!items) return [];
       return items
         .map((item) => ({
@@ -358,7 +367,9 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
     const oralAsTop = mapToPerformerWithCount(coPerformers.oral_as_top);
     const oralAsBottom = mapToPerformerWithCount(coPerformers.oral_as_bottom);
     const facialAsTop = mapToPerformerWithCount(coPerformers.facial_as_top);
-    const facialAsBottom = mapToPerformerWithCount(coPerformers.facial_as_bottom);
+    const facialAsBottom = mapToPerformerWithCount(
+      coPerformers.facial_as_bottom
+    );
 
     // Check if there's any data at all
     const hasAnyData =
@@ -405,7 +416,9 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
                   filter: "brightness(0) invert(1)",
                 }}
               />
-              <h5 className="mb-0" style={{ fontWeight: 600 }}>Sex</h5>
+              <h5 className="mb-0" style={{ fontWeight: 600 }}>
+                Sex
+              </h5>
             </div>
             <RoleSection
               title="Topped"
@@ -449,7 +462,9 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
                   filter: "brightness(0) invert(1)",
                 }}
               />
-              <h5 className="mb-0" style={{ fontWeight: 600 }}>Oral</h5>
+              <h5 className="mb-0" style={{ fontWeight: 600 }}>
+                Oral
+              </h5>
             </div>
             <RoleSection
               title="Topped"
@@ -493,7 +508,9 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
                   filter: "brightness(0) invert(1)",
                 }}
               />
-              <h5 className="mb-0" style={{ fontWeight: 600 }}>Facial</h5>
+              <h5 className="mb-0" style={{ fontWeight: 600 }}>
+                Facial
+              </h5>
             </div>
             <RoleSection
               title="Given"

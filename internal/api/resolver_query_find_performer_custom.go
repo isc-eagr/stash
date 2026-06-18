@@ -24,6 +24,7 @@ func (r *queryResolver) PerformerCoPerformersByRole(ctx context.Context, perform
 	roleTagIDs := getRoleTagIDsFromUIConfig(uiConfig)
 
 	result := &PerformerCoPerformersByRole{}
+	performerCache := make(map[int]*models.Performer)
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		// Get sex co-performers (depth 0 = exact match)
@@ -32,7 +33,7 @@ func (r *queryResolver) PerformerCoPerformersByRole(ctx context.Context, perform
 			if err != nil {
 				return err
 			}
-			result.SexAsTop, err = r.convertToPerformerWithSceneCount(ctx, sexAsTopCounts)
+			result.SexAsTop, err = r.convertToPerformerWithSceneCountCached(ctx, sexAsTopCounts, performerCache)
 			if err != nil {
 				return err
 			}
@@ -41,7 +42,7 @@ func (r *queryResolver) PerformerCoPerformersByRole(ctx context.Context, perform
 			if err != nil {
 				return err
 			}
-			result.SexAsBottom, err = r.convertToPerformerWithSceneCount(ctx, sexAsBottomCounts)
+			result.SexAsBottom, err = r.convertToPerformerWithSceneCountCached(ctx, sexAsBottomCounts, performerCache)
 			if err != nil {
 				return err
 			}
@@ -53,7 +54,7 @@ func (r *queryResolver) PerformerCoPerformersByRole(ctx context.Context, perform
 			if err != nil {
 				return err
 			}
-			result.OralAsTop, err = r.convertToPerformerWithSceneCount(ctx, oralAsTopCounts)
+			result.OralAsTop, err = r.convertToPerformerWithSceneCountCached(ctx, oralAsTopCounts, performerCache)
 			if err != nil {
 				return err
 			}
@@ -62,7 +63,7 @@ func (r *queryResolver) PerformerCoPerformersByRole(ctx context.Context, perform
 			if err != nil {
 				return err
 			}
-			result.OralAsBottom, err = r.convertToPerformerWithSceneCount(ctx, oralAsBottomCounts)
+			result.OralAsBottom, err = r.convertToPerformerWithSceneCountCached(ctx, oralAsBottomCounts, performerCache)
 			if err != nil {
 				return err
 			}
@@ -74,7 +75,7 @@ func (r *queryResolver) PerformerCoPerformersByRole(ctx context.Context, perform
 			if err != nil {
 				return err
 			}
-			result.FacialAsTop, err = r.convertToPerformerWithSceneCount(ctx, facialAsTopCounts)
+			result.FacialAsTop, err = r.convertToPerformerWithSceneCountCached(ctx, facialAsTopCounts, performerCache)
 			if err != nil {
 				return err
 			}
@@ -83,7 +84,7 @@ func (r *queryResolver) PerformerCoPerformersByRole(ctx context.Context, perform
 			if err != nil {
 				return err
 			}
-			result.FacialAsBottom, err = r.convertToPerformerWithSceneCount(ctx, facialAsBottomCounts)
+			result.FacialAsBottom, err = r.convertToPerformerWithSceneCountCached(ctx, facialAsBottomCounts, performerCache)
 			if err != nil {
 				return err
 			}
@@ -119,6 +120,60 @@ func (r *queryResolver) PerformerCoPerformersByRole(ctx context.Context, perform
 	return result, nil
 }
 
+// PerformerCoPerformerCount returns the exact unique co-performer count without loading full performer payloads.
+// CUSTOM
+func (r *queryResolver) PerformerCoPerformerCount(ctx context.Context, performerID string) (int, error) {
+	performerIDInt, err := strconv.Atoi(performerID)
+	if err != nil {
+		return 0, err
+	}
+
+	cfg := config.GetInstance()
+	uiConfig := cfg.GetUIConfiguration()
+	roleTagIDs := getRoleTagIDsFromUIConfig(uiConfig)
+
+	uniqueIDs := make(map[int]struct{})
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		addCounts := func(tagID int, role string, depth int) error {
+			if tagID == 0 {
+				return nil
+			}
+
+			counts, err := r.getCoPerformersWithCounts(ctx, performerIDInt, tagID, role, depth)
+			if err != nil {
+				return err
+			}
+
+			for id := range counts {
+				uniqueIDs[id] = struct{}{}
+			}
+
+			return nil
+		}
+
+		if err := addCounts(roleTagIDs.sexTagID, "top", 0); err != nil {
+			return err
+		}
+		if err := addCounts(roleTagIDs.sexTagID, "bottom", 0); err != nil {
+			return err
+		}
+		if err := addCounts(roleTagIDs.oralTagID, "top", -1); err != nil {
+			return err
+		}
+		if err := addCounts(roleTagIDs.oralTagID, "bottom", -1); err != nil {
+			return err
+		}
+		if err := addCounts(roleTagIDs.facialTagID, "top", -1); err != nil {
+			return err
+		}
+		return addCounts(roleTagIDs.facialTagID, "bottom", -1)
+	}); err != nil {
+		return 0, err
+	}
+
+	return len(uniqueIDs), nil
+}
+
 // StudioPerformerCoPerformersByRole returns co-performers scoped to a specific studio (and optional depth).
 // CUSTOM
 func (r *queryResolver) StudioPerformerCoPerformersByRole(ctx context.Context, performerID string, studioID string, depth *int) (*PerformerCoPerformersByRole, error) {
@@ -136,6 +191,7 @@ func (r *queryResolver) StudioPerformerCoPerformersByRole(ctx context.Context, p
 	roleTagIDs := getRoleTagIDsFromUIConfig(uiConfig)
 
 	result := &PerformerCoPerformersByRole{}
+	performerCache := make(map[int]*models.Performer)
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		if roleTagIDs.sexTagID != 0 {
@@ -143,7 +199,7 @@ func (r *queryResolver) StudioPerformerCoPerformersByRole(ctx context.Context, p
 			if err != nil {
 				return err
 			}
-			result.SexAsTop, err = r.convertToPerformerWithSceneCount(ctx, topCounts)
+			result.SexAsTop, err = r.convertToPerformerWithSceneCountCached(ctx, topCounts, performerCache)
 			if err != nil {
 				return err
 			}
@@ -152,7 +208,7 @@ func (r *queryResolver) StudioPerformerCoPerformersByRole(ctx context.Context, p
 			if err != nil {
 				return err
 			}
-			result.SexAsBottom, err = r.convertToPerformerWithSceneCount(ctx, bottomCounts)
+			result.SexAsBottom, err = r.convertToPerformerWithSceneCountCached(ctx, bottomCounts, performerCache)
 			if err != nil {
 				return err
 			}
@@ -163,7 +219,7 @@ func (r *queryResolver) StudioPerformerCoPerformersByRole(ctx context.Context, p
 			if err != nil {
 				return err
 			}
-			result.OralAsTop, err = r.convertToPerformerWithSceneCount(ctx, topCounts)
+			result.OralAsTop, err = r.convertToPerformerWithSceneCountCached(ctx, topCounts, performerCache)
 			if err != nil {
 				return err
 			}
@@ -172,7 +228,7 @@ func (r *queryResolver) StudioPerformerCoPerformersByRole(ctx context.Context, p
 			if err != nil {
 				return err
 			}
-			result.OralAsBottom, err = r.convertToPerformerWithSceneCount(ctx, bottomCounts)
+			result.OralAsBottom, err = r.convertToPerformerWithSceneCountCached(ctx, bottomCounts, performerCache)
 			if err != nil {
 				return err
 			}
@@ -183,7 +239,7 @@ func (r *queryResolver) StudioPerformerCoPerformersByRole(ctx context.Context, p
 			if err != nil {
 				return err
 			}
-			result.FacialAsTop, err = r.convertToPerformerWithSceneCount(ctx, topCounts)
+			result.FacialAsTop, err = r.convertToPerformerWithSceneCountCached(ctx, topCounts, performerCache)
 			if err != nil {
 				return err
 			}
@@ -192,7 +248,7 @@ func (r *queryResolver) StudioPerformerCoPerformersByRole(ctx context.Context, p
 			if err != nil {
 				return err
 			}
-			result.FacialAsBottom, err = r.convertToPerformerWithSceneCount(ctx, bottomCounts)
+			result.FacialAsBottom, err = r.convertToPerformerWithSceneCountCached(ctx, bottomCounts, performerCache)
 			if err != nil {
 				return err
 			}
@@ -412,14 +468,34 @@ func (r *queryResolver) getCoPerformersWithCounts(ctx context.Context, performer
 
 // convertToPerformerWithSceneCount converts a map of performer IDs to scene counts to a slice of PerformerWithSceneCount
 func (r *queryResolver) convertToPerformerWithSceneCount(ctx context.Context, counts map[int]int) ([]*PerformerWithSceneCount, error) {
-	var result []*PerformerWithSceneCount
+	return r.convertToPerformerWithSceneCountCached(ctx, counts, make(map[int]*models.Performer))
+}
 
-	for performerID, count := range counts {
-		p, err := r.repository.Performer.Find(ctx, performerID)
+func (r *queryResolver) convertToPerformerWithSceneCountCached(ctx context.Context, counts map[int]int, performerCache map[int]*models.Performer) ([]*PerformerWithSceneCount, error) {
+	var result []*PerformerWithSceneCount
+	var missingIDs []int
+
+	for performerID := range counts {
+		if _, ok := performerCache[performerID]; !ok {
+			missingIDs = append(missingIDs, performerID)
+		}
+	}
+
+	if len(missingIDs) > 0 {
+		performers, err := r.repository.Performer.FindMany(ctx, missingIDs)
 		if err != nil {
 			return nil, err
 		}
-		if p != nil {
+
+		for _, performer := range performers {
+			if performer != nil {
+				performerCache[performer.ID] = performer
+			}
+		}
+	}
+
+	for performerID, count := range counts {
+		if p := performerCache[performerID]; p != nil {
 			result = append(result, &PerformerWithSceneCount{
 				Performer:  p,
 				SceneCount: count,

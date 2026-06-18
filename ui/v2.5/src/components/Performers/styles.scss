@@ -225,6 +225,10 @@
     padding: 0.1rem 0;
     width: 100%;
 
+    &.scene-context-role-badge-item {
+      grid-template-rows: 1.5rem 1.5rem 4.45rem;
+    }
+
     .category-icon-container {
       display: inline-flex;
       flex-direction: row;
@@ -298,7 +302,8 @@
     }
 
     .role-total-count,
-    .arrow-count {
+    .arrow-count,
+    .arrow-percent {
       color: white;
       display: inline-flex;
       align-items: center;
@@ -343,7 +348,7 @@
         font-size: 0.76rem !important;
         height: 1.38rem;
         line-height: 1;
-        max-width: 2.25rem;
+        max-width: 3.25rem;
         min-height: 1.38rem;
         min-width: 0;
         padding: 0 0.28rem !important;
@@ -353,9 +358,43 @@
           font-size: 0.82rem;
         }
 
+        .arrow-main {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.12rem;
+          justify-content: center;
+          line-height: 1;
+          min-width: 0;
+        }
+
         .arrow-count {
           font-weight: 600;
           min-width: 0.55rem;
+        }
+
+        .arrow-percent {
+          font-size: 0.68rem;
+          font-weight: 700;
+        }
+      }
+
+      &.scene-role-arrows {
+        gap: 0.24rem;
+        grid-template-rows: repeat(2, 2.1rem);
+        min-height: 4.45rem;
+
+        .scene-role-badge {
+          flex-direction: column;
+          gap: 0.06rem !important;
+          height: 2.1rem;
+          max-width: 3.5rem;
+          min-height: 2.1rem;
+          padding: 0.18rem 0.32rem !important;
+
+          .arrow-percent {
+            font-size: 0.7rem;
+            height: 0.75rem;
+          }
         }
       }
 
@@ -371,7 +410,8 @@
           color: white !important;
         }
 
-        .arrow-count {
+        .arrow-count,
+        .arrow-percent {
           color: white !important;
         }
       }
@@ -383,7 +423,8 @@
           color: white !important;
         }
 
-        .arrow-count {
+        .arrow-count,
+        .arrow-percent {
           color: white !important;
         }
       }

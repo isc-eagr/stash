@@ -32,6 +32,7 @@ import { PerformerAppearsWithPanel } from "./performerAppearsWithPanel";
 // CUSTOM: begin
 import { PerformerAppearsWithByRolePanel } from "./PerformerAppearsWithByRolePanel";
 import { PerformerStudiosPanel } from "./PerformerStudiosPanel";
+import { PerformerStatsPanel } from "./PerformerStatsPanel";
 // CUSTOM: end
 import { PerformerEditPanel } from "./PerformerEditPanel";
 import { PerformerMergeModal } from "../PerformerMergeDialog";
@@ -64,7 +65,7 @@ import { PerformerImageManager } from "./PerformerImageManager";
 interface IProps {
   performer: GQL.PerformerDataFragment;
   tabKey?: TabKey;
-  refetch: () => Promise<any>; // CUSTOM
+  refetch: () => Promise<unknown>; // CUSTOM
 }
 
 interface IPerformerParams {
@@ -81,6 +82,7 @@ const validTabs = [
   // CUSTOM: begin
   "markers",
   "studios",
+  "stats",
   // CUSTOM: end
   "appearswith",
   "appearswithbyrole", // CUSTOM
@@ -153,12 +155,12 @@ const PerformerTabs: React.FC<{
     (performerMarkersData?.findSceneMarkers.count ?? 0) +
     (performerBottomMarkersData?.findSceneMarkers.count ?? 0);
 
-  // fetch unique co-performer count for "Partners" tab
-  const { data: coPerformersData } = GQL.usePerformerCoPerformersByRoleQuery({
+  // CUSTOM: begin - fetch exact lightweight co-performer count for "Partners" tab
+  const { data: coPerformerCountData } = GQL.usePerformerCoPerformerCountQuery({
     variables: { performer_id: performer.id },
   });
   const uniqueCoPerformerCount =
-    coPerformersData?.performerCoPerformersByRole?.unique_count ?? 0;
+    coPerformerCountData?.performerCoPerformerCount ?? 0;
   // CUSTOM: end
 
   const populatedDefaultTab = useMemo(() => {
@@ -344,6 +346,9 @@ const PerformerTabs: React.FC<{
           performer={performer}
         />
       </Tab>
+      <Tab eventKey="stats" title="Stats">
+        <PerformerStatsPanel performer={performer} />
+      </Tab>
       {/* CUSTOM: end */}
     </Tabs>
   );
@@ -355,14 +360,14 @@ interface IPerformerHeaderImageProps {
   encodingImage: boolean;
   lightboxImages: ILightboxImage[];
   performer: GQL.PerformerDataFragment;
-  refetch: () => Promise<any>; // CUSTOM
+  refetch: () => Promise<unknown>; // CUSTOM
 }
 
 const PerformerHeaderImage: React.FC<IPerformerHeaderImageProps> =
   PatchComponent(
     "PerformerHeaderImage",
     // CUSTOM: begin - PerformerImageManager, currentImage state, PerformerCategoryStrip
-    ({ encodingImage, activeImage, lightboxImages, performer, refetch }) => {
+    ({ encodingImage, activeImage, performer, refetch }) => {
       const [currentImage, setCurrentImage] = React.useState(activeImage);
 
       React.useEffect(() => {
@@ -404,7 +409,8 @@ const PerformerHeaderImage: React.FC<IPerformerHeaderImageProps> =
 
 const PerformerPage: React.FC<IProps> = PatchComponent(
   "PerformerPage",
-  ({ performer, tabKey, refetch }) => { // CUSTOM: added refetch
+  ({ performer, tabKey, refetch }) => {
+    // CUSTOM: added refetch
     const Toast = useToast();
     const history = useHistory();
     const intl = useIntl();
@@ -611,7 +617,8 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                     rating100={performer.rating100}
                     ratingScores={performer.rating_scores}
                     onRatingSaved={refetch}
-                  /> {/* CUSTOM */}
+                  />{" "}
+                  {/* CUSTOM */}
                   {!!performer.o_counter && (
                     <OCounterButton value={performer.o_counter} />
                   )}
@@ -701,7 +708,9 @@ const PerformerLoader: React.FC<RouteComponentProps<IPerformerParams>> = ({
   // CUSTOM: begin - wrap refetch to force network-only fetch
   // Wrap refetch to force network-only fetch (bypass Apollo cache)
   const forceRefetch = React.useCallback(async () => {
-    return refetch({ fetchPolicy: "network-only" } as any);
+    return refetch({
+      fetchPolicy: "network-only",
+    } as unknown as Parameters<typeof refetch>[0]);
   }, [refetch]);
   // CUSTOM: end
 

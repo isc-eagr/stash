@@ -55,9 +55,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       tooltip.className = "vjs-marker-tooltip";
       tooltip.style.visibility = "hidden";
 
-      const parent = player
-        .el()
-        .querySelector(".vjs-progress-control");
+      const parent = player.el().querySelector(".vjs-progress-control");
       if (parent) parent.appendChild(tooltip);
       this.markerTooltip = tooltip;
 
@@ -70,30 +68,42 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
   }
 
   // CUSTOM: begin - enhanced tooltip with performer roles and negative marker styling
-  private showMarkerTooltip(title: string, layer: number = 0, topPerformers?: Array<{ id: string; name: string }>, bottomPerformers?: Array<{ id: string; name: string }>, isNegativeMarker: boolean = false, target?: HTMLElement) {
+  private showMarkerTooltip(
+    title: string,
+    layer: number = 0,
+    topPerformers?: Array<{ id: string; name: string }>,
+    bottomPerformers?: Array<{ id: string; name: string }>,
+    isNegativeMarker: boolean = false,
+    target?: HTMLElement
+  ) {
     if (!this.markerTooltip) return;
-    
+
     let tooltipContent = title;
-    
+
     // Only show arrows if marker has performers in BOTH roles (top and bottom)
-    const showRoleArrows = (topPerformers?.length ?? 0) > 0 && (bottomPerformers?.length ?? 0) > 0;
-    
+    const showRoleArrows =
+      (topPerformers?.length ?? 0) > 0 && (bottomPerformers?.length ?? 0) > 0;
+
     // Add top performers (with up arrows only if both roles have performers)
     if (topPerformers && topPerformers.length > 0) {
-      const topNames = topPerformers.map(p => showRoleArrows ? `↑ ${p.name}` : p.name).join(", ");
+      const topNames = topPerformers
+        .map((p) => (showRoleArrows ? `↑ ${p.name}` : p.name))
+        .join(", ");
       tooltipContent += ` [${topNames}]`;
     }
-    
+
     // Add bottom performers (with down arrows only if both roles have performers)
     if (bottomPerformers && bottomPerformers.length > 0) {
-      const bottomNames = bottomPerformers.map(p => showRoleArrows ? `↓ ${p.name}` : p.name).join(", ");
+      const bottomNames = bottomPerformers
+        .map((p) => (showRoleArrows ? `↓ ${p.name}` : p.name))
+        .join(", ");
       if (topPerformers && topPerformers.length > 0) {
         tooltipContent += ` [${bottomNames}]`;
       } else {
         tooltipContent += ` [${bottomNames}]`;
       }
     }
-    
+
     this.markerTooltip.innerText = tooltipContent;
     this.markerTooltip.style.top = `-${this.layerHeight * layer + 24}px`;
     this.markerTooltip.style.visibility = "visible";
@@ -106,26 +116,31 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       const parentRect = parent.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
       const padding = 6;
-      this.markerTooltip.style.maxWidth = `${Math.max(parentRect.width - padding * 2, 0)}px`;
+      this.markerTooltip.style.maxWidth = `${Math.max(
+        parentRect.width - padding * 2,
+        0
+      )}px`;
       const tooltipWidth = this.markerTooltip.offsetWidth;
       const halfWidth = tooltipWidth / 2;
-      const targetCenter = targetRect.left + targetRect.width / 2 - parentRect.left;
+      const targetCenter =
+        targetRect.left + targetRect.width / 2 - parentRect.left;
       const minCenter = halfWidth + padding;
       const maxCenter = parentRect.width - halfWidth - padding;
-      const left = maxCenter < minCenter
-        ? parentRect.width / 2
-        : Math.max(minCenter, Math.min(targetCenter, maxCenter));
+      const left =
+        maxCenter < minCenter
+          ? parentRect.width / 2
+          : Math.max(minCenter, Math.min(targetCenter, maxCenter));
       this.markerTooltip.style.left = `${left}px`;
     }
     // CUSTOM: end
-    
+
     // Style differently for negative markers
     if (isNegativeMarker) {
       this.markerTooltip.classList.add("vjs-marker-tooltip-negative");
     } else {
       this.markerTooltip.classList.remove("vjs-marker-tooltip-negative");
     }
-    
+
     if (this.defaultTooltip) this.defaultTooltip.style.visibility = "hidden";
   }
   // CUSTOM: end
@@ -169,7 +184,14 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
         this.tagColors[marker.primaryTag.name];
     }
     markerSet.dot.addEventListener("mouseenter", () => {
-      this.showMarkerTooltip(marker.title, 0, marker.top_performers, marker.bottom_performers, false, markerSet.dot); // CUSTOM: performer roles
+      this.showMarkerTooltip(
+        marker.title,
+        0,
+        marker.top_performers,
+        marker.bottom_performers,
+        false,
+        markerSet.dot
+      ); // CUSTOM: performer roles
       markerSet.dot?.toggleAttribute("marker-tooltip-shown", true);
     });
 
@@ -257,7 +279,14 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       e.stopPropagation();
     });
     markerSet.range.addEventListener("mouseenter", () => {
-      this.showMarkerTooltip(marker.title, layer, marker.top_performers, marker.bottom_performers, false, markerSet.range); // CUSTOM: performer roles
+      this.showMarkerTooltip(
+        marker.title,
+        layer,
+        marker.top_performers,
+        marker.bottom_performers,
+        false,
+        markerSet.range
+      ); // CUSTOM: performer roles
       markerSet.range?.toggleAttribute("marker-tooltip-shown", true);
     });
 
@@ -365,7 +394,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     }
     this.markers = [];
     this.markerDivs = [];
-    
+
     // CUSTOM: begin - clear negative markers
     for (const div of this.negativeMarkerDivs) {
       div.remove();
@@ -454,14 +483,26 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       dot.className = "vjs-o-timestamp-marker";
       dot.style.left = `calc(${(ts / duration) * 100}% - 3px)`;
       // CUSTOM: tooltip shows the date the O was recorded
-      const label = date ? new Date(date).toLocaleString(undefined, {
-        year: "numeric", month: "short", day: "numeric",
-        hour: "numeric", minute: "2-digit",
-      }) : "O";
+      const label = date
+        ? new Date(date).toLocaleString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          })
+        : "O";
 
       dot.addEventListener("click", () => this.player.currentTime(ts));
       dot.addEventListener("mouseenter", () => {
-        this.showMarkerTooltip(`O on ${label}`, 0, undefined, undefined, false, dot);
+        this.showMarkerTooltip(
+          `O on ${label}`,
+          0,
+          undefined,
+          undefined,
+          false,
+          dot
+        );
         dot.toggleAttribute("marker-tooltip-shown", true);
       });
       dot.addEventListener("mouseout", () => {
@@ -488,11 +529,30 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
 
     // Convert adjusted hues to colors and store in tagColors dictionary
     for (const tag of tagNames) {
-      this.tagColors[tag] = this.hueToColor(adjustedHues[tag]);
+      this.tagColors[tag] =
+        this.semanticTagColor(tag) ?? this.hueToColor(adjustedHues[tag]); // CUSTOM
     }
   }
 
   // Helper methods translated from Python
+
+  // CUSTOM: begin - keep common role marker colors visibly distinct
+  private semanticTagColor(tag: string): string | undefined {
+    const normalized = tag.toLocaleLowerCase();
+
+    if (
+      /\b(bj|blow\s*job|blowjob|blow\w*|oral|suck\w*|fellatio)\b/.test(
+        normalized
+      )
+    ) {
+      return "#14b8d4cc";
+    }
+
+    if (/\b(fuck\w*|sex|anal|penetrat\w*|intercourse)\b/.test(normalized)) {
+      return "#ff7a00cc";
+    }
+  }
+  // CUSTOM: end
 
   // Compute base hue from tag name
   private computeBaseHue(tag: string): number {
@@ -593,7 +653,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       const goldWidth = GOLD_END - GOLD_START;
       remappedHue = remappedHue - goldWidth;
     }
-    
+
     // Convert hue from degrees to [0, 1)
     const hueNormalized = remappedHue / 360.0;
     const saturation = 0.65;

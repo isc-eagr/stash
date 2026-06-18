@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"strconv" // CUSTOM
 
 	"github.com/jmoiron/sqlx"
 	"github.com/stashapp/stash/pkg/models"
@@ -700,11 +701,21 @@ func (qb *ImageStore) OCountByPerformerID(ctx context.Context, performerID int) 
 	return ret, nil
 }
 
-func (qb *ImageStore) OCountByStudioID(ctx context.Context, studioID int, performerID *string) (int, error) { // CUSTOM: added performerID param
+func (qb *ImageStore) OCountByStudioID(ctx context.Context, studioID int, depth *int, performerID *string) (int, error) { // CUSTOM: added depth and performerID params
 	table := qb.table()
-	q := dialect.Select(goqu.COALESCE(goqu.SUM("o_counter"), 0)).From(table).Where(
-		table.Col(studioIDColumn).Eq(studioID),
-	)
+	q := dialect.Select(goqu.COALESCE(goqu.SUM("o_counter"), 0)).From(table)
+
+	// CUSTOM: begin - include child studios when a depth is provided
+	if depth != nil && *depth != 0 {
+		valuesClause, err := getHierarchicalValues(ctx, []string{strconv.Itoa(studioID)}, studioTable, "", "parent_id", "child_id", depth)
+		if err != nil {
+			return 0, err
+		}
+		q = q.Where(goqu.L(fmt.Sprintf("%s.%s IN (SELECT column2 FROM (%s))", imageTable, studioIDColumn, valuesClause)))
+	} else {
+		q = q.Where(table.Col(studioIDColumn).Eq(studioID))
+	}
+	// CUSTOM: end
 
 	// CUSTOM: If performerID is provided, filter by images that have this performer
 	if performerID != nil && *performerID != "" {

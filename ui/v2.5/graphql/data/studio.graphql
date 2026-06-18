@@ -21,11 +21,27 @@ fragment StudioData on Studio {
   image_path
   scene_count
   # CUSTOM: begin
-  studio_role_counts { # CUSTOM: batched - replaces individual sex/oral/solo/facial_scene_count fields
+  studio_role_counts {
+    # CUSTOM: batched - replaces individual sex/oral/solo/facial_scene_count fields
     sex_scene_count
     oral_scene_count
     solo_scene_count
     facial_scene_count
+  }
+  studio_activity_stats {
+    # CUSTOM: duration percentages for configured sex/oral/solo activity tags
+    total_seconds
+    sex_seconds
+    oral_seconds
+    solo_seconds
+    other_seconds
+    sex_percent
+    oral_percent
+    solo_percent
+    other_percent
+    sex_scene_count
+    oral_scene_count
+    solo_scene_count
   }
   unique_performer_count
   # CUSTOM: end
@@ -45,7 +61,7 @@ fragment StudioData on Studio {
   tags {
     ...SlimTagData
   }
-  o_counter
+  o_counter(depth: -1)
   custom_fields
 }
 
@@ -54,11 +70,27 @@ fragment StudioData on Studio {
 fragment StudioDetailData on Studio {
   ...StudioData
   scene_count_all: scene_count(depth: -1)
-  studio_role_counts_all: studio_role_counts(depth: -1) { # CUSTOM: batched depth=-1 counts
+  studio_role_counts_all: studio_role_counts(depth: -1) {
+    # CUSTOM: batched depth=-1 counts
     sex_scene_count
     oral_scene_count
     solo_scene_count
     facial_scene_count
+  }
+  studio_activity_stats_all: studio_activity_stats(depth: -1) {
+    # CUSTOM: duration percentages including child studios
+    total_seconds
+    sex_seconds
+    oral_seconds
+    solo_seconds
+    other_seconds
+    sex_percent
+    oral_percent
+    solo_percent
+    other_percent
+    sex_scene_count
+    oral_scene_count
+    solo_scene_count
   }
   unique_performer_count_all: unique_performer_count(depth: -1)
   image_count_all: image_count(depth: -1)

@@ -31,6 +31,7 @@ import {
 } from "./StudioDetailsPanel";
 import { StudioGroupsPanel } from "./StudioGroupsPanel";
 import { StudioCategoryStrip } from "./StudioCategoryStrip"; // CUSTOM
+import { StudioStatsPanel } from "./StudioStatsPanel"; // CUSTOM
 import { faTrashAlt } from "@fortawesome/free-solid-svg-icons";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import { DetailImage } from "src/components/Shared/DetailImage";
@@ -70,6 +71,7 @@ const validTabs = [
   "performers",
   "groups",
   "childstudios",
+  "stats",
 ] as const;
 type TabKey = (typeof validTabs)[number];
 
@@ -255,6 +257,13 @@ const StudioTabs: React.FC<{
         <StudioChildrenPanel
           active={tabKey === "childstudios"}
           studio={studio}
+        />
+      </Tab>
+      <Tab eventKey="stats" title="Stats">
+        {contentSwitch}
+        <StudioStatsPanel
+          studio={studio}
+          showChildStudioContent={showAllDetails}
         />
       </Tab>
     </Tabs>

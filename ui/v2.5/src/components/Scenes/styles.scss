@@ -14,6 +14,48 @@
   }
 }
 
+/* CUSTOM: begin - scene activity duration metrics */
+.scene-activity-metrics {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: center;
+  margin: -0.15rem 0 0.6rem;
+  padding: 0 0.5rem;
+}
+
+.scene-activity-metric {
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.08);
+  border-radius: 0.25rem;
+  color: $text-color;
+  display: inline-flex;
+  font-size: 0.75rem;
+  font-weight: 700;
+  gap: 0.25rem;
+  line-height: 1;
+  min-height: 1.45rem;
+  padding: 0.25rem 0.4rem;
+}
+
+.scene-activity-metric__svg {
+  display: inline-block;
+  filter: brightness(0) invert(1);
+  height: 1em;
+  width: 1em;
+}
+
+.scene-activity-metric__hand {
+  font-size: 0.95em;
+  transform: rotate(-45deg);
+}
+
+.scene-activity-metric__other {
+  font-size: 0.95em;
+}
+/* CUSTOM: end */
+
 .scene-hand-icon {
   margin-right: 0.5rem;
   color: #ffffff; // White color for the hand icon
@@ -321,7 +363,8 @@ textarea.scene-description {
 }
 
 @keyframes facial-gold-shimmer {
-  0%, 100% {
+  0%,
+  100% {
     filter: brightness(0) saturate(100%) invert(86%) sepia(61%) saturate(894%)
       hue-rotate(356deg) brightness(103%) contrast(106%)
       drop-shadow(0 0 4px rgba(255, 215, 0, 0.7))
@@ -1371,7 +1414,7 @@ input[type="range"].blue-slider {
     opacity: 1;
     pointer-events: none;
   }
-  
+
   .badge {
     font-size: 0.75em;
     vertical-align: middle;

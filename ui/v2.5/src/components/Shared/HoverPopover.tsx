@@ -29,6 +29,7 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
     target,
   }) => {
     const [show, setShow] = useState(false);
+    const [effectivePlacement, setEffectivePlacement] = useState(placement); // CUSTOM
     const triggerRef = useRef<HTMLDivElement>(null);
     const popoverRef = useRef<HTMLDivElement | null>(null); // CUSTOM
     const enterTimer = useRef<number>();
@@ -37,10 +38,27 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
     const handleMouseEnter = useCallback(() => {
       window.clearTimeout(leaveTimer.current);
       enterTimer.current = window.setTimeout(() => {
+        // CUSTOM: begin - keep bottom popovers inside the viewport near page end
+        const targetElement = target?.current ?? triggerRef.current;
+        if (
+          typeof placement === "string" &&
+          placement.startsWith("bottom") &&
+          targetElement
+        ) {
+          const rect = targetElement.getBoundingClientRect();
+          const spaceBelow = window.innerHeight - rect.bottom;
+          const spaceAbove = rect.top;
+          setEffectivePlacement(
+            spaceBelow < 260 && spaceAbove > spaceBelow ? "top" : placement
+          );
+        } else {
+          setEffectivePlacement(placement);
+        }
+        // CUSTOM: end
         setShow(true);
         onOpen?.();
       }, enterDelay);
-    }, [enterDelay, onOpen]);
+    }, [enterDelay, onOpen, placement, target]);
 
     const handleMouseLeave = useCallback(() => {
       window.clearTimeout(enterTimer.current);
@@ -71,7 +89,7 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
         {triggerRef.current && (
           <Overlay
             show={show}
-            placement={placement}
+            placement={effectivePlacement}
             target={target?.current ?? triggerRef.current}
           >
             <Popover
@@ -79,7 +97,8 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
               onMouseLeave={handleMouseLeave}
               id="popover"
               className="hover-popover-content"
-              ref={(el: HTMLDivElement | null) => { // CUSTOM: begin
+              ref={(el: HTMLDivElement | null) => {
+                // CUSTOM: begin
                 // keep a ref to the popover DOM node
                 popoverRef.current = el ?? null;
               }} // CUSTOM: end
