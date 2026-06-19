@@ -1,0 +1,6 @@
+# CUSTOM: Generate metadata extensions.
+
+extend input GenerateMetadataInput {
+  "Delete generated marker video/webp previews for markers whose only marker tag is the configured sex, oral, or solo primary tag. Marker screenshots are not deleted."
+  deleteSimpleMarkerPreviews: Boolean
+}

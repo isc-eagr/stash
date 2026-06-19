@@ -689,7 +689,10 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
           </Tab.Pane>
           {/* CUSTOM: begin - stats pane */}
           <Tab.Pane eventKey="scene-stats-panel">
-            <SceneStatsPanel scene={scene} />
+            <SceneStatsPanel
+              scene={scene}
+              addMultiSegmentLoopSegments={addMultiSegmentLoopSegments}
+            />
           </Tab.Pane>
           {/* CUSTOM: end */}
         </ScenePageTabContent>

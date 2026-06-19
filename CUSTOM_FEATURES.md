@@ -46,6 +46,8 @@ This document describes all custom features and modifications added on top of th
 36. [Premium Rating Card Styles](#36-premium-rating-card-styles)
 37. [Persisted Rating System](#37-persisted-rating-system)
 38. [Mobile Production Deploy Workflow](#38-mobile-production-deploy-workflow)
+39. [Activity Duration Stats](#39-activity-duration-stats)
+40. [Custom Settings Tab](#40-custom-settings-tab)
 
 ---
 
@@ -1094,7 +1096,7 @@ extend type Query {
 - `TotalOrgasmTime` resolver: Sums duration of all orgasm markers (uses end_seconds - seconds, or 20s default if no end time)
 - `TotalFacialTime` resolver: Sums duration of all facial markers (uses end_seconds - seconds, or 20s default if no end time)
 - `MostOsInDay` resolver: Groups `scenes_o_dates` by date and returns the highest daily O count, ignoring dates before March 8, 2024 when reliable O-date tracking began
-- `SceneOCountsByTag` resolver: For O rows with `video_timestamp`, finds markers covering that timestamp, collects primary and secondary marker tags, and counts each tag once per O event
+- `SceneOCountsByTag` resolver: For O rows with `video_timestamp`, finds markers covering that timestamp, collects primary and secondary marker tags, and counts each tag once per O event. If an O overlaps an orgasm marker or any descendant of the configured orgasm tag, only the overlapping orgasm marker tags are counted for that O.
 - `LongestPeriodWithoutO` resolver: Finds the longest gap between recorded O dates from March 8, 2024 onward, including the current dry spell through today
 
 ### Frontend Files
@@ -2461,6 +2463,8 @@ Adds a second system setting to skip that existing-file quality check:
 - `false` (default): existing marker previews are probed for quality mismatches
 - `true`: existing marker previews are trusted, so Generate only creates missing marker preview files unless overwrite is enabled
 
+Marker generation also skips video/webp preview generation for markers whose only marker tag is the configured Sex, Oral, or Solo primary tag. Marker screenshots still generate normally. Settings > Custom includes a cleanup action to delete already-generated video/webp previews for those simple markers without deleting marker screenshots.
+
 ### Configuration
 
 **GraphQL Schema Files:**
@@ -2481,16 +2485,20 @@ Adds a second system setting to skip that existing-file quality check:
 - `pkg/scene/generate/marker_preview.go`
   - Applies width scaling only for low-quality mode
 - `internal/manager/task_generate.go`
-  - Passes marker quality mode from config into generate tasks
+  - Passes marker quality mode and simple-marker cleanup options into generate tasks
 - `internal/manager/task_generate_markers.go`
   - Integrates quality-mismatch checks into marker task requirements and generation flow
+  - Skips marker video/webp generation for simple Sex/Oral/Solo primary-tag-only markers while leaving screenshot generation intact
 
 **File Created:**
 
+- `graphql/schema/types/metadata_custom.graphql`
+  - Extends `GenerateMetadataInput` with `deleteSimpleMarkerPreviews`
 - `internal/manager/task_generate_markers_custom.go`
   - Detects quality mismatch by probing existing marker dimensions (webp/mp4)
   - Deletes mismatched marker artifacts before generation so only required files regenerate
   - Treats either source width or source height as valid in source-quality mode to handle rotation metadata materialized by ffmpeg
+  - Deletes existing video/webp marker previews for simple Sex/Oral/Solo primary-tag-only markers when requested
 
 ### API/Resolver Integration
 
@@ -2507,6 +2515,8 @@ Adds a second system setting to skip that existing-file quality check:
 
 - `ui/v2.5/src/components/Settings/SettingsSystemPanel.tsx`
   - Added toggle in Preview Generation section
+- `ui/v2.5/src/components/Settings/SettingsCustomPanel.tsx`
+  - Added cleanup action for deleting simple Sex/Oral/Solo marker previews under Settings > Custom
 - `ui/v2.5/graphql/data/config.graphql`
   - Added field to config fragment
 - `ui/v2.5/src/locales/en-GB.json`
@@ -2763,7 +2773,7 @@ deploy_prod_custom.bat -SkipStart
 
 Adds strict marker-duration stats for configured sex, oral, and solo tags. A qualifying marker must have the configured tag as its primary tag and no secondary tags. Same-category overlaps are merged, cross-category overlaps count toward each category, and uncovered runtime is reported as Other.
 
-Studio cards show sex/oral/solo/other percentages using the length of scenes with qualifying markers as 100%. Performer detail pages include a Stats tab with total sex/oral/solo time plus sex/oral top and bottom breakdowns. Scene and studio detail pages include Stats tabs with total length and sex/oral/solo/other lengths and percentages.
+Studio cards and studio detail pages show sex/oral/solo/other percentages using the length of scenes with qualifying markers as 100%. Performer-scoped studio cards use performer-filtered activity stats for the strip. Performer detail pages include a Stats tab with total sex/oral/solo time plus indented sex/oral top and bottom breakdowns. Scene and studio detail pages include Stats tabs with total length and sex/oral/solo/other lengths and percentages. The Scene Stats tab also shows a By Performer breakdown and can add qualifying sex/oral/solo markers to the multi-segment loop by selected activity.
 
 ### Files Modified
 
@@ -2772,7 +2782,9 @@ Studio cards show sex/oral/solo/other percentages using the length of scenes wit
 - `internal/api/activity_stats_custom.go` - Duration stats resolvers and interval merge helpers
 - `ui/v2.5/graphql/data/performer.graphql` - Fetches performer activity stats
 - `ui/v2.5/graphql/data/studio.graphql` - Fetches studio activity stats
+- `ui/v2.5/graphql/queries/studio.graphql` - Fetches performer-filtered studio activity stats
 - `ui/v2.5/src/components/Studios/StudioCard.tsx` - Studio card activity strip
+- `ui/v2.5/src/components/Studios/StudioActivityMetricsStrip.tsx` - Shared studio activity strip component
 - `ui/v2.5/src/components/Studios/styles.scss` - Studio activity strip styling
 - `ui/v2.5/src/components/Studios/StudioDetails/Studio.tsx` - Studio Stats tab
 - `ui/v2.5/src/components/Performers/PerformerDetails/Performer.tsx` - Performer Stats tab
@@ -2783,3 +2795,31 @@ Studio cards show sex/oral/solo/other percentages using the length of scenes wit
 - `ui/v2.5/src/components/Performers/PerformerDetails/PerformerStatsPanel.tsx`
 - `ui/v2.5/src/components/Scenes/SceneDetails/SceneStatsPanel.tsx`
 - `ui/v2.5/src/components/Studios/StudioDetails/StudioStatsPanel.tsx`
+- `ui/v2.5/src/components/Studios/StudioActivityMetricsStrip.tsx`
+
+---
+
+## 40. Custom Settings Tab
+
+### Overview
+
+Adds a dedicated Settings > Custom tab for fork-only configuration that is not part of upstream Stash. This keeps upstream settings pages cleaner and gives custom features a single configuration home.
+
+### Settings Included
+
+- Multi-segment loop controls toggle
+- Simple Sex/Oral/Solo marker preview cleanup action
+- Marker preview source-quality and quality-check toggles
+- Scene marker role tag IDs
+- Premium/classic rating card theme, thresholds, and override tags
+
+### Files Modified
+
+- `ui/v2.5/src/components/Settings/Settings.tsx` - Adds the Custom tab route, nav item, and tab pane
+- `ui/v2.5/src/components/Settings/SettingsInterfacePanel/SettingsInterfacePanel.tsx` - Removes fork-only settings now owned by the Custom tab
+- `ui/v2.5/src/components/Settings/SettingsSystemPanel.tsx` - Removes fork-only system settings now owned by the Custom tab
+- `ui/v2.5/src/locales/en-GB.json` - Adds the Custom settings category label
+
+### Files Added
+
+- `ui/v2.5/src/components/Settings/SettingsCustomPanel.tsx` - New consolidated custom settings page

@@ -11,6 +11,7 @@ interface IStatsRow {
   seconds: number;
   percent: number;
   isMainCategory?: boolean;
+  isChild?: boolean;
 }
 
 function formatPercent(value: number) {
@@ -31,11 +32,13 @@ export const PerformerStatsPanel: React.FC<IProps> = ({ performer }) => {
       label: "Total time spent in sex as top",
       seconds: stats.sex_top_seconds,
       percent: stats.sex_top_percent,
+      isChild: true,
     },
     {
       label: "Total time spent in sex as bottom",
       seconds: stats.sex_bottom_seconds,
       percent: stats.sex_bottom_percent,
+      isChild: true,
     },
     {
       label: "Total time spent in oral",
@@ -47,11 +50,13 @@ export const PerformerStatsPanel: React.FC<IProps> = ({ performer }) => {
       label: "Total time spent in oral as top",
       seconds: stats.oral_top_seconds,
       percent: stats.oral_top_percent,
+      isChild: true,
     },
     {
       label: "Total time spent in oral as bottom",
       seconds: stats.oral_bottom_seconds,
       percent: stats.oral_bottom_percent,
+      isChild: true,
     },
     {
       label: "Total time spent solo",
@@ -63,20 +68,22 @@ export const PerformerStatsPanel: React.FC<IProps> = ({ performer }) => {
 
   return (
     <div className="performer-stats-panel mt-3">
-      <table className="table table-sm">
-        <tbody>
-          {rows.map((row) => (
-            <tr
-              key={row.label}
-              className={row.isMainCategory ? "font-weight-bold" : undefined}
-            >
-              <th scope="row">{row.label}</th>
-              <td>{TextUtils.secondsToTimestamp(row.seconds)}</td>
-              <td>{formatPercent(row.percent)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="custom-stats-list">
+        {rows.map((row) => (
+          <div
+            className={`custom-stats-row${
+              row.isMainCategory ? " font-weight-bold" : ""
+            }${row.isChild ? " custom-stats-row--child" : ""}`}
+            key={row.label}
+          >
+            <span className="custom-stats-label">{row.label}</span>
+            <span className="custom-stats-value">
+              {TextUtils.secondsToTimestamp(row.seconds)} (
+              {formatPercent(row.percent)})
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

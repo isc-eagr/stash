@@ -6,8 +6,16 @@ import Select, {
   MultiValueProps,
 } from "react-select";
 import { FormattedMessage, useIntl } from "react-intl";
-import { CriterionModifier, usePerformerEthnicitiesQuery } from "src/core/generated-graphql";
-import { faPlus, faEdit, faTrash, faUser } from "@fortawesome/free-solid-svg-icons";
+import {
+  CriterionModifier,
+  usePerformerEthnicitiesQuery,
+} from "src/core/generated-graphql";
+import {
+  faPlus,
+  faEdit,
+  faTrash,
+  faUser,
+} from "@fortawesome/free-solid-svg-icons";
 import { Icon } from "src/components/Shared/Icon";
 import { getCountries } from "src/utils/country";
 import { CountryFlag } from "src/components/Shared/CountryFlag";
@@ -61,7 +69,9 @@ export const UnnamedPerformerEditor: React.FC<IUnnamedPerformerEditorProps> = ({
   isNew = false,
 }) => {
   const intl = useIntl();
-  const [editedPerformer, setEditedPerformer] = useState<IUnnamedPerformer>({ ...performer });
+  const [editedPerformer, setEditedPerformer] = useState<IUnnamedPerformer>({
+    ...performer,
+  });
 
   // Fetch ethnicity options
   const { data: ethnicityData } = usePerformerEthnicitiesQuery();
@@ -89,15 +99,16 @@ export const UnnamedPerformerEditor: React.FC<IUnnamedPerformerEditorProps> = ({
     });
   };
 
-  const rating = editedPerformer.rating;
+  const { rating } = editedPerformer;
 
   const onRatingModifierChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newModifier = e.target.value as CriterionModifier;
+    const { value } = e.target;
+    const newModifier = value as CriterionModifier;
     setEditedPerformer({
       ...editedPerformer,
-      rating: { 
-        modifier: newModifier, 
-        value: rating?.value ?? 0 
+      rating: {
+        modifier: newModifier,
+        value: rating?.value ?? 0,
       },
     });
   };
@@ -106,9 +117,9 @@ export const UnnamedPerformerEditor: React.FC<IUnnamedPerformerEditorProps> = ({
     // Preserve the current modifier, default to EQUALS
     setEditedPerformer({
       ...editedPerformer,
-      rating: { 
-        modifier: rating?.modifier ?? CriterionModifier.Equals, 
-        value: v 
+      rating: {
+        modifier: rating?.modifier ?? CriterionModifier.Equals,
+        value: v,
       },
     });
   };
@@ -130,9 +141,9 @@ export const UnnamedPerformerEditor: React.FC<IUnnamedPerformerEditorProps> = ({
         <Icon icon={faUser} className="me-2" />
         <strong>{editedPerformer.label}</strong>
         <small className="ms-2 text-muted">
-          <FormattedMessage 
-            id="unnamed_performer.define_criteria" 
-            defaultMessage="Define criteria (optional)" 
+          <FormattedMessage
+            id="unnamed_performer.define_criteria"
+            defaultMessage="Define criteria (optional)"
           />
         </small>
       </Card.Header>
@@ -166,10 +177,7 @@ export const UnnamedPerformerEditor: React.FC<IUnnamedPerformerEditorProps> = ({
         {/* Country */}
         <Form.Group className="mb-3">
           <Form.Label>
-            <FormattedMessage
-              id="performer_country"
-              defaultMessage="Country"
-            />
+            <FormattedMessage id="performer_country" defaultMessage="Country" />
           </Form.Label>
           <Select
             classNamePrefix="react-select"
@@ -196,10 +204,7 @@ export const UnnamedPerformerEditor: React.FC<IUnnamedPerformerEditorProps> = ({
         {/* Rating */}
         <Form.Group className="mb-3">
           <Form.Label className="d-flex align-items-center">
-            <FormattedMessage
-              id="performer_rating"
-              defaultMessage="Rating"
-            />
+            <FormattedMessage id="performer_rating" defaultMessage="Rating" />
             {rating && (
               <Button
                 variant="link"
@@ -221,8 +226,10 @@ export const UnnamedPerformerEditor: React.FC<IUnnamedPerformerEditorProps> = ({
                 style={{ width: "auto" }}
               >
                 <option value={CriterionModifier.Equals}>=</option>
-                <option value={CriterionModifier.GreaterThan}>≥</option>
-                <option value={CriterionModifier.LessThan}>≤</option>
+                <option value={CriterionModifier.GreaterThan}>{">"}</option>
+                <option value={CriterionModifier.GreaterThanEquals}>≥</option>
+                <option value={CriterionModifier.LessThan}>{"<"}</option>
+                <option value={CriterionModifier.LessThanEquals}>≤</option>
               </Form.Control>
             </Col>
             <Col>
@@ -239,11 +246,7 @@ export const UnnamedPerformerEditor: React.FC<IUnnamedPerformerEditorProps> = ({
         <Button variant="secondary" size="sm" onClick={onCancel}>
           <FormattedMessage id="actions.cancel" defaultMessage="Cancel" />
         </Button>
-        <Button 
-          variant="primary" 
-          size="sm" 
-          onClick={handleSave}
-        >
+        <Button variant="primary" size="sm" onClick={handleSave}>
           {isNew ? (
             <FormattedMessage id="actions.add" defaultMessage="Add" />
           ) : (
@@ -311,11 +314,11 @@ interface IUnnamedPerformersManagerProps {
  * Manager component for the list of unnamed performers
  * Handles adding, editing, and removing unnamed performers
  */
-export const UnnamedPerformersManager: React.FC<IUnnamedPerformersManagerProps> = ({
-  performers,
-  onPerformersChange,
-}) => {
-  const [editingPerformer, setEditingPerformer] = useState<IUnnamedPerformer | null>(null);
+export const UnnamedPerformersManager: React.FC<
+  IUnnamedPerformersManagerProps
+> = ({ performers, onPerformersChange }) => {
+  const [editingPerformer, setEditingPerformer] =
+    useState<IUnnamedPerformer | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
   const handleAddClick = () => {
@@ -395,15 +398,6 @@ export const UnnamedPerformersManager: React.FC<IUnnamedPerformersManagerProps> 
           onCancel={handleCancel}
           isNew={isCreating}
         />
-      )}
-
-      {performers.length > 0 && (
-        <small className="text-muted d-block">
-          <FormattedMessage
-            id="unnamed_performer.hint"
-            defaultMessage="Select unnamed performers in the Performers dropdown above"
-          />
-        </small>
       )}
     </div>
   );

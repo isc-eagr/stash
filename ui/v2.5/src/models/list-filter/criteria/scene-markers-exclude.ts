@@ -50,7 +50,7 @@ function createEmptyGroup(groupId: string): ISceneMarkersExcludeGroup {
     groupId,
     tag_ids: [],
     depth: 0,
-    performer_mode: "AND",
+    performer_mode: "OR",
     top_performer_ids: [],
     bottom_performer_ids: [],
   };
@@ -74,6 +74,7 @@ export class SceneMarkersExcludeCriterion extends Criterion {
   };
 
   constructor(option?: CriterionOption) {
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     super(option ?? SceneMarkersExcludeCriterionOption);
   }
 
@@ -236,7 +237,7 @@ export class SceneMarkersExcludeCriterion extends Criterion {
 
   protected decodeValue(v: unknown): void {
     if (!v) return;
-    
+
     const raw = v as {
       groups?: Array<{
         groupId: string;
@@ -254,7 +255,7 @@ export class SceneMarkersExcludeCriterion extends Criterion {
         groupId: g.groupId,
         tag_ids: g.tag_ids.map((t) => ({ id: t.id, label: t.label })),
         depth: g.depth,
-        performer_mode: g.performer_mode ?? "AND",
+        performer_mode: g.performer_mode ?? "OR",
         top_performer_ids: g.top_performer_ids.map((p) => ({
           id: p.id,
           label: p.label,
@@ -302,7 +303,7 @@ export class SceneMarkersExcludeCriterion extends Criterion {
         groupId: g.groupId,
         tag_ids: g.tag_ids.map((t) => ({ id: t.id, label: t.label })),
         depth: g.depth,
-        performer_mode: g.performer_mode ?? "AND",
+        performer_mode: g.performer_mode ?? "OR",
         top_performer_ids: g.top_performer_ids.map((p) => ({
           id: p.id,
           label: p.label,
@@ -455,8 +456,12 @@ export class SceneMarkersExcludeCriterion extends Criterion {
 
       // Named performer IDs - separate both_roles from individual top/bottom
       const topOnlyNamed = topNamed.filter((p) => !bothRolesNamedIds.has(p.id));
-      const bottomOnlyNamed = bottomNamed.filter((p) => !bothRolesNamedIds.has(p.id));
-      const bothRolesNamed = topNamed.filter((p) => bothRolesNamedIds.has(p.id));
+      const bottomOnlyNamed = bottomNamed.filter(
+        (p) => !bothRolesNamedIds.has(p.id)
+      );
+      const bothRolesNamed = topNamed.filter((p) =>
+        bothRolesNamedIds.has(p.id)
+      );
 
       if (topOnlyNamed.length > 0) {
         group.top_performer_ids = topOnlyNamed.map((p) => p.id);
@@ -546,7 +551,7 @@ export class SceneMarkersExcludeCriterion extends Criterion {
         groupId: g.groupId,
         tag_ids: g.tag_ids.map((t) => ({ id: t.id, label: t.label })),
         depth: g.depth,
-        performer_mode: g.performer_mode ?? "AND",
+        performer_mode: g.performer_mode ?? "OR",
         top_performer_ids: g.top_performer_ids.map((p) => ({
           id: p.id,
           label: p.label,

@@ -10,25 +10,13 @@ import (
 	"github.com/stashapp/stash/pkg/models"
 )
 
-// getRatingComparison returns the SQL comparison operator and column expression for a rating criterion.
-// Returns the column condition like "p.rating >= ?" based on the modifier.
-func getRatingComparison(columnName string, rating *models.IntCriterionInput) (string, int) {
+// getRatingComparison returns the SQL comparison for a rating criterion.
+func getRatingComparison(columnName string, rating *models.IntCriterionInput) (string, []interface{}) {
 	if rating == nil {
-		return "", 0
+		return "", nil
 	}
 
-	var op string
-	switch rating.Modifier {
-	case models.CriterionModifierGreaterThan:
-		op = ">="
-	case models.CriterionModifierLessThan:
-		op = "<="
-	default:
-		// Default to EQUALS
-		op = "="
-	}
-
-	return fmt.Sprintf("%s %s ?", columnName, op), rating.Value
+	return getIntWhereClause(columnName, rating.Modifier, rating.Value, rating.Value2)
 }
 
 func (qb *sceneMarkerFilterHandler) sceneDirectorCriterionHandler(criterion *models.StringCriterionInput) criterionHandler {
@@ -434,10 +422,10 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 			var performerConditions []string
 			var performerArgs []interface{}
 
-			// Determine performer mode: default is AND
-			performerMode := "AND"
-			if g.PerformerMode != nil && *g.PerformerMode == "OR" {
-				performerMode = "OR"
+			// Determine performer mode: default is OR
+			performerMode := "OR"
+			if g.PerformerMode != nil && *g.PerformerMode == "AND" {
+				performerMode = "AND"
 			}
 
 			// ===== TAG MATCHING =====
@@ -577,9 +565,9 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 					}
 
 					if slot.Rating != nil {
-						ratingCond, ratingVal := getRatingComparison(palias+".rating", slot.Rating)
+						ratingCond, ratingArgs := getRatingComparison(palias+".rating", slot.Rating)
 						slotConds = append(slotConds, ratingCond)
-						slotArgs = append(slotArgs, ratingVal)
+						slotArgs = append(slotArgs, ratingArgs...)
 					}
 
 					existsCond := fmt.Sprintf(`EXISTS (
@@ -624,9 +612,9 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 						}
 
 						if slot.Rating != nil {
-							ratingCond, ratingVal := getRatingComparison(palias+".rating", slot.Rating)
+							ratingCond, ratingArgs := getRatingComparison(palias+".rating", slot.Rating)
 							slotConds = append(slotConds, ratingCond)
-							countArgs = append(countArgs, ratingVal)
+							countArgs = append(countArgs, ratingArgs...)
 						}
 
 						part := fmt.Sprintf(`SELECT DISTINCT %s.performer_id FROM scene_marker_performers %s
@@ -673,9 +661,9 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 					}
 
 					if slot.Rating != nil {
-						ratingCond, ratingVal := getRatingComparison(palias+".rating", slot.Rating)
+						ratingCond, ratingArgs := getRatingComparison(palias+".rating", slot.Rating)
 						slotConds = append(slotConds, ratingCond)
-						slotArgs = append(slotArgs, ratingVal)
+						slotArgs = append(slotArgs, ratingArgs...)
 					}
 
 					existsCond := fmt.Sprintf(`EXISTS (
@@ -717,9 +705,9 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 						}
 
 						if slot.Rating != nil {
-							ratingCond, ratingVal := getRatingComparison("p.rating", slot.Rating)
+							ratingCond, ratingArgs := getRatingComparison("p.rating", slot.Rating)
 							slotConds = append(slotConds, ratingCond)
-							slotSlotArgs = append(slotSlotArgs, ratingVal)
+							slotSlotArgs = append(slotSlotArgs, ratingArgs...)
 						}
 
 						unionPart := fmt.Sprintf(`SELECT smp.performer_id FROM scene_marker_performers smp
@@ -764,9 +752,9 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 					}
 
 					if slot.Rating != nil {
-						ratingCond, ratingVal := getRatingComparison(palias+".rating", slot.Rating)
+						ratingCond, ratingArgs := getRatingComparison(palias+".rating", slot.Rating)
 						slotConds = append(slotConds, ratingCond)
-						slotArgs = append(slotArgs, ratingVal)
+						slotArgs = append(slotArgs, ratingArgs...)
 					}
 
 					// Must be both top AND bottom
@@ -814,9 +802,9 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 						}
 
 						if slot.Rating != nil {
-							ratingCond, ratingVal := getRatingComparison("p.rating", slot.Rating)
+							ratingCond, ratingArgs := getRatingComparison("p.rating", slot.Rating)
 							slotConds = append(slotConds, ratingCond)
-							slotSlotArgs = append(slotSlotArgs, ratingVal)
+							slotSlotArgs = append(slotSlotArgs, ratingArgs...)
 						}
 
 						var criteriaClause string
@@ -872,9 +860,9 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 					}
 
 					if slot.Rating != nil {
-						ratingCond, ratingVal := getRatingComparison("p.rating", slot.Rating)
+						ratingCond, ratingArgs := getRatingComparison("p.rating", slot.Rating)
 						slotConds = append(slotConds, ratingCond)
-						slotSlotArgs = append(slotSlotArgs, ratingVal)
+						slotSlotArgs = append(slotSlotArgs, ratingArgs...)
 					}
 
 					unionPart := fmt.Sprintf(`SELECT smp.performer_id FROM scene_marker_performers smp
@@ -909,9 +897,9 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 					}
 
 					if slot.Rating != nil {
-						ratingCond, ratingVal := getRatingComparison("p.rating", slot.Rating)
+						ratingCond, ratingArgs := getRatingComparison("p.rating", slot.Rating)
 						slotConds = append(slotConds, ratingCond)
-						slotSlotArgs = append(slotSlotArgs, ratingVal)
+						slotSlotArgs = append(slotSlotArgs, ratingArgs...)
 					}
 
 					unionPart := fmt.Sprintf(`SELECT smp.performer_id FROM scene_marker_performers smp

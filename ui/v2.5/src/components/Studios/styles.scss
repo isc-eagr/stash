@@ -259,6 +259,48 @@
   }
   /* CUSTOM: end */
 
+  /* CUSTOM: begin - studio activity duration metrics */
+  .studio-activity-metrics {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    justify-content: center;
+    margin: -0.4rem 0 0.75rem;
+    padding: 0 0.5rem;
+  }
+
+  .studio-activity-metric {
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 0.25rem;
+    color: $text-color;
+    display: inline-flex;
+    font-size: 0.75rem;
+    font-weight: 700;
+    gap: 0.25rem;
+    line-height: 1;
+    min-height: 1.45rem;
+    padding: 0.25rem 0.4rem;
+  }
+
+  .studio-activity-metric__svg {
+    display: inline-block;
+    filter: brightness(0) invert(1);
+    height: 1em;
+    width: 1em;
+  }
+
+  .studio-activity-metric__hand {
+    font-size: 0.95em;
+    transform: rotate(-45deg);
+  }
+
+  .studio-activity-metric__other {
+    font-size: 0.95em;
+  }
+  /* CUSTOM: end */
+
   .rating-number .text-input {
     width: 4.75rem;
   }

@@ -1,18 +1,14 @@
 import React from "react";
-import {
-  Badge,
-  Button,
-  Card,
-  Col,
-  Form,
-  Row,
-} from "react-bootstrap";
+import { Badge, Button, ButtonGroup, Col, Form, Row } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import {
   SceneMarkersCriterion,
   ISceneMarkersGroup,
 } from "src/models/list-filter/criteria/scene-markers";
-import { IUnnamedPerformer, isUnnamedPerformerId } from "src/models/list-filter/criteria/unnamed-performer";
+import {
+  IUnnamedPerformer,
+  isUnnamedPerformerId,
+} from "src/models/list-filter/criteria/unnamed-performer";
 import {
   PerformerIDSelect,
   Performer,
@@ -63,28 +59,35 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
     onUpdate({ depth: e.target.checked ? -1 : 0 });
   };
 
-  // Performer mode toggle handler
-  const onPerformerModeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onUpdate({ performer_mode: e.target.checked ? "OR" : "AND" });
-  };
-
   // Top handlers
   const onTopPerformersChange = (performers: Performer[]) => {
+    const unnamed = group.top_performer_ids.filter((p) =>
+      isUnnamedPerformerId(p.id)
+    );
     onUpdate({
-      top_performer_ids: performers.map((p) => ({
-        id: p.id,
-        label: p.name ?? p.id,
-      })),
+      top_performer_ids: [
+        ...unnamed,
+        ...performers.map((p) => ({
+          id: p.id,
+          label: p.name ?? p.id,
+        })),
+      ],
     });
   };
 
   // Bottom handlers
   const onBottomPerformersChange = (performers: Performer[]) => {
+    const unnamed = group.bottom_performer_ids.filter((p) =>
+      isUnnamedPerformerId(p.id)
+    );
     onUpdate({
-      bottom_performer_ids: performers.map((p) => ({
-        id: p.id,
-        label: p.name ?? p.id,
-      })),
+      bottom_performer_ids: [
+        ...unnamed,
+        ...performers.map((p) => ({
+          id: p.id,
+          label: p.name ?? p.id,
+        })),
+      ],
     });
   };
 
@@ -127,8 +130,8 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
   };
 
   return (
-    <Card className="mb-3">
-      <Card.Header className="d-flex justify-content-between align-items-center py-2">
+    <div className="scene-marker-config border rounded mb-3">
+      <div className="d-flex justify-content-between align-items-center border-bottom px-2 py-2">
         <Badge variant="primary">
           <FormattedMessage id="marker" defaultMessage="Marker" />{" "}
           {group.groupId}
@@ -143,8 +146,8 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
             <Icon icon={faTrash} />
           </Button>
         )}
-      </Card.Header>
-      <Card.Body>
+      </div>
+      <div className="p-3">
         {/* Tags section at the top */}
         <Form.Group className="mb-3">
           <Form.Label>
@@ -173,34 +176,33 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
 
         {/* Performer Mode Toggle (AND/OR) */}
         <Form.Group className="mb-3">
-          <Form.Check
-            type="switch"
-            id={`performer-mode-switch-${group.groupId}`}
-            label={
-              group.performer_mode === "OR"
-                ? intl.formatMessage({
-                    id: "performer_mode_or",
-                    defaultMessage: "Match Top OR Bottom",
-                  })
-                : intl.formatMessage({
-                    id: "performer_mode_and",
-                    defaultMessage: "Match Top AND Bottom",
-                  })
-            }
-            checked={group.performer_mode === "OR"}
-            onChange={onPerformerModeChange}
-          />
-          <Form.Text className="text-muted">
-            {group.performer_mode === "OR"
-              ? intl.formatMessage({
-                  id: "performer_mode_or_description",
-                  defaultMessage: "Top criteria matches OR Bottom criteria matches",
-                })
-              : intl.formatMessage({
-                  id: "performer_mode_and_description",
-                  defaultMessage: "Top criteria matches AND Bottom criteria matches",
-                })}
-          </Form.Text>
+          <Form.Label>
+            <FormattedMessage id="mode" defaultMessage="Mode" />
+          </Form.Label>
+          <ButtonGroup size="sm" className="d-flex">
+            <Button
+              variant={
+                group.performer_mode === "OR" ? "primary" : "outline-primary"
+              }
+              onClick={() => onUpdate({ performer_mode: "OR" })}
+            >
+              <FormattedMessage
+                id="performer_mode_or"
+                defaultMessage="Top OR Bottom"
+              />
+            </Button>
+            <Button
+              variant={
+                group.performer_mode === "AND" ? "primary" : "outline-primary"
+              }
+              onClick={() => onUpdate({ performer_mode: "AND" })}
+            >
+              <FormattedMessage
+                id="performer_mode_and"
+                defaultMessage="Top AND Bottom"
+              />
+            </Button>
+          </ButtonGroup>
         </Form.Group>
 
         <Row>
@@ -272,7 +274,10 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
               >
                 <Icon icon={faArrowDown} />
               </Badge>
-              <FormattedMessage id="bottom_performers" defaultMessage="Bottom" />
+              <FormattedMessage
+                id="bottom_performers"
+                defaultMessage="Bottom"
+              />
             </h6>
 
             {/* Bottom Performers */}
@@ -318,8 +323,8 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
             </Form.Group>
           </Col>
         </Row>
-      </Card.Body>
-    </Card>
+      </div>
+    </div>
   );
 };
 
@@ -351,7 +356,17 @@ export const SceneMarkersFilter: React.FC<ISceneMarkersFilterProps> = ({
   // Handler for unnamed performers at criterion level
   const onUnnamedPerformersChange = (performers: IUnnamedPerformer[]) => {
     const c = criterion.clone() as SceneMarkersCriterion;
+    const validIds = new Set(performers.map((p) => p.id));
     c.value.unnamed_performers = performers;
+    c.value.groups = c.value.groups.map((group) => ({
+      ...group,
+      top_performer_ids: group.top_performer_ids.filter(
+        (p) => !isUnnamedPerformerId(p.id) || validIds.has(p.id)
+      ),
+      bottom_performer_ids: group.bottom_performer_ids.filter(
+        (p) => !isUnnamedPerformerId(p.id) || validIds.has(p.id)
+      ),
+    }));
     setCriterion(c);
   };
 
@@ -364,13 +379,6 @@ export const SceneMarkersFilter: React.FC<ISceneMarkersFilterProps> = ({
 
   return (
     <div className="scene-markers-filter">
-      <div className="mb-3 text-muted small">
-        <FormattedMessage
-          id="scene_markers_filter_help"
-          defaultMessage="Find scenes with markers matching these configurations. Each marker group must match a UNIQUE marker in the scene."
-        />
-      </div>
-
       {/* Unnamed Performers Manager at criterion level - shared across all groups */}
       <UnnamedPerformersManager
         performers={criterion.value.unnamed_performers ?? []}

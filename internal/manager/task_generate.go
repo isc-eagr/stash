@@ -25,7 +25,9 @@ type GenerateMetadataInput struct {
 	Markers             bool                         `json:"markers"`
 	MarkerImagePreviews bool                         `json:"markerImagePreviews"`
 	MarkerScreenshots   bool                         `json:"markerScreenshots"`
-	Transcodes          bool                         `json:"transcodes"`
+	// Delete generated marker video/webp previews for markers with only the configured sex/oral/solo primary tag.
+	DeleteSimpleMarkerPreviews bool `json:"deleteSimpleMarkerPreviews"` // CUSTOM
+	Transcodes                 bool `json:"transcodes"`
 	// Generate transcodes even if not required
 	ForceTranscodes           bool `json:"forceTranscodes"`
 	Phashes                   bool `json:"phashes"`
@@ -471,17 +473,18 @@ func (j *GenerateJob) queueSceneJobs(ctx context.Context, g *generate.Generator,
 		}
 	}
 
-	if j.input.Markers || j.input.MarkerImagePreviews || j.input.MarkerScreenshots {
+	if j.input.Markers || j.input.MarkerImagePreviews || j.input.MarkerScreenshots || j.input.DeleteSimpleMarkerPreviews { // CUSTOM
 		task := &GenerateMarkersTask{
-			repository:          r,
-			Scene:               scene,
-			Overwrite:           j.overwrite,
-			fileNamingAlgorithm: j.fileNamingAlgo,
-			VideoPreview:        j.input.Markers,
-			ImagePreview:        j.input.MarkerImagePreviews,
-			Screenshot:          j.input.MarkerScreenshots,
-			HighQualityMarkers:  instance.Config.GetMarkerPreviewSourceQuality(),    // CUSTOM
-			SkipQualityCheck:    instance.Config.GetMarkerPreviewSkipQualityCheck(), // CUSTOM
+			repository:                 r,
+			Scene:                      scene,
+			Overwrite:                  j.overwrite,
+			fileNamingAlgorithm:        j.fileNamingAlgo,
+			VideoPreview:               j.input.Markers,
+			ImagePreview:               j.input.MarkerImagePreviews,
+			Screenshot:                 j.input.MarkerScreenshots,
+			DeleteSimpleMarkerPreviews: j.input.DeleteSimpleMarkerPreviews,                 // CUSTOM
+			HighQualityMarkers:         instance.Config.GetMarkerPreviewSourceQuality(),    // CUSTOM
+			SkipQualityCheck:           instance.Config.GetMarkerPreviewSkipQualityCheck(), // CUSTOM
 
 			generator: g,
 		}
@@ -547,16 +550,17 @@ func (j *GenerateJob) queueSceneJobs(ctx context.Context, g *generate.Generator,
 
 func (j *GenerateJob) queueMarkerJob(g *generate.Generator, marker *models.SceneMarker, queue chan<- Task) {
 	task := &GenerateMarkersTask{
-		repository:          j.repository,
-		Marker:              marker,
-		Overwrite:           j.overwrite,
-		fileNamingAlgorithm: j.fileNamingAlgo,
-		VideoPreview:        j.input.Markers,
-		ImagePreview:        j.input.MarkerImagePreviews,
-		Screenshot:          j.input.MarkerScreenshots,
-		HighQualityMarkers:  instance.Config.GetMarkerPreviewSourceQuality(),    // CUSTOM
-		SkipQualityCheck:    instance.Config.GetMarkerPreviewSkipQualityCheck(), // CUSTOM
-		generator:           g,
+		repository:                 j.repository,
+		Marker:                     marker,
+		Overwrite:                  j.overwrite,
+		fileNamingAlgorithm:        j.fileNamingAlgo,
+		VideoPreview:               j.input.Markers,
+		ImagePreview:               j.input.MarkerImagePreviews,
+		Screenshot:                 j.input.MarkerScreenshots,
+		DeleteSimpleMarkerPreviews: j.input.DeleteSimpleMarkerPreviews,                 // CUSTOM
+		HighQualityMarkers:         instance.Config.GetMarkerPreviewSourceQuality(),    // CUSTOM
+		SkipQualityCheck:           instance.Config.GetMarkerPreviewSkipQualityCheck(), // CUSTOM
+		generator:                  g,
 	}
 	j.totals.markers++
 	j.totals.tasks++

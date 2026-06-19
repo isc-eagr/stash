@@ -18,11 +18,16 @@ type GenerateMarkersTask struct {
 	Overwrite           bool
 	fileNamingAlgorithm models.HashAlgorithm
 
-	VideoPreview       bool
-	ImagePreview       bool
-	Screenshot         bool
-	HighQualityMarkers bool // CUSTOM: generate marker previews at source resolution
-	SkipQualityCheck   bool // CUSTOM: skip existing marker quality mismatch detection
+	VideoPreview               bool
+	ImagePreview               bool
+	Screenshot                 bool
+	DeleteSimpleMarkerPreviews bool // CUSTOM: delete previews for marker-only sex/oral/solo primary tags
+	HighQualityMarkers         bool // CUSTOM: generate marker previews at source resolution
+	SkipQualityCheck           bool // CUSTOM: skip existing marker quality mismatch detection
+
+	simpleMarkerPreviewTagIDs          map[int]struct{} // CUSTOM
+	simpleMarkerSecondaryTagIDs        map[int][]int    // CUSTOM
+	simpleMarkerPreviewExclusionsReady bool             // CUSTOM
 
 	generator *generate.Generator
 }
@@ -55,7 +60,13 @@ func (t *GenerateMarkersTask) Start(ctx context.Context) {
 				return fmt.Errorf("scene with id %d not found", t.Marker.SceneID)
 			}
 
-			return scene.LoadPrimaryFile(ctx, r.File)
+			if err := scene.LoadPrimaryFile(ctx, r.File); err != nil {
+				return err
+			}
+
+			// CUSTOM
+			t.prepareSimpleMarkerPreviewExclusions(ctx, []*models.SceneMarker{t.Marker})
+			return nil
 		}); err != nil {
 			logger.Errorf("error finding scene for marker generation: %v", err)
 			return
@@ -78,6 +89,11 @@ func (t *GenerateMarkersTask) generateSceneMarkers(ctx context.Context) {
 	if err := r.WithReadTxn(ctx, func(ctx context.Context) error {
 		var err error
 		sceneMarkers, err = r.SceneMarker.FindBySceneID(ctx, t.Scene.ID)
+		if err != nil {
+			return err
+		}
+		// CUSTOM
+		t.prepareSimpleMarkerPreviewExclusions(ctx, sceneMarkers)
 		return err
 	}); err != nil {
 		logger.Errorf("error getting scene markers: %s", err.Error())
@@ -118,24 +134,34 @@ func (t *GenerateMarkersTask) generateMarker(videoFile *models.VideoFile, scene 
 
 	g := t.generator
 
-	// CUSTOM: begin - delete quality-mismatched files so generator regenerates them
-	if !g.Overwrite && !t.SkipQualityCheck {
-		t.deleteQualityMismatchedFiles(sceneHash, int(seconds), videoFile.Width, videoFile.Height)
-	}
-	// CUSTOM: end
-
-	if t.VideoPreview {
-		if err := g.MarkerPreviewVideo(context.TODO(), videoFile.Path, sceneHash, seconds, sceneMarker.EndSeconds, instance.Config.GetPreviewAudio()); err != nil {
-			logger.Errorf("[generator] failed to generate marker video: %v", err)
-			logErrorOutput(err)
+	// CUSTOM: begin - skip video/webp previews for simple sex/oral/solo markers
+	skipPreviewGeneration := t.shouldSkipSimpleMarkerPreviews(sceneMarker)
+	if skipPreviewGeneration {
+		if t.DeleteSimpleMarkerPreviews {
+			t.deleteSimpleMarkerPreviewFiles(sceneHash, int(seconds))
 		}
-	}
-
-	if t.ImagePreview {
-		if err := g.SceneMarkerWebp(context.TODO(), videoFile.Path, sceneHash, seconds); err != nil {
-			logger.Errorf("[generator] failed to generate marker image: %v", err)
-			logErrorOutput(err)
+	} else {
+		// CUSTOM: end
+		// CUSTOM: begin - delete quality-mismatched files so generator regenerates them
+		if !g.Overwrite && !t.SkipQualityCheck {
+			t.deleteQualityMismatchedFiles(sceneHash, int(seconds), videoFile.Width, videoFile.Height)
 		}
+		// CUSTOM: end
+
+		if t.VideoPreview {
+			if err := g.MarkerPreviewVideo(context.TODO(), videoFile.Path, sceneHash, seconds, sceneMarker.EndSeconds, instance.Config.GetPreviewAudio()); err != nil {
+				logger.Errorf("[generator] failed to generate marker video: %v", err)
+				logErrorOutput(err)
+			}
+		}
+
+		if t.ImagePreview {
+			if err := g.SceneMarkerWebp(context.TODO(), videoFile.Path, sceneHash, seconds); err != nil {
+				logger.Errorf("[generator] failed to generate marker image: %v", err)
+				logErrorOutput(err)
+			}
+		}
+		// CUSTOM
 	}
 
 	if t.Screenshot {
@@ -167,8 +193,19 @@ func (t *GenerateMarkersTask) markersNeeded(ctx context.Context) int {
 		sourceHeight = vf.Height
 	}
 	// CUSTOM: end
+	// CUSTOM
+	t.prepareSimpleMarkerPreviewExclusions(ctx, sceneMarkers)
 	for _, sceneMarker := range sceneMarkers {
 		seconds := int(sceneMarker.Seconds)
+
+		// CUSTOM: begin - simple sex/oral/solo marker previews are intentionally skipped
+		if t.shouldSkipSimpleMarkerPreviews(sceneMarker) {
+			if t.simpleMarkerNeedsWork(sceneHash, seconds) {
+				markers++
+			}
+			continue
+		}
+		// CUSTOM: end
 
 		if t.Overwrite || !t.markerExists(sceneHash, seconds) {
 			markers++

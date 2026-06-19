@@ -408,23 +408,6 @@ export const SettingsConfigurationPanel: React.FC = () => {
           onChange={(v) => saveGeneral({ previewAudio: v })}
         />
 
-        {/* CUSTOM: begin */}
-        <BooleanSetting
-          id="marker-preview-source-quality"
-          headingID="config.general.marker_preview_source_quality_head"
-          subHeadingID="config.general.marker_preview_source_quality_desc"
-          checked={general.markerPreviewSourceQuality ?? false}
-          onChange={(v) => saveGeneral({ markerPreviewSourceQuality: v })}
-        />
-        <BooleanSetting
-          id="marker-preview-skip-quality-check"
-          headingID="config.general.marker_preview_skip_quality_check_head"
-          subHeadingID="config.general.marker_preview_skip_quality_check_desc"
-          checked={general.markerPreviewSkipQualityCheck ?? false}
-          onChange={(v) => saveGeneral({ markerPreviewSkipQualityCheck: v })}
-        />
-        {/* CUSTOM: end */}
-
         <ModalSetting<VideoPreviewSettingsInput>
           id="video-preview-settings"
           headingID="dialogs.scene_gen.preview_generation_options"

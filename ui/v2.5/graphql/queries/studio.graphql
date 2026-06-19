@@ -43,6 +43,20 @@ query FindStudioPerformerStats($id: ID!, $performerId: ID!, $depth: Int) {
       facial_marker_count
       feet_top_count
     }
+    studio_performer_activity_stats(performer_id: $performerId, depth: $depth) {
+      total_seconds
+      sex_seconds
+      oral_seconds
+      solo_seconds
+      other_seconds
+      sex_percent
+      oral_percent
+      solo_percent
+      other_percent
+      sex_scene_count
+      oral_scene_count
+      solo_scene_count
+    }
     # CUSTOM: end
     group_count(depth: $depth, performer_id: $performerId)
     image_count(depth: $depth, performer_id: $performerId)

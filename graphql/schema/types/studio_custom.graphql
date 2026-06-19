@@ -87,6 +87,10 @@ extend type Studio {
   # Batched resolvers - replace N individual field calls with one resolver per studio
   studio_role_counts(depth: Int): StudioRoleCounts! # CUSTOM: batched sex/oral/solo/facial scene counts (no performer filter)
   studio_activity_stats(depth: Int): StudioActivityStats! # CUSTOM: duration percentages for configured activity tags
+  studio_performer_activity_stats(
+    performer_id: ID!
+    depth: Int
+  ): StudioActivityStats! # CUSTOM: performer-filtered duration percentages
   studio_performer_role_stats(
     performer_id: ID!
     depth: Int

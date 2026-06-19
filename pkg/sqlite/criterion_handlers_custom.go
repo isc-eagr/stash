@@ -1,4 +1,4 @@
-﻿package sqlite
+package sqlite
 
 // CUSTOM: Custom criterion handlers for scene marker tags, custom filters, scene types,
 // performer markers, ethnicity, country, etc.
@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/stashapp/stash/pkg/models"
@@ -68,6 +67,365 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 			}
 		}
 		return out
+	}
+
+	type sqlFragment struct {
+		clause string
+		args   []any
+	}
+
+	joinFragments := func(fragments []sqlFragment, sep string) sqlFragment {
+		var clauses []string
+		var args []any
+		for _, fragment := range fragments {
+			if strings.TrimSpace(fragment.clause) == "" {
+				continue
+			}
+			clauses = append(clauses, fragment.clause)
+			args = append(args, fragment.args...)
+		}
+		if len(clauses) == 0 {
+			return sqlFragment{}
+		}
+		return sqlFragment{
+			clause: "(" + strings.Join(clauses, sep) + ")",
+			args:   args,
+		}
+	}
+
+	buildPerformerAttributeClause := func(performerAlias string, ethnicities []string, countries []string, rating *models.IntCriterionInput) sqlFragment {
+		var clauses []string
+		var args []any
+
+		if len(ethnicities) > 0 {
+			expanded := expandEthnicities(ethnicities)
+			ph := getInBinding(len(expanded))
+			clauses = append(clauses, performerAlias+".ethnicity IN "+ph)
+			for _, e := range expanded {
+				args = append(args, e)
+			}
+		}
+		if len(countries) > 0 {
+			ph := getInBinding(len(countries))
+			clauses = append(clauses, performerAlias+".country IN "+ph)
+			for _, c := range countries {
+				args = append(args, c)
+			}
+		}
+		if rating != nil {
+			w, wargs := getIntWhereClause(performerAlias+".rating", rating.Modifier, rating.Value, rating.Value2)
+			clauses = append(clauses, w)
+			args = append(args, wargs...)
+		}
+
+		if len(clauses) == 0 {
+			return sqlFragment{clause: "1=1"}
+		}
+
+		return sqlFragment{
+			clause: strings.Join(clauses, " AND "),
+			args:   args,
+		}
+	}
+
+	buildUnnamedPerformerSelect := func(smAlias string, role string, slot models.UnnamedPerformerCriterionInput, smpAlias string, performerAlias string, bothRoles bool) sqlFragment {
+		attr := buildPerformerAttributeClause(performerAlias, slot.Ethnicities, slot.Countries, slot.Rating)
+		clauses := []string{
+			fmt.Sprintf("%s.scene_marker_id = %s.id", smpAlias, smAlias),
+			attr.clause,
+		}
+		if role != "" {
+			clauses = append(clauses, fmt.Sprintf("%s.role = '%s'", smpAlias, role))
+		}
+		if bothRoles {
+			clauses = append(clauses,
+				fmt.Sprintf("EXISTS (SELECT 1 FROM scene_marker_performers WHERE scene_marker_id = %s.id AND performer_id = %s.performer_id AND role = 'top')", smAlias, smpAlias),
+				fmt.Sprintf("EXISTS (SELECT 1 FROM scene_marker_performers WHERE scene_marker_id = %s.id AND performer_id = %s.performer_id AND role = 'bottom')", smAlias, smpAlias),
+			)
+		}
+
+		return sqlFragment{
+			clause: fmt.Sprintf(`SELECT DISTINCT %[1]s.performer_id
+FROM scene_marker_performers %[1]s
+JOIN performers %[2]s ON %[2]s.id = %[1]s.performer_id
+WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")),
+			args: attr.args,
+		}
+	}
+
+	buildUnnamedDistinctCount := func(smAlias string, role string, slots []models.UnnamedPerformerCriterionInput, aliasPrefix string, bothRoles bool) sqlFragment {
+		if len(slots) < 2 {
+			return sqlFragment{}
+		}
+
+		var selects []string
+		var args []any
+		for i, slot := range slots {
+			fragment := buildUnnamedPerformerSelect(smAlias, role, slot, fmt.Sprintf("%s_smp_%d", aliasPrefix, i), fmt.Sprintf("%s_p_%d", aliasPrefix, i), bothRoles)
+			selects = append(selects, fragment.clause)
+			args = append(args, fragment.args...)
+		}
+
+		return sqlFragment{
+			clause: fmt.Sprintf("(SELECT COUNT(*) FROM (%s) AS %s_union) >= %d", strings.Join(selects, " UNION "), aliasPrefix, len(slots)),
+			args:   args,
+		}
+	}
+
+	buildCrossRoleUnnamedDistinctCount := func(smAlias string, topSlots []models.UnnamedPerformerCriterionInput, bottomSlots []models.UnnamedPerformerCriterionInput, aliasPrefix string) sqlFragment {
+		totalSlots := len(topSlots) + len(bottomSlots)
+		if totalSlots < 2 || len(topSlots) == 0 || len(bottomSlots) == 0 {
+			return sqlFragment{}
+		}
+
+		var selects []string
+		var args []any
+		for i, slot := range topSlots {
+			fragment := buildUnnamedPerformerSelect(smAlias, "top", slot, fmt.Sprintf("%s_top_smp_%d", aliasPrefix, i), fmt.Sprintf("%s_top_p_%d", aliasPrefix, i), false)
+			selects = append(selects, fragment.clause)
+			args = append(args, fragment.args...)
+		}
+		for i, slot := range bottomSlots {
+			fragment := buildUnnamedPerformerSelect(smAlias, "bottom", slot, fmt.Sprintf("%s_bottom_smp_%d", aliasPrefix, i), fmt.Sprintf("%s_bottom_p_%d", aliasPrefix, i), false)
+			selects = append(selects, fragment.clause)
+			args = append(args, fragment.args...)
+		}
+
+		return sqlFragment{
+			clause: fmt.Sprintf("(SELECT COUNT(*) FROM (%s) AS %s_union) >= %d", strings.Join(selects, " UNION "), aliasPrefix, totalSlots),
+			args:   args,
+		}
+	}
+
+	buildSceneMarkerGroupCondition := func(g models.SceneMarkerTagGroupInput, smAlias string) (sqlFragment, bool) {
+		var markerConditions []sqlFragment
+
+		if len(g.TagIDs) > 0 {
+			if g.Depth != nil && *g.Depth != 0 {
+				for _, originalTagID := range g.TagIDs {
+					valuesClause, err := getHierarchicalValues(ctx, []string{originalTagID}, tagTable, "tags_relations", "parent_id", "child_id", g.Depth)
+					if err != nil {
+						f.setError(err)
+						return sqlFragment{}, false
+					}
+
+					var expandedIDs []string
+					expandQuery := fmt.Sprintf("SELECT DISTINCT column2 FROM (%s)", valuesClause)
+					if err := dbWrapper.Select(ctx, &expandedIDs, expandQuery); err != nil {
+						f.setError(err)
+						return sqlFragment{}, false
+					}
+					if len(expandedIDs) == 0 {
+						markerConditions = append(markerConditions, sqlFragment{clause: "0=1"})
+						continue
+					}
+
+					ph := getInBinding(len(expandedIDs))
+					args := make([]any, 0, len(expandedIDs)*2)
+					for _, tid := range expandedIDs {
+						args = append(args, tid)
+					}
+					for _, tid := range expandedIDs {
+						args = append(args, tid)
+					}
+					markerConditions = append(markerConditions, sqlFragment{
+						clause: fmt.Sprintf(`(
+    %[1]s.primary_tag_id IN %[2]s
+    OR EXISTS (
+        SELECT 1 FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = %[1]s.id AND mt2.tag_id IN %[2]s
+    )
+)`, smAlias, ph),
+						args: args,
+					})
+				}
+			} else {
+				tagPh := getInBinding(len(g.TagIDs))
+				args := make([]any, 0, len(g.TagIDs))
+				for _, tid := range g.TagIDs {
+					args = append(args, tid)
+				}
+				markerConditions = append(markerConditions, sqlFragment{
+					clause: fmt.Sprintf(`(
+    SELECT COUNT(DISTINCT tag_id) FROM (
+      SELECT %[1]s.primary_tag_id AS tag_id
+      UNION ALL
+      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = %[1]s.id
+    ) tags_per_marker
+    WHERE tag_id IN %[2]s
+  ) = %[3]d`, smAlias, tagPh, len(g.TagIDs)),
+					args: args,
+				})
+			}
+		}
+
+		if len(g.ExcludeTagIDsOnMarker) > 0 {
+			exclPh := getInBinding(len(g.ExcludeTagIDsOnMarker))
+			args := make([]any, 0, len(g.ExcludeTagIDsOnMarker)*2)
+			for _, tid := range g.ExcludeTagIDsOnMarker {
+				args = append(args, tid)
+			}
+			for _, tid := range g.ExcludeTagIDsOnMarker {
+				args = append(args, tid)
+			}
+			markerConditions = append(markerConditions, sqlFragment{
+				clause: fmt.Sprintf(`NOT (
+		%[1]s.primary_tag_id IN %[2]s
+		OR EXISTS (
+			SELECT 1 FROM scene_markers_tags mt_excl
+			WHERE mt_excl.scene_marker_id = %[1]s.id AND mt_excl.tag_id IN %[2]s
+		)
+	)`, smAlias, exclPh),
+				args: args,
+			})
+		}
+
+		buildRoleSide := func(role string, performerIDs []string, anyCount *int, ethnicities []string, countries []string, rating *models.IntCriterionInput, unnamed []models.UnnamedPerformerCriterionInput, aliasPrefix string) sqlFragment {
+			var roleConditions []sqlFragment
+
+			if len(performerIDs) > 0 {
+				ph := getInBinding(len(performerIDs))
+				args := make([]any, 0, len(performerIDs))
+				for _, pid := range performerIDs {
+					args = append(args, pid)
+				}
+				roleConditions = append(roleConditions, sqlFragment{
+					clause: fmt.Sprintf(`EXISTS (
+    SELECT 1 FROM scene_marker_performers %[1]s_ids
+    WHERE %[1]s_ids.scene_marker_id = %[2]s.id AND %[1]s_ids.role = '%[3]s' AND %[1]s_ids.performer_id IN %[4]s
+  )`, aliasPrefix, smAlias, role, ph),
+					args: args,
+				})
+			}
+
+			attr := buildPerformerAttributeClause(aliasPrefix+"_p_attr", ethnicities, countries, rating)
+			if attr.clause != "1=1" {
+				roleConditions = append(roleConditions, sqlFragment{
+					clause: fmt.Sprintf(`EXISTS (
+    SELECT 1 FROM scene_marker_performers %[1]s_attr
+    JOIN performers %[1]s_p_attr ON %[1]s_p_attr.id = %[1]s_attr.performer_id
+    WHERE %[1]s_attr.scene_marker_id = %[2]s.id AND %[1]s_attr.role = '%[3]s' AND %[4]s
+  )`, aliasPrefix, smAlias, role, attr.clause),
+					args: attr.args,
+				})
+			}
+
+			for i, slot := range unnamed {
+				fragment := buildUnnamedPerformerSelect(smAlias, role, slot, fmt.Sprintf("%s_u_%d", aliasPrefix, i), fmt.Sprintf("%s_up_%d", aliasPrefix, i), false)
+				roleConditions = append(roleConditions, sqlFragment{
+					clause: "EXISTS (\n" + fragment.clause + "\n  )",
+					args:   fragment.args,
+				})
+			}
+			if distinct := buildUnnamedDistinctCount(smAlias, role, unnamed, aliasPrefix+"_distinct", false); distinct.clause != "" {
+				roleConditions = append(roleConditions, distinct)
+			}
+
+			if anyCount != nil && *anyCount > 0 {
+				roleConditions = append(roleConditions, sqlFragment{
+					clause: fmt.Sprintf(`(
+    SELECT COUNT(DISTINCT %[1]s_any.performer_id) FROM scene_marker_performers %[1]s_any
+    WHERE %[1]s_any.scene_marker_id = %[2]s.id AND %[1]s_any.role = '%[3]s'
+  ) >= %[4]d`, aliasPrefix, smAlias, role, *anyCount),
+				})
+			}
+
+			return joinFragments(roleConditions, " AND ")
+		}
+
+		topEthnicities := g.TopEthnicities
+		if len(topEthnicities) == 0 {
+			topEthnicities = g.PerformerEthnicities
+		}
+		topCountries := g.TopCountries
+		if len(topCountries) == 0 {
+			topCountries = g.PerformerCountries
+		}
+		topRating := g.TopRating
+		if topRating == nil {
+			topRating = g.PerformerRating
+		}
+
+		bottomEthnicities := g.BottomEthnicities
+		if len(bottomEthnicities) == 0 {
+			bottomEthnicities = g.PerformerEthnicities
+		}
+		bottomCountries := g.BottomCountries
+		if len(bottomCountries) == 0 {
+			bottomCountries = g.PerformerCountries
+		}
+		bottomRating := g.BottomRating
+		if bottomRating == nil {
+			bottomRating = g.PerformerRating
+		}
+
+		topSide := buildRoleSide("top", g.TopPerformerIDs, g.TopAnyCount, topEthnicities, topCountries, topRating, g.TopUnnamedPerformers, "smp_top")
+		bottomSide := buildRoleSide("bottom", g.BottomPerformerIDs, g.BottomAnyCount, bottomEthnicities, bottomCountries, bottomRating, g.BottomUnnamedPerformers, "smp_bottom")
+
+		performerModeAnd := g.PerformerMode != nil && strings.EqualFold(*g.PerformerMode, "AND")
+		switch {
+		case topSide.clause != "" && bottomSide.clause != "":
+			if performerModeAnd {
+				markerConditions = append(markerConditions, topSide, bottomSide)
+				if crossDistinct := buildCrossRoleUnnamedDistinctCount(smAlias, g.TopUnnamedPerformers, g.BottomUnnamedPerformers, "smp_cross_distinct"); crossDistinct.clause != "" {
+					markerConditions = append(markerConditions, crossDistinct)
+				}
+			} else {
+				markerConditions = append(markerConditions, joinFragments([]sqlFragment{topSide, bottomSide}, " OR "))
+			}
+		case topSide.clause != "":
+			markerConditions = append(markerConditions, topSide)
+		case bottomSide.clause != "":
+			markerConditions = append(markerConditions, bottomSide)
+		}
+
+		var bothRoleConditions []sqlFragment
+		for i, performerID := range g.BothRolesPerformerIDs {
+			aliasPrefix := fmt.Sprintf("smp_both_%d", i)
+			bothRoleConditions = append(bothRoleConditions, sqlFragment{
+				clause: fmt.Sprintf(`(
+    EXISTS (
+      SELECT 1 FROM scene_marker_performers %[1]s_top
+      WHERE %[1]s_top.scene_marker_id = %[2]s.id AND %[1]s_top.role = 'top' AND %[1]s_top.performer_id = ?
+    )
+    AND EXISTS (
+      SELECT 1 FROM scene_marker_performers %[1]s_bottom
+      WHERE %[1]s_bottom.scene_marker_id = %[2]s.id AND %[1]s_bottom.role = 'bottom' AND %[1]s_bottom.performer_id = ?
+    )
+  )`, aliasPrefix, smAlias),
+				args: []any{performerID, performerID},
+			})
+		}
+
+		bothRoleAttr := buildPerformerAttributeClause("p_both_attr", g.BothRolesEthnicities, g.BothRolesCountries, g.BothRolesRating)
+		if bothRoleAttr.clause != "1=1" {
+			bothRoleConditions = append(bothRoleConditions, sqlFragment{
+				clause: fmt.Sprintf(`EXISTS (
+    SELECT 1 FROM performers p_both_attr
+    WHERE %[1]s
+      AND EXISTS (SELECT 1 FROM scene_marker_performers smp_both_attr_t WHERE smp_both_attr_t.scene_marker_id = %[2]s.id AND smp_both_attr_t.performer_id = p_both_attr.id AND smp_both_attr_t.role = 'top')
+      AND EXISTS (SELECT 1 FROM scene_marker_performers smp_both_attr_b WHERE smp_both_attr_b.scene_marker_id = %[2]s.id AND smp_both_attr_b.performer_id = p_both_attr.id AND smp_both_attr_b.role = 'bottom')
+  )`, bothRoleAttr.clause, smAlias),
+				args: bothRoleAttr.args,
+			})
+		}
+
+		for i, slot := range g.BothRolesUnnamedPerformers {
+			fragment := buildUnnamedPerformerSelect(smAlias, "", slot, fmt.Sprintf("smp_both_u_%d", i), fmt.Sprintf("smp_both_up_%d", i), true)
+			bothRoleConditions = append(bothRoleConditions, sqlFragment{
+				clause: "EXISTS (\n" + fragment.clause + "\n  )",
+				args:   fragment.args,
+			})
+		}
+		if distinct := buildUnnamedDistinctCount(smAlias, "", g.BothRolesUnnamedPerformers, "smp_both_distinct", true); distinct.clause != "" {
+			bothRoleConditions = append(bothRoleConditions, distinct)
+		}
+
+		if bothRoles := joinFragments(bothRoleConditions, " AND "); bothRoles.clause != "" {
+			markerConditions = append(markerConditions, bothRoles)
+		}
+
+		final := joinFragments(markerConditions, " AND ")
+		return final, final.clause != ""
 	}
 
 	switch c.Modifier {
@@ -373,475 +731,21 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 				g := entry.originalGroup
 				cfg := entry.config
 
-				// CUSTOM: begin - depth expansion is done per-tag in the Tags condition block below
 				tagIDs := g.TagIDs
-				depthUsed := len(tagIDs) > 0 && g.Depth != nil && *g.Depth != 0
-
-				originalTagCount := len(g.TagIDs)
-				// CUSTOM: end
 
 				// Determine performer mode
 				performerModeAnd := strings.EqualFold(cfg.performerMode, "AND")
-
-				// Helper to build role-specific condition
-				type roleCondition struct {
-					clause string
-					args   []any
-				}
-
-				// buildRoleCondition builds a condition for a performer role
-				// tableAlias: the alias for scene_marker_performers table (e.g., "smp", "smp_g", "smp_r")
-				// role: the role to match ("top", "bottom"), or empty string to skip role check
-				buildRoleCondition := func(tableAlias string, role string, performerIDs []string, ethnicities []string, countries []string, ratingStr string) *roleCondition {
-					var clauses []string
-					var args []any
-
-					var baseClauses []string
-					if role != "" {
-						baseClauses = append(baseClauses, fmt.Sprintf("%s.role = '%s'", tableAlias, role))
-					}
-
-					if len(performerIDs) > 0 {
-						ph := getInBinding(len(performerIDs))
-						baseClauses = append(baseClauses, fmt.Sprintf("%s.performer_id IN %s", tableAlias, ph))
-						for _, pid := range performerIDs {
-							args = append(args, pid)
-						}
-					}
-
-					if len(ethnicities) > 0 {
-						expanded := expandEthnicities(ethnicities)
-						ph := getInBinding(len(expanded))
-						baseClauses = append(baseClauses, fmt.Sprintf("p.ethnicity IN %s", ph))
-						for _, e := range expanded {
-							args = append(args, e)
-						}
-					}
-
-					if len(countries) > 0 {
-						ph := getInBinding(len(countries))
-						baseClauses = append(baseClauses, fmt.Sprintf("p.country IN %s", ph))
-						for _, c := range countries {
-							args = append(args, c)
-						}
-					}
-
-					if ratingStr != "" {
-						// Deserialize rating (format: "modifier:value:value2")
-						parts := strings.Split(ratingStr, ":")
-						if len(parts) >= 2 {
-							modifier := models.CriterionModifier(parts[0])
-							value, _ := strconv.Atoi(parts[1])
-							var value2 *int
-							if len(parts) == 3 && parts[2] != "" {
-								v2, _ := strconv.Atoi(parts[2])
-								value2 = &v2
-							}
-							w, wargs := getIntWhereClause("p.rating", modifier, value, value2)
-							baseClauses = append(baseClauses, w)
-							args = append(args, wargs...)
-						}
-					}
-
-					clauses = append(clauses, "("+strings.Join(baseClauses, " AND ")+")")
-
-					return &roleCondition{
-						clause: strings.Join(clauses, " AND "),
-						args:   args,
-					}
-				}
-
-				// Build role conditions
-				hasTopCriteria := len(cfg.topPerformerIDs) > 0 || cfg.topAnyCount > 0 || len(cfg.topEthnicities) > 0 || len(cfg.topCountries) > 0 || cfg.topRating != ""
-				var topCond *roleCondition
-				if hasTopCriteria && len(cfg.topPerformerIDs) > 0 {
-					// Specific performer IDs specified
-					topCond = buildRoleCondition("smp", "top", cfg.topPerformerIDs, cfg.topEthnicities, cfg.topCountries, cfg.topRating)
-				} else if hasTopCriteria && (len(cfg.topEthnicities) > 0 || len(cfg.topCountries) > 0 || cfg.topRating != "") {
-					// Ethnicity/country/rating criteria without specific IDs
-					topCond = buildRoleCondition("smp", "top", nil, cfg.topEthnicities, cfg.topCountries, cfg.topRating)
-				}
-
-				hasBottomCriteria := len(cfg.bottomPerformerIDs) > 0 || cfg.bottomAnyCount > 0 || len(cfg.bottomEthnicities) > 0 || len(cfg.bottomCountries) > 0 || cfg.bottomRating != ""
-				var bottomCond *roleCondition
-				if hasBottomCriteria && len(cfg.bottomPerformerIDs) > 0 {
-					// Specific performer IDs specified
-					bottomCond = buildRoleCondition("smp", "bottom", cfg.bottomPerformerIDs, cfg.bottomEthnicities, cfg.bottomCountries, cfg.bottomRating)
-				} else if hasBottomCriteria && (len(cfg.bottomEthnicities) > 0 || len(cfg.bottomCountries) > 0 || cfg.bottomRating != "") {
-					// Ethnicity/country/rating criteria without specific IDs
-					bottomCond = buildRoleCondition("smp", "bottom", nil, cfg.bottomEthnicities, cfg.bottomCountries, cfg.bottomRating)
-				}
-
-				hasBothRolesCriteria := len(cfg.bothRolesPerformerIDs) > 0 || len(cfg.bothRolesEthnicities) > 0 || len(cfg.bothRolesCountries) > 0 || cfg.bothRolesRating != ""
-				hasBothRolesUnnamedCriteria := len(cfg.bothRolesUnnamedPerformers) > 0
 
 				// Build the WHERE clause for matching a single marker
 				var matchConditions []string
 				var matchArgs []any
 
-				// CUSTOM: begin - Tags condition with per-tag depth expansion
-				// When depth != 0, expand each original tag independently so the marker must
-				// have at least one tag from EACH family (AND across families). Without depth,
-				// the marker must have ALL the exact original tags.
-				if len(tagIDs) > 0 {
-					if depthUsed {
-						for _, originalTagID := range g.TagIDs {
-							valuesClause, err := getHierarchicalValues(ctx, []string{originalTagID}, tagTable, "tags_relations", "parent_id", "child_id", g.Depth)
-							if err != nil {
-								f.setError(err)
-								return
-							}
-							var expandedIDs []string
-							expandQuery := fmt.Sprintf("SELECT DISTINCT column2 FROM (%s)", valuesClause)
-							if err := dbWrapper.Select(ctx, &expandedIDs, expandQuery); err != nil {
-								f.setError(err)
-								return
-							}
-							if len(expandedIDs) > 0 {
-								ph := getInBinding(len(expandedIDs))
-								matchConditions = append(matchConditions, `(
-    sm.primary_tag_id IN `+ph+`
-    OR EXISTS (
-        SELECT 1 FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id AND mt2.tag_id IN `+ph+`
-    )
-)`)
-								for _, tid := range expandedIDs {
-									matchArgs = append(matchArgs, tid)
-								}
-								for _, tid := range expandedIDs {
-									matchArgs = append(matchArgs, tid)
-								}
-							}
-						}
-					} else {
-						// Exact tag match: all original tags must be present on this marker
-						tagPh := getInBinding(len(tagIDs))
-						matchConditions = append(matchConditions, `(
-    SELECT COUNT(DISTINCT tag_id) FROM (
-      SELECT sm.primary_tag_id AS tag_id
-      UNION ALL
-      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
-    ) tags_per_marker
-    WHERE tag_id IN `+tagPh+`
-  ) = `+fmt.Sprintf("%d", originalTagCount))
-						for _, tid := range tagIDs {
-							matchArgs = append(matchArgs, tid)
-						}
-					}
+				if markerCondition, ok := buildSceneMarkerGroupCondition(g, "sm"); ok {
+					matchConditions = append(matchConditions, markerCondition.clause)
+					matchArgs = append(matchArgs, markerCondition.args...)
 				}
-				// CUSTOM: end
-
-				// Marker-level exclude tags: marker must NOT have any of these tags
-				if len(cfg.excludeTagIDsOnMarker) > 0 {
-					exclPh := getInBinding(len(cfg.excludeTagIDsOnMarker))
-					matchConditions = append(matchConditions, `NOT (
-		sm.primary_tag_id IN `+exclPh+`
-		OR EXISTS (
-			SELECT 1 FROM scene_markers_tags mt_excl
-			WHERE mt_excl.scene_marker_id = sm.id AND mt_excl.tag_id IN `+exclPh+`
-		)
-	)`)
-					for _, tid := range cfg.excludeTagIDsOnMarker {
-						matchArgs = append(matchArgs, tid)
-					}
-					for _, tid := range cfg.excludeTagIDsOnMarker {
-						matchArgs = append(matchArgs, tid)
-					}
-				}
-
-				// Performer conditions
-				if hasBothRolesCriteria {
-					// Both roles: performer must be in BOTH top and bottom
-					// Build conditions with correct table aliases - smp_g for top EXISTS, smp_r for bottom EXISTS
-					// Skip role param since we specify role directly in WHERE clause
-					bothRolesCondTop := buildRoleCondition("smp_g", "", cfg.bothRolesPerformerIDs, cfg.bothRolesEthnicities, cfg.bothRolesCountries, cfg.bothRolesRating)
-					bothRolesCondBottom := buildRoleCondition("smp_r", "", cfg.bothRolesPerformerIDs, cfg.bothRolesEthnicities, cfg.bothRolesCountries, cfg.bothRolesRating)
-					matchConditions = append(matchConditions, `EXISTS (
-    SELECT 1 FROM scene_marker_performers smp_g
-    JOIN performers p ON p.id = smp_g.performer_id
-    WHERE smp_g.scene_marker_id = sm.id AND smp_g.role = 'top' AND `+bothRolesCondTop.clause+`
-  ) AND EXISTS (
-    SELECT 1 FROM scene_marker_performers smp_r
-    JOIN performers p ON p.id = smp_r.performer_id
-    WHERE smp_r.scene_marker_id = sm.id AND smp_r.role = 'bottom' AND `+bothRolesCondBottom.clause+`
-  )`)
-					matchArgs = append(matchArgs, bothRolesCondTop.args...)
-					matchArgs = append(matchArgs, bothRolesCondBottom.args...)
-				}
-
-				// Handle unnamed performers for both_roles
-				// Each unnamed performer slot represents a performer that must be in BOTH top and bottom
-				if hasBothRolesUnnamedCriteria {
-					for i, up := range cfg.bothRolesUnnamedPerformers {
-						// Build performer criteria condition (ethnicity, country, rating)
-						var upConds []string
-						var upArgs []any
-
-						if len(up.Ethnicities) > 0 {
-							expanded := expandEthnicities(up.Ethnicities)
-							ph := getInBinding(len(expanded))
-							upConds = append(upConds, "p_br.ethnicity IN "+ph)
-							for _, e := range expanded {
-								upArgs = append(upArgs, e)
-							}
-						}
-						if len(up.Countries) > 0 {
-							ph := getInBinding(len(up.Countries))
-							upConds = append(upConds, "p_br.country IN "+ph)
-							for _, c := range up.Countries {
-								upArgs = append(upArgs, c)
-							}
-						}
-						if up.Rating != nil {
-							w, wargs := getIntWhereClause("p_br.rating", up.Rating.Modifier, up.Rating.Value, up.Rating.Value2)
-							upConds = append(upConds, w)
-							upArgs = append(upArgs, wargs...)
-						}
-
-						// If no additional criteria, just require any performer in both roles
-						upCondClause := "1=1"
-						if len(upConds) > 0 {
-							upCondClause = strings.Join(upConds, " AND ")
-						}
-
-						// Generate unique table aliases for this unnamed performer slot
-						alias := fmt.Sprintf("smp_bru%d", i)
-
-						// Find a performer P that:
-						// 1. Is in this marker as TOP
-						// 2. Is in this marker as BOTTOM
-						// 3. Matches the criteria (if any)
-						matchConditions = append(matchConditions, fmt.Sprintf(`EXISTS (
-    SELECT 1 FROM scene_marker_performers %s
-    JOIN performers p_br ON p_br.id = %s.performer_id
-    WHERE %s.scene_marker_id = sm.id
-      AND EXISTS (SELECT 1 FROM scene_marker_performers WHERE scene_marker_id = sm.id AND performer_id = %s.performer_id AND role = 'top')
-      AND EXISTS (SELECT 1 FROM scene_marker_performers WHERE scene_marker_id = sm.id AND performer_id = %s.performer_id AND role = 'bottom')
-      AND %s
-  )`, alias, alias, alias, alias, alias, upCondClause))
-						matchArgs = append(matchArgs, upArgs...)
-					}
-				}
-
-				// Handle separate top/bottom unnamed performers
-				// These are unnamed performer slots that are NOT in both_roles
-				hasTopUnnamedCriteria := len(cfg.topUnnamedPerformers) > 0
-				hasBottomUnnamedCriteria := len(cfg.bottomUnnamedPerformers) > 0
-
-				if hasTopUnnamedCriteria || hasBottomUnnamedCriteria {
-					// Build a helper to create condition for unnamed performer
-					buildUnnamedCondition := func(up models.UnnamedPerformerCriterionInput, performerAlias string) (string, []any) {
-						var conds []string
-						var args []any
-
-						if len(up.Ethnicities) > 0 {
-							expanded := expandEthnicities(up.Ethnicities)
-							ph := getInBinding(len(expanded))
-							conds = append(conds, performerAlias+".ethnicity IN "+ph)
-							for _, e := range expanded {
-								args = append(args, e)
-							}
-						}
-						if len(up.Countries) > 0 {
-							ph := getInBinding(len(up.Countries))
-							conds = append(conds, performerAlias+".country IN "+ph)
-							for _, c := range up.Countries {
-								args = append(args, c)
-							}
-						}
-						if up.Rating != nil {
-							w, wargs := getIntWhereClause(performerAlias+".rating", up.Rating.Modifier, up.Rating.Value, up.Rating.Value2)
-							conds = append(conds, w)
-							args = append(args, wargs...)
-						}
-
-						if len(conds) == 0 {
-							return "1=1", nil
-						}
-						return strings.Join(conds, " AND "), args
-					}
-
-					// Collect all performer aliases we'll use to ensure distinctness
-					var topAliases []string
-					var bottomAliases []string
-
-					// Process top unnamed performers
-					for i, up := range cfg.topUnnamedPerformers {
-						alias := fmt.Sprintf("smp_tu%d", i)
-						topAliases = append(topAliases, alias)
-
-						cond, args := buildUnnamedCondition(up, "p_tu")
-						matchConditions = append(matchConditions, fmt.Sprintf(`EXISTS (
-    SELECT 1 FROM scene_marker_performers %s
-    JOIN performers p_tu ON p_tu.id = %s.performer_id
-    WHERE %s.scene_marker_id = sm.id AND %s.role = 'top' AND %s
-  )`, alias, alias, alias, alias, cond))
-						matchArgs = append(matchArgs, args...)
-					}
-
-					// Process bottom unnamed performers
-					for i, up := range cfg.bottomUnnamedPerformers {
-						alias := fmt.Sprintf("smp_bu%d", i)
-						bottomAliases = append(bottomAliases, alias)
-
-						cond, args := buildUnnamedCondition(up, "p_bu")
-						matchConditions = append(matchConditions, fmt.Sprintf(`EXISTS (
-    SELECT 1 FROM scene_marker_performers %s
-    JOIN performers p_bu ON p_bu.id = %s.performer_id
-    WHERE %s.scene_marker_id = sm.id AND %s.role = 'bottom' AND %s
-  )`, alias, alias, alias, alias, cond))
-						matchArgs = append(matchArgs, args...)
-					}
-				}
-
-				// Ensure distinctness: count unique unnamed performer IDs per role
-				// If we have multiple unnamed performers with the same role (e.g., 2 tops),
-				// we need to ensure the marker has that many distinct performers in that role
-				uniqueTopUnnamedIds := make(map[string]bool)
-				for _, up := range cfg.topUnnamedPerformers {
-					if up.ID != nil && *up.ID != "" {
-						uniqueTopUnnamedIds[*up.ID] = true
-					}
-				}
-				uniqueBottomUnnamedIds := make(map[string]bool)
-				for _, up := range cfg.bottomUnnamedPerformers {
-					if up.ID != nil && *up.ID != "" {
-						uniqueBottomUnnamedIds[*up.ID] = true
-					}
-				}
-				uniqueBothRolesUnnamedIds := make(map[string]bool)
-				for _, up := range cfg.bothRolesUnnamedPerformers {
-					if up.ID != nil && *up.ID != "" {
-						uniqueBothRolesUnnamedIds[*up.ID] = true
-					}
-				}
-
-				// If we have multiple unique unnamed top performers, ensure the marker has enough distinct top performers
-				if len(uniqueTopUnnamedIds) > 1 && performerModeAnd {
-					matchConditions = append(matchConditions, fmt.Sprintf(`(
-    SELECT COUNT(DISTINCT smp_dist.performer_id) FROM scene_marker_performers smp_dist
-    WHERE smp_dist.scene_marker_id = sm.id AND smp_dist.role = 'top'
-  ) >= %d`, len(uniqueTopUnnamedIds)))
-				}
-
-				// If we have multiple unique unnamed bottom performers, ensure the marker has enough distinct bottom performers
-				if len(uniqueBottomUnnamedIds) > 1 && performerModeAnd {
-					matchConditions = append(matchConditions, fmt.Sprintf(`(
-    SELECT COUNT(DISTINCT smp_dist.performer_id) FROM scene_marker_performers smp_dist
-    WHERE smp_dist.scene_marker_id = sm.id AND smp_dist.role = 'bottom'
-  ) >= %d`, len(uniqueBottomUnnamedIds)))
-				}
-
-				// For both_roles unnamed performers, they can be in either role, so count total distinct performers
-				if len(uniqueBothRolesUnnamedIds) > 1 && performerModeAnd {
-					matchConditions = append(matchConditions, fmt.Sprintf(`(
-    SELECT COUNT(DISTINCT smp_dist.performer_id) FROM scene_marker_performers smp_dist
-    WHERE smp_dist.scene_marker_id = sm.id
-  ) >= %d`, len(uniqueBothRolesUnnamedIds)))
-				}
-
-				// Cross-role distinctness: if we have different unnamed performer IDs in top vs bottom,
-				// the actual performers must be different people.
-				// E.g., Performer A as top and Performer B as bottom means top_performer_id != bottom_performer_id
-				if performerModeAnd && len(uniqueTopUnnamedIds) > 0 && len(uniqueBottomUnnamedIds) > 0 {
-					// Check if there are IDs that are ONLY in top (not in bottom) and vice versa
-					topOnlyIds := make(map[string]bool)
-					for id := range uniqueTopUnnamedIds {
-						if !uniqueBottomUnnamedIds[id] {
-							topOnlyIds[id] = true
-						}
-					}
-					bottomOnlyIds := make(map[string]bool)
-					for id := range uniqueBottomUnnamedIds {
-						if !uniqueTopUnnamedIds[id] {
-							bottomOnlyIds[id] = true
-						}
-					}
-
-					// If there are exclusive IDs on both sides, performers must be different
-					if len(topOnlyIds) > 0 && len(bottomOnlyIds) > 0 {
-						// At minimum, require that at least one top performer != at least one bottom performer
-						matchConditions = append(matchConditions, `EXISTS (
-    SELECT 1 FROM scene_marker_performers smp_t
-    JOIN scene_marker_performers smp_b ON smp_b.scene_marker_id = smp_t.scene_marker_id
-    WHERE smp_t.scene_marker_id = sm.id 
-      AND smp_t.role = 'top' 
-      AND smp_b.role = 'bottom'
-      AND smp_t.performer_id != smp_b.performer_id
-  )`)
-					}
-				}
-
-				if !hasBothRolesCriteria && !hasBothRolesUnnamedCriteria && !hasTopUnnamedCriteria && !hasBottomUnnamedCriteria && topCond != nil && bottomCond != nil {
-					if performerModeAnd {
-						// AND: both top and bottom must exist
-						matchConditions = append(matchConditions, `EXISTS (
-    SELECT 1 FROM scene_marker_performers smp
-    JOIN performers p ON p.id = smp.performer_id
-    WHERE smp.scene_marker_id = sm.id AND `+topCond.clause+`
-  ) AND EXISTS (
-    SELECT 1 FROM scene_marker_performers smp
-    JOIN performers p ON p.id = smp.performer_id
-    WHERE smp.scene_marker_id = sm.id AND `+bottomCond.clause+`
-  )`)
-						matchArgs = append(matchArgs, topCond.args...)
-						matchArgs = append(matchArgs, bottomCond.args...)
-					} else {
-						// OR: either top or bottom
-						combinedClause := fmt.Sprintf("(%s OR %s)", topCond.clause, bottomCond.clause)
-						matchConditions = append(matchConditions, `EXISTS (
-    SELECT 1 FROM scene_marker_performers smp
-    JOIN performers p ON p.id = smp.performer_id
-    WHERE smp.scene_marker_id = sm.id AND `+combinedClause+`
-  )`)
-						matchArgs = append(matchArgs, topCond.args...)
-						matchArgs = append(matchArgs, bottomCond.args...)
-					}
-				} else if topCond != nil {
-					matchConditions = append(matchConditions, `EXISTS (
-    SELECT 1 FROM scene_marker_performers smp
-    JOIN performers p ON p.id = smp.performer_id
-    WHERE smp.scene_marker_id = sm.id AND `+topCond.clause+`
-  )`)
-					matchArgs = append(matchArgs, topCond.args...)
-				} else if bottomCond != nil {
-					matchConditions = append(matchConditions, `EXISTS (
-    SELECT 1 FROM scene_marker_performers smp
-    JOIN performers p ON p.id = smp.performer_id
-    WHERE smp.scene_marker_id = sm.id AND `+bottomCond.clause+`
-  )`)
-					matchArgs = append(matchArgs, bottomCond.args...)
-				}
-
-				// Handle "any" count conditions (require at least N distinct performers in a role)
-				// These are applied in addition to or instead of specific performer ID checks
-				if cfg.topAnyCount > 0 && topCond == nil {
-					// Only any count specified for tops, no specific performers
-					matchConditions = append(matchConditions, fmt.Sprintf(`(
-    SELECT COUNT(DISTINCT smp.performer_id) FROM scene_marker_performers smp
-    WHERE smp.scene_marker_id = sm.id AND smp.role = 'top'
-  ) >= %d`, cfg.topAnyCount))
-				} else if cfg.topAnyCount > 0 && topCond != nil {
-					// Both specific performers and any count - the any count acts as a minimum
-					// Already have the specific performer condition, add the count condition
-					matchConditions = append(matchConditions, fmt.Sprintf(`(
-    SELECT COUNT(DISTINCT smp.performer_id) FROM scene_marker_performers smp
-    WHERE smp.scene_marker_id = sm.id AND smp.role = 'top'
-  ) >= %d`, cfg.topAnyCount))
-				}
-
-				if cfg.bottomAnyCount > 0 && bottomCond == nil {
-					// Only any count specified for bottoms, no specific performers
-					matchConditions = append(matchConditions, fmt.Sprintf(`(
-    SELECT COUNT(DISTINCT smp.performer_id) FROM scene_marker_performers smp
-    WHERE smp.scene_marker_id = sm.id AND smp.role = 'bottom'
-  ) >= %d`, cfg.bottomAnyCount))
-				} else if cfg.bottomAnyCount > 0 && bottomCond != nil {
-					// Both specific performers and any count - the any count acts as a minimum
-					matchConditions = append(matchConditions, fmt.Sprintf(`(
-    SELECT COUNT(DISTINCT smp.performer_id) FROM scene_marker_performers smp
-    WHERE smp.scene_marker_id = sm.id AND smp.role = 'bottom'
-  ) >= %d`, cfg.bottomAnyCount))
+				if f.getError() != nil {
+					return
 				}
 
 				// Handle exclude-only groups (no include tags/performers, only excludes)
@@ -1089,305 +993,35 @@ WHERE sm_excl.scene_id = {primaryTable}.id
 				}
 			}
 
-			// Process GroupsExtendedExclude - exclude scenes with markers matching these full criteria
+			// Process GroupsExtendedExclude - exclude scenes with markers matching these full criteria.
 			if len(c.GroupsExtendedExclude) > 0 {
-				// Determine AND vs OR semantics for exclude groups from ExcludeModifier
-				// Default to AND mode: scene is excluded if ANY exclude group matches
-				// Only use OR mode if explicitly set to INCLUDES_ALL (exclude only if ALL groups match)
-				excludeAndMode := c.ExcludeModifier == nil || *c.ExcludeModifier != models.CriterionModifierIncludesAll
+				var existsConditions []string
+				var existsArgs []any
 
-				var excludeGroupConditions []string
-				var excludeGroupArgs []any
-
-				for _, eg := range c.GroupsExtendedExclude {
-					// Build a NOT EXISTS clause for this exclude group
-					var egConditions []string
-					var egArgs []any
-
-					// Tag condition
-					if len(eg.TagIDs) > 0 {
-						tagPh := getInBinding(len(eg.TagIDs))
-						egConditions = append(egConditions, `(
-      SELECT COUNT(DISTINCT tag_id) FROM (
-        SELECT sm_ex.primary_tag_id AS tag_id
-        UNION ALL
-        SELECT smt_ex.tag_id FROM scene_markers_tags smt_ex WHERE smt_ex.scene_marker_id = sm_ex.id
-      ) tags_ex
-      WHERE tag_id IN `+tagPh+`
-    ) = `+fmt.Sprintf("%d", len(eg.TagIDs)))
-						for _, tid := range eg.TagIDs {
-							egArgs = append(egArgs, tid)
-						}
+				for i, eg := range c.GroupsExtendedExclude {
+					markerAlias := fmt.Sprintf("sm_ex_%d", i)
+					markerCondition, ok := buildSceneMarkerGroupCondition(eg, markerAlias)
+					if f.getError() != nil {
+						return
+					}
+					if !ok {
+						continue
 					}
 
-					// Performer conditions for exclude groups
-					hasBothRolesExclude := len(eg.BothRolesPerformerIDs) > 0
-					hasTopExclude := len(eg.TopPerformerIDs) > 0
-					hasBottomExclude := len(eg.BottomPerformerIDs) > 0
-
-					// Check for unnamed performers with same ID in both top and bottom (both_roles pattern)
-					// This means "same performer in both roles" without specifying which performer
-					topUnnamedIDs := make(map[string]models.UnnamedPerformerCriterionInput)
-					for _, up := range eg.TopUnnamedPerformers {
-						if up.ID != nil && *up.ID != "" {
-							topUnnamedIDs[*up.ID] = up
-						}
-					}
-					bottomUnnamedIDs := make(map[string]models.UnnamedPerformerCriterionInput)
-					for _, up := range eg.BottomUnnamedPerformers {
-						if up.ID != nil && *up.ID != "" {
-							bottomUnnamedIDs[*up.ID] = up
-						}
-					}
-
-					// Find unnamed performers that appear in BOTH top and bottom (both_roles pattern)
-					var bothRolesUnnamedMatches []models.UnnamedPerformerCriterionInput
-					for id, up := range topUnnamedIDs {
-						if _, exists := bottomUnnamedIDs[id]; exists {
-							bothRolesUnnamedMatches = append(bothRolesUnnamedMatches, up)
-						}
-					}
-
-					hasBothRolesUnnamedExclude := len(bothRolesUnnamedMatches) > 0 || len(eg.BothRolesUnnamedPerformers) > 0
-
-					if hasBothRolesExclude {
-						// Both roles: performer must be in BOTH top and bottom within same marker
-						brPh := getInBinding(len(eg.BothRolesPerformerIDs))
-						egConditions = append(egConditions, `EXISTS (
-      SELECT 1 FROM scene_marker_performers smp_ex_t
-      WHERE smp_ex_t.scene_marker_id = sm_ex.id AND smp_ex_t.role = 'top' AND smp_ex_t.performer_id IN `+brPh+`
-    ) AND EXISTS (
-      SELECT 1 FROM scene_marker_performers smp_ex_b
-      WHERE smp_ex_b.scene_marker_id = sm_ex.id AND smp_ex_b.role = 'bottom' AND smp_ex_b.performer_id IN `+brPh+`
-    )`)
-						for _, pid := range eg.BothRolesPerformerIDs {
-							egArgs = append(egArgs, pid)
-						}
-						for _, pid := range eg.BothRolesPerformerIDs {
-							egArgs = append(egArgs, pid)
-						}
-					}
-
-					// Handle unnamed performers in both_roles pattern (same performer in top AND bottom)
-					if hasBothRolesUnnamedExclude {
-						// For each unnamed performer that should be in both roles,
-						// find if there's a performer matching the criteria who is both top AND bottom
-						allBothRolesUnnamed := append(bothRolesUnnamedMatches, eg.BothRolesUnnamedPerformers...)
-						for _, up := range allBothRolesUnnamed {
-							// Build performer characteristic conditions
-							var perfCondParts []string
-							var perfCondArgs []any
-							if len(up.Ethnicities) > 0 {
-								expanded := expandEthnicities(up.Ethnicities)
-								ph := getInBinding(len(expanded))
-								perfCondParts = append(perfCondParts, "p_ex.ethnicity IN "+ph)
-								for _, e := range expanded {
-									perfCondArgs = append(perfCondArgs, e)
-								}
-							}
-							if len(up.Countries) > 0 {
-								ph := getInBinding(len(up.Countries))
-								perfCondParts = append(perfCondParts, "p_ex.country IN "+ph)
-								for _, c := range up.Countries {
-									perfCondArgs = append(perfCondArgs, c)
-								}
-							}
-							if up.Rating != nil {
-								w, wargs := getIntWhereClause("p_ex.rating", up.Rating.Modifier, up.Rating.Value, up.Rating.Value2)
-								perfCondParts = append(perfCondParts, w)
-								perfCondArgs = append(perfCondArgs, wargs...)
-							}
-
-							perfCondClause := "1=1"
-							if len(perfCondParts) > 0 {
-								perfCondClause = strings.Join(perfCondParts, " AND ")
-							}
-
-							// This checks: is there a performer matching criteria who is BOTH top and bottom in this marker?
-							egConditions = append(egConditions, `EXISTS (
-      SELECT 1 FROM performers p_ex
-      WHERE `+perfCondClause+`
-        AND EXISTS (
-          SELECT 1 FROM scene_marker_performers smp_ex_t
-          WHERE smp_ex_t.scene_marker_id = sm_ex.id 
-            AND smp_ex_t.role = 'top' 
-            AND smp_ex_t.performer_id = p_ex.id
-        )
-        AND EXISTS (
-          SELECT 1 FROM scene_marker_performers smp_ex_b
-          WHERE smp_ex_b.scene_marker_id = sm_ex.id 
-            AND smp_ex_b.role = 'bottom' 
-            AND smp_ex_b.performer_id = p_ex.id
-        )
-    )`)
-							egArgs = append(egArgs, perfCondArgs...)
-						}
-					}
-
-					if !hasBothRolesExclude && !hasBothRolesUnnamedExclude {
-						// Separate top/bottom criteria (AND mode between top and bottom)
-						if hasTopExclude {
-							topPh := getInBinding(len(eg.TopPerformerIDs))
-							egConditions = append(egConditions, `EXISTS (
-      SELECT 1 FROM scene_marker_performers smp_ex
-      WHERE smp_ex.scene_marker_id = sm_ex.id AND smp_ex.role = 'top' AND smp_ex.performer_id IN `+topPh+`
-    )`)
-							for _, pid := range eg.TopPerformerIDs {
-								egArgs = append(egArgs, pid)
-							}
-						}
-						if hasBottomExclude {
-							bottomPh := getInBinding(len(eg.BottomPerformerIDs))
-							egConditions = append(egConditions, `EXISTS (
-      SELECT 1 FROM scene_marker_performers smp_ex
-      WHERE smp_ex.scene_marker_id = sm_ex.id AND smp_ex.role = 'bottom' AND smp_ex.performer_id IN `+bottomPh+`
-    )`)
-							for _, pid := range eg.BottomPerformerIDs {
-								egArgs = append(egArgs, pid)
-							}
-						}
-
-						// Handle unnamed performers with different IDs in top vs bottom
-						// This means "exclude if top and bottom are DIFFERENT performers"
-						// First, find top-only and bottom-only unnamed IDs
-						topOnlyUnnamedIds := make(map[string]models.UnnamedPerformerCriterionInput)
-						for _, up := range eg.TopUnnamedPerformers {
-							if up.ID != nil && *up.ID != "" {
-								if _, inBottom := bottomUnnamedIDs[*up.ID]; !inBottom {
-									topOnlyUnnamedIds[*up.ID] = up
-								}
-							}
-						}
-						bottomOnlyUnnamedIds := make(map[string]models.UnnamedPerformerCriterionInput)
-						for _, up := range eg.BottomUnnamedPerformers {
-							if up.ID != nil && *up.ID != "" {
-								if _, inTop := topUnnamedIDs[*up.ID]; !inTop {
-									bottomOnlyUnnamedIds[*up.ID] = up
-								}
-							}
-						}
-
-						// If we have exclusive IDs on both sides, add condition for DIFFERENT performers
-						if len(topOnlyUnnamedIds) > 0 && len(bottomOnlyUnnamedIds) > 0 {
-							// Build performer conditions for top and bottom
-							// For simplicity, combine all criteria for top performers and all for bottom
-							var topConds []string
-							var topCondArgs []any
-							for _, up := range topOnlyUnnamedIds {
-								var parts []string
-								if len(up.Ethnicities) > 0 {
-									expanded := expandEthnicities(up.Ethnicities)
-									ph := getInBinding(len(expanded))
-									parts = append(parts, "p_ex_t.ethnicity IN "+ph)
-									for _, e := range expanded {
-										topCondArgs = append(topCondArgs, e)
-									}
-								}
-								if len(up.Countries) > 0 {
-									ph := getInBinding(len(up.Countries))
-									parts = append(parts, "p_ex_t.country IN "+ph)
-									for _, c := range up.Countries {
-										topCondArgs = append(topCondArgs, c)
-									}
-								}
-								if up.Rating != nil {
-									w, wargs := getIntWhereClause("p_ex_t.rating", up.Rating.Modifier, up.Rating.Value, up.Rating.Value2)
-									parts = append(parts, w)
-									topCondArgs = append(topCondArgs, wargs...)
-								}
-								if len(parts) > 0 {
-									topConds = append(topConds, "("+strings.Join(parts, " AND ")+")")
-								}
-							}
-
-							var bottomConds []string
-							var bottomCondArgs []any
-							for _, up := range bottomOnlyUnnamedIds {
-								var parts []string
-								if len(up.Ethnicities) > 0 {
-									expanded := expandEthnicities(up.Ethnicities)
-									ph := getInBinding(len(expanded))
-									parts = append(parts, "p_ex_b.ethnicity IN "+ph)
-									for _, e := range expanded {
-										bottomCondArgs = append(bottomCondArgs, e)
-									}
-								}
-								if len(up.Countries) > 0 {
-									ph := getInBinding(len(up.Countries))
-									parts = append(parts, "p_ex_b.country IN "+ph)
-									for _, c := range up.Countries {
-										bottomCondArgs = append(bottomCondArgs, c)
-									}
-								}
-								if up.Rating != nil {
-									w, wargs := getIntWhereClause("p_ex_b.rating", up.Rating.Modifier, up.Rating.Value, up.Rating.Value2)
-									parts = append(parts, w)
-									bottomCondArgs = append(bottomCondArgs, wargs...)
-								}
-								if len(parts) > 0 {
-									bottomConds = append(bottomConds, "("+strings.Join(parts, " AND ")+")")
-								}
-							}
-
-							// Build the condition: exists a top and bottom who are DIFFERENT
-							topCondClause := "1=1"
-							if len(topConds) > 0 {
-								topCondClause = strings.Join(topConds, " OR ")
-							}
-							bottomCondClause := "1=1"
-							if len(bottomConds) > 0 {
-								bottomCondClause = strings.Join(bottomConds, " OR ")
-							}
-
-							egConditions = append(egConditions, `EXISTS (
-      SELECT 1 FROM scene_marker_performers smp_ex_t
-      JOIN performers p_ex_t ON p_ex_t.id = smp_ex_t.performer_id
-      JOIN scene_marker_performers smp_ex_b ON smp_ex_b.scene_marker_id = smp_ex_t.scene_marker_id
-      JOIN performers p_ex_b ON p_ex_b.id = smp_ex_b.performer_id
-      WHERE smp_ex_t.scene_marker_id = sm_ex.id
-        AND smp_ex_t.role = 'top'
-        AND smp_ex_b.role = 'bottom'
-        AND smp_ex_t.performer_id != smp_ex_b.performer_id
-        AND (`+topCondClause+`)
-        AND (`+bottomCondClause+`)
-    )`)
-							egArgs = append(egArgs, topCondArgs...)
-							egArgs = append(egArgs, bottomCondArgs...)
-						}
-					}
-
-					if len(egConditions) > 0 {
-						// Combine all conditions with AND - marker must match ALL criteria to be excluded
-						notExistsClause := utils.StrFormat(`NOT EXISTS (
-  SELECT 1 FROM scene_markers sm_ex
-  WHERE sm_ex.scene_id = {primaryTable}.id
-    AND `+strings.Join(egConditions, `
-    AND `)+`
-)`, utils.StrFormatMap{"primaryTable": h.primaryTable})
-						excludeGroupConditions = append(excludeGroupConditions, notExistsClause)
-						excludeGroupArgs = append(excludeGroupArgs, egArgs...)
-					}
+					existsConditions = append(existsConditions, utils.StrFormat(`EXISTS (
+SELECT 1 FROM scene_markers `+markerAlias+`
+WHERE `+markerAlias+`.scene_id = {primaryTable}.id
+  AND `+markerCondition.clause+`
+)`, utils.StrFormatMap{"primaryTable": h.primaryTable}))
+					existsArgs = append(existsArgs, markerCondition.args...)
 				}
 
-				// Combine exclude groups based on modifier
-				if len(excludeGroupConditions) > 0 {
-					if excludeAndMode {
-						// AND mode: all exclude groups must NOT exist (each NOT EXISTS must pass)
-						for i, cond := range excludeGroupConditions {
-							// Calculate args for this condition by counting placeholders
-							numPlaceholders := strings.Count(cond, "?")
-							f.addWhere(cond, excludeGroupArgs[:numPlaceholders]...)
-							if i < len(excludeGroupConditions)-1 {
-								excludeGroupArgs = excludeGroupArgs[numPlaceholders:]
-							}
-						}
-					} else {
-						// OR mode: at least one exclude group must NOT exist
-						// This is: NOT(EXISTS(g1) AND EXISTS(g2) AND ...) = NOT EXISTS g1 OR NOT EXISTS g2
-						// For OR mode, we combine with OR
-						combinedExclude := "(" + strings.Join(excludeGroupConditions, " OR ") + ")"
-						f.addWhere(combinedExclude, excludeGroupArgs...)
+				if len(existsConditions) > 0 {
+					joiner := " OR "
+					if c.ExcludeModifier != nil && *c.ExcludeModifier == models.CriterionModifierIncludesAll {
+						joiner = " AND "
 					}
+					f.addWhere("NOT ("+strings.Join(existsConditions, joiner)+")", existsArgs...)
 				}
 			}
 

@@ -49,17 +49,17 @@ export const StudioStatsPanel: React.FC<IProps> = ({
 
   return (
     <div className="studio-stats-panel mt-3">
-      <table className="table table-sm">
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.label}>
-              <th scope="row">{row.label}</th>
-              <td>{TextUtils.secondsToTimestamp(row.seconds)}</td>
-              <td>{formatPercent(row.percent)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="custom-stats-list">
+        {rows.map((row) => (
+          <div className="custom-stats-row" key={row.label}>
+            <span className="custom-stats-label">{row.label}</span>
+            <span className="custom-stats-value">
+              {TextUtils.secondsToTimestamp(row.seconds)} (
+              {formatPercent(row.percent)})
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

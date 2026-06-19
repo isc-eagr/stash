@@ -558,7 +558,80 @@ func (r *queryResolver) SceneOYearCounts(ctx context.Context) (ret []*SceneOYear
 func (r *queryResolver) SceneOCountsByTag(ctx context.Context) (ret []*SceneOCountByTag, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		db := manager.GetInstance().Database
-		query := `
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+		var orgasmTagID int
+		if roleTagIds != nil {
+			if orgasmID, ok := roleTagIds["orgasmTagId"].(string); ok && orgasmID != "" {
+				orgasmTagID, _ = strconv.Atoi(orgasmID)
+			}
+		}
+
+		var query string
+		var args []interface{}
+		if orgasmTagID != 0 {
+			query = `
+WITH RECURSIVE orgasm_tags(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
+),
+covered_markers AS (
+  SELECT
+    od.rowid AS o_id,
+    sm.id AS marker_id,
+    CASE
+      WHEN sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
+        OR EXISTS (
+          SELECT 1 FROM scene_markers_tags smt
+          WHERE smt.scene_marker_id = sm.id
+            AND smt.tag_id IN (SELECT id FROM orgasm_tags)
+        )
+      THEN 1 ELSE 0
+    END AS is_orgasm
+  FROM scenes_o_dates od
+  JOIN scene_markers sm ON sm.scene_id = od.scene_id
+  WHERE od.video_timestamp IS NOT NULL
+    AND sm.end_seconds IS NOT NULL
+    AND od.video_timestamp >= sm.seconds
+    AND od.video_timestamp <= sm.end_seconds
+),
+selected_markers AS (
+  SELECT cm.o_id, cm.marker_id
+  FROM covered_markers cm
+  WHERE cm.is_orgasm = 1
+     OR NOT EXISTS (
+       SELECT 1 FROM covered_markers orgasm_cm
+       WHERE orgasm_cm.o_id = cm.o_id
+         AND orgasm_cm.is_orgasm = 1
+     )
+),
+covered_o_tags AS (
+  SELECT DISTINCT
+    smk.o_id,
+    t.id AS tag_id,
+    t.name AS tag_name
+  FROM selected_markers smk
+  JOIN scene_markers sm ON sm.id = smk.marker_id
+  JOIN tags t ON t.id = sm.primary_tag_id
+
+  UNION
+
+  SELECT DISTINCT
+    smk.o_id,
+    t.id AS tag_id,
+    t.name AS tag_name
+  FROM selected_markers smk
+  JOIN scene_markers_tags smt ON smt.scene_marker_id = smk.marker_id
+  JOIN tags t ON t.id = smt.tag_id
+)
+SELECT tag_id, tag_name, COUNT(*) AS cnt
+FROM covered_o_tags
+GROUP BY tag_id, tag_name
+ORDER BY cnt DESC, tag_name ASC`
+			args = []interface{}{orgasmTagID}
+		} else {
+			query = `
 WITH covered_o_tags AS (
   SELECT DISTINCT
     od.scene_id,
@@ -595,8 +668,9 @@ SELECT tag_id, tag_name, COUNT(*) AS cnt
 FROM covered_o_tags
 GROUP BY tag_id, tag_name
 ORDER BY cnt DESC, tag_name ASC`
+		}
 
-		_, rows, err := db.QuerySQL(ctx, query, nil)
+		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
 			return err
 		}

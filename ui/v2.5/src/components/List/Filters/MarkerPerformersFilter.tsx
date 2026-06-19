@@ -1,16 +1,16 @@
 import React from "react";
-import { Badge, Button, Col, Form, Row } from "react-bootstrap";
+import { Badge, Button, ButtonGroup, Col, Form, Row } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import { MarkerPerformersCriterion } from "src/models/list-filter/criteria/marker-performers";
-import {
-  PerformerIDSelect,
-  Performer,
-} from "src/components/Performers/PerformerSelect";
+import { PerformerIDSelect } from "src/components/Performers/PerformerSelect";
 import { Tag, TagIDSelect } from "src/components/Tags/TagSelect";
 import { faArrowUp, faArrowDown } from "@fortawesome/free-solid-svg-icons";
 import { Icon } from "src/components/Shared/Icon";
 import { UnnamedPerformersManager } from "./UnnamedPerformerManager";
-import { IUnnamedPerformer, isUnnamedPerformerId } from "src/models/list-filter/criteria/unnamed-performer";
+import {
+  IUnnamedPerformer,
+  isUnnamedPerformerId,
+} from "src/models/list-filter/criteria/unnamed-performer";
 
 interface IMarkerPerformersFilterProps {
   criterion: MarkerPerformersCriterion;
@@ -33,31 +33,11 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
     setCriterion(c);
   };
 
-  // Top performers handler
-  const onTopPerformersChange = (performers: Performer[]) => {
-    const c = criterion.clone() as MarkerPerformersCriterion;
-    c.value.top_performer_ids = performers.map((p) => ({
-      id: p.id,
-      label: p.name ?? p.id,
-    }));
-    setCriterion(c);
-  };
-
-  // Bottom performers handler
-  const onBottomPerformersChange = (performers: Performer[]) => {
-    const c = criterion.clone() as MarkerPerformersCriterion;
-    c.value.bottom_performer_ids = performers.map((p) => ({
-      id: p.id,
-      label: p.name ?? p.id,
-    }));
-    setCriterion(c);
-  };
-
   // Unnamed performers handler
   const onUnnamedPerformersChange = (performers: IUnnamedPerformer[]) => {
     const c = criterion.clone() as MarkerPerformersCriterion;
     c.value.unnamed_performers = performers;
-    
+
     // Remove any unnamed performer selections that no longer exist
     const validIds = new Set(performers.map((p) => p.id));
     c.value.top_performer_ids = c.value.top_performer_ids.filter(
@@ -66,7 +46,7 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
     c.value.bottom_performer_ids = c.value.bottom_performer_ids.filter(
       (p) => !isUnnamedPerformerId(p.id) || validIds.has(p.id)
     );
-    
+
     setCriterion(c);
   };
 
@@ -107,38 +87,45 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
 
       {/* Performer Mode Toggle (AND/OR) */}
       <Form.Group className="mb-3">
-        <Form.Check
-          type="switch"
-          id="performer-mode-switch"
-          label={
-            criterion.value.performer_mode === "OR"
-              ? intl.formatMessage({
-                  id: "performer_mode_or",
-                  defaultMessage: "Match Top OR Bottom",
-                })
-              : intl.formatMessage({
-                  id: "performer_mode_and",
-                  defaultMessage: "Match Top AND Bottom",
-                })
-          }
-          checked={criterion.value.performer_mode === "OR"}
-          onChange={(e) => {
-            const c = criterion.clone() as MarkerPerformersCriterion;
-            c.value.performer_mode = e.currentTarget.checked ? "OR" : "AND";
-            setCriterion(c);
-          }}
-        />
-        <Form.Text className="text-muted">
-          {criterion.value.performer_mode === "OR"
-            ? intl.formatMessage({
-                id: "performer_mode_or_description",
-                defaultMessage: "Top criteria matches OR Bottom criteria matches",
-              })
-            : intl.formatMessage({
-                id: "performer_mode_and_description",
-                defaultMessage: "Top criteria matches AND Bottom criteria matches",
-              })}
-        </Form.Text>
+        <Form.Label>
+          <FormattedMessage id="mode" defaultMessage="Mode" />
+        </Form.Label>
+        <ButtonGroup size="sm" className="d-flex">
+          <Button
+            variant={
+              criterion.value.performer_mode === "OR"
+                ? "primary"
+                : "outline-primary"
+            }
+            onClick={() => {
+              const c = criterion.clone() as MarkerPerformersCriterion;
+              c.value.performer_mode = "OR";
+              setCriterion(c);
+            }}
+          >
+            <FormattedMessage
+              id="performer_mode_or"
+              defaultMessage="Top OR Bottom"
+            />
+          </Button>
+          <Button
+            variant={
+              criterion.value.performer_mode === "AND"
+                ? "primary"
+                : "outline-primary"
+            }
+            onClick={() => {
+              const c = criterion.clone() as MarkerPerformersCriterion;
+              c.value.performer_mode = "AND";
+              setCriterion(c);
+            }}
+          >
+            <FormattedMessage
+              id="performer_mode_and"
+              defaultMessage="Top AND Bottom"
+            />
+          </Button>
+        </ButtonGroup>
       </Form.Group>
 
       <Row>
@@ -163,15 +150,21 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
             </Form.Label>
             <PerformerIDSelect
               isMulti
-              ids={criterion.value.top_performer_ids.filter((p) => !isUnnamedPerformerId(p.id)).map((p) => p.id)}
+              ids={criterion.value.top_performer_ids
+                .filter((p) => !isUnnamedPerformerId(p.id))
+                .map((p) => p.id)}
               onSelect={(performers) => {
                 // Merge with any unnamed performer selections
-                const unnamedIds = criterion.value.top_performer_ids
-                  .filter((p) => isUnnamedPerformerId(p.id));
+                const unnamedIds = criterion.value.top_performer_ids.filter(
+                  (p) => isUnnamedPerformerId(p.id)
+                );
                 const c = criterion.clone() as MarkerPerformersCriterion;
                 c.value.top_performer_ids = [
                   ...unnamedIds,
-                  ...performers.map((p) => ({ id: p.id, label: p.name ?? p.id })),
+                  ...performers.map((p) => ({
+                    id: p.id,
+                    label: p.name ?? p.id,
+                  })),
                 ];
                 setCriterion(c);
               }}
@@ -181,7 +174,10 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
             {(criterion.value.unnamed_performers?.length ?? 0) > 0 && (
               <div className="unnamed-performer-quick-select mt-2">
                 <small className="text-muted me-2">
-                  <FormattedMessage id="unnamed_performers" defaultMessage="Unnamed:" />
+                  <FormattedMessage
+                    id="unnamed_performers"
+                    defaultMessage="Unnamed:"
+                  />
                 </small>
                 {(criterion.value.unnamed_performers ?? []).map((up) => {
                   const isSelected = criterion.value.top_performer_ids.some(
@@ -194,11 +190,13 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
                       variant={isSelected ? "info" : "outline-info"}
                       className="me-1 mb-1"
                       onClick={() => {
-                        const c = criterion.clone() as MarkerPerformersCriterion;
+                        const c =
+                          criterion.clone() as MarkerPerformersCriterion;
                         if (isSelected) {
-                          c.value.top_performer_ids = c.value.top_performer_ids.filter(
-                            (p) => p.id !== up.id
-                          );
+                          c.value.top_performer_ids =
+                            c.value.top_performer_ids.filter(
+                              (p) => p.id !== up.id
+                            );
                         } else {
                           c.value.top_performer_ids = [
                             ...c.value.top_performer_ids,
@@ -238,15 +236,21 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
             </Form.Label>
             <PerformerIDSelect
               isMulti
-              ids={criterion.value.bottom_performer_ids.filter((p) => !isUnnamedPerformerId(p.id)).map((p) => p.id)}
+              ids={criterion.value.bottom_performer_ids
+                .filter((p) => !isUnnamedPerformerId(p.id))
+                .map((p) => p.id)}
               onSelect={(performers) => {
                 // Merge with any unnamed performer selections
-                const unnamedIds = criterion.value.bottom_performer_ids
-                  .filter((p) => isUnnamedPerformerId(p.id));
+                const unnamedIds = criterion.value.bottom_performer_ids.filter(
+                  (p) => isUnnamedPerformerId(p.id)
+                );
                 const c = criterion.clone() as MarkerPerformersCriterion;
                 c.value.bottom_performer_ids = [
                   ...unnamedIds,
-                  ...performers.map((p) => ({ id: p.id, label: p.name ?? p.id })),
+                  ...performers.map((p) => ({
+                    id: p.id,
+                    label: p.name ?? p.id,
+                  })),
                 ];
                 setCriterion(c);
               }}
@@ -256,7 +260,10 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
             {(criterion.value.unnamed_performers?.length ?? 0) > 0 && (
               <div className="unnamed-performer-quick-select mt-2">
                 <small className="text-muted me-2">
-                  <FormattedMessage id="unnamed_performers" defaultMessage="Unnamed:" />
+                  <FormattedMessage
+                    id="unnamed_performers"
+                    defaultMessage="Unnamed:"
+                  />
                 </small>
                 {(criterion.value.unnamed_performers ?? []).map((up) => {
                   const isSelected = criterion.value.bottom_performer_ids.some(
@@ -269,11 +276,13 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
                       variant={isSelected ? "info" : "outline-info"}
                       className="me-1 mb-1"
                       onClick={() => {
-                        const c = criterion.clone() as MarkerPerformersCriterion;
+                        const c =
+                          criterion.clone() as MarkerPerformersCriterion;
                         if (isSelected) {
-                          c.value.bottom_performer_ids = c.value.bottom_performer_ids.filter(
-                            (p) => p.id !== up.id
-                          );
+                          c.value.bottom_performer_ids =
+                            c.value.bottom_performer_ids.filter(
+                              (p) => p.id !== up.id
+                            );
                         } else {
                           c.value.bottom_performer_ids = [
                             ...c.value.bottom_performer_ids,

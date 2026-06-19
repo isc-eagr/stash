@@ -16,7 +16,6 @@ import { useStudioUpdate } from "src/core/StashService";
 import {
   faTag,
   faBox,
-  faClock, // CUSTOM
   faHand,
   faUserPlus,
 } from "@fortawesome/free-solid-svg-icons"; // CUSTOM: added faHand, faUserPlus
@@ -31,6 +30,7 @@ import {
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import facialPng from "src/assets/facial.png"; // CUSTOM
+import { StudioActivityMetricsStrip } from "./StudioActivityMetricsStrip"; // CUSTOM
 
 interface IPerformerStudioStats {
   scene_count: number;
@@ -62,6 +62,7 @@ interface IPerformerStudioStats {
       }
     | null
     | undefined;
+  activity_stats: GQL.StudioActivityStats | null | undefined;
   group_count: number;
   image_count: number;
   gallery_count: number;
@@ -190,6 +191,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       return {
         scene_count: s.scene_count,
         role_stats: s.studio_performer_role_stats ?? null, // CUSTOM: from batched resolver
+        activity_stats: s.studio_performer_activity_stats ?? null,
         group_count: s.group_count,
         image_count: s.image_count,
         gallery_count: s.gallery_count,
@@ -545,89 +547,15 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
     // CUSTOM: begin - studio activity duration metrics
     function maybeRenderActivityMetrics() {
-      if (performerId) return null;
-
-      const stats = studio.studio_activity_stats;
-      if (!stats || stats.total_seconds <= 0) return null;
-
-      const metrics = [
-        {
-          key: "sex",
-          label: "Sex",
-          percent: Math.round(stats.sex_percent),
-          sceneCount: stats.sex_scene_count,
-        },
-        {
-          key: "oral",
-          label: "Oral",
-          percent: Math.round(stats.oral_percent),
-          sceneCount: stats.oral_scene_count,
-        },
-        {
-          key: "solo",
-          label: "Solo",
-          percent: Math.round(stats.solo_percent),
-          sceneCount: stats.solo_scene_count,
-        },
-        {
-          key: "other",
-          label: "Other",
-          percent: Math.round(stats.other_percent),
-          sceneCount: null,
-        },
-      ];
+      const stats = performerId
+        ? performerStats?.activity_stats
+        : studio.studio_activity_stats;
 
       return (
-        <div className="studio-activity-metrics">
-          {metrics.map((metric) => {
-            const tooltip =
-              metric.sceneCount === null
-                ? `${metric.label}: ${metric.percent}%`
-                : `${metric.label}: ${metric.percent}% (${metric.sceneCount} scenes)`;
-            const tooltipId = `studio-activity-${studio.id}-${metric.key}`;
-
-            return (
-              <OverlayTrigger
-                key={metric.key}
-                overlay={<Tooltip id={tooltipId}>{tooltip}</Tooltip>}
-                placement="bottom"
-              >
-                <span
-                  className={`studio-activity-metric studio-activity-metric--${metric.key}`}
-                  aria-label={tooltip}
-                >
-                  {metric.key === "sex" && (
-                    <img
-                      className="studio-activity-metric__svg"
-                      src={gaySvg}
-                      alt=""
-                    />
-                  )}
-                  {metric.key === "oral" && (
-                    <img
-                      className="studio-activity-metric__svg"
-                      src={mouthSvg}
-                      alt=""
-                    />
-                  )}
-                  {metric.key === "solo" && (
-                    <Icon
-                      icon={faHand}
-                      className="studio-activity-metric__hand"
-                    />
-                  )}
-                  {metric.key === "other" && (
-                    <Icon
-                      icon={faClock}
-                      className="studio-activity-metric__other"
-                    />
-                  )}
-                  <span>{metric.percent}%</span>
-                </span>
-              </OverlayTrigger>
-            );
-          })}
-        </div>
+        <StudioActivityMetricsStrip
+          stats={stats}
+          idPrefix={`studio-activity-${studio.id}`}
+        />
       );
     }
     // CUSTOM: end
@@ -638,10 +566,11 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       }
 
       const hasCategoryButtons = !!(sexTag || oralTag || soloTag || facialTag);
-      const hasActivityMetrics =
-        !performerId &&
-        !!studio.studio_activity_stats &&
-        studio.studio_activity_stats.total_seconds > 0; // CUSTOM
+      const hasActivityMetrics = performerId
+        ? !!performerStats?.activity_stats &&
+          performerStats.activity_stats.total_seconds > 0
+        : !!studio.studio_activity_stats &&
+          studio.studio_activity_stats.total_seconds > 0; // CUSTOM
 
       if (
         studio.scene_count ||

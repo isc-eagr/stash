@@ -274,7 +274,7 @@ func (r *studioResolver) StudioActivityStats(ctx context.Context, obj *models.St
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = queryStudioActivityStatsCustom(ctx, obj.ID, depth, sexTagID, oralTagID, soloTagID)
+		ret, err = queryStudioActivityStatsCustom(ctx, obj.ID, depth, nil, sexTagID, oralTagID, soloTagID)
 		return err
 	}); err != nil {
 		return nil, err
@@ -283,7 +283,28 @@ func (r *studioResolver) StudioActivityStats(ctx context.Context, obj *models.St
 	return ret, nil
 }
 
-func queryStudioActivityStatsCustom(ctx context.Context, studioID int, depth *int, sexTagID int, oralTagID int, soloTagID int) (*StudioActivityStats, error) {
+func (r *studioResolver) StudioPerformerActivityStats(ctx context.Context, obj *models.Studio, performerID string, depth *int) (ret *StudioActivityStats, err error) {
+	perfID, err := strconv.Atoi(performerID)
+	if err != nil {
+		return nil, err
+	}
+
+	sexTagID, oralTagID, soloTagID := activityStatsRoleTagIDsCustom()
+	if sexTagID == 0 && oralTagID == 0 && soloTagID == 0 {
+		return activityStatsEmptyStudioCustom(), nil
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = queryStudioActivityStatsCustom(ctx, obj.ID, depth, &perfID, sexTagID, oralTagID, soloTagID)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+func queryStudioActivityStatsCustom(ctx context.Context, studioID int, depth *int, performerID *int, sexTagID int, oralTagID int, soloTagID int) (*StudioActivityStats, error) {
 	depthValue := 0
 	if depth != nil {
 		depthValue = *depth
@@ -346,6 +367,15 @@ WHERE sc.studio_id IN (SELECT id FROM selected_studios)
   )`
 
 	args := []interface{}{studioID, depthValue, depthValue, sexTagID, oralTagID, soloTagID}
+	if performerID != nil {
+		markerQuery += `
+  AND EXISTS (
+    SELECT 1 FROM scene_marker_performers smp
+    WHERE smp.scene_marker_id = sm.id
+      AND smp.performer_id = ?
+  )`
+		args = append(args, *performerID)
+	}
 	_, markerRows, err := manager.GetInstance().Database.QuerySQL(ctx, markerQuery, args)
 	if err != nil {
 		return nil, err

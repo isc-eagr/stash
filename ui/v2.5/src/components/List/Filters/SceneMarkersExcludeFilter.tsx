@@ -1,18 +1,14 @@
 import React from "react";
-import {
-  Badge,
-  Button,
-  Card,
-  Col,
-  Form,
-  Row,
-} from "react-bootstrap";
+import { Badge, Button, ButtonGroup, Col, Form, Row } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import {
   SceneMarkersExcludeCriterion,
   ISceneMarkersExcludeGroup,
 } from "src/models/list-filter/criteria/scene-markers-exclude";
-import { IUnnamedPerformer, isUnnamedPerformerId } from "src/models/list-filter/criteria/unnamed-performer";
+import {
+  IUnnamedPerformer,
+  isUnnamedPerformerId,
+} from "src/models/list-filter/criteria/unnamed-performer";
 import {
   PerformerIDSelect,
   Performer,
@@ -35,7 +31,9 @@ interface ISceneMarkersExcludeFilterProps {
 interface IGroupEditorProps {
   group: ISceneMarkersExcludeGroup;
   availableUnnamedPerformers: IUnnamedPerformer[];
-  onUpdate: (updates: Partial<Omit<ISceneMarkersExcludeGroup, "groupId">>) => void;
+  onUpdate: (
+    updates: Partial<Omit<ISceneMarkersExcludeGroup, "groupId">>
+  ) => void;
   onDelete: () => void;
   canDelete: boolean;
 }
@@ -63,28 +61,35 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
     onUpdate({ depth: e.target.checked ? -1 : 0 });
   };
 
-  // Performer mode toggle handler
-  const onPerformerModeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onUpdate({ performer_mode: e.target.checked ? "OR" : "AND" });
-  };
-
   // Top handlers
   const onTopPerformersChange = (performers: Performer[]) => {
+    const unnamed = group.top_performer_ids.filter((p) =>
+      isUnnamedPerformerId(p.id)
+    );
     onUpdate({
-      top_performer_ids: performers.map((p) => ({
-        id: p.id,
-        label: p.name ?? p.id,
-      })),
+      top_performer_ids: [
+        ...unnamed,
+        ...performers.map((p) => ({
+          id: p.id,
+          label: p.name ?? p.id,
+        })),
+      ],
     });
   };
 
   // Bottom handlers
   const onBottomPerformersChange = (performers: Performer[]) => {
+    const unnamed = group.bottom_performer_ids.filter((p) =>
+      isUnnamedPerformerId(p.id)
+    );
     onUpdate({
-      bottom_performer_ids: performers.map((p) => ({
-        id: p.id,
-        label: p.name ?? p.id,
-      })),
+      bottom_performer_ids: [
+        ...unnamed,
+        ...performers.map((p) => ({
+          id: p.id,
+          label: p.name ?? p.id,
+        })),
+      ],
     });
   };
 
@@ -127,8 +132,8 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
   };
 
   return (
-    <Card className="mb-3">
-      <Card.Header className="d-flex justify-content-between align-items-center py-2">
+    <div className="scene-marker-config border rounded mb-3">
+      <div className="d-flex justify-content-between align-items-center border-bottom px-2 py-2">
         <Badge variant="danger">
           <FormattedMessage id="marker" defaultMessage="Marker" />{" "}
           {group.groupId}
@@ -143,8 +148,8 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
             <Icon icon={faTrash} />
           </Button>
         )}
-      </Card.Header>
-      <Card.Body>
+      </div>
+      <div className="p-3">
         {/* Tags section at the top */}
         <Form.Group className="mb-3">
           <Form.Label>
@@ -173,36 +178,33 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
 
         {/* Performer mode toggle - AND vs OR mode */}
         <Form.Group className="mb-3">
-          <Form.Check
-            type="checkbox"
-            id={`performer-mode-${group.groupId}`}
-            label={
-              group.performer_mode === "OR"
-                ? intl.formatMessage({
-                    id: "match_top_or_bottom",
-                    defaultMessage: "Match Top OR Bottom",
-                  })
-                : intl.formatMessage({
-                    id: "match_top_and_bottom",
-                    defaultMessage: "Match Top AND Bottom",
-                  })
-            }
-            checked={group.performer_mode === "OR"}
-            onChange={onPerformerModeChange}
-          />
-          <Form.Text className="text-muted">
-            {group.performer_mode === "OR" ? (
+          <Form.Label>
+            <FormattedMessage id="mode" defaultMessage="Mode" />
+          </Form.Label>
+          <ButtonGroup size="sm" className="d-flex">
+            <Button
+              variant={
+                group.performer_mode === "OR" ? "danger" : "outline-danger"
+              }
+              onClick={() => onUpdate({ performer_mode: "OR" })}
+            >
               <FormattedMessage
-                id="marker_performers_or_description"
-                defaultMessage="Excludes markers where ANY selected performer appears in matching role"
+                id="performer_mode_or"
+                defaultMessage="Top OR Bottom"
               />
-            ) : (
+            </Button>
+            <Button
+              variant={
+                group.performer_mode === "AND" ? "danger" : "outline-danger"
+              }
+              onClick={() => onUpdate({ performer_mode: "AND" })}
+            >
               <FormattedMessage
-                id="marker_performers_and_description"
-                defaultMessage="Excludes markers where ALL selected performers appear in matching roles"
+                id="performer_mode_and"
+                defaultMessage="Top AND Bottom"
               />
-            )}
-          </Form.Text>
+            </Button>
+          </ButtonGroup>
         </Form.Group>
 
         <Row>
@@ -274,7 +276,10 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
               >
                 <Icon icon={faArrowDown} />
               </Badge>
-              <FormattedMessage id="bottom_performers" defaultMessage="Bottom" />
+              <FormattedMessage
+                id="bottom_performers"
+                defaultMessage="Bottom"
+              />
             </h6>
 
             {/* Bottom Performers */}
@@ -320,17 +325,14 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
             </Form.Group>
           </Col>
         </Row>
-      </Card.Body>
-    </Card>
+      </div>
+    </div>
   );
 };
 
-export const SceneMarkersExcludeFilter: React.FC<ISceneMarkersExcludeFilterProps> = ({
-  criterion,
-  setCriterion,
-}) => {
-  const intl = useIntl();
-
+export const SceneMarkersExcludeFilter: React.FC<
+  ISceneMarkersExcludeFilterProps
+> = ({ criterion, setCriterion }) => {
   const onAddGroup = () => {
     const c = criterion.clone() as SceneMarkersExcludeCriterion;
     c.addGroup();
@@ -355,7 +357,17 @@ export const SceneMarkersExcludeFilter: React.FC<ISceneMarkersExcludeFilterProps
   // Handler for unnamed performers at criterion level
   const onUnnamedPerformersChange = (performers: IUnnamedPerformer[]) => {
     const c = criterion.clone() as SceneMarkersExcludeCriterion;
+    const validIds = new Set(performers.map((p) => p.id));
     c.value.unnamed_performers = performers;
+    c.value.groups = c.value.groups.map((group) => ({
+      ...group,
+      top_performer_ids: group.top_performer_ids.filter(
+        (p) => !isUnnamedPerformerId(p.id) || validIds.has(p.id)
+      ),
+      bottom_performer_ids: group.bottom_performer_ids.filter(
+        (p) => !isUnnamedPerformerId(p.id) || validIds.has(p.id)
+      ),
+    }));
     setCriterion(c);
   };
 
@@ -368,13 +380,6 @@ export const SceneMarkersExcludeFilter: React.FC<ISceneMarkersExcludeFilterProps
 
   return (
     <div className="scene-markers-exclude-filter">
-      <div className="mb-3 text-muted small">
-        <FormattedMessage
-          id="scene_markers_exclude_filter_help"
-          defaultMessage="Exclude scenes with markers matching these configurations. A scene is excluded if it has markers that match ALL groups. Each group must match a UNIQUE marker. Toggle 'Match Top OR Bottom' per group to control performer matching."
-        />
-      </div>
-
       {/* Unnamed Performers Manager at criterion level - shared across all groups */}
       <UnnamedPerformersManager
         performers={criterion.value.unnamed_performers ?? []}

@@ -2,7 +2,7 @@
  * Unnamed Performer - A virtual performer defined by criteria (ethnicity, country, rating)
  * that can be used in filters to search for markers/scenes with performers matching
  * specific attributes without knowing their identity.
- * 
+ *
  * Use cases:
  * - "Find markers where the same Black 5-star performer is both top and bottom"
  * - "Find markers where Performer A (Mexican, 4-star) is top and Performer B (Black, 5-star) is also top"
@@ -32,9 +32,11 @@ export interface IUnnamedPerformer {
 }
 
 // Generate the next available letter for an unnamed performer
-export function getNextUnnamedPerformerLetter(existing: IUnnamedPerformer[]): string {
-  const usedLetters = new Set(existing.map(p => p.letter));
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+export function getNextUnnamedPerformerLetter(
+  existing: IUnnamedPerformer[]
+): string {
+  const usedLetters = new Set(existing.map((p) => p.letter));
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   for (const letter of alphabet) {
     if (!usedLetters.has(letter)) {
       return letter;
@@ -45,7 +47,9 @@ export function getNextUnnamedPerformerLetter(existing: IUnnamedPerformer[]): st
 }
 
 // Create a new unnamed performer with the next available letter
-export function createUnnamedPerformer(existing: IUnnamedPerformer[]): IUnnamedPerformer {
+export function createUnnamedPerformer(
+  existing: IUnnamedPerformer[]
+): IUnnamedPerformer {
   const letter = getNextUnnamedPerformerLetter(existing);
   return {
     id: `unnamed-${letter}`,
@@ -59,53 +63,63 @@ export function createUnnamedPerformer(existing: IUnnamedPerformer[]): IUnnamedP
 
 // Check if a performer ID represents an unnamed performer
 export function isUnnamedPerformerId(id: string): boolean {
-  return id.startsWith('unnamed-');
+  return id.startsWith("unnamed-");
 }
 
 // Format the unnamed performer's criteria as a summary string
-export function formatUnnamedPerformerSummary(performer: IUnnamedPerformer): string {
+export function formatUnnamedPerformerSummary(
+  performer: IUnnamedPerformer
+): string {
   const parts: string[] = [];
-  
+
   if (performer.ethnicities.length > 0) {
-    parts.push(performer.ethnicities.join('/'));
+    parts.push(performer.ethnicities.join("/"));
   }
-  
+
   if (performer.countries.length > 0) {
-    parts.push(performer.countries.join('/'));
+    parts.push(performer.countries.join("/"));
   }
-  
+
   if (performer.rating) {
     const modSymbol = getModifierSymbol(performer.rating.modifier);
-    if (performer.rating.modifier === CriterionModifier.Between ||
-        performer.rating.modifier === CriterionModifier.NotBetween) {
-      parts.push(`${modSymbol}${performer.rating.value}-${performer.rating.value2}★`);
+    if (
+      performer.rating.modifier === CriterionModifier.Between ||
+      performer.rating.modifier === CriterionModifier.NotBetween
+    ) {
+      parts.push(
+        `${modSymbol}${performer.rating.value}-${performer.rating.value2}★`
+      );
     } else {
       parts.push(`${modSymbol}${performer.rating.value}★`);
     }
   }
-  
+
   if (parts.length === 0) {
-    return 'Any performer';
+    return "Any performer";
   }
-  
-  return parts.join(', ');
+
+  return parts.join(", ");
 }
 
 function getModifierSymbol(modifier: CriterionModifier): string {
   switch (modifier) {
     case CriterionModifier.Equals:
-      return '';
+      return "";
     case CriterionModifier.NotEquals:
-      return '≠';
+      return "≠";
     case CriterionModifier.GreaterThan:
-      return '>';
+      return ">";
+    case CriterionModifier.GreaterThanEquals:
+      return ">=";
     case CriterionModifier.LessThan:
-      return '<';
+      return "<";
+    case CriterionModifier.LessThanEquals:
+      return "<=";
     case CriterionModifier.Between:
-      return '';
+      return "";
     case CriterionModifier.NotBetween:
-      return '!';
+      return "!";
     default:
-      return '';
+      return "";
   }
 }

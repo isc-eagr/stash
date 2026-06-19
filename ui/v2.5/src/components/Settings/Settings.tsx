@@ -17,6 +17,7 @@ import { SettingsServicesPanel } from "./SettingsServicesPanel";
 import { SettingsContext, useSettings } from "./context";
 import { SettingsLibraryPanel } from "./SettingsLibraryPanel";
 import { SettingsSecurityPanel } from "./SettingsSecurityPanel";
+import { SettingsCustomPanel } from "./SettingsCustomPanel"; // CUSTOM
 import Changelog from "../Changelog/Changelog";
 import { TroubleshootingModeButton } from "../TroubleshootingMode/TroubleshootingModeButton";
 import { useTroubleshootingMode } from "../TroubleshootingMode/useTroubleshootingMode";
@@ -25,6 +26,7 @@ const validTabs = [
   "tasks",
   "library",
   "interface",
+  "custom", // CUSTOM
   "security",
   "metadata-providers",
   "services",
@@ -73,6 +75,14 @@ const SettingTabs: React.FC<{ tab: TabKey }> = ({ tab }) => {
               <LinkContainer to="/settings?tab=interface">
                 <Nav.Link eventKey="interface">
                   <FormattedMessage id="config.categories.interface" />
+                </Nav.Link>
+              </LinkContainer>
+            </Nav.Item>
+            {/* CUSTOM */}
+            <Nav.Item>
+              <LinkContainer to="/settings?tab=custom">
+                <Nav.Link eventKey="custom">
+                  <FormattedMessage id="config.categories.custom" />
                 </Nav.Link>
               </LinkContainer>
             </Nav.Item>
@@ -167,6 +177,10 @@ const SettingTabs: React.FC<{ tab: TabKey }> = ({ tab }) => {
             </Tab.Pane>
             <Tab.Pane eventKey="interface">
               <SettingsInterfacePanel />
+            </Tab.Pane>
+            {/* CUSTOM */}
+            <Tab.Pane eventKey="custom">
+              <SettingsCustomPanel />
             </Tab.Pane>
             <Tab.Pane eventKey="security">
               <SettingsSecurityPanel />

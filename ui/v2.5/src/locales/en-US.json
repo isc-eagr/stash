@@ -43,6 +43,12 @@
             }
         }
     },
+    "dialogs": {
+        "scene_gen": {
+            "delete_simple_marker_previews": "Delete simple sex/oral/solo marker previews",
+            "delete_simple_marker_previews_tooltip": "Deletes generated marker video/webp previews when the marker only has the configured sex, oral, or solo primary tag. Marker screenshots are kept."
+        }
+    },
     "eye_color": "Eye Color",
     "favourite": "Favorite",
     "hair_color": "Hair Color",

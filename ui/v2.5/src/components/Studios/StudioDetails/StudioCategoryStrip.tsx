@@ -8,6 +8,7 @@ import { useRoleTags } from "src/hooks/useRoleTags";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import facialPng from "src/assets/facial.png"; // CUSTOM
+import { StudioActivityMetricsStrip } from "../StudioActivityMetricsStrip"; // CUSTOM
 
 interface IStudioCategoryStripProps {
   studio: GQL.StudioDataFragment;
@@ -54,7 +55,13 @@ export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
     if (!oralTag) return null;
 
     // Use depth -1 to include subtags
-    const url = NavUtils.makeStudioMarkerScenesUrl(studio, oralTag.id, "Oral", undefined, -1);
+    const url = NavUtils.makeStudioMarkerScenesUrl(
+      studio,
+      oralTag.id,
+      "Oral",
+      undefined,
+      -1
+    );
 
     return (
       <Button
@@ -139,14 +146,20 @@ export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
   if (!hasAnyRoleTag) return null;
 
   return (
-    <div className="studio-category-strip scene-category-buttons d-flex align-items-center my-3">
-      <ButtonGroup>
-        {maybeRenderSexScenesButton()}
-        {maybeRenderOralScenesButton()}
-        {maybeRenderSoloScenesButton()}
-      </ButtonGroup>
-      {maybeRenderFacialScenesButton()}
-      {maybeRenderUniquePerformersButton()}
-    </div>
+    <>
+      <div className="studio-category-strip scene-category-buttons d-flex align-items-center my-3">
+        <ButtonGroup>
+          {maybeRenderSexScenesButton()}
+          {maybeRenderOralScenesButton()}
+          {maybeRenderSoloScenesButton()}
+        </ButtonGroup>
+        {maybeRenderFacialScenesButton()}
+        {maybeRenderUniquePerformersButton()}
+      </div>
+      <StudioActivityMetricsStrip
+        stats={studio.studio_activity_stats}
+        idPrefix={`studio-detail-activity-${studio.id}`}
+      />
+    </>
   );
 };

@@ -1,8 +1,8 @@
-import { CriterionModifier, IntCriterionInput, UnnamedPerformerCriterionInput } from "src/core/generated-graphql";
 import {
-  Criterion,
-  CriterionOption,
-} from "./criterion";
+  CriterionModifier,
+  UnnamedPerformerCriterionInput,
+} from "src/core/generated-graphql";
+import { Criterion, CriterionOption } from "./criterion";
 import { ILabeledId } from "../types";
 import { IntlShape } from "react-intl";
 import { IUnnamedPerformer, isUnnamedPerformerId } from "./unnamed-performer";
@@ -36,9 +36,7 @@ export interface IMarkerPerformersValue {
 }
 
 // Simplified: No modifier options exposed to UI - always use EQUALS for the scene_marker_tags filter
-const modifierOptions = [
-  CriterionModifier.Equals,
-];
+const modifierOptions = [CriterionModifier.Equals];
 
 const defaultModifier = CriterionModifier.Equals;
 
@@ -47,7 +45,7 @@ export class MarkerPerformersCriterion extends Criterion {
   public value: IMarkerPerformersValue = {
     tag_ids: [],
     include_subtags: false,
-    performer_mode: "AND",
+    performer_mode: "OR",
     top_performer_ids: [],
     top_any_count: 0,
     top_ethnicities: [],
@@ -82,7 +80,9 @@ export class MarkerPerformersCriterion extends Criterion {
       bottom_any_count: this.value.bottom_any_count,
       bottom_ethnicities: [...(this.value.bottom_ethnicities ?? [])],
       bottom_countries: [...(this.value.bottom_countries ?? [])],
-      bottom_rating: this.value.bottom_rating ? { ...this.value.bottom_rating } : null,
+      bottom_rating: this.value.bottom_rating
+        ? { ...this.value.bottom_rating }
+        : null,
       unnamed_performers: (this.value.unnamed_performers ?? []).map((up) => ({
         ...up,
         ethnicities: [...up.ethnicities],
@@ -135,10 +135,12 @@ export class MarkerPerformersCriterion extends Criterion {
         id: p.id,
         label: p.label,
       })),
-      bottom_performer_ids: (this.value.bottom_performer_ids ?? []).map((p) => ({
-        id: p.id,
-        label: p.label,
-      })),
+      bottom_performer_ids: (this.value.bottom_performer_ids ?? []).map(
+        (p) => ({
+          id: p.id,
+          label: p.label,
+        })
+      ),
       unnamed_performers: (this.value.unnamed_performers ?? []).map((up) => ({
         id: up.id,
         label: up.label,
@@ -170,8 +172,7 @@ export class MarkerPerformersCriterion extends Criterion {
     }
     if (raw.include_subtags !== undefined)
       this.value.include_subtags = raw.include_subtags;
-    if (raw.performer_mode)
-      this.value.performer_mode = raw.performer_mode;
+    if (raw.performer_mode) this.value.performer_mode = raw.performer_mode;
     if (raw.top_performer_ids) {
       this.value.top_performer_ids = raw.top_performer_ids.map((p) => ({
         id: p.id,
@@ -220,10 +221,18 @@ export class MarkerPerformersCriterion extends Criterion {
     }
 
     // Separate named and unnamed performers
-    const topNamed = (this.value.top_performer_ids ?? []).filter(p => !isUnnamedPerformerId(p.id));
-    const topUnnamed = (this.value.top_performer_ids ?? []).filter(p => isUnnamedPerformerId(p.id));
-    const bottomNamed = (this.value.bottom_performer_ids ?? []).filter(p => !isUnnamedPerformerId(p.id));
-    const bottomUnnamed = (this.value.bottom_performer_ids ?? []).filter(p => isUnnamedPerformerId(p.id));
+    const topNamed = (this.value.top_performer_ids ?? []).filter(
+      (p) => !isUnnamedPerformerId(p.id)
+    );
+    const topUnnamed = (this.value.top_performer_ids ?? []).filter((p) =>
+      isUnnamedPerformerId(p.id)
+    );
+    const bottomNamed = (this.value.bottom_performer_ids ?? []).filter(
+      (p) => !isUnnamedPerformerId(p.id)
+    );
+    const bottomUnnamed = (this.value.bottom_performer_ids ?? []).filter((p) =>
+      isUnnamedPerformerId(p.id)
+    );
 
     // In AND mode: if a performer is in both top and bottom, they must be both roles on the marker
     // In OR mode: don't use both_roles - keep them in both lists so the OR logic can match either role
@@ -233,7 +242,7 @@ export class MarkerPerformersCriterion extends Criterion {
     const bothRolesNamedIds = new Set<string>();
     if (!isOrMode) {
       for (const tp of topNamed) {
-        if (bottomNamed.some(bp => bp.id === tp.id)) {
+        if (bottomNamed.some((bp) => bp.id === tp.id)) {
           bothRolesNamedIds.add(tp.id);
         }
       }
@@ -243,15 +252,15 @@ export class MarkerPerformersCriterion extends Criterion {
     const bothRolesUnnamedIds = new Set<string>();
     if (!isOrMode) {
       for (const tp of topUnnamed) {
-        if (bottomUnnamed.some(bp => bp.id === tp.id)) {
+        if (bottomUnnamed.some((bp) => bp.id === tp.id)) {
           bothRolesUnnamedIds.add(tp.id);
         }
       }
     }
 
     // Get the actual unnamed performer definitions
-    const getUnnamedDef = (id: string) => 
-      (this.value.unnamed_performers ?? []).find(up => up.id === id);
+    const getUnnamedDef = (id: string) =>
+      (this.value.unnamed_performers ?? []).find((up) => up.id === id);
 
     // Build unnamed performer criterion arrays
     const topUnnamedPerformers: UnnamedPerformerCriterionInput[] = [];
@@ -278,7 +287,8 @@ export class MarkerPerformersCriterion extends Criterion {
         if (def) {
           topUnnamedPerformers.push({
             id: def.id,
-            ethnicities: def.ethnicities.length > 0 ? def.ethnicities : undefined,
+            ethnicities:
+              def.ethnicities.length > 0 ? def.ethnicities : undefined,
             countries: def.countries.length > 0 ? def.countries : undefined,
             rating: def.rating ?? undefined,
           });
@@ -293,7 +303,8 @@ export class MarkerPerformersCriterion extends Criterion {
         if (def) {
           bottomUnnamedPerformers.push({
             id: def.id,
-            ethnicities: def.ethnicities.length > 0 ? def.ethnicities : undefined,
+            ethnicities:
+              def.ethnicities.length > 0 ? def.ethnicities : undefined,
             countries: def.countries.length > 0 ? def.countries : undefined,
             rating: def.rating ?? undefined,
           });
@@ -302,9 +313,11 @@ export class MarkerPerformersCriterion extends Criterion {
     }
 
     // Named performer IDs - separate both_roles from individual top/bottom
-    const topOnlyNamed = topNamed.filter(p => !bothRolesNamedIds.has(p.id));
-    const bottomOnlyNamed = bottomNamed.filter(p => !bothRolesNamedIds.has(p.id));
-    const bothRolesNamed = topNamed.filter(p => bothRolesNamedIds.has(p.id));
+    const topOnlyNamed = topNamed.filter((p) => !bothRolesNamedIds.has(p.id));
+    const bottomOnlyNamed = bottomNamed.filter(
+      (p) => !bothRolesNamedIds.has(p.id)
+    );
+    const bothRolesNamed = topNamed.filter((p) => bothRolesNamedIds.has(p.id));
 
     if (topOnlyNamed.length > 0) {
       group.top_performer_ids = topOnlyNamed.map((p) => p.id);
@@ -386,8 +399,7 @@ export class MarkerPerformersCriterion extends Criterion {
     }
     if (data.include_subtags !== undefined)
       this.value.include_subtags = data.include_subtags;
-    if (data.performer_mode)
-      this.value.performer_mode = data.performer_mode;
+    if (data.performer_mode) this.value.performer_mode = data.performer_mode;
     if (data.top_performer_ids) {
       this.value.top_performer_ids = data.top_performer_ids.map((p) => ({
         id: p.id,
