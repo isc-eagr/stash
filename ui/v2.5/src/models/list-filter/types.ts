@@ -257,5 +257,13 @@ export type CriterionType =
   | "scene_markers_exclude"
   | "has_roles"
   | "scene_type"
+  | "activity_type"
+  | "sex_activity_percent"
+  | "oral_activity_percent"
+  | "solo_activity_percent"
+  | "sex_top_activity_percent"
+  | "sex_bottom_activity_percent"
+  | "oral_top_activity_percent"
+  | "oral_bottom_activity_percent"
   | "rating_criteria";
 // CUSTOM: end

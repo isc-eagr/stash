@@ -15,13 +15,21 @@ interface IPerformerCardGrid {
   zoomIndex: number;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
   extraCriteria?: IPerformerCardExtraCriteria;
+  activeSortBy?: string;
 }
 
 const zoomWidths = [240, 300, 375, 470];
 
 export const PerformerCardGrid: React.FC<IPerformerCardGrid> = PatchComponent(
   "PerformerCardGrid",
-  ({ performers, selectedIds, zoomIndex, onSelectChange, extraCriteria }) => {
+  ({
+    performers,
+    selectedIds,
+    zoomIndex,
+    onSelectChange,
+    extraCriteria,
+    activeSortBy,
+  }) => {
     const [componentRef, { width: containerWidth }] = useContainerDimensions();
     const cardWidth = useCardWidth(containerWidth, zoomIndex, zoomWidths);
     const roleStatsByPerformerID = usePerformerCardRoleStats(
@@ -44,6 +52,7 @@ export const PerformerCardGrid: React.FC<IPerformerCardGrid> = PatchComponent(
             }
             extraCriteria={extraCriteria}
             roleStats={roleStatsByPerformerID.get(p.id) ?? null}
+            activeSortBy={activeSortBy}
           />
         ))}
       </div>

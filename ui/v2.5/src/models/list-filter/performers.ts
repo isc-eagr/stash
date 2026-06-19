@@ -28,6 +28,7 @@ import { HasMarkersCriterionOption } from "./criteria/has-markers";
 import { ProfileImageCountCriterionOption } from "./criteria/profile-image-count";
 import { PerformerPartnersCriterionOption } from "./criteria/performer-partners"; // CUSTOM
 import { PerformerSceneTypeCriterionOption } from "./criteria/scene-type";
+import { PerformerActivityTypeCriterionOption } from "./criteria/activity-type_custom"; // CUSTOM
 // CUSTOM: end
 
 const defaultSortBy = "name";
@@ -89,6 +90,34 @@ const sortByOptions = [
     {
       messageID: "solo_scene_count",
       value: "solo_scenes_count",
+    },
+    {
+      messageID: "sex_activity_percent",
+      value: "sex_activity_percent",
+    },
+    {
+      messageID: "oral_activity_percent",
+      value: "oral_activity_percent",
+    },
+    {
+      messageID: "solo_activity_percent",
+      value: "solo_activity_percent",
+    },
+    {
+      messageID: "sex_top_activity_percent",
+      value: "sex_top_activity_percent",
+    },
+    {
+      messageID: "sex_bottom_activity_percent",
+      value: "sex_bottom_activity_percent",
+    },
+    {
+      messageID: "oral_top_activity_percent",
+      value: "oral_top_activity_percent",
+    },
+    {
+      messageID: "oral_bottom_activity_percent",
+      value: "oral_bottom_activity_percent",
     },
     {
       messageID: "orgasm_count",
@@ -185,6 +214,7 @@ const criterionOptions = [
   PerformerPartnersCriterionOption, // CUSTOM
   // Scene Type: filter performers by scene type (sex, oral, solo, facial)
   PerformerSceneTypeCriterionOption,
+  PerformerActivityTypeCriterionOption, // CUSTOM
   // Performer Markers: filter by markers with specific tags, performer role, and partner attributes
   PerformerMarkersCriterionOption,
   // Performer Markers: Exclude - exclude performers with markers matching these criteria

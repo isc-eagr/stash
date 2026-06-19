@@ -73,9 +73,7 @@ import {
   ParentFolderCriterion,
 } from "src/models/list-filter/criteria/folder";
 // CUSTOM: begin - marker/performer/scene-type/custom-filter imports
-import {
-  MarkerPerformersCriterion,
-} from "src/models/list-filter/criteria/marker-performers";
+import { MarkerPerformersCriterion } from "src/models/list-filter/criteria/marker-performers";
 import { MarkerPerformersFilter } from "./Filters/MarkerPerformersFilter";
 import { PerformerMarkersCriterion } from "src/models/list-filter/criteria/performer-markers";
 import { PerformerMarkersFilter } from "./Filters/PerformerMarkersFilter";
@@ -121,6 +119,8 @@ import { HasRolesCriterion } from "src/models/list-filter/criteria/has-roles";
 import { HasRolesFilter } from "./Filters/HasRolesFilter";
 import { RatingCriteriaCriterion } from "src/models/list-filter/criteria/rating-criteria_custom";
 import { RatingCriteriaFilter } from "./Filters/RatingCriteriaFilter_custom";
+import { ActivityTypeCriterion } from "src/models/list-filter/criteria/activity-type_custom";
+import { ActivityTypeFilter } from "./Filters/ActivityTypeFilter_custom";
 // CUSTOM: end
 
 interface IGenericCriterionEditor {
@@ -565,9 +565,19 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
       );
     }
 
-    if (criterion instanceof PerformerPartnersCriterion) { // CUSTOM
+    if (criterion instanceof PerformerPartnersCriterion) {
+      // CUSTOM
       return (
         <PerformerPartnersFilter
+          criterion={criterion}
+          setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof ActivityTypeCriterion) {
+      return (
+        <ActivityTypeFilter
           criterion={criterion}
           setCriterion={(nc) => setCriterion(nc)}
         />

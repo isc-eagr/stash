@@ -1497,17 +1497,22 @@ input[type="range"].blue-slider {
 
 .scene-stats-performer {
   align-items: stretch;
-  display: flex;
+  display: grid;
   gap: 0.85rem;
+  grid-template-columns: auto minmax(0, max-content);
+  width: max-content;
 }
 
 .scene-stats-performer-image {
   aspect-ratio: 2 / 3;
+  align-self: stretch;
   background-color: rgba(255, 255, 255, 0.08);
   background-position: center;
   background-size: cover;
   border-radius: 0.25rem;
-  flex: 0 0 auto;
+  display: block;
+  height: 100%;
+  min-width: 3.7rem;
   min-height: 5.5rem;
   width: auto;
 }

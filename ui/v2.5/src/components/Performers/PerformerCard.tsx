@@ -100,8 +100,29 @@ interface IPerformerCardProps {
   studioStats?: IPerformerStudioStats | null;
   /** Lazily loaded global role stats used to avoid heavy role-count work in the initial list query */
   roleStats?: IPerformerRoleStats | null;
+  /** Active list sort key, used to show sort-specific custom stats */
+  activeSortBy?: string;
   // CUSTOM: end
 }
+
+const performerActivitySortStats: Record<
+  string,
+  { label: string; field: keyof GQL.PerformerActivityStats }
+> = {
+  sex_activity_percent: { label: "Sex", field: "sex_percent" },
+  oral_activity_percent: { label: "Oral", field: "oral_percent" },
+  solo_activity_percent: { label: "Solo", field: "solo_percent" },
+  sex_top_activity_percent: { label: "Sex Top", field: "sex_top_percent" },
+  sex_bottom_activity_percent: {
+    label: "Sex Bottom",
+    field: "sex_bottom_percent",
+  },
+  oral_top_activity_percent: { label: "Oral Top", field: "oral_top_percent" },
+  oral_bottom_activity_percent: {
+    label: "Oral Bottom",
+    field: "oral_bottom_percent",
+  },
+};
 
 const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Popovers",
@@ -382,6 +403,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
     studioStats,
     roleStats,
     extraCriteria,
+    activeSortBy,
   }) => {
     const intl = useIntl();
 
@@ -420,6 +442,12 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
 
     const markerRoles = rolesData?.findPerformer?.scene_marker_roles ?? [];
     // CUSTOM: end
+    const activeActivitySort = activeSortBy
+      ? performerActivitySortStats[activeSortBy]
+      : undefined;
+    const activeActivitySortValue = activeActivitySort
+      ? performer.activity_stats[activeActivitySort.field]
+      : undefined;
 
     return (
       <>
@@ -449,6 +477,11 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
               : undefined
           } // CUSTOM
         />
+        {activeActivitySort && typeof activeActivitySortValue === "number" && (
+          <div className="performer-card-activity-sort-stat">
+            {activeActivitySort.label}: {Math.round(activeActivitySortValue)}%
+          </div>
+        )}
         {/* CUSTOM: end */}
       </>
     );

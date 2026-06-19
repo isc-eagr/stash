@@ -182,6 +182,15 @@ type PerformerFilterType struct {
 	MetallicRating *MultiCriterionInput `json:"metallic_rating"` // CUSTOM
 	// Filter by stored rating criteria, bonuses, and penalties
 	RatingCriteria *RatingCriteriaFilterInput `json:"rating_criteria"` // CUSTOM
+	// Filter by configured activity percentages
+	ActivityPercentages       *PerformerActivityPercentFilterInput `json:"activity_percentages"`         // CUSTOM
+	SexActivityPercent        *IntCriterionInput                   `json:"sex_activity_percent"`         // CUSTOM
+	OralActivityPercent       *IntCriterionInput                   `json:"oral_activity_percent"`        // CUSTOM
+	SoloActivityPercent       *IntCriterionInput                   `json:"solo_activity_percent"`        // CUSTOM
+	SexTopActivityPercent     *IntCriterionInput                   `json:"sex_top_activity_percent"`     // CUSTOM
+	SexBottomActivityPercent  *IntCriterionInput                   `json:"sex_bottom_activity_percent"`  // CUSTOM
+	OralTopActivityPercent    *IntCriterionInput                   `json:"oral_top_activity_percent"`    // CUSTOM
+	OralBottomActivityPercent *IntCriterionInput                   `json:"oral_bottom_activity_percent"` // CUSTOM
 	// Filter by url
 	URL *StringCriterionInput `json:"url"`
 	// Filter by hair color

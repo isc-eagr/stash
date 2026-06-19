@@ -221,6 +221,7 @@ const PerformerList: React.FC<{
           selectedIds={selectedIds}
           onSelectChange={onSelectChange}
           extraCriteria={extraCriteria}
+          activeSortBy={filter.sortBy}
         />
       );
     }

@@ -52,6 +52,7 @@ import { FolderCriterionOption } from "./criteria/folder";
 import { EthnicityCriterionOption } from "./criteria/ethnicity"; // CUSTOM
 import { SceneCustomFiltersCriterionOption } from "./criteria/custom-filters"; // CUSTOM
 import { SceneSceneTypeCriterionOption } from "./criteria/scene-type"; // CUSTOM
+import { ActivityTypeCriterionOptionInstance } from "./criteria/activity-type_custom"; // CUSTOM
 
 // CUSTOM: begin - Has Marker Performers criterion option
 const HasMarkerPerformersCriterionOption = new StringBooleanCriterionOption(
@@ -109,6 +110,20 @@ const sortByOptions = [
       messageID: "scene_code",
       value: "code",
     },
+    // CUSTOM: begin - activity percentage sorts
+    {
+      messageID: "sex_activity_percent",
+      value: "sex_activity_percent",
+    },
+    {
+      messageID: "oral_activity_percent",
+      value: "oral_activity_percent",
+    },
+    {
+      messageID: "solo_activity_percent",
+      value: "solo_activity_percent",
+    },
+    // CUSTOM: end
   ]);
 const displayModeOptions = [
   DisplayMode.Grid,
@@ -156,6 +171,7 @@ const criterionOptions = [
   HasMarkerPerformersCriterionOption, // CUSTOM
   SceneCustomFiltersCriterionOption, // CUSTOM
   SceneSceneTypeCriterionOption, // CUSTOM
+  ActivityTypeCriterionOptionInstance, // CUSTOM
   SceneIsMissingCriterionOption,
   TagsCriterionOption,
   createMandatoryNumberCriterionOption("tag_count"),

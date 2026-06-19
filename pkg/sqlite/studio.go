@@ -673,6 +673,9 @@ var studioSortOptions = sortOptions{
 	"sex_scenes_count",        // CUSTOM
 	"oral_scenes_count",       // CUSTOM
 	"solo_scenes_count",       // CUSTOM
+	"sex_activity_percent",    // CUSTOM
+	"oral_activity_percent",   // CUSTOM
+	"solo_activity_percent",   // CUSTOM
 	"facial_scenes_count",     // CUSTOM
 	"unique_performers_count", // CUSTOM
 	"random",
@@ -721,6 +724,12 @@ func (qb *StudioStore) getStudioSort(findFilter *models.FindFilterType) (string,
 		sortQuery += qb.sortByOralSceneCount(direction)
 	case "solo_scenes_count": // CUSTOM
 		sortQuery += qb.sortBySoloSceneCount(direction)
+	case "sex_activity_percent": // CUSTOM
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentSexCustom, direction)
+	case "oral_activity_percent": // CUSTOM
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentOralCustom, direction)
+	case "solo_activity_percent": // CUSTOM
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentSoloCustom, direction)
 	case "facial_scenes_count": // CUSTOM
 		sortQuery += qb.sortByFacialSceneCount(direction)
 	case "o_count": // CUSTOM

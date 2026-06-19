@@ -328,6 +328,22 @@ input RatingCriteriaFilterInput {
   penalties: [RatingScorePresenceFilterInput!]
 }
 
+input ActivityPercentFilterInput {
+  sex_percent: IntCriterionInput
+  oral_percent: IntCriterionInput
+  solo_percent: IntCriterionInput
+}
+
+input PerformerActivityPercentFilterInput {
+  sex_percent: IntCriterionInput
+  oral_percent: IntCriterionInput
+  solo_percent: IntCriterionInput
+  sex_top_percent: IntCriterionInput
+  sex_bottom_percent: IntCriterionInput
+  oral_top_percent: IntCriterionInput
+  oral_bottom_percent: IntCriterionInput
+}
+
 extend input PerformerFilterType {
   "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, royal_sapphire."
   metallic_rating: MultiCriterionInput
@@ -350,6 +366,15 @@ extend input PerformerFilterType {
   performer_marker_tags: PerformerMarkerTagsCriterionInput
   "Filter by markers shared with partners having specific attributes"
   performer_marker_partners: PerformerMarkerPartnersCriterionInput
+  "Filter by configured sex/oral/solo activity percentages and performer top/bottom percentages"
+  activity_percentages: PerformerActivityPercentFilterInput
+  sex_activity_percent: IntCriterionInput
+  oral_activity_percent: IntCriterionInput
+  solo_activity_percent: IntCriterionInput
+  sex_top_activity_percent: IntCriterionInput
+  sex_bottom_activity_percent: IntCriterionInput
+  oral_top_activity_percent: IntCriterionInput
+  oral_bottom_activity_percent: IntCriterionInput
 }
 
 extend input SceneMarkerFilterType {
@@ -415,6 +440,11 @@ extend input SceneFilterType {
   performer_rating: IntCriterionInput
   "When true, all linked performers must satisfy the performer_rating condition; when false, at least one performer must satisfy it (default: true)."
   performer_rating_all: Boolean
+  "Filter by configured sex/oral/solo activity percentages"
+  activity_percentages: ActivityPercentFilterInput
+  sex_activity_percent: IntCriterionInput
+  oral_activity_percent: IntCriterionInput
+  solo_activity_percent: IntCriterionInput
 }
 
 extend input GalleryFilterType {
@@ -446,6 +476,14 @@ extend input ImageFilterType {
 extend input GroupFilterType {
   "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, royal_sapphire."
   metallic_rating: MultiCriterionInput
+}
+
+extend input StudioFilterType {
+  "Filter by configured sex/oral/solo activity percentages"
+  activity_percentages: ActivityPercentFilterInput
+  sex_activity_percent: IntCriterionInput
+  oral_activity_percent: IntCriterionInput
+  solo_activity_percent: IntCriterionInput
 }
 
 extend input StudioFilterType {

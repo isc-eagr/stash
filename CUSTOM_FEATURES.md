@@ -2773,16 +2773,22 @@ deploy_prod_custom.bat -SkipStart
 
 Adds strict marker-duration stats for configured sex, oral, and solo tags. A qualifying marker must have the configured tag as its primary tag and no secondary tags. Same-category overlaps are merged, cross-category overlaps count toward each category, and uncovered runtime is reported as Other.
 
-Studio cards and studio detail pages show sex/oral/solo/other percentages using the length of scenes with qualifying markers as 100%. Performer-scoped studio cards use performer-filtered activity stats for the strip. Performer detail pages include a Stats tab with total sex/oral/solo time plus indented sex/oral top and bottom breakdowns. Scene and studio detail pages include Stats tabs with total length and sex/oral/solo/other lengths and percentages. The Scene Stats tab also shows a By Performer breakdown and can add qualifying sex/oral/solo markers to the multi-segment loop by selected activity.
+Studio cards and studio detail pages show sex/oral/solo/other percentages using the length of scenes with qualifying markers as 100%. Performer-scoped studio cards use performer-filtered activity stats for the strip. Performer detail pages include a Stats tab with total sex/oral/solo time plus indented sex/oral top and bottom breakdowns. Scene and studio detail pages include Stats tabs with total length and sex/oral/solo/other lengths and percentages. The Scene Stats tab also shows a By Performer breakdown and can add qualifying sex/oral/solo markers to the multi-segment loop by selected activity. Scene, performer, and studio list pages include a combined Activity Type percentage filter plus individual activity percentage sort options; performer cards show the active activity percentage only when sorting by one of those percentage fields.
 
 ### Files Modified
 
 - `graphql/schema/types/performer_custom.graphql` - Adds `PerformerActivityStats`
 - `graphql/schema/types/studio_custom.graphql` - Adds `StudioActivityStats`
+- `graphql/schema/types/filters_custom.graphql` - Adds activity percentage filters
 - `internal/api/activity_stats_custom.go` - Duration stats resolvers and interval merge helpers
+- `pkg/sqlite/activity_percent_filter_custom.go` - SQL activity percentage filter/sort expressions
+- `pkg/sqlite/scene.go`, `pkg/sqlite/performer.go`, `pkg/sqlite/studio.go` - Activity percentage sort options
 - `ui/v2.5/graphql/data/performer.graphql` - Fetches performer activity stats
 - `ui/v2.5/graphql/data/studio.graphql` - Fetches studio activity stats
 - `ui/v2.5/graphql/queries/studio.graphql` - Fetches performer-filtered studio activity stats
+- `ui/v2.5/src/models/list-filter/scenes.ts`, `performers.ts`, `studios.ts` - Activity Type percentage filter and sort options
+- `ui/v2.5/src/models/list-filter/criteria/activity-type_custom.ts`, `ui/v2.5/src/components/List/Filters/ActivityTypeFilter_custom.tsx` - Combined activity percentage filter UI
+- `ui/v2.5/src/components/Performers/PerformerCard.tsx` - Sort-specific activity percentage display
 - `ui/v2.5/src/components/Studios/StudioCard.tsx` - Studio card activity strip
 - `ui/v2.5/src/components/Studios/StudioActivityMetricsStrip.tsx` - Shared studio activity strip component
 - `ui/v2.5/src/components/Studios/styles.scss` - Studio activity strip styling

@@ -834,6 +834,13 @@ var performerSortOptions = sortOptions{
 	"oral_scenes_count",
 	"facial_scenes_count",
 	"solo_scenes_count",
+	"sex_activity_percent",
+	"oral_activity_percent",
+	"solo_activity_percent",
+	"sex_top_activity_percent",
+	"sex_bottom_activity_percent",
+	"oral_top_activity_percent",
+	"oral_bottom_activity_percent",
 	"orgasm_count",
 	"feet_markers_count",
 	"facial_given_count",
@@ -870,12 +877,7 @@ func (qb *PerformerStore) getPerformerSort(findFilter *models.FindFilterType, pe
 	// When a studio filter is active, the 'studio' CTE is defined in the WITH clause.
 	// We pass a SQL snippet to custom sort functions so they can filter scene_markers
 	// by scenes in that studio, making the sort studio-scoped instead of global.
-	studioSQL := ""
-	if performerFilter != nil && performerFilter.Studios != nil &&
-		performerFilter.Studios.Modifier == models.CriterionModifierIncludes &&
-		len(performerFilter.Studios.Value) > 0 {
-		studioSQL = " AND sm.scene_id IN (SELECT id FROM scenes WHERE studio_id IN (SELECT item_id FROM studio))"
-	}
+	studioSQL := activityPercentPerformerStudioSQLCustom(performerFilter)
 	// CUSTOM: end
 
 	sortQuery := ""
@@ -911,6 +913,20 @@ func (qb *PerformerStore) getPerformerSort(findFilter *models.FindFilterType, pe
 		sortQuery += qb.sortByPerformerFacialSceneCount(direction, studioSQL)
 	case "solo_scenes_count":
 		sortQuery += qb.sortByPerformerSoloSceneCount(direction, studioSQL)
+	case "sex_activity_percent":
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentSexCustom, direction, studioSQL)
+	case "oral_activity_percent":
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentOralCustom, direction, studioSQL)
+	case "solo_activity_percent":
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentSoloCustom, direction, studioSQL)
+	case "sex_top_activity_percent":
+		sortQuery += qb.sortByActivityRolePercentCustom(activityPercentSexCustom, "top", direction, studioSQL)
+	case "sex_bottom_activity_percent":
+		sortQuery += qb.sortByActivityRolePercentCustom(activityPercentSexCustom, "bottom", direction, studioSQL)
+	case "oral_top_activity_percent":
+		sortQuery += qb.sortByActivityRolePercentCustom(activityPercentOralCustom, "top", direction, studioSQL)
+	case "oral_bottom_activity_percent":
+		sortQuery += qb.sortByActivityRolePercentCustom(activityPercentOralCustom, "bottom", direction, studioSQL)
 	case "orgasm_count":
 		sortQuery += qb.sortByPerformerOrgasmCount(direction, studioSQL)
 	case "feet_markers_count": // CUSTOM

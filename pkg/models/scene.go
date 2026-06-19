@@ -84,6 +84,11 @@ type SceneFilterType struct {
 	MetallicRating *MultiCriterionInput `json:"metallic_rating"` // CUSTOM
 	// Filter by stored rating criteria, bonuses, and penalties
 	RatingCriteria *RatingCriteriaFilterInput `json:"rating_criteria"` // CUSTOM
+	// Filter by configured activity percentages
+	ActivityPercentages *ActivityPercentFilterInput `json:"activity_percentages"`  // CUSTOM
+	SexActivityPercent  *IntCriterionInput          `json:"sex_activity_percent"`  // CUSTOM
+	OralActivityPercent *IntCriterionInput          `json:"oral_activity_percent"` // CUSTOM
+	SoloActivityPercent *IntCriterionInput          `json:"solo_activity_percent"` // CUSTOM
 	// Filter by organized
 	Organized *bool `json:"organized"`
 	// Filter by o-counter

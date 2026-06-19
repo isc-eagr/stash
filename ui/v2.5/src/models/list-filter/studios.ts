@@ -15,6 +15,7 @@ import { TagsCriterionOption } from "./criteria/tags";
 import { ListFilterOptions } from "./filter-options";
 import { DisplayMode } from "./types";
 import { CustomFieldsCriterionOption } from "./criteria/custom-fields";
+import { ActivityTypeCriterionOptionInstance } from "./criteria/activity-type_custom"; // CUSTOM
 
 const defaultSortBy = "name";
 const sortByOptions = [
@@ -69,6 +70,18 @@ const sortByOptions = [
       messageID: "o_count",
       value: "o_count",
     },
+    {
+      messageID: "sex_activity_percent",
+      value: "sex_activity_percent",
+    },
+    {
+      messageID: "oral_activity_percent",
+      value: "oral_activity_percent",
+    },
+    {
+      messageID: "solo_activity_percent",
+      value: "solo_activity_percent",
+    },
     // CUSTOM: end
   ]);
 
@@ -82,6 +95,7 @@ const criterionOptions = [
   TagsCriterionOption,
   RatingCriterionOption,
   MetallicRatingCriterionOption, // CUSTOM
+  ActivityTypeCriterionOptionInstance, // CUSTOM
   createBooleanCriterionOption("ignore_auto_tag"),
   createBooleanCriterionOption("organized"),
   createMandatoryNumberCriterionOption("tag_count"),

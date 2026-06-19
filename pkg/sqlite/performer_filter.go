@@ -183,8 +183,16 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 		stringCriterionHandler(filter.Tattoos, tableName+".tattoos"),
 		stringCriterionHandler(filter.Piercings, tableName+".piercings"),
 		intCriterionHandler(filter.Rating100, tableName+".rating", nil),
-		metallicRatingCriterionHandler(filter.MetallicRating, tableName, tableName+".rating", "performers_tags", "performer_id", "performer"), // CUSTOM
-		ratingCriteriaCriterionHandler(filter.RatingCriteria, models.RatingEntityPerformer, tableName),                                        // CUSTOM
+		metallicRatingCriterionHandler(filter.MetallicRating, tableName, tableName+".rating", "performers_tags", "performer_id", "performer"),                                                                         // CUSTOM
+		ratingCriteriaCriterionHandler(filter.RatingCriteria, models.RatingEntityPerformer, tableName),                                                                                                                // CUSTOM
+		performerActivityPercentFilterHandlerCustom(filter.ActivityPercentages, activityPercentPerformerStudioSQLCustom(&filter)),                                                                                     // CUSTOM
+		activityPercentCriterionHandlerCustom(filter.SexActivityPercent, activityPercentPerformerCategoryPercentExprCustom(activityPercentSexCustom, activityPercentPerformerStudioSQLCustom(&filter))),               // CUSTOM
+		activityPercentCriterionHandlerCustom(filter.OralActivityPercent, activityPercentPerformerCategoryPercentExprCustom(activityPercentOralCustom, activityPercentPerformerStudioSQLCustom(&filter))),             // CUSTOM
+		activityPercentCriterionHandlerCustom(filter.SoloActivityPercent, activityPercentPerformerCategoryPercentExprCustom(activityPercentSoloCustom, activityPercentPerformerStudioSQLCustom(&filter))),             // CUSTOM
+		activityPercentCriterionHandlerCustom(filter.SexTopActivityPercent, activityPercentPerformerRolePercentExprCustom(activityPercentSexCustom, "top", activityPercentPerformerStudioSQLCustom(&filter))),         // CUSTOM
+		activityPercentCriterionHandlerCustom(filter.SexBottomActivityPercent, activityPercentPerformerRolePercentExprCustom(activityPercentSexCustom, "bottom", activityPercentPerformerStudioSQLCustom(&filter))),   // CUSTOM
+		activityPercentCriterionHandlerCustom(filter.OralTopActivityPercent, activityPercentPerformerRolePercentExprCustom(activityPercentOralCustom, "top", activityPercentPerformerStudioSQLCustom(&filter))),       // CUSTOM
+		activityPercentCriterionHandlerCustom(filter.OralBottomActivityPercent, activityPercentPerformerRolePercentExprCustom(activityPercentOralCustom, "bottom", activityPercentPerformerStudioSQLCustom(&filter))), // CUSTOM
 		stringCriterionHandler(filter.HairColor, tableName+".hair_color"),
 		qb.urlsCriterionHandler(filter.URL),
 		intCriterionHandler(filter.Weight, tableName+".weight", nil),
