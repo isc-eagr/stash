@@ -10,7 +10,6 @@ import { Helmet } from "react-helmet";
 import { Button } from "react-bootstrap";
 import videojs, { VideoJsPlayer, VideoJsPlayerOptions } from "video.js";
 import { UAParser } from "ua-parser-js";
-import "videojs-contrib-dash";
 import "videojs-mobile-ui";
 import "videojs-seek-buttons";
 import "src/components/ScenePlayer/source-selector";
@@ -238,6 +237,13 @@ function computeImageLayout(
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), Math.max(min, max));
+}
+
+function isDashSource(source: IVideoViewerSource) {
+  return (
+    source.type === "application/dash+xml" ||
+    source.src.toLowerCase().includes(".mpd")
+  );
 }
 
 function createAppendedVideoOverlay(
@@ -471,114 +477,129 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    const playerContainer = container;
     let disposed = false;
 
-    const videoEl = document.createElement("video-js");
-    videoEl.setAttribute("data-vjs-player", "true");
-    videoEl.setAttribute("crossorigin", "anonymous");
-    videoEl.classList.add("mv-video", "vjs-big-play-centered");
-    container.appendChild(videoEl);
+    async function initialisePlayer() {
+      const sources =
+        overlay.sources && overlay.sources.length > 0
+          ? overlay.sources
+          : [{ src: overlay.streamUrl }];
 
-    const options: VideoJsPlayerOptions = {
-      controls: true,
-      autoplay: true,
-      loop: true,
-      muted: true,
-      preload: "auto",
-      playsinline: true,
-      controlBar: {
-        pictureInPictureToggle: false,
-        volumePanel: {
-          inline: false,
+      if (sources.some(isDashSource)) {
+        await import("videojs-contrib-dash");
+      }
+
+      if (disposed) return;
+
+      const videoEl = document.createElement("video-js");
+      videoEl.setAttribute("data-vjs-player", "true");
+      videoEl.setAttribute("crossorigin", "anonymous");
+      videoEl.classList.add("mv-video", "vjs-big-play-centered");
+      playerContainer.appendChild(videoEl);
+
+      const options: VideoJsPlayerOptions = {
+        controls: true,
+        autoplay: true,
+        loop: true,
+        muted: true,
+        preload: "auto",
+        playsinline: true,
+        controlBar: {
+          pictureInPictureToggle: false,
+          volumePanel: {
+            inline: false,
+          },
+          chaptersButton: false,
         },
-        chaptersButton: false,
-      },
-      html5: {
-        dash: {
-          updateSettings: [
-            {
-              streaming: {
-                buffer: {
-                  bufferTimeAtTopQuality: 30,
-                  bufferTimeAtTopQualityLongForm: 30,
-                },
-                gaps: {
-                  jumpGaps: false,
-                  jumpLargeGaps: false,
+        html5: {
+          dash: {
+            updateSettings: [
+              {
+                streaming: {
+                  buffer: {
+                    bufferTimeAtTopQuality: 30,
+                    bufferTimeAtTopQualityLongForm: 30,
+                  },
+                  gaps: {
+                    jumpGaps: false,
+                    jumpLargeGaps: false,
+                  },
                 },
               },
-            },
-          ],
+            ],
+          },
         },
-      },
-      nativeControlsForTouch: false,
-      playbackRates: [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2],
-      inactivityTimeout: 700,
-      plugins: {
-        markers: {},
-        vttThumbnails: {
-          showTimestamp: true,
+        nativeControlsForTouch: false,
+        playbackRates: [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2],
+        inactivityTimeout: 700,
+        plugins: {
+          markers: {},
+          vttThumbnails: {
+            showTimestamp: true,
+          },
+          sourceSelector: {},
+          bigButtons: {},
+          seekButtonsMenu: {
+            forward: 10,
+            back: 10,
+          },
+          multiSegmentLoop: {
+            segments: [],
+            enabled: false,
+            currentSegmentIndex: 0,
+            createButton: false,
+          },
         },
-        sourceSelector: {},
-        bigButtons: {},
-        seekButtonsMenu: {
-          forward: 10,
-          back: 10,
-        },
-        multiSegmentLoop: {
-          segments: [],
-          enabled: false,
-          currentSegmentIndex: 0,
-          createButton: false,
-        },
-      },
-    };
+      };
 
-    const player = videojs(videoEl, options);
-    playerRef.current = player;
+      const player = videojs(videoEl, options);
+      playerRef.current = player;
 
-    player.ready(() => {
-      if (!disposed && !player.isDisposed()) {
-        setPlayerReadyToken((value) => value + 1);
-      }
-    });
-
-    const isSafari = UAParser().browser.name?.includes("Safari");
-    if (!isSafari) {
-      player.mobileUi({
-        fullscreen: {
-          enterOnRotate: true,
-          exitOnRotate: true,
-          lockOnRotate: false,
-        },
-        touchControls: {
-          disabled: true,
-        },
+      player.ready(() => {
+        if (!disposed && !player.isDisposed()) {
+          setPlayerReadyToken((value) => value + 1);
+        }
       });
+
+      const isSafari = UAParser().browser.name?.includes("Safari");
+      if (!isSafari) {
+        player.mobileUi({
+          fullscreen: {
+            enterOnRotate: true,
+            exitOnRotate: true,
+            lockOnRotate: false,
+          },
+          touchControls: {
+            disabled: true,
+          },
+        });
+      }
+
+      const handleLoadedMetadata = () => {
+        const videoWidth = player.videoWidth();
+        const videoHeight = player.videoHeight();
+        if (!videoWidth || !videoHeight) return;
+        aspectRatioRef.current = videoWidth / videoHeight;
+        snapToAspectRatio();
+        player.markers?.().setFallbackDuration(overlay.duration ?? 0);
+        player.markers?.().clearMarkers();
+        player.multiSegmentLoop?.().renderSegmentMarkers();
+      };
+
+      player.on("loadedmetadata", handleLoadedMetadata);
     }
 
-    const handleLoadedMetadata = () => {
-      const videoWidth = player.videoWidth();
-      const videoHeight = player.videoHeight();
-      if (!videoWidth || !videoHeight) return;
-      aspectRatioRef.current = videoWidth / videoHeight;
-      snapToAspectRatio();
-      player.markers?.().setFallbackDuration(overlay.duration ?? 0);
-      player.markers?.().clearMarkers();
-      player.multiSegmentLoop?.().renderSegmentMarkers();
-    };
-
-    player.on("loadedmetadata", handleLoadedMetadata);
+    initialisePlayer();
 
     return () => {
       disposed = true;
-      player.off("loadedmetadata", handleLoadedMetadata);
       if (playerRef.current && !playerRef.current.isDisposed()) {
         playerRef.current.dispose();
       }
       playerRef.current = undefined;
     };
-  }, [overlay.duration, snapToAspectRatio]);
+  }, [overlay.duration, overlay.sources, overlay.streamUrl, snapToAspectRatio]);
 
   useEffect(() => {
     setSegmentPresets(overlay.segmentPresets ?? []);

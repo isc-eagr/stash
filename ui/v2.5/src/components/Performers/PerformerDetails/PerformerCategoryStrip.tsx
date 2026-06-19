@@ -296,7 +296,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     (
       partners: Array<{ id: string; name: string; image_path?: string | null }>
     ) => (
-      <div className="performer-hover-grid">
+      <div className="performer-hover-grid performer-partner-hover-grid">
         {partners.map((partner) => (
           <div
             className="performer-tag-container performer-hover-row"
@@ -319,6 +319,12 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     ),
     []
   );
+
+  const partnerHoverPopoverProps = {
+    placement: "bottom" as const,
+    popoverClassName: "performer-partner-hover-popover",
+    onOpen: handleArrowHover,
+  };
   // CUSTOM: end
 
   const p = performer;
@@ -1148,7 +1154,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                         return topPartners.length > 0 ? (
                           <HoverPopover
                             key="top"
-                            placement="bottom"
+                            {...partnerHoverPopoverProps}
                             content={renderMiniPartnerRows(topPartners)}
                           >
                             {badgeEl}
@@ -1228,7 +1234,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                         return bottomPartners.length > 0 ? (
                           <HoverPopover
                             key="bottom"
-                            placement="bottom"
+                            {...partnerHoverPopoverProps}
                             content={renderMiniPartnerRows(bottomPartners)}
                           >
                             {badgeEl}
@@ -1347,8 +1353,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                       const allPartners = getAllMiniPartners(role.category);
                       return (
                         <HoverPopover
-                          placement="bottom"
-                          onOpen={handleArrowHover}
+                          {...partnerHoverPopoverProps}
                           content={renderMiniPartnerRows(allPartners)}
                         >
                           <div className="category-icon-container unique-partners-row">
@@ -1453,16 +1458,14 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                       const topPartners = getMiniPartners(role.category, "top");
                       return topPartners.length > 0 ? (
                         <HoverPopover
-                          placement="bottom"
-                          onOpen={handleArrowHover}
+                          {...partnerHoverPopoverProps}
                           content={renderMiniPartnerRows(topPartners)}
                         >
                           {topBadge}
                         </HoverPopover>
                       ) : (
                         <HoverPopover
-                          placement="bottom"
-                          onOpen={handleArrowHover}
+                          {...partnerHoverPopoverProps}
                           content={[]}
                         >
                           {topBadge}
@@ -1533,16 +1536,14 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                       );
                       return bottomPartners.length > 0 ? (
                         <HoverPopover
-                          placement="bottom"
-                          onOpen={handleArrowHover}
+                          {...partnerHoverPopoverProps}
                           content={renderMiniPartnerRows(bottomPartners)}
                         >
                           {bottomBadge}
                         </HoverPopover>
                       ) : (
                         <HoverPopover
-                          placement="bottom"
-                          onOpen={handleArrowHover}
+                          {...partnerHoverPopoverProps}
                           content={[]}
                         >
                           {bottomBadge}

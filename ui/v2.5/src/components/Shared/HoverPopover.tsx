@@ -9,6 +9,7 @@ interface IHoverPopover {
   leaveDelay?: number;
   content: JSX.Element[] | JSX.Element | string;
   className?: string;
+  popoverClassName?: string; // CUSTOM
   placement?: OverlayProps["placement"];
   onOpen?: () => void;
   onClose?: () => void;
@@ -23,6 +24,7 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
     content,
     children,
     className,
+    popoverClassName, // CUSTOM
     placement = "top",
     onOpen,
     onClose,
@@ -30,6 +32,7 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
   }) => {
     const [show, setShow] = useState(false);
     const [effectivePlacement, setEffectivePlacement] = useState(placement); // CUSTOM
+    const [popoverMaxHeight, setPopoverMaxHeight] = useState<number>(); // CUSTOM
     const triggerRef = useRef<HTMLDivElement>(null);
     const popoverRef = useRef<HTMLDivElement | null>(null); // CUSTOM
     const enterTimer = useRef<number>();
@@ -38,21 +41,36 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
     const handleMouseEnter = useCallback(() => {
       window.clearTimeout(leaveTimer.current);
       enterTimer.current = window.setTimeout(() => {
-        // CUSTOM: begin - keep bottom popovers inside the viewport near page end
+        // CUSTOM: begin - keep tall top/bottom popovers inside the viewport
         const targetElement = target?.current ?? triggerRef.current;
         if (
           typeof placement === "string" &&
-          placement.startsWith("bottom") &&
+          (placement.startsWith("bottom") || placement.startsWith("top")) &&
           targetElement
         ) {
           const rect = targetElement.getBoundingClientRect();
           const spaceBelow = window.innerHeight - rect.bottom;
           const spaceAbove = rect.top;
-          setEffectivePlacement(
-            spaceBelow < 260 && spaceAbove > spaceBelow ? "top" : placement
-          );
+          const nextPlacement =
+            placement.startsWith("bottom") && spaceBelow < 260
+              ? spaceAbove > spaceBelow
+                ? "top"
+                : placement
+              : placement.startsWith("top") && spaceAbove < 360
+              ? spaceBelow > spaceAbove
+                ? "bottom"
+                : placement
+              : placement;
+
+          const availableSpace = nextPlacement.startsWith("bottom")
+            ? spaceBelow
+            : spaceAbove;
+
+          setEffectivePlacement(nextPlacement);
+          setPopoverMaxHeight(Math.max(180, availableSpace - 24));
         } else {
           setEffectivePlacement(placement);
+          setPopoverMaxHeight(undefined);
         }
         // CUSTOM: end
         setShow(true);
@@ -96,7 +114,14 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
               id="popover"
-              className="hover-popover-content"
+              className={`hover-popover-content ${popoverClassName ?? ""}`} // CUSTOM
+              style={
+                {
+                  "--hover-popover-max-height": popoverMaxHeight
+                    ? `${popoverMaxHeight}px`
+                    : undefined,
+                } as React.CSSProperties
+              } // CUSTOM
               ref={(el: HTMLDivElement | null) => {
                 // CUSTOM: begin
                 // keep a ref to the popover DOM node

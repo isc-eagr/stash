@@ -17,7 +17,6 @@ import { RatingBanner } from "../Shared/RatingBanner";
 import { FormattedMessage } from "react-intl";
 import {
   faBox,
-  faClock, // CUSTOM
   faCopy,
   faFilm,
   faHand, // CUSTOM
@@ -37,6 +36,7 @@ import {
   getRatingCardClass,
   isRatingCardHomePage,
 } from "src/utils/ratingCardStyles_custom"; // CUSTOM
+import { SceneActivityMetrics } from "./SceneActivityMetrics_custom"; // CUSTOM
 // CUSTOM: begin - role icon SVG imports
 import mouthSvg from "src/assets/mouth.svg";
 import gaySvg from "src/assets/gay.svg";
@@ -143,31 +143,6 @@ const Description: React.FC<{
   );
 };
 
-// CUSTOM: begin - scene activity duration metrics
-type SceneMarkerTag = {
-  id?: string;
-  parents?: SceneMarkerTag[];
-};
-
-type SceneActivityCategory = "sex" | "oral" | "solo";
-
-type SceneActivityMetric = {
-  key: SceneActivityCategory | "other";
-  label: string;
-  percent: number;
-};
-
-type SceneActivityInterval = {
-  start: number;
-  end: number;
-};
-
-type SceneActivityRoleTagIds = {
-  sexTagId?: string;
-  oralTagId?: string;
-  soloTagId?: string;
-};
-
 type SceneCardTitleIcon =
   | {
       type: "gay" | "mouth" | "straight" | "goatee";
@@ -181,150 +156,20 @@ type SceneCardTitleIcon =
       title: string;
     };
 
-function sceneActivityMarkerPrimaryTagIsOnlyTag(
-  marker: GQL.SlimSceneDataFragment["scene_markers"][number],
-  targetId: string | undefined
-): boolean {
-  if (!targetId) return false;
-  return marker.primary_tag.id === targetId && marker.tags.length === 0;
-}
-
-function mergeSceneActivityIntervals(
-  intervals: SceneActivityInterval[]
-): SceneActivityInterval[] {
-  const sorted = [...intervals].sort((a, b) => a.start - b.start);
-  const merged: SceneActivityInterval[] = [];
-
-  sorted.forEach((interval) => {
-    const last = merged[merged.length - 1];
-    if (!last || interval.start > last.end) {
-      merged.push({ ...interval });
-      return;
-    }
-
-    last.end = Math.max(last.end, interval.end);
-  });
-
-  return merged;
-}
-
-function getSceneActivityDuration(intervals: SceneActivityInterval[]) {
-  return mergeSceneActivityIntervals(intervals).reduce(
-    (sum, interval) => sum + interval.end - interval.start,
-    0
-  );
-}
-
-function getSceneActivityPercent(duration: number, sceneDuration: number) {
-  return Math.round((duration / sceneDuration) * 100);
-}
-
-function getSceneActivityMetrics(
-  scene: GQL.SlimSceneDataFragment,
-  roleTagIds: SceneActivityRoleTagIds
-): SceneActivityMetric[] | undefined {
-  const sceneDuration = scene.files[0]?.duration ?? 0;
-  if (sceneDuration <= 0) return undefined;
-
-  const intervalsByCategory: Record<
-    SceneActivityCategory,
-    SceneActivityInterval[]
-  > = {
-    sex: [],
-    oral: [],
-    solo: [],
-  };
-
-  scene.scene_markers.forEach((marker) => {
-    if (marker.end_seconds === null || marker.end_seconds === undefined) {
-      return;
-    }
-
-    const interval = {
-      start: Math.max(0, Math.min(marker.seconds, sceneDuration)),
-      end: Math.max(0, Math.min(marker.end_seconds, sceneDuration)),
-    };
-
-    if (interval.end <= interval.start) return;
-
-    if (sceneActivityMarkerPrimaryTagIsOnlyTag(marker, roleTagIds.sexTagId)) {
-      intervalsByCategory.sex.push(interval);
-    }
-
-    if (sceneActivityMarkerPrimaryTagIsOnlyTag(marker, roleTagIds.oralTagId)) {
-      intervalsByCategory.oral.push(interval);
-    }
-
-    if (sceneActivityMarkerPrimaryTagIsOnlyTag(marker, roleTagIds.soloTagId)) {
-      intervalsByCategory.solo.push(interval);
-    }
-  });
-
-  const allActivityIntervals = [
-    ...intervalsByCategory.sex,
-    ...intervalsByCategory.oral,
-    ...intervalsByCategory.solo,
-  ];
-
-  if (allActivityIntervals.length === 0) return undefined;
-
-  const coveredDuration = getSceneActivityDuration(allActivityIntervals);
-
-  return [
-    {
-      key: "sex",
-      label: "Sex",
-      percent: getSceneActivityPercent(
-        getSceneActivityDuration(intervalsByCategory.sex),
-        sceneDuration
-      ),
-    },
-    {
-      key: "oral",
-      label: "Oral",
-      percent: getSceneActivityPercent(
-        getSceneActivityDuration(intervalsByCategory.oral),
-        sceneDuration
-      ),
-    },
-    {
-      key: "solo",
-      label: "Solo",
-      percent: getSceneActivityPercent(
-        getSceneActivityDuration(intervalsByCategory.solo),
-        sceneDuration
-      ),
-    },
-    {
-      key: "other",
-      label: "Other",
-      percent: getSceneActivityPercent(
-        Math.max(0, sceneDuration - coveredDuration),
-        sceneDuration
-      ),
-    },
-  ];
-}
+// CUSTOM: begin - role tag icon hierarchy type
+type SceneMarkerTag = {
+  id?: string;
+  parents?: SceneMarkerTag[];
+};
 // CUSTOM: end
 
 const SceneCardPopovers = PatchComponent(
   "SceneCard.Popovers",
   (props: ISceneCardProps) => {
-    const { configuration } = useConfigurationContext(); // CUSTOM
     const file = useMemo(
       () => (props.scene.files.length > 0 ? props.scene.files[0] : undefined),
       [props.scene]
     );
-    // CUSTOM: begin - scene activity duration metrics
-    const activityMetrics = useMemo(
-      () =>
-        getSceneActivityMetrics(
-          props.scene,
-          configuration?.ui?.roleTagIds ?? {}
-        ),
-      [configuration?.ui?.roleTagIds, props.scene]
-    );
-    // CUSTOM: end
 
     const sceneNumber = useMemo(() => {
       if (!props.fromGroupId) {
@@ -475,62 +320,6 @@ const SceneCardPopovers = PatchComponent(
       }
     }
 
-    // CUSTOM: begin - scene activity duration metrics
-    function maybeRenderActivityMetrics() {
-      if (!activityMetrics) return;
-
-      return (
-        <div className="scene-activity-metrics">
-          {activityMetrics.map((metric) => {
-            const tooltip = `${metric.label}: ${metric.percent}%`;
-            const tooltipId = `scene-activity-${props.scene.id}-${metric.key}`;
-
-            return (
-              <OverlayTrigger
-                key={metric.key}
-                overlay={<Tooltip id={tooltipId}>{tooltip}</Tooltip>}
-                placement="bottom"
-              >
-                <span
-                  className={`scene-activity-metric scene-activity-metric--${metric.key}`}
-                  aria-label={tooltip}
-                >
-                  {metric.key === "sex" && (
-                    <img
-                      className="scene-activity-metric__svg"
-                      src={gaySvg}
-                      alt=""
-                    />
-                  )}
-                  {metric.key === "oral" && (
-                    <img
-                      className="scene-activity-metric__svg"
-                      src={mouthSvg}
-                      alt=""
-                    />
-                  )}
-                  {metric.key === "solo" && (
-                    <Icon
-                      icon={faHand}
-                      className="scene-activity-metric__hand"
-                    />
-                  )}
-                  {metric.key === "other" && (
-                    <Icon
-                      icon={faClock}
-                      className="scene-activity-metric__other"
-                    />
-                  )}
-                  <span>{metric.percent}%</span>
-                </span>
-              </OverlayTrigger>
-            );
-          })}
-        </div>
-      );
-    }
-    // CUSTOM: end
-
     function maybeRenderPopoverButtonGroup() {
       if (
         !props.compact &&
@@ -558,7 +347,7 @@ const SceneCardPopovers = PatchComponent(
               {maybeRenderOrganized()}
               {maybeRenderDupeCopies()}
             </ButtonGroup>
-            {maybeRenderActivityMetrics()}
+            <SceneActivityMetrics scene={props.scene} />
           </>
         );
       }

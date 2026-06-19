@@ -726,6 +726,52 @@ div.dropdown-menu {
   white-space: nowrap;
 }
 
+.hover-popover-content.popover.performer-partner-hover-popover {
+  max-width: min(calc(5 * 9rem + 4 * 0.75rem + 1rem), calc(100vw - 2rem));
+}
+
+.performer-partner-hover-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, 9rem);
+  justify-content: center;
+  max-height: min(
+    calc(100vh - 4rem),
+    var(--hover-popover-max-height, calc(100vh - 4rem))
+  );
+  max-width: calc(5 * 9rem + 4 * 0.75rem + 1rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  width: fit-content;
+
+  .performer-hover-row {
+    width: 9rem;
+  }
+
+  .performer-hover-image-thumbnail {
+    height: 13.5rem;
+    min-width: 9rem;
+    width: 9rem;
+  }
+}
+
+@media (max-width: 42rem) {
+  .performer-partner-hover-grid {
+    grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+
+    .performer-hover-row,
+    .performer-hover-image-thumbnail {
+      width: 7.5rem;
+    }
+
+    .performer-hover-image-thumbnail {
+      height: 11.25rem;
+      min-width: 7.5rem;
+    }
+  }
+}
+
 .performer-hover-popover,
 .marker-performer-hover-trigger,
 .mv-performer-hover-trigger {

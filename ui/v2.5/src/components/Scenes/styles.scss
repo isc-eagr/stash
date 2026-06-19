@@ -25,6 +25,12 @@
   padding: 0 0.5rem;
 }
 
+.scene-activity-metrics--detail {
+  justify-content: flex-start;
+  margin: 0.2rem 0 0.4rem;
+  padding: 0;
+}
+
 .scene-activity-metric {
   align-items: center;
   background-color: rgba(255, 255, 255, 0.08);

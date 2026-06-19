@@ -68,6 +68,7 @@ import type {
   IMultiSegmentLoopApi,
   ILoopSegmentInput,
 } from "src/components/ScenePlayer/multi-segment-loop";
+import { SceneActivityMetrics } from "../SceneActivityMetrics_custom";
 // CUSTOM: end
 
 const SubmitStashBoxDraft = lazyComponent(
@@ -849,6 +850,12 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               {/* CUSTOM: end */}
             </h3>
           </div>
+
+          {/* CUSTOM: scene activity duration metrics */}
+          <SceneActivityMetrics
+            scene={scene}
+            className="scene-activity-metrics--detail"
+          />
 
           <div className="scene-subheader">
             <span
