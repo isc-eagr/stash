@@ -5,7 +5,12 @@ import {
 import { Criterion, CriterionOption } from "./criterion";
 import { ILabeledId } from "../types";
 import { IntlShape } from "react-intl";
-import { IUnnamedPerformer, isUnnamedPerformerId } from "./unnamed-performer";
+import { ratingCriteriaValueToCriterionInput } from "./rating-criteria_custom";
+import {
+  cloneUnnamedPerformer,
+  IUnnamedPerformer,
+  isUnnamedPerformerId,
+} from "./unnamed-performer";
 
 // Rating criterion for backwards compatibility
 export interface IMarkerRatingCriterion {
@@ -83,12 +88,9 @@ export class MarkerPerformersCriterion extends Criterion {
       bottom_rating: this.value.bottom_rating
         ? { ...this.value.bottom_rating }
         : null,
-      unnamed_performers: (this.value.unnamed_performers ?? []).map((up) => ({
-        ...up,
-        ethnicities: [...up.ethnicities],
-        countries: [...up.countries],
-        rating: up.rating ? { ...up.rating } : null,
-      })),
+      unnamed_performers: (this.value.unnamed_performers ?? []).map(
+        cloneUnnamedPerformer
+      ),
     };
   }
 
@@ -148,6 +150,7 @@ export class MarkerPerformersCriterion extends Criterion {
         ethnicities: up.ethnicities,
         countries: up.countries,
         rating: up.rating,
+        rating_criteria: up.rating_criteria,
       })),
     };
   }
@@ -186,14 +189,9 @@ export class MarkerPerformersCriterion extends Criterion {
       }));
     }
     if (raw.unnamed_performers) {
-      this.value.unnamed_performers = raw.unnamed_performers.map((up) => ({
-        id: up.id,
-        label: up.label,
-        letter: up.letter,
-        ethnicities: up.ethnicities ?? [],
-        countries: up.countries ?? [],
-        rating: up.rating ?? null,
-      }));
+      this.value.unnamed_performers = raw.unnamed_performers.map(
+        cloneUnnamedPerformer
+      );
     }
   }
 
@@ -276,6 +274,9 @@ export class MarkerPerformersCriterion extends Criterion {
           ethnicities: def.ethnicities.length > 0 ? def.ethnicities : undefined,
           countries: def.countries.length > 0 ? def.countries : undefined,
           rating: def.rating ?? undefined,
+          rating_criteria: ratingCriteriaValueToCriterionInput(
+            def.rating_criteria
+          ),
         });
       }
     }
@@ -291,6 +292,9 @@ export class MarkerPerformersCriterion extends Criterion {
               def.ethnicities.length > 0 ? def.ethnicities : undefined,
             countries: def.countries.length > 0 ? def.countries : undefined,
             rating: def.rating ?? undefined,
+            rating_criteria: ratingCriteriaValueToCriterionInput(
+              def.rating_criteria
+            ),
           });
         }
       }
@@ -307,6 +311,9 @@ export class MarkerPerformersCriterion extends Criterion {
               def.ethnicities.length > 0 ? def.ethnicities : undefined,
             countries: def.countries.length > 0 ? def.countries : undefined,
             rating: def.rating ?? undefined,
+            rating_criteria: ratingCriteriaValueToCriterionInput(
+              def.rating_criteria
+            ),
           });
         }
       }
@@ -371,6 +378,7 @@ export class MarkerPerformersCriterion extends Criterion {
         ethnicities: up.ethnicities,
         countries: up.countries,
         rating: up.rating,
+        rating_criteria: up.rating_criteria,
       })),
       modifier: this.modifier,
     };
@@ -413,14 +421,9 @@ export class MarkerPerformersCriterion extends Criterion {
       }));
     }
     if (data.unnamed_performers) {
-      this.value.unnamed_performers = data.unnamed_performers.map((up) => ({
-        id: up.id,
-        label: up.label,
-        letter: up.letter,
-        ethnicities: up.ethnicities ?? [],
-        countries: up.countries ?? [],
-        rating: up.rating ?? null,
-      }));
+      this.value.unnamed_performers = data.unnamed_performers.map(
+        cloneUnnamedPerformer
+      );
     }
   }
 }

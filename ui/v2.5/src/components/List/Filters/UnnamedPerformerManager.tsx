@@ -25,6 +25,11 @@ import {
   createUnnamedPerformer,
   formatUnnamedPerformerSummary,
 } from "src/models/list-filter/criteria/unnamed-performer";
+import {
+  PerformerRatingCriteriaCriterionOption,
+  RatingCriteriaCriterion,
+} from "src/models/list-filter/criteria/rating-criteria_custom";
+import { RatingCriteriaFilter } from "./RatingCriteriaFilter_custom";
 
 // Country option with flag
 const CountryOption: React.FC<
@@ -100,6 +105,17 @@ export const UnnamedPerformerEditor: React.FC<IUnnamedPerformerEditorProps> = ({
   };
 
   const { rating } = editedPerformer;
+  const ratingCriteriaCriterion = React.useMemo(() => {
+    const criterion = new RatingCriteriaCriterion(
+      PerformerRatingCriteriaCriterionOption
+    );
+    criterion.value = editedPerformer.rating_criteria ?? {
+      criteria: {},
+      bonuses: {},
+      penalties: {},
+    };
+    return criterion;
+  }, [editedPerformer.rating_criteria]);
 
   const onRatingModifierChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const { value } = e.target;
@@ -128,6 +144,13 @@ export const UnnamedPerformerEditor: React.FC<IUnnamedPerformerEditorProps> = ({
     setEditedPerformer({
       ...editedPerformer,
       rating: null,
+    });
+  };
+
+  const onRatingCriteriaChange = (criterion: RatingCriteriaCriterion) => {
+    setEditedPerformer({
+      ...editedPerformer,
+      rating_criteria: criterion.isValid() ? criterion.value : null,
     });
   };
 
@@ -240,6 +263,19 @@ export const UnnamedPerformerEditor: React.FC<IUnnamedPerformerEditorProps> = ({
               />
             </Col>
           </Row>
+        </Form.Group>
+
+        <Form.Group className="mb-3">
+          <Form.Label>
+            <FormattedMessage
+              id="rating_criteria"
+              defaultMessage="Performer Rating Criteria"
+            />
+          </Form.Label>
+          <RatingCriteriaFilter
+            criterion={ratingCriteriaCriterion}
+            setCriterion={onRatingCriteriaChange}
+          />
         </Form.Group>
       </Card.Body>
       <Card.Footer className="d-flex justify-content-end gap-2">

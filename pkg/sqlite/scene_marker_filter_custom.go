@@ -396,6 +396,66 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 			return out
 		}
 
+		appendPerformerRatingCriteria := func(conds *[]string, args *[]interface{}, performerAlias string, ratingCriteria *models.RatingCriteriaFilterInput) bool {
+			if ratingCriteria == nil {
+				return true
+			}
+
+			for _, c := range ratingCriteria.Criteria {
+				if c == nil || c.Value == nil || c.Key == "" {
+					continue
+				}
+				if !c.Value.ValidModifier() {
+					f.setError(fmt.Errorf("invalid modifier %s for performer rating criterion %s", c.Value.Modifier, c.Key))
+					return false
+				}
+
+				whereClause, whereArgs := getFloatCriterionWhereClause("rs.raw_value", *c.Value)
+				*conds = append(*conds, fmt.Sprintf(
+					"EXISTS (SELECT 1 FROM %s rs WHERE rs.entity_type = ? AND rs.entity_id = %s.id AND rs.key = ? AND %s)",
+					ratingCriteriaScoresTable,
+					performerAlias,
+					whereClause,
+				))
+				*args = append(*args, models.RatingEntityPerformer, c.Key)
+				*args = append(*args, whereArgs...)
+			}
+
+			for _, c := range ratingCriteria.Bonuses {
+				if c == nil || c.Key == "" {
+					continue
+				}
+				clause := fmt.Sprintf(
+					"EXISTS (SELECT 1 FROM %s rs WHERE rs.entity_type = ? AND rs.entity_id = %s.id AND rs.key = ? AND (rs.raw_value != 0 OR rs.weighted_value != 0))",
+					ratingBonusScoresTable,
+					performerAlias,
+				)
+				if !c.Value {
+					clause = "NOT (" + clause + ")"
+				}
+				*conds = append(*conds, clause)
+				*args = append(*args, models.RatingEntityPerformer, c.Key)
+			}
+
+			for _, c := range ratingCriteria.Penalties {
+				if c == nil || c.Key == "" {
+					continue
+				}
+				clause := fmt.Sprintf(
+					"EXISTS (SELECT 1 FROM %s rs WHERE rs.entity_type = ? AND rs.entity_id = %s.id AND rs.key = ? AND (rs.raw_value != 0 OR rs.weighted_value != 0))",
+					ratingPenaltyScoresTable,
+					performerAlias,
+				)
+				if !c.Value {
+					clause = "NOT (" + clause + ")"
+				}
+				*conds = append(*conds, clause)
+				*args = append(*args, models.RatingEntityPerformer, c.Key)
+			}
+
+			return true
+		}
+
 		// Handle IS_NULL / NOT_NULL modifiers for simple presence checks
 		if input.Modifier == models.CriterionModifierIsNull || input.Modifier == models.CriterionModifierNotNull {
 			var notClause string
@@ -569,6 +629,9 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 						slotConds = append(slotConds, ratingCond)
 						slotArgs = append(slotArgs, ratingArgs...)
 					}
+					if !appendPerformerRatingCriteria(&slotConds, &slotArgs, palias, slot.RatingCriteria) {
+						return
+					}
 
 					existsCond := fmt.Sprintf(`EXISTS (
 						SELECT 1 FROM scene_marker_performers %s
@@ -615,6 +678,9 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 							ratingCond, ratingArgs := getRatingComparison(palias+".rating", slot.Rating)
 							slotConds = append(slotConds, ratingCond)
 							countArgs = append(countArgs, ratingArgs...)
+						}
+						if !appendPerformerRatingCriteria(&slotConds, &countArgs, palias, slot.RatingCriteria) {
+							return
 						}
 
 						part := fmt.Sprintf(`SELECT DISTINCT %s.performer_id FROM scene_marker_performers %s
@@ -665,6 +731,9 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 						slotConds = append(slotConds, ratingCond)
 						slotArgs = append(slotArgs, ratingArgs...)
 					}
+					if !appendPerformerRatingCriteria(&slotConds, &slotArgs, palias, slot.RatingCriteria) {
+						return
+					}
 
 					existsCond := fmt.Sprintf(`EXISTS (
 						SELECT 1 FROM scene_marker_performers %s
@@ -708,6 +777,9 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 							ratingCond, ratingArgs := getRatingComparison("p.rating", slot.Rating)
 							slotConds = append(slotConds, ratingCond)
 							slotSlotArgs = append(slotSlotArgs, ratingArgs...)
+						}
+						if !appendPerformerRatingCriteria(&slotConds, &slotSlotArgs, "p", slot.RatingCriteria) {
+							return
 						}
 
 						unionPart := fmt.Sprintf(`SELECT smp.performer_id FROM scene_marker_performers smp
@@ -755,6 +827,9 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 						ratingCond, ratingArgs := getRatingComparison(palias+".rating", slot.Rating)
 						slotConds = append(slotConds, ratingCond)
 						slotArgs = append(slotArgs, ratingArgs...)
+					}
+					if !appendPerformerRatingCriteria(&slotConds, &slotArgs, palias, slot.RatingCriteria) {
+						return
 					}
 
 					// Must be both top AND bottom
@@ -805,6 +880,9 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 							ratingCond, ratingArgs := getRatingComparison("p.rating", slot.Rating)
 							slotConds = append(slotConds, ratingCond)
 							slotSlotArgs = append(slotSlotArgs, ratingArgs...)
+						}
+						if !appendPerformerRatingCriteria(&slotConds, &slotSlotArgs, "p", slot.RatingCriteria) {
+							return
 						}
 
 						var criteriaClause string
@@ -864,6 +942,9 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 						slotConds = append(slotConds, ratingCond)
 						slotSlotArgs = append(slotSlotArgs, ratingArgs...)
 					}
+					if !appendPerformerRatingCriteria(&slotConds, &slotSlotArgs, "p", slot.RatingCriteria) {
+						return
+					}
 
 					unionPart := fmt.Sprintf(`SELECT smp.performer_id FROM scene_marker_performers smp
 						JOIN performers p ON p.id = smp.performer_id
@@ -900,6 +981,9 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 						ratingCond, ratingArgs := getRatingComparison("p.rating", slot.Rating)
 						slotConds = append(slotConds, ratingCond)
 						slotSlotArgs = append(slotSlotArgs, ratingArgs...)
+					}
+					if !appendPerformerRatingCriteria(&slotConds, &slotSlotArgs, "p", slot.RatingCriteria) {
+						return
 					}
 
 					unionPart := fmt.Sprintf(`SELECT smp.performer_id FROM scene_marker_performers smp

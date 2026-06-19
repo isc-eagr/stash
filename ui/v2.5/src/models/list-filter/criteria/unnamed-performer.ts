@@ -9,6 +9,7 @@
  */
 
 import { CriterionModifier } from "src/core/generated-graphql";
+import { IRatingCriteriaValue } from "./rating-criteria_custom";
 
 // Rating criterion for unnamed performers
 export interface IUnnamedPerformerRating {
@@ -29,6 +30,7 @@ export interface IUnnamedPerformer {
   ethnicities: string[];
   countries: string[];
   rating: IUnnamedPerformerRating | null;
+  rating_criteria: IRatingCriteriaValue | null;
 }
 
 // Generate the next available letter for an unnamed performer
@@ -58,6 +60,7 @@ export function createUnnamedPerformer(
     ethnicities: [],
     countries: [],
     rating: null,
+    rating_criteria: null,
   };
 }
 
@@ -94,11 +97,69 @@ export function formatUnnamedPerformerSummary(
     }
   }
 
+  const ratingCriteriaCount = getRatingCriteriaCount(performer.rating_criteria);
+  if (ratingCriteriaCount > 0) {
+    parts.push(`${ratingCriteriaCount} rating criteria`);
+  }
+
   if (parts.length === 0) {
     return "Any performer";
   }
 
   return parts.join(", ");
+}
+
+export function cloneUnnamedPerformer(
+  performer: IUnnamedPerformer
+): IUnnamedPerformer {
+  return {
+    ...performer,
+    ethnicities: [...(performer.ethnicities ?? [])],
+    countries: [...(performer.countries ?? [])],
+    rating: performer.rating ? { ...performer.rating } : null,
+    rating_criteria: cloneRatingCriteriaValue(performer.rating_criteria),
+  };
+}
+
+function cloneRatingCriteriaValue(
+  value: IRatingCriteriaValue | null | undefined
+): IRatingCriteriaValue | null {
+  if (!value) {
+    return null;
+  }
+
+  return {
+    criteria: Object.fromEntries(
+      Object.entries(value.criteria ?? {}).map(([key, criterion]) => [
+        key,
+        criterion
+          ? {
+              modifier: criterion.modifier,
+              value: { ...criterion.value },
+            }
+          : undefined,
+      ])
+    ),
+    bonuses: { ...(value.bonuses ?? {}) },
+    penalties: { ...(value.penalties ?? {}) },
+  };
+}
+
+function getRatingCriteriaCount(value: IRatingCriteriaValue | null) {
+  if (!value) {
+    return 0;
+  }
+
+  return (
+    Object.values(value.criteria ?? {}).filter((criterion) => !!criterion)
+      .length +
+    Object.values(value.bonuses ?? {}).filter(
+      (presence) => presence !== undefined
+    ).length +
+    Object.values(value.penalties ?? {}).filter(
+      (presence) => presence !== undefined
+    ).length
+  );
 }
 
 function getModifierSymbol(modifier: CriterionModifier): string {

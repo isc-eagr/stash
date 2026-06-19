@@ -3,7 +3,12 @@ import { Criterion, CriterionOption } from "./criterion";
 import { ILabeledId, CriterionType } from "../types";
 import { IntlShape } from "react-intl";
 import { RatingCriterion } from "./tags";
-import { IUnnamedPerformer, isUnnamedPerformerId } from "./unnamed-performer";
+import { ratingCriteriaValueToCriterionInput } from "./rating-criteria_custom";
+import {
+  cloneUnnamedPerformer,
+  IUnnamedPerformer,
+  isUnnamedPerformerId,
+} from "./unnamed-performer";
 
 // Generate a simple alphanumeric group ID (A, B, C, ...)
 let groupIdCounter = 0;
@@ -42,6 +47,20 @@ export interface ISceneMarkersExcludeValue {
   groups: ISceneMarkersExcludeGroup[];
   // Unnamed performers defined at criterion level, shareable across groups
   unnamed_performers: IUnnamedPerformer[];
+}
+
+function getNextSceneMarkersExcludeGroupId(
+  groups: ISceneMarkersExcludeGroup[]
+): string {
+  const usedIds = new Set(groups.map((g) => g.groupId));
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  for (const letter of alphabet) {
+    if (!usedIds.has(letter)) {
+      return letter;
+    }
+  }
+
+  return `${groups.length + 1}`;
 }
 
 // Default empty group
@@ -88,12 +107,9 @@ export class SceneMarkersExcludeCriterion extends Criterion {
         top_performer_ids: g.top_performer_ids.map((p) => ({ ...p })),
         bottom_performer_ids: g.bottom_performer_ids.map((p) => ({ ...p })),
       })),
-      unnamed_performers: (this.value.unnamed_performers ?? []).map((up) => ({
-        ...up,
-        ethnicities: [...up.ethnicities],
-        countries: [...up.countries],
-        rating: up.rating ? { ...up.rating } : null,
-      })),
+      unnamed_performers: (this.value.unnamed_performers ?? []).map(
+        cloneUnnamedPerformer
+      ),
     };
   }
 
@@ -105,7 +121,7 @@ export class SceneMarkersExcludeCriterion extends Criterion {
    * Add a new group and return its ID.
    */
   public addGroup(): string {
-    const groupId = generateSceneMarkersExcludeGroupId();
+    const groupId = getNextSceneMarkersExcludeGroupId(this.value.groups);
     this.value.groups.push(createEmptyGroup(groupId));
     return groupId;
   }
@@ -204,6 +220,7 @@ export class SceneMarkersExcludeCriterion extends Criterion {
         ethnicities: up.ethnicities,
         countries: up.countries,
         rating: up.rating,
+        rating_criteria: up.rating_criteria,
       })),
     };
   }
@@ -231,6 +248,7 @@ export class SceneMarkersExcludeCriterion extends Criterion {
         ethnicities: up.ethnicities,
         countries: up.countries,
         rating: up.rating,
+        rating_criteria: up.rating_criteria,
       })),
     };
   }
@@ -274,12 +292,9 @@ export class SceneMarkersExcludeCriterion extends Criterion {
     }
     // Load unnamed performers at criterion level
     if (raw.unnamed_performers) {
-      this.value.unnamed_performers = raw.unnamed_performers.map((up) => ({
-        ...up,
-        ethnicities: [...up.ethnicities],
-        countries: [...up.countries],
-        rating: up.rating ? { ...up.rating } : null,
-      }));
+      this.value.unnamed_performers = raw.unnamed_performers.map(
+        cloneUnnamedPerformer
+      );
     }
   }
 
@@ -322,12 +337,9 @@ export class SceneMarkersExcludeCriterion extends Criterion {
     }
     // Load unnamed performers at criterion level
     if (raw.unnamed_performers) {
-      this.value.unnamed_performers = raw.unnamed_performers.map((up) => ({
-        ...up,
-        ethnicities: [...up.ethnicities],
-        countries: [...up.countries],
-        rating: up.rating ? { ...up.rating } : null,
-      }));
+      this.value.unnamed_performers = raw.unnamed_performers.map(
+        cloneUnnamedPerformer
+      );
     }
   }
 
@@ -394,18 +406,27 @@ export class SceneMarkersExcludeCriterion extends Criterion {
         ethnicities?: string[];
         countries?: string[];
         rating?: RatingCriterion;
+        rating_criteria?: ReturnType<
+          typeof ratingCriteriaValueToCriterionInput
+        >;
       }> = [];
       const bottomUnnamedPerformers: Array<{
         id: string;
         ethnicities?: string[];
         countries?: string[];
         rating?: RatingCriterion;
+        rating_criteria?: ReturnType<
+          typeof ratingCriteriaValueToCriterionInput
+        >;
       }> = [];
       const bothRolesUnnamedPerformers: Array<{
         id: string;
         ethnicities?: string[];
         countries?: string[];
         rating?: RatingCriterion;
+        rating_criteria?: ReturnType<
+          typeof ratingCriteriaValueToCriterionInput
+        >;
       }> = [];
 
       // Add both-roles unnamed performers
@@ -418,6 +439,9 @@ export class SceneMarkersExcludeCriterion extends Criterion {
               def.ethnicities.length > 0 ? def.ethnicities : undefined,
             countries: def.countries.length > 0 ? def.countries : undefined,
             rating: def.rating ?? undefined,
+            rating_criteria: ratingCriteriaValueToCriterionInput(
+              def.rating_criteria
+            ),
           });
         }
       }
@@ -433,6 +457,9 @@ export class SceneMarkersExcludeCriterion extends Criterion {
                 def.ethnicities.length > 0 ? def.ethnicities : undefined,
               countries: def.countries.length > 0 ? def.countries : undefined,
               rating: def.rating ?? undefined,
+              rating_criteria: ratingCriteriaValueToCriterionInput(
+                def.rating_criteria
+              ),
             });
           }
         }
@@ -449,6 +476,9 @@ export class SceneMarkersExcludeCriterion extends Criterion {
                 def.ethnicities.length > 0 ? def.ethnicities : undefined,
               countries: def.countries.length > 0 ? def.countries : undefined,
               rating: def.rating ?? undefined,
+              rating_criteria: ratingCriteriaValueToCriterionInput(
+                def.rating_criteria
+              ),
             });
           }
         }
@@ -525,6 +555,7 @@ export class SceneMarkersExcludeCriterion extends Criterion {
         ethnicities: up.ethnicities,
         countries: up.countries,
         rating: up.rating,
+        rating_criteria: up.rating_criteria,
       })),
     };
   }
@@ -570,12 +601,9 @@ export class SceneMarkersExcludeCriterion extends Criterion {
     }
     // Load unnamed performers at criterion level
     if (data.unnamed_performers) {
-      this.value.unnamed_performers = data.unnamed_performers.map((up) => ({
-        ...up,
-        ethnicities: [...up.ethnicities],
-        countries: [...up.countries],
-        rating: up.rating ? { ...up.rating } : null,
-      }));
+      this.value.unnamed_performers = data.unnamed_performers.map(
+        cloneUnnamedPerformer
+      );
     }
   }
 }

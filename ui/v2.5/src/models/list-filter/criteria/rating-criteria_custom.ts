@@ -42,12 +42,12 @@ interface IRatingCriteriaCriterionOptionParams {
   penalties: IRatingCriteriaPresenceDefinition[];
 }
 
-interface IRatingCriteriaCriterionInput {
+export interface IRatingCriteriaCriterionInput {
   criteria?: {
     key: string;
     value: {
       modifier: CriterionModifier;
-      value?: number;
+      value: number;
       value2?: number;
     };
   }[];
@@ -312,6 +312,52 @@ function isNumberCriterionValid(criterion: IRatingCriteriaNumericValue) {
   return true;
 }
 
+export function ratingCriteriaValueToCriterionInput(
+  value: IRatingCriteriaValue | null | undefined
+): IRatingCriteriaCriterionInput | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const criteria = Object.entries(value.criteria)
+    .filter(
+      (entry): entry is [string, IRatingCriteriaNumericValue] =>
+        !!entry[1] && isNumberCriterionValid(entry[1])
+    )
+    .map(([key, criterion]) => ({
+      key,
+      value: {
+        modifier: criterion.modifier,
+        value: criterion.value.value ?? 0,
+        value2: criterion.value.value2,
+      },
+    }));
+
+  const bonuses = Object.entries(value.bonuses)
+    .filter(([, presence]) => presence !== undefined)
+    .map(([key, presence]) => ({
+      key,
+      value: presence ?? false,
+    }));
+
+  const penalties = Object.entries(value.penalties)
+    .filter(([, presence]) => presence !== undefined)
+    .map(([key, presence]) => ({
+      key,
+      value: presence ?? false,
+    }));
+
+  if (criteria.length === 0 && bonuses.length === 0 && penalties.length === 0) {
+    return undefined;
+  }
+
+  return {
+    criteria,
+    bonuses,
+    penalties,
+  };
+}
+
 export class RatingCriteriaCriterionOption extends CriterionOption {
   public readonly criteria: IRatingCriteriaNumericDefinition[];
   public readonly bonuses: IRatingCriteriaPresenceDefinition[];
@@ -378,39 +424,10 @@ export class RatingCriteriaCriterion extends Criterion {
       return;
     }
 
-    const criteria = Object.entries(this.value.criteria)
-      .filter(
-        (entry): entry is [string, IRatingCriteriaNumericValue] =>
-          !!entry[1] && isNumberCriterionValid(entry[1])
-      )
-      .map(([key, criterion]) => ({
-        key,
-        value: {
-          modifier: criterion.modifier,
-          value: criterion.value.value ?? 0,
-          value2: criterion.value.value2,
-        },
-      }));
-
-    const bonuses = Object.entries(this.value.bonuses)
-      .filter(([, value]) => value !== undefined)
-      .map(([key, value]) => ({
-        key,
-        value: value ?? false,
-      }));
-
-    const penalties = Object.entries(this.value.penalties)
-      .filter(([, value]) => value !== undefined)
-      .map(([key, value]) => ({
-        key,
-        value: value ?? false,
-      }));
-
-    const ratingCriteriaInput: IRatingCriteriaCriterionInput = {
-      criteria,
-      bonuses,
-      penalties,
-    };
+    const ratingCriteriaInput = ratingCriteriaValueToCriterionInput(this.value);
+    if (!ratingCriteriaInput) {
+      return;
+    }
     input.rating_criteria = ratingCriteriaInput;
   }
 

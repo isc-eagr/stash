@@ -98,6 +98,8 @@ input UnnamedPerformerCriterionInput {
   countries: [String!]
   "Rating criterion the performer must satisfy"
   rating: IntCriterionInput
+  "Stored performer rating criteria, bonuses, and penalties from the rating advisor"
+  rating_criteria: RatingCriteriaFilterInput
 }
 
 "Group for scene marker tags filtering with optional performer attributes"

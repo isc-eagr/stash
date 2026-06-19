@@ -2164,7 +2164,7 @@ A dedicated full-page image viewer allowing users to view and manipulate multipl
 
 ### Overview
 
-A feature that allows users to define "unnamed performers" (Performer A, Performer B, etc.) within filter contexts. These virtual performers are defined by criteria (ethnicity, country, rating) and can be selected in the Top/Bottom dropdowns of marker filters. This enables searches like:
+A feature that allows users to define "unnamed performers" (Performer A, Performer B, etc.) within filter contexts. These virtual performers are defined by criteria (ethnicity, country, rating, performer rating criteria) and can be selected in the Top/Bottom dropdowns of marker filters. This enables searches like:
 
 - "Find markers where the same Black 5-star performer is both top AND bottom"
 - "Find markers where Performer A (Mexican, 4-star) is top and Performer B (Black, 5-star) is also top"
@@ -2185,9 +2185,12 @@ A feature that allows users to define "unnamed performers" (Performer A, Perform
 
 - `ui/v2.5/src/models/list-filter/criteria/marker-performers.ts` - Added `unnamed_performers` array to criterion value, updated all serialization/deserialization methods, enhanced `applyToCriterionInput` to translate unnamed performers to backend criteria
 - `ui/v2.5/src/components/List/Filters/MarkerPerformersFilter.tsx` - Integrated UnnamedPerformersManager, added quick-select buttons for unnamed performers in Top/Bottom sections
+- `ui/v2.5/src/models/list-filter/criteria/scene-markers.ts`, `ui/v2.5/src/models/list-filter/criteria/scene-markers-exclude.ts` - Added role-aware unnamed performer rating criteria serialization for scene include/exclude marker filters
+- `ui/v2.5/src/components/List/Filters/SceneMarkersFilter.tsx`, `ui/v2.5/src/components/List/Filters/SceneMarkersExcludeFilter.tsx`, `ui/v2.5/src/components/List/Filters/MarkerPerformersFilter.tsx` - Prune unnamed performers when no active top/bottom role selection references them, allowing letters to be reused
+- `graphql/schema/types/filters_custom.graphql`, `pkg/models/filter.go`, `pkg/sqlite/criterion_handlers_custom.go` - Added `rating_criteria` to unnamed performer criteria and SQL matching against performer rating advisor scores
 - `ui/v2.5/src/locales/en-US.json` - Added localization strings for unnamed performers
 
-### Filters Implemented (2 of 5)
+### Filters Implemented (3 of 5)
 
 1. ✅ **Markers** (Markers page, `/scenes/markers`) - MarkerPerformersFilter
 2. ⏳ **Scene Markers** (Scenes page, `/scenes`) - SceneMarkersFilter
@@ -2209,12 +2212,13 @@ interface IUnnamedPerformer {
   ethnicities: string[];
   countries: string[];
   rating: IUnnamedPerformerRating | null;
+  rating_criteria: IRatingCriteriaValue | null;
 }
 ```
 
 ### Future Work
 
-- Implement unnamed performers in remaining 4 filters (follow pattern from MarkerPerformersFilter)
+- Implement unnamed performers in remaining performer-page filters (follow pattern from MarkerPerformersFilter)
 - Consider adding more criteria fields (age range, height, etc.)
 - Persist unnamed performer definitions across filters for reuse
 

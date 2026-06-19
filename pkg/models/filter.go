@@ -196,10 +196,11 @@ type CountryCountInput struct {
 // Each slot must match a DIFFERENT performer that satisfies ALL the criteria
 // The ID is used to correlate the same unnamed performer across different marker groups
 type UnnamedPerformerCriterionInput struct {
-	ID          *string            `json:"id"` // Used to correlate across marker groups
-	Ethnicities []string           `json:"ethnicities"`
-	Countries   []string           `json:"countries"`
-	Rating      *IntCriterionInput `json:"rating"`
+	ID             *string                    `json:"id"` // Used to correlate across marker groups
+	Ethnicities    []string                   `json:"ethnicities"`
+	Countries      []string                   `json:"countries"`
+	Rating         *IntCriterionInput         `json:"rating"`
+	RatingCriteria *RatingCriteriaFilterInput `json:"rating_criteria"` // CUSTOM
 }
 
 // SceneMarkerTagGroupInput represents a group for scene marker tags filtering

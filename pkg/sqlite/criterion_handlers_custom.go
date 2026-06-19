@@ -93,7 +93,71 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 		}
 	}
 
-	buildPerformerAttributeClause := func(performerAlias string, ethnicities []string, countries []string, rating *models.IntCriterionInput) sqlFragment {
+	buildPerformerRatingCriteriaClause := func(performerAlias string, ratingCriteria *models.RatingCriteriaFilterInput) sqlFragment {
+		if ratingCriteria == nil {
+			return sqlFragment{}
+		}
+
+		var clauses []sqlFragment
+		for _, c := range ratingCriteria.Criteria {
+			if c == nil || c.Value == nil || c.Key == "" {
+				continue
+			}
+			if !c.Value.ValidModifier() {
+				f.setError(fmt.Errorf("invalid modifier %s for performer rating criterion %s", c.Value.Modifier, c.Key))
+				return sqlFragment{}
+			}
+
+			whereClause, whereArgs := getFloatCriterionWhereClause("rs.raw_value", *c.Value)
+			args := []any{models.RatingEntityPerformer, c.Key}
+			args = append(args, whereArgs...)
+			clauses = append(clauses, sqlFragment{
+				clause: fmt.Sprintf(
+					"EXISTS (SELECT 1 FROM %s rs WHERE rs.entity_type = ? AND rs.entity_id = %s.id AND rs.key = ? AND %s)",
+					ratingCriteriaScoresTable,
+					performerAlias,
+					whereClause,
+				),
+				args: args,
+			})
+		}
+
+		for _, c := range ratingCriteria.Bonuses {
+			if c == nil || c.Key == "" {
+				continue
+			}
+			clause := fmt.Sprintf(
+				"EXISTS (SELECT 1 FROM %s rs WHERE rs.entity_type = ? AND rs.entity_id = %s.id AND rs.key = ? AND (rs.raw_value != 0 OR rs.weighted_value != 0))",
+				ratingBonusScoresTable,
+				performerAlias,
+			)
+			fragment := sqlFragment{clause: clause, args: []any{models.RatingEntityPerformer, c.Key}}
+			if !c.Value {
+				fragment.clause = "NOT (" + fragment.clause + ")"
+			}
+			clauses = append(clauses, fragment)
+		}
+
+		for _, c := range ratingCriteria.Penalties {
+			if c == nil || c.Key == "" {
+				continue
+			}
+			clause := fmt.Sprintf(
+				"EXISTS (SELECT 1 FROM %s rs WHERE rs.entity_type = ? AND rs.entity_id = %s.id AND rs.key = ? AND (rs.raw_value != 0 OR rs.weighted_value != 0))",
+				ratingPenaltyScoresTable,
+				performerAlias,
+			)
+			fragment := sqlFragment{clause: clause, args: []any{models.RatingEntityPerformer, c.Key}}
+			if !c.Value {
+				fragment.clause = "NOT (" + fragment.clause + ")"
+			}
+			clauses = append(clauses, fragment)
+		}
+
+		return joinFragments(clauses, " AND ")
+	}
+
+	buildPerformerAttributeClause := func(performerAlias string, ethnicities []string, countries []string, rating *models.IntCriterionInput, ratingCriteria *models.RatingCriteriaFilterInput) sqlFragment {
 		var clauses []string
 		var args []any
 
@@ -117,6 +181,10 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 			clauses = append(clauses, w)
 			args = append(args, wargs...)
 		}
+		if ratingCriteriaFragment := buildPerformerRatingCriteriaClause(performerAlias, ratingCriteria); ratingCriteriaFragment.clause != "" {
+			clauses = append(clauses, ratingCriteriaFragment.clause)
+			args = append(args, ratingCriteriaFragment.args...)
+		}
 
 		if len(clauses) == 0 {
 			return sqlFragment{clause: "1=1"}
@@ -129,7 +197,7 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 	}
 
 	buildUnnamedPerformerSelect := func(smAlias string, role string, slot models.UnnamedPerformerCriterionInput, smpAlias string, performerAlias string, bothRoles bool) sqlFragment {
-		attr := buildPerformerAttributeClause(performerAlias, slot.Ethnicities, slot.Countries, slot.Rating)
+		attr := buildPerformerAttributeClause(performerAlias, slot.Ethnicities, slot.Countries, slot.Rating, slot.RatingCriteria)
 		clauses := []string{
 			fmt.Sprintf("%s.scene_marker_id = %s.id", smpAlias, smAlias),
 			attr.clause,
@@ -297,7 +365,7 @@ WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")),
 				})
 			}
 
-			attr := buildPerformerAttributeClause(aliasPrefix+"_p_attr", ethnicities, countries, rating)
+			attr := buildPerformerAttributeClause(aliasPrefix+"_p_attr", ethnicities, countries, rating, nil)
 			if attr.clause != "1=1" {
 				roleConditions = append(roleConditions, sqlFragment{
 					clause: fmt.Sprintf(`EXISTS (
@@ -396,7 +464,7 @@ WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")),
 			})
 		}
 
-		bothRoleAttr := buildPerformerAttributeClause("p_both_attr", g.BothRolesEthnicities, g.BothRolesCountries, g.BothRolesRating)
+		bothRoleAttr := buildPerformerAttributeClause("p_both_attr", g.BothRolesEthnicities, g.BothRolesCountries, g.BothRolesRating, nil)
 		if bothRoleAttr.clause != "1=1" {
 			bothRoleConditions = append(bothRoleConditions, sqlFragment{
 				clause: fmt.Sprintf(`EXISTS (
@@ -483,6 +551,38 @@ WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")),
 				return fmt.Sprintf("%s:%d:%s", r.Modifier, r.Value, v2)
 			}
 
+			serializeRatingCriteria := func(r *models.RatingCriteriaFilterInput) string {
+				if r == nil {
+					return ""
+				}
+
+				var parts []string
+				for _, c := range r.Criteria {
+					if c == nil || c.Value == nil || c.Key == "" {
+						continue
+					}
+					v2 := ""
+					if c.Value.Value2 != nil {
+						v2 = fmt.Sprintf("%g", *c.Value.Value2)
+					}
+					parts = append(parts, fmt.Sprintf("c:%s:%s:%g:%s", c.Key, c.Value.Modifier, c.Value.Value, v2))
+				}
+				for _, c := range r.Bonuses {
+					if c == nil || c.Key == "" {
+						continue
+					}
+					parts = append(parts, fmt.Sprintf("b:%s:%t", c.Key, c.Value))
+				}
+				for _, c := range r.Penalties {
+					if c == nil || c.Key == "" {
+						continue
+					}
+					parts = append(parts, fmt.Sprintf("p:%s:%t", c.Key, c.Value))
+				}
+				sort.Strings(parts)
+				return strings.Join(parts, ",")
+			}
+
 			// Serialize unnamed performers to a canonical string for grouping
 			serializeUnnamedPerformers := func(ups []models.UnnamedPerformerCriterionInput) string {
 				if len(ups) == 0 {
@@ -504,7 +604,8 @@ WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")),
 						}
 						rat = fmt.Sprintf("%s:%d:%s", up.Rating.Modifier, up.Rating.Value, v2)
 					}
-					parts = append(parts, fmt.Sprintf("{id=%s,eth=[%s],ctr=[%s],rat=%s}", id, eth, ctr, rat))
+					ratCriteria := serializeRatingCriteria(up.RatingCriteria)
+					parts = append(parts, fmt.Sprintf("{id=%s,eth=[%s],ctr=[%s],rat=%s,ratc=%s}", id, eth, ctr, rat, ratCriteria))
 				}
 				return strings.Join(parts, ";")
 			}
@@ -665,7 +766,8 @@ WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")),
 						}
 						rat = fmt.Sprintf("%s:%d:%s", up.Rating.Modifier, up.Rating.Value, v2)
 					}
-					parts = append(parts, fmt.Sprintf("{eth=[%s],ctr=[%s],rat=%s}", eth, ctr, rat))
+					ratCriteria := serializeRatingCriteria(up.RatingCriteria)
+					parts = append(parts, fmt.Sprintf("{eth=[%s],ctr=[%s],rat=%s,ratc=%s}", eth, ctr, rat, ratCriteria))
 				}
 				// Sort to ensure order doesn't matter
 				sort.Strings(parts)
@@ -850,6 +952,10 @@ WHERE sm_excl.scene_id = {primaryTable}.id
 						w, wargs := getIntWhereClause("p_check.rating", unnamedPerformer.Rating.Modifier, unnamedPerformer.Rating.Value, unnamedPerformer.Rating.Value2)
 						perfCondParts = append(perfCondParts, w)
 						perfCondArgs = append(perfCondArgs, wargs...)
+					}
+					if ratingCriteriaFragment := buildPerformerRatingCriteriaClause("p_check", unnamedPerformer.RatingCriteria); ratingCriteriaFragment.clause != "" {
+						perfCondParts = append(perfCondParts, ratingCriteriaFragment.clause)
+						perfCondArgs = append(perfCondArgs, ratingCriteriaFragment.args...)
 					}
 
 					perfCondClause := "1=1"
