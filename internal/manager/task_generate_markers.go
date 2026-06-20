@@ -21,7 +21,7 @@ type GenerateMarkersTask struct {
 	VideoPreview               bool
 	ImagePreview               bool
 	Screenshot                 bool
-	DeleteSimpleMarkerPreviews bool // CUSTOM: delete previews for marker-only sex/oral/solo primary tags
+	DeleteSimpleMarkerPreviews bool // CUSTOM: delete previews for simple marker preview skip tags
 	HighQualityMarkers         bool // CUSTOM: generate marker previews at source resolution
 	SkipQualityCheck           bool // CUSTOM: skip existing marker quality mismatch detection
 
@@ -134,7 +134,7 @@ func (t *GenerateMarkersTask) generateMarker(videoFile *models.VideoFile, scene 
 
 	g := t.generator
 
-	// CUSTOM: begin - skip video/webp previews for simple sex/oral/solo markers
+	// CUSTOM: begin - skip video/webp previews for simple configured markers
 	skipPreviewGeneration := t.shouldSkipSimpleMarkerPreviews(sceneMarker)
 	if skipPreviewGeneration {
 		if t.DeleteSimpleMarkerPreviews {
@@ -198,7 +198,7 @@ func (t *GenerateMarkersTask) markersNeeded(ctx context.Context) int {
 	for _, sceneMarker := range sceneMarkers {
 		seconds := int(sceneMarker.Seconds)
 
-		// CUSTOM: begin - simple sex/oral/solo marker previews are intentionally skipped
+		// CUSTOM: begin - simple configured marker previews are intentionally skipped
 		if t.shouldSkipSimpleMarkerPreviews(sceneMarker) {
 			if t.simpleMarkerNeedsWork(sceneHash, seconds) {
 				markers++

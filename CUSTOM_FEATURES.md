@@ -2467,7 +2467,7 @@ Adds a second system setting to skip that existing-file quality check:
 - `false` (default): existing marker previews are probed for quality mismatches
 - `true`: existing marker previews are trusted, so Generate only creates missing marker preview files unless overwrite is enabled
 
-Marker generation also skips video/webp preview generation for markers whose only marker tag is the configured Sex, Oral, or Solo primary tag. Marker screenshots still generate normally. Settings > Custom includes a cleanup action to delete already-generated video/webp previews for those simple markers without deleting marker screenshots.
+Marker generation also skips video/webp preview generation for markers whose only marker tag is the configured Sex, Oral, or Solo primary tag, or a tag selected in the custom simple-marker preview skip list. Marker screenshots still generate normally. Settings > Custom includes a cleanup action to delete already-generated video/webp previews for those simple markers without deleting marker screenshots.
 
 ### Configuration
 
@@ -2492,7 +2492,7 @@ Marker generation also skips video/webp preview generation for markers whose onl
   - Passes marker quality mode and simple-marker cleanup options into generate tasks
 - `internal/manager/task_generate_markers.go`
   - Integrates quality-mismatch checks into marker task requirements and generation flow
-  - Skips marker video/webp generation for simple Sex/Oral/Solo primary-tag-only markers while leaving screenshot generation intact
+  - Skips marker video/webp generation for simple Sex/Oral/Solo/custom skip-list primary-tag-only markers while leaving screenshot generation intact
 
 **File Created:**
 
@@ -2502,7 +2502,8 @@ Marker generation also skips video/webp preview generation for markers whose onl
   - Detects quality mismatch by probing existing marker dimensions (webp/mp4)
   - Deletes mismatched marker artifacts before generation so only required files regenerate
   - Treats either source width or source height as valid in source-quality mode to handle rotation metadata materialized by ffmpeg
-  - Deletes existing video/webp marker previews for simple Sex/Oral/Solo primary-tag-only markers when requested
+  - Reads `configuration.ui.simpleMarkerPreviewExcludedTagIds` as extra primary-only marker tags that skip video/webp preview generation
+  - Deletes existing video/webp marker previews for simple Sex/Oral/Solo/custom skip-list primary-tag-only markers when requested
 
 ### API/Resolver Integration
 
@@ -2520,7 +2521,8 @@ Marker generation also skips video/webp preview generation for markers whose onl
 - `ui/v2.5/src/components/Settings/SettingsSystemPanel.tsx`
   - Added toggle in Preview Generation section
 - `ui/v2.5/src/components/Settings/SettingsCustomPanel.tsx`
-  - Added cleanup action for deleting simple Sex/Oral/Solo marker previews under Settings > Custom
+  - Added cleanup action for deleting simple Sex/Oral/Solo/custom skip-list marker previews under Settings > Custom
+  - Added a multi-tag picker for `simpleMarkerPreviewExcludedTagIds`
 - `ui/v2.5/graphql/data/config.graphql`
   - Added field to config fragment
 - `ui/v2.5/src/locales/en-GB.json`
@@ -2818,7 +2820,7 @@ Adds a dedicated Settings > Custom tab for fork-only configuration that is not p
 ### Settings Included
 
 - Multi-segment loop controls toggle
-- Simple Sex/Oral/Solo marker preview cleanup action
+- Simple marker preview skip-tag picker and cleanup action
 - Marker preview source-quality and quality-check toggles
 - Scene marker role tag IDs
 - Premium/classic rating card theme, thresholds, and override tags

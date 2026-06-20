@@ -69,6 +69,7 @@ Always apply small changes at a time, but do ensure that work is complete withou
    - Plugins: `pkg/plugin` hosts plugin interfaces; example plugins are under `pkg/plugin/examples`.
 
 6. Testing and CI hints
+   - **New feature test requirement**: Every new feature must include focused test cases for the new behavior before the work is considered complete. Add tests at the narrowest useful layer (Go unit tests for backend logic, resolver/filter tests for API/query behavior, UI/component or TypeScript tests where a frontend behavior has meaningful logic). If a feature spans backend and UI, cover the business logic where regressions are most likely, then add UI coverage when rendering or interaction behavior is non-trivial.
    - Unit tests: `go test ./...` (wrapped by `make test`). Integration tests require `make it` (build tag `integration`).
    - Frontend tests / validation: prefer `make validate-ui-quick` and `cd ui/v2.5 && npm run check`; use `make validate-ui` or `make ui` only when broader validation or backend UI artifacts are explicitly needed.
    - Linting and formatting: `make fmt` for Go, `make fmt-ui` for UI. Use `make validate` to run full checks required by PRs.
@@ -124,6 +125,7 @@ Always apply small changes at a time, but do ensure that work is complete withou
    - **Adding a feature**: When implementing a new custom feature, add a section to CUSTOM_FEATURES.md describing:
      - Overview of the feature
      - Files created or modified
+     - Test cases added for the feature
      - GraphQL schema changes (if any)
      - Configuration dependencies (if any)
    - **Removing a feature**: If upstream adds functionality that replaces a custom feature, remove the custom implementation and also remove the corresponding section from CUSTOM_FEATURES.md.

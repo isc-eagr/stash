@@ -26,7 +26,7 @@ const lowQualityMarkerWidth = 640
 
 // prepareSimpleMarkerPreviewExclusions loads the configured primary tag IDs and
 // secondary marker tags used to skip generating video/webp previews for plain
-// sex/oral/solo markers. Screenshot generation is unaffected.
+// sex/oral/solo/custom skip-list markers. Screenshot generation is unaffected.
 func (t *GenerateMarkersTask) prepareSimpleMarkerPreviewExclusions(ctx context.Context, markers []*models.SceneMarker) {
 	t.simpleMarkerPreviewExclusionsReady = true
 	t.simpleMarkerPreviewTagIDs = nil
@@ -67,8 +67,42 @@ func getSimpleMarkerPreviewTagIDs() map[int]struct{} {
 			ret[id] = struct{}{}
 		}
 	}
+	for _, id := range simpleMarkerTagIDsFromConfigValue(uiConfig["simpleMarkerPreviewExcludedTagIds"]) {
+		ret[id] = struct{}{}
+	}
 
 	return ret
+}
+
+func simpleMarkerTagIDsFromConfigValue(value interface{}) []int {
+	switch v := value.(type) {
+	case []interface{}:
+		ret := make([]int, 0, len(v))
+		for _, item := range v {
+			if id := simpleMarkerTagIDFromConfigValue(item); id > 0 {
+				ret = append(ret, id)
+			}
+		}
+		return ret
+	case []string:
+		ret := make([]int, 0, len(v))
+		for _, item := range v {
+			if id := simpleMarkerTagIDFromConfigValue(item); id > 0 {
+				ret = append(ret, id)
+			}
+		}
+		return ret
+	case []int:
+		ret := make([]int, 0, len(v))
+		for _, item := range v {
+			if item > 0 {
+				ret = append(ret, item)
+			}
+		}
+		return ret
+	default:
+		return nil
+	}
 }
 
 func simpleMarkerTagIDFromConfigValue(value interface{}) int {

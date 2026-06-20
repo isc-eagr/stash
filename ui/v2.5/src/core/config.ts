@@ -144,6 +144,7 @@ export interface IUIConfig {
     goldTagId?: string;
     royalSapphireTagId?: string;
   };
+  simpleMarkerPreviewExcludedTagIds?: string[]; // Extra primary-only marker tags that skip video/webp preview generation
 
   // Tag IDs used for scene marker role categorization
   // These determine which marker tags represent each role category

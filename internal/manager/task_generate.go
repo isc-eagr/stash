@@ -25,7 +25,7 @@ type GenerateMetadataInput struct {
 	Markers             bool                         `json:"markers"`
 	MarkerImagePreviews bool                         `json:"markerImagePreviews"`
 	MarkerScreenshots   bool                         `json:"markerScreenshots"`
-	// Delete generated marker video/webp previews for markers with only the configured sex/oral/solo primary tag.
+	// Delete generated marker video/webp previews for simple marker preview skip tags.
 	DeleteSimpleMarkerPreviews bool `json:"deleteSimpleMarkerPreviews"` // CUSTOM
 	Transcodes                 bool `json:"transcodes"`
 	// Generate transcodes even if not required

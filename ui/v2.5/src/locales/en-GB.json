@@ -676,6 +676,10 @@
         "second_camera": "2nd Camera marker tag (excluded from counts)",
         "o_stats_exclusions": "O stats tag exclusions"
       },
+      "simple_marker_preview_excluded_tags": {
+        "heading": "Simple marker preview skip tags",
+        "description": "Marker video/webp previews are skipped when the marker has one of these as its only tag. Screenshots are still generated."
+      },
       "card_rating_styles": {
         "heading": "Card Rating Styles",
         "theme": {
@@ -1157,8 +1161,8 @@
       "interactive_heatmap_speed": "Generate heatmaps and speeds for interactive scenes",
       "marker_image_previews": "Marker animated image previews",
       "marker_image_previews_tooltip": "Also generate animated (webp) previews, only required when Scene/Marker Wall Preview type is set to Animated image. When browsing they use less CPU than the video previews, but are generated in addition to them and are larger files.",
-      "delete_simple_marker_previews": "Delete simple sex/oral/solo marker previews",
-      "delete_simple_marker_previews_tooltip": "Deletes generated marker video/webp previews when the marker only has the configured sex, oral, or solo primary tag. Marker screenshots are kept.",
+      "delete_simple_marker_previews": "Delete skipped simple marker previews",
+      "delete_simple_marker_previews_tooltip": "Deletes generated marker video/webp previews when the marker only has one configured simple marker skip tag. Marker screenshots are kept.",
       "marker_screenshots": "Marker screenshots",
       "marker_screenshots_tooltip": "Marker static JPG images",
       "markers": "Marker previews",

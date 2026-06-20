@@ -130,6 +130,23 @@ export const SettingsCustomPanel: React.FC = () => {
             <FormattedMessage id="dialogs.scene_gen.delete_simple_marker_previews" />
           </Button>
         </Setting>
+        <Setting
+          id="simple-marker-preview-excluded-tags"
+          headingID="config.ui.simple_marker_preview_excluded_tags.heading"
+          subHeadingID="config.ui.simple_marker_preview_excluded_tags.description"
+        >
+          <TagIDSelect
+            isMulti
+            creatable={false}
+            ids={ui.simpleMarkerPreviewExcludedTagIds ?? []}
+            menuPortalTarget={document.body}
+            onSelect={(items: TagOption[]) =>
+              saveUI({
+                simpleMarkerPreviewExcludedTagIds: items.map((item) => item.id),
+              })
+            }
+          />
+        </Setting>
       </SettingSection>
 
       <SettingSection headingID="config.general.preview_generation">
