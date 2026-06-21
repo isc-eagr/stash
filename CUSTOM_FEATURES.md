@@ -48,6 +48,8 @@ This document describes all custom features and modifications added on top of th
 38. [Mobile Production Deploy Workflow](#38-mobile-production-deploy-workflow)
 39. [Activity Duration Stats](#39-activity-duration-stats)
 40. [Custom Settings Tab](#40-custom-settings-tab)
+41. [Custom Filter Name Highlighting](#41-custom-filter-name-highlighting)
+42. [Hidden O Stats Timeline](#42-hidden-o-stats-timeline)
 
 ---
 
@@ -2835,3 +2837,70 @@ Adds a dedicated Settings > Custom tab for fork-only configuration that is not p
 ### Files Added
 
 - `ui/v2.5/src/components/Settings/SettingsCustomPanel.tsx` - New consolidated custom settings page
+
+---
+
+## 41. Custom Filter Name Highlighting
+
+### Overview
+
+Custom filter criteria are highlighted in green in the Edit Filter picker so fork-only filters are easy to distinguish from upstream filters while scanning the list.
+
+### Files Modified
+
+- `ui/v2.5/src/components/List/EditFilterDialog.tsx` - Adds a custom criterion class to matching filter picker rows
+- `ui/v2.5/src/components/List/styles.scss` - Styles custom filter names in green
+
+### Files Added
+
+- `ui/v2.5/src/models/list-filter/custom-filter-options_custom.ts` - Central list/helper for custom filter criterion types
+
+### Test Cases Added
+
+- No automated tests added; verified with targeted UI lint, Prettier, TypeScript compile, and whitespace checks.
+
+### GraphQL Schema Changes
+
+- None.
+
+### Configuration Dependencies
+
+- None.
+
+---
+
+## 42. Hidden O Stats Timeline
+
+### Overview
+
+Adds a hidden `/ostats` page for reliable scene O-date analytics. The page is intentionally not linked from the main UI; it is only accessible by typing the URL. It shows clickable bar charts by year, month, and day, then a chronological day timeline of scene O events.
+
+### Files Modified
+
+- `graphql/schema/types/stats_custom.graphql` - Adds month/day bucket and day timeline GraphQL types and queries
+- `internal/api/resolver_custom.go` - Adds O stats period resolvers and filters unreliable dates before March 8, 2024
+- `ui/v2.5/src/App.tsx` - Adds the hidden `/ostats/:year?/:month?/:day?` route
+
+### Files Added
+
+- `ui/v2.5/src/components/OStats/OStats.tsx` - Hidden O stats chart and timeline page
+- `ui/v2.5/src/components/OStats/OStats.scss` - Page-specific chart and timeline styles
+- `internal/api/resolver_custom_test.go` - Date validation tests for O stats helpers
+
+### Test Cases Added
+
+- `TestSceneOStatsDate` - Covers valid dates, leap day, invalid months, and invalid day/month combinations
+- `TestValidateSceneOStatsDate` - Covers accepted `YYYY-MM-DD` dates and rejected malformed/impossible dates
+
+### GraphQL Schema Changes
+
+- `SceneOMonthCount`
+- `SceneODayCount`
+- `SceneOEvent`
+- `sceneOMonthCounts(year: Int!)`
+- `sceneODayCounts(year: Int!, month: Int!)`
+- `sceneOEventsByDate(date: String!)`
+
+### Configuration Dependencies
+
+- Uses the existing hard-coded reliable O-date cutoff: `sceneODateTrackingStart = "2024-03-08"`.

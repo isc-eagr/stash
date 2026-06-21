@@ -19,6 +19,7 @@ import { getFilterOptions } from "src/models/list-filter/factory";
 import { FilterTags } from "./FilterTags";
 import { CriterionEditor } from "./CriterionEditor";
 import { MarkerFilterGroupProvider } from "./Filters/MarkerFilterGroupContext"; // CUSTOM
+import { isCustomFilterCriterion } from "src/models/list-filter/custom-filter-options_custom"; // CUSTOM
 import { Icon } from "../Shared/Icon";
 import {
   faChevronDown,
@@ -159,8 +160,13 @@ const CriterionOptionList: React.FC<ICriterionList> = ({
   function renderCard(c: CriterionOption, isPin: boolean) {
     return (
       <Card key={c.type} data-type={c.type} ref={criteriaRefs[c.type]!}>
-        <Accordion.Toggle className="filter-item-header" eventKey={c.type}>
-          <span className="mr-auto">
+        <Accordion.Toggle
+          className={cx("filter-item-header", {
+            "custom-filter-criterion": isCustomFilterCriterion(c.type), // CUSTOM
+          })}
+          eventKey={c.type}
+        >
+          <span className="filter-item-label mr-auto">
             <Icon
               className="collapse-icon fa-fw"
               icon={type === c.type ? faChevronDown : faChevronRight}
@@ -587,7 +593,8 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
                 onFilterUpdate={setCurrentFilter}
               />
             </div>
-            <MarkerFilterGroupProvider criteria={criteria}>{/* CUSTOM: begin */}
+            <MarkerFilterGroupProvider criteria={criteria}>
+              {/* CUSTOM: begin */}
               <CriterionOptionList
                 criteria={criteriaList}
                 currentCriterion={criterion}
@@ -601,12 +608,14 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
                 externallySelected={!!editingCriterion}
                 filterMode={currentFilter.mode} // CUSTOM
               />
-            </MarkerFilterGroupProvider>{/* CUSTOM: end */}
+            </MarkerFilterGroupProvider>
+            {/* CUSTOM: end */}
             {criteria.length > 0 && (
               <div>
                 <FilterTags
                   criteria={criteria}
-                  onEditCriterion={(c) => { // CUSTOM: begin
+                  onEditCriterion={(c) => {
+                    // CUSTOM: begin
                     // All criteria are single-instance, use optionSelected to find/create
                     optionSelected(c.criterionOption);
                   }} // CUSTOM: end

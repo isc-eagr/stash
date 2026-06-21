@@ -31,6 +31,31 @@ type SceneOYearCount {
   count: Int!
 }
 
+# CUSTOM: begin
+"Count of scene O events grouped by month within a year"
+type SceneOMonthCount {
+  year: Int!
+  month: Int!
+  count: Int!
+}
+
+"Count of scene O events grouped by day within a month"
+type SceneODayCount {
+  date: String!
+  day: Int!
+  count: Int!
+}
+
+"A single recorded scene O event for the hidden O stats timeline"
+type SceneOEvent {
+  id: ID!
+  scene_id: ID!
+  o_date: String!
+  video_timestamp: Float
+  scene: Scene!
+}
+# CUSTOM: end
+
 "Highest count of scene O events on a single date"
 type SceneODayStat {
   date: String!
@@ -62,6 +87,14 @@ extend type Query {
   performerEthnicityTierCounts: [PerformerEthnicityTierCount!]!
   "Get a count of scene orgasm events grouped by year (ascending by year)"
   sceneOYearCounts: [SceneOYearCount!]!
+  # CUSTOM: begin
+  "Get recorded scene O events grouped by month for a year"
+  sceneOMonthCounts(year: Int!): [SceneOMonthCount!]!
+  "Get recorded scene O events grouped by day for a year/month"
+  sceneODayCounts(year: Int!, month: Int!): [SceneODayCount!]!
+  "Get recorded scene O events on a date, ordered chronologically"
+  sceneOEventsByDate(date: String!): [SceneOEvent!]!
+  # CUSTOM: end
   "Get the date with the highest number of recorded scene O events"
   mostOsInDay: SceneODayStat
   "Get the longest period without a recorded scene O event"

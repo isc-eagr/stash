@@ -69,6 +69,7 @@ const Scenes = lazyComponent(() => import("./components/Scenes/Scenes"));
 const Settings = lazyComponent(() => import("./components/Settings/Settings"));
 const Stats = lazyComponent(() => import("./components/Stats"));
 const CustomStats = lazyComponent(() => import("./components/CustomStats")); // CUSTOM
+const OStats = lazyComponent(() => import("./components/OStats/OStats")); // CUSTOM
 const TaskProgress = lazyComponent(() => import("./components/TaskProgress")); // CUSTOM
 const Studios = lazyComponent(() => import("./components/Studios/Studios"));
 const Galleries = lazyComponent(
@@ -270,6 +271,11 @@ export const App: React.FC = () => {
             <Route path="/groups" component={Groups} />
             <Route path="/stats" component={Stats} />
             <Route path="/customstats" component={CustomStats} /> {/* CUSTOM */}
+            <Route
+              path="/ostats/:year?/:month?/:day?"
+              component={OStats}
+            />{" "}
+            {/* CUSTOM */}
             <Route path="/task-progress" component={TaskProgress} />{" "}
             {/* CUSTOM */}
             <Route path="/settings" component={Settings} />

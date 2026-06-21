@@ -469,6 +469,8 @@ func customClampRatingThreshold(value int) int {
 
 func customStringValue(value interface{}) string {
 	switch typed := value.(type) {
+	case time.Time:
+		return typed.Format(time.RFC3339)
 	case string:
 		return typed
 	case []byte:
@@ -496,12 +498,72 @@ func customIntValue(value interface{}) int {
 	}
 }
 
+func customFloatPtrValue(value interface{}) *float64 {
+	if value == nil {
+		return nil
+	}
+
+	var out float64
+	switch typed := value.(type) {
+	case float64:
+		out = typed
+	case float32:
+		out = float64(typed)
+	case int64:
+		out = float64(typed)
+	case int:
+		out = float64(typed)
+	case []byte:
+		v, err := strconv.ParseFloat(string(typed), 64)
+		if err != nil {
+			return nil
+		}
+		out = v
+	case string:
+		v, err := strconv.ParseFloat(typed, 64)
+		if err != nil {
+			return nil
+		}
+		out = v
+	default:
+		v, err := strconv.ParseFloat(fmt.Sprint(typed), 64)
+		if err != nil {
+			return nil
+		}
+		out = v
+	}
+
+	return &out
+}
+
+func sceneOStatsDate(year int, month int, day int) (string, error) {
+	if year < 1 || month < 1 || month > 12 || day < 1 || day > 31 {
+		return "", fmt.Errorf("invalid date: %04d-%02d-%02d", year, month, day)
+	}
+
+	date := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+	if date.Year() != year || int(date.Month()) != month || date.Day() != day {
+		return "", fmt.Errorf("invalid date: %04d-%02d-%02d", year, month, day)
+	}
+
+	return date.Format("2006-01-02"), nil
+}
+
+func validateSceneOStatsDate(value string) (string, error) {
+	date, err := time.Parse("2006-01-02", value)
+	if err != nil {
+		return "", fmt.Errorf("invalid date %q: expected YYYY-MM-DD", value)
+	}
+
+	return date.Format("2006-01-02"), nil
+}
+
 // SceneOYearCounts returns counts of scene orgasm events grouped by year ascending.
 func (r *queryResolver) SceneOYearCounts(ctx context.Context) (ret []*SceneOYearCount, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		db := manager.GetInstance().Database
-		query := "SELECT CAST(strftime('%Y', o_date) AS INT) AS year, COUNT(*) AS cnt FROM scenes_o_dates GROUP BY year ORDER BY year ASC"
-		_, rows, err := db.QuerySQL(ctx, query, nil)
+		query := "SELECT CAST(strftime('%Y', o_date, 'localtime') AS INT) AS year, COUNT(*) AS cnt FROM scenes_o_dates WHERE o_date IS NOT NULL AND date(o_date, 'localtime') >= date(?) GROUP BY year ORDER BY year ASC"
+		_, rows, err := db.QuerySQL(ctx, query, []interface{}{sceneODateTrackingStart})
 		if err != nil {
 			return err
 		}
@@ -549,6 +611,145 @@ func (r *queryResolver) SceneOYearCounts(ctx context.Context) (ret []*SceneOYear
 	}); err != nil {
 		return nil, err
 	}
+	return ret, nil
+}
+
+// SceneOMonthCounts returns counts of scene O events grouped by month for a year.
+func (r *queryResolver) SceneOMonthCounts(ctx context.Context, year int) (ret []*SceneOMonthCount, err error) {
+	if year < 1 {
+		return nil, fmt.Errorf("invalid year: %d", year)
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := `
+SELECT CAST(strftime('%m', o_date, 'localtime') AS INT) AS month, COUNT(*) AS cnt
+FROM scenes_o_dates
+WHERE o_date IS NOT NULL
+  AND date(o_date, 'localtime') >= date(?)
+  AND CAST(strftime('%Y', o_date, 'localtime') AS INT) = ?
+GROUP BY month
+ORDER BY month ASC`
+		_, rows, err := db.QuerySQL(ctx, query, []interface{}{sceneODateTrackingStart, year})
+		if err != nil {
+			return err
+		}
+
+		out := make([]*SceneOMonthCount, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 2 {
+				continue
+			}
+			out = append(out, &SceneOMonthCount{
+				Year:  year,
+				Month: customIntValue(row[0]),
+				Count: customIntValue(row[1]),
+			})
+		}
+
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+// SceneODayCounts returns counts of scene O events grouped by day for a month.
+func (r *queryResolver) SceneODayCounts(ctx context.Context, year int, month int) (ret []*SceneODayCount, err error) {
+	if _, err := sceneOStatsDate(year, month, 1); err != nil {
+		return nil, err
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := `
+SELECT date(o_date, 'localtime') AS day_date, CAST(strftime('%d', o_date, 'localtime') AS INT) AS day, COUNT(*) AS cnt
+FROM scenes_o_dates
+WHERE o_date IS NOT NULL
+  AND date(o_date, 'localtime') >= date(?)
+  AND CAST(strftime('%Y', o_date, 'localtime') AS INT) = ?
+  AND CAST(strftime('%m', o_date, 'localtime') AS INT) = ?
+GROUP BY day_date, day
+ORDER BY day ASC`
+		_, rows, err := db.QuerySQL(ctx, query, []interface{}{sceneODateTrackingStart, year, month})
+		if err != nil {
+			return err
+		}
+
+		out := make([]*SceneODayCount, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 3 {
+				continue
+			}
+			out = append(out, &SceneODayCount{
+				Date:  customStringValue(row[0]),
+				Day:   customIntValue(row[1]),
+				Count: customIntValue(row[2]),
+			})
+		}
+
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+// SceneOEventsByDate returns the recorded O events for a date in chronological order.
+func (r *queryResolver) SceneOEventsByDate(ctx context.Context, date string) (ret []*SceneOEvent, err error) {
+	date, err = validateSceneOStatsDate(date)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := `
+SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
+FROM scenes_o_dates od
+JOIN scenes s ON s.id = od.scene_id
+WHERE od.o_date IS NOT NULL AND date(od.o_date, 'localtime') = date(?)
+  AND date(od.o_date, 'localtime') >= date(?)
+ORDER BY datetime(od.o_date, 'localtime') ASC, COALESCE(od.video_timestamp, -1) ASC, s.title ASC`
+		_, rows, err := db.QuerySQL(ctx, query, []interface{}{date, sceneODateTrackingStart})
+		if err != nil {
+			return err
+		}
+
+		out := make([]*SceneOEvent, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 4 {
+				continue
+			}
+
+			sceneID := customIntValue(row[1])
+			scene, err := r.repository.Scene.Find(ctx, sceneID)
+			if err != nil {
+				return err
+			}
+			if scene == nil {
+				continue
+			}
+
+			out = append(out, &SceneOEvent{
+				ID:             fmt.Sprint(row[0]),
+				SceneID:        fmt.Sprint(sceneID),
+				ODate:          customStringValue(row[2]),
+				VideoTimestamp: customFloatPtrValue(row[3]),
+				Scene:          scene,
+			})
+		}
+
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
 	return ret, nil
 }
 
