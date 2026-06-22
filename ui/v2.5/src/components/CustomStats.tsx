@@ -30,12 +30,6 @@ type PerformerEthnicityTierRow = {
   royal_sapphire: number;
 };
 
-type SceneOCountByTagRow = {
-  tag_id: string;
-  tag_name: string;
-  count: number;
-};
-
 // Performer rating tiers by ethnicity
 const PERFORMER_ETHNICITY_TIER_COUNTS = gql`
   query PerformerEthnicityTierCounts {
@@ -45,48 +39,6 @@ const PERFORMER_ETHNICITY_TIER_COUNTS = gql`
       silver
       gold
       royal_sapphire
-    }
-  }
-`;
-
-// Scene orgasm counts grouped by year
-const SCENE_O_YEAR_COUNTS = gql`
-  query SceneOYearCounts {
-    sceneOYearCounts {
-      year
-      count
-    }
-  }
-`;
-
-// Timestamped scene O counts grouped by marker tags covering the O timestamp
-const SCENE_O_COUNTS_BY_TAG = gql`
-  query SceneOCountsByTag {
-    sceneOCountsByTag {
-      tag_id
-      tag_name
-      count
-    }
-  }
-`;
-
-// Highest number of scene O events recorded on one date
-const MOST_OS_IN_DAY = gql`
-  query MostOsInDay {
-    mostOsInDay {
-      date
-      count
-    }
-  }
-`;
-
-// Longest period without a recorded scene O event
-const LONGEST_PERIOD_WITHOUT_O = gql`
-  query LongestPeriodWithoutO {
-    longestPeriodWithoutO {
-      days
-      start_date
-      end_date
     }
   }
 `;
@@ -195,12 +147,6 @@ export const CustomStats: React.FC = () => {
   const { data: statsData, error, loading } = useStats();
   const { data: ethData } = usePerformerEthnicityCountsQuery();
   const { data: tierData } = useQuery(PERFORMER_ETHNICITY_TIER_COUNTS);
-  const { data: oYearData } = useQuery(SCENE_O_YEAR_COUNTS);
-  const { data: oCountsByTagData } = useQuery(SCENE_O_COUNTS_BY_TAG);
-  const { data: mostOsInDayData } = useQuery(MOST_OS_IN_DAY);
-  const { data: longestPeriodWithoutOData } = useQuery(
-    LONGEST_PERIOD_WITHOUT_O
-  );
   const { data: orgasmCountData } = useQuery(ORGASM_TOTAL_COUNT);
   const { data: facialCountData } = useQuery(FACIAL_TOTAL_COUNT);
   const { data: performersGivenData } = useQuery(PERFORMERS_FACIAL_GIVEN_COUNT);
@@ -360,13 +306,6 @@ export const CustomStats: React.FC = () => {
     (sum, tier) => sum + performerRatingTierTotals[tier.key],
     0
   );
-  const oCountsByTagRows = React.useMemo(() => {
-    const excludedTagIds = new Set(roleTagIds.oStatsExcludedTagIds ?? []);
-    return (
-      (oCountsByTagData?.sceneOCountsByTag ?? []) as SceneOCountByTagRow[]
-    ).filter((row) => !excludedTagIds.has(row.tag_id));
-  }, [oCountsByTagData?.sceneOCountsByTag, roleTagIds.oStatsExcludedTagIds]);
-
   // Query tags to get their names (for display and URL generation)
   const { data: tagsData } = GQL.useFindTagsQuery({
     variables: {
@@ -753,37 +692,6 @@ export const CustomStats: React.FC = () => {
         </div>
       )}
 
-      {/* O Date Stats - recorded O dates only, starting March 8 2024 */}
-      {(mostOsInDayData?.mostOsInDay ||
-        longestPeriodWithoutOData?.longestPeriodWithoutO) && (
-        <div className="col col-sm-8 m-sm-auto row stats mt-4">
-          {mostOsInDayData?.mostOsInDay && (
-            <div className="stats-element">
-              <p className="title">
-                <FormattedNumber value={mostOsInDayData.mostOsInDay.count} />
-              </p>
-              <p className="heading">Most O&apos;s in a day</p>
-              <p className="heading">{mostOsInDayData.mostOsInDay.date}</p>
-            </div>
-          )}
-          {longestPeriodWithoutOData?.longestPeriodWithoutO && (
-            <div className="stats-element">
-              <p className="title">
-                <FormattedNumber
-                  value={longestPeriodWithoutOData.longestPeriodWithoutO.days}
-                />{" "}
-                days
-              </p>
-              <p className="heading">Longest period without an O</p>
-              <p className="heading">
-                {longestPeriodWithoutOData.longestPeriodWithoutO.start_date} -{" "}
-                {longestPeriodWithoutOData.longestPeriodWithoutO.end_date}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Performer Role Stats - in order: Top, Bottom, Strict Top, Lenient Top, Strict Bottom, Lenient Bottom, Oral Tops, Oral Bottoms, Facial Tops, Facial Bottoms */}
       {(typeof sexGivenData?.performersSexGivenCount === "number" ||
         typeof sexReceivedData?.performersSexReceivedCount === "number" ||
@@ -1143,73 +1051,6 @@ export const CustomStats: React.FC = () => {
               </div>
             </div>
           ) : null}
-        </div>
-      ) : null}
-
-      {(oYearData?.sceneOYearCounts?.length ?? 0) > 0 ? (
-        <div className="row justify-content-center mt-5">
-          <div className="col-12 col-md-auto" style={{ maxWidth: 420 }}>
-            <h5 className="mb-3">Scene O Counts by Year</h5>
-            <div className="table-responsive">
-              <table className="table table-sm table-striped mb-0">
-                <thead>
-                  <tr>
-                    <th>Year</th>
-                    <th className="text-right">Count</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {oYearData!.sceneOYearCounts.map(
-                    (row: { year: number; count: number }) => (
-                      <tr key={`oyear-${row.year}`}>
-                        <td>{row.year}</td>
-                        <td className="text-right">
-                          <FormattedNumber value={row.count} />
-                        </td>
-                      </tr>
-                    )
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {oCountsByTagRows.length > 0 ? (
-        <div className="row justify-content-center mt-5">
-          <div className="col-12 col-md-auto" style={{ maxWidth: 520 }}>
-            <h5 className="mb-3">Scene O Counts by Marker Tag</h5>
-            <div className="table-responsive">
-              <table className="table table-sm table-striped mb-0">
-                <thead>
-                  <tr>
-                    <th>Tag</th>
-                    <th className="text-right">O&apos;s</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {oCountsByTagRows.map((row) => (
-                    <tr key={`otag-${row.tag_id}`}>
-                      <td>
-                        <Link
-                          to={NavUtils.makeTagSceneMarkersUrl({
-                            id: row.tag_id,
-                            name: row.tag_name,
-                          })}
-                        >
-                          {row.tag_name}
-                        </Link>
-                      </td>
-                      <td className="text-right">
-                        <FormattedNumber value={row.count} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
       ) : null}
     </div>

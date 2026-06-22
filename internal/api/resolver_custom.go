@@ -753,6 +753,149 @@ ORDER BY datetime(od.o_date, 'localtime') ASC, COALESCE(od.video_timestamp, -1) 
 	return ret, nil
 }
 
+// SceneOEventsByTag returns recorded O events covered by the given marker tag.
+func (r *queryResolver) SceneOEventsByTag(ctx context.Context, tagID string) (ret []*SceneOEvent, err error) {
+	tagIDInt, err := strconv.Atoi(tagID)
+	if err != nil || tagIDInt < 1 {
+		return nil, fmt.Errorf("invalid tag ID: %s", tagID)
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+		var orgasmTagID int
+		if roleTagIds != nil {
+			if orgasmID, ok := roleTagIds["orgasmTagId"].(string); ok && orgasmID != "" {
+				orgasmTagID, _ = strconv.Atoi(orgasmID)
+			}
+		}
+
+		var query string
+		var args []interface{}
+		if orgasmTagID != 0 {
+			query = `
+WITH RECURSIVE orgasm_tags(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
+),
+covered_markers AS (
+  SELECT
+    od.rowid AS o_id,
+    sm.id AS marker_id,
+    CASE
+      WHEN sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
+        OR EXISTS (
+          SELECT 1 FROM scene_markers_tags smt
+          WHERE smt.scene_marker_id = sm.id
+            AND smt.tag_id IN (SELECT id FROM orgasm_tags)
+        )
+      THEN 1 ELSE 0
+    END AS is_orgasm
+  FROM scenes_o_dates od
+  JOIN scene_markers sm ON sm.scene_id = od.scene_id
+  WHERE od.video_timestamp IS NOT NULL
+    AND od.o_date IS NOT NULL
+    AND date(od.o_date, 'localtime') >= date(?)
+    AND sm.end_seconds IS NOT NULL
+    AND od.video_timestamp >= sm.seconds
+    AND od.video_timestamp <= sm.end_seconds
+),
+selected_markers AS (
+  SELECT cm.o_id, cm.marker_id
+  FROM covered_markers cm
+  WHERE cm.is_orgasm = 1
+     OR NOT EXISTS (
+       SELECT 1 FROM covered_markers orgasm_cm
+       WHERE orgasm_cm.o_id = cm.o_id
+         AND orgasm_cm.is_orgasm = 1
+     )
+),
+tagged_o_events AS (
+  SELECT DISTINCT smk.o_id
+  FROM selected_markers smk
+  JOIN scene_markers sm ON sm.id = smk.marker_id
+  WHERE sm.primary_tag_id = ?
+     OR EXISTS (
+       SELECT 1 FROM scene_markers_tags smt
+       WHERE smt.scene_marker_id = smk.marker_id
+         AND smt.tag_id = ?
+     )
+)
+SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
+FROM scenes_o_dates od
+JOIN scenes s ON s.id = od.scene_id
+JOIN tagged_o_events toe ON toe.o_id = od.rowid
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) ASC, s.title ASC`
+			args = []interface{}{orgasmTagID, sceneODateTrackingStart, tagIDInt, tagIDInt}
+		} else {
+			query = `
+WITH tagged_o_events AS (
+  SELECT DISTINCT od.rowid AS o_id
+  FROM scenes_o_dates od
+  JOIN scene_markers sm ON sm.scene_id = od.scene_id
+  WHERE od.video_timestamp IS NOT NULL
+    AND od.o_date IS NOT NULL
+    AND date(od.o_date, 'localtime') >= date(?)
+    AND sm.end_seconds IS NOT NULL
+    AND od.video_timestamp >= sm.seconds
+    AND od.video_timestamp <= sm.end_seconds
+    AND (
+      sm.primary_tag_id = ?
+      OR EXISTS (
+        SELECT 1 FROM scene_markers_tags smt
+        WHERE smt.scene_marker_id = sm.id
+          AND smt.tag_id = ?
+      )
+    )
+)
+SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
+FROM scenes_o_dates od
+JOIN scenes s ON s.id = od.scene_id
+JOIN tagged_o_events toe ON toe.o_id = od.rowid
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) ASC, s.title ASC`
+			args = []interface{}{sceneODateTrackingStart, tagIDInt, tagIDInt}
+		}
+
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+
+		out := make([]*SceneOEvent, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 4 {
+				continue
+			}
+
+			sceneID := customIntValue(row[1])
+			scene, err := r.repository.Scene.Find(ctx, sceneID)
+			if err != nil {
+				return err
+			}
+			if scene == nil {
+				continue
+			}
+
+			out = append(out, &SceneOEvent{
+				ID:             fmt.Sprint(row[0]),
+				SceneID:        fmt.Sprint(sceneID),
+				ODate:          customStringValue(row[2]),
+				VideoTimestamp: customFloatPtrValue(row[3]),
+				Scene:          scene,
+			})
+		}
+
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
 // SceneOCountsByTag returns timestamped scene O events grouped by marker tags
 // covering each event's video timestamp. Primary and secondary marker tags are
 // both counted, with each tag counted once per O event.
@@ -793,6 +936,8 @@ covered_markers AS (
   FROM scenes_o_dates od
   JOIN scene_markers sm ON sm.scene_id = od.scene_id
   WHERE od.video_timestamp IS NOT NULL
+    AND od.o_date IS NOT NULL
+    AND date(od.o_date, 'localtime') >= date(?)
     AND sm.end_seconds IS NOT NULL
     AND od.video_timestamp >= sm.seconds
     AND od.video_timestamp <= sm.end_seconds
@@ -830,7 +975,7 @@ SELECT tag_id, tag_name, COUNT(*) AS cnt
 FROM covered_o_tags
 GROUP BY tag_id, tag_name
 ORDER BY cnt DESC, tag_name ASC`
-			args = []interface{}{orgasmTagID}
+			args = []interface{}{orgasmTagID, sceneODateTrackingStart}
 		} else {
 			query = `
 WITH covered_o_tags AS (
@@ -844,6 +989,8 @@ WITH covered_o_tags AS (
   JOIN scene_markers sm ON sm.scene_id = od.scene_id
   JOIN tags t ON t.id = sm.primary_tag_id
   WHERE od.video_timestamp IS NOT NULL
+    AND od.o_date IS NOT NULL
+    AND date(od.o_date, 'localtime') >= date(?)
     AND sm.end_seconds IS NOT NULL
     AND od.video_timestamp >= sm.seconds
     AND od.video_timestamp <= sm.end_seconds
@@ -861,6 +1008,8 @@ WITH covered_o_tags AS (
   JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
   JOIN tags t ON t.id = smt.tag_id
   WHERE od.video_timestamp IS NOT NULL
+    AND od.o_date IS NOT NULL
+    AND date(od.o_date, 'localtime') >= date(?)
     AND sm.end_seconds IS NOT NULL
     AND od.video_timestamp >= sm.seconds
     AND od.video_timestamp <= sm.end_seconds
@@ -869,6 +1018,7 @@ SELECT tag_id, tag_name, COUNT(*) AS cnt
 FROM covered_o_tags
 GROUP BY tag_id, tag_name
 ORDER BY cnt DESC, tag_name ASC`
+			args = []interface{}{sceneODateTrackingStart, sceneODateTrackingStart}
 		}
 
 		_, rows, err := db.QuerySQL(ctx, query, args)

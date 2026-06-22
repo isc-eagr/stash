@@ -73,6 +73,20 @@ func TestActivityStatsOtherSecondsCustom(t *testing.T) {
 	assert.Equal(t, 0.0, activityStatsOtherSecondsCustom(50, activityIntervals, unusableIntervals))
 }
 
+func TestActivityStatsOtherSecondsCustomMergesAnyCoveredMarkerType(t *testing.T) {
+	activityIntervals := []activityIntervalCustom{
+		{sceneID: 1, start: 0, end: 20},
+		{sceneID: 1, start: 10, end: 30},
+		{sceneID: 1, start: 50, end: 70},
+	}
+	unusableIntervals := []activityIntervalCustom{
+		{sceneID: 1, start: 25, end: 60},
+		{sceneID: 1, start: 80, end: 90},
+	}
+
+	assert.Equal(t, 20.0, activityStatsOtherSecondsCustom(100, activityIntervals, unusableIntervals))
+}
+
 func TestActivityStatsCategoryCustom(t *testing.T) {
 	category, ok := activityStatsCategoryCustom(10, 10, 20, 30)
 	assert.True(t, ok)

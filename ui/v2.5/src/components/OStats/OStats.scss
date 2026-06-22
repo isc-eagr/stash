@@ -1,6 +1,6 @@
 .ostats-page {
-  max-width: 1120px;
   margin: 0 auto;
+  max-width: 1120px;
   padding: 1.25rem 1rem 2.5rem;
 }
 
@@ -36,6 +36,39 @@
     font-weight: 600;
     text-transform: uppercase;
   }
+}
+
+.ostats-summary {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  margin: 1rem 0 1.5rem;
+}
+
+.ostats-summary-item {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+.ostats-summary-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.ostats-summary-label {
+  font-weight: 700;
+  margin-top: 0.35rem;
+}
+
+.ostats-summary-detail {
+  color: var(--text-muted, #a5a5a5);
+  margin-top: 0.2rem;
+}
+
+.ostats-section {
+  margin-top: 2rem;
 }
 
 .ostats-back-button {

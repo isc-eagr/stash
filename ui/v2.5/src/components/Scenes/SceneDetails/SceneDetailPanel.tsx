@@ -59,7 +59,6 @@ export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
         sceneId={props.scene.id} // CUSTOM
         scenePerformerCount={performers.length} // CUSTOM
         scenePartnerPerformers={performers} // CUSTOM
-        sceneRoleDurationMarkers={props.scene.scene_markers} // CUSTOM
       />
     ));
 

@@ -94,6 +94,8 @@ extend type Query {
   sceneODayCounts(year: Int!, month: Int!): [SceneODayCount!]!
   "Get recorded scene O events on a date, ordered chronologically"
   sceneOEventsByDate(date: String!): [SceneOEvent!]!
+  "Get recorded scene O events covered by a marker tag, ordered chronologically"
+  sceneOEventsByTag(tagID: ID!): [SceneOEvent!]!
   # CUSTOM: end
   "Get the date with the highest number of recorded scene O events"
   mostOsInDay: SceneODayStat

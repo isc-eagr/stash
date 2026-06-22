@@ -145,7 +145,7 @@ Visual indicators on performer cards and scene cards showing role information ba
 ### Features
 
 - **Top/Bottom counts**: Displayed on performer cards showing breakdown by role
-- **Scene-context role duration percentages**: Performer cards inside a scene show sex/oral top and bottom percentages next to the arrows, based on each performer's role duration divided by the total qualifying duration for that activity type in the scene.
+- **Scene-context role chips**: Performer cards inside a scene show sex/oral/facial role arrows and counts without duration percentages, keeping the chips compact and consistent with other performer cards.
 - **Category icons**: Gay icon (sex), Mouth icon (oral), Hand icon (solo), Facial icon (facial)
 - **Scene card overlays**: Icons indicating what types of markers a scene has
 
@@ -160,7 +160,7 @@ Visual indicators on performer cards and scene cards showing role information ba
 - `ui/v2.5/src/components/Performers/PerformerDetails/PerformerCategoryStrip.tsx`:
 
   - Marker-based category buttons with counts
-  - Scene-only sex/oral top and bottom duration percentages
+  - Scene-only sex/oral/facial role chips without duration percentages
 
 - `ui/v2.5/src/components/Scenes/SceneCard.tsx`:
 
@@ -169,7 +169,7 @@ Visual indicators on performer cards and scene cards showing role information ba
 
 - `ui/v2.5/src/components/Scenes/SceneDetails/SceneDetailPanel.tsx`:
 
-  - Supplies scene markers to scene-context performer cards for role duration percentages
+  - Supplies scene context and partner performer data to scene-context performer cards
 
 - `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx`:
 
@@ -1072,7 +1072,7 @@ Adds a Studio filter criterion to the Scene Markers filter page, allowing filter
 
 ### Overview
 
-Adds additional statistics to the Custom Stats page: estimated liters (from orgasms), total penis meters (sum of performer penis lengths), total orgasm time, total facial time, most O's in a day, longest period without an O, and timestamped O counts grouped by marker tag. Also adds clickable links for Total Orgasms and Total Facials counts. The O-by-tag table supports a Settings → Interface → Role Tags exclusion list for tags that should be hidden from that report.
+Adds additional statistics to the Custom Stats page: estimated liters (from orgasms), total penis meters (sum of performer penis lengths), total orgasm time, and total facial time. Also adds clickable links for Total Orgasms and Total Facials counts. O-date records and O marker-tag analytics are shown on the hidden `/ostats` page.
 
 ### GraphQL Schema Extensions
 
@@ -1098,13 +1098,9 @@ extend type Query {
 - `TotalPenisMeters` resolver: Sums performer penis lengths (defaulting to 17cm when null), converts to meters
 - `TotalOrgasmTime` resolver: Sums duration of all orgasm markers (uses end_seconds - seconds, or 20s default if no end time)
 - `TotalFacialTime` resolver: Sums duration of all facial markers (uses end_seconds - seconds, or 20s default if no end time)
-- `MostOsInDay` resolver: Groups `scenes_o_dates` by date and returns the highest daily O count, ignoring dates before March 8, 2024 when reliable O-date tracking began
-- `SceneOCountsByTag` resolver: For O rows with `video_timestamp`, finds markers covering that timestamp, collects primary and secondary marker tags, and counts each tag once per O event. If an O overlaps an orgasm marker or any descendant of the configured orgasm tag, only the overlapping orgasm marker tags are counted for that O.
-- `LongestPeriodWithoutO` resolver: Finds the longest gap between recorded O dates from March 8, 2024 onward, including the current dry spell through today
-
 ### Frontend Files
 
-- `ui/v2.5/src/components/CustomStats.tsx` - Added display for estimated liters, total penis meters, total orgasm time, total facial time, most O's in a day, longest period without an O, and clickable links for Total Orgasms/Facials counts
+- `ui/v2.5/src/components/CustomStats.tsx` - Added display for estimated liters, total penis meters, total orgasm time, total facial time, and clickable links for Total Orgasms/Facials counts
 
 ### Features
 
@@ -1112,8 +1108,6 @@ extend type Query {
 - **Total Penis Meters**: Sums all performer penis lengths (uses 17cm default), displays in meters with 🍆 emoji
 - **Total Orgasm Time**: Sum of all orgasm marker durations (end_seconds - seconds), using 20s default when no end timestamp
 - **Total Facial Time**: Sum of all facial marker durations (end_seconds - seconds), using 20s default when no end timestamp
-- **Most O's in a Day**: Displays the maximum number of recorded O events on a single date and the date it happened, counting only O dates from March 8, 2024 onward
-- **Longest Period Without an O**: Displays the longest O-free day count and date range from March 8, 2024 onward
 - **Clickable Total Orgasms**: Links to Markers page filtered by orgasm tag (using configured orgasmTagId)
 - **Clickable Total Facials**: Links to Markers page filtered by facial tag (using configured facialTagId)
 
@@ -2818,7 +2812,7 @@ Studio cards and studio detail pages show sex/oral/solo/other/unusable percentag
 
 ### Test Cases
 
-- `internal/api/activity_stats_custom_test.go` - Verifies merged interval duration and Other runtime excluding overlapping Unusable ranges
+- `internal/api/activity_stats_custom_test.go` - Verifies merged interval duration and Other runtime excluding any overlapping sex/oral/solo or Unusable ranges
 
 ---
 
@@ -2882,18 +2876,18 @@ Custom filter criteria are highlighted in green in the Edit Filter picker so for
 
 ### Overview
 
-Adds a hidden `/ostats` page for reliable scene O-date analytics. The page is intentionally not linked from the main UI; it is only accessible by typing the URL. It shows clickable bar charts by year, month, and day, then a chronological day timeline of scene O events. The Generate task can also create exact static screenshots for O events that have a `video_timestamp`, and the day timeline uses those O screenshots when available.
+Adds a hidden `/ostats` page for reliable scene O-date analytics. The page is intentionally not linked from the main UI; it is only accessible by typing the URL. It shows O-date record cards, clickable bar charts by year, month, day, and marker tag, then chronological timelines of scene O events for a selected day or marker tag. The Generate task can also create exact static screenshots for O events that have a `video_timestamp`, and the timelines use those O screenshots when available.
 
 ### Files Modified
 
-- `graphql/schema/types/stats_custom.graphql` - Adds month/day bucket and day timeline GraphQL types and queries
+- `graphql/schema/types/stats_custom.graphql` - Adds month/day bucket and day/tag timeline GraphQL types and queries
 - `graphql/schema/types/metadata_custom.graphql` - Extends Generate metadata input/default options with `oScreenshots`
-- `internal/api/resolver_custom.go` - Adds O stats period resolvers and filters unreliable dates before March 8, 2024
+- `internal/api/resolver_custom.go` - Adds O stats period resolvers, O date record resolvers, timestamped marker-tag counts and tag drilldown events for `/ostats`, and filters unreliable dates before March 8, 2024
 - `internal/api/routes_scene.go` - Registers the O screenshot route
 - `internal/manager/task_generate.go` - Queues O screenshot generation from the Generate task
 - `pkg/models/generate.go` - Stores the O screenshot Generate default flag
 - `ui/v2.5/graphql/data/config.graphql` - Includes the O screenshot Generate default flag
-- `ui/v2.5/src/App.tsx` - Adds the hidden `/ostats/:year?/:month?/:day?` route
+- `ui/v2.5/src/App.tsx` - Adds the hidden `/ostats/:year?/:month?/:day?` and `/ostats/tag/:tagId` routes
 - `ui/v2.5/src/components/Settings/Tasks/GenerateOptions.tsx` - Adds the O screenshots checkbox
 - `ui/v2.5/src/locales/en-GB.json` - Adds O screenshot Generate labels
 - `ui/v2.5/src/locales/en-US.json` - Adds O screenshot Generate labels
@@ -2925,10 +2919,15 @@ Adds a hidden `/ostats` page for reliable scene O-date analytics. The page is in
 - `sceneOMonthCounts(year: Int!)`
 - `sceneODayCounts(year: Int!, month: Int!)`
 - `sceneOEventsByDate(date: String!)`
+- `sceneOEventsByTag(tagID: ID!)`
+- `mostOsInDay`
+- `longestPeriodWithoutO`
+- `sceneOCountsByTag`
 
 ### Configuration Dependencies
 
 - Uses the existing hard-coded reliable O-date cutoff: `sceneODateTrackingStart = "2024-03-08"`.
+- Uses `roleTagIds.oStatsExcludedTagIds` to hide configured tags from the marker-tag bar chart.
 
 ---
 

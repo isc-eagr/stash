@@ -271,6 +271,8 @@ export const App: React.FC = () => {
             <Route path="/groups" component={Groups} />
             <Route path="/stats" component={Stats} />
             <Route path="/customstats" component={CustomStats} /> {/* CUSTOM */}
+            <Route path="/ostats/tag/:tagId" component={OStats} />{" "}
+            {/* CUSTOM */}
             <Route
               path="/ostats/:year?/:month?/:day?"
               component={OStats}

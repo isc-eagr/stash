@@ -4,6 +4,7 @@ import { Alert, Button, ButtonGroup } from "react-bootstrap";
 import { Link, RouteComponentProps, useHistory } from "react-router-dom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
+import { useConfigurationContext } from "src/hooks/Config";
 import TextUtils from "src/utils/text";
 
 import "./OStats.scss";
@@ -66,6 +67,62 @@ const SCENE_O_EVENTS_BY_DATE = gql`
   }
 `;
 
+const SCENE_O_EVENTS_BY_TAG = gql`
+  query OStatsSceneOEventsByTag($tagID: ID!) {
+    sceneOEventsByTag(tagID: $tagID) {
+      id
+      scene_id
+      o_date
+      video_timestamp
+      scene {
+        id
+        title
+        date
+        paths {
+          screenshot
+        }
+        studio {
+          id
+          name
+        }
+        performers {
+          id
+          name
+        }
+      }
+    }
+  }
+`;
+
+const MOST_OS_IN_DAY = gql`
+  query OStatsMostOsInDay {
+    mostOsInDay {
+      date
+      count
+    }
+  }
+`;
+
+const LONGEST_PERIOD_WITHOUT_O = gql`
+  query OStatsLongestPeriodWithoutO {
+    longestPeriodWithoutO {
+      days
+      start_date
+      end_date
+    }
+  }
+`;
+
+const SCENE_O_COUNTS_BY_TAG = gql`
+  query OStatsSceneOCountsByTag {
+    sceneOCountsByTag {
+      tag_id
+      tag_name
+      count
+    }
+  }
+`;
+
 type YearCount = {
   year: number;
   count: number;
@@ -106,7 +163,25 @@ type SceneOEvent = {
   };
 };
 
+type SceneODayStat = {
+  date: string;
+  count: number;
+};
+
+type SceneODrySpell = {
+  days: number;
+  start_date: string;
+  end_date: string;
+};
+
+type SceneOCountByTag = {
+  tag_id: string;
+  tag_name: string;
+  count: number;
+};
+
 interface IRouteParams {
+  tagId?: string;
   year?: string;
   month?: string;
   day?: string;
@@ -232,22 +307,37 @@ const OStatsTimestampImage: React.FC<{
   return <div className="ostats-event-thumb ostats-event-thumb-empty" />;
 };
 
-const OStatsTimeline: React.FC<{ date: string }> = ({ date }) => {
-  const { data, error, loading } = useQuery<{
+const OStatsTimeline: React.FC<{
+  date?: string;
+  tagId?: string;
+  emptyLabel: string;
+}> = ({ date, tagId, emptyLabel }) => {
+  const dateQuery = useQuery<{
     sceneOEventsByDate: SceneOEvent[];
   }>(SCENE_O_EVENTS_BY_DATE, {
     variables: { date },
+    skip: !date,
   });
+  const tagQuery = useQuery<{
+    sceneOEventsByTag: SceneOEvent[];
+  }>(SCENE_O_EVENTS_BY_TAG, {
+    variables: { tagID: tagId },
+    skip: !tagId,
+  });
+
+  const loading = dateQuery.loading || tagQuery.loading;
+  const error = dateQuery.error ?? tagQuery.error;
 
   if (loading) return <LoadingIndicator />;
   if (error) return <ErrorMessage error={error} />;
 
-  const events = data?.sceneOEventsByDate ?? [];
+  const events =
+    dateQuery.data?.sceneOEventsByDate ??
+    tagQuery.data?.sceneOEventsByTag ??
+    [];
 
   if (events.length === 0) {
-    return (
-      <div className="ostats-empty">No reliable O events on this day.</div>
-    );
+    return <div className="ostats-empty">{emptyLabel}</div>;
   }
 
   return (
@@ -294,26 +384,42 @@ const OStatsTimeline: React.FC<{ date: string }> = ({ date }) => {
 
 const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
   const history = useHistory();
+  const { configuration } = useConfigurationContext();
+  const roleTagIds = configuration?.ui?.roleTagIds ?? {};
+  const { oStatsExcludedTagIds } = roleTagIds;
+  const selectedTagId = match.params.tagId;
   const selectedYear = asPositiveInt(match.params.year);
   const selectedMonth = asPositiveInt(match.params.month);
   const selectedDay = asPositiveInt(match.params.day);
   const selectedDate = makeDate(selectedYear, selectedMonth, selectedDay);
-  const showTimeline = !!selectedDate;
+  const showTimeline = !!selectedDate || !!selectedTagId;
 
   const yearQuery = useQuery<{ sceneOYearCounts: YearCount[] }>(
     SCENE_O_YEAR_COUNTS
   );
+  const mostOsInDayQuery = useQuery<{ mostOsInDay: SceneODayStat | null }>(
+    MOST_OS_IN_DAY
+  );
+  const longestPeriodWithoutOQuery = useQuery<{
+    longestPeriodWithoutO: SceneODrySpell | null;
+  }>(LONGEST_PERIOD_WITHOUT_O);
+  const countsByTagQuery = useQuery<{ sceneOCountsByTag: SceneOCountByTag[] }>(
+    SCENE_O_COUNTS_BY_TAG,
+    {
+      skip: !!selectedYear,
+    }
+  );
   const monthQuery = useQuery<{ sceneOMonthCounts: MonthCount[] }>(
     SCENE_O_MONTH_COUNTS,
     {
-      skip: !selectedYear || showTimeline,
+      skip: !!selectedTagId || !selectedYear || showTimeline,
       variables: { year: selectedYear },
     }
   );
   const dayQuery = useQuery<{ sceneODayCounts: DayCount[] }>(
     SCENE_O_DAY_COUNTS,
     {
-      skip: !selectedYear || !selectedMonth || showTimeline,
+      skip: !!selectedTagId || !selectedYear || !selectedMonth || showTimeline,
       variables: { year: selectedYear, month: selectedMonth },
     }
   );
@@ -352,13 +458,38 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     yearQuery.data?.sceneOYearCounts,
   ]);
 
+  const tagChartData = useMemo<IBarDatum[]>(() => {
+    const excludedTagIds = new Set(oStatsExcludedTagIds ?? []);
+    return (countsByTagQuery.data?.sceneOCountsByTag ?? [])
+      .filter((item) => !excludedTagIds.has(item.tag_id))
+      .map((item) => ({
+        key: item.tag_id,
+        label: item.tag_name,
+        count: item.count,
+        path: `/ostats/tag/${item.tag_id}`,
+      }));
+  }, [countsByTagQuery.data?.sceneOCountsByTag, oStatsExcludedTagIds]);
+
+  const selectedTagName = selectedTagId
+    ? tagChartData.find((item) => item.key === selectedTagId)?.label
+    : undefined;
   const loading =
     yearQuery.loading ||
+    mostOsInDayQuery.loading ||
+    longestPeriodWithoutOQuery.loading ||
+    (!selectedYear && countsByTagQuery.loading) ||
     (!selectedYear ? false : !showTimeline && monthQuery.loading) ||
     (!selectedMonth ? false : !showTimeline && dayQuery.loading);
-  const error = yearQuery.error ?? monthQuery.error ?? dayQuery.error;
+  const error =
+    yearQuery.error ??
+    mostOsInDayQuery.error ??
+    longestPeriodWithoutOQuery.error ??
+    countsByTagQuery.error ??
+    monthQuery.error ??
+    dayQuery.error;
 
   function renderTitle() {
+    if (selectedTagId) return `O's tagged ${selectedTagName ?? selectedTagId}`;
     if (selectedDate) return `O's on ${selectedDate}`;
     if (selectedYear && selectedMonth) {
       return `${monthName(selectedMonth, "long")} ${selectedYear}`;
@@ -368,6 +499,7 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
   }
 
   function renderModeLabel() {
+    if (selectedTagId) return "By Marker Tag";
     if (selectedDate) return "Day Summary";
     if (selectedYear && selectedMonth) return "By Day";
     if (selectedYear) return "By Month";
@@ -383,14 +515,14 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
         </div>
         <ButtonGroup aria-label="O stats navigation">
           <Button
-            disabled={!selectedYear}
+            disabled={!selectedYear && !selectedTagId}
             onClick={() => history.push("/ostats")}
-            variant={!selectedYear ? "primary" : "secondary"}
+            variant={!selectedYear && !selectedTagId ? "primary" : "secondary"}
           >
             By Year
           </Button>
           <Button
-            disabled={!selectedYear}
+            disabled={!selectedYear || !!selectedTagId}
             onClick={() =>
               selectedYear && history.push(`/ostats/${selectedYear}`)
             }
@@ -416,12 +548,50 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
         </ButtonGroup>
       </div>
 
+      {(mostOsInDayQuery.data?.mostOsInDay ||
+        longestPeriodWithoutOQuery.data?.longestPeriodWithoutO) && (
+        <div className="ostats-summary" aria-label="O date records">
+          {mostOsInDayQuery.data?.mostOsInDay && (
+            <div className="ostats-summary-item">
+              <div className="ostats-summary-value">
+                {mostOsInDayQuery.data.mostOsInDay.count}
+              </div>
+              <div className="ostats-summary-label">Most O&apos;s in a day</div>
+              <div className="ostats-summary-detail">
+                {mostOsInDayQuery.data.mostOsInDay.date}
+              </div>
+            </div>
+          )}
+          {longestPeriodWithoutOQuery.data?.longestPeriodWithoutO && (
+            <div className="ostats-summary-item">
+              <div className="ostats-summary-value">
+                {longestPeriodWithoutOQuery.data.longestPeriodWithoutO.days}{" "}
+                days
+              </div>
+              <div className="ostats-summary-label">
+                Longest period without an O
+              </div>
+              <div className="ostats-summary-detail">
+                {
+                  longestPeriodWithoutOQuery.data.longestPeriodWithoutO
+                    .start_date
+                }{" "}
+                -{" "}
+                {longestPeriodWithoutOQuery.data.longestPeriodWithoutO.end_date}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="ostats-subheader">
         <span>{renderModeLabel()}</span>
-        {selectedYear && (
+        {(selectedYear || selectedTagId) && (
           <Button
             onClick={() => {
-              if (selectedDate && selectedYear && selectedMonth) {
+              if (selectedTagId) {
+                history.push("/ostats");
+              } else if (selectedDate && selectedYear && selectedMonth) {
                 history.push(`/ostats/${selectedYear}/${selectedMonth}`);
               } else if (selectedMonth && selectedYear) {
                 history.push(`/ostats/${selectedYear}`);
@@ -446,8 +616,27 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
           emptyLabel="No reliable O events in this range."
         />
       )}
+      {!error && !loading && !showTimeline && !selectedYear && (
+        <section className="ostats-section">
+          <div className="ostats-subheader">
+            <span>By Marker Tag</span>
+          </div>
+          <OStatsChart
+            data={tagChartData}
+            emptyLabel="No timestamped O marker-tag counts found."
+          />
+        </section>
+      )}
       {!error && !loading && showTimeline && (
-        <OStatsTimeline date={selectedDate} />
+        <OStatsTimeline
+          date={selectedDate}
+          tagId={selectedTagId}
+          emptyLabel={
+            selectedTagId
+              ? "No reliable O events found for this marker tag."
+              : "No reliable O events on this day."
+          }
+        />
       )}
       {!selectedDate && selectedYear && selectedMonth && selectedDay && (
         <Alert variant="warning">That date does not exist.</Alert>
