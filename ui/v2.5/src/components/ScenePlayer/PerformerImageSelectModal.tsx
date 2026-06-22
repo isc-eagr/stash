@@ -45,8 +45,7 @@ export const PerformerImageSelectModal: React.FC<
   );
   const [filterTags, setFilterTags] = useState<Tag[]>([]);
 
-  const [fetchImages, { data, loading, error }] =
-    GQL.useFindImagesLazyQuery();
+  const [fetchImages, { data, loading, error }] = GQL.useFindImagesLazyQuery();
 
   // Reset page when filters change
   useEffect(() => {
@@ -119,7 +118,7 @@ export const PerformerImageSelectModal: React.FC<
   // Sort images: performer-associated images first, then gallery-only images
   const images = useMemo(() => {
     const rawImages = data?.findImages?.images ?? [];
-    
+
     // Sort by whether the image has a performer that matches our performerIds
     return [...rawImages].sort((a, b) => {
       const aHasPerformer = a.performers?.some((p) =>
@@ -184,7 +183,7 @@ export const PerformerImageSelectModal: React.FC<
           <h5 className="pis-title">
             <FormattedMessage
               id="performer_image_overlay.select_images"
-              defaultMessage="Select Performer Images"
+              defaultMessage="Select Vato Images"
             />
             <span className="pis-selection-count">
               ({selectedImages.length} selected)
@@ -233,7 +232,7 @@ export const PerformerImageSelectModal: React.FC<
             <div className="pis-empty">
               <FormattedMessage
                 id="performer_image_overlay.no_images"
-                defaultMessage="No images found for performers in this scene"
+                defaultMessage="No images found for vatos in this scene"
               />
             </div>
           )}
@@ -273,7 +272,10 @@ export const PerformerImageSelectModal: React.FC<
                       )}
                     </div>
                     {performerNames && (
-                      <div className="pis-performer-names" title={performerNames}>
+                      <div
+                        className="pis-performer-names"
+                        title={performerNames}
+                      >
                         {performerNames}
                       </div>
                     )}

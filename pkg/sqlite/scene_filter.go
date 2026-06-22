@@ -106,12 +106,14 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		},
 
 		intCriterionHandler(sceneFilter.Rating100, "scenes.rating", nil),
-		metallicRatingCriterionHandler(sceneFilter.MetallicRating, "scenes", "scenes.rating", "scenes_tags", "scene_id", "scene"),                // CUSTOM
-		ratingCriteriaCriterionHandler(sceneFilter.RatingCriteria, models.RatingEntityScene, "scenes"),                                           // CUSTOM
-		activityPercentFilterHandlerCustom(sceneFilter.ActivityPercentages, activityPercentScenePercentExprCustom),                               // CUSTOM
-		activityPercentCriterionHandlerCustom(sceneFilter.SexActivityPercent, activityPercentScenePercentExprCustom(activityPercentSexCustom)),   // CUSTOM
-		activityPercentCriterionHandlerCustom(sceneFilter.OralActivityPercent, activityPercentScenePercentExprCustom(activityPercentOralCustom)), // CUSTOM
-		activityPercentCriterionHandlerCustom(sceneFilter.SoloActivityPercent, activityPercentScenePercentExprCustom(activityPercentSoloCustom)), // CUSTOM
+		metallicRatingCriterionHandler(sceneFilter.MetallicRating, "scenes", "scenes.rating", "scenes_tags", "scene_id", "scene"),                        // CUSTOM
+		ratingCriteriaCriterionHandler(sceneFilter.RatingCriteria, models.RatingEntityScene, "scenes"),                                                   // CUSTOM
+		activityPercentFilterHandlerCustom(sceneFilter.ActivityPercentages, activityPercentScenePercentExprCustom),                                       // CUSTOM
+		activityPercentCriterionHandlerCustom(sceneFilter.SexActivityPercent, activityPercentScenePercentExprCustom(activityPercentSexCustom)),           // CUSTOM
+		activityPercentCriterionHandlerCustom(sceneFilter.OralActivityPercent, activityPercentScenePercentExprCustom(activityPercentOralCustom)),         // CUSTOM
+		activityPercentCriterionHandlerCustom(sceneFilter.SoloActivityPercent, activityPercentScenePercentExprCustom(activityPercentSoloCustom)),         // CUSTOM
+		activityPercentCriterionHandlerCustom(sceneFilter.OtherActivityPercent, activityPercentScenePercentExprCustom(activityPercentOtherCustom)),       // CUSTOM
+		activityPercentCriterionHandlerCustom(sceneFilter.UnusableActivityPercent, activityPercentScenePercentExprCustom(activityPercentUnusableCustom)), // CUSTOM
 		qb.oCountCriterionHandler(sceneFilter.OCounter),
 		boolCriterionHandler(sceneFilter.Organized, "scenes.organized", nil),
 

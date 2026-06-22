@@ -863,7 +863,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
               // Partner URLs for facial (goes to /scenes/markers)
               const performerRef = {
                 id: performer.id,
-                label: performer.name || `Performer ${performer.id}`,
+                label: performer.name || `Vato ${performer.id}`,
               };
 
               // Facial top partner: performer is top (giver), showing scenes
@@ -925,7 +925,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
               // Partner URLs for sex/oral (goes to /scenes)
               const performerRef = {
                 id: performer.id,
-                label: performer.name || `Performer ${performer.id}`,
+                label: performer.name || `Vato ${performer.id}`,
               };
 
               // Sex/oral top partner: performer is top, showing scenes

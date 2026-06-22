@@ -70,11 +70,11 @@ export const PerformerDetailsPanel: React.FC<IPerformerDetails> =
 
     return (
       <PerformerDetailGroup {...props}>
-        {performer.gender ? (
+        {performer.gender === GQL.GenderEnum.Male ? (
           <DetailItem
             id="gender"
             value={intl.formatMessage({
-              id: "gender_types." + performer.gender,
+              id: "gender_types.MALE",
             })}
             fullWidth={fullWidth}
           />
@@ -154,16 +154,6 @@ export const PerformerDetailsPanel: React.FC<IPerformerDetails> =
           fullWidth={fullWidth}
         />
         <DetailItem
-          id="measurements"
-          value={performer?.measurements}
-          fullWidth={fullWidth}
-        />
-        <DetailItem
-          id="fake_tits"
-          value={performer?.fake_tits}
-          fullWidth={fullWidth}
-        />
-        <DetailItem
           id="tattoos"
           value={performer?.tattoos}
           fullWidth={fullWidth}
@@ -210,11 +200,11 @@ export const CompressedPerformerDetailsPanel: React.FC<IPerformerDetails> =
           <a className="performer-name" onClick={() => scrollToTop()}>
             {performer.name}
           </a>
-          {performer.gender ? (
+          {performer.gender === GQL.GenderEnum.Male ? (
             <>
               <span className="detail-divider">/</span>
               <span className="performer-gender">
-                {intl.formatMessage({ id: "gender_types." + performer.gender })}
+                {intl.formatMessage({ id: "gender_types.MALE" })}
               </span>
             </>
           ) : (

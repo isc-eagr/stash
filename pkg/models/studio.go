@@ -19,10 +19,12 @@ type StudioFilterType struct {
 	// Filter by metallic card style after rating thresholds and tag overrides
 	MetallicRating *MultiCriterionInput `json:"metallic_rating"` // CUSTOM
 	// Filter by configured activity percentages
-	ActivityPercentages *ActivityPercentFilterInput `json:"activity_percentages"`  // CUSTOM
-	SexActivityPercent  *IntCriterionInput          `json:"sex_activity_percent"`  // CUSTOM
-	OralActivityPercent *IntCriterionInput          `json:"oral_activity_percent"` // CUSTOM
-	SoloActivityPercent *IntCriterionInput          `json:"solo_activity_percent"` // CUSTOM
+	ActivityPercentages     *ActivityPercentFilterInput `json:"activity_percentages"`      // CUSTOM
+	SexActivityPercent      *IntCriterionInput          `json:"sex_activity_percent"`      // CUSTOM
+	OralActivityPercent     *IntCriterionInput          `json:"oral_activity_percent"`     // CUSTOM
+	SoloActivityPercent     *IntCriterionInput          `json:"solo_activity_percent"`     // CUSTOM
+	OtherActivityPercent    *IntCriterionInput          `json:"other_activity_percent"`    // CUSTOM
+	UnusableActivityPercent *IntCriterionInput          `json:"unusable_activity_percent"` // CUSTOM
 	// Filter to only include studios with these tags
 	Tags *HierarchicalMultiCriterionInput `json:"tags"`
 	// Filter by tag count

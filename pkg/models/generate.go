@@ -15,6 +15,7 @@ type GenerateMetadataOptions struct {
 	Markers                   bool                    `json:"markers"`
 	MarkerImagePreviews       bool                    `json:"markerImagePreviews"`
 	MarkerScreenshots         bool                    `json:"markerScreenshots"`
+	OScreenshots              bool                    `json:"oScreenshots"` // CUSTOM
 	Transcodes                bool                    `json:"transcodes"`
 	Phashes                   bool                    `json:"phashes"`
 	InteractiveHeatmapsSpeeds bool                    `json:"interactiveHeatmapsSpeeds"`

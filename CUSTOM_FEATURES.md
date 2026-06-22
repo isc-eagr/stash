@@ -50,6 +50,7 @@ This document describes all custom features and modifications added on top of th
 40. [Custom Settings Tab](#40-custom-settings-tab)
 41. [Custom Filter Name Highlighting](#41-custom-filter-name-highlighting)
 42. [Hidden O Stats Timeline](#42-hidden-o-stats-timeline)
+43. [Vato UI Vocabulary](#43-vato-ui-vocabulary)
 
 ---
 
@@ -2779,9 +2780,9 @@ deploy_prod_custom.bat -SkipStart
 
 ### Overview
 
-Adds strict marker-duration stats for configured sex, oral, and solo tags. A qualifying marker must have the configured tag as its primary tag and no secondary tags. Same-category overlaps are merged, cross-category overlaps count toward each category, and uncovered runtime is reported as Other.
+Adds strict marker-duration stats for configured sex, oral, solo, other, and unusable activity percentages. A qualifying sex/oral/solo marker must have the configured tag as its primary tag and no secondary tags. Same-category overlaps are merged, cross-category overlaps count toward each category, negative marker/Skip ranges are merged into Unusable without double-counting overlaps, and uncovered runtime excluding Unusable is reported as Other.
 
-Studio cards and studio detail pages show sex/oral/solo/other percentages using the length of scenes with qualifying markers as 100%. Performer-scoped studio cards use performer-filtered activity stats for the strip. Performer detail pages include a Stats tab with total sex/oral/solo time plus indented sex/oral top and bottom breakdowns. Scene and studio detail pages include Stats tabs with total length and sex/oral/solo/other lengths and percentages. The Scene Stats tab also shows a By Performer breakdown and can add qualifying sex/oral/solo markers to the multi-segment loop by selected activity. Scene, performer, and studio list pages include a combined Activity Type percentage filter plus individual activity percentage sort options; performer cards show the active activity percentage only when sorting by one of those percentage fields.
+Studio cards and studio detail pages show sex/oral/solo/other/unusable percentages using the length of scenes with qualifying activity markers or negative markers as 100%. Performer-scoped studio cards use performer-filtered activity stats for the strip, but Unusable is not added to performer stats because negative markers are scene-level. Performer detail pages include a Stats tab with an activity pie chart and a selected-activity top/bottom role split chart. Scene and studio detail pages include Stats tabs with total length and sex/oral/solo/other/unusable activity pie charts. The Scene Stats tab also shows a By Performer breakdown with per-activity top/bottom pie charts and chart-local checkboxes that can add qualifying sex/oral/solo markers to the multi-segment loop. Scene and studio list pages include a combined Activity Percentage filter plus individual sex/oral/solo/other/unusable percentage sort options; performer list pages retain marker-owned activity percentage filters and sorts only.
 
 ### Files Modified
 
@@ -2794,12 +2795,15 @@ Studio cards and studio detail pages show sex/oral/solo/other percentages using 
 - `ui/v2.5/graphql/data/performer.graphql` - Fetches performer activity stats
 - `ui/v2.5/graphql/data/studio.graphql` - Fetches studio activity stats
 - `ui/v2.5/graphql/queries/studio.graphql` - Fetches performer-filtered studio activity stats
-- `ui/v2.5/src/models/list-filter/scenes.ts`, `performers.ts`, `studios.ts` - Activity Type percentage filter and sort options
+- `ui/v2.5/graphql/data/scene-slim.graphql` - Fetches negative marker timing for scene-card Unusable percentages
+- `ui/v2.5/src/models/list-filter/scenes.ts`, `performers.ts`, `studios.ts` - Activity Percentage filter and sort options
 - `ui/v2.5/src/models/list-filter/criteria/activity-type_custom.ts`, `ui/v2.5/src/components/List/Filters/ActivityTypeFilter_custom.tsx` - Combined activity percentage filter UI
 - `ui/v2.5/src/components/Performers/PerformerCard.tsx` - Sort-specific activity percentage display
+- `ui/v2.5/src/components/Shared/styles.scss` - Shared activity pie chart styling
 - `ui/v2.5/src/components/Studios/StudioCard.tsx` - Studio card activity strip
 - `ui/v2.5/src/components/Studios/StudioActivityMetricsStrip.tsx` - Shared studio activity strip component
 - `ui/v2.5/src/components/Studios/styles.scss` - Studio activity strip styling
+- `ui/v2.5/src/components/Scenes/styles.scss` - Stats tab pie chart layout
 - `ui/v2.5/src/components/Studios/StudioDetails/Studio.tsx` - Studio Stats tab
 - `ui/v2.5/src/components/Performers/PerformerDetails/Performer.tsx` - Performer Stats tab
 - `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx` - Scene Stats tab
@@ -2808,8 +2812,13 @@ Studio cards and studio detail pages show sex/oral/solo/other percentages using 
 
 - `ui/v2.5/src/components/Performers/PerformerDetails/PerformerStatsPanel.tsx`
 - `ui/v2.5/src/components/Scenes/SceneDetails/SceneStatsPanel.tsx`
+- `ui/v2.5/src/components/Shared/ActivityPieChart_custom.tsx`
 - `ui/v2.5/src/components/Studios/StudioDetails/StudioStatsPanel.tsx`
 - `ui/v2.5/src/components/Studios/StudioActivityMetricsStrip.tsx`
+
+### Test Cases
+
+- `internal/api/activity_stats_custom_test.go` - Verifies merged interval duration and Other runtime excluding overlapping Unusable ranges
 
 ---
 
@@ -2873,16 +2882,29 @@ Custom filter criteria are highlighted in green in the Edit Filter picker so for
 
 ### Overview
 
-Adds a hidden `/ostats` page for reliable scene O-date analytics. The page is intentionally not linked from the main UI; it is only accessible by typing the URL. It shows clickable bar charts by year, month, and day, then a chronological day timeline of scene O events.
+Adds a hidden `/ostats` page for reliable scene O-date analytics. The page is intentionally not linked from the main UI; it is only accessible by typing the URL. It shows clickable bar charts by year, month, and day, then a chronological day timeline of scene O events. The Generate task can also create exact static screenshots for O events that have a `video_timestamp`, and the day timeline uses those O screenshots when available.
 
 ### Files Modified
 
 - `graphql/schema/types/stats_custom.graphql` - Adds month/day bucket and day timeline GraphQL types and queries
+- `graphql/schema/types/metadata_custom.graphql` - Extends Generate metadata input/default options with `oScreenshots`
 - `internal/api/resolver_custom.go` - Adds O stats period resolvers and filters unreliable dates before March 8, 2024
+- `internal/api/routes_scene.go` - Registers the O screenshot route
+- `internal/manager/task_generate.go` - Queues O screenshot generation from the Generate task
+- `pkg/models/generate.go` - Stores the O screenshot Generate default flag
+- `ui/v2.5/graphql/data/config.graphql` - Includes the O screenshot Generate default flag
 - `ui/v2.5/src/App.tsx` - Adds the hidden `/ostats/:year?/:month?/:day?` route
+- `ui/v2.5/src/components/Settings/Tasks/GenerateOptions.tsx` - Adds the O screenshots checkbox
+- `ui/v2.5/src/locales/en-GB.json` - Adds O screenshot Generate labels
+- `ui/v2.5/src/locales/en-US.json` - Adds O screenshot Generate labels
 
 ### Files Added
 
+- `internal/api/routes_scene_custom.go` - Serves generated O screenshots and validates the O row belongs to the scene
+- `internal/manager/task_generate_o_screenshots_custom.go` - Finds timestamped O rows and generates exact screenshots
+- `pkg/models/paths/paths_generated_custom.go` - Adds generated O screenshot path helpers
+- `pkg/models/paths/paths_generated_custom_test.go` - Covers generated O screenshot paths
+- `pkg/scene/generate/o_screenshot_custom.go` - Adds generator support for O screenshot output paths
 - `ui/v2.5/src/components/OStats/OStats.tsx` - Hidden O stats chart and timeline page
 - `ui/v2.5/src/components/OStats/OStats.scss` - Page-specific chart and timeline styles
 - `internal/api/resolver_custom_test.go` - Date validation tests for O stats helpers
@@ -2891,9 +2913,12 @@ Adds a hidden `/ostats` page for reliable scene O-date analytics. The page is in
 
 - `TestSceneOStatsDate` - Covers valid dates, leap day, invalid months, and invalid day/month combinations
 - `TestValidateSceneOStatsDate` - Covers accepted `YYYY-MM-DD` dates and rejected malformed/impossible dates
+- `TestGetOScreenshotPath` - Covers generated O screenshot path layout by scene hash and O row id
 
 ### GraphQL Schema Changes
 
+- `GenerateMetadataInput.oScreenshots`
+- `GenerateMetadataOptions.oScreenshots`
 - `SceneOMonthCount`
 - `SceneODayCount`
 - `SceneOEvent`
@@ -2904,3 +2929,30 @@ Adds a hidden `/ostats` page for reliable scene O-date analytics. The page is in
 ### Configuration Dependencies
 
 - Uses the existing hard-coded reliable O-date cutoff: `sceneODateTrackingStart = "2024-03-08"`.
+
+---
+
+## 43. Vato UI Vocabulary
+
+### Overview
+
+Renames the user-facing English UI vocabulary from Performer/Performers to Vato/Vatos while preserving the upstream backend, database, GraphQL, route, plugin API, and code identifiers that still use performer naming.
+
+### Files Modified
+
+- `ui/v2.5/src/locales/en-GB.json` - Base English translations for performer-facing UI labels.
+- `ui/v2.5/src/locales/en-US.json` - US English overrides for custom performer-facing labels.
+- `ui/v2.5/src/components/**` and `ui/v2.5/src/models/**` - Hard-coded fallback labels, tooltips, rating advisor text, stats headings, and fallback unnamed-performer labels that can appear when translations are missing.
+- `ui/v2.5/src/utils/navigation.ts`, `ui/v2.5/src/utils/navigation_custom.ts`, and `ui/v2.5/src/core/performers.ts` - Visible fallback filter labels such as `Vato 123` when a performer name is unavailable.
+
+### Test Cases Added
+
+- No automated tests added; this is a UI vocabulary-only change. Verified with targeted UI lint, Prettier, TypeScript compile, backend compile, and whitespace checks.
+
+### GraphQL Schema Changes
+
+- None. Performer terminology remains unchanged in schema, generated types, routes, database tables, and API/plugin contracts.
+
+### Configuration Dependencies
+
+- None.

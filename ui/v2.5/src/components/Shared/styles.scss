@@ -50,6 +50,138 @@
   }
 }
 
+/* CUSTOM: begin - activity stats pie charts */
+.activity-pie-chart {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  max-width: 100%;
+}
+
+.activity-pie-chart-title {
+  color: $text-color;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 0.35rem;
+  text-align: center;
+}
+
+.activity-pie-chart-svg {
+  aspect-ratio: 1 / 1;
+  display: block;
+  max-width: 100%;
+  overflow: visible;
+  width: 100%;
+}
+
+.activity-pie-chart-track {
+  stroke: rgba(255, 255, 255, 0.08);
+}
+
+.activity-pie-chart-slice {
+  cursor: default;
+  outline: none;
+  stroke-linecap: butt;
+  transition: opacity 120ms ease, stroke-width 120ms ease;
+}
+
+.activity-pie-chart-slice-clickable {
+  cursor: pointer;
+
+  &:hover,
+  &:focus {
+    opacity: 0.86;
+    stroke-width: 22;
+  }
+}
+
+.activity-pie-chart-slice-active {
+  stroke-width: 23;
+}
+
+.activity-pie-chart-center-label {
+  fill: $text-color;
+  font-size: 0.47rem;
+  font-weight: 700;
+}
+
+.activity-pie-chart-percent-label {
+  fill: $text-color;
+  font-size: 0.42rem;
+  font-weight: 800;
+  paint-order: stroke;
+  pointer-events: none;
+  stroke: rgba(0, 0, 0, 0.82);
+  stroke-linejoin: round;
+  stroke-width: 0.14rem;
+}
+
+.activity-pie-chart-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.35rem;
+  width: 100%;
+}
+
+.activity-pie-chart-legend-item {
+  align-items: center;
+  color: $text-color;
+  column-gap: 0.35rem;
+  display: grid;
+  font-size: 0.78rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  line-height: 1.2;
+  min-width: 0;
+}
+
+.activity-pie-chart-legend-button {
+  background: transparent;
+  border: 0;
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.15rem;
+  text-align: left;
+
+  &:hover,
+  &:focus {
+    background: rgba(255, 255, 255, 0.08);
+    color: $text-color;
+    outline: none;
+  }
+}
+
+.activity-pie-chart-legend-button-active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.activity-pie-chart-legend-swatch {
+  border-radius: 50%;
+  display: block;
+  height: 0.7rem;
+  width: 0.7rem;
+}
+
+.activity-pie-chart-legend-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-pie-chart-legend-value {
+  color: $text-muted;
+  white-space: nowrap;
+}
+
+.activity-pie-chart-footer {
+  margin-top: 0.45rem;
+  width: 100%;
+}
+
+/* CUSTOM: end */
+
 .details-edit {
   /*
     The penultimate button should be wrapped in an unstyled div.

@@ -131,7 +131,7 @@
     "select_folders": "Select folders",
     "select_none": "Select None",
     "invert_selection": "Invert Selection",
-    "select_performers": "Select Performers",
+    "select_performers": "Select Vatos",
     "selective_auto_tag": "Selective auto tag",
     "selective_clean": "Selective clean",
     "selective_generate": "Selective generate",
@@ -210,8 +210,8 @@
       "mark_organized_desc": "Immediately mark the scene as Organized after the Save button is clicked.",
       "mark_organized_label": "Mark as Organized on save",
       "performer_genders": {
-        "heading": "Performer genders",
-        "description": "Performers with these genders will be shown when tagging scenes."
+        "heading": "Vato genders",
+        "description": "Vatos with these genders will be shown when tagging scenes."
       },
       "query_mode_auto": "Auto",
       "query_mode_auto_desc": "Uses metadata if present, or filename",
@@ -354,7 +354,7 @@
         "heading": "Binary data filesystem path"
       },
       "blobs_storage": {
-        "description": "Where to store binary data such as scene covers, performer, studio and tag images. After changing this value, the existing data must be migrated using the Migrate blobs tasks. See Tasks page for migration.",
+        "description": "Where to store binary data such as scene covers, vato, studio and tag images. After changing this value, the existing data must be migrated using the Migrate blobs tasks. See Tasks page for migration.",
         "heading": "Binary data storage type"
       },
       "cache_location": "Directory location of the cache. Required if streaming using HLS (such as on Apple devices) or DASH.",
@@ -506,7 +506,7 @@
     "stashbox": {
       "add_instance": "Add stash-box instance",
       "api_key": "API key",
-      "description": "Stash-box facilitates automated tagging of scenes and performers based on fingerprints and filenames.\nEndpoint and API key can be found on your account page on the stash-box instance. Names are required when more than one instance is added.",
+      "description": "Stash-box facilitates automated tagging of scenes and vatos based on fingerprints and filenames.\nEndpoint and API key can be found on your account page on the stash-box instance. Names are required when more than one instance is added.",
       "endpoint": "Endpoint",
       "graphql_endpoint": "GraphQL endpoint",
       "max_requests_per_minute": "Max requests per minute",
@@ -593,23 +593,23 @@
         "heading": "Identify",
         "identifying_from_paths": "Identifying scenes from the following paths",
         "identifying_scenes": "Identifying {num} {scene}",
-        "include_male_performers": "Include male performers",
-        "performer_genders": "Performer genders",
-        "performer_genders_desc": "Performers with selected genders will be included during identification.",
+        "include_male_performers": "Include male vatos",
+        "performer_genders": "Vato genders",
+        "performer_genders_desc": "Vatos with selected genders will be included during identification.",
         "set_cover_images": "Set cover images",
         "set_organized": "Set organised flag",
         "skip_multiple_matches": "Skip matches that have more than one result",
         "skip_multiple_matches_tooltip": "If this is not enabled and more than one result is returned, one will be randomly chosen to match",
-        "skip_single_name_performers": "Skip single name performers with no disambiguation",
-        "skip_single_name_performers_tooltip": "If this is not enabled, performers that are often generic like Samantha or Olga will be matched",
+        "skip_single_name_performers": "Skip single name vatos with no disambiguation",
+        "skip_single_name_performers_tooltip": "If this is not enabled, vatos that are often generic like Samantha or Olga will be matched",
         "source": "Source",
         "source_options": "{source} Options",
         "sources": "Sources",
         "strategy": "Strategy",
         "tag_skipped_matches": "Tag skipped matches with",
         "tag_skipped_matches_tooltip": "Create a tag like 'Identify: Multiple Matches' that you can filter for in the Scene Tagger view and choose the correct match by hand",
-        "tag_skipped_performer_tooltip": "Create a tag like 'Identify: Single Name Performer' that you can filter for in the Scene Tagger view and choose how you want to handle these performers",
-        "tag_skipped_performers": "Tag skipped performers with"
+        "tag_skipped_performer_tooltip": "Create a tag like 'Identify: Single Name Vato' that you can filter for in the Scene Tagger view and choose how you want to handle these vatos",
+        "tag_skipped_performers": "Tag skipped vatos with"
       },
       "import_from_exported_json": "Import from exported JSON in the metadata directory. Wipes the existing database.",
       "incremental_import": "Incremental import from a supplied export zip file.",
@@ -664,7 +664,7 @@
       "role_tags": {
         "heading": "Role Tags",
         "title": "Scene Marker Role Tags",
-        "description": "Select the tags used for scene markers that represent different performer roles. These are used to calculate role-based statistics.",
+        "description": "Select the tags used for scene markers that represent different vato roles. These are used to calculate role-based statistics.",
         "sex": "Sex marker tag",
         "oral": "Oral marker tag",
         "solo": "Solo marker tag",
@@ -683,8 +683,8 @@
       "card_rating_styles": {
         "heading": "Card Rating Styles",
         "theme": {
-          "heading": "Scene and performer card style",
-          "description": "Choose how 100-based Bronze, Silver, Gold, and Royal Sapphire scene and performer cards are styled. GOAT-tagged cards use the Royal Sapphire override.",
+          "heading": "Scene and vato card style",
+          "description": "Choose how 100-based Bronze, Silver, Gold, and Royal Sapphire scene and vato cards are styled. GOAT-tagged cards use the Royal Sapphire override.",
           "options": {
             "premium": "Premium radiant outline",
             "classic": "Classic metallic shimmer"
@@ -723,16 +723,16 @@
           },
           "performer": {
             "bronze": {
-              "heading": "Performer bronze threshold"
+              "heading": "Vato bronze threshold"
             },
             "silver": {
-              "heading": "Performer silver threshold"
+              "heading": "Vato silver threshold"
             },
             "gold": {
-              "heading": "Performer gold threshold"
+              "heading": "Vato gold threshold"
             },
             "royalSapphire": {
-              "heading": "Performer Royal Sapphire threshold"
+              "heading": "Vato Royal Sapphire threshold"
             }
           }
         }
@@ -895,8 +895,8 @@
       "performers": {
         "options": {
           "image_location": {
-            "description": "Custom path for default performer images. Leave empty to use built-in defaults.",
-            "heading": "Custom performer image path"
+            "description": "Custom path for default vato images. Leave empty to use built-in defaults.",
+            "heading": "Custom vato image path"
           }
         }
       },
@@ -985,10 +985,10 @@
         }
       },
       "performer_list": {
-        "heading": "Performer List",
+        "heading": "Vato List",
         "options": {
           "show_links_on_grid_card": {
-            "heading": "Display links on performer grid cards"
+            "heading": "Display links on vato grid cards"
           }
         }
       },
@@ -1022,7 +1022,7 @@
     "groups": "{count, plural, one {Group} other {Groups}}",
     "images": "{count, plural, one {Image} other {Images}}",
     "markers": "{count, plural, one {Marker} other {Markers}}",
-    "performers": "{count, plural, one {Performer} other {Performers}}",
+    "performers": "{count, plural, one {Vato} other {Vatos}}",
     "scenes": "{count, plural, one {Scene} other {Scenes}}",
     "studios": "{count, plural, one {Studio} other {Studios}}",
     "tags": "{count, plural, one {Tag} other {Tags}}"
@@ -1142,7 +1142,7 @@
       "source": "Source"
     },
     "overwrite_filter_warning": "Saved filter \"{entityName}\" will be overwritten.",
-    "performers_found": "{count} performers found",
+    "performers_found": "{count} vatos found",
     "reassign_entity_title": "{count, plural, one {Reassign {singularEntity}} other {Reassign {pluralEntity}}}",
     "stashid_exists_warning": "The existing stash id for this stash-box will be replaced.",
     "reassign_files": {
@@ -1165,6 +1165,8 @@
       "delete_simple_marker_previews_tooltip": "Deletes generated marker video/webp previews when the marker only has one configured simple marker skip tag. Marker screenshots are kept.",
       "marker_screenshots": "Marker screenshots",
       "marker_screenshots_tooltip": "Marker static JPG images",
+      "o_screenshots": "O screenshots",
+      "o_screenshots_tooltip": "Exact static JPG images for O events with a recorded video timestamp.",
       "markers": "Marker previews",
       "markers_tooltip": "20 second videos which begin at the given timecode.",
       "override_preview_generation_options": "Override preview generation options",
@@ -1416,7 +1418,7 @@
   "orientation": "Orientation",
   "custom_filters": "Custom Filters",
   "custom_filters.versatile_scenes": "Versatile Scenes",
-  "custom_filters.versatile_scenes_desc": "Scenes where all performers have topped AND bottomed",
+  "custom_filters.versatile_scenes_desc": "Scenes where all vatos have topped AND bottomed",
   "partners": "Partners",
   "partners_filter_hint": "Leave blank to ignore a metric. Empty value removes it from the filter.",
   "partners.topped": "Topped",
@@ -1429,16 +1431,16 @@
   "scene_type": "Scene Type",
   "scene_type.sex": "Sex Scene",
   "scene_type.sex_desc": "Scenes with at least one sex marker",
-  "scene_type.sex_performer_desc": "Performer has participated in at least one sex scene",
+  "scene_type.sex_performer_desc": "Vato has participated in at least one sex scene",
   "scene_type.oral": "Oral Scene",
   "scene_type.oral_desc": "Scenes with oral markers but no sex markers",
-  "scene_type.oral_performer_desc": "Performer has participated in at least one oral scene",
+  "scene_type.oral_performer_desc": "Vato has participated in at least one oral scene",
   "scene_type.solo": "Solo Scene",
   "scene_type.solo_desc": "Scenes with solo markers but no sex or oral markers",
-  "scene_type.solo_performer_desc": "Performer has participated in at least one solo scene",
+  "scene_type.solo_performer_desc": "Vato has participated in at least one solo scene",
   "scene_type.facial": "Facial Scene",
   "scene_type.facial_desc": "Scenes with at least one facial marker",
-  "scene_type.facial_performer_desc": "Performer has participated in at least one facial scene",
+  "scene_type.facial_performer_desc": "Vato has participated in at least one facial scene",
   "package_manager": {
     "add_source": "Add source",
     "check_for_updates": "Check for updates",
@@ -1489,52 +1491,52 @@
   "penis_length": "Penis Length",
   "penis_length_cm": "Penis Length (cm)",
   "perceptual_similarity": "Perceptual Similarity (pHash)",
-  "performer": "Performer",
-  "performer_age": "Performer Age",
-  "performer_count": "Performer Count",
-  "performer_country": "Performer Country",
-  "performer_ethnicity": "Performer Ethnicity",
-  "performer_rating": "Performer Rating",
-  "performer_favorite": "Performer Favourited",
-  "performer_image": "Performer Image",
-  "marker_performers": "Marker Performers",
+  "performer": "Vato",
+  "performer_age": "Vato Age",
+  "performer_count": "Vato Count",
+  "performer_country": "Vato Country",
+  "performer_ethnicity": "Vato Ethnicity",
+  "performer_rating": "Vato Rating",
+  "performer_favorite": "Vato Favourited",
+  "performer_image": "Vato Image",
+  "marker_performers": "Marker Vatos",
   "scene_markers": "Scene Markers",
   "scene_markers_exclude": "Scene Markers: Exclude",
-  "top_performers": "Top Performers",
-  "bottom_performers": "Bottom Performers",
-  "marker_performer_country": "Marker Performer Country",
-  "marker_performer_ethnicity": "Marker Performer Ethnicity",
-  "marker_performer_rating": "Marker Performer Rating",
-  "has_marker_performers": "Has Marker Performers",
+  "top_performers": "Top Vatos",
+  "bottom_performers": "Bottom Vatos",
+  "marker_performer_country": "Marker Vato Country",
+  "marker_performer_ethnicity": "Marker Vato Ethnicity",
+  "marker_performer_rating": "Marker Vato Rating",
+  "has_marker_performers": "Has Marker Vatos",
   "performer_tagger": {
-    "add_new_performers": "Add New Performers",
+    "add_new_performers": "Add New Vatos",
     "any_names_entered_will_be_queried": "Any names entered will be queried from the remote Stash-Box instance and added if found. Only exact matches will be considered a match.",
-    "batch_add_performers": "Batch Add Performers",
-    "batch_update_performers": "Batch Update Performers",
+    "batch_add_performers": "Batch Add Vatos",
+    "batch_update_performers": "Batch Update Vatos",
     "current_page": "Current page",
-    "failed_to_save_performer": "Failed to save performer \"{performer}\"",
+    "failed_to_save_performer": "Failed to save vato \"{performer}\"",
     "name_already_exists": "Name already exists",
     "network_error": "Network Error",
     "no_results_found": "No results found.",
-    "number_of_performers_will_be_processed": "{performer_count} performers will be processed",
-    "performer_already_tagged": "Performer already tagged",
-    "performer_names_or_stashids_separated_by_comma": "Performer names or StashIDs separated by comma",
-    "performer_selection": "Performer selection",
-    "performer_successfully_tagged": "Performer successfully tagged:",
-    "query_all_performers_in_the_database": "All performers in the database",
-    "refresh_tagged_performers": "Refresh tagged performers",
-    "refreshing_will_update_the_data": "Refreshing will update the data of any tagged performers from the stash-box instance.",
+    "number_of_performers_will_be_processed": "{performer_count} vatos will be processed",
+    "performer_already_tagged": "Vato already tagged",
+    "performer_names_or_stashids_separated_by_comma": "Vato names or StashIDs separated by comma",
+    "performer_selection": "Vato selection",
+    "performer_successfully_tagged": "Vato successfully tagged:",
+    "query_all_performers_in_the_database": "All vatos in the database",
+    "refresh_tagged_performers": "Refresh tagged vatos",
+    "refreshing_will_update_the_data": "Refreshing will update the data of any tagged vatos from the stash-box instance.",
     "status_tagging_job_queued": "Status: Tagging job queued",
-    "status_tagging_performers": "Status: Tagging performers",
+    "status_tagging_performers": "Status: Tagging vatos",
     "tag_status": "Tag Status",
-    "to_use_the_performer_tagger": "To use the performer tagger a stash-box instance needs to be configured.",
-    "untagged_performers": "Untagged performers",
-    "update_performer": "Update Performer",
-    "update_performers": "Update Performers",
-    "updating_untagged_performers_description": "Updating untagged performers will try to match any performers that lack a stashid and update the metadata."
+    "to_use_the_performer_tagger": "To use the vato tagger a stash-box instance needs to be configured.",
+    "untagged_performers": "Untagged vatos",
+    "update_performer": "Update Vato",
+    "update_performers": "Update Vatos",
+    "updating_untagged_performers_description": "Updating untagged vatos will try to match any vatos that lack a stashid and update the metadata."
   },
-  "performer_tags": "Performer Tags",
-  "performers": "Performers",
+  "performer_tags": "Vato Tags",
+  "performers": "Vatos",
   "photographer": "Photographer",
   "piercings": "Piercings",
   "play_count": "Play Count",
@@ -1565,11 +1567,13 @@
   "sceneTagger": "Scene Tagger",
   "scene_code": "Studio Code",
   "scene_count": "Scene Count",
-  "activity_type": "Activity Type",
+  "activity_type": "Activity Percentage",
   "activity_type_filter_hint": "Leave blank to ignore a metric. Filled rows are combined with AND.",
   "activity_type.sex_percent": "Sex",
   "activity_type.oral_percent": "Oral",
   "activity_type.solo_percent": "Solo",
+  "activity_type.other_percent": "Other",
+  "activity_type.unusable_percent": "Unusable",
   "activity_type.sex_top_percent": "Sex Top",
   "activity_type.sex_bottom_percent": "Sex Bottom",
   "activity_type.oral_top_percent": "Oral Top",
@@ -1580,6 +1584,8 @@
   "sex_activity_percent": "Sex %",
   "oral_activity_percent": "Oral %",
   "solo_activity_percent": "Solo %",
+  "other_activity_percent": "Other %",
+  "unusable_activity_percent": "Unusable %",
   "sex_top_activity_percent": "Sex Top %",
   "sex_bottom_activity_percent": "Sex Bottom %",
   "oral_top_activity_percent": "Oral Top %",
@@ -1598,7 +1604,7 @@
   "sex_bottomed_partners": "Bottomed Partners (Sex)",
   "oral_bottomed_partners": "Bottomed Partners (Oral)",
   "facial_bottomed_partners": "Bottomed Partners (Facial)",
-  "unique_performer_count": "Unique Performer Count",
+  "unique_performer_count": "Unique Vato Count",
   "scenes_duration": "Scene Duration",
   "scenes_size": "Scene Size",
   "scene_created_at": "Scene Created At",
@@ -1609,17 +1615,17 @@
   "scene_updated_at": "Scene Updated At",
   "marker_tags": "Marker Tags",
   "marker_length": "Marker Length",
-  "scene_performer_count": "Scene Performer Count",
+  "scene_performer_count": "Scene Vato Count",
   "marker_tags_with_performers": "Markers",
   "performer_markers": "Markers",
   "performer_markers_exclude": "Markers: Exclude",
-  "performer_markers_filter_help": "Find performers with markers matching these criteria. Use 'Includes All' for AND mode (both performer AND partner must match), 'Includes' for OR mode (either can match).",
-  "performer_markers_exclude_filter_help": "Exclude performers with markers matching these criteria. Use 'Includes All' for AND mode (both performer AND partner must match), 'Includes' for OR mode (either can match).",
+  "performer_markers_filter_help": "Find vatos with markers matching these criteria. Use 'Includes All' for AND mode (both vato AND partner must match), 'Includes' for OR mode (either can match).",
+  "performer_markers_exclude_filter_help": "Exclude vatos with markers matching these criteria. Use 'Includes All' for AND mode (both vato AND partner must match), 'Includes' for OR mode (either can match).",
   "partner_role": "Partner Role",
   "partner_ethnicity": "Partner Ethnicity",
   "partner_country": "Partner Country",
   "partner_rating": "Partner Rating",
-  "partner_performers": "Partner Performers",
+  "partner_performers": "Partner Vatos",
   "scenes": "Scenes",
   "scenes_updated_at": "Scene Updated At",
   "search_filter": {
@@ -1686,7 +1692,7 @@
       "store_blobs_in_database": "Store blobs in database",
       "use_sfw_content_mode": "Use SFW content mode",
       "where_can_stash_store_blobs": "Where can Stash store database binary data?",
-      "where_can_stash_store_blobs_description": "Stash can store binary data such as scene covers, performer, studio and tag images either in the database or in the filesystem. By default, it will store this data in the filesystem in the subdirectory <code>blobs</code> within the directory containing your config file. If you want to change this, please enter an absolute or relative (to the current working directory) path. Stash will create this directory if it does not already exist.",
+      "where_can_stash_store_blobs_description": "Stash can store binary data such as scene covers, vato, studio and tag images either in the database or in the filesystem. By default, it will store this data in the filesystem in the subdirectory <code>blobs</code> within the directory containing your config file. If you want to change this, please enter an absolute or relative (to the current working directory) path. Stash will create this directory if it does not already exist.",
       "where_can_stash_store_blobs_description_addendum": "Alternatively, you can store this data in the database. <strong>Note:</strong> This will increase the size of your database file, and will increase database migration times.",
       "where_can_stash_store_cache_files": "Where can Stash store cache files?",
       "where_can_stash_store_cache_files_description": "In order for some functionality like HLS/DASH live transcoding to function, Stash requires a cache directory for temporary files. By default, Stash will create a <code>cache</code> directory within the directory containing your config file. If you want to change this, please enter an absolute or relative (to the current working directory) path. Stash will create this directory if it does not already exist.",
@@ -1874,7 +1880,7 @@
     "delete_past_tense": "Deleted {count, plural, one {{singularEntity}} other {{pluralEntity}}}",
     "generating_screenshot": "Generating screenshot…",
     "image_index_too_large": "Error: Image index is larger than the number of images in the Gallery",
-    "merged_performers": "Merged performers",
+    "merged_performers": "Merged vatos",
     "merged_scenes": "Merged scenes",
     "merged_tags": "Merged tags",
     "reassign_past_tense": "File reassigned",

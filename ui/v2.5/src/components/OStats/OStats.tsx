@@ -4,7 +4,6 @@ import { Alert, Button, ButtonGroup } from "react-bootstrap";
 import { Link, RouteComponentProps, useHistory } from "react-router-dom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
-import { ISceneSpriteInfo, useSpriteInfo } from "src/hooks/sprite";
 import TextUtils from "src/utils/text";
 
 import "./OStats.scss";
@@ -53,7 +52,6 @@ const SCENE_O_EVENTS_BY_DATE = gql`
         date
         paths {
           screenshot
-          vtt
         }
         studio {
           id
@@ -96,7 +94,6 @@ type SceneOEvent = {
     date?: string | null;
     paths: {
       screenshot?: string | null;
-      vtt?: string | null;
     };
     studio?: {
       id: string;
@@ -175,29 +172,6 @@ function formatODate(value: string) {
   });
 }
 
-function findSpriteAtTimestamp(
-  sprites: ISceneSpriteInfo[] | null | undefined,
-  timestamp: number | null | undefined
-) {
-  if (!sprites?.length || timestamp === null || timestamp === undefined) {
-    return undefined;
-  }
-
-  return (
-    sprites.find(
-      (sprite) => timestamp >= sprite.start && timestamp < sprite.end
-    ) ??
-    sprites.reduce((closest, sprite) => {
-      const closestMidpoint = (closest.start + closest.end) / 2;
-      const spriteMidpoint = (sprite.start + sprite.end) / 2;
-      return Math.abs(spriteMidpoint - timestamp) <
-        Math.abs(closestMidpoint - timestamp)
-        ? sprite
-        : closest;
-    }, sprites[0])
-  );
-}
-
 const OStatsChart: React.FC<{ data: IBarDatum[]; emptyLabel: string }> = ({
   data,
   emptyLabel,
@@ -238,40 +212,19 @@ const OStatsChart: React.FC<{ data: IBarDatum[]; emptyLabel: string }> = ({
 const OStatsTimestampImage: React.FC<{
   event: SceneOEvent;
 }> = ({ event }) => {
-  const spriteInfo = useSpriteInfo(
-    event.video_timestamp !== null && event.video_timestamp !== undefined
-      ? event.scene.paths.vtt ?? undefined
-      : undefined
-  );
-  const sprite = findSpriteAtTimestamp(spriteInfo, event.video_timestamp);
+  const hasTimestamp =
+    event.video_timestamp !== null && event.video_timestamp !== undefined;
+  const imagePath = hasTimestamp
+    ? `/scene/${event.scene.id}/o/${event.id}/screenshot`
+    : event.scene.paths.screenshot;
 
-  if (sprite) {
-    const maxX = Math.max(...spriteInfo!.map((item) => item.x + item.w));
-    const maxY = Math.max(...spriteInfo!.map((item) => item.y + item.h));
-    const scale = Math.max(180 / sprite.w, 102 / sprite.h);
-
-    return (
-      <div
-        aria-label={`Sprite near ${TextUtils.secondsToTimestamp(
-          event.video_timestamp ?? 0
-        )}`}
-        className="ostats-event-thumb ostats-event-thumb-sprite"
-        style={{
-          backgroundImage: `url(${sprite.url})`,
-          backgroundPosition: `${-sprite.x * scale}px ${-sprite.y * scale}px`,
-          backgroundSize: `${maxX * scale}px ${maxY * scale}px`,
-        }}
-      />
-    );
-  }
-
-  if (event.scene.paths.screenshot) {
+  if (imagePath) {
     return (
       <img
         alt={event.scene.title ?? ""}
         className="ostats-event-thumb"
         loading="lazy"
-        src={event.scene.paths.screenshot}
+        src={imagePath}
       />
     );
   }
@@ -476,8 +429,9 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
                 history.push("/ostats");
               }
             }}
+            className="ostats-back-button"
             size="sm"
-            variant="outline-secondary"
+            variant="secondary"
           >
             Back
           </Button>
@@ -493,14 +447,7 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
         />
       )}
       {!error && !loading && showTimeline && (
-        <>
-          <Alert className="ostats-advice" variant="info">
-            Timestamp thumbnails use generated sprite/VTT frames when available,
-            with the scene screenshot as fallback. Generating exact screenshots
-            live would hit ffmpeg per row, so this keeps the page snappy.
-          </Alert>
-          <OStatsTimeline date={selectedDate} />
-        </>
+        <OStatsTimeline date={selectedDate} />
       )}
       {!selectedDate && selectedYear && selectedMonth && selectedDay && (
         <Alert variant="warning">That date does not exist.</Alert>

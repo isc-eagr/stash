@@ -22,9 +22,10 @@ type activityIntervalCustom struct {
 type activityCategoryCustom string
 
 const (
-	activitySexCustom  activityCategoryCustom = "sex"
-	activityOralCustom activityCategoryCustom = "oral"
-	activitySoloCustom activityCategoryCustom = "solo"
+	activitySexCustom      activityCategoryCustom = "sex"
+	activityOralCustom     activityCategoryCustom = "oral"
+	activitySoloCustom     activityCategoryCustom = "solo"
+	activityUnusableCustom activityCategoryCustom = "unusable"
 )
 
 func activityStatsIntCustom(v interface{}) int {
@@ -123,6 +124,19 @@ func activityStatsDurationCustom(intervals []activityIntervalCustom) float64 {
 
 	total += last.end - last.start
 	return total
+}
+
+func activityStatsOtherSecondsCustom(totalSeconds float64, activityIntervals []activityIntervalCustom, unusableIntervals []activityIntervalCustom) float64 {
+	coveredSeconds := activityStatsDurationCustom(append(append(
+		[]activityIntervalCustom{},
+		activityIntervals...),
+		unusableIntervals...,
+	))
+	otherSeconds := totalSeconds - coveredSeconds
+	if otherSeconds < 0 {
+		return 0
+	}
+	return otherSeconds
 }
 
 func activityStatsRoleTagIDsCustom() (sexTagID int, oralTagID int, soloTagID int) {
@@ -382,9 +396,10 @@ WHERE sc.studio_id IN (SELECT id FROM selected_studios)
 	}
 
 	byCategory := map[activityCategoryCustom][]activityIntervalCustom{
-		activitySexCustom:  {},
-		activityOralCustom: {},
-		activitySoloCustom: {},
+		activitySexCustom:      {},
+		activityOralCustom:     {},
+		activitySoloCustom:     {},
+		activityUnusableCustom: {},
 	}
 	sceneCounts := map[activityCategoryCustom]map[int]bool{
 		activitySexCustom:  {},
@@ -427,6 +442,62 @@ WHERE sc.studio_id IN (SELECT id FROM selected_studios)
 		qualifyingScenes[sceneID] = true
 	}
 
+	negativeMarkerQuery := `
+WITH RECURSIVE selected_studios(id, depth) AS (
+  SELECT ?, 0
+  UNION ALL
+  SELECT s.id, selected_studios.depth + 1
+  FROM studios s
+  JOIN selected_studios ON s.parent_id = selected_studios.id
+  WHERE ? = -1 OR selected_studios.depth < ?
+)
+SELECT snm.scene_id, snm.start_seconds, snm.end_seconds
+FROM scene_negative_markers snm
+JOIN scenes sc ON sc.id = snm.scene_id
+WHERE sc.studio_id IN (SELECT id FROM selected_studios)
+  AND snm.end_seconds > snm.start_seconds`
+
+	_, negativeMarkerRows, err := manager.GetInstance().Database.QuerySQL(ctx, negativeMarkerQuery, []interface{}{studioID, depthValue, depthValue})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, row := range negativeMarkerRows {
+		if len(row) < 3 {
+			continue
+		}
+
+		sceneID := activityStatsIntCustom(row[0])
+		sceneDuration, ok := sceneDurations[sceneID]
+		if !ok || sceneDuration <= 0 {
+			continue
+		}
+		if performerID != nil && !qualifyingScenes[sceneID] {
+			continue
+		}
+
+		start := activityStatsFloatCustom(row[1])
+		end := activityStatsFloatCustom(row[2])
+		if start < 0 {
+			start = 0
+		}
+		if end > sceneDuration {
+			end = sceneDuration
+		}
+		if end <= start {
+			continue
+		}
+
+		byCategory[activityUnusableCustom] = append(byCategory[activityUnusableCustom], activityIntervalCustom{
+			sceneID: sceneID,
+			start:   start,
+			end:     end,
+		})
+		if performerID == nil {
+			qualifyingScenes[sceneID] = true
+		}
+	}
+
 	var totalSeconds float64
 	for sceneID := range qualifyingScenes {
 		totalSeconds += sceneDurations[sceneID]
@@ -438,28 +509,28 @@ WHERE sc.studio_id IN (SELECT id FROM selected_studios)
 	sexSeconds := activityStatsDurationCustom(byCategory[activitySexCustom])
 	oralSeconds := activityStatsDurationCustom(byCategory[activityOralCustom])
 	soloSeconds := activityStatsDurationCustom(byCategory[activitySoloCustom])
-	coveredSeconds := activityStatsDurationCustom(append(append(
+	unusableSeconds := activityStatsDurationCustom(byCategory[activityUnusableCustom])
+	activityIntervals := append(append(
 		append([]activityIntervalCustom{}, byCategory[activitySexCustom]...),
 		byCategory[activityOralCustom]...),
 		byCategory[activitySoloCustom]...,
-	))
-	otherSeconds := totalSeconds - coveredSeconds
-	if otherSeconds < 0 {
-		otherSeconds = 0
-	}
+	)
+	otherSeconds := activityStatsOtherSecondsCustom(totalSeconds, activityIntervals, byCategory[activityUnusableCustom])
 
 	return &StudioActivityStats{
-		TotalSeconds:   totalSeconds,
-		SexSeconds:     sexSeconds,
-		OralSeconds:    oralSeconds,
-		SoloSeconds:    soloSeconds,
-		OtherSeconds:   otherSeconds,
-		SexPercent:     activityStatsPercentCustom(sexSeconds, totalSeconds),
-		OralPercent:    activityStatsPercentCustom(oralSeconds, totalSeconds),
-		SoloPercent:    activityStatsPercentCustom(soloSeconds, totalSeconds),
-		OtherPercent:   activityStatsPercentCustom(otherSeconds, totalSeconds),
-		SexSceneCount:  len(sceneCounts[activitySexCustom]),
-		OralSceneCount: len(sceneCounts[activityOralCustom]),
-		SoloSceneCount: len(sceneCounts[activitySoloCustom]),
+		TotalSeconds:    totalSeconds,
+		SexSeconds:      sexSeconds,
+		OralSeconds:     oralSeconds,
+		SoloSeconds:     soloSeconds,
+		OtherSeconds:    otherSeconds,
+		UnusableSeconds: unusableSeconds,
+		SexPercent:      activityStatsPercentCustom(sexSeconds, totalSeconds),
+		OralPercent:     activityStatsPercentCustom(oralSeconds, totalSeconds),
+		SoloPercent:     activityStatsPercentCustom(soloSeconds, totalSeconds),
+		OtherPercent:    activityStatsPercentCustom(otherSeconds, totalSeconds),
+		UnusablePercent: activityStatsPercentCustom(unusableSeconds, totalSeconds),
+		SexSceneCount:   len(sceneCounts[activitySexCustom]),
+		OralSceneCount:  len(sceneCounts[activityOralCustom]),
+		SoloSceneCount:  len(sceneCounts[activitySoloCustom]),
 	}, nil
 }

@@ -325,7 +325,7 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
     if (error) {
       return (
         <div className="text-danger p-3">
-          Error loading co-performers: {error.message}
+          Error loading co-vatos: {error.message}
         </div>
       );
     }
@@ -336,7 +336,7 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
         <div className="text-muted p-3">
           <FormattedMessage
             id="no_performers_found"
-            defaultMessage="No co-performers found"
+            defaultMessage="No co-vatos found"
           />
         </div>
       );
@@ -385,7 +385,7 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
         <div className="text-muted p-3">
           <FormattedMessage
             id="no_co_performers_with_roles"
-            defaultMessage="No co-performers with marker roles found. Add scene markers with top/bottom assignments to see co-performers organized by role."
+            defaultMessage="No co-vatos with marker roles found. Add scene markers with top/bottom assignments to see co-vatos organized by role."
           />
         </div>
       );

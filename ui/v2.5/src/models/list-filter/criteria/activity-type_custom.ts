@@ -12,6 +12,8 @@ export interface IActivityTypeValue {
   sex_percent?: IActivityTypeMetric;
   oral_percent?: IActivityTypeMetric;
   solo_percent?: IActivityTypeMetric;
+  other_percent?: IActivityTypeMetric;
+  unusable_percent?: IActivityTypeMetric;
   sex_top_percent?: IActivityTypeMetric;
   sex_bottom_percent?: IActivityTypeMetric;
   oral_top_percent?: IActivityTypeMetric;
@@ -24,10 +26,14 @@ const baseMetricKeys: ActivityTypeMetricKey[] = [
   "sex_percent",
   "oral_percent",
   "solo_percent",
+  "other_percent",
+  "unusable_percent",
 ];
 
 const performerMetricKeys: ActivityTypeMetricKey[] = [
-  ...baseMetricKeys,
+  "sex_percent",
+  "oral_percent",
+  "solo_percent",
   "sex_top_percent",
   "sex_bottom_percent",
   "oral_top_percent",

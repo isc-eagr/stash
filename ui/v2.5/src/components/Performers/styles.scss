@@ -809,19 +809,8 @@
 }
 
 .gender-icon {
-  &[data-gender="FEMALE"],
-  &[data-gender="TRANSGENDER_FEMALE"] {
-    color: #f38cac;
-  }
-
-  &[data-gender="MALE"],
-  &[data-gender="TRANSGENDER_MALE"] {
+  &[data-gender="MALE"] {
     color: #89cff0;
-  }
-
-  &[data-gender="NON_BINARY"],
-  &[data-gender="INTERSEX"] {
-    color: #c8a2c8;
   }
 }
 

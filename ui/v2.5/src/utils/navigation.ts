@@ -103,7 +103,7 @@ const makePerformerScenesUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
   const criterion = new PerformersCriterion();
   criterion.value.items = [
-    { id: performer.id, label: performer.name || `Performer ${performer.id}` },
+    { id: performer.id, label: performer.name || `Vato ${performer.id}` },
   ];
 
   if (extraPerformer) {
@@ -124,7 +124,7 @@ const makePerformerImagesUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.Images, undefined);
   const criterion = new PerformersCriterion();
   criterion.value.items = [
-    { id: performer.id, label: performer.name || `Performer ${performer.id}` },
+    { id: performer.id, label: performer.name || `Vato ${performer.id}` },
   ];
 
   if (extraPerformer) {
@@ -151,7 +151,7 @@ const makePerformerGalleriesUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.Galleries, undefined);
   const criterion = new PerformersCriterion();
   criterion.value.items = [
-    { id: performer.id, label: performer.name || `Performer ${performer.id}` },
+    { id: performer.id, label: performer.name || `Vato ${performer.id}` },
   ];
 
   if (extraPerformer) {
@@ -172,7 +172,7 @@ const makePerformerGroupsUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.Groups, undefined);
   const criterion = new PerformersCriterion();
   criterion.value.items = [
-    { id: performer.id, label: performer.name || `Performer ${performer.id}` },
+    { id: performer.id, label: performer.name || `Vato ${performer.id}` },
   ];
 
   if (extraPerformer) {
@@ -191,7 +191,7 @@ const makePerformerSceneMarkersUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
   const criterion = new PerformersCriterion();
   criterion.value.items = [
-    { id: performer.id, label: performer.name || `Performer ${performer.id}` },
+    { id: performer.id, label: performer.name || `Vato ${performer.id}` },
   ];
 
   filter.criteria.push(criterion);
@@ -374,7 +374,7 @@ const makeTagScenesUrl = (tag: INamedObject, performer?: INamedObject) => {
       items: [
         {
           id: performer.id,
-          label: performer.name || `Performer ${performer.id}`,
+          label: performer.name || `Vato ${performer.id}`,
         },
       ],
       excluded: [],

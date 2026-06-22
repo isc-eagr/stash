@@ -7,7 +7,6 @@ import {
   createMandatoryTimestampCriterionOption,
 } from "./criteria/criterion";
 import { FavoritePerformerCriterionOption } from "./criteria/favorite";
-import { GenderCriterionOption } from "./criteria/gender";
 import { CircumcisedCriterionOption } from "./criteria/circumcised";
 import { PerformerIsMissingCriterionOption } from "./criteria/is-missing";
 import { StashIDCriterionOption } from "./criteria/stash-ids";
@@ -46,7 +45,6 @@ const sortByOptions = [
   "career_start",
   "career_end",
   "weight",
-  "measurements",
   "scenes_duration",
   "scenes_size",
 ]
@@ -195,8 +193,6 @@ const stringCriteria: CriterionType[] = [
   "ethnicity",
   "hair_color",
   "eye_color",
-  "measurements",
-  "fake_tits",
   "tattoos",
   "piercings",
   "aliases",
@@ -204,7 +200,6 @@ const stringCriteria: CriterionType[] = [
 
 const criterionOptions = [
   FavoritePerformerCriterionOption,
-  GenderCriterionOption,
   CircumcisedCriterionOption,
   PerformerIsMissingCriterionOption,
   TagsCriterionOption,

@@ -83,14 +83,6 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     );
   };
 
-  const GenderCell = (performer: PerformerListData) => (
-    <>
-      {performer.gender
-        ? intl.formatMessage({ id: "gender_types." + performer.gender })
-        : ""}
-    </>
-  );
-
   const RatingCell = (performer: PerformerListData) => (
     <RatingSystem value={performer.rating100} disabled />
   );
@@ -136,14 +128,6 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
 
   const EthnicityCell = (performer: PerformerListData) => (
     <>{performer.ethnicity}</>
-  );
-
-  const MeasurementsCell = (performer: PerformerListData) => (
-    <span className="ellips-data">{performer.measurements}</span>
-  );
-
-  const FakeTitsCell = (performer: PerformerListData) => (
-    <>{performer.fake_tits}</>
   );
 
   const PenisLengthCell = (performer: PerformerListData) => (
@@ -225,12 +209,6 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
       render: AliasesCell,
     },
     {
-      value: "gender",
-      label: intl.formatMessage({ id: "gender" }),
-      defaultShow: true,
-      render: GenderCell,
-    },
-    {
       value: "rating",
       label: intl.formatMessage({ id: "rating" }),
       defaultShow: true,
@@ -294,16 +272,6 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
       value: "circumcised",
       label: intl.formatMessage({ id: "circumcised" }),
       render: CircumcisedCell,
-    },
-    {
-      value: "measurements",
-      label: intl.formatMessage({ id: "measurements" }),
-      render: MeasurementsCell,
-    },
-    {
-      value: "fake_tits",
-      label: intl.formatMessage({ id: "fake_tits" }),
-      render: FakeTitsCell,
     },
     {
       value: "career_length",

@@ -132,7 +132,7 @@ export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
       <Button
         className="minimal scene-category-count unique-performer-count ml-3"
         href={url}
-        title={`Unique performers (only 1 scene)`}
+        title={`Unique vatos (only 1 scene)`}
         disabled={count === 0}
       >
         <Icon icon={faUserPlus} className="category-icon-fa" />

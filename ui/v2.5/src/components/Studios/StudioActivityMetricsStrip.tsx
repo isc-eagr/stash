@@ -1,6 +1,6 @@
 import React from "react";
 import { OverlayTrigger, Tooltip } from "react-bootstrap";
-import { faClock, faHand } from "@fortawesome/free-solid-svg-icons";
+import { faBan, faClock, faHand } from "@fortawesome/free-solid-svg-icons";
 import { Icon } from "src/components/Shared/Icon";
 import * as GQL from "src/core/generated-graphql";
 import gaySvg from "src/assets/gay.svg";
@@ -13,6 +13,7 @@ type StudioActivityStats = Pick<
   | "oral_percent"
   | "solo_percent"
   | "other_percent"
+  | "unusable_percent"
   | "sex_scene_count"
   | "oral_scene_count"
   | "solo_scene_count"
@@ -21,11 +22,13 @@ type StudioActivityStats = Pick<
 interface IProps {
   stats?: StudioActivityStats | null;
   idPrefix: string;
+  showUnusable?: boolean;
 }
 
 export const StudioActivityMetricsStrip: React.FC<IProps> = ({
   stats,
   idPrefix,
+  showUnusable = true,
 }) => {
   if (!stats || stats.total_seconds <= 0) return null;
 
@@ -54,6 +57,16 @@ export const StudioActivityMetricsStrip: React.FC<IProps> = ({
       percent: Math.round(stats.other_percent),
       sceneCount: null,
     },
+    ...(showUnusable
+      ? [
+          {
+            key: "unusable",
+            label: "Unusable",
+            percent: Math.round(stats.unusable_percent),
+            sceneCount: null,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -96,6 +109,12 @@ export const StudioActivityMetricsStrip: React.FC<IProps> = ({
                 <Icon
                   icon={faClock}
                   className="studio-activity-metric__other"
+                />
+              )}
+              {metric.key === "unusable" && (
+                <Icon
+                  icon={faBan}
+                  className="studio-activity-metric__unusable"
                 />
               )}
               <span>{metric.percent}%</span>

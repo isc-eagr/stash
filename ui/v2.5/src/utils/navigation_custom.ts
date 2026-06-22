@@ -159,7 +159,7 @@ export const makePerformerStudioScenesUrl = (
   // Add performer criterion
   const performerCriterion = new PerformersCriterion();
   performerCriterion.value.items = [
-    { id: performerId, label: `Performer ${performerId}` },
+    { id: performerId, label: `Vato ${performerId}` },
   ];
   filter.criteria.push(performerCriterion);
 
@@ -590,7 +590,7 @@ export const makePerformerStudioSexScenesUrl = (
   // Add performer criterion
   const performerCriterion = new PerformersCriterion();
   performerCriterion.value.items = [
-    { id: performerId, label: `Performer ${performerId}` },
+    { id: performerId, label: `Vato ${performerId}` },
   ];
   filter.criteria.push(performerCriterion);
 
@@ -637,7 +637,7 @@ export const makePerformerStudioOralScenesUrl = (
   // Add performer criterion
   const performerCriterion = new PerformersCriterion();
   performerCriterion.value.items = [
-    { id: performerId, label: `Performer ${performerId}` },
+    { id: performerId, label: `Vato ${performerId}` },
   ];
   filter.criteria.push(performerCriterion);
 
@@ -689,7 +689,7 @@ export const makePerformerStudioSoloScenesUrl = (
   // Add performer criterion
   const performerCriterion = new PerformersCriterion();
   performerCriterion.value.items = [
-    { id: performerId, label: `Performer ${performerId}` },
+    { id: performerId, label: `Vato ${performerId}` },
   ];
   filter.criteria.push(performerCriterion);
 
@@ -736,7 +736,7 @@ export const makePerformerStudioFacialScenesUrl = (
   // Add performer criterion
   const performerCriterion = new PerformersCriterion();
   performerCriterion.value.items = [
-    { id: performerId, label: `Performer ${performerId}` },
+    { id: performerId, label: `Vato ${performerId}` },
   ];
   filter.criteria.push(performerCriterion);
 
@@ -789,7 +789,7 @@ export const makePerformerStudioGroupsUrl = (
   const performerCriterion = new PerformersCriterion();
   performerCriterion.modifier = GQL.CriterionModifier.IncludesAll;
   performerCriterion.value = {
-    items: [{ id: performerId, label: `Performer ${performerId}` }],
+    items: [{ id: performerId, label: `Vato ${performerId}` }],
     excluded: [],
   };
   filter.criteria.push(performerCriterion);
@@ -809,7 +809,7 @@ export const makePerformerStudioImagesUrl = (
   // Add performer criterion
   const performerCriterion = new PerformersCriterion();
   performerCriterion.value.items = [
-    { id: performerId, label: `Performer ${performerId}` },
+    { id: performerId, label: `Vato ${performerId}` },
   ];
   filter.criteria.push(performerCriterion);
 
@@ -835,7 +835,7 @@ export const makePerformerStudioGalleriesUrl = (
   // Add performer criterion
   const performerCriterion = new PerformersCriterion();
   performerCriterion.value.items = [
-    { id: performerId, label: `Performer ${performerId}` },
+    { id: performerId, label: `Vato ${performerId}` },
   ];
   filter.criteria.push(performerCriterion);
 
@@ -909,7 +909,7 @@ export const makePerformerDetailSexScenesUrl = (
   // Add performer criterion
   const performerCriterion = new PerformersCriterion();
   performerCriterion.value.items = [
-    { id: performer.id, label: performer.name || `Performer ${performer.id}` },
+    { id: performer.id, label: performer.name || `Vato ${performer.id}` },
   ];
   filter.criteria.push(performerCriterion);
 
@@ -946,7 +946,7 @@ export const makePerformerDetailOralScenesUrl = (
   // Add performer criterion
   const performerCriterion = new PerformersCriterion();
   performerCriterion.value.items = [
-    { id: performer.id, label: performer.name || `Performer ${performer.id}` },
+    { id: performer.id, label: performer.name || `Vato ${performer.id}` },
   ];
   filter.criteria.push(performerCriterion);
 
@@ -988,7 +988,7 @@ export const makePerformerDetailSoloScenesUrl = (
   // Add performer criterion
   const performerCriterion = new PerformersCriterion();
   performerCriterion.value.items = [
-    { id: performer.id, label: performer.name || `Performer ${performer.id}` },
+    { id: performer.id, label: performer.name || `Vato ${performer.id}` },
   ];
   filter.criteria.push(performerCriterion);
 
@@ -1025,7 +1025,7 @@ export const makePerformerDetailFacialScenesUrl = (
   // Add performer criterion
   const performerCriterion = new PerformersCriterion();
   performerCriterion.value.items = [
-    { id: performer.id, label: performer.name || `Performer ${performer.id}` },
+    { id: performer.id, label: performer.name || `Vato ${performer.id}` },
   ];
   filter.criteria.push(performerCriterion);
 
@@ -1057,7 +1057,7 @@ export const makePerformerMarkerScenesUrl = (
 ) => {
   if (!performer.id) return "#";
 
-  const performerLabel = performer.name || `Performer ${performer.id}`;
+  const performerLabel = performer.name || `Vato ${performer.id}`;
   const performerRef = { id: performer.id, label: performerLabel };
 
   // For any role (top OR bottom), put the performer in both arrays with OR mode
@@ -1094,7 +1094,7 @@ export const makePerformerMarkerScenesWithRoleUrl = (
 ) => {
   if (!performer.id) return "#";
 
-  const performerLabel = performer.name || `Performer ${performer.id}`;
+  const performerLabel = performer.name || `Vato ${performer.id}`;
   const performerRef = { id: performer.id, label: performerLabel };
 
   // Build the include group
@@ -1242,7 +1242,7 @@ export const makePerformerStudioMarkerScenesUrl = (
 
   let url = `/scenes?${filter.makeQueryParameters()}`;
 
-  const performerRef = { id: performerId, label: `Performer ${performerId}` };
+  const performerRef = { id: performerId, label: `Vato ${performerId}` };
 
   // Add marker filter with performer in both roles (top OR bottom)
   url += `&c=${encodeURIComponent(
@@ -1419,7 +1419,7 @@ export const makePerformerOrgasmMarkersUrl = (
     top_performer_ids: [
       {
         id: performer.id,
-        label: performer.name || `Performer ${performer.id}`,
+        label: performer.name || `Vato ${performer.id}`,
       },
     ],
     top_any_count: 0,
@@ -1461,7 +1461,7 @@ export const makePerformerFeetMarkersUrl = (
     top_performer_ids: [
       {
         id: performer.id,
-        label: performer.name || `Performer ${performer.id}`,
+        label: performer.name || `Vato ${performer.id}`,
       },
     ],
     top_any_count: 0,
@@ -1494,7 +1494,7 @@ export const makePerformerFacialMarkersWithRoleUrl = (
 
   const performerRef = {
     id: performer.id,
-    label: performer.name || `Performer ${performer.id}`,
+    label: performer.name || `Vato ${performer.id}`,
   };
 
   // Build the criterion using new format
@@ -1528,7 +1528,7 @@ export const makePerformerPartnerPerformersUrl = (
 ) => {
   if (!performer.id) return "#";
 
-  const performerLabel = performer.name || `Performer ${performer.id}`;
+  const performerLabel = performer.name || `Vato ${performer.id}`;
   const performerRef = { id: performer.id, label: performerLabel };
 
   // Use depth -1 for oral and facial to include subtags
@@ -1568,7 +1568,7 @@ export const makePerformerAllPartnersUrl = (
 ) => {
   if (!performer.id) return "#";
 
-  const performerLabel = performer.name || `Performer ${performer.id}`;
+  const performerLabel = performer.name || `Vato ${performer.id}`;
   const performerRef = { id: performer.id, label: performerLabel };
 
   // Use depth -1 for oral and facial to include subtags

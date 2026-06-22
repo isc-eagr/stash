@@ -19,7 +19,7 @@ export const PerformerMarkersPanel: React.FC<IPerformerMarkersPanelProps> =
 
         const performerValue = {
           id: performer.id,
-          label: performer.name ?? `Performer ${performer.id}`,
+          label: performer.name ?? `Vato ${performer.id}`,
         };
 
         let criterion = next.criteria.find(

@@ -55,7 +55,7 @@ export function createUnnamedPerformer(
   const letter = getNextUnnamedPerformerLetter(existing);
   return {
     id: `unnamed-${letter}`,
-    label: `Performer ${letter}`,
+    label: `Vato ${letter}`,
     letter,
     ethnicities: [],
     countries: [],

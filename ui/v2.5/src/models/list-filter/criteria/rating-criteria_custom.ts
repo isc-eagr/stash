@@ -471,7 +471,7 @@ export const SceneRatingCriteriaCriterionOption =
     criteria: [
       {
         key: "performerAppeal",
-        label: "Performer Attractiveness",
+        label: "Vato Attractiveness",
         choices: appealChoices,
       },
       {
@@ -491,7 +491,7 @@ export const SceneRatingCriteriaCriterionOption =
       },
       {
         key: "soloPerformerAppeal",
-        label: "Solo Performer Attractiveness",
+        label: "Solo Vato Attractiveness",
         choices: appealChoices,
       },
       {

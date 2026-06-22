@@ -406,7 +406,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         <Button
           className="minimal scene-category-count unique-performer-count"
           href={url}
-          title={`Unique performers (only 1 scene)`}
+          title={`Unique vatos (only 1 scene)`}
           disabled={count === 0}
         >
           <Icon icon={faUserPlus} className="category-icon-fa" />
@@ -555,6 +555,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         <StudioActivityMetricsStrip
           stats={stats}
           idPrefix={`studio-activity-${studio.id}`}
+          showUnusable={!performerId}
         />
       );
     }

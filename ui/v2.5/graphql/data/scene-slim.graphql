@@ -63,6 +63,14 @@ fragment SlimSceneData on Scene {
     # CUSTOM: end
   }
 
+  # CUSTOM: begin
+  negative_markers {
+    id
+    start_seconds
+    end_seconds
+  }
+  # CUSTOM: end
+
   galleries {
     id
     files {

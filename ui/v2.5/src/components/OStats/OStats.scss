@@ -38,6 +38,12 @@
   }
 }
 
+.ostats-back-button {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-weight: 600;
+}
+
 .ostats-chart {
   align-items: flex-end;
   display: grid;
@@ -115,10 +121,6 @@
   min-height: 12rem;
 }
 
-.ostats-advice {
-  margin-bottom: 1rem;
-}
-
 .ostats-timeline {
   list-style: none;
   margin: 0;
@@ -142,10 +144,6 @@
   object-fit: cover;
   overflow: hidden;
   width: 180px;
-}
-
-.ostats-event-thumb-sprite {
-  background-repeat: no-repeat;
 }
 
 .ostats-event-thumb-empty {

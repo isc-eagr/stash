@@ -670,14 +670,16 @@ var studioSortOptions = sortOptions{
 	"scenes_count",
 	"scenes_duration",
 	"scenes_size",
-	"sex_scenes_count",        // CUSTOM
-	"oral_scenes_count",       // CUSTOM
-	"solo_scenes_count",       // CUSTOM
-	"sex_activity_percent",    // CUSTOM
-	"oral_activity_percent",   // CUSTOM
-	"solo_activity_percent",   // CUSTOM
-	"facial_scenes_count",     // CUSTOM
-	"unique_performers_count", // CUSTOM
+	"sex_scenes_count",          // CUSTOM
+	"oral_scenes_count",         // CUSTOM
+	"solo_scenes_count",         // CUSTOM
+	"sex_activity_percent",      // CUSTOM
+	"oral_activity_percent",     // CUSTOM
+	"solo_activity_percent",     // CUSTOM
+	"other_activity_percent",    // CUSTOM
+	"unusable_activity_percent", // CUSTOM
+	"facial_scenes_count",       // CUSTOM
+	"unique_performers_count",   // CUSTOM
 	"random",
 	"rating",
 	"tag_count",
@@ -730,6 +732,10 @@ func (qb *StudioStore) getStudioSort(findFilter *models.FindFilterType) (string,
 		sortQuery += qb.sortByActivityPercentCustom(activityPercentOralCustom, direction)
 	case "solo_activity_percent": // CUSTOM
 		sortQuery += qb.sortByActivityPercentCustom(activityPercentSoloCustom, direction)
+	case "other_activity_percent": // CUSTOM
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentOtherCustom, direction)
+	case "unusable_activity_percent": // CUSTOM
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentUnusableCustom, direction)
 	case "facial_scenes_count": // CUSTOM
 		sortQuery += qb.sortByFacialSceneCount(direction)
 	case "o_count": // CUSTOM

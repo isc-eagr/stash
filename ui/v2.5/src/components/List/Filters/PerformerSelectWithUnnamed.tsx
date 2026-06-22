@@ -22,7 +22,7 @@ import {
 import { queryFindPerformersByIDForSelect } from "src/core/StashService";
 
 // Option type that can be either a regular performer or an unnamed performer
-interface PerformerOption {
+interface IPerformerOption {
   value: string;
   label: string;
   isUnnamed: boolean;
@@ -43,7 +43,7 @@ interface IPerformerSelectWithUnnamedProps {
 }
 
 // Custom option component to render unnamed performers with a distinct style
-const CustomOption: React.FC<OptionProps<PerformerOption, true>> = (props) => {
+const CustomOption: React.FC<OptionProps<IPerformerOption, true>> = (props) => {
   const { data } = props;
 
   if (data.isUnnamed && data.unnamedPerformer) {
@@ -74,7 +74,7 @@ const CustomOption: React.FC<OptionProps<PerformerOption, true>> = (props) => {
 };
 
 // Custom multi-value component to render selected unnamed performers distinctly
-const CustomMultiValue: React.FC<MultiValueProps<PerformerOption, true>> = (
+const CustomMultiValue: React.FC<MultiValueProps<IPerformerOption, true>> = (
   props
 ) => {
   const { data } = props;
@@ -114,20 +114,8 @@ export const PerformerSelectWithUnnamed: React.FC<
 }) => {
   const intl = useIntl();
 
-  // If there are no unnamed performers, just use the regular PerformerIDSelect
-  if (unnamedPerformers.length === 0) {
-    return (
-      <PerformerIDSelect
-        isMulti={isMulti}
-        ids={ids.filter((id) => !isUnnamedPerformerId(id))}
-        onSelect={onSelect}
-        menuPortalTarget={menuPortalTarget}
-      />
-    );
-  }
-
   // Convert unnamed performers to options
-  const unnamedOptions: PerformerOption[] = useMemo(
+  const unnamedOptions: IPerformerOption[] = useMemo(
     () =>
       unnamedPerformers.map((up) => ({
         value: up.id,
@@ -140,7 +128,7 @@ export const PerformerSelectWithUnnamed: React.FC<
 
   // Get the selected values (need to handle both named and unnamed)
   const [selectedOptions, setSelectedOptions] = React.useState<
-    PerformerOption[]
+    IPerformerOption[]
   >([]);
   const [loadedPerformers, setLoadedPerformers] = React.useState<
     Map<string, Performer>
@@ -148,11 +136,15 @@ export const PerformerSelectWithUnnamed: React.FC<
 
   // Load named performers when IDs change
   React.useEffect(() => {
+    if (unnamedPerformers.length === 0) {
+      return;
+    }
+
     const namedIds = ids.filter((id) => !isUnnamedPerformerId(id));
     const unnamedIds = ids.filter((id) => isUnnamedPerformerId(id));
 
     // Build selected options
-    const options: PerformerOption[] = [];
+    const options: IPerformerOption[] = [];
 
     // Add unnamed performers
     for (const id of unnamedIds) {
@@ -195,7 +187,7 @@ export const PerformerSelectWithUnnamed: React.FC<
     setSelectedOptions(options);
   }, [ids, unnamedPerformers, loadedPerformers]);
 
-  const handleChange = (selected: readonly PerformerOption[] | null) => {
+  const handleChange = (selected: readonly IPerformerOption[] | null) => {
     const newOptions = selected ? [...selected] : [];
     setSelectedOptions(newOptions);
 
@@ -215,28 +207,8 @@ export const PerformerSelectWithUnnamed: React.FC<
     onSelectWithUnnamed?.(allIds, namedPerformers);
   };
 
-  // Load options for async search
-  const loadOptions = async (inputValue: string): Promise<PerformerOption[]> => {
-    // Start with unnamed performers that match the search
-    const matchingUnnamed = unnamedOptions.filter(
-      (opt) =>
-        opt.label.toLowerCase().includes(inputValue.toLowerCase()) ||
-        (opt.unnamedPerformer &&
-          formatUnnamedPerformerSummary(opt.unnamedPerformer)
-            .toLowerCase()
-            .includes(inputValue.toLowerCase()))
-    );
-
-    // This is a simplified version - in production you'd want to fetch performers from the API
-    // For now, we'll return unnamed performers plus a placeholder for "type to search"
-    return [
-      ...matchingUnnamed,
-      // Regular performers would be loaded here via API
-    ];
-  };
-
   // Custom styles to make unnamed performers stand out
-  const customStyles: StylesConfig<PerformerOption, true> = {
+  const customStyles: StylesConfig<IPerformerOption, true> = {
     option: (provided, state) => ({
       ...provided,
       backgroundColor: state.data.isUnnamed
@@ -259,18 +231,29 @@ export const PerformerSelectWithUnnamed: React.FC<
   };
 
   // Group the options
-  const groupedOptions: GroupBase<PerformerOption>[] = [
+  if (unnamedPerformers.length === 0) {
+    return (
+      <PerformerIDSelect
+        isMulti={isMulti}
+        ids={ids.filter((id) => !isUnnamedPerformerId(id))}
+        onSelect={onSelect}
+        menuPortalTarget={menuPortalTarget}
+      />
+    );
+  }
+
+  const groupedOptions: GroupBase<IPerformerOption>[] = [
     {
       label: intl.formatMessage({
         id: "unnamed_performer.section_title",
-        defaultMessage: "— Unnamed Performers —",
+        defaultMessage: "— Unnamed Vatos —",
       }),
       options: unnamedOptions,
     },
   ];
 
   return (
-    <Select<PerformerOption, true>
+    <Select<IPerformerOption, true>
       isMulti
       value={selectedOptions}
       onChange={handleChange}

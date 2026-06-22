@@ -69,7 +69,7 @@ const messages = defineMessages({
   },
   performers: {
     id: "performers",
-    defaultMessage: "Performers",
+    defaultMessage: "Vatos",
   },
   studios: {
     id: "studios",

@@ -56,8 +56,6 @@ import { Button } from "react-bootstrap";
 import cx from "classnames";
 import { FavoritePerformerCriterionOption } from "src/models/list-filter/criteria/favorite";
 import { SidebarBooleanFilter } from "../List/Filters/BooleanFilter";
-import { SidebarOptionFilter } from "../List/Filters/OptionFilter";
-import { GenderCriterionOption } from "src/models/list-filter/criteria/gender";
 import type { PerformerListData } from "./performerTypes_custom"; // CUSTOM
 
 export const FormatHeight = (height?: number | null) => {
@@ -299,13 +297,6 @@ const SidebarContent: React.FC<{
           filter={filter}
           setFilter={setFilter}
           sectionID="favourite"
-        />
-        <SidebarOptionFilter
-          title={<FormattedMessage id="gender" />}
-          option={GenderCriterionOption}
-          filter={filter}
-          setFilter={setFilter}
-          sectionID="gender"
         />
         <SidebarAgeFilter
           title={<FormattedMessage id="age" />}

@@ -1,9 +1,11 @@
 package models
 
 type ActivityPercentFilterInput struct {
-	SexPercent  *IntCriterionInput `json:"sex_percent,omitempty"`
-	OralPercent *IntCriterionInput `json:"oral_percent,omitempty"`
-	SoloPercent *IntCriterionInput `json:"solo_percent,omitempty"`
+	SexPercent      *IntCriterionInput `json:"sex_percent,omitempty"`
+	OralPercent     *IntCriterionInput `json:"oral_percent,omitempty"`
+	SoloPercent     *IntCriterionInput `json:"solo_percent,omitempty"`
+	OtherPercent    *IntCriterionInput `json:"other_percent,omitempty"`
+	UnusablePercent *IntCriterionInput `json:"unusable_percent,omitempty"`
 }
 
 type PerformerActivityPercentFilterInput struct {

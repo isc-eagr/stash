@@ -1242,7 +1242,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       overlayButton.className = "vjs-performer-image-overlay-btn vjs-button";
       overlayButton.setAttribute("role", "button");
       overlayButton.tabIndex = 0;
-      overlayButton.setAttribute("title", "Select Performer Images");
+      overlayButton.setAttribute("title", "Select Vato Images");
 
       const iconSpan = document.createElement("span");
       iconSpan.className = "vjs-icon-placeholder";

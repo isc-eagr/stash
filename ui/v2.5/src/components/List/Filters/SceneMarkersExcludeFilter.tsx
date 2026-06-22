@@ -225,7 +225,7 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
             {/* Top Performers */}
             <Form.Group className="mb-3">
               <Form.Label>
-                <FormattedMessage id="performers" defaultMessage="Performers" />
+                <FormattedMessage id="performers" defaultMessage="Vatos" />
               </Form.Label>
               <PerformerIDSelect
                 isMulti
@@ -285,7 +285,7 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
             {/* Bottom Performers */}
             <Form.Group className="mb-3">
               <Form.Label>
-                <FormattedMessage id="performers" defaultMessage="Performers" />
+                <FormattedMessage id="performers" defaultMessage="Vatos" />
               </Form.Label>
               <PerformerIDSelect
                 isMulti

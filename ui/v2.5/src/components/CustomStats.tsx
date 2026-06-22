@@ -963,7 +963,7 @@ export const CustomStats: React.FC = () => {
                   />
                 </Link>
               </p>
-              <p className="heading">Solo only performers</p>
+              <p className="heading">Solo only vatos</p>
             </div>
           )}
           {typeof oneSceneData?.performersOneSceneCount === "number" && (
@@ -975,7 +975,7 @@ export const CustomStats: React.FC = () => {
                   />
                 </Link>
               </p>
-              <p className="heading">One scene performers</p>
+              <p className="heading">One scene vatos</p>
             </div>
           )}
         </div>
@@ -990,7 +990,7 @@ export const CustomStats: React.FC = () => {
               <h5 className="mb-3">
                 <FormattedMessage
                   id="stats.performers_by_ethnicity"
-                  defaultMessage="Performers by ethnicity"
+                  defaultMessage="Vatos by ethnicity"
                 />
               </h5>
               <div className="table-responsive">
@@ -1006,7 +1006,7 @@ export const CustomStats: React.FC = () => {
                       <th className="text-right">
                         <FormattedMessage
                           id="performers"
-                          defaultMessage="Performers"
+                          defaultMessage="Vatos"
                         />
                       </th>
                     </tr>
@@ -1042,7 +1042,7 @@ export const CustomStats: React.FC = () => {
               <h5 className="mb-3">
                 <FormattedMessage
                   id="stats.tier_performers_by_ethnicity"
-                  defaultMessage="Tier performers by ethnicity"
+                  defaultMessage="Tier vatos by ethnicity"
                 />
               </h5>
               <div className="table-responsive">

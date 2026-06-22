@@ -66,7 +66,7 @@ const RatingAdvisorScoresQuery = gql`
 const sceneMetrics: IAdvisorMetric[] = [
   {
     key: "performerAppeal",
-    title: "Performer Attractiveness",
+    title: "Vato Attractiveness",
     max: 10,
     weight: 0.4,
     hint: "Overall physical appeal: face, body impression, styling, sex appeal, visual magnetism, and immediate appeal.",
@@ -75,7 +75,7 @@ const sceneMetrics: IAdvisorMetric[] = [
         value: 0,
         label: "Not attractive",
         description:
-          "Pick this when he is only relevant because of another performer, the scene, or the theme.",
+          "Pick this when he is only relevant because of another vato, the scene, or the theme.",
       },
       {
         value: 1,
@@ -117,7 +117,7 @@ const sceneMetrics: IAdvisorMetric[] = [
         value: 7,
         label: "Very attractive",
         description:
-          "Very attractive, the kind of performer who gives a scene an immediate visual draw.",
+          "Very attractive, the kind of vato who gives a scene an immediate visual draw.",
       },
       {
         value: 8,
@@ -135,7 +135,7 @@ const sceneMetrics: IAdvisorMetric[] = [
         value: 10,
         label: "Perfect",
         description:
-          "Perfect for your taste, like he hits your type in a way most performers do not.",
+          "Perfect for your taste, like he hits your type in a way most vatos do not.",
       },
     ],
   },
@@ -150,7 +150,7 @@ const sceneMetrics: IAdvisorMetric[] = [
         value: 0,
         label: "No energy",
         description:
-          "Disconnected, mechanical, passive, awkward, or actively weak sex quality. This is for scenes where performers look like they don't want to be there.",
+          "Disconnected, mechanical, passive, awkward, or actively weak sex quality. This is for scenes where vatos look like they don't want to be there.",
       },
       {
         value: 1,
@@ -180,7 +180,7 @@ const sceneMetrics: IAdvisorMetric[] = [
         value: 5,
         label: "Good",
         description:
-          "The sex quality clearly helps; you are engaged because the performers are actually working the scene.",
+          "The sex quality clearly helps; you are engaged because the vatos are actually working the scene.",
       },
       {
         value: 6,
@@ -310,20 +310,20 @@ const sceneMetrics: IAdvisorMetric[] = [
   },
   {
     key: "largeGroup",
-    title: "Group scene with 4+ performers",
+    title: "Group scene with 4+ vatos",
     max: 0.5,
     section: "bonus",
-    hint: "Optional bonus when a group scene has more than 3 performers and the larger lineup improves the appeal.",
+    hint: "Optional bonus when a group scene has more than 3 vatos and the larger lineup improves the appeal.",
     choices: [
       {
         value: 0,
         label: "No group bonus",
-        description: "No bonus: the scene has 3 or fewer performers.",
+        description: "No bonus: the scene has 3 or fewer vatos.",
       },
       {
         value: 0.5,
         label: "Large group bonus",
-        description: "Group scene with 4 or more performers.",
+        description: "Group scene with 4 or more vatos.",
       },
     ],
   },
@@ -374,7 +374,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Unlikely top",
     max: 0.5,
     section: "bonus",
-    hint: "Optional bonus when a performer visually reads like a bottom but tops in this scene, and that contrast makes the scene hotter.",
+    hint: "Optional bonus when a vato visually reads like a bottom but tops in this scene, and that contrast makes the scene hotter.",
     choices: [
       {
         value: 0,
@@ -464,10 +464,10 @@ const sceneMetrics: IAdvisorMetric[] = [
 const soloSceneMetrics: IAdvisorMetric[] = [
   {
     key: "soloPerformerAppeal",
-    title: "Performer Attractiveness",
+    title: "Vato Attractiveness",
     max: 10,
     weight: 0.7,
-    hint: "Overall solo performer appeal: face, body, styling, sex appeal, visual magnetism, and immediate draw.",
+    hint: "Overall solo vato appeal: face, body, styling, sex appeal, visual magnetism, and immediate draw.",
     choices: sceneMetrics[0].choices,
   },
   {
@@ -564,7 +564,7 @@ const soloSceneMetrics: IAdvisorMetric[] = [
     title: "Outstanding performance",
     max: 1,
     section: "bonus",
-    hint: "Solo-only bonus when the performer brings unusually strong energy, charisma, intensity, or presence.",
+    hint: "Solo-only bonus when the vato brings unusually strong energy, charisma, intensity, or presence.",
     choices: [
       {
         value: 0,
@@ -576,7 +576,7 @@ const soloSceneMetrics: IAdvisorMetric[] = [
         value: 1,
         label: "Outstanding performance",
         description:
-          "Use this when the solo performer brings exceptional energy, reactions, confidence, intensity, or presence.",
+          "Use this when the solo vato brings exceptional energy, reactions, confidence, intensity, or presence.",
         scoreValue: 1,
       },
     ],
@@ -645,7 +645,7 @@ const performerMetrics: IAdvisorMetric[] = [
         value: 7,
         label: "Very attractive",
         description:
-          "Very attractive, the kind of performer who gives a scene an immediate visual draw.",
+          "Very attractive, the kind of vato who gives a scene an immediate visual draw.",
       },
       {
         value: 8,
@@ -663,7 +663,7 @@ const performerMetrics: IAdvisorMetric[] = [
         value: 10,
         label: "Perfect",
         description:
-          "Perfect for your taste, like his face hits your type in a way most performers do not.",
+          "Perfect for your taste, like his face hits your type in a way most vatos do not.",
       },
     ],
   },
@@ -738,7 +738,7 @@ const performerMetrics: IAdvisorMetric[] = [
         value: 10,
         label: "Perfect",
         description:
-          "Perfect for your taste, like his body hits your type in a way most performers do not.",
+          "Perfect for your taste, like his body hits your type in a way most vatos do not.",
       },
     ],
   },
@@ -771,7 +771,7 @@ const performerMetrics: IAdvisorMetric[] = [
         value: 3,
         label: "Serviceable",
         description:
-          "He gets through the scene fine, like a competent performer, but you are not seeking him out.",
+          "He gets through the scene fine, like a competent vato, but you are not seeking him out.",
       },
       {
         value: 4,
@@ -822,7 +822,7 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Ethnicity / racial appeal",
     max: 3,
     weight: 1 / 3,
-    hint: "Personal ethnic appeal based on known metadata, skin tone, self-presentation, or how you catalog the performer.",
+    hint: "Personal ethnic appeal based on known metadata, skin tone, self-presentation, or how you catalog the vato.",
     choices: [
       {
         value: 0,
@@ -909,7 +909,7 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Dick",
     max: 0.5,
     section: "bonus",
-    hint: "Optional bonus when dick size, shape, look, hardness, or presentation improves performer appeal.",
+    hint: "Optional bonus when dick size, shape, look, hardness, or presentation improves vato appeal.",
     choices: [
       {
         value: 0,
@@ -951,7 +951,7 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Feminine",
     max: 0,
     section: "penalty",
-    hint: "Penalty when a performer's feminine presentation lowers his appeal for your rating.",
+    hint: "Penalty when a vato's feminine presentation lowers his appeal for your rating.",
     choices: [
       {
         value: 0,
@@ -963,7 +963,7 @@ const performerMetrics: IAdvisorMetric[] = [
         value: -1,
         label: "Feminine penalty",
         description:
-          "Use this when the performer reads too feminine for your taste and it meaningfully lowers the rating.",
+          "Use this when the vato reads too feminine for your taste and it meaningfully lowers the rating.",
       },
     ],
   },
@@ -1299,7 +1299,7 @@ const RatingAdvisorModal: React.FC<{
     <ModalComponent
       show
       onHide={onClose}
-      header={`${entityType === "scene" ? "Scene" : "Performer"} rating system`}
+      header={`${entityType === "scene" ? "Scene" : "Vato"} rating system`}
       icon={faWandMagicSparkles}
       cancel={{ onClick: onClose, variant: "secondary" }}
       accept={{ onClick: onClose }}

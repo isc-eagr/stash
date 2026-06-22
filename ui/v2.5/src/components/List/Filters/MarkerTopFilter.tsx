@@ -6,7 +6,10 @@ import Select, {
   MultiValueProps,
 } from "react-select";
 import { FormattedMessage, useIntl } from "react-intl";
-import { CriterionModifier , usePerformerEthnicitiesQuery } from "src/core/generated-graphql";
+import {
+  CriterionModifier,
+  usePerformerEthnicitiesQuery,
+} from "src/core/generated-graphql";
 import {
   PerformerIDSelect,
   Performer,
@@ -206,7 +209,7 @@ const FilterEditor: React.FC<IFilterEditorProps> = ({
         {/* Performers */}
         <Form.Group className="mb-3">
           <Form.Label>
-            <FormattedMessage id="performers" defaultMessage="Performers" />
+            <FormattedMessage id="performers" defaultMessage="Vatos" />
           </Form.Label>
           <PerformerIDSelect
             isMulti
@@ -329,7 +332,6 @@ export const MarkerTopFilter: React.FC<IMarkerTopFilterProps> = ({
   criterion,
   setCriterion,
 }) => {
-  const intl = useIntl();
   const { hasGroups } = useMarkerFilterGroups();
 
   const onAddFilter = () => {
@@ -378,7 +380,7 @@ export const MarkerTopFilter: React.FC<IMarkerTopFilterProps> = ({
       <div className="mb-3 text-muted">
         <FormattedMessage
           id="marker_top_help"
-          defaultMessage="Filter markers by top performer attributes. Each filter targets a specific marker tag group."
+          defaultMessage="Filter markers by top vato attributes. Each filter targets a specific marker tag group."
         />
       </div>
 

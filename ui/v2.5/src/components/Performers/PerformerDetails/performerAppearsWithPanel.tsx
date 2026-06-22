@@ -14,7 +14,7 @@ export const PerformerAppearsWithPanel: React.FC<IPerformerDetailsProps> =
   PatchComponent("PerformerAppearsWithPanel", ({ active, performer }) => {
     const performerValue = {
       id: performer.id,
-      label: performer.name ?? `Performer ${performer.id}`,
+      label: performer.name ?? `Vato ${performer.id}`,
     };
 
     const extraCriteria = {

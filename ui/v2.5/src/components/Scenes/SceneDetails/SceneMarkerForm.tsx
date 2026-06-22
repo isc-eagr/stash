@@ -433,7 +433,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     // Top performers
     const topTitle = intl.formatMessage({
       id: "top_performers",
-      defaultMessage: "Top Performers",
+      defaultMessage: "Top Vatos",
     });
 
     const selectedTopValues = topPerformers.map((p) => ({
@@ -475,7 +475,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     // Bottom performers
     const bottomTitle = intl.formatMessage({
       id: "bottom_performers",
-      defaultMessage: "Bottom Performers",
+      defaultMessage: "Bottom Vatos",
     });
 
     const selectedBottomValues = bottomPerformers.map((p) => ({

@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { OverlayTrigger, Tooltip } from "react-bootstrap";
-import { faClock, faHand } from "@fortawesome/free-solid-svg-icons";
+import { faBan, faClock, faHand } from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import { Icon } from "src/components/Shared/Icon";
 import { useConfigurationContext } from "src/hooks/Config";
@@ -11,7 +11,7 @@ import gaySvg from "src/assets/gay.svg";
 type SceneActivityCategory = "sex" | "oral" | "solo";
 
 type SceneActivityMetric = {
-  key: SceneActivityCategory | "other";
+  key: SceneActivityCategory | "other" | "unusable";
   label: string;
   percent: number;
 };
@@ -35,6 +35,10 @@ type SceneActivityScene = Pick<GQL.SlimSceneDataFragment, "id"> & {
       "seconds" | "end_seconds" | "primary_tag" | "tags"
     >
   >;
+  negative_markers?: Array<{
+    start_seconds: number;
+    end_seconds: number;
+  }>;
 };
 
 function sceneActivityMarkerPrimaryTagIsOnlyTag(
@@ -116,15 +120,28 @@ function getSceneActivityMetrics(
     }
   });
 
+  const unusableIntervals =
+    scene.negative_markers
+      ?.map((marker) => ({
+        start: Math.max(0, Math.min(marker.start_seconds, sceneDuration)),
+        end: Math.max(0, Math.min(marker.end_seconds, sceneDuration)),
+      }))
+      .filter((interval) => interval.end > interval.start) ?? [];
+
   const allActivityIntervals = [
     ...intervalsByCategory.sex,
     ...intervalsByCategory.oral,
     ...intervalsByCategory.solo,
   ];
 
-  if (allActivityIntervals.length === 0) return undefined;
+  if (allActivityIntervals.length === 0 && unusableIntervals.length === 0) {
+    return undefined;
+  }
 
-  const coveredDuration = getSceneActivityDuration(allActivityIntervals);
+  const coveredDuration = getSceneActivityDuration([
+    ...allActivityIntervals,
+    ...unusableIntervals,
+  ]);
 
   return [
     {
@@ -156,6 +173,14 @@ function getSceneActivityMetrics(
       label: "Other",
       percent: getSceneActivityPercent(
         Math.max(0, sceneDuration - coveredDuration),
+        sceneDuration
+      ),
+    },
+    {
+      key: "unusable",
+      label: "Unusable",
+      percent: getSceneActivityPercent(
+        getSceneActivityDuration(unusableIntervals),
         sceneDuration
       ),
     },
@@ -218,6 +243,12 @@ export const SceneActivityMetrics: React.FC<ISceneActivityMetricsProps> = ({
               )}
               {metric.key === "other" && (
                 <Icon icon={faClock} className="scene-activity-metric__other" />
+              )}
+              {metric.key === "unusable" && (
+                <Icon
+                  icon={faBan}
+                  className="scene-activity-metric__unusable"
+                />
               )}
               <span>{metric.percent}%</span>
             </span>

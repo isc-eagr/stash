@@ -269,7 +269,7 @@ export const UnnamedPerformerEditor: React.FC<IUnnamedPerformerEditorProps> = ({
           <Form.Label>
             <FormattedMessage
               id="rating_criteria"
-              defaultMessage="Performer Rating Criteria"
+              defaultMessage="Vato Rating Criteria"
             />
           </Form.Label>
           <RatingCriteriaFilter
@@ -395,7 +395,7 @@ export const UnnamedPerformersManager: React.FC<
         <Form.Label className="mb-0 me-2">
           <FormattedMessage
             id="unnamed_performers"
-            defaultMessage="Unnamed Performers"
+            defaultMessage="Unnamed Vatos"
           />
         </Form.Label>
         <Button
@@ -407,7 +407,7 @@ export const UnnamedPerformersManager: React.FC<
           <Icon icon={faPlus} className="me-1" />
           <FormattedMessage
             id="unnamed_performer.add"
-            defaultMessage="Add Unnamed Performer"
+            defaultMessage="Add Unnamed Vato"
           />
         </Button>
       </div>

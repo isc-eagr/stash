@@ -11,9 +11,11 @@ import (
 type activityPercentCategoryCustom string
 
 const (
-	activityPercentSexCustom  activityPercentCategoryCustom = "sex"
-	activityPercentOralCustom activityPercentCategoryCustom = "oral"
-	activityPercentSoloCustom activityPercentCategoryCustom = "solo"
+	activityPercentSexCustom      activityPercentCategoryCustom = "sex"
+	activityPercentOralCustom     activityPercentCategoryCustom = "oral"
+	activityPercentSoloCustom     activityPercentCategoryCustom = "solo"
+	activityPercentOtherCustom    activityPercentCategoryCustom = "other"
+	activityPercentUnusableCustom activityPercentCategoryCustom = "unusable"
 )
 
 func activityPercentTagIDCustom(category activityPercentCategoryCustom) int {
@@ -83,6 +85,13 @@ func activityPercentExprCustom(numeratorExpr string, denominatorExpr string) str
 }
 
 func activityPercentSceneSecondsExprCustom(sceneIDExpr string, category activityPercentCategoryCustom) string {
+	switch category {
+	case activityPercentOtherCustom:
+		return activityPercentSceneOtherSecondsExprCustom(sceneIDExpr)
+	case activityPercentUnusableCustom:
+		return activityPercentSceneUnusableSecondsExprCustom(sceneIDExpr)
+	}
+
 	tagID := activityPercentTagIDCustom(category)
 	if tagID == 0 {
 		return "0"
@@ -94,6 +103,51 @@ WHERE sm.scene_id = %s
 AND %s`, sceneIDExpr, activityPercentStrictMarkerConditionCustom("sm", tagID))
 
 	return activityPercentMergedSecondsExprCustom(sourceSQL)
+}
+
+func activityPercentSceneAnyActivitySourceSQLCustom(sceneIDExpr string) string {
+	return fmt.Sprintf(`SELECT sm.scene_id, sm.seconds, sm.end_seconds
+FROM scene_markers sm
+WHERE sm.scene_id = %s
+AND %s`, sceneIDExpr, activityPercentStrictAnyMarkerConditionCustom("sm"))
+}
+
+func activityPercentSceneNegativeSourceSQLCustom(sceneIDExpr string) string {
+	durationExpr := activityPercentSceneDurationExprCustom(sceneIDExpr)
+	return fmt.Sprintf(`SELECT snm.scene_id,
+MAX(0, snm.start_seconds) AS seconds,
+MIN((%[2]s), snm.end_seconds) AS end_seconds
+FROM scene_negative_markers snm
+WHERE snm.scene_id = %[1]s
+AND snm.end_seconds > snm.start_seconds`, sceneIDExpr, durationExpr)
+}
+
+func activityPercentSceneUnusableSecondsExprCustom(sceneIDExpr string) string {
+	return activityPercentMergedSecondsExprCustom(activityPercentSceneNegativeSourceSQLCustom(sceneIDExpr))
+}
+
+func activityPercentSceneCoveredSecondsExprCustom(sceneIDExpr string) string {
+	sourceSQL := fmt.Sprintf(`%s
+UNION ALL
+%s`,
+		activityPercentSceneAnyActivitySourceSQLCustom(sceneIDExpr),
+		activityPercentSceneNegativeSourceSQLCustom(sceneIDExpr),
+	)
+	return activityPercentMergedSecondsExprCustom(sourceSQL)
+}
+
+func activityPercentNonNegativeDifferenceExprCustom(totalExpr string, coveredExpr string) string {
+	return fmt.Sprintf(`CASE
+WHEN (%[1]s) > (%[2]s) THEN (%[1]s) - (%[2]s)
+ELSE 0
+END`, totalExpr, coveredExpr)
+}
+
+func activityPercentSceneOtherSecondsExprCustom(sceneIDExpr string) string {
+	return activityPercentNonNegativeDifferenceExprCustom(
+		activityPercentSceneDurationExprCustom(sceneIDExpr),
+		activityPercentSceneCoveredSecondsExprCustom(sceneIDExpr),
+	)
 }
 
 func activityPercentScenePercentExprCustom(category activityPercentCategoryCustom) string {
@@ -135,19 +189,23 @@ AND NOT EXISTS (
 }
 
 func activityPercentStudioDenominatorExprCustom() string {
-	if len(activityPercentConfiguredTagIDsCustom()) == 0 {
-		return "0"
-	}
-
 	return fmt.Sprintf(`COALESCE((
 	SELECT SUM(%s)
 	FROM scenes s_activity_total
 	WHERE s_activity_total.studio_id = studios.id
-	AND EXISTS (
+	AND (
+	EXISTS (
 		SELECT 1
 		FROM scene_markers sm_activity_total
 		WHERE sm_activity_total.scene_id = s_activity_total.id
 		AND %s
+	)
+	OR EXISTS (
+		SELECT 1
+		FROM scene_negative_markers snm_activity_total
+		WHERE snm_activity_total.scene_id = s_activity_total.id
+		AND snm_activity_total.end_seconds > snm_activity_total.start_seconds
+	)
 	)
 ), 0)`,
 		activityPercentSceneDurationExprCustom("s_activity_total.id"),
@@ -156,6 +214,13 @@ func activityPercentStudioDenominatorExprCustom() string {
 }
 
 func activityPercentStudioSecondsExprCustom(category activityPercentCategoryCustom) string {
+	switch category {
+	case activityPercentOtherCustom:
+		return activityPercentStudioOtherSecondsExprCustom()
+	case activityPercentUnusableCustom:
+		return activityPercentStudioUnusableSecondsExprCustom()
+	}
+
 	tagID := activityPercentTagIDCustom(category)
 	if tagID == 0 {
 		return "0"
@@ -168,6 +233,45 @@ WHERE s_activity.studio_id = studios.id
 AND %s`, activityPercentStrictMarkerConditionCustom("sm", tagID))
 
 	return activityPercentMergedSecondsExprCustom(sourceSQL)
+}
+
+func activityPercentStudioAnyActivitySourceSQLCustom() string {
+	return fmt.Sprintf(`SELECT sm.scene_id, sm.seconds, sm.end_seconds
+FROM scene_markers sm
+JOIN scenes s_activity ON s_activity.id = sm.scene_id
+WHERE s_activity.studio_id = studios.id
+AND %s`, activityPercentStrictAnyMarkerConditionCustom("sm"))
+}
+
+func activityPercentStudioNegativeSourceSQLCustom() string {
+	return fmt.Sprintf(`SELECT snm.scene_id,
+MAX(0, snm.start_seconds) AS seconds,
+MIN((%s), snm.end_seconds) AS end_seconds
+FROM scene_negative_markers snm
+JOIN scenes s_negative ON s_negative.id = snm.scene_id
+WHERE s_negative.studio_id = studios.id
+AND snm.end_seconds > snm.start_seconds`, activityPercentSceneDurationExprCustom("s_negative.id"))
+}
+
+func activityPercentStudioUnusableSecondsExprCustom() string {
+	return activityPercentMergedSecondsExprCustom(activityPercentStudioNegativeSourceSQLCustom())
+}
+
+func activityPercentStudioCoveredSecondsExprCustom() string {
+	sourceSQL := fmt.Sprintf(`%s
+UNION ALL
+%s`,
+		activityPercentStudioAnyActivitySourceSQLCustom(),
+		activityPercentStudioNegativeSourceSQLCustom(),
+	)
+	return activityPercentMergedSecondsExprCustom(sourceSQL)
+}
+
+func activityPercentStudioOtherSecondsExprCustom() string {
+	return activityPercentNonNegativeDifferenceExprCustom(
+		activityPercentStudioDenominatorExprCustom(),
+		activityPercentStudioCoveredSecondsExprCustom(),
+	)
 }
 
 func activityPercentStudioPercentExprCustom(category activityPercentCategoryCustom) string {
@@ -241,6 +345,8 @@ func activityPercentFilterHandlerCustom(c *models.ActivityPercentFilterInput, ex
 		activityPercentCriterionHandlerCustom(c.SexPercent, exprFn(activityPercentSexCustom)),
 		activityPercentCriterionHandlerCustom(c.OralPercent, exprFn(activityPercentOralCustom)),
 		activityPercentCriterionHandlerCustom(c.SoloPercent, exprFn(activityPercentSoloCustom)),
+		activityPercentCriterionHandlerCustom(c.OtherPercent, exprFn(activityPercentOtherCustom)),
+		activityPercentCriterionHandlerCustom(c.UnusablePercent, exprFn(activityPercentUnusableCustom)),
 	}
 }
 

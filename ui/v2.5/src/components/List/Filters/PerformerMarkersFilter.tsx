@@ -1,12 +1,15 @@
 import React from "react";
-import { Badge, Button, Card, Col, Form, Row } from "react-bootstrap";
+import { Button, Card, Col, Form, Row } from "react-bootstrap";
 import Select, {
   components as selectComponents,
   OptionProps,
   MultiValueProps,
 } from "react-select";
 import { FormattedMessage, useIntl } from "react-intl";
-import { CriterionModifier , usePerformerEthnicitiesQuery } from "src/core/generated-graphql";
+import {
+  CriterionModifier,
+  usePerformerEthnicitiesQuery,
+} from "src/core/generated-graphql";
 import {
   PerformerMarkersCriterion,
   IPerformerMarkersGroup,
@@ -109,7 +112,9 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ group, onUpdate }) => {
     });
   };
 
-  const onPerformerEthnicitiesChange = (values: readonly { value: string }[]) => {
+  const onPerformerEthnicitiesChange = (
+    values: readonly { value: string }[]
+  ) => {
     onUpdate({ performer_ethnicities: values.map((v) => v.value) });
   };
 
@@ -155,7 +160,8 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ group, onUpdate }) => {
 
   // Performer rating helpers
   const performerRating = group.performer_rating;
-  const performerModifier = performerRating?.modifier ?? CriterionModifier.Equals;
+  const performerModifier =
+    performerRating?.modifier ?? CriterionModifier.Equals;
 
   const onPerformerRatingModifierChange = (m: CriterionModifier) => {
     onPerformerRatingChange({
@@ -263,13 +269,13 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ group, onUpdate }) => {
           {/* Performer Column */}
           <Col md={6}>
             <h6 className="mb-3">
-              <FormattedMessage id="performer" defaultMessage="Performer" />
+              <FormattedMessage id="performer" defaultMessage="Vato" />
             </h6>
 
             {/* Performer Performers */}
             <Form.Group className="mb-3">
               <Form.Label>
-                <FormattedMessage id="performers" defaultMessage="Performers" />
+                <FormattedMessage id="performers" defaultMessage="Vatos" />
               </Form.Label>
               <PerformerIDSelect
                 isMulti
@@ -291,7 +297,9 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ group, onUpdate }) => {
               >
                 {!disablePerformerRoles.any && <option value="any">Any</option>}
                 {!disablePerformerRoles.top && <option value="top">Top</option>}
-                {!disablePerformerRoles.bottom && <option value="bottom">Bottom</option>}
+                {!disablePerformerRoles.bottom && (
+                  <option value="bottom">Bottom</option>
+                )}
               </Form.Control>
             </Form.Group>
 
@@ -381,7 +389,9 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ group, onUpdate }) => {
                   {ratingModifiers.map((m) => (
                     <Button
                       key={m.value}
-                      variant={performerModifier === m.value ? "primary" : "secondary"}
+                      variant={
+                        performerModifier === m.value ? "primary" : "secondary"
+                      }
                       size="sm"
                       onClick={() => onPerformerRatingModifierChange(m.value)}
                       title={m.title}
@@ -393,15 +403,20 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ group, onUpdate }) => {
                 </div>
                 <RatingSystem
                   value={performerRating?.value}
-                  onSetRating={(value) => onPerformerRatingValueChange(value ?? 0)}
+                  onSetRating={(value) =>
+                    onPerformerRatingValueChange(value ?? 0)
+                  }
                   valueRequired
                   disabled={group.performer_ids.length > 0}
                 />
                 {(performerRating?.modifier === CriterionModifier.Between ||
-                  performerRating?.modifier === CriterionModifier.NotBetween) && (
+                  performerRating?.modifier ===
+                    CriterionModifier.NotBetween) && (
                   <RatingSystem
                     value={performerRating?.value2}
-                    onSetRating={(value) => onPerformerRatingValue2Change(value ?? 0)}
+                    onSetRating={(value) =>
+                      onPerformerRatingValue2Change(value ?? 0)
+                    }
                     valueRequired
                     disabled={group.performer_ids.length > 0}
                   />
@@ -413,7 +428,10 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ group, onUpdate }) => {
                     onClick={() => onPerformerRatingChange(null)}
                     disabled={group.performer_ids.length > 0}
                   >
-                    <FormattedMessage id="actions.clear" defaultMessage="Clear" />
+                    <FormattedMessage
+                      id="actions.clear"
+                      defaultMessage="Clear"
+                    />
                   </Button>
                 )}
               </div>
@@ -429,7 +447,7 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ group, onUpdate }) => {
             {/* Partner Performers */}
             <Form.Group className="mb-3">
               <Form.Label>
-                <FormattedMessage id="performers" defaultMessage="Performers" />
+                <FormattedMessage id="performers" defaultMessage="Vatos" />
               </Form.Label>
               <PerformerIDSelect
                 isMulti
@@ -451,7 +469,9 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ group, onUpdate }) => {
               >
                 {!disablePartnerRoles.any && <option value="any">Any</option>}
                 {!disablePartnerRoles.top && <option value="top">Top</option>}
-                {!disablePartnerRoles.bottom && <option value="bottom">Bottom</option>}
+                {!disablePartnerRoles.bottom && (
+                  <option value="bottom">Bottom</option>
+                )}
               </Form.Control>
             </Form.Group>
 
@@ -541,7 +561,9 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ group, onUpdate }) => {
                   {ratingModifiers.map((m) => (
                     <Button
                       key={m.value}
-                      variant={partnerModifier === m.value ? "primary" : "secondary"}
+                      variant={
+                        partnerModifier === m.value ? "primary" : "secondary"
+                      }
                       size="sm"
                       onClick={() => onPartnerRatingModifierChange(m.value)}
                       title={m.title}
@@ -553,7 +575,9 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ group, onUpdate }) => {
                 </div>
                 <RatingSystem
                   value={partnerRating?.value}
-                  onSetRating={(value) => onPartnerRatingValueChange(value ?? 0)}
+                  onSetRating={(value) =>
+                    onPartnerRatingValueChange(value ?? 0)
+                  }
                   valueRequired
                   disabled={group.partner_ids.length > 0}
                 />
@@ -561,7 +585,9 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ group, onUpdate }) => {
                   partnerRating?.modifier === CriterionModifier.NotBetween) && (
                   <RatingSystem
                     value={partnerRating?.value2}
-                    onSetRating={(value) => onPartnerRatingValue2Change(value ?? 0)}
+                    onSetRating={(value) =>
+                      onPartnerRatingValue2Change(value ?? 0)
+                    }
                     valueRequired
                     disabled={group.partner_ids.length > 0}
                   />
@@ -573,7 +599,10 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ group, onUpdate }) => {
                     disabled={group.partner_ids.length > 0}
                     onClick={() => onPartnerRatingChange(null)}
                   >
-                    <FormattedMessage id="actions.clear" defaultMessage="Clear" />
+                    <FormattedMessage
+                      id="actions.clear"
+                      defaultMessage="Clear"
+                    />
                   </Button>
                 )}
               </div>
@@ -600,7 +629,7 @@ export const PerformerMarkersFilter: React.FC<IPerformerMarkersFilterProps> = ({
       <div className="mb-3 text-muted small">
         <FormattedMessage
           id="performer_markers_filter_help"
-          defaultMessage="Find performers with markers matching these criteria. Use 'Includes All' for AND mode (both performer AND partner must match), 'Includes' for OR mode (either can match)."
+          defaultMessage="Find vatos with markers matching these criteria. Use 'Includes All' for AND mode (both vato AND partner must match), 'Includes' for OR mode (either can match)."
         />
       </div>
 

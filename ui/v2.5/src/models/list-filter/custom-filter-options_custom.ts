@@ -40,6 +40,8 @@ const customCriterionTypes = new Set<CriterionType>([
   "oral_bottom_activity_percent",
   "oral_top_activity_percent",
   "solo_activity_percent",
+  "other_activity_percent",
+  "unusable_activity_percent",
 ]);
 
 export function isCustomFilterCriterion(type: CriterionType): boolean {

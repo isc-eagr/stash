@@ -59,6 +59,20 @@ func TestActivityStatsPercentCustom(t *testing.T) {
 	assert.Equal(t, 25.0, activityStatsPercentCustom(15, 60))
 }
 
+func TestActivityStatsOtherSecondsCustom(t *testing.T) {
+	activityIntervals := []activityIntervalCustom{
+		{sceneID: 1, start: 0, end: 30},
+		{sceneID: 1, start: 20, end: 45},
+	}
+	unusableIntervals := []activityIntervalCustom{
+		{sceneID: 1, start: 40, end: 55},
+		{sceneID: 1, start: 50, end: 60},
+	}
+
+	assert.Equal(t, 40.0, activityStatsOtherSecondsCustom(100, activityIntervals, unusableIntervals))
+	assert.Equal(t, 0.0, activityStatsOtherSecondsCustom(50, activityIntervals, unusableIntervals))
+}
+
 func TestActivityStatsCategoryCustom(t *testing.T) {
 	category, ok := activityStatsCategoryCustom(10, 10, 20, 30)
 	assert.True(t, ok)

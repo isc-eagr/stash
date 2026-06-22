@@ -334,6 +334,8 @@ input ActivityPercentFilterInput {
   sex_percent: IntCriterionInput
   oral_percent: IntCriterionInput
   solo_percent: IntCriterionInput
+  other_percent: IntCriterionInput
+  unusable_percent: IntCriterionInput
 }
 
 input PerformerActivityPercentFilterInput {
@@ -447,6 +449,8 @@ extend input SceneFilterType {
   sex_activity_percent: IntCriterionInput
   oral_activity_percent: IntCriterionInput
   solo_activity_percent: IntCriterionInput
+  other_activity_percent: IntCriterionInput
+  unusable_activity_percent: IntCriterionInput
 }
 
 extend input GalleryFilterType {
@@ -486,6 +490,8 @@ extend input StudioFilterType {
   sex_activity_percent: IntCriterionInput
   oral_activity_percent: IntCriterionInput
   solo_activity_percent: IntCriterionInput
+  other_activity_percent: IntCriterionInput
+  unusable_activity_percent: IntCriterionInput
 }
 
 extend input StudioFilterType {

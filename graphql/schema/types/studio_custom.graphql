@@ -21,10 +21,12 @@ type StudioActivityStats {
   oral_seconds: Float!
   solo_seconds: Float!
   other_seconds: Float!
+  unusable_seconds: Float!
   sex_percent: Float!
   oral_percent: Float!
   solo_percent: Float!
   other_percent: Float!
+  unusable_percent: Float!
   sex_scene_count: Int!
   oral_scene_count: Int!
   solo_scene_count: Int!

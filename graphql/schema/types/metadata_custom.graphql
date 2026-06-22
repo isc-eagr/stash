@@ -3,4 +3,11 @@
 extend input GenerateMetadataInput {
   "Delete generated marker video/webp previews for markers whose only marker tag is the configured sex, oral, or solo primary tag. Marker screenshots are not deleted."
   deleteSimpleMarkerPreviews: Boolean
+  "Generate exact screenshots for scene O events with a recorded video timestamp."
+  oScreenshots: Boolean
+}
+
+extend type GenerateMetadataOptions {
+  "Generate exact screenshots for scene O events with a recorded video timestamp."
+  oScreenshots: Boolean
 }

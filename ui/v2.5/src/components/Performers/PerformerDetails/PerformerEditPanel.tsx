@@ -20,11 +20,7 @@ import { stashboxDisplayName } from "src/utils/stashbox";
 import { useToast } from "src/hooks/Toast";
 import { Prompt } from "react-router-dom";
 import { useFormik } from "formik";
-import {
-  genderToString,
-  stringGenderMap,
-  stringToGender,
-} from "src/utils/gender";
+import { stringToGender } from "src/utils/gender";
 import {
   circumcisedToString,
   stringCircumMap,
@@ -113,8 +109,6 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
     eye_color: yup.string().ensure(),
     height_cm: yupInputNumber().positive().truncate().nullable().defined(),
     weight: yupInputNumber().positive().truncate().nullable().defined(),
-    measurements: yup.string().ensure(),
-    fake_tits: yup.string().ensure(),
     penis_length: yupInputNumber().positive().nullable().defined(),
     circumcised: yupInputEnum(GQL.CircumcisedEnum).nullable().defined(),
     tattoos: yup.string().ensure(),
@@ -143,8 +137,6 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
     eye_color: performer.eye_color ?? "",
     height_cm: performer.height_cm ?? null,
     weight: performer.weight ?? null,
-    measurements: performer.measurements ?? "",
-    fake_tits: performer.fake_tits ?? "",
     penis_length: performer.penis_length ?? null,
     circumcised: performer.circumcised ?? null,
     tattoos: performer.tattoos ?? "",
@@ -188,16 +180,8 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
       return;
     }
 
-    // try to translate from enum values first
-    const upperGender = scrapedGender.toUpperCase();
-    const asEnum = genderToString(upperGender);
-    if (asEnum) {
-      return stringToGender(asEnum);
-    } else {
-      // try to match against gender strings
-      const caseInsensitive = true;
-      return stringToGender(scrapedGender, caseInsensitive);
-    }
+    const caseInsensitive = true;
+    return stringToGender(scrapedGender, caseInsensitive);
   }
 
   function translateScrapedCircumcised(scrapedCircumcised?: string) {
@@ -244,12 +228,6 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
     }
     if (state.height) {
       formik.setFieldValue("height_cm", parseInt(state.height, 10));
-    }
-    if (state.measurements) {
-      formik.setFieldValue("measurements", state.measurements);
-    }
-    if (state.fake_tits) {
-      formik.setFieldValue("fake_tits", state.fake_tits);
     }
     if (state.career_start) {
       formik.setFieldValue("career_start", state.career_start);
@@ -723,8 +701,6 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
 
         {renderStringListField("alias_list", "aliases", { orderable: false })}
 
-        {renderSelectField("gender", stringGenderMap)}
-
         {renderDateField("birthdate")}
         {renderDateField("death_date")}
 
@@ -738,9 +714,6 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
         {renderInputField("penis_length", "number", "penis_length_cm")}
 
         {renderSelectField("circumcised", stringCircumMap)}
-
-        {renderInputField("measurements")}
-        {renderInputField("fake_tits")}
 
         {renderInputField("tattoos", "textarea")}
         {renderInputField("piercings", "textarea")}

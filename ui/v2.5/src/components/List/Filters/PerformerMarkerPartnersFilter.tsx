@@ -174,7 +174,7 @@ const PerformerMarkerPartnersFilter: React.FC<
         <Form.Label>
           <FormattedMessage
             id="partner_performers"
-            defaultMessage="Partner Performers"
+            defaultMessage="Partner Vatos"
           />
         </Form.Label>
         <PerformerIDSelect

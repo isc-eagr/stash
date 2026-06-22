@@ -123,6 +123,14 @@ const sortByOptions = [
       messageID: "solo_activity_percent",
       value: "solo_activity_percent",
     },
+    {
+      messageID: "other_activity_percent",
+      value: "other_activity_percent",
+    },
+    {
+      messageID: "unusable_activity_percent",
+      value: "unusable_activity_percent",
+    },
     // CUSTOM: end
   ]);
 const displayModeOptions = [

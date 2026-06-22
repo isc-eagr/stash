@@ -37,7 +37,7 @@ const messages = defineMessages({
   add_group: { id: "actions.add_marker", defaultMessage: "Add marker" },
   marker_label: { id: "filters.marker", defaultMessage: "Marker" },
   tags: { id: "tags", defaultMessage: "Tags" },
-  performers: { id: "performers", defaultMessage: "Performers" },
+  performers: { id: "performers", defaultMessage: "Vatos" },
   country: { id: "performer_country", defaultMessage: "Country" },
   ethnicity: { id: "performer_ethnicity", defaultMessage: "Ethnicity" },
   rating: { id: "performer_rating", defaultMessage: "Rating" },

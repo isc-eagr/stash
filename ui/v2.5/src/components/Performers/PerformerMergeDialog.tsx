@@ -8,7 +8,6 @@ import {
   stringToCircumcised,
 } from "src/utils/circumcised";
 import * as FormUtils from "src/utils/form";
-import { genderToString, stringToGender } from "src/utils/gender";
 import ImageUtils from "src/utils/image";
 import {
   mutatePerformerMerge,
@@ -35,10 +34,7 @@ import {
   hasScrapedValues,
 } from "../Shared/ScrapeDialog/scrapeResult";
 import { ScrapedTagsRow } from "../Shared/ScrapeDialog/ScrapedObjectsRow";
-import {
-  renderScrapedGenderRow,
-  renderScrapedCircumcisedRow,
-} from "./PerformerDetails/PerformerScrapeDialog";
+import { renderScrapedCircumcisedRow } from "./PerformerDetails/PerformerScrapeDialog";
 import { PerformerSelect } from "./PerformerSelect";
 import { uniq } from "lodash-es";
 import { StashIDsField } from "../Shared/StashID";
@@ -98,12 +94,6 @@ const PerformerMergeDetails: React.FC<IPerformerMergeDetailsProps> = ({
   const [penisLength, setPenisLength] = useState<ScrapeResult<string>>(
     new ScrapeResult<string>(dest.penis_length?.toString())
   );
-  const [measurements, setMeasurements] = useState<ScrapeResult<string>>(
-    new ScrapeResult<string>(dest.measurements)
-  );
-  const [fakeTits, setFakeTits] = useState<ScrapeResult<string>>(
-    new ScrapeResult<string>(dest.fake_tits)
-  );
   const [careerStart, setCareerStart] = useState<ScrapeResult<string>>(
     new ScrapeResult<string>(dest.career_start?.toString())
   );
@@ -118,9 +108,6 @@ const PerformerMergeDetails: React.FC<IPerformerMergeDetailsProps> = ({
   );
   const [urls, setURLs] = useState<ScrapeResult<string[]>>(
     new ScrapeResult<string[]>(dest.urls)
-  );
-  const [gender, setGender] = useState<ScrapeResult<string>>(
-    new ScrapeResult<string>(genderToString(dest.gender))
   );
   const [circumcised, setCircumcised] = useState<ScrapeResult<string>>(
     new ScrapeResult<string>(circumcisedToString(dest.circumcised))
@@ -261,20 +248,6 @@ const PerformerMergeDetails: React.FC<IPerformerMergeDetailsProps> = ({
         !dest.penis_length
       )
     );
-    setMeasurements(
-      new ScrapeResult(
-        dest.measurements,
-        sources.find((s) => s.measurements)?.measurements,
-        !dest.measurements
-      )
-    );
-    setFakeTits(
-      new ScrapeResult(
-        dest.fake_tits,
-        sources.find((s) => s.fake_tits)?.fake_tits,
-        !dest.fake_tits
-      )
-    );
     setCareerStart(
       new ScrapeResult(
         dest.career_start?.toString(),
@@ -307,15 +280,6 @@ const PerformerMergeDetails: React.FC<IPerformerMergeDetailsProps> = ({
       new ScrapeResult(
         dest.urls ?? [],
         uniq(all.map((s) => s.urls ?? []).flat())
-      )
-    );
-    setGender(
-      new ScrapeResult(
-        genderToString(dest.gender),
-        sources.find((s) => s.gender)?.gender
-          ? genderToString(sources.find((s) => s.gender)?.gender)
-          : undefined,
-        !dest.gender
       )
     );
     setCircumcised(
@@ -412,14 +376,11 @@ const PerformerMergeDetails: React.FC<IPerformerMergeDetailsProps> = ({
         height,
         weight,
         penisLength,
-        measurements,
-        fakeTits,
         careerStart,
         careerEnd,
         tattoos,
         piercings,
         urls,
-        gender,
         circumcised,
         details,
         tags,
@@ -439,14 +400,11 @@ const PerformerMergeDetails: React.FC<IPerformerMergeDetailsProps> = ({
     height,
     weight,
     penisLength,
-    measurements,
-    fakeTits,
     careerStart,
     careerEnd,
     tattoos,
     piercings,
     urls,
-    gender,
     circumcised,
     details,
     tags,
@@ -546,18 +504,6 @@ const PerformerMergeDetails: React.FC<IPerformerMergeDetailsProps> = ({
           onChange={(value) => setPenisLength(value)}
         />
         <ScrapedInputGroupRow
-          field="measurements"
-          title={intl.formatMessage({ id: "measurements" })}
-          result={measurements}
-          onChange={(value) => setMeasurements(value)}
-        />
-        <ScrapedInputGroupRow
-          field="fake_tits"
-          title={intl.formatMessage({ id: "fake_tits" })}
-          result={fakeTits}
-          onChange={(value) => setFakeTits(value)}
-        />
-        <ScrapedInputGroupRow
           field="career_start"
           title={intl.formatMessage({ id: "career_start" })}
           result={careerStart}
@@ -587,11 +533,6 @@ const PerformerMergeDetails: React.FC<IPerformerMergeDetailsProps> = ({
           result={urls}
           onChange={(value) => setURLs(value)}
         />
-        {renderScrapedGenderRow(
-          intl.formatMessage({ id: "gender" }),
-          gender,
-          (value) => setGender(value)
-        )}
         {renderScrapedCircumcisedRow(
           intl.formatMessage({ id: "circumcised" }),
           circumcised,
@@ -667,14 +608,11 @@ const PerformerMergeDetails: React.FC<IPerformerMergeDetailsProps> = ({
         penis_length: penisLength.getNewValue()
           ? parseFloat(penisLength.getNewValue()!)
           : undefined,
-        measurements: measurements.getNewValue(),
-        fake_tits: fakeTits.getNewValue(),
         career_start: careerStart.getNewValue(),
         career_end: careerEnd.getNewValue(),
         tattoos: tattoos.getNewValue(),
         piercings: piercings.getNewValue(),
         urls: urls.getNewValue(),
-        gender: stringToGender(gender.getNewValue()),
         circumcised: stringToCircumcised(circumcised.getNewValue()),
         tag_ids: tags.getNewValue()?.map((t) => t.stored_id!),
         details: details.getNewValue(),
