@@ -12,7 +12,7 @@ import { Link } from "react-router-dom";
 import { Icon } from "./Shared/Icon";
 import {
   faCalendarAlt,
-  faChartLine,
+  faFilm,
   faUsers,
 } from "@fortawesome/free-solid-svg-icons";
 
@@ -23,9 +23,9 @@ const customStatsLinks = [
     icon: faCalendarAlt,
   },
   {
-    label: "Custom Stats",
-    href: "/customstats",
-    icon: faChartLine,
+    label: "Scene Stats",
+    href: "/scenestats",
+    icon: faFilm,
   },
   {
     label: "Vato Stats",
@@ -77,14 +77,12 @@ export const Stats: React.FC = () => {
       <Helmet {...titleProps} />
 
       {/* CUSTOM: begin */}
-      <div className="col col-sm-8 m-sm-auto row stats stats-link-row">
+      <div className="col col-sm-8 m-sm-auto stats-links">
         {customStatsLinks.map((link) => (
-          <div className="stats-element" key={link.href + link.label}>
-            <Link className="stats-link" to={link.href}>
-              <Icon icon={link.icon} className="stats-link-icon" />
-              <span>{link.label}</span>
-            </Link>
-          </div>
+          <Link className="stats-links-item" key={link.href} to={link.href}>
+            <Icon icon={link.icon} className="stats-links-icon" />
+            <span>{link.label}</span>
+          </Link>
         ))}
       </div>
       {/* CUSTOM: end */}

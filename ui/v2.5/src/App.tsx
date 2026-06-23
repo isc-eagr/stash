@@ -68,8 +68,10 @@ const FrontPage = lazyComponent(
 const Scenes = lazyComponent(() => import("./components/Scenes/Scenes"));
 const Settings = lazyComponent(() => import("./components/Settings/Settings"));
 const Stats = lazyComponent(() => import("./components/Stats"));
-const CustomStats = lazyComponent(() => import("./components/CustomStats")); // CUSTOM
 const OStats = lazyComponent(() => import("./components/OStats/OStats")); // CUSTOM
+const SceneStats = lazyComponent(
+  () => import("./components/SceneStats/SceneStats")
+); // CUSTOM
 const VatoStats = lazyComponent(
   () => import("./components/VatoStats/VatoStats")
 ); // CUSTOM
@@ -273,7 +275,11 @@ export const App: React.FC = () => {
             <Route path="/studios" component={Studios} />
             <Route path="/groups" component={Groups} />
             <Route path="/stats" component={Stats} />
-            <Route path="/customstats" component={CustomStats} /> {/* CUSTOM */}
+            <Route
+              path="/scenestats/:year?/:month?"
+              component={SceneStats}
+            />{" "}
+            {/* CUSTOM */}
             <Route path="/vatostats" component={VatoStats} /> {/* CUSTOM */}
             <Route path="/ostats/tag/:tagId" component={OStats} />{" "}
             {/* CUSTOM */}

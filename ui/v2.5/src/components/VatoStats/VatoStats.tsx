@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { gql, useQuery } from "@apollo/client";
 import { Alert, Button, Form } from "react-bootstrap";
 import { Helmet } from "react-helmet";
+import { FormattedMessage, FormattedNumber } from "react-intl";
 import { Link } from "react-router-dom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
@@ -9,6 +10,7 @@ import * as GQL from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useTitleProps } from "src/hooks/title";
 import { ListFilterModel } from "src/models/list-filter/filter";
+import NavUtils from "src/utils/navigation";
 
 import "./VatoStats.scss";
 
@@ -60,6 +62,18 @@ const VATO_SUMMARY_STATS = gql`
     performersFacialReceivedCount
     performersSoloOnlyCount
     performersOneSceneCount
+  }
+`;
+
+const PERFORMER_ETHNICITY_TIER_COUNTS = gql`
+  query VatoStatsPerformerEthnicityTierCounts {
+    performerEthnicityTierCounts {
+      ethnicity
+      bronze
+      silver
+      gold
+      royal_sapphire
+    }
   }
 `;
 
@@ -195,6 +209,20 @@ type VatoSummaryStatsData = {
   performersOneSceneCount: number;
 };
 
+type PerformerEthnicityTierKey =
+  | "bronze"
+  | "silver"
+  | "gold"
+  | "royal_sapphire";
+
+type PerformerEthnicityTierRow = {
+  ethnicity: string;
+  bronze: number;
+  silver: number;
+  gold: number;
+  royal_sapphire: number;
+};
+
 type FindPerformersCountData = {
   findPerformers: {
     count: number;
@@ -252,6 +280,230 @@ const chartDefinitions: Array<{ key: ChartCategory; label: string }> = [
   { key: "penis", label: "Penis Size" },
 ];
 
+const countryDemonyms: Record<string, string> = {
+  "United States": "American",
+  "United Kingdom": "British",
+  Canada: "Canadian",
+  Germany: "German",
+  France: "French",
+  Russia: "Russian",
+  Ukraine: "Ukrainian",
+  Japan: "Japanese",
+  Brazil: "Brazilian",
+  Italy: "Italian",
+  Spain: "Spanish",
+  Australia: "Australian",
+  "Czech Republic": "Czech",
+  Poland: "Polish",
+  Netherlands: "Dutch",
+  Sweden: "Swedish",
+  Hungary: "Hungarian",
+  Romania: "Romanian",
+  Slovakia: "Slovak",
+  Argentina: "Argentine",
+  Colombia: "Colombian",
+  Mexico: "Mexican",
+  Venezuela: "Venezuelan",
+  Thailand: "Thai",
+  Philippines: "Filipino",
+  "South Korea": "Korean",
+  China: "Chinese",
+  India: "Indian",
+  Turkey: "Turkish",
+  Greece: "Greek",
+  Portugal: "Portuguese",
+  Belgium: "Belgian",
+  Austria: "Austrian",
+  Switzerland: "Swiss",
+  Norway: "Norwegian",
+  Denmark: "Danish",
+  Finland: "Finnish",
+  Fiji: "Fijian",
+  Latvia: "Latvian",
+  Lithuania: "Lithuanian",
+  Estonia: "Estonian",
+  Slovenia: "Slovenian",
+  Croatia: "Croatian",
+  Serbia: "Serbian",
+  Bulgaria: "Bulgarian",
+  Ireland: "Irish",
+  "South Africa": "South African",
+  "New Zealand": "New Zealander",
+  Israel: "Israeli",
+  "Puerto Rico": "Puerto Rican",
+  Kazakhstan: "Kazakh",
+  Vietnam: "Vietnamese",
+  Belarus: "Belarusian",
+  Cuba: "Cuban",
+  Moldova: "Moldovan",
+  Taiwan: "Taiwanese",
+  "Dominican Republic": "Dominican",
+  Chile: "Chilean",
+  Peru: "Peruvian",
+  "El Salvador": "Salvadoran",
+  Uruguay: "Uruguayan",
+  Georgia: "Georgian",
+  Ecuador: "Ecuadorian",
+  Panama: "Panamanian",
+  Mongolia: "Mongolian",
+  Syria: "Syrian",
+  Morocco: "Moroccan",
+  Albania: "Albanian",
+  Iceland: "Icelandic",
+  Lebanon: "Lebanese",
+  Kenya: "Kenyan",
+  Kyrgyzstan: "Kyrgyz",
+  "Lao People's Democratic Republic": "Lao",
+  Indonesia: "Indonesian",
+  Singapore: "Singaporean",
+  Bolivia: "Bolivian",
+  "Virgin Islands": "Virgin Islander",
+  Luxembourg: "Luxembourgish",
+  Sudan: "Sudanese",
+  Pakistan: "Pakistani",
+  "Korea, Republic of": "Korean",
+  Belize: "Belizean",
+  Haiti: "Haitian",
+  "Hong Kong": "Hong Konger",
+  Micronesia: "Micronesian",
+  Tajikistan: "Tajik",
+  Armenia: "Armenian",
+  Malta: "Maltese",
+  "Iran (Islamic Republic of)": "Iranian",
+  Rwanda: "Rwandan",
+  Togo: "Togolese",
+  Guatemala: "Guatemalan",
+  Paraguay: "Paraguayan",
+  Maldives: "Maldivian",
+  Cyprus: "Cypriot",
+  Jamaica: "Jamaican",
+  "Bosnia and Herzegovina": "Bosnian",
+  Yugoslavia: "Yugoslav",
+  Bangladesh: "Bangladeshi",
+  "Central African Republic": "Central African",
+  Guam: "Guamanian",
+  Uzbekistan: "Uzbek",
+  Iraq: "Iraqi",
+  "Saudi Arabia": "Saudi",
+  "Costa Rica": "Costa Rican",
+  Honduras: "Honduran",
+  Mauritius: "Mauritian",
+  "Slovakia (Slovak Republic)": "Slovak",
+  Afghanistan: "Afghan",
+  Algeria: "Algerian",
+};
+
+const countryCodeDemonyms: Record<string, string> = {
+  US: "American",
+  GB: "British",
+  CA: "Canadian",
+  DE: "German",
+  FR: "French",
+  RU: "Russian",
+  UA: "Ukrainian",
+  JP: "Japanese",
+  BR: "Brazilian",
+  IT: "Italian",
+  ES: "Spanish",
+  AU: "Australian",
+  CZ: "Czech",
+  PL: "Polish",
+  NL: "Dutch",
+  SE: "Swedish",
+  HU: "Hungarian",
+  RO: "Romanian",
+  SK: "Slovak",
+  AR: "Argentine",
+  CO: "Colombian",
+  MX: "Mexican",
+  VE: "Venezuelan",
+  TH: "Thai",
+  PH: "Filipino",
+  KR: "Korean",
+  CN: "Chinese",
+  IN: "Indian",
+  TR: "Turkish",
+  GR: "Greek",
+  PT: "Portuguese",
+  BE: "Belgian",
+  AT: "Austrian",
+  CH: "Swiss",
+  NO: "Norwegian",
+  DK: "Danish",
+  FI: "Finnish",
+  FJ: "Fijian",
+  LV: "Latvian",
+  LT: "Lithuanian",
+  EE: "Estonian",
+  SI: "Slovenian",
+  HR: "Croatian",
+  RS: "Serbian",
+  BG: "Bulgarian",
+  IE: "Irish",
+  ZA: "South African",
+  NZ: "New Zealander",
+  IL: "Israeli",
+  PR: "Puerto Rican",
+  KZ: "Kazakh",
+  VN: "Vietnamese",
+  BY: "Belarusian",
+  CU: "Cuban",
+  MD: "Moldovan",
+  TW: "Taiwanese",
+  DO: "Dominican",
+  CL: "Chilean",
+  PE: "Peruvian",
+  SV: "Salvadoran",
+  UY: "Uruguayan",
+  GE: "Georgian",
+  EC: "Ecuadorian",
+  PA: "Panamanian",
+  MN: "Mongolian",
+  SY: "Syrian",
+  MA: "Moroccan",
+  AL: "Albanian",
+  IS: "Icelandic",
+  LB: "Lebanese",
+  KE: "Kenyan",
+  KG: "Kyrgyz",
+  LA: "Lao",
+  ID: "Indonesian",
+  SG: "Singaporean",
+  BO: "Bolivian",
+  VI: "Virgin Islander",
+  LU: "Luxembourgish",
+  SD: "Sudanese",
+  PK: "Pakistani",
+  BZ: "Belizean",
+  HT: "Haitian",
+  HK: "Hong Konger",
+  FM: "Micronesian",
+  TJ: "Tajik",
+  AM: "Armenian",
+  MT: "Maltese",
+  IR: "Iranian",
+  RW: "Rwandan",
+  TG: "Togolese",
+  GT: "Guatemalan",
+  PY: "Paraguayan",
+  MV: "Maldivian",
+  CY: "Cypriot",
+  JM: "Jamaican",
+  BA: "Bosnian",
+  YU: "Yugoslav",
+  BD: "Bangladeshi",
+  CF: "Central African",
+  GU: "Guamanian",
+  UZ: "Uzbek",
+  IQ: "Iraqi",
+  SA: "Saudi",
+  CR: "Costa Rican",
+  HN: "Honduran",
+  MU: "Mauritian",
+  AF: "Afghan",
+  DZ: "Algerian",
+};
+
 function cleanValue(value?: string | null) {
   const trimmed = value?.trim();
   if (
@@ -264,6 +516,132 @@ function cleanValue(value?: string | null) {
   return trimmed;
 }
 
+function titleCase(value: string) {
+  return value
+    .split(/\s+/)
+    .map((word) =>
+      word.length === 0
+        ? word
+        : `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`
+    )
+    .join(" ");
+}
+
+function countryDemonym(value: string) {
+  const trimmed = value.trim();
+  const exactDemonym = countryDemonyms[trimmed];
+  if (exactDemonym) return exactDemonym;
+
+  const codeDemonym = countryCodeDemonyms[trimmed.toUpperCase()];
+  if (codeDemonym) return codeDemonym;
+
+  const matchedCountry = Object.keys(countryDemonyms).find(
+    (country) => country.toLowerCase() === trimmed.toLowerCase()
+  );
+  return matchedCountry ? countryDemonyms[matchedCountry] : titleCase(trimmed);
+}
+
+function circumcisedLabel(value: string) {
+  const normalized = value.toLowerCase();
+  if (normalized.includes("uncut")) return "Uncut";
+  if (normalized.includes("cut") || normalized.includes("circumcised"))
+    return "Cut";
+  return titleCase(value);
+}
+
+function podiumMetricLabel(metric: PodiumMetric) {
+  switch (metric) {
+    case "scene_o_count":
+      return "O-Count";
+    case "rating100":
+      return "Rating";
+    case "scene_count":
+      return "Total Scenes";
+    case "sex_top_count":
+      return "Sex Top Scenes";
+    case "sex_bottom_count":
+      return "Sex Bottom Scenes";
+    case "oral_top_count":
+      return "Oral Top Scenes";
+    case "oral_bottom_count":
+      return "Oral Bottom Scenes";
+    case "facial_given_count":
+      return "Facials Given";
+    case "facial_received_count":
+      return "Facials Received";
+    case "most_recent_o_date":
+      return "Most Recent O";
+    case "career_span_days":
+      return "Longest Career Span";
+    default:
+      return metricOptionLabel(metric);
+  }
+}
+
+function vatoStatsDescriptor(filters: ChartFilter[], metric: PodiumMetric) {
+  const filterOrder: ChartCategory[] = [
+    "circumcised",
+    "ethnicity",
+    "country",
+    "hair",
+    "eye",
+    "metallic_rating",
+    "height",
+    "penis",
+    "age",
+    "rating",
+  ];
+  const orderedFilters = [...filters].sort(
+    (a, b) => filterOrder.indexOf(a.category) - filterOrder.indexOf(b.category)
+  );
+  const adjectives: string[] = [];
+  const qualifiers: string[] = [];
+
+  orderedFilters.forEach((filter) => {
+    const label = filter.label === "Unknown" ? "Unknown" : filter.label;
+
+    switch (filter.category) {
+      case "circumcised":
+        adjectives.push(circumcisedLabel(label));
+        break;
+      case "ethnicity":
+        adjectives.push(titleCase(label));
+        break;
+      case "country":
+        adjectives.push(countryDemonym(filter.value));
+        break;
+      case "hair":
+        adjectives.push(`${label.toLowerCase()}-haired`);
+        break;
+      case "eye":
+        adjectives.push(`${label.toLowerCase()}-eyed`);
+        break;
+      case "metallic_rating":
+        adjectives.push(titleCase(label));
+        break;
+      case "height":
+        qualifiers.push(`height-${label}`);
+        break;
+      case "penis":
+        adjectives.push(label.replace(/\s+/g, ""));
+        break;
+      case "age":
+        break;
+      case "rating":
+        qualifiers.push(`rated-${label}`);
+        break;
+      default:
+        break;
+    }
+  });
+
+  const adjectiveText = adjectives.length > 0 ? `${adjectives.join(" ")} ` : "";
+  const qualifierText = qualifiers.length > 0 ? ` ${qualifiers.join(" ")}` : "";
+  return `Best ${adjectiveText}pitos${qualifierText} (By ${podiumMetricLabel(
+    metric
+  )})`;
+}
+
 function bucketByFives(value?: number | null) {
   if (!value || value <= 0) return undefined;
   const rounded = Math.round(value);
@@ -273,9 +651,9 @@ function bucketByFives(value?: number | null) {
 
 function bucketRating(value?: number | null) {
   if (value === null || value === undefined) return undefined;
-  const rating = Math.max(0, Math.min(100, Math.round(value)));
-  const start = Math.floor(rating / 10) * 10;
-  const end = start >= 90 ? 100 : start + 9;
+  const rating = Math.max(0, Math.round(value));
+  const start = Math.floor(rating / 5) * 5;
+  const end = start + 4;
   return `${start}-${end}`;
 }
 
@@ -618,7 +996,6 @@ const VatoStatsPodium: React.FC<{
 }> = ({ performers, metric }) => {
   const metricOption = metricOptions.find((option) => option.key === metric);
   const topPerformers = [...performers]
-    .filter((performer) => metricValue(performer, metric) > 0)
     .sort((a, b) => {
       const valueDiff = metricValue(b, metric) - metricValue(a, metric);
       return valueDiff || a.name.localeCompare(b.name);
@@ -737,6 +1114,38 @@ const VatoStatsChart: React.FC<{
         </div>
       )}
     </section>
+  );
+};
+
+const VatoStatsFilterBar: React.FC<{
+  filters: ChartFilter[];
+  onBack: () => void;
+  onClear: () => void;
+}> = ({ filters, onBack, onClear }) => {
+  if (filters.length === 0) return null;
+
+  return (
+    <div className="vatostats-filter-bar" aria-label="Active VatoStats filters">
+      <Button onClick={onBack} size="sm" variant="secondary">
+        Back
+      </Button>
+      <Button onClick={onClear} size="sm" variant="secondary">
+        Clear
+      </Button>
+      <div className="vatostats-filter-list">
+        {filters.map((filter, index) => (
+          <span
+            className="vatostats-filter-chip"
+            key={`${filter.category}-${filter.value}-${index}`}
+          >
+            {chartDefinitions.find(
+              (definition) => definition.key === filter.category
+            )?.label ?? filter.category}
+            : {filter.label}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 };
 
@@ -875,6 +1284,141 @@ const VatoStatsSummary: React.FC<{
   );
 };
 
+const performerRatingTiers = [
+  {
+    key: "bronze",
+    label: "Bronze",
+  },
+  {
+    key: "silver",
+    label: "Silver",
+  },
+  {
+    key: "gold",
+    label: "Gold",
+  },
+  {
+    key: "royal_sapphire",
+    label: "Sapphire",
+  },
+] as const;
+
+const VatoStatsTierTable: React.FC<{
+  rows: PerformerEthnicityTierRow[];
+}> = ({ rows }) => {
+  if (rows.length === 0) return null;
+
+  const totals = performerRatingTiers.reduce(
+    (acc, tier) => ({
+      ...acc,
+      [tier.key]: rows.reduce((sum, row) => sum + row[tier.key], 0),
+    }),
+    {} as Record<PerformerEthnicityTierKey, number>
+  );
+  const grandTotal = performerRatingTiers.reduce(
+    (sum, tier) => sum + totals[tier.key],
+    0
+  );
+
+  return (
+    <section className="vatostats-tier-table" aria-label="Tier vatos">
+      <h2>
+        <FormattedMessage
+          id="stats.tier_performers_by_ethnicity"
+          defaultMessage="Tier vatos by ethnicity"
+        />
+      </h2>
+      <div className="table-responsive">
+        <table className="table table-sm table-striped mb-0">
+          <thead>
+            <tr>
+              <th>
+                <FormattedMessage id="ethnicity" defaultMessage="Ethnicity" />
+              </th>
+              {performerRatingTiers.map((tier) => (
+                <th key={tier.key} className="text-right">
+                  {tier.label}
+                </th>
+              ))}
+              <th className="text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const rowTotal =
+                row.bronze + row.silver + row.gold + row.royal_sapphire;
+
+              return (
+                <tr key={`tiers-${row.ethnicity}`}>
+                  <td>
+                    <Link
+                      to={NavUtils.makePerformersEthnicityUrl(row.ethnicity)}
+                    >
+                      {row.ethnicity}
+                    </Link>
+                  </td>
+                  {performerRatingTiers.map((tier) => {
+                    const count = row[tier.key];
+                    return (
+                      <td key={tier.key} className="text-right">
+                        {count > 0 ? (
+                          <Link
+                            to={NavUtils.makePerformersEthnicityMetallicRatingUrl(
+                              row.ethnicity,
+                              tier.key
+                            )}
+                          >
+                            <FormattedNumber value={count} />
+                          </Link>
+                        ) : (
+                          <FormattedNumber value={count} />
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className="text-right">
+                    <Link
+                      to={NavUtils.makePerformersEthnicityAnyMetallicRatingUrl(
+                        row.ethnicity
+                      )}
+                    >
+                      <FormattedNumber value={rowTotal} />
+                    </Link>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th>Total</th>
+              {performerRatingTiers.map((tier) => {
+                const total = totals[tier.key];
+                return (
+                  <th key={tier.key} className="text-right">
+                    {total > 0 ? (
+                      <Link
+                        to={NavUtils.makePerformersMetallicRatingUrl(tier.key)}
+                      >
+                        <FormattedNumber value={total} />
+                      </Link>
+                    ) : (
+                      <FormattedNumber value={total} />
+                    )}
+                  </th>
+                );
+              })}
+              <th className="text-right">
+                <FormattedNumber value={grandTotal} />
+              </th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+  );
+};
+
 const VatoStats: React.FC = () => {
   const titleProps = useTitleProps("VatoStats");
   const [metric, setMetric] = useState<PodiumMetric>("scene_o_count");
@@ -887,6 +1431,9 @@ const VatoStats: React.FC = () => {
   }>(VATO_STATS_PERFORMERS);
   const { data: summaryData } =
     useQuery<VatoSummaryStatsData>(VATO_SUMMARY_STATS);
+  const { data: tierData } = useQuery<{
+    performerEthnicityTierCounts: PerformerEthnicityTierRow[];
+  }>(PERFORMER_ETHNICITY_TIER_COUNTS);
   const strictTopQuery = useQuery<FindPerformersCountData>(
     VATO_STRICT_TOP_COUNT,
     {
@@ -992,6 +1539,10 @@ const VatoStats: React.FC = () => {
       ),
     [filteredPerformers, metric]
   );
+  const podiumDescriptor = useMemo(
+    () => vatoStatsDescriptor(filters, metric),
+    [filters, metric]
+  );
 
   function addFilter(filter: ChartFilter) {
     setFilters((current) => {
@@ -1053,34 +1604,6 @@ const VatoStats: React.FC = () => {
         </Form.Group>
       </header>
 
-      {filters.length > 0 && (
-        <div className="vatostats-filter-bar">
-          <Button
-            onClick={() => setFilters((current) => current.slice(0, -1))}
-            size="sm"
-            variant="secondary"
-          >
-            Back
-          </Button>
-          <Button onClick={() => setFilters([])} size="sm" variant="secondary">
-            Clear
-          </Button>
-          <div className="vatostats-filter-list">
-            {filters.map((filter, index) => (
-              <span
-                className="vatostats-filter-chip"
-                key={`${filter.category}-${filter.value}-${index}`}
-              >
-                {chartDefinitions.find(
-                  (definition) => definition.key === filter.category
-                )?.label ?? filter.category}
-                : {filter.label}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
       {performers.length === 0 ? (
         <Alert variant="secondary">No vatos with scenes found.</Alert>
       ) : (
@@ -1096,6 +1619,7 @@ const VatoStats: React.FC = () => {
             strictTop={strictTopQuery.data?.findPerformers.count}
             summary={summaryData}
           />
+          <div className="vatostats-podium-descriptor">{podiumDescriptor}</div>
           <VatoStatsPodium performers={filteredPerformers} metric={metric} />
           <div className="vatostats-list-toggle">
             <Button
@@ -1140,6 +1664,9 @@ const VatoStats: React.FC = () => {
               ))}
             </section>
           )}
+          <VatoStatsTierTable
+            rows={tierData?.performerEthnicityTierCounts ?? []}
+          />
           <div className="vatostats-chart-grid">
             {chartDefinitions.map((definition) => (
               <VatoStatsChart
@@ -1154,6 +1681,11 @@ const VatoStats: React.FC = () => {
           </div>
         </>
       )}
+      <VatoStatsFilterBar
+        filters={filters}
+        onBack={() => setFilters((current) => current.slice(0, -1))}
+        onClear={() => setFilters([])}
+      />
     </div>
   );
 };

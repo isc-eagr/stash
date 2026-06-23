@@ -158,7 +158,7 @@ export interface IUIConfig {
     secondCameraTagId?: string; // Tag ID for 2nd camera markers (excluded from orgasm/facial counts)
     reallyHotTagId?: string; // Tag ID for "really hot" qualifier (gold facial icon when combined with facial)
     goatTagId?: string; // Tag ID for GOAT card styling override
-    oStatsExcludedTagIds?: string[]; // Tag IDs hidden from Custom Stats O counts by marker tag
+    oStatsExcludedTagIds?: string[]; // Tag IDs hidden from O Stats marker-tag charts
   };
   // CUSTOM: end
 }

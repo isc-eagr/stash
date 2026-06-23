@@ -11,7 +11,7 @@ This document describes all custom features and modifications added on top of th
 1. [Scene Marker Performers (Top/Bottom Roles)](#1-scene-marker-performers-topbottom-roles)
 2. [Role Tag IDs Configuration](#2-role-tag-ids-configuration)
 3. [Scene Role Indicators (Top/Bottom/Oral/Solo/Facial)](#3-scene-role-indicators)
-4. [Custom Statistics Dashboard](#4-custom-statistics-dashboard)
+4. [Stats Pages](#4-stats-pages)
 5. [Task Progress Tracker](#5-task-progress-tracker)
 6. [Advanced Scene Filtering](#6-advanced-scene-filtering)
 7. [Studio Category Buttons](#7-studio-category-buttons)
@@ -52,6 +52,7 @@ This document describes all custom features and modifications added on top of th
 42. [Hidden O Stats Timeline](#42-hidden-o-stats-timeline)
 43. [Vato UI Vocabulary](#43-vato-ui-vocabulary)
 44. [Vato Stats Page](#44-vato-stats-page)
+45. [Scene Stats Page](#45-scene-stats-page)
 
 ---
 
@@ -181,22 +182,30 @@ Visual indicators on performer cards and scene cards showing role information ba
 
 ---
 
-## 4. Custom Statistics Dashboard
+## 4. Stats Pages
 
 ### Overview
 
-A comprehensive statistics page showing scene categorization counts, performer rating-tier ethnicity breakdowns, orgasm/facial tracking, and related scene/vato summaries.
+Custom analytics are split into focused hidden pages instead of the retired `/customstats` page:
 
-### File
+- `/scenestats` for scene podiums, scene-category metric buttons, orgasm/facial totals, release-date drilldowns, and scene distribution charts.
+- `/vatostats` for vato podiums, vato summary cards, vato distribution charts, and the performer rating-tier ethnicity table.
+- `/ostats` for tracked O timelines and O-specific drilldowns.
 
-**NEW:** `ui/v2.5/src/components/CustomStats.tsx`
+### Files
+
+- `ui/v2.5/src/components/SceneStats/SceneStats.tsx`
+- `ui/v2.5/src/components/SceneStats/SceneStats.scss`
+- `ui/v2.5/src/components/VatoStats/VatoStats.tsx`
+- `ui/v2.5/src/components/VatoStats/VatoStats.scss`
 
 ### Features
 
-- Scene counts by category (sex, oral, solo, facial)
-- Performer ethnicity Bronze/Silver/Gold/Sapphire metallic rating-tier breakdown, including configured override tags
-- Orgasm events by year (includes orgasm tag and all its subtags/descendants)
-- Solo-only and one-scene vato counts
+- Scene counts by category (sex, oral, solo, facial) on `/scenestats`
+- Scene podium metrics by O Count, Rating, Duration, File Size, Most Recent O, and Vato Count
+- Scene charts by vato ethnicity, vato country, vato count, release date, facial status/count, scene type, duration, and resolution
+- Performer ethnicity Bronze/Silver/Gold/Sapphire metallic rating-tier breakdown on `/vatostats`
+- Orgasm/facial tracking totals on `/scenestats`
 
 ### Orgasm & Facial Counting Logic
 
@@ -664,7 +673,8 @@ pkg/scene/query.go                        # Scene query helpers
 pkg/performer/query.go                    # Performer query helpers
 
 # Frontend - Components
-ui/v2.5/src/components/CustomStats.tsx
+ui/v2.5/src/components/SceneStats/SceneStats.tsx
+ui/v2.5/src/components/SceneStats/SceneStats.scss
 ui/v2.5/src/components/TaskProgress.tsx
 ui/v2.5/src/components/List/Filters/PerformerCountryFilter.tsx
 ui/v2.5/src/components/List/Filters/PerformerEthnicityFilter.tsx
@@ -1072,7 +1082,7 @@ Adds a Studio filter criterion to the Scene Markers filter page, allowing filter
 
 ### Overview
 
-Adds additional statistics to the Custom Stats page: estimated liters (from orgasms), total penis meters (sum of performer penis lengths), total orgasm time, and total facial time. Also adds clickable links for Total Orgasms and Total Facials counts. O-date records and O marker-tag analytics are shown on the hidden `/ostats` page.
+Adds additional statistics used by the custom stats pages: estimated liters (from orgasms), total penis meters (sum of performer penis lengths), total orgasm time, and total facial time. Total Orgasm/Facial counts and time are displayed on `/scenestats`; estimated liters and total penis meters remain vato summary cards on `/vatostats`. O-date records and O marker-tag analytics are shown on the hidden `/ostats` page.
 
 ### GraphQL Schema Extensions
 
@@ -1100,7 +1110,8 @@ extend type Query {
 - `TotalFacialTime` resolver: Sums duration of all facial markers (uses end_seconds - seconds, or 20s default if no end time)
 ### Frontend Files
 
-- `ui/v2.5/src/components/CustomStats.tsx` - Added display for estimated liters, total penis meters, total orgasm time, total facial time, and clickable links for Total Orgasms/Facials counts
+- `ui/v2.5/src/components/SceneStats/SceneStats.tsx` - Displays total orgasm/facial counts and total orgasm/facial time with marker drilldown links
+- `ui/v2.5/src/components/VatoStats/VatoStats.tsx` - Displays estimated liters and total penis meters as vato summary cards
 
 ### Features
 
@@ -2370,7 +2381,7 @@ Markers with the 2nd camera tag (or any of its descendants) are **excluded** fro
   - Orgasm top count
   - Facial top/bottom/unique counts
   - Facial marker partner counts
-- **Custom Stats** (stats dashboard):
+- **Scene/Vato Stats** (custom stats dashboards):
   - Total Orgasms (`sceneOrgasmCount`)
   - Total Orgasm Time (`totalOrgasmTime`)
   - Total Facials (`sceneFacialCount`)
@@ -2964,7 +2975,7 @@ Renames the user-facing English UI vocabulary from Performer/Performers to Vato/
 
 ### Overview
 
-Adds a hidden `/vatostats` page focused on vato aggregate analytics. The page shows moved vato summary cards from `/customstats`, preserving their drilldown links and including solo-only and one-scene vatos, a top-three podium for a selectable metric ordered left-to-right as gold, silver, and bronze, plus coordinated vertical bar charts for ethnicity, exact scene age, rating buckets, metallic rating, height buckets, country, hair color, eye color, circumcision status, and rounded exact penis size. Clicking a bar drills into that category/value and refreshes the podium plus every chart from the filtered vato set; Back and Clear controls unwind the drill-down. Unknown values are shown as separate chart-header counters so a large Unknown population does not compress the visible bars.
+Adds a hidden `/vatostats` page focused on vato aggregate analytics. The page shows linked vato summary cards, preserving their drilldown links and including solo-only and one-scene vatos, a top-three podium for a selectable metric ordered left-to-right as gold, silver, and bronze, the moved Tier vatos by ethnicity table, plus coordinated vertical bar charts for ethnicity, exact scene age, rating buckets, metallic rating, height buckets, country, hair color, eye color, circumcision status, and rounded exact penis size. Clicking a bar drills into that category/value and refreshes the podium plus every chart from the filtered vato set; Back and Clear controls unwind the drill-down. Unknown values are shown as separate chart-header counters so a large Unknown population does not compress the visible bars.
 
 ### Files Modified
 
@@ -2992,3 +3003,33 @@ Adds a hidden `/vatostats` page focused on vato aggregate analytics. The page sh
 ### Configuration Dependencies
 
 - Uses existing `roleTagIds` configuration for optimized sex top/bottom marker role counts.
+
+---
+
+## 45. Scene Stats Page
+
+### Overview
+
+Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene metrics from CustomStats while adding scene podium metrics and scene distribution charts. Release year charts drill down to month and day; day bars link to the Scenes page filtered by effective release date.
+
+### Files Added
+
+- `ui/v2.5/src/components/SceneStats/SceneStats.tsx`
+- `ui/v2.5/src/components/SceneStats/SceneStats.scss`
+
+### Files Modified
+
+- `ui/v2.5/src/App.tsx` - Adds `/scenestats/:year?/:month?` and removes `/customstats`.
+- `ui/v2.5/src/components/Stats.tsx` - Replaces the Custom Stats card with Scene Stats.
+- `ui/v2.5/src/pluginApi.tsx` - Exposes SceneStats instead of CustomStats.
+- `ui/v2.5/src/components/VatoStats/VatoStats.tsx` - Receives the Tier vatos by ethnicity table.
+
+### Features
+
+- Podium metrics: O Count, Rating, Duration, File Size, Most Recent O, Vato Count.
+- Charts: By Vato Ethnicity, By Vato Country, By Vato Count, By Release Year/Month/Day, Has Facial, By Number of Facial, Scene Type, By Length/Duration, By Resolution.
+- Preserves the existing scene category metric button icons, colors, and links from the retired CustomStats page.
+
+### Configuration Dependencies
+
+- Uses existing `configuration.ui.roleTagIds` for sex, oral, solo, facial, orgasm, and really-hot facial marker categorization.

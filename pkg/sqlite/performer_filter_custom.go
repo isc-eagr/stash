@@ -198,7 +198,7 @@ func (qb *performerFilterHandler) partnersCriterionHandler(partners *models.Perf
 			func() (string, []interface{}) { return makeUniqueClause(tags.FacialTagID, partners.FacialUnique) },
 		)
 
-		// Backend-only OR-combined fields (not exposed in UI, used by CustomStats)
+		// Backend-only OR-combined fields (not exposed in UI, used by VatoStats)
 		addNonSexRoleMetric("bottom", partners.AnyNonSexBottomed)
 		addNonSexRoleMetric("top", partners.AnyNonSexTopped)
 	}
