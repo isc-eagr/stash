@@ -3,6 +3,7 @@ import { gql, useQuery } from "@apollo/client";
 import { useStats } from "src/core/StashService";
 import * as GQL from "src/core/generated-graphql";
 import { FormattedMessage, FormattedNumber } from "react-intl";
+import { Helmet } from "react-helmet";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { Button } from "react-bootstrap";
 import { Icon } from "./Shared/Icon";
@@ -13,6 +14,7 @@ import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import facialPng from "src/assets/facial.png"; // CUSTOM
 import { useConfigurationContext } from "src/hooks/Config";
+import { useTitleProps } from "src/hooks/title";
 
 type PerformerEthnicityTierKey =
   | "bronze"
@@ -70,6 +72,7 @@ const TOTAL_FACIAL_TIME = gql`
 `;
 
 export const CustomStats: React.FC = () => {
+  const titleProps = useTitleProps("CustomStats");
   // Get configuration FIRST so we can use it in queries
   const { configuration } = useConfigurationContext();
   const roleTagIds = configuration?.ui?.roleTagIds ?? {};
@@ -216,11 +219,25 @@ export const CustomStats: React.FC = () => {
     }
   };
 
-  if (error) return <span>{error.message}</span>;
-  if (loading || !statsData) return <LoadingIndicator />;
+  if (error)
+    return (
+      <>
+        <Helmet {...titleProps} />
+        <span>{error.message}</span>
+      </>
+    );
+  if (loading || !statsData)
+    return (
+      <>
+        <Helmet {...titleProps} />
+        <LoadingIndicator />
+      </>
+    );
 
   return (
     <div className="mt-5">
+      <Helmet {...titleProps} />
+
       {/* Scene Category Counts - based on roleTagIds configuration */}
       {statsData && (sexTag || oralTag || soloTag || facialTag) && (
         <div className="col col-sm-8 m-sm-auto row stats">

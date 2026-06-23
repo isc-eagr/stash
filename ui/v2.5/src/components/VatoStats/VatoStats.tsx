@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from "react";
 import { gql, useQuery } from "@apollo/client";
 import { Alert, Button, Form } from "react-bootstrap";
+import { Helmet } from "react-helmet";
 import { Link } from "react-router-dom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import * as GQL from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
+import { useTitleProps } from "src/hooks/title";
 import { ListFilterModel } from "src/models/list-filter/filter";
 
 import "./VatoStats.scss";
@@ -761,7 +763,7 @@ const VatoStatsSummary: React.FC<{
 }) => {
   const cards = [
     {
-      label: "Total Penis Meters",
+      label: "Meters Of Pito",
       value: formatDecimal(summary?.totalPenisMeters, " m"),
     },
     {
@@ -874,6 +876,7 @@ const VatoStatsSummary: React.FC<{
 };
 
 const VatoStats: React.FC = () => {
+  const titleProps = useTitleProps("VatoStats");
   const [metric, setMetric] = useState<PodiumMetric>("scene_o_count");
   const [filters, setFilters] = useState<ChartFilter[]>([]);
   const [showPerformerList, setShowPerformerList] = useState(false);
@@ -1005,11 +1008,25 @@ const VatoStats: React.FC = () => {
     });
   }
 
-  if (loading) return <LoadingIndicator />;
-  if (error) return <ErrorMessage error={error} />;
+  if (loading)
+    return (
+      <>
+        <Helmet {...titleProps} />
+        <LoadingIndicator />
+      </>
+    );
+  if (error)
+    return (
+      <>
+        <Helmet {...titleProps} />
+        <ErrorMessage error={error} />
+      </>
+    );
 
   return (
     <div className="vatostats-page">
+      <Helmet {...titleProps} />
+
       <header className="vatostats-header">
         <div>
           <h1>VatoStats</h1>

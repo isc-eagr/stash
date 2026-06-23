@@ -1081,6 +1081,27 @@ AND NOT EXISTS(SELECT 1 FROM `+table+` o WHERE o.`+idColumn+` = `+table+`.`+idCo
 		}
 	}
 
+	// CUSTOM: begin
+	// scene_marker_performers has role as part of its uniqueness, so merge per marker/role.
+	if _, err := dbWrapper.Exec(ctx, `UPDATE OR IGNORE scene_marker_performers
+SET performer_id = ?
+WHERE performer_id IN `+inBinding+`
+AND NOT EXISTS(
+	SELECT 1 FROM scene_marker_performers o
+	WHERE o.scene_marker_id = scene_marker_performers.scene_marker_id
+	AND o.role = scene_marker_performers.role
+	AND o.performer_id = ?
+)`,
+		args...,
+	); err != nil {
+		return err
+	}
+
+	if _, err := dbWrapper.Exec(ctx, `DELETE FROM scene_marker_performers WHERE performer_id IN `+inBinding, srcArgs...); err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	for _, id := range source {
 		err := qb.Destroy(ctx, id)
 		if err != nil {

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/stashapp/stash/pkg/models"
+	"github.com/stashapp/stash/pkg/sqlite"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -2836,6 +2837,67 @@ func TestPerformerMerge(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPerformerMergeSceneMarkerPerformers(t *testing.T) {
+	runWithRollbackTxn(t, "merge scene marker performers", func(t *testing.T, ctx context.Context) {
+		assert := assert.New(t)
+
+		qb := db.Performer
+		mqb := db.SceneMarker
+		sourceID := performerIDs[performerIdx1WithScene]
+		destinationID := performerIDs[performerIdx2WithScene]
+		duplicateMarkerID := markerIDs[markerIdxWithTag]
+		moveMarkerID := markerIDs[markerIdxWithSceneTag]
+
+		_, err := sqlite.DBWrapper.Exec(ctx, `CREATE TABLE IF NOT EXISTS scene_marker_performers (
+scene_marker_id integer NOT NULL,
+performer_id integer NOT NULL,
+role text NOT NULL DEFAULT 'top',
+UNIQUE(scene_marker_id, performer_id, role)
+)`)
+		if err != nil {
+			t.Fatalf("Error creating scene_marker_performers table: %s", err.Error())
+		}
+
+		if err := mqb.UpdateTopPerformers(ctx, duplicateMarkerID, []int{sourceID, destinationID}); err != nil {
+			t.Fatalf("Error setting top marker performers: %s", err.Error())
+		}
+		if err := mqb.UpdateBottomPerformers(ctx, moveMarkerID, []int{sourceID}); err != nil {
+			t.Fatalf("Error setting bottom marker performers: %s", err.Error())
+		}
+
+		if err := qb.Merge(ctx, []int{sourceID}, destinationID); err != nil {
+			t.Fatalf("PerformerStore.Merge() error = %v", err)
+		}
+
+		duplicateMarkerPerformers, err := mqb.GetPerformers(ctx, duplicateMarkerID)
+		if err != nil {
+			t.Fatalf("Error getting duplicate marker performers: %s", err.Error())
+		}
+		moveMarkerPerformers, err := mqb.GetPerformers(ctx, moveMarkerID)
+		if err != nil {
+			t.Fatalf("Error getting moved marker performers: %s", err.Error())
+		}
+
+		assertMarkerPerformerRoleCount := func(markerPerformers []*models.MarkerPerformer, performerID int, role string) int {
+			t.Helper()
+
+			var ret int
+			for _, markerPerformer := range markerPerformers {
+				if markerPerformer.PerformerID == performerID && markerPerformer.Role == role {
+					ret++
+				}
+			}
+
+			return ret
+		}
+
+		assert.Equal(1, assertMarkerPerformerRoleCount(duplicateMarkerPerformers, destinationID, "top"))
+		assert.Equal(0, assertMarkerPerformerRoleCount(duplicateMarkerPerformers, sourceID, "top"))
+		assert.Equal(1, assertMarkerPerformerRoleCount(moveMarkerPerformers, destinationID, "bottom"))
+		assert.Equal(0, assertMarkerPerformerRoleCount(moveMarkerPerformers, sourceID, "bottom"))
+	})
 }
 
 // TODO Update

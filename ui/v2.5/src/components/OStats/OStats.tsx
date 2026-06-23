@@ -1,10 +1,12 @@
 import React, { useMemo } from "react";
 import { gql, useQuery } from "@apollo/client";
 import { Alert, Button, ButtonGroup } from "react-bootstrap";
+import { Helmet } from "react-helmet";
 import { Link, RouteComponentProps, useHistory } from "react-router-dom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { useConfigurationContext } from "src/hooks/Config";
+import { useTitleProps } from "src/hooks/title";
 import TextUtils from "src/utils/text";
 
 import "./OStats.scss";
@@ -582,8 +584,12 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     return "By Year";
   }
 
+  const titleProps = useTitleProps("OStats", renderTitle());
+
   return (
     <div className="ostats-page">
+      <Helmet {...titleProps} />
+
       <div className="ostats-header">
         <div>
           <h1>{renderTitle()}</h1>

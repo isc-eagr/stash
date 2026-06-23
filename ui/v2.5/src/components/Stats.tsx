@@ -1,12 +1,42 @@
 import React from "react";
 import { useStats } from "src/core/StashService";
 import { FormattedMessage, FormattedNumber } from "react-intl";
+import { Helmet } from "react-helmet"; // CUSTOM
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import TextUtils from "src/utils/text";
 import { FileSize } from "./Shared/FileSize";
 import { useConfigurationContext } from "src/hooks/Config";
+import { useTitleProps } from "src/hooks/title"; // CUSTOM
+// CUSTOM: begin
+import { Link } from "react-router-dom";
+import { Icon } from "./Shared/Icon";
+import {
+  faCalendarAlt,
+  faChartLine,
+  faUsers,
+} from "@fortawesome/free-solid-svg-icons";
+
+const customStatsLinks = [
+  {
+    label: "O Stats",
+    href: "/ostats",
+    icon: faCalendarAlt,
+  },
+  {
+    label: "Custom Stats",
+    href: "/customstats",
+    icon: faChartLine,
+  },
+  {
+    label: "Vato Stats",
+    href: "/vatostats",
+    icon: faUsers,
+  },
+];
+// CUSTOM: end
 
 export const Stats: React.FC = () => {
+  const titleProps = useTitleProps("Stats");
   const { configuration } = useConfigurationContext();
   const { sfwContentMode } = configuration.interface;
 
@@ -16,8 +46,20 @@ export const Stats: React.FC = () => {
 
   const { data, error, loading } = useStats();
 
-  if (error) return <span>{error.message}</span>;
-  if (loading || !data) return <LoadingIndicator />;
+  if (error)
+    return (
+      <>
+        <Helmet {...titleProps} />
+        <span>{error.message}</span>
+      </>
+    );
+  if (loading || !data)
+    return (
+      <>
+        <Helmet {...titleProps} />
+        <LoadingIndicator />
+      </>
+    );
 
   const scenesDuration = TextUtils.secondsAsTimeString(
     data.stats.scenes_duration,
@@ -31,6 +73,22 @@ export const Stats: React.FC = () => {
 
   return (
     <div className="mt-5">
+      {/* CUSTOM */}
+      <Helmet {...titleProps} />
+
+      {/* CUSTOM: begin */}
+      <div className="col col-sm-8 m-sm-auto row stats stats-link-row">
+        {customStatsLinks.map((link) => (
+          <div className="stats-element" key={link.href + link.label}>
+            <Link className="stats-link" to={link.href}>
+              <Icon icon={link.icon} className="stats-link-icon" />
+              <span>{link.label}</span>
+            </Link>
+          </div>
+        ))}
+      </div>
+      {/* CUSTOM: end */}
+
       <div className="col col-sm-8 m-sm-auto row stats">
         <div className="stats-element">
           <p className="title">
