@@ -94,6 +94,33 @@ const SCENE_O_EVENTS_BY_TAG = gql`
   }
 `;
 
+const SCENE_O_EVENTS_BY_ETHNICITY = gql`
+  query OStatsSceneOEventsByEthnicity($ethnicity: String!) {
+    sceneOEventsByEthnicity(ethnicity: $ethnicity) {
+      id
+      scene_id
+      o_date
+      video_timestamp
+      scene {
+        id
+        title
+        date
+        paths {
+          screenshot
+        }
+        studio {
+          id
+          name
+        }
+        performers {
+          id
+          name
+        }
+      }
+    }
+  }
+`;
+
 const MOST_OS_IN_DAY = gql`
   query OStatsMostOsInDay {
     mostOsInDay {
@@ -118,6 +145,15 @@ const SCENE_O_COUNTS_BY_TAG = gql`
     sceneOCountsByTag {
       tag_id
       tag_name
+      count
+    }
+  }
+`;
+
+const SCENE_O_COUNTS_BY_ETHNICITY = gql`
+  query OStatsSceneOCountsByEthnicity {
+    sceneOCountsByEthnicity {
+      ethnicity
       count
     }
   }
@@ -180,8 +216,14 @@ type SceneOCountByTag = {
   count: number;
 };
 
+type SceneOCountByEthnicity = {
+  ethnicity: string;
+  count: number;
+};
+
 interface IRouteParams {
   tagId?: string;
+  ethnicity?: string;
   year?: string;
   month?: string;
   day?: string;
@@ -310,8 +352,9 @@ const OStatsTimestampImage: React.FC<{
 const OStatsTimeline: React.FC<{
   date?: string;
   tagId?: string;
+  ethnicity?: string;
   emptyLabel: string;
-}> = ({ date, tagId, emptyLabel }) => {
+}> = ({ date, tagId, ethnicity, emptyLabel }) => {
   const dateQuery = useQuery<{
     sceneOEventsByDate: SceneOEvent[];
   }>(SCENE_O_EVENTS_BY_DATE, {
@@ -324,9 +367,16 @@ const OStatsTimeline: React.FC<{
     variables: { tagID: tagId },
     skip: !tagId,
   });
+  const ethnicityQuery = useQuery<{
+    sceneOEventsByEthnicity: SceneOEvent[];
+  }>(SCENE_O_EVENTS_BY_ETHNICITY, {
+    variables: { ethnicity },
+    skip: !ethnicity,
+  });
 
-  const loading = dateQuery.loading || tagQuery.loading;
-  const error = dateQuery.error ?? tagQuery.error;
+  const loading =
+    dateQuery.loading || tagQuery.loading || ethnicityQuery.loading;
+  const error = dateQuery.error ?? tagQuery.error ?? ethnicityQuery.error;
 
   if (loading) return <LoadingIndicator />;
   if (error) return <ErrorMessage error={error} />;
@@ -334,6 +384,7 @@ const OStatsTimeline: React.FC<{
   const events =
     dateQuery.data?.sceneOEventsByDate ??
     tagQuery.data?.sceneOEventsByTag ??
+    ethnicityQuery.data?.sceneOEventsByEthnicity ??
     [];
 
   if (events.length === 0) {
@@ -388,11 +439,14 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
   const roleTagIds = configuration?.ui?.roleTagIds ?? {};
   const { oStatsExcludedTagIds } = roleTagIds;
   const selectedTagId = match.params.tagId;
+  const selectedEthnicity = match.params.ethnicity
+    ? decodeURIComponent(match.params.ethnicity)
+    : undefined;
   const selectedYear = asPositiveInt(match.params.year);
   const selectedMonth = asPositiveInt(match.params.month);
   const selectedDay = asPositiveInt(match.params.day);
   const selectedDate = makeDate(selectedYear, selectedMonth, selectedDay);
-  const showTimeline = !!selectedDate || !!selectedTagId;
+  const showTimeline = !!selectedDate || !!selectedTagId || !!selectedEthnicity;
 
   const yearQuery = useQuery<{ sceneOYearCounts: YearCount[] }>(
     SCENE_O_YEAR_COUNTS
@@ -409,6 +463,11 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
       skip: !!selectedYear,
     }
   );
+  const countsByEthnicityQuery = useQuery<{
+    sceneOCountsByEthnicity: SceneOCountByEthnicity[];
+  }>(SCENE_O_COUNTS_BY_ETHNICITY, {
+    skip: !!selectedYear,
+  });
   const monthQuery = useQuery<{ sceneOMonthCounts: MonthCount[] }>(
     SCENE_O_MONTH_COUNTS,
     {
@@ -470,6 +529,19 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
       }));
   }, [countsByTagQuery.data?.sceneOCountsByTag, oStatsExcludedTagIds]);
 
+  const ethnicityChartData = useMemo<IBarDatum[]>(
+    () =>
+      (countsByEthnicityQuery.data?.sceneOCountsByEthnicity ?? []).map(
+        (item) => ({
+          key: item.ethnicity,
+          label: item.ethnicity,
+          count: item.count,
+          path: `/ostats/ethnicity/${encodeURIComponent(item.ethnicity)}`,
+        })
+      ),
+    [countsByEthnicityQuery.data?.sceneOCountsByEthnicity]
+  );
+
   const selectedTagName = selectedTagId
     ? tagChartData.find((item) => item.key === selectedTagId)?.label
     : undefined;
@@ -478,6 +550,7 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     mostOsInDayQuery.loading ||
     longestPeriodWithoutOQuery.loading ||
     (!selectedYear && countsByTagQuery.loading) ||
+    (!selectedYear && countsByEthnicityQuery.loading) ||
     (!selectedYear ? false : !showTimeline && monthQuery.loading) ||
     (!selectedMonth ? false : !showTimeline && dayQuery.loading);
   const error =
@@ -485,11 +558,13 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     mostOsInDayQuery.error ??
     longestPeriodWithoutOQuery.error ??
     countsByTagQuery.error ??
+    countsByEthnicityQuery.error ??
     monthQuery.error ??
     dayQuery.error;
 
   function renderTitle() {
     if (selectedTagId) return `O's tagged ${selectedTagName ?? selectedTagId}`;
+    if (selectedEthnicity) return `O's to ${selectedEthnicity} vatos`;
     if (selectedDate) return `O's on ${selectedDate}`;
     if (selectedYear && selectedMonth) {
       return `${monthName(selectedMonth, "long")} ${selectedYear}`;
@@ -500,6 +575,7 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
 
   function renderModeLabel() {
     if (selectedTagId) return "By Marker Tag";
+    if (selectedEthnicity) return "By Ethnicity";
     if (selectedDate) return "Day Summary";
     if (selectedYear && selectedMonth) return "By Day";
     if (selectedYear) return "By Month";
@@ -589,7 +665,7 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
         {(selectedYear || selectedTagId) && (
           <Button
             onClick={() => {
-              if (selectedTagId) {
+              if (selectedTagId || selectedEthnicity) {
                 history.push("/ostats");
               } else if (selectedDate && selectedYear && selectedMonth) {
                 history.push(`/ostats/${selectedYear}/${selectedMonth}`);
@@ -627,13 +703,27 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
           />
         </section>
       )}
+      {!error && !loading && !showTimeline && !selectedYear && (
+        <section className="ostats-section">
+          <div className="ostats-subheader">
+            <span>By Ethnicity</span>
+          </div>
+          <OStatsChart
+            data={ethnicityChartData}
+            emptyLabel="No O ethnicity counts found."
+          />
+        </section>
+      )}
       {!error && !loading && showTimeline && (
         <OStatsTimeline
           date={selectedDate}
           tagId={selectedTagId}
+          ethnicity={selectedEthnicity}
           emptyLabel={
             selectedTagId
               ? "No reliable O events found for this marker tag."
+              : selectedEthnicity
+              ? "No reliable O events found for this ethnicity."
               : "No reliable O events on this day."
           }
         />

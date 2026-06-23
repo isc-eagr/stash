@@ -102,3 +102,110 @@ func TestValidateSceneOStatsDate(t *testing.T) {
 		})
 	}
 }
+
+func TestVatoStatsAgeRange(t *testing.T) {
+	tests := []struct {
+		age  int
+		want string
+	}{
+		{age: 18, want: "18"},
+		{age: 20, want: "20"},
+		{age: 21, want: "21"},
+		{age: 25, want: "25"},
+		{age: 26, want: "26"},
+		{age: 40, want: "40"},
+	}
+
+	for _, tt := range tests {
+		got := vatoStatsAgeRange(tt.age)
+		if got != tt.want {
+			t.Fatalf("vatoStatsAgeRange(%d) = %q, want %q", tt.age, got, tt.want)
+		}
+	}
+}
+
+func TestVatoStatsStringPtrValue(t *testing.T) {
+	tests := []struct {
+		name  string
+		value interface{}
+	}{
+		{name: "nil", value: nil},
+		{name: "nil string", value: "<nil>"},
+		{name: "null string", value: "null"},
+		{name: "blank", value: "  "},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := vatoStatsStringPtrValue(tt.value); got != nil {
+				t.Fatalf("vatoStatsStringPtrValue(%#v) = %#v, want nil", tt.value, got)
+			}
+		})
+	}
+
+	got := vatoStatsStringPtrValue(" Black ")
+	if got == nil || *got != "Black" {
+		t.Fatalf("vatoStatsStringPtrValue trims real values to %#v, want Black", got)
+	}
+}
+
+func TestVatoStatsEthnicityLabel(t *testing.T) {
+	for _, value := range []interface{}{nil, "", "  ", "<nil>", "null"} {
+		if got := vatoStatsEthnicityLabel(value); got != "Unknown" {
+			t.Fatalf("vatoStatsEthnicityLabel(%#v) = %q, want Unknown", value, got)
+		}
+	}
+	if got := vatoStatsEthnicityLabel(" Black "); got != "Black" {
+		t.Fatalf("vatoStatsEthnicityLabel trims real values to %q, want Black", got)
+	}
+}
+
+func TestSceneOStatsEthnicityFilter(t *testing.T) {
+	got, err := sceneOStatsEthnicityFilter(" Black ")
+	if err != nil {
+		t.Fatalf("sceneOStatsEthnicityFilter returned error: %v", err)
+	}
+	if got != "Black" {
+		t.Fatalf("sceneOStatsEthnicityFilter = %q, want Black", got)
+	}
+
+	if _, err := sceneOStatsEthnicityFilter(" "); err == nil {
+		t.Fatal("sceneOStatsEthnicityFilter blank value returned nil error")
+	}
+}
+
+func TestVatoStatsSetAgeCount(t *testing.T) {
+	performer := &VatoStatsPerformer{
+		AgeCounts: []*VatoStatsAgeCount{},
+	}
+
+	vatoStatsSetAgeCount(performer, "21", 2)
+	vatoStatsSetAgeCount(performer, "26", 3)
+	vatoStatsSetAgeCount(performer, "21", 4)
+
+	if len(performer.AgeCounts) != 2 {
+		t.Fatalf("got %d age buckets, want 2", len(performer.AgeCounts))
+	}
+	if performer.AgeCounts[0].AgeRange != "21" || performer.AgeCounts[0].Count != 6 {
+		t.Fatalf("first age count = %#v, want 21 count 6", performer.AgeCounts[0])
+	}
+	if performer.AgeCounts[1].AgeRange != "26" || performer.AgeCounts[1].Count != 3 {
+		t.Fatalf("second age count = %#v, want 26 count 3", performer.AgeCounts[1])
+	}
+}
+
+func TestVatoStatsIDFilter(t *testing.T) {
+	clause, args := vatoStatsIDFilter("p.id", []int{1, 2, 3})
+	if clause != " AND p.id IN (?,?,?)" {
+		t.Fatalf("clause = %q, want ID filter clause", clause)
+	}
+	if len(args) != 3 || args[0] != 1 || args[1] != 2 || args[2] != 3 {
+		t.Fatalf("args = %#v, want 1, 2, 3", args)
+	}
+
+	tooManyIDs := make([]int, 901)
+	clause, args = vatoStatsIDFilter("p.id", tooManyIDs)
+	if clause != "" || args != nil {
+		t.Fatalf("large filter = %q %#v, want empty clause and nil args", clause, args)
+	}
+}

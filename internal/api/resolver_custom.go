@@ -6,6 +6,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -1044,6 +1045,458 @@ ORDER BY cnt DESC, tag_name ASC`
 	}); err != nil {
 		return nil, err
 	}
+	return ret, nil
+}
+
+func vatoStatsEthnicityLabel(value interface{}) string {
+	ret := strings.TrimSpace(customStringValue(value))
+	if ret == "" || strings.EqualFold(ret, "<nil>") || strings.EqualFold(ret, "null") {
+		return "Unknown"
+	}
+	return ret
+}
+
+func sceneOStatsEthnicityFilter(value string) (string, error) {
+	ret := strings.TrimSpace(value)
+	if ret == "" {
+		return "", fmt.Errorf("ethnicity is required")
+	}
+	return ret, nil
+}
+
+func (r *queryResolver) sceneOEventsFromRows(ctx context.Context, rows [][]interface{}) ([]*SceneOEvent, error) {
+	out := make([]*SceneOEvent, 0, len(rows))
+	for _, row := range rows {
+		if len(row) < 4 {
+			continue
+		}
+
+		sceneID := customIntValue(row[1])
+		scene, err := r.repository.Scene.Find(ctx, sceneID)
+		if err != nil {
+			return nil, err
+		}
+		if scene == nil {
+			continue
+		}
+
+		out = append(out, &SceneOEvent{
+			ID:             fmt.Sprint(row[0]),
+			SceneID:        fmt.Sprint(sceneID),
+			ODate:          customStringValue(row[2]),
+			VideoTimestamp: customFloatPtrValue(row[3]),
+			Scene:          scene,
+		})
+	}
+
+	return out, nil
+}
+
+// SceneOCountsByEthnicity returns reliable O events grouped by the ethnicities
+// of performers associated with each O's scene.
+func (r *queryResolver) SceneOCountsByEthnicity(ctx context.Context) (ret []*SceneOCountByEthnicity, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := `
+WITH o_ethnicities AS (
+  SELECT DISTINCT
+    od.rowid AS o_id,
+    CASE
+      WHEN performers.ethnicity IS NULL OR TRIM(performers.ethnicity) = '' OR LOWER(TRIM(performers.ethnicity)) IN ('<nil>', 'null')
+      THEN 'Unknown'
+      ELSE TRIM(performers.ethnicity)
+    END AS ethnicity
+  FROM scenes_o_dates od
+  LEFT JOIN performers_scenes ps ON ps.scene_id = od.scene_id
+  LEFT JOIN performers ON performers.id = ps.performer_id
+  WHERE od.o_date IS NOT NULL
+    AND date(od.o_date, 'localtime') >= date(?)
+)
+SELECT ethnicity, COUNT(*) AS cnt
+FROM o_ethnicities
+GROUP BY ethnicity
+ORDER BY cnt DESC, ethnicity COLLATE NOCASE ASC`
+		_, rows, err := db.QuerySQL(ctx, query, []interface{}{sceneODateTrackingStart})
+		if err != nil {
+			return err
+		}
+
+		out := make([]*SceneOCountByEthnicity, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 2 {
+				continue
+			}
+			out = append(out, &SceneOCountByEthnicity{
+				Ethnicity: vatoStatsEthnicityLabel(row[0]),
+				Count:     customIntValue(row[1]),
+			})
+		}
+
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+// SceneOEventsByEthnicity returns reliable O events for scenes with an
+// associated performer ethnicity. "Unknown" includes missing/blank ethnicity.
+func (r *queryResolver) SceneOEventsByEthnicity(ctx context.Context, ethnicity string) (ret []*SceneOEvent, err error) {
+	ethnicity, err = sceneOStatsEthnicityFilter(ethnicity)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		unknown := strings.EqualFold(ethnicity, "Unknown")
+		ethnicityPredicate := `
+  AND EXISTS (
+    SELECT 1
+    FROM performers_scenes ps
+    JOIN performers ON performers.id = ps.performer_id
+    WHERE ps.scene_id = od.scene_id
+      AND TRIM(performers.ethnicity) = ?
+  )`
+		args := []interface{}{sceneODateTrackingStart, ethnicity}
+		if unknown {
+			ethnicityPredicate = `
+  AND (
+    NOT EXISTS (
+      SELECT 1
+      FROM performers_scenes known_ps
+      JOIN performers known_p ON known_p.id = known_ps.performer_id
+      WHERE known_ps.scene_id = od.scene_id
+        AND known_p.ethnicity IS NOT NULL
+        AND TRIM(known_p.ethnicity) <> ''
+        AND LOWER(TRIM(known_p.ethnicity)) NOT IN ('<nil>', 'null')
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM performers_scenes unknown_ps
+      LEFT JOIN performers unknown_p ON unknown_p.id = unknown_ps.performer_id
+      WHERE unknown_ps.scene_id = od.scene_id
+        AND (unknown_p.ethnicity IS NULL OR TRIM(unknown_p.ethnicity) = '' OR LOWER(TRIM(unknown_p.ethnicity)) IN ('<nil>', 'null'))
+    )
+  )`
+			args = []interface{}{sceneODateTrackingStart}
+		}
+		query := fmt.Sprintf(`
+SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
+FROM scenes_o_dates od
+JOIN scenes s ON s.id = od.scene_id
+WHERE od.o_date IS NOT NULL
+  AND date(od.o_date, 'localtime') >= date(?)
+  %s
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) ASC, s.title ASC`, ethnicityPredicate)
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+
+		out, err := r.sceneOEventsFromRows(ctx, rows)
+		if err != nil {
+			return err
+		}
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+func vatoStatsStringPtrValue(value interface{}) *string {
+	ret := strings.TrimSpace(customStringValue(value))
+	if ret == "" || strings.EqualFold(ret, "<nil>") || strings.EqualFold(ret, "null") {
+		return nil
+	}
+	return &ret
+}
+
+func vatoStatsIntPtrValue(value interface{}) *int {
+	if value == nil {
+		return nil
+	}
+	ret := customIntValue(value)
+	return &ret
+}
+
+func vatoStatsAgeRange(age int) string {
+	return strconv.Itoa(age)
+}
+
+func vatoStatsImagePath(baseURL string, performerID int, hasImage bool) *string {
+	ret := fmt.Sprintf("%s/performer/%d/image?t=0", baseURL, performerID)
+	if !hasImage {
+		ret += "&default=true"
+	}
+	return &ret
+}
+
+func vatoStatsIDFilter(column string, ids []int) (string, []interface{}) {
+	if len(ids) == 0 || len(ids) > 900 {
+		return "", nil
+	}
+
+	placeholders := make([]string, 0, len(ids))
+	args := make([]interface{}, 0, len(ids))
+	for _, id := range ids {
+		placeholders = append(placeholders, "?")
+		args = append(args, id)
+	}
+
+	return fmt.Sprintf(" AND %s IN (%s)", column, strings.Join(placeholders, ",")), args
+}
+
+func vatoStatsSetAgeCount(performer *VatoStatsPerformer, ageRange string, count int) {
+	for _, row := range performer.AgeCounts {
+		if row.AgeRange == ageRange {
+			row.Count += count
+			return
+		}
+	}
+	performer.AgeCounts = append(performer.AgeCounts, &VatoStatsAgeCount{
+		AgeRange: ageRange,
+		Count:    count,
+	})
+}
+
+// VatoStatsPerformers returns the raw per-vato rows used by /vatostats. The UI
+// owns drill-down state so metric/category combinations can evolve without
+// adding a resolver for every chart.
+func (r *queryResolver) VatoStatsPerformers(ctx context.Context) (ret []*VatoStatsPerformer, err error) {
+	baseURL, _ := ctx.Value(BaseURLCtxKey).(string)
+	thresholds := getCustomPerformerRatingTierThresholds()
+	overrides := getCustomRatingTierOverrideTags()
+	bronzeClause, bronzeArgs := customRatingTierSQLClause("bronze", thresholds, overrides)
+	silverClause, silverArgs := customRatingTierSQLClause("silver", thresholds, overrides)
+	goldClause, goldArgs := customRatingTierSQLClause("gold", thresholds, overrides)
+	royalSapphireClause, royalSapphireArgs := customRatingTierSQLClause("royal_sapphire", thresholds, overrides)
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := fmt.Sprintf(`
+SELECT
+  performers.id,
+  performers.name,
+  performers.rating,
+  CASE
+    WHEN %s THEN 'royal_sapphire'
+    WHEN %s THEN 'gold'
+    WHEN %s THEN 'silver'
+    WHEN %s THEN 'bronze'
+    ELSE NULL
+  END AS metallic_rating,
+  performers.ethnicity,
+  performers.country,
+  performers.hair_color,
+  performers.eye_color,
+  performers.height,
+  performers.penis_length,
+  performers.circumcised,
+  CASE WHEN performers.image_blob IS NULL OR TRIM(performers.image_blob) = '' THEN 0 ELSE 1 END AS has_image,
+  COUNT(DISTINCT ps.scene_id) AS scene_count,
+  COUNT(od.o_date) AS scene_o_count,
+  MAX(date(od.o_date)) AS most_recent_o_date,
+  COALESCE(career_span.career_span_days, 0) AS career_span_days
+FROM performers
+LEFT JOIN performers_scenes ps ON ps.performer_id = performers.id
+LEFT JOIN scenes_o_dates od ON od.scene_id = ps.scene_id AND od.o_date IS NOT NULL
+LEFT JOIN (
+  SELECT
+    ps_span.performer_id,
+    COALESCE(CAST(julianday(MAX(date(s_span.date))) - julianday(MIN(date(s_span.date))) AS INT), 0) AS career_span_days
+  FROM performers_scenes ps_span
+  JOIN scenes s_span ON s_span.id = ps_span.scene_id
+  WHERE s_span.date IS NOT NULL AND TRIM(s_span.date) <> ''
+  GROUP BY ps_span.performer_id
+) career_span ON career_span.performer_id = performers.id
+GROUP BY performers.id
+HAVING scene_count > 0
+ORDER BY performers.name COLLATE NOCASE ASC`,
+			royalSapphireClause,
+			goldClause,
+			silverClause,
+			bronzeClause,
+		)
+		args := append([]interface{}{}, royalSapphireArgs...)
+		args = append(args, goldArgs...)
+		args = append(args, silverArgs...)
+		args = append(args, bronzeArgs...)
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+
+		out := make([]*VatoStatsPerformer, 0, len(rows))
+		byID := make(map[int]*VatoStatsPerformer, len(rows))
+		ids := make([]int, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 16 {
+				continue
+			}
+
+			id := customIntValue(row[0])
+			sceneCount := customIntValue(row[12])
+			if id == 0 || sceneCount == 0 {
+				continue
+			}
+
+			performer := &VatoStatsPerformer{
+				ID:                   strconv.Itoa(id),
+				Name:                 customStringValue(row[1]),
+				Rating100:            vatoStatsIntPtrValue(row[2]),
+				MetallicRating:       vatoStatsStringPtrValue(row[3]),
+				Ethnicity:            vatoStatsStringPtrValue(row[4]),
+				Country:              vatoStatsStringPtrValue(row[5]),
+				HairColor:            vatoStatsStringPtrValue(row[6]),
+				EyeColor:             vatoStatsStringPtrValue(row[7]),
+				HeightCm:             vatoStatsIntPtrValue(row[8]),
+				PenisLength:          customFloatPtrValue(row[9]),
+				Circumcised:          vatoStatsStringPtrValue(row[10]),
+				ImagePath:            vatoStatsImagePath(baseURL, id, customIntValue(row[11]) != 0),
+				SceneCount:           sceneCount,
+				SceneOCount:          customIntValue(row[13]),
+				MostRecentODate:      vatoStatsStringPtrValue(row[14]),
+				CareerSpanDays:       customIntValue(row[15]),
+				AgeCounts:            []*VatoStatsAgeCount{},
+				UnknownSceneAgeCount: sceneCount,
+			}
+			out = append(out, performer)
+			byID[id] = performer
+			ids = append(ids, id)
+		}
+
+		if len(ids) == 0 {
+			ret = out
+			return nil
+		}
+
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		sexTagID, oralTagID, _, facialTagID, _, _, _ := getRoleTagIDs(uiConfig)
+		applyRoleSceneCounts := func(tagID int, includeSecondary bool, countColumn string, setTop func(*VatoStatsPerformer, int), setBottom func(*VatoStatsPerformer, int)) error {
+			if tagID == 0 {
+				return nil
+			}
+			roleIDClause, roleIDArgs := vatoStatsIDFilter("smp.performer_id", ids)
+			tagCondition := "sm.primary_tag_id IN (SELECT id FROM role_tags)"
+			if includeSecondary {
+				tagCondition = `(sm.primary_tag_id IN (SELECT id FROM role_tags)
+    OR EXISTS (
+      SELECT 1
+      FROM scene_markers_tags smt
+      WHERE smt.scene_marker_id = sm.id
+        AND smt.tag_id IN (SELECT id FROM role_tags)
+    ))`
+			}
+			sexRoleQuery := fmt.Sprintf(`
+WITH RECURSIVE role_tags(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN role_tags rt ON tr.parent_id = rt.id
+)
+SELECT
+  smp.performer_id,
+  COUNT(DISTINCT CASE WHEN smp.role = 'top' THEN %s END) AS role_top_count,
+  COUNT(DISTINCT CASE WHEN smp.role = 'bottom' THEN %s END) AS role_bottom_count
+FROM scene_marker_performers smp
+JOIN scene_markers sm ON sm.id = smp.scene_marker_id
+WHERE %s
+  %s
+GROUP BY smp.performer_id`, countColumn, countColumn, tagCondition, roleIDClause)
+			roleArgs := append([]interface{}{tagID}, roleIDArgs...)
+			_, roleRows, err := db.QuerySQL(ctx, sexRoleQuery, roleArgs)
+			if err != nil {
+				return err
+			}
+			for _, row := range roleRows {
+				if len(row) < 3 {
+					continue
+				}
+				performer := byID[customIntValue(row[0])]
+				if performer == nil {
+					continue
+				}
+				setTop(performer, customIntValue(row[1]))
+				setBottom(performer, customIntValue(row[2]))
+			}
+			return nil
+		}
+		if err := applyRoleSceneCounts(sexTagID, false, "sm.scene_id", func(performer *VatoStatsPerformer, count int) {
+			performer.SexTopCount = count
+		}, func(performer *VatoStatsPerformer, count int) {
+			performer.SexBottomCount = count
+		}); err != nil {
+			return err
+		}
+		if err := applyRoleSceneCounts(oralTagID, false, "sm.scene_id", func(performer *VatoStatsPerformer, count int) {
+			performer.OralTopCount = count
+		}, func(performer *VatoStatsPerformer, count int) {
+			performer.OralBottomCount = count
+		}); err != nil {
+			return err
+		}
+		if err := applyRoleSceneCounts(facialTagID, true, "sm.id", func(performer *VatoStatsPerformer, count int) {
+			performer.FacialGivenCount = count
+		}, func(performer *VatoStatsPerformer, count int) {
+			performer.FacialReceivedCount = count
+		}); err != nil {
+			return err
+		}
+
+		ageIDClause, ageIDArgs := vatoStatsIDFilter("ps.performer_id", ids)
+		ageQuery := fmt.Sprintf(`
+SELECT
+  ps.performer_id,
+  CAST(strftime('%%Y.%%m%%d', s.date) - strftime('%%Y.%%m%%d', p.birthdate) AS INT) AS scene_age,
+  COUNT(*) AS cnt
+FROM performers_scenes ps
+JOIN performers p ON p.id = ps.performer_id
+JOIN scenes s ON s.id = ps.scene_id
+WHERE p.birthdate IS NOT NULL
+  AND TRIM(p.birthdate) <> ''
+  AND s.date IS NOT NULL
+  AND TRIM(s.date) <> ''
+  %s
+GROUP BY ps.performer_id, scene_age`, ageIDClause)
+		_, ageRows, err := db.QuerySQL(ctx, ageQuery, ageIDArgs)
+		if err != nil {
+			return err
+		}
+		for _, row := range ageRows {
+			if len(row) < 3 {
+				continue
+			}
+			performer := byID[customIntValue(row[0])]
+			if performer == nil {
+				continue
+			}
+			age := customIntValue(row[1])
+			count := customIntValue(row[2])
+			if age < 18 || age > 80 || count <= 0 {
+				continue
+			}
+			vatoStatsSetAgeCount(performer, vatoStatsAgeRange(age), count)
+			performer.UnknownSceneAgeCount -= count
+			if performer.UnknownSceneAgeCount < 0 {
+				performer.UnknownSceneAgeCount = 0
+			}
+		}
+		for _, performer := range out {
+			sort.Slice(performer.AgeCounts, func(i int, j int) bool {
+				return performer.AgeCounts[i].AgeRange < performer.AgeCounts[j].AgeRange
+			})
+		}
+
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
 	return ret, nil
 }
 

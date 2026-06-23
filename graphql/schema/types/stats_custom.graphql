@@ -76,6 +76,46 @@ type SceneOCountByTag {
   tag_name: String!
   count: Int!
 }
+
+"Count of scene O events grouped by associated vato ethnicity"
+type SceneOCountByEthnicity {
+  ethnicity: String!
+  count: Int!
+}
+
+"Exact scene-age count for a vato on the Vato Stats page"
+type VatoStatsAgeCount {
+  age_range: String!
+  count: Int!
+}
+
+"Per-vato aggregate row used by the Vato Stats page"
+type VatoStatsPerformer {
+  id: ID!
+  name: String!
+  image_path: String
+  rating100: Int
+  scene_o_count: Int!
+  scene_count: Int!
+  sex_top_count: Int!
+  sex_bottom_count: Int!
+  oral_top_count: Int!
+  oral_bottom_count: Int!
+  facial_given_count: Int!
+  facial_received_count: Int!
+  most_recent_o_date: String
+  career_span_days: Int!
+  metallic_rating: String
+  ethnicity: String
+  country: String
+  hair_color: String
+  eye_color: String
+  height_cm: Int
+  penis_length: Float
+  circumcised: String
+  age_counts: [VatoStatsAgeCount!]!
+  unknown_scene_age_count: Int!
+}
 # CUSTOM: end
 
 extend type Query {
@@ -103,6 +143,12 @@ extend type Query {
   longestPeriodWithoutO: SceneODrySpell
   "Get timestamped scene O events grouped by marker primary and secondary tags covering the O timestamp"
   sceneOCountsByTag: [SceneOCountByTag!]!
+  "Get scene O events grouped by associated vato ethnicity"
+  sceneOCountsByEthnicity: [SceneOCountByEthnicity!]!
+  "Get recorded scene O events associated with a vato ethnicity"
+  sceneOEventsByEthnicity(ethnicity: String!): [SceneOEvent!]!
+  "Get per-vato aggregate data for the Vato Stats page"
+  vatoStatsPerformers: [VatoStatsPerformer!]!
   "Get total number of 'orgasm' marker-tag entries across all scene markers"
   sceneOrgasmCount: Int!
   "Get total number of facial markers (primary or secondary). Includes descendants of 'facial'."

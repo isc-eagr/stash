@@ -51,6 +51,7 @@ This document describes all custom features and modifications added on top of th
 41. [Custom Filter Name Highlighting](#41-custom-filter-name-highlighting)
 42. [Hidden O Stats Timeline](#42-hidden-o-stats-timeline)
 43. [Vato UI Vocabulary](#43-vato-ui-vocabulary)
+44. [Vato Stats Page](#44-vato-stats-page)
 
 ---
 
@@ -184,7 +185,7 @@ Visual indicators on performer cards and scene cards showing role information ba
 
 ### Overview
 
-A comprehensive statistics page showing scene categorization counts, performer ethnicity breakdowns, orgasm tracking, and more.
+A comprehensive statistics page showing scene categorization counts, performer rating-tier ethnicity breakdowns, orgasm/facial tracking, and related scene/vato summaries.
 
 ### File
 
@@ -193,10 +194,9 @@ A comprehensive statistics page showing scene categorization counts, performer e
 ### Features
 
 - Scene counts by category (sex, oral, solo, facial)
-- Performer ethnicity distribution with Bronze/Silver/Gold/Sapphire metallic rating-tier breakdown, including configured override tags
+- Performer ethnicity Bronze/Silver/Gold/Sapphire metallic rating-tier breakdown, including configured override tags
 - Orgasm events by year (includes orgasm tag and all its subtags/descendants)
-- Top/Bottom performer counts (strict and lenient)
-- Facial given/received counts
+- Solo-only and one-scene vato counts
 
 ### Orgasm & Facial Counting Logic
 
@@ -2876,18 +2876,18 @@ Custom filter criteria are highlighted in green in the Edit Filter picker so for
 
 ### Overview
 
-Adds a hidden `/ostats` page for reliable scene O-date analytics. The page is intentionally not linked from the main UI; it is only accessible by typing the URL. It shows O-date record cards, clickable bar charts by year, month, day, and marker tag, then chronological timelines of scene O events for a selected day or marker tag. The Generate task can also create exact static screenshots for O events that have a `video_timestamp`, and the timelines use those O screenshots when available.
+Adds a hidden `/ostats` page for reliable scene O-date analytics. The page is intentionally not linked from the main UI; it is only accessible by typing the URL. It shows O-date record cards, clickable bar charts by year, month, day, marker tag, and associated vato ethnicity, then chronological timelines of scene O events for a selected day, marker tag, or ethnicity. The Generate task can also create exact static screenshots for O events that have a `video_timestamp`, and the timelines use those O screenshots when available.
 
 ### Files Modified
 
-- `graphql/schema/types/stats_custom.graphql` - Adds month/day bucket and day/tag timeline GraphQL types and queries
+- `graphql/schema/types/stats_custom.graphql` - Adds month/day bucket, day/tag/ethnicity timeline GraphQL types and queries
 - `graphql/schema/types/metadata_custom.graphql` - Extends Generate metadata input/default options with `oScreenshots`
-- `internal/api/resolver_custom.go` - Adds O stats period resolvers, O date record resolvers, timestamped marker-tag counts and tag drilldown events for `/ostats`, and filters unreliable dates before March 8, 2024
+- `internal/api/resolver_custom.go` - Adds O stats period resolvers, O date record resolvers, timestamped marker-tag counts, scene-level ethnicity counts, tag/ethnicity drilldown events for `/ostats`, and filters unreliable dates before March 8, 2024
 - `internal/api/routes_scene.go` - Registers the O screenshot route
 - `internal/manager/task_generate.go` - Queues O screenshot generation from the Generate task
 - `pkg/models/generate.go` - Stores the O screenshot Generate default flag
 - `ui/v2.5/graphql/data/config.graphql` - Includes the O screenshot Generate default flag
-- `ui/v2.5/src/App.tsx` - Adds the hidden `/ostats/:year?/:month?/:day?` and `/ostats/tag/:tagId` routes
+- `ui/v2.5/src/App.tsx` - Adds the hidden `/ostats/:year?/:month?/:day?`, `/ostats/tag/:tagId`, and `/ostats/ethnicity/:ethnicity` routes
 - `ui/v2.5/src/components/Settings/Tasks/GenerateOptions.tsx` - Adds the O screenshots checkbox
 - `ui/v2.5/src/locales/en-GB.json` - Adds O screenshot Generate labels
 - `ui/v2.5/src/locales/en-US.json` - Adds O screenshot Generate labels
@@ -2920,9 +2920,11 @@ Adds a hidden `/ostats` page for reliable scene O-date analytics. The page is in
 - `sceneODayCounts(year: Int!, month: Int!)`
 - `sceneOEventsByDate(date: String!)`
 - `sceneOEventsByTag(tagID: ID!)`
+- `sceneOEventsByEthnicity(ethnicity: String!)`
 - `mostOsInDay`
 - `longestPeriodWithoutO`
 - `sceneOCountsByTag`
+- `sceneOCountsByEthnicity`
 
 ### Configuration Dependencies
 
@@ -2955,3 +2957,38 @@ Renames the user-facing English UI vocabulary from Performer/Performers to Vato/
 ### Configuration Dependencies
 
 - None.
+
+---
+
+## 44. Vato Stats Page
+
+### Overview
+
+Adds a hidden `/vatostats` page focused on vato aggregate analytics. The page shows moved vato summary cards from `/customstats`, preserving their drilldown links and including solo-only and one-scene vatos, a top-three podium for a selectable metric ordered left-to-right as gold, silver, and bronze, plus coordinated vertical bar charts for ethnicity, exact scene age, rating buckets, metallic rating, height buckets, country, hair color, eye color, circumcision status, and rounded exact penis size. Clicking a bar drills into that category/value and refreshes the podium plus every chart from the filtered vato set; Back and Clear controls unwind the drill-down. Unknown values are shown as separate chart-header counters so a large Unknown population does not compress the visible bars.
+
+### Files Modified
+
+- `graphql/schema/types/stats_custom.graphql` - Adds `VatoStatsPerformer`, `VatoStatsAgeCount`, and `vatoStatsPerformers`.
+- `internal/api/resolver_custom.go` - Adds the `vatoStatsPerformers` resolver, including scene O counts from `scenes_o_dates`, most recent O date, career span, scene counts, demographic fields, exact scene-age counts, metallic rating tier, image URLs, optimized batched sex/oral role scene counts, and facial role marker counts using primary or secondary facial tags and descendants.
+- `internal/api/resolver_custom_test.go` - Adds focused tests for exact scene-age helper behavior, Unknown cleanup, and ID-filter safety.
+- `ui/v2.5/src/App.tsx` - Adds the hidden `/vatostats` route.
+
+### Files Added
+
+- `ui/v2.5/src/components/VatoStats/VatoStats.tsx` - VatoStats page, moved linked summary stat cards, metric selector, podium, filtered performer list, drill-down state, and charts.
+- `ui/v2.5/src/components/VatoStats/VatoStats.scss` - Page-specific podium and chart styles.
+
+### Test Cases Added
+
+- `TestVatoStatsAgeRange` - Covers exact scene-age labels.
+- `TestVatoStatsSetAgeCount` - Covers merging repeated scene-age counts.
+
+### GraphQL Schema Changes
+
+- `VatoStatsAgeCount`
+- `VatoStatsPerformer`
+- `vatoStatsPerformers`
+
+### Configuration Dependencies
+
+- Uses existing `roleTagIds` configuration for optimized sex top/bottom marker role counts.
