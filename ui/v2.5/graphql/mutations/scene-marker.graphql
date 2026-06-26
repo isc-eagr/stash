@@ -54,7 +54,8 @@ mutation SceneMarkerUpdate(
 
 mutation BulkSceneMarkerUpdate($input: BulkSceneMarkerUpdateInput!) {
   bulkSceneMarkerUpdate(input: $input) {
-    ...SceneMarkerData
+    # CUSTOM: keep bulk edit responses lightweight; callers refetch impacted lists.
+    id
   }
 }
 

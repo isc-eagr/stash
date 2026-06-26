@@ -592,7 +592,7 @@ interface IPerformerCardProps {
 1. **Performer Scene Tags Button**: Green button showing aggregated performer scene tags for the scene
 2. **Role Icons on Overlay**: Visual indicators for scene type (gay, oral, solo, facial)
 3. **Gold Facial Icon (Really Hot Facial)**: Facial icon displays in gold when a scene has a marker tagged with BOTH the configured Facial tag AND the new Really Hot qualifier tag. White facial icon shows for plain facial markers; gold facial icon takes precedence when the really-hot combo is found. Configurable via Settings → Interface → Role Tags → "Really Hot qualifier tag". Applies to both the scene card overlay and the in-scene player overlay.
-4. **Activity Duration Percentages**: Scene cards show sex, oral, solo, and other runtime percentages from configured role marker tags. Only markers whose primary tag exactly matches the configured sex, oral, or solo tag and have no secondary tags are counted. Marker intervals are clamped to the scene duration, same-category overlaps are merged, cross-category overlaps count toward each category, and Other uses a clock icon to represent runtime with no counted activity marker.
+4. **Activity Duration Percentages**: Scene cards show a two-row runtime strip. The first row shows Sex, Oral, Solo, and Other percentages from configured primary role marker tags; same-category overlaps are merged, cross-category overlaps count toward each category, and Other represents runtime without a sex/oral/solo marker. The second row shows Outstanding, Standard, and Unusable: Outstanding is any timed marker that is not a configured sex/oral/solo primary marker, or a configured sex/oral/solo primary marker with secondary tags; Standard is unmarked runtime or plain configured sex/oral/solo marker runtime not overlapped by Outstanding; Unusable comes from negative/Skip marker ranges.
 
 ### Custom Assets Added
 
@@ -2785,9 +2785,9 @@ deploy_prod_custom.bat -SkipStart
 
 ### Overview
 
-Adds strict marker-duration stats for configured sex, oral, solo, other, and unusable activity percentages. A qualifying sex/oral/solo marker must have the configured tag as its primary tag and no secondary tags. Same-category overlaps are merged, cross-category overlaps count toward each category, negative marker/Skip ranges are merged into Unusable without double-counting overlaps, and uncovered runtime excluding Unusable is reported as Other.
+Adds marker-duration stats for configured sex, oral, solo, other, outstanding, standard, and unusable activity percentages. The activity strip has two rows: Sex/Oral/Solo/Other and Outstanding/Standard/Unusable. Sex/oral/solo activity is based on markers whose primary tag exactly matches the configured role tag, even when the marker also has secondary tags. Same-category overlaps are merged, cross-category overlaps count toward each category, and activity Other is runtime without a sex/oral/solo marker. Outstanding is any timed marker that is not a configured sex/oral/solo primary marker, or a configured sex/oral/solo primary marker with secondary tags. Standard is unmarked runtime or plain configured sex/oral/solo runtime not overlapped by Outstanding, and negative marker/Skip ranges are merged into Unusable without double-counting overlaps.
 
-Studio cards and studio detail pages show sex/oral/solo/other/unusable percentages using the length of scenes with qualifying activity markers or negative markers as 100%. Performer-scoped studio cards use performer-filtered activity stats for the strip, but Unusable is not added to performer stats because negative markers are scene-level. Performer detail pages include a Stats tab with an activity pie chart and a selected-activity top/bottom role split chart. Scene and studio detail pages include Stats tabs with total length and sex/oral/solo/other/unusable activity pie charts. The Scene Stats tab also shows a By Performer breakdown with per-activity top/bottom pie charts and chart-local checkboxes that can add qualifying sex/oral/solo markers to the multi-segment loop. Scene and studio list pages include a combined Activity Percentage filter plus individual sex/oral/solo/other/unusable percentage sort options; performer list pages retain marker-owned activity percentage filters and sorts only.
+Studio cards and studio detail pages show the two-row activity strip using the total selected scene length as 100%, including unmarked scenes so Standard can represent untagged runtime. Performer-scoped studio cards use performer-filtered activity stats for the strip, with Unusable calculated from negative marker ranges in scenes containing that performer. Performer detail pages include a Stats tab with an activity pie chart and a selected-activity top/bottom role split chart. Scene and studio detail pages include Stats tabs with separate Activity Type and Quality donut charts. The Scene Stats tab also shows a By Performer breakdown with per-activity top/bottom pie charts; chart-local checkboxes can add sex/oral/solo/other/outstanding/standard segments to the multi-segment loop while leaving Unusable read-only. Scene and studio list pages include a combined Activity Percentage filter plus individual sex/oral/solo/other/unusable percentage sort options; performer list pages retain marker-owned activity percentage filters and sorts only.
 
 ### Files Modified
 
@@ -2823,7 +2823,7 @@ Studio cards and studio detail pages show sex/oral/solo/other/unusable percentag
 
 ### Test Cases
 
-- `internal/api/activity_stats_custom_test.go` - Verifies merged interval duration and Other runtime excluding any overlapping sex/oral/solo or Unusable ranges
+- `internal/api/activity_stats_custom_test.go` - Verifies merged interval duration, interval subtraction for exclusive quality metrics, activity Other runtime, and legacy Other runtime excluding overlapping sex/oral/solo or Unusable ranges
 
 ---
 

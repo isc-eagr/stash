@@ -49,11 +49,17 @@ query FindStudioPerformerStats($id: ID!, $performerId: ID!, $depth: Int) {
       oral_seconds
       solo_seconds
       other_seconds
+      activity_other_seconds
+      outstanding_seconds
+      standard_seconds
       unusable_seconds
       sex_percent
       oral_percent
       solo_percent
       other_percent
+      activity_other_percent
+      outstanding_percent
+      standard_percent
       unusable_percent
       sex_scene_count
       oral_scene_count

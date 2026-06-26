@@ -2,11 +2,13 @@ import React, { useMemo, useState } from "react";
 import { Button, Form } from "react-bootstrap";
 import * as GQL from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
+import { useRoleTags } from "src/hooks/useRoleTags";
 import TextUtils from "src/utils/text";
 import type { ILoopSegmentInput } from "src/components/ScenePlayer/multi-segment-loop";
 import {
   ACTIVITY_PIE_COLORS,
   ActivityPieChart,
+  getSceneMarkerTagColorCustom,
 } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
 import type { IActivityPieSlice } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
 
@@ -34,8 +36,11 @@ interface IActivityStats {
   oralSeconds: number;
   soloSeconds: number;
   otherSeconds: number;
+  outstandingSeconds: number;
+  standardSeconds: number;
   unusableSeconds: number;
   markers: IActivityMarker[];
+  loopSegments: Record<string, ILoopSegmentInput[]>;
 }
 
 interface IStatsRow {
@@ -47,6 +52,9 @@ interface IStatsRow {
   role?: "top" | "bottom";
   isChild?: boolean;
   markers?: IActivityMarker[];
+  selectableKey?: string;
+  loopSegments?: ILoopSegmentInput[];
+  color?: string;
 }
 
 interface IPerformerStats {
@@ -58,7 +66,7 @@ interface IPerformerStats {
   rows: IStatsRow[];
 }
 
-function mergeDuration(intervals: IInterval[]) {
+function mergeIntervals(intervals: IInterval[]) {
   const sorted = [...intervals].sort((a, b) => a.start - b.start);
   const merged: IInterval[] = [];
 
@@ -72,10 +80,48 @@ function mergeDuration(intervals: IInterval[]) {
     last.end = Math.max(last.end, interval.end);
   });
 
-  return merged.reduce(
+  return merged;
+}
+
+function mergeDuration(intervals: IInterval[]) {
+  return mergeIntervals(intervals).reduce(
     (sum, interval) => sum + interval.end - interval.start,
     0
   );
+}
+
+function subtractIntervals(
+  intervals: IInterval[],
+  subtractIntervalsList: IInterval[]
+) {
+  const blockers = mergeIntervals(subtractIntervalsList);
+
+  return mergeIntervals(intervals).flatMap((interval) => {
+    let cursor = interval.start;
+    const remaining: IInterval[] = [];
+
+    blockers.forEach((blocker) => {
+      if (blocker.end <= cursor || blocker.start >= interval.end) return;
+
+      if (blocker.start > cursor) {
+        remaining.push({
+          start: cursor,
+          end: Math.min(blocker.start, interval.end),
+        });
+      }
+      cursor = Math.max(cursor, blocker.end);
+    });
+
+    if (cursor < interval.end) {
+      remaining.push({ start: cursor, end: interval.end });
+    }
+
+    return remaining;
+  });
+}
+
+function uncoveredIntervals(totalSeconds: number, intervals: IInterval[]) {
+  return subtractIntervals([{ start: 0, end: totalSeconds }], intervals);
 }
 
 function percent(seconds: number, totalSeconds: number) {
@@ -91,33 +137,39 @@ function formatPercentValue(row: Pick<IStatsRow, "percent">) {
   return `${row.percent}%`;
 }
 
-function getActivityColor(key: string) {
+function getActivityColor(key: string, soloColor = ACTIVITY_PIE_COLORS.solo) {
   const colors: Record<string, string> = {
     sex: ACTIVITY_PIE_COLORS.sex,
     oral: ACTIVITY_PIE_COLORS.oral,
-    solo: ACTIVITY_PIE_COLORS.solo,
+    solo: soloColor,
     other: ACTIVITY_PIE_COLORS.other,
+    outstanding: ACTIVITY_PIE_COLORS.outstanding,
+    standard: ACTIVITY_PIE_COLORS.standard,
     unusable: ACTIVITY_PIE_COLORS.unusable,
   };
 
   return colors[key] ?? ACTIVITY_PIE_COLORS.other;
 }
 
-function getStatsRowColor(row: IStatsRow) {
+function getStatsRowColor(row: IStatsRow, soloColor?: string) {
+  if (row.color) return row.color;
   if (row.role === "top") return ACTIVITY_PIE_COLORS.top;
   if (row.role === "bottom") return ACTIVITY_PIE_COLORS.bottom;
 
-  return getActivityColor(row.category ?? row.key);
+  return getActivityColor(row.category ?? row.key, soloColor);
 }
 
-function getActivityPieSlices(rows: IStatsRow[]): IActivityPieSlice[] {
+function getActivityPieSlices(
+  rows: IStatsRow[],
+  soloColor?: string
+): IActivityPieSlice[] {
   return rows
     .filter((row) => row.key !== "total" && row.seconds > 0)
     .map((row) => ({
       key: row.key,
       label: row.label,
       value: row.seconds,
-      color: getActivityColor(row.key),
+      color: row.color ?? getActivityColor(row.key, soloColor),
       percentLabel: formatPercentValue(row),
       sliceLabel: TextUtils.secondsToTimestamp(row.seconds),
       valueLabel: formatStatValue(row),
@@ -144,15 +196,11 @@ function getRolePieSlices(
     }));
 }
 
-function isExactPrimaryOnlyMarker(
+function isPrimaryMarker(
   marker: GQL.SceneDataFragment["scene_markers"][number],
   targetTagId: string | undefined
 ) {
-  return (
-    !!targetTagId &&
-    marker.primary_tag.id === targetTagId &&
-    marker.tags.length === 0
-  );
+  return !!targetTagId && marker.primary_tag.id === targetTagId;
 }
 
 function getMarkerActivityCategory(
@@ -163,10 +211,83 @@ function getMarkerActivityCategory(
     soloTagId?: string;
   }
 ): ActivityCategory | undefined {
-  if (isExactPrimaryOnlyMarker(marker, roleTagIds.sexTagId)) return "sex";
-  if (isExactPrimaryOnlyMarker(marker, roleTagIds.oralTagId)) return "oral";
-  if (isExactPrimaryOnlyMarker(marker, roleTagIds.soloTagId)) return "solo";
+  if (isPrimaryMarker(marker, roleTagIds.sexTagId)) return "sex";
+  if (isPrimaryMarker(marker, roleTagIds.oralTagId)) return "oral";
+  if (isPrimaryMarker(marker, roleTagIds.soloTagId)) return "solo";
   return undefined;
+}
+
+function isOutstandingMarker(
+  marker: GQL.SceneDataFragment["scene_markers"][number],
+  roleTagIds: {
+    sexTagId?: string;
+    oralTagId?: string;
+    soloTagId?: string;
+  }
+) {
+  return (
+    !getMarkerActivityCategory(marker, roleTagIds) || marker.tags.length > 0
+  );
+}
+
+function buildMarkerLoopSegment(
+  marker: IActivityMarker,
+  label: string
+): ILoopSegmentInput {
+  return {
+    start: marker.interval.start,
+    end: marker.interval.end,
+    title: `${label}: ${marker.marker.title}`,
+  };
+}
+
+function buildIntervalLoopSegments(label: string, intervals: IInterval[]) {
+  return mergeIntervals(intervals).map((interval, index) => ({
+    start: interval.start,
+    end: interval.end,
+    title: `${label}${intervals.length > 1 ? ` ${index + 1}` : ""}`,
+  }));
+}
+
+function sortLoopSegments(segments: ILoopSegmentInput[]) {
+  return [...segments].sort((a, b) => {
+    if (a.start !== b.start) return a.start - b.start;
+    if (a.end !== b.end) return a.end - b.end;
+    return (a.title ?? "").localeCompare(b.title ?? "");
+  });
+}
+
+function dedupeLoopSegments(segments: ILoopSegmentInput[]) {
+  const coveredIntervals: IInterval[] = [];
+  const dedupedSegments: ILoopSegmentInput[] = [];
+  const orderedSegments = [...segments].sort((a, b) => {
+    if (a.start !== b.start) return a.start - b.start;
+    if (a.end !== b.end) return b.end - a.end;
+    return (a.title ?? "").localeCompare(b.title ?? "");
+  });
+
+  orderedSegments.forEach((segment) => {
+    const start = Math.min(segment.start, segment.end);
+    const end = Math.max(segment.start, segment.end);
+    if (end <= start) return;
+
+    const uncoveredSegmentIntervals = subtractIntervals(
+      [{ start, end }],
+      coveredIntervals
+    );
+
+    uncoveredSegmentIntervals.forEach((interval) => {
+      dedupedSegments.push({
+        ...segment,
+        start: interval.start,
+        end: interval.end,
+      });
+    });
+
+    coveredIntervals.push({ start, end });
+  });
+
+  return sortLoopSegments(dedupedSegments);
 }
 
 function getActivityStats(
@@ -186,6 +307,8 @@ function getActivityStats(
     solo: [],
   };
   const markers: IActivityMarker[] = [];
+  const outstandingIntervals: IInterval[] = [];
+  const outstandingLoopSegments: ILoopSegmentInput[] = [];
   const unusableIntervals =
     scene.negative_markers
       ?.map((marker) => ({
@@ -206,21 +329,59 @@ function getActivityStats(
     if (interval.end <= interval.start) return;
 
     const category = getMarkerActivityCategory(marker, roleTagIds);
-    if (!category) return;
+    const activityMarker = category
+      ? { marker, category, interval }
+      : undefined;
+    if (activityMarker) {
+      intervals[activityMarker.category].push(interval);
+      markers.push(activityMarker);
+    }
 
-    intervals[category].push(interval);
-    markers.push({ marker, category, interval });
+    if (isOutstandingMarker(marker, roleTagIds)) {
+      outstandingIntervals.push(interval);
+      outstandingLoopSegments.push({
+        start: interval.start,
+        end: interval.end,
+        title: `OUTSTANDING: ${marker.title}`,
+      });
+    }
   });
 
   const sexSeconds = mergeDuration(intervals.sex);
   const oralSeconds = mergeDuration(intervals.oral);
   const soloSeconds = mergeDuration(intervals.solo);
-  const coveredSeconds = mergeDuration([
+  const activityIntervals = [
     ...intervals.sex,
     ...intervals.oral,
     ...intervals.solo,
+  ];
+  const activityOtherIntervals = uncoveredIntervals(
+    totalSeconds,
+    activityIntervals
+  );
+  const outstandingVisibleIntervals = subtractIntervals(
+    outstandingIntervals,
+    unusableIntervals
+  );
+  const standardIntervals = uncoveredIntervals(totalSeconds, [
+    ...outstandingIntervals,
     ...unusableIntervals,
   ]);
+
+  const loopSegments: Record<string, ILoopSegmentInput[]> = {
+    sex: markers
+      .filter((marker) => marker.category === "sex")
+      .map((marker) => buildMarkerLoopSegment(marker, "SEX")),
+    oral: markers
+      .filter((marker) => marker.category === "oral")
+      .map((marker) => buildMarkerLoopSegment(marker, "ORAL")),
+    solo: markers
+      .filter((marker) => marker.category === "solo")
+      .map((marker) => buildMarkerLoopSegment(marker, "SOLO")),
+    other: buildIntervalLoopSegments("OTHER", activityOtherIntervals),
+    outstanding: outstandingLoopSegments,
+    standard: buildIntervalLoopSegments("STANDARD", standardIntervals),
+  };
 
   return {
     totalSeconds,
@@ -228,8 +389,11 @@ function getActivityStats(
     oralSeconds,
     soloSeconds,
     unusableSeconds: mergeDuration(unusableIntervals),
-    otherSeconds: Math.max(0, totalSeconds - coveredSeconds),
+    otherSeconds: mergeDuration(activityOtherIntervals),
+    outstandingSeconds: mergeDuration(outstandingVisibleIntervals),
+    standardSeconds: mergeDuration(standardIntervals),
     markers,
+    loopSegments,
   };
 }
 
@@ -374,9 +538,21 @@ const SceneStatsPanel: React.FC<IProps> = ({
   addMultiSegmentLoopSegments,
 }) => {
   const { configuration } = useConfigurationContext();
-  const [selectedActivities, setSelectedActivities] = useState<
-    Set<ActivityCategory>
-  >(new Set());
+  const { soloTag } = useRoleTags();
+  const sceneMarkerTagNames = useMemo(
+    () =>
+      scene.scene_markers
+        .map((marker) => marker.primary_tag.name)
+        .filter((tagName): tagName is string => !!tagName),
+    [scene.scene_markers]
+  );
+  const soloMarkerColor = getSceneMarkerTagColorCustom(
+    soloTag?.name,
+    sceneMarkerTagNames
+  );
+  const [selectedActivities, setSelectedActivities] = useState<Set<string>>(
+    new Set()
+  );
   const [selectedPerformerRows, setSelectedPerformerRows] = useState<
     Set<string>
   >(new Set());
@@ -392,19 +568,15 @@ const SceneStatsPanel: React.FC<IProps> = ({
   if (!stats) return null;
   const activityStats = stats;
 
-  const rows: IStatsRow[] = [
-    {
-      key: "total",
-      label: "Total scene length",
-      seconds: activityStats.totalSeconds,
-      percent: 100,
-    },
+  const activityRows: IStatsRow[] = [
     {
       key: "sex",
       label: "Sex",
       seconds: activityStats.sexSeconds,
       percent: percent(activityStats.sexSeconds, activityStats.totalSeconds),
       category: "sex",
+      selectableKey: "sex",
+      loopSegments: activityStats.loopSegments.sex,
     },
     {
       key: "oral",
@@ -412,6 +584,8 @@ const SceneStatsPanel: React.FC<IProps> = ({
       seconds: activityStats.oralSeconds,
       percent: percent(activityStats.oralSeconds, activityStats.totalSeconds),
       category: "oral",
+      selectableKey: "oral",
+      loopSegments: activityStats.loopSegments.oral,
     },
     {
       key: "solo",
@@ -419,12 +593,41 @@ const SceneStatsPanel: React.FC<IProps> = ({
       seconds: activityStats.soloSeconds,
       percent: percent(activityStats.soloSeconds, activityStats.totalSeconds),
       category: "solo",
+      selectableKey: "solo",
+      loopSegments: activityStats.loopSegments.solo,
+      color: soloMarkerColor,
     },
     {
       key: "other",
       label: "Other",
       seconds: activityStats.otherSeconds,
       percent: percent(activityStats.otherSeconds, activityStats.totalSeconds),
+      selectableKey: "other",
+      loopSegments: activityStats.loopSegments.other,
+    },
+  ];
+  const qualityRows: IStatsRow[] = [
+    {
+      key: "outstanding",
+      label: "Outstanding",
+      seconds: activityStats.outstandingSeconds,
+      percent: percent(
+        activityStats.outstandingSeconds,
+        activityStats.totalSeconds
+      ),
+      selectableKey: "outstanding",
+      loopSegments: activityStats.loopSegments.outstanding,
+    },
+    {
+      key: "standard",
+      label: "Standard",
+      seconds: activityStats.standardSeconds,
+      percent: percent(
+        activityStats.standardSeconds,
+        activityStats.totalSeconds
+      ),
+      selectableKey: "standard",
+      loopSegments: activityStats.loopSegments.standard,
     },
     {
       key: "unusable",
@@ -437,7 +640,7 @@ const SceneStatsPanel: React.FC<IProps> = ({
     },
   ];
 
-  function toggleActivity(category: ActivityCategory) {
+  function toggleActivity(category: string) {
     setSelectedActivities((current) => {
       const next = new Set(current);
       if (next.has(category)) next.delete(category);
@@ -473,13 +676,12 @@ const SceneStatsPanel: React.FC<IProps> = ({
     if (selectedActivities.size === 0 && selectedPerformerRows.size === 0)
       return;
 
+    const selectedSegments = [...activityRows, ...qualityRows]
+      .filter(
+        (row) => row.selectableKey && selectedActivities.has(row.selectableKey)
+      )
+      .flatMap((row) => row.loopSegments ?? []);
     const selectedMarkers = new Map<string, IActivityMarker>();
-
-    activityStats.markers
-      .filter(({ category }) => selectedActivities.has(category))
-      .forEach((activityMarker) => {
-        selectedMarkers.set(activityMarker.marker.id, activityMarker);
-      });
 
     performerStats.forEach((entry) => {
       entry.rows.forEach((row) => {
@@ -496,7 +698,10 @@ const SceneStatsPanel: React.FC<IProps> = ({
     });
 
     addMultiSegmentLoopSegments(
-      buildLoopSegments([...selectedMarkers.values()])
+      dedupeLoopSegments([
+        ...selectedSegments,
+        ...buildLoopSegments([...selectedMarkers.values()]),
+      ])
     );
     setSelectedActivities(new Set());
     setSelectedPerformerRows(new Set());
@@ -504,9 +709,10 @@ const SceneStatsPanel: React.FC<IProps> = ({
 
   const canAddToLoop =
     selectedActivities.size > 0 || selectedPerformerRows.size > 0;
-  const activityPieSlices = getActivityPieSlices(rows);
+  const activityPieSlices = getActivityPieSlices(activityRows, soloMarkerColor);
+  const qualityPieSlices = getActivityPieSlices(qualityRows, soloMarkerColor);
 
-  function renderActivityChartFooter() {
+  function renderActivityChartFooter(rows: IStatsRow[]) {
     return (
       <div className="custom-stats-chart-table">
         {rows
@@ -516,15 +722,19 @@ const SceneStatsPanel: React.FC<IProps> = ({
               <span
                 aria-hidden="true"
                 className="custom-stats-color-swatch"
-                style={{ backgroundColor: getStatsRowColor(row) }}
+                style={{
+                  backgroundColor: getStatsRowColor(row, soloMarkerColor),
+                }}
               />
-              {row.category ? (
+              {row.selectableKey && row.loopSegments?.length ? (
                 <Form.Check
                   className="custom-stats-check"
-                  id={`scene-stats-${scene.id}-${row.category}`}
-                  checked={selectedActivities.has(row.category)}
+                  id={`scene-stats-${scene.id}-${row.selectableKey}`}
+                  checked={selectedActivities.has(row.selectableKey)}
                   label={row.label}
-                  onChange={() => row.category && toggleActivity(row.category)}
+                  onChange={() =>
+                    row.selectableKey && toggleActivity(row.selectableKey)
+                  }
                 />
               ) : (
                 <span className="custom-stats-label">{row.label}</span>
@@ -561,7 +771,9 @@ const SceneStatsPanel: React.FC<IProps> = ({
               <span
                 aria-hidden="true"
                 className="custom-stats-color-swatch"
-                style={{ backgroundColor: getStatsRowColor(row) }}
+                style={{
+                  backgroundColor: getStatsRowColor(row, soloMarkerColor),
+                }}
               />
               <Form.Check
                 className="custom-stats-check"
@@ -589,10 +801,18 @@ const SceneStatsPanel: React.FC<IProps> = ({
         <ActivityPieChart
           centerLabel={TextUtils.secondsToTimestamp(activityStats.totalSeconds)}
           className="custom-stats-overview-chart"
-          footer={renderActivityChartFooter()}
+          footer={renderActivityChartFooter(activityRows)}
           showLegend={false}
           slices={activityPieSlices}
-          title="Activity"
+          title="Activity Type"
+        />
+        <ActivityPieChart
+          centerLabel={TextUtils.secondsToTimestamp(activityStats.totalSeconds)}
+          className="custom-stats-overview-chart"
+          footer={renderActivityChartFooter(qualityRows)}
+          showLegend={false}
+          slices={qualityPieSlices}
+          title="Quality"
         />
       </div>
 

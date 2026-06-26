@@ -12,7 +12,8 @@ mutation PerformerUpdate($input: PerformerUpdateInput!) {
 
 mutation BulkPerformerUpdate($input: BulkPerformerUpdateInput!) {
   bulkPerformerUpdate(input: $input) {
-    ...PerformerData
+    # CUSTOM: keep bulk edit responses lightweight; callers refetch impacted lists.
+    id
   }
 }
 

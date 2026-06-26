@@ -18,17 +18,29 @@
 .scene-activity-metrics {
   align-items: center;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+  flex-direction: column;
+  gap: 0.2rem;
   justify-content: center;
   margin: -0.15rem 0 0.6rem;
   padding: 0 0.5rem;
 }
 
+.scene-activity-metrics__row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: center;
+}
+
 .scene-activity-metrics--detail {
-  justify-content: flex-start;
+  align-items: flex-start;
   margin: 0.2rem 0 0.4rem;
   padding: 0;
+
+  .scene-activity-metrics__row {
+    justify-content: flex-start;
+  }
 }
 
 .scene-activity-metric {
@@ -58,6 +70,8 @@
 }
 
 .scene-activity-metric__other,
+.scene-activity-metric__outstanding,
+.scene-activity-metric__standard,
 .scene-activity-metric__unusable {
   font-size: 0.95em;
 }
@@ -1499,6 +1513,12 @@ input[type="range"].blue-slider {
 .studio-stats-panel .custom-stats-overview {
   gap: 1.5rem;
   justify-content: center;
+}
+
+.scene-stats-panel .custom-stats-overview,
+.studio-stats-panel .custom-stats-overview {
+  column-gap: 3rem;
+  row-gap: 2rem;
 }
 
 .performer-stats-panel .custom-stats-overview {

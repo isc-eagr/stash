@@ -53,6 +53,26 @@ func TestActivityStatsDurationCustom(t *testing.T) {
 	}
 }
 
+func TestActivityStatsSubtractIntervalsCustom(t *testing.T) {
+	intervals := []activityIntervalCustom{
+		{sceneID: 1, start: 0, end: 30},
+		{sceneID: 1, start: 20, end: 50},
+		{sceneID: 2, start: 0, end: 20},
+	}
+	subtractIntervals := []activityIntervalCustom{
+		{sceneID: 1, start: 10, end: 15},
+		{sceneID: 1, start: 35, end: 60},
+		{sceneID: 2, start: 5, end: 10},
+	}
+
+	assert.Equal(t, []activityIntervalCustom{
+		{sceneID: 1, start: 0, end: 10},
+		{sceneID: 1, start: 15, end: 35},
+		{sceneID: 2, start: 0, end: 5},
+		{sceneID: 2, start: 10, end: 20},
+	}, activityStatsSubtractIntervalsCustom(intervals, subtractIntervals))
+}
+
 func TestActivityStatsPercentCustom(t *testing.T) {
 	assert.Equal(t, 0.0, activityStatsPercentCustom(10, 0))
 	assert.Equal(t, 0.0, activityStatsPercentCustom(10, -1))
@@ -71,6 +91,15 @@ func TestActivityStatsOtherSecondsCustom(t *testing.T) {
 
 	assert.Equal(t, 40.0, activityStatsOtherSecondsCustom(100, activityIntervals, unusableIntervals))
 	assert.Equal(t, 0.0, activityStatsOtherSecondsCustom(50, activityIntervals, unusableIntervals))
+}
+
+func TestActivityStatsActivityOtherSecondsCustom(t *testing.T) {
+	activityIntervals := []activityIntervalCustom{
+		{sceneID: 1, start: 0, end: 30},
+		{sceneID: 1, start: 20, end: 45},
+	}
+	assert.Equal(t, 55.0, activityStatsActivityOtherSecondsCustom(100, activityIntervals))
+	assert.Equal(t, 0.0, activityStatsActivityOtherSecondsCustom(30, activityIntervals))
 }
 
 func TestActivityStatsOtherSecondsCustomMergesAnyCoveredMarkerType(t *testing.T) {
@@ -103,6 +132,13 @@ func TestActivityStatsCategoryCustom(t *testing.T) {
 	category, ok = activityStatsCategoryCustom(10, 0, 20, 30)
 	assert.False(t, ok)
 	assert.Empty(t, category)
+}
+
+func TestActivityStatsIsOutstandingMarkerCustom(t *testing.T) {
+	assert.False(t, activityStatsIsOutstandingMarkerCustom(10, 0, 10, 20, 30))
+	assert.True(t, activityStatsIsOutstandingMarkerCustom(10, 1, 10, 20, 30))
+	assert.True(t, activityStatsIsOutstandingMarkerCustom(40, 0, 10, 20, 30))
+	assert.True(t, activityStatsIsOutstandingMarkerCustom(10, 0, 0, 20, 30))
 }
 
 func TestActivityStatsValueConversionsCustom(t *testing.T) {

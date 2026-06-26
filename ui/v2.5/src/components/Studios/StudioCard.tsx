@@ -555,7 +555,6 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         <StudioActivityMetricsStrip
           stats={stats}
           idPrefix={`studio-activity-${studio.id}`}
-          showUnusable={!performerId}
         />
       );
     }

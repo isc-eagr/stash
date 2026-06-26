@@ -1,9 +1,11 @@
 import React from "react";
 import * as GQL from "src/core/generated-graphql";
+import { useRoleTags } from "src/hooks/useRoleTags";
 import TextUtils from "src/utils/text";
 import {
   ACTIVITY_PIE_COLORS,
   ActivityPieChart,
+  getSceneMarkerTagColorCustom,
 } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
 import type { IActivityPieSlice } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
 
@@ -35,7 +37,10 @@ function formatStatValue(seconds: number, percent: number) {
   return `${TextUtils.secondsToTimestamp(seconds)} (${formatPercent(percent)})`;
 }
 
-function getActivityPieSlices(stats: GQL.PerformerActivityStats) {
+function getActivityPieSlices(
+  stats: GQL.PerformerActivityStats,
+  soloColor: string
+) {
   return [
     {
       key: "sex",
@@ -59,7 +64,7 @@ function getActivityPieSlices(stats: GQL.PerformerActivityStats) {
       key: "solo",
       label: activityLabels.solo,
       value: stats.solo_seconds,
-      color: ACTIVITY_PIE_COLORS.solo,
+      color: soloColor,
       percentLabel: formatPercent(stats.solo_percent),
       sliceLabel: TextUtils.secondsToTimestamp(stats.solo_seconds),
       valueLabel: formatStatValue(stats.solo_seconds, stats.solo_percent),
@@ -158,8 +163,10 @@ function renderStatsChartFooter(rows: IStatsChartFooterRow[]) {
 }
 
 export const PerformerStatsPanel: React.FC<IProps> = ({ performer }) => {
+  const { soloTag } = useRoleTags();
+  const soloMarkerColor = getSceneMarkerTagColorCustom(soloTag?.name);
   const stats = performer.activity_stats;
-  const activityPieSlices = getActivityPieSlices(stats);
+  const activityPieSlices = getActivityPieSlices(stats, soloMarkerColor);
   const activityRows: IStatsChartFooterRow[] = [
     {
       key: "sex",
@@ -180,7 +187,7 @@ export const PerformerStatsPanel: React.FC<IProps> = ({ performer }) => {
       label: activityLabels.solo,
       seconds: stats.solo_seconds,
       percent: stats.solo_percent,
-      color: ACTIVITY_PIE_COLORS.solo,
+      color: soloMarkerColor,
     },
   ];
   const roleCharts = (["sex", "oral"] as ActivityCategory[])

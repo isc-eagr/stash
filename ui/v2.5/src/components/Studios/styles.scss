@@ -23,11 +23,19 @@
   .studio-activity-metrics {
     align-items: center;
     display: flex;
-    flex-wrap: nowrap;
+    flex-direction: column;
     gap: 0.2rem;
     justify-content: center;
     margin: -0.15rem 0 0.35rem;
     padding: 0 0.25rem;
+  }
+
+  .studio-activity-metrics__row {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+    justify-content: center;
   }
 
   .studio-activity-metric {
@@ -57,6 +65,8 @@
   }
 
   .studio-activity-metric__other,
+  .studio-activity-metric__outstanding,
+  .studio-activity-metric__standard,
   .studio-activity-metric__unusable {
     font-size: 0.95em;
   }
@@ -264,11 +274,19 @@
   .studio-activity-metrics {
     align-items: center;
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 0.35rem;
     justify-content: center;
     margin: -0.4rem 0 0.75rem;
     padding: 0 0.5rem;
+  }
+
+  .studio-activity-metrics__row {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    justify-content: center;
   }
 
   .studio-activity-metric {
@@ -298,6 +316,8 @@
   }
 
   .studio-activity-metric__other,
+  .studio-activity-metric__outstanding,
+  .studio-activity-metric__standard,
   .studio-activity-metric__unusable {
     font-size: 0.95em;
   }

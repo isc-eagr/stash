@@ -1,14 +1,165 @@
 import React from "react";
+import CryptoJS from "crypto-js";
 
 export const ACTIVITY_PIE_COLORS = {
   sex: "#d9822b",
   oral: "#00b3a4",
-  solo: "#ffd700",
+  solo: "#8a9ba8",
   other: "#8a9ba8",
+  outstanding: "#ffd700",
+  standard: "#28a745",
   unusable: "#dc3545",
   top: "#28a745",
   bottom: "#17a2b8",
 };
+
+function semanticMarkerTagColorCustom(tag: string): string | undefined {
+  const normalized = tag.toLocaleLowerCase();
+
+  if (
+    /\b(bj|blow\s*job|blowjob|blow\w*|oral|suck\w*|fellatio)\b/.test(normalized)
+  ) {
+    return "#14b8d4cc";
+  }
+
+  if (/\b(fuck\w*|sex|anal|penetrat\w*|intercourse)\b/.test(normalized)) {
+    return "#ff7a00cc";
+  }
+
+  return undefined;
+}
+
+function computeMarkerBaseHueCustom(tag: string): number {
+  const hash = CryptoJS.SHA256(tag);
+  const hashHex = hash.toString(CryptoJS.enc.Hex);
+  const hashInt = BigInt(`0x${hashHex}`);
+  return Number(hashInt % BigInt(360));
+}
+
+function calculateMarkerHueDeltaMinCustom(tagCount: number): number {
+  const maxDeltaNeeded = 35;
+  let scalingFactor: number;
+
+  if (tagCount <= 4) {
+    scalingFactor = 0.8;
+  } else if (tagCount <= 10) {
+    scalingFactor = 0.6;
+  } else {
+    scalingFactor = 0.4;
+  }
+
+  return Math.min((360 / tagCount) * scalingFactor, maxDeltaNeeded);
+}
+
+function adjustMarkerHuesCustom(baseHues: Record<string, number>) {
+  const adjustedHues: Record<string, number> = {};
+  const tags = Object.keys(baseHues);
+  const tagCount = tags.length;
+  const deltaMin = calculateMarkerHueDeltaMinCustom(tagCount);
+
+  const sortedTags = tags.sort((a, b) => baseHues[a] - baseHues[b]);
+  const unwrappedHues = sortedTags.map((tag) => baseHues[tag]);
+
+  for (let i = 1; i < tagCount; i += 1) {
+    if (unwrappedHues[i] <= unwrappedHues[i - 1]) {
+      unwrappedHues[i] += 360;
+    }
+  }
+
+  for (let i = 1; i < tagCount; i += 1) {
+    const requiredHue = unwrappedHues[i - 1] + deltaMin;
+    if (unwrappedHues[i] < requiredHue) {
+      unwrappedHues[i] = requiredHue;
+    }
+  }
+
+  const endGap = unwrappedHues[0] + 360 - unwrappedHues[tagCount - 1];
+  if (endGap < deltaMin) {
+    const adjustmentNeeded = (deltaMin - endGap) / 2;
+    unwrappedHues[0] = Math.max(
+      unwrappedHues[0] - adjustmentNeeded,
+      unwrappedHues[1] - 360 + deltaMin
+    );
+    unwrappedHues[tagCount - 1] += adjustmentNeeded;
+  }
+
+  const adjustedHueList = unwrappedHues.map((hue) => hue % 360);
+  for (let i = 0; i < tagCount; i += 1) {
+    adjustedHues[sortedTags[i]] = adjustedHueList[i];
+  }
+
+  return adjustedHues;
+}
+
+function markerHsvToRgbCustom(h: number, s: number, v: number) {
+  const i = Math.floor(h * 6);
+  const f = h * 6 - i;
+  const p = v * (1 - s);
+  const q = v * (1 - f * s);
+  const t = v * (1 - (1 - f) * s);
+
+  switch (i % 6) {
+    case 0:
+      return [v, t, p];
+    case 1:
+      return [q, v, p];
+    case 2:
+      return [p, v, t];
+    case 3:
+      return [p, q, v];
+    case 4:
+      return [t, p, v];
+    default:
+      return [v, p, q];
+  }
+}
+
+function markerColorHexCustom(value: number): string {
+  return value.toString(16).padStart(2, "0");
+}
+
+function hueToMarkerColorCustom(hue: number): string {
+  let remappedHue = 30 + (hue % 360) * (300 / 360);
+  const goldStart = 45;
+  const goldEnd = 65;
+
+  if (remappedHue >= goldStart && remappedHue < goldEnd) {
+    remappedHue = goldEnd;
+  } else if (remappedHue >= goldEnd) {
+    remappedHue -= goldEnd - goldStart;
+  }
+
+  const rgb = markerHsvToRgbCustom(remappedHue / 360, 0.65, 0.95);
+  const alpha = Math.round(0.6 * 255);
+  return `#${markerColorHexCustom(
+    Math.round(rgb[0] * 255)
+  )}${markerColorHexCustom(Math.round(rgb[1] * 255))}${markerColorHexCustom(
+    Math.round(rgb[2] * 255)
+  )}${markerColorHexCustom(alpha)}`;
+}
+
+function getAdjustedMarkerHueCustom(tagName: string, tagNames?: string[]) {
+  const uniqueTagNames = [...new Set([...(tagNames ?? []), tagName])].filter(
+    (tag) => tag.length > 0
+  );
+
+  const baseHues = Object.fromEntries(
+    uniqueTagNames.map((tag) => [tag, computeMarkerBaseHueCustom(tag)])
+  );
+
+  return adjustMarkerHuesCustom(baseHues)[tagName];
+}
+
+export function getSceneMarkerTagColorCustom(
+  tagName?: string | null,
+  tagNames?: string[]
+): string {
+  if (!tagName) return ACTIVITY_PIE_COLORS.solo;
+  return (
+    semanticMarkerTagColorCustom(tagName) ??
+    hueToMarkerColorCustom(getAdjustedMarkerHueCustom(tagName, tagNames))
+  );
+}
 
 export interface IActivityPieSlice {
   key: string;
@@ -120,7 +271,9 @@ export const ActivityPieChart: React.FC<IProps> = ({
             }`}
             className={`activity-pie-chart-slice${
               slice.onClick ? " activity-pie-chart-slice-clickable" : ""
-            }${slice.active ? " activity-pie-chart-slice-active" : ""}`}
+            }${
+              slice.active ? " activity-pie-chart-slice-active" : ""
+            } activity-pie-chart-slice--${slice.key}`}
             cx="50"
             cy="50"
             fill="none"
@@ -170,7 +323,7 @@ export const ActivityPieChart: React.FC<IProps> = ({
               <>
                 <span
                   aria-hidden="true"
-                  className="activity-pie-chart-legend-swatch"
+                  className={`activity-pie-chart-legend-swatch activity-pie-chart-legend-swatch--${slice.key}`}
                   style={{ backgroundColor: slice.color }}
                 />
                 <span className="activity-pie-chart-legend-label">

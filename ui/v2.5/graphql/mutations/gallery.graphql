@@ -12,7 +12,8 @@ mutation GalleryUpdate($input: GalleryUpdateInput!) {
 
 mutation BulkGalleryUpdate($input: BulkGalleryUpdateInput!) {
   bulkGalleryUpdate(input: $input) {
-    ...GalleryData
+    # CUSTOM: keep bulk edit responses lightweight; callers refetch impacted lists.
+    id
   }
 }
 

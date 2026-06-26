@@ -20,7 +20,8 @@ mutation TagUpdate($input: TagUpdateInput!) {
 
 mutation BulkTagUpdate($input: BulkTagUpdateInput!) {
   bulkTagUpdate(input: $input) {
-    ...TagData
+    # CUSTOM: keep bulk edit responses lightweight; callers refetch impacted lists.
+    id
   }
 }
 

@@ -12,7 +12,8 @@ mutation SceneUpdate($input: SceneUpdateInput!) {
 
 mutation BulkSceneUpdate($input: BulkSceneUpdateInput!) {
   bulkSceneUpdate(input: $input) {
-    ...SceneData
+    # CUSTOM: keep bulk edit responses lightweight; callers refetch impacted lists.
+    id
   }
 }
 
@@ -141,9 +142,7 @@ mutation DeleteSceneMultiSegmentLoopPreset($scene_id: ID!, $name: String!) {
   deleteSceneMultiSegmentLoopPreset(scene_id: $scene_id, name: $name)
 }
 
-mutation SceneNegativeMarkerCreate(
-  $input: SceneNegativeMarkerCreateInput!
-) {
+mutation SceneNegativeMarkerCreate($input: SceneNegativeMarkerCreateInput!) {
   sceneNegativeMarkerCreate(input: $input) {
     id
     scene_id
@@ -155,9 +154,7 @@ mutation SceneNegativeMarkerCreate(
   }
 }
 
-mutation SceneNegativeMarkerUpdate(
-  $input: SceneNegativeMarkerUpdateInput!
-) {
+mutation SceneNegativeMarkerUpdate($input: SceneNegativeMarkerUpdateInput!) {
   sceneNegativeMarkerUpdate(input: $input) {
     id
     scene_id

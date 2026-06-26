@@ -1,9 +1,11 @@
 import React from "react";
 import * as GQL from "src/core/generated-graphql";
+import { useRoleTags } from "src/hooks/useRoleTags";
 import TextUtils from "src/utils/text";
 import {
   ACTIVITY_PIE_COLORS,
   ActivityPieChart,
+  getSceneMarkerTagColorCustom,
 } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
 import type { IActivityPieSlice } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
 
@@ -17,6 +19,7 @@ interface IStatsRow {
   label: string;
   seconds: number;
   percent: number;
+  color?: string;
 }
 
 function formatPercent(value: number) {
@@ -29,33 +32,38 @@ function formatStatValue(row: Pick<IStatsRow, "seconds" | "percent">) {
   )})`;
 }
 
-function getActivityColor(key: string) {
+function getActivityColor(key: string, soloColor = ACTIVITY_PIE_COLORS.solo) {
   const colors: Record<string, string> = {
     sex: ACTIVITY_PIE_COLORS.sex,
     oral: ACTIVITY_PIE_COLORS.oral,
-    solo: ACTIVITY_PIE_COLORS.solo,
+    solo: soloColor,
     other: ACTIVITY_PIE_COLORS.other,
+    outstanding: ACTIVITY_PIE_COLORS.outstanding,
+    standard: ACTIVITY_PIE_COLORS.standard,
     unusable: ACTIVITY_PIE_COLORS.unusable,
   };
 
   return colors[key] ?? ACTIVITY_PIE_COLORS.other;
 }
 
-function getActivityPieSlices(rows: IStatsRow[]): IActivityPieSlice[] {
+function getActivityPieSlices(
+  rows: IStatsRow[],
+  soloColor?: string
+): IActivityPieSlice[] {
   return rows
     .filter((row) => row.key !== "total" && row.seconds > 0)
     .map((row) => ({
       key: row.key,
       label: row.label,
       value: row.seconds,
-      color: getActivityColor(row.key),
+      color: row.color ?? getActivityColor(row.key, soloColor),
       percentLabel: formatPercent(row.percent),
       sliceLabel: TextUtils.secondsToTimestamp(row.seconds),
       valueLabel: formatStatValue(row),
     }));
 }
 
-function renderStatsChartFooter(rows: IStatsRow[]) {
+function renderStatsChartFooter(rows: IStatsRow[], soloColor?: string) {
   return (
     <div className="custom-stats-chart-table">
       {rows
@@ -65,7 +73,10 @@ function renderStatsChartFooter(rows: IStatsRow[]) {
             <span
               aria-hidden="true"
               className="custom-stats-color-swatch"
-              style={{ backgroundColor: getActivityColor(row.key) }}
+              style={{
+                backgroundColor:
+                  row.color ?? getActivityColor(row.key, soloColor),
+              }}
             />
             <span className="custom-stats-label">{row.label}</span>
             <span className="custom-stats-value">
@@ -84,17 +95,13 @@ export const StudioStatsPanel: React.FC<IProps> = ({
   studio,
   showChildStudioContent,
 }) => {
+  const { soloTag } = useRoleTags();
+  const soloMarkerColor = getSceneMarkerTagColorCustom(soloTag?.name);
   const stats = showChildStudioContent
     ? studio.studio_activity_stats_all
     : studio.studio_activity_stats;
 
-  const rows: IStatsRow[] = [
-    {
-      key: "total",
-      label: "Total qualifying scene length",
-      seconds: stats.total_seconds,
-      percent: 100,
-    },
+  const activityRows: IStatsRow[] = [
     {
       key: "sex",
       label: "Sex",
@@ -112,12 +119,27 @@ export const StudioStatsPanel: React.FC<IProps> = ({
       label: "Solo",
       seconds: stats.solo_seconds,
       percent: stats.solo_percent,
+      color: soloMarkerColor,
     },
     {
       key: "other",
       label: "Other",
-      seconds: stats.other_seconds,
-      percent: stats.other_percent,
+      seconds: stats.activity_other_seconds,
+      percent: stats.activity_other_percent,
+    },
+  ];
+  const qualityRows: IStatsRow[] = [
+    {
+      key: "outstanding",
+      label: "Outstanding",
+      seconds: stats.outstanding_seconds,
+      percent: stats.outstanding_percent,
+    },
+    {
+      key: "standard",
+      label: "Standard",
+      seconds: stats.standard_seconds,
+      percent: stats.standard_percent,
     },
     {
       key: "unusable",
@@ -126,7 +148,8 @@ export const StudioStatsPanel: React.FC<IProps> = ({
       percent: stats.unusable_percent,
     },
   ];
-  const activityPieSlices = getActivityPieSlices(rows);
+  const activityPieSlices = getActivityPieSlices(activityRows, soloMarkerColor);
+  const qualityPieSlices = getActivityPieSlices(qualityRows, soloMarkerColor);
 
   return (
     <div className="studio-stats-panel mt-3">
@@ -134,11 +157,20 @@ export const StudioStatsPanel: React.FC<IProps> = ({
         <ActivityPieChart
           centerLabel={TextUtils.secondsToTimestamp(stats.total_seconds)}
           className="custom-stats-overview-chart studio-stats-chart"
-          footer={renderStatsChartFooter(rows)}
+          footer={renderStatsChartFooter(activityRows, soloMarkerColor)}
           showLegend={false}
           size={240}
           slices={activityPieSlices}
-          title="Activity"
+          title="Activity Type"
+        />
+        <ActivityPieChart
+          centerLabel={TextUtils.secondsToTimestamp(stats.total_seconds)}
+          className="custom-stats-overview-chart studio-stats-chart"
+          footer={renderStatsChartFooter(qualityRows, soloMarkerColor)}
+          showLegend={false}
+          size={240}
+          slices={qualityPieSlices}
+          title="Quality"
         />
       </div>
     </div>

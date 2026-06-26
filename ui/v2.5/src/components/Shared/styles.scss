@@ -101,6 +101,11 @@
   stroke-width: 23;
 }
 
+.activity-pie-chart-slice--outstanding {
+  filter: drop-shadow(0 0 0.28rem rgba(255, 215, 0, 0.95))
+    drop-shadow(0 0 0.7rem rgba(255, 193, 7, 0.55));
+}
+
 .activity-pie-chart-center-label {
   fill: $text-color;
   font-size: 0.47rem;
@@ -161,6 +166,10 @@
   display: block;
   height: 0.7rem;
   width: 0.7rem;
+}
+
+.activity-pie-chart-legend-swatch--outstanding {
+  box-shadow: 0 0 0.35rem rgba(255, 215, 0, 0.85);
 }
 
 .activity-pie-chart-legend-label {
