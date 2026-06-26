@@ -433,10 +433,9 @@ func (qb *performerFilterHandler) markerTagsCriterionHandler(tags *models.Hierar
 					SELECT 1 FROM performers_scenes ps
 					JOIN scenes s ON s.id = ps.scene_id
 					JOIN scene_markers sm ON sm.scene_id = s.id
-					JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
 					WHERE ps.performer_id = performers.id
-					AND smt.tag_id IN (SELECT column2 FROM (%s))
-				)`, valuesClause))
+					AND %s
+				)`, sceneMarkerDirectHasTagInClauseCustom("sm", fmt.Sprintf("(SELECT column2 FROM (%s))", valuesClause))))
 
 			case models.CriterionModifierIncludesAll:
 				// At least one marker with all the tags
@@ -445,13 +444,9 @@ func (qb *performerFilterHandler) markerTagsCriterionHandler(tags *models.Hierar
 					JOIN scenes s ON s.id = ps.scene_id
 					JOIN scene_markers sm ON sm.scene_id = s.id
 					WHERE ps.performer_id = performers.id
-					AND (
-						SELECT COUNT(DISTINCT smt.tag_id)
-						FROM scene_markers_tags smt
-						WHERE smt.scene_marker_id = sm.id
-						AND smt.tag_id IN (SELECT column2 FROM (%s))
-					) = %d
-				)`, valuesClause, len(criterion.Value)))
+					AND %s
+					AND %s
+				)`, sceneMarkerDirectHasTagInClauseCustom("sm", fmt.Sprintf("(SELECT column2 FROM (%s))", valuesClause)), sceneMarkerEffectiveTagsCountClauseCustom("sm", fmt.Sprintf("(SELECT column2 FROM (%s))", valuesClause), len(criterion.Value))))
 
 			case models.CriterionModifierEquals:
 				// At least one marker with exactly the specified tags
@@ -460,18 +455,9 @@ func (qb *performerFilterHandler) markerTagsCriterionHandler(tags *models.Hierar
 					JOIN scenes s ON s.id = ps.scene_id
 					JOIN scene_markers sm ON sm.scene_id = s.id
 					WHERE ps.performer_id = performers.id
-					AND (
-						SELECT COUNT(DISTINCT smt.tag_id)
-						FROM scene_markers_tags smt
-						WHERE smt.scene_marker_id = sm.id
-						AND smt.tag_id IN (SELECT column2 FROM (%s))
-					) = %d
-					AND (
-						SELECT COUNT(*)
-						FROM scene_markers_tags smt2
-						WHERE smt2.scene_marker_id = sm.id
-					) = %d
-				)`, valuesClause, len(criterion.Value), len(criterion.Value)))
+					AND %s
+					AND %s
+				)`, sceneMarkerDirectHasTagInClauseCustom("sm", fmt.Sprintf("(SELECT column2 FROM (%s))", valuesClause)), sceneMarkerEffectiveTagsCountClauseCustom("sm", fmt.Sprintf("(SELECT column2 FROM (%s))", valuesClause), len(criterion.Value))))
 			}
 		}
 
@@ -488,10 +474,9 @@ func (qb *performerFilterHandler) markerTagsCriterionHandler(tags *models.Hierar
 				SELECT 1 FROM performers_scenes ps
 				JOIN scenes s ON s.id = ps.scene_id
 				JOIN scene_markers sm ON sm.scene_id = s.id
-				JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
 				WHERE ps.performer_id = performers.id
-				AND smt.tag_id IN (SELECT column2 FROM (%s))
-			)`, valuesClause))
+				AND %s
+			)`, sceneMarkerDirectHasTagInClauseCustom("sm", fmt.Sprintf("(SELECT column2 FROM (%s))", valuesClause))))
 		}
 	}
 }
@@ -555,19 +540,7 @@ func (qb *performerFilterHandler) performerMarkersCriterionHandler(input *models
 				if depthVal == 0 {
 					// Simple case: exact tag match only
 					ph := getInBinding(len(cond.TagIDs))
-					tagClause := fmt.Sprintf(`(
-						sm.primary_tag_id IN %s
-						OR EXISTS (
-							SELECT 1 FROM scene_markers_tags smt 
-							WHERE smt.scene_marker_id = sm.id 
-							AND smt.tag_id IN %s
-						)
-					)`, ph, ph)
-					clauses = append(clauses, tagClause)
-					// Add tag IDs twice (once for primary_tag_id, once for scene_markers_tags)
-					for _, tid := range cond.TagIDs {
-						args = append(args, tid)
-					}
+					clauses = append(clauses, sceneMarkerDirectHasTagInClauseCustom("sm", ph))
 					for _, tid := range cond.TagIDs {
 						args = append(args, tid)
 					}
@@ -579,15 +552,7 @@ func (qb *performerFilterHandler) performerMarkersCriterionHandler(input *models
 					}
 
 					// Use the expanded tag values (column2 contains the actual tag id to match)
-					tagClause := fmt.Sprintf(`(
-						sm.primary_tag_id IN (SELECT column2 FROM (%s))
-						OR EXISTS (
-							SELECT 1 FROM scene_markers_tags smt 
-							WHERE smt.scene_marker_id = sm.id 
-							AND smt.tag_id IN (SELECT column2 FROM (%s))
-						)
-					)`, valuesClause, valuesClause)
-					clauses = append(clauses, tagClause)
+					clauses = append(clauses, sceneMarkerDirectHasTagInClauseCustom("sm", fmt.Sprintf("(SELECT column2 FROM (%s))", valuesClause)))
 				}
 			}
 
@@ -760,26 +725,32 @@ func (qb *performerFilterHandler) performerMarkerTagsCriterionHandler(input *mod
 		ph := getInBinding(len(input.TagIds))
 
 		var sql string
-		args := make([]interface{}, 0, len(input.TagIds)*2)
+		args := make([]interface{}, 0, len(input.TagIds)*3)
 
 		switch input.Modifier {
-		case models.CriterionModifierIncludes, models.CriterionModifierIncludesAll:
-			// Performer must be in markers that have ALL specified tags
+		case models.CriterionModifierIncludes:
+			// Performer must be in markers that directly have at least one specified tag
 			sql = fmt.Sprintf(`EXISTS (
 				SELECT 1 FROM scene_marker_performers smp
 				JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 				WHERE smp.performer_id = performers.id %s
-				AND (
-					sm.primary_tag_id IN %s
-					OR EXISTS (
-						SELECT 1 FROM scene_markers_tags smt 
-						WHERE smt.scene_marker_id = sm.id 
-						AND smt.tag_id IN %s
-					)
-				)
-			)`, roleClause, ph, ph)
+				AND %s
+			)`, roleClause, sceneMarkerDirectHasTagInClauseCustom("sm", ph))
 
-			// Add tag IDs twice
+			for _, tid := range input.TagIds {
+				args = append(args, tid)
+			}
+
+		case models.CriterionModifierIncludesAll:
+			// Performer must be in a direct-tag marker whose overlapping markers satisfy all specified tags
+			sql = fmt.Sprintf(`EXISTS (
+				SELECT 1 FROM scene_marker_performers smp
+				JOIN scene_markers sm ON sm.id = smp.scene_marker_id
+				WHERE smp.performer_id = performers.id %s
+				AND %s
+				AND %s
+			)`, roleClause, sceneMarkerDirectHasTagInClauseCustom("sm", ph), sceneMarkerEffectiveTagsCountClauseCustom("sm", ph, len(input.TagIds)))
+
 			for _, tid := range input.TagIds {
 				args = append(args, tid)
 			}
@@ -793,19 +764,9 @@ func (qb *performerFilterHandler) performerMarkerTagsCriterionHandler(input *mod
 				SELECT 1 FROM scene_marker_performers smp
 				JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 				WHERE smp.performer_id = performers.id %s
-				AND (
-					sm.primary_tag_id IN %s
-					OR EXISTS (
-						SELECT 1 FROM scene_markers_tags smt 
-						WHERE smt.scene_marker_id = sm.id 
-						AND smt.tag_id IN %s
-					)
-				)
-			)`, roleClause, ph, ph)
+				AND %s
+			)`, roleClause, sceneMarkerDirectHasTagInClauseCustom("sm", ph))
 
-			for _, tid := range input.TagIds {
-				args = append(args, tid)
-			}
 			for _, tid := range input.TagIds {
 				args = append(args, tid)
 			}
@@ -923,18 +884,7 @@ func (qb *performerFilterHandler) performerMarkerPartnersCriterionHandler(input 
 		var tagClause string
 		if len(input.TagIds) > 0 {
 			ph := getInBinding(len(input.TagIds))
-			tagClause = fmt.Sprintf(` AND (
-				sm.primary_tag_id IN %s
-				OR EXISTS (
-					SELECT 1 FROM scene_markers_tags smt 
-					WHERE smt.scene_marker_id = sm.id 
-					AND smt.tag_id IN %s
-				)
-			)`, ph, ph)
-			// Add tag IDs twice (once for primary_tag_id, once for scene_markers_tags)
-			for _, tid := range input.TagIds {
-				args = append(args, tid)
-			}
+			tagClause = fmt.Sprintf(" AND %s", sceneMarkerDirectHasTagInClauseCustom("sm", ph))
 			for _, tid := range input.TagIds {
 				args = append(args, tid)
 			}

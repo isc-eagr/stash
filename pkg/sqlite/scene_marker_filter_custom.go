@@ -489,13 +489,26 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 			}
 
 			// ===== TAG MATCHING =====
-			// Each tag must be present (primary OR secondary). With depth, include subtags.
+			// Each tag must be present directly or through overlapping markers. The returned
+			// marker must directly carry at least one requested tag, and the shortest
+			// overlapping matching marker wins.
 			if len(g.TagIDs) > 0 {
 				depthUsed := g.Depth != nil && *g.Depth != 0
 
-				for _, tagID := range g.TagIDs {
-					if depthUsed {
-						// Expand tag to include descendants
+				appendTagArgs := func(args *[]interface{}, tagIDs []string) {
+					for _, tid := range tagIDs {
+						*args = append(*args, tid)
+					}
+				}
+
+				var directTagIDs []string
+				var currentMatchFragments []string
+				var currentMatchArgs []interface{}
+				var narrowMatchFragments []string
+				var narrowMatchArgs []interface{}
+
+				if depthUsed {
+					for _, tagID := range g.TagIDs {
 						valuesClause, err := getHierarchicalValues(ctx, []string{tagID}, tagTable, "tags_relations", "parent_id", "child_id", g.Depth)
 						if err != nil {
 							f.setError(err)
@@ -507,38 +520,55 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 							f.setError(err)
 							return
 						}
-						if len(expandedIDs) > 0 {
-							ph := getInBinding(len(expandedIDs))
-							// Marker must have this tag or any of its subtags as primary or secondary
-							tagCond := fmt.Sprintf(`(
-								scene_markers.primary_tag_id IN %s
-								OR EXISTS (
-									SELECT 1 FROM scene_markers_tags smt 
-									WHERE smt.scene_marker_id = scene_markers.id 
-									AND smt.tag_id IN %s
-								)
-							)`, ph, ph)
-							tagConditions = append(tagConditions, tagCond)
-							for _, tid := range expandedIDs {
-								tagArgs = append(tagArgs, tid)
-							}
-							for _, tid := range expandedIDs {
-								tagArgs = append(tagArgs, tid)
-							}
+						if len(expandedIDs) == 0 {
+							currentMatchFragments = append(currentMatchFragments, "0=1")
+							narrowMatchFragments = append(narrowMatchFragments, "0=1")
+							continue
 						}
-					} else {
-						// Exact tag match (no subtags)
-						tagCond := `(
-							scene_markers.primary_tag_id = ?
-							OR EXISTS (
-								SELECT 1 FROM scene_markers_tags smt 
-								WHERE smt.scene_marker_id = scene_markers.id 
-								AND smt.tag_id = ?
-							)
-						)`
-						tagConditions = append(tagConditions, tagCond)
-						tagArgs = append(tagArgs, tagID, tagID)
+
+						directTagIDs = append(directTagIDs, expandedIDs...)
+						ph := getInBinding(len(expandedIDs))
+						currentMatchFragments = append(currentMatchFragments, sceneMarkerHasEffectiveTagInClauseCustom("scene_markers", ph))
+						appendTagArgs(&currentMatchArgs, expandedIDs)
+						narrowMatchFragments = append(narrowMatchFragments, sceneMarkerHasEffectiveTagInClauseCustom("sm_narrow", ph))
+						appendTagArgs(&narrowMatchArgs, expandedIDs)
 					}
+				} else {
+					directTagIDs = append(directTagIDs, g.TagIDs...)
+					ph := getInBinding(len(g.TagIDs))
+					currentMatchFragments = append(currentMatchFragments, sceneMarkerEffectiveTagsCountClauseCustom("scene_markers", ph, len(g.TagIDs)))
+					appendTagArgs(&currentMatchArgs, g.TagIDs)
+					narrowMatchFragments = append(narrowMatchFragments, sceneMarkerEffectiveTagsCountClauseCustom("sm_narrow", ph, len(g.TagIDs)))
+					appendTagArgs(&narrowMatchArgs, g.TagIDs)
+				}
+
+				if len(directTagIDs) == 0 {
+					tagConditions = append(tagConditions, "0=1")
+				} else {
+					directPh := getInBinding(len(directTagIDs))
+					tagCond := fmt.Sprintf(`(
+						%[1]s
+						AND %[2]s
+						AND NOT EXISTS (
+							SELECT 1 FROM scene_markers sm_narrow
+							WHERE %[3]s
+							AND %[4]s
+							AND %[5]s
+							AND %[6]s
+						)
+					)`,
+						sceneMarkerDirectHasTagInClauseCustom("scene_markers", directPh),
+						strings.Join(currentMatchFragments, " AND "),
+						sceneMarkerOverlapWhereCustom("scene_markers", "sm_narrow"),
+						sceneMarkerDirectHasTagInClauseCustom("sm_narrow", directPh),
+						strings.Join(narrowMatchFragments, " AND "),
+						sceneMarkerIsNarrowerThanClauseCustom("sm_narrow", "scene_markers"),
+					)
+					tagConditions = append(tagConditions, tagCond)
+					appendTagArgs(&tagArgs, directTagIDs)
+					tagArgs = append(tagArgs, currentMatchArgs...)
+					appendTagArgs(&tagArgs, directTagIDs)
+					tagArgs = append(tagArgs, narrowMatchArgs...)
 				}
 			}
 

@@ -57,18 +57,7 @@ func (qb *PerformerStore) UpdateImageBlob(ctx context.Context, performerID int, 
 // including all descendants up to 4 levels deep. Uses both primary_tag_id and
 // secondary tags (scene_markers_tags). The smAlias is the scene_markers table alias.
 func tagHierarchyCondition(smAlias string, tagID int) string {
-	return fmt.Sprintf(`EXISTS (
-			SELECT 1 FROM (
-				SELECT %[1]s.primary_tag_id AS tag_id
-				UNION ALL
-				SELECT smt.tag_id FROM scene_markers_tags smt WHERE smt.scene_marker_id = %[1]s.id
-			) marker_tags
-			WHERE marker_tags.tag_id = %[2]d
-			   OR marker_tags.tag_id IN (SELECT child_id FROM tags_relations WHERE parent_id = %[2]d)
-			   OR marker_tags.tag_id IN (SELECT tr2.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id WHERE tr1.parent_id = %[2]d)
-			   OR marker_tags.tag_id IN (SELECT tr3.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id WHERE tr1.parent_id = %[2]d)
-			   OR marker_tags.tag_id IN (SELECT tr4.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id JOIN tags_relations tr4 ON tr4.parent_id = tr3.child_id WHERE tr1.parent_id = %[2]d)
-		)`, smAlias, tagID)
+	return sceneMarkerEffectiveTagHierarchyConditionCustom(smAlias, tagID)
 }
 
 // sceneExclusionForTag generates a NOT IN clause that excludes scenes having markers
@@ -81,19 +70,8 @@ func sceneExclusionForTag(smAlias string, tagID int) string {
 		AND %[1]s.scene_id NOT IN (
 			SELECT DISTINCT sm_excl.scene_id
 			FROM scene_markers sm_excl
-			WHERE EXISTS (
-				SELECT 1 FROM (
-					SELECT sm_excl.primary_tag_id AS tag_id
-					UNION ALL
-					SELECT smt_excl.tag_id FROM scene_markers_tags smt_excl WHERE smt_excl.scene_marker_id = sm_excl.id
-				) excl_tags
-				WHERE excl_tags.tag_id = %[2]d
-				   OR excl_tags.tag_id IN (SELECT child_id FROM tags_relations WHERE parent_id = %[2]d)
-				   OR excl_tags.tag_id IN (SELECT tr2.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id WHERE tr1.parent_id = %[2]d)
-				   OR excl_tags.tag_id IN (SELECT tr3.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id WHERE tr1.parent_id = %[2]d)
-				   OR excl_tags.tag_id IN (SELECT tr4.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id JOIN tags_relations tr4 ON tr4.parent_id = tr3.child_id WHERE tr1.parent_id = %[2]d)
-			)
-		)`, smAlias, tagID)
+			WHERE %[2]s
+		)`, smAlias, sceneMarkerEffectiveTagHierarchyConditionCustom("sm_excl", tagID))
 }
 
 // sortByPerformerMarkerSceneCount generates an ORDER BY for counting distinct scenes

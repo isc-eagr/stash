@@ -11,6 +11,7 @@ import {
   getSceneMarkerTagColorCustom,
 } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
 import type { IActivityPieSlice } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
+import { buildIntervalLoopSegments } from "./sceneStatsLoopSegments_custom"; // CUSTOM
 
 interface IProps {
   scene: GQL.SceneDataFragment;
@@ -239,14 +240,6 @@ function buildMarkerLoopSegment(
     end: marker.interval.end,
     title: `${label}: ${marker.marker.title}`,
   };
-}
-
-function buildIntervalLoopSegments(label: string, intervals: IInterval[]) {
-  return mergeIntervals(intervals).map((interval, index) => ({
-    start: interval.start,
-    end: interval.end,
-    title: `${label}${intervals.length > 1 ? ` ${index + 1}` : ""}`,
-  }));
 }
 
 function sortLoopSegments(segments: ILoopSegmentInput[]) {

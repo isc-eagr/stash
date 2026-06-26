@@ -53,6 +53,7 @@ This document describes all custom features and modifications added on top of th
 43. [Vato UI Vocabulary](#43-vato-ui-vocabulary)
 44. [Vato Stats Page](#44-vato-stats-page)
 45. [Scene Stats Page](#45-scene-stats-page)
+46. [Scene Marker Gap Warning](#46-scene-marker-gap-warning)
 
 ---
 
@@ -203,7 +204,7 @@ Custom analytics are split into focused hidden pages instead of the retired `/cu
 
 - Scene counts by category (sex, oral, solo, facial) on `/scenestats`
 - Scene podium metrics by O Count, Rating, Duration, File Size, Most Recent O, and Vato Count
-- Scene charts by vato ethnicity, vato country, vato count, release date, facial status/count, scene type, duration, and resolution
+- Scene charts by vato ethnicity, vato country, vato count, release date, facial status/count, really-hot facial count, scene type, duration buckets, and resolution
 - Performer ethnicity Bronze/Silver/Gold/Sapphire metallic rating-tier breakdown on `/vatostats`
 - Orgasm/facial tracking totals on `/scenestats`
 
@@ -277,11 +278,16 @@ Multiple new filter criteria for scenes.
 - `graphql/schema/types/filters.graphql` - `SceneMarkerTagGroupInput` type
 - `pkg/models/filter.go` - `SceneMarkerTagGroupInput` struct
 - `pkg/sqlite/criterion_handlers.go` - `joinedSceneMarkerTagsHandler` function
+- `pkg/sqlite/scene_marker_tag_overlap_custom.go` - Shared overlap-aware marker tag SQL helpers
+- `pkg/sqlite/performer_filter_custom.go`, `pkg/sqlite/performer_custom.go`, `pkg/sqlite/studio_custom.go` - Performer/studio marker tag filters and sorts reuse overlap-aware marker tag matching
+- `pkg/sqlite/scene_marker_test.go` - Integration tests for overlap-aware scene include/exclude and marker-page filtering
 
 Allows filtering scenes by their marker tags with **role-specific performer attributes**:
 
-- `EQUALS`: Groups of tags where each group requires all tags present in a single marker
+- `EQUALS`: Groups of tags where each group requires all tags present in a single marker, including effective tags from partially overlapping markers in the same scene/time range
 - `INCLUDES`: Any scene with markers having any of the specified tags
+- `Scene Markers: Exclude`: Exclusion groups use the same overlap-aware tag matching, so a scene can be excluded when a marker plus its overlapping markers collectively satisfy the group
+- Marker-list results only return markers that directly have at least one requested tag; when multiple overlapping direct-tag markers satisfy the same group, the shortest marker wins
 
 **Role-Specific Filtering:**
 Each marker group supports separate top/bottom/both-roles attribute blocks:
@@ -770,17 +776,20 @@ An enhanced looping system for the scene player that allows you to define multip
 6. Use "Loop On" to start playing through all segments in sequence
 7. Segments can be reordered with up/down arrows, removed individually, or cleared entirely
 8. From a scene's Markers tab (`/scenes/<id>` > Markers), select one or more markers and click "Add to Multi-Segment Loop" to append them as segments
+9. In the multi-segment controls, select multiple segments with checkboxes to delete selected segments or keep only the selected segments
 
 ### Files Created
 
 - `ui/v2.5/src/components/ScenePlayer/multi-segment-loop.ts` - VideoJS plugin for multi-segment looping
 - `ui/v2.5/src/components/ScenePlayer/MultiSegmentLoopControls.tsx` - React component for segment management UI
+- `ui/v2.5/src/components/ScenePlayer/multiSegmentSelection_custom.ts` - Bulk selection helper functions
 - `ui/v2.5/src/@types/videojs-multi-segment-loop.d.ts` - TypeScript type declarations
+- `ui/v2.5/tests/multiSegmentSelection_custom.test.ts` - Bulk selection helper tests
 
 ### Files Modified
 
 - `ui/v2.5/src/components/ScenePlayer/ScenePlayer.tsx` - Integration of plugin and controls
-- `ui/v2.5/src/components/ScenePlayer/styles.scss` - Styles for controls and timeline markers
+- `ui/v2.5/src/components/ScenePlayer/styles.scss` - Styles for controls, bulk segment selection, and timeline markers
 - `ui/v2.5/src/components/Settings/SettingsInterfacePanel/SettingsInterfacePanel.tsx` - Setting toggle
 - `ui/v2.5/src/core/config.ts` - Config option type
 - `ui/v2.5/src/locales/en-GB.json` - Locale strings
@@ -794,9 +803,14 @@ An enhanced looping system for the scene player that allows you to define multip
 - Visual markers on the player timeline showing segment positions
 - Active segment highlighting during playback
 - Reorder segments with drag-like up/down controls
+- Select multiple segments and bulk-delete selected segments or delete everything except selected segments
 - Persistent pending marker when setting start point
 - Segment list with jump-to-segment functionality
 - Total duration calculation for all segments
+
+### Test Cases Added
+
+- `ui/v2.5/tests/multiSegmentSelection_custom.test.ts` - Verifies selected and unselected segment ID deletion lists for the bulk actions
 
 ### Configuration Dependencies
 
@@ -1044,6 +1058,7 @@ CREATE INDEX `idx_scene_marker_performers_performer_role` ON `scene_marker_perfo
   - Marker Performer Country - Filter by country of marker performers
   - Marker Performer Ethnicity - Filter by ethnicity of marker performers
   - Marker Performer Rating - Filter by rating of marker performers
+- The Markers page tag matching treats a marker as having tags from partially overlapping markers in the same scene/time range, while preserving direct primary/secondary tag matching. Returned marker rows must directly have at least one requested tag, and overlapping matches collapse to the shortest qualifying marker.
 - **Performer "Markers" Tab**: New performer details tab that shows only markers linked directly to the performer via `scene_marker_performers`
 - Full CRUD support for marker performers with backward compatibility
 
@@ -2787,7 +2802,7 @@ deploy_prod_custom.bat -SkipStart
 
 Adds marker-duration stats for configured sex, oral, solo, other, outstanding, standard, and unusable activity percentages. The activity strip has two rows: Sex/Oral/Solo/Other and Outstanding/Standard/Unusable. Sex/oral/solo activity is based on markers whose primary tag exactly matches the configured role tag, even when the marker also has secondary tags. Same-category overlaps are merged, cross-category overlaps count toward each category, and activity Other is runtime without a sex/oral/solo marker. Outstanding is any timed marker that is not a configured sex/oral/solo primary marker, or a configured sex/oral/solo primary marker with secondary tags. Standard is unmarked runtime or plain configured sex/oral/solo runtime not overlapped by Outstanding, and negative marker/Skip ranges are merged into Unusable without double-counting overlaps.
 
-Studio cards and studio detail pages show the two-row activity strip using the total selected scene length as 100%, including unmarked scenes so Standard can represent untagged runtime. Performer-scoped studio cards use performer-filtered activity stats for the strip, with Unusable calculated from negative marker ranges in scenes containing that performer. Performer detail pages include a Stats tab with an activity pie chart and a selected-activity top/bottom role split chart. Scene and studio detail pages include Stats tabs with separate Activity Type and Quality donut charts. The Scene Stats tab also shows a By Performer breakdown with per-activity top/bottom pie charts; chart-local checkboxes can add sex/oral/solo/other/outstanding/standard segments to the multi-segment loop while leaving Unusable read-only. Scene and studio list pages include a combined Activity Percentage filter plus individual sex/oral/solo/other/unusable percentage sort options; performer list pages retain marker-owned activity percentage filters and sorts only.
+Studio cards and studio detail pages show the two-row activity strip using the total selected scene length as 100%, including unmarked scenes so Standard can represent untagged runtime. Performer-scoped studio cards use performer-filtered activity stats for the strip, with Unusable calculated from negative marker ranges in scenes containing that performer. Performer detail pages include a Stats tab with an activity pie chart and a selected-activity top/bottom role split chart. Scene and studio detail pages include Stats tabs with separate Activity Type and Quality donut charts. The Scene Stats tab also shows a By Performer breakdown with per-activity top/bottom pie charts; chart-local checkboxes can add sex/oral/solo/other/outstanding/standard segments to the multi-segment loop while leaving Unusable read-only. One-millisecond Standard intervals are treated as closed gaps and are not added to the loop. Scene and studio list pages include a combined Activity Percentage filter plus individual sex/oral/solo/other/unusable percentage sort options; performer list pages retain marker-owned activity percentage filters and sorts only.
 
 ### Files Modified
 
@@ -2812,18 +2827,22 @@ Studio cards and studio detail pages show the two-row activity strip using the t
 - `ui/v2.5/src/components/Studios/StudioDetails/Studio.tsx` - Studio Stats tab
 - `ui/v2.5/src/components/Performers/PerformerDetails/Performer.tsx` - Performer Stats tab
 - `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx` - Scene Stats tab
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneStatsPanel.tsx` - Uses shared loop segment helpers for selectable activity loop segments
 
 ### Files Added
 
 - `ui/v2.5/src/components/Performers/PerformerDetails/PerformerStatsPanel.tsx`
 - `ui/v2.5/src/components/Scenes/SceneDetails/SceneStatsPanel.tsx`
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneStatsLoopSegments_custom.ts`
 - `ui/v2.5/src/components/Shared/ActivityPieChart_custom.tsx`
 - `ui/v2.5/src/components/Studios/StudioDetails/StudioStatsPanel.tsx`
 - `ui/v2.5/src/components/Studios/StudioActivityMetricsStrip.tsx`
+- `ui/v2.5/tests/sceneStatsLoopSegments_custom.test.ts`
 
 ### Test Cases
 
 - `internal/api/activity_stats_custom_test.go` - Verifies merged interval duration, interval subtraction for exclusive quality metrics, activity Other runtime, and legacy Other runtime excluding overlapping sex/oral/solo or Unusable ranges
+- `ui/v2.5/tests/sceneStatsLoopSegments_custom.test.ts` - Verifies one-millisecond closed gaps are not emitted as multi-segment loop segments
 
 ---
 
@@ -3016,6 +3035,10 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 
 - `ui/v2.5/src/components/SceneStats/SceneStats.tsx`
 - `ui/v2.5/src/components/SceneStats/SceneStats.scss`
+- `ui/v2.5/src/components/SceneStats/sceneStatsDuration_custom.ts`
+- `ui/v2.5/src/components/SceneStats/sceneStatsFacialCounts_custom.ts`
+- `ui/v2.5/tests/sceneStatsDuration_custom.test.ts`
+- `ui/v2.5/tests/sceneStatsFacialCounts_custom.test.ts`
 
 ### Files Modified
 
@@ -3027,9 +3050,48 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 ### Features
 
 - Podium metrics: O Count, Rating, Duration, File Size, Most Recent O, Vato Count.
-- Charts: By Vato Ethnicity, By Vato Country, By Vato Count, By Release Year/Month/Day, Has Facial, By Number of Facial, Scene Type, By Length/Duration, By Resolution.
+- Charts: By Vato Ethnicity, By Vato Country, By Vato Count, By Release Year/Month/Day, Has Facial, By Number of Facial, By Number of Really Hot Facial, Scene Type, By Length/Duration, By Resolution.
+- Duration chart bucketing: 0-4 minutes is grouped together, 5-45 minutes remains individual, and durations after 45 minutes are grouped in five-minute buckets such as 46-50 and 51-55.
 - Preserves the existing scene category metric button icons, colors, and links from the retired CustomStats page.
 
 ### Configuration Dependencies
 
 - Uses existing `configuration.ui.roleTagIds` for sex, oral, solo, facial, orgasm, and really-hot facial marker categorization.
+
+---
+
+## 46. Scene Marker Gap Warning
+
+### Overview
+
+Adds a warning to the scene marker create/edit form when the current start/end times would leave a 2-second-or-less unmarked gap next to the nearest relevant marker range. The warning identifies the preceding/following marker type, displays the gap length in milliseconds, can close the previous gap by moving the marker start to one millisecond after the previous marker ends, close the next gap by moving the marker end to one millisecond before the next marker starts, or close both when both sides qualify. One-millisecond gaps are treated as already closed.
+
+Sex, oral, and solo markers are ignored for gap calculations based on configured `roleTagIds`, including descendant tags already present on loaded marker data. Negative markers count as relevant marker coverage.
+
+### Files Modified
+
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkerForm.tsx` - Shows the warning and applies the close-gap actions.
+- `CUSTOM_FEATURES.md` - Documents the custom feature.
+
+### Files Added
+
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerGapWarning_custom.ts` - Gap detection helper.
+- `ui/v2.5/tests/sceneMarkerGapWarning_custom.test.ts` - Focused helper tests.
+
+### Test Cases Added
+
+- Verifies next-gap closing sets end time to one millisecond before the next marker starts.
+- Verifies previous-gap closing sets start time to one millisecond after the previous marker ends.
+- Verifies warnings include the adjacent marker type.
+- Verifies one-millisecond gaps do not produce warnings.
+- Verifies sex/oral/solo markers and descendant role tags are ignored.
+- Verifies negative markers count as relevant coverage.
+- Verifies gaps larger than two seconds are ignored.
+
+### GraphQL Schema Changes
+
+- None.
+
+### Configuration Dependencies
+
+- Uses existing `configuration.ui.roleTagIds.sexTagId`, `oralTagId`, and `soloTagId` to identify marker types ignored by gap calculations.

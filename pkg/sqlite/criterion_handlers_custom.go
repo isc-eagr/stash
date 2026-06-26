@@ -297,13 +297,8 @@ WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")),
 						args = append(args, tid)
 					}
 					markerConditions = append(markerConditions, sqlFragment{
-						clause: fmt.Sprintf(`(
-    %[1]s.primary_tag_id IN %[2]s
-    OR EXISTS (
-        SELECT 1 FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = %[1]s.id AND mt2.tag_id IN %[2]s
-    )
-)`, smAlias, ph),
-						args: args,
+						clause: sceneMarkerHasEffectiveTagInClauseCustom(smAlias, ph),
+						args:   args,
 					})
 				}
 			} else {
@@ -313,15 +308,8 @@ WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")),
 					args = append(args, tid)
 				}
 				markerConditions = append(markerConditions, sqlFragment{
-					clause: fmt.Sprintf(`(
-    SELECT COUNT(DISTINCT tag_id) FROM (
-      SELECT %[1]s.primary_tag_id AS tag_id
-      UNION ALL
-      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = %[1]s.id
-    ) tags_per_marker
-    WHERE tag_id IN %[2]s
-  ) = %[3]d`, smAlias, tagPh, len(g.TagIDs)),
-					args: args,
+					clause: sceneMarkerEffectiveTagsCountClauseCustom(smAlias, tagPh, len(g.TagIDs)),
+					args:   args,
 				})
 			}
 		}
@@ -968,14 +956,7 @@ WHERE sm_excl.scene_id = {primaryTable}.id
 					var tagCondArgs []any
 					if len(tagIDs) > 0 {
 						tagPh := getInBinding(len(tagIDs))
-						tagCondClause = fmt.Sprintf(`(sm_check.primary_tag_id IN %s OR EXISTS (
-							SELECT 1 FROM scene_markers_tags smt_check 
-							WHERE smt_check.scene_marker_id = sm_check.id AND smt_check.tag_id IN %s
-						))`, tagPh, tagPh)
-						for _, tid := range tagIDs {
-							tagCondArgs = append(tagCondArgs, tid)
-						}
-						// Add twice for both IN clauses
+						tagCondClause = sceneMarkerHasEffectiveTagInClauseCustom("sm_check", tagPh)
 						for _, tid := range tagIDs {
 							tagCondArgs = append(tagCondArgs, tid)
 						}
@@ -1175,14 +1156,7 @@ WHERE `+markerAlias+`.scene_id = {primaryTable}.id
 SELECT COUNT(DISTINCT sm.id)
 FROM scene_markers sm
 WHERE sm.scene_id = {primaryTable}.id
-	AND (
-		SELECT COUNT(DISTINCT tag_id) FROM (
-			SELECT sm.primary_tag_id AS tag_id
-			UNION ALL
-			SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
-		) tags_per_marker
-		WHERE tag_id IN `+ph+`
-	) = `+fmt.Sprintf("%d", len(g))+`
+	AND `+sceneMarkerEffectiveTagsCountClauseCustom("sm", ph, len(g))+`
 ) >= ?`, utils.StrFormatMap{"primaryTable": h.primaryTable})
 
 			args := make([]any, 0, len(g)+1)
@@ -1228,14 +1202,7 @@ WHERE sm.scene_id = {primaryTable}.id
 SELECT 1
 FROM scene_markers sm
 WHERE sm.scene_id = {primaryTable}.id
-  AND (
-    SELECT COUNT(DISTINCT tag_id) FROM (
-      SELECT sm.primary_tag_id AS tag_id
-      UNION ALL
-      SELECT mt2.tag_id AS tag_id FROM scene_markers_tags mt2 WHERE mt2.scene_marker_id = sm.id
-    ) tags_per_marker
-    WHERE tag_id IN `+ph+`
-  ) = `+fmt.Sprintf("%d", len(g))+`
+  AND `+sceneMarkerEffectiveTagsCountClauseCustom("sm", ph, len(g))+`
 )`, utils.StrFormatMap{"primaryTable": h.primaryTable})
 
 			args := make([]any, 0, len(g))

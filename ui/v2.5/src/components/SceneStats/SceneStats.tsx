@@ -18,6 +18,13 @@ import { Icon } from "src/components/Shared/Icon";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import facialPng from "src/assets/facial.png";
+import {
+  facialCount,
+  markerHasTag,
+  reallyHotFacialCount,
+  type SceneStatsTagRef,
+} from "./sceneStatsFacialCounts_custom";
+import { durationBucketForMinutes } from "./sceneStatsDuration_custom";
 
 import "./SceneStats.scss";
 
@@ -112,9 +119,7 @@ const TOTAL_FACIAL_TIME = gql`
   }
 `;
 
-type TagRef = {
-  id?: string;
-};
+type TagRef = SceneStatsTagRef;
 
 type SceneStatsMarker = {
   id: string;
@@ -193,6 +198,7 @@ type ChartCategory =
   | "release_day"
   | "facial_status"
   | "facial_count"
+  | "really_hot_facial_count"
   | "scene_type"
   | "duration"
   | "resolution";
@@ -249,6 +255,7 @@ const chartDefinitions: Record<ChartCategory, string> = {
   release_day: "Release Day",
   facial_status: "Has Facial",
   facial_count: "Number of Facial",
+  really_hot_facial_count: "Number of Really Hot Facial",
   scene_type: "Scene Type",
   duration: "Length/Duration",
   resolution: "Resolution",
@@ -281,15 +288,6 @@ function stringRoleTagId(value?: string | string[]) {
 function tagIDsFor(roleTag?: SceneStatsRoleTag) {
   if (!roleTag) return undefined;
   return new Set([roleTag.id, ...roleTag.children.map((child) => child.id)]);
-}
-
-function tagMatches(tag: TagRef | null | undefined, targetIds?: Set<string>) {
-  return !!tag?.id && !!targetIds && targetIds.has(tag.id);
-}
-
-function markerHasTag(marker: SceneStatsMarker, targetIds?: Set<string>) {
-  if (tagMatches(marker.primary_tag, targetIds)) return true;
-  return marker.tags.some((tag) => tagMatches(tag, targetIds));
 }
 
 function sceneHasTag(scene: SceneStatsScene, targetIds?: Set<string>) {
@@ -421,22 +419,9 @@ function roundedDurationMinutes(scene: SceneStatsScene) {
   return Math.round(sceneDuration(scene) / 60);
 }
 
-function facialCount(scene: SceneStatsScene, facialTagIDs?: Set<string>) {
-  if (!facialTagIDs) return 0;
-  return scene.scene_markers.filter((marker) =>
-    markerHasTag(marker, facialTagIDs)
-  ).length;
-}
-
 function facialStatus(scene: SceneStatsScene, roleTagIDs: RoleTagIDSets) {
   const hasFacial = sceneHasTag(scene, roleTagIDs.facial);
-  const hasReallyHotFacial =
-    hasFacial &&
-    scene.scene_markers.some(
-      (marker) =>
-        markerHasTag(marker, roleTagIDs.facial) &&
-        markerHasTag(marker, roleTagIDs.reallyHot)
-    );
+  const hasReallyHotFacial = reallyHotFacialCount(scene, roleTagIDs) > 0;
 
   if (hasReallyHotFacial) return "rh";
   if (hasFacial) return "regular";
@@ -531,10 +516,15 @@ function sceneMatchesFilter(
       return facialStatus(scene, roleTagIDs) === filter.value;
     case "facial_count":
       return String(facialCount(scene, roleTagIDs.facial)) === filter.value;
+    case "really_hot_facial_count":
+      return String(reallyHotFacialCount(scene, roleTagIDs)) === filter.value;
     case "scene_type":
       return sceneType(scene, roleTagIDs) === filter.value;
     case "duration":
-      return String(roundedDurationMinutes(scene)) === filter.value;
+      return (
+        durationBucketForMinutes(roundedDurationMinutes(scene)).key ===
+        filter.value
+      );
     case "resolution":
       return sceneResolutionLabel(scene) === filter.value;
     default:
@@ -557,6 +547,7 @@ function buildSceneCharts(
   const releaseBuckets = new Map<string, ChartDatum>();
   const facialStatusBuckets = new Map<string, ChartDatum>();
   const facialCountBuckets = new Map<string, ChartDatum>();
+  const reallyHotFacialCountBuckets = new Map<string, ChartDatum>();
   const sceneTypeBuckets = new Map<string, ChartDatum>();
   const durationBuckets = new Map<string, ChartDatum>();
   const resolutionBuckets = new Map<string, ChartDatum>();
@@ -709,6 +700,19 @@ function buildSceneCharts(
       }
     );
 
+    const sceneReallyHotFacialCount = reallyHotFacialCount(scene, roleTagIDs);
+    addDatum(
+      reallyHotFacialCountBuckets,
+      String(sceneReallyHotFacialCount),
+      String(sceneReallyHotFacialCount),
+      sceneReallyHotFacialCount,
+      {
+        category: "really_hot_facial_count",
+        label: String(sceneReallyHotFacialCount),
+        value: String(sceneReallyHotFacialCount),
+      }
+    );
+
     const typeLabels: Record<string, string> = {
       sex: "Sex",
       oral: "Oral",
@@ -728,13 +732,20 @@ function buildSceneCharts(
       }
     );
 
-    const minutes = roundedDurationMinutes(scene);
-    const durationLabel = `${minutes}m`;
-    addDatum(durationBuckets, String(minutes), durationLabel, minutes, {
-      category: "duration",
-      label: durationLabel,
-      value: String(minutes),
-    });
+    const durationBucket = durationBucketForMinutes(
+      roundedDurationMinutes(scene)
+    );
+    addDatum(
+      durationBuckets,
+      durationBucket.key,
+      durationBucket.label,
+      durationBucket.sortValue,
+      {
+        category: "duration",
+        label: durationBucket.label,
+        value: durationBucket.key,
+      }
+    );
 
     const resolutionLabel = sceneResolutionLabel(scene);
     if (!resolutionLabel) {
@@ -778,6 +789,9 @@ function buildSceneCharts(
     release: Array.from(releaseBuckets.values()).sort(numericSort),
     facialStatus: Array.from(facialStatusBuckets.values()).sort(numericSort),
     facialCount: Array.from(facialCountBuckets.values()).sort(numericSort),
+    reallyHotFacialCount: Array.from(reallyHotFacialCountBuckets.values()).sort(
+      numericSort
+    ),
     sceneType: Array.from(sceneTypeBuckets.values()).sort(numericSort),
     duration: Array.from(durationBuckets.values()).sort(numericSort),
     resolution: {
@@ -1556,6 +1570,11 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
             <SceneStatsChart
               data={charts.facialCount}
               label="By Number of Facial"
+              onSelect={addFilter}
+            />
+            <SceneStatsChart
+              data={charts.reallyHotFacialCount}
+              label="By Number of Really Hot Facial"
               onSelect={addFilter}
             />
             <SceneStatsChart

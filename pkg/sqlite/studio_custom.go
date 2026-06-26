@@ -64,19 +64,8 @@ func (qb *StudioStore) sortByMarkerRoleSceneCount(tagID int, direction string) s
 		FROM scenes s
 		INNER JOIN scene_markers sm ON sm.scene_id = s.id
 		WHERE s.studio_id = studios.id
-		AND EXISTS (
-			SELECT 1 FROM (
-				SELECT sm.primary_tag_id AS tag_id
-				UNION ALL
-				SELECT smt.tag_id FROM scene_markers_tags smt WHERE smt.scene_marker_id = sm.id
-			) marker_tags
-			WHERE marker_tags.tag_id = %[1]d
-			   OR marker_tags.tag_id IN (SELECT child_id FROM tags_relations WHERE parent_id = %[1]d)
-			   OR marker_tags.tag_id IN (SELECT tr2.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id WHERE tr1.parent_id = %[1]d)
-			   OR marker_tags.tag_id IN (SELECT tr3.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id WHERE tr1.parent_id = %[1]d)
-			   OR marker_tags.tag_id IN (SELECT tr4.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id JOIN tags_relations tr4 ON tr4.parent_id = tr3.child_id WHERE tr1.parent_id = %[1]d)
-		)
-	), 0) %[2]s`, tagID, getSortDirection(direction))
+		AND %[1]s
+	), 0) %[2]s`, sceneMarkerEffectiveTagHierarchyConditionCustom("sm", tagID), getSortDirection(direction))
 }
 
 // sortBySexSceneCount counts scenes with sex markers
@@ -100,19 +89,8 @@ func (qb *StudioStore) sortByOralSceneCount(direction string) string {
 			AND s.id NOT IN (
 				SELECT DISTINCT sm_sex.scene_id
 				FROM scene_markers sm_sex
-				WHERE EXISTS (
-					SELECT 1 FROM (
-						SELECT sm_sex.primary_tag_id AS tag_id
-						UNION ALL
-						SELECT smt_sex.tag_id FROM scene_markers_tags smt_sex WHERE smt_sex.scene_marker_id = sm_sex.id
-					) sex_marker_tags
-					WHERE sex_marker_tags.tag_id = %[1]d
-					   OR sex_marker_tags.tag_id IN (SELECT child_id FROM tags_relations WHERE parent_id = %[1]d)
-					   OR sex_marker_tags.tag_id IN (SELECT tr2.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id WHERE tr1.parent_id = %[1]d)
-					   OR sex_marker_tags.tag_id IN (SELECT tr3.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id WHERE tr1.parent_id = %[1]d)
-					   OR sex_marker_tags.tag_id IN (SELECT tr4.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id JOIN tags_relations tr4 ON tr4.parent_id = tr3.child_id WHERE tr1.parent_id = %[1]d)
-				)
-			)`, roleTagIDs.SexTagID)
+				WHERE %[1]s
+			)`, sceneMarkerEffectiveTagHierarchyConditionCustom("sm_sex", roleTagIDs.SexTagID))
 	}
 
 	// Count scenes with oral markers (including all subtags) excluding those with sex markers
@@ -122,20 +100,9 @@ func (qb *StudioStore) sortByOralSceneCount(direction string) string {
 		FROM scenes s
 		INNER JOIN scene_markers sm ON sm.scene_id = s.id
 		WHERE s.studio_id = studios.id
-		AND EXISTS (
-			SELECT 1 FROM (
-				SELECT sm.primary_tag_id AS tag_id
-				UNION ALL
-				SELECT smt.tag_id FROM scene_markers_tags smt WHERE smt.scene_marker_id = sm.id
-			) marker_tags
-			Where marker_tags.tag_id = %[1]d
-			   OR marker_tags.tag_id IN (SELECT child_id FROM tags_relations WHERE parent_id = %[1]d)
-			   OR marker_tags.tag_id IN (SELECT tr2.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id WHERE tr1.parent_id = %[1]d)
-			   OR marker_tags.tag_id IN (SELECT tr3.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id WHERE tr1.parent_id = %[1]d)
-			   OR marker_tags.tag_id IN (SELECT tr4.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id JOIN tags_relations tr4 ON tr4.parent_id = tr3.child_id WHERE tr1.parent_id = %[1]d)
-		)
+		AND %[1]s
 		%[2]s
-	), 0) %[3]s`, roleTagIDs.OralTagID, sexExclude, getSortDirection(direction))
+	), 0) %[3]s`, sceneMarkerEffectiveTagHierarchyConditionCustom("sm", roleTagIDs.OralTagID), sexExclude, getSortDirection(direction))
 }
 
 // sortBySoloSceneCount counts scenes with solo markers but not sex/oral markers
@@ -152,19 +119,8 @@ func (qb *StudioStore) sortBySoloSceneCount(direction string) string {
 			AND s.id NOT IN (
 				SELECT DISTINCT sm_sex.scene_id
 				FROM scene_markers sm_sex
-				WHERE EXISTS (
-					SELECT 1 FROM (
-						SELECT sm_sex.primary_tag_id AS tag_id
-						UNION ALL
-						Select smt_sex.tag_id FROM scene_markers_tags smt_sex WHERE smt_sex.scene_marker_id = sm_sex.id
-					) sex_marker_tags
-					WHERE sex_marker_tags.tag_id = %[1]d
-					   OR sex_marker_tags.tag_id IN (SELECT child_id FROM tags_relations WHERE parent_id = %[1]d)
-					   OR sex_marker_tags.tag_id IN (SELECT tr2.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id WHERE tr1.parent_id = %[1]d)
-					   OR sex_marker_tags.tag_id IN (SELECT tr3.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id WHERE tr1.parent_id = %[1]d)
-					   OR sex_marker_tags.tag_id IN (SELECT tr4.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id JOIN tags_relations tr4 ON tr4.parent_id = tr3.child_id WHERE tr1.parent_id = %[1]d)
-				)
-			)`, roleTagIDs.SexTagID)
+				WHERE %[1]s
+			)`, sceneMarkerEffectiveTagHierarchyConditionCustom("sm_sex", roleTagIDs.SexTagID))
 	}
 	// Build exclusion for oral markers - checks both primary and secondary tags
 	if roleTagIDs.OralTagID != 0 {
@@ -172,19 +128,8 @@ func (qb *StudioStore) sortBySoloSceneCount(direction string) string {
 			AND s.id NOT IN (
 				SELECT DISTINCT sm_oral.scene_id
 				FROM scene_markers sm_oral
-				WHERE EXISTS (
-					SELECT 1 FROM (
-						SELECT sm_oral.primary_tag_id AS tag_id
-						UNION ALL
-						SELECT smt_oral.tag_id FROM scene_markers_tags smt_oral WHERE smt_oral.scene_marker_id = sm_oral.id
-					) oral_marker_tags
-					WHERE oral_marker_tags.tag_id = %[1]d
-					   OR oral_marker_tags.tag_id IN (SELECT child_id FROM tags_relations WHERE parent_id = %[1]d)
-					   OR oral_marker_tags.tag_id IN (SELECT tr2.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id WHERE tr1.parent_id = %[1]d)
-					   OR oral_marker_tags.tag_id IN (SELECT tr3.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id WHERE tr1.parent_id = %[1]d)
-					   OR oral_marker_tags.tag_id IN (SELECT tr4.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id JOIN tags_relations tr4 ON tr4.parent_id = tr3.child_id WHERE tr1.parent_id = %[1]d)
-				)
-			)`, roleTagIDs.OralTagID)
+				WHERE %[1]s
+			)`, sceneMarkerEffectiveTagHierarchyConditionCustom("sm_oral", roleTagIDs.OralTagID))
 	}
 
 	// Count scenes with solo markers (including all subtags) excluding those with sex/oral markers
@@ -194,20 +139,9 @@ func (qb *StudioStore) sortBySoloSceneCount(direction string) string {
 		FROM scenes s
 		INNER JOIN scene_markers sm ON sm.scene_id = s.id
 		WHERE s.studio_id = studios.id
-		AND EXISTS (
-			SELECT 1 FROM (
-				SELECT sm.primary_tag_id AS tag_id
-				UNION ALL
-				SELECT smt.tag_id FROM scene_markers_tags smt WHERE smt.scene_marker_id = sm.id
-			) marker_tags
-			WHERE marker_tags.tag_id = %[1]d
-			   OR marker_tags.tag_id IN (SELECT child_id FROM tags_relations WHERE parent_id = %[1]d)
-			   OR marker_tags.tag_id IN (SELECT tr2.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id WHERE tr1.parent_id = %[1]d)
-			   OR marker_tags.tag_id IN (SELECT tr3.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id WHERE tr1.parent_id = %[1]d)
-			   OR marker_tags.tag_id IN (SELECT tr4.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id JOIN tags_relations tr4 ON tr4.parent_id = tr3.child_id WHERE tr1.parent_id = %[1]d)
-		)
+		AND %[1]s
 		%[2]s
-	), 0) %[3]s`, roleTagIDs.SoloTagID, excludeConditions, getSortDirection(direction))
+	), 0) %[3]s`, sceneMarkerEffectiveTagHierarchyConditionCustom("sm", roleTagIDs.SoloTagID), excludeConditions, getSortDirection(direction))
 }
 
 // sortByFacialSceneCount counts scenes with facial markers (independent of other markers)

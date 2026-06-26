@@ -267,6 +267,95 @@ func TestMarkerQueryTags(t *testing.T) {
 	})
 }
 
+func TestMarkerQuerySceneMarkerTagsIncludesOverlappingMarkerTags(t *testing.T) {
+	runWithRollbackTxn(t, "overlap marker tags", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		dickTagID := strconv.Itoa(tagIDs[tagIdx2WithMarkers])
+
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithScene], 70, 90)
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithTag], 60, 120)
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithSceneTag], 30, 300)
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+
+		markers := queryMarkers(ctx, t, db.SceneMarker, &models.SceneMarkerFilterType{
+			SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+				Modifier: models.CriterionModifierEquals,
+				GroupsExtended: []models.SceneMarkerTagGroupInput{
+					{
+						TagIDs: []string{feetTagID, dickTagID},
+					},
+				},
+			},
+		}, nil)
+
+		ids := markersToIDs(markers)
+		assert.Contains(t, ids, markerIDs[markerIdxWithTag])
+		assert.NotContains(t, ids, markerIDs[markerIdxWithScene])
+		assert.NotContains(t, ids, markerIDs[markerIdxWithSceneTag])
+		assert.NotContains(t, ids, markerIDs[markerIdxWithDuration])
+	})
+}
+
+func TestSceneQuerySceneMarkerTagsIncludesOverlappingMarkerTags(t *testing.T) {
+	runWithRollbackTxn(t, "scene overlap marker tags include", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		dickTagID := strconv.Itoa(tagIDs[tagIdx2WithMarkers])
+
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithTag], 60, 120)
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithSceneTag], 30, 300)
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+
+		result, err := db.Scene.Query(ctx, models.SceneQueryOptions{
+			SceneFilter: &models.SceneFilterType{
+				SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+					Modifier: models.CriterionModifierEquals,
+					GroupsExtended: []models.SceneMarkerTagGroupInput{
+						{
+							TagIDs: []string{feetTagID, dickTagID},
+						},
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("SceneStore.Query() error = %v", err)
+		}
+
+		assert.Contains(t, result.IDs, sceneIDs[sceneIdxWithMarkers])
+	})
+}
+
+func TestSceneQuerySceneMarkerTagsExcludeIncludesOverlappingMarkerTags(t *testing.T) {
+	runWithRollbackTxn(t, "scene overlap marker tags exclude", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		dickTagID := strconv.Itoa(tagIDs[tagIdx2WithMarkers])
+		excludeModifier := models.CriterionModifierIncludes
+
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithTag], 60, 120)
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithSceneTag], 30, 300)
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+
+		result, err := db.Scene.Query(ctx, models.SceneQueryOptions{
+			SceneFilter: &models.SceneFilterType{
+				SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+					Modifier:        models.CriterionModifierEquals,
+					ExcludeModifier: &excludeModifier,
+					GroupsExtendedExclude: []models.SceneMarkerTagGroupInput{
+						{
+							TagIDs: []string{feetTagID, dickTagID},
+						},
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("SceneStore.Query() error = %v", err)
+		}
+
+		assert.NotContains(t, result.IDs, sceneIDs[sceneIdxWithMarkers])
+	})
+}
+
 func TestMarkerQuerySceneTags(t *testing.T) {
 	type test struct {
 		name         string
@@ -509,6 +598,28 @@ func queryMarkers(ctx context.Context, t *testing.T, sqb models.SceneMarkerReade
 	}
 
 	return result
+}
+
+func setMarkerRange(t *testing.T, ctx context.Context, markerID int, seconds float64, endSeconds float64) {
+	t.Helper()
+
+	marker, err := db.SceneMarker.Find(ctx, markerID)
+	if err != nil {
+		t.Fatalf("error finding marker %d: %v", markerID, err)
+	}
+	marker.Seconds = seconds
+	marker.EndSeconds = &endSeconds
+	if err := db.SceneMarker.Update(ctx, marker); err != nil {
+		t.Fatalf("error updating marker %d range: %v", markerID, err)
+	}
+}
+
+func clearMarkerSecondaryTags(t *testing.T, ctx context.Context, markerID int) {
+	t.Helper()
+
+	if err := db.SceneMarker.UpdateTags(ctx, markerID, nil); err != nil {
+		t.Fatalf("error clearing marker %d secondary tags: %v", markerID, err)
+	}
 }
 
 // TODO Update

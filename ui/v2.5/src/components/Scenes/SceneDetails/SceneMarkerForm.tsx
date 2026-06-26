@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Button, Col, Form, Row } from "react-bootstrap";
+import { Alert, Button, Col, Form, Row } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import { useFormik } from "formik";
 import * as yup from "yup";
@@ -27,6 +27,13 @@ import Select from "react-select";
 import { Icon } from "src/components/Shared/Icon";
 import { faArrowDown, faArrowUp } from "@fortawesome/free-solid-svg-icons";
 import TextUtils from "src/utils/text";
+import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
+// CUSTOM: begin
+import {
+  findSceneMarkerGapWarnings,
+  type SceneMarkerGapTag,
+} from "./sceneMarkerGapWarning_custom";
+// CUSTOM: end
 
 interface IPerformer {
   id: string;
@@ -53,6 +60,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   const [sceneMarkerUpdate] = useSceneMarkerUpdate();
   const [sceneMarkerDestroy] = useSceneMarkerDestroy();
   const Toast = useToast();
+  const { configuration } = useConfigurationContext(); // CUSTOM
 
   const [primaryTag, setPrimaryTag] = useState<Tag>();
   const [tags, setTags] = useState<Tag[]>([]);
@@ -144,6 +152,38 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     validate: yupFormikValidate(schema),
     onSubmit: (values) => onSave(schema.cast(values)),
   });
+
+  // CUSTOM: begin - warn about small unmarked gaps next to this marker
+  const gapWarnings = useMemo(
+    () =>
+      findSceneMarkerGapWarnings({
+        draft: {
+          id: marker?.id,
+          seconds: formik.values.seconds,
+          end_seconds: formik.values.end_seconds,
+          primary_tag_id: formik.values.primary_tag_id,
+          tag_ids: formik.values.tag_ids,
+          primary_tag: primaryTag as unknown as SceneMarkerGapTag | undefined,
+          tags: tags as unknown as SceneMarkerGapTag[],
+        },
+        sceneMarkers: sceneData?.findScene?.scene_markers ?? [],
+        negativeMarkers: sceneData?.findScene?.negative_markers ?? [],
+        roleTagIds: configuration?.ui.roleTagIds ?? {},
+      }),
+    [
+      configuration?.ui.roleTagIds,
+      formik.values.end_seconds,
+      formik.values.primary_tag_id,
+      formik.values.seconds,
+      formik.values.tag_ids,
+      marker?.id,
+      primaryTag,
+      sceneData?.findScene?.negative_markers,
+      sceneData?.findScene?.scene_markers,
+      tags,
+    ]
+  );
+  // CUSTOM: end
 
   function onSetPrimaryTag(item: Tag) {
     setPrimaryTag(item);
@@ -406,6 +446,83 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   }
   // CUSTOM: end
 
+  // CUSTOM: begin - small adjacent gap warning
+  function formatGapMilliseconds(seconds: number) {
+    return `${Math.round(seconds * 1000)}ms`;
+  }
+
+  function renderGapWarning() {
+    if (!gapWarnings) return null;
+
+    const closePreviousGap = () => {
+      if (!gapWarnings.previous) return;
+      formik.setFieldValue("seconds", gapWarnings.previous.closeToSeconds);
+    };
+    const closeNextGap = () => {
+      if (!gapWarnings.next) return;
+      formik.setFieldValue("end_seconds", gapWarnings.next.closeToSeconds);
+    };
+    const closeAllGaps = () => {
+      closePreviousGap();
+      closeNextGap();
+    };
+
+    const previousLabel =
+      gapWarnings.previous &&
+      `${TextUtils.secondsToTimestamp(
+        gapWarnings.previous.markerBoundarySeconds,
+        true
+      )} - ${TextUtils.secondsToTimestamp(formik.values.seconds, true)}`;
+    const nextLabel =
+      gapWarnings.next &&
+      `${TextUtils.secondsToTimestamp(
+        formik.values.end_seconds ?? 0,
+        true
+      )} - ${TextUtils.secondsToTimestamp(
+        gapWarnings.next.markerBoundarySeconds,
+        true
+      )}`;
+
+    return (
+      <Alert variant="warning" className="py-2">
+        <div className="mb-2">
+          Creating this marker would leave a tiny unmarked gap.
+        </div>
+        {previousLabel && gapWarnings.previous && (
+          <div>
+            Previous gap after {gapWarnings.previous.adjacentMarkerType}:{" "}
+            {previousLabel} (
+            {formatGapMilliseconds(gapWarnings.previous.gapSeconds)})
+          </div>
+        )}
+        {nextLabel && gapWarnings.next && (
+          <div>
+            Next gap before {gapWarnings.next.adjacentMarkerType}: {nextLabel} (
+            {formatGapMilliseconds(gapWarnings.next.gapSeconds)})
+          </div>
+        )}
+        <div className="mt-2 d-flex flex-wrap" style={{ gap: "0.5rem" }}>
+          {gapWarnings.previous && (
+            <Button size="sm" variant="warning" onClick={closePreviousGap}>
+              Close previous gap
+            </Button>
+          )}
+          {gapWarnings.next && (
+            <Button size="sm" variant="warning" onClick={closeNextGap}>
+              Close next gap
+            </Button>
+          )}
+          {gapWarnings.previous && gapWarnings.next && (
+            <Button size="sm" variant="warning" onClick={closeAllGaps}>
+              Close both gaps
+            </Button>
+          )}
+        </div>
+      </Alert>
+    );
+  }
+  // CUSTOM: end
+
   function renderTagsField() {
     const title = intl.formatMessage({ id: "tags" });
     const control = (
@@ -536,6 +653,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         {renderTimeField()}
         {renderEndTimeField()}
         {renderDurationField()}
+        {renderGapWarning()}
         {renderTagsField()}
         {renderPerformersField()}
         {/* ^^^ CUSTOM: renderDurationField + renderPerformersField */}

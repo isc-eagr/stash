@@ -17,10 +17,17 @@ import {
   faChevronDown,
   faChevronRight,
   faRedo,
+  faCheck,
 } from "@fortawesome/free-solid-svg-icons";
 import TextUtils from "src/utils/text";
 import type { ILoopSegment } from "./multi-segment-loop";
 import cx from "classnames";
+// CUSTOM: begin
+import {
+  selectedMultiSegmentIdsToDelete,
+  unselectedMultiSegmentIdsToDelete,
+} from "./multiSegmentSelection_custom";
+// CUSTOM: end
 
 interface IMultiSegmentLoopControlsProps {
   segments: ILoopSegment[];
@@ -84,6 +91,9 @@ export const MultiSegmentLoopControls: React.FC<
   const [savePresetName, setSavePresetName] = useState("");
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string>("");
+  const [selectedSegmentIds, setSelectedSegmentIds] = useState<Set<string>>(
+    () => new Set()
+  ); // CUSTOM
   const saveInputRef = useRef<HTMLInputElement>(null);
   const isModal = !collapsed && !!onClose;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -108,6 +118,52 @@ export const MultiSegmentLoopControls: React.FC<
       saveInputRef.current.focus();
     }
   }, [showSaveInput]);
+
+  // CUSTOM: begin - segment bulk selection
+  useEffect(() => {
+    const validSegmentIds = new Set(segments.map((segment) => segment.id));
+    setSelectedSegmentIds((current) => {
+      if (current.size === 0) return current;
+
+      const next = new Set<string>();
+      current.forEach((id) => {
+        if (validSegmentIds.has(id)) next.add(id);
+      });
+
+      return next;
+    });
+  }, [segments]);
+
+  const selectedSegmentCount = selectedSegmentIds.size;
+
+  function toggleSegmentSelection(id: string) {
+    setSelectedSegmentIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function handleRemoveSelectedSegments() {
+    const idsToRemove = selectedMultiSegmentIdsToDelete(
+      segments,
+      selectedSegmentIds
+    );
+
+    idsToRemove.forEach((id) => onRemoveSegment(id));
+    setSelectedSegmentIds(new Set());
+  }
+
+  function handleKeepSelectedSegments() {
+    const idsToRemove = unselectedMultiSegmentIdsToDelete(
+      segments,
+      selectedSegmentIds
+    );
+
+    idsToRemove.forEach((id) => onRemoveSegment(id));
+  }
+  // CUSTOM: end
 
   const formatTime = (seconds: number): string => {
     return TextUtils.secondsToTimestamp(seconds);
@@ -340,6 +396,33 @@ export const MultiSegmentLoopControls: React.FC<
               <Icon icon={faTrash} />
             </Button>
           )}
+          {/* CUSTOM: begin - bulk segment selection actions */}
+          {selectedSegmentCount > 0 && (
+            <>
+              <Button
+                variant="outline-danger"
+                size="sm"
+                onClick={handleRemoveSelectedSegments}
+                title={`Delete ${selectedSegmentCount} selected segment${
+                  selectedSegmentCount === 1 ? "" : "s"
+                }`}
+              >
+                <Icon icon={faTrash} />
+                <span className="ml-1">Delete selected</span>
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleKeepSelectedSegments}
+                disabled={selectedSegmentCount === segments.length}
+                title="Delete all unselected segments"
+              >
+                <Icon icon={faCheck} />
+                <span className="ml-1">Keep selected</span>
+              </Button>
+            </>
+          )}
+          {/* CUSTOM: end */}
         </div>
 
         {/* Segment List */}
@@ -366,6 +449,15 @@ export const MultiSegmentLoopControls: React.FC<
                 })}
                 onClick={() => onJumpToSegment(index)}
               >
+                {/* CUSTOM */}
+                <Form.Check
+                  className="msl-segment-select"
+                  id={`msl-segment-select-${segment.id}`}
+                  checked={selectedSegmentIds.has(segment.id)}
+                  aria-label={`Select segment ${index + 1}`}
+                  onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                  onChange={() => toggleSegmentSelection(segment.id)}
+                />
                 <span className="msl-segment-num">{index + 1}</span>
                 <span className="msl-segment-times">
                   {onAdjustSegmentStart &&
