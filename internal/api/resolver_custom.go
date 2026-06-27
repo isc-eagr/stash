@@ -13,6 +13,7 @@ import (
 
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/internal/manager/config"
+	"github.com/stashapp/stash/pkg/models"
 )
 
 // CUSTOM: Custom resolver types for extended GraphQL types
@@ -43,6 +44,13 @@ var defaultCustomRatingTierThresholds = customRatingTierThresholds{
 	silver:        73,
 	gold:          84,
 	royalSapphire: 90,
+}
+
+type sceneOEventAssociatedTagCandidate struct {
+	OID      string
+	MarkerID int
+	IsOrgasm bool
+	Tag      *models.Tag
 }
 
 // CUSTOM: Factory methods for custom resolver types
@@ -745,6 +753,10 @@ ORDER BY datetime(od.o_date, 'localtime') ASC, COALESCE(od.video_timestamp, -1) 
 			})
 		}
 
+		if err := r.populateSceneOEventAssociatedTags(ctx, out); err != nil {
+			return err
+		}
+
 		ret = out
 		return nil
 	}); err != nil {
@@ -886,6 +898,10 @@ ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1)
 				VideoTimestamp: customFloatPtrValue(row[3]),
 				Scene:          scene,
 			})
+		}
+
+		if err := r.populateSceneOEventAssociatedTags(ctx, out); err != nil {
+			return err
 		}
 
 		ret = out
@@ -1064,6 +1080,203 @@ func sceneOStatsEthnicityFilter(value string) (string, error) {
 	return ret, nil
 }
 
+func sceneOOrgasmTagID() int {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+	if roleTagIds == nil {
+		return 0
+	}
+
+	orgasmID, _ := roleTagIds["orgasmTagId"].(string)
+	if orgasmID == "" {
+		return 0
+	}
+
+	ret, _ := strconv.Atoi(orgasmID)
+	return ret
+}
+
+func sceneOEventAssociatedTagsFromCandidates(candidates []sceneOEventAssociatedTagCandidate) map[string][]*models.Tag {
+	hasOrgasmMarker := make(map[string]bool)
+	for _, candidate := range candidates {
+		if candidate.IsOrgasm {
+			hasOrgasmMarker[candidate.OID] = true
+		}
+	}
+
+	seen := make(map[string]map[int]bool)
+	ret := make(map[string][]*models.Tag)
+	for _, candidate := range candidates {
+		if candidate.Tag == nil {
+			continue
+		}
+		if hasOrgasmMarker[candidate.OID] && !candidate.IsOrgasm {
+			continue
+		}
+		if seen[candidate.OID] == nil {
+			seen[candidate.OID] = make(map[int]bool)
+		}
+		if seen[candidate.OID][candidate.Tag.ID] {
+			continue
+		}
+
+		seen[candidate.OID][candidate.Tag.ID] = true
+		ret[candidate.OID] = append(ret[candidate.OID], candidate.Tag)
+	}
+
+	return ret
+}
+
+func sceneOEventAssociatedTagsQuery(placeholders string, includeOrgasmTagPriority bool) string {
+	orgasmCTE := ""
+	isOrgasmExpression := "0"
+	if includeOrgasmTagPriority {
+		orgasmCTE = `RECURSIVE orgasm_tags(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
+),
+`
+		isOrgasmExpression = `CASE
+      WHEN sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
+        OR EXISTS (
+          SELECT 1 FROM scene_markers_tags smt_orgasm
+          WHERE smt_orgasm.scene_marker_id = sm.id
+            AND smt_orgasm.tag_id IN (SELECT id FROM orgasm_tags)
+        )
+      THEN 1 ELSE 0
+    END`
+	}
+
+	return fmt.Sprintf(`
+WITH %scovered_marker_tags AS (
+  SELECT
+    od.rowid AS o_id,
+    sm.id AS marker_id,
+    %s AS is_orgasm,
+    t.id AS tag_id,
+    t.name AS tag_name,
+    0 AS tag_sort
+  FROM scenes_o_dates od
+  JOIN scene_markers sm ON sm.scene_id = od.scene_id
+  JOIN tags t ON t.id = sm.primary_tag_id
+  WHERE od.rowid IN (%s)
+    AND od.video_timestamp IS NOT NULL
+    AND sm.end_seconds IS NOT NULL
+    AND od.video_timestamp >= sm.seconds
+    AND od.video_timestamp <= sm.end_seconds
+
+  UNION
+
+  SELECT
+    od.rowid AS o_id,
+    sm.id AS marker_id,
+    %s AS is_orgasm,
+    t.id AS tag_id,
+    t.name AS tag_name,
+    1 AS tag_sort
+  FROM scenes_o_dates od
+  JOIN scene_markers sm ON sm.scene_id = od.scene_id
+  JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+  JOIN tags t ON t.id = smt.tag_id
+  WHERE od.rowid IN (%s)
+    AND od.video_timestamp IS NOT NULL
+    AND sm.end_seconds IS NOT NULL
+    AND od.video_timestamp >= sm.seconds
+    AND od.video_timestamp <= sm.end_seconds
+)
+SELECT o_id, marker_id, is_orgasm, tag_id, tag_name
+FROM covered_marker_tags
+ORDER BY o_id, marker_id, tag_sort, tag_name COLLATE NOCASE`, orgasmCTE, isOrgasmExpression, placeholders, isOrgasmExpression, placeholders)
+}
+
+func sceneOEventIDChunk(ids []int, start int, size int) []int {
+	end := start + size
+	if end > len(ids) {
+		end = len(ids)
+	}
+	return ids[start:end]
+}
+
+func sceneOEventIDPlaceholders(ids []int) (string, []interface{}) {
+	placeholders := make([]string, 0, len(ids))
+	args := make([]interface{}, 0, len(ids))
+	for _, id := range ids {
+		placeholders = append(placeholders, "?")
+		args = append(args, id)
+	}
+
+	return strings.Join(placeholders, ","), args
+}
+
+func (r *queryResolver) populateSceneOEventAssociatedTags(ctx context.Context, events []*SceneOEvent) error {
+	for _, event := range events {
+		event.AssociatedTags = []*models.Tag{}
+	}
+
+	byID := make(map[string]*SceneOEvent, len(events))
+	ids := make([]int, 0, len(events))
+	for _, event := range events {
+		if event.VideoTimestamp == nil {
+			continue
+		}
+		id, err := strconv.Atoi(event.ID)
+		if err != nil {
+			continue
+		}
+		byID[event.ID] = event
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+
+	db := manager.GetInstance().Database
+	orgasmTagID := sceneOOrgasmTagID()
+	candidates := []sceneOEventAssociatedTagCandidate{}
+	for start := 0; start < len(ids); start += 450 {
+		chunk := sceneOEventIDChunk(ids, start, 450)
+		placeholders, idArgs := sceneOEventIDPlaceholders(chunk)
+		query := sceneOEventAssociatedTagsQuery(placeholders, orgasmTagID != 0)
+
+		args := make([]interface{}, 0, len(idArgs)*2+1)
+		if orgasmTagID != 0 {
+			args = append(args, orgasmTagID)
+		}
+		args = append(args, idArgs...)
+		args = append(args, idArgs...)
+
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+
+		for _, row := range rows {
+			if len(row) < 5 {
+				continue
+			}
+			candidates = append(candidates, sceneOEventAssociatedTagCandidate{
+				OID:      fmt.Sprint(row[0]),
+				MarkerID: customIntValue(row[1]),
+				IsOrgasm: customIntValue(row[2]) == 1,
+				Tag: &models.Tag{
+					ID:   customIntValue(row[3]),
+					Name: customStringValue(row[4]),
+				},
+			})
+		}
+	}
+
+	associatedTags := sceneOEventAssociatedTagsFromCandidates(candidates)
+	for oID, tags := range associatedTags {
+		if event := byID[oID]; event != nil {
+			event.AssociatedTags = tags
+		}
+	}
+
+	return nil
+}
+
 func (r *queryResolver) sceneOEventsFromRows(ctx context.Context, rows [][]interface{}) ([]*SceneOEvent, error) {
 	out := make([]*SceneOEvent, 0, len(rows))
 	for _, row := range rows {
@@ -1087,6 +1300,10 @@ func (r *queryResolver) sceneOEventsFromRows(ctx context.Context, rows [][]inter
 			VideoTimestamp: customFloatPtrValue(row[3]),
 			Scene:          scene,
 		})
+	}
+
+	if err := r.populateSceneOEventAssociatedTags(ctx, out); err != nil {
+		return nil, err
 	}
 
 	return out, nil

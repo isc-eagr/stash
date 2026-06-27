@@ -216,6 +216,33 @@
   }
 }
 
+.ostats-event-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.ostats-event-tag {
+  background: rgba(61, 121, 242, 0.16);
+  border: 1px solid rgba(61, 121, 242, 0.45);
+  border-radius: 4px;
+  color: #d7e4ff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 0.18rem 0.45rem;
+
+  &:hover,
+  &:focus-visible {
+    background: rgba(61, 121, 242, 0.25);
+    color: #fff;
+    text-decoration: none;
+  }
+}
+
 @media (max-width: 640px) {
   .ostats-header {
     display: block;

@@ -52,6 +52,8 @@ type SceneOEvent {
   scene_id: ID!
   o_date: String!
   video_timestamp: Float
+  "Primary and secondary marker tags associated with the O timestamp"
+  associated_tags: [Tag!]!
   scene: Scene!
 }
 # CUSTOM: end

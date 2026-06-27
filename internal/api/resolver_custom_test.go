@@ -1,6 +1,10 @@
 package api
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stashapp/stash/pkg/models"
+)
 
 func TestSceneOStatsDate(t *testing.T) {
 	tests := []struct {
@@ -171,6 +175,31 @@ func TestSceneOStatsEthnicityFilter(t *testing.T) {
 
 	if _, err := sceneOStatsEthnicityFilter(" "); err == nil {
 		t.Fatal("sceneOStatsEthnicityFilter blank value returned nil error")
+	}
+}
+
+func TestSceneOEventAssociatedTagsFromCandidates(t *testing.T) {
+	tag := func(id int, name string) *models.Tag {
+		return &models.Tag{ID: id, Name: name}
+	}
+
+	got := sceneOEventAssociatedTagsFromCandidates([]sceneOEventAssociatedTagCandidate{
+		{OID: "1", MarkerID: 10, Tag: tag(1, "Oral")},
+		{OID: "1", MarkerID: 11, IsOrgasm: true, Tag: tag(2, "Orgasm")},
+		{OID: "1", MarkerID: 11, IsOrgasm: true, Tag: tag(3, "Hands Free")},
+		{OID: "1", MarkerID: 11, IsOrgasm: true, Tag: tag(3, "Hands Free")},
+		{OID: "2", MarkerID: 20, Tag: tag(4, "Solo")},
+		{OID: "2", MarkerID: 20, Tag: tag(5, "Toy")},
+	})
+
+	if len(got["1"]) != 2 {
+		t.Fatalf("event 1 associated tags = %#v, want two orgasm-marker tags", got["1"])
+	}
+	if got["1"][0].Name != "Orgasm" || got["1"][1].Name != "Hands Free" {
+		t.Fatalf("event 1 associated tags = %#v, want orgasm marker tags in order", got["1"])
+	}
+	if len(got["2"]) != 2 || got["2"][0].Name != "Solo" || got["2"][1].Name != "Toy" {
+		t.Fatalf("event 2 associated tags = %#v, want all covered tags", got["2"])
 	}
 }
 

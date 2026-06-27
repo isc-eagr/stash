@@ -49,6 +49,10 @@ const SCENE_O_EVENTS_BY_DATE = gql`
       scene_id
       o_date
       video_timestamp
+      associated_tags {
+        id
+        name
+      }
       scene {
         id
         title
@@ -76,6 +80,10 @@ const SCENE_O_EVENTS_BY_TAG = gql`
       scene_id
       o_date
       video_timestamp
+      associated_tags {
+        id
+        name
+      }
       scene {
         id
         title
@@ -103,6 +111,10 @@ const SCENE_O_EVENTS_BY_ETHNICITY = gql`
       scene_id
       o_date
       video_timestamp
+      associated_tags {
+        id
+        name
+      }
       scene {
         id
         title
@@ -183,6 +195,10 @@ type SceneOEvent = {
   scene_id: string;
   o_date: string;
   video_timestamp?: number | null;
+  associated_tags: Array<{
+    id: string;
+    name: string;
+  }>;
   scene: {
     id: string;
     title?: string | null;
@@ -427,6 +443,22 @@ const OStatsTimeline: React.FC<{
                   </span>
                 )}
               </div>
+              {event.associated_tags.length > 0 && (
+                <div
+                  className="ostats-event-tags"
+                  aria-label="Associated marker tags"
+                >
+                  {event.associated_tags.map((tag) => (
+                    <Link
+                      className="ostats-event-tag"
+                      key={tag.id}
+                      to={`/ostats/tag/${tag.id}`}
+                    >
+                      {tag.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           </li>
         );

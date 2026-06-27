@@ -2906,13 +2906,13 @@ Custom filter criteria are highlighted in green in the Edit Filter picker so for
 
 ### Overview
 
-Adds a hidden `/ostats` page for reliable scene O-date analytics. The page is intentionally not linked from the main UI; it is only accessible by typing the URL. It shows O-date record cards, clickable bar charts by year, month, day, marker tag, and associated vato ethnicity, then chronological timelines of scene O events for a selected day, marker tag, or ethnicity. The Generate task can also create exact static screenshots for O events that have a `video_timestamp`, and the timelines use those O screenshots when available.
+Adds a hidden `/ostats` page for reliable scene O-date analytics. The page is intentionally not linked from the main UI; it is only accessible by typing the URL. It shows O-date record cards, clickable bar charts by year, month, day, marker tag, and associated vato ethnicity, then chronological timelines of scene O events for a selected day, marker tag, or ethnicity. Timeline rows show associated marker tags for each timestamped O event. The Generate task can also create exact static screenshots for O events that have a `video_timestamp`, and the timelines use those O screenshots when available.
 
 ### Files Modified
 
-- `graphql/schema/types/stats_custom.graphql` - Adds month/day bucket, day/tag/ethnicity timeline GraphQL types and queries
+- `graphql/schema/types/stats_custom.graphql` - Adds month/day bucket, day/tag/ethnicity timeline GraphQL types and queries, including associated marker tags on O events
 - `graphql/schema/types/metadata_custom.graphql` - Extends Generate metadata input/default options with `oScreenshots`
-- `internal/api/resolver_custom.go` - Adds O stats period resolvers, O date record resolvers, timestamped marker-tag counts, scene-level ethnicity counts, tag/ethnicity drilldown events for `/ostats`, and filters unreliable dates before March 8, 2024
+- `internal/api/resolver_custom.go` - Adds O stats period resolvers, O date record resolvers, timestamped marker-tag counts, per-event associated marker tags, scene-level ethnicity counts, tag/ethnicity drilldown events for `/ostats`, and filters unreliable dates before March 8, 2024
 - `internal/api/routes_scene.go` - Registers the O screenshot route
 - `internal/manager/task_generate.go` - Queues O screenshot generation from the Generate task
 - `pkg/models/generate.go` - Stores the O screenshot Generate default flag
@@ -2937,6 +2937,7 @@ Adds a hidden `/ostats` page for reliable scene O-date analytics. The page is in
 
 - `TestSceneOStatsDate` - Covers valid dates, leap day, invalid months, and invalid day/month combinations
 - `TestValidateSceneOStatsDate` - Covers accepted `YYYY-MM-DD` dates and rejected malformed/impossible dates
+- `TestSceneOEventAssociatedTagsFromCandidates` - Covers deduping associated marker tags and preferring orgasm marker tags when available
 - `TestGetOScreenshotPath` - Covers generated O screenshot path layout by scene hash and O row id
 
 ### GraphQL Schema Changes
@@ -2945,7 +2946,7 @@ Adds a hidden `/ostats` page for reliable scene O-date analytics. The page is in
 - `GenerateMetadataOptions.oScreenshots`
 - `SceneOMonthCount`
 - `SceneODayCount`
-- `SceneOEvent`
+- `SceneOEvent.associated_tags`
 - `sceneOMonthCounts(year: Int!)`
 - `sceneODayCounts(year: Int!, month: Int!)`
 - `sceneOEventsByDate(date: String!)`
