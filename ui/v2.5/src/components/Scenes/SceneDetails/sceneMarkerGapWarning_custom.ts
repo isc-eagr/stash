@@ -53,7 +53,7 @@ type SceneMarkerGapRange = {
   markerType: string;
 };
 
-const maxGapSeconds = 2;
+const maxGapSeconds = 3;
 const defaultMarkerDurationSeconds = 20;
 const markerGapCloseOffsetSeconds = 0.001;
 

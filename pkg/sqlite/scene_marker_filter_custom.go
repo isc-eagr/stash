@@ -537,15 +537,12 @@ WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")), attrArg
 				var roleConditions []string
 				var roleArgs []interface{}
 
-				if len(performerIDs) > 0 {
-					ph := getInBinding(len(performerIDs))
+				for i, pid := range performerIDs {
 					roleConditions = append(roleConditions, fmt.Sprintf(`EXISTS (
-    SELECT 1 FROM scene_marker_performers %[1]s_ids
-    WHERE %[1]s_ids.scene_marker_id = %[2]s.id AND %[1]s_ids.role = '%[3]s' AND %[1]s_ids.performer_id IN %[4]s
-  )`, aliasPrefix, smAlias, role, ph))
-					for _, pid := range performerIDs {
-						roleArgs = append(roleArgs, pid)
-					}
+    SELECT 1 FROM scene_marker_performers %[1]s_ids_%[4]d
+    WHERE %[1]s_ids_%[4]d.scene_marker_id = %[2]s.id AND %[1]s_ids_%[4]d.role = '%[3]s' AND %[1]s_ids_%[4]d.performer_id = ?
+  )`, aliasPrefix, smAlias, role, i))
+					roleArgs = append(roleArgs, pid)
 				}
 
 				attrClause, attrArgs, ok := addPerformerAttr(aliasPrefix+"_p_attr", ethnicities, countries, rating, nil)
@@ -809,8 +806,14 @@ WHERE %s
 			// Separate tag conditions from performer conditions for OR mode support
 			var tagConditions []string
 			var tagArgs []interface{}
-			var performerConditions []string
-			var performerArgs []interface{}
+			var topRoleConditions []string
+			var topRoleArgs []interface{}
+			var bottomRoleConditions []string
+			var bottomRoleArgs []interface{}
+			var bothRoleConditions []string
+			var bothRoleArgs []interface{}
+			var crossRoleDistinctConditions []string
+			var crossRoleDistinctArgs []interface{}
 
 			// Determine performer mode: default is OR
 			performerMode := "OR"
@@ -912,8 +915,8 @@ WHERE %s
 						AND smp.performer_id = ? 
 						AND smp.role = 'top'
 					)`
-					performerConditions = append(performerConditions, cond)
-					performerArgs = append(performerArgs, perfID)
+					topRoleConditions = append(topRoleConditions, cond)
+					topRoleArgs = append(topRoleArgs, perfID)
 				}
 			}
 
@@ -927,8 +930,8 @@ WHERE %s
 						AND smp.performer_id = ? 
 						AND smp.role = 'bottom'
 					)`
-					performerConditions = append(performerConditions, cond)
-					performerArgs = append(performerArgs, perfID)
+					bottomRoleConditions = append(bottomRoleConditions, cond)
+					bottomRoleArgs = append(bottomRoleArgs, perfID)
 				}
 			}
 
@@ -950,8 +953,8 @@ WHERE %s
 							AND smp.role = 'bottom'
 						)
 					)`
-					performerConditions = append(performerConditions, cond)
-					performerArgs = append(performerArgs, perfID, perfID)
+					bothRoleConditions = append(bothRoleConditions, cond)
+					bothRoleArgs = append(bothRoleArgs, perfID, perfID)
 				}
 			}
 
@@ -1000,8 +1003,8 @@ WHERE %s
 						AND %s
 					)`, alias, palias, palias, alias, alias, strings.Join(slotConds, " AND "))
 
-					performerConditions = append(performerConditions, existsCond)
-					performerArgs = append(performerArgs, slotArgs...)
+					topRoleConditions = append(topRoleConditions, existsCond)
+					topRoleArgs = append(topRoleArgs, slotArgs...)
 				}
 
 				// If multiple top unnamed performers, ensure they are DISTINCT
@@ -1052,8 +1055,8 @@ WHERE %s
 
 					countCond := fmt.Sprintf(`(SELECT COUNT(*) FROM (%s) AS up_union) >= %d`,
 						strings.Join(unionParts, " UNION "), len(g.TopUnnamedPerformers))
-					performerConditions = append(performerConditions, countCond)
-					performerArgs = append(performerArgs, countArgs...)
+					topRoleConditions = append(topRoleConditions, countCond)
+					topRoleArgs = append(topRoleArgs, countArgs...)
 				}
 			}
 
@@ -1102,8 +1105,8 @@ WHERE %s
 						AND %s
 					)`, alias, palias, palias, alias, alias, strings.Join(slotConds, " AND "))
 
-					performerConditions = append(performerConditions, existsCond)
-					performerArgs = append(performerArgs, slotArgs...)
+					bottomRoleConditions = append(bottomRoleConditions, existsCond)
+					bottomRoleArgs = append(bottomRoleArgs, slotArgs...)
 				}
 
 				// If multiple bottom unnamed performers, ensure they are DISTINCT
@@ -1151,8 +1154,8 @@ WHERE %s
 
 					countCond := fmt.Sprintf(`(SELECT COUNT(*) FROM (%s) AS upb_union) >= %d`,
 						strings.Join(unionParts, " UNION "), len(g.BottomUnnamedPerformers))
-					performerConditions = append(performerConditions, countCond)
-					performerArgs = append(performerArgs, countArgs...)
+					bottomRoleConditions = append(bottomRoleConditions, countCond)
+					bottomRoleArgs = append(bottomRoleArgs, countArgs...)
 				}
 			}
 
@@ -1210,8 +1213,8 @@ WHERE %s
 						whereClause,
 					)
 
-					performerConditions = append(performerConditions, existsCond)
-					performerArgs = append(performerArgs, slotArgs...)
+					bothRoleConditions = append(bothRoleConditions, existsCond)
+					bothRoleArgs = append(bothRoleArgs, slotArgs...)
 				}
 
 				// If multiple both-roles unnamed performers, ensure they are DISTINCT
@@ -1266,8 +1269,8 @@ WHERE %s
 
 					countCond := fmt.Sprintf(`(SELECT COUNT(*) FROM (%s) AS upbr_union) >= %d`,
 						strings.Join(unionParts, " UNION "), len(g.BothRolesUnnamedPerformers))
-					performerConditions = append(performerConditions, countCond)
-					performerArgs = append(performerArgs, countArgs...)
+					bothRoleConditions = append(bothRoleConditions, countCond)
+					bothRoleArgs = append(bothRoleArgs, countArgs...)
 				}
 			}
 
@@ -1359,8 +1362,8 @@ WHERE %s
 
 				crossRoleCountCond := fmt.Sprintf(`(SELECT COUNT(*) FROM (%s) AS cross_role_union) >= %d`,
 					strings.Join(allUnionParts, " UNION "), totalUnnamedSlots)
-				performerConditions = append(performerConditions, crossRoleCountCond)
-				performerArgs = append(performerArgs, allCountArgs...)
+				crossRoleDistinctConditions = append(crossRoleDistinctConditions, crossRoleCountCond)
+				crossRoleDistinctArgs = append(crossRoleDistinctArgs, allCountArgs...)
 			}
 
 			// Combine all conditions for this group
@@ -1373,15 +1376,42 @@ WHERE %s
 				allCondArgs = append(allCondArgs, tagArgs...)
 			}
 
-			// Add performer conditions based on performer mode
-			if len(performerConditions) > 0 {
+			// Add performer conditions based on performer mode. Each role's selected
+			// named/unnamed criteria are always ALL; performerMode only combines
+			// top-vs-bottom role groups.
+			topRoleClause := ""
+			if len(topRoleConditions) > 0 {
+				topRoleClause = "(" + strings.Join(topRoleConditions, " AND ") + ")"
+			}
+			bottomRoleClause := ""
+			if len(bottomRoleConditions) > 0 {
+				bottomRoleClause = "(" + strings.Join(bottomRoleConditions, " AND ") + ")"
+			}
+
+			switch {
+			case topRoleClause != "" && bottomRoleClause != "":
 				if performerMode == "OR" {
-					perfClause := "(" + strings.Join(performerConditions, " OR ") + ")"
-					allConditions = append(allConditions, perfClause)
+					allConditions = append(allConditions, "("+topRoleClause+" OR "+bottomRoleClause+")")
+					allCondArgs = append(allCondArgs, topRoleArgs...)
+					allCondArgs = append(allCondArgs, bottomRoleArgs...)
 				} else {
-					allConditions = append(allConditions, performerConditions...)
+					allConditions = append(allConditions, topRoleClause, bottomRoleClause)
+					allCondArgs = append(allCondArgs, topRoleArgs...)
+					allCondArgs = append(allCondArgs, bottomRoleArgs...)
+					allConditions = append(allConditions, crossRoleDistinctConditions...)
+					allCondArgs = append(allCondArgs, crossRoleDistinctArgs...)
 				}
-				allCondArgs = append(allCondArgs, performerArgs...)
+			case topRoleClause != "":
+				allConditions = append(allConditions, topRoleClause)
+				allCondArgs = append(allCondArgs, topRoleArgs...)
+			case bottomRoleClause != "":
+				allConditions = append(allConditions, bottomRoleClause)
+				allCondArgs = append(allCondArgs, bottomRoleArgs...)
+			}
+
+			if len(bothRoleConditions) > 0 {
+				allConditions = append(allConditions, bothRoleConditions...)
+				allCondArgs = append(allCondArgs, bothRoleArgs...)
 			}
 
 			if len(allConditions) > 0 {

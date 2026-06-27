@@ -207,7 +207,6 @@ export type CriterionType =
   | "performer_country" // CUSTOM
   | "performer_ethnicity" // CUSTOM
   | "performer_rating" // CUSTOM
-  | "scene_marker_tags" // CUSTOM
   | "duplicated"
   | "ignore_auto_tag"
   | "file_count"
@@ -238,7 +237,6 @@ export type CriterionType =
   | "partners" // CUSTOM
   | "marker_performers"
   | "has_marker_performers"
-  | "marker_tags_with_performers"
   | "performer_markers"
   | "performer_marker_tags"
   | "performer_marker_partners"

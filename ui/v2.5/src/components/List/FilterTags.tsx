@@ -23,13 +23,13 @@ import { CustomFieldsCriterion } from "src/models/list-filter/criteria/custom-fi
 import { useDebounce } from "src/hooks/debounce";
 import cx from "classnames";
 // CUSTOM: begin - marker criterion imports
-import { SceneMarkerTagsCriterion } from "src/models/list-filter/criteria/tags";
 import { MarkerTagsCriterion } from "src/models/list-filter/criteria/marker-tags";
 import { MarkerTopCriterion } from "src/models/list-filter/criteria/marker-top";
 import { MarkerBottomCriterion } from "src/models/list-filter/criteria/marker-bottom";
 import { ExcludeMarkerTagsCriterion } from "src/models/list-filter/criteria/exclude-marker-tags";
 import {
-  CriterionModifier,
+  FindPerformersForSelectQueryVariables,
+  FindTagsForSelectQueryVariables,
   useFindTagsForSelectQuery,
   useFindPerformersForSelectQuery,
 } from "src/core/generated-graphql";
@@ -145,203 +145,15 @@ interface IFilterTagsProps {
 }
 
 // CUSTOM: begin - chip label components for custom marker criteria
-const SceneMarkerTagsChipLabel: React.FC<{
-  criterion: SceneMarkerTagsCriterion;
-}> = ({ criterion }) => {
-  const intl = useIntl();
-  // Gather unresolved tag ids (labels equal to ids)
-  const unresolvedTagIds = React.useMemo(() => {
-    const ids = new Set<string>();
-    if (
-      criterion.modifier === CriterionModifier.Equals ||
-      criterion.modifier === CriterionModifier.NotEquals
-    ) {
-      // Check extendedGroups for tags
-      criterion.extendedGroups.forEach((g) =>
-        (g.tags ?? []).forEach((t) => {
-          if (t.label === t.id) ids.add(t.id);
-        })
-      );
-      // Also check simple groups for backwards compatibility
-      criterion.groups.forEach((g) =>
-        g.forEach((t) => {
-          if (t.label === t.id) ids.add(t.id);
-        })
-      );
-    } else {
-      criterion.items.forEach((t) => {
-        if (t.label === t.id) ids.add(t.id);
-      });
-    }
-    return Array.from(ids);
-  }, [criterion]);
+const getTagSelectVariables = (
+  ids: string[]
+): FindTagsForSelectQueryVariables =>
+  ids.length ? { ids, filter: { per_page: ids.length } } : { ids: [] };
 
-  // Gather unresolved performer ids (from both top and bottom fields)
-  const unresolvedPerformerIds = React.useMemo(() => {
-    const ids = new Set<string>();
-    if (
-      criterion.modifier === CriterionModifier.Equals ||
-      criterion.modifier === CriterionModifier.NotEquals
-    ) {
-      criterion.extendedGroups.forEach((g) => {
-        (g.top_performer_ids ?? []).forEach(
-          (p: { id: string; label: string }) => {
-            if (p.label === p.id) ids.add(p.id);
-          }
-        );
-        (g.bottom_performer_ids ?? []).forEach(
-          (p: { id: string; label: string }) => {
-            if (p.label === p.id) ids.add(p.id);
-          }
-        );
-      });
-    }
-    return Array.from(ids);
-  }, [criterion]);
-
-  const { data: tagData } = useFindTagsForSelectQuery({
-    variables: unresolvedTagIds.length
-      ? { ids: unresolvedTagIds, filter: { per_page: unresolvedTagIds.length } }
-      : { ids: [] },
-    skip: unresolvedTagIds.length === 0,
-  } as any);
-
-  const { data: performerData } = useFindPerformersForSelectQuery({
-    variables: unresolvedPerformerIds.length
-      ? {
-          ids: unresolvedPerformerIds,
-          filter: { per_page: unresolvedPerformerIds.length },
-        }
-      : { ids: [] },
-    skip: unresolvedPerformerIds.length === 0,
-  } as any);
-
-  const tagNameMap = React.useMemo(() => {
-    const m = new Map<string, string>();
-    (tagData?.findTags?.tags ?? []).forEach((t) => m.set(t.id, t.name));
-    return m;
-  }, [tagData]);
-
-  const performerNameMap = React.useMemo(() => {
-    const m = new Map<string, string>();
-    (performerData?.findPerformers?.performers ?? []).forEach((p) =>
-      m.set(p.id, p.name ?? p.id)
-    );
-    return m;
-  }, [performerData]);
-
-  const criterionLabel = intl.formatMessage({
-    id: (criterion as any).criterionOption.messageID,
-  });
-  const modifierString = ModifierCriterion.getModifierLabel(
-    intl,
-    criterion.modifier as unknown as CriterionModifier
-  );
-
-  // Check if any extendedGroup has extra attributes
-  const hasExtendedAttrs = criterion.extendedGroups.some(
-    (g) =>
-      (g.top_performer_ids?.length ?? 0) > 0 ||
-      (g.bottom_performer_ids?.length ?? 0) > 0 ||
-      (g.both_roles_performer_ids?.length ?? 0) > 0 ||
-      (g.exclude_tags?.length ?? 0) > 0 ||
-      (g.depth != null && g.depth !== 0)
-  );
-
-  let valueString = "";
-  if (
-    criterion.modifier === CriterionModifier.Equals ||
-    criterion.modifier === CriterionModifier.NotEquals
-  ) {
-    if (hasExtendedAttrs) {
-      valueString = criterion.extendedGroups
-        .map((g) => {
-          const parts: string[] = [];
-          if (g.tags?.length) {
-            const tagStr = g.tags
-              .map((v: { id: string; label: string }) =>
-                v.label === v.id ? tagNameMap.get(v.id) ?? v.label : v.label
-              )
-              .join(" + ");
-            if (g.depth != null && g.depth !== 0) {
-              parts.push(`${tagStr} (+subs)`);
-            } else {
-              parts.push(tagStr);
-            }
-          }
-          if (g.exclude_tags?.length) {
-            const excludeStr = g.exclude_tags
-              .map((v: { id: string; label: string }) =>
-                v.label === v.id ? tagNameMap.get(v.id) ?? v.label : v.label
-              )
-              .join(",");
-            parts.push(`excl=${excludeStr}`);
-          }
-          // Top attributes
-          if (g.top_performer_ids?.length) {
-            const perfStr = g.top_performer_ids
-              .map((v: { id: string; label: string }) =>
-                v.label === v.id
-                  ? performerNameMap.get(v.id) ?? v.label
-                  : v.label
-              )
-              .join(",");
-            parts.push(`top=${perfStr}`);
-          }
-          // Bottom attributes
-          if (g.bottom_performer_ids?.length) {
-            const perfStr = g.bottom_performer_ids
-              .map((v: { id: string; label: string }) =>
-                v.label === v.id
-                  ? performerNameMap.get(v.id) ?? v.label
-                  : v.label
-              )
-              .join(",");
-            parts.push(`btm=${perfStr}`);
-          }
-          // Both roles attributes
-          if (g.both_roles_performer_ids?.length) {
-            const perfStr = g.both_roles_performer_ids
-              .map((v: { id: string; label: string }) =>
-                v.label === v.id
-                  ? performerNameMap.get(v.id) ?? v.label
-                  : v.label
-              )
-              .join(",");
-            parts.push(`both=${perfStr}`);
-          }
-          return `(${parts.join(" ")})`;
-        })
-        .join("; ");
-    } else {
-      valueString = criterion.groups
-        .map(
-          (g) =>
-            `(${g
-              .map((v) =>
-                v.label === v.id ? tagNameMap.get(v.id) ?? v.label : v.label
-              )
-              .join(" + ")})`
-        )
-        .join("; ");
-    }
-  } else {
-    valueString = criterion.items
-      .map((v) =>
-        v.label === v.id ? tagNameMap.get(v.id) ?? v.label : v.label
-      )
-      .join(", ");
-  }
-
-  return (
-    <>
-      {intl.formatMessage(
-        { id: "criterion_modifier.format_string" },
-        { criterion: criterionLabel, modifierString, valueString }
-      )}
-    </>
-  );
-};
+const getPerformerSelectVariables = (
+  ids: string[]
+): FindPerformersForSelectQueryVariables =>
+  ids.length ? { ids, filter: { per_page: ids.length } } : { ids: [] };
 
 // Chip label for the new MarkerTagsCriterion
 const MarkerTagsChipLabel: React.FC<{ criterion: MarkerTagsCriterion }> = ({
@@ -363,11 +175,9 @@ const MarkerTagsChipLabel: React.FC<{ criterion: MarkerTagsCriterion }> = ({
   }, [criterion.value.groups]);
 
   const { data: tagData } = useFindTagsForSelectQuery({
-    variables: unresolvedTagIds.length
-      ? { ids: unresolvedTagIds, filter: { per_page: unresolvedTagIds.length } }
-      : { ids: [] },
+    variables: getTagSelectVariables(unresolvedTagIds),
     skip: unresolvedTagIds.length === 0,
-  } as any);
+  });
 
   const tagNameMap = React.useMemo(() => {
     const m = new Map<string, string>();
@@ -417,6 +227,28 @@ const MarkerTopChipLabel: React.FC<{ criterion: MarkerTopCriterion }> = ({
   const intl = useIntl();
 
   const filterCount = criterion.value.filters?.length ?? 0;
+  const filter = filterCount === 1 ? criterion.value.filters[0] : undefined;
+
+  const unresolvedPerformerIds = React.useMemo(
+    () =>
+      (filter?.performer_ids ?? [])
+        .filter((p) => p.label === p.id)
+        .map((p) => p.id),
+    [filter?.performer_ids]
+  );
+
+  const { data: performerData } = useFindPerformersForSelectQuery({
+    variables: getPerformerSelectVariables(unresolvedPerformerIds),
+    skip: unresolvedPerformerIds.length === 0,
+  });
+
+  const performerNameMap = React.useMemo(() => {
+    const m = new Map<string, string>();
+    (performerData?.findPerformers?.performers ?? []).forEach((p) =>
+      m.set(p.id, p.name ?? p.id)
+    );
+    return m;
+  }, [performerData]);
 
   if (filterCount === 0) {
     return (
@@ -427,30 +259,7 @@ const MarkerTopChipLabel: React.FC<{ criterion: MarkerTopCriterion }> = ({
     );
   }
 
-  if (filterCount === 1) {
-    const filter = criterion.value.filters[0];
-    const unresolvedPerformerIds = filter.performer_ids
-      .filter((p) => p.label === p.id)
-      .map((p) => p.id);
-
-    const { data: performerData } = useFindPerformersForSelectQuery({
-      variables: unresolvedPerformerIds.length
-        ? {
-            ids: unresolvedPerformerIds,
-            filter: { per_page: unresolvedPerformerIds.length },
-          }
-        : { ids: [] },
-      skip: unresolvedPerformerIds.length === 0,
-    } as any);
-
-    const performerNameMap = React.useMemo(() => {
-      const m = new Map<string, string>();
-      (performerData?.findPerformers?.performers ?? []).forEach((p) =>
-        m.set(p.id, p.name ?? p.id)
-      );
-      return m;
-    }, [performerData]);
-
+  if (filter) {
     const parts: string[] = [];
     if (filter.performer_ids.length > 0) {
       const names = filter.performer_ids
@@ -504,6 +313,28 @@ const MarkerBottomChipLabel: React.FC<{ criterion: MarkerBottomCriterion }> = ({
   const intl = useIntl();
 
   const filterCount = criterion.value.filters?.length ?? 0;
+  const filter = filterCount === 1 ? criterion.value.filters[0] : undefined;
+
+  const unresolvedPerformerIds = React.useMemo(
+    () =>
+      (filter?.performer_ids ?? [])
+        .filter((p) => p.label === p.id)
+        .map((p) => p.id),
+    [filter?.performer_ids]
+  );
+
+  const { data: performerData } = useFindPerformersForSelectQuery({
+    variables: getPerformerSelectVariables(unresolvedPerformerIds),
+    skip: unresolvedPerformerIds.length === 0,
+  });
+
+  const performerNameMap = React.useMemo(() => {
+    const m = new Map<string, string>();
+    (performerData?.findPerformers?.performers ?? []).forEach((p) =>
+      m.set(p.id, p.name ?? p.id)
+    );
+    return m;
+  }, [performerData]);
 
   if (filterCount === 0) {
     return (
@@ -514,30 +345,7 @@ const MarkerBottomChipLabel: React.FC<{ criterion: MarkerBottomCriterion }> = ({
     );
   }
 
-  if (filterCount === 1) {
-    const filter = criterion.value.filters[0];
-    const unresolvedPerformerIds = filter.performer_ids
-      .filter((p) => p.label === p.id)
-      .map((p) => p.id);
-
-    const { data: performerData } = useFindPerformersForSelectQuery({
-      variables: unresolvedPerformerIds.length
-        ? {
-            ids: unresolvedPerformerIds,
-            filter: { per_page: unresolvedPerformerIds.length },
-          }
-        : { ids: [] },
-      skip: unresolvedPerformerIds.length === 0,
-    } as any);
-
-    const performerNameMap = React.useMemo(() => {
-      const m = new Map<string, string>();
-      (performerData?.findPerformers?.performers ?? []).forEach((p) =>
-        m.set(p.id, p.name ?? p.id)
-      );
-      return m;
-    }, [performerData]);
-
+  if (filter) {
     const parts: string[] = [];
     if (filter.performer_ids.length > 0) {
       const names = filter.performer_ids
@@ -597,11 +405,9 @@ const ExcludeMarkerTagsChipLabel: React.FC<{
   }, [criterion.value.tags]);
 
   const { data: tagData } = useFindTagsForSelectQuery({
-    variables: unresolvedTagIds.length
-      ? { ids: unresolvedTagIds, filter: { per_page: unresolvedTagIds.length } }
-      : { ids: [] },
+    variables: getTagSelectVariables(unresolvedTagIds),
     skip: unresolvedTagIds.length === 0,
-  } as any);
+  });
 
   const tagNameMap = React.useMemo(() => {
     const m = new Map<string, string>();
@@ -794,9 +600,7 @@ export const FilterTags: React.FC<IFilterTagsProps> = ({
         key={criterion.getId()}
         label={
           // CUSTOM: begin - custom chip labels for marker criteria
-          criterion instanceof SceneMarkerTagsCriterion ? (
-            <SceneMarkerTagsChipLabel criterion={criterion} />
-          ) : criterion instanceof MarkerTagsCriterion ? (
+          criterion instanceof MarkerTagsCriterion ? (
             <MarkerTagsChipLabel criterion={criterion} />
           ) : criterion instanceof MarkerTopCriterion ? (
             <MarkerTopChipLabel criterion={criterion} />

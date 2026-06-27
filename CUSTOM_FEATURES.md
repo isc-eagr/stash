@@ -269,12 +269,16 @@ Multiple new filter criteria for scenes.
 
 ### New Filter Criteria
 
-#### 6.1 Scene Marker Tags Filter (Enhanced)
+#### 6.1 Scene Marker Filters (Enhanced)
 
 **Files:**
 
-- `ui/v2.5/src/components/List/Filters/SceneMarkerTagsFilter.tsx` - NEW
-- `ui/v2.5/src/models/list-filter/criteria/tags.ts` - `SceneMarkerTagsCriterion` class
+- `ui/v2.5/src/components/List/Filters/SceneMarkersFilter.tsx` - Scene marker filter builder used by the Scenes page
+- `ui/v2.5/src/components/List/Filters/SceneMarkersExcludeFilter.tsx` - Scene marker exclusion filter builder used by the Scenes page
+- `ui/v2.5/src/components/List/Filters/MarkerPerformersFilter.tsx` - Markers page filter builder
+- `ui/v2.5/src/models/list-filter/criteria/scene-markers.ts` - Scene marker criterion model
+- `ui/v2.5/src/models/list-filter/criteria/scene-markers-exclude.ts` - Scene marker exclusion criterion model
+- `ui/v2.5/src/models/list-filter/criteria/marker-performers.ts` - Markers page criterion model
 - `graphql/schema/types/filters.graphql` - `SceneMarkerTagGroupInput` type
 - `pkg/models/filter.go` - `SceneMarkerTagGroupInput` struct
 - `pkg/sqlite/criterion_handlers.go` - `joinedSceneMarkerTagsHandler` function
@@ -313,7 +317,7 @@ Each marker group supports separate top/bottom/both-roles attribute blocks:
 - `OR`: Either top or bottom matches (default)
 - `AND`: Both top and bottom must match their respective criteria
 
-> **Note:** The `performer_scene_tags` feature has been fully removed. Use Scene Marker Tags Filter instead.
+> **Note:** The `performer_scene_tags` feature has been fully removed. Use the current Scene Marker filters instead.
 
 #### 6.2 Performer Country Filter (for Scenes)
 
@@ -689,7 +693,9 @@ ui/v2.5/src/components/TaskProgress.tsx
 ui/v2.5/src/components/List/Filters/PerformerCountryFilter.tsx
 ui/v2.5/src/components/List/Filters/PerformerEthnicityFilter.tsx
 ui/v2.5/src/components/List/Filters/PerformerRatingFilter.tsx
-ui/v2.5/src/components/List/Filters/SceneMarkerTagsFilter.tsx
+ui/v2.5/src/components/List/Filters/SceneMarkersFilter.tsx
+ui/v2.5/src/components/List/Filters/SceneMarkersExcludeFilter.tsx
+ui/v2.5/src/components/List/Filters/MarkerPerformersFilter.tsx
 ui/v2.5/src/components/Studios/StudioDetails/StudioCategoryStrip.tsx
 
 # Frontend - Assets
@@ -1039,8 +1045,10 @@ CREATE INDEX `idx_scene_marker_performers_performer_role` ON `scene_marker_perfo
 - `ui/v2.5/src/components/Scenes/MarkerPlaylistPlayer.tsx` - Shows top/bottom performers with icons in the playlist player, including hover profile images in both normal and fullscreen modes
 - `ui/v2.5/src/components/Scenes/MultiVideoViewer.tsx` - Shows marker/scene performer chips with hover profile images in the marker viewer
 - `ui/v2.5/src/index.scss` - Shared larger performer image hover layout allowing three performers per row
-- `ui/v2.5/src/models/list-filter/criteria/tags.ts` - Extended `SceneMarkerTagsCriterion` with `extendedGroups` supporting performer attributes
-- `ui/v2.5/src/components/List/Filters/SceneMarkerTagsFilter.tsx` - Enhanced filter UI with performer, country, ethnicity, and rating selection per group
+- `ui/v2.5/src/models/list-filter/criteria/scene-markers.ts` - Scene marker criteria with grouped marker configs, overlap search, and performer attributes
+- `ui/v2.5/src/models/list-filter/criteria/scene-markers-exclude.ts` - Scene marker exclusion criteria with the same grouped marker config model
+- `ui/v2.5/src/models/list-filter/criteria/marker-performers.ts` - Markers page criteria with grouped marker configs, overlap search, and performer attributes
+- `ui/v2.5/src/components/List/Filters/SceneMarkersFilter.tsx`, `SceneMarkersExcludeFilter.tsx`, `MarkerPerformersFilter.tsx` - Enhanced filter UIs with performer, country, ethnicity, rating, subtags, unnamed performers, and overlap controls
 - `ui/v2.5/src/models/list-filter/scene-markers.ts` - Added marker performer filter criterion options
 - `ui/v2.5/src/components/Performers/PerformerDetails/PerformerMarkersPanel.tsx` - NEW: Performer details panel reusing the Markers list, filtered by markers directly assigned to the performer
 - `ui/v2.5/src/components/Performers/PerformerDetails/Performer.tsx` - Added a "Markers" tab to performer details and marker count query
@@ -1056,7 +1064,7 @@ CREATE INDEX `idx_scene_marker_performers_performer_role` ON `scene_marker_perfo
   - PrimaryTags panel (scene details Markers tab)
   - MarkerPlaylistPlayer (playing markers)
 - Marker player and marker viewer role chips show larger performer profile images on hover and the marker player chips hide after idle in both normal and fullscreen modes
-- **Scene Marker Tags Filter (on Scenes)**: Now supports separate role-specific attribute blocks for top, bottom, and both-roles (performer appearing in BOTH roles). Each block can specify performer IDs, ethnicities, countries, and rating. This supersedes the retired `performer_scene_tags` filter.
+- **Scene Marker filters (on Scenes and Markers)**: Now support separate role-specific attribute blocks for top, bottom, and both-roles (performer appearing in BOTH roles). Each block can specify performer IDs, ethnicities, countries, and rating. This supersedes the retired `performer_scene_tags` filter.
 - **Marker Performer Filters (on Markers page)**: New filters to find markers by their assigned performers (both roles):
   - Marker Performers - Filter by specific performers assigned to markers
   - Marker Performer Country - Filter by country of marker performers
@@ -3069,7 +3077,7 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 
 ### Overview
 
-Adds a warning to the scene marker create/edit form when the current start/end times would leave a 2-second-or-less unmarked gap next to the nearest relevant marker range. The warning identifies the preceding/following marker type, displays the gap length in milliseconds, can close the previous gap by moving the marker start to one millisecond after the previous marker ends, close the next gap by moving the marker end to one millisecond before the next marker starts, or close both when both sides qualify. One-millisecond gaps are treated as already closed.
+Adds a warning to the scene marker create/edit form when the current start/end times would leave a 3-second-or-less unmarked gap next to the nearest relevant marker range. The warning identifies the preceding/following marker type, displays the gap length in milliseconds, can close the previous gap by moving the marker start to one millisecond after the previous marker ends, close the next gap by moving the marker end to one millisecond before the next marker starts, or close both when both sides qualify. One-millisecond gaps are treated as already closed.
 
 Sex, oral, and solo markers are ignored for gap calculations based on configured `roleTagIds`, including descendant tags already present on loaded marker data. Negative markers count as relevant marker coverage.
 
@@ -3091,7 +3099,7 @@ Sex, oral, and solo markers are ignored for gap calculations based on configured
 - Verifies one-millisecond gaps do not produce warnings.
 - Verifies sex/oral/solo markers and descendant role tags are ignored.
 - Verifies negative markers count as relevant coverage.
-- Verifies gaps larger than two seconds are ignored.
+- Verifies gaps larger than three seconds are ignored.
 
 ### GraphQL Schema Changes
 

@@ -1,6 +1,6 @@
 import cloneDeep from "lodash-es/cloneDeep";
 import React, { useCallback, useMemo } from "react";
-import { CriterionModifier, FilterMode } from "src/core/generated-graphql"; // CUSTOM: added FilterMode
+import { CriterionModifier } from "src/core/generated-graphql";
 import {
   DurationCriterion,
   CriterionValue,
@@ -12,7 +12,6 @@ import {
   TimestampCriterion,
   BooleanCriterion,
   Criterion,
-  ModifierCriterionOption, // CUSTOM
 } from "src/models/list-filter/criteria/criterion";
 import {
   criterionIsHierarchicalLabelValue,
@@ -49,18 +48,12 @@ import { PerformersCriterion } from "src/models/list-filter/criteria/performers"
 import PerformersFilter from "./Filters/PerformersFilter";
 import { StudiosCriterion } from "src/models/list-filter/criteria/studios";
 import StudiosFilter from "./Filters/StudiosFilter";
-// CUSTOM: begin - SceneMarkerTagsCriterion in tags import
-import {
-  TagsCriterion,
-  SceneMarkerTagsCriterion,
-} from "src/models/list-filter/criteria/tags";
-// CUSTOM: end
+import { TagsCriterion } from "src/models/list-filter/criteria/tags"; // CUSTOM
 import TagsFilter from "./Filters/TagsFilter";
 import {
   PhashCriterion,
   DuplicatedCriterion,
 } from "src/models/list-filter/criteria/phash";
-import { SceneMarkerTagsFilter } from "./Filters/SceneMarkerTagsFilter"; // CUSTOM
 import { PhashFilter } from "./Filters/PhashFilter";
 import { DuplicatedFilter } from "./Filters/DuplicateFilter";
 import { PathCriterion } from "src/models/list-filter/criteria/path";
@@ -234,8 +227,6 @@ const GenericCriterionEditor: React.FC<IGenericCriterionEditor> = ({
         />
       );
     }
-    // SceneMarkerTagsCriterion is handled by a specialized editor outside GenericCriterionEditor // CUSTOM
-
     if (
       criterion instanceof FolderCriterion ||
       criterion instanceof ParentFolderCriterion
@@ -371,42 +362,13 @@ const GenericCriterionEditor: React.FC<IGenericCriterionEditor> = ({
 interface ICriterionEditor {
   criterion: Criterion;
   setCriterion: (c: Criterion) => void;
-  filterMode?: FilterMode; // CUSTOM
 }
 
 export const CriterionEditor: React.FC<ICriterionEditor> = ({
   criterion,
   setCriterion,
-  filterMode, // CUSTOM
 }) => {
   const filterControl = useMemo(() => {
-    // CUSTOM: begin - SceneMarkerTagsCriterion editor
-    if (criterion instanceof SceneMarkerTagsCriterion) {
-      // Custom editor with modifier selector
-      const c = criterion;
-      return (
-        <div>
-          <ModifierSelectorButtons
-            options={
-              (c.criterionOption as ModifierCriterionOption).modifierOptions
-            }
-            value={c.modifier}
-            onChanged={(m) => {
-              const newC = c.clone() as SceneMarkerTagsCriterion;
-              newC.modifier = m;
-              setCriterion(newC);
-            }}
-          />
-          <SceneMarkerTagsFilter
-            criterion={c as SceneMarkerTagsCriterion}
-            setCriterion={(nc) => setCriterion(nc)}
-            filterMode={filterMode}
-          />
-        </div>
-      );
-    }
-    // CUSTOM: end
-
     // CUSTOM: begin - combined rating criteria filter editor
     if (criterion instanceof RatingCriteriaCriterion) {
       return (
@@ -622,7 +584,7 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
     }
 
     return null;
-  }, [criterion, setCriterion, filterMode]); // CUSTOM: added filterMode dep
+  }, [criterion, setCriterion]);
 
   return <div className="criterion-editor">{filterControl}</div>;
 };

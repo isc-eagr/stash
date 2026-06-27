@@ -358,10 +358,7 @@ WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")),
 					}
 
 					ph := getInBinding(len(expandedIDs))
-					args := make([]any, 0, len(expandedIDs)*2)
-					for _, tid := range expandedIDs {
-						args = append(args, tid)
-					}
+					args := make([]any, 0, len(expandedIDs))
 					for _, tid := range expandedIDs {
 						args = append(args, tid)
 					}
@@ -407,18 +404,13 @@ WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")),
 		buildRoleSide := func(role string, performerIDs []string, anyCount *int, ethnicities []string, countries []string, rating *models.IntCriterionInput, unnamed []models.UnnamedPerformerCriterionInput, aliasPrefix string) sqlFragment {
 			var roleConditions []sqlFragment
 
-			if len(performerIDs) > 0 {
-				ph := getInBinding(len(performerIDs))
-				args := make([]any, 0, len(performerIDs))
-				for _, pid := range performerIDs {
-					args = append(args, pid)
-				}
+			for i, pid := range performerIDs {
 				roleConditions = append(roleConditions, sqlFragment{
 					clause: fmt.Sprintf(`EXISTS (
-    SELECT 1 FROM scene_marker_performers %[1]s_ids
-    WHERE %[1]s_ids.scene_marker_id = %[2]s.id AND %[1]s_ids.role = '%[3]s' AND %[1]s_ids.performer_id IN %[4]s
-  )`, aliasPrefix, smAlias, role, ph),
-					args: args,
+    SELECT 1 FROM scene_marker_performers %[1]s_ids_%[4]d
+    WHERE %[1]s_ids_%[4]d.scene_marker_id = %[2]s.id AND %[1]s_ids_%[4]d.role = '%[3]s' AND %[1]s_ids_%[4]d.performer_id = ?
+  )`, aliasPrefix, smAlias, role, i),
+					args: []any{pid},
 				})
 			}
 
@@ -623,18 +615,13 @@ WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")),
 		buildDirectRoleSide := func(role string, performerIDs []string, anyCount *int, ethnicities []string, countries []string, rating *models.IntCriterionInput, unnamed []models.UnnamedPerformerCriterionInput, aliasPrefix string) sqlFragment {
 			var roleConditions []sqlFragment
 
-			if len(performerIDs) > 0 {
-				ph := getInBinding(len(performerIDs))
-				args := make([]any, 0, len(performerIDs))
-				for _, pid := range performerIDs {
-					args = append(args, pid)
-				}
+			for i, pid := range performerIDs {
 				roleConditions = append(roleConditions, sqlFragment{
 					clause: fmt.Sprintf(`EXISTS (
-    SELECT 1 FROM scene_marker_performers %[1]s_ids
-    WHERE %[1]s_ids.scene_marker_id = %[2]s.id AND %[1]s_ids.role = '%[3]s' AND %[1]s_ids.performer_id IN %[4]s
-  )`, aliasPrefix, smAlias, role, ph),
-					args: args,
+    SELECT 1 FROM scene_marker_performers %[1]s_ids_%[4]d
+    WHERE %[1]s_ids_%[4]d.scene_marker_id = %[2]s.id AND %[1]s_ids_%[4]d.role = '%[3]s' AND %[1]s_ids_%[4]d.performer_id = ?
+  )`, aliasPrefix, smAlias, role, i),
+					args: []any{pid},
 				})
 			}
 

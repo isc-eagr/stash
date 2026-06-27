@@ -11,7 +11,10 @@ import {
   getSceneMarkerTagColorCustom,
 } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
 import type { IActivityPieSlice } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
-import { buildIntervalLoopSegments } from "./sceneStatsLoopSegments_custom"; // CUSTOM
+import {
+  buildIntersectedLoopSegments,
+  buildIntervalLoopSegments,
+} from "./sceneStatsLoopSegments_custom"; // CUSTOM
 
 interface IProps {
   scene: GQL.SceneDataFragment;
@@ -665,15 +668,38 @@ const SceneStatsPanel: React.FC<IProps> = ({
       }));
   }
 
+  function getSelectedRows(rows: IStatsRow[]) {
+    return rows.filter(
+      (row) => row.selectableKey && selectedActivities.has(row.selectableKey)
+    );
+  }
+
+  function buildSelectedActivityLoopSegments() {
+    const selectedActivityRows = getSelectedRows(activityRows);
+    const selectedQualityRows = getSelectedRows(qualityRows);
+
+    if (selectedActivityRows.length > 0 && selectedQualityRows.length > 0) {
+      return selectedActivityRows.flatMap((activityRow) =>
+        selectedQualityRows.flatMap((qualityRow) =>
+          buildIntersectedLoopSegments(
+            `${qualityRow.label.toUpperCase()} ${activityRow.label.toUpperCase()}`,
+            activityRow.loopSegments ?? [],
+            qualityRow.loopSegments ?? []
+          )
+        )
+      );
+    }
+
+    return [...selectedActivityRows, ...selectedQualityRows].flatMap(
+      (row) => row.loopSegments ?? []
+    );
+  }
+
   function addSelectedActivitiesToLoop() {
     if (selectedActivities.size === 0 && selectedPerformerRows.size === 0)
       return;
 
-    const selectedSegments = [...activityRows, ...qualityRows]
-      .filter(
-        (row) => row.selectableKey && selectedActivities.has(row.selectableKey)
-      )
-      .flatMap((row) => row.loopSegments ?? []);
+    const selectedSegments = buildSelectedActivityLoopSegments();
     const selectedMarkers = new Map<string, IActivityMarker>();
 
     performerStats.forEach((entry) => {

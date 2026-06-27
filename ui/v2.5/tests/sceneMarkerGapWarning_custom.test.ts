@@ -168,13 +168,37 @@ assert.deepEqual(
   "negative markers count as relevant coverage"
 );
 
+assert.deepEqual(
+  findSceneMarkerGapWarnings({
+    draft: baseDraft,
+    sceneMarkers: [
+      {
+        id: "next",
+        seconds: 123,
+        end_seconds: 130,
+        primary_tag: { id: "facial", name: "Facial" },
+        tags: [],
+      },
+    ],
+    negativeMarkers: [],
+    roleTagIds,
+  })?.next,
+  {
+    gapSeconds: 3,
+    markerBoundarySeconds: 123,
+    closeToSeconds: 122.999,
+    adjacentMarkerType: "Facial",
+  },
+  "three-second gaps are warned"
+);
+
 assert.equal(
   findSceneMarkerGapWarnings({
     draft: baseDraft,
     sceneMarkers: [
       {
         id: "next",
-        seconds: 122.001,
+        seconds: 123.001,
         end_seconds: 130,
         primary_tag: { id: "facial" },
         tags: [],
@@ -184,5 +208,5 @@ assert.equal(
     roleTagIds,
   }),
   undefined,
-  "gaps larger than two seconds are ignored"
+  "gaps larger than three seconds are ignored"
 );

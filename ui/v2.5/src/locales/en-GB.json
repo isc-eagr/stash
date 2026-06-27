@@ -1616,7 +1616,6 @@
   "marker_tags": "Marker Tags",
   "marker_length": "Marker Length",
   "scene_performer_count": "Scene Vato Count",
-  "marker_tags_with_performers": "Markers",
   "performer_markers": "Markers",
   "performer_markers_exclude": "Markers: Exclude",
   "performer_markers_filter_help": "Find vatos with markers matching these criteria. Use 'Includes All' for AND mode (both vato AND partner must match), 'Includes' for OR mode (either can match).",
