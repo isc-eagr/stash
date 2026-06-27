@@ -1,10 +1,18 @@
 import React from "react";
 import { Badge, Button, ButtonGroup, Col, Form, Row } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
-import { MarkerPerformersCriterion } from "src/models/list-filter/criteria/marker-performers";
+import {
+  IMarkerPerformersGroup,
+  MarkerPerformersCriterion,
+} from "src/models/list-filter/criteria/marker-performers";
 import { PerformerIDSelect } from "src/components/Performers/PerformerSelect";
 import { Tag, TagIDSelect } from "src/components/Tags/TagSelect";
-import { faArrowUp, faArrowDown } from "@fortawesome/free-solid-svg-icons";
+import {
+  faArrowDown,
+  faArrowUp,
+  faPlus,
+  faTrash,
+} from "@fortawesome/free-solid-svg-icons";
 import { Icon } from "src/components/Shared/Icon";
 import { UnnamedPerformersManager } from "./UnnamedPerformerManager";
 import {
@@ -17,50 +25,105 @@ interface IMarkerPerformersFilterProps {
   setCriterion: (c: MarkerPerformersCriterion) => void;
 }
 
-export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
-  criterion,
-  setCriterion,
+interface IMarkerGroupEditorProps {
+  group: IMarkerPerformersGroup;
+  availableUnnamedPerformers: IUnnamedPerformer[];
+  canDelete: boolean;
+  onUpdate: (updates: Partial<Omit<IMarkerPerformersGroup, "groupId">>) => void;
+  onDelete: () => void;
+}
+
+const MarkerGroupEditor: React.FC<IMarkerGroupEditorProps> = ({
+  group,
+  availableUnnamedPerformers,
+  canDelete,
+  onUpdate,
+  onDelete,
 }) => {
   const intl = useIntl();
 
-  // Tags handler
-  const onTagsChange = (tags: Tag[]) => {
-    const c = criterion.clone() as MarkerPerformersCriterion;
-    c.value.tag_ids = tags.map((t) => ({
-      id: t.id,
-      label: t.name ?? t.id,
-    }));
-    setCriterion(c);
+  const mergeNamedPerformers = (
+    current: IMarkerPerformersGroup["top_performer_ids"],
+    performers: Array<{ id: string; name?: string | null }>
+  ) => [
+    ...current.filter((p) => isUnnamedPerformerId(p.id)),
+    ...performers.map((p) => ({ id: p.id, label: p.name ?? p.id })),
+  ];
+
+  const toggleUnnamed = (
+    field: "top_performer_ids" | "bottom_performer_ids",
+    performer: IUnnamedPerformer
+  ) => {
+    const current = group[field];
+    const isSelected = current.some((p) => p.id === performer.id);
+    onUpdate({
+      [field]: isSelected
+        ? current.filter((p) => p.id !== performer.id)
+        : [...current, { id: performer.id, label: performer.label }],
+    });
   };
 
-  // Unnamed performers handler
-  const onUnnamedPerformersChange = (performers: IUnnamedPerformer[]) => {
-    const c = criterion.clone() as MarkerPerformersCriterion;
-    c.value.unnamed_performers = performers;
+  const renderUnnamedButtons = (
+    field: "top_performer_ids" | "bottom_performer_ids"
+  ) => {
+    if (availableUnnamedPerformers.length === 0) return null;
 
-    // Remove any unnamed performer selections that no longer exist
-    const validIds = new Set(performers.map((p) => p.id));
-    c.value.top_performer_ids = c.value.top_performer_ids.filter(
-      (p) => !isUnnamedPerformerId(p.id) || validIds.has(p.id)
+    return (
+      <div className="unnamed-performer-quick-select mt-2">
+        <small className="text-muted me-2">
+          <FormattedMessage id="unnamed_performers" defaultMessage="Unnamed:" />
+        </small>
+        {availableUnnamedPerformers.map((up) => {
+          const isSelected = group[field].some((p) => p.id === up.id);
+          return (
+            <Button
+              key={up.id}
+              size="sm"
+              variant={isSelected ? "info" : "outline-info"}
+              className="me-1 mb-1"
+              onClick={() => toggleUnnamed(field, up)}
+            >
+              {up.label}
+            </Button>
+          );
+        })}
+      </div>
     );
-    c.value.bottom_performer_ids = c.value.bottom_performer_ids.filter(
-      (p) => !isUnnamedPerformerId(p.id) || validIds.has(p.id)
-    );
-
-    setCriterion(c);
   };
 
   return (
-    <div className="marker-performers-filter">
-      {/* Tags section at the top */}
+    <div className="border rounded p-3 mb-3">
+      <div className="d-flex align-items-center justify-content-between mb-3">
+        <strong>
+          <FormattedMessage id="marker" defaultMessage="Marker" />{" "}
+          {group.groupId}
+        </strong>
+        <Button
+          className="minimal"
+          size="sm"
+          variant="danger"
+          onClick={onDelete}
+          disabled={!canDelete}
+        >
+          <Icon icon={faTrash} />
+        </Button>
+      </div>
+
       <Form.Group className="mb-3">
         <Form.Label>
           <FormattedMessage id="tags" defaultMessage="Tags" />
         </Form.Label>
         <TagIDSelect
           isMulti
-          ids={criterion.value.tag_ids.map((t) => t.id)}
-          onSelect={onTagsChange}
+          ids={group.tag_ids.map((t) => t.id)}
+          onSelect={(tags: Tag[]) =>
+            onUpdate({
+              tag_ids: tags.map((t) => ({
+                id: t.id,
+                label: t.name ?? t.id,
+              })),
+            })
+          }
           menuPortalTarget={document.body}
         />
         <Form.Check
@@ -70,22 +133,13 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
             id: "include_sub_tags",
             defaultMessage: "Include sub-tags",
           })}
-          checked={criterion.value.include_subtags}
-          onChange={(e) => {
-            const c = criterion.clone() as MarkerPerformersCriterion;
-            c.value.include_subtags = e.currentTarget.checked;
-            setCriterion(c);
-          }}
+          checked={group.include_subtags}
+          onChange={(e) =>
+            onUpdate({ include_subtags: e.currentTarget.checked })
+          }
         />
       </Form.Group>
 
-      {/* Unnamed Performers Manager */}
-      <UnnamedPerformersManager
-        performers={criterion.value.unnamed_performers ?? []}
-        onPerformersChange={onUnnamedPerformersChange}
-      />
-
-      {/* Performer Mode Toggle (AND/OR) */}
       <Form.Group className="mb-3">
         <Form.Label>
           <FormattedMessage id="mode" defaultMessage="Mode" />
@@ -93,15 +147,9 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
         <ButtonGroup size="sm" className="d-flex">
           <Button
             variant={
-              criterion.value.performer_mode === "OR"
-                ? "primary"
-                : "outline-primary"
+              group.performer_mode === "OR" ? "primary" : "outline-primary"
             }
-            onClick={() => {
-              const c = criterion.clone() as MarkerPerformersCriterion;
-              c.value.performer_mode = "OR";
-              setCriterion(c);
-            }}
+            onClick={() => onUpdate({ performer_mode: "OR" })}
           >
             <FormattedMessage
               id="performer_mode_or"
@@ -110,15 +158,9 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
           </Button>
           <Button
             variant={
-              criterion.value.performer_mode === "AND"
-                ? "primary"
-                : "outline-primary"
+              group.performer_mode === "AND" ? "primary" : "outline-primary"
             }
-            onClick={() => {
-              const c = criterion.clone() as MarkerPerformersCriterion;
-              c.value.performer_mode = "AND";
-              setCriterion(c);
-            }}
+            onClick={() => onUpdate({ performer_mode: "AND" })}
           >
             <FormattedMessage
               id="performer_mode_and"
@@ -129,7 +171,6 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
       </Form.Group>
 
       <Row>
-        {/* Top Column */}
         <Col md={6}>
           <h6 className="d-flex align-items-center mb-3">
             <Badge
@@ -142,80 +183,24 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
             </Badge>
             <FormattedMessage id="top_performers" defaultMessage="Top" />
           </h6>
-
-          {/* Top Performers */}
-          <Form.Group className="mb-3">
-            <Form.Label>
-              <FormattedMessage id="performers" defaultMessage="Vatos" />
-            </Form.Label>
-            <PerformerIDSelect
-              isMulti
-              ids={criterion.value.top_performer_ids
-                .filter((p) => !isUnnamedPerformerId(p.id))
-                .map((p) => p.id)}
-              onSelect={(performers) => {
-                // Merge with any unnamed performer selections
-                const unnamedIds = criterion.value.top_performer_ids.filter(
-                  (p) => isUnnamedPerformerId(p.id)
-                );
-                const c = criterion.clone() as MarkerPerformersCriterion;
-                c.value.top_performer_ids = [
-                  ...unnamedIds,
-                  ...performers.map((p) => ({
-                    id: p.id,
-                    label: p.name ?? p.id,
-                  })),
-                ];
-                setCriterion(c);
-              }}
-              menuPortalTarget={document.body}
-            />
-            {/* Unnamed performer quick-select buttons */}
-            {(criterion.value.unnamed_performers?.length ?? 0) > 0 && (
-              <div className="unnamed-performer-quick-select mt-2">
-                <small className="text-muted me-2">
-                  <FormattedMessage
-                    id="unnamed_performers"
-                    defaultMessage="Unnamed:"
-                  />
-                </small>
-                {(criterion.value.unnamed_performers ?? []).map((up) => {
-                  const isSelected = criterion.value.top_performer_ids.some(
-                    (p) => p.id === up.id
-                  );
-                  return (
-                    <Button
-                      key={up.id}
-                      size="sm"
-                      variant={isSelected ? "info" : "outline-info"}
-                      className="me-1 mb-1"
-                      onClick={() => {
-                        const c =
-                          criterion.clone() as MarkerPerformersCriterion;
-                        if (isSelected) {
-                          c.value.top_performer_ids =
-                            c.value.top_performer_ids.filter(
-                              (p) => p.id !== up.id
-                            );
-                        } else {
-                          c.value.top_performer_ids = [
-                            ...c.value.top_performer_ids,
-                            { id: up.id, label: up.label },
-                          ];
-                        }
-                        setCriterion(c);
-                      }}
-                    >
-                      {up.label}
-                    </Button>
-                  );
-                })}
-              </div>
-            )}
-          </Form.Group>
+          <PerformerIDSelect
+            isMulti
+            ids={group.top_performer_ids
+              .filter((p) => !isUnnamedPerformerId(p.id))
+              .map((p) => p.id)}
+            onSelect={(performers) =>
+              onUpdate({
+                top_performer_ids: mergeNamedPerformers(
+                  group.top_performer_ids,
+                  performers
+                ),
+              })
+            }
+            menuPortalTarget={document.body}
+          />
+          {renderUnnamedButtons("top_performer_ids")}
         </Col>
 
-        {/* Bottom Column */}
         <Col md={6}>
           <h6 className="d-flex align-items-center mb-3">
             <Badge
@@ -228,79 +213,102 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
             </Badge>
             <FormattedMessage id="bottom_performers" defaultMessage="Bottom" />
           </h6>
-
-          {/* Bottom Performers */}
-          <Form.Group className="mb-3">
-            <Form.Label>
-              <FormattedMessage id="performers" defaultMessage="Vatos" />
-            </Form.Label>
-            <PerformerIDSelect
-              isMulti
-              ids={criterion.value.bottom_performer_ids
-                .filter((p) => !isUnnamedPerformerId(p.id))
-                .map((p) => p.id)}
-              onSelect={(performers) => {
-                // Merge with any unnamed performer selections
-                const unnamedIds = criterion.value.bottom_performer_ids.filter(
-                  (p) => isUnnamedPerformerId(p.id)
-                );
-                const c = criterion.clone() as MarkerPerformersCriterion;
-                c.value.bottom_performer_ids = [
-                  ...unnamedIds,
-                  ...performers.map((p) => ({
-                    id: p.id,
-                    label: p.name ?? p.id,
-                  })),
-                ];
-                setCriterion(c);
-              }}
-              menuPortalTarget={document.body}
-            />
-            {/* Unnamed performer quick-select buttons */}
-            {(criterion.value.unnamed_performers?.length ?? 0) > 0 && (
-              <div className="unnamed-performer-quick-select mt-2">
-                <small className="text-muted me-2">
-                  <FormattedMessage
-                    id="unnamed_performers"
-                    defaultMessage="Unnamed:"
-                  />
-                </small>
-                {(criterion.value.unnamed_performers ?? []).map((up) => {
-                  const isSelected = criterion.value.bottom_performer_ids.some(
-                    (p) => p.id === up.id
-                  );
-                  return (
-                    <Button
-                      key={up.id}
-                      size="sm"
-                      variant={isSelected ? "info" : "outline-info"}
-                      className="me-1 mb-1"
-                      onClick={() => {
-                        const c =
-                          criterion.clone() as MarkerPerformersCriterion;
-                        if (isSelected) {
-                          c.value.bottom_performer_ids =
-                            c.value.bottom_performer_ids.filter(
-                              (p) => p.id !== up.id
-                            );
-                        } else {
-                          c.value.bottom_performer_ids = [
-                            ...c.value.bottom_performer_ids,
-                            { id: up.id, label: up.label },
-                          ];
-                        }
-                        setCriterion(c);
-                      }}
-                    >
-                      {up.label}
-                    </Button>
-                  );
-                })}
-              </div>
-            )}
-          </Form.Group>
+          <PerformerIDSelect
+            isMulti
+            ids={group.bottom_performer_ids
+              .filter((p) => !isUnnamedPerformerId(p.id))
+              .map((p) => p.id)}
+            onSelect={(performers) =>
+              onUpdate({
+                bottom_performer_ids: mergeNamedPerformers(
+                  group.bottom_performer_ids,
+                  performers
+                ),
+              })
+            }
+            menuPortalTarget={document.body}
+          />
+          {renderUnnamedButtons("bottom_performer_ids")}
         </Col>
       </Row>
+    </div>
+  );
+};
+
+export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
+  criterion,
+  setCriterion,
+}) => {
+  const groups = criterion.getGroups();
+
+  const onAddGroup = () => {
+    const c = criterion.clone() as MarkerPerformersCriterion;
+    c.addGroup();
+    setCriterion(c);
+  };
+
+  const onUpdateGroup = (
+    groupId: string,
+    updates: Partial<Omit<IMarkerPerformersGroup, "groupId">>
+  ) => {
+    const c = criterion.clone() as MarkerPerformersCriterion;
+    c.updateGroup(groupId, updates);
+    setCriterion(c);
+  };
+
+  const onDeleteGroup = (groupId: string) => {
+    const c = criterion.clone() as MarkerPerformersCriterion;
+    c.removeGroup(groupId);
+    setCriterion(c);
+  };
+
+  const onUnnamedPerformersChange = (performers: IUnnamedPerformer[]) => {
+    const c = criterion.clone() as MarkerPerformersCriterion;
+    const validIds = new Set(performers.map((p) => p.id));
+    c.ensureGroups();
+    c.value.unnamed_performers = performers;
+    c.value.groups = (c.value.groups ?? []).map((group) => ({
+      ...group,
+      top_performer_ids: group.top_performer_ids.filter(
+        (p) => !isUnnamedPerformerId(p.id) || validIds.has(p.id)
+      ),
+      bottom_performer_ids: group.bottom_performer_ids.filter(
+        (p) => !isUnnamedPerformerId(p.id) || validIds.has(p.id)
+      ),
+    }));
+    setCriterion(c);
+  };
+
+  return (
+    <div className="marker-performers-filter">
+      <UnnamedPerformersManager
+        performers={criterion.value.unnamed_performers ?? []}
+        onPerformersChange={onUnnamedPerformersChange}
+      />
+
+      {groups.map((group) => (
+        <MarkerGroupEditor
+          key={group.groupId}
+          group={group}
+          availableUnnamedPerformers={criterion.value.unnamed_performers ?? []}
+          canDelete={groups.length > 1}
+          onUpdate={(updates) => onUpdateGroup(group.groupId, updates)}
+          onDelete={() => onDeleteGroup(group.groupId)}
+        />
+      ))}
+
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={onAddGroup}
+        className="w-100"
+      >
+        <Icon icon={faPlus} className="me-2" />
+        <FormattedMessage
+          id="add_marker_config"
+          defaultMessage="Add Marker Configuration"
+        />
+      </Button>
     </div>
   );
 };

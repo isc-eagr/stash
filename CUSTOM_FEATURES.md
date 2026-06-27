@@ -280,14 +280,18 @@ Multiple new filter criteria for scenes.
 - `pkg/sqlite/criterion_handlers.go` - `joinedSceneMarkerTagsHandler` function
 - `pkg/sqlite/scene_marker_tag_overlap_custom.go` - Shared overlap-aware marker tag SQL helpers
 - `pkg/sqlite/performer_filter_custom.go`, `pkg/sqlite/performer_custom.go`, `pkg/sqlite/studio_custom.go` - Performer/studio marker tag filters and sorts reuse overlap-aware marker tag matching
-- `pkg/sqlite/scene_marker_test.go` - Integration tests for overlap-aware scene include/exclude and marker-page filtering
+- `pkg/sqlite/scene_marker_test.go` - Integration tests for overlap-aware scene include/exclude, marker-page filtering, overlap groups, and direct marker performer ownership
+- `docs/scene_marker_filter_builder_poc.html` - Standalone proof-of-concept for a dedicated marker filter builder UI
 
 Allows filtering scenes by their marker tags with **role-specific performer attributes**:
 
 - `EQUALS`: Groups of tags where each group requires all tags present in a single marker, including effective tags from partially overlapping markers in the same scene/time range
 - `INCLUDES`: Any scene with markers having any of the specified tags
 - `Scene Markers: Exclude`: Exclusion groups use the same overlap-aware tag matching, so a scene can be excluded when a marker plus its overlapping markers collectively satisfy the group
-- Marker-list results only return markers that directly have at least one requested tag; when multiple overlapping direct-tag markers satisfy the same group, the shortest marker wins
+- Marker-list results only return markers that directly have at least one requested tag; when multiple overlapping direct-tag markers satisfy the same tag-only group, the shortest marker wins
+- Marker performer constraints are always evaluated against the marker itself. Overlapping markers can contribute effective tags, but they do not contribute top/bottom performer assignments.
+- `overlap_groups`: Advanced direct marker requirements that must be satisfied by markers whose time ranges overlap. These groups reuse `SceneMarkerTagGroupInput`, including named and unnamed top/bottom/both-role performer criteria, so searches like "feet marker with unnamed top overlaps BJ marker with unnamed bottom" can be expressed without collapsing role assignments across markers. Marker-list overlap results return only the narrowest matched requirement marker.
+- The Markers page `Markers` filter supports multiple marker rows inside one criterion; two or more rows are always treated as overlapping marker requirements so overlap searches can be expressed without adding duplicate sidebar criteria.
 
 **Role-Specific Filtering:**
 Each marker group supports separate top/bottom/both-roles attribute blocks:

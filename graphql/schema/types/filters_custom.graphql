@@ -193,6 +193,11 @@ input SceneMarkerTagsCriterionInput {
   "Extended groups with performer attributes (used when groups_extended is provided)"
   groups_extended: [SceneMarkerTagGroupInput!]
   """
+  Marker requirements that must be satisfied by direct markers whose time ranges overlap.
+  Each entry reuses SceneMarkerTagGroupInput, including named and unnamed performer criteria.
+  """
+  overlap_groups: [SceneMarkerTagGroupInput!]
+  """
   Exclusion groups with full performer criteria. Each group defines a marker pattern that,
   when matched, causes the scene to be excluded from results.
   - exclude_modifier 'INCLUDES_ALL': ALL groups must match for exclusion (AND logic)

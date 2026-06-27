@@ -541,6 +541,8 @@ export class ListFilterModel {
     };
     const includeGroups =
       (output._sceneMarkerIncludeCriteria as GroupExtended[] | undefined) ?? [];
+    const overlapGroups =
+      (output._sceneMarkerOverlapCriteria as GroupExtended[] | undefined) ?? [];
     const excludeGroups =
       (output._sceneMarkerExcludeCriteria as GroupExtended[] | undefined) ?? [];
     const excludeModifier = output._sceneMarkerExcludeModifier as
@@ -553,6 +555,7 @@ export class ListFilterModel {
     delete output._markerBottomCriteria;
     delete output._excludeMarkerTagsCriteria;
     delete output._sceneMarkerIncludeCriteria;
+    delete output._sceneMarkerOverlapCriteria;
     delete output._sceneMarkerExcludeCriteria;
     delete output._sceneMarkerExcludeModifier;
 
@@ -561,6 +564,7 @@ export class ListFilterModel {
       markerTags.length === 0 &&
       excludes.length === 0 &&
       includeGroups.length === 0 &&
+      overlapGroups.length === 0 &&
       excludeGroups.length === 0
     ) {
       return;
@@ -660,13 +664,20 @@ export class ListFilterModel {
       }
     }
 
-    if (groups_extended.length > 0 || groups_extended_exclude.length > 0) {
+    if (
+      groups_extended.length > 0 ||
+      overlapGroups.length > 0 ||
+      groups_extended_exclude.length > 0
+    ) {
       // Use EQUALS modifier by default (AND semantics between groups)
       const sceneMarkerTags: Record<string, unknown> = {
         modifier: "EQUALS",
       };
       if (groups_extended.length > 0) {
         sceneMarkerTags.groups_extended = groups_extended;
+      }
+      if (overlapGroups.length > 0) {
+        sceneMarkerTags.overlap_groups = overlapGroups;
       }
       if (groups_extended_exclude.length > 0) {
         sceneMarkerTags.groups_extended_exclude = groups_extended_exclude;

@@ -263,6 +263,8 @@ type SceneMarkerTagsCriterionInput struct {
 	Groups [][]string `json:"groups"`
 	// Extended groups with performer attributes
 	GroupsExtended []SceneMarkerTagGroupInput `json:"groups_extended"`
+	// Marker requirements that must be satisfied by direct overlapping markers.
+	OverlapGroups []SceneMarkerTagGroupInput `json:"overlap_groups"`
 	// Exclusion groups with full performer criteria. Each group defines a marker pattern that,
 	// when matched, causes the scene to be excluded from results.
 	GroupsExtendedExclude []SceneMarkerTagGroupInput `json:"groups_extended_exclude"`

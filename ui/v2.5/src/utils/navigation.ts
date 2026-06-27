@@ -407,6 +407,7 @@ const makeTagSceneMarkersUrl = (tag: INamedObject) => {
   criterion.value = {
     tag_ids: [{ id: tag.id, label: tag.name || `Tag ${tag.id}` }],
     include_subtags: false,
+    require_overlap: false,
     performer_mode: "AND",
     top_performer_ids: [],
     top_any_count: 0,

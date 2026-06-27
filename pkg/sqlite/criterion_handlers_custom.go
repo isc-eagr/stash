@@ -265,6 +265,75 @@ WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")),
 		}
 	}
 
+	buildDirectUnnamedPerformerSelect := func(smAlias string, role string, slot models.UnnamedPerformerCriterionInput, smpAlias string, performerAlias string, bothRoles bool) sqlFragment {
+		attr := buildPerformerAttributeClause(performerAlias, slot.Ethnicities, slot.Countries, slot.Rating, slot.RatingCriteria)
+		clauses := []string{
+			fmt.Sprintf("%s.scene_marker_id = %s.id", smpAlias, smAlias),
+			attr.clause,
+		}
+		if role != "" {
+			clauses = append(clauses, fmt.Sprintf("%s.role = '%s'", smpAlias, role))
+		}
+		if bothRoles {
+			clauses = append(clauses,
+				fmt.Sprintf("EXISTS (SELECT 1 FROM scene_marker_performers WHERE scene_marker_id = %s.id AND performer_id = %s.performer_id AND role = 'top')", smAlias, smpAlias),
+				fmt.Sprintf("EXISTS (SELECT 1 FROM scene_marker_performers WHERE scene_marker_id = %s.id AND performer_id = %s.performer_id AND role = 'bottom')", smAlias, smpAlias),
+			)
+		}
+
+		return sqlFragment{
+			clause: fmt.Sprintf(`SELECT DISTINCT %[1]s.performer_id
+FROM scene_marker_performers %[1]s
+JOIN performers %[2]s ON %[2]s.id = %[1]s.performer_id
+WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")),
+			args: attr.args,
+		}
+	}
+
+	buildDirectUnnamedDistinctCount := func(smAlias string, role string, slots []models.UnnamedPerformerCriterionInput, aliasPrefix string, bothRoles bool) sqlFragment {
+		if len(slots) < 2 {
+			return sqlFragment{}
+		}
+
+		var selects []string
+		var args []any
+		for i, slot := range slots {
+			fragment := buildDirectUnnamedPerformerSelect(smAlias, role, slot, fmt.Sprintf("%s_smp_%d", aliasPrefix, i), fmt.Sprintf("%s_p_%d", aliasPrefix, i), bothRoles)
+			selects = append(selects, fragment.clause)
+			args = append(args, fragment.args...)
+		}
+
+		return sqlFragment{
+			clause: fmt.Sprintf("(SELECT COUNT(*) FROM (%s) AS %s_union) >= %d", strings.Join(selects, " UNION "), aliasPrefix, len(slots)),
+			args:   args,
+		}
+	}
+
+	buildDirectCrossRoleUnnamedDistinctCount := func(smAlias string, topSlots []models.UnnamedPerformerCriterionInput, bottomSlots []models.UnnamedPerformerCriterionInput, aliasPrefix string) sqlFragment {
+		totalSlots := len(topSlots) + len(bottomSlots)
+		if totalSlots < 2 || len(topSlots) == 0 || len(bottomSlots) == 0 {
+			return sqlFragment{}
+		}
+
+		var selects []string
+		var args []any
+		for i, slot := range topSlots {
+			fragment := buildDirectUnnamedPerformerSelect(smAlias, "top", slot, fmt.Sprintf("%s_top_smp_%d", aliasPrefix, i), fmt.Sprintf("%s_top_p_%d", aliasPrefix, i), false)
+			selects = append(selects, fragment.clause)
+			args = append(args, fragment.args...)
+		}
+		for i, slot := range bottomSlots {
+			fragment := buildDirectUnnamedPerformerSelect(smAlias, "bottom", slot, fmt.Sprintf("%s_bottom_smp_%d", aliasPrefix, i), fmt.Sprintf("%s_bottom_p_%d", aliasPrefix, i), false)
+			selects = append(selects, fragment.clause)
+			args = append(args, fragment.args...)
+		}
+
+		return sqlFragment{
+			clause: fmt.Sprintf("(SELECT COUNT(*) FROM (%s) AS %s_union) >= %d", strings.Join(selects, " UNION "), aliasPrefix, totalSlots),
+			args:   args,
+		}
+	}
+
 	buildSceneMarkerGroupCondition := func(g models.SceneMarkerTagGroupInput, smAlias string) (sqlFragment, bool) {
 		var markerConditions []sqlFragment
 
@@ -484,6 +553,222 @@ WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")),
 		return final, final.clause != ""
 	}
 
+	buildDirectSceneMarkerGroupCondition := func(g models.SceneMarkerTagGroupInput, smAlias string) (sqlFragment, bool) {
+		var markerConditions []sqlFragment
+
+		if len(g.TagIDs) > 0 {
+			if g.Depth != nil && *g.Depth != 0 {
+				for _, originalTagID := range g.TagIDs {
+					valuesClause, err := getHierarchicalValues(ctx, []string{originalTagID}, tagTable, "tags_relations", "parent_id", "child_id", g.Depth)
+					if err != nil {
+						f.setError(err)
+						return sqlFragment{}, false
+					}
+
+					var expandedIDs []string
+					expandQuery := fmt.Sprintf("SELECT DISTINCT column2 FROM (%s)", valuesClause)
+					if err := dbWrapper.Select(ctx, &expandedIDs, expandQuery); err != nil {
+						f.setError(err)
+						return sqlFragment{}, false
+					}
+					if len(expandedIDs) == 0 {
+						markerConditions = append(markerConditions, sqlFragment{clause: "0=1"})
+						continue
+					}
+
+					ph := getInBinding(len(expandedIDs))
+					args := make([]any, 0, len(expandedIDs))
+					for _, tid := range expandedIDs {
+						args = append(args, tid)
+					}
+					markerConditions = append(markerConditions, sqlFragment{
+						clause: sceneMarkerDirectHasTagInClauseCustom(smAlias, ph),
+						args:   args,
+					})
+				}
+			} else {
+				tagPh := getInBinding(len(g.TagIDs))
+				args := make([]any, 0, len(g.TagIDs))
+				for _, tid := range g.TagIDs {
+					args = append(args, tid)
+				}
+				markerConditions = append(markerConditions, sqlFragment{
+					clause: sceneMarkerDirectTagsCountClauseCustom(smAlias, tagPh, len(g.TagIDs)),
+					args:   args,
+				})
+			}
+		}
+
+		if len(g.ExcludeTagIDsOnMarker) > 0 {
+			exclPh := getInBinding(len(g.ExcludeTagIDsOnMarker))
+			args := make([]any, 0, len(g.ExcludeTagIDsOnMarker)*2)
+			for _, tid := range g.ExcludeTagIDsOnMarker {
+				args = append(args, tid)
+			}
+			for _, tid := range g.ExcludeTagIDsOnMarker {
+				args = append(args, tid)
+			}
+			markerConditions = append(markerConditions, sqlFragment{
+				clause: fmt.Sprintf(`NOT (
+		%[1]s.primary_tag_id IN %[2]s
+		OR EXISTS (
+			SELECT 1 FROM scene_markers_tags mt_excl
+			WHERE mt_excl.scene_marker_id = %[1]s.id AND mt_excl.tag_id IN %[2]s
+		)
+	)`, smAlias, exclPh),
+				args: args,
+			})
+		}
+
+		buildDirectRoleSide := func(role string, performerIDs []string, anyCount *int, ethnicities []string, countries []string, rating *models.IntCriterionInput, unnamed []models.UnnamedPerformerCriterionInput, aliasPrefix string) sqlFragment {
+			var roleConditions []sqlFragment
+
+			if len(performerIDs) > 0 {
+				ph := getInBinding(len(performerIDs))
+				args := make([]any, 0, len(performerIDs))
+				for _, pid := range performerIDs {
+					args = append(args, pid)
+				}
+				roleConditions = append(roleConditions, sqlFragment{
+					clause: fmt.Sprintf(`EXISTS (
+    SELECT 1 FROM scene_marker_performers %[1]s_ids
+    WHERE %[1]s_ids.scene_marker_id = %[2]s.id AND %[1]s_ids.role = '%[3]s' AND %[1]s_ids.performer_id IN %[4]s
+  )`, aliasPrefix, smAlias, role, ph),
+					args: args,
+				})
+			}
+
+			attr := buildPerformerAttributeClause(aliasPrefix+"_p_attr", ethnicities, countries, rating, nil)
+			if attr.clause != "1=1" {
+				roleConditions = append(roleConditions, sqlFragment{
+					clause: fmt.Sprintf(`EXISTS (
+    SELECT 1 FROM scene_marker_performers %[1]s_attr
+    JOIN performers %[1]s_p_attr ON %[1]s_p_attr.id = %[1]s_attr.performer_id
+    WHERE %[1]s_attr.scene_marker_id = %[2]s.id AND %[1]s_attr.role = '%[3]s' AND %[4]s
+  )`, aliasPrefix, smAlias, role, attr.clause),
+					args: attr.args,
+				})
+			}
+
+			for i, slot := range unnamed {
+				fragment := buildDirectUnnamedPerformerSelect(smAlias, role, slot, fmt.Sprintf("%s_u_%d", aliasPrefix, i), fmt.Sprintf("%s_up_%d", aliasPrefix, i), false)
+				roleConditions = append(roleConditions, sqlFragment{
+					clause: "EXISTS (\n" + fragment.clause + "\n  )",
+					args:   fragment.args,
+				})
+			}
+			if distinct := buildDirectUnnamedDistinctCount(smAlias, role, unnamed, aliasPrefix+"_distinct", false); distinct.clause != "" {
+				roleConditions = append(roleConditions, distinct)
+			}
+
+			if anyCount != nil && *anyCount > 0 {
+				roleConditions = append(roleConditions, sqlFragment{
+					clause: fmt.Sprintf(`(
+    SELECT COUNT(DISTINCT %[1]s_any.performer_id) FROM scene_marker_performers %[1]s_any
+    WHERE %[1]s_any.scene_marker_id = %[2]s.id AND %[1]s_any.role = '%[3]s'
+  ) >= %[4]d`, aliasPrefix, smAlias, role, *anyCount),
+				})
+			}
+
+			return joinFragments(roleConditions, " AND ")
+		}
+
+		topEthnicities := g.TopEthnicities
+		if len(topEthnicities) == 0 {
+			topEthnicities = g.PerformerEthnicities
+		}
+		topCountries := g.TopCountries
+		if len(topCountries) == 0 {
+			topCountries = g.PerformerCountries
+		}
+		topRating := g.TopRating
+		if topRating == nil {
+			topRating = g.PerformerRating
+		}
+
+		bottomEthnicities := g.BottomEthnicities
+		if len(bottomEthnicities) == 0 {
+			bottomEthnicities = g.PerformerEthnicities
+		}
+		bottomCountries := g.BottomCountries
+		if len(bottomCountries) == 0 {
+			bottomCountries = g.PerformerCountries
+		}
+		bottomRating := g.BottomRating
+		if bottomRating == nil {
+			bottomRating = g.PerformerRating
+		}
+
+		topSide := buildDirectRoleSide("top", g.TopPerformerIDs, g.TopAnyCount, topEthnicities, topCountries, topRating, g.TopUnnamedPerformers, "smp_direct_top")
+		bottomSide := buildDirectRoleSide("bottom", g.BottomPerformerIDs, g.BottomAnyCount, bottomEthnicities, bottomCountries, bottomRating, g.BottomUnnamedPerformers, "smp_direct_bottom")
+
+		performerModeAnd := g.PerformerMode != nil && strings.EqualFold(*g.PerformerMode, "AND")
+		switch {
+		case topSide.clause != "" && bottomSide.clause != "":
+			if performerModeAnd {
+				markerConditions = append(markerConditions, topSide, bottomSide)
+				if crossDistinct := buildDirectCrossRoleUnnamedDistinctCount(smAlias, g.TopUnnamedPerformers, g.BottomUnnamedPerformers, "smp_direct_cross_distinct"); crossDistinct.clause != "" {
+					markerConditions = append(markerConditions, crossDistinct)
+				}
+			} else {
+				markerConditions = append(markerConditions, joinFragments([]sqlFragment{topSide, bottomSide}, " OR "))
+			}
+		case topSide.clause != "":
+			markerConditions = append(markerConditions, topSide)
+		case bottomSide.clause != "":
+			markerConditions = append(markerConditions, bottomSide)
+		}
+
+		var bothRoleConditions []sqlFragment
+		for i, performerID := range g.BothRolesPerformerIDs {
+			aliasPrefix := fmt.Sprintf("smp_direct_both_%d", i)
+			bothRoleConditions = append(bothRoleConditions, sqlFragment{
+				clause: fmt.Sprintf(`(
+    EXISTS (
+      SELECT 1 FROM scene_marker_performers %[1]s_top
+      WHERE %[1]s_top.scene_marker_id = %[2]s.id AND %[1]s_top.role = 'top' AND %[1]s_top.performer_id = ?
+    )
+    AND EXISTS (
+      SELECT 1 FROM scene_marker_performers %[1]s_bottom
+      WHERE %[1]s_bottom.scene_marker_id = %[2]s.id AND %[1]s_bottom.role = 'bottom' AND %[1]s_bottom.performer_id = ?
+    )
+  )`, aliasPrefix, smAlias),
+				args: []any{performerID, performerID},
+			})
+		}
+
+		bothRoleAttr := buildPerformerAttributeClause("p_direct_both_attr", g.BothRolesEthnicities, g.BothRolesCountries, g.BothRolesRating, nil)
+		if bothRoleAttr.clause != "1=1" {
+			bothRoleConditions = append(bothRoleConditions, sqlFragment{
+				clause: fmt.Sprintf(`EXISTS (
+    SELECT 1 FROM performers p_direct_both_attr
+    WHERE %[1]s
+      AND EXISTS (SELECT 1 FROM scene_marker_performers smp_direct_both_attr_t WHERE smp_direct_both_attr_t.scene_marker_id = %[2]s.id AND smp_direct_both_attr_t.performer_id = p_direct_both_attr.id AND smp_direct_both_attr_t.role = 'top')
+      AND EXISTS (SELECT 1 FROM scene_marker_performers smp_direct_both_attr_b WHERE smp_direct_both_attr_b.scene_marker_id = %[2]s.id AND smp_direct_both_attr_b.performer_id = p_direct_both_attr.id AND smp_direct_both_attr_b.role = 'bottom')
+  )`, bothRoleAttr.clause, smAlias),
+				args: bothRoleAttr.args,
+			})
+		}
+
+		for i, slot := range g.BothRolesUnnamedPerformers {
+			fragment := buildDirectUnnamedPerformerSelect(smAlias, "", slot, fmt.Sprintf("smp_direct_both_u_%d", i), fmt.Sprintf("smp_direct_both_up_%d", i), true)
+			bothRoleConditions = append(bothRoleConditions, sqlFragment{
+				clause: "EXISTS (\n" + fragment.clause + "\n  )",
+				args:   fragment.args,
+			})
+		}
+		if distinct := buildDirectUnnamedDistinctCount(smAlias, "", g.BothRolesUnnamedPerformers, "smp_direct_both_distinct", true); distinct.clause != "" {
+			bothRoleConditions = append(bothRoleConditions, distinct)
+		}
+
+		if bothRoles := joinFragments(bothRoleConditions, " AND "); bothRoles.clause != "" {
+			markerConditions = append(markerConditions, bothRoles)
+		}
+
+		final := joinFragments(markerConditions, " AND ")
+		return final, final.clause != ""
+	}
+
 	switch c.Modifier {
 	case models.CriterionModifierIsNull, models.CriterionModifierNotNull:
 		var notClause string
@@ -496,8 +781,8 @@ WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")),
 		return
 
 	case models.CriterionModifierEquals:
-		// Check if GroupsExtended or GroupsExtendedExclude is provided (with performer attributes)
-		if len(c.GroupsExtended) > 0 || len(c.GroupsExtendedExclude) > 0 {
+		// Check if GroupsExtended, OverlapGroups, or GroupsExtendedExclude is provided (with performer attributes)
+		if len(c.GroupsExtended) > 0 || len(c.OverlapGroups) > 0 || len(c.GroupsExtendedExclude) > 0 {
 			// Group identical configurations to enforce uniqueness:
 			// If there are 5 identical groups (e.g., 5 groups with just "facial" tag),
 			// we need to find 5 DISTINCT markers matching that configuration.
@@ -1109,6 +1394,47 @@ WHERE `+markerAlias+`.scene_id = {primaryTable}.id
 						joiner = " AND "
 					}
 					f.addWhere("NOT ("+strings.Join(existsConditions, joiner)+")", existsArgs...)
+				}
+			}
+
+			if len(c.OverlapGroups) > 0 {
+				var fromParts []string
+				var whereParts []string
+				var overlapArgs []any
+
+				for i, group := range c.OverlapGroups {
+					markerAlias := fmt.Sprintf("sm_overlap_req_%d", i)
+					fromParts = append(fromParts, "scene_markers "+markerAlias)
+					whereParts = append(whereParts, utils.StrFormat(markerAlias+".scene_id = {primaryTable}.id", utils.StrFormatMap{"primaryTable": h.primaryTable}))
+
+					markerCondition, ok := buildDirectSceneMarkerGroupCondition(group, markerAlias)
+					if f.getError() != nil {
+						return
+					}
+					if !ok {
+						whereParts = append(whereParts, "0=1")
+						continue
+					}
+
+					whereParts = append(whereParts, markerCondition.clause)
+					overlapArgs = append(overlapArgs, markerCondition.args...)
+				}
+
+				for i := 0; i < len(c.OverlapGroups); i++ {
+					for j := i + 1; j < len(c.OverlapGroups); j++ {
+						whereParts = append(whereParts, sceneMarkerSameOrOverlapWhereCustom(
+							fmt.Sprintf("sm_overlap_req_%d", i),
+							fmt.Sprintf("sm_overlap_req_%d", j),
+						))
+					}
+				}
+
+				if len(fromParts) > 0 {
+					f.addWhere(fmt.Sprintf(`EXISTS (
+SELECT 1
+FROM %s
+WHERE %s
+)`, strings.Join(fromParts, ", "), strings.Join(whereParts, "\n  AND ")), overlapArgs...)
 				}
 			}
 

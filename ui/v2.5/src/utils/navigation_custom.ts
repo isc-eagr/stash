@@ -1416,6 +1416,7 @@ export const makePerformerOrgasmMarkersUrl = (
   criterion.value = {
     tag_ids: [{ id: tagId, label: tagLabel }],
     include_subtags: true,
+    require_overlap: false,
     top_performer_ids: [
       {
         id: performer.id,
@@ -1458,6 +1459,7 @@ export const makePerformerFeetMarkersUrl = (
   criterion.value = {
     tag_ids: [{ id: tagId, label: tagLabel }],
     include_subtags: true,
+    require_overlap: false,
     top_performer_ids: [
       {
         id: performer.id,

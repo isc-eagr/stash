@@ -370,12 +370,20 @@ export const SceneMarkersFilter: React.FC<ISceneMarkersFilterProps> = ({
     setCriterion(c);
   };
 
+  const onRequireOverlapChange = (requireOverlap: boolean) => {
+    const c = criterion.clone() as SceneMarkersCriterion;
+    c.value.require_overlap = requireOverlap;
+    setCriterion(c);
+  };
+
   // Auto-add first group if empty
   React.useEffect(() => {
     if (criterion.value.groups.length === 0) {
       onAddGroup();
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const canRequireOverlap = criterion.value.groups.length > 1;
 
   return (
     <div className="scene-markers-filter">
@@ -384,6 +392,21 @@ export const SceneMarkersFilter: React.FC<ISceneMarkersFilterProps> = ({
         performers={criterion.value.unnamed_performers ?? []}
         onPerformersChange={onUnnamedPerformersChange}
       />
+
+      {canRequireOverlap && (
+        <Form.Check
+          type="checkbox"
+          className="mb-3"
+          checked={criterion.value.require_overlap}
+          onChange={(e) => onRequireOverlapChange(e.currentTarget.checked)}
+          label={
+            <FormattedMessage
+              id="scene_markers_require_overlap"
+              defaultMessage="Require marker rows to overlap"
+            />
+          }
+        />
+      )}
 
       {criterion.value.groups.map((group) => (
         <GroupEditor

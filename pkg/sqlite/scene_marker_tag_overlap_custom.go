@@ -21,6 +21,13 @@ AND %[2]s.seconds < %[3]s
 AND %[4]s > %[1]s.seconds`, baseAlias, overlapAlias, sceneMarkerEndExprCustom(baseAlias), sceneMarkerEndExprCustom(overlapAlias))
 }
 
+func sceneMarkerSameOrOverlapWhereCustom(baseAlias string, overlapAlias string) string {
+	return fmt.Sprintf(`(
+    %[2]s.id = %[1]s.id
+    OR (%[3]s)
+)`, baseAlias, overlapAlias, sceneMarkerOverlapWhereCustom(baseAlias, overlapAlias))
+}
+
 func sceneMarkerDirectTagSetSQLCustom(smAlias string) string {
 	return fmt.Sprintf(`SELECT %[1]s.primary_tag_id AS tag_id
 UNION ALL
@@ -45,6 +52,15 @@ func sceneMarkerDirectHasTagInClauseCustom(smAlias string, tagIDsBinding string)
     ) direct_tags_per_marker
     WHERE tag_id IN %[2]s
 )`, sceneMarkerDirectTagSetSQLCustom(smAlias), tagIDsBinding)
+}
+
+func sceneMarkerDirectTagsCountClauseCustom(smAlias string, tagIDsBinding string, tagCount int) string {
+	return fmt.Sprintf(`(
+    SELECT COUNT(DISTINCT tag_id) FROM (
+      %[1]s
+    ) tags_per_marker
+    WHERE tag_id IN %[2]s
+  ) = %[3]d`, sceneMarkerDirectTagSetSQLCustom(smAlias), tagIDsBinding, tagCount)
 }
 
 func sceneMarkerEffectiveTagsCountClauseCustom(smAlias string, tagIDsBinding string, tagCount int) string {

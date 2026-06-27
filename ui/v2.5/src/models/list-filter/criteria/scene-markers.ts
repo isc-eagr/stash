@@ -45,6 +45,7 @@ export interface ISceneMarkersGroup {
  */
 export interface ISceneMarkersValue {
   groups: ISceneMarkersGroup[];
+  require_overlap: boolean;
   // Unnamed performers defined at criterion level, shareable across groups
   unnamed_performers: IUnnamedPerformer[];
 }
@@ -92,6 +93,7 @@ export class SceneMarkersCriterion extends Criterion {
   public modifier: CriterionModifier = defaultModifier;
   public value: ISceneMarkersValue = {
     groups: [],
+    require_overlap: false,
     unnamed_performers: [],
   };
 
@@ -110,6 +112,7 @@ export class SceneMarkersCriterion extends Criterion {
         top_performer_ids: g.top_performer_ids.map((p) => ({ ...p })),
         bottom_performer_ids: g.bottom_performer_ids.map((p) => ({ ...p })),
       })),
+      require_overlap: this.value.require_overlap,
       unnamed_performers: (this.value.unnamed_performers ?? []).map(
         cloneUnnamedPerformer
       ),
@@ -215,6 +218,7 @@ export class SceneMarkersCriterion extends Criterion {
           label: p.label,
         })),
       })),
+      require_overlap: this.value.require_overlap,
       // Unnamed performers at criterion level for sharing across groups
       unnamed_performers: (this.value.unnamed_performers ?? []).map((up) => ({
         id: up.id,
@@ -244,6 +248,7 @@ export class SceneMarkersCriterion extends Criterion {
           label: p.label,
         })),
       })),
+      require_overlap: this.value.require_overlap,
       unnamed_performers: (this.value.unnamed_performers ?? []).map((up) => ({
         id: up.id,
         label: up.label,
@@ -269,6 +274,7 @@ export class SceneMarkersCriterion extends Criterion {
         bottom_performer_ids: Array<{ id: string; label: string }>;
       }>;
       unnamed_performers?: IUnnamedPerformer[];
+      require_overlap?: boolean;
     };
 
     if (raw.groups) {
@@ -293,6 +299,7 @@ export class SceneMarkersCriterion extends Criterion {
       );
       groupIdCounter = maxChar - 64;
     }
+    this.value.require_overlap = raw.require_overlap ?? false;
     // Load unnamed performers at criterion level
     if (raw.unnamed_performers) {
       this.value.unnamed_performers = raw.unnamed_performers.map(
@@ -313,6 +320,7 @@ export class SceneMarkersCriterion extends Criterion {
         bottom_performer_ids: Array<{ id: string; label: string }>;
       }>;
       unnamed_performers?: IUnnamedPerformer[];
+      require_overlap?: boolean;
     };
 
     if (raw.modifier) this.modifier = raw.modifier;
@@ -338,6 +346,7 @@ export class SceneMarkersCriterion extends Criterion {
       );
       groupIdCounter = maxChar - 64;
     }
+    this.value.require_overlap = raw.require_overlap ?? false;
     // Load unnamed performers at criterion level
     if (raw.unnamed_performers) {
       this.value.unnamed_performers = raw.unnamed_performers.map(
@@ -534,13 +543,15 @@ export class SceneMarkersCriterion extends Criterion {
       return group;
     });
 
-    // Store in temporary key for later aggregation
-    if (!input._sceneMarkerIncludeCriteria) {
-      input._sceneMarkerIncludeCriteria = [];
+    const useOverlap =
+      this.value.require_overlap && this.value.groups.length > 1;
+    const targetKey = useOverlap
+      ? "_sceneMarkerOverlapCriteria"
+      : "_sceneMarkerIncludeCriteria";
+    if (!input[targetKey]) {
+      input[targetKey] = [];
     }
-    (input._sceneMarkerIncludeCriteria as typeof groups_extended).push(
-      ...groups_extended
-    );
+    (input[targetKey] as typeof groups_extended).push(...groups_extended);
   }
 
   public applyToSavedCriterion(input: Record<string, unknown>): void {
@@ -560,6 +571,7 @@ export class SceneMarkersCriterion extends Criterion {
           label: p.label,
         })),
       })),
+      require_overlap: this.value.require_overlap,
       // Unnamed performers at criterion level
       unnamed_performers: (this.value.unnamed_performers ?? []).map((up) => ({
         id: up.id,
@@ -585,6 +597,7 @@ export class SceneMarkersCriterion extends Criterion {
         bottom_performer_ids: Array<{ id: string; label: string }>;
       }>;
       unnamed_performers?: IUnnamedPerformer[];
+      require_overlap?: boolean;
     };
 
     if (!data) return;
@@ -612,6 +625,7 @@ export class SceneMarkersCriterion extends Criterion {
       );
       groupIdCounter = maxChar - 64;
     }
+    this.value.require_overlap = data.require_overlap ?? false;
     // Load unnamed performers at criterion level
     if (data.unnamed_performers) {
       this.value.unnamed_performers = data.unnamed_performers.map(
