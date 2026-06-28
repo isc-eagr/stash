@@ -294,7 +294,7 @@ Allows filtering scenes by their marker tags with **role-specific performer attr
 - `Scene Markers: Exclude`: Exclusion groups use the same overlap-aware tag matching, so a scene can be excluded when a marker plus its overlapping markers collectively satisfy the group
 - Marker-list results only return markers that directly have at least one requested tag; when multiple overlapping direct-tag markers satisfy the same tag-only group, the shortest marker wins
 - Marker performer constraints are always evaluated against the marker itself. Overlapping markers can contribute effective tags, but they do not contribute top/bottom performer assignments.
-- `overlap_groups`: Advanced direct marker requirements that must be satisfied by markers whose time ranges overlap. These groups reuse `SceneMarkerTagGroupInput`, including named and unnamed top/bottom/both-role performer criteria, so searches like "feet marker with unnamed top overlaps BJ marker with unnamed bottom" can be expressed without collapsing role assignments across markers. Marker-list overlap results return only the narrowest matched requirement marker.
+- `overlap_groups`: Advanced direct marker requirements that must be satisfied by markers whose time ranges overlap. These groups reuse `SceneMarkerTagGroupInput`, including named and unnamed top/bottom/both-role performer criteria, so searches like "feet marker with unnamed top overlaps BJ marker with unnamed bottom" can be expressed without collapsing role assignments across markers. Reusing the same unnamed performer ID across overlap groups requires the same actual performer in each specified role. Marker-list overlap results return only the narrowest matched requirement marker.
 - The Markers page `Markers` filter supports multiple marker rows inside one criterion; two or more rows are always treated as overlapping marker requirements so overlap searches can be expressed without adding duplicate sidebar criteria.
 
 **Role-Specific Filtering:**
@@ -2206,8 +2206,9 @@ A feature that allows users to define "unnamed performers" (Performer A, Perform
 
 ### Use Cases
 
-1. **Same performer in both roles**: When an unnamed performer is selected in BOTH top and bottom dropdowns, the backend uses `both_roles_*` criteria to ensure the SAME performer matching those criteria appears in both roles
+1. **Same performer in both roles**: When an unnamed performer is selected in BOTH top and bottom dropdowns, the backend uses `both_roles_*` criteria to ensure the SAME performer matching those criteria appears in both roles, including OR-mode marker configs.
 2. **Different unnamed performers**: When different unnamed performers are in top vs bottom, each applies their own criteria independently
+3. **Same performer across marker configs**: Reusing the same unnamed performer letter across overlapping marker configs requires the same actual performer in every referenced role.
 3. **Mixed with named performers**: Unnamed performers can be combined with regular named performer selections
 
 ### Files Created

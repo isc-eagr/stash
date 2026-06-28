@@ -358,6 +358,11 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 		if input == nil {
 			return
 		}
+		normalizedInput := *input
+		normalizedInput.GroupsExtended = normalizeSceneMarkerTagGroupsSameUnnamedRolesCustom(normalizedInput.GroupsExtended)
+		normalizedInput.OverlapGroups = normalizeSceneMarkerTagGroupsSameUnnamedRolesCustom(normalizedInput.OverlapGroups)
+		normalizedInput.GroupsExtendedExclude = normalizeSceneMarkerTagGroupsSameUnnamedRolesCustom(normalizedInput.GroupsExtendedExclude)
+		input = &normalizedInput
 
 		// Helper to expand ethnicity selections (Black includes Mixed and Afrolatino, etc.)
 		expandEthnicities := func(ethnicities []string) []string {
@@ -722,6 +727,130 @@ WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")), attrArg
 			return "(" + strings.Join(conditions, " AND ") + ")", args, true
 		}
 
+		type unnamedOverlapOccurrence struct {
+			groupIndex  int
+			role        string
+			bothRoles   bool
+			markerAlias string
+			slot        models.UnnamedPerformerCriterionInput
+		}
+
+		buildUnnamedOverlapCorrelation := func(groups []models.SceneMarkerTagGroupInput) ([]string, []interface{}, bool) {
+			buildCorrelationPerformerAttr := func(performerAlias string, slot models.UnnamedPerformerCriterionInput) (string, []interface{}, bool) {
+				var attrConds []string
+				var attrArgs []interface{}
+				if len(slot.Ethnicities) > 0 {
+					expanded := expandEthnicities(slot.Ethnicities)
+					ph := getInBinding(len(expanded))
+					attrConds = append(attrConds, performerAlias+".ethnicity IN "+ph)
+					for _, e := range expanded {
+						attrArgs = append(attrArgs, e)
+					}
+				}
+				if len(slot.Countries) > 0 {
+					ph := getInBinding(len(slot.Countries))
+					attrConds = append(attrConds, performerAlias+".country IN "+ph)
+					for _, c := range slot.Countries {
+						attrArgs = append(attrArgs, c)
+					}
+				}
+				if slot.Rating != nil {
+					ratingCond, ratingArgs := getRatingComparison(performerAlias+".rating", slot.Rating)
+					attrConds = append(attrConds, ratingCond)
+					attrArgs = append(attrArgs, ratingArgs...)
+				}
+				if !appendPerformerRatingCriteria(&attrConds, &attrArgs, performerAlias, slot.RatingCriteria) {
+					return "", nil, false
+				}
+				if len(attrConds) == 0 {
+					return "1=1", attrArgs, true
+				}
+				return strings.Join(attrConds, " AND "), attrArgs, true
+			}
+
+			occurrencesByID := make(map[string][]unnamedOverlapOccurrence)
+			addOccurrence := func(groupIndex int, markerAlias string, role string, bothRoles bool, slot models.UnnamedPerformerCriterionInput) {
+				if slot.ID == nil || *slot.ID == "" {
+					return
+				}
+				occurrencesByID[*slot.ID] = append(occurrencesByID[*slot.ID], unnamedOverlapOccurrence{
+					groupIndex:  groupIndex,
+					role:        role,
+					bothRoles:   bothRoles,
+					markerAlias: markerAlias,
+					slot:        slot,
+				})
+			}
+
+			for i, group := range groups {
+				markerAlias := fmt.Sprintf("sm_overlap_req_%d", i)
+				for _, slot := range group.TopUnnamedPerformers {
+					addOccurrence(i, markerAlias, "top", false, slot)
+				}
+				for _, slot := range group.BottomUnnamedPerformers {
+					addOccurrence(i, markerAlias, "bottom", false, slot)
+				}
+				for _, slot := range group.BothRolesUnnamedPerformers {
+					addOccurrence(i, markerAlias, "", true, slot)
+				}
+			}
+
+			var conditions []string
+			var args []interface{}
+			correlationIndex := 0
+			for _, occurrences := range occurrencesByID {
+				if len(occurrences) < 2 {
+					continue
+				}
+
+				performerAlias := fmt.Sprintf("p_overlap_corr_%d", correlationIndex)
+				correlationIndex++
+				var performerConditions []string
+				var performerArgs []interface{}
+
+				for i, occurrence := range occurrences {
+					attrClause, attrArgs, ok := buildCorrelationPerformerAttr(performerAlias, occurrence.slot)
+					if !ok {
+						return nil, nil, false
+					}
+					if attrClause != "1=1" {
+						performerConditions = append(performerConditions, attrClause)
+						performerArgs = append(performerArgs, attrArgs...)
+					}
+
+					aliasPrefix := fmt.Sprintf("smp_overlap_corr_%d_%d_%d", correlationIndex, occurrence.groupIndex, i)
+					switch {
+					case occurrence.bothRoles:
+						performerConditions = append(performerConditions,
+							fmt.Sprintf(`EXISTS (
+    SELECT 1 FROM scene_marker_performers %[1]s_top
+    WHERE %[1]s_top.scene_marker_id = %[2]s.id AND %[1]s_top.performer_id = %[3]s.id AND %[1]s_top.role = 'top'
+  )`, aliasPrefix, occurrence.markerAlias, performerAlias),
+							fmt.Sprintf(`EXISTS (
+    SELECT 1 FROM scene_marker_performers %[1]s_bottom
+    WHERE %[1]s_bottom.scene_marker_id = %[2]s.id AND %[1]s_bottom.performer_id = %[3]s.id AND %[1]s_bottom.role = 'bottom'
+  )`, aliasPrefix, occurrence.markerAlias, performerAlias),
+						)
+					default:
+						performerConditions = append(performerConditions, fmt.Sprintf(`EXISTS (
+    SELECT 1 FROM scene_marker_performers %[1]s
+    WHERE %[1]s.scene_marker_id = %[2]s.id AND %[1]s.performer_id = %[3]s.id AND %[1]s.role = '%[4]s'
+  )`, aliasPrefix, occurrence.markerAlias, performerAlias, occurrence.role))
+					}
+				}
+
+				if len(performerConditions) > 0 {
+					conditions = append(conditions, fmt.Sprintf(`EXISTS (
+SELECT 1 FROM performers %[1]s
+WHERE %[2]s
+)`, performerAlias, strings.Join(performerConditions, "\n  AND ")))
+					args = append(args, performerArgs...)
+				}
+			}
+
+			return conditions, args, true
+		}
+
 		// Handle IS_NULL / NOT_NULL modifiers for simple presence checks
 		if input.Modifier == models.CriterionModifierIsNull || input.Modifier == models.CriterionModifierNotNull {
 			var notClause string
@@ -763,6 +892,13 @@ WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")), attrArg
 					))
 				}
 			}
+
+			correlationConditions, correlationArgs, ok := buildUnnamedOverlapCorrelation(input.OverlapGroups)
+			if !ok {
+				return
+			}
+			whereParts = append(whereParts, correlationConditions...)
+			overlapArgs = append(overlapArgs, correlationArgs...)
 
 			var narrowestResultParts []string
 			for i := range input.OverlapGroups {

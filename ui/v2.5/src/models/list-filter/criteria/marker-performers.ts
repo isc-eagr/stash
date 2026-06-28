@@ -415,9 +415,8 @@ export class MarkerPerformersCriterion extends Criterion {
         (p) => isUnnamedPerformerId(p.id)
       );
 
-      const isOrMode = markerGroup.performer_mode === "OR";
       const bothRolesNamedIds = new Set<string>();
-      if (!isOrMode) {
+      if (markerGroup.performer_mode === "AND") {
         for (const tp of topNamed) {
           if (bottomNamed.some((bp) => bp.id === tp.id)) {
             bothRolesNamedIds.add(tp.id);
@@ -426,11 +425,9 @@ export class MarkerPerformersCriterion extends Criterion {
       }
 
       const bothRolesUnnamedIds = new Set<string>();
-      if (!isOrMode) {
-        for (const tp of topUnnamed) {
-          if (bottomUnnamed.some((bp) => bp.id === tp.id)) {
-            bothRolesUnnamedIds.add(tp.id);
-          }
+      for (const tp of topUnnamed) {
+        if (bottomUnnamed.some((bp) => bp.id === tp.id)) {
+          bothRolesUnnamedIds.add(tp.id);
         }
       }
 

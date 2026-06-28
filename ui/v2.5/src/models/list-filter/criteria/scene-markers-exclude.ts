@@ -387,14 +387,12 @@ export class SceneMarkersExcludeCriterion extends Criterion {
         }
       }
 
-      // Find unnamed performers that are in BOTH top and bottom (both_roles)
-      // ONLY in AND mode - in OR mode, same performer in both means "top OR bottom"
+      // Find unnamed performers that are in BOTH top and bottom (both_roles).
+      // The same unnamed ID always represents the same actual performer.
       const bothRolesUnnamedIds = new Set<string>();
-      if (performerMode === "AND") {
-        for (const tp of topUnnamed) {
-          if (bottomUnnamed.some((bp) => bp.id === tp.id)) {
-            bothRolesUnnamedIds.add(tp.id);
-          }
+      for (const tp of topUnnamed) {
+        if (bottomUnnamed.some((bp) => bp.id === tp.id)) {
+          bothRolesUnnamedIds.add(tp.id);
         }
       }
 

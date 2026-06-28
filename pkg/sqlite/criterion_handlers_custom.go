@@ -33,7 +33,10 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 		"joinPrimaryKey": h.joinPrimaryKey,
 	}))
 
-	c := h.criterion
+	c := *h.criterion
+	c.GroupsExtended = normalizeSceneMarkerTagGroupsSameUnnamedRolesCustom(c.GroupsExtended)
+	c.OverlapGroups = normalizeSceneMarkerTagGroupsSameUnnamedRolesCustom(c.OverlapGroups)
+	c.GroupsExtendedExclude = normalizeSceneMarkerTagGroupsSameUnnamedRolesCustom(c.GroupsExtendedExclude)
 
 	// helper to expand ethnicity like global filters for consistency
 	expandEthnicity := func(s string) []string {
@@ -756,6 +759,101 @@ WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")),
 		return final, final.clause != ""
 	}
 
+	type unnamedOverlapOccurrence struct {
+		groupIndex  int
+		role        string
+		bothRoles   bool
+		markerAlias string
+		slot        models.UnnamedPerformerCriterionInput
+	}
+
+	buildUnnamedOverlapCorrelation := func(groups []models.SceneMarkerTagGroupInput) sqlFragment {
+		occurrencesByID := make(map[string][]unnamedOverlapOccurrence)
+		addOccurrence := func(groupIndex int, markerAlias string, role string, bothRoles bool, slot models.UnnamedPerformerCriterionInput) {
+			if slot.ID == nil || *slot.ID == "" {
+				return
+			}
+			occurrencesByID[*slot.ID] = append(occurrencesByID[*slot.ID], unnamedOverlapOccurrence{
+				groupIndex:  groupIndex,
+				role:        role,
+				bothRoles:   bothRoles,
+				markerAlias: markerAlias,
+				slot:        slot,
+			})
+		}
+
+		for i, group := range groups {
+			markerAlias := fmt.Sprintf("sm_overlap_req_%d", i)
+			for _, slot := range group.TopUnnamedPerformers {
+				addOccurrence(i, markerAlias, "top", false, slot)
+			}
+			for _, slot := range group.BottomUnnamedPerformers {
+				addOccurrence(i, markerAlias, "bottom", false, slot)
+			}
+			for _, slot := range group.BothRolesUnnamedPerformers {
+				addOccurrence(i, markerAlias, "", true, slot)
+			}
+		}
+
+		var conditions []sqlFragment
+		correlationIndex := 0
+		for _, occurrences := range occurrencesByID {
+			if len(occurrences) < 2 {
+				continue
+			}
+
+			performerAlias := fmt.Sprintf("p_overlap_corr_%d", correlationIndex)
+			correlationIndex++
+			var performerConditions []sqlFragment
+
+			for i, occurrence := range occurrences {
+				attr := buildPerformerAttributeClause(
+					performerAlias,
+					occurrence.slot.Ethnicities,
+					occurrence.slot.Countries,
+					occurrence.slot.Rating,
+					occurrence.slot.RatingCriteria,
+				)
+				if attr.clause != "1=1" {
+					performerConditions = append(performerConditions, attr)
+				}
+
+				aliasPrefix := fmt.Sprintf("smp_overlap_corr_%d_%d_%d", correlationIndex, occurrence.groupIndex, i)
+				switch {
+				case occurrence.bothRoles:
+					performerConditions = append(performerConditions,
+						sqlFragment{clause: fmt.Sprintf(`EXISTS (
+    SELECT 1 FROM scene_marker_performers %[1]s_top
+    WHERE %[1]s_top.scene_marker_id = %[2]s.id AND %[1]s_top.performer_id = %[3]s.id AND %[1]s_top.role = 'top'
+  )`, aliasPrefix, occurrence.markerAlias, performerAlias)},
+						sqlFragment{clause: fmt.Sprintf(`EXISTS (
+    SELECT 1 FROM scene_marker_performers %[1]s_bottom
+    WHERE %[1]s_bottom.scene_marker_id = %[2]s.id AND %[1]s_bottom.performer_id = %[3]s.id AND %[1]s_bottom.role = 'bottom'
+  )`, aliasPrefix, occurrence.markerAlias, performerAlias)},
+					)
+				default:
+					performerConditions = append(performerConditions, sqlFragment{clause: fmt.Sprintf(`EXISTS (
+    SELECT 1 FROM scene_marker_performers %[1]s
+    WHERE %[1]s.scene_marker_id = %[2]s.id AND %[1]s.performer_id = %[3]s.id AND %[1]s.role = '%[4]s'
+  )`, aliasPrefix, occurrence.markerAlias, performerAlias, occurrence.role)})
+				}
+			}
+
+			performerFragment := joinFragments(performerConditions, " AND ")
+			if performerFragment.clause != "" {
+				conditions = append(conditions, sqlFragment{
+					clause: fmt.Sprintf(`EXISTS (
+SELECT 1 FROM performers %[1]s
+WHERE %[2]s
+)`, performerAlias, performerFragment.clause),
+					args: performerFragment.args,
+				})
+			}
+		}
+
+		return joinFragments(conditions, " AND ")
+	}
+
 	switch c.Modifier {
 	case models.CriterionModifierIsNull, models.CriterionModifierNotNull:
 		var notClause string
@@ -1414,6 +1512,11 @@ WHERE `+markerAlias+`.scene_id = {primaryTable}.id
 							fmt.Sprintf("sm_overlap_req_%d", j),
 						))
 					}
+				}
+
+				if correlation := buildUnnamedOverlapCorrelation(c.OverlapGroups); correlation.clause != "" {
+					whereParts = append(whereParts, correlation.clause)
+					overlapArgs = append(overlapArgs, correlation.args...)
 				}
 
 				if len(fromParts) > 0 {
