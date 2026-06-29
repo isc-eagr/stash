@@ -118,6 +118,13 @@ export const SettingsCustomPanel: React.FC = () => {
           checked={ui.showMultiSegmentLoopControls ?? undefined}
           onChange={(v) => saveUI({ showMultiSegmentLoopControls: v })}
         />
+        <BooleanSetting
+          id="show-official-scene-marker-layout"
+          headingID="config.ui.scene_player.options.show_official_scene_marker_layout"
+          subHeadingID="config.ui.scene_player.options.show_official_scene_marker_layout_desc"
+          checked={ui.showOfficialSceneMarkerLayout ?? undefined}
+          onChange={(v) => saveUI({ showOfficialSceneMarkerLayout: v })}
+        />
         <Setting
           id="delete-simple-marker-previews-task"
           headingID="dialogs.scene_gen.delete_simple_marker_previews"

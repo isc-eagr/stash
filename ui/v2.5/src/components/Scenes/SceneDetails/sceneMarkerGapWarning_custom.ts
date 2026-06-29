@@ -36,7 +36,8 @@ export type SceneMarkerGapDraft = {
 };
 
 export type SceneMarkerGapWarning = {
-  gapSeconds: number;
+  issueType: "gap" | "overlap";
+  issueSeconds: number;
   markerBoundarySeconds: number;
   closeToSeconds: number;
   adjacentMarkerType: string;
@@ -97,6 +98,14 @@ function isSmallGap(gapSeconds: number) {
   return (
     roundedGapSeconds > markerGapCloseOffsetSeconds &&
     roundedGapSeconds <= maxGapSeconds
+  );
+}
+
+function isSmallOverlap(overlapSeconds: number) {
+  const roundedOverlapSeconds = roundToMilliseconds(overlapSeconds);
+  return (
+    roundedOverlapSeconds > markerGapCloseOffsetSeconds &&
+    roundedOverlapSeconds <= maxGapSeconds
   );
 }
 
@@ -183,38 +192,87 @@ export function findSceneMarkerGapWarnings({
     ...negativeMarkers.map(negativeMarkerRange),
   ].filter((range): range is SceneMarkerGapRange => !!range);
 
-  const previousRange = ranges
+  const previousOverlapRange = ranges
+    .filter((range) => range.start < draft.seconds && range.end > draft.seconds)
+    .map((range) => ({
+      range,
+      overlapSeconds: Math.min(range.end, draftEndSeconds) - draft.seconds,
+    }))
+    .filter(({ overlapSeconds }) => overlapSeconds > 0)
+    .sort((a, b) => a.overlapSeconds - b.overlapSeconds)[0];
+  const nextOverlapRange = ranges
+    .filter(
+      (range) => range.start < draftEndSeconds && range.end > draftEndSeconds
+    )
+    .map((range) => ({
+      range,
+      overlapSeconds: draftEndSeconds - Math.max(range.start, draft.seconds),
+    }))
+    .filter(({ overlapSeconds }) => overlapSeconds > 0)
+    .sort((a, b) => a.overlapSeconds - b.overlapSeconds)[0];
+  const previousGapRange = ranges
     .filter((range) => range.end < draft.seconds)
     .sort((a, b) => b.end - a.end)[0];
-  const nextRange = ranges
+  const nextGapRange = ranges
     .filter((range) => range.start > draftEndSeconds)
     .sort((a, b) => a.start - b.start)[0];
 
-  const previousGapSeconds = previousRange
-    ? draft.seconds - previousRange.end
+  const previousGapSeconds = previousGapRange
+    ? draft.seconds - previousGapRange.end
     : 0;
-  const nextGapSeconds = nextRange ? nextRange.start - draftEndSeconds : 0;
+  const nextGapSeconds = nextGapRange
+    ? nextGapRange.start - draftEndSeconds
+    : 0;
   const warnings: SceneMarkerGapWarnings = {};
 
-  if (previousRange && isSmallGap(previousGapSeconds)) {
+  if (
+    previousOverlapRange &&
+    isSmallOverlap(previousOverlapRange.overlapSeconds)
+  ) {
     warnings.previous = {
-      gapSeconds: roundToMilliseconds(previousGapSeconds),
-      markerBoundarySeconds: previousRange.end,
+      issueType: "overlap",
+      issueSeconds: roundToMilliseconds(previousOverlapRange.overlapSeconds),
+      markerBoundarySeconds: previousOverlapRange.range.end,
       closeToSeconds: roundToMilliseconds(
-        previousRange.end + markerGapCloseOffsetSeconds
+        previousOverlapRange.range.end + markerGapCloseOffsetSeconds
       ),
-      adjacentMarkerType: previousRange.markerType,
+      adjacentMarkerType: previousOverlapRange.range.markerType,
+    };
+  } else if (
+    !previousOverlapRange &&
+    previousGapRange &&
+    isSmallGap(previousGapSeconds)
+  ) {
+    warnings.previous = {
+      issueType: "gap",
+      issueSeconds: roundToMilliseconds(previousGapSeconds),
+      markerBoundarySeconds: previousGapRange.end,
+      closeToSeconds: roundToMilliseconds(
+        previousGapRange.end + markerGapCloseOffsetSeconds
+      ),
+      adjacentMarkerType: previousGapRange.markerType,
     };
   }
 
-  if (nextRange && isSmallGap(nextGapSeconds)) {
+  if (nextOverlapRange && isSmallOverlap(nextOverlapRange.overlapSeconds)) {
     warnings.next = {
-      gapSeconds: roundToMilliseconds(nextGapSeconds),
-      markerBoundarySeconds: nextRange.start,
+      issueType: "overlap",
+      issueSeconds: roundToMilliseconds(nextOverlapRange.overlapSeconds),
+      markerBoundarySeconds: nextOverlapRange.range.start,
       closeToSeconds: roundToMilliseconds(
-        nextRange.start - markerGapCloseOffsetSeconds
+        nextOverlapRange.range.start - markerGapCloseOffsetSeconds
       ),
-      adjacentMarkerType: nextRange.markerType,
+      adjacentMarkerType: nextOverlapRange.range.markerType,
+    };
+  } else if (!nextOverlapRange && nextGapRange && isSmallGap(nextGapSeconds)) {
+    warnings.next = {
+      issueType: "gap",
+      issueSeconds: roundToMilliseconds(nextGapSeconds),
+      markerBoundarySeconds: nextGapRange.start,
+      closeToSeconds: roundToMilliseconds(
+        nextGapRange.start - markerGapCloseOffsetSeconds
+      ),
+      adjacentMarkerType: nextGapRange.markerType,
     };
   }
 

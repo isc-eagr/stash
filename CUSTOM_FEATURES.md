@@ -54,6 +54,7 @@ This document describes all custom features and modifications added on top of th
 44. [Vato Stats Page](#44-vato-stats-page)
 45. [Scene Stats Page](#45-scene-stats-page)
 46. [Scene Marker Gap Warning](#46-scene-marker-gap-warning)
+47. [Scene Marker Chronological Tab Layout](#47-scene-marker-chronological-tab-layout)
 
 ---
 
@@ -2223,6 +2224,7 @@ A feature that allows users to define "unnamed performers" (Performer A, Perform
 - `ui/v2.5/src/components/List/Filters/MarkerPerformersFilter.tsx` - Integrated UnnamedPerformersManager, added quick-select buttons for unnamed performers in Top/Bottom sections
 - `ui/v2.5/src/models/list-filter/criteria/scene-markers.ts`, `ui/v2.5/src/models/list-filter/criteria/scene-markers-exclude.ts` - Added role-aware unnamed performer rating criteria serialization for scene include/exclude marker filters
 - `ui/v2.5/src/components/List/Filters/SceneMarkersFilter.tsx`, `ui/v2.5/src/components/List/Filters/SceneMarkersExcludeFilter.tsx`, `ui/v2.5/src/components/List/Filters/MarkerPerformersFilter.tsx` - Prune unnamed performers when no active top/bottom role selection references them, allowing letters to be reused
+- `ui/v2.5/src/components/List/Filters/UnnamedPerformerManager.tsx`, `ui/v2.5/src/components/List/Filters/SceneMarkersFilter.tsx`, `ui/v2.5/src/components/List/Filters/SceneMarkersExcludeFilter.tsx`, `ui/v2.5/src/components/List/Filters/MarkerPerformersFilter.tsx` - Show an unused-state hint for unnamed performers that are defined but not selected in any marker row
 - `graphql/schema/types/filters_custom.graphql`, `pkg/models/filter.go`, `pkg/sqlite/criterion_handlers_custom.go` - Added `rating_criteria` to unnamed performer criteria and SQL matching against performer rating advisor scores
 - `ui/v2.5/src/locales/en-US.json` - Added localization strings for unnamed performers
 
@@ -3078,7 +3080,7 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 
 ### Overview
 
-Adds a warning to the scene marker create/edit form when the current start/end times would leave a 3-second-or-less unmarked gap next to the nearest relevant marker range. The warning identifies the preceding/following marker type, displays the gap length in milliseconds, can close the previous gap by moving the marker start to one millisecond after the previous marker ends, close the next gap by moving the marker end to one millisecond before the next marker starts, or close both when both sides qualify. One-millisecond gaps are treated as already closed.
+Adds a warning to the scene marker create/edit form when the current start/end times would leave a 3-second-or-less unmarked gap or marker overlap next to the nearest relevant marker range. The warning identifies the preceding/following marker type, displays the gap/overlap length in milliseconds, can close the previous issue by moving the marker start to one millisecond after the previous marker ends, close the next issue by moving the marker end to one millisecond before the next marker starts, or close both when both sides qualify. One-millisecond gaps are treated as already closed.
 
 Sex, oral, and solo markers are ignored for gap calculations based on configured `roleTagIds`, including descendant tags already present on loaded marker data. Negative markers count as relevant marker coverage.
 
@@ -3096,11 +3098,13 @@ Sex, oral, and solo markers are ignored for gap calculations based on configured
 
 - Verifies next-gap closing sets end time to one millisecond before the next marker starts.
 - Verifies previous-gap closing sets start time to one millisecond after the previous marker ends.
+- Verifies previous and next overlaps of three seconds or less are warned and adjusted.
 - Verifies warnings include the adjacent marker type.
 - Verifies one-millisecond gaps do not produce warnings.
 - Verifies sex/oral/solo markers and descendant role tags are ignored.
 - Verifies negative markers count as relevant coverage.
 - Verifies gaps larger than three seconds are ignored.
+- Verifies overlaps larger than three seconds are ignored.
 
 ### GraphQL Schema Changes
 
@@ -3109,3 +3113,53 @@ Sex, oral, and solo markers are ignored for gap calculations based on configured
 ### Configuration Dependencies
 
 - Uses existing `configuration.ui.roleTagIds.sexTagId`, `oralTagId`, and `soloTagId` to identify marker types ignored by gap calculations.
+
+---
+
+## 47. Scene Marker Chronological Tab Layout
+
+### Overview
+
+Replaces the visible scene detail Markers tab body with a custom chronological marker list by default while keeping the upstream primary-tag grouped layout available behind the Custom Settings "Show official scene marker layout" toggle. The new layout shows every marker in time order with a screenshot or pending-image placeholder, row checkboxes, filtered Select All behavior, Add to Loop support, and an "Open in Viewer" action. Plain activity markers whose only marker tag is configured sex, oral, or solo get a subtly muted row treatment so highlight markers carry more visual weight.
+
+The tab has scene-local selectable search fields for tags, top performers, and bottom performers. Tag search uses a progressive chain of single-tag selectors: the first selector only lists tags present on the current scene's markers, each next selector only lists tags that can still match by sharing the same marker or by contributing to one shared overlap window with the previous selections, and the row layout wraps at three tag selectors per line. Tag searches match primary or secondary marker tags and reuse the overlap-aware behavior from the custom marker filters: a marker can satisfy multiple requested tags directly or through overlapping markers only when every selected tag participates in the same shared overlap window, and when multiple overlapping markers match the same tag search only the narrowest result is shown. Selected tags also narrow the top/bottom performer options to performers associated with the tag-filtered markers.
+
+### Files Modified
+
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkersPanel.tsx`
+- `ui/v2.5/src/components/Settings/SettingsCustomPanel.tsx`
+- `ui/v2.5/src/core/config.ts`
+- `ui/v2.5/src/locales/en-GB.json`
+- `ui/v2.5/src/locales/en-US.json`
+- `ui/v2.5/src/components/Scenes/styles.scss`
+- `CUSTOM_FEATURES.md`
+
+### Files Added
+
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkersChronologicalPanel.tsx`
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerChronologySearch_custom.ts`
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerLayoutPreference_custom.ts`
+- `ui/v2.5/tests/sceneMarkerChronologySearch_custom.test.ts`
+- `ui/v2.5/tests/sceneMarkerLayoutPreference_custom.test.ts`
+
+### Test Cases Added
+
+- Verifies direct multi-tag marker matches.
+- Verifies overlapping single-tag markers keep the narrower matching marker.
+- Verifies non-overlapping single-tag markers do not satisfy a multi-tag search.
+- Verifies chained overlaps do not satisfy a multi-tag search unless all selected tags share one overlap window.
+- Verifies top and bottom performer search fields match direct marker roles.
+- Verifies selected parent tags match loaded child marker tags.
+- Verifies scene tag options only include tags used by the scene's markers.
+- Verifies next tag options only include tags that keep an overlap/share match.
+- Verifies performer options are derived from tag-filtered marker results.
+- Verifies the official grouped marker layout only shows when its UI setting is explicitly enabled.
+
+### GraphQL Schema Changes
+
+- None.
+
+### Configuration Dependencies
+
+- Uses existing `configuration.ui.roleTagIds.sexTagId`, `oralTagId`, and `soloTagId` to identify plain activity marker rows.
+- Uses `configuration.ui.showOfficialSceneMarkerLayout` to switch the scene Markers tab between the custom chronological layout and the upstream grouped layout.

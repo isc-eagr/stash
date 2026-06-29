@@ -371,6 +371,20 @@ export const SceneMarkersExcludeFilter: React.FC<
     setCriterion(c);
   };
 
+  const usedUnnamedPerformerIds = React.useMemo(() => {
+    const usedIds = new Set<string>();
+    criterion.value.groups.forEach((group) => {
+      [...group.top_performer_ids, ...group.bottom_performer_ids].forEach(
+        (performer) => {
+          if (isUnnamedPerformerId(performer.id)) {
+            usedIds.add(performer.id);
+          }
+        }
+      );
+    });
+    return Array.from(usedIds);
+  }, [criterion.value.groups]);
+
   // Auto-add first group if empty
   React.useEffect(() => {
     if (criterion.value.groups.length === 0) {
@@ -383,6 +397,7 @@ export const SceneMarkersExcludeFilter: React.FC<
       {/* Unnamed Performers Manager at criterion level - shared across all groups */}
       <UnnamedPerformersManager
         performers={criterion.value.unnamed_performers ?? []}
+        usedPerformerIds={usedUnnamedPerformerIds}
         onPerformersChange={onUnnamedPerformersChange}
       />
 

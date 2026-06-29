@@ -296,6 +296,7 @@ export const UnnamedPerformerEditor: React.FC<IUnnamedPerformerEditorProps> = ({
 
 interface IUnnamedPerformerBadgeProps {
   performer: IUnnamedPerformer;
+  isUsed: boolean;
   onEdit: (performer: IUnnamedPerformer) => void;
   onDelete: (performer: IUnnamedPerformer) => void;
 }
@@ -305,20 +306,34 @@ interface IUnnamedPerformerBadgeProps {
  */
 export const UnnamedPerformerBadge: React.FC<IUnnamedPerformerBadgeProps> = ({
   performer,
+  isUsed,
   onEdit,
   onDelete,
 }) => {
   return (
     <Badge
-      variant="info"
+      variant={isUsed ? "info" : "secondary"}
       className="unnamed-performer-badge d-inline-flex align-items-center me-2 mb-2"
       style={{ fontSize: "0.85em", padding: "6px 10px" }}
+      title={
+        isUsed
+          ? undefined
+          : "This unnamed vato is defined but is not selected in any marker row."
+      }
     >
       <Icon icon={faUser} className="me-1" />
       <span className="me-2">
         <strong>{performer.label}:</strong>{" "}
         {formatUnnamedPerformerSummary(performer)}
       </span>
+      {!isUsed && (
+        <Badge variant="warning" className="text-dark me-2">
+          <FormattedMessage
+            id="unnamed_performer.not_used"
+            defaultMessage="Not used in query"
+          />
+        </Badge>
+      )}
       <Button
         variant="link"
         size="sm"
@@ -343,6 +358,7 @@ export const UnnamedPerformerBadge: React.FC<IUnnamedPerformerBadgeProps> = ({
 
 interface IUnnamedPerformersManagerProps {
   performers: IUnnamedPerformer[];
+  usedPerformerIds: string[];
   onPerformersChange: (performers: IUnnamedPerformer[]) => void;
 }
 
@@ -352,10 +368,14 @@ interface IUnnamedPerformersManagerProps {
  */
 export const UnnamedPerformersManager: React.FC<
   IUnnamedPerformersManagerProps
-> = ({ performers, onPerformersChange }) => {
+> = ({ performers, usedPerformerIds, onPerformersChange }) => {
   const [editingPerformer, setEditingPerformer] =
     useState<IUnnamedPerformer | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const usedPerformerIdSet = React.useMemo(
+    () => new Set(usedPerformerIds),
+    [usedPerformerIds]
+  );
 
   const handleAddClick = () => {
     const newPerformer = createUnnamedPerformer(performers);
@@ -419,6 +439,7 @@ export const UnnamedPerformersManager: React.FC<
             <UnnamedPerformerBadge
               key={p.id}
               performer={p}
+              isUsed={usedPerformerIdSet.has(p.id)}
               onEdit={handleEdit}
               onDelete={handleDelete}
             />

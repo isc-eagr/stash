@@ -31,7 +31,8 @@ assert.deepEqual(
     roleTagIds,
   })?.next,
   {
-    gapSeconds: 1,
+    issueType: "gap",
+    issueSeconds: 1,
     markerBoundarySeconds: 121,
     closeToSeconds: 120.999,
     adjacentMarkerType: "Facial",
@@ -76,7 +77,8 @@ assert.deepEqual(
     roleTagIds,
   })?.previous,
   {
-    gapSeconds: 1,
+    issueType: "gap",
+    issueSeconds: 1,
     markerBoundarySeconds: 59,
     closeToSeconds: 59.001,
     adjacentMarkerType: "Facial",
@@ -160,7 +162,8 @@ assert.deepEqual(
     roleTagIds,
   })?.next,
   {
-    gapSeconds: 1,
+    issueType: "gap",
+    issueSeconds: 1,
     markerBoundarySeconds: 121,
     closeToSeconds: 120.999,
     adjacentMarkerType: "Negative marker: Skip",
@@ -184,12 +187,91 @@ assert.deepEqual(
     roleTagIds,
   })?.next,
   {
-    gapSeconds: 3,
+    issueType: "gap",
+    issueSeconds: 3,
     markerBoundarySeconds: 123,
     closeToSeconds: 122.999,
     adjacentMarkerType: "Facial",
   },
   "three-second gaps are warned"
+);
+
+assert.deepEqual(
+  findSceneMarkerGapWarnings({
+    draft: {
+      ...baseDraft,
+      seconds: 58,
+    },
+    sceneMarkers: [
+      {
+        id: "previous",
+        seconds: 40,
+        end_seconds: 60,
+        primary_tag: { id: "facial", name: "Facial" },
+        tags: [],
+      },
+    ],
+    negativeMarkers: [],
+    roleTagIds,
+  })?.previous,
+  {
+    issueType: "overlap",
+    issueSeconds: 2,
+    markerBoundarySeconds: 60,
+    closeToSeconds: 60.001,
+    adjacentMarkerType: "Facial",
+  },
+  "small previous overlaps are warned"
+);
+
+assert.deepEqual(
+  findSceneMarkerGapWarnings({
+    draft: {
+      ...baseDraft,
+      end_seconds: 123,
+    },
+    sceneMarkers: [
+      {
+        id: "next",
+        seconds: 120,
+        end_seconds: 130,
+        primary_tag: { id: "facial", name: "Facial" },
+        tags: [],
+      },
+    ],
+    negativeMarkers: [],
+    roleTagIds,
+  })?.next,
+  {
+    issueType: "overlap",
+    issueSeconds: 3,
+    markerBoundarySeconds: 120,
+    closeToSeconds: 119.999,
+    adjacentMarkerType: "Facial",
+  },
+  "three-second next overlaps are warned"
+);
+
+assert.equal(
+  findSceneMarkerGapWarnings({
+    draft: {
+      ...baseDraft,
+      end_seconds: 123.001,
+    },
+    sceneMarkers: [
+      {
+        id: "next",
+        seconds: 120,
+        end_seconds: 130,
+        primary_tag: { id: "facial" },
+        tags: [],
+      },
+    ],
+    negativeMarkers: [],
+    roleTagIds,
+  }),
+  undefined,
+  "overlaps larger than three seconds are ignored"
 );
 
 assert.equal(

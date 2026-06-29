@@ -279,10 +279,25 @@ export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = ({
     setCriterion(c);
   };
 
+  const usedUnnamedPerformerIds = React.useMemo(() => {
+    const usedIds = new Set<string>();
+    groups.forEach((group) => {
+      [...group.top_performer_ids, ...group.bottom_performer_ids].forEach(
+        (performer) => {
+          if (isUnnamedPerformerId(performer.id)) {
+            usedIds.add(performer.id);
+          }
+        }
+      );
+    });
+    return Array.from(usedIds);
+  }, [groups]);
+
   return (
     <div className="marker-performers-filter">
       <UnnamedPerformersManager
         performers={criterion.value.unnamed_performers ?? []}
+        usedPerformerIds={usedUnnamedPerformerIds}
         onPerformersChange={onUnnamedPerformersChange}
       />
 

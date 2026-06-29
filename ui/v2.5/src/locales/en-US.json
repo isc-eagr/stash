@@ -44,6 +44,12 @@
       "simple_marker_preview_excluded_tags": {
         "heading": "Simple marker preview skip tags",
         "description": "Marker video/webp previews are skipped when the marker has one of these as its only tag. Screenshots are still generated."
+      },
+      "scene_player": {
+        "options": {
+          "show_official_scene_marker_layout": "Show official scene marker layout",
+          "show_official_scene_marker_layout_desc": "Use the upstream primary-tag grouped layout in the scene Markers tab instead of the custom chronological layout."
+        }
       }
     }
   },

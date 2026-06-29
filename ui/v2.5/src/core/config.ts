@@ -91,6 +91,8 @@ export interface IUIConfig {
   // CUSTOM: begin
   // if true, multi-segment loop controls will be shown below the scene player
   showMultiSegmentLoopControls?: boolean;
+  // if true, the scene Markers tab uses the upstream grouped primary-tag layout
+  showOfficialSceneMarkerLayout?: boolean;
   // CUSTOM: end
 
   // maximum number of items to shown in the dropdown list - defaults to 200

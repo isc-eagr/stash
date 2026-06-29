@@ -1,15 +1,20 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react"; // CUSTOM: added useMemo, useCallback
-import { Button, Form } from "react-bootstrap"; // CUSTOM: added Form
-import { faThLarge } from "@fortawesome/free-solid-svg-icons";
+import { Button } from "react-bootstrap"; // CUSTOM
 import { FormattedMessage } from "react-intl";
 import Mousetrap from "mousetrap";
 import * as GQL from "src/core/generated-graphql";
-import { Icon } from "src/components/Shared/Icon";
+import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
 import { PrimaryTags } from "./PrimaryTags";
 import { SceneMarkerForm } from "./SceneMarkerForm";
 // CUSTOM: begin
 import { markerTitle } from "src/core/markers";
 import type { ILoopSegmentInput } from "src/components/ScenePlayer/multi-segment-loop";
+import { SceneMarkersChronologicalPanel } from "./SceneMarkersChronologicalPanel";
+import {
+  filterChronologicalSceneMarkers,
+  type ISceneMarkerChronologySearchFilters,
+} from "./sceneMarkerChronologySearch_custom";
+import { shouldShowOfficialSceneMarkerLayout } from "./sceneMarkerLayoutPreference_custom";
 // CUSTOM: end
 
 interface ISceneMarkersPanelProps {
@@ -25,6 +30,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   onClickMarker,
   addMultiSegmentLoopSegments, // CUSTOM
 }) => {
+  const { configuration } = useConfigurationContext(); // CUSTOM
   const { data, loading } = GQL.useFindSceneMarkerTagsQuery({
     variables: { id: sceneId },
   });
@@ -39,6 +45,12 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   const [selectedMarkerIds, setSelectedMarkerIds] = useState<Set<string>>(
     () => new Set()
   );
+  const [markerSearch, setMarkerSearch] =
+    useState<ISceneMarkerChronologySearchFilters>({
+      tags: [],
+      topPerformers: [],
+      bottomPerformers: [],
+    });
 
   const onOpenEditor = useCallback((marker?: GQL.SceneMarkerDataFragment) => {
     setIsEditorOpen(true);
@@ -50,13 +62,31 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     setIsEditorOpen(false);
   }, []);
 
-  const sceneMarkers = useMemo(
-    () =>
-      (data?.sceneMarkerTags.map((tag) => tag.scene_markers) ?? []).reduce(
-        (prev, current) => [...prev, ...current],
-        [] as GQL.SceneMarkerDataFragment[]
-      ),
-    [data?.sceneMarkerTags]
+  const sceneMarkers = useMemo(() => {
+    const markersByID = new Map<string, GQL.SceneMarkerDataFragment>();
+    (data?.sceneMarkerTags ?? []).forEach((tag) => {
+      tag.scene_markers.forEach((marker) => {
+        markersByID.set(marker.id, marker);
+      });
+    });
+    return Array.from(markersByID.values());
+  }, [data?.sceneMarkerTags]);
+
+  const filteredSceneMarkers = useMemo(
+    () => filterChronologicalSceneMarkers(sceneMarkers, markerSearch),
+    [markerSearch, sceneMarkers]
+  );
+
+  const showOfficialSceneMarkerLayout = shouldShowOfficialSceneMarkerLayout(
+    configuration.ui
+  );
+  const visibleSceneMarkers = showOfficialSceneMarkerLayout
+    ? sceneMarkers
+    : filteredSceneMarkers;
+
+  const visibleMarkerIds = useMemo(
+    () => visibleSceneMarkers.map((marker) => marker.id),
+    [visibleSceneMarkers]
   );
   // CUSTOM: end
 
@@ -85,9 +115,11 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     });
   }, [sceneMarkers]);
 
-  const totalMarkerCount = sceneMarkers.length;
-  const allSelected =
-    totalMarkerCount > 0 && selectedMarkerIds.size === totalMarkerCount;
+  const visibleMarkerCount = visibleSceneMarkers.length;
+  const allVisibleSelected =
+    visibleMarkerCount > 0 &&
+    visibleMarkerIds.every((id) => selectedMarkerIds.has(id));
+  const selectedMarkerCount = selectedMarkerIds.size;
 
   const setManySelected = useCallback((ids: string[], selected: boolean) => {
     setSelectedMarkerIds((prev) => {
@@ -140,6 +172,12 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     window.open(`/viewer?markers=${idsParam}`, "_blank");
     setSelectedMarkerIds(new Set());
   }, [sceneMarkers, selectedMarkerIds]);
+
+  const onToggleSelectVisibleMarkers = useCallback(() => {
+    if (visibleMarkerIds.length === 0) return;
+
+    setManySelected(visibleMarkerIds, !allVisibleSelected);
+  }, [allVisibleSelected, setManySelected, visibleMarkerIds]);
   // CUSTOM: end
 
   if (isEditorOpen) {
@@ -157,58 +195,76 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   return (
     <div className="scene-markers-panel">
       {/* CUSTOM: begin – toolbar with loop button & select-all */}
-      <div className="d-flex align-items-center justify-content-between mb-2">
-        <div className="d-flex align-items-center" style={{ gap: "0.75rem" }}>
+      <div className="scene-marker-toolbar">
+        <div className="scene-marker-toolbar-actions">
           <Button onClick={() => onOpenEditor()}>
             <FormattedMessage id="actions.create_marker" />
           </Button>
 
           <Button
-            disabled={selectedMarkerIds.size === 0}
+            disabled={selectedMarkerCount === 0}
             onClick={onMoveSelectionToMultiLoop}
           >
             Add to Loop
           </Button>
 
           <Button
-            disabled={selectedMarkerIds.size === 0}
+            disabled={selectedMarkerCount === 0}
             onClick={onOpenSelectedMarkersInViewer}
             title="Open selected markers in viewer"
           >
-            <Icon icon={faThLarge} />
+            Open in Viewer
           </Button>
         </div>
 
-        <Form.Check
-          className="mb-0"
-          type="checkbox"
-          // label={intl.formatMessage({ id: "actions.select_all" })}
-          checked={allSelected}
-          disabled={totalMarkerCount === 0}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            setManySelected(
-              sceneMarkers.map((m) => m.id),
-              e.currentTarget.checked
-            )
-          }
-        />
+        <div className="scene-marker-toolbar-actions">
+          <Button
+            disabled={visibleMarkerCount === 0}
+            onClick={onToggleSelectVisibleMarkers}
+            variant="secondary"
+          >
+            {allVisibleSelected
+              ? showOfficialSceneMarkerLayout
+                ? "Clear All"
+                : "Clear Filtered"
+              : "Select All"}
+          </Button>
+        </div>
+      </div>
+      <div className="scene-marker-toolbar-status text-muted">
+        {selectedMarkerCount > 0
+          ? `${selectedMarkerCount} selected`
+          : `${visibleMarkerCount} markers`}
       </div>
       {/* CUSTOM: end */}
       <div className="container">
-        <PrimaryTags
-          sceneMarkers={sceneMarkers}
-          onClickMarker={onClickMarker}
-          onEdit={onOpenEditor}
-          // CUSTOM: begin – expandable card & selection props
-          expandedCards={expandedCards}
-          onToggleCard={(id: string) =>
-            setExpandedCards((prev) => ({ ...prev, [id]: !prev[id] }))
-          }
-          selectedMarkerIds={selectedMarkerIds}
-          onSelectMarker={toggleSingle}
-          onSelectMarkers={setManySelected}
-          // CUSTOM: end
-        />
+        {showOfficialSceneMarkerLayout ? (
+          <PrimaryTags
+            sceneMarkers={sceneMarkers}
+            onClickMarker={onClickMarker}
+            onEdit={onOpenEditor}
+            // CUSTOM: begin – expandable card & selection props
+            expandedCards={expandedCards}
+            onToggleCard={(id: string) =>
+              setExpandedCards((prev) => ({ ...prev, [id]: !prev[id] }))
+            }
+            selectedMarkerIds={selectedMarkerIds}
+            onSelectMarker={toggleSingle}
+            onSelectMarkers={setManySelected}
+            // CUSTOM: end
+          />
+        ) : (
+          <SceneMarkersChronologicalPanel
+            markers={filteredSceneMarkers}
+            allMarkers={sceneMarkers}
+            search={markerSearch}
+            onSearchChange={setMarkerSearch}
+            selectedMarkerIds={selectedMarkerIds}
+            onClickMarker={onClickMarker}
+            onEdit={onOpenEditor}
+            onSelectMarker={toggleSingle}
+          />
+        )}
       </div>
     </div>
   );

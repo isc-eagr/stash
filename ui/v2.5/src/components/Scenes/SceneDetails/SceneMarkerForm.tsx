@@ -451,6 +451,19 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     return `${Math.round(seconds * 1000)}ms`;
   }
 
+  function formatBoundaryIssueRange(
+    firstSeconds: number,
+    secondSeconds: number
+  ) {
+    return `${TextUtils.secondsToTimestamp(
+      Math.min(firstSeconds, secondSeconds),
+      true
+    )} - ${TextUtils.secondsToTimestamp(
+      Math.max(firstSeconds, secondSeconds),
+      true
+    )}`;
+  }
+
   function renderGapWarning() {
     if (!gapWarnings) return null;
 
@@ -469,52 +482,62 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
 
     const previousLabel =
       gapWarnings.previous &&
-      `${TextUtils.secondsToTimestamp(
+      formatBoundaryIssueRange(
         gapWarnings.previous.markerBoundarySeconds,
-        true
-      )} - ${TextUtils.secondsToTimestamp(formik.values.seconds, true)}`;
+        formik.values.seconds
+      );
     const nextLabel =
       gapWarnings.next &&
-      `${TextUtils.secondsToTimestamp(
+      formatBoundaryIssueRange(
         formik.values.end_seconds ?? 0,
-        true
-      )} - ${TextUtils.secondsToTimestamp(
-        gapWarnings.next.markerBoundarySeconds,
-        true
-      )}`;
+        gapWarnings.next.markerBoundarySeconds
+      );
+    const hasGap = [gapWarnings.previous, gapWarnings.next].some(
+      (warning) => warning?.issueType === "gap"
+    );
+    const hasOverlap = [gapWarnings.previous, gapWarnings.next].some(
+      (warning) => warning?.issueType === "overlap"
+    );
+    const issueSummary =
+      hasGap && hasOverlap
+        ? "tiny gap or overlap"
+        : hasOverlap
+        ? "tiny overlap"
+        : "tiny unmarked gap";
 
     return (
       <Alert variant="warning" className="py-2">
         <div className="mb-2">
-          Creating this marker would leave a tiny unmarked gap.
+          Creating this marker would leave a {issueSummary}.
         </div>
         {previousLabel && gapWarnings.previous && (
           <div>
-            Previous gap after {gapWarnings.previous.adjacentMarkerType}:{" "}
-            {previousLabel} (
-            {formatGapMilliseconds(gapWarnings.previous.gapSeconds)})
+            Previous {gapWarnings.previous.issueType} with{" "}
+            {gapWarnings.previous.adjacentMarkerType}: {previousLabel} (
+            {formatGapMilliseconds(gapWarnings.previous.issueSeconds)})
           </div>
         )}
         {nextLabel && gapWarnings.next && (
           <div>
-            Next gap before {gapWarnings.next.adjacentMarkerType}: {nextLabel} (
-            {formatGapMilliseconds(gapWarnings.next.gapSeconds)})
+            Next {gapWarnings.next.issueType} with{" "}
+            {gapWarnings.next.adjacentMarkerType}: {nextLabel} (
+            {formatGapMilliseconds(gapWarnings.next.issueSeconds)})
           </div>
         )}
         <div className="mt-2 d-flex flex-wrap" style={{ gap: "0.5rem" }}>
           {gapWarnings.previous && (
             <Button size="sm" variant="warning" onClick={closePreviousGap}>
-              Close previous gap
+              Close previous {gapWarnings.previous.issueType}
             </Button>
           )}
           {gapWarnings.next && (
             <Button size="sm" variant="warning" onClick={closeNextGap}>
-              Close next gap
+              Close next {gapWarnings.next.issueType}
             </Button>
           )}
           {gapWarnings.previous && gapWarnings.next && (
             <Button size="sm" variant="warning" onClick={closeAllGaps}>
-              Close both gaps
+              Close both
             </Button>
           )}
         </div>
