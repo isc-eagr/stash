@@ -2,16 +2,20 @@ import assert from "node:assert/strict";
 
 import {
   filterChronologicalSceneMarkers,
+  getChronologicalSceneMarkerDisplayTags,
   getChronologicalSceneMarkerPerformers,
   getChronologicalSceneMarkerTags,
   getCompatibleChronologicalSceneMarkerTags,
+  timestampBelongsToSceneMarker,
 } from "../src/components/Scenes/SceneDetails/sceneMarkerChronologySearch_custom.ts";
 
-const tag = (
-  id: string,
-  name: string,
-  parents: Array<{ id: string }> = []
-) => ({
+type TestTag = {
+  id: string;
+  name: string;
+  parents: TestTag[];
+};
+
+const tag = (id: string, name: string, parents: TestTag[] = []): TestTag => ({
   id,
   name,
   parents,
@@ -29,11 +33,13 @@ const marker = (
   primaryTag: ReturnType<typeof tag>,
   secondaryTags: Array<ReturnType<typeof tag>> = [],
   topPerformers: Array<ReturnType<typeof performer>> = [],
-  bottomPerformers: Array<ReturnType<typeof performer>> = []
+  bottomPerformers: Array<ReturnType<typeof performer>> = [],
+  sceneId?: string
 ) => ({
   id,
   seconds,
   end_seconds: endSeconds,
+  ...(sceneId ? { scene: { id: sceneId } } : {}),
   primary_tag: primaryTag,
   tags: secondaryTags,
   top_performers: topPerformers,
@@ -45,6 +51,8 @@ const verga = tag("verga", "Verga");
 const bj = tag("bj", "BJ");
 const oral = tag("oral", "Oral");
 const orgasm = tag("orgasm", "Orgasm");
+const footwear = tag("footwear", "Footwear");
+const boots = tag("boots", "Boots", [footwear]);
 const juan = performer("juan", "Juan", ["El Guapo"]);
 const luis = performer("luis", "Luis");
 
@@ -59,6 +67,30 @@ assert.deepEqual(
   ).map((m) => m.id),
   ["2"],
   "a direct marker with both requested tags matches"
+);
+
+assert.equal(
+  timestampBelongsToSceneMarker(marker("1", 10, 20, feet), 10),
+  true,
+  "marker current timestamp includes the marker start"
+);
+
+assert.equal(
+  timestampBelongsToSceneMarker(marker("1", 10, 20, feet), 20),
+  false,
+  "marker current timestamp excludes the marker end"
+);
+
+assert.equal(
+  timestampBelongsToSceneMarker(marker("1", 10, null, feet), 29),
+  true,
+  "marker current timestamp uses default duration when no end time exists"
+);
+
+assert.equal(
+  timestampBelongsToSceneMarker(marker("1", 10, 20, feet), 0),
+  false,
+  "marker current timestamp ignores the beginning of playback"
 );
 
 assert.deepEqual(
@@ -123,7 +155,7 @@ assert.deepEqual(
 
 assert.deepEqual(
   filterChronologicalSceneMarkers(
-    [marker("1", 0, 10, tag("child", "Feet closeup", [{ id: "feet" }]))],
+    [marker("1", 0, 10, tag("child", "Feet closeup", [feet]))],
     { tags: [feet], topPerformers: [], bottomPerformers: [] }
   ).map((m) => m.id),
   ["1"],
@@ -133,10 +165,59 @@ assert.deepEqual(
 assert.deepEqual(
   getChronologicalSceneMarkerTags([
     marker("1", 0, 10, feet, [verga]),
-    marker("2", 20, 30, oral),
+    marker("2", 20, 30, boots),
   ]).map((t) => t.id),
-  ["feet", "oral", "verga"],
-  "scene tag options only include tags used by markers"
+  ["boots", "feet", "footwear", "verga"],
+  "scene tag options include marker tags and their parent tags"
+);
+
+assert.deepEqual(
+  getChronologicalSceneMarkerDisplayTags(marker("1", 0, 20, feet, [verga]), [
+    marker("1", 0, 20, feet, [verga]),
+    marker("2", 10, 30, bj, [oral]),
+    marker("3", 30, 40, orgasm),
+  ]).map((displayTag) => `${displayTag.kind}:${displayTag.tag.id}`),
+  ["primary:feet", "secondary:verga", "overlap:bj", "overlap:oral"],
+  "display tags distinguish direct primary, direct secondary, and overlapping marker tags"
+);
+
+assert.deepEqual(
+  getChronologicalSceneMarkerDisplayTags(marker("1", 0, 20, boots), [
+    marker("1", 0, 20, boots),
+  ]).map((displayTag) => `${displayTag.kind}:${displayTag.tag.id}`),
+  ["primary:boots", "parent:footwear"],
+  "display tags include parent hierarchy tags as the lowest tier"
+);
+
+assert.deepEqual(
+  getChronologicalSceneMarkerDisplayTags(
+    marker("1", 0, 20, footwear, [verga]),
+    [
+      marker("1", 0, 20, footwear, [verga]),
+      marker("2", 10, 30, feet, [verga, bj]),
+      marker("3", 12, 18, boots),
+    ]
+  ).map((displayTag) => `${displayTag.kind}:${displayTag.tag.id}`),
+  [
+    "primary:footwear",
+    "secondary:verga",
+    "overlap:feet",
+    "overlap:bj",
+    "overlap:boots",
+  ],
+  "duplicate display tags keep the highest directness tier"
+);
+
+assert.deepEqual(
+  getChronologicalSceneMarkerDisplayTags(
+    marker("1", 0, 20, feet, [], [], [], "scene-a"),
+    [
+      marker("1", 0, 20, feet, [], [], [], "scene-a"),
+      marker("2", 10, 30, bj, [], [], [], "scene-b"),
+    ]
+  ).map((displayTag) => `${displayTag.kind}:${displayTag.tag.id}`),
+  ["primary:feet"],
+  "display tags do not infer overlaps across different scenes"
 );
 
 assert.deepEqual(

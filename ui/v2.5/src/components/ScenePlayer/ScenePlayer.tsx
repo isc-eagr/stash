@@ -272,6 +272,7 @@ interface IScenePlayerProps {
   initialTimestamp: number;
   sendSetTimestamp: (setTimestamp: (value: number) => void) => void;
   sendMultiSegmentLoopApi?: (api: IMultiSegmentLoopApi) => void; // CUSTOM
+  onTimeChange?: (time: number) => void; // CUSTOM
   onComplete: () => void;
   onNext: () => void;
   onPrevious: () => void;
@@ -287,6 +288,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     initialTimestamp: _initialTimestamp,
     sendSetTimestamp,
     sendMultiSegmentLoopApi, // CUSTOM
+    onTimeChange, // CUSTOM
     onComplete,
     onNext,
     onPrevious,
@@ -426,6 +428,12 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         }
       });
     }, [sendSetTimestamp, getPlayer]);
+
+    // CUSTOM: begin - expose current playback position to scene detail panels
+    useEffect(() => {
+      onTimeChange?.(time);
+    }, [onTimeChange, time]);
+    // CUSTOM: end
 
     // CUSTOM: begin - load multi-segment loop presets from scene data
     useEffect(() => {

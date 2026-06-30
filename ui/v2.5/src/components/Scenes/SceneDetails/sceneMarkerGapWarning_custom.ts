@@ -20,6 +20,7 @@ export type SceneMarkerGapSceneMarker = {
 };
 
 export type SceneMarkerGapNegativeMarker = {
+  id?: string;
   name?: string;
   start_seconds: number;
   end_seconds: number;
@@ -189,7 +190,9 @@ export function findSceneMarkerGapWarnings({
       .filter((marker) => marker.id !== draft.id)
       .filter((marker) => !markerHasIgnoredTag(marker, ignoredTagIds))
       .map(markerRange),
-    ...negativeMarkers.map(negativeMarkerRange),
+    ...negativeMarkers
+      .filter((marker) => marker.id !== draft.id)
+      .map(negativeMarkerRange),
   ].filter((range): range is SceneMarkerGapRange => !!range);
 
   const previousOverlapRange = ranges

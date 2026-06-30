@@ -31,6 +31,7 @@ export const SceneMarkerCardGrid: React.FC<ISceneMarkerCardGrid> =
               key={marker.id}
               cardWidth={cardWidth}
               marker={marker}
+              allMarkers={markers} // CUSTOM
               index={index}
               zoomIndex={zoomIndex}
               selecting={selectedIds.size > 0}

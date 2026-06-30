@@ -154,6 +154,7 @@ assert.deepEqual(
     sceneMarkers: [],
     negativeMarkers: [
       {
+        id: "negative-next",
         name: "Skip",
         start_seconds: 121,
         end_seconds: 130,
@@ -169,6 +170,28 @@ assert.deepEqual(
     adjacentMarkerType: "Negative marker: Skip",
   },
   "negative markers count as relevant coverage"
+);
+
+assert.equal(
+  findSceneMarkerGapWarnings({
+    draft: {
+      id: "current-negative",
+      seconds: 60,
+      end_seconds: 120,
+    },
+    sceneMarkers: [],
+    negativeMarkers: [
+      {
+        id: "current-negative",
+        name: "Skip",
+        start_seconds: 60,
+        end_seconds: 120,
+      },
+    ],
+    roleTagIds,
+  }),
+  undefined,
+  "editing a negative marker does not warn against itself"
 );
 
 assert.deepEqual(

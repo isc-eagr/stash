@@ -178,6 +178,7 @@ interface IProps {
   onRefetch: () => void; // CUSTOM
   activeReleaseId: string | null; // CUSTOM
   setActiveReleaseId: (id: string | null) => void; // CUSTOM
+  currentTimestamp?: number; // CUSTOM
 }
 
 interface ISceneParams {
@@ -210,6 +211,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     setContinuePlaylist,
     activeReleaseId, // CUSTOM
     setActiveReleaseId, // CUSTOM
+    currentTimestamp, // CUSTOM
   } = props;
 
   const Toast = useToast();
@@ -636,6 +638,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               onClickMarker={onClickMarker}
               isVisible={activeTabKey === "scene-markers-panel"}
               addMultiSegmentLoopSegments={addMultiSegmentLoopSegments} // CUSTOM
+              currentTimestamp={currentTimestamp} // CUSTOM
             />
           </Tab.Pane>
           {/* CUSTOM: begin - negative markers pane */}
@@ -978,6 +981,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
   const [hideScrubber, setHideScrubber] = useState(
     !(configuration?.interface.showScrubber ?? true)
   );
+  const [currentTimestamp, setCurrentTimestamp] = useState<number>(0); // CUSTOM
 
   const _setTimestamp = useRef<(value: number) => void>();
   const _multiSegmentLoopApi = useRef<IMultiSegmentLoopApi | null>(null); // CUSTOM
@@ -1261,6 +1265,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
         onRefetch={refetch} // CUSTOM
         activeReleaseId={activeReleaseId} // CUSTOM
         setActiveReleaseId={setActiveReleaseId} // CUSTOM
+        currentTimestamp={currentTimestamp} // CUSTOM
       />
       <div className={`scene-player-container ${collapsed ? "expanded" : ""}`}>
         <ScenePlayer
@@ -1272,6 +1277,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
           initialTimestamp={initialTimestamp}
           sendSetTimestamp={getSetTimestamp}
           sendMultiSegmentLoopApi={getMultiSegmentLoopApi} // CUSTOM
+          onTimeChange={setCurrentTimestamp} // CUSTOM
           onComplete={onComplete}
           onNext={() => queueNext(true)}
           onPrevious={() => queuePrevious(true)}

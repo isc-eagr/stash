@@ -6,7 +6,7 @@ export interface ISceneMarkerChronologySearchTag {
   id: string;
   name?: string | null;
   aliases?: string[];
-  parents?: Array<{ id: string }>;
+  parents?: ISceneMarkerChronologySearchTag[];
 }
 
 export interface ISceneMarkerChronologySearchPerformer {
@@ -20,6 +20,7 @@ export interface ISceneMarkerChronologySearchMarker {
   id: string;
   seconds: number;
   end_seconds?: number | null;
+  scene?: { id: string };
   primary_tag: ISceneMarkerChronologySearchTag;
   tags: ISceneMarkerChronologySearchTag[];
   top_performers?: ISceneMarkerChronologySearchPerformer[];
@@ -30,6 +31,19 @@ export interface ISceneMarkerChronologySearchFilters {
   tags: ISceneMarkerChronologySearchTag[];
   topPerformers: ISceneMarkerChronologySearchPerformer[];
   bottomPerformers: ISceneMarkerChronologySearchPerformer[];
+}
+
+export type SceneMarkerChronologyDisplayTagKind =
+  | "primary"
+  | "secondary"
+  | "overlap"
+  | "parent";
+
+export interface ISceneMarkerChronologyDisplayTag<
+  T extends ISceneMarkerChronologySearchTag = ISceneMarkerChronologySearchTag
+> {
+  kind: SceneMarkerChronologyDisplayTagKind;
+  tag: T;
 }
 
 function normalizeSearchText(value?: string | null) {
@@ -96,6 +110,7 @@ function markersOverlap(
 ) {
   return (
     a.id !== b.id &&
+    (!a.scene?.id || !b.scene?.id || a.scene.id === b.scene.id) &&
     b.seconds < markerEndSeconds(a) &&
     markerEndSeconds(b) > a.seconds
   );
@@ -103,6 +118,26 @@ function markersOverlap(
 
 function markerTags(marker: ISceneMarkerChronologySearchMarker) {
   return [marker.primary_tag, ...marker.tags];
+}
+
+function tagParents(tag: ISceneMarkerChronologySearchTag) {
+  return tag.parents ?? [];
+}
+
+function markerTagsWithParents(marker: ISceneMarkerChronologySearchMarker) {
+  const tags = markerTags(marker);
+  return [...tags, ...tags.flatMap(tagParents)];
+}
+
+function markerOverlapsTimeRange(
+  a: ISceneMarkerChronologySearchMarker,
+  b: ISceneMarkerChronologySearchMarker
+) {
+  return (
+    (!a.scene?.id || !b.scene?.id || a.scene.id === b.scene.id) &&
+    b.seconds < markerEndSeconds(a) &&
+    markerEndSeconds(b) > a.seconds
+  );
 }
 
 function uniqueByID<T extends { id: string }>(items: T[]) {
@@ -298,10 +333,22 @@ export function filterChronologicalSceneMarkers<
     .sort(compareChronologicalMarkers);
 }
 
+export function timestampBelongsToSceneMarker(
+  marker: ISceneMarkerChronologySearchMarker,
+  timestamp?: number
+) {
+  return (
+    timestamp !== undefined &&
+    timestamp > 0 &&
+    timestamp >= marker.seconds &&
+    timestamp < markerEndSeconds(marker)
+  );
+}
+
 export function getChronologicalSceneMarkerTags<
   T extends ISceneMarkerChronologySearchMarker
 >(markers: T[]): ISceneMarkerChronologySearchTag[] {
-  return uniqueByID(markers.flatMap(markerTags)).sort(
+  return uniqueByID(markers.flatMap(markerTagsWithParents)).sort(
     compareNamedSearchObjects
   );
 }
@@ -343,4 +390,52 @@ export function getChronologicalSceneMarkerPerformers<
   return uniqueByID(
     tagFilteredMarkers.flatMap((marker) => marker[performerField] ?? [])
   ).sort(compareNamedSearchObjects);
+}
+
+export function getChronologicalSceneMarkerDisplayTags<
+  M extends ISceneMarkerChronologySearchMarker
+>(marker: M, allMarkers: M[]): ISceneMarkerChronologyDisplayTag[] {
+  const displayTags: ISceneMarkerChronologyDisplayTag[] = [
+    { kind: "primary", tag: marker.primary_tag },
+  ];
+  const displayTagIDs = new Set([marker.primary_tag.id]);
+  const parentCandidates: ISceneMarkerChronologySearchTag[] = [
+    ...tagParents(marker.primary_tag),
+  ];
+
+  marker.tags.forEach((tag) => {
+    if (!displayTagIDs.has(tag.id)) {
+      displayTagIDs.add(tag.id);
+      displayTags.push({ kind: "secondary", tag });
+    }
+
+    parentCandidates.push(...tagParents(tag));
+  });
+
+  [...allMarkers]
+    .filter(
+      (candidate) =>
+        candidate.id !== marker.id && markerOverlapsTimeRange(marker, candidate)
+    )
+    .sort(compareChronologicalMarkers)
+    .flatMap((candidate) => [candidate.primary_tag, ...candidate.tags])
+    .forEach((tag) => {
+      if (!displayTagIDs.has(tag.id)) {
+        displayTagIDs.add(tag.id);
+        displayTags.push({ kind: "overlap", tag });
+      }
+
+      parentCandidates.push(...tagParents(tag));
+    });
+
+  uniqueByID(parentCandidates)
+    .sort(compareNamedSearchObjects)
+    .forEach((tag) => {
+      if (!displayTagIDs.has(tag.id)) {
+        displayTagIDs.add(tag.id);
+        displayTags.push({ kind: "parent", tag });
+      }
+    });
+
+  return displayTags;
 }

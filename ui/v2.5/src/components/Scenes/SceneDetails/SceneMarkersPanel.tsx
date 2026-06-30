@@ -22,6 +22,7 @@ interface ISceneMarkersPanelProps {
   isVisible: boolean;
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   addMultiSegmentLoopSegments: (segments: ILoopSegmentInput[]) => void; // CUSTOM
+  currentTimestamp?: number; // CUSTOM
 }
 
 export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
@@ -29,6 +30,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   isVisible,
   onClickMarker,
   addMultiSegmentLoopSegments, // CUSTOM
+  currentTimestamp, // CUSTOM
 }) => {
   const { configuration } = useConfigurationContext(); // CUSTOM
   const { data, loading } = GQL.useFindSceneMarkerTagsQuery({
@@ -263,6 +265,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
             onClickMarker={onClickMarker}
             onEdit={onOpenEditor}
             onSelectMarker={toggleSingle}
+            currentTimestamp={currentTimestamp}
           />
         )}
       </div>

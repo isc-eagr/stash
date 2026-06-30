@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Badge, Button, ButtonGroup } from "react-bootstrap"; // CUSTOM: added Badge
 import * as GQL from "src/core/generated-graphql";
 import { Icon } from "../Shared/Icon";
@@ -25,9 +25,11 @@ import {
   getRatingCardClass,
   isRatingCardHomePage,
 } from "src/utils/ratingCardStyles_custom"; // CUSTOM
+import { getChronologicalSceneMarkerDisplayTags } from "./SceneDetails/sceneMarkerChronologySearch_custom"; // CUSTOM
 
 interface ISceneMarkerCardProps {
   marker: GQL.SceneMarkerDataFragment;
+  allMarkers?: GQL.SceneMarkerDataFragment[]; // CUSTOM
   cardWidth?: number;
   previewHeight?: number;
   index?: number;
@@ -107,6 +109,7 @@ const SceneMarkerCardDetails = PatchComponent(
     const showRoleArrows =
       props.marker.top_performers.length > 0 &&
       props.marker.bottom_performers.length > 0;
+    const [showParentTags, setShowParentTags] = useState(false);
 
     const renderPerformerChip = (
       performer: (typeof props.marker.top_performers)[0],
@@ -146,6 +149,23 @@ const SceneMarkerCardDetails = PatchComponent(
         </Link>
       </HoverPopover>
     );
+
+    const displayTags = useMemo(
+      () =>
+        getChronologicalSceneMarkerDisplayTags(
+          props.marker,
+          props.allMarkers ?? [props.marker]
+        ),
+      [props.allMarkers, props.marker]
+    );
+    const visibleDisplayTags = useMemo(
+      () => displayTags.filter(({ kind }) => kind !== "parent"),
+      [displayTags]
+    );
+    const parentDisplayTags = useMemo(
+      () => displayTags.filter(({ kind }) => kind === "parent"),
+      [displayTags]
+    );
     // CUSTOM: end
 
     return (
@@ -166,6 +186,46 @@ const SceneMarkerCardDetails = PatchComponent(
             {props.marker.bottom_performers.map((p) =>
               renderPerformerChip(p, "info", showRoleArrows, faArrowDown)
             )}
+          </div>
+        )}
+        {/* CUSTOM: end */}
+        {/* CUSTOM: begin - marker tag tiers */}
+        {displayTags.length > 0 && (
+          <div className="scene-marker-card__tags">
+            {visibleDisplayTags.map(({ kind, tag }) => (
+              <Badge
+                key={tag.id}
+                variant={kind === "primary" ? "primary" : "secondary"}
+                className={cx("tag-badge", `tag-badge-${kind}`)}
+              >
+                {tag.name}
+              </Badge>
+            ))}
+            {parentDisplayTags.length > 0 && (
+              <Button
+                className="tag-parent-toggle"
+                type="button"
+                variant="secondary"
+                title={showParentTags ? "Hide parent tags" : "Show parent tags"}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setShowParentTags((current) => !current);
+                }}
+              >
+                {showParentTags ? "-" : `+${parentDisplayTags.length}`}
+              </Button>
+            )}
+            {showParentTags &&
+              parentDisplayTags.map(({ kind, tag }) => (
+                <Badge
+                  key={tag.id}
+                  variant="secondary"
+                  className={cx("tag-badge", `tag-badge-${kind}`)}
+                >
+                  {tag.name}
+                </Badge>
+              ))}
           </div>
         )}
         {/* CUSTOM: end */}

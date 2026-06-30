@@ -3080,13 +3080,14 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 
 ### Overview
 
-Adds a warning to the scene marker create/edit form when the current start/end times would leave a 3-second-or-less unmarked gap or marker overlap next to the nearest relevant marker range. The warning identifies the preceding/following marker type, displays the gap/overlap length in milliseconds, can close the previous issue by moving the marker start to one millisecond after the previous marker ends, close the next issue by moving the marker end to one millisecond before the next marker starts, or close both when both sides qualify. One-millisecond gaps are treated as already closed.
+Adds a warning to the scene marker and negative marker create/edit forms when the current start/end times would leave a 3-second-or-less unmarked gap or marker overlap next to the nearest relevant marker range. The warning identifies the preceding/following marker type, displays the gap/overlap length in milliseconds, can close the previous issue by moving the marker start to one millisecond after the previous marker ends, close the next issue by moving the marker end to one millisecond before the next marker starts, or close both when both sides qualify. One-millisecond gaps are treated as already closed.
 
 Sex, oral, and solo markers are ignored for gap calculations based on configured `roleTagIds`, including descendant tags already present on loaded marker data. Negative markers count as relevant marker coverage.
 
 ### Files Modified
 
-- `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkerForm.tsx` - Shows the warning and applies the close-gap actions.
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkerForm.tsx` - Shows the warning and applies the close-gap actions for scene markers.
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneNegativeMarkerForm.tsx` - Shows the warning and applies the close-gap actions for negative markers.
 - `CUSTOM_FEATURES.md` - Documents the custom feature.
 
 ### Files Added
@@ -3103,6 +3104,7 @@ Sex, oral, and solo markers are ignored for gap calculations based on configured
 - Verifies one-millisecond gaps do not produce warnings.
 - Verifies sex/oral/solo markers and descendant role tags are ignored.
 - Verifies negative markers count as relevant coverage.
+- Verifies editing a negative marker does not warn against its own saved range.
 - Verifies gaps larger than three seconds are ignored.
 - Verifies overlaps larger than three seconds are ignored.
 
@@ -3120,15 +3122,20 @@ Sex, oral, and solo markers are ignored for gap calculations based on configured
 
 ### Overview
 
-Replaces the visible scene detail Markers tab body with a custom chronological marker list by default while keeping the upstream primary-tag grouped layout available behind the Custom Settings "Show official scene marker layout" toggle. The new layout shows every marker in time order with a screenshot or pending-image placeholder, row checkboxes, filtered Select All behavior, Add to Loop support, and an "Open in Viewer" action. Plain activity markers whose only marker tag is configured sex, oral, or solo get a subtly muted row treatment so highlight markers carry more visual weight.
+Replaces the visible scene detail Markers tab body with a custom chronological marker list by default while keeping the upstream primary-tag grouped layout available behind the Custom Settings "Show official scene marker layout" toggle. The new layout shows every marker in time order with a screenshot or pending-image placeholder, row checkboxes, filtered Select All behavior, Add to Loop support, and an "Open in Viewer" action. Plain activity markers whose only marker tag is configured sex, oral, or solo get a subtly muted row treatment so highlight markers carry more visual weight. Markers that contain the current player timestamp get a subtle bookmark tab treatment in the chronological list.
 
 The tab has scene-local selectable search fields for tags, top performers, and bottom performers. Tag search uses a progressive chain of single-tag selectors: the first selector only lists tags present on the current scene's markers, each next selector only lists tags that can still match by sharing the same marker or by contributing to one shared overlap window with the previous selections, and the row layout wraps at three tag selectors per line. Tag searches match primary or secondary marker tags and reuse the overlap-aware behavior from the custom marker filters: a marker can satisfy multiple requested tags directly or through overlapping markers only when every selected tag participates in the same shared overlap window, and when multiple overlapping markers match the same tag search only the narrowest result is shown. Selected tags also narrow the top/bottom performer options to performers associated with the tag-filtered markers.
+
+Marker rows and `/scenes/markers` marker cards display direct primary tags, direct secondary tags, overlapping/transitive tags, and hierarchy-inferred parent tags with distinct badge colors. Parent tags are collapsed behind a small `+N` toggle by default, and they are also included in scene-local tag search options, so a marker tagged with a child tag can be searched by its parent tag. Duplicate tags only render once at the highest available tier: primary, then secondary, then overlap, then parent.
 
 ### Files Modified
 
 - `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkersPanel.tsx`
+- `ui/v2.5/src/components/Scenes/SceneMarkerCard.tsx`
+- `ui/v2.5/src/components/Scenes/SceneMarkerCardGrid.tsx`
 - `ui/v2.5/src/components/Settings/SettingsCustomPanel.tsx`
 - `ui/v2.5/src/core/config.ts`
+- `ui/v2.5/graphql/data/scene-marker.graphql`
 - `ui/v2.5/src/locales/en-GB.json`
 - `ui/v2.5/src/locales/en-US.json`
 - `ui/v2.5/src/components/Scenes/styles.scss`
@@ -3150,9 +3157,11 @@ The tab has scene-local selectable search fields for tags, top performers, and b
 - Verifies chained overlaps do not satisfy a multi-tag search unless all selected tags share one overlap window.
 - Verifies top and bottom performer search fields match direct marker roles.
 - Verifies selected parent tags match loaded child marker tags.
-- Verifies scene tag options only include tags used by the scene's markers.
+- Verifies scene tag options include direct marker tags and their parent tags.
 - Verifies next tag options only include tags that keep an overlap/share match.
 - Verifies performer options are derived from tag-filtered marker results.
+- Verifies displayed marker tag badges distinguish primary, secondary, overlap, and parent tags while deduping to the highest tier.
+- Verifies displayed overlap tags are only inferred between markers from the same scene.
 - Verifies the official grouped marker layout only shows when its UI setting is explicitly enabled.
 
 ### GraphQL Schema Changes

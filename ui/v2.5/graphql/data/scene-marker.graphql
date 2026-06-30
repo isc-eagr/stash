@@ -17,6 +17,7 @@ fragment SceneMarkerData on SceneMarker {
     # CUSTOM: begin
     parents {
       id
+      name
     }
     # CUSTOM: end
   }
@@ -27,6 +28,7 @@ fragment SceneMarkerData on SceneMarker {
     # CUSTOM: begin
     parents {
       id
+      name
     }
     # CUSTOM: end
   }

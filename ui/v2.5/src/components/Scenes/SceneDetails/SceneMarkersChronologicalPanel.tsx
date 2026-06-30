@@ -15,7 +15,9 @@ import { useConfigurationContext } from "src/hooks/Config";
 import {
   getChronologicalSceneMarkerPerformers,
   getChronologicalSceneMarkerTags,
+  getChronologicalSceneMarkerDisplayTags,
   getCompatibleChronologicalSceneMarkerTags,
+  timestampBelongsToSceneMarker,
   type ISceneMarkerChronologySearchFilters,
   type ISceneMarkerChronologySearchPerformer,
   type ISceneMarkerChronologySearchTag,
@@ -30,6 +32,7 @@ interface ISceneMarkersChronologicalPanel {
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   onEdit: (marker: GQL.SceneMarkerDataFragment) => void;
   onSelectMarker: (id: string, selected: boolean) => void;
+  currentTimestamp?: number;
 }
 
 type SearchSelectEntity = {
@@ -134,7 +137,9 @@ const SearchMultiSelect = <T extends SearchSelectEntity>({
 
 interface ISceneMarkerChronologyRow {
   marker: GQL.SceneMarkerDataFragment;
+  allMarkers: GQL.SceneMarkerDataFragment[];
   selected: boolean;
+  currentTimestamp?: number;
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   onEdit: (marker: GQL.SceneMarkerDataFragment) => void;
   onSelectMarker: (id: string, selected: boolean) => void;
@@ -142,13 +147,16 @@ interface ISceneMarkerChronologyRow {
 
 const SceneMarkerChronologyRow: React.FC<ISceneMarkerChronologyRow> = ({
   marker,
+  allMarkers,
   selected,
+  currentTimestamp,
   onClickMarker,
   onEdit,
   onSelectMarker,
 }) => {
   const { configuration } = useConfigurationContext();
   const [imageFailed, setImageFailed] = useState(false);
+  const [showParentTags, setShowParentTags] = useState(false);
   const title = markerTitle(marker);
   const screenshot = marker.screenshot && !imageFailed ? marker.screenshot : "";
   const activityTypeTagIds = useMemo(
@@ -172,18 +180,48 @@ const SceneMarkerChronologyRow: React.FC<ISceneMarkerChronologyRow> = ({
       (marker.primary_tag.parents ?? []).some((parent) =>
         activityTypeTagIds.has(parent.id)
       ));
+  const isCurrentMarker = timestampBelongsToSceneMarker(
+    marker,
+    currentTimestamp
+  );
   const showRoleArrows =
     marker.top_performers.length > 0 && marker.bottom_performers.length > 0;
-  const allTags = useMemo(() => {
-    const tagsByID = new Map<string, (typeof marker.tags)[number]>();
-    tagsByID.set(marker.primary_tag.id, marker.primary_tag);
-    marker.tags.forEach((tag) => tagsByID.set(tag.id, tag));
-    return Array.from(tagsByID.values());
-  }, [marker]);
+  const displayTags = useMemo(
+    () => getChronologicalSceneMarkerDisplayTags(marker, allMarkers),
+    [allMarkers, marker]
+  );
+  const visibleDisplayTags = useMemo(
+    () => displayTags.filter(({ kind }) => kind !== "parent"),
+    [displayTags]
+  );
+  const parentDisplayTags = useMemo(
+    () => displayTags.filter(({ kind }) => kind === "parent"),
+    [displayTags]
+  );
 
   useEffect(() => {
     setImageFailed(false);
   }, [marker.screenshot]);
+
+  const isInteractiveClickTarget = (target: EventTarget) =>
+    target instanceof Element &&
+    !!target.closest("a, button, input, label, select, textarea");
+
+  const onClickRow = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!isInteractiveClickTarget(event.target)) {
+      onClickMarker(marker);
+    }
+  };
+
+  const onKeyDownRow = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (
+      event.target === event.currentTarget &&
+      (event.key === "Enter" || event.key === " ")
+    ) {
+      event.preventDefault();
+      onClickMarker(marker);
+    }
+  };
 
   const renderPerformerBadge = (
     performer: (typeof marker.top_performers)[number],
@@ -200,7 +238,13 @@ const SceneMarkerChronologyRow: React.FC<ISceneMarkerChronologyRow> = ({
     <div
       className={cx("marker-item scene-marker-chronology-row", {
         "scene-marker-chronology-row-activity": isActivityTypeMarker,
+        "scene-marker-chronology-row-current": isCurrentMarker,
       })}
+      onClick={onClickRow}
+      onKeyDown={onKeyDownRow}
+      role="button"
+      tabIndex={0}
+      title={`Seek to ${title}`}
     >
       <button
         className="scene-marker-chronology-thumb"
@@ -288,17 +332,36 @@ const SceneMarkerChronologyRow: React.FC<ISceneMarkerChronologyRow> = ({
         </div>
 
         <div className="d-flex align-items-center flex-wrap marker-badges">
-          {allTags.map((tag) => (
+          {visibleDisplayTags.map(({ kind, tag }) => (
             <Badge
               key={tag.id}
-              variant={
-                tag.id === marker.primary_tag.id ? "primary" : "secondary"
-              }
-              className="tag-badge"
+              variant={kind === "primary" ? "primary" : "secondary"}
+              className={cx("tag-badge", `tag-badge-${kind}`)}
             >
               {tag.name}
             </Badge>
           ))}
+          {parentDisplayTags.length > 0 && (
+            <Button
+              className="tag-parent-toggle"
+              type="button"
+              variant="secondary"
+              title={showParentTags ? "Hide parent tags" : "Show parent tags"}
+              onClick={() => setShowParentTags((current) => !current)}
+            >
+              {showParentTags ? "-" : `+${parentDisplayTags.length}`}
+            </Button>
+          )}
+          {showParentTags &&
+            parentDisplayTags.map(({ kind, tag }) => (
+              <Badge
+                key={tag.id}
+                variant="secondary"
+                className={cx("tag-badge", `tag-badge-${kind}`)}
+              >
+                {tag.name}
+              </Badge>
+            ))}
         </div>
       </div>
 
@@ -325,6 +388,7 @@ export const SceneMarkersChronologicalPanel: React.FC<
   onClickMarker,
   onEdit,
   onSelectMarker,
+  currentTimestamp,
 }) => {
   const firstTagOptions = useMemo(
     () => getChronologicalSceneMarkerTags(allMarkers),
@@ -407,6 +471,26 @@ export const SceneMarkersChronologicalPanel: React.FC<
     onSearchChange({ ...search, bottomPerformers: performers });
   };
 
+  const onWheelMarkerList = (event: React.WheelEvent<HTMLDivElement>) => {
+    const list = event.currentTarget;
+    const maxScrollTop = list.scrollHeight - list.clientHeight;
+
+    if (maxScrollTop <= 0 || event.deltaY === 0) {
+      return;
+    }
+
+    const nextScrollTop = Math.max(
+      0,
+      Math.min(maxScrollTop, list.scrollTop + event.deltaY)
+    );
+
+    if (nextScrollTop !== list.scrollTop) {
+      event.preventDefault();
+      event.stopPropagation();
+      list.scrollTop = nextScrollTop;
+    }
+  };
+
   return (
     <div className="scene-marker-chronology">
       <div className="scene-marker-chronology-search">
@@ -445,13 +529,15 @@ export const SceneMarkersChronologicalPanel: React.FC<
         </div>
       </div>
 
-      <div className="scene-marker-chronology-list">
+      <div className="scene-marker-chronology-list" onWheel={onWheelMarkerList}>
         {markers.length > 0 ? (
           markers.map((marker) => (
             <SceneMarkerChronologyRow
               key={marker.id}
               marker={marker}
+              allMarkers={allMarkers}
               selected={selectedMarkerIds.has(marker.id)}
+              currentTimestamp={currentTimestamp}
               onClickMarker={onClickMarker}
               onEdit={onEdit}
               onSelectMarker={onSelectMarker}
