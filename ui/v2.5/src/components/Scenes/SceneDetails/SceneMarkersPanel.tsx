@@ -20,7 +20,10 @@ import {
   type SceneMarkerChronologyTabKey,
 } from "./SceneMarkersChronologicalPanel";
 import {
+  filterCoveredChronologicalSceneMarkers,
   filterChronologicalSceneMarkers,
+  getChronologicalSceneMarkerDerivedWindows,
+  type ISceneMarkerChronologyDerivedWindow,
   type ISceneMarkerChronologySearchFilters,
 } from "./sceneMarkerChronologySearch_custom";
 import {
@@ -29,6 +32,7 @@ import {
   isActivityTypeSceneMarker,
 } from "./sceneMarkerActivityType_custom";
 import { shouldShowOfficialSceneMarkerLayout } from "./sceneMarkerLayoutPreference_custom";
+import TextUtils from "src/utils/text";
 // CUSTOM: end
 
 interface ISceneMarkersPanelProps {
@@ -37,6 +41,7 @@ interface ISceneMarkersPanelProps {
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   addMultiSegmentLoopSegments: (segments: ILoopSegmentInput[]) => void; // CUSTOM
   currentTimestamp?: number; // CUSTOM
+  focusedMarkerId?: string; // CUSTOM
 }
 
 function getSceneTabScrollElement() {
@@ -49,6 +54,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   onClickMarker,
   addMultiSegmentLoopSegments, // CUSTOM
   currentTimestamp, // CUSTOM
+  focusedMarkerId, // CUSTOM
 }) => {
   const { configuration } = useConfigurationContext(); // CUSTOM
   const { data, loading } = GQL.useFindSceneMarkerTagsQuery({
@@ -65,6 +71,9 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   const [selectedMarkerIds, setSelectedMarkerIds] = useState<Set<string>>(
     () => new Set()
   );
+  const [selectedDerivedWindowKeys, setSelectedDerivedWindowKeys] = useState<
+    Set<string>
+  >(() => new Set());
   const [markerSearch, setMarkerSearch] =
     useState<ISceneMarkerChronologySearchFilters>({
       tags: [],
@@ -131,6 +140,31 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     [activityTypeTagIds, configuration?.ui.roleTagIds, sceneMarkers]
   );
 
+  useEffect(() => {
+    if (!focusedMarkerId) return;
+
+    const focusedMarker = sceneMarkers.find(
+      (marker) => marker.id === focusedMarkerId
+    );
+
+    if (!focusedMarker) return;
+
+    if (isActivityTypeSceneMarker(focusedMarker, activityTypeTagIds)) {
+      setMarkerChronologyTab("activity");
+      return;
+    }
+
+    setMarkerChronologyTab("highlights");
+
+    if (!filteredSceneMarkers.some((marker) => marker.id === focusedMarkerId)) {
+      setMarkerSearch({
+        tags: [],
+        topPerformers: [],
+        bottomPerformers: [],
+      });
+    }
+  }, [activityTypeTagIds, filteredSceneMarkers, focusedMarkerId, sceneMarkers]);
+
   const showOfficialSceneMarkerLayout = shouldShowOfficialSceneMarkerLayout(
     configuration.ui
   );
@@ -139,6 +173,23 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     : markerChronologyTab === "activity"
     ? activityTypeSceneMarkers
     : highlightSceneMarkers;
+  const derivedWindows = useMemo(
+    () =>
+      !showOfficialSceneMarkerLayout && markerChronologyTab === "highlights"
+        ? getChronologicalSceneMarkerDerivedWindows(
+            sceneMarkers,
+            markerSearch,
+            filteredSceneMarkers
+          )
+        : [],
+    [
+      filteredSceneMarkers,
+      markerChronologyTab,
+      markerSearch,
+      sceneMarkers,
+      showOfficialSceneMarkerLayout,
+    ]
+  );
 
   const visibleMarkerIds = useMemo(
     () => visibleSceneMarkers.map((marker) => marker.id),
@@ -171,11 +222,58 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     });
   }, [sceneMarkers]);
 
+  useEffect(() => {
+    const validKeys = new Set(derivedWindows.map((window) => window.key));
+    setSelectedDerivedWindowKeys((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Set<string>();
+      prev.forEach((key) => {
+        if (validKeys.has(key)) next.add(key);
+      });
+      return next;
+    });
+  }, [derivedWindows]);
+
+  useEffect(() => {
+    if (!focusedMarkerId || !isVisible) return;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const markerElement = Array.from(
+          document.querySelectorAll<HTMLElement>(
+            ".scene-markers-panel [data-scene-marker-id]"
+          )
+        ).find(
+          (element) =>
+            element.getAttribute("data-scene-marker-id") === focusedMarkerId
+        );
+
+        markerElement?.scrollIntoView({
+          block: "center",
+          behavior: "smooth",
+        });
+      });
+    });
+  }, [
+    activityTypeSceneMarkers,
+    filteredSceneMarkers,
+    focusedMarkerId,
+    isVisible,
+    markerChronologyTab,
+  ]);
+
   const visibleMarkerCount = visibleSceneMarkers.length;
+  const visibleDerivedWindowCount = derivedWindows.length;
+  const visiblePlaybackItemCount =
+    visibleMarkerCount + visibleDerivedWindowCount;
   const allVisibleSelected =
-    visibleMarkerCount > 0 &&
-    visibleMarkerIds.every((id) => selectedMarkerIds.has(id));
+    visiblePlaybackItemCount > 0 &&
+    visibleMarkerIds.every((id) => selectedMarkerIds.has(id)) &&
+    derivedWindows.every((window) => selectedDerivedWindowKeys.has(window.key));
   const selectedMarkerCount = selectedMarkerIds.size;
+  const selectedDerivedWindowCount = selectedDerivedWindowKeys.size;
+  const selectedPlaybackItemCount =
+    selectedMarkerCount + selectedDerivedWindowCount;
 
   const setManySelected = useCallback((ids: string[], selected: boolean) => {
     setSelectedMarkerIds((prev) => {
@@ -197,43 +295,127 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     });
   }, []);
 
+  const toggleDerivedWindow = useCallback((key: string, selected: boolean) => {
+    setSelectedDerivedWindowKeys((prev) => {
+      const next = new Set(prev);
+      if (selected) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }, []);
+
+  const setManyDerivedWindowsSelected = useCallback(
+    (keys: string[], selected: boolean) => {
+      setSelectedDerivedWindowKeys((prev) => {
+        const next = new Set(prev);
+        keys.forEach((key) => {
+          if (selected) next.add(key);
+          else next.delete(key);
+        });
+        return next;
+      });
+    },
+    []
+  );
+
+  const selectedDerivedWindows = useMemo(
+    () =>
+      derivedWindows.filter((window) =>
+        selectedDerivedWindowKeys.has(window.key)
+      ),
+    [derivedWindows, selectedDerivedWindowKeys]
+  );
+
+  const derivedWindowTitle = useCallback(
+    (
+      window: ISceneMarkerChronologyDerivedWindow<GQL.SceneMarkerDataFragment>
+    ) =>
+      `Derived ${TextUtils.secondsToTimestamp(
+        window.seconds
+      )} - ${TextUtils.secondsToTimestamp(window.end_seconds)}`,
+    []
+  );
+
   const onMoveSelectionToMultiLoop = useCallback(() => {
-    if (selectedMarkerIds.size === 0) return;
+    if (selectedPlaybackItemCount === 0) return;
 
-    const selectedMarkers = sceneMarkers
-      .filter((m) => selectedMarkerIds.has(m.id))
-      .sort((a, b) => a.seconds - b.seconds);
+    const selectedMarkers = filterCoveredChronologicalSceneMarkers(
+      sceneMarkers.filter((m) => selectedMarkerIds.has(m.id))
+    );
 
-    const segments: ILoopSegmentInput[] = selectedMarkers.map((m) => {
+    const markerSegments: ILoopSegmentInput[] = selectedMarkers.map((m) => {
       const start = m.seconds;
       const endRaw = m.end_seconds ?? m.seconds + 20;
       const end = endRaw > start ? endRaw : start + 1;
       const title = markerTitle(m);
       return { start, end, title };
     });
+    const derivedSegments: ILoopSegmentInput[] = selectedDerivedWindows.map(
+      (window) => ({
+        start: window.seconds,
+        end: window.end_seconds,
+        title: derivedWindowTitle(window),
+      })
+    );
 
-    addMultiSegmentLoopSegments(segments);
+    addMultiSegmentLoopSegments([...markerSegments, ...derivedSegments]);
     setSelectedMarkerIds(new Set());
-  }, [addMultiSegmentLoopSegments, sceneMarkers, selectedMarkerIds]);
+    setSelectedDerivedWindowKeys(new Set());
+  }, [
+    addMultiSegmentLoopSegments,
+    derivedWindowTitle,
+    sceneMarkers,
+    selectedDerivedWindows,
+    selectedMarkerIds,
+    selectedPlaybackItemCount,
+  ]);
 
   const onOpenSelectedMarkersInViewer = useCallback(() => {
-    if (selectedMarkerIds.size === 0) return;
+    if (selectedPlaybackItemCount === 0) return;
 
-    const idsParam = sceneMarkers
-      .filter((m) => selectedMarkerIds.has(m.id))
-      .sort((a, b) => a.seconds - b.seconds)
+    const markerIds = filterCoveredChronologicalSceneMarkers(
+      sceneMarkers.filter((m) => selectedMarkerIds.has(m.id))
+    )
       .map((m) => m.id)
       .join(",");
+    const markerRangeIds = selectedDerivedWindows
+      .map(
+        (window) =>
+          `${window.sourceMarker.id}:${window.seconds}:${window.end_seconds}`
+      )
+      .join(",");
+    const params = new URLSearchParams();
 
-    window.open(`/viewer?markers=${idsParam}`, "_blank");
+    if (markerIds) params.set("markers", markerIds);
+    if (markerRangeIds) params.set("marker_ranges", markerRangeIds);
+
+    window.open(`/viewer?${params.toString()}`, "_blank");
     setSelectedMarkerIds(new Set());
-  }, [sceneMarkers, selectedMarkerIds]);
+    setSelectedDerivedWindowKeys(new Set());
+  }, [
+    sceneMarkers,
+    selectedDerivedWindows,
+    selectedMarkerIds,
+    selectedPlaybackItemCount,
+  ]);
 
   const onToggleSelectVisibleMarkers = useCallback(() => {
-    if (visibleMarkerIds.length === 0) return;
+    if (visiblePlaybackItemCount === 0) return;
 
-    setManySelected(visibleMarkerIds, !allVisibleSelected);
-  }, [allVisibleSelected, setManySelected, visibleMarkerIds]);
+    const selected = !allVisibleSelected;
+    setManySelected(visibleMarkerIds, selected);
+    setManyDerivedWindowsSelected(
+      derivedWindows.map((window) => window.key),
+      selected
+    );
+  }, [
+    allVisibleSelected,
+    derivedWindows,
+    setManyDerivedWindowsSelected,
+    setManySelected,
+    visibleMarkerIds,
+    visiblePlaybackItemCount,
+  ]);
   // CUSTOM: end
 
   if (isEditorOpen) {
@@ -281,14 +463,14 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
           </Button>
 
           <Button
-            disabled={selectedMarkerCount === 0}
+            disabled={selectedPlaybackItemCount === 0}
             onClick={onMoveSelectionToMultiLoop}
           >
             Add to Loop
           </Button>
 
           <Button
-            disabled={selectedMarkerCount === 0}
+            disabled={selectedPlaybackItemCount === 0}
             onClick={onOpenSelectedMarkersInViewer}
             title="Open selected markers in viewer"
           >
@@ -298,7 +480,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
 
         <div className="scene-marker-toolbar-actions">
           <Button
-            disabled={visibleMarkerCount === 0}
+            disabled={visiblePlaybackItemCount === 0}
             onClick={onToggleSelectVisibleMarkers}
             variant="secondary"
           >
@@ -313,8 +495,10 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
         </div>
       </div>
       <div className="scene-marker-toolbar-status text-muted">
-        {selectedMarkerCount > 0
-          ? `${selectedMarkerCount} selected`
+        {selectedPlaybackItemCount > 0
+          ? `${selectedPlaybackItemCount} selected`
+          : visibleDerivedWindowCount > 0
+          ? `${visibleMarkerCount} markers, ${visibleDerivedWindowCount} derived`
           : `${visibleMarkerCount} markers`}
       </div>
       {/* CUSTOM: end */}
@@ -346,10 +530,13 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
             onSearchChange={setMarkerSearch}
             activeTab={markerChronologyTab}
             selectedMarkerIds={selectedMarkerIds}
+            derivedWindows={derivedWindows}
+            selectedDerivedWindowKeys={selectedDerivedWindowKeys}
             onClickMarker={onClickMarker}
             onEdit={onOpenEditor}
             onSelectMarker={toggleSingle}
             onSelectMarkers={setManySelected}
+            onSelectDerivedWindow={toggleDerivedWindow}
             currentTimestamp={currentTimestamp}
           />
         )}

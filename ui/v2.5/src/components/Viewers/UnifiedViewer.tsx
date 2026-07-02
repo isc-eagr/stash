@@ -36,6 +36,7 @@ import { FilterButton } from "src/components/List/Filters/FilterButton";
 import { EditFilterDialog } from "src/components/List/EditFilterDialog";
 import { View } from "src/components/List/views";
 import { languageMap } from "src/utils/caption";
+import TextUtils from "src/utils/text";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import {
   IImageViewerItem,
@@ -228,6 +229,20 @@ type ViewerKind = "images" | "markers" | "scenes";
 
 const VIEWER_SEARCH_PAGE_SIZE = 40;
 
+interface IMarkerRangeViewerParam {
+  key: string;
+  markerId: string;
+  start: number;
+  end: number;
+}
+
+interface IViewerIdsState {
+  images: string[];
+  markers: string[];
+  scenes: string[];
+  markerRanges: IMarkerRangeViewerParam[];
+}
+
 interface IViewerSearchResult {
   id: string;
   title: string;
@@ -298,7 +313,55 @@ function firstIds(params: URLSearchParams, keys: string[]) {
   return [];
 }
 
-function viewerId(kind: "image" | "marker" | "scene", id: string) {
+function markerRangeKey(markerId: string, start: number, end: number) {
+  return `${markerId}@${Number(start.toFixed(3))}-${Number(end.toFixed(3))}`;
+}
+
+function splitMarkerRanges(value: string | null): IMarkerRangeViewerParam[] {
+  if (!value) return [];
+
+  const seen = new Set<string>();
+  return value
+    .split(",")
+    .map((range) => {
+      const [markerId, startValue, endValue] = range.trim().split(":");
+      const start = Number(startValue);
+      const end = Number(endValue);
+
+      if (!markerId || !Number.isFinite(start) || !Number.isFinite(end)) {
+        return undefined;
+      }
+
+      const normalizedStart = Math.min(start, end);
+      const normalizedEnd = Math.max(start, end);
+      if (normalizedEnd <= normalizedStart) {
+        return undefined;
+      }
+
+      const key = markerRangeKey(markerId, normalizedStart, normalizedEnd);
+      if (seen.has(key)) {
+        return undefined;
+      }
+
+      seen.add(key);
+      return {
+        key,
+        markerId,
+        start: normalizedStart,
+        end: normalizedEnd,
+      };
+    })
+    .filter((range): range is IMarkerRangeViewerParam => range !== undefined);
+}
+
+function encodeMarkerRange(range: IMarkerRangeViewerParam) {
+  return `${range.markerId}:${range.start}:${range.end}`;
+}
+
+function viewerId(
+  kind: "image" | "marker" | "marker-range" | "scene",
+  id: string
+) {
   return `${kind}:${id}`;
 }
 
@@ -694,7 +757,7 @@ export const UnifiedViewer: React.FC = () => {
     []
   );
 
-  const { imageIds, markerIds, sceneIds } = useMemo(() => {
+  const { imageIds, markerIds, sceneIds, markerRanges } = useMemo(() => {
     // CUSTOM: begin - make pasted viewer URLs survive cold app boot
     const search = location.search || window.location.search;
     const pathname = location.pathname || window.location.pathname;
@@ -708,6 +771,7 @@ export const UnifiedViewer: React.FC = () => {
       "marker_ids",
     ]);
     const sceneParamIds = firstIds(params, ["scenes", "scene", "scene_ids"]);
+    const markerRangeParams = splitMarkerRanges(params.get("marker_ranges"));
 
     return {
       imageIds:
@@ -715,20 +779,21 @@ export const UnifiedViewer: React.FC = () => {
           ? imageParamIds
           : legacyIds,
       markerIds:
-        markerParamIds.length > 0 ||
-        pathname !== "/scenes/markers/viewer"
+        markerParamIds.length > 0 || pathname !== "/scenes/markers/viewer"
           ? markerParamIds
           : legacyIds,
       sceneIds:
         sceneParamIds.length > 0 || pathname !== "/scenes/viewer"
           ? sceneParamIds
           : legacyIds,
+      markerRanges: markerRangeParams,
     };
   }, [location.pathname, location.search]);
-  const viewerIdsRef = useRef<Record<ViewerKind, string[]>>({
+  const viewerIdsRef = useRef<IViewerIdsState>({
     images: imageIds,
     markers: markerIds,
     scenes: sceneIds,
+    markerRanges,
   });
 
   useEffect(() => {
@@ -736,17 +801,24 @@ export const UnifiedViewer: React.FC = () => {
       images: imageIds,
       markers: markerIds,
       scenes: sceneIds,
+      markerRanges,
     };
-  }, [imageIds, markerIds, sceneIds]);
+  }, [imageIds, markerIds, markerRanges, sceneIds]);
 
   const writeViewerIds = useCallback(
-    (next: Record<ViewerKind, string[]>) => {
+    (next: IViewerIdsState) => {
       viewerIdsRef.current = next;
       const params = new URLSearchParams();
       if (next.images.length > 0) params.set("images", next.images.join(","));
       if (next.markers.length > 0)
         params.set("markers", next.markers.join(","));
       if (next.scenes.length > 0) params.set("scenes", next.scenes.join(","));
+      if (next.markerRanges.length > 0) {
+        params.set(
+          "marker_ranges",
+          next.markerRanges.map(encodeMarkerRange).join(",")
+        );
+      }
 
       const search = params.toString();
       history.replace({
@@ -764,6 +836,7 @@ export const UnifiedViewer: React.FC = () => {
         images: [...current.images],
         markers: [...current.markers],
         scenes: [...current.scenes],
+        markerRanges: [...current.markerRanges],
       };
 
       ids.forEach((id) => {
@@ -789,6 +862,19 @@ export const UnifiedViewer: React.FC = () => {
           ? "scenes"
           : undefined;
 
+      if (kind === "marker-range" && rawId) {
+        const { current } = viewerIdsRef;
+        writeViewerIds({
+          images: [...current.images],
+          markers: [...current.markers],
+          scenes: [...current.scenes],
+          markerRanges: current.markerRanges.filter(
+            (range) => range.key !== rawId
+          ),
+        });
+        return;
+      }
+
       if (!key || !rawId) return;
 
       const { current } = viewerIdsRef;
@@ -796,6 +882,7 @@ export const UnifiedViewer: React.FC = () => {
         images: [...current.images],
         markers: [...current.markers],
         scenes: [...current.scenes],
+        markerRanges: [...current.markerRanges],
       };
       next[key] = next[key].filter((value) => value !== rawId);
       writeViewerIds(next);
@@ -810,11 +897,23 @@ export const UnifiedViewer: React.FC = () => {
       variables: { ids: imageIds },
     }
   );
+  const markerQueryIds = useMemo(() => {
+    const seen = new Set<string>();
+    return [
+      ...markerIds,
+      ...markerRanges.map((range) => range.markerId),
+    ].filter((id) => {
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }, [markerIds, markerRanges]);
+
   const markersQuery = useQuery<IFindMarkersForViewerResult>(
     FIND_UNIFIED_VIEWER_MARKERS,
     {
-      skip: markerIds.length === 0,
-      variables: { ids: markerIds },
+      skip: markerQueryIds.length === 0,
+      variables: { ids: markerQueryIds },
     }
   );
   const scenesQuery = useQuery<IFindScenesForViewerResult>(
@@ -841,37 +940,79 @@ export const UnifiedViewer: React.FC = () => {
   }, [imageIds, imagesQuery.data?.findImages.images]);
 
   const markerItems = useMemo<IVideoViewerItem[]>(() => {
-    return (markersQuery.data?.findSceneMarkers.scene_markers ?? []).map(
-      (marker) => ({
-        id: viewerId("marker", marker.id),
-        streamUrl:
-          marker.scene?.paths?.stream || `/scene/${marker.scene.id}/stream`,
-        title:
-          markerTitle(marker) || marker.scene?.title || `Marker ${marker.id}`,
-        sceneId: marker.scene?.id ?? undefined,
-        startTime: marker.seconds,
-        endTime: marker.end_seconds ?? null,
-        topPerformerNames: (marker.top_performers ?? [])
-          .map(performerDisplayName)
-          .filter(Boolean),
-        bottomPerformerNames: (marker.bottom_performers ?? [])
-          .map(performerDisplayName)
-          .filter(Boolean),
-        topPerformers: (marker.top_performers ?? []).map((p) => ({
-          id: p.id,
-          name: performerDisplayName(p),
-          image_path: p.image_path,
-          disambiguation: p.disambiguation,
-        })),
-        bottomPerformers: (marker.bottom_performers ?? []).map((p) => ({
-          id: p.id,
-          name: performerDisplayName(p),
-          image_path: p.image_path,
-          disambiguation: p.disambiguation,
-        })),
+    const markers = markersQuery.data?.findSceneMarkers.scene_markers ?? [];
+    const markersById = new Map(markers.map((marker) => [marker.id, marker]));
+    const createMarkerItem = (
+      marker: GQL.SceneMarkerDataFragment,
+      overrides?: {
+        id: string;
+        title: string;
+        startTime: number;
+        endTime: number;
+      }
+    ): IVideoViewerItem => ({
+      id: overrides?.id ?? viewerId("marker", marker.id),
+      streamUrl:
+        marker.scene?.paths?.stream || `/scene/${marker.scene.id}/stream`,
+      title:
+        overrides?.title ??
+        markerTitle(marker) ??
+        marker.scene?.title ??
+        `Marker ${marker.id}`,
+      sceneId: marker.scene?.id ?? undefined,
+      startTime: overrides?.startTime ?? marker.seconds,
+      endTime: overrides?.endTime ?? marker.end_seconds ?? null,
+      topPerformerNames: (marker.top_performers ?? [])
+        .map(performerDisplayName)
+        .filter(Boolean),
+      bottomPerformerNames: (marker.bottom_performers ?? [])
+        .map(performerDisplayName)
+        .filter(Boolean),
+      topPerformers: (marker.top_performers ?? []).map((p) => ({
+        id: p.id,
+        name: performerDisplayName(p),
+        image_path: p.image_path,
+        disambiguation: p.disambiguation,
+      })),
+      bottomPerformers: (marker.bottom_performers ?? []).map((p) => ({
+        id: p.id,
+        name: performerDisplayName(p),
+        image_path: p.image_path,
+        disambiguation: p.disambiguation,
+      })),
+    });
+    const realMarkerItems = markerIds
+      .map((id) => markersById.get(id))
+      .filter(
+        (marker): marker is GQL.SceneMarkerDataFragment => marker !== undefined
+      )
+      .map((marker) => createMarkerItem(marker));
+    const rangeMarkerItems = markerRanges
+      .map((range) => {
+        const marker = markersById.get(range.markerId);
+        if (!marker) {
+          return undefined;
+        }
+
+        return createMarkerItem(marker, {
+          id: viewerId("marker-range", range.key),
+          title: `${
+            markerTitle(marker) || marker.scene?.title || "Derived"
+          } (${TextUtils.secondsToTimestamp(
+            range.start
+          )} - ${TextUtils.secondsToTimestamp(range.end)})`,
+          startTime: range.start,
+          endTime: range.end,
+        });
       })
-    );
-  }, [markersQuery.data?.findSceneMarkers.scene_markers]);
+      .filter((item): item is IVideoViewerItem => item !== undefined);
+
+    return [...realMarkerItems, ...rangeMarkerItems];
+  }, [
+    markerIds,
+    markerRanges,
+    markersQuery.data?.findSceneMarkers.scene_markers,
+  ]);
 
   const sceneItems = useMemo<IVideoViewerItem[]>(() => {
     return (scenesQuery.data?.findScenes.scenes ?? []).map((scene) => {
@@ -960,9 +1101,10 @@ export const UnifiedViewer: React.FC = () => {
   const orderedVideoIds = useMemo(
     () => [
       ...markerIds.map((id) => viewerId("marker", id)),
+      ...markerRanges.map((range) => viewerId("marker-range", range.key)),
       ...sceneIds.map((id) => viewerId("scene", id)),
     ],
-    [markerIds, sceneIds]
+    [markerIds, markerRanges, sceneIds]
   );
   const orderedImageIds = useMemo(
     () => imageIds.map((id) => viewerId("image", id)),

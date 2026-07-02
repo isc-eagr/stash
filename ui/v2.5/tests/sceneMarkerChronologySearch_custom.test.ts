@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 
+import { getRatingCardClass } from "../src/utils/ratingCardStyles_custom.ts";
 import {
+  filterCoveredChronologicalSceneMarkers,
   filterChronologicalSceneMarkers,
   getChronologicalSceneMarkerDisplayTags,
+  getChronologicalSceneMarkerDerivedWindows,
   getChronologicalSceneMarkerHighlightPerformers,
+  getChronologicalSceneMarkerHighlightPerformerOrgasmRank,
   getChronologicalSceneMarkerPerformers,
   getChronologicalSceneMarkerTags,
   getCompatibleChronologicalSceneMarkerTags,
@@ -58,6 +62,26 @@ const boots = tag("boots", "Boots", [footwear]);
 const juan = performer("juan", "Juan", ["El Guapo"]);
 const luis = performer("luis", "Luis");
 
+assert.equal(
+  getRatingCardClass({
+    tags: [tag("goat", "GOAT")],
+    goatTagId: "goat",
+    theme: "premium",
+  }),
+  "rating-card-theme-premium rating-royal-sapphire",
+  "GOAT markers use the premium Royal Sapphire rating class"
+);
+
+assert.equal(
+  getRatingCardClass({
+    tags: [tag("goat", "GOAT")],
+    goatTagId: "goat",
+    theme: "classic",
+  }),
+  "rating-card-theme-classic rating-royal-sapphire",
+  "GOAT markers use the classic Royal Sapphire rating class"
+);
+
 assert.deepEqual(
   filterChronologicalSceneMarkers(
     [
@@ -69,6 +93,73 @@ assert.deepEqual(
   ).map((m) => m.id),
   ["2"],
   "a direct marker with both requested tags matches"
+);
+
+assert.deepEqual(
+  filterCoveredChronologicalSceneMarkers([
+    marker("wide", 60, 180, oral),
+    marker("contained", 90, 100, bj),
+    marker("partial", 170, 220, feet),
+  ]).map((m) => m.id),
+  ["wide", "partial"],
+  "playback/viewer selection skips fully contained markers covered by selected wider markers"
+);
+
+assert.deepEqual(
+  filterCoveredChronologicalSceneMarkers([
+    marker("contained", 90, 100, bj),
+  ]).map((m) => m.id),
+  ["contained"],
+  "playback/viewer selection keeps contained markers when the wider marker is not selected"
+);
+
+assert.deepEqual(
+  filterCoveredChronologicalSceneMarkers([
+    marker("a", 60, 120, oral),
+    marker("b", 60, 120, bj),
+  ]).map((m) => m.id),
+  ["a", "b"],
+  "playback/viewer selection keeps same-range markers because neither marker is wider"
+);
+
+assert.deepEqual(
+  getChronologicalSceneMarkerDerivedWindows(
+    [marker("feet-wide", 60, 180, feet), marker("bj-wide", 120, 240, bj)],
+    { tags: [feet, bj], topPerformers: [], bottomPerformers: [] },
+    []
+  ).map((window) => [window.seconds, window.end_seconds]),
+  [[120, 180]],
+  "derived windows expose partial overlaps that satisfy the active filters"
+);
+
+assert.deepEqual(
+  getChronologicalSceneMarkerDerivedWindows(
+    [marker("feet-wide", 60, 180, feet), marker("bj-wide", 120, 240, bj)],
+    { tags: [feet, bj], topPerformers: [], bottomPerformers: [] },
+    [marker("covered", 120, 180, feet, [bj])]
+  ).map((window) => [window.seconds, window.end_seconds]),
+  [],
+  "derived windows are hidden when an exact filtered marker already covers the overlap"
+);
+
+assert.deepEqual(
+  getChronologicalSceneMarkerDerivedWindows(
+    [marker("oral-only", 60, 180, oral)],
+    { tags: [oral], topPerformers: [], bottomPerformers: [] },
+    [marker("oral-only", 60, 180, oral)]
+  ).map((window) => [window.seconds, window.end_seconds]),
+  [],
+  "single-filter exact marker coverage does not create derived windows"
+);
+
+assert.deepEqual(
+  getChronologicalSceneMarkerDerivedWindows(
+    [marker("feet-tiny", 60, 120, feet), marker("bj-tiny", 118, 180, bj)],
+    { tags: [feet, bj], topPerformers: [], bottomPerformers: [] },
+    []
+  ).map((window) => [window.seconds, window.end_seconds]),
+  [],
+  "derived windows shorter than the containment threshold are discarded"
 );
 
 assert.equal(
@@ -105,7 +196,7 @@ assert.deepEqual(
     { tags: [feet, verga], topPerformers: [], bottomPerformers: [] }
   ).map((m) => m.id),
   ["2"],
-  "overlapping single-tag markers keep only the narrower matching marker"
+  "contained single-tag markers inherit containing marker tags for multi-tag searches"
 );
 
 assert.deepEqual(
@@ -117,8 +208,8 @@ assert.deepEqual(
     ],
     { tags: [oral], topPerformers: [], bottomPerformers: [] }
   ).map((m) => m.id),
-  ["1", "2"],
-  "single-tag searches include markers that only match by overlapping tag"
+  ["2"],
+  "single-tag searches do not match markers by partial overlap alone"
 );
 
 assert.deepEqual(
@@ -127,7 +218,7 @@ assert.deepEqual(
     { tags: [feet, verga], topPerformers: [], bottomPerformers: [] }
   ).map((m) => m.id),
   [],
-  "single-tag markers must overlap to satisfy a multi-tag search"
+  "single-tag markers must be contained to satisfy a multi-tag context search"
 );
 
 assert.deepEqual(
@@ -140,7 +231,7 @@ assert.deepEqual(
     { tags: [feet, bj, orgasm], topPerformers: [], bottomPerformers: [] }
   ).map((m) => m.id),
   [],
-  "multi-tag searches require all contributing tag markers to share one overlap window"
+  "multi-tag searches reject chain overlaps without containment context"
 );
 
 assert.deepEqual(
@@ -148,12 +239,12 @@ assert.deepEqual(
     [
       marker("1", 0, 30, feet),
       marker("2", 10, 20, bj),
-      marker("3", 15, 25, orgasm),
+      marker("3", 12, 18, orgasm),
     ],
     { tags: [feet, bj, orgasm], topPerformers: [], bottomPerformers: [] }
   ).map((m) => m.id),
-  ["2"],
-  "multi-tag searches match when every selected tag shares a common overlap window"
+  ["2", "3"],
+  "multi-tag searches match contained or tolerance-contained marker contexts with every selected tag"
 );
 
 assert.deepEqual(
@@ -245,7 +336,16 @@ assert.deepEqual(
     [feet]
   ).map((t) => t.id),
   ["verga"],
-  "next tag options only include tags that still produce an overlap/share match"
+  "next tag options only include tags that still produce a direct or contained-context match"
+);
+
+assert.deepEqual(
+  getCompatibleChronologicalSceneMarkerTags(
+    [marker("1", 0, 100, feet), marker("2", 50, 150, oral)],
+    [feet]
+  ).map((t) => t.id),
+  ["oral"],
+  "next tag options include tags that can produce a derived overlap window"
 );
 
 assert.deepEqual(
@@ -275,8 +375,55 @@ assert.deepEqual(
   "performer options are derived from tag-filtered marker results"
 );
 
+assert.deepEqual(
+  getChronologicalSceneMarkerPerformers(
+    [
+      marker("1", 0, 100, feet, [], [juan]),
+      marker("2", 50, 150, oral, [], [luis]),
+    ],
+    [feet, oral],
+    "top"
+  ).map((p) => p.id),
+  ["juan", "luis"],
+  "performer options include markers contributing to derived overlap windows"
+);
+
+assert.deepEqual(
+  filterChronologicalSceneMarkers(
+    [
+      marker("large-feet", 60, 180, feet),
+      marker("small-deepthroat", 75, 85, oral),
+      marker("partial-deepthroat", 120, 220, oral),
+    ],
+    { tags: [feet], topPerformers: [], bottomPerformers: [] }
+  ).map((m) => m.id),
+  ["large-feet", "small-deepthroat"],
+  "single-tag filters match direct markers and fully contained marker contexts, but not partial overlaps"
+);
+
 const body = tag("body", "Body");
 const sex = tag("sex", "Sex");
+
+assert.deepEqual(
+  filterChronologicalSceneMarkers([marker("body-bj", 243, 275, body, [bj])], {
+    tags: [body, bj],
+    topPerformers: [],
+    bottomPerformers: [],
+  }).map((m) => m.id),
+  ["body-bj"],
+  "multi-tag filters match a marker with every selected tag in its own context"
+);
+
+assert.deepEqual(
+  filterChronologicalSceneMarkers([marker("body-bj", 243, 275, body, [bj])], {
+    tags: [bj, body],
+    topPerformers: [],
+    bottomPerformers: [],
+  }).map((m) => m.id),
+  ["body-bj"],
+  "multi-tag filter order does not affect matching"
+);
+
 const parent = tag("parent", "Parent");
 const feetWithParent = tag("feet-parented", "Feet", [parent]);
 const tyga = performer("tyga", "Tyga Martinez");
@@ -291,8 +438,8 @@ const feetMarker = marker(
 );
 const overlappingSexMarker = marker(
   "highlight-overlap-1",
-  5,
-  15,
+  0,
+  10,
   sex,
   [],
   [chase],
@@ -349,8 +496,8 @@ const vergaMarker = marker(
 );
 const secondOverlappingSexMarker = marker(
   "highlight-overlap-2",
-  45,
-  55,
+  40,
+  50,
   sex,
   [],
   [chase],
@@ -370,4 +517,178 @@ assert.deepEqual(
   groups[0].markers.map((groupMarker) => groupMarker.id),
   ["highlight-1", "highlight-2"],
   "grouping ignores whether a shared pill came from primary or secondary tags"
+);
+assert.deepEqual(
+  groups[0].segments.map((segment) => [segment.seconds, segment.end_seconds]),
+  [
+    [0, 10],
+    [40, 50],
+  ],
+  "fully matching highlight configurations group their exact segment ranges"
+);
+
+const longFeetMarker = marker(
+  "highlight-long-feet",
+  60,
+  180,
+  feetWithParent,
+  [],
+  [tyga]
+);
+const firstShortSexMarker = marker(
+  "activity-overlap-1",
+  90,
+  100,
+  sex,
+  [],
+  [chase],
+  [tyga]
+);
+const secondShortSexMarker = marker(
+  "activity-overlap-2",
+  150,
+  156,
+  sex,
+  [],
+  [chase],
+  [tyga]
+);
+const standaloneActivityMarker = marker(
+  "activity-standalone",
+  220,
+  230,
+  sex,
+  [],
+  [chase],
+  [tyga]
+);
+const partialOverlapGroups = groupChronologicalSceneMarkerHighlights(
+  [longFeetMarker],
+  [
+    longFeetMarker,
+    firstShortSexMarker,
+    secondShortSexMarker,
+    standaloneActivityMarker,
+  ]
+);
+
+assert.equal(
+  partialOverlapGroups.length,
+  1,
+  "partial overlaps keep whole-marker highlight grouping without segment splitting"
+);
+assert.deepEqual(
+  partialOverlapGroups.flatMap((group) =>
+    group.segments.map((segment) => [segment.seconds, segment.end_seconds])
+  ),
+  [[60, 180]],
+  "only full markers become timeframe pills"
+);
+assert.equal(
+  partialOverlapGroups[0].performers.some(
+    (highlight) =>
+      highlight.performer.id === chase.id &&
+      highlight.topTags.some((highlightTag) => highlightTag.id === sex.id)
+  ),
+  false,
+  "larger highlight markers do not inherit tags from smaller partial-overlap markers"
+);
+assert.equal(
+  partialOverlapGroups.some((group) =>
+    group.segments.some((segment) => segment.seconds === 220)
+  ),
+  false,
+  "standalone activity markers outside highlight ranges do not create cards"
+);
+
+const containedMarkerGroups = groupChronologicalSceneMarkerHighlights(
+  [firstShortSexMarker, secondShortSexMarker],
+  [longFeetMarker, firstShortSexMarker, secondShortSexMarker]
+);
+const containedMarkerGroup = containedMarkerGroups[0];
+
+assert.equal(
+  containedMarkerGroups.length,
+  1,
+  "fully contained markers with matching final configurations group together"
+);
+assert.deepEqual(
+  containedMarkerGroup.segments.map((segment) => [
+    segment.seconds,
+    segment.end_seconds,
+  ]),
+  [
+    [90, 100],
+    [150, 156],
+  ],
+  "fully contained markers keep their own full marker pills"
+);
+assert.equal(
+  containedMarkerGroup.performers.some(
+    (highlight) =>
+      highlight.performer.id === tyga.id &&
+      highlight.topTags.some(
+        (highlightTag) => highlightTag.id === feetWithParent.id
+      ) &&
+      highlight.bottomTags.some((highlightTag) => highlightTag.id === sex.id)
+  ),
+  true,
+  "fully contained markers inherit containing marker tags as context"
+);
+
+const nearEqualFeetMarker = marker(
+  "highlight-near-equal-feet",
+  300,
+  400,
+  feetWithParent,
+  [],
+  [tyga]
+);
+const nearEqualSexMarker = marker(
+  "highlight-near-equal-sex",
+  302,
+  398,
+  sex,
+  [],
+  [tyga]
+);
+const nearEqualGroups = groupChronologicalSceneMarkerHighlights(
+  [nearEqualFeetMarker, nearEqualSexMarker],
+  [nearEqualFeetMarker, nearEqualSexMarker]
+);
+
+assert.equal(
+  nearEqualGroups.length,
+  1,
+  "markers within the containment tolerance share one final configuration card"
+);
+assert.deepEqual(
+  nearEqualGroups[0].segments.map((segment) => [
+    segment.seconds,
+    segment.end_seconds,
+  ]),
+  [
+    [300, 400],
+    [302, 398],
+  ],
+  "near-equal markers still render one full pill per database marker"
+);
+
+assert.deepEqual(
+  [
+    getChronologicalSceneMarkerHighlightPerformerOrgasmRank(
+      { performer: tyga, topTags: [orgasm], bottomTags: [] },
+      orgasm.id
+    ),
+    getChronologicalSceneMarkerHighlightPerformerOrgasmRank(
+      { performer: chase, topTags: [], bottomTags: [orgasm] },
+      orgasm.id
+    ),
+    getChronologicalSceneMarkerHighlightPerformerOrgasmRank(
+      { performer: juan, topTags: [feetWithParent], bottomTags: [] },
+      orgasm.id
+    ),
+  ],
+  [0, 1, 2],
+  "configured orgasm top performers rank before orgasm bottoms and neutral performers"
 );

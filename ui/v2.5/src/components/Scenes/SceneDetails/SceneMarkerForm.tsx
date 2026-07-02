@@ -70,16 +70,31 @@ const PerformerSelectFace: React.FC<{ performer: IPerformer }> = ({
 
 const PerformerSelectOption: React.FC<
   OptionProps<IPerformerSelectOption, true>
-> = (props) => (
-  <reactSelectComponents.Option {...props}>
-    <div className="scene-marker-form-performer-option">
-      <PerformerSelectFace performer={props.data.performer} />
-      <span className="scene-marker-form-performer-option-label">
-        {props.data.label}
-      </span>
-    </div>
-  </reactSelectComponents.Option>
-);
+> = (props) => {
+  // CUSTOM: react-select's mousemove focus churns in this image grid and can
+  // leave options looking hovered or flashing between performers.
+  const { onMouseMove, onMouseOver, ...stableInnerProps } = props.innerProps;
+
+  void onMouseMove;
+  void onMouseOver;
+
+  return (
+    <reactSelectComponents.Option
+      {...props}
+      className={`${
+        props.className ?? ""
+      } scene-marker-form-performer-select-option`}
+      innerProps={stableInnerProps}
+    >
+      <div className="scene-marker-form-performer-option">
+        <PerformerSelectFace performer={props.data.performer} />
+        <span className="scene-marker-form-performer-option-label">
+          {props.data.label}
+        </span>
+      </div>
+    </reactSelectComponents.Option>
+  );
+};
 
 // CUSTOM: end
 
@@ -642,14 +657,21 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         maxHeight: "28rem",
         padding: "0.75rem",
       }),
-      option: (base: Record<string, unknown>) => ({
+      option: (
+        base: Record<string, unknown>,
+        state: { isFocused: boolean; isSelected: boolean }
+      ) => ({
         ...base,
         alignItems: "flex-start",
+        backgroundColor: state.isSelected
+          ? "rgba(72, 175, 240, 0.22)"
+          : "transparent",
         borderRadius: "0.25rem",
         display: "flex",
         flex: "0 0 auto",
         justifyContent: "center",
         padding: "0.45rem",
+        transition: "none",
         width: "auto",
       }),
     };

@@ -5,6 +5,7 @@ import React, {
   useMemo,
   useRef,
   useLayoutEffect,
+  useCallback,
 } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
 import { useHistory, RouteComponentProps } from "react-router-dom";
@@ -245,6 +246,8 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
   const [activeTabKey, setActiveTabKey] = useState("scene-details-panel");
   const [scenePanelCompact, setScenePanelCompact] = useState(false); // CUSTOM
+  const [scrubberFocusedMarkerId, setScrubberFocusedMarkerId] =
+    useState<string>(); // CUSTOM
 
   const [isMerging, setIsMerging] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState<boolean>(false);
@@ -343,34 +346,76 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     }
   };
 
-  function onClickMarker(marker: GQL.SceneMarkerDataFragment) {
-    const abLoopPlugin = getAbLoopPlugin();
-    const opts = abLoopPlugin?.getOptions();
-    const start = opts?.start;
-    const end = opts?.end;
+  const onClickMarker = useCallback(
+    (marker: GQL.SceneMarkerDataFragment) => {
+      const abLoopPlugin = getAbLoopPlugin();
+      const opts = abLoopPlugin?.getOptions();
+      const start = opts?.start;
+      const end = opts?.end;
 
-    const hasLoopRange =
-      opts?.enabled &&
-      typeof start === "number" &&
-      typeof end === "number" &&
-      Number.isFinite(start) &&
-      Number.isFinite(end);
+      const hasLoopRange =
+        opts?.enabled &&
+        typeof start === "number" &&
+        typeof end === "number" &&
+        Number.isFinite(start) &&
+        Number.isFinite(end);
 
-    if (
-      abLoopPlugin &&
-      opts &&
-      hasLoopRange &&
-      (marker.seconds < Math.min(start as number, end as number) ||
-        marker.seconds > Math.max(start as number, end as number))
-    ) {
-      abLoopPlugin.setOptions({
-        ...opts,
-        enabled: false,
-      });
-    }
+      if (
+        abLoopPlugin &&
+        opts &&
+        hasLoopRange &&
+        (marker.seconds < Math.min(start as number, end as number) ||
+          marker.seconds > Math.max(start as number, end as number))
+      ) {
+        abLoopPlugin.setOptions({
+          ...opts,
+          enabled: false,
+        });
+      }
 
-    setTimestamp(marker.seconds);
-  }
+      setTimestamp(marker.seconds);
+    },
+    [setTimestamp]
+  );
+
+  // CUSTOM: begin - surface clicked scrubber markers in the Markers tab
+  const focusScrubberMarker = useCallback(
+    (markerId: string) => {
+      const marker = scene.scene_markers.find(
+        (sceneMarker) => sceneMarker.id === markerId
+      );
+
+      if (!marker) return;
+
+      setActiveTabKey("scene-markers-panel");
+      setScrubberFocusedMarkerId(markerId);
+      onClickMarker(marker);
+    },
+    [onClickMarker, scene.scene_markers]
+  );
+
+  useEffect(() => {
+    const onScrubberMarkerClick = (event: Event) => {
+      const markerId = (event as CustomEvent<string>).detail;
+
+      if (markerId) {
+        focusScrubberMarker(markerId);
+      }
+    };
+
+    window.addEventListener(
+      "stash:scene-marker-scrubber-click",
+      onScrubberMarkerClick
+    );
+
+    return () => {
+      window.removeEventListener(
+        "stash:scene-marker-scrubber-click",
+        onScrubberMarkerClick
+      );
+    };
+  }, [focusScrubberMarker]);
+  // CUSTOM: end
 
   async function onRescan() {
     await mutateMetadataScan({
@@ -655,6 +700,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               isVisible={activeTabKey === "scene-markers-panel"}
               addMultiSegmentLoopSegments={addMultiSegmentLoopSegments} // CUSTOM
               currentTimestamp={currentTimestamp} // CUSTOM
+              focusedMarkerId={scrubberFocusedMarkerId} // CUSTOM
             />
           </Tab.Pane>
           {/* CUSTOM: begin - negative markers pane */}
@@ -1230,6 +1276,16 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
     }
   }
 
+  // CUSTOM: begin - bridge player scrubber marker clicks to ScenePage tabs
+  const onScenePlayerMarkerClick = useCallback((markerId: string) => {
+    window.dispatchEvent(
+      new CustomEvent("stash:scene-marker-scrubber-click", {
+        detail: markerId,
+      })
+    );
+  }, []);
+  // CUSTOM: end
+
   function onDelete() {
     if (
       continuePlaylist &&
@@ -1300,6 +1356,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
           sendSetTimestamp={getSetTimestamp}
           sendMultiSegmentLoopApi={getMultiSegmentLoopApi} // CUSTOM
           onTimeChange={setCurrentTimestamp} // CUSTOM
+          onMarkerClick={onScenePlayerMarkerClick} // CUSTOM
           onComplete={onComplete}
           onNext={() => queueNext(true)}
           onPrevious={() => queuePrevious(true)}

@@ -1,7 +1,7 @@
 // CUSTOM: Chronological scene marker search helpers.
 
 const defaultMarkerDurationSeconds = 20;
-
+const markerContainmentToleranceSeconds = 3;
 export interface ISceneMarkerChronologySearchTag {
   id: string;
   name?: string | null;
@@ -66,6 +66,27 @@ export interface ISceneMarkerChronologyHighlightGroup<
   key: string;
   performers: Array<ISceneMarkerChronologyHighlightPerformer<M>>;
   markers: M[];
+  segments: Array<ISceneMarkerChronologyHighlightSegment<M>>;
+}
+
+export interface ISceneMarkerChronologyHighlightSegment<
+  M extends ISceneMarkerChronologySearchMarker = ISceneMarkerChronologySearchMarker
+> {
+  key: string;
+  seconds: number;
+  end_seconds: number;
+  markers: M[];
+  representativeMarker: M;
+}
+
+export interface ISceneMarkerChronologyDerivedWindow<
+  M extends ISceneMarkerChronologySearchMarker = ISceneMarkerChronologySearchMarker
+> {
+  key: string;
+  seconds: number;
+  end_seconds: number;
+  markers: M[];
+  sourceMarker: M;
 }
 
 function normalizeSearchText(value?: string | null) {
@@ -74,10 +95,6 @@ function normalizeSearchText(value?: string | null) {
 
 function markerEndSeconds(marker: ISceneMarkerChronologySearchMarker) {
   return marker.end_seconds ?? marker.seconds + defaultMarkerDurationSeconds;
-}
-
-function markerDurationSeconds(marker: ISceneMarkerChronologySearchMarker) {
-  return markerEndSeconds(marker) - marker.seconds;
 }
 
 function compareMarkerIDs(a: string, b: string) {
@@ -109,32 +126,6 @@ function compareNamedSearchObjects(
   return (
     normalizeSearchText(a.name).localeCompare(normalizeSearchText(b.name)) ||
     compareMarkerIDs(a.id, b.id)
-  );
-}
-
-function markerIsNarrowerThan(
-  candidate: ISceneMarkerChronologySearchMarker,
-  current: ISceneMarkerChronologySearchMarker
-) {
-  const durationDiff =
-    markerDurationSeconds(candidate) - markerDurationSeconds(current);
-
-  if (durationDiff !== 0) {
-    return durationDiff < 0;
-  }
-
-  return compareMarkerIDs(candidate.id, current.id) < 0;
-}
-
-function markersOverlap(
-  a: ISceneMarkerChronologySearchMarker,
-  b: ISceneMarkerChronologySearchMarker
-) {
-  return (
-    a.id !== b.id &&
-    (!a.scene?.id || !b.scene?.id || a.scene.id === b.scene.id) &&
-    b.seconds < markerEndSeconds(a) &&
-    markerEndSeconds(b) > a.seconds
   );
 }
 
@@ -173,6 +164,57 @@ function markerOverlapsTimeRange(
     (!a.scene?.id || !b.scene?.id || a.scene.id === b.scene.id) &&
     b.seconds < markerEndSeconds(a) &&
     markerEndSeconds(b) > a.seconds
+  );
+}
+
+function markersAreInSameScene(
+  a: ISceneMarkerChronologySearchMarker,
+  b: ISceneMarkerChronologySearchMarker
+) {
+  return !a.scene?.id || !b.scene?.id || a.scene.id === b.scene.id;
+}
+
+function markerContainsTimeRange(
+  container: ISceneMarkerChronologySearchMarker,
+  contained: ISceneMarkerChronologySearchMarker
+) {
+  return (
+    container.id !== contained.id &&
+    markersAreInSameScene(container, contained) &&
+    container.seconds - contained.seconds <=
+      markerContainmentToleranceSeconds &&
+    markerEndSeconds(contained) - markerEndSeconds(container) <=
+      markerContainmentToleranceSeconds
+  );
+}
+
+function markerDurationSeconds(marker: ISceneMarkerChronologySearchMarker) {
+  return markerEndSeconds(marker) - marker.seconds;
+}
+
+function rangeDurationSeconds(range: { seconds: number; end_seconds: number }) {
+  return range.end_seconds - range.seconds;
+}
+
+function markerStrictlyContainsTimeRange(
+  container: ISceneMarkerChronologySearchMarker,
+  contained: ISceneMarkerChronologySearchMarker
+) {
+  return (
+    markerContainsTimeRange(container, contained) &&
+    markerDurationSeconds(container) > markerDurationSeconds(contained)
+  );
+}
+
+function rangeTimeKey(value: number) {
+  return Number(value.toFixed(3)).toString();
+}
+
+function searchHasActiveFilters(filters: ISceneMarkerChronologySearchFilters) {
+  return (
+    filters.tags.length > 0 ||
+    filters.topPerformers.length > 0 ||
+    filters.bottomPerformers.length > 0
   );
 }
 
@@ -217,85 +259,26 @@ function markerDirectlyMatchesTag(
   );
 }
 
-function markerDirectlyMatchesAnyTag(
-  marker: ISceneMarkerChronologySearchMarker,
-  selectedTags: ISceneMarkerChronologySearchTag[]
-) {
-  return selectedTags.some((tag) => markerDirectlyMatchesTag(marker, tag));
-}
-
-function markerOverlapNeighborhood(
+function markerTagContext(
   marker: ISceneMarkerChronologySearchMarker,
   allMarkers: ISceneMarkerChronologySearchMarker[]
 ) {
-  return allMarkers.filter(
-    (candidate) =>
-      candidate.id === marker.id || markersOverlap(marker, candidate)
-  );
+  return [
+    marker,
+    ...allMarkers
+      .filter((candidate) => markerContainsTimeRange(candidate, marker))
+      .sort(compareChronologicalMarkers),
+  ];
 }
 
-function markersShareOverlapWindow(
-  markerGroupsByTag: ISceneMarkerChronologySearchMarker[][]
-) {
-  const groupsByFewestMatches = [...markerGroupsByTag].sort(
-    (a, b) => a.length - b.length
-  );
-
-  const findSharedWindow = (
-    tagIndex: number,
-    overlapStart: number,
-    overlapEnd: number
-  ): boolean => {
-    if (tagIndex >= groupsByFewestMatches.length) {
-      return overlapStart < overlapEnd;
-    }
-
-    return groupsByFewestMatches[tagIndex].some((candidate) => {
-      const nextOverlapStart = Math.max(overlapStart, candidate.seconds);
-      const nextOverlapEnd = Math.min(overlapEnd, markerEndSeconds(candidate));
-
-      return (
-        nextOverlapStart < nextOverlapEnd &&
-        findSharedWindow(tagIndex + 1, nextOverlapStart, nextOverlapEnd)
-      );
-    });
-  };
-
-  return findSharedWindow(
-    0,
-    Number.NEGATIVE_INFINITY,
-    Number.POSITIVE_INFINITY
-  );
-}
-
-function markerMatchesSharedTagOverlap(
+function markerContextMatchesTag(
   marker: ISceneMarkerChronologySearchMarker,
   allMarkers: ISceneMarkerChronologySearchMarker[],
-  selectedTags: ISceneMarkerChronologySearchTag[]
+  selectedTag: ISceneMarkerChronologySearchTag
 ) {
-  if (selectedTags.length === 0) {
-    return true;
-  }
-
-  if (
-    selectedTags.length > 1 &&
-    !markerDirectlyMatchesAnyTag(marker, selectedTags)
-  ) {
-    return false;
-  }
-
-  const markerNeighborhood = markerOverlapNeighborhood(marker, allMarkers);
-  const markerGroupsByTag = selectedTags.map((tag) =>
-    markerNeighborhood.filter((candidate) =>
-      markerDirectlyMatchesTag(candidate, tag)
-    )
+  return markerTagContext(marker, allMarkers).some((candidate) =>
+    markerDirectlyMatchesTag(candidate, selectedTag)
   );
-
-  if (markerGroupsByTag.some((group) => group.length === 0)) {
-    return false;
-  }
-
-  return markersShareOverlapWindow(markerGroupsByTag);
 }
 
 function markerMatchesTags(
@@ -303,23 +286,8 @@ function markerMatchesTags(
   allMarkers: ISceneMarkerChronologySearchMarker[],
   selectedTags: ISceneMarkerChronologySearchTag[]
 ) {
-  return markerMatchesSharedTagOverlap(marker, allMarkers, selectedTags);
-}
-
-function markerWinsNarrowestTagMatch(
-  marker: ISceneMarkerChronologySearchMarker,
-  allMarkers: ISceneMarkerChronologySearchMarker[],
-  selectedTags: ISceneMarkerChronologySearchTag[]
-) {
-  if (selectedTags.length <= 1) {
-    return true;
-  }
-
-  return !allMarkers.some(
-    (candidate) =>
-      markersOverlap(marker, candidate) &&
-      markerMatchesTags(candidate, allMarkers, selectedTags) &&
-      markerIsNarrowerThan(candidate, marker)
+  return selectedTags.every((tag) =>
+    markerContextMatchesTag(marker, allMarkers, tag)
   );
 }
 
@@ -359,6 +327,46 @@ function performersMatchSelectedPerformers(
   );
 }
 
+function activeMarkersMatchSelectedPerformers(
+  markers: ISceneMarkerChronologySearchMarker[],
+  selectedPerformers: ISceneMarkerChronologySearchPerformer[],
+  role: "top" | "bottom"
+) {
+  if (selectedPerformers.length === 0) {
+    return true;
+  }
+
+  return selectedPerformers.every((selectedPerformer) =>
+    markers.some((marker) =>
+      (role === "top" ? marker.top_performers : marker.bottom_performers)?.some(
+        (performer) =>
+          performerMatchesSelectedPerformer(performer, selectedPerformer)
+      )
+    )
+  );
+}
+
+function activeMarkersMatchFilters(
+  markers: ISceneMarkerChronologySearchMarker[],
+  filters: ISceneMarkerChronologySearchFilters
+) {
+  return (
+    filters.tags.every((tag) =>
+      markers.some((marker) => markerDirectlyMatchesTag(marker, tag))
+    ) &&
+    activeMarkersMatchSelectedPerformers(
+      markers,
+      filters.topPerformers,
+      "top"
+    ) &&
+    activeMarkersMatchSelectedPerformers(
+      markers,
+      filters.bottomPerformers,
+      "bottom"
+    )
+  );
+}
+
 export function filterChronologicalSceneMarkers<
   T extends ISceneMarkerChronologySearchMarker
 >(markers: T[], filters: ISceneMarkerChronologySearchFilters): T[] {
@@ -366,7 +374,6 @@ export function filterChronologicalSceneMarkers<
     .filter(
       (marker) =>
         markerMatchesTags(marker, markers, filters.tags) &&
-        markerWinsNarrowestTagMatch(marker, markers, filters.tags) &&
         performersMatchSelectedPerformers(
           marker.top_performers,
           filters.topPerformers
@@ -374,6 +381,152 @@ export function filterChronologicalSceneMarkers<
         performersMatchSelectedPerformers(
           marker.bottom_performers,
           filters.bottomPerformers
+        )
+    )
+    .sort(compareChronologicalMarkers);
+}
+
+function createDerivedWindow<M extends ISceneMarkerChronologySearchMarker>(
+  seconds: number,
+  end_seconds: number,
+  markers: M[]
+): ISceneMarkerChronologyDerivedWindow<M> {
+  const sortedMarkers = uniqueByID(markers).sort(compareChronologicalMarkers);
+  const markerKey = sortedIDKey(sortedMarkers);
+
+  return {
+    key: `${rangeTimeKey(seconds)}-${rangeTimeKey(end_seconds)}-${markerKey}`,
+    seconds,
+    end_seconds,
+    markers: sortedMarkers,
+    sourceMarker: sortedMarkers[0],
+  };
+}
+
+function mergeDerivedWindows<M extends ISceneMarkerChronologySearchMarker>(
+  windows: Array<ISceneMarkerChronologyDerivedWindow<M>>
+) {
+  const merged: Array<ISceneMarkerChronologyDerivedWindow<M>> = [];
+
+  windows
+    .sort(
+      (a, b) =>
+        a.seconds - b.seconds ||
+        a.end_seconds - b.end_seconds ||
+        a.key.localeCompare(b.key)
+    )
+    .forEach((window) => {
+      const last = merged[merged.length - 1];
+
+      if (!last || window.seconds > last.end_seconds) {
+        merged.push(window);
+        return;
+      }
+
+      const nextEnd = Math.max(last.end_seconds, window.end_seconds);
+      const nextMarkers = uniqueByID([...last.markers, ...window.markers]);
+      merged[merged.length - 1] = createDerivedWindow(
+        last.seconds,
+        nextEnd,
+        nextMarkers
+      );
+    });
+
+  return merged;
+}
+
+function subtractCoveredMarkerRanges<
+  M extends ISceneMarkerChronologySearchMarker
+>(
+  window: ISceneMarkerChronologyDerivedWindow<M>,
+  coveredMarkers: ISceneMarkerChronologySearchMarker[]
+) {
+  const coverages = coveredMarkers
+    .map((marker) => ({
+      seconds: Math.max(window.seconds, marker.seconds),
+      end_seconds: Math.min(window.end_seconds, markerEndSeconds(marker)),
+    }))
+    .filter((range) => range.end_seconds > range.seconds)
+    .sort((a, b) => a.seconds - b.seconds || a.end_seconds - b.end_seconds);
+  let remaining = [
+    { seconds: window.seconds, end_seconds: window.end_seconds },
+  ];
+
+  coverages.forEach((coverage) => {
+    remaining = remaining.flatMap((range) => {
+      if (
+        coverage.end_seconds <= range.seconds ||
+        coverage.seconds >= range.end_seconds
+      ) {
+        return [range];
+      }
+
+      return [
+        { seconds: range.seconds, end_seconds: coverage.seconds },
+        { seconds: coverage.end_seconds, end_seconds: range.end_seconds },
+      ].filter((part) => part.end_seconds > part.seconds);
+    });
+  });
+
+  return remaining
+    .filter(
+      (range) =>
+        rangeDurationSeconds(range) >= markerContainmentToleranceSeconds
+    )
+    .map((range) =>
+      createDerivedWindow(range.seconds, range.end_seconds, window.markers)
+    );
+}
+
+export function getChronologicalSceneMarkerDerivedWindows<
+  T extends ISceneMarkerChronologySearchMarker
+>(
+  markers: T[],
+  filters: ISceneMarkerChronologySearchFilters,
+  coveredMarkers: ISceneMarkerChronologySearchMarker[]
+): Array<ISceneMarkerChronologyDerivedWindow<T>> {
+  if (!searchHasActiveFilters(filters)) {
+    return [];
+  }
+
+  const boundaries = Array.from(
+    new Set(
+      markers.flatMap((marker) => [marker.seconds, markerEndSeconds(marker)])
+    )
+  ).sort((a, b) => a - b);
+  const windows: Array<ISceneMarkerChronologyDerivedWindow<T>> = [];
+
+  for (let index = 0; index < boundaries.length - 1; index += 1) {
+    const seconds = boundaries[index];
+    const end_seconds = boundaries[index + 1];
+
+    if (end_seconds - seconds < markerContainmentToleranceSeconds) {
+      continue;
+    }
+
+    const activeMarkers = markers.filter(
+      (marker) =>
+        marker.seconds < end_seconds && markerEndSeconds(marker) > seconds
+    );
+
+    if (activeMarkersMatchFilters(activeMarkers, filters)) {
+      windows.push(createDerivedWindow(seconds, end_seconds, activeMarkers));
+    }
+  }
+
+  return mergeDerivedWindows(windows).flatMap((window) =>
+    subtractCoveredMarkerRanges(window, coveredMarkers)
+  );
+}
+
+export function filterCoveredChronologicalSceneMarkers<
+  T extends ISceneMarkerChronologySearchMarker
+>(markers: T[]): T[] {
+  return [...markers]
+    .filter(
+      (marker) =>
+        !markers.some((candidate) =>
+          markerStrictlyContainsTimeRange(candidate, marker)
         )
     )
     .sort(compareChronologicalMarkers);
@@ -407,15 +560,27 @@ export function getCompatibleChronologicalSceneMarkerTags<
 ): ISceneMarkerChronologySearchTag[] {
   const selectedTagIDs = new Set(selectedTags.map((tag) => tag.id));
 
-  return getChronologicalSceneMarkerTags(markers).filter(
-    (tag) =>
-      !selectedTagIDs.has(tag.id) &&
-      filterChronologicalSceneMarkers(markers, {
-        tags: [...selectedTags, tag],
-        topPerformers: [],
-        bottomPerformers: [],
-      }).length > 0
-  );
+  return getChronologicalSceneMarkerTags(markers).filter((tag) => {
+    if (selectedTagIDs.has(tag.id)) {
+      return false;
+    }
+
+    const nextFilters = {
+      tags: [...selectedTags, tag],
+      topPerformers: [],
+      bottomPerformers: [],
+    };
+    const exactMatches = filterChronologicalSceneMarkers(markers, nextFilters);
+
+    return (
+      exactMatches.length > 0 ||
+      getChronologicalSceneMarkerDerivedWindows(
+        markers,
+        nextFilters,
+        exactMatches
+      ).length > 0
+    );
+  });
 }
 
 export function getChronologicalSceneMarkerPerformers<
@@ -430,11 +595,22 @@ export function getChronologicalSceneMarkerPerformers<
     topPerformers: [],
     bottomPerformers: [],
   });
+  const derivedMarkers = getChronologicalSceneMarkerDerivedWindows(
+    markers,
+    {
+      tags: selectedTags,
+      topPerformers: [],
+      bottomPerformers: [],
+    },
+    tagFilteredMarkers
+  ).flatMap((window) => window.markers);
   const performerField =
     role === "top" ? "top_performers" : "bottom_performers";
 
   return uniqueByID(
-    tagFilteredMarkers.flatMap((marker) => marker[performerField] ?? [])
+    [...tagFilteredMarkers, ...derivedMarkers].flatMap(
+      (marker) => marker[performerField] ?? []
+    )
   ).sort(compareNamedSearchObjects);
 }
 
@@ -518,28 +694,15 @@ function addHighlightPerformerTags<
   }
 }
 
-export function getChronologicalSceneMarkerHighlightPerformers<
+function getHighlightPerformersFromActiveMarkers<
   M extends ISceneMarkerChronologySearchMarker
->(
-  marker: M,
-  allMarkers: M[]
-): Array<ISceneMarkerChronologyHighlightPerformer<M>> {
+>(markers: M[]): Array<ISceneMarkerChronologyHighlightPerformer<M>> {
   const performersByID = new Map<
     string,
     ISceneMarkerChronologyHighlightPerformer<M>
   >();
-  const markerSet = [
-    marker,
-    ...[...allMarkers]
-      .filter(
-        (candidate) =>
-          candidate.id !== marker.id &&
-          markerOverlapsTimeRange(marker, candidate)
-      )
-      .sort(compareChronologicalMarkers),
-  ];
 
-  markerSet.forEach((candidate) => {
+  markers.forEach((candidate) => {
     const directTags = uniqueMarkerTags<M>([
       candidate.primary_tag,
       ...candidate.tags,
@@ -556,10 +719,30 @@ export function getChronologicalSceneMarkerHighlightPerformers<
   return Array.from(performersByID.values());
 }
 
-export function getChronologicalSceneMarkerHighlightGroupKey<
+export function getChronologicalSceneMarkerHighlightPerformers<
   M extends ISceneMarkerChronologySearchMarker
->(marker: M, allMarkers: M[]) {
-  return getChronologicalSceneMarkerHighlightPerformers(marker, allMarkers)
+>(
+  marker: M,
+  allMarkers: M[]
+): Array<ISceneMarkerChronologyHighlightPerformer<M>> {
+  const markerSet = [
+    marker,
+    ...[...allMarkers]
+      .filter(
+        (candidate) =>
+          candidate.id !== marker.id &&
+          markerContainsTimeRange(candidate, marker)
+      )
+      .sort(compareChronologicalMarkers),
+  ];
+
+  return getHighlightPerformersFromActiveMarkers(markerSet);
+}
+
+function getHighlightPerformerGroupKey<
+  M extends ISceneMarkerChronologySearchMarker
+>(performers: Array<ISceneMarkerChronologyHighlightPerformer<M>>) {
+  return performers
     .map((performer) =>
       [
         performer.performer.id,
@@ -569,6 +752,63 @@ export function getChronologicalSceneMarkerHighlightGroupKey<
     )
     .sort()
     .join("|");
+}
+
+export function getChronologicalSceneMarkerHighlightPerformerOrgasmRank<
+  M extends ISceneMarkerChronologySearchMarker
+>(
+  performer: ISceneMarkerChronologyHighlightPerformer<M>,
+  orgasmTagId?: string
+) {
+  if (!orgasmTagId) {
+    return 2;
+  }
+
+  if (performer.topTags.some((tag) => tag.id === orgasmTagId)) {
+    return 0;
+  }
+
+  if (performer.bottomTags.some((tag) => tag.id === orgasmTagId)) {
+    return 1;
+  }
+
+  return 2;
+}
+
+export function getChronologicalSceneMarkerHighlightGroupKey<
+  M extends ISceneMarkerChronologySearchMarker
+>(marker: M, allMarkers: M[]) {
+  return getHighlightPerformerGroupKey(
+    getChronologicalSceneMarkerHighlightPerformers(marker, allMarkers)
+  );
+}
+
+function getHighlightMarkerSegment<
+  M extends ISceneMarkerChronologySearchMarker
+>(
+  marker: M,
+  allMarkers: M[]
+): {
+  key: string;
+  performers: Array<ISceneMarkerChronologyHighlightPerformer<M>>;
+  seconds: number;
+  end_seconds: number;
+  markers: M[];
+  representativeMarker: M;
+} {
+  const performers = getChronologicalSceneMarkerHighlightPerformers(
+    marker,
+    allMarkers
+  );
+
+  return {
+    key: marker.id,
+    performers,
+    seconds: marker.seconds,
+    end_seconds: markerEndSeconds(marker),
+    markers: [marker],
+    representativeMarker: marker,
+  };
 }
 
 export function groupChronologicalSceneMarkerHighlights<
@@ -583,29 +823,32 @@ export function groupChronologicalSceneMarkerHighlights<
   >();
 
   markers.forEach((marker) => {
-    const key = getChronologicalSceneMarkerHighlightGroupKey(
-      marker,
-      allMarkers
-    );
+    const segment = getHighlightMarkerSegment(marker, allMarkers);
+    const key = getHighlightPerformerGroupKey(segment.performers);
     const existingGroup = groupsByKey.get(key);
 
     if (existingGroup) {
       existingGroup.markers.push(marker);
+      existingGroup.segments.push(segment);
       return;
     }
 
     groupsByKey.set(key, {
       key,
-      performers: getChronologicalSceneMarkerHighlightPerformers(
-        marker,
-        allMarkers
-      ),
+      performers: segment.performers,
       markers: [marker],
+      segments: [segment],
     });
   });
 
   return Array.from(groupsByKey.values()).map((group) => ({
     ...group,
     markers: [...group.markers].sort(compareChronologicalMarkers),
+    segments: [...group.segments].sort(
+      (a, b) =>
+        a.seconds - b.seconds ||
+        a.end_seconds - b.end_seconds ||
+        compareMarkerIDs(a.key, b.key)
+    ),
   }));
 }

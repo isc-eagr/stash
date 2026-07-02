@@ -274,6 +274,7 @@ interface IScenePlayerProps {
   sendSetTimestamp: (setTimestamp: (value: number) => void) => void;
   sendMultiSegmentLoopApi?: (api: IMultiSegmentLoopApi) => void; // CUSTOM
   onTimeChange?: (time: number) => void; // CUSTOM
+  onMarkerClick?: (markerId: string) => void; // CUSTOM
   onComplete: () => void;
   onNext: () => void;
   onPrevious: () => void;
@@ -290,6 +291,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     sendSetTimestamp,
     sendMultiSegmentLoopApi, // CUSTOM
     onTimeChange, // CUSTOM
+    onMarkerClick, // CUSTOM
     onComplete,
     onNext,
     onPrevious,
@@ -1706,6 +1708,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       if (!player) return;
 
       const markerData = scene.scene_markers.map((marker) => ({
+        id: marker.id,
         title: getMarkerTitle(marker),
         seconds: marker.seconds,
         end_seconds: marker.end_seconds ?? null,
@@ -1723,6 +1726,11 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       }));
 
       const markers = player!.markers();
+      markers.setOnMarkerClick((marker) => {
+        if (marker.id) {
+          onMarkerClick?.(marker.id);
+        }
+      });
 
       // CUSTOM: provide known duration so markers render before playback (preload=none means player.duration() is 0 until play)
       if (file?.duration) {
@@ -1784,7 +1792,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         markers.addOTimestampMarkers(oTimestampEntries);
         // CUSTOM: end
       });
-    }, [getPlayer, scene, uiConfig, file]); // CUSTOM: file added so duration is current when scene changes
+    }, [getPlayer, scene, uiConfig, file, onMarkerClick]); // CUSTOM: file added so duration is current when scene changes
 
     useEffect(() => {
       const player = getPlayer();

@@ -68,6 +68,7 @@ function Backup-ExistingExe {
   $backupPath = Join-Path $backupDir "stash-$timestamp.exe"
   Copy-Item -LiteralPath $Target.Exe -Destination $backupPath -Force
   Write-Host "Backed up $($Target.Name) exe to $backupPath"
+  return $backupPath
 }
 
 function Deploy-StashInstance {
@@ -77,9 +78,10 @@ function Deploy-StashInstance {
     throw "Target directory does not exist: $($Target.Directory)"
   }
 
-  Backup-ExistingExe $Target
+  $backupPath = Backup-ExistingExe $Target
   Copy-Item -LiteralPath $sourceExe -Destination $Target.Exe -Force
   Write-Host "Copied new stash.exe to $($Target.Exe)"
+  return $backupPath
 }
 
 function Remove-DeploySourceExe {
@@ -89,6 +91,19 @@ function Remove-DeploySourceExe {
 
   Remove-Item -LiteralPath $sourceExe -Force
   Write-Host "Removed deploy staging exe $sourceExe"
+}
+
+function Remove-DeployBackups {
+  param([string[]]$BackupPaths)
+
+  foreach ($backupPath in $BackupPaths) {
+    if (!(Test-Path $backupPath)) {
+      continue
+    }
+
+    Remove-Item -LiteralPath $backupPath -Force
+    Write-Host "Removed deploy backup exe $backupPath"
+  }
 }
 
 function Start-StashInstance {
@@ -140,8 +155,12 @@ foreach ($target in $targets) {
   Stop-StashInstance $target
 }
 
+$backupPaths = @()
 foreach ($target in $targets) {
-  Deploy-StashInstance $target
+  $backupPath = Deploy-StashInstance $target
+  if ($backupPath) {
+    $backupPaths += $backupPath
+  }
 }
 
 if (!$SkipStart) {
@@ -150,6 +169,7 @@ if (!$SkipStart) {
   }
 }
 
+Remove-DeployBackups $backupPaths
 Remove-DeploySourceExe
 
 Write-Step "Production deploy complete"

@@ -157,7 +157,11 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
       // CUSTOM: end
 
       return (
-        <div key={marker.id} className="marker-item">
+        <div
+          key={marker.id}
+          className="marker-item"
+          data-scene-marker-id={marker.id}
+        >
           <div className="d-flex align-items-start justify-content-between">
             <div className="flex-grow-1 min-w-0 marker-content">
               <div className="d-flex align-items-center marker-main-row">

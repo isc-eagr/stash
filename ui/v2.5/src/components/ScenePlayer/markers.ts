@@ -2,6 +2,7 @@ import videojs, { VideoJsPlayer } from "video.js";
 import CryptoJS from "crypto-js";
 
 export interface IMarker {
+  id?: string;
   title: string;
   seconds: number;
   end_seconds?: number | null;
@@ -31,6 +32,7 @@ export interface INegativeMarker {
 
 interface IMarkersOptions {
   markers?: IMarker[];
+  onMarkerClick?: (marker: IMarker) => void;
 }
 
 class MarkersPlugin extends videojs.getPlugin("plugin") {
@@ -48,6 +50,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
   private layerHeight: number = 9;
 
   private tagColors: { [tag: string]: string } = {};
+  private onMarkerClick?: (marker: IMarker) => void;
 
   private _fallbackDuration: number = 0; // CUSTOM: used when player.duration() is 0 (preload=none, not started yet)
 
@@ -56,8 +59,9 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     this._fallbackDuration = duration;
   }
 
-  constructor(player: VideoJsPlayer) {
+  constructor(player: VideoJsPlayer, options?: IMarkersOptions) {
     super(player);
+    this.onMarkerClick = options?.onMarkerClick;
     player.ready(() => {
       const tooltip = videojs.dom.createEl("div") as HTMLElement;
       tooltip.className = "vjs-marker-tooltip";
@@ -73,6 +77,10 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
           ".vjs-progress-holder .vjs-mouse-display .vjs-time-tooltip"
         );
     });
+  }
+
+  setOnMarkerClick(onMarkerClick?: (marker: IMarker) => void) {
+    this.onMarkerClick = onMarkerClick;
   }
 
   // CUSTOM: begin - enhanced tooltip with performer roles and negative marker styling
@@ -242,9 +250,12 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     }
 
     // Add event listeners to dot
-    markerSet.dot.addEventListener("click", () =>
-      this.player.currentTime(marker.seconds)
-    );
+    markerSet.dot.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.player.currentTime(marker.seconds);
+      this.onMarkerClick?.(marker);
+    });
     markerSet.dot.toggleAttribute("marker-tooltip-shown", true);
 
     // Set background color based on tag (if available)
@@ -350,6 +361,12 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     });
     markerSet.range.addEventListener("pointerout", (e) => {
       e.stopPropagation();
+    });
+    markerSet.range.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.player.currentTime(marker.seconds);
+      this.onMarkerClick?.(marker);
     });
     markerSet.range.addEventListener("mouseenter", () => {
       this.showMarkerTooltip(
