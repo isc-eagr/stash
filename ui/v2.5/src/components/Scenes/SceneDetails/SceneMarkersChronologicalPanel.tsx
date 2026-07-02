@@ -18,9 +18,11 @@ import {
 import {
   getChronologicalSceneMarkerPerformers,
   getChronologicalSceneMarkerTags,
-  getChronologicalSceneMarkerDisplayTags,
   getCompatibleChronologicalSceneMarkerTags,
+  groupChronologicalSceneMarkerHighlights,
   timestampBelongsToSceneMarker,
+  type ISceneMarkerChronologyHighlightGroup,
+  type ISceneMarkerChronologyHighlightPerformer,
   type ISceneMarkerChronologySearchFilters,
   type ISceneMarkerChronologySearchPerformer,
   type ISceneMarkerChronologySearchTag,
@@ -62,9 +64,6 @@ interface IActivityTypeSection {
 
 type ActivityTypePerformer =
   GQL.SceneMarkerDataFragment["top_performers"][number];
-type SceneMarkerDisplayTag = ReturnType<
-  typeof getChronologicalSceneMarkerDisplayTags
->[number];
 
 const defaultMarkerDurationSeconds = 20;
 
@@ -104,19 +103,6 @@ function sumMergedMarkerDurations(
 
 function formatMarkerDuration(seconds: number) {
   return TextUtils.formatDurationRange(seconds);
-}
-
-function uniqueDisplayTagsInDisplayOrder(tags: SceneMarkerDisplayTag[]) {
-  const tagsById = new Map<string, SceneMarkerDisplayTag>();
-
-  tags.forEach((displayTag) => {
-    const existing = tagsById.get(displayTag.tag.id);
-    if (!existing) {
-      tagsById.set(displayTag.tag.id, displayTag);
-    }
-  });
-
-  return Array.from(tagsById.values());
 }
 
 interface ISearchSingleSelect<T extends SearchSelectEntity> {
@@ -210,17 +196,19 @@ const SearchMultiSelect = <T extends SearchSelectEntity>({
 
 const ActivityTypePerformerTile: React.FC<{
   performer: ActivityTypePerformer;
-  role: "Top" | "Bottom";
+  role?: "Top" | "Bottom";
   className?: string;
-}> = ({ performer, role, className }) => (
+  title?: string;
+  children?: React.ReactNode;
+}> = ({ performer, role, className, title, children }) => (
   <div
-    key={`${role}-${performer.id}`}
+    key={`${role ?? "performer"}-${performer.id}`}
     className={cx(
       "scene-marker-activity-performer",
-      `scene-marker-activity-performer-${role.toLowerCase()}`,
+      role && `scene-marker-activity-performer-${role.toLowerCase()}`,
       className
     )}
-    title={`${role}: ${performer.name}`}
+    title={title ?? (role ? `${role}: ${performer.name}` : performer.name)}
   >
     <div className="scene-marker-activity-performer-image">
       {performer.image_path ? (
@@ -230,6 +218,7 @@ const ActivityTypePerformerTile: React.FC<{
       )}
     </div>
     <div className="scene-marker-activity-performer-name">{performer.name}</div>
+    {children}
   </div>
 );
 
@@ -310,7 +299,10 @@ const TimelineMarkerBox: React.FC<ITimelineMarkerBox> = ({
       className={cx("scene-marker-activity-marker-box", {
         "scene-marker-activity-marker-box-current": isCurrentMarker,
       })}
-      onClick={() => onClickMarker(marker)}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClickMarker(marker);
+      }}
     >
       <div
         className="scene-marker-activity-marker-time"
@@ -434,34 +426,63 @@ const ActivityTypeGroupCard: React.FC<IActivityTypeGroupCard> = ({
 };
 
 interface IHighlightMarkerCard {
-  marker: GQL.SceneMarkerDataFragment;
-  allMarkers: GQL.SceneMarkerDataFragment[];
+  group: ISceneMarkerChronologyHighlightGroup<GQL.SceneMarkerDataFragment>;
   selectedMarkerIds: Set<string>;
   currentTimestamp?: number;
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   onEdit: (marker: GQL.SceneMarkerDataFragment) => void;
   onSelectMarker: (id: string, selected: boolean) => void;
+  onSelectMarkers: (ids: string[], selected: boolean) => void;
 }
 
+const HighlightPerformerTagPills: React.FC<{
+  performer: ISceneMarkerChronologyHighlightPerformer<GQL.SceneMarkerDataFragment>;
+}> = ({ performer }) => (
+  <div className="scene-marker-highlight-performer-tags">
+    {performer.topTags.map((tag) => (
+      <Badge
+        key={`top-${tag.id}`}
+        variant="secondary"
+        className="tag-badge scene-marker-highlight-tag-top"
+      >
+        {tag.name}
+      </Badge>
+    ))}
+    {performer.bottomTags.map((tag) => (
+      <Badge
+        key={`bottom-${tag.id}`}
+        variant="secondary"
+        className="tag-badge scene-marker-highlight-tag-bottom"
+      >
+        {tag.name}
+      </Badge>
+    ))}
+  </div>
+);
+
 const HighlightMarkerCard: React.FC<IHighlightMarkerCard> = ({
-  marker,
-  allMarkers,
+  group,
   selectedMarkerIds,
   currentTimestamp,
   onClickMarker,
   onEdit,
   onSelectMarker,
+  onSelectMarkers,
 }) => {
-  const tags = uniqueDisplayTagsInDisplayOrder(
-    getChronologicalSceneMarkerDisplayTags(marker, allMarkers)
+  const isGroup = group.markers.length > 1;
+  const marker = group.markers[0];
+  const groupMarkerIds = group.markers.map((groupMarker) => groupMarker.id);
+  const allGroupSelected =
+    groupMarkerIds.length > 0 &&
+    groupMarkerIds.every((id) => selectedMarkerIds.has(id));
+  const hasPerformers = group.performers.length > 0;
+  const isCurrentMarker = group.markers.some((groupMarker) =>
+    timestampBelongsToSceneMarker(groupMarker, currentTimestamp)
   );
-  const hasPerformers =
-    marker.top_performers.length > 0 || marker.bottom_performers.length > 0;
-  const isCurrentMarker = timestampBelongsToSceneMarker(
-    marker,
-    currentTimestamp
-  );
-  const title = markerTitle(marker);
+  const groupDurationSeconds = sumMergedMarkerDurations(group.markers);
+  const title = isGroup
+    ? `${group.markers.length} highlights`
+    : markerTitle(marker);
 
   const onClickCard = () => {
     onClickMarker(marker);
@@ -501,109 +522,78 @@ const HighlightMarkerCard: React.FC<IHighlightMarkerCard> = ({
         >
           {title}
         </Button>
-        <span className="scene-marker-highlight-timestamp">
-          <Button
-            className="scene-marker-highlight-time-part p-0"
-            variant="link"
-            onClick={(event) => {
-              event.stopPropagation();
-              onClickMarker(marker);
-            }}
-            title="Seek to start"
-          >
-            {TextUtils.secondsToTimestamp(marker.seconds)}
-          </Button>
-          {marker.end_seconds !== null && marker.end_seconds !== undefined ? (
-            <>
-              <span className="scene-marker-highlight-time-separator">-</span>
-              <Button
-                className="scene-marker-highlight-time-part p-0"
-                variant="link"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onClickMarker({
-                    ...marker,
-                    seconds: marker.end_seconds ?? marker.seconds,
-                  });
-                }}
-                title="Seek to end"
-              >
-                {TextUtils.secondsToTimestamp(marker.end_seconds)}
-              </Button>
-              <span className="scene-marker-highlight-duration">
-                ({formatMarkerDuration(marker.end_seconds - marker.seconds)})
-              </span>
-            </>
-          ) : (
-            <span className="scene-marker-highlight-duration">
-              ({formatMarkerDuration(defaultMarkerDurationSeconds)})
-            </span>
-          )}
-        </span>
-        <Button
-          className="scene-marker-highlight-edit p-0"
-          variant="link"
-          onClick={(event) => {
-            event.stopPropagation();
-            onEdit(marker);
-          }}
-        >
-          Edit
-        </Button>
-        <Form.Check
-          className="scene-marker-highlight-checkbox"
-          type="checkbox"
-          checked={selectedMarkerIds.has(marker.id)}
-          onClick={(event: React.MouseEvent<HTMLInputElement>) =>
-            event.stopPropagation()
-          }
-          onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-            onSelectMarker(marker.id, event.currentTarget.checked)
-          }
-        />
+        {isGroup && (
+          <span className="scene-marker-highlight-timestamp">
+            {formatMarkerDuration(groupDurationSeconds)}
+          </span>
+        )}
+        {isGroup ? (
+          <Form.Check
+            className="scene-marker-highlight-checkbox"
+            type="checkbox"
+            checked={allGroupSelected}
+            onClick={(event: React.MouseEvent<HTMLInputElement>) =>
+              event.stopPropagation()
+            }
+            onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+              onSelectMarkers(groupMarkerIds, event.currentTarget.checked)
+            }
+          />
+        ) : (
+          <>
+            <Button
+              className="scene-marker-highlight-edit p-0"
+              variant="link"
+              onClick={(event) => {
+                event.stopPropagation();
+                onEdit(marker);
+              }}
+            >
+              Edit
+            </Button>
+            <Form.Check
+              className="scene-marker-highlight-checkbox"
+              type="checkbox"
+              checked={selectedMarkerIds.has(marker.id)}
+              onClick={(event: React.MouseEvent<HTMLInputElement>) =>
+                event.stopPropagation()
+              }
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                onSelectMarker(marker.id, event.currentTarget.checked)
+              }
+            />
+          </>
+        )}
       </div>
       <div className="scene-marker-activity-config-performers">
         {hasPerformers ? (
-          <>
-            {marker.top_performers.map((performer) => (
-              <ActivityTypePerformerTile
-                key={`top-${performer.id}`}
-                performer={performer}
-                role="Top"
-                className="scene-marker-highlight-performer"
-              />
-            ))}
-            {marker.bottom_performers.map((performer) => (
-              <ActivityTypePerformerTile
-                key={`bottom-${performer.id}`}
-                performer={performer}
-                role="Bottom"
-                className="scene-marker-highlight-performer"
-              />
-            ))}
-          </>
+          group.performers.map((performer) => (
+            <ActivityTypePerformerTile
+              key={performer.performer.id}
+              performer={performer.performer}
+              className="scene-marker-highlight-performer"
+            >
+              <HighlightPerformerTagPills performer={performer} />
+            </ActivityTypePerformerTile>
+          ))
         ) : (
           <div className="scene-marker-activity-config-empty">
             No performers
           </div>
         )}
       </div>
-      <div className="scene-marker-highlight-tags">
-        {tags.length > 0 ? (
-          tags.map(({ kind, tag }) => (
-            <Badge
-              key={tag.id}
-              variant={kind === "primary" ? "primary" : "secondary"}
-              className={cx("tag-badge", `tag-badge-${kind}`)}
-            >
-              {tag.name}
-            </Badge>
-          ))
-        ) : (
-          <Badge variant="secondary" className="tag-badge tag-badge-highlight">
-            Untagged
-          </Badge>
-        )}
+      <div className="scene-marker-activity-config-markers">
+        {group.markers.map((groupMarker) => (
+          <TimelineMarkerBox
+            key={groupMarker.id}
+            marker={groupMarker}
+            selectedMarkerIds={selectedMarkerIds}
+            currentTimestamp={currentTimestamp}
+            onClickMarker={onClickMarker}
+            onEdit={onEdit}
+            onSelectMarker={onSelectMarker}
+          />
+        ))}
       </div>
     </div>
   );
@@ -657,6 +647,10 @@ export const SceneMarkersChronologicalPanel: React.FC<
       ),
     [activityTypeTagIds, markers]
   );
+  const highlightGroups = useMemo(
+    () => groupChronologicalSceneMarkerHighlights(highlights, allMarkers),
+    [allMarkers, highlights]
+  );
   const activityTypeMarkers = useMemo(
     () =>
       markers
@@ -699,17 +693,17 @@ export const SceneMarkersChronologicalPanel: React.FC<
 
   const renderHighlightList = () => (
     <div className="scene-marker-chronology-list">
-      {highlights.length > 0 ? (
-        highlights.map((marker) => (
+      {highlightGroups.length > 0 ? (
+        highlightGroups.map((group) => (
           <HighlightMarkerCard
-            key={marker.id}
-            marker={marker}
-            allMarkers={allMarkers}
+            key={group.key}
+            group={group}
             selectedMarkerIds={selectedMarkerIds}
             currentTimestamp={currentTimestamp}
             onClickMarker={onClickMarker}
             onEdit={onEdit}
             onSelectMarker={onSelectMarker}
+            onSelectMarkers={onSelectMarkers}
           />
         ))
       ) : (

@@ -2792,6 +2792,8 @@ Adds a one-command Windows deploy flow for mobile Codex sessions. The wrapper bu
 
 Restarted Stash processes are launched hidden with stdout/stderr redirected into each instance's `.deploy-logs` directory. This keeps mobile/agent shells from hanging after a successful deploy because the long-running Stash process is not holding the deploy command's output handles open.
 
+After both production copies and any requested restarts succeed, the temporary repository-root `stash.exe` deploy artifact is removed so repeated deployments do not accumulate stale executables.
+
 ### Files Added
 
 - `deploy_prod_custom.bat` - Batch entry point for easy execution from mobile/remote shells

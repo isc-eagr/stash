@@ -1449,8 +1449,13 @@ input[type="range"].blue-slider {
     min-width: 7.875rem;
 
     .scene-marker-activity-performer-image {
+      border-color: rgba(255, 255, 255, 0.1);
       font-size: 2.15rem;
       width: 7.875rem;
+    }
+
+    .scene-marker-activity-performer-name {
+      color: #d9e2ea;
     }
   }
 
@@ -1525,11 +1530,13 @@ input[type="range"].blue-slider {
     margin: 0;
   }
 
-  .scene-marker-highlight-tags {
+  .scene-marker-highlight-performer-tags {
     align-items: center;
     display: flex;
     flex-wrap: wrap;
     gap: 0.35rem;
+    justify-content: center;
+    max-width: 100%;
 
     .tag-badge {
       border-radius: 0.75rem;
@@ -1538,29 +1545,15 @@ input[type="range"].blue-slider {
       padding: 0.2rem 0.5rem;
     }
 
-    .tag-badge-primary.badge-primary {
-      background-color: #1f4f7f;
-    }
-
-    .tag-badge-secondary.badge-secondary {
-      background-color: #c0aa78;
-      color: #20252a;
-    }
-
-    .tag-badge-overlap.badge-secondary {
-      background-color: #6c757d;
+    .scene-marker-highlight-tag-top.badge-secondary {
+      background-color: #4b9f4b;
       color: #fff;
     }
 
-    .tag-badge-parent.badge-secondary {
-      background-color: #7f6f95;
+    .scene-marker-highlight-tag-bottom.badge-secondary {
+      background-color: #3f94b8;
       color: #fff;
     }
-  }
-
-  .tag-badge-highlight {
-    background-color: rgba(255, 255, 255, 0.1);
-    color: #d9e2ea;
   }
 
   .scene-marker-chronology-thumb {

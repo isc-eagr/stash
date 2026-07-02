@@ -46,6 +46,28 @@ export interface ISceneMarkerChronologyDisplayTag<
   tag: T;
 }
 
+type SceneMarkerChronologyHighlightPerformer<
+  M extends ISceneMarkerChronologySearchMarker
+> =
+  | NonNullable<M["top_performers"]>[number]
+  | NonNullable<M["bottom_performers"]>[number];
+
+export interface ISceneMarkerChronologyHighlightPerformer<
+  M extends ISceneMarkerChronologySearchMarker = ISceneMarkerChronologySearchMarker
+> {
+  performer: SceneMarkerChronologyHighlightPerformer<M>;
+  topTags: M["primary_tag"][];
+  bottomTags: M["primary_tag"][];
+}
+
+export interface ISceneMarkerChronologyHighlightGroup<
+  M extends ISceneMarkerChronologySearchMarker = ISceneMarkerChronologySearchMarker
+> {
+  key: string;
+  performers: Array<ISceneMarkerChronologyHighlightPerformer<M>>;
+  markers: M[];
+}
+
 function normalizeSearchText(value?: string | null) {
   return (value ?? "").trim().toLocaleLowerCase();
 }
@@ -120,6 +142,20 @@ function markerTags(marker: ISceneMarkerChronologySearchMarker) {
   return [marker.primary_tag, ...marker.tags];
 }
 
+function uniqueMarkerTags<M extends ISceneMarkerChronologySearchMarker>(
+  tags: M["primary_tag"][]
+) {
+  const tagsByID = new Map<string, M["primary_tag"]>();
+
+  tags.forEach((tag) => {
+    if (!tagsByID.has(tag.id)) {
+      tagsByID.set(tag.id, tag);
+    }
+  });
+
+  return Array.from(tagsByID.values());
+}
+
 function tagParents(tag: ISceneMarkerChronologySearchTag) {
   return tag.parents ?? [];
 }
@@ -150,6 +186,13 @@ function uniqueByID<T extends { id: string }>(items: T[]) {
   });
 
   return Array.from(itemsByID.values());
+}
+
+function sortedIDKey(items: Array<{ id: string }>) {
+  return items
+    .map((item) => item.id)
+    .sort(compareMarkerIDs)
+    .join(",");
 }
 
 function tagMatchesSelectedTag(
@@ -441,4 +484,128 @@ export function getChronologicalSceneMarkerDisplayTags<
     });
 
   return displayTags;
+}
+
+function addHighlightPerformerTags<
+  M extends ISceneMarkerChronologySearchMarker
+>(
+  performersByID: Map<string, ISceneMarkerChronologyHighlightPerformer<M>>,
+  performer: SceneMarkerChronologyHighlightPerformer<M>,
+  role: "top" | "bottom",
+  tags: M["primary_tag"][]
+) {
+  const existing = performersByID.get(performer.id);
+  const performerTags =
+    existing ??
+    ({
+      performer,
+      topTags: [],
+      bottomTags: [],
+    } as ISceneMarkerChronologyHighlightPerformer<M>);
+  const roleTags =
+    role === "top" ? performerTags.topTags : performerTags.bottomTags;
+  const existingTagIDs = new Set(roleTags.map((tag) => tag.id));
+
+  tags.forEach((tag) => {
+    if (!existingTagIDs.has(tag.id)) {
+      existingTagIDs.add(tag.id);
+      roleTags.push(tag);
+    }
+  });
+
+  if (!existing) {
+    performersByID.set(performer.id, performerTags);
+  }
+}
+
+export function getChronologicalSceneMarkerHighlightPerformers<
+  M extends ISceneMarkerChronologySearchMarker
+>(
+  marker: M,
+  allMarkers: M[]
+): Array<ISceneMarkerChronologyHighlightPerformer<M>> {
+  const performersByID = new Map<
+    string,
+    ISceneMarkerChronologyHighlightPerformer<M>
+  >();
+  const markerSet = [
+    marker,
+    ...[...allMarkers]
+      .filter(
+        (candidate) =>
+          candidate.id !== marker.id &&
+          markerOverlapsTimeRange(marker, candidate)
+      )
+      .sort(compareChronologicalMarkers),
+  ];
+
+  markerSet.forEach((candidate) => {
+    const directTags = uniqueMarkerTags<M>([
+      candidate.primary_tag,
+      ...candidate.tags,
+    ] as M["primary_tag"][]);
+
+    (candidate.top_performers ?? []).forEach((performer) =>
+      addHighlightPerformerTags(performersByID, performer, "top", directTags)
+    );
+    (candidate.bottom_performers ?? []).forEach((performer) =>
+      addHighlightPerformerTags(performersByID, performer, "bottom", directTags)
+    );
+  });
+
+  return Array.from(performersByID.values());
+}
+
+export function getChronologicalSceneMarkerHighlightGroupKey<
+  M extends ISceneMarkerChronologySearchMarker
+>(marker: M, allMarkers: M[]) {
+  return getChronologicalSceneMarkerHighlightPerformers(marker, allMarkers)
+    .map((performer) =>
+      [
+        performer.performer.id,
+        sortedIDKey(performer.topTags),
+        sortedIDKey(performer.bottomTags),
+      ].join(":")
+    )
+    .sort()
+    .join("|");
+}
+
+export function groupChronologicalSceneMarkerHighlights<
+  M extends ISceneMarkerChronologySearchMarker
+>(
+  markers: M[],
+  allMarkers: M[]
+): Array<ISceneMarkerChronologyHighlightGroup<M>> {
+  const groupsByKey = new Map<
+    string,
+    ISceneMarkerChronologyHighlightGroup<M>
+  >();
+
+  markers.forEach((marker) => {
+    const key = getChronologicalSceneMarkerHighlightGroupKey(
+      marker,
+      allMarkers
+    );
+    const existingGroup = groupsByKey.get(key);
+
+    if (existingGroup) {
+      existingGroup.markers.push(marker);
+      return;
+    }
+
+    groupsByKey.set(key, {
+      key,
+      performers: getChronologicalSceneMarkerHighlightPerformers(
+        marker,
+        allMarkers
+      ),
+      markers: [marker],
+    });
+  });
+
+  return Array.from(groupsByKey.values()).map((group) => ({
+    ...group,
+    markers: [...group.markers].sort(compareChronologicalMarkers),
+  }));
 }

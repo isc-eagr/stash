@@ -82,6 +82,15 @@ function Deploy-StashInstance {
   Write-Host "Copied new stash.exe to $($Target.Exe)"
 }
 
+function Remove-DeploySourceExe {
+  if (!(Test-Path $sourceExe)) {
+    return
+  }
+
+  Remove-Item -LiteralPath $sourceExe -Force
+  Write-Host "Removed deploy staging exe $sourceExe"
+}
+
 function Start-StashInstance {
   param([hashtable]$Target)
 
@@ -140,5 +149,7 @@ if (!$SkipStart) {
     Start-StashInstance $target
   }
 }
+
+Remove-DeploySourceExe
 
 Write-Step "Production deploy complete"

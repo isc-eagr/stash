@@ -3,9 +3,11 @@ import assert from "node:assert/strict";
 import {
   filterChronologicalSceneMarkers,
   getChronologicalSceneMarkerDisplayTags,
+  getChronologicalSceneMarkerHighlightPerformers,
   getChronologicalSceneMarkerPerformers,
   getChronologicalSceneMarkerTags,
   getCompatibleChronologicalSceneMarkerTags,
+  groupChronologicalSceneMarkerHighlights,
   timestampBelongsToSceneMarker,
 } from "../src/components/Scenes/SceneDetails/sceneMarkerChronologySearch_custom.ts";
 
@@ -271,4 +273,101 @@ assert.deepEqual(
   ).map((p) => p.id),
   ["luis"],
   "performer options are derived from tag-filtered marker results"
+);
+
+const body = tag("body", "Body");
+const sex = tag("sex", "Sex");
+const parent = tag("parent", "Parent");
+const feetWithParent = tag("feet-parented", "Feet", [parent]);
+const tyga = performer("tyga", "Tyga Martinez");
+const chase = performer("chase", "Chase Carter");
+const feetMarker = marker(
+  "highlight-1",
+  0,
+  10,
+  feetWithParent,
+  [verga, body],
+  [tyga]
+);
+const overlappingSexMarker = marker(
+  "highlight-overlap-1",
+  5,
+  15,
+  sex,
+  [],
+  [chase],
+  [tyga]
+);
+const performerHighlights = getChronologicalSceneMarkerHighlightPerformers(
+  feetMarker,
+  [feetMarker, overlappingSexMarker]
+);
+const tygaHighlights = performerHighlights.find(
+  (highlight) => highlight.performer.id === tyga.id
+);
+const chaseHighlights = performerHighlights.find(
+  (highlight) => highlight.performer.id === chase.id
+);
+
+assert.ok(
+  tygaHighlights,
+  "Expected Tyga to be included in highlight performers"
+);
+assert.deepEqual(
+  tygaHighlights.topTags.map((highlightTag) => highlightTag.id),
+  ["feet-parented", "verga", "body"],
+  "direct marker tags render as top pills for the marker top performer"
+);
+assert.deepEqual(
+  tygaHighlights.bottomTags.map((highlightTag) => highlightTag.id),
+  ["sex"],
+  "overlapping marker tags render as bottom pills for overlap bottom performers"
+);
+assert.equal(
+  tygaHighlights.topTags.some((highlightTag) => highlightTag.id === parent.id),
+  false,
+  "parent tags do not render as highlight performer pills"
+);
+assert.ok(
+  chaseHighlights,
+  "Expected Chase to be included in highlight performers"
+);
+assert.deepEqual(
+  chaseHighlights.topTags.map((highlightTag) => highlightTag.id),
+  ["sex"],
+  "overlapping marker tags render as top pills for overlap top performers"
+);
+assert.deepEqual(chaseHighlights.bottomTags, []);
+
+const vergaMarker = marker(
+  "highlight-2",
+  40,
+  50,
+  verga,
+  [feetWithParent, body],
+  [tyga]
+);
+const secondOverlappingSexMarker = marker(
+  "highlight-overlap-2",
+  45,
+  55,
+  sex,
+  [],
+  [chase],
+  [tyga]
+);
+const groups = groupChronologicalSceneMarkerHighlights(
+  [feetMarker, vergaMarker],
+  [feetMarker, overlappingSexMarker, vergaMarker, secondOverlappingSexMarker]
+);
+
+assert.equal(
+  groups.length,
+  1,
+  "matching highlight performer/tag-role configurations group together"
+);
+assert.deepEqual(
+  groups[0].markers.map((groupMarker) => groupMarker.id),
+  ["highlight-1", "highlight-2"],
+  "grouping ignores whether a shared pill came from primary or secondary tags"
 );
