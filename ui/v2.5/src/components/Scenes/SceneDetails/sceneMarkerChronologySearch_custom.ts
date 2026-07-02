@@ -234,7 +234,10 @@ function markerMatchesSharedTagOverlap(
     return true;
   }
 
-  if (!markerDirectlyMatchesAnyTag(marker, selectedTags)) {
+  if (
+    selectedTags.length > 1 &&
+    !markerDirectlyMatchesAnyTag(marker, selectedTags)
+  ) {
     return false;
   }
 
@@ -265,7 +268,7 @@ function markerWinsNarrowestTagMatch(
   allMarkers: ISceneMarkerChronologySearchMarker[],
   selectedTags: ISceneMarkerChronologySearchTag[]
 ) {
-  if (selectedTags.length === 0) {
+  if (selectedTags.length <= 1) {
     return true;
   }
 

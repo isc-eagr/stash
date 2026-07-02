@@ -41,6 +41,8 @@ import {
   faEllipsisV,
   faChevronRight,
   faChevronLeft,
+  faCompress,
+  faExpand,
   faHand, // CUSTOM
 } from "@fortawesome/free-solid-svg-icons";
 // CUSTOM: begin - role icon SVG imports
@@ -68,6 +70,7 @@ import type {
   IMultiSegmentLoopApi,
   ILoopSegmentInput,
 } from "src/components/ScenePlayer/multi-segment-loop";
+import { filterLoopSegmentsOutsideNegativeMarkers } from "src/components/ScenePlayer/loopSegments_custom";
 import { SceneActivityMetrics } from "../SceneActivityMetrics_custom";
 // CUSTOM: end
 
@@ -241,6 +244,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const [organizedLoading, setOrganizedLoading] = useState(false);
 
   const [activeTabKey, setActiveTabKey] = useState("scene-details-panel");
+  const [scenePanelCompact, setScenePanelCompact] = useState(false); // CUSTOM
 
   const [isMerging, setIsMerging] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState<boolean>(false);
@@ -521,7 +525,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
       activeKey={activeTabKey}
       onSelect={(k) => k && setActiveTabKey(k)}
     >
-      <div>
+      <div className="scene-tab-row">
         <Nav variant="tabs" className="mr-auto">
           <ScenePageTabs {...props}>
             <Nav.Item>
@@ -609,6 +613,18 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             </Nav.Item>
           </ScenePageTabs>
         </Nav>
+        {/* CUSTOM: begin - details panel vertical expansion toggle */}
+        <Button
+          className="scene-panel-density-toggle minimal"
+          variant="secondary"
+          onClick={() => setScenePanelCompact((current) => !current)}
+          title={
+            scenePanelCompact ? "Show scene header" : "Expand panel vertically"
+          }
+        >
+          <Icon icon={scenePanelCompact ? faCompress : faExpand} />
+        </Button>
+        {/* CUSTOM: end */}
       </div>
 
       <Tab.Content>
@@ -810,11 +826,12 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
       {maybeRenderMergeDialog()}
       {maybeRenderDeleteDialog()}
       <div
-        className={`scene-tabs order-xl-first order-last ${
-          collapsed ? "collapsed" : ""
-        }`}
+        className={cx("scene-tabs order-xl-first order-last", {
+          collapsed,
+          "scene-tabs-compact": scenePanelCompact, // CUSTOM
+        })}
       >
-        <div>
+        <div className="scene-overview">
           <div className="scene-header-container">
             <StudioLogo studio={scene.studio} showText={showStudioText} />
             <h3 className={cx("scene-header", { "no-studio": !scene.studio })}>
@@ -1047,7 +1064,12 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
   }
 
   function addMultiSegmentLoopSegments(segments: ILoopSegmentInput[]) {
-    _multiSegmentLoopApi.current?.addSegments(segments);
+    _multiSegmentLoopApi.current?.addSegments(
+      filterLoopSegmentsOutsideNegativeMarkers(
+        segments,
+        scene?.negative_markers
+      )
+    );
   }
   // CUSTOM: end
 

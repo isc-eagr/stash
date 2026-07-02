@@ -17,6 +17,8 @@ interface IPerformerCardRoleStatsQueryData {
     facial_marker_count: number;
     facial_top_count: number;
     facial_bottom_count: number;
+    facial_with_top_count: number;
+    facial_with_bottom_count: number;
     facial_marker_with_top_count: number;
     facial_marker_with_bottom_count: number;
     orgasm_top_count: number;
@@ -50,6 +52,8 @@ const PerformerCardRoleStatsQuery = gql`
       facial_marker_count
       facial_top_count
       facial_bottom_count
+      facial_with_top_count
+      facial_with_bottom_count
       facial_marker_with_top_count
       facial_marker_with_bottom_count
       orgasm_top_count
@@ -77,10 +81,7 @@ export function usePerformerCardRoleStats(
   });
 
   const performerIDs = useMemo(
-    () =>
-      performers
-        .map((p) => p.id)
-        .filter((id) => id !== ""),
+    () => performers.map((p) => p.id).filter((id) => id !== ""),
     [performers]
   );
 
@@ -119,6 +120,8 @@ export function usePerformerCardRoleStats(
         facial_scene_count: p.facial_scene_count,
         facial_top_count: p.facial_top_count,
         facial_bottom_count: p.facial_bottom_count,
+        facial_with_top_count: p.facial_with_top_count,
+        facial_with_bottom_count: p.facial_with_bottom_count,
         facial_marker_with_top_count: p.facial_marker_with_top_count,
         facial_marker_with_bottom_count: p.facial_marker_with_bottom_count,
         facial_unique_partner_count: p.facial_unique_partner_count,

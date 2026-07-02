@@ -108,6 +108,19 @@ assert.deepEqual(
 
 assert.deepEqual(
   filterChronologicalSceneMarkers(
+    [
+      marker("1", 0, 20, feet),
+      marker("2", 5, 15, oral),
+      marker("3", 40, 50, bj),
+    ],
+    { tags: [oral], topPerformers: [], bottomPerformers: [] }
+  ).map((m) => m.id),
+  ["1", "2"],
+  "single-tag searches include markers that only match by overlapping tag"
+);
+
+assert.deepEqual(
+  filterChronologicalSceneMarkers(
     [marker("1", 0, 10, feet), marker("2", 11, 20, verga)],
     { tags: [feet, verga], topPerformers: [], bottomPerformers: [] }
   ).map((m) => m.id),

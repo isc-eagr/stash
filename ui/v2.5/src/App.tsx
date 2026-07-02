@@ -75,6 +75,9 @@ const SceneStats = lazyComponent(
 const VatoStats = lazyComponent(
   () => import("./components/VatoStats/VatoStats")
 ); // CUSTOM
+const GEVILatest = lazyComponent(
+  () => import("./components/GEVILatest/GEVILatest_custom")
+); // CUSTOM
 const TaskProgress = lazyComponent(() => import("./components/TaskProgress")); // CUSTOM
 const Studios = lazyComponent(() => import("./components/Studios/Studios"));
 const Galleries = lazyComponent(
@@ -281,6 +284,7 @@ export const App: React.FC = () => {
             />{" "}
             {/* CUSTOM */}
             <Route path="/vatostats" component={VatoStats} /> {/* CUSTOM */}
+            <Route path="/gevi-latest" component={GEVILatest} /> {/* CUSTOM */}
             <Route path="/ostats/tag/:tagId" component={OStats} />{" "}
             {/* CUSTOM */}
             <Route

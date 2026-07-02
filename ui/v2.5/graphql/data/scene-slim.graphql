@@ -56,9 +56,13 @@ fragment SlimSceneData on Scene {
     }
     top_performers {
       id
+      name
+      image_path
     }
     bottom_performers {
       id
+      name
+      image_path
     }
     # CUSTOM: end
   }

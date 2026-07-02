@@ -122,6 +122,7 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
               groupId: "A",
               tag_ids: [{ id: tagId, label: tagLabel }],
               depth: markerDepth,
+              performer_mode: "AND",
               top_performer_ids: [
                 { id: topPerformerId, label: topPerformerLabel },
               ],

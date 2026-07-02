@@ -1,17 +1,20 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import { Badge, Button, Form } from "react-bootstrap";
 import cx from "classnames";
 import Select, { MultiValue, SingleValue } from "react-select";
-import {
-  faArrowDown,
-  faArrowUp,
-  faImage,
-} from "@fortawesome/free-solid-svg-icons";
+import { faUser } from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import { Icon } from "src/components/Shared/Icon";
 import TextUtils from "src/utils/text";
 import { markerTitle } from "src/core/markers";
 import { useConfigurationContext } from "src/hooks/Config";
+import {
+  compareActivityTypeSceneMarkers,
+  getActivityTypeTagIds,
+  groupActivityTypeSceneMarkers,
+  isActivityTypeSceneMarker,
+  type IActivityTypeSceneMarkerGroup,
+} from "./sceneMarkerActivityType_custom";
 import {
   getChronologicalSceneMarkerPerformers,
   getChronologicalSceneMarkerTags,
@@ -28,10 +31,12 @@ interface ISceneMarkersChronologicalPanel {
   allMarkers: GQL.SceneMarkerDataFragment[];
   search: ISceneMarkerChronologySearchFilters;
   onSearchChange: (search: ISceneMarkerChronologySearchFilters) => void;
+  activeTab: SceneMarkerChronologyTabKey;
   selectedMarkerIds: Set<string>;
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   onEdit: (marker: GQL.SceneMarkerDataFragment) => void;
   onSelectMarker: (id: string, selected: boolean) => void;
+  onSelectMarkers: (ids: string[], selected: boolean) => void;
   currentTimestamp?: number;
 }
 
@@ -45,6 +50,74 @@ type SearchSelectOption<T extends SearchSelectEntity> = {
   label: string;
   object: T;
 };
+
+export type SceneMarkerChronologyTabKey = "activity" | "highlights";
+type ActivityTypeSectionKey = "oral" | "sex" | "solo";
+
+interface IActivityTypeSection {
+  key: ActivityTypeSectionKey;
+  label: string;
+  markers: GQL.SceneMarkerDataFragment[];
+}
+
+type ActivityTypePerformer =
+  GQL.SceneMarkerDataFragment["top_performers"][number];
+type SceneMarkerDisplayTag = ReturnType<
+  typeof getChronologicalSceneMarkerDisplayTags
+>[number];
+
+const defaultMarkerDurationSeconds = 20;
+
+function markerEndSeconds(
+  marker: Pick<GQL.SceneMarkerDataFragment, "seconds" | "end_seconds">
+) {
+  return marker.end_seconds ?? marker.seconds + defaultMarkerDurationSeconds;
+}
+
+function sumMergedMarkerDurations(
+  markers: Array<Pick<GQL.SceneMarkerDataFragment, "seconds" | "end_seconds">>
+) {
+  const intervals = markers
+    .map((marker) => ({
+      start: marker.seconds,
+      end: markerEndSeconds(marker),
+    }))
+    .filter((interval) => interval.end > interval.start)
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+  const merged: Array<{ start: number; end: number }> = [];
+
+  intervals.forEach((interval) => {
+    const last = merged[merged.length - 1];
+    if (!last || interval.start > last.end) {
+      merged.push({ ...interval });
+      return;
+    }
+
+    last.end = Math.max(last.end, interval.end);
+  });
+
+  return merged.reduce(
+    (sum, interval) => sum + interval.end - interval.start,
+    0
+  );
+}
+
+function formatMarkerDuration(seconds: number) {
+  return TextUtils.formatDurationRange(seconds);
+}
+
+function uniqueDisplayTagsInDisplayOrder(tags: SceneMarkerDisplayTag[]) {
+  const tagsById = new Map<string, SceneMarkerDisplayTag>();
+
+  tags.forEach((displayTag) => {
+    const existing = tagsById.get(displayTag.tag.id);
+    if (!existing) {
+      tagsById.set(displayTag.tag.id, displayTag);
+    }
+  });
+
+  return Array.from(tagsById.values());
+}
 
 interface ISearchSingleSelect<T extends SearchSelectEntity> {
   className?: string;
@@ -135,204 +208,389 @@ const SearchMultiSelect = <T extends SearchSelectEntity>({
   );
 };
 
-interface ISceneMarkerChronologyRow {
+const ActivityTypePerformerTile: React.FC<{
+  performer: ActivityTypePerformer;
+  role: "Top" | "Bottom";
+  className?: string;
+}> = ({ performer, role, className }) => (
+  <div
+    key={`${role}-${performer.id}`}
+    className={cx(
+      "scene-marker-activity-performer",
+      `scene-marker-activity-performer-${role.toLowerCase()}`,
+      className
+    )}
+    title={`${role}: ${performer.name}`}
+  >
+    <div className="scene-marker-activity-performer-image">
+      {performer.image_path ? (
+        <img src={performer.image_path} alt={performer.name} />
+      ) : (
+        <Icon icon={faUser} />
+      )}
+    </div>
+    <div className="scene-marker-activity-performer-name">{performer.name}</div>
+  </div>
+);
+
+interface ITimelineMarkerBox {
   marker: GQL.SceneMarkerDataFragment;
-  allMarkers: GQL.SceneMarkerDataFragment[];
-  selected: boolean;
+  selectedMarkerIds: Set<string>;
   currentTimestamp?: number;
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   onEdit: (marker: GQL.SceneMarkerDataFragment) => void;
   onSelectMarker: (id: string, selected: boolean) => void;
 }
 
-const SceneMarkerChronologyRow: React.FC<ISceneMarkerChronologyRow> = ({
+const TimelineMarkerBox: React.FC<ITimelineMarkerBox> = ({
   marker,
-  allMarkers,
-  selected,
+  selectedMarkerIds,
   currentTimestamp,
   onClickMarker,
   onEdit,
   onSelectMarker,
 }) => {
-  const { configuration } = useConfigurationContext();
-  const [imageFailed, setImageFailed] = useState(false);
-  const [showParentTags, setShowParentTags] = useState(false);
-  const title = markerTitle(marker);
-  const screenshot = marker.screenshot && !imageFailed ? marker.screenshot : "";
-  const activityTypeTagIds = useMemo(
-    () =>
-      new Set(
-        [
-          configuration?.ui.roleTagIds?.sexTagId,
-          configuration?.ui.roleTagIds?.oralTagId,
-          configuration?.ui.roleTagIds?.soloTagId,
-        ].filter((id): id is string => !!id)
-      ),
-    [
-      configuration?.ui.roleTagIds?.oralTagId,
-      configuration?.ui.roleTagIds?.sexTagId,
-      configuration?.ui.roleTagIds?.soloTagId,
-    ]
-  );
-  const isActivityTypeMarker =
-    marker.tags.length === 0 &&
-    (activityTypeTagIds.has(marker.primary_tag.id) ||
-      (marker.primary_tag.parents ?? []).some((parent) =>
-        activityTypeTagIds.has(parent.id)
-      ));
   const isCurrentMarker = timestampBelongsToSceneMarker(
     marker,
     currentTimestamp
   );
-  const showRoleArrows =
-    marker.top_performers.length > 0 && marker.bottom_performers.length > 0;
-  const displayTags = useMemo(
-    () => getChronologicalSceneMarkerDisplayTags(marker, allMarkers),
-    [allMarkers, marker]
-  );
-  const visibleDisplayTags = useMemo(
-    () => displayTags.filter(({ kind }) => kind !== "parent"),
-    [displayTags]
-  );
-  const parentDisplayTags = useMemo(
-    () => displayTags.filter(({ kind }) => kind === "parent"),
-    [displayTags]
-  );
 
-  useEffect(() => {
-    setImageFailed(false);
-  }, [marker.screenshot]);
-
-  const isInteractiveClickTarget = (target: EventTarget) =>
-    target instanceof Element &&
-    !!target.closest("a, button, input, label, select, textarea");
-
-  const onClickRow = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (!isInteractiveClickTarget(event.target)) {
-      onClickMarker(marker);
+  const renderMarkerTime = () => {
+    if (marker.end_seconds !== null && marker.end_seconds !== undefined) {
+      return (
+        <>
+          <Button
+            className="scene-marker-activity-marker-time-part p-0"
+            variant="link"
+            onClick={(event) => {
+              event.stopPropagation();
+              onClickMarker(marker);
+            }}
+            title="Seek to start"
+          >
+            {TextUtils.secondsToTimestamp(marker.seconds)}
+          </Button>
+          <span className="scene-marker-activity-marker-time-separator">-</span>
+          <Button
+            className="scene-marker-activity-marker-time-part p-0"
+            variant="link"
+            onClick={(event) => {
+              event.stopPropagation();
+              onClickMarker({
+                ...marker,
+                seconds: marker.end_seconds ?? marker.seconds,
+              });
+            }}
+            title="Seek to end"
+          >
+            {TextUtils.secondsToTimestamp(marker.end_seconds)}
+          </Button>
+        </>
+      );
     }
+
+    return (
+      <Button
+        className="scene-marker-activity-marker-time-part p-0"
+        variant="link"
+        onClick={(event) => {
+          event.stopPropagation();
+          onClickMarker(marker);
+        }}
+        title="Seek to start"
+      >
+        {TextUtils.secondsToTimestamp(marker.seconds)}
+      </Button>
+    );
   };
 
-  const onKeyDownRow = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (
-      event.target === event.currentTarget &&
-      (event.key === "Enter" || event.key === " ")
-    ) {
-      event.preventDefault();
-      onClickMarker(marker);
-    }
-  };
+  return (
+    <div
+      key={marker.id}
+      className={cx("scene-marker-activity-marker-box", {
+        "scene-marker-activity-marker-box-current": isCurrentMarker,
+      })}
+      onClick={() => onClickMarker(marker)}
+    >
+      <div
+        className="scene-marker-activity-marker-time"
+        title={`Seek to ${markerTitle(marker)}`}
+      >
+        {renderMarkerTime()}
+      </div>
+      <Button
+        className="scene-marker-activity-marker-edit p-0"
+        variant="link"
+        onClick={(event) => {
+          event.stopPropagation();
+          onEdit(marker);
+        }}
+      >
+        Edit
+      </Button>
+      <Form.Check
+        className="scene-marker-activity-marker-checkbox"
+        type="checkbox"
+        checked={selectedMarkerIds.has(marker.id)}
+        onClick={(event: React.MouseEvent<HTMLInputElement>) =>
+          event.stopPropagation()
+        }
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+          onSelectMarker(marker.id, e.currentTarget.checked)
+        }
+      />
+    </div>
+  );
+};
 
-  const renderPerformerBadge = (
-    performer: (typeof marker.top_performers)[number],
-    variant: "success" | "info",
-    icon: typeof faArrowUp
-  ) => (
-    <Badge key={performer.id} variant={variant} className="performer-badge">
-      {showRoleArrows && <Icon icon={icon} className="mr-1" />}
-      {performer.name}
-    </Badge>
+interface IActivityTypeGroupCard {
+  group: IActivityTypeSceneMarkerGroup<GQL.SceneMarkerDataFragment>;
+  selectedMarkerIds: Set<string>;
+  currentTimestamp?: number;
+  onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
+  onEdit: (marker: GQL.SceneMarkerDataFragment) => void;
+  onSelectMarker: (id: string, selected: boolean) => void;
+  onSelectMarkers: (ids: string[], selected: boolean) => void;
+}
+
+const ActivityTypeGroupCard: React.FC<IActivityTypeGroupCard> = ({
+  group,
+  selectedMarkerIds,
+  currentTimestamp,
+  onClickMarker,
+  onEdit,
+  onSelectMarker,
+  onSelectMarkers,
+}) => {
+  const hasPerformers =
+    group.topPerformers.length > 0 || group.bottomPerformers.length > 0;
+  const groupMarkerIds = group.markers.map((marker) => marker.id);
+  const allGroupSelected =
+    groupMarkerIds.length > 0 &&
+    groupMarkerIds.every((id) => selectedMarkerIds.has(id));
+  const groupDurationSeconds = sumMergedMarkerDurations(group.markers);
+  const isCurrentGroup = group.markers.some((marker) =>
+    timestampBelongsToSceneMarker(marker, currentTimestamp)
   );
 
   return (
     <div
-      className={cx("marker-item scene-marker-chronology-row", {
-        "scene-marker-chronology-row-activity": isActivityTypeMarker,
-        "scene-marker-chronology-row-current": isCurrentMarker,
+      className={cx("scene-marker-activity-config-card", {
+        "scene-marker-activity-config-card-current": isCurrentGroup,
       })}
-      onClick={onClickRow}
-      onKeyDown={onKeyDownRow}
+    >
+      <div className="scene-marker-activity-config-header">
+        <Form.Check
+          className="scene-marker-activity-config-checkbox"
+          type="checkbox"
+          checked={allGroupSelected}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            onSelectMarkers(groupMarkerIds, e.currentTarget.checked)
+          }
+        />
+        <span className="scene-marker-activity-config-summary">
+          {formatMarkerDuration(groupDurationSeconds)}
+        </span>
+      </div>
+      <div className="scene-marker-activity-config-performers">
+        {hasPerformers ? (
+          <>
+            {group.topPerformers.map((performer) => (
+              <ActivityTypePerformerTile
+                key={`top-${performer.id}`}
+                performer={performer}
+                role="Top"
+              />
+            ))}
+            {group.bottomPerformers.map((performer) => (
+              <ActivityTypePerformerTile
+                key={`bottom-${performer.id}`}
+                performer={performer}
+                role="Bottom"
+              />
+            ))}
+          </>
+        ) : (
+          <div className="scene-marker-activity-config-empty">
+            No performers
+          </div>
+        )}
+      </div>
+      <div className="scene-marker-activity-config-markers">
+        {group.markers.map((marker) => (
+          <TimelineMarkerBox
+            key={marker.id}
+            marker={marker}
+            selectedMarkerIds={selectedMarkerIds}
+            currentTimestamp={currentTimestamp}
+            onClickMarker={onClickMarker}
+            onEdit={onEdit}
+            onSelectMarker={onSelectMarker}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+interface IHighlightMarkerCard {
+  marker: GQL.SceneMarkerDataFragment;
+  allMarkers: GQL.SceneMarkerDataFragment[];
+  selectedMarkerIds: Set<string>;
+  currentTimestamp?: number;
+  onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
+  onEdit: (marker: GQL.SceneMarkerDataFragment) => void;
+  onSelectMarker: (id: string, selected: boolean) => void;
+}
+
+const HighlightMarkerCard: React.FC<IHighlightMarkerCard> = ({
+  marker,
+  allMarkers,
+  selectedMarkerIds,
+  currentTimestamp,
+  onClickMarker,
+  onEdit,
+  onSelectMarker,
+}) => {
+  const tags = uniqueDisplayTagsInDisplayOrder(
+    getChronologicalSceneMarkerDisplayTags(marker, allMarkers)
+  );
+  const hasPerformers =
+    marker.top_performers.length > 0 || marker.bottom_performers.length > 0;
+  const isCurrentMarker = timestampBelongsToSceneMarker(
+    marker,
+    currentTimestamp
+  );
+  const title = markerTitle(marker);
+
+  const onClickCard = () => {
+    onClickMarker(marker);
+  };
+
+  return (
+    <div
+      className={cx(
+        "scene-marker-activity-config-card",
+        "scene-marker-highlight-config-card",
+        "scene-marker-highlight-marker-card",
+        {
+          "scene-marker-highlight-marker-card-current": isCurrentMarker,
+        }
+      )}
+      onClick={onClickCard}
+      onKeyDown={(event) => {
+        if (event.target === event.currentTarget) {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onClickCard();
+          }
+        }
+      }}
       role="button"
       tabIndex={0}
       title={`Seek to ${title}`}
     >
-      <button
-        className="scene-marker-chronology-thumb"
-        type="button"
-        onClick={() => onClickMarker(marker)}
-        title={title}
-      >
-        {screenshot ? (
-          <img
-            src={screenshot}
-            alt={title}
-            onError={() => setImageFailed(true)}
-          />
+      <div className="scene-marker-highlight-main-row">
+        <Button
+          className="scene-marker-highlight-title p-0"
+          variant="link"
+          onClick={(event) => {
+            event.stopPropagation();
+            onClickMarker(marker);
+          }}
+        >
+          {title}
+        </Button>
+        <span className="scene-marker-highlight-timestamp">
+          <Button
+            className="scene-marker-highlight-time-part p-0"
+            variant="link"
+            onClick={(event) => {
+              event.stopPropagation();
+              onClickMarker(marker);
+            }}
+            title="Seek to start"
+          >
+            {TextUtils.secondsToTimestamp(marker.seconds)}
+          </Button>
+          {marker.end_seconds !== null && marker.end_seconds !== undefined ? (
+            <>
+              <span className="scene-marker-highlight-time-separator">-</span>
+              <Button
+                className="scene-marker-highlight-time-part p-0"
+                variant="link"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onClickMarker({
+                    ...marker,
+                    seconds: marker.end_seconds ?? marker.seconds,
+                  });
+                }}
+                title="Seek to end"
+              >
+                {TextUtils.secondsToTimestamp(marker.end_seconds)}
+              </Button>
+              <span className="scene-marker-highlight-duration">
+                ({formatMarkerDuration(marker.end_seconds - marker.seconds)})
+              </span>
+            </>
+          ) : (
+            <span className="scene-marker-highlight-duration">
+              ({formatMarkerDuration(defaultMarkerDurationSeconds)})
+            </span>
+          )}
+        </span>
+        <Button
+          className="scene-marker-highlight-edit p-0"
+          variant="link"
+          onClick={(event) => {
+            event.stopPropagation();
+            onEdit(marker);
+          }}
+        >
+          Edit
+        </Button>
+        <Form.Check
+          className="scene-marker-highlight-checkbox"
+          type="checkbox"
+          checked={selectedMarkerIds.has(marker.id)}
+          onClick={(event: React.MouseEvent<HTMLInputElement>) =>
+            event.stopPropagation()
+          }
+          onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+            onSelectMarker(marker.id, event.currentTarget.checked)
+          }
+        />
+      </div>
+      <div className="scene-marker-activity-config-performers">
+        {hasPerformers ? (
+          <>
+            {marker.top_performers.map((performer) => (
+              <ActivityTypePerformerTile
+                key={`top-${performer.id}`}
+                performer={performer}
+                role="Top"
+                className="scene-marker-highlight-performer"
+              />
+            ))}
+            {marker.bottom_performers.map((performer) => (
+              <ActivityTypePerformerTile
+                key={`bottom-${performer.id}`}
+                performer={performer}
+                role="Bottom"
+                className="scene-marker-highlight-performer"
+              />
+            ))}
+          </>
         ) : (
-          <span className="scene-marker-chronology-thumb-pending">
-            <Icon icon={faImage} />
-            <span>Pending image</span>
-          </span>
+          <div className="scene-marker-activity-config-empty">
+            No performers
+          </div>
         )}
-      </button>
-
-      <div className="min-w-0 marker-content">
-        <div className="d-flex align-items-center marker-main-row">
-          <Button
-            variant="link"
-            className="p-0 marker-title-btn"
-            onClick={() => onClickMarker(marker)}
-            title={title}
-          >
-            {title}
-          </Button>
-          <span className="marker-timestamp text-muted ml-2">
-            <Button
-              variant="link"
-              className="p-0 text-muted"
-              onClick={() => onClickMarker(marker)}
-              title="Seek to start"
-            >
-              {TextUtils.secondsToTimestamp(marker.seconds)}
-            </Button>
-            {marker.end_seconds !== null && marker.end_seconds !== undefined ? (
-              <>
-                <span>-</span>
-                <Button
-                  variant="link"
-                  className="p-0 text-muted"
-                  onClick={() => {
-                    onClickMarker({
-                      ...marker,
-                      seconds: marker.end_seconds ?? marker.seconds,
-                    });
-                  }}
-                  title="Seek to end"
-                >
-                  {TextUtils.secondsToTimestamp(marker.end_seconds)}
-                </Button>
-                <span className="ml-1">
-                  (
-                  {TextUtils.formatDurationRange(
-                    marker.end_seconds - marker.seconds
-                  )}
-                  )
-                </span>
-              </>
-            ) : (
-              <span className="ml-1">(20s)</span>
-            )}
-          </span>
-          <Button
-            variant="link"
-            className="marker-edit-btn p-0 ml-auto"
-            onClick={() => onEdit(marker)}
-          >
-            Edit
-          </Button>
-        </div>
-
-        <div className="d-flex align-items-center flex-wrap marker-badges">
-          {marker.top_performers.map((performer) =>
-            renderPerformerBadge(performer, "success", faArrowUp)
-          )}
-          {marker.bottom_performers.map((performer) =>
-            renderPerformerBadge(performer, "info", faArrowDown)
-          )}
-        </div>
-
-        <div className="d-flex align-items-center flex-wrap marker-badges">
-          {visibleDisplayTags.map(({ kind, tag }) => (
+      </div>
+      <div className="scene-marker-highlight-tags">
+        {tags.length > 0 ? (
+          tags.map(({ kind, tag }) => (
             <Badge
               key={tag.id}
               variant={kind === "primary" ? "primary" : "secondary"}
@@ -340,39 +598,13 @@ const SceneMarkerChronologyRow: React.FC<ISceneMarkerChronologyRow> = ({
             >
               {tag.name}
             </Badge>
-          ))}
-          {parentDisplayTags.length > 0 && (
-            <Button
-              className="tag-parent-toggle"
-              type="button"
-              variant="secondary"
-              title={showParentTags ? "Hide parent tags" : "Show parent tags"}
-              onClick={() => setShowParentTags((current) => !current)}
-            >
-              {showParentTags ? "-" : `+${parentDisplayTags.length}`}
-            </Button>
-          )}
-          {showParentTags &&
-            parentDisplayTags.map(({ kind, tag }) => (
-              <Badge
-                key={tag.id}
-                variant="secondary"
-                className={cx("tag-badge", `tag-badge-${kind}`)}
-              >
-                {tag.name}
-              </Badge>
-            ))}
-        </div>
+          ))
+        ) : (
+          <Badge variant="secondary" className="tag-badge tag-badge-highlight">
+            Untagged
+          </Badge>
+        )}
       </div>
-
-      <Form.Check
-        className="marker-checkbox"
-        type="checkbox"
-        checked={selected}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-          onSelectMarker(marker.id, e.currentTarget.checked)
-        }
-      />
     </div>
   );
 };
@@ -384,12 +616,15 @@ export const SceneMarkersChronologicalPanel: React.FC<
   allMarkers,
   search,
   onSearchChange,
+  activeTab,
   selectedMarkerIds,
   onClickMarker,
   onEdit,
   onSelectMarker,
+  onSelectMarkers,
   currentTimestamp,
 }) => {
+  const { configuration } = useConfigurationContext();
   const firstTagOptions = useMemo(
     () => getChronologicalSceneMarkerTags(allMarkers),
     [allMarkers]
@@ -410,6 +645,132 @@ export const SceneMarkersChronologicalPanel: React.FC<
     () =>
       getChronologicalSceneMarkerPerformers(allMarkers, search.tags, "bottom"),
     [allMarkers, search.tags]
+  );
+  const activityTypeTagIds = useMemo(
+    () => getActivityTypeTagIds(configuration?.ui.roleTagIds),
+    [configuration?.ui.roleTagIds]
+  );
+  const highlights = useMemo(
+    () =>
+      markers.filter(
+        (marker) => !isActivityTypeSceneMarker(marker, activityTypeTagIds)
+      ),
+    [activityTypeTagIds, markers]
+  );
+  const activityTypeMarkers = useMemo(
+    () =>
+      markers
+        .filter((marker) =>
+          isActivityTypeSceneMarker(marker, activityTypeTagIds)
+        )
+        .sort((a, b) =>
+          compareActivityTypeSceneMarkers(a, b, configuration?.ui.roleTagIds)
+        ),
+    [activityTypeTagIds, configuration?.ui.roleTagIds, markers]
+  );
+  const activityTypeSections = useMemo<IActivityTypeSection[]>(() => {
+    const roleTagIds = configuration?.ui.roleTagIds;
+    const sectionDefinitions: Array<{
+      key: ActivityTypeSectionKey;
+      tagId?: string;
+      fallbackLabel: string;
+    }> = [
+      { key: "oral", tagId: roleTagIds?.oralTagId, fallbackLabel: "Oral" },
+      { key: "sex", tagId: roleTagIds?.sexTagId, fallbackLabel: "Sex" },
+      { key: "solo", tagId: roleTagIds?.soloTagId, fallbackLabel: "Solo" },
+    ];
+
+    return sectionDefinitions
+      .map(({ key, tagId, fallbackLabel }) => {
+        const sectionMarkers = tagId
+          ? activityTypeMarkers.filter(
+              (marker) => marker.primary_tag.id === tagId
+            )
+          : [];
+
+        return {
+          key,
+          label: sectionMarkers[0]?.primary_tag.name ?? fallbackLabel,
+          markers: sectionMarkers,
+        };
+      })
+      .filter((section) => section.markers.length > 0);
+  }, [activityTypeMarkers, configuration?.ui.roleTagIds]);
+
+  const renderHighlightList = () => (
+    <div className="scene-marker-chronology-list">
+      {highlights.length > 0 ? (
+        highlights.map((marker) => (
+          <HighlightMarkerCard
+            key={marker.id}
+            marker={marker}
+            allMarkers={allMarkers}
+            selectedMarkerIds={selectedMarkerIds}
+            currentTimestamp={currentTimestamp}
+            onClickMarker={onClickMarker}
+            onEdit={onEdit}
+            onSelectMarker={onSelectMarker}
+          />
+        ))
+      ) : (
+        <div className="scene-marker-chronology-empty">
+          No highlight markers found.
+        </div>
+      )}
+    </div>
+  );
+
+  const renderActivityTypeList = () => (
+    <div className="scene-marker-chronology-list">
+      {activityTypeSections.length > 0 ? (
+        activityTypeSections.map((section) => {
+          const sectionMarkerIds = section.markers.map((marker) => marker.id);
+          const allSectionSelected =
+            sectionMarkerIds.length > 0 &&
+            sectionMarkerIds.every((id) => selectedMarkerIds.has(id));
+          const sectionDurationSeconds = sumMergedMarkerDurations(
+            section.markers
+          );
+
+          return (
+            <React.Fragment key={section.key}>
+              <div className="scene-marker-activity-group-header">
+                <div className="scene-marker-activity-group-title">
+                  <Form.Check
+                    className="scene-marker-activity-group-checkbox"
+                    type="checkbox"
+                    checked={allSectionSelected}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      onSelectMarkers(sectionMarkerIds, e.currentTarget.checked)
+                    }
+                  />
+                  <span>{section.label}</span>
+                </div>
+                <div className="scene-marker-activity-group-meta">
+                  <span>{formatMarkerDuration(sectionDurationSeconds)}</span>
+                </div>
+              </div>
+              {groupActivityTypeSceneMarkers(section.markers).map((group) => (
+                <ActivityTypeGroupCard
+                  key={group.key}
+                  group={group}
+                  selectedMarkerIds={selectedMarkerIds}
+                  currentTimestamp={currentTimestamp}
+                  onClickMarker={onClickMarker}
+                  onEdit={onEdit}
+                  onSelectMarker={onSelectMarker}
+                  onSelectMarkers={onSelectMarkers}
+                />
+              ))}
+            </React.Fragment>
+          );
+        })
+      ) : (
+        <div className="scene-marker-chronology-empty">
+          No activity type markers found.
+        </div>
+      )}
+    </div>
   );
 
   useEffect(() => {
@@ -471,82 +832,50 @@ export const SceneMarkersChronologicalPanel: React.FC<
     onSearchChange({ ...search, bottomPerformers: performers });
   };
 
-  const onWheelMarkerList = (event: React.WheelEvent<HTMLDivElement>) => {
-    const list = event.currentTarget;
-    const maxScrollTop = list.scrollHeight - list.clientHeight;
-
-    if (maxScrollTop <= 0 || event.deltaY === 0) {
-      return;
-    }
-
-    const nextScrollTop = Math.max(
-      0,
-      Math.min(maxScrollTop, list.scrollTop + event.deltaY)
-    );
-
-    if (nextScrollTop !== list.scrollTop) {
-      event.preventDefault();
-      event.stopPropagation();
-      list.scrollTop = nextScrollTop;
-    }
-  };
+  const renderSearch = () => (
+    <div className="scene-marker-chronology-search">
+      <div className="scene-marker-chronology-search-tags">
+        {Array.from({ length: tagSelectCount }, (_, index) => (
+          <SearchSingleSelect
+            key={index}
+            className="scene-marker-chronology-tag-select"
+            options={getTagOptionsForIndex(index)}
+            value={search.tags[index]}
+            onSelect={(tags) => onSetTagAtIndex(index, tags)}
+            placeholder={index === 0 ? "Tags" : "Add tag"}
+            noOptionsMessage="No matching tags"
+          />
+        ))}
+      </div>
+      <div className="scene-marker-chronology-search-performers">
+        <div className="scene-marker-chronology-search-performer">
+          <SearchMultiSelect
+            options={topPerformerOptions}
+            values={search.topPerformers}
+            onSelect={onSetTopPerformers}
+            placeholder="Top"
+            noOptionsMessage="No matching performers"
+          />
+        </div>
+        <div className="scene-marker-chronology-search-performer">
+          <SearchMultiSelect
+            options={bottomPerformerOptions}
+            values={search.bottomPerformers}
+            onSelect={onSetBottomPerformers}
+            placeholder="Bottom"
+            noOptionsMessage="No matching performers"
+          />
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="scene-marker-chronology">
-      <div className="scene-marker-chronology-search">
-        <div className="scene-marker-chronology-search-tags">
-          {Array.from({ length: tagSelectCount }, (_, index) => (
-            <SearchSingleSelect
-              key={index}
-              className="scene-marker-chronology-tag-select"
-              options={getTagOptionsForIndex(index)}
-              value={search.tags[index]}
-              onSelect={(tags) => onSetTagAtIndex(index, tags)}
-              placeholder={index === 0 ? "Tags" : "Add tag"}
-              noOptionsMessage="No matching tags"
-            />
-          ))}
-        </div>
-        <div className="scene-marker-chronology-search-performers">
-          <div className="scene-marker-chronology-search-performer">
-            <SearchMultiSelect
-              options={topPerformerOptions}
-              values={search.topPerformers}
-              onSelect={onSetTopPerformers}
-              placeholder="Top"
-              noOptionsMessage="No matching performers"
-            />
-          </div>
-          <div className="scene-marker-chronology-search-performer">
-            <SearchMultiSelect
-              options={bottomPerformerOptions}
-              values={search.bottomPerformers}
-              onSelect={onSetBottomPerformers}
-              placeholder="Bottom"
-              noOptionsMessage="No matching performers"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="scene-marker-chronology-list" onWheel={onWheelMarkerList}>
-        {markers.length > 0 ? (
-          markers.map((marker) => (
-            <SceneMarkerChronologyRow
-              key={marker.id}
-              marker={marker}
-              allMarkers={allMarkers}
-              selected={selectedMarkerIds.has(marker.id)}
-              currentTimestamp={currentTimestamp}
-              onClickMarker={onClickMarker}
-              onEdit={onEdit}
-              onSelectMarker={onSelectMarker}
-            />
-          ))
-        ) : (
-          <div className="scene-marker-chronology-empty">No markers found.</div>
-        )}
-      </div>
+      {activeTab === "highlights" && renderSearch()}
+      {activeTab === "activity"
+        ? renderActivityTypeList()
+        : renderHighlightList()}
     </div>
   );
 };

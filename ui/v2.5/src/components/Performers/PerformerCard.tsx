@@ -62,6 +62,8 @@ export interface IPerformerRoleStats {
   facial_scene_count: number;
   facial_top_count: number;
   facial_bottom_count: number;
+  facial_with_top_count: number;
+  facial_with_bottom_count: number;
   facial_marker_with_top_count: number;
   facial_marker_with_bottom_count: number;
   facial_unique_partner_count: number;

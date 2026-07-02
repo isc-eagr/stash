@@ -1,5 +1,11 @@
-import React, { useMemo, useState, useEffect, useCallback } from "react"; // CUSTOM: added useMemo, useCallback
-import { Button } from "react-bootstrap"; // CUSTOM
+import React, {
+  useMemo,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react"; // CUSTOM: added useMemo, useCallback, useRef
+import { Button, Nav } from "react-bootstrap"; // CUSTOM
 import { FormattedMessage } from "react-intl";
 import Mousetrap from "mousetrap";
 import * as GQL from "src/core/generated-graphql";
@@ -9,11 +15,19 @@ import { SceneMarkerForm } from "./SceneMarkerForm";
 // CUSTOM: begin
 import { markerTitle } from "src/core/markers";
 import type { ILoopSegmentInput } from "src/components/ScenePlayer/multi-segment-loop";
-import { SceneMarkersChronologicalPanel } from "./SceneMarkersChronologicalPanel";
+import {
+  SceneMarkersChronologicalPanel,
+  type SceneMarkerChronologyTabKey,
+} from "./SceneMarkersChronologicalPanel";
 import {
   filterChronologicalSceneMarkers,
   type ISceneMarkerChronologySearchFilters,
 } from "./sceneMarkerChronologySearch_custom";
+import {
+  compareActivityTypeSceneMarkers,
+  getActivityTypeTagIds,
+  isActivityTypeSceneMarker,
+} from "./sceneMarkerActivityType_custom";
 import { shouldShowOfficialSceneMarkerLayout } from "./sceneMarkerLayoutPreference_custom";
 // CUSTOM: end
 
@@ -23,6 +37,10 @@ interface ISceneMarkersPanelProps {
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   addMultiSegmentLoopSegments: (segments: ILoopSegmentInput[]) => void; // CUSTOM
   currentTimestamp?: number; // CUSTOM
+}
+
+function getSceneTabScrollElement() {
+  return document.querySelector<HTMLElement>(".scene-tabs .tab-content");
 }
 
 export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
@@ -53,8 +71,12 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
       topPerformers: [],
       bottomPerformers: [],
     });
+  const [markerChronologyTab, setMarkerChronologyTab] =
+    useState<SceneMarkerChronologyTabKey>("activity");
+  const markerPanelScrollTop = useRef(0);
 
   const onOpenEditor = useCallback((marker?: GQL.SceneMarkerDataFragment) => {
+    markerPanelScrollTop.current = getSceneTabScrollElement()?.scrollTop ?? 0;
     setIsEditorOpen(true);
     setEditingMarker(marker ?? undefined);
   }, []);
@@ -62,6 +84,14 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   const closeEditor = useCallback(() => {
     setEditingMarker(undefined);
     setIsEditorOpen(false);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const scrollElement = getSceneTabScrollElement();
+        if (scrollElement) {
+          scrollElement.scrollTop = markerPanelScrollTop.current;
+        }
+      });
+    });
   }, []);
 
   const sceneMarkers = useMemo(() => {
@@ -78,13 +108,37 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     () => filterChronologicalSceneMarkers(sceneMarkers, markerSearch),
     [markerSearch, sceneMarkers]
   );
+  const activityTypeTagIds = useMemo(
+    () => getActivityTypeTagIds(configuration?.ui.roleTagIds),
+    [configuration?.ui.roleTagIds]
+  );
+  const highlightSceneMarkers = useMemo(
+    () =>
+      filteredSceneMarkers.filter(
+        (marker) => !isActivityTypeSceneMarker(marker, activityTypeTagIds)
+      ),
+    [activityTypeTagIds, filteredSceneMarkers]
+  );
+  const activityTypeSceneMarkers = useMemo(
+    () =>
+      sceneMarkers
+        .filter((marker) =>
+          isActivityTypeSceneMarker(marker, activityTypeTagIds)
+        )
+        .sort((a, b) =>
+          compareActivityTypeSceneMarkers(a, b, configuration?.ui.roleTagIds)
+        ),
+    [activityTypeTagIds, configuration?.ui.roleTagIds, sceneMarkers]
+  );
 
   const showOfficialSceneMarkerLayout = shouldShowOfficialSceneMarkerLayout(
     configuration.ui
   );
   const visibleSceneMarkers = showOfficialSceneMarkerLayout
     ? sceneMarkers
-    : filteredSceneMarkers;
+    : markerChronologyTab === "activity"
+    ? activityTypeSceneMarkers
+    : highlightSceneMarkers;
 
   const visibleMarkerIds = useMemo(
     () => visibleSceneMarkers.map((marker) => marker.id),
@@ -197,6 +251,29 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   return (
     <div className="scene-markers-panel">
       {/* CUSTOM: begin – toolbar with loop button & select-all */}
+      {!showOfficialSceneMarkerLayout && (
+        <Nav
+          variant="tabs"
+          activeKey={markerChronologyTab}
+          onSelect={(key) =>
+            setMarkerChronologyTab(
+              (key as SceneMarkerChronologyTabKey) ?? "activity"
+            )
+          }
+          className="scene-marker-chronology-tabs"
+        >
+          <Nav.Item>
+            <Nav.Link eventKey="activity">
+              Activity Type ({activityTypeSceneMarkers.length})
+            </Nav.Link>
+          </Nav.Item>
+          <Nav.Item>
+            <Nav.Link eventKey="highlights">
+              Highlights ({highlightSceneMarkers.length})
+            </Nav.Link>
+          </Nav.Item>
+        </Nav>
+      )}
       <div className="scene-marker-toolbar">
         <div className="scene-marker-toolbar-actions">
           <Button onClick={() => onOpenEditor()}>
@@ -228,6 +305,8 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
             {allVisibleSelected
               ? showOfficialSceneMarkerLayout
                 ? "Clear All"
+                : markerChronologyTab === "activity"
+                ? "Clear Activity"
                 : "Clear Filtered"
               : "Select All"}
           </Button>
@@ -239,7 +318,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
           : `${visibleMarkerCount} markers`}
       </div>
       {/* CUSTOM: end */}
-      <div className="container">
+      <div className="scene-markers-container">
         {showOfficialSceneMarkerLayout ? (
           <PrimaryTags
             sceneMarkers={sceneMarkers}
@@ -257,14 +336,20 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
           />
         ) : (
           <SceneMarkersChronologicalPanel
-            markers={filteredSceneMarkers}
+            markers={
+              markerChronologyTab === "activity"
+                ? activityTypeSceneMarkers
+                : highlightSceneMarkers
+            }
             allMarkers={sceneMarkers}
             search={markerSearch}
             onSearchChange={setMarkerSearch}
+            activeTab={markerChronologyTab}
             selectedMarkerIds={selectedMarkerIds}
             onClickMarker={onClickMarker}
             onEdit={onOpenEditor}
             onSelectMarker={toggleSingle}
+            onSelectMarkers={setManySelected}
             currentTimestamp={currentTimestamp}
           />
         )}

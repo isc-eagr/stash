@@ -7,8 +7,16 @@ export interface IMarker {
   end_seconds?: number | null;
   primaryTag: { name: string };
   // CUSTOM: begin - performer roles on markers
-  top_performers?: Array<{ id: string; name: string }>;
-  bottom_performers?: Array<{ id: string; name: string }>;
+  top_performers?: Array<{
+    id: string;
+    name: string;
+    image_path?: string | null;
+  }>;
+  bottom_performers?: Array<{
+    id: string;
+    name: string;
+    image_path?: string | null;
+  }>;
   // CUSTOM: end
 }
 
@@ -71,8 +79,16 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
   private showMarkerTooltip(
     title: string,
     layer: number = 0,
-    topPerformers?: Array<{ id: string; name: string }>,
-    bottomPerformers?: Array<{ id: string; name: string }>,
+    topPerformers?: Array<{
+      id: string;
+      name: string;
+      image_path?: string | null;
+    }>,
+    bottomPerformers?: Array<{
+      id: string;
+      name: string;
+      image_path?: string | null;
+    }>,
     isNegativeMarker: boolean = false,
     target?: HTMLElement
   ) {
@@ -105,33 +121,90 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     }
 
     this.markerTooltip.innerText = tooltipContent;
-    this.markerTooltip.style.top = `-${this.layerHeight * layer + 24}px`;
-    this.markerTooltip.style.visibility = "visible";
-    this.markerTooltip.style.transform = "translateX(-50%)";
-    this.markerTooltip.style.right = "";
+    // CUSTOM: begin - image-aware performer tooltip content
+    this.markerTooltip.replaceChildren();
+    const titleEl = document.createElement("div");
+    titleEl.className = "vjs-marker-tooltip-title";
+    titleEl.textContent = title;
+    this.markerTooltip.appendChild(titleEl);
+
+    const addPerformers = (
+      performers: Array<{
+        id: string;
+        name: string;
+        image_path?: string | null;
+      }>,
+      role: "top" | "bottom"
+    ) => {
+      if (performers.length === 0) return;
+
+      const list = document.createElement("div");
+      list.className = `vjs-marker-tooltip-performers vjs-marker-tooltip-performers-${role}`;
+
+      performers.forEach((performer) => {
+        const item = document.createElement("span");
+        item.className = "vjs-marker-tooltip-performer";
+
+        if (performer.image_path) {
+          const image = document.createElement("img");
+          image.className = "vjs-marker-tooltip-performer-image";
+          image.src = performer.image_path;
+          image.alt = performer.name;
+          item.appendChild(image);
+        }
+
+        const name = document.createElement("span");
+        name.className = "vjs-marker-tooltip-performer-name";
+        name.textContent = performer.name;
+        item.appendChild(name);
+        list.appendChild(item);
+      });
+
+      this.markerTooltip?.appendChild(list);
+    };
+
+    addPerformers(topPerformers ?? [], "top");
+    addPerformers(bottomPerformers ?? [], "bottom");
+    // CUSTOM: end
 
     // CUSTOM: begin - keep marker tooltips inside the player timeline edges
+    this.markerTooltip.style.visibility = "hidden";
+    this.markerTooltip.style.width = "";
+    this.markerTooltip.style.maxWidth = "";
+    this.markerTooltip.style.transform = "none";
+    this.markerTooltip.style.right = "";
+    this.markerTooltip.style.left = "0px";
+
     const parent = this.markerTooltip.parentElement;
     if (parent && target) {
       const parentRect = parent.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
       const padding = 6;
-      this.markerTooltip.style.maxWidth = `${Math.max(
-        parentRect.width - padding * 2,
-        0
-      )}px`;
+      const maxWidth = Math.max(parentRect.width - padding * 2, 0);
+      const naturalWidth = this.markerTooltip.offsetWidth;
+
+      this.markerTooltip.style.width =
+        naturalWidth > maxWidth ? `${maxWidth}px` : "";
       const tooltipWidth = this.markerTooltip.offsetWidth;
-      const halfWidth = tooltipWidth / 2;
+
       const targetCenter =
         targetRect.left + targetRect.width / 2 - parentRect.left;
-      const minCenter = halfWidth + padding;
-      const maxCenter = parentRect.width - halfWidth - padding;
-      const left =
-        maxCenter < minCenter
-          ? parentRect.width / 2
-          : Math.max(minCenter, Math.min(targetCenter, maxCenter));
+      const maxLeft = parentRect.width - tooltipWidth - padding;
+      const left = Math.max(
+        padding,
+        Math.min(targetCenter - tooltipWidth / 2, maxLeft)
+      );
+
       this.markerTooltip.style.left = `${left}px`;
+    } else {
+      this.markerTooltip.style.left = "50%";
+      this.markerTooltip.style.transform = "translateX(-50%)";
     }
+
+    this.markerTooltip.style.top = `-${
+      this.layerHeight * layer + this.markerTooltip.offsetHeight + 10
+    }px`;
+    this.markerTooltip.style.visibility = "visible";
     // CUSTOM: end
 
     // Style differently for negative markers

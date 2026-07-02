@@ -63,6 +63,7 @@ import type {
   ILoopSegmentInput,
   IMultiSegmentLoopApi,
 } from "./multi-segment-loop";
+import { filterLoopSegmentsOutsideNegativeMarkers } from "./loopSegments_custom";
 import { MultiSegmentLoopControls } from "./MultiSegmentLoopControls";
 
 // Performer image overlay components
@@ -233,8 +234,8 @@ type MarkerFragment = Pick<GQL.SceneMarker, "title" | "seconds"> & {
   primary_tag: Pick<GQL.Tag, "name">;
   tags: Array<Pick<GQL.Tag, "name">>;
   performers?: Array<Pick<GQL.Performer, "name">>; // CUSTOM
-  top_performers?: Array<Pick<GQL.Performer, "id" | "name">>; // CUSTOM
-  bottom_performers?: Array<Pick<GQL.Performer, "id" | "name">>; // CUSTOM
+  top_performers?: Array<Pick<GQL.Performer, "id" | "name" | "image_path">>; // CUSTOM
+  bottom_performers?: Array<Pick<GQL.Performer, "id" | "name" | "image_path">>; // CUSTOM
 };
 
 // CUSTOM: begin - SegmentPreset type for multi-segment loop presets
@@ -466,7 +467,10 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             | undefined;
           if (!multiSegmentPlugin) return;
 
-          segments.forEach((s) => {
+          filterLoopSegmentsOutsideNegativeMarkers(
+            segments,
+            scene.negative_markers
+          ).forEach((s) => {
             const { start, end: endRaw, title } = s;
             const end = endRaw > start ? endRaw : start + 1;
             multiSegmentPlugin.addSegment(start, end, title);
@@ -484,10 +488,10 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             | undefined;
           if (!multiSegmentPlugin) return;
 
-          const normalized: ILoopSegmentInput[] = segments.map((s) => ({
-            start: s.start,
-            end: s.end > s.start ? s.end : s.start + 1,
-          }));
+          const normalized = filterLoopSegmentsOutsideNegativeMarkers(
+            segments,
+            scene.negative_markers
+          );
 
           multiSegmentPlugin.setSegments(
             normalized.map((s) => ({
@@ -511,7 +515,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
           multiSegmentPlugin.clearSegments();
         },
       });
-    }, [sendMultiSegmentLoopApi, getPlayer]);
+    }, [sendMultiSegmentLoopApi, getPlayer, scene.negative_markers]);
     // CUSTOM: end
 
     // Initialize VideoJS player
@@ -695,11 +699,23 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         | undefined;
       if (!multiSegmentPlugin) return;
 
-      multiSegmentPlugin.markPoint();
+      const pendingStartTime = multiSegmentPlugin.getPendingStart();
+      if (pendingStartTime === null) {
+        multiSegmentPlugin.markPoint();
+      } else {
+        const currentTime = player.currentTime() || 0;
+        multiSegmentPlugin.cancelPending();
+        filterLoopSegmentsOutsideNegativeMarkers(
+          [{ start: pendingStartTime, end: currentTime }],
+          scene.negative_markers
+        ).forEach(({ start, end }) => {
+          multiSegmentPlugin.addSegment(start, end);
+        });
+      }
       setPendingStart(multiSegmentPlugin.getPendingStart());
       // Force sync segments after marking (in case callback doesn't trigger)
       setMultiSegments([...multiSegmentPlugin.getSegments()]);
-    }, [getPlayer]);
+    }, [getPlayer, scene.negative_markers]);
 
     const handleMultiSegmentCancelPending = useCallback(() => {
       const player = getPlayer();
@@ -973,18 +989,23 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
 
         if (!preset) return false;
 
+        const loopSegments = filterLoopSegmentsOutsideNegativeMarkers(
+          preset.segments,
+          scene.negative_markers
+        );
+
         multiSegmentPlugin.clearSegments();
-        preset.segments.forEach(({ start, end }) => {
+        loopSegments.forEach(({ start, end }) => {
           multiSegmentPlugin.addSegment(start, end);
         });
 
-        const shouldEnable = preset.enabled && preset.segments.length > 0;
+        const shouldEnable = preset.enabled && loopSegments.length > 0;
         multiSegmentPlugin.setEnabled(shouldEnable);
 
-        if (shouldEnable && preset.segments.length > 0) {
+        if (shouldEnable && loopSegments.length > 0) {
           const targetIndex = Math.min(
             preset.currentSegmentIndex,
-            preset.segments.length - 1
+            loopSegments.length - 1
           );
           multiSegmentPlugin.jumpToSegment(targetIndex);
         }
@@ -996,7 +1017,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         setPendingStart(multiSegmentPlugin.getPendingStart());
         return true;
       },
-      [getPlayer, segmentPresets]
+      [getPlayer, scene.negative_markers, segmentPresets]
     );
 
     // Create multi-segment loop buttons in control bar
@@ -1692,10 +1713,12 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         top_performers: marker.top_performers?.map((p) => ({
           id: p.id,
           name: p.name,
+          image_path: p.image_path,
         })), // CUSTOM
         bottom_performers: marker.bottom_performers?.map((p) => ({
           id: p.id,
           name: p.name,
+          image_path: p.image_path,
         })), // CUSTOM
       }));
 

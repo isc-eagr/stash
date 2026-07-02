@@ -55,6 +55,7 @@ This document describes all custom features and modifications added on top of th
 45. [Scene Stats Page](#45-scene-stats-page)
 46. [Scene Marker Gap Warning](#46-scene-marker-gap-warning)
 47. [Scene Marker Chronological Tab Layout](#47-scene-marker-chronological-tab-layout)
+48. [GEVI Latest Page](#48-gevi-latest-page)
 
 ---
 
@@ -1635,6 +1636,8 @@ Adds partner count badges to performer cards and detail pages (outside scene con
 **Files Modified:**
 
 - `ui/v2.5/graphql/data/performer.graphql` - Added the six partner count fields to PerformerData fragment
+- `graphql/schema/types/performer_custom.graphql` and `graphql/schema/types/studio_custom.graphql` - Added facial partner count fields to the batched `PerformerRoleStats` and `StudioPerformerRoleStats` payloads used by lazy-loaded performer cards
+- `ui/v2.5/src/components/Performers/performerRoleStats_custom.ts` and `ui/v2.5/graphql/queries/studio.graphql` - Request facial partner counts for home/list/studio performer cards so top/bottom chips display vato counts instead of marker counts
 - `ui/v2.5/src/components/Performers/PerformerDetails/PerformerCategoryStrip.tsx` - Added partner count badges section:
   - Only shown when NOT in scene context (when sceneId is not provided)
   - Uses person icon (faUser) combined with arrow icons to indicate top/bottom
@@ -3122,20 +3125,29 @@ Sex, oral, and solo markers are ignored for gap calculations based on configured
 
 ### Overview
 
-Replaces the visible scene detail Markers tab body with a custom chronological marker list by default while keeping the upstream primary-tag grouped layout available behind the Custom Settings "Show official scene marker layout" toggle. The new layout shows every marker in time order with a screenshot or pending-image placeholder, row checkboxes, filtered Select All behavior, Add to Loop support, and an "Open in Viewer" action. Plain activity markers whose only marker tag is configured sex, oral, or solo get a subtly muted row treatment so highlight markers carry more visual weight. Markers that contain the current player timestamp get a subtle bookmark tab treatment in the chronological list.
+Replaces the visible scene detail Markers tab body with a custom chronological marker list by default while keeping the upstream primary-tag grouped layout available behind the Custom Settings "Show official scene marker layout" toggle. The new layout shows markers in two subtabs with Activity Type selected by default and Highlights secondary. Activity Type markers are markers whose only marker tag is configured sex, oral, or solo as the primary tag. Activity Type marker cards omit screenshots, feature the primary tag as the activity label, group activity markers under Oral, Sex, then Solo section headers, and combine markers that share the same activity type plus top/bottom performer configuration into one box. Each grouped box displays top performers first and bottom performers second as 2:3 image blocks with green/blue name labels, then shows compact per-marker timeline boxes with individually seekable start/end times, edit controls, marker selection, group selection, and merged duration totals at both the configuration and activity-type levels. The Highlights tab uses the same card-and-timeline layout, ordered chronologically and grouped by the exact set of associated marker tags, with vato images at three-quarter Activity Type size and tag chips under the performers. Markers that contain the current player timestamp get a subtle bookmark tab treatment in the chronological list. Marker create/edit top and bottom performer dropdowns render large performer thumbnails while choosing, then keep the selected values as regular text pills.
 
-The tab has scene-local selectable search fields for tags, top performers, and bottom performers. Tag search uses a progressive chain of single-tag selectors: the first selector only lists tags present on the current scene's markers, each next selector only lists tags that can still match by sharing the same marker or by contributing to one shared overlap window with the previous selections, and the row layout wraps at three tag selectors per line. Tag searches match primary or secondary marker tags and reuse the overlap-aware behavior from the custom marker filters: a marker can satisfy multiple requested tags directly or through overlapping markers only when every selected tag participates in the same shared overlap window, and when multiple overlapping markers match the same tag search only the narrowest result is shown. Selected tags also narrow the top/bottom performer options to performers associated with the tag-filtered markers.
+The Highlights tab has scene-local selectable search fields for tags, top performers, and bottom performers. Tag search uses a progressive chain of single-tag selectors: the first selector only lists tags present on the current scene's markers, each next selector only lists tags that can still match by sharing the same marker or by contributing to one shared overlap window with the previous selections, and the row layout wraps at three tag selectors per line. Tag searches match primary or secondary marker tags and reuse the overlap-aware behavior from the custom marker filters: a marker can satisfy multiple requested tags directly or through overlapping markers only when every selected tag participates in the same shared overlap window, and when multiple overlapping markers match the same tag search only the narrowest result is shown. Selected tags also narrow the top/bottom performer options to performers associated with the tag-filtered markers.
 
 Marker rows and `/scenes/markers` marker cards display direct primary tags, direct secondary tags, overlapping/transitive tags, and hierarchy-inferred parent tags with distinct badge colors. Parent tags are collapsed behind a small `+N` toggle by default, and they are also included in scene-local tag search options, so a marker tagged with a child tag can be searched by its parent tag. Duplicate tags only render once at the highest available tier: primary, then secondary, then overlap, then parent.
+
+Scene detail pages also include an icon toggle beside the scene tabs that hides the scene overview/header block, allowing the active tab panel to use the full vertical space of the left column. The scene player scrubber marker tags and timeline marker tooltips can show small 2:3 performer thumbnails, and fullscreen player controls hide on idle even while paused.
 
 ### Files Modified
 
 - `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkersPanel.tsx`
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkerForm.tsx`
+- `ui/v2.5/src/components/ScenePlayer/ScenePlayer.tsx`
+- `ui/v2.5/src/components/ScenePlayer/ScenePlayerScrubber.tsx`
+- `ui/v2.5/src/components/ScenePlayer/markers.ts`
+- `ui/v2.5/src/components/ScenePlayer/styles.scss`
 - `ui/v2.5/src/components/Scenes/SceneMarkerCard.tsx`
 - `ui/v2.5/src/components/Scenes/SceneMarkerCardGrid.tsx`
+- `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx`
 - `ui/v2.5/src/components/Settings/SettingsCustomPanel.tsx`
 - `ui/v2.5/src/core/config.ts`
 - `ui/v2.5/graphql/data/scene-marker.graphql`
+- `ui/v2.5/graphql/data/scene-slim.graphql`
 - `ui/v2.5/src/locales/en-GB.json`
 - `ui/v2.5/src/locales/en-US.json`
 - `ui/v2.5/src/components/Scenes/styles.scss`
@@ -3144,8 +3156,10 @@ Marker rows and `/scenes/markers` marker cards display direct primary tags, dire
 ### Files Added
 
 - `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkersChronologicalPanel.tsx`
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerActivityType_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerChronologySearch_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerLayoutPreference_custom.ts`
+- `ui/v2.5/tests/sceneMarkerActivityType_custom.test.ts`
 - `ui/v2.5/tests/sceneMarkerChronologySearch_custom.test.ts`
 - `ui/v2.5/tests/sceneMarkerLayoutPreference_custom.test.ts`
 
@@ -3162,6 +3176,10 @@ Marker rows and `/scenes/markers` marker cards display direct primary tags, dire
 - Verifies performer options are derived from tag-filtered marker results.
 - Verifies displayed marker tag badges distinguish primary, secondary, overlap, and parent tags while deduping to the highest tier.
 - Verifies displayed overlap tags are only inferred between markers from the same scene.
+- Verifies activity type markers are limited to configured sex/oral/solo primary-only markers and secondary tags make them highlights.
+- Verifies activity type markers are grouped Oral, Sex, Solo and chronological within each group.
+- Verifies activity type markers with the same activity and top/bottom performer configuration are grouped together.
+- Verifies single-tag scene-local searches include markers that match only through an overlapping marker tag.
 - Verifies the official grouped marker layout only shows when its UI setting is explicitly enabled.
 
 ### GraphQL Schema Changes
@@ -3170,5 +3188,46 @@ Marker rows and `/scenes/markers` marker cards display direct primary tags, dire
 
 ### Configuration Dependencies
 
-- Uses existing `configuration.ui.roleTagIds.sexTagId`, `oralTagId`, and `soloTagId` to identify plain activity marker rows.
+- Uses existing `configuration.ui.roleTagIds.sexTagId`, `oralTagId`, and `soloTagId` to identify Activity Type markers.
 - Uses `configuration.ui.showOfficialSceneMarkerLayout` to switch the scene Markers tab between the custom chronological layout and the upstream grouped layout.
+
+---
+
+## 48. GEVI Latest Page
+
+### Overview
+
+Adds `/gevi-latest`, a custom page showing the latest scenes and vatos from Gay Erotic Video Index, linked from the right-side utility icon group in the main navbar. The backend API is mounted separately at `/gevi-latest-data` so direct browser loads and refreshes of `/gevi-latest` render the React page instead of raw JSON. The backend fetches `https://gayeroticvideoindex.com/newe` for scenes and `https://gayeroticvideoindex.com/newp` for vatos, stores the results in a JSON cache under the configured Stash cache directory, downloads each card image into a local image cache, and prunes cached items older than two years. Scene entries fetch the individual episode detail page to use the larger `episode<ID>b.jpg` screenshot when present. Vato entries use the performer image from the main GEVI new-performers page.
+
+### Files Modified
+
+- `internal/api/server.go`
+- `internal/api/server_custom.go`
+- `ui/v2.5/src/App.tsx`
+- `ui/v2.5/src/components/MainNavbar.tsx`
+- `ui/v2.5/src/components/Stats.tsx`
+- `CUSTOM_FEATURES.md`
+
+### Files Added
+
+- `internal/gevi/latest_custom.go`
+- `internal/gevi/latest_custom_test.go`
+- `internal/api/routes_gevi_latest_custom.go`
+- `ui/v2.5/src/components/GEVILatest/GEVILatest_custom.tsx`
+- `ui/v2.5/src/components/GEVILatest/GEVILatest_custom.scss`
+
+### Test Cases Added
+
+- Verifies scene list parsing extracts episode ID, title, studio, thumbnail, and performers.
+- Verifies performer list parsing uses the main-page performer image and source label.
+- Verifies scene detail parsing uses the larger detail screenshot and release date.
+- Verifies cache merging preserves first-seen timestamps and two-year pruning removes expired items.
+- Verifies local image downloads are persisted and unreferenced cached image files are deleted.
+
+### GraphQL Schema Changes
+
+- None. The page uses the custom REST endpoint `/gevi-latest-data`.
+
+### Configuration Dependencies
+
+- Uses `config.GetCachePath()` for `gevi_latest_custom.json` and `gevi_latest_images_custom/`, falling back to `config.GetConfigPath()` if no cache path is configured.

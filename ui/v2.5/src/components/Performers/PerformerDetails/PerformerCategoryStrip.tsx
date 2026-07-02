@@ -48,6 +48,8 @@ interface IPerformerCategoryStripProps {
     facial_scene_count: number;
     facial_top_count: number;
     facial_bottom_count: number;
+    facial_with_top_count: number;
+    facial_with_bottom_count: number;
     facial_marker_with_top_count: number;
     facial_marker_with_bottom_count: number;
     facial_unique_partner_count: number;
@@ -699,8 +701,8 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                 p.oral_with_top_count ??
                 0
               : role.category === "facial"
-              ? globalStatsOverride?.facial_marker_with_top_count ??
-                p.facial_marker_with_top_count ??
+              ? globalStatsOverride?.facial_with_top_count ??
+                p.facial_with_top_count ??
                 0
               : 0;
           const partnerBottomCount =
@@ -713,8 +715,8 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                 p.oral_with_bottom_count ??
                 0
               : role.category === "facial"
-              ? globalStatsOverride?.facial_marker_with_bottom_count ??
-                p.facial_marker_with_bottom_count ??
+              ? globalStatsOverride?.facial_with_bottom_count ??
+                p.facial_with_bottom_count ??
                 0
               : 0;
 

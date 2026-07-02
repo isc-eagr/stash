@@ -34,6 +34,8 @@ query FindStudioPerformerStats($id: ID!, $performerId: ID!, $depth: Int) {
       facial_scene_count
       facial_top_count
       facial_bottom_count
+      facial_with_top_count
+      facial_with_bottom_count
       facial_marker_with_top_count
       facial_marker_with_bottom_count
       sex_unique_partner_count

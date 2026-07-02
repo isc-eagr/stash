@@ -304,15 +304,30 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
       const { duration } = file;
       const left = (scrubWidth * marker.seconds) / duration;
       const style = { left: `${left}px` };
+      const performerImages = [
+        ...marker.top_performers,
+        ...marker.bottom_performers,
+      ].filter((performer) => !!performer.image_path);
 
       return (
         <div
           key={index}
-          className="scrubber-tag"
+          className="scrubber-tag scrubber-tag-with-performers"
           style={style}
           data-marker-id={index}
+          title={marker.title || marker.primary_tag.name}
         >
-          {marker.title || marker.primary_tag.name}
+          {performerImages.slice(0, 3).map((performer) => (
+            <img
+              key={performer.id}
+              className="scrubber-tag-performer-image"
+              src={performer.image_path ?? ""}
+              alt={performer.name}
+            />
+          ))}
+          <span className="scrubber-tag-label">
+            {marker.title || marker.primary_tag.name}
+          </span>
         </div>
       );
     });
@@ -327,8 +342,9 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
     return negativeMarkers.map((marker, index) => {
       const { duration } = file;
       const leftPos = (scrubWidth * marker.start_seconds) / duration;
-      const markerWidth = (scrubWidth * (marker.end_seconds - marker.start_seconds)) / duration;
-      const style: CSSProperties = { 
+      const markerWidth =
+        (scrubWidth * (marker.end_seconds - marker.start_seconds)) / duration;
+      const style: CSSProperties = {
         left: `${leftPos}px`,
         width: `${Math.max(markerWidth, 4)}px`,
       };
@@ -387,7 +403,10 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
         <div className="scrubber-viewport">
           <div ref={sliderEl} className="scrubber-slider">
             <div className="scrubber-tags">{renderTags()}</div>
-            <div className="scrubber-negative-markers">{renderNegativeMarkers()}</div> {/* CUSTOM */}
+            <div className="scrubber-negative-markers">
+              {renderNegativeMarkers()}
+            </div>{" "}
+            {/* CUSTOM */}
             {renderSprites()}
           </div>
         </div>

@@ -23,9 +23,16 @@ import { formikUtils } from "src/utils/form";
 import { yupFormikValidate } from "src/utils/yup";
 import { Tag, TagSelect } from "src/components/Tags/TagSelect";
 // CUSTOM: begin – performer selection imports & type
-import Select from "react-select";
+import Select, {
+  components as reactSelectComponents,
+  type OptionProps,
+} from "react-select";
 import { Icon } from "src/components/Shared/Icon";
-import { faArrowDown, faArrowUp } from "@fortawesome/free-solid-svg-icons";
+import {
+  faArrowDown,
+  faArrowUp,
+  faUser,
+} from "@fortawesome/free-solid-svg-icons";
 import TextUtils from "src/utils/text";
 import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
 // CUSTOM: begin
@@ -40,7 +47,40 @@ interface IPerformer {
   name: string;
   alias_list: string[];
   disambiguation?: string | null;
+  image_path?: string | null;
 }
+
+interface IPerformerSelectOption {
+  value: string;
+  label: string;
+  performer: IPerformer;
+}
+
+const PerformerSelectFace: React.FC<{ performer: IPerformer }> = ({
+  performer,
+}) => (
+  <span className="scene-marker-form-performer-face">
+    {performer.image_path ? (
+      <img src={performer.image_path} alt={performer.name} />
+    ) : (
+      <Icon icon={faUser} />
+    )}
+  </span>
+);
+
+const PerformerSelectOption: React.FC<
+  OptionProps<IPerformerSelectOption, true>
+> = (props) => (
+  <reactSelectComponents.Option {...props}>
+    <div className="scene-marker-form-performer-option">
+      <PerformerSelectFace performer={props.data.performer} />
+      <span className="scene-marker-form-performer-option-label">
+        {props.data.label}
+      </span>
+    </div>
+  </reactSelectComponents.Option>
+);
+
 // CUSTOM: end
 
 interface ISceneMarkerForm {
@@ -77,6 +117,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         name: p.name,
         alias_list: p.alias_list ?? [],
         disambiguation: p.disambiguation,
+        image_path: p.image_path,
       })) ?? []
     );
   }, [sceneData]);
@@ -242,6 +283,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         name: p.name,
         alias_list: p.alias_list ?? [],
         disambiguation: p.disambiguation,
+        image_path: p.image_path,
       })) ?? []
     );
   }, [marker?.top_performers]);
@@ -253,6 +295,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         name: p.name,
         alias_list: p.alias_list ?? [],
         disambiguation: p.disambiguation,
+        image_path: p.image_path,
       })) ?? []
     );
   }, [marker?.bottom_performers]);
@@ -565,10 +608,13 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     if (scenePerformers.length === 0) return null;
 
     // Create options from scene performers only
-    const performerOptions = scenePerformers.map((p) => ({
-      value: p.id,
-      label: p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name,
-    }));
+    const performerOptions: IPerformerSelectOption[] = scenePerformers.map(
+      (p) => ({
+        value: p.id,
+        label: p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name,
+        performer: p,
+      })
+    );
 
     // Top performers
     const topTitle = intl.formatMessage({
@@ -576,37 +622,63 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       defaultMessage: "Top Vatos",
     });
 
-    const selectedTopValues = topPerformers.map((p) => ({
-      value: p.id,
-      label: p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name,
-    }));
+    const selectedTopValues: IPerformerSelectOption[] = topPerformers.map(
+      (p) => ({
+        value: p.id,
+        label: p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name,
+        performer: p,
+      })
+    );
+    const performerSelectStyles = {
+      menuPortal: (base: Record<string, unknown>) => ({
+        ...base,
+        zIndex: 9999,
+      }),
+      menuList: (base: Record<string, unknown>) => ({
+        ...base,
+        display: "flex",
+        flexWrap: "wrap" as const,
+        gap: "0.75rem",
+        maxHeight: "28rem",
+        padding: "0.75rem",
+      }),
+      option: (base: Record<string, unknown>) => ({
+        ...base,
+        alignItems: "flex-start",
+        borderRadius: "0.25rem",
+        display: "flex",
+        flex: "0 0 auto",
+        justifyContent: "center",
+        padding: "0.45rem",
+        width: "auto",
+      }),
+    };
 
     const topControl = (
       <div className="d-flex align-items-center">
         <Icon icon={faArrowUp} className="text-success mr-2" title="Top" />
         <div className="flex-grow-1">
-          <Select
+          <Select<IPerformerSelectOption, true>
+            className="react-select scene-marker-form-performer-select"
             classNamePrefix="react-select"
             isMulti
             options={performerOptions}
             value={selectedTopValues}
             onChange={(selected) => {
               const selectedPerformers = (selected ?? []).map((opt) => {
-                const found = scenePerformers.find((p) => p.id === opt.value);
-                return (
-                  found ?? { id: opt.value, name: opt.label, alias_list: [] }
-                );
+                return opt.performer;
               });
               onSetTopPerformers(selectedPerformers);
+            }}
+            components={{
+              Option: PerformerSelectOption,
             }}
             placeholder={intl.formatMessage({
               id: "actions.select_performers",
             })}
             menuPortalTarget={document.body}
             menuPlacement="auto"
-            styles={{
-              menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-            }}
+            styles={performerSelectStyles}
           />
         </div>
       </div>
@@ -618,37 +690,39 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       defaultMessage: "Bottom Vatos",
     });
 
-    const selectedBottomValues = bottomPerformers.map((p) => ({
-      value: p.id,
-      label: p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name,
-    }));
+    const selectedBottomValues: IPerformerSelectOption[] = bottomPerformers.map(
+      (p) => ({
+        value: p.id,
+        label: p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name,
+        performer: p,
+      })
+    );
 
     const bottomControl = (
       <div className="d-flex align-items-center">
         <Icon icon={faArrowDown} className="text-info mr-2" title="Bottom" />
         <div className="flex-grow-1">
-          <Select
+          <Select<IPerformerSelectOption, true>
+            className="react-select scene-marker-form-performer-select"
             classNamePrefix="react-select"
             isMulti
             options={performerOptions}
             value={selectedBottomValues}
             onChange={(selected) => {
               const selectedPerformers = (selected ?? []).map((opt) => {
-                const found = scenePerformers.find((p) => p.id === opt.value);
-                return (
-                  found ?? { id: opt.value, name: opt.label, alias_list: [] }
-                );
+                return opt.performer;
               });
               onSetBottomPerformers(selectedPerformers);
+            }}
+            components={{
+              Option: PerformerSelectOption,
             }}
             placeholder={intl.formatMessage({
               id: "actions.select_performers",
             })}
             menuPortalTarget={document.body}
             menuPlacement="top"
-            styles={{
-              menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-            }}
+            styles={performerSelectStyles}
           />
         </div>
       </div>

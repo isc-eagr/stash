@@ -649,6 +649,8 @@ func (r *studioResolver) StudioPerformerRoleStats(ctx context.Context, obj *mode
 		FacialSceneCount:            data.FacialSceneCount,
 		FacialTopCount:              data.FacialTopCount,
 		FacialBottomCount:           data.FacialBottomCount,
+		FacialWithTopCount:          data.FacialWithTopCount,
+		FacialWithBottomCount:       data.FacialWithBottomCount,
 		FacialMarkerWithTopCount:    data.FacialMarkerWithTopCount,
 		FacialMarkerWithBottomCount: data.FacialMarkerWithBottomCount,
 		SexUniquePartnerCount:       data.SexUniquePartnerCount,

@@ -1441,6 +1441,8 @@ type StudioPerformerRoleStatsData struct {
 	FacialSceneCount            int
 	FacialTopCount              int
 	FacialBottomCount           int
+	FacialWithTopCount          int
+	FacialWithBottomCount       int
 	FacialMarkerWithTopCount    int
 	FacialMarkerWithBottomCount int
 	SexUniquePartnerCount       int
@@ -1625,6 +1627,8 @@ func GetStudioPerformerRoleStats(
 			if err != nil {
 				return nil, err
 			}
+			result.FacialWithTopCount = len(facialTop)
+			result.FacialWithBottomCount = len(facialBottom)
 			uniqueFacial := make(map[int]bool)
 			for id := range facialTop {
 				uniqueFacial[id] = true
@@ -1905,6 +1909,8 @@ type PerformerRoleStatsData struct {
 	FacialSceneCount            int
 	FacialTopCount              int
 	FacialBottomCount           int
+	FacialWithTopCount          int
+	FacialWithBottomCount       int
 	FacialMarkerWithTopCount    int
 	FacialMarkerWithBottomCount int
 	SexUniquePartnerCount       int
@@ -2234,6 +2240,8 @@ func fillPartnerStats(
 		stats.OralWithTopCount = len(oralPartners.asTop[id])
 		stats.OralWithBottomCount = len(oralPartners.asBottom[id])
 		stats.OralUniquePartnerCount = countUniqueInts(oralPartners.asTop[id], oralPartners.asBottom[id])
+		stats.FacialWithTopCount = len(facialPartners.asTop[id])
+		stats.FacialWithBottomCount = len(facialPartners.asBottom[id])
 		stats.FacialUniquePartnerCount = countUniqueInts(facialPartners.asTop[id], facialPartners.asBottom[id])
 	}
 

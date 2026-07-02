@@ -96,6 +96,8 @@ type PerformerRoleStats {
   facial_scene_count: Int!
   facial_top_count: Int!
   facial_bottom_count: Int!
+  facial_with_top_count: Int!
+  facial_with_bottom_count: Int!
   facial_marker_with_top_count: Int!
   facial_marker_with_bottom_count: Int!
   sex_unique_partner_count: Int!

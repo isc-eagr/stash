@@ -334,6 +334,8 @@ func (r *queryResolver) PerformerRoleStats(ctx context.Context, performerIDs []s
 			FacialSceneCount:            data.FacialSceneCount,
 			FacialTopCount:              data.FacialTopCount,
 			FacialBottomCount:           data.FacialBottomCount,
+			FacialWithTopCount:          data.FacialWithTopCount,
+			FacialWithBottomCount:       data.FacialWithBottomCount,
 			FacialMarkerWithTopCount:    data.FacialMarkerWithTopCount,
 			FacialMarkerWithBottomCount: data.FacialMarkerWithBottomCount,
 			SexUniquePartnerCount:       data.SexUniquePartnerCount,
