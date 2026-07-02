@@ -11,8 +11,12 @@ import { useConfigurationContext } from "src/hooks/Config";
 import { getRatingCardClass } from "src/utils/ratingCardStyles_custom";
 import {
   compareActivityTypeSceneMarkers,
+  getActivityTypeSectionMarkerTag,
+  getActivityTypeSectionMarkerTagId,
+  getActivityTypeSectionTagIds,
   getActivityTypeTagIds,
   groupActivityTypeSceneMarkers,
+  isActivityTypeSectionSceneMarker,
   isActivityTypeSceneMarker,
   type IActivityTypeSceneMarkerGroup,
 } from "./sceneMarkerActivityType_custom";
@@ -63,7 +67,13 @@ type SearchSelectOption<T extends SearchSelectEntity> = {
 };
 
 export type SceneMarkerChronologyTabKey = "activity" | "highlights";
-type ActivityTypeSectionKey = "oral" | "sex" | "solo";
+type ActivityTypeSectionKey =
+  | "oral"
+  | "sex"
+  | "solo"
+  | "feet"
+  | "orgasm"
+  | "facial";
 
 interface IActivityTypeSection {
   key: ActivityTypeSectionKey;
@@ -742,20 +752,35 @@ export const SceneMarkersChronologicalPanel: React.FC<
       getChronologicalSceneMarkerPerformers(allMarkers, search.tags, "bottom"),
     [allMarkers, search.tags]
   );
+  const activityTypeSectionTagIds = useMemo(
+    () => getActivityTypeSectionTagIds(configuration?.ui.roleTagIds),
+    [configuration?.ui.roleTagIds]
+  );
   const activityTypeTagIds = useMemo(
     () => getActivityTypeTagIds(configuration?.ui.roleTagIds),
     [configuration?.ui.roleTagIds]
   );
   const getMarkerRatingCardClass = useMemo<MarkerRatingCardClassGetter>(
-    () => (marker) =>
-      getRatingCardClass({
-        tags: [marker.primary_tag, ...marker.tags],
-        goatTagId: configuration?.ui.roleTagIds?.goatTagId,
+    () => (marker) => {
+      const markerTags = [marker.primary_tag, ...marker.tags].filter(
+        (tag) =>
+          activeTab !== "activity" ||
+          tag.id !== configuration?.ui.roleTagIds?.goatTagId
+      );
+
+      return getRatingCardClass({
+        tags: markerTags,
+        goatTagId:
+          activeTab === "activity"
+            ? undefined
+            : configuration?.ui.roleTagIds?.goatTagId,
         theme: configuration?.ui.ratingCardTheme,
         thresholds: configuration?.ui.ratingCardThresholds,
         overrideTagIds: configuration?.ui.ratingCardOverrideTagIds,
-      }),
+      });
+    },
     [
+      activeTab,
       configuration?.ui.ratingCardOverrideTagIds,
       configuration?.ui.ratingCardTheme,
       configuration?.ui.ratingCardThresholds,
@@ -777,12 +802,12 @@ export const SceneMarkersChronologicalPanel: React.FC<
     () =>
       markers
         .filter((marker) =>
-          isActivityTypeSceneMarker(marker, activityTypeTagIds)
+          isActivityTypeSectionSceneMarker(marker, activityTypeSectionTagIds)
         )
         .sort((a, b) =>
           compareActivityTypeSceneMarkers(a, b, configuration?.ui.roleTagIds)
         ),
-    [activityTypeTagIds, configuration?.ui.roleTagIds, markers]
+    [activityTypeSectionTagIds, configuration?.ui.roleTagIds, markers]
   );
   const activityTypeSections = useMemo<IActivityTypeSection[]>(() => {
     const roleTagIds = configuration?.ui.roleTagIds;
@@ -794,19 +819,35 @@ export const SceneMarkersChronologicalPanel: React.FC<
       { key: "oral", tagId: roleTagIds?.oralTagId, fallbackLabel: "Oral" },
       { key: "sex", tagId: roleTagIds?.sexTagId, fallbackLabel: "Sex" },
       { key: "solo", tagId: roleTagIds?.soloTagId, fallbackLabel: "Solo" },
+      { key: "feet", tagId: roleTagIds?.feetTagId, fallbackLabel: "Feet" },
+      {
+        key: "orgasm",
+        tagId: roleTagIds?.orgasmTagId,
+        fallbackLabel: "Orgasm",
+      },
+      {
+        key: "facial",
+        tagId: roleTagIds?.facialTagId,
+        fallbackLabel: "Facial",
+      },
     ];
 
     return sectionDefinitions
       .map(({ key, tagId, fallbackLabel }) => {
         const sectionMarkers = tagId
           ? activityTypeMarkers.filter(
-              (marker) => marker.primary_tag.id === tagId
+              (marker) =>
+                getActivityTypeSectionMarkerTagId(marker, roleTagIds) === tagId
             )
           : [];
 
+        const sectionTag = sectionMarkers
+          .map((marker) => getActivityTypeSectionMarkerTag(marker, roleTagIds))
+          .find((tag): tag is NonNullable<typeof tag> => !!tag);
+
         return {
           key,
-          label: sectionMarkers[0]?.primary_tag.name ?? fallbackLabel,
+          label: sectionTag?.name ?? fallbackLabel,
           markers: sectionMarkers,
         };
       })

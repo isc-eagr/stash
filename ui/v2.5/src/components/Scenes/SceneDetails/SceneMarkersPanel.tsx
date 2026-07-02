@@ -28,7 +28,9 @@ import {
 } from "./sceneMarkerChronologySearch_custom";
 import {
   compareActivityTypeSceneMarkers,
+  getActivityTypeSectionTagIds,
   getActivityTypeTagIds,
+  isActivityTypeSectionSceneMarker,
   isActivityTypeSceneMarker,
 } from "./sceneMarkerActivityType_custom";
 import { shouldShowOfficialSceneMarkerLayout } from "./sceneMarkerLayoutPreference_custom";
@@ -42,6 +44,7 @@ interface ISceneMarkersPanelProps {
   addMultiSegmentLoopSegments: (segments: ILoopSegmentInput[]) => void; // CUSTOM
   currentTimestamp?: number; // CUSTOM
   focusedMarkerId?: string; // CUSTOM
+  onFocusedMarkerHandled?: () => void; // CUSTOM
 }
 
 function getSceneTabScrollElement() {
@@ -55,6 +58,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   addMultiSegmentLoopSegments, // CUSTOM
   currentTimestamp, // CUSTOM
   focusedMarkerId, // CUSTOM
+  onFocusedMarkerHandled, // CUSTOM
 }) => {
   const { configuration } = useConfigurationContext(); // CUSTOM
   const { data, loading } = GQL.useFindSceneMarkerTagsQuery({
@@ -117,6 +121,10 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     () => filterChronologicalSceneMarkers(sceneMarkers, markerSearch),
     [markerSearch, sceneMarkers]
   );
+  const activityTypeSectionTagIds = useMemo(
+    () => getActivityTypeSectionTagIds(configuration?.ui.roleTagIds),
+    [configuration?.ui.roleTagIds]
+  );
   const activityTypeTagIds = useMemo(
     () => getActivityTypeTagIds(configuration?.ui.roleTagIds),
     [configuration?.ui.roleTagIds]
@@ -132,12 +140,12 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     () =>
       sceneMarkers
         .filter((marker) =>
-          isActivityTypeSceneMarker(marker, activityTypeTagIds)
+          isActivityTypeSectionSceneMarker(marker, activityTypeSectionTagIds)
         )
         .sort((a, b) =>
           compareActivityTypeSceneMarkers(a, b, configuration?.ui.roleTagIds)
         ),
-    [activityTypeTagIds, configuration?.ui.roleTagIds, sceneMarkers]
+    [activityTypeSectionTagIds, configuration?.ui.roleTagIds, sceneMarkers]
   );
 
   useEffect(() => {
@@ -149,7 +157,9 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
 
     if (!focusedMarker) return;
 
-    if (isActivityTypeSceneMarker(focusedMarker, activityTypeTagIds)) {
+    if (
+      isActivityTypeSectionSceneMarker(focusedMarker, activityTypeSectionTagIds)
+    ) {
       setMarkerChronologyTab("activity");
       return;
     }
@@ -163,7 +173,12 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
         bottomPerformers: [],
       });
     }
-  }, [activityTypeTagIds, filteredSceneMarkers, focusedMarkerId, sceneMarkers]);
+  }, [
+    activityTypeSectionTagIds,
+    filteredSceneMarkers,
+    focusedMarkerId,
+    sceneMarkers,
+  ]);
 
   const showOfficialSceneMarkerLayout = shouldShowOfficialSceneMarkerLayout(
     configuration.ui
@@ -252,6 +267,9 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
           block: "center",
           behavior: "smooth",
         });
+        if (markerElement) {
+          onFocusedMarkerHandled?.();
+        }
       });
     });
   }, [
@@ -260,6 +278,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     focusedMarkerId,
     isVisible,
     markerChronologyTab,
+    onFocusedMarkerHandled,
   ]);
 
   const visibleMarkerCount = visibleSceneMarkers.length;

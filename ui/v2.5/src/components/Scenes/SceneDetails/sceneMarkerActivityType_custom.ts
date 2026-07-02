@@ -2,6 +2,7 @@ import type { IUIConfig } from "src/core/config";
 import type * as GQL from "src/core/generated-graphql";
 
 export type ActivityTypeTagIds = Set<string>;
+export type ActivityTypeSectionTagIds = Set<string>;
 
 const defaultMarkerDurationSeconds = 20;
 
@@ -10,10 +11,17 @@ type ActivityTypeSortableMarker = Pick<
   "id" | "seconds" | "end_seconds" | "primary_tag"
 >;
 
+type ActivityTypeTag = Pick<GQL.Tag, "id" | "name"> & {
+  parents?: Array<Pick<GQL.Tag, "id" | "name">> | null;
+};
+
 type ActivityTypeRolePerformer = Pick<GQL.Performer, "id">;
 
 export type ActivityTypeGroupableMarker = ActivityTypeSortableMarker &
-  Pick<GQL.SceneMarkerDataFragment, "top_performers" | "bottom_performers">;
+  Pick<
+    GQL.SceneMarkerDataFragment,
+    "tags" | "top_performers" | "bottom_performers"
+  >;
 
 export interface IActivityTypeSceneMarkerGroup<
   T extends ActivityTypeGroupableMarker = ActivityTypeGroupableMarker
@@ -35,12 +43,96 @@ export function getActivityTypeTagIds(
   );
 }
 
+export function getActivityTypeSectionTagIds(
+  roleTagIds?: IUIConfig["roleTagIds"]
+): ActivityTypeSectionTagIds {
+  return new Set(
+    [
+      roleTagIds?.sexTagId,
+      roleTagIds?.oralTagId,
+      roleTagIds?.soloTagId,
+      roleTagIds?.feetTagId,
+      roleTagIds?.orgasmTagId,
+      roleTagIds?.facialTagId,
+    ].filter((id): id is string => !!id)
+  );
+}
+
 export function isActivityTypeSceneMarker(
   marker: Pick<GQL.SceneMarkerDataFragment, "primary_tag" | "tags">,
   activityTypeTagIds: ActivityTypeTagIds
 ) {
   return (
     marker.tags.length === 0 && activityTypeTagIds.has(marker.primary_tag.id)
+  );
+}
+
+export function isActivityTypeSectionSceneMarker(
+  marker: Pick<GQL.SceneMarkerDataFragment, "primary_tag">,
+  activityTypeSectionTagIds: ActivityTypeSectionTagIds
+) {
+  return activityTypeSectionTagIds.has(marker.primary_tag.id);
+}
+
+function tagMatchesConfiguredTag(tag: ActivityTypeTag, tagId?: string) {
+  return (
+    !!tagId && (tag.id === tagId || tag.parents?.some((p) => p.id === tagId))
+  );
+}
+
+function markerHasConfiguredTag(
+  marker: Pick<GQL.SceneMarkerDataFragment, "primary_tag" | "tags">,
+  tagId?: string
+) {
+  return [marker.primary_tag, ...marker.tags].some((tag) =>
+    tagMatchesConfiguredTag(tag, tagId)
+  );
+}
+
+function getMarkerConfiguredTag(
+  marker: Pick<GQL.SceneMarkerDataFragment, "primary_tag" | "tags">,
+  tagId?: string
+) {
+  if (!tagId) return undefined;
+
+  for (const tag of [marker.primary_tag, ...marker.tags]) {
+    if (tag.id === tagId) return tag;
+
+    const parent = tag.parents?.find((p) => p.id === tagId);
+    if (parent) return parent;
+  }
+
+  return undefined;
+}
+
+export function getActivityTypeSectionMarkerTagId(
+  marker: Pick<GQL.SceneMarkerDataFragment, "primary_tag" | "tags">,
+  roleTagIds?: IUIConfig["roleTagIds"]
+) {
+  if (
+    tagMatchesConfiguredTag(marker.primary_tag, roleTagIds?.orgasmTagId) &&
+    markerHasConfiguredTag(marker, roleTagIds?.facialTagId)
+  ) {
+    return roleTagIds?.facialTagId;
+  }
+
+  return [
+    roleTagIds?.oralTagId,
+    roleTagIds?.sexTagId,
+    roleTagIds?.soloTagId,
+    roleTagIds?.feetTagId,
+    roleTagIds?.orgasmTagId,
+    roleTagIds?.facialTagId,
+  ].find((tagId) => tagMatchesConfiguredTag(marker.primary_tag, tagId));
+}
+
+export function getActivityTypeSectionMarkerTag(
+  marker: Pick<GQL.SceneMarkerDataFragment, "primary_tag" | "tags">,
+  roleTagIds?: IUIConfig["roleTagIds"]
+) {
+  return getMarkerConfiguredTag(
+    marker,
+    getActivityTypeSectionMarkerTagId(marker, roleTagIds)
   );
 }
 
@@ -78,6 +170,9 @@ function getActivityTypeMarkerRank(
     roleTagIds?.oralTagId,
     roleTagIds?.sexTagId,
     roleTagIds?.soloTagId,
+    roleTagIds?.feetTagId,
+    roleTagIds?.orgasmTagId,
+    roleTagIds?.facialTagId,
   ].filter((id): id is string => !!id);
   const index = tagOrder.indexOf(marker.primary_tag.id);
 

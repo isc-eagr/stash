@@ -485,7 +485,7 @@ export function getChronologicalSceneMarkerDerivedWindows<
   filters: ISceneMarkerChronologySearchFilters,
   coveredMarkers: ISceneMarkerChronologySearchMarker[]
 ): Array<ISceneMarkerChronologyDerivedWindow<T>> {
-  if (!searchHasActiveFilters(filters)) {
+  if (!searchHasActiveFilters(filters) || filters.tags.length < 2) {
     return [];
   }
 

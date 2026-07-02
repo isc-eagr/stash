@@ -32,7 +32,7 @@ export interface INegativeMarker {
 
 interface IMarkersOptions {
   markers?: IMarker[];
-  onMarkerClick?: (marker: IMarker) => void;
+  onMarkerClick?: (marker: IMarker, seconds: number) => void;
 }
 
 class MarkersPlugin extends videojs.getPlugin("plugin") {
@@ -50,7 +50,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
   private layerHeight: number = 9;
 
   private tagColors: { [tag: string]: string } = {};
-  private onMarkerClick?: (marker: IMarker) => void;
+  private onMarkerClick?: (marker: IMarker, seconds: number) => void;
 
   private _fallbackDuration: number = 0; // CUSTOM: used when player.duration() is 0 (preload=none, not started yet)
 
@@ -79,7 +79,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     });
   }
 
-  setOnMarkerClick(onMarkerClick?: (marker: IMarker) => void) {
+  setOnMarkerClick(onMarkerClick?: (marker: IMarker, seconds: number) => void) {
     this.onMarkerClick = onMarkerClick;
   }
 
@@ -254,7 +254,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       event.preventDefault();
       event.stopPropagation();
       this.player.currentTime(marker.seconds);
-      this.onMarkerClick?.(marker);
+      this.onMarkerClick?.(marker, marker.seconds);
     });
     markerSet.dot.toggleAttribute("marker-tooltip-shown", true);
 
@@ -365,8 +365,21 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     markerSet.range.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      this.player.currentTime(marker.seconds);
-      this.onMarkerClick?.(marker);
+      const seekBarRect = seekBar.getBoundingClientRect();
+      const clickRatio =
+        seekBarRect.width > 0
+          ? (event.clientX - seekBarRect.left) / seekBarRect.width
+          : 0;
+      const clickedSeconds = Math.min(
+        marker.end_seconds ?? duration,
+        Math.max(
+          marker.seconds,
+          Math.min(Math.max(clickRatio, 0), 1) * duration
+        )
+      );
+
+      this.player.currentTime(clickedSeconds);
+      this.onMarkerClick?.(marker, clickedSeconds);
     });
     markerSet.range.addEventListener("mouseenter", () => {
       this.showMarkerTooltip(

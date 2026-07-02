@@ -274,7 +274,7 @@ interface IScenePlayerProps {
   sendSetTimestamp: (setTimestamp: (value: number) => void) => void;
   sendMultiSegmentLoopApi?: (api: IMultiSegmentLoopApi) => void; // CUSTOM
   onTimeChange?: (time: number) => void; // CUSTOM
-  onMarkerClick?: (markerId: string) => void; // CUSTOM
+  onMarkerClick?: (markerId: string, seconds: number) => void; // CUSTOM
   onComplete: () => void;
   onNext: () => void;
   onPrevious: () => void;
@@ -1726,9 +1726,9 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       }));
 
       const markers = player!.markers();
-      markers.setOnMarkerClick((marker) => {
+      markers.setOnMarkerClick((marker, seconds) => {
         if (marker.id) {
-          onMarkerClick?.(marker.id);
+          onMarkerClick?.(marker.id, seconds);
         }
       });
 

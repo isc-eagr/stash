@@ -154,6 +154,37 @@ assert.deepEqual(
 
 assert.deepEqual(
   getChronologicalSceneMarkerDerivedWindows(
+    [
+      marker("kaue-orgasm", 1249.215, 1259.401, orgasm, [], [luis]),
+      marker(
+        "chris-facial-orgasm",
+        1259.402,
+        1273.926,
+        orgasm,
+        [tag("facial", "Facial")],
+        [juan],
+        [luis]
+      ),
+    ],
+    { tags: [orgasm], topPerformers: [juan], bottomPerformers: [] },
+    [
+      marker(
+        "chris-facial-orgasm",
+        1259.402,
+        1273.926,
+        orgasm,
+        [tag("facial", "Facial")],
+        [juan],
+        [luis]
+      ),
+    ]
+  ).map((window) => [window.seconds, window.end_seconds]),
+  [],
+  "single-tag performer filters do not create derived windows from nearby tag-only markers"
+);
+
+assert.deepEqual(
+  getChronologicalSceneMarkerDerivedWindows(
     [marker("feet-tiny", 60, 120, feet), marker("bj-tiny", 118, 180, bj)],
     { tags: [feet, bj], topPerformers: [], bottomPerformers: [] },
     []
