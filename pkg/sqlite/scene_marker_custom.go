@@ -192,7 +192,7 @@ func (qb *SceneMarkerStore) FindPerformerMarkerRoleRows(ctx context.Context, per
 	const maxBindParams = 900
 	tagBindCount := 0
 	if len(tagIDs) > 0 {
-		tagBindCount = len(tagIDs) * 2
+		tagBindCount = len(tagIDs) * 4
 	}
 	roleBindCount := 0
 	if role != "" {
@@ -229,16 +229,32 @@ func (qb *SceneMarkerStore) FindPerformerMarkerRoleRows(ctx context.Context, per
 		}
 
 		if len(tagIDs) > 0 {
-			tagPlaceholders := sqlitePlaceholders(len(tagIDs))
+			tagBinding := fmt.Sprintf("(%s)", sqlitePlaceholders(len(tagIDs)))
 			whereParts = append(whereParts, fmt.Sprintf(`(
-				sm.primary_tag_id IN (%s)
-				OR EXISTS (
+				%[1]s
+				AND %[2]s
+				AND NOT EXISTS (
 					SELECT 1
-					FROM scene_markers_tags smt
-					WHERE smt.scene_marker_id = sm.id
-					AND smt.tag_id IN (%s)
+					FROM scene_markers sm_narrow
+					WHERE %[3]s
+					AND %[4]s
+					AND %[5]s
+					AND %[6]s
 				)
-			)`, tagPlaceholders, tagPlaceholders))
+			)`,
+				sceneMarkerDirectHasTagInClauseCustom("sm", tagBinding),
+				sceneMarkerHasEffectiveTagInClauseCustom("sm", tagBinding),
+				sceneMarkerOverlapWhereCustom("sm", "sm_narrow"),
+				sceneMarkerDirectHasTagInClauseCustom("sm_narrow", tagBinding),
+				sceneMarkerHasEffectiveTagInClauseCustom("sm_narrow", tagBinding),
+				sceneMarkerIsNarrowerThanClauseCustom("sm_narrow", "sm"),
+			))
+			for _, id := range tagIDs {
+				args = append(args, id)
+			}
+			for _, id := range tagIDs {
+				args = append(args, id)
+			}
 			for _, id := range tagIDs {
 				args = append(args, id)
 			}
@@ -303,7 +319,7 @@ func (qb *SceneMarkerStore) FindPerformerPartnerRoleRows(ctx context.Context, pe
 	const maxBindParams = 900
 	tagBindCount := 0
 	if len(tagIDs) > 0 {
-		tagBindCount = len(tagIDs) * 2
+		tagBindCount = len(tagIDs) * 4
 	}
 	performerChunkSize := maxBindParams - tagBindCount
 	if performerChunkSize > 300 {
@@ -337,16 +353,32 @@ func (qb *SceneMarkerStore) FindPerformerPartnerRoleRows(ctx context.Context, pe
 		}
 
 		if len(tagIDs) > 0 {
-			tagPlaceholders := sqlitePlaceholders(len(tagIDs))
+			tagBinding := fmt.Sprintf("(%s)", sqlitePlaceholders(len(tagIDs)))
 			whereParts = append(whereParts, fmt.Sprintf(`(
-				sm.primary_tag_id IN (%s)
-				OR EXISTS (
+				%[1]s
+				AND %[2]s
+				AND NOT EXISTS (
 					SELECT 1
-					FROM scene_markers_tags smt
-					WHERE smt.scene_marker_id = sm.id
-					AND smt.tag_id IN (%s)
+					FROM scene_markers sm_narrow
+					WHERE %[3]s
+					AND %[4]s
+					AND %[5]s
+					AND %[6]s
 				)
-			)`, tagPlaceholders, tagPlaceholders))
+			)`,
+				sceneMarkerDirectHasTagInClauseCustom("sm", tagBinding),
+				sceneMarkerHasEffectiveTagInClauseCustom("sm", tagBinding),
+				sceneMarkerOverlapWhereCustom("sm", "sm_narrow"),
+				sceneMarkerDirectHasTagInClauseCustom("sm_narrow", tagBinding),
+				sceneMarkerHasEffectiveTagInClauseCustom("sm_narrow", tagBinding),
+				sceneMarkerIsNarrowerThanClauseCustom("sm_narrow", "sm"),
+			))
+			for _, id := range tagIDs {
+				args = append(args, id)
+			}
+			for _, id := range tagIDs {
+				args = append(args, id)
+			}
 			for _, id := range tagIDs {
 				args = append(args, id)
 			}

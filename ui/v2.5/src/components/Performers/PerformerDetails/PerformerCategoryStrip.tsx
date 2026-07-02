@@ -234,6 +234,8 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     count?: number;
     topCount?: number;
     bottomCount?: number;
+    partnerTopCount?: number; // CUSTOM
+    partnerBottomCount?: number; // CUSTOM
     isTop?: boolean;
     isBottom?: boolean;
     tagId?: string;
@@ -494,6 +496,8 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         count: sexCount,
         topCount: sexTopCount,
         bottomCount: sexBottomCount,
+        partnerTopCount: sexWithTopCount, // CUSTOM
+        partnerBottomCount: sexWithBottomCount, // CUSTOM
         tagId: sexTagId,
       });
     }
@@ -506,6 +510,8 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         count: oralCount,
         topCount: oralTopCount,
         bottomCount: oralBottomCount,
+        partnerTopCount: oralWithTopCount, // CUSTOM
+        partnerBottomCount: oralWithBottomCount, // CUSTOM
         tagId: oralTagId,
       });
     }
@@ -521,6 +527,8 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         // Use scoped counts when available, otherwise fall back to global facial marker counts.
         topCount: facialTopCount,
         bottomCount: facialBottomCount,
+        partnerTopCount: facialWithTopCount, // CUSTOM
+        partnerBottomCount: facialWithBottomCount, // CUSTOM
         tagId: facialTagId,
       });
     }
@@ -669,6 +677,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
           let partnerTopUrl: string | undefined;
           let partnerBottomUrl: string | undefined;
           let allPartnersUrl: string | undefined;
+          const performerPartnersUrl = `/performers/${performer.id}/appearswithbyrole`; // CUSTOM
 
           // Calculate unique partner count for this category
           let uniquePartnerCount = 0;
@@ -693,29 +702,35 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
 
           const partnerTopCount =
             role.category === "sex"
-              ? globalStatsOverride?.sex_with_top_count ??
+              ? role.partnerTopCount ??
+                globalStatsOverride?.sex_with_top_count ??
                 p.sex_with_top_count ??
                 0
               : role.category === "oral"
-              ? globalStatsOverride?.oral_with_top_count ??
+              ? role.partnerTopCount ??
+                globalStatsOverride?.oral_with_top_count ??
                 p.oral_with_top_count ??
                 0
               : role.category === "facial"
-              ? globalStatsOverride?.facial_with_top_count ??
+              ? role.partnerTopCount ??
+                globalStatsOverride?.facial_with_top_count ??
                 p.facial_with_top_count ??
                 0
               : 0;
           const partnerBottomCount =
             role.category === "sex"
-              ? globalStatsOverride?.sex_with_bottom_count ??
+              ? role.partnerBottomCount ??
+                globalStatsOverride?.sex_with_bottom_count ??
                 p.sex_with_bottom_count ??
                 0
               : role.category === "oral"
-              ? globalStatsOverride?.oral_with_bottom_count ??
+              ? role.partnerBottomCount ??
+                globalStatsOverride?.oral_with_bottom_count ??
                 p.oral_with_bottom_count ??
                 0
               : role.category === "facial"
-              ? globalStatsOverride?.facial_with_bottom_count ??
+              ? role.partnerBottomCount ??
+                globalStatsOverride?.facial_with_bottom_count ??
                 p.facial_with_bottom_count ??
                 0
               : 0;
@@ -776,7 +791,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                 })
               )}&sortby=title`;
 
-              allPartnersUrl = `/performers/${performer.id}/appearswithbyrole`;
+              allPartnersUrl = performerPartnersUrl;
             } else if (role.category === "sex" || role.category === "oral") {
               // Sex, oral go to /scenes
               categoryUrl = NavUtils.makePerformerMarkerScenesWithRoleUrl(
@@ -804,51 +819,11 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                 markerDepth
               );
 
-              // Partner URLs for sex/oral (goes to /scenes)
-              const performerRef = {
-                id: performer.id,
-                label: performer.name || `Vato ${performer.id}`,
-              };
-
-              // Sex/oral top partner: performer is top, showing scenes
-              partnerTopUrl = `/scenes?c=${encodeURIComponent(
-                JSON.stringify({
-                  type: "scene_markers",
-                  modifier: "EQUALS",
-                  groups: [
-                    {
-                      groupId: "A",
-                      tag_ids: [{ id: role.tagId, label: tagLabel }],
-                      depth: markerDepth,
-                      performer_mode: "AND",
-                      top_performer_ids: [performerRef],
-                      bottom_performer_ids: [],
-                    },
-                  ],
-                  unnamed_performers: [],
-                })
-              )}&sortby=date`;
-
-              // Sex/oral bottom partner: performer is bottom, showing scenes
-              partnerBottomUrl = `/scenes?c=${encodeURIComponent(
-                JSON.stringify({
-                  type: "scene_markers",
-                  modifier: "EQUALS",
-                  groups: [
-                    {
-                      groupId: "A",
-                      tag_ids: [{ id: role.tagId, label: tagLabel }],
-                      depth: markerDepth,
-                      performer_mode: "AND",
-                      top_performer_ids: [],
-                      bottom_performer_ids: [performerRef],
-                    },
-                  ],
-                  unnamed_performers: [],
-                })
-              )}&sortby=date`;
-
-              allPartnersUrl = `/performers/${performer.id}/appearswithbyrole`;
+              // CUSTOM: begin - role partner badges link to the performer Partners tab
+              allPartnersUrl = performerPartnersUrl;
+              partnerTopUrl = performerPartnersUrl;
+              partnerBottomUrl = performerPartnersUrl;
+              // CUSTOM: end
             } else {
               // Solo - no role-based URLs
               categoryUrl = NavUtils.makePerformerMarkerScenesWithRoleUrl(
@@ -886,14 +861,14 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                 sc.label,
                 sc.depth
               );
-            if (partnerTopUrl)
+            if (partnerTopUrl && partnerTopUrl !== performerPartnersUrl)
               partnerTopUrl = NavUtils.withStudioScope(
                 partnerTopUrl,
                 sc.id,
                 sc.label,
                 sc.depth
               );
-            if (partnerBottomUrl)
+            if (partnerBottomUrl && partnerBottomUrl !== performerPartnersUrl)
               partnerBottomUrl = NavUtils.withStudioScope(
                 partnerBottomUrl,
                 sc.id,

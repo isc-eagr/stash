@@ -88,15 +88,11 @@ export function usePerformerCardRoleStats(
   useEffect(() => {
     if (skip || performerIDs.length === 0) return;
 
-    const handle = window.setTimeout(() => {
-      void loadRoleStats({
-        variables: {
-          performer_ids: performerIDs,
-        },
-      });
-    }, 0);
-
-    return () => window.clearTimeout(handle);
+    void loadRoleStats({
+      variables: {
+        performer_ids: performerIDs,
+      },
+    });
   }, [loadRoleStats, performerIDs, skip]);
 
   return useMemo(() => {
