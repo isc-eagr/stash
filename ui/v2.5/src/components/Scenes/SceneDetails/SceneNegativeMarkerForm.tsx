@@ -12,7 +12,6 @@ import isEqual from "lodash-es/isEqual";
 import { formikUtils } from "src/utils/form";
 import { yupFormikValidate } from "src/utils/yup";
 import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
-import TextUtils from "src/utils/text"; // CUSTOM
 // CUSTOM: begin
 import { findSceneMarkerGapWarnings } from "./sceneMarkerGapWarning_custom";
 // CUSTOM: end
@@ -20,12 +19,16 @@ import { findSceneMarkerGapWarnings } from "./sceneMarkerGapWarning_custom";
 interface ISceneNegativeMarkerForm {
   sceneID: string;
   marker?: GQL.SceneNegativeMarker;
+  sceneMarkers?: GQL.SceneMarkerDataFragment[];
+  negativeMarkers?: GQL.SceneNegativeMarker[];
   onClose: () => void;
 }
 
 export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
   sceneID,
   marker,
+  sceneMarkers,
+  negativeMarkers,
   onClose,
 }) => {
   const intl = useIntl();
@@ -38,6 +41,14 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
 
   const isNew = marker === undefined;
   const { data: sceneData } = useFindScene(sceneID); // CUSTOM
+  const warningSceneMarkers = useMemo(
+    () => sceneMarkers ?? sceneData?.findScene?.scene_markers ?? [],
+    [sceneData?.findScene?.scene_markers, sceneMarkers]
+  );
+  const warningNegativeMarkers = useMemo(
+    () => negativeMarkers ?? sceneData?.findScene?.negative_markers ?? [],
+    [negativeMarkers, sceneData?.findScene?.negative_markers]
+  );
 
   const schema = yup.object({
     name: yup.string().ensure(),
@@ -85,8 +96,8 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
           seconds: formik.values.start_seconds,
           end_seconds: formik.values.end_seconds,
         },
-        sceneMarkers: sceneData?.findScene?.scene_markers ?? [],
-        negativeMarkers: sceneData?.findScene?.negative_markers ?? [],
+        sceneMarkers: warningSceneMarkers,
+        negativeMarkers: warningNegativeMarkers,
         roleTagIds: configuration?.ui.roleTagIds ?? {},
       }),
     [
@@ -94,8 +105,8 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
       formik.values.end_seconds,
       formik.values.start_seconds,
       marker?.id,
-      sceneData?.findScene?.negative_markers,
-      sceneData?.findScene?.scene_markers,
+      warningNegativeMarkers,
+      warningSceneMarkers,
     ]
   );
   // CUSTOM: end
@@ -228,17 +239,15 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
     return `${Math.round(seconds * 1000)}ms`;
   }
 
-  function formatBoundaryIssueRange(
-    firstSeconds: number,
-    secondSeconds: number
+  function formatGapWarning(
+    boundary: "Previous" | "Next",
+    warning: NonNullable<typeof gapWarnings>["previous"]
   ) {
-    return `${TextUtils.secondsToTimestamp(
-      Math.min(firstSeconds, secondSeconds),
-      true
-    )} - ${TextUtils.secondsToTimestamp(
-      Math.max(firstSeconds, secondSeconds),
-      true
-    )}`;
+    if (!warning) return "";
+
+    return `${boundary} ${warning.issueType} of ${formatGapMilliseconds(
+      warning.issueSeconds
+    )} with ${warning.adjacentMarkerType}`;
   }
 
   function renderGapWarning() {
@@ -260,49 +269,13 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
       closeNextGap();
     };
 
-    const previousLabel =
-      gapWarnings.previous &&
-      formatBoundaryIssueRange(
-        gapWarnings.previous.markerBoundarySeconds,
-        formik.values.start_seconds
-      );
-    const nextLabel =
-      gapWarnings.next &&
-      formatBoundaryIssueRange(
-        formik.values.end_seconds,
-        gapWarnings.next.markerBoundarySeconds
-      );
-    const hasGap = [gapWarnings.previous, gapWarnings.next].some(
-      (warning) => warning?.issueType === "gap"
-    );
-    const hasOverlap = [gapWarnings.previous, gapWarnings.next].some(
-      (warning) => warning?.issueType === "overlap"
-    );
-    const issueSummary =
-      hasGap && hasOverlap
-        ? "tiny gap or overlap"
-        : hasOverlap
-        ? "tiny overlap"
-        : "tiny unmarked gap";
-
     return (
       <Alert variant="warning" className="py-2">
-        <div className="mb-2">
-          Creating this negative marker would leave a {issueSummary}.
-        </div>
-        {previousLabel && gapWarnings.previous && (
-          <div>
-            Previous {gapWarnings.previous.issueType} with{" "}
-            {gapWarnings.previous.adjacentMarkerType}: {previousLabel} (
-            {formatGapMilliseconds(gapWarnings.previous.issueSeconds)})
-          </div>
+        {gapWarnings.previous && (
+          <div>{formatGapWarning("Previous", gapWarnings.previous)}</div>
         )}
-        {nextLabel && gapWarnings.next && (
-          <div>
-            Next {gapWarnings.next.issueType} with{" "}
-            {gapWarnings.next.adjacentMarkerType}: {nextLabel} (
-            {formatGapMilliseconds(gapWarnings.next.issueSeconds)})
-          </div>
+        {gapWarnings.next && (
+          <div>{formatGapWarning("Next", gapWarnings.next)}</div>
         )}
         <div className="mt-2 d-flex flex-wrap" style={{ gap: "0.5rem" }}>
           {gapWarnings.previous && (

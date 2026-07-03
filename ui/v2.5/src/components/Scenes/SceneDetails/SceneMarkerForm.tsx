@@ -37,7 +37,7 @@ import TextUtils from "src/utils/text";
 import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
 // CUSTOM: begin
 import {
-  findSceneMarkerGapWarnings,
+  findSceneMarkerWarnings,
   type SceneMarkerGapTag,
 } from "./sceneMarkerGapWarning_custom";
 // CUSTOM: end
@@ -114,6 +114,8 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   const [sceneMarkerCreate] = useSceneMarkerCreate();
   const [sceneMarkerUpdate] = useSceneMarkerUpdate();
   const [sceneMarkerDestroy] = useSceneMarkerDestroy();
+  const [sceneNegativeMarkerUpdate] =
+    GQL.useSceneNegativeMarkerUpdateMutation(); // CUSTOM
   const Toast = useToast();
   const { configuration } = useConfigurationContext(); // CUSTOM
 
@@ -209,10 +211,10 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     onSubmit: (values) => onSave(schema.cast(values)),
   });
 
-  // CUSTOM: begin - warn about small unmarked gaps next to this marker
-  const gapWarnings = useMemo(
+  // CUSTOM: begin - warn about marker quality issues without blocking saves
+  const markerWarnings = useMemo(
     () =>
-      findSceneMarkerGapWarnings({
+      findSceneMarkerWarnings({
         draft: {
           id: marker?.id,
           seconds: formik.values.seconds,
@@ -221,6 +223,8 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
           tag_ids: formik.values.tag_ids,
           primary_tag: primaryTag as unknown as SceneMarkerGapTag | undefined,
           tags: tags as unknown as SceneMarkerGapTag[],
+          top_performer_ids: formik.values.top_performer_ids,
+          bottom_performer_ids: formik.values.bottom_performer_ids,
         },
         sceneMarkers: sceneData?.findScene?.scene_markers ?? [],
         negativeMarkers: sceneData?.findScene?.negative_markers ?? [],
@@ -228,10 +232,12 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       }),
     [
       configuration?.ui.roleTagIds,
+      formik.values.bottom_performer_ids,
       formik.values.end_seconds,
       formik.values.primary_tag_id,
       formik.values.seconds,
       formik.values.tag_ids,
+      formik.values.top_performer_ids,
       marker?.id,
       primaryTag,
       sceneData?.findScene?.negative_markers,
@@ -239,6 +245,16 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       tags,
     ]
   );
+  const gapWarnings = useMemo(() => {
+    const previous = markerWarnings.find(
+      (warning) => warning.boundary === "previous"
+    )?.gapWarning;
+    const next = markerWarnings.find(
+      (warning) => warning.boundary === "next"
+    )?.gapWarning;
+
+    return previous || next ? { previous, next } : undefined;
+  }, [markerWarnings]);
   // CUSTOM: end
 
   function onSetPrimaryTag(item: Tag) {
@@ -504,101 +520,131 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   }
   // CUSTOM: end
 
-  // CUSTOM: begin - small adjacent gap warning
-  function formatGapMilliseconds(seconds: number) {
-    return `${Math.round(seconds * 1000)}ms`;
-  }
-
-  function formatBoundaryIssueRange(
-    firstSeconds: number,
-    secondSeconds: number
-  ) {
-    return `${TextUtils.secondsToTimestamp(
-      Math.min(firstSeconds, secondSeconds),
-      true
-    )} - ${TextUtils.secondsToTimestamp(
-      Math.max(firstSeconds, secondSeconds),
-      true
-    )}`;
-  }
-
+  // CUSTOM: begin - marker warning display
   function renderGapWarning() {
-    if (!gapWarnings) return null;
+    if (markerWarnings.length === 0) return null;
 
-    const closePreviousGap = () => {
-      if (!gapWarnings.previous) return;
-      formik.setFieldValue("seconds", gapWarnings.previous.closeToSeconds);
+    const closePreviousGap = async () => {
+      if (!gapWarnings?.previous) return;
+      await formik.setFieldValue(
+        "seconds",
+        gapWarnings.previous.closeToSeconds
+      );
     };
-    const closeNextGap = () => {
-      if (!gapWarnings.next) return;
-      formik.setFieldValue("end_seconds", gapWarnings.next.closeToSeconds);
+    const closeNextGap = async () => {
+      if (!gapWarnings?.next) return;
+      await formik.setFieldValue(
+        "end_seconds",
+        gapWarnings.next.closeToSeconds
+      );
     };
-    const closeAllGaps = () => {
-      closePreviousGap();
-      closeNextGap();
+    const closeAllGaps = async () => {
+      await closePreviousGap();
+      await closeNextGap();
     };
+    const closeOtherMarkerGap = async (boundary: "previous" | "next") => {
+      const warning = gapWarnings?.[boundary];
+      if (!warning?.adjacentMarkerId) return;
 
-    const previousLabel =
-      gapWarnings.previous &&
-      formatBoundaryIssueRange(
-        gapWarnings.previous.markerBoundarySeconds,
-        formik.values.seconds
-      );
-    const nextLabel =
-      gapWarnings.next &&
-      formatBoundaryIssueRange(
-        formik.values.end_seconds ?? 0,
-        gapWarnings.next.markerBoundarySeconds
-      );
-    const hasGap = [gapWarnings.previous, gapWarnings.next].some(
-      (warning) => warning?.issueType === "gap"
-    );
-    const hasOverlap = [gapWarnings.previous, gapWarnings.next].some(
-      (warning) => warning?.issueType === "overlap"
-    );
-    const issueSummary =
-      hasGap && hasOverlap
-        ? "tiny gap or overlap"
-        : hasOverlap
-        ? "tiny overlap"
-        : "tiny unmarked gap";
+      try {
+        if (warning.adjacentMarkerKind === "negative-marker") {
+          await sceneNegativeMarkerUpdate({
+            variables: {
+              input: {
+                id: warning.adjacentMarkerId,
+                ...(boundary === "previous"
+                  ? { end_seconds: warning.otherCloseToSeconds }
+                  : { start_seconds: warning.otherCloseToSeconds }),
+              },
+            },
+          });
+          return;
+        }
+
+        const adjacentMarker = sceneData?.findScene?.scene_markers.find(
+          (sceneMarker) => sceneMarker.id === warning.adjacentMarkerId
+        );
+        if (!adjacentMarker) return;
+
+        await sceneMarkerUpdate({
+          variables: {
+            id: adjacentMarker.id,
+            scene_id: sceneID,
+            title: adjacentMarker.title,
+            seconds:
+              boundary === "next"
+                ? warning.otherCloseToSeconds
+                : adjacentMarker.seconds,
+            end_seconds:
+              boundary === "previous"
+                ? warning.otherCloseToSeconds
+                : adjacentMarker.end_seconds ?? null,
+            primary_tag_id: adjacentMarker.primary_tag.id,
+            tag_ids: adjacentMarker.tags.map((tag) => tag.id),
+            top_performer_ids:
+              adjacentMarker.top_performers?.map((performer) => performer.id) ??
+              [],
+            bottom_performer_ids:
+              adjacentMarker.bottom_performers?.map(
+                (performer) => performer.id
+              ) ?? [],
+          },
+        });
+      } catch (e) {
+        Toast.error(e);
+      }
+    };
 
     return (
       <Alert variant="warning" className="py-2">
-        <div className="mb-2">
-          Creating this marker would leave a {issueSummary}.
-        </div>
-        {previousLabel && gapWarnings.previous && (
-          <div>
-            Previous {gapWarnings.previous.issueType} with{" "}
-            {gapWarnings.previous.adjacentMarkerType}: {previousLabel} (
-            {formatGapMilliseconds(gapWarnings.previous.issueSeconds)})
+        {markerWarnings.length === 1 ? (
+          <div>{markerWarnings[0].message}</div>
+        ) : (
+          <ul className="mb-0 pl-3">
+            {markerWarnings.map((warning, index) => (
+              <li key={`${warning.issueType}-${warning.boundary ?? index}`}>
+                {warning.message}
+              </li>
+            ))}
+          </ul>
+        )}
+        {gapWarnings && (
+          <div className="mt-2 d-flex flex-wrap" style={{ gap: "0.5rem" }}>
+            {gapWarnings.previous && (
+              <Button size="sm" variant="warning" onClick={closePreviousGap}>
+                Fix previous on this marker
+              </Button>
+            )}
+            {gapWarnings.previous?.adjacentMarkerId && (
+              <Button
+                size="sm"
+                variant="warning"
+                onClick={() => closeOtherMarkerGap("previous")}
+              >
+                Fix previous on other marker
+              </Button>
+            )}
+            {gapWarnings.next && (
+              <Button size="sm" variant="warning" onClick={closeNextGap}>
+                Fix next on this marker
+              </Button>
+            )}
+            {gapWarnings.next?.adjacentMarkerId && (
+              <Button
+                size="sm"
+                variant="warning"
+                onClick={() => closeOtherMarkerGap("next")}
+              >
+                Fix next on other marker
+              </Button>
+            )}
+            {gapWarnings.previous && gapWarnings.next && (
+              <Button size="sm" variant="warning" onClick={closeAllGaps}>
+                Fix both on this marker
+              </Button>
+            )}
           </div>
         )}
-        {nextLabel && gapWarnings.next && (
-          <div>
-            Next {gapWarnings.next.issueType} with{" "}
-            {gapWarnings.next.adjacentMarkerType}: {nextLabel} (
-            {formatGapMilliseconds(gapWarnings.next.issueSeconds)})
-          </div>
-        )}
-        <div className="mt-2 d-flex flex-wrap" style={{ gap: "0.5rem" }}>
-          {gapWarnings.previous && (
-            <Button size="sm" variant="warning" onClick={closePreviousGap}>
-              Close previous {gapWarnings.previous.issueType}
-            </Button>
-          )}
-          {gapWarnings.next && (
-            <Button size="sm" variant="warning" onClick={closeNextGap}>
-              Close next {gapWarnings.next.issueType}
-            </Button>
-          )}
-          {gapWarnings.previous && gapWarnings.next && (
-            <Button size="sm" variant="warning" onClick={closeAllGaps}>
-              Close both
-            </Button>
-          )}
-        </div>
       </Alert>
     );
   }

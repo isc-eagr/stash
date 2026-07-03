@@ -11,6 +11,7 @@ import {
   faChevronRight,
   faArrowUp,
   faArrowDown,
+  faExclamationTriangle,
 } from "@fortawesome/free-solid-svg-icons";
 // CUSTOM: end
 
@@ -24,6 +25,7 @@ interface IPrimaryTags {
   selectedMarkerIds: Set<string>;
   onSelectMarker: (id: string, selected: boolean) => void;
   onSelectMarkers: (ids: string[], selected: boolean) => void;
+  markerWarningMessagesById?: Map<string, string[]>;
   // CUSTOM: end
 }
 
@@ -97,6 +99,7 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
   selectedMarkerIds,
   onSelectMarker,
   onSelectMarkers,
+  markerWarningMessagesById = new Map(),
   // CUSTOM: end
 }) => {
   if (!sceneMarkers?.length) return <div />;
@@ -121,6 +124,7 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
     // CUSTOM: end
 
     const markers = markersByTag[id].map((marker) => {
+      const warningMessages = markerWarningMessagesById.get(marker.id) ?? [];
       const tags = marker.tags.map((tag) => (
         <Badge key={tag.id} variant="secondary" className="tag-badge mr-1">
           {tag.name}
@@ -173,6 +177,13 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
                 >
                   {markerTitle(marker)}
                 </Button>
+                {warningMessages.length > 0 && (
+                  <Icon
+                    icon={faExclamationTriangle}
+                    className="scene-marker-warning-icon ml-2"
+                    title={warningMessages.join("\n")}
+                  />
+                )}
                 <span className="marker-timestamp text-muted ml-2">
                   <Button
                     variant="link"

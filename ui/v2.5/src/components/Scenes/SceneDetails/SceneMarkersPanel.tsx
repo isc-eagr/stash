@@ -9,6 +9,7 @@ import { Button } from "react-bootstrap"; // CUSTOM
 import { FormattedMessage } from "react-intl";
 import Mousetrap from "mousetrap";
 import * as GQL from "src/core/generated-graphql";
+import { useFindScene } from "src/core/StashService"; // CUSTOM
 import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
 import { PrimaryTags } from "./PrimaryTags";
 import { SceneMarkerForm } from "./SceneMarkerForm";
@@ -25,6 +26,10 @@ import {
 } from "./sceneMarkerChronologySearch_custom";
 import { shouldShowOfficialSceneMarkerLayout } from "./sceneMarkerLayoutPreference_custom";
 import TextUtils from "src/utils/text";
+import {
+  findSceneMarkerWarnings,
+  sceneMarkerWarningDraft,
+} from "./sceneMarkerGapWarning_custom";
 // CUSTOM: end
 
 interface ISceneMarkersPanelProps {
@@ -54,6 +59,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   const { data, loading } = GQL.useFindSceneMarkerTagsQuery({
     variables: { id: sceneId },
   });
+  const { data: sceneData } = useFindScene(sceneId); // CUSTOM
   const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
   const [editingMarker, setEditingMarker] =
     useState<GQL.SceneMarkerDataFragment>();
@@ -112,6 +118,28 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     () => filterChronologicalSceneMarkers(sceneMarkers, markerSearch),
     [markerSearch, sceneMarkers]
   );
+  const negativeMarkers = useMemo(
+    () => sceneData?.findScene?.negative_markers ?? [],
+    [sceneData?.findScene?.negative_markers]
+  );
+  const markerWarningMessagesById = useMemo(() => {
+    const warningsById = new Map<string, string[]>();
+
+    sceneMarkers.forEach((marker) => {
+      const warningMessages = findSceneMarkerWarnings({
+        draft: sceneMarkerWarningDraft(marker),
+        sceneMarkers,
+        negativeMarkers,
+        roleTagIds: configuration?.ui.roleTagIds ?? {},
+      }).map((warning) => warning.message);
+
+      if (warningMessages.length > 0) {
+        warningsById.set(marker.id, warningMessages);
+      }
+    });
+
+    return warningsById;
+  }, [configuration?.ui.roleTagIds, negativeMarkers, sceneMarkers]);
 
   useEffect(() => {
     if (!focusedMarkerId) return;
@@ -463,6 +491,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
             selectedMarkerIds={selectedMarkerIds}
             onSelectMarker={toggleSingle}
             onSelectMarkers={setManySelected}
+            markerWarningMessagesById={markerWarningMessagesById}
             // CUSTOM: end
           />
         ) : (
@@ -481,6 +510,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
             onSelectDerivedWindow={toggleDerivedWindow}
             currentTimestamp={currentTimestamp}
             focusedMarkerId={focusedMarkerHighlightId}
+            markerWarningMessagesById={markerWarningMessagesById}
           />
         )}
       </div>

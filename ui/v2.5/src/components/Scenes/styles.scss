@@ -1354,7 +1354,7 @@ input[type="range"].blue-slider {
     cursor: pointer;
     display: grid;
     gap: 0.26rem;
-    grid-template-columns: max-content auto auto;
+    grid-template-columns: max-content auto auto auto;
     min-height: 2.05rem;
     padding: 0.28rem 0.34rem;
   }
@@ -1443,6 +1443,14 @@ input[type="range"].blue-slider {
   .scene-marker-activity-marker-checkbox {
     line-height: 1;
     margin: 0;
+  }
+
+  .scene-marker-warning-icon {
+    align-self: center;
+    color: #f6c343;
+    flex: 0 0 auto;
+    font-size: 0.78rem;
+    line-height: 1;
   }
 
   .scene-marker-activity-highlights {
@@ -1974,6 +1982,16 @@ input[type="range"].blue-slider {
         transform: scale(1);
       }
     }
+  }
+}
+
+.scene-negative-markers-panel {
+  .scene-marker-warning-icon {
+    align-self: center;
+    color: #f6c343;
+    flex: 0 0 auto;
+    font-size: 0.85rem;
+    line-height: 1;
   }
 }
 

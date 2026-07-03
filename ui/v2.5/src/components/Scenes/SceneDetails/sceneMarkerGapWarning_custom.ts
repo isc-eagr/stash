@@ -8,6 +8,9 @@ export type SceneMarkerGapRoleTagIds = {
   sexTagId?: string;
   oralTagId?: string;
   soloTagId?: string;
+  feetTagId?: string;
+  orgasmTagId?: string;
+  facialTagId?: string;
 };
 
 export type SceneMarkerGapSceneMarker = {
@@ -17,6 +20,8 @@ export type SceneMarkerGapSceneMarker = {
   end_seconds?: number | null;
   primary_tag?: SceneMarkerGapTag | null;
   tags?: SceneMarkerGapTag[] | null;
+  top_performers?: Array<{ id: string }> | null;
+  bottom_performers?: Array<{ id: string }> | null;
 };
 
 export type SceneMarkerGapNegativeMarker = {
@@ -34,6 +39,8 @@ export type SceneMarkerGapDraft = {
   tag_ids?: string[];
   primary_tag?: SceneMarkerGapTag | null;
   tags?: SceneMarkerGapTag[] | null;
+  top_performer_ids?: string[];
+  bottom_performer_ids?: string[];
 };
 
 export type SceneMarkerGapWarning = {
@@ -44,12 +51,33 @@ export type SceneMarkerGapWarning = {
   adjacentMarkerType: string;
 };
 
+export type SceneMarkerGapWarningDetail = SceneMarkerGapWarning & {
+  adjacentMarkerId?: string;
+  adjacentMarkerKind: "scene-marker" | "negative-marker";
+  otherCloseToSeconds: number;
+};
+
 export type SceneMarkerGapWarnings = {
   previous?: SceneMarkerGapWarning;
   next?: SceneMarkerGapWarning;
 };
 
+export type SceneMarkerWarningIssueType =
+  | "missing-end-time"
+  | "missing-performers"
+  | "missing-role-performers"
+  | SceneMarkerGapWarning["issueType"];
+
+export type SceneMarkerWarning = {
+  issueType: SceneMarkerWarningIssueType;
+  message: string;
+  boundary?: "previous" | "next";
+  gapWarning?: SceneMarkerGapWarningDetail;
+};
+
 type SceneMarkerGapRange = {
+  markerId?: string;
+  markerKind: "scene-marker" | "negative-marker";
   start: number;
   end: number;
   markerType: string;
@@ -75,24 +103,16 @@ function markerHasActivityTag(
   marker: SceneMarkerGapSceneMarker,
   activityTagIds: string[]
 ) {
-  return [marker.primary_tag, ...(marker.tags ?? [])].some((tag) =>
-    activityTagIds.some((tagId) => tagMatches(tag, tagId))
-  );
+  return activityTagIds.some((tagId) => tagMatches(marker.primary_tag, tagId));
 }
 
 function draftHasActivityTag(
   draft: SceneMarkerGapDraft,
   activityTagIds: string[]
 ) {
-  const draftTagIds = new Set(
-    [draft.primary_tag_id, ...(draft.tag_ids ?? [])].filter(Boolean)
-  );
-
   return (
-    activityTagIds.some((tagId) => draftTagIds.has(tagId)) ||
-    [draft.primary_tag, ...(draft.tags ?? [])].some((tag) =>
-      activityTagIds.some((tagId) => tagMatches(tag, tagId))
-    )
+    activityTagIds.some((tagId) => draft.primary_tag_id === tagId) ||
+    activityTagIds.some((tagId) => tagMatches(draft.primary_tag, tagId))
   );
 }
 
@@ -147,6 +167,57 @@ function negativeMarkerType(marker: SceneMarkerGapNegativeMarker) {
   return marker.name ? `Negative marker: ${marker.name}` : "Negative marker";
 }
 
+function activityTypeTagIds(roleTagIds: SceneMarkerGapRoleTagIds) {
+  return [
+    roleTagIds.sexTagId,
+    roleTagIds.oralTagId,
+    roleTagIds.soloTagId,
+    roleTagIds.feetTagId,
+    roleTagIds.orgasmTagId,
+    roleTagIds.facialTagId,
+  ].filter((tagId): tagId is string => !!tagId);
+}
+
+function roleRequiredTagIds(roleTagIds: SceneMarkerGapRoleTagIds) {
+  return [
+    roleTagIds.sexTagId,
+    roleTagIds.oralTagId,
+    roleTagIds.facialTagId,
+  ].filter((tagId): tagId is string => !!tagId);
+}
+
+function draftHasConfiguredPrimaryTag(
+  draft: SceneMarkerGapDraft,
+  tagIds: string[]
+) {
+  return tagIds.some(
+    (tagId) =>
+      draft.primary_tag_id === tagId || tagMatches(draft.primary_tag, tagId)
+  );
+}
+
+function draftPerformerCounts(draft: SceneMarkerGapDraft) {
+  return {
+    top: draft.top_performer_ids?.length ?? 0,
+    bottom: draft.bottom_performer_ids?.length ?? 0,
+  };
+}
+
+function formatIssueSeconds(seconds: number) {
+  return seconds < 1 ? `${Math.round(seconds * 1000)}ms` : `${seconds}s`;
+}
+
+function gapWarningMessage(
+  boundary: "previous" | "next",
+  warning: SceneMarkerGapWarningDetail
+) {
+  const boundaryLabel = boundary === "previous" ? "Previous" : "Next";
+
+  return `${boundaryLabel} ${warning.issueType} of ${formatIssueSeconds(
+    warning.issueSeconds
+  )} with ${warning.adjacentMarkerType}`;
+}
+
 function markerRange(
   marker: SceneMarkerGapSceneMarker
 ): SceneMarkerGapRange | undefined {
@@ -159,6 +230,8 @@ function markerRange(
   if (endSeconds <= marker.seconds) return undefined;
 
   return {
+    markerId: marker.id,
+    markerKind: "scene-marker",
     start: marker.seconds,
     end: endSeconds,
     markerType: markerType(marker),
@@ -178,13 +251,27 @@ function negativeMarkerRange(
   if (marker.end_seconds <= marker.start_seconds) return undefined;
 
   return {
+    markerId: marker.id,
+    markerKind: "negative-marker",
     start: marker.start_seconds,
     end: marker.end_seconds,
     markerType: negativeMarkerType(marker),
   };
 }
 
-export function findSceneMarkerGapWarnings({
+function stripGapWarningDetail(
+  warning: SceneMarkerGapWarningDetail
+): SceneMarkerGapWarning {
+  return {
+    issueType: warning.issueType,
+    issueSeconds: warning.issueSeconds,
+    markerBoundarySeconds: warning.markerBoundarySeconds,
+    closeToSeconds: warning.closeToSeconds,
+    adjacentMarkerType: warning.adjacentMarkerType,
+  };
+}
+
+function findSceneMarkerGapWarningDetails({
   draft,
   sceneMarkers,
   negativeMarkers,
@@ -194,12 +281,13 @@ export function findSceneMarkerGapWarnings({
   sceneMarkers: SceneMarkerGapSceneMarker[];
   negativeMarkers: SceneMarkerGapNegativeMarker[];
   roleTagIds: SceneMarkerGapRoleTagIds;
-}): SceneMarkerGapWarnings | undefined {
-  const activityTagIds = [
-    roleTagIds.sexTagId,
-    roleTagIds.oralTagId,
-    roleTagIds.soloTagId,
-  ].filter((tagId): tagId is string => !!tagId);
+}):
+  | {
+      previous?: SceneMarkerGapWarningDetail;
+      next?: SceneMarkerGapWarningDetail;
+    }
+  | undefined {
+  const activityTagIds = activityTypeTagIds(roleTagIds);
 
   const draftEndSeconds = draft.end_seconds;
   if (
@@ -258,7 +346,10 @@ export function findSceneMarkerGapWarnings({
   const nextGapSeconds = nextGapRange
     ? nextGapRange.start - draftEndSeconds
     : 0;
-  const warnings: SceneMarkerGapWarnings = {};
+  const warnings: {
+    previous?: SceneMarkerGapWarningDetail;
+    next?: SceneMarkerGapWarningDetail;
+  } = {};
 
   if (
     previousOverlapRange &&
@@ -271,7 +362,12 @@ export function findSceneMarkerGapWarnings({
       closeToSeconds: roundToMilliseconds(
         previousOverlapRange.range.end + markerGapCloseOffsetSeconds
       ),
+      otherCloseToSeconds: roundToMilliseconds(
+        draft.seconds - markerGapCloseOffsetSeconds
+      ),
       adjacentMarkerType: previousOverlapRange.range.markerType,
+      adjacentMarkerId: previousOverlapRange.range.markerId,
+      adjacentMarkerKind: previousOverlapRange.range.markerKind,
     };
   } else if (
     !previousOverlapRange &&
@@ -285,7 +381,12 @@ export function findSceneMarkerGapWarnings({
       closeToSeconds: roundToMilliseconds(
         previousGapRange.end + markerGapCloseOffsetSeconds
       ),
+      otherCloseToSeconds: roundToMilliseconds(
+        draft.seconds - markerGapCloseOffsetSeconds
+      ),
       adjacentMarkerType: previousGapRange.markerType,
+      adjacentMarkerId: previousGapRange.markerId,
+      adjacentMarkerKind: previousGapRange.markerKind,
     };
   }
 
@@ -297,7 +398,12 @@ export function findSceneMarkerGapWarnings({
       closeToSeconds: roundToMilliseconds(
         nextOverlapRange.range.start - markerGapCloseOffsetSeconds
       ),
+      otherCloseToSeconds: roundToMilliseconds(
+        draftEndSeconds + markerGapCloseOffsetSeconds
+      ),
       adjacentMarkerType: nextOverlapRange.range.markerType,
+      adjacentMarkerId: nextOverlapRange.range.markerId,
+      adjacentMarkerKind: nextOverlapRange.range.markerKind,
     };
   } else if (!nextOverlapRange && nextGapRange && isSmallGap(nextGapSeconds)) {
     warnings.next = {
@@ -307,11 +413,127 @@ export function findSceneMarkerGapWarnings({
       closeToSeconds: roundToMilliseconds(
         nextGapRange.start - markerGapCloseOffsetSeconds
       ),
+      otherCloseToSeconds: roundToMilliseconds(
+        draftEndSeconds + markerGapCloseOffsetSeconds
+      ),
       adjacentMarkerType: nextGapRange.markerType,
+      adjacentMarkerId: nextGapRange.markerId,
+      adjacentMarkerKind: nextGapRange.markerKind,
     };
   }
 
   if (!warnings.previous && !warnings.next) return undefined;
+
+  return warnings;
+}
+
+export function findSceneMarkerGapWarnings({
+  draft,
+  sceneMarkers,
+  negativeMarkers,
+  roleTagIds,
+}: {
+  draft: SceneMarkerGapDraft;
+  sceneMarkers: SceneMarkerGapSceneMarker[];
+  negativeMarkers: SceneMarkerGapNegativeMarker[];
+  roleTagIds: SceneMarkerGapRoleTagIds;
+}): SceneMarkerGapWarnings | undefined {
+  const details = findSceneMarkerGapWarningDetails({
+    draft,
+    sceneMarkers,
+    negativeMarkers,
+    roleTagIds,
+  });
+
+  if (!details) return undefined;
+
+  return {
+    previous: details.previous && stripGapWarningDetail(details.previous),
+    next: details.next && stripGapWarningDetail(details.next),
+  };
+}
+
+export function sceneMarkerWarningDraft(
+  marker: SceneMarkerGapSceneMarker
+): SceneMarkerGapDraft {
+  return {
+    id: marker.id,
+    seconds: marker.seconds,
+    end_seconds: marker.end_seconds,
+    primary_tag_id: marker.primary_tag?.id,
+    tag_ids: marker.tags?.map((tag) => tag.id) ?? [],
+    primary_tag: marker.primary_tag,
+    tags: marker.tags,
+    top_performer_ids:
+      marker.top_performers?.map((performer) => performer.id) ?? [],
+    bottom_performer_ids:
+      marker.bottom_performers?.map((performer) => performer.id) ?? [],
+  };
+}
+
+export function findSceneMarkerWarnings({
+  draft,
+  sceneMarkers,
+  negativeMarkers,
+  roleTagIds,
+}: {
+  draft: SceneMarkerGapDraft;
+  sceneMarkers: SceneMarkerGapSceneMarker[];
+  negativeMarkers: SceneMarkerGapNegativeMarker[];
+  roleTagIds: SceneMarkerGapRoleTagIds;
+}): SceneMarkerWarning[] {
+  const warnings: SceneMarkerWarning[] = [];
+  const performerCounts = draftPerformerCounts(draft);
+
+  if (draft.end_seconds === null || draft.end_seconds === undefined) {
+    warnings.push({
+      issueType: "missing-end-time",
+      message: "Marker has no end time.",
+    });
+  }
+
+  if (performerCounts.top + performerCounts.bottom === 0) {
+    warnings.push({
+      issueType: "missing-performers",
+      message: "Marker has no top or bottom performers.",
+    });
+  }
+
+  if (
+    draftHasConfiguredPrimaryTag(draft, roleRequiredTagIds(roleTagIds)) &&
+    (performerCounts.top === 0 || performerCounts.bottom === 0)
+  ) {
+    warnings.push({
+      issueType: "missing-role-performers",
+      message:
+        "Sex, oral, and facial markers should include at least one top and one bottom performer.",
+    });
+  }
+
+  const gapWarnings = findSceneMarkerGapWarningDetails({
+    draft,
+    sceneMarkers,
+    negativeMarkers,
+    roleTagIds,
+  });
+
+  if (gapWarnings?.previous) {
+    warnings.push({
+      issueType: gapWarnings.previous.issueType,
+      boundary: "previous",
+      gapWarning: gapWarnings.previous,
+      message: gapWarningMessage("previous", gapWarnings.previous),
+    });
+  }
+
+  if (gapWarnings?.next) {
+    warnings.push({
+      issueType: gapWarnings.next.issueType,
+      boundary: "next",
+      gapWarning: gapWarnings.next,
+      message: gapWarningMessage("next", gapWarnings.next),
+    });
+  }
 
   return warnings;
 }

@@ -2,7 +2,10 @@ import React, { useEffect, useMemo } from "react";
 import { Badge, Button, Form } from "react-bootstrap";
 import cx from "classnames";
 import Select, { MultiValue, SingleValue } from "react-select";
-import { faUser } from "@fortawesome/free-solid-svg-icons";
+import {
+  faExclamationTriangle,
+  faUser,
+} from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import { Icon } from "src/components/Shared/Icon";
 import { HoverPopover } from "src/components/Shared/HoverPopover";
@@ -57,6 +60,7 @@ interface ISceneMarkersChronologicalPanel {
   onSelectDerivedWindow?: (key: string, selected: boolean) => void;
   currentTimestamp?: number;
   focusedMarkerId?: string;
+  markerWarningMessagesById?: Map<string, string[]>;
 }
 
 type SearchSelectEntity = {
@@ -295,6 +299,7 @@ interface ITimelineMarkerBox {
   selectedMarkerIds: Set<string>;
   currentTimestamp?: number;
   focusedMarkerId?: string;
+  warningMessages?: string[];
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   onEdit: (marker: GQL.SceneMarkerDataFragment) => void;
   onSelectMarker: (id: string, selected: boolean) => void;
@@ -306,6 +311,7 @@ const TimelineMarkerBox: React.FC<ITimelineMarkerBox> = ({
   selectedMarkerIds,
   currentTimestamp,
   focusedMarkerId,
+  warningMessages = [],
   onClickMarker,
   onEdit,
   onSelectMarker,
@@ -390,6 +396,13 @@ const TimelineMarkerBox: React.FC<ITimelineMarkerBox> = ({
       >
         {renderMarkerTime()}
       </div>
+      {warningMessages.length > 0 && (
+        <Icon
+          icon={faExclamationTriangle}
+          className="scene-marker-warning-icon"
+          title={warningMessages.join("\n")}
+        />
+      )}
       <Button
         className="scene-marker-activity-marker-edit p-0"
         variant="link"
@@ -422,6 +435,7 @@ interface IActivityTypeGroupCard {
   selectedMarkerIds: Set<string>;
   currentTimestamp?: number;
   focusedMarkerId?: string;
+  markerWarningMessagesById: Map<string, string[]>;
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   onEdit: (marker: GQL.SceneMarkerDataFragment) => void;
   onSelectMarker: (id: string, selected: boolean) => void;
@@ -436,6 +450,7 @@ const ActivityTypeGroupCard: React.FC<IActivityTypeGroupCard> = ({
   selectedMarkerIds,
   currentTimestamp,
   focusedMarkerId,
+  markerWarningMessagesById,
   onClickMarker,
   onEdit,
   onSelectMarker,
@@ -480,7 +495,7 @@ const ActivityTypeGroupCard: React.FC<IActivityTypeGroupCard> = ({
         <span className="scene-marker-activity-config-summary">
           {formatMarkerDuration(groupDurationSeconds)}
         </span>
-        {groupMarkerIds.length > 0 && (
+        {groupMarkerIds.length > 1 && (
           <Form.Check
             className="scene-marker-activity-config-checkbox"
             type="checkbox"
@@ -525,6 +540,7 @@ const ActivityTypeGroupCard: React.FC<IActivityTypeGroupCard> = ({
                 selectedMarkerIds={selectedMarkerIds}
                 currentTimestamp={currentTimestamp}
                 focusedMarkerId={focusedMarkerId}
+                warningMessages={markerWarningMessagesById.get(marker.id)}
                 onClickMarker={onClickMarker}
                 onEdit={onEdit}
                 onSelectMarker={onSelectMarker}
@@ -541,6 +557,7 @@ const ActivityTypeGroupCard: React.FC<IActivityTypeGroupCard> = ({
           selectedMarkerIds={selectedMarkerIds}
           currentTimestamp={currentTimestamp}
           focusedMarkerId={focusedMarkerId}
+          markerWarningMessagesById={markerWarningMessagesById}
           onClickMarker={onClickMarker}
           onEdit={onEdit}
           onSelectMarkers={onSelectMarkers}
@@ -581,6 +598,7 @@ const HighlightSegmentBox: React.FC<{
   selectedMarkerIds: Set<string>;
   currentTimestamp?: number;
   focusedMarkerId?: string;
+  warningMessages?: string[];
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   onEdit: (marker: GQL.SceneMarkerDataFragment) => void;
   onSelectMarkers: (ids: string[], selected: boolean) => void;
@@ -590,6 +608,7 @@ const HighlightSegmentBox: React.FC<{
   selectedMarkerIds,
   currentTimestamp,
   focusedMarkerId,
+  warningMessages = [],
   onClickMarker,
   onEdit,
   onSelectMarkers,
@@ -658,6 +677,13 @@ const HighlightSegmentBox: React.FC<{
           {TextUtils.secondsToTimestamp(segment.end_seconds)}
         </Button>
       </div>
+      {warningMessages.length > 0 && (
+        <Icon
+          icon={faExclamationTriangle}
+          className="scene-marker-warning-icon"
+          title={warningMessages.join("\n")}
+        />
+      )}
       <Button
         className="scene-marker-activity-marker-edit p-0"
         variant="link"
@@ -735,6 +761,7 @@ interface IActivityGroupHighlights {
   selectedMarkerIds: Set<string>;
   currentTimestamp?: number;
   focusedMarkerId?: string;
+  markerWarningMessagesById: Map<string, string[]>;
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   onEdit: (marker: GQL.SceneMarkerDataFragment) => void;
   onSelectMarkers: (ids: string[], selected: boolean) => void;
@@ -747,6 +774,7 @@ function HighlightPillList({
   selectedMarkerIds,
   currentTimestamp,
   focusedMarkerId,
+  markerWarningMessagesById,
   onClickMarker,
   onEdit,
   onSelectMarkers,
@@ -784,6 +812,13 @@ function HighlightPillList({
             selectedMarkerIds={selectedMarkerIds}
             currentTimestamp={currentTimestamp}
             focusedMarkerId={focusedMarkerId}
+            warningMessages={Array.from(
+              new Set(
+                segment.markers.flatMap(
+                  (marker) => markerWarningMessagesById.get(marker.id) ?? []
+                )
+              )
+            )}
             onClickMarker={onClickMarker}
             onEdit={onEdit}
             onSelectMarkers={onSelectMarkers}
@@ -801,6 +836,7 @@ function ActivityGroupHighlights({
   selectedMarkerIds,
   currentTimestamp,
   focusedMarkerId,
+  markerWarningMessagesById,
   onClickMarker,
   onEdit,
   onSelectMarkers,
@@ -821,24 +857,27 @@ function ActivityGroupHighlights({
 
   return (
     <div className="scene-marker-activity-highlights">
-      <Form.Check
-        className="scene-marker-activity-highlights-checkbox"
-        type="checkbox"
-        checked={allHighlightsSelected}
-        onClick={(event: React.MouseEvent<HTMLInputElement>) =>
-          event.stopPropagation()
-        }
-        onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-          onSelectMarkers(highlightMarkerIds, event.currentTarget.checked)
-        }
-        title="Select highlights in this group"
-      />
+      {highlightMarkerIds.length > 1 && (
+        <Form.Check
+          className="scene-marker-activity-highlights-checkbox"
+          type="checkbox"
+          checked={allHighlightsSelected}
+          onClick={(event: React.MouseEvent<HTMLInputElement>) =>
+            event.stopPropagation()
+          }
+          onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+            onSelectMarkers(highlightMarkerIds, event.currentTarget.checked)
+          }
+          title="Select highlights in this group"
+        />
+      )}
       <HighlightPillList
         highlightGroups={highlightGroups}
         orgasmTagId={orgasmTagId}
         selectedMarkerIds={selectedMarkerIds}
         currentTimestamp={currentTimestamp}
         focusedMarkerId={focusedMarkerId}
+        markerWarningMessagesById={markerWarningMessagesById}
         onClickMarker={onClickMarker}
         onEdit={onEdit}
         onSelectMarkers={onSelectMarkers}
@@ -865,6 +904,7 @@ export const SceneMarkersChronologicalPanel: React.FC<
   onSelectDerivedWindow,
   currentTimestamp,
   focusedMarkerId,
+  markerWarningMessagesById = new Map(),
 }) => {
   const { configuration } = useConfigurationContext();
   const firstTagOptions = useMemo(
@@ -1125,14 +1165,16 @@ export const SceneMarkersChronologicalPanel: React.FC<
           </div>
           <div className="scene-marker-activity-group-meta">
             <span>{formatMarkerDuration(sectionDurationSeconds)}</span>
-            <Form.Check
-              className="scene-marker-activity-group-checkbox"
-              type="checkbox"
-              checked={allSectionSelected}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                onSelectMarkers(sectionMarkerIds, e.currentTarget.checked)
-              }
-            />
+            {sectionMarkerIds.length > 1 && (
+              <Form.Check
+                className="scene-marker-activity-group-checkbox"
+                type="checkbox"
+                checked={allSectionSelected}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onSelectMarkers(sectionMarkerIds, e.currentTarget.checked)
+                }
+              />
+            )}
           </div>
         </div>
         <div className="scene-marker-other-highlights-list">
@@ -1142,6 +1184,7 @@ export const SceneMarkersChronologicalPanel: React.FC<
             selectedMarkerIds={selectedMarkerIds}
             currentTimestamp={currentTimestamp}
             focusedMarkerId={focusedMarkerId}
+            markerWarningMessagesById={markerWarningMessagesById}
             onClickMarker={onClickMarker}
             onEdit={onEdit}
             onSelectMarkers={onSelectMarkers}
@@ -1183,7 +1226,7 @@ export const SceneMarkersChronologicalPanel: React.FC<
                   </div>
                   <div className="scene-marker-activity-group-meta">
                     <span>{formatMarkerDuration(sectionDurationSeconds)}</span>
-                    {sectionMarkerIds.length > 0 && (
+                    {sectionMarkerIds.length > 1 && (
                       <Form.Check
                         className="scene-marker-activity-group-checkbox"
                         type="checkbox"
@@ -1207,6 +1250,7 @@ export const SceneMarkersChronologicalPanel: React.FC<
                     selectedMarkerIds={selectedMarkerIds}
                     currentTimestamp={currentTimestamp}
                     focusedMarkerId={focusedMarkerId}
+                    markerWarningMessagesById={markerWarningMessagesById}
                     onClickMarker={onClickMarker}
                     onEdit={onEdit}
                     onSelectMarker={onSelectMarker}
