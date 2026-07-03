@@ -100,3 +100,17 @@ func TestRatingCriteriaCriterionHandlerInvalidModifier(t *testing.T) {
 	require.Error(t, builder.getError())
 	assert.Contains(t, builder.getError().Error(), "invalid modifier")
 }
+
+func TestDefaultSceneRatingScoreKeysUseSplitAttractiveness(t *testing.T) {
+	keys := defaultSceneRatingScoreKeys[models.RatingScoreSectionCriterion]
+
+	assert.Contains(t, keys, "topAttractiveness")
+	assert.Contains(t, keys, "bottomAttractiveness")
+	assert.NotContains(t, keys, "performerAppeal")
+}
+
+func TestDefaultSceneRatingScoreKeysExcludeRetiredStandoutActBonus(t *testing.T) {
+	keys := defaultSceneRatingScoreKeys[models.RatingScoreSectionBonus]
+
+	assert.NotContains(t, keys, "standoutAct")
+}

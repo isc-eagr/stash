@@ -31,15 +31,15 @@ var ratingScoreTables = []ratingScoreSectionTable{
 
 var defaultSceneRatingScoreKeys = map[string]map[string]struct{}{
 	models.RatingScoreSectionCriterion: {
-		"performerAppeal": {},
-		"chemistry":       {},
-		"payoff":          {},
-		"standout":        {},
+		"topAttractiveness":    {},
+		"bottomAttractiveness": {},
+		"chemistry":            {},
+		"payoff":               {},
+		"standout":             {},
 	},
 	models.RatingScoreSectionBonus: {
 		"theme":         {},
 		"oralOnly":      {},
-		"standoutAct":   {},
 		"largeGroup":    {},
 		"godTierOrgasm": {},
 		"goatElement":   {},

@@ -2668,16 +2668,17 @@ When scene o-history is added, deleted, reset, or recorded with a video timestam
 
 ### Scene Advisor
 
-Uses a weighted 10-point scene rubric designed for 100-based ratings:
+Uses a simplified weighted scene rubric designed for 100-based ratings:
 
-- Performer attractiveness: each raw point is worth 0.4, up to 4.0
-- Energy / sex quality: each raw point is worth 0.3, up to 3.0
+- Top(s) attractiveness: six levels from 0-5, each raw point is worth 0.6, up to 3.0
+- Bottom(s) attractiveness: six levels from 0-5, each raw point is worth 0.2, up to 1.0
+- Energy / sex quality: six levels from 0-5, each raw point is worth 0.6, up to 3.0
 - Orgasm / climax payoff: each raw point is worth 0.5, up to 2.0
 - Standout moment: each raw point is worth 0.5, up to 1.0
 
 Solo scenes use a separate scene rubric when the scene is detected as solo by the same role-tag logic that renders the hand icon:
 
-- Performer attractiveness: each raw point is worth 0.7, up to 7.0
+- Performer attractiveness: six levels from 0-5, each raw point is worth 1.4, up to 7.0
 - Angles and camera work: each raw point is worth 0.6, up to 3.0
 
 Bonus section:
@@ -2685,7 +2686,6 @@ Bonus section:
 - Orgasm count bonus (+1 rating point on the 3rd recorded orgasm, then +1 for each orgasm after that; automatic and read-only)
 - Theme / fantasy / uniform factor (+0.5 when present)
 - Oral-only scene (+0.5 when present)
-- Standout act / position / dynamic (+0.5 when present)
 - Group scene with 4+ performers (+0.5 when present)
 - God-tier orgasm bonus (+2.0 when present)
 - GOAT element (+2.0 when present)
@@ -2717,11 +2717,11 @@ Bonus points can push the stored/displayed 0-100 rating above 100 when the weigh
 
 ### Performer Rating System
 
-Uses a weighted 10-point performer rubric designed for 100-based ratings:
+Uses a simplified weighted performer rubric designed for 100-based ratings:
 
-- Face: each raw point is worth 0.3, up to 3.0
-- Body: each raw point is worth 0.3, up to 3.0
-- Sexual performance: each raw point is worth 0.2, up to 2.0
+- Face: six levels from 0-5, each raw point is worth 0.6, up to 3.0
+- Body: six levels from 0-5, each raw point is worth 0.6, up to 3.0
+- Sexual performance: six levels from 0-5, each raw point is worth 0.4, up to 2.0
 - Ethnicity / racial appeal: each raw point is worth 1/3, up to 1.0
 - Masculinity: each raw point is worth 1/3, up to 1.0
 
@@ -2772,6 +2772,7 @@ Performer rating criteria include a feminine performer penalty, exposed both in 
 - `rating_scores.up.sql` - Standalone manual SQL script for generic persisted rating score tables
 - `rating_orgasm_bonus_recalculate_custom.sql` - Standalone manual SQL script to recalculate existing persisted advisor ratings after orgasm bonus rule changes
 - `rating_remove_performer_unlikely_top_bonus_custom.sql` - Standalone manual SQL script to remove performer-level Unlikely Top bonus rows and recalculate affected performers
+- `rating_remove_standout_act_bonus_custom.sql` - Standalone manual SQL script to remove retired Standout Act bonus rows and subtract their stored contribution from affected ratings
 - `graphql/schema/types/rating_custom.graphql` - Rating score GraphQL types, mutation, and read-only orgasm-count query
 - `internal/api/resolver_rating_score_custom.go` - Rating score query/mutation resolvers
 - `pkg/models/rating_score_custom.go` - Generic rating score model and repository interfaces
@@ -2780,6 +2781,8 @@ Performer rating criteria include a feminine performer penalty, exposed both in 
 - `pkg/sqlite/rating_criteria_filter_custom.go` - Shared SQLite predicates for criteria/bonus/penalty filters
 - `ui/v2.5/src/models/list-filter/criteria/rating-criteria_custom.ts` - Frontend rating criteria filter criterion classes
 - `ui/v2.5/src/components/List/Filters/RatingCriteriaFilter_custom.tsx` - Combined rating criteria filter editor
+- `ui/v2.5/src/components/Shared/ratingAdvisorScales_custom.ts` - Shared helpers for simplified rating advisor scales
+- `ui/v2.5/tests/ratingAdvisorScales_custom.test.ts` - Verifies simplified six-level scale helpers and point contributions
 - `ui/v2.5/src/components/Performers/performerTypes_custom.ts` - Shared performer list/card data type for the lean list query
 
 ---

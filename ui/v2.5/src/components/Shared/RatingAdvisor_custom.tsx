@@ -11,6 +11,12 @@ import {
   getRatingCardThresholdsForEntity,
   normalizeRatingCardThresholds,
 } from "src/utils/ratingCardStyles_custom";
+import {
+  getRatingAdvisorChoiceScoreCustom,
+  isRatingAdvisorRangeMetricCustom,
+  normalizeRatingAdvisorScoreValueCustom,
+  ratingAdvisorSixLevelChoicesCustom,
+} from "./ratingAdvisorScales_custom";
 
 type AdvisorEntity = "scene" | "performer";
 
@@ -63,156 +69,94 @@ const RatingAdvisorScoresQuery = gql`
   }
 `;
 
+const sceneVatoAttractivenessChoices = ratingAdvisorSixLevelChoicesCustom([
+  {
+    label: "Not attractive",
+    description:
+      "Pick this when he is only relevant because of another vato, the scene, or the theme.",
+  },
+  {
+    label: "Some appeal",
+    description:
+      "There is one thing that works, like face, body, styling, or attitude, but the overall pull is still light.",
+  },
+  {
+    label: "Decent",
+    description:
+      "Decent-looking, but you would not watch a scene just because he is in it.",
+  },
+  {
+    label: "Attractive",
+    description:
+      "Clearly attractive; he is a noticeable visual plus even before performance enters the picture.",
+  },
+  {
+    label: "Very attractive",
+    description:
+      "Very attractive, the kind of vato who gives a scene an immediate visual draw.",
+  },
+  {
+    label: "Perfect",
+    description:
+      "Perfect for your taste, like he hits your type in a way most vatos do not.",
+  },
+]);
+
 const sceneMetrics: IAdvisorMetric[] = [
   {
-    key: "performerAppeal",
-    title: "Vato Attractiveness",
-    max: 10,
-    weight: 0.4,
-    hint: "Overall physical appeal: face, body impression, styling, sex appeal, visual magnetism, and immediate appeal.",
-    choices: [
-      {
-        value: 0,
-        label: "Not attractive",
-        description:
-          "Pick this when he is only relevant because of another vato, the scene, or the theme.",
-      },
-      {
-        value: 1,
-        label: "Very low",
-        description:
-          "Very low personal attraction; there is little or nothing visually pulling you in.",
-      },
-      {
-        value: 2,
-        label: "Low",
-        description:
-          "Mostly not your type, though there may be one small thing that works.",
-      },
-      {
-        value: 3,
-        label: "Some appeal",
-        description:
-          "Some appeal, like a decent face or body detail, but weak overall.",
-      },
-      {
-        value: 4,
-        label: "Decent",
-        description:
-          "Decent-looking, but you would not watch a scene just because he is in it.",
-      },
-      {
-        value: 5,
-        label: "Good",
-        description:
-          "Good face; his presence improves a scene, especially if the scene is already good.",
-      },
-      {
-        value: 6,
-        label: "Clearly attractive",
-        description:
-          "Clearly attractive; he is a noticeable visual plus even before performance enters the picture.",
-      },
-      {
-        value: 7,
-        label: "Very attractive",
-        description:
-          "Very attractive, the kind of vato who gives a scene an immediate visual draw.",
-      },
-      {
-        value: 8,
-        label: "Extremely attractive",
-        description:
-          "Extremely attractive; his look is one of the main reasons you would click.",
-      },
-      {
-        value: 9,
-        label: "Near-perfect",
-        description:
-          "Near-perfect for your taste, he fits your type in pretty much every way.",
-      },
-      {
-        value: 10,
-        label: "Perfect",
-        description:
-          "Perfect for your taste, like he hits your type in a way most vatos do not.",
-      },
-    ],
+    key: "topAttractiveness",
+    title: "Top(s) Attractiveness",
+    max: 5,
+    weight: 0.6,
+    hint: "Overall physical appeal of the top vato or tops: face, body impression, styling, sex appeal, visual magnetism, and immediate appeal.",
+    choices: sceneVatoAttractivenessChoices,
+  },
+  {
+    key: "bottomAttractiveness",
+    title: "Bottom(s) Attractiveness",
+    max: 5,
+    weight: 0.2,
+    hint: "Overall physical appeal of the bottom vato or bottoms: face, body impression, styling, sex appeal, visual magnetism, and immediate appeal.",
+    choices: sceneVatoAttractivenessChoices,
   },
   {
     key: "chemistry",
     title: "Energy / sex quality",
-    max: 10,
-    weight: 0.3,
+    max: 5,
+    weight: 0.6,
     hint: "How much the sex, pacing, interaction, reactions, rhythm, and overall scene energy make the scene feel alive and satisfying.",
-    choices: [
+    choices: ratingAdvisorSixLevelChoicesCustom([
       {
-        value: 0,
         label: "No energy",
         description:
           "Disconnected, mechanical, passive, awkward, or actively weak sex quality. This is for scenes where vatos look like they don't want to be there.",
       },
       {
-        value: 1,
-        label: "Very low quality",
-        description:
-          "There may be one or two okay moments, but most of it feels flat, bored, or badly paced.",
-      },
-      {
-        value: 2,
-        label: "Low quality",
-        description:
-          "The scene is watchable, but you keep waiting for it to get better and it mostly does not.",
-      },
-      {
-        value: 3,
         label: "Serviceable",
         description:
           "The sex is acceptable, like a routine scene that gets the job done without much spark.",
       },
       {
-        value: 4,
         label: "Decent",
         description:
           "The pacing and reactions are decent enough that the scene feels alive in spots.",
       },
       {
-        value: 5,
-        label: "Good",
-        description:
-          "The sex quality clearly helps; you are engaged because the vatos are actually working the scene.",
-      },
-      {
-        value: 6,
         label: "Strong",
         description:
           "Use this when the rhythm, reactions, or intensity make the scene meaningfully hotter than the setup alone.",
       },
       {
-        value: 7,
-        label: "Very strong",
-        description:
-          "The sex itself is a major reason to come back, not just the cast, theme, or payoff.",
-      },
-      {
-        value: 8,
         label: "Excellent",
         description:
           "The scene has the exact vibe you want: intense, playful, rough, romantic, dominant, natural, or whatever fits it.",
       },
       {
-        value: 9,
-        label: "Near-perfect quality",
-        description:
-          "The sex quality is one of the first things you would mention when explaining why the scene is hot.",
-      },
-      {
-        value: 10,
         label: "Perfect quality",
         description:
           "This is the rare scene where the sex quality alone can carry it, even without extra bonuses.",
       },
-    ],
+    ]),
   },
   {
     key: "payoff",
@@ -284,27 +228,6 @@ const sceneMetrics: IAdvisorMetric[] = [
         value: 0.5,
         label: "Oral-only bonus",
         description: "Oral-only scene.",
-      },
-    ],
-  },
-  {
-    key: "standoutAct",
-    title: "Standout act / position / dynamic",
-    max: 0.5,
-    section: "bonus",
-    hint: "Optional bonus when a specific act, position, role dynamic, or sexual setup makes the scene more distinctive.",
-    choices: [
-      {
-        value: 0,
-        label: "No bonus",
-        description:
-          "No specific act or dynamic stands out; the scene may still be good, just not because of a particular move.",
-      },
-      {
-        value: 0.5,
-        label: "Standout dynamic",
-        description:
-          "For sex and oral scenes, this means the scene has stomping, feet sucking, dirty talk, sperm eating, or another specific act or dynamic that makes the scene more memorable. For solo scenes, select this if the scene has feet, sperm on camera, or another specific act or dynamic that makes it more memorable.",
       },
     ],
   },
@@ -465,10 +388,10 @@ const soloSceneMetrics: IAdvisorMetric[] = [
   {
     key: "soloPerformerAppeal",
     title: "Vato Attractiveness",
-    max: 10,
-    weight: 0.7,
+    max: 5,
+    weight: 1.4,
     hint: "Overall solo vato appeal: face, body, styling, sex appeal, visual magnetism, and immediate draw.",
-    choices: sceneMetrics[0].choices,
+    choices: sceneVatoAttractivenessChoices,
   },
   {
     key: "cameraWork",
@@ -595,227 +518,119 @@ const performerMetrics: IAdvisorMetric[] = [
   {
     key: "face",
     title: "Face",
-    max: 10,
-    weight: 0.3,
+    max: 5,
+    weight: 0.6,
     hint: "Facial attractiveness: features, expression, gaze, smile, grooming, styling, and how strongly his face pulls your attention.",
-    choices: [
+    choices: ratingAdvisorSixLevelChoicesCustom([
       {
-        value: 0,
-        label: "Not facially attractive",
+        label: "Not Attractive",
         description:
           "Pick this when his face works against your attraction even if other parts of him may still work.",
       },
       {
-        value: 1,
-        label: "Very low",
+        label: "Some Appeal",
         description:
-          "Very low personal attraction; there is little or nothing visually pulling you in.",
+          "There is something there, like expression, grooming, or one feature, but his face is not a strong pull.",
       },
       {
-        value: 2,
-        label: "Mostly not your type",
-        description:
-          "Mostly not your type, though there may be one small thing that works.",
-      },
-      {
-        value: 3,
-        label: "Some appeal",
-        description:
-          "Some appeal, like a decent face or body detail, but weak overall.",
-      },
-      {
-        value: 4,
         label: "Decent",
         description:
           "Decent face, but you would not watch a scene just because of his look.",
       },
       {
-        value: 5,
-        label: "Good",
-        description:
-          "Good face; his presence improves a scene, especially if the scene is already good.",
-      },
-      {
-        value: 6,
-        label: "Clearly attractive",
+        label: "Attractive",
         description:
           "Clearly attractive; he is a noticeable visual plus even before performance enters the picture.",
       },
       {
-        value: 7,
-        label: "Very attractive",
+        label: "Very Attractive",
         description:
           "Very attractive, the kind of vato who gives a scene an immediate visual draw.",
       },
       {
-        value: 8,
-        label: "Extremely attractive",
-        description:
-          "Extremely attractive; his look is one of the main reasons you would click.",
-      },
-      {
-        value: 9,
-        label: "Near-perfect",
-        description:
-          "Near-perfect for your taste, his face fits your type in pretty much every way.",
-      },
-      {
-        value: 10,
         label: "Perfect",
         description:
           "Perfect for your taste, like his face hits your type in a way most vatos do not.",
       },
-    ],
+    ]),
   },
   {
     key: "body",
     title: "Body",
-    max: 10,
-    weight: 0.3,
+    max: 5,
+    weight: 0.6,
     hint: "Body appeal: build, proportions, musculature, thickness, posture, movement, and how strongly his body matches your taste.",
-    choices: [
+    choices: ratingAdvisorSixLevelChoicesCustom([
       {
-        value: 0,
-        label: "Works against preference",
+        label: "Not Appealing",
         description:
           "His body works against your attraction even if other traits are okay.",
       },
       {
-        value: 1,
-        label: "Very low",
+        label: "Some Appeal",
         description:
-          "Very little body appeal for your taste; the build is actively not what you want.",
+          "There is one body detail that works, but the overall build is not a strong pull.",
       },
       {
-        value: 2,
-        label: "Mostly not your type",
-        description:
-          "Mostly not your body type, though there may be one small detail that works.",
-      },
-      {
-        value: 3,
-        label: "Some appeal",
-        description:
-          "Some body appeal, but the overall build is still weak for your taste.",
-      },
-      {
-        value: 4,
         label: "Decent",
         description:
           "Decent body, but not a build that would pull you into a scene by itself.",
       },
       {
-        value: 5,
-        label: "Good",
-        description:
-          "Good body; his presence improves a scene when the rest is working.",
-      },
-      {
-        value: 6,
-        label: "Clearly attractive",
+        label: "Attractive",
         description:
           "Clearly attractive body; he is a noticeable visual plus before performance enters the picture.",
       },
       {
-        value: 7,
-        label: "Very attractive",
+        label: "Very Attractive",
         description:
           "Very attractive body, the kind of build that gives him immediate visual draw.",
       },
       {
-        value: 8,
-        label: "Extremely attractive",
-        description:
-          "Extremely attractive body; his build is one of the main reasons you would click.",
-      },
-      {
-        value: 9,
-        label: "Near-perfect",
-        description:
-          "Near-perfect for your taste, his body fits your type in pretty much every way.",
-      },
-      {
-        value: 10,
         label: "Perfect",
         description:
           "Perfect for your taste, like his body hits your type in a way most vatos do not.",
       },
-    ],
+    ]),
   },
   {
     key: "performance",
     title: "Sexual performance",
-    max: 10,
-    weight: 0.2,
+    max: 5,
+    weight: 0.4,
     hint: "On-screen presence, charisma, confidence, chemistry, reactions, intensity, rhythm, and scene energy.",
-    choices: [
+    choices: ratingAdvisorSixLevelChoicesCustom([
       {
-        value: 0,
         label: "Weak",
         description:
           "Pick this when he makes scenes worse: awkward, passive, disconnected, or like he does not know what to do.",
       },
       {
-        value: 1,
-        label: "Very low",
-        description:
-          "He might look good, but on screen he is mostly just there and easy to forget.",
-      },
-      {
-        value: 2,
-        label: "Below average",
-        description:
-          "He does not ruin the scene, but he is not adding much energy, reaction, or presence.",
-      },
-      {
-        value: 3,
         label: "Serviceable",
         description:
           "He gets through the scene fine, like a competent vato, but you are not seeking him out.",
       },
       {
-        value: 4,
-        label: "Decent",
-        description:
-          "He contributes enough that you notice him, but he is still not one of the main attractions.",
-      },
-      {
-        value: 5,
         label: "Good",
         description:
           "He clearly helps scenes feel better, like his reactions or confidence make things click.",
       },
       {
-        value: 6,
         label: "Strong",
         description:
           "He noticeably improves most scenes he is in, even when the setup is basic.",
       },
       {
-        value: 7,
-        label: "Very strong",
-        description:
-          "He brings confidence, chemistry, reactions, and energy often enough that he feels like a real draw.",
-      },
-      {
-        value: 8,
         label: "Excellent",
         description:
           "He is often one of the main reasons a scene works, not just a good-looking body in frame.",
       },
       {
-        value: 9,
-        label: "Near-Perfect",
-        description:
-          "He has that magnetic, highly rewatchable quality where you trust him to elevate a scene.",
-      },
-      {
-        value: 10,
         label: "Perfect",
         description:
           "His presence alone can sell a scene; if his name is attached, you are already interested.",
       },
-    ],
+    ]),
   },
   {
     key: "ethnicity",
@@ -988,19 +803,16 @@ function getInitialScores(
         normalizePersistedScoreSection(score.section) ===
           getMetricSection(metric)
     );
-    ret[metric.key] = persistedScore?.raw_value ?? 0;
+    ret[metric.key] = normalizeRatingAdvisorScoreValueCustom(
+      metric,
+      persistedScore?.raw_value
+    );
     return ret;
   }, {});
 }
 
 function getChoiceScore(metric: IAdvisorMetric, score: number) {
-  const choice = metric.choices.find((c) => c.value === score);
-
-  if (choice?.scoreValue !== undefined) {
-    return choice.scoreValue;
-  }
-
-  return score * (metric.weight ?? 1);
+  return getRatingAdvisorChoiceScoreCustom(metric, score);
 }
 
 function getMetricMaxScore(metric: IAdvisorMetric) {
@@ -1199,9 +1011,7 @@ const RatingAdvisorModal: React.FC<{
     const preview =
       metric.choices.find((choice) => choice.value === hoverScore) ?? selected;
     const previewSizer = getLongestChoiceDescription(metric);
-    const showRange =
-      metric.choices.length === metric.max + 1 &&
-      metric.choices.every((choice, index) => choice.value === index);
+    const showRange = isRatingAdvisorRangeMetricCustom(metric);
 
     return (
       <section className="rating-advisor-metric" key={metric.key}>

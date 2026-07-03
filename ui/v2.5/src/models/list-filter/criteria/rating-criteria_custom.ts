@@ -70,71 +70,46 @@ export const ratingCriteriaModifierOptions = [
 
 const appealChoices = [
   "Not attractive",
-  "Very low",
-  "Mostly not your type",
   "Some appeal",
   "Decent",
-  "Good",
-  "Clearly attractive",
+  "Attractive",
   "Very attractive",
-  "Extremely attractive",
-  "Elite attractiveness",
-  "Near-perfect",
+  "Perfect",
 ].map((label, value) => ({ value, label }));
 
 const faceChoices = [
-  "Not facially attractive",
-  "Very low",
-  "Mostly not your type",
-  "Some appeal",
+  "Not Attractive",
+  "Some Appeal",
   "Decent",
-  "Good",
-  "Clearly attractive",
-  "Very attractive",
-  "Extremely attractive",
-  "Elite face",
-  "Near-perfect",
+  "Attractive",
+  "Very Attractive",
+  "Perfect",
 ].map((label, value) => ({ value, label }));
 
 const bodyChoices = [
-  "Works against preference",
-  "Very low",
-  "Mostly not your type",
-  "Some appeal",
+  "Not Appealing",
+  "Some Appeal",
   "Decent",
-  "Good",
-  "Clearly attractive",
-  "Very attractive",
-  "Extremely attractive",
-  "Elite body",
-  "Near-perfect",
+  "Attractive",
+  "Very Attractive",
+  "Perfect",
 ].map((label, value) => ({ value, label }));
 
 const energyChoices = [
   "No energy",
-  "Very low quality",
-  "Low quality",
   "Serviceable",
   "Decent",
-  "Good",
   "Strong",
-  "Very strong",
   "Excellent",
-  "Elite",
-  "All-time sex quality",
+  "Perfect quality",
 ].map((label, value) => ({ value, label }));
 
 const performanceChoices = [
   "Weak",
-  "Very low",
-  "Below average",
   "Serviceable",
-  "Decent",
   "Good",
   "Strong",
-  "Very strong",
   "Excellent",
-  "Elite",
   "Perfect",
 ].map((label, value) => ({ value, label }));
 
@@ -470,8 +445,13 @@ export const SceneRatingCriteriaCriterionOption =
     messageID: "rating_criteria",
     criteria: [
       {
-        key: "performerAppeal",
-        label: "Vato Attractiveness",
+        key: "topAttractiveness",
+        label: "Top(s) Attractiveness",
+        choices: appealChoices,
+      },
+      {
+        key: "bottomAttractiveness",
+        label: "Bottom(s) Attractiveness",
         choices: appealChoices,
       },
       {
@@ -509,11 +489,6 @@ export const SceneRatingCriteriaCriterionOption =
       {
         key: "oralOnly",
         label: "Oral-Only Bonus",
-        section: "bonuses",
-      },
-      {
-        key: "standoutAct",
-        label: "Standout Act Bonus",
         section: "bonuses",
       },
       {
