@@ -5,7 +5,7 @@ import React, {
   useCallback,
   useRef,
 } from "react"; // CUSTOM: added useMemo, useCallback, useRef
-import { Button, Nav } from "react-bootstrap"; // CUSTOM
+import { Button } from "react-bootstrap"; // CUSTOM
 import { FormattedMessage } from "react-intl";
 import Mousetrap from "mousetrap";
 import * as GQL from "src/core/generated-graphql";
@@ -15,10 +15,7 @@ import { SceneMarkerForm } from "./SceneMarkerForm";
 // CUSTOM: begin
 import { markerTitle } from "src/core/markers";
 import type { ILoopSegmentInput } from "src/components/ScenePlayer/multi-segment-loop";
-import {
-  SceneMarkersChronologicalPanel,
-  type SceneMarkerChronologyTabKey,
-} from "./SceneMarkersChronologicalPanel";
+import { SceneMarkersChronologicalPanel } from "./SceneMarkersChronologicalPanel";
 import {
   filterCoveredChronologicalSceneMarkers,
   filterChronologicalSceneMarkers,
@@ -26,13 +23,6 @@ import {
   type ISceneMarkerChronologyDerivedWindow,
   type ISceneMarkerChronologySearchFilters,
 } from "./sceneMarkerChronologySearch_custom";
-import {
-  compareActivityTypeSceneMarkers,
-  getActivityTypeSectionTagIds,
-  getActivityTypeTagIds,
-  isActivityTypeSectionSceneMarker,
-  isActivityTypeSceneMarker,
-} from "./sceneMarkerActivityType_custom";
 import { shouldShowOfficialSceneMarkerLayout } from "./sceneMarkerLayoutPreference_custom";
 import TextUtils from "src/utils/text";
 // CUSTOM: end
@@ -84,9 +74,10 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
       topPerformers: [],
       bottomPerformers: [],
     });
-  const [markerChronologyTab, setMarkerChronologyTab] =
-    useState<SceneMarkerChronologyTabKey>("activity");
+  const [focusedMarkerHighlightId, setFocusedMarkerHighlightId] =
+    useState<string>();
   const markerPanelScrollTop = useRef(0);
+  const focusedMarkerHighlightTimer = useRef<number>();
 
   const onOpenEditor = useCallback((marker?: GQL.SceneMarkerDataFragment) => {
     markerPanelScrollTop.current = getSceneTabScrollElement()?.scrollTop ?? 0;
@@ -121,50 +112,9 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     () => filterChronologicalSceneMarkers(sceneMarkers, markerSearch),
     [markerSearch, sceneMarkers]
   );
-  const activityTypeSectionTagIds = useMemo(
-    () => getActivityTypeSectionTagIds(configuration?.ui.roleTagIds),
-    [configuration?.ui.roleTagIds]
-  );
-  const activityTypeTagIds = useMemo(
-    () => getActivityTypeTagIds(configuration?.ui.roleTagIds),
-    [configuration?.ui.roleTagIds]
-  );
-  const highlightSceneMarkers = useMemo(
-    () =>
-      filteredSceneMarkers.filter(
-        (marker) => !isActivityTypeSceneMarker(marker, activityTypeTagIds)
-      ),
-    [activityTypeTagIds, filteredSceneMarkers]
-  );
-  const activityTypeSceneMarkers = useMemo(
-    () =>
-      sceneMarkers
-        .filter((marker) =>
-          isActivityTypeSectionSceneMarker(marker, activityTypeSectionTagIds)
-        )
-        .sort((a, b) =>
-          compareActivityTypeSceneMarkers(a, b, configuration?.ui.roleTagIds)
-        ),
-    [activityTypeSectionTagIds, configuration?.ui.roleTagIds, sceneMarkers]
-  );
 
   useEffect(() => {
     if (!focusedMarkerId) return;
-
-    const focusedMarker = sceneMarkers.find(
-      (marker) => marker.id === focusedMarkerId
-    );
-
-    if (!focusedMarker) return;
-
-    if (
-      isActivityTypeSectionSceneMarker(focusedMarker, activityTypeSectionTagIds)
-    ) {
-      setMarkerChronologyTab("activity");
-      return;
-    }
-
-    setMarkerChronologyTab("highlights");
 
     if (!filteredSceneMarkers.some((marker) => marker.id === focusedMarkerId)) {
       setMarkerSearch({
@@ -173,24 +123,17 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
         bottomPerformers: [],
       });
     }
-  }, [
-    activityTypeSectionTagIds,
-    filteredSceneMarkers,
-    focusedMarkerId,
-    sceneMarkers,
-  ]);
+  }, [filteredSceneMarkers, focusedMarkerId]);
 
   const showOfficialSceneMarkerLayout = shouldShowOfficialSceneMarkerLayout(
     configuration.ui
   );
   const visibleSceneMarkers = showOfficialSceneMarkerLayout
     ? sceneMarkers
-    : markerChronologyTab === "activity"
-    ? activityTypeSceneMarkers
-    : highlightSceneMarkers;
+    : filteredSceneMarkers;
   const derivedWindows = useMemo(
     () =>
-      !showOfficialSceneMarkerLayout && markerChronologyTab === "highlights"
+      !showOfficialSceneMarkerLayout
         ? getChronologicalSceneMarkerDerivedWindows(
             sceneMarkers,
             markerSearch,
@@ -199,7 +142,6 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
         : [],
     [
       filteredSceneMarkers,
-      markerChronologyTab,
       markerSearch,
       sceneMarkers,
       showOfficialSceneMarkerLayout,
@@ -252,6 +194,12 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   useEffect(() => {
     if (!focusedMarkerId || !isVisible) return;
 
+    window.clearTimeout(focusedMarkerHighlightTimer.current);
+    setFocusedMarkerHighlightId(focusedMarkerId);
+    focusedMarkerHighlightTimer.current = window.setTimeout(() => {
+      setFocusedMarkerHighlightId(undefined);
+    }, 10000);
+
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const markerElement = Array.from(
@@ -273,13 +221,18 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
       });
     });
   }, [
-    activityTypeSceneMarkers,
     filteredSceneMarkers,
     focusedMarkerId,
     isVisible,
-    markerChronologyTab,
     onFocusedMarkerHandled,
   ]);
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(focusedMarkerHighlightTimer.current);
+    },
+    []
+  );
 
   const visibleMarkerCount = visibleSceneMarkers.length;
   const visibleDerivedWindowCount = derivedWindows.length;
@@ -452,29 +405,6 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   return (
     <div className="scene-markers-panel">
       {/* CUSTOM: begin – toolbar with loop button & select-all */}
-      {!showOfficialSceneMarkerLayout && (
-        <Nav
-          variant="tabs"
-          activeKey={markerChronologyTab}
-          onSelect={(key) =>
-            setMarkerChronologyTab(
-              (key as SceneMarkerChronologyTabKey) ?? "activity"
-            )
-          }
-          className="scene-marker-chronology-tabs"
-        >
-          <Nav.Item>
-            <Nav.Link eventKey="activity">
-              Activity Type ({activityTypeSceneMarkers.length})
-            </Nav.Link>
-          </Nav.Item>
-          <Nav.Item>
-            <Nav.Link eventKey="highlights">
-              Highlights ({highlightSceneMarkers.length})
-            </Nav.Link>
-          </Nav.Item>
-        </Nav>
-      )}
       <div className="scene-marker-toolbar">
         <div className="scene-marker-toolbar-actions">
           <Button onClick={() => onOpenEditor()}>
@@ -506,8 +436,6 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
             {allVisibleSelected
               ? showOfficialSceneMarkerLayout
                 ? "Clear All"
-                : markerChronologyTab === "activity"
-                ? "Clear Activity"
                 : "Clear Filtered"
               : "Select All"}
           </Button>
@@ -539,15 +467,10 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
           />
         ) : (
           <SceneMarkersChronologicalPanel
-            markers={
-              markerChronologyTab === "activity"
-                ? activityTypeSceneMarkers
-                : highlightSceneMarkers
-            }
+            markers={filteredSceneMarkers}
             allMarkers={sceneMarkers}
             search={markerSearch}
             onSearchChange={setMarkerSearch}
-            activeTab={markerChronologyTab}
             selectedMarkerIds={selectedMarkerIds}
             derivedWindows={derivedWindows}
             selectedDerivedWindowKeys={selectedDerivedWindowKeys}
@@ -557,6 +480,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
             onSelectMarkers={setManySelected}
             onSelectDerivedWindow={toggleDerivedWindow}
             currentTimestamp={currentTimestamp}
+            focusedMarkerId={focusedMarkerHighlightId}
           />
         )}
       </div>

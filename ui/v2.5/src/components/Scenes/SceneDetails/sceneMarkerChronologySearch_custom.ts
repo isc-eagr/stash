@@ -725,7 +725,15 @@ export function getChronologicalSceneMarkerHighlightPerformers<
   marker: M,
   allMarkers: M[]
 ): Array<ISceneMarkerChronologyHighlightPerformer<M>> {
-  const markerSet = [
+  return getHighlightPerformersFromActiveMarkers(
+    getChronologicalSceneMarkerHighlightContextMarkers(marker, allMarkers)
+  );
+}
+
+export function getChronologicalSceneMarkerHighlightContextMarkers<
+  M extends ISceneMarkerChronologySearchMarker
+>(marker: M, allMarkers: M[]): M[] {
+  return [
     marker,
     ...[...allMarkers]
       .filter(
@@ -735,8 +743,6 @@ export function getChronologicalSceneMarkerHighlightPerformers<
       )
       .sort(compareChronologicalMarkers),
   ];
-
-  return getHighlightPerformersFromActiveMarkers(markerSet);
 }
 
 function getHighlightPerformerGroupKey<

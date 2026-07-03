@@ -55,6 +55,8 @@ type SceneMarkerGapRange = {
   markerType: string;
 };
 
+type SceneMarkerGapMarkerKind = "activity" | "highlight" | "negative";
+
 const maxGapSeconds = 3;
 const defaultMarkerDurationSeconds = 20;
 const markerGapCloseOffsetSeconds = 0.001;
@@ -69,29 +71,56 @@ function tagMatches(tag: SceneMarkerGapTag | null | undefined, tagId: string) {
   );
 }
 
-function markerHasIgnoredTag(
+function markerHasActivityTag(
   marker: SceneMarkerGapSceneMarker,
-  ignoredTagIds: string[]
+  activityTagIds: string[]
 ) {
   return [marker.primary_tag, ...(marker.tags ?? [])].some((tag) =>
-    ignoredTagIds.some((tagId) => tagMatches(tag, tagId))
+    activityTagIds.some((tagId) => tagMatches(tag, tagId))
   );
 }
 
-function draftHasIgnoredTag(
+function draftHasActivityTag(
   draft: SceneMarkerGapDraft,
-  ignoredTagIds: string[]
+  activityTagIds: string[]
 ) {
   const draftTagIds = new Set(
     [draft.primary_tag_id, ...(draft.tag_ids ?? [])].filter(Boolean)
   );
 
   return (
-    ignoredTagIds.some((tagId) => draftTagIds.has(tagId)) ||
+    activityTagIds.some((tagId) => draftTagIds.has(tagId)) ||
     [draft.primary_tag, ...(draft.tags ?? [])].some((tag) =>
-      ignoredTagIds.some((tagId) => tagMatches(tag, tagId))
+      activityTagIds.some((tagId) => tagMatches(tag, tagId))
     )
   );
+}
+
+function draftHasSceneMarkerTagFields(draft: SceneMarkerGapDraft) {
+  return (
+    draft.primary_tag_id !== undefined ||
+    draft.tag_ids !== undefined ||
+    draft.primary_tag !== undefined ||
+    draft.tags !== undefined
+  );
+}
+
+function draftMarkerKind(
+  draft: SceneMarkerGapDraft,
+  activityTagIds: string[]
+): SceneMarkerGapMarkerKind {
+  if (!draftHasSceneMarkerTagFields(draft)) return "negative";
+
+  return draftHasActivityTag(draft, activityTagIds) ? "activity" : "highlight";
+}
+
+function markerKind(
+  marker: SceneMarkerGapSceneMarker,
+  activityTagIds: string[]
+): SceneMarkerGapMarkerKind {
+  return markerHasActivityTag(marker, activityTagIds)
+    ? "activity"
+    : "highlight";
 }
 
 function isSmallGap(gapSeconds: number) {
@@ -166,13 +195,11 @@ export function findSceneMarkerGapWarnings({
   negativeMarkers: SceneMarkerGapNegativeMarker[];
   roleTagIds: SceneMarkerGapRoleTagIds;
 }): SceneMarkerGapWarnings | undefined {
-  const ignoredTagIds = [
+  const activityTagIds = [
     roleTagIds.sexTagId,
     roleTagIds.oralTagId,
     roleTagIds.soloTagId,
   ].filter((tagId): tagId is string => !!tagId);
-
-  if (draftHasIgnoredTag(draft, ignoredTagIds)) return undefined;
 
   const draftEndSeconds = draft.end_seconds;
   if (
@@ -185,10 +212,15 @@ export function findSceneMarkerGapWarnings({
     return undefined;
   }
 
+  const draftKind = draftMarkerKind(draft, activityTagIds);
   const ranges = [
     ...sceneMarkers
       .filter((marker) => marker.id !== draft.id)
-      .filter((marker) => !markerHasIgnoredTag(marker, ignoredTagIds))
+      .filter(
+        (marker) =>
+          draftKind === "negative" ||
+          markerKind(marker, activityTagIds) === draftKind
+      )
       .map(markerRange),
     ...negativeMarkers
       .filter((marker) => marker.id !== draft.id)

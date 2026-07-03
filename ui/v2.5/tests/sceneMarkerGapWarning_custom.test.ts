@@ -123,7 +123,35 @@ assert.equal(
     roleTagIds,
   }),
   undefined,
-  "sex/oral/solo markers and their descendants do not count as relevant coverage"
+  "highlight markers do not warn against activity markers"
+);
+
+assert.deepEqual(
+  findSceneMarkerGapWarnings({
+    draft: {
+      ...baseDraft,
+      primary_tag_id: "oral",
+    },
+    sceneMarkers: [
+      {
+        id: "next",
+        seconds: 121,
+        end_seconds: 130,
+        primary_tag: { id: "oral", name: "Oral" },
+        tags: [],
+      },
+    ],
+    negativeMarkers: [],
+    roleTagIds,
+  })?.next,
+  {
+    issueType: "gap",
+    issueSeconds: 1,
+    markerBoundarySeconds: 121,
+    closeToSeconds: 120.999,
+    adjacentMarkerType: "Oral",
+  },
+  "activity markers warn against other activity markers"
 );
 
 assert.equal(
@@ -145,7 +173,39 @@ assert.equal(
     roleTagIds,
   }),
   undefined,
-  "draft sex/oral/solo markers do not count as relevant coverage"
+  "activity markers do not warn against highlight markers"
+);
+
+assert.deepEqual(
+  findSceneMarkerGapWarnings({
+    draft: {
+      ...baseDraft,
+      primary_tag: { id: "oral-child", parents: [{ id: "oral" }] },
+    },
+    sceneMarkers: [
+      {
+        id: "next",
+        seconds: 121,
+        end_seconds: 130,
+        primary_tag: {
+          id: "sex-child",
+          name: "Sex child",
+          parents: [{ id: "sex" }],
+        },
+        tags: [],
+      },
+    ],
+    negativeMarkers: [],
+    roleTagIds,
+  })?.next,
+  {
+    issueType: "gap",
+    issueSeconds: 1,
+    markerBoundarySeconds: 121,
+    closeToSeconds: 120.999,
+    adjacentMarkerType: "Sex child",
+  },
+  "activity marker descendants warn against other activity marker descendants"
 );
 
 assert.deepEqual(
@@ -170,6 +230,89 @@ assert.deepEqual(
     adjacentMarkerType: "Negative marker: Skip",
   },
   "negative markers count as relevant coverage"
+);
+
+assert.deepEqual(
+  findSceneMarkerGapWarnings({
+    draft: {
+      ...baseDraft,
+      primary_tag_id: "sex",
+    },
+    sceneMarkers: [],
+    negativeMarkers: [
+      {
+        id: "negative-next",
+        name: "Skip",
+        start_seconds: 121,
+        end_seconds: 130,
+      },
+    ],
+    roleTagIds,
+  })?.next,
+  {
+    issueType: "gap",
+    issueSeconds: 1,
+    markerBoundarySeconds: 121,
+    closeToSeconds: 120.999,
+    adjacentMarkerType: "Negative marker: Skip",
+  },
+  "activity markers warn against negative markers"
+);
+
+assert.deepEqual(
+  findSceneMarkerGapWarnings({
+    draft: {
+      seconds: 60,
+      end_seconds: 120,
+    },
+    sceneMarkers: [
+      {
+        id: "activity-next",
+        seconds: 121,
+        end_seconds: 130,
+        primary_tag: { id: "sex", name: "Sex" },
+        tags: [],
+      },
+    ],
+    negativeMarkers: [],
+    roleTagIds,
+  })?.next,
+  {
+    issueType: "gap",
+    issueSeconds: 1,
+    markerBoundarySeconds: 121,
+    closeToSeconds: 120.999,
+    adjacentMarkerType: "Sex",
+  },
+  "negative markers warn against activity markers"
+);
+
+assert.deepEqual(
+  findSceneMarkerGapWarnings({
+    draft: {
+      seconds: 60,
+      end_seconds: 120,
+    },
+    sceneMarkers: [
+      {
+        id: "highlight-next",
+        seconds: 121,
+        end_seconds: 130,
+        primary_tag: { id: "facial", name: "Facial" },
+        tags: [],
+      },
+    ],
+    negativeMarkers: [],
+    roleTagIds,
+  })?.next,
+  {
+    issueType: "gap",
+    issueSeconds: 1,
+    markerBoundarySeconds: 121,
+    closeToSeconds: 120.999,
+    adjacentMarkerType: "Facial",
+  },
+  "negative markers still warn against highlight markers"
 );
 
 assert.equal(

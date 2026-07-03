@@ -3087,7 +3087,7 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 
 Adds a warning to the scene marker and negative marker create/edit forms when the current start/end times would leave a 3-second-or-less unmarked gap or marker overlap next to the nearest relevant marker range. The warning identifies the preceding/following marker type, displays the gap/overlap length in milliseconds, can close the previous issue by moving the marker start to one millisecond after the previous marker ends, close the next issue by moving the marker end to one millisecond before the next marker starts, or close both when both sides qualify. One-millisecond gaps are treated as already closed.
 
-Sex, oral, and solo markers are ignored for gap calculations based on configured `roleTagIds`, including descendant tags already present on loaded marker data. Negative markers count as relevant marker coverage.
+Markers are checked in separate lanes. Activity markers based on configured sex, oral, and solo `roleTagIds` warn about small gaps or overlaps with other activity markers and negative markers. Highlight markers warn about small gaps or overlaps with other highlight markers and negative markers. Negative markers warn about small gaps or overlaps with activity markers, highlight markers, and other negative markers. Descendant activity tags already present on loaded marker data are treated as activity markers.
 
 ### Files Modified
 
@@ -3107,7 +3107,9 @@ Sex, oral, and solo markers are ignored for gap calculations based on configured
 - Verifies previous and next overlaps of three seconds or less are warned and adjusted.
 - Verifies warnings include the adjacent marker type.
 - Verifies one-millisecond gaps do not produce warnings.
-- Verifies sex/oral/solo markers and descendant role tags are ignored.
+- Verifies activity markers warn against other activity markers and negative markers.
+- Verifies activity and highlight markers do not warn against each other.
+- Verifies negative markers warn against both activity markers and highlight markers.
 - Verifies negative markers count as relevant coverage.
 - Verifies editing a negative marker does not warn against its own saved range.
 - Verifies gaps larger than three seconds are ignored.
@@ -3119,7 +3121,7 @@ Sex, oral, and solo markers are ignored for gap calculations based on configured
 
 ### Configuration Dependencies
 
-- Uses existing `configuration.ui.roleTagIds.sexTagId`, `oralTagId`, and `soloTagId` to identify marker types ignored by gap calculations.
+- Uses existing `configuration.ui.roleTagIds.sexTagId`, `oralTagId`, and `soloTagId` to split activity markers from highlight markers for gap calculations.
 
 ---
 
@@ -3127,9 +3129,11 @@ Sex, oral, and solo markers are ignored for gap calculations based on configured
 
 ### Overview
 
-Replaces the visible scene detail Markers tab body with a custom chronological marker list by default while keeping the upstream primary-tag grouped layout available behind the Custom Settings "Show official scene marker layout" toggle. The new layout shows markers in two subtabs with Activity Type selected by default and Highlights secondary. Activity Type markers are markers whose only marker tag is configured sex, oral, or solo as the primary tag. The Activity Type tab also has non-activity section headers for configured feet, orgasm, and facial primary marker tags. Activity Type marker cards omit screenshots, feature the primary tag as the activity label, group section markers under Oral, Sex, Solo, Feet, Orgasm, then Facial section headers, and combine markers that share the same primary tag plus top/bottom performer configuration into one box. Facial-tagged orgasm markers are assigned to Facial instead of the standard Orgasm section, including when the facial match comes from a child tag. GOAT marker sapphire styling is suppressed only in the Activity Type tab. Each grouped box displays top performers first and bottom performers second as 2:3 image blocks with green/blue name labels, then shows compact per-marker timeline boxes with individually seekable start/end times, edit controls, marker selection, group selection, and merged duration totals at both the configuration and section levels. The Highlights tab uses the same card-and-timeline layout, ordered chronologically and grouped by the exact set of associated marker tags, with vato images at three-quarter Activity Type size and tag chips under the performers. Markers that contain the current player timestamp get a subtle bookmark tab treatment in the chronological list. Marker create/edit top and bottom performer dropdowns render large performer thumbnails while choosing, then keep the selected values as regular text pills.
+Replaces the visible scene detail Markers tab body with a custom chronological marker list by default while keeping the upstream primary-tag grouped layout available behind the Custom Settings "Show official scene marker layout" toggle. The custom layout now uses one unified section instead of separate Activity Type and Highlights subtabs. Activity Type remains the main grouping pattern: markers are grouped under Oral, Sex, Solo, Feet, Orgasm, then Facial section headers, and markers that share the same primary activity tag plus top/bottom performer configuration are combined into one group. Facial-tagged orgasm markers are assigned to Facial instead of the standard Orgasm section, including when the facial match comes from a child tag. Each group displays top performers first and bottom performers second as 2:3 image blocks with green/blue name labels, with compact activity timeline pills stacked vertically beside the performers.
 
-The Highlights tab has scene-local selectable search fields for tags, top performers, and bottom performers. Tag search uses a progressive chain of single-tag selectors: the first selector only lists tags present on the current scene's markers, each next selector only lists tags that can still match by sharing the same marker or by contributing to one shared overlap window with the previous selections, and the row layout wraps at three tag selectors per line. Tag searches match primary or secondary marker tags and reuse the overlap-aware behavior from the custom marker filters: a marker can satisfy multiple requested tags directly or through overlapping markers only when every selected tag participates in the same shared overlap window, and when multiple overlapping markers match the same tag search only the narrowest result is shown. Derived overlap ranges are only shown for multi-tag searches, not for single-tag performer narrowing. Selected tags also narrow the top/bottom performer options to performers associated with the tag-filtered markers.
+Highlights are now embedded under their matching activity/performer groups. Each group starts with a collapsed `Highlights` row and count; expanding it shows the highlight timeline pills for that group. Highlight pills are duplicated into every matching activity context when a highlight is contained by or contributes to multiple activity groups, and unmatched highlights remain visible in an "Other Highlights" fallback bucket. Hovering a highlight pill shows the existing performer/tag-card presentation without the old highlight title header. GOAT-tagged markers and highlight hover cards use Royal Sapphire styling. Markers that contain the current player timestamp keep the subtle bookmark treatment, and scene player scrubber clicks perform a one-shot focus into the Markers tab with a distinct blue focus ring for the target pill. Marker create/edit top and bottom performer dropdowns render large performer thumbnails while choosing, then keep the selected values as regular text pills.
+
+The unified section has scene-local selectable search fields for tags, top performers, and bottom performers. Tag search uses a progressive chain of single-tag selectors: the first selector only lists tags present on the current scene's markers, each next selector only lists tags that can still match by sharing the same marker or by contributing to one shared overlap window with the previous selections, and the row layout wraps at three tag selectors per line. Tag searches match primary or secondary marker tags and reuse the overlap-aware behavior from the custom marker filters: a marker can satisfy multiple requested tags directly or through overlapping markers only when every selected tag participates in the same shared overlap window, and when multiple overlapping markers match the same tag search only the narrowest result is shown. Derived overlap ranges are only shown for multi-tag searches, not for single-tag performer narrowing. Selected tags also narrow the top/bottom performer options to performers associated with the tag-filtered markers.
 
 Marker rows and `/scenes/markers` marker cards display direct primary tags, direct secondary tags, overlapping/transitive tags, and hierarchy-inferred parent tags with distinct badge colors. Parent tags are collapsed behind a small `+N` toggle by default, and they are also included in scene-local tag search options, so a marker tagged with a child tag can be searched by its parent tag. Duplicate tags only render once at the highest available tier: primary, then secondary, then overlap, then parent.
 
@@ -3159,9 +3163,11 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 
 - `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkersChronologicalPanel.tsx`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerActivityType_custom.ts`
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerChronologyLayout_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerChronologySearch_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerLayoutPreference_custom.ts`
 - `ui/v2.5/tests/sceneMarkerActivityType_custom.test.ts`
+- `ui/v2.5/tests/sceneMarkerChronologyLayout_custom.test.ts`
 - `ui/v2.5/tests/sceneMarkerChronologySearch_custom.test.ts`
 - `ui/v2.5/tests/sceneMarkerLayoutPreference_custom.test.ts`
 
@@ -3176,13 +3182,17 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - Verifies scene tag options include direct marker tags and their parent tags.
 - Verifies next tag options only include tags that keep an overlap/share match.
 - Verifies performer options are derived from tag-filtered marker results.
+- Verifies highlights contained by multiple activity contexts are duplicated into every matching group.
+- Verifies filtered-out activity pills stay hidden while matching highlight pills still keep their group visible.
+- Verifies unmatched highlight pills remain visible in the Other Highlights fallback bucket.
+- Verifies GOAT-tagged highlight markers are detected for Royal Sapphire styling.
 - Verifies displayed marker tag badges distinguish primary, secondary, overlap, and parent tags while deduping to the highest tier.
 - Verifies displayed overlap tags are only inferred between markers from the same scene.
 - Verifies single-tag performer filters do not create derived overlap ranges from nearby tag-only markers.
 - Verifies activity type markers are limited to configured sex/oral/solo primary-only markers and secondary tags make them highlights.
-- Verifies the Activity Type tab includes configured feet, orgasm, and facial primary tags as section markers without changing strict Activity Type marker classification.
+- Verifies the unified chronological section includes configured feet, orgasm, and facial primary tags as section markers without changing strict Activity Type marker classification.
 - Verifies facial-tagged orgasm markers are assigned to Facial instead of standard Orgasm, including child facial tags.
-- Verifies Activity Type tab section markers are grouped Oral, Sex, Solo, Feet, Orgasm, Facial and chronological within each group.
+- Verifies unified chronological section markers are grouped Oral, Sex, Solo, Feet, Orgasm, Facial and chronological within each group.
 - Verifies activity type markers with the same activity and top/bottom performer configuration are grouped together.
 - Verifies single-tag scene-local searches include markers that match only through an overlapping marker tag.
 - Verifies the official grouped marker layout only shows when its UI setting is explicitly enabled.
@@ -3194,7 +3204,7 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 ### Configuration Dependencies
 
 - Uses existing `configuration.ui.roleTagIds.sexTagId`, `oralTagId`, and `soloTagId` to identify Activity Type markers.
-- Uses existing `configuration.ui.roleTagIds.feetTagId`, `orgasmTagId`, and `facialTagId` to add non-activity sections to the Activity Type tab.
+- Uses existing `configuration.ui.roleTagIds.feetTagId`, `orgasmTagId`, and `facialTagId` to add non-activity sections to the unified chronological marker section.
 - Uses `configuration.ui.showOfficialSceneMarkerLayout` to switch the scene Markers tab between the custom chronological layout and the upstream grouped layout.
 
 ---
