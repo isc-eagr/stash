@@ -1713,6 +1713,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         seconds: marker.seconds,
         end_seconds: marker.end_seconds ?? null,
         primaryTag: marker.primary_tag,
+        tags: marker.tags?.map((tag) => ({ id: tag.id, name: tag.name })), // CUSTOM
         top_performers: marker.top_performers?.map((p) => ({
           id: p.id,
           name: p.name,

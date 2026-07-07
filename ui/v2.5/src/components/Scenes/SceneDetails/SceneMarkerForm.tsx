@@ -594,6 +594,13 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         Toast.error(e);
       }
     };
+    const closeAllOtherMarkerGaps = async () => {
+      await closeOtherMarkerGap("previous");
+      await closeOtherMarkerGap("next");
+    };
+    const canCloseAllOtherMarkerGaps =
+      !!gapWarnings?.previous?.adjacentMarkerId &&
+      !!gapWarnings?.next?.adjacentMarkerId;
 
     return (
       <Alert variant="warning" className="py-2">
@@ -641,6 +648,15 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
             {gapWarnings.previous && gapWarnings.next && (
               <Button size="sm" variant="warning" onClick={closeAllGaps}>
                 Fix both on this marker
+              </Button>
+            )}
+            {canCloseAllOtherMarkerGaps && (
+              <Button
+                size="sm"
+                variant="warning"
+                onClick={closeAllOtherMarkerGaps}
+              >
+                Fix both on other marker
               </Button>
             )}
           </div>

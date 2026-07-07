@@ -3089,7 +3089,7 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 
 ### Overview
 
-Adds a warning to the scene marker and negative marker create/edit forms when the current start/end times would leave a 3-second-or-less unmarked gap or marker overlap next to the nearest relevant marker range. The warning identifies the preceding/following marker type, displays the gap/overlap length in milliseconds, can close the previous issue by moving the marker start to one millisecond after the previous marker ends, close the next issue by moving the marker end to one millisecond before the next marker starts, or close both when both sides qualify. One-millisecond gaps are treated as already closed.
+Adds a warning to the scene marker and negative marker create/edit forms when the current start/end times would leave a 3-second-or-less unmarked gap or marker overlap next to the nearest relevant marker range. The warning identifies the preceding/following marker type, displays the gap/overlap length in milliseconds, can close the previous issue by moving the marker start to one millisecond after the previous marker ends, close the next issue by moving the marker end to one millisecond before the next marker starts, or close both when both sides qualify. Scene marker warnings can also close the previous/next issue by adjusting the adjacent marker instead, including a "Fix both on other marker" batch action when both adjacent markers are known. One-millisecond gaps are treated as already closed.
 
 Markers are checked in separate lanes. Activity markers based on configured sex, oral, and solo `roleTagIds` warn about small gaps or overlaps with other activity markers and negative markers. Highlight markers warn about small gaps or overlaps with other highlight markers and negative markers. Negative markers warn about small gaps or overlaps with activity markers, highlight markers, and other negative markers. Descendant activity tags already present on loaded marker data are treated as activity markers.
 
@@ -3118,6 +3118,7 @@ Markers are checked in separate lanes. Activity markers based on configured sex,
 - Verifies editing a negative marker does not warn against its own saved range.
 - Verifies gaps larger than three seconds are ignored.
 - Verifies overlaps larger than three seconds are ignored.
+- Verifies warnings expose both adjacent marker fixes for the batch other-marker action.
 
 ### GraphQL Schema Changes
 
@@ -3141,7 +3142,7 @@ The unified section has scene-local selectable search fields for tags, top perfo
 
 Marker rows and `/scenes/markers` marker cards display direct primary tags, direct secondary tags, overlapping/transitive tags, and hierarchy-inferred parent tags with distinct badge colors. Parent tags are collapsed behind a small `+N` toggle by default, and they are also included in scene-local tag search options, so a marker tagged with a child tag can be searched by its parent tag. Duplicate tags only render once at the highest available tier: primary, then secondary, then overlap, then parent.
 
-Scene detail pages also include an icon toggle beside the scene tabs that hides the scene overview/header block, allowing the active tab panel to use the full vertical space of the left column. The scene player scrubber marker tags and timeline marker tooltips can show small 2:3 performer thumbnails, and fullscreen player controls hide on idle even while paused. Clicking a scene player scrubber marker performs a one-shot focus into the Markers tab, so later filter/edit changes do not keep auto-scrolling back to that marker.
+Scene detail pages also include an icon toggle beside the scene tabs that hides the scene overview/header block, allowing the active tab panel to use the full vertical space of the left column. The scene player scrubber marker tags and timeline marker tooltips use the same performer/tag-card hover presentation as the Markers tab pills, and fullscreen player controls hide on idle even while paused. Clicking a scene player scrubber marker performs a one-shot focus into the Markers tab, so later filter/edit changes do not keep auto-scrolling back to that marker.
 
 ### Files Modified
 
@@ -3156,6 +3157,7 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx`
 - `ui/v2.5/src/components/Settings/SettingsCustomPanel.tsx`
 - `ui/v2.5/src/core/config.ts`
+- `ui/v2.5/src/components/Shared/HoverPopover.tsx`
 - `ui/v2.5/graphql/data/scene-marker.graphql`
 - `ui/v2.5/graphql/data/scene-slim.graphql`
 - `ui/v2.5/src/locales/en-GB.json`
@@ -3169,6 +3171,7 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerActivityType_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerChronologyLayout_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerChronologySearch_custom.ts`
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerHoverPopover_custom.tsx`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerLayoutPreference_custom.ts`
 - `ui/v2.5/tests/sceneMarkerActivityType_custom.test.ts`
 - `ui/v2.5/tests/sceneMarkerChronologyLayout_custom.test.ts`

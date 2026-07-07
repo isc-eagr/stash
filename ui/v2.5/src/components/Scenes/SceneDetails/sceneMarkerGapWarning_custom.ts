@@ -321,7 +321,7 @@ function findSceneMarkerGapWarningDetails({
       range,
       overlapSeconds: Math.min(range.end, draftEndSeconds) - draft.seconds,
     }))
-    .filter(({ overlapSeconds }) => overlapSeconds > 0)
+    .filter(({ overlapSeconds }) => isSmallOverlap(overlapSeconds))
     .sort((a, b) => a.overlapSeconds - b.overlapSeconds)[0];
   const nextOverlapRange = ranges
     .filter(
@@ -331,7 +331,7 @@ function findSceneMarkerGapWarningDetails({
       range,
       overlapSeconds: draftEndSeconds - Math.max(range.start, draft.seconds),
     }))
-    .filter(({ overlapSeconds }) => overlapSeconds > 0)
+    .filter(({ overlapSeconds }) => isSmallOverlap(overlapSeconds))
     .sort((a, b) => a.overlapSeconds - b.overlapSeconds)[0];
   const previousGapRange = ranges
     .filter((range) => range.end < draft.seconds)
@@ -351,10 +351,7 @@ function findSceneMarkerGapWarningDetails({
     next?: SceneMarkerGapWarningDetail;
   } = {};
 
-  if (
-    previousOverlapRange &&
-    isSmallOverlap(previousOverlapRange.overlapSeconds)
-  ) {
+  if (previousOverlapRange) {
     warnings.previous = {
       issueType: "overlap",
       issueSeconds: roundToMilliseconds(previousOverlapRange.overlapSeconds),
@@ -390,7 +387,7 @@ function findSceneMarkerGapWarningDetails({
     };
   }
 
-  if (nextOverlapRange && isSmallOverlap(nextOverlapRange.overlapSeconds)) {
+  if (nextOverlapRange) {
     warnings.next = {
       issueType: "overlap",
       issueSeconds: roundToMilliseconds(nextOverlapRange.overlapSeconds),

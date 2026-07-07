@@ -348,6 +348,41 @@ assert.deepEqual(
   "negative markers warn about sub-second gaps after highlight markers"
 );
 
+assert.deepEqual(
+  findSceneMarkerGapWarnings({
+    draft: {
+      seconds: 502,
+      end_seconds: 506,
+    },
+    sceneMarkers: [
+      {
+        id: "solo-containing-negative",
+        seconds: 480,
+        end_seconds: 540,
+        primary_tag: { id: "solo", name: "Solo" },
+        tags: [],
+      },
+      {
+        id: "highlight-before-contained-negative",
+        seconds: 490,
+        end_seconds: 501.671,
+        primary_tag: { id: "body", name: "Body" },
+        tags: [],
+      },
+    ],
+    negativeMarkers: [],
+    roleTagIds,
+  })?.previous,
+  {
+    issueType: "gap",
+    issueSeconds: 0.329,
+    markerBoundarySeconds: 501.671,
+    closeToSeconds: 501.672,
+    adjacentMarkerType: "Body",
+  },
+  "large containing activity markers do not hide tiny highlight gaps for negative markers"
+);
+
 assert.equal(
   findSceneMarkerGapWarnings({
     draft: {
@@ -697,6 +732,54 @@ assert.deepEqual(
     otherCloseToSeconds: 59.999,
   },
   "broader marker warnings include metadata for fixing the other negative marker"
+);
+
+const bothAdjacentWarnings = findSceneMarkerWarnings({
+  draft: {
+    ...baseDraft,
+    primary_tag_id: "sex",
+    top_performer_ids: ["top-a"],
+    bottom_performer_ids: ["bottom-a"],
+  },
+  sceneMarkers: [
+    {
+      id: "previous-scene-marker",
+      seconds: 40,
+      end_seconds: 59,
+      primary_tag: { id: "oral", name: "Oral" },
+      tags: [],
+    },
+    {
+      id: "next-scene-marker",
+      seconds: 121,
+      end_seconds: 130,
+      primary_tag: { id: "oral", name: "Oral" },
+      tags: [],
+    },
+  ],
+  negativeMarkers: [],
+  roleTagIds,
+}).filter((warning) => warning.gapWarning);
+
+assert.deepEqual(
+  bothAdjacentWarnings.map((warning) => ({
+    boundary: warning.boundary,
+    adjacentMarkerId: warning.gapWarning?.adjacentMarkerId,
+    otherCloseToSeconds: warning.gapWarning?.otherCloseToSeconds,
+  })),
+  [
+    {
+      boundary: "previous",
+      adjacentMarkerId: "previous-scene-marker",
+      otherCloseToSeconds: 59.999,
+    },
+    {
+      boundary: "next",
+      adjacentMarkerId: "next-scene-marker",
+      otherCloseToSeconds: 120.001,
+    },
+  ],
+  "warnings expose both adjacent marker fixes for the batch other-marker action"
 );
 
 assert.deepEqual(

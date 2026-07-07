@@ -399,6 +399,109 @@ $font-family-monospace: sfmono-regular, menlo, monaco, consolas,
       border: 1px solid #dc3545;
     }
     /* CUSTOM: end */
+
+    /* CUSTOM: begin - use scene marker pill popover presentation for marker hovers */
+    &.vjs-marker-tooltip-with-performer-card {
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      padding: 0;
+
+      .scene-marker-highlight-popover-card {
+        background-color: rgba(20, 28, 36, 0.98);
+        border-radius: 0.25rem;
+        max-width: min(32rem, calc(100vw - 2rem));
+        padding: 0.65rem;
+      }
+
+      .scene-marker-activity-config-performers {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.9rem;
+        justify-content: center;
+        margin-top: 0.55rem;
+      }
+
+      .scene-marker-activity-config-empty {
+        color: #b8c2cc;
+        font-size: 0.85rem;
+        padding: 0.35rem 0.5rem;
+      }
+
+      .scene-marker-activity-performer {
+        align-items: center;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        max-width: 7.875rem;
+        min-width: 7.875rem;
+      }
+
+      .scene-marker-activity-performer-image {
+        align-items: center;
+        aspect-ratio: 2 / 3;
+        background-color: rgba(255, 255, 255, 0.08);
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        border-radius: 0.25rem;
+        color: #b8c2cc;
+        display: flex;
+        font-size: 2.15rem;
+        justify-content: center;
+        overflow: hidden;
+        width: 7.875rem;
+
+        img {
+          height: 100%;
+          object-fit: cover;
+          width: 100%;
+        }
+      }
+
+      .scene-marker-activity-performer-name {
+        color: #d9e2ea;
+        display: -webkit-box;
+        font-size: 0.75rem;
+        font-weight: 700;
+        line-height: 1.08;
+        max-width: 100%;
+        overflow: hidden;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: normal;
+        word-break: break-word;
+
+        /* stylelint-disable-next-line property-no-vendor-prefix */
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+      }
+
+      .scene-marker-highlight-performer-tags {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        justify-content: center;
+        max-width: 100%;
+
+        .tag-badge {
+          border-radius: 0.75rem;
+          font-size: 0.75rem;
+          font-weight: normal;
+          padding: 0.2rem 0.5rem;
+        }
+
+        .scene-marker-highlight-tag-top.badge-secondary {
+          background-color: #4b9f4b;
+          color: #fff;
+        }
+
+        .scene-marker-highlight-tag-bottom.badge-secondary {
+          background-color: #3f94b8;
+          color: #fff;
+        }
+      }
+    }
+    /* CUSTOM: end */
   }
 
   /* CUSTOM: begin - performer images in marker timeline tooltips */
@@ -882,6 +985,18 @@ $font-family-monospace: sfmono-regular, menlo, monaco, consolas,
 }
 
 /* CUSTOM: begin - performer thumbnails in player scrubber marker tags */
+.scrubber-tag-popover-trigger {
+  display: inline-flex;
+  height: 20px;
+  position: absolute;
+  transform: translateX(-50%);
+
+  .scrubber-tag {
+    position: static;
+    transform: none;
+  }
+}
+
 .scrubber-tag-performer-image {
   aspect-ratio: 2 / 3;
   border-radius: 1px;

@@ -2,17 +2,13 @@ import React, { useEffect, useMemo } from "react";
 import { Badge, Button, Form } from "react-bootstrap";
 import cx from "classnames";
 import Select, { MultiValue, SingleValue } from "react-select";
-import {
-  faExclamationTriangle,
-  faUser,
-} from "@fortawesome/free-solid-svg-icons";
+import { faExclamationTriangle } from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import { Icon } from "src/components/Shared/Icon";
 import { HoverPopover } from "src/components/Shared/HoverPopover";
 import TextUtils from "src/utils/text";
 import { markerTitle } from "src/core/markers";
 import { useConfigurationContext } from "src/hooks/Config";
-import { getRatingCardClass } from "src/utils/ratingCardStyles_custom";
 import {
   compareActivityTypeSceneMarkers,
   getActivityTypeSectionMarkerTag,
@@ -24,24 +20,27 @@ import {
 } from "./sceneMarkerActivityType_custom";
 import {
   buildChronologicalSceneMarkerLayout,
-  isChronologicalSceneMarkerGoatTagged,
   type IChronologicalSceneMarkerLayoutGroup,
 } from "./sceneMarkerChronologyLayout_custom";
 import {
   getChronologicalSceneMarkerPerformers,
-  getChronologicalSceneMarkerHighlightPerformerOrgasmRank,
   getChronologicalSceneMarkerTags,
   getCompatibleChronologicalSceneMarkerTags,
   groupChronologicalSceneMarkerHighlights,
   timestampBelongsToSceneMarker,
   type ISceneMarkerChronologyDerivedWindow,
   type ISceneMarkerChronologyHighlightGroup,
-  type ISceneMarkerChronologyHighlightPerformer,
   type ISceneMarkerChronologyHighlightSegment,
   type ISceneMarkerChronologySearchFilters,
   type ISceneMarkerChronologySearchPerformer,
   type ISceneMarkerChronologySearchTag,
 } from "./sceneMarkerChronologySearch_custom";
+import {
+  ActivityTypePerformerTile,
+  SceneMarkerHighlightPerformersPopover,
+  useSceneMarkerRatingCardClassGetter,
+  type MarkerRatingCardClassGetter,
+} from "./sceneMarkerHoverPopover_custom";
 
 interface ISceneMarkersChronologicalPanel {
   markers: GQL.SceneMarkerDataFragment[];
@@ -95,13 +94,7 @@ interface IActivityTypeSection {
   >;
 }
 
-type ActivityTypePerformer =
-  GQL.SceneMarkerDataFragment["top_performers"][number];
-
 const defaultMarkerDurationSeconds = 20;
-type MarkerRatingCardClassGetter = (
-  marker: GQL.SceneMarkerDataFragment
-) => string;
 
 function markerEndSeconds(
   marker: Pick<GQL.SceneMarkerDataFragment, "seconds" | "end_seconds">
@@ -265,34 +258,6 @@ const SearchMultiSelect = <T extends SearchSelectEntity>({
     />
   );
 };
-
-const ActivityTypePerformerTile: React.FC<{
-  performer: ActivityTypePerformer;
-  role?: "Top" | "Bottom";
-  className?: string;
-  title?: string;
-  children?: React.ReactNode;
-}> = ({ performer, role, className, title, children }) => (
-  <div
-    key={`${role ?? "performer"}-${performer.id}`}
-    className={cx(
-      "scene-marker-activity-performer",
-      role && `scene-marker-activity-performer-${role.toLowerCase()}`,
-      className
-    )}
-    title={title ?? (role ? `${role}: ${performer.name}` : performer.name)}
-  >
-    <div className="scene-marker-activity-performer-image">
-      {performer.image_path ? (
-        <img src={performer.image_path} alt={performer.name} />
-      ) : (
-        <Icon icon={faUser} />
-      )}
-    </div>
-    <div className="scene-marker-activity-performer-name">{performer.name}</div>
-    {children}
-  </div>
-);
 
 interface ITimelineMarkerBox {
   marker: GQL.SceneMarkerDataFragment;
@@ -568,31 +533,6 @@ const ActivityTypeGroupCard: React.FC<IActivityTypeGroupCard> = ({
   );
 };
 
-const HighlightPerformerTagPills: React.FC<{
-  performer: ISceneMarkerChronologyHighlightPerformer<GQL.SceneMarkerDataFragment>;
-}> = ({ performer }) => (
-  <div className="scene-marker-highlight-performer-tags">
-    {performer.topTags.map((tag) => (
-      <Badge
-        key={`top-${tag.id}`}
-        variant="secondary"
-        className="tag-badge scene-marker-highlight-tag-top"
-      >
-        {tag.name}
-      </Badge>
-    ))}
-    {performer.bottomTags.map((tag) => (
-      <Badge
-        key={`bottom-${tag.id}`}
-        variant="secondary"
-        className="tag-badge scene-marker-highlight-tag-bottom"
-      >
-        {tag.name}
-      </Badge>
-    ))}
-  </div>
-);
-
 const HighlightSegmentBox: React.FC<{
   segment: ISceneMarkerChronologyHighlightSegment<GQL.SceneMarkerDataFragment>;
   selectedMarkerIds: Set<string>;
@@ -709,50 +649,6 @@ const HighlightSegmentBox: React.FC<{
   );
 };
 
-const HighlightPerformersPopover: React.FC<{
-  group: ISceneMarkerChronologyHighlightGroup<GQL.SceneMarkerDataFragment>;
-  orgasmTagId?: string;
-  getMarkerRatingCardClass: MarkerRatingCardClassGetter;
-}> = ({ group, orgasmTagId, getMarkerRatingCardClass }) => {
-  const displayPerformers = group.performers
-    .map((performer, index) => ({ performer, index }))
-    .sort(
-      (a, b) =>
-        getChronologicalSceneMarkerHighlightPerformerOrgasmRank(
-          a.performer,
-          orgasmTagId
-        ) -
-          getChronologicalSceneMarkerHighlightPerformerOrgasmRank(
-            b.performer,
-            orgasmTagId
-          ) || a.index - b.index
-    )
-    .map(({ performer }) => performer);
-  const ratingClass = group.markers
-    .map((marker) => getMarkerRatingCardClass(marker))
-    .find(Boolean);
-
-  return (
-    <div className={cx("scene-marker-highlight-popover-card", ratingClass)}>
-      {displayPerformers.length > 0 ? (
-        <div className="scene-marker-activity-config-performers">
-          {displayPerformers.map((performer) => (
-            <ActivityTypePerformerTile
-              key={performer.performer.id}
-              performer={performer.performer}
-              className="scene-marker-highlight-performer"
-            >
-              <HighlightPerformerTagPills performer={performer} />
-            </ActivityTypePerformerTile>
-          ))}
-        </div>
-      ) : (
-        <div className="scene-marker-activity-config-empty">No performers</div>
-      )}
-    </div>
-  );
-};
-
 interface IActivityGroupHighlights {
   highlightGroups: Array<
     ISceneMarkerChronologyHighlightGroup<GQL.SceneMarkerDataFragment>
@@ -800,7 +696,7 @@ function HighlightPillList({
           popoverClassName="scene-marker-highlight-popover"
           placement="bottom"
           content={
-            <HighlightPerformersPopover
+            <SceneMarkerHighlightPerformersPopover
               group={group}
               orgasmTagId={orgasmTagId}
               getMarkerRatingCardClass={getMarkerRatingCardClass}
@@ -936,30 +832,7 @@ export const SceneMarkersChronologicalPanel: React.FC<
     () => getActivityTypeTagIds(configuration?.ui.roleTagIds),
     [configuration?.ui.roleTagIds]
   );
-  const getMarkerRatingCardClass = useMemo<MarkerRatingCardClassGetter>(
-    () => (marker) => {
-      const goatTagId = configuration?.ui.roleTagIds?.goatTagId;
-      const directMarkerTags = [marker.primary_tag, ...marker.tags];
-      const markerTags =
-        goatTagId && isChronologicalSceneMarkerGoatTagged(marker, goatTagId)
-          ? [...directMarkerTags, { id: goatTagId }]
-          : directMarkerTags;
-
-      return getRatingCardClass({
-        tags: markerTags,
-        goatTagId,
-        theme: configuration?.ui.ratingCardTheme,
-        thresholds: configuration?.ui.ratingCardThresholds,
-        overrideTagIds: configuration?.ui.ratingCardOverrideTagIds,
-      });
-    },
-    [
-      configuration?.ui.ratingCardOverrideTagIds,
-      configuration?.ui.ratingCardTheme,
-      configuration?.ui.ratingCardThresholds,
-      configuration?.ui.roleTagIds?.goatTagId,
-    ]
-  );
+  const getMarkerRatingCardClass = useSceneMarkerRatingCardClassGetter();
   const highlights = useMemo(
     () =>
       markers.filter(

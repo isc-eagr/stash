@@ -9,11 +9,17 @@ import { Button } from "react-bootstrap";
 import * as GQL from "src/core/generated-graphql";
 import TextUtils from "src/utils/text";
 import { Icon } from "src/components/Shared/Icon";
+import { HoverPopover } from "src/components/Shared/HoverPopover";
 import {
   faChevronRight,
   faChevronLeft,
 } from "@fortawesome/free-solid-svg-icons";
 import { useSpriteInfo } from "src/hooks/sprite";
+import {
+  getSceneMarkerHoverGroup,
+  SceneMarkerHighlightPerformersPopover,
+  useSceneMarkerRatingCardClassGetter,
+} from "src/components/Scenes/SceneDetails/sceneMarkerHoverPopover_custom";
 
 interface IScenePlayerScrubberProps {
   file: GQL.VideoFileDataFragment;
@@ -88,6 +94,7 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
 
   const spriteInfo = useSpriteInfo(scene.paths.vtt ?? undefined);
   const [spriteItems, setSpriteItems] = useState<ISceneSpriteItem[]>();
+  const getMarkerRatingCardClass = useSceneMarkerRatingCardClassGetter();
 
   useEffect(() => {
     if (!spriteInfo || spriteInfo.length === 0) return;
@@ -304,31 +311,44 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
       const { duration } = file;
       const left = (scrubWidth * marker.seconds) / duration;
       const style = { left: `${left}px` };
+      const hoverGroup = getSceneMarkerHoverGroup(marker, scene.scene_markers);
       const performerImages = [
         ...marker.top_performers,
         ...marker.bottom_performers,
       ].filter((performer) => !!performer.image_path);
 
       return (
-        <div
+        <HoverPopover
           key={index}
-          className="scrubber-tag scrubber-tag-with-performers"
+          className="scrubber-tag-popover-trigger"
+          popoverClassName="scene-marker-highlight-popover"
+          placement="bottom"
           style={style}
-          data-marker-id={index}
-          title={marker.title || marker.primary_tag.name}
-        >
-          {performerImages.slice(0, 3).map((performer) => (
-            <img
-              key={performer.id}
-              className="scrubber-tag-performer-image"
-              src={performer.image_path ?? ""}
-              alt={performer.name}
+          content={
+            <SceneMarkerHighlightPerformersPopover
+              group={hoverGroup}
+              orgasmTagId={undefined}
+              getMarkerRatingCardClass={getMarkerRatingCardClass}
             />
-          ))}
-          <span className="scrubber-tag-label">
-            {marker.title || marker.primary_tag.name}
-          </span>
-        </div>
+          }
+        >
+          <div
+            className="scrubber-tag scrubber-tag-with-performers"
+            data-marker-id={index}
+          >
+            {performerImages.slice(0, 3).map((performer) => (
+              <img
+                key={performer.id}
+                className="scrubber-tag-performer-image"
+                src={performer.image_path ?? ""}
+                alt={performer.name}
+              />
+            ))}
+            <span className="scrubber-tag-label">
+              {marker.title || marker.primary_tag.name}
+            </span>
+          </div>
+        </HoverPopover>
       );
     });
   }

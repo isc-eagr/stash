@@ -6,7 +6,8 @@ export interface IMarker {
   title: string;
   seconds: number;
   end_seconds?: number | null;
-  primaryTag: { name: string };
+  primaryTag: { id?: string; name: string };
+  tags?: Array<{ id?: string; name: string }>; // CUSTOM
   // CUSTOM: begin - performer roles on markers
   top_performers?: Array<{
     id: string;
@@ -98,7 +99,8 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       image_path?: string | null;
     }>,
     isNegativeMarker: boolean = false,
-    target?: HTMLElement
+    target?: HTMLElement,
+    markerTags?: Array<{ id?: string; name: string }>
   ) {
     if (!this.markerTooltip) return;
 
@@ -131,6 +133,12 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     this.markerTooltip.innerText = tooltipContent;
     // CUSTOM: begin - image-aware performer tooltip content
     this.markerTooltip.replaceChildren();
+    const hasMarkerContext =
+      !!markerTags || !!topPerformers?.length || !!bottomPerformers?.length;
+    this.markerTooltip.classList.toggle(
+      "vjs-marker-tooltip-with-performer-card",
+      hasMarkerContext && !isNegativeMarker
+    );
     const titleEl = document.createElement("div");
     titleEl.className = "vjs-marker-tooltip-title";
     titleEl.textContent = title;
@@ -173,6 +181,74 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
 
     addPerformers(topPerformers ?? [], "top");
     addPerformers(bottomPerformers ?? [], "bottom");
+
+    if (hasMarkerContext && !isNegativeMarker) {
+      this.markerTooltip.replaceChildren();
+
+      const card = document.createElement("div");
+      card.className = "scene-marker-highlight-popover-card";
+      const performersWrapper = document.createElement("div");
+      performersWrapper.className = "scene-marker-activity-config-performers";
+      const displayTags =
+        markerTags && markerTags.length > 0
+          ? markerTags
+          : [{ id: "primary", name: title }];
+
+      const addPerformerTiles = (
+        performers: Array<{
+          id: string;
+          name: string;
+          image_path?: string | null;
+        }>,
+        role: "top" | "bottom"
+      ) => {
+        performers.forEach((performer) => {
+          const item = document.createElement("div");
+          item.className =
+            "scene-marker-activity-performer scene-marker-highlight-performer";
+          item.title = performer.name;
+
+          const imageWrapper = document.createElement("div");
+          imageWrapper.className = "scene-marker-activity-performer-image";
+          if (performer.image_path) {
+            const image = document.createElement("img");
+            image.src = performer.image_path;
+            image.alt = performer.name;
+            imageWrapper.appendChild(image);
+          }
+          item.appendChild(imageWrapper);
+
+          const name = document.createElement("div");
+          name.className = "scene-marker-activity-performer-name";
+          name.textContent = performer.name;
+          item.appendChild(name);
+
+          const tagList = document.createElement("div");
+          tagList.className = "scene-marker-highlight-performer-tags";
+          displayTags.forEach((tag) => {
+            const badge = document.createElement("span");
+            badge.className = `badge badge-secondary tag-badge scene-marker-highlight-tag-${role}`;
+            badge.textContent = tag.name;
+            tagList.appendChild(badge);
+          });
+          item.appendChild(tagList);
+          performersWrapper.appendChild(item);
+        });
+      };
+
+      addPerformerTiles(topPerformers ?? [], "top");
+      addPerformerTiles(bottomPerformers ?? [], "bottom");
+
+      if (!performersWrapper.childElementCount) {
+        const empty = document.createElement("div");
+        empty.className = "scene-marker-activity-config-empty";
+        empty.textContent = "No performers";
+        performersWrapper.appendChild(empty);
+      }
+
+      card.appendChild(performersWrapper);
+      this.markerTooltip.appendChild(card);
+    }
     // CUSTOM: end
 
     // CUSTOM: begin - keep marker tooltips inside the player timeline edges
@@ -274,7 +350,8 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
         marker.top_performers,
         marker.bottom_performers,
         false,
-        markerSet.dot
+        markerSet.dot,
+        [marker.primaryTag, ...(marker.tags ?? [])]
       ); // CUSTOM: performer roles
       markerSet.dot?.toggleAttribute("marker-tooltip-shown", true);
     });
@@ -388,7 +465,8 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
         marker.top_performers,
         marker.bottom_performers,
         false,
-        markerSet.range
+        markerSet.range,
+        [marker.primaryTag, ...(marker.tags ?? [])]
       ); // CUSTOM: performer roles
       markerSet.range?.toggleAttribute("marker-tooltip-shown", true);
     });

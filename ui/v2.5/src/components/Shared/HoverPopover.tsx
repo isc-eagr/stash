@@ -10,6 +10,7 @@ interface IHoverPopover {
   content: JSX.Element[] | JSX.Element | string;
   className?: string;
   popoverClassName?: string; // CUSTOM
+  style?: React.CSSProperties; // CUSTOM
   placement?: OverlayProps["placement"];
   onOpen?: () => void;
   onClose?: () => void;
@@ -25,6 +26,7 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
     children,
     className,
     popoverClassName, // CUSTOM
+    style, // CUSTOM
     placement = "top",
     onOpen,
     onClose,
@@ -98,6 +100,7 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
       <>
         <div
           className={className}
+          style={style} // CUSTOM
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
           ref={triggerRef}
