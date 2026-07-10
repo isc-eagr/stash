@@ -11,7 +11,7 @@ import NavUtils from "src/utils/navigation";
 import TextUtils from "src/utils/text";
 import { SceneQueue } from "src/models/sceneQueue";
 import { useConfigurationContext } from "src/hooks/Config";
-import { PerformerPopoverButton } from "../Shared/PerformerPopoverButton";
+import { SceneCardPerformerPopover } from "./SceneCardPerformerPopover_custom"; // CUSTOM
 import { GridCard } from "../Shared/GridCard/GridCard";
 import { RatingBanner } from "../Shared/RatingBanner";
 import { FormattedMessage } from "react-intl";
@@ -206,12 +206,8 @@ const SceneCardPopovers = PatchComponent(
     function maybeRenderPerformerPopoverButton() {
       if (props.scene.performers.length <= 0) return;
 
-      return (
-        <PerformerPopoverButton
-          performers={props.scene.performers}
-          linkType="scene"
-        />
-      );
+      // CUSTOM
+      return <SceneCardPerformerPopover scene={props.scene} />;
     }
 
     function maybeRenderGroupPopoverButton() {

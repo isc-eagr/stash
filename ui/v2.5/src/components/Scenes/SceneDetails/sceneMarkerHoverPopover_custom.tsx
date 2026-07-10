@@ -90,7 +90,7 @@ export const ActivityTypePerformerTile: React.FC<{
   </div>
 );
 
-const HighlightPerformerTagPills = <
+export const HighlightPerformerTagPills = <
   M extends ISceneMarkerChronologySearchMarker
 >({
   performer,

@@ -719,6 +719,31 @@ function getHighlightPerformersFromActiveMarkers<
   return Array.from(performersByID.values());
 }
 
+export function getSceneMarkerPerformerTagSummaries<
+  M extends ISceneMarkerChronologySearchMarker
+>(markers: M[]): Array<ISceneMarkerChronologyHighlightPerformer<M>> {
+  const performersByID = new Map<
+    string,
+    ISceneMarkerChronologyHighlightPerformer<M>
+  >();
+
+  markers.forEach((marker) => {
+    getChronologicalSceneMarkerHighlightPerformers(marker, markers).forEach(
+      ({ performer, topTags, bottomTags }) => {
+        addHighlightPerformerTags(performersByID, performer, "top", topTags);
+        addHighlightPerformerTags(
+          performersByID,
+          performer,
+          "bottom",
+          bottomTags
+        );
+      }
+    );
+  });
+
+  return Array.from(performersByID.values());
+}
+
 export function getChronologicalSceneMarkerHighlightPerformers<
   M extends ISceneMarkerChronologySearchMarker
 >(

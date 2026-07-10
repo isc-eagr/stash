@@ -22,6 +22,7 @@ import {
 import { OCounterButton } from "../Shared/CountButton";
 import cx from "classnames"; // CUSTOM
 import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
+import { makeStudioOStatsUrl } from "src/utils/oStatsNavigation_custom"; // CUSTOM
 import {
   getRatingCardClass,
   isRatingCardHomePage,
@@ -521,7 +522,23 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         : studio.o_counter;
       if (!count) return;
 
-      return <OCounterButton value={count} />;
+      // CUSTOM: begin - open the studio O timeline from either counter control
+      const openStudioOStats = () => {
+        window.open(
+          makeStudioOStatsUrl(studio.id),
+          "_blank",
+          "noopener,noreferrer"
+        );
+      };
+
+      return (
+        <OCounterButton
+          value={count}
+          onIncrement={openStudioOStats}
+          onValueClicked={openStudioOStats}
+        />
+      );
+      // CUSTOM: end
     }
 
     function maybeRenderOrganized() {

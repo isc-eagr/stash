@@ -2958,6 +2958,7 @@ Adds a hidden `/ostats` page for scene O analytics. The page is intentionally no
 - `ui/v2.5/src/components/Tags/TagCard.tsx` - Shows an O-count card counter linked to `/ostats/tag/<tag id>` only when the tag has OStats events
 - `ui/v2.5/src/components/Performers/PerformerCard.tsx` - Opens that vato's `/ostats/vato/<performer id>` timeline in a new tab from either performer-card O-counter control
 - `ui/v2.5/src/components/Performers/PerformerDetails/Performer.tsx` - Opens that vato's O timeline in a new tab from either O-counter control on the performer detail page
+- `ui/v2.5/src/components/Studios/StudioCard.tsx` - Opens that studio's `/ostats/studio/<studio id>` timeline in a new tab from either studio-card O-counter control everywhere the shared card is used
 - `ui/v2.5/src/components/Settings/Tasks/GenerateOptions.tsx` - Adds the O screenshots checkbox
 - `ui/v2.5/src/locales/en-GB.json` - Adds O screenshot Generate labels
 - `ui/v2.5/src/locales/en-US.json` - Adds O screenshot Generate labels
@@ -2972,6 +2973,8 @@ Adds a hidden `/ostats` page for scene O analytics. The page is intentionally no
 - `ui/v2.5/src/components/OStats/OStats.tsx` - Hidden O stats chart and timeline page
 - `ui/v2.5/src/components/OStats/OStats.scss` - Page-specific chart and timeline styles
 - `ui/v2.5/src/utils/statsCountry_custom.ts` - Converts ISO country codes to readable country labels without changing filter values
+- `ui/v2.5/src/utils/oStatsNavigation_custom.ts` - Builds encoded OStats studio drilldown URLs for shared card actions
+- `ui/v2.5/tests/oStatsNavigation_custom.test.ts` - Covers studio OStats drilldown URL construction and encoding
 - `ui/v2.5/tests/statsCountry_custom.test.ts` - Covers country-code labels and passthrough values
 - `internal/api/resolver_custom_test.go` - Date validation tests for O stats helpers
 
@@ -2987,6 +2990,7 @@ Adds a hidden `/ostats` page for scene O analytics. The page is intentionally no
 - `TestSceneOEventAssociatedTagsFromCandidates` - Covers deduping associated marker tags and preferring orgasm marker tags when available
 - `TestGetOScreenshotPath` - Covers generated O screenshot path layout by scene hash and O row id
 - `statsCountry_custom.test.ts` - Covers readable US/MX/GB country labels, existing full country names, Unknown, and blank values
+- `oStatsNavigation_custom.test.ts` - Covers numeric studio IDs and URL-encoded studio drilldown paths
 
 ### GraphQL Schema Changes
 
@@ -3196,6 +3200,8 @@ Replaces the visible scene detail Markers tab body with a custom chronological m
 
 Highlights are now embedded under their matching activity/performer groups. Each group starts with a collapsed `Highlights` row and count; expanding it shows the highlight timeline pills for that group. Highlight pills are duplicated into every matching activity context when a highlight is contained by or contributes to multiple activity groups, and unmatched highlights remain visible in an "Other Highlights" fallback bucket. Hovering a highlight pill shows the existing performer/tag-card presentation without the old highlight title header. GOAT-tagged markers and highlight hover cards use Royal Sapphire styling. Markers that contain the current player timestamp keep the subtle bookmark treatment, and scene player scrubber clicks perform a one-shot focus into the Markers tab with a distinct blue focus ring for the target pill. Marker create/edit top and bottom performer dropdowns render large performer thumbnails while choosing, then keep the selected values as regular text pills.
 
+Scene-card performer-count hover popovers reuse the performer/tag-card presentation. Each scene performer displays the union produced by running every scene marker through the same overlap/containment context calculation as the in-scene marker hover: top-role tags use green chips and bottom-role tags use blue chips. A tag remains in both colors when the performer has both roles across different markers, and scene performers without marker assignments remain visible with no chips.
+
 The unified section has scene-local selectable search fields for tags, top performers, and bottom performers. Tag search uses a progressive chain of single-tag selectors: the first selector only lists tags present on the current scene's markers, each next selector only lists tags that can still match by sharing the same marker or by contributing to one shared overlap window with the previous selections, and the row layout wraps at three tag selectors per line. Tag searches match primary or secondary marker tags and reuse the overlap-aware behavior from the custom marker filters: a marker can satisfy multiple requested tags directly or through overlapping markers only when every selected tag participates in the same shared overlap window, and when multiple overlapping markers match the same tag search only the narrowest result is shown. Derived overlap ranges are only shown for multi-tag searches, not for single-tag performer narrowing. Selected tags also narrow the top/bottom performer options to performers associated with the tag-filtered markers.
 
 Marker rows and `/scenes/markers` marker cards display direct primary tags, direct secondary tags, overlapping/transitive tags, and hierarchy-inferred parent tags with distinct badge colors. Parent tags are collapsed behind a small `+N` toggle by default, and they are also included in scene-local tag search options, so a marker tagged with a child tag can be searched by its parent tag. Duplicate tags only render once at the highest available tier: primary, then secondary, then overlap, then parent.
@@ -3230,6 +3236,8 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerChronologyLayout_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerChronologySearch_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerHoverPopover_custom.tsx`
+- `ui/v2.5/src/components/Scenes/SceneCardPerformerPopover_custom.tsx`
+- `ui/v2.5/src/components/Scenes/SceneCard.tsx`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerLayoutPreference_custom.ts`
 - `ui/v2.5/tests/sceneMarkerActivityType_custom.test.ts`
 - `ui/v2.5/tests/sceneMarkerChronologyLayout_custom.test.ts`
@@ -3255,6 +3263,7 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - Verifies displayed overlap tags are only inferred between markers from the same scene.
 - Verifies single-tag performer filters do not create derived overlap ranges from nearby tag-only markers.
 - Verifies activity type markers are limited to configured sex/oral/solo primary-only markers and secondary tags make them highlights.
+- Verifies scene-card performer summaries union direct and overlap-computed marker tags independently for top and bottom roles, including the same tag appearing in both role colors.
 - Verifies the unified chronological section includes configured feet, orgasm, and facial primary tags as section markers without changing strict Activity Type marker classification.
 - Verifies facial-tagged orgasm markers are assigned to Facial instead of standard Orgasm, including child facial tags.
 - Verifies unified chronological section markers are grouped Oral, Sex, Solo, Feet, Orgasm, Facial and chronological within each group.
