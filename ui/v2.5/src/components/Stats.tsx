@@ -7,33 +7,7 @@ import TextUtils from "src/utils/text";
 import { FileSize } from "./Shared/FileSize";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useTitleProps } from "src/hooks/title"; // CUSTOM
-// CUSTOM: begin
-import { Link } from "react-router-dom";
-import { Icon } from "./Shared/Icon";
-import {
-  faCalendarAlt,
-  faFilm,
-  faUsers,
-} from "@fortawesome/free-solid-svg-icons";
-
-const customStatsLinks = [
-  {
-    label: "O Stats",
-    href: "/ostats",
-    icon: faCalendarAlt,
-  },
-  {
-    label: "Scene Stats",
-    href: "/scenestats",
-    icon: faFilm,
-  },
-  {
-    label: "Vato Stats",
-    href: "/vatostats",
-    icon: faUsers,
-  },
-];
-// CUSTOM: end
+import { StatsLinks } from "./StatsLinks_custom"; // CUSTOM
 
 export const Stats: React.FC = () => {
   const titleProps = useTitleProps("Stats");
@@ -77,14 +51,7 @@ export const Stats: React.FC = () => {
       <Helmet {...titleProps} />
 
       {/* CUSTOM: begin */}
-      <div className="col col-sm-8 m-sm-auto stats-links">
-        {customStatsLinks.map((link) => (
-          <Link className="stats-links-item" key={link.href} to={link.href}>
-            <Icon icon={link.icon} className="stats-links-icon" />
-            <span>{link.label}</span>
-          </Link>
-        ))}
-      </div>
+      <StatsLinks />
       {/* CUSTOM: end */}
 
       <div className="col col-sm-8 m-sm-auto row stats">

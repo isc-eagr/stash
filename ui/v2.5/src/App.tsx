@@ -285,10 +285,28 @@ export const App: React.FC = () => {
             {/* CUSTOM */}
             <Route path="/vatostats" component={VatoStats} /> {/* CUSTOM */}
             <Route path="/gevi-latest" component={GEVILatest} /> {/* CUSTOM */}
+            <Route path="/ostats/vato/:performerId" component={OStats} />{" "}
+            {/* CUSTOM */}
             <Route path="/ostats/tag/:tagId" component={OStats} />{" "}
             {/* CUSTOM */}
             <Route
               path="/ostats/ethnicity/:ethnicity"
+              component={OStats}
+            />{" "}
+            {/* CUSTOM */}
+            <Route path="/ostats/country/:country" component={OStats} />{" "}
+            {/* CUSTOM */}
+            <Route path="/ostats/studio/:studioId" component={OStats} />{" "}
+            {/* CUSTOM */}
+            <Route path="/ostats/age/:performerAge" component={OStats} />{" "}
+            {/* CUSTOM */}
+            <Route
+              path="/ostats/release-year/:releaseYear"
+              component={OStats}
+            />{" "}
+            {/* CUSTOM */}
+            <Route
+              path="/ostats/unknown/:unknownCategory"
               component={OStats}
             />{" "}
             {/* CUSTOM */}

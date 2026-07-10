@@ -10,6 +10,76 @@ import (
 	"github.com/stashapp/stash/pkg/models"
 )
 
+func expandPerformerEthnicitySelectionsCustom(value string) []string {
+	var ret []string
+	seen := make(map[string]struct{})
+
+	appendValue := func(value string) {
+		if _, found := seen[value]; found {
+			return
+		}
+		seen[value] = struct{}{}
+		ret = append(ret, value)
+	}
+
+	for _, value := range strings.Split(value, ",") {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+
+		appendValue(value)
+		if strings.EqualFold(value, "Black") {
+			appendValue("Mixed")
+			appendValue("Afrolatino")
+		}
+		if strings.EqualFold(value, "White") {
+			appendValue("Mixed")
+		}
+		if strings.EqualFold(value, "Latino") {
+			appendValue("Afrolatino")
+		}
+	}
+
+	return ret
+}
+
+// performerEthnicityCriterionHandlerCustom handles the comma-separated values
+// emitted by the database-backed ethnicity selector on the performer list.
+func performerEthnicityCriterionHandlerCustom(criterion *models.StringCriterionInput, column string) criterionHandlerFunc {
+	if criterion == nil {
+		return func(context.Context, *filterBuilder) {}
+	}
+
+	switch criterion.Modifier {
+	case models.CriterionModifierEquals,
+		models.CriterionModifierNotEquals,
+		models.CriterionModifierIncludes,
+		models.CriterionModifierExcludes:
+		// handled below
+	default:
+		return stringCriterionHandler(criterion, column)
+	}
+
+	return func(_ context.Context, f *filterBuilder) {
+		values := expandPerformerEthnicitySelectionsCustom(criterion.Value)
+		if len(values) == 0 {
+			return
+		}
+
+		args := make([]interface{}, len(values))
+		for i, value := range values {
+			args[i] = value
+		}
+
+		operator := " IN "
+		if criterion.Modifier == models.CriterionModifierNotEquals || criterion.Modifier == models.CriterionModifierExcludes {
+			operator = " NOT IN "
+		}
+		f.addWhere(column+operator+getInBinding(len(values)), args...)
+	}
+}
+
 func (qb *performerFilterHandler) profileImageCountCriterionHandler(count *models.IntCriterionInput) criterionHandlerFunc {
 	return func(ctx context.Context, f *filterBuilder) {
 		if count == nil {

@@ -35,6 +35,22 @@ const roleTagIDs = {
 assert.equal(facialCount(scene, roleTagIDs.facial), 3);
 assert.equal(reallyHotFacialCount(scene, roleTagIDs), 2);
 assert.equal(
+  facialCount(
+    { scene_markers: [{ tag_ids: ["facial", "really-hot"] }] },
+    roleTagIDs.facial
+  ),
+  1,
+  "compact SceneStats marker tag IDs support facial counts"
+);
+assert.equal(
+  reallyHotFacialCount(
+    { scene_markers: [{ tag_ids: ["facial", "really-hot"] }] },
+    roleTagIDs
+  ),
+  1,
+  "compact SceneStats marker tag IDs support really-hot facial counts"
+);
+assert.equal(
   reallyHotFacialCount(scene, { facial: roleTagIDs.facial }),
   0,
   "really hot facial counts require the configurable really-hot tag"

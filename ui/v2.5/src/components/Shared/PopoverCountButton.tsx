@@ -1,5 +1,6 @@
 import {
   faFilm,
+  faThumbsUp, // CUSTOM
   faImage,
   faImages,
   faPlayCircle,
@@ -14,6 +15,7 @@ import { Link } from "react-router-dom";
 import { useConfigurationContext } from "src/hooks/Config";
 import TextUtils from "src/utils/text";
 import { Icon } from "./Icon";
+import { SweatDrops } from "./SweatDrops"; // CUSTOM
 
 export const Count: React.FC<{
   count: number;
@@ -46,7 +48,9 @@ type PopoverLinkType =
   | "group"
   | "sub_group"
   | "performer"
-  | "studio";
+  | "studio"
+  | "o_count"; // CUSTOM
+type StandardPopoverLinkType = Exclude<PopoverLinkType, "o_count">; // CUSTOM
 
 interface IProps {
   className?: string;
@@ -64,14 +68,29 @@ export const PopoverCountButton: React.FC<IProps> = ({
   showZero = true,
 }) => {
   const intl = useIntl();
+  const { configuration } = useConfigurationContext(); // CUSTOM
 
   if (!showZero && count === 0) {
     return null;
   }
 
+  function renderIcon() {
+    // CUSTOM: begin - compact O count support
+    if (type === "o_count") {
+      return !configuration.interface.sfwContentMode ? (
+        <SweatDrops />
+      ) : (
+        <Icon icon={faThumbsUp} />
+      );
+    }
+    // CUSTOM: end
+
+    return <Icon icon={getIcon(type)} />;
+  }
+
   // TODO - refactor - create SceneIcon, ImageIcon etc components
-  function getIcon() {
-    switch (type) {
+  function getIcon(linkType: StandardPopoverLinkType) {
+    switch (linkType) {
       case "scene":
         return faPlayCircle;
       case "image":
@@ -132,6 +151,17 @@ export const PopoverCountButton: React.FC<IProps> = ({
           one: "studio",
           other: "studios",
         };
+      // CUSTOM: begin - O count tooltip
+      case "o_count":
+        return {
+          one: configuration.interface.sfwContentMode
+            ? "o_count_sfw"
+            : "o_count",
+          other: configuration.interface.sfwContentMode
+            ? "o_count_sfw"
+            : "o_count",
+        };
+      // CUSTOM: end
     }
   }
 
@@ -152,7 +182,7 @@ export const PopoverCountButton: React.FC<IProps> = ({
       >
         <Link className={className} to={url}>
           <Button className="minimal">
-            <Icon icon={getIcon()} />
+            {renderIcon()}
             <Count count={count} />
           </Button>
         </Link>

@@ -430,6 +430,13 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
     const [image, setImage] = useState<string | null>();
     const [encodingImage, setEncodingImage] = useState<boolean>(false);
     const loadStickyHeader = useLoadStickyHeader();
+    const openVatoOStats = () => {
+      window.open(
+        `/ostats/vato/${performer.id}`,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    }; // CUSTOM
 
     const activeImage = useMemo(() => {
       const performerImage = performer.image_path;
@@ -620,7 +627,13 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                   />{" "}
                   {/* CUSTOM */}
                   {!!performer.o_counter && (
-                    <OCounterButton value={performer.o_counter} />
+                    // CUSTOM: begin
+                    <OCounterButton
+                      value={performer.o_counter}
+                      onIncrement={openVatoOStats}
+                      onValueClicked={openVatoOStats}
+                    />
+                    // CUSTOM: end
                   )}
                 </div>
                 {!isEditing && (

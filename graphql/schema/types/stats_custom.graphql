@@ -85,6 +85,80 @@ type SceneOCountByEthnicity {
   count: Int!
 }
 
+"Count of scene O events grouped by associated vato country"
+type SceneOCountByCountry {
+  country: String!
+  count: Int!
+}
+
+"Count of scene O events grouped by scene studio"
+type SceneOCountByStudio {
+  studio_id: ID!
+  studio_name: String!
+  count: Int!
+}
+
+"Scene-studio O counts, including O events without a studio"
+type SceneOCountsByStudio {
+  counts: [SceneOCountByStudio!]!
+  unknown_count: Int!
+}
+
+"Count of scene O events grouped by a vato's age at the scene's effective release date"
+type SceneOCountByPerformerAge {
+  age: Int!
+  count: Int!
+}
+
+"Performer-age O counts, including O events without a usable performer age"
+type SceneOCountsByPerformerAge {
+  counts: [SceneOCountByPerformerAge!]!
+  unknown_count: Int!
+}
+
+"Count of scene O events grouped by the scene's effective release year"
+type SceneOCountByReleaseYear {
+  year: Int!
+  count: Int!
+}
+
+"Scene-release-year O counts, including O events without an effective release date"
+type SceneOCountsByReleaseYear {
+  counts: [SceneOCountByReleaseYear!]!
+  unknown_count: Int!
+}
+
+"Tag IDs associated with one scene marker for compact SceneStats data"
+type SceneStatsMarkerTagGroup {
+  tag_ids: [ID!]!
+}
+
+"Compact per-scene data used by the SceneStats page"
+type SceneStatsScene {
+  id: ID!
+  title: String
+  date: String
+  effective_date: String
+  rating100: Int
+  o_counter: Int!
+  duration: Float!
+  filesize: Float!
+  performer_count: Int!
+  performer_ethnicities: [String!]!
+  performer_countries: [String!]!
+  marker_tag_groups: [SceneStatsMarkerTagGroup!]!
+  tag_ids: [ID!]!
+  primary_width: Int
+  primary_height: Int
+  most_recent_o_date: String
+}
+
+"Compact SceneStats dataset returned without per-scene GraphQL relationship resolution"
+type SceneStatsResult {
+  count: Int!
+  scenes: [SceneStatsScene!]!
+}
+
 "Exact scene-age count for a vato on the Vato Stats page"
 type VatoStatsAgeCount {
   age_range: String!
@@ -121,6 +195,8 @@ type VatoStatsPerformer {
 # CUSTOM: end
 
 extend type Query {
+  "Get compact per-scene data for the SceneStats dashboard"
+  sceneStats: SceneStatsResult!
   "Get a count of performers per ethnicity (non-empty only), sorted by highest count first"
   performerEthnicityCounts: [PerformerEthnicityCount!]!
   "Get a count of 5-star performers per ethnicity (non-empty only), sorted by highest count first"
@@ -138,6 +214,12 @@ extend type Query {
   sceneOEventsByDate(date: String!): [SceneOEvent!]!
   "Get recorded scene O events covered by a marker tag, ordered chronologically"
   sceneOEventsByTag(tagID: ID!): [SceneOEvent!]!
+  "Get the count of recorded scene O events without a timestamp-covered marker tag"
+  sceneOCountWithoutMarkerTags: Int!
+  "Get recorded scene O events without a timestamp-covered marker tag"
+  sceneOEventsWithoutMarkerTags: [SceneOEvent!]!
+  "Get recorded scene O events associated with a vato, ordered chronologically"
+  sceneOEventsByPerformer(performerID: ID!): [SceneOEvent!]!
   # CUSTOM: end
   "Get the date with the highest number of recorded scene O events"
   mostOsInDay: SceneODayStat
@@ -149,6 +231,32 @@ extend type Query {
   sceneOCountsByEthnicity: [SceneOCountByEthnicity!]!
   "Get recorded scene O events associated with a vato ethnicity"
   sceneOEventsByEthnicity(ethnicity: String!): [SceneOEvent!]!
+  "Get scene O events grouped by associated vato country"
+  sceneOCountsByCountry: [SceneOCountByCountry!]!
+  "Get recorded scene O events associated with a vato country"
+  sceneOEventsByCountry(country: String!): [SceneOEvent!]!
+  "Get scene O events grouped by scene studio"
+  sceneOCountsByStudio: SceneOCountsByStudio!
+  "Get recorded scene O events for a scene studio"
+  sceneOEventsByStudio(studioID: ID!): [SceneOEvent!]!
+  "Get recorded scene O events whose scene has no studio"
+  sceneOEventsWithUnknownStudio: [SceneOEvent!]!
+  "Get scene O events grouped by performer age at the scene's effective release date"
+  sceneOCountsByPerformerAge: SceneOCountsByPerformerAge!
+  "Get recorded scene O events associated with a performer age at the scene's effective release date"
+  sceneOEventsByPerformerAge(age: Int!): [SceneOEvent!]!
+  "Get scene O events without a usable performer age at the scene's effective release date"
+  sceneOEventsWithUnknownPerformerAge: [SceneOEvent!]!
+  "Get scene O events grouped by the scene's effective release year"
+  sceneOCountsByReleaseYear: SceneOCountsByReleaseYear!
+  "Get recorded scene O events for a scene effective release year"
+  sceneOEventsByReleaseYear(year: Int!): [SceneOEvent!]!
+  "Get scene O events without an effective release date"
+  sceneOEventsWithUnknownReleaseYear: [SceneOEvent!]!
+  "Get the count of recorded O events whose date predates reliable O-date tracking"
+  sceneOUnreliableDateCount: Int!
+  "Get recorded O events whose date predates reliable O-date tracking"
+  sceneOEventsBeforeTrackingStart: [SceneOEvent!]!
   "Get per-vato aggregate data for the Vato Stats page"
   vatoStatsPerformers: [VatoStatsPerformer!]!
   "Get total number of 'orgasm' marker-tag entries across all scene markers"

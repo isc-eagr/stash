@@ -329,6 +329,18 @@ Each marker group supports separate top/bottom/both-roles attribute blocks:
 
 **File:** `ui/v2.5/src/components/List/Filters/PerformerEthnicityFilter.tsx` - NEW
 
+The Ethnicity filters on Vatos, Scenes, Galleries, and Images use the distinct,
+non-empty ethnicity values currently stored on performers instead of free-text
+entry. The Vatos filter supports multiple selected values and the same
+Black/White/Latino expansion behavior as the related-entity filters.
+
+**Additional files:**
+
+- `ui/v2.5/src/models/list-filter/criteria/performer-ethnicity_custom.ts` - Adds the database-backed Vatos criterion
+- `ui/v2.5/src/models/list-filter/performers.ts` - Replaces the generic Vatos ethnicity text criterion
+- `pkg/sqlite/performer_filter.go`, `pkg/sqlite/performer_filter_custom.go` - Apply multi-value ethnicity selections to Vato queries
+- `pkg/sqlite/performer_ethnicity_filter_custom_test.go` - Covers selected-value expansion, inclusion/exclusion, and missing ethnicity behavior
+
 #### 6.5 Performer Rating Filter (for Scenes)
 
 **File:** `ui/v2.5/src/components/List/Filters/PerformerRatingFilter.tsx` - NEW
@@ -2930,18 +2942,22 @@ Custom filter criteria are highlighted in green in the Edit Filter picker so for
 
 ### Overview
 
-Adds a hidden `/ostats` page for reliable scene O-date analytics. The page is intentionally not linked from the main UI; it is only accessible by typing the URL. It shows O-date record cards, clickable bar charts by year, month, day, marker tag, and associated vato ethnicity, then chronological timelines of scene O events for a selected day, marker tag, or ethnicity. Timeline rows show associated marker tags for each timestamped O event. The Generate task can also create exact static screenshots for O events that have a `video_timestamp`, and the timelines use those O screenshots when available.
+Adds a hidden `/ostats` page for scene O analytics. The page is intentionally not linked from the main UI; it is accessible by typing the URL, from tag-card O counters when a tag has timestamped O events, and from either control in a performer-card O counter for a vato drilldown in a new tab. The root page shows O-date record cards and clickable bar charts by O date year/month/day, marker tag, associated vato ethnicity, vato country, scene studio, vato age at the scene's effective release date, and scene effective release year. The Year/Month/Day navigation is only shown for the O-date chart path; country, studio, performer age, and scene release year stay in count-sorted horizontal, scrollable graphs. Every chart has an O-event timeline drilldown and a discrete Unknown chip when applicable. Country codes are displayed as readable country names across OStats, VatoStats, and SceneStats while their original values remain intact for filtering. The date charts only use reliable O dates from March 8, 2024 onward, while the other charts include every recorded O. Timeline rows show associated marker tags for each timestamped O event. The Generate task can also create exact static screenshots for O events that have a `video_timestamp`, and the timelines use those O screenshots when available.
 
 ### Files Modified
 
-- `graphql/schema/types/stats_custom.graphql` - Adds month/day bucket, day/tag/ethnicity timeline GraphQL types and queries, including associated marker tags on O events
+- `graphql/schema/types/stats_custom.graphql` - Adds month/day bucket plus tag/ethnicity/country/studio/performer-age/release-year/Unknown timeline GraphQL types and queries, including associated marker tags on O events
 - `graphql/schema/types/metadata_custom.graphql` - Extends Generate metadata input/default options with `oScreenshots`
-- `internal/api/resolver_custom.go` - Adds O stats period resolvers, O date record resolvers, timestamped marker-tag counts, per-event associated marker tags, scene-level ethnicity counts, tag/ethnicity drilldown events for `/ostats`, and filters unreliable dates before March 8, 2024
+- `internal/api/resolver_custom.go` - Adds O stats period resolvers, compact aggregate queries, O date record resolvers, timestamped marker-tag counts, per-event associated marker tags, and tag/ethnicity/country/studio/performer-age/release-year/vato drilldowns for `/ostats`. The reliable-date cutoff is limited to O-date stats; all other O aggregates and drilldowns include every O record.
 - `internal/api/routes_scene.go` - Registers the O screenshot route
 - `internal/manager/task_generate.go` - Queues O screenshot generation from the Generate task
 - `pkg/models/generate.go` - Stores the O screenshot Generate default flag
 - `ui/v2.5/graphql/data/config.graphql` - Includes the O screenshot Generate default flag
-- `ui/v2.5/src/App.tsx` - Adds the hidden `/ostats/:year?/:month?/:day?`, `/ostats/tag/:tagId`, and `/ostats/ethnicity/:ethnicity` routes
+- `ui/v2.5/src/App.tsx` - Adds the hidden `/ostats/:year?/:month?/:day?`, `/ostats/tag/:tagId`, `/ostats/ethnicity/:ethnicity`, `/ostats/country/:country`, `/ostats/studio/:studioId`, `/ostats/age/:performerAge`, `/ostats/release-year/:releaseYear`, `/ostats/unknown/:unknownCategory`, and `/ostats/vato/:performerId` routes
+- `ui/v2.5/src/components/Shared/PopoverCountButton.tsx` - Adds a compact O-count popover button type for tag cards
+- `ui/v2.5/src/components/Tags/TagCard.tsx` - Shows an O-count card counter linked to `/ostats/tag/<tag id>` only when the tag has OStats events
+- `ui/v2.5/src/components/Performers/PerformerCard.tsx` - Opens that vato's `/ostats/vato/<performer id>` timeline in a new tab from either performer-card O-counter control
+- `ui/v2.5/src/components/Performers/PerformerDetails/Performer.tsx` - Opens that vato's O timeline in a new tab from either O-counter control on the performer detail page
 - `ui/v2.5/src/components/Settings/Tasks/GenerateOptions.tsx` - Adds the O screenshots checkbox
 - `ui/v2.5/src/locales/en-GB.json` - Adds O screenshot Generate labels
 - `ui/v2.5/src/locales/en-US.json` - Adds O screenshot Generate labels
@@ -2955,14 +2971,22 @@ Adds a hidden `/ostats` page for reliable scene O-date analytics. The page is in
 - `pkg/scene/generate/o_screenshot_custom.go` - Adds generator support for O screenshot output paths
 - `ui/v2.5/src/components/OStats/OStats.tsx` - Hidden O stats chart and timeline page
 - `ui/v2.5/src/components/OStats/OStats.scss` - Page-specific chart and timeline styles
+- `ui/v2.5/src/utils/statsCountry_custom.ts` - Converts ISO country codes to readable country labels without changing filter values
+- `ui/v2.5/tests/statsCountry_custom.test.ts` - Covers country-code labels and passthrough values
 - `internal/api/resolver_custom_test.go` - Date validation tests for O stats helpers
 
 ### Test Cases Added
 
 - `TestSceneOStatsDate` - Covers valid dates, leap day, invalid months, and invalid day/month combinations
 - `TestValidateSceneOStatsDate` - Covers accepted `YYYY-MM-DD` dates and rejected malformed/impossible dates
+- `TestSceneOStatsPerformerID` - Covers accepted positive vato IDs and rejected invalid vato IDs
+- `TestSceneOStatsStudioID` - Covers accepted positive studio IDs and rejected invalid studio IDs
+- `TestSceneOStatsCountryFilter` - Covers trimmed and blank country drilldown values
+- `TestSceneOStatsPerformerAge` - Covers accepted and rejected performer-age drilldown values
+- `TestSceneOStatsReleaseYear` - Covers accepted and rejected release-year drilldown values
 - `TestSceneOEventAssociatedTagsFromCandidates` - Covers deduping associated marker tags and preferring orgasm marker tags when available
 - `TestGetOScreenshotPath` - Covers generated O screenshot path layout by scene hash and O row id
+- `statsCountry_custom.test.ts` - Covers readable US/MX/GB country labels, existing full country names, Unknown, and blank values
 
 ### GraphQL Schema Changes
 
@@ -2975,7 +2999,25 @@ Adds a hidden `/ostats` page for reliable scene O-date analytics. The page is in
 - `sceneODayCounts(year: Int!, month: Int!)`
 - `sceneOEventsByDate(date: String!)`
 - `sceneOEventsByTag(tagID: ID!)`
+- `sceneOCountWithoutMarkerTags`
+- `sceneOEventsWithoutMarkerTags`
+- `sceneOEventsByPerformer(performerID: ID!)`
 - `sceneOEventsByEthnicity(ethnicity: String!)`
+- `sceneOCountsByCountry`
+- `sceneOEventsByCountry(country: String!)`
+- `SceneOCountByStudio`
+- `SceneOCountsByStudio`
+- `sceneOCountsByStudio`
+- `sceneOEventsByStudio(studioID: ID!)`
+- `sceneOEventsWithUnknownStudio`
+- `sceneOCountsByPerformerAge`
+- `sceneOEventsByPerformerAge(age: Int!)`
+- `sceneOEventsWithUnknownPerformerAge`
+- `sceneOCountsByReleaseYear`
+- `sceneOEventsByReleaseYear(year: Int!)`
+- `sceneOEventsWithUnknownReleaseYear`
+- `sceneOUnreliableDateCount`
+- `sceneOEventsBeforeTrackingStart`
 - `mostOsInDay`
 - `longestPeriodWithoutO`
 - `sceneOCountsByTag`
@@ -2983,7 +3025,7 @@ Adds a hidden `/ostats` page for reliable scene O-date analytics. The page is in
 
 ### Configuration Dependencies
 
-- Uses the existing hard-coded reliable O-date cutoff: `sceneODateTrackingStart = "2024-03-08"`.
+- Uses the existing hard-coded reliable O-date cutoff: `sceneODateTrackingStart = "2024-03-08"`, only for the O date year/month/day charts, summaries, and date drilldowns. The Unknown year-chart control covers the excluded O records.
 - Uses `roleTagIds.oStatsExcludedTagIds` to hide configured tags from the marker-tag bar chart.
 
 ---
@@ -3071,6 +3113,10 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 - `ui/v2.5/src/components/Stats.tsx` - Replaces the Custom Stats card with Scene Stats.
 - `ui/v2.5/src/pluginApi.tsx` - Exposes SceneStats instead of CustomStats.
 - `ui/v2.5/src/components/VatoStats/VatoStats.tsx` - Receives the Tier vatos by ethnicity table.
+- `graphql/schema/types/stats_custom.graphql` - Adds compact `SceneStatsResult` data types and the `sceneStats` query.
+- `internal/api/resolver_custom.go` - Adds a set-based compact SceneStats resolver that fetches per-scene scalar, performer, scene-tag, and marker-tag data without resolving full GraphQL relationships for every scene.
+- `ui/v2.5/src/components/SceneStats/SceneStats.tsx` - Uses the compact SceneStats dataset and no longer fetches every scene file, performer object, marker object, tag object, or O-history list.
+- `ui/v2.5/src/components/SceneStats/sceneStatsFacialCounts_custom.ts` - Supports compact marker tag-ID groups.
 
 ### Features
 
@@ -3078,6 +3124,18 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 - Charts: By Vato Ethnicity, By Vato Country, By Vato Count, By Release Year/Month/Day, Has Facial, By Number of Facial, By Number of Really Hot Facial, Scene Type, By Length/Duration, By Resolution.
 - Duration chart bucketing: 0-4 minutes is grouped together, 5-45 minutes remains individual, and durations after 45 minutes are grouped in five-minute buckets such as 46-50 and 51-55.
 - Preserves the existing scene category metric button icons, colors, and links from the retired CustomStats page.
+- Performance: SceneStats now uses a small number of set-based SQL queries and a compact payload. It avoids the previous `findScenes(per_page: -1)` request with deeply nested relationship fields, and it returns only the most recent O date needed for the Most Recent O metric rather than every O-history date.
+
+### Test Cases Added
+
+- `sceneStatsFacialCounts_custom.test.ts` verifies facial and really-hot facial counting from compact marker tag-ID groups as well as the original marker shape.
+
+### GraphQL Schema Changes
+
+- `SceneStatsMarkerTagGroup`
+- `SceneStatsScene`
+- `SceneStatsResult`
+- `sceneStats`
 
 ### Configuration Dependencies
 

@@ -107,6 +107,38 @@ func TestValidateSceneOStatsDate(t *testing.T) {
 	}
 }
 
+func TestSceneOStatsPerformerID(t *testing.T) {
+	got, err := sceneOStatsPerformerID("42")
+	if err != nil {
+		t.Fatalf("sceneOStatsPerformerID returned error: %v", err)
+	}
+	if got != 42 {
+		t.Fatalf("sceneOStatsPerformerID = %d, want 42", got)
+	}
+
+	for _, value := range []string{"", "0", "-1", "vato"} {
+		if _, err := sceneOStatsPerformerID(value); err == nil {
+			t.Fatalf("sceneOStatsPerformerID(%q) returned nil error", value)
+		}
+	}
+}
+
+func TestSceneOStatsStudioID(t *testing.T) {
+	got, err := sceneOStatsStudioID("17")
+	if err != nil {
+		t.Fatalf("sceneOStatsStudioID returned error: %v", err)
+	}
+	if got != 17 {
+		t.Fatalf("sceneOStatsStudioID = %d, want 17", got)
+	}
+
+	for _, value := range []string{"", "0", "-1", "studio"} {
+		if _, err := sceneOStatsStudioID(value); err == nil {
+			t.Fatalf("sceneOStatsStudioID(%q) returned nil error", value)
+		}
+	}
+}
+
 func TestVatoStatsAgeRange(t *testing.T) {
 	tests := []struct {
 		age  int
@@ -175,6 +207,69 @@ func TestSceneOStatsEthnicityFilter(t *testing.T) {
 
 	if _, err := sceneOStatsEthnicityFilter(" "); err == nil {
 		t.Fatal("sceneOStatsEthnicityFilter blank value returned nil error")
+	}
+}
+
+func TestSceneOStatsCountryFilter(t *testing.T) {
+	got, err := sceneOStatsCountryFilter(" Mexico ")
+	if err != nil {
+		t.Fatalf("sceneOStatsCountryFilter returned error: %v", err)
+	}
+	if got != "Mexico" {
+		t.Fatalf("sceneOStatsCountryFilter = %q, want Mexico", got)
+	}
+
+	if _, err := sceneOStatsCountryFilter(" "); err == nil {
+		t.Fatal("sceneOStatsCountryFilter blank value returned nil error")
+	}
+}
+
+func TestSceneOStatsPerformerAge(t *testing.T) {
+	for _, age := range []int{18, 25, 80} {
+		if err := sceneOStatsPerformerAge(age); err != nil {
+			t.Fatalf("sceneOStatsPerformerAge(%d) returned error: %v", age, err)
+		}
+	}
+
+	for _, age := range []int{0, 17, 81} {
+		if err := sceneOStatsPerformerAge(age); err == nil {
+			t.Fatalf("sceneOStatsPerformerAge(%d) returned nil error", age)
+		}
+	}
+}
+
+func TestSceneOStatsReleaseYear(t *testing.T) {
+	for _, year := range []int{1, 2024, 9999} {
+		if err := sceneOStatsReleaseYear(year); err != nil {
+			t.Fatalf("sceneOStatsReleaseYear(%d) returned error: %v", year, err)
+		}
+	}
+
+	for _, year := range []int{0, 10000} {
+		if err := sceneOStatsReleaseYear(year); err == nil {
+			t.Fatalf("sceneOStatsReleaseYear(%d) returned nil error", year)
+		}
+	}
+}
+
+func TestSceneStatsFloatValue(t *testing.T) {
+	if got := sceneStatsFloatValue("123.5"); got != 123.5 {
+		t.Fatalf("sceneStatsFloatValue string = %v, want 123.5", got)
+	}
+	if got := sceneStatsFloatValue("not-a-number"); got != 0 {
+		t.Fatalf("sceneStatsFloatValue invalid string = %v, want 0", got)
+	}
+}
+
+func TestSceneStatsStringPtrValue(t *testing.T) {
+	if got := sceneStatsStringPtrValue(nil); got != nil {
+		t.Fatalf("sceneStatsStringPtrValue(nil) = %#v, want nil", got)
+	}
+	if got := sceneStatsStringPtrValue("  "); got != nil {
+		t.Fatalf("sceneStatsStringPtrValue blank = %#v, want nil", got)
+	}
+	if got := sceneStatsStringPtrValue("  Untouched title  "); got == nil || *got != "  Untouched title  " {
+		t.Fatalf("sceneStatsStringPtrValue preserves title = %#v", got)
 	}
 }
 

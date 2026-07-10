@@ -5,6 +5,7 @@ export type SceneStatsTagRef = {
 export type SceneStatsFacialMarker = {
   primary_tag?: SceneStatsTagRef | null;
   tags?: SceneStatsTagRef[] | null;
+  tag_ids?: string[] | null;
 };
 
 export type SceneStatsFacialScene = {
@@ -27,6 +28,9 @@ export function markerHasTag(
   marker: SceneStatsFacialMarker,
   targetIds?: Set<string>
 ) {
+  if (targetIds && marker.tag_ids?.some((tagID) => targetIds.has(tagID))) {
+    return true;
+  }
   if (tagMatches(marker.primary_tag, targetIds)) return true;
   return marker.tags?.some((tag) => tagMatches(tag, targetIds)) ?? false;
 }

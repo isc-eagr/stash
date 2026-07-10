@@ -730,6 +730,35 @@ div.dropdown-menu {
   max-width: min(calc(5 * 9rem + 4 * 0.75rem + 1rem), calc(100vw - 2rem));
 }
 
+.performer-partner-hover-content {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.performer-partner-hover-heading {
+  color: $text-color;
+  font-size: 1.08rem;
+  font-weight: 700;
+  line-height: 1.25;
+  max-width: calc(5 * 9rem + 4 * 0.75rem + 1rem);
+  padding: 0.1rem 0.15rem 0;
+}
+
+.performer-appears-with-by-role-panel {
+  .role-section-title {
+    color: $text-color;
+    font-size: 1.2rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .role-section-subtitle {
+    color: $text-muted;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+}
+
 .performer-partner-hover-grid {
   display: grid;
   gap: 0.75rem;
@@ -1460,6 +1489,11 @@ div.dropdown-menu {
   text-align: center;
   text-transform: uppercase;
 
+  &.active {
+    background-color: rgba(255, 255, 255, 0.11);
+    border-color: rgba(255, 255, 255, 0.36);
+  }
+
   &:hover,
   &:focus {
     background-color: rgba(255, 255, 255, 0.08);
@@ -1470,6 +1504,7 @@ div.dropdown-menu {
 
 .stats-links-icon {
   font-size: 2rem;
+  line-height: 1;
 }
 
 @media (max-width: 576px) {

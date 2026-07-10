@@ -6,11 +6,13 @@ import { FormattedMessage, FormattedNumber } from "react-intl";
 import { Link } from "react-router-dom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
+import { StatsLinks } from "src/components/StatsLinks_custom";
 import * as GQL from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useTitleProps } from "src/hooks/title";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import NavUtils from "src/utils/navigation";
+import { statsCountryName } from "src/utils/statsCountry_custom";
 
 import "./VatoStats.scss";
 
@@ -529,6 +531,9 @@ function titleCase(value: string) {
 
 function countryDemonym(value: string) {
   const trimmed = value.trim();
+  const countryName = statsCountryName(trimmed);
+  if (countryName !== trimmed) return countryName;
+
   const exactDemonym = countryDemonyms[trimmed];
   if (exactDemonym) return exactDemonym;
 
@@ -966,10 +971,13 @@ function buildChartData(
     }
 
     const key = value ?? UNKNOWN_KEY;
+    let label = value ?? "Unknown";
+    if (category === "penis" && value) label = `${value} cm`;
+    if (category === "country") label = statsCountryName(value);
     addDatum(
       buckets,
       key,
-      category === "penis" && value ? `${value} cm` : value ?? "Unknown",
+      label,
       1,
       chartSortValue(performer, category, value)
     );
@@ -1577,6 +1585,8 @@ const VatoStats: React.FC = () => {
   return (
     <div className="vatostats-page">
       <Helmet {...titleProps} />
+
+      <StatsLinks />
 
       <header className="vatostats-header">
         <div>

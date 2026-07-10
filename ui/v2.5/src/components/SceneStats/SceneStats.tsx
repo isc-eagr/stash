@@ -7,12 +7,14 @@ import { Link, RouteComponentProps, useHistory } from "react-router-dom";
 import { FormattedNumber } from "react-intl";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
+import { StatsLinks } from "src/components/StatsLinks_custom";
 import { useStats } from "src/core/StashService";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useTitleProps } from "src/hooks/title";
 import TextUtils from "src/utils/text";
 import NavUtils from "src/utils/navigation";
 import { getRatingCardThresholdsForEntity } from "src/utils/ratingCardStyles_custom";
+import { statsCountryName } from "src/utils/statsCountry_custom";
 import { FileSize } from "src/components/Shared/FileSize";
 import { Icon } from "src/components/Shared/Icon";
 import gaySvg from "src/assets/gay.svg";
@@ -22,7 +24,6 @@ import {
   facialCount,
   markerHasTag,
   reallyHotFacialCount,
-  type SceneStatsTagRef,
 } from "./sceneStatsFacialCounts_custom";
 import { durationBucketForMinutes } from "./sceneStatsDuration_custom";
 
@@ -30,10 +31,8 @@ import "./SceneStats.scss";
 
 const SCENE_STATS_SCENES = gql`
   query SceneStatsScenes {
-    findScenes(filter: { per_page: -1, sort: "date", direction: DESC }) {
+    sceneStats {
       count
-      duration
-      filesize
       scenes {
         id
         title
@@ -41,30 +40,18 @@ const SCENE_STATS_SCENES = gql`
         effective_date
         rating100
         o_counter
-        files {
-          size
-          duration
-          width
-          height
+        duration
+        filesize
+        performer_count
+        performer_ethnicities
+        performer_countries
+        scene_markers: marker_tag_groups {
+          tag_ids
         }
-        performers {
-          id
-          name
-          ethnicity
-          country
-        }
-        scene_markers {
-          id
-          primary_tag {
-            id
-          }
-          tags {
-            id
-          }
-        }
-        tags {
-          id
-        }
+        tags: tag_ids
+        primary_width
+        primary_height
+        most_recent_o_date
       }
     }
   }
@@ -79,17 +66,6 @@ const SCENE_STATS_ROLE_TAGS = gql`
         children {
           id
         }
-      }
-    }
-  }
-`;
-
-const SCENE_STATS_O_HISTORY = gql`
-  query SceneStatsOHistory {
-    findScenes(filter: { per_page: -1 }) {
-      scenes {
-        id
-        o_history
       }
     }
   }
@@ -119,12 +95,8 @@ const TOTAL_FACIAL_TIME = gql`
   }
 `;
 
-type TagRef = SceneStatsTagRef;
-
 type SceneStatsMarker = {
-  id: string;
-  primary_tag: TagRef;
-  tags: TagRef[];
+  tag_ids: string[];
 };
 
 type SceneStatsScene = {
@@ -134,28 +106,21 @@ type SceneStatsScene = {
   effective_date?: string | null;
   rating100?: number | null;
   o_counter?: number | null;
-  o_history?: string[];
-  files: Array<{
-    size?: number | string | null;
-    duration?: number | null;
-    width?: number | null;
-    height?: number | null;
-  }>;
-  performers: Array<{
-    id: string;
-    name: string;
-    ethnicity?: string | null;
-    country?: string | null;
-  }>;
+  duration: number;
+  filesize: number;
+  performer_count: number;
+  performer_ethnicities: string[];
+  performer_countries: string[];
   scene_markers: SceneStatsMarker[];
-  tags: TagRef[];
+  tags: string[];
+  primary_width?: number | null;
+  primary_height?: number | null;
+  most_recent_o_date?: string | null;
 };
 
 type SceneStatsData = {
-  findScenes: {
+  sceneStats: {
     count: number;
-    duration: number;
-    filesize: number;
     scenes: SceneStatsScene[];
   };
 };
@@ -170,15 +135,6 @@ type SceneStatsRoleTag = {
   id: string;
   name: string;
   children: Array<{ id: string }>;
-};
-
-type SceneStatsOHistoryData = {
-  findScenes: {
-    scenes: Array<{
-      id: string;
-      o_history: string[];
-    }>;
-  };
 };
 
 type PodiumMetric =
@@ -333,20 +289,16 @@ function dayLabel(year: number, month: number, day: number) {
 }
 
 function sceneDuration(scene: SceneStatsScene) {
-  return scene.files.reduce((sum, file) => sum + (file.duration ?? 0), 0);
+  return scene.duration;
 }
 
 function sceneFileSize(scene: SceneStatsScene) {
-  return scene.files.reduce((sum, file) => sum + Number(file.size ?? 0), 0);
+  return scene.filesize;
 }
 
 function mostRecentOTime(scene: SceneStatsScene) {
-  return Math.max(
-    0,
-    ...(scene.o_history ?? [])
-      .map((value) => Date.parse(value))
-      .filter((value) => Number.isFinite(value))
-  );
+  const timestamp = Date.parse(scene.most_recent_o_date ?? "");
+  return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
 function mostRecentOLabel(scene: SceneStatsScene) {
@@ -368,7 +320,7 @@ function metricValue(scene: SceneStatsScene, metric: PodiumMetric) {
     case "most_recent_o":
       return mostRecentOTime(scene);
     case "performer_count":
-      return scene.performers.length;
+      return scene.performer_count;
     default:
       return 0;
   }
@@ -436,14 +388,13 @@ function sceneType(scene: SceneStatsScene, roleTagIDs: RoleTagIDSets) {
 }
 
 function sceneResolutionLabel(scene: SceneStatsScene) {
-  const file = scene.files[0];
-  return file?.width && file.height
-    ? TextUtils.resolution(file.width, file.height)
+  return scene.primary_width && scene.primary_height
+    ? TextUtils.resolution(scene.primary_width, scene.primary_height)
     : undefined;
 }
 
 function sceneHasTagID(scene: SceneStatsScene, tagId?: string | null) {
-  return !!tagId && scene.tags.some((tag) => tag.id === tagId);
+  return !!tagId && scene.tags.includes(tagId);
 }
 
 function metallicRatingSort(value?: string) {
@@ -497,15 +448,15 @@ function sceneMatchesFilter(
 ) {
   switch (filter.category) {
     case "ethnicity":
-      return scene.performers.some(
-        (performer) => cleanValue(performer.ethnicity) === filter.value
+      return scene.performer_ethnicities.some(
+        (ethnicity) => cleanValue(ethnicity) === filter.value
       );
     case "country":
-      return scene.performers.some(
-        (performer) => cleanValue(performer.country) === filter.value
+      return scene.performer_countries.some(
+        (country) => cleanValue(country) === filter.value
       );
     case "performer_count":
-      return String(scene.performers.length) === filter.value;
+      return String(scene.performer_count) === filter.value;
     case "rating":
       return bucketRating(scene.rating100) === filter.value;
     case "metallic_rating":
@@ -557,8 +508,8 @@ function buildSceneCharts(
 
   scenes.forEach((scene) => {
     const ethnicities = new Set(
-      scene.performers
-        .map((performer) => cleanValue(performer.ethnicity))
+      scene.performer_ethnicities
+        .map((ethnicity) => cleanValue(ethnicity))
         .filter((value): value is string => !!value)
     );
     if (ethnicities.size === 0) {
@@ -576,23 +527,24 @@ function buildSceneCharts(
     }
 
     const countries = new Set(
-      scene.performers
-        .map((performer) => cleanValue(performer.country))
+      scene.performer_countries
+        .map((country) => cleanValue(country))
         .filter((value): value is string => !!value)
     );
     if (countries.size === 0) {
       unknownCountryCount += 1;
     } else {
       countries.forEach((country) => {
-        addDatum(countryBuckets, country, country, Number.MAX_SAFE_INTEGER, {
+        const label = statsCountryName(country);
+        addDatum(countryBuckets, country, label, Number.MAX_SAFE_INTEGER, {
           category: "country",
-          label: country,
+          label,
           value: country,
         });
       });
     }
 
-    const performerCount = scene.performers.length;
+    const performerCount = scene.performer_count;
     addDatum(
       performerCountBuckets,
       String(performerCount),
@@ -1084,10 +1036,6 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
       variables: { ids: roleTagIDList },
     }
   );
-  const oHistoryQuery = useQuery<SceneStatsOHistoryData>(
-    SCENE_STATS_O_HISTORY,
-    { skip: metric !== "most_recent_o" }
-  );
   const { data: orgasmCountData } = useQuery<{ sceneOrgasmCount: number }>(
     ORGASM_TOTAL_COUNT
   );
@@ -1101,8 +1049,8 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     TOTAL_FACIAL_TIME
   );
   const scenes = useMemo(
-    () => sceneQuery.data?.findScenes.scenes ?? [],
-    [sceneQuery.data?.findScenes.scenes]
+    () => sceneQuery.data?.sceneStats.scenes ?? [],
+    [sceneQuery.data?.sceneStats.scenes]
   );
   const roleTagsByID = useMemo(
     () =>
@@ -1133,16 +1081,6 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     }),
     [facialTag, oralTag, reallyHotTag, sexTag, soloTag]
   );
-  const oHistoryBySceneID = useMemo(
-    () =>
-      new Map(
-        (oHistoryQuery.data?.findScenes.scenes ?? []).map((scene) => [
-          scene.id,
-          scene.o_history,
-        ])
-      ),
-    [oHistoryQuery.data?.findScenes.scenes]
-  );
   const filteredScenes = useMemo(
     () =>
       scenes.filter((scene) => {
@@ -1166,26 +1104,16 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
       selectedYear,
     ]
   );
-  const scenesWithOHistory = useMemo(
-    () =>
-      metric === "most_recent_o"
-        ? filteredScenes.map((scene) => ({
-            ...scene,
-            o_history: oHistoryBySceneID.get(scene.id) ?? [],
-          }))
-        : filteredScenes,
-    [filteredScenes, metric, oHistoryBySceneID]
-  );
   const rankedScenes = useMemo(
     () =>
-      [...scenesWithOHistory].sort(
+      [...filteredScenes].sort(
         (a, b) =>
           metricValue(b, metric) - metricValue(a, metric) ||
           (a.title ?? "").localeCompare(b.title ?? "", undefined, {
             sensitivity: "base",
           })
       ),
-    [metric, scenesWithOHistory]
+    [filteredScenes, metric]
   );
   const charts = useMemo(
     () =>
@@ -1271,21 +1199,7 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
       </>
     );
 
-  if (metric === "most_recent_o" && oHistoryQuery.error)
-    return (
-      <>
-        <Helmet {...titleProps} />
-        <ErrorMessage error={oHistoryQuery.error} />
-      </>
-    );
-
-  if (
-    statsLoading ||
-    sceneQuery.loading ||
-    roleTagsQuery.loading ||
-    (metric === "most_recent_o" && oHistoryQuery.loading) ||
-    !statsData
-  )
+  if (statsLoading || sceneQuery.loading || roleTagsQuery.loading || !statsData)
     return (
       <>
         <Helmet {...titleProps} />
@@ -1296,6 +1210,8 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
   return (
     <div className="scenestats-page">
       <Helmet {...titleProps} />
+
+      <StatsLinks />
 
       <header className="scenestats-header">
         <div>

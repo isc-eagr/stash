@@ -30,11 +30,25 @@ interface IProps {
   // CUSTOM: end
 }
 
+type SceneOCountByTag = {
+  tag_id: string;
+  count: number;
+};
+
 // CUSTOM: begin - GQL query + hook for scene marker count by tag
 // Query to count scene markers with this tag (represents performer associations via scene_marker_performers)
 const COUNT_MARKERS_BY_TAG = gql`
   query CountMarkersByTag($scene_marker_filter: SceneMarkerFilterType) {
     findSceneMarkers(scene_marker_filter: $scene_marker_filter) {
+      count
+    }
+  }
+`;
+
+const SCENE_O_COUNTS_BY_TAG = gql`
+  query TagCardSceneOCountsByTag {
+    sceneOCountsByTag {
+      tag_id
       count
     }
   }
@@ -59,14 +73,33 @@ function useSceneMarkerCountByTag(tagId?: string) {
 
   return data?.findSceneMarkers?.count ?? 0;
 }
+
+function useSceneOCountByTag(tagId?: string) {
+  const { data } = useQuery<{ sceneOCountsByTag: SceneOCountByTag[] }>(
+    SCENE_O_COUNTS_BY_TAG,
+    {
+      fetchPolicy: "cache-first",
+    }
+  );
+
+  if (!tagId) {
+    return 0;
+  }
+
+  return (
+    data?.sceneOCountsByTag.find((item) => item.tag_id === tagId)?.count ?? 0
+  );
+}
 // CUSTOM: end
 
 const TagCardPopovers: React.FC<IProps> = PatchComponent(
   "TagCard.Popovers",
-  ({ tag, sceneCountOnly, performerId, performerName }) => { // CUSTOM: extra destructured props
+  ({ tag, sceneCountOnly, performerId, performerName }) => {
+    // CUSTOM: extra destructured props
     // CUSTOM: begin - scene marker count + sceneCountOnly early return
     // count scene markers with this tag that have performers assigned
     const sceneMarkerCount = useSceneMarkerCountByTag(tag.id);
+    const sceneOCount = useSceneOCountByTag(tag.id);
     if (sceneCountOnly) {
       return (
         <>
@@ -132,6 +165,13 @@ const TagCardPopovers: React.FC<IProps> = PatchComponent(
             type="marker"
             count={tag.scene_marker_count}
             url={NavUtils.makeTagSceneMarkersUrl(tag)}
+            showZero={false}
+          />
+          <PopoverCountButton
+            className="o-count"
+            type="o_count"
+            count={sceneOCount}
+            url={`/ostats/tag/${tag.id}`}
             showZero={false}
           />
           <PopoverCountButton

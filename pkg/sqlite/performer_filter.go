@@ -149,7 +149,7 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 		}),
 
 		qb.performerIsMissingCriterionHandler(filter.IsMissing),
-		stringCriterionHandler(filter.Ethnicity, tableName+".ethnicity"),
+		performerEthnicityCriterionHandlerCustom(filter.Ethnicity, tableName+".ethnicity"), // CUSTOM
 		stringCriterionHandler(filter.Country, tableName+".country"),
 		stringCriterionHandler(filter.EyeColor, tableName+".eye_color"),
 

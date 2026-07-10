@@ -19,6 +19,11 @@ import facialPng from "src/assets/facial.png"; // CUSTOM
 import spermsSvg from "src/assets/sperms.svg";
 import feetSvg from "src/assets/feet.svg";
 import type { PerformerListData } from "../performerTypes_custom"; // CUSTOM
+import {
+  getPerformerRolePartnerPopupText,
+  type PerformerRolePartnerCategory,
+  type PerformerRolePartnerType,
+} from "../performerRolePartnerLabels_custom"; // CUSTOM
 
 interface IPerformerCategoryStripProps {
   performer: PerformerListData;
@@ -203,6 +208,22 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       </div>
     ),
     []
+  );
+
+  const renderMiniPartnerPopover = useCallback(
+    (
+      category: PerformerRolePartnerCategory,
+      type: PerformerRolePartnerType,
+      partners: Array<{ id: string; name: string; image_path?: string | null }>
+    ) => (
+      <div className="performer-partner-hover-content">
+        <div className="performer-partner-hover-heading">
+          {getPerformerRolePartnerPopupText(category, type, performer.name)}
+        </div>
+        {partners.length > 0 && renderMiniPartnerRows(partners)}
+      </div>
+    ),
+    [performer.name, renderMiniPartnerRows]
   );
 
   const partnerHoverPopoverProps = {
@@ -1266,11 +1287,6 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                               pill
                               variant="success"
                               className="arrow-badge top-badge"
-                              title={getTooltipText(
-                                role.category,
-                                "top",
-                                partnerTopCount
-                              )}
                               style={{
                                 fontSize: 10,
                                 padding: "3px 6px",
@@ -1290,11 +1306,6 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                             pill
                             variant="success"
                             className="arrow-badge top-badge"
-                            title={getTooltipText(
-                              role.category,
-                              "top",
-                              partnerTopCount
-                            )}
                             style={{
                               fontSize: 10,
                               padding: "3px 6px",
@@ -1316,14 +1327,22 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                       return topPartners.length > 0 ? (
                         <HoverPopover
                           {...partnerHoverPopoverProps}
-                          content={renderMiniPartnerRows(topPartners)}
+                          content={renderMiniPartnerPopover(
+                            role.category,
+                            "top",
+                            topPartners
+                          )}
                         >
                           {topBadge}
                         </HoverPopover>
                       ) : (
                         <HoverPopover
                           {...partnerHoverPopoverProps}
-                          content={[]}
+                          content={renderMiniPartnerPopover(
+                            role.category,
+                            "top",
+                            topPartners
+                          )}
                         >
                           {topBadge}
                         </HoverPopover>
@@ -1341,11 +1360,6 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                               pill
                               variant="info"
                               className="arrow-badge bottom-badge"
-                              title={getTooltipText(
-                                role.category,
-                                "bottom",
-                                partnerBottomCount
-                              )}
                               style={{
                                 fontSize: 10,
                                 padding: "3px 6px",
@@ -1365,11 +1379,6 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                             pill
                             variant="info"
                             className="arrow-badge bottom-badge"
-                            title={getTooltipText(
-                              role.category,
-                              "bottom",
-                              partnerBottomCount
-                            )}
                             style={{
                               fontSize: 10,
                               padding: "3px 6px",
@@ -1394,14 +1403,22 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                       return bottomPartners.length > 0 ? (
                         <HoverPopover
                           {...partnerHoverPopoverProps}
-                          content={renderMiniPartnerRows(bottomPartners)}
+                          content={renderMiniPartnerPopover(
+                            role.category,
+                            "bottom",
+                            bottomPartners
+                          )}
                         >
                           {bottomBadge}
                         </HoverPopover>
                       ) : (
                         <HoverPopover
                           {...partnerHoverPopoverProps}
-                          content={[]}
+                          content={renderMiniPartnerPopover(
+                            role.category,
+                            "bottom",
+                            bottomPartners
+                          )}
                         >
                           {bottomBadge}
                         </HoverPopover>

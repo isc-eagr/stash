@@ -135,6 +135,15 @@
     width: 320px;
   }
 }
+
+/* CUSTOM: end */
+
+/* CUSTOM: begin - tag card O count spacing */
+.card-popovers a.o-count > .btn.minimal > span:first-child,
+.card-popovers .o-count > .btn.minimal > span:first-child {
+  margin-right: 0.45rem;
+}
+
 /* CUSTOM: end */
 
 /* CUSTOM: begin - green variant of Performers count button on Tag cards */
@@ -147,6 +156,7 @@
 .card-popovers .performer-green > .btn.minimal .fa-icon {
   color: inherit;
 }
+
 /* CUSTOM: end */
 
 .tag-item {

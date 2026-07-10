@@ -187,7 +187,23 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     function maybeRenderOCounter() {
       if (!oCounter) return;
 
-      return <OCounterButton value={oCounter} />;
+      // CUSTOM: begin
+      const openVatoOStats = () => {
+        window.open(
+          `/ostats/vato/${performer.id}`,
+          "_blank",
+          "noopener,noreferrer"
+        );
+      };
+
+      return (
+        <OCounterButton
+          value={oCounter}
+          onIncrement={openVatoOStats}
+          onValueClicked={openVatoOStats}
+        />
+      );
+      // CUSTOM: end
     }
 
     // CUSTOM: begin - modified tag popover (sorted, safe null checks)

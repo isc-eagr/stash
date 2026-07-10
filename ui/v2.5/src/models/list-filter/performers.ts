@@ -28,6 +28,7 @@ import { ProfileImageCountCriterionOption } from "./criteria/profile-image-count
 import { PerformerPartnersCriterionOption } from "./criteria/performer-partners"; // CUSTOM
 import { PerformerSceneTypeCriterionOption } from "./criteria/scene-type";
 import { PerformerActivityTypeCriterionOption } from "./criteria/activity-type_custom"; // CUSTOM
+import { PerformerListEthnicityCriterionOption } from "./criteria/performer-ethnicity_custom"; // CUSTOM
 // CUSTOM: end
 
 const defaultSortBy = "name";
@@ -190,7 +191,6 @@ const stringCriteria: CriterionType[] = [
   "name",
   "disambiguation",
   "details",
-  "ethnicity",
   "hair_color",
   "eye_color",
   "tattoos",
@@ -204,6 +204,7 @@ const criterionOptions = [
   PerformerIsMissingCriterionOption,
   TagsCriterionOption,
   // CUSTOM: begin
+  PerformerListEthnicityCriterionOption,
   HasMarkersCriterionOption,
   // Partners: filter by partner counts across role/category combos
   PerformerPartnersCriterionOption, // CUSTOM

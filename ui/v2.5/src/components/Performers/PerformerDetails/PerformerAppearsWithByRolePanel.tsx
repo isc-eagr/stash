@@ -20,6 +20,10 @@ import mouthSvg from "src/assets/mouth.svg";
 import facialPng from "src/assets/facial.png"; // CUSTOM
 import { getRatingCardClass } from "src/utils/ratingCardStyles_custom"; // CUSTOM
 import type { PerformerListData } from "../performerTypes_custom"; // CUSTOM
+import {
+  getPerformerRolePartnerSectionSubtitle,
+  getPerformerRolePartnerSectionTitle,
+} from "../performerRolePartnerLabels_custom"; // CUSTOM
 
 interface IPerformerAppearsWithByRolePanelProps {
   active: boolean;
@@ -270,9 +274,11 @@ const RoleSection: React.FC<IRoleSectionProps> = ({
         className="role-section-header mb-2"
         style={{ display: "flex", alignItems: "center", gap: "10px" }}
       >
-        <h6 className="mb-0" style={{ fontSize: "0.9rem", fontWeight: 600 }}>
+        <h6 className="role-section-title mb-0">
           {title}
-          {subtitle && <small className="text-muted ml-2">({subtitle})</small>}
+          {subtitle && (
+            <small className="role-section-subtitle ml-2">({subtitle})</small>
+          )}
         </h6>
         <span className="badge badge-secondary">{performers.length}</span>
       </div>
@@ -422,16 +428,16 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
               </h5>
             </div>
             <RoleSection
-              title="Topped"
-              subtitle=""
+              title={getPerformerRolePartnerSectionTitle("sex", "top")}
+              subtitle={getPerformerRolePartnerSectionSubtitle("sex", "top")}
               performers={sexAsTop}
               currentPerformer={performer}
               roleCategory="sex"
               roleType="top"
             />
             <RoleSection
-              title="Bottomed For"
-              subtitle=""
+              title={getPerformerRolePartnerSectionTitle("sex", "bottom")}
+              subtitle={getPerformerRolePartnerSectionSubtitle("sex", "bottom")}
               performers={sexAsBottom}
               currentPerformer={performer}
               roleCategory="sex"
@@ -468,16 +474,19 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
               </h5>
             </div>
             <RoleSection
-              title="Topped"
-              subtitle=""
+              title={getPerformerRolePartnerSectionTitle("oral", "top")}
+              subtitle={getPerformerRolePartnerSectionSubtitle("oral", "top")}
               performers={oralAsTop}
               currentPerformer={performer}
               roleCategory="oral"
               roleType="top"
             />
             <RoleSection
-              title="Bottomed For"
-              subtitle=""
+              title={getPerformerRolePartnerSectionTitle("oral", "bottom")}
+              subtitle={getPerformerRolePartnerSectionSubtitle(
+                "oral",
+                "bottom"
+              )}
               performers={oralAsBottom}
               currentPerformer={performer}
               roleCategory="oral"
@@ -514,16 +523,19 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
               </h5>
             </div>
             <RoleSection
-              title="Given"
-              subtitle=""
+              title={getPerformerRolePartnerSectionTitle("facial", "top")}
+              subtitle={getPerformerRolePartnerSectionSubtitle("facial", "top")}
               performers={facialAsTop}
               currentPerformer={performer}
               roleCategory="facial"
               roleType="top"
             />
             <RoleSection
-              title="Received"
-              subtitle=""
+              title={getPerformerRolePartnerSectionTitle("facial", "bottom")}
+              subtitle={getPerformerRolePartnerSectionSubtitle(
+                "facial",
+                "bottom"
+              )}
               performers={facialAsBottom}
               currentPerformer={performer}
               roleCategory="facial"
