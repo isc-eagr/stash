@@ -30,6 +30,7 @@ import {
   findSceneMarkerWarnings,
   sceneMarkerWarningDraft,
 } from "./sceneMarkerGapWarning_custom";
+import { getSceneActivityMetrics } from "../sceneActivityMetricsData_custom";
 // CUSTOM: end
 
 interface ISceneMarkersPanelProps {
@@ -122,6 +123,23 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     () => sceneData?.findScene?.negative_markers ?? [],
     [sceneData?.findScene?.negative_markers]
   );
+  // CUSTOM: reuse the scene-detail activity calculation for Oral and Sex headers
+  const activitySectionPercents = useMemo(() => {
+    const scene = sceneData?.findScene;
+    if (!scene) return {};
+
+    const activityMetrics = getSceneActivityMetrics(
+      scene,
+      configuration?.ui.roleTagIds ?? {}
+    );
+
+    return {
+      oral: activityMetrics?.activity.find((metric) => metric.key === "oral")
+        ?.percent,
+      sex: activityMetrics?.activity.find((metric) => metric.key === "sex")
+        ?.percent,
+    };
+  }, [configuration?.ui.roleTagIds, sceneData?.findScene]);
   const markerWarningMessagesById = useMemo(() => {
     const warningsById = new Map<string, string[]>();
 
@@ -503,6 +521,8 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
             selectedMarkerIds={selectedMarkerIds}
             derivedWindows={derivedWindows}
             selectedDerivedWindowKeys={selectedDerivedWindowKeys}
+            // CUSTOM: activity coverage percentages for Oral and Sex section headers
+            activitySectionPercents={activitySectionPercents}
             onClickMarker={onClickMarker}
             onEdit={onOpenEditor}
             onSelectMarker={toggleSingle}
