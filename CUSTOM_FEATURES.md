@@ -223,7 +223,7 @@ Custom analytics are split into focused hidden pages instead of the retired `/cu
 
 - Scene counts by category (sex, oral, solo, facial) on `/scenestats`, with compact category tooltips
 - Clickable icon counts split scenes into 1-vato, standard 2/3-vato, and 4+-vato group buckets using Performer Count filters
-- Scene podium metrics by O Count, Rating, Duration, File Size, Most Recent O, and Vato Count
+- Scene podium metrics by O Count, Rating, Duration, File Size, Most Recent O, Vato Count, and Facial Count
 - Scene charts by vato ethnicity, vato country, vato count, release date, facial status/count, really-hot facial count, scene type, duration buckets, and resolution
 - Performer ethnicity Bronze/Silver/Gold/Sapphire metallic rating-tier breakdown on `/vatostats`
 - Orgasm/facial tracking totals on `/scenestats`
@@ -3207,7 +3207,7 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 
 ### Features
 
-- Podium metrics: O Count, Rating, Duration, File Size, Most Recent O, Vato Count.
+- Podium metrics: O Count, Rating, Duration, File Size, Most Recent O, Vato Count, Facial Count.
 - Charts: By Vato Ethnicity, By Vato Country, By Vato Count, By Release Year/Month/Day, Has Facial, By Number of Facial, By Number of Really Hot Facial, Scene Type, By Length/Duration, By Resolution.
 - Duration chart bucketing: 0-4 minutes is grouped together, 5-45 minutes remains individual, and durations after 45 minutes are grouped in five-minute buckets such as 46-50 and 51-55.
 - Preserves the existing scene category metric button icons, colors, and links from the retired CustomStats page.
@@ -3215,7 +3215,7 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 
 ### Test Cases Added
 
-- `sceneStatsFacialCounts_custom.test.ts` verifies facial and really-hot facial counting from compact marker tag-ID groups as well as the original marker shape.
+- `sceneStatsFacialCounts_custom.test.ts` verifies facial and really-hot facial counting from compact marker tag-ID groups, the original marker shape, and Facial Count podium ordering.
 
 ### GraphQL Schema Changes
 

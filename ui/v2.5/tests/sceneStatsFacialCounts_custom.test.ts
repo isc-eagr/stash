@@ -55,3 +55,31 @@ assert.equal(
   0,
   "really hot facial counts require the configurable really-hot tag"
 );
+
+const scenesByFacialCount = [
+  {
+    title: "One facial",
+    scene_markers: [{ tag_ids: ["facial"] }],
+  },
+  {
+    title: "Three facials",
+    scene_markers: [
+      { tag_ids: ["facial"] },
+      { tag_ids: ["facial-child"] },
+      { tag_ids: ["facial", "really-hot"] },
+    ],
+  },
+  {
+    title: "Two facials",
+    scene_markers: [{ tag_ids: ["facial"] }, { tag_ids: ["facial-child"] }],
+  },
+].sort(
+  (a, b) =>
+    facialCount(b, roleTagIDs.facial) - facialCount(a, roleTagIDs.facial)
+);
+
+assert.deepEqual(
+  scenesByFacialCount.map(({ title }) => title),
+  ["Three facials", "Two facials", "One facial"],
+  "facial count podium mode ranks scenes by matching marker count"
+);

@@ -156,7 +156,8 @@ type PodiumMetric =
   | "duration"
   | "filesize"
   | "most_recent_o"
-  | "performer_count";
+  | "performer_count"
+  | "facial_count";
 
 type ChartCategory =
   | "ethnicity"
@@ -213,6 +214,7 @@ const metricOptions: Array<{
   { key: "filesize", label: "File Size", valueLabel: "" },
   { key: "most_recent_o", label: "Most Recent O", valueLabel: "" },
   { key: "performer_count", label: "Vato Count", valueLabel: "vatos" },
+  { key: "facial_count", label: "Facial Count", valueLabel: "facials" },
 ];
 
 const chartDefinitions: Record<ChartCategory, string> = {
@@ -320,7 +322,11 @@ function mostRecentOLabel(scene: SceneStatsScene) {
   return new Date(timestamp).toLocaleDateString();
 }
 
-function metricValue(scene: SceneStatsScene, metric: PodiumMetric) {
+function metricValue(
+  scene: SceneStatsScene,
+  metric: PodiumMetric,
+  roleTagIDs: RoleTagIDSets
+) {
   switch (metric) {
     case "o_counter":
       return scene.o_counter ?? 0;
@@ -334,13 +340,19 @@ function metricValue(scene: SceneStatsScene, metric: PodiumMetric) {
       return mostRecentOTime(scene);
     case "performer_count":
       return scene.performer_count;
+    case "facial_count":
+      return facialCount(scene, roleTagIDs.facial);
     default:
       return 0;
   }
 }
 
-function formatMetricValue(scene: SceneStatsScene, metric: PodiumMetric) {
-  const value = metricValue(scene, metric);
+function formatMetricValue(
+  scene: SceneStatsScene,
+  metric: PodiumMetric,
+  roleTagIDs: RoleTagIDSets
+) {
+  const value = metricValue(scene, metric, roleTagIDs);
   if (metric === "duration") return TextUtils.secondsAsTimeString(value, 3);
   if (metric === "filesize") return <FileSize size={value} />;
   if (metric === "rating100") return `${value}/100`;
@@ -767,9 +779,10 @@ function buildSceneCharts(
 }
 
 const SceneStatsPodium: React.FC<{
+  roleTagIDs: RoleTagIDSets;
   scenes: SceneStatsScene[];
   metric: PodiumMetric;
-}> = ({ scenes, metric }) => {
+}> = ({ roleTagIDs, scenes, metric }) => {
   const metricOption = metricOptions.find((option) => option.key === metric);
   const topScenes = scenes.slice(0, 3);
   const ranks = [1, 2, 3] as const;
@@ -802,7 +815,8 @@ const SceneStatsPodium: React.FC<{
                   {scene.title || `Scene ${scene.id}`}
                 </Link>
                 <div className="scenestats-podium-value">
-                  {formatMetricValue(scene, metric)} {metricOption?.valueLabel}
+                  {formatMetricValue(scene, metric, roleTagIDs)}{" "}
+                  {metricOption?.valueLabel}
                 </div>
               </>
             ) : (
@@ -950,8 +964,9 @@ const SceneStatsFilterBar: React.FC<{
 
 const SceneStatsSceneList: React.FC<{
   metric: PodiumMetric;
+  roleTagIDs: RoleTagIDSets;
   scenes: SceneStatsScene[];
-}> = ({ metric, scenes }) => {
+}> = ({ metric, roleTagIDs, scenes }) => {
   const [visibleCount, setVisibleCount] = useState(SCENE_LIST_PAGE_SIZE);
 
   useEffect(() => {
@@ -984,7 +999,7 @@ const SceneStatsSceneList: React.FC<{
             {scene.title || `Scene ${scene.id}`}
           </span>
           <span className="scenestats-scene-list-meta">
-            {formatMetricValue(scene, metric)}
+            {formatMetricValue(scene, metric, roleTagIDs)}
           </span>
         </Link>
       ))}
@@ -1126,12 +1141,13 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     () =>
       [...filteredScenes].sort(
         (a, b) =>
-          metricValue(b, metric) - metricValue(a, metric) ||
+          metricValue(b, metric, roleTagIDs) -
+            metricValue(a, metric, roleTagIDs) ||
           (a.title ?? "").localeCompare(b.title ?? "", undefined, {
             sensitivity: "base",
           })
       ),
-    [filteredScenes, metric]
+    [filteredScenes, metric, roleTagIDs]
   );
   const charts = useMemo(
     () =>
@@ -1427,7 +1443,11 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
         <Alert variant="secondary">No scenes found.</Alert>
       ) : (
         <>
-          <SceneStatsPodium scenes={rankedScenes} metric={metric} />
+          <SceneStatsPodium
+            scenes={rankedScenes}
+            metric={metric}
+            roleTagIDs={roleTagIDs}
+          />
 
           <div className="scenestats-list-toggle">
             <Button
@@ -1439,7 +1459,11 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
             </Button>
           </div>
           {showSceneList && (
-            <SceneStatsSceneList metric={metric} scenes={rankedScenes} />
+            <SceneStatsSceneList
+              metric={metric}
+              roleTagIDs={roleTagIDs}
+              scenes={rankedScenes}
+            />
           )}
 
           <div className="scenestats-chart-grid">
