@@ -740,7 +740,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
 
     const topControl = (
       <div className="d-flex align-items-center">
-        <Icon icon={faArrowUp} className="text-success mr-2" title="Top" />
+        <Icon icon={faArrowUp} className="text-info mr-2" title="Top" />
         <div className="flex-grow-1">
           <Select<IPerformerSelectOption, true>
             className="react-select scene-marker-form-performer-select"
@@ -784,7 +784,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
 
     const bottomControl = (
       <div className="d-flex align-items-center">
-        <Icon icon={faArrowDown} className="text-info mr-2" title="Bottom" />
+        <Icon icon={faArrowDown} className="text-success mr-2" title="Bottom" />
         <div className="flex-grow-1">
           <Select<IPerformerSelectOption, true>
             className="react-select scene-marker-form-performer-select"

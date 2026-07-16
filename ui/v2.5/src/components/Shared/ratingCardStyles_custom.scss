@@ -1,50 +1,15 @@
 /* CUSTOM: begin - premium rating card themes */
-/* stylelint-disable at-rule-empty-line-before, color-hex-length, comment-empty-line-before, declaration-no-important, order/properties-alphabetical-order, selector-class-pattern -- custom card skins intentionally override upstream card, BEM, and FontAwesome selectors */
-@keyframes rating-card-text-gradient-shimmer {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  100% {
-    background-position: 100% 50%;
-  }
-}
-
-@keyframes rating-card-text-shimmer {
+/* stylelint-disable at-rule-empty-line-before, color-hex-length, comment-empty-line-before, declaration-no-important, order/properties-alphabetical-order, selector-class-pattern, selector-max-universal -- custom card skins intentionally override upstream card, BEM, and FontAwesome selectors */
+@keyframes rating-card-premium-breathe {
   0%,
   100% {
-    text-shadow: 0 0 7px rgba(var(--rating-card-accent-rgb), 0.24);
+    opacity: 0.68;
+    transform: scale(0.97);
   }
 
   50% {
-    text-shadow: 0 0 10px rgba(var(--rating-card-accent-rgb), 0.42),
-      0 0 18px rgba(var(--rating-card-accent-soft-rgb), 0.32);
-  }
-}
-
-@keyframes rating-card-royal-sapphire-aura {
-  0%,
-  100% {
-    box-shadow: 0 0 18px rgba(37, 99, 235, 0.34),
-      0 0 34px rgba(18, 63, 159, 0.28), 0 14px 30px rgba(0, 0, 0, 0.46),
-      inset 0 0 32px rgba(56, 189, 248, 0.1);
-  }
-
-  50% {
-    box-shadow: 0 0 24px rgba(59, 130, 246, 0.46),
-      0 0 48px rgba(18, 63, 159, 0.36), 0 14px 32px rgba(0, 0, 0, 0.5),
-      inset 0 0 34px rgba(56, 189, 248, 0.12);
-  }
-}
-
-@keyframes rating-card-royal-sapphire-swipe {
-  0% {
-    transform: translateX(-145%) skewX(-18deg);
-  }
-
-  42%,
-  100% {
-    transform: translateX(145%) skewX(-18deg);
+    opacity: 1;
+    transform: scale(1.035);
   }
 }
 
@@ -69,38 +34,6 @@
 
   100% {
     background-position: 100% 50%;
-  }
-}
-
-:is(
-    .scene-card,
-    .performer-card,
-    .image-card,
-    .gallery-card,
-    .group-card,
-    .studio-card,
-    .scene-marker-card
-  ).rating-card-theme-premium.rating-royal-sapphire {
-  animation: rating-card-royal-sapphire-aura 5.8s ease-in-out infinite;
-
-  &::after {
-    background: linear-gradient(
-      98deg,
-      transparent 0%,
-      rgba(96, 165, 250, 0) 28%,
-      rgba(96, 165, 250, 0.08) 44%,
-      rgba(147, 197, 253, 0.18) 50%,
-      rgba(37, 99, 235, 0.1) 56%,
-      transparent 72%
-    );
-    content: "";
-    inset: -12% -30%;
-    mix-blend-mode: screen;
-    opacity: 0.42;
-    pointer-events: none;
-    position: absolute;
-    z-index: 2;
-    animation: rating-card-royal-sapphire-swipe 8.5s ease-in-out infinite;
   }
 }
 
@@ -249,7 +182,7 @@
   ).rating-card-theme-premium.rating-royal-sapphire {
   background: radial-gradient(
         circle at 50% -8%,
-        rgba(var(--rating-card-accent-rgb), 0.2),
+        rgba(var(--rating-card-accent-rgb), 0.24),
         rgba(0, 0, 0, 0) 46%
       )
       padding-box,
@@ -258,10 +191,10 @@
   border: 3px solid var(--rating-card-border-color);
   border-radius: 8px;
   box-sizing: border-box;
-  box-shadow: 0 0 18px rgba(var(--rating-card-accent-rgb), 0.22),
-    0 0 34px rgba(var(--rating-card-accent-soft-rgb), 0.18),
+  box-shadow: 0 0 18px rgba(var(--rating-card-accent-rgb), 0.27),
+    0 0 34px rgba(var(--rating-card-accent-soft-rgb), 0.22),
     0 14px 30px rgba(0, 0, 0, 0.46),
-    inset 0 0 32px rgba(var(--rating-card-accent-rgb), 0.1);
+    inset 0 0 32px rgba(var(--rating-card-accent-rgb), 0.13);
   color: rgb(var(--rating-card-text-rgb));
   isolation: isolate;
   overflow: hidden;
@@ -270,49 +203,36 @@
   transition: box-shadow 0.24s ease, filter 0.24s ease, transform 0.24s ease;
 
   &::before {
+    animation: rating-card-premium-breathe 4.8s ease-in-out infinite;
     background: radial-gradient(
-        ellipse at 50% 45%,
-        rgba(0, 0, 0, 0) 0%,
-        rgba(0, 0, 0, 0.12) 60%,
-        rgba(0, 0, 0, 0.5) 100%
-      ),
-      radial-gradient(
-        circle at 18% 0%,
-        rgba(var(--rating-card-accent-rgb), 0.18),
-        rgba(0, 0, 0, 0) 22%
-      ),
-      radial-gradient(
-        circle at 82% 2%,
-        rgba(var(--rating-card-highlight-rgb), 0.14),
-        rgba(0, 0, 0, 0) 20%
-      ),
-      radial-gradient(
-        circle at 50% 102%,
-        rgba(var(--rating-card-accent-rgb), 0.2),
-        rgba(0, 0, 0, 0) 24%
-      );
+      ellipse 82% 44% at 50% 64%,
+      rgba(var(--rating-card-accent-rgb), 0.33),
+      rgba(var(--rating-card-accent-rgb), 0.13) 46%,
+      rgba(0, 0, 0, 0) 76%
+    );
     content: "";
     inset: 0;
     opacity: 0.82;
     pointer-events: none;
     position: absolute;
+    transform-origin: 50% 64%;
     z-index: 0;
   }
 
+  &.rating-card-motion-paused::before {
+    animation-play-state: paused;
+  }
+
   &:hover {
-    box-shadow: 0 0 24px rgba(var(--rating-card-accent-rgb), 0.34),
-      0 0 46px rgba(var(--rating-card-accent-soft-rgb), 0.26),
+    box-shadow: 0 0 24px rgba(var(--rating-card-accent-rgb), 0.4),
+      0 0 46px rgba(var(--rating-card-accent-soft-rgb), 0.31),
       0 16px 36px rgba(0, 0, 0, 0.52),
-      inset 0 0 38px rgba(var(--rating-card-accent-rgb), 0.13);
+      inset 0 0 38px rgba(var(--rating-card-accent-rgb), 0.16);
     transform: translateY(-2px);
   }
 
   .card-section {
-    background: linear-gradient(
-      180deg,
-      rgba(10, 14, 16, 0.96),
-      rgba(4, 6, 7, 0.98)
-    );
+    background: transparent;
   }
 
   .thumbnail-section,
@@ -425,12 +345,12 @@
   &.performer-card .card-section-title .performer-disambiguation {
     background: var(--rating-card-text-gradient);
     background-clip: text;
+    background-position: 50% 50%;
     background-size: 240% auto;
     color: rgb(var(--rating-card-name-rgb));
+    text-shadow: 0 0 7px rgba(var(--rating-card-accent-rgb), 0.22);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    animation: rating-card-text-gradient-shimmer 4.8s linear infinite,
-      rating-card-text-shimmer 4s ease-in-out infinite;
   }
 
   a,
@@ -464,7 +384,7 @@
   .count-button span,
   .card-popovers span {
     color: rgb(var(--rating-card-text-rgb));
-    animation: rating-card-text-shimmer 4.5s ease-in-out infinite;
+    text-shadow: 0 0 6px rgba(var(--rating-card-accent-rgb), 0.18);
   }
 
   .badge {
@@ -482,7 +402,7 @@
   .gender-icon,
   .scene-hand-icon {
     color: rgb(var(--rating-card-name-rgb));
-    animation: rating-card-text-shimmer 4.5s ease-in-out infinite;
+    text-shadow: 0 0 6px rgba(var(--rating-card-accent-rgb), 0.2);
   }
 
   .scene-gay-icon,
@@ -587,11 +507,11 @@
   }
 
   .performer-role-badges .top-badge.arrow-badge {
-    border-color: rgba(40, 167, 69, 0.9) !important;
+    border-color: rgba(23, 162, 184, 0.9) !important;
   }
 
   .performer-role-badges .bottom-badge.arrow-badge {
-    border-color: rgba(23, 162, 184, 0.92) !important;
+    border-color: rgba(40, 167, 69, 0.92) !important;
   }
 
   .rating-banner {
@@ -884,11 +804,11 @@
   }
 
   .performer-role-badges .top-badge.arrow-badge {
-    border-color: rgba(40, 167, 69, 0.88) !important;
+    border-color: rgba(23, 162, 184, 0.88) !important;
   }
 
   .performer-role-badges .bottom-badge.arrow-badge {
-    border-color: rgba(23, 162, 184, 0.9) !important;
+    border-color: rgba(40, 167, 69, 0.9) !important;
   }
 
   hr {
@@ -1208,11 +1128,11 @@
   }
 
   .performer-role-badges .top-badge.arrow-badge {
-    border-color: rgba(40, 167, 69, 0.92) !important;
+    border-color: rgba(23, 162, 184, 0.92) !important;
   }
 
   .performer-role-badges .bottom-badge.arrow-badge {
-    border-color: rgba(23, 162, 184, 0.94) !important;
+    border-color: rgba(40, 167, 69, 0.94) !important;
   }
 
   hr {
@@ -1310,41 +1230,26 @@
     .scene-marker-activity-config-card,
     .scene-marker-activity-marker-box
   ).rating-card-theme-premium.rating-royal-sapphire {
-  animation: rating-card-royal-sapphire-aura 5.8s ease-in-out infinite;
   background: radial-gradient(
+        ellipse 82% 50% at 50% 58%,
+        rgba(56, 189, 248, 0.27),
+        rgba(56, 189, 248, 0) 76%
+      )
+      padding-box,
+    radial-gradient(
         circle at 50% -18%,
-        rgba(56, 189, 248, 0.24),
+        rgba(56, 189, 248, 0.28),
         rgba(0, 0, 0, 0) 48%
       )
       padding-box,
     linear-gradient(180deg, #070a0c 0%, #030405 100%) padding-box;
   border: 2px solid rgba(18, 63, 159, 0.96);
-  box-shadow: 0 0 18px rgba(56, 189, 248, 0.22),
-    0 0 34px rgba(18, 63, 159, 0.18), inset 0 0 26px rgba(56, 189, 248, 0.1);
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.27),
+    0 0 34px rgba(18, 63, 159, 0.22), inset 0 0 26px rgba(56, 189, 248, 0.13);
   color: rgb(96, 165, 250);
   isolation: isolate;
   overflow: hidden;
   position: relative;
-
-  &::after {
-    animation: rating-card-royal-sapphire-swipe 8.5s ease-in-out infinite;
-    background: linear-gradient(
-      98deg,
-      transparent 0%,
-      rgba(96, 165, 250, 0) 28%,
-      rgba(96, 165, 250, 0.08) 44%,
-      rgba(147, 197, 253, 0.18) 50%,
-      rgba(37, 99, 235, 0.1) 56%,
-      transparent 72%
-    );
-    content: "";
-    inset: -30% -45%;
-    mix-blend-mode: screen;
-    opacity: 0.38;
-    pointer-events: none;
-    position: absolute;
-    z-index: 1;
-  }
 
   > * {
     position: relative;
@@ -1424,6 +1329,97 @@
   }
 }
 
-/* stylelint-enable at-rule-empty-line-before, color-hex-length, comment-empty-line-before, declaration-no-important, order/properties-alphabetical-order, selector-class-pattern */
+@media (prefers-reduced-motion: reduce) {
+  :is(
+      .scene-card,
+      .performer-card,
+      .image-card,
+      .gallery-card,
+      .group-card,
+      .studio-card,
+      .scene-marker-card
+    ):is(.rating-card-theme-premium, .rating-card-theme-classic):is(
+      .rating-3-stars,
+      .rating-4-stars,
+      .rating-5-stars,
+      .rating-royal-sapphire
+    ),
+  :is(
+      .scene-card,
+      .performer-card,
+      .image-card,
+      .gallery-card,
+      .group-card,
+      .studio-card,
+      .scene-marker-card
+    ):is(.rating-card-theme-premium, .rating-card-theme-classic):is(
+      .rating-3-stars,
+      .rating-4-stars,
+      .rating-5-stars,
+      .rating-royal-sapphire
+    )::before,
+  :is(
+      .scene-card,
+      .performer-card,
+      .image-card,
+      .gallery-card,
+      .group-card,
+      .studio-card,
+      .scene-marker-card
+    ):is(.rating-card-theme-premium, .rating-card-theme-classic):is(
+      .rating-3-stars,
+      .rating-4-stars,
+      .rating-5-stars,
+      .rating-royal-sapphire
+    )::after,
+  :is(
+      .scene-card,
+      .performer-card,
+      .image-card,
+      .gallery-card,
+      .group-card,
+      .studio-card,
+      .scene-marker-card
+    ):is(.rating-card-theme-premium, .rating-card-theme-classic):is(
+      .rating-3-stars,
+      .rating-4-stars,
+      .rating-5-stars,
+      .rating-royal-sapphire
+    )
+    *,
+  .scene-markers-panel
+    :is(
+      .scene-marker-activity-config-card,
+      .scene-marker-activity-marker-box
+    ):is(.rating-card-theme-premium, .rating-card-theme-classic),
+  .scene-markers-panel
+    :is(
+      .scene-marker-activity-config-card,
+      .scene-marker-activity-marker-box
+    ):is(.rating-card-theme-premium, .rating-card-theme-classic)
+    * {
+    animation: none !important;
+  }
+
+  :is(
+      .scene-card,
+      .performer-card,
+      .image-card,
+      .gallery-card,
+      .group-card,
+      .studio-card,
+      .scene-marker-card
+    ).rating-card-theme-premium:is(
+      .rating-3-stars,
+      .rating-4-stars,
+      .rating-5-stars,
+      .rating-royal-sapphire
+    )::before {
+    opacity: 0.84;
+    transform: none;
+  }
+}
+
+/* stylelint-enable at-rule-empty-line-before, color-hex-length, comment-empty-line-before, declaration-no-important, order/properties-alphabetical-order, selector-class-pattern, selector-max-universal */
 
 /* CUSTOM: end */

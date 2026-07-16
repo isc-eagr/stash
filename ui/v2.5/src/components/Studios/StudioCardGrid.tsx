@@ -9,7 +9,8 @@ import { PatchComponent } from "src/patch";
 import { useRoleTags } from "src/hooks/useRoleTags"; // CUSTOM
 
 interface IStudioCardGrid {
-  studios: GQL.StudioDataFragment[];
+  studios: GQL.StudioListDataFragment[]; // CUSTOM
+  statsByStudioID: ReadonlyMap<string, GQL.StudioListStatsDataFragment>; // CUSTOM
   fromParent: boolean | undefined;
   selectedIds: Set<string>;
   zoomIndex: number;
@@ -23,6 +24,7 @@ export const StudioCardGrid: React.FC<IStudioCardGrid> = PatchComponent(
   "StudioCardGrid",
   ({
     studios,
+    statsByStudioID, // CUSTOM
     fromParent,
     selectedIds,
     zoomIndex,
@@ -42,6 +44,7 @@ export const StudioCardGrid: React.FC<IStudioCardGrid> = PatchComponent(
             key={studio.id}
             cardWidth={cardWidth}
             studio={studio}
+            stats={statsByStudioID.get(studio.id)} // CUSTOM
             zoomIndex={zoomIndex}
             hideParent={fromParent}
             selecting={selectedIds.size > 0}

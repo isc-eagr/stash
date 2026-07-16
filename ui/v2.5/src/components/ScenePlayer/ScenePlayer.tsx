@@ -69,6 +69,7 @@ import { MultiSegmentLoopControls } from "./MultiSegmentLoopControls";
 // Performer image overlay components
 import { PerformerImageSelectModal } from "./PerformerImageSelectModal";
 import { PerformerImageOverlay } from "./PerformerImageOverlay";
+import { getSceneMarkerTimelineHoverPerformers } from "./sceneMarkerTimelineHover_custom";
 // CUSTOM: end
 
 type ScenePlayerTagTree = {
@@ -1707,24 +1708,48 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       const player = getPlayer();
       if (!player) return;
 
-      const markerData = scene.scene_markers.map((marker) => ({
-        id: marker.id,
-        title: getMarkerTitle(marker),
-        seconds: marker.seconds,
-        end_seconds: marker.end_seconds ?? null,
-        primaryTag: marker.primary_tag,
-        tags: marker.tags?.map((tag) => ({ id: tag.id, name: tag.name })), // CUSTOM
-        top_performers: marker.top_performers?.map((p) => ({
-          id: p.id,
-          name: p.name,
-          image_path: p.image_path,
-        })), // CUSTOM
-        bottom_performers: marker.bottom_performers?.map((p) => ({
-          id: p.id,
-          name: p.name,
-          image_path: p.image_path,
-        })), // CUSTOM
-      }));
+      // CUSTOM: begin - match timeline hover context to chronological highlight popovers
+      const markerData = scene.scene_markers.map((marker) => {
+        const hoverPerformers = getSceneMarkerTimelineHoverPerformers(
+          marker,
+          scene.scene_markers
+        );
+
+        return {
+          id: marker.id,
+          title: getMarkerTitle(marker),
+          seconds: marker.seconds,
+          end_seconds: marker.end_seconds ?? null,
+          primaryTag: marker.primary_tag,
+          tags: marker.tags?.map((tag) => ({ id: tag.id, name: tag.name })),
+          top_performers: marker.top_performers?.map((performer) => ({
+            id: performer.id,
+            name: performer.name,
+            image_path: performer.image_path,
+          })),
+          bottom_performers: marker.bottom_performers?.map((performer) => ({
+            id: performer.id,
+            name: performer.name,
+            image_path: performer.image_path,
+          })),
+          hover_performers: hoverPerformers?.map(
+            ({ performer, topTags, bottomTags }) => ({
+              id: performer.id,
+              name: performer.name ?? "",
+              image_path: performer.image_path,
+              top_tags: topTags.map((tag) => ({
+                id: tag.id,
+                name: tag.name ?? "",
+              })),
+              bottom_tags: bottomTags.map((tag) => ({
+                id: tag.id,
+                name: tag.name ?? "",
+              })),
+            })
+          ),
+        };
+      });
+      // CUSTOM: end
 
       const markers = player!.markers();
       markers.setOnMarkerClick((marker, seconds) => {

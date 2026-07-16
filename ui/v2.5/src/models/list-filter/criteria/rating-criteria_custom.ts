@@ -1,4 +1,5 @@
 import { IntlShape } from "react-intl";
+import { GROUP_SCENE_RATING_KEYS_CUSTOM } from "src/components/Shared/groupSceneRating_custom";
 import { CriterionModifier } from "src/core/generated-graphql";
 import { Criterion, CriterionOption } from "./criterion";
 import { CriterionType, INumberValue } from "../types";
@@ -102,6 +103,15 @@ const energyChoices = [
   "Strong",
   "Excellent",
   "Perfect quality",
+].map((label, value) => ({ value, label }));
+
+const groupParticipationChoices = [
+  "Not really a group scene",
+  "Poor use",
+  "Uneven",
+  "Good ensemble",
+  "Excellent ensemble",
+  "Perfect group execution",
 ].map((label, value) => ({ value, label }));
 
 const performanceChoices = [
@@ -470,6 +480,31 @@ export const SceneRatingCriteriaCriterionOption =
         choices: standoutChoices,
       },
       {
+        key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.topAttractiveness,
+        label: "Group Top Lineup Attractiveness",
+        choices: appealChoices,
+      },
+      {
+        key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.energy,
+        label: "Group Energy / Sex Quality",
+        choices: energyChoices,
+      },
+      {
+        key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.participation,
+        label: "Group Participation and Coordination",
+        choices: groupParticipationChoices,
+      },
+      {
+        key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.payoff,
+        label: "Group Orgasm Quality",
+        choices: payoffChoices,
+      },
+      {
+        key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.standout,
+        label: "Group Standout Moments",
+        choices: standoutChoices,
+      },
+      {
         key: "soloPerformerAppeal",
         label: "Solo Vato Attractiveness",
         choices: appealChoices,
@@ -483,7 +518,7 @@ export const SceneRatingCriteriaCriterionOption =
     bonuses: [
       {
         key: "theme",
-        label: "Theme Bonus",
+        label: "Theme / Fantasy / Uniform Bonus",
         section: "bonuses",
       },
       {
@@ -492,8 +527,13 @@ export const SceneRatingCriteriaCriterionOption =
         section: "bonuses",
       },
       {
-        key: "largeGroup",
-        label: "Large Group Bonus",
+        key: GROUP_SCENE_RATING_KEYS_CUSTOM.bonuses.bottomAttractiveness,
+        label: "Group Attractive Bottom Bonus",
+        section: "bonuses",
+      },
+      {
+        key: GROUP_SCENE_RATING_KEYS_CUSTOM.bonuses.oralOnly,
+        label: "Group Oral-Only Bonus",
         section: "bonuses",
       },
       {
@@ -535,7 +575,7 @@ export const SceneRatingCriteriaCriterionOption =
       },
       {
         key: "production",
-        label: "Production Penalty",
+        label: "Production / Visual Quality Penalty",
         section: "penalties",
       },
     ],
@@ -563,7 +603,7 @@ export const PerformerRatingCriteriaCriterionOption =
       },
       {
         key: "ethnicity",
-        label: "Ethnicity",
+        label: "Ethnicity / Racial Appeal",
         choices: ethnicityChoices,
       },
       {
@@ -580,7 +620,7 @@ export const PerformerRatingCriteriaCriterionOption =
       },
       {
         key: "dick",
-        label: "Dick Bonus",
+        label: "Pito Bonus",
         section: "bonuses",
       },
       {

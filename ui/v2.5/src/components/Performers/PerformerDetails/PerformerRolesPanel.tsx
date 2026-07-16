@@ -3,18 +3,29 @@ import * as GQL from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
 import { FormattedMessage } from "react-intl";
 import { PatchComponent } from "src/patch";
-import { Button, ButtonGroup, Card } from "react-bootstrap";
+import { Button, Card } from "react-bootstrap";
 import { Icon } from "src/components/Shared/Icon";
 import { faHand } from "@fortawesome/free-solid-svg-icons";
 import NavUtils from "src/utils/navigation";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import facialPng from "src/assets/facial.png"; // CUSTOM
+import { ROLE_COLORS_CUSTOM } from "src/utils/roleColors_custom"; // CUSTOM
 
 interface IPerformerRolesPanelProps {
   active: boolean;
   performer: GQL.PerformerDataFragment;
 }
+
+type RoleCountPerformer = GQL.PerformerDataFragment & {
+  sex_top_count?: number | null;
+  sex_bottom_count?: number | null;
+  oral_top_count?: number | null;
+  oral_bottom_count?: number | null;
+  solo_scene_count?: number | null;
+  facial_top_count?: number | null;
+  facial_bottom_count?: number | null;
+};
 
 interface IRoleCardProps {
   title: string;
@@ -49,7 +60,7 @@ const RoleCard: React.FC<IRoleCardProps> = ({
       <Card.Body>
         <div className="role-stats d-flex justify-content-around">
           <Button
-            variant="outline-info"
+            variant={ROLE_COLORS_CUSTOM.top.outlineVariant}
             className="role-stat-button flex-fill mr-2"
             onClick={onTopClick}
             disabled={topCount === 0}
@@ -58,7 +69,7 @@ const RoleCard: React.FC<IRoleCardProps> = ({
             <div className="role-stat-count h4 mb-0">{topCount}</div>
           </Button>
           <Button
-            variant="outline-warning"
+            variant={ROLE_COLORS_CUSTOM.bottom.outlineVariant}
             className="role-stat-button flex-fill ml-2"
             onClick={onBottomClick}
             disabled={bottomCount === 0}
@@ -80,10 +91,10 @@ export const PerformerRolesPanel: React.FC<IPerformerRolesPanelProps> =
 
     // Get role tag IDs from configuration
     const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-    const {sexTagId} = roleTagIds;
-    const {oralTagId} = roleTagIds;
-    const {soloTagId} = roleTagIds;
-    const {facialTagId} = roleTagIds;
+    const { sexTagId } = roleTagIds;
+    const { oralTagId } = roleTagIds;
+    const { soloTagId } = roleTagIds;
+    const { facialTagId } = roleTagIds;
 
     if (!active) return null;
 
@@ -102,7 +113,7 @@ export const PerformerRolesPanel: React.FC<IPerformerRolesPanelProps> =
     }
 
     // Get counts from performer - using new top/bottom fields
-    const p = performer as any;
+    const p = performer as RoleCountPerformer;
     const sexTopCount = p.sex_top_count ?? 0;
     const sexBottomCount = p.sex_bottom_count ?? 0;
     const oralTopCount = p.oral_top_count ?? 0;

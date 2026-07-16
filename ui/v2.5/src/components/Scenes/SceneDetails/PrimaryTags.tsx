@@ -13,6 +13,7 @@ import {
   faArrowDown,
   faExclamationTriangle,
 } from "@fortawesome/free-solid-svg-icons";
+import { ROLE_COLORS_CUSTOM } from "src/utils/roleColors_custom"; // CUSTOM
 // CUSTOM: end
 
 interface IPrimaryTags {
@@ -140,7 +141,7 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
       const topPerformers = marker.top_performers?.map((performer) => (
         <Badge
           key={performer.id}
-          variant="success"
+          variant={ROLE_COLORS_CUSTOM.top.variant}
           className="performer-badge mr-1"
         >
           {showRoleArrows && <Icon icon={faArrowUp} className="mr-1" />}
@@ -151,7 +152,7 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
       const bottomPerformers = marker.bottom_performers?.map((performer) => (
         <Badge
           key={performer.id}
-          variant="info"
+          variant={ROLE_COLORS_CUSTOM.bottom.variant}
           className="performer-badge mr-1"
         >
           {showRoleArrows && <Icon icon={faArrowDown} className="mr-1" />}

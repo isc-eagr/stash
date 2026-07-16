@@ -491,12 +491,12 @@ $font-family-monospace: sfmono-regular, menlo, monaco, consolas,
         }
 
         .scene-marker-highlight-tag-top.badge-secondary {
-          background-color: #4b9f4b;
+          background-color: #3f94b8;
           color: #fff;
         }
 
         .scene-marker-highlight-tag-bottom.badge-secondary {
-          background-color: #3f94b8;
+          background-color: #4b9f4b;
           color: #fff;
         }
       }
@@ -559,21 +559,21 @@ $font-family-monospace: sfmono-regular, menlo, monaco, consolas,
 
   .vjs-marker-tooltip-performers-top {
     .vjs-marker-tooltip-performer-image {
-      border-color: rgba(92, 184, 92, 0.85);
-    }
-
-    .vjs-marker-tooltip-performer-name {
-      color: #5cb85c;
-    }
-  }
-
-  .vjs-marker-tooltip-performers-bottom {
-    .vjs-marker-tooltip-performer-image {
       border-color: rgba(91, 192, 222, 0.85);
     }
 
     .vjs-marker-tooltip-performer-name {
       color: #5bc0de;
+    }
+  }
+
+  .vjs-marker-tooltip-performers-bottom {
+    .vjs-marker-tooltip-performer-image {
+      border-color: rgba(92, 184, 92, 0.85);
+    }
+
+    .vjs-marker-tooltip-performer-name {
+      color: #5cb85c;
     }
   }
   /* CUSTOM: end */
@@ -1078,7 +1078,7 @@ $font-family-monospace: sfmono-regular, menlo, monaco, consolas,
   .scene-tabs {
     flex: 0 0 $sceneTabWidth;
     max-width: $sceneTabWidth;
-    overflow: auto;
+    overflow: hidden; /* CUSTOM: keep tab-content as the marker toolbar scroll parent */
 
     &.collapsed {
       display: none;

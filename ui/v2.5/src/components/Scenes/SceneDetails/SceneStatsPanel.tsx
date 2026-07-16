@@ -791,7 +791,9 @@ const SceneStatsPanel: React.FC<IProps> = ({
                 aria-hidden="true"
                 className="custom-stats-color-swatch"
                 style={{
-                  backgroundColor: getStatsRowColor(row, soloMarkerColor),
+                  backgroundColor: row.isChild
+                    ? getStatsRowColor(row, soloMarkerColor)
+                    : "transparent",
                 }}
               />
               <Form.Check

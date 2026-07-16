@@ -19,6 +19,7 @@ import {
   IUnnamedPerformer,
   isUnnamedPerformerId,
 } from "src/models/list-filter/criteria/unnamed-performer";
+import { ROLE_COLORS_CUSTOM } from "src/utils/roleColors_custom"; // CUSTOM
 
 interface IMarkerPerformersFilterProps {
   criterion: MarkerPerformersCriterion;
@@ -68,6 +69,11 @@ const MarkerGroupEditor: React.FC<IMarkerGroupEditorProps> = ({
   ) => {
     if (availableUnnamedPerformers.length === 0) return null;
 
+    const roleColors =
+      field === "top_performer_ids"
+        ? ROLE_COLORS_CUSTOM.top
+        : ROLE_COLORS_CUSTOM.bottom;
+
     return (
       <div className="unnamed-performer-quick-select mt-2">
         <small className="text-muted me-2">
@@ -79,7 +85,9 @@ const MarkerGroupEditor: React.FC<IMarkerGroupEditorProps> = ({
             <Button
               key={up.id}
               size="sm"
-              variant={isSelected ? "info" : "outline-info"}
+              variant={
+                isSelected ? roleColors.variant : roleColors.outlineVariant
+              }
               className="me-1 mb-1"
               onClick={() => toggleUnnamed(field, up)}
             >
@@ -175,7 +183,7 @@ const MarkerGroupEditor: React.FC<IMarkerGroupEditorProps> = ({
           <h6 className="d-flex align-items-center mb-3">
             <Badge
               pill
-              variant="success"
+              variant={ROLE_COLORS_CUSTOM.top.variant}
               className="me-2"
               style={{ fontSize: 10, padding: "3px 6px" }}
             >
@@ -205,7 +213,7 @@ const MarkerGroupEditor: React.FC<IMarkerGroupEditorProps> = ({
           <h6 className="d-flex align-items-center mb-3">
             <Badge
               pill
-              variant="info"
+              variant={ROLE_COLORS_CUSTOM.bottom.variant}
               className="me-2"
               style={{ fontSize: 10, padding: "3px 6px" }}
             >

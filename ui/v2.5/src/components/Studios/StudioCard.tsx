@@ -79,7 +79,8 @@ export interface IRoleTags {
 // CUSTOM: end
 
 interface IProps {
-  studio: GQL.StudioDataFragment;
+  studio: GQL.StudioListDataFragment; // CUSTOM
+  stats?: GQL.StudioListStatsDataFragment; // CUSTOM
   cardWidth?: number;
   hideParent?: boolean;
   selecting?: boolean;
@@ -93,7 +94,7 @@ interface IProps {
 }
 
 function maybeRenderParent(
-  studio: GQL.StudioDataFragment,
+  studio: GQL.StudioListDataFragment, // CUSTOM
   hideParent?: boolean
 ) {
   if (!hideParent && studio.parent_studio) {
@@ -114,7 +115,8 @@ function maybeRenderParent(
   }
 }
 
-function maybeRenderChildren(studio: GQL.StudioDataFragment) {
+function maybeRenderChildren(studio: GQL.StudioListDataFragment) {
+  // CUSTOM
   if (studio.child_studios.length > 0) {
     return (
       <div className="studio-child-studios">
@@ -122,7 +124,12 @@ function maybeRenderChildren(studio: GQL.StudioDataFragment) {
           id="parent_of"
           values={{
             children: (
-              <Link to={NavUtils.makeChildStudiosUrl(studio)}>
+              <Link
+                to={NavUtils.makeChildStudiosUrl({
+                  id: studio.id,
+                  name: studio.name,
+                })}
+              >
                 {studio.child_studios.length}&nbsp;
                 <FormattedMessage
                   id="countables.studios"
@@ -141,6 +148,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
   "StudioCard",
   ({
     studio,
+    stats, // CUSTOM
     cardWidth,
     hideParent,
     selecting,
@@ -153,6 +161,10 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
     // CUSTOM: end
   }) => {
     const [updateStudio] = useStudioUpdate();
+    const navigationStudio: Pick<GQL.StudioDataFragment, "id" | "name"> = {
+      id: studio.id,
+      name: studio.name,
+    }; // CUSTOM
     // CUSTOM: begin - premium/classic rating card styling
     const { configuration } = useConfigurationContext();
     const ratingCardTheme = configuration?.ui?.ratingCardTheme;
@@ -221,12 +233,12 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
       const count = performerId
         ? performerStats?.scene_count ?? 0
-        : studio.scene_count;
+        : stats?.scene_count ?? 0; // CUSTOM
       if (!count) return;
 
       const url = performerId
-        ? NavUtils.makePerformerStudioScenesUrl(performerId, studio)
-        : NavUtils.makeStudioScenesUrl(studio);
+        ? NavUtils.makePerformerStudioScenesUrl(performerId, navigationStudio)
+        : NavUtils.makeStudioScenesUrl(navigationStudio);
 
       return (
         <PopoverCountButton
@@ -245,15 +257,19 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
       const count = performerId
         ? performerStats?.role_stats?.sex_scene_count ?? 0
-        : studio.studio_role_counts?.sex_scene_count ?? 0;
+        : stats?.studio_role_counts.sex_scene_count ?? 0; // CUSTOM
       const url = performerId
         ? NavUtils.makePerformerStudioMarkerScenesUrl(
             performerId,
-            studio,
+            navigationStudio,
             sexTag.id,
             "Sex"
           )
-        : NavUtils.makeStudioMarkerScenesUrl(studio, sexTag.id, "Sex");
+        : NavUtils.makeStudioMarkerScenesUrl(
+            navigationStudio,
+            sexTag.id,
+            "Sex"
+          );
 
       return (
         <Button
@@ -275,7 +291,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
       const count = performerId
         ? performerStats?.role_stats?.oral_scene_count ?? 0
-        : studio.studio_role_counts?.oral_scene_count ?? 0;
+        : stats?.studio_role_counts.oral_scene_count ?? 0; // CUSTOM
 
       // Oral excludes sex markers
       const excludeTags = sexTag ? [{ id: sexTag.id, label: sexTag.name }] : [];
@@ -284,14 +300,14 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       const url = performerId
         ? NavUtils.makePerformerStudioMarkerScenesUrl(
             performerId,
-            studio,
+            navigationStudio,
             oralTag.id,
             "Oral",
             excludeTags,
             -1
           )
         : NavUtils.makeStudioMarkerScenesUrl(
-            studio,
+            navigationStudio,
             oralTag.id,
             "Oral",
             excludeTags,
@@ -318,7 +334,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
       const count = performerId
         ? performerStats?.role_stats?.solo_scene_count ?? 0
-        : studio.studio_role_counts?.solo_scene_count ?? 0;
+        : stats?.studio_role_counts.solo_scene_count ?? 0; // CUSTOM
 
       // Solo excludes both sex and oral markers
       const excludeTags = [];
@@ -328,13 +344,13 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       const url = performerId
         ? NavUtils.makePerformerStudioMarkerScenesUrl(
             performerId,
-            studio,
+            navigationStudio,
             soloTag.id,
             "Solo",
             excludeTags
           )
         : NavUtils.makeStudioMarkerScenesUrl(
-            studio,
+            navigationStudio,
             soloTag.id,
             "Solo",
             excludeTags
@@ -360,19 +376,19 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
       const count = performerId
         ? performerStats?.role_stats?.facial_scene_count ?? 0
-        : studio.studio_role_counts?.facial_scene_count ?? 0;
+        : stats?.studio_role_counts.facial_scene_count ?? 0; // CUSTOM
       // Use depth -1 to include subtags
       const url = performerId
         ? NavUtils.makePerformerStudioMarkerScenesUrl(
             performerId,
-            studio,
+            navigationStudio,
             facialTag.id,
             "Facial",
             undefined,
             -1
           )
         : NavUtils.makeStudioMarkerScenesUrl(
-            studio,
+            navigationStudio,
             facialTag.id,
             "Facial",
             undefined,
@@ -397,11 +413,10 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       // Hide this button when viewing from a performer's studios tab
       if (performerId) return null;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const count = (studio as any).unique_performer_count ?? 0;
+      const count = stats?.unique_performer_count ?? 0; // CUSTOM
       if (count === 0) return null;
 
-      const url = NavUtils.makeStudioUniquePerformersUrl(studio);
+      const url = NavUtils.makeStudioUniquePerformersUrl(navigationStudio);
 
       return (
         <Button
@@ -421,12 +436,12 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
       const count = performerId
         ? performerStats?.image_count ?? 0
-        : studio.image_count;
+        : stats?.image_count ?? 0; // CUSTOM
       if (!count) return;
 
       const url = performerId
-        ? NavUtils.makePerformerStudioImagesUrl(performerId, studio)
-        : NavUtils.makeStudioImagesUrl(studio);
+        ? NavUtils.makePerformerStudioImagesUrl(performerId, navigationStudio)
+        : NavUtils.makeStudioImagesUrl(navigationStudio);
 
       return (
         <PopoverCountButton
@@ -443,12 +458,15 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
       const count = performerId
         ? performerStats?.gallery_count ?? 0
-        : studio.gallery_count;
+        : stats?.gallery_count ?? 0; // CUSTOM
       if (!count) return;
 
       const url = performerId
-        ? NavUtils.makePerformerStudioGalleriesUrl(performerId, studio)
-        : NavUtils.makeStudioGalleriesUrl(studio);
+        ? NavUtils.makePerformerStudioGalleriesUrl(
+            performerId,
+            navigationStudio
+          )
+        : NavUtils.makeStudioGalleriesUrl(navigationStudio);
 
       return (
         <PopoverCountButton
@@ -465,12 +483,12 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
       const count = performerId
         ? performerStats?.group_count ?? 0
-        : studio.group_count;
+        : stats?.group_count ?? 0; // CUSTOM
       if (!count) return;
 
       const url = performerId
-        ? NavUtils.makePerformerStudioGroupsUrl(performerId, studio)
-        : NavUtils.makeStudioGroupsUrl(studio);
+        ? NavUtils.makePerformerStudioGroupsUrl(performerId, navigationStudio)
+        : NavUtils.makeStudioGroupsUrl(navigationStudio);
 
       return (
         <PopoverCountButton
@@ -485,14 +503,14 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
     function maybeRenderPerformersPopoverButton() {
       // Hide performers button when viewing from performer's studios tab
       if (performerId) return null;
-      if (!studio.performer_count) return;
+      if (!stats?.performer_count) return; // CUSTOM
 
       return (
         <PopoverCountButton
           className="performer-count"
           type="performer"
-          count={studio.performer_count}
-          url={NavUtils.makeStudioPerformersUrl(studio)}
+          count={stats.performer_count} // CUSTOM
+          url={NavUtils.makeStudioPerformersUrl(navigationStudio)}
         />
       );
     }
@@ -519,7 +537,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
       const count = performerId
         ? performerStats?.o_counter ?? 0
-        : studio.o_counter;
+        : stats?.o_counter ?? 0; // CUSTOM
       if (!count) return;
 
       // CUSTOM: begin - open the studio O timeline from either counter control
@@ -564,13 +582,13 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
     // CUSTOM: begin - studio activity duration metrics
     function maybeRenderActivityMetrics() {
-      const stats = performerId
+      const activityStats = performerId
         ? performerStats?.activity_stats
-        : studio.studio_activity_stats;
+        : stats?.studio_activity_stats;
 
       return (
         <StudioActivityMetricsStrip
-          stats={stats}
+          stats={activityStats}
           idPrefix={`studio-activity-${studio.id}`}
         />
       );
@@ -586,16 +604,28 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       const hasActivityMetrics = performerId
         ? !!performerStats?.activity_stats &&
           performerStats.activity_stats.total_seconds > 0
-        : !!studio.studio_activity_stats &&
-          studio.studio_activity_stats.total_seconds > 0; // CUSTOM
+        : !!stats?.studio_activity_stats &&
+          stats.studio_activity_stats.total_seconds > 0; // CUSTOM
+
+      const hasCounts = performerId
+        ? !!(
+            performerStats?.scene_count ||
+            performerStats?.image_count ||
+            performerStats?.gallery_count ||
+            performerStats?.group_count ||
+            performerStats?.o_counter
+          )
+        : !!(
+            stats?.scene_count ||
+            stats?.image_count ||
+            stats?.gallery_count ||
+            stats?.group_count ||
+            stats?.performer_count ||
+            stats?.o_counter
+          ); // CUSTOM
 
       if (
-        studio.scene_count ||
-        studio.image_count ||
-        studio.gallery_count ||
-        studio.group_count ||
-        studio.performer_count ||
-        studio.o_counter ||
+        hasCounts || // CUSTOM
         studio.tags.length > 0 ||
         hasCategoryButtons ||
         hasActivityMetrics || // CUSTOM

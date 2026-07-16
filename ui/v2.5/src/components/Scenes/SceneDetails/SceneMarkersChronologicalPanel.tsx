@@ -1,8 +1,12 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { Badge, Button, Form } from "react-bootstrap";
 import cx from "classnames";
 import Select, { MultiValue, SingleValue } from "react-select";
-import { faExclamationTriangle } from "@fortawesome/free-solid-svg-icons";
+import {
+  faArrowsAltH,
+  faExclamationTriangle,
+  faStar,
+} from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import { Icon } from "src/components/Shared/Icon";
 import { HoverPopover } from "src/components/Shared/HoverPopover";
@@ -41,6 +45,7 @@ import {
   useSceneMarkerRatingCardClassGetter,
   type MarkerRatingCardClassGetter,
 } from "./sceneMarkerHoverPopover_custom";
+import { getSceneMarkerSelectionState } from "./sceneMarkerSelection_custom";
 
 interface ISceneMarkersChronologicalPanel {
   markers: GQL.SceneMarkerDataFragment[];
@@ -144,6 +149,52 @@ function uniqueMarkerIds(
 ) {
   return Array.from(new Set(markers.map((marker) => marker.id)));
 }
+
+interface IMarkerScopeCheckbox {
+  ariaLabel: string;
+  className: string;
+  markerIds: string[];
+  onSelectMarkers: (ids: string[], selected: boolean) => void;
+  selectedMarkerIds: Set<string>;
+  title: string;
+}
+
+const MarkerScopeCheckbox: React.FC<IMarkerScopeCheckbox> = ({
+  ariaLabel,
+  className,
+  markerIds,
+  onSelectMarkers,
+  selectedMarkerIds,
+  title,
+}) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const selectionState = getSceneMarkerSelectionState(
+    markerIds,
+    selectedMarkerIds
+  );
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.indeterminate = selectionState === "some";
+    }
+  }, [selectionState]);
+
+  return (
+    <label
+      className={cx("scene-marker-scope-checkbox", className)}
+      onClick={(event) => event.stopPropagation()}
+      title={title}
+    >
+      <input
+        aria-label={ariaLabel}
+        checked={selectionState === "all"}
+        onChange={() => onSelectMarkers(markerIds, selectionState !== "all")}
+        ref={inputRef}
+        type="checkbox"
+      />
+    </label>
+  );
+};
 
 function compareChronologicalMarkers(
   a: Pick<GQL.SceneMarkerDataFragment, "id" | "seconds" | "end_seconds">,
@@ -374,7 +425,7 @@ const TimelineMarkerBox: React.FC<ITimelineMarkerBox> = ({
         />
       )}
       <Button
-        className="scene-marker-activity-marker-edit p-0"
+        className="scene-marker-activity-marker-edit"
         variant="link"
         onClick={(event) => {
           event.stopPropagation();
@@ -384,6 +435,7 @@ const TimelineMarkerBox: React.FC<ITimelineMarkerBox> = ({
         Edit
       </Button>
       <Form.Check
+        aria-label={`Select ${markerTitle(marker) || "Activity marker"}`}
         className="scene-marker-activity-marker-checkbox"
         type="checkbox"
         checked={selectedMarkerIds.has(marker.id)}
@@ -393,6 +445,7 @@ const TimelineMarkerBox: React.FC<ITimelineMarkerBox> = ({
         onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
           onSelectMarker(marker.id, e.currentTarget.checked)
         }
+        title={`Select ${markerTitle(marker) || "Activity marker"}`}
       />
     </div>
   );
@@ -401,6 +454,7 @@ const TimelineMarkerBox: React.FC<ITimelineMarkerBox> = ({
 interface IActivityTypeGroupCard {
   group: IChronologicalSceneMarkerLayoutGroup<GQL.SceneMarkerDataFragment>;
   hideActivityPills?: boolean;
+  showGroupHeader: boolean;
   orgasmTagId?: string;
   selectedMarkerIds: Set<string>;
   currentTimestamp?: number;
@@ -416,6 +470,7 @@ interface IActivityTypeGroupCard {
 const ActivityTypeGroupCard: React.FC<IActivityTypeGroupCard> = ({
   group,
   hideActivityPills,
+  showGroupHeader,
   orgasmTagId,
   selectedMarkerIds,
   currentTimestamp,
@@ -432,16 +487,14 @@ const ActivityTypeGroupCard: React.FC<IActivityTypeGroupCard> = ({
   const activityMarkers = hideActivityPills
     ? []
     : [...group.markers].sort(compareChronologicalMarkers);
-  const groupMarkerIds = activityMarkers.map((marker) => marker.id);
-  const allGroupSelected =
-    groupMarkerIds.length > 0 &&
-    groupMarkerIds.every((id) => selectedMarkerIds.has(id));
   const groupMarkers = [
     ...activityMarkers,
     ...group.highlightGroups.flatMap(
       (highlightGroup) => highlightGroup.markers
     ),
   ];
+  const activityMarkerIds = activityMarkers.map((marker) => marker.id);
+  const groupMarkerIds = uniqueMarkerIds(groupMarkers);
   const groupDurationSeconds = sumMergedMarkerDurations(groupMarkers);
   const isCurrentGroup = groupMarkers.some((marker) =>
     timestampBelongsToSceneMarker(marker, currentTimestamp)
@@ -461,21 +514,23 @@ const ActivityTypeGroupCard: React.FC<IActivityTypeGroupCard> = ({
         "scene-marker-activity-config-card-current": isCurrentGroup,
       })}
     >
-      <div className="scene-marker-activity-config-header">
-        <span className="scene-marker-activity-config-summary">
-          {formatMarkerDuration(groupDurationSeconds)}
-        </span>
-        {groupMarkerIds.length > 1 && (
-          <Form.Check
-            className="scene-marker-activity-config-checkbox"
-            type="checkbox"
-            checked={allGroupSelected}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              onSelectMarkers(groupMarkerIds, e.currentTarget.checked)
-            }
-          />
-        )}
-      </div>
+      {showGroupHeader && (
+        <div className="scene-marker-activity-config-header">
+          <span className="scene-marker-activity-config-summary">
+            {formatMarkerDuration(groupDurationSeconds)}
+          </span>
+          {groupMarkerIds.length > 1 && (
+            <MarkerScopeCheckbox
+              ariaLabel="Select all markers in this performer configuration"
+              className="scene-marker-activity-config-checkbox"
+              markerIds={groupMarkerIds}
+              onSelectMarkers={onSelectMarkers}
+              selectedMarkerIds={selectedMarkerIds}
+              title="Select Activity and Highlight markers in this performer configuration"
+            />
+          )}
+        </div>
+      )}
       <div className="scene-marker-activity-config-body">
         <div className="scene-marker-activity-config-performers">
           {hasPerformers ? (
@@ -502,21 +557,39 @@ const ActivityTypeGroupCard: React.FC<IActivityTypeGroupCard> = ({
           )}
         </div>
         {activityMarkers.length > 0 && (
-          <div className="scene-marker-activity-config-markers">
-            {activityMarkers.map((marker) => (
-              <TimelineMarkerBox
-                key={marker.id}
-                marker={marker}
-                selectedMarkerIds={selectedMarkerIds}
-                currentTimestamp={currentTimestamp}
-                focusedMarkerId={focusedMarkerId}
-                warningMessages={markerWarningMessagesById.get(marker.id)}
-                onClickMarker={onClickMarker}
-                onEdit={onEdit}
-                onSelectMarker={onSelectMarker}
-                getMarkerRatingCardClass={getMarkerRatingCardClass}
-              />
-            ))}
+          <div className="scene-marker-marker-lane scene-marker-activity-lane">
+            <div className="scene-marker-marker-lane-header">
+              <span className="scene-marker-marker-lane-title">
+                <Icon icon={faArrowsAltH} />
+                Activity ranges
+              </span>
+              {activityMarkerIds.length > 1 && (
+                <MarkerScopeCheckbox
+                  ariaLabel="Select Activity ranges in this performer configuration"
+                  className="scene-marker-marker-lane-checkbox"
+                  markerIds={activityMarkerIds}
+                  onSelectMarkers={onSelectMarkers}
+                  selectedMarkerIds={selectedMarkerIds}
+                  title="Select Activity ranges in this performer configuration"
+                />
+              )}
+            </div>
+            <div className="scene-marker-activity-config-markers">
+              {activityMarkers.map((marker) => (
+                <TimelineMarkerBox
+                  key={marker.id}
+                  marker={marker}
+                  selectedMarkerIds={selectedMarkerIds}
+                  currentTimestamp={currentTimestamp}
+                  focusedMarkerId={focusedMarkerId}
+                  warningMessages={markerWarningMessagesById.get(marker.id)}
+                  onClickMarker={onClickMarker}
+                  onEdit={onEdit}
+                  onSelectMarker={onSelectMarker}
+                  getMarkerRatingCardClass={getMarkerRatingCardClass}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -560,9 +633,8 @@ const HighlightSegmentBox: React.FC<{
   getMarkerRatingCardClass,
 }) => {
   const segmentMarkerIds = segment.markers.map((marker) => marker.id);
-  const allSegmentSelected =
-    segmentMarkerIds.length > 0 &&
-    segmentMarkerIds.every((id) => selectedMarkerIds.has(id));
+  const highlightTitle =
+    markerTitle(segment.representativeMarker) || "Highlight";
   const isCurrentSegment =
     currentTimestamp !== undefined &&
     currentTimestamp > 0 &&
@@ -594,33 +666,38 @@ const HighlightSegmentBox: React.FC<{
         seekToSegment(segment.seconds);
       }}
     >
-      <div
-        className="scene-marker-activity-marker-time"
-        title={`Seek to ${TextUtils.secondsToTimestamp(segment.seconds)}`}
-      >
-        <Button
-          className="scene-marker-activity-marker-time-part p-0"
-          variant="link"
-          onClick={(event) => {
-            event.stopPropagation();
-            seekToSegment(segment.seconds);
-          }}
-          title="Seek to segment start"
+      <div className="scene-marker-highlight-segment-content">
+        <span className="scene-marker-highlight-segment-title">
+          {highlightTitle}
+        </span>
+        <div
+          className="scene-marker-activity-marker-time"
+          title={`Seek to ${TextUtils.secondsToTimestamp(segment.seconds)}`}
         >
-          {TextUtils.secondsToTimestamp(segment.seconds)}
-        </Button>
-        <span className="scene-marker-activity-marker-time-separator">-</span>
-        <Button
-          className="scene-marker-activity-marker-time-part p-0"
-          variant="link"
-          onClick={(event) => {
-            event.stopPropagation();
-            seekToSegment(segment.end_seconds);
-          }}
-          title="Seek to segment end"
-        >
-          {TextUtils.secondsToTimestamp(segment.end_seconds)}
-        </Button>
+          <Button
+            className="scene-marker-activity-marker-time-part p-0"
+            variant="link"
+            onClick={(event) => {
+              event.stopPropagation();
+              seekToSegment(segment.seconds);
+            }}
+            title="Seek to segment start"
+          >
+            {TextUtils.secondsToTimestamp(segment.seconds)}
+          </Button>
+          <span className="scene-marker-activity-marker-time-separator">-</span>
+          <Button
+            className="scene-marker-activity-marker-time-part p-0"
+            variant="link"
+            onClick={(event) => {
+              event.stopPropagation();
+              seekToSegment(segment.end_seconds);
+            }}
+            title="Seek to segment end"
+          >
+            {TextUtils.secondsToTimestamp(segment.end_seconds)}
+          </Button>
+        </div>
       </div>
       {warningMessages.length > 0 && (
         <Icon
@@ -630,7 +707,7 @@ const HighlightSegmentBox: React.FC<{
         />
       )}
       <Button
-        className="scene-marker-activity-marker-edit p-0"
+        className="scene-marker-activity-marker-edit"
         variant="link"
         onClick={(event) => {
           event.stopPropagation();
@@ -639,16 +716,13 @@ const HighlightSegmentBox: React.FC<{
       >
         Edit
       </Button>
-      <Form.Check
+      <MarkerScopeCheckbox
+        ariaLabel={`Select ${highlightTitle}`}
         className="scene-marker-activity-marker-checkbox"
-        type="checkbox"
-        checked={allSegmentSelected}
-        onClick={(event: React.MouseEvent<HTMLInputElement>) =>
-          event.stopPropagation()
-        }
-        onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-          onSelectMarkers(segmentMarkerIds, event.currentTarget.checked)
-        }
+        markerIds={segmentMarkerIds}
+        onSelectMarkers={onSelectMarkers}
+        selectedMarkerIds={selectedMarkerIds}
+        title={`Select ${highlightTitle}`}
       />
     </div>
   );
@@ -748,30 +822,29 @@ function ActivityGroupHighlights({
     0
   );
   const highlightMarkerIds = highlightGroupMarkerIds(highlightGroups);
-  const allHighlightsSelected =
-    highlightMarkerIds.length > 0 &&
-    highlightMarkerIds.every((id) => selectedMarkerIds.has(id));
 
   if (highlightCount === 0) {
     return null;
   }
 
   return (
-    <div className="scene-marker-activity-highlights">
-      {highlightMarkerIds.length > 1 && (
-        <Form.Check
-          className="scene-marker-activity-highlights-checkbox"
-          type="checkbox"
-          checked={allHighlightsSelected}
-          onClick={(event: React.MouseEvent<HTMLInputElement>) =>
-            event.stopPropagation()
-          }
-          onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-            onSelectMarkers(highlightMarkerIds, event.currentTarget.checked)
-          }
-          title="Select highlights in this group"
-        />
-      )}
+    <div className="scene-marker-marker-lane scene-marker-highlight-lane">
+      <div className="scene-marker-marker-lane-header">
+        <span className="scene-marker-marker-lane-title">
+          <Icon icon={faStar} />
+          Highlights
+        </span>
+        {highlightMarkerIds.length > 1 && (
+          <MarkerScopeCheckbox
+            ariaLabel="Select Highlights in this performer configuration"
+            className="scene-marker-marker-lane-checkbox"
+            markerIds={highlightMarkerIds}
+            onSelectMarkers={onSelectMarkers}
+            selectedMarkerIds={selectedMarkerIds}
+            title="Select Highlights in this performer configuration"
+          />
+        )}
+      </div>
       <HighlightPillList
         highlightGroups={highlightGroups}
         orgasmTagId={orgasmTagId}
@@ -1006,12 +1079,16 @@ export const SceneMarkersChronologicalPanel: React.FC<
                   {TextUtils.secondsToTimestamp(window.end_seconds)}
                 </Button>
                 <Form.Check
+                  aria-label={`Select derived range ${TextUtils.secondsToTimestamp(
+                    window.seconds
+                  )} to ${TextUtils.secondsToTimestamp(window.end_seconds)}`}
                   className="scene-marker-derived-window-checkbox"
                   type="checkbox"
                   checked={selected}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     onSelectDerivedWindow(window.key, e.currentTarget.checked)
                   }
+                  title="Select derived overlap range"
                 />
               </div>
             );
@@ -1030,29 +1107,28 @@ export const SceneMarkersChronologicalPanel: React.FC<
     const sectionMarkerIds = highlightGroupMarkerIds(
       layout.fallbackHighlightGroups
     );
-    const allSectionSelected =
-      sectionMarkerIds.length > 0 &&
-      sectionMarkerIds.every((id) => selectedMarkerIds.has(id));
     const sectionDurationSeconds = sumMergedMarkerDurations(
       layout.fallbackHighlightGroups.flatMap((group) => group.markers)
     );
 
     return (
-      <React.Fragment key={fallbackGroupKey}>
+      <div className="scene-marker-activity-section" key={fallbackGroupKey}>
         <div className="scene-marker-activity-group-header">
           <div className="scene-marker-activity-group-title">
             <span>Other Highlights</span>
           </div>
           <div className="scene-marker-activity-group-meta">
-            <span>{formatMarkerDuration(sectionDurationSeconds)}</span>
+            <span className="scene-marker-activity-group-duration">
+              {formatMarkerDuration(sectionDurationSeconds)}
+            </span>
             {sectionMarkerIds.length > 1 && (
-              <Form.Check
+              <MarkerScopeCheckbox
+                ariaLabel="Select all Other Highlights"
                 className="scene-marker-activity-group-checkbox"
-                type="checkbox"
-                checked={allSectionSelected}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onSelectMarkers(sectionMarkerIds, e.currentTarget.checked)
-                }
+                markerIds={sectionMarkerIds}
+                onSelectMarkers={onSelectMarkers}
+                selectedMarkerIds={selectedMarkerIds}
+                title="Select all Other Highlights"
               />
             )}
           </div>
@@ -1071,7 +1147,7 @@ export const SceneMarkersChronologicalPanel: React.FC<
             getMarkerRatingCardClass={getMarkerRatingCardClass}
           />
         </div>
-      </React.Fragment>
+      </div>
     );
   };
 
@@ -1082,13 +1158,13 @@ export const SceneMarkersChronologicalPanel: React.FC<
         <>
           {activityTypeSections.map((section) => {
             const sectionMarkerIds = uniqueMarkerIds(
-              section.hideActivityPills
-                ? []
-                : section.groups.flatMap((group) => group.markers)
+              section.groups.flatMap((group) => [
+                ...(section.hideActivityPills ? [] : group.markers),
+                ...group.highlightGroups.flatMap(
+                  (highlightGroup) => highlightGroup.markers
+                ),
+              ])
             );
-            const allSectionSelected =
-              sectionMarkerIds.length > 0 &&
-              sectionMarkerIds.every((id) => selectedMarkerIds.has(id));
             const sectionDurationSeconds = sumMergedMarkerDurations(
               section.groups.flatMap((group) => [
                 ...(section.hideActivityPills ? [] : group.markers),
@@ -1099,7 +1175,7 @@ export const SceneMarkersChronologicalPanel: React.FC<
             );
 
             return (
-              <React.Fragment key={section.key}>
+              <div className="scene-marker-activity-section" key={section.key}>
                 <div className="scene-marker-activity-group-header">
                   <div className="scene-marker-activity-group-title">
                     <span>{section.label}</span>
@@ -1107,23 +1183,22 @@ export const SceneMarkersChronologicalPanel: React.FC<
                     {(section.key === "oral" || section.key === "sex") &&
                       activitySectionPercents[section.key] !== undefined && (
                         <span className="scene-marker-activity-group-percent">
-                          {activitySectionPercents[section.key]}%
+                          {activitySectionPercents[section.key]}% coverage
                         </span>
                       )}
                   </div>
                   <div className="scene-marker-activity-group-meta">
-                    <span>{formatMarkerDuration(sectionDurationSeconds)}</span>
+                    <span className="scene-marker-activity-group-duration">
+                      {formatMarkerDuration(sectionDurationSeconds)}
+                    </span>
                     {sectionMarkerIds.length > 1 && (
-                      <Form.Check
+                      <MarkerScopeCheckbox
+                        ariaLabel={`Select all markers in ${section.label}`}
                         className="scene-marker-activity-group-checkbox"
-                        type="checkbox"
-                        checked={allSectionSelected}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          onSelectMarkers(
-                            sectionMarkerIds,
-                            e.currentTarget.checked
-                          )
-                        }
+                        markerIds={sectionMarkerIds}
+                        onSelectMarkers={onSelectMarkers}
+                        selectedMarkerIds={selectedMarkerIds}
+                        title={`Select Activity and Highlight markers in ${section.label}`}
                       />
                     )}
                   </div>
@@ -1133,6 +1208,7 @@ export const SceneMarkersChronologicalPanel: React.FC<
                     key={group.key}
                     group={group}
                     hideActivityPills={section.hideActivityPills}
+                    showGroupHeader={section.groups.length > 1}
                     orgasmTagId={configuration?.ui.roleTagIds?.orgasmTagId}
                     selectedMarkerIds={selectedMarkerIds}
                     currentTimestamp={currentTimestamp}
@@ -1145,7 +1221,7 @@ export const SceneMarkersChronologicalPanel: React.FC<
                     getMarkerRatingCardClass={getMarkerRatingCardClass}
                   />
                 ))}
-              </React.Fragment>
+              </div>
             );
           })}
           {renderFallbackHighlightSection()}

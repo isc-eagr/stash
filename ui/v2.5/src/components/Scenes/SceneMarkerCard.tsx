@@ -26,6 +26,7 @@ import {
   isRatingCardHomePage,
 } from "src/utils/ratingCardStyles_custom"; // CUSTOM
 import { getChronologicalSceneMarkerDisplayTags } from "./SceneDetails/sceneMarkerChronologySearch_custom"; // CUSTOM
+import { ROLE_COLORS_CUSTOM } from "src/utils/roleColors_custom"; // CUSTOM
 
 interface ISceneMarkerCardProps {
   marker: GQL.SceneMarkerDataFragment;
@@ -181,10 +182,20 @@ const SceneMarkerCardDetails = PatchComponent(
           props.marker.bottom_performers.length > 0) && (
           <div className="scene-marker-card__performers">
             {props.marker.top_performers.map((p) =>
-              renderPerformerChip(p, "success", showRoleArrows, faArrowUp)
+              renderPerformerChip(
+                p,
+                ROLE_COLORS_CUSTOM.top.variant,
+                showRoleArrows,
+                faArrowUp
+              )
             )}
             {props.marker.bottom_performers.map((p) =>
-              renderPerformerChip(p, "info", showRoleArrows, faArrowDown)
+              renderPerformerChip(
+                p,
+                ROLE_COLORS_CUSTOM.bottom.variant,
+                showRoleArrows,
+                faArrowDown
+              )
             )}
           </div>
         )}

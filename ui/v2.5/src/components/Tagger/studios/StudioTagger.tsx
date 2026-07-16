@@ -42,7 +42,7 @@ type JobFragment = Pick<
 const CLASSNAME = "StudioTagger";
 
 interface IStudioTaggerListProps {
-  studios: GQL.StudioDataFragment[];
+  studios: GQL.StudioListDataFragment[]; // CUSTOM
   selectedEndpoint: { endpoint: string; index: number };
   isIdle: boolean;
   config: ITaggerConfig;
@@ -71,9 +71,9 @@ const StudioTaggerList: React.FC<IStudioTaggerListProps> = ({
   const [searchErrors, setSearchErrors] = useState<
     Record<string, string | undefined>
   >({});
-  const [taggedStudios, setTaggedStudios] = useState<
-    Record<string, Partial<GQL.SlimStudioDataFragment>>
-  >({});
+  const [taggedStudios, setTaggedStudios] = useState<Record<string, boolean>>(
+    {}
+  ); // CUSTOM
   const [queries, setQueries] = useState<Record<string, string>>({});
 
   const [showBatchAdd, setShowBatchAdd] = useState(false);
@@ -172,12 +172,12 @@ const StudioTaggerList: React.FC<IStudioTaggerListProps> = ({
   };
 
   const handleTaggedStudio = (
-    studio: Pick<GQL.SlimStudioDataFragment, "id"> &
-      Partial<Omit<GQL.SlimStudioDataFragment, "id">>
+    studio: Pick<GQL.StudioListDataFragment, "id">
   ) => {
+    // CUSTOM
     setTaggedStudios({
       ...taggedStudios,
-      [studio.id]: studio,
+      [studio.id]: true,
     });
   };
 
@@ -473,7 +473,7 @@ const StudioTaggerList: React.FC<IStudioTaggerListProps> = ({
 };
 
 interface ITaggerProps {
-  studios: GQL.StudioDataFragment[];
+  studios: GQL.StudioListDataFragment[]; // CUSTOM
 }
 
 export const StudioTagger: React.FC<ITaggerProps> = ({ studios }) => {

@@ -270,6 +270,17 @@ func (r *mutationResolver) sceneUpdate(ctx context.Context, input models.SceneUp
 		return nil, err
 	}
 
+	// CUSTOM: begin - reset advisor scores when cast crosses the group threshold
+	previousPerformerCount := 0
+	if updatedScene.PerformerIDs != nil {
+		performerIDs, err := qb.GetPerformerIDs(ctx, sceneID)
+		if err != nil {
+			return nil, err
+		}
+		previousPerformerCount = len(performerIDs)
+	}
+	// CUSTOM: end
+
 	// ensure that title is set where scene has no file
 	if updatedScene.Title.Set && updatedScene.Title.Value == "" {
 		if err := originalScene.LoadFiles(ctx, r.repository.Scene); err != nil {
@@ -326,6 +337,14 @@ func (r *mutationResolver) sceneUpdate(ctx context.Context, input models.SceneUp
 	if err != nil {
 		return nil, err
 	}
+
+	// CUSTOM: begin - reset advisor scores when cast crosses the group threshold
+	if updatedScene.PerformerIDs != nil {
+		if err := r.resetSceneAdvisorIfGroupBoundaryCrossedCustom(ctx, sceneID, previousPerformerCount); err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
 
 	if coverImageIncluded {
 		if err := r.sceneUpdateCoverImage(ctx, scene, coverImageData); err != nil {
@@ -422,10 +441,29 @@ func (r *mutationResolver) BulkSceneUpdate(ctx context.Context, input BulkSceneU
 		qb := r.repository.Scene
 
 		for _, sceneID := range sceneIDs {
+			// CUSTOM: begin - reset advisor scores when bulk cast edit crosses the group threshold
+			previousPerformerCount := 0
+			if updatedScene.PerformerIDs != nil {
+				performerIDs, err := qb.GetPerformerIDs(ctx, sceneID)
+				if err != nil {
+					return err
+				}
+				previousPerformerCount = len(performerIDs)
+			}
+			// CUSTOM: end
+
 			scene, err := qb.UpdatePartial(ctx, sceneID, updatedScene)
 			if err != nil {
 				return err
 			}
+
+			// CUSTOM: begin - reset advisor scores when bulk cast edit crosses the group threshold
+			if updatedScene.PerformerIDs != nil {
+				if err := r.resetSceneAdvisorIfGroupBoundaryCrossedCustom(ctx, sceneID, previousPerformerCount); err != nil {
+					return err
+				}
+			}
+			// CUSTOM: end
 
 			if customFields != nil {
 				if err := qb.SetCustomFields(ctx, scene.ID, *customFields); err != nil {

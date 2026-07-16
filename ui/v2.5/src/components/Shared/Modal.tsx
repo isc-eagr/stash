@@ -22,6 +22,7 @@ interface IModal {
   disabled?: boolean;
   modalProps?: ModalProps;
   dialogClassName?: string;
+  closeButton?: boolean; // CUSTOM
   footerButtons?: React.ReactNode;
   leftFooterButtons?: React.ReactNode;
 }
@@ -40,6 +41,7 @@ export const ModalComponent: React.FC<IModal> = ({
   disabled,
   modalProps,
   dialogClassName,
+  closeButton = false, // CUSTOM
   footerButtons,
   leftFooterButtons,
 }) => (
@@ -51,7 +53,8 @@ export const ModalComponent: React.FC<IModal> = ({
     dialogClassName={dialogClassName}
     {...modalProps}
   >
-    <Modal.Header>
+    {/* CUSTOM: optional header close button */}
+    <Modal.Header closeButton={closeButton}>
       {icon ? <Icon icon={icon} /> : ""}
       <span>{header ?? ""}</span>
     </Modal.Header>

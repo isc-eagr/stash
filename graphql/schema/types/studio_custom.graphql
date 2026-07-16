@@ -39,6 +39,27 @@ type StudioActivityStats {
 }
 # CUSTOM: end
 
+# CUSTOM: begin
+# Batched aggregate payload used by the studios list. Keeping these values on the
+# result object avoids running the corresponding resolver once per studio card.
+type StudioListStats {
+  studio_id: ID!
+  scene_count: Int!
+  image_count: Int!
+  gallery_count: Int!
+  performer_count: Int!
+  group_count: Int!
+  o_counter: Int!
+  unique_performer_count: Int!
+  studio_role_counts: StudioRoleCounts!
+  studio_activity_stats: StudioActivityStats!
+}
+
+extend type FindStudiosResultType {
+  studio_list_stats: [StudioListStats!]!
+}
+# CUSTOM: end
+
 # StudioPerformerRoleStats: all performer-filtered marker-based counts in one batch resolver.
 # Replaces the ~21 individual field calls in FindStudioPerformerStats, cutting
 # getStudioSceneIDs calls from 21+ down to 2 (one with performer filter, one without).

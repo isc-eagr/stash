@@ -149,6 +149,7 @@ Visual indicators on performer cards and scene cards showing role information ba
 
 ### Features
 
+- **Role color convention**: Top is blue and Bottom is green across badges, filters, player/viewer overlays, hover tags, and stats charts.
 - **Top/Bottom counts**: Displayed on performer cards showing breakdown by role
 - **Scene-context role chips**: Performer cards inside a scene show sex/oral/facial role arrows and counts without duration percentages, keeping the chips compact and consistent with other performer cards.
 - **Category icons**: Gay icon (sex), Mouth icon (oral), Hand icon (solo), Facial icon (facial)
@@ -166,6 +167,9 @@ Visual indicators on performer cards and scene cards showing role information ba
 
   - Marker-based category buttons with counts
   - Scene-only sex/oral/facial role chips without duration percentages
+
+- `ui/v2.5/src/utils/roleColors_custom.ts` - Central Top/Bottom color and Bootstrap variant mapping
+- `ui/v2.5/tests/roleColors_custom.test.ts` - Verifies Top stays blue and Bottom stays green
 
 - `ui/v2.5/src/components/Scenes/SceneCard.tsx`:
 
@@ -199,12 +203,17 @@ Custom analytics are split into focused hidden pages instead of the retired `/cu
 
 - `ui/v2.5/src/components/SceneStats/SceneStats.tsx`
 - `ui/v2.5/src/components/SceneStats/SceneStats.scss`
+- `ui/v2.5/src/components/SceneStats/sceneStatsSummary_custom.ts`
 - `ui/v2.5/src/components/VatoStats/VatoStats.tsx`
 - `ui/v2.5/src/components/VatoStats/VatoStats.scss`
+- `ui/v2.5/tests/sceneStatsSummary_custom.test.ts`
+- `internal/api/stats_marker_counts_custom.go`
+- `internal/api/stats_marker_counts_custom_test.go`
 
 ### Features
 
-- Scene counts by category (sex, oral, solo, facial) on `/scenestats`
+- Scene counts by category (sex, oral, solo, facial) on `/scenestats`, with compact category tooltips
+- Clickable icon counts split scenes into 1-vato, standard 2/3-vato, and 4+-vato group buckets using Performer Count filters
 - Scene podium metrics by O Count, Rating, Duration, File Size, Most Recent O, and Vato Count
 - Scene charts by vato ethnicity, vato country, vato count, release date, facial status/count, really-hot facial count, scene type, duration buckets, and resolution
 - Performer ethnicity Bronze/Silver/Gold/Sapphire metallic rating-tier breakdown on `/vatostats`
@@ -215,9 +224,9 @@ Custom analytics are split into focused hidden pages instead of the retired `/cu
 The `sceneOrgasmCount` and `sceneFacialCount` resolvers use the following logic:
 
 - **Subtag Support**: Markers are counted if their primary tag OR any secondary tag is the target tag (e.g., "orgasm") or any of its descendants/subtags
-- **Top-based Counting**: For each matching marker, the count is the number of "top" performers assigned to that marker
-- **Minimum Count**: If a marker has no tops assigned, it counts as 1
-- **Example**: A marker with 2 orgasm subtags but 1 top = counts as 1. A marker with 1 subtag but 3 tops = counts as 3.
+- **Top-based Counting**: Each matching marker counts once per assigned top performer, with a minimum count of 1 when no top is assigned
+- **Search Difference Tooltip**: Total cards explain that their linked marker search counts marker rows rather than tops and includes 2nd-camera markers excluded from statistics, so the totals can differ
+- **Vato Summary Consistency**: Sex/oral top and bottom cards count primary tags, secondary tags, and all descendants just like their performer-search drilldowns; Solo Only counts any assigned role
 
 ### GraphQL Queries (Custom)
 
@@ -465,6 +474,29 @@ Studios can now be sorted by their scene category counts (sex, oral, solo, facia
 **Updated: June 2026**
 
 Studio `o_counter` now accepts `depth` and includes child studios when requested. Studio cards request `o_counter(depth: -1)` so parent studio cards and detail pages show the combined O-count for the parent and its substudios. Performer-scoped studio cards pass the same studio depth used by their other counts.
+
+### Batched Studio List Statistics
+
+**Updated: July 2026**
+
+The studios list returns card counts, recursive O-counts, category counts, and activity-duration statistics in one page-level `studio_list_stats` payload. Grouped SQL queries calculate the requested studio IDs together, and marker-role queries are restricted to scenes from those studios instead of loading every matching marker and intersecting in Go once per card. Existing `Studio` aggregate fields remain available for detail pages, performer-scoped cards, and plugins.
+
+The list also uses a dedicated `StudioListData` fragment. It keeps fields required for cards, bulk editing, and studio tagging while excluding full detail metadata and the expanded `SlimTagData` fragment.
+
+**Files modified or added:**
+
+- `graphql/schema/types/studio_custom.graphql` - Adds `StudioListStats` and `FindStudiosResultType.studio_list_stats`
+- `internal/api/studio_list_stats_custom.go` - Batched basic counts, recursive O-counts, role counts, and activity stats
+- `internal/api/resolver_query_find_studio.go` - Populates list stats only when requested
+- `ui/v2.5/graphql/data/studio.graphql`, `ui/v2.5/graphql/queries/studio.graphql` - Lean studio-list and stats fragments
+- `ui/v2.5/src/components/Studios/StudioList.tsx`, `StudioCardGrid.tsx`, `StudioCard.tsx` - Maps page-level stats to cards
+- `ui/v2.5/src/components/Studios/EditStudiosDialog.tsx` and `ui/v2.5/src/components/Tagger/studios/*` - Use the lean list fragment without changing bulk-edit/tagger behavior
+
+**Tests:**
+
+- `internal/api/studio_list_stats_custom_test.go` - Verifies batched role-row mapping, activity aggregation, scene counts, and interval clamping
+
+**Configuration dependencies:** Uses the existing UI role tag IDs for sex, oral, solo, and facial category calculations. No database migration or new configuration key is required.
 
 ### Studio GraphQL Extensions
 
@@ -1054,7 +1086,7 @@ CREATE INDEX `idx_scene_marker_performers_performer_role` ON `scene_marker_perfo
 ### Frontend Files
 
 - `ui/v2.5/graphql/data/scene-marker.graphql` - Added `top_performers` and `bottom_performers` to SceneMarkerData fragment
-- `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkerForm.tsx` - Two separate performer dropdowns with arrow icons: Top (↑ blue) and Bottom (↓ red)
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkerForm.tsx` - Two separate performer dropdowns with arrow icons: Top (↑ blue) and Bottom (↓ green)
 - `ui/v2.5/src/components/Scenes/SceneDetails/PrimaryTags.tsx` - Displays top/bottom performers with color-coded badges and icons
 - `ui/v2.5/src/components/Scenes/MarkerPlaylistPlayer.tsx` - Shows top/bottom performers with icons in the playlist player, including hover profile images in both normal and fullscreen modes
 - `ui/v2.5/src/components/Scenes/MultiVideoViewer.tsx` - Shows marker/scene performer chips with hover profile images in the marker viewer
@@ -1072,7 +1104,7 @@ CREATE INDEX `idx_scene_marker_performers_performer_role` ON `scene_marker_perfo
 
 - **Top/Bottom Distinction**: Each marker performer can be tagged as either top (giving) or bottom (receiving)
 - Select one or more performers from the scene's performers when creating/editing a marker
-- UI shows arrow-up (↑ blue) icon for tops and arrow-down (↓ red) icon for bottoms
+- UI shows arrow-up (↑ blue) icon for tops and arrow-down (↓ green) icon for bottoms
 - Performers are displayed with role indicators in:
   - Scene marker form (editing)
   - PrimaryTags panel (scene details Markers tab)
@@ -1145,7 +1177,7 @@ extend type Query {
 
 **File:** `internal/api/resolver.go`
 
-- `EstimatedLiters` resolver: Uses `SceneOrgasmCount` (which counts tops on orgasm markers, including subtags) and multiplies by 3ml (0.003L)
+- `EstimatedLiters` resolver: Uses `SceneOrgasmCount` (one event per top on an orgasm marker, with a minimum of one) and multiplies by 3ml (0.003L)
 - `TotalPenisMeters` resolver: Sums performer penis lengths (defaulting to 17cm when null), converts to meters
 - `TotalOrgasmTime` resolver: Sums duration of all orgasm markers (uses end_seconds - seconds, or 20s default if no end time)
 - `TotalFacialTime` resolver: Sums duration of all facial markers (uses end_seconds - seconds, or 20s default if no end time)
@@ -1156,7 +1188,7 @@ extend type Query {
 
 ### Features
 
-- **Estimated Liters**: Calculates total orgasms (based on tops per orgasm marker, including subtags) × 3ml converted to liters, displayed with 2 decimal places
+- **Estimated Liters**: Calculates total orgasms (one event per top on each matching marker, with a minimum of one) × 3ml converted to liters, displayed with 2 decimal places
 - **Total Penis Meters**: Sums all performer penis lengths (uses 17cm default), displays in meters with 🍆 emoji
 - **Total Orgasm Time**: Sum of all orgasm marker durations (end_seconds - seconds), using 20s default when no end timestamp
 - **Total Facial Time**: Sum of all facial marker durations (end_seconds - seconds), using 20s default when no end timestamp
@@ -1655,7 +1687,7 @@ Adds partner count badges to performer cards and detail pages (outside scene con
   - Uses person icon (faUser) combined with arrow icons to indicate top/bottom
   - Smaller font size and styling to distinguish from scene count badges
   - Category icons (gay/mouth/facial) shown with reduced opacity (0.7)
-  - Green badges for "topped" counts, blue badges for "bottomed for" counts
+  - Blue badges for "topped" counts, green badges for "bottomed for" counts
   - Partner badge hover popovers use the shared larger performer image layout
 
 ### Display Logic
@@ -2435,7 +2467,7 @@ Markers with the 2nd camera tag (or any of its descendants) are **excluded** fro
 
 Markers with the 2nd camera tag are **included** (treated normally) in:
 
-- Markers page / Markers filter
+- General Markers page / user-created Markers filters
 - Scene/marker browsing and playback
 
 Markers with the 2nd camera tag are **excluded** from matching the configured orgasm tag in:
@@ -2595,8 +2627,10 @@ Marker generation also skips video/webp preview generation for markers whose onl
 
 Adds a configurable visual theme for Bronze, Silver, Gold, and Royal Sapphire scene, performer, image, gallery, group, and studio cards using 100-based ratings:
 
-- `premium` (default): black card shell with radiant bronze/silver/gold/Royal Sapphire outline accents
+- `premium` (default): black card shell with radiant bronze/silver/gold/Royal Sapphire outline accents and one gently breathing tier-colored aura across the full card. The aura only animates opacity/transform, pauses off-screen, and replaces the heavier swipe, animated shadow, and animated text effects.
 - `classic`: preserves the original metallic shimmer styles and adds a matching Royal Sapphire GOAT style
+
+All rating-card motion is disabled when the browser requests reduced motion.
 
 Rating-based card styling uses these thresholds:
 
@@ -2658,12 +2692,15 @@ Adds a `metallic_rating` filter to scenes, performers, images, galleries, groups
 - `ui/v2.5/src/models/list-filter/criteria/metallic-rating_custom.ts` - Frontend metallic rating criterion
 - `ui/v2.5/src/models/list-filter/{scenes,performers,images,galleries,groups,studios}.ts` - Registers the metallic rating filter
 - `ui/v2.5/src/index.scss` - Imports the custom rating card stylesheet
+- `ui/v2.5/src/index.tsx` - Installs the shared visibility observer that pauses off-screen premium-card auras
 - `ui/v2.5/src/locales/en-GB.json` - Adds UI strings for the theme selector and GOAT tag setting
 
 ### Files Added
 
 - `ui/v2.5/src/utils/ratingCardStyles_custom.ts` - Shared class selection helper for rating tiers, configurable thresholds, and GOAT override
+- `ui/v2.5/src/utils/ratingCardMotion_custom.ts` - Shared IntersectionObserver/MutationObserver controller for premium-card animation visibility
 - `ui/v2.5/src/components/Shared/ratingCardStyles_custom.scss` - Premium/Royal Sapphire card shell styling
+- `ui/v2.5/tests/ratingCardMotion_custom.test.ts` - Verifies only premium metallic-tier cards opt into visibility-controlled motion
 
 ---
 
@@ -2693,12 +2730,32 @@ Solo scenes use a separate scene rubric when the scene is detected as solo by th
 - Performer attractiveness: six levels from 0-5, each raw point is worth 1.4, up to 7.0
 - Angles and camera work: each raw point is worth 0.6, up to 3.0
 
+Group scenes use a separate rubric when they have 4 or more distinct assigned performers. Group mode takes priority over solo/default mode; scenes with 3 performers keep the existing rubric:
+
+- Top lineup attractiveness: six levels from 0-5, each raw point is worth 0.3, up to 1.5
+- Energy / sex quality: six levels from 0-5, each raw point is worth 0.7, up to 3.5
+- Group participation and coordination: six levels from 0-5, each raw point is worth 0.4, up to 2.0
+- Orgasm quality: each raw point is worth 0.5, up to 2.0
+- Standout moments: each raw point is worth 0.5, up to 1.0
+
+Group scene bonus section:
+
+- Attractive bottom (+1.0 when present)
+- Group oral-only (+2.0 when manually selected)
+- Theme / fantasy / uniform factor (+0.5 when present)
+- Unlikely top (+0.5 when present)
+- God-tier orgasm (+2.0 when present)
+- GOAT element (+2.0 when present)
+
+When a cast edit crosses the 3/4-performer boundary, existing advisor rows are removed and the scene rating is set to 0. Manual scene ratings without advisor rows are preserved. The standalone group reset script applies the same reset to existing 4+ performer scenes that already have advisor data.
+
+The rating advisor uses a responsive box grid instead of one long control stack. Core criteria are shown as at-a-glance cards with one accessible choice-button control, visible hover/focus descriptions, a real unrated state, completion progress, provisional scoring until every core criterion is answered, and per-card autosave feedback. The selected choice alone uses a relative heat scale from neutral gray at zero through yellow and orange to red at the highest value, including shorter non-0-5 scales. Bonuses and penalties use compact accessible switches, while the recorded-orgasm bonus is a compact read-only row. The modal has one Close action, a header close button, Escape support, high-contrast unselected choices, and a calculation summary colored with the configured classic/premium rating tier theme. Rating hints and choice descriptions use shorter, casual language that matches the rest of the custom UI.
+
 Bonus section:
 
 - Orgasm count bonus (+1 rating point on the 3rd recorded orgasm, then +1 for each orgasm after that; automatic and read-only)
 - Theme / fantasy / uniform factor (+0.5 when present)
 - Oral-only scene (+0.5 when present)
-- Group scene with 4+ performers (+0.5 when present)
 - God-tier orgasm bonus (+2.0 when present)
 - GOAT element (+2.0 when present)
 - Unlikely top (+0.5 when present)
@@ -2758,11 +2815,14 @@ Performer score conversion:
 
 Scenes and performers each expose one combined "Rating Criteria" filter. Inside that filter, numeric dimensions support `=`, `>=`, `<=`, and `BETWEEN`; bonus and penalty rows use presence checks for "has" or "does not have". The frontend serializes the selected rows into a shared `rating_criteria` GraphQL input.
 
+The Scenes filter exposes regular, solo, and group criteria as distinct persisted keys. Group top-lineup attractiveness, energy, participation/coordination, orgasm quality, and standout moments are numeric filter rows; attractive-bottom and group-oral-only are presence rows. The retired Large Group Bonus filter is not exposed.
+
 Performer rating criteria include a feminine performer penalty, exposed both in the performer Rating Advisor and the performer Rating Criteria filter.
 
 ### Files Modified
 
 - `ui/v2.5/src/components/Shared/RatingAdvisor_custom.tsx` - Shared rating modal, scoring definitions, persistence mutation, and button component
+- `ui/v2.5/src/components/Shared/Modal.tsx` - Allows the rating advisor to opt into a header close button while preserving existing modal defaults
 - `ui/v2.5/src/components/Shared/ratingAdvisor_custom.scss` - Advisor modal styling
 - `ui/v2.5/graphql/data/performer.graphql` - Adds a list-only performer fragment so performer lists do not fetch detail-only rating scores and additional image rows
 - `ui/v2.5/graphql/queries/performer.graphql` - Uses the list-only performer fragment for performer lists and keeps a full-data by-ID query for merge/detail workflows
@@ -2776,18 +2836,22 @@ Performer rating criteria include a feminine performer penalty, exposed both in 
 - `graphql/schema/types/filters_custom.graphql` - Adds `rating_criteria` scene/performer filter input
 - `pkg/models/scene.go`, `pkg/models/performer.go` - Adds rating criteria filter fields
 - `pkg/sqlite/scene_filter.go`, `pkg/sqlite/performer_filter.go` - Hooks rating criteria filters into scene/performer queries
+- `pkg/sqlite/rating_criteria_filter_custom_test.go` - Covers group key isolation plus numeric and presence filter operators
 - `ui/v2.5/src/models/list-filter/scenes.ts`, `ui/v2.5/src/models/list-filter/performers.ts` - Registers rating criteria filter options
 - `ui/v2.5/src/locales/en-GB.json`, `ui/v2.5/src/locales/en-US.json` - Adds rating criteria filter labels
 
 ### Files Added
 
+- `ui/v2.5/src/components/Shared/groupSceneRating_custom.ts` - Group threshold, scoring weights, bonus values, persisted keys, and frontend mode selection
 - `rating_scores.up.sql` - Standalone manual SQL script for generic persisted rating score tables
 - `rating_orgasm_bonus_recalculate_custom.sql` - Standalone manual SQL script to recalculate existing persisted advisor ratings after orgasm bonus rule changes
 - `rating_remove_performer_unlikely_top_bonus_custom.sql` - Standalone manual SQL script to remove performer-level Unlikely Top bonus rows and recalculate affected performers
 - `rating_remove_standout_act_bonus_custom.sql` - Standalone manual SQL script to remove retired Standout Act bonus rows and subtract their stored contribution from affected ratings
 - `rating_reset_advisor_scores_custom.sql` - Standalone manual SQL script to delete all persisted advisor dimension rows while preserving existing scene/performer ratings
+- `rating_reset_group_scene_scores_custom.sql` - Resets existing 4+ performer scenes with advisor data to rating 0 and removes their old advisor rows
 - `graphql/schema/types/rating_custom.graphql` - Rating score GraphQL types, mutation, and read-only orgasm-count query
 - `internal/api/resolver_rating_score_custom.go` - Rating score query/mutation resolvers
+- `internal/api/resolver_rating_score_custom_test.go` - Verifies the 4-performer threshold, group priority, and boundary-reset decisions
 - `pkg/models/rating_score_custom.go` - Generic rating score model and repository interfaces
 - `pkg/sqlite/rating_score_custom.go` - SQLite score store and rating recalculation logic
 - `pkg/models/rating_criteria_filter_custom.go` - Generic rating criteria filter input models
@@ -2795,7 +2859,8 @@ Performer rating criteria include a feminine performer penalty, exposed both in 
 - `ui/v2.5/src/models/list-filter/criteria/rating-criteria_custom.ts` - Frontend rating criteria filter criterion classes
 - `ui/v2.5/src/components/List/Filters/RatingCriteriaFilter_custom.tsx` - Combined rating criteria filter editor
 - `ui/v2.5/src/components/Shared/ratingAdvisorScales_custom.ts` - Shared helpers for simplified rating advisor scales
-- `ui/v2.5/tests/ratingAdvisorScales_custom.test.ts` - Verifies simplified six-level scale helpers and point contributions
+- `ui/v2.5/tests/ratingAdvisorScales_custom.test.ts` - Verifies simplified scales, point contributions, unrated state, intentional zero scores, and core completion
+- `ui/v2.5/tests/groupSceneRating_custom.test.ts` - Verifies group mode priority, scoring totals, bonuses, and persisted filter keys
 - `ui/v2.5/src/components/Performers/performerTypes_custom.ts` - Shared performer list/card data type for the lean list query
 
 ---
@@ -3196,17 +3261,21 @@ Markers are checked in separate lanes. Activity markers based on configured sex,
 
 ### Overview
 
-Replaces the visible scene detail Markers tab body with a custom chronological marker list by default while keeping the upstream primary-tag grouped layout available behind the Custom Settings "Show official scene marker layout" toggle. The custom layout now uses one unified section instead of separate Activity Type and Highlights subtabs. Activity Type remains the main grouping pattern: markers are grouped under Oral, Sex, Solo, Feet, Orgasm, then Facial section headers, and markers that share the same primary activity tag plus top/bottom performer configuration are combined into one group. Facial-tagged orgasm markers are assigned to Facial instead of the standard Orgasm section, including when the facial match comes from a child tag. Each group displays top performers first and bottom performers second as 2:3 image blocks with green/blue name labels, with compact activity timeline pills stacked vertically beside the performers.
+Replaces the visible scene detail Markers tab body with a custom chronological marker list by default while keeping the upstream primary-tag grouped layout available behind the Custom Settings "Show official scene marker layout" toggle. The custom layout now uses one unified section instead of separate Activity Type and Highlights subtabs. Activity Type remains the main grouping pattern: markers are grouped under Oral, Sex, Solo, Feet, Orgasm, then Facial section headers, and markers that share the same primary activity tag plus top/bottom performer configuration are combined into one group. Facial-tagged orgasm markers are assigned to Facial instead of the standard Orgasm section, including when the facial match comes from a child tag. Compact high-contrast section headers show coverage and duration without taking additional vertical space. Each group displays top performers first and bottom performers second as dominant 2:3 image blocks; blue Top borders/names and green Bottom borders/names remain the only role treatment, without image-overlay role chips.
 
-Highlights are now embedded under their matching activity/performer groups. Each group starts with a collapsed `Highlights` row and count; expanding it shows the highlight timeline pills for that group. Highlight pills are duplicated into every matching activity context when a highlight is contained by or contributes to multiple activity groups, and unmatched highlights remain visible in an "Other Highlights" fallback bucket. Hovering a highlight pill shows the existing performer/tag-card presentation without the old highlight title header. GOAT-tagged markers and highlight hover cards use Royal Sapphire styling. Markers that contain the current player timestamp keep the subtle bookmark treatment, and scene player scrubber clicks perform a one-shot focus into the Markers tab with a distinct blue focus ring for the target pill. Marker create/edit top and bottom performer dropdowns render large performer thumbnails while choosing, then keep the selected values as regular text pills.
+Activity ranges and Highlights are rendered as separate, always-visible lanes below each performer group. The Activity and Highlight headers use arrow/star icons without repeating those icons on individual markers. Activity pills use a filled green range treatment, while Highlight pills use an outlined gold-accent treatment with a compact, natural-width marker title and timestamp, so the distinction does not depend on color alone. Highlight pills are duplicated into every matching activity context when a highlight is contained by or contributes to multiple activity groups, and unmatched highlights remain visible in an "Other Highlights" fallback bucket. Hovering a highlight pill shows the existing performer/tag-card presentation without the old highlight title header. GOAT-tagged markers and highlight hover cards use Royal Sapphire styling. Markers that contain the current player timestamp use the red playback treatment in both lanes, and scene player scrubber clicks perform a one-shot focus into the Markers tab with a distinct blue focus ring for the target pill. Compact bordered Edit actions remain prominent on every marker. Marker create/edit top and bottom performer dropdowns render large performer thumbnails while choosing, then keep the selected values as regular text pills.
 
-Scene-card performer-count hover popovers reuse the performer/tag-card presentation. Each scene performer displays the union produced by running every scene marker through the same overlap/containment context calculation as the in-scene marker hover: top-role tags use green chips and bottom-role tags use blue chips. A tag remains in both colors when the performer has both roles across different markers, and scene performers without marker assignments remain visible with no chips.
+Selection checkboxes follow the visible hierarchy: section selectors cover all displayed Activity and Highlight markers, multi-configuration sections expose a selector for each performer configuration, lanes select only their own marker type, and pills select individual markers or merged highlight segments. Parent selectors show an indeterminate state for partial selection and use larger hit areas. Distinct performer configurations remain separate, but their redundant Top/Bottom text labels are omitted because performer borders already communicate those roles. Exact duplicate configuration headers are omitted when a section contains only one performer configuration, so duration and selection metadata are not repeated.
+
+Scene-card performer-count hover popovers reuse the performer/tag-card presentation. Each scene performer displays the union produced by running every scene marker through the same overlap/containment context calculation as the in-scene marker hover: top-role tags use blue chips and bottom-role tags use green chips. A tag remains in both colors when the performer has both roles across different markers, and scene performers without marker assignments remain visible with no chips.
 
 The unified section has scene-local selectable search fields for tags, top performers, and bottom performers. Tag search uses a progressive chain of single-tag selectors: the first selector only lists tags present on the current scene's markers, each next selector only lists tags that can still match by sharing the same marker or by contributing to one shared overlap window with the previous selections, and the row layout wraps at three tag selectors per line. Tag searches match primary or secondary marker tags and reuse the overlap-aware behavior from the custom marker filters: a marker can satisfy multiple requested tags directly or through overlapping markers only when every selected tag participates in the same shared overlap window, and when multiple overlapping markers match the same tag search only the narrowest result is shown. Derived overlap ranges are only shown for multi-tag searches, not for single-tag performer narrowing. Selected tags also narrow the top/bottom performer options to performers associated with the tag-filtered markers.
 
+The Create Marker, Add to Loop, and Open in Viewer toolbar sticks to the top of the marker-tab scroll area. The scene-tabs shell keeps the tab content as the single desktop scroll parent so the sticky positioning remains effective. Activity Type headers also stick directly below the measured toolbar, preserving context through long runs of performer configurations; each header is bounded by its own Activity Type section, so it hands off cleanly to the next header instead of accumulating. Bulk action labels include the selected count, and the status row distinguishes visible selections from markers hidden by active filters. Separate one-click actions select the visible results, select the full scene result set, or clear any partial selection. Opening the Viewer preserves selection because it is non-mutating; adding to the loop clears selection to prevent accidental duplicate insertion.
+
 Marker rows and `/scenes/markers` marker cards display direct primary tags, direct secondary tags, overlapping/transitive tags, and hierarchy-inferred parent tags with distinct badge colors. Parent tags are collapsed behind a small `+N` toggle by default, and they are also included in scene-local tag search options, so a marker tagged with a child tag can be searched by its parent tag. Duplicate tags only render once at the highest available tier: primary, then secondary, then overlap, then parent.
 
-Scene detail pages also include an icon toggle beside the scene tabs that hides the scene overview/header block, allowing the active tab panel to use the full vertical space of the left column. The scene player scrubber marker tags and timeline marker tooltips use the same performer/tag-card hover presentation as the Markers tab pills, and fullscreen player controls hide on idle even while paused. Clicking a scene player scrubber marker performs a one-shot focus into the Markers tab, so later filter/edit changes do not keep auto-scrolling back to that marker.
+Scene detail pages also include an icon toggle beside the scene tabs that hides the scene overview/header block, allowing the active tab panel to use the full vertical space of the left column. The scene player scrubber marker tags and timeline marker tooltips use the same performer/tag-card hover presentation as the Markers tab pills. Timeline tooltips use the same containment-derived performer tags as the Markers tab, including one performer tile with both role colors when the same performer has top and bottom tags across overlapping markers. This applies to outstanding/highlight and Activity Type markers: a smaller fully-contained activity marker inherits the containing activity marker's tags and roles, while the larger marker does not inherit tags from a marker that covers only part of its range. Fullscreen player controls hide on idle even while paused. Clicking a scene player scrubber marker performs a one-shot focus into the Markers tab, so later filter/edit changes do not keep auto-scrolling back to that marker.
 
 ### Files Modified
 
@@ -3236,13 +3305,18 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerChronologyLayout_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerChronologySearch_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerHoverPopover_custom.tsx`
+- `ui/v2.5/src/components/ScenePlayer/sceneMarkerTimelineHover_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneCardPerformerPopover_custom.tsx`
 - `ui/v2.5/src/components/Scenes/SceneCard.tsx`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerLayoutPreference_custom.ts`
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerSelection_custom.ts`
+- `ui/v2.5/scene_markers_panel_poc_custom.html`
 - `ui/v2.5/tests/sceneMarkerActivityType_custom.test.ts`
 - `ui/v2.5/tests/sceneMarkerChronologyLayout_custom.test.ts`
 - `ui/v2.5/tests/sceneMarkerChronologySearch_custom.test.ts`
 - `ui/v2.5/tests/sceneMarkerLayoutPreference_custom.test.ts`
+- `ui/v2.5/tests/sceneMarkerTimelineHover_custom.test.ts`
+- `ui/v2.5/tests/sceneMarkerSelection_custom.test.ts`
 
 ### Test Cases Added
 
@@ -3270,6 +3344,9 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - Verifies activity type markers with the same activity and top/bottom performer configuration are grouped together.
 - Verifies single-tag scene-local searches include markers that match only through an overlapping marker tag.
 - Verifies the official grouped marker layout only shows when its UI setting is explicitly enabled.
+- Verifies outstanding timeline marker hovers inherit overlapping performer tags, mixed top/bottom roles share one performer tile, dual-role Activity Type markers share one tile, contained Activity Type markers inherit their containing marker's role tags, and the containing marker does not inherit from the smaller range.
+- Verifies parent selection scopes report none, partial/indeterminate, and all-selected states while deduplicating repeated layout marker IDs.
+- Verifies selection counts distinguish visible items from markers hidden by active scene-local filters.
 
 ### GraphQL Schema Changes
 

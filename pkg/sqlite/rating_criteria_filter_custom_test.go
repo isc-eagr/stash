@@ -101,6 +101,35 @@ func TestRatingCriteriaCriterionHandlerInvalidModifier(t *testing.T) {
 	assert.Contains(t, builder.getError().Error(), "invalid modifier")
 }
 
+func TestGroupSceneRatingCriteriaFilterOperators(t *testing.T) {
+	betweenEnd := 5.0
+	criterion := &models.RatingCriteriaFilterInput{
+		Criteria: []*models.RatingScoreCriterionFilterInput{
+			{Key: "groupTopAttractiveness", Value: &models.FloatCriterionInput{Value: 3, Modifier: models.CriterionModifierEquals}},
+			{Key: "groupEnergy", Value: &models.FloatCriterionInput{Value: 4, Modifier: models.CriterionModifierGreaterThanEquals}},
+			{Key: "groupParticipation", Value: &models.FloatCriterionInput{Value: 2, Modifier: models.CriterionModifierLessThanEquals}},
+			{Key: "groupPayoff", Value: &models.FloatCriterionInput{Value: 2, Value2: &betweenEnd, Modifier: models.CriterionModifierBetween}},
+			{Key: "groupStandout", Value: &models.FloatCriterionInput{Value: 1, Modifier: models.CriterionModifierEquals}},
+		},
+		Bonuses: []*models.RatingScorePresenceFilterInput{
+			{Key: "groupBottomAttractiveness", Value: true},
+			{Key: "groupOralOnly", Value: false},
+		},
+	}
+
+	builder := &filterBuilder{}
+	ratingCriteriaCriterionHandler(criterion, "scene", "scenes").handle(testCtx, builder)
+
+	require.NoError(t, builder.getError())
+	require.Len(t, builder.whereClauses, 7)
+	assert.Contains(t, builder.whereClauses[0].sql, "rs.raw_value = ?")
+	assert.Contains(t, builder.whereClauses[1].sql, "rs.raw_value >= ?")
+	assert.Contains(t, builder.whereClauses[2].sql, "rs.raw_value <= ?")
+	assert.Contains(t, builder.whereClauses[3].sql, "rs.raw_value BETWEEN ? AND ?")
+	assert.Contains(t, builder.whereClauses[5].sql, "rating_bonus_scores")
+	assert.Contains(t, builder.whereClauses[6].sql, "NOT (EXISTS")
+}
+
 func TestDefaultSceneRatingScoreKeysUseSplitAttractiveness(t *testing.T) {
 	keys := defaultSceneRatingScoreKeys[models.RatingScoreSectionCriterion]
 
@@ -113,4 +142,35 @@ func TestDefaultSceneRatingScoreKeysExcludeRetiredStandoutActBonus(t *testing.T)
 	keys := defaultSceneRatingScoreKeys[models.RatingScoreSectionBonus]
 
 	assert.NotContains(t, keys, "standoutAct")
+}
+
+func TestGroupSceneRatingScoreKeysAreIsolated(t *testing.T) {
+	criteria := groupSceneRatingScoreKeys[models.RatingScoreSectionCriterion]
+	bonuses := groupSceneRatingScoreKeys[models.RatingScoreSectionBonus]
+
+	assert.ElementsMatch(t, []string{
+		"groupTopAttractiveness",
+		"groupEnergy",
+		"groupParticipation",
+		"groupPayoff",
+		"groupStandout",
+	}, mapKeysCustom(criteria))
+	assert.Contains(t, bonuses, "groupBottomAttractiveness")
+	assert.Contains(t, bonuses, "groupOralOnly")
+	assert.NotContains(t, criteria, "topAttractiveness")
+	assert.NotContains(t, bonuses, "oralOnly")
+	assert.NotContains(t, bonuses, "largeGroup")
+}
+
+func TestSceneUsesGroupRatingAtFourPerformers(t *testing.T) {
+	assert.False(t, sceneUsesGroupRating(3))
+	assert.True(t, sceneUsesGroupRating(4))
+}
+
+func mapKeysCustom(values map[string]struct{}) []string {
+	ret := make([]string, 0, len(values))
+	for key := range values {
+		ret = append(ret, key)
+	}
+	return ret
 }

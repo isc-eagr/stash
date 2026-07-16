@@ -31,6 +31,8 @@ import {
   sceneMarkerWarningDraft,
 } from "./sceneMarkerGapWarning_custom";
 import { getSceneActivityMetrics } from "../sceneActivityMetricsData_custom";
+import { getSceneMarkerSelectionCounts } from "./sceneMarkerSelection_custom";
+import { getSceneMarkerStickyHeaderOffset } from "./sceneMarkerStickyHeader_custom";
 // CUSTOM: end
 
 interface ISceneMarkersPanelProps {
@@ -85,6 +87,8 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     useState<string>();
   const markerPanelScrollTop = useRef(0);
   const focusedMarkerHighlightTimer = useRef<number>();
+  const markerPanelRef = useRef<HTMLDivElement>(null); // CUSTOM: activity header sticky offset target
+  const markerToolbarRef = useRef<HTMLDivElement>(null); // CUSTOM: measured sticky toolbar
 
   const onOpenEditor = useCallback((marker?: GQL.SceneMarkerDataFragment) => {
     markerPanelScrollTop.current = getSceneTabScrollElement()?.scrollTop ?? 0;
@@ -174,6 +178,27 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   const showOfficialSceneMarkerLayout = shouldShowOfficialSceneMarkerLayout(
     configuration.ui
   );
+
+  // CUSTOM: keep Activity Type headers directly below the measured sticky toolbar.
+  useEffect(() => {
+    const markerPanel = markerPanelRef.current;
+    const toolbar = markerToolbarRef.current;
+    if (!isVisible || !markerPanel || !toolbar) return;
+
+    const updateStickyHeaderOffset = () => {
+      markerPanel.style.setProperty(
+        "--scene-marker-activity-header-sticky-offset",
+        getSceneMarkerStickyHeaderOffset(toolbar.getBoundingClientRect().height)
+      );
+    };
+
+    updateStickyHeaderOffset();
+    const resizeObserver = new ResizeObserver(updateStickyHeaderOffset);
+    resizeObserver.observe(toolbar);
+
+    return () => resizeObserver.disconnect();
+  }, [isEditorOpen, isVisible, loading, showOfficialSceneMarkerLayout]);
+
   const visibleSceneMarkers = showOfficialSceneMarkerLayout
     ? sceneMarkers
     : filteredSceneMarkers;
@@ -288,10 +313,38 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     visiblePlaybackItemCount > 0 &&
     visibleMarkerIds.every((id) => selectedMarkerIds.has(id)) &&
     derivedWindows.every((window) => selectedDerivedWindowKeys.has(window.key));
-  const selectedMarkerCount = selectedMarkerIds.size;
-  const selectedDerivedWindowCount = selectedDerivedWindowKeys.size;
-  const selectedPlaybackItemCount =
-    selectedMarkerCount + selectedDerivedWindowCount;
+  const selectedPlaybackKeys = useMemo(
+    () => [
+      ...Array.from(selectedMarkerIds, (id) => `marker:${id}`),
+      ...Array.from(selectedDerivedWindowKeys, (key) => `derived:${key}`),
+    ],
+    [selectedDerivedWindowKeys, selectedMarkerIds]
+  );
+  const visiblePlaybackKeys = useMemo(
+    () =>
+      new Set([
+        ...visibleMarkerIds.map((id) => `marker:${id}`),
+        ...derivedWindows.map((window) => `derived:${window.key}`),
+      ]),
+    [derivedWindows, visibleMarkerIds]
+  );
+  const selectionCounts = useMemo(
+    () =>
+      getSceneMarkerSelectionCounts(selectedPlaybackKeys, visiblePlaybackKeys),
+    [selectedPlaybackKeys, visiblePlaybackKeys]
+  );
+  const selectedPlaybackItemCount = selectionCounts.total;
+  const allResultMarkersSelected =
+    sceneMarkers.length > 0 &&
+    sceneMarkers.every((marker) => selectedMarkerIds.has(marker.id));
+  const allResultsSelected =
+    allResultMarkersSelected &&
+    derivedWindows.every((window) => selectedDerivedWindowKeys.has(window.key));
+  const markerSearchActive =
+    !showOfficialSceneMarkerLayout &&
+    (markerSearch.tags.length > 0 ||
+      markerSearch.topPerformers.length > 0 ||
+      markerSearch.bottomPerformers.length > 0);
 
   const setManySelected = useCallback((ids: string[], selected: boolean) => {
     setSelectedMarkerIds((prev) => {
@@ -408,8 +461,6 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     if (markerRangeIds) params.set("marker_ranges", markerRangeIds);
 
     window.open(`/viewer?${params.toString()}`, "_blank");
-    setSelectedMarkerIds(new Set());
-    setSelectedDerivedWindowKeys(new Set());
   }, [
     sceneMarkers,
     selectedDerivedWindows,
@@ -417,23 +468,42 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     selectedPlaybackItemCount,
   ]);
 
-  const onToggleSelectVisibleMarkers = useCallback(() => {
+  const onSelectVisibleMarkers = useCallback(() => {
     if (visiblePlaybackItemCount === 0) return;
 
-    const selected = !allVisibleSelected;
-    setManySelected(visibleMarkerIds, selected);
+    setManySelected(visibleMarkerIds, true);
     setManyDerivedWindowsSelected(
       derivedWindows.map((window) => window.key),
-      selected
+      true
     );
   }, [
-    allVisibleSelected,
     derivedWindows,
     setManyDerivedWindowsSelected,
     setManySelected,
     visibleMarkerIds,
     visiblePlaybackItemCount,
   ]);
+
+  const onSelectAllResults = useCallback(() => {
+    setManySelected(
+      sceneMarkers.map((marker) => marker.id),
+      true
+    );
+    setManyDerivedWindowsSelected(
+      derivedWindows.map((window) => window.key),
+      true
+    );
+  }, [
+    derivedWindows,
+    sceneMarkers,
+    setManyDerivedWindowsSelected,
+    setManySelected,
+  ]);
+
+  const onClearSelection = useCallback(() => {
+    setSelectedMarkerIds(new Set());
+    setSelectedDerivedWindowKeys(new Set());
+  }, []);
   // CUSTOM: end
 
   if (isEditorOpen) {
@@ -449,50 +519,77 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   if (loading) return null;
 
   return (
-    <div className="scene-markers-panel">
+    <div className="scene-markers-panel" ref={markerPanelRef}>
       {/* CUSTOM: begin – toolbar with loop button & select-all */}
-      <div className="scene-marker-toolbar">
-        <div className="scene-marker-toolbar-actions">
-          <Button onClick={() => onOpenEditor()}>
-            <FormattedMessage id="actions.create_marker" />
-          </Button>
+      <div className="scene-marker-toolbar-shell" ref={markerToolbarRef}>
+        <div className="scene-marker-toolbar">
+          <div className="scene-marker-toolbar-actions">
+            <Button
+              onClick={() => onOpenEditor()}
+              title="Create marker (keyboard shortcut: N)"
+            >
+              <FormattedMessage id="actions.create_marker" />
+            </Button>
 
-          <Button
-            disabled={selectedPlaybackItemCount === 0}
-            onClick={onMoveSelectionToMultiLoop}
-          >
-            Add to Loop
-          </Button>
+            <Button
+              disabled={selectedPlaybackItemCount === 0}
+              onClick={onMoveSelectionToMultiLoop}
+              variant="secondary"
+            >
+              {selectedPlaybackItemCount > 0
+                ? `Add ${selectedPlaybackItemCount} to Loop`
+                : "Add to Loop"}
+            </Button>
 
-          <Button
-            disabled={selectedPlaybackItemCount === 0}
-            onClick={onOpenSelectedMarkersInViewer}
-            title="Open selected markers in viewer"
-          >
-            Open in Viewer
-          </Button>
+            <Button
+              disabled={selectedPlaybackItemCount === 0}
+              onClick={onOpenSelectedMarkersInViewer}
+              title="Open selected markers in viewer"
+              variant="secondary"
+            >
+              {selectedPlaybackItemCount > 0
+                ? `Open ${selectedPlaybackItemCount} in Viewer`
+                : "Open in Viewer"}
+            </Button>
+          </div>
         </div>
-
-        <div className="scene-marker-toolbar-actions">
-          <Button
-            disabled={visiblePlaybackItemCount === 0}
-            onClick={onToggleSelectVisibleMarkers}
-            variant="secondary"
-          >
-            {allVisibleSelected
-              ? showOfficialSceneMarkerLayout
-                ? "Clear All"
-                : "Clear Filtered"
-              : "Select All"}
-          </Button>
+        <div className="scene-marker-toolbar-status">
+          <span className="scene-marker-selection-summary">
+            {selectedPlaybackItemCount > 0 ? (
+              <>
+                {selectedPlaybackItemCount} selected
+                {selectionCounts.hidden > 0 && (
+                  <span className="scene-marker-hidden-selection-count">
+                    {` · ${selectionCounts.hidden} hidden by filters`}
+                  </span>
+                )}
+              </>
+            ) : visibleDerivedWindowCount > 0 ? (
+              `${visibleMarkerCount} markers, ${visibleDerivedWindowCount} derived`
+            ) : markerSearchActive ? (
+              `${visibleMarkerCount} of ${sceneMarkers.length} markers`
+            ) : (
+              `${visibleMarkerCount} markers`
+            )}
+          </span>
+          <div className="scene-marker-selection-actions">
+            {!allVisibleSelected && visiblePlaybackItemCount > 0 && (
+              <Button variant="link" onClick={onSelectVisibleMarkers}>
+                Select all visible
+              </Button>
+            )}
+            {markerSearchActive && !allResultsSelected && (
+              <Button variant="link" onClick={onSelectAllResults}>
+                {`Select all ${sceneMarkers.length + derivedWindows.length}`}
+              </Button>
+            )}
+            {selectedPlaybackItemCount > 0 && (
+              <Button variant="link" onClick={onClearSelection}>
+                Clear
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
-      <div className="scene-marker-toolbar-status text-muted">
-        {selectedPlaybackItemCount > 0
-          ? `${selectedPlaybackItemCount} selected`
-          : visibleDerivedWindowCount > 0
-          ? `${visibleMarkerCount} markers, ${visibleDerivedWindowCount} derived`
-          : `${visibleMarkerCount} markers`}
       </div>
       {/* CUSTOM: end */}
       <div className="scene-markers-container">

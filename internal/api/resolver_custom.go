@@ -2577,11 +2577,10 @@ func (r *queryResolver) LongestPeriodWithoutO(ctx context.Context) (ret *SceneOD
 	return ret, nil
 }
 
-// SceneOrgasmCount returns the total number of orgasms in scenes using marker logic:
+// SceneOrgasmCount returns the total number of orgasm events using marker logic:
 //   - Find markers where the primary tag is the configured orgasm tag or any descendant of it, or
 //     where any secondary tag is the configured orgasm tag or any descendant of it
-//   - For each matching marker, count the number of 'top' performers on that marker
-//   - Each marker counts as the number of tops, with a minimum of 1 if no tops are assigned
+//   - Count each matching marker once per assigned top, with a minimum of one
 //
 // Uses roleTagIds.orgasmTagId from UI config and includes all subtags recursively.
 func (r *queryResolver) SceneOrgasmCount(ctx context.Context) (int, error) {
@@ -2604,45 +2603,8 @@ func (r *queryResolver) SceneOrgasmCount(ctx context.Context) (int, error) {
 		}
 
 		db := manager.GetInstance().Database
-
-		// Build optional 2nd camera exclusion clause
-		secondCameraCTE := ""
-		secondCameraExclude := ""
-		args := []interface{}{orgasmTagID}
-		if secondCameraTagID > 0 {
-			secondCameraCTE = `,
-second_camera_tags(id) AS (
-  SELECT id FROM tags WHERE id = ?
-  UNION ALL
-  SELECT tr.child_id FROM tags_relations tr JOIN second_camera_tags sct ON tr.parent_id = sct.id
-)`
-			secondCameraExclude = `
-  AND sm.id NOT IN (
-    SELECT smt2.scene_marker_id FROM scene_markers_tags smt2
-    WHERE smt2.tag_id IN (SELECT id FROM second_camera_tags)
-  )`
-			args = append(args, secondCameraTagID)
-		}
-
-		query := `
-WITH RECURSIVE orgasm_tags(id) AS (
-  SELECT id FROM tags WHERE id = ?
-  UNION ALL
-  SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
-)` + secondCameraCTE + `,
-orgasm_markers AS (
-  SELECT DISTINCT sm.id
-  FROM scene_markers sm
-  LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-  WHERE (sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
-     OR smt.tag_id IN (SELECT id FROM orgasm_tags))` + secondCameraExclude + `
-)
-SELECT COALESCE(SUM(CASE WHEN top_count > 0 THEN top_count ELSE 1 END), 0) AS total_orgasms
-FROM (
-  SELECT om.id, (SELECT COUNT(*) FROM scene_marker_performers smp WHERE smp.scene_marker_id = om.id AND smp.role = 'top') AS top_count
-  FROM orgasm_markers om
-) sub`
-		_, rows, err := db.QuerySQL(ctx, query, args)
+		args := []interface{}{orgasmTagID, secondCameraTagID}
+		_, rows, err := db.QuerySQL(ctx, statsWeightedMarkerCountQueryCustom, args)
 		if err != nil {
 			return err
 		}
@@ -2674,8 +2636,7 @@ FROM (
 // A marker counts if:
 // - its primary tag is the configured facial tag or any descendant of it, or
 // - it has any secondary tag that is the configured facial tag or any descendant of it.
-// For each matching marker, count the number of 'top' performers on that marker.
-// Each marker counts as the number of tops, with a minimum of 1 if no tops are assigned.
+// Each matching marker counts once per assigned top, with a minimum of one.
 // Uses roleTagIds.facialTagId from UI config and includes all subtags recursively.
 func (r *queryResolver) SceneFacialCount(ctx context.Context) (int, error) {
 	var count int
@@ -2697,45 +2658,8 @@ func (r *queryResolver) SceneFacialCount(ctx context.Context) (int, error) {
 		}
 
 		db := manager.GetInstance().Database
-
-		// Build optional 2nd camera exclusion clause
-		secondCameraCTE := ""
-		secondCameraExclude := ""
-		args := []interface{}{facialTagID}
-		if secondCameraTagID > 0 {
-			secondCameraCTE = `,
-second_camera_tags(id) AS (
-  SELECT id FROM tags WHERE id = ?
-  UNION ALL
-  SELECT tr.child_id FROM tags_relations tr JOIN second_camera_tags sct ON tr.parent_id = sct.id
-)`
-			secondCameraExclude = `
-  AND sm.id NOT IN (
-    SELECT smt2.scene_marker_id FROM scene_markers_tags smt2
-    WHERE smt2.tag_id IN (SELECT id FROM second_camera_tags)
-  )`
-			args = append(args, secondCameraTagID)
-		}
-
-		query := `
-WITH RECURSIVE facial_tags(id) AS (
-  SELECT id FROM tags WHERE id = ?
-  UNION ALL
-  SELECT tr.child_id FROM tags_relations tr JOIN facial_tags ft ON tr.parent_id = ft.id
-)` + secondCameraCTE + `,
-facial_markers AS (
-  SELECT DISTINCT sm.id
-  FROM scene_markers sm
-  LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-  WHERE (sm.primary_tag_id IN (SELECT id FROM facial_tags)
-     OR smt.tag_id IN (SELECT id FROM facial_tags))` + secondCameraExclude + `
-)
-SELECT COALESCE(SUM(CASE WHEN top_count > 0 THEN top_count ELSE 1 END), 0) AS total_facials
-FROM (
-  SELECT fm.id, (SELECT COUNT(*) FROM scene_marker_performers smp WHERE smp.scene_marker_id = fm.id AND smp.role = 'top') AS top_count
-  FROM facial_markers fm
-) sub`
-		_, rows, err := db.QuerySQL(ctx, query, args)
+		args := []interface{}{facialTagID, secondCameraTagID}
+		_, rows, err := db.QuerySQL(ctx, statsWeightedMarkerCountQueryCustom, args)
 		if err != nil {
 			return err
 		}
@@ -2892,7 +2816,7 @@ WHERE smp.scene_marker_id IN (SELECT id FROM facial_markers)
 }
 
 // PerformersSexGivenCount returns the number of distinct performers who have been tops in sex markers.
-// Uses roleTagIds.sexTagId from UI config.
+// Uses roleTagIds.sexTagId from UI config and matches primary/secondary subtags like its drilldown.
 func (r *queryResolver) PerformersSexGivenCount(ctx context.Context) (int, error) {
 	var count int
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
@@ -2909,12 +2833,8 @@ func (r *queryResolver) PerformersSexGivenCount(ctx context.Context) (int, error
 		}
 
 		db := manager.GetInstance().Database
-		query := `SELECT COUNT(DISTINCT smp.performer_id) 
-FROM scene_marker_performers smp 
-JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
-WHERE sm.primary_tag_id = ? AND smp.role = 'top'`
-		args := []interface{}{sexTagID}
-		_, rows, err := db.QuerySQL(ctx, query, args)
+		args := []interface{}{sexTagID, "top"}
+		_, rows, err := db.QuerySQL(ctx, performerRoleTagCountQueryCustom, args)
 		if err != nil {
 			return err
 		}
@@ -2943,7 +2863,7 @@ WHERE sm.primary_tag_id = ? AND smp.role = 'top'`
 }
 
 // PerformersSexReceivedCount returns the number of distinct performers who have been bottoms in sex markers.
-// Uses roleTagIds.sexTagId from UI config.
+// Uses roleTagIds.sexTagId from UI config and matches primary/secondary subtags like its drilldown.
 func (r *queryResolver) PerformersSexReceivedCount(ctx context.Context) (int, error) {
 	var count int
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
@@ -2960,12 +2880,8 @@ func (r *queryResolver) PerformersSexReceivedCount(ctx context.Context) (int, er
 		}
 
 		db := manager.GetInstance().Database
-		query := `SELECT COUNT(DISTINCT smp.performer_id) 
-FROM scene_marker_performers smp 
-JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
-WHERE sm.primary_tag_id = ? AND smp.role = 'bottom'`
-		args := []interface{}{sexTagID}
-		_, rows, err := db.QuerySQL(ctx, query, args)
+		args := []interface{}{sexTagID, "bottom"}
+		_, rows, err := db.QuerySQL(ctx, performerRoleTagCountQueryCustom, args)
 		if err != nil {
 			return err
 		}
@@ -2994,7 +2910,7 @@ WHERE sm.primary_tag_id = ? AND smp.role = 'bottom'`
 }
 
 // PerformersOralGivenCount returns the number of distinct performers who have been tops in oral markers.
-// Uses roleTagIds.oralTagId from UI config.
+// Uses roleTagIds.oralTagId from UI config and matches primary/secondary subtags like its drilldown.
 func (r *queryResolver) PerformersOralGivenCount(ctx context.Context) (int, error) {
 	var count int
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
@@ -3011,12 +2927,8 @@ func (r *queryResolver) PerformersOralGivenCount(ctx context.Context) (int, erro
 		}
 
 		db := manager.GetInstance().Database
-		query := `SELECT COUNT(DISTINCT smp.performer_id) 
-FROM scene_marker_performers smp 
-JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
-WHERE sm.primary_tag_id = ? AND smp.role = 'top'`
-		args := []interface{}{oralTagID}
-		_, rows, err := db.QuerySQL(ctx, query, args)
+		args := []interface{}{oralTagID, "top"}
+		_, rows, err := db.QuerySQL(ctx, performerRoleTagCountQueryCustom, args)
 		if err != nil {
 			return err
 		}
@@ -3045,7 +2957,7 @@ WHERE sm.primary_tag_id = ? AND smp.role = 'top'`
 }
 
 // PerformersOralReceivedCount returns the number of distinct performers who have been bottoms in oral markers.
-// Uses roleTagIds.oralTagId from UI config.
+// Uses roleTagIds.oralTagId from UI config and matches primary/secondary subtags like its drilldown.
 func (r *queryResolver) PerformersOralReceivedCount(ctx context.Context) (int, error) {
 	var count int
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
@@ -3062,12 +2974,8 @@ func (r *queryResolver) PerformersOralReceivedCount(ctx context.Context) (int, e
 		}
 
 		db := manager.GetInstance().Database
-		query := `SELECT COUNT(DISTINCT smp.performer_id) 
-FROM scene_marker_performers smp 
-JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
-WHERE sm.primary_tag_id = ? AND smp.role = 'bottom'`
-		args := []interface{}{oralTagID}
-		_, rows, err := db.QuerySQL(ctx, query, args)
+		args := []interface{}{oralTagID, "bottom"}
+		_, rows, err := db.QuerySQL(ctx, performerRoleTagCountQueryCustom, args)
 		if err != nil {
 			return err
 		}

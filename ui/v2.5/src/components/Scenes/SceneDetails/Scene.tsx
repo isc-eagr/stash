@@ -53,6 +53,7 @@ import straightSvg from "src/assets/straight.svg";
 // CUSTOM: end
 import { objectPath, objectTitle } from "src/core/files";
 import { RatingAdvisorButton } from "src/components/Shared/RatingAdvisor_custom"; // CUSTOM
+import { getSceneRatingModeCustom } from "src/components/Shared/groupSceneRating_custom"; // CUSTOM
 import TextUtils from "src/utils/text";
 import {
   OCounterButton,
@@ -952,9 +953,10 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               <RatingAdvisorButton
                 entityType="scene"
                 entityId={scene.id}
-                sceneRatingMode={
-                  iconToShow?.type === "hand" ? "solo" : "default"
-                }
+                sceneRatingMode={getSceneRatingModeCustom(
+                  scene.performers.length,
+                  iconToShow?.type === "hand"
+                )}
                 rating100={scene.rating100}
                 ratingScores={scene.rating_scores}
                 onRatingSaved={props.onRefetch}

@@ -1,6 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { gql, useQuery } from "@apollo/client";
-import { faHand } from "@fortawesome/free-solid-svg-icons";
+import {
+  faHand,
+  faUser,
+  faUserGroup,
+  faUsers,
+} from "@fortawesome/free-solid-svg-icons";
 import { Alert, Button, ButtonGroup, Form } from "react-bootstrap";
 import { Helmet } from "react-helmet";
 import { Link, RouteComponentProps, useHistory } from "react-router-dom";
@@ -26,6 +31,11 @@ import {
   reallyHotFacialCount,
 } from "./sceneStatsFacialCounts_custom";
 import { durationBucketForMinutes } from "./sceneStatsDuration_custom";
+import {
+  makeSceneStatsMarkerTagURL,
+  makeSceneStatsVatoCountURL,
+  sceneStatsVatoCountBuckets,
+} from "./sceneStatsSummary_custom";
 
 import "./SceneStats.scss";
 
@@ -1052,6 +1062,11 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     () => sceneQuery.data?.sceneStats.scenes ?? [],
     [sceneQuery.data?.sceneStats.scenes]
   );
+  const vatoCountBuckets = useMemo(
+    () =>
+      sceneStatsVatoCountBuckets(scenes.map((scene) => scene.performer_count)),
+    [scenes]
+  );
   const roleTagsByID = useMemo(
     () =>
       new Map(
@@ -1154,27 +1169,6 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     if (hasSelectedYear) history.push("/scenestats");
   }
 
-  function makeMarkersTagUrl(tag: { id: string; name: string } | undefined) {
-    if (!tag) return "#";
-    const criterionData = {
-      type: "marker_performers",
-      modifier: "INCLUDES_ALL",
-      tag_ids: [{ id: tag.id, label: tag.name }],
-      include_subtags: true,
-      top_performer_ids: [],
-      top_ethnicities: [],
-      top_countries: [],
-      top_rating: null,
-      bottom_performer_ids: [],
-      bottom_ethnicities: [],
-      bottom_countries: [],
-      bottom_rating: null,
-    };
-    return `/scenes/markers?c=${encodeURIComponent(
-      JSON.stringify(criterionData)
-    )}&sortby=title`;
-  }
-
   if (statsError)
     return (
       <>
@@ -1252,6 +1246,7 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
               className="scenestats-summary-card scenestats-category-card stats-category-button sex-stats-button"
               href={NavUtils.makeScenesWithMarkerTagUrl(sexTag.id, sexTag.name)}
               disabled={statsData.stats.sex_scene_count === 0}
+              title="Sex Scene"
             >
               <img src={gaySvg} alt="Sex" className="stats-category-icon" />
               <span>
@@ -1269,6 +1264,7 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
                 -1
               )}
               disabled={statsData.stats.oral_scene_count === 0}
+              title="Oral Scene"
             >
               <img src={mouthSvg} alt="Oral" className="stats-category-icon" />
               <span>
@@ -1289,6 +1285,7 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
                 -1
               )}
               disabled={statsData.stats.solo_scene_count === 0}
+              title="Solo Scene"
             >
               <Icon icon={faHand} className="stats-category-icon-fa" />
               <span>
@@ -1305,6 +1302,7 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
                 -1
               )}
               disabled={statsData.stats.facial_scene_count === 0}
+              title="Facial Scene"
             >
               <img
                 src={facialPng}
@@ -1321,6 +1319,39 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
         </section>
       )}
 
+      <section
+        className="scenestats-summary-grid scenestats-vato-count-grid"
+        aria-label="Scenes by vato count"
+      >
+        <Link
+          aria-label="Scenes with 1 vato"
+          className="scenestats-summary-card scenestats-category-card linked"
+          title="Scenes with 1 vato"
+          to={makeSceneStatsVatoCountURL("one")}
+        >
+          <Icon icon={faUser} className="stats-category-icon-fa" />
+          <span>{vatoCountBuckets.one.toLocaleString()}</span>
+        </Link>
+        <Link
+          aria-label="Scenes with 2 or 3 vatos"
+          className="scenestats-summary-card scenestats-category-card linked"
+          title="Scenes with 2 or 3 vatos (standard)"
+          to={makeSceneStatsVatoCountURL("standard")}
+        >
+          <Icon icon={faUserGroup} className="stats-category-icon-fa" />
+          <span>{vatoCountBuckets.standard.toLocaleString()}</span>
+        </Link>
+        <Link
+          aria-label="Scenes with 4 or more vatos"
+          className="scenestats-summary-card scenestats-category-card linked"
+          title="Scenes with 4 or more vatos (group scenes)"
+          to={makeSceneStatsVatoCountURL("group")}
+        >
+          <Icon icon={faUsers} className="stats-category-icon-fa" />
+          <span>{vatoCountBuckets.group.toLocaleString()}</span>
+        </Link>
+      </section>
+
       {(typeof orgasmCountData?.sceneOrgasmCount === "number" ||
         typeof facialCountData?.sceneFacialCount === "number" ||
         typeof orgasmTimeData?.totalOrgasmTime === "number" ||
@@ -1329,7 +1360,8 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
           {typeof orgasmCountData?.sceneOrgasmCount === "number" && (
             <Link
               className="scenestats-summary-card linked"
-              to={makeMarkersTagUrl(orgasmTag)}
+              title="Each matching marker counts once per assigned top vato (minimum 1), while the linked search counts marker rows. The search also includes 2nd-camera markers that this total excludes, so the numbers can differ."
+              to={makeSceneStatsMarkerTagURL(orgasmTag)}
             >
               <div className="scenestats-summary-value">
                 {orgasmCountData.sceneOrgasmCount.toLocaleString()}
@@ -1351,7 +1383,8 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
           {typeof facialCountData?.sceneFacialCount === "number" && (
             <Link
               className="scenestats-summary-card linked"
-              to={makeMarkersTagUrl(facialTag)}
+              title="Each matching marker counts once per assigned top vato (minimum 1), while the linked search counts marker rows. The search also includes 2nd-camera markers that this total excludes, so the numbers can differ."
+              to={makeSceneStatsMarkerTagURL(facialTag)}
             >
               <div className="scenestats-summary-value">
                 {facialCountData.sceneFacialCount.toLocaleString()}

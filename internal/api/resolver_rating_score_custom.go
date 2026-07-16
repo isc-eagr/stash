@@ -98,6 +98,24 @@ func (r *Resolver) recalculateSceneODateRatingBonus(ctx context.Context, sceneID
 	return nil
 }
 
+func usesGroupSceneRatingCustom(performerCount int) bool {
+	return performerCount >= 4
+}
+
+func (r *Resolver) resetSceneAdvisorIfGroupBoundaryCrossedCustom(ctx context.Context, sceneID int, previousPerformerCount int) error {
+	performerIDs, err := r.repository.Scene.GetPerformerIDs(ctx, sceneID)
+	if err != nil {
+		return fmt.Errorf("finding updated performers for scene %d rating mode: %w", sceneID, err)
+	}
+
+	if usesGroupSceneRatingCustom(previousPerformerCount) == usesGroupSceneRatingCustom(len(performerIDs)) {
+		return nil
+	}
+
+	_, err = r.repository.RatingScore.ResetSceneScores(ctx, sceneID)
+	return err
+}
+
 func (r *mutationResolver) RatingScoreSet(ctx context.Context, input models.RatingScoreInput) (ret *models.RatingScoreUpdateResult, err error) {
 	score, err := normalizeRatingScoreInput(input)
 	if err != nil {

@@ -24,6 +24,7 @@ import {
   type PerformerRolePartnerCategory,
   type PerformerRolePartnerType,
 } from "../performerRolePartnerLabels_custom"; // CUSTOM
+import { ROLE_COLORS_CUSTOM } from "src/utils/roleColors_custom"; // CUSTOM
 
 interface IPerformerCategoryStripProps {
   performer: PerformerListData;
@@ -993,7 +994,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                             : [];
                         const badgeEl = (
                           <Badge
-                            variant="success"
+                            variant={ROLE_COLORS_CUSTOM.top.variant}
                             className={`arrow-badge top-badge scene-role-badge ${
                               scenePerformerCount > 2
                                 ? "scene-role-badge-with-count"
@@ -1040,7 +1041,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                       })()}
                     {!role.isTop && (
                       <Badge
-                        variant="success"
+                        variant={ROLE_COLORS_CUSTOM.top.variant}
                         className={`arrow-badge top-badge scene-role-badge role-badge-placeholder ${
                           scenePerformerCount > 2
                             ? "scene-role-badge-with-count"
@@ -1073,7 +1074,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                             : [];
                         const badgeEl = (
                           <Badge
-                            variant="info"
+                            variant={ROLE_COLORS_CUSTOM.bottom.variant}
                             className={`arrow-badge bottom-badge scene-role-badge ${
                               scenePerformerCount > 2
                                 ? "scene-role-badge-with-count"
@@ -1120,7 +1121,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                       })()}
                     {!role.isBottom && (
                       <Badge
-                        variant="info"
+                        variant={ROLE_COLORS_CUSTOM.bottom.variant}
                         className={`arrow-badge bottom-badge scene-role-badge role-badge-placeholder ${
                           scenePerformerCount > 2
                             ? "scene-role-badge-with-count"
@@ -1148,7 +1149,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                     <Link to={topUrl} className="role-badge-link">
                       <Badge
                         pill
-                        variant="success"
+                        variant={ROLE_COLORS_CUSTOM.top.variant}
                         className="arrow-badge top-badge"
                         title={getTooltipText(role.category, "top", role.topCount || 0)}
                         style={{
@@ -1167,7 +1168,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                   ) : (
                     <Badge
                       pill
-                      variant="success"
+                      variant={ROLE_COLORS_CUSTOM.top.variant}
                       className="arrow-badge top-badge"
                       title={getTooltipText(role.category, "top", role.topCount || 0)}
                       style={{
@@ -1187,7 +1188,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                     <Link to={bottomUrl} className="role-badge-link">
                       <Badge
                         pill
-                        variant="info"
+                        variant={ROLE_COLORS_CUSTOM.bottom.variant}
                         className="arrow-badge bottom-badge"
                         title={getTooltipText(role.category, "bottom", role.bottomCount || 0)}
                         style={{
@@ -1206,7 +1207,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                   ) : (
                     <Badge
                       pill
-                      variant="info"
+                      variant={ROLE_COLORS_CUSTOM.bottom.variant}
                       className="arrow-badge bottom-badge"
                       title={getTooltipText(role.category, "bottom", role.bottomCount || 0)}
                       style={{
@@ -1285,7 +1286,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                           <Link to={partnerTopUrl} className="role-badge-link">
                             <Badge
                               pill
-                              variant="success"
+                              variant={ROLE_COLORS_CUSTOM.top.variant}
                               className="arrow-badge top-badge"
                               style={{
                                 fontSize: 10,
@@ -1304,7 +1305,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                         ) : (
                           <Badge
                             pill
-                            variant="success"
+                            variant={ROLE_COLORS_CUSTOM.top.variant}
                             className="arrow-badge top-badge"
                             style={{
                               fontSize: 10,
@@ -1358,7 +1359,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                           >
                             <Badge
                               pill
-                              variant="info"
+                              variant={ROLE_COLORS_CUSTOM.bottom.variant}
                               className="arrow-badge bottom-badge"
                               style={{
                                 fontSize: 10,
@@ -1377,7 +1378,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                         ) : (
                           <Badge
                             pill
-                            variant="info"
+                            variant={ROLE_COLORS_CUSTOM.bottom.variant}
                             className="arrow-badge bottom-badge"
                             style={{
                               fontSize: 10,

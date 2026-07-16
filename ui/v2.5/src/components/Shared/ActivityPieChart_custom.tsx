@@ -1,5 +1,6 @@
 import React from "react";
 import CryptoJS from "crypto-js";
+import { ROLE_COLORS_CUSTOM } from "src/utils/roleColors_custom";
 
 export const ACTIVITY_PIE_COLORS = {
   sex: "#d9822b",
@@ -9,8 +10,8 @@ export const ACTIVITY_PIE_COLORS = {
   outstanding: "#ffd700",
   standard: "#28a745",
   unusable: "#dc3545",
-  top: "#28a745",
-  bottom: "#17a2b8",
+  top: ROLE_COLORS_CUSTOM.top.color,
+  bottom: ROLE_COLORS_CUSTOM.bottom.color,
 };
 
 function semanticMarkerTagColorCustom(tag: string): string | undefined {

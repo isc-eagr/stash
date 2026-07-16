@@ -1,0 +1,173 @@
+<div id="rating-advisor-concepts">
+  <div class="viz-controls" role="tablist" aria-label="Rating advisor redesign concepts">
+    <button class="btn btn-primary" type="button" role="tab" aria-selected="true" data-concept="guided">A · Guided</button>
+    <button class="btn" type="button" role="tab" aria-selected="false" data-concept="compact">B · Compact</button>
+    <button class="btn" type="button" role="tab" aria-selected="false" data-concept="hybrid">C · Hybrid</button>
+  </div>
+
+  <section class="concept" data-panel="guided" role="tabpanel" aria-label="Guided rating concept">
+    <div class="advisor-shell">
+      <header class="advisor-topbar">
+        <div>
+          <div class="text-small text-muted">GROUP SCENE · AUTOSAVED</div>
+          <h3>Scene rating</h3>
+        </div>
+        <div class="viz-row advisor-score">
+          <span class="viz-badge">Silver</span>
+          <strong>68</strong>
+        </div>
+      </header>
+      <div class="advisor-progress">
+        <div class="viz-row progress-copy"><strong>Core criteria</strong><span class="text-muted">3 of 5 rated</span></div>
+        <progress value="3" max="5" aria-label="3 of 5 core criteria rated"></progress>
+      </div>
+      <div class="guided-layout">
+        <nav class="step-list" aria-label="Core rating criteria">
+          <button class="btn btn-ghost is-done" type="button"><span>✓</span> Top lineup <strong>12 / 15</strong></button>
+          <button class="btn btn-ghost is-done" type="button"><span>✓</span> Energy <strong>28 / 35</strong></button>
+          <button class="btn btn-ghost is-current" type="button" aria-current="step"><span>3</span> Participation <strong>12 / 20</strong></button>
+          <button class="btn btn-ghost" type="button"><span>4</span> Orgasm quality <strong>—</strong></button>
+          <button class="btn btn-ghost" type="button"><span>5</span> Standout moments <strong>—</strong></button>
+        </nav>
+        <main class="focus-pane">
+          <div class="metric-heading">
+            <div><div class="text-small text-muted">CRITERION 3 OF 5</div><h3>Group participation</h3></div>
+            <span class="viz-badge">12 / 20</span>
+          </div>
+          <p class="text-muted">How meaningfully the full lineup contributes and works together.</p>
+          <div class="choice-stack" role="radiogroup" aria-label="Group participation rating">
+            <button class="btn" type="button" aria-pressed="false"><strong>0</strong><span>Not really a group scene</span></button>
+            <button class="btn" type="button" aria-pressed="false"><strong>1</strong><span>Poor use</span></button>
+            <button class="btn" type="button" aria-pressed="false"><strong>2</strong><span>Uneven</span></button>
+            <button class="btn btn-primary" type="button" aria-pressed="true"><strong>3</strong><span>Good ensemble</span></button>
+            <button class="btn" type="button" aria-pressed="false"><strong>4</strong><span>Excellent ensemble</span></button>
+            <button class="btn" type="button" aria-pressed="false"><strong>5</strong><span>Perfect execution</span></button>
+          </div>
+          <div class="selected-explanation"><strong>Good ensemble</strong><span class="text-muted">Most vatos contribute meaningfully and the coordination improves the scene.</span></div>
+          <div class="viz-row pane-actions"><button class="btn" type="button">Back</button><button class="btn btn-primary" type="button">Next unrated</button></div>
+        </main>
+      </div>
+    </div>
+  </section>
+
+  <section class="concept" data-panel="compact" role="tabpanel" aria-label="Compact rating concept" hidden>
+    <div class="advisor-shell">
+      <header class="advisor-topbar">
+        <div><div class="text-small text-muted">GROUP SCENE · ALL CHANGES SAVED</div><h3>Scene rating</h3></div>
+        <div class="viz-row advisor-score"><span class="text-muted">3 / 5 core rated</span><span class="viz-badge">Silver</span><strong>68</strong></div>
+      </header>
+      <div class="compact-list">
+        <div class="compact-metric">
+          <div class="metric-heading"><div><strong>Top lineup attractiveness</strong><span class="text-small text-muted"> Active tops as a lineup</span></div><span>12 / 15</span></div>
+          <div class="segmented" role="radiogroup" aria-label="Top lineup attractiveness"><button class="btn" type="button">0</button><button class="btn" type="button">1</button><button class="btn" type="button">2</button><button class="btn" type="button">3</button><button class="btn btn-primary" type="button" aria-pressed="true">4 · Very attractive</button><button class="btn" type="button">5</button></div>
+        </div>
+        <div class="compact-metric">
+          <div class="metric-heading"><div><strong>Energy / sex quality</strong><span class="text-small text-muted"> Intensity, pacing, chemistry</span></div><span>28 / 35</span></div>
+          <div class="segmented" role="radiogroup" aria-label="Energy and sex quality"><button class="btn" type="button">0</button><button class="btn" type="button">1</button><button class="btn" type="button">2</button><button class="btn" type="button">3</button><button class="btn btn-primary" type="button" aria-pressed="true">4 · Excellent</button><button class="btn" type="button">5</button></div>
+        </div>
+        <div class="compact-metric is-unrated">
+          <div class="metric-heading"><div><strong>Group participation</strong><span class="text-small text-muted"> Lineup use and coordination</span></div><span class="text-muted">Not rated</span></div>
+          <div class="segmented" role="radiogroup" aria-label="Group participation"><button class="btn" type="button">0</button><button class="btn" type="button">1</button><button class="btn" type="button">2</button><button class="btn" type="button">3</button><button class="btn" type="button">4</button><button class="btn" type="button">5</button></div>
+        </div>
+        <div class="compact-metric is-unrated">
+          <div class="metric-heading"><div><strong>Orgasm quality</strong><span class="text-small text-muted"> Overall payoff</span></div><span class="text-muted">Not rated</span></div>
+          <div class="segmented short" role="radiogroup" aria-label="Orgasm quality"><button class="btn" type="button">0 · Unremarkable</button><button class="btn" type="button">2 · Standard</button><button class="btn" type="button">3 · Above average</button><button class="btn" type="button">4 · Outstanding</button></div>
+        </div>
+      </div>
+      <div class="section-bars"><button class="btn btn-block" type="button">Bonuses <span class="text-muted">1 selected · +10</span></button><button class="btn btn-block" type="button">Penalties <span class="text-muted">None</span></button></div>
+    </div>
+  </section>
+
+  <section class="concept" data-panel="hybrid" role="tabpanel" aria-label="Hybrid rating concept" hidden>
+    <div class="advisor-shell">
+      <header class="advisor-topbar">
+        <div><div class="text-small text-muted">GROUP SCENE · AUTOSAVED</div><h3>Scene rating</h3></div>
+        <div class="viz-row advisor-score"><span class="viz-badge">Silver</span><strong>68</strong></div>
+      </header>
+      <div class="hybrid-tabs" role="tablist" aria-label="Rating sections"><button class="btn btn-primary" type="button" aria-selected="true">Core <span>3/5</span></button><button class="btn" type="button">Bonuses <span>+10</span></button><button class="btn" type="button">Penalties <span>0</span></button></div>
+      <div class="hybrid-layout">
+        <div class="overview-list">
+          <button class="btn btn-ghost is-done" type="button"><span>Top lineup</span><strong>12 / 15</strong></button>
+          <button class="btn btn-ghost is-done" type="button"><span>Energy</span><strong>28 / 35</strong></button>
+          <button class="btn btn-ghost is-current" type="button"><span>Participation</span><strong>12 / 20</strong></button>
+          <button class="btn btn-ghost" type="button"><span>Orgasm quality</span><strong>Not rated</strong></button>
+          <button class="btn btn-ghost" type="button"><span>Standout</span><strong>Not rated</strong></button>
+        </div>
+        <div class="focus-pane">
+          <div class="metric-heading"><div><div class="text-small text-muted">CORE CRITERION</div><h3>Group participation</h3></div><span class="viz-badge">12 / 20</span></div>
+          <p class="text-muted">How meaningfully the lineup is used, coordinated, and integrated.</p>
+          <div class="choice-stack" role="radiogroup" aria-label="Group participation rating">
+            <button class="btn" type="button" aria-pressed="false"><strong>0</strong><span>Not a group scene</span></button>
+            <button class="btn" type="button" aria-pressed="false"><strong>1</strong><span>Poor use</span></button>
+            <button class="btn" type="button" aria-pressed="false"><strong>2</strong><span>Uneven</span></button>
+            <button class="btn btn-primary" type="button" aria-pressed="true"><strong>3</strong><span>Good ensemble</span></button>
+            <button class="btn" type="button" aria-pressed="false"><strong>4</strong><span>Excellent ensemble</span></button>
+            <button class="btn" type="button" aria-pressed="false"><strong>5</strong><span>Perfect execution</span></button>
+          </div>
+          <div class="selected-explanation"><strong>Good ensemble</strong><span class="text-muted">Most vatos contribute meaningfully and coordination improves the scene.</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<style>
+  #rating-advisor-concepts { display: grid; gap: 1rem; }
+  #rating-advisor-concepts .concept[hidden] { display: none; }
+  #rating-advisor-concepts .advisor-shell { display: grid; gap: 1rem; }
+  #rating-advisor-concepts .advisor-topbar { align-items: center; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; padding-bottom: .8rem; }
+  #rating-advisor-concepts h3 { margin: .15rem 0 0; }
+  #rating-advisor-concepts .advisor-score strong { font-size: calc(var(--font-size-base) * 1.8); }
+  #rating-advisor-concepts .advisor-progress { display: grid; gap: .4rem; }
+  #rating-advisor-concepts .progress-copy { justify-content: space-between; }
+  #rating-advisor-concepts progress { accent-color: var(--primary); inline-size: 100%; }
+  #rating-advisor-concepts .guided-layout, #rating-advisor-concepts .hybrid-layout { display: grid; gap: 1rem; grid-template-columns: minmax(13rem, .75fr) minmax(0, 1.5fr); }
+  #rating-advisor-concepts .step-list, #rating-advisor-concepts .overview-list { border-right: 1px solid var(--border); display: grid; gap: .25rem; padding-right: 1rem; }
+  #rating-advisor-concepts .step-list .btn, #rating-advisor-concepts .overview-list .btn { align-items: center; display: grid; gap: .5rem; grid-template-columns: auto 1fr auto; text-align: left; }
+  #rating-advisor-concepts .step-list .is-current, #rating-advisor-concepts .overview-list .is-current { background: var(--accent); color: var(--accent-foreground); }
+  #rating-advisor-concepts .focus-pane { display: grid; gap: .8rem; }
+  #rating-advisor-concepts .metric-heading { align-items: start; display: flex; gap: .75rem; justify-content: space-between; }
+  #rating-advisor-concepts .choice-stack { display: grid; gap: .4rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #rating-advisor-concepts .choice-stack .btn { align-items: center; display: grid; gap: .5rem; grid-template-columns: auto 1fr; text-align: left; }
+  #rating-advisor-concepts .selected-explanation { border-left: 2px solid var(--primary); display: grid; gap: .2rem; padding-left: .75rem; }
+  #rating-advisor-concepts .pane-actions { justify-content: space-between; }
+  #rating-advisor-concepts .compact-list { display: grid; }
+  #rating-advisor-concepts .compact-metric { border-bottom: 1px solid var(--border); display: grid; gap: .5rem; padding: .85rem 0; }
+  #rating-advisor-concepts .compact-metric.is-unrated { opacity: .78; }
+  #rating-advisor-concepts .segmented { display: grid; gap: .3rem; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  #rating-advisor-concepts .segmented.short { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  #rating-advisor-concepts .segmented .btn { min-width: 0; }
+  #rating-advisor-concepts .section-bars { display: grid; gap: .5rem; grid-template-columns: 1fr 1fr; }
+  #rating-advisor-concepts .section-bars .btn { display: flex; justify-content: space-between; }
+  #rating-advisor-concepts .hybrid-tabs { border-bottom: 1px solid var(--border); display: flex; gap: .35rem; padding-bottom: .7rem; }
+  #rating-advisor-concepts .hybrid-tabs .btn span { margin-left: .35rem; }
+  #rating-advisor-concepts .range-labels { display: flex; justify-content: space-between; }
+  @media (max-width: 620px) {
+    #rating-advisor-concepts .guided-layout, #rating-advisor-concepts .hybrid-layout { grid-template-columns: 1fr; }
+    #rating-advisor-concepts .step-list, #rating-advisor-concepts .overview-list { border-bottom: 1px solid var(--border); border-right: 0; padding-bottom: .75rem; padding-right: 0; }
+    #rating-advisor-concepts .choice-stack, #rating-advisor-concepts .section-bars { grid-template-columns: 1fr; }
+    #rating-advisor-concepts .segmented, #rating-advisor-concepts .segmented.short { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #rating-advisor-concepts .advisor-topbar { align-items: start; }
+  }
+</style>
+
+<script>
+  (() => {
+    const root = document.getElementById("rating-advisor-concepts");
+    const tabs = Array.from(root.querySelectorAll("[data-concept]"));
+    const panels = Array.from(root.querySelectorAll("[data-panel]"));
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const selected = tab.dataset.concept;
+        tabs.forEach((item) => {
+          const active = item === tab;
+          item.setAttribute("aria-selected", String(active));
+          item.classList.toggle("btn-primary", active);
+        });
+        panels.forEach((panel) => {
+          panel.hidden = panel.dataset.panel !== selected;
+        });
+      });
+    });
+  })();
+</script>

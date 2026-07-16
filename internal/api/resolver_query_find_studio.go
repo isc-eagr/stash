@@ -30,6 +30,7 @@ func (r *queryResolver) FindStudios(ctx context.Context, studioFilter *models.St
 		return nil, err
 	}
 
+	fields := collectQueryFields(ctx) // CUSTOM: detect the batched list-stat payload
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		var studios []*models.Studio
 		var err error
@@ -49,6 +50,19 @@ func (r *queryResolver) FindStudios(ctx context.Context, studioFilter *models.St
 			Count:   total,
 			Studios: studios,
 		}
+
+		// CUSTOM: begin - replace per-card aggregate resolvers with page-level batches
+		if fields.Has("studio_list_stats") {
+			studioIDs := make([]int, len(studios))
+			for i, studio := range studios {
+				studioIDs[i] = studio.ID
+			}
+			ret.StudioListStats, err = queryStudioListStatsCustom(ctx, studioIDs)
+			if err != nil {
+				return err
+			}
+		}
+		// CUSTOM: end
 
 		return nil
 	}); err != nil {

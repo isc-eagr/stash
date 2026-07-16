@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo } from "react"; // CUSTOM: added useMemo
 import { FormattedMessage, useIntl } from "react-intl";
 import cloneDeep from "lodash-es/cloneDeep";
 import { useHistory } from "react-router-dom";
@@ -48,7 +48,8 @@ import { Button } from "react-bootstrap";
 import cx from "classnames";
 
 const StudioList: React.FC<{
-  studios: GQL.StudioDataFragment[];
+  studios: GQL.StudioListDataFragment[]; // CUSTOM
+  statsByStudioID: ReadonlyMap<string, GQL.StudioListStatsDataFragment>; // CUSTOM
   filter: ListFilterModel;
   selectedIds: Set<string>;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
@@ -56,7 +57,16 @@ const StudioList: React.FC<{
   performerId?: string; // CUSTOM
 }> = PatchComponent(
   "StudioList",
-  ({ studios, filter, selectedIds, onSelectChange, fromParent, performerId }) => { // CUSTOM: performerId
+  ({
+    studios,
+    statsByStudioID,
+    filter,
+    selectedIds,
+    onSelectChange,
+    fromParent,
+    performerId,
+  }) => {
+    // CUSTOM: statsByStudioID, performerId
     if (studios.length === 0 && filter.displayMode !== DisplayMode.Tagger) {
       return null;
     }
@@ -65,6 +75,7 @@ const StudioList: React.FC<{
       return (
         <StudioCardGrid
           studios={studios}
+          statsByStudioID={statsByStudioID} // CUSTOM
           zoomIndex={filter.zoomIndex}
           fromParent={fromParent}
           selectedIds={selectedIds}
@@ -205,7 +216,13 @@ export const FilteredStudioList = PatchComponent(
 
     const searchFocus = useFocus();
 
-    const { filterHook, view, alterQuery, extraOperations = [], performerId } = props; // CUSTOM: performerId
+    const {
+      filterHook,
+      view,
+      alterQuery,
+      extraOperations = [],
+      performerId,
+    } = props; // CUSTOM: performerId
 
     // States
     const {
@@ -235,6 +252,19 @@ export const FilteredStudioList = PatchComponent(
 
     const { effectiveFilter, result, cachedResult, items, totalCount } =
       queryResult;
+
+    // CUSTOM: begin - list aggregates arrive as one page-level payload
+    const statsByStudioID = useMemo(
+      () =>
+        new Map(
+          (result.data?.findStudios.studio_list_stats ?? []).map((stats) => [
+            stats.studio_id,
+            stats,
+          ])
+        ),
+      [result.data]
+    );
+    // CUSTOM: end
 
     const {
       selectedIds,
@@ -438,6 +468,7 @@ export const FilteredStudioList = PatchComponent(
                 <StudioList
                   filter={effectiveFilter}
                   studios={items}
+                  statsByStudioID={statsByStudioID} // CUSTOM
                   selectedIds={selectedIds}
                   onSelectChange={onSelectChange}
                   performerId={performerId} // CUSTOM

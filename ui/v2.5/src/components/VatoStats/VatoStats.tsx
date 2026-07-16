@@ -818,7 +818,7 @@ function randomSortID() {
 
 function performerMarkerRoleURL(
   tag: { id: string; name: string } | undefined,
-  role: "top" | "bottom",
+  role: "any" | "top" | "bottom",
   depth = 0
 ) {
   if (!tag) return undefined;
@@ -885,7 +885,7 @@ function soloOnlyPerformersURL(
         performer_ethnicities: [],
         performer_countries: [],
         performer_rating: null,
-        performer_role: "top",
+        performer_role: "any",
         partner_ids: [],
         partner_ethnicities: [],
         partner_countries: [],

@@ -72,3 +72,28 @@ export function normalizeRatingAdvisorScoreValueCustom(
       : nearest
   ).value;
 }
+
+export function getRatingAdvisorCompletionCustom(
+  metricKeys: readonly string[],
+  scores: Readonly<Record<string, number | undefined>>
+) {
+  const rated = metricKeys.filter((key) => scores[key] !== undefined).length;
+  const total = metricKeys.length;
+
+  return {
+    rated,
+    total,
+    complete: rated === total,
+    percent: total === 0 ? 100 : Math.round((rated / total) * 100),
+  };
+}
+
+export function getRatingAdvisorChoiceHeatLevelCustom(
+  choiceIndex: number,
+  choiceCount: number
+) {
+  if (choiceCount <= 1) return 0;
+
+  const safeIndex = Math.max(0, Math.min(choiceIndex, choiceCount - 1));
+  return Math.round((safeIndex / (choiceCount - 1)) * 5);
+}

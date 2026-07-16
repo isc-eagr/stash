@@ -35,6 +35,7 @@ import {
 } from "src/core/generated-graphql";
 // CUSTOM: end
 import { useConfigurationContext } from "src/hooks/Config";
+import { ROLE_COLORS_CUSTOM } from "src/utils/roleColors_custom"; // CUSTOM
 
 type TagItemProps = PropsWithChildren<
   ReplaceProps<"span", BsPrefixProps<"span"> & BadgeProps>
@@ -288,7 +289,7 @@ const MarkerTopChipLabel: React.FC<{ criterion: MarkerTopCriterion }> = ({
 
     return (
       <span>
-        <Badge variant="success" className="me-1">
+        <Badge variant={ROLE_COLORS_CUSTOM.top.variant} className="me-1">
           ⬆ {filter.targetGroupId}
         </Badge>
         {intl.formatMessage({ id: "marker_top" })}: {valueString}
@@ -374,7 +375,7 @@ const MarkerBottomChipLabel: React.FC<{ criterion: MarkerBottomCriterion }> = ({
 
     return (
       <span>
-        <Badge variant="info" className="me-1">
+        <Badge variant={ROLE_COLORS_CUSTOM.bottom.variant} className="me-1">
           ⬇ {filter.targetGroupId}
         </Badge>
         {intl.formatMessage({ id: "marker_bottom" })}: {valueString}

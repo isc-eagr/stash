@@ -1,6 +1,6 @@
 import { gql, useQuery } from "@apollo/client";
-import React, { useEffect, useMemo, useState } from "react";
-import { Badge, Button, Form } from "react-bootstrap";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Badge, Button } from "react-bootstrap";
 import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 import { ModalComponent } from "src/components/Shared/Modal";
 import { RatingNumber } from "src/components/Shared/Rating/RatingNumber";
@@ -8,15 +8,23 @@ import * as GQL from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useToast } from "src/hooks/Toast";
 import {
+  getRatingCardClass,
   getRatingCardThresholdsForEntity,
   normalizeRatingCardThresholds,
 } from "src/utils/ratingCardStyles_custom";
 import {
+  getRatingAdvisorCompletionCustom,
+  getRatingAdvisorChoiceHeatLevelCustom,
   getRatingAdvisorChoiceScoreCustom,
-  isRatingAdvisorRangeMetricCustom,
   normalizeRatingAdvisorScoreValueCustom,
   ratingAdvisorSixLevelChoicesCustom,
 } from "./ratingAdvisorScales_custom";
+import {
+  GROUP_SCENE_BONUSES_CUSTOM,
+  GROUP_SCENE_RATING_KEYS_CUSTOM,
+  GROUP_SCENE_WEIGHTS_CUSTOM,
+  type SceneRatingModeCustom,
+} from "./groupSceneRating_custom";
 
 type AdvisorEntity = "scene" | "performer";
 
@@ -52,7 +60,7 @@ interface IAdvisorPersistedScore {
 interface IRatingAdvisorButtonProps {
   entityType: AdvisorEntity;
   entityId: string;
-  sceneRatingMode?: "default" | "solo";
+  sceneRatingMode?: SceneRatingModeCustom;
   rating100?: number | null;
   ratingScores?: readonly IAdvisorPersistedScore[] | null;
   onRatingSaved?: () => void | Promise<unknown>;
@@ -72,33 +80,27 @@ const RatingAdvisorScoresQuery = gql`
 const sceneVatoAttractivenessChoices = ratingAdvisorSixLevelChoicesCustom([
   {
     label: "Not attractive",
-    description:
-      "Pick this when he is only relevant because of another vato, the scene, or the theme.",
+    description: "He ain't the draw; you're here for somebody else.",
   },
   {
     label: "Some appeal",
-    description:
-      "There is one thing that works, like face, body, styling, or attitude, but the overall pull is still light.",
+    description: "He's got a little something, but the pull is light.",
   },
   {
     label: "Decent",
-    description:
-      "Decent-looking, but you would not watch a scene just because he is in it.",
+    description: "Cute enough, but you're not clicking just for him.",
   },
   {
     label: "Attractive",
-    description:
-      "Clearly attractive; he is a noticeable visual plus even before performance enters the picture.",
+    description: "Hot vato. He definitely helps the scene.",
   },
   {
     label: "Very attractive",
-    description:
-      "Very attractive, the kind of vato who gives a scene an immediate visual draw.",
+    description: "Fine as hell and an instant reason to watch.",
   },
   {
     label: "Perfect",
-    description:
-      "Perfect for your taste, like he hits your type in a way most vatos do not.",
+    description: "Dead-on your type. Damn near no notes.",
   },
 ]);
 
@@ -108,7 +110,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Top(s) Attractiveness",
     max: 5,
     weight: 0.6,
-    hint: "Overall physical appeal of the top vato or tops: face, body impression, styling, sex appeal, visual magnetism, and immediate appeal.",
+    hint: "How hot the top vato or lineup looks to you.",
     choices: sceneVatoAttractivenessChoices,
   },
   {
@@ -116,7 +118,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Bottom(s) Attractiveness",
     max: 5,
     weight: 0.2,
-    hint: "Overall physical appeal of the bottom vato or bottoms: face, body impression, styling, sex appeal, visual magnetism, and immediate appeal.",
+    hint: "How hot the bottom vato or lineup looks to you.",
     choices: sceneVatoAttractivenessChoices,
   },
   {
@@ -124,37 +126,31 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Energy / sex quality",
     max: 5,
     weight: 0.6,
-    hint: "How much the sex, pacing, interaction, reactions, rhythm, and overall scene energy make the scene feel alive and satisfying.",
+    hint: "How hot the actual sex feels: rhythm, reactions, chemistry, all that.",
     choices: ratingAdvisorSixLevelChoicesCustom([
       {
         label: "No energy",
-        description:
-          "Disconnected, mechanical, passive, awkward, or actively weak sex quality. This is for scenes where vatos look like they don't want to be there.",
+        description: "Dead and awkward. These vatos look clocked out.",
       },
       {
         label: "Serviceable",
-        description:
-          "The sex is acceptable, like a routine scene that gets the job done without much spark.",
+        description: "Gets the job done, but there ain't much spark.",
       },
       {
         label: "Decent",
-        description:
-          "The pacing and reactions are decent enough that the scene feels alive in spots.",
+        description: "Some hot stretches, nothing too crazy.",
       },
       {
         label: "Strong",
-        description:
-          "Use this when the rhythm, reactions, or intensity make the scene meaningfully hotter than the setup alone.",
+        description: "Good rhythm and reactions. The sex really lands.",
       },
       {
         label: "Excellent",
-        description:
-          "The scene has the exact vibe you want: intense, playful, rough, romantic, dominant, natural, or whatever fits it.",
+        description: "Hot as hell and exactly the right vibe.",
       },
       {
         label: "Perfect quality",
-        description:
-          "This is the rare scene where the sex quality alone can carry it, even without extra bonuses.",
+        description: "The sex alone carries the whole damn scene.",
       },
     ]),
   },
@@ -163,31 +159,27 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Orgasm quality",
     max: 4,
     weight: 0.5,
-    hint: "How much the orgasm adds heat; and whether the scene has facials.",
+    hint: "How good the orgasms, facials, and final payoff are.",
     choices: [
       {
         value: 0,
         label: "Unremarkable orgasms",
-        description:
-          "There is an orgasm, but it is blink-and-you-miss-it, badly framed, or just not memorable.",
+        description: "He came, but it was weak, hidden, or easy to forget.",
       },
       {
         value: 2,
         label: "Standard orgasms",
-        description:
-          "A normal solid orgasm: hot because orgasms are hot, but not something you would describe later.",
+        description: "A solid orgasm. Hot, just not legendary.",
       },
       {
         value: 3,
         label: "Above average",
-        description:
-          "Use this for above-average orgasms, or a standard facial that gives the scene a real bump.",
+        description: "A hot nut or facial that gives the scene a real bump.",
       },
       {
         value: 4,
         label: "Outstanding orgasms",
-        description:
-          "The orgasm/facial is a real highlight, like good framing, strong intensity, or a payoff you would seek out again.",
+        description: "That orgasm or facial is the damn highlight.",
       },
     ],
   },
@@ -196,19 +188,17 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Theme / fantasy / uniform factor",
     max: 0.5,
     section: "bonus",
-    hint: "Optional bonus for a theme, fantasy, setting, or uniform concept that clearly increases appeal.",
+    hint: "Flip it on when the fantasy, setting, or uniform makes it hotter.",
     choices: [
       {
         value: 0,
         label: "No theme bonus",
-        description:
-          "No extra theme help here; removing the setting, outfit, or fantasy would not really change your rating.",
+        description: "The theme ain't doing anything extra for you.",
       },
       {
         value: 0.5,
         label: "Theme present",
-        description:
-          "Military, cop, office, firefighter, mechanic, blue collar, uniform, or another strong theme that makes the scene hotter.",
+        description: "The uniform, fantasy, or setup makes this way hotter.",
       },
     ],
   },
@@ -217,36 +207,17 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Oral-only scene",
     max: 0.5,
     section: "bonus",
-    hint: "Optional bonus when the scene is oral-only and that format improves its appeal. If absent, it does not hurt the score.",
+    hint: "Flip it on when keeping it all mouth makes the scene hotter.",
     choices: [
       {
         value: 0,
         label: "Not oral-only",
-        description: "Not an oral-only scene.",
+        description: "There is more than oral going on.",
       },
       {
         value: 0.5,
         label: "Oral-only bonus",
-        description: "Oral-only scene.",
-      },
-    ],
-  },
-  {
-    key: "largeGroup",
-    title: "Group scene with 4+ vatos",
-    max: 0.5,
-    section: "bonus",
-    hint: "Optional bonus when a group scene has more than 3 vatos and the larger lineup improves the appeal.",
-    choices: [
-      {
-        value: 0,
-        label: "No group bonus",
-        description: "No bonus: the scene has 3 or fewer vatos.",
-      },
-      {
-        value: 0.5,
-        label: "Large group bonus",
-        description: "Group scene with 4 or more vatos.",
+        description: "All mouth, and that's exactly why it hits.",
       },
     ],
   },
@@ -255,19 +226,17 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "God-tier orgasm bonus",
     max: 2,
     section: "bonus",
-    hint: "Optional bonus for a payoff so memorable that it pushes the whole scene into special territory.",
+    hint: "For an orgasm or facial so wild it takes the scene up a whole level.",
     choices: [
       {
         value: 0,
         label: "Not god-tier",
-        description:
-          "No extra bonus here; the orgasm may still be good, but it is covered by the main orgasm quality score.",
+        description: "Good maybe, but not god-tier crazy.",
       },
       {
         value: 2,
         label: "God-tier orgasms",
-        description:
-          "The orgasm or facial is central to why the scene is special.",
+        description: "The orgasm or facial is straight-up legendary.",
       },
     ],
   },
@@ -276,19 +245,17 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "GOAT element",
     max: 2,
     section: "bonus",
-    hint: "Optional bonus when any scene content has the GOAT tag or a GOAT-level element, even if the rest of the scene is not as strong.",
+    hint: "For one GOAT-level act, angle, blowjob, or other killer moment.",
     choices: [
       {
         value: 0,
         label: "No GOAT element",
-        description:
-          "No extra bonus here; the scene does not have a GOAT-tagged or GOAT-level content element.",
+        description: "Nothing here reaches GOAT territory.",
       },
       {
         value: 2,
         label: "GOAT element",
-        description:
-          "Use this for GOAT-tagged content, like a GOAT blowjob or another standout GOAT element that elevates the scene.",
+        description: "One part is so damn good it lifts the whole scene.",
       },
     ],
   },
@@ -297,19 +264,18 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Unlikely top",
     max: 0.5,
     section: "bonus",
-    hint: "Optional bonus when a vato visually reads like a bottom but tops in this scene, and that contrast makes the scene hotter.",
+    hint: "For a bottom-looking vato who flips the script and tops.",
     choices: [
       {
         value: 0,
         label: "No bonus",
-        description:
-          "No bonus: the scene does not have that unlikely-top contrast, or it does not affect its appeal.",
+        description: "No surprise-top heat here.",
       },
       {
         value: 0.5,
         label: "Unlikely top bonus",
         description:
-          "Use this when the contrast between bottom-coded visuals and actual top energy makes the scene more interesting or hot.",
+          "He looks like a bottom, then pulls out that top energy. Hot.",
       },
     ],
   },
@@ -318,25 +284,22 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Standout moment",
     max: 2,
     weight: 0.5,
-    hint: "Whether the scene has a specific memorable moment that sticks beyond the general setup.",
+    hint: "How many moments make you go, damn, rewind that.",
     choices: [
       {
         value: 0,
         label: "No standout moment",
-        description:
-          "Nothing specific sticks in your head; you may like the scene overall, but no moment jumps out.",
+        description: "Nothing really makes you stop and rewind.",
       },
       {
         value: 1,
         label: "One or two noticeable moments",
-        description:
-          "There is one or two nice moments, angles, reactions, lines, poses, or beats that make you go, okay, that was hot.",
+        description: "One or two hot little moments stick with you.",
       },
       {
         value: 2,
         label: "Multiple defining moments",
-        description:
-          "There are multiple moments in the scene that are memorable and really hot.",
+        description: "This thing keeps serving rewind-worthy moments.",
       },
     ],
   },
@@ -345,19 +308,17 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "No orgasm",
     max: 0,
     section: "penalty",
-    hint: "Penalty when there is no orgasm payoff, or the scene cuts away before anything useful happens.",
+    hint: "Flip it on if nobody finishes or the scene cuts off early.",
     choices: [
       {
         value: 0,
         label: "Orgasm present",
-        description:
-          "No penalty here; the scene has some kind of orgasm payoff.",
+        description: "Somebody delivers a real payoff.",
       },
       {
         value: -1,
         label: "No orgasm penalty",
-        description:
-          "Use this when there is no orgasm payoff, or the scene cuts away before anything useful happens.",
+        description: "No orgasm, no payoff, or they cut away. Lame.",
       },
     ],
   },
@@ -366,19 +327,18 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Production / visual quality",
     max: 0,
     section: "penalty",
-    hint: "Negative adjustment for distracting production problems. Select it only when the scene's visual or technical quality actively works against it.",
+    hint: "Flip it on when bad camera work or quality kills the heat.",
     choices: [
       {
         value: 0,
         label: "No penalty",
-        description:
-          "Production is fine enough; even if it is not beautiful, it does not get in the way.",
+        description: "Looks fine enough and stays out of the way.",
       },
       {
         value: -1,
         label: "Quality works against it",
         description:
-          "Use this when the camera, lighting, edit, audio, resolution, or framing makes you think, damn, this would be hotter if it were shot better.",
+          "Bad angles, lighting, editing, or quality ruin the good stuff.",
       },
     ],
   },
@@ -390,7 +350,7 @@ const soloSceneMetrics: IAdvisorMetric[] = [
     title: "Vato Attractiveness",
     max: 5,
     weight: 1.4,
-    hint: "Overall solo vato appeal: face, body, styling, sex appeal, visual magnetism, and immediate draw.",
+    hint: "How hot the solo vato is, face to body to rifle.",
     choices: sceneVatoAttractivenessChoices,
   },
   {
@@ -398,43 +358,40 @@ const soloSceneMetrics: IAdvisorMetric[] = [
     title: "Angles and camera work",
     max: 5,
     weight: 0.6,
-    hint: "How much the framing, angles, movement, focus, lighting, and shot choices make the solo scene hotter.",
+    hint: "How well the camera shows off the vato and his rifle.",
     choices: [
       {
         value: 0,
         label: "Works against it",
-        description:
-          "The camera actively hurts the scene: bad framing, weak angles, distracting focus, or missed action.",
+        description: "Bad shots hide the good stuff and kill the mood.",
       },
       {
         value: 1,
         label: "Weak",
-        description:
-          "A few usable shots, but the camera mostly fails to show the scene in a satisfying way.",
+        description: "A couple usable shots, but mostly a missed opportunity.",
       },
       {
         value: 2,
         label: "Serviceable",
         description:
-          "The camera gets the basics, but the angles do not add much heat.",
+          "You can see everything, but the angles ain't adding heat.",
       },
       {
         value: 3,
         label: "Good",
-        description:
-          "Solid angles and framing that help the solo performance land.",
+        description: "Good angles that show the vato and his business right.",
       },
       {
         value: 4,
         label: "Excellent",
         description:
-          "Strong camera work with hot framing, clear payoff, and angles that meaningfully improve the scene.",
+          "Hot framing, clear payoff, and plenty of rifle on display.",
       },
       {
         value: 5,
         label: "Perfect",
         description:
-          "Exactly the angles and camera work you want from a solo scene; the shooting style is a major reason it works.",
+          "Every angle hits. The camera knows exactly what you came for.",
       },
     ],
   },
@@ -443,19 +400,17 @@ const soloSceneMetrics: IAdvisorMetric[] = [
     title: "Orgasm",
     max: 1,
     section: "bonus",
-    hint: "Solo-only bonus when the orgasm payoff is present and helps the scene.",
+    hint: "Flip it on when the solo orgasm makes the scene better.",
     choices: [
       {
         value: 0,
         label: "No orgasm bonus",
-        description:
-          "No extra bonus here; either there is no useful payoff or it does not improve the scene.",
+        description: "No worthwhile orgasm to boost the scene.",
       },
       {
         value: 1,
         label: "Orgasm bonus",
-        description:
-          "The scene has an orgasm payoff that meaningfully improves the solo scene.",
+        description: "He delivers a hot nut that makes the solo worth it.",
         scoreValue: 1,
       },
     ],
@@ -465,19 +420,17 @@ const soloSceneMetrics: IAdvisorMetric[] = [
     title: "Feet",
     max: 1,
     section: "bonus",
-    hint: "Solo-only bonus when feet meaningfully improve the scene.",
+    hint: "Flip it on when the feet are actually part of the fun.",
     choices: [
       {
         value: 0,
         label: "No feet bonus",
-        description:
-          "No extra bonus here; feet are absent, incidental, or not part of why the scene works.",
+        description: "No feet, or they ain't doing anything for you.",
       },
       {
         value: 1,
         label: "Feet bonus",
-        description:
-          "Feet are present in a way that meaningfully improves the solo scene.",
+        description: "The feet get real screen time and make it hotter.",
         scoreValue: 1,
       },
     ],
@@ -487,19 +440,17 @@ const soloSceneMetrics: IAdvisorMetric[] = [
     title: "Outstanding performance",
     max: 1,
     section: "bonus",
-    hint: "Solo-only bonus when the vato brings unusually strong energy, charisma, intensity, or presence.",
+    hint: "Flip it on when the vato really puts on a show.",
     choices: [
       {
         value: 0,
         label: "No performance bonus",
-        description:
-          "No extra bonus here; the solo performance may be fine, but it is not the reason the scene stands out.",
+        description: "He does fine, but he ain't exactly showing out.",
       },
       {
         value: 1,
         label: "Outstanding performance",
-        description:
-          "Use this when the solo vato brings exceptional energy, reactions, confidence, intensity, or presence.",
+        description: "He owns the camera and works that rifle like a pro.",
         scoreValue: 1,
       },
     ],
@@ -514,43 +465,146 @@ const soloSceneMetrics: IAdvisorMetric[] = [
   sceneMetrics.find((metric) => metric.key === "production")!,
 ];
 
+const groupSceneMetrics: IAdvisorMetric[] = [
+  {
+    ...sceneMetrics.find((metric) => metric.key === "topAttractiveness")!,
+    key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.topAttractiveness,
+    title: "Top Lineup Attractiveness",
+    weight: GROUP_SCENE_WEIGHTS_CUSTOM.topAttractiveness,
+    hint: "How hot the vatos doing the topping look as a lineup.",
+  },
+  {
+    ...sceneMetrics.find((metric) => metric.key === "chemistry")!,
+    key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.energy,
+    title: "Energy / Sex Quality",
+    weight: GROUP_SCENE_WEIGHTS_CUSTOM.energy,
+    hint: "How hot the group action feels from start to finish.",
+  },
+  {
+    key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.participation,
+    title: "Group Participation and Coordination",
+    max: 5,
+    weight: GROUP_SCENE_WEIGHTS_CUSTOM.participation,
+    hint: "Whether everybody gets in there or half the lineup just stands around.",
+    choices: ratingAdvisorSixLevelChoicesCustom([
+      {
+        label: "Not really a group scene",
+        description: "Most of these vatos are basically furniture.",
+      },
+      {
+        label: "Poor use",
+        description: "A couple vatos do everything while the rest wait around.",
+      },
+      {
+        label: "Uneven",
+        description: "Real group action, but the flow gets messy or uneven.",
+      },
+      {
+        label: "Good ensemble",
+        description: "Most vatos get involved and the group flow works.",
+      },
+      {
+        label: "Excellent ensemble",
+        description: "Everybody gets used well and the action stays hot.",
+      },
+      {
+        label: "Perfect group execution",
+        description:
+          "Every vato matters. Bodies, mouths, and rifles all working overtime.",
+      },
+    ]),
+  },
+  {
+    ...sceneMetrics.find((metric) => metric.key === "payoff")!,
+    key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.payoff,
+    title: "Orgasm Quality",
+    weight: GROUP_SCENE_WEIGHTS_CUSTOM.payoff,
+  },
+  {
+    ...sceneMetrics.find((metric) => metric.key === "standout")!,
+    key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.standout,
+    title: "Standout Moments",
+    weight: GROUP_SCENE_WEIGHTS_CUSTOM.standout,
+  },
+  {
+    key: GROUP_SCENE_RATING_KEYS_CUSTOM.bonuses.bottomAttractiveness,
+    title: "Attractive Bottom",
+    max: GROUP_SCENE_BONUSES_CUSTOM.bottomAttractiveness,
+    section: "bonus",
+    hint: "Flip it on when the bottom lineup is fine enough to add extra heat.",
+    choices: [
+      {
+        value: 0,
+        label: "No bottom bonus",
+        description: "The bottoms ain't why this scene works.",
+      },
+      {
+        value: GROUP_SCENE_BONUSES_CUSTOM.bottomAttractiveness,
+        label: "Attractive bottom bonus",
+        description:
+          "The bottom lineup is hot and gives the scene a nice bump.",
+      },
+    ],
+  },
+  {
+    key: GROUP_SCENE_RATING_KEYS_CUSTOM.bonuses.oralOnly,
+    title: "Group Oral-Only Scene",
+    max: GROUP_SCENE_BONUSES_CUSTOM.oralOnly,
+    section: "bonus",
+    hint: "The big bonus for four-plus vatos keeping it all mouth.",
+    choices: [
+      {
+        value: 0,
+        label: "Not group oral-only",
+        description: "There is more than oral going on.",
+      },
+      {
+        value: GROUP_SCENE_BONUSES_CUSTOM.oralOnly,
+        label: "Group oral-only bonus",
+        description:
+          "Four-plus vatos, all mouth, all heat. That's the good stuff.",
+      },
+    ],
+  },
+  { ...sceneMetrics.find((metric) => metric.key === "theme")! },
+  { ...sceneMetrics.find((metric) => metric.key === "godTierOrgasm")! },
+  { ...sceneMetrics.find((metric) => metric.key === "goatElement")! },
+  { ...sceneMetrics.find((metric) => metric.key === "unlikelyTop")! },
+  sceneMetrics.find((metric) => metric.key === "noOrgasm")!,
+  sceneMetrics.find((metric) => metric.key === "production")!,
+];
+
 const performerMetrics: IAdvisorMetric[] = [
   {
     key: "face",
     title: "Face",
     max: 5,
     weight: 0.6,
-    hint: "Facial attractiveness: features, expression, gaze, smile, grooming, styling, and how strongly his face pulls your attention.",
+    hint: "How much that face makes you stop and look.",
     choices: ratingAdvisorSixLevelChoicesCustom([
       {
         label: "Not Attractive",
-        description:
-          "Pick this when his face works against your attraction even if other parts of him may still work.",
+        description: "That face just ain't doing it for you.",
       },
       {
         label: "Some Appeal",
-        description:
-          "There is something there, like expression, grooming, or one feature, but his face is not a strong pull.",
+        description: "He's got a little something, but not a strong pull.",
       },
       {
         label: "Decent",
-        description:
-          "Decent face, but you would not watch a scene just because of his look.",
+        description: "Cute enough, but you ain't clicking just for his face.",
       },
       {
         label: "Attractive",
-        description:
-          "Clearly attractive; he is a noticeable visual plus even before performance enters the picture.",
+        description: "Handsome vato. That face definitely helps.",
       },
       {
         label: "Very Attractive",
-        description:
-          "Very attractive, the kind of vato who gives a scene an immediate visual draw.",
+        description: "Fine as hell. His face pulls you in right away.",
       },
       {
         label: "Perfect",
-        description:
-          "Perfect for your taste, like his face hits your type in a way most vatos do not.",
+        description: "That face is dead-on your type. Damn.",
       },
     ]),
   },
@@ -559,37 +613,31 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Body",
     max: 5,
     weight: 0.6,
-    hint: "Body appeal: build, proportions, musculature, thickness, posture, movement, and how strongly his body matches your taste.",
+    hint: "How much his build, muscle, thickness, and movement hit for you.",
     choices: ratingAdvisorSixLevelChoicesCustom([
       {
         label: "Not Appealing",
-        description:
-          "His body works against your attraction even if other traits are okay.",
+        description: "That body ain't doing anything for you.",
       },
       {
         label: "Some Appeal",
-        description:
-          "There is one body detail that works, but the overall build is not a strong pull.",
+        description: "One nice feature, but the whole package ain't there.",
       },
       {
         label: "Decent",
-        description:
-          "Decent body, but not a build that would pull you into a scene by itself.",
+        description: "Decent build, but not enough to make you click.",
       },
       {
         label: "Attractive",
-        description:
-          "Clearly attractive body; he is a noticeable visual plus before performance enters the picture.",
+        description: "Hot body. He looks good moving around naked.",
       },
       {
         label: "Very Attractive",
-        description:
-          "Very attractive body, the kind of build that gives him immediate visual draw.",
+        description: "Built fine as hell and hard to look away from.",
       },
       {
         label: "Perfect",
-        description:
-          "Perfect for your taste, like his body hits your type in a way most vatos do not.",
+        description: "Your ideal body, straight up.",
       },
     ]),
   },
@@ -598,37 +646,32 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Sexual performance",
     max: 5,
     weight: 0.4,
-    hint: "On-screen presence, charisma, confidence, chemistry, reactions, intensity, rhythm, and scene energy.",
+    hint: "How well he fucks, reacts, moves, and owns the screen.",
     choices: ratingAdvisorSixLevelChoicesCustom([
       {
         label: "Weak",
-        description:
-          "Pick this when he makes scenes worse: awkward, passive, disconnected, or like he does not know what to do.",
+        description: "Awkward, passive, or lost. He drags scenes down.",
       },
       {
         label: "Serviceable",
-        description:
-          "He gets through the scene fine, like a competent vato, but you are not seeking him out.",
+        description: "He gets through it fine, but you ain't seeking him out.",
       },
       {
         label: "Good",
-        description:
-          "He clearly helps scenes feel better, like his reactions or confidence make things click.",
+        description: "Good reactions and confidence. He helps the scene click.",
       },
       {
         label: "Strong",
-        description:
-          "He noticeably improves most scenes he is in, even when the setup is basic.",
+        description: "He makes even basic scenes hit harder.",
       },
       {
         label: "Excellent",
-        description:
-          "He is often one of the main reasons a scene works, not just a good-looking body in frame.",
+        description: "He knows how to fuck and is usually why the scene works.",
       },
       {
         label: "Perfect",
         description:
-          "His presence alone can sell a scene; if his name is attached, you are already interested.",
+          "His name alone sells the scene. You know he's bringing it.",
       },
     ]),
   },
@@ -637,31 +680,30 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Ethnicity / racial appeal",
     max: 3,
     weight: 1 / 3,
-    hint: "Personal ethnic appeal based on known metadata, skin tone, self-presentation, or how you catalog the vato.",
+    hint: "How much his background and skin tone hit your type.",
     choices: [
       {
         value: 0,
         label: "Negative ethnic appeal",
         description:
-          "Use this when his ethnic background works against your personal attraction.",
+          "Asian or super white.",
       },
       {
         value: 1,
         label: "Neutral background",
-        description:
-          "No favorable or negative ethnic appeal; for example, a white guy where ethnicity is not part of the pull.",
+        description: "White or other non-standard ethnicities",
       },
       {
         value: 2,
         label: "Partial ethnic appeal",
         description:
-          "Black or Latino background is present, but the skin tone or presentation is not the most favorable version for your taste.",
+          "White latino, black-white mixed",
       },
       {
         value: 3,
         label: "Full ethnic appeal",
         description:
-          "Black or Latino with favorable skin tone and presentation; ethnicity is a real part of the attraction.",
+          "Latino, black, afrolatino",
       },
     ],
   },
@@ -670,31 +712,27 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Masculinity",
     max: 3,
     weight: 1 / 3,
-    hint: "Ruggedness, confidence, dominance, roughness, voice, styling, body language, working-class energy, bro energy, uniform compatibility, or traditionally masculine presentation.",
+    hint: "How much rugged, dominant, bro, blue-collar energy he gives off.",
     choices: [
       {
         value: 0,
         label: "No masculine appeal",
-        description:
-          "No meaningful masculine appeal for your taste, or his presentation goes in a direction you do not care for.",
+        description: "No real masculine pull for your taste.",
       },
       {
         value: 1,
         label: "Some masculine appeal",
-        description:
-          "Some masculine traits show up, like styling, voice, confidence, or body language, but they are not a major factor.",
+        description: "A little masc energy in the voice, look, or attitude.",
       },
       {
         value: 2,
         label: "Strong",
-        description:
-          "Clearly masculine in a way that matters, like rugged, confident, dominant, rough, or working-class coded.",
+        description: "Rugged, confident, dominant—the masc energy is strong.",
       },
       {
         value: 3,
         label: "Core ideal",
-        description:
-          "Core ideal territory: his masculine presentation is one of the first things you would mention.",
+        description: "Peak vato energy. Can't get more masculine than this.",
       },
     ],
   },
@@ -703,40 +741,37 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Consistency",
     max: 0.5,
     section: "bonus",
-    hint: "Optional bonus when he maintains a strong pull across scenes instead of being a one-scene flash in the pan.",
+    hint: "Flip it on when he stays hot across a bunch of scenes.",
     choices: [
       {
         value: 0,
         label: "No consistency bonus",
-        description:
-          "No bonus: he is unproven, inconsistent, or the appeal is mostly tied to one scene.",
+        description: "Too inconsistent, or only hot that one time.",
       },
       {
         value: 0.5,
         label: "Consistent draw",
-        description:
-          "He holds appeal across multiple scenes and still makes you think, yeah, I get the appeal.",
+        description: "Scene after scene, the vato still brings it.",
       },
     ],
   },
   {
     key: "dick",
-    title: "Dick",
+    title: "Pito",
     max: 0.5,
     section: "bonus",
-    hint: "Optional bonus when dick size, shape, look, hardness, or presentation improves vato appeal.",
+    hint: "Flip it on when the verga is particularly good.",
     choices: [
       {
         value: 0,
-        label: "No dick bonus",
+        label: "No pito bonus",
         description:
-          "No bonus: unknown, not noticeable, not your preference, or just not part of why he works.",
+          "The rifle is standard. Hot because pitos are hot but that's it.",
       },
       {
         value: 0.5,
-        label: "Dick bonus",
-        description:
-          "The dick appeal is a meaningful extra plus when the scene shows it well.",
+        label: "Pito bonus",
+        description: "That verga is truly outstanding.",
       },
     ],
   },
@@ -745,19 +780,17 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Tattoos",
     max: 0.5,
     section: "bonus",
-    hint: "Optional bonus when tattoos add edge, recognizability, identity, or visual appeal. If absent, it does not hurt the score.",
+    hint: "Flip it on when the ink makes him look hotter or rougher.",
     choices: [
       {
         value: 0,
         label: "Not present",
-        description:
-          "No bonus: no tattoos, unknown tattoos, or the tattoos do not really add anything for you.",
+        description: "No ink, or the tattoos ain't adding anything.",
       },
       {
         value: 0.5,
         label: "Present",
-        description:
-          "The tattoos help, like they add edge, recognizability, roughness, or make his look more memorable.",
+        description: "The ink makes him look hotter or rougher.",
       },
     ],
   },
@@ -766,19 +799,18 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Feminine",
     max: 0,
     section: "penalty",
-    hint: "Penalty when a vato's feminine presentation lowers his appeal for your rating.",
+    hint: "Flip it on when feminine energy lowers the appeal for you.",
     choices: [
       {
         value: 0,
         label: "No penalty",
-        description:
-          "No penalty here; his presentation does not reduce your attraction.",
+        description: "His presentation ain't hurting the attraction.",
       },
       {
         value: -1,
         label: "Feminine penalty",
         description:
-          "Use this when the vato reads too feminine for your taste and it meaningfully lowers the rating.",
+          "Too feminine for your taste, and it pulls the rating down.",
       },
     ],
   },
@@ -796,22 +828,25 @@ function getInitialScores(
   metrics: IAdvisorMetric[],
   persistedScores?: readonly IAdvisorPersistedScore[] | null
 ) {
-  return metrics.reduce<Record<string, number>>((ret, metric) => {
+  return metrics.reduce<Record<string, number | undefined>>((ret, metric) => {
     const persistedScore = persistedScores?.find(
       (score) =>
         score.key === metric.key &&
         normalizePersistedScoreSection(score.section) ===
           getMetricSection(metric)
     );
-    ret[metric.key] = normalizeRatingAdvisorScoreValueCustom(
-      metric,
-      persistedScore?.raw_value
-    );
+    ret[metric.key] = persistedScore
+      ? normalizeRatingAdvisorScoreValueCustom(metric, persistedScore.raw_value)
+      : undefined;
     return ret;
   }, {});
 }
 
-function getChoiceScore(metric: IAdvisorMetric, score: number) {
+function getChoiceScore(metric: IAdvisorMetric, score?: number) {
+  if (score === undefined) {
+    return 0;
+  }
+
   return getRatingAdvisorChoiceScoreCustom(metric, score);
 }
 
@@ -828,7 +863,11 @@ function formatRatingContribution(value: number) {
   return ratingPoints > 0 ? `+${ratingPoints}` : ratingPoints.toString();
 }
 
-function formatMetricContribution(metric: IAdvisorMetric, score: number) {
+function formatMetricContribution(metric: IAdvisorMetric, score?: number) {
+  if (score === undefined) {
+    return "Not rated";
+  }
+
   const value = getChoiceScore(metric, score);
 
   if (metric.section === "bonus" || metric.section === "penalty") {
@@ -855,16 +894,10 @@ function calculateOrgasmBonus(entityType: AdvisorEntity, count: number) {
 
 function getOrgasmBonusDescription(entityType: AdvisorEntity) {
   if (entityType === "scene") {
-    return "Permanent bonus from recorded orgasms: +1 rating point on the 3rd orgasm, then +1 for each orgasm after that.";
+    return "Auto bonus: +1 on the 3rd recorded nut, then +1 for every one after.";
   }
 
-  return "Permanent bonus from recorded orgasms: +1 rating point on the 3rd orgasm, then +1 for every 2 orgasms after that.";
-}
-
-function getLongestChoiceDescription(metric: IAdvisorMetric) {
-  return metric.choices.reduce((longest, choice) =>
-    choice.description.length > longest.description.length ? choice : longest
-  );
+  return "Auto bonus: +1 on the 3rd recorded nut, then +1 for every 2 after.";
 }
 
 function getSceneSuggestion(
@@ -896,7 +929,7 @@ function getSceneSuggestion(
 const RatingAdvisorModal: React.FC<{
   entityType: AdvisorEntity;
   entityId: string;
-  sceneRatingMode?: "default" | "solo";
+  sceneRatingMode?: SceneRatingModeCustom;
   ratingScores?: readonly IAdvisorPersistedScore[] | null;
   onRatingSaved?: () => void | Promise<unknown>;
   onClose: () => void;
@@ -910,10 +943,11 @@ const RatingAdvisorModal: React.FC<{
 }) => {
   const { configuration } = useConfigurationContext();
   const Toast = useToast();
-  const [setRatingScore, { loading: savingScore }] =
-    GQL.useRatingScoreSetMutation();
+  const [setRatingScore] = GQL.useRatingScoreSetMutation();
   const metrics =
-    entityType === "scene" && sceneRatingMode === "solo"
+    entityType === "scene" && sceneRatingMode === "group"
+      ? groupSceneMetrics
+      : entityType === "scene" && sceneRatingMode === "solo"
       ? soloSceneMetrics
       : entityType === "scene"
       ? sceneMetrics
@@ -929,28 +963,44 @@ const RatingAdvisorModal: React.FC<{
     configuration?.ui?.ratingCardThresholds,
     entityType
   );
-  const [persistedScores, setPersistedScores] = useState<
-    readonly IAdvisorPersistedScore[] | null | undefined
-  >(ratingScores);
   const [scores, setScores] = useState(() =>
     getInitialScores(metrics, ratingScores)
   );
-  const [hoverScores, setHoverScores] = useState<
+  const [savingMetricKeys, setSavingMetricKeys] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [previewScores, setPreviewScores] = useState<
     Record<string, number | undefined>
   >({});
+  const savingMetricKeysRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (advisorScoresData?.ratingScores) {
-      setPersistedScores(advisorScoresData.ratingScores);
-    }
-  }, [advisorScoresData]);
-
-  useEffect(() => {
-    setScores(getInitialScores(metrics, persistedScores));
-  }, [metrics, persistedScores]);
+    const incomingScores = getInitialScores(
+      metrics,
+      ratingScores ?? advisorScoresData?.ratingScores
+    );
+    setScores((current) => {
+      for (const key of savingMetricKeysRef.current) {
+        incomingScores[key] = current[key];
+      }
+      return incomingScores;
+    });
+  }, [advisorScoresData?.ratingScores, metrics, ratingScores]);
 
   const orgasmCount = advisorScoresData?.ratingOrgasmCount ?? 0;
   const orgasmBonus = calculateOrgasmBonus(entityType, orgasmCount);
+  const coreMetrics = metrics.filter((metric) => metric.section === undefined);
+  const bonusMetrics = metrics.filter((metric) => metric.section === "bonus");
+  const penaltyMetrics = metrics.filter(
+    (metric) => metric.section === "penalty"
+  );
+  const coreCompletion = getRatingAdvisorCompletionCustom(
+    coreMetrics.map((metric) => metric.key),
+    scores
+  );
+  const ratedCoreCount = coreCompletion.rated;
+  const allCoreRated = coreCompletion.complete;
+  const completionPercent = coreCompletion.percent;
   const total = useMemo(
     () =>
       metrics.reduce(
@@ -962,10 +1012,22 @@ const RatingAdvisorModal: React.FC<{
   );
   const scoringTotal = Math.max(0, total);
   const suggestion = getSceneSuggestion(scoringTotal, thresholds);
+  const ratingTierClass = getRatingCardClass({
+    rating: suggestion.rating100,
+    theme: configuration?.ui?.ratingCardTheme,
+    thresholds: configuration?.ui?.ratingCardThresholds,
+    thresholdEntity: entityType,
+  });
+  const advisorTitle =
+    entityType === "performer"
+      ? "Vato rating"
+      : sceneRatingMode === "group"
+      ? "Group scene rating"
+      : sceneRatingMode === "solo"
+      ? "Solo scene rating"
+      : "Scene rating";
 
-  async function setScore(metric: IAdvisorMetric, value: string) {
-    const numericValue = Number(value);
-    const normalizedValue = Number.isNaN(numericValue) ? 0 : numericValue;
+  async function setScore(metric: IAdvisorMetric, normalizedValue: number) {
     const previousValue = scores[metric.key];
     const selectedChoice = metric.choices.find(
       (choice) => choice.value === normalizedValue
@@ -976,9 +1038,15 @@ const RatingAdvisorModal: React.FC<{
       ...current,
       [metric.key]: normalizedValue,
     }));
+    setSavingMetricKeys((current) => {
+      const next = new Set(current);
+      next.add(metric.key);
+      savingMetricKeysRef.current = next;
+      return next;
+    });
 
     try {
-      const result = await setRatingScore({
+      await setRatingScore({
         variables: {
           input: {
             entity_type: entityType,
@@ -991,9 +1059,6 @@ const RatingAdvisorModal: React.FC<{
           },
         },
       });
-      if (result.data?.ratingScoreSet?.scores) {
-        setPersistedScores(result.data.ratingScoreSet.scores);
-      }
       await onRatingSaved?.();
     } catch (e) {
       setScores((current) => ({
@@ -1001,106 +1066,197 @@ const RatingAdvisorModal: React.FC<{
         [metric.key]: previousValue,
       }));
       Toast.error(e);
+    } finally {
+      setSavingMetricKeys((current) => {
+        const next = new Set(current);
+        next.delete(metric.key);
+        savingMetricKeysRef.current = next;
+        return next;
+      });
     }
   }
 
   function renderMetric(metric: IAdvisorMetric) {
     const score = scores[metric.key];
     const selected = metric.choices.find((choice) => choice.value === score);
-    const hoverScore = hoverScores[metric.key];
-    const preview =
-      metric.choices.find((choice) => choice.value === hoverScore) ?? selected;
-    const previewSizer = getLongestChoiceDescription(metric);
-    const showRange = isRatingAdvisorRangeMetricCustom(metric);
+    const previewScore = previewScores[metric.key];
+    const previewed = metric.choices.find(
+      (choice) => choice.value === previewScore
+    );
+    const displayedChoice = previewed ?? selected;
+    const saving = savingMetricKeys.has(metric.key);
+    const titleID = `rating-advisor-${metric.key}-title`;
+    const hintID = `rating-advisor-${metric.key}-hint`;
 
     return (
       <section className="rating-advisor-metric" key={metric.key}>
         <div className="rating-advisor-metric-header">
           <div>
-            <h5>{metric.title}</h5>
-            <p>{metric.hint}</p>
+            <h5 id={titleID}>{metric.title}</h5>
+            <p id={hintID}>{metric.hint}</p>
           </div>
-          <Badge variant="secondary">
-            {formatMetricContribution(metric, score)}
-          </Badge>
-        </div>
-        {showRange && (
-          <Form.Control
-            type="range"
-            min={0}
-            max={metric.max}
-            step={1}
-            value={score}
-            disabled={savingScore}
-            onChange={(event) =>
-              void setScore(metric, event.currentTarget.value)
-            }
-          />
-        )}
-        <div className="rating-advisor-selected">
-          <div className="rating-advisor-selected-preview">
-            <strong>
-              {preview?.value} - {preview?.label}
-            </strong>
-            <span>{preview?.description}</span>
-          </div>
-          <div className="rating-advisor-selected-sizer" aria-hidden="true">
-            <strong>
-              {previewSizer.value} - {previewSizer.label}
-            </strong>
-            <span>{previewSizer.description}</span>
+          <div className="rating-advisor-metric-status" aria-live="polite">
+            {(saving || score === undefined) && (
+              <span>{saving ? "Saving…" : "Not rated"}</span>
+            )}
+            <Badge variant={score === undefined ? "secondary" : "primary"}>
+              {formatMetricContribution(metric, score)}
+            </Badge>
           </div>
         </div>
-        <div className="rating-advisor-choice-list">
-          {metric.choices.map((choice) => (
-            <button
-              className={choice.value === score ? "selected" : ""}
-              key={choice.value}
-              onMouseEnter={() =>
-                setHoverScores((current) => ({
-                  ...current,
-                  [metric.key]: choice.value,
-                }))
+        <div
+          aria-describedby={hintID}
+          aria-labelledby={titleID}
+          className="rating-advisor-choice-list"
+          role="group"
+        >
+          {metric.choices.map((choice, choiceIndex) => (
+            <Button
+              aria-pressed={choice.value === score}
+              className="rating-advisor-choice"
+              data-rating-level={
+                choice.value === score
+                  ? getRatingAdvisorChoiceHeatLevelCustom(
+                      choiceIndex,
+                      metric.choices.length
+                    )
+                  : undefined
               }
-              onMouseLeave={() =>
-                setHoverScores((current) => ({
+              disabled={saving}
+              key={choice.value}
+              onBlur={() =>
+                setPreviewScores((current) => ({
                   ...current,
                   [metric.key]: undefined,
                 }))
               }
-              disabled={savingScore}
-              onClick={() => void setScore(metric, choice.value.toString())}
+              onClick={() => void setScore(metric, choice.value)}
+              onFocus={() =>
+                setPreviewScores((current) => ({
+                  ...current,
+                  [metric.key]: choice.value,
+                }))
+              }
+              onMouseEnter={() =>
+                setPreviewScores((current) => ({
+                  ...current,
+                  [metric.key]: choice.value,
+                }))
+              }
+              onMouseLeave={(event) => {
+                if (event.currentTarget !== document.activeElement) {
+                  setPreviewScores((current) => ({
+                    ...current,
+                    [metric.key]: undefined,
+                  }));
+                }
+              }}
+              size="sm"
               type="button"
+              variant={choice.value === score ? "primary" : "outline-secondary"}
             >
               <strong>{choice.value}</strong>
               <span>{choice.label}</span>
-            </button>
+            </Button>
           ))}
+        </div>
+        <div className="rating-advisor-selected" aria-live="polite">
+          {displayedChoice ? (
+            <>
+              <strong>{displayedChoice.label}</strong>
+              <span>{displayedChoice.description}</span>
+            </>
+          ) : (
+            <span>Pick the one that fits best.</span>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  function renderAdjustmentMetric(metric: IAdvisorMetric) {
+    const score = scores[metric.key];
+    const saving = savingMetricKeys.has(metric.key);
+    const activeChoice = metric.choices.find(
+      (choice) => getChoiceScore(metric, choice.value) !== 0
+    );
+    const inactiveChoice = metric.choices.find(
+      (choice) => getChoiceScore(metric, choice.value) === 0
+    );
+    const active = score !== undefined && getChoiceScore(metric, score) !== 0;
+    const activeBonus = active && metric.section === "bonus";
+
+    if (!activeChoice || !inactiveChoice) {
+      return renderMetric(metric);
+    }
+
+    return (
+      <section
+        className={`rating-advisor-adjustment${
+          activeBonus ? " rating-advisor-adjustment-bonus-active" : ""
+        }`}
+        key={metric.key}
+      >
+        <div>
+          <div className="rating-advisor-adjustment-title">
+            <strong>{metric.title}</strong>
+            {active && (
+              <Badge variant={activeBonus ? "danger" : "primary"}>
+                {formatMetricContribution(metric, score)}
+              </Badge>
+            )}
+          </div>
+          <span>{active ? activeChoice.description : metric.hint}</span>
+        </div>
+        <div className="rating-advisor-adjustment-action">
+          <span aria-live="polite">
+            {saving ? "Saving…" : active ? "On" : "Off"}
+          </span>
+          <Button
+            aria-checked={active}
+            aria-label={`${metric.title}: ${active ? "on" : "off"}`}
+            disabled={saving}
+            onClick={() =>
+              void setScore(
+                metric,
+                active ? inactiveChoice.value : activeChoice.value
+              )
+            }
+            role="switch"
+            size="sm"
+            variant={
+              activeBonus ? "danger" : active ? "primary" : "outline-secondary"
+            }
+          >
+            {active ? "Enabled" : "Enable"}
+          </Button>
         </div>
       </section>
     );
   }
 
   function renderOrgasmBonus() {
+    const active = orgasmBonus !== 0;
+
     return (
-      <section className="rating-advisor-metric" key="orgasm-count-bonus">
-        <div className="rating-advisor-metric-header">
-          <div>
-            <h5>Orgasm count bonus</h5>
-            <p>{getOrgasmBonusDescription(entityType)}</p>
+      <section
+        className={`rating-advisor-adjustment rating-advisor-adjustment-readonly${
+          active ? " rating-advisor-adjustment-bonus-active" : ""
+        }`}
+        key="orgasm-count-bonus"
+      >
+        <div>
+          <div className="rating-advisor-adjustment-title">
+            <strong>Orgasm count bonus</strong>
+            <Badge variant={active ? "danger" : "secondary"}>
+              {formatRatingContribution(orgasmBonus / 10)}
+            </Badge>
           </div>
-          <Badge variant="secondary">
-            {formatRatingContribution(orgasmBonus / 10)}
-          </Badge>
+          <span>{getOrgasmBonusDescription(entityType)}</span>
         </div>
-        <div className="rating-advisor-selected">
-          <strong>
-            {orgasmCount} orgasms - {orgasmBonus} bonus points
-          </strong>
-          <span>
-            This bonus is calculated automatically and cannot be edited.
-          </span>
-        </div>
+        <Badge variant={active ? "danger" : "secondary"}>
+          {orgasmCount} recorded
+        </Badge>
       </section>
     );
   }
@@ -1109,45 +1265,104 @@ const RatingAdvisorModal: React.FC<{
     <ModalComponent
       show
       onHide={onClose}
-      header={`${entityType === "scene" ? "Scene" : "Vato"} rating system`}
+      header={advisorTitle}
       icon={faWandMagicSparkles}
-      cancel={{ onClick: onClose, variant: "secondary" }}
-      accept={{ onClick: onClose }}
-      modalProps={{ size: "lg" }}
+      closeButton
+      accept={{ onClick: onClose, text: "Close" }}
+      modalProps={{ size: "xl", keyboard: true }}
       dialogClassName="rating-advisor-dialog"
     >
-      <div
-        className={`rating-advisor-summary rating-advisor-summary-${suggestion.tierClassName}`}
-      >
-        <div>
-          <span>Current tier</span>
-          <strong>{suggestion.tier}</strong>
-        </div>
-        <div>
+      <div className={`rating-advisor-summary ${ratingTierClass}`}>
+        <div className="rating-advisor-score-summary">
           <span>Rating</span>
           <strong>{suggestion.rating100}</strong>
+          {suggestion.tier !== "Plain" && (
+            <Badge variant="secondary">{suggestion.tier}</Badge>
+          )}
         </div>
+        <div className="rating-advisor-completion">
+          <div>
+            <strong>Core criteria</strong>
+            <span>
+              {ratedCoreCount} of {coreMetrics.length} rated
+            </span>
+          </div>
+          <div
+            aria-label={`${ratedCoreCount} of ${coreMetrics.length} core criteria rated`}
+            aria-valuemax={coreMetrics.length}
+            aria-valuemin={0}
+            aria-valuenow={ratedCoreCount}
+            className="rating-advisor-progress"
+            role="progressbar"
+          >
+            <span style={{ width: `${completionPercent}%` }} />
+          </div>
+        </div>
+        {savingMetricKeys.size > 0 && (
+          <div className="rating-advisor-save-status" aria-live="polite">
+            {`Saving ${savingMetricKeys.size} change${
+              savingMetricKeys.size === 1 ? "" : "s"
+            }…`}
+          </div>
+        )}
       </div>
       <p className="rating-advisor-note">
-        Selections save immediately and recalculate the rating stored on this
-        item.
+        {allCoreRated
+          ? "Core rating complete. Bonuses and penalties are optional."
+          : "Finish the core boxes for a final rating. Everything autosaves."}
       </p>
-      <div className="rating-advisor-metrics">
-        {metrics
-          .filter((metric) => metric.section === undefined)
-          .map(renderMetric)}
-        <div className="rating-advisor-section-heading">Bonus</div>
-        {renderOrgasmBonus()}
-        {metrics
-          .filter((metric) => metric.section === "bonus")
-          .map(renderMetric)}
-        {metrics.some((metric) => metric.section === "penalty") && (
-          <div className="rating-advisor-section-heading">Penalties</div>
-        )}
-        {metrics
-          .filter((metric) => metric.section === "penalty")
-          .map(renderMetric)}
-      </div>
+      <section
+        aria-labelledby="rating-advisor-core-title"
+        className="rating-advisor-section rating-advisor-section-core"
+      >
+        <div className="rating-advisor-section-heading">
+          <div>
+            <h4 id="rating-advisor-core-title">Core criteria</h4>
+            <span>Pick one value in each box.</span>
+          </div>
+          <Badge variant="secondary">
+            {ratedCoreCount}/{coreMetrics.length}
+          </Badge>
+        </div>
+        <div className="rating-advisor-core-grid">
+          {coreMetrics.map(renderMetric)}
+        </div>
+      </section>
+      <section
+        aria-labelledby="rating-advisor-bonus-title"
+        className="rating-advisor-section rating-advisor-section-bonuses"
+      >
+        <div className="rating-advisor-section-heading">
+          <div>
+            <h4 id="rating-advisor-bonus-title">Bonuses</h4>
+            <span>Flip on only what really adds heat.</span>
+          </div>
+        </div>
+        <div className="rating-advisor-adjustment-grid">
+          {renderOrgasmBonus()}
+          {bonusMetrics.map(renderAdjustmentMetric)}
+        </div>
+      </section>
+      {penaltyMetrics.length > 0 && (
+        <section
+          aria-labelledby="rating-advisor-penalty-title"
+          className="rating-advisor-section rating-advisor-section-penalties"
+        >
+          <div className="rating-advisor-section-heading">
+            <div>
+              <h4 id="rating-advisor-penalty-title">Penalties</h4>
+              <span>
+                {entityType === "performer"
+                  ? "Flip on what drags the vato down."
+                  : "Flip on what drags the scene down."}
+              </span>
+            </div>
+          </div>
+          <div className="rating-advisor-adjustment-grid">
+            {penaltyMetrics.map(renderAdjustmentMetric)}
+          </div>
+        </section>
+      )}
     </ModalComponent>
   );
 };

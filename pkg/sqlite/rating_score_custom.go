@@ -40,10 +40,31 @@ var defaultSceneRatingScoreKeys = map[string]map[string]struct{}{
 	models.RatingScoreSectionBonus: {
 		"theme":         {},
 		"oralOnly":      {},
-		"largeGroup":    {},
 		"godTierOrgasm": {},
 		"goatElement":   {},
 		"unlikelyTop":   {},
+	},
+	models.RatingScoreSectionPenalty: {
+		"noOrgasm":   {},
+		"production": {},
+	},
+}
+
+var groupSceneRatingScoreKeys = map[string]map[string]struct{}{
+	models.RatingScoreSectionCriterion: {
+		"groupTopAttractiveness": {},
+		"groupEnergy":            {},
+		"groupParticipation":     {},
+		"groupPayoff":            {},
+		"groupStandout":          {},
+	},
+	models.RatingScoreSectionBonus: {
+		"groupBottomAttractiveness": {},
+		"groupOralOnly":             {},
+		"theme":                     {},
+		"godTierOrgasm":             {},
+		"goatElement":               {},
+		"unlikelyTop":               {},
 	},
 	models.RatingScoreSectionPenalty: {
 		"noOrgasm":   {},
@@ -228,6 +249,20 @@ func sceneUsesSoloRating(ctx context.Context, sceneID int) (bool, error) {
 	return isSolo, nil
 }
 
+func sceneUsesGroupRating(performerCount int) bool {
+	return performerCount >= 4
+}
+
+func scenePerformerCount(ctx context.Context, sceneID int) (int, error) {
+	var count int
+	query := fmt.Sprintf("SELECT COUNT(DISTINCT %s) FROM %s WHERE %s = ?", performerIDColumn, performersScenesTable, sceneIDColumn)
+	if err := dbWrapper.Get(ctx, &count, query, sceneID); err != nil {
+		return 0, fmt.Errorf("counting performers for scene %d rating mode: %w", sceneID, err)
+	}
+
+	return count, nil
+}
+
 func (s *RatingScoreStore) scoreRowsForRating(ctx context.Context, entityType string, entityID int) ([]ratingScoreRow, error) {
 	var rows []ratingScoreRow
 	query := ratingScoreRowsForEntityQuery()
@@ -244,14 +279,23 @@ func (s *RatingScoreStore) scoreRowsForRating(ctx context.Context, entityType st
 
 	allowed := performerRatingScoreKeys
 	if entityType == models.RatingEntityScene {
-		isSolo, err := sceneUsesSoloRating(ctx, entityID)
+		performerCount, err := scenePerformerCount(ctx, entityID)
 		if err != nil {
 			return nil, err
 		}
 
-		allowed = defaultSceneRatingScoreKeys
-		if isSolo {
-			allowed = soloSceneRatingScoreKeys
+		if sceneUsesGroupRating(performerCount) {
+			allowed = groupSceneRatingScoreKeys
+		} else {
+			isSolo, err := sceneUsesSoloRating(ctx, entityID)
+			if err != nil {
+				return nil, err
+			}
+
+			allowed = defaultSceneRatingScoreKeys
+			if isSolo {
+				allowed = soloSceneRatingScoreKeys
+			}
 		}
 	}
 
@@ -390,6 +434,43 @@ func (s *RatingScoreStore) RecalculateRating(ctx context.Context, entityType str
 	}
 
 	return rating100, nil
+}
+
+func (s *RatingScoreStore) ResetSceneScores(ctx context.Context, sceneID int) (bool, error) {
+	var scoreCount int
+	query := fmt.Sprintf(`
+		SELECT
+			(SELECT COUNT(*) FROM %s WHERE entity_type = ? AND entity_id = ?) +
+			(SELECT COUNT(*) FROM %s WHERE entity_type = ? AND entity_id = ?) +
+			(SELECT COUNT(*) FROM %s WHERE entity_type = ? AND entity_id = ?)
+	`, ratingCriteriaScoresTable, ratingBonusScoresTable, ratingPenaltyScoresTable)
+	if err := dbWrapper.Get(
+		ctx,
+		&scoreCount,
+		query,
+		models.RatingEntityScene, sceneID,
+		models.RatingEntityScene, sceneID,
+		models.RatingEntityScene, sceneID,
+	); err != nil {
+		return false, fmt.Errorf("counting advisor scores for scene %d: %w", sceneID, err)
+	}
+
+	if scoreCount == 0 {
+		return false, nil
+	}
+
+	for _, table := range ratingScoreTables {
+		deleteQuery := fmt.Sprintf("DELETE FROM %s WHERE entity_type = ? AND entity_id = ?", table.table)
+		if _, err := dbWrapper.Exec(ctx, deleteQuery, models.RatingEntityScene, sceneID); err != nil {
+			return false, fmt.Errorf("deleting %s advisor scores for scene %d: %w", table.section, sceneID, err)
+		}
+	}
+
+	if _, err := dbWrapper.Exec(ctx, fmt.Sprintf("UPDATE %s SET rating = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?", sceneTable), sceneID); err != nil {
+		return false, fmt.Errorf("resetting advisor rating for scene %d: %w", sceneID, err)
+	}
+
+	return true, nil
 }
 
 func (s *RatingScoreStore) countOrgasmRatingBonus(ctx context.Context, entityType string, entityID int) (int, error) {

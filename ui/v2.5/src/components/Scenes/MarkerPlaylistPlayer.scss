@@ -557,13 +557,13 @@
 
     &.top {
       .performer-icon {
-        color: #7adb7a;
+        color: #7ac4db;
       }
     }
 
     &.bottom {
       .performer-icon {
-        color: #7ac4db;
+        color: #7adb7a;
       }
     }
   }
@@ -590,11 +590,11 @@
   }
 
   &.top {
-    background: rgba(40, 130, 70, 0.82);
+    background: rgba(45, 125, 160, 0.82);
   }
 
   &.bottom {
-    background: rgba(45, 125, 160, 0.82);
+    background: rgba(40, 130, 70, 0.82);
   }
 
   &.compact {

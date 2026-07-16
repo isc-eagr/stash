@@ -1,4 +1,77 @@
-# Light fragment used by list pages and cards (no depth variants) # CUSTOM
+# CUSTOM: begin
+# Lean fragment used only by studio lists/cards. Aggregate statistics are
+# returned once per page through StudioListStatsData.
+fragment StudioListData on Studio {
+  id
+  name
+  parent_studio {
+    id
+    name
+    image_path
+  }
+  child_studios {
+    id
+    name
+    image_path
+  }
+  ignore_auto_tag
+  organized
+  image_path
+  details
+  rating100
+  favorite
+  stash_ids {
+    stash_id
+    endpoint
+    updated_at
+  }
+  tags {
+    id
+    name
+  }
+}
+
+fragment StudioListStatsData on StudioListStats {
+  studio_id
+  scene_count
+  image_count
+  gallery_count
+  performer_count
+  group_count
+  o_counter
+  unique_performer_count
+  studio_role_counts {
+    sex_scene_count
+    oral_scene_count
+    solo_scene_count
+    facial_scene_count
+  }
+  studio_activity_stats {
+    total_seconds
+    sex_seconds
+    oral_seconds
+    solo_seconds
+    other_seconds
+    activity_other_seconds
+    outstanding_seconds
+    standard_seconds
+    unusable_seconds
+    sex_percent
+    oral_percent
+    solo_percent
+    other_percent
+    activity_other_percent
+    outstanding_percent
+    standard_percent
+    unusable_percent
+    sex_scene_count
+    oral_scene_count
+    solo_scene_count
+  }
+}
+# CUSTOM: end
+
+# Full fragment used by detail/edit operations. # CUSTOM
 fragment StudioData on Studio {
   id
   name

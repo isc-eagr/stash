@@ -1,0 +1,228 @@
+<style>
+  .ra-preview {
+    --ra-bg: light-dark(#eef2f7, #202b36);
+    --ra-panel: light-dark(#ffffff, #2b3947);
+    --ra-panel-soft: light-dark(#f7f9fc, #25323e);
+    --ra-border: light-dark(#d7dee8, #526170);
+    --ra-text: light-dark(#17202a, #f3f5f7);
+    --ra-muted: light-dark(#596675, #b8c1ca);
+    --ra-primary: #2684d9;
+    background: var(--ra-bg);
+    color: var(--ra-text);
+    font: 14px/1.35 Inter, system-ui, sans-serif;
+    padding: 20px;
+  }
+
+  .ra-window {
+    background: var(--ra-panel-soft);
+    border: 1px solid var(--ra-border);
+    border-radius: 14px;
+    box-shadow: 0 18px 50px rgb(0 0 0 / 18%);
+    margin: auto;
+    max-width: 1120px;
+    overflow: hidden;
+  }
+
+  .ra-head,
+  .ra-summary,
+  .ra-card-head,
+  .ra-section-head,
+  .ra-toggle {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .ra-head {
+    background: var(--ra-panel);
+    border-bottom: 1px solid var(--ra-border);
+    font-size: 16px;
+    font-weight: 700;
+    padding: 14px 18px;
+  }
+
+  .ra-close {
+    background: transparent;
+    border: 0;
+    color: var(--ra-muted);
+    font-size: 22px;
+  }
+
+  .ra-body { padding: 16px; }
+
+  .ra-summary {
+    background: var(--ra-panel);
+    border: 1px solid var(--ra-border);
+    border-radius: 10px;
+    gap: 24px;
+    padding: 12px 14px;
+  }
+
+  .ra-score small,
+  .ra-muted { color: var(--ra-muted); }
+  .ra-score strong { font-size: 26px; margin-right: 8px; }
+  .ra-progress-wrap { flex: 1; }
+  .ra-progress-copy { display: flex; justify-content: space-between; }
+  .ra-progress {
+    background: var(--ra-bg);
+    border-radius: 99px;
+    height: 7px;
+    margin-top: 6px;
+    overflow: hidden;
+  }
+  .ra-progress span { background: var(--ra-primary); display: block; height: 100%; width: 60%; }
+
+  .ra-section-head { margin: 20px 0 8px; }
+  .ra-section-head h3 { font-size: 16px; margin: 0; }
+
+  .ra-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ra-card,
+  .ra-toggle {
+    background: var(--ra-panel);
+    border: 1px solid var(--ra-border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+
+  .ra-card h4 { margin: 0 0 3px; }
+  .ra-pill {
+    background: var(--ra-bg);
+    border-radius: 99px;
+    color: var(--ra-muted);
+    font-size: 12px;
+    padding: 3px 8px;
+  }
+
+  .ra-choices {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-top: 12px;
+  }
+
+  .ra-choice {
+    background: transparent;
+    border: 1px solid var(--ra-border);
+    border-radius: 6px;
+    color: var(--ra-text);
+    padding: 8px;
+    text-align: left;
+  }
+
+  .ra-choice[aria-pressed="true"] {
+    background: var(--ra-primary);
+    border-color: var(--ra-primary);
+    color: #fff;
+  }
+
+  .ra-choice b { margin-right: 5px; }
+  .ra-pick {
+    border-left: 2px solid var(--ra-primary);
+    margin-top: 10px;
+    min-height: 38px;
+    padding-left: 9px;
+  }
+  .ra-pick b,
+  .ra-pick span { display: block; }
+  .ra-pick span { color: var(--ra-muted); font-size: 12px; }
+
+  .ra-toggle-grid {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ra-toggle { gap: 16px; }
+  .ra-toggle button {
+    background: transparent;
+    border: 1px solid var(--ra-border);
+    border-radius: 6px;
+    color: var(--ra-text);
+    padding: 6px 10px;
+  }
+
+  .ra-footer {
+    background: var(--ra-panel);
+    border-top: 1px solid var(--ra-border);
+    padding: 12px 18px;
+    text-align: right;
+  }
+  .ra-footer button {
+    background: var(--ra-primary);
+    border: 0;
+    border-radius: 6px;
+    color: #fff;
+    padding: 8px 16px;
+  }
+
+  @media (max-width: 760px) {
+    .ra-grid,
+    .ra-toggle-grid { grid-template-columns: 1fr; }
+    .ra-summary { align-items: stretch; flex-direction: column; }
+  }
+</style>
+
+<div class="ra-preview">
+  <div class="ra-window">
+    <header class="ra-head"><span>✦ Group scene rating</span><button class="ra-close" aria-label="Close">×</button></header>
+    <main class="ra-body">
+      <div class="ra-summary">
+        <div class="ra-score"><small>PROVISIONAL RATING</small><br><strong>63</strong><span class="ra-pill">Provisional Silver</span></div>
+        <div class="ra-progress-wrap">
+          <div class="ra-progress-copy"><b>Core criteria</b><span class="ra-muted">3 of 5 rated</span></div>
+          <div class="ra-progress"><span></span></div>
+        </div>
+        <span class="ra-muted">All changes saved</span>
+      </div>
+
+      <div class="ra-section-head"><div><h3>Core criteria</h3><span class="ra-muted">Pick one value in each box.</span></div><span class="ra-pill">3/5</span></div>
+      <div class="ra-grid">
+        <section class="ra-card">
+          <div class="ra-card-head"><div><h4>Top Lineup Attractiveness</h4><span class="ra-muted">How hot the vatos doing the topping look.</span></div><span class="ra-pill">12 / 15</span></div>
+          <div class="ra-choices" role="group" aria-label="Top Lineup Attractiveness">
+            <button class="ra-choice" aria-pressed="false"><b>0</b>Not hot</button><button class="ra-choice" aria-pressed="false"><b>1</b>Some pull</button><button class="ra-choice" aria-pressed="false"><b>2</b>Decent</button>
+            <button class="ra-choice" aria-pressed="false"><b>3</b>Hot</button><button class="ra-choice" aria-pressed="true"><b>4</b>Fine</button><button class="ra-choice" aria-pressed="false"><b>5</b>Perfect</button>
+          </div>
+          <div class="ra-pick"><b>Very attractive</b><span>Fine as hell and an instant reason to watch.</span></div>
+        </section>
+
+        <section class="ra-card">
+          <div class="ra-card-head"><div><h4>Energy / Sex Quality</h4><span class="ra-muted">How hot the group action feels start to finish.</span></div><span class="ra-pill">Not rated</span></div>
+          <div class="ra-choices" role="group" aria-label="Energy / Sex Quality">
+            <button class="ra-choice" aria-pressed="false"><b>0</b>Dead</button><button class="ra-choice" aria-pressed="false"><b>1</b>Okay</button><button class="ra-choice" aria-pressed="false"><b>2</b>Decent</button>
+            <button class="ra-choice" aria-pressed="false"><b>3</b>Strong</button><button class="ra-choice" aria-pressed="false"><b>4</b>Excellent</button><button class="ra-choice" aria-pressed="false"><b>5</b>Perfect</button>
+          </div>
+          <div class="ra-pick"><span>Pick the one that fits best.</span></div>
+        </section>
+
+        <section class="ra-card">
+          <div class="ra-card-head"><div><h4>Group Participation</h4><span class="ra-muted">Is everybody in it, or just standing around?</span></div><span class="ra-pill">16 / 20</span></div>
+          <div class="ra-choices" role="group" aria-label="Group Participation">
+            <button class="ra-choice" aria-pressed="false"><b>0</b>Furniture</button><button class="ra-choice" aria-pressed="false"><b>1</b>Poor</button><button class="ra-choice" aria-pressed="false"><b>2</b>Uneven</button>
+            <button class="ra-choice" aria-pressed="false"><b>3</b>Good</button><button class="ra-choice" aria-pressed="true"><b>4</b>Excellent</button><button class="ra-choice" aria-pressed="false"><b>5</b>Perfect</button>
+          </div>
+          <div class="ra-pick"><b>Excellent ensemble</b><span>Everybody gets used well and the action stays hot.</span></div>
+        </section>
+
+        <section class="ra-card">
+          <div class="ra-card-head"><div><h4>Orgasm Quality</h4><span class="ra-muted">How good the loads and final payoff are.</span></div><span class="ra-pill">15 / 20</span></div>
+          <div class="ra-choices" role="group" aria-label="Orgasm Quality">
+            <button class="ra-choice" aria-pressed="false"><b>0</b>Weak</button><button class="ra-choice" aria-pressed="false"><b>2</b>Solid</button><button class="ra-choice" aria-pressed="true"><b>3</b>Hot</button><button class="ra-choice" aria-pressed="false"><b>4</b>Wild</button>
+          </div>
+          <div class="ra-pick"><b>Above average</b><span>A hot load that gives the scene a real bump.</span></div>
+        </section>
+      </div>
+
+      <div class="ra-section-head"><div><h3>Bonuses</h3><span class="ra-muted">Flip on only what really adds heat.</span></div></div>
+      <div class="ra-toggle-grid">
+        <div class="ra-toggle"><div><b>Group oral-only</b><br><span class="ra-muted">Four-plus vatos keeping it all mouth.</span></div><button role="switch" aria-checked="false">Enable</button></div>
+        <div class="ra-toggle"><div><b>Attractive bottom</b><br><span class="ra-muted">The bottom lineup gives it extra heat.</span></div><button role="switch" aria-checked="true">Enabled</button></div>
+      </div>
+    </main>
+    <footer class="ra-footer"><button>Close</button></footer>
+  </div>
+</div>

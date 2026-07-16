@@ -19,6 +19,13 @@ export interface IMarker {
     name: string;
     image_path?: string | null;
   }>;
+  hover_performers?: Array<{
+    id: string;
+    name: string;
+    image_path?: string | null;
+    top_tags: Array<{ id?: string; name: string }>;
+    bottom_tags: Array<{ id?: string; name: string }>;
+  }>;
   // CUSTOM: end
 }
 
@@ -100,7 +107,8 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     }>,
     isNegativeMarker: boolean = false,
     target?: HTMLElement,
-    markerTags?: Array<{ id?: string; name: string }>
+    markerTags?: Array<{ id?: string; name: string }>,
+    hoverPerformers?: IMarker["hover_performers"]
   ) {
     if (!this.markerTooltip) return;
 
@@ -134,7 +142,10 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     // CUSTOM: begin - image-aware performer tooltip content
     this.markerTooltip.replaceChildren();
     const hasMarkerContext =
-      !!markerTags || !!topPerformers?.length || !!bottomPerformers?.length;
+      !!markerTags ||
+      !!topPerformers?.length ||
+      !!bottomPerformers?.length ||
+      !!hoverPerformers?.length;
     this.markerTooltip.classList.toggle(
       "vjs-marker-tooltip-with-performer-card",
       hasMarkerContext && !isNegativeMarker
@@ -194,50 +205,66 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
           ? markerTags
           : [{ id: "primary", name: title }];
 
-      const addPerformerTiles = (
-        performers: Array<{
+      const addPerformerTile = (
+        performer: {
           id: string;
           name: string;
           image_path?: string | null;
-        }>,
-        role: "top" | "bottom"
+        },
+        topTags: Array<{ id?: string; name: string }>,
+        bottomTags: Array<{ id?: string; name: string }>
       ) => {
-        performers.forEach((performer) => {
-          const item = document.createElement("div");
-          item.className =
-            "scene-marker-activity-performer scene-marker-highlight-performer";
-          item.title = performer.name;
+        const item = document.createElement("div");
+        item.className =
+          "scene-marker-activity-performer scene-marker-highlight-performer";
+        item.title = performer.name;
 
-          const imageWrapper = document.createElement("div");
-          imageWrapper.className = "scene-marker-activity-performer-image";
-          if (performer.image_path) {
-            const image = document.createElement("img");
-            image.src = performer.image_path;
-            image.alt = performer.name;
-            imageWrapper.appendChild(image);
-          }
-          item.appendChild(imageWrapper);
+        const imageWrapper = document.createElement("div");
+        imageWrapper.className = "scene-marker-activity-performer-image";
+        if (performer.image_path) {
+          const image = document.createElement("img");
+          image.src = performer.image_path;
+          image.alt = performer.name;
+          imageWrapper.appendChild(image);
+        }
+        item.appendChild(imageWrapper);
 
-          const name = document.createElement("div");
-          name.className = "scene-marker-activity-performer-name";
-          name.textContent = performer.name;
-          item.appendChild(name);
+        const name = document.createElement("div");
+        name.className = "scene-marker-activity-performer-name";
+        name.textContent = performer.name;
+        item.appendChild(name);
 
-          const tagList = document.createElement("div");
-          tagList.className = "scene-marker-highlight-performer-tags";
-          displayTags.forEach((tag) => {
+        const tagList = document.createElement("div");
+        tagList.className = "scene-marker-highlight-performer-tags";
+        const addTagBadges = (
+          tags: Array<{ id?: string; name: string }>,
+          role: "top" | "bottom"
+        ) => {
+          tags.forEach((tag) => {
             const badge = document.createElement("span");
             badge.className = `badge badge-secondary tag-badge scene-marker-highlight-tag-${role}`;
             badge.textContent = tag.name;
             tagList.appendChild(badge);
           });
-          item.appendChild(tagList);
-          performersWrapper.appendChild(item);
-        });
+        };
+        addTagBadges(topTags, "top");
+        addTagBadges(bottomTags, "bottom");
+        item.appendChild(tagList);
+        performersWrapper.appendChild(item);
       };
 
-      addPerformerTiles(topPerformers ?? [], "top");
-      addPerformerTiles(bottomPerformers ?? [], "bottom");
+      if (hoverPerformers) {
+        hoverPerformers.forEach((performer) =>
+          addPerformerTile(performer, performer.top_tags, performer.bottom_tags)
+        );
+      } else {
+        (topPerformers ?? []).forEach((performer) =>
+          addPerformerTile(performer, displayTags, [])
+        );
+        (bottomPerformers ?? []).forEach((performer) =>
+          addPerformerTile(performer, [], displayTags)
+        );
+      }
 
       if (!performersWrapper.childElementCount) {
         const empty = document.createElement("div");
@@ -351,7 +378,8 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
         marker.bottom_performers,
         false,
         markerSet.dot,
-        [marker.primaryTag, ...(marker.tags ?? [])]
+        [marker.primaryTag, ...(marker.tags ?? [])],
+        marker.hover_performers
       ); // CUSTOM: performer roles
       markerSet.dot?.toggleAttribute("marker-tooltip-shown", true);
     });
@@ -466,7 +494,8 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
         marker.bottom_performers,
         false,
         markerSet.range,
-        [marker.primaryTag, ...(marker.tags ?? [])]
+        [marker.primaryTag, ...(marker.tags ?? [])],
+        marker.hover_performers
       ); // CUSTOM: performer roles
       markerSet.range?.toggleAttribute("marker-tooltip-shown", true);
     });

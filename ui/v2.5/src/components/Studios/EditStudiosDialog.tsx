@@ -18,7 +18,7 @@ import { faPencilAlt } from "@fortawesome/free-solid-svg-icons";
 import { StudioSelect } from "../Shared/Select";
 
 interface IListOperationProps {
-  selected: GQL.SlimStudioDataFragment[];
+  selected: GQL.StudioListDataFragment[]; // CUSTOM
   onClose: (applied: boolean) => void;
 }
 
@@ -59,7 +59,8 @@ export const EditStudiosDialog: React.FC<IListOperationProps> = (
     let updateTagIds: string[] = [];
     let first = true;
 
-    state.forEach((studio: GQL.SlimStudioDataFragment) => {
+    state.forEach((studio: GQL.StudioListDataFragment) => {
+      // CUSTOM
       getAggregateStateObject(updateState, studio, studioFields, first);
 
       // studio data fragment doesn't have parent_id, so handle separately

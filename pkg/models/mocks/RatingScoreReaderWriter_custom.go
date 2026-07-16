@@ -65,3 +65,23 @@ func (_m *RatingScoreReaderWriter) RecalculateRating(ctx context.Context, entity
 
 	return r0, r1
 }
+
+func (_m *RatingScoreReaderWriter) ResetSceneScores(ctx context.Context, sceneID int) (bool, error) {
+	ret := _m.Called(ctx, sceneID)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(context.Context, int) bool); ok {
+		r0 = rf(ctx, sceneID)
+	} else {
+		r0 = ret.Bool(0)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = rf(ctx, sceneID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}

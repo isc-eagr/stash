@@ -22,6 +22,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { Icon } from "src/components/Shared/Icon";
 import { UnnamedPerformersManager } from "./UnnamedPerformerManager";
+import { ROLE_COLORS_CUSTOM } from "src/utils/roleColors_custom"; // CUSTOM
 
 interface ISceneMarkersExcludeFilterProps {
   criterion: SceneMarkersExcludeCriterion;
@@ -213,7 +214,7 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
             <h6 className="d-flex align-items-center mb-3">
               <Badge
                 pill
-                variant="success"
+                variant={ROLE_COLORS_CUSTOM.top.variant}
                 className="me-2"
                 style={{ fontSize: 10, padding: "3px 6px" }}
               >
@@ -252,7 +253,11 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
                       <Button
                         key={up.id}
                         size="sm"
-                        variant={isSelected ? "info" : "outline-info"}
+                        variant={
+                          isSelected
+                            ? ROLE_COLORS_CUSTOM.top.variant
+                            : ROLE_COLORS_CUSTOM.top.outlineVariant
+                        }
                         className="me-1 mb-1"
                         onClick={() => toggleUnnamedInTop(up)}
                       >
@@ -270,7 +275,7 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
             <h6 className="d-flex align-items-center mb-3">
               <Badge
                 pill
-                variant="info"
+                variant={ROLE_COLORS_CUSTOM.bottom.variant}
                 className="me-2"
                 style={{ fontSize: 10, padding: "3px 6px" }}
               >
@@ -312,7 +317,11 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({
                       <Button
                         key={up.id}
                         size="sm"
-                        variant={isSelected ? "info" : "outline-info"}
+                        variant={
+                          isSelected
+                            ? ROLE_COLORS_CUSTOM.bottom.variant
+                            : ROLE_COLORS_CUSTOM.bottom.outlineVariant
+                        }
                         className="me-1 mb-1"
                         onClick={() => toggleUnnamedInBottom(up)}
                       >
