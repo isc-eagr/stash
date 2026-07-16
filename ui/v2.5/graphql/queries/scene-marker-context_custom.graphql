@@ -1,0 +1,10 @@
+query FindSceneMarkerCardContexts($ids: [ID!]) {
+  findScenes(ids: $ids) {
+    scenes {
+      id
+      scene_markers {
+        ...SceneMarkerCardContextData
+      }
+    }
+  }
+}

@@ -726,7 +726,8 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         ...base,
         alignItems: "flex-start",
         backgroundColor: state.isSelected
-          ? "rgba(72, 175, 240, 0.22)"
+          ? // CUSTOM: Black Steel uses copper while the fallback preserves upstream styling.
+            "var(--black-steel-accent-dark, rgba(72, 175, 240, 0.22))"
           : "transparent",
         borderRadius: "0.25rem",
         display: "flex",

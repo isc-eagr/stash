@@ -5,6 +5,8 @@ import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { TagIDSelect, Tag as TagOption } from "src/components/Tags/TagSelect";
 import { mutateMetadataGenerate } from "src/core/StashService";
 import { useToast } from "src/hooks/Toast";
+import { normalizeApplicationTheme } from "src/utils/applicationTheme_custom";
+import type { ApplicationTheme } from "src/utils/applicationTheme_custom";
 import {
   defaultRatingCardTheme,
   getRatingCardThresholdsForEntity,
@@ -110,6 +112,27 @@ export const SettingsCustomPanel: React.FC = () => {
 
   return (
     <>
+      <SettingSection headingID="config.ui.application_theme.section">
+        <SelectSetting
+          id="application-theme"
+          headingID="config.ui.application_theme.heading"
+          subHeadingID="config.ui.application_theme.description"
+          value={normalizeApplicationTheme(ui.applicationTheme)}
+          onChange={(v) => saveUI({ applicationTheme: v as ApplicationTheme })}
+        >
+          <option value="default">
+            {intl.formatMessage({
+              id: "config.ui.application_theme.options.default",
+            })}
+          </option>
+          <option value="masculine-black">
+            {intl.formatMessage({
+              id: "config.ui.application_theme.options.masculine_black",
+            })}
+          </option>
+        </SelectSetting>
+      </SettingSection>
+
       <SettingSection headingID="config.categories.custom">
         <BooleanSetting
           id="show-multi-segment-loop"

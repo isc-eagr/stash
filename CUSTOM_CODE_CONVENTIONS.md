@@ -187,10 +187,19 @@ Use these quicker checks during development instead of defaulting to full produc
   - On Windows this target can fail with `-n was unexpected at this time`; use the direct `npm.cmd` commands below when that happens.
 - **Frontend changed-file formatting:** `make fmt-ui-quick`
 - **TypeScript compile check:** `cd ui/v2.5 && npm run check`
-- **Vite parse/bundle fallback:** `cd ui/v2.5 && npm run build` or `make ui-only`
-  - Use this only when JSX/TSX parsing risk is not covered by faster checks.
+- **Vite parse/bundle check:** `cd ui/v2.5 && npm run build` or `make ui-only`
+  - This always bundles the full UI; there is no narrower Vite build target in this repo. Use it only for large or bundle-risk UI changes.
 - **Generated-code changes:** run `make generate` first, then compile the narrowest package set that covers the change. Use `go build ./cmd/stash` for resolver/query-only GraphQL changes, and `go build ./...` for generated/shared-package changes that need the full repo compile.
 - **PowerShell npm note:** if `npm` is blocked by script execution policy, call `npm.cmd` or the local `.CMD` shim in `ui/v2.5/node_modules/.bin`.
+
+### Frontend verification policy
+
+Choose the smallest check set that covers the risk. Do not run a Vite bundle by default.
+
+- **Simple UI-only styling or copy:** targeted Prettier plus Stylelint for SCSS, ESLint for TS/TSX when applicable, and `git diff --check`. No TypeScript or Vite build is needed.
+- **Ordinary UI change:** targeted ESLint and Prettier; add `cd ui/v2.5 && npm.cmd run check` when TS/TSX types, imports, props, hooks, or generated UI types changed. This is the normal compile tier.
+- **Large or bundle-risk UI change:** add `cd ui/v2.5 && npm.cmd run build`. Examples: Vite/config/dependency changes, routing or lazy loading, broad shared UI infrastructure, substantial multi-component refactors, or JSX/TSX changes whose bundling risk is not covered by `npm run check`.
+- **Explicit user direction:** follow it, including a request to skip final validations.
 
 ### Windows commands that worked in the June 2026 sanity pass
 
@@ -225,7 +234,7 @@ This is a sandbox/tooling startup failure, not a Stash compile, lint, git, npm, 
 
 - Docs-only: `git diff --check`, plus targeted prettier check for touched markdown.
 - Go-only: `gofmt` touched Go files, then `go build ./cmd/stash`.
-- UI-only: targeted `npm.cmd run eslint -- <changed ts/tsx files>` and targeted `npm.cmd run prettier -- --check <changed ui files>` from `ui/v2.5`; add `npm.cmd run check` only if TypeScript types/imports are affected.
+- UI-only: use the frontend verification policy above; simple SCSS-only changes do not need a TypeScript or Vite build.
 - GraphQL/schema: `mingw32-make generate`, then `go build ./cmd/stash`; add `npm.cmd run check` if UI GraphQL/types are touched, and use `go build ./...` only for broad generated/shared-package impact.
 
 These are fast checks, not replacements for broader tests when behavior or generated code changes.

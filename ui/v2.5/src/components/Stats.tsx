@@ -2,12 +2,11 @@ import React from "react";
 import { useStats } from "src/core/StashService";
 import { FormattedMessage, FormattedNumber } from "react-intl";
 import { Helmet } from "react-helmet"; // CUSTOM
-import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import TextUtils from "src/utils/text";
 import { FileSize } from "./Shared/FileSize";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useTitleProps } from "src/hooks/title"; // CUSTOM
-import { StatsLinks } from "./StatsLinks_custom"; // CUSTOM
+import { StatsPage } from "./StatsPage_custom"; // CUSTOM
 
 export const Stats: React.FC = () => {
   const titleProps = useTitleProps("Stats");
@@ -24,14 +23,16 @@ export const Stats: React.FC = () => {
     return (
       <>
         <Helmet {...titleProps} />
-        <span>{error.message}</span>
+        <StatsPage>
+          <span>{error.message}</span>
+        </StatsPage>
       </>
     );
   if (loading || !data)
     return (
       <>
         <Helmet {...titleProps} />
-        <LoadingIndicator />
+        <StatsPage loading loadingMessage="Loading stats..." />
       </>
     );
 
@@ -46,13 +47,9 @@ export const Stats: React.FC = () => {
   );
 
   return (
-    <div className="mt-5">
+    <StatsPage>
       {/* CUSTOM */}
       <Helmet {...titleProps} />
-
-      {/* CUSTOM: begin */}
-      <StatsLinks />
-      {/* CUSTOM: end */}
 
       <div className="col col-sm-8 m-sm-auto row stats">
         <div className="stats-element">
@@ -169,7 +166,7 @@ export const Stats: React.FC = () => {
           </p>
         </div>
       </div>
-    </div>
+    </StatsPage>
   );
 };
 

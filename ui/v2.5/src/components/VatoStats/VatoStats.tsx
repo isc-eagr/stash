@@ -5,14 +5,17 @@ import { Helmet } from "react-helmet";
 import { FormattedMessage, FormattedNumber } from "react-intl";
 import { Link } from "react-router-dom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
-import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
-import { StatsLinks } from "src/components/StatsLinks_custom";
+import { StatsPage } from "src/components/StatsPage_custom";
 import * as GQL from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useTitleProps } from "src/hooks/title";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import NavUtils from "src/utils/navigation";
 import { statsCountryName } from "src/utils/statsCountry_custom";
+import {
+  formatStatsDrilldownTotal,
+  formatStatsTotal,
+} from "src/utils/statsDrilldown_custom";
 
 import "./VatoStats.scss";
 
@@ -75,6 +78,17 @@ const PERFORMER_ETHNICITY_TIER_COUNTS = gql`
       silver
       gold
       royal_sapphire
+    }
+  }
+`;
+
+const VATO_STATS_ROLE_TAGS = gql`
+  query VatoStatsRoleTags($ids: [ID!]) {
+    findTags(ids: $ids) {
+      tags {
+        id
+        name
+      }
     }
   }
 `;
@@ -209,6 +223,12 @@ type VatoSummaryStatsData = {
   performersFacialReceivedCount: number;
   performersSoloOnlyCount: number;
   performersOneSceneCount: number;
+};
+
+type VatoStatsRoleTagsData = {
+  findTags: {
+    tags: Array<{ id: string; name: string }>;
+  };
 };
 
 type PerformerEthnicityTierKey =
@@ -1437,14 +1457,18 @@ const VatoStats: React.FC = () => {
   const { data, error, loading } = useQuery<{
     vatoStatsPerformers: VatoStatsPerformer[];
   }>(VATO_STATS_PERFORMERS);
-  const { data: summaryData } =
-    useQuery<VatoSummaryStatsData>(VATO_SUMMARY_STATS);
+  const deferAuxiliaryQueries = loading || !!error;
+  const { data: summaryData } = useQuery<VatoSummaryStatsData>(
+    VATO_SUMMARY_STATS,
+    { skip: deferAuxiliaryQueries }
+  );
   const { data: tierData } = useQuery<{
     performerEthnicityTierCounts: PerformerEthnicityTierRow[];
-  }>(PERFORMER_ETHNICITY_TIER_COUNTS);
+  }>(PERFORMER_ETHNICITY_TIER_COUNTS, { skip: deferAuxiliaryQueries });
   const strictTopQuery = useQuery<FindPerformersCountData>(
     VATO_STRICT_TOP_COUNT,
     {
+      skip: deferAuxiliaryQueries,
       variables: {
         filter: { per_page: 1 },
         performer_filter: {
@@ -1461,6 +1485,7 @@ const VatoStats: React.FC = () => {
   const lenientTopQuery = useQuery<FindPerformersCountData>(
     VATO_LENIENT_TOP_COUNT,
     {
+      skip: deferAuxiliaryQueries,
       variables: {
         filter: { per_page: 1 },
         performer_filter: {
@@ -1476,6 +1501,7 @@ const VatoStats: React.FC = () => {
   const strictBottomQuery = useQuery<FindPerformersCountData>(
     VATO_STRICT_BOTTOM_COUNT,
     {
+      skip: deferAuxiliaryQueries,
       variables: {
         filter: { per_page: 1 },
         performer_filter: {
@@ -1492,6 +1518,7 @@ const VatoStats: React.FC = () => {
   const lenientBottomQuery = useQuery<FindPerformersCountData>(
     VATO_LENIENT_BOTTOM_COUNT,
     {
+      skip: deferAuxiliaryQueries,
       variables: {
         filter: { per_page: 1 },
         performer_filter: {
@@ -1504,18 +1531,33 @@ const VatoStats: React.FC = () => {
       },
     }
   );
-  const { data: tagsData } = GQL.useFindTagsQuery({
-    variables: {
-      filter: {
-        per_page: -1,
-      },
-    },
-  });
-  const allTags = tagsData?.findTags?.tags ?? [];
-  const sexTag = allTags.find((tag) => tag.id === roleTagIds.sexTagId);
-  const oralTag = allTags.find((tag) => tag.id === roleTagIds.oralTagId);
-  const soloTag = allTags.find((tag) => tag.id === roleTagIds.soloTagId);
-  const facialTag = allTags.find((tag) => tag.id === roleTagIds.facialTagId);
+  const roleTagIDList = useMemo(
+    () =>
+      [
+        roleTagIds.sexTagId,
+        roleTagIds.oralTagId,
+        roleTagIds.soloTagId,
+        roleTagIds.facialTagId,
+      ].filter((id): id is string => !!id),
+    [
+      roleTagIds.facialTagId,
+      roleTagIds.oralTagId,
+      roleTagIds.sexTagId,
+      roleTagIds.soloTagId,
+    ]
+  );
+  const { data: tagsData } = useQuery<VatoStatsRoleTagsData>(
+    VATO_STATS_ROLE_TAGS,
+    {
+      skip: deferAuxiliaryQueries || roleTagIDList.length === 0,
+      variables: { ids: roleTagIDList },
+    }
+  );
+  const roleTags = tagsData?.findTags.tags ?? [];
+  const sexTag = roleTags.find((tag) => tag.id === roleTagIds.sexTagId);
+  const oralTag = roleTags.find((tag) => tag.id === roleTagIds.oralTagId);
+  const soloTag = roleTags.find((tag) => tag.id === roleTagIds.soloTagId);
+  const facialTag = roleTags.find((tag) => tag.id === roleTagIds.facialTagId);
 
   const performers = useMemo(
     () => data?.vatoStatsPerformers ?? [],
@@ -1571,29 +1613,39 @@ const VatoStats: React.FC = () => {
     return (
       <>
         <Helmet {...titleProps} />
-        <LoadingIndicator />
+        <StatsPage
+          className="vatostats-page"
+          loading
+          loadingMessage="Loading vato stats..."
+        />
       </>
     );
   if (error)
     return (
       <>
         <Helmet {...titleProps} />
-        <ErrorMessage error={error} />
+        <StatsPage className="vatostats-page">
+          <ErrorMessage error={error.message} />
+        </StatsPage>
       </>
     );
 
   return (
-    <div className="vatostats-page">
+    <StatsPage className="vatostats-page">
       <Helmet {...titleProps} />
-
-      <StatsLinks />
 
       <header className="vatostats-header">
         <div>
           <h1>VatoStats</h1>
           <div className="vatostats-total">
-            {filteredPerformers.length.toLocaleString()} /{" "}
-            {performers.length.toLocaleString()} vatos
+            {filters.length > 0
+              ? formatStatsDrilldownTotal(
+                  filteredPerformers.length,
+                  performers.length,
+                  "vato",
+                  "vatos"
+                )
+              : formatStatsTotal(performers.length, "vato", "vatos")}
           </div>
         </div>
         <Form.Group className="vatostats-metric-control" controlId="vatoMetric">
@@ -1696,7 +1748,7 @@ const VatoStats: React.FC = () => {
         onBack={() => setFilters((current) => current.slice(0, -1))}
         onClear={() => setFilters([])}
       />
-    </div>
+    </StatsPage>
   );
 };
 

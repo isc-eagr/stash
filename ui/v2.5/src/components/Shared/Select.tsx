@@ -576,17 +576,19 @@ export const CheckBoxSelect: React.FC<ICheckBoxSelectProps> = ({
           color: "rgb(255, 255, 255)",
           padding: "0",
         }),
+        // CUSTOM: begin -- keep checkbox-select menus in the active theme palette
         menu: (base) => ({
           ...base,
-          backgroundColor: "rgb(57, 75, 89)",
+          backgroundColor: "var(--black-steel-surface-raised, rgb(57, 75, 89))",
         }),
         option: (base, fprops) => ({
           ...base,
           backgroundColor: fprops.isFocused
-            ? "rgb(37, 49, 58)"
-            : "rgb(57, 75, 89)",
+            ? "var(--black-steel-surface-hover, rgb(37, 49, 58))"
+            : "var(--black-steel-surface-raised, rgb(57, 75, 89))",
           padding: "0px 12px",
         }),
+        // CUSTOM: end
         menuList: (base) => ({
           ...base,
           position: "fixed",

@@ -5,10 +5,11 @@ import { Helmet } from "react-helmet";
 import { Link, RouteComponentProps, useHistory } from "react-router-dom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
-import { StatsLinks } from "src/components/StatsLinks_custom";
+import { StatsPage } from "src/components/StatsPage_custom";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useTitleProps } from "src/hooks/title";
 import { statsCountryName } from "src/utils/statsCountry_custom";
+import { formatStatsTotal } from "src/utils/statsDrilldown_custom";
 import TextUtils from "src/utils/text";
 
 import "./OStats.scss";
@@ -459,6 +460,15 @@ const PERFORMER_NAME = gql`
 const STUDIO_NAME = gql`
   query OStatsStudioName($id: ID!) {
     findStudio(id: $id) {
+      id
+      name
+    }
+  }
+`;
+
+const TAG_NAME = gql`
+  query OStatsTagName($id: ID!) {
+    findTag(id: $id) {
       id
       name
     }
@@ -960,7 +970,7 @@ const OStatsTimeline: React.FC<{
     : performerQuery.error;
 
   if (loading) return <LoadingIndicator />;
-  if (error) return <ErrorMessage error={error} />;
+  if (error) return <ErrorMessage error={error.message} />;
 
   const events = date
     ? dateQuery.data?.sceneOEventsByDate ?? []
@@ -988,65 +998,75 @@ const OStatsTimeline: React.FC<{
     ? unknownDateQuery.data?.sceneOEventsBeforeTrackingStart ?? []
     : performerQuery.data?.sceneOEventsByPerformer ?? [];
 
-  if (events.length === 0) {
-    return <div className="ostats-empty">{emptyLabel}</div>;
-  }
-
   return (
-    <ol className="ostats-timeline">
-      {events.map((event) => {
-        const scenePath =
-          event.video_timestamp !== null && event.video_timestamp !== undefined
-            ? `/scenes/${event.scene.id}?t=${Math.floor(event.video_timestamp)}`
-            : `/scenes/${event.scene.id}`;
+    <>
+      <div className="ostats-drilldown-total">
+        {formatStatsTotal(events.length, "O event", "O events")}
+      </div>
+      {events.length === 0 ? (
+        <div className="ostats-empty">{emptyLabel}</div>
+      ) : (
+        <ol className="ostats-timeline">
+          {events.map((event) => {
+            const scenePath =
+              event.video_timestamp !== null &&
+              event.video_timestamp !== undefined
+                ? `/scenes/${event.scene.id}?t=${Math.floor(
+                    event.video_timestamp
+                  )}`
+                : `/scenes/${event.scene.id}`;
 
-        return (
-          <li className="ostats-event" key={event.id}>
-            <OStatsTimestampImage event={event} />
-            <div className="ostats-event-body">
-              <div className="ostats-event-time">
-                {formatODate(event.o_date)}
-              </div>
-              <Link className="ostats-event-title" to={scenePath}>
-                {event.scene.title || `Scene ${event.scene.id}`}
-              </Link>
-              <div className="ostats-event-meta">
-                {event.video_timestamp !== null &&
-                  event.video_timestamp !== undefined && (
-                    <span>
-                      {TextUtils.secondsToTimestamp(event.video_timestamp)}
-                    </span>
-                  )}
-                {event.scene.studio && <span>{event.scene.studio.name}</span>}
-                {event.scene.performers.length > 0 && (
-                  <span>
-                    {event.scene.performers
-                      .map((performer) => performer.name)
-                      .join(", ")}
-                  </span>
-                )}
-              </div>
-              {event.associated_tags.length > 0 && (
-                <div
-                  className="ostats-event-tags"
-                  aria-label="Associated marker tags"
-                >
-                  {event.associated_tags.map((tag) => (
-                    <Link
-                      className="ostats-event-tag"
-                      key={tag.id}
-                      to={`/ostats/tag/${tag.id}`}
+            return (
+              <li className="ostats-event" key={event.id}>
+                <OStatsTimestampImage event={event} />
+                <div className="ostats-event-body">
+                  <div className="ostats-event-time">
+                    {formatODate(event.o_date)}
+                  </div>
+                  <Link className="ostats-event-title" to={scenePath}>
+                    {event.scene.title || `Scene ${event.scene.id}`}
+                  </Link>
+                  <div className="ostats-event-meta">
+                    {event.video_timestamp !== null &&
+                      event.video_timestamp !== undefined && (
+                        <span>
+                          {TextUtils.secondsToTimestamp(event.video_timestamp)}
+                        </span>
+                      )}
+                    {event.scene.studio && (
+                      <span>{event.scene.studio.name}</span>
+                    )}
+                    {event.scene.performers.length > 0 && (
+                      <span>
+                        {event.scene.performers
+                          .map((performer) => performer.name)
+                          .join(", ")}
+                      </span>
+                    )}
+                  </div>
+                  {event.associated_tags.length > 0 && (
+                    <div
+                      className="ostats-event-tags"
+                      aria-label="Associated marker tags"
                     >
-                      {tag.name}
-                    </Link>
-                  ))}
+                      {event.associated_tags.map((tag) => (
+                        <Link
+                          className="ostats-event-tag"
+                          key={tag.id}
+                          to={`/ostats/tag/${tag.id}`}
+                        >
+                          {tag.name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </li>
-        );
-      })}
-    </ol>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </>
   );
 };
 
@@ -1119,6 +1139,12 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
   }>(STUDIO_NAME, {
     variables: { id: selectedStudioId },
     skip: !selectedStudioId,
+  });
+  const tagNameQuery = useQuery<{
+    findTag: { id: string; name: string } | null;
+  }>(TAG_NAME, {
+    variables: { id: selectedTagId },
+    skip: !selectedTagId,
   });
 
   const yearQuery = useQuery<{ sceneOYearCounts: YearCount[] }>(
@@ -1317,8 +1343,13 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
   );
 
   const selectedTagName = selectedTagId
-    ? tagChartData.find((item) => item.key === selectedTagId)?.label
+    ? tagNameQuery.data?.findTag?.name ??
+      tagChartData.find((item) => item.key === selectedTagId)?.label
     : undefined;
+  const chartDrilldownTotal = chartData.reduce(
+    (total, item) => total + item.count,
+    0
+  );
   const loading =
     (!isDetailPage &&
       (yearQuery.loading ||
@@ -1350,7 +1381,8 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     dayQuery.error;
 
   function renderTitle() {
-    if (selectedTagId) return `O's tagged ${selectedTagName ?? selectedTagId}`;
+    if (selectedTagId)
+      return `O's tagged ${selectedTagName ?? "Loading tag..."}`;
     if (selectedPerformerId) {
       return `O's to ${
         performerQuery.data?.findPerformer?.name ??
@@ -1414,10 +1446,8 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
   const titleProps = useTitleProps("OStats", renderTitle());
 
   return (
-    <div className="ostats-page">
+    <StatsPage className="ostats-page">
       <Helmet {...titleProps} />
-
-      <StatsLinks />
 
       <header className="ostats-header">
         <div>
@@ -1559,8 +1589,13 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
           </div>
         </div>
 
-        {error && <ErrorMessage error={error} />}
-        {!error && loading && <LoadingIndicator />}
+        {error && <ErrorMessage error={error.message} />}
+        {!error && loading && <LoadingIndicator message="Loading O stats..." />}
+        {!error && !loading && isDetailPage && !showTimeline && (
+          <div className="ostats-drilldown-total">
+            {formatStatsTotal(chartDrilldownTotal, "O event", "O events")}
+          </div>
+        )}
         {!error && !loading && !showTimeline && (
           <OStatsChart
             data={chartData}
@@ -1735,7 +1770,7 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
           />
         </section>
       )}
-    </div>
+    </StatsPage>
   );
 };
 

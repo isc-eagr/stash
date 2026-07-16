@@ -273,6 +273,7 @@ const SearchSingleSelect = <T extends SearchSelectEntity>({
       className={cx("react-select", className)}
       classNamePrefix="react-select"
       isClearable
+      menuPortalTarget={document.body} // CUSTOM: keep filter menus above sticky marker headers
       options={selectOptions}
       placeholder={placeholder}
       value={selectedOption}
@@ -304,6 +305,7 @@ const SearchMultiSelect = <T extends SearchSelectEntity>({
       classNamePrefix="react-select"
       isClearable
       isMulti
+      menuPortalTarget={document.body} // CUSTOM: keep filter menus above sticky marker headers
       options={selectOptions}
       placeholder={placeholder}
       value={selectedOptions}

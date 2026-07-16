@@ -1,0 +1,92 @@
+/* CUSTOM: begin - cinematic viewport loading overlay */
+.LoadingIndicator.loading-overlay {
+  --loading-overlay-accent: #48aff0;
+  --loading-overlay-accent-edge: rgba(72, 175, 240, 0.72);
+  --loading-overlay-accent-glow: rgba(72, 175, 240, 0.2);
+  --loading-overlay-card-bg: rgba(12, 18, 24, 0.96);
+  --loading-overlay-text: #edf6fc;
+
+  align-items: center;
+  backdrop-filter: blur(7px) saturate(0.78);
+  background: radial-gradient(
+      circle at 50% 0%,
+      var(--loading-overlay-accent-glow),
+      transparent 36rem
+    ),
+    rgba(4, 6, 8, 0.8);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 1.5rem;
+  position: fixed;
+  width: auto;
+  z-index: 3000;
+
+  .LoadingIndicator-overlay-card {
+    align-items: center;
+    background: linear-gradient(
+      145deg,
+      rgba(28, 35, 42, 0.98),
+      var(--loading-overlay-card-bg) 58%,
+      rgba(7, 10, 13, 0.98)
+    );
+    border: 1px solid var(--loading-overlay-accent-edge);
+    border-radius: 10px;
+    box-shadow: 0 1.5rem 4.5rem rgba(0, 0, 0, 0.68),
+      0 0 2.75rem var(--loading-overlay-accent-glow),
+      inset 0 2px 0 var(--loading-overlay-accent-edge),
+      inset 0 1px 0 rgba(255, 255, 255, 0.055);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 10.5rem;
+    min-width: 17rem;
+    padding: 1.75rem 2.25rem;
+    text-align: center;
+    width: min(29rem, calc(100vw - 3rem));
+  }
+
+  .spinner-border {
+    color: var(--loading-overlay-accent);
+    filter: drop-shadow(0 0 0.85rem var(--loading-overlay-accent-glow));
+  }
+
+  .LoadingIndicator-message {
+    color: var(--loading-overlay-text);
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.035em;
+    line-height: 1.45;
+    margin-bottom: 0;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8);
+  }
+}
+
+body > .LoadingIndicator.loading-overlay ~ .LoadingIndicator.loading-overlay {
+  display: none;
+}
+
+html.application-theme-masculine-black .LoadingIndicator.loading-overlay {
+  --loading-overlay-accent: var(--black-steel-accent-bright);
+  --loading-overlay-accent-edge: rgba(170, 99, 55, 0.78);
+  --loading-overlay-accent-glow: rgba(202, 135, 87, 0.2);
+  --loading-overlay-card-bg: rgba(10, 11, 13, 0.97);
+  --loading-overlay-text: var(--black-steel-text);
+
+  .LoadingIndicator-overlay-card {
+    border-radius: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .LoadingIndicator.loading-overlay {
+    animation-delay: 0ms;
+    animation-duration: 100ms;
+
+    .spinner-border {
+      animation-duration: 1.8s;
+    }
+  }
+}
+
+/* CUSTOM: end */

@@ -1,0 +1,31 @@
+fragment SceneMarkerCardContextData on SceneMarker {
+  id
+  seconds
+  end_seconds
+  primary_tag {
+    id
+    name
+    parents {
+      id
+      name
+    }
+  }
+  tags {
+    id
+    name
+    parents {
+      id
+      name
+    }
+  }
+  top_performers {
+    id
+    name
+    image_path
+  }
+  bottom_performers {
+    id
+    name
+    image_path
+  }
+}

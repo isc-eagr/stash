@@ -4,6 +4,7 @@ import { getRatingCardClass } from "../src/utils/ratingCardStyles_custom.ts";
 import {
   filterCoveredChronologicalSceneMarkers,
   filterChronologicalSceneMarkers,
+  getChronologicalSceneMarkerContextDisplayTags,
   getChronologicalSceneMarkerDisplayTags,
   getChronologicalSceneMarkerDerivedWindows,
   getChronologicalSceneMarkerHighlightPerformers,
@@ -317,6 +318,16 @@ assert.deepEqual(
   ]).map((displayTag) => `${displayTag.kind}:${displayTag.tag.id}`),
   ["primary:feet", "secondary:verga", "overlap:bj", "overlap:oral"],
   "display tags distinguish direct primary, direct secondary, and overlapping marker tags"
+);
+
+assert.deepEqual(
+  getChronologicalSceneMarkerContextDisplayTags(marker("1", 10, 20, feet), [
+    marker("1", 10, 20, feet),
+    marker("2", 0, 30, oral),
+    marker("3", 15, 25, bj),
+  ]).map((displayTag) => `${displayTag.kind}:${displayTag.tag.id}`),
+  ["primary:feet", "overlap:oral"],
+  "card context tags match the containing-marker context used by performer hovers"
 );
 
 assert.deepEqual(

@@ -12,12 +12,12 @@ import {
   faTag,
   faArrowUp,
   faArrowDown,
-} from "@fortawesome/free-solid-svg-icons"; // CUSTOM: added faArrowUp, faArrowDown
+  faUser,
+} from "@fortawesome/free-solid-svg-icons"; // CUSTOM: added faArrowUp, faArrowDown, faUser
 import { markerTitle } from "src/core/markers";
 import { Link } from "react-router-dom";
 import { objectTitle } from "src/core/files";
 import { PatchComponent } from "src/patch";
-import { PerformerPopoverButton } from "../Shared/PerformerPopoverButton";
 import { ScenePreview } from "./SceneCard";
 import { TruncatedText } from "../Shared/TruncatedText";
 import cx from "classnames"; // CUSTOM
@@ -25,12 +25,19 @@ import {
   getRatingCardClass,
   isRatingCardHomePage,
 } from "src/utils/ratingCardStyles_custom"; // CUSTOM
-import { getChronologicalSceneMarkerDisplayTags } from "./SceneDetails/sceneMarkerChronologySearch_custom"; // CUSTOM
+import { getChronologicalSceneMarkerContextDisplayTags } from "./SceneDetails/sceneMarkerChronologySearch_custom"; // CUSTOM
+import {
+  getSceneMarkerHoverGroup,
+  SceneMarkerHighlightPerformersPopover,
+  useSceneMarkerRatingCardClassGetter,
+} from "./SceneDetails/sceneMarkerHoverPopover_custom"; // CUSTOM
+import { toSceneMarkerCardContext } from "./sceneMarkerCardContext_custom"; // CUSTOM
 import { ROLE_COLORS_CUSTOM } from "src/utils/roleColors_custom"; // CUSTOM
 
 interface ISceneMarkerCardProps {
   marker: GQL.SceneMarkerDataFragment;
-  allMarkers?: GQL.SceneMarkerDataFragment[]; // CUSTOM
+  allMarkers?: GQL.SceneMarkerCardContextDataFragment[]; // CUSTOM
+  markerContext?: GQL.SceneMarkerCardContextDataFragment; // CUSTOM
   cardWidth?: number;
   previewHeight?: number;
   index?: number;
@@ -44,14 +51,45 @@ interface ISceneMarkerCardProps {
 const SceneMarkerCardPopovers = PatchComponent(
   "SceneMarkerCard.Popovers",
   (props: ISceneMarkerCardProps) => {
+    // CUSTOM: begin - marker-context performer hover
+    const { configuration } = useConfigurationContext();
+    const getMarkerRatingCardClass = useSceneMarkerRatingCardClassGetter();
+    const markerContext = useMemo(
+      () => props.markerContext ?? toSceneMarkerCardContext(props.marker),
+      [props.marker, props.markerContext]
+    );
+    const hoverGroup = useMemo(
+      () =>
+        getSceneMarkerHoverGroup(
+          markerContext,
+          props.allMarkers ?? [markerContext]
+        ),
+      [markerContext, props.allMarkers]
+    );
+    // CUSTOM: end
+
     function maybeRenderPerformerPopoverButton() {
       if (props.marker.scene.performers.length <= 0) return;
 
+      // CUSTOM: exact scene-marker containment hover popup
       return (
-        <PerformerPopoverButton
-          performers={props.marker.scene.performers}
-          linkType="scene_marker"
-        />
+        <HoverPopover
+          className="performer-count"
+          placement="bottom"
+          popoverClassName="scene-marker-highlight-popover"
+          content={
+            <SceneMarkerHighlightPerformersPopover
+              group={hoverGroup}
+              orgasmTagId={configuration?.ui?.roleTagIds?.orgasmTagId}
+              getMarkerRatingCardClass={getMarkerRatingCardClass}
+            />
+          }
+        >
+          <Button className="minimal">
+            <Icon icon={faUser} />
+            <span>{props.marker.scene.performers.length}</span>
+          </Button>
+        </HoverPopover>
       );
     }
 
@@ -111,6 +149,10 @@ const SceneMarkerCardDetails = PatchComponent(
       props.marker.top_performers.length > 0 &&
       props.marker.bottom_performers.length > 0;
     const [showParentTags, setShowParentTags] = useState(false);
+    const markerContext = useMemo(
+      () => props.markerContext ?? toSceneMarkerCardContext(props.marker),
+      [props.marker, props.markerContext]
+    );
 
     const renderPerformerChip = (
       performer: (typeof props.marker.top_performers)[0],
@@ -153,11 +195,11 @@ const SceneMarkerCardDetails = PatchComponent(
 
     const displayTags = useMemo(
       () =>
-        getChronologicalSceneMarkerDisplayTags(
-          props.marker,
-          props.allMarkers ?? [props.marker]
+        getChronologicalSceneMarkerContextDisplayTags(
+          markerContext,
+          props.allMarkers ?? [markerContext]
         ),
-      [props.allMarkers, props.marker]
+      [markerContext, props.allMarkers]
     );
     const visibleDisplayTags = useMemo(
       () => displayTags.filter(({ kind }) => kind !== "parent"),
@@ -321,6 +363,12 @@ export const SceneMarkerCard = PatchComponent(
       disabled: isRatingCardHomePage(),
     });
     // CUSTOM: end
+    // CUSTOM: begin - prefer the rendered marker while context query refreshes
+    const markerContext = useMemo(
+      () => toSceneMarkerCardContext(props.marker),
+      [props.marker]
+    );
+    // CUSTOM: end
 
     function zoomIndex() {
       if (!props.compact && props.zoomIndex !== undefined) {
@@ -340,8 +388,12 @@ export const SceneMarkerCard = PatchComponent(
         thumbnailSectionClassName="video-section"
         resumeTime={props.marker.seconds}
         image={<SceneMarkerCardImage {...props} />}
-        details={<SceneMarkerCardDetails {...props} />}
-        popovers={<SceneMarkerCardPopovers {...props} />}
+        details={
+          <SceneMarkerCardDetails {...props} markerContext={markerContext} />
+        }
+        popovers={
+          <SceneMarkerCardPopovers {...props} markerContext={markerContext} />
+        }
         selected={props.selected}
         selecting={props.selecting}
         onSelectedChanged={props.onSelectedChanged}

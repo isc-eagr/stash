@@ -35,6 +35,7 @@ export const ModifierSelectorButtons: React.FC<IModifierSelect> = ({
     <Form.Group className="modifier-options">
       {options.map((m) => (
         <Button
+          aria-pressed={value === m} // CUSTOM
           className={cx("modifier-option", {
             selected: value === m,
           })}

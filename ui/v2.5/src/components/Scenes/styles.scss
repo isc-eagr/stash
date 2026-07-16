@@ -19,7 +19,7 @@
   align-items: center;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.5rem;
   justify-content: center;
   margin: -0.15rem 0 0.6rem;
   padding: 0 0.5rem;
@@ -29,7 +29,7 @@
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.75rem;
   justify-content: center;
 }
 
@@ -45,16 +45,16 @@
 
 .scene-activity-metric {
   align-items: center;
-  background-color: rgba(255, 255, 255, 0.08);
-  border-radius: 0.25rem;
+  background-color: transparent;
+  border-radius: 0;
   color: $text-color;
   display: inline-flex;
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: inherit;
+  font-weight: 400;
   gap: 0.25rem;
   line-height: 1;
-  min-height: 1.45rem;
-  padding: 0.25rem 0.4rem;
+  min-height: 0;
+  padding: 0;
 }
 
 .scene-activity-metric__svg {
@@ -1024,8 +1024,8 @@ input[type="range"].blue-slider {
   --scene-marker-activity-header-sticky-offset: 0px;
 
   .scene-marker-toolbar-shell {
-    backdrop-filter: blur(0.7rem);
-    background-color: rgba(24, 35, 43, 0.96);
+    /* CUSTOM: sticky marker toolbar must not show content through it. */
+    background-color: #18232b;
     border-bottom: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: 0 0.45rem 1rem rgba(0, 0, 0, 0.28);
     margin-bottom: 0.75rem;
@@ -1291,11 +1291,8 @@ input[type="range"].blue-slider {
 
   .scene-marker-activity-group-header {
     align-items: center;
-    background: linear-gradient(
-      90deg,
-      rgba(72, 175, 240, 0.2),
-      rgba(33, 47, 58, 0.98) 42%
-    );
+    /* CUSTOM: keep floating activity headers opaque over marker rows. */
+    background-color: #212f3a;
     border-bottom: 1px solid rgba(255, 255, 255, 0.12);
     border-top: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0.38rem 0 0 #48aff0, inset 0 1px rgba(255, 255, 255, 0.05);

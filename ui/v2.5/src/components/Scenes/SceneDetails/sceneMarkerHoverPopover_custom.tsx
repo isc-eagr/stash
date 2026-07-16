@@ -16,7 +16,7 @@ import {
 import { isChronologicalSceneMarkerGoatTagged } from "./sceneMarkerChronologyLayout_custom";
 
 export type MarkerRatingCardClassGetter = (
-  marker: GQL.SceneMarkerDataFragment
+  marker: Pick<GQL.SceneMarkerDataFragment, "primary_tag" | "tags">
 ) => string;
 
 type SceneMarkerHoverPerformer = {

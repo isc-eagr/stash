@@ -56,6 +56,8 @@ This document describes all custom features and modifications added on top of th
 46. [Scene Marker Gap Warning](#46-scene-marker-gap-warning)
 47. [Scene Marker Chronological Tab Layout](#47-scene-marker-chronological-tab-layout)
 48. [GEVI Latest Page](#48-gevi-latest-page)
+49. [Black Steel Application Theme](#49-black-steel-application-theme)
+50. [Cinematic Loading Overlay](#50-cinematic-loading-overlay)
 
 ---
 
@@ -206,7 +208,14 @@ Custom analytics are split into focused hidden pages instead of the retired `/cu
 - `ui/v2.5/src/components/SceneStats/sceneStatsSummary_custom.ts`
 - `ui/v2.5/src/components/VatoStats/VatoStats.tsx`
 - `ui/v2.5/src/components/VatoStats/VatoStats.scss`
+- `ui/v2.5/src/components/Stats.tsx`
+- `ui/v2.5/src/components/StatsPage_custom.tsx`
+- `ui/v2.5/src/components/statsPage_custom.scss`
+- `ui/v2.5/src/components/OStats/OStats.tsx`
+- `ui/v2.5/src/components/OStats/OStats.scss`
+- `ui/v2.5/src/utils/statsDrilldown_custom.ts`
 - `ui/v2.5/tests/sceneStatsSummary_custom.test.ts`
+- `ui/v2.5/tests/statsDrilldown_custom.test.ts`
 - `internal/api/stats_marker_counts_custom.go`
 - `internal/api/stats_marker_counts_custom_test.go`
 
@@ -218,6 +227,10 @@ Custom analytics are split into focused hidden pages instead of the retired `/cu
 - Scene charts by vato ethnicity, vato country, vato count, release date, facial status/count, really-hot facial count, scene type, duration buckets, and resolution
 - Performer ethnicity Bronze/Silver/Gold/Sapphire metallic rating-tier breakdown on `/vatostats`
 - Orgasm/facial tracking totals on `/scenestats`
+- Stats, OStats, SceneStats, and VatoStats share the main Stats page's full-width, borderless outer layout and consistently sized navigation cards.
+- The shared navigation remains visible while Stats, SceneStats, or VatoStats loads, with a page-specific labeled spinner below it.
+- SceneStats and VatoStats show explicit drilldown and overall totals after chart selections; OStats shows the selected O-event total for date and category drilldowns.
+- OStats tag drilldowns fetch the selected tag directly so their titles display the tag name instead of its numeric ID.
 
 ### Orgasm & Facial Counting Logic
 
@@ -2630,6 +2643,8 @@ Adds a configurable visual theme for Bronze, Silver, Gold, and Royal Sapphire sc
 - `premium` (default): black card shell with radiant bronze/silver/gold/Royal Sapphire outline accents and one gently breathing tier-colored aura across the full card. The aura only animates opacity/transform, pauses off-screen, and replaces the heavier swipe, animated shadow, and animated text effects.
 - `classic`: preserves the original metallic shimmer styles and adds a matching Royal Sapphire GOAT style
 
+When the Black Steel application theme is active, premium cards use a raised graphite face with a restrained static double-tier metallic rim, directional inset bevel, and tight contact shadow. Scene activity percentages and their icons inherit the card's metallic tier color instead of the default white treatment. This keeps the tier silhouette and card metrics distinct from the near-black application canvas without adding animation or changing the premium appearance under the default application theme.
+
 All rating-card motion is disabled when the browser requests reduced motion.
 
 Rating-based card styling uses these thresholds:
@@ -2960,6 +2975,7 @@ Adds a dedicated Settings > Custom tab for fork-only configuration that is not p
 - Marker preview source-quality and quality-check toggles
 - Scene marker role tag IDs
 - Premium/classic rating card theme, thresholds, and override tags
+- Application-wide Stash dark/Black Steel visual theme
 
 ### Files Modified
 
@@ -3135,19 +3151,21 @@ Adds a hidden `/vatostats` page focused on vato aggregate analytics. The page sh
 ### Files Modified
 
 - `graphql/schema/types/stats_custom.graphql` - Adds `VatoStatsPerformer`, `VatoStatsAgeCount`, and `vatoStatsPerformers`.
-- `internal/api/resolver_custom.go` - Adds the `vatoStatsPerformers` resolver, including scene O counts from `scenes_o_dates`, most recent O date, career span, scene counts, demographic fields, exact scene-age counts, metallic rating tier, image URLs, optimized batched sex/oral role scene counts, and facial role marker counts using primary or secondary facial tags and descendants.
+- `internal/api/resolver_custom.go` - Adds the `vatoStatsPerformers` resolver, including scene O counts from `scenes_o_dates`, most recent O date, career span, scene counts, demographic fields, exact scene-age counts, metallic rating tier, image URLs, optimized batched sex/oral role scene counts, and facial role marker counts using primary or secondary facial tags and descendants. The initial aggregate pre-groups O records per scene and computes career span in the main performer-scene pass to avoid row multiplication and a duplicate association scan.
 - `internal/api/resolver_custom_test.go` - Adds focused tests for exact scene-age helper behavior, Unknown cleanup, and ID-filter safety.
+- `internal/api/vato_stats_query_custom_test.go` - Verifies that the optimized aggregate query counts each scene and O event once, finds the latest O date, computes career span, and preserves zero-O vatos.
 - `ui/v2.5/src/App.tsx` - Adds the hidden `/vatostats` route.
 
 ### Files Added
 
-- `ui/v2.5/src/components/VatoStats/VatoStats.tsx` - VatoStats page, moved linked summary stat cards, metric selector, podium, filtered performer list, drill-down state, and charts.
+- `ui/v2.5/src/components/VatoStats/VatoStats.tsx` - VatoStats page, moved linked summary stat cards, metric selector, podium, filtered performer list, drill-down state, and charts. Auxiliary summary/filter counts are deferred until the core vato dataset arrives, and only configured role tags are fetched.
 - `ui/v2.5/src/components/VatoStats/VatoStats.scss` - Page-specific podium and chart styles.
 
 ### Test Cases Added
 
 - `TestVatoStatsAgeRange` - Covers exact scene-age labels.
 - `TestVatoStatsSetAgeCount` - Covers merging repeated scene-age counts.
+- `TestVatoStatsPerformersQueryCustomAggregatesSceneOsAndCareerOnce` - Covers the pre-aggregated scene-O and single-pass career-span query.
 
 ### GraphQL Schema Changes
 
@@ -3269,11 +3287,13 @@ Selection checkboxes follow the visible hierarchy: section selectors cover all d
 
 Scene-card performer-count hover popovers reuse the performer/tag-card presentation. Each scene performer displays the union produced by running every scene marker through the same overlap/containment context calculation as the in-scene marker hover: top-role tags use blue chips and bottom-role tags use green chips. A tag remains in both colors when the performer has both roles across different markers, and scene performers without marker assignments remain visible with no chips.
 
+Marker-card performer-count hovers now use that exact in-scene containment popup instead of the generic scene-performer popup. The card grid batches a slim scene-marker context lookup by visible scene IDs, so the popup and context tags remain complete across pagination without issuing one request per card. Marker-card overlap chips use the same containing-activity context calculation and remain gray; Sapphire card styling preserves these semantic tag colors and the blue/green performer-role chips instead of repainting them Sapphire.
+
 The unified section has scene-local selectable search fields for tags, top performers, and bottom performers. Tag search uses a progressive chain of single-tag selectors: the first selector only lists tags present on the current scene's markers, each next selector only lists tags that can still match by sharing the same marker or by contributing to one shared overlap window with the previous selections, and the row layout wraps at three tag selectors per line. Tag searches match primary or secondary marker tags and reuse the overlap-aware behavior from the custom marker filters: a marker can satisfy multiple requested tags directly or through overlapping markers only when every selected tag participates in the same shared overlap window, and when multiple overlapping markers match the same tag search only the narrowest result is shown. Derived overlap ranges are only shown for multi-tag searches, not for single-tag performer narrowing. Selected tags also narrow the top/bottom performer options to performers associated with the tag-filtered markers.
 
 The Create Marker, Add to Loop, and Open in Viewer toolbar sticks to the top of the marker-tab scroll area. The scene-tabs shell keeps the tab content as the single desktop scroll parent so the sticky positioning remains effective. Activity Type headers also stick directly below the measured toolbar, preserving context through long runs of performer configurations; each header is bounded by its own Activity Type section, so it hands off cleanly to the next header instead of accumulating. Bulk action labels include the selected count, and the status row distinguishes visible selections from markers hidden by active filters. Separate one-click actions select the visible results, select the full scene result set, or clear any partial selection. Opening the Viewer preserves selection because it is non-mutating; adding to the loop clears selection to prevent accidental duplicate insertion.
 
-Marker rows and `/scenes/markers` marker cards display direct primary tags, direct secondary tags, overlapping/transitive tags, and hierarchy-inferred parent tags with distinct badge colors. Parent tags are collapsed behind a small `+N` toggle by default, and they are also included in scene-local tag search options, so a marker tagged with a child tag can be searched by its parent tag. Duplicate tags only render once at the highest available tier: primary, then secondary, then overlap, then parent.
+Marker rows and `/scenes/markers` marker cards display direct primary tags, direct secondary tags, context-overlap tags, and hierarchy-inferred parent tags with distinct badge colors. Parent tags are collapsed behind a small `+N` toggle by default, and they are also included in scene-local tag search options, so a marker tagged with a child tag can be searched by its parent tag. Duplicate tags only render once at the highest available tier: primary, then secondary, then overlap, then parent.
 
 Scene detail pages also include an icon toggle beside the scene tabs that hides the scene overview/header block, allowing the active tab panel to use the full vertical space of the left column. The scene player scrubber marker tags and timeline marker tooltips use the same performer/tag-card hover presentation as the Markers tab pills. Timeline tooltips use the same containment-derived performer tags as the Markers tab, including one performer tile with both role colors when the same performer has top and bottom tags across overlapping markers. This applies to outstanding/highlight and Activity Type markers: a smaller fully-contained activity marker inherits the containing activity marker's tags and roles, while the larger marker does not inherit tags from a marker that covers only part of its range. Fullscreen player controls hide on idle even while paused. Clicking a scene player scrubber marker performs a one-shot focus into the Markers tab, so later filter/edit changes do not keep auto-scrolling back to that marker.
 
@@ -3287,6 +3307,11 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - `ui/v2.5/src/components/ScenePlayer/styles.scss`
 - `ui/v2.5/src/components/Scenes/SceneMarkerCard.tsx`
 - `ui/v2.5/src/components/Scenes/SceneMarkerCardGrid.tsx`
+- `ui/v2.5/src/components/Scenes/SceneMarkerRecommendationRow.tsx`
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerChronologySearch_custom.ts`
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerHoverPopover_custom.tsx`
+- `ui/v2.5/src/components/Shared/ratingCardStyles_custom.scss`
+- `ui/v2.5/src/core/generated-graphql.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx`
 - `ui/v2.5/src/components/Settings/SettingsCustomPanel.tsx`
 - `ui/v2.5/src/core/config.ts`
@@ -3305,6 +3330,9 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerChronologyLayout_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerChronologySearch_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerHoverPopover_custom.tsx`
+- `ui/v2.5/src/components/Scenes/sceneMarkerCardContext_custom.ts`
+- `ui/v2.5/graphql/data/scene-marker-context_custom.graphql`
+- `ui/v2.5/graphql/queries/scene-marker-context_custom.graphql`
 - `ui/v2.5/src/components/ScenePlayer/sceneMarkerTimelineHover_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneCardPerformerPopover_custom.tsx`
 - `ui/v2.5/src/components/Scenes/SceneCard.tsx`
@@ -3335,6 +3363,7 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - Verifies GOAT-tagged highlight markers are detected for Royal Sapphire styling.
 - Verifies displayed marker tag badges distinguish primary, secondary, overlap, and parent tags while deduping to the highest tier.
 - Verifies displayed overlap tags are only inferred between markers from the same scene.
+- Verifies marker-card context tags include only the containing activity context, matching performer hovers rather than arbitrary partial overlaps.
 - Verifies single-tag performer filters do not create derived overlap ranges from nearby tag-only markers.
 - Verifies activity type markers are limited to configured sex/oral/solo primary-only markers and secondary tags make them highlights.
 - Verifies scene-card performer summaries union direct and overlap-computed marker tags independently for top and bottom roles, including the same tag appearing in both role colors.
@@ -3398,3 +3427,85 @@ Adds `/gevi-latest`, a custom page showing the latest scenes and vatos from Gay 
 ### Configuration Dependencies
 
 - Uses `config.GetCachePath()` for `gevi_latest_custom.json` and `gevi_latest_images_custom/`, falling back to `config.GetConfigPath()` if no cache path is configured.
+
+---
+
+## 49. Black Steel Application Theme
+
+### Overview
+
+Adds a selectable application-wide Black Steel theme under Settings > Custom. The upstream Stash dark palette remains the default, while Black Steel applies immediately after its persisted UI setting is updated and remains active across reloads.
+
+### Visual Design
+
+Black Steel uses a near-black canvas, matte-black and gunmetal surfaces, steel-toned text, hard two-pixel control radii, and restrained copper edge accents. Primary controls remain graphite instead of becoming solid copper, while active navigation, focus rings, selected filter operators, and compact state indicators use the accent sparingly. It covers the navbar, ordinary cards, detail headers, settings, high-contrast text fields, readable multi-select chips, React Select portals, dropdowns, modals, popovers, the Rating Advisor, tables, pagination, tags, scrollbars, hover states, keyboard focus rings, and padded home-page recommendation frames. Existing success, warning, danger, performer-role, rating heat, and premium/classic rating-card colors remain semantic and unchanged. Reduced-motion users do not receive the theme's small card-hover movement.
+
+### Files Modified
+
+- `ui/v2.5/src/App.tsx` - Mounts the document-level theme controller inside the configuration provider.
+- `ui/v2.5/src/components/Settings/SettingsCustomPanel.tsx` - Adds the application theme selector.
+- `ui/v2.5/src/core/config.ts` - Types the persisted `applicationTheme` UI setting.
+- `ui/v2.5/src/index.scss` - Imports the scoped runtime theme after existing component styles.
+- `ui/v2.5/src/locales/en-GB.json` - Adds selector labels and the Black Steel description.
+- `CUSTOM_FEATURES.md` - Documents the feature and adds it to the Custom Settings inventory.
+
+### Files Added
+
+- `ui/v2.5/src/components/ApplicationTheme_custom.tsx` - Synchronizes the persisted theme to the document root so portalled UI is themed.
+- `ui/v2.5/src/utils/applicationTheme_custom.ts` - Normalizes theme values and safely switches known document classes.
+- `ui/v2.5/src/styles/applicationTheme_custom.scss` - Contains the scoped Black Steel palette and component overrides.
+- `ui/v2.5/tests/applicationTheme_custom.test.ts` - Provides focused theme preference and class-switching tests.
+
+### Test Cases Added
+
+- Verifies a missing application theme uses the upstream Stash default.
+- Verifies an unknown persisted value safely falls back to the default.
+- Verifies the masculine-black setting is normalized and applies the Black Steel document class.
+- Verifies returning to the default removes the Black Steel class.
+- Verifies an invalid setting cannot leave a stale theme class behind.
+
+### GraphQL Schema Changes
+
+- None. UI configuration is already transported and persisted as a generic map.
+
+### Configuration Dependencies
+
+- Uses `configuration.ui.applicationTheme` with supported values `default` and `masculine-black`.
+
+---
+
+## 50. Cinematic Loading Overlay
+
+### Overview
+
+Promotes ordinary, full-size `LoadingIndicator` messages into a fixed viewport overlay inspired by the music-stats chart loader. The overlay dims and blurs the rendered application, blocks accidental interaction while work is in progress, and presents the existing spinner and message inside a shadowed status card. Inline, small, card-based, and explicitly message-free indicators remain local to buttons, fields, tables, taggers, and popovers.
+
+The default Stash theme uses a cool-blue accent. Black Steel replaces that accent with its restrained copper palette and hardens the card radius to match the rest of the application theme. When more than one ordinary loader is mounted, only the first overlay is shown; another becomes visible automatically if the first unmounts while work remains.
+
+### Files Modified
+
+- `ui/v2.5/src/components/Shared/LoadingIndicator.tsx` - Portals ordinary loading messages to the document body while preserving compact variants.
+- `ui/v2.5/src/index.scss` - Imports the custom loading-overlay styles after the upstream shared styles.
+- `CUSTOM_FEATURES.md` - Documents the application-wide loading treatment.
+
+### Files Added
+
+- `ui/v2.5/src/components/Shared/loadingIndicator_custom.ts` - Centralizes the display-mode decision for full overlays versus compact loaders.
+- `ui/v2.5/src/components/Shared/loadingIndicator_custom.scss` - Provides the blurred veil, shadowed loading card, theme accents, and reduced-motion behavior.
+- `ui/v2.5/tests/loadingIndicator_custom.test.ts` - Covers the full-size and compact display modes.
+
+### Test Cases Added
+
+- Verifies an ordinary loading message uses the viewport overlay.
+- Verifies inline loaders remain compact.
+- Verifies small loaders remain local to their controls.
+- Verifies card and popover loaders remain inside their container.
+- Verifies explicitly message-free spinners remain local to their container.
+
+### GraphQL Schema Changes
+
+- None.
+
+### Configuration Dependencies
+
+- None. Black Steel styling is selected automatically from the existing document theme class.

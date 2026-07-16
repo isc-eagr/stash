@@ -58,6 +58,7 @@ import { PatchFunction } from "./patch";
 import moment from "moment/min/moment-with-locales";
 import { ErrorMessage } from "./components/Shared/ErrorMessage";
 import cx from "classnames";
+import { ApplicationThemeCustom } from "./components/ApplicationTheme_custom"; // CUSTOM
 
 const Performers = lazyComponent(
   () => import("./components/Performers/Performers")
@@ -424,6 +425,8 @@ export const App: React.FC = () => {
                     <ConfigurationProvider
                       configuration={config.data!.configuration}
                     >
+                      {/* CUSTOM */}
+                      <ApplicationThemeCustom />
                       {maybeRenderReleaseNotes()}
                       <ConnectionMonitor />
                       <TroubleshootingModeOverlay />

@@ -661,6 +661,15 @@
       "scene_tools": "Scene Tools"
     },
     "ui": {
+      "application_theme": {
+        "section": "Application Theme",
+        "heading": "Visual theme",
+        "description": "Choose the application-wide look. Black Steel uses matte black surfaces, gunmetal borders, and restrained copper accents for a rugged, high-contrast finish.",
+        "options": {
+          "default": "Stash dark (default)",
+          "masculine_black": "Black Steel"
+        }
+      },
       "role_tags": {
         "heading": "Role Tags",
         "title": "Scene Marker Role Tags",

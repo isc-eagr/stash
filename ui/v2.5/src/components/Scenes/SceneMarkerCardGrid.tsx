@@ -6,6 +6,7 @@ import {
   useContainerDimensions,
 } from "../Shared/GridCard/GridCard";
 import { PatchComponent } from "src/patch";
+import { useSceneMarkerCardContextMap } from "./sceneMarkerCardContext_custom"; // CUSTOM
 
 interface ISceneMarkerCardGrid {
   markers: GQL.SceneMarkerDataFragment[];
@@ -23,6 +24,7 @@ export const SceneMarkerCardGrid: React.FC<ISceneMarkerCardGrid> =
       const [componentRef, { width: containerWidth }] =
         useContainerDimensions();
       const cardWidth = useCardWidth(containerWidth, zoomIndex, zoomWidths);
+      const markerContextsBySceneID = useSceneMarkerCardContextMap(markers); // CUSTOM
 
       return (
         <div className="row justify-content-center" ref={componentRef}>
@@ -31,7 +33,7 @@ export const SceneMarkerCardGrid: React.FC<ISceneMarkerCardGrid> =
               key={marker.id}
               cardWidth={cardWidth}
               marker={marker}
-              allMarkers={markers} // CUSTOM
+              allMarkers={markerContextsBySceneID.get(marker.scene.id)} // CUSTOM
               index={index}
               zoomIndex={zoomIndex}
               selecting={selectedIds.size > 0}

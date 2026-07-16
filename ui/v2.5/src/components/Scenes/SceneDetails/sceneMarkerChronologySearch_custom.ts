@@ -614,9 +614,9 @@ export function getChronologicalSceneMarkerPerformers<
   ).sort(compareNamedSearchObjects);
 }
 
-export function getChronologicalSceneMarkerDisplayTags<
+function getChronologicalSceneMarkerDisplayTagsFromRelatedMarkers<
   M extends ISceneMarkerChronologySearchMarker
->(marker: M, allMarkers: M[]): ISceneMarkerChronologyDisplayTag[] {
+>(marker: M, relatedMarkers: M[]): ISceneMarkerChronologyDisplayTag[] {
   const displayTags: ISceneMarkerChronologyDisplayTag[] = [
     { kind: "primary", tag: marker.primary_tag },
   ];
@@ -634,11 +634,8 @@ export function getChronologicalSceneMarkerDisplayTags<
     parentCandidates.push(...tagParents(tag));
   });
 
-  [...allMarkers]
-    .filter(
-      (candidate) =>
-        candidate.id !== marker.id && markerOverlapsTimeRange(marker, candidate)
-    )
+  [...relatedMarkers]
+    .filter((candidate) => candidate.id !== marker.id)
     .sort(compareChronologicalMarkers)
     .flatMap((candidate) => [candidate.primary_tag, ...candidate.tags])
     .forEach((tag) => {
@@ -660,6 +657,24 @@ export function getChronologicalSceneMarkerDisplayTags<
     });
 
   return displayTags;
+}
+
+export function getChronologicalSceneMarkerDisplayTags<
+  M extends ISceneMarkerChronologySearchMarker
+>(marker: M, allMarkers: M[]): ISceneMarkerChronologyDisplayTag[] {
+  return getChronologicalSceneMarkerDisplayTagsFromRelatedMarkers(
+    marker,
+    allMarkers.filter((candidate) => markerOverlapsTimeRange(marker, candidate))
+  );
+}
+
+export function getChronologicalSceneMarkerContextDisplayTags<
+  M extends ISceneMarkerChronologySearchMarker
+>(marker: M, allMarkers: M[]): ISceneMarkerChronologyDisplayTag[] {
+  return getChronologicalSceneMarkerDisplayTagsFromRelatedMarkers(
+    marker,
+    getChronologicalSceneMarkerHighlightContextMarkers(marker, allMarkers)
+  );
 }
 
 function addHighlightPerformerTags<

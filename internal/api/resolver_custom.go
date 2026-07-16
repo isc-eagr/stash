@@ -2230,21 +2230,32 @@ func vatoStatsSetAgeCount(performer *VatoStatsPerformer, ageRange string, count 
 	})
 }
 
-// VatoStatsPerformers returns the raw per-vato rows used by /vatostats. The UI
-// owns drill-down state so metric/category combinations can evolve without
-// adding a resolver for every chart.
-func (r *queryResolver) VatoStatsPerformers(ctx context.Context) (ret []*VatoStatsPerformer, err error) {
-	baseURL, _ := ctx.Value(BaseURLCtxKey).(string)
-	thresholds := getCustomPerformerRatingTierThresholds()
-	overrides := getCustomRatingTierOverrideTags()
-	bronzeClause, bronzeArgs := customRatingTierSQLClause("bronze", thresholds, overrides)
-	silverClause, silverArgs := customRatingTierSQLClause("silver", thresholds, overrides)
-	goldClause, goldArgs := customRatingTierSQLClause("gold", thresholds, overrides)
-	royalSapphireClause, royalSapphireArgs := customRatingTierSQLClause("royal_sapphire", thresholds, overrides)
-
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		db := manager.GetInstance().Database
-		query := fmt.Sprintf(`
+func vatoStatsPerformersQueryCustom(royalSapphireClause string, goldClause string, silverClause string, bronzeClause string) string {
+	return fmt.Sprintf(`
+WITH scene_o_stats AS (
+  SELECT
+    scene_id,
+    COUNT(*) AS scene_o_count,
+    MAX(date(o_date)) AS most_recent_o_date
+  FROM scenes_o_dates
+  WHERE o_date IS NOT NULL
+  GROUP BY scene_id
+),
+performer_scene_stats AS (
+  SELECT
+    ps.performer_id,
+    COUNT(DISTINCT ps.scene_id) AS scene_count,
+    COALESCE(SUM(scene_o_stats.scene_o_count), 0) AS scene_o_count,
+    MAX(scene_o_stats.most_recent_o_date) AS most_recent_o_date,
+    COALESCE(
+      CAST(julianday(MAX(date(s.date))) - julianday(MIN(date(s.date))) AS INT),
+      0
+    ) AS career_span_days
+  FROM performers_scenes ps
+  JOIN scenes s ON s.id = ps.scene_id
+  LEFT JOIN scene_o_stats ON scene_o_stats.scene_id = ps.scene_id
+  GROUP BY ps.performer_id
+)
 SELECT
   performers.id,
   performers.name,
@@ -2264,25 +2275,35 @@ SELECT
   performers.penis_length,
   performers.circumcised,
   CASE WHEN performers.image_blob IS NULL OR TRIM(performers.image_blob) = '' THEN 0 ELSE 1 END AS has_image,
-  COUNT(DISTINCT ps.scene_id) AS scene_count,
-  COUNT(od.o_date) AS scene_o_count,
-  MAX(date(od.o_date)) AS most_recent_o_date,
-  COALESCE(career_span.career_span_days, 0) AS career_span_days
+  performer_scene_stats.scene_count,
+  performer_scene_stats.scene_o_count,
+  performer_scene_stats.most_recent_o_date,
+  performer_scene_stats.career_span_days
 FROM performers
-LEFT JOIN performers_scenes ps ON ps.performer_id = performers.id
-LEFT JOIN scenes_o_dates od ON od.scene_id = ps.scene_id AND od.o_date IS NOT NULL
-LEFT JOIN (
-  SELECT
-    ps_span.performer_id,
-    COALESCE(CAST(julianday(MAX(date(s_span.date))) - julianday(MIN(date(s_span.date))) AS INT), 0) AS career_span_days
-  FROM performers_scenes ps_span
-  JOIN scenes s_span ON s_span.id = ps_span.scene_id
-  WHERE s_span.date IS NOT NULL AND TRIM(s_span.date) <> ''
-  GROUP BY ps_span.performer_id
-) career_span ON career_span.performer_id = performers.id
-GROUP BY performers.id
-HAVING scene_count > 0
+JOIN performer_scene_stats ON performer_scene_stats.performer_id = performers.id
 ORDER BY performers.name COLLATE NOCASE ASC`,
+		royalSapphireClause,
+		goldClause,
+		silverClause,
+		bronzeClause,
+	)
+}
+
+// VatoStatsPerformers returns the raw per-vato rows used by /vatostats. The UI
+// owns drill-down state so metric/category combinations can evolve without
+// adding a resolver for every chart.
+func (r *queryResolver) VatoStatsPerformers(ctx context.Context) (ret []*VatoStatsPerformer, err error) {
+	baseURL, _ := ctx.Value(BaseURLCtxKey).(string)
+	thresholds := getCustomPerformerRatingTierThresholds()
+	overrides := getCustomRatingTierOverrideTags()
+	bronzeClause, bronzeArgs := customRatingTierSQLClause("bronze", thresholds, overrides)
+	silverClause, silverArgs := customRatingTierSQLClause("silver", thresholds, overrides)
+	goldClause, goldArgs := customRatingTierSQLClause("gold", thresholds, overrides)
+	royalSapphireClause, royalSapphireArgs := customRatingTierSQLClause("royal_sapphire", thresholds, overrides)
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := vatoStatsPerformersQueryCustom(
 			royalSapphireClause,
 			goldClause,
 			silverClause,

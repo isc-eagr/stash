@@ -387,11 +387,18 @@
     text-shadow: 0 0 6px rgba(var(--rating-card-accent-rgb), 0.18);
   }
 
-  .badge {
+  .badge:not(.performer-chip):not(.tag-badge) {
     background: rgba(var(--rating-card-accent-rgb), 0.16);
     border: 1px solid rgba(var(--rating-card-accent-rgb), 0.32);
     color: rgb(var(--rating-card-name-rgb));
     box-shadow: inset 0 0 10px rgba(var(--rating-card-accent-rgb), 0.08);
+  }
+
+  .performer-chip.badge-info .svg-inline--fa,
+  .performer-chip.badge-success .svg-inline--fa {
+    color: inherit;
+    filter: none;
+    -webkit-filter: none;
   }
 
   hr {
@@ -512,6 +519,25 @@
 
   .performer-role-badges .bottom-badge.arrow-badge {
     border-color: rgba(40, 167, 69, 0.92) !important;
+  }
+
+  .scene-activity-metrics .scene-activity-metric,
+  .scene-activity-metrics .scene-activity-metric > span {
+    color: rgb(var(--rating-card-text-rgb)) !important;
+    text-shadow: 0 0 5px rgba(var(--rating-card-accent-rgb), 0.2);
+  }
+
+  .scene-activity-metrics .scene-activity-metric__svg {
+    filter: var(--rating-card-icon-filter)
+      drop-shadow(0 0 5px rgba(var(--rating-card-accent-rgb), 0.28)) !important;
+    -webkit-filter: var(--rating-card-icon-filter)
+      drop-shadow(0 0 5px rgba(var(--rating-card-accent-rgb), 0.28)) !important;
+  }
+
+  .scene-activity-metrics .scene-activity-metric .fa-icon,
+  .scene-activity-metrics .scene-activity-metric .svg-inline--fa {
+    color: rgb(var(--rating-card-text-rgb)) !important;
+    filter: drop-shadow(0 0 5px rgba(var(--rating-card-accent-rgb), 0.28));
   }
 
   .rating-banner {
@@ -1121,10 +1147,17 @@
       drop-shadow(0 0 10px rgba(191, 219, 254, 0.16));
   }
 
-  .badge {
+  .badge:not(.performer-chip):not(.tag-badge) {
     background: rgba(56, 189, 248, 0.12);
     border: 1px solid rgba(125, 211, 252, 0.34);
     color: rgb(var(--rating-card-name-rgb));
+  }
+
+  .performer-chip.badge-info .svg-inline--fa,
+  .performer-chip.badge-success .svg-inline--fa {
+    color: inherit;
+    filter: none;
+    -webkit-filter: none;
   }
 
   .performer-role-badges .top-badge.arrow-badge {
@@ -1326,6 +1359,48 @@
   > * {
     position: relative;
     z-index: 2;
+  }
+}
+
+html.application-theme-masculine-black
+  :is(
+    .scene-card,
+    .performer-card,
+    .image-card,
+    .gallery-card,
+    .group-card,
+    .studio-card,
+    .scene-marker-card
+  ).rating-card-theme-premium:is(
+    .rating-3-stars,
+    .rating-4-stars,
+    .rating-5-stars,
+    .rating-royal-sapphire
+  ) {
+  background: radial-gradient(
+        circle at 42% -12%,
+        rgba(var(--rating-card-accent-rgb), 0.13),
+        rgba(var(--rating-card-accent-rgb), 0) 46%
+      )
+      padding-box,
+    linear-gradient(145deg, #15191c 0%, #0d1012 52%, #07090a 100%) padding-box;
+  border: 1px solid rgba(var(--rating-card-highlight-rgb), 0.56);
+  box-shadow: 0 0 0 1px rgba(1, 2, 3, 0.96),
+    0 0 0 3px rgba(var(--rating-card-accent-soft-rgb), 0.96),
+    0 0 8px rgba(var(--rating-card-accent-rgb), 0.2),
+    0 10px 16px rgba(0, 0, 0, 0.72),
+    inset 1px 1px 0 rgba(var(--rating-card-highlight-rgb), 0.2),
+    inset -1px -1px 0 rgba(var(--rating-card-accent-soft-rgb), 0.46),
+    inset 0 0 24px rgba(var(--rating-card-accent-rgb), 0.06);
+
+  &:hover {
+    box-shadow: 0 0 0 1px rgba(1, 2, 3, 0.96),
+      0 0 0 3px rgba(var(--rating-card-accent-soft-rgb), 1),
+      0 0 10px rgba(var(--rating-card-accent-rgb), 0.28),
+      0 13px 20px rgba(0, 0, 0, 0.78),
+      inset 1px 1px 0 rgba(var(--rating-card-highlight-rgb), 0.24),
+      inset -1px -1px 0 rgba(var(--rating-card-accent-soft-rgb), 0.5),
+      inset 0 0 26px rgba(var(--rating-card-accent-rgb), 0.08);
   }
 }
 

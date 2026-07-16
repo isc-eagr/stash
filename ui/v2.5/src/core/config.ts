@@ -119,6 +119,8 @@ export interface IUIConfig {
   title?: string;
 
   // CUSTOM: begin
+  // Selectable application-wide visual theme
+  applicationTheme?: "default" | "masculine-black";
   // Styling option for rating-highlighted scene and performer cards
   ratingCardTheme?: "premium" | "classic";
   ratingCardThresholds?: {

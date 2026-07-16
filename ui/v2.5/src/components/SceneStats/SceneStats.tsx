@@ -10,9 +10,8 @@ import { Alert, Button, ButtonGroup, Form } from "react-bootstrap";
 import { Helmet } from "react-helmet";
 import { Link, RouteComponentProps, useHistory } from "react-router-dom";
 import { FormattedNumber } from "react-intl";
-import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
-import { StatsLinks } from "src/components/StatsLinks_custom";
+import { StatsPage } from "src/components/StatsPage_custom";
 import { useStats } from "src/core/StashService";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useTitleProps } from "src/hooks/title";
@@ -20,6 +19,10 @@ import TextUtils from "src/utils/text";
 import NavUtils from "src/utils/navigation";
 import { getRatingCardThresholdsForEntity } from "src/utils/ratingCardStyles_custom";
 import { statsCountryName } from "src/utils/statsCountry_custom";
+import {
+  formatStatsDrilldownTotal,
+  formatStatsTotal,
+} from "src/utils/statsDrilldown_custom";
 import { FileSize } from "src/components/Shared/FileSize";
 import { Icon } from "src/components/Shared/Icon";
 import gaySvg from "src/assets/gay.svg";
@@ -1173,7 +1176,9 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     return (
       <>
         <Helmet {...titleProps} />
-        <span>{statsError.message}</span>
+        <StatsPage className="scenestats-page">
+          <span>{statsError.message}</span>
+        </StatsPage>
       </>
     );
 
@@ -1181,7 +1186,9 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     return (
       <>
         <Helmet {...titleProps} />
-        <ErrorMessage error={sceneQuery.error} />
+        <StatsPage className="scenestats-page">
+          <ErrorMessage error={sceneQuery.error.message} />
+        </StatsPage>
       </>
     );
 
@@ -1189,7 +1196,9 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     return (
       <>
         <Helmet {...titleProps} />
-        <ErrorMessage error={roleTagsQuery.error} />
+        <StatsPage className="scenestats-page">
+          <ErrorMessage error={roleTagsQuery.error.message} />
+        </StatsPage>
       </>
     );
 
@@ -1197,22 +1206,30 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     return (
       <>
         <Helmet {...titleProps} />
-        <LoadingIndicator />
+        <StatsPage
+          className="scenestats-page"
+          loading
+          loadingMessage="Loading scene stats..."
+        />
       </>
     );
 
   return (
-    <div className="scenestats-page">
+    <StatsPage className="scenestats-page">
       <Helmet {...titleProps} />
-
-      <StatsLinks />
 
       <header className="scenestats-header">
         <div>
           <h1>SceneStats</h1>
           <div className="scenestats-total">
-            {filteredScenes.length.toLocaleString()} /{" "}
-            {scenes.length.toLocaleString()} scenes
+            {filters.length > 0 || hasSelectedYear
+              ? formatStatsDrilldownTotal(
+                  filteredScenes.length,
+                  scenes.length,
+                  "scene",
+                  "scenes"
+                )
+              : formatStatsTotal(scenes.length, "scene", "scenes")}
           </div>
         </div>
         <Form.Group
@@ -1563,7 +1580,7 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
         selectedMonth={selectedMonth}
         selectedYear={selectedYear}
       />
-    </div>
+    </StatsPage>
   );
 };
 

@@ -32,8 +32,13 @@ Always apply small changes at a time, but do ensure that work is complete withou
      - Changed-file lint/format check: `make validate-ui-quick` (skips slow `tsc --noEmit`).
      - Changed-file formatting: `make fmt-ui-quick`.
      - TypeScript-only compile check: `cd ui/v2.5 && npm run check`.
-     - Vite parse/bundle fallback without full backend, only when JSX/TSX parsing risk is not covered by faster checks: `cd ui/v2.5 && npm run build` or `make ui-only`.
+     - Vite parse/bundle check: `cd ui/v2.5 && npm run build` or `make ui-only`. This always bundles the full UI; there is no narrower Vite build target in this repo.
      - On PowerShell, if npm is blocked by script execution policy, call `npm.cmd` or the local `.CMD` shim in `ui/v2.5/node_modules/.bin`.
+   - Frontend verification policy (risk-based):
+     - **Simple UI-only styling/copy changes:** do not run a TypeScript or Vite build. Run targeted Prettier plus Stylelint for SCSS, ESLint for TS/TSX when applicable, and `git diff --check`.
+     - **Ordinary UI changes:** run targeted ESLint and Prettier. Add `npm.cmd run check` when TS/TSX types, imports, component props, hooks, or generated UI types changed. This is the normal compile tier.
+     - **Large or bundle-risk UI changes:** additionally run `npm.cmd run build`. Use this for Vite/config/dependency changes, routing or lazy-loading changes, broad shared UI infrastructure, substantial multi-component refactors, or when JSX/TSX bundling risk is not covered by `npm run check`.
+     - **Explicit user request:** follow it, including a request to skip final validations.
    - Windows sanity pass that worked in this repo/session:
      - `mingw32-make generate` for GraphQL/schema/codegen changes.
      - `go build ./cmd/stash` for backend-only or ordinary mixed backend/UI changes.
@@ -46,8 +51,8 @@ Always apply small changes at a time, but do ensure that work is complete withou
      - Note: Windows sandbox command startup can intermittently fail with `windows sandbox: spawn setup refresh`, even for simple read-only commands. Treat this as a sandbox/tooling hiccup, not a repo failure: retry once, and if the command is needed to complete the task, rerun the same command with `sandbox_permissions: "require_escalated"` and a narrow `prefix_rule`.
    - Suggested quick verification by change type:
      - Go-only: `go build ./cmd/stash` (add `go test ./...` when behavior changed).
-     - UI-only: targeted `npm.cmd run eslint -- <changed files>` and `npm.cmd run prettier -- --check <changed files>` from `ui/v2.5`; add `npm.cmd run check` when TypeScript types may be affected.
-     - JSX/TSX parse risk: prefer `cd ui/v2.5 && npm run check`; use `cd ui/v2.5 && npm run build` only when a Vite/esbuild parse/bundle check is specifically needed.
+     - UI-only: use the frontend verification policy above; simple SCSS-only changes do not need a TypeScript or Vite build.
+     - JSX/TSX parse risk: prefer `cd ui/v2.5 && npm run check`; reserve `cd ui/v2.5 && npm run build` for the large/bundle-risk cases listed above.
      - GraphQL/schema/generated changes: run `mingw32-make generate` on Windows (or `make generate` elsewhere), then `go build ./cmd/stash` for resolver/query-only changes or `go build ./...` for broad generated/shared changes.
      - Docs-only: `git diff --check` plus prettier check on the touched markdown is enough.
    - Run dev server: `make server-start` (uses `.local` and `config.yml`). In separate terminal run `make ui-start` to run the UI in dev mode.
