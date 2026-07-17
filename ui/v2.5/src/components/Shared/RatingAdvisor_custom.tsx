@@ -1,6 +1,6 @@
-import { gql, useQuery } from "@apollo/client";
+import { gql, useLazyQuery, useQuery } from "@apollo/client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Badge, Button } from "react-bootstrap";
+import { Badge, Button, OverlayTrigger, Popover } from "react-bootstrap";
 import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 import { ModalComponent } from "src/components/Shared/Modal";
 import { RatingNumber } from "src/components/Shared/Rating/RatingNumber";
@@ -13,11 +13,18 @@ import {
   normalizeRatingCardThresholds,
 } from "src/utils/ratingCardStyles_custom";
 import {
+  getRatingAdvisorAdjustmentTooltipLabelCustom,
+  getRatingAdvisorBarSummaryCustom,
   getRatingAdvisorCompletionCustom,
   getRatingAdvisorChoiceHeatLevelCustom,
   getRatingAdvisorChoiceScoreCustom,
   normalizeRatingAdvisorScoreValueCustom,
   ratingAdvisorSixLevelChoicesCustom,
+  SCENE_ENERGY_WEIGHT_CUSTOM,
+  SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM,
+  SCENE_NO_ORGASM_PENALTY_CUSTOM,
+  SCENE_USABLE_FACTOR_MAX_CUSTOM,
+  SCENE_USABLE_FACTOR_WEIGHT_CUSTOM,
 } from "./ratingAdvisorScales_custom";
 import {
   GROUP_SCENE_BONUSES_CUSTOM,
@@ -25,6 +32,10 @@ import {
   GROUP_SCENE_WEIGHTS_CUSTOM,
   type SceneRatingModeCustom,
 } from "./groupSceneRating_custom";
+import {
+  SOLO_SCENE_RATING_KEYS_CUSTOM,
+  SOLO_SCENE_WEIGHTS_CUSTOM,
+} from "./soloSceneRating_custom";
 
 type AdvisorEntity = "scene" | "performer";
 
@@ -125,7 +136,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     key: "chemistry",
     title: "Energy / sex quality",
     max: 5,
-    weight: 0.6,
+    weight: SCENE_ENERGY_WEIGHT_CUSTOM,
     hint: "How hot the actual sex feels: rhythm, reactions, chemistry, all that.",
     choices: ratingAdvisorSixLevelChoicesCustom([
       {
@@ -224,7 +235,7 @@ const sceneMetrics: IAdvisorMetric[] = [
   {
     key: "godTierOrgasm",
     title: "God-tier orgasm bonus",
-    max: 2,
+    max: SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM,
     section: "bonus",
     hint: "For an orgasm or facial so wild it takes the scene up a whole level.",
     choices: [
@@ -234,7 +245,7 @@ const sceneMetrics: IAdvisorMetric[] = [
         description: "Good maybe, but not god-tier crazy.",
       },
       {
-        value: 2,
+        value: SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM,
         label: "God-tier orgasms",
         description: "The orgasm or facial is straight-up legendary.",
       },
@@ -281,25 +292,40 @@ const sceneMetrics: IAdvisorMetric[] = [
   },
   {
     key: "standout",
-    title: "Standout moment",
-    max: 2,
-    weight: 0.5,
-    hint: "How many moments make you go, damn, rewind that.",
+    title: "Usable factor",
+    max: SCENE_USABLE_FACTOR_MAX_CUSTOM,
+    weight: SCENE_USABLE_FACTOR_WEIGHT_CUSTOM,
+    hint: "How much of the whole scene works without needing to skip around.",
     choices: [
       {
         value: 0,
-        label: "No standout moment",
-        description: "Nothing really makes you stop and rewind.",
+        label: "Mostly unusable",
+        description:
+          "Long setup, bad positions, negative stretches, or other dead weight makes most of this a skip.",
       },
       {
         value: 1,
-        label: "One or two noticeable moments",
-        description: "One or two hot little moments stick with you.",
+        label: "Limited use",
+        description:
+          "A few workable moments land, but you're skipping a lot to get to them.",
       },
       {
         value: 2,
-        label: "Multiple defining moments",
-        description: "This thing keeps serving rewind-worthy moments.",
+        label: "Mixed / standard",
+        description:
+          "A standard usable range, or a messy scene with a few outstanding stretches worth keeping.",
+      },
+      {
+        value: 3,
+        label: "Highly usable",
+        description:
+          "Most of it works: good angles, positions, and intensity with very little dragging.",
+      },
+      {
+        value: 4,
+        label: "Nearly unskippable",
+        description:
+          "Almost every stretch delivers. No wasted setup, no dead air, damn near all usable.",
       },
     ],
   },
@@ -316,7 +342,7 @@ const sceneMetrics: IAdvisorMetric[] = [
         description: "Somebody delivers a real payoff.",
       },
       {
-        value: -1,
+        value: SCENE_NO_ORGASM_PENALTY_CUSTOM,
         label: "No orgasm penalty",
         description: "No orgasm, no payoff, or they cut away. Lame.",
       },
@@ -346,54 +372,57 @@ const sceneMetrics: IAdvisorMetric[] = [
 
 const soloSceneMetrics: IAdvisorMetric[] = [
   {
-    key: "soloPerformerAppeal",
+    key: SOLO_SCENE_RATING_KEYS_CUSTOM.attractiveness,
     title: "Vato Attractiveness",
     max: 5,
-    weight: 1.4,
+    weight: SOLO_SCENE_WEIGHTS_CUSTOM.attractiveness,
     hint: "How hot the solo vato is, face to body to rifle.",
     choices: sceneVatoAttractivenessChoices,
   },
   {
-    key: "cameraWork",
-    title: "Angles and camera work",
-    max: 5,
-    weight: 0.6,
-    hint: "How well the camera shows off the vato and his rifle.",
+    key: SOLO_SCENE_RATING_KEYS_CUSTOM.performance,
+    title: "Performance",
+    max: 4,
+    weight: SOLO_SCENE_WEIGHTS_CUSTOM.performance,
+    hint: "How genuinely excited and into the solo action the vato looks.",
     choices: [
       {
         value: 0,
-        label: "Works against it",
-        description: "Bad shots hide the good stuff and kill the mood.",
+        label: "Clocked out",
+        description:
+          "Bored, detached, and waiting to finish so he can collect the check.",
       },
       {
         value: 1,
-        label: "Weak",
-        description: "A couple usable shots, but mostly a missed opportunity.",
+        label: "Going through it",
+        description:
+          "He does the job, but the energy says he just wants it over with.",
       },
       {
         value: 2,
-        label: "Serviceable",
-        description:
-          "You can see everything, but the angles ain't adding heat.",
+        label: "Into it",
+        description: "He looks engaged and is clearly enjoying himself.",
       },
       {
         value: 3,
-        label: "Good",
-        description: "Good angles that show the vato and his business right.",
+        label: "Excited",
+        description:
+          "Strong reactions and real enthusiasm. He wants to be right there.",
       },
       {
         value: 4,
-        label: "Excellent",
+        label: "Loving it",
         description:
-          "Hot framing, clear payoff, and plenty of rifle on display.",
-      },
-      {
-        value: 5,
-        label: "Perfect",
-        description:
-          "Every angle hits. The camera knows exactly what you came for.",
+          "Fully turned on, completely committed, and loving every second of it.",
       },
     ],
+  },
+  {
+    ...sceneMetrics.find((metric) => metric.key === "standout")!,
+    key: SOLO_SCENE_RATING_KEYS_CUSTOM.usability,
+    title: "Usability",
+    weight: SOLO_SCENE_WEIGHTS_CUSTOM.usability,
+    hint: "How much works without skipping, including the angles and pacing.",
   },
   {
     key: "orgasmBonus",
@@ -436,26 +465,6 @@ const soloSceneMetrics: IAdvisorMetric[] = [
     ],
   },
   {
-    key: "outstandingPerformance",
-    title: "Outstanding performance",
-    max: 1,
-    section: "bonus",
-    hint: "Flip it on when the vato really puts on a show.",
-    choices: [
-      {
-        value: 0,
-        label: "No performance bonus",
-        description: "He does fine, but he ain't exactly showing out.",
-      },
-      {
-        value: 1,
-        label: "Outstanding performance",
-        description: "He owns the camera and works that rifle like a pro.",
-        scoreValue: 1,
-      },
-    ],
-  },
-  {
     ...sceneMetrics.find((metric) => metric.key === "theme")!,
   },
   {
@@ -474,43 +483,41 @@ const groupSceneMetrics: IAdvisorMetric[] = [
     hint: "How hot the vatos doing the topping look as a lineup.",
   },
   {
-    ...sceneMetrics.find((metric) => metric.key === "chemistry")!,
-    key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.energy,
-    title: "Energy / Sex Quality",
-    weight: GROUP_SCENE_WEIGHTS_CUSTOM.energy,
-    hint: "How hot the group action feels from start to finish.",
-  },
-  {
-    key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.participation,
-    title: "Group Participation and Coordination",
+    key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.energyCoordination,
+    title: "Energy / coordination",
     max: 5,
-    weight: GROUP_SCENE_WEIGHTS_CUSTOM.participation,
-    hint: "Whether everybody gets in there or half the lineup just stands around.",
+    weight: GROUP_SCENE_WEIGHTS_CUSTOM.energyCoordination,
+    hint: "How hot the action feels and how well the whole lineup works together.",
     choices: ratingAdvisorSixLevelChoicesCustom([
       {
-        label: "Not really a group scene",
-        description: "Most of these vatos are basically furniture.",
+        label: "Disconnected",
+        description:
+          "Dead energy, messy flow, and most of these vatos are basically furniture.",
       },
       {
-        label: "Poor use",
-        description: "A couple vatos do everything while the rest wait around.",
+        label: "Weak",
+        description:
+          "A little action lands, but the energy and coordination stay rough.",
       },
       {
         label: "Uneven",
-        description: "Real group action, but the flow gets messy or uneven.",
-      },
-      {
-        label: "Good ensemble",
-        description: "Most vatos get involved and the group flow works.",
-      },
-      {
-        label: "Excellent ensemble",
-        description: "Everybody gets used well and the action stays hot.",
-      },
-      {
-        label: "Perfect group execution",
         description:
-          "Every vato matters. Bodies, mouths, and rifles all working overtime.",
+          "Some hot stretches, some waiting around, and an inconsistent group flow.",
+      },
+      {
+        label: "Strong",
+        description:
+          "Good energy, most vatos get involved, and the group action works.",
+      },
+      {
+        label: "Excellent",
+        description:
+          "Everybody gets used well and the intensity stays hot throughout.",
+      },
+      {
+        label: "Perfect execution",
+        description:
+          "Seamless, intense, and fully coordinated. Every vato matters the whole time.",
       },
     ]),
   },
@@ -522,9 +529,10 @@ const groupSceneMetrics: IAdvisorMetric[] = [
   },
   {
     ...sceneMetrics.find((metric) => metric.key === "standout")!,
-    key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.standout,
-    title: "Standout Moments",
-    weight: GROUP_SCENE_WEIGHTS_CUSTOM.standout,
+    key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.usability,
+    title: "Usability",
+    weight: GROUP_SCENE_WEIGHTS_CUSTOM.usability,
+    hint: "How much of the group scene works without needing to skip around.",
   },
   {
     key: GROUP_SCENE_RATING_KEYS_CUSTOM.bonuses.bottomAttractiveness,
@@ -569,7 +577,6 @@ const groupSceneMetrics: IAdvisorMetric[] = [
   { ...sceneMetrics.find((metric) => metric.key === "theme")! },
   { ...sceneMetrics.find((metric) => metric.key === "godTierOrgasm")! },
   { ...sceneMetrics.find((metric) => metric.key === "goatElement")! },
-  { ...sceneMetrics.find((metric) => metric.key === "unlikelyTop")! },
   sceneMetrics.find((metric) => metric.key === "noOrgasm")!,
   sceneMetrics.find((metric) => metric.key === "production")!,
 ];
@@ -685,8 +692,7 @@ const performerMetrics: IAdvisorMetric[] = [
       {
         value: 0,
         label: "Negative ethnic appeal",
-        description:
-          "Asian or super white.",
+        description: "Asian or super white.",
       },
       {
         value: 1,
@@ -696,14 +702,12 @@ const performerMetrics: IAdvisorMetric[] = [
       {
         value: 2,
         label: "Partial ethnic appeal",
-        description:
-          "White latino, black-white mixed",
+        description: "White latino, black-white mixed",
       },
       {
         value: 3,
         label: "Full ethnic appeal",
-        description:
-          "Latino, black, afrolatino",
+        description: "Latino, black, afrolatino",
       },
     ],
   },
@@ -823,6 +827,308 @@ function getMetricSection(metric: IAdvisorMetric) {
 function normalizePersistedScoreSection(section?: string | null) {
   return (section ?? "criterion").trim().toLowerCase();
 }
+
+function getTooltipMetrics(
+  entityType: AdvisorEntity,
+  sceneRatingMode: SceneRatingModeCustom | undefined,
+  persistedScores?: readonly IAdvisorPersistedScore[] | null
+) {
+  if (entityType === "performer") {
+    return performerMetrics;
+  }
+
+  if (sceneRatingMode === "group") {
+    return groupSceneMetrics;
+  }
+
+  if (sceneRatingMode === "solo") {
+    return soloSceneMetrics;
+  }
+
+  if (sceneRatingMode === "default") {
+    return sceneMetrics;
+  }
+
+  const persistedKeys = new Set(
+    persistedScores
+      ?.filter(
+        (score) => normalizePersistedScoreSection(score.section) === "criterion"
+      )
+      .map((score) => score.key)
+  );
+
+  if (groupSceneMetrics.some((metric) => persistedKeys.has(metric.key))) {
+    return groupSceneMetrics;
+  }
+
+  if (soloSceneMetrics.some((metric) => persistedKeys.has(metric.key))) {
+    return soloSceneMetrics;
+  }
+
+  return sceneMetrics;
+}
+
+interface IRatingCriteriaTooltipProps {
+  entityType: AdvisorEntity;
+  entityId: string;
+  sceneRatingMode?: SceneRatingModeCustom;
+  ratingScores?: readonly IAdvisorPersistedScore[] | null;
+  triggerClassName?: string;
+  children: React.ReactElement;
+}
+
+export const RatingCriteriaTooltip: React.FC<IRatingCriteriaTooltipProps> = ({
+  entityType,
+  entityId,
+  sceneRatingMode,
+  ratingScores,
+  triggerClassName,
+  children,
+}) => {
+  const [loadScores, { data, loading, error }] = useLazyQuery<
+    {
+      ratingScores: IAdvisorPersistedScore[];
+      ratingOrgasmCount: number;
+    },
+    { entity_type: string; entity_id: string }
+  >(RatingAdvisorScoresQuery, {
+    variables: { entity_type: entityType, entity_id: entityId },
+    fetchPolicy: "cache-first",
+  });
+  const effectiveScores = ratingScores ?? data?.ratingScores;
+  const metrics = getTooltipMetrics(
+    entityType,
+    sceneRatingMode,
+    effectiveScores
+  );
+  const criterionRows = metrics
+    .filter((metric) => metric.section === undefined)
+    .map((metric) => {
+      const score = effectiveScores?.find(
+        (candidate) =>
+          candidate.key === metric.key &&
+          normalizePersistedScoreSection(candidate.section) === "criterion"
+      );
+      const summary = getRatingAdvisorBarSummaryCustom(
+        metric,
+        score?.raw_value
+      );
+      const contribution = summary.choice
+        ? getChoiceScore(metric, summary.choice.value)
+        : undefined;
+      const displayValue =
+        contribution === undefined
+          ? "—"
+          : formatRatingContribution(contribution);
+
+      return {
+        key: metric.key,
+        title: metric.title,
+        ariaValue: summary.choice
+          ? `${summary.choice.label}, ${displayValue} points`
+          : undefined,
+        displayValue,
+        summary,
+      };
+    });
+  const adjustmentRows = metrics
+    .filter((metric) => metric.section !== undefined)
+    .map((metric) => {
+      const score = effectiveScores?.find(
+        (candidate) =>
+          candidate.key === metric.key &&
+          normalizePersistedScoreSection(candidate.section) === metric.section
+      );
+      const rawValue = score?.raw_value;
+      const normalizedValue =
+        rawValue === undefined || rawValue === null
+          ? undefined
+          : normalizeRatingAdvisorScoreValueCustom(metric, rawValue);
+      const contribution =
+        normalizedValue === undefined
+          ? 0
+          : getChoiceScore(metric, normalizedValue);
+
+      return {
+        key: metric.key,
+        title: getRatingAdvisorAdjustmentTooltipLabelCustom(
+          metric.key,
+          metric.title
+        ),
+        section: metric.section,
+        contribution,
+        ariaValue: formatRatingContribution(contribution),
+        displayValue: formatRatingContribution(contribution),
+      };
+    })
+    .filter((row) => row.contribution !== 0);
+  const bonusRows = adjustmentRows.filter((row) => row.section === "bonus");
+  const penaltyRows = adjustmentRows.filter((row) => row.section === "penalty");
+  const orgasmBonus = calculateOrgasmBonus(
+    entityType,
+    data?.ratingOrgasmCount ?? 0
+  );
+
+  if (orgasmBonus !== 0) {
+    const contribution = orgasmBonus / 10;
+    bonusRows.unshift({
+      key: "orgasm-count-bonus",
+      title: getRatingAdvisorAdjustmentTooltipLabelCustom(
+        "orgasm-count-bonus",
+        "Orgasm count bonus"
+      ),
+      section: "bonus",
+      contribution,
+      ariaValue: formatRatingContribution(contribution),
+      displayValue: formatRatingContribution(contribution),
+    });
+  }
+
+  const hasRatedCriteria = criterionRows.some(
+    (row) => row.summary.choice !== undefined
+  );
+  const hasAnySummary =
+    hasRatedCriteria || bonusRows.length > 0 || penaltyRows.length > 0;
+  const popoverID = `rating-criteria-${entityType}-${entityId}`;
+
+  function handleToggle(show: boolean) {
+    if (show && !data && !loading && !error) {
+      void loadScores();
+    }
+  }
+
+  function renderTooltipRow(row: {
+    key: string;
+    title: string;
+    ariaValue?: string;
+    displayValue: string;
+    summary: { fillPercent: number; heatLevel?: number };
+  }) {
+    return (
+      <div
+        aria-label={`${row.title}: ${row.ariaValue ?? "Not rated"}`}
+        className="rating-criteria-tooltip-row"
+        key={row.key}
+        role="img"
+      >
+        <span
+          className="rating-criteria-tooltip-row-heading"
+          aria-hidden="true"
+        >
+          <span className="rating-criteria-tooltip-label">{row.title}</span>
+          <span className="rating-criteria-tooltip-value">
+            {row.displayValue}
+          </span>
+        </span>
+        <span className="rating-criteria-tooltip-track" aria-hidden="true">
+          <span
+            className="rating-criteria-tooltip-fill"
+            data-rating-level={row.summary.heatLevel}
+            style={{ width: `${row.summary.fillPercent}%` }}
+          />
+        </span>
+      </div>
+    );
+  }
+
+  function renderAdjustmentTooltipRow(
+    row: {
+      key: string;
+      title: string;
+      ariaValue: string;
+      displayValue: string;
+    },
+    kind: "bonus" | "penalty"
+  ) {
+    return (
+      <div
+        aria-label={`${row.title}: ${row.ariaValue}`}
+        className="rating-criteria-tooltip-adjustment-row"
+        key={row.key}
+        role="img"
+      >
+        <span
+          aria-hidden="true"
+          className={`rating-criteria-tooltip-adjustment-icon rating-criteria-tooltip-adjustment-icon-${kind}`}
+        >
+          {kind === "bonus" ? "\u2713" : "\u2212"}
+        </span>
+        <span
+          aria-hidden="true"
+          className="rating-criteria-tooltip-adjustment-label"
+        >
+          {row.title}
+        </span>
+        <span aria-hidden="true" className="rating-criteria-tooltip-value">
+          {row.displayValue}
+        </span>
+      </div>
+    );
+  }
+
+  const content =
+    loading && !hasAnySummary ? (
+      <div className="rating-criteria-tooltip-status">Loading summary…</div>
+    ) : error && !effectiveScores ? (
+      <div className="rating-criteria-tooltip-status">
+        Rating summary could not be loaded.
+      </div>
+    ) : !hasAnySummary ? (
+      <div className="rating-criteria-tooltip-status">
+        No advisor scores yet.
+      </div>
+    ) : (
+      <div className="rating-criteria-tooltip-groups">
+        {hasRatedCriteria && (
+          <div className="rating-criteria-tooltip-rows">
+            {criterionRows.map(renderTooltipRow)}
+          </div>
+        )}
+        {bonusRows.length > 0 && (
+          <section className="rating-criteria-tooltip-section">
+            <span className="rating-criteria-tooltip-section-title">
+              Bonuses
+            </span>
+            <div className="rating-criteria-tooltip-adjustment-grid">
+              {bonusRows.map((row) => renderAdjustmentTooltipRow(row, "bonus"))}
+            </div>
+          </section>
+        )}
+        {penaltyRows.length > 0 && (
+          <section className="rating-criteria-tooltip-section">
+            <span className="rating-criteria-tooltip-section-title">
+              Penalties
+            </span>
+            <div className="rating-criteria-tooltip-adjustment-grid">
+              {penaltyRows.map((row) =>
+                renderAdjustmentTooltipRow(row, "penalty")
+              )}
+            </div>
+          </section>
+        )}
+      </div>
+    );
+
+  return (
+    <OverlayTrigger
+      delay={{ show: 250, hide: 100 }}
+      onToggle={handleToggle}
+      overlay={
+        <Popover className="rating-criteria-tooltip" id={popoverID}>
+          <div className="rating-criteria-tooltip-content">{content}</div>
+        </Popover>
+      }
+      placement="bottom"
+      trigger={["hover", "focus"]}
+    >
+      <span
+        className={`rating-criteria-tooltip-trigger ${triggerClassName ?? ""}`}
+      >
+        {children}
+      </span>
+    </OverlayTrigger>
+  );
+};
 
 function getInitialScores(
   metrics: IAdvisorMetric[],
@@ -1282,13 +1588,12 @@ const RatingAdvisorModal: React.FC<{
         </div>
         <div className="rating-advisor-completion">
           <div>
-            <strong>Core criteria</strong>
             <span>
               {ratedCoreCount} of {coreMetrics.length} rated
             </span>
           </div>
           <div
-            aria-label={`${ratedCoreCount} of ${coreMetrics.length} core criteria rated`}
+            aria-label={`${ratedCoreCount} of ${coreMetrics.length} criteria rated`}
             aria-valuemax={coreMetrics.length}
             aria-valuemin={0}
             aria-valuenow={ratedCoreCount}
@@ -1312,12 +1617,11 @@ const RatingAdvisorModal: React.FC<{
           : "Finish the core boxes for a final rating. Everything autosaves."}
       </p>
       <section
-        aria-labelledby="rating-advisor-core-title"
+        aria-label="Rating criteria"
         className="rating-advisor-section rating-advisor-section-core"
       >
         <div className="rating-advisor-section-heading">
           <div>
-            <h4 id="rating-advisor-core-title">Core criteria</h4>
             <span>Pick one value in each box.</span>
           </div>
           <Badge variant="secondary">
@@ -1379,14 +1683,21 @@ export const RatingAdvisorButton: React.FC<IRatingAdvisorButtonProps> = ({
 
   return (
     <>
-      <Button
-        className="rating-advisor-button"
-        onClick={() => setShowAdvisor(true)}
-        title="Open rating system"
-        variant="secondary"
+      <RatingCriteriaTooltip
+        entityType={entityType}
+        entityId={entityId}
+        sceneRatingMode={sceneRatingMode}
+        ratingScores={ratingScores}
       >
-        <RatingNumber value={rating100 ?? null} disabled withoutContext />
-      </Button>
+        <Button
+          aria-label="Open rating system"
+          className="rating-advisor-button"
+          onClick={() => setShowAdvisor(true)}
+          variant="secondary"
+        >
+          <RatingNumber value={rating100 ?? null} disabled withoutContext />
+        </Button>
+      </RatingCriteriaTooltip>
       {showAdvisor && (
         <RatingAdvisorModal
           entityType={entityType}

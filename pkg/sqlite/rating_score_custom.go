@@ -54,9 +54,8 @@ var groupSceneRatingScoreKeys = map[string]map[string]struct{}{
 	models.RatingScoreSectionCriterion: {
 		"groupTopAttractiveness": {},
 		"groupEnergy":            {},
-		"groupParticipation":     {},
 		"groupPayoff":            {},
-		"groupStandout":          {},
+		"groupUsability":         {},
 	},
 	models.RatingScoreSectionBonus: {
 		"groupBottomAttractiveness": {},
@@ -64,7 +63,6 @@ var groupSceneRatingScoreKeys = map[string]map[string]struct{}{
 		"theme":                     {},
 		"godTierOrgasm":             {},
 		"goatElement":               {},
-		"unlikelyTop":               {},
 	},
 	models.RatingScoreSectionPenalty: {
 		"noOrgasm":   {},
@@ -75,14 +73,14 @@ var groupSceneRatingScoreKeys = map[string]map[string]struct{}{
 var soloSceneRatingScoreKeys = map[string]map[string]struct{}{
 	models.RatingScoreSectionCriterion: {
 		"soloPerformerAppeal": {},
-		"cameraWork":          {},
+		"soloPerformance":     {},
+		"soloUsability":       {},
 	},
 	models.RatingScoreSectionBonus: {
-		"orgasmBonus":            {},
-		"feetBonus":              {},
-		"outstandingPerformance": {},
-		"goatElement":            {},
-		"theme":                  {},
+		"orgasmBonus": {},
+		"feetBonus":   {},
+		"goatElement": {},
+		"theme":       {},
 	},
 	models.RatingScoreSectionPenalty: {
 		"noOrgasm":   {},

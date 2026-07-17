@@ -18,9 +18,8 @@ assert.equal(GROUP_SCENE_BONUSES_CUSTOM.oralOnly * 10, 20);
 assert.deepEqual(Object.values(GROUP_SCENE_RATING_KEYS_CUSTOM.criteria), [
   "groupTopAttractiveness",
   "groupEnergy",
-  "groupParticipation",
   "groupPayoff",
-  "groupStandout",
+  "groupUsability",
 ]);
 const groupBonusKeys: readonly string[] = Object.values(
   GROUP_SCENE_RATING_KEYS_CUSTOM.bonuses

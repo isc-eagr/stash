@@ -14,6 +14,7 @@ import { useConfigurationContext } from "src/hooks/Config";
 import { SceneCardPerformerPopover } from "./SceneCardPerformerPopover_custom"; // CUSTOM
 import { GridCard } from "../Shared/GridCard/GridCard";
 import { RatingBanner } from "../Shared/RatingBanner";
+import { RatingCriteriaTooltip } from "../Shared/RatingAdvisor_custom"; // CUSTOM
 import { FormattedMessage } from "react-intl";
 import {
   faBox,
@@ -540,7 +541,18 @@ const SceneCardImage = PatchComponent(
           onScrubberClick={onScrubberClick}
           disabled={props.selecting}
         />
-        <RatingBanner rating={props.scene.rating100} compact />
+        {/* CUSTOM: begin - rating criteria hover summary */}
+        {props.scene.rating100 !== undefined &&
+        props.scene.rating100 !== null ? (
+          <RatingCriteriaTooltip
+            entityType="scene"
+            entityId={props.scene.id}
+            triggerClassName="rating-criteria-tooltip-card-trigger"
+          >
+            <RatingBanner rating={props.scene.rating100} compact />
+          </RatingCriteriaTooltip>
+        ) : null}
+        {/* CUSTOM: end */}
         <SceneSpecsOverlay scene={props.scene} />
         {maybeRenderInteractiveSpeedOverlay()}
       </>

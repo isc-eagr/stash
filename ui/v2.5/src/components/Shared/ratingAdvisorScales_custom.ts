@@ -5,6 +5,39 @@ export interface IRatingAdvisorChoiceCustom {
   scoreValue?: number;
 }
 
+export const SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM = 1;
+export const SCENE_NO_ORGASM_PENALTY_CUSTOM = -2;
+export const SCENE_ENERGY_WEIGHT_CUSTOM = 0.4;
+export const SCENE_USABLE_FACTOR_MAX_CUSTOM = 4;
+export const SCENE_USABLE_FACTOR_WEIGHT_CUSTOM = 0.5;
+
+const RATING_ADVISOR_ADJUSTMENT_TOOLTIP_LABELS_CUSTOM: Record<string, string> =
+  {
+    theme: "Uniform",
+    oralOnly: "Oral-only",
+    godTierOrgasm: "God-tier",
+    goatElement: "GOAT",
+    unlikelyTop: "Unlikely top",
+    orgasmBonus: "Orgasm",
+    feetBonus: "Feet",
+    groupBottomAttractiveness: "Hot bottom",
+    groupOralOnly: "Oral-only",
+    consistency: "Consistency",
+    dick: "Pito",
+    tattoosBonus: "Tattoos",
+    noOrgasm: "No orgasm",
+    production: "Production",
+    feminine: "Feminine",
+    "orgasm-count-bonus": "Orgasm count",
+  };
+
+export function getRatingAdvisorAdjustmentTooltipLabelCustom(
+  key: string,
+  fallback: string
+) {
+  return RATING_ADVISOR_ADJUSTMENT_TOOLTIP_LABELS_CUSTOM[key] ?? fallback;
+}
+
 export interface IRatingAdvisorMetricScaleCustom {
   max: number;
   weight?: number;
@@ -96,4 +129,47 @@ export function getRatingAdvisorChoiceHeatLevelCustom(
 
   const safeIndex = Math.max(0, Math.min(choiceIndex, choiceCount - 1));
   return Math.round((safeIndex / (choiceCount - 1)) * 5);
+}
+
+export function getRatingAdvisorBarSummaryCustom(
+  metric: IRatingAdvisorMetricScaleCustom,
+  rawValue?: number | null
+) {
+  if (rawValue === undefined || rawValue === null) {
+    return {
+      fillPercent: 0,
+      heatLevel: undefined,
+      choice: undefined,
+    };
+  }
+
+  const normalizedValue = normalizeRatingAdvisorScoreValueCustom(
+    metric,
+    rawValue
+  );
+  const choiceIndex = metric.choices.findIndex(
+    (choice) => choice.value === normalizedValue
+  );
+
+  if (choiceIndex < 0) {
+    return {
+      fillPercent: 0,
+      heatLevel: undefined,
+      choice: undefined,
+    };
+  }
+
+  return {
+    fillPercent:
+      choiceIndex === 0
+        ? 0
+        : Math.round(
+            (choiceIndex / Math.max(1, metric.choices.length - 1)) * 100
+          ),
+    heatLevel: getRatingAdvisorChoiceHeatLevelCustom(
+      choiceIndex,
+      metric.choices.length
+    ),
+    choice: metric.choices[choiceIndex],
+  };
 }

@@ -1,5 +1,6 @@
 import { IntlShape } from "react-intl";
 import { GROUP_SCENE_RATING_KEYS_CUSTOM } from "src/components/Shared/groupSceneRating_custom";
+import { SOLO_SCENE_RATING_KEYS_CUSTOM } from "src/components/Shared/soloSceneRating_custom";
 import { CriterionModifier } from "src/core/generated-graphql";
 import { Criterion, CriterionOption } from "./criterion";
 import { CriterionType, INumberValue } from "../types";
@@ -105,13 +106,13 @@ const energyChoices = [
   "Perfect quality",
 ].map((label, value) => ({ value, label }));
 
-const groupParticipationChoices = [
-  "Not really a group scene",
-  "Poor use",
+const groupEnergyCoordinationChoices = [
+  "Disconnected",
+  "Weak",
   "Uneven",
-  "Good ensemble",
-  "Excellent ensemble",
-  "Perfect group execution",
+  "Strong",
+  "Excellent",
+  "Perfect execution",
 ].map((label, value) => ({ value, label }));
 
 const performanceChoices = [
@@ -142,47 +143,36 @@ const payoffChoices = [
   },
 ];
 
-const standoutChoices = [
+const usableFactorChoices = [
   {
     value: 0,
-    label: "No standout moment",
+    label: "Mostly unusable",
   },
   {
     value: 1,
-    label: "One or two noticeable moments",
+    label: "Limited use",
   },
   {
     value: 2,
-    label: "Multiple defining moments",
-  },
-];
-
-const cameraWorkChoices = [
-  {
-    value: 0,
-    label: "Works against it",
-  },
-  {
-    value: 1,
-    label: "Weak",
-  },
-  {
-    value: 2,
-    label: "Serviceable",
+    label: "Mixed / standard",
   },
   {
     value: 3,
-    label: "Good",
+    label: "Highly usable",
   },
   {
     value: 4,
-    label: "Excellent",
-  },
-  {
-    value: 5,
-    label: "Perfect",
+    label: "Nearly unskippable",
   },
 ];
+
+const soloPerformanceChoices = [
+  "Clocked out",
+  "Going through it",
+  "Into it",
+  "Excited",
+  "Loving it",
+].map((label, value) => ({ value, label }));
 
 const ethnicityChoices = [
   {
@@ -476,8 +466,8 @@ export const SceneRatingCriteriaCriterionOption =
       },
       {
         key: "standout",
-        label: "Standout Moment",
-        choices: standoutChoices,
+        label: "Usable Factor",
+        choices: usableFactorChoices,
       },
       {
         key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.topAttractiveness,
@@ -485,14 +475,9 @@ export const SceneRatingCriteriaCriterionOption =
         choices: appealChoices,
       },
       {
-        key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.energy,
-        label: "Group Energy / Sex Quality",
-        choices: energyChoices,
-      },
-      {
-        key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.participation,
-        label: "Group Participation and Coordination",
-        choices: groupParticipationChoices,
+        key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.energyCoordination,
+        label: "Group Energy / Coordination",
+        choices: groupEnergyCoordinationChoices,
       },
       {
         key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.payoff,
@@ -500,19 +485,24 @@ export const SceneRatingCriteriaCriterionOption =
         choices: payoffChoices,
       },
       {
-        key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.standout,
-        label: "Group Standout Moments",
-        choices: standoutChoices,
+        key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.usability,
+        label: "Group Usability",
+        choices: usableFactorChoices,
       },
       {
-        key: "soloPerformerAppeal",
+        key: SOLO_SCENE_RATING_KEYS_CUSTOM.attractiveness,
         label: "Solo Vato Attractiveness",
         choices: appealChoices,
       },
       {
-        key: "cameraWork",
-        label: "Angles and Camera Work",
-        choices: cameraWorkChoices,
+        key: SOLO_SCENE_RATING_KEYS_CUSTOM.performance,
+        label: "Solo Performance",
+        choices: soloPerformanceChoices,
+      },
+      {
+        key: SOLO_SCENE_RATING_KEYS_CUSTOM.usability,
+        label: "Solo Usability",
+        choices: usableFactorChoices,
       },
     ],
     bonuses: [
@@ -548,7 +538,7 @@ export const SceneRatingCriteriaCriterionOption =
       },
       {
         key: "unlikelyTop",
-        label: "Unlikely Top Bonus",
+        label: "Regular Unlikely Top Bonus",
         section: "bonuses",
       },
       {
@@ -559,11 +549,6 @@ export const SceneRatingCriteriaCriterionOption =
       {
         key: "feetBonus",
         label: "Solo Feet Bonus",
-        section: "bonuses",
-      },
-      {
-        key: "outstandingPerformance",
-        label: "Solo Performance Bonus",
         section: "bonuses",
       },
     ],

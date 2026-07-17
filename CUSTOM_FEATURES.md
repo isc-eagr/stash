@@ -2736,42 +2736,41 @@ Uses a simplified weighted scene rubric designed for 100-based ratings:
 
 - Top(s) attractiveness: six levels from 0-5, each raw point is worth 0.6, up to 3.0
 - Bottom(s) attractiveness: six levels from 0-5, each raw point is worth 0.2, up to 1.0
-- Energy / sex quality: six levels from 0-5, each raw point is worth 0.6, up to 3.0
+- Energy / sex quality: six levels from 0-5, each raw point is worth 0.4, up to 2.0
 - Orgasm / climax payoff: each raw point is worth 0.5, up to 2.0
-- Standout moment: each raw point is worth 0.5, up to 1.0
+- Usable factor: five levels from 0-4, each raw point is worth 0.5, up to 2.0. It captures how much of the scene works without skipping, accounting for dead setup, overly long interviews, weak positions, negative-marker stretches, strong angles, intensity, and consistently workable action independently from sex quality.
 
 Solo scenes use a separate scene rubric when the scene is detected as solo by the same role-tag logic that renders the hand icon:
 
-- Performer attractiveness: six levels from 0-5, each raw point is worth 1.4, up to 7.0
-- Angles and camera work: each raw point is worth 0.6, up to 3.0
+- Vato attractiveness: six levels from 0-5, each raw point is worth 1.0, up to 5.0
+- Performance: five levels from 0-4, each raw point is worth 0.75, up to 3.0. The scale runs from visibly clocked-out or merely going through the motions through engaged, excited, and fully committed performance.
+- Usability: five levels from 0-4, each raw point is worth 0.5, up to 2.0. This merges the former camera-angle dimension with the regular scene usability concept, including pacing and how much works without skipping.
 
 Group scenes use a separate rubric when they have 4 or more distinct assigned performers. Group mode takes priority over solo/default mode; scenes with 3 performers keep the existing rubric:
 
-- Top lineup attractiveness: six levels from 0-5, each raw point is worth 0.3, up to 1.5
-- Energy / sex quality: six levels from 0-5, each raw point is worth 0.7, up to 3.5
-- Group participation and coordination: six levels from 0-5, each raw point is worth 0.4, up to 2.0
+- Top lineup attractiveness: six levels from 0-5, each raw point is worth 0.4, up to 2.0
+- Energy / coordination: six levels from 0-5, each raw point is worth 0.8, up to 4.0. This merges the former energy/sex-quality and group-participation dimensions.
 - Orgasm quality: each raw point is worth 0.5, up to 2.0
-- Standout moments: each raw point is worth 0.5, up to 1.0
+- Usability: five levels from 0-4, each raw point is worth 0.5, up to 2.0
 
 Group scene bonus section:
 
 - Attractive bottom (+1.0 when present)
 - Group oral-only (+2.0 when manually selected)
 - Theme / fantasy / uniform factor (+0.5 when present)
-- Unlikely top (+0.5 when present)
-- God-tier orgasm (+2.0 when present)
+- God-tier orgasm (+1.0 when present)
 - GOAT element (+2.0 when present)
 
-When a cast edit crosses the 3/4-performer boundary, existing advisor rows are removed and the scene rating is set to 0. Manual scene ratings without advisor rows are preserved. The standalone group reset script applies the same reset to existing 4+ performer scenes that already have advisor data.
+When a cast edit crosses the 3/4-performer boundary, existing advisor rows are removed and the scene rating is set to 0. Manual scene ratings without advisor rows are preserved. The standalone group reset script applies the same reset to existing 4+ performer scenes that already have advisor data. The solo/group rubric migration converts existing solo attractiveness and camera-work values, promotes active solo Outstanding Performance bonuses to the highest main Performance level, merges persisted group energy/coordination answers, clears retired group standout answers, removes Unlikely Top only from 4+ performer group scenes, and adjusts affected stored scene ratings by the exact contribution delta.
 
-The rating advisor uses a responsive box grid instead of one long control stack. Core criteria are shown as at-a-glance cards with one accessible choice-button control, visible hover/focus descriptions, a real unrated state, completion progress, provisional scoring until every core criterion is answered, and per-card autosave feedback. The selected choice alone uses a relative heat scale from neutral gray at zero through yellow and orange to red at the highest value, including shorter non-0-5 scales. Bonuses and penalties use compact accessible switches, while the recorded-orgasm bonus is a compact read-only row. The modal has one Close action, a header close button, Escape support, high-contrast unselected choices, and a calculation summary colored with the configured classic/premium rating tier theme. Rating hints and choice descriptions use shorter, casual language that matches the rest of the custom UI.
+The rating advisor uses a responsive box grid instead of one long control stack. Criteria are shown as at-a-glance cards with one accessible choice-button control, visible hover/focus descriptions, a real unrated state, completion progress, provisional scoring until every criterion is answered, and per-card autosave feedback. The selected choice alone uses a relative heat scale from neutral gray at zero through yellow and orange to red at the highest value, including shorter non-0-5 scales. Bonuses and penalties use compact accessible switches, while the recorded-orgasm bonus is a compact read-only row. The modal has one Close action, a header close button, Escape support, high-contrast unselected choices, and a calculation summary colored with the configured classic/premium rating tier theme. Rating hints and choice descriptions use shorter, casual language that matches the rest of the custom UI. Hovering or focusing the advisor rating button, or the painted rating star on scene and performer cards, opens a compact vertical rating summary. Each criterion uses the same gray-yellow-orange-red heat scale and a normalized bar length so relative strengths are immediately comparable, with its exact signed contribution to the final 0-100 rating shown beside the name; a zero answer leaves the bar completely empty. Active bonuses and the automatic orgasm-count bonus use green check icons; active penalties use red octagonal traffic signs with a white minus. These adjustment rows use popup-only one- or two-word labels, retain their signed final-rating contributions without changing advisor wording, and use a compact two-column layout. Card summaries fetch their advisor data lazily on first hover. Scene and performer card selection checkboxes sit in the lower-left corner so they remain separate from the rating star and its hover target.
 
 Bonus section:
 
 - Orgasm count bonus (+1 rating point on the 3rd recorded orgasm, then +1 for each orgasm after that; automatic and read-only)
 - Theme / fantasy / uniform factor (+0.5 when present)
 - Oral-only scene (+0.5 when present)
-- God-tier orgasm bonus (+2.0 when present)
+- God-tier orgasm bonus (+1.0 when present)
 - GOAT element (+2.0 when present)
 - Unlikely top (+0.5 when present)
 
@@ -2780,13 +2779,12 @@ Solo scene bonus section:
 - Orgasm count bonus (+1 rating point on the 3rd recorded orgasm, then +1 for each orgasm after that; automatic and read-only)
 - Orgasm bonus (+1.0 when present)
 - Feet bonus (+1.0 when present)
-- Outstanding performance (+1.0 when present)
 - GOAT element (+2.0 when present)
 - Theme / fantasy / uniform factor (+0.5 when present)
 
 Penalty section:
 
-- No orgasm (-1.0 when present)
+- No orgasm (-2.0 when present)
 - Production / visual quality (-1.0 when quality actively works against the scene)
 
 Scene score conversion:
@@ -2830,7 +2828,7 @@ Performer score conversion:
 
 Scenes and performers each expose one combined "Rating Criteria" filter. Inside that filter, numeric dimensions support `=`, `>=`, `<=`, and `BETWEEN`; bonus and penalty rows use presence checks for "has" or "does not have". The frontend serializes the selected rows into a shared `rating_criteria` GraphQL input.
 
-The Scenes filter exposes regular, solo, and group criteria as distinct persisted keys. Group top-lineup attractiveness, energy, participation/coordination, orgasm quality, and standout moments are numeric filter rows; attractive-bottom and group-oral-only are presence rows. The retired Large Group Bonus filter is not exposed.
+The Scenes filter exposes regular, solo, and group criteria as distinct persisted keys. Regular scenes expose top/bottom attractiveness, 20-point energy/sex quality, orgasm quality, and the five-level 20-point Usable Factor. Solo scenes expose attractiveness, performance, and usability. Group scenes expose top-lineup attractiveness, merged energy/coordination, orgasm quality, and usability; attractive-bottom and group-oral-only are presence rows. Unlikely Top remains available only for regular scenes, while the retired Outstanding Performance and Large Group bonuses are not exposed.
 
 Performer rating criteria include a feminine performer penalty, exposed both in the performer Rating Advisor and the performer Rating Criteria filter.
 
@@ -2843,7 +2841,9 @@ Performer rating criteria include a feminine performer penalty, exposed both in 
 - `ui/v2.5/graphql/queries/performer.graphql` - Uses the list-only performer fragment for performer lists and keeps a full-data by-ID query for merge/detail workflows
 - `ui/v2.5/src/core/StashService.ts` - Routes by-ID performer loads through the full-data query
 - `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx` - Scene detail advisor button
+- `ui/v2.5/src/components/Scenes/SceneCard.tsx` - Lazy criteria tooltip on painted scene-card rating stars
 - `ui/v2.5/src/components/Performers/PerformerDetails/Performer.tsx` - Performer detail advisor button
+- `ui/v2.5/src/components/Performers/PerformerCard.tsx` - Lazy criteria tooltip on painted performer-card rating stars
 - `ui/v2.5/src/components/Shared/Rating/RatingSystem.tsx` - Forces ratings to display as 0-100 values
 - `ui/v2.5/src/components/Shared/Rating/RatingNumber.tsx` - Simplifies manual ratings to a plain 0-100 input
 - `ui/v2.5/src/index.scss` - Imports advisor styling
@@ -2858,12 +2858,17 @@ Performer rating criteria include a feminine performer penalty, exposed both in 
 ### Files Added
 
 - `ui/v2.5/src/components/Shared/groupSceneRating_custom.ts` - Group threshold, scoring weights, bonus values, persisted keys, and frontend mode selection
+- `ui/v2.5/src/components/Shared/soloSceneRating_custom.ts` - Solo scoring weights, persisted keys, and base maximum
 - `rating_scores.up.sql` - Standalone manual SQL script for generic persisted rating score tables
 - `rating_orgasm_bonus_recalculate_custom.sql` - Standalone manual SQL script to recalculate existing persisted advisor ratings after orgasm bonus rule changes
 - `rating_remove_performer_unlikely_top_bonus_custom.sql` - Standalone manual SQL script to remove performer-level Unlikely Top bonus rows and recalculate affected performers
 - `rating_remove_standout_act_bonus_custom.sql` - Standalone manual SQL script to remove retired Standout Act bonus rows and subtract their stored contribution from affected ratings
 - `rating_reset_advisor_scores_custom.sql` - Standalone manual SQL script to delete all persisted advisor dimension rows while preserving existing scene/performer ratings
 - `rating_reset_group_scene_scores_custom.sql` - Resets existing 4+ performer scenes with advisor data to rating 0 and removes their old advisor rows
+- `rating_reduce_god_tier_orgasm_bonus_custom.sql` - Reduces persisted scene God-tier bonuses from +20 to +10 and subtracts the same 10 points from affected scene ratings
+- `rating_rebalance_scene_energy_usable_factor_custom.sql` - Reweights regular-scene Energy answers from 30 to 20 maximum points, removes retired Standout answers, and recalculates affected scene ratings
+- `rating_increase_no_orgasm_penalty_custom.sql` - Increases active scene No orgasm penalties from -10 to -20 and subtracts the additional 10 points from affected scene ratings
+- `rating_rebalance_solo_group_rubrics_custom.sql` - Converts persisted solo/group rubric rows, removes retired mode-specific values, and updates affected scene ratings by their exact score deltas
 - `graphql/schema/types/rating_custom.graphql` - Rating score GraphQL types, mutation, and read-only orgasm-count query
 - `internal/api/resolver_rating_score_custom.go` - Rating score query/mutation resolvers
 - `internal/api/resolver_rating_score_custom_test.go` - Verifies the 4-performer threshold, group priority, and boundary-reset decisions
@@ -2876,6 +2881,8 @@ Performer rating criteria include a feminine performer penalty, exposed both in 
 - `ui/v2.5/src/components/Shared/ratingAdvisorScales_custom.ts` - Shared helpers for simplified rating advisor scales
 - `ui/v2.5/tests/ratingAdvisorScales_custom.test.ts` - Verifies simplified scales, point contributions, unrated state, intentional zero scores, and core completion
 - `ui/v2.5/tests/groupSceneRating_custom.test.ts` - Verifies group mode priority, scoring totals, bonuses, and persisted filter keys
+- `ui/v2.5/tests/soloSceneRating_custom.test.ts` - Verifies the solo 50/30/20 scoring total and persisted keys
+- `pkg/sqlite/rating_rebalance_solo_group_custom_test.go` - Executes the standalone migration against representative solo, group, and regular-scene rows, including rerun safety and group-only bonus removal
 - `ui/v2.5/src/components/Performers/performerTypes_custom.ts` - Shared performer list/card data type for the lean list query
 
 ---
