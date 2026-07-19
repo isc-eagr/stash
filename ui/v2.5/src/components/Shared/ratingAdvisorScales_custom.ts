@@ -75,6 +75,13 @@ export function getRatingAdvisorChoiceScoreCustom(
   return score * (metric.weight ?? 1);
 }
 
+export function calculateRatingAdvisorRating100Custom(
+  scoreSubtotal: number,
+  orgasmBonus: number
+) {
+  return Math.round(Math.max(0, scoreSubtotal) * 10) + orgasmBonus;
+}
+
 export function isRatingAdvisorRangeMetricCustom(
   metric: IRatingAdvisorMetricScaleCustom
 ) {

@@ -1274,11 +1274,13 @@ var sceneSortOptions = sortOptions{
 	"title",
 	"updated_at",
 	"performer_age",
-	"sex_activity_percent",      // CUSTOM
-	"oral_activity_percent",     // CUSTOM
-	"solo_activity_percent",     // CUSTOM
-	"other_activity_percent",    // CUSTOM
-	"unusable_activity_percent", // CUSTOM
+	"sex_activity_percent",         // CUSTOM
+	"oral_activity_percent",        // CUSTOM
+	"solo_activity_percent",        // CUSTOM
+	"other_activity_percent",       // CUSTOM
+	"outstanding_activity_percent", // CUSTOM
+	"standard_activity_percent",    // CUSTOM
+	"unusable_activity_percent",    // CUSTOM
 }
 
 func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindFilterType) error {
@@ -1453,6 +1455,10 @@ func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindF
 		query.sortAndPagination += qb.sortByActivityPercentCustom(activityPercentSoloCustom, direction)
 	case "other_activity_percent": // CUSTOM
 		query.sortAndPagination += qb.sortByActivityPercentCustom(activityPercentOtherCustom, direction)
+	case "outstanding_activity_percent": // CUSTOM
+		query.sortAndPagination += qb.sortByActivityPercentCustom(activityPercentOutstandingCustom, direction)
+	case "standard_activity_percent": // CUSTOM
+		query.sortAndPagination += qb.sortByActivityPercentCustom(activityPercentStandardCustom, direction)
 	case "unusable_activity_percent": // CUSTOM
 		query.sortAndPagination += qb.sortByActivityPercentCustom(activityPercentUnusableCustom, direction)
 	default:

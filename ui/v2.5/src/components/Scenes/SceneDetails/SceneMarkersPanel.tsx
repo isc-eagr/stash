@@ -33,6 +33,10 @@ import {
 import { getSceneActivityMetrics } from "../sceneActivityMetricsData_custom";
 import { getSceneMarkerSelectionCounts } from "./sceneMarkerSelection_custom";
 import { getSceneMarkerStickyHeaderOffset } from "./sceneMarkerStickyHeader_custom";
+import {
+  findSceneMarkerFocusElement,
+  scrollSceneMarkerIntoTabView,
+} from "./sceneMarkerFocusScroll_custom";
 // CUSTOM: end
 
 interface ISceneMarkersPanelProps {
@@ -273,20 +277,19 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        const markerElement = Array.from(
+        const markerElement = findSceneMarkerFocusElement(
           document.querySelectorAll<HTMLElement>(
-            ".scene-markers-panel [data-scene-marker-id]"
-          )
-        ).find(
-          (element) =>
-            element.getAttribute("data-scene-marker-id") === focusedMarkerId
+            ".scene-markers-panel [data-scene-marker-id], .scene-markers-panel [data-scene-marker-ids]"
+          ),
+          focusedMarkerId
         );
 
-        markerElement?.scrollIntoView({
-          block: "center",
-          behavior: "smooth",
-        });
         if (markerElement) {
+          const scrollElement =
+            markerElement.closest<HTMLElement>(".tab-content");
+          if (scrollElement) {
+            scrollSceneMarkerIntoTabView(scrollElement, markerElement);
+          }
           onFocusedMarkerHandled?.();
         }
       });

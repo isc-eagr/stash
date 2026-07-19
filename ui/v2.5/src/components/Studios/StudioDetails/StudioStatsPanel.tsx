@@ -8,6 +8,7 @@ import {
   getSceneMarkerTagColorCustom,
 } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
 import type { IActivityPieSlice } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
+import { StudioRatingAdvisorStats } from "./StudioRatingAdvisorStats"; // CUSTOM
 
 interface IProps {
   studio: GQL.StudioDetailDataFragment;
@@ -173,6 +174,10 @@ export const StudioStatsPanel: React.FC<IProps> = ({
           title="Quality"
         />
       </div>
+      <StudioRatingAdvisorStats
+        depth={showChildStudioContent ? -1 : 0}
+        studioId={studio.id}
+      />
     </div>
   );
 };

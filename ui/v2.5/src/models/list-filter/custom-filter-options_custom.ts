@@ -3,6 +3,7 @@ import type { CriterionType } from "./types";
 
 const customCriterionTypes = new Set<CriterionType>([
   "activity_type",
+  "quality_type",
   "custom_filters",
   "effective_date",
   "ethnicity",
@@ -39,6 +40,8 @@ const customCriterionTypes = new Set<CriterionType>([
   "oral_top_activity_percent",
   "solo_activity_percent",
   "other_activity_percent",
+  "outstanding_activity_percent",
+  "standard_activity_percent",
   "unusable_activity_percent",
 ]);
 

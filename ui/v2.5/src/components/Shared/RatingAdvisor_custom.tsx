@@ -13,6 +13,7 @@ import {
   normalizeRatingCardThresholds,
 } from "src/utils/ratingCardStyles_custom";
 import {
+  calculateRatingAdvisorRating100Custom,
   getRatingAdvisorAdjustmentTooltipLabelCustom,
   getRatingAdvisorBarSummaryCustom,
   getRatingAdvisorCompletionCustom,
@@ -218,17 +219,17 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Oral-only scene",
     max: 0.5,
     section: "bonus",
-    hint: "Flip it on when keeping it all mouth makes the scene hotter.",
+    hint: "Flip it on when the scene is entirely sucking pito.",
     choices: [
       {
         value: 0,
         label: "Not oral-only",
-        description: "There is more than oral going on.",
+        description: "There is more than sucking pito going on.",
       },
       {
         value: 0.5,
         label: "Oral-only bonus",
-        description: "All mouth, and that's exactly why it hits.",
+        description: "Sucking pito and nothing else.",
       },
     ],
   },
@@ -559,7 +560,7 @@ const groupSceneMetrics: IAdvisorMetric[] = [
     title: "Group Oral-Only Scene",
     max: GROUP_SCENE_BONUSES_CUSTOM.oralOnly,
     section: "bonus",
-    hint: "The big bonus for four-plus vatos keeping it all mouth.",
+    hint: "The big bonus for four-plus vatos sucking pito and nothing else.",
     choices: [
       {
         value: 0,
@@ -569,8 +570,7 @@ const groupSceneMetrics: IAdvisorMetric[] = [
       {
         value: GROUP_SCENE_BONUSES_CUSTOM.oralOnly,
         label: "Group oral-only bonus",
-        description:
-          "Four-plus vatos, all mouth, all heat. That's the good stuff.",
+        description: "Four-plus vatos sucking pito and nothing else.",
       },
     ],
   },
@@ -1236,6 +1236,7 @@ const RatingAdvisorModal: React.FC<{
   entityType: AdvisorEntity;
   entityId: string;
   sceneRatingMode?: SceneRatingModeCustom;
+  rating100?: number | null;
   ratingScores?: readonly IAdvisorPersistedScore[] | null;
   onRatingSaved?: () => void | Promise<unknown>;
   onClose: () => void;
@@ -1243,6 +1244,7 @@ const RatingAdvisorModal: React.FC<{
   entityType,
   entityId,
   sceneRatingMode = "default",
+  rating100,
   ratingScores,
   onRatingSaved,
   onClose,
@@ -1250,6 +1252,8 @@ const RatingAdvisorModal: React.FC<{
   const { configuration } = useConfigurationContext();
   const Toast = useToast();
   const [setRatingScore] = GQL.useRatingScoreSetMutation();
+  const [deleteRatingScore] = GQL.useRatingScoreDeleteMutation();
+  const [resetRatingScores] = GQL.useRatingScoreResetMutation();
   const metrics =
     entityType === "scene" && sceneRatingMode === "group"
       ? groupSceneMetrics
@@ -1258,7 +1262,11 @@ const RatingAdvisorModal: React.FC<{
       : entityType === "scene"
       ? sceneMetrics
       : performerMetrics;
-  const { data: advisorScoresData } = useQuery<{
+  const {
+    data: advisorScoresData,
+    loading: advisorScoresLoading,
+    error: advisorScoresError,
+  } = useQuery<{
     ratingScores: IAdvisorPersistedScore[];
     ratingOrgasmCount: number;
   }>(RatingAdvisorScoresQuery, {
@@ -1272,6 +1280,13 @@ const RatingAdvisorModal: React.FC<{
   const [scores, setScores] = useState(() =>
     getInitialScores(metrics, ratingScores)
   );
+  const [authoritativeScores, setAuthoritativeScores] = useState<
+    readonly IAdvisorPersistedScore[] | undefined
+  >();
+  const [confirmedRating100, setConfirmedRating100] = useState<
+    number | undefined
+  >(rating100 ?? undefined);
+  const [resetting, setResetting] = useState(false);
   const [savingMetricKeys, setSavingMetricKeys] = useState<Set<string>>(
     () => new Set()
   );
@@ -1281,9 +1296,15 @@ const RatingAdvisorModal: React.FC<{
   const savingMetricKeysRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    if (savingMetricKeysRef.current.size === 0) {
+      setConfirmedRating100(rating100 ?? undefined);
+    }
+  }, [rating100]);
+
+  useEffect(() => {
     const incomingScores = getInitialScores(
       metrics,
-      ratingScores ?? advisorScoresData?.ratingScores
+      authoritativeScores ?? ratingScores ?? advisorScoresData?.ratingScores
     );
     setScores((current) => {
       for (const key of savingMetricKeysRef.current) {
@@ -1291,10 +1312,15 @@ const RatingAdvisorModal: React.FC<{
       }
       return incomingScores;
     });
-  }, [advisorScoresData?.ratingScores, metrics, ratingScores]);
+  }, [
+    advisorScoresData?.ratingScores,
+    authoritativeScores,
+    metrics,
+    ratingScores,
+  ]);
 
-  const orgasmCount = advisorScoresData?.ratingOrgasmCount ?? 0;
-  const orgasmBonus = calculateOrgasmBonus(entityType, orgasmCount);
+  const orgasmCount = advisorScoresData?.ratingOrgasmCount;
+  const orgasmBonus = calculateOrgasmBonus(entityType, orgasmCount ?? 0);
   const coreMetrics = metrics.filter((metric) => metric.section === undefined);
   const bonusMetrics = metrics.filter((metric) => metric.section === "bonus");
   const penaltyMetrics = metrics.filter(
@@ -1307,17 +1333,27 @@ const RatingAdvisorModal: React.FC<{
   const ratedCoreCount = coreCompletion.rated;
   const allCoreRated = coreCompletion.complete;
   const completionPercent = coreCompletion.percent;
-  const total = useMemo(
+  const scoreSubtotal = useMemo(
     () =>
       metrics.reduce(
         (sum, metric) => sum + getChoiceScore(metric, scores[metric.key]),
         0
-      ) +
-      orgasmBonus / 10,
-    [metrics, orgasmBonus, scores]
+      ),
+    [metrics, scores]
   );
-  const scoringTotal = Math.max(0, total);
-  const suggestion = getSceneSuggestion(scoringTotal, thresholds);
+  const calculatedRating100 = calculateRatingAdvisorRating100Custom(
+    scoreSubtotal,
+    orgasmBonus
+  );
+  const displayRating100 =
+    savingMetricKeys.size === 0 && confirmedRating100 !== undefined
+      ? confirmedRating100
+      : calculatedRating100;
+  const ratingUnavailable =
+    confirmedRating100 === undefined &&
+    !advisorScoresData &&
+    (advisorScoresLoading || !!advisorScoresError);
+  const suggestion = getSceneSuggestion(displayRating100 / 10, thresholds);
   const ratingTierClass = getRatingCardClass({
     rating: suggestion.rating100,
     theme: configuration?.ui?.ratingCardTheme,
@@ -1335,6 +1371,7 @@ const RatingAdvisorModal: React.FC<{
 
   async function setScore(metric: IAdvisorMetric, normalizedValue: number) {
     const previousValue = scores[metric.key];
+    const previousConfirmedRating100 = confirmedRating100;
     const selectedChoice = metric.choices.find(
       (choice) => choice.value === normalizedValue
     );
@@ -1344,6 +1381,7 @@ const RatingAdvisorModal: React.FC<{
       ...current,
       [metric.key]: normalizedValue,
     }));
+    setConfirmedRating100(undefined);
     setSavingMetricKeys((current) => {
       const next = new Set(current);
       next.add(metric.key);
@@ -1352,7 +1390,7 @@ const RatingAdvisorModal: React.FC<{
     });
 
     try {
-      await setRatingScore({
+      const result = await setRatingScore({
         variables: {
           input: {
             entity_type: entityType,
@@ -1365,12 +1403,18 @@ const RatingAdvisorModal: React.FC<{
           },
         },
       });
+      const update = result.data?.ratingScoreSet;
+      if (update) {
+        setConfirmedRating100(update.rating100);
+        setAuthoritativeScores(update.scores);
+      }
       await onRatingSaved?.();
     } catch (e) {
       setScores((current) => ({
         ...current,
         [metric.key]: previousValue,
       }));
+      setConfirmedRating100(previousConfirmedRating100);
       Toast.error(e);
     } finally {
       setSavingMetricKeys((current) => {
@@ -1379,6 +1423,79 @@ const RatingAdvisorModal: React.FC<{
         savingMetricKeysRef.current = next;
         return next;
       });
+    }
+  }
+
+  async function deleteScore(metric: IAdvisorMetric) {
+    const previousValue = scores[metric.key];
+    const previousConfirmedRating100 = confirmedRating100;
+    setScores((current) => ({ ...current, [metric.key]: undefined }));
+    setConfirmedRating100(undefined);
+    setSavingMetricKeys((current) => {
+      const next = new Set(current);
+      next.add(metric.key);
+      savingMetricKeysRef.current = next;
+      return next;
+    });
+
+    try {
+      const result = await deleteRatingScore({
+        variables: {
+          input: {
+            entity_type: entityType,
+            entity_id: entityId,
+            section: getMetricSection(metric),
+            key: metric.key,
+          },
+        },
+      });
+      const update = result.data?.ratingScoreDelete;
+      if (update) {
+        setConfirmedRating100(update.rating100);
+        setAuthoritativeScores(update.scores);
+      }
+      await onRatingSaved?.();
+    } catch (e) {
+      setScores((current) => ({
+        ...current,
+        [metric.key]: previousValue,
+      }));
+      setConfirmedRating100(previousConfirmedRating100);
+      Toast.error(e);
+    } finally {
+      setSavingMetricKeys((current) => {
+        const next = new Set(current);
+        next.delete(metric.key);
+        savingMetricKeysRef.current = next;
+        return next;
+      });
+    }
+  }
+
+  async function resetAdvisor() {
+    if (
+      !window.confirm(
+        "Clear every advisor answer? The current overall rating will be preserved."
+      )
+    ) {
+      return;
+    }
+
+    setResetting(true);
+    try {
+      const result = await resetRatingScores({
+        variables: { entity_type: entityType, entity_id: entityId },
+      });
+      const update = result.data?.ratingScoreReset;
+      setScores(getInitialScores(metrics));
+      setPreviewScores({});
+      setAuthoritativeScores(update?.scores ?? []);
+      setConfirmedRating100(update?.rating100 ?? rating100 ?? 0);
+      await onRatingSaved?.();
+    } catch (e) {
+      Toast.error(e);
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -1469,8 +1586,21 @@ const RatingAdvisorModal: React.FC<{
         <div className="rating-advisor-selected" aria-live="polite">
           {displayedChoice ? (
             <>
-              <strong>{displayedChoice.label}</strong>
-              <span>{displayedChoice.description}</span>
+              <span>
+                <strong>{displayedChoice.label}</strong>
+                <span>{displayedChoice.description}</span>
+              </span>
+              {selected && (
+                <Button
+                  disabled={saving}
+                  onClick={() => void deleteScore(metric)}
+                  size="sm"
+                  type="button"
+                  variant="outline-secondary"
+                >
+                  Clear
+                </Button>
+              )}
             </>
           ) : (
             <span>Pick the one that fits best.</span>
@@ -1523,10 +1653,9 @@ const RatingAdvisorModal: React.FC<{
             aria-label={`${metric.title}: ${active ? "on" : "off"}`}
             disabled={saving}
             onClick={() =>
-              void setScore(
-                metric,
-                active ? inactiveChoice.value : activeChoice.value
-              )
+              void (active
+                ? deleteScore(metric)
+                : setScore(metric, activeChoice.value))
             }
             role="switch"
             size="sm"
@@ -1555,14 +1684,22 @@ const RatingAdvisorModal: React.FC<{
           <div className="rating-advisor-adjustment-title">
             <strong>Orgasm count bonus</strong>
             <Badge variant={active ? "danger" : "secondary"}>
-              {formatRatingContribution(orgasmBonus / 10)}
+              {orgasmCount === undefined
+                ? "—"
+                : formatRatingContribution(orgasmBonus / 10)}
             </Badge>
           </div>
           <span>{getOrgasmBonusDescription(entityType)}</span>
         </div>
-        <Badge variant={active ? "danger" : "secondary"}>
-          {orgasmCount} recorded
-        </Badge>
+        {advisorScoresLoading && orgasmCount === undefined ? (
+          <Badge variant="secondary">Loading…</Badge>
+        ) : advisorScoresError && orgasmCount === undefined ? (
+          <Badge variant="secondary">Unavailable</Badge>
+        ) : (
+          <Badge variant={active ? "danger" : "secondary"}>
+            {orgasmCount ?? 0} recorded
+          </Badge>
+        )}
       </section>
     );
   }
@@ -1581,7 +1718,7 @@ const RatingAdvisorModal: React.FC<{
       <div className={`rating-advisor-summary ${ratingTierClass}`}>
         <div className="rating-advisor-score-summary">
           <span>Rating</span>
-          <strong>{suggestion.rating100}</strong>
+          <strong>{ratingUnavailable ? "—" : suggestion.rating100}</strong>
           {suggestion.tier !== "Plain" && (
             <Badge variant="secondary">{suggestion.tier}</Badge>
           )}
@@ -1610,12 +1747,28 @@ const RatingAdvisorModal: React.FC<{
             }…`}
           </div>
         )}
+        {advisorScoresError && (
+          <div className="rating-advisor-save-status" role="alert">
+            Automatic bonus data could not be loaded. Saved values remain
+            intact.
+          </div>
+        )}
       </div>
-      <p className="rating-advisor-note">
-        {allCoreRated
-          ? "Core rating complete. Bonuses and penalties are optional."
-          : "Finish the core boxes for a final rating. Everything autosaves."}
-      </p>
+      <div className="rating-advisor-note-row">
+        <p className="rating-advisor-note">
+          {allCoreRated
+            ? "Core rating complete. Bonuses and penalties are optional."
+            : "Finish the core boxes for a final rating. Everything autosaves."}
+        </p>
+        <Button
+          disabled={resetting || savingMetricKeys.size > 0}
+          onClick={() => void resetAdvisor()}
+          size="sm"
+          variant="outline-danger"
+        >
+          {resetting ? "Resetting…" : "Reset advisor"}
+        </Button>
+      </div>
       <section
         aria-label="Rating criteria"
         className="rating-advisor-section rating-advisor-section-core"
@@ -1703,6 +1856,7 @@ export const RatingAdvisorButton: React.FC<IRatingAdvisorButtonProps> = ({
           entityType={entityType}
           entityId={entityId}
           sceneRatingMode={sceneRatingMode}
+          rating100={rating100}
           ratingScores={ratingScores}
           onRatingSaved={onRatingSaved}
           onClose={() => setShowAdvisor(false)}

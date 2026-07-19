@@ -37,6 +37,34 @@ type StudioActivityStats {
   oral_scene_count: Int!
   solo_scene_count: Int!
 }
+
+# Aggregated Rating Advisor data for a studio Stats tab.
+type StudioRatingAdvisorCriterionAverage {
+  key: String!
+  average_raw_value: Float!
+  average_weighted_value: Float!
+  average_fill_percent: Float!
+  entity_count: Int!
+}
+
+type StudioRatingAdvisorAdjustmentCount {
+  section: String!
+  key: String!
+  entity_count: Int!
+}
+
+type StudioRatingAdvisorSectionStats {
+  entity_count: Int!
+  criteria: [StudioRatingAdvisorCriterionAverage!]!
+  adjustments: [StudioRatingAdvisorAdjustmentCount!]!
+}
+
+type StudioRatingAdvisorStats {
+  solo_scenes: StudioRatingAdvisorSectionStats!
+  sex_scenes: StudioRatingAdvisorSectionStats!
+  group_scenes: StudioRatingAdvisorSectionStats!
+  performers: StudioRatingAdvisorSectionStats!
+}
 # CUSTOM: end
 
 # CUSTOM: begin
@@ -118,6 +146,7 @@ extend type Studio {
   # Batched resolvers - replace N individual field calls with one resolver per studio
   studio_role_counts(depth: Int): StudioRoleCounts! # CUSTOM: batched sex/oral/solo/facial scene counts (no performer filter)
   studio_activity_stats(depth: Int): StudioActivityStats! # CUSTOM: duration percentages for configured activity tags
+  studio_rating_advisor_stats(depth: Int): StudioRatingAdvisorStats! # CUSTOM: averaged advisor criteria and active adjustment counts
   studio_performer_activity_stats(
     performer_id: ID!
     depth: Int

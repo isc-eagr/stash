@@ -85,12 +85,15 @@ type SceneFilterType struct {
 	// Filter by stored rating criteria, bonuses, and penalties
 	RatingCriteria *RatingCriteriaFilterInput `json:"rating_criteria"` // CUSTOM
 	// Filter by configured activity percentages
-	ActivityPercentages     *ActivityPercentFilterInput `json:"activity_percentages"`      // CUSTOM
-	SexActivityPercent      *IntCriterionInput          `json:"sex_activity_percent"`      // CUSTOM
-	OralActivityPercent     *IntCriterionInput          `json:"oral_activity_percent"`     // CUSTOM
-	SoloActivityPercent     *IntCriterionInput          `json:"solo_activity_percent"`     // CUSTOM
-	OtherActivityPercent    *IntCriterionInput          `json:"other_activity_percent"`    // CUSTOM
-	UnusableActivityPercent *IntCriterionInput          `json:"unusable_activity_percent"` // CUSTOM
+	ActivityPercentages        *ActivityPercentFilterInput `json:"activity_percentages"`         // CUSTOM
+	QualityPercentages         *QualityPercentFilterInput  `json:"quality_percentages"`          // CUSTOM
+	SexActivityPercent         *IntCriterionInput          `json:"sex_activity_percent"`         // CUSTOM
+	OralActivityPercent        *IntCriterionInput          `json:"oral_activity_percent"`        // CUSTOM
+	SoloActivityPercent        *IntCriterionInput          `json:"solo_activity_percent"`        // CUSTOM
+	OtherActivityPercent       *IntCriterionInput          `json:"other_activity_percent"`       // CUSTOM
+	OutstandingActivityPercent *IntCriterionInput          `json:"outstanding_activity_percent"` // CUSTOM
+	StandardActivityPercent    *IntCriterionInput          `json:"standard_activity_percent"`    // CUSTOM
+	UnusableActivityPercent    *IntCriterionInput          `json:"unusable_activity_percent"`    // CUSTOM
 	// Filter by organized
 	Organized *bool `json:"organized"`
 	// Filter by o-counter

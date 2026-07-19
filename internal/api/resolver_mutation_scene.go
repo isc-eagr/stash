@@ -271,13 +271,13 @@ func (r *mutationResolver) sceneUpdate(ctx context.Context, input models.SceneUp
 	}
 
 	// CUSTOM: begin - reset advisor scores when cast crosses the group threshold
-	previousPerformerCount := 0
+	var previousPerformerIDs []int
 	if updatedScene.PerformerIDs != nil {
 		performerIDs, err := qb.GetPerformerIDs(ctx, sceneID)
 		if err != nil {
 			return nil, err
 		}
-		previousPerformerCount = len(performerIDs)
+		previousPerformerIDs = performerIDs
 	}
 	// CUSTOM: end
 
@@ -337,10 +337,16 @@ func (r *mutationResolver) sceneUpdate(ctx context.Context, input models.SceneUp
 	if err != nil {
 		return nil, err
 	}
+	// CUSTOM: an explicit manual rating leaves advisor ownership.
+	if updatedScene.Rating.Set {
+		if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityScene, sceneID); err != nil {
+			return nil, err
+		}
+	}
 
 	// CUSTOM: begin - reset advisor scores when cast crosses the group threshold
 	if updatedScene.PerformerIDs != nil {
-		if err := r.resetSceneAdvisorIfGroupBoundaryCrossedCustom(ctx, sceneID, previousPerformerCount); err != nil {
+		if err := r.syncSceneAdvisorAfterCastChangeCustom(ctx, sceneID, previousPerformerIDs); err != nil {
 			return nil, err
 		}
 	}
@@ -442,13 +448,13 @@ func (r *mutationResolver) BulkSceneUpdate(ctx context.Context, input BulkSceneU
 
 		for _, sceneID := range sceneIDs {
 			// CUSTOM: begin - reset advisor scores when bulk cast edit crosses the group threshold
-			previousPerformerCount := 0
+			var previousPerformerIDs []int
 			if updatedScene.PerformerIDs != nil {
 				performerIDs, err := qb.GetPerformerIDs(ctx, sceneID)
 				if err != nil {
 					return err
 				}
-				previousPerformerCount = len(performerIDs)
+				previousPerformerIDs = performerIDs
 			}
 			// CUSTOM: end
 
@@ -456,10 +462,16 @@ func (r *mutationResolver) BulkSceneUpdate(ctx context.Context, input BulkSceneU
 			if err != nil {
 				return err
 			}
+			// CUSTOM: an explicit manual rating leaves advisor ownership.
+			if updatedScene.Rating.Set {
+				if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityScene, sceneID); err != nil {
+					return err
+				}
+			}
 
 			// CUSTOM: begin - reset advisor scores when bulk cast edit crosses the group threshold
 			if updatedScene.PerformerIDs != nil {
-				if err := r.resetSceneAdvisorIfGroupBoundaryCrossedCustom(ctx, sceneID, previousPerformerCount); err != nil {
+				if err := r.syncSceneAdvisorAfterCastChangeCustom(ctx, sceneID, previousPerformerIDs); err != nil {
 					return err
 				}
 			}
@@ -530,7 +542,17 @@ func (r *mutationResolver) SceneDestroy(ctx context.Context, input models.SceneD
 		// kill any running encoders
 		manager.KillRunningStreams(s, fileNamingAlgo)
 
-		return r.sceneService.Destroy(ctx, s, fileDeleter, deleteGenerated, deleteFile, destroyFileEntry)
+		performerIDs, err := qb.GetPerformerIDs(ctx, sceneID)
+		if err != nil {
+			return err
+		}
+		if err := r.sceneService.Destroy(ctx, s, fileDeleter, deleteGenerated, deleteFile, destroyFileEntry); err != nil {
+			return err
+		}
+		if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityScene, sceneID); err != nil {
+			return err
+		}
+		return r.recalculatePerformerAdvisorRatingsCustom(ctx, performerIDs)
 	}); err != nil {
 		fileDeleter.Rollback()
 		return false, err
@@ -572,6 +594,7 @@ func (r *mutationResolver) ScenesDestroy(ctx context.Context, input models.Scene
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.Scene
+		var affectedPerformerIDs []int
 
 		for _, id := range sceneIDs {
 			scene, err := qb.Find(ctx, id)
@@ -586,13 +609,21 @@ func (r *mutationResolver) ScenesDestroy(ctx context.Context, input models.Scene
 
 			// kill any running encoders
 			manager.KillRunningStreams(scene, fileNamingAlgo)
+			performerIDs, err := qb.GetPerformerIDs(ctx, id)
+			if err != nil {
+				return err
+			}
+			affectedPerformerIDs = append(affectedPerformerIDs, performerIDs...)
 
 			if err := r.sceneService.Destroy(ctx, scene, fileDeleter, deleteGenerated, deleteFile, destroyFileEntry); err != nil {
 				return err
 			}
+			if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityScene, id); err != nil {
+				return err
+			}
 		}
 
-		return nil
+		return r.recalculatePerformerAdvisorRatingsCustom(ctx, affectedPerformerIDs)
 	}); err != nil {
 		fileDeleter.Rollback()
 		return false, err
@@ -686,6 +717,19 @@ func (r *mutationResolver) SceneMerge(ctx context.Context, input SceneMergeInput
 
 	var ret *models.Scene
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
+		previousModes, err := r.sceneRatingModesCustom(ctx, []int{destID})
+		if err != nil {
+			return err
+		}
+		var affectedPerformerIDs []int
+		for _, sceneID := range append(append([]int{}, srcIDs...), destID) {
+			performerIDs, err := r.repository.Scene.GetPerformerIDs(ctx, sceneID)
+			if err != nil {
+				return err
+			}
+			affectedPerformerIDs = append(affectedPerformerIDs, performerIDs...)
+		}
+
 		if err := r.Resolver.sceneService.Merge(ctx, srcIDs, destID, fileDeleter, scene.MergeOptions{
 			ScenePartial:       *values,
 			IncludePlayHistory: utils.IsTrue(input.PlayHistory),
@@ -700,6 +744,25 @@ func (r *mutationResolver) SceneMerge(ctx context.Context, input SceneMergeInput
 		}
 		if ret == nil {
 			return fmt.Errorf("scene with id %d not found", destID)
+		}
+		for _, sourceID := range srcIDs {
+			if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityScene, sourceID); err != nil {
+				return err
+			}
+		}
+		if values.Rating.Set {
+			if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityScene, destID); err != nil {
+				return err
+			}
+		}
+		if err := r.resetSceneAdvisorsIfModeChangedCustom(ctx, previousModes); err != nil {
+			return err
+		}
+		if err := r.recalculateRatingIfAdvisorScoresExist(ctx, models.RatingEntityScene, destID); err != nil {
+			return err
+		}
+		if err := r.recalculatePerformerAdvisorRatingsCustom(ctx, affectedPerformerIDs); err != nil {
+			return err
 		}
 
 		// only update cover image if one was provided
@@ -784,8 +847,13 @@ func (r *mutationResolver) SceneMarkerCreate(ctx context.Context, input SceneMar
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.SceneMarker
+		// CUSTOM: capture the rubric mode before marker tags can change it.
+		previousModes, err := r.sceneRatingModesCustom(ctx, []int{sceneID})
+		if err != nil {
+			return err
+		}
 
-		err := qb.Create(ctx, &newMarker)
+		err = qb.Create(ctx, &newMarker)
 		if err != nil {
 			return err
 		}
@@ -817,7 +885,7 @@ func (r *mutationResolver) SceneMarkerCreate(ctx context.Context, input SceneMar
 				return err
 			}
 		}
-		return nil
+		return r.resetSceneAdvisorsIfModeChangedCustom(ctx, previousModes)
 		// CUSTOM: end - save marker performers (top/bottom)
 	}); err != nil {
 		return nil, err
@@ -927,6 +995,15 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 		if existingMarker == nil {
 			return fmt.Errorf("scene marker with id %d not found", markerID)
 		}
+		updatedSceneID := existingMarker.SceneID
+		if updatedMarker.SceneID.Set {
+			updatedSceneID = updatedMarker.SceneID.Value
+		}
+		// CUSTOM: moving or retagging a marker can switch either scene rubric.
+		previousModes, err := r.sceneRatingModesCustom(ctx, []int{existingMarker.SceneID, updatedSceneID})
+		if err != nil {
+			return err
+		}
 
 		// Validate end_seconds
 		shouldValidateEndSeconds := (updatedMarker.Seconds.Set || updatedMarker.EndSeconds.Set) && !updatedMarker.EndSeconds.Null
@@ -1001,7 +1078,7 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 		}
 		// CUSTOM: end - update marker performers (top/bottom)
 
-		return nil
+		return r.resetSceneAdvisorsIfModeChangedCustom(ctx, previousModes)
 	}); err != nil {
 		fileDeleter.Rollback()
 		return nil, err
@@ -1044,6 +1121,22 @@ func (r *mutationResolver) BulkSceneMarkerUpdate(ctx context.Context, input Bulk
 	// Start the transaction and save the performers
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.SceneMarker
+		// CUSTOM: capture every affected scene mode before the bulk retag.
+		var affectedSceneIDs []int
+		for _, id := range ids {
+			marker, err := qb.Find(ctx, id)
+			if err != nil {
+				return err
+			}
+			if marker == nil {
+				return fmt.Errorf("scene marker with id %d not found", id)
+			}
+			affectedSceneIDs = append(affectedSceneIDs, marker.SceneID)
+		}
+		previousModes, err := r.sceneRatingModesCustom(ctx, affectedSceneIDs)
+		if err != nil {
+			return err
+		}
 
 		for _, id := range ids {
 			l := partial
@@ -1060,7 +1153,7 @@ func (r *mutationResolver) BulkSceneMarkerUpdate(ctx context.Context, input Bulk
 			ret = append(ret, updated)
 		}
 
-		return nil
+		return r.resetSceneAdvisorsIfModeChangedCustom(ctx, previousModes)
 	}); err != nil {
 		return nil, err
 	}
@@ -1154,6 +1247,7 @@ func (r *mutationResolver) SceneMarkersDestroy(ctx context.Context, markerIDs []
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.SceneMarker
 		sqb := r.repository.Scene
+		var affectedSceneIDs []int
 
 		for _, markerID := range ids {
 			marker, err := qb.Find(ctx, markerID)
@@ -1177,13 +1271,31 @@ func (r *mutationResolver) SceneMarkersDestroy(ctx context.Context, markerIDs []
 			}
 
 			markers = append(markers, marker)
+			affectedSceneIDs = append(affectedSceneIDs, marker.SceneID)
+		}
+
+		// CUSTOM: capture scene modes before the markers are removed.
+		previousModes, err := r.sceneRatingModesCustom(ctx, affectedSceneIDs)
+		if err != nil {
+			return err
+		}
+
+		for _, marker := range markers {
+			s, err := sqb.Find(ctx, marker.SceneID)
+			if err != nil {
+				return err
+			}
+
+			if s == nil {
+				return fmt.Errorf("scene with id %d not found", marker.SceneID)
+			}
 
 			if err := scene.DestroyMarker(ctx, s, marker, qb, fileDeleter); err != nil {
 				return err
 			}
 		}
 
-		return nil
+		return r.resetSceneAdvisorsIfModeChangedCustom(ctx, previousModes)
 	}); err != nil {
 		fileDeleter.Rollback()
 		return false, err

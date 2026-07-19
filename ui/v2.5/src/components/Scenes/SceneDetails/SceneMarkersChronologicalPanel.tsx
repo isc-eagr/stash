@@ -509,11 +509,17 @@ const ActivityTypeGroupCard: React.FC<IActivityTypeGroupCard> = ({
     (sum, highlightGroup) => sum + highlightGroup.segments.length,
     0
   );
+  const focusedActivityMarkerIsHidden =
+    !!hideActivityPills &&
+    group.markers.some((marker) => marker.id === focusedMarkerId);
 
   return (
     <div
+      data-scene-marker-ids={group.markers.map((marker) => marker.id).join(",")}
       className={cx("scene-marker-activity-config-card", groupRatingCardClass, {
         "scene-marker-activity-config-card-current": isCurrentGroup,
+        "scene-marker-activity-config-card-focused":
+          focusedActivityMarkerIsHidden,
       })}
     >
       {showGroupHeader && (
@@ -642,6 +648,9 @@ const HighlightSegmentBox: React.FC<{
     currentTimestamp > 0 &&
     currentTimestamp >= segment.seconds &&
     currentTimestamp < segment.end_seconds;
+  const isFocusedSegment = segment.markers.some(
+    (marker) => marker.id === focusedMarkerId
+  );
 
   const seekToSegment = (seconds: number) => {
     onClickMarker({
@@ -653,14 +662,14 @@ const HighlightSegmentBox: React.FC<{
   return (
     <div
       data-scene-marker-id={segment.representativeMarker.id}
+      data-scene-marker-ids={segmentMarkerIds.join(",")}
       className={cx(
         "scene-marker-activity-marker-box",
         "scene-marker-highlight-segment-pill",
         getMarkerRatingCardClass(segment.representativeMarker),
         {
           "scene-marker-activity-marker-box-current": isCurrentSegment,
-          "scene-marker-activity-marker-box-focused":
-            focusedMarkerId === segment.representativeMarker.id,
+          "scene-marker-activity-marker-box-focused": isFocusedSegment,
         }
       )}
       onClick={(event) => {

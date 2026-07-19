@@ -114,6 +114,8 @@ import { RatingCriteriaCriterion } from "src/models/list-filter/criteria/rating-
 import { RatingCriteriaFilter } from "./Filters/RatingCriteriaFilter_custom";
 import { ActivityTypeCriterion } from "src/models/list-filter/criteria/activity-type_custom";
 import { ActivityTypeFilter } from "./Filters/ActivityTypeFilter_custom";
+import { QualityTypeCriterion } from "src/models/list-filter/criteria/quality-type_custom";
+import { QualityTypeFilter } from "./Filters/QualityTypeFilter_custom";
 // CUSTOM: end
 
 interface IGenericCriterionEditor {
@@ -542,6 +544,15 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
         <ActivityTypeFilter
           criterion={criterion}
           setCriterion={(nc) => setCriterion(nc)}
+        />
+      );
+    }
+
+    if (criterion instanceof QualityTypeCriterion) {
+      return (
+        <QualityTypeFilter
+          criterion={criterion}
+          setCriterion={(newCriterion) => setCriterion(newCriterion)}
         />
       );
     }

@@ -1409,6 +1409,13 @@ input[type="range"].blue-slider {
     }
   }
 
+  .scene-marker-activity-config-card-focused {
+    animation: scene-marker-focus-glow 1.45s ease-in-out infinite;
+    box-shadow: inset 0 0 0 0.12rem rgba(72, 175, 240, 0.34),
+      0 0 1rem rgba(72, 175, 240, 0.42);
+    z-index: 1;
+  }
+
   .scene-marker-activity-config-header {
     align-items: center;
     display: flex;
@@ -1502,7 +1509,7 @@ input[type="range"].blue-slider {
     padding: 0.28rem 0.34rem;
   }
 
-  .scene-marker-activity-marker-box:is(
+  .scene-marker-activity-marker-box:where(
       .rating-card-theme-premium,
       .rating-card-theme-classic
     ).rating-royal-sapphire {
@@ -1517,7 +1524,7 @@ input[type="range"].blue-slider {
     border-color: rgba(230, 111, 92, 0.52);
   }
 
-  .scene-marker-activity-marker-box-focused {
+  .scene-marker-activity-marker-box.scene-marker-activity-marker-box-focused {
     animation: scene-marker-focus-glow 1.45s ease-in-out infinite;
     border-color: rgba(72, 175, 240, 0.95);
     box-shadow: 0 0 0 0.12rem rgba(72, 175, 240, 0.34),
@@ -1543,6 +1550,10 @@ input[type="range"].blue-slider {
   .scene-marker-activity-type-pill.scene-marker-activity-marker-box-current {
     background-color: rgba(230, 111, 92, 0.16);
     border-color: rgba(230, 111, 92, 0.68);
+  }
+
+  .scene-marker-activity-type-pill.scene-marker-activity-marker-box-focused {
+    border-color: rgba(72, 175, 240, 0.95);
   }
 
   .scene-marker-activity-marker-time {
@@ -2464,6 +2475,17 @@ input[type="range"].blue-slider {
 
   &.organized {
     color: #664c3f;
+  }
+}
+
+/* CUSTOM: make the organized scene state visibly copper across application themes. */
+.scene-tabs .scene-overview .scene-toolbar button.organized-button.organized {
+  color: #b87333;
+
+  &:active,
+  &:focus,
+  &:hover {
+    color: #b87333;
   }
 }
 

@@ -29,82 +29,10 @@ var ratingScoreTables = []ratingScoreSectionTable{
 	{section: models.RatingScoreSectionPenalty, table: ratingPenaltyScoresTable},
 }
 
-var defaultSceneRatingScoreKeys = map[string]map[string]struct{}{
-	models.RatingScoreSectionCriterion: {
-		"topAttractiveness":    {},
-		"bottomAttractiveness": {},
-		"chemistry":            {},
-		"payoff":               {},
-		"standout":             {},
-	},
-	models.RatingScoreSectionBonus: {
-		"theme":         {},
-		"oralOnly":      {},
-		"godTierOrgasm": {},
-		"goatElement":   {},
-		"unlikelyTop":   {},
-	},
-	models.RatingScoreSectionPenalty: {
-		"noOrgasm":   {},
-		"production": {},
-	},
-}
-
-var groupSceneRatingScoreKeys = map[string]map[string]struct{}{
-	models.RatingScoreSectionCriterion: {
-		"groupTopAttractiveness": {},
-		"groupEnergy":            {},
-		"groupPayoff":            {},
-		"groupUsability":         {},
-	},
-	models.RatingScoreSectionBonus: {
-		"groupBottomAttractiveness": {},
-		"groupOralOnly":             {},
-		"theme":                     {},
-		"godTierOrgasm":             {},
-		"goatElement":               {},
-	},
-	models.RatingScoreSectionPenalty: {
-		"noOrgasm":   {},
-		"production": {},
-	},
-}
-
-var soloSceneRatingScoreKeys = map[string]map[string]struct{}{
-	models.RatingScoreSectionCriterion: {
-		"soloPerformerAppeal": {},
-		"soloPerformance":     {},
-		"soloUsability":       {},
-	},
-	models.RatingScoreSectionBonus: {
-		"orgasmBonus": {},
-		"feetBonus":   {},
-		"goatElement": {},
-		"theme":       {},
-	},
-	models.RatingScoreSectionPenalty: {
-		"noOrgasm":   {},
-		"production": {},
-	},
-}
-
-var performerRatingScoreKeys = map[string]map[string]struct{}{
-	models.RatingScoreSectionCriterion: {
-		"face":        {},
-		"body":        {},
-		"performance": {},
-		"ethnicity":   {},
-		"masculinity": {},
-	},
-	models.RatingScoreSectionBonus: {
-		"consistency":  {},
-		"dick":         {},
-		"tattoosBonus": {},
-	},
-	models.RatingScoreSectionPenalty: {
-		"feminine": {},
-	},
-}
+var defaultSceneRatingScoreKeys = ratingScoreKeysForRubricCustom(defaultSceneRatingRubricCustom)
+var groupSceneRatingScoreKeys = ratingScoreKeysForRubricCustom(groupSceneRatingRubricCustom)
+var soloSceneRatingScoreKeys = ratingScoreKeysForRubricCustom(soloSceneRatingRubricCustom)
+var performerRatingScoreKeys = ratingScoreKeysForRubricCustom(performerRatingRubricCustom)
 
 type ratingScoreRow struct {
 	ID            int            `db:"id"`
@@ -251,6 +179,45 @@ func sceneUsesGroupRating(performerCount int) bool {
 	return performerCount >= 4
 }
 
+func (s *RatingScoreStore) SceneMode(ctx context.Context, sceneID int) (string, error) {
+	performerCount, err := scenePerformerCount(ctx, sceneID)
+	if err != nil {
+		return "", err
+	}
+	if sceneUsesGroupRating(performerCount) {
+		return models.RatingSceneModeGroup, nil
+	}
+
+	isSolo, err := sceneUsesSoloRating(ctx, sceneID)
+	if err != nil {
+		return "", err
+	}
+	if isSolo {
+		return models.RatingSceneModeSolo, nil
+	}
+
+	return models.RatingSceneModeDefault, nil
+}
+
+func (s *RatingScoreStore) rubricForEntityCustom(ctx context.Context, entityType string, entityID int) (ratingScoreRubricCustom, error) {
+	if entityType == models.RatingEntityPerformer {
+		return performerRatingRubricCustom, nil
+	}
+
+	mode, err := s.SceneMode(ctx, entityID)
+	if err != nil {
+		return nil, err
+	}
+	switch mode {
+	case models.RatingSceneModeGroup:
+		return groupSceneRatingRubricCustom, nil
+	case models.RatingSceneModeSolo:
+		return soloSceneRatingRubricCustom, nil
+	default:
+		return defaultSceneRatingRubricCustom, nil
+	}
+}
+
 func scenePerformerCount(ctx context.Context, sceneID int) (int, error) {
 	var count int
 	query := fmt.Sprintf("SELECT COUNT(DISTINCT %s) FROM %s WHERE %s = ?", performerIDColumn, performersScenesTable, sceneIDColumn)
@@ -367,6 +334,19 @@ func (s *RatingScoreStore) Upsert(ctx context.Context, score *models.RatingScore
 	if key == "" {
 		return fmt.Errorf("rating score key cannot be empty")
 	}
+	rubric, err := s.rubricForEntityCustom(ctx, entityType, score.EntityID)
+	if err != nil {
+		return err
+	}
+	rawValue, weightedValue, err := canonicalRatingScoreInputCustom(rubric, section, key, score.RawValue)
+	if err != nil {
+		return err
+	}
+	score.EntityType = entityType
+	score.Section = section
+	score.Key = key
+	score.RawValue = rawValue
+	score.WeightedValue = weightedValue
 
 	query := fmt.Sprintf(`
 		INSERT INTO %s (entity_type, entity_id, key, raw_value, weighted_value, label, created_at, updated_at)
@@ -391,6 +371,53 @@ func (s *RatingScoreStore) Upsert(ctx context.Context, score *models.RatingScore
 	return nil
 }
 
+func (s *RatingScoreStore) Delete(ctx context.Context, entityType string, entityID int, section string, key string) (bool, error) {
+	normalizedEntityType, err := normalizeRatingEntityType(entityType)
+	if err != nil {
+		return false, err
+	}
+	table, _, err := ratingScoreTableForSection(section)
+	if err != nil {
+		return false, err
+	}
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return false, fmt.Errorf("rating score key cannot be empty")
+	}
+
+	result, err := dbWrapper.Exec(
+		ctx,
+		fmt.Sprintf("DELETE FROM %s WHERE entity_type = ? AND entity_id = ? AND key = ?", table),
+		normalizedEntityType,
+		entityID,
+		key,
+	)
+	if err != nil {
+		return false, fmt.Errorf("deleting rating score: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("checking deleted rating score: %w", err)
+	}
+	return rowsAffected > 0, nil
+}
+
+func (s *RatingScoreStore) DeleteByEntity(ctx context.Context, entityType string, entityID int) error {
+	normalizedEntityType, err := normalizeRatingEntityType(entityType)
+	if err != nil {
+		return err
+	}
+
+	for _, table := range ratingScoreTables {
+		deleteQuery := fmt.Sprintf("DELETE FROM %s WHERE entity_type = ? AND entity_id = ?", table.table)
+		if _, err := dbWrapper.Exec(ctx, deleteQuery, normalizedEntityType, entityID); err != nil {
+			return fmt.Errorf("deleting %s advisor scores for %s %d: %w", table.section, normalizedEntityType, entityID, err)
+		}
+	}
+	return nil
+}
+
 func (s *RatingScoreStore) RecalculateRating(ctx context.Context, entityType string, entityID int) (int, error) {
 	normalizedEntityType, err := normalizeRatingEntityType(entityType)
 	if err != nil {
@@ -404,7 +431,7 @@ func (s *RatingScoreStore) RecalculateRating(ctx context.Context, entityType str
 
 	total := 0.0
 	for _, row := range rows {
-		total += row.WeightedValue
+		total += canonicalRatingScoreContributionCustom(row)
 	}
 	rating100 := int(math.Round(math.Max(0, total) * 10))
 	orgasmBonus, err := s.countOrgasmRatingBonus(ctx, normalizedEntityType, entityID)
@@ -457,11 +484,8 @@ func (s *RatingScoreStore) ResetSceneScores(ctx context.Context, sceneID int) (b
 		return false, nil
 	}
 
-	for _, table := range ratingScoreTables {
-		deleteQuery := fmt.Sprintf("DELETE FROM %s WHERE entity_type = ? AND entity_id = ?", table.table)
-		if _, err := dbWrapper.Exec(ctx, deleteQuery, models.RatingEntityScene, sceneID); err != nil {
-			return false, fmt.Errorf("deleting %s advisor scores for scene %d: %w", table.section, sceneID, err)
-		}
+	if err := s.DeleteByEntity(ctx, models.RatingEntityScene, sceneID); err != nil {
+		return false, err
 	}
 
 	if _, err := dbWrapper.Exec(ctx, fmt.Sprintf("UPDATE %s SET rating = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?", sceneTable), sceneID); err != nil {
@@ -469,6 +493,43 @@ func (s *RatingScoreStore) ResetSceneScores(ctx context.Context, sceneID int) (b
 	}
 
 	return true, nil
+}
+
+func (s *RatingScoreStore) ResetAllSceneScores(ctx context.Context) (int, error) {
+	var sceneIDs []int
+	query := fmt.Sprintf(`
+		SELECT DISTINCT entity_id
+		FROM (
+			SELECT entity_id FROM %s WHERE entity_type = ?
+			UNION ALL
+			SELECT entity_id FROM %s WHERE entity_type = ?
+			UNION ALL
+			SELECT entity_id FROM %s WHERE entity_type = ?
+		)
+	`, ratingCriteriaScoresTable, ratingBonusScoresTable, ratingPenaltyScoresTable)
+	if err := dbWrapper.Select(
+		ctx,
+		&sceneIDs,
+		query,
+		models.RatingEntityScene,
+		models.RatingEntityScene,
+		models.RatingEntityScene,
+	); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return 0, fmt.Errorf("finding scene advisor scores to reset: %w", err)
+	}
+
+	resetCount := 0
+	for _, sceneID := range sceneIDs {
+		reset, err := s.ResetSceneScores(ctx, sceneID)
+		if err != nil {
+			return resetCount, err
+		}
+		if reset {
+			resetCount++
+		}
+	}
+
+	return resetCount, nil
 }
 
 func (s *RatingScoreStore) countOrgasmRatingBonus(ctx context.Context, entityType string, entityID int) (int, error) {

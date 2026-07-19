@@ -15,7 +15,7 @@ import { TagsCriterionOption } from "./criteria/tags";
 import { ListFilterOptions } from "./filter-options";
 import { DisplayMode } from "./types";
 import { CustomFieldsCriterionOption } from "./criteria/custom-fields";
-import { ActivityTypeCriterionOptionInstance } from "./criteria/activity-type_custom"; // CUSTOM
+import { StudioActivityTypeCriterionOption } from "./criteria/activity-type_custom"; // CUSTOM
 
 const defaultSortBy = "name";
 const sortByOptions = [
@@ -103,7 +103,7 @@ const criterionOptions = [
   TagsCriterionOption,
   RatingCriterionOption,
   MetallicRatingCriterionOption, // CUSTOM
-  ActivityTypeCriterionOptionInstance, // CUSTOM
+  StudioActivityTypeCriterionOption, // CUSTOM
   createBooleanCriterionOption("ignore_auto_tag"),
   createBooleanCriterionOption("organized"),
   createMandatoryNumberCriterionOption("tag_count"),

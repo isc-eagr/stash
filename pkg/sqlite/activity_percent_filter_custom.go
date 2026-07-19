@@ -11,11 +11,13 @@ import (
 type activityPercentCategoryCustom string
 
 const (
-	activityPercentSexCustom      activityPercentCategoryCustom = "sex"
-	activityPercentOralCustom     activityPercentCategoryCustom = "oral"
-	activityPercentSoloCustom     activityPercentCategoryCustom = "solo"
-	activityPercentOtherCustom    activityPercentCategoryCustom = "other"
-	activityPercentUnusableCustom activityPercentCategoryCustom = "unusable"
+	activityPercentSexCustom         activityPercentCategoryCustom = "sex"
+	activityPercentOralCustom        activityPercentCategoryCustom = "oral"
+	activityPercentSoloCustom        activityPercentCategoryCustom = "solo"
+	activityPercentOtherCustom       activityPercentCategoryCustom = "other"
+	activityPercentOutstandingCustom activityPercentCategoryCustom = "outstanding"
+	activityPercentStandardCustom    activityPercentCategoryCustom = "standard"
+	activityPercentUnusableCustom    activityPercentCategoryCustom = "unusable"
 )
 
 func activityPercentTagIDCustom(category activityPercentCategoryCustom) int {
@@ -88,6 +90,10 @@ func activityPercentSceneSecondsExprCustom(sceneIDExpr string, category activity
 	switch category {
 	case activityPercentOtherCustom:
 		return activityPercentSceneOtherSecondsExprCustom(sceneIDExpr)
+	case activityPercentOutstandingCustom:
+		return activityPercentSceneOutstandingSecondsExprCustom(sceneIDExpr)
+	case activityPercentStandardCustom:
+		return activityPercentSceneStandardSecondsExprCustom(sceneIDExpr)
 	case activityPercentUnusableCustom:
 		return activityPercentSceneUnusableSecondsExprCustom(sceneIDExpr)
 	}
@@ -120,6 +126,78 @@ MIN((%[2]s), snm.end_seconds) AS end_seconds
 FROM scene_negative_markers snm
 WHERE snm.scene_id = %[1]s
 AND snm.end_seconds > snm.start_seconds`, sceneIDExpr, durationExpr)
+}
+
+func activityPercentOutstandingMarkerConditionForTagIDsCustom(markerAlias string, tagIDs []int) string {
+	validRange := fmt.Sprintf(`%[1]s.end_seconds IS NOT NULL
+AND %[1]s.end_seconds > %[1]s.seconds`, markerAlias)
+	if len(tagIDs) == 0 {
+		return validRange
+	}
+
+	parts := make([]string, 0, len(tagIDs))
+	for _, id := range tagIDs {
+		parts = append(parts, fmt.Sprintf("%d", id))
+	}
+
+	return fmt.Sprintf(`%[1]s
+AND (
+	%[2]s.primary_tag_id NOT IN (%[3]s)
+	OR EXISTS (
+		SELECT 1 FROM scene_markers_tags smt_quality
+		WHERE smt_quality.scene_marker_id = %[2]s.id
+	)
+)`, validRange, markerAlias, strings.Join(parts, ","))
+}
+
+func activityPercentSceneOutstandingSourceForTagIDsSQLCustom(sceneIDExpr string, tagIDs []int) string {
+	return fmt.Sprintf(`SELECT sm.scene_id,
+MAX(0, sm.seconds) AS seconds,
+MIN((%[2]s), sm.end_seconds) AS end_seconds
+FROM scene_markers sm
+WHERE sm.scene_id = %[1]s
+AND %[3]s`, sceneIDExpr, activityPercentSceneDurationExprCustom(sceneIDExpr), activityPercentOutstandingMarkerConditionForTagIDsCustom("sm", tagIDs))
+}
+
+func activityPercentIntersectionSourceSQLCustom(firstSourceSQL string, secondSourceSQL string) string {
+	return fmt.Sprintf(`SELECT first_intervals.scene_id,
+MAX(first_intervals.seconds, second_intervals.seconds) AS seconds,
+MIN(first_intervals.end_seconds, second_intervals.end_seconds) AS end_seconds
+FROM (%s) first_intervals
+JOIN (%s) second_intervals ON second_intervals.scene_id = first_intervals.scene_id
+WHERE first_intervals.seconds < second_intervals.end_seconds
+AND second_intervals.seconds < first_intervals.end_seconds`, firstSourceSQL, secondSourceSQL)
+}
+
+func activityPercentOutstandingSecondsFromSourcesExprCustom(outstandingSourceSQL string, unusableSourceSQL string) string {
+	return activityPercentNonNegativeDifferenceExprCustom(
+		activityPercentMergedSecondsExprCustom(outstandingSourceSQL),
+		activityPercentMergedSecondsExprCustom(activityPercentIntersectionSourceSQLCustom(outstandingSourceSQL, unusableSourceSQL)),
+	)
+}
+
+func activityPercentStandardSecondsFromSourcesExprCustom(totalExpr string, outstandingSourceSQL string, unusableSourceSQL string) string {
+	coveredSourceSQL := fmt.Sprintf("%s\nUNION ALL\n%s", outstandingSourceSQL, unusableSourceSQL)
+	return activityPercentNonNegativeDifferenceExprCustom(
+		totalExpr,
+		activityPercentMergedSecondsExprCustom(coveredSourceSQL),
+	)
+}
+
+func activityPercentSceneOutstandingSecondsExprCustom(sceneIDExpr string) string {
+	outstandingSourceSQL := activityPercentSceneOutstandingSourceForTagIDsSQLCustom(sceneIDExpr, activityPercentConfiguredTagIDsCustom())
+	return activityPercentOutstandingSecondsFromSourcesExprCustom(
+		outstandingSourceSQL,
+		activityPercentSceneNegativeSourceSQLCustom(sceneIDExpr),
+	)
+}
+
+func activityPercentSceneStandardSecondsExprCustom(sceneIDExpr string) string {
+	return activityPercentStandardSecondsFromSourcesExprCustom(
+		activityPercentSceneDurationExprCustom(sceneIDExpr),
+		activityPercentSceneOutstandingSourceForTagIDsSQLCustom(sceneIDExpr, activityPercentConfiguredTagIDsCustom()),
+		activityPercentSceneNegativeSourceSQLCustom(sceneIDExpr),
+	)
 }
 
 func activityPercentSceneUnusableSecondsExprCustom(sceneIDExpr string) string {
@@ -346,6 +424,18 @@ func activityPercentFilterHandlerCustom(c *models.ActivityPercentFilterInput, ex
 		activityPercentCriterionHandlerCustom(c.OralPercent, exprFn(activityPercentOralCustom)),
 		activityPercentCriterionHandlerCustom(c.SoloPercent, exprFn(activityPercentSoloCustom)),
 		activityPercentCriterionHandlerCustom(c.OtherPercent, exprFn(activityPercentOtherCustom)),
+		activityPercentCriterionHandlerCustom(c.UnusablePercent, exprFn(activityPercentUnusableCustom)),
+	}
+}
+
+func qualityPercentFilterHandlerCustom(c *models.QualityPercentFilterInput, exprFn func(activityPercentCategoryCustom) string) criterionHandler {
+	if c == nil {
+		return compoundHandler{}
+	}
+
+	return compoundHandler{
+		activityPercentCriterionHandlerCustom(c.OutstandingPercent, exprFn(activityPercentOutstandingCustom)),
+		activityPercentCriterionHandlerCustom(c.StandardPercent, exprFn(activityPercentStandardCustom)),
 		activityPercentCriterionHandlerCustom(c.UnusablePercent, exprFn(activityPercentUnusableCustom)),
 	}
 }

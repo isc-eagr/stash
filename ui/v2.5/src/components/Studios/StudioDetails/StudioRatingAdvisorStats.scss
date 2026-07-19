@@ -1,0 +1,71 @@
+.studio-rating-advisor-stats {
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  margin-top: 2.5rem;
+  padding: 2rem 0 1rem;
+}
+
+.studio-rating-advisor-title {
+  margin-bottom: 1.25rem;
+
+  h2 {
+    font-size: 1.35rem;
+    margin: 0 0 0.35rem;
+  }
+
+  p {
+    color: var(--text-muted, #aeb5bd);
+    margin: 0;
+  }
+}
+
+.studio-rating-advisor-grid {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.studio-rating-advisor-section {
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.35rem;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.studio-rating-advisor-section-header {
+  align-items: baseline;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+
+  h3 {
+    font-size: 1.05rem;
+    margin: 0;
+  }
+
+  span {
+    color: var(--text-muted, #aeb5bd);
+    flex: 0 0 auto;
+    font-size: 0.78rem;
+  }
+}
+
+.studio-rating-advisor-empty {
+  color: var(--text-muted, #aeb5bd);
+  font-size: 0.85rem;
+  padding: 1.25rem 0;
+  text-align: center;
+}
+
+@media (max-width: 767.98px) {
+  .studio-rating-advisor-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studio-rating-advisor-section-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+}

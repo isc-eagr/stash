@@ -417,7 +417,15 @@
 
 .rating-advisor-note {
   color: $text-muted;
-  margin: 0 0 1.15rem;
+  margin: 0;
+}
+
+.rating-advisor-note-row {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1.15rem;
 }
 
 .rating-advisor-section + .rating-advisor-section {
@@ -553,6 +561,17 @@
   span {
     color: $text-muted;
     font-size: 0.85rem;
+  }
+
+  > span {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .btn {
+    align-self: flex-start;
+    margin-top: 0.3rem;
   }
 }
 
@@ -727,6 +746,11 @@
 
   .rating-advisor-save-status {
     text-align: left;
+  }
+
+  .rating-advisor-note-row {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .rating-advisor-metric-header {

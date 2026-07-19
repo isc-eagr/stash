@@ -53,6 +53,7 @@ import { EthnicityCriterionOption } from "./criteria/ethnicity"; // CUSTOM
 import { SceneCustomFiltersCriterionOption } from "./criteria/custom-filters"; // CUSTOM
 import { SceneSceneTypeCriterionOption } from "./criteria/scene-type"; // CUSTOM
 import { ActivityTypeCriterionOptionInstance } from "./criteria/activity-type_custom"; // CUSTOM
+import { QualityTypeCriterionOptionInstance } from "./criteria/quality-type_custom"; // CUSTOM
 
 // CUSTOM: begin - Has Marker Performers criterion option
 const HasMarkerPerformersCriterionOption = new StringBooleanCriterionOption(
@@ -128,6 +129,14 @@ const sortByOptions = [
       value: "other_activity_percent",
     },
     {
+      messageID: "outstanding_activity_percent",
+      value: "outstanding_activity_percent",
+    },
+    {
+      messageID: "standard_activity_percent",
+      value: "standard_activity_percent",
+    },
+    {
       messageID: "unusable_activity_percent",
       value: "unusable_activity_percent",
     },
@@ -180,6 +189,7 @@ const criterionOptions = [
   SceneCustomFiltersCriterionOption, // CUSTOM
   SceneSceneTypeCriterionOption, // CUSTOM
   ActivityTypeCriterionOptionInstance, // CUSTOM
+  QualityTypeCriterionOptionInstance, // CUSTOM
   SceneIsMissingCriterionOption,
   TagsCriterionOption,
   createMandatoryNumberCriterionOption("tag_count"),

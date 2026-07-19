@@ -17,6 +17,44 @@ query FindStudio($id: ID!) {
 }
 
 # CUSTOM: begin
+query FindStudioRatingAdvisorStats($id: ID!, $depth: Int) {
+  findStudio(id: $id) {
+    id
+    studio_rating_advisor_stats(depth: $depth) {
+      solo_scenes {
+        ...StudioRatingAdvisorSectionData
+      }
+      sex_scenes {
+        ...StudioRatingAdvisorSectionData
+      }
+      group_scenes {
+        ...StudioRatingAdvisorSectionData
+      }
+      performers {
+        ...StudioRatingAdvisorSectionData
+      }
+    }
+  }
+}
+
+fragment StudioRatingAdvisorSectionData on StudioRatingAdvisorSectionStats {
+  entity_count
+  criteria {
+    key
+    average_raw_value
+    average_weighted_value
+    average_fill_percent
+    entity_count
+  }
+  adjustments {
+    section
+    key
+    entity_count
+  }
+}
+# CUSTOM: end
+
+# CUSTOM: begin
 query FindStudioPerformerStats($id: ID!, $performerId: ID!, $depth: Int) {
   findStudio(id: $id) {
     id

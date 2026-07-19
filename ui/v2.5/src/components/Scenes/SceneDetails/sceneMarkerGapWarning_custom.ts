@@ -159,6 +159,16 @@ function isSmallOverlap(overlapSeconds: number) {
   );
 }
 
+function isGapCovered(
+  gapStartSeconds: number,
+  gapEndSeconds: number,
+  ranges: SceneMarkerGapRange[]
+) {
+  return ranges.some(
+    (range) => range.start <= gapStartSeconds && range.end >= gapEndSeconds
+  );
+}
+
 function markerType(marker: SceneMarkerGapSceneMarker) {
   return marker.primary_tag?.name || marker.title || "marker";
 }
@@ -301,6 +311,12 @@ function findSceneMarkerGapWarningDetails({
   }
 
   const draftKind = draftMarkerKind(draft, activityTagIds);
+  const allRanges = [
+    ...sceneMarkers.filter((marker) => marker.id !== draft.id).map(markerRange),
+    ...negativeMarkers
+      .filter((marker) => marker.id !== draft.id)
+      .map(negativeMarkerRange),
+  ].filter((range): range is SceneMarkerGapRange => !!range);
   const ranges = [
     ...sceneMarkers
       .filter((marker) => marker.id !== draft.id)
@@ -369,7 +385,8 @@ function findSceneMarkerGapWarningDetails({
   } else if (
     !previousOverlapRange &&
     previousGapRange &&
-    isSmallGap(previousGapSeconds)
+    isSmallGap(previousGapSeconds) &&
+    !isGapCovered(previousGapRange.end, draft.seconds, allRanges)
   ) {
     warnings.previous = {
       issueType: "gap",
@@ -402,7 +419,12 @@ function findSceneMarkerGapWarningDetails({
       adjacentMarkerId: nextOverlapRange.range.markerId,
       adjacentMarkerKind: nextOverlapRange.range.markerKind,
     };
-  } else if (!nextOverlapRange && nextGapRange && isSmallGap(nextGapSeconds)) {
+  } else if (
+    !nextOverlapRange &&
+    nextGapRange &&
+    isSmallGap(nextGapSeconds) &&
+    !isGapCovered(draftEndSeconds, nextGapRange.start, allRanges)
+  ) {
     warnings.next = {
       issueType: "gap",
       issueSeconds: roundToMilliseconds(nextGapSeconds),

@@ -348,7 +348,7 @@ assert.deepEqual(
   "negative markers warn about sub-second gaps after highlight markers"
 );
 
-assert.deepEqual(
+assert.equal(
   findSceneMarkerGapWarnings({
     draft: {
       seconds: 502,
@@ -372,15 +372,38 @@ assert.deepEqual(
     ],
     negativeMarkers: [],
     roleTagIds,
-  })?.previous,
-  {
-    issueType: "gap",
-    issueSeconds: 0.329,
-    markerBoundarySeconds: 501.671,
-    closeToSeconds: 501.672,
-    adjacentMarkerType: "Body",
-  },
-  "large containing activity markers do not hide tiny highlight gaps for negative markers"
+  }),
+  undefined,
+  "markers containing a previous gap suppress its warning regardless of lane"
+);
+
+assert.equal(
+  findSceneMarkerGapWarnings({
+    draft: {
+      ...baseDraft,
+      primary_tag_id: "body",
+    },
+    sceneMarkers: [
+      {
+        id: "next-highlight",
+        seconds: 121,
+        end_seconds: 130,
+        primary_tag: { id: "face", name: "Face" },
+        tags: [],
+      },
+      {
+        id: "activity-covering-next-gap",
+        seconds: 110,
+        end_seconds: 125,
+        primary_tag: { id: "sex", name: "Sex" },
+        tags: [],
+      },
+    ],
+    negativeMarkers: [],
+    roleTagIds,
+  }),
+  undefined,
+  "markers containing a next gap suppress its warning regardless of lane"
 );
 
 assert.equal(

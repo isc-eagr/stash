@@ -25,6 +25,15 @@ input RatingScoreInput {
   label: String
 }
 
+input RatingScoreDeleteInput {
+  "Supported values: scene, performer"
+  entity_type: String!
+  entity_id: ID!
+  "Supported values: criterion, bonus, penalty"
+  section: String!
+  key: String!
+}
+
 type RatingScoreUpdateResult {
   entity_type: String!
   entity_id: ID!
@@ -47,4 +56,9 @@ extend type Query {
 
 extend type Mutation {
   ratingScoreSet(input: RatingScoreInput!): RatingScoreUpdateResult!
+  ratingScoreDelete(input: RatingScoreDeleteInput!): RatingScoreUpdateResult!
+  ratingScoreReset(
+    entity_type: String!
+    entity_id: ID!
+  ): RatingScoreUpdateResult!
 }

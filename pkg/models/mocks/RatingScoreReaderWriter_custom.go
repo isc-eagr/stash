@@ -13,6 +13,11 @@ type RatingScoreReaderWriter struct {
 	mock.Mock
 }
 
+func (_m *RatingScoreReaderWriter) SceneMode(ctx context.Context, sceneID int) (string, error) {
+	ret := _m.Called(ctx, sceneID)
+	return ret.String(0), ret.Error(1)
+}
+
 func (_m *RatingScoreReaderWriter) FindByEntity(ctx context.Context, entityType string, entityID int) ([]*models.RatingScore, error) {
 	ret := _m.Called(ctx, entityType, entityID)
 
@@ -44,6 +49,16 @@ func (_m *RatingScoreReaderWriter) Upsert(ctx context.Context, score *models.Rat
 	}
 
 	return r0
+}
+
+func (_m *RatingScoreReaderWriter) Delete(ctx context.Context, entityType string, entityID int, section string, key string) (bool, error) {
+	ret := _m.Called(ctx, entityType, entityID, section, key)
+	return ret.Bool(0), ret.Error(1)
+}
+
+func (_m *RatingScoreReaderWriter) DeleteByEntity(ctx context.Context, entityType string, entityID int) error {
+	ret := _m.Called(ctx, entityType, entityID)
+	return ret.Error(0)
 }
 
 func (_m *RatingScoreReaderWriter) RecalculateRating(ctx context.Context, entityType string, entityID int) (int, error) {
@@ -84,4 +99,9 @@ func (_m *RatingScoreReaderWriter) ResetSceneScores(ctx context.Context, sceneID
 	}
 
 	return r0, r1
+}
+
+func (_m *RatingScoreReaderWriter) ResetAllSceneScores(ctx context.Context) (int, error) {
+	ret := _m.Called(ctx)
+	return ret.Int(0), ret.Error(1)
 }

@@ -12,6 +12,10 @@ const (
 	RatingScoreSectionCriterion = "criterion"
 	RatingScoreSectionBonus     = "bonus"
 	RatingScoreSectionPenalty   = "penalty"
+
+	RatingSceneModeDefault = "default"
+	RatingSceneModeSolo    = "solo"
+	RatingSceneModeGroup   = "group"
 )
 
 type RatingScore struct {
@@ -37,6 +41,13 @@ type RatingScoreInput struct {
 	Label         *string `json:"label"`
 }
 
+type RatingScoreDeleteInput struct {
+	EntityType string `json:"entity_type"`
+	EntityID   int    `json:"entity_id"`
+	Section    string `json:"section"`
+	Key        string `json:"key"`
+}
+
 type RatingScoreUpdateResult struct {
 	EntityType string         `json:"entity_type"`
 	EntityID   int            `json:"entity_id"`
@@ -46,12 +57,16 @@ type RatingScoreUpdateResult struct {
 
 type RatingScoreReader interface {
 	FindByEntity(ctx context.Context, entityType string, entityID int) ([]*RatingScore, error)
+	SceneMode(ctx context.Context, sceneID int) (string, error)
 }
 
 type RatingScoreWriter interface {
 	Upsert(ctx context.Context, score *RatingScore) error
+	Delete(ctx context.Context, entityType string, entityID int, section string, key string) (bool, error)
+	DeleteByEntity(ctx context.Context, entityType string, entityID int) error
 	RecalculateRating(ctx context.Context, entityType string, entityID int) (int, error)
 	ResetSceneScores(ctx context.Context, sceneID int) (bool, error)
+	ResetAllSceneScores(ctx context.Context) (int, error)
 }
 
 type RatingScoreReaderWriter interface {

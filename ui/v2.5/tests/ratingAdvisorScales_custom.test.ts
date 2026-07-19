@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
+  calculateRatingAdvisorRating100Custom,
   getRatingAdvisorBarSummaryCustom,
   getRatingAdvisorAdjustmentTooltipLabelCustom,
   getRatingAdvisorCompletionCustom,
@@ -14,6 +15,9 @@ import {
   SCENE_USABLE_FACTOR_MAX_CUSTOM,
   SCENE_USABLE_FACTOR_WEIGHT_CUSTOM,
 } from "../src/components/Shared/ratingAdvisorScales_custom.ts";
+
+assert.equal(calculateRatingAdvisorRating100Custom(-2, 1), 1);
+assert.equal(calculateRatingAdvisorRating100Custom(7.25, 2), 75);
 
 assert.equal(
   SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM * 10,

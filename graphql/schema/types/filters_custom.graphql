@@ -343,6 +343,12 @@ input ActivityPercentFilterInput {
   unusable_percent: IntCriterionInput
 }
 
+input QualityPercentFilterInput {
+  outstanding_percent: IntCriterionInput
+  standard_percent: IntCriterionInput
+  unusable_percent: IntCriterionInput
+}
+
 input PerformerActivityPercentFilterInput {
   sex_percent: IntCriterionInput
   oral_percent: IntCriterionInput
@@ -449,12 +455,16 @@ extend input SceneFilterType {
   performer_rating: IntCriterionInput
   "When true, all linked performers must satisfy the performer_rating condition; when false, at least one performer must satisfy it (default: true)."
   performer_rating_all: Boolean
-  "Filter by configured sex/oral/solo activity percentages"
+  "Filter by configured sex/oral/solo/other activity percentages"
   activity_percentages: ActivityPercentFilterInput
+  "Filter by outstanding/standard/unusable quality percentages"
+  quality_percentages: QualityPercentFilterInput
   sex_activity_percent: IntCriterionInput
   oral_activity_percent: IntCriterionInput
   solo_activity_percent: IntCriterionInput
   other_activity_percent: IntCriterionInput
+  outstanding_activity_percent: IntCriterionInput
+  standard_activity_percent: IntCriterionInput
   unusable_activity_percent: IntCriterionInput
 }
 

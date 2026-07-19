@@ -271,17 +271,34 @@ extend type Query {
 
 A widget for tracking progress on tagging tasks. Users can define trackers linked to specific tags and monitor completion progress.
 
-### File
+### Files
 
 **NEW:** `ui/v2.5/src/components/TaskProgress.tsx`
 
+- `ui/v2.5/src/components/taskProgress_custom.ts`
+- `ui/v2.5/src/core/config.ts`
+- `ui/v2.5/tests/taskProgress_custom.test.ts`
+
 ### Features
 
-- Create/edit/delete progress trackers
-- Each tracker has: name, initial count, linked tag
-- Shows current tagged item count vs initial (progress bar)
+- Create, edit, delete, and drag-to-reorder progress trackers
+- Trackers can be marked as currently being worked on; marked cards persist a `Working on` badge and blue highlight
+- Creation asks for a title, description, and linked tag; the goal is automatically captured from the tag's current item count
+- Goals remain fixed until the user explicitly resets one to the current count from the edit dialog; arbitrary numeric goals are not accepted
+- Editing supports the title, description, tag, and the controlled goal reset
+- Shows the current tagged item count vs the fixed goal (progress bar)
 - Linked tags count all directly tagged item types: scenes, scene markers, images, galleries, performers, studios, and groups
-- Persisted in UI configuration
+- Persists the description, goal, tag, and user-defined order in `configuration.ui.taskProgressTrackers`
+- Persists the working-on state alongside each tracker
+- Legacy tracker records using `name` and `initialValue` are normalized to the current shape when loaded
+
+### Tests
+
+- Legacy tracker normalization
+- Goal calculation across every supported tagged item type
+- Drag reorder behavior
+- Working-on state normalization and toggling
+- Fixed-goal progress calculations, including growing and empty backlogs
 
 ---
 
@@ -2728,7 +2745,11 @@ Adds scene and performer rating system buttons next to the detail-page rating di
 Suggested tiers use the same configurable 100-based thresholds as the premium/classic card effects. Scene and performer thresholds are configured separately.
 
 Both scene and performer advisor ratings also include a non-editable orgasm count bonus. For scenes, the bonus is calculated from `scenes_o_dates` as +1 rating point on the 3rd recorded orgasm, then +1 for each orgasm after that. For performers, the bonus is +1 rating point on the 3rd recorded orgasm, then +1 for every 2 orgasms after that.
-When scene o-history is added, deleted, reset, or recorded with a video timestamp, the stored advisor rating is recalculated for that scene and any attached performers that already have persisted advisor scores.
+When scene o-history is added, deleted, reset, or recorded with a video timestamp, the stored advisor rating is recalculated for that scene and any attached performers that already have persisted advisor scores. Performer advisor ratings are also recalculated when scene casts change, including bulk edits, performer deletion, and performer/scene merges.
+
+The server owns the canonical rubric. Score writes validate the entity's current scene/performer mode, section, key, and exact raw-value choice, then derive `weighted_value` instead of trusting the client. Recalculation likewise derives every contribution from canonical raw values. Invalid writes are rejected; legacy persisted values are normalized to the nearest current choice during recalculation. The sparse orgasm-payoff scale accepts only 0, 2, 3, or 4.
+
+Individual answers can be cleared, and Reset advisor removes all advisor rows while preserving the current overall rating. Entering a manual overall rating also removes advisor rows so later lifecycle events cannot unexpectedly reclaim that rating. Zero-valued optional adjustments are deleted instead of persisted, while an intentional zero-valued core answer still counts as advisor ownership.
 
 ### Scene Advisor
 
@@ -2761,9 +2782,11 @@ Group scene bonus section:
 - God-tier orgasm (+1.0 when present)
 - GOAT element (+2.0 when present)
 
-When a cast edit crosses the 3/4-performer boundary, existing advisor rows are removed and the scene rating is set to 0. Manual scene ratings without advisor rows are preserved. The standalone group reset script applies the same reset to existing 4+ performer scenes that already have advisor data. The solo/group rubric migration converts existing solo attractiveness and camera-work values, promotes active solo Outstanding Performance bonuses to the highest main Performance level, merges persisted group energy/coordination answers, clears retired group standout answers, removes Unlikely Top only from 4+ performer group scenes, and adjusts affected stored scene ratings by the exact contribution delta.
+When a cast edit crosses the 3/4-performer boundary, existing advisor rows are removed and the scene rating is set to 0. Marker create/update/delete/bulk operations apply the same policy when a scene changes between default and solo mode. Changing the configured sex/oral/solo role-tag IDs resets every score-owned scene advisor because the mode definition itself changed. Manual scene ratings without advisor rows are preserved. The standalone group reset script applies the same reset to existing 4+ performer scenes that already have advisor data. The solo/group rubric migration converts existing solo attractiveness and camera-work values, promotes active solo Outstanding Performance bonuses to the highest main Performance level, merges persisted group energy/coordination answers, clears retired group standout answers, removes Unlikely Top only from 4+ performer group scenes, and adjusts affected stored scene ratings by the exact contribution delta.
 
-The rating advisor uses a responsive box grid instead of one long control stack. Criteria are shown as at-a-glance cards with one accessible choice-button control, visible hover/focus descriptions, a real unrated state, completion progress, provisional scoring until every criterion is answered, and per-card autosave feedback. The selected choice alone uses a relative heat scale from neutral gray at zero through yellow and orange to red at the highest value, including shorter non-0-5 scales. Bonuses and penalties use compact accessible switches, while the recorded-orgasm bonus is a compact read-only row. The modal has one Close action, a header close button, Escape support, high-contrast unselected choices, and a calculation summary colored with the configured classic/premium rating tier theme. Rating hints and choice descriptions use shorter, casual language that matches the rest of the custom UI. Hovering or focusing the advisor rating button, or the painted rating star on scene and performer cards, opens a compact vertical rating summary. Each criterion uses the same gray-yellow-orange-red heat scale and a normalized bar length so relative strengths are immediately comparable, with its exact signed contribution to the final 0-100 rating shown beside the name; a zero answer leaves the bar completely empty. Active bonuses and the automatic orgasm-count bonus use green check icons; active penalties use red octagonal traffic signs with a white minus. These adjustment rows use popup-only one- or two-word labels, retain their signed final-rating contributions without changing advisor wording, and use a compact two-column layout. Card summaries fetch their advisor data lazily on first hover. Scene and performer card selection checkboxes sit in the lower-left corner so they remain separate from the rating star and its hover target.
+Scene rating recalculation derives each contribution from the current criterion scale and clamped raw answer instead of trusting a persisted `weighted_value` from an older rubric. Mode-specific allowlists continue to exclude retired keys even if an obsolete row is inserted or restored. The retired-score cleanup script deletes the old `performerAppeal`, `cameraWork`, `groupParticipation`, `groupStandout`, `largeGroup`, `outstandingPerformance`, and `standoutAct` rows, normalizes legacy 0-10 Energy values to the current 0-5 scale, and recalculates affected stored scene ratings from current allowed keys.
+
+The rating advisor uses a responsive box grid instead of one long control stack. Criteria are shown as at-a-glance cards with one accessible choice-button control, visible hover/focus descriptions, a real unrated state, completion progress, provisional scoring until every criterion is answered, per-card autosave feedback, per-answer Clear actions, and a whole-advisor reset action. The selected choice alone uses a relative heat scale from neutral gray at zero through yellow and orange to red at the highest value, including shorter non-0-5 scales. Bonuses and penalties use compact accessible switches, while the recorded-orgasm bonus is a compact read-only row. The modal distinguishes automatic-bonus loading and query errors from a true zero count, uses the authoritative score/rating returned by mutations, and calculates provisional ratings in the same clamp-then-bonus order as the backend. The modal has one Close action, a header close button, Escape support, high-contrast unselected choices, and a calculation summary colored with the configured classic/premium rating tier theme. Rating hints and choice descriptions use shorter, casual language that matches the rest of the custom UI. Hovering or focusing the advisor rating button, or the painted rating star on scene and performer cards, opens a compact vertical rating summary. Each criterion uses the same gray-yellow-orange-red heat scale and a normalized bar length so relative strengths are immediately comparable, with its exact signed contribution to the final 0-100 rating shown beside the name; a zero answer leaves the bar completely empty. Active bonuses and the automatic orgasm-count bonus use green check icons; active penalties use red octagonal traffic signs with a white minus. These adjustment rows use popup-only one- or two-word labels, retain their signed final-rating contributions without changing advisor wording, and use a compact two-column layout. Card summaries fetch their advisor data lazily on first hover. Scene and performer card selection checkboxes sit in the lower-left corner so they remain separate from the rating star and its hover target.
 
 Bonus section:
 
@@ -2832,6 +2855,14 @@ The Scenes filter exposes regular, solo, and group criteria as distinct persiste
 
 Performer rating criteria include a feminine performer penalty, exposed both in the performer Rating Advisor and the performer Rating Criteria filter.
 
+### Studio Rating Advisor Averages
+
+The Studio detail Stats tab includes four Rating Advisor summaries for solo scenes, 2-3 performer sex scenes, 4+ performer group scenes, and the studio's distinct performers. Each criterion uses the same normalized heat bar as the scene/performer rating popup and shows its average rating-point contribution plus the number of entities contributing to that specific average. Missing criteria are excluded per bar, while an intentionally answered zero remains part of the average. Only scenes or performers with at least one criterion from the matching rubric qualify for a section.
+
+Active persisted bonuses and penalties show counts of qualifying scenes or performers, and the automatic recorded-orgasm bonus is counted using the same three-orgasm activation threshold as the popup. Performer criteria and automatic orgasm bonuses remain global performer values, while studio membership comes from the studio's distinct scene performers. The existing Include Subsidiary Studio Content toggle controls whether direct child studios are included.
+
+GraphQL adds `StudioRatingAdvisorStats`, section/criterion/adjustment payload types, and `Studio.studio_rating_advisor_stats(depth:)`. The resolver uses one set-based SQLite aggregate rather than loading full scene/performer cards or issuing one rating query per entity. `TestStudioRatingAdvisorStatsCustomAveragesOnlySetCriteria` executes the aggregate against representative direct/child studio data and covers partial criteria denominators, intentional zero answers, normalized fills, 2-3 performer classification, distinct performers, active adjustments, and the automatic orgasm-count bonus.
+
 ### Files Modified
 
 - `ui/v2.5/src/components/Shared/RatingAdvisor_custom.tsx` - Shared rating modal, scoring definitions, persistence mutation, and button component
@@ -2849,11 +2880,17 @@ Performer rating criteria include a feminine performer penalty, exposed both in 
 - `ui/v2.5/src/index.scss` - Imports advisor styling
 - `ui/v2.5/src/components/List/styles.scss` - Adds layout for the combined rating criteria filter
 - `graphql/schema/types/filters_custom.graphql` - Adds `rating_criteria` scene/performer filter input
+- `graphql/schema/types/rating_custom.graphql` - Adds canonical score persistence plus individual delete and whole-advisor reset mutations
+- `internal/api/resolver_mutation_scene.go`, `internal/api/resolver_mutation_performer.go`, `internal/api/resolver_mutation_configure.go` - Keeps advisor ownership and dependent ratings synchronized across manual ratings, casts, markers, deletion, merges, and role-tag configuration changes
+- `rating_scores.up.sql` - Rejects invalid entity types and orphan score rows, and removes score rows automatically when scenes or performers are deleted
 - `pkg/models/scene.go`, `pkg/models/performer.go` - Adds rating criteria filter fields
 - `pkg/sqlite/scene_filter.go`, `pkg/sqlite/performer_filter.go` - Hooks rating criteria filters into scene/performer queries
 - `pkg/sqlite/rating_criteria_filter_custom_test.go` - Covers group key isolation plus numeric and presence filter operators
 - `ui/v2.5/src/models/list-filter/scenes.ts`, `ui/v2.5/src/models/list-filter/performers.ts` - Registers rating criteria filter options
 - `ui/v2.5/src/locales/en-GB.json`, `ui/v2.5/src/locales/en-US.json` - Adds rating criteria filter labels
+- `graphql/schema/types/studio_custom.graphql` - Adds Studio Rating Advisor aggregate payloads and the depth-aware Studio field
+- `ui/v2.5/graphql/queries/studio.graphql` - Adds the lazy Studio Rating Advisor Stats query and shared section fragment
+- `ui/v2.5/src/components/Studios/StudioDetails/StudioStatsPanel.tsx` - Renders the four rating summaries below the activity charts
 
 ### Files Added
 
@@ -2869,11 +2906,16 @@ Performer rating criteria include a feminine performer penalty, exposed both in 
 - `rating_rebalance_scene_energy_usable_factor_custom.sql` - Reweights regular-scene Energy answers from 30 to 20 maximum points, removes retired Standout answers, and recalculates affected scene ratings
 - `rating_increase_no_orgasm_penalty_custom.sql` - Increases active scene No orgasm penalties from -10 to -20 and subtracts the additional 10 points from affected scene ratings
 - `rating_rebalance_solo_group_rubrics_custom.sql` - Converts persisted solo/group rubric rows, removes retired mode-specific values, and updates affected scene ratings by their exact score deltas
+- `rating_cleanup_retired_scene_scores_custom.sql` - Purges all retired scene-advisor keys, normalizes legacy Energy rows, and recalculates affected scenes from current mode-specific allowlists
 - `graphql/schema/types/rating_custom.graphql` - Rating score GraphQL types, mutation, and read-only orgasm-count query
 - `internal/api/resolver_rating_score_custom.go` - Rating score query/mutation resolvers
-- `internal/api/resolver_rating_score_custom_test.go` - Verifies the 4-performer threshold, group priority, and boundary-reset decisions
+- `internal/api/resolver_rating_score_custom_test.go` - Verifies ownership semantics, cast/mode/config resets, delete behavior, and rating-preserving whole-advisor resets
 - `pkg/models/rating_score_custom.go` - Generic rating score model and repository interfaces
 - `pkg/sqlite/rating_score_custom.go` - SQLite score store and rating recalculation logic
+- `pkg/sqlite/rating_score_calculation_custom.go` - Canonical scene and performer rubrics, exact write validation, and contribution calculation that ignores client/persisted weights
+- `pkg/sqlite/rating_score_calculation_custom_test.go` - Covers sparse payoff choices, invalid inputs, legacy normalization, canonical scene/performer contributions, and retired-key exclusion
+- `pkg/sqlite/rating_score_scripts_custom_test.go` - Executes the schema and maintenance SQL against representative data, including orphan prevention, delete cleanup, clamp order, and performer-bonus cleanup
+- `pkg/sqlite/rating_cleanup_retired_scene_scores_custom_test.go` - Reproduces scene 3571's 92/76 mismatch and verifies cleanup, mode isolation, and rerun safety
 - `pkg/models/rating_criteria_filter_custom.go` - Generic rating criteria filter input models
 - `pkg/sqlite/rating_criteria_filter_custom.go` - Shared SQLite predicates for criteria/bonus/penalty filters
 - `ui/v2.5/src/models/list-filter/criteria/rating-criteria_custom.ts` - Frontend rating criteria filter criterion classes
@@ -2884,6 +2926,10 @@ Performer rating criteria include a feminine performer penalty, exposed both in 
 - `ui/v2.5/tests/soloSceneRating_custom.test.ts` - Verifies the solo 50/30/20 scoring total and persisted keys
 - `pkg/sqlite/rating_rebalance_solo_group_custom_test.go` - Executes the standalone migration against representative solo, group, and regular-scene rows, including rerun safety and group-only bonus removal
 - `ui/v2.5/src/components/Performers/performerTypes_custom.ts` - Shared performer list/card data type for the lean list query
+- `internal/api/studio_rating_advisor_stats_custom.go` - Set-based studio rubric aggregate, per-criterion denominator handling, normalized bar averages, and adjustment counts
+- `internal/api/studio_rating_advisor_stats_custom_test.go` - Focused SQLite aggregate coverage for direct/child studios and partial advisor data
+- `ui/v2.5/src/components/Studios/StudioDetails/StudioRatingAdvisorStats.tsx` - Four responsive popup-style Rating Advisor average sections
+- `ui/v2.5/src/components/Studios/StudioDetails/StudioRatingAdvisorStats.scss` - Studio Rating Advisor section layout and responsive styling
 
 ---
 
@@ -2925,21 +2971,22 @@ deploy_prod_custom.bat -SkipStart
 
 Adds marker-duration stats for configured sex, oral, solo, other, outstanding, standard, and unusable activity percentages. The activity strip has two rows: Sex/Oral/Solo/Other and Outstanding/Standard/Unusable. Sex/oral/solo activity is based on markers whose primary tag exactly matches the configured role tag, even when the marker also has secondary tags. Same-category overlaps are merged, cross-category overlaps count toward each category, and activity Other is runtime without a sex/oral/solo marker. Outstanding is any timed marker that is not a configured sex/oral/solo primary marker, or a configured sex/oral/solo primary marker with secondary tags. Standard is unmarked runtime or plain configured sex/oral/solo runtime not overlapped by Outstanding, and negative marker/Skip ranges are merged into Unusable without double-counting overlaps.
 
-Studio cards and studio detail pages show the two-row activity strip using the total selected scene length as 100%, including unmarked scenes so Standard can represent untagged runtime. Performer-scoped studio cards use performer-filtered activity stats for the strip, with Unusable calculated from negative marker ranges in scenes containing that performer. Performer detail pages include a Stats tab with an activity pie chart and a selected-activity top/bottom role split chart. Scene and studio detail pages include Stats tabs with separate Activity Type and Quality donut charts. The Scene Stats tab also shows a By Performer breakdown with per-activity top/bottom pie charts; chart-local checkboxes can add sex/oral/solo/other/outstanding/standard segments to the multi-segment loop while leaving Unusable read-only. One-millisecond Standard intervals are treated as closed gaps and are not added to the loop. Scene and studio list pages include a combined Activity Percentage filter plus individual sex/oral/solo/other/unusable percentage sort options; performer list pages retain marker-owned activity percentage filters and sorts only.
+Studio cards and studio detail pages show the two-row activity strip using the total selected scene length as 100%, including unmarked scenes so Standard can represent untagged runtime. Performer-scoped studio cards use performer-filtered activity stats for the strip, with Unusable calculated from negative marker ranges in scenes containing that performer. Performer detail pages include a Stats tab with an activity pie chart and a selected-activity top/bottom role split chart. Scene and studio detail pages include Stats tabs with separate Activity Type and Quality donut charts. The Scene Stats tab also shows a By Performer breakdown with per-activity top/bottom pie charts; chart-local checkboxes can add sex/oral/solo/other/outstanding/standard segments to the multi-segment loop while leaving Unusable read-only. One-millisecond Standard intervals are treated as closed gaps and are not added to the loop. Scene list pages expose separate combined Activity Percentage (Sex/Oral/Solo/Other) and Quality Percentage (Outstanding/Standard/Unusable) filters, plus individual sort options for all seven percentages. Studio list pages retain the combined Activity Percentage filter and sex/oral/solo/other/unusable sorts; performer list pages retain marker-owned activity percentage filters and sorts only.
 
 ### Files Modified
 
 - `graphql/schema/types/performer_custom.graphql` - Adds `PerformerActivityStats`
 - `graphql/schema/types/studio_custom.graphql` - Adds `StudioActivityStats`
-- `graphql/schema/types/filters_custom.graphql` - Adds activity percentage filters
+- `graphql/schema/types/filters_custom.graphql` - Adds activity and Scene quality percentage filters
 - `internal/api/activity_stats_custom.go` - Duration stats resolvers and interval merge helpers
-- `pkg/sqlite/activity_percent_filter_custom.go` - SQL activity percentage filter/sort expressions
+- `pkg/models/activity_percent_filter_custom.go` - Activity and quality percentage filter input models
+- `pkg/sqlite/activity_percent_filter_custom.go` - SQL activity/quality percentage filter and sort expressions
 - `pkg/sqlite/scene.go`, `pkg/sqlite/performer.go`, `pkg/sqlite/studio.go` - Activity percentage sort options
 - `ui/v2.5/graphql/data/performer.graphql` - Fetches performer activity stats
 - `ui/v2.5/graphql/data/studio.graphql` - Fetches studio activity stats
 - `ui/v2.5/graphql/queries/studio.graphql` - Fetches performer-filtered studio activity stats
 - `ui/v2.5/graphql/data/scene-slim.graphql` - Fetches negative marker timing for scene-card Unusable percentages
-- `ui/v2.5/src/models/list-filter/scenes.ts`, `performers.ts`, `studios.ts` - Activity Percentage filter and sort options
+- `ui/v2.5/src/models/list-filter/scenes.ts`, `performers.ts`, `studios.ts` - Activity and Scene Quality Percentage filter/sort options
 - `ui/v2.5/src/models/list-filter/criteria/activity-type_custom.ts`, `ui/v2.5/src/components/List/Filters/ActivityTypeFilter_custom.tsx` - Combined activity percentage filter UI
 - `ui/v2.5/src/components/Performers/PerformerCard.tsx` - Sort-specific activity percentage display
 - `ui/v2.5/src/components/Shared/styles.scss` - Shared activity pie chart styling
@@ -2957,6 +3004,8 @@ Studio cards and studio detail pages show the two-row activity strip using the t
 - `ui/v2.5/src/components/Performers/PerformerDetails/PerformerStatsPanel.tsx`
 - `ui/v2.5/src/components/Scenes/SceneDetails/SceneStatsPanel.tsx`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneStatsLoopSegments_custom.ts`
+- `ui/v2.5/src/models/list-filter/criteria/quality-type_custom.ts`
+- `ui/v2.5/src/components/List/Filters/QualityTypeFilter_custom.tsx`
 - `ui/v2.5/src/components/Shared/ActivityPieChart_custom.tsx`
 - `ui/v2.5/src/components/Studios/StudioDetails/StudioStatsPanel.tsx`
 - `ui/v2.5/src/components/Studios/StudioActivityMetricsStrip.tsx`
@@ -2965,6 +3014,7 @@ Studio cards and studio detail pages show the two-row activity strip using the t
 ### Test Cases
 
 - `internal/api/activity_stats_custom_test.go` - Verifies merged interval duration, interval subtraction for exclusive quality metrics, activity Other runtime, and legacy Other runtime excluding overlapping sex/oral/solo or Unusable ranges
+- `pkg/sqlite/activity_percent_quality_filter_custom_test.go` - Verifies Outstanding/Standard/Unusable SQL percentages are overlap-safe, mutually exclusive, and partition the full Scene runtime
 - `ui/v2.5/tests/sceneStatsLoopSegments_custom.test.ts` - Verifies one-millisecond closed gaps are not emitted as multi-segment loop segments
 
 ---
@@ -3241,7 +3291,7 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 
 ### Overview
 
-Adds a warning to the scene marker and negative marker create/edit forms when the current start/end times would leave a 3-second-or-less unmarked gap or marker overlap next to the nearest relevant marker range. The warning identifies the preceding/following marker type, displays the gap/overlap length in milliseconds, can close the previous issue by moving the marker start to one millisecond after the previous marker ends, close the next issue by moving the marker end to one millisecond before the next marker starts, or close both when both sides qualify. Scene marker warnings can also close the previous/next issue by adjusting the adjacent marker instead, including a "Fix both on other marker" batch action when both adjacent markers are known. One-millisecond gaps are treated as already closed.
+Adds a warning to the scene marker and negative marker create/edit forms when the current start/end times would leave a 3-second-or-less unmarked gap or marker overlap next to the nearest relevant marker range. Tiny-gap warnings are suppressed when any other scene or negative marker covers the gap, regardless of marker lane. The warning identifies the preceding/following marker type, displays the gap/overlap length in milliseconds, can close the previous issue by moving the marker start to one millisecond after the previous marker ends, close the next issue by moving the marker end to one millisecond before the next marker starts, or close both when both sides qualify. Scene marker warnings can also close the previous/next issue by adjusting the adjacent marker instead, including a "Fix both on other marker" batch action when both adjacent markers are known. One-millisecond gaps are treated as already closed.
 
 Markers are checked in separate lanes. Activity markers based on configured sex, oral, and solo `roleTagIds` warn about small gaps or overlaps with other activity markers and negative markers. Highlight markers warn about small gaps or overlaps with other highlight markers and negative markers. Negative markers warn about small gaps or overlaps with activity markers, highlight markers, and other negative markers. Descendant activity tags already present on loaded marker data are treated as activity markers.
 
@@ -3271,6 +3321,7 @@ Markers are checked in separate lanes. Activity markers based on configured sex,
 - Verifies gaps larger than three seconds are ignored.
 - Verifies overlaps larger than three seconds are ignored.
 - Verifies warnings expose both adjacent marker fixes for the batch other-marker action.
+- Verifies tiny-gap warnings are suppressed when a marker from any lane covers the previous or next gap.
 
 ### GraphQL Schema Changes
 
@@ -3302,7 +3353,7 @@ The Create Marker, Add to Loop, and Open in Viewer toolbar sticks to the top of 
 
 Marker rows and `/scenes/markers` marker cards display direct primary tags, direct secondary tags, context-overlap tags, and hierarchy-inferred parent tags with distinct badge colors. Parent tags are collapsed behind a small `+N` toggle by default, and they are also included in scene-local tag search options, so a marker tagged with a child tag can be searched by its parent tag. Duplicate tags only render once at the highest available tier: primary, then secondary, then overlap, then parent.
 
-Scene detail pages also include an icon toggle beside the scene tabs that hides the scene overview/header block, allowing the active tab panel to use the full vertical space of the left column. The scene player scrubber marker tags and timeline marker tooltips use the same performer/tag-card hover presentation as the Markers tab pills. Timeline tooltips use the same containment-derived performer tags as the Markers tab, including one performer tile with both role colors when the same performer has top and bottom tags across overlapping markers. This applies to outstanding/highlight and Activity Type markers: a smaller fully-contained activity marker inherits the containing activity marker's tags and roles, while the larger marker does not inherit tags from a marker that covers only part of its range. Fullscreen player controls hide on idle even while paused. Clicking a scene player scrubber marker performs a one-shot focus into the Markers tab, so later filter/edit changes do not keep auto-scrolling back to that marker.
+Scene detail pages also include an icon toggle beside the scene tabs that hides the scene overview/header block, allowing the active tab panel to use the full vertical space of the left column. The scene player scrubber marker tags and timeline marker tooltips use the same performer/tag-card hover presentation as the Markers tab pills. Timeline tooltips use the same containment-derived performer tags as the Markers tab, including one performer tile with both role colors when the same performer has top and bottom tags across overlapping markers. This applies to outstanding/highlight and Activity Type markers: a smaller fully-contained activity marker inherits the containing activity marker's tags and roles, while the larger marker does not inherit tags from a marker that covers only part of its range. Fullscreen player controls hide on idle even while paused. Clicking a scene player scrubber marker performs a one-shot focus into the Markers tab, so later filter/edit changes do not keep auto-scrolling back to that marker. The focused marker or its rendered Activity Type group glows blue for 10 seconds, including current-playback and Royal Sapphire/GOAT-themed activity pills. Marker focus scrolls only the tab content, keeping the scene tab rows visible when the panel is vertically expanded.
 
 ### Files Modified
 
@@ -3345,6 +3396,7 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - `ui/v2.5/src/components/Scenes/SceneCard.tsx`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerLayoutPreference_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerSelection_custom.ts`
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerFocusScroll_custom.ts`
 - `ui/v2.5/scene_markers_panel_poc_custom.html`
 - `ui/v2.5/tests/sceneMarkerActivityType_custom.test.ts`
 - `ui/v2.5/tests/sceneMarkerChronologyLayout_custom.test.ts`
@@ -3352,6 +3404,7 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - `ui/v2.5/tests/sceneMarkerLayoutPreference_custom.test.ts`
 - `ui/v2.5/tests/sceneMarkerTimelineHover_custom.test.ts`
 - `ui/v2.5/tests/sceneMarkerSelection_custom.test.ts`
+- `ui/v2.5/tests/sceneMarkerFocusScroll_custom.test.ts`
 
 ### Test Cases Added
 
@@ -3383,6 +3436,7 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - Verifies outstanding timeline marker hovers inherit overlapping performer tags, mixed top/bottom roles share one performer tile, dual-role Activity Type markers share one tile, contained Activity Type markers inherit their containing marker's role tags, and the containing marker does not inherit from the smaller range.
 - Verifies parent selection scopes report none, partial/indeterminate, and all-selected states while deduplicating repeated layout marker IDs.
 - Verifies selection counts distinguish visible items from markers hidden by active scene-local filters.
+- Verifies desktop scrubber marker focus prefers an exact marker pill, falls back to its rendered Activity Type group when the individual pill is hidden, uses the scene tab scroll area, retains normal page scrolling in non-scrolling layouts, centers within the tab, and clamps at its top boundary.
 
 ### GraphQL Schema Changes
 

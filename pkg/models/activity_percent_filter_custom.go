@@ -8,6 +8,12 @@ type ActivityPercentFilterInput struct {
 	UnusablePercent *IntCriterionInput `json:"unusable_percent,omitempty"`
 }
 
+type QualityPercentFilterInput struct {
+	OutstandingPercent *IntCriterionInput `json:"outstanding_percent,omitempty"`
+	StandardPercent    *IntCriterionInput `json:"standard_percent,omitempty"`
+	UnusablePercent    *IntCriterionInput `json:"unusable_percent,omitempty"`
+}
+
 type PerformerActivityPercentFilterInput struct {
 	SexPercent        *IntCriterionInput `json:"sex_percent,omitempty"`
 	OralPercent       *IntCriterionInput `json:"oral_percent,omitempty"`

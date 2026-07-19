@@ -17,3 +17,43 @@ mutation RatingScoreSet($input: RatingScoreInput!) {
     }
   }
 }
+
+mutation RatingScoreDelete($input: RatingScoreDeleteInput!) {
+  ratingScoreDelete(input: $input) {
+    entity_type
+    entity_id
+    rating100
+    scores {
+      id
+      entity_type
+      entity_id
+      section
+      key
+      raw_value
+      weighted_value
+      label
+      created_at
+      updated_at
+    }
+  }
+}
+
+mutation RatingScoreReset($entity_type: String!, $entity_id: ID!) {
+  ratingScoreReset(entity_type: $entity_type, entity_id: $entity_id) {
+    entity_type
+    entity_id
+    rating100
+    scores {
+      id
+      entity_type
+      entity_id
+      section
+      key
+      raw_value
+      weighted_value
+      label
+      created_at
+      updated_at
+    }
+  }
+}

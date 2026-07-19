@@ -676,6 +676,7 @@ func (r *mutationResolver) GenerateAPIKey(ctx context.Context, input GenerateAPI
 
 func (r *mutationResolver) ConfigureUI(ctx context.Context, input map[string]interface{}, partial map[string]interface{}) (map[string]interface{}, error) {
 	c := config.GetInstance()
+	previousRatingRoleTagIDs := ratingAdvisorRoleTagIDsCustom(c.GetUIConfiguration()) // CUSTOM
 
 	if input != nil {
 		// #5483 - convert JSON numbers to float64 or int64
@@ -694,6 +695,10 @@ func (r *mutationResolver) ConfigureUI(ctx context.Context, input map[string]int
 
 	if err := c.Write(); err != nil {
 		return c.GetUIConfiguration(), err
+	}
+	// CUSTOM: Reset score-owned scene ratings when the tags defining solo mode change.
+	if err := r.resetSceneAdvisorsAfterRoleTagConfigChangeCustom(ctx, previousRatingRoleTagIDs, c.GetUIConfiguration()); err != nil {
+		return c.GetUIConfiguration(), fmt.Errorf("resetting scene rating advisors after role tag configuration change: %w", err)
 	}
 
 	return c.GetUIConfiguration(), nil
