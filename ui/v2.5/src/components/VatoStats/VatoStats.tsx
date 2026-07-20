@@ -11,6 +11,7 @@ import { useConfigurationContext } from "src/hooks/Config";
 import { useTitleProps } from "src/hooks/title";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import NavUtils from "src/utils/navigation";
+import { metallicRatingChartBucket } from "src/utils/metallicRatingChart_custom";
 import { statsCountryName } from "src/utils/statsCountry_custom";
 import {
   formatStatsDrilldownTotal,
@@ -692,36 +693,6 @@ function numericSortFromLabel(label: string) {
   return Number.isFinite(first) ? first : Number.MAX_SAFE_INTEGER;
 }
 
-function metallicRatingLabel(value?: string | null) {
-  switch (value) {
-    case "bronze":
-      return "Bronze";
-    case "silver":
-      return "Silver";
-    case "gold":
-      return "Gold";
-    case "royal_sapphire":
-      return "Royal Sapphire";
-    default:
-      return undefined;
-  }
-}
-
-function metallicRatingSort(value?: string | null) {
-  switch (value) {
-    case "bronze":
-      return 1;
-    case "silver":
-      return 2;
-    case "gold":
-      return 3;
-    case "royal_sapphire":
-      return 4;
-    default:
-      return Number.MAX_SAFE_INTEGER;
-  }
-}
-
 function chartSortValue(
   performer: VatoStatsPerformer,
   category: ChartCategory,
@@ -732,7 +703,12 @@ function chartSortValue(
     case "rating":
       return numericSortFromLabel(value ?? "");
     case "metallic_rating":
-      return metallicRatingSort(performer.metallic_rating);
+      return (
+        metallicRatingChartBucket(
+          performer.rating100,
+          performer.metallic_rating
+        )?.sortValue ?? Number.MAX_SAFE_INTEGER
+      );
     case "penis": {
       const numericValue = Number(value);
       return Number.isFinite(numericValue)
@@ -751,7 +727,10 @@ function categoryValue(performer: VatoStatsPerformer, category: ChartCategory) {
     case "rating":
       return bucketRating(performer.rating100);
     case "metallic_rating":
-      return metallicRatingLabel(performer.metallic_rating);
+      return metallicRatingChartBucket(
+        performer.rating100,
+        performer.metallic_rating
+      )?.key;
     case "height":
       return bucketByFives(performer.height_cm);
     case "country":
@@ -994,6 +973,13 @@ function buildChartData(
     let label = value ?? "Unknown";
     if (category === "penis" && value) label = `${value} cm`;
     if (category === "country") label = statsCountryName(value);
+    if (category === "metallic_rating") {
+      label =
+        metallicRatingChartBucket(
+          performer.rating100,
+          performer.metallic_rating
+        )?.label ?? label;
+    }
     addDatum(
       buckets,
       key,

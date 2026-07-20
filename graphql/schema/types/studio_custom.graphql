@@ -55,11 +55,13 @@ type StudioRatingAdvisorAdjustmentCount {
 
 type StudioRatingAdvisorSectionStats {
   entity_count: Int!
+  average_rating100: Float
   criteria: [StudioRatingAdvisorCriterionAverage!]!
   adjustments: [StudioRatingAdvisorAdjustmentCount!]!
 }
 
 type StudioRatingAdvisorStats {
+  overall_scene_average_rating100: Float
   solo_scenes: StudioRatingAdvisorSectionStats!
   sex_scenes: StudioRatingAdvisorSectionStats!
   group_scenes: StudioRatingAdvisorSectionStats!

@@ -675,7 +675,16 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
         {/* CUSTOM: end */}
       </div>
 
-      <Tab.Content>
+      {/* CUSTOM: preserve Bootstrap row gutters in the clipped upstream panes */}
+      <Tab.Content
+        className={cx({
+          "scene-tab-content-bootstrap-gutters": ![
+            "scene-negative-markers-panel",
+            "scene-releases-panel",
+            "scene-stats-panel",
+          ].includes(activeTabKey),
+        })}
+      >
         <ScenePageTabContent {...props}>
           <Tab.Pane eventKey="scene-details-panel">
             <SceneDetailPanel scene={scene} />

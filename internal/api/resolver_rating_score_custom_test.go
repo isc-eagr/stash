@@ -16,6 +16,14 @@ func TestUsesGroupSceneRatingCustom(t *testing.T) {
 	require.True(t, usesGroupSceneRatingCustom(8))
 }
 
+func TestCastSceneRatingModeCustom(t *testing.T) {
+	require.Equal(t, models.RatingSceneModeDefault, castSceneRatingModeCustom(0))
+	require.Equal(t, models.RatingSceneModeSolo, castSceneRatingModeCustom(1))
+	require.Equal(t, models.RatingSceneModeDefault, castSceneRatingModeCustom(2))
+	require.Equal(t, models.RatingSceneModeDefault, castSceneRatingModeCustom(3))
+	require.Equal(t, models.RatingSceneModeGroup, castSceneRatingModeCustom(4))
+}
+
 func TestHasEffectiveRatingAdvisorScoresCustom(t *testing.T) {
 	require.False(t, hasEffectiveRatingAdvisorScoresCustom([]*models.RatingScore{{
 		Section:  models.RatingScoreSectionBonus,
@@ -42,6 +50,21 @@ func TestSyncSceneAdvisorAfterCastChangeCustom(t *testing.T) {
 	}
 
 	err := resolver.syncSceneAdvisorAfterCastChangeCustom(context.Background(), 1, []int{1, 2, 3})
+	require.NoError(t, err)
+	db.AssertExpectations(t)
+}
+
+func TestSyncSceneAdvisorAfterCastChangeResetsAtSoloBoundaryCustom(t *testing.T) {
+	db := mocks.NewDatabase()
+	resolver := newResolver(db)
+	db.Scene.On("GetPerformerIDs", mock.Anything, 1).Return([]int{2}, nil).Once()
+	db.RatingScore.On("ResetSceneScores", mock.Anything, 1).Return(true, nil).Once()
+	for _, performerID := range []int{1, 2, 3} {
+		db.RatingScore.On("FindByEntity", mock.Anything, models.RatingEntityPerformer, performerID).
+			Return([]*models.RatingScore{}, nil).Once()
+	}
+
+	err := resolver.syncSceneAdvisorAfterCastChangeCustom(context.Background(), 1, []int{1, 3})
 	require.NoError(t, err)
 	db.AssertExpectations(t)
 }
@@ -152,6 +175,30 @@ func TestRatingScoreResetPreservesCurrentRating(t *testing.T) {
 	result, err := resolver.Mutation().RatingScoreReset(context.Background(), models.RatingEntityPerformer, "8")
 	require.NoError(t, err)
 	require.Equal(t, 83, result.Rating100)
+	require.Empty(t, result.Scores)
+	db.AssertExpectations(t)
+}
+
+func TestRatingScoreResetClearsSceneToNoRating(t *testing.T) {
+	db := mocks.NewDatabase()
+	resolver := newResolver(db)
+	rating := 10
+	db.Scene.On("Find", mock.Anything, 8752).Return(&models.Scene{ID: 8752, Rating: &rating}, nil).Once()
+	db.RatingScore.On("DeleteByEntity", mock.Anything, models.RatingEntityScene, 8752).Return(nil).Once()
+	db.Scene.On(
+		"UpdatePartial",
+		mock.Anything,
+		8752,
+		mock.MatchedBy(func(partial models.ScenePartial) bool {
+			return partial.Rating.Set && partial.Rating.Null && partial.Rating.Ptr() == nil
+		}),
+	).Return(&models.Scene{ID: 8752}, nil).Once()
+	db.RatingScore.On("FindByEntity", mock.Anything, models.RatingEntityScene, 8752).Return([]*models.RatingScore{}, nil).Once()
+	db.Scene.On("Find", mock.Anything, 8752).Return(&models.Scene{ID: 8752}, nil).Once()
+
+	result, err := resolver.Mutation().RatingScoreReset(context.Background(), models.RatingEntityScene, "8752")
+	require.NoError(t, err)
+	require.Zero(t, result.Rating100)
 	require.Empty(t, result.Scores)
 	db.AssertExpectations(t)
 }

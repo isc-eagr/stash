@@ -1,0 +1,6 @@
+# CUSTOM
+query FindTaskProgressTrackers {
+  findTaskProgressTrackers {
+    ...TaskProgressTrackerData
+  }
+}

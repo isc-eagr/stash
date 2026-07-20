@@ -197,7 +197,7 @@ const sceneMetrics: IAdvisorMetric[] = [
   },
   {
     key: "theme",
-    title: "Theme / fantasy / uniform factor",
+    title: "Uniform/setting factor",
     max: 0.5,
     section: "bonus",
     hint: "Flip it on when the fantasy, setting, or uniform makes it hotter.",
@@ -874,6 +874,7 @@ interface IRatingCriteriaTooltipProps {
   sceneRatingMode?: SceneRatingModeCustom;
   ratingScores?: readonly IAdvisorPersistedScore[] | null;
   triggerClassName?: string;
+  dismissNextShowOnChildClick?: boolean;
   children: React.ReactElement;
 }
 
@@ -883,6 +884,7 @@ export const RatingCriteriaTooltip: React.FC<IRatingCriteriaTooltipProps> = ({
   sceneRatingMode,
   ratingScores,
   triggerClassName,
+  dismissNextShowOnChildClick = false,
   children,
 }) => {
   const [loadScores, { data, loading, error }] = useLazyQuery<
@@ -895,6 +897,8 @@ export const RatingCriteriaTooltip: React.FC<IRatingCriteriaTooltipProps> = ({
     variables: { entity_type: entityType, entity_id: entityId },
     fetchPolicy: "cache-first",
   });
+  const [showTooltip, setShowTooltip] = useState(false);
+  const suppressNextShowRef = useRef(false);
   const effectiveScores = ratingScores ?? data?.ratingScores;
   const metrics = getTooltipMetrics(
     entityType,
@@ -975,7 +979,7 @@ export const RatingCriteriaTooltip: React.FC<IRatingCriteriaTooltipProps> = ({
       key: "orgasm-count-bonus",
       title: getRatingAdvisorAdjustmentTooltipLabelCustom(
         "orgasm-count-bonus",
-        "Orgasm count bonus"
+        "O Count bonus"
       ),
       section: "bonus",
       contribution,
@@ -992,9 +996,27 @@ export const RatingCriteriaTooltip: React.FC<IRatingCriteriaTooltipProps> = ({
   const popoverID = `rating-criteria-${entityType}-${entityId}`;
 
   function handleToggle(show: boolean) {
+    if (show && suppressNextShowRef.current) {
+      suppressNextShowRef.current = false;
+      setShowTooltip(false);
+      return;
+    }
+
+    setShowTooltip(show);
     if (show && !data && !loading && !error) {
       void loadScores();
     }
+  }
+
+  function handleChildClickCapture() {
+    if (!dismissNextShowOnChildClick) {
+      return;
+    }
+
+    // Clicking the rating opens a modal. Prevent focus restoration after the
+    // modal closes from immediately reopening this hover summary.
+    suppressNextShowRef.current = true;
+    setShowTooltip(false);
   }
 
   function renderTooltipRow(row: {
@@ -1119,10 +1141,12 @@ export const RatingCriteriaTooltip: React.FC<IRatingCriteriaTooltipProps> = ({
         </Popover>
       }
       placement="bottom"
+      show={showTooltip}
       trigger={["hover", "focus"]}
     >
       <span
         className={`rating-criteria-tooltip-trigger ${triggerClassName ?? ""}`}
+        onClickCapture={handleChildClickCapture}
       >
         {children}
       </span>
@@ -1475,7 +1499,9 @@ const RatingAdvisorModal: React.FC<{
   async function resetAdvisor() {
     if (
       !window.confirm(
-        "Clear every advisor answer? The current overall rating will be preserved."
+        entityType === "scene"
+          ? "Clear every advisor answer and remove this scene's rating?"
+          : "Clear every advisor answer? The current overall rating will be preserved."
       )
     ) {
       return;
@@ -1586,21 +1612,21 @@ const RatingAdvisorModal: React.FC<{
         <div className="rating-advisor-selected" aria-live="polite">
           {displayedChoice ? (
             <>
-              <span>
-                <strong>{displayedChoice.label}</strong>
+              <strong>{displayedChoice.label}</strong>
+              <div className="rating-advisor-selected-description">
                 <span>{displayedChoice.description}</span>
-              </span>
-              {selected && (
-                <Button
-                  disabled={saving}
-                  onClick={() => void deleteScore(metric)}
-                  size="sm"
-                  type="button"
-                  variant="outline-secondary"
-                >
-                  Clear
-                </Button>
-              )}
+                {selected && (
+                  <Button
+                    disabled={saving}
+                    onClick={() => void deleteScore(metric)}
+                    size="sm"
+                    type="button"
+                    variant="outline-secondary"
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
             </>
           ) : (
             <span>Pick the one that fits best.</span>
@@ -1682,7 +1708,7 @@ const RatingAdvisorModal: React.FC<{
       >
         <div>
           <div className="rating-advisor-adjustment-title">
-            <strong>Orgasm count bonus</strong>
+            <strong>O Count bonus</strong>
             <Badge variant={active ? "danger" : "secondary"}>
               {orgasmCount === undefined
                 ? "—"
@@ -1754,12 +1780,16 @@ const RatingAdvisorModal: React.FC<{
           </div>
         )}
       </div>
-      <div className="rating-advisor-note-row">
-        <p className="rating-advisor-note">
-          {allCoreRated
-            ? "Core rating complete. Bonuses and penalties are optional."
-            : "Finish the core boxes for a final rating. Everything autosaves."}
-        </p>
+      <div
+        className={`rating-advisor-note-row${
+          allCoreRated ? "" : " rating-advisor-note-row-reset-only"
+        }`}
+      >
+        {allCoreRated && (
+          <p className="rating-advisor-note">
+            Core rating complete. Bonuses and penalties are optional.
+          </p>
+        )}
         <Button
           disabled={resetting || savingMetricKeys.size > 0}
           onClick={() => void resetAdvisor()}
@@ -1773,14 +1803,6 @@ const RatingAdvisorModal: React.FC<{
         aria-label="Rating criteria"
         className="rating-advisor-section rating-advisor-section-core"
       >
-        <div className="rating-advisor-section-heading">
-          <div>
-            <span>Pick one value in each box.</span>
-          </div>
-          <Badge variant="secondary">
-            {ratedCoreCount}/{coreMetrics.length}
-          </Badge>
-        </div>
         <div className="rating-advisor-core-grid">
           {coreMetrics.map(renderMetric)}
         </div>
@@ -1841,6 +1863,7 @@ export const RatingAdvisorButton: React.FC<IRatingAdvisorButtonProps> = ({
         entityId={entityId}
         sceneRatingMode={sceneRatingMode}
         ratingScores={ratingScores}
+        dismissNextShowOnChildClick
       >
         <Button
           aria-label="Open rating system"

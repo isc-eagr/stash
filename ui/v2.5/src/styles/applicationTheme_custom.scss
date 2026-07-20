@@ -256,7 +256,14 @@ html.application-theme-masculine-black {
     color: var(--black-steel-text);
   }
 
-  :is(a, button, input, select, textarea, [tabindex]):focus-visible {
+  :is(
+      a,
+      button,
+      input:not([class~="react-select__input"]),
+      select,
+      textarea,
+      [tabindex]
+    ):focus-visible {
     outline: 2px solid var(--black-steel-accent-bright);
     outline-offset: 2px;
   }
@@ -295,11 +302,11 @@ html.application-theme-masculine-black {
   .input-control:focus,
   .text-input:focus,
   :is(
-      input:not([type="button"]):not([type="checkbox"]):not(
-          [type="hidden"]
-        ):not([type="image"]):not([type="radio"]):not([type="reset"]):not(
-          [type="submit"]
-        ),
+      input:not([class~="react-select__input"]):not([type="button"]):not(
+          [type="checkbox"]
+        ):not([type="hidden"]):not([type="image"]):not([type="radio"]):not(
+          [type="reset"]
+        ):not([type="submit"]),
       select,
       textarea
     ):focus {

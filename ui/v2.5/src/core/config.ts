@@ -121,7 +121,6 @@ export interface IUIConfig {
   // CUSTOM: begin
   // Selectable application-wide visual theme
   applicationTheme?: "default" | "masculine-black";
-  taskProgressTrackers?: unknown[];
   // Styling option for rating-highlighted scene and performer cards
   ratingCardTheme?: "premium" | "classic";
   ratingCardThresholds?: {

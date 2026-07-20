@@ -1,6 +1,11 @@
 import React from "react";
+import ReactDOM from "react-dom";
 import CryptoJS from "crypto-js";
 import { ROLE_COLORS_CUSTOM } from "src/utils/roleColors_custom";
+import {
+  formatActivityPieSliceTooltip,
+  getActivityPieTooltipPosition,
+} from "./activityPieChartTooltip_custom";
 
 export const ACTIVITY_PIE_COLORS = {
   sex: "#d9822b",
@@ -184,6 +189,21 @@ interface IProps {
   size?: number;
 }
 
+let nextActivityPieChartID = 0;
+
+function createActivityPieChartID() {
+  nextActivityPieChartID += 1;
+  return nextActivityPieChartID;
+}
+
+interface IActivityPieTooltipState {
+  above: boolean;
+  content: string;
+  key: string;
+  x: number;
+  y: number;
+}
+
 function formatSlicePercent(value: number, total: number) {
   if (total <= 0) return "0%";
 
@@ -213,6 +233,10 @@ export const ActivityPieChart: React.FC<IProps> = ({
   showLegend = true,
   size = 160,
 }) => {
+  const [chartID] = React.useState(createActivityPieChartID);
+  const [sliceTooltip, setSliceTooltip] = React.useState<
+    IActivityPieTooltipState | undefined
+  >();
   const visibleSlices = slices.filter((slice) => slice.value > 0);
   const total = visibleSlices.reduce((sum, slice) => sum + slice.value, 0);
   const radius = 40;
@@ -245,6 +269,21 @@ export const ActivityPieChart: React.FC<IProps> = ({
 
   if (total <= 0) return null;
 
+  function showSliceTooltip(
+    key: string,
+    content: string,
+    clientX: number,
+    clientY: number
+  ) {
+    const position = getActivityPieTooltipPosition(
+      clientX,
+      clientY,
+      window.innerWidth,
+      window.innerHeight
+    );
+    setSliceTooltip({ content, key, ...position });
+  }
+
   return (
     <div
       className={`activity-pie-chart${className ? ` ${className}` : ""}`}
@@ -265,32 +304,65 @@ export const ActivityPieChart: React.FC<IProps> = ({
           r={radius}
           strokeWidth="20"
         />
-        {chartSlices.map((slice) => (
-          <circle
-            aria-label={`${slice.label}: ${
-              slice.valueLabel ?? slice.percentLabel
-            }`}
-            className={`activity-pie-chart-slice${
-              slice.onClick ? " activity-pie-chart-slice-clickable" : ""
-            }${
-              slice.active ? " activity-pie-chart-slice-active" : ""
-            } activity-pie-chart-slice--${slice.key}`}
-            cx="50"
-            cy="50"
-            fill="none"
-            key={slice.key}
-            onClick={slice.onClick}
-            onKeyDown={(event) => onSliceKeyDown(event, slice.onClick)}
-            r={radius}
-            role={slice.onClick ? "button" : undefined}
-            stroke={slice.color}
-            strokeDasharray={`${slice.sliceLength} ${circumference}`}
-            strokeDashoffset={slice.dashOffset}
-            strokeWidth="20"
-            tabIndex={slice.onClick ? 0 : undefined}
-            transform="rotate(-90 50 50)"
-          />
-        ))}
+        {chartSlices.map((slice) => {
+          const tooltip = formatActivityPieSliceTooltip(slice);
+          const tooltipID = `activity-pie-${chartID}-${slice.key}-tooltip`;
+
+          return (
+            <circle
+              aria-describedby={
+                sliceTooltip?.key === slice.key ? tooltipID : undefined
+              }
+              aria-label={tooltip}
+              className={`activity-pie-chart-slice${
+                slice.onClick ? " activity-pie-chart-slice-clickable" : ""
+              }${
+                slice.active ? " activity-pie-chart-slice-active" : ""
+              } activity-pie-chart-slice--${slice.key}`}
+              cx="50"
+              cy="50"
+              fill="none"
+              key={slice.key}
+              onBlur={() => setSliceTooltip(undefined)}
+              onClick={slice.onClick}
+              onFocus={(event) => {
+                const bounds = event.currentTarget.getBoundingClientRect();
+                showSliceTooltip(
+                  slice.key,
+                  tooltip,
+                  bounds.left + bounds.width / 2,
+                  bounds.top + bounds.height / 2
+                );
+              }}
+              onKeyDown={(event) => onSliceKeyDown(event, slice.onClick)}
+              onMouseEnter={(event) =>
+                showSliceTooltip(
+                  slice.key,
+                  tooltip,
+                  event.clientX,
+                  event.clientY
+                )
+              }
+              onMouseLeave={() => setSliceTooltip(undefined)}
+              onMouseMove={(event) =>
+                showSliceTooltip(
+                  slice.key,
+                  tooltip,
+                  event.clientX,
+                  event.clientY
+                )
+              }
+              r={radius}
+              role={slice.onClick ? "button" : undefined}
+              stroke={slice.color}
+              strokeDasharray={`${slice.sliceLength} ${circumference}`}
+              strokeDashoffset={slice.dashOffset}
+              strokeWidth="20"
+              tabIndex={0}
+              transform="rotate(-90 50 50)"
+            />
+          );
+        })}
         {chartSlices.map((slice) => (
           <text
             className="activity-pie-chart-percent-label"
@@ -362,6 +434,25 @@ export const ActivityPieChart: React.FC<IProps> = ({
         </div>
       )}
       {footer && <div className="activity-pie-chart-footer">{footer}</div>}
+      {sliceTooltip &&
+        ReactDOM.createPortal(
+          <div
+            className="activity-pie-chart-cursor-tooltip tooltip show"
+            id={`activity-pie-${chartID}-${sliceTooltip.key}-tooltip`}
+            role="tooltip"
+            style={{
+              left: sliceTooltip.x,
+              pointerEvents: "none",
+              position: "fixed",
+              top: sliceTooltip.y,
+              transform: sliceTooltip.above ? "translateY(-100%)" : undefined,
+              zIndex: 1080,
+            }}
+          >
+            <div className="tooltip-inner">{sliceTooltip.content}</div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

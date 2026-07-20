@@ -3,48 +3,10 @@ import assert from "node:assert/strict";
 import {
   getTagItemCount,
   getTrackerProgress,
-  normalizeProgressTrackers,
   reorderProgressTrackers,
   toggleProgressTrackerWorkingOn,
 } from "../src/components/taskProgress_custom.ts";
-
-const legacy = normalizeProgressTrackers([
-  {
-    id: "legacy",
-    name: "Legacy tracker",
-    initialValue: 12,
-    tagId: "tag-1",
-    tagName: "Inbox",
-  },
-]);
-
-assert.deepEqual(
-  legacy[0],
-  {
-    id: "legacy",
-    title: "Legacy tracker",
-    description: "",
-    goal: 12,
-    tagId: "tag-1",
-    tagName: "Inbox",
-    isWorkingOn: false,
-  },
-  "legacy trackers migrate to the title, description, and fixed goal shape"
-);
-
-assert.equal(
-  normalizeProgressTrackers([
-    {
-      id: "active",
-      title: "Active",
-      goal: 5,
-      tagId: "tag-2",
-      isWorkingOn: true,
-    },
-  ])[0].isWorkingOn,
-  true,
-  "the persisted working-on state is restored"
-);
+import type { IProgressTracker } from "../src/components/taskProgress_custom.ts";
 
 assert.equal(
   getTagItemCount({
@@ -60,11 +22,16 @@ assert.equal(
   "the fixed goal includes every directly tagged item type"
 );
 
-const trackers = normalizeProgressTrackers([
-  { id: "a", title: "A", goal: 1, tagId: "1" },
-  { id: "b", title: "B", goal: 2, tagId: "2" },
-  { id: "c", title: "C", goal: 3, tagId: "3" },
-]);
+const tracker = (id: string, goal: number): IProgressTracker => ({
+  id,
+  title: id.toUpperCase(),
+  description: "",
+  goal,
+  tagId: id,
+  tagName: `Tag ${id}`,
+  isWorkingOn: false,
+});
+const trackers = [tracker("a", 1), tracker("b", 2), tracker("c", 3)];
 
 assert.deepEqual(
   reorderProgressTrackers(trackers, "c", "a").map((tracker) => tracker.id),

@@ -7,6 +7,10 @@ import {
   GROUP_SCENE_RATING_KEYS_CUSTOM,
 } from "../src/components/Shared/groupSceneRating_custom.ts";
 
+assert.equal(getSceneRatingModeCustom(0, false), "default");
+assert.equal(getSceneRatingModeCustom(1, false), "solo");
+assert.equal(getSceneRatingModeCustom(1, true), "solo");
+assert.equal(getSceneRatingModeCustom(2, false), "default");
 assert.equal(getSceneRatingModeCustom(3, false), "default");
 assert.equal(getSceneRatingModeCustom(3, true), "solo");
 assert.equal(getSceneRatingModeCustom(4, false), "group");

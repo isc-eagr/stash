@@ -1,0 +1,45 @@
+package mocks
+
+import (
+	"context"
+
+	"github.com/stashapp/stash/pkg/models"
+	"github.com/stretchr/testify/mock"
+)
+
+type TaskProgressTrackerReaderWriter struct {
+	mock.Mock
+}
+
+func (m *TaskProgressTrackerReaderWriter) Find(ctx context.Context, id int) (*models.TaskProgressTracker, error) {
+	args := m.Called(ctx, id)
+	tracker, _ := args.Get(0).(*models.TaskProgressTracker)
+	return tracker, args.Error(1)
+}
+
+func (m *TaskProgressTrackerReaderWriter) FindAll(ctx context.Context) ([]*models.TaskProgressTracker, error) {
+	args := m.Called(ctx)
+	trackers, _ := args.Get(0).([]*models.TaskProgressTracker)
+	return trackers, args.Error(1)
+}
+
+func (m *TaskProgressTrackerReaderWriter) CountDirectlyTaggedItems(ctx context.Context, tagID int) (int, error) {
+	args := m.Called(ctx, tagID)
+	return args.Int(0), args.Error(1)
+}
+
+func (m *TaskProgressTrackerReaderWriter) Create(ctx context.Context, tracker *models.TaskProgressTracker) error {
+	return m.Called(ctx, tracker).Error(0)
+}
+
+func (m *TaskProgressTrackerReaderWriter) Update(ctx context.Context, tracker *models.TaskProgressTracker) error {
+	return m.Called(ctx, tracker).Error(0)
+}
+
+func (m *TaskProgressTrackerReaderWriter) Delete(ctx context.Context, id int) error {
+	return m.Called(ctx, id).Error(0)
+}
+
+func (m *TaskProgressTrackerReaderWriter) Reorder(ctx context.Context, ids []int) error {
+	return m.Called(ctx, ids).Error(0)
+}

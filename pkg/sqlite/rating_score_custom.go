@@ -179,6 +179,10 @@ func sceneUsesGroupRating(performerCount int) bool {
 	return performerCount >= 4
 }
 
+func sceneUsesSoloRatingByCastCustom(performerCount int) bool {
+	return performerCount == 1
+}
+
 func (s *RatingScoreStore) SceneMode(ctx context.Context, sceneID int) (string, error) {
 	performerCount, err := scenePerformerCount(ctx, sceneID)
 	if err != nil {
@@ -186,6 +190,9 @@ func (s *RatingScoreStore) SceneMode(ctx context.Context, sceneID int) (string, 
 	}
 	if sceneUsesGroupRating(performerCount) {
 		return models.RatingSceneModeGroup, nil
+	}
+	if sceneUsesSoloRatingByCastCustom(performerCount) {
+		return models.RatingSceneModeSolo, nil
 	}
 
 	isSolo, err := sceneUsesSoloRating(ctx, sceneID)
@@ -251,6 +258,8 @@ func (s *RatingScoreStore) scoreRowsForRating(ctx context.Context, entityType st
 
 		if sceneUsesGroupRating(performerCount) {
 			allowed = groupSceneRatingScoreKeys
+		} else if sceneUsesSoloRatingByCastCustom(performerCount) {
+			allowed = soloSceneRatingScoreKeys
 		} else {
 			isSolo, err := sceneUsesSoloRating(ctx, entityID)
 			if err != nil {
@@ -488,7 +497,7 @@ func (s *RatingScoreStore) ResetSceneScores(ctx context.Context, sceneID int) (b
 		return false, err
 	}
 
-	if _, err := dbWrapper.Exec(ctx, fmt.Sprintf("UPDATE %s SET rating = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?", sceneTable), sceneID); err != nil {
+	if _, err := dbWrapper.Exec(ctx, fmt.Sprintf("UPDATE %s SET rating = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?", sceneTable), sceneID); err != nil {
 		return false, fmt.Errorf("resetting advisor rating for scene %d: %w", sceneID, err)
 	}
 

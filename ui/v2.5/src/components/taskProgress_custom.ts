@@ -8,14 +8,6 @@ export interface IProgressTracker {
   isWorkingOn: boolean;
 }
 
-interface ILegacyProgressTracker {
-  id?: unknown;
-  name?: unknown;
-  initialValue?: unknown;
-  tagId?: unknown;
-  tagName?: unknown;
-}
-
 export interface ITagItemCounts {
   scene_count: number;
   scene_marker_count: number;
@@ -24,42 +16,6 @@ export interface ITagItemCounts {
   performer_count: number;
   studio_count: number;
   group_count: number;
-}
-
-function stringValue(value: unknown): string {
-  return typeof value === "string" ? value : "";
-}
-
-function nonNegativeNumber(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value)
-    ? Math.max(value, 0)
-    : 0;
-}
-
-export function normalizeProgressTrackers(value: unknown): IProgressTracker[] {
-  if (!Array.isArray(value)) return [];
-
-  return value
-    .map((stored): IProgressTracker | undefined => {
-      if (!stored || typeof stored !== "object") return undefined;
-
-      const tracker = stored as Partial<IProgressTracker> &
-        ILegacyProgressTracker;
-      const id = stringValue(tracker.id);
-      const tagId = stringValue(tracker.tagId);
-      if (!id || !tagId) return undefined;
-
-      return {
-        id,
-        title: stringValue(tracker.title) || stringValue(tracker.name),
-        description: stringValue(tracker.description),
-        goal: nonNegativeNumber(tracker.goal ?? tracker.initialValue),
-        tagId,
-        tagName: stringValue(tracker.tagName),
-        isWorkingOn: tracker.isWorkingOn === true,
-      };
-    })
-    .filter((tracker): tracker is IProgressTracker => !!tracker);
 }
 
 export function getTagItemCount(tag: ITagItemCounts): number {

@@ -22,6 +22,7 @@ type Database struct {
 	Scene               *SceneReaderWriter
 	SceneLoopPreset     *SceneLoopPresetReaderWriter     // CUSTOM
 	SceneNegativeMarker *SceneNegativeMarkerReaderWriter // CUSTOM
+	TaskProgressTracker *TaskProgressTrackerReaderWriter // CUSTOM
 	SceneMarker         *SceneMarkerReaderWriter
 	Studio              *StudioReaderWriter
 	Tag                 *TagReaderWriter
@@ -74,6 +75,7 @@ func NewDatabase() *Database {
 		Scene:               &SceneReaderWriter{},
 		SceneLoopPreset:     &SceneLoopPresetReaderWriter{},     // CUSTOM
 		SceneNegativeMarker: &SceneNegativeMarkerReaderWriter{}, // CUSTOM
+		TaskProgressTracker: &TaskProgressTrackerReaderWriter{}, // CUSTOM
 		SceneMarker:         &SceneMarkerReaderWriter{},
 		Studio:              &StudioReaderWriter{},
 		Tag:                 &TagReaderWriter{},
@@ -93,6 +95,7 @@ func (db *Database) AssertExpectations(t mock.TestingT) {
 	db.Scene.AssertExpectations(t)
 	db.SceneLoopPreset.AssertExpectations(t)     // CUSTOM
 	db.SceneNegativeMarker.AssertExpectations(t) // CUSTOM
+	db.TaskProgressTracker.AssertExpectations(t) // CUSTOM
 	db.SceneMarker.AssertExpectations(t)
 	db.Studio.AssertExpectations(t)
 	db.Tag.AssertExpectations(t)
@@ -123,6 +126,7 @@ func (db *Database) Repository() models.Repository {
 		Scene:               db.Scene,
 		SceneLoopPreset:     db.SceneLoopPreset,     // CUSTOM
 		SceneNegativeMarker: db.SceneNegativeMarker, // CUSTOM
+		TaskProgressTracker: db.TaskProgressTracker, // CUSTOM
 		SceneMarker:         db.SceneMarker,
 		Studio:              db.Studio,
 		Tag:                 db.Tag,

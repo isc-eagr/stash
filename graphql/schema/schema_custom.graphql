@@ -17,6 +17,9 @@ extend type Query {
 
   "Get distinct performer ethnicities"
   performerEthnicities: [String!]!
+
+  "Find all database-backed task progress trackers"
+  findTaskProgressTrackers: [TaskProgressTracker!]!
 }
 
 extend type Mutation {
@@ -33,6 +36,15 @@ extend type Mutation {
     input: SceneNegativeMarkerUpdateInput!
   ): SceneNegativeMarker!
   sceneNegativeMarkerDestroy(id: ID!): Boolean!
+
+  taskProgressTrackerCreate(
+    input: TaskProgressTrackerCreateInput!
+  ): TaskProgressTracker!
+  taskProgressTrackerUpdate(
+    input: TaskProgressTrackerUpdateInput!
+  ): TaskProgressTracker!
+  taskProgressTrackerDestroy(id: ID!): Boolean!
+  taskProgressTrackersReorder(ids: [ID!]!): [TaskProgressTracker!]!
 
   markerPlaylistCreate(input: MarkerPlaylistCreateInput!): MarkerPlaylist!
   markerPlaylistUpdate(input: MarkerPlaylistUpdateInput!): MarkerPlaylist!
@@ -61,5 +73,8 @@ extend type Mutation {
   performerImageSetDefault(id: ID!): Performer!
 
   "Record an O at the current video player position (adds timestamp to the O record)"
-  sceneRecordOAtTimestamp(id: ID!, video_timestamp: Float!): HistoryMutationResult!
+  sceneRecordOAtTimestamp(
+    id: ID!
+    video_timestamp: Float!
+  ): HistoryMutationResult!
 }

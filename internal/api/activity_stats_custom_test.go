@@ -102,6 +102,42 @@ func TestActivityStatsActivityOtherSecondsCustom(t *testing.T) {
 	assert.Equal(t, 0.0, activityStatsActivityOtherSecondsCustom(30, activityIntervals))
 }
 
+func TestActivityStatsRestrictToMeaningfulScenesCustom(t *testing.T) {
+	sceneDurations := map[int]float64{
+		1: 100,
+		2: 200,
+		3: 300,
+	}
+	byCategory := map[activityCategoryCustom][]activityIntervalCustom{
+		activitySexCustom: {
+			{sceneID: 1, start: 10, end: 30},
+		},
+		activityOutstandingCustom: {
+			{sceneID: 1, start: 10, end: 30},
+			{sceneID: 2, start: 20, end: 40},
+		},
+		activityUnusableCustom: {
+			{sceneID: 2, start: 50, end: 60},
+			{sceneID: 3, start: 70, end: 80},
+		},
+	}
+
+	activityStatsRestrictToMeaningfulScenesCustom(
+		sceneDurations,
+		byCategory,
+		map[int]bool{1: true},
+	)
+
+	assert.Equal(t, map[int]float64{1: 100}, sceneDurations)
+	assert.Equal(t, []activityIntervalCustom{
+		{sceneID: 1, start: 10, end: 30},
+	}, byCategory[activitySexCustom])
+	assert.Equal(t, []activityIntervalCustom{
+		{sceneID: 1, start: 10, end: 30},
+	}, byCategory[activityOutstandingCustom])
+	assert.Empty(t, byCategory[activityUnusableCustom])
+}
+
 func TestActivityStatsOtherSecondsCustomMergesAnyCoveredMarkerType(t *testing.T) {
 	activityIntervals := []activityIntervalCustom{
 		{sceneID: 1, start: 0, end: 20},

@@ -970,6 +970,14 @@ input[type="range"].blue-slider {
   }
 }
 
+/* CUSTOM: keep two scene-detail performer cards beside the desktop scrollbar. */
+@media (min-width: 1200px) {
+  .scene-performers .performer-card {
+    max-width: 15rem;
+    width: calc(50% - 10px);
+  }
+}
+
 #scene-edit-details {
   .rating-stars {
     font-size: 1.3em;

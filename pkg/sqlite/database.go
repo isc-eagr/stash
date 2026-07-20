@@ -76,6 +76,7 @@ type storeRepository struct {
 	SceneMarker         *SceneMarkerStore
 	SceneLoopPreset     *SceneLoopPresetStore     // CUSTOM
 	SceneNegativeMarker *SceneNegativeMarkerStore // CUSTOM
+	TaskProgressTracker *TaskProgressTrackerStore // CUSTOM
 	SceneRelease        *SceneReleaseStore        // CUSTOM
 	Performer           *PerformerStore
 	SavedFilter         *SavedFilterStore
@@ -117,6 +118,7 @@ func NewDatabase() *Database {
 		SceneMarker:         NewSceneMarkerStore(),
 		SceneLoopPreset:     NewSceneLoopPresetStore(),          // CUSTOM
 		SceneNegativeMarker: NewSceneNegativeMarkerStore(),      // CUSTOM
+		TaskProgressTracker: NewTaskProgressTrackerStore(),      // CUSTOM
 		SceneRelease:        NewSceneReleaseStore(r, blobStore), // CUSTOM
 		Image:               NewImageStore(r),
 		Gallery:             galleryStore,

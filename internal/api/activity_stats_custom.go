@@ -208,6 +208,28 @@ func activityStatsActivityOtherSecondsCustom(totalSeconds float64, activityInter
 	return otherSeconds
 }
 
+func activityStatsRestrictToMeaningfulScenesCustom(
+	sceneDurations map[int]float64,
+	byCategory map[activityCategoryCustom][]activityIntervalCustom,
+	meaningfulSceneIDs map[int]bool,
+) {
+	for sceneID := range sceneDurations {
+		if !meaningfulSceneIDs[sceneID] {
+			delete(sceneDurations, sceneID)
+		}
+	}
+
+	for category, intervals := range byCategory {
+		filtered := intervals[:0]
+		for _, interval := range intervals {
+			if meaningfulSceneIDs[interval.sceneID] {
+				filtered = append(filtered, interval)
+			}
+		}
+		byCategory[category] = filtered
+	}
+}
+
 func activityStatsRoleTagIDsCustom() (sexTagID int, oralTagID int, soloTagID int) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
 	sexTagID, oralTagID, soloTagID, _, _, _, _ = getRoleTagIDs(uiConfig)
@@ -499,6 +521,7 @@ GROUP BY sm.id, sm.scene_id, sm.seconds, sm.end_seconds, sm.primary_tag_id`
 		activityOralCustom: {},
 		activitySoloCustom: {},
 	}
+	meaningfulSceneIDs := map[int]bool{}
 	for _, row := range markerRows {
 		if len(row) < 5 {
 			continue
@@ -527,6 +550,7 @@ GROUP BY sm.id, sm.scene_id, sm.seconds, sm.end_seconds, sm.primary_tag_id`
 		if category, ok := activityStatsCategoryCustom(primaryTagID, sexTagID, oralTagID, soloTagID); ok {
 			byCategory[category] = append(byCategory[category], interval)
 			sceneCounts[category][sceneID] = true
+			meaningfulSceneIDs[sceneID] = true
 		}
 		if activityStatsIsOutstandingMarkerCustom(primaryTagID, activityStatsIntCustom(row[4]), sexTagID, oralTagID, soloTagID) {
 			byCategory[activityOutstandingCustom] = append(byCategory[activityOutstandingCustom], interval)
@@ -591,6 +615,13 @@ WHERE sc.studio_id IN (SELECT id FROM selected_studios)
 			start:   start,
 			end:     end,
 		})
+	}
+
+	// Studio detail charts should only use scenes with an in-bounds oral, solo,
+	// or sex marker range. Performer-scoped studio card stats retain their
+	// existing performer-filtered denominator.
+	if performerID == nil {
+		activityStatsRestrictToMeaningfulScenesCustom(sceneDurations, byCategory, meaningfulSceneIDs)
 	}
 
 	var totalSeconds float64

@@ -18,6 +18,7 @@ import { useTitleProps } from "src/hooks/title";
 import TextUtils from "src/utils/text";
 import NavUtils from "src/utils/navigation";
 import { getRatingCardThresholdsForEntity } from "src/utils/ratingCardStyles_custom";
+import { metallicRatingChartBucket } from "src/utils/metallicRatingChart_custom";
 import { statsCountryName } from "src/utils/statsCountry_custom";
 import {
   formatStatsDrilldownTotal,
@@ -34,6 +35,14 @@ import {
   reallyHotFacialCount,
 } from "./sceneStatsFacialCounts_custom";
 import { durationBucketForMinutes } from "./sceneStatsDuration_custom";
+import {
+  sceneStatsActivityType,
+  sceneStatsPositiveCount,
+  sceneStatsRatingBucket,
+  sceneStatsReleaseDay,
+  sceneStatsReleaseMonth,
+  sceneStatsReleaseYear,
+} from "./sceneStatsChartBuckets_custom";
 import {
   makeSceneStatsMarkerTagURL,
   makeSceneStatsVatoCountURL,
@@ -105,6 +114,13 @@ const TOTAL_ORGASM_TIME = gql`
 const TOTAL_FACIAL_TIME = gql`
   query SceneStatsTotalFacialTime {
     totalFacialTime
+  }
+`;
+
+const TOTAL_ACTIVITY_TIME = gql`
+  query SceneStatsTotalActivityTime {
+    totalSexTime
+    totalOralTime
   }
 `;
 
@@ -196,8 +212,6 @@ type RoleTagIDSets = {
   reallyHot?: Set<string>;
 };
 
-type MetallicRatingTier = "bronze" | "silver" | "gold" | "royal_sapphire";
-
 interface IRouteParams {
   year?: string;
   month?: string;
@@ -235,17 +249,6 @@ const chartDefinitions: Record<ChartCategory, string> = {
 const CHART_INITIAL_BAR_COUNT = 48;
 const SCENE_LIST_PAGE_SIZE = 60;
 
-const metallicRatingTiers: Array<{
-  key: MetallicRatingTier;
-  label: string;
-  sortValue: number;
-}> = [
-  { key: "bronze", label: "Bronze", sortValue: 1 },
-  { key: "silver", label: "Silver", sortValue: 2 },
-  { key: "gold", label: "Gold", sortValue: 3 },
-  { key: "royal_sapphire", label: "Royal Sapphire", sortValue: 4 },
-];
-
 function cleanValue(value?: string | null) {
   const trimmed = value?.trim();
   if (!trimmed || trimmed.toLowerCase() === "<nil>") return undefined;
@@ -270,21 +273,15 @@ function releaseDate(scene: SceneStatsScene) {
 }
 
 function releaseYear(scene: SceneStatsScene) {
-  const date = releaseDate(scene);
-  if (!date || !/^\d{4}/.test(date)) return undefined;
-  return Number(date.slice(0, 4));
+  return sceneStatsReleaseYear(releaseDate(scene));
 }
 
 function releaseMonth(scene: SceneStatsScene) {
-  const date = releaseDate(scene);
-  if (!date || !/^\d{4}-\d{2}/.test(date)) return undefined;
-  return Number(date.slice(5, 7));
+  return sceneStatsReleaseMonth(releaseDate(scene));
 }
 
 function releaseDay(scene: SceneStatsScene) {
-  const date = releaseDate(scene);
-  if (!date || !/^\d{4}-\d{2}-\d{2}/.test(date)) return undefined;
-  return Number(date.slice(8, 10));
+  return sceneStatsReleaseDay(releaseDate(scene));
 }
 
 function monthName(month: number, format: "short" | "long" = "short") {
@@ -384,14 +381,6 @@ function addDatum(
   buckets.set(key, { key, label, count: 1, sortValue, filter, path });
 }
 
-function bucketRating(value?: number | null) {
-  if (value === null || value === undefined) return undefined;
-  const rating = Math.max(0, Math.round(value));
-  const start = Math.floor(rating / 5) * 5;
-  const end = start + 4;
-  return `${start}-${end}`;
-}
-
 function roundedDurationMinutes(scene: SceneStatsScene) {
   return Math.round(sceneDuration(scene) / 60);
 }
@@ -406,10 +395,11 @@ function facialStatus(scene: SceneStatsScene, roleTagIDs: RoleTagIDSets) {
 }
 
 function sceneType(scene: SceneStatsScene, roleTagIDs: RoleTagIDSets) {
-  if (sceneHasTag(scene, roleTagIDs.sex)) return "sex";
-  if (sceneHasTag(scene, roleTagIDs.oral)) return "oral";
-  if (sceneHasTag(scene, roleTagIDs.solo)) return "solo";
-  return "other";
+  return sceneStatsActivityType(
+    sceneHasTag(scene, roleTagIDs.sex),
+    sceneHasTag(scene, roleTagIDs.oral),
+    sceneHasTag(scene, roleTagIDs.solo)
+  );
 }
 
 function sceneResolutionLabel(scene: SceneStatsScene) {
@@ -420,17 +410,6 @@ function sceneResolutionLabel(scene: SceneStatsScene) {
 
 function sceneHasTagID(scene: SceneStatsScene, tagId?: string | null) {
   return !!tagId && scene.tags.includes(tagId);
-}
-
-function metallicRatingSort(value?: string) {
-  return (
-    metallicRatingTiers.find((tier) => tier.key === value)?.sortValue ??
-    Number.MAX_SAFE_INTEGER
-  );
-}
-
-function metallicRatingLabel(value?: string) {
-  return metallicRatingTiers.find((tier) => tier.key === value)?.label;
 }
 
 function sceneMetallicRating(
@@ -481,19 +460,34 @@ function sceneMatchesFilter(
         (country) => cleanValue(country) === filter.value
       );
     case "performer_count":
-      return String(scene.performer_count) === filter.value;
+      return (
+        String(sceneStatsPositiveCount(scene.performer_count)) === filter.value
+      );
     case "rating":
-      return bucketRating(scene.rating100) === filter.value;
-    case "metallic_rating":
-      return sceneMetallicRating(scene, configuration) === filter.value;
+      return sceneStatsRatingBucket(scene.rating100) === filter.value;
+    case "metallic_rating": {
+      const metallicRating = sceneMetallicRating(scene, configuration);
+      return (
+        metallicRatingChartBucket(scene.rating100, metallicRating, true)
+          ?.key === filter.value
+      );
+    }
     case "release_day":
       return releaseDate(scene)?.slice(0, 10) === filter.value;
     case "facial_status":
       return facialStatus(scene, roleTagIDs) === filter.value;
     case "facial_count":
-      return String(facialCount(scene, roleTagIDs.facial)) === filter.value;
+      return (
+        String(
+          sceneStatsPositiveCount(facialCount(scene, roleTagIDs.facial))
+        ) === filter.value
+      );
     case "really_hot_facial_count":
-      return String(reallyHotFacialCount(scene, roleTagIDs)) === filter.value;
+      return (
+        String(
+          sceneStatsPositiveCount(reallyHotFacialCount(scene, roleTagIDs))
+        ) === filter.value
+      );
     case "scene_type":
       return sceneType(scene, roleTagIDs) === filter.value;
     case "duration":
@@ -529,6 +523,13 @@ function buildSceneCharts(
   const resolutionBuckets = new Map<string, ChartDatum>();
   let unknownEthnicityCount = 0;
   let unknownCountryCount = 0;
+  let unknownPerformerCount = 0;
+  let unknownRatingCount = 0;
+  let unknownMetallicRatingCount = 0;
+  let unknownReleaseCount = 0;
+  let unknownFacialCount = 0;
+  let unknownReallyHotFacialCount = 0;
+  let unknownSceneTypeCount = 0;
   let unknownResolutionCount = 0;
 
   scenes.forEach((scene) => {
@@ -569,20 +570,24 @@ function buildSceneCharts(
       });
     }
 
-    const performerCount = scene.performer_count;
-    addDatum(
-      performerCountBuckets,
-      String(performerCount),
-      String(performerCount),
-      performerCount,
-      {
-        category: "performer_count",
-        label: String(performerCount),
-        value: String(performerCount),
-      }
-    );
+    const performerCount = sceneStatsPositiveCount(scene.performer_count);
+    if (performerCount === undefined) {
+      unknownPerformerCount += 1;
+    } else {
+      addDatum(
+        performerCountBuckets,
+        String(performerCount),
+        String(performerCount),
+        performerCount,
+        {
+          category: "performer_count",
+          label: String(performerCount),
+          value: String(performerCount),
+        }
+      );
+    }
 
-    const ratingBucket = bucketRating(scene.rating100);
+    const ratingBucket = sceneStatsRatingBucket(scene.rating100);
     if (ratingBucket) {
       addDatum(
         ratingBuckets,
@@ -591,48 +596,65 @@ function buildSceneCharts(
         Number(ratingBucket.split("-")[0]),
         { category: "rating", label: ratingBucket, value: ratingBucket }
       );
+    } else {
+      unknownRatingCount += 1;
     }
 
-    const metallicRating = sceneMetallicRating(scene, configuration);
-    const metallicLabel = metallicRatingLabel(metallicRating);
-    if (metallicRating && metallicLabel) {
+    const metallicRating = metallicRatingChartBucket(
+      scene.rating100,
+      sceneMetallicRating(scene, configuration),
+      true
+    );
+    if (metallicRating) {
       addDatum(
         metallicRatingBuckets,
-        metallicRating,
-        metallicLabel,
-        metallicRatingSort(metallicRating),
+        metallicRating.key,
+        metallicRating.label,
+        metallicRating.sortValue,
         {
           category: "metallic_rating",
-          label: metallicLabel,
-          value: metallicRating,
+          label: metallicRating.label,
+          value: metallicRating.key,
         }
       );
+    } else {
+      unknownMetallicRatingCount += 1;
     }
 
     const year = releaseYear(scene);
-    if (year && !selectedYear) {
-      addDatum(
-        releaseBuckets,
-        String(year),
-        String(year),
-        year,
-        undefined,
-        `/scenestats/${year}`
-      );
-    } else if (year && year === selectedYear) {
-      const month = releaseMonth(scene);
-      if (month && !selectedMonth) {
+    if (!selectedYear) {
+      if (year === undefined) {
+        unknownReleaseCount += 1;
+      } else {
         addDatum(
           releaseBuckets,
-          `${year}-${month}`,
-          monthName(month),
-          month,
+          String(year),
+          String(year),
+          year,
           undefined,
-          `/scenestats/${year}/${month}`
+          `/scenestats/${year}`
         );
-      } else if (month && month === selectedMonth) {
+      }
+    } else if (year === selectedYear) {
+      const month = releaseMonth(scene);
+      if (!selectedMonth) {
+        if (month === undefined) {
+          unknownReleaseCount += 1;
+        } else {
+          addDatum(
+            releaseBuckets,
+            `${year}-${month}`,
+            monthName(month),
+            month,
+            undefined,
+            `/scenestats/${year}/${month}`
+          );
+        }
+      } else if (month === selectedMonth) {
         const day = releaseDay(scene);
-        if (day) {
+        if (day === undefined) {
+          unknownReleaseCount += 1;
+        } else {
           const date = `${year}-${String(month).padStart(2, "0")}-${String(
             day
           ).padStart(2, "0")}`;
@@ -664,50 +686,65 @@ function buildSceneCharts(
       }
     );
 
-    const sceneFacialCount = facialCount(scene, roleTagIDs.facial);
-    addDatum(
-      facialCountBuckets,
-      String(sceneFacialCount),
-      String(sceneFacialCount),
-      sceneFacialCount,
-      {
-        category: "facial_count",
-        label: String(sceneFacialCount),
-        value: String(sceneFacialCount),
-      }
+    const sceneFacialCount = sceneStatsPositiveCount(
+      facialCount(scene, roleTagIDs.facial)
     );
+    if (sceneFacialCount === undefined) {
+      unknownFacialCount += 1;
+    } else {
+      addDatum(
+        facialCountBuckets,
+        String(sceneFacialCount),
+        String(sceneFacialCount),
+        sceneFacialCount,
+        {
+          category: "facial_count",
+          label: String(sceneFacialCount),
+          value: String(sceneFacialCount),
+        }
+      );
+    }
 
-    const sceneReallyHotFacialCount = reallyHotFacialCount(scene, roleTagIDs);
-    addDatum(
-      reallyHotFacialCountBuckets,
-      String(sceneReallyHotFacialCount),
-      String(sceneReallyHotFacialCount),
-      sceneReallyHotFacialCount,
-      {
-        category: "really_hot_facial_count",
-        label: String(sceneReallyHotFacialCount),
-        value: String(sceneReallyHotFacialCount),
-      }
+    const sceneReallyHotFacialCount = sceneStatsPositiveCount(
+      reallyHotFacialCount(scene, roleTagIDs)
     );
+    if (sceneReallyHotFacialCount === undefined) {
+      unknownReallyHotFacialCount += 1;
+    } else {
+      addDatum(
+        reallyHotFacialCountBuckets,
+        String(sceneReallyHotFacialCount),
+        String(sceneReallyHotFacialCount),
+        sceneReallyHotFacialCount,
+        {
+          category: "really_hot_facial_count",
+          label: String(sceneReallyHotFacialCount),
+          value: String(sceneReallyHotFacialCount),
+        }
+      );
+    }
 
     const typeLabels: Record<string, string> = {
       sex: "Sex",
       oral: "Oral",
       solo: "Jerk",
-      other: "Other",
     };
     const type = sceneType(scene, roleTagIDs);
-    addDatum(
-      sceneTypeBuckets,
-      type,
-      typeLabels[type],
-      type === "sex" ? 1 : type === "oral" ? 2 : type === "solo" ? 3 : 4,
-      {
-        category: "scene_type",
-        label: typeLabels[type],
-        value: type,
-      }
-    );
+    if (!type) {
+      unknownSceneTypeCount += 1;
+    } else {
+      addDatum(
+        sceneTypeBuckets,
+        type,
+        typeLabels[type],
+        type === "sex" ? 1 : type === "oral" ? 2 : 3,
+        {
+          category: "scene_type",
+          label: typeLabels[type],
+          value: type,
+        }
+      );
+    }
 
     const durationBucket = durationBucketForMinutes(
       roundedDurationMinutes(scene)
@@ -756,20 +793,35 @@ function buildSceneCharts(
       data: Array.from(countryBuckets.values()).sort(countSort),
       unknownCount: unknownCountryCount,
     },
-    performerCount: Array.from(performerCountBuckets.values()).sort(
-      numericSort
-    ),
-    rating: Array.from(ratingBuckets.values()).sort(numericSort),
-    metallicRating: Array.from(metallicRatingBuckets.values()).sort(
-      numericSort
-    ),
-    release: Array.from(releaseBuckets.values()).sort(numericSort),
+    performerCount: {
+      data: Array.from(performerCountBuckets.values()).sort(numericSort),
+      unknownCount: unknownPerformerCount,
+    },
+    rating: {
+      data: Array.from(ratingBuckets.values()).sort(numericSort),
+      unknownCount: unknownRatingCount,
+    },
+    metallicRating: {
+      data: Array.from(metallicRatingBuckets.values()).sort(numericSort),
+      unknownCount: unknownMetallicRatingCount,
+    },
+    release: {
+      data: Array.from(releaseBuckets.values()).sort(numericSort),
+      unknownCount: unknownReleaseCount,
+    },
     facialStatus: Array.from(facialStatusBuckets.values()).sort(numericSort),
-    facialCount: Array.from(facialCountBuckets.values()).sort(numericSort),
-    reallyHotFacialCount: Array.from(reallyHotFacialCountBuckets.values()).sort(
-      numericSort
-    ),
-    sceneType: Array.from(sceneTypeBuckets.values()).sort(numericSort),
+    facialCount: {
+      data: Array.from(facialCountBuckets.values()).sort(numericSort),
+      unknownCount: unknownFacialCount,
+    },
+    reallyHotFacialCount: {
+      data: Array.from(reallyHotFacialCountBuckets.values()).sort(numericSort),
+      unknownCount: unknownReallyHotFacialCount,
+    },
+    sceneType: {
+      data: Array.from(sceneTypeBuckets.values()).sort(numericSort),
+      unknownCount: unknownSceneTypeCount,
+    },
     duration: Array.from(durationBuckets.values()).sort(numericSort),
     resolution: {
       data: Array.from(resolutionBuckets.values()).sort(countSort),
@@ -1076,6 +1128,10 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
   const { data: facialTimeData } = useQuery<{ totalFacialTime: number }>(
     TOTAL_FACIAL_TIME
   );
+  const { data: activityTimeData } = useQuery<{
+    totalSexTime: number;
+    totalOralTime: number;
+  }>(TOTAL_ACTIVITY_TIME);
   const scenes = useMemo(
     () => sceneQuery.data?.sceneStats.scenes ?? [],
     [sceneQuery.data?.sceneStats.scenes]
@@ -1388,7 +1444,9 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
       {(typeof orgasmCountData?.sceneOrgasmCount === "number" ||
         typeof facialCountData?.sceneFacialCount === "number" ||
         typeof orgasmTimeData?.totalOrgasmTime === "number" ||
-        typeof facialTimeData?.totalFacialTime === "number") && (
+        typeof facialTimeData?.totalFacialTime === "number" ||
+        typeof activityTimeData?.totalSexTime === "number" ||
+        typeof activityTimeData?.totalOralTime === "number") && (
         <section className="scenestats-summary-grid" aria-label="Scene metrics">
           {typeof orgasmCountData?.sceneOrgasmCount === "number" && (
             <Link
@@ -1436,6 +1494,28 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
                 </div>
               </div>
             )}
+          {typeof activityTimeData?.totalSexTime === "number" &&
+            activityTimeData.totalSexTime > 0 && (
+              <div className="scenestats-summary-card">
+                <div className="scenestats-summary-value">
+                  {formatDuration(activityTimeData.totalSexTime)}
+                </div>
+                <div className="scenestats-summary-label">
+                  Total Fucking time
+                </div>
+              </div>
+            )}
+          {typeof activityTimeData?.totalOralTime === "number" &&
+            activityTimeData.totalOralTime > 0 && (
+              <div className="scenestats-summary-card">
+                <div className="scenestats-summary-value">
+                  {formatDuration(activityTimeData.totalOralTime)}
+                </div>
+                <div className="scenestats-summary-label">
+                  Total Sucking Pito time
+                </div>
+              </div>
+            )}
         </section>
       )}
 
@@ -1480,19 +1560,22 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
               unknownCount={charts.country.unknownCount}
             />
             <SceneStatsChart
-              data={charts.performerCount}
+              data={charts.performerCount.data}
               label="By Vato Count"
               onSelect={addFilter}
+              unknownCount={charts.performerCount.unknownCount}
             />
             <SceneStatsChart
-              data={charts.rating}
+              data={charts.rating.data}
               label="By Rating"
               onSelect={addFilter}
+              unknownCount={charts.rating.unknownCount}
             />
             <SceneStatsChart
-              data={charts.metallicRating}
+              data={charts.metallicRating.data}
               label="By Metallic Rating"
               onSelect={addFilter}
+              unknownCount={charts.metallicRating.unknownCount}
             />
             <SceneStatsChart
               actions={
@@ -1542,7 +1625,7 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
                   )}
                 </div>
               }
-              data={charts.release}
+              data={charts.release.data}
               label={
                 hasSelectedYear
                   ? hasSelectedMonth
@@ -1551,6 +1634,7 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
                   : "By Release Year"
               }
               onSelect={addFilter}
+              unknownCount={charts.release.unknownCount}
             />
             <SceneStatsChart
               data={charts.facialStatus}
@@ -1558,19 +1642,22 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
               onSelect={addFilter}
             />
             <SceneStatsChart
-              data={charts.facialCount}
+              data={charts.facialCount.data}
               label="By Number of Facial"
               onSelect={addFilter}
+              unknownCount={charts.facialCount.unknownCount}
             />
             <SceneStatsChart
-              data={charts.reallyHotFacialCount}
+              data={charts.reallyHotFacialCount.data}
               label="By Number of Really Hot Facial"
               onSelect={addFilter}
+              unknownCount={charts.reallyHotFacialCount.unknownCount}
             />
             <SceneStatsChart
-              data={charts.sceneType}
+              data={charts.sceneType.data}
               label="Scene Type"
               onSelect={addFilter}
+              unknownCount={charts.sceneType.unknownCount}
             />
             <SceneStatsChart
               data={charts.duration}

@@ -267,7 +267,7 @@ func (r *Resolver) syncSceneAdvisorAfterCastChangeCustom(ctx context.Context, sc
 		return fmt.Errorf("finding updated performers for scene %d rating mode: %w", sceneID, err)
 	}
 
-	if usesGroupSceneRatingCustom(len(previousPerformerIDs)) != usesGroupSceneRatingCustom(len(updatedPerformerIDs)) {
+	if castSceneRatingModeCustom(len(previousPerformerIDs)) != castSceneRatingModeCustom(len(updatedPerformerIDs)) {
 		if _, err := r.repository.RatingScore.ResetSceneScores(ctx, sceneID); err != nil {
 			return err
 		}
@@ -281,6 +281,16 @@ func (r *Resolver) syncSceneAdvisorAfterCastChangeCustom(ctx context.Context, sc
 
 func usesGroupSceneRatingCustom(performerCount int) bool {
 	return performerCount >= 4
+}
+
+func castSceneRatingModeCustom(performerCount int) string {
+	if usesGroupSceneRatingCustom(performerCount) {
+		return models.RatingSceneModeGroup
+	}
+	if performerCount == 1 {
+		return models.RatingSceneModeSolo
+	}
+	return models.RatingSceneModeDefault
 }
 
 func (r *mutationResolver) RatingScoreSet(ctx context.Context, input models.RatingScoreInput) (ret *models.RatingScoreUpdateResult, err error) {
@@ -356,6 +366,13 @@ func (r *mutationResolver) RatingScoreReset(ctx context.Context, entityType stri
 		}
 		if err := r.repository.RatingScore.DeleteByEntity(ctx, entityType, id); err != nil {
 			return err
+		}
+		if entityType == models.RatingEntityScene {
+			updatedScene := models.NewScenePartial()
+			updatedScene.Rating = models.NewOptionalIntPtr(nil)
+			if _, err := r.repository.Scene.UpdatePartial(ctx, id, updatedScene); err != nil {
+				return fmt.Errorf("resetting scene %d advisor rating: %w", id, err)
+			}
 		}
 		ret, err = r.ratingScoreUpdateResultCustom(ctx, entityType, id, false)
 		return err

@@ -1,0 +1,11 @@
+# CUSTOM
+fragment TaskProgressTrackerData on TaskProgressTracker {
+  id
+  title
+  description
+  goal
+  tag_id
+  tag_name
+  position
+  is_working_on
+}

@@ -132,6 +132,7 @@ func (db *Database) Repository() models.Repository {
 		Scene:               db.Scene,
 		SceneLoopPreset:     db.SceneLoopPreset,     // CUSTOM
 		SceneNegativeMarker: db.SceneNegativeMarker, // CUSTOM
+		TaskProgressTracker: db.TaskProgressTracker, // CUSTOM
 		SceneMarker:         db.SceneMarker,
 		SceneRelease:        db.SceneRelease, // CUSTOM
 		Studio:              db.Studio,

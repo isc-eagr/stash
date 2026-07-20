@@ -1,0 +1,29 @@
+# CUSTOM: Database-backed task progress trackers.
+
+type TaskProgressTracker {
+  id: ID!
+  title: String!
+  description: String!
+  goal: Int!
+  tag_id: ID!
+  tag_name: String!
+  position: Int!
+  is_working_on: Boolean!
+  created_at: Time!
+  updated_at: Time!
+}
+
+input TaskProgressTrackerCreateInput {
+  title: String!
+  description: String!
+  tag_id: ID!
+}
+
+input TaskProgressTrackerUpdateInput {
+  id: ID!
+  title: String
+  description: String
+  tag_id: ID
+  reset_goal: Boolean
+  is_working_on: Boolean
+}

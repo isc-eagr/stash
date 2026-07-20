@@ -36,7 +36,7 @@ export function getSceneRatingModeCustom(
     return "group";
   }
 
-  return isSolo ? "solo" : "default";
+  return performerCount === 1 || isSolo ? "solo" : "default";
 }
 
 export function getGroupSceneBaseMaximumCustom() {

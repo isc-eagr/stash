@@ -28,6 +28,7 @@ type Repository struct {
 	Scene               SceneReaderWriter
 	SceneLoopPreset     SceneLoopPresetReaderWriter     // CUSTOM
 	SceneNegativeMarker SceneNegativeMarkerReaderWriter // CUSTOM
+	TaskProgressTracker TaskProgressTrackerReaderWriter // CUSTOM
 	SceneMarker         SceneMarkerReaderWriter
 	SceneRelease        SceneReleaseReaderWriter // CUSTOM
 	Studio              StudioReaderWriter

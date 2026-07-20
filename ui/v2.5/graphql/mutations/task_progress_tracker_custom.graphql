@@ -1,0 +1,22 @@
+# CUSTOM
+mutation TaskProgressTrackerCreate($input: TaskProgressTrackerCreateInput!) {
+  taskProgressTrackerCreate(input: $input) {
+    ...TaskProgressTrackerData
+  }
+}
+
+mutation TaskProgressTrackerUpdate($input: TaskProgressTrackerUpdateInput!) {
+  taskProgressTrackerUpdate(input: $input) {
+    ...TaskProgressTrackerData
+  }
+}
+
+mutation TaskProgressTrackerDestroy($id: ID!) {
+  taskProgressTrackerDestroy(id: $id)
+}
+
+mutation TaskProgressTrackersReorder($ids: [ID!]!) {
+  taskProgressTrackersReorder(ids: $ids) {
+    ...TaskProgressTrackerData
+  }
+}

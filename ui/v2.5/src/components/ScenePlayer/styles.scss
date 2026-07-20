@@ -1089,6 +1089,16 @@ $font-family-monospace: sfmono-regular, menlo, monaco, consolas,
       min-height: 15rem;
       overflow-x: hidden;
       overflow-y: auto;
+
+      /* CUSTOM: begin - keep upstream Bootstrap rows inside the clip boundary */
+      &.scene-tab-content-bootstrap-gutters {
+        margin-left: -15px;
+        padding-left: 15px;
+        padding-right: 15px;
+        width: calc(100% + 15px);
+      }
+
+      /* CUSTOM: end */
     }
   }
 

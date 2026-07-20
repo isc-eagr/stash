@@ -1,0 +1,64 @@
+package api
+
+import (
+	"context"
+	"strconv"
+
+	"github.com/stashapp/stash/internal/manager"
+	"github.com/stashapp/stash/internal/manager/config"
+)
+
+const sceneStatsActivityTimeQueryCustom = `
+SELECT COALESCE(SUM(end_seconds - seconds), 0)
+FROM scene_markers
+WHERE primary_tag_id = ?
+  AND end_seconds IS NOT NULL
+  AND end_seconds > seconds`
+
+func (r *queryResolver) totalActivityTimeCustom(ctx context.Context, roleTagKey string) (float64, error) {
+	var totalSeconds float64
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		roleTagIDs, _ := uiConfig["roleTagIds"].(map[string]interface{})
+		if roleTagIDs == nil {
+			return nil
+		}
+
+		tagIDValue, _ := roleTagIDs[roleTagKey].(string)
+		tagID, _ := strconv.Atoi(tagIDValue)
+		if tagID == 0 {
+			return nil
+		}
+
+		_, rows, err := manager.GetInstance().Database.QuerySQL(
+			ctx,
+			sceneStatsActivityTimeQueryCustom,
+			[]interface{}{tagID},
+		)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 {
+			totalSeconds = sceneStatsFloatValue(rows[0][0])
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+
+	return totalSeconds, nil
+}
+
+// TotalSexTime returns the summed duration of completed sex activity markers.
+// Activity markers match the configured sex tag as their primary tag. Each
+// marker contributes once, regardless of its assigned performers.
+func (r *queryResolver) TotalSexTime(ctx context.Context) (float64, error) {
+	return r.totalActivityTimeCustom(ctx, "sexTagId")
+}
+
+// TotalOralTime returns the summed duration of completed oral activity markers.
+// Activity markers match the configured oral tag as their primary tag. Each
+// marker contributes once, regardless of its assigned performers.
+func (r *queryResolver) TotalOralTime(ctx context.Context) (float64, error) {
+	return r.totalActivityTimeCustom(ctx, "oralTagId")
+}

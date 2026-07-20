@@ -11,16 +11,13 @@ import {
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
-import { useConfigureUISetting, useStats } from "src/core/StashService";
-import type { IUIConfig } from "src/core/config";
-import { useConfigurationContext } from "src/hooks/Config";
+import { useStats } from "src/core/StashService";
 import { Icon } from "./Shared/Icon";
 import { Tag, TagSelect } from "./Tags/TagSelect";
 import {
   getTagItemCount,
   getTrackerProgress,
   IProgressTracker,
-  normalizeProgressTrackers,
   reorderProgressTrackers,
   toggleProgressTrackerWorkingOn,
 } from "./taskProgress_custom";
@@ -32,7 +29,6 @@ interface ITrackerDraft {
   tagName: string;
 }
 
-const UI_KEY = "taskProgressTrackers";
 const EMPTY_DRAFT: ITrackerDraft = {
   title: "",
   description: "",
@@ -62,21 +58,32 @@ function progressVariant(percentage: number) {
   return "danger";
 }
 
-function createTrackerId() {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+function fromDatabaseTracker(
+  tracker: GQL.TaskProgressTrackerDataFragment
+): IProgressTracker {
+  return {
+    id: tracker.id,
+    title: tracker.title,
+    description: tracker.description,
+    goal: tracker.goal,
+    tagId: tracker.tag_id,
+    tagName: tracker.tag_name,
+    isWorkingOn: tracker.is_working_on,
+  };
 }
 
 const TaskProgress: React.FC = () => {
-  const { configuration } = useConfigurationContext();
-  const [saveUISetting] = useConfigureUISetting();
   const { data: statsData, loading: statsLoading } = useStats();
+  const {
+    data: trackerData,
+    loading: trackersLoading,
+    error: trackersError,
+  } = GQL.useFindTaskProgressTrackersQuery({ fetchPolicy: "network-only" });
+  const [createTrackerMutation] = GQL.useTaskProgressTrackerCreateMutation();
+  const [updateTrackerMutation] = GQL.useTaskProgressTrackerUpdateMutation();
+  const [destroyTrackerMutation] = GQL.useTaskProgressTrackerDestroyMutation();
+  const [reorderTrackersMutation] =
+    GQL.useTaskProgressTrackersReorderMutation();
 
   const [trackers, setTrackers] = useState<IProgressTracker[]>([]);
   const [newTracker, setNewTracker] = useState<ITrackerDraft>(EMPTY_DRAFT);
@@ -97,25 +104,12 @@ const TaskProgress: React.FC = () => {
   const [dragTargetId, setDragTargetId] = useState<string>();
 
   useEffect(() => {
-    const stored = (configuration?.ui as IUIConfig | undefined)
-      ?.taskProgressTrackers;
-    setTrackers(normalizeProgressTrackers(stored));
-  }, [configuration]);
-
-  const saveTrackers = async (nextTrackers: IProgressTracker[]) => {
-    try {
-      await saveUISetting({
-        variables: {
-          key: UI_KEY,
-          value: nextTrackers,
-        },
-      });
-      return true;
-    } catch (error) {
-      console.error("Failed to save trackers:", error);
-      return false;
+    if (trackerData?.findTaskProgressTrackers) {
+      setTrackers(
+        trackerData.findTaskProgressTrackers.map(fromDatabaseTracker)
+      );
     }
-  };
+  }, [trackerData]);
 
   // CUSTOM: Query to count all tagged item types for progress trackers
   const [fetchTagCount] = useLazyQuery(GQL.FindTagDocument, {
@@ -190,38 +184,46 @@ const TaskProgress: React.FC = () => {
     setIsCreating(true);
     setCreateError(undefined);
     try {
-      const goal = await fetchCurrentTagCount(newTracker.tagId);
-      const tracker: IProgressTracker = {
-        id: createTrackerId(),
-        title: newTracker.title.trim(),
-        description: newTracker.description.trim(),
-        goal,
-        tagId: newTracker.tagId,
-        tagName: newTracker.tagName,
-        isWorkingOn: false,
-      };
-      const nextTrackers = [...trackers, tracker];
-      setTrackers(nextTrackers);
-      setItemCounts((current) => ({ ...current, [tracker.id]: goal }));
-      await saveTrackers(nextTrackers);
+      const { data } = await createTrackerMutation({
+        variables: {
+          input: {
+            title: newTracker.title.trim(),
+            description: newTracker.description.trim(),
+            tag_id: newTracker.tagId,
+          },
+        },
+      });
+      if (!data?.taskProgressTrackerCreate) {
+        throw new Error("The server did not return the created tracker");
+      }
+
+      const tracker = fromDatabaseTracker(data.taskProgressTrackerCreate);
+      setTrackers((current) => [...current, tracker]);
+      setItemCounts((current) => ({
+        ...current,
+        [tracker.id]: tracker.goal,
+      }));
       setNewTracker(EMPTY_DRAFT);
     } catch (error) {
-      console.error("Failed to calculate tracker goal:", error);
-      setCreateError("Could not count the selected tag. Please try again.");
+      console.error("Failed to create task progress tracker:", error);
+      setCreateError("Could not save the tracker in the database.");
     } finally {
       setIsCreating(false);
     }
   };
 
-  const deleteTracker = (id: string) => {
-    const nextTrackers = trackers.filter((tracker) => tracker.id !== id);
-    setTrackers(nextTrackers);
-    saveTrackers(nextTrackers);
-    setItemCounts((current) => {
-      const nextCounts = { ...current };
-      delete nextCounts[id];
-      return nextCounts;
-    });
+  const deleteTracker = async (id: string) => {
+    try {
+      await destroyTrackerMutation({ variables: { id } });
+      setTrackers((current) => current.filter((tracker) => tracker.id !== id));
+      setItemCounts((current) => {
+        const nextCounts = { ...current };
+        delete nextCounts[id];
+        return nextCounts;
+      });
+    } catch (error) {
+      console.error("Failed to delete task progress tracker:", error);
+    }
   };
 
   const openEditTracker = async (tracker: IProgressTracker) => {
@@ -311,29 +313,45 @@ const TaskProgress: React.FC = () => {
       return;
     }
 
-    const updated: IProgressTracker = {
-      ...editingTracker,
-      title: editDraft.title.trim(),
-      description: editDraft.description.trim(),
-      goal: editGoal,
-      tagId: editDraft.tagId,
-      tagName: editDraft.tagName,
-    };
-    const nextTrackers = trackers.map((tracker) =>
-      tracker.id === updated.id ? updated : tracker
-    );
-    setTrackers(nextTrackers);
-    setItemCounts((current) => ({
-      ...current,
-      [updated.id]: editTaggedCount,
-    }));
-    await saveTrackers(nextTrackers);
-    setEditingTracker(undefined);
+    try {
+      const { data } = await updateTrackerMutation({
+        variables: {
+          input: {
+            id: editingTracker.id,
+            title: editDraft.title.trim(),
+            description: editDraft.description.trim(),
+            tag_id: editDraft.tagId,
+            reset_goal:
+              editDraft.tagId !== editingTracker.tagId ||
+              editGoal !== editingTracker.goal,
+          },
+        },
+      });
+      if (!data?.taskProgressTrackerUpdate) {
+        throw new Error("The server did not return the updated tracker");
+      }
+
+      const updated = fromDatabaseTracker(data.taskProgressTrackerUpdate);
+      setTrackers((current) =>
+        current.map((tracker) =>
+          tracker.id === updated.id ? updated : tracker
+        )
+      );
+      setItemCounts((current) => ({
+        ...current,
+        [updated.id]: editTaggedCount,
+      }));
+      setEditingTracker(undefined);
+    } catch (error) {
+      console.error("Failed to update task progress tracker:", error);
+      setEditCountError("Could not save the tracker in the database.");
+    }
   };
 
-  const handleDrop = (targetId: string) => {
+  const handleDrop = async (targetId: string) => {
     if (!draggedTrackerId) return;
 
+    const previousTrackers = trackers;
     const nextTrackers = reorderProgressTrackers(
       trackers,
       draggedTrackerId,
@@ -341,16 +359,52 @@ const TaskProgress: React.FC = () => {
     );
     if (nextTrackers !== trackers) {
       setTrackers(nextTrackers);
-      saveTrackers(nextTrackers);
+      try {
+        const { data } = await reorderTrackersMutation({
+          variables: { ids: nextTrackers.map((tracker) => tracker.id) },
+        });
+        if (data?.taskProgressTrackersReorder) {
+          setTrackers(
+            data.taskProgressTrackersReorder.map(fromDatabaseTracker)
+          );
+        }
+      } catch (error) {
+        console.error("Failed to reorder task progress trackers:", error);
+        setTrackers(previousTrackers);
+      }
     }
     setDraggedTrackerId(undefined);
     setDragTargetId(undefined);
   };
 
-  const toggleWorkingOn = (trackerId: string) => {
+  const toggleWorkingOn = async (trackerId: string) => {
+    const previousTrackers = trackers;
     const nextTrackers = toggleProgressTrackerWorkingOn(trackers, trackerId);
     setTrackers(nextTrackers);
-    saveTrackers(nextTrackers);
+    const toggled = nextTrackers.find((tracker) => tracker.id === trackerId);
+    if (!toggled) return;
+
+    try {
+      const { data } = await updateTrackerMutation({
+        variables: {
+          input: {
+            id: trackerId,
+            is_working_on: toggled.isWorkingOn,
+          },
+        },
+      });
+      if (data?.taskProgressTrackerUpdate) {
+        const updated = fromDatabaseTracker(data.taskProgressTrackerUpdate);
+        setTrackers((current) =>
+          current.map((tracker) =>
+            tracker.id === updated.id ? updated : tracker
+          )
+        );
+      }
+    } catch (error) {
+      console.error("Failed to update working-on state:", error);
+      setTrackers(previousTrackers);
+    }
   };
 
   return (
@@ -531,7 +585,14 @@ const TaskProgress: React.FC = () => {
           </Card>
         )}
 
-        {trackers.length === 0 ? (
+        {trackersError ? (
+          <div className="text-danger my-4">
+            Could not load progress trackers from the database:{" "}
+            {trackersError.message}
+          </div>
+        ) : trackersLoading ? (
+          <div className="text-muted my-4">Loading progress trackers...</div>
+        ) : trackers.length === 0 ? (
           <div className="text-center text-muted my-5">
             <p>
               <FormattedMessage

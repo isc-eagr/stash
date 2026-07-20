@@ -243,7 +243,7 @@ The `sceneOrgasmCount` and `sceneFacialCount` resolvers use the following logic:
 
 ### GraphQL Queries (Custom)
 
-**File:** `graphql/schema/types/stats.graphql`
+**File:** `graphql/schema/types/stats_custom.graphql`
 
 ```graphql
 extend type Query {
@@ -276,8 +276,17 @@ A widget for tracking progress on tagging tasks. Users can define trackers linke
 **NEW:** `ui/v2.5/src/components/TaskProgress.tsx`
 
 - `ui/v2.5/src/components/taskProgress_custom.ts`
-- `ui/v2.5/src/core/config.ts`
 - `ui/v2.5/tests/taskProgress_custom.test.ts`
+- `graphql/schema/types/task_progress_tracker_custom.graphql`
+- `graphql/schema/schema_custom.graphql`
+- `internal/api/resolver_task_progress_tracker_custom.go`
+- `pkg/models/task_progress_tracker_custom.go`
+- `pkg/sqlite/task_progress_tracker_custom.go`
+- `pkg/models/repository.go`, `pkg/sqlite/database.go`, `pkg/sqlite/transaction.go`
+- `ui/v2.5/graphql/data/task_progress_tracker_custom.graphql`
+- `ui/v2.5/graphql/queries/task_progress_tracker_custom.graphql`
+- `ui/v2.5/graphql/mutations/task_progress_tracker_custom.graphql`
+- `task_progress_trackers.up.sql`
 
 ### Features
 
@@ -288,16 +297,27 @@ A widget for tracking progress on tagging tasks. Users can define trackers linke
 - Editing supports the title, description, tag, and the controlled goal reset
 - Shows the current tagged item count vs the fixed goal (progress bar)
 - Linked tags count all directly tagged item types: scenes, scene markers, images, galleries, performers, studios, and groups
-- Persists the description, goal, tag, and user-defined order in `configuration.ui.taskProgressTrackers`
-- Persists the working-on state alongside each tracker
-- Legacy tracker records using `name` and `initialValue` are normalized to the current shape when loaded
+- Persists the title, description, fixed goal, tag relationship, user-defined order, and working-on state in the SQLite `task_progress_trackers` table
+- All tracker CRUD, goal resets, and reordering use dedicated GraphQL queries and mutations
+- Legacy tracker records in `configuration.ui.taskProgressTrackers` are imported into SQLite on the first database query, preserving old `name`/`initialValue` records, and the legacy configuration key is then removed
+
+### Database Setup
+
+Apply `task_progress_trackers.up.sql` to each existing Stash SQLite database before using the updated page. The standalone SQL follows this fork's custom migration policy and is not added to the upstream migration chain.
+
+### GraphQL
+
+- Query: `findTaskProgressTrackers`
+- Mutations: `taskProgressTrackerCreate`, `taskProgressTrackerUpdate`, `taskProgressTrackerDestroy`, `taskProgressTrackersReorder`
 
 ### Tests
 
-- Legacy tracker normalization
+- Legacy UI-configuration import and fixed-goal preservation
+- SQLite CRUD, direct tagged-item goal calculation, and persisted reorder behavior
+- Resolver-level create and controlled goal-reset behavior
 - Goal calculation across every supported tagged item type
 - Drag reorder behavior
-- Working-on state normalization and toggling
+- Working-on state toggling
 - Fixed-goal progress calculations, including growing and empty backlogs
 
 ---
@@ -841,7 +861,6 @@ These configuration paths are used throughout the custom features:
 - `configuration.ui.sceneTagAliases.facialgiven`
 - `configuration.ui.sceneTagAliases.facialreceived`
 - `configuration.ui.sceneTagAliases.selffacial`
-- `configuration.ui.taskProgressTrackers` (for TaskProgress component)
 - `configuration.ui.showMultiSegmentLoopControls` (for multi-segment loop feature)
 
 ---
@@ -1185,7 +1204,7 @@ Adds a Studio filter criterion to the Scene Markers filter page, allowing filter
 
 ### Overview
 
-Adds additional statistics used by the custom stats pages: estimated liters (from orgasms), total penis meters (sum of performer penis lengths), total orgasm time, and total facial time. Total Orgasm/Facial counts and time are displayed on `/scenestats`; estimated liters and total penis meters remain vato summary cards on `/vatostats`. O-date records and O marker-tag analytics are shown on the hidden `/ostats` page.
+Adds additional statistics used by the custom stats pages: estimated liters (from orgasms), total penis meters (sum of performer penis lengths), total orgasm time, total facial time, total fucking time, and total sucking pito time. The scene totals are displayed on `/scenestats`; estimated liters and total penis meters remain vato summary cards on `/vatostats`. O-date records and O marker-tag analytics are shown on the hidden `/ostats` page.
 
 ### GraphQL Schema Extensions
 
@@ -1197,6 +1216,8 @@ extend type Query {
   totalPenisMeters: Float!
   totalOrgasmTime: Float!
   totalFacialTime: Float!
+  totalSexTime: Float!
+  totalOralTime: Float!
   mostOsInDay: SceneODayStat
   longestPeriodWithoutO: SceneODrySpell
   sceneOCountsByTag: [SceneOCountByTag!]!
@@ -1205,15 +1226,18 @@ extend type Query {
 
 ### Backend Implementation
 
-**File:** `internal/api/resolver.go`
+**Files:** `internal/api/resolver_custom.go`, `internal/api/scene_stats_activity_time_custom.go`
 
 - `EstimatedLiters` resolver: Uses `SceneOrgasmCount` (one event per top on an orgasm marker, with a minimum of one) and multiplies by 3ml (0.003L)
 - `TotalPenisMeters` resolver: Sums performer penis lengths (defaulting to 17cm when null), converts to meters
 - `TotalOrgasmTime` resolver: Sums duration of all orgasm markers (uses end_seconds - seconds, or 20s default if no end time)
 - `TotalFacialTime` resolver: Sums duration of all facial markers (uses end_seconds - seconds, or 20s default if no end time)
+- `TotalSexTime` resolver: Sums each completed sex activity marker duration once, without performer weighting
+- `TotalOralTime` resolver: Sums each completed oral activity marker duration once, without performer weighting
+
 ### Frontend Files
 
-- `ui/v2.5/src/components/SceneStats/SceneStats.tsx` - Displays total orgasm/facial counts and total orgasm/facial time with marker drilldown links
+- `ui/v2.5/src/components/SceneStats/SceneStats.tsx` - Displays total orgasm/facial counts and total orgasm/facial/sex/oral time; only the count cards have marker drilldown links
 - `ui/v2.5/src/components/VatoStats/VatoStats.tsx` - Displays estimated liters and total penis meters as vato summary cards
 
 ### Features
@@ -1222,8 +1246,14 @@ extend type Query {
 - **Total Penis Meters**: Sums all performer penis lengths (uses 17cm default), displays in meters with 🍆 emoji
 - **Total Orgasm Time**: Sum of all orgasm marker durations (end_seconds - seconds), using 20s default when no end timestamp
 - **Total Facial Time**: Sum of all facial marker durations (end_seconds - seconds), using 20s default when no end timestamp
+- **Total Fucking Time**: Sum of completed markers whose primary tag is the configured sex activity tag; markers without a valid end timestamp are excluded and performers do not multiply the duration
+- **Total Sucking Pito Time**: Sum of completed markers whose primary tag is the configured oral activity tag; markers without a valid end timestamp are excluded and performers do not multiply the duration
 - **Clickable Total Orgasms**: Links to Markers page filtered by orgasm tag (using configured orgasmTagId)
 - **Clickable Total Facials**: Links to Markers page filtered by facial tag (using configured facialTagId)
+
+### Tests
+
+- `internal/api/scene_stats_activity_time_custom_test.go` - Verifies sex/oral totals, completed-range validation, exact activity-tag matching, overlap summation, and performer-independent durations
 
 ---
 
@@ -2744,7 +2774,7 @@ Adds scene and performer rating system buttons next to the detail-page rating di
 
 Suggested tiers use the same configurable 100-based thresholds as the premium/classic card effects. Scene and performer thresholds are configured separately.
 
-Both scene and performer advisor ratings also include a non-editable orgasm count bonus. For scenes, the bonus is calculated from `scenes_o_dates` as +1 rating point on the 3rd recorded orgasm, then +1 for each orgasm after that. For performers, the bonus is +1 rating point on the 3rd recorded orgasm, then +1 for every 2 orgasms after that.
+Both scene and performer advisor ratings also include a non-editable O Count bonus. For scenes, the bonus is calculated from `scenes_o_dates` as +1 rating point on the 3rd recorded orgasm, then +1 for each orgasm after that. For performers, the bonus is +1 rating point on the 3rd recorded orgasm, then +1 for every 2 orgasms after that.
 When scene o-history is added, deleted, reset, or recorded with a video timestamp, the stored advisor rating is recalculated for that scene and any attached performers that already have persisted advisor scores. Performer advisor ratings are also recalculated when scene casts change, including bulk edits, performer deletion, and performer/scene merges.
 
 The server owns the canonical rubric. Score writes validate the entity's current scene/performer mode, section, key, and exact raw-value choice, then derive `weighted_value` instead of trusting the client. Recalculation likewise derives every contribution from canonical raw values. Invalid writes are rejected; legacy persisted values are normalized to the nearest current choice during recalculation. The sparse orgasm-payoff scale accepts only 0, 2, 3, or 4.
@@ -2761,7 +2791,7 @@ Uses a simplified weighted scene rubric designed for 100-based ratings:
 - Orgasm / climax payoff: each raw point is worth 0.5, up to 2.0
 - Usable factor: five levels from 0-4, each raw point is worth 0.5, up to 2.0. It captures how much of the scene works without skipping, accounting for dead setup, overly long interviews, weak positions, negative-marker stretches, strong angles, intensity, and consistently workable action independently from sex quality.
 
-Solo scenes use a separate scene rubric when the scene is detected as solo by the same role-tag logic that renders the hand icon:
+Solo scenes use a separate scene rubric whenever exactly one performer is assigned. The existing solo role-tag detection remains a fallback for under-four-performer scenes, while the cast count keeps the UI and backend aligned even when a scene has no solo marker:
 
 - Vato attractiveness: six levels from 0-5, each raw point is worth 1.0, up to 5.0
 - Performance: five levels from 0-4, each raw point is worth 0.75, up to 3.0. The scale runs from visibly clocked-out or merely going through the motions through engaged, excited, and fully committed performance.
@@ -2778,11 +2808,11 @@ Group scene bonus section:
 
 - Attractive bottom (+1.0 when present)
 - Group oral-only (+2.0 when manually selected)
-- Theme / fantasy / uniform factor (+0.5 when present)
+- Uniform/setting factor (+0.5 when present)
 - God-tier orgasm (+1.0 when present)
 - GOAT element (+2.0 when present)
 
-When a cast edit crosses the 3/4-performer boundary, existing advisor rows are removed and the scene rating is set to 0. Marker create/update/delete/bulk operations apply the same policy when a scene changes between default and solo mode. Changing the configured sex/oral/solo role-tag IDs resets every score-owned scene advisor because the mode definition itself changed. Manual scene ratings without advisor rows are preserved. The standalone group reset script applies the same reset to existing 4+ performer scenes that already have advisor data. The solo/group rubric migration converts existing solo attractiveness and camera-work values, promotes active solo Outstanding Performance bonuses to the highest main Performance level, merges persisted group energy/coordination answers, clears retired group standout answers, removes Unlikely Top only from 4+ performer group scenes, and adjusts affected stored scene ratings by the exact contribution delta.
+When a cast edit crosses a default/solo/group boundary, including entering or leaving the exactly-one-performer solo mode, existing advisor rows are removed and the stored scene rating is cleared to SQL `NULL` (no rating). Marker create/update/delete/bulk operations apply the same policy when a scene changes between default and solo mode. Changing the configured sex/oral/solo role-tag IDs resets every score-owned scene advisor because the mode definition itself changed. Manual scene ratings without advisor rows are preserved during automatic mode changes. The scene Reset Advisor action always removes all criterion, bonus, and penalty rows and explicitly clears the scene to the no-rating state, including when no advisor rows remain; performer resets continue to preserve their current rating. The standalone group reset script applies the same reset to existing 4+ performer scenes that already have advisor data. The solo/group rubric migration converts existing solo attractiveness and camera-work values, promotes active solo Outstanding Performance bonuses to the highest main Performance level, merges persisted group energy/coordination answers, clears retired group standout answers, removes Unlikely Top only from 4+ performer group scenes, and adjusts affected stored scene ratings by the exact contribution delta. The one-performer repair script resets stale regular/group advisor data and ratings left behind by the old reset behavior without touching valid solo advisor rows. A separate normalization script converts legacy stored zero scene ratings to `NULL` without deleting advisor criteria.
 
 Scene rating recalculation derives each contribution from the current criterion scale and clamped raw answer instead of trusting a persisted `weighted_value` from an older rubric. Mode-specific allowlists continue to exclude retired keys even if an obsolete row is inserted or restored. The retired-score cleanup script deletes the old `performerAppeal`, `cameraWork`, `groupParticipation`, `groupStandout`, `largeGroup`, `outstandingPerformance`, and `standoutAct` rows, normalizes legacy 0-10 Energy values to the current 0-5 scale, and recalculates affected stored scene ratings from current allowed keys.
 
@@ -2790,8 +2820,8 @@ The rating advisor uses a responsive box grid instead of one long control stack.
 
 Bonus section:
 
-- Orgasm count bonus (+1 rating point on the 3rd recorded orgasm, then +1 for each orgasm after that; automatic and read-only)
-- Theme / fantasy / uniform factor (+0.5 when present)
+- O Count bonus (+1 rating point on the 3rd recorded orgasm, then +1 for each orgasm after that; automatic and read-only)
+- Uniform/setting factor (+0.5 when present)
 - Oral-only scene (+0.5 when present)
 - God-tier orgasm bonus (+1.0 when present)
 - GOAT element (+2.0 when present)
@@ -2803,7 +2833,7 @@ Solo scene bonus section:
 - Orgasm bonus (+1.0 when present)
 - Feet bonus (+1.0 when present)
 - GOAT element (+2.0 when present)
-- Theme / fantasy / uniform factor (+0.5 when present)
+- Uniform/setting factor (+0.5 when present)
 
 Penalty section:
 
@@ -2857,11 +2887,11 @@ Performer rating criteria include a feminine performer penalty, exposed both in 
 
 ### Studio Rating Advisor Averages
 
-The Studio detail Stats tab includes four Rating Advisor summaries for solo scenes, 2-3 performer sex scenes, 4+ performer group scenes, and the studio's distinct performers. Each criterion uses the same normalized heat bar as the scene/performer rating popup and shows its average rating-point contribution plus the number of entities contributing to that specific average. Missing criteria are excluded per bar, while an intentionally answered zero remains part of the average. Only scenes or performers with at least one criterion from the matching rubric qualify for a section.
+The Studio detail Stats tab includes four Rating Advisor summaries for solo scenes, 2-3 performer sex scenes, 4+ performer group scenes, and the studio's distinct performers. The summary heading shows the overall stored scene-rating average across the three qualifying scene rubrics, and every section starts with its own stored scene- or performer-rating average. Each criterion uses the same normalized heat bar as the scene/performer rating popup and shows its average canonical rating-point contribution against that criterion's maximum (for example `18/30`) plus the number of entities contributing to that specific average. Missing criteria are excluded per bar, while an intentionally answered zero remains part of the average. Only scenes or performers with at least one criterion from the matching rubric qualify for a section.
 
 Active persisted bonuses and penalties show counts of qualifying scenes or performers, and the automatic recorded-orgasm bonus is counted using the same three-orgasm activation threshold as the popup. Performer criteria and automatic orgasm bonuses remain global performer values, while studio membership comes from the studio's distinct scene performers. The existing Include Subsidiary Studio Content toggle controls whether direct child studios are included.
 
-GraphQL adds `StudioRatingAdvisorStats`, section/criterion/adjustment payload types, and `Studio.studio_rating_advisor_stats(depth:)`. The resolver uses one set-based SQLite aggregate rather than loading full scene/performer cards or issuing one rating query per entity. `TestStudioRatingAdvisorStatsCustomAveragesOnlySetCriteria` executes the aggregate against representative direct/child studio data and covers partial criteria denominators, intentional zero answers, normalized fills, 2-3 performer classification, distinct performers, active adjustments, and the automatic orgasm-count bonus.
+GraphQL adds `StudioRatingAdvisorStats`, section/criterion/adjustment payload types, and `Studio.studio_rating_advisor_stats(depth:)`. The resolver uses one set-based SQLite aggregate rather than loading full scene/performer cards or issuing one rating query per entity. `TestStudioRatingAdvisorStatsCustomAveragesOnlySetCriteria` executes the aggregate against representative direct/child studio data and covers overall/per-rubric ratings, partial criteria denominators, intentional zero answers, normalized fills, 2-3 performer classification, distinct performers, active adjustments, and the automatic orgasm-count bonus.
 
 ### Files Modified
 
@@ -2901,21 +2931,26 @@ GraphQL adds `StudioRatingAdvisorStats`, section/criterion/adjustment payload ty
 - `rating_remove_performer_unlikely_top_bonus_custom.sql` - Standalone manual SQL script to remove performer-level Unlikely Top bonus rows and recalculate affected performers
 - `rating_remove_standout_act_bonus_custom.sql` - Standalone manual SQL script to remove retired Standout Act bonus rows and subtract their stored contribution from affected ratings
 - `rating_reset_advisor_scores_custom.sql` - Standalone manual SQL script to delete all persisted advisor dimension rows while preserving existing scene/performer ratings
-- `rating_reset_group_scene_scores_custom.sql` - Resets existing 4+ performer scenes with advisor data to rating 0 and removes their old advisor rows
+- `rating_reset_group_scene_scores_custom.sql` - Removes advisor rows from existing 4+ performer scenes and clears their stored ratings to the no-rating state
 - `rating_reduce_god_tier_orgasm_bonus_custom.sql` - Reduces persisted scene God-tier bonuses from +20 to +10 and subtracts the same 10 points from affected scene ratings
 - `rating_rebalance_scene_energy_usable_factor_custom.sql` - Reweights regular-scene Energy answers from 30 to 20 maximum points, removes retired Standout answers, and recalculates affected scene ratings
 - `rating_increase_no_orgasm_penalty_custom.sql` - Increases active scene No orgasm penalties from -10 to -20 and subtracts the additional 10 points from affected scene ratings
 - `rating_rebalance_solo_group_rubrics_custom.sql` - Converts persisted solo/group rubric rows, removes retired mode-specific values, and updates affected scene ratings by their exact score deltas
 - `rating_cleanup_retired_scene_scores_custom.sql` - Purges all retired scene-advisor keys, normalizes legacy Energy rows, and recalculates affected scenes from current mode-specific allowlists
+- `rating_repair_one_performer_advisors_custom.sql` - Resets incompatible advisor rows on exactly-one-performer scenes and repairs non-zero ratings left without criteria by the old scene reset behavior
+- `rating_clear_zero_scene_ratings_custom.sql` - Normalizes every stored zero scene rating to SQL `NULL` without removing associated advisor rows
 - `graphql/schema/types/rating_custom.graphql` - Rating score GraphQL types, mutation, and read-only orgasm-count query
 - `internal/api/resolver_rating_score_custom.go` - Rating score query/mutation resolvers
-- `internal/api/resolver_rating_score_custom_test.go` - Verifies ownership semantics, cast/mode/config resets, delete behavior, and rating-preserving whole-advisor resets
+- `internal/api/resolver_rating_score_custom_test.go` - Verifies ownership semantics, cast/mode/config resets, delete behavior, scene rating-zero resets, and performer rating-preserving resets
 - `pkg/models/rating_score_custom.go` - Generic rating score model and repository interfaces
 - `pkg/sqlite/rating_score_custom.go` - SQLite score store and rating recalculation logic
 - `pkg/sqlite/rating_score_calculation_custom.go` - Canonical scene and performer rubrics, exact write validation, and contribution calculation that ignores client/persisted weights
 - `pkg/sqlite/rating_score_calculation_custom_test.go` - Covers sparse payoff choices, invalid inputs, legacy normalization, canonical scene/performer contributions, and retired-key exclusion
+- `pkg/sqlite/rating_scene_mode_custom_test.go` - Verifies that exactly one assigned performer selects the solo rubric independently of marker-derived mode hints
 - `pkg/sqlite/rating_score_scripts_custom_test.go` - Executes the schema and maintenance SQL against representative data, including orphan prevention, delete cleanup, clamp order, and performer-bonus cleanup
 - `pkg/sqlite/rating_cleanup_retired_scene_scores_custom_test.go` - Reproduces scene 3571's 92/76 mismatch and verifies cleanup, mode isolation, and rerun safety
+- `pkg/sqlite/rating_repair_one_performer_advisors_custom_test.go` - Verifies targeted one-performer repair, complete score cleanup, valid solo/default preservation, and rerun safety
+- `pkg/sqlite/rating_zero_scene_ratings_custom_test.go` - Verifies zero-to-NULL normalization, advisor-row preservation, rerun safety, and no-rating group resets
 - `pkg/models/rating_criteria_filter_custom.go` - Generic rating criteria filter input models
 - `pkg/sqlite/rating_criteria_filter_custom.go` - Shared SQLite predicates for criteria/bonus/penalty filters
 - `ui/v2.5/src/models/list-filter/criteria/rating-criteria_custom.ts` - Frontend rating criteria filter criterion classes
@@ -2971,7 +3006,7 @@ deploy_prod_custom.bat -SkipStart
 
 Adds marker-duration stats for configured sex, oral, solo, other, outstanding, standard, and unusable activity percentages. The activity strip has two rows: Sex/Oral/Solo/Other and Outstanding/Standard/Unusable. Sex/oral/solo activity is based on markers whose primary tag exactly matches the configured role tag, even when the marker also has secondary tags. Same-category overlaps are merged, cross-category overlaps count toward each category, and activity Other is runtime without a sex/oral/solo marker. Outstanding is any timed marker that is not a configured sex/oral/solo primary marker, or a configured sex/oral/solo primary marker with secondary tags. Standard is unmarked runtime or plain configured sex/oral/solo runtime not overlapped by Outstanding, and negative marker/Skip ranges are merged into Unusable without double-counting overlaps.
 
-Studio cards and studio detail pages show the two-row activity strip using the total selected scene length as 100%, including unmarked scenes so Standard can represent untagged runtime. Performer-scoped studio cards use performer-filtered activity stats for the strip, with Unusable calculated from negative marker ranges in scenes containing that performer. Performer detail pages include a Stats tab with an activity pie chart and a selected-activity top/bottom role split chart. Scene and studio detail pages include Stats tabs with separate Activity Type and Quality donut charts. The Scene Stats tab also shows a By Performer breakdown with per-activity top/bottom pie charts; chart-local checkboxes can add sex/oral/solo/other/outstanding/standard segments to the multi-segment loop while leaving Unusable read-only. One-millisecond Standard intervals are treated as closed gaps and are not added to the loop. Scene list pages expose separate combined Activity Percentage (Sex/Oral/Solo/Other) and Quality Percentage (Outstanding/Standard/Unusable) filters, plus individual sort options for all seven percentages. Studio list pages retain the combined Activity Percentage filter and sex/oral/solo/other/unusable sorts; performer list pages retain marker-owned activity percentage filters and sorts only.
+Studio cards show the two-row activity strip using the total selected scene length as 100%, including unmarked scenes so Standard can represent untagged runtime. The Studio detail Stats tab limits its Activity Type and Quality donut totals to meaningful scenes: a scene qualifies only when it contains at least one configured oral, solo, or sex marker with a valid in-bounds start/end range. Performer-scoped studio cards use performer-filtered activity stats for the strip, with Unusable calculated from negative marker ranges in scenes containing that performer. Performer detail pages include a Stats tab with an activity pie chart and a selected-activity top/bottom role split chart. Scene detail pages also include a Stats tab with separate Activity Type and Quality donut charts. Every shared donut slice exposes its footer label and percentage in a cursor-following hover tooltip, with a focused-slice position for keyboard navigation. The Scene Stats tab shows a By Performer breakdown with per-activity top/bottom pie charts; chart-local checkboxes can add sex/oral/solo/other/outstanding/standard segments to the multi-segment loop while leaving Unusable read-only. One-millisecond Standard intervals are treated as closed gaps and are not added to the loop. Scene list pages expose separate combined Activity Percentage (Sex/Oral/Solo/Other) and Quality Percentage (Outstanding/Standard/Unusable) filters, plus individual sort options for all seven percentages. Studio list pages retain the combined Activity Percentage filter and sex/oral/solo/other/unusable sorts; performer list pages retain marker-owned activity percentage filters and sorts only.
 
 ### Files Modified
 
@@ -3007,14 +3042,17 @@ Studio cards and studio detail pages show the two-row activity strip using the t
 - `ui/v2.5/src/models/list-filter/criteria/quality-type_custom.ts`
 - `ui/v2.5/src/components/List/Filters/QualityTypeFilter_custom.tsx`
 - `ui/v2.5/src/components/Shared/ActivityPieChart_custom.tsx`
+- `ui/v2.5/src/components/Shared/activityPieChartTooltip_custom.ts`
 - `ui/v2.5/src/components/Studios/StudioDetails/StudioStatsPanel.tsx`
 - `ui/v2.5/src/components/Studios/StudioActivityMetricsStrip.tsx`
+- `ui/v2.5/tests/activityPieChartTooltip_custom.test.ts`
 - `ui/v2.5/tests/sceneStatsLoopSegments_custom.test.ts`
 
 ### Test Cases
 
 - `internal/api/activity_stats_custom_test.go` - Verifies merged interval duration, interval subtraction for exclusive quality metrics, activity Other runtime, and legacy Other runtime excluding overlapping sex/oral/solo or Unusable ranges
 - `pkg/sqlite/activity_percent_quality_filter_custom_test.go` - Verifies Outstanding/Standard/Unusable SQL percentages are overlap-safe, mutually exclusive, and partition the full Scene runtime
+- `ui/v2.5/tests/activityPieChartTooltip_custom.test.ts` - Verifies slice tooltips show names and percentages without durations, follow the cursor, and stay within viewport edges
 - `ui/v2.5/tests/sceneStatsLoopSegments_custom.test.ts` - Verifies one-millisecond closed gaps are not emitted as multi-segment loop segments
 
 ---
@@ -3203,7 +3241,7 @@ Renames the user-facing English UI vocabulary from Performer/Performers to Vato/
 
 ### Overview
 
-Adds a hidden `/vatostats` page focused on vato aggregate analytics. The page shows linked vato summary cards, preserving their drilldown links and including solo-only and one-scene vatos, a top-three podium for a selectable metric ordered left-to-right as gold, silver, and bronze, the moved Tier vatos by ethnicity table, plus coordinated vertical bar charts for ethnicity, exact scene age, rating buckets, metallic rating, height buckets, country, hair color, eye color, circumcision status, and rounded exact penis size. Clicking a bar drills into that category/value and refreshes the podium plus every chart from the filtered vato set; Back and Clear controls unwind the drill-down. Unknown values are shown as separate chart-header counters so a large Unknown population does not compress the visible bars.
+Adds a hidden `/vatostats` page focused on vato aggregate analytics. The page shows linked vato summary cards, preserving their drilldown links and including solo-only and one-scene vatos, a top-three podium for a selectable metric ordered left-to-right as gold, silver, and bronze, the moved Tier vatos by ethnicity table, plus coordinated vertical bar charts for ethnicity, exact scene age, rating buckets, metallic rating, height buckets, country, hair color, eye color, circumcision status, and rounded exact penis size. The Metallic Rating chart includes a None bar for explicitly set ratings that do not qualify for any configured metallic tier; null/unset ratings are excluded from None. Clicking a bar drills into that category/value and refreshes the podium plus every chart from the filtered vato set; Back and Clear controls unwind the drill-down. Unknown values are shown as separate chart-header counters so a large Unknown population does not compress the visible bars.
 
 ### Files Modified
 
@@ -3217,12 +3255,15 @@ Adds a hidden `/vatostats` page focused on vato aggregate analytics. The page sh
 
 - `ui/v2.5/src/components/VatoStats/VatoStats.tsx` - VatoStats page, moved linked summary stat cards, metric selector, podium, filtered performer list, drill-down state, and charts. Auxiliary summary/filter counts are deferred until the core vato dataset arrives, and only configured role tags are fetched.
 - `ui/v2.5/src/components/VatoStats/VatoStats.scss` - Page-specific podium and chart styles.
+- `ui/v2.5/src/utils/metallicRatingChart_custom.ts` - Shared None/metallic chart bucket classification for SceneStats and VatoStats.
+- `ui/v2.5/tests/metallicRatingChart_custom.test.ts` - Verifies set-but-unqualified ratings use None while null/unset ratings do not.
 
 ### Test Cases Added
 
 - `TestVatoStatsAgeRange` - Covers exact scene-age labels.
 - `TestVatoStatsSetAgeCount` - Covers merging repeated scene-age counts.
 - `TestVatoStatsPerformersQueryCustomAggregatesSceneOsAndCareerOnce` - Covers the pre-aggregated scene-O and single-pass career-span query.
+- `metallicRatingChart_custom.test.ts` - Covers None, null/unset ratings, zero ratings, recognized tiers, and tag-override tiers without a stored rating.
 
 ### GraphQL Schema Changes
 
@@ -3240,7 +3281,7 @@ Adds a hidden `/vatostats` page focused on vato aggregate analytics. The page sh
 
 ### Overview
 
-Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene metrics from CustomStats while adding scene podium metrics and scene distribution charts. Release year charts drill down to month and day; day bars link to the Scenes page filtered by effective release date.
+Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene metrics from CustomStats while adding scene podium metrics and scene distribution charts. The Metallic Rating chart includes a None bar for explicitly set ratings that do not qualify for a configured tier, without classifying null/unset ratings as None. Zero or absent vato/facial counts, zero or absent ordinary ratings, null metallic ratings, missing/invalid release parts, and scenes without a recognized sex/oral/solo type use each chart's Unknown counter instead of zero-value bars; a stored metallic rating of zero remains None. Release year charts drill down to month and day; day bars link to the Scenes page filtered by effective release date.
 
 ### Files Added
 
@@ -3248,8 +3289,12 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 - `ui/v2.5/src/components/SceneStats/SceneStats.scss`
 - `ui/v2.5/src/components/SceneStats/sceneStatsDuration_custom.ts`
 - `ui/v2.5/src/components/SceneStats/sceneStatsFacialCounts_custom.ts`
+- `ui/v2.5/src/components/SceneStats/sceneStatsChartBuckets_custom.ts`
 - `ui/v2.5/tests/sceneStatsDuration_custom.test.ts`
 - `ui/v2.5/tests/sceneStatsFacialCounts_custom.test.ts`
+- `ui/v2.5/tests/sceneStatsChartBuckets_custom.test.ts`
+- `ui/v2.5/src/utils/metallicRatingChart_custom.ts`
+- `ui/v2.5/tests/metallicRatingChart_custom.test.ts`
 
 ### Files Modified
 
@@ -3273,6 +3318,9 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 ### Test Cases Added
 
 - `sceneStatsFacialCounts_custom.test.ts` verifies facial and really-hot facial counting from compact marker tag-ID groups, the original marker shape, and Facial Count podium ordering.
+- `sceneStatsChartBuckets_custom.test.ts` verifies zero/null Unknown classification, metallic zero-versus-null behavior, activity-type precedence, the `9999` unknown-year sentinel, and invalid/missing month/day handling.
+- `metallicRatingChart_custom.test.ts` verifies shared SceneStats/VatoStats metallic bucket labels and ordering, including the set-rating-only None bucket.
+- `internal/api/scene_stats_activity_time_custom_test.go` verifies completed sex/oral marker duration totals, exclusion of missing/invalid ends, exact activity-tag separation, and performer-independent counting.
 
 ### GraphQL Schema Changes
 
@@ -3280,6 +3328,8 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 - `SceneStatsScene`
 - `SceneStatsResult`
 - `sceneStats`
+- `totalSexTime`
+- `totalOralTime`
 
 ### Configuration Dependencies
 

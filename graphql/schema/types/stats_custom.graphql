@@ -295,4 +295,8 @@ extend type Query {
   totalOrgasmTime: Float!
   "Get total time (in seconds) of all facial markers. Uses 20s default if no end time."
   totalFacialTime: Float!
+  "Get total time (in seconds) of completed sex activity markers."
+  totalSexTime: Float!
+  "Get total time (in seconds) of completed oral activity markers."
+  totalOralTime: Float!
 }

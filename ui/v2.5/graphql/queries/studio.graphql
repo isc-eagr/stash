@@ -21,6 +21,7 @@ query FindStudioRatingAdvisorStats($id: ID!, $depth: Int) {
   findStudio(id: $id) {
     id
     studio_rating_advisor_stats(depth: $depth) {
+      overall_scene_average_rating100
       solo_scenes {
         ...StudioRatingAdvisorSectionData
       }
@@ -39,6 +40,7 @@ query FindStudioRatingAdvisorStats($id: ID!, $depth: Int) {
 
 fragment StudioRatingAdvisorSectionData on StudioRatingAdvisorSectionStats {
   entity_count
+  average_rating100
   criteria {
     key
     average_raw_value

@@ -18,7 +18,8 @@ interface ISectionDefinition {
   title: string;
   singular: string;
   plural: string;
-  criterionLabels: Record<string, string>;
+  ratingLabel: string;
+  criteria: Record<string, { label: string; max: number }>;
 }
 
 const sectionDefinitions: ISectionDefinition[] = [
@@ -27,10 +28,11 @@ const sectionDefinitions: ISectionDefinition[] = [
     title: "Solo Scenes",
     singular: "scene",
     plural: "scenes",
-    criterionLabels: {
-      soloPerformerAppeal: "Vato Attractiveness",
-      soloPerformance: "Performance",
-      soloUsability: "Usability",
+    ratingLabel: "Average scene rating",
+    criteria: {
+      soloPerformerAppeal: { label: "Vato Attractiveness", max: 50 },
+      soloPerformance: { label: "Performance", max: 30 },
+      soloUsability: { label: "Usability", max: 20 },
     },
   },
   {
@@ -38,12 +40,13 @@ const sectionDefinitions: ISectionDefinition[] = [
     title: "Sex Scenes",
     singular: "scene",
     plural: "scenes",
-    criterionLabels: {
-      topAttractiveness: "Top(s) Attractiveness",
-      bottomAttractiveness: "Bottom(s) Attractiveness",
-      chemistry: "Energy / sex quality",
-      payoff: "Orgasm quality",
-      standout: "Usable factor",
+    ratingLabel: "Average scene rating",
+    criteria: {
+      topAttractiveness: { label: "Top(s) Attractiveness", max: 30 },
+      bottomAttractiveness: { label: "Bottom(s) Attractiveness", max: 10 },
+      chemistry: { label: "Energy / sex quality", max: 20 },
+      payoff: { label: "Orgasm quality", max: 20 },
+      standout: { label: "Usable factor", max: 20 },
     },
   },
   {
@@ -51,11 +54,15 @@ const sectionDefinitions: ISectionDefinition[] = [
     title: "Group Scenes",
     singular: "scene",
     plural: "scenes",
-    criterionLabels: {
-      groupTopAttractiveness: "Top Lineup Attractiveness",
-      groupEnergy: "Energy / coordination",
-      groupPayoff: "Orgasm Quality",
-      groupUsability: "Usability",
+    ratingLabel: "Average scene rating",
+    criteria: {
+      groupTopAttractiveness: {
+        label: "Top Lineup Attractiveness",
+        max: 20,
+      },
+      groupEnergy: { label: "Energy / coordination", max: 40 },
+      groupPayoff: { label: "Orgasm Quality", max: 20 },
+      groupUsability: { label: "Usability", max: 20 },
     },
   },
   {
@@ -63,22 +70,24 @@ const sectionDefinitions: ISectionDefinition[] = [
     title: "Performers",
     singular: "performer",
     plural: "performers",
-    criterionLabels: {
-      face: "Face",
-      body: "Body",
-      performance: "Sexual performance",
-      ethnicity: "Ethnicity / racial appeal",
-      masculinity: "Masculinity",
+    ratingLabel: "Average performer rating",
+    criteria: {
+      face: { label: "Face", max: 30 },
+      body: { label: "Body", max: 30 },
+      performance: { label: "Sexual performance", max: 20 },
+      ethnicity: { label: "Ethnicity / racial appeal", max: 10 },
+      masculinity: { label: "Masculinity", max: 10 },
     },
   },
 ];
 
-function formatAverageContribution(value: number) {
+function formatRatingValue(value: number) {
+  return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
+}
+
+function formatAverageContribution(value: number, max: number) {
   const points = value * 10;
-  const formatted = Number.isInteger(points)
-    ? points.toFixed(0)
-    : points.toFixed(1);
-  return `${points > 0 ? "+" : ""}${formatted} avg`;
+  return `${formatRatingValue(points)}/${formatRatingValue(max)}`;
 }
 
 function formatEntityCount(count: number, singular: string, plural: string) {
@@ -92,11 +101,13 @@ function averageHeatLevel(fillPercent: number) {
 const CriterionRow: React.FC<{
   criterion: RatingAdvisorSection["criteria"][number];
   label: string;
+  max: number;
   singular: string;
   plural: string;
-}> = ({ criterion, label, singular, plural }) => {
+}> = ({ criterion, label, max, singular, plural }) => {
   const contribution = formatAverageContribution(
-    criterion.average_weighted_value
+    criterion.average_weighted_value,
+    max
   );
   const sample = `${criterion.entity_count} ${
     criterion.entity_count === 1 ? singular : plural
@@ -202,6 +213,15 @@ const AdvisorSection: React.FC<{
           )}
         </span>
       </header>
+      <div className="studio-rating-advisor-section-average">
+        <span>{definition.ratingLabel}</span>
+        <strong>
+          {stats.average_rating100 === null ||
+          stats.average_rating100 === undefined
+            ? "—"
+            : `${formatRatingValue(stats.average_rating100)}/100`}
+        </strong>
+      </div>
       {stats.entity_count === 0 ? (
         <div className="studio-rating-advisor-empty">
           No advisor criteria yet.
@@ -214,8 +234,9 @@ const AdvisorSection: React.FC<{
                 criterion={criterion}
                 key={criterion.key}
                 label={
-                  definition.criterionLabels[criterion.key] ?? criterion.key
+                  definition.criteria[criterion.key]?.label ?? criterion.key
                 }
+                max={definition.criteria[criterion.key]?.max ?? 0}
                 singular={definition.singular}
                 plural={definition.plural}
               />
@@ -262,11 +283,24 @@ export const StudioRatingAdvisorStats: React.FC<IProps> = ({
   return (
     <section className="studio-rating-advisor-stats">
       <div className="studio-rating-advisor-title">
-        <h2>Rating Advisor Averages</h2>
-        <p>
-          Each bar averages only the scenes or performers where that criterion
-          is set.
-        </p>
+        <div>
+          <h2>Rating Advisor Averages</h2>
+          <p>
+            Each bar averages only the scenes or performers where that criterion
+            is set.
+          </p>
+        </div>
+        <div className="studio-rating-advisor-overall-average">
+          <span>Overall scene rating</span>
+          <strong>
+            {stats.overall_scene_average_rating100 === null ||
+            stats.overall_scene_average_rating100 === undefined
+              ? "—"
+              : `${formatRatingValue(
+                  stats.overall_scene_average_rating100
+                )}/100`}
+          </strong>
+        </div>
       </div>
       <div className="studio-rating-advisor-grid">
         {sectionDefinitions.map((definition) => (

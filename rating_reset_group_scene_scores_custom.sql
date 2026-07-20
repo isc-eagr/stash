@@ -36,7 +36,7 @@ WHERE entity_type = 'scene'
   AND entity_id IN (SELECT scene_id FROM group_scene_rating_reset_targets_custom);
 
 UPDATE scenes
-SET rating = 0,
+SET rating = NULL,
     updated_at = CURRENT_TIMESTAMP
 WHERE id IN (SELECT scene_id FROM group_scene_rating_reset_targets_custom);
 

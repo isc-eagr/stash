@@ -38,6 +38,7 @@ type studioRatingAdvisorScoreRowCustom struct {
 	key           string
 	rawValue      float64
 	weightedValue float64
+	rating100     *float64
 }
 
 type studioRatingAdvisorCriterionAccumulatorCustom struct {
@@ -49,6 +50,7 @@ type studioRatingAdvisorCriterionAccumulatorCustom struct {
 
 type studioRatingAdvisorSectionAccumulatorCustom struct {
 	entityIDs   map[int]struct{}
+	ratings     map[int]float64
 	criteria    map[string]*studioRatingAdvisorCriterionAccumulatorCustom
 	adjustments map[string]map[int]struct{}
 }
@@ -148,15 +150,15 @@ WITH RECURSIVE selected_studios(id, depth) AS (
   JOIN selected_studios ON studios.parent_id = selected_studios.id
   WHERE ? = -1 OR selected_studios.depth < ?
 ),
-selected_scenes(id, performer_count) AS (
-  SELECT scenes.id, COUNT(DISTINCT performers_scenes.performer_id)
+selected_scenes(id, performer_count, rating100) AS (
+  SELECT scenes.id, COUNT(DISTINCT performers_scenes.performer_id), scenes.rating
   FROM scenes
   LEFT JOIN performers_scenes ON performers_scenes.scene_id = scenes.id
   WHERE scenes.studio_id IN (SELECT id FROM selected_studios)
   GROUP BY scenes.id
 ),
-eligible_entities(category, entity_type, entity_id) AS (
-  SELECT 'solo_scenes', 'scene', selected_scenes.id
+eligible_entities(category, entity_type, entity_id, rating100) AS (
+  SELECT 'solo_scenes', 'scene', selected_scenes.id, selected_scenes.rating100
   FROM selected_scenes
   WHERE EXISTS (
     SELECT 1 FROM rating_criteria_scores scores
@@ -165,7 +167,7 @@ eligible_entities(category, entity_type, entity_id) AS (
       AND scores.key IN ('soloPerformerAppeal', 'soloPerformance', 'soloUsability')
   )
   UNION ALL
-  SELECT 'sex_scenes', 'scene', selected_scenes.id
+  SELECT 'sex_scenes', 'scene', selected_scenes.id, selected_scenes.rating100
   FROM selected_scenes
   WHERE selected_scenes.performer_count BETWEEN 2 AND 3
     AND NOT EXISTS (
@@ -181,7 +183,7 @@ eligible_entities(category, entity_type, entity_id) AS (
         AND scores.key IN ('topAttractiveness', 'bottomAttractiveness', 'chemistry', 'payoff', 'standout')
     )
   UNION ALL
-  SELECT 'group_scenes', 'scene', selected_scenes.id
+  SELECT 'group_scenes', 'scene', selected_scenes.id, selected_scenes.rating100
   FROM selected_scenes
   WHERE selected_scenes.performer_count >= 4
     AND EXISTS (
@@ -191,9 +193,10 @@ eligible_entities(category, entity_type, entity_id) AS (
         AND scores.key IN ('groupTopAttractiveness', 'groupEnergy', 'groupPayoff', 'groupUsability')
     )
   UNION ALL
-  SELECT DISTINCT 'performers', 'performer', performers_scenes.performer_id
+  SELECT DISTINCT 'performers', 'performer', performers_scenes.performer_id, performers.rating
   FROM selected_scenes
   JOIN performers_scenes ON performers_scenes.scene_id = selected_scenes.id
+  JOIN performers ON performers.id = performers_scenes.performer_id
   WHERE EXISTS (
     SELECT 1 FROM rating_criteria_scores scores
     WHERE scores.entity_type = 'performer'
@@ -201,25 +204,25 @@ eligible_entities(category, entity_type, entity_id) AS (
       AND scores.key IN ('face', 'body', 'performance', 'ethnicity', 'masculinity')
   )
 ),
-persisted_scores(category, entity_type, entity_id, section, key, raw_value, weighted_value) AS (
-  SELECT eligible.category, eligible.entity_type, eligible.entity_id, 'criterion', scores.key, scores.raw_value, scores.weighted_value
+persisted_scores(category, entity_type, entity_id, section, key, raw_value, weighted_value, rating100) AS (
+  SELECT eligible.category, eligible.entity_type, eligible.entity_id, 'criterion', scores.key, scores.raw_value, scores.weighted_value, eligible.rating100
   FROM eligible_entities eligible
   JOIN rating_criteria_scores scores
     ON scores.entity_type = eligible.entity_type AND scores.entity_id = eligible.entity_id
   UNION ALL
-  SELECT eligible.category, eligible.entity_type, eligible.entity_id, 'bonus', scores.key, scores.raw_value, scores.weighted_value
+  SELECT eligible.category, eligible.entity_type, eligible.entity_id, 'bonus', scores.key, scores.raw_value, scores.weighted_value, eligible.rating100
   FROM eligible_entities eligible
   JOIN rating_bonus_scores scores
     ON scores.entity_type = eligible.entity_type AND scores.entity_id = eligible.entity_id
   WHERE scores.raw_value != 0 OR scores.weighted_value != 0
   UNION ALL
-  SELECT eligible.category, eligible.entity_type, eligible.entity_id, 'penalty', scores.key, scores.raw_value, scores.weighted_value
+  SELECT eligible.category, eligible.entity_type, eligible.entity_id, 'penalty', scores.key, scores.raw_value, scores.weighted_value, eligible.rating100
   FROM eligible_entities eligible
   JOIN rating_penalty_scores scores
     ON scores.entity_type = eligible.entity_type AND scores.entity_id = eligible.entity_id
   WHERE scores.raw_value != 0 OR scores.weighted_value != 0
   UNION ALL
-  SELECT eligible.category, eligible.entity_type, eligible.entity_id, 'bonus', 'orgasm-count-bonus', 1, 1
+  SELECT eligible.category, eligible.entity_type, eligible.entity_id, 'bonus', 'orgasm-count-bonus', 1, 1, eligible.rating100
   FROM eligible_entities eligible
   WHERE (
     eligible.entity_type = 'scene'
@@ -234,7 +237,7 @@ persisted_scores(category, entity_type, entity_id, section, key, raw_value, weig
     ) >= 3
   )
 )
-SELECT category, entity_id, section, key, raw_value, weighted_value
+SELECT category, entity_id, section, key, raw_value, weighted_value, rating100
 FROM persisted_scores
 ORDER BY category, entity_id, section, key`
 
@@ -304,6 +307,7 @@ func aggregateStudioRatingAdvisorRowsCustom(rows []studioRatingAdvisorScoreRowCu
 	for category := range studioRatingAdvisorConfigsCustom {
 		accumulators[category] = &studioRatingAdvisorSectionAccumulatorCustom{
 			entityIDs:   make(map[int]struct{}),
+			ratings:     make(map[int]float64),
 			criteria:    make(map[string]*studioRatingAdvisorCriterionAccumulatorCustom),
 			adjustments: make(map[string]map[int]struct{}),
 		}
@@ -322,6 +326,9 @@ func aggregateStudioRatingAdvisorRowsCustom(rows []studioRatingAdvisorScoreRowCu
 				continue
 			}
 			accumulator.entityIDs[row.entityID] = struct{}{}
+			if row.rating100 != nil {
+				accumulator.ratings[row.entityID] = *row.rating100
+			}
 			criterion := accumulator.criteria[row.key]
 			if criterion == nil {
 				criterion = &studioRatingAdvisorCriterionAccumulatorCustom{entityIDs: make(map[int]struct{})}
@@ -358,6 +365,7 @@ func aggregateStudioRatingAdvisorRowsCustom(rows []studioRatingAdvisorScoreRowCu
 		resultSection := studioRatingAdvisorResultSectionCustom(ret, category)
 		accumulator := accumulators[category]
 		resultSection.EntityCount = len(accumulator.entityIDs)
+		resultSection.AverageRating100 = studioRatingAdvisorAverageCustom(accumulator.ratings)
 
 		for _, key := range config.criterionOrder {
 			criterion := accumulator.criteria[key]
@@ -397,7 +405,31 @@ func aggregateStudioRatingAdvisorRowsCustom(rows []studioRatingAdvisorScoreRowCu
 		})
 	}
 
+	overallSceneRatings := make(map[int]float64)
+	for _, category := range []string{
+		studioRatingAdvisorSoloScenesCustom,
+		studioRatingAdvisorSexScenesCustom,
+		studioRatingAdvisorGroupScenesCustom,
+	} {
+		for entityID, rating := range accumulators[category].ratings {
+			overallSceneRatings[entityID] = rating
+		}
+	}
+	ret.OverallSceneAverageRating100 = studioRatingAdvisorAverageCustom(overallSceneRatings)
+
 	return ret
+}
+
+func studioRatingAdvisorAverageCustom(values map[int]float64) *float64 {
+	if len(values) == 0 {
+		return nil
+	}
+	var total float64
+	for _, value := range values {
+		total += value
+	}
+	average := total / float64(len(values))
+	return &average
 }
 
 func splitStudioRatingAdvisorAdjustmentKeyCustom(value string) [2]string {
@@ -433,17 +465,22 @@ func queryStudioRatingAdvisorStatsCustom(ctx context.Context, studioID int, dept
 
 	rows := make([]studioRatingAdvisorScoreRowCustom, 0, len(rawRows))
 	for _, rawRow := range rawRows {
-		if len(rawRow) < 6 {
+		if len(rawRow) < 7 {
 			continue
 		}
-		rows = append(rows, studioRatingAdvisorScoreRowCustom{
+		row := studioRatingAdvisorScoreRowCustom{
 			category:      studioRatingAdvisorStringCustom(rawRow[0]),
 			entityID:      activityStatsIntCustom(rawRow[1]),
 			section:       studioRatingAdvisorStringCustom(rawRow[2]),
 			key:           studioRatingAdvisorStringCustom(rawRow[3]),
 			rawValue:      activityStatsFloatCustom(rawRow[4]),
 			weightedValue: activityStatsFloatCustom(rawRow[5]),
-		})
+		}
+		if rawRow[6] != nil {
+			rating := activityStatsFloatCustom(rawRow[6])
+			row.rating100 = &rating
+		}
+		rows = append(rows, row)
 	}
 
 	return aggregateStudioRatingAdvisorRowsCustom(rows), nil

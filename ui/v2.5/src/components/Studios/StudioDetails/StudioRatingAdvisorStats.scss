@@ -5,6 +5,10 @@
 }
 
 .studio-rating-advisor-title {
+  align-items: flex-end;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
   margin-bottom: 1.25rem;
 
   h2 {
@@ -16,6 +20,31 @@
     color: var(--text-muted, #aeb5bd);
     margin: 0;
   }
+}
+
+.studio-rating-advisor-overall-average,
+.studio-rating-advisor-section-average {
+  align-items: baseline;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.3rem;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+
+  span {
+    color: var(--text-muted, #aeb5bd);
+    font-size: 0.78rem;
+  }
+
+  strong {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.studio-rating-advisor-overall-average {
+  flex: 0 0 auto;
+  padding: 0.65rem 0.8rem;
 }
 
 .studio-rating-advisor-grid {
@@ -51,6 +80,11 @@
   }
 }
 
+.studio-rating-advisor-section-average {
+  margin-bottom: 1rem;
+  padding: 0.55rem 0.65rem;
+}
+
 .studio-rating-advisor-empty {
   color: var(--text-muted, #aeb5bd);
   font-size: 0.85rem;
@@ -59,6 +93,11 @@
 }
 
 @media (max-width: 767.98px) {
+  .studio-rating-advisor-title {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .studio-rating-advisor-grid {
     grid-template-columns: minmax(0, 1fr);
   }
