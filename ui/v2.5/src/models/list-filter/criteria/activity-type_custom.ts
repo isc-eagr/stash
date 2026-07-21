@@ -29,11 +29,6 @@ const baseMetricKeys: ActivityTypeMetricKey[] = [
   "other_percent",
 ];
 
-const studioMetricKeys: ActivityTypeMetricKey[] = [
-  ...baseMetricKeys,
-  "unusable_percent",
-];
-
 const performerMetricKeys: ActivityTypeMetricKey[] = [
   "sex_percent",
   "oral_percent",
@@ -46,9 +41,8 @@ const performerMetricKeys: ActivityTypeMetricKey[] = [
 
 export class ActivityTypeCriterionOption extends CriterionOption {
   public readonly includePerformerRoles: boolean;
-  public readonly includeUnusable: boolean;
 
-  constructor(includePerformerRoles: boolean, includeUnusable = false) {
+  constructor(includePerformerRoles: boolean) {
     super({
       messageID: "activity_type",
       type: "activity_type" as CriterionType,
@@ -56,7 +50,6 @@ export class ActivityTypeCriterionOption extends CriterionOption {
         new ActivityTypeCriterion(o as ActivityTypeCriterionOption),
     });
     this.includePerformerRoles = includePerformerRoles;
-    this.includeUnusable = includeUnusable;
   }
 }
 
@@ -64,7 +57,7 @@ export const ActivityTypeCriterionOptionInstance =
   new ActivityTypeCriterionOption(false);
 
 export const StudioActivityTypeCriterionOption =
-  new ActivityTypeCriterionOption(false, true);
+  new ActivityTypeCriterionOption(false);
 
 export const PerformerActivityTypeCriterionOption =
   new ActivityTypeCriterionOption(true);
@@ -75,9 +68,7 @@ export class ActivityTypeCriterion extends Criterion {
   public get metricKeys() {
     if (this.activityTypeOption.includePerformerRoles)
       return performerMetricKeys;
-    return this.activityTypeOption.includeUnusable
-      ? studioMetricKeys
-      : baseMetricKeys;
+    return baseMetricKeys;
   }
 
   private get activityTypeOption() {

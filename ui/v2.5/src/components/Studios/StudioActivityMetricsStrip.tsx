@@ -46,6 +46,7 @@ type StudioActivityStats = Pick<
 interface IProps {
   stats?: StudioActivityStats | null;
   idPrefix: string;
+  showHeadings?: boolean;
 }
 
 function renderStudioActivityMetric(
@@ -101,6 +102,7 @@ function renderStudioActivityMetric(
 export const StudioActivityMetricsStrip: React.FC<IProps> = ({
   stats,
   idPrefix,
+  showHeadings = false,
 }) => {
   if (!stats || stats.total_seconds <= 0) return null;
 
@@ -154,15 +156,27 @@ export const StudioActivityMetricsStrip: React.FC<IProps> = ({
 
   return (
     <div className="studio-activity-metrics">
-      <div className="studio-activity-metrics__row">
-        {activityMetrics.map((metric) =>
-          renderStudioActivityMetric(idPrefix, metric)
+      <div className="studio-activity-metrics__group">
+        {showHeadings && (
+          <strong className="studio-activity-metrics__heading">
+            Activity Type
+          </strong>
         )}
+        <div className="studio-activity-metrics__row">
+          {activityMetrics.map((metric) =>
+            renderStudioActivityMetric(idPrefix, metric)
+          )}
+        </div>
       </div>
-      <div className="studio-activity-metrics__row">
-        {qualityMetrics.map((metric) =>
-          renderStudioActivityMetric(idPrefix, metric)
+      <div className="studio-activity-metrics__group">
+        {showHeadings && (
+          <strong className="studio-activity-metrics__heading">Quality</strong>
         )}
+        <div className="studio-activity-metrics__row">
+          {qualityMetrics.map((metric) =>
+            renderStudioActivityMetric(idPrefix, metric)
+          )}
+        </div>
       </div>
     </div>
   );

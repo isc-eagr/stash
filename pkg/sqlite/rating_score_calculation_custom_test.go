@@ -147,3 +147,30 @@ func TestRetiredSceneRatingKeysAreExcludedFromEveryRubric(t *testing.T) {
 		}
 	}
 }
+
+func TestCalculateOrgasmRatingBonusUsesProgressiveDoublingTiers(t *testing.T) {
+	tests := []struct {
+		name       string
+		entityType string
+		count      int
+		expected   int
+	}{
+		{name: "scene before activation", entityType: models.RatingEntityScene, count: 2, expected: 0},
+		{name: "scene fourth O stays in first tier", entityType: models.RatingEntityScene, count: 4, expected: 2},
+		{name: "scene sixth O enters second tier", entityType: models.RatingEntityScene, count: 6, expected: 5},
+		{name: "scene twelfth O enters third tier", entityType: models.RatingEntityScene, count: 12, expected: 18},
+		{name: "scene twenty fourth O enters fourth tier", entityType: models.RatingEntityScene, count: 24, expected: 55},
+		{name: "performer before activation", entityType: models.RatingEntityPerformer, count: 2, expected: 0},
+		{name: "performer does not award the fourth O", entityType: models.RatingEntityPerformer, count: 4, expected: 1},
+		{name: "performer seventh O enters second tier", entityType: models.RatingEntityPerformer, count: 7, expected: 4},
+		{name: "performer does not award the twelfth O", entityType: models.RatingEntityPerformer, count: 12, expected: 8},
+		{name: "performer thirteenth O enters third tier", entityType: models.RatingEntityPerformer, count: 13, expected: 11},
+		{name: "unsupported entity", entityType: "studio", count: 24, expected: 0},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.expected, calculateOrgasmRatingBonus(test.entityType, test.count))
+		})
+	}
+}

@@ -24,6 +24,7 @@ const customCriterionTypes = new Set<CriterionType>([
   "performer_marker_tags",
   "performer_markers",
   "performer_rating",
+  "performer_rating_criteria",
   "profile_image_count",
   "rating_criteria",
   "release_count",

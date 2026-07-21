@@ -26,7 +26,7 @@ func TestApplyStudioListRoleRowsCustom(t *testing.T) {
 }
 
 func TestCalculateStudioListActivityStatsCustom(t *testing.T) {
-	sceneDurations := map[int]float64{1: 100, 2: 50}
+	sceneDurations := map[int]float64{1: 100, 2: 50, 3: 200}
 	markers := []studioListActivityMarkerCustom{
 		{sceneID: 1, start: 0, end: 20, primaryTagID: 11},
 		{sceneID: 1, start: 20, end: 30, primaryTagID: 22},
@@ -36,6 +36,7 @@ func TestCalculateStudioListActivityStatsCustom(t *testing.T) {
 	negativeMarkers := []studioListNegativeMarkerCustom{
 		{sceneID: 1, start: 60, end: 70},
 		{sceneID: 2, start: 55, end: 70},
+		{sceneID: 3, start: 0, end: 200},
 	}
 
 	got := calculateStudioListActivityStatsCustom(
@@ -56,6 +57,25 @@ func TestCalculateStudioListActivityStatsCustom(t *testing.T) {
 	if got.SexSceneCount != 1 || got.OralSceneCount != 1 || got.SoloSceneCount != 1 {
 		t.Fatalf("unexpected activity scene counts: sex=%d oral=%d solo=%d", got.SexSceneCount, got.OralSceneCount, got.SoloSceneCount)
 	}
+}
+
+func TestCalculateStudioListActivityStatsCustomExcludesScenesWithoutTimedRoleMarkers(t *testing.T) {
+	got := calculateStudioListActivityStatsCustom(
+		map[int]float64{1: 100, 2: 250, 3: 300},
+		[]studioListActivityMarkerCustom{
+			{sceneID: 1, start: 10, end: 40, primaryTagID: 11},
+			{sceneID: 2, start: 20, end: 60, primaryTagID: 99},
+			{sceneID: 3, start: 50, end: 50, primaryTagID: 22},
+		},
+		[]studioListNegativeMarkerCustom{{sceneID: 2, start: 0, end: 250}},
+		11,
+		22,
+		33,
+	)
+
+	assertStudioListFloatCustom(t, "meaningful total seconds", got.TotalSeconds, 100)
+	assertStudioListFloatCustom(t, "meaningful sex percent", got.SexPercent, 30)
+	assertStudioListFloatCustom(t, "excluded unusable seconds", got.UnusableSeconds, 0)
 }
 
 func TestStudioListClampedIntervalCustom(t *testing.T) {

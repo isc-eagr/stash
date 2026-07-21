@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
+  calculateRatingAdvisorOrgasmBonusCustom,
   calculateRatingAdvisorRating100Custom,
   getRatingAdvisorBarSummaryCustom,
   getRatingAdvisorAdjustmentTooltipLabelCustom,
@@ -18,6 +19,21 @@ import {
 
 assert.equal(calculateRatingAdvisorRating100Custom(-2, 1), 1);
 assert.equal(calculateRatingAdvisorRating100Custom(7.25, 2), 75);
+
+assert.deepEqual(
+  [2, 4, 6, 12, 24].map((count) =>
+    calculateRatingAdvisorOrgasmBonusCustom("scene", count)
+  ),
+  [0, 2, 5, 18, 55],
+  "scene O bonuses award every O using progressive doubling tiers"
+);
+assert.deepEqual(
+  [2, 4, 7, 12, 13].map((count) =>
+    calculateRatingAdvisorOrgasmBonusCustom("performer", count)
+  ),
+  [0, 1, 4, 8, 11],
+  "performer O bonuses award every second O using progressive doubling tiers"
+);
 
 assert.equal(
   SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM * 10,

@@ -39,6 +39,7 @@ export interface IRatingCriteriaValue {
 interface IRatingCriteriaCriterionOptionParams {
   type: CriterionType;
   messageID: string;
+  inputField?: "rating_criteria" | "performer_rating_criteria";
   criteria: IRatingCriteriaNumericDefinition[];
   bonuses: IRatingCriteriaPresenceDefinition[];
   penalties: IRatingCriteriaPresenceDefinition[];
@@ -337,6 +338,7 @@ export class RatingCriteriaCriterionOption extends CriterionOption {
   public readonly criteria: IRatingCriteriaNumericDefinition[];
   public readonly bonuses: IRatingCriteriaPresenceDefinition[];
   public readonly penalties: IRatingCriteriaPresenceDefinition[];
+  public readonly inputField: "rating_criteria" | "performer_rating_criteria";
 
   constructor(options: IRatingCriteriaCriterionOptionParams) {
     super({
@@ -348,6 +350,7 @@ export class RatingCriteriaCriterionOption extends CriterionOption {
     this.criteria = options.criteria;
     this.bonuses = options.bonuses;
     this.penalties = options.penalties;
+    this.inputField = options.inputField ?? "rating_criteria";
   }
 }
 
@@ -403,7 +406,7 @@ export class RatingCriteriaCriterion extends Criterion {
     if (!ratingCriteriaInput) {
       return;
     }
-    input.rating_criteria = ratingCriteriaInput;
+    input[this.ratingCriteriaOption.inputField] = ratingCriteriaInput;
   }
 
   public applyToSavedCriterion(input: Record<string, unknown>): void {
@@ -446,27 +449,27 @@ export const SceneRatingCriteriaCriterionOption =
     criteria: [
       {
         key: "topAttractiveness",
-        label: "Top(s) Attractiveness",
+        label: "Standard Top(s) Attractiveness",
         choices: appealChoices,
       },
       {
         key: "bottomAttractiveness",
-        label: "Bottom(s) Attractiveness",
+        label: "Standard Bottom(s) Attractiveness",
         choices: appealChoices,
       },
       {
         key: "chemistry",
-        label: "Energy / Sex Quality",
+        label: "Standard Energy / Quality",
         choices: energyChoices,
       },
       {
         key: "payoff",
-        label: "Orgasm Quality",
+        label: "Standard Orgasm Quality",
         choices: payoffChoices,
       },
       {
         key: "standout",
-        label: "Usable Factor",
+        label: "Standard Usable Factor",
         choices: usableFactorChoices,
       },
       {
@@ -538,7 +541,7 @@ export const SceneRatingCriteriaCriterionOption =
       },
       {
         key: "unlikelyTop",
-        label: "Regular Unlikely Top Bonus",
+        label: "Standard Unlikely Top Bonus",
         section: "bonuses",
       },
       {
@@ -621,5 +624,24 @@ export const PerformerRatingCriteriaCriterionOption =
         section: "penalties",
       },
     ],
+  });
+
+export const StudioRatingCriteriaCriterionOption =
+  new RatingCriteriaCriterionOption({
+    type: "rating_criteria",
+    messageID: "studio_average_rating_criteria",
+    criteria: SceneRatingCriteriaCriterionOption.criteria,
+    bonuses: SceneRatingCriteriaCriterionOption.bonuses,
+    penalties: SceneRatingCriteriaCriterionOption.penalties,
+  });
+
+export const StudioPerformerRatingCriteriaCriterionOption =
+  new RatingCriteriaCriterionOption({
+    type: "performer_rating_criteria",
+    messageID: "studio_average_performer_rating_criteria",
+    inputField: "performer_rating_criteria",
+    criteria: PerformerRatingCriteriaCriterionOption.criteria,
+    bonuses: PerformerRatingCriteriaCriterionOption.bonuses,
+    penalties: PerformerRatingCriteriaCriterionOption.penalties,
   });
 // CUSTOM: end

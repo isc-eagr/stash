@@ -11,6 +11,50 @@ export const SCENE_ENERGY_WEIGHT_CUSTOM = 0.4;
 export const SCENE_USABLE_FACTOR_MAX_CUSTOM = 4;
 export const SCENE_USABLE_FACTOR_WEIGHT_CUSTOM = 0.5;
 
+export type RatingAdvisorEntityCustom = "scene" | "performer";
+
+function getRatingAdvisorOrgasmMilestoneBonusCustom(count: number) {
+  if (count < 3) {
+    return 0;
+  }
+
+  let bonus = 1;
+  for (let nextTier = 6; count >= nextTier; nextTier *= 2) {
+    bonus += 1;
+  }
+
+  return bonus;
+}
+
+export function calculateRatingAdvisorOrgasmBonusCustom(
+  entityType: RatingAdvisorEntityCustom,
+  count: number
+) {
+  if (!Number.isFinite(count)) {
+    return 0;
+  }
+
+  const safeCount = Math.max(0, Math.floor(count));
+  const step = entityType === "scene" ? 1 : 2;
+  let total = 0;
+
+  for (let milestone = 3; milestone <= safeCount; milestone += step) {
+    total += getRatingAdvisorOrgasmMilestoneBonusCustom(milestone);
+  }
+
+  return total;
+}
+
+export function getRatingAdvisorOrgasmBonusDescriptionCustom(
+  entityType: RatingAdvisorEntityCustom
+) {
+  if (entityType === "scene") {
+    return "Auto bonus: every nut from the 3rd earns its tier (+1 at 3–5, +2 at 6–11, +3 at 12–23; tiers keep doubling).";
+  }
+
+  return "Auto bonus: every 2 nuts from the 3rd earns its tier (+1 at 3–5, +2 at 6–11, +3 at 12–23; tiers keep doubling).";
+}
+
 const RATING_ADVISOR_ADJUSTMENT_TOOLTIP_LABELS_CUSTOM: Record<string, string> =
   {
     theme: "Uniform",

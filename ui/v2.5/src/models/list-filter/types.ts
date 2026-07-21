@@ -266,5 +266,6 @@ export type CriterionType =
   | "sex_bottom_activity_percent"
   | "oral_top_activity_percent"
   | "oral_bottom_activity_percent"
-  | "rating_criteria";
+  | "rating_criteria"
+  | "performer_rating_criteria";
 // CUSTOM: end

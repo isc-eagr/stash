@@ -16,6 +16,11 @@ import { ListFilterOptions } from "./filter-options";
 import { DisplayMode } from "./types";
 import { CustomFieldsCriterionOption } from "./criteria/custom-fields";
 import { StudioActivityTypeCriterionOption } from "./criteria/activity-type_custom"; // CUSTOM
+import { QualityTypeCriterionOptionInstance } from "./criteria/quality-type_custom"; // CUSTOM
+import {
+  StudioPerformerRatingCriteriaCriterionOption,
+  StudioRatingCriteriaCriterionOption,
+} from "./criteria/rating-criteria_custom"; // CUSTOM
 
 const defaultSortBy = "name";
 const sortByOptions = [
@@ -87,8 +92,64 @@ const sortByOptions = [
       value: "other_activity_percent",
     },
     {
+      messageID: "outstanding_activity_percent",
+      value: "outstanding_activity_percent",
+    },
+    {
+      messageID: "standard_activity_percent",
+      value: "standard_activity_percent",
+    },
+    {
       messageID: "unusable_activity_percent",
       value: "unusable_activity_percent",
+    },
+    {
+      messageID: "rating_criteria_solo_performer_appeal",
+      value: "rating_criteria_solo_performer_appeal",
+    },
+    {
+      messageID: "rating_criteria_solo_performance",
+      value: "rating_criteria_solo_performance",
+    },
+    {
+      messageID: "rating_criteria_solo_usability",
+      value: "rating_criteria_solo_usability",
+    },
+    {
+      messageID: "rating_criteria_top_attractiveness",
+      value: "rating_criteria_top_attractiveness",
+    },
+    {
+      messageID: "rating_criteria_bottom_attractiveness",
+      value: "rating_criteria_bottom_attractiveness",
+    },
+    {
+      messageID: "rating_criteria_chemistry",
+      value: "rating_criteria_chemistry",
+    },
+    {
+      messageID: "rating_criteria_payoff",
+      value: "rating_criteria_payoff",
+    },
+    {
+      messageID: "rating_criteria_standout",
+      value: "rating_criteria_standout",
+    },
+    {
+      messageID: "rating_criteria_group_top_attractiveness",
+      value: "rating_criteria_group_top_attractiveness",
+    },
+    {
+      messageID: "rating_criteria_group_energy",
+      value: "rating_criteria_group_energy",
+    },
+    {
+      messageID: "rating_criteria_group_payoff",
+      value: "rating_criteria_group_payoff",
+    },
+    {
+      messageID: "rating_criteria_group_usability",
+      value: "rating_criteria_group_usability",
     },
     // CUSTOM: end
   ]);
@@ -104,6 +165,9 @@ const criterionOptions = [
   RatingCriterionOption,
   MetallicRatingCriterionOption, // CUSTOM
   StudioActivityTypeCriterionOption, // CUSTOM
+  QualityTypeCriterionOptionInstance, // CUSTOM
+  StudioRatingCriteriaCriterionOption, // CUSTOM
+  StudioPerformerRatingCriteriaCriterionOption, // CUSTOM
   createBooleanCriterionOption("ignore_auto_tag"),
   createBooleanCriterionOption("organized"),
   createMandatoryNumberCriterionOption("tag_count"),

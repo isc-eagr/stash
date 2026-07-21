@@ -502,10 +502,18 @@ extend input GroupFilterType {
 extend input StudioFilterType {
   "Filter by configured sex/oral/solo activity percentages"
   activity_percentages: ActivityPercentFilterInput
+  "Filter by aggregated outstanding/standard/unusable percentages"
+  quality_percentages: QualityPercentFilterInput
+  "Filter by average scene Rating Advisor criteria for the studio"
+  rating_criteria: RatingCriteriaFilterInput
+  "Filter by average Rating Advisor criteria for the studio's distinct performers"
+  performer_rating_criteria: RatingCriteriaFilterInput
   sex_activity_percent: IntCriterionInput
   oral_activity_percent: IntCriterionInput
   solo_activity_percent: IntCriterionInput
   other_activity_percent: IntCriterionInput
+  outstanding_activity_percent: IntCriterionInput
+  standard_activity_percent: IntCriterionInput
   unusable_activity_percent: IntCriterionInput
 }
 

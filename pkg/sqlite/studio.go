@@ -670,16 +670,30 @@ var studioSortOptions = sortOptions{
 	"scenes_count",
 	"scenes_duration",
 	"scenes_size",
-	"sex_scenes_count",          // CUSTOM
-	"oral_scenes_count",         // CUSTOM
-	"solo_scenes_count",         // CUSTOM
-	"sex_activity_percent",      // CUSTOM
-	"oral_activity_percent",     // CUSTOM
-	"solo_activity_percent",     // CUSTOM
-	"other_activity_percent",    // CUSTOM
-	"unusable_activity_percent", // CUSTOM
-	"facial_scenes_count",       // CUSTOM
-	"unique_performers_count",   // CUSTOM
+	"sex_scenes_count",                         // CUSTOM
+	"oral_scenes_count",                        // CUSTOM
+	"solo_scenes_count",                        // CUSTOM
+	"sex_activity_percent",                     // CUSTOM
+	"oral_activity_percent",                    // CUSTOM
+	"solo_activity_percent",                    // CUSTOM
+	"other_activity_percent",                   // CUSTOM
+	"outstanding_activity_percent",             // CUSTOM
+	"standard_activity_percent",                // CUSTOM
+	"unusable_activity_percent",                // CUSTOM
+	"rating_criteria_solo_performer_appeal",    // CUSTOM
+	"rating_criteria_solo_performance",         // CUSTOM
+	"rating_criteria_solo_usability",           // CUSTOM
+	"rating_criteria_top_attractiveness",       // CUSTOM
+	"rating_criteria_bottom_attractiveness",    // CUSTOM
+	"rating_criteria_chemistry",                // CUSTOM
+	"rating_criteria_payoff",                   // CUSTOM
+	"rating_criteria_standout",                 // CUSTOM
+	"rating_criteria_group_top_attractiveness", // CUSTOM
+	"rating_criteria_group_energy",             // CUSTOM
+	"rating_criteria_group_payoff",             // CUSTOM
+	"rating_criteria_group_usability",          // CUSTOM
+	"facial_scenes_count",                      // CUSTOM
+	"unique_performers_count",                  // CUSTOM
 	"random",
 	"rating",
 	"tag_count",
@@ -734,6 +748,10 @@ func (qb *StudioStore) getStudioSort(findFilter *models.FindFilterType) (string,
 		sortQuery += qb.sortByActivityPercentCustom(activityPercentSoloCustom, direction)
 	case "other_activity_percent": // CUSTOM
 		sortQuery += qb.sortByActivityPercentCustom(activityPercentOtherCustom, direction)
+	case "outstanding_activity_percent": // CUSTOM
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentOutstandingCustom, direction)
+	case "standard_activity_percent": // CUSTOM
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentStandardCustom, direction)
 	case "unusable_activity_percent": // CUSTOM
 		sortQuery += qb.sortByActivityPercentCustom(activityPercentUnusableCustom, direction)
 	case "facial_scenes_count": // CUSTOM
@@ -743,7 +761,11 @@ func (qb *StudioStore) getStudioSort(findFilter *models.FindFilterType) (string,
 	case "unique_performers_count": // CUSTOM
 		sortQuery += qb.sortByUniquePerformerCount(direction)
 	default:
-		sortQuery += getSort(sort, direction, "studios")
+		if ratingKey, ok := studioRatingCriteriaSortKeysCustom[sort]; ok { // CUSTOM
+			sortQuery += qb.sortByRatingCriteriaAverageCustom(ratingKey, direction)
+		} else {
+			sortQuery += getSort(sort, direction, "studios")
+		}
 	}
 
 	// Whatever the sorting, always use name/id as a final sort

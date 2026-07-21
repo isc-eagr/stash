@@ -413,6 +413,7 @@ func calculateStudioListActivityStatsCustom(
 		activityOralCustom: {},
 		activitySoloCustom: {},
 	}
+	meaningfulSceneIDs := map[int]bool{}
 
 	for _, marker := range markers {
 		sceneDuration, ok := sceneDurations[marker.sceneID]
@@ -428,6 +429,7 @@ func calculateStudioListActivityStatsCustom(
 		if category, matched := activityStatsCategoryCustom(marker.primaryTagID, sexTagID, oralTagID, soloTagID); matched {
 			byCategory[category] = append(byCategory[category], interval)
 			sceneCounts[category][marker.sceneID] = true
+			meaningfulSceneIDs[marker.sceneID] = true
 		}
 		if activityStatsIsOutstandingMarkerCustom(marker.primaryTagID, marker.secondaryCount, sexTagID, oralTagID, soloTagID) {
 			byCategory[activityOutstandingCustom] = append(byCategory[activityOutstandingCustom], interval)
@@ -444,6 +446,10 @@ func calculateStudioListActivityStatsCustom(
 			byCategory[activityUnusableCustom] = append(byCategory[activityUnusableCustom], interval)
 		}
 	}
+
+	// Match the Studio Stats charts: only scenes containing at least one
+	// in-bounds timed sex, oral, or solo primary marker contribute runtime.
+	activityStatsRestrictToMeaningfulScenesCustom(sceneDurations, byCategory, meaningfulSceneIDs)
 
 	var totalSeconds float64
 	for _, duration := range sceneDurations {

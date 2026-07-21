@@ -2774,7 +2774,7 @@ Adds scene and performer rating system buttons next to the detail-page rating di
 
 Suggested tiers use the same configurable 100-based thresholds as the premium/classic card effects. Scene and performer thresholds are configured separately.
 
-Both scene and performer advisor ratings also include a non-editable O Count bonus. For scenes, the bonus is calculated from `scenes_o_dates` as +1 rating point on the 3rd recorded orgasm, then +1 for each orgasm after that. For performers, the bonus is +1 rating point on the 3rd recorded orgasm, then +1 for every 2 orgasms after that.
+Both scene and performer advisor ratings also include a non-editable progressive O Count bonus. Each qualifying O earns +1 at counts 3-5, +2 at 6-11, +3 at 12-23, +4 at 24-47, and one additional point whenever the count range doubles again. Scenes qualify on every O from the 3rd, while performers qualify every two Os at counts 3, 5, 7, 9, and so on. This makes later returns increasingly valuable without increasing the tier weight on every single count.
 When scene o-history is added, deleted, reset, or recorded with a video timestamp, the stored advisor rating is recalculated for that scene and any attached performers that already have persisted advisor scores. Performer advisor ratings are also recalculated when scene casts change, including bulk edits, performer deletion, and performer/scene merges.
 
 The server owns the canonical rubric. Score writes validate the entity's current scene/performer mode, section, key, and exact raw-value choice, then derive `weighted_value` instead of trusting the client. Recalculation likewise derives every contribution from canonical raw values. Invalid writes are rejected; legacy persisted values are normalized to the nearest current choice during recalculation. The sparse orgasm-payoff scale accepts only 0, 2, 3, or 4.
@@ -2820,7 +2820,7 @@ The rating advisor uses a responsive box grid instead of one long control stack.
 
 Bonus section:
 
-- O Count bonus (+1 rating point on the 3rd recorded orgasm, then +1 for each orgasm after that; automatic and read-only)
+- O Count bonus (every O from the 3rd earns its progressive tier weight: +1 at 3-5, +2 at 6-11, +3 at 12-23, with subsequent tier ranges doubling; automatic and read-only)
 - Uniform/setting factor (+0.5 when present)
 - Oral-only scene (+0.5 when present)
 - God-tier orgasm bonus (+1.0 when present)
@@ -2829,7 +2829,7 @@ Bonus section:
 
 Solo scene bonus section:
 
-- Orgasm count bonus (+1 rating point on the 3rd recorded orgasm, then +1 for each orgasm after that; automatic and read-only)
+- Orgasm count bonus (every O from the 3rd earns its progressive tier weight: +1 at 3-5, +2 at 6-11, +3 at 12-23, with subsequent tier ranges doubling; automatic and read-only)
 - Orgasm bonus (+1.0 when present)
 - Feet bonus (+1.0 when present)
 - GOAT element (+2.0 when present)
@@ -2862,7 +2862,7 @@ Uses a simplified weighted performer rubric designed for 100-based ratings:
 
 Bonus section:
 
-- Orgasm count bonus (+1 rating point on the 3rd recorded orgasm, then +1 for every 2 orgasms after that; automatic and read-only)
+- Orgasm count bonus (every two Os from the 3rd earns its progressive tier weight at counts 3, 5, 7, 9, and so on; tiers are +1 at 3-5, +2 at 6-11, +3 at 12-23, then continue doubling; automatic and read-only)
 - Consistency (+0.5 when present)
 - Dick (+0.5 when present)
 - Tattoos (+0.5 when present)
@@ -2885,6 +2885,8 @@ The Scenes filter exposes regular, solo, and group criteria as distinct persiste
 
 Performer rating criteria include a feminine performer penalty, exposed both in the performer Rating Advisor and the performer Rating Criteria filter.
 
+Studios expose separate Rating Criteria (Studio Average) and Performer Rating Criteria (Studio Average) filters. Numeric scene criteria compare the average raw answer across the studio's scenes where that criterion is set; performer criteria average each distinct linked performer once, even when that performer appears in multiple studio scenes. Bonus and penalty presence rows match active adjustments on any related scene or distinct performer. Studio sorting also exposes average raw-value sorts for every solo, standard, and group numeric criterion. These aggregate predicates and correlated average sorts are only added when selected, so ordinary Studio list queries do not pay for Rating Advisor aggregation.
+
 ### Studio Rating Advisor Averages
 
 The Studio detail Stats tab includes four Rating Advisor summaries for solo scenes, 2-3 performer sex scenes, 4+ performer group scenes, and the studio's distinct performers. The summary heading shows the overall stored scene-rating average across the three qualifying scene rubrics, and every section starts with its own stored scene- or performer-rating average. Each criterion uses the same normalized heat bar as the scene/performer rating popup and shows its average canonical rating-point contribution against that criterion's maximum (for example `18/30`) plus the number of entities contributing to that specific average. Missing criteria are excluded per bar, while an intentionally answered zero remains part of the average. Only scenes or performers with at least one criterion from the matching rubric qualify for a section.
@@ -2893,9 +2895,12 @@ Active persisted bonuses and penalties show counts of qualifying scenes or perfo
 
 GraphQL adds `StudioRatingAdvisorStats`, section/criterion/adjustment payload types, and `Studio.studio_rating_advisor_stats(depth:)`. The resolver uses one set-based SQLite aggregate rather than loading full scene/performer cards or issuing one rating query per entity. `TestStudioRatingAdvisorStatsCustomAveragesOnlySetCriteria` executes the aggregate against representative direct/child studio data and covers overall/per-rubric ratings, partial criteria denominators, intentional zero answers, normalized fills, 2-3 performer classification, distinct performers, active adjustments, and the automatic orgasm-count bonus.
 
+Studio card scene-count hovers reuse the Solo Criteria, Standard Criteria, and Group Criteria panels, while performer-count hovers reuse the Performers panel. These panels use the existing aggregate query lazily on first hover and share Apollo's per-studio cache, avoiding per-card Rating Advisor requests during list loading. Their measured popover containers stay within the viewport and scroll vertically when necessary. The Studio Stats page uses the same compact section treatment and displays all four panels side by side on wide screens, collapsing responsively on narrower screens. Studio rating-criteria filters and average sort labels use the same Solo/Standard/Group rubric terminology.
+
 ### Files Modified
 
 - `ui/v2.5/src/components/Shared/RatingAdvisor_custom.tsx` - Shared rating modal, scoring definitions, persistence mutation, and button component
+- `ui/v2.5/src/components/Shared/ratingAdvisorScales_custom.ts` - Shared progressive O-count calculation used by modal previews and rating popovers
 - `ui/v2.5/src/components/Shared/Modal.tsx` - Allows the rating advisor to opt into a header close button while preserving existing modal defaults
 - `ui/v2.5/src/components/Shared/ratingAdvisor_custom.scss` - Advisor modal styling
 - `ui/v2.5/graphql/data/performer.graphql` - Adds a list-only performer fragment so performer lists do not fetch detail-only rating scores and additional image rows
@@ -2909,25 +2914,26 @@ GraphQL adds `StudioRatingAdvisorStats`, section/criterion/adjustment payload ty
 - `ui/v2.5/src/components/Shared/Rating/RatingNumber.tsx` - Simplifies manual ratings to a plain 0-100 input
 - `ui/v2.5/src/index.scss` - Imports advisor styling
 - `ui/v2.5/src/components/List/styles.scss` - Adds layout for the combined rating criteria filter
-- `graphql/schema/types/filters_custom.graphql` - Adds `rating_criteria` scene/performer filter input
+- `graphql/schema/types/filters_custom.graphql` - Adds scene/performer rating criteria inputs plus average studio scene/performer criteria filters
 - `graphql/schema/types/rating_custom.graphql` - Adds canonical score persistence plus individual delete and whole-advisor reset mutations
 - `internal/api/resolver_mutation_scene.go`, `internal/api/resolver_mutation_performer.go`, `internal/api/resolver_mutation_configure.go` - Keeps advisor ownership and dependent ratings synchronized across manual ratings, casts, markers, deletion, merges, and role-tag configuration changes
 - `rating_scores.up.sql` - Rejects invalid entity types and orphan score rows, and removes score rows automatically when scenes or performers are deleted
-- `pkg/models/scene.go`, `pkg/models/performer.go` - Adds rating criteria filter fields
-- `pkg/sqlite/scene_filter.go`, `pkg/sqlite/performer_filter.go` - Hooks rating criteria filters into scene/performer queries
+- `pkg/models/scene.go`, `pkg/models/performer.go`, `pkg/models/studio.go` - Adds rating criteria filter fields
+- `pkg/sqlite/scene_filter.go`, `pkg/sqlite/performer_filter.go`, `pkg/sqlite/studio_filter.go` - Hooks direct and average rating criteria filters into entity queries
 - `pkg/sqlite/rating_criteria_filter_custom_test.go` - Covers group key isolation plus numeric and presence filter operators
-- `ui/v2.5/src/models/list-filter/scenes.ts`, `ui/v2.5/src/models/list-filter/performers.ts` - Registers rating criteria filter options
+- `ui/v2.5/src/models/list-filter/scenes.ts`, `ui/v2.5/src/models/list-filter/performers.ts`, `ui/v2.5/src/models/list-filter/studios.ts` - Registers direct/average rating criteria filters and Studio average-criterion sorts
 - `ui/v2.5/src/locales/en-GB.json`, `ui/v2.5/src/locales/en-US.json` - Adds rating criteria filter labels
 - `graphql/schema/types/studio_custom.graphql` - Adds Studio Rating Advisor aggregate payloads and the depth-aware Studio field
 - `ui/v2.5/graphql/queries/studio.graphql` - Adds the lazy Studio Rating Advisor Stats query and shared section fragment
 - `ui/v2.5/src/components/Studios/StudioDetails/StudioStatsPanel.tsx` - Renders the four rating summaries below the activity charts
+- `ui/v2.5/src/components/Studios/StudioCard.tsx` - Adds lazy scene/performer count average-panel hovers
 
 ### Files Added
 
 - `ui/v2.5/src/components/Shared/groupSceneRating_custom.ts` - Group threshold, scoring weights, bonus values, persisted keys, and frontend mode selection
 - `ui/v2.5/src/components/Shared/soloSceneRating_custom.ts` - Solo scoring weights, persisted keys, and base maximum
 - `rating_scores.up.sql` - Standalone manual SQL script for generic persisted rating score tables
-- `rating_orgasm_bonus_recalculate_custom.sql` - Standalone manual SQL script to recalculate existing persisted advisor ratings after orgasm bonus rule changes
+- `rating_orgasm_bonus_recalculate_custom.sql` - Standalone, rerunnable manual SQL script that applies the progressive O-count tiers to existing scene/performer advisor ratings while leaving manual ratings untouched
 - `rating_remove_performer_unlikely_top_bonus_custom.sql` - Standalone manual SQL script to remove performer-level Unlikely Top bonus rows and recalculate affected performers
 - `rating_remove_standout_act_bonus_custom.sql` - Standalone manual SQL script to remove retired Standout Act bonus rows and subtract their stored contribution from affected ratings
 - `rating_reset_advisor_scores_custom.sql` - Standalone manual SQL script to delete all persisted advisor dimension rows while preserving existing scene/performer ratings
@@ -2945,18 +2951,20 @@ GraphQL adds `StudioRatingAdvisorStats`, section/criterion/adjustment payload ty
 - `pkg/models/rating_score_custom.go` - Generic rating score model and repository interfaces
 - `pkg/sqlite/rating_score_custom.go` - SQLite score store and rating recalculation logic
 - `pkg/sqlite/rating_score_calculation_custom.go` - Canonical scene and performer rubrics, exact write validation, and contribution calculation that ignores client/persisted weights
-- `pkg/sqlite/rating_score_calculation_custom_test.go` - Covers sparse payoff choices, invalid inputs, legacy normalization, canonical scene/performer contributions, and retired-key exclusion
+- `pkg/sqlite/rating_score_calculation_custom_test.go` - Covers sparse payoff choices, invalid inputs, legacy normalization, canonical scene/performer contributions, retired-key exclusion, and progressive scene/performer O-count tier totals
 - `pkg/sqlite/rating_scene_mode_custom_test.go` - Verifies that exactly one assigned performer selects the solo rubric independently of marker-derived mode hints
-- `pkg/sqlite/rating_score_scripts_custom_test.go` - Executes the schema and maintenance SQL against representative data, including orphan prevention, delete cleanup, clamp order, and performer-bonus cleanup
+- `pkg/sqlite/rating_score_scripts_custom_test.go` - Executes the schema and maintenance SQL against representative data, including orphan prevention, delete cleanup, progressive existing-rating recalculation, rerun safety, clamp order, manual-rating preservation, and performer-bonus cleanup
 - `pkg/sqlite/rating_cleanup_retired_scene_scores_custom_test.go` - Reproduces scene 3571's 92/76 mismatch and verifies cleanup, mode isolation, and rerun safety
 - `pkg/sqlite/rating_repair_one_performer_advisors_custom_test.go` - Verifies targeted one-performer repair, complete score cleanup, valid solo/default preservation, and rerun safety
 - `pkg/sqlite/rating_zero_scene_ratings_custom_test.go` - Verifies zero-to-NULL normalization, advisor-row preservation, rerun safety, and no-rating group resets
 - `pkg/models/rating_criteria_filter_custom.go` - Generic rating criteria filter input models
 - `pkg/sqlite/rating_criteria_filter_custom.go` - Shared SQLite predicates for criteria/bonus/penalty filters
+- `pkg/sqlite/studio_rating_criteria_custom.go` - Opt-in average scene/distinct-performer Studio predicates and numeric criterion sorts
+- `pkg/sqlite/studio_rating_criteria_custom_test.go` - Covers average clauses, adjustment presence, and distinct-performer de-duplication in SQLite
 - `ui/v2.5/src/models/list-filter/criteria/rating-criteria_custom.ts` - Frontend rating criteria filter criterion classes
 - `ui/v2.5/src/components/List/Filters/RatingCriteriaFilter_custom.tsx` - Combined rating criteria filter editor
-- `ui/v2.5/src/components/Shared/ratingAdvisorScales_custom.ts` - Shared helpers for simplified rating advisor scales
-- `ui/v2.5/tests/ratingAdvisorScales_custom.test.ts` - Verifies simplified scales, point contributions, unrated state, intentional zero scores, and core completion
+- `ui/v2.5/src/components/Shared/ratingAdvisorScales_custom.ts` - Shared helpers for simplified rating advisor scales and progressive O-count tiers
+- `ui/v2.5/tests/ratingAdvisorScales_custom.test.ts` - Verifies simplified scales, progressive scene/performer O-count totals, point contributions, unrated state, intentional zero scores, and core completion
 - `ui/v2.5/tests/groupSceneRating_custom.test.ts` - Verifies group mode priority, scoring totals, bonuses, and persisted filter keys
 - `ui/v2.5/tests/soloSceneRating_custom.test.ts` - Verifies the solo 50/30/20 scoring total and persisted keys
 - `pkg/sqlite/rating_rebalance_solo_group_custom_test.go` - Executes the standalone migration against representative solo, group, and regular-scene rows, including rerun safety and group-only bonus removal
@@ -2965,6 +2973,7 @@ GraphQL adds `StudioRatingAdvisorStats`, section/criterion/adjustment payload ty
 - `internal/api/studio_rating_advisor_stats_custom_test.go` - Focused SQLite aggregate coverage for direct/child studios and partial advisor data
 - `ui/v2.5/src/components/Studios/StudioDetails/StudioRatingAdvisorStats.tsx` - Four responsive popup-style Rating Advisor average sections
 - `ui/v2.5/src/components/Studios/StudioDetails/StudioRatingAdvisorStats.scss` - Studio Rating Advisor section layout and responsive styling
+- `ui/v2.5/src/components/Studios/StudioRatingAdvisorPopover_custom.tsx` - Lazy card-count hover wrapper reusing the Studio Stats sections
 
 ---
 
@@ -3006,13 +3015,13 @@ deploy_prod_custom.bat -SkipStart
 
 Adds marker-duration stats for configured sex, oral, solo, other, outstanding, standard, and unusable activity percentages. The activity strip has two rows: Sex/Oral/Solo/Other and Outstanding/Standard/Unusable. Sex/oral/solo activity is based on markers whose primary tag exactly matches the configured role tag, even when the marker also has secondary tags. Same-category overlaps are merged, cross-category overlaps count toward each category, and activity Other is runtime without a sex/oral/solo marker. Outstanding is any timed marker that is not a configured sex/oral/solo primary marker, or a configured sex/oral/solo primary marker with secondary tags. Standard is unmarked runtime or plain configured sex/oral/solo runtime not overlapped by Outstanding, and negative marker/Skip ranges are merged into Unusable without double-counting overlaps.
 
-Studio cards show the two-row activity strip using the total selected scene length as 100%, including unmarked scenes so Standard can represent untagged runtime. The Studio detail Stats tab limits its Activity Type and Quality donut totals to meaningful scenes: a scene qualifies only when it contains at least one configured oral, solo, or sex marker with a valid in-bounds start/end range. Performer-scoped studio cards use performer-filtered activity stats for the strip, with Unusable calculated from negative marker ranges in scenes containing that performer. Performer detail pages include a Stats tab with an activity pie chart and a selected-activity top/bottom role split chart. Scene detail pages also include a Stats tab with separate Activity Type and Quality donut charts. Every shared donut slice exposes its footer label and percentage in a cursor-following hover tooltip, with a focused-slice position for keyboard navigation. The Scene Stats tab shows a By Performer breakdown with per-activity top/bottom pie charts; chart-local checkboxes can add sex/oral/solo/other/outstanding/standard segments to the multi-segment loop while leaving Unusable read-only. One-millisecond Standard intervals are treated as closed gaps and are not added to the loop. Scene list pages expose separate combined Activity Percentage (Sex/Oral/Solo/Other) and Quality Percentage (Outstanding/Standard/Unusable) filters, plus individual sort options for all seven percentages. Studio list pages retain the combined Activity Percentage filter and sex/oral/solo/other/unusable sorts; performer list pages retain marker-owned activity percentage filters and sorts only.
+Studio cards and the Studio detail Stats tab use the same meaningful-scene denominator: a scene contributes its runtime only when it contains at least one configured oral, solo, or sex primary marker with a valid in-bounds start/end range. Activity and quality values on Studio cards now live in a hover panel on the studio image instead of occupying card-footer rows. Performer-scoped studio cards retain their performer-filtered denominator, with Unusable calculated from negative marker ranges in scenes containing that performer. Performer detail pages include a Stats tab with an activity pie chart and a selected-activity top/bottom role split chart. Scene detail pages also include a Stats tab with separate Activity Type and Quality donut charts. Every shared donut slice exposes its footer label and percentage in a cursor-following hover tooltip, with a focused-slice position for keyboard navigation. The Scene Stats tab shows a By Performer breakdown with per-activity top/bottom pie charts; chart-local checkboxes can add sex/oral/solo/other/outstanding/standard segments to the multi-segment loop while leaving Unusable read-only. One-millisecond Standard intervals are treated as closed gaps and are not added to the loop. Scene and Studio lists expose separate combined Activity Percentage (Sex/Oral/Solo/Other) and Quality Percentage (Outstanding/Standard/Unusable) filters plus individual sorts for all seven percentages. Studio SQL uses the same meaningful-scene denominator as the card/detail aggregates. Performer list pages retain marker-owned activity percentage filters and sorts only.
 
 ### Files Modified
 
 - `graphql/schema/types/performer_custom.graphql` - Adds `PerformerActivityStats`
 - `graphql/schema/types/studio_custom.graphql` - Adds `StudioActivityStats`
-- `graphql/schema/types/filters_custom.graphql` - Adds activity and Scene quality percentage filters
+- `graphql/schema/types/filters_custom.graphql` - Adds activity and Scene/Studio quality percentage filters
 - `internal/api/activity_stats_custom.go` - Duration stats resolvers and interval merge helpers
 - `pkg/models/activity_percent_filter_custom.go` - Activity and quality percentage filter input models
 - `pkg/sqlite/activity_percent_filter_custom.go` - SQL activity/quality percentage filter and sort expressions
@@ -3021,11 +3030,11 @@ Studio cards show the two-row activity strip using the total selected scene leng
 - `ui/v2.5/graphql/data/studio.graphql` - Fetches studio activity stats
 - `ui/v2.5/graphql/queries/studio.graphql` - Fetches performer-filtered studio activity stats
 - `ui/v2.5/graphql/data/scene-slim.graphql` - Fetches negative marker timing for scene-card Unusable percentages
-- `ui/v2.5/src/models/list-filter/scenes.ts`, `performers.ts`, `studios.ts` - Activity and Scene Quality Percentage filter/sort options
+- `ui/v2.5/src/models/list-filter/scenes.ts`, `performers.ts`, `studios.ts` - Activity and Scene/Studio Quality Percentage filter/sort options
 - `ui/v2.5/src/models/list-filter/criteria/activity-type_custom.ts`, `ui/v2.5/src/components/List/Filters/ActivityTypeFilter_custom.tsx` - Combined activity percentage filter UI
 - `ui/v2.5/src/components/Performers/PerformerCard.tsx` - Sort-specific activity percentage display
 - `ui/v2.5/src/components/Shared/styles.scss` - Shared activity pie chart styling
-- `ui/v2.5/src/components/Studios/StudioCard.tsx` - Studio card activity strip
+- `ui/v2.5/src/components/Studios/StudioCard.tsx` - Studio image activity/quality hover panel
 - `ui/v2.5/src/components/Studios/StudioActivityMetricsStrip.tsx` - Shared studio activity strip component
 - `ui/v2.5/src/components/Studios/styles.scss` - Studio activity strip styling
 - `ui/v2.5/src/components/Scenes/styles.scss` - Stats tab pie chart layout
@@ -3050,7 +3059,7 @@ Studio cards show the two-row activity strip using the total selected scene leng
 
 ### Test Cases
 
-- `internal/api/activity_stats_custom_test.go` - Verifies merged interval duration, interval subtraction for exclusive quality metrics, activity Other runtime, and legacy Other runtime excluding overlapping sex/oral/solo or Unusable ranges
+- `internal/api/activity_stats_custom_test.go`, `internal/api/studio_list_stats_custom_test.go` - Verifies interval math and that card aggregates exclude scenes without valid timed role markers
 - `pkg/sqlite/activity_percent_quality_filter_custom_test.go` - Verifies Outstanding/Standard/Unusable SQL percentages are overlap-safe, mutually exclusive, and partition the full Scene runtime
 - `ui/v2.5/tests/activityPieChartTooltip_custom.test.ts` - Verifies slice tooltips show names and percentages without durations, follow the cursor, and stay within viewport edges
 - `ui/v2.5/tests/sceneStatsLoopSegments_custom.test.ts` - Verifies one-millisecond closed gaps are not emitted as multi-segment loop segments

@@ -13,7 +13,9 @@ import {
   normalizeRatingCardThresholds,
 } from "src/utils/ratingCardStyles_custom";
 import {
+  calculateRatingAdvisorOrgasmBonusCustom,
   calculateRatingAdvisorRating100Custom,
+  getRatingAdvisorOrgasmBonusDescriptionCustom,
   getRatingAdvisorAdjustmentTooltipLabelCustom,
   getRatingAdvisorBarSummaryCustom,
   getRatingAdvisorCompletionCustom,
@@ -968,7 +970,7 @@ export const RatingCriteriaTooltip: React.FC<IRatingCriteriaTooltipProps> = ({
     .filter((row) => row.contribution !== 0);
   const bonusRows = adjustmentRows.filter((row) => row.section === "bonus");
   const penaltyRows = adjustmentRows.filter((row) => row.section === "penalty");
-  const orgasmBonus = calculateOrgasmBonus(
+  const orgasmBonus = calculateRatingAdvisorOrgasmBonusCustom(
     entityType,
     data?.ratingOrgasmCount ?? 0
   );
@@ -1210,26 +1212,6 @@ function formatMetricContribution(metric: IAdvisorMetric, score?: number) {
   )}`;
 }
 
-function calculateOrgasmBonus(entityType: AdvisorEntity, count: number) {
-  if (count < 3) {
-    return 0;
-  }
-
-  if (entityType === "scene") {
-    return count - 2;
-  }
-
-  return 1 + Math.floor((count - 3) / 2);
-}
-
-function getOrgasmBonusDescription(entityType: AdvisorEntity) {
-  if (entityType === "scene") {
-    return "Auto bonus: +1 on the 3rd recorded nut, then +1 for every one after.";
-  }
-
-  return "Auto bonus: +1 on the 3rd recorded nut, then +1 for every 2 after.";
-}
-
 function getSceneSuggestion(
   total: number,
   thresholds: ReturnType<typeof normalizeRatingCardThresholds>
@@ -1344,7 +1326,10 @@ const RatingAdvisorModal: React.FC<{
   ]);
 
   const orgasmCount = advisorScoresData?.ratingOrgasmCount;
-  const orgasmBonus = calculateOrgasmBonus(entityType, orgasmCount ?? 0);
+  const orgasmBonus = calculateRatingAdvisorOrgasmBonusCustom(
+    entityType,
+    orgasmCount ?? 0
+  );
   const coreMetrics = metrics.filter((metric) => metric.section === undefined);
   const bonusMetrics = metrics.filter((metric) => metric.section === "bonus");
   const penaltyMetrics = metrics.filter(
@@ -1715,7 +1700,9 @@ const RatingAdvisorModal: React.FC<{
                 : formatRatingContribution(orgasmBonus / 10)}
             </Badge>
           </div>
-          <span>{getOrgasmBonusDescription(entityType)}</span>
+          <span>
+            {getRatingAdvisorOrgasmBonusDescriptionCustom(entityType)}
+          </span>
         </div>
         {advisorScoresLoading && orgasmCount === undefined ? (
           <Badge variant="secondary">Loading…</Badge>

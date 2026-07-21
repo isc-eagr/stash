@@ -4,7 +4,7 @@ import * as GQL from "src/core/generated-graphql";
 import NavUtils from "src/utils/navigation";
 import { GridCard } from "src/components/Shared/GridCard/GridCard";
 import { PatchComponent } from "src/patch";
-import { HoverPopover } from "../Shared/HoverPopover";
+import { HoverPopover, PopoverCard } from "../Shared/HoverPopover";
 import { Icon } from "../Shared/Icon";
 import { TagLink } from "../Shared/TagLink";
 import { Button, ButtonGroup, OverlayTrigger, Tooltip } from "react-bootstrap";
@@ -32,6 +32,7 @@ import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import facialPng from "src/assets/facial.png"; // CUSTOM
 import { StudioActivityMetricsStrip } from "./StudioActivityMetricsStrip"; // CUSTOM
+import { StudioRatingAdvisorPopover } from "./StudioRatingAdvisorPopover_custom"; // CUSTOM
 
 interface IPerformerStudioStats {
   scene_count: number;
@@ -240,13 +241,25 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         ? NavUtils.makePerformerStudioScenesUrl(performerId, navigationStudio)
         : NavUtils.makeStudioScenesUrl(navigationStudio);
 
-      return (
+      const button = (
         <PopoverCountButton
           className="scene-count"
           type="scene"
           count={count}
           url={url}
+          showTooltip={!!performerId}
         />
+      );
+
+      if (performerId) return button;
+
+      return (
+        <StudioRatingAdvisorPopover
+          studioId={studio.id}
+          sections={["solo_scenes", "sex_scenes", "group_scenes"]}
+        >
+          {button}
+        </StudioRatingAdvisorPopover>
       );
     }
 
@@ -506,12 +519,18 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       if (!stats?.performer_count) return; // CUSTOM
 
       return (
-        <PopoverCountButton
-          className="performer-count"
-          type="performer"
-          count={stats.performer_count} // CUSTOM
-          url={NavUtils.makeStudioPerformersUrl(navigationStudio)}
-        />
+        <StudioRatingAdvisorPopover
+          studioId={studio.id}
+          sections={["performers"]}
+        >
+          <PopoverCountButton
+            className="performer-count"
+            type="performer"
+            count={stats.performer_count} // CUSTOM
+            url={NavUtils.makeStudioPerformersUrl(navigationStudio)}
+            showTooltip={false}
+          />
+        </StudioRatingAdvisorPopover>
       );
     }
 
@@ -581,16 +600,41 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
     }
 
     // CUSTOM: begin - studio activity duration metrics
-    function maybeRenderActivityMetrics() {
-      const activityStats = performerId
+    function getActivityStats() {
+      return performerId
         ? performerStats?.activity_stats
         : stats?.studio_activity_stats;
+    }
+
+    function renderStudioImage() {
+      const image = (
+        <img
+          loading="lazy"
+          className="studio-card-image"
+          alt={studio.name}
+          src={studio.image_path ?? ""}
+        />
+      );
+      const activityStats = getActivityStats();
+      if (!activityStats || activityStats.total_seconds <= 0) return image;
 
       return (
-        <StudioActivityMetricsStrip
-          stats={activityStats}
-          idPrefix={`studio-activity-${studio.id}`}
-        />
+        <HoverPopover
+          className="studio-card-image-activity-hover"
+          content={
+            <PopoverCard className="studio-activity-popover-card">
+              <StudioActivityMetricsStrip
+                stats={activityStats}
+                idPrefix={`studio-activity-${studio.id}`}
+                showHeadings
+              />
+            </PopoverCard>
+          }
+          placement="bottom"
+          popoverClassName="studio-activity-popover"
+        >
+          {image}
+        </HoverPopover>
       );
     }
     // CUSTOM: end
@@ -601,12 +645,6 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       }
 
       const hasCategoryButtons = !!(sexTag || oralTag || soloTag || facialTag);
-      const hasActivityMetrics = performerId
-        ? !!performerStats?.activity_stats &&
-          performerStats.activity_stats.total_seconds > 0
-        : !!stats?.studio_activity_stats &&
-          stats.studio_activity_stats.total_seconds > 0; // CUSTOM
-
       const hasCounts = performerId
         ? !!(
             performerStats?.scene_count ||
@@ -628,7 +666,6 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         hasCounts || // CUSTOM
         studio.tags.length > 0 ||
         hasCategoryButtons ||
-        hasActivityMetrics || // CUSTOM
         studio.organized
       ) {
         return (
@@ -647,7 +684,6 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
                 </div>
               </>
             )}
-            {maybeRenderActivityMetrics()}
             <hr />
             <ButtonGroup className="card-popovers">
               {maybeRenderScenesPopoverButton()}
@@ -671,14 +707,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         width={cardWidth}
         title={studio.name}
         linkClassName="studio-card-header"
-        image={
-          <img
-            loading="lazy"
-            className="studio-card-image"
-            alt={studio.name}
-            src={studio.image_path ?? ""}
-          />
-        }
+        image={renderStudioImage()}
         details={
           <div className="studio-card__details">
             {maybeRenderParent(studio, hideParent)}

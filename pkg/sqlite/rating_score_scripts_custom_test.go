@@ -65,26 +65,48 @@ func TestRatingScoreSchemaEnforcesEntityLifecycle(t *testing.T) {
 func TestOrgasmBonusRecalculateScriptUsesCanonicalClampOrder(t *testing.T) {
 	db := openRatingScriptDatabaseCustom(t)
 	_, err := db.Exec(`
-		INSERT INTO scenes (id, rating) VALUES (1, 99);
-		INSERT INTO performers (id, rating) VALUES (2, 99);
-		INSERT INTO performers_scenes (performer_id, scene_id) VALUES (2, 1);
+		INSERT INTO scenes (id, rating) VALUES (1, 99), (3, 99), (5, 77);
+		INSERT INTO performers (id, rating) VALUES (2, 99), (4, 99);
+		INSERT INTO performers_scenes (performer_id, scene_id) VALUES (2, 1), (4, 3);
 		INSERT INTO scenes_o_dates (scene_id) VALUES (1), (1), (1);
+		WITH RECURSIVE o_count(value) AS (
+			VALUES (1)
+			UNION ALL
+			SELECT value + 1 FROM o_count WHERE value < 12
+		)
+		INSERT INTO scenes_o_dates (scene_id) SELECT 3 FROM o_count;
+		WITH RECURSIVE o_count(value) AS (
+			VALUES (1)
+			UNION ALL
+			SELECT value + 1 FROM o_count WHERE value < 24
+		)
+		INSERT INTO scenes_o_dates (scene_id) SELECT 5 FROM o_count;
 		INSERT INTO rating_penalty_scores
 			(entity_type, entity_id, key, raw_value, weighted_value)
 			VALUES ('scene', 1, 'noOrgasm', -2, -999);
 		INSERT INTO rating_criteria_scores
 			(entity_type, entity_id, key, raw_value, weighted_value)
-			VALUES ('performer', 2, 'face', 5, 999);
+			VALUES
+				('performer', 2, 'face', 5, 999),
+				('scene', 3, 'topAttractiveness', 5, 999),
+				('performer', 4, 'face', 5, 999);
 	`)
 	require.NoError(t, err)
 
 	executeRatingScriptCustom(t, db, "rating_orgasm_bonus_recalculate_custom.sql")
+	executeRatingScriptCustom(t, db, "rating_orgasm_bonus_recalculate_custom.sql")
 
-	var sceneRating, performerRating int
+	var sceneRating, performerRating, progressiveSceneRating, progressivePerformerRating, manualRating int
 	require.NoError(t, db.QueryRow("SELECT rating FROM scenes WHERE id = 1").Scan(&sceneRating))
 	require.NoError(t, db.QueryRow("SELECT rating FROM performers WHERE id = 2").Scan(&performerRating))
+	require.NoError(t, db.QueryRow("SELECT rating FROM scenes WHERE id = 3").Scan(&progressiveSceneRating))
+	require.NoError(t, db.QueryRow("SELECT rating FROM performers WHERE id = 4").Scan(&progressivePerformerRating))
+	require.NoError(t, db.QueryRow("SELECT rating FROM scenes WHERE id = 5").Scan(&manualRating))
 	assert.Equal(t, 1, sceneRating)
 	assert.Equal(t, 31, performerRating)
+	assert.Equal(t, 48, progressiveSceneRating)
+	assert.Equal(t, 38, progressivePerformerRating)
+	assert.Equal(t, 77, manualRating)
 }
 
 func TestRemovePerformerUnlikelyTopScript(t *testing.T) {

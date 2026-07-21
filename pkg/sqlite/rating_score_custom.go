@@ -571,12 +571,37 @@ func calculateOrgasmRatingBonus(entityType string, count int) int {
 		return 0
 	}
 
+	step := 0
 	switch entityType {
 	case models.RatingEntityScene:
-		return count - 2
+		step = 1
 	case models.RatingEntityPerformer:
-		return 1 + ((count - 3) / 2)
+		step = 2
 	default:
 		return 0
 	}
+
+	total := 0
+	for milestone := 3; milestone <= count; milestone += step {
+		total += orgasmRatingMilestoneBonusCustom(milestone)
+	}
+
+	return total
+}
+
+func orgasmRatingMilestoneBonusCustom(count int) int {
+	if count < 3 {
+		return 0
+	}
+
+	bonus := 1
+	for nextTier := 6; count >= nextTier; {
+		bonus++
+		if nextTier > count/2 {
+			break
+		}
+		nextTier *= 2
+	}
+
+	return bonus
 }

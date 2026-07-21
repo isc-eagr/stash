@@ -57,13 +57,18 @@ func (qb *studioFilterHandler) criterionHandler() criterionHandler {
 		stringCriterionHandler(studioFilter.Details, studioTable+".details"),
 		qb.urlsCriterionHandler(studioFilter.URL),
 		intCriterionHandler(studioFilter.Rating100, studioTable+".rating", nil),
-		metallicRatingCriterionHandler(studioFilter.MetallicRating, studioTable, studioTable+".rating", "studios_tags", "studio_id", "scene"),              // CUSTOM
-		activityPercentFilterHandlerCustom(studioFilter.ActivityPercentages, activityPercentStudioPercentExprCustom),                                       // CUSTOM
-		activityPercentCriterionHandlerCustom(studioFilter.SexActivityPercent, activityPercentStudioPercentExprCustom(activityPercentSexCustom)),           // CUSTOM
-		activityPercentCriterionHandlerCustom(studioFilter.OralActivityPercent, activityPercentStudioPercentExprCustom(activityPercentOralCustom)),         // CUSTOM
-		activityPercentCriterionHandlerCustom(studioFilter.SoloActivityPercent, activityPercentStudioPercentExprCustom(activityPercentSoloCustom)),         // CUSTOM
-		activityPercentCriterionHandlerCustom(studioFilter.OtherActivityPercent, activityPercentStudioPercentExprCustom(activityPercentOtherCustom)),       // CUSTOM
-		activityPercentCriterionHandlerCustom(studioFilter.UnusableActivityPercent, activityPercentStudioPercentExprCustom(activityPercentUnusableCustom)), // CUSTOM
+		metallicRatingCriterionHandler(studioFilter.MetallicRating, studioTable, studioTable+".rating", "studios_tags", "studio_id", "scene"),                    // CUSTOM
+		activityPercentFilterHandlerCustom(studioFilter.ActivityPercentages, activityPercentStudioPercentExprCustom),                                             // CUSTOM
+		qualityPercentFilterHandlerCustom(studioFilter.QualityPercentages, activityPercentStudioPercentExprCustom),                                               // CUSTOM
+		studioRatingCriteriaCriterionHandlerCustom(studioFilter.RatingCriteria, studioRatingCriteriaScenesCustom),                                                // CUSTOM
+		studioRatingCriteriaCriterionHandlerCustom(studioFilter.PerformerRatingCriteria, studioRatingCriteriaPerformersCustom),                                   // CUSTOM
+		activityPercentCriterionHandlerCustom(studioFilter.SexActivityPercent, activityPercentStudioPercentExprCustom(activityPercentSexCustom)),                 // CUSTOM
+		activityPercentCriterionHandlerCustom(studioFilter.OralActivityPercent, activityPercentStudioPercentExprCustom(activityPercentOralCustom)),               // CUSTOM
+		activityPercentCriterionHandlerCustom(studioFilter.SoloActivityPercent, activityPercentStudioPercentExprCustom(activityPercentSoloCustom)),               // CUSTOM
+		activityPercentCriterionHandlerCustom(studioFilter.OtherActivityPercent, activityPercentStudioPercentExprCustom(activityPercentOtherCustom)),             // CUSTOM
+		activityPercentCriterionHandlerCustom(studioFilter.OutstandingActivityPercent, activityPercentStudioPercentExprCustom(activityPercentOutstandingCustom)), // CUSTOM
+		activityPercentCriterionHandlerCustom(studioFilter.StandardActivityPercent, activityPercentStudioPercentExprCustom(activityPercentStandardCustom)),       // CUSTOM
+		activityPercentCriterionHandlerCustom(studioFilter.UnusableActivityPercent, activityPercentStudioPercentExprCustom(activityPercentUnusableCustom)),       // CUSTOM
 		boolCriterionHandler(studioFilter.Favorite, studioTable+".favorite", nil),
 		boolCriterionHandler(studioFilter.IgnoreAutoTag, studioTable+".ignore_auto_tag", nil),
 		boolCriterionHandler(studioFilter.Organized, studioTable+".organized", nil),

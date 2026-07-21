@@ -271,30 +271,46 @@ func activityPercentStudioDenominatorExprCustom() string {
 	SELECT SUM(%s)
 	FROM scenes s_activity_total
 	WHERE s_activity_total.studio_id = studios.id
-	AND (
-	EXISTS (
-		SELECT 1
-		FROM scene_markers sm_activity_total
-		WHERE sm_activity_total.scene_id = s_activity_total.id
-		AND %s
-	)
-	OR EXISTS (
-		SELECT 1
-		FROM scene_negative_markers snm_activity_total
-		WHERE snm_activity_total.scene_id = s_activity_total.id
-		AND snm_activity_total.end_seconds > snm_activity_total.start_seconds
-	)
-	)
+	AND %s
 ), 0)`,
 		activityPercentSceneDurationExprCustom("s_activity_total.id"),
-		activityPercentStrictAnyMarkerConditionCustom("sm_activity_total"),
+		activityPercentStudioMeaningfulSceneConditionCustom("s_activity_total"),
 	)
+}
+
+func activityPercentStudioRoleMarkerConditionCustom(markerAlias string) string {
+	tagIDs := activityPercentConfiguredTagIDsCustom()
+	if len(tagIDs) == 0 {
+		return "0"
+	}
+
+	parts := make([]string, 0, len(tagIDs))
+	for _, id := range tagIDs {
+		parts = append(parts, fmt.Sprintf("%d", id))
+	}
+
+	return fmt.Sprintf(`%[1]s.primary_tag_id IN (%[2]s)
+AND %[1]s.end_seconds IS NOT NULL
+AND %[1]s.end_seconds > %[1]s.seconds`, markerAlias, strings.Join(parts, ","))
+}
+
+func activityPercentStudioMeaningfulSceneConditionCustom(sceneAlias string) string {
+	return fmt.Sprintf(`EXISTS (
+	SELECT 1 FROM scene_markers sm_studio_meaningful
+	WHERE sm_studio_meaningful.scene_id = %[1]s.id
+	AND %[2]s
+	AND MIN((%[3]s), sm_studio_meaningful.end_seconds) > MAX(0, sm_studio_meaningful.seconds)
+)`, sceneAlias, activityPercentStudioRoleMarkerConditionCustom("sm_studio_meaningful"), activityPercentSceneDurationExprCustom(sceneAlias+".id"))
 }
 
 func activityPercentStudioSecondsExprCustom(category activityPercentCategoryCustom) string {
 	switch category {
 	case activityPercentOtherCustom:
 		return activityPercentStudioOtherSecondsExprCustom()
+	case activityPercentOutstandingCustom:
+		return activityPercentStudioOutstandingSecondsExprCustom()
+	case activityPercentStandardCustom:
+		return activityPercentStudioStandardSecondsExprCustom()
 	case activityPercentUnusableCustom:
 		return activityPercentStudioUnusableSecondsExprCustom()
 	}
@@ -304,21 +320,29 @@ func activityPercentStudioSecondsExprCustom(category activityPercentCategoryCust
 		return "0"
 	}
 
-	sourceSQL := fmt.Sprintf(`SELECT sm.scene_id, sm.seconds, sm.end_seconds
+	sourceSQL := fmt.Sprintf(`SELECT sm.scene_id,
+MAX(0, sm.seconds) AS seconds,
+MIN((%s), sm.end_seconds) AS end_seconds
 FROM scene_markers sm
 JOIN scenes s_activity ON s_activity.id = sm.scene_id
 WHERE s_activity.studio_id = studios.id
-AND %s`, activityPercentStrictMarkerConditionCustom("sm", tagID))
+AND %s`, activityPercentSceneDurationExprCustom("s_activity.id"), activityPercentStudioRoleMarkerConditionCustom("sm"))
+
+	// Keep the configured category exact even though the shared role condition
+	// accepts any configured sex/oral/solo primary marker.
+	sourceSQL += fmt.Sprintf("\nAND sm.primary_tag_id = %d", tagID)
 
 	return activityPercentMergedSecondsExprCustom(sourceSQL)
 }
 
 func activityPercentStudioAnyActivitySourceSQLCustom() string {
-	return fmt.Sprintf(`SELECT sm.scene_id, sm.seconds, sm.end_seconds
+	return fmt.Sprintf(`SELECT sm.scene_id,
+MAX(0, sm.seconds) AS seconds,
+MIN((%s), sm.end_seconds) AS end_seconds
 FROM scene_markers sm
 JOIN scenes s_activity ON s_activity.id = sm.scene_id
 WHERE s_activity.studio_id = studios.id
-AND %s`, activityPercentStrictAnyMarkerConditionCustom("sm"))
+AND %s`, activityPercentSceneDurationExprCustom("s_activity.id"), activityPercentStudioRoleMarkerConditionCustom("sm"))
 }
 
 func activityPercentStudioNegativeSourceSQLCustom() string {
@@ -328,27 +352,48 @@ MIN((%s), snm.end_seconds) AS end_seconds
 FROM scene_negative_markers snm
 JOIN scenes s_negative ON s_negative.id = snm.scene_id
 WHERE s_negative.studio_id = studios.id
-AND snm.end_seconds > snm.start_seconds`, activityPercentSceneDurationExprCustom("s_negative.id"))
+AND snm.end_seconds > snm.start_seconds
+AND %s`, activityPercentSceneDurationExprCustom("s_negative.id"), activityPercentStudioMeaningfulSceneConditionCustom("s_negative"))
+}
+
+func activityPercentStudioOutstandingSourceSQLCustom() string {
+	return fmt.Sprintf(`SELECT sm.scene_id,
+MAX(0, sm.seconds) AS seconds,
+MIN((%s), sm.end_seconds) AS end_seconds
+FROM scene_markers sm
+JOIN scenes s_outstanding ON s_outstanding.id = sm.scene_id
+WHERE s_outstanding.studio_id = studios.id
+AND %s
+AND %s`,
+		activityPercentSceneDurationExprCustom("s_outstanding.id"),
+		activityPercentOutstandingMarkerConditionForTagIDsCustom("sm", activityPercentConfiguredTagIDsCustom()),
+		activityPercentStudioMeaningfulSceneConditionCustom("s_outstanding"),
+	)
 }
 
 func activityPercentStudioUnusableSecondsExprCustom() string {
 	return activityPercentMergedSecondsExprCustom(activityPercentStudioNegativeSourceSQLCustom())
 }
 
-func activityPercentStudioCoveredSecondsExprCustom() string {
-	sourceSQL := fmt.Sprintf(`%s
-UNION ALL
-%s`,
-		activityPercentStudioAnyActivitySourceSQLCustom(),
+func activityPercentStudioOutstandingSecondsExprCustom() string {
+	return activityPercentOutstandingSecondsFromSourcesExprCustom(
+		activityPercentStudioOutstandingSourceSQLCustom(),
 		activityPercentStudioNegativeSourceSQLCustom(),
 	)
-	return activityPercentMergedSecondsExprCustom(sourceSQL)
+}
+
+func activityPercentStudioStandardSecondsExprCustom() string {
+	return activityPercentStandardSecondsFromSourcesExprCustom(
+		activityPercentStudioDenominatorExprCustom(),
+		activityPercentStudioOutstandingSourceSQLCustom(),
+		activityPercentStudioNegativeSourceSQLCustom(),
+	)
 }
 
 func activityPercentStudioOtherSecondsExprCustom() string {
 	return activityPercentNonNegativeDifferenceExprCustom(
 		activityPercentStudioDenominatorExprCustom(),
-		activityPercentStudioCoveredSecondsExprCustom(),
+		activityPercentMergedSecondsExprCustom(activityPercentStudioAnyActivitySourceSQLCustom()),
 	)
 }
 

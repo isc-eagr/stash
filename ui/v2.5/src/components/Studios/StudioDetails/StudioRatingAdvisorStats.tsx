@@ -13,8 +13,14 @@ interface IProps {
   depth: number;
 }
 
+export type StudioRatingAdvisorSectionKey =
+  | "solo_scenes"
+  | "sex_scenes"
+  | "group_scenes"
+  | "performers";
+
 interface ISectionDefinition {
-  key: "solo_scenes" | "sex_scenes" | "group_scenes" | "performers";
+  key: StudioRatingAdvisorSectionKey;
   title: string;
   singular: string;
   plural: string;
@@ -22,10 +28,10 @@ interface ISectionDefinition {
   criteria: Record<string, { label: string; max: number }>;
 }
 
-const sectionDefinitions: ISectionDefinition[] = [
+export const studioRatingAdvisorSectionDefinitions: ISectionDefinition[] = [
   {
     key: "solo_scenes",
-    title: "Solo Scenes",
+    title: "Solo Criteria",
     singular: "scene",
     plural: "scenes",
     ratingLabel: "Average scene rating",
@@ -37,7 +43,7 @@ const sectionDefinitions: ISectionDefinition[] = [
   },
   {
     key: "sex_scenes",
-    title: "Sex Scenes",
+    title: "Standard Criteria",
     singular: "scene",
     plural: "scenes",
     ratingLabel: "Average scene rating",
@@ -51,7 +57,7 @@ const sectionDefinitions: ISectionDefinition[] = [
   },
   {
     key: "group_scenes",
-    title: "Group Scenes",
+    title: "Group Criteria",
     singular: "scene",
     plural: "scenes",
     ratingLabel: "Average scene rating",
@@ -190,7 +196,7 @@ const AdjustmentGroup: React.FC<{
   );
 };
 
-const AdvisorSection: React.FC<{
+export const StudioRatingAdvisorSection: React.FC<{
   definition: ISectionDefinition;
   stats: RatingAdvisorSection;
 }> = ({ definition, stats }) => {
@@ -303,8 +309,8 @@ export const StudioRatingAdvisorStats: React.FC<IProps> = ({
         </div>
       </div>
       <div className="studio-rating-advisor-grid">
-        {sectionDefinitions.map((definition) => (
-          <AdvisorSection
+        {studioRatingAdvisorSectionDefinitions.map((definition) => (
+          <StudioRatingAdvisorSection
             definition={definition}
             key={definition.key}
             stats={stats[definition.key]}

@@ -58,6 +58,7 @@ interface IProps {
   type: PopoverLinkType;
   count: number;
   showZero?: boolean;
+  showTooltip?: boolean; // CUSTOM
 }
 
 export const PopoverCountButton: React.FC<IProps> = ({
@@ -66,6 +67,7 @@ export const PopoverCountButton: React.FC<IProps> = ({
   type,
   count,
   showZero = true,
+  showTooltip = true, // CUSTOM
 }) => {
   const intl = useIntl();
   const { configuration } = useConfigurationContext(); // CUSTOM
@@ -174,19 +176,23 @@ export const PopoverCountButton: React.FC<IProps> = ({
     return `${count} ${plural}`;
   }
 
+  const link = (
+    <Link className={className} to={url}>
+      <Button className="minimal">
+        {renderIcon()}
+        <Count count={count} />
+      </Button>
+    </Link>
+  );
+
+  if (!showTooltip) return link; // CUSTOM
+
   return (
-    <>
-      <OverlayTrigger
-        overlay={<Tooltip id={`${type}-count-tooltip`}>{getTitle()}</Tooltip>}
-        placement="bottom"
-      >
-        <Link className={className} to={url}>
-          <Button className="minimal">
-            {renderIcon()}
-            <Count count={count} />
-          </Button>
-        </Link>
-      </OverlayTrigger>
-    </>
+    <OverlayTrigger
+      overlay={<Tooltip id={`${type}-count-tooltip`}>{getTitle()}</Tooltip>}
+      placement="bottom"
+    >
+      {link}
+    </OverlayTrigger>
   );
 };
