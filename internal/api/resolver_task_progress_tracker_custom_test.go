@@ -64,12 +64,22 @@ func TestTaskProgressTrackerCreateCalculatesFixedGoalCustom(t *testing.T) {
 	db.AssertExpectations(t)
 }
 
+func TestTaskProgressStartedOnCustom(t *testing.T) {
+	startedOn, err := taskProgressStartedOnCustom("20/07/2026")
+	require.NoError(t, err)
+	require.Equal(t, "2026-07-20", startedOn)
+
+	_, err = taskProgressStartedOnCustom("31/02/2026")
+	require.Error(t, err)
+}
+
 func TestTaskProgressTrackerUpdateResetsGoalFromTagCountCustom(t *testing.T) {
 	db := mocks.NewDatabase()
 	resolver := newResolver(db)
-	existing := &models.TaskProgressTracker{ID: 8, Title: "Cleanup", Goal: 17, TagID: 3}
+	existing := &models.TaskProgressTracker{ID: 8, Title: "Cleanup", Goal: 17, TagID: 3, StartedOn: "2026-07-01"}
 	updatedTitle := "Cleanup now"
 	resetGoal := true
+	updatedStartedOn := "20/07/2026"
 
 	db.TaskProgressTracker.On("Find", mock.Anything, 8).Return(existing, nil).Once()
 	db.TaskProgressTracker.On("CountDirectlyTaggedItems", mock.Anything, 3).Return(9, nil).Once()
@@ -82,10 +92,12 @@ func TestTaskProgressTrackerUpdateResetsGoalFromTagCountCustom(t *testing.T) {
 			ID:        "8",
 			Title:     &updatedTitle,
 			ResetGoal: &resetGoal,
+			StartedOn: &updatedStartedOn,
 		},
 	)
 	require.NoError(t, err)
 	require.Equal(t, "Cleanup now", tracker.Title)
 	require.Equal(t, 9, tracker.Goal)
+	require.Equal(t, "2026-07-20", tracker.StartedOn)
 	db.AssertExpectations(t)
 }

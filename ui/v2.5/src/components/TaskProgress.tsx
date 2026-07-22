@@ -15,9 +15,11 @@ import { useStats } from "src/core/StashService";
 import { Icon } from "./Shared/Icon";
 import { Tag, TagSelect } from "./Tags/TagSelect";
 import {
+  formatTaskProgressDate,
   getTagItemCount,
   getTrackerProgress,
   IProgressTracker,
+  parseTaskProgressDate,
   reorderProgressTrackers,
   toggleProgressTrackerWorkingOn,
 } from "./taskProgress_custom";
@@ -27,14 +29,18 @@ interface ITrackerDraft {
   description: string;
   tagId: string;
   tagName: string;
+  startedOn: string;
 }
 
-const EMPTY_DRAFT: ITrackerDraft = {
-  title: "",
-  description: "",
-  tagId: "",
-  tagName: "",
-};
+function createTrackerDraft(): ITrackerDraft {
+  return {
+    title: "",
+    description: "",
+    tagId: "",
+    tagName: "",
+    startedOn: formatTaskProgressDate(new Date()),
+  };
+}
 
 function selectedTag(draft: ITrackerDraft): Tag[] {
   if (!draft.tagId) return [];
@@ -69,6 +75,7 @@ function fromDatabaseTracker(
     tagId: tracker.tag_id,
     tagName: tracker.tag_name,
     isWorkingOn: tracker.is_working_on,
+    startedOn: tracker.started_on,
   };
 }
 
@@ -86,7 +93,8 @@ const TaskProgress: React.FC = () => {
     GQL.useTaskProgressTrackersReorderMutation();
 
   const [trackers, setTrackers] = useState<IProgressTracker[]>([]);
-  const [newTracker, setNewTracker] = useState<ITrackerDraft>(EMPTY_DRAFT);
+  const [newTracker, setNewTracker] =
+    useState<ITrackerDraft>(createTrackerDraft);
   const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
   const [organizedCount, setOrganizedCount] = useState(0);
   const [itemsPerDay, setItemsPerDay] = useState<Record<string, number>>({});
@@ -94,11 +102,12 @@ const TaskProgress: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string>();
   const [editingTracker, setEditingTracker] = useState<IProgressTracker>();
-  const [editDraft, setEditDraft] = useState<ITrackerDraft>(EMPTY_DRAFT);
+  const [editDraft, setEditDraft] = useState<ITrackerDraft>(createTrackerDraft);
   const [editGoal, setEditGoal] = useState(0);
   const [editGoalTagId, setEditGoalTagId] = useState("");
   const [editTaggedCount, setEditTaggedCount] = useState(0);
   const [editCountError, setEditCountError] = useState<string>();
+  const [editStartedOnError, setEditStartedOnError] = useState<string>();
   const [isRefreshingEditGoal, setIsRefreshingEditGoal] = useState(false);
   const [draggedTrackerId, setDraggedTrackerId] = useState<string>();
   const [dragTargetId, setDragTargetId] = useState<string>();
@@ -181,6 +190,12 @@ const TaskProgress: React.FC = () => {
   const addTracker = async () => {
     if (!newTracker.title.trim() || !newTracker.tagId || isCreating) return;
 
+    const startedOn = parseTaskProgressDate(newTracker.startedOn);
+    if (!startedOn) {
+      setCreateError("Enter Started On as a valid date in DD/MM/YYYY format.");
+      return;
+    }
+
     setIsCreating(true);
     setCreateError(undefined);
     try {
@@ -190,6 +205,7 @@ const TaskProgress: React.FC = () => {
             title: newTracker.title.trim(),
             description: newTracker.description.trim(),
             tag_id: newTracker.tagId,
+            started_on: startedOn,
           },
         },
       });
@@ -203,7 +219,7 @@ const TaskProgress: React.FC = () => {
         ...current,
         [tracker.id]: tracker.goal,
       }));
-      setNewTracker(EMPTY_DRAFT);
+      setNewTracker(createTrackerDraft());
     } catch (error) {
       console.error("Failed to create task progress tracker:", error);
       setCreateError("Could not save the tracker in the database.");
@@ -233,11 +249,13 @@ const TaskProgress: React.FC = () => {
       description: tracker.description,
       tagId: tracker.tagId,
       tagName: tracker.tagName,
+      startedOn: formatTaskProgressDate(tracker.startedOn),
     });
     setEditGoal(tracker.goal);
     setEditGoalTagId(tracker.tagId);
     setEditTaggedCount(itemCounts[tracker.id] ?? 0);
     setEditCountError(undefined);
+    setEditStartedOnError(undefined);
 
     try {
       setIsRefreshingEditGoal(true);
@@ -313,6 +331,14 @@ const TaskProgress: React.FC = () => {
       return;
     }
 
+    const startedOn = parseTaskProgressDate(editDraft.startedOn);
+    if (!startedOn) {
+      setEditStartedOnError(
+        "Enter Started On as a valid date in DD/MM/YYYY format."
+      );
+      return;
+    }
+
     try {
       const { data } = await updateTrackerMutation({
         variables: {
@@ -324,6 +350,7 @@ const TaskProgress: React.FC = () => {
             reset_goal:
               editDraft.tagId !== editingTracker.tagId ||
               editGoal !== editingTracker.goal,
+            started_on: startedOn,
           },
         },
       });
@@ -457,6 +484,24 @@ const TaskProgress: React.FC = () => {
                   }
                 />
               </Form.Group>
+              <Form.Group controlId="new-tracker-started-on">
+                <Form.Label>Started On</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="DD/MM/YYYY"
+                  size="sm"
+                  value={newTracker.startedOn}
+                  onChange={(event) =>
+                    setNewTracker((current) => ({
+                      ...current,
+                      startedOn: event.target.value,
+                    }))
+                  }
+                />
+                <Form.Text className="text-muted">
+                  Defaults to today. Use DD/MM/YYYY.
+                </Form.Text>
+              </Form.Group>
               <Form.Group controlId="new-tracker-tag">
                 <Form.Label>Tag</Form.Label>
                 <div style={{ zIndex: 1000, position: "relative" }}>
@@ -478,7 +523,10 @@ const TaskProgress: React.FC = () => {
                 size="sm"
                 onClick={addTracker}
                 disabled={
-                  !newTracker.title.trim() || !newTracker.tagId || isCreating
+                  !newTracker.title.trim() ||
+                  !newTracker.tagId ||
+                  !parseTaskProgressDate(newTracker.startedOn) ||
+                  isCreating
                 }
               >
                 <Icon icon={faPlus} className="mr-1" />
@@ -566,11 +614,7 @@ const TaskProgress: React.FC = () => {
                         completionDate.getDate() + daysLeft
                       );
                       const completionDateText =
-                        completionDate.toLocaleDateString("en-US", {
-                          month: "2-digit",
-                          day: "2-digit",
-                          year: "numeric",
-                        });
+                        formatTaskProgressDate(completionDate);
                       return (
                         <small className="text-muted d-block">
                           Done by <strong>{completionDateText}</strong> (
@@ -642,6 +686,10 @@ const TaskProgress: React.FC = () => {
                           <h5 className="mb-1">{tracker.title}</h5>
                           <small className="text-muted d-block">
                             Tag: {tracker.tagName}
+                          </small>
+                          <small className="text-muted d-block">
+                            Started On:{" "}
+                            {formatTaskProgressDate(tracker.startedOn)}
                           </small>
                           {tracker.isWorkingOn && (
                             <Badge variant="info" className="mt-2">
@@ -783,11 +831,7 @@ const TaskProgress: React.FC = () => {
                                 completionDate.getDate() + daysLeft
                               );
                               const completionDateText =
-                                completionDate.toLocaleDateString("en-US", {
-                                  month: "2-digit",
-                                  day: "2-digit",
-                                  year: "numeric",
-                                });
+                                formatTaskProgressDate(completionDate);
                               return (
                                 <small className="text-muted d-block">
                                   Done by <strong>{completionDateText}</strong>{" "}
@@ -841,6 +885,27 @@ const TaskProgress: React.FC = () => {
               }
             />
           </Form.Group>
+          <Form.Group controlId="edit-tracker-started-on">
+            <Form.Label>Started On</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="DD/MM/YYYY"
+              value={editDraft.startedOn}
+              onChange={(event) => {
+                setEditStartedOnError(undefined);
+                setEditDraft((current) => ({
+                  ...current,
+                  startedOn: event.target.value,
+                }));
+              }}
+            />
+            <Form.Text className="text-muted">Use DD/MM/YYYY.</Form.Text>
+            {editStartedOnError && (
+              <Form.Text className="text-danger">
+                {editStartedOnError}
+              </Form.Text>
+            )}
+          </Form.Group>
           <Form.Group controlId="edit-tracker-tag">
             <Form.Label>Tag</Form.Label>
             <div style={{ zIndex: 1051, position: "relative" }}>
@@ -886,6 +951,7 @@ const TaskProgress: React.FC = () => {
             disabled={
               !editDraft.title.trim() ||
               !editDraft.tagId ||
+              !parseTaskProgressDate(editDraft.startedOn) ||
               editGoalTagId !== editDraft.tagId ||
               isRefreshingEditGoal
             }

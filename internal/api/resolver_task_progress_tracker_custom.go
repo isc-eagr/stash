@@ -7,6 +7,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/logger"
@@ -14,6 +15,20 @@ import (
 )
 
 const taskProgressTrackersUIConfigKey = "taskProgressTrackers"
+
+const taskProgressDateLayoutCustom = "2006-01-02"
+
+func taskProgressStartedOnCustom(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	for _, layout := range []string{taskProgressDateLayoutCustom, "02/01/2006"} {
+		date, err := time.Parse(layout, value)
+		if err == nil {
+			return date.Format(taskProgressDateLayoutCustom), nil
+		}
+	}
+
+	return "", fmt.Errorf("%w: started_on must be a valid date in YYYY-MM-DD or DD/MM/YYYY format", ErrInput)
+}
 
 type legacyTaskProgressTrackerCustom struct {
 	Title        string      `json:"title"`
@@ -156,11 +171,19 @@ func (r *mutationResolver) TaskProgressTrackerCreate(ctx context.Context, input 
 	if err != nil {
 		return nil, fmt.Errorf("converting tag id: %w", err)
 	}
+	startedOn := ""
+	if input.StartedOn != nil {
+		startedOn, err = taskProgressStartedOnCustom(*input.StartedOn)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	tracker := &models.TaskProgressTracker{
 		Title:       title,
 		Description: strings.TrimSpace(input.Description),
 		TagID:       tagID,
+		StartedOn:   startedOn,
 	}
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		tag, err := r.repository.Tag.Find(ctx, tagID)
@@ -206,6 +229,13 @@ func (r *mutationResolver) TaskProgressTrackerUpdate(ctx context.Context, input 
 		}
 		if input.Description != nil {
 			tracker.Description = strings.TrimSpace(*input.Description)
+		}
+		if input.StartedOn != nil {
+			startedOn, err := taskProgressStartedOnCustom(*input.StartedOn)
+			if err != nil {
+				return err
+			}
+			tracker.StartedOn = startedOn
 		}
 
 		tagChanged := false

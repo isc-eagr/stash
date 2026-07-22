@@ -2,6 +2,8 @@ package sqlite
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
@@ -27,6 +29,7 @@ CREATE TABLE task_progress_trackers (
   tag_id INTEGER NOT NULL,
   position INTEGER NOT NULL DEFAULT 0,
   is_working_on BOOLEAN NOT NULL DEFAULT 0,
+  started_on TEXT NOT NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
   FOREIGN KEY(tag_id) REFERENCES tags(id) ON DELETE CASCADE
@@ -73,6 +76,7 @@ INSERT INTO groups_tags (group_id, tag_id) VALUES (1, 1);
 	require.NotZero(t, first.ID)
 	require.Equal(t, "Inbox", first.TagName)
 	require.Equal(t, 0, first.Position)
+	require.Equal(t, first.CreatedAt.Format("2006-01-02"), first.StartedOn)
 
 	second := &models.TaskProgressTracker{Title: "Second", Goal: goal, TagID: 1}
 	require.NoError(t, store.Create(ctx, second))
@@ -80,11 +84,13 @@ INSERT INTO groups_tags (group_id, tag_id) VALUES (1, 1);
 
 	first.Description = "Updated"
 	first.IsWorkingOn = false
+	first.StartedOn = "2026-07-20"
 	require.NoError(t, store.Update(ctx, first))
 	updated, err := store.Find(ctx, first.ID)
 	require.NoError(t, err)
 	require.Equal(t, "Updated", updated.Description)
 	require.False(t, updated.IsWorkingOn)
+	require.Equal(t, "2026-07-20", updated.StartedOn)
 
 	require.NoError(t, store.Reorder(ctx, []int{second.ID, first.ID}))
 	trackers, err := store.FindAll(ctx)
@@ -95,4 +101,28 @@ INSERT INTO groups_tags (group_id, tag_id) VALUES (1, 1);
 	deleted, err := store.Find(ctx, first.ID)
 	require.NoError(t, err)
 	require.Nil(t, deleted)
+}
+
+func TestTaskProgressTrackerStartedOnUpgradeCustom(t *testing.T) {
+	db, err := sqlx.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+
+	_, err = db.Exec(`
+CREATE TABLE task_progress_trackers (
+  id INTEGER PRIMARY KEY,
+  created_at DATETIME NOT NULL
+);
+INSERT INTO task_progress_trackers (id, created_at) VALUES (1, '2026-07-19 15:30:00');
+`)
+	require.NoError(t, err)
+
+	migration, err := os.ReadFile(filepath.Join("..", "..", "task_progress_trackers_started_on.up.sql"))
+	require.NoError(t, err)
+	_, err = db.Exec(string(migration))
+	require.NoError(t, err)
+
+	var startedOn string
+	require.NoError(t, db.Get(&startedOn, "SELECT started_on FROM task_progress_trackers WHERE id = 1"))
+	require.Equal(t, "2026-07-19", startedOn)
 }

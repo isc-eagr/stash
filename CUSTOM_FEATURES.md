@@ -287,12 +287,14 @@ A widget for tracking progress on tagging tasks. Users can define trackers linke
 - `ui/v2.5/graphql/queries/task_progress_tracker_custom.graphql`
 - `ui/v2.5/graphql/mutations/task_progress_tracker_custom.graphql`
 - `task_progress_trackers.up.sql`
+- `task_progress_trackers_started_on.up.sql`
 
 ### Features
 
 - Create, edit, delete, and drag-to-reorder progress trackers
 - Trackers can be marked as currently being worked on; marked cards persist a `Working on` badge and blue highlight
 - Creation asks for a title, description, and linked tag; the goal is automatically captured from the tag's current item count
+- Each tracker has a mutable **Started On** calendar date, defaulting to its creation date; it is shown and edited in `DD/MM/YYYY` format
 - Goals remain fixed until the user explicitly resets one to the current count from the edit dialog; arbitrary numeric goals are not accepted
 - Editing supports the title, description, tag, and the controlled goal reset
 - Shows the current tagged item count vs the fixed goal (progress bar)
@@ -303,7 +305,7 @@ A widget for tracking progress on tagging tasks. Users can define trackers linke
 
 ### Database Setup
 
-Apply `task_progress_trackers.up.sql` to each existing Stash SQLite database before using the updated page. The standalone SQL follows this fork's custom migration policy and is not added to the upstream migration chain.
+Apply `task_progress_trackers.up.sql` to each new Stash SQLite database before using the updated page. For an existing task-progress table, apply `task_progress_trackers_started_on.up.sql` once to add and backfill the **Started On** date. These standalone SQL files follow this fork's custom migration policy and are not added to the upstream migration chain.
 
 ### GraphQL
 
@@ -319,6 +321,7 @@ Apply `task_progress_trackers.up.sql` to each existing Stash SQLite database bef
 - Drag reorder behavior
 - Working-on state toggling
 - Fixed-goal progress calculations, including growing and empty backlogs
+- Started On date defaults, edits, display formatting, input validation, and existing-database backfill
 
 ---
 
@@ -2582,7 +2585,7 @@ Adds a small calculator widget to each task progress tracker card (and the Overa
 ### Behavior
 
 - Each tracker card shows an "Items/day" input at the bottom when items remain
-- When a value is entered, it displays: "Done by MM/DD/YYYY (X days) at Y/day"
+- When a value is entered, it displays: "Done by DD/MM/YYYY (X days) at Y/day"
 - The Overall Progress card also includes the same widget for the total unorganized scene count
 
 ### Files Modified

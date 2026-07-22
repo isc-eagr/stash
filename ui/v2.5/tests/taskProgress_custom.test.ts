@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 
 import {
+  formatTaskProgressDate,
   getTagItemCount,
   getTrackerProgress,
+  parseTaskProgressDate,
   reorderProgressTrackers,
   toggleProgressTrackerWorkingOn,
 } from "../src/components/taskProgress_custom.ts";
@@ -30,6 +32,7 @@ const tracker = (id: string, goal: number): IProgressTracker => ({
   tagId: id,
   tagName: `Tag ${id}`,
   isWorkingOn: false,
+  startedOn: "2026-07-21",
 });
 const trackers = [tracker("a", 1), tracker("b", 2), tracker("c", 3)];
 
@@ -67,4 +70,28 @@ assert.deepEqual(
   getTrackerProgress(0, 0),
   { done: 0, remaining: 0, percentage: 100 },
   "a tracker created from an empty tag starts complete"
+);
+
+assert.equal(
+  formatTaskProgressDate("2026-07-09"),
+  "09/07/2026",
+  "stored task dates display in DD/MM/YYYY format"
+);
+
+assert.equal(
+  formatTaskProgressDate(new Date(2026, 0, 2)),
+  "02/01/2026",
+  "completion estimates display in DD/MM/YYYY format"
+);
+
+assert.equal(
+  parseTaskProgressDate("29/02/2024"),
+  "2024-02-29",
+  "valid leap-day Started On values are persisted as calendar dates"
+);
+
+assert.equal(
+  parseTaskProgressDate("29/02/2023"),
+  undefined,
+  "invalid Started On dates are rejected"
 );

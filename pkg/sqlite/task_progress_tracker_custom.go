@@ -24,6 +24,7 @@ type taskProgressTrackerRow struct {
 	TagID       int       `db:"tag_id"`
 	Position    int       `db:"position"`
 	IsWorkingOn bool      `db:"is_working_on"`
+	StartedOn   string    `db:"started_on"`
 	CreatedAt   time.Time `db:"created_at"`
 	UpdatedAt   time.Time `db:"updated_at"`
 	TagName     string    `db:"tag_name" goqu:"skipinsert,skipupdate"`
@@ -37,6 +38,7 @@ func (r *taskProgressTrackerRow) fromModel(tracker models.TaskProgressTracker) {
 	r.TagID = tracker.TagID
 	r.Position = tracker.Position
 	r.IsWorkingOn = tracker.IsWorkingOn
+	r.StartedOn = tracker.StartedOn
 	r.CreatedAt = tracker.CreatedAt
 	r.UpdatedAt = tracker.UpdatedAt
 }
@@ -51,6 +53,7 @@ func (r *taskProgressTrackerRow) resolve() *models.TaskProgressTracker {
 		TagName:     r.TagName,
 		Position:    r.Position,
 		IsWorkingOn: r.IsWorkingOn,
+		StartedOn:   r.StartedOn,
 		CreatedAt:   r.CreatedAt,
 		UpdatedAt:   r.UpdatedAt,
 	}
@@ -91,6 +94,7 @@ func (s *TaskProgressTrackerStore) selectDataset() *goqu.SelectDataset {
 			table.Col("tag_id"),
 			table.Col("position"),
 			table.Col("is_working_on"),
+			table.Col("started_on"),
 			table.Col("created_at"),
 			table.Col("updated_at"),
 			tags.Col("name"),
@@ -138,6 +142,9 @@ func (s *TaskProgressTrackerStore) Create(ctx context.Context, tracker *models.T
 	now := time.Now()
 	if tracker.CreatedAt.IsZero() {
 		tracker.CreatedAt = now
+	}
+	if tracker.StartedOn == "" {
+		tracker.StartedOn = tracker.CreatedAt.Format("2006-01-02")
 	}
 	tracker.UpdatedAt = now
 
@@ -219,6 +226,7 @@ func (s *TaskProgressTrackerStore) getMany(ctx context.Context, query *goqu.Sele
 			&row.TagID,
 			&row.Position,
 			&row.IsWorkingOn,
+			&row.StartedOn,
 			&row.CreatedAt,
 			&row.UpdatedAt,
 			&row.TagName,

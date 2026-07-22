@@ -8,4 +8,5 @@ fragment TaskProgressTrackerData on TaskProgressTracker {
   tag_name
   position
   is_working_on
+  started_on
 }

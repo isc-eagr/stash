@@ -15,6 +15,7 @@ type TaskProgressTracker struct {
 	TagName     string    `json:"tag_name"`
 	Position    int       `json:"position"`
 	IsWorkingOn bool      `json:"is_working_on"`
+	StartedOn   string    `json:"started_on"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }

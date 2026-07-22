@@ -39,6 +39,7 @@ import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
 import {
   findSceneMarkerWarnings,
   type SceneMarkerGapTag,
+  type SceneMarkerWarning,
 } from "./sceneMarkerGapWarning_custom";
 // CUSTOM: end
 
@@ -255,6 +256,18 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
 
     return previous || next ? { previous, next } : undefined;
   }, [markerWarnings]);
+  const [heldMissingEndWarning, setHeldMissingEndWarning] =
+    useState<SceneMarkerWarning>();
+  const displayedMarkerWarnings = useMemo(() => {
+    if (
+      !heldMissingEndWarning ||
+      markerWarnings.some((warning) => warning.issueType === "missing-end-time")
+    ) {
+      return markerWarnings;
+    }
+
+    return [heldMissingEndWarning, ...markerWarnings];
+  }, [heldMissingEndWarning, markerWarnings]);
   // CUSTOM: end
 
   function onSetPrimaryTag(item: Tag) {
@@ -458,13 +471,19 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
 
     const title = intl.formatMessage({ id: "time_end" });
     const control = (
-      <>
+      <div onMouseLeave={() => setHeldMissingEndWarning(undefined)}>
         <DurationInput
           value={formik.values.end_seconds}
           setValue={(v) => formik.setFieldValue("end_seconds", v ?? null)}
-          onReset={() =>
-            formik.setFieldValue("end_seconds", getPlayerPosition() ?? 0)
-          }
+          onReset={() => {
+            const missingEndWarning = markerWarnings.find(
+              (warning) => warning.issueType === "missing-end-time"
+            );
+            if (missingEndWarning) {
+              setHeldMissingEndWarning(missingEndWarning);
+            }
+            formik.setFieldValue("end_seconds", getPlayerPosition() ?? 0);
+          }}
           // CUSTOM: begin – seek-to-time
           onSeekTo={() => {
             const player = getPlayer();
@@ -480,7 +499,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
             {formik.errors.end_seconds}
           </Form.Control.Feedback>
         )}
-      </>
+      </div>
     );
 
     return renderField("end_seconds", title, control);
@@ -522,7 +541,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
 
   // CUSTOM: begin - marker warning display
   function renderGapWarning() {
-    if (markerWarnings.length === 0) return null;
+    if (displayedMarkerWarnings.length === 0) return null;
 
     const closePreviousGap = async () => {
       if (!gapWarnings?.previous) return;
@@ -604,11 +623,11 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
 
     return (
       <Alert variant="warning" className="py-2">
-        {markerWarnings.length === 1 ? (
-          <div>{markerWarnings[0].message}</div>
+        {displayedMarkerWarnings.length === 1 ? (
+          <div>{displayedMarkerWarnings[0].message}</div>
         ) : (
           <ul className="mb-0 pl-3">
-            {markerWarnings.map((warning, index) => (
+            {displayedMarkerWarnings.map((warning, index) => (
               <li key={`${warning.issueType}-${warning.boundary ?? index}`}>
                 {warning.message}
               </li>
@@ -845,6 +864,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
           <Button
             variant="primary"
             disabled={(!isNew && !formik.dirty) || !isEqual(formik.errors, {})}
+            className="scene-marker-form-save" // CUSTOM
             onClick={() => formik.submitForm()}
           >
             <FormattedMessage id="actions.save" />

@@ -312,6 +312,7 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
           <Button
             variant="primary"
             disabled={(!isNew && !formik.dirty) || !isEqual(formik.errors, {})}
+            className="scene-marker-form-save" // CUSTOM
             onClick={() => formik.submitForm()}
           >
             <FormattedMessage id="actions.save" />
