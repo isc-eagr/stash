@@ -163,8 +163,15 @@ export function getSceneMarkerTagColorCustom(
   if (!tagName) return ACTIVITY_PIE_COLORS.solo;
   return (
     semanticMarkerTagColorCustom(tagName) ??
-    hueToMarkerColorCustom(getAdjustedMarkerHueCustom(tagName, tagNames))
+    getActivityPieEntityColorCustom(tagName, tagNames)
   );
+}
+
+export function getActivityPieEntityColorCustom(
+  label: string,
+  labels?: string[]
+): string {
+  return hueToMarkerColorCustom(getAdjustedMarkerHueCustom(label, labels));
 }
 
 export interface IActivityPieSlice {
@@ -172,6 +179,7 @@ export interface IActivityPieSlice {
   label: string;
   value: number;
   color: string;
+  imagePath?: string | null;
   percentLabel?: string;
   sliceLabel?: string;
   valueLabel?: string;
@@ -199,6 +207,9 @@ function createActivityPieChartID() {
 interface IActivityPieTooltipState {
   above: boolean;
   content: string;
+  imageLabel?: string;
+  imagePath?: string | null;
+  imageValue?: string;
   key: string;
   x: number;
   y: number;
@@ -273,15 +284,26 @@ export const ActivityPieChart: React.FC<IProps> = ({
     key: string,
     content: string,
     clientX: number,
-    clientY: number
+    clientY: number,
+    imagePath?: string | null,
+    imageLabel?: string,
+    imageValue?: string
   ) {
     const position = getActivityPieTooltipPosition(
       clientX,
       clientY,
       window.innerWidth,
-      window.innerHeight
+      window.innerHeight,
+      !!imagePath
     );
-    setSliceTooltip({ content, key, ...position });
+    setSliceTooltip({
+      content,
+      imageLabel,
+      imagePath,
+      imageValue,
+      key,
+      ...position,
+    });
   }
 
   return (
@@ -331,7 +353,10 @@ export const ActivityPieChart: React.FC<IProps> = ({
                   slice.key,
                   tooltip,
                   bounds.left + bounds.width / 2,
-                  bounds.top + bounds.height / 2
+                  bounds.top + bounds.height / 2,
+                  slice.imagePath,
+                  slice.label,
+                  slice.percentLabel
                 );
               }}
               onKeyDown={(event) => onSliceKeyDown(event, slice.onClick)}
@@ -340,7 +365,10 @@ export const ActivityPieChart: React.FC<IProps> = ({
                   slice.key,
                   tooltip,
                   event.clientX,
-                  event.clientY
+                  event.clientY,
+                  slice.imagePath,
+                  slice.label,
+                  slice.percentLabel
                 )
               }
               onMouseLeave={() => setSliceTooltip(undefined)}
@@ -349,7 +377,10 @@ export const ActivityPieChart: React.FC<IProps> = ({
                   slice.key,
                   tooltip,
                   event.clientX,
-                  event.clientY
+                  event.clientY,
+                  slice.imagePath,
+                  slice.label,
+                  slice.percentLabel
                 )
               }
               r={radius}
@@ -449,7 +480,25 @@ export const ActivityPieChart: React.FC<IProps> = ({
               zIndex: 1080,
             }}
           >
-            <div className="tooltip-inner">{sliceTooltip.content}</div>
+            <div className="activity-pie-chart-tooltip-content tooltip-inner">
+              {sliceTooltip.imagePath ? (
+                <>
+                  <img
+                    alt={`${sliceTooltip.imageLabel ?? "Performer"} image`}
+                    className="activity-pie-chart-tooltip-image"
+                    src={sliceTooltip.imagePath}
+                  />
+                  <span className="activity-pie-chart-tooltip-name">
+                    {sliceTooltip.imageLabel}
+                  </span>
+                  <span className="activity-pie-chart-tooltip-value">
+                    {sliceTooltip.imageValue}
+                  </span>
+                </>
+              ) : (
+                <span>{sliceTooltip.content}</span>
+              )}
+            </div>
           </div>,
           document.body
         )}

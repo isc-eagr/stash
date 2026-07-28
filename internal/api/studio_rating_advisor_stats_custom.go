@@ -141,22 +141,7 @@ var studioRatingAdvisorConfigsCustom = map[string]studioRatingAdvisorSectionConf
 	},
 }
 
-const studioRatingAdvisorStatsQueryCustom = `
-WITH RECURSIVE selected_studios(id, depth) AS (
-  SELECT ?, 0
-  UNION ALL
-  SELECT studios.id, selected_studios.depth + 1
-  FROM studios
-  JOIN selected_studios ON studios.parent_id = selected_studios.id
-  WHERE ? = -1 OR selected_studios.depth < ?
-),
-selected_scenes(id, performer_count, rating100) AS (
-  SELECT scenes.id, COUNT(DISTINCT performers_scenes.performer_id), scenes.rating
-  FROM scenes
-  LEFT JOIN performers_scenes ON performers_scenes.scene_id = scenes.id
-  WHERE scenes.studio_id IN (SELECT id FROM selected_studios)
-  GROUP BY scenes.id
-),
+const studioRatingAdvisorStatsQueryBodyCustom = `,
 eligible_entities(category, entity_type, entity_id, rating100) AS (
   SELECT 'solo_scenes', 'scene', selected_scenes.id, selected_scenes.rating100
   FROM selected_scenes
@@ -240,6 +225,29 @@ persisted_scores(category, entity_type, entity_id, section, key, raw_value, weig
 SELECT category, entity_id, section, key, raw_value, weighted_value, rating100
 FROM persisted_scores
 ORDER BY category, entity_id, section, key`
+
+const studioRatingAdvisorStatsQueryCustom = `WITH RECURSIVE selected_studios(id, depth) AS (
+  SELECT ?, 0
+  UNION ALL
+  SELECT studios.id, selected_studios.depth + 1
+  FROM studios
+  JOIN selected_studios ON studios.parent_id = selected_studios.id
+  WHERE ? = -1 OR selected_studios.depth < ?
+),
+selected_scenes(id, performer_count, rating100) AS (
+  SELECT scenes.id, COUNT(DISTINCT performers_scenes.performer_id), scenes.rating
+  FROM scenes
+  LEFT JOIN performers_scenes ON performers_scenes.scene_id = scenes.id
+  WHERE scenes.studio_id IN (SELECT id FROM selected_studios)
+  GROUP BY scenes.id
+)` + studioRatingAdvisorStatsQueryBodyCustom
+
+const globalRatingAdvisorStatsQueryCustom = `WITH selected_scenes(id, performer_count, rating100) AS (
+  SELECT scenes.id, COUNT(DISTINCT performers_scenes.performer_id), scenes.rating
+  FROM scenes
+  LEFT JOIN performers_scenes ON performers_scenes.scene_id = scenes.id
+  GROUP BY scenes.id
+)` + studioRatingAdvisorStatsQueryBodyCustom
 
 func studioRatingAdvisorNearestChoiceIndexCustom(metric studioRatingAdvisorMetricConfigCustom, rawValue float64) int {
 	if len(metric.choices) == 0 {
@@ -454,10 +462,22 @@ func queryStudioRatingAdvisorStatsCustom(ctx context.Context, studioID int, dept
 		depthValue = *depth
 	}
 
-	_, rawRows, err := manager.GetInstance().Database.QuerySQL(
+	return queryRatingAdvisorStatsCustom(
 		ctx,
 		studioRatingAdvisorStatsQueryCustom,
 		[]interface{}{studioID, depthValue, depthValue},
+	)
+}
+
+func queryGlobalRatingAdvisorStatsCustom(ctx context.Context) (*StudioRatingAdvisorStats, error) {
+	return queryRatingAdvisorStatsCustom(ctx, globalRatingAdvisorStatsQueryCustom, nil)
+}
+
+func queryRatingAdvisorStatsCustom(ctx context.Context, query string, args []interface{}) (*StudioRatingAdvisorStats, error) {
+	_, rawRows, err := manager.GetInstance().Database.QuerySQL(
+		ctx,
+		query,
+		args,
 	)
 	if err != nil {
 		return nil, err
@@ -484,6 +504,16 @@ func queryStudioRatingAdvisorStatsCustom(ctx context.Context, studioID int, dept
 	}
 
 	return aggregateStudioRatingAdvisorRowsCustom(rows), nil
+}
+
+func (r *queryResolver) GlobalRatingAdvisorStats(ctx context.Context) (ret *StudioRatingAdvisorStats, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = queryGlobalRatingAdvisorStatsCustom(ctx)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 func (r *studioResolver) StudioRatingAdvisorStats(ctx context.Context, obj *models.Studio, depth *int) (ret *StudioRatingAdvisorStats, err error) {

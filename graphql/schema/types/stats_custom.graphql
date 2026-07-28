@@ -141,9 +141,13 @@ type SceneStatsScene {
   effective_date: String
   rating100: Int
   o_counter: Int!
+  o_counter_past_year: Int!
+  is_past_year: Boolean!
+  is_release_past_year: Boolean!
   duration: Float!
   filesize: Float!
   performer_count: Int!
+  performer_count_past_year: Int!
   performer_ethnicities: [String!]!
   performer_countries: [String!]!
   marker_tag_groups: [SceneStatsMarkerTagGroup!]!
@@ -172,6 +176,8 @@ type VatoStatsPerformer {
   image_path: String
   rating100: Int
   scene_o_count: Int!
+  scene_o_count_past_year: Int!
+  is_past_year: Boolean!
   scene_count: Int!
   sex_top_count: Int!
   sex_bottom_count: Int!
@@ -197,6 +203,10 @@ type VatoStatsPerformer {
 extend type Query {
   "Get compact per-scene data for the SceneStats dashboard"
   sceneStats: SceneStatsResult!
+  "Get global activity and quality duration stats for SceneStats"
+  sceneStatsActivity: StudioActivityStats!
+  "Get global scene and performer Rating Advisor averages"
+  globalRatingAdvisorStats: StudioRatingAdvisorStats!
   "Get a count of performers per ethnicity (non-empty only), sorted by highest count first"
   performerEthnicityCounts: [PerformerEthnicityCount!]!
   "Get a count of 5-star performers per ethnicity (non-empty only), sorted by highest count first"

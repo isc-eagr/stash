@@ -16,6 +16,10 @@
   }
 }
 
+.scenestats-sections {
+  margin-bottom: 1.5rem;
+}
+
 .scenestats-total {
   color: #d8bf83;
   font-weight: 700;
@@ -32,6 +36,46 @@
     font-weight: 700;
     text-transform: uppercase;
   }
+}
+
+.scenestats-podium-toolbar {
+  align-items: flex-end;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin: 0 auto 1rem;
+  max-width: 82rem;
+
+  h2 {
+    font-size: 1.35rem;
+    margin: 0;
+  }
+}
+
+.scenestats-insights {
+  margin: 0 auto;
+  max-width: 82rem;
+}
+
+.scenestats-section-heading {
+  margin-bottom: 1rem;
+
+  h2 {
+    font-size: 1.35rem;
+    margin: 0 0 0.35rem;
+  }
+
+  p {
+    color: var(--text-muted, #aeb5bd);
+    margin: 0;
+  }
+}
+
+.scenestats-activity-charts {
+  column-gap: 3rem;
+  justify-content: center;
+  margin-bottom: 2rem;
+  row-gap: 2rem;
 }
 
 .scenestats-summary-grid {
@@ -490,7 +534,8 @@
 
 @media (max-width: 820px) {
   .scenestats-header,
-  .scenestats-chart-heading {
+  .scenestats-chart-heading,
+  .scenestats-podium-toolbar {
     align-items: stretch;
     display: grid;
   }

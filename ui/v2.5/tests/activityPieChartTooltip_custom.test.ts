@@ -40,3 +40,9 @@ assert.deepEqual(
   { above: true, x: 792, y: 778 },
   "slice tooltips stay inside the viewport near its right and bottom edges"
 );
+
+assert.deepEqual(
+  getActivityPieTooltipPosition(100, 650, 1000, 800, true),
+  { above: true, x: 112, y: 638 },
+  "image tooltips account for the full marker-hover portrait height"
+);

@@ -2888,7 +2888,7 @@ The Scenes filter exposes regular, solo, and group criteria as distinct persiste
 
 Performer rating criteria include a feminine performer penalty, exposed both in the performer Rating Advisor and the performer Rating Criteria filter.
 
-Studios expose separate Rating Criteria (Studio Average) and Performer Rating Criteria (Studio Average) filters. Numeric scene criteria compare the average raw answer across the studio's scenes where that criterion is set; performer criteria average each distinct linked performer once, even when that performer appears in multiple studio scenes. Bonus and penalty presence rows match active adjustments on any related scene or distinct performer. Studio sorting also exposes average raw-value sorts for every solo, standard, and group numeric criterion. These aggregate predicates and correlated average sorts are only added when selected, so ordinary Studio list queries do not pay for Rating Advisor aggregation.
+Studios expose separate Rating Criteria (Studio Average) and Performer Rating Criteria (Studio Average) filters. Numeric scene criteria compare the average raw answer across the studio's scenes where that criterion is set; performer criteria average each distinct linked performer once, even when that performer appears in multiple studio scenes. Bonus and penalty presence rows match active adjustments on any related scene or distinct performer. Studio sorting exposes average raw-value sorts for every solo, standard, and group numeric criterion, plus Average Solo Scene Rating, Average Standard Scene Rating, Average Group Scene Rating, and Average Performer Rating using the same eligibility rules and stored-rating averages shown in Studio Stats. These aggregate predicates and correlated average sorts are only added when selected, so ordinary Studio list queries do not pay for Rating Advisor aggregation.
 
 ### Studio Rating Advisor Averages
 
@@ -2898,7 +2898,9 @@ Active persisted bonuses and penalties show counts of qualifying scenes or perfo
 
 GraphQL adds `StudioRatingAdvisorStats`, section/criterion/adjustment payload types, and `Studio.studio_rating_advisor_stats(depth:)`. The resolver uses one set-based SQLite aggregate rather than loading full scene/performer cards or issuing one rating query per entity. `TestStudioRatingAdvisorStatsCustomAveragesOnlySetCriteria` executes the aggregate against representative direct/child studio data and covers overall/per-rubric ratings, partial criteria denominators, intentional zero answers, normalized fills, 2-3 performer classification, distinct performers, active adjustments, and the automatic orgasm-count bonus.
 
-Studio card scene-count hovers reuse the Solo Criteria, Standard Criteria, and Group Criteria panels, while performer-count hovers reuse the Performers panel. These panels use the existing aggregate query lazily on first hover and share Apollo's per-studio cache, avoiding per-card Rating Advisor requests during list loading. Their measured popover containers stay within the viewport and scroll vertically when necessary. The Studio Stats page uses the same compact section treatment and displays all four panels side by side on wide screens, collapsing responsively on narrower screens. Studio rating-criteria filters and average sort labels use the same Solo/Standard/Group rubric terminology.
+Studio card scene-count hovers reuse the Solo Criteria, Standard Criteria, and Group Criteria panels, while performer-count hovers reuse the Performers panel. These panels use the existing aggregate query lazily on first hover and share Apollo's per-studio cache, avoiding per-card Rating Advisor requests during list loading. Their measured popover containers stay within the viewport and scroll vertically when necessary. Both the Studio Stats page and the card/count hover completely omit zero-rated-scene Solo/Standard/Group criteria sections, displaying only the remaining panels side by side on wide screens before collapsing responsively. Studio rating-criteria filters and average sort labels use the same Solo/Standard/Group rubric terminology.
+
+`TestStudioRatingAdvisorAverageSortExpressionsOrderByDisplayedAverages` executes all four Studio stored-rating sort expressions against representative solo, standard, group, and distinct-performer data.
 
 ### Files Modified
 
@@ -2922,7 +2924,7 @@ Studio card scene-count hovers reuse the Solo Criteria, Standard Criteria, and G
 - `internal/api/resolver_mutation_scene.go`, `internal/api/resolver_mutation_performer.go`, `internal/api/resolver_mutation_configure.go` - Keeps advisor ownership and dependent ratings synchronized across manual ratings, casts, markers, deletion, merges, and role-tag configuration changes
 - `rating_scores.up.sql` - Rejects invalid entity types and orphan score rows, and removes score rows automatically when scenes or performers are deleted
 - `pkg/models/scene.go`, `pkg/models/performer.go`, `pkg/models/studio.go` - Adds rating criteria filter fields
-- `pkg/sqlite/scene_filter.go`, `pkg/sqlite/performer_filter.go`, `pkg/sqlite/studio_filter.go` - Hooks direct and average rating criteria filters into entity queries
+- `pkg/sqlite/scene_filter.go`, `pkg/sqlite/performer_filter.go`, `pkg/sqlite/studio_filter.go`, `pkg/sqlite/studio_rating_criteria_custom.go` - Hooks direct and average rating criteria filters into entity queries and provides Studio rubric/performer stored-rating sorts
 - `pkg/sqlite/rating_criteria_filter_custom_test.go` - Covers group key isolation plus numeric and presence filter operators
 - `ui/v2.5/src/models/list-filter/scenes.ts`, `ui/v2.5/src/models/list-filter/performers.ts`, `ui/v2.5/src/models/list-filter/studios.ts` - Registers direct/average rating criteria filters and Studio average-criterion sorts
 - `ui/v2.5/src/locales/en-GB.json`, `ui/v2.5/src/locales/en-US.json` - Adds rating criteria filter labels
@@ -3018,7 +3020,7 @@ deploy_prod_custom.bat -SkipStart
 
 Adds marker-duration stats for configured sex, oral, solo, other, outstanding, standard, and unusable activity percentages. The activity strip has two rows: Sex/Oral/Solo/Other and Outstanding/Standard/Unusable. Sex/oral/solo activity is based on markers whose primary tag exactly matches the configured role tag, even when the marker also has secondary tags. Same-category overlaps are merged, cross-category overlaps count toward each category, and activity Other is runtime without a sex/oral/solo marker. Outstanding is any timed marker that is not a configured sex/oral/solo primary marker, or a configured sex/oral/solo primary marker with secondary tags. Standard is unmarked runtime or plain configured sex/oral/solo runtime not overlapped by Outstanding, and negative marker/Skip ranges are merged into Unusable without double-counting overlaps.
 
-Studio cards and the Studio detail Stats tab use the same meaningful-scene denominator: a scene contributes its runtime only when it contains at least one configured oral, solo, or sex primary marker with a valid in-bounds start/end range. Activity and quality values on Studio cards now live in a hover panel on the studio image instead of occupying card-footer rows. Performer-scoped studio cards retain their performer-filtered denominator, with Unusable calculated from negative marker ranges in scenes containing that performer. Performer detail pages include a Stats tab with an activity pie chart and a selected-activity top/bottom role split chart. Scene detail pages also include a Stats tab with separate Activity Type and Quality donut charts. Every shared donut slice exposes its footer label and percentage in a cursor-following hover tooltip, with a focused-slice position for keyboard navigation. The Scene Stats tab shows a By Performer breakdown with per-activity top/bottom pie charts; chart-local checkboxes can add sex/oral/solo/other/outstanding/standard segments to the multi-segment loop while leaving Unusable read-only. One-millisecond Standard intervals are treated as closed gaps and are not added to the loop. Scene and Studio lists expose separate combined Activity Percentage (Sex/Oral/Solo/Other) and Quality Percentage (Outstanding/Standard/Unusable) filters plus individual sorts for all seven percentages. Studio SQL uses the same meaningful-scene denominator as the card/detail aggregates. Performer list pages retain marker-owned activity percentage filters and sorts only.
+Studio cards and the Studio detail Stats tab use the same meaningful-scene denominator: a scene contributes its runtime only when it contains at least one configured oral, solo, or sex primary marker with a valid in-bounds start/end range. Activity and quality values on Studio cards now live in a hover panel on the studio image instead of occupying card-footer rows. Performer-scoped studio cards retain their performer-filtered denominator, with Unusable calculated from negative marker ranges in scenes containing that performer. Performer detail pages include a Stats tab with an activity pie chart and a selected-activity top/bottom role split chart. Scene detail pages also include a Stats tab with separate Activity Type and Quality donut charts. Every shared donut slice exposes its footer label and percentage in a cursor-following hover tooltip, with a focused-slice position for keyboard navigation. The Scene Stats tab shows a By Performer breakdown with per-activity top/bottom pie charts; chart-local checkboxes can add sex/oral/solo/other/outstanding/standard segments to the multi-segment loop while leaving Unusable read-only. Scenes with at least three linked performers also show Sex Partners and Oral Partners donuts for each participating performer. Partner time comes from opposite-role performers on each timed marker, merges overlapping ranges for the same partner, and is normalized across that performer's partner-time for the activity. Partner slices display timestamps, while their percentage-only tooltips include the partner's performer image at the same 6.5-rem portrait size as marker-panel and scrubber hovers. One-millisecond Standard intervals are treated as closed gaps and are not added to the loop. Scene and Studio lists expose separate combined Activity Percentage (Sex/Oral/Solo/Other) and Quality Percentage (Outstanding/Standard/Unusable) filters plus individual sorts for all seven percentages. Studio SQL uses the same meaningful-scene denominator as the card/detail aggregates. Performer list pages retain marker-owned activity percentage filters and sorts only.
 
 ### Files Modified
 
@@ -3037,6 +3039,7 @@ Studio cards and the Studio detail Stats tab use the same meaningful-scene denom
 - `ui/v2.5/src/models/list-filter/criteria/activity-type_custom.ts`, `ui/v2.5/src/components/List/Filters/ActivityTypeFilter_custom.tsx` - Combined activity percentage filter UI
 - `ui/v2.5/src/components/Performers/PerformerCard.tsx` - Sort-specific activity percentage display
 - `ui/v2.5/src/components/Shared/styles.scss` - Shared activity pie chart styling
+- `ui/v2.5/src/components/Shared/ActivityPieChart_custom.tsx` - Supports performer images in partner-slice tooltips and deterministic entity colors
 - `ui/v2.5/src/components/Studios/StudioCard.tsx` - Studio image activity/quality hover panel
 - `ui/v2.5/src/components/Studios/StudioActivityMetricsStrip.tsx` - Shared studio activity strip component
 - `ui/v2.5/src/components/Studios/styles.scss` - Studio activity strip styling
@@ -3044,13 +3047,14 @@ Studio cards and the Studio detail Stats tab use the same meaningful-scene denom
 - `ui/v2.5/src/components/Studios/StudioDetails/Studio.tsx` - Studio Stats tab
 - `ui/v2.5/src/components/Performers/PerformerDetails/Performer.tsx` - Performer Stats tab
 - `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx` - Scene Stats tab
-- `ui/v2.5/src/components/Scenes/SceneDetails/SceneStatsPanel.tsx` - Uses shared loop segment helpers for selectable activity loop segments
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneStatsPanel.tsx` - Uses shared loop segment helpers for selectable activity loop segments and renders 3+ performer partner distributions
 
 ### Files Added
 
 - `ui/v2.5/src/components/Performers/PerformerDetails/PerformerStatsPanel.tsx`
 - `ui/v2.5/src/components/Scenes/SceneDetails/SceneStatsPanel.tsx`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneStatsLoopSegments_custom.ts`
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneStatsPartnerInteractions_custom.ts`
 - `ui/v2.5/src/models/list-filter/criteria/quality-type_custom.ts`
 - `ui/v2.5/src/components/List/Filters/QualityTypeFilter_custom.tsx`
 - `ui/v2.5/src/components/Shared/ActivityPieChart_custom.tsx`
@@ -3059,6 +3063,7 @@ Studio cards and the Studio detail Stats tab use the same meaningful-scene denom
 - `ui/v2.5/src/components/Studios/StudioActivityMetricsStrip.tsx`
 - `ui/v2.5/tests/activityPieChartTooltip_custom.test.ts`
 - `ui/v2.5/tests/sceneStatsLoopSegments_custom.test.ts`
+- `ui/v2.5/tests/sceneStatsPartnerInteractions_custom.test.ts`
 
 ### Test Cases
 
@@ -3066,6 +3071,7 @@ Studio cards and the Studio detail Stats tab use the same meaningful-scene denom
 - `pkg/sqlite/activity_percent_quality_filter_custom_test.go` - Verifies Outstanding/Standard/Unusable SQL percentages are overlap-safe, mutually exclusive, and partition the full Scene runtime
 - `ui/v2.5/tests/activityPieChartTooltip_custom.test.ts` - Verifies slice tooltips show names and percentages without durations, follow the cursor, and stay within viewport edges
 - `ui/v2.5/tests/sceneStatsLoopSegments_custom.test.ts` - Verifies one-millisecond closed gaps are not emitted as multi-segment loop segments
+- `ui/v2.5/tests/sceneStatsPartnerInteractions_custom.test.ts` - Verifies opposite-role sex/oral partner distributions, partner images, simultaneous partners, and overlap merging
 
 ---
 
@@ -3253,20 +3259,21 @@ Renames the user-facing English UI vocabulary from Performer/Performers to Vato/
 
 ### Overview
 
-Adds a hidden `/vatostats` page focused on vato aggregate analytics. The page shows linked vato summary cards, preserving their drilldown links and including solo-only and one-scene vatos, a top-three podium for a selectable metric ordered left-to-right as gold, silver, and bronze, the moved Tier vatos by ethnicity table, plus coordinated vertical bar charts for ethnicity, exact scene age, rating buckets, metallic rating, height buckets, country, hair color, eye color, circumcision status, and rounded exact penis size. The Metallic Rating chart includes a None bar for explicitly set ratings that do not qualify for any configured metallic tier; null/unset ratings are excluded from None. Clicking a bar drills into that category/value and refreshes the podium plus every chart from the filtered vato set; Back and Clear controls unwind the drill-down. Unknown values are shown as separate chart-header counters so a large Unknown population does not compress the visible bars.
+Adds a hidden `/vatostats` page focused on vato aggregate analytics. The page shows linked vato summary cards, preserving their drilldown links and including solo-only and one-scene vatos, a top-three podium for a selectable metric ordered left-to-right as gold, silver, and bronze, the moved Tier vatos by ethnicity table, global performer Rating Advisor averages, plus coordinated vertical bar charts for ethnicity, exact scene age, rating buckets, metallic rating, height buckets, country, hair color, eye color, circumcision status, and rounded exact penis size. Rolling-year podium options include O Count from recorded O dates in the last year and Rating limited to performers created in the last year. The podium metric selector sits with the podium descriptor instead of in the page header. The Metallic Rating chart includes a None bar for explicitly set ratings that do not qualify for any configured metallic tier; null/unset ratings are excluded from None. Clicking a bar drills into that category/value and refreshes the podium plus every chart from the filtered vato set; Back and Clear controls unwind the drill-down. Unknown values are shown as separate chart-header counters so a large Unknown population does not compress the visible bars.
 
 ### Files Modified
 
 - `graphql/schema/types/stats_custom.graphql` - Adds `VatoStatsPerformer`, `VatoStatsAgeCount`, and `vatoStatsPerformers`.
 - `internal/api/resolver_custom.go` - Adds the `vatoStatsPerformers` resolver, including scene O counts from `scenes_o_dates`, most recent O date, career span, scene counts, demographic fields, exact scene-age counts, metallic rating tier, image URLs, optimized batched sex/oral role scene counts, and facial role marker counts using primary or secondary facial tags and descendants. The initial aggregate pre-groups O records per scene and computes career span in the main performer-scene pass to avoid row multiplication and a duplicate association scan.
 - `internal/api/resolver_custom_test.go` - Adds focused tests for exact scene-age helper behavior, Unknown cleanup, and ID-filter safety.
-- `internal/api/vato_stats_query_custom_test.go` - Verifies that the optimized aggregate query counts each scene and O event once, finds the latest O date, computes career span, and preserves zero-O vatos.
+- `internal/api/vato_stats_query_custom_test.go` - Verifies that the optimized aggregate query counts each scene and O event once, finds the latest O date, computes career span, preserves zero-O vatos, and classifies rolling-year O events and performer creation dates.
 - `ui/v2.5/src/App.tsx` - Adds the hidden `/vatostats` route.
 
 ### Files Added
 
 - `ui/v2.5/src/components/VatoStats/VatoStats.tsx` - VatoStats page, moved linked summary stat cards, metric selector, podium, filtered performer list, drill-down state, and charts. Auxiliary summary/filter counts are deferred until the core vato dataset arrives, and only configured role tags are fetched.
 - `ui/v2.5/src/components/VatoStats/VatoStats.scss` - Page-specific podium and chart styles.
+- `ui/v2.5/src/components/VatoStats/VatoStatsRatingAdvisor_custom.tsx` - Lazy global performer Rating Advisor section.
 - `ui/v2.5/src/utils/metallicRatingChart_custom.ts` - Shared None/metallic chart bucket classification for SceneStats and VatoStats.
 - `ui/v2.5/tests/metallicRatingChart_custom.test.ts` - Verifies set-but-unqualified ratings use None while null/unset ratings do not.
 
@@ -3293,7 +3300,7 @@ Adds a hidden `/vatostats` page focused on vato aggregate analytics. The page sh
 
 ### Overview
 
-Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene metrics from CustomStats while adding scene podium metrics and scene distribution charts. The Metallic Rating chart includes a None bar for explicitly set ratings that do not qualify for a configured tier, without classifying null/unset ratings as None. Zero or absent vato/facial counts, zero or absent ordinary ratings, null metallic ratings, missing/invalid release parts, and scenes without a recognized sex/oral/solo type use each chart's Unknown counter instead of zero-value bars; a stored metallic rating of zero remains None. Release year charts drill down to month and day; day bars link to the Scenes page filtered by effective release date.
+Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene metrics from CustomStats while adding scene podium metrics and scene distribution charts. The page separates the original dashboard into an Overview section and a lazy Activity & Ratings section containing global Activity Type and Quality donuts plus Solo, Standard, and Group Rating Advisor averages. The podium metric selector sits directly above the podium instead of in the page header. The Metallic Rating chart includes a None bar for explicitly set ratings that do not qualify for a configured tier, without classifying null/unset ratings as None. Zero or absent vato/facial counts, zero or absent ordinary ratings, null metallic ratings, missing/invalid release parts, and scenes without a recognized sex/oral/solo type use each chart's Unknown counter instead of zero-value bars; a stored metallic rating of zero remains None. Release year charts drill down to month and day; day bars link to the Scenes page filtered by effective release date.
 
 ### Files Added
 
@@ -3302,6 +3309,8 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 - `ui/v2.5/src/components/SceneStats/sceneStatsDuration_custom.ts`
 - `ui/v2.5/src/components/SceneStats/sceneStatsFacialCounts_custom.ts`
 - `ui/v2.5/src/components/SceneStats/sceneStatsChartBuckets_custom.ts`
+- `ui/v2.5/src/components/SceneStats/SceneStatsInsights_custom.tsx`
+- `ui/v2.5/src/components/Shared/ActivityStatsCharts_custom.tsx`
 - `ui/v2.5/tests/sceneStatsDuration_custom.test.ts`
 - `ui/v2.5/tests/sceneStatsFacialCounts_custom.test.ts`
 - `ui/v2.5/tests/sceneStatsChartBuckets_custom.test.ts`
@@ -3316,23 +3325,30 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 - `ui/v2.5/src/components/VatoStats/VatoStats.tsx` - Receives the Tier vatos by ethnicity table.
 - `graphql/schema/types/stats_custom.graphql` - Adds compact `SceneStatsResult` data types and the `sceneStats` query.
 - `internal/api/resolver_custom.go` - Adds a set-based compact SceneStats resolver that fetches per-scene scalar, performer, scene-tag, and marker-tag data without resolving full GraphQL relationships for every scene.
+- `internal/api/activity_stats_custom.go`, `internal/api/studio_rating_advisor_stats_custom.go` - Add global activity/quality and Rating Advisor aggregates while retaining Studio-scoped behavior.
+- `ui/v2.5/graphql/queries/stats_custom.graphql` - Adds lazy SceneStats insights and VatoStats performer-rating queries.
 - `ui/v2.5/src/components/SceneStats/SceneStats.tsx` - Uses the compact SceneStats dataset and no longer fetches every scene file, performer object, marker object, tag object, or O-history list.
 - `ui/v2.5/src/components/SceneStats/sceneStatsFacialCounts_custom.ts` - Supports compact marker tag-ID groups.
 
 ### Features
 
-- Podium metrics: O Count, Rating, Duration, File Size, Most Recent O, Vato Count, Facial Count.
+- Podium metrics: O Count, Rating, Duration, File Size, Most Recent O, Vato Count, Facial Count, plus rolling-year O Count, Rating, Vato Count, and Facial Count. Rolling-year ratings include only scenes created in the last year; Vato Count ranks scenes whose effective release date is within the last year by their total performer count; Facial Count counts every facial in scenes whose effective release date is within the last year; and O Count uses recorded O dates in the last year.
 - Charts: By Vato Ethnicity, By Vato Country, By Vato Count, By Release Year/Month/Day, Has Facial, By Number of Facial, By Number of Really Hot Facial, Scene Type, By Length/Duration, By Resolution.
 - Duration chart bucketing: 0-4 minutes is grouped together, 5-45 minutes remains individual, and durations after 45 minutes are grouped in five-minute buckets such as 46-50 and 51-55.
 - Preserves the existing scene category metric button icons, colors, and links from the retired CustomStats page.
 - Performance: SceneStats now uses a small number of set-based SQL queries and a compact payload. It avoids the previous `findScenes(per_page: -1)` request with deeply nested relationship fields, and it returns only the most recent O date needed for the Most Recent O metric rather than every O-history date.
+- Global insights: Activity and Quality use the same meaningful-scene denominator and shared donut component as Studio Stats. Rating criteria include all three scene rubrics; global performer criteria intentionally appear in VatoStats.
 
 ### Test Cases Added
 
 - `sceneStatsFacialCounts_custom.test.ts` verifies facial and really-hot facial counting from compact marker tag-ID groups, the original marker shape, and Facial Count podium ordering.
+- `sceneStatsPodiumEligibility_custom.test.ts` verifies that rolling-year Vato Count and Facial Count podiums exclude scenes released before the rolling year while rolling-year Rating retains scene-creation eligibility.
 - `sceneStatsChartBuckets_custom.test.ts` verifies zero/null Unknown classification, metallic zero-versus-null behavior, activity-type precedence, the `9999` unknown-year sentinel, and invalid/missing month/day handling.
 - `metallicRatingChart_custom.test.ts` verifies shared SceneStats/VatoStats metallic bucket labels and ordering, including the set-rating-only None bucket.
 - `internal/api/scene_stats_activity_time_custom_test.go` verifies completed sex/oral marker duration totals, exclusion of missing/invalid ends, exact activity-tag separation, and performer-independent counting.
+- `internal/api/activity_stats_custom_test.go` verifies global and Studio scene-scope construction.
+- `internal/api/studio_rating_advisor_stats_custom_test.go` verifies global averages include scenes and performers without a Studio while Studio-scoped results remain isolated.
+- `internal/api/scene_stats_past_year_custom_test.go` verifies rolling-year scene creation, effective release, and O eligibility plus release-scoped performer counts.
 
 ### GraphQL Schema Changes
 
@@ -3340,6 +3356,8 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 - `SceneStatsScene`
 - `SceneStatsResult`
 - `sceneStats`
+- `sceneStatsActivity`
+- `globalRatingAdvisorStats`
 - `totalSexTime`
 - `totalOralTime`
 

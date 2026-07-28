@@ -409,44 +409,70 @@ func (r *studioResolver) StudioPerformerActivityStats(ctx context.Context, obj *
 	return ret, nil
 }
 
-func queryStudioActivityStatsCustom(ctx context.Context, studioID int, depth *int, performerID *int, sexTagID int, oralTagID int, soloTagID int) (*StudioActivityStats, error) {
+func activityStatsSceneScopeCustom(studioID *int, depth *int) (string, []interface{}) {
+	if studioID == nil {
+		return `WITH selected_scenes(id) AS (SELECT id FROM scenes)`, nil
+	}
+
 	depthValue := 0
 	if depth != nil {
 		depthValue = *depth
 	}
-
-	durationQuery := `
-WITH RECURSIVE selected_studios(id, depth) AS (
+	return `WITH RECURSIVE selected_studios(id, depth) AS (
   SELECT ?, 0
   UNION ALL
   SELECT s.id, selected_studios.depth + 1
   FROM studios s
   JOIN selected_studios ON s.parent_id = selected_studios.id
   WHERE ? = -1 OR selected_studios.depth < ?
-)
+),
+selected_scenes(id) AS (
+  SELECT id FROM scenes
+  WHERE studio_id IN (SELECT id FROM selected_studios)
+)`, []interface{}{*studioID, depthValue, depthValue}
+}
+
+func queryStudioActivityStatsCustom(ctx context.Context, studioID int, depth *int, performerID *int, sexTagID int, oralTagID int, soloTagID int) (*StudioActivityStats, error) {
+	return queryActivityStatsCustom(ctx, &studioID, depth, performerID, sexTagID, oralTagID, soloTagID)
+}
+
+func queryGlobalActivityStatsCustom(ctx context.Context, sexTagID int, oralTagID int, soloTagID int) (*StudioActivityStats, error) {
+	return queryActivityStatsCustom(ctx, nil, nil, nil, sexTagID, oralTagID, soloTagID)
+}
+
+func (r *queryResolver) SceneStatsActivity(ctx context.Context) (ret *StudioActivityStats, err error) {
+	sexTagID, oralTagID, soloTagID := activityStatsRoleTagIDsCustom()
+	if sexTagID == 0 && oralTagID == 0 && soloTagID == 0 {
+		return activityStatsEmptyStudioCustom(), nil
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = queryGlobalActivityStatsCustom(ctx, sexTagID, oralTagID, soloTagID)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func queryActivityStatsCustom(ctx context.Context, studioID *int, depth *int, performerID *int, sexTagID int, oralTagID int, soloTagID int) (*StudioActivityStats, error) {
+	sceneScope, sceneScopeArgs := activityStatsSceneScopeCustom(studioID, depth)
+	durationQuery := sceneScope + `
 SELECT sc.id, COALESCE(MAX(video_files.duration), 0)
 FROM scenes sc
 LEFT JOIN scenes_files ON scenes_files.scene_id = sc.id
 LEFT JOIN video_files ON video_files.file_id = scenes_files.file_id
-WHERE sc.studio_id IN (SELECT id FROM selected_studios)
+WHERE sc.id IN (SELECT id FROM selected_scenes)
 GROUP BY sc.id`
 
-	durationArgs := []interface{}{studioID, depthValue, depthValue}
+	durationArgs := append([]interface{}{}, sceneScopeArgs...)
 	if performerID != nil {
-		durationQuery = `
-WITH RECURSIVE selected_studios(id, depth) AS (
-  SELECT ?, 0
-  UNION ALL
-  SELECT s.id, selected_studios.depth + 1
-  FROM studios s
-  JOIN selected_studios ON s.parent_id = selected_studios.id
-  WHERE ? = -1 OR selected_studios.depth < ?
-)
+		durationQuery = sceneScope + `
 SELECT sc.id, COALESCE(MAX(video_files.duration), 0)
 FROM scenes sc
 LEFT JOIN scenes_files ON scenes_files.scene_id = sc.id
 LEFT JOIN video_files ON video_files.file_id = scenes_files.file_id
-WHERE sc.studio_id IN (SELECT id FROM selected_studios)
+WHERE sc.id IN (SELECT id FROM selected_scenes)
   AND EXISTS (
     SELECT 1 FROM performers_scenes ps
     WHERE ps.scene_id = sc.id
@@ -475,24 +501,16 @@ GROUP BY sc.id`
 		return activityStatsEmptyStudioCustom(), nil
 	}
 
-	markerQuery := `
-WITH RECURSIVE selected_studios(id, depth) AS (
-  SELECT ?, 0
-  UNION ALL
-  SELECT s.id, selected_studios.depth + 1
-  FROM studios s
-  JOIN selected_studios ON s.parent_id = selected_studios.id
-  WHERE ? = -1 OR selected_studios.depth < ?
-)
+	markerQuery := sceneScope + `
 SELECT sm.scene_id, sm.seconds, sm.end_seconds, sm.primary_tag_id, COUNT(smt.tag_id)
 FROM scene_markers sm
 JOIN scenes sc ON sc.id = sm.scene_id
 LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-WHERE sc.studio_id IN (SELECT id FROM selected_studios)
+WHERE sc.id IN (SELECT id FROM selected_scenes)
   AND sm.end_seconds IS NOT NULL
   AND sm.end_seconds > sm.seconds`
 
-	args := []interface{}{studioID, depthValue, depthValue}
+	args := append([]interface{}{}, sceneScopeArgs...)
 	if performerID != nil {
 		markerQuery += `
   AND EXISTS (
@@ -557,22 +575,14 @@ GROUP BY sm.id, sm.scene_id, sm.seconds, sm.end_seconds, sm.primary_tag_id`
 		}
 	}
 
-	negativeMarkerQuery := `
-WITH RECURSIVE selected_studios(id, depth) AS (
-  SELECT ?, 0
-  UNION ALL
-  SELECT s.id, selected_studios.depth + 1
-  FROM studios s
-  JOIN selected_studios ON s.parent_id = selected_studios.id
-  WHERE ? = -1 OR selected_studios.depth < ?
-)
+	negativeMarkerQuery := sceneScope + `
 SELECT snm.scene_id, snm.start_seconds, snm.end_seconds
 FROM scene_negative_markers snm
 JOIN scenes sc ON sc.id = snm.scene_id
-WHERE sc.studio_id IN (SELECT id FROM selected_studios)
+WHERE sc.id IN (SELECT id FROM selected_scenes)
   AND snm.end_seconds > snm.start_seconds`
 
-	negativeMarkerArgs := []interface{}{studioID, depthValue, depthValue}
+	negativeMarkerArgs := append([]interface{}{}, sceneScopeArgs...)
 	if performerID != nil {
 		negativeMarkerQuery += `
   AND EXISTS (

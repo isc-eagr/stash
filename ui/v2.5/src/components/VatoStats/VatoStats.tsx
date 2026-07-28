@@ -17,6 +17,7 @@ import {
   formatStatsDrilldownTotal,
   formatStatsTotal,
 } from "src/utils/statsDrilldown_custom";
+import { VatoStatsRatingAdvisor } from "./VatoStatsRatingAdvisor_custom";
 
 import "./VatoStats.scss";
 
@@ -30,6 +31,8 @@ const VATO_STATS_PERFORMERS = gql`
       image_path
       rating100
       scene_o_count
+      scene_o_count_past_year
+      is_past_year
       scene_count
       sex_top_count
       sex_bottom_count
@@ -149,6 +152,8 @@ type VatoStatsPerformer = {
   image_path?: string | null;
   rating100?: number | null;
   scene_o_count: number;
+  scene_o_count_past_year: number;
+  is_past_year: boolean;
   scene_count: number;
   sex_top_count: number;
   sex_bottom_count: number;
@@ -184,7 +189,9 @@ type ChartCategory =
 
 type PodiumMetric =
   | "scene_o_count"
+  | "scene_o_count_past_year"
   | "rating100"
+  | "rating100_past_year"
   | "scene_count"
   | "sex_top_count"
   | "sex_bottom_count"
@@ -258,7 +265,17 @@ const metricOptions: Array<{
   valueLabel: string;
 }> = [
   { key: "scene_o_count", label: "O Counts", valueLabel: "O's" },
+  {
+    key: "scene_o_count_past_year",
+    label: "O Count (past year)",
+    valueLabel: "O's",
+  },
   { key: "rating100", label: "Rating", valueLabel: "rating" },
+  {
+    key: "rating100_past_year",
+    label: "Rating (past year)",
+    valueLabel: "rating",
+  },
   { key: "scene_count", label: "Total Scenes", valueLabel: "scenes" },
   { key: "sex_top_count", label: "Sex Top Scenes", valueLabel: "top scenes" },
   {
@@ -579,8 +596,12 @@ function podiumMetricLabel(metric: PodiumMetric) {
   switch (metric) {
     case "scene_o_count":
       return "O-Count";
+    case "scene_o_count_past_year":
+      return "O-Count (past year)";
     case "rating100":
       return "Rating";
+    case "rating100_past_year":
+      return "Rating (past year)";
     case "scene_count":
       return "Total Scenes";
     case "sex_top_count":
@@ -771,8 +792,19 @@ function metricValue(performer: VatoStatsPerformer, metric: PodiumMetric) {
     return Number.isFinite(timestamp) ? timestamp : 0;
   }
 
+  if (metric === "rating100_past_year") {
+    return performer.rating100 ?? 0;
+  }
+
   const value = performer[metric];
   return typeof value === "number" ? value : 0;
+}
+
+function metricIncludesPerformer(
+  performer: VatoStatsPerformer,
+  metric: PodiumMetric
+) {
+  return metric !== "rating100_past_year" || performer.is_past_year;
 }
 
 function formatCareerSpan(days: number) {
@@ -796,7 +828,8 @@ function formatMetricValue(
   }
 
   const value = metricValue(performer, metric);
-  if (metric === "rating100") return `${value}/100`;
+  if (metric === "rating100" || metric === "rating100_past_year")
+    return `${value}/100`;
   return value.toLocaleString();
 }
 
@@ -1009,7 +1042,8 @@ const VatoStatsPodium: React.FC<{
   metric: PodiumMetric;
 }> = ({ performers, metric }) => {
   const metricOption = metricOptions.find((option) => option.key === metric);
-  const topPerformers = [...performers]
+  const topPerformers = performers
+    .filter((performer) => metricIncludesPerformer(performer, metric))
     .sort((a, b) => {
       const valueDiff = metricValue(b, metric) - metricValue(a, metric);
       return valueDiff || a.name.localeCompare(b.name);
@@ -1568,11 +1602,13 @@ const VatoStats: React.FC = () => {
   );
   const filteredList = useMemo(
     () =>
-      [...filteredPerformers].sort(
-        (a, b) =>
-          metricValue(b, metric) - metricValue(a, metric) ||
-          a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
-      ),
+      filteredPerformers
+        .filter((performer) => metricIncludesPerformer(performer, metric))
+        .sort(
+          (a, b) =>
+            metricValue(b, metric) - metricValue(a, metric) ||
+            a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+        ),
     [filteredPerformers, metric]
   );
   const podiumDescriptor = useMemo(
@@ -1634,22 +1670,6 @@ const VatoStats: React.FC = () => {
               : formatStatsTotal(performers.length, "vato", "vatos")}
           </div>
         </div>
-        <Form.Group className="vatostats-metric-control" controlId="vatoMetric">
-          <Form.Label>Podium metric</Form.Label>
-          <Form.Control
-            as="select"
-            onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>
-              setMetric(event.target.value as PodiumMetric)
-            }
-            value={metric}
-          >
-            {metricOptions.map((option) => (
-              <option key={option.key} value={option.key}>
-                {option.label}
-              </option>
-            ))}
-          </Form.Control>
-        </Form.Group>
       </header>
 
       {performers.length === 0 ? (
@@ -1667,7 +1687,30 @@ const VatoStats: React.FC = () => {
             strictTop={strictTopQuery.data?.findPerformers.count}
             summary={summaryData}
           />
-          <div className="vatostats-podium-descriptor">{podiumDescriptor}</div>
+          <div className="vatostats-podium-toolbar">
+            <div className="vatostats-podium-descriptor">
+              {podiumDescriptor}
+            </div>
+            <Form.Group
+              className="vatostats-metric-control"
+              controlId="vatoMetric"
+            >
+              <Form.Label>Podium metric</Form.Label>
+              <Form.Control
+                as="select"
+                onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>
+                  setMetric(event.target.value as PodiumMetric)
+                }
+                value={metric}
+              >
+                {metricOptions.map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {option.label}
+                  </option>
+                ))}
+              </Form.Control>
+            </Form.Group>
+          </div>
           <VatoStatsPodium performers={filteredPerformers} metric={metric} />
           <div className="vatostats-list-toggle">
             <Button
@@ -1715,6 +1758,7 @@ const VatoStats: React.FC = () => {
           <VatoStatsTierTable
             rows={tierData?.performerEthnicityTierCounts ?? []}
           />
+          <VatoStatsRatingAdvisor />
           <div className="vatostats-chart-grid">
             {chartDefinitions.map((definition) => (
               <VatoStatsChart

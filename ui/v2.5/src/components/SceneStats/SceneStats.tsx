@@ -6,7 +6,7 @@ import {
   faUserGroup,
   faUsers,
 } from "@fortawesome/free-solid-svg-icons";
-import { Alert, Button, ButtonGroup, Form } from "react-bootstrap";
+import { Alert, Button, ButtonGroup, Form, Nav } from "react-bootstrap";
 import { Helmet } from "react-helmet";
 import { Link, RouteComponentProps, useHistory } from "react-router-dom";
 import { FormattedNumber } from "react-intl";
@@ -31,9 +31,11 @@ import mouthSvg from "src/assets/mouth.svg";
 import facialPng from "src/assets/facial.png";
 import {
   facialCount,
+  facialCountPastYear,
   markerHasTag,
   reallyHotFacialCount,
 } from "./sceneStatsFacialCounts_custom";
+import { sceneStatsPodiumIncludesScene } from "./sceneStatsPodiumEligibility_custom";
 import { durationBucketForMinutes } from "./sceneStatsDuration_custom";
 import {
   sceneStatsActivityType,
@@ -48,6 +50,7 @@ import {
   makeSceneStatsVatoCountURL,
   sceneStatsVatoCountBuckets,
 } from "./sceneStatsSummary_custom";
+import { SceneStatsInsights } from "./SceneStatsInsights_custom";
 
 import "./SceneStats.scss";
 
@@ -62,9 +65,13 @@ const SCENE_STATS_SCENES = gql`
         effective_date
         rating100
         o_counter
+        o_counter_past_year
+        is_past_year
+        is_release_past_year
         duration
         filesize
         performer_count
+        performer_count_past_year
         performer_ethnicities
         performer_countries
         scene_markers: marker_tag_groups {
@@ -135,9 +142,13 @@ type SceneStatsScene = {
   effective_date?: string | null;
   rating100?: number | null;
   o_counter?: number | null;
+  o_counter_past_year: number;
+  is_past_year: boolean;
+  is_release_past_year: boolean;
   duration: number;
   filesize: number;
   performer_count: number;
+  performer_count_past_year: number;
   performer_ethnicities: string[];
   performer_countries: string[];
   scene_markers: SceneStatsMarker[];
@@ -168,12 +179,16 @@ type SceneStatsRoleTag = {
 
 type PodiumMetric =
   | "o_counter"
+  | "o_counter_past_year"
   | "rating100"
+  | "rating100_past_year"
   | "duration"
   | "filesize"
   | "most_recent_o"
   | "performer_count"
-  | "facial_count";
+  | "performer_count_past_year"
+  | "facial_count"
+  | "facial_count_past_year";
 
 type ChartCategory =
   | "ethnicity"
@@ -223,12 +238,32 @@ const metricOptions: Array<{
   valueLabel: string;
 }> = [
   { key: "o_counter", label: "O Count", valueLabel: "O's" },
+  {
+    key: "o_counter_past_year",
+    label: "O Count (past year)",
+    valueLabel: "O's",
+  },
   { key: "rating100", label: "Rating", valueLabel: "rating" },
+  {
+    key: "rating100_past_year",
+    label: "Rating (past year)",
+    valueLabel: "rating",
+  },
   { key: "duration", label: "Duration", valueLabel: "" },
   { key: "filesize", label: "File Size", valueLabel: "" },
   { key: "most_recent_o", label: "Most Recent O", valueLabel: "" },
   { key: "performer_count", label: "Vato Count", valueLabel: "vatos" },
+  {
+    key: "performer_count_past_year",
+    label: "Vato Count (past year)",
+    valueLabel: "vatos",
+  },
   { key: "facial_count", label: "Facial Count", valueLabel: "facials" },
+  {
+    key: "facial_count_past_year",
+    label: "Facial Count (past year)",
+    valueLabel: "facials",
+  },
 ];
 
 const chartDefinitions: Record<ChartCategory, string> = {
@@ -327,7 +362,10 @@ function metricValue(
   switch (metric) {
     case "o_counter":
       return scene.o_counter ?? 0;
+    case "o_counter_past_year":
+      return scene.o_counter_past_year;
     case "rating100":
+    case "rating100_past_year":
       return scene.rating100 ?? 0;
     case "duration":
       return sceneDuration(scene);
@@ -337,8 +375,12 @@ function metricValue(
       return mostRecentOTime(scene);
     case "performer_count":
       return scene.performer_count;
+    case "performer_count_past_year":
+      return scene.performer_count_past_year;
     case "facial_count":
       return facialCount(scene, roleTagIDs.facial);
+    case "facial_count_past_year":
+      return facialCountPastYear(scene, roleTagIDs.facial);
     default:
       return 0;
   }
@@ -352,7 +394,8 @@ function formatMetricValue(
   const value = metricValue(scene, metric, roleTagIDs);
   if (metric === "duration") return TextUtils.secondsAsTimeString(value, 3);
   if (metric === "filesize") return <FileSize size={value} />;
-  if (metric === "rating100") return `${value}/100`;
+  if (metric === "rating100" || metric === "rating100_past_year")
+    return `${value}/100`;
   if (metric === "most_recent_o") return mostRecentOLabel(scene);
   return value.toLocaleString();
 }
@@ -1078,6 +1121,9 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
   const [metric, setMetric] = useState<PodiumMetric>("o_counter");
   const [filters, setFilters] = useState<ChartFilter[]>([]);
   const [showSceneList, setShowSceneList] = useState(false);
+  const [activeSection, setActiveSection] = useState<"overview" | "insights">(
+    "overview"
+  );
   const selectedYear = Number(match.params.year);
   const selectedMonth = Number(match.params.month);
   const hasSelectedYear = Number.isInteger(selectedYear) && selectedYear > 0;
@@ -1195,14 +1241,16 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
   );
   const rankedScenes = useMemo(
     () =>
-      [...filteredScenes].sort(
-        (a, b) =>
-          metricValue(b, metric, roleTagIDs) -
-            metricValue(a, metric, roleTagIDs) ||
-          (a.title ?? "").localeCompare(b.title ?? "", undefined, {
-            sensitivity: "base",
-          })
-      ),
+      filteredScenes
+        .filter((scene) => sceneStatsPodiumIncludesScene(scene, metric))
+        .sort(
+          (a, b) =>
+            metricValue(b, metric, roleTagIDs) -
+              metricValue(a, metric, roleTagIDs) ||
+            (a.title ?? "").localeCompare(b.title ?? "", undefined, {
+              sensitivity: "base",
+            })
+        ),
     [filteredScenes, metric, roleTagIDs]
   );
   const charts = useMemo(
@@ -1304,393 +1352,434 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
               : formatStatsTotal(scenes.length, "scene", "scenes")}
           </div>
         </div>
-        <Form.Group
-          className="scenestats-metric-control"
-          controlId="sceneMetric"
-        >
-          <Form.Label>Podium metric</Form.Label>
-          <Form.Control
-            as="select"
-            onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>
-              setMetric(event.target.value as PodiumMetric)
-            }
-            value={metric}
-          >
-            {metricOptions.map((option) => (
-              <option key={option.key} value={option.key}>
-                {option.label}
-              </option>
-            ))}
-          </Form.Control>
-        </Form.Group>
       </header>
 
-      {(sexTag || oralTag || soloTag || facialTag) && (
-        <section
-          className="scenestats-summary-grid scenestats-category-grid"
-          aria-label="Scene category metrics"
-        >
-          {sexTag && (
-            <Button
-              className="scenestats-summary-card scenestats-category-card stats-category-button sex-stats-button"
-              href={NavUtils.makeScenesWithMarkerTagUrl(sexTag.id, sexTag.name)}
-              disabled={statsData.stats.sex_scene_count === 0}
-              title="Sex Scene"
-            >
-              <img src={gaySvg} alt="Sex" className="stats-category-icon" />
-              <span>
-                <FormattedNumber value={statsData.stats.sex_scene_count} />
-              </span>
-            </Button>
-          )}
-          {oralTag && (
-            <Button
-              className="scenestats-summary-card scenestats-category-card stats-category-button oral-stats-button"
-              href={NavUtils.makeScenesWithExclusiveMarkerTagUrl(
-                oralTag.id,
-                oralTag.name,
-                sexTag ? [{ id: sexTag.id, label: sexTag.name }] : [],
-                -1
-              )}
-              disabled={statsData.stats.oral_scene_count === 0}
-              title="Oral Scene"
-            >
-              <img src={mouthSvg} alt="Oral" className="stats-category-icon" />
-              <span>
-                <FormattedNumber value={statsData.stats.oral_scene_count} />
-              </span>
-            </Button>
-          )}
-          {soloTag && (
-            <Button
-              className="scenestats-summary-card scenestats-category-card stats-category-button solo-stats-button"
-              href={NavUtils.makeScenesWithExclusiveMarkerTagUrl(
-                soloTag.id,
-                soloTag.name,
-                [
-                  ...(sexTag ? [{ id: sexTag.id, label: sexTag.name }] : []),
-                  ...(oralTag ? [{ id: oralTag.id, label: oralTag.name }] : []),
-                ],
-                -1
-              )}
-              disabled={statsData.stats.solo_scene_count === 0}
-              title="Solo Scene"
-            >
-              <Icon icon={faHand} className="stats-category-icon-fa" />
-              <span>
-                <FormattedNumber value={statsData.stats.solo_scene_count} />
-              </span>
-            </Button>
-          )}
-          {facialTag && (
-            <Button
-              className="scenestats-summary-card scenestats-category-card stats-category-button facial-stats-button"
-              href={NavUtils.makeScenesWithMarkerTagUrl(
-                facialTag.id,
-                facialTag.name,
-                -1
-              )}
-              disabled={statsData.stats.facial_scene_count === 0}
-              title="Facial Scene"
-            >
-              <img
-                src={facialPng}
-                alt="Facial"
-                className="stats-category-icon"
-              />
-              <span>
-                <FormattedNumber
-                  value={statsData.stats.facial_scene_count ?? 0}
-                />
-              </span>
-            </Button>
-          )}
-        </section>
-      )}
-
-      <section
-        className="scenestats-summary-grid scenestats-vato-count-grid"
-        aria-label="Scenes by vato count"
+      <Nav
+        activeKey={activeSection}
+        className="scenestats-sections"
+        onSelect={(key) =>
+          setActiveSection(key === "insights" ? "insights" : "overview")
+        }
+        variant="tabs"
       >
-        <Link
-          aria-label="Scenes with 1 vato"
-          className="scenestats-summary-card scenestats-category-card linked"
-          title="Scenes with 1 vato"
-          to={makeSceneStatsVatoCountURL("one")}
-        >
-          <Icon icon={faUser} className="stats-category-icon-fa" />
-          <span>{vatoCountBuckets.one.toLocaleString()}</span>
-        </Link>
-        <Link
-          aria-label="Scenes with 2 or 3 vatos"
-          className="scenestats-summary-card scenestats-category-card linked"
-          title="Scenes with 2 or 3 vatos (standard)"
-          to={makeSceneStatsVatoCountURL("standard")}
-        >
-          <Icon icon={faUserGroup} className="stats-category-icon-fa" />
-          <span>{vatoCountBuckets.standard.toLocaleString()}</span>
-        </Link>
-        <Link
-          aria-label="Scenes with 4 or more vatos"
-          className="scenestats-summary-card scenestats-category-card linked"
-          title="Scenes with 4 or more vatos (group scenes)"
-          to={makeSceneStatsVatoCountURL("group")}
-        >
-          <Icon icon={faUsers} className="stats-category-icon-fa" />
-          <span>{vatoCountBuckets.group.toLocaleString()}</span>
-        </Link>
-      </section>
+        <Nav.Item>
+          <Nav.Link eventKey="overview">Overview</Nav.Link>
+        </Nav.Item>
+        <Nav.Item>
+          <Nav.Link eventKey="insights">Activity &amp; Ratings</Nav.Link>
+        </Nav.Item>
+      </Nav>
 
-      {(typeof orgasmCountData?.sceneOrgasmCount === "number" ||
-        typeof facialCountData?.sceneFacialCount === "number" ||
-        typeof orgasmTimeData?.totalOrgasmTime === "number" ||
-        typeof facialTimeData?.totalFacialTime === "number" ||
-        typeof activityTimeData?.totalSexTime === "number" ||
-        typeof activityTimeData?.totalOralTime === "number") && (
-        <section className="scenestats-summary-grid" aria-label="Scene metrics">
-          {typeof orgasmCountData?.sceneOrgasmCount === "number" && (
-            <Link
-              className="scenestats-summary-card linked"
-              title="Each matching marker counts once per assigned top vato (minimum 1), while the linked search counts marker rows. The search also includes 2nd-camera markers that this total excludes, so the numbers can differ."
-              to={makeSceneStatsMarkerTagURL(orgasmTag)}
-            >
-              <div className="scenestats-summary-value">
-                {orgasmCountData.sceneOrgasmCount.toLocaleString()}
-              </div>
-              <div className="scenestats-summary-label">Total orgasms</div>
-            </Link>
-          )}
-          {typeof orgasmTimeData?.totalOrgasmTime === "number" &&
-            orgasmTimeData.totalOrgasmTime > 0 && (
-              <div className="scenestats-summary-card">
-                <div className="scenestats-summary-value">
-                  {formatDuration(orgasmTimeData.totalOrgasmTime)}
-                </div>
-                <div className="scenestats-summary-label">
-                  Total orgasm time
-                </div>
-              </div>
-            )}
-          {typeof facialCountData?.sceneFacialCount === "number" && (
-            <Link
-              className="scenestats-summary-card linked"
-              title="Each matching marker counts once per assigned top vato (minimum 1), while the linked search counts marker rows. The search also includes 2nd-camera markers that this total excludes, so the numbers can differ."
-              to={makeSceneStatsMarkerTagURL(facialTag)}
-            >
-              <div className="scenestats-summary-value">
-                {facialCountData.sceneFacialCount.toLocaleString()}
-              </div>
-              <div className="scenestats-summary-label">Total facials</div>
-            </Link>
-          )}
-          {typeof facialTimeData?.totalFacialTime === "number" &&
-            facialTimeData.totalFacialTime > 0 && (
-              <div className="scenestats-summary-card">
-                <div className="scenestats-summary-value">
-                  {formatDuration(facialTimeData.totalFacialTime)}
-                </div>
-                <div className="scenestats-summary-label">
-                  Total facial time
-                </div>
-              </div>
-            )}
-          {typeof activityTimeData?.totalSexTime === "number" &&
-            activityTimeData.totalSexTime > 0 && (
-              <div className="scenestats-summary-card">
-                <div className="scenestats-summary-value">
-                  {formatDuration(activityTimeData.totalSexTime)}
-                </div>
-                <div className="scenestats-summary-label">
-                  Total Fucking time
-                </div>
-              </div>
-            )}
-          {typeof activityTimeData?.totalOralTime === "number" &&
-            activityTimeData.totalOralTime > 0 && (
-              <div className="scenestats-summary-card">
-                <div className="scenestats-summary-value">
-                  {formatDuration(activityTimeData.totalOralTime)}
-                </div>
-                <div className="scenestats-summary-label">
-                  Total Sucking Pito time
-                </div>
-              </div>
-            )}
-        </section>
-      )}
-
-      {scenes.length === 0 ? (
-        <Alert variant="secondary">No scenes found.</Alert>
-      ) : (
+      {activeSection === "overview" && (
         <>
-          <SceneStatsPodium
-            scenes={rankedScenes}
-            metric={metric}
-            roleTagIDs={roleTagIDs}
-          />
-
-          <div className="scenestats-list-toggle">
-            <Button
-              onClick={() => setShowSceneList((current) => !current)}
-              size="sm"
-              variant="secondary"
+          {(sexTag || oralTag || soloTag || facialTag) && (
+            <section
+              className="scenestats-summary-grid scenestats-category-grid"
+              aria-label="Scene category metrics"
             >
-              {showSceneList ? "Hide scenes list" : "Show scenes list"}
-            </Button>
-          </div>
-          {showSceneList && (
-            <SceneStatsSceneList
-              metric={metric}
-              roleTagIDs={roleTagIDs}
-              scenes={rankedScenes}
-            />
+              {sexTag && (
+                <Button
+                  className="scenestats-summary-card scenestats-category-card stats-category-button sex-stats-button"
+                  href={NavUtils.makeScenesWithMarkerTagUrl(
+                    sexTag.id,
+                    sexTag.name
+                  )}
+                  disabled={statsData.stats.sex_scene_count === 0}
+                  title="Sex Scene"
+                >
+                  <img src={gaySvg} alt="Sex" className="stats-category-icon" />
+                  <span>
+                    <FormattedNumber value={statsData.stats.sex_scene_count} />
+                  </span>
+                </Button>
+              )}
+              {oralTag && (
+                <Button
+                  className="scenestats-summary-card scenestats-category-card stats-category-button oral-stats-button"
+                  href={NavUtils.makeScenesWithExclusiveMarkerTagUrl(
+                    oralTag.id,
+                    oralTag.name,
+                    sexTag ? [{ id: sexTag.id, label: sexTag.name }] : [],
+                    -1
+                  )}
+                  disabled={statsData.stats.oral_scene_count === 0}
+                  title="Oral Scene"
+                >
+                  <img
+                    src={mouthSvg}
+                    alt="Oral"
+                    className="stats-category-icon"
+                  />
+                  <span>
+                    <FormattedNumber value={statsData.stats.oral_scene_count} />
+                  </span>
+                </Button>
+              )}
+              {soloTag && (
+                <Button
+                  className="scenestats-summary-card scenestats-category-card stats-category-button solo-stats-button"
+                  href={NavUtils.makeScenesWithExclusiveMarkerTagUrl(
+                    soloTag.id,
+                    soloTag.name,
+                    [
+                      ...(sexTag
+                        ? [{ id: sexTag.id, label: sexTag.name }]
+                        : []),
+                      ...(oralTag
+                        ? [{ id: oralTag.id, label: oralTag.name }]
+                        : []),
+                    ],
+                    -1
+                  )}
+                  disabled={statsData.stats.solo_scene_count === 0}
+                  title="Solo Scene"
+                >
+                  <Icon icon={faHand} className="stats-category-icon-fa" />
+                  <span>
+                    <FormattedNumber value={statsData.stats.solo_scene_count} />
+                  </span>
+                </Button>
+              )}
+              {facialTag && (
+                <Button
+                  className="scenestats-summary-card scenestats-category-card stats-category-button facial-stats-button"
+                  href={NavUtils.makeScenesWithMarkerTagUrl(
+                    facialTag.id,
+                    facialTag.name,
+                    -1
+                  )}
+                  disabled={statsData.stats.facial_scene_count === 0}
+                  title="Facial Scene"
+                >
+                  <img
+                    src={facialPng}
+                    alt="Facial"
+                    className="stats-category-icon"
+                  />
+                  <span>
+                    <FormattedNumber
+                      value={statsData.stats.facial_scene_count ?? 0}
+                    />
+                  </span>
+                </Button>
+              )}
+            </section>
           )}
 
-          <div className="scenestats-chart-grid">
-            <SceneStatsChart
-              data={charts.ethnicity.data}
-              label="By Vato Ethnicity"
-              onSelect={addFilter}
-              unknownCount={charts.ethnicity.unknownCount}
-            />
-            <SceneStatsChart
-              data={charts.country.data}
-              label="By Vato Country"
-              onSelect={addFilter}
-              unknownCount={charts.country.unknownCount}
-            />
-            <SceneStatsChart
-              data={charts.performerCount.data}
-              label="By Vato Count"
-              onSelect={addFilter}
-              unknownCount={charts.performerCount.unknownCount}
-            />
-            <SceneStatsChart
-              data={charts.rating.data}
-              label="By Rating"
-              onSelect={addFilter}
-              unknownCount={charts.rating.unknownCount}
-            />
-            <SceneStatsChart
-              data={charts.metallicRating.data}
-              label="By Metallic Rating"
-              onSelect={addFilter}
-              unknownCount={charts.metallicRating.unknownCount}
-            />
-            <SceneStatsChart
-              actions={
-                <div className="scenestats-release-chart-actions">
-                  <ButtonGroup
-                    aria-label="Scene release stats navigation"
-                    size="sm"
+          <section
+            className="scenestats-summary-grid scenestats-vato-count-grid"
+            aria-label="Scenes by vato count"
+          >
+            <Link
+              aria-label="Scenes with 1 vato"
+              className="scenestats-summary-card scenestats-category-card linked"
+              title="Scenes with 1 vato"
+              to={makeSceneStatsVatoCountURL("one")}
+            >
+              <Icon icon={faUser} className="stats-category-icon-fa" />
+              <span>{vatoCountBuckets.one.toLocaleString()}</span>
+            </Link>
+            <Link
+              aria-label="Scenes with 2 or 3 vatos"
+              className="scenestats-summary-card scenestats-category-card linked"
+              title="Scenes with 2 or 3 vatos (standard)"
+              to={makeSceneStatsVatoCountURL("standard")}
+            >
+              <Icon icon={faUserGroup} className="stats-category-icon-fa" />
+              <span>{vatoCountBuckets.standard.toLocaleString()}</span>
+            </Link>
+            <Link
+              aria-label="Scenes with 4 or more vatos"
+              className="scenestats-summary-card scenestats-category-card linked"
+              title="Scenes with 4 or more vatos (group scenes)"
+              to={makeSceneStatsVatoCountURL("group")}
+            >
+              <Icon icon={faUsers} className="stats-category-icon-fa" />
+              <span>{vatoCountBuckets.group.toLocaleString()}</span>
+            </Link>
+          </section>
+
+          {(typeof orgasmCountData?.sceneOrgasmCount === "number" ||
+            typeof facialCountData?.sceneFacialCount === "number" ||
+            typeof orgasmTimeData?.totalOrgasmTime === "number" ||
+            typeof facialTimeData?.totalFacialTime === "number" ||
+            typeof activityTimeData?.totalSexTime === "number" ||
+            typeof activityTimeData?.totalOralTime === "number") && (
+            <section
+              className="scenestats-summary-grid"
+              aria-label="Scene metrics"
+            >
+              {typeof orgasmCountData?.sceneOrgasmCount === "number" && (
+                <Link
+                  className="scenestats-summary-card linked"
+                  title="Each matching marker counts once per assigned top vato (minimum 1), while the linked search counts marker rows. The search also includes 2nd-camera markers that this total excludes, so the numbers can differ."
+                  to={makeSceneStatsMarkerTagURL(orgasmTag)}
+                >
+                  <div className="scenestats-summary-value">
+                    {orgasmCountData.sceneOrgasmCount.toLocaleString()}
+                  </div>
+                  <div className="scenestats-summary-label">Total orgasms</div>
+                </Link>
+              )}
+              {typeof orgasmTimeData?.totalOrgasmTime === "number" &&
+                orgasmTimeData.totalOrgasmTime > 0 && (
+                  <div className="scenestats-summary-card">
+                    <div className="scenestats-summary-value">
+                      {formatDuration(orgasmTimeData.totalOrgasmTime)}
+                    </div>
+                    <div className="scenestats-summary-label">
+                      Total orgasm time
+                    </div>
+                  </div>
+                )}
+              {typeof facialCountData?.sceneFacialCount === "number" && (
+                <Link
+                  className="scenestats-summary-card linked"
+                  title="Each matching marker counts once per assigned top vato (minimum 1), while the linked search counts marker rows. The search also includes 2nd-camera markers that this total excludes, so the numbers can differ."
+                  to={makeSceneStatsMarkerTagURL(facialTag)}
+                >
+                  <div className="scenestats-summary-value">
+                    {facialCountData.sceneFacialCount.toLocaleString()}
+                  </div>
+                  <div className="scenestats-summary-label">Total facials</div>
+                </Link>
+              )}
+              {typeof facialTimeData?.totalFacialTime === "number" &&
+                facialTimeData.totalFacialTime > 0 && (
+                  <div className="scenestats-summary-card">
+                    <div className="scenestats-summary-value">
+                      {formatDuration(facialTimeData.totalFacialTime)}
+                    </div>
+                    <div className="scenestats-summary-label">
+                      Total facial time
+                    </div>
+                  </div>
+                )}
+              {typeof activityTimeData?.totalSexTime === "number" &&
+                activityTimeData.totalSexTime > 0 && (
+                  <div className="scenestats-summary-card">
+                    <div className="scenestats-summary-value">
+                      {formatDuration(activityTimeData.totalSexTime)}
+                    </div>
+                    <div className="scenestats-summary-label">
+                      Total Fucking time
+                    </div>
+                  </div>
+                )}
+              {typeof activityTimeData?.totalOralTime === "number" &&
+                activityTimeData.totalOralTime > 0 && (
+                  <div className="scenestats-summary-card">
+                    <div className="scenestats-summary-value">
+                      {formatDuration(activityTimeData.totalOralTime)}
+                    </div>
+                    <div className="scenestats-summary-label">
+                      Total Sucking Pito time
+                    </div>
+                  </div>
+                )}
+            </section>
+          )}
+
+          {scenes.length === 0 ? (
+            <Alert variant="secondary">No scenes found.</Alert>
+          ) : (
+            <>
+              <div className="scenestats-podium-toolbar">
+                <h2>Top Scenes</h2>
+                <Form.Group
+                  className="scenestats-metric-control"
+                  controlId="sceneMetric"
+                >
+                  <Form.Label>Podium metric</Form.Label>
+                  <Form.Control
+                    as="select"
+                    onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>
+                      setMetric(event.target.value as PodiumMetric)
+                    }
+                    value={metric}
                   >
-                    <Button
-                      disabled={!hasSelectedYear}
-                      onClick={() => history.push("/scenestats")}
-                      variant={!hasSelectedYear ? "primary" : "secondary"}
-                    >
-                      By Year
-                    </Button>
-                    <Button
-                      disabled={!hasSelectedYear}
-                      onClick={() =>
-                        history.push(`/scenestats/${selectedYear}`)
-                      }
-                      variant={
-                        hasSelectedYear && !hasSelectedMonth
-                          ? "primary"
-                          : "secondary"
-                      }
-                    >
-                      By Month
-                    </Button>
-                    <Button
-                      disabled={!hasSelectedYear || !hasSelectedMonth}
-                      onClick={() =>
-                        history.push(
-                          `/scenestats/${selectedYear}/${selectedMonth}`
-                        )
-                      }
-                      variant={hasSelectedMonth ? "primary" : "secondary"}
-                    >
-                      By Day
-                    </Button>
-                  </ButtonGroup>
-                  {hasSelectedYear && (
-                    <span>
-                      {hasSelectedMonth
-                        ? `${monthName(selectedMonth, "long")} ${selectedYear}`
-                        : selectedYear}
-                    </span>
-                  )}
-                </div>
+                    {metricOptions.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Form.Control>
+                </Form.Group>
+              </div>
+              <SceneStatsPodium
+                scenes={rankedScenes}
+                metric={metric}
+                roleTagIDs={roleTagIDs}
+              />
+
+              <div className="scenestats-list-toggle">
+                <Button
+                  onClick={() => setShowSceneList((current) => !current)}
+                  size="sm"
+                  variant="secondary"
+                >
+                  {showSceneList ? "Hide scenes list" : "Show scenes list"}
+                </Button>
+              </div>
+              {showSceneList && (
+                <SceneStatsSceneList
+                  metric={metric}
+                  roleTagIDs={roleTagIDs}
+                  scenes={rankedScenes}
+                />
+              )}
+
+              <div className="scenestats-chart-grid">
+                <SceneStatsChart
+                  data={charts.ethnicity.data}
+                  label="By Vato Ethnicity"
+                  onSelect={addFilter}
+                  unknownCount={charts.ethnicity.unknownCount}
+                />
+                <SceneStatsChart
+                  data={charts.country.data}
+                  label="By Vato Country"
+                  onSelect={addFilter}
+                  unknownCount={charts.country.unknownCount}
+                />
+                <SceneStatsChart
+                  data={charts.performerCount.data}
+                  label="By Vato Count"
+                  onSelect={addFilter}
+                  unknownCount={charts.performerCount.unknownCount}
+                />
+                <SceneStatsChart
+                  data={charts.rating.data}
+                  label="By Rating"
+                  onSelect={addFilter}
+                  unknownCount={charts.rating.unknownCount}
+                />
+                <SceneStatsChart
+                  data={charts.metallicRating.data}
+                  label="By Metallic Rating"
+                  onSelect={addFilter}
+                  unknownCount={charts.metallicRating.unknownCount}
+                />
+                <SceneStatsChart
+                  actions={
+                    <div className="scenestats-release-chart-actions">
+                      <ButtonGroup
+                        aria-label="Scene release stats navigation"
+                        size="sm"
+                      >
+                        <Button
+                          disabled={!hasSelectedYear}
+                          onClick={() => history.push("/scenestats")}
+                          variant={!hasSelectedYear ? "primary" : "secondary"}
+                        >
+                          By Year
+                        </Button>
+                        <Button
+                          disabled={!hasSelectedYear}
+                          onClick={() =>
+                            history.push(`/scenestats/${selectedYear}`)
+                          }
+                          variant={
+                            hasSelectedYear && !hasSelectedMonth
+                              ? "primary"
+                              : "secondary"
+                          }
+                        >
+                          By Month
+                        </Button>
+                        <Button
+                          disabled={!hasSelectedYear || !hasSelectedMonth}
+                          onClick={() =>
+                            history.push(
+                              `/scenestats/${selectedYear}/${selectedMonth}`
+                            )
+                          }
+                          variant={hasSelectedMonth ? "primary" : "secondary"}
+                        >
+                          By Day
+                        </Button>
+                      </ButtonGroup>
+                      {hasSelectedYear && (
+                        <span>
+                          {hasSelectedMonth
+                            ? `${monthName(
+                                selectedMonth,
+                                "long"
+                              )} ${selectedYear}`
+                            : selectedYear}
+                        </span>
+                      )}
+                    </div>
+                  }
+                  data={charts.release.data}
+                  label={
+                    hasSelectedYear
+                      ? hasSelectedMonth
+                        ? "By Release Day"
+                        : "By Release Month"
+                      : "By Release Year"
+                  }
+                  onSelect={addFilter}
+                  unknownCount={charts.release.unknownCount}
+                />
+                <SceneStatsChart
+                  data={charts.facialStatus}
+                  label="Has Facial"
+                  onSelect={addFilter}
+                />
+                <SceneStatsChart
+                  data={charts.facialCount.data}
+                  label="By Number of Facial"
+                  onSelect={addFilter}
+                  unknownCount={charts.facialCount.unknownCount}
+                />
+                <SceneStatsChart
+                  data={charts.reallyHotFacialCount.data}
+                  label="By Number of Really Hot Facial"
+                  onSelect={addFilter}
+                  unknownCount={charts.reallyHotFacialCount.unknownCount}
+                />
+                <SceneStatsChart
+                  data={charts.sceneType.data}
+                  label="Scene Type"
+                  onSelect={addFilter}
+                  unknownCount={charts.sceneType.unknownCount}
+                />
+                <SceneStatsChart
+                  data={charts.duration}
+                  label="By Length/Duration"
+                  onSelect={addFilter}
+                />
+                <SceneStatsChart
+                  data={charts.resolution.data}
+                  label="By Resolution"
+                  onSelect={addFilter}
+                  unknownCount={charts.resolution.unknownCount}
+                />
+              </div>
+            </>
+          )}
+          <SceneStatsFilterBar
+            filters={filters}
+            hasSelectedMonth={hasSelectedMonth}
+            hasSelectedYear={hasSelectedYear}
+            onBack={() => {
+              if (filters.length > 0) {
+                setFilters((current) => current.slice(0, -1));
+              } else {
+                clearReleaseSelection();
               }
-              data={charts.release.data}
-              label={
-                hasSelectedYear
-                  ? hasSelectedMonth
-                    ? "By Release Day"
-                    : "By Release Month"
-                  : "By Release Year"
-              }
-              onSelect={addFilter}
-              unknownCount={charts.release.unknownCount}
-            />
-            <SceneStatsChart
-              data={charts.facialStatus}
-              label="Has Facial"
-              onSelect={addFilter}
-            />
-            <SceneStatsChart
-              data={charts.facialCount.data}
-              label="By Number of Facial"
-              onSelect={addFilter}
-              unknownCount={charts.facialCount.unknownCount}
-            />
-            <SceneStatsChart
-              data={charts.reallyHotFacialCount.data}
-              label="By Number of Really Hot Facial"
-              onSelect={addFilter}
-              unknownCount={charts.reallyHotFacialCount.unknownCount}
-            />
-            <SceneStatsChart
-              data={charts.sceneType.data}
-              label="Scene Type"
-              onSelect={addFilter}
-              unknownCount={charts.sceneType.unknownCount}
-            />
-            <SceneStatsChart
-              data={charts.duration}
-              label="By Length/Duration"
-              onSelect={addFilter}
-            />
-            <SceneStatsChart
-              data={charts.resolution.data}
-              label="By Resolution"
-              onSelect={addFilter}
-              unknownCount={charts.resolution.unknownCount}
-            />
-          </div>
+            }}
+            onClear={() => {
+              setFilters([]);
+              clearReleaseSelection();
+            }}
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+          />
         </>
       )}
-      <SceneStatsFilterBar
-        filters={filters}
-        hasSelectedMonth={hasSelectedMonth}
-        hasSelectedYear={hasSelectedYear}
-        onBack={() => {
-          if (filters.length > 0) {
-            setFilters((current) => current.slice(0, -1));
-          } else {
-            clearReleaseSelection();
-          }
-        }}
-        onClear={() => {
-          setFilters([]);
-          clearReleaseSelection();
-        }}
-        selectedMonth={selectedMonth}
-        selectedYear={selectedYear}
-      />
+      {activeSection === "insights" && <SceneStatsInsights />}
     </StatsPage>
   );
 };

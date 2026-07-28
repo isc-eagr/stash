@@ -23,11 +23,17 @@ export const StudioRatingAdvisorPopover: React.FC<IProps> = ({
 
   const stats = data?.findStudio?.studio_rating_advisor_stats;
   const definitions = studioRatingAdvisorSectionDefinitions.filter(
-    (definition) => sections.includes(definition.key)
+    (definition) =>
+      sections.includes(definition.key) &&
+      (!stats ||
+        definition.key === "performers" ||
+        stats[definition.key].entity_count > 0)
   );
   const layoutClass =
-    sections.length === 1
+    definitions.length === 1
       ? "studio-rating-advisor-popover-single"
+      : definitions.length === 2
+      ? "studio-rating-advisor-popover-double"
       : "studio-rating-advisor-popover-scenes";
 
   const content = (

@@ -515,7 +515,7 @@ const groupSceneMetrics: IAdvisorMetric[] = [
       {
         label: "Excellent",
         description:
-          "Everybody gets used well and the intensity stays hot throughout.",
+          "Every verga gets used well and the intensity stays hot throughout.",
       },
       {
         label: "Perfect execution",

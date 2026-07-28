@@ -268,6 +268,83 @@ export const StudioRatingAdvisorSection: React.FC<{
   );
 };
 
+interface IRatingAdvisorStatsContentProps {
+  stats: {
+    overall_scene_average_rating100?: number | null;
+    solo_scenes?: RatingAdvisorSection;
+    sex_scenes?: RatingAdvisorSection;
+    group_scenes?: RatingAdvisorSection;
+    performers?: RatingAdvisorSection;
+  };
+  sectionKeys?: StudioRatingAdvisorSectionKey[];
+  title?: string;
+  description?: string;
+  showOverallSceneAverage?: boolean;
+  hideEmptySceneSections?: boolean;
+}
+
+export const RatingAdvisorStatsContent: React.FC<
+  IRatingAdvisorStatsContentProps
+> = ({
+  stats,
+  sectionKeys = studioRatingAdvisorSectionDefinitions.map(
+    (definition) => definition.key
+  ),
+  title = "Rating Advisor Averages",
+  description = "Each bar averages only the scenes or performers where that criterion is set.",
+  showOverallSceneAverage = true,
+  hideEmptySceneSections = false,
+}) => {
+  const definitions = studioRatingAdvisorSectionDefinitions.filter(
+    (definition) => {
+      const section = stats[definition.key];
+      const isEmptySceneSection =
+        definition.key !== "performers" && section?.entity_count === 0;
+      return (
+        sectionKeys.includes(definition.key) &&
+        !!section &&
+        (!hideEmptySceneSections || !isEmptySceneSection)
+      );
+    }
+  );
+
+  return (
+    <section className="studio-rating-advisor-stats">
+      <div className="studio-rating-advisor-title">
+        <div>
+          <h2>{title}</h2>
+          <p>{description}</p>
+        </div>
+        {showOverallSceneAverage && (
+          <div className="studio-rating-advisor-overall-average">
+            <span>Overall scene rating</span>
+            <strong>
+              {stats.overall_scene_average_rating100 === null ||
+              stats.overall_scene_average_rating100 === undefined
+                ? "\u2014"
+                : `${formatRatingValue(
+                    stats.overall_scene_average_rating100
+                  )}/100`}
+            </strong>
+          </div>
+        )}
+      </div>
+      <div
+        className="studio-rating-advisor-grid"
+        data-section-count={definitions.length}
+      >
+        {definitions.map((definition) => (
+          <StudioRatingAdvisorSection
+            definition={definition}
+            key={definition.key}
+            stats={stats[definition.key]!}
+          />
+        ))}
+      </div>
+    </section>
+  );
+};
+
 export const StudioRatingAdvisorStats: React.FC<IProps> = ({
   studioId,
   depth,
@@ -286,37 +363,5 @@ export const StudioRatingAdvisorStats: React.FC<IProps> = ({
   const stats = data?.findStudio?.studio_rating_advisor_stats;
   if (!stats) return null;
 
-  return (
-    <section className="studio-rating-advisor-stats">
-      <div className="studio-rating-advisor-title">
-        <div>
-          <h2>Rating Advisor Averages</h2>
-          <p>
-            Each bar averages only the scenes or performers where that criterion
-            is set.
-          </p>
-        </div>
-        <div className="studio-rating-advisor-overall-average">
-          <span>Overall scene rating</span>
-          <strong>
-            {stats.overall_scene_average_rating100 === null ||
-            stats.overall_scene_average_rating100 === undefined
-              ? "—"
-              : `${formatRatingValue(
-                  stats.overall_scene_average_rating100
-                )}/100`}
-          </strong>
-        </div>
-      </div>
-      <div className="studio-rating-advisor-grid">
-        {studioRatingAdvisorSectionDefinitions.map((definition) => (
-          <StudioRatingAdvisorSection
-            definition={definition}
-            key={definition.key}
-            stats={stats[definition.key]}
-          />
-        ))}
-      </div>
-    </section>
-  );
+  return <RatingAdvisorStatsContent hideEmptySceneSections stats={stats} />;
 };

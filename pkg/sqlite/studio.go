@@ -692,6 +692,10 @@ var studioSortOptions = sortOptions{
 	"rating_criteria_group_energy",             // CUSTOM
 	"rating_criteria_group_payoff",             // CUSTOM
 	"rating_criteria_group_usability",          // CUSTOM
+	"average_solo_scene_rating",                // CUSTOM
+	"average_standard_scene_rating",            // CUSTOM
+	"average_group_scene_rating",               // CUSTOM
+	"average_performer_rating",                 // CUSTOM
 	"facial_scenes_count",                      // CUSTOM
 	"unique_performers_count",                  // CUSTOM
 	"random",
@@ -763,6 +767,8 @@ func (qb *StudioStore) getStudioSort(findFilter *models.FindFilterType) (string,
 	default:
 		if ratingKey, ok := studioRatingCriteriaSortKeysCustom[sort]; ok { // CUSTOM
 			sortQuery += qb.sortByRatingCriteriaAverageCustom(ratingKey, direction)
+		} else if category, ok := studioRatingAdvisorAverageSortKeysCustom[sort]; ok { // CUSTOM
+			sortQuery += qb.sortByRatingAdvisorAverageCustom(category, direction)
 		} else {
 			sortQuery += getSort(sort, direction, "studios")
 		}

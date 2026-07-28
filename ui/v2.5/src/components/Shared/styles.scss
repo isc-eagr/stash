@@ -101,6 +101,7 @@
   stroke-width: 23;
 }
 
+/* stylelint-disable-next-line selector-class-pattern */
 .activity-pie-chart-slice--outstanding {
   filter: drop-shadow(0 0 0.28rem rgba(255, 215, 0, 0.95))
     drop-shadow(0 0 0.7rem rgba(255, 193, 7, 0.55));
@@ -168,6 +169,7 @@
   width: 0.7rem;
 }
 
+/* stylelint-disable-next-line selector-class-pattern */
 .activity-pie-chart-legend-swatch--outstanding {
   box-shadow: 0 0 0.35rem rgba(255, 215, 0, 0.85);
 }
@@ -187,6 +189,39 @@
 .activity-pie-chart-footer {
   margin-top: 0.45rem;
   width: 100%;
+}
+
+.activity-pie-chart-tooltip-content {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: center;
+}
+
+.activity-pie-chart-tooltip-image {
+  aspect-ratio: 2 / 3;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.25rem;
+  flex: 0 0 auto;
+  object-fit: cover;
+  width: 6.5rem;
+}
+
+.activity-pie-chart-tooltip-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.08;
+  margin-top: -0.25rem;
+  max-width: 6.5rem;
+  overflow-wrap: anywhere;
+}
+
+.activity-pie-chart-tooltip-value {
+  color: $text-muted;
+  font-size: 0.75rem;
+  line-height: 1;
+  margin-top: -0.25rem;
 }
 
 /* CUSTOM: end */
@@ -394,11 +429,13 @@ button.collapse-button {
 }
 
 /* CUSTOM: begin */
+
 /* Allow hover popovers to be resized to match their target when JS sets inline width */
 .hover-popover-content.popover {
   /* keep default max-width to prevent oversized popovers */
   max-width: 32rem;
 }
+
 /* CUSTOM: end */
 
 .ErrorMessage-container {

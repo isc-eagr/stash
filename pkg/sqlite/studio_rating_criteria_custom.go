@@ -31,6 +31,22 @@ var studioRatingCriteriaSortKeysCustom = map[string]string{
 	"rating_criteria_group_usability":          "groupUsability",
 }
 
+type studioRatingAdvisorAverageSortCustom string
+
+const (
+	studioRatingAdvisorSoloAverageCustom      studioRatingAdvisorAverageSortCustom = "solo"
+	studioRatingAdvisorStandardAverageCustom  studioRatingAdvisorAverageSortCustom = "standard"
+	studioRatingAdvisorGroupAverageCustom     studioRatingAdvisorAverageSortCustom = "group"
+	studioRatingAdvisorPerformerAverageCustom studioRatingAdvisorAverageSortCustom = "performer"
+)
+
+var studioRatingAdvisorAverageSortKeysCustom = map[string]studioRatingAdvisorAverageSortCustom{
+	"average_solo_scene_rating":     studioRatingAdvisorSoloAverageCustom,
+	"average_standard_scene_rating": studioRatingAdvisorStandardAverageCustom,
+	"average_group_scene_rating":    studioRatingAdvisorGroupAverageCustom,
+	"average_performer_rating":      studioRatingAdvisorPerformerAverageCustom,
+}
+
 func studioRatingCriteriaScoreSourceSQLCustom(scope studioRatingCriteriaScopeCustom, table string, scoreAlias string) string {
 	if scope == studioRatingCriteriaPerformersCustom {
 		return fmt.Sprintf(`FROM (
@@ -163,4 +179,79 @@ func studioRatingCriteriaAverageExprCustom(key string) string {
 
 func (qb *StudioStore) sortByRatingCriteriaAverageCustom(key string, direction string) string {
 	return fmt.Sprintf(" ORDER BY %s %s", studioRatingCriteriaAverageExprCustom(key), getSortDirection(direction))
+}
+
+func studioRatingAdvisorAverageExprCustom(category studioRatingAdvisorAverageSortCustom) string {
+	if category == studioRatingAdvisorPerformerAverageCustom {
+		return `(
+	SELECT AVG(studio_rating_performer.rating)
+	FROM performers studio_rating_performer
+	WHERE studio_rating_performer.id IN (
+		SELECT DISTINCT studio_rating_ps.performer_id
+		FROM scenes studio_rating_scene
+		JOIN performers_scenes studio_rating_ps ON studio_rating_ps.scene_id = studio_rating_scene.id
+		WHERE studio_rating_scene.studio_id = studios.id
+	)
+	AND EXISTS (
+		SELECT 1 FROM rating_criteria_scores studio_rating_score
+		WHERE studio_rating_score.entity_type = 'performer'
+			AND studio_rating_score.entity_id = studio_rating_performer.id
+			AND studio_rating_score.key IN ('face', 'body', 'performance', 'ethnicity', 'masculinity')
+	)
+)`
+	}
+
+	categoryClause := ""
+	switch category {
+	case studioRatingAdvisorSoloAverageCustom:
+		categoryClause = `
+	AND EXISTS (
+		SELECT 1 FROM rating_criteria_scores studio_rating_score
+		WHERE studio_rating_score.entity_type = 'scene'
+			AND studio_rating_score.entity_id = studio_rating_scene.id
+			AND studio_rating_score.key IN ('soloPerformerAppeal', 'soloPerformance', 'soloUsability')
+	)`
+	case studioRatingAdvisorStandardAverageCustom:
+		categoryClause = `
+	AND (
+		SELECT COUNT(DISTINCT studio_rating_ps.performer_id)
+		FROM performers_scenes studio_rating_ps
+		WHERE studio_rating_ps.scene_id = studio_rating_scene.id
+	) BETWEEN 2 AND 3
+	AND NOT EXISTS (
+		SELECT 1 FROM rating_criteria_scores studio_rating_score
+		WHERE studio_rating_score.entity_type = 'scene'
+			AND studio_rating_score.entity_id = studio_rating_scene.id
+			AND studio_rating_score.key IN ('soloPerformerAppeal', 'soloPerformance', 'soloUsability')
+	)
+	AND EXISTS (
+		SELECT 1 FROM rating_criteria_scores studio_rating_score
+		WHERE studio_rating_score.entity_type = 'scene'
+			AND studio_rating_score.entity_id = studio_rating_scene.id
+			AND studio_rating_score.key IN ('topAttractiveness', 'bottomAttractiveness', 'chemistry', 'payoff', 'standout')
+	)`
+	case studioRatingAdvisorGroupAverageCustom:
+		categoryClause = `
+	AND (
+		SELECT COUNT(DISTINCT studio_rating_ps.performer_id)
+		FROM performers_scenes studio_rating_ps
+		WHERE studio_rating_ps.scene_id = studio_rating_scene.id
+	) >= 4
+	AND EXISTS (
+		SELECT 1 FROM rating_criteria_scores studio_rating_score
+		WHERE studio_rating_score.entity_type = 'scene'
+			AND studio_rating_score.entity_id = studio_rating_scene.id
+			AND studio_rating_score.key IN ('groupTopAttractiveness', 'groupEnergy', 'groupPayoff', 'groupUsability')
+	)`
+	}
+
+	return fmt.Sprintf(`(
+	SELECT AVG(studio_rating_scene.rating)
+	FROM scenes studio_rating_scene
+	WHERE studio_rating_scene.studio_id = studios.id%s
+)`, categoryClause)
+}
+
+func (qb *StudioStore) sortByRatingAdvisorAverageCustom(category studioRatingAdvisorAverageSortCustom, direction string) string {
+	return fmt.Sprintf(" ORDER BY %s %s", studioRatingAdvisorAverageExprCustom(category), getSortDirection(direction))
 }

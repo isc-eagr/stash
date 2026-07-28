@@ -8,6 +8,7 @@ import type { ILoopSegmentInput } from "src/components/ScenePlayer/multi-segment
 import {
   ACTIVITY_PIE_COLORS,
   ActivityPieChart,
+  getActivityPieEntityColorCustom,
   getSceneMarkerTagColorCustom,
 } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
 import type { IActivityPieSlice } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
@@ -15,6 +16,11 @@ import {
   buildIntersectedLoopSegments,
   buildIntervalLoopSegments,
 } from "./sceneStatsLoopSegments_custom"; // CUSTOM
+import {
+  getSceneStatsPartnerInteractions,
+  type ISceneStatsPartnerDistribution,
+  type SceneStatsPartnerCategory,
+} from "./sceneStatsPartnerInteractions_custom"; // CUSTOM
 
 interface IProps {
   scene: GQL.SceneDataFragment;
@@ -67,6 +73,9 @@ interface IPerformerStats {
     name: string;
     image_path?: string | null;
   };
+  partnerInteractions: Partial<
+    Record<SceneStatsPartnerCategory, ISceneStatsPartnerDistribution>
+  >;
   rows: IStatsRow[];
 }
 
@@ -198,6 +207,27 @@ function getRolePieSlices(
       sliceLabel: TextUtils.secondsToTimestamp(row.seconds),
       valueLabel: formatStatValue(row),
     }));
+}
+
+function getPartnerPieSlices(
+  distribution: ISceneStatsPartnerDistribution,
+  performerNames: string[]
+): IActivityPieSlice[] {
+  return distribution.partners.map((partner) => ({
+    key: `partner-${partner.performer.id}`,
+    label: partner.performer.name,
+    value: partner.seconds,
+    color: getActivityPieEntityColorCustom(
+      partner.performer.name,
+      performerNames
+    ),
+    imagePath: partner.performer.imagePath,
+    percentLabel: `${partner.percent}%`,
+    sliceLabel: TextUtils.secondsToTimestamp(partner.seconds),
+    valueLabel: `${TextUtils.secondsToTimestamp(partner.seconds)} (${
+      partner.percent
+    }%)`,
+  }));
 }
 
 function isPrimaryMarker(
@@ -414,6 +444,7 @@ function addPerformerIntervals(
         performer,
         intervals: {},
         markers: {},
+        partnerInteractions: {},
         rows: [],
       } as IPerformerStats & {
         intervals: Record<string, IInterval[]>;
@@ -450,6 +481,22 @@ function getPerformerStats(stats: IActivityStats): IPerformerStats[] {
       markers: Record<string, IActivityMarker[]>;
     }
   >();
+  const partnerInteractions = getSceneStatsPartnerInteractions(
+    stats.markers.map(({ marker, category, interval }) => ({
+      category,
+      interval,
+      topPerformers: marker.top_performers.map((performer) => ({
+        id: performer.id,
+        name: performer.name,
+        imagePath: performer.image_path,
+      })),
+      bottomPerformers: marker.bottom_performers.map((performer) => ({
+        id: performer.id,
+        name: performer.name,
+        imagePath: performer.image_path,
+      })),
+    }))
+  );
 
   stats.markers.forEach((activityMarker) => {
     const { marker, category, interval } = activityMarker;
@@ -522,6 +569,7 @@ function getPerformerStats(stats: IActivityStats): IPerformerStats[] {
 
       return {
         performer: entry.performer,
+        partnerInteractions: partnerInteractions[entry.performer.id] ?? {},
         rows,
       };
     })
@@ -560,6 +608,11 @@ const SceneStatsPanel: React.FC<IProps> = ({
     () => (stats ? getPerformerStats(stats) : []),
     [stats]
   );
+  const performerNames = useMemo(
+    () => scene.performers.map((performer) => performer.name),
+    [scene.performers]
+  );
+  const showPartnerInteractionCharts = scene.performers.length >= 3;
 
   if (!stats) return null;
   const activityStats = stats;
@@ -892,6 +945,33 @@ const SceneStatsPanel: React.FC<IProps> = ({
                         />
                       );
                     })}
+                  {showPartnerInteractionCharts &&
+                    (["sex", "oral"] as SceneStatsPartnerCategory[]).map(
+                      (category) => {
+                        const distribution =
+                          entry.partnerInteractions[category];
+                        if (!distribution) return null;
+
+                        const title =
+                          category[0].toUpperCase() + category.slice(1);
+
+                        return (
+                          <ActivityPieChart
+                            centerLabel={TextUtils.secondsToTimestamp(
+                              distribution.totalSeconds
+                            )}
+                            className="scene-stats-performer-chart"
+                            key={`${category}-partners`}
+                            size={150}
+                            slices={getPartnerPieSlices(
+                              distribution,
+                              performerNames
+                            )}
+                            title={`${title} Partners`}
+                          />
+                        );
+                      }
+                    )}
                 </div>
               </div>
             ))}

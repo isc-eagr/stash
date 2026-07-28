@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import {
   facialCount,
+  facialCountPastYear,
   reallyHotFacialCount,
   type SceneStatsFacialScene,
 } from "../src/components/SceneStats/sceneStatsFacialCounts_custom.ts";
@@ -49,6 +50,28 @@ assert.equal(
   ),
   1,
   "compact SceneStats marker tag IDs support really-hot facial counts"
+);
+assert.equal(
+  facialCountPastYear(
+    {
+      scene_markers: [{ tag_ids: ["facial"] }, { tag_ids: ["facial-child"] }],
+      is_release_past_year: true,
+    },
+    roleTagIDs.facial
+  ),
+  2,
+  "past-year facial count includes every facial in a recently released scene"
+);
+assert.equal(
+  facialCountPastYear(
+    {
+      scene_markers: [{ tag_ids: ["facial"] }],
+      is_release_past_year: false,
+    },
+    roleTagIDs.facial
+  ),
+  0,
+  "past-year facial count excludes scenes released before the rolling year"
 );
 assert.equal(
   reallyHotFacialCount(scene, { facial: roleTagIDs.facial }),

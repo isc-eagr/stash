@@ -1,10 +1,26 @@
 package api
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func TestActivityStatsSceneScopeCustomSupportsGlobalAndStudioStats(t *testing.T) {
+	globalSQL, globalArgs := activityStatsSceneScopeCustom(nil, nil)
+	assert.Contains(t, globalSQL, "SELECT id FROM scenes")
+	assert.NotContains(t, globalSQL, "studio_id")
+	assert.Empty(t, globalArgs)
+
+	studioID := 7
+	depth := -1
+	studioSQL, studioArgs := activityStatsSceneScopeCustom(&studioID, &depth)
+	assert.Contains(t, studioSQL, "WITH RECURSIVE selected_studios")
+	assert.Contains(t, studioSQL, "studio_id IN (SELECT id FROM selected_studios)")
+	assert.Equal(t, 3, strings.Count(studioSQL, "?"))
+	assert.Equal(t, []interface{}{7, -1, -1}, studioArgs)
+}
 
 func TestActivityStatsDurationCustom(t *testing.T) {
 	tests := []struct {

@@ -601,14 +601,8 @@ func sceneStatsStringPtrValue(value interface{}) *string {
 	return &ret
 }
 
-// SceneStats returns compact scalar and ID data for the SceneStats dashboard.
-// It deliberately avoids resolving every scene's GraphQL relationships, which
-// becomes prohibitively expensive for libraries with many scenes and markers.
-func (r *queryResolver) SceneStats(ctx context.Context) (ret *SceneStatsResult, err error) {
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		db := manager.GetInstance().Database
-		effectiveDateExpr := sceneOStatsEffectiveDateExpr("s")
-		baseQuery := fmt.Sprintf(`
+func sceneStatsBaseQueryCustom(effectiveDateExpr string) string {
+	return fmt.Sprintf(`
 WITH file_stats AS (
   SELECT
     sf.scene_id,
@@ -622,7 +616,16 @@ WITH file_stats AS (
   GROUP BY sf.scene_id
 ),
 o_stats AS (
-  SELECT scene_id, COUNT(*) AS o_counter, MAX(o_date) AS most_recent_o_date
+  SELECT
+    scene_id,
+    COUNT(*) AS o_counter,
+    MAX(o_date) AS most_recent_o_date,
+    SUM(
+      CASE
+        WHEN datetime(o_date) >= datetime('now', '-1 year') THEN 1
+        ELSE 0
+      END
+    ) AS o_counter_past_year
   FROM scenes_o_dates
   GROUP BY scene_id
 )
@@ -637,11 +640,56 @@ SELECT
   COALESCE(fs.filesize, 0) AS filesize,
   fs.primary_width,
   fs.primary_height,
-  os.most_recent_o_date
+  os.most_recent_o_date,
+  COALESCE(os.o_counter_past_year, 0) AS o_counter_past_year,
+  CASE
+    WHEN datetime(s.created_at) >= datetime('now', '-1 year') THEN 1
+    ELSE 0
+  END AS is_past_year,
+  CASE
+    WHEN date(%s) >= date('now', '-1 year') THEN 1
+    ELSE 0
+  END AS is_release_past_year
 FROM scenes s
 LEFT JOIN file_stats fs ON fs.scene_id = s.id
 LEFT JOIN o_stats os ON os.scene_id = s.id
-ORDER BY s.date DESC, s.id DESC`, effectiveDateExpr)
+ORDER BY s.date DESC, s.id DESC`, effectiveDateExpr, effectiveDateExpr)
+}
+
+const sceneStatsPerformerQueryCustom = `
+SELECT
+  ps.scene_id,
+  p.ethnicity,
+  p.country
+FROM performers_scenes ps
+JOIN performers p ON p.id = ps.performer_id`
+
+func sceneStatsAddPerformerCustom(scene *SceneStatsScene, ethnicity string, country string) {
+	scene.PerformerCount++
+	if scene.IsReleasePastYear {
+		scene.PerformerCountPastYear++
+	}
+	scene.PerformerEthnicities = append(scene.PerformerEthnicities, ethnicity)
+	scene.PerformerCountries = append(scene.PerformerCountries, country)
+}
+
+const sceneStatsMarkerQueryCustom = `
+SELECT
+  sm.scene_id,
+  sm.id,
+  sm.primary_tag_id,
+  smt.tag_id
+FROM scene_markers sm
+LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+ORDER BY sm.scene_id ASC, sm.id ASC`
+
+// SceneStats returns compact scalar and ID data for the SceneStats dashboard.
+// It deliberately avoids resolving every scene's GraphQL relationships, which
+// becomes prohibitively expensive for libraries with many scenes and markers.
+func (r *queryResolver) SceneStats(ctx context.Context) (ret *SceneStatsResult, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		baseQuery := sceneStatsBaseQueryCustom(sceneOStatsEffectiveDateExpr("s"))
 		_, rows, err := db.QuerySQL(ctx, baseQuery, nil)
 		if err != nil {
 			return err
@@ -650,7 +698,7 @@ ORDER BY s.date DESC, s.id DESC`, effectiveDateExpr)
 		out := &SceneStatsResult{Scenes: []*SceneStatsScene{}}
 		byID := make(map[int]*SceneStatsScene, len(rows))
 		for _, row := range rows {
-			if len(row) < 11 {
+			if len(row) < 14 {
 				continue
 			}
 
@@ -671,6 +719,9 @@ ORDER BY s.date DESC, s.id DESC`, effectiveDateExpr)
 				PrimaryWidth:         vatoStatsIntPtrValue(row[8]),
 				PrimaryHeight:        vatoStatsIntPtrValue(row[9]),
 				MostRecentODate:      sceneStatsStringPtrValue(row[10]),
+				OCounterPastYear:     customIntValue(row[11]),
+				IsPastYear:           customIntValue(row[12]) != 0,
+				IsReleasePastYear:    customIntValue(row[13]) != 0,
 				PerformerEthnicities: []string{},
 				PerformerCountries:   []string{},
 				MarkerTagGroups:      []*SceneStatsMarkerTagGroup{},
@@ -686,11 +737,7 @@ ORDER BY s.date DESC, s.id DESC`, effectiveDateExpr)
 			return nil
 		}
 
-		performerQuery := `
-SELECT ps.scene_id, p.ethnicity, p.country
-FROM performers_scenes ps
-JOIN performers p ON p.id = ps.performer_id`
-		_, performerRows, err := db.QuerySQL(ctx, performerQuery, nil)
+		_, performerRows, err := db.QuerySQL(ctx, sceneStatsPerformerQueryCustom, nil)
 		if err != nil {
 			return err
 		}
@@ -702,9 +749,11 @@ JOIN performers p ON p.id = ps.performer_id`
 			if scene == nil {
 				continue
 			}
-			scene.PerformerCount++
-			scene.PerformerEthnicities = append(scene.PerformerEthnicities, customStringValue(row[1]))
-			scene.PerformerCountries = append(scene.PerformerCountries, customStringValue(row[2]))
+			sceneStatsAddPerformerCustom(
+				scene,
+				customStringValue(row[1]),
+				customStringValue(row[2]),
+			)
 		}
 
 		tagQuery := "SELECT scene_id, tag_id FROM scenes_tags"
@@ -723,12 +772,7 @@ JOIN performers p ON p.id = ps.performer_id`
 			scene.TagIds = append(scene.TagIds, fmt.Sprint(row[1]))
 		}
 
-		markerQuery := `
-SELECT sm.scene_id, sm.id, sm.primary_tag_id, smt.tag_id
-FROM scene_markers sm
-LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-ORDER BY sm.scene_id ASC, sm.id ASC`
-		_, markerRows, err := db.QuerySQL(ctx, markerQuery, nil)
+		_, markerRows, err := db.QuerySQL(ctx, sceneStatsMarkerQueryCustom, nil)
 		if err != nil {
 			return err
 		}
@@ -2236,6 +2280,12 @@ WITH scene_o_stats AS (
   SELECT
     scene_id,
     COUNT(*) AS scene_o_count,
+    SUM(
+      CASE
+        WHEN datetime(o_date) >= datetime('now', '-1 year') THEN 1
+        ELSE 0
+      END
+    ) AS scene_o_count_past_year,
     MAX(date(o_date)) AS most_recent_o_date
   FROM scenes_o_dates
   WHERE o_date IS NOT NULL
@@ -2246,6 +2296,7 @@ performer_scene_stats AS (
     ps.performer_id,
     COUNT(DISTINCT ps.scene_id) AS scene_count,
     COALESCE(SUM(scene_o_stats.scene_o_count), 0) AS scene_o_count,
+    COALESCE(SUM(scene_o_stats.scene_o_count_past_year), 0) AS scene_o_count_past_year,
     MAX(scene_o_stats.most_recent_o_date) AS most_recent_o_date,
     COALESCE(
       CAST(julianday(MAX(date(s.date))) - julianday(MIN(date(s.date))) AS INT),
@@ -2278,7 +2329,12 @@ SELECT
   performer_scene_stats.scene_count,
   performer_scene_stats.scene_o_count,
   performer_scene_stats.most_recent_o_date,
-  performer_scene_stats.career_span_days
+  performer_scene_stats.career_span_days,
+  performer_scene_stats.scene_o_count_past_year,
+  CASE
+    WHEN datetime(performers.created_at) >= datetime('now', '-1 year') THEN 1
+    ELSE 0
+  END AS is_past_year
 FROM performers
 JOIN performer_scene_stats ON performer_scene_stats.performer_id = performers.id
 ORDER BY performers.name COLLATE NOCASE ASC`,
@@ -2322,7 +2378,7 @@ func (r *queryResolver) VatoStatsPerformers(ctx context.Context) (ret []*VatoSta
 		byID := make(map[int]*VatoStatsPerformer, len(rows))
 		ids := make([]int, 0, len(rows))
 		for _, row := range rows {
-			if len(row) < 16 {
+			if len(row) < 18 {
 				continue
 			}
 
@@ -2349,6 +2405,8 @@ func (r *queryResolver) VatoStatsPerformers(ctx context.Context) (ret []*VatoSta
 				SceneOCount:          customIntValue(row[13]),
 				MostRecentODate:      vatoStatsStringPtrValue(row[14]),
 				CareerSpanDays:       customIntValue(row[15]),
+				SceneOCountPastYear:  customIntValue(row[16]),
+				IsPastYear:           customIntValue(row[17]) != 0,
 				AgeCounts:            []*VatoStatsAgeCount{},
 				UnknownSceneAgeCount: sceneCount,
 			}

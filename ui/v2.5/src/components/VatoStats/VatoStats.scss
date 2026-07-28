@@ -123,12 +123,20 @@
   border: 1px solid rgba(76, 146, 230, 0.28);
   border-radius: 8px;
   color: #fff;
+  flex: 1 1 auto;
   font-size: 1.15rem;
   font-weight: 900;
   line-height: 1.25;
-  margin: 0 0 1rem;
+  margin: 0;
   overflow-wrap: anywhere;
   padding: 0.75rem 0.9rem;
+}
+
+.vatostats-podium-toolbar {
+  align-items: flex-end;
+  display: flex;
+  gap: 1rem;
+  margin: 0 0 1rem;
 }
 
 .vatostats-podium {
@@ -434,7 +442,8 @@
 }
 
 @media (max-width: 820px) {
-  .vatostats-header {
+  .vatostats-header,
+  .vatostats-podium-toolbar {
     align-items: stretch;
     display: grid;
   }

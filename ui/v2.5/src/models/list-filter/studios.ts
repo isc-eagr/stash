@@ -151,6 +151,22 @@ const sortByOptions = [
       messageID: "rating_criteria_group_usability",
       value: "rating_criteria_group_usability",
     },
+    {
+      messageID: "average_solo_scene_rating",
+      value: "average_solo_scene_rating",
+    },
+    {
+      messageID: "average_standard_scene_rating",
+      value: "average_standard_scene_rating",
+    },
+    {
+      messageID: "average_group_scene_rating",
+      value: "average_group_scene_rating",
+    },
+    {
+      messageID: "average_performer_rating",
+      value: "average_performer_rating",
+    },
     // CUSTOM: end
   ]);
 

@@ -1,0 +1,45 @@
+# CUSTOM: Global Activity/Quality and Rating Advisor data for stats dashboards.
+query SceneStatsInsights {
+  sceneStatsActivity {
+    total_seconds
+    sex_seconds
+    oral_seconds
+    solo_seconds
+    other_seconds
+    activity_other_seconds
+    outstanding_seconds
+    standard_seconds
+    unusable_seconds
+    sex_percent
+    oral_percent
+    solo_percent
+    other_percent
+    activity_other_percent
+    outstanding_percent
+    standard_percent
+    unusable_percent
+    sex_scene_count
+    oral_scene_count
+    solo_scene_count
+  }
+  globalRatingAdvisorStats {
+    overall_scene_average_rating100
+    solo_scenes {
+      ...StudioRatingAdvisorSectionData
+    }
+    sex_scenes {
+      ...StudioRatingAdvisorSectionData
+    }
+    group_scenes {
+      ...StudioRatingAdvisorSectionData
+    }
+  }
+}
+
+query VatoStatsRatingAdvisor {
+  globalRatingAdvisorStats {
+    performers {
+      ...StudioRatingAdvisorSectionData
+    }
+  }
+}

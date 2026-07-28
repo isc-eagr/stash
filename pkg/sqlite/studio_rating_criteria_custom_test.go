@@ -41,6 +41,96 @@ func TestStudioRatingCriteriaSortKeysCustomIncludesEverySceneRubricDimension(t *
 	}, studioRatingCriteriaSortKeysCustom)
 }
 
+func TestStudioRatingAdvisorAverageSortKeysCustomMatchStatsSections(t *testing.T) {
+	assert.Equal(t, map[string]studioRatingAdvisorAverageSortCustom{
+		"average_solo_scene_rating":     studioRatingAdvisorSoloAverageCustom,
+		"average_standard_scene_rating": studioRatingAdvisorStandardAverageCustom,
+		"average_group_scene_rating":    studioRatingAdvisorGroupAverageCustom,
+		"average_performer_rating":      studioRatingAdvisorPerformerAverageCustom,
+	}, studioRatingAdvisorAverageSortKeysCustom)
+
+	solo := studioRatingAdvisorAverageExprCustom(studioRatingAdvisorSoloAverageCustom)
+	assert.Contains(t, solo, "AVG(studio_rating_scene.rating)")
+	assert.Contains(t, solo, "'soloPerformerAppeal'")
+
+	standard := studioRatingAdvisorAverageExprCustom(studioRatingAdvisorStandardAverageCustom)
+	assert.Contains(t, standard, "BETWEEN 2 AND 3")
+	assert.Contains(t, standard, "'topAttractiveness'")
+	assert.Contains(t, standard, "NOT EXISTS")
+
+	group := studioRatingAdvisorAverageExprCustom(studioRatingAdvisorGroupAverageCustom)
+	assert.Contains(t, group, ">= 4")
+	assert.Contains(t, group, "'groupTopAttractiveness'")
+
+	performer := studioRatingAdvisorAverageExprCustom(studioRatingAdvisorPerformerAverageCustom)
+	assert.Contains(t, performer, "AVG(studio_rating_performer.rating)")
+	assert.Contains(t, performer, "SELECT DISTINCT studio_rating_ps.performer_id")
+	assert.Contains(t, performer, "'face'")
+}
+
+func TestStudioRatingAdvisorAverageSortExpressionsOrderByDisplayedAverages(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+
+	_, err = db.Exec(`
+CREATE TABLE studios (id INTEGER PRIMARY KEY);
+CREATE TABLE scenes (id INTEGER PRIMARY KEY, studio_id INTEGER, rating INTEGER);
+CREATE TABLE performers (id INTEGER PRIMARY KEY, rating INTEGER);
+CREATE TABLE performers_scenes (performer_id INTEGER, scene_id INTEGER);
+CREATE TABLE rating_criteria_scores (entity_type TEXT, entity_id INTEGER, key TEXT);
+INSERT INTO studios(id) VALUES (1), (2);
+INSERT INTO scenes(id, studio_id, rating) VALUES
+  (10, 1, 90), (11, 2, 50),
+  (20, 1, 60), (21, 2, 80),
+  (30, 1, 70), (31, 2, 100);
+INSERT INTO performers(id, rating) VALUES
+  (1, 90), (2, 80), (3, 40), (4, 50),
+  (5, 70), (6, 60), (7, 60), (8, 70);
+INSERT INTO performers_scenes(performer_id, scene_id) VALUES
+  (1, 10), (3, 11),
+  (1, 20), (2, 20), (3, 21), (4, 21),
+  (1, 30), (2, 30), (5, 30), (6, 30),
+  (3, 31), (4, 31), (7, 31), (8, 31);
+INSERT INTO rating_criteria_scores(entity_type, entity_id, key) VALUES
+  ('scene', 10, 'soloPerformance'), ('scene', 11, 'soloPerformance'),
+  ('scene', 20, 'chemistry'), ('scene', 21, 'chemistry'),
+  ('scene', 30, 'groupEnergy'), ('scene', 31, 'groupEnergy'),
+  ('performer', 1, 'face'), ('performer', 2, 'face'),
+  ('performer', 3, 'face'), ('performer', 4, 'face'),
+  ('performer', 5, 'face'), ('performer', 6, 'face'),
+  ('performer', 7, 'face'), ('performer', 8, 'face');
+`)
+	require.NoError(t, err)
+
+	tests := []struct {
+		category studioRatingAdvisorAverageSortCustom
+		wantIDs  []int
+	}{
+		{studioRatingAdvisorSoloAverageCustom, []int{1, 2}},
+		{studioRatingAdvisorStandardAverageCustom, []int{2, 1}},
+		{studioRatingAdvisorGroupAverageCustom, []int{2, 1}},
+		{studioRatingAdvisorPerformerAverageCustom, []int{1, 2}},
+	}
+	for _, test := range tests {
+		expr := studioRatingAdvisorAverageExprCustom(test.category)
+		rows, queryErr := db.Query(
+			"SELECT studios.id FROM studios ORDER BY " + expr + " DESC",
+		)
+		require.NoError(t, queryErr)
+
+		var ids []int
+		for rows.Next() {
+			var id int
+			require.NoError(t, rows.Scan(&id))
+			ids = append(ids, id)
+		}
+		require.NoError(t, rows.Err())
+		require.NoError(t, rows.Close())
+		assert.Equal(t, test.wantIDs, ids, test.category)
+	}
+}
+
 func TestStudioPerformerRatingCriteriaAverageClauseCustomDeduplicatesPerformers(t *testing.T) {
 	clause := studioRatingCriteriaAverageClauseCustom(
 		studioRatingCriteriaPerformersCustom,

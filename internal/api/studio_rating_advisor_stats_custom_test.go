@@ -11,8 +11,13 @@ import (
 
 func studioRatingAdvisorTestStatsCustom(t *testing.T, db *sql.DB, depth int) *StudioRatingAdvisorStats {
 	t.Helper()
+	return ratingAdvisorTestStatsFromQueryCustom(t, db, studioRatingAdvisorStatsQueryCustom, 1, depth, depth)
+}
 
-	queryRows, err := db.Query(studioRatingAdvisorStatsQueryCustom, 1, depth, depth)
+func ratingAdvisorTestStatsFromQueryCustom(t *testing.T, db *sql.DB, query string, args ...interface{}) *StudioRatingAdvisorStats {
+	t.Helper()
+
+	queryRows, err := db.Query(query, args...)
 	require.NoError(t, err)
 	defer queryRows.Close()
 
@@ -76,14 +81,15 @@ func TestStudioRatingAdvisorStatsCustomAveragesOnlySetCriteria(t *testing.T) {
 		`CREATE TABLE rating_bonus_scores (entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL, weighted_value REAL)`,
 		`CREATE TABLE rating_penalty_scores (entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL, weighted_value REAL)`,
 		`INSERT INTO studios(id, parent_id) VALUES (1, NULL), (2, 1)`,
-		`INSERT INTO scenes(id, studio_id, rating) VALUES (10, 1, 90), (20, 1, 80), (21, 1, 60), (30, 1, 100), (40, 2, 70)`,
-		`INSERT INTO performers(id, rating) VALUES (1, 95), (2, 75), (3, NULL), (4, NULL), (5, NULL), (6, NULL), (7, NULL), (8, 65), (9, NULL)`,
+		`INSERT INTO scenes(id, studio_id, rating) VALUES (10, 1, 90), (20, 1, 80), (21, 1, 60), (30, 1, 100), (40, 2, 70), (50, NULL, 50)`,
+		`INSERT INTO performers(id, rating) VALUES (1, 95), (2, 75), (3, NULL), (4, NULL), (5, NULL), (6, NULL), (7, NULL), (8, 65), (9, NULL), (10, 55)`,
 		`INSERT INTO performers_scenes(performer_id, scene_id) VALUES
       (1, 10),
       (2, 20), (3, 20),
       (2, 21), (3, 21),
       (4, 30), (5, 30), (6, 30), (7, 30),
-      (8, 40), (9, 40)`,
+      (8, 40), (9, 40),
+      (10, 50)`,
 		`INSERT INTO rating_criteria_scores(entity_type, entity_id, key, raw_value, weighted_value) VALUES
       ('scene', 10, 'soloPerformerAppeal', 5, 5),
       ('scene', 10, 'soloUsability', 4, 2),
@@ -95,7 +101,9 @@ func TestStudioRatingAdvisorStatsCustomAveragesOnlySetCriteria(t *testing.T) {
       ('performer', 1, 'face', 5, 3),
       ('performer', 2, 'face', 1, 0.6),
       ('performer', 2, 'body', 3, 1.8),
-      ('performer', 8, 'face', 4, 2.4)`,
+      ('performer', 8, 'face', 4, 2.4),
+      ('scene', 50, 'soloPerformance', 2, 1.5),
+      ('performer', 10, 'face', 2, 1.2)`,
 		`INSERT INTO rating_bonus_scores(entity_type, entity_id, key, raw_value, weighted_value) VALUES
       ('scene', 20, 'theme', 0.5, 0.5),
       ('scene', 21, 'theme', 0.5, 0.5),
@@ -144,4 +152,12 @@ func TestStudioRatingAdvisorStatsCustomAveragesOnlySetCriteria(t *testing.T) {
 	require.InDelta(t, 70, *withChildren.SexScenes.AverageRating100, 0.0001)
 	require.InDelta(t, 78.3333, *withChildren.Performers.AverageRating100, 0.0001)
 	require.InDelta(t, 3, studioRatingAdvisorCriterionCustom(t, withChildren.SexScenes, "topAttractiveness").AverageRawValue, 0.0001)
+
+	global := ratingAdvisorTestStatsFromQueryCustom(t, db, globalRatingAdvisorStatsQueryCustom)
+	require.Equal(t, 2, global.SoloScenes.EntityCount)
+	require.Equal(t, 3, global.SexScenes.EntityCount)
+	require.Equal(t, 1, global.GroupScenes.EntityCount)
+	require.Equal(t, 4, global.Performers.EntityCount)
+	require.InDelta(t, 75, *global.OverallSceneAverageRating100, 0.0001)
+	require.InDelta(t, 72.5, *global.Performers.AverageRating100, 0.0001)
 }

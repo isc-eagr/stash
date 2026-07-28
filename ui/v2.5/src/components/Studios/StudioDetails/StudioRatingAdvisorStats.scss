@@ -51,6 +51,18 @@
   display: grid;
   gap: 0.75rem;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+
+  &[data-section-count="3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  &[data-section-count="2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  &[data-section-count="1"] {
+    grid-template-columns: minmax(0, 24rem);
+  }
 }
 
 .studio-rating-advisor-section {
@@ -140,6 +152,14 @@
   }
 }
 
+.studio-rating-advisor-popover.studio-rating-advisor-popover-double {
+  width: min(calc(100vw - 2rem), 41rem);
+
+  .studio-rating-advisor-popover-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* CUSTOM: end */
 
 @media (max-width: 767.98px) {
@@ -152,7 +172,8 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .studio-rating-advisor-popover {
+  .studio-rating-advisor-popover,
+  .studio-rating-advisor-popover.studio-rating-advisor-popover-double {
     .studio-rating-advisor-popover-card {
       grid-template-columns: minmax(0, 1fr);
     }
