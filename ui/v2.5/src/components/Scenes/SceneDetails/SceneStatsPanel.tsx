@@ -1,5 +1,13 @@
-import React, { useMemo, useState } from "react";
-import { Button, Form } from "react-bootstrap";
+import React, { useEffect, useMemo, useState } from "react";
+import cx from "classnames";
+import {
+  Button,
+  ButtonGroup,
+  Form,
+  OverlayTrigger,
+  Tooltip,
+} from "react-bootstrap";
+import { ModalComponent } from "src/components/Shared/Modal";
 import * as GQL from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useRoleTags } from "src/hooks/useRoleTags";
@@ -7,18 +15,33 @@ import TextUtils from "src/utils/text";
 import type { ILoopSegmentInput } from "src/components/ScenePlayer/multi-segment-loop";
 import {
   ACTIVITY_PIE_COLORS,
-  ActivityPieChart,
-  getActivityPieEntityColorCustom,
   getSceneMarkerTagColorCustom,
 } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
-import type { IActivityPieSlice } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
 import {
   buildIntersectedLoopSegments,
   buildIntervalLoopSegments,
 } from "./sceneStatsLoopSegments_custom"; // CUSTOM
 import {
+  getSceneStatsAvailableInteractionViews,
+  getSceneStatsAvailablePartnerViews,
+  getSceneStatsInteractionPairKey,
+  getSceneStatsInteractionPairs,
+  getSceneStatsOverallPartnerDistribution,
+  getSceneStatsPartnerBarPercent,
   getSceneStatsPartnerInteractions,
+  getSceneStatsPartnerRoleBreakdown,
+  getSceneStatsRoleInteractionCategories,
+  getSceneStatsRoleInteractionKey,
+  getSceneStatsRoleInteractions,
+  getSceneStatsRoleInteractionView,
+  isSceneStatsLeadingPartner,
+  shouldShowSceneStatsDetails,
+  shouldShowSceneStatsInteractionPercent,
+  shouldShowSceneStatsPartnerInteractions,
+  type ISceneStatsInteractionPair,
   type ISceneStatsPartnerDistribution,
+  type ISceneStatsPartnerSlice,
+  type ISceneStatsRoleInteraction,
   type SceneStatsPartnerCategory,
 } from "./sceneStatsPartnerInteractions_custom"; // CUSTOM
 
@@ -28,6 +51,8 @@ interface IProps {
 }
 
 type ActivityCategory = "sex" | "oral" | "solo";
+type SceneStatsDetailView = "performer" | "interactions";
+type SceneStatsInteractionView = SceneStatsPartnerCategory | "both";
 
 interface IInterval {
   start: number;
@@ -142,10 +167,6 @@ function percent(seconds: number, totalSeconds: number) {
   return Math.round((seconds / totalSeconds) * 100);
 }
 
-function formatStatValue(row: Pick<IStatsRow, "seconds" | "percent">) {
-  return `${TextUtils.secondsToTimestamp(row.seconds)} (${row.percent}%)`;
-}
-
 function formatPercentValue(row: Pick<IStatsRow, "percent">) {
   return `${row.percent}%`;
 }
@@ -170,64 +191,6 @@ function getStatsRowColor(row: IStatsRow, soloColor?: string) {
   if (row.role === "bottom") return ACTIVITY_PIE_COLORS.bottom;
 
   return getActivityColor(row.category ?? row.key, soloColor);
-}
-
-function getActivityPieSlices(
-  rows: IStatsRow[],
-  soloColor?: string
-): IActivityPieSlice[] {
-  return rows
-    .filter((row) => row.key !== "total" && row.seconds > 0)
-    .map((row) => ({
-      key: row.key,
-      label: row.label,
-      value: row.seconds,
-      color: row.color ?? getActivityColor(row.key, soloColor),
-      percentLabel: formatPercentValue(row),
-      sliceLabel: TextUtils.secondsToTimestamp(row.seconds),
-      valueLabel: formatStatValue(row),
-    }));
-}
-
-function getRolePieSlices(
-  rows: IStatsRow[],
-  category: ActivityCategory
-): IActivityPieSlice[] {
-  return rows
-    .filter((row) => row.category === category && row.role && row.seconds > 0)
-    .map((row) => ({
-      key: row.role ?? row.key,
-      label: row.label,
-      value: row.seconds,
-      color:
-        row.role === "top"
-          ? ACTIVITY_PIE_COLORS.top
-          : ACTIVITY_PIE_COLORS.bottom,
-      percentLabel: formatPercentValue(row),
-      sliceLabel: TextUtils.secondsToTimestamp(row.seconds),
-      valueLabel: formatStatValue(row),
-    }));
-}
-
-function getPartnerPieSlices(
-  distribution: ISceneStatsPartnerDistribution,
-  performerNames: string[]
-): IActivityPieSlice[] {
-  return distribution.partners.map((partner) => ({
-    key: `partner-${partner.performer.id}`,
-    label: partner.performer.name,
-    value: partner.seconds,
-    color: getActivityPieEntityColorCustom(
-      partner.performer.name,
-      performerNames
-    ),
-    imagePath: partner.performer.imagePath,
-    percentLabel: `${partner.percent}%`,
-    sliceLabel: TextUtils.secondsToTimestamp(partner.seconds),
-    valueLabel: `${TextUtils.secondsToTimestamp(partner.seconds)} (${
-      partner.percent
-    }%)`,
-  }));
 }
 
 function isPrimaryMarker(
@@ -600,6 +563,28 @@ const SceneStatsPanel: React.FC<IProps> = ({
   const [selectedPerformerRows, setSelectedPerformerRows] = useState<
     Set<string>
   >(new Set());
+  const [selectedRoleInteractions, setSelectedRoleInteractions] = useState<
+    Set<string>
+  >(new Set());
+  const [detailView, setDetailView] =
+    useState<SceneStatsDetailView>("performer");
+  const [interactionView, setInteractionView] =
+    useState<SceneStatsInteractionView>("both");
+  const [activePerformerID, setActivePerformerID] = useState<
+    string | undefined
+  >();
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+
+  useEffect(() => {
+    setSelectedActivities(new Set());
+    setSelectedPerformerRows(new Set());
+    setSelectedRoleInteractions(new Set());
+    setDetailView("performer");
+    setInteractionView("both");
+    setActivePerformerID(undefined);
+    setShowDetailsModal(false);
+  }, [scene.id]);
+
   const stats = useMemo(
     () => getActivityStats(scene, configuration?.ui?.roleTagIds ?? {}),
     [configuration?.ui?.roleTagIds, scene]
@@ -608,14 +593,67 @@ const SceneStatsPanel: React.FC<IProps> = ({
     () => (stats ? getPerformerStats(stats) : []),
     [stats]
   );
-  const performerNames = useMemo(
-    () => scene.performers.map((performer) => performer.name),
-    [scene.performers]
+  const interactionPairs = useMemo(
+    () =>
+      getSceneStatsInteractionPairs(
+        performerStats.map((entry) => ({
+          id: entry.performer.id,
+          imagePath: entry.performer.image_path,
+          name: entry.performer.name,
+        })),
+        Object.fromEntries(
+          performerStats.map((entry) => [
+            entry.performer.id,
+            entry.partnerInteractions,
+          ])
+        )
+      ),
+    [performerStats]
   );
-  const showPartnerInteractionCharts = scene.performers.length >= 3;
+  const roleInteractions = useMemo(
+    () =>
+      stats
+        ? getSceneStatsRoleInteractions(
+            stats.markers.map(({ marker, category, interval }) => ({
+              category,
+              interval,
+              topPerformers: marker.top_performers.map((performer) => ({
+                id: performer.id,
+                imagePath: performer.image_path,
+                name: performer.name,
+              })),
+              bottomPerformers: marker.bottom_performers.map((performer) => ({
+                id: performer.id,
+                imagePath: performer.image_path,
+                name: performer.name,
+              })),
+            }))
+          )
+        : [],
+    [stats]
+  );
+  const availableInteractionViews = useMemo(
+    () => getSceneStatsAvailableInteractionViews(roleInteractions),
+    [roleInteractions]
+  );
+
+  useEffect(() => {
+    if (!availableInteractionViews.includes(interactionView)) {
+      setInteractionView(availableInteractionViews[0] ?? "both");
+    }
+  }, [availableInteractionViews, interactionView]);
 
   if (!stats) return null;
   const activityStats = stats;
+  const activePerformer =
+    performerStats.find((entry) => entry.performer.id === activePerformerID) ??
+    performerStats[0];
+  const interactionPairByKey = new Map(
+    interactionPairs.map((pair) => [pair.key, pair])
+  );
+  const roleInteractionByKey = new Map(
+    roleInteractions.map((interaction) => [interaction.key, interaction])
+  );
 
   const activityRows: IStatsRow[] = [
     {
@@ -712,7 +750,7 @@ const SceneStatsPanel: React.FC<IProps> = ({
   }
 
   function buildLoopSegments(markers: IActivityMarker[]) {
-    return markers
+    return [...markers]
       .sort((a, b) => a.interval.start - b.interval.start)
       .map(({ marker, category, interval }) => ({
         start: interval.start,
@@ -748,10 +786,122 @@ const SceneStatsPanel: React.FC<IProps> = ({
     );
   }
 
-  function addSelectedActivitiesToLoop() {
-    if (selectedActivities.size === 0 && selectedPerformerRows.size === 0)
-      return;
+  function getInteractionSelectionKey(
+    pairKey: string,
+    category: SceneStatsPartnerCategory
+  ) {
+    return `${pairKey}::${category}`;
+  }
 
+  function getRoleInteractionSelectionKeys(
+    interaction: ISceneStatsRoleInteraction,
+    view: SceneStatsInteractionView
+  ) {
+    return getSceneStatsRoleInteractionCategories(interaction, view).map(
+      (category) => getInteractionSelectionKey(interaction.key, category)
+    );
+  }
+
+  function toggleRoleInteraction(
+    interaction: ISceneStatsRoleInteraction,
+    view: SceneStatsInteractionView
+  ) {
+    const selectionKeys = getRoleInteractionSelectionKeys(interaction, view);
+    if (selectionKeys.length === 0) return;
+
+    setSelectedRoleInteractions((current) => {
+      const next = new Set(current);
+      const removeSelection = selectionKeys.every((key) => next.has(key));
+
+      selectionKeys.forEach((key) => {
+        if (removeSelection) next.delete(key);
+        else next.add(key);
+      });
+
+      return next;
+    });
+  }
+
+  function getRoleInteractionSelectionState(
+    interaction: ISceneStatsRoleInteraction,
+    view: SceneStatsInteractionView
+  ) {
+    const selectionKeys = getRoleInteractionSelectionKeys(interaction, view);
+    const selectedCount = selectionKeys.filter((key) =>
+      selectedRoleInteractions.has(key)
+    ).length;
+
+    return {
+      active:
+        selectionKeys.length > 0 && selectedCount === selectionKeys.length,
+      partial: selectedCount > 0 && selectedCount < selectionKeys.length,
+    };
+  }
+
+  function getPartnerRoleSelectionKeys(
+    performerID: string,
+    partnerID: string,
+    view: SceneStatsInteractionView
+  ) {
+    return [
+      roleInteractionByKey.get(
+        getSceneStatsRoleInteractionKey(performerID, partnerID)
+      ),
+      roleInteractionByKey.get(
+        getSceneStatsRoleInteractionKey(partnerID, performerID)
+      ),
+    ].flatMap((interaction) =>
+      interaction ? getRoleInteractionSelectionKeys(interaction, view) : []
+    );
+  }
+
+  function togglePartnerRoleSelection(
+    performerID: string,
+    partnerID: string,
+    view: SceneStatsInteractionView
+  ) {
+    const selectionKeys = getPartnerRoleSelectionKeys(
+      performerID,
+      partnerID,
+      view
+    );
+    if (selectionKeys.length === 0) return;
+
+    setSelectedRoleInteractions((current) => {
+      const next = new Set(current);
+      const removeSelection = selectionKeys.every((key) => next.has(key));
+
+      selectionKeys.forEach((key) => {
+        if (removeSelection) next.delete(key);
+        else next.add(key);
+      });
+
+      return next;
+    });
+  }
+
+  function getPartnerRoleSelectionState(
+    performerID: string,
+    partnerID: string,
+    view: SceneStatsInteractionView
+  ) {
+    const selectionKeys = getPartnerRoleSelectionKeys(
+      performerID,
+      partnerID,
+      view
+    );
+    const selectedCount = selectionKeys.filter((key) =>
+      selectedRoleInteractions.has(key)
+    ).length;
+
+    return {
+      active:
+        selectionKeys.length > 0 && selectedCount === selectionKeys.length,
+      partial: selectedCount > 0 && selectedCount < selectionKeys.length,
+    };
+  }
+
+  function buildSelectedLoopSegments() {
     const selectedSegments = buildSelectedActivityLoopSegments();
     const selectedMarkers = new Map<string, IActivityMarker>();
 
@@ -769,224 +919,919 @@ const SceneStatsPanel: React.FC<IProps> = ({
       });
     });
 
-    addMultiSegmentLoopSegments(
-      dedupeLoopSegments([
-        ...selectedSegments,
-        ...buildLoopSegments([...selectedMarkers.values()]),
-      ])
+    const roleInteractionSegments = roleInteractions.flatMap((interaction) =>
+      (["sex", "oral"] as SceneStatsPartnerCategory[]).flatMap((category) => {
+        const selectionKey = getInteractionSelectionKey(
+          interaction.key,
+          category
+        );
+        if (!selectedRoleInteractions.has(selectionKey)) return [];
+
+        const categoryStats = interaction.categories[category];
+        if (!categoryStats) return [];
+
+        const label = `${category.toUpperCase()} ${
+          interaction.topPerformer.name
+        } → ${interaction.bottomPerformer.name}`;
+
+        return buildIntervalLoopSegments(label, categoryStats.intervals);
+      })
     );
+
+    return dedupeLoopSegments([
+      ...selectedSegments,
+      ...buildLoopSegments([...selectedMarkers.values()]),
+      ...roleInteractionSegments,
+    ]);
+  }
+
+  function clearLoopSelection() {
     setSelectedActivities(new Set());
     setSelectedPerformerRows(new Set());
+    setSelectedRoleInteractions(new Set());
   }
 
-  const canAddToLoop =
-    selectedActivities.size > 0 || selectedPerformerRows.size > 0;
-  const activityPieSlices = getActivityPieSlices(activityRows, soloMarkerColor);
-  const qualityPieSlices = getActivityPieSlices(qualityRows, soloMarkerColor);
+  function addSelectedActivitiesToLoop() {
+    const loopSegments = buildSelectedLoopSegments();
+    if (loopSegments.length === 0) return;
 
-  function renderActivityChartFooter(rows: IStatsRow[]) {
+    addMultiSegmentLoopSegments(loopSegments);
+    clearLoopSelection();
+  }
+
+  const selectedLoopSegments = buildSelectedLoopSegments();
+  const selectedLoopDuration = mergeDuration(selectedLoopSegments);
+  const selectionCount =
+    selectedActivities.size +
+    selectedPerformerRows.size +
+    selectedRoleInteractions.size;
+  const canAddToLoop = selectedLoopSegments.length > 0;
+
+  function renderOverviewPanel(
+    title: string,
+    rows: IStatsRow[],
+    stacked = false
+  ) {
+    const visibleRows = rows.filter(
+      (row) => row.seconds > 0 && row.percent > 0
+    );
+
     return (
-      <div className="custom-stats-chart-table">
-        {rows
-          .filter((row) => row.key !== "total" && row.seconds > 0)
-          .map((row) => (
-            <div className="custom-stats-chart-row" key={row.key}>
+      <section className="scene-stats-overview-panel">
+        <div className="scene-stats-section-heading">
+          <h5>{title}</h5>
+          <span>
+            {TextUtils.secondsToTimestamp(activityStats.totalSeconds)}
+          </span>
+        </div>
+        {stacked && (
+          <div
+            aria-label={`${title} distribution`}
+            className="scene-stats-stacked-bar"
+            role="img"
+          >
+            {visibleRows.map((row) => (
               <span
-                aria-hidden="true"
-                className="custom-stats-color-swatch"
+                className={`scene-stats-stacked-segment scene-stats-stacked-segment--${row.key}`}
+                key={row.key}
                 style={{
                   backgroundColor: getStatsRowColor(row, soloMarkerColor),
+                  width: `${Math.max(0, Math.min(100, row.percent))}%`,
                 }}
+                title={`${row.label}: ${TextUtils.secondsToTimestamp(
+                  row.seconds
+                )} (${formatPercentValue(row)})`}
               />
-              {row.selectableKey && row.loopSegments?.length ? (
-                <Form.Check
-                  className="custom-stats-check"
-                  id={`scene-stats-${scene.id}-${row.selectableKey}`}
-                  checked={selectedActivities.has(row.selectableKey)}
-                  label={row.label}
-                  onChange={() =>
-                    row.selectableKey && toggleActivity(row.selectableKey)
-                  }
-                />
-              ) : (
-                <span className="custom-stats-label">{row.label}</span>
-              )}
-              <span className="custom-stats-value">
-                {TextUtils.secondsToTimestamp(row.seconds)}
-              </span>
-              <span className="custom-stats-value">
-                {formatPercentValue(row)}
-              </span>
-            </div>
-          ))}
-      </div>
+            ))}
+          </div>
+        )}
+        <div className="scene-stats-overview-rows">
+          {visibleRows.map((row) => {
+            const selectable =
+              !!row.selectableKey && !!row.loopSegments?.length;
+
+            return (
+              <div className="scene-stats-overview-row" key={row.key}>
+                <div className="scene-stats-overview-row-meta">
+                  {selectable ? (
+                    <Form.Check
+                      checked={selectedActivities.has(row.selectableKey!)}
+                      className="custom-stats-check"
+                      id={`scene-stats-${scene.id}-${row.selectableKey}`}
+                      label={row.label}
+                      onChange={() => toggleActivity(row.selectableKey!)}
+                    />
+                  ) : (
+                    <span className="custom-stats-label">{row.label}</span>
+                  )}
+                  <span className="custom-stats-value">
+                    {TextUtils.secondsToTimestamp(row.seconds)}
+                  </span>
+                  <span className="custom-stats-value">
+                    {formatPercentValue(row)}
+                  </span>
+                </div>
+                {!stacked && (
+                  <div
+                    aria-label={`${row.label}: ${formatPercentValue(row)}`}
+                    aria-valuemax={100}
+                    aria-valuemin={0}
+                    aria-valuenow={row.percent}
+                    className="scene-stats-progress-track"
+                    role="progressbar"
+                  >
+                    <span
+                      className="scene-stats-progress-fill"
+                      style={{
+                        backgroundColor: getStatsRowColor(row, soloMarkerColor),
+                        width: `${Math.max(0, Math.min(100, row.percent))}%`,
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
     );
   }
 
-  function renderPerformerChartFooter(
-    performerID: string,
-    categoryRow: IStatsRow,
-    roleRows: IStatsRow[]
+  function renderPerformerActivity(
+    entry: IPerformerStats,
+    categoryRow: IStatsRow
   ) {
-    const footerRows = [categoryRow, ...roleRows];
+    const roleRows = entry.rows.filter(
+      (row) =>
+        row.category === categoryRow.category && row.role && row.percent > 0
+    );
+    const categorySelectionKey = getPerformerRowSelectionKey(
+      entry.performer.id,
+      categoryRow.key
+    );
 
     return (
-      <div className="custom-stats-chart-table">
-        {footerRows.map((row) => {
-          const selectionKey = getPerformerRowSelectionKey(
-            performerID,
-            row.key
+      <section className="scene-stats-performer-activity" key={categoryRow.key}>
+        <div className="scene-stats-performer-activity-heading">
+          <Form.Check
+            checked={selectedPerformerRows.has(categorySelectionKey)}
+            className="custom-stats-check"
+            id={`scene-stats-${scene.id}-${categorySelectionKey}`}
+            label={`All ${categoryRow.label}`}
+            onChange={() => togglePerformerRow(categorySelectionKey)}
+          />
+          <span className="custom-stats-value">
+            {TextUtils.secondsToTimestamp(categoryRow.seconds)}
+          </span>
+          <span className="custom-stats-value">
+            {formatPercentValue(categoryRow)}
+          </span>
+        </div>
+        <div
+          aria-label={`${categoryRow.label}: ${formatPercentValue(
+            categoryRow
+          )}`}
+          aria-valuemax={100}
+          aria-valuemin={0}
+          aria-valuenow={categoryRow.percent}
+          className="scene-stats-progress-track"
+          role="progressbar"
+        >
+          <span
+            className="scene-stats-progress-fill"
+            style={{
+              backgroundColor: getStatsRowColor(categoryRow, soloMarkerColor),
+              width: `${Math.max(0, Math.min(100, categoryRow.percent))}%`,
+            }}
+          />
+        </div>
+        <div className="scene-stats-role-rows">
+          {roleRows.map((row) => {
+            const selectionKey = getPerformerRowSelectionKey(
+              entry.performer.id,
+              row.key
+            );
+            const color = getStatsRowColor(row, soloMarkerColor);
+
+            return (
+              <div className="scene-stats-role-row" key={row.key}>
+                <div className="scene-stats-role-row-meta">
+                  <Form.Check
+                    checked={selectedPerformerRows.has(selectionKey)}
+                    className="custom-stats-check"
+                    id={`scene-stats-${scene.id}-${selectionKey}`}
+                    label={row.label}
+                    onChange={() => togglePerformerRow(selectionKey)}
+                  />
+                  <span className="custom-stats-value">
+                    {TextUtils.secondsToTimestamp(row.seconds)}
+                  </span>
+                  <span className="custom-stats-value">
+                    {formatPercentValue(row)}
+                  </span>
+                </div>
+                <div
+                  aria-label={`${row.label}: ${formatPercentValue(row)}`}
+                  aria-valuemax={100}
+                  aria-valuemin={0}
+                  aria-valuenow={row.percent}
+                  className="scene-stats-progress-track scene-stats-progress-track-role"
+                  role="progressbar"
+                >
+                  <span
+                    className="scene-stats-progress-fill"
+                    style={{
+                      backgroundColor: color,
+                      width: `${Math.max(0, Math.min(100, row.percent))}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
+
+  function getPartnerDistribution(
+    entry: IPerformerStats,
+    view: SceneStatsInteractionView
+  ) {
+    return view === "both"
+      ? getSceneStatsOverallPartnerDistribution(entry.partnerInteractions)
+      : entry.partnerInteractions[view];
+  }
+
+  function renderPartnerRoleLane(
+    label: string,
+    interaction: ISceneStatsRoleInteraction | undefined,
+    seconds: number,
+    rolePercent: number,
+    view: SceneStatsInteractionView,
+    role: "topped" | "bottomed"
+  ) {
+    if (!interaction || seconds <= 0) {
+      return (
+        <span
+          aria-hidden="true"
+          className={`scene-stats-partner-lane scene-stats-partner-lane-${role} scene-stats-partner-lane-empty`}
+        />
+      );
+    }
+
+    const selectionState = getRoleInteractionSelectionState(interaction, view);
+
+    return (
+      <button
+        aria-label={`Select ${label}: ${TextUtils.secondsToTimestamp(
+          seconds
+        )}, ${rolePercent}%`}
+        aria-pressed={selectionState.active}
+        className={cx(
+          `scene-stats-partner-lane scene-stats-partner-lane-${role}`,
+          {
+            "scene-stats-partner-lane-active": selectionState.active,
+          }
+        )}
+        onClick={() => toggleRoleInteraction(interaction, view)}
+        type="button"
+      >
+        <span
+          aria-hidden="true"
+          className="scene-stats-partner-lane-fill"
+          style={{ width: `${Math.max(0, Math.min(100, rolePercent))}%` }}
+        />
+      </button>
+    );
+  }
+
+  function renderPartnerActivityCell(
+    performerID: string,
+    view: SceneStatsInteractionView,
+    pair: ISceneStatsInteractionPair,
+    distribution: ISceneStatsPartnerDistribution | undefined,
+    partner: ISceneStatsPartnerSlice | undefined
+  ) {
+    if (!distribution || !partner || partner.seconds <= 0) {
+      return (
+        <td
+          aria-label={`${view} interactions: none`}
+          className="scene-stats-partner-table-empty"
+        />
+      );
+    }
+
+    const viewLabel =
+      view === "both" ? "Overall" : view[0].toUpperCase() + view.slice(1);
+    const roleBreakdown = getSceneStatsPartnerRoleBreakdown(
+      performerID,
+      partner.performer.id,
+      view,
+      pair,
+      roleInteractions
+    );
+    const toppedInteraction = roleInteractionByKey.get(
+      getSceneStatsRoleInteractionKey(performerID, partner.performer.id)
+    );
+    const bottomedForInteraction = roleInteractionByKey.get(
+      getSceneStatsRoleInteractionKey(partner.performer.id, performerID)
+    );
+    const tooltipID = `scene-stats-partner-${scene.id}-${performerID}-${partner.performer.id}-${view}`;
+    const totalComparisonPercent = getSceneStatsPartnerBarPercent(
+      partner.seconds,
+      distribution
+    );
+    const isLeadingPartner = isSceneStatsLeadingPartner(
+      partner.seconds,
+      distribution
+    );
+
+    return (
+      <td
+        className={cx("scene-stats-partner-table-activity", {
+          "scene-stats-partner-table-activity-leading": isLeadingPartner,
+        })}
+      >
+        <OverlayTrigger
+          overlay={
+            <Tooltip id={tooltipID}>
+              <div className="scene-stats-partner-tooltip">
+                <strong>
+                  {viewLabel} with {partner.performer.name}
+                </strong>
+                {isLeadingPartner && <span>Most time in {viewLabel}</span>}
+                <span>
+                  Total: {TextUtils.secondsToTimestamp(partner.seconds)} (
+                  {partner.percent}%)
+                </span>
+                {roleBreakdown.topped.seconds > 0 && (
+                  <span>
+                    Topped:{" "}
+                    {TextUtils.secondsToTimestamp(roleBreakdown.topped.seconds)}{" "}
+                    ({roleBreakdown.topped.percent}%)
+                  </span>
+                )}
+                {roleBreakdown.bottomedFor.seconds > 0 && (
+                  <span>
+                    Bottomed For:{" "}
+                    {TextUtils.secondsToTimestamp(
+                      roleBreakdown.bottomedFor.seconds
+                    )}{" "}
+                    ({roleBreakdown.bottomedFor.percent}%)
+                  </span>
+                )}
+              </div>
+            </Tooltip>
+          }
+          placement="top"
+        >
+          <div
+            aria-label={`${viewLabel} with ${
+              partner.performer.name
+            }: ${TextUtils.secondsToTimestamp(partner.seconds)}, ${
+              partner.percent
+            }%`}
+            className="scene-stats-partner-composite"
+          >
+            <div
+              className="scene-stats-partner-composite-total"
+              style={{
+                width: `${Math.max(0, Math.min(100, totalComparisonPercent))}%`,
+              }}
+            >
+              {renderPartnerRoleLane(
+                `${viewLabel} Topped ${partner.performer.name}`,
+                toppedInteraction,
+                roleBreakdown.topped.seconds,
+                roleBreakdown.topped.percent,
+                view,
+                "topped"
+              )}
+              {renderPartnerRoleLane(
+                `${viewLabel} Bottomed For ${partner.performer.name}`,
+                bottomedForInteraction,
+                roleBreakdown.bottomedFor.seconds,
+                roleBreakdown.bottomedFor.percent,
+                view,
+                "bottomed"
+              )}
+            </div>
+            <span
+              aria-hidden="true"
+              className="scene-stats-partner-composite-value"
+            >
+              {partner.percent}%
+            </span>
+          </div>
+        </OverlayTrigger>
+      </td>
+    );
+  }
+
+  function renderPartnerTableRow(
+    entry: IPerformerStats,
+    partner: ISceneStatsPartnerSlice,
+    availablePartnerViews: SceneStatsInteractionView[]
+  ) {
+    const pairKey = getSceneStatsInteractionPairKey(
+      entry.performer.id,
+      partner.performer.id
+    );
+    const pair = interactionPairByKey.get(pairKey);
+    if (!pair) return null;
+
+    const selectionState = getPartnerRoleSelectionState(
+      entry.performer.id,
+      partner.performer.id,
+      "both"
+    );
+    return (
+      <tr className="scene-stats-partner-table-row" key={partner.performer.id}>
+        <th className="scene-stats-partner-table-partner" scope="row">
+          <Form.Check
+            checked={selectionState.active}
+            className={cx("custom-stats-check scene-stats-partner-check", {
+              "scene-stats-partner-check-partial": selectionState.partial,
+            })}
+            id={`scene-stats-${scene.id}-${pairKey}-all`}
+            label={
+              <span className="scene-stats-partner-label">
+                <span
+                  aria-hidden="true"
+                  className="scene-stats-partner-image"
+                  style={{
+                    backgroundImage: partner.performer.imagePath
+                      ? `url(${partner.performer.imagePath})`
+                      : undefined,
+                  }}
+                />
+                <span>{partner.performer.name}</span>
+              </span>
+            }
+            onChange={() =>
+              togglePartnerRoleSelection(
+                entry.performer.id,
+                partner.performer.id,
+                "both"
+              )
+            }
+          />
+        </th>
+        {availablePartnerViews.map((view) => {
+          const distribution = getPartnerDistribution(entry, view);
+          const viewPartner = distribution?.partners.find(
+            (candidate) =>
+              candidate.performer.id === partner.performer.id &&
+              candidate.percent > 0
           );
 
           return (
-            <div className="custom-stats-chart-row" key={row.key}>
-              <span
-                aria-hidden="true"
-                className="custom-stats-color-swatch"
-                style={{
-                  backgroundColor: row.isChild
-                    ? getStatsRowColor(row, soloMarkerColor)
-                    : "transparent",
-                }}
-              />
-              <Form.Check
-                className="custom-stats-check"
-                id={`scene-stats-${scene.id}-${selectionKey}`}
-                checked={selectedPerformerRows.has(selectionKey)}
-                label={row.isChild ? row.label : `All ${row.label}`}
-                onChange={() => togglePerformerRow(selectionKey)}
-              />
-              <span className="custom-stats-value">
-                {TextUtils.secondsToTimestamp(row.seconds)}
-              </span>
-              <span className="custom-stats-value">
-                {formatPercentValue(row)}
-              </span>
-            </div>
+            <React.Fragment key={view}>
+              {renderPartnerActivityCell(
+                entry.performer.id,
+                view,
+                pair,
+                distribution,
+                viewPartner
+              )}
+            </React.Fragment>
           );
         })}
+      </tr>
+    );
+  }
+
+  function renderPartnerTable(entry: IPerformerStats) {
+    const availablePartnerViews = getSceneStatsAvailablePartnerViews(
+      entry.partnerInteractions
+    );
+    const primaryDistribution = availablePartnerViews[0]
+      ? getPartnerDistribution(entry, availablePartnerViews[0])
+      : undefined;
+    if (!primaryDistribution) {
+      return (
+        <span className="scene-stats-no-interactions">
+          No partner interactions
+        </span>
+      );
+    }
+    const visiblePartners = primaryDistribution.partners.filter(
+      (partner) => partner.percent > 0
+    );
+    if (visiblePartners.length === 0) {
+      return (
+        <span className="scene-stats-no-interactions">
+          No partner interactions
+        </span>
+      );
+    }
+
+    return (
+      <>
+        <div className="scene-stats-partner-table-toolbar">
+          <span className="scene-stats-partner-legend-item scene-stats-partner-legend-item-topped">
+            Topped
+          </span>
+          <span className="scene-stats-partner-legend-item scene-stats-partner-legend-item-bottomed">
+            Bottomed For
+          </span>
+        </div>
+        <div className="scene-stats-partner-table-scroll">
+          <table className="scene-stats-partner-table">
+            <colgroup>
+              <col style={{ width: "28%" }} />
+              {availablePartnerViews.map((view) => (
+                <col key={view} />
+              ))}
+            </colgroup>
+            <thead>
+              <tr>
+                <th scope="col">Partner</th>
+                {availablePartnerViews.map((view) => (
+                  <th key={view} scope="col">
+                    {view === "both"
+                      ? "Overall"
+                      : view[0].toUpperCase() + view.slice(1)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visiblePartners.map((partner) =>
+                renderPartnerTableRow(entry, partner, availablePartnerViews)
+              )}
+            </tbody>
+          </table>
+        </div>
+      </>
+    );
+  }
+
+  function renderMatrixInteractionButton(
+    interaction: ISceneStatsRoleInteraction
+  ) {
+    const viewStats = getSceneStatsRoleInteractionView(
+      interaction,
+      interactionView,
+      roleInteractions
+    );
+    if (viewStats.seconds <= 0) {
+      return <span className="scene-stats-matrix-empty">—</span>;
+    }
+
+    const selectionState = getRoleInteractionSelectionState(
+      interaction,
+      interactionView
+    );
+    const viewLabel =
+      interactionView === "both" ? "combined Sex and Oral" : interactionView;
+
+    return (
+      <button
+        aria-label={`Select ${viewLabel} interactions with ${interaction.topPerformer.name} as Top and ${interaction.bottomPerformer.name} as Bottom`}
+        aria-pressed={selectionState.active}
+        className={cx("scene-stats-matrix-pair", {
+          "scene-stats-matrix-pair-active": selectionState.active,
+          "scene-stats-matrix-pair-partial": selectionState.partial,
+        })}
+        onClick={() => toggleRoleInteraction(interaction, interactionView)}
+        type="button"
+      >
+        <span aria-hidden="true" className="scene-stats-matrix-selector">
+          {selectionState.active ? "✓" : selectionState.partial ? "−" : ""}
+        </span>
+        <span
+          className={`scene-stats-matrix-category scene-stats-matrix-category-${interactionView}`}
+        >
+          <strong>
+            {interactionView === "both"
+              ? "B"
+              : interactionView === "sex"
+              ? "S"
+              : "O"}
+          </strong>
+          <span>{TextUtils.secondsToTimestamp(viewStats.seconds)}</span>
+          {shouldShowSceneStatsInteractionPercent(scene.performers.length) && (
+            <small>
+              Top {viewStats.topPercent}% · Bottom {viewStats.bottomPercent}%
+            </small>
+          )}
+        </span>
+      </button>
+    );
+  }
+
+  function renderInteractionMatrix() {
+    return (
+      <section className="scene-stats-interactions">
+        <div className="scene-stats-interaction-toolbar">
+          <h5>Interaction Matrix</h5>
+          <ButtonGroup aria-label="Interaction activity" size="sm">
+            {availableInteractionViews.map((view) => (
+              <Button
+                aria-pressed={interactionView === view}
+                key={view}
+                onClick={() => setInteractionView(view)}
+                variant={interactionView === view ? "primary" : "secondary"}
+              >
+                {view[0].toUpperCase() + view.slice(1)}
+              </Button>
+            ))}
+          </ButtonGroup>
+        </div>
+        <div className="scene-stats-matrix-scroll">
+          <table className="scene-stats-matrix">
+            <thead>
+              <tr>
+                <th
+                  aria-label="Rows are Top performers and columns are Bottom performers"
+                  className="scene-stats-matrix-corner"
+                />
+                {performerStats.map((entry) => (
+                  <th
+                    className="scene-stats-matrix-bottom-header"
+                    key={entry.performer.id}
+                    scope="col"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="scene-stats-matrix-performer-image"
+                      style={{
+                        backgroundImage: entry.performer.image_path
+                          ? `url(${entry.performer.image_path})`
+                          : undefined,
+                      }}
+                    />
+                    <span className="scene-stats-matrix-performer-name">
+                      {entry.performer.name}
+                    </span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {performerStats.map((rowEntry) => (
+                <tr key={rowEntry.performer.id}>
+                  <th className="scene-stats-matrix-top-header" scope="row">
+                    <span
+                      aria-hidden="true"
+                      className="scene-stats-matrix-performer-image"
+                      style={{
+                        backgroundImage: rowEntry.performer.image_path
+                          ? `url(${rowEntry.performer.image_path})`
+                          : undefined,
+                      }}
+                    />
+                    <span className="scene-stats-matrix-performer-name">
+                      {rowEntry.performer.name}
+                    </span>
+                  </th>
+                  {performerStats.map((columnEntry) => {
+                    if (columnEntry.performer.id === rowEntry.performer.id) {
+                      return (
+                        <td
+                          className="scene-stats-matrix-diagonal"
+                          key={columnEntry.performer.id}
+                        >
+                          —
+                        </td>
+                      );
+                    }
+
+                    const interactionKey = getSceneStatsRoleInteractionKey(
+                      rowEntry.performer.id,
+                      columnEntry.performer.id
+                    );
+                    const interaction =
+                      roleInteractionByKey.get(interactionKey);
+
+                    return (
+                      <td key={columnEntry.performer.id}>
+                        {interaction ? (
+                          renderMatrixInteractionButton(interaction)
+                        ) : (
+                          <span className="scene-stats-matrix-empty">—</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="scene-stats-matrix-mobile">
+          {roleInteractions.map((interaction) => (
+            <div
+              className="scene-stats-matrix-mobile-pair"
+              key={interaction.key}
+            >
+              <div className="scene-stats-matrix-mobile-names">
+                <span className="scene-stats-matrix-mobile-top">
+                  <strong>Top</strong>
+                  <span
+                    aria-hidden="true"
+                    className="scene-stats-matrix-performer-image"
+                    style={{
+                      backgroundImage: interaction.topPerformer.imagePath
+                        ? `url(${interaction.topPerformer.imagePath})`
+                        : undefined,
+                    }}
+                  />
+                  {interaction.topPerformer.name}
+                </span>
+                <span className="scene-stats-matrix-mobile-bottom">
+                  <strong>Bottom</strong>
+                  <span
+                    aria-hidden="true"
+                    className="scene-stats-matrix-performer-image"
+                    style={{
+                      backgroundImage: interaction.bottomPerformer.imagePath
+                        ? `url(${interaction.bottomPerformer.imagePath})`
+                        : undefined,
+                    }}
+                  />
+                  {interaction.bottomPerformer.name}
+                </span>
+              </div>
+              {renderMatrixInteractionButton(interaction)}
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  function renderLoopTray() {
+    return (
+      <div className="scene-stats-loop-tray">
+        <div className="scene-stats-loop-status">
+          {selectionCount > 0 && (
+            <>
+              <strong>
+                {selectionCount} selection
+                {selectionCount === 1 ? "" : "s"}
+              </strong>
+              <span>
+                {selectedLoopSegments.length} segment
+                {selectedLoopSegments.length === 1 ? "" : "s"}
+              </span>
+              <span>{TextUtils.secondsToTimestamp(selectedLoopDuration)}</span>
+            </>
+          )}
+        </div>
+        <div className="scene-stats-loop-actions">
+          <Button
+            disabled={selectionCount === 0}
+            onClick={clearLoopSelection}
+            size="sm"
+            type="button"
+            variant="outline-secondary"
+          >
+            Clear
+          </Button>
+          <Button
+            disabled={!canAddToLoop}
+            onClick={addSelectedActivitiesToLoop}
+            size="sm"
+            type="button"
+            variant="primary"
+          >
+            Add to Loop
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="scene-stats-panel mt-3">
-      <div className="custom-stats-overview mb-4">
-        <ActivityPieChart
-          centerLabel={TextUtils.secondsToTimestamp(activityStats.totalSeconds)}
-          className="custom-stats-overview-chart"
-          footer={renderActivityChartFooter(activityRows)}
-          showLegend={false}
-          slices={activityPieSlices}
-          title="Activity Type"
-        />
-        <ActivityPieChart
-          centerLabel={TextUtils.secondsToTimestamp(activityStats.totalSeconds)}
-          className="custom-stats-overview-chart"
-          footer={renderActivityChartFooter(qualityRows)}
-          showLegend={false}
-          slices={qualityPieSlices}
-          title="Quality"
-        />
+      <div className="scene-stats-overview-grid">
+        {renderOverviewPanel("Activity Type", activityRows, true)}
+        {renderOverviewPanel("Quality", qualityRows, true)}
       </div>
 
-      {performerStats.length > 0 && (
-        <>
-          <h5>By Performer</h5>
-          <div className="scene-stats-performer-list">
-            {performerStats.map((entry) => (
-              <div className="scene-stats-performer" key={entry.performer.id}>
-                <div className="scene-stats-performer-header">
-                  <div
-                    aria-hidden="true"
-                    className="scene-stats-performer-image"
-                    style={{
-                      backgroundImage: entry.performer.image_path
-                        ? `url(${entry.performer.image_path})`
-                        : undefined,
-                    }}
-                  />
-                  <div className="scene-stats-performer-name">
-                    {entry.performer.name}
-                  </div>
-                </div>
-                <div className="scene-stats-performer-charts">
-                  {entry.rows
-                    .filter((row) => row.category && !row.isChild)
-                    .map((row) => {
-                      if (!row.category) return null;
+      {performerStats.length > 0 &&
+        shouldShowSceneStatsDetails(scene.performers.length) && (
+          <Button
+            block
+            className="scene-stats-details-launch"
+            onClick={() => setShowDetailsModal(true)}
+            type="button"
+            variant="outline-primary"
+          >
+            Open Detailed Stats
+          </Button>
+        )}
 
-                      const roleSlices = getRolePieSlices(
-                        entry.rows,
-                        row.category
-                      );
-                      const roleRows = entry.rows.filter(
-                        (entryRow) =>
-                          entryRow.category === row.category && entryRow.role
-                      );
-                      if (roleSlices.length === 0) return null;
+      <ModalComponent
+        accept={{
+          onClick: () => setShowDetailsModal(false),
+          text: "Close",
+        }}
+        closeButton
+        dialogClassName="scene-stats-details-dialog"
+        header="Detailed Scene Stats"
+        modalProps={{ keyboard: true, size: "xl" }}
+        onHide={() => setShowDetailsModal(false)}
+        show={showDetailsModal}
+      >
+        <section className="scene-stats-detail-workspace">
+          {renderLoopTray()}
 
-                      return (
-                        <ActivityPieChart
-                          centerLabel={TextUtils.secondsToTimestamp(
-                            row.seconds
-                          )}
-                          className="scene-stats-performer-chart"
-                          footer={renderPerformerChartFooter(
-                            entry.performer.id,
-                            row,
-                            roleRows
-                          )}
-                          key={row.key}
-                          showLegend={false}
-                          size={150}
-                          slices={roleSlices}
-                          title={row.label}
-                        />
-                      );
-                    })}
-                  {showPartnerInteractionCharts &&
-                    (["sex", "oral"] as SceneStatsPartnerCategory[]).map(
-                      (category) => {
-                        const distribution =
-                          entry.partnerInteractions[category];
-                        if (!distribution) return null;
+          <div className="scene-stats-detail-toolbar">
+            <ButtonGroup aria-label="Scene stats detail view" size="sm">
+              <Button
+                aria-pressed={detailView === "performer"}
+                onClick={() => setDetailView("performer")}
+                variant={detailView === "performer" ? "primary" : "secondary"}
+              >
+                Performer Explorer
+              </Button>
+              {roleInteractions.length > 0 && (
+                <Button
+                  aria-pressed={detailView === "interactions"}
+                  onClick={() => setDetailView("interactions")}
+                  variant={
+                    detailView === "interactions" ? "primary" : "secondary"
+                  }
+                >
+                  Interaction Matrix
+                </Button>
+              )}
+            </ButtonGroup>
+          </div>
 
-                        const title =
-                          category[0].toUpperCase() + category.slice(1);
-
-                        return (
-                          <ActivityPieChart
-                            centerLabel={TextUtils.secondsToTimestamp(
-                              distribution.totalSeconds
-                            )}
-                            className="scene-stats-performer-chart"
-                            key={`${category}-partners`}
-                            size={150}
-                            slices={getPartnerPieSlices(
-                              distribution,
-                              performerNames
-                            )}
-                            title={`${title} Partners`}
-                          />
-                        );
+          {detailView === "performer" || roleInteractions.length === 0 ? (
+            <>
+              <div className="scene-stats-performer-navigation">
+                <div className="scene-stats-performer-ribbon">
+                  {performerStats.map((entry) => (
+                    <button
+                      aria-pressed={
+                        activePerformer?.performer.id === entry.performer.id
                       }
-                    )}
+                      className={cx("scene-stats-performer-choice", {
+                        "scene-stats-performer-choice-active":
+                          activePerformer?.performer.id === entry.performer.id,
+                      })}
+                      key={entry.performer.id}
+                      onClick={() => setActivePerformerID(entry.performer.id)}
+                      type="button"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="scene-stats-performer-choice-image"
+                        style={{
+                          backgroundImage: entry.performer.image_path
+                            ? `url(${entry.performer.image_path})`
+                            : undefined,
+                        }}
+                      />
+                      <span>{entry.performer.name}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
-        </>
-      )}
 
-      <Button
-        className="mt-3"
-        disabled={!canAddToLoop}
-        onClick={addSelectedActivitiesToLoop}
-        variant="secondary"
-      >
-        Add to Loop
-      </Button>
+              {activePerformer && (
+                <div className="scene-stats-performer-explorer">
+                  <div className="scene-stats-performer-focus-grid">
+                    <div className="scene-stats-performer-activities">
+                      <div className="scene-stats-section-heading">
+                        <h5>Activity & Roles</h5>
+                      </div>
+                      <div className="scene-stats-performer-activity-grid">
+                        {activePerformer.rows
+                          .filter(
+                            (row) =>
+                              row.category && !row.isChild && row.percent > 0
+                          )
+                          .map((row) =>
+                            renderPerformerActivity(activePerformer, row)
+                          )}
+                      </div>
+                    </div>
+                    {shouldShowSceneStatsPartnerInteractions(
+                      scene.performers.length
+                    ) && (
+                      <div className="scene-stats-performer-partners">
+                        <div className="scene-stats-section-heading">
+                          <h5>Partner Interactions</h5>
+                        </div>
+                        {renderPartnerTable(activePerformer)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            renderInteractionMatrix()
+          )}
+        </section>
+      </ModalComponent>
     </div>
   );
 };
