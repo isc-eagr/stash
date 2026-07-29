@@ -23,6 +23,8 @@ import {
 } from "./sceneStatsLoopSegments_custom"; // CUSTOM
 import {
   getSceneStatsCombinedPerformerActivity,
+  getSceneStatsPerformerActivityLabels,
+  getSceneStatsPerformerActivityPercent,
   type ISceneStatsPerformerActivityMetric,
 } from "./sceneStatsPerformerActivity_custom"; // CUSTOM
 import {
@@ -89,6 +91,7 @@ interface IStatsRow {
   seconds: number;
   percent: number;
   category?: PerformerActivityCategory;
+  totalActivitySeconds?: number;
   role?: "top" | "bottom";
   isChild?: boolean;
   markers?: IActivityMarker[];
@@ -503,10 +506,16 @@ function getPerformerStats(stats: IActivityStats): IPerformerStats[] {
           },
         ])
       ) as Record<ActivityCategory, ISceneStatsPerformerActivityMetric>;
+      const activityTotalSeconds: Record<ActivityCategory, number> = {
+        sex: stats.sexSeconds,
+        oral: stats.oralSeconds,
+        solo: stats.soloSeconds,
+      };
       const appendActivityRows = (
         category: PerformerActivityCategory,
         label: string,
         metric: ISceneStatsPerformerActivityMetric,
+        totalActivitySeconds: number,
         sourceCategories: ActivityCategory[],
         rolePercents?: { bottomPercent: number; topPercent: number }
       ) => {
@@ -516,8 +525,12 @@ function getPerformerStats(stats: IActivityStats): IPerformerStats[] {
           key: `${category}-total`,
           label,
           seconds: metric.totalSeconds,
-          percent: percent(metric.totalSeconds, stats.totalSeconds),
+          percent: getSceneStatsPerformerActivityPercent(
+            metric.totalSeconds,
+            totalActivitySeconds
+          ),
           category,
+          totalActivitySeconds,
           markers: sourceCategories.flatMap(
             (sourceCategory) => entry.markers[sourceCategory] ?? []
           ),
@@ -567,6 +580,7 @@ function getPerformerStats(stats: IActivityStats): IPerformerStats[] {
           "both",
           "Overall",
           combinedMetric,
+          stats.sexSeconds + stats.oralSeconds,
           ["sex", "oral"],
           combinedMetric
         );
@@ -576,6 +590,7 @@ function getPerformerStats(stats: IActivityStats): IPerformerStats[] {
           category,
           category[0].toUpperCase() + category.slice(1),
           categoryMetrics[category],
+          activityTotalSeconds[category],
           [category]
         );
       });
@@ -1119,19 +1134,26 @@ const SceneStatsPanel: React.FC<IProps> = ({
       entry.performer.id,
       categoryRow.key
     );
+    const activityLabels = getSceneStatsPerformerActivityLabels(
+      categoryRow.category ?? "sex"
+    );
 
     return (
       <section className="scene-stats-performer-activity" key={categoryRow.key}>
+        <div className="scene-stats-performer-activity-total">
+          <span>{activityLabels.sceneTotalLabel}</span>
+          <span className="custom-stats-value">
+            {TextUtils.secondsToTimestamp(
+              categoryRow.totalActivitySeconds ?? 0
+            )}
+          </span>
+        </div>
         <div className="scene-stats-performer-activity-heading">
           <Form.Check
             checked={selectedPerformerRows.has(categorySelectionKey)}
             className="custom-stats-check"
             id={`scene-stats-${scene.id}-${categorySelectionKey}`}
-            label={
-              categoryRow.category === "both"
-                ? categoryRow.label
-                : `All ${categoryRow.label}`
-            }
+            label={activityLabels.performerParticipationLabel}
             onChange={() => togglePerformerRow(categorySelectionKey)}
           />
           <span className="custom-stats-value">
@@ -1142,9 +1164,9 @@ const SceneStatsPanel: React.FC<IProps> = ({
           </span>
         </div>
         <div
-          aria-label={`${categoryRow.label}: ${formatPercentValue(
-            categoryRow
-          )}`}
+          aria-label={`${
+            activityLabels.performerParticipationLabel
+          }: ${formatPercentValue(categoryRow)}`}
           aria-valuemax={100}
           aria-valuemin={0}
           aria-valuenow={categoryRow.percent}
@@ -1296,6 +1318,7 @@ const SceneStatsPanel: React.FC<IProps> = ({
       partner.seconds,
       distribution
     );
+    const totalBarPercent = Math.max(0, Math.min(100, totalComparisonPercent));
     const isLeadingPartner = isSceneStatsLeadingPartner(
       partner.seconds,
       distribution
@@ -1347,36 +1370,74 @@ const SceneStatsPanel: React.FC<IProps> = ({
               partner.percent
             }%`}
             className="scene-stats-partner-composite"
+            style={{ width: `${totalBarPercent}%` }}
           >
-            <div
-              className="scene-stats-partner-composite-total"
-              style={{
-                width: `${Math.max(0, Math.min(100, totalComparisonPercent))}%`,
-              }}
-            >
-              {renderPartnerRoleLane(
-                `${viewLabel} Topped ${partner.performer.name}`,
-                toppedInteraction,
-                roleBreakdown.topped.seconds,
-                roleBreakdown.topped.percent,
-                view,
-                "topped"
-              )}
-              {renderPartnerRoleLane(
-                `${viewLabel} Bottomed For ${partner.performer.name}`,
-                bottomedForInteraction,
-                roleBreakdown.bottomedFor.seconds,
-                roleBreakdown.bottomedFor.percent,
-                view,
-                "bottomed"
-              )}
-            </div>
             <span
               aria-hidden="true"
               className="scene-stats-partner-composite-value"
             >
+              {TextUtils.secondsToTimestamp(partner.seconds)} ·{" "}
               {partner.percent}%
             </span>
+            <div className="scene-stats-partner-composite-track">
+              <div className="scene-stats-partner-composite-total">
+                {renderPartnerRoleLane(
+                  `${viewLabel} Topped ${partner.performer.name}`,
+                  toppedInteraction,
+                  roleBreakdown.topped.seconds,
+                  roleBreakdown.topped.percent,
+                  view,
+                  "topped"
+                )}
+                {renderPartnerRoleLane(
+                  `${viewLabel} Bottomed For ${partner.performer.name}`,
+                  bottomedForInteraction,
+                  roleBreakdown.bottomedFor.seconds,
+                  roleBreakdown.bottomedFor.percent,
+                  view,
+                  "bottomed"
+                )}
+              </div>
+              <div
+                aria-hidden="true"
+                className="scene-stats-partner-role-values"
+              >
+                <span
+                  style={{
+                    width: `${Math.max(
+                      0,
+                      Math.min(100, roleBreakdown.topped.percent)
+                    )}%`,
+                  }}
+                >
+                  {roleBreakdown.topped.seconds > 0 && (
+                    <>
+                      {TextUtils.secondsToTimestamp(
+                        roleBreakdown.topped.seconds
+                      )}{" "}
+                      · {roleBreakdown.topped.percent}%
+                    </>
+                  )}
+                </span>
+                <span
+                  style={{
+                    width: `${Math.max(
+                      0,
+                      Math.min(100, roleBreakdown.bottomedFor.percent)
+                    )}%`,
+                  }}
+                >
+                  {roleBreakdown.bottomedFor.seconds > 0 && (
+                    <>
+                      {TextUtils.secondsToTimestamp(
+                        roleBreakdown.bottomedFor.seconds
+                      )}{" "}
+                      · {roleBreakdown.bottomedFor.percent}%
+                    </>
+                  )}
+                </span>
+              </div>
+            </div>
           </div>
         </OverlayTrigger>
       </td>

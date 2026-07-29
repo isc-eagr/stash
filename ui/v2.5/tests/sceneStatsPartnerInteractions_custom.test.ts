@@ -89,23 +89,31 @@ assert.deepEqual(
 assert.deepEqual(
   interactions.main.oral,
   {
-    totalSeconds: 60,
+    totalSeconds: 30,
     partners: [
       {
         performer: chaseCarter,
         intervals: [{ start: 100, end: 130 }],
         seconds: 30,
-        percent: 50,
+        percent: 100,
       },
       {
         performer: dayDayRockafella,
         intervals: [{ start: 100, end: 130 }],
         seconds: 30,
-        percent: 50,
+        percent: 100,
       },
     ],
   },
-  "simultaneous oral partners each receive their interaction duration"
+  "simultaneous oral partners each retain their full share of unique performer time"
+);
+assert.equal(
+  interactions.main.oral?.partners.reduce(
+    (total, partner) => total + partner.percent,
+    0
+  ),
+  200,
+  "overlapping partner percentages can exceed 100%"
 );
 
 assert.equal(
@@ -117,13 +125,13 @@ assert.equal(
 assert.deepEqual(
   getSceneStatsOverallPartnerDistribution(interactions.main),
   {
-    totalSeconds: 160,
+    totalSeconds: 130,
     partners: [
       {
         performer: dayDayRockafella,
         intervals: [{ start: 32, end: 130 }],
         seconds: 98,
-        percent: 61,
+        percent: 75,
       },
       {
         performer: chaseCarter,
@@ -132,11 +140,11 @@ assert.deepEqual(
           { start: 100, end: 130 },
         ],
         seconds: 62,
-        percent: 39,
+        percent: 48,
       },
     ],
   },
-  "Overall Partners combines Sex and Oral time into one distribution"
+  "Overall Partners uses unioned Sex and Oral time without duplicating overlaps"
 );
 
 const overallPartnerDistribution = getSceneStatsOverallPartnerDistribution(
@@ -412,6 +420,42 @@ assert.deepEqual(
     topped: { percent: 0, seconds: 0 },
   },
   "missing role directions remain zero so the UI can hide them"
+);
+
+const pairBasedRoleMarkers = [
+  {
+    category: "sex",
+    interval: { start: 0, end: 120 },
+    topPerformers: [mainPerformer],
+    bottomPerformers: [chaseCarter],
+  },
+  {
+    category: "sex",
+    interval: { start: 120, end: 300 },
+    topPerformers: [chaseCarter],
+    bottomPerformers: [mainPerformer],
+  },
+];
+const pairBasedRoleInteractions =
+  getSceneStatsRoleInteractions(pairBasedRoleMarkers);
+const pairBasedInteractionPair = getSceneStatsInteractionPairs(
+  [mainPerformer, chaseCarter],
+  getSceneStatsPartnerInteractions(pairBasedRoleMarkers)
+)[0];
+
+assert.deepEqual(
+  getSceneStatsPartnerRoleBreakdown(
+    mainPerformer.id,
+    chaseCarter.id,
+    "sex",
+    pairBasedInteractionPair,
+    pairBasedRoleInteractions
+  ),
+  {
+    bottomedFor: { percent: 60, seconds: 180 },
+    topped: { percent: 40, seconds: 120 },
+  },
+  "visible role metrics use the pair's total time as their percentage denominator"
 );
 
 const oralOnlyMarkers = [

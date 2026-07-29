@@ -1,6 +1,46 @@
 import assert from "node:assert/strict";
 
-import { getSceneStatsCombinedPerformerActivity } from "../src/components/Scenes/SceneDetails/sceneStatsPerformerActivity_custom.ts";
+import {
+  getSceneStatsCombinedPerformerActivity,
+  getSceneStatsPerformerActivityLabels,
+  getSceneStatsPerformerActivityPercent,
+} from "../src/components/Scenes/SceneDetails/sceneStatsPerformerActivity_custom.ts";
+
+assert.deepEqual(
+  getSceneStatsPerformerActivityLabels("sex"),
+  {
+    performerParticipationLabel: "Performer Sex Participation",
+    sceneTotalLabel: "Total Scene Sex Activity",
+  },
+  "Sex activity clearly distinguishes the performer metric from its scene denominator"
+);
+
+assert.deepEqual(
+  getSceneStatsPerformerActivityLabels("both"),
+  {
+    performerParticipationLabel: "Performer Overall Participation",
+    sceneTotalLabel: "Total Scene Overall Activity (Sex + Oral)",
+  },
+  "Overall activity identifies its combined Sex and Oral denominator"
+);
+
+assert.equal(
+  getSceneStatsPerformerActivityPercent(240, 480),
+  50,
+  "performer participation uses the scene activity duration as its denominator"
+);
+
+assert.equal(
+  getSceneStatsPerformerActivityPercent(270, 600),
+  45,
+  "Overall participation uses the combined scene Sex and Oral duration"
+);
+
+assert.equal(
+  getSceneStatsPerformerActivityPercent(0, 0),
+  0,
+  "empty activity durations produce a zero percentage"
+);
 
 assert.deepEqual(
   getSceneStatsCombinedPerformerActivity(

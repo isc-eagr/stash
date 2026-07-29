@@ -120,6 +120,12 @@ function mergeDuration(intervals: ISceneStatsPartnerInterval[]) {
   );
 }
 
+function getUniquePartnerDuration(
+  partners: Array<{ intervals: ISceneStatsPartnerInterval[] }>
+) {
+  return mergeDuration(partners.flatMap((partner) => partner.intervals));
+}
+
 function addPartnerIntervals(
   interactionIntervals: Map<
     string,
@@ -200,10 +206,7 @@ export function getSceneStatsPartnerInteractions(
               };
             })
             .filter((partner) => partner.seconds > 0);
-          const totalSeconds = timedPartners.reduce(
-            (total, partner) => total + partner.seconds,
-            0
-          );
+          const totalSeconds = getUniquePartnerDuration(timedPartners);
           const partners = timedPartners
             .map((partner) => ({
               ...partner,
@@ -254,10 +257,7 @@ export function getSceneStatsOverallPartnerDistribution(
       };
     })
     .filter((partner) => partner.seconds > 0);
-  const totalSeconds = timedPartners.reduce(
-    (total, partner) => total + partner.seconds,
-    0
-  );
+  const totalSeconds = getUniquePartnerDuration(timedPartners);
   if (totalSeconds <= 0) return undefined;
 
   return {
