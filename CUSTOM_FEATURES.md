@@ -3022,6 +3022,8 @@ Adds marker-duration stats for configured sex, oral, solo, other, outstanding, s
 
 Studio cards and the Studio detail Stats tab use the same meaningful-scene denominator: a scene contributes its runtime only when it contains at least one configured oral, solo, or sex primary marker with a valid in-bounds start/end range. Activity and quality values on Studio cards now live in a hover panel on the studio image instead of occupying card-footer rows. Performer-scoped studio cards retain their performer-filtered denominator, with Unusable calculated from negative marker ranges in scenes containing that performer. Performer detail pages include a Stats tab with an activity pie chart and a selected-activity top/bottom role split chart. Scene detail pages keep only zero-suppressed, partitioned Activity Type and Quality overview bars in the sidebar, with duration, percentage, and loop selectors on the same rows. Detailed Scene Stats is unavailable for solo scenes. For scenes with at least two performers, an extra-wide, scrollable modal contains the full Performer Explorer, Interaction Matrix, and sticky loop tray. The Explorer uses a wrapping full-width performer selector whose active portrait expands in place, avoiding a duplicate focused-performer portrait. Activity & Roles and Partner Interactions each use the full modal width, with Partner Interactions shown only for group scenes containing at least three performers. Partner Interactions uses one row per partner with data-driven Overall, Sex, and Oral columns: empty activity columns are omitted, and Overall appears only when both Sex and Oral contain values. Each activity cell scales its total interaction track relative to that column's strongest partner, shows the total percentage directly on the track, and places independently selectable blue Topped and green Bottomed For lanes inside it; zero-time lanes stay empty, while durations and directional percentages remain in the tooltip. The highest-time partner cell in each column receives a blue highlight, with exact ties highlighted together. Selected lanes receive a role-colored aura without check/minus glyphs, and an aggregate Overall lane remains visually neutral when only one of its underlying activities is selected. The partner-row selector selects every available direction across Sex and Oral, while either colored lane can send only that role and activity combination to the multi-segment loop. The alternate Interaction Matrix fills the available desktop modal width with large performer portraits and names below each row/column portrait. It is directional: blue row headers represent Top performers, green column headers represent Bottom performers, and opposite Top-to-Bottom directions occupy separate cells. Sex and Oral views show their selected activity, while Both shows one combined, overlap-merged duration and percentage result and selects both categories for loop insertion. Empty activity views are omitted from the Matrix selector, and Both is offered only when Sex and Oral both contain interactions. Directional percentages are omitted for scenes with fewer than three performers because those values are invariably 100%. The sticky selection tray keeps the deduplicated segment count, duration, Clear action, and Add to Loop action visible while navigating either view. Partner time comes from opposite-role performers on each timed marker, merges overlapping ranges for the same partner, and is normalized across that performer's partner-time for the activity. One-millisecond Standard intervals are treated as closed gaps and are not added to the loop. Scene and Studio lists expose separate combined Activity Percentage (Sex/Oral/Solo/Other) and Quality Percentage (Outstanding/Standard/Unusable) filters plus individual sorts for all seven percentages. Studio SQL uses the same meaningful-scene denominator as the card/detail aggregates. Performer list pages retain marker-owned activity percentage filters and sorts only.
 
+When a performer has both Sex and Oral activity, Activity & Roles places an Overall card before the individual cards. Overall sums the two activity durations and their Top/Bottom durations, calculates role percentages against that combined total, and exposes combined whole-activity and role-specific loop selectors. It stays hidden when either activity is empty to avoid duplicating a single category.
+
 ### Files Modified
 
 - `graphql/schema/types/performer_custom.graphql` - Adds `PerformerActivityStats`
@@ -3055,6 +3057,7 @@ Studio cards and the Studio detail Stats tab use the same meaningful-scene denom
 - `ui/v2.5/src/components/Scenes/SceneDetails/SceneStatsPanel.tsx`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneStatsLoopSegments_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneStatsPartnerInteractions_custom.ts`
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneStatsPerformerActivity_custom.ts`
 - `ui/v2.5/src/models/list-filter/criteria/quality-type_custom.ts`
 - `ui/v2.5/src/components/List/Filters/QualityTypeFilter_custom.tsx`
 - `ui/v2.5/src/components/Shared/ActivityPieChart_custom.tsx`
@@ -3064,6 +3067,7 @@ Studio cards and the Studio detail Stats tab use the same meaningful-scene denom
 - `ui/v2.5/tests/activityPieChartTooltip_custom.test.ts`
 - `ui/v2.5/tests/sceneStatsLoopSegments_custom.test.ts`
 - `ui/v2.5/tests/sceneStatsPartnerInteractions_custom.test.ts`
+- `ui/v2.5/tests/sceneStatsPerformerActivity_custom.test.ts`
 
 ### Test Cases
 
@@ -3072,6 +3076,7 @@ Studio cards and the Studio detail Stats tab use the same meaningful-scene denom
 - `ui/v2.5/tests/activityPieChartTooltip_custom.test.ts` - Verifies slice tooltips show names and percentages without durations, follow the cursor, and stay within viewport edges
 - `ui/v2.5/tests/sceneStatsLoopSegments_custom.test.ts` - Verifies one-millisecond closed gaps are not emitted as multi-segment loop segments
 - `ui/v2.5/tests/sceneStatsPartnerInteractions_custom.test.ts` - Verifies opposite-role Sex/Oral/Overall partner distributions, max-relative partner bar scaling, per-pair Topped/Bottomed For splits, role-lane activity selection, partner images, simultaneous partners, overlap merging, canonical pair selection, distinct directional matrix cells, directional percentages, and combined Both-mode interval merging
+- `ui/v2.5/tests/sceneStatsPerformerActivity_custom.test.ts` - Verifies Overall sums Sex and Oral totals and Top/Bottom metrics, derives role percentages from the combined duration, and stays hidden when either activity is empty
 
 ---
 

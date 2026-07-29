@@ -22,6 +22,10 @@ import {
   buildIntervalLoopSegments,
 } from "./sceneStatsLoopSegments_custom"; // CUSTOM
 import {
+  getSceneStatsCombinedPerformerActivity,
+  type ISceneStatsPerformerActivityMetric,
+} from "./sceneStatsPerformerActivity_custom"; // CUSTOM
+import {
   getSceneStatsAvailableInteractionViews,
   getSceneStatsAvailablePartnerViews,
   getSceneStatsInteractionPairKey,
@@ -51,6 +55,7 @@ interface IProps {
 }
 
 type ActivityCategory = "sex" | "oral" | "solo";
+type PerformerActivityCategory = ActivityCategory | "both";
 type SceneStatsDetailView = "performer" | "interactions";
 type SceneStatsInteractionView = SceneStatsPartnerCategory | "both";
 
@@ -83,7 +88,7 @@ interface IStatsRow {
   label: string;
   seconds: number;
   percent: number;
-  category?: ActivityCategory;
+  category?: PerformerActivityCategory;
   role?: "top" | "bottom";
   isChild?: boolean;
   markers?: IActivityMarker[];
@@ -173,6 +178,7 @@ function formatPercentValue(row: Pick<IStatsRow, "percent">) {
 
 function getActivityColor(key: string, soloColor = ACTIVITY_PIE_COLORS.solo) {
   const colors: Record<string, string> = {
+    both: "#8f7ee7",
     sex: ACTIVITY_PIE_COLORS.sex,
     oral: ACTIVITY_PIE_COLORS.oral,
     solo: soloColor,
@@ -484,50 +490,94 @@ function getPerformerStats(stats: IActivityStats): IPerformerStats[] {
   return [...performerMap.values()]
     .map((entry) => {
       const rows: IStatsRow[] = [];
-      (["sex", "oral", "solo"] as ActivityCategory[]).forEach((category) => {
-        const totalSeconds = mergeDuration(entry.intervals[category] ?? []);
-        if (totalSeconds <= 0) return;
+      const categories: ActivityCategory[] = ["sex", "oral", "solo"];
+      const categoryMetrics = Object.fromEntries(
+        categories.map((category) => [
+          category,
+          {
+            bottomSeconds: mergeDuration(
+              entry.intervals[`${category}_bottom`] ?? []
+            ),
+            topSeconds: mergeDuration(entry.intervals[`${category}_top`] ?? []),
+            totalSeconds: mergeDuration(entry.intervals[category] ?? []),
+          },
+        ])
+      ) as Record<ActivityCategory, ISceneStatsPerformerActivityMetric>;
+      const appendActivityRows = (
+        category: PerformerActivityCategory,
+        label: string,
+        metric: ISceneStatsPerformerActivityMetric,
+        sourceCategories: ActivityCategory[],
+        rolePercents?: { bottomPercent: number; topPercent: number }
+      ) => {
+        if (metric.totalSeconds <= 0) return;
 
         rows.push({
           key: `${category}-total`,
-          label: category[0].toUpperCase() + category.slice(1),
-          seconds: totalSeconds,
-          percent: percent(totalSeconds, stats.totalSeconds),
+          label,
+          seconds: metric.totalSeconds,
+          percent: percent(metric.totalSeconds, stats.totalSeconds),
           category,
-          markers: entry.markers[category] ?? [],
+          markers: sourceCategories.flatMap(
+            (sourceCategory) => entry.markers[sourceCategory] ?? []
+          ),
         });
 
-        const topSeconds = mergeDuration(
-          entry.intervals[`${category}_top`] ?? []
-        );
-        const bottomSeconds = mergeDuration(
-          entry.intervals[`${category}_bottom`] ?? []
-        );
-
-        if (topSeconds > 0) {
+        if (metric.topSeconds > 0) {
           rows.push({
             key: `${category}-top`,
             label: "Top",
-            seconds: topSeconds,
-            percent: percent(topSeconds, totalSeconds),
+            seconds: metric.topSeconds,
+            percent:
+              rolePercents?.topPercent ??
+              percent(metric.topSeconds, metric.totalSeconds),
             category,
             role: "top",
             isChild: true,
-            markers: entry.markers[`${category}_top`] ?? [],
+            markers: sourceCategories.flatMap(
+              (sourceCategory) => entry.markers[`${sourceCategory}_top`] ?? []
+            ),
           });
         }
-        if (bottomSeconds > 0) {
+        if (metric.bottomSeconds > 0) {
           rows.push({
             key: `${category}-bottom`,
             label: "Bottom",
-            seconds: bottomSeconds,
-            percent: percent(bottomSeconds, totalSeconds),
+            seconds: metric.bottomSeconds,
+            percent:
+              rolePercents?.bottomPercent ??
+              percent(metric.bottomSeconds, metric.totalSeconds),
             category,
             role: "bottom",
             isChild: true,
-            markers: entry.markers[`${category}_bottom`] ?? [],
+            markers: sourceCategories.flatMap(
+              (sourceCategory) =>
+                entry.markers[`${sourceCategory}_bottom`] ?? []
+            ),
           });
         }
+      };
+      const combinedMetric = getSceneStatsCombinedPerformerActivity(
+        categoryMetrics.sex,
+        categoryMetrics.oral
+      );
+
+      if (combinedMetric) {
+        appendActivityRows(
+          "both",
+          "Overall",
+          combinedMetric,
+          ["sex", "oral"],
+          combinedMetric
+        );
+      }
+      categories.forEach((category) => {
+        appendActivityRows(
+          category,
+          category[0].toUpperCase() + category.slice(1),
+          categoryMetrics[category],
+          [category]
+        );
       });
 
       return {
@@ -1077,7 +1127,11 @@ const SceneStatsPanel: React.FC<IProps> = ({
             checked={selectedPerformerRows.has(categorySelectionKey)}
             className="custom-stats-check"
             id={`scene-stats-${scene.id}-${categorySelectionKey}`}
-            label={`All ${categoryRow.label}`}
+            label={
+              categoryRow.category === "both"
+                ? categoryRow.label
+                : `All ${categoryRow.label}`
+            }
             onChange={() => togglePerformerRow(categorySelectionKey)}
           />
           <span className="custom-stats-value">
