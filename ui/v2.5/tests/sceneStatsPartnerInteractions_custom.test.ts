@@ -6,6 +6,7 @@ import {
   getSceneStatsInteractionPairCategories,
   getSceneStatsInteractionPairIntervals,
   getSceneStatsInteractionPairs,
+  getSceneStatsLeadingRoleInteractionSeconds,
   getSceneStatsOverallPartnerDistribution,
   getSceneStatsPartnerBarPercent,
   getSceneStatsPartnerRoleBreakdown,
@@ -16,7 +17,6 @@ import {
   getSceneStatsRoleInteractionView,
   isSceneStatsLeadingPartner,
   shouldShowSceneStatsDetails,
-  shouldShowSceneStatsInteractionPercent,
   shouldShowSceneStatsPartnerInteractions,
   type ISceneStatsPartnerPerformer,
 } from "../src/components/Scenes/SceneDetails/sceneStatsPartnerInteractions_custom.ts";
@@ -186,16 +186,6 @@ assert.equal(
   }),
   true,
   "exact ties remain eligible for the highest-time highlight"
-);
-assert.equal(
-  shouldShowSceneStatsInteractionPercent(2),
-  false,
-  "directional percentages are hidden when a scene has fewer than three performers"
-);
-assert.equal(
-  shouldShowSceneStatsInteractionPercent(3),
-  true,
-  "directional percentages remain visible for group scenes"
 );
 assert.equal(
   shouldShowSceneStatsPartnerInteractions(2),
@@ -379,6 +369,16 @@ assert.deepEqual(
     topPercent: 50,
   },
   "Sex percentages use all matching Top and Bottom time as their denominators"
+);
+assert.equal(
+  getSceneStatsLeadingRoleInteractionSeconds(directionalInteractions, "both"),
+  60,
+  "the matrix identifies the longest interaction in the selected activity view"
+);
+assert.equal(
+  getSceneStatsLeadingRoleInteractionSeconds(directionalInteractions, "sex"),
+  40,
+  "equal longest interactions share the same leading duration"
 );
 
 const directionalPartnerInteractions = getSceneStatsPartnerInteractions([

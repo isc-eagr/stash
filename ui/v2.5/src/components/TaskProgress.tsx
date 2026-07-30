@@ -441,10 +441,7 @@ const TaskProgress: React.FC = () => {
           <FormattedMessage id="task_progress" defaultMessage="Task Progress" />
         </h2>
 
-        <Card
-          className="mb-4"
-          style={{ maxWidth: "600px", overflow: "visible" }}
-        >
+        <Card className="mb-4" style={{ overflow: "visible" }}>
           <Card.Body className="p-3" style={{ overflow: "visible" }}>
             <h6 className="mb-3">
               <FormattedMessage
@@ -453,91 +450,114 @@ const TaskProgress: React.FC = () => {
               />
             </h6>
             <Form>
-              <Form.Group controlId="new-tracker-title">
-                <Form.Label>Title</Form.Label>
-                <Form.Control
-                  type="text"
-                  placeholder="Tracker title"
-                  size="sm"
-                  value={newTracker.title}
-                  onChange={(event) =>
-                    setNewTracker((current) => ({
-                      ...current,
-                      title: event.target.value,
-                    }))
-                  }
-                />
-              </Form.Group>
-              <Form.Group controlId="new-tracker-description">
-                <Form.Label>Description</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={2}
-                  placeholder="What are you tracking?"
-                  size="sm"
-                  value={newTracker.description}
-                  onChange={(event) =>
-                    setNewTracker((current) => ({
-                      ...current,
-                      description: event.target.value,
-                    }))
-                  }
-                />
-              </Form.Group>
-              <Form.Group controlId="new-tracker-started-on">
-                <Form.Label>Started On</Form.Label>
-                <Form.Control
-                  type="text"
-                  placeholder="DD/MM/YYYY"
-                  size="sm"
-                  value={newTracker.startedOn}
-                  onChange={(event) =>
-                    setNewTracker((current) => ({
-                      ...current,
-                      startedOn: event.target.value,
-                    }))
-                  }
-                />
-                <Form.Text className="text-muted">
-                  Defaults to today. Use DD/MM/YYYY.
-                </Form.Text>
-              </Form.Group>
-              <Form.Group controlId="new-tracker-tag">
-                <Form.Label>Tag</Form.Label>
-                <div style={{ zIndex: 1000, position: "relative" }}>
-                  <TagSelect
-                    isMulti={false}
-                    onSelect={handleNewTagSelect}
-                    values={selectedTag(newTracker)}
+              <div className="form-row">
+                <Form.Group
+                  className="col-12 col-md-6 col-xl-2"
+                  controlId="new-tracker-title"
+                >
+                  <Form.Label>Title</Form.Label>
+                  <Form.Control
+                    type="text"
+                    placeholder="Tracker title"
+                    size="sm"
+                    value={newTracker.title}
+                    onChange={(event) =>
+                      setNewTracker((current) => ({
+                        ...current,
+                        title: event.target.value,
+                      }))
+                    }
                   />
-                </div>
-                <Form.Text className="text-muted">
-                  The goal will be set to this tag&apos;s current item count.
-                </Form.Text>
-              </Form.Group>
+                </Form.Group>
+                <Form.Group
+                  className="col-12 col-md-6 col-xl-3"
+                  controlId="new-tracker-description"
+                >
+                  <Form.Label>Description</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={2}
+                    placeholder="What are you tracking?"
+                    size="sm"
+                    value={newTracker.description}
+                    onChange={(event) =>
+                      setNewTracker((current) => ({
+                        ...current,
+                        description: event.target.value,
+                      }))
+                    }
+                  />
+                </Form.Group>
+                <Form.Group
+                  className="col-12 col-md-6 col-xl-2"
+                  controlId="new-tracker-started-on"
+                >
+                  <Form.Label>Started On</Form.Label>
+                  <Form.Control
+                    type="text"
+                    placeholder="DD/MM/YYYY"
+                    size="sm"
+                    value={newTracker.startedOn}
+                    onChange={(event) =>
+                      setNewTracker((current) => ({
+                        ...current,
+                        startedOn: event.target.value,
+                      }))
+                    }
+                  />
+                  <Form.Text className="text-muted">
+                    Defaults to today. Use DD/MM/YYYY.
+                  </Form.Text>
+                </Form.Group>
+                <Form.Group
+                  className="col-12 col-md-6 col-xl-3"
+                  controlId="new-tracker-tag"
+                >
+                  <Form.Label>Tag</Form.Label>
+                  <div style={{ zIndex: 1000, position: "relative" }}>
+                    <TagSelect
+                      isMulti={false}
+                      onSelect={handleNewTagSelect}
+                      values={selectedTag(newTracker)}
+                    />
+                  </div>
+                  <Form.Text className="text-muted">
+                    The goal will be set to this tag&apos;s current item count.
+                  </Form.Text>
+                </Form.Group>
+                <Form.Group className="col-12 col-xl-2">
+                  <Form.Label
+                    aria-hidden="true"
+                    className="d-none d-xl-block invisible"
+                  >
+                    Action
+                  </Form.Label>
+                  <Button
+                    className="text-nowrap"
+                    variant="primary"
+                    size="sm"
+                    onClick={addTracker}
+                    disabled={
+                      !newTracker.title.trim() ||
+                      !newTracker.tagId ||
+                      !parseTaskProgressDate(newTracker.startedOn) ||
+                      isCreating
+                    }
+                  >
+                    <Icon icon={faPlus} className="mr-1" />
+                    {isCreating ? "Counting items..." : "Add Tracker"}
+                  </Button>
+                </Form.Group>
+              </div>
               {createError && (
                 <div className="text-danger mb-2">{createError}</div>
               )}
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={addTracker}
-                disabled={
-                  !newTracker.title.trim() ||
-                  !newTracker.tagId ||
-                  !parseTaskProgressDate(newTracker.startedOn) ||
-                  isCreating
-                }
-              >
-                <Icon icon={faPlus} className="mr-1" />
-                {isCreating ? "Counting items..." : "Add Tracker"}
-              </Button>
             </Form>
           </Card.Body>
         </Card>
 
         {!statsLoading && statsData && (
-          <Card className="mb-4" style={{ maxWidth: "600px" }}>
+          <Card className="mb-4">
             <Card.Body className="p-3">
               <h6 className="mb-2">Overall Progress</h6>
               <div className="mb-2">

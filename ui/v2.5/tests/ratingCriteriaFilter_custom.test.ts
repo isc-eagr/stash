@@ -65,6 +65,21 @@ assert.deepEqual(
     { value: 4, label: "Nearly unskippable" },
   ]
 );
+const orgasmQualityChoices = [
+  { value: 0, label: "Absent/bad orgasms" },
+  { value: 1, label: "Below average orgasms" },
+  { value: 2, label: "Standard orgasms" },
+  { value: 3, label: "Above average" },
+  { value: 4, label: "Outstanding orgasms" },
+];
+assert.deepEqual(
+  sceneCriteria.find((definition) => definition.key === "payoff")?.choices,
+  orgasmQualityChoices
+);
+assert.deepEqual(
+  sceneCriteria.find((definition) => definition.key === "groupPayoff")?.choices,
+  orgasmQualityChoices
+);
 
 const criterion = new RatingCriteriaCriterion(
   SceneRatingCriteriaCriterionOption

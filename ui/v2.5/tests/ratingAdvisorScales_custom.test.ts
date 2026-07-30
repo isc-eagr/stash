@@ -8,11 +8,13 @@ import {
   getRatingAdvisorCompletionCustom,
   getRatingAdvisorChoiceHeatLevelCustom,
   getRatingAdvisorChoiceScoreCustom,
+  getSceneOrgasmQualityFilterChoicesCustom,
   normalizeRatingAdvisorScoreValueCustom,
   ratingAdvisorSixLevelChoicesCustom,
   SCENE_ENERGY_WEIGHT_CUSTOM,
   SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM,
   SCENE_NO_ORGASM_PENALTY_CUSTOM,
+  SCENE_ORGASM_QUALITY_CHOICES_CUSTOM,
   SCENE_USABLE_FACTOR_MAX_CUSTOM,
   SCENE_USABLE_FACTOR_WEIGHT_CUSTOM,
 } from "../src/components/Shared/ratingAdvisorScales_custom.ts";
@@ -55,6 +57,42 @@ assert.equal(
   20,
   "regular scene usable factor contributes at most 20 rating points"
 );
+assert.deepEqual(SCENE_ORGASM_QUALITY_CHOICES_CUSTOM, [
+  {
+    value: 0,
+    label: "Absent/bad orgasms",
+    description:
+      "No orgasm, very obviously fake, or it is actively bad, off camera, or off-putting.",
+  },
+  {
+    value: 1,
+    label: "Below average orgasms",
+    description:
+      "The orgasms are there, but they are weak, barely there, or unimpressive.",
+  },
+  {
+    value: 2,
+    label: "Standard orgasms",
+    description: "A solid orgasm. Hot, just not legendary.",
+  },
+  {
+    value: 3,
+    label: "Above average",
+    description: "A hot nut or facial that gives the scene a real bump.",
+  },
+  {
+    value: 4,
+    label: "Outstanding orgasms",
+    description: "That orgasm or facial is the damn highlight.",
+  },
+]);
+assert.deepEqual(getSceneOrgasmQualityFilterChoicesCustom(), [
+  { value: 0, label: "Absent/bad orgasms" },
+  { value: 1, label: "Below average orgasms" },
+  { value: 2, label: "Standard orgasms" },
+  { value: 3, label: "Above average" },
+  { value: 4, label: "Outstanding orgasms" },
+]);
 
 const choices = ratingAdvisorSixLevelChoicesCustom([
   { label: "Not Attractive", description: "No pull." },

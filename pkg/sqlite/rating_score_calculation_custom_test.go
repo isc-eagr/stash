@@ -88,15 +88,27 @@ func TestCanonicalRatingScoreContributionRecomputesPerformerWeight(t *testing.T)
 	assert.InDelta(t, 3, canonicalRatingScoreContributionCustom(row), 0.0001)
 }
 
-func TestCanonicalRatingScoreContributionHonorsSparseChoices(t *testing.T) {
-	row := ratingScoreRow{
-		EntityType: models.RatingEntityScene,
-		Section:    models.RatingScoreSectionCriterion,
-		Key:        "payoff",
-		RawValue:   1,
-	}
+func TestCanonicalRatingScoreContributionSupportsEveryOrgasmQualityLevel(t *testing.T) {
+	for _, key := range []string{"payoff", "groupPayoff"} {
+		for rawValue, expected := range []float64{0, 0.5, 1, 1.5, 2} {
+			row := ratingScoreRow{
+				EntityType: models.RatingEntityScene,
+				Section:    models.RatingScoreSectionCriterion,
+				Key:        key,
+				RawValue:   float64(rawValue),
+			}
 
-	assert.Zero(t, canonicalRatingScoreContributionCustom(row))
+			assert.InDelta(
+				t,
+				expected,
+				canonicalRatingScoreContributionCustom(row),
+				0.0001,
+				"%s level %d",
+				key,
+				rawValue,
+			)
+		}
+	}
 }
 
 func TestCanonicalRatingScoreInputRejectsUnsupportedValues(t *testing.T) {
@@ -104,11 +116,21 @@ func TestCanonicalRatingScoreInputRejectsUnsupportedValues(t *testing.T) {
 		defaultSceneRatingRubricCustom,
 		models.RatingScoreSectionCriterion,
 		"payoff",
-		1,
+		1.5,
 	)
 	assert.Error(t, err)
 
 	raw, weighted, err := canonicalRatingScoreInputCustom(
+		defaultSceneRatingRubricCustom,
+		models.RatingScoreSectionCriterion,
+		"payoff",
+		1,
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, 1.0, raw)
+	assert.InDelta(t, 0.5, weighted, 0.0001)
+
+	raw, weighted, err = canonicalRatingScoreInputCustom(
 		performerRatingRubricCustom,
 		models.RatingScoreSectionCriterion,
 		"face",

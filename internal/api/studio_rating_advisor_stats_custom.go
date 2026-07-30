@@ -100,7 +100,7 @@ var studioRatingAdvisorConfigsCustom = map[string]studioRatingAdvisorSectionConf
 			"topAttractiveness":    studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(5), 0.6),
 			"bottomAttractiveness": studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(5), 0.2),
 			"chemistry":            studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(5), 0.4),
-			"payoff":               studioRatingAdvisorMetricCustom([]float64{0, 2, 3, 4}, 0.5),
+			"payoff":               studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(4), 0.5),
 			"standout":             studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(4), 0.5),
 		},
 		criterionOrder: []string{"topAttractiveness", "bottomAttractiveness", "chemistry", "payoff", "standout"},
@@ -114,7 +114,7 @@ var studioRatingAdvisorConfigsCustom = map[string]studioRatingAdvisorSectionConf
 		criteria: map[string]studioRatingAdvisorMetricConfigCustom{
 			"groupTopAttractiveness": studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(5), 0.4),
 			"groupEnergy":            studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(5), 0.8),
-			"groupPayoff":            studioRatingAdvisorMetricCustom([]float64{0, 2, 3, 4}, 0.5),
+			"groupPayoff":            studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(4), 0.5),
 			"groupUsability":         studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(4), 0.5),
 		},
 		criterionOrder: []string{"groupTopAttractiveness", "groupEnergy", "groupPayoff", "groupUsability"},

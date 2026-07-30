@@ -26,6 +26,7 @@ import {
   SCENE_ENERGY_WEIGHT_CUSTOM,
   SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM,
   SCENE_NO_ORGASM_PENALTY_CUSTOM,
+  SCENE_ORGASM_QUALITY_CHOICES_CUSTOM,
   SCENE_USABLE_FACTOR_MAX_CUSTOM,
   SCENE_USABLE_FACTOR_WEIGHT_CUSTOM,
 } from "./ratingAdvisorScales_custom";
@@ -174,28 +175,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     max: 4,
     weight: 0.5,
     hint: "How good the orgasms, facials, and final payoff are.",
-    choices: [
-      {
-        value: 0,
-        label: "Unremarkable orgasms",
-        description: "He came, but it was weak, hidden, or easy to forget.",
-      },
-      {
-        value: 2,
-        label: "Standard orgasms",
-        description: "A solid orgasm. Hot, just not legendary.",
-      },
-      {
-        value: 3,
-        label: "Above average",
-        description: "A hot nut or facial that gives the scene a real bump.",
-      },
-      {
-        value: 4,
-        label: "Outstanding orgasms",
-        description: "That orgasm or facial is the damn highlight.",
-      },
-    ],
+    choices: SCENE_ORGASM_QUALITY_CHOICES_CUSTOM,
   },
   {
     key: "theme",

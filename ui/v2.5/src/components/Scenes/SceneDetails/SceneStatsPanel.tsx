@@ -32,6 +32,7 @@ import {
   getSceneStatsAvailablePartnerViews,
   getSceneStatsInteractionPairKey,
   getSceneStatsInteractionPairs,
+  getSceneStatsLeadingRoleInteractionSeconds,
   getSceneStatsOverallPartnerDistribution,
   getSceneStatsPartnerBarPercent,
   getSceneStatsPartnerInteractions,
@@ -42,7 +43,6 @@ import {
   getSceneStatsRoleInteractionView,
   isSceneStatsLeadingPartner,
   shouldShowSceneStatsDetails,
-  shouldShowSceneStatsInteractionPercent,
   shouldShowSceneStatsPartnerInteractions,
   type ISceneStatsInteractionPair,
   type ISceneStatsPartnerDistribution,
@@ -1584,7 +1584,8 @@ const SceneStatsPanel: React.FC<IProps> = ({
   }
 
   function renderMatrixInteractionButton(
-    interaction: ISceneStatsRoleInteraction
+    interaction: ISceneStatsRoleInteraction,
+    leadingInteractionSeconds: number
   ) {
     const viewStats = getSceneStatsRoleInteractionView(
       interaction,
@@ -1601,13 +1602,18 @@ const SceneStatsPanel: React.FC<IProps> = ({
     );
     const viewLabel =
       interactionView === "both" ? "combined Sex and Oral" : interactionView;
+    const timestamp = TextUtils.secondsToTimestamp(viewStats.seconds);
+    const isLeadingInteraction =
+      leadingInteractionSeconds > 0 &&
+      viewStats.seconds === leadingInteractionSeconds;
 
     return (
       <button
-        aria-label={`Select ${viewLabel} interactions with ${interaction.topPerformer.name} as Top and ${interaction.bottomPerformer.name} as Bottom`}
+        aria-label={`Select ${viewLabel} interactions with ${interaction.topPerformer.name} as Top and ${interaction.bottomPerformer.name} as Bottom (${timestamp})`}
         aria-pressed={selectionState.active}
         className={cx("scene-stats-matrix-pair", {
           "scene-stats-matrix-pair-active": selectionState.active,
+          "scene-stats-matrix-pair-leading": isLeadingInteraction,
           "scene-stats-matrix-pair-partial": selectionState.partial,
         })}
         onClick={() => toggleRoleInteraction(interaction, interactionView)}
@@ -1616,28 +1622,18 @@ const SceneStatsPanel: React.FC<IProps> = ({
         <span aria-hidden="true" className="scene-stats-matrix-selector">
           {selectionState.active ? "✓" : selectionState.partial ? "−" : ""}
         </span>
-        <span
-          className={`scene-stats-matrix-category scene-stats-matrix-category-${interactionView}`}
-        >
-          <strong>
-            {interactionView === "both"
-              ? "B"
-              : interactionView === "sex"
-              ? "S"
-              : "O"}
-          </strong>
-          <span>{TextUtils.secondsToTimestamp(viewStats.seconds)}</span>
-          {shouldShowSceneStatsInteractionPercent(scene.performers.length) && (
-            <small>
-              Top {viewStats.topPercent}% · Bottom {viewStats.bottomPercent}%
-            </small>
-          )}
-        </span>
+        <span className="scene-stats-matrix-time">{timestamp}</span>
       </button>
     );
   }
 
   function renderInteractionMatrix() {
+    const leadingInteractionSeconds =
+      getSceneStatsLeadingRoleInteractionSeconds(
+        roleInteractions,
+        interactionView
+      );
+
     return (
       <section className="scene-stats-interactions">
         <div className="scene-stats-interaction-toolbar">
@@ -1724,7 +1720,10 @@ const SceneStatsPanel: React.FC<IProps> = ({
                     return (
                       <td key={columnEntry.performer.id}>
                         {interaction ? (
-                          renderMatrixInteractionButton(interaction)
+                          renderMatrixInteractionButton(
+                            interaction,
+                            leadingInteractionSeconds
+                          )
                         ) : (
                           <span className="scene-stats-matrix-empty">—</span>
                         )}
@@ -1770,7 +1769,10 @@ const SceneStatsPanel: React.FC<IProps> = ({
                   {interaction.bottomPerformer.name}
                 </span>
               </div>
-              {renderMatrixInteractionButton(interaction)}
+              {renderMatrixInteractionButton(
+                interaction,
+                leadingInteractionSeconds
+              )}
             </div>
           ))}
         </div>

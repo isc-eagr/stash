@@ -302,12 +302,6 @@ export function isSceneStatsLeadingPartner(
   return partnerSeconds === maximumPartnerSeconds;
 }
 
-export function shouldShowSceneStatsInteractionPercent(
-  scenePerformerCount: number
-) {
-  return scenePerformerCount >= 3;
-}
-
 export function shouldShowSceneStatsPartnerInteractions(
   scenePerformerCount: number
 ) {
@@ -540,6 +534,20 @@ function getSceneStatsRoleInteractionViewIntervals(
   return mergeSceneStatsInteractionIntervals(
     categories.flatMap(
       (category) => interaction.categories[category]?.intervals ?? []
+    )
+  );
+}
+
+export function getSceneStatsLeadingRoleInteractionSeconds(
+  interactions: ISceneStatsRoleInteraction[],
+  view: SceneStatsPartnerCategory | "both"
+) {
+  return Math.max(
+    0,
+    ...interactions.map((interaction) =>
+      mergeDuration(
+        getSceneStatsRoleInteractionViewIntervals(interaction, view)
+      )
     )
   );
 }

@@ -11,6 +11,44 @@ export const SCENE_ENERGY_WEIGHT_CUSTOM = 0.4;
 export const SCENE_USABLE_FACTOR_MAX_CUSTOM = 4;
 export const SCENE_USABLE_FACTOR_WEIGHT_CUSTOM = 0.5;
 
+export const SCENE_ORGASM_QUALITY_CHOICES_CUSTOM: IRatingAdvisorChoiceCustom[] =
+  [
+    {
+      value: 0,
+      label: "Absent/bad orgasms",
+      description:
+        "No orgasm, very obviously fake, or it is actively bad, off camera, or off-putting.",
+    },
+    {
+      value: 1,
+      label: "Below average orgasms",
+      description:
+        "The orgasms are there, but they are weak, barely there, or unimpressive.",
+    },
+    {
+      value: 2,
+      label: "Standard orgasms",
+      description: "A solid orgasm. Hot, just not legendary.",
+    },
+    {
+      value: 3,
+      label: "Above average",
+      description: "A hot nut or facial that gives the scene a real bump.",
+    },
+    {
+      value: 4,
+      label: "Outstanding orgasms",
+      description: "That orgasm or facial is the damn highlight.",
+    },
+  ];
+
+export function getSceneOrgasmQualityFilterChoicesCustom() {
+  return SCENE_ORGASM_QUALITY_CHOICES_CUSTOM.map(({ value, label }) => ({
+    value,
+    label,
+  }));
+}
+
 export type RatingAdvisorEntityCustom = "scene" | "performer";
 
 function getRatingAdvisorOrgasmMilestoneBonusCustom(count: number) {

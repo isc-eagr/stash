@@ -29,7 +29,7 @@ var defaultSceneRatingRubricCustom = ratingScoreRubricCustom{
 		"topAttractiveness":    {choices: ratingRangeChoicesCustom(5), weight: 0.6},
 		"bottomAttractiveness": {choices: ratingRangeChoicesCustom(5), weight: 0.2},
 		"chemistry":            {choices: ratingRangeChoicesCustom(5), weight: 0.4},
-		"payoff":               {choices: []float64{0, 2, 3, 4}, weight: 0.5},
+		"payoff":               {choices: ratingRangeChoicesCustom(4), weight: 0.5},
 		"standout":             {choices: ratingRangeChoicesCustom(4), weight: 0.5},
 	},
 	models.RatingScoreSectionBonus: {
@@ -49,7 +49,7 @@ var groupSceneRatingRubricCustom = ratingScoreRubricCustom{
 	models.RatingScoreSectionCriterion: {
 		"groupTopAttractiveness": {choices: ratingRangeChoicesCustom(5), weight: 0.4},
 		"groupEnergy":            {choices: ratingRangeChoicesCustom(5), weight: 0.8},
-		"groupPayoff":            {choices: []float64{0, 2, 3, 4}, weight: 0.5},
+		"groupPayoff":            {choices: ratingRangeChoicesCustom(4), weight: 0.5},
 		"groupUsability":         {choices: ratingRangeChoicesCustom(4), weight: 0.5},
 	},
 	models.RatingScoreSectionBonus: {

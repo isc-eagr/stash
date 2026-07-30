@@ -1,5 +1,6 @@
 import { IntlShape } from "react-intl";
 import { GROUP_SCENE_RATING_KEYS_CUSTOM } from "src/components/Shared/groupSceneRating_custom";
+import { getSceneOrgasmQualityFilterChoicesCustom } from "src/components/Shared/ratingAdvisorScales_custom";
 import { SOLO_SCENE_RATING_KEYS_CUSTOM } from "src/components/Shared/soloSceneRating_custom";
 import { CriterionModifier } from "src/core/generated-graphql";
 import { Criterion, CriterionOption } from "./criterion";
@@ -125,24 +126,7 @@ const performanceChoices = [
   "Perfect",
 ].map((label, value) => ({ value, label }));
 
-const payoffChoices = [
-  {
-    value: 0,
-    label: "Unremarkable orgasms",
-  },
-  {
-    value: 2,
-    label: "Standard orgasms",
-  },
-  {
-    value: 3,
-    label: "Above average",
-  },
-  {
-    value: 4,
-    label: "Outstanding orgasms",
-  },
-];
+const payoffChoices = getSceneOrgasmQualityFilterChoicesCustom();
 
 const usableFactorChoices = [
   {

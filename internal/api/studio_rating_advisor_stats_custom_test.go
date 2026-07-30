@@ -66,6 +66,21 @@ func studioRatingAdvisorAdjustmentCustom(t *testing.T, section *StudioRatingAdvi
 	return nil
 }
 
+func TestStudioRatingAdvisorStatsCustomSupportsBelowAverageOrgasmQuality(t *testing.T) {
+	for _, test := range []struct {
+		category string
+		key      string
+	}{
+		{category: studioRatingAdvisorSexScenesCustom, key: "payoff"},
+		{category: studioRatingAdvisorGroupScenesCustom, key: "groupPayoff"},
+	} {
+		metric := studioRatingAdvisorConfigsCustom[test.category].criteria[test.key]
+		require.Equal(t, []float64{0, 1, 2, 3, 4}, metric.choices)
+		require.InDelta(t, 0.5, studioRatingAdvisorWeightedValueCustom(metric, 1), 0.0001)
+		require.InDelta(t, 25, studioRatingAdvisorFillPercentCustom(metric, 1), 0.0001)
+	}
+}
+
 func TestStudioRatingAdvisorStatsCustomAveragesOnlySetCriteria(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
