@@ -8,6 +8,7 @@ import { useIntl } from "react-intl";
 import { useConfigurationContext } from "src/hooks/Config";
 
 interface ICountButtonProps {
+  className?: string; // CUSTOM
   value: number;
   icon: React.ReactNode;
   onIncrement?: () => void;
@@ -17,6 +18,7 @@ interface ICountButtonProps {
 }
 
 export const CountButton: React.FC<ICountButtonProps> = ({
+  className, // CUSTOM
   value,
   icon,
   onIncrement,
@@ -26,7 +28,11 @@ export const CountButton: React.FC<ICountButtonProps> = ({
 }) => {
   return (
     <ButtonGroup
-      className={cx("count-button", { "increment-only": !onValueClicked })}
+      className={cx(
+        "count-button",
+        { "increment-only": !onValueClicked },
+        className
+      )} // CUSTOM
     >
       <Button
         className="minimal count-icon"

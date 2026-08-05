@@ -63,3 +63,29 @@
   margin-left: auto;
   width: 1.2rem;
 }
+
+/* CUSTOM: emphasize an existing card value when it owns the active sort */
+.catalog-sort-highlight.catalog-sort-highlight {
+  --catalog-sort-metric-accent-rgb: 76, 214, 129;
+
+  background-color: rgba(var(--catalog-sort-metric-accent-rgb), 0.12);
+  border-radius: 0.35rem;
+  box-shadow: 0 0 0 1px rgba(var(--catalog-sort-metric-accent-rgb), 0.58),
+    0 0 10px rgba(var(--catalog-sort-metric-accent-rgb), 0.2);
+  color: rgb(var(--catalog-sort-metric-accent-rgb));
+  outline: 1px solid rgba(var(--catalog-sort-metric-accent-rgb), 0.34);
+  outline-offset: 1px;
+}
+
+.catalog-sort-highlight.catalog-sort-highlight > .btn,
+.catalog-sort-highlight.catalog-sort-highlight.btn,
+.catalog-sort-highlight.catalog-sort-highlight a,
+.catalog-sort-highlight.catalog-sort-highlight span {
+  color: inherit;
+}
+
+.catalog-sort-highlight.rating-banner {
+  border: 1px solid rgba(var(--catalog-sort-metric-accent-rgb), 0.85);
+  box-shadow: 0 0 0 1px rgba(var(--catalog-sort-metric-accent-rgb), 0.38),
+    0 0 12px rgba(var(--catalog-sort-metric-accent-rgb), 0.36);
+}

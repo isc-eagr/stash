@@ -34,6 +34,11 @@ import facialPng from "src/assets/facial.png"; // CUSTOM
 import { StudioActivityMetricsStrip } from "./StudioActivityMetricsStrip"; // CUSTOM
 import { StudioRatingAdvisorPopover } from "./StudioRatingAdvisorPopover_custom"; // CUSTOM
 import { StudioSortMetricStrip } from "./StudioSortMetricStrip_custom"; // CUSTOM
+import {
+  catalogCardSortHighlightClassCustom,
+  hasCatalogCardSortValueCustom,
+  isCatalogCardSortHighlightedCustom,
+} from "../Shared/catalogCardSortHighlight_custom"; // CUSTOM
 
 interface IPerformerStudioStats {
   scene_count: number;
@@ -119,11 +124,19 @@ function maybeRenderParent(
   }
 }
 
-function maybeRenderChildren(studio: GQL.StudioListDataFragment) {
+function maybeRenderChildren(
+  studio: GQL.StudioListDataFragment,
+  activeSortBy?: string
+) {
   // CUSTOM
   if (studio.child_studios.length > 0) {
     return (
-      <div className="studio-child-studios">
+      <div
+        className={cx(
+          "studio-child-studios",
+          catalogCardSortHighlightClassCustom(activeSortBy, "child_count")
+        )}
+      >
         <FormattedMessage
           id="parent_of"
           values={{
@@ -219,6 +232,47 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
     }, [performerId, performerStatsData]);
 
     const performerScopedCountsReady = !performerId || !!performerStats;
+    const embeddedSortMetric =
+      (isCatalogCardSortHighlightedCustom(activeSortBy, "rating") &&
+        hasCatalogCardSortValueCustom(studio.rating100)) ||
+      (isCatalogCardSortHighlightedCustom(activeSortBy, "child_count") &&
+        studio.child_studios.length > 0) ||
+      isCatalogCardSortHighlightedCustom(activeSortBy, "tag_count") ||
+      (performerScopedCountsReady &&
+        isCatalogCardSortHighlightedCustom(
+          activeSortBy,
+          "scenes_count",
+          "images_count",
+          "galleries_count",
+          "o_count"
+        )) ||
+      (!performerId &&
+        performerScopedCountsReady &&
+        isCatalogCardSortHighlightedCustom(
+          activeSortBy,
+          "unique_performers_count"
+        )) ||
+      (performerScopedCountsReady &&
+        ((!!sexTag &&
+          isCatalogCardSortHighlightedCustom(
+            activeSortBy,
+            "sex_scenes_count"
+          )) ||
+          (!!oralTag &&
+            isCatalogCardSortHighlightedCustom(
+              activeSortBy,
+              "oral_scenes_count"
+            )) ||
+          (!!soloTag &&
+            isCatalogCardSortHighlightedCustom(
+              activeSortBy,
+              "solo_scenes_count"
+            )) ||
+          (!!facialTag &&
+            isCatalogCardSortHighlightedCustom(
+              activeSortBy,
+              "facial_scenes_count"
+            )))); // CUSTOM
     // CUSTOM: end
 
     function onToggleFavorite(v: boolean) {
@@ -240,7 +294,11 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       const count = performerId
         ? performerStats?.scene_count ?? 0
         : stats?.scene_count ?? 0; // CUSTOM
-      if (!count) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        activeSortBy,
+        "scenes_count"
+      );
+      if (!count && !highlighted) return;
 
       const url = performerId
         ? NavUtils.makePerformerStudioScenesUrl(performerId, navigationStudio)
@@ -248,7 +306,10 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
       const button = (
         <PopoverCountButton
-          className="scene-count"
+          className={cx(
+            "scene-count",
+            catalogCardSortHighlightClassCustom(activeSortBy, "scenes_count")
+          )} // CUSTOM
           type="scene"
           count={count}
           url={url}
@@ -291,7 +352,13 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
       return (
         <Button
-          className="minimal scene-category-count sex-scene-count"
+          className={cx(
+            "minimal scene-category-count sex-scene-count",
+            catalogCardSortHighlightClassCustom(
+              activeSortBy,
+              "sex_scenes_count"
+            )
+          )} // CUSTOM
           href={url}
           title={`Sex scenes (${sexTag.name})`}
           disabled={count === 0}
@@ -334,7 +401,13 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
       return (
         <Button
-          className="minimal scene-category-count oral-scene-count"
+          className={cx(
+            "minimal scene-category-count oral-scene-count",
+            catalogCardSortHighlightClassCustom(
+              activeSortBy,
+              "oral_scenes_count"
+            )
+          )} // CUSTOM
           href={url}
           title={`Oral scenes (${oralTag.name})`}
           disabled={count === 0}
@@ -376,7 +449,13 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
       return (
         <Button
-          className="minimal scene-category-count solo-scene-count"
+          className={cx(
+            "minimal scene-category-count solo-scene-count",
+            catalogCardSortHighlightClassCustom(
+              activeSortBy,
+              "solo_scenes_count"
+            )
+          )} // CUSTOM
           href={url}
           title={`Solo scenes (${soloTag.name})`}
           disabled={count === 0}
@@ -415,7 +494,13 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
       return (
         <Button
-          className="minimal scene-category-count facial-scene-count"
+          className={cx(
+            "minimal scene-category-count facial-scene-count",
+            catalogCardSortHighlightClassCustom(
+              activeSortBy,
+              "facial_scenes_count"
+            )
+          )} // CUSTOM
           href={url}
           title={`Facial scenes (${facialTag.name})`}
           disabled={count === 0}
@@ -432,13 +517,23 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       if (performerId) return null;
 
       const count = stats?.unique_performer_count ?? 0; // CUSTOM
-      if (count === 0) return null;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        activeSortBy,
+        "unique_performers_count"
+      );
+      if (count === 0 && !highlighted) return null;
 
       const url = NavUtils.makeStudioUniquePerformersUrl(navigationStudio);
 
       return (
         <Button
-          className="minimal scene-category-count unique-performer-count"
+          className={cx(
+            "minimal scene-category-count unique-performer-count",
+            catalogCardSortHighlightClassCustom(
+              activeSortBy,
+              "unique_performers_count"
+            )
+          )} // CUSTOM
           href={url}
           title={`Unique vatos (only 1 scene)`}
           disabled={count === 0}
@@ -455,7 +550,11 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       const count = performerId
         ? performerStats?.image_count ?? 0
         : stats?.image_count ?? 0; // CUSTOM
-      if (!count) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        activeSortBy,
+        "images_count"
+      );
+      if (!count && !highlighted) return;
 
       const url = performerId
         ? NavUtils.makePerformerStudioImagesUrl(performerId, navigationStudio)
@@ -463,7 +562,10 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
       return (
         <PopoverCountButton
-          className="image-count"
+          className={cx(
+            "image-count",
+            catalogCardSortHighlightClassCustom(activeSortBy, "images_count")
+          )} // CUSTOM
           type="image"
           count={count}
           url={url}
@@ -477,7 +579,11 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       const count = performerId
         ? performerStats?.gallery_count ?? 0
         : stats?.gallery_count ?? 0; // CUSTOM
-      if (!count) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        activeSortBy,
+        "galleries_count"
+      );
+      if (!count && !highlighted) return;
 
       const url = performerId
         ? NavUtils.makePerformerStudioGalleriesUrl(
@@ -488,7 +594,10 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
       return (
         <PopoverCountButton
-          className="gallery-count"
+          className={cx(
+            "gallery-count",
+            catalogCardSortHighlightClassCustom(activeSortBy, "galleries_count")
+          )} // CUSTOM
           type="gallery"
           count={count}
           url={url}
@@ -540,7 +649,11 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
     }
 
     function maybeRenderTagPopoverButton() {
-      if (studio.tags.length <= 0) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        activeSortBy,
+        "tag_count"
+      );
+      if (studio.tags.length <= 0 && !highlighted) return;
 
       const popoverContent = studio.tags.map((tag) => (
         <TagLink key={tag.id} linkType="studio" tag={tag} />
@@ -548,7 +661,12 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
       return (
         <HoverPopover placement="bottom" content={popoverContent}>
-          <Button className="minimal tag-count">
+          <Button
+            className={cx(
+              "minimal tag-count",
+              catalogCardSortHighlightClassCustom(activeSortBy, "tag_count")
+            )}
+          >
             <Icon icon={faTag} />
             <span>{studio.tags.length}</span>
           </Button>
@@ -562,7 +680,11 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       const count = performerId
         ? performerStats?.o_counter ?? 0
         : stats?.o_counter ?? 0; // CUSTOM
-      if (!count) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        activeSortBy,
+        "o_count"
+      );
+      if (!count && !highlighted) return;
 
       // CUSTOM: begin - open the studio O timeline from either counter control
       const openStudioOStats = () => {
@@ -575,6 +697,10 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
 
       return (
         <OCounterButton
+          className={catalogCardSortHighlightClassCustom(
+            activeSortBy,
+            "o_count"
+          )}
           value={count}
           onIncrement={openStudioOStats}
           onValueClicked={openStudioOStats}
@@ -666,12 +792,26 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
             stats?.performer_count ||
             stats?.o_counter
           ); // CUSTOM
+      const highlightsVisibleCount = isCatalogCardSortHighlightedCustom(
+        activeSortBy,
+        "tag_count",
+        "scenes_count",
+        "images_count",
+        "galleries_count",
+        "o_count",
+        "unique_performers_count",
+        "sex_scenes_count",
+        "oral_scenes_count",
+        "solo_scenes_count",
+        "facial_scenes_count"
+      ); // CUSTOM
 
       if (
         hasCounts || // CUSTOM
         studio.tags.length > 0 ||
         hasCategoryButtons ||
-        studio.organized
+        studio.organized ||
+        highlightsVisibleCount
       ) {
         return (
           <>
@@ -717,13 +857,14 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
           <div className="studio-card__details">
             {/* CUSTOM: current Studio-list sort metric */}
             <StudioSortMetricStrip
+              hidden={embeddedSortMetric}
               sortBy={activeSortBy}
               sortDirection={activeSortDirection}
               stats={stats}
               studio={studio}
             />
             {maybeRenderParent(studio, hideParent)}
-            {maybeRenderChildren(studio)}
+            {maybeRenderChildren(studio, activeSortBy)}
           </div>
         }
         overlays={
@@ -734,7 +875,14 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
               size="2x"
               className="hide-not-favorite"
             />
-            <RatingBanner rating={studio.rating100} compact />
+            <RatingBanner
+              rating={studio.rating100}
+              compact
+              className={catalogCardSortHighlightClassCustom(
+                activeSortBy,
+                "rating"
+              )}
+            />
           </>
         }
         popovers={maybeRenderPopoverButtonGroup() ?? undefined}

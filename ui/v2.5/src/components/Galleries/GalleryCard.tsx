@@ -24,6 +24,11 @@ import {
 } from "src/utils/ratingCardStyles_custom"; // CUSTOM
 import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
 import { getGallerySortMetricCustom } from "./gallerySortMetric_custom"; // CUSTOM
+import {
+  catalogCardSortHighlightClassCustom,
+  hasCatalogCardSortValueCustom,
+  isCatalogCardSortHighlightedCustom,
+} from "../Shared/catalogCardSortHighlight_custom"; // CUSTOM
 
 interface IGalleryPreviewProps {
   gallery: GQL.SlimGalleryDataFragment;
@@ -100,7 +105,11 @@ const GalleryCardPopovers = PatchComponent(
     }
 
     function maybeRenderTagPopoverButton() {
-      if (props.gallery.tags.length <= 0) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "tag_count"
+      );
+      if (props.gallery.tags.length <= 0 && !highlighted) return;
 
       const popoverContent = props.gallery.tags.map((tag) => (
         <TagLink key={tag.id} tag={tag} linkType="gallery" />
@@ -108,7 +117,10 @@ const GalleryCardPopovers = PatchComponent(
 
       return (
         <HoverPopover
-          className="tag-count"
+          className={cx(
+            "tag-count",
+            catalogCardSortHighlightClassCustom(props.activeSortBy, "tag_count")
+          )} // CUSTOM
           placement="bottom"
           content={popoverContent}
         >
@@ -121,22 +133,40 @@ const GalleryCardPopovers = PatchComponent(
     }
 
     function maybeRenderPerformerPopoverButton() {
-      if (props.gallery.performers.length <= 0) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "performer_count"
+      );
+      if (props.gallery.performers.length <= 0 && !highlighted) return;
 
       return (
         <PerformerPopoverButton
           performers={props.gallery.performers}
           linkType="gallery"
+          className={catalogCardSortHighlightClassCustom(
+            props.activeSortBy,
+            "performer_count"
+          )} // CUSTOM
         />
       );
     }
 
     function maybeRenderImagesPopoverButton() {
-      if (!props.gallery.image_count) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "images_count"
+      );
+      if (!props.gallery.image_count && !highlighted) return;
 
       return (
         <PopoverCountButton
-          className="image-count"
+          className={cx(
+            "image-count",
+            catalogCardSortHighlightClassCustom(
+              props.activeSortBy,
+              "images_count"
+            )
+          )} // CUSTOM
           type="image"
           count={props.gallery.image_count}
           url={NavUtils.makeGalleryImagesUrl(props.gallery)}
@@ -167,7 +197,13 @@ const GalleryCardPopovers = PatchComponent(
         props.gallery.performers.length > 0 ||
         props.gallery.tags.length > 0 ||
         props.gallery.organized ||
-        props.gallery.image_count > 0
+        props.gallery.image_count > 0 ||
+        isCatalogCardSortHighlightedCustom(
+          props.activeSortBy,
+          "tag_count",
+          "performer_count",
+          "images_count"
+        ) // CUSTOM
       ) {
         return (
           <>
@@ -197,13 +233,32 @@ const GalleryCardDetails = PatchComponent(
       props.activeSortBy,
       props.gallery
     ); // CUSTOM
+    const embeddedSortMetric =
+      isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "tag_count",
+        "performer_count",
+        "images_count"
+      ) ||
+      (isCatalogCardSortHighlightedCustom(props.activeSortBy, "date") &&
+        hasCatalogCardSortValueCustom(props.gallery.date)) ||
+      (isCatalogCardSortHighlightedCustom(props.activeSortBy, "rating") &&
+        hasCatalogCardSortValueCustom(props.gallery.rating100)); // CUSTOM
     return (
       <div className="gallery-card__details">
         <SortMetricBadgeCustom
-          metric={sortMetric}
+          metric={embeddedSortMetric ? undefined : sortMetric}
           sortDirection={sortDirection}
         />
-        <span className="gallery-card__date">{props.gallery.date}</span>
+        <span
+          className={cx(
+            "gallery-card__date",
+            hasCatalogCardSortValueCustom(props.gallery.date) &&
+              catalogCardSortHighlightClassCustom(props.activeSortBy, "date")
+          )}
+        >
+          {props.gallery.date}
+        </span>
         <TruncatedText
           className="gallery-card__description"
           text={props.gallery.details}
@@ -244,7 +299,14 @@ const GalleryCardImage = PatchComponent(
           }}
           disabled={props.selecting}
         />
-        <RatingBanner rating={props.gallery.rating100} compact />
+        <RatingBanner
+          rating={props.gallery.rating100}
+          compact
+          className={catalogCardSortHighlightClassCustom(
+            props.activeSortBy,
+            "rating"
+          )}
+        />
       </>
     );
   }

@@ -25,6 +25,11 @@ import {
   type PerformerRolePartnerType,
 } from "../performerRolePartnerLabels_custom"; // CUSTOM
 import { ROLE_COLORS_CUSTOM } from "src/utils/roleColors_custom"; // CUSTOM
+import {
+  catalogCardSortHighlightClassCustom,
+  isCatalogCardSortHighlightedCustom,
+} from "src/components/Shared/catalogCardSortHighlight_custom"; // CUSTOM
+import cx from "classnames"; // CUSTOM
 
 interface IPerformerCategoryStripProps {
   performer: PerformerListData;
@@ -67,6 +72,8 @@ interface IPerformerCategoryStripProps {
   hideUniquePartnerCounts?: boolean;
   /** When set, all badge links will be scoped to this studio */
   studioContext?: { id: string; label: string; depth: number }; // CUSTOM
+  /** Active performer-list sort, used to emphasize an already visible role count. */
+  activeSortBy?: string; // CUSTOM
 }
 
 /**
@@ -95,6 +102,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   globalStatsOverride,
   hideUniquePartnerCounts = false,
   studioContext, // CUSTOM
+  activeSortBy, // CUSTOM
 }) => {
   const { configuration } = useConfigurationContext();
 
@@ -109,6 +117,25 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   const { facialTagId } = roleTagIds;
   const { orgasmTagId } = roleTagIds;
   const { feetTagId } = roleTagIds;
+
+  const isRoleSortHighlighted = (...sortKeys: string[]) =>
+    !sceneId && isCatalogCardSortHighlightedCustom(activeSortBy, ...sortKeys);
+  const shouldRenderRoleForActiveSort = (
+    category: "sex" | "oral" | "solo" | "facial"
+  ) => {
+    if (category === "solo") {
+      return isRoleSortHighlighted("solo_scenes_count");
+    }
+
+    return isRoleSortHighlighted(
+      ...(category === "sex" || category === "oral"
+        ? [`${category}_scenes_count`]
+        : []),
+      `${category}_unique_partners`,
+      `${category}_topped_partners`,
+      `${category}_bottomed_partners`
+    );
+  }; // CUSTOM
 
   // CUSTOM: begin - lazy queries for global/studio partner mini images
   const [fetchGlobalMiniImages, { data: globalMiniData }] =
@@ -510,7 +537,10 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
 
     // Show category if performer has scenes OR has partner counts in that category
     if (
-      (sexCount > 0 || sexWithTopCount > 0 || sexWithBottomCount > 0) &&
+      (sexCount > 0 ||
+        sexWithTopCount > 0 ||
+        sexWithBottomCount > 0 ||
+        shouldRenderRoleForActiveSort("sex")) &&
       sexTagId
     ) {
       rolesToShow.push({
@@ -524,7 +554,10 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       });
     }
     if (
-      (oralCount > 0 || oralWithTopCount > 0 || oralWithBottomCount > 0) &&
+      (oralCount > 0 ||
+        oralWithTopCount > 0 ||
+        oralWithBottomCount > 0 ||
+        shouldRenderRoleForActiveSort("oral")) &&
       oralTagId
     ) {
       rolesToShow.push({
@@ -540,7 +573,8 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     if (
       (facialCount > 0 ||
         facialWithTopCount > 0 ||
-        facialWithBottomCount > 0) &&
+        facialWithBottomCount > 0 ||
+        shouldRenderRoleForActiveSort("facial")) &&
       facialTagId
     ) {
       rolesToShow.push({
@@ -554,7 +588,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         tagId: facialTagId,
       });
     }
-    if (soloCount > 0 && soloTagId) {
+    if ((soloCount > 0 || shouldRenderRoleForActiveSort("solo")) && soloTagId) {
       rolesToShow.push({
         category: "solo",
         count: soloCount,
@@ -564,10 +598,22 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   }
 
   // Only show if at least one role tag is configured
-  const hasAnyRoleTag = sexTagId || oralTagId || soloTagId || facialTagId;
+  const hasAnyRoleTag =
+    sexTagId ||
+    oralTagId ||
+    soloTagId ||
+    facialTagId ||
+    orgasmTagId ||
+    feetTagId; // CUSTOM
+  const hasActiveStandaloneRoleSort =
+    (!!orgasmTagId && isRoleSortHighlighted("orgasm_count")) ||
+    (!!feetTagId && isRoleSortHighlighted("feet_markers_count")); // CUSTOM
   if (
     !hasAnyRoleTag ||
-    (rolesToShow.length === 0 && orgasmTopCount === 0 && feetTopCount === 0)
+    (rolesToShow.length === 0 &&
+      orgasmTopCount === 0 &&
+      feetTopCount === 0 &&
+      !hasActiveStandaloneRoleSort)
   )
     return null;
 
@@ -921,7 +967,14 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
             >
               {/* Category icon on top - clickable */}
               <div
-                className="category-icon-container"
+                className={cx(
+                  "category-icon-container",
+                  (role.category === "sex" || role.category === "oral") &&
+                    catalogCardSortHighlightClassCustom(
+                      activeSortBy,
+                      `${role.category}_scenes_count`
+                    )
+                )}
                 title={
                   role.count
                     ? getTooltipText(role.category, "total", role.count)
@@ -950,7 +1003,13 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
               {role.category === "solo" ? (
                 <>
                   <div
-                    className="solo-count"
+                    className={cx(
+                      "solo-count",
+                      catalogCardSortHighlightClassCustom(
+                        activeSortBy,
+                        "solo_scenes_count"
+                      )
+                    )}
                     style={{
                       visibility:
                         sceneId && role.category === "solo"
@@ -1227,7 +1286,10 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                 */}
 
                   {/* Row 3: Unique partner count*/}
-                  {uniquePartnerCount > 0 &&
+                  {(uniquePartnerCount > 0 ||
+                    isRoleSortHighlighted(
+                      `${role.category}_unique_partners`
+                    )) &&
                     (() => {
                       const allPartners = getAllMiniPartners(role.category);
                       return (
@@ -1235,7 +1297,15 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                           {...partnerHoverPopoverProps}
                           content={renderMiniPartnerRows(allPartners)}
                         >
-                          <div className="category-icon-container unique-partners-row">
+                          <div
+                            className={cx(
+                              "category-icon-container unique-partners-row",
+                              catalogCardSortHighlightClassCustom(
+                                activeSortBy,
+                                `${role.category}_unique_partners`
+                              )
+                            )}
+                          >
                             {allPartnersUrl ? (
                               <Link
                                 to={allPartnersUrl}
@@ -1281,13 +1351,23 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                   <div className="role-arrows">
                     {/* Top partner badge */}
                     {(() => {
+                      const topHighlighted = isRoleSortHighlighted(
+                        `${role.category}_topped_partners`
+                      );
                       const topBadge =
                         partnerTopUrl && partnerTopCount > 0 ? (
                           <Link to={partnerTopUrl} className="role-badge-link">
                             <Badge
                               pill
                               variant={ROLE_COLORS_CUSTOM.top.variant}
-                              className="arrow-badge top-badge"
+                              className={cx(
+                                "arrow-badge top-badge",
+                                topHighlighted &&
+                                  catalogCardSortHighlightClassCustom(
+                                    activeSortBy,
+                                    `${role.category}_topped_partners`
+                                  )
+                              )}
                               style={{
                                 fontSize: 10,
                                 padding: "3px 6px",
@@ -1306,7 +1386,14 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                           <Badge
                             pill
                             variant={ROLE_COLORS_CUSTOM.top.variant}
-                            className="arrow-badge top-badge"
+                            className={cx(
+                              "arrow-badge top-badge",
+                              topHighlighted &&
+                                catalogCardSortHighlightClassCustom(
+                                  activeSortBy,
+                                  `${role.category}_topped_partners`
+                                )
+                            )}
                             style={{
                               fontSize: 10,
                               padding: "3px 6px",
@@ -1314,7 +1401,9 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                               alignItems: "center",
                               gap: 4,
                               visibility:
-                                partnerTopCount > 0 ? "visible" : "hidden",
+                                partnerTopCount > 0 || topHighlighted
+                                  ? "visible"
+                                  : "hidden",
                             }}
                           >
                             <Icon icon={faArrowUp} />
@@ -1351,6 +1440,9 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                     })()}
                     {/* Bottom partner badge */}
                     {(() => {
+                      const bottomHighlighted = isRoleSortHighlighted(
+                        `${role.category}_bottomed_partners`
+                      );
                       const bottomBadge =
                         partnerBottomUrl && partnerBottomCount > 0 ? (
                           <Link
@@ -1360,7 +1452,14 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                             <Badge
                               pill
                               variant={ROLE_COLORS_CUSTOM.bottom.variant}
-                              className="arrow-badge bottom-badge"
+                              className={cx(
+                                "arrow-badge bottom-badge",
+                                bottomHighlighted &&
+                                  catalogCardSortHighlightClassCustom(
+                                    activeSortBy,
+                                    `${role.category}_bottomed_partners`
+                                  )
+                              )}
                               style={{
                                 fontSize: 10,
                                 padding: "3px 6px",
@@ -1379,7 +1478,14 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                           <Badge
                             pill
                             variant={ROLE_COLORS_CUSTOM.bottom.variant}
-                            className="arrow-badge bottom-badge"
+                            className={cx(
+                              "arrow-badge bottom-badge",
+                              bottomHighlighted &&
+                                catalogCardSortHighlightClassCustom(
+                                  activeSortBy,
+                                  `${role.category}_bottomed_partners`
+                                )
+                            )}
                             style={{
                               fontSize: 10,
                               padding: "3px 6px",
@@ -1387,7 +1493,9 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                               alignItems: "center",
                               gap: 4,
                               visibility:
-                                partnerBottomCount > 0 ? "visible" : "hidden",
+                                partnerBottomCount > 0 || bottomHighlighted
+                                  ? "visible"
+                                  : "hidden",
                             }}
                           >
                             <Icon icon={faArrowDown} />
@@ -1435,7 +1543,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
 
         {/* Orgasm icon at the end */}
         {
-          orgasmTopCount > 0 &&
+          (orgasmTopCount > 0 || isRoleSortHighlighted("orgasm_count")) &&
             orgasmTagId &&
             // CUSTOM: begin - scoped orgasm URL
             (() => {
@@ -1452,7 +1560,15 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                   studioContext.depth
                 );
               return (
-                <div className="role-badge-item orgasm-badge">
+                <div
+                  className={cx(
+                    "role-badge-item orgasm-badge",
+                    catalogCardSortHighlightClassCustom(
+                      activeSortBy,
+                      "orgasm_count"
+                    )
+                  )}
+                >
                   <div
                     className="category-icon-container"
                     title={
@@ -1496,7 +1612,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
 
         {/* Feet icon */}
         {
-          feetTopCount > 0 &&
+          (feetTopCount > 0 || isRoleSortHighlighted("feet_markers_count")) &&
             feetTagId &&
             // CUSTOM: begin - scoped feet URL
             (() => {
@@ -1513,7 +1629,15 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                   studioContext.depth
                 );
               return (
-                <div className="role-badge-item feet-badge">
+                <div
+                  className={cx(
+                    "role-badge-item feet-badge",
+                    catalogCardSortHighlightClassCustom(
+                      activeSortBy,
+                      "feet_markers_count"
+                    )
+                  )}
+                >
                   <div
                     className="category-icon-container"
                     title={

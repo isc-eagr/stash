@@ -1,4 +1,5 @@
 import React from "react";
+import cx from "classnames"; // CUSTOM
 import { Link } from "react-router-dom";
 import { useIntl } from "react-intl";
 import { gql, useQuery } from "@apollo/client"; // CUSTOM
@@ -37,6 +38,11 @@ import { PerformerCategoryStrip } from "./PerformerDetails/PerformerCategoryStri
 import type { PerformerListData } from "./performerTypes_custom";
 import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom";
 import { getPerformerSortMetricCustom } from "./performerSortMetric_custom";
+import {
+  catalogCardSortHighlightClassCustom,
+  hasCatalogCardSortValueCustom,
+  isCatalogCardSortHighlightedCustom,
+} from "../Shared/catalogCardSortHighlight_custom";
 // CUSTOM: end
 
 export interface IPerformerCardExtraCriteria {
@@ -112,7 +118,7 @@ interface IPerformerCardProps {
 
 const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Popovers",
-  ({ performer, extraCriteria, studioStats }) => {
+  ({ performer, extraCriteria, studioStats, activeSortBy }) => {
     const sceneCount = studioStats?.scene_count ?? performer.scene_count;
     const imageCount = studioStats?.image_count ?? performer.image_count;
     const galleryCount = studioStats?.gallery_count ?? performer.gallery_count;
@@ -120,11 +126,18 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     const oCounter = studioStats?.o_counter ?? performer.o_counter;
 
     function maybeRenderScenesPopoverButton() {
-      if (!sceneCount) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        activeSortBy,
+        "scenes_count"
+      );
+      if (!sceneCount && !highlighted) return;
 
       return (
         <PopoverCountButton
-          className="scene-count"
+          className={cx(
+            "scene-count",
+            catalogCardSortHighlightClassCustom(activeSortBy, "scenes_count")
+          )}
           type="scene"
           count={sceneCount}
           url={NavUtils.makePerformerScenesUrl(
@@ -137,11 +150,18 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     }
 
     function maybeRenderImagesPopoverButton() {
-      if (!imageCount) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        activeSortBy,
+        "images_count"
+      );
+      if (!imageCount && !highlighted) return;
 
       return (
         <PopoverCountButton
-          className="image-count"
+          className={cx(
+            "image-count",
+            catalogCardSortHighlightClassCustom(activeSortBy, "images_count")
+          )}
           type="image"
           count={imageCount}
           url={NavUtils.makePerformerImagesUrl(
@@ -154,11 +174,18 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     }
 
     function maybeRenderGalleriesPopoverButton() {
-      if (!galleryCount) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        activeSortBy,
+        "galleries_count"
+      );
+      if (!galleryCount && !highlighted) return;
 
       return (
         <PopoverCountButton
-          className="gallery-count"
+          className={cx(
+            "gallery-count",
+            catalogCardSortHighlightClassCustom(activeSortBy, "galleries_count")
+          )}
           type="gallery"
           count={galleryCount}
           url={NavUtils.makePerformerGalleriesUrl(
@@ -171,7 +198,11 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
     }
 
     function maybeRenderOCounter() {
-      if (!oCounter) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        activeSortBy,
+        "o_counter"
+      );
+      if (!oCounter && !highlighted) return;
 
       // CUSTOM: begin
       const openVatoOStats = () => {
@@ -184,7 +215,11 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
 
       return (
         <OCounterButton
-          value={oCounter}
+          className={catalogCardSortHighlightClassCustom(
+            activeSortBy,
+            "o_counter"
+          )}
+          value={oCounter ?? 0}
           onIncrement={openVatoOStats}
           onValueClicked={openVatoOStats}
         />
@@ -197,7 +232,11 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
       // Use global performer tags for the hover popover
       const displayTags = performer.tags ?? [];
 
-      if (!displayTags || displayTags.length <= 0) {
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        activeSortBy,
+        "tag_count"
+      );
+      if ((!displayTags || displayTags.length <= 0) && !highlighted) {
         // no tag-count rendered when there are no tags (original behavior)
         return null;
       }
@@ -218,7 +257,12 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
 
       return (
         <HoverPopover placement="bottom" content={popoverContent}>
-          <Button className="minimal tag-count">
+          <Button
+            className={cx(
+              "minimal tag-count",
+              catalogCardSortHighlightClassCustom(activeSortBy, "tag_count")
+            )}
+          >
             <Icon icon={faTag} />
             <span>{displayTags.length}</span>
           </Button>
@@ -252,7 +296,15 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
       galleryCount ||
       performer.tags.length > 0 ||
       oCounter ||
-      groupCount
+      groupCount ||
+      isCatalogCardSortHighlightedCustom(
+        activeSortBy,
+        "tag_count",
+        "scenes_count",
+        "images_count",
+        "galleries_count",
+        "o_counter"
+      )
     );
 
     if (hasAnyPopover) {
@@ -277,7 +329,7 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
 
 const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Overlays",
-  ({ performer }) => {
+  ({ performer, activeSortBy }) => {
     const { configuration } = useConfigurationContext();
     const uiConfig = configuration?.ui;
     const [updatePerformer] = usePerformerUpdate();
@@ -305,7 +357,14 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
           entityId={performer.id}
           triggerClassName="rating-criteria-tooltip-card-trigger"
         >
-          <RatingBanner rating={performer.rating100} compact />
+          <RatingBanner
+            rating={performer.rating100}
+            compact
+            className={catalogCardSortHighlightClassCustom(
+              activeSortBy,
+              "rating"
+            )}
+          />
         </RatingCriteriaTooltip>
       ); // CUSTOM
     }
@@ -417,6 +476,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
     activeSortValue,
   }) => {
     const intl = useIntl();
+    const { configuration } = useConfigurationContext(); // CUSTOM
 
     const age = TextUtils.age(
       performer.birthdate,
@@ -468,12 +528,62 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
       studioStats ?? roleStats,
       activeSortValue
     ); // CUSTOM
+    const roleTagIds = configuration?.ui?.roleTagIds ?? {};
+    const embeddedRoleSortMetric =
+      !sceneId &&
+      ((!!roleTagIds.sexTagId &&
+        isCatalogCardSortHighlightedCustom(
+          activeSortBy,
+          "sex_scenes_count",
+          "sex_unique_partners",
+          "sex_topped_partners",
+          "sex_bottomed_partners"
+        )) ||
+        (!!roleTagIds.oralTagId &&
+          isCatalogCardSortHighlightedCustom(
+            activeSortBy,
+            "oral_scenes_count",
+            "oral_unique_partners",
+            "oral_topped_partners",
+            "oral_bottomed_partners"
+          )) ||
+        (!!roleTagIds.soloTagId &&
+          isCatalogCardSortHighlightedCustom(
+            activeSortBy,
+            "solo_scenes_count"
+          )) ||
+        (!!roleTagIds.facialTagId &&
+          isCatalogCardSortHighlightedCustom(
+            activeSortBy,
+            "facial_unique_partners",
+            "facial_topped_partners",
+            "facial_bottomed_partners"
+          )) ||
+        (!!roleTagIds.orgasmTagId &&
+          isCatalogCardSortHighlightedCustom(activeSortBy, "orgasm_count")) ||
+        (!!roleTagIds.feetTagId &&
+          isCatalogCardSortHighlightedCustom(
+            activeSortBy,
+            "feet_markers_count"
+          ))); // CUSTOM
+    const embeddedSortMetric =
+      isCatalogCardSortHighlightedCustom(
+        activeSortBy,
+        "tag_count",
+        "scenes_count",
+        "images_count",
+        "galleries_count",
+        "o_counter"
+      ) ||
+      embeddedRoleSortMetric ||
+      (isCatalogCardSortHighlightedCustom(activeSortBy, "rating") &&
+        hasCatalogCardSortValueCustom(performer.rating100)); // CUSTOM
 
     return (
       <>
         {/* CUSTOM: begin - modified age display + PerformerCategoryStrip */}
         <SortMetricBadgeCustom
-          metric={sortMetric}
+          metric={embeddedSortMetric ? undefined : sortMetric}
           sortDirection={sortDirection}
         />
         {/* Age line */}
@@ -499,6 +609,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
                 }
               : undefined
           } // CUSTOM
+          activeSortBy={activeSortBy}
         />
         {/* CUSTOM: end */}
       </>

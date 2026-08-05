@@ -16,16 +16,20 @@ import {
   type SceneActivityMetric,
   type SceneActivityScene,
 } from "./sceneActivityMetricsData_custom";
+import { catalogCardSortHighlightClassCustom } from "../Shared/catalogCardSortHighlight_custom";
+import cx from "classnames";
 
 // CUSTOM: scene activity duration metrics
 interface ISceneActivityMetricsProps {
   scene: SceneActivityScene;
   className?: string;
+  activeSortBy?: string;
 }
 
 function renderSceneActivityMetric(
   scene: SceneActivityScene,
-  metric: SceneActivityMetric
+  metric: SceneActivityMetric,
+  activeSortBy?: string
 ) {
   const tooltip = `${metric.label}: ${metric.percent}%`;
   const tooltipId = `scene-activity-${scene.id}-${metric.key}`;
@@ -37,7 +41,14 @@ function renderSceneActivityMetric(
       placement="bottom"
     >
       <span
-        className={`scene-activity-metric scene-activity-metric--${metric.key}`}
+        className={cx(
+          "scene-activity-metric",
+          `scene-activity-metric--${metric.key}`,
+          catalogCardSortHighlightClassCustom(
+            activeSortBy,
+            `${metric.key}_activity_percent`
+          )
+        )}
         aria-label={tooltip}
       >
         {metric.key === "sex" && (
@@ -73,6 +84,7 @@ function renderSceneActivityMetric(
 export const SceneActivityMetrics: React.FC<ISceneActivityMetricsProps> = ({
   scene,
   className,
+  activeSortBy,
 }) => {
   const { configuration } = useConfigurationContext();
   const activityMetrics = useMemo(
@@ -90,12 +102,12 @@ export const SceneActivityMetrics: React.FC<ISceneActivityMetricsProps> = ({
     >
       <div className="scene-activity-metrics__row">
         {activityMetrics.activity.map((metric) =>
-          renderSceneActivityMetric(scene, metric)
+          renderSceneActivityMetric(scene, metric, activeSortBy)
         )}
       </div>
       <div className="scene-activity-metrics__row">
         {activityMetrics.quality.map((metric) =>
-          renderSceneActivityMetric(scene, metric)
+          renderSceneActivityMetric(scene, metric, activeSortBy)
         )}
       </div>
     </div>

@@ -4,6 +4,7 @@ import * as GQL from "src/core/generated-graphql";
 import { getStudioSortMetricCustom } from "./studioSortMetric_custom";
 
 interface IProps {
+  hidden?: boolean; // CUSTOM
   sortBy?: string;
   sortDirection: GQL.SortDirectionEnum;
   stats?: GQL.StudioListStatsDataFragment;
@@ -11,6 +12,7 @@ interface IProps {
 }
 
 export const StudioSortMetricStrip: React.FC<IProps> = ({
+  hidden = false, // CUSTOM
   sortBy,
   sortDirection,
   stats,
@@ -18,6 +20,9 @@ export const StudioSortMetricStrip: React.FC<IProps> = ({
 }) => {
   const metric = getStudioSortMetricCustom(sortBy, { stats, studio });
   return (
-    <SortMetricBadgeCustom metric={metric} sortDirection={sortDirection} />
+    <SortMetricBadgeCustom
+      metric={hidden ? undefined : metric}
+      sortDirection={sortDirection}
+    />
   );
 };

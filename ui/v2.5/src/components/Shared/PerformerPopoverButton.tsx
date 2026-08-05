@@ -7,6 +7,7 @@ import { sortPerformers } from "src/core/performers";
 import { HoverPopover } from "./HoverPopover";
 import { Icon } from "./Icon";
 import { PerformerLink, PerformerLinkType } from "./TagLink";
+import cx from "classnames"; // CUSTOM
 
 interface IProps {
   performers: Pick<
@@ -14,11 +15,13 @@ interface IProps {
     "id" | "name" | "image_path" | "disambiguation" | "gender"
   >[];
   linkType?: PerformerLinkType;
+  className?: string; // CUSTOM
 }
 
 export const PerformerPopoverButton: React.FC<IProps> = ({
   performers,
   linkType,
+  className, // CUSTOM
 }) => {
   const sorted = sortPerformers(performers);
   const popoverContent = (
@@ -51,7 +54,7 @@ export const PerformerPopoverButton: React.FC<IProps> = ({
 
   return (
     <HoverPopover
-      className="performer-count"
+      className={cx("performer-count", className)} // CUSTOM
       placement="bottom"
       content={popoverContent}
     >

@@ -40,6 +40,11 @@ import {
 import { SceneActivityMetrics } from "./SceneActivityMetrics_custom"; // CUSTOM
 import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
 import { getSceneSortMetricCustom } from "./sceneSortMetric_custom"; // CUSTOM
+import {
+  catalogCardSortHighlightClassCustom,
+  hasCatalogCardSortValueCustom,
+  isCatalogCardSortHighlightedCustom,
+} from "../Shared/catalogCardSortHighlight_custom"; // CUSTOM
 // CUSTOM: begin - role icon SVG imports
 import mouthSvg from "src/assets/mouth.svg";
 import gaySvg from "src/assets/gay.svg";
@@ -133,14 +138,15 @@ interface ISceneCardProps {
 
 const Description: React.FC<{
   sceneNumber?: number;
-}> = ({ sceneNumber }) => {
+  className?: string; // CUSTOM
+}> = ({ sceneNumber, className }) => {
   if (!sceneNumber) return null;
 
   return (
     <>
       <hr />
       {sceneNumber !== undefined && (
-        <span className="scene-group-scene-number">
+        <span className={cx("scene-group-scene-number", className)}>
           <FormattedMessage id="scene" /> #{sceneNumber}
         </span>
       )}
@@ -188,7 +194,11 @@ const SceneCardPopovers = PatchComponent(
     }, [props.fromGroupId, props.scene.groups]);
 
     function maybeRenderTagPopoverButton() {
-      if (props.scene.tags.length <= 0) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "tag_count"
+      );
+      if (props.scene.tags.length <= 0 && !highlighted) return;
 
       const popoverContent = props.scene.tags.map((tag) => (
         <TagLink key={tag.id} tag={tag} />
@@ -196,7 +206,10 @@ const SceneCardPopovers = PatchComponent(
 
       return (
         <HoverPopover
-          className="tag-count"
+          className={cx(
+            "tag-count",
+            catalogCardSortHighlightClassCustom(props.activeSortBy, "tag_count")
+          )} // CUSTOM
           placement="bottom"
           content={popoverContent}
         >
@@ -209,10 +222,22 @@ const SceneCardPopovers = PatchComponent(
     }
 
     function maybeRenderPerformerPopoverButton() {
-      if (props.scene.performers.length <= 0) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "performer_count"
+      );
+      if (props.scene.performers.length <= 0 && !highlighted) return;
 
       // CUSTOM
-      return <SceneCardPerformerPopover scene={props.scene} />;
+      return (
+        <SceneCardPerformerPopover
+          scene={props.scene}
+          className={catalogCardSortHighlightClassCustom(
+            props.activeSortBy,
+            "performer_count"
+          )}
+        />
+      );
     }
 
     function maybeRenderGroupPopoverButton() {
@@ -259,8 +284,20 @@ const SceneCardPopovers = PatchComponent(
     }
 
     function maybeRenderOCounter() {
-      if (props.scene.o_counter) {
-        return <OCounterButton value={props.scene.o_counter} />;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "o_counter"
+      );
+      if (props.scene.o_counter || highlighted) {
+        return (
+          <OCounterButton
+            className={catalogCardSortHighlightClassCustom(
+              props.activeSortBy,
+              "o_counter"
+            )}
+            value={props.scene.o_counter ?? 0}
+          />
+        );
       }
     }
 
@@ -322,6 +359,20 @@ const SceneCardPopovers = PatchComponent(
     }
 
     function maybeRenderPopoverButtonGroup() {
+      const highlightsVisiblePopoverMetric = isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "tag_count",
+        "performer_count",
+        "o_counter",
+        "group_scene_number",
+        "sex_activity_percent",
+        "oral_activity_percent",
+        "solo_activity_percent",
+        "other_activity_percent",
+        "outstanding_activity_percent",
+        "standard_activity_percent",
+        "unusable_activity_percent"
+      ); // CUSTOM
       if (
         !props.compact &&
         (props.scene.tags.length > 0 ||
@@ -331,11 +382,18 @@ const SceneCardPopovers = PatchComponent(
           props.scene?.o_counter ||
           props.scene.galleries.length > 0 ||
           props.scene.organized ||
-          sceneNumber !== undefined)
+          sceneNumber !== undefined ||
+          highlightsVisiblePopoverMetric)
       ) {
         return (
           <>
-            <Description sceneNumber={sceneNumber} />
+            <Description
+              sceneNumber={sceneNumber}
+              className={catalogCardSortHighlightClassCustom(
+                props.activeSortBy,
+                "group_scene_number"
+              )}
+            />
             <hr />
             <ButtonGroup className="card-popovers">
               {maybeRenderTagPopoverButton()}
@@ -348,7 +406,10 @@ const SceneCardPopovers = PatchComponent(
               {maybeRenderOrganized()}
               {maybeRenderDupeCopies()}
             </ButtonGroup>
-            <SceneActivityMetrics scene={props.scene} />
+            <SceneActivityMetrics
+              scene={props.scene}
+              activeSortBy={props.activeSortBy}
+            />
           </>
         );
       }
@@ -371,14 +432,73 @@ const SceneCardDetails = PatchComponent(
       configuration?.ui?.roleTagIds ?? {},
       props.fromGroupId
     ); // CUSTOM
+    const file = props.scene.files[0];
+    const contextualGroupSceneNumber = props.fromGroupId
+      ? props.scene.groups.find(
+          (sceneGroup) => sceneGroup.group.id === props.fromGroupId
+        )?.scene_index
+      : undefined; // CUSTOM
+    const isActivitySort = isCatalogCardSortHighlightedCustom(
+      props.activeSortBy,
+      "sex_activity_percent",
+      "oral_activity_percent",
+      "solo_activity_percent",
+      "other_activity_percent",
+      "outstanding_activity_percent",
+      "standard_activity_percent",
+      "unusable_activity_percent"
+    );
+    const embeddedSortMetric =
+      (!props.compact &&
+        isCatalogCardSortHighlightedCustom(
+          props.activeSortBy,
+          "tag_count",
+          "performer_count",
+          "o_counter"
+        )) ||
+      (!props.compact &&
+        isActivitySort &&
+        hasCatalogCardSortValueCustom(sortMetric?.value)) ||
+      (!props.compact &&
+        hasCatalogCardSortValueCustom(contextualGroupSceneNumber) &&
+        isCatalogCardSortHighlightedCustom(
+          props.activeSortBy,
+          "group_scene_number"
+        )) ||
+      (isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "effective_date"
+      ) &&
+        hasCatalogCardSortValueCustom(props.scene.effective_date)) ||
+      (isCatalogCardSortHighlightedCustom(props.activeSortBy, "duration") &&
+        (file?.duration ?? 0) > 0) ||
+      (isCatalogCardSortHighlightedCustom(props.activeSortBy, "resolution") &&
+        !!file?.width &&
+        !!file.height) ||
+      (isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "interactive_speed"
+      ) &&
+        hasCatalogCardSortValueCustom(props.scene.interactive_speed)) ||
+      (isCatalogCardSortHighlightedCustom(props.activeSortBy, "rating") &&
+        hasCatalogCardSortValueCustom(props.scene.rating100)); // CUSTOM
 
     return (
       <div className="scene-card__details">
         <SortMetricBadgeCustom
-          metric={sortMetric}
+          metric={embeddedSortMetric ? undefined : sortMetric}
           sortDirection={sortDirection}
         />
-        <span className="scene-card__date">
+        <span
+          className={cx(
+            "scene-card__date",
+            hasCatalogCardSortValueCustom(props.scene.effective_date) &&
+              catalogCardSortHighlightClassCustom(
+                props.activeSortBy,
+                "effective_date"
+              )
+          )}
+        >
           {props.scene.effective_date ?? props.scene.date}
         </span>{" "}
         {/* CUSTOM: effective_date */}
@@ -478,11 +598,12 @@ const SceneCardOverlays = PatchComponent(
 
 interface ISceneSpecsOverlay {
   scene: GQL.SlimSceneDataFragment;
+  activeSortBy?: string; // CUSTOM
 }
 
 export const SceneSpecsOverlay: React.FC<ISceneSpecsOverlay> = PatchComponent(
   "SceneCard.SceneSpecs",
-  ({ scene }) => {
+  ({ scene, activeSortBy }) => {
     const file = scene.files?.[0];
     if (!file) return null;
     return (
@@ -491,14 +612,24 @@ export const SceneSpecsOverlay: React.FC<ISceneSpecsOverlay> = PatchComponent(
           <FileSize size={file.size} />
         </span>
         {file.width && file.height ? (
-          <span className="overlay-resolution">
+          <span
+            className={cx(
+              "overlay-resolution",
+              catalogCardSortHighlightClassCustom(activeSortBy, "resolution")
+            )}
+          >
             {TextUtils.resolution(file.width, file.height)}
           </span>
         ) : (
           ""
         )}
         {file.duration > 0 ? (
-          <span className="overlay-duration">
+          <span
+            className={cx(
+              "overlay-duration",
+              catalogCardSortHighlightClassCustom(activeSortBy, "duration")
+            )}
+          >
             {TextUtils.secondsToTimestamp(file.duration)}
           </span>
         ) : (
@@ -523,7 +654,15 @@ const SceneCardImage = PatchComponent(
 
     function maybeRenderInteractiveSpeedOverlay() {
       return (
-        <div className="scene-interactive-speed-overlay">
+        <div
+          className={cx(
+            "scene-interactive-speed-overlay",
+            catalogCardSortHighlightClassCustom(
+              props.activeSortBy,
+              "interactive_speed"
+            )
+          )}
+        >
           {props.scene.interactive_speed ?? ""}
         </div>
       );
@@ -568,11 +707,21 @@ const SceneCardImage = PatchComponent(
             entityId={props.scene.id}
             triggerClassName="rating-criteria-tooltip-card-trigger"
           >
-            <RatingBanner rating={props.scene.rating100} compact />
+            <RatingBanner
+              rating={props.scene.rating100}
+              compact
+              className={catalogCardSortHighlightClassCustom(
+                props.activeSortBy,
+                "rating"
+              )}
+            />
           </RatingCriteriaTooltip>
         ) : null}
         {/* CUSTOM: end */}
-        <SceneSpecsOverlay scene={props.scene} />
+        <SceneSpecsOverlay
+          scene={props.scene}
+          activeSortBy={props.activeSortBy}
+        />
         {maybeRenderInteractiveSpeedOverlay()}
       </>
     );

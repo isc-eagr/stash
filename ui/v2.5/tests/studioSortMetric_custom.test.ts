@@ -74,7 +74,7 @@ test("facial-variant Studio sorts use the exact backend value", () => {
   });
 });
 
-test("existing Studio card aggregates back the current-sort strip", () => {
+test("existing Studio card aggregates resolve before inline highlighting", () => {
   assert.deepEqual(getStudioSortMetricCustom("scenes_count", source), {
     sortBy: "scenes_count",
     messageID: "scene_count",

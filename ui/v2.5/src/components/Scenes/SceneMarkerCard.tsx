@@ -35,6 +35,10 @@ import { toSceneMarkerCardContext } from "./sceneMarkerCardContext_custom"; // C
 import { ROLE_COLORS_CUSTOM } from "src/utils/roleColors_custom"; // CUSTOM
 import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
 import { getSceneMarkerSortMetricCustom } from "./sceneMarkerSortMetric_custom"; // CUSTOM
+import {
+  catalogCardSortHighlightClassCustom,
+  isCatalogCardSortHighlightedCustom,
+} from "../Shared/catalogCardSortHighlight_custom"; // CUSTOM
 
 interface ISceneMarkerCardProps {
   marker: GQL.SceneMarkerDataFragment;
@@ -219,15 +223,24 @@ const SceneMarkerCardDetails = PatchComponent(
       props.activeSortBy,
       props.marker
     ); // CUSTOM
+    const embeddedSortMetric =
+      isCatalogCardSortHighlightedCustom(props.activeSortBy, "seconds") ||
+      (isCatalogCardSortHighlightedCustom(props.activeSortBy, "duration") &&
+        !!props.marker.end_seconds); // CUSTOM
     // CUSTOM: end
 
     return (
       <div className="scene-marker-card__details">
         <SortMetricBadgeCustom
-          metric={sortMetric}
+          metric={embeddedSortMetric ? undefined : sortMetric}
           sortDirection={sortDirection}
         />
-        <span className="scene-marker-card__time">
+        <span
+          className={cx(
+            "scene-marker-card__time",
+            catalogCardSortHighlightClassCustom(props.activeSortBy, "seconds")
+          )}
+        >
           {TextUtils.formatTimestampRange(
             props.marker.seconds,
             props.marker.end_seconds ?? undefined
@@ -333,7 +346,15 @@ const SceneMarkerCardImage = PatchComponent(
       return (
         <div className="scene-specs-overlay">
           {props.marker.end_seconds && (
-            <span className="overlay-duration">
+            <span
+              className={cx(
+                "overlay-duration",
+                catalogCardSortHighlightClassCustom(
+                  props.activeSortBy,
+                  "duration"
+                )
+              )}
+            >
               {TextUtils.secondsToTimestamp(
                 props.marker.end_seconds - props.marker.seconds
               )}

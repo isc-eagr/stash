@@ -13,12 +13,17 @@ import {
   getSceneMarkerPerformerTagSummaries,
   type ISceneMarkerChronologyHighlightPerformer,
 } from "./SceneDetails/sceneMarkerChronologySearch_custom";
+import cx from "classnames";
 
 interface IProps {
   scene: GQL.SlimSceneDataFragment;
+  className?: string;
 }
 
-export const SceneCardPerformerPopover: React.FC<IProps> = ({ scene }) => {
+export const SceneCardPerformerPopover: React.FC<IProps> = ({
+  scene,
+  className,
+}) => {
   const performers = useMemo(() => {
     const markerSummaries = getSceneMarkerPerformerTagSummaries(
       scene.scene_markers
@@ -60,7 +65,7 @@ export const SceneCardPerformerPopover: React.FC<IProps> = ({ scene }) => {
 
   return (
     <HoverPopover
-      className="performer-count"
+      className={cx("performer-count", className)}
       placement="bottom"
       popoverClassName="scene-marker-highlight-popover"
       content={popoverContent}

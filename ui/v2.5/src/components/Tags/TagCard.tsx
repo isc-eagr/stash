@@ -15,6 +15,10 @@ import { useTagUpdate } from "src/core/StashService";
 import { gql, useQuery } from "@apollo/client"; // CUSTOM
 import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
 import { getTagSortMetricCustom } from "./tagSortMetric_custom"; // CUSTOM
+import {
+  catalogCardSortHighlightClassCustom,
+  isCatalogCardSortHighlightedCustom,
+} from "../Shared/catalogCardSortHighlight_custom"; // CUSTOM
 
 interface IProps {
   tag: GQL.TagDataFragment | GQL.TagListDataFragment;
@@ -99,7 +103,7 @@ function useSceneOCountByTag(tagId?: string) {
 
 const TagCardPopovers: React.FC<IProps> = PatchComponent(
   "TagCard.Popovers",
-  ({ tag, sceneCountOnly, performerId, performerName }) => {
+  ({ tag, sceneCountOnly, performerId, performerName, activeSortBy }) => {
     // CUSTOM: extra destructured props
     // CUSTOM: begin - scene marker count + sceneCountOnly early return
     // count scene markers with this tag that have performers assigned
@@ -111,7 +115,13 @@ const TagCardPopovers: React.FC<IProps> = PatchComponent(
           <hr />
           <ButtonGroup className="card-popovers">
             <PopoverCountButton
-              className="scene-count"
+              className={cx(
+                "scene-count",
+                catalogCardSortHighlightClassCustom(
+                  activeSortBy,
+                  "scenes_count"
+                )
+              )} // CUSTOM
               type="scene"
               count={tag.scene_count}
               url={NavUtils.makeTagScenesUrl(
@@ -120,7 +130,10 @@ const TagCardPopovers: React.FC<IProps> = PatchComponent(
                   ? { id: performerId, name: performerName }
                   : undefined
               )}
-              showZero={false}
+              showZero={isCatalogCardSortHighlightedCustom(
+                activeSortBy,
+                "scenes_count"
+              )} // CUSTOM
             />
           </ButtonGroup>
         </>
@@ -133,7 +146,10 @@ const TagCardPopovers: React.FC<IProps> = PatchComponent(
         <hr />
         <ButtonGroup className="card-popovers">
           <PopoverCountButton
-            className="scene-count"
+            className={cx(
+              "scene-count",
+              catalogCardSortHighlightClassCustom(activeSortBy, "scenes_count")
+            )} // CUSTOM
             type="scene"
             count={tag.scene_count}
             // CUSTOM: begin - performer context in URL
@@ -142,35 +158,68 @@ const TagCardPopovers: React.FC<IProps> = PatchComponent(
               performerId ? { id: performerId, name: performerName } : undefined
             )}
             // CUSTOM: end
-            showZero={false}
+            showZero={isCatalogCardSortHighlightedCustom(
+              activeSortBy,
+              "scenes_count"
+            )} // CUSTOM
           />
           <PopoverCountButton
-            className="image-count"
+            className={cx(
+              "image-count",
+              catalogCardSortHighlightClassCustom(activeSortBy, "images_count")
+            )} // CUSTOM
             type="image"
             count={tag.image_count}
             url={NavUtils.makeTagImagesUrl(tag)}
-            showZero={false}
+            showZero={isCatalogCardSortHighlightedCustom(
+              activeSortBy,
+              "images_count"
+            )} // CUSTOM
           />
           <PopoverCountButton
-            className="gallery-count"
+            className={cx(
+              "gallery-count",
+              catalogCardSortHighlightClassCustom(
+                activeSortBy,
+                "galleries_count"
+              )
+            )} // CUSTOM
             type="gallery"
             count={tag.gallery_count}
             url={NavUtils.makeTagGalleriesUrl(tag)}
-            showZero={false}
+            showZero={isCatalogCardSortHighlightedCustom(
+              activeSortBy,
+              "galleries_count"
+            )} // CUSTOM
           />
           <PopoverCountButton
-            className="group-count"
+            className={cx(
+              "group-count",
+              catalogCardSortHighlightClassCustom(activeSortBy, "groups_count")
+            )} // CUSTOM
             type="group"
             count={tag.group_count}
             url={NavUtils.makeTagGroupsUrl(tag)}
-            showZero={false}
+            showZero={isCatalogCardSortHighlightedCustom(
+              activeSortBy,
+              "groups_count"
+            )} // CUSTOM
           />
           <PopoverCountButton
-            className="marker-count"
+            className={cx(
+              "marker-count",
+              catalogCardSortHighlightClassCustom(
+                activeSortBy,
+                "scene_markers_count"
+              )
+            )} // CUSTOM
             type="marker"
             count={tag.scene_marker_count}
             url={NavUtils.makeTagSceneMarkersUrl(tag)}
-            showZero={false}
+            showZero={isCatalogCardSortHighlightedCustom(
+              activeSortBy,
+              "scene_markers_count"
+            )} // CUSTOM
           />
           <PopoverCountButton
             className="o-count"
@@ -180,11 +229,20 @@ const TagCardPopovers: React.FC<IProps> = PatchComponent(
             showZero={false}
           />
           <PopoverCountButton
-            className="performer-count"
+            className={cx(
+              "performer-count",
+              catalogCardSortHighlightClassCustom(
+                activeSortBy,
+                "performers_count"
+              )
+            )} // CUSTOM
             type="performer"
             count={tag.performer_count}
             url={NavUtils.makeTagPerformersUrl(tag)}
-            showZero={false}
+            showZero={isCatalogCardSortHighlightedCustom(
+              activeSortBy,
+              "performers_count"
+            )} // CUSTOM
           />
           {/* CUSTOM: begin - performer-green scene marker count */}
           {/* Scene markers with this tag that have performers */}
@@ -197,11 +255,17 @@ const TagCardPopovers: React.FC<IProps> = PatchComponent(
           />
           {/* CUSTOM: end */}
           <PopoverCountButton
-            className="studio-count"
+            className={cx(
+              "studio-count",
+              catalogCardSortHighlightClassCustom(activeSortBy, "studios_count")
+            )} // CUSTOM
             type="studio"
             count={tag.studio_count}
             url={NavUtils.makeTagStudiosUrl(tag)}
-            showZero={false}
+            showZero={isCatalogCardSortHighlightedCustom(
+              activeSortBy,
+              "studios_count"
+            )} // CUSTOM
           />
         </ButtonGroup>
       </>
@@ -251,12 +315,32 @@ const TagCardOverlays: React.FC<IProps> = PatchComponent(
 
 const TagCardDetails: React.FC<IProps> = PatchComponent(
   "TagCard.Details",
-  ({ tag, activeSortBy, activeSortDirection, activeSortValue }) => {
+  ({
+    tag,
+    sceneCountOnly,
+    activeSortBy,
+    activeSortDirection,
+    activeSortValue,
+  }) => {
     const sortDirection = activeSortDirection ?? GQL.SortDirectionEnum.Asc; // CUSTOM
     const sortMetric = getTagSortMetricCustom(
       activeSortBy,
       tag,
       activeSortValue
+    ); // CUSTOM
+    const embeddedSortMetric = isCatalogCardSortHighlightedCustom(
+      activeSortBy,
+      ...(sceneCountOnly
+        ? ["scenes_count"]
+        : [
+            "galleries_count",
+            "images_count",
+            "performers_count",
+            "scenes_count",
+            "groups_count",
+            "scene_markers_count",
+            "studios_count",
+          ])
     ); // CUSTOM
     function maybeRenderDescription() {
       if (tag.description) {
@@ -333,7 +417,7 @@ const TagCardDetails: React.FC<IProps> = PatchComponent(
     return (
       <>
         <SortMetricBadgeCustom
-          metric={sortMetric}
+          metric={embeddedSortMetric ? undefined : sortMetric}
           sortDirection={sortDirection}
         />
         {maybeRenderDescription()}
