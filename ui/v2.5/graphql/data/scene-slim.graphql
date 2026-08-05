@@ -15,7 +15,10 @@ fragment SlimSceneData on Scene {
   resume_time
   play_duration
   play_count
-
+  last_played_at # CUSTOM
+  o_history # CUSTOM
+  created_at # CUSTOM
+  updated_at # CUSTOM
   files {
     ...VideoFileData
   }
@@ -113,6 +116,7 @@ fragment SlimSceneData on Scene {
     gender
     favorite
     image_path
+    birthdate # CUSTOM: active performer-age sort metric
   }
 
   stash_ids {

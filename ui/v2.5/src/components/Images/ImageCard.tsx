@@ -24,6 +24,8 @@ import {
   getRatingCardClass,
   isRatingCardHomePage,
 } from "src/utils/ratingCardStyles_custom"; // CUSTOM
+import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
+import { getImageSortMetricCustom } from "./imageSortMetric_custom"; // CUSTOM
 
 interface IImageCardProps {
   image: GQL.SlimImageDataFragment;
@@ -33,6 +35,8 @@ interface IImageCardProps {
   zoomIndex: number;
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
   onPreview?: (ev: MouseEvent) => void;
+  activeSortBy?: string; // CUSTOM
+  activeSortDirection?: GQL.SortDirectionEnum; // CUSTOM
 }
 
 const ImageCardPopovers = PatchComponent(
@@ -137,8 +141,18 @@ const ImageCardPopovers = PatchComponent(
 const ImageCardDetails = PatchComponent(
   "ImageCard.Details",
   (props: IImageCardProps) => {
+    const sortDirection =
+      props.activeSortDirection ?? GQL.SortDirectionEnum.Asc; // CUSTOM
+    const sortMetric = getImageSortMetricCustom(
+      props.activeSortBy,
+      props.image
+    ); // CUSTOM
     return (
       <div className="image-card__details">
+        <SortMetricBadgeCustom
+          metric={sortMetric}
+          sortDirection={sortDirection}
+        />
         <span className="image-card__date">{props.image.date}</span>
         <TruncatedText
           className="image-card__description"

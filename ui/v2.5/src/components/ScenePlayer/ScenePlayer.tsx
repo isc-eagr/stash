@@ -70,6 +70,7 @@ import { MultiSegmentLoopControls } from "./MultiSegmentLoopControls";
 import { PerformerImageSelectModal } from "./PerformerImageSelectModal";
 import { PerformerImageOverlay } from "./PerformerImageOverlay";
 import { getSceneMarkerTimelineHoverPerformers } from "./sceneMarkerTimelineHover_custom";
+import { isSceneMarkerTimelineRoyalSapphire } from "./sceneMarkerTimelineStyle_custom";
 // CUSTOM: end
 
 type ScenePlayerTagTree = {
@@ -371,6 +372,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const started = useRef(false);
     const auto = useRef(false);
     const interactiveReady = useRef(false);
+    const markerRenderFrame = useRef<number>(); // CUSTOM
     const minimumPlayPercent = uiConfig?.minimumPlayPercent ?? 0;
     const trackActivity = uiConfig?.trackActivity ?? true;
     const vrTag = uiConfig?.vrTag ?? undefined;
@@ -1714,6 +1716,13 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
           marker,
           scene.scene_markers
         );
+        const isRoyalSapphire = isSceneMarkerTimelineRoyalSapphire(marker, {
+          goatTagId: uiConfig?.roleTagIds?.goatTagId,
+          royalSapphireTagId:
+            uiConfig?.ratingCardOverrideTagIds?.royalSapphireTagId,
+        });
+        const ratingCardTheme =
+          uiConfig?.ratingCardTheme === "classic" ? "classic" : "premium";
 
         return {
           id: marker.id,
@@ -1722,6 +1731,10 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
           end_seconds: marker.end_seconds ?? null,
           primaryTag: marker.primary_tag,
           tags: marker.tags?.map((tag) => ({ id: tag.id, name: tag.name })),
+          isRoyalSapphire,
+          ratingCardClass: isRoyalSapphire
+            ? `rating-card-theme-${ratingCardTheme} rating-royal-sapphire`
+            : undefined,
           top_performers: marker.top_performers?.map((performer) => ({
             id: performer.id,
             name: performer.name,
@@ -1733,17 +1746,25 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             image_path: performer.image_path,
           })),
           hover_performers: hoverPerformers?.map(
-            ({ performer, topTags, bottomTags }) => ({
+            ({
+              performer,
+              topTags,
+              bottomTags,
+              topOverlapTagIDs,
+              bottomOverlapTagIDs,
+            }) => ({
               id: performer.id,
               name: performer.name ?? "",
               image_path: performer.image_path,
               top_tags: topTags.map((tag) => ({
                 id: tag.id,
                 name: tag.name ?? "",
+                isOverlap: topOverlapTagIDs.has(tag.id),
               })),
               bottom_tags: bottomTags.map((tag) => ({
                 id: tag.id,
                 name: tag.name ?? "",
+                isOverlap: bottomOverlapTagIDs.has(tag.id),
               })),
             })
           ),
@@ -1752,6 +1773,10 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       // CUSTOM: end
 
       const markers = player!.markers();
+      if (markerRenderFrame.current !== undefined) {
+        window.cancelAnimationFrame(markerRenderFrame.current);
+      }
+      markers.clearMarkers();
       markers.setOnMarkerClick((marker, seconds) => {
         if (marker.id) {
           onMarkerClick?.(marker.id, seconds);
@@ -1789,7 +1814,8 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         }
       }
 
-      requestAnimationFrame(() => {
+      markerRenderFrame.current = window.requestAnimationFrame(() => {
+        markerRenderFrame.current = undefined;
         markers.addDotMarkers(timestampMarkers);
         markers.addRangeMarkers(rangeMarkers);
 
@@ -1848,6 +1874,10 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
 
       return () => {
         player.off("loadedmetadata", handleLoadMetadata);
+        if (markerRenderFrame.current !== undefined) {
+          window.cancelAnimationFrame(markerRenderFrame.current);
+          markerRenderFrame.current = undefined;
+        }
         const markers = player!.markers();
         markers.clearMarkers();
       };
@@ -2118,6 +2148,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             time={time}
             onSeek={onScrubberSeek}
             onScroll={onScrubberScroll}
+            onMarkerClick={onMarkerClick} // CUSTOM
           />
         )}
         {/* CUSTOM: begin - multi-segment loop controls, performer image overlay modal, performer image overlays */}

@@ -35,6 +35,8 @@ import {
 // CUSTOM: begin
 import { PerformerCategoryStrip } from "./PerformerDetails/PerformerCategoryStrip";
 import type { PerformerListData } from "./performerTypes_custom";
+import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom";
+import { getPerformerSortMetricCustom } from "./performerSortMetric_custom";
 // CUSTOM: end
 
 export interface IPerformerCardExtraCriteria {
@@ -103,27 +105,10 @@ interface IPerformerCardProps {
   roleStats?: IPerformerRoleStats | null;
   /** Active list sort key, used to show sort-specific custom stats */
   activeSortBy?: string;
+  activeSortDirection?: GQL.SortDirectionEnum;
+  activeSortValue?: string | null;
   // CUSTOM: end
 }
-
-const performerActivitySortStats: Record<
-  string,
-  { label: string; field: keyof GQL.PerformerActivityStats }
-> = {
-  sex_activity_percent: { label: "Sex", field: "sex_percent" },
-  oral_activity_percent: { label: "Oral", field: "oral_percent" },
-  solo_activity_percent: { label: "Solo", field: "solo_percent" },
-  sex_top_activity_percent: { label: "Sex Top", field: "sex_top_percent" },
-  sex_bottom_activity_percent: {
-    label: "Sex Bottom",
-    field: "sex_bottom_percent",
-  },
-  oral_top_activity_percent: { label: "Oral Top", field: "oral_top_percent" },
-  oral_bottom_activity_percent: {
-    label: "Oral Bottom",
-    field: "oral_bottom_percent",
-  },
-};
 
 const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Popovers",
@@ -428,6 +413,8 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
     roleStats,
     extraCriteria,
     activeSortBy,
+    activeSortDirection,
+    activeSortValue,
   }) => {
     const intl = useIntl();
 
@@ -466,16 +453,29 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
 
     const markerRoles = rolesData?.findPerformer?.scene_marker_roles ?? [];
     // CUSTOM: end
-    const activeActivitySort = activeSortBy
-      ? performerActivitySortStats[activeSortBy]
-      : undefined;
-    const activeActivitySortValue = activeActivitySort
-      ? performer.activity_stats[activeActivitySort.field]
-      : undefined;
+    const sortDirection = activeSortDirection ?? GQL.SortDirectionEnum.Asc; // CUSTOM
+    const performerSortData = {
+      ...performer,
+      scene_count: studioStats?.scene_count ?? performer.scene_count,
+      image_count: studioStats?.image_count ?? performer.image_count,
+      gallery_count: studioStats?.gallery_count ?? performer.gallery_count,
+      group_count: studioStats?.group_count ?? performer.group_count,
+      o_counter: studioStats?.o_counter ?? performer.o_counter,
+    }; // CUSTOM
+    const sortMetric = getPerformerSortMetricCustom(
+      activeSortBy,
+      performerSortData,
+      studioStats ?? roleStats,
+      activeSortValue
+    ); // CUSTOM
 
     return (
       <>
         {/* CUSTOM: begin - modified age display + PerformerCategoryStrip */}
+        <SortMetricBadgeCustom
+          metric={sortMetric}
+          sortDirection={sortDirection}
+        />
         {/* Age line */}
         <div className="performer-card__age">
           {age !== 0 ? ageString : "\u00A0"}
@@ -500,11 +500,6 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
               : undefined
           } // CUSTOM
         />
-        {activeActivitySort && typeof activeActivitySortValue === "number" && (
-          <div className="performer-card-activity-sort-stat">
-            {activeActivitySort.label}: {Math.round(activeActivitySortValue)}%
-          </div>
-        )}
         {/* CUSTOM: end */}
       </>
     );

@@ -46,6 +46,11 @@ import {
   type MarkerRatingCardClassGetter,
 } from "./sceneMarkerHoverPopover_custom";
 import { getSceneMarkerSelectionState } from "./sceneMarkerSelection_custom";
+import {
+  getSceneMarkerSectionAnchorId,
+  isSceneMarkerJumpSection,
+  scrollToSceneMarkerSection,
+} from "./sceneMarkerSectionNavigation_custom";
 
 interface ISceneMarkersChronologicalPanel {
   markers: GQL.SceneMarkerDataFragment[];
@@ -105,6 +110,7 @@ interface IActivityTypeSection {
 }
 
 const defaultMarkerDurationSeconds = 20;
+const fallbackHighlightSectionKey: ActivityTypeSectionKey = "other-highlights";
 
 function markerEndSeconds(
   marker: Pick<GQL.SceneMarkerDataFragment, "seconds" | "end_seconds">
@@ -1034,6 +1040,51 @@ export const SceneMarkersChronologicalPanel: React.FC<
       .filter((section) => section.groups.length > 0);
   }, [configuration?.ui.roleTagIds, layout.groups]);
 
+  const jumpSections = useMemo<
+    Array<Pick<IActivityTypeSection, "key" | "label">>
+  >(
+    () => [
+      ...activityTypeSections
+        .filter((section) => isSceneMarkerJumpSection(section.key))
+        .map(({ key, label }) => ({ key, label })),
+      ...(layout.fallbackHighlightGroups.length > 0
+        ? [
+            {
+              key: fallbackHighlightSectionKey,
+              label: "Other Highlights",
+            },
+          ]
+        : []),
+    ],
+    [activityTypeSections, layout.fallbackHighlightGroups.length]
+  );
+
+  const renderSectionNavigation = () => {
+    if (jumpSections.length === 0) {
+      return null;
+    }
+
+    return (
+      <nav
+        aria-label="Marker sections"
+        className="scene-marker-section-navigation"
+      >
+        <div className="scene-marker-section-navigation-buttons">
+          {jumpSections.map((section) => (
+            <button
+              className="scene-marker-section-navigation-button"
+              key={section.key}
+              onClick={() => scrollToSceneMarkerSection(section.key)}
+              type="button"
+            >
+              {section.label}
+            </button>
+          ))}
+        </div>
+      </nav>
+    );
+  };
+
   const renderDerivedWindows = () => {
     if (derivedWindows.length === 0 || !onSelectDerivedWindow) {
       return null;
@@ -1114,7 +1165,6 @@ export const SceneMarkersChronologicalPanel: React.FC<
       return null;
     }
 
-    const fallbackGroupKey = "other-highlights";
     const sectionMarkerIds = highlightGroupMarkerIds(
       layout.fallbackHighlightGroups
     );
@@ -1123,7 +1173,11 @@ export const SceneMarkersChronologicalPanel: React.FC<
     );
 
     return (
-      <div className="scene-marker-activity-section" key={fallbackGroupKey}>
+      <div
+        className="scene-marker-activity-section"
+        id={getSceneMarkerSectionAnchorId(fallbackHighlightSectionKey)}
+        key={fallbackHighlightSectionKey}
+      >
         <div className="scene-marker-activity-group-header">
           <div className="scene-marker-activity-group-title">
             <span>Other Highlights</span>
@@ -1186,7 +1240,11 @@ export const SceneMarkersChronologicalPanel: React.FC<
             );
 
             return (
-              <div className="scene-marker-activity-section" key={section.key}>
+              <div
+                className="scene-marker-activity-section"
+                id={getSceneMarkerSectionAnchorId(section.key)}
+                key={section.key}
+              >
                 <div className="scene-marker-activity-group-header">
                   <div className="scene-marker-activity-group-title">
                     <span>{section.label}</span>
@@ -1343,6 +1401,7 @@ export const SceneMarkersChronologicalPanel: React.FC<
   return (
     <div className="scene-marker-chronology">
       {renderSearch()}
+      {renderSectionNavigation()}
       {renderDerivedWindows()}
       {renderActivityTypeList()}
     </div>

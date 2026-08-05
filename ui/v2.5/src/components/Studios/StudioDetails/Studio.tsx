@@ -56,11 +56,15 @@ import { OrganizedButton } from "src/components/Scenes/SceneDetails/OrganizedBut
 interface IProps {
   studio: GQL.StudioDetailDataFragment; // CUSTOM: was StudioDataFragment
   tabKey?: TabKey;
+  statsYear?: string; // CUSTOM
+  statsMonth?: string; // CUSTOM
 }
 
 interface IStudioParams {
   id: string;
   tab?: string;
+  year?: string; // CUSTOM
+  month?: string; // CUSTOM
 }
 
 const validTabs = [
@@ -84,7 +88,18 @@ const StudioTabs: React.FC<{
   studio: GQL.StudioDetailDataFragment; // CUSTOM: was StudioDataFragment
   abbreviateCounter: boolean;
   showAllCounts?: boolean;
-}> = ({ tabKey, studio, abbreviateCounter, showAllCounts = false }) => {
+  statsYear?: string; // CUSTOM
+  statsMonth?: string; // CUSTOM
+}> = ({
+  tabKey,
+  studio,
+  abbreviateCounter,
+  showAllCounts = false,
+  // CUSTOM: begin
+  statsYear,
+  statsMonth,
+  // CUSTOM: end
+}) => {
   const [showAllDetails, setShowAllDetails] = useState<boolean>(
     showAllCounts && studio.child_studios.length > 0
   );
@@ -262,15 +277,24 @@ const StudioTabs: React.FC<{
       <Tab eventKey="stats" title="Stats">
         {contentSwitch}
         <StudioStatsPanel
+          month={statsMonth} // CUSTOM
           studio={studio}
           showChildStudioContent={showAllDetails}
+          year={statsYear} // CUSTOM
         />
       </Tab>
     </Tabs>
   );
 };
 
-const StudioPage: React.FC<IProps> = ({ studio, tabKey }) => {
+const StudioPage: React.FC<IProps> = ({
+  studio,
+  tabKey,
+  // CUSTOM: begin
+  statsYear,
+  statsMonth,
+  // CUSTOM: end
+}) => {
   const history = useHistory();
   const Toast = useToast();
   const intl = useIntl();
@@ -577,6 +601,8 @@ const StudioPage: React.FC<IProps> = ({ studio, tabKey }) => {
                 tabKey={tabKey}
                 abbreviateCounter={abbreviateCounter}
                 showAllCounts={showAllCounts}
+                statsMonth={statsMonth} // CUSTOM
+                statsYear={statsYear} // CUSTOM
               />
             )}
           </div>
@@ -591,7 +617,7 @@ const StudioLoader: React.FC<RouteComponentProps<IStudioParams>> = ({
   location,
   match,
 }) => {
-  const { id, tab } = match.params;
+  const { id, tab, year, month } = match.params; // CUSTOM
   const { data, loading, error } = useFindStudio(id);
 
   useScrollToTopOnMount();
@@ -612,9 +638,16 @@ const StudioLoader: React.FC<RouteComponentProps<IStudioParams>> = ({
     );
   }
 
+  // CUSTOM: begin
   return (
-    <StudioPage studio={data.findStudio} tabKey={tab as TabKey | undefined} />
+    <StudioPage
+      statsMonth={month}
+      statsYear={year}
+      studio={data.findStudio}
+      tabKey={tab as TabKey | undefined}
+    />
   );
+  // CUSTOM: end
 };
 
 export default StudioLoader;

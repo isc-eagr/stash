@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/pkg/models"
@@ -506,9 +507,22 @@ func queryRatingAdvisorStatsCustom(ctx context.Context, query string, args []int
 	return aggregateStudioRatingAdvisorRowsCustom(rows), nil
 }
 
-func (r *queryResolver) GlobalRatingAdvisorStats(ctx context.Context) (ret *StudioRatingAdvisorStats, err error) {
+func (r *queryResolver) GlobalRatingAdvisorStats(ctx context.Context, studioID *string, depth *int) (ret *StudioRatingAdvisorStats, err error) {
+	var parsedStudioID *int
+	if studioID != nil {
+		parsed, parseErr := strconv.Atoi(*studioID)
+		if parseErr != nil || parsed < 1 {
+			return nil, fmt.Errorf("invalid studio ID: %s", *studioID)
+		}
+		parsedStudioID = &parsed
+	}
+
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = queryGlobalRatingAdvisorStatsCustom(ctx)
+		if parsedStudioID == nil {
+			ret, err = queryGlobalRatingAdvisorStatsCustom(ctx)
+		} else {
+			ret, err = queryStudioRatingAdvisorStatsCustom(ctx, *parsedStudioID, depth)
+		}
 		return err
 	}); err != nil {
 		return nil, err

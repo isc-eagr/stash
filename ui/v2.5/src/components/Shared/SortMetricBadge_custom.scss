@@ -1,0 +1,65 @@
+.catalog-sort-metric {
+  --catalog-sort-metric-accent-rgb: 76, 214, 129;
+
+  align-items: center;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--catalog-sort-metric-accent-rgb), 0.14),
+    rgba(var(--catalog-sort-metric-accent-rgb), 0.055)
+  );
+  border: 1px solid rgba(var(--catalog-sort-metric-accent-rgb), 0.3);
+  border-radius: 0.42rem;
+  box-shadow: inset 3px 0 rgba(var(--catalog-sort-metric-accent-rgb), 0.78),
+    0 2px 8px rgba(0, 0, 0, 0.12);
+  display: flex;
+  font-size: 0.76rem;
+  gap: 0.25rem;
+  justify-content: flex-start;
+  line-height: 1.2;
+  margin: 0.15rem 0 0.45rem;
+  min-height: 1.95rem;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0.3rem 0.38rem 0.3rem 0.62rem;
+}
+
+.catalog-sort-metric-label {
+  color: rgba(255, 255, 255, 0.63);
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalog-sort-metric-separator {
+  color: rgba(255, 255, 255, 0.38);
+  flex: 0 0 auto;
+}
+
+.catalog-sort-metric-value {
+  color: rgb(var(--catalog-sort-metric-accent-rgb));
+  flex: 0 1 auto;
+  font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 0 10px rgba(var(--catalog-sort-metric-accent-rgb), 0.18);
+  white-space: nowrap;
+}
+
+.catalog-sort-metric-direction {
+  align-items: center;
+  background: rgba(var(--catalog-sort-metric-accent-rgb), 0.13);
+  border: 1px solid rgba(var(--catalog-sort-metric-accent-rgb), 0.2);
+  border-radius: 999px;
+  color: rgb(var(--catalog-sort-metric-accent-rgb));
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  font-weight: 700;
+  height: 1.2rem;
+  justify-content: center;
+  margin-left: auto;
+  width: 1.2rem;
+}

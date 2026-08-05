@@ -12,7 +12,8 @@ import { Link, RouteComponentProps, useHistory } from "react-router-dom";
 import { FormattedNumber } from "react-intl";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { StatsPage } from "src/components/StatsPage_custom";
-import { useStats } from "src/core/StashService";
+import { StatsStudioSelector } from "src/components/StatsStudioSelector_custom";
+import type { Studio } from "src/components/Studios/StudioSelect";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useTitleProps } from "src/hooks/title";
 import TextUtils from "src/utils/text";
@@ -55,8 +56,8 @@ import { SceneStatsInsights } from "./SceneStatsInsights_custom";
 import "./SceneStats.scss";
 
 const SCENE_STATS_SCENES = gql`
-  query SceneStatsScenes {
-    sceneStats {
+  query SceneStatsScenes($studioId: ID, $depth: Int) {
+    sceneStats(studio_id: $studioId, depth: $depth) {
       count
       scenes {
         id
@@ -83,6 +84,12 @@ const SCENE_STATS_SCENES = gql`
         most_recent_o_date
       }
     }
+    sceneOrgasmCount(studio_id: $studioId, depth: $depth)
+    sceneFacialCount(studio_id: $studioId, depth: $depth)
+    totalOrgasmTime(studio_id: $studioId, depth: $depth)
+    totalFacialTime(studio_id: $studioId, depth: $depth)
+    totalSexTime(studio_id: $studioId, depth: $depth)
+    totalOralTime(studio_id: $studioId, depth: $depth)
   }
 `;
 
@@ -97,37 +104,6 @@ const SCENE_STATS_ROLE_TAGS = gql`
         }
       }
     }
-  }
-`;
-
-const ORGASM_TOTAL_COUNT = gql`
-  query SceneStatsOrgasmCount {
-    sceneOrgasmCount
-  }
-`;
-
-const FACIAL_TOTAL_COUNT = gql`
-  query SceneStatsFacialCount {
-    sceneFacialCount
-  }
-`;
-
-const TOTAL_ORGASM_TIME = gql`
-  query SceneStatsTotalOrgasmTime {
-    totalOrgasmTime
-  }
-`;
-
-const TOTAL_FACIAL_TIME = gql`
-  query SceneStatsTotalFacialTime {
-    totalFacialTime
-  }
-`;
-
-const TOTAL_ACTIVITY_TIME = gql`
-  query SceneStatsTotalActivityTime {
-    totalSexTime
-    totalOralTime
   }
 `;
 
@@ -163,6 +139,12 @@ type SceneStatsData = {
     count: number;
     scenes: SceneStatsScene[];
   };
+  sceneOrgasmCount: number;
+  sceneFacialCount: number;
+  totalOrgasmTime: number;
+  totalFacialTime: number;
+  totalSexTime: number;
+  totalOralTime: number;
 };
 
 type SceneStatsRoleTagsData = {
@@ -230,6 +212,19 @@ type RoleTagIDSets = {
 interface IRouteParams {
   year?: string;
   month?: string;
+}
+
+export interface ISceneStatsStudioScope {
+  id: string;
+  name: string;
+  depth: number;
+}
+
+interface ISceneStatsDashboardProps {
+  selectedYear?: string;
+  selectedMonth?: string;
+  navigationBase?: string;
+  studioScope?: ISceneStatsStudioScope;
 }
 
 const metricOptions: Array<{
@@ -408,6 +403,19 @@ function formatDuration(totalSeconds: number) {
   return TextUtils.formatDurationRange(totalSeconds);
 }
 
+function sceneStatsScopedListURL(
+  url: string,
+  studioScope?: ISceneStatsStudioScope
+) {
+  if (!studioScope) return url;
+  return NavUtils.withStudioScope(
+    url,
+    studioScope.id,
+    studioScope.name,
+    studioScope.depth
+  );
+}
+
 function addDatum(
   buckets: Map<string, ChartDatum>,
   key: string,
@@ -550,7 +558,8 @@ function buildSceneCharts(
   roleTagIDs: RoleTagIDSets,
   configuration: ReturnType<typeof useConfigurationContext>["configuration"],
   selectedYear?: number,
-  selectedMonth?: number
+  selectedMonth?: number,
+  navigationBase = "/scenestats"
 ) {
   const ethnicityBuckets = new Map<string, ChartDatum>();
   const countryBuckets = new Map<string, ChartDatum>();
@@ -675,7 +684,7 @@ function buildSceneCharts(
           String(year),
           year,
           undefined,
-          `/scenestats/${year}`
+          `${navigationBase}/${year}`
         );
       }
     } else if (year === selectedYear) {
@@ -690,7 +699,7 @@ function buildSceneCharts(
             monthName(month),
             month,
             undefined,
-            `/scenestats/${year}/${month}`
+            `${navigationBase}/${year}/${month}`
           );
         }
       } else if (month === selectedMonth) {
@@ -1115,8 +1124,30 @@ const SceneStatsSceneList: React.FC<{
   );
 };
 
-const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
-  const titleProps = useTitleProps("SceneStats");
+export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
+  selectedYear: selectedYearParam,
+  selectedMonth: selectedMonthParam,
+  navigationBase = "/scenestats",
+  studioScope,
+}) => {
+  const [selectedStudio, setSelectedStudio] = useState<Studio>();
+  const [includeChildStudios, setIncludeChildStudios] = useState(true);
+  const selectedStudioScope = useMemo<ISceneStatsStudioScope | undefined>(
+    () =>
+      selectedStudio
+        ? {
+            id: selectedStudio.id,
+            name: selectedStudio.name,
+            depth: includeChildStudios ? -1 : 0,
+          }
+        : undefined,
+    [includeChildStudios, selectedStudio]
+  );
+  const effectiveStudioScope = studioScope ?? selectedStudioScope;
+  const pageTitle = studioScope
+    ? `${studioScope.name} SceneStats`
+    : "SceneStats";
+  const titleProps = useTitleProps(pageTitle);
   const history = useHistory();
   const [metric, setMetric] = useState<PodiumMetric>("o_counter");
   const [filters, setFilters] = useState<ChartFilter[]>([]);
@@ -1124,8 +1155,8 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
   const [activeSection, setActiveSection] = useState<"overview" | "insights">(
     "overview"
   );
-  const selectedYear = Number(match.params.year);
-  const selectedMonth = Number(match.params.month);
+  const selectedYear = Number(selectedYearParam);
+  const selectedMonth = Number(selectedMonthParam);
   const hasSelectedYear = Number.isInteger(selectedYear) && selectedYear > 0;
   const hasSelectedMonth =
     Number.isInteger(selectedMonth) &&
@@ -1149,12 +1180,12 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     [roleTagIds]
   );
 
-  const {
-    data: statsData,
-    error: statsError,
-    loading: statsLoading,
-  } = useStats();
-  const sceneQuery = useQuery<SceneStatsData>(SCENE_STATS_SCENES);
+  const sceneQuery = useQuery<SceneStatsData>(SCENE_STATS_SCENES, {
+    variables: {
+      depth: effectiveStudioScope?.depth,
+      studioId: effectiveStudioScope?.id,
+    },
+  });
   const roleTagsQuery = useQuery<SceneStatsRoleTagsData>(
     SCENE_STATS_ROLE_TAGS,
     {
@@ -1162,22 +1193,6 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
       variables: { ids: roleTagIDList },
     }
   );
-  const { data: orgasmCountData } = useQuery<{ sceneOrgasmCount: number }>(
-    ORGASM_TOTAL_COUNT
-  );
-  const { data: facialCountData } = useQuery<{ sceneFacialCount: number }>(
-    FACIAL_TOTAL_COUNT
-  );
-  const { data: orgasmTimeData } = useQuery<{ totalOrgasmTime: number }>(
-    TOTAL_ORGASM_TIME
-  );
-  const { data: facialTimeData } = useQuery<{ totalFacialTime: number }>(
-    TOTAL_FACIAL_TIME
-  );
-  const { data: activityTimeData } = useQuery<{
-    totalSexTime: number;
-    totalOralTime: number;
-  }>(TOTAL_ACTIVITY_TIME);
   const scenes = useMemo(
     () => sceneQuery.data?.sceneStats.scenes ?? [],
     [sceneQuery.data?.sceneStats.scenes]
@@ -1215,6 +1230,19 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
       reallyHot: tagIDsFor(reallyHotTag),
     }),
     [facialTag, oralTag, reallyHotTag, sexTag, soloTag]
+  );
+  const categoryCounts = useMemo(
+    () =>
+      scenes.reduce(
+        (counts, scene) => {
+          const type = sceneType(scene, roleTagIDs);
+          if (type) counts[type] += 1;
+          if (sceneHasTag(scene, roleTagIDs.facial)) counts.facial += 1;
+          return counts;
+        },
+        { sex: 0, oral: 0, solo: 0, facial: 0 }
+      ),
+    [roleTagIDs, scenes]
   );
   const filteredScenes = useMemo(
     () =>
@@ -1260,7 +1288,8 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
         roleTagIDs,
         configuration,
         hasSelectedYear ? selectedYear : undefined,
-        hasSelectedMonth ? selectedMonth : undefined
+        hasSelectedMonth ? selectedMonth : undefined,
+        navigationBase
       ),
     [
       configuration,
@@ -1268,6 +1297,7 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
       hasSelectedMonth,
       hasSelectedYear,
       roleTagIDs,
+      navigationBase,
       selectedMonth,
       selectedYear,
     ]
@@ -1289,24 +1319,20 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
   }
 
   function clearReleaseSelection() {
-    if (hasSelectedYear) history.push("/scenestats");
+    if (hasSelectedYear) history.push(navigationBase);
   }
 
-  if (statsError)
-    return (
-      <>
-        <Helmet {...titleProps} />
-        <StatsPage className="scenestats-page">
-          <span>{statsError.message}</span>
-        </StatsPage>
-      </>
-    );
+  function selectStudio(studio?: Studio) {
+    setSelectedStudio(studio);
+    setFilters([]);
+    if (hasSelectedYear) history.push(navigationBase);
+  }
 
   if (sceneQuery.error)
     return (
       <>
         <Helmet {...titleProps} />
-        <StatsPage className="scenestats-page">
+        <StatsPage className="scenestats-page" showNavigation={!studioScope}>
           <ErrorMessage error={sceneQuery.error.message} />
         </StatsPage>
       </>
@@ -1316,13 +1342,13 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     return (
       <>
         <Helmet {...titleProps} />
-        <StatsPage className="scenestats-page">
+        <StatsPage className="scenestats-page" showNavigation={!studioScope}>
           <ErrorMessage error={roleTagsQuery.error.message} />
         </StatsPage>
       </>
     );
 
-  if (statsLoading || sceneQuery.loading || roleTagsQuery.loading || !statsData)
+  if (sceneQuery.loading || roleTagsQuery.loading || !sceneQuery.data)
     return (
       <>
         <Helmet {...titleProps} />
@@ -1330,17 +1356,20 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
           className="scenestats-page"
           loading
           loadingMessage="Loading scene stats..."
+          showNavigation={!studioScope}
         />
       </>
     );
 
+  const summary = sceneQuery.data;
+
   return (
-    <StatsPage className="scenestats-page">
+    <StatsPage className="scenestats-page" showNavigation={!studioScope}>
       <Helmet {...titleProps} />
 
       <header className="scenestats-header">
         <div>
-          <h1>SceneStats</h1>
+          <h1>{pageTitle}</h1>
           <div className="scenestats-total">
             {filters.length > 0 || hasSelectedYear
               ? formatStatsDrilldownTotal(
@@ -1352,6 +1381,17 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
               : formatStatsTotal(scenes.length, "scene", "scenes")}
           </div>
         </div>
+        {!studioScope && (
+          <StatsStudioSelector
+            includeChildStudios={includeChildStudios}
+            onIncludeChildStudiosChange={(include) => {
+              setIncludeChildStudios(include);
+              setFilters([]);
+            }}
+            onStudioChange={selectStudio}
+            studio={selectedStudio}
+          />
+        )}
       </header>
 
       <Nav
@@ -1380,29 +1420,32 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
               {sexTag && (
                 <Button
                   className="scenestats-summary-card scenestats-category-card stats-category-button sex-stats-button"
-                  href={NavUtils.makeScenesWithMarkerTagUrl(
-                    sexTag.id,
-                    sexTag.name
+                  href={sceneStatsScopedListURL(
+                    NavUtils.makeScenesWithMarkerTagUrl(sexTag.id, sexTag.name),
+                    effectiveStudioScope
                   )}
-                  disabled={statsData.stats.sex_scene_count === 0}
+                  disabled={categoryCounts.sex === 0}
                   title="Sex Scene"
                 >
                   <img src={gaySvg} alt="Sex" className="stats-category-icon" />
                   <span>
-                    <FormattedNumber value={statsData.stats.sex_scene_count} />
+                    <FormattedNumber value={categoryCounts.sex} />
                   </span>
                 </Button>
               )}
               {oralTag && (
                 <Button
                   className="scenestats-summary-card scenestats-category-card stats-category-button oral-stats-button"
-                  href={NavUtils.makeScenesWithExclusiveMarkerTagUrl(
-                    oralTag.id,
-                    oralTag.name,
-                    sexTag ? [{ id: sexTag.id, label: sexTag.name }] : [],
-                    -1
+                  href={sceneStatsScopedListURL(
+                    NavUtils.makeScenesWithExclusiveMarkerTagUrl(
+                      oralTag.id,
+                      oralTag.name,
+                      sexTag ? [{ id: sexTag.id, label: sexTag.name }] : [],
+                      -1
+                    ),
+                    effectiveStudioScope
                   )}
-                  disabled={statsData.stats.oral_scene_count === 0}
+                  disabled={categoryCounts.oral === 0}
                   title="Oral Scene"
                 >
                   <img
@@ -1411,44 +1454,50 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
                     className="stats-category-icon"
                   />
                   <span>
-                    <FormattedNumber value={statsData.stats.oral_scene_count} />
+                    <FormattedNumber value={categoryCounts.oral} />
                   </span>
                 </Button>
               )}
               {soloTag && (
                 <Button
                   className="scenestats-summary-card scenestats-category-card stats-category-button solo-stats-button"
-                  href={NavUtils.makeScenesWithExclusiveMarkerTagUrl(
-                    soloTag.id,
-                    soloTag.name,
-                    [
-                      ...(sexTag
-                        ? [{ id: sexTag.id, label: sexTag.name }]
-                        : []),
-                      ...(oralTag
-                        ? [{ id: oralTag.id, label: oralTag.name }]
-                        : []),
-                    ],
-                    -1
+                  href={sceneStatsScopedListURL(
+                    NavUtils.makeScenesWithExclusiveMarkerTagUrl(
+                      soloTag.id,
+                      soloTag.name,
+                      [
+                        ...(sexTag
+                          ? [{ id: sexTag.id, label: sexTag.name }]
+                          : []),
+                        ...(oralTag
+                          ? [{ id: oralTag.id, label: oralTag.name }]
+                          : []),
+                      ],
+                      -1
+                    ),
+                    effectiveStudioScope
                   )}
-                  disabled={statsData.stats.solo_scene_count === 0}
+                  disabled={categoryCounts.solo === 0}
                   title="Solo Scene"
                 >
                   <Icon icon={faHand} className="stats-category-icon-fa" />
                   <span>
-                    <FormattedNumber value={statsData.stats.solo_scene_count} />
+                    <FormattedNumber value={categoryCounts.solo} />
                   </span>
                 </Button>
               )}
               {facialTag && (
                 <Button
                   className="scenestats-summary-card scenestats-category-card stats-category-button facial-stats-button"
-                  href={NavUtils.makeScenesWithMarkerTagUrl(
-                    facialTag.id,
-                    facialTag.name,
-                    -1
+                  href={sceneStatsScopedListURL(
+                    NavUtils.makeScenesWithMarkerTagUrl(
+                      facialTag.id,
+                      facialTag.name,
+                      -1
+                    ),
+                    effectiveStudioScope
                   )}
-                  disabled={statsData.stats.facial_scene_count === 0}
+                  disabled={categoryCounts.facial === 0}
                   title="Facial Scene"
                 >
                   <img
@@ -1457,9 +1506,7 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
                     className="stats-category-icon"
                   />
                   <span>
-                    <FormattedNumber
-                      value={statsData.stats.facial_scene_count ?? 0}
-                    />
+                    <FormattedNumber value={categoryCounts.facial} />
                   </span>
                 </Button>
               )}
@@ -1474,7 +1521,10 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
               aria-label="Scenes with 1 vato"
               className="scenestats-summary-card scenestats-category-card linked"
               title="Scenes with 1 vato"
-              to={makeSceneStatsVatoCountURL("one")}
+              to={sceneStatsScopedListURL(
+                makeSceneStatsVatoCountURL("one"),
+                effectiveStudioScope
+              )}
             >
               <Icon icon={faUser} className="stats-category-icon-fa" />
               <span>{vatoCountBuckets.one.toLocaleString()}</span>
@@ -1483,7 +1533,10 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
               aria-label="Scenes with 2 or 3 vatos"
               className="scenestats-summary-card scenestats-category-card linked"
               title="Scenes with 2 or 3 vatos (standard)"
-              to={makeSceneStatsVatoCountURL("standard")}
+              to={sceneStatsScopedListURL(
+                makeSceneStatsVatoCountURL("standard"),
+                effectiveStudioScope
+              )}
             >
               <Icon icon={faUserGroup} className="stats-category-icon-fa" />
               <span>{vatoCountBuckets.standard.toLocaleString()}</span>
@@ -1492,85 +1545,94 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
               aria-label="Scenes with 4 or more vatos"
               className="scenestats-summary-card scenestats-category-card linked"
               title="Scenes with 4 or more vatos (group scenes)"
-              to={makeSceneStatsVatoCountURL("group")}
+              to={sceneStatsScopedListURL(
+                makeSceneStatsVatoCountURL("group"),
+                effectiveStudioScope
+              )}
             >
               <Icon icon={faUsers} className="stats-category-icon-fa" />
               <span>{vatoCountBuckets.group.toLocaleString()}</span>
             </Link>
           </section>
 
-          {(typeof orgasmCountData?.sceneOrgasmCount === "number" ||
-            typeof facialCountData?.sceneFacialCount === "number" ||
-            typeof orgasmTimeData?.totalOrgasmTime === "number" ||
-            typeof facialTimeData?.totalFacialTime === "number" ||
-            typeof activityTimeData?.totalSexTime === "number" ||
-            typeof activityTimeData?.totalOralTime === "number") && (
+          {(typeof summary.sceneOrgasmCount === "number" ||
+            typeof summary.sceneFacialCount === "number" ||
+            typeof summary.totalOrgasmTime === "number" ||
+            typeof summary.totalFacialTime === "number" ||
+            typeof summary.totalSexTime === "number" ||
+            typeof summary.totalOralTime === "number") && (
             <section
               className="scenestats-summary-grid"
               aria-label="Scene metrics"
             >
-              {typeof orgasmCountData?.sceneOrgasmCount === "number" && (
+              {typeof summary.sceneOrgasmCount === "number" && (
                 <Link
                   className="scenestats-summary-card linked"
                   title="Each matching marker counts once per assigned top vato (minimum 1), while the linked search counts marker rows. The search also includes 2nd-camera markers that this total excludes, so the numbers can differ."
-                  to={makeSceneStatsMarkerTagURL(orgasmTag)}
+                  to={sceneStatsScopedListURL(
+                    makeSceneStatsMarkerTagURL(orgasmTag),
+                    effectiveStudioScope
+                  )}
                 >
                   <div className="scenestats-summary-value">
-                    {orgasmCountData.sceneOrgasmCount.toLocaleString()}
+                    {summary.sceneOrgasmCount.toLocaleString()}
                   </div>
                   <div className="scenestats-summary-label">Total orgasms</div>
                 </Link>
               )}
-              {typeof orgasmTimeData?.totalOrgasmTime === "number" &&
-                orgasmTimeData.totalOrgasmTime > 0 && (
+              {typeof summary.totalOrgasmTime === "number" &&
+                summary.totalOrgasmTime > 0 && (
                   <div className="scenestats-summary-card">
                     <div className="scenestats-summary-value">
-                      {formatDuration(orgasmTimeData.totalOrgasmTime)}
+                      {formatDuration(summary.totalOrgasmTime)}
                     </div>
                     <div className="scenestats-summary-label">
                       Total orgasm time
                     </div>
                   </div>
                 )}
-              {typeof facialCountData?.sceneFacialCount === "number" && (
+              {typeof summary.sceneFacialCount === "number" && (
                 <Link
                   className="scenestats-summary-card linked"
                   title="Each matching marker counts once per assigned top vato (minimum 1), while the linked search counts marker rows. The search also includes 2nd-camera markers that this total excludes, so the numbers can differ."
-                  to={makeSceneStatsMarkerTagURL(facialTag)}
+                  to={sceneStatsScopedListURL(
+                    makeSceneStatsMarkerTagURL(facialTag),
+                    effectiveStudioScope
+                  )}
                 >
                   <div className="scenestats-summary-value">
-                    {facialCountData.sceneFacialCount.toLocaleString()}
+                    {summary.sceneFacialCount.toLocaleString()}
                   </div>
                   <div className="scenestats-summary-label">Total facials</div>
                 </Link>
               )}
-              {typeof facialTimeData?.totalFacialTime === "number" &&
-                facialTimeData.totalFacialTime > 0 && (
+              {typeof summary.totalFacialTime === "number" &&
+                summary.totalFacialTime > 0 && (
                   <div className="scenestats-summary-card">
                     <div className="scenestats-summary-value">
-                      {formatDuration(facialTimeData.totalFacialTime)}
+                      {formatDuration(summary.totalFacialTime)}
                     </div>
                     <div className="scenestats-summary-label">
                       Total facial time
                     </div>
                   </div>
                 )}
-              {typeof activityTimeData?.totalSexTime === "number" &&
-                activityTimeData.totalSexTime > 0 && (
+              {typeof summary.totalSexTime === "number" &&
+                summary.totalSexTime > 0 && (
                   <div className="scenestats-summary-card">
                     <div className="scenestats-summary-value">
-                      {formatDuration(activityTimeData.totalSexTime)}
+                      {formatDuration(summary.totalSexTime)}
                     </div>
                     <div className="scenestats-summary-label">
                       Total Fucking time
                     </div>
                   </div>
                 )}
-              {typeof activityTimeData?.totalOralTime === "number" &&
-                activityTimeData.totalOralTime > 0 && (
+              {typeof summary.totalOralTime === "number" &&
+                summary.totalOralTime > 0 && (
                   <div className="scenestats-summary-card">
                     <div className="scenestats-summary-value">
-                      {formatDuration(activityTimeData.totalOralTime)}
+                      {formatDuration(summary.totalOralTime)}
                     </div>
                     <div className="scenestats-summary-label">
                       Total Sucking Pito time
@@ -1669,7 +1731,7 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
                       >
                         <Button
                           disabled={!hasSelectedYear}
-                          onClick={() => history.push("/scenestats")}
+                          onClick={() => history.push(navigationBase)}
                           variant={!hasSelectedYear ? "primary" : "secondary"}
                         >
                           By Year
@@ -1677,7 +1739,7 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
                         <Button
                           disabled={!hasSelectedYear}
                           onClick={() =>
-                            history.push(`/scenestats/${selectedYear}`)
+                            history.push(`${navigationBase}/${selectedYear}`)
                           }
                           variant={
                             hasSelectedYear && !hasSelectedMonth
@@ -1691,7 +1753,7 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
                           disabled={!hasSelectedYear || !hasSelectedMonth}
                           onClick={() =>
                             history.push(
-                              `/scenestats/${selectedYear}/${selectedMonth}`
+                              `${navigationBase}/${selectedYear}/${selectedMonth}`
                             )
                           }
                           variant={hasSelectedMonth ? "primary" : "secondary"}
@@ -1779,9 +1841,22 @@ const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
           />
         </>
       )}
-      {activeSection === "insights" && <SceneStatsInsights />}
+      {activeSection === "insights" && (
+        <SceneStatsInsights
+          depth={effectiveStudioScope?.depth}
+          studioId={effectiveStudioScope?.id}
+          studioName={effectiveStudioScope?.name}
+        />
+      )}
     </StatsPage>
   );
 };
+
+const SceneStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => (
+  <SceneStatsDashboard
+    selectedMonth={match.params.month}
+    selectedYear={match.params.year}
+  />
+);
 
 export default SceneStats;

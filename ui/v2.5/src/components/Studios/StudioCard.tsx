@@ -33,6 +33,7 @@ import mouthSvg from "src/assets/mouth.svg";
 import facialPng from "src/assets/facial.png"; // CUSTOM
 import { StudioActivityMetricsStrip } from "./StudioActivityMetricsStrip"; // CUSTOM
 import { StudioRatingAdvisorPopover } from "./StudioRatingAdvisorPopover_custom"; // CUSTOM
+import { StudioSortMetricStrip } from "./StudioSortMetricStrip_custom"; // CUSTOM
 
 interface IPerformerStudioStats {
   scene_count: number;
@@ -80,6 +81,8 @@ export interface IRoleTags {
 // CUSTOM: end
 
 interface IProps {
+  activeSortBy?: string; // CUSTOM
+  activeSortDirection?: GQL.SortDirectionEnum; // CUSTOM
   studio: GQL.StudioListDataFragment; // CUSTOM
   stats?: GQL.StudioListStatsDataFragment; // CUSTOM
   cardWidth?: number;
@@ -148,6 +151,8 @@ function maybeRenderChildren(studio: GQL.StudioListDataFragment) {
 export const StudioCard: React.FC<IProps> = PatchComponent(
   "StudioCard",
   ({
+    activeSortBy, // CUSTOM
+    activeSortDirection = GQL.SortDirectionEnum.Asc, // CUSTOM
     studio,
     stats, // CUSTOM
     cardWidth,
@@ -710,6 +715,13 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         image={renderStudioImage()}
         details={
           <div className="studio-card__details">
+            {/* CUSTOM: current Studio-list sort metric */}
+            <StudioSortMetricStrip
+              sortBy={activeSortBy}
+              sortDirection={activeSortDirection}
+              stats={stats}
+              studio={studio}
+            />
             {maybeRenderParent(studio, hideParent)}
             {maybeRenderChildren(studio)}
           </div>

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
+  completeSceneMarkerFocusRequest,
   findSceneMarkerFocusElement,
   getCenteredSceneMarkerScrollTop,
   isSceneTabScrollContainer,
@@ -75,4 +76,20 @@ assert.equal(
   }),
   0,
   "marker focus does not request a negative scene tab scroll position"
+);
+
+const latestFocusRequest = {
+  markerId: "marker-b",
+  requestId: 2,
+};
+
+assert.equal(
+  completeSceneMarkerFocusRequest(latestFocusRequest, 1),
+  latestFocusRequest,
+  "completion from an older click does not clear the latest marker focus request"
+);
+assert.equal(
+  completeSceneMarkerFocusRequest(latestFocusRequest, 2),
+  undefined,
+  "the latest marker focus request clears after it is handled"
 );

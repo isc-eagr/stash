@@ -285,7 +285,11 @@ export const queryFindSceneMarkers = (filter: ListFilterModel) =>
     },
   });
 
-export const useMarkerStrings = () => GQL.useMarkerStringsQuery();
+export const useMarkerStrings = (skip = false) =>
+  GQL.useMarkerStringsQuery({ skip }); // CUSTOM
+
+export const useSceneNegativeMarkerNames = () =>
+  GQL.useSceneNegativeMarkerNamesQuery({ fetchPolicy: "network-only" }); // CUSTOM
 
 export const useFindGallery = (id: string) => {
   const skip = id === "new" || id === "";

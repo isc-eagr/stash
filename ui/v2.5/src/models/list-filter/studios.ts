@@ -68,6 +68,30 @@ const sortByOptions = [
       value: "facial_scenes_count",
     },
     {
+      messageID: "standard_facial_count",
+      value: "standard_facial_count",
+    },
+    {
+      messageID: "really_hot_facial_count",
+      value: "really_hot_facial_count",
+    },
+    {
+      messageID: "royal_sapphire_scene_count",
+      value: "royal_sapphire_scenes_count",
+    },
+    {
+      messageID: "gold_scene_count",
+      value: "gold_scenes_count",
+    },
+    {
+      messageID: "silver_scene_count",
+      value: "silver_scenes_count",
+    },
+    {
+      messageID: "bronze_scene_count",
+      value: "bronze_scenes_count",
+    },
+    {
       messageID: "unique_performer_count",
       value: "unique_performers_count",
     },

@@ -208,6 +208,8 @@ const SceneList: React.FC<{
           selectedIds={selectedIds}
           onSelectChange={onSelectChange}
           fromGroupId={fromGroupId}
+          activeSortBy={filter.sortBy} // CUSTOM
+          activeSortDirection={filter.sortDirection} // CUSTOM
         />
       );
     }

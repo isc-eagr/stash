@@ -9,12 +9,13 @@ import (
 
 // RoleTagIDs holds the configured role tag IDs from UI config
 type RoleTagIDs struct {
-	SexTagID    int
-	OralTagID   int
-	SoloTagID   int
-	FacialTagID int
-	OrgasmTagID int // CUSTOM: added for performer orgasm sort
-	FeetTagID   int // CUSTOM: added for performer feet sort
+	SexTagID       int
+	OralTagID      int
+	SoloTagID      int
+	FacialTagID    int
+	ReallyHotTagID int // CUSTOM: distinguishes regular and Really Hot facial scenes
+	OrgasmTagID    int // CUSTOM: added for performer orgasm sort
+	FeetTagID      int // CUSTOM: added for performer feet sort
 }
 
 // GetRoleTagIDs retrieves role tag IDs from UI configuration
@@ -37,6 +38,9 @@ func GetRoleTagIDs() RoleTagIDs {
 	}
 	if id, ok := roleTagIds["facialTagId"].(string); ok && id != "" {
 		result.FacialTagID, _ = strconv.Atoi(id)
+	}
+	if id, ok := roleTagIds["reallyHotTagId"].(string); ok && id != "" {
+		result.ReallyHotTagID, _ = strconv.Atoi(id)
 	}
 	if id, ok := roleTagIds["orgasmTagId"].(string); ok && id != "" {
 		result.OrgasmTagID, _ = strconv.Atoi(id)
@@ -172,18 +176,5 @@ func (qb *StudioStore) sortByUniquePerformerCount(direction string) string {
 // - scene o_dates counts (entries in scenes_o_dates for scenes belonging to the studio)
 // - image o_counter values (o_counter column in images belonging to the studio)
 func (qb *StudioStore) sortByOCount(direction string) string {
-	return fmt.Sprintf(` ORDER BY COALESCE((
-		SELECT COUNT(*)
-		FROM %s sod
-		INNER JOIN %s s ON sod.%s = s.id
-		WHERE s.%s = studios.id
-	), 0) + COALESCE((
-		SELECT SUM(o_counter)
-		FROM %s
-		WHERE %s = studios.id
-	), 0) %s`,
-		scenesODatesTable, sceneTable, sceneIDColumn, studioIDColumn,
-		imageTable, studioIDColumn,
-		getSortDirection(direction),
-	)
+	return studioSortMetricOrderClauseCustom(studioOCountExprCustom(), direction) // CUSTOM
 }

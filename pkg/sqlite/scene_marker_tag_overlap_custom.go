@@ -100,3 +100,16 @@ func sceneMarkerEffectiveTagHierarchyConditionCustom(smAlias string, tagID int) 
        OR marker_tags.tag_id IN (SELECT tr4.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id JOIN tags_relations tr4 ON tr4.parent_id = tr3.child_id WHERE tr1.parent_id = %[2]d)
 )`, sceneMarkerEffectiveTagSetSQLCustom(smAlias), tagID)
 }
+
+func sceneMarkerDirectTagHierarchyConditionCustom(smAlias string, tagID int) string {
+	return fmt.Sprintf(`EXISTS (
+    SELECT 1 FROM (
+      %[1]s
+    ) marker_tags
+    WHERE marker_tags.tag_id = %[2]d
+       OR marker_tags.tag_id IN (SELECT child_id FROM tags_relations WHERE parent_id = %[2]d)
+       OR marker_tags.tag_id IN (SELECT tr2.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id WHERE tr1.parent_id = %[2]d)
+       OR marker_tags.tag_id IN (SELECT tr3.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id WHERE tr1.parent_id = %[2]d)
+       OR marker_tags.tag_id IN (SELECT tr4.child_id FROM tags_relations tr1 JOIN tags_relations tr2 ON tr2.parent_id = tr1.child_id JOIN tags_relations tr3 ON tr3.parent_id = tr2.child_id JOIN tags_relations tr4 ON tr4.parent_id = tr3.child_id WHERE tr1.parent_id = %[2]d)
+)`, sceneMarkerDirectTagSetSQLCustom(smAlias), tagID)
+}

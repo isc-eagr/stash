@@ -58,6 +58,7 @@ This document describes all custom features and modifications added on top of th
 48. [GEVI Latest Page](#48-gevi-latest-page)
 49. [Black Steel Application Theme](#49-black-steel-application-theme)
 50. [Cinematic Loading Overlay](#50-cinematic-loading-overlay)
+51. [Negative Marker Create Parity](#51-negative-marker-create-parity)
 
 ---
 
@@ -493,16 +494,36 @@ Quick-access buttons on studio cards and detail pages showing scene counts by ca
 
 **Added: February 2026**
 
-Studios can now be sorted by their scene category counts (sex, oral, solo, facial). Both ascending and descending directions are supported.
+Studios can now be sorted by their scene category counts (sex, oral, solo, facial), by Standard or Really Hot facial marker counts, and by Bronze, Silver, Gold, or Royal Sapphire scene counts. Both ascending and descending directions are supported. Every qualifying facial marker is counted, so multiple facial markers in one scene contribute multiple counts. A Really Hot facial marker matches both the configured Facial tag family and Really Hot qualifier tag family on that marker; Standard counts the remaining facial markers, so the two variants do not overlap. If no Really Hot qualifier is configured, all facial markers are Standard and the Really Hot count is zero. Metallic scene-count sorts use the configured scene rating thresholds and the same Bronze/Silver/Gold/Royal Sapphire/GOAT override-tag precedence as scene card styling.
+
+Whenever a Studio list sort other than Name or Random is active, each card shows a compact emerald-accented metric badge containing the current metric label, direction, and that Studio's value without redundant visible "Sorted by" copy. Existing batched card values back counts and activity percentages; duration, size, latest-scene, Rating Advisor averages, and metallic scene counts fetch only the one active metric for the current page.
+
+### Catalog Active-Sort Metric Badges
+
+The same emerald active-sort badge is shared by the Scenes, Vatos, Groups, Images, Markers, Galleries, and Tags grid catalogs. Each catalog suppresses the badge for its own default sort (Scene Date, Vato/Group/Tag Name, Image/Gallery Path, and Marker Title) and for both plain and seeded Random sorts, then shows the active metric label, exact card value, and ascending/descending arrow for the remaining sorts.
+
+- `ui/v2.5/src/components/Shared/SortMetricBadge_custom.tsx`, `SortMetricBadge_custom.scss`, and `sortMetric_custom.ts` provide the common presentation, formatting, seeded-random normalization, and default-sort suppression.
+- The catalog-specific `*SortMetric_custom.ts` files map each available sort to the corresponding scene, performer, group, image, gallery, marker, or tag card value.
+- Catalog list/grid/card components pass the active sort and direction into the badge only in grid-card views.
+- `CatalogSortMetricValue` and the Group/Vato/Tag sort-metric queries provide one page-level lookup for the few aggregate values that are not part of the standard list fragments. Vato and Tag SQL expressions are reused from the validated catalog sorts themselves; subgroup order is scoped to the active parent group when available.
+- `graphql/schema/types/catalog_sort_metric_custom.graphql`, `internal/api/catalog_sort_metric_custom.go`, and `pkg/sqlite/catalog_sort_metric_custom.go` define those batched GraphQL values and validated backend expressions.
+- `ui/v2.5/tests/catalogSortMetric_custom.test.ts` covers per-catalog default suppression, representative values, aggregate overrides, and Random-sort suppression. `pkg/sqlite/catalog_sort_metric_custom_test.go` covers validated SQL-expression reuse and unknown-sort rejection, while `internal/api/catalog_sort_metric_custom_test.go` covers parent-scoped subgroup-order values.
+- `pkg/sqlite/scene_marker_timestamp_custom.go` normalizes legacy zero marker timestamps to the marker's other timestamp (or the Unix epoch when both are unset), preserving the non-null GraphQL timestamp contract when marker cards request active-sort values. `pkg/sqlite/scene_marker_timestamp_custom_test.go` covers stored, fallback, and both-unset timestamps.
+- No new configuration is required; Scene activity-percentage values reuse the existing configured role tag IDs.
 
 **Backend Files:**
 
 - `pkg/sqlite/role_tag_provider.go` - NEW: Configuration provider for role tag IDs
-- `pkg/sqlite/studio.go` - Sort queries for marker-based counts
+- `pkg/sqlite/studio.go` - Sort registration and queries for category scenes, facial markers, and metallic scene counts
+- `pkg/sqlite/studio_facial_marker_sort_custom.go` - Standard/Really Hot facial marker classification and exact sort expressions
+- `pkg/sqlite/studio_sort_metric_custom.go` - Metallic-tier scene expressions plus exact active-sort expressions for card display
+- `internal/api/studio_list_stats_custom.go` - Adds the optional current sort value to the batched Studio card payload
 
 **Frontend Files:**
 
 - `ui/v2.5/src/models/list-filter/studios.ts` - Sort options
+- `ui/v2.5/src/components/Studios/StudioSortMetricStrip_custom.tsx` and `studioSortMetric_custom.ts` - Current-sort label, direction, value selection, and formatting
+- `ui/v2.5/src/components/Studios/StudioList.tsx`, `StudioCardGrid.tsx`, `StudioCard.tsx`, and `styles.scss` - Pass and render the active sort strip
 
 **Manager Files:**
 
@@ -511,7 +532,7 @@ Studios can now be sorted by their scene category counts (sex, oral, solo, facia
 
 **Translation Keys:**
 
-- `ui/v2.5/src/locales/en-GB.json` - sex_scene_count, oral_scene_count, solo_scene_count, facial_scene_count
+- `ui/v2.5/src/locales/en-GB.json` and `en-US.json` - category, facial-variant, and metallic sort labels
 
 **New Sort Options:**
 
@@ -519,8 +540,25 @@ Studios can now be sorted by their scene category counts (sex, oral, solo, facia
 - `oral_scenes_count` - Sort by scenes with oral markers (excludes sex)
 - `solo_scenes_count` - Sort by scenes with solo markers (excludes sex/oral)
 - `facial_scenes_count` - Sort by scenes with facial markers
+- `standard_facial_count` - Sort by individual Facial markers without the Really Hot qualifier
+- `really_hot_facial_count` - Sort by individual markers matching both Facial and Really Hot tag families
+- `royal_sapphire_scenes_count` - Sort by Royal Sapphire or GOAT scenes
+- `gold_scenes_count` - Sort by Gold scenes
+- `silver_scenes_count` - Sort by Silver scenes
+- `bronze_scenes_count` - Sort by Bronze scenes
 - `unique_performers_count` - Sort by count of performers with only 1 scene (and it's for this studio)
 - `o_count` - Sort by total O-count (sum of scene o_dates + image o_counter for the studio)
+
+**Tests:**
+
+- `pkg/sqlite/studio_sort_metric_custom_test.go` - Executes metallic tier counting with rating thresholds, override tags, priority conflicts, and validates ascending/descending sort registration
+- `pkg/sqlite/studio_facial_marker_sort_custom_test.go` - Verifies individual-marker counting, multiple markers per scene, non-overlapping Standard/Really Hot classification, same-marker semantics, descendant/secondary tags, missing-qualifier fallback, and ascending/descending sort registration
+- `ui/v2.5/tests/studioSortMetric_custom.test.ts` - Verifies Name suppression, Random display, metallic/facial backend values, and existing batched count/percentage values
+
+**Configuration Dependencies:**
+
+- Settings → Interface → Role Tags → Facial tag
+- Settings → Interface → Role Tags → Really Hot qualifier tag
 
 ### Studio O-Count Depth
 
@@ -3267,23 +3305,26 @@ Renames the user-facing English UI vocabulary from Performer/Performers to Vato/
 
 ### Overview
 
-Adds a hidden `/vatostats` page focused on vato aggregate analytics. The page shows linked vato summary cards, preserving their drilldown links and including solo-only and one-scene vatos, a top-three podium for a selectable metric ordered left-to-right as gold, silver, and bronze, the moved Tier vatos by ethnicity table, global performer Rating Advisor averages, plus coordinated vertical bar charts for ethnicity, exact scene age, rating buckets, metallic rating, height buckets, country, hair color, eye color, circumcision status, and rounded exact penis size. Rolling-year podium options include O Count from recorded O dates in the last year and Rating limited to performers created in the last year. The podium metric selector sits with the podium descriptor instead of in the page header. The Metallic Rating chart includes a None bar for explicitly set ratings that do not qualify for any configured metallic tier; null/unset ratings are excluded from None. Clicking a bar drills into that category/value and refreshes the podium plus every chart from the filtered vato set; Back and Clear controls unwind the drill-down. Unknown values are shown as separate chart-header counters so a large Unknown population does not compress the visible bars.
+Adds a hidden `/vatostats` page focused on vato aggregate analytics. A clearable Studio selector can scope the dashboard to vatos with scenes from that Studio, with an Include child studios switch; all scene-derived counts, O totals, role metrics, age distributions, summary cards, tier rows, charts, podiums, Rating Advisor averages, and performer drilldown links honor the selected scope. The page shows linked vato summary cards, preserving their drilldown links and including solo-only and one-scene vatos, a top-three podium for a selectable metric ordered left-to-right as gold, silver, and bronze, the moved Tier vatos by ethnicity table, performer Rating Advisor averages, plus coordinated vertical bar charts for ethnicity, exact scene age, rating buckets, metallic rating, height buckets, country, hair color, eye color, circumcision status, and rounded exact penis size. Rolling-year podium options include O Count from recorded O dates in the last year and Rating limited to performers created in the last year. The podium metric selector sits with the podium descriptor instead of in the page header. The Metallic Rating chart includes a None bar for explicitly set ratings that do not qualify for any configured metallic tier; null/unset ratings are excluded from None. Clicking a bar drills into that category/value and refreshes the podium plus every chart from the filtered vato set; Back and Clear controls unwind the drill-down. Unknown values are shown as separate chart-header counters so a large Unknown population does not compress the visible bars.
 
 ### Files Modified
 
-- `graphql/schema/types/stats_custom.graphql` - Adds `VatoStatsPerformer`, `VatoStatsAgeCount`, and `vatoStatsPerformers`.
-- `internal/api/resolver_custom.go` - Adds the `vatoStatsPerformers` resolver, including scene O counts from `scenes_o_dates`, most recent O date, career span, scene counts, demographic fields, exact scene-age counts, metallic rating tier, image URLs, optimized batched sex/oral role scene counts, and facial role marker counts using primary or secondary facial tags and descendants. The initial aggregate pre-groups O records per scene and computes career span in the main performer-scene pass to avoid row multiplication and a duplicate association scan.
+- `graphql/schema/types/stats_custom.graphql` - Adds `VatoStatsPerformer`, `VatoStatsAgeCount`, and the optionally Studio-scoped `vatoStatsPerformers(studio_id, depth)` query.
+- `internal/api/resolver_custom.go` - Adds the `vatoStatsPerformers` resolver, including optional Studio-tree scoping, scene O counts from `scenes_o_dates`, most recent O date, career span, scene counts, demographic fields, exact scene-age counts, metallic rating tier, image URLs, optimized batched sex/oral/solo role scene counts, and facial role marker counts using primary or secondary facial tags and descendants. The initial aggregate pre-groups O records per scene and computes career span in the main performer-scene pass to avoid row multiplication and a duplicate association scan.
 - `internal/api/resolver_custom_test.go` - Adds focused tests for exact scene-age helper behavior, Unknown cleanup, and ID-filter safety.
-- `internal/api/vato_stats_query_custom_test.go` - Verifies that the optimized aggregate query counts each scene and O event once, finds the latest O date, computes career span, preserves zero-O vatos, and classifies rolling-year O events and performer creation dates.
+- `internal/api/vato_stats_query_custom_test.go` - Verifies that the optimized aggregate query counts each scene and O event once, finds the latest O date, computes career span, preserves zero-O vatos, classifies rolling-year O events and performer creation dates, and excludes unrelated Studios from a direct-Studio scope.
 - `ui/v2.5/src/App.tsx` - Adds the hidden `/vatostats` route.
 
 ### Files Added
 
 - `ui/v2.5/src/components/VatoStats/VatoStats.tsx` - VatoStats page, moved linked summary stat cards, metric selector, podium, filtered performer list, drill-down state, and charts. Auxiliary summary/filter counts are deferred until the core vato dataset arrives, and only configured role tags are fetched.
 - `ui/v2.5/src/components/VatoStats/VatoStats.scss` - Page-specific podium and chart styles.
-- `ui/v2.5/src/components/VatoStats/VatoStatsRatingAdvisor_custom.tsx` - Lazy global performer Rating Advisor section.
+- `ui/v2.5/src/components/VatoStats/VatoStatsRatingAdvisor_custom.tsx` - Lazy performer Rating Advisor section with optional Studio-tree scoping.
 - `ui/v2.5/src/utils/metallicRatingChart_custom.ts` - Shared None/metallic chart bucket classification for SceneStats and VatoStats.
 - `ui/v2.5/tests/metallicRatingChart_custom.test.ts` - Verifies set-but-unqualified ratings use None while null/unset ratings do not.
+- `ui/v2.5/src/components/VatoStats/vatoStatsStudioScope_custom.ts` - Derives Studio-scoped summary, role, and tier aggregates from the compact vato rows.
+- `ui/v2.5/src/components/StatsStudioSelector_custom.tsx` - Shared clearable Studio selector and child-Studio depth switch for SceneStats and VatoStats.
+- `ui/v2.5/tests/vatoStatsStudioScope_custom.test.ts` - Verifies Studio-only summary, role, and tier calculations.
 
 ### Test Cases Added
 
@@ -3291,12 +3332,14 @@ Adds a hidden `/vatostats` page focused on vato aggregate analytics. The page sh
 - `TestVatoStatsSetAgeCount` - Covers merging repeated scene-age counts.
 - `TestVatoStatsPerformersQueryCustomAggregatesSceneOsAndCareerOnce` - Covers the pre-aggregated scene-O and single-pass career-span query.
 - `metallicRatingChart_custom.test.ts` - Covers None, null/unset ratings, zero ratings, recognized tiers, and tag-override tiers without a stored rating.
+- `vatoStatsStudioScope_custom.test.ts` - Covers scoped penis/O summaries, role classifications, solo-only and one-scene counts, and ethnicity/tier rows.
 
 ### GraphQL Schema Changes
 
 - `VatoStatsAgeCount`
 - `VatoStatsPerformer`
-- `vatoStatsPerformers`
+- `VatoStatsPerformer.solo_scene_count`
+- `vatoStatsPerformers(studio_id, depth)`
 
 ### Configuration Dependencies
 
@@ -3308,7 +3351,7 @@ Adds a hidden `/vatostats` page focused on vato aggregate analytics. The page sh
 
 ### Overview
 
-Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene metrics from CustomStats while adding scene podium metrics and scene distribution charts. The page separates the original dashboard into an Overview section and a lazy Activity & Ratings section containing global Activity Type and Quality donuts plus Solo, Standard, and Group Rating Advisor averages. The podium metric selector sits directly above the podium instead of in the page header. The Metallic Rating chart includes a None bar for explicitly set ratings that do not qualify for a configured tier, without classifying null/unset ratings as None. Zero or absent vato/facial counts, zero or absent ordinary ratings, null metallic ratings, missing/invalid release parts, and scenes without a recognized sex/oral/solo type use each chart's Unknown counter instead of zero-value bars; a stored metallic rating of zero remains None. Release year charts drill down to month and day; day bars link to the Scenes page filtered by effective release date.
+Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene metrics from CustomStats while adding scene podium metrics and scene distribution charts. A clearable Studio selector can scope the global page to one Studio tree, while the same dashboard replaces the Studio detail Stats tab at `/studios/:id/stats`, where every dataset, summary, insight, and scene/marker drilldown is scoped to that Studio; both surfaces expose or honor an Include child studios switch. Both routes support release year/month drilldowns. The page separates the original dashboard into an Overview section and a lazy Activity & Ratings section containing Activity Type and Quality donuts plus Solo, Standard, and Group Rating Advisor averages. The podium metric selector sits directly above the podium instead of in the page header. The Metallic Rating chart includes a None bar for explicitly set ratings that do not qualify for a configured tier, without classifying null/unset ratings as None. Zero or absent vato/facial counts, zero or absent ordinary ratings, null metallic ratings, missing/invalid release parts, and scenes without a recognized sex/oral/solo type use each chart's Unknown counter instead of zero-value bars; a stored metallic rating of zero remains None. Release year charts drill down to month and day; day bars link to the Scenes page filtered by effective release date.
 
 ### Files Added
 
@@ -3337,6 +3380,9 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 - `ui/v2.5/graphql/queries/stats_custom.graphql` - Adds lazy SceneStats insights and VatoStats performer-rating queries.
 - `ui/v2.5/src/components/SceneStats/SceneStats.tsx` - Uses the compact SceneStats dataset and no longer fetches every scene file, performer object, marker object, tag object, or O-history list.
 - `ui/v2.5/src/components/SceneStats/sceneStatsFacialCounts_custom.ts` - Supports compact marker tag-ID groups.
+- `ui/v2.5/src/components/Studios/StudioDetails/StudioStatsPanel.tsx`, `Studio.tsx`, and `ui/v2.5/src/components/Studios/Studios.tsx` - Reuse SceneStats in the Studio tab and retain its release drilldown route.
+- `internal/api/scene_stats_scope_custom.go` - Shares optional global/Studio-tree scene scoping across SceneStats resolvers.
+- `ui/v2.5/src/components/StatsStudioSelector_custom.tsx` and `statsPage_custom.scss` - Add the shared Studio selector and responsive layout used by both global dashboards.
 
 ### Features
 
@@ -3346,6 +3392,7 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 - Preserves the existing scene category metric button icons, colors, and links from the retired CustomStats page.
 - Performance: SceneStats now uses a small number of set-based SQL queries and a compact payload. It avoids the previous `findScenes(per_page: -1)` request with deeply nested relationship fields, and it returns only the most recent O date needed for the Most Recent O metric rather than every O-history date.
 - Global insights: Activity and Quality use the same meaningful-scene denominator and shared donut component as Studio Stats. Rating criteria include all three scene rubrics; global performer criteria intentionally appear in VatoStats.
+- Studio SceneStats: all compact scene data, O/facial totals, activity durations, Activity & Quality charts, and Rating Advisor averages use the selected Studio scope. Studio-scoped category and marker links preserve that scope, including the child-Studio depth selection.
 
 ### Test Cases Added
 
@@ -3357,17 +3404,20 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 - `internal/api/activity_stats_custom_test.go` verifies global and Studio scene-scope construction.
 - `internal/api/studio_rating_advisor_stats_custom_test.go` verifies global averages include scenes and performers without a Studio while Studio-scoped results remain isolated.
 - `internal/api/scene_stats_past_year_custom_test.go` verifies rolling-year scene creation, effective release, and O eligibility plus release-scoped performer counts.
+- `internal/api/scene_stats_scope_custom_test.go` verifies global and recursive Studio scope SQL construction plus invalid-ID handling.
+- `internal/api/stats_marker_counts_custom_test.go` verifies weighted SceneStats marker totals exclude unrelated Studios and honor the child-Studio depth selection.
 
 ### GraphQL Schema Changes
 
 - `SceneStatsMarkerTagGroup`
 - `SceneStatsScene`
 - `SceneStatsResult`
-- `sceneStats`
-- `sceneStatsActivity`
-- `globalRatingAdvisorStats`
-- `totalSexTime`
-- `totalOralTime`
+- `sceneStats(studio_id, depth)`
+- `sceneStatsActivity(studio_id, depth)`
+- `globalRatingAdvisorStats(studio_id, depth)`
+- `sceneOrgasmCount(studio_id, depth)` / `sceneFacialCount(studio_id, depth)`
+- `totalOrgasmTime(studio_id, depth)` / `totalFacialTime(studio_id, depth)`
+- `totalSexTime(studio_id, depth)` / `totalOralTime(studio_id, depth)`
 
 ### Configuration Dependencies
 
@@ -3425,9 +3475,9 @@ Markers are checked in separate lanes. Activity markers based on configured sex,
 
 ### Overview
 
-Replaces the visible scene detail Markers tab body with a custom chronological marker list by default while keeping the upstream primary-tag grouped layout available behind the Custom Settings "Show official scene marker layout" toggle. The custom layout now uses one unified section instead of separate Activity Type and Highlights subtabs. Activity Type remains the main grouping pattern: markers are grouped under Oral, Sex, Solo, Feet, Orgasm, then Facial section headers, and markers that share the same primary activity tag plus top/bottom performer configuration are combined into one group. Facial-tagged orgasm markers are assigned to Facial instead of the standard Orgasm section, including when the facial match comes from a child tag. Compact high-contrast section headers show coverage and duration without taking additional vertical space. Each group displays top performers first and bottom performers second as dominant 2:3 image blocks; blue Top borders/names and green Bottom borders/names remain the only role treatment, without image-overlay role chips.
+Replaces the visible scene detail Markers tab body with a custom chronological marker list by default while keeping the upstream primary-tag grouped layout available behind the Custom Settings "Show official scene marker layout" toggle. The custom layout now uses one unified section instead of separate Activity Type and Highlights subtabs. Activity Type remains the main grouping pattern: markers are grouped under Oral, Sex, Solo, Feet, Orgasm, then Facial section headers, and markers that share the same primary activity tag plus top/bottom performer configuration are combined into one group. Facial-tagged orgasm markers are assigned to Facial instead of the standard Orgasm section, including when the facial match comes from a child tag. Compact high-contrast section headers show coverage and duration without taking additional vertical space. Their full-width raised gradient and thin top accent keep them distinct while reserving the left-edge rail for currently playing markers. A compact unlabeled button row below the scene-local filters navigates to every visible section: Oral, Sex, Solo, Feet, Orgasm, Facial, and Other Highlights. The controls avoid router hash navigation without crowding the action toolbar. Each group displays top performers first and bottom performers second as dominant 2:3 image blocks; blue Top borders/names and green Bottom borders/names remain the only role treatment, without image-overlay role chips.
 
-Activity ranges and Highlights are rendered as separate, always-visible lanes below each performer group. The Activity and Highlight headers use arrow/star icons without repeating those icons on individual markers. Activity pills use a filled green range treatment, while Highlight pills use an outlined gold-accent treatment with a compact, natural-width marker title and timestamp, so the distinction does not depend on color alone. Highlight pills are duplicated into every matching activity context when a highlight is contained by or contributes to multiple activity groups, and unmatched highlights remain visible in an "Other Highlights" fallback bucket. Hovering a highlight pill shows the existing performer/tag-card presentation without the old highlight title header. GOAT-tagged markers and highlight hover cards use Royal Sapphire styling. Markers that contain the current player timestamp use the red playback treatment in both lanes, and scene player scrubber clicks perform a one-shot focus into the Markers tab with a distinct blue focus ring for the target pill. Compact bordered Edit actions remain prominent on every marker. Marker create/edit top and bottom performer dropdowns render large performer thumbnails while choosing, then keep the selected values as regular text pills.
+Activity ranges and Highlights are rendered as separate, always-visible lanes below each performer group. The Activity and Highlight headers use arrow/star icons without repeating those icons on individual markers. Activity pills use a filled green range treatment, while Highlight pills use an outlined gold-accent treatment with a compact, natural-width marker title and timestamp, so the distinction does not depend on color alone. Highlight pills are duplicated into every matching activity context when a highlight is contained by or contributes to multiple activity groups, and unmatched highlights remain visible in an "Other Highlights" fallback bucket. Hovering a highlight pill shows the existing performer/tag-card presentation without the old highlight title header. GOAT-tagged markers, highlight hover cards, thumbnail-scrubber marker tags, player-timeline dots/ranges, and their hover cards use persistent Royal Sapphire styling. Timeline dots and ranges mirror the marker panel with a near-black body, its exact thin one-pixel Royal Sapphire border, and a compact two-layer Sapphire glow instead of a metallic fill or animated aura. Markers that contain the current player timestamp use the red playback treatment in both lanes, and scene player scrubber clicks perform a one-shot focus into the Markers tab with a distinct animated fuchsia focus ring for the target pill. Compact bordered Edit actions remain prominent on every marker. Marker create/edit top and bottom performer dropdowns render large performer thumbnails while choosing, then keep the selected values as regular text pills. Primary and secondary tag dropdown options keep stable component identities while playback updates the current marker timestamp, preventing live playback rerenders from dropping option clicks.
 
 Selection checkboxes follow the visible hierarchy: section selectors cover all displayed Activity and Highlight markers, multi-configuration sections expose a selector for each performer configuration, lanes select only their own marker type, and pills select individual markers or merged highlight segments. Parent selectors show an indeterminate state for partial selection and use larger hit areas. Distinct performer configurations remain separate, but their redundant Top/Bottom text labels are omitted because performer borders already communicate those roles. Exact duplicate configuration headers are omitted when a section contains only one performer configuration, so duration and selection metadata are not repeated.
 
@@ -3441,7 +3491,7 @@ The Create Marker, Add to Loop, and Open in Viewer toolbar sticks to the top of 
 
 Marker rows and `/scenes/markers` marker cards display direct primary tags, direct secondary tags, context-overlap tags, and hierarchy-inferred parent tags with distinct badge colors. Parent tags are collapsed behind a small `+N` toggle by default, and they are also included in scene-local tag search options, so a marker tagged with a child tag can be searched by its parent tag. Duplicate tags only render once at the highest available tier: primary, then secondary, then overlap, then parent.
 
-Scene detail pages also include an icon toggle beside the scene tabs that hides the scene overview/header block, allowing the active tab panel to use the full vertical space of the left column. The scene player scrubber marker tags and timeline marker tooltips use the same performer/tag-card hover presentation as the Markers tab pills. Timeline tooltips use the same containment-derived performer tags as the Markers tab, including one performer tile with both role colors when the same performer has top and bottom tags across overlapping markers. This applies to outstanding/highlight and Activity Type markers: a smaller fully-contained activity marker inherits the containing activity marker's tags and roles, while the larger marker does not inherit tags from a marker that covers only part of its range. Fullscreen player controls hide on idle even while paused. Clicking a scene player scrubber marker performs a one-shot focus into the Markers tab, so later filter/edit changes do not keep auto-scrolling back to that marker. The focused marker or its rendered Activity Type group glows blue for 10 seconds, including current-playback and Royal Sapphire/GOAT-themed activity pills. Marker focus scrolls only the tab content, keeping the scene tab rows visible when the panel is vertically expanded.
+Scene detail pages also include an icon toggle beside the scene tabs that hides the scene overview/header block, allowing the active tab panel to use the full vertical space of the left column. The scene player scrubber marker tags and timeline marker tooltips use the same performer/tag-card hover presentation as the Markers tab pills. Direct marker tags keep their solid blue Top and green Bottom pill treatments; tags contributed solely by a containing overlap context use the same role colors at a muted opacity with a fine dashed border. GOAT-tagged thumbnail-scrubber tags, player-timeline dots/ranges, and timeline hover cards reuse the persistent Royal Sapphire treatment from marker cards and panel pills. Timeline tooltips use the same containment-derived performer tags as the Markers tab, including one performer tile with both role colors when the same performer has top and bottom tags across overlapping markers. This applies to outstanding/highlight and Activity Type markers: a smaller fully-contained activity marker inherits the containing activity marker's tags and roles, while the larger marker does not inherit from a marker that covers only part of its range. Fullscreen player controls hide on idle even while paused. Clicking either a scene player timeline marker or a thumbnail-scrubber marker performs a one-shot focus into the Markers tab, so later filter/edit changes do not keep auto-scrolling back to that marker. Every click receives a distinct latest-wins request: repeated clicks on the same marker restart the focus, while newer clicks cancel older pending frames, smooth scrolling, glow timers, and glow animation state. The focused marker or its rendered Activity Type group glows fuchsia for 10 seconds, including current-playback and Royal Sapphire/GOAT-themed activity pills, keeping the transient interaction state distinct from the persistent sapphire tier. Marker focus scrolls only the tab content, keeping the scene tab rows visible when the panel is vertically expanded. Timeline markers, marker ranges, and thumbnail-scrubber tags gain a restrained blue hover aura without moving their position or hit targets.
 
 ### Files Modified
 
@@ -3457,9 +3507,11 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerChronologySearch_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerHoverPopover_custom.tsx`
 - `ui/v2.5/src/components/Shared/ratingCardStyles_custom.scss`
+- `ui/v2.5/src/styles/applicationTheme_custom.scss`
 - `ui/v2.5/src/core/generated-graphql.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx`
 - `ui/v2.5/src/components/Settings/SettingsCustomPanel.tsx`
+- `ui/v2.5/src/components/Tags/TagSelect.tsx`
 - `ui/v2.5/src/core/config.ts`
 - `ui/v2.5/src/components/Shared/HoverPopover.tsx`
 - `ui/v2.5/graphql/data/scene-marker.graphql`
@@ -3480,11 +3532,13 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - `ui/v2.5/graphql/data/scene-marker-context_custom.graphql`
 - `ui/v2.5/graphql/queries/scene-marker-context_custom.graphql`
 - `ui/v2.5/src/components/ScenePlayer/sceneMarkerTimelineHover_custom.ts`
+- `ui/v2.5/src/components/ScenePlayer/sceneMarkerTimelineStyle_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneCardPerformerPopover_custom.tsx`
 - `ui/v2.5/src/components/Scenes/SceneCard.tsx`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerLayoutPreference_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerSelection_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerFocusScroll_custom.ts`
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerSectionNavigation_custom.ts`
 - `ui/v2.5/scene_markers_panel_poc_custom.html`
 - `ui/v2.5/tests/sceneMarkerActivityType_custom.test.ts`
 - `ui/v2.5/tests/sceneMarkerChronologyLayout_custom.test.ts`
@@ -3493,6 +3547,10 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - `ui/v2.5/tests/sceneMarkerTimelineHover_custom.test.ts`
 - `ui/v2.5/tests/sceneMarkerSelection_custom.test.ts`
 - `ui/v2.5/tests/sceneMarkerFocusScroll_custom.test.ts`
+- `ui/v2.5/tests/sceneMarkerSectionNavigation_custom.test.ts`
+- `ui/v2.5/tests/sceneMarkerVisualStates_custom.test.ts`
+- `ui/v2.5/tests/sceneMarkerTimelineStyle_custom.test.ts`
+- `ui/v2.5/tests/tagSelectRendererIdentity_custom.test.ts`
 
 ### Test Cases Added
 
@@ -3515,6 +3573,7 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - Verifies single-tag performer filters do not create derived overlap ranges from nearby tag-only markers.
 - Verifies activity type markers are limited to configured sex/oral/solo primary-only markers and secondary tags make them highlights.
 - Verifies scene-card performer summaries union direct and overlap-computed marker tags independently for top and bottom roles, including the same tag appearing in both role colors.
+- Verifies marker hover data keeps direct role tags primary and identifies overlap-contributed role tags for the muted dashed treatment.
 - Verifies the unified chronological section includes configured feet, orgasm, and facial primary tags as section markers without changing strict Activity Type marker classification.
 - Verifies facial-tagged orgasm markers are assigned to Facial instead of standard Orgasm, including child facial tags.
 - Verifies unified chronological section markers are grouped Oral, Sex, Solo, Feet, Orgasm, Facial and chronological within each group.
@@ -3524,7 +3583,11 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - Verifies outstanding timeline marker hovers inherit overlapping performer tags, mixed top/bottom roles share one performer tile, dual-role Activity Type markers share one tile, contained Activity Type markers inherit their containing marker's role tags, and the containing marker does not inherit from the smaller range.
 - Verifies parent selection scopes report none, partial/indeterminate, and all-selected states while deduplicating repeated layout marker IDs.
 - Verifies selection counts distinguish visible items from markers hidden by active scene-local filters.
-- Verifies desktop scrubber marker focus prefers an exact marker pill, falls back to its rendered Activity Type group when the individual pill is hidden, uses the scene tab scroll area, retains normal page scrolling in non-scrolling layouts, centers within the tab, and clamps at its top boundary.
+- Verifies desktop scrubber marker focus prefers an exact marker pill, falls back to its rendered Activity Type group when the individual pill is hidden, uses the scene tab scroll area, retains normal page scrolling in non-scrolling layouts, centers within the tab, clamps at its top boundary, and ignores stale completion from an older click so it cannot clear the latest request.
+- Verifies the compact marker-section navigation includes every visible section (Oral, Sex, Solo, Feet, Orgasm, Facial, and Other Highlights), scrolls directly to stable in-panel target IDs without router hash navigation, and keeps section-header accents horizontal instead of reusing the current-playback left rail.
+- Verifies scrubber marker tags receive the shared Royal Sapphire class and that the temporary clicked-marker aura uses fuchsia instead of the persistent Sapphire blue.
+- Verifies GOAT tags, GOAT child tags, and the configured Royal Sapphire override tag apply the restrained Sapphire treatment to player-timeline dots/ranges and their hover cards while ordinary markers retain their semantic tag colors.
+- Verifies primary and secondary marker tag selectors use module-scoped option renderers whose identities remain stable across playback-driven parent rerenders.
 
 ### GraphQL Schema Changes
 
@@ -3542,7 +3605,7 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 
 ### Overview
 
-Adds `/gevi-latest`, a custom page showing the latest scenes and vatos from Gay Erotic Video Index, linked from the right-side utility icon group in the main navbar. The backend API is mounted separately at `/gevi-latest-data` so direct browser loads and refreshes of `/gevi-latest` render the React page instead of raw JSON. The backend fetches `https://gayeroticvideoindex.com/newe` for scenes and `https://gayeroticvideoindex.com/newp` for vatos, stores the results in a JSON cache under the configured Stash cache directory, downloads each card image into a local image cache, and prunes cached items older than two years. Scene entries fetch the individual episode detail page to use the larger `episode<ID>b.jpg` screenshot when present. Vato entries use the performer image from the main GEVI new-performers page.
+Adds `/gevi-latest`, a custom page showing the latest scenes and vatos from Gay Erotic Video Index, linked from the right-side utility icon group in the main navbar. The backend API is mounted separately at `/gevi-latest-data` so direct browser loads and refreshes of `/gevi-latest` render the React page instead of raw JSON. The backend fetches `https://gayeroticvideoindex.com/newe` for scenes and `https://gayeroticvideoindex.com/newp` for vatos, stores the results in a JSON cache under the configured Stash cache directory, downloads each card image into a local image cache, and prunes cached items older than two years. Scene entries fetch the individual episode detail page to use the larger `episode<ID>b.jpg` screenshot when present. Vato entries use the performer image from the main GEVI new-performers page. A missing external image (HTTP 404) is quietly omitted from its card without treating the GEVI refresh as failed.
 
 ### Files Modified
 
@@ -3568,6 +3631,7 @@ Adds `/gevi-latest`, a custom page showing the latest scenes and vatos from Gay 
 - Verifies scene detail parsing uses the larger detail screenshot and release date.
 - Verifies cache merging preserves first-seen timestamps and two-year pruning removes expired items.
 - Verifies local image downloads are persisted and unreferenced cached image files are deleted.
+- Verifies a 404 image download is silently omitted from the cached card.
 
 ### GraphQL Schema Changes
 
@@ -3658,3 +3722,55 @@ The default Stash theme uses a cool-blue accent. Black Steel replaces that accen
 ### Configuration Dependencies
 
 - None. Black Steel styling is selected automatically from the existing document theme class.
+
+---
+
+## 51. Negative Marker Create Parity
+
+### Overview
+
+Brings the negative marker create/edit form's shared range-editing features in line with the regular scene marker form. New negative markers use an active A-B loop as their initial range, fall back to a valid ten-second range at the player position, and show the live calculated duration below the end time. The creatable title picker fetches distinct negative-marker names globally across all scenes while skipping the regular-marker title query entirely. It requests fresh global results whenever the form opens, excludes blank names, preserves the first-used casing, and deduplicates case-insensitively so a saved name is selected instead of repeatedly offered as a new creation.
+
+Gap and overlap warnings expose the complete action set on both forms: fix the previous or next issue on the marker being edited, fix either adjacent scene or negative marker instead, fix both issues on the current marker, or fix both adjacent markers when both are known.
+
+### Files Modified
+
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneNegativeMarkerForm.tsx` - Adds A-B initialization, title suggestions, live duration, and all adjacent-marker fix actions.
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerGapWarning_custom.ts` - Exposes detailed adjacent-marker action metadata to the negative marker form.
+- `ui/v2.5/src/components/Shared/Select.tsx` - Allows the shared marker title picker to use custom marker-type suggestions, suppress duplicate Create options, and opt out of regular-marker titles.
+- `ui/v2.5/src/core/StashService.ts` - Skips the regular marker-title query and fetches fresh global negative-marker names for negative-marker forms.
+- `ui/v2.5/graphql/queries/misc.graphql` - Adds the global negative-marker name query used by the form.
+- `graphql/schema/schema_custom.graphql` - Exposes global negative-marker names through the custom GraphQL query surface.
+- `pkg/models/scene_negative_marker_custom.go` - Adds the global name lookup to the negative-marker repository contract.
+- `pkg/models/mocks/SceneNegativeMarkerReaderWriter_custom.go` - Implements the new repository method in the negative-marker mock.
+- `pkg/sqlite/scene_negative_marker_custom.go` - Loads distinct, non-blank names across every scene.
+- `internal/api/resolver_scene_negative_marker_custom.go` - Resolves the global name query in a read transaction.
+- `internal/api/generated_exec.go`, `ui/v2.5/src/core/generated-graphql.ts` - Regenerated GraphQL server and UI bindings.
+- `ui/v2.5/tests/sceneMarkerGapWarning_custom.test.ts` - Verifies negative markers receive update metadata for adjacent scene and negative markers.
+- `CUSTOM_FEATURES.md` - Documents negative marker form parity.
+
+### Files Added
+
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneNegativeMarkerForm_custom.ts` - Provides testable initial-range and duration helpers.
+- `ui/v2.5/src/components/Shared/markerTitleSuggestions_custom.ts` - Merges and normalizes shared and negative-marker title suggestions.
+- `pkg/sqlite/scene_negative_marker_custom_test.go` - Verifies the global negative-marker name query across scenes.
+- `ui/v2.5/tests/sceneNegativeMarkerForm_custom.test.ts` - Covers player-position defaults, A-B loop initialization, edit preservation, valid fallback ranges, and duration calculation.
+
+### Test Cases Added
+
+- Verifies new negative markers default to ten seconds at the current player position.
+- Verifies active A-B loop endpoints initialize a new negative marker.
+- Verifies a loop without a usable end still creates a valid range.
+- Verifies editing preserves the saved range regardless of the active loop.
+- Verifies live duration calculation and invalid-range suppression.
+- Verifies regular marker titles are excluded, while saved negative-marker titles are deduplicated case-insensitively and are not offered as new Create options.
+- Verifies global negative-marker names include multiple scenes, exclude blank names, deduplicate trimmed case variants, preserve first-used casing, and sort alphabetically.
+- Verifies both adjacent-marker action payloads include the correct marker ID, kind, and boundary update.
+
+### GraphQL Schema Changes
+
+- Adds `Query.sceneNegativeMarkerNames: [String!]!` for distinct saved negative-marker names across all scenes.
+
+### Configuration Dependencies
+
+- Uses the existing scene player A-B loop state and `configuration.ui.roleTagIds` gap-warning categorization.

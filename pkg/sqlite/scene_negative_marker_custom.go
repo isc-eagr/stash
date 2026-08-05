@@ -90,6 +90,40 @@ func (s *SceneNegativeMarkerStore) FindByScene(ctx context.Context, sceneID int)
 	return s.getMany(ctx, q)
 }
 
+func (s *SceneNegativeMarkerStore) FindNames(ctx context.Context) ([]string, error) {
+	const query = `
+SELECT TRIM(marker.name) AS name
+FROM scene_negative_markers marker
+JOIN (
+  SELECT MIN(id) AS id
+  FROM scene_negative_markers
+  WHERE TRIM(name) <> ''
+  GROUP BY LOWER(TRIM(name))
+) first_marker ON first_marker.id = marker.id
+ORDER BY LOWER(TRIM(marker.name)), TRIM(marker.name)`
+
+	rows, err := dbWrapper.Queryx(ctx, query)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ret := make([]string, 0)
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, fmt.Errorf("scanning negative marker name: %w", err)
+		}
+		ret = append(ret, name)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
 func (s *SceneNegativeMarkerStore) Create(ctx context.Context, marker *models.SceneNegativeMarker) error {
 	now := time.Now()
 	if marker.CreatedAt.IsZero() {

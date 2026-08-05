@@ -1,6 +1,6 @@
-# CUSTOM: Global Activity/Quality and Rating Advisor data for stats dashboards.
-query SceneStatsInsights {
-  sceneStatsActivity {
+# CUSTOM: Activity/Quality and Rating Advisor data for global or studio-scoped SceneStats dashboards.
+query SceneStatsInsights($studioId: ID, $depth: Int) {
+  sceneStatsActivity(studio_id: $studioId, depth: $depth) {
     total_seconds
     sex_seconds
     oral_seconds
@@ -22,7 +22,7 @@ query SceneStatsInsights {
     oral_scene_count
     solo_scene_count
   }
-  globalRatingAdvisorStats {
+  globalRatingAdvisorStats(studio_id: $studioId, depth: $depth) {
     overall_scene_average_rating100
     solo_scenes {
       ...StudioRatingAdvisorSectionData
@@ -36,8 +36,8 @@ query SceneStatsInsights {
   }
 }
 
-query VatoStatsRatingAdvisor {
-  globalRatingAdvisorStats {
+query VatoStatsRatingAdvisor($studioId: ID, $depth: Int) {
+  globalRatingAdvisorStats(studio_id: $studioId, depth: $depth) {
     performers {
       ...StudioRatingAdvisorSectionData
     }

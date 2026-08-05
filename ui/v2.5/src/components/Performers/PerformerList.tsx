@@ -220,6 +220,7 @@ const PerformerList: React.FC<{
           onSelectChange={onSelectChange}
           extraCriteria={extraCriteria}
           activeSortBy={filter.sortBy}
+          activeSortDirection={filter.sortDirection}
         />
       );
     }

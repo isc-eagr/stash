@@ -281,7 +281,7 @@ function stripGapWarningDetail(
   };
 }
 
-function findSceneMarkerGapWarningDetails({
+export function findSceneMarkerGapWarningDetails({
   draft,
   sceneMarkers,
   negativeMarkers,

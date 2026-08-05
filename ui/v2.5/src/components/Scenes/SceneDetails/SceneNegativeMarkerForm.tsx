@@ -1,19 +1,33 @@
 import React, { useMemo } from "react";
-import { Alert, Button, Form } from "react-bootstrap";
+import { Alert, Button, Col, Form, Row } from "react-bootstrap"; // CUSTOM
 import { FormattedMessage, useIntl } from "react-intl";
 import { useFormik } from "formik";
 import * as yup from "yup";
 import * as GQL from "src/core/generated-graphql";
-import { useFindScene } from "src/core/StashService"; // CUSTOM
+import {
+  useFindScene,
+  useSceneMarkerUpdate,
+  useSceneNegativeMarkerNames,
+} from "src/core/StashService"; // CUSTOM
 import { DurationInput } from "src/components/Shared/DurationInput";
-import { getPlayerPosition, getPlayer } from "src/components/ScenePlayer/util";
+import { MarkerTitleSuggest } from "src/components/Shared/Select"; // CUSTOM
+import {
+  getAbLoopPlugin,
+  getPlayerPosition,
+  getPlayer,
+} from "src/components/ScenePlayer/util"; // CUSTOM
 import { useToast } from "src/hooks/Toast";
 import isEqual from "lodash-es/isEqual";
 import { formikUtils } from "src/utils/form";
 import { yupFormikValidate } from "src/utils/yup";
 import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
+import TextUtils from "src/utils/text"; // CUSTOM
 // CUSTOM: begin
-import { findSceneMarkerGapWarnings } from "./sceneMarkerGapWarning_custom";
+import { findSceneMarkerGapWarningDetails } from "./sceneMarkerGapWarning_custom";
+import {
+  getSceneNegativeMarkerDuration,
+  getSceneNegativeMarkerInitialRange,
+} from "./sceneNegativeMarkerForm_custom";
 // CUSTOM: end
 
 interface ISceneNegativeMarkerForm {
@@ -36,6 +50,7 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
   const [createMarker] = GQL.useSceneNegativeMarkerCreateMutation();
   const [updateMarker] = GQL.useSceneNegativeMarkerUpdateMutation();
   const [destroyMarker] = GQL.useSceneNegativeMarkerDestroyMutation();
+  const [updateSceneMarker] = useSceneMarkerUpdate(); // CUSTOM
   const Toast = useToast();
   const { configuration } = useConfigurationContext(); // CUSTOM
 
@@ -49,6 +64,10 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
     () => negativeMarkers ?? sceneData?.findScene?.negative_markers ?? [],
     [negativeMarkers, sceneData?.findScene?.negative_markers]
   );
+  const { data: negativeMarkerNameData, loading: negativeMarkerNamesLoading } =
+    useSceneNegativeMarkerNames(); // CUSTOM
+  const negativeMarkerTitles =
+    negativeMarkerNameData?.sceneNegativeMarkerNames ?? []; // CUSTOM
 
   const schema = yup.object({
     name: yup.string().ensure(),
@@ -66,17 +85,21 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
       ),
   });
 
-  // Get current player position for new markers
-  const initialValues = useMemo(
-    () => ({
+  // CUSTOM: begin - match regular marker A-B loop range initialization
+  const initialValues = useMemo(() => {
+    const abLoop = getAbLoopPlugin()?.getOptions();
+    const range = getSceneNegativeMarkerInitialRange({
+      marker,
+      playerPosition: getPlayerPosition(),
+      abLoop,
+    });
+
+    return {
       name: marker?.name ?? "",
-      start_seconds:
-        marker?.start_seconds ?? Math.round(getPlayerPosition() ?? 0),
-      end_seconds:
-        marker?.end_seconds ?? Math.round((getPlayerPosition() ?? 0) + 10),
-    }),
-    [marker]
-  );
+      ...range,
+    };
+  }, [marker]);
+  // CUSTOM: end
 
   type InputValues = yup.InferType<typeof schema>;
 
@@ -90,7 +113,7 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
   // CUSTOM: begin - warn about small unmarked gaps or overlaps next to this negative marker
   const gapWarnings = useMemo(
     () =>
-      findSceneMarkerGapWarnings({
+      findSceneMarkerGapWarningDetails({
         draft: {
           id: marker?.id,
           seconds: formik.values.start_seconds,
@@ -169,10 +192,12 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
   function renderTitleField() {
     const title = intl.formatMessage({ id: "title" });
     const control = (
-      <Form.Control
-        type="text"
-        placeholder={intl.formatMessage({ id: "title" })}
-        {...formik.getFieldProps("name")}
+      <MarkerTitleSuggest
+        initialMarkerTitle={formik.values.name}
+        onChange={(value) => formik.setFieldValue("name", value)}
+        additionalTitles={negativeMarkerTitles} // CUSTOM
+        additionalTitlesLoading={negativeMarkerNamesLoading} // CUSTOM
+        includeRegularTitles={false} // CUSTOM
       />
     );
 
@@ -234,6 +259,34 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
     return renderField("end_seconds", title, control);
   }
 
+  // CUSTOM: begin - match the regular marker's live duration display
+  function renderDurationField() {
+    const duration = getSceneNegativeMarkerDuration(
+      formik.values.start_seconds,
+      formik.values.end_seconds
+    );
+    if (duration === undefined) return null;
+
+    const title = intl.formatMessage({
+      id: "duration",
+      defaultMessage: "Duration",
+    });
+
+    return (
+      <Form.Group as={Row} data-field="duration_display">
+        <Form.Label {...splitProps.labelProps}>{title}</Form.Label>
+        <Col {...splitProps.fieldProps}>
+          <Form.Control
+            plaintext
+            readOnly
+            value={TextUtils.formatDurationRange(duration)}
+          />
+        </Col>
+      </Form.Group>
+    );
+  }
+  // CUSTOM: end
+
   // CUSTOM: begin - small adjacent gap/overlap warning
   function formatGapMilliseconds(seconds: number) {
     return `${Math.round(seconds * 1000)}ms`;
@@ -253,21 +306,83 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
   function renderGapWarning() {
     if (!gapWarnings) return null;
 
-    const closePreviousGap = () => {
+    const closePreviousGap = async () => {
       if (!gapWarnings.previous) return;
-      formik.setFieldValue(
+      await formik.setFieldValue(
         "start_seconds",
         gapWarnings.previous.closeToSeconds
       );
     };
-    const closeNextGap = () => {
+    const closeNextGap = async () => {
       if (!gapWarnings.next) return;
-      formik.setFieldValue("end_seconds", gapWarnings.next.closeToSeconds);
+      await formik.setFieldValue(
+        "end_seconds",
+        gapWarnings.next.closeToSeconds
+      );
     };
-    const closeAllGaps = () => {
-      closePreviousGap();
-      closeNextGap();
+    const closeAllGaps = async () => {
+      await closePreviousGap();
+      await closeNextGap();
     };
+    const closeOtherMarkerGap = async (boundary: "previous" | "next") => {
+      const warning = gapWarnings[boundary];
+      if (!warning?.adjacentMarkerId) return;
+
+      try {
+        if (warning.adjacentMarkerKind === "negative-marker") {
+          await updateMarker({
+            variables: {
+              input: {
+                id: warning.adjacentMarkerId,
+                ...(boundary === "previous"
+                  ? { end_seconds: warning.otherCloseToSeconds }
+                  : { start_seconds: warning.otherCloseToSeconds }),
+              },
+            },
+          });
+          return;
+        }
+
+        const adjacentMarker = warningSceneMarkers.find(
+          (sceneMarker) => sceneMarker.id === warning.adjacentMarkerId
+        );
+        if (!adjacentMarker) return;
+
+        await updateSceneMarker({
+          variables: {
+            id: adjacentMarker.id,
+            scene_id: sceneID,
+            title: adjacentMarker.title,
+            seconds:
+              boundary === "next"
+                ? warning.otherCloseToSeconds
+                : adjacentMarker.seconds,
+            end_seconds:
+              boundary === "previous"
+                ? warning.otherCloseToSeconds
+                : adjacentMarker.end_seconds ?? null,
+            primary_tag_id: adjacentMarker.primary_tag.id,
+            tag_ids: adjacentMarker.tags.map((tag) => tag.id),
+            top_performer_ids:
+              adjacentMarker.top_performers?.map((performer) => performer.id) ??
+              [],
+            bottom_performer_ids:
+              adjacentMarker.bottom_performers?.map(
+                (performer) => performer.id
+              ) ?? [],
+          },
+        });
+      } catch (e) {
+        Toast.error(e);
+      }
+    };
+    const closeAllOtherMarkerGaps = async () => {
+      await closeOtherMarkerGap("previous");
+      await closeOtherMarkerGap("next");
+    };
+    const canCloseAllOtherMarkerGaps =
+      !!gapWarnings.previous?.adjacentMarkerId &&
+      !!gapWarnings.next?.adjacentMarkerId;
 
     return (
       <Alert variant="warning" className="py-2">
@@ -280,17 +395,44 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
         <div className="mt-2 d-flex flex-wrap" style={{ gap: "0.5rem" }}>
           {gapWarnings.previous && (
             <Button size="sm" variant="warning" onClick={closePreviousGap}>
-              Close previous {gapWarnings.previous.issueType}
+              Fix previous on this marker
+            </Button>
+          )}
+          {gapWarnings.previous?.adjacentMarkerId && (
+            <Button
+              size="sm"
+              variant="warning"
+              onClick={() => closeOtherMarkerGap("previous")}
+            >
+              Fix previous on other marker
             </Button>
           )}
           {gapWarnings.next && (
             <Button size="sm" variant="warning" onClick={closeNextGap}>
-              Close next {gapWarnings.next.issueType}
+              Fix next on this marker
+            </Button>
+          )}
+          {gapWarnings.next?.adjacentMarkerId && (
+            <Button
+              size="sm"
+              variant="warning"
+              onClick={() => closeOtherMarkerGap("next")}
+            >
+              Fix next on other marker
             </Button>
           )}
           {gapWarnings.previous && gapWarnings.next && (
             <Button size="sm" variant="warning" onClick={closeAllGaps}>
-              Close both
+              Fix both on this marker
+            </Button>
+          )}
+          {canCloseAllOtherMarkerGaps && (
+            <Button
+              size="sm"
+              variant="warning"
+              onClick={closeAllOtherMarkerGaps}
+            >
+              Fix both on other marker
             </Button>
           )}
         </div>
@@ -305,6 +447,7 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
         {renderTitleField()}
         {renderStartTimeField()}
         {renderEndTimeField()}
+        {renderDurationField()}
         {renderGapWarning()}
       </div>
       <div className="buttons-container px-3">

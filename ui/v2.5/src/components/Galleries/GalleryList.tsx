@@ -73,6 +73,8 @@ const GalleryList: React.FC<{
           selectedIds={selectedIds}
           zoomIndex={filter.zoomIndex}
           onSelectChange={onSelectChange}
+          activeSortBy={filter.sortBy} // CUSTOM
+          activeSortDirection={filter.sortDirection} // CUSTOM
         />
       );
     }

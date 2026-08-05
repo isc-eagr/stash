@@ -2,8 +2,7 @@ package api
 
 // CUSTOM: statsWeightedMarkerCountQueryCustom is shared by orgasm/facial
 // totals. Each marker counts once per assigned top, with a minimum of one.
-const statsWeightedMarkerCountQueryCustom = `
-WITH RECURSIVE target_tags(id) AS (
+const statsWeightedMarkerCountQueryBodyCustom = `target_tags(id) AS (
   SELECT id FROM tags WHERE id = ?
   UNION ALL
   SELECT tr.child_id FROM tags_relations tr JOIN target_tags tt ON tr.parent_id = tt.id
@@ -19,6 +18,7 @@ matching_markers AS (
   LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
   WHERE (sm.primary_tag_id IN (SELECT id FROM target_tags)
      OR smt.tag_id IN (SELECT id FROM target_tags))
+    AND sm.scene_id IN (SELECT id FROM selected_scenes)
     AND sm.primary_tag_id NOT IN (SELECT id FROM second_camera_tags)
     AND NOT EXISTS (
       SELECT 1 FROM scene_markers_tags smt2
@@ -35,6 +35,14 @@ FROM (
   ) AS top_count
   FROM matching_markers mm
 ) marker_counts`
+
+const statsWeightedMarkerCountQueryCustom = `
+WITH RECURSIVE selected_scenes(id) AS (SELECT id FROM scenes),
+` + statsWeightedMarkerCountQueryBodyCustom
+
+func statsWeightedMarkerCountScopedQueryCustom(sceneScope string) string {
+	return sceneScope + ",\n" + statsWeightedMarkerCountQueryBodyCustom
+}
 
 // CUSTOM: performerRoleTagCountQueryCustom matches the performer marker filter:
 // primary and secondary tags both include the complete configured tag family.

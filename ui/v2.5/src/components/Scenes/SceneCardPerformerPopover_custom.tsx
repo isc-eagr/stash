@@ -34,6 +34,8 @@ export const SceneCardPerformerPopover: React.FC<IProps> = ({ scene }) => {
           performer,
           topTags: [],
           bottomTags: [],
+          topOverlapTagIDs: new Set(),
+          bottomOverlapTagIDs: new Set(),
         } as ISceneMarkerChronologyHighlightPerformer<
           GQL.SlimSceneDataFragment["scene_markers"][number]
         >)

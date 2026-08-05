@@ -1,5 +1,7 @@
 fragment PerformerData on Performer {
   id
+  created_at # CUSTOM: keep detail performer cards compatible with list cards
+  updated_at # CUSTOM: keep detail performer cards compatible with list cards
   name
   disambiguation
   urls
@@ -116,6 +118,8 @@ fragment PerformerData on Performer {
 # CUSTOM: begin
 fragment PerformerListData on Performer {
   id
+  created_at
+  updated_at
   name
   disambiguation
   urls

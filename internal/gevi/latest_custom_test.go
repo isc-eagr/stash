@@ -141,3 +141,30 @@ func TestEnsureLocalImagesDownloadsAndCleanupRemovesUnreferencedFiles(t *testing
 	require.FileExists(t, client.LocalImagePath(cache.Scenes[0].ImagePath))
 	require.NoFileExists(t, stalePath)
 }
+
+func TestEnsureLocalImagesSilentlyOmitsNotFoundImage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	tempDir := t.TempDir()
+	client := NewClient(filepath.Join(tempDir, DefaultCacheFileName))
+	client.HTTPClient = server.Client()
+	client.ImageDir = filepath.Join(tempDir, DefaultImageDirName)
+
+	cache := &Cache{
+		Scenes: []Item{{
+			Kind:     ItemKindScene,
+			ID:       "33823",
+			Title:    "Missing Screenshot",
+			ImageURL: server.URL + "/episode33823.jpg",
+		}},
+	}
+
+	changed, err := client.ensureLocalImages(t.Context(), cache)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Empty(t, cache.Scenes[0].ImageURL)
+	require.Empty(t, cache.Scenes[0].ImagePath)
+}

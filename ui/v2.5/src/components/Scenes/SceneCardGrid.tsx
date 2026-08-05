@@ -15,13 +15,24 @@ interface ISceneCardGrid {
   zoomIndex: number;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
   fromGroupId?: string;
+  activeSortBy?: string; // CUSTOM
+  activeSortDirection?: GQL.SortDirectionEnum; // CUSTOM
 }
 
 const zoomWidths = [280, 340, 480, 640];
 
 export const SceneCardGrid: React.FC<ISceneCardGrid> = PatchComponent(
   "SceneCardGrid",
-  ({ scenes, queue, selectedIds, zoomIndex, onSelectChange, fromGroupId }) => {
+  ({
+    scenes,
+    queue,
+    selectedIds,
+    zoomIndex,
+    onSelectChange,
+    fromGroupId,
+    activeSortBy,
+    activeSortDirection,
+  }) => {
     const [componentRef, { width: containerWidth }] = useContainerDimensions();
 
     const cardWidth = useCardWidth(containerWidth, zoomIndex, zoomWidths);
@@ -42,6 +53,8 @@ export const SceneCardGrid: React.FC<ISceneCardGrid> = PatchComponent(
               onSelectChange(scene.id, selected, shiftKey)
             }
             fromGroupId={fromGroupId}
+            activeSortBy={activeSortBy} // CUSTOM
+            activeSortDirection={activeSortDirection} // CUSTOM
           />
         ))}
       </div>

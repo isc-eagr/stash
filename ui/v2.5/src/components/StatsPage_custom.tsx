@@ -10,6 +10,7 @@ interface IStatsPageProps {
   className?: string;
   loading?: boolean;
   loadingMessage?: string;
+  showNavigation?: boolean;
 }
 
 export const StatsPage: React.FC<IStatsPageProps> = ({
@@ -17,9 +18,10 @@ export const StatsPage: React.FC<IStatsPageProps> = ({
   className,
   loading = false,
   loadingMessage,
+  showNavigation = true,
 }) => (
   <div className={cx("stats-page", className)}>
-    <StatsLinks />
+    {showNavigation && <StatsLinks />}
     {loading ? (
       <div className="stats-page-loading">
         <LoadingIndicator message={loadingMessage} />

@@ -294,7 +294,7 @@ const sceneMetrics: IAdvisorMetric[] = [
       },
       {
         value: 2,
-        label: "Mixed / standard",
+        label: "Standard or mixed",
         description:
           "A standard usable range, or a messy scene with a few outstanding stretches worth keeping.",
       },
@@ -1636,9 +1636,7 @@ const RatingAdvisorModal: React.FC<{
           <span>{active ? activeChoice.description : metric.hint}</span>
         </div>
         <div className="rating-advisor-adjustment-action">
-          <span aria-live="polite">
-            {saving ? "Saving…" : active ? "On" : "Off"}
-          </span>
+          {saving && <span aria-live="polite">Saving…</span>}
           <Button
             aria-checked={active}
             aria-label={`${metric.title}: ${active ? "on" : "off"}`}

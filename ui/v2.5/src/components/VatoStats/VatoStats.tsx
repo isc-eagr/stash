@@ -6,6 +6,8 @@ import { FormattedMessage, FormattedNumber } from "react-intl";
 import { Link } from "react-router-dom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { StatsPage } from "src/components/StatsPage_custom";
+import { StatsStudioSelector } from "src/components/StatsStudioSelector_custom";
+import type { Studio } from "src/components/Studios/StudioSelect";
 import * as GQL from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useTitleProps } from "src/hooks/title";
@@ -18,14 +20,19 @@ import {
   formatStatsTotal,
 } from "src/utils/statsDrilldown_custom";
 import { VatoStatsRatingAdvisor } from "./VatoStatsRatingAdvisor_custom";
+import {
+  getVatoStatsStudioRoleCounts,
+  getVatoStatsStudioSummary,
+  getVatoStatsStudioTierRows,
+} from "./vatoStatsStudioScope_custom";
 
 import "./VatoStats.scss";
 
 const UNKNOWN_KEY = "__unknown__";
 
 const VATO_STATS_PERFORMERS = gql`
-  query VatoStatsPerformers {
-    vatoStatsPerformers {
+  query VatoStatsPerformers($studioId: ID, $depth: Int) {
+    vatoStatsPerformers(studio_id: $studioId, depth: $depth) {
       id
       name
       image_path
@@ -38,6 +45,7 @@ const VATO_STATS_PERFORMERS = gql`
       sex_bottom_count
       oral_top_count
       oral_bottom_count
+      solo_scene_count
       facial_given_count
       facial_received_count
       most_recent_o_date
@@ -56,6 +64,7 @@ const VATO_STATS_PERFORMERS = gql`
         count
       }
     }
+    sceneOrgasmCount(studio_id: $studioId, depth: $depth)
   }
 `;
 
@@ -146,6 +155,12 @@ type VatoStatsAgeCount = {
   count: number;
 };
 
+type VatoStatsStudioScope = {
+  id: string;
+  name: string;
+  depth: number;
+};
+
 type VatoStatsPerformer = {
   id: string;
   name: string;
@@ -159,6 +174,7 @@ type VatoStatsPerformer = {
   sex_bottom_count: number;
   oral_top_count: number;
   oral_bottom_count: number;
+  solo_scene_count: number;
   facial_given_count: number;
   facial_received_count: number;
   most_recent_o_date?: string | null;
@@ -1207,6 +1223,7 @@ const VatoStatsSummary: React.FC<{
   oralTag?: { id: string; name: string };
   soloTag?: { id: string; name: string };
   facialTag?: { id: string; name: string };
+  studioScope?: VatoStatsStudioScope;
 }> = ({
   summary,
   strictTop,
@@ -1217,6 +1234,7 @@ const VatoStatsSummary: React.FC<{
   oralTag,
   soloTag,
   facialTag,
+  studioScope,
 }) => {
   const cards = [
     {
@@ -1305,7 +1323,20 @@ const VatoStatsSummary: React.FC<{
       value: summary?.performersOneSceneCount?.toLocaleString(),
       path: performerSceneCountURL(1),
     },
-  ].filter((card) => card.value !== undefined);
+  ]
+    .map((card) => ({
+      ...card,
+      path:
+        card.path && studioScope
+          ? NavUtils.withStudioScope(
+              card.path,
+              studioScope.id,
+              studioScope.name,
+              studioScope.depth
+            )
+          : card.path,
+    }))
+    .filter((card) => card.value !== undefined);
 
   if (cards.length === 0) return null;
 
@@ -1353,8 +1384,19 @@ const performerRatingTiers = [
 
 const VatoStatsTierTable: React.FC<{
   rows: PerformerEthnicityTierRow[];
-}> = ({ rows }) => {
+  studioScope?: VatoStatsStudioScope;
+}> = ({ rows, studioScope }) => {
   if (rows.length === 0) return null;
+
+  const scopedPath = (path: string) =>
+    studioScope
+      ? NavUtils.withStudioScope(
+          path,
+          studioScope.id,
+          studioScope.name,
+          studioScope.depth
+        )
+      : path;
 
   const totals = performerRatingTiers.reduce(
     (acc, tier) => ({
@@ -1400,7 +1442,9 @@ const VatoStatsTierTable: React.FC<{
                 <tr key={`tiers-${row.ethnicity}`}>
                   <td>
                     <Link
-                      to={NavUtils.makePerformersEthnicityUrl(row.ethnicity)}
+                      to={scopedPath(
+                        NavUtils.makePerformersEthnicityUrl(row.ethnicity)
+                      )}
                     >
                       {row.ethnicity}
                     </Link>
@@ -1411,9 +1455,11 @@ const VatoStatsTierTable: React.FC<{
                       <td key={tier.key} className="text-right">
                         {count > 0 ? (
                           <Link
-                            to={NavUtils.makePerformersEthnicityMetallicRatingUrl(
-                              row.ethnicity,
-                              tier.key
+                            to={scopedPath(
+                              NavUtils.makePerformersEthnicityMetallicRatingUrl(
+                                row.ethnicity,
+                                tier.key
+                              )
                             )}
                           >
                             <FormattedNumber value={count} />
@@ -1426,8 +1472,10 @@ const VatoStatsTierTable: React.FC<{
                   })}
                   <td className="text-right">
                     <Link
-                      to={NavUtils.makePerformersEthnicityAnyMetallicRatingUrl(
-                        row.ethnicity
+                      to={scopedPath(
+                        NavUtils.makePerformersEthnicityAnyMetallicRatingUrl(
+                          row.ethnicity
+                        )
                       )}
                     >
                       <FormattedNumber value={rowTotal} />
@@ -1446,7 +1494,9 @@ const VatoStatsTierTable: React.FC<{
                   <th key={tier.key} className="text-right">
                     {total > 0 ? (
                       <Link
-                        to={NavUtils.makePerformersMetallicRatingUrl(tier.key)}
+                        to={scopedPath(
+                          NavUtils.makePerformersMetallicRatingUrl(tier.key)
+                        )}
                       >
                         <FormattedNumber value={total} />
                       </Link>
@@ -1469,26 +1519,48 @@ const VatoStatsTierTable: React.FC<{
 
 const VatoStats: React.FC = () => {
   const titleProps = useTitleProps("VatoStats");
+  const [selectedStudio, setSelectedStudio] = useState<Studio>();
+  const [includeChildStudios, setIncludeChildStudios] = useState(true);
   const [metric, setMetric] = useState<PodiumMetric>("scene_o_count");
   const [filters, setFilters] = useState<ChartFilter[]>([]);
   const [showPerformerList, setShowPerformerList] = useState(false);
   const { configuration } = useConfigurationContext();
   const roleTagIds = configuration?.ui?.roleTagIds ?? {};
+  const studioScope = useMemo<VatoStatsStudioScope | undefined>(
+    () =>
+      selectedStudio
+        ? {
+            id: selectedStudio.id,
+            name: selectedStudio.name,
+            depth: includeChildStudios ? -1 : 0,
+          }
+        : undefined,
+    [includeChildStudios, selectedStudio]
+  );
   const { data, error, loading } = useQuery<{
     vatoStatsPerformers: VatoStatsPerformer[];
-  }>(VATO_STATS_PERFORMERS);
+    sceneOrgasmCount: number;
+  }>(VATO_STATS_PERFORMERS, {
+    variables: {
+      depth: studioScope?.depth,
+      studioId: studioScope?.id,
+    },
+  });
   const deferAuxiliaryQueries = loading || !!error;
+  const deferGlobalAuxiliaryQueries = deferAuxiliaryQueries || !!studioScope;
   const { data: summaryData } = useQuery<VatoSummaryStatsData>(
     VATO_SUMMARY_STATS,
-    { skip: deferAuxiliaryQueries }
+    { skip: deferGlobalAuxiliaryQueries }
   );
   const { data: tierData } = useQuery<{
     performerEthnicityTierCounts: PerformerEthnicityTierRow[];
-  }>(PERFORMER_ETHNICITY_TIER_COUNTS, { skip: deferAuxiliaryQueries });
+  }>(PERFORMER_ETHNICITY_TIER_COUNTS, {
+    skip: deferGlobalAuxiliaryQueries,
+  });
   const strictTopQuery = useQuery<FindPerformersCountData>(
     VATO_STRICT_TOP_COUNT,
     {
-      skip: deferAuxiliaryQueries,
+      skip: deferGlobalAuxiliaryQueries,
       variables: {
         filter: { per_page: 1 },
         performer_filter: {
@@ -1505,7 +1577,7 @@ const VatoStats: React.FC = () => {
   const lenientTopQuery = useQuery<FindPerformersCountData>(
     VATO_LENIENT_TOP_COUNT,
     {
-      skip: deferAuxiliaryQueries,
+      skip: deferGlobalAuxiliaryQueries,
       variables: {
         filter: { per_page: 1 },
         performer_filter: {
@@ -1521,7 +1593,7 @@ const VatoStats: React.FC = () => {
   const strictBottomQuery = useQuery<FindPerformersCountData>(
     VATO_STRICT_BOTTOM_COUNT,
     {
-      skip: deferAuxiliaryQueries,
+      skip: deferGlobalAuxiliaryQueries,
       variables: {
         filter: { per_page: 1 },
         performer_filter: {
@@ -1538,7 +1610,7 @@ const VatoStats: React.FC = () => {
   const lenientBottomQuery = useQuery<FindPerformersCountData>(
     VATO_LENIENT_BOTTOM_COUNT,
     {
-      skip: deferAuxiliaryQueries,
+      skip: deferGlobalAuxiliaryQueries,
       variables: {
         filter: { per_page: 1 },
         performer_filter: {
@@ -1582,6 +1654,21 @@ const VatoStats: React.FC = () => {
   const performers = useMemo(
     () => data?.vatoStatsPerformers ?? [],
     [data?.vatoStatsPerformers]
+  );
+  const studioSummary = useMemo(
+    () =>
+      studioScope
+        ? getVatoStatsStudioSummary(performers, data?.sceneOrgasmCount ?? 0)
+        : undefined,
+    [data?.sceneOrgasmCount, performers, studioScope]
+  );
+  const studioRoleCounts = useMemo(
+    () => (studioScope ? getVatoStatsStudioRoleCounts(performers) : undefined),
+    [performers, studioScope]
+  );
+  const studioTierRows = useMemo(
+    () => (studioScope ? getVatoStatsStudioTierRows(performers) : undefined),
+    [performers, studioScope]
   );
   const filteredPerformers = useMemo(
     () =>
@@ -1670,6 +1757,18 @@ const VatoStats: React.FC = () => {
               : formatStatsTotal(performers.length, "vato", "vatos")}
           </div>
         </div>
+        <StatsStudioSelector
+          includeChildStudios={includeChildStudios}
+          onIncludeChildStudiosChange={(include) => {
+            setIncludeChildStudios(include);
+            setFilters([]);
+          }}
+          onStudioChange={(studio) => {
+            setSelectedStudio(studio);
+            setFilters([]);
+          }}
+          studio={selectedStudio}
+        />
       </header>
 
       {performers.length === 0 ? (
@@ -1678,14 +1777,27 @@ const VatoStats: React.FC = () => {
         <>
           <VatoStatsSummary
             facialTag={facialTag}
-            lenientBottom={lenientBottomQuery.data?.findPerformers.count}
-            lenientTop={lenientTopQuery.data?.findPerformers.count}
+            lenientBottom={
+              studioRoleCounts?.lenientBottom ??
+              lenientBottomQuery.data?.findPerformers.count
+            }
+            lenientTop={
+              studioRoleCounts?.lenientTop ??
+              lenientTopQuery.data?.findPerformers.count
+            }
             oralTag={oralTag}
             sexTag={sexTag}
             soloTag={soloTag}
-            strictBottom={strictBottomQuery.data?.findPerformers.count}
-            strictTop={strictTopQuery.data?.findPerformers.count}
-            summary={summaryData}
+            strictBottom={
+              studioRoleCounts?.strictBottom ??
+              strictBottomQuery.data?.findPerformers.count
+            }
+            strictTop={
+              studioRoleCounts?.strictTop ??
+              strictTopQuery.data?.findPerformers.count
+            }
+            studioScope={studioScope}
+            summary={studioSummary ?? summaryData}
           />
           <div className="vatostats-podium-toolbar">
             <div className="vatostats-podium-descriptor">
@@ -1756,9 +1868,12 @@ const VatoStats: React.FC = () => {
             </section>
           )}
           <VatoStatsTierTable
-            rows={tierData?.performerEthnicityTierCounts ?? []}
+            rows={
+              studioTierRows ?? tierData?.performerEthnicityTierCounts ?? []
+            }
+            studioScope={studioScope}
           />
-          <VatoStatsRatingAdvisor />
+          <VatoStatsRatingAdvisor studioScope={studioScope} />
           <div className="vatostats-chart-grid">
             {chartDefinitions.map((definition) => (
               <VatoStatsChart

@@ -53,11 +53,15 @@ func (r *queryResolver) FindStudios(ctx context.Context, studioFilter *models.St
 
 		// CUSTOM: begin - replace per-card aggregate resolvers with page-level batches
 		if fields.Has("studio_list_stats") {
+			activeSort := "name"
+			if filter != nil {
+				activeSort = filter.GetSort("name")
+			}
 			studioIDs := make([]int, len(studios))
 			for i, studio := range studios {
 				studioIDs[i] = studio.ID
 			}
-			ret.StudioListStats, err = queryStudioListStatsCustom(ctx, studioIDs)
+			ret.StudioListStats, err = queryStudioListStatsCustom(ctx, studioIDs, activeSort)
 			if err != nil {
 				return err
 			}

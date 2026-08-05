@@ -9,6 +9,8 @@ import { PatchComponent } from "src/patch";
 import { useRoleTags } from "src/hooks/useRoleTags"; // CUSTOM
 
 interface IStudioCardGrid {
+  activeSortBy?: string; // CUSTOM
+  activeSortDirection: GQL.SortDirectionEnum; // CUSTOM
   studios: GQL.StudioListDataFragment[]; // CUSTOM
   statsByStudioID: ReadonlyMap<string, GQL.StudioListStatsDataFragment>; // CUSTOM
   fromParent: boolean | undefined;
@@ -23,6 +25,8 @@ const zoomWidths = [280, 340, 420, 560];
 export const StudioCardGrid: React.FC<IStudioCardGrid> = PatchComponent(
   "StudioCardGrid",
   ({
+    activeSortBy, // CUSTOM
+    activeSortDirection, // CUSTOM
     studios,
     statsByStudioID, // CUSTOM
     fromParent,
@@ -42,6 +46,8 @@ export const StudioCardGrid: React.FC<IStudioCardGrid> = PatchComponent(
         {studios.map((studio) => (
           <StudioCard
             key={studio.id}
+            activeSortBy={activeSortBy} // CUSTOM
+            activeSortDirection={activeSortDirection} // CUSTOM
             cardWidth={cardWidth}
             studio={studio}
             stats={statsByStudioID.get(studio.id)} // CUSTOM

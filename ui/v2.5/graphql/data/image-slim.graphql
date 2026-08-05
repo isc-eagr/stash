@@ -1,5 +1,7 @@
 fragment SlimImageData on Image {
   id
+  created_at # CUSTOM: active sort metric on image cards
+  updated_at # CUSTOM: active sort metric on image cards
   title
   code
   date

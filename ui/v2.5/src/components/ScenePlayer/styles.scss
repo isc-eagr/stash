@@ -321,15 +321,31 @@ $font-family-monospace: sfmono-regular, menlo, monaco, consolas,
     left: 0;
     opacity: 1;
     position: absolute;
-    transition: opacity 0.2s ease;
+    transition: box-shadow 0.16s ease, filter 0.16s ease, opacity 0.2s ease; /* CUSTOM */
     visibility: hidden;
     width: 6px;
     z-index: 100;
 
-    &:hover {
-      cursor: pointer;
-      transform: scale(1.3, 1.3);
+    /* CUSTOM: restrained, static Royal Sapphire cue for GOAT timeline ticks */
+    &.vjs-marker-royal-sapphire {
+      background-color: #05080d;
+      background-image: none;
+      border: 1px solid rgba(18, 63, 159, 0.96);
+      box-shadow: 0 0 4px rgba(56, 189, 248, 0.38),
+        0 0 8px rgba(18, 63, 159, 0.5);
+      box-sizing: border-box;
     }
+
+    /* CUSTOM: begin - stable timeline marker aura without moving the hit target */
+    &:hover {
+      box-shadow: 0 0 0 2px rgba(126, 205, 255, 0.22),
+        0 0 0.65rem rgba(72, 175, 240, 0.48);
+      cursor: pointer;
+      filter: brightness(1.18);
+      z-index: 102;
+    }
+
+    /* CUSTOM: end */
   }
 
   .vjs-marker-range {
@@ -340,7 +356,31 @@ $font-family-monospace: sfmono-regular, menlo, monaco, consolas,
     min-width: 8px;
     position: absolute;
     transform: translateY(-28px);
-    transition: none;
+    transition: box-shadow 0.16s ease, filter 0.16s ease; /* CUSTOM */
+
+    /* CUSTOM: restrained, static Royal Sapphire cue for GOAT timeline ranges */
+    &.vjs-marker-royal-sapphire {
+      background-color: #05080d;
+      background-image: none;
+      border: 1px solid rgba(18, 63, 159, 0.96);
+      box-shadow: 0 0 4px rgba(56, 189, 248, 0.38),
+        0 0 8px rgba(18, 63, 159, 0.5);
+      box-sizing: border-box;
+    }
+
+    /* CUSTOM: begin - subtle aura for clickable marker ranges */
+    &:not(.vjs-negative-marker-range) {
+      cursor: pointer;
+
+      &:hover {
+        box-shadow: 0 0 0 1px rgba(126, 205, 255, 0.3),
+          0 0 0.7rem rgba(72, 175, 240, 0.42);
+        filter: brightness(1.16);
+        z-index: 101;
+      }
+    }
+
+    /* CUSTOM: end */
 
     /* CUSTOM: begin – negative marker range styling */
     // Negative markers are displayed in red
@@ -413,6 +453,33 @@ $font-family-monospace: sfmono-regular, menlo, monaco, consolas,
         max-width: min(32rem, calc(100vw - 2rem));
         padding: 0.65rem;
       }
+
+      /* CUSTOM: begin - Royal Sapphire timeline marker hover card */
+      .scene-marker-highlight-popover-card:is(
+          .rating-card-theme-premium,
+          .rating-card-theme-classic
+        ).rating-royal-sapphire {
+        background: radial-gradient(
+            circle at 50% 0%,
+            rgba(56, 189, 248, 0.18),
+            rgba(0, 0, 0, 0) 44%
+          ),
+          rgba(6, 15, 30, 0.98);
+        border: 1px solid rgba(56, 189, 248, 0.62);
+        box-shadow: 0 0 1rem rgba(56, 189, 248, 0.28);
+      }
+
+      .scene-marker-highlight-popover-card.rating-royal-sapphire
+        .scene-marker-activity-performer-image {
+        border-color: rgba(56, 189, 248, 0.82);
+      }
+
+      .scene-marker-highlight-popover-card.rating-royal-sapphire
+        .scene-marker-activity-performer-name {
+        color: #9bdcff;
+      }
+
+      /* CUSTOM: end */
 
       .scene-marker-activity-config-performers {
         display: flex;
@@ -498,6 +565,18 @@ $font-family-monospace: sfmono-regular, menlo, monaco, consolas,
         .scene-marker-highlight-tag-bottom.badge-secondary {
           background-color: #4b9f4b;
           color: #fff;
+        }
+
+        .scene-marker-highlight-tag-top.scene-marker-highlight-tag-overlap.badge-secondary {
+          background-color: rgba(63, 148, 184, 0.58);
+          border: 1px dashed rgba(190, 232, 245, 0.72);
+          color: #e3f5fa;
+        }
+
+        .scene-marker-highlight-tag-bottom.scene-marker-highlight-tag-overlap.badge-secondary {
+          background-color: rgba(75, 159, 75, 0.58);
+          border: 1px dashed rgba(194, 235, 194, 0.72);
+          color: #e8f7e8;
         }
       }
     }
@@ -990,11 +1069,58 @@ $font-family-monospace: sfmono-regular, menlo, monaco, consolas,
   height: 20px;
   position: absolute;
   transform: translateX(-50%);
+  transition: filter 0.16s ease; /* CUSTOM */
 
   .scrubber-tag {
     position: static;
     transform: none;
   }
+
+  /* CUSTOM: begin - mirror GOAT/Royal Sapphire marker styling in the scrubber */
+  &:where(
+      .rating-card-theme-premium,
+      .rating-card-theme-classic
+    ).rating-royal-sapphire {
+    .scrubber-tag {
+      background: linear-gradient(135deg, #102a68, #1d4ed8 58%, #075985);
+      border: 1px solid rgba(125, 211, 252, 0.9);
+      box-shadow: 0 0 0.55rem rgba(56, 189, 248, 0.38),
+        inset 0 0 0.7rem rgba(125, 211, 252, 0.16);
+      box-sizing: border-box;
+      color: #fff;
+    }
+
+    .scrubber-tag::after {
+      border-top-color: #1249a3;
+    }
+
+    &:hover {
+      .scrubber-tag {
+        background: linear-gradient(135deg, #173a82, #2563eb 58%, #08719f);
+        box-shadow: 0 0 0 1px rgba(186, 230, 253, 0.44),
+          0 0 0.85rem rgba(56, 189, 248, 0.66);
+      }
+
+      .scrubber-tag::after {
+        border-top-color: #175ab6;
+      }
+    }
+  }
+
+  /* CUSTOM: end */
+
+  /* CUSTOM: begin - discreet aura without moving scrubber marker tags */
+  &:hover {
+    filter: brightness(1.12);
+    z-index: 3;
+
+    .scrubber-tag {
+      box-shadow: 0 0 0 1px rgba(126, 205, 255, 0.2),
+        0 0 0.65rem rgba(72, 175, 240, 0.34);
+    }
+  }
+
+  /* CUSTOM: end */
 }
 
 .scrubber-tag-performer-image {

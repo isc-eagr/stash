@@ -6,6 +6,7 @@ import {
 } from "../Shared/GridCard/GridCard";
 import { TagCard } from "./TagCard";
 import { PatchComponent } from "src/patch";
+import { useCatalogSortMetricValuesCustom } from "../Shared/catalogSortMetricValues_custom"; // CUSTOM
 
 interface ITagCardGrid {
   tags: (GQL.TagDataFragment | GQL.TagListDataFragment)[];
@@ -16,6 +17,8 @@ interface ITagCardGrid {
   sceneCountOnly?: boolean;
   performerId?: string;
   performerName?: string;
+  activeSortBy?: string;
+  activeSortDirection?: GQL.SortDirectionEnum;
   // CUSTOM: end
 }
 
@@ -32,10 +35,19 @@ export const TagCardGrid: React.FC<ITagCardGrid> = PatchComponent(
     sceneCountOnly = false,
     performerId,
     performerName,
+    activeSortBy,
+    activeSortDirection,
     // CUSTOM: end
   }) => {
     const [componentRef, { width: containerWidth }] = useContainerDimensions();
     const cardWidth = useCardWidth(containerWidth, zoomIndex, zoomWidths);
+    const sortDirection = activeSortDirection ?? GQL.SortDirectionEnum.Asc; // CUSTOM
+    const activeSortValues = useCatalogSortMetricValuesCustom(
+      "tag",
+      tags.map((tag) => tag.id),
+      activeSortBy,
+      sortDirection
+    ); // CUSTOM
 
     return (
       <div className="row justify-content-center" ref={componentRef}>
@@ -53,6 +65,9 @@ export const TagCardGrid: React.FC<ITagCardGrid> = PatchComponent(
             sceneCountOnly={sceneCountOnly} // CUSTOM
             performerId={performerId} // CUSTOM
             performerName={performerName} // CUSTOM
+            activeSortBy={activeSortBy} // CUSTOM
+            activeSortDirection={sortDirection} // CUSTOM
+            activeSortValue={activeSortValues.get(tag.id)} // CUSTOM
           />
         ))}
       </div>

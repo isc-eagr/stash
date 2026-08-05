@@ -620,23 +620,11 @@ func (qb *StudioStore) QueryCount(ctx context.Context, studioFilter *models.Stud
 }
 
 func (qb *StudioStore) sortByScenesDuration(direction string) string {
-	return fmt.Sprintf(` ORDER BY (
-		SELECT COALESCE(SUM(video_files.duration), 0)
-		FROM %s
-		LEFT JOIN %s ON %s.%s = %s.id
-		LEFT JOIN video_files ON video_files.file_id = %s.file_id
-		WHERE %s.%s = %s.id
-	) %s`, sceneTable, scenesFilesTable, scenesFilesTable, sceneIDColumn, sceneTable, scenesFilesTable, sceneTable, studioIDColumn, studioTable, getSortDirection(direction))
+	return fmt.Sprintf(" ORDER BY %s %s", studioScenesDurationExprCustom(), getSortDirection(direction)) // CUSTOM
 }
 
 func (qb *StudioStore) sortByScenesSize(direction string) string {
-	return fmt.Sprintf(` ORDER BY (
-		SELECT COALESCE(SUM(%s.size), 0)
-		FROM %s
-		LEFT JOIN %s ON %s.%s = %s.id
-		LEFT JOIN %s ON %s.id = %s.file_id
-		WHERE %s.%s = %s.id
-	) %s`, fileTable, sceneTable, scenesFilesTable, scenesFilesTable, sceneIDColumn, sceneTable, fileTable, fileTable, scenesFilesTable, sceneTable, studioIDColumn, studioTable, getSortDirection(direction))
+	return fmt.Sprintf(" ORDER BY %s %s", studioScenesSizeExprCustom(), getSortDirection(direction)) // CUSTOM
 }
 
 // used for sorting on performer latest scene
@@ -696,7 +684,13 @@ var studioSortOptions = sortOptions{
 	"average_standard_scene_rating",            // CUSTOM
 	"average_group_scene_rating",               // CUSTOM
 	"average_performer_rating",                 // CUSTOM
+	"royal_sapphire_scenes_count",              // CUSTOM
+	"gold_scenes_count",                        // CUSTOM
+	"silver_scenes_count",                      // CUSTOM
+	"bronze_scenes_count",                      // CUSTOM
 	"facial_scenes_count",                      // CUSTOM
+	"standard_facial_count",                    // CUSTOM
+	"really_hot_facial_count",                  // CUSTOM
 	"unique_performers_count",                  // CUSTOM
 	"random",
 	"rating",
@@ -765,7 +759,11 @@ func (qb *StudioStore) getStudioSort(findFilter *models.FindFilterType) (string,
 	case "unique_performers_count": // CUSTOM
 		sortQuery += qb.sortByUniquePerformerCount(direction)
 	default:
-		if ratingKey, ok := studioRatingCriteriaSortKeysCustom[sort]; ok { // CUSTOM
+		if tier, ok := studioMetallicSceneSortKeysCustom[sort]; ok { // CUSTOM
+			sortQuery += qb.sortByMetallicSceneCountCustom(tier, direction)
+		} else if variant, ok := studioFacialMarkerSortKeysCustom[sort]; ok { // CUSTOM
+			sortQuery += qb.sortByFacialMarkerCountCustom(variant, direction)
+		} else if ratingKey, ok := studioRatingCriteriaSortKeysCustom[sort]; ok { // CUSTOM
 			sortQuery += qb.sortByRatingCriteriaAverageCustom(ratingKey, direction)
 		} else if category, ok := studioRatingAdvisorAverageSortKeysCustom[sort]; ok { // CUSTOM
 			sortQuery += qb.sortByRatingAdvisorAverageCustom(category, direction)

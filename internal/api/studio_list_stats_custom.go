@@ -7,11 +7,12 @@ import (
 
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/internal/manager/config"
+	"github.com/stashapp/stash/pkg/sqlite"
 )
 
 // queryStudioListStatsCustom calculates all studio-card aggregates in a small
 // number of page-level queries instead of resolving each field per studio.
-func queryStudioListStatsCustom(ctx context.Context, studioIDs []int) ([]*StudioListStats, error) {
+func queryStudioListStatsCustom(ctx context.Context, studioIDs []int, activeSort string) ([]*StudioListStats, error) {
 	statsByID := make(map[int]*StudioListStats, len(studioIDs))
 	for _, studioID := range studioIDs {
 		statsByID[studioID] = &StudioListStats{
@@ -38,6 +39,9 @@ func queryStudioListStatsCustom(ctx context.Context, studioIDs []int) ([]*Studio
 	if err := queryStudioListActivityStatsCustom(ctx, studioIDs, statsByID); err != nil {
 		return nil, err
 	}
+	if err := queryStudioListActiveSortValuesCustom(ctx, studioIDs, activeSort, statsByID); err != nil {
+		return nil, err
+	}
 
 	ret := make([]*StudioListStats, 0, len(studioIDs))
 	for _, studioID := range studioIDs {
@@ -45,6 +49,40 @@ func queryStudioListStatsCustom(ctx context.Context, studioIDs []int) ([]*Studio
 	}
 
 	return ret, nil
+}
+
+func queryStudioListActiveSortValuesCustom(ctx context.Context, studioIDs []int, activeSort string, statsByID map[int]*StudioListStats) error {
+	expression, ok := sqlite.StudioSortMetricExpressionCustom(activeSort)
+	if !ok {
+		return nil
+	}
+
+	query := fmt.Sprintf(`
+WITH requested(id) AS (VALUES %s)
+SELECT studios.id, %s
+FROM studios
+JOIN requested ON requested.id = studios.id`, studioListRequestedValuesCustom(len(studioIDs)), expression)
+	_, rows, err := manager.GetInstance().Database.QuerySQL(ctx, query, studioListIDArgsCustom(studioIDs))
+	if err != nil {
+		return err
+	}
+
+	for _, row := range rows {
+		if len(row) < 2 || row[1] == nil {
+			continue
+		}
+		stats := statsByID[activityStatsIntCustom(row[0])]
+		if stats == nil {
+			continue
+		}
+		value := fmt.Sprint(row[1])
+		if bytes, ok := row[1].([]byte); ok {
+			value = string(bytes)
+		}
+		stats.ActiveSortValue = &value
+	}
+
+	return nil
 }
 
 func studioListRequestedValuesCustom(count int) string {

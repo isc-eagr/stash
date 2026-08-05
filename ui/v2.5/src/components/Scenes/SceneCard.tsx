@@ -38,6 +38,8 @@ import {
   isRatingCardHomePage,
 } from "src/utils/ratingCardStyles_custom"; // CUSTOM
 import { SceneActivityMetrics } from "./SceneActivityMetrics_custom"; // CUSTOM
+import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
+import { getSceneSortMetricCustom } from "./sceneSortMetric_custom"; // CUSTOM
 // CUSTOM: begin - role icon SVG imports
 import mouthSvg from "src/assets/mouth.svg";
 import gaySvg from "src/assets/gay.svg";
@@ -125,6 +127,8 @@ interface ISceneCardProps {
   zoomIndex?: number;
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
   fromGroupId?: string;
+  activeSortBy?: string; // CUSTOM
+  activeSortDirection?: GQL.SortDirectionEnum; // CUSTOM
 }
 
 const Description: React.FC<{
@@ -357,8 +361,23 @@ const SceneCardPopovers = PatchComponent(
 const SceneCardDetails = PatchComponent(
   "SceneCard.Details",
   (props: ISceneCardProps) => {
+    const { configuration } = useConfigurationContext(); // CUSTOM
+    const sortDirection =
+      props.activeSortDirection ?? GQL.SortDirectionEnum.Asc; // CUSTOM
+    const sortMetric = getSceneSortMetricCustom(
+      props.activeSortBy,
+      props.scene,
+      sortDirection,
+      configuration?.ui?.roleTagIds ?? {},
+      props.fromGroupId
+    ); // CUSTOM
+
     return (
       <div className="scene-card__details">
+        <SortMetricBadgeCustom
+          metric={sortMetric}
+          sortDirection={sortDirection}
+        />
         <span className="scene-card__date">
           {props.scene.effective_date ?? props.scene.date}
         </span>{" "}

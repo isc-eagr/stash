@@ -1,5 +1,7 @@
 fragment SceneMarkerData on SceneMarker {
   id
+  created_at # CUSTOM: active sort metric on marker cards
+  updated_at # CUSTOM: active sort metric on marker cards
   title
   seconds
   end_seconds
@@ -61,6 +63,7 @@ fragment SceneMarkerData on SceneMarker {
 
 fragment SceneMarkerSceneData on Scene {
   id
+  updated_at # CUSTOM: active scene-updated sort metric on marker cards
   title
   files {
     width

@@ -8,6 +8,8 @@ export interface IMarker {
   end_seconds?: number | null;
   primaryTag: { id?: string; name: string };
   tags?: Array<{ id?: string; name: string }>; // CUSTOM
+  isRoyalSapphire?: boolean; // CUSTOM
+  ratingCardClass?: string; // CUSTOM
   // CUSTOM: begin - performer roles on markers
   top_performers?: Array<{
     id: string;
@@ -23,8 +25,8 @@ export interface IMarker {
     id: string;
     name: string;
     image_path?: string | null;
-    top_tags: Array<{ id?: string; name: string }>;
-    bottom_tags: Array<{ id?: string; name: string }>;
+    top_tags: Array<{ id?: string; name: string; isOverlap?: boolean }>;
+    bottom_tags: Array<{ id?: string; name: string; isOverlap?: boolean }>;
   }>;
   // CUSTOM: end
 }
@@ -108,7 +110,8 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     isNegativeMarker: boolean = false,
     target?: HTMLElement,
     markerTags?: Array<{ id?: string; name: string }>,
-    hoverPerformers?: IMarker["hover_performers"]
+    hoverPerformers?: IMarker["hover_performers"],
+    ratingCardClass?: string
   ) {
     if (!this.markerTooltip) return;
 
@@ -197,7 +200,9 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       this.markerTooltip.replaceChildren();
 
       const card = document.createElement("div");
-      card.className = "scene-marker-highlight-popover-card";
+      card.className = `scene-marker-highlight-popover-card ${
+        ratingCardClass ?? ""
+      }`.trim(); // CUSTOM: carry GOAT/Royal Sapphire styling into timeline hover cards
       const performersWrapper = document.createElement("div");
       performersWrapper.className = "scene-marker-activity-config-performers";
       const displayTags =
@@ -237,12 +242,14 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
         const tagList = document.createElement("div");
         tagList.className = "scene-marker-highlight-performer-tags";
         const addTagBadges = (
-          tags: Array<{ id?: string; name: string }>,
+          tags: Array<{ id?: string; name: string; isOverlap?: boolean }>,
           role: "top" | "bottom"
         ) => {
           tags.forEach((tag) => {
             const badge = document.createElement("span");
-            badge.className = `badge badge-secondary tag-badge scene-marker-highlight-tag-${role}`;
+            badge.className = `badge badge-secondary tag-badge scene-marker-highlight-tag-${role}${
+              tag.isOverlap ? " scene-marker-highlight-tag-overlap" : ""
+            }`;
             badge.textContent = tag.name;
             tagList.appendChild(badge);
           });
@@ -344,6 +351,9 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
 
     markerSet.dot = videojs.dom.createEl("div") as HTMLDivElement;
     markerSet.dot.className = "vjs-marker";
+    if (marker.isRoyalSapphire) {
+      markerSet.dot.classList.add("vjs-marker-royal-sapphire"); // CUSTOM
+    }
     if (duration) {
       // marker is 6px wide - adjust by 3px to align to center not left side
       markerSet.dot.style.left = `calc(${
@@ -363,6 +373,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
 
     // Set background color based on tag (if available)
     if (
+      !marker.isRoyalSapphire &&
       marker.primaryTag &&
       marker.primaryTag.name &&
       this.tagColors[marker.primaryTag.name]
@@ -379,7 +390,8 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
         false,
         markerSet.dot,
         [marker.primaryTag, ...(marker.tags ?? [])],
-        marker.hover_performers
+        marker.hover_performers,
+        marker.ratingCardClass
       ); // CUSTOM: performer roles
       markerSet.dot?.toggleAttribute("marker-tooltip-shown", true);
     });
@@ -426,6 +438,9 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     } = {};
     const rangeDiv = videojs.dom.createEl("div") as HTMLDivElement;
     rangeDiv.className = "vjs-marker-range";
+    if (marker.isRoyalSapphire) {
+      rangeDiv.classList.add("vjs-marker-royal-sapphire"); // CUSTOM
+    }
 
     // Use percentage-based positioning for proper scaling in fullscreen mode
     // The range marker is inside vjs-progress-control, but needs to align with
@@ -449,6 +464,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
 
     // Set background color based on tag (if available)
     if (
+      !marker.isRoyalSapphire &&
       marker.primaryTag &&
       marker.primaryTag.name &&
       this.tagColors[marker.primaryTag.name]
@@ -495,7 +511,8 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
         false,
         markerSet.range,
         [marker.primaryTag, ...(marker.tags ?? [])],
-        marker.hover_performers
+        marker.hover_performers,
+        marker.ratingCardClass
       ); // CUSTOM: performer roles
       markerSet.range?.toggleAttribute("marker-tooltip-shown", true);
     });

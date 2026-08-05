@@ -183,6 +183,7 @@ type VatoStatsPerformer {
   sex_bottom_count: Int!
   oral_top_count: Int!
   oral_bottom_count: Int!
+  solo_scene_count: Int!
   facial_given_count: Int!
   facial_received_count: Int!
   most_recent_o_date: String
@@ -201,12 +202,12 @@ type VatoStatsPerformer {
 # CUSTOM: end
 
 extend type Query {
-  "Get compact per-scene data for the SceneStats dashboard"
-  sceneStats: SceneStatsResult!
-  "Get global activity and quality duration stats for SceneStats"
-  sceneStatsActivity: StudioActivityStats!
-  "Get global scene and performer Rating Advisor averages"
-  globalRatingAdvisorStats: StudioRatingAdvisorStats!
+  "Get compact per-scene data for the SceneStats dashboard, optionally scoped to a studio tree"
+  sceneStats(studio_id: ID, depth: Int): SceneStatsResult!
+  "Get activity and quality duration stats for SceneStats, optionally scoped to a studio tree"
+  sceneStatsActivity(studio_id: ID, depth: Int): StudioActivityStats!
+  "Get scene and performer Rating Advisor averages, optionally scoped to a studio tree"
+  globalRatingAdvisorStats(studio_id: ID, depth: Int): StudioRatingAdvisorStats!
   "Get a count of performers per ethnicity (non-empty only), sorted by highest count first"
   performerEthnicityCounts: [PerformerEthnicityCount!]!
   "Get a count of 5-star performers per ethnicity (non-empty only), sorted by highest count first"
@@ -267,12 +268,12 @@ extend type Query {
   sceneOUnreliableDateCount: Int!
   "Get recorded O events whose date predates reliable O-date tracking"
   sceneOEventsBeforeTrackingStart: [SceneOEvent!]!
-  "Get per-vato aggregate data for the Vato Stats page"
-  vatoStatsPerformers: [VatoStatsPerformer!]!
-  "Get total number of 'orgasm' marker-tag entries across all scene markers"
-  sceneOrgasmCount: Int!
-  "Get total number of facial markers (primary or secondary). Includes descendants of 'facial'."
-  sceneFacialCount: Int!
+  "Get per-vato aggregate data for the Vato Stats page, optionally scoped to a studio tree"
+  vatoStatsPerformers(studio_id: ID, depth: Int): [VatoStatsPerformer!]!
+  "Get total number of 'orgasm' marker-tag entries, optionally scoped to a studio tree"
+  sceneOrgasmCount(studio_id: ID, depth: Int): Int!
+  "Get total number of facial markers (primary or secondary), optionally scoped to a studio tree. Includes descendants of 'facial'."
+  sceneFacialCount(studio_id: ID, depth: Int): Int!
   "Get number of performers who have given facials (based on roleTagIds.facialTagId)"
   performersFacialGivenCount: Int!
   "Get number of performers who have received facials (based on roleTagIds.facialTagId)"
@@ -301,12 +302,12 @@ extend type Query {
   estimatedLiters: Float!
   "Get total meters of combined penis lengths (default 17cm if missing, converted to meters)"
   totalPenisMeters: Float!
-  "Get total time (in seconds) of all orgasm markers. Uses 20s default if no end time."
-  totalOrgasmTime: Float!
-  "Get total time (in seconds) of all facial markers. Uses 20s default if no end time."
-  totalFacialTime: Float!
-  "Get total time (in seconds) of completed sex activity markers."
-  totalSexTime: Float!
-  "Get total time (in seconds) of completed oral activity markers."
-  totalOralTime: Float!
+  "Get total time (in seconds) of orgasm markers, optionally scoped to a studio tree. Uses 20s default if no end time."
+  totalOrgasmTime(studio_id: ID, depth: Int): Float!
+  "Get total time (in seconds) of facial markers, optionally scoped to a studio tree. Uses 20s default if no end time."
+  totalFacialTime(studio_id: ID, depth: Int): Float!
+  "Get total time (in seconds) of completed sex activity markers, optionally scoped to a studio tree."
+  totalSexTime(studio_id: ID, depth: Int): Float!
+  "Get total time (in seconds) of completed oral activity markers, optionally scoped to a studio tree."
+  totalOralTime(studio_id: ID, depth: Int): Float!
 }

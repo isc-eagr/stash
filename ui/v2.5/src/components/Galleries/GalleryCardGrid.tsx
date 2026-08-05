@@ -12,13 +12,22 @@ interface IGalleryCardGrid {
   selectedIds: Set<string>;
   zoomIndex: number;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
+  activeSortBy?: string; // CUSTOM
+  activeSortDirection?: GQL.SortDirectionEnum; // CUSTOM
 }
 
 const zoomWidths = [280, 340, 480, 640];
 
 export const GalleryCardGrid: React.FC<IGalleryCardGrid> = PatchComponent(
   "GalleryCardGrid",
-  ({ galleries, selectedIds, zoomIndex, onSelectChange }) => {
+  ({
+    galleries,
+    selectedIds,
+    zoomIndex,
+    onSelectChange,
+    activeSortBy,
+    activeSortDirection,
+  }) => {
     const [componentRef, { width: containerWidth }] = useContainerDimensions();
     const cardWidth = useCardWidth(containerWidth, zoomIndex, zoomWidths);
 
@@ -35,6 +44,8 @@ export const GalleryCardGrid: React.FC<IGalleryCardGrid> = PatchComponent(
             onSelectedChanged={(selected: boolean, shiftKey: boolean) =>
               onSelectChange(gallery.id, selected, shiftKey)
             }
+            activeSortBy={activeSortBy} // CUSTOM
+            activeSortDirection={activeSortDirection} // CUSTOM
           />
         ))}
       </div>

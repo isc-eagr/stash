@@ -84,6 +84,8 @@ const SceneMarkerList: React.FC<{
           zoomIndex={filter.zoomIndex}
           selectedIds={selectedIds}
           onSelectChange={onSelectChange}
+          activeSortBy={filter.sortBy} // CUSTOM
+          activeSortDirection={filter.sortDirection} // CUSTOM
         />
       );
     }

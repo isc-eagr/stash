@@ -77,6 +77,15 @@ type Client struct {
 	mu sync.Mutex
 }
 
+type imageDownloadStatusError struct {
+	statusCode int
+	imageURL   string
+}
+
+func (e *imageDownloadStatusError) Error() string {
+	return fmt.Sprintf("unexpected status %d downloading %s", e.statusCode, e.imageURL)
+}
+
 func NewClient(cachePath string) *Client {
 	imageDir := ""
 	if cachePath != "" {
@@ -594,6 +603,12 @@ func (c *Client) ensureLocalImage(ctx context.Context, item *Item) (bool, error)
 	}
 
 	if err := c.downloadImage(ctx, item.ImageURL, fullPath); err != nil {
+		var statusErr *imageDownloadStatusError
+		if errors.As(err, &statusErr) && statusErr.statusCode == http.StatusNotFound {
+			item.ImageURL = ""
+			item.ImagePath = ""
+			return true, nil
+		}
 		return false, err
 	}
 
@@ -615,7 +630,7 @@ func (c *Client) downloadImage(ctx context.Context, imageURL string, destination
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("unexpected status %d downloading %s", resp.StatusCode, imageURL)
+		return &imageDownloadStatusError{statusCode: resp.StatusCode, imageURL: imageURL}
 	}
 	if contentType := resp.Header.Get("Content-Type"); contentType != "" && !strings.HasPrefix(contentType, "image/") {
 		return fmt.Errorf("unexpected content type %q downloading %s", contentType, imageURL)

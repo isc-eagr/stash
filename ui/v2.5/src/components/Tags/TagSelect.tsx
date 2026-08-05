@@ -12,7 +12,6 @@ import {
   useTagCreate,
   queryFindTagsByIDForSelect,
   queryFindTagsForSelect,
-  queryFindTagsForSelectWithTagFilter, // CUSTOM
 } from "src/core/StashService";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useIntl } from "react-intl";
@@ -74,6 +73,106 @@ export type TagSelectProps = IFilterProps &
     // CUSTOM: end
   };
 
+// CUSTOM: begin - keep option DOM stable across live playback rerenders
+const TagOption: React.FC<OptionProps<Option, boolean>> = (optionProps) => {
+  let thisOptionProps = optionProps;
+
+  const { object } = optionProps.data;
+  const selectProps =
+    optionProps.selectProps as typeof optionProps.selectProps &
+      Pick<TagSelectProps, "disableHoverPopovers" | "hoverPlacement">;
+
+  const { name } = object;
+
+  // if name does not match the input value but an alias does, show the alias
+  const { inputValue } = selectProps;
+  let alias: string | undefined = "";
+  if (!name.toLowerCase().includes(inputValue.toLowerCase())) {
+    alias = object.aliases?.find((a) =>
+      a.toLowerCase().includes(inputValue.toLowerCase())
+    );
+  }
+
+  thisOptionProps = {
+    ...optionProps,
+    children: (
+      <TagPopover
+        id={object.id}
+        placement={selectProps.hoverPlacement ?? "right"}
+        hide={selectProps.disableHoverPopovers}
+      >
+        <span className="react-select-image-option">
+          {/* the following code causes re-rendering issues when selecting tags */}
+          {/* <TagPopover
+            id={object.id}
+            placement={selectProps.hoverPlacement}
+            target={targetRef}
+          >
+            <a
+              href={`/tags/${object.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="tag-select-image-link"
+            >
+              <img
+                className="tag-select-image"
+                src={object.image_path ?? ""}
+                loading="lazy"
+              />
+            </a>
+          </TagPopover> */}
+          <span>{name}</span>
+          {alias && <span className="alias">&nbsp;({alias})</span>}
+        </span>
+      </TagPopover>
+    ),
+  };
+
+  return <reactSelectComponents.Option {...thisOptionProps} />;
+};
+
+const TagMultiValueLabel: React.FC<MultiValueGenericProps<Option, boolean>> = (
+  optionProps
+) => {
+  let thisOptionProps = optionProps;
+
+  const { object } = optionProps.data;
+  const selectProps =
+    optionProps.selectProps as typeof optionProps.selectProps &
+      Pick<TagSelectProps, "disableHoverPopovers" | "hoverPlacementLabel">;
+
+  thisOptionProps = {
+    ...optionProps,
+    children: (
+      <TagPopover
+        id={object.id}
+        placement={selectProps.hoverPlacementLabel ?? "top"}
+        hide={selectProps.disableHoverPopovers}
+      >
+        <span>{object.name}</span>
+      </TagPopover>
+    ),
+  };
+
+  return <reactSelectComponents.MultiValueLabel {...thisOptionProps} />;
+};
+
+const TagValueLabel: React.FC<SingleValueProps<Option, boolean>> = (
+  optionProps
+) => {
+  let thisOptionProps = optionProps;
+
+  const { object } = optionProps.data;
+
+  thisOptionProps = {
+    ...optionProps,
+    children: <>{object.name}</>,
+  };
+
+  return <reactSelectComponents.SingleValue {...thisOptionProps} />;
+};
+// CUSTOM: end
+
 const _TagSelect: React.FC<TagSelectProps> = (props) => {
   const [createTag] = useTagCreate();
 
@@ -120,98 +219,6 @@ const _TagSelect: React.FC<TagSelectProps> = (props) => {
 
     return tagSelectSort(input, ret).map(toOption);
   }
-
-  const TagOption: React.FC<OptionProps<Option, boolean>> = (optionProps) => {
-    let thisOptionProps = optionProps;
-
-    const { object } = optionProps.data;
-
-    let { name } = object;
-
-    // if name does not match the input value but an alias does, show the alias
-    const { inputValue } = optionProps.selectProps;
-    let alias: string | undefined = "";
-    if (!name.toLowerCase().includes(inputValue.toLowerCase())) {
-      alias = object.aliases?.find((a) =>
-        a.toLowerCase().includes(inputValue.toLowerCase())
-      );
-    }
-
-    thisOptionProps = {
-      ...optionProps,
-      children: (
-        <TagPopover
-          id={object.id}
-          placement={props.hoverPlacement ?? "right"}
-          hide={props.disableHoverPopovers} // CUSTOM
-        >
-          <span className="react-select-image-option">
-            {/* the following code causes re-rendering issues when selecting tags */}
-            {/* <TagPopover
-              id={object.id}
-              placement={props.hoverPlacement}
-              target={targetRef}
-            >
-              <a
-                href={`/tags/${object.id}`}
-                target="_blank"
-                rel="noreferrer"
-                className="tag-select-image-link"
-              >
-                <img
-                  className="tag-select-image"
-                  src={object.image_path ?? ""}
-                  loading="lazy"
-                />
-              </a>
-            </TagPopover> */}
-            <span>{name}</span>
-            {alias && <span className="alias">&nbsp;({alias})</span>}
-          </span>
-        </TagPopover>
-      ),
-    };
-
-    return <reactSelectComponents.Option {...thisOptionProps} />;
-  };
-
-  const TagMultiValueLabel: React.FC<
-    MultiValueGenericProps<Option, boolean>
-  > = (optionProps) => {
-    let thisOptionProps = optionProps;
-
-    const { object } = optionProps.data;
-
-    thisOptionProps = {
-      ...optionProps,
-      children: (
-        <TagPopover
-          id={object.id}
-          placement={props.hoverPlacementLabel ?? "top"}
-          hide={props.disableHoverPopovers} // CUSTOM
-        >
-          <span>{object.name}</span>
-        </TagPopover>
-      ),
-    };
-
-    return <reactSelectComponents.MultiValueLabel {...thisOptionProps} />;
-  };
-
-  const TagValueLabel: React.FC<SingleValueProps<Option, boolean>> = (
-    optionProps
-  ) => {
-    let thisOptionProps = optionProps;
-
-    const { object } = optionProps.data;
-
-    thisOptionProps = {
-      ...optionProps,
-      children: <>{object.name}</>,
-    };
-
-    return <reactSelectComponents.SingleValue {...thisOptionProps} />;
-  };
 
   const onCreate = async (name: string) => {
     const result = await createTag({

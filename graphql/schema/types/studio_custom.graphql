@@ -74,6 +74,8 @@ type StudioRatingAdvisorStats {
 # result object avoids running the corresponding resolver once per studio card.
 type StudioListStats {
   studio_id: ID!
+  "Raw value for the active Studio sort when it is not already present in the card payload"
+  active_sort_value: String
   scene_count: Int!
   image_count: Int!
   gallery_count: Int!

@@ -5,11 +5,28 @@ import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { RatingAdvisorStatsContent } from "src/components/Studios/StudioDetails/StudioRatingAdvisorStats";
 import { useSceneStatsInsightsQuery } from "src/core/generated-graphql";
 
-export const SceneStatsInsights: React.FC = () => {
-  const { data, error, loading } = useSceneStatsInsightsQuery();
+interface IProps {
+  studioId?: string;
+  depth?: number;
+  studioName?: string;
+}
+
+export const SceneStatsInsights: React.FC<IProps> = ({
+  studioId,
+  depth,
+  studioName,
+}) => {
+  const { data, error, loading } = useSceneStatsInsightsQuery({
+    variables: { studioId, depth },
+  });
+
+  const scopeLabel = studioName ? `${studioName} scenes` : "every scene";
+  const ratingDescription = studioName
+    ? `Averages for ${studioName}, using only scenes where each criterion is set.`
+    : "Global averages for each scene rubric, using only scenes where that criterion is set.";
 
   if (loading && !data) {
-    return <LoadingIndicator message="Loading global scene insights…" />;
+    return <LoadingIndicator message="Loading scene insights…" />;
   }
   if (error) {
     return <ErrorMessage error={error.message} />;
@@ -22,7 +39,7 @@ export const SceneStatsInsights: React.FC = () => {
         <header className="scenestats-section-heading">
           <h2 id="scenestats-activity-heading">Activity &amp; Quality</h2>
           <p>
-            Duration percentages across every scene with configured activity
+            Duration percentages across {scopeLabel} with configured activity
             markers.
           </p>
         </header>
@@ -32,10 +49,14 @@ export const SceneStatsInsights: React.FC = () => {
         />
       </section>
       <RatingAdvisorStatsContent
-        description="Global averages for each scene rubric, using only scenes where that criterion is set."
+        description={ratingDescription}
         sectionKeys={["solo_scenes", "sex_scenes", "group_scenes"]}
         stats={data.globalRatingAdvisorStats}
-        title="Global Scene Rating Criteria"
+        title={
+          studioName
+            ? `${studioName} Scene Rating Criteria`
+            : "Global Scene Rating Criteria"
+        }
       />
     </div>
   );

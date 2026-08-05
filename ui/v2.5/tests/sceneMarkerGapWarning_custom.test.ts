@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
+  findSceneMarkerGapWarningDetails,
   findSceneMarkerGapWarnings,
   findSceneMarkerWarnings,
   sceneMarkerWarningDraft,
@@ -755,6 +756,65 @@ assert.deepEqual(
     otherCloseToSeconds: 59.999,
   },
   "broader marker warnings include metadata for fixing the other negative marker"
+);
+
+const negativeMarkerAdjacentActions = findSceneMarkerGapWarningDetails({
+  draft: {
+    id: "negative-draft",
+    seconds: 60,
+    end_seconds: 120,
+  },
+  sceneMarkers: [
+    {
+      id: "previous-scene-marker",
+      seconds: 40,
+      end_seconds: 59,
+      primary_tag: { id: "oral", name: "Oral" },
+      tags: [],
+    },
+  ],
+  negativeMarkers: [
+    {
+      id: "next-negative-marker",
+      name: "Skip",
+      start_seconds: 121,
+      end_seconds: 130,
+    },
+  ],
+  roleTagIds,
+});
+
+assert.deepEqual(
+  negativeMarkerAdjacentActions && {
+    previous: {
+      adjacentMarkerId:
+        negativeMarkerAdjacentActions.previous?.adjacentMarkerId,
+      adjacentMarkerKind:
+        negativeMarkerAdjacentActions.previous?.adjacentMarkerKind,
+      otherCloseToSeconds:
+        negativeMarkerAdjacentActions.previous?.otherCloseToSeconds,
+    },
+    next: {
+      adjacentMarkerId: negativeMarkerAdjacentActions.next?.adjacentMarkerId,
+      adjacentMarkerKind:
+        negativeMarkerAdjacentActions.next?.adjacentMarkerKind,
+      otherCloseToSeconds:
+        negativeMarkerAdjacentActions.next?.otherCloseToSeconds,
+    },
+  },
+  {
+    previous: {
+      adjacentMarkerId: "previous-scene-marker",
+      adjacentMarkerKind: "scene-marker",
+      otherCloseToSeconds: 59.999,
+    },
+    next: {
+      adjacentMarkerId: "next-negative-marker",
+      adjacentMarkerKind: "negative-marker",
+      otherCloseToSeconds: 120.001,
+    },
+  },
+  "negative marker warnings expose both adjacent-marker update actions"
 );
 
 const bothAdjacentWarnings = findSceneMarkerWarnings({

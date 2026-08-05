@@ -11,6 +11,20 @@ interface ISceneMarkerFocusElement {
   getAttribute(name: string): string | null;
 }
 
+export interface ISceneMarkerFocusRequest {
+  markerId: string;
+  requestId: number;
+}
+
+export function completeSceneMarkerFocusRequest(
+  currentRequest: ISceneMarkerFocusRequest | undefined,
+  completedRequestId: number
+): ISceneMarkerFocusRequest | undefined {
+  return currentRequest?.requestId === completedRequestId
+    ? undefined
+    : currentRequest;
+}
+
 function representedSceneMarkerIds(element: ISceneMarkerFocusElement) {
   return (element.getAttribute("data-scene-marker-ids") ?? "")
     .split(",")

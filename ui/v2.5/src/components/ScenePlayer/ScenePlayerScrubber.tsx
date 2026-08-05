@@ -5,6 +5,7 @@ import React, {
   useState,
   useCallback,
 } from "react";
+import cx from "classnames"; // CUSTOM
 import { Button } from "react-bootstrap";
 import * as GQL from "src/core/generated-graphql";
 import TextUtils from "src/utils/text";
@@ -27,6 +28,7 @@ interface IScenePlayerScrubberProps {
   time: number;
   onSeek: (seconds: number) => void;
   onScroll: () => void;
+  onMarkerClick?: (markerId: string, seconds: number) => void; // CUSTOM
 }
 
 interface ISceneSpriteItem {
@@ -44,6 +46,7 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
   time,
   onSeek,
   onScroll,
+  onMarkerClick, // CUSTOM
 }) => {
   const contentEl = useRef<HTMLDivElement>(null);
   const indicatorEl = useRef<HTMLDivElement>(null);
@@ -211,18 +214,35 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
       contentEl.current!.classList.remove("dragging");
 
       let newPosition = position.current;
+      let clickedMarker: GQL.SceneMarkerDataFragment | undefined; // CUSTOM
       const midpointOffset = slider.clientWidth / 2;
       const delta = Math.abs(event.clientX - startMouseEvent.current!.clientX);
-      if (delta < 1 && event.target instanceof HTMLDivElement) {
+      if (delta < 1 && event.target instanceof Element) {
         const { target } = event;
 
-        if (target.hasAttribute("data-sprite-item-id")) {
-          newPosition = midpointOffset - (target.offsetLeft + event.offsetX);
+        const spriteElement = target.closest<HTMLElement>(
+          "[data-sprite-item-id]"
+        );
+        if (spriteElement) {
+          newPosition =
+            midpointOffset - (spriteElement.offsetLeft + event.offsetX);
         }
 
-        if (target.hasAttribute("data-marker-id")) {
-          newPosition = midpointOffset - target.offsetLeft;
+        // CUSTOM: begin - popover wrappers own the marker's left offset, so
+        // resolve clicks by marker data instead of the nested tag's offsetLeft.
+        const markerElement = target.closest<HTMLElement>(
+          "[data-scene-marker-id]"
+        );
+        const markerId = markerElement?.dataset.sceneMarkerId;
+        clickedMarker = scene.scene_markers.find(
+          (marker) => marker.id === markerId
+        );
+        if (clickedMarker) {
+          newPosition =
+            midpointOffset -
+            (scrubWidth * clickedMarker.seconds) / file.duration;
         }
+        // CUSTOM: end
       }
       if (Math.abs(velocity.current) > 25) {
         newPosition = position.current + velocity.current * 10;
@@ -231,8 +251,11 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
 
       setEaseOutTransition();
       setPosition(newPosition, true);
+      if (clickedMarker) {
+        onMarkerClick?.(clickedMarker.id, clickedMarker.seconds);
+      }
     },
-    [setPosition]
+    [file.duration, onMarkerClick, scene.scene_markers, scrubWidth, setPosition]
   );
 
   const onMouseDown = useCallback((event: MouseEvent) => {
@@ -320,7 +343,10 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
       return (
         <HoverPopover
           key={index}
-          className="scrubber-tag-popover-trigger"
+          className={cx(
+            "scrubber-tag-popover-trigger",
+            getMarkerRatingCardClass(marker)
+          )} // CUSTOM: mirror GOAT/Royal Sapphire marker styling in the scrubber
           popoverClassName="scene-marker-highlight-popover"
           placement="bottom"
           style={style}
@@ -334,7 +360,7 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
         >
           <div
             className="scrubber-tag scrubber-tag-with-performers"
-            data-marker-id={index}
+            data-scene-marker-id={marker.id} // CUSTOM
           >
             {performerImages.slice(0, 3).map((performer) => (
               <img

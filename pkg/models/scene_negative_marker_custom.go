@@ -20,6 +20,7 @@ type SceneNegativeMarker struct {
 type SceneNegativeMarkerReader interface {
 	Find(ctx context.Context, id int) (*SceneNegativeMarker, error)
 	FindByScene(ctx context.Context, sceneID int) ([]*SceneNegativeMarker, error)
+	FindNames(ctx context.Context) ([]string, error)
 }
 
 // SceneNegativeMarkerWriter defines write operations for negative markers.

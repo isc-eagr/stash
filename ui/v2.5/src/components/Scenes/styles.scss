@@ -1018,13 +1018,13 @@ input[type="range"].blue-slider {
 @keyframes scene-marker-focus-glow {
   0%,
   100% {
-    box-shadow: 0 0 0 0.12rem rgba(72, 175, 240, 0.34),
-      0 0 0.75rem rgba(72, 175, 240, 0.38);
+    box-shadow: 0 0 0 0.12rem rgba(232, 121, 249, 0.46),
+      0 0 0.75rem rgba(217, 70, 239, 0.44);
   }
 
   50% {
-    box-shadow: 0 0 0 0.18rem rgba(72, 175, 240, 0.46),
-      0 0 1.45rem rgba(72, 175, 240, 0.7), 0 0 2.2rem rgba(72, 175, 240, 0.35);
+    box-shadow: 0 0 0 0.18rem rgba(232, 121, 249, 0.68),
+      0 0 1.45rem rgba(217, 70, 239, 0.82), 0 0 2.2rem rgba(192, 38, 211, 0.46);
   }
 }
 
@@ -1158,6 +1158,44 @@ input[type="range"].blue-slider {
     }
   }
 
+  .scene-marker-section-navigation {
+    align-items: center;
+    display: flex;
+    justify-content: flex-end;
+    margin: -0.15rem 0 0.65rem;
+    min-height: 1.6rem;
+  }
+
+  .scene-marker-section-navigation-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    justify-content: flex-end;
+  }
+
+  .scene-marker-section-navigation-button {
+    appearance: none;
+    background-color: rgba(72, 175, 240, 0.07);
+    border: 1px solid rgba(72, 175, 240, 0.32);
+    border-radius: 1rem;
+    color: #b9dff5;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0.22rem 0.48rem;
+    transition: background-color 0.15s ease, border-color 0.15s ease,
+      color 0.15s ease;
+
+    &:focus,
+    &:hover {
+      background-color: rgba(72, 175, 240, 0.18);
+      border-color: rgba(104, 200, 252, 0.72);
+      color: #fff;
+    }
+  }
+
   .scene-marker-derived-windows {
     background-color: rgba(72, 175, 240, 0.08);
     border: 1px solid rgba(72, 175, 240, 0.28);
@@ -1260,6 +1298,9 @@ input[type="range"].blue-slider {
   // CUSTOM: each section bounds its header's sticky lifetime.
   .scene-marker-activity-section {
     display: flow-root;
+    scroll-margin-top: calc(
+      var(--scene-marker-activity-header-sticky-offset) + 0.65rem
+    );
   }
 
   .scene-marker-chronology-row.marker-item {
@@ -1299,11 +1340,13 @@ input[type="range"].blue-slider {
 
   .scene-marker-activity-group-header {
     align-items: center;
+
     /* CUSTOM: keep floating activity headers opaque over marker rows. */
-    background-color: #212f3a;
+    background: linear-gradient(180deg, #2b3f4d 0%, #1c2a34 100%);
     border-bottom: 1px solid rgba(255, 255, 255, 0.12);
     border-top: 1px solid rgba(255, 255, 255, 0.16);
-    box-shadow: inset 0.38rem 0 0 #48aff0, inset 0 1px rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 0.18rem 0 #48aff0, inset 0 1px rgba(255, 255, 255, 0.05),
+      0 0.35rem 0.75rem rgba(0, 0, 0, 0.22);
     color: #f4f7fa;
     display: flex;
     font-size: 0.82rem;
@@ -1312,11 +1355,11 @@ input[type="range"].blue-slider {
     letter-spacing: 0.045em;
     margin-top: 0.95rem;
     min-height: 2.65rem;
-    padding: 0.48rem 0.72rem 0.48rem 0.95rem;
+    padding: 0.48rem 0.72rem;
     position: sticky;
     text-shadow: 0 1px 0.35rem rgba(0, 0, 0, 0.42);
-    top: var(--scene-marker-activity-header-sticky-offset);
     text-transform: uppercase;
+    top: var(--scene-marker-activity-header-sticky-offset);
     z-index: 20;
   }
 
@@ -1419,8 +1462,8 @@ input[type="range"].blue-slider {
 
   .scene-marker-activity-config-card-focused {
     animation: scene-marker-focus-glow 1.45s ease-in-out infinite;
-    box-shadow: inset 0 0 0 0.12rem rgba(72, 175, 240, 0.34),
-      0 0 1rem rgba(72, 175, 240, 0.42);
+    box-shadow: inset 0 0 0 0.12rem rgba(232, 121, 249, 0.5),
+      0 0 1rem rgba(217, 70, 239, 0.52);
     z-index: 1;
   }
 
@@ -1534,9 +1577,9 @@ input[type="range"].blue-slider {
 
   .scene-marker-activity-marker-box.scene-marker-activity-marker-box-focused {
     animation: scene-marker-focus-glow 1.45s ease-in-out infinite;
-    border-color: rgba(72, 175, 240, 0.95);
-    box-shadow: 0 0 0 0.12rem rgba(72, 175, 240, 0.34),
-      0 0 1rem rgba(72, 175, 240, 0.42);
+    border-color: rgba(232, 121, 249, 0.98);
+    box-shadow: 0 0 0 0.12rem rgba(232, 121, 249, 0.5),
+      0 0 1rem rgba(217, 70, 239, 0.52);
   }
 
   .scene-marker-activity-type-pill {
@@ -1561,7 +1604,7 @@ input[type="range"].blue-slider {
   }
 
   .scene-marker-activity-type-pill.scene-marker-activity-marker-box-focused {
-    border-color: rgba(72, 175, 240, 0.95);
+    border-color: rgba(232, 121, 249, 0.98);
   }
 
   .scene-marker-activity-marker-time {
@@ -2002,6 +2045,18 @@ input[type="range"].blue-slider {
       background-color: #4b9f4b;
       color: #fff;
     }
+
+    .scene-marker-highlight-tag-top.scene-marker-highlight-tag-overlap.badge-secondary {
+      background-color: rgba(63, 148, 184, 0.58);
+      border: 1px dashed rgba(190, 232, 245, 0.72);
+      color: #e3f5fa;
+    }
+
+    .scene-marker-highlight-tag-bottom.scene-marker-highlight-tag-overlap.badge-secondary {
+      background-color: rgba(75, 159, 75, 0.58);
+      border: 1px dashed rgba(194, 235, 194, 0.72);
+      color: #e8f7e8;
+    }
   }
 
   .scene-marker-chronology-thumb {
@@ -2329,6 +2384,18 @@ input[type="range"].blue-slider {
     .scene-marker-highlight-tag-bottom.badge-secondary {
       background-color: #4b9f4b;
       color: #fff;
+    }
+
+    .scene-marker-highlight-tag-top.scene-marker-highlight-tag-overlap.badge-secondary {
+      background-color: rgba(63, 148, 184, 0.58);
+      border: 1px dashed rgba(190, 232, 245, 0.72);
+      color: #e3f5fa;
+    }
+
+    .scene-marker-highlight-tag-bottom.scene-marker-highlight-tag-overlap.badge-secondary {
+      background-color: rgba(75, 159, 75, 0.58);
+      border: 1px dashed rgba(194, 235, 194, 0.72);
+      color: #e8f7e8;
     }
   }
 }
@@ -3424,8 +3491,9 @@ input[type="range"].blue-slider {
 
 .scene-stats-partner-composite {
   background: rgba(0, 0, 0, 0.24);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.82);
   border-radius: 0.35rem;
+  box-shadow: 0 0 0.35rem rgba(99, 102, 241, 0.32);
   display: grid;
   gap: 0.22rem;
   grid-template-rows: auto 2.35rem;

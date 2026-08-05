@@ -22,6 +22,8 @@ import {
   getRatingCardClass,
   isRatingCardHomePage,
 } from "src/utils/ratingCardStyles_custom"; // CUSTOM
+import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
+import { getGallerySortMetricCustom } from "./gallerySortMetric_custom"; // CUSTOM
 
 interface IGalleryPreviewProps {
   gallery: GQL.SlimGalleryDataFragment;
@@ -69,6 +71,8 @@ interface IGalleryCardProps {
   selected?: boolean | undefined;
   zoomIndex?: number;
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
+  activeSortBy?: string; // CUSTOM
+  activeSortDirection?: GQL.SortDirectionEnum; // CUSTOM
 }
 
 const GalleryCardPopovers = PatchComponent(
@@ -187,8 +191,18 @@ const GalleryCardPopovers = PatchComponent(
 const GalleryCardDetails = PatchComponent(
   "GalleryCard.Details",
   (props: IGalleryCardProps) => {
+    const sortDirection =
+      props.activeSortDirection ?? GQL.SortDirectionEnum.Asc; // CUSTOM
+    const sortMetric = getGallerySortMetricCustom(
+      props.activeSortBy,
+      props.gallery
+    ); // CUSTOM
     return (
       <div className="gallery-card__details">
+        <SortMetricBadgeCustom
+          metric={sortMetric}
+          sortDirection={sortDirection}
+        />
         <span className="gallery-card__date">{props.gallery.date}</span>
         <TruncatedText
           className="gallery-card__description"
@@ -256,7 +270,11 @@ export const GalleryCard = PatchComponent(
 
     return (
       <GridCard
-        className={cx("gallery-card", `zoom-${props.zoomIndex}`, ratingCardClass)} // CUSTOM
+        className={cx(
+          "gallery-card",
+          `zoom-${props.zoomIndex}`,
+          ratingCardClass
+        )} // CUSTOM
         url={`/galleries/${props.gallery.id}`}
         width={props.cardWidth}
         title={galleryTitle(props.gallery)}

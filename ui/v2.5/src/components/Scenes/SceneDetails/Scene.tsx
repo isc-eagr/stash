@@ -74,6 +74,10 @@ import type {
 } from "src/components/ScenePlayer/multi-segment-loop";
 import { filterLoopSegmentsOutsideNegativeMarkers } from "src/components/ScenePlayer/loopSegments_custom";
 import { SceneActivityMetrics } from "../SceneActivityMetrics_custom";
+import {
+  completeSceneMarkerFocusRequest,
+  type ISceneMarkerFocusRequest,
+} from "./sceneMarkerFocusScroll_custom";
 // CUSTOM: end
 
 const SubmitStashBoxDraft = lazyComponent(
@@ -247,8 +251,11 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
   const [activeTabKey, setActiveTabKey] = useState("scene-details-panel");
   const [scenePanelCompact, setScenePanelCompact] = useState(false); // CUSTOM
-  const [scrubberFocusedMarkerId, setScrubberFocusedMarkerId] =
-    useState<string>(); // CUSTOM
+  // CUSTOM: begin - every scrubber marker click gets a distinct latest-wins request
+  const scrubberMarkerFocusRequestId = useRef(0);
+  const [scrubberMarkerFocusRequest, setScrubberMarkerFocusRequest] =
+    useState<ISceneMarkerFocusRequest>();
+  // CUSTOM: end
 
   const [isMerging, setIsMerging] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState<boolean>(false);
@@ -389,7 +396,11 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
       if (!marker) return;
 
       setActiveTabKey("scene-markers-panel");
-      setScrubberFocusedMarkerId(markerId);
+      scrubberMarkerFocusRequestId.current += 1;
+      setScrubberMarkerFocusRequest({
+        markerId,
+        requestId: scrubberMarkerFocusRequestId.current,
+      });
       onClickMarker(marker, seconds);
     },
     [onClickMarker, scene.scene_markers]
@@ -418,6 +429,12 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
       );
     };
   }, [focusScrubberMarker]);
+
+  const onScrubberMarkerFocusHandled = useCallback((requestId: number) => {
+    setScrubberMarkerFocusRequest((currentRequest) =>
+      completeSceneMarkerFocusRequest(currentRequest, requestId)
+    );
+  }, []);
   // CUSTOM: end
 
   async function onRescan() {
@@ -712,10 +729,8 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               isVisible={activeTabKey === "scene-markers-panel"}
               addMultiSegmentLoopSegments={addMultiSegmentLoopSegments} // CUSTOM
               currentTimestamp={currentTimestamp} // CUSTOM
-              focusedMarkerId={scrubberFocusedMarkerId} // CUSTOM
-              onFocusedMarkerHandled={() =>
-                setScrubberFocusedMarkerId(undefined)
-              } // CUSTOM
+              focusedMarkerRequest={scrubberMarkerFocusRequest} // CUSTOM
+              onFocusedMarkerHandled={onScrubberMarkerFocusHandled} // CUSTOM
             />
           </Tab.Pane>
           {/* CUSTOM: begin - negative markers pane */}

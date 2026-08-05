@@ -127,6 +127,18 @@ func (r *queryResolver) FindSceneNegativeMarkers(ctx context.Context, sceneID st
 	return ret, nil
 }
 
+// SceneNegativeMarkerNames returns distinct negative marker names from all scenes.
+func (r *queryResolver) SceneNegativeMarkerNames(ctx context.Context) (ret []string, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = r.repository.SceneNegativeMarker.FindNames(ctx)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
 // NegativeMarkers resolver for Scene type
 func (r *sceneResolver) NegativeMarkers(ctx context.Context, obj *models.Scene) (ret []*models.SceneNegativeMarker, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {

@@ -60,8 +60,8 @@ func (r *sceneMarkerRow) resolve() *models.SceneMarker {
 		EndSeconds:   r.EndSeconds.Ptr(),
 		PrimaryTagID: r.PrimaryTagID,
 		SceneID:      r.SceneID,
-		CreatedAt:    r.CreatedAt.Timestamp,
-		UpdatedAt:    r.UpdatedAt.Timestamp,
+		CreatedAt:    resolveSceneMarkerTimestampCustom(r.CreatedAt.Timestamp, r.UpdatedAt.Timestamp), // CUSTOM
+		UpdatedAt:    resolveSceneMarkerTimestampCustom(r.UpdatedAt.Timestamp, r.CreatedAt.Timestamp), // CUSTOM
 	}
 
 	return ret

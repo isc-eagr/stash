@@ -13,6 +13,8 @@ interface ISceneMarkerCardGrid {
   selectedIds: Set<string>;
   zoomIndex: number;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
+  activeSortBy?: string; // CUSTOM
+  activeSortDirection?: GQL.SortDirectionEnum; // CUSTOM
 }
 
 const zoomWidths = [240, 340, 480, 640];
@@ -20,7 +22,14 @@ const zoomWidths = [240, 340, 480, 640];
 export const SceneMarkerCardGrid: React.FC<ISceneMarkerCardGrid> =
   PatchComponent(
     "SceneMarkerCardGrid",
-    ({ markers, selectedIds, zoomIndex, onSelectChange }) => {
+    ({
+      markers,
+      selectedIds,
+      zoomIndex,
+      onSelectChange,
+      activeSortBy,
+      activeSortDirection,
+    }) => {
       const [componentRef, { width: containerWidth }] =
         useContainerDimensions();
       const cardWidth = useCardWidth(containerWidth, zoomIndex, zoomWidths);
@@ -41,6 +50,8 @@ export const SceneMarkerCardGrid: React.FC<ISceneMarkerCardGrid> =
               onSelectedChanged={(selected: boolean, shiftKey: boolean) =>
                 onSelectChange(marker.id, selected, shiftKey)
               }
+              activeSortBy={activeSortBy} // CUSTOM
+              activeSortDirection={activeSortDirection} // CUSTOM
             />
           ))}
         </div>

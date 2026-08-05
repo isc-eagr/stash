@@ -139,7 +139,7 @@ const usableFactorChoices = [
   },
   {
     value: 2,
-    label: "Mixed / standard",
+    label: "Standard or mixed",
   },
   {
     value: 3,

@@ -10,6 +10,9 @@ extend type Query {
   "Find negative markers for a scene"
   findSceneNegativeMarkers(scene_id: ID!): [SceneNegativeMarker!]!
 
+  "Find distinct negative marker names from all scenes"
+  sceneNegativeMarkerNames: [String!]!
+
   "Find a marker playlist by ID"
   findMarkerPlaylist(id: ID!): MarkerPlaylist
   "Find all marker playlists"

@@ -601,9 +601,10 @@ func sceneStatsStringPtrValue(value interface{}) *string {
 	return &ret
 }
 
-func sceneStatsBaseQueryCustom(effectiveDateExpr string) string {
+func sceneStatsBaseScopedQueryCustom(effectiveDateExpr string, sceneScope string) string {
 	return fmt.Sprintf(`
-WITH file_stats AS (
+%s,
+file_stats AS (
   SELECT
     sf.scene_id,
     COALESCE(SUM(f.size), 0) AS filesize,
@@ -653,7 +654,13 @@ SELECT
 FROM scenes s
 LEFT JOIN file_stats fs ON fs.scene_id = s.id
 LEFT JOIN o_stats os ON os.scene_id = s.id
-ORDER BY s.date DESC, s.id DESC`, effectiveDateExpr, effectiveDateExpr)
+WHERE s.id IN (SELECT id FROM selected_scenes)
+ORDER BY s.date DESC, s.id DESC`, sceneScope, effectiveDateExpr, effectiveDateExpr)
+}
+
+func sceneStatsBaseQueryCustom(effectiveDateExpr string) string {
+	sceneScope, _ := activityStatsSceneScopeCustom(nil, nil)
+	return sceneStatsBaseScopedQueryCustom(effectiveDateExpr, sceneScope)
 }
 
 const sceneStatsPerformerQueryCustom = `
@@ -663,6 +670,17 @@ SELECT
   p.country
 FROM performers_scenes ps
 JOIN performers p ON p.id = ps.performer_id`
+
+func sceneStatsScopedPerformerQueryCustom(sceneScope string) string {
+	return sceneScope + `
+SELECT
+  ps.scene_id,
+  p.ethnicity,
+  p.country
+FROM performers_scenes ps
+JOIN performers p ON p.id = ps.performer_id
+WHERE ps.scene_id IN (SELECT id FROM selected_scenes)`
+}
 
 func sceneStatsAddPerformerCustom(scene *SceneStatsScene, ethnicity string, country string) {
 	scene.PerformerCount++
@@ -683,14 +701,32 @@ FROM scene_markers sm
 LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
 ORDER BY sm.scene_id ASC, sm.id ASC`
 
+func sceneStatsScopedMarkerQueryCustom(sceneScope string) string {
+	return sceneScope + `
+SELECT
+  sm.scene_id,
+  sm.id,
+  sm.primary_tag_id,
+  smt.tag_id
+FROM scene_markers sm
+LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+WHERE sm.scene_id IN (SELECT id FROM selected_scenes)
+ORDER BY sm.scene_id ASC, sm.id ASC`
+}
+
 // SceneStats returns compact scalar and ID data for the SceneStats dashboard.
 // It deliberately avoids resolving every scene's GraphQL relationships, which
 // becomes prohibitively expensive for libraries with many scenes and markers.
-func (r *queryResolver) SceneStats(ctx context.Context) (ret *SceneStatsResult, err error) {
+func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth *int) (ret *SceneStatsResult, err error) {
+	sceneScope, sceneScopeArgs, err := sceneStatsSceneScopeCustom(studioID, depth)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		db := manager.GetInstance().Database
-		baseQuery := sceneStatsBaseQueryCustom(sceneOStatsEffectiveDateExpr("s"))
-		_, rows, err := db.QuerySQL(ctx, baseQuery, nil)
+		baseQuery := sceneStatsBaseScopedQueryCustom(sceneOStatsEffectiveDateExpr("s"), sceneScope)
+		_, rows, err := db.QuerySQL(ctx, baseQuery, sceneScopeArgs)
 		if err != nil {
 			return err
 		}
@@ -737,7 +773,7 @@ func (r *queryResolver) SceneStats(ctx context.Context) (ret *SceneStatsResult, 
 			return nil
 		}
 
-		_, performerRows, err := db.QuerySQL(ctx, sceneStatsPerformerQueryCustom, nil)
+		_, performerRows, err := db.QuerySQL(ctx, sceneStatsScopedPerformerQueryCustom(sceneScope), sceneScopeArgs)
 		if err != nil {
 			return err
 		}
@@ -756,8 +792,8 @@ func (r *queryResolver) SceneStats(ctx context.Context) (ret *SceneStatsResult, 
 			)
 		}
 
-		tagQuery := "SELECT scene_id, tag_id FROM scenes_tags"
-		_, tagRows, err := db.QuerySQL(ctx, tagQuery, nil)
+		tagQuery := sceneScope + "\nSELECT scene_id, tag_id FROM scenes_tags WHERE scene_id IN (SELECT id FROM selected_scenes)"
+		_, tagRows, err := db.QuerySQL(ctx, tagQuery, sceneScopeArgs)
 		if err != nil {
 			return err
 		}
@@ -772,7 +808,7 @@ func (r *queryResolver) SceneStats(ctx context.Context) (ret *SceneStatsResult, 
 			scene.TagIds = append(scene.TagIds, fmt.Sprint(row[1]))
 		}
 
-		_, markerRows, err := db.QuerySQL(ctx, sceneStatsMarkerQueryCustom, nil)
+		_, markerRows, err := db.QuerySQL(ctx, sceneStatsScopedMarkerQueryCustom(sceneScope), sceneScopeArgs)
 		if err != nil {
 			return err
 		}
@@ -2274,9 +2310,10 @@ func vatoStatsSetAgeCount(performer *VatoStatsPerformer, ageRange string, count 
 	})
 }
 
-func vatoStatsPerformersQueryCustom(royalSapphireClause string, goldClause string, silverClause string, bronzeClause string) string {
+func vatoStatsPerformersQueryCustom(sceneScope string, royalSapphireClause string, goldClause string, silverClause string, bronzeClause string) string {
 	return fmt.Sprintf(`
-WITH scene_o_stats AS (
+%s,
+scene_o_stats AS (
   SELECT
     scene_id,
     COUNT(*) AS scene_o_count,
@@ -2289,6 +2326,7 @@ WITH scene_o_stats AS (
     MAX(date(o_date)) AS most_recent_o_date
   FROM scenes_o_dates
   WHERE o_date IS NOT NULL
+    AND scene_id IN (SELECT id FROM selected_scenes)
   GROUP BY scene_id
 ),
 performer_scene_stats AS (
@@ -2305,6 +2343,7 @@ performer_scene_stats AS (
   FROM performers_scenes ps
   JOIN scenes s ON s.id = ps.scene_id
   LEFT JOIN scene_o_stats ON scene_o_stats.scene_id = ps.scene_id
+  WHERE ps.scene_id IN (SELECT id FROM selected_scenes)
   GROUP BY ps.performer_id
 )
 SELECT
@@ -2338,6 +2377,7 @@ SELECT
 FROM performers
 JOIN performer_scene_stats ON performer_scene_stats.performer_id = performers.id
 ORDER BY performers.name COLLATE NOCASE ASC`,
+		sceneScope,
 		royalSapphireClause,
 		goldClause,
 		silverClause,
@@ -2348,7 +2388,12 @@ ORDER BY performers.name COLLATE NOCASE ASC`,
 // VatoStatsPerformers returns the raw per-vato rows used by /vatostats. The UI
 // owns drill-down state so metric/category combinations can evolve without
 // adding a resolver for every chart.
-func (r *queryResolver) VatoStatsPerformers(ctx context.Context) (ret []*VatoStatsPerformer, err error) {
+func (r *queryResolver) VatoStatsPerformers(ctx context.Context, studioID *string, depth *int) (ret []*VatoStatsPerformer, err error) {
+	sceneScope, sceneScopeArgs, err := sceneStatsSceneScopeCustom(studioID, depth)
+	if err != nil {
+		return nil, err
+	}
+
 	baseURL, _ := ctx.Value(BaseURLCtxKey).(string)
 	thresholds := getCustomPerformerRatingTierThresholds()
 	overrides := getCustomRatingTierOverrideTags()
@@ -2360,12 +2405,14 @@ func (r *queryResolver) VatoStatsPerformers(ctx context.Context) (ret []*VatoSta
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		db := manager.GetInstance().Database
 		query := vatoStatsPerformersQueryCustom(
+			sceneScope,
 			royalSapphireClause,
 			goldClause,
 			silverClause,
 			bronzeClause,
 		)
-		args := append([]interface{}{}, royalSapphireArgs...)
+		args := append([]interface{}{}, sceneScopeArgs...)
+		args = append(args, royalSapphireArgs...)
 		args = append(args, goldArgs...)
 		args = append(args, silverArgs...)
 		args = append(args, bronzeArgs...)
@@ -2421,7 +2468,7 @@ func (r *queryResolver) VatoStatsPerformers(ctx context.Context) (ret []*VatoSta
 		}
 
 		uiConfig := config.GetInstance().GetUIConfiguration()
-		sexTagID, oralTagID, _, facialTagID, _, _, _ := getRoleTagIDs(uiConfig)
+		sexTagID, oralTagID, soloTagID, facialTagID, _, _, _ := getRoleTagIDs(uiConfig)
 		applyRoleSceneCounts := func(tagID int, includeSecondary bool, countColumn string, setTop func(*VatoStatsPerformer, int), setBottom func(*VatoStatsPerformer, int)) error {
 			if tagID == 0 {
 				return nil
@@ -2437,8 +2484,8 @@ func (r *queryResolver) VatoStatsPerformers(ctx context.Context) (ret []*VatoSta
         AND smt.tag_id IN (SELECT id FROM role_tags)
     ))`
 			}
-			sexRoleQuery := fmt.Sprintf(`
-WITH RECURSIVE role_tags(id) AS (
+			sexRoleQuery := sceneScope + fmt.Sprintf(`,
+role_tags(id) AS (
   SELECT id FROM tags WHERE id = ?
   UNION ALL
   SELECT tr.child_id FROM tags_relations tr JOIN role_tags rt ON tr.parent_id = rt.id
@@ -2450,9 +2497,11 @@ SELECT
 FROM scene_marker_performers smp
 JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 WHERE %s
+	AND sm.scene_id IN (SELECT id FROM selected_scenes)
   %s
 GROUP BY smp.performer_id`, countColumn, countColumn, tagCondition, roleIDClause)
-			roleArgs := append([]interface{}{tagID}, roleIDArgs...)
+			roleArgs := append(append([]interface{}{}, sceneScopeArgs...), tagID)
+			roleArgs = append(roleArgs, roleIDArgs...)
 			_, roleRows, err := db.QuerySQL(ctx, sexRoleQuery, roleArgs)
 			if err != nil {
 				return err
@@ -2484,6 +2533,42 @@ GROUP BY smp.performer_id`, countColumn, countColumn, tagCondition, roleIDClause
 		}); err != nil {
 			return err
 		}
+		if soloTagID != 0 {
+			soloIDClause, soloIDArgs := vatoStatsIDFilter("smp.performer_id", ids)
+			soloQuery := sceneScope + `,
+solo_tags(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN solo_tags st ON tr.parent_id = st.id
+)
+SELECT smp.performer_id, COUNT(DISTINCT sm.scene_id)
+FROM scene_marker_performers smp
+JOIN scene_markers sm ON sm.id = smp.scene_marker_id
+WHERE sm.scene_id IN (SELECT id FROM selected_scenes)
+  AND (
+    sm.primary_tag_id IN (SELECT id FROM solo_tags)
+    OR EXISTS (
+      SELECT 1 FROM scene_markers_tags smt
+      WHERE smt.scene_marker_id = sm.id
+        AND smt.tag_id IN (SELECT id FROM solo_tags)
+    )
+  )` + soloIDClause + `
+GROUP BY smp.performer_id`
+			soloArgs := append(append([]interface{}{}, sceneScopeArgs...), soloTagID)
+			soloArgs = append(soloArgs, soloIDArgs...)
+			_, soloRows, err := db.QuerySQL(ctx, soloQuery, soloArgs)
+			if err != nil {
+				return err
+			}
+			for _, row := range soloRows {
+				if len(row) < 2 {
+					continue
+				}
+				if performer := byID[customIntValue(row[0])]; performer != nil {
+					performer.SoloSceneCount = customIntValue(row[1])
+				}
+			}
+		}
 		if err := applyRoleSceneCounts(facialTagID, true, "sm.id", func(performer *VatoStatsPerformer, count int) {
 			performer.FacialGivenCount = count
 		}, func(performer *VatoStatsPerformer, count int) {
@@ -2493,7 +2578,7 @@ GROUP BY smp.performer_id`, countColumn, countColumn, tagCondition, roleIDClause
 		}
 
 		ageIDClause, ageIDArgs := vatoStatsIDFilter("ps.performer_id", ids)
-		ageQuery := fmt.Sprintf(`
+		ageQuery := sceneScope + fmt.Sprintf(`
 SELECT
   ps.performer_id,
   CAST(strftime('%%Y.%%m%%d', s.date) - strftime('%%Y.%%m%%d', p.birthdate) AS INT) AS scene_age,
@@ -2505,9 +2590,11 @@ WHERE p.birthdate IS NOT NULL
   AND TRIM(p.birthdate) <> ''
   AND s.date IS NOT NULL
   AND TRIM(s.date) <> ''
+	AND ps.scene_id IN (SELECT id FROM selected_scenes)
   %s
 GROUP BY ps.performer_id, scene_age`, ageIDClause)
-		_, ageRows, err := db.QuerySQL(ctx, ageQuery, ageIDArgs)
+		ageArgs := append(append([]interface{}{}, sceneScopeArgs...), ageIDArgs...)
+		_, ageRows, err := db.QuerySQL(ctx, ageQuery, ageArgs)
 		if err != nil {
 			return err
 		}
@@ -2662,8 +2749,12 @@ func (r *queryResolver) LongestPeriodWithoutO(ctx context.Context) (ret *SceneOD
 //   - Count each matching marker once per assigned top, with a minimum of one
 //
 // Uses roleTagIds.orgasmTagId from UI config and includes all subtags recursively.
-func (r *queryResolver) SceneOrgasmCount(ctx context.Context) (int, error) {
+func (r *queryResolver) SceneOrgasmCount(ctx context.Context, studioID *string, depth *int) (int, error) {
 	var count int
+	sceneScope, sceneScopeArgs, err := sceneStatsSceneScopeCustom(studioID, depth)
+	if err != nil {
+		return 0, err
+	}
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		uiConfig := config.GetInstance().GetUIConfiguration()
 		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
@@ -2682,8 +2773,9 @@ func (r *queryResolver) SceneOrgasmCount(ctx context.Context) (int, error) {
 		}
 
 		db := manager.GetInstance().Database
-		args := []interface{}{orgasmTagID, secondCameraTagID}
-		_, rows, err := db.QuerySQL(ctx, statsWeightedMarkerCountQueryCustom, args)
+		args := append(append([]interface{}{}, sceneScopeArgs...), orgasmTagID, secondCameraTagID)
+		query := statsWeightedMarkerCountScopedQueryCustom(sceneScope)
+		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
 			return err
 		}
@@ -2717,8 +2809,12 @@ func (r *queryResolver) SceneOrgasmCount(ctx context.Context) (int, error) {
 // - it has any secondary tag that is the configured facial tag or any descendant of it.
 // Each matching marker counts once per assigned top, with a minimum of one.
 // Uses roleTagIds.facialTagId from UI config and includes all subtags recursively.
-func (r *queryResolver) SceneFacialCount(ctx context.Context) (int, error) {
+func (r *queryResolver) SceneFacialCount(ctx context.Context, studioID *string, depth *int) (int, error) {
 	var count int
+	sceneScope, sceneScopeArgs, err := sceneStatsSceneScopeCustom(studioID, depth)
+	if err != nil {
+		return 0, err
+	}
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		uiConfig := config.GetInstance().GetUIConfiguration()
 		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
@@ -2737,8 +2833,9 @@ func (r *queryResolver) SceneFacialCount(ctx context.Context) (int, error) {
 		}
 
 		db := manager.GetInstance().Database
-		args := []interface{}{facialTagID, secondCameraTagID}
-		_, rows, err := db.QuerySQL(ctx, statsWeightedMarkerCountQueryCustom, args)
+		args := append(append([]interface{}{}, sceneScopeArgs...), facialTagID, secondCameraTagID)
+		query := statsWeightedMarkerCountScopedQueryCustom(sceneScope)
+		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
 			return err
 		}
@@ -3660,7 +3757,7 @@ GROUP BY sm.primary_tag_id`
 // EstimatedLiters calculates the estimated liters produced from orgasms.
 // Formula: orgasm count Ã— 3ml (average volume per orgasm), converted to liters.
 func (r *queryResolver) EstimatedLiters(ctx context.Context) (float64, error) {
-	orgasmCount, err := r.SceneOrgasmCount(ctx)
+	orgasmCount, err := r.SceneOrgasmCount(ctx, nil, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -3711,8 +3808,12 @@ func (r *queryResolver) TotalPenisMeters(ctx context.Context) (float64, error) {
 // For each orgasm marker, the duration is (end_seconds - seconds), or 20 seconds if end_seconds is NULL.
 // Duration is multiplied by the number of top performers (or 1 if no tops assigned).
 // Uses roleTagIds.orgasmTagId from UI config and includes all subtags recursively.
-func (r *queryResolver) TotalOrgasmTime(ctx context.Context) (float64, error) {
+func (r *queryResolver) TotalOrgasmTime(ctx context.Context, studioID *string, depth *int) (float64, error) {
 	var totalSeconds float64
+	sceneScope, sceneScopeArgs, err := sceneStatsSceneScopeCustom(studioID, depth)
+	if err != nil {
+		return 0, err
+	}
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		uiConfig := config.GetInstance().GetUIConfiguration()
 		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
@@ -3735,7 +3836,7 @@ func (r *queryResolver) TotalOrgasmTime(ctx context.Context) (float64, error) {
 		// Build optional 2nd camera exclusion clause
 		secondCameraCTE := ""
 		secondCameraExclude := ""
-		args := []interface{}{orgasmTagID}
+		args := append(append([]interface{}{}, sceneScopeArgs...), orgasmTagID)
 		if secondCameraTagID > 0 {
 			secondCameraCTE = `,
 second_camera_tags(id) AS (
@@ -3751,8 +3852,8 @@ second_camera_tags(id) AS (
 			args = append(args, secondCameraTagID)
 		}
 
-		query := `
-WITH RECURSIVE orgasm_tags(id) AS (
+		query := sceneScope + `,
+orgasm_tags(id) AS (
   SELECT id FROM tags WHERE id = ?
   UNION ALL
   SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
@@ -3761,8 +3862,9 @@ orgasm_markers AS (
   SELECT DISTINCT sm.id, sm.seconds, sm.end_seconds
   FROM scene_markers sm
   LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-  WHERE (sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
-     OR smt.tag_id IN (SELECT id FROM orgasm_tags))` + secondCameraExclude + `
+	  WHERE (sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
+	     OR smt.tag_id IN (SELECT id FROM orgasm_tags))
+	  AND sm.scene_id IN (SELECT id FROM selected_scenes)` + secondCameraExclude + `
 )
 SELECT COALESCE(SUM(
   (CASE WHEN end_seconds IS NOT NULL THEN end_seconds - seconds ELSE 20.0 END) 
@@ -3808,8 +3910,12 @@ FROM (
 // For each facial marker, the duration is (end_seconds - seconds), or 20 seconds if end_seconds is NULL.
 // Duration is multiplied by the number of top performers (or 1 if no tops assigned).
 // Uses roleTagIds.facialTagId from UI config and includes all subtags recursively.
-func (r *queryResolver) TotalFacialTime(ctx context.Context) (float64, error) {
+func (r *queryResolver) TotalFacialTime(ctx context.Context, studioID *string, depth *int) (float64, error) {
 	var totalSeconds float64
+	sceneScope, sceneScopeArgs, err := sceneStatsSceneScopeCustom(studioID, depth)
+	if err != nil {
+		return 0, err
+	}
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		uiConfig := config.GetInstance().GetUIConfiguration()
 		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
@@ -3832,7 +3938,7 @@ func (r *queryResolver) TotalFacialTime(ctx context.Context) (float64, error) {
 		// Build optional 2nd camera exclusion clause
 		secondCameraCTE := ""
 		secondCameraExclude := ""
-		args := []interface{}{facialTagID}
+		args := append(append([]interface{}{}, sceneScopeArgs...), facialTagID)
 		if secondCameraTagID > 0 {
 			secondCameraCTE = `,
 second_camera_tags(id) AS (
@@ -3848,8 +3954,8 @@ second_camera_tags(id) AS (
 			args = append(args, secondCameraTagID)
 		}
 
-		query := `
-WITH RECURSIVE facial_tags(id) AS (
+		query := sceneScope + `,
+facial_tags(id) AS (
   SELECT id FROM tags WHERE id = ?
   UNION ALL
   SELECT tr.child_id FROM tags_relations tr JOIN facial_tags ft ON tr.parent_id = ft.id
@@ -3858,8 +3964,9 @@ facial_markers AS (
   SELECT DISTINCT sm.id, sm.seconds, sm.end_seconds
   FROM scene_markers sm
   LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-  WHERE (sm.primary_tag_id IN (SELECT id FROM facial_tags)
-     OR smt.tag_id IN (SELECT id FROM facial_tags))` + secondCameraExclude + `
+	  WHERE (sm.primary_tag_id IN (SELECT id FROM facial_tags)
+	     OR smt.tag_id IN (SELECT id FROM facial_tags))
+	  AND sm.scene_id IN (SELECT id FROM selected_scenes)` + secondCameraExclude + `
 )
 SELECT COALESCE(SUM(
   (CASE WHEN end_seconds IS NOT NULL THEN end_seconds - seconds ELSE 20.0 END) 

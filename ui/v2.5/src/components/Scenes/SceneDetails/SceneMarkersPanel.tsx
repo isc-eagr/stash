@@ -36,6 +36,7 @@ import { getSceneMarkerStickyHeaderOffset } from "./sceneMarkerStickyHeader_cust
 import {
   findSceneMarkerFocusElement,
   scrollSceneMarkerIntoTabView,
+  type ISceneMarkerFocusRequest,
 } from "./sceneMarkerFocusScroll_custom";
 // CUSTOM: end
 
@@ -45,8 +46,8 @@ interface ISceneMarkersPanelProps {
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   addMultiSegmentLoopSegments: (segments: ILoopSegmentInput[]) => void; // CUSTOM
   currentTimestamp?: number; // CUSTOM
-  focusedMarkerId?: string; // CUSTOM
-  onFocusedMarkerHandled?: () => void; // CUSTOM
+  focusedMarkerRequest?: ISceneMarkerFocusRequest; // CUSTOM
+  onFocusedMarkerHandled?: (requestId: number) => void; // CUSTOM
 }
 
 function getSceneTabScrollElement() {
@@ -59,7 +60,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   onClickMarker,
   addMultiSegmentLoopSegments, // CUSTOM
   currentTimestamp, // CUSTOM
-  focusedMarkerId, // CUSTOM
+  focusedMarkerRequest, // CUSTOM
   onFocusedMarkerHandled, // CUSTOM
 }) => {
   const { configuration } = useConfigurationContext(); // CUSTOM
@@ -93,6 +94,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   const focusedMarkerHighlightTimer = useRef<number>();
   const markerPanelRef = useRef<HTMLDivElement>(null); // CUSTOM: activity header sticky offset target
   const markerToolbarRef = useRef<HTMLDivElement>(null); // CUSTOM: measured sticky toolbar
+  const focusedMarkerId = focusedMarkerRequest?.markerId;
 
   const onOpenEditor = useCallback((marker?: GQL.SceneMarkerDataFragment) => {
     markerPanelScrollTop.current = getSceneTabScrollElement()?.scrollTop ?? 0;
@@ -267,21 +269,38 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   }, [derivedWindows]);
 
   useEffect(() => {
-    if (!focusedMarkerId || !isVisible) return;
+    if (!focusedMarkerRequest || !isVisible) return;
+
+    const { markerId, requestId } = focusedMarkerRequest;
+    let highlightFrame: number | undefined;
+    let findMarkerFrame: number | undefined;
+    let scrollMarkerFrame: number | undefined;
 
     window.clearTimeout(focusedMarkerHighlightTimer.current);
-    setFocusedMarkerHighlightId(focusedMarkerId);
-    focusedMarkerHighlightTimer.current = window.setTimeout(() => {
-      setFocusedMarkerHighlightId(undefined);
-    }, 10000);
+    setFocusedMarkerHighlightId(undefined);
 
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
+    // Stop an older smooth scroll at its current position before starting the
+    // newest request. Removing the focused ID also cancels the previous glow.
+    const activeScrollElement = getSceneTabScrollElement();
+    activeScrollElement?.scrollTo({
+      behavior: "auto",
+      top: activeScrollElement.scrollTop,
+    });
+
+    highlightFrame = window.requestAnimationFrame(() => {
+      setFocusedMarkerHighlightId(markerId);
+      focusedMarkerHighlightTimer.current = window.setTimeout(() => {
+        setFocusedMarkerHighlightId(undefined);
+      }, 10000);
+    });
+
+    findMarkerFrame = window.requestAnimationFrame(() => {
+      scrollMarkerFrame = window.requestAnimationFrame(() => {
         const markerElement = findSceneMarkerFocusElement(
           document.querySelectorAll<HTMLElement>(
             ".scene-markers-panel [data-scene-marker-id], .scene-markers-panel [data-scene-marker-ids]"
           ),
-          focusedMarkerId
+          markerId
         );
 
         if (markerElement) {
@@ -290,13 +309,25 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
           if (scrollElement) {
             scrollSceneMarkerIntoTabView(scrollElement, markerElement);
           }
-          onFocusedMarkerHandled?.();
+          onFocusedMarkerHandled?.(requestId);
         }
       });
     });
+
+    return () => {
+      if (highlightFrame !== undefined) {
+        window.cancelAnimationFrame(highlightFrame);
+      }
+      if (findMarkerFrame !== undefined) {
+        window.cancelAnimationFrame(findMarkerFrame);
+      }
+      if (scrollMarkerFrame !== undefined) {
+        window.cancelAnimationFrame(scrollMarkerFrame);
+      }
+    };
   }, [
     filteredSceneMarkers,
-    focusedMarkerId,
+    focusedMarkerRequest,
     isVisible,
     onFocusedMarkerHandled,
   ]);

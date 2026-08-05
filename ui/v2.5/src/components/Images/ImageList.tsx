@@ -313,6 +313,8 @@ const ImageList: React.FC<IImageListImages> = PatchComponent(
           zoomIndex={filter.zoomIndex}
           onSelectChange={onSelectChange}
           onPreview={onPreview}
+          activeSortBy={filter.sortBy} // CUSTOM
+          activeSortDirection={filter.sortDirection} // CUSTOM
         />
       );
     }

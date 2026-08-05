@@ -1601,9 +1601,9 @@ export const makePerformerAllPartnersUrl = (
 };
 
 /**
- * Prepend a studio `c=` criterion to a `/scenes` or `/scenes/markers` URL so the list
- * stays scoped to the given studio/depth.  The criterion is inserted right after the `?`
- * so any existing `c=` params remain intact.
+ * Prepend a studio `c=` criterion to a `/scenes`, `/scenes/markers`, or `/performers`
+ * URL so the list stays scoped to the given studio/depth. The criterion is inserted
+ * right after the `?` so any existing `c=` params remain intact.
  *
  * For scene marker URLs (`/scenes/markers`) the criterion type is still `"studios"` —
  * SceneMarkerFilterType has a top-level `studios` field that the filter parser handles.

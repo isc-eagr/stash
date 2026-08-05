@@ -57,6 +57,16 @@ assert.deepEqual(
   [{ topTags: [outstanding.id], bottomTags: [sex.id] }],
   "one timeline hover card carries both top and bottom overlap tags"
 );
+assert.equal(
+  alexHoverCards?.[0].topOverlapTagIDs.size,
+  0,
+  "direct timeline hover tags remain primary"
+);
+assert.equal(
+  alexHoverCards?.[0].bottomOverlapTagIDs.has(sex.id),
+  true,
+  "timeline hover tags from the containing marker are marked as overlaps"
+);
 
 const dualRoleActivityMarker = marker(
   "dual-role-activity",

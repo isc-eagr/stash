@@ -33,6 +33,7 @@ fragment StudioListData on Studio {
 
 fragment StudioListStatsData on StudioListStats {
   studio_id
+  active_sort_value
   scene_count
   image_count
   gallery_count

@@ -563,6 +563,16 @@ assert.deepEqual(
   "overlapping marker tags render as bottom pills for overlap bottom performers"
 );
 assert.equal(
+  tygaHighlights.topOverlapTagIDs.size,
+  0,
+  "direct marker tags retain their primary hover-pill treatment"
+);
+assert.equal(
+  tygaHighlights.bottomOverlapTagIDs.has(sex.id),
+  true,
+  "overlapping marker tags are identified for muted hover-pill treatment"
+);
+assert.equal(
   tygaHighlights.topTags.some((highlightTag) => highlightTag.id === parent.id),
   false,
   "parent tags do not render as highlight performer pills"
@@ -575,6 +585,11 @@ assert.deepEqual(
   chaseHighlights.topTags.map((highlightTag) => highlightTag.id),
   ["sex"],
   "overlapping marker tags render as top pills for overlap top performers"
+);
+assert.equal(
+  chaseHighlights.topOverlapTagIDs.has(sex.id),
+  true,
+  "overlapping top tags are identified for muted hover-pill treatment"
 );
 assert.deepEqual(chaseHighlights.bottomTags, []);
 

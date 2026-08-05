@@ -85,6 +85,8 @@ const TagList: React.FC<{
           sceneCountOnly={sceneCountOnly} // CUSTOM
           performerId={performerId} // CUSTOM
           performerName={performerName} // CUSTOM
+          activeSortBy={filter.sortBy} // CUSTOM
+          activeSortDirection={filter.sortDirection} // CUSTOM
         />
       );
     }
@@ -236,7 +238,6 @@ export const FilteredTagList = PatchComponent(
       extraOperations = [],
       // CUSTOM: begin
       sceneCountOnly = false,
-      onTags,
       performerId,
       performerName,
       // CUSTOM: end

@@ -28,6 +28,10 @@ import { StudioIDSelect } from "../Studios/StudioSelect";
 import { GalleryIDSelect } from "../Galleries/GallerySelect";
 import { GroupIDSelect } from "../Groups/GroupSelect";
 import { SceneIDSelect } from "../Scenes/SceneSelect";
+import {
+  canCreateMarkerTitle,
+  mergeMarkerTitleSuggestions,
+} from "./markerTitleSuggestions_custom"; // CUSTOM
 
 export type SelectObject = {
   id: string;
@@ -315,23 +319,35 @@ export const ImageSelect: React.FC<ITitledSelect> = (props) => {
 interface IMarkerSuggestProps {
   initialMarkerTitle?: string;
   onChange: (title: string) => void;
+  additionalTitles?: string[]; // CUSTOM
+  additionalTitlesLoading?: boolean; // CUSTOM
+  includeRegularTitles?: boolean; // CUSTOM
 }
 export const MarkerTitleSuggest: React.FC<IMarkerSuggestProps> = (props) => {
-  const { data, loading } = useMarkerStrings();
+  const includeRegularTitles = props.includeRegularTitles ?? true; // CUSTOM
+  const { data, loading } = useMarkerStrings(!includeRegularTitles); // CUSTOM
+  const titleSuggestionsLoading = loading || props.additionalTitlesLoading; // CUSTOM
   const suggestions = data?.markerStrings ?? [];
 
   const onChange = (selectedItem: OnChangeValue<Option, false>) =>
     props.onChange(selectedItem?.value ?? "");
 
-  const items = suggestions.map((item) => ({
-    label: item?.title ?? "",
-    value: item?.title ?? "",
+  // CUSTOM: begin - allow custom marker types to contribute title suggestions
+  const suggestionTitles = mergeMarkerTitleSuggestions(
+    suggestions.map((item) => item?.title),
+    props.additionalTitles,
+    includeRegularTitles
+  );
+  const items = suggestionTitles.map((title) => ({
+    label: title,
+    value: title,
   }));
+  // CUSTOM: end
   const initialIds = props.initialMarkerTitle ? [props.initialMarkerTitle] : [];
 
   // add initial value to items if still loading, to ensure existing value
   // is populated
-  if (loading && initialIds.length > 0) {
+  if (titleSuggestionsLoading && initialIds.length > 0) {
     items.push({
       label: initialIds[0],
       value: initialIds[0],
@@ -343,13 +359,16 @@ export const MarkerTitleSuggest: React.FC<IMarkerSuggestProps> = (props) => {
       isMulti={false}
       creatable
       onChange={onChange}
-      isLoading={loading}
+      isLoading={!!titleSuggestionsLoading}
       items={items}
       initialIds={initialIds}
       placeholder="Marker title..."
       className="select-suggest"
       showDropdown={false}
       groupHeader="Previously used titles..."
+      isValidNewOption={(inputValue) =>
+        canCreateMarkerTitle(inputValue, suggestionTitles)
+      } // CUSTOM
     />
   );
 };

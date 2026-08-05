@@ -63,6 +63,8 @@ fragment SelectTagData on Tag {
 # Optimized fragment for tag list page - excludes expensive recursive *_count_all fields
 fragment TagListData on Tag {
   id
+  created_at # CUSTOM: active sort metric on tag cards
+  updated_at # CUSTOM: active sort metric on tag cards
   name
   sort_name
   description

@@ -74,6 +74,8 @@ const StudioList: React.FC<{
     if (filter.displayMode === DisplayMode.Grid) {
       return (
         <StudioCardGrid
+          activeSortBy={filter.sortBy} // CUSTOM
+          activeSortDirection={filter.sortDirection} // CUSTOM
           studios={studios}
           statsByStudioID={statsByStudioID} // CUSTOM
           zoomIndex={filter.zoomIndex}

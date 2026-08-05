@@ -1,0 +1,21 @@
+# CUSTOM: page-level active sort values for catalog cards.
+type CatalogSortMetricValue {
+  id: ID!
+  value: String
+}
+
+extend type Query {
+  groupSortMetricValues(
+    group_ids: [ID!]!
+    find_filter: FindFilterType
+    parent_group_id: ID
+  ): [CatalogSortMetricValue!]!
+  performerSortMetricValues(
+    performer_ids: [ID!]!
+    find_filter: FindFilterType
+  ): [CatalogSortMetricValue!]!
+  tagSortMetricValues(
+    tag_ids: [ID!]!
+    find_filter: FindFilterType
+  ): [CatalogSortMetricValue!]!
+}

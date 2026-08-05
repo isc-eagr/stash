@@ -71,6 +71,8 @@ const GroupList: React.FC<{
           onSelectChange={onSelectChange}
           fromGroupId={fromGroupId}
           onMove={onMove}
+          activeSortBy={filter.sortBy} // CUSTOM
+          activeSortDirection={filter.sortDirection} // CUSTOM
         />
       );
     }

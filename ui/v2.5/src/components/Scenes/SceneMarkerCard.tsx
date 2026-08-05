@@ -33,6 +33,8 @@ import {
 } from "./SceneDetails/sceneMarkerHoverPopover_custom"; // CUSTOM
 import { toSceneMarkerCardContext } from "./sceneMarkerCardContext_custom"; // CUSTOM
 import { ROLE_COLORS_CUSTOM } from "src/utils/roleColors_custom"; // CUSTOM
+import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
+import { getSceneMarkerSortMetricCustom } from "./sceneMarkerSortMetric_custom"; // CUSTOM
 
 interface ISceneMarkerCardProps {
   marker: GQL.SceneMarkerDataFragment;
@@ -46,6 +48,8 @@ interface ISceneMarkerCardProps {
   selected?: boolean | undefined;
   zoomIndex?: number;
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
+  activeSortBy?: string; // CUSTOM
+  activeSortDirection?: GQL.SortDirectionEnum; // CUSTOM
 }
 
 const SceneMarkerCardPopovers = PatchComponent(
@@ -209,10 +213,20 @@ const SceneMarkerCardDetails = PatchComponent(
       () => displayTags.filter(({ kind }) => kind === "parent"),
       [displayTags]
     );
+    const sortDirection =
+      props.activeSortDirection ?? GQL.SortDirectionEnum.Asc; // CUSTOM
+    const sortMetric = getSceneMarkerSortMetricCustom(
+      props.activeSortBy,
+      props.marker
+    ); // CUSTOM
     // CUSTOM: end
 
     return (
       <div className="scene-marker-card__details">
+        <SortMetricBadgeCustom
+          metric={sortMetric}
+          sortDirection={sortDirection}
+        />
         <span className="scene-marker-card__time">
           {TextUtils.formatTimestampRange(
             props.marker.seconds,

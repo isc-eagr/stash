@@ -58,6 +58,8 @@ export interface ISceneMarkerChronologyHighlightPerformer<
   performer: SceneMarkerChronologyHighlightPerformer<M>;
   topTags: M["primary_tag"][];
   bottomTags: M["primary_tag"][];
+  topOverlapTagIDs: Set<string>;
+  bottomOverlapTagIDs: Set<string>;
 }
 
 export interface ISceneMarkerChronologyHighlightGroup<
@@ -683,7 +685,8 @@ function addHighlightPerformerTags<
   performersByID: Map<string, ISceneMarkerChronologyHighlightPerformer<M>>,
   performer: SceneMarkerChronologyHighlightPerformer<M>,
   role: "top" | "bottom",
-  tags: M["primary_tag"][]
+  tags: M["primary_tag"][],
+  overlappingTagIDs: ReadonlySet<string> = new Set()
 ) {
   const existing = performersByID.get(performer.id);
   const performerTags =
@@ -692,15 +695,33 @@ function addHighlightPerformerTags<
       performer,
       topTags: [],
       bottomTags: [],
+      topOverlapTagIDs: new Set(),
+      bottomOverlapTagIDs: new Set(),
     } as ISceneMarkerChronologyHighlightPerformer<M>);
   const roleTags =
     role === "top" ? performerTags.topTags : performerTags.bottomTags;
+  const roleOverlapTagIDs =
+    role === "top"
+      ? performerTags.topOverlapTagIDs
+      : performerTags.bottomOverlapTagIDs;
   const existingTagIDs = new Set(roleTags.map((tag) => tag.id));
 
   tags.forEach((tag) => {
-    if (!existingTagIDs.has(tag.id)) {
+    const alreadyPresent = existingTagIDs.has(tag.id);
+
+    if (!alreadyPresent) {
       existingTagIDs.add(tag.id);
       roleTags.push(tag);
+    }
+
+    if (overlappingTagIDs.has(tag.id)) {
+      if (!alreadyPresent) {
+        roleOverlapTagIDs.add(tag.id);
+      }
+    } else {
+      // A direct tag always takes precedence when the same tag is also present
+      // on a marker in the overlap context.
+      roleOverlapTagIDs.delete(tag.id);
     }
   });
 
@@ -711,7 +732,10 @@ function addHighlightPerformerTags<
 
 function getHighlightPerformersFromActiveMarkers<
   M extends ISceneMarkerChronologySearchMarker
->(markers: M[]): Array<ISceneMarkerChronologyHighlightPerformer<M>> {
+>(
+  markers: M[],
+  directMarkerID: string
+): Array<ISceneMarkerChronologyHighlightPerformer<M>> {
   const performersByID = new Map<
     string,
     ISceneMarkerChronologyHighlightPerformer<M>
@@ -722,12 +746,28 @@ function getHighlightPerformersFromActiveMarkers<
       candidate.primary_tag,
       ...candidate.tags,
     ] as M["primary_tag"][]);
+    const overlappingTagIDs =
+      candidate.id === directMarkerID
+        ? new Set<string>()
+        : new Set(directTags.map((tag) => tag.id));
 
     (candidate.top_performers ?? []).forEach((performer) =>
-      addHighlightPerformerTags(performersByID, performer, "top", directTags)
+      addHighlightPerformerTags(
+        performersByID,
+        performer,
+        "top",
+        directTags,
+        overlappingTagIDs
+      )
     );
     (candidate.bottom_performers ?? []).forEach((performer) =>
-      addHighlightPerformerTags(performersByID, performer, "bottom", directTags)
+      addHighlightPerformerTags(
+        performersByID,
+        performer,
+        "bottom",
+        directTags,
+        overlappingTagIDs
+      )
     );
   });
 
@@ -744,13 +784,26 @@ export function getSceneMarkerPerformerTagSummaries<
 
   markers.forEach((marker) => {
     getChronologicalSceneMarkerHighlightPerformers(marker, markers).forEach(
-      ({ performer, topTags, bottomTags }) => {
-        addHighlightPerformerTags(performersByID, performer, "top", topTags);
+      ({
+        performer,
+        topTags,
+        bottomTags,
+        topOverlapTagIDs,
+        bottomOverlapTagIDs,
+      }) => {
+        addHighlightPerformerTags(
+          performersByID,
+          performer,
+          "top",
+          topTags,
+          topOverlapTagIDs
+        );
         addHighlightPerformerTags(
           performersByID,
           performer,
           "bottom",
-          bottomTags
+          bottomTags,
+          bottomOverlapTagIDs
         );
       }
     );
@@ -766,7 +819,8 @@ export function getChronologicalSceneMarkerHighlightPerformers<
   allMarkers: M[]
 ): Array<ISceneMarkerChronologyHighlightPerformer<M>> {
   return getHighlightPerformersFromActiveMarkers(
-    getChronologicalSceneMarkerHighlightContextMarkers(marker, allMarkers)
+    getChronologicalSceneMarkerHighlightContextMarkers(marker, allMarkers),
+    marker.id
   );
 }
 

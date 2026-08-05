@@ -13,6 +13,8 @@ import { faHeart } from "@fortawesome/free-solid-svg-icons";
 import cx from "classnames";
 import { useTagUpdate } from "src/core/StashService";
 import { gql, useQuery } from "@apollo/client"; // CUSTOM
+import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
+import { getTagSortMetricCustom } from "./tagSortMetric_custom"; // CUSTOM
 
 interface IProps {
   tag: GQL.TagDataFragment | GQL.TagListDataFragment;
@@ -27,6 +29,9 @@ interface IProps {
   // optional performer context - when provided scene links use scene markers
   performerId?: string;
   performerName?: string;
+  activeSortBy?: string;
+  activeSortDirection?: GQL.SortDirectionEnum;
+  activeSortValue?: string | null;
   // CUSTOM: end
 }
 
@@ -246,7 +251,13 @@ const TagCardOverlays: React.FC<IProps> = PatchComponent(
 
 const TagCardDetails: React.FC<IProps> = PatchComponent(
   "TagCard.Details",
-  ({ tag }) => {
+  ({ tag, activeSortBy, activeSortDirection, activeSortValue }) => {
+    const sortDirection = activeSortDirection ?? GQL.SortDirectionEnum.Asc; // CUSTOM
+    const sortMetric = getTagSortMetricCustom(
+      activeSortBy,
+      tag,
+      activeSortValue
+    ); // CUSTOM
     function maybeRenderDescription() {
       if (tag.description) {
         return (
@@ -321,6 +332,10 @@ const TagCardDetails: React.FC<IProps> = PatchComponent(
 
     return (
       <>
+        <SortMetricBadgeCustom
+          metric={sortMetric}
+          sortDirection={sortDirection}
+        />
         {maybeRenderDescription()}
         {maybeRenderParents()}
         {maybeRenderChildren()}

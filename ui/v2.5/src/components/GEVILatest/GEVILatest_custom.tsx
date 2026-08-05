@@ -92,6 +92,7 @@ const GEVIItemCard: React.FC<{ item: GEVIItem }> = ({ item }) => {
       .filter(Boolean)
       .join(" - ");
   }, [item]);
+  const source = imageSource(item);
 
   return (
     <a
@@ -101,7 +102,7 @@ const GEVIItemCard: React.FC<{ item: GEVIItem }> = ({ item }) => {
       target="_blank"
     >
       <span className="gevi-latest-card__media">
-        <img alt="" loading="lazy" src={imageSource(item)} />
+        {!!source && <img alt="" loading="lazy" src={source} />}
       </span>
       <span className="gevi-latest-card__body">
         <span className="gevi-latest-card__title">{item.title}</span>

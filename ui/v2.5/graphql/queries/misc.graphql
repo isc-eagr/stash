@@ -6,6 +6,11 @@ query MarkerStrings($q: String, $sort: String) {
   }
 }
 
+# CUSTOM: global negative-marker title suggestions
+query SceneNegativeMarkerNames {
+  sceneNegativeMarkerNames
+}
+
 query Stats {
   stats {
     scene_count

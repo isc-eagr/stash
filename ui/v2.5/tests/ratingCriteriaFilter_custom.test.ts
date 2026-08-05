@@ -60,7 +60,7 @@ assert.deepEqual(
   [
     { value: 0, label: "Mostly unusable" },
     { value: 1, label: "Limited use" },
-    { value: 2, label: "Mixed / standard" },
+    { value: 2, label: "Standard or mixed" },
     { value: 3, label: "Highly usable" },
     { value: 4, label: "Nearly unskippable" },
   ]

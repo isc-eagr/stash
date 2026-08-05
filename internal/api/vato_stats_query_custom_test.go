@@ -17,6 +17,7 @@ func TestVatoStatsPerformersQueryCustomAggregatesSceneOsAndCareerOnce(t *testing
 	defer db.Close()
 
 	statements := []string{
+		`CREATE TABLE studios (id INTEGER PRIMARY KEY, parent_id INTEGER)`,
 		`CREATE TABLE performers (
       id INTEGER PRIMARY KEY,
       name TEXT,
@@ -32,12 +33,13 @@ func TestVatoStatsPerformersQueryCustomAggregatesSceneOsAndCareerOnce(t *testing
       created_at DATETIME
     )`,
 		`CREATE TABLE performers_scenes (performer_id INTEGER, scene_id INTEGER)`,
-		`CREATE TABLE scenes (id INTEGER PRIMARY KEY, date TEXT, rating INTEGER)`,
+		`CREATE TABLE scenes (id INTEGER PRIMARY KEY, date TEXT, rating INTEGER, studio_id INTEGER)`,
 		`CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date TEXT)`,
 		`INSERT INTO performers(id, name, rating, created_at) VALUES
       (1, 'Alpha', 80, datetime('now', '-6 months')),
       (2, 'Bravo', 60, datetime('now', '-2 years'))`,
-		`INSERT INTO scenes(id, date) VALUES (10, '2020-01-01'), (11, '2021-01-01'), (12, '2022-06-15')`,
+		`INSERT INTO studios(id, parent_id) VALUES (1, NULL), (2, 1), (3, NULL)`,
+		`INSERT INTO scenes(id, date, studio_id) VALUES (10, '2020-01-01', 1), (11, '2021-01-01', 2), (12, '2022-06-15', 3)`,
 		`INSERT INTO performers_scenes(performer_id, scene_id) VALUES (1, 10), (1, 11), (2, 12)`,
 		`INSERT INTO scenes_o_dates(scene_id, o_date) VALUES
       (10, '2024-01-02 08:00:00'),
@@ -52,7 +54,8 @@ func TestVatoStatsPerformersQueryCustomAggregatesSceneOsAndCareerOnce(t *testing
 		}
 	}
 
-	rows, err := db.Query(vatoStatsPerformersQueryCustom("rating >= 0", "0", "0", "0"))
+	globalScope, _ := activityStatsSceneScopeCustom(nil, nil)
+	rows, err := db.Query(vatoStatsPerformersQueryCustom(globalScope, "rating >= 0", "0", "0", "0"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,6 +96,9 @@ func TestVatoStatsPerformersQueryCustomAggregatesSceneOsAndCareerOnce(t *testing
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
 	}
+	if err := rows.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	if got["Alpha"] != (aggregate{
 		sceneCount:     2,
@@ -106,5 +112,36 @@ func TestVatoStatsPerformersQueryCustomAggregatesSceneOsAndCareerOnce(t *testing
 	}
 	if got["Bravo"] != (aggregate{sceneCount: 1}) {
 		t.Fatalf("Bravo aggregate = %#v", got["Bravo"])
+	}
+
+	studioID := 1
+	depth := 0
+	studioScope, studioArgs := activityStatsSceneScopeCustom(&studioID, &depth)
+	studioRows, err := db.Query(
+		vatoStatsPerformersQueryCustom(studioScope, "rating >= 0", "0", "0", "0"),
+		studioArgs...,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer studioRows.Close()
+
+	studioSceneCounts := map[string]int{}
+	for studioRows.Next() {
+		values := make([]interface{}, 18)
+		destinations := make([]interface{}, len(values))
+		for i := range values {
+			destinations[i] = &values[i]
+		}
+		if err := studioRows.Scan(destinations...); err != nil {
+			t.Fatal(err)
+		}
+		studioSceneCounts[fmt.Sprint(values[1])] = customIntValue(values[12])
+	}
+	if err := studioRows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(studioSceneCounts) != 1 || studioSceneCounts["Alpha"] != 1 {
+		t.Fatalf("studio aggregate = %#v, want Alpha with one direct scene", studioSceneCounts)
 	}
 }

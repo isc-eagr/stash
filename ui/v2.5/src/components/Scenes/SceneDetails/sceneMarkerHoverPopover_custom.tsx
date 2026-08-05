@@ -102,7 +102,11 @@ export const HighlightPerformerTagPills = <
       <Badge
         key={`top-${tag.id}`}
         variant="secondary"
-        className="tag-badge scene-marker-highlight-tag-top"
+        className={cx(
+          "tag-badge scene-marker-highlight-tag-top",
+          performer.topOverlapTagIDs.has(tag.id) &&
+            "scene-marker-highlight-tag-overlap"
+        )}
       >
         {tag.name}
       </Badge>
@@ -111,7 +115,11 @@ export const HighlightPerformerTagPills = <
       <Badge
         key={`bottom-${tag.id}`}
         variant="secondary"
-        className="tag-badge scene-marker-highlight-tag-bottom"
+        className={cx(
+          "tag-badge scene-marker-highlight-tag-bottom",
+          performer.bottomOverlapTagIDs.has(tag.id) &&
+            "scene-marker-highlight-tag-overlap"
+        )}
       >
         {tag.name}
       </Badge>

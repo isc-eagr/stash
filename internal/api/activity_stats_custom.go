@@ -440,14 +440,23 @@ func queryGlobalActivityStatsCustom(ctx context.Context, sexTagID int, oralTagID
 	return queryActivityStatsCustom(ctx, nil, nil, nil, sexTagID, oralTagID, soloTagID)
 }
 
-func (r *queryResolver) SceneStatsActivity(ctx context.Context) (ret *StudioActivityStats, err error) {
+func (r *queryResolver) SceneStatsActivity(ctx context.Context, studioID *string, depth *int) (ret *StudioActivityStats, err error) {
 	sexTagID, oralTagID, soloTagID := activityStatsRoleTagIDsCustom()
 	if sexTagID == 0 && oralTagID == 0 && soloTagID == 0 {
 		return activityStatsEmptyStudioCustom(), nil
 	}
 
+	var parsedStudioID *int
+	if studioID != nil {
+		parsed, parseErr := strconv.Atoi(*studioID)
+		if parseErr != nil || parsed < 1 {
+			return nil, fmt.Errorf("invalid studio ID: %s", *studioID)
+		}
+		parsedStudioID = &parsed
+	}
+
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = queryGlobalActivityStatsCustom(ctx, sexTagID, oralTagID, soloTagID)
+		ret, err = queryActivityStatsCustom(ctx, parsedStudioID, depth, nil, sexTagID, oralTagID, soloTagID)
 		return err
 	}); err != nil {
 		return nil, err

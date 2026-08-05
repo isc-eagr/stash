@@ -8,6 +8,8 @@ import {
   useContainerDimensions,
 } from "../Shared/GridCard/GridCard";
 import { PatchComponent } from "src/patch";
+import * as GQL from "src/core/generated-graphql"; // CUSTOM
+import { useCatalogSortMetricValuesCustom } from "../Shared/catalogSortMetricValues_custom"; // CUSTOM
 
 interface IPerformerCardGrid {
   performers: PerformerListData[];
@@ -16,6 +18,7 @@ interface IPerformerCardGrid {
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
   extraCriteria?: IPerformerCardExtraCriteria;
   activeSortBy?: string;
+  activeSortDirection?: GQL.SortDirectionEnum;
 }
 
 const zoomWidths = [240, 300, 375, 470];
@@ -29,12 +32,20 @@ export const PerformerCardGrid: React.FC<IPerformerCardGrid> = PatchComponent(
     onSelectChange,
     extraCriteria,
     activeSortBy,
+    activeSortDirection,
   }) => {
     const [componentRef, { width: containerWidth }] = useContainerDimensions();
     const cardWidth = useCardWidth(containerWidth, zoomIndex, zoomWidths);
     const roleStatsByPerformerID = usePerformerCardRoleStats(
       performers,
       !!extraCriteria?.studio
+    ); // CUSTOM
+    const sortDirection = activeSortDirection ?? GQL.SortDirectionEnum.Asc; // CUSTOM
+    const activeSortValues = useCatalogSortMetricValuesCustom(
+      "performer",
+      performers.map((performer) => performer.id),
+      activeSortBy,
+      sortDirection
     ); // CUSTOM
 
     return (
@@ -53,6 +64,8 @@ export const PerformerCardGrid: React.FC<IPerformerCardGrid> = PatchComponent(
             extraCriteria={extraCriteria}
             roleStats={roleStatsByPerformerID.get(p.id) ?? null}
             activeSortBy={activeSortBy}
+            activeSortDirection={sortDirection}
+            activeSortValue={activeSortValues.get(p.id)}
           />
         ))}
       </div>

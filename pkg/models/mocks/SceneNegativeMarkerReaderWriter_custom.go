@@ -30,6 +30,15 @@ func (_m *SceneNegativeMarkerReaderWriter) FindByScene(ctx context.Context, scen
 	return ret.([]*models.SceneNegativeMarker), args.Error(1)
 }
 
+func (_m *SceneNegativeMarkerReaderWriter) FindNames(ctx context.Context) ([]string, error) {
+	args := _m.Called(ctx)
+	ret := args.Get(0)
+	if ret == nil {
+		return nil, args.Error(1)
+	}
+	return ret.([]string), args.Error(1)
+}
+
 func (_m *SceneNegativeMarkerReaderWriter) Create(ctx context.Context, marker *models.SceneNegativeMarker) error {
 	args := _m.Called(ctx, marker)
 	return args.Error(0)

@@ -18,6 +18,8 @@ import {
   getRatingCardClass,
   isRatingCardHomePage,
 } from "src/utils/ratingCardStyles_custom"; // CUSTOM
+import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
+import { getGroupSortMetricCustom } from "./groupSortMetric_custom"; // CUSTOM
 
 const Description: React.FC<{
   sceneNumber?: number;
@@ -52,6 +54,9 @@ interface IProps {
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
   fromGroupId?: string;
   onMove?: (srcIds: string[], targetId: string, after: boolean) => void;
+  activeSortBy?: string; // CUSTOM
+  activeSortDirection?: GQL.SortDirectionEnum; // CUSTOM
+  activeSortValue?: string | null; // CUSTOM
 }
 
 export const GroupCard: React.FC<IProps> = PatchComponent(
@@ -66,6 +71,9 @@ export const GroupCard: React.FC<IProps> = PatchComponent(
     onSelectedChanged,
     fromGroupId,
     onMove,
+    activeSortBy,
+    activeSortDirection,
+    activeSortValue,
   }) => {
     // CUSTOM: begin - premium/classic rating card styling
     const { configuration } = useConfigurationContext();
@@ -93,6 +101,12 @@ export const GroupCard: React.FC<IProps> = PatchComponent(
 
       return containingGroup?.description ?? undefined;
     }, [fromGroupId, group.containing_groups]);
+    const sortDirection = activeSortDirection ?? GQL.SortDirectionEnum.Asc; // CUSTOM
+    const sortMetric = getGroupSortMetricCustom(
+      activeSortBy,
+      group,
+      activeSortValue
+    ); // CUSTOM
 
     function maybeRenderScenesPopoverButton() {
       if (group.scenes.length === 0) return;
@@ -190,6 +204,10 @@ export const GroupCard: React.FC<IProps> = PatchComponent(
         }
         details={
           <div className="group-card__details">
+            <SortMetricBadgeCustom
+              metric={sortMetric}
+              sortDirection={sortDirection}
+            />
             <span className="group-card__date">{group.date}</span>
             <TruncatedText
               className="group-card__description"
