@@ -303,6 +303,7 @@ type studioListActivityMarkerCustom struct {
 	end            float64
 	primaryTagID   int
 	secondaryCount int
+	isGoat         bool
 }
 
 type studioListNegativeMarkerCustom struct {
@@ -312,7 +313,7 @@ type studioListNegativeMarkerCustom struct {
 }
 
 func queryStudioListActivityStatsCustom(ctx context.Context, studioIDs []int, statsByID map[int]*StudioListStats) error {
-	sexTagID, oralTagID, soloTagID := activityStatsRoleTagIDsCustom()
+	sexTagID, oralTagID, soloTagID, goatTagID := activityStatsRoleTagIDsCustom()
 	if sexTagID == 0 && oralTagID == 0 && soloTagID == 0 {
 		return nil
 	}
@@ -340,7 +341,8 @@ SELECT scenes.studio_id,
        scene_markers.seconds,
        scene_markers.end_seconds,
        scene_markers.primary_tag_id,
-       COUNT(scene_markers_tags.tag_id)
+       COUNT(scene_markers_tags.tag_id),
+       %s
 FROM scene_markers
 JOIN scenes ON scenes.id = scene_markers.scene_id
 JOIN requested ON requested.id = scenes.studio_id
@@ -352,7 +354,7 @@ GROUP BY scenes.studio_id,
          scene_markers.scene_id,
          scene_markers.seconds,
          scene_markers.end_seconds,
-         scene_markers.primary_tag_id`, requested)
+         scene_markers.primary_tag_id`, requested, activityStatsGoatMarkerSQLCustom("scene_markers", goatTagID))
 
 	_, markerRows, err := manager.GetInstance().Database.QuerySQL(ctx, markerQuery, args)
 	if err != nil {
@@ -389,7 +391,7 @@ WHERE scene_negative_markers.end_seconds > scene_negative_markers.start_seconds`
 
 	markersByStudio := make(map[int][]studioListActivityMarkerCustom, len(studioIDs))
 	for _, row := range markerRows {
-		if len(row) < 6 {
+		if len(row) < 7 {
 			continue
 		}
 		studioID := activityStatsIntCustom(row[0])
@@ -399,6 +401,7 @@ WHERE scene_negative_markers.end_seconds > scene_negative_markers.start_seconds`
 			end:            activityStatsFloatCustom(row[3]),
 			primaryTagID:   activityStatsIntCustom(row[4]),
 			secondaryCount: activityStatsIntCustom(row[5]),
+			isGoat:         activityStatsBoolCustom(row[6]),
 		})
 	}
 
@@ -469,7 +472,7 @@ func calculateStudioListActivityStatsCustom(
 			sceneCounts[category][marker.sceneID] = true
 			meaningfulSceneIDs[marker.sceneID] = true
 		}
-		if activityStatsIsOutstandingMarkerCustom(marker.primaryTagID, marker.secondaryCount, sexTagID, oralTagID, soloTagID) {
+		if activityStatsIsOutstandingMarkerCustom(marker.primaryTagID, marker.secondaryCount, marker.isGoat, sexTagID, oralTagID, soloTagID) {
 			byCategory[activityOutstandingCustom] = append(byCategory[activityOutstandingCustom], interval)
 		}
 	}

@@ -1,4 +1,5 @@
 import type * as GQL from "src/core/generated-graphql";
+import { isChronologicalSceneMarkerGoatTagged } from "./SceneDetails/sceneMarkerChronologyLayout_custom";
 
 export type SceneActivityCategory = "sex" | "oral" | "solo";
 type SceneQualityCategory = "outstanding" | "standard" | "unusable";
@@ -27,6 +28,7 @@ export type SceneActivityRoleTagIds = {
   sexTagId?: string;
   oralTagId?: string;
   soloTagId?: string;
+  goatTagId?: string;
 };
 
 export type SceneActivityScene = Pick<GQL.SlimSceneDataFragment, "id"> & {
@@ -72,7 +74,9 @@ function sceneActivityMarkerIsOutstanding(
   roleTagIds: SceneActivityRoleTagIds
 ): boolean {
   return (
-    !sceneActivityMarkerCategory(marker, roleTagIds) || marker.tags.length > 0
+    isChronologicalSceneMarkerGoatTagged(marker, roleTagIds.goatTagId) ||
+    !sceneActivityMarkerCategory(marker, roleTagIds) ||
+    marker.tags.length > 0
   );
 }
 

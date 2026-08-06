@@ -2,10 +2,18 @@ import assert from "node:assert/strict";
 
 import { getSceneActivityMetrics } from "../src/components/Scenes/sceneActivityMetricsData_custom.ts";
 
-const marker = (primaryTagId: string, seconds: number, endSeconds: number) => ({
+const marker = (
+  primaryTagId: string,
+  seconds: number,
+  endSeconds: number,
+  parentTagIds: string[] = []
+) => ({
   seconds,
   end_seconds: endSeconds,
-  primary_tag: { id: primaryTagId },
+  primary_tag: {
+    id: primaryTagId,
+    parents: parentTagIds.map((id) => ({ id })),
+  },
   tags: [],
 });
 
@@ -31,4 +39,24 @@ assert.equal(
   metrics?.activity.find((metric) => metric.key === "sex")?.percent,
   25,
   "sex percent uses the same scene activity metric calculation"
+);
+
+const goatMetrics = getSceneActivityMetrics(
+  {
+    id: "scene-goat",
+    files: [{ duration: 100 }],
+    scene_markers: [marker("oral", 0, 25, ["goat"]), marker("oral", 25, 50)],
+  },
+  { oralTagId: "oral", goatTagId: "goat" }
+);
+
+assert.equal(
+  goatMetrics?.quality.find((metric) => metric.key === "outstanding")?.percent,
+  25,
+  "a configured GOAT descendant marker is Outstanding even when it is a plain activity marker"
+);
+assert.equal(
+  goatMetrics?.quality.find((metric) => metric.key === "standard")?.percent,
+  75,
+  "GOAT activity coverage is removed from Standard"
 );

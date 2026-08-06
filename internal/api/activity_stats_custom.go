@@ -95,9 +95,33 @@ func activityStatsCategoryCustom(primaryTagID int, sexTagID int, oralTagID int, 
 	}
 }
 
-func activityStatsIsOutstandingMarkerCustom(primaryTagID int, secondaryTagCount int, sexTagID int, oralTagID int, soloTagID int) bool {
+func activityStatsIsOutstandingMarkerCustom(primaryTagID int, secondaryTagCount int, isGoat bool, sexTagID int, oralTagID int, soloTagID int) bool {
 	_, isRoleMarker := activityStatsCategoryCustom(primaryTagID, sexTagID, oralTagID, soloTagID)
-	return !isRoleMarker || secondaryTagCount > 0
+	return isGoat || !isRoleMarker || secondaryTagCount > 0
+}
+
+func activityStatsGoatMarkerSQLCustom(markerAlias string, goatTagID int) string {
+	if goatTagID == 0 {
+		return "0"
+	}
+
+	return fmt.Sprintf(`EXISTS (
+	WITH RECURSIVE goat_tags(id) AS (
+		SELECT %[2]d
+		UNION
+		SELECT tags_relations.child_id
+		FROM tags_relations
+		JOIN goat_tags ON goat_tags.id = tags_relations.parent_id
+	)
+	SELECT 1
+	FROM goat_tags
+	WHERE goat_tags.id = %[1]s.primary_tag_id
+	   OR goat_tags.id IN (
+		SELECT scene_markers_tags.tag_id
+		FROM scene_markers_tags
+		WHERE scene_markers_tags.scene_marker_id = %[1]s.id
+	   )
+)`, markerAlias, goatTagID)
 }
 
 func activityStatsMergedIntervalsCustom(intervals []activityIntervalCustom) []activityIntervalCustom {
@@ -230,9 +254,11 @@ func activityStatsRestrictToMeaningfulScenesCustom(
 	}
 }
 
-func activityStatsRoleTagIDsCustom() (sexTagID int, oralTagID int, soloTagID int) {
+func activityStatsRoleTagIDsCustom() (sexTagID int, oralTagID int, soloTagID int, goatTagID int) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
 	sexTagID, oralTagID, soloTagID, _, _, _, _ = getRoleTagIDs(uiConfig)
+	roleTagIDs, _ := uiConfig["roleTagIds"].(map[string]interface{})
+	goatTagID, _ = strconv.Atoi(customStringConfigValue(roleTagIDs["goatTagId"]))
 	return
 }
 
@@ -245,7 +271,7 @@ func activityStatsEmptyStudioCustom() *StudioActivityStats {
 }
 
 func (r *performerResolver) ActivityStats(ctx context.Context, obj *models.Performer) (ret *PerformerActivityStats, err error) {
-	sexTagID, oralTagID, soloTagID := activityStatsRoleTagIDsCustom()
+	sexTagID, oralTagID, soloTagID, _ := activityStatsRoleTagIDsCustom()
 	if sexTagID == 0 && oralTagID == 0 && soloTagID == 0 {
 		return activityStatsEmptyPerformerCustom(), nil
 	}
@@ -373,13 +399,13 @@ WHERE sm.primary_tag_id IN (?, ?, ?)
 }
 
 func (r *studioResolver) StudioActivityStats(ctx context.Context, obj *models.Studio, depth *int) (ret *StudioActivityStats, err error) {
-	sexTagID, oralTagID, soloTagID := activityStatsRoleTagIDsCustom()
+	sexTagID, oralTagID, soloTagID, goatTagID := activityStatsRoleTagIDsCustom()
 	if sexTagID == 0 && oralTagID == 0 && soloTagID == 0 {
 		return activityStatsEmptyStudioCustom(), nil
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = queryStudioActivityStatsCustom(ctx, obj.ID, depth, nil, sexTagID, oralTagID, soloTagID)
+		ret, err = queryStudioActivityStatsCustom(ctx, obj.ID, depth, nil, sexTagID, oralTagID, soloTagID, goatTagID)
 		return err
 	}); err != nil {
 		return nil, err
@@ -394,13 +420,13 @@ func (r *studioResolver) StudioPerformerActivityStats(ctx context.Context, obj *
 		return nil, err
 	}
 
-	sexTagID, oralTagID, soloTagID := activityStatsRoleTagIDsCustom()
+	sexTagID, oralTagID, soloTagID, goatTagID := activityStatsRoleTagIDsCustom()
 	if sexTagID == 0 && oralTagID == 0 && soloTagID == 0 {
 		return activityStatsEmptyStudioCustom(), nil
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = queryStudioActivityStatsCustom(ctx, obj.ID, depth, &perfID, sexTagID, oralTagID, soloTagID)
+		ret, err = queryStudioActivityStatsCustom(ctx, obj.ID, depth, &perfID, sexTagID, oralTagID, soloTagID, goatTagID)
 		return err
 	}); err != nil {
 		return nil, err
@@ -432,16 +458,16 @@ selected_scenes(id) AS (
 )`, []interface{}{*studioID, depthValue, depthValue}
 }
 
-func queryStudioActivityStatsCustom(ctx context.Context, studioID int, depth *int, performerID *int, sexTagID int, oralTagID int, soloTagID int) (*StudioActivityStats, error) {
-	return queryActivityStatsCustom(ctx, &studioID, depth, performerID, sexTagID, oralTagID, soloTagID)
+func queryStudioActivityStatsCustom(ctx context.Context, studioID int, depth *int, performerID *int, sexTagID int, oralTagID int, soloTagID int, goatTagID int) (*StudioActivityStats, error) {
+	return queryActivityStatsCustom(ctx, &studioID, depth, performerID, sexTagID, oralTagID, soloTagID, goatTagID)
 }
 
-func queryGlobalActivityStatsCustom(ctx context.Context, sexTagID int, oralTagID int, soloTagID int) (*StudioActivityStats, error) {
-	return queryActivityStatsCustom(ctx, nil, nil, nil, sexTagID, oralTagID, soloTagID)
+func queryGlobalActivityStatsCustom(ctx context.Context, sexTagID int, oralTagID int, soloTagID int, goatTagID int) (*StudioActivityStats, error) {
+	return queryActivityStatsCustom(ctx, nil, nil, nil, sexTagID, oralTagID, soloTagID, goatTagID)
 }
 
 func (r *queryResolver) SceneStatsActivity(ctx context.Context, studioID *string, depth *int) (ret *StudioActivityStats, err error) {
-	sexTagID, oralTagID, soloTagID := activityStatsRoleTagIDsCustom()
+	sexTagID, oralTagID, soloTagID, goatTagID := activityStatsRoleTagIDsCustom()
 	if sexTagID == 0 && oralTagID == 0 && soloTagID == 0 {
 		return activityStatsEmptyStudioCustom(), nil
 	}
@@ -456,7 +482,7 @@ func (r *queryResolver) SceneStatsActivity(ctx context.Context, studioID *string
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = queryActivityStatsCustom(ctx, parsedStudioID, depth, nil, sexTagID, oralTagID, soloTagID)
+		ret, err = queryActivityStatsCustom(ctx, parsedStudioID, depth, nil, sexTagID, oralTagID, soloTagID, goatTagID)
 		return err
 	}); err != nil {
 		return nil, err
@@ -464,7 +490,7 @@ func (r *queryResolver) SceneStatsActivity(ctx context.Context, studioID *string
 	return ret, nil
 }
 
-func queryActivityStatsCustom(ctx context.Context, studioID *int, depth *int, performerID *int, sexTagID int, oralTagID int, soloTagID int) (*StudioActivityStats, error) {
+func queryActivityStatsCustom(ctx context.Context, studioID *int, depth *int, performerID *int, sexTagID int, oralTagID int, soloTagID int, goatTagID int) (*StudioActivityStats, error) {
 	sceneScope, sceneScopeArgs := activityStatsSceneScopeCustom(studioID, depth)
 	durationQuery := sceneScope + `
 SELECT sc.id, COALESCE(MAX(video_files.duration), 0)
@@ -510,14 +536,14 @@ GROUP BY sc.id`
 		return activityStatsEmptyStudioCustom(), nil
 	}
 
-	markerQuery := sceneScope + `
-SELECT sm.scene_id, sm.seconds, sm.end_seconds, sm.primary_tag_id, COUNT(smt.tag_id)
+	markerQuery := sceneScope + fmt.Sprintf(`
+SELECT sm.scene_id, sm.seconds, sm.end_seconds, sm.primary_tag_id, COUNT(smt.tag_id), %s
 FROM scene_markers sm
 JOIN scenes sc ON sc.id = sm.scene_id
 LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
 WHERE sc.id IN (SELECT id FROM selected_scenes)
   AND sm.end_seconds IS NOT NULL
-  AND sm.end_seconds > sm.seconds`
+  AND sm.end_seconds > sm.seconds`, activityStatsGoatMarkerSQLCustom("sm", goatTagID))
 
 	args := append([]interface{}{}, sceneScopeArgs...)
 	if performerID != nil {
@@ -550,7 +576,7 @@ GROUP BY sm.id, sm.scene_id, sm.seconds, sm.end_seconds, sm.primary_tag_id`
 	}
 	meaningfulSceneIDs := map[int]bool{}
 	for _, row := range markerRows {
-		if len(row) < 5 {
+		if len(row) < 6 {
 			continue
 		}
 
@@ -579,7 +605,7 @@ GROUP BY sm.id, sm.scene_id, sm.seconds, sm.end_seconds, sm.primary_tag_id`
 			sceneCounts[category][sceneID] = true
 			meaningfulSceneIDs[sceneID] = true
 		}
-		if activityStatsIsOutstandingMarkerCustom(primaryTagID, activityStatsIntCustom(row[4]), sexTagID, oralTagID, soloTagID) {
+		if activityStatsIsOutstandingMarkerCustom(primaryTagID, activityStatsIntCustom(row[4]), activityStatsBoolCustom(row[5]), sexTagID, oralTagID, soloTagID) {
 			byCategory[activityOutstandingCustom] = append(byCategory[activityOutstandingCustom], interval)
 		}
 	}

@@ -29,7 +29,7 @@ func TestCalculateStudioListActivityStatsCustom(t *testing.T) {
 	sceneDurations := map[int]float64{1: 100, 2: 50, 3: 200}
 	markers := []studioListActivityMarkerCustom{
 		{sceneID: 1, start: 0, end: 20, primaryTagID: 11},
-		{sceneID: 1, start: 20, end: 30, primaryTagID: 22},
+		{sceneID: 1, start: 20, end: 30, primaryTagID: 22, isGoat: true},
 		{sceneID: 1, start: 40, end: 50, primaryTagID: 99},
 		{sceneID: 2, start: -5, end: 10, primaryTagID: 33},
 	}
@@ -53,7 +53,7 @@ func TestCalculateStudioListActivityStatsCustom(t *testing.T) {
 	assertStudioListFloatCustom(t, "oral seconds", got.OralSeconds, 10)
 	assertStudioListFloatCustom(t, "solo seconds", got.SoloSeconds, 10)
 	assertStudioListFloatCustom(t, "unusable seconds", got.UnusableSeconds, 10)
-	assertStudioListFloatCustom(t, "outstanding seconds", got.OutstandingSeconds, 10)
+	assertStudioListFloatCustom(t, "outstanding seconds", got.OutstandingSeconds, 20)
 	if got.SexSceneCount != 1 || got.OralSceneCount != 1 || got.SoloSceneCount != 1 {
 		t.Fatalf("unexpected activity scene counts: sex=%d oral=%d solo=%d", got.SexSceneCount, got.OralSceneCount, got.SoloSceneCount)
 	}

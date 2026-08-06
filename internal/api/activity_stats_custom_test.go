@@ -1,10 +1,13 @@
 package api
 
 import (
+	"database/sql"
 	"strings"
 	"testing"
 
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestActivityStatsSceneScopeCustomSupportsGlobalAndStudioStats(t *testing.T) {
@@ -187,10 +190,42 @@ func TestActivityStatsCategoryCustom(t *testing.T) {
 }
 
 func TestActivityStatsIsOutstandingMarkerCustom(t *testing.T) {
-	assert.False(t, activityStatsIsOutstandingMarkerCustom(10, 0, 10, 20, 30))
-	assert.True(t, activityStatsIsOutstandingMarkerCustom(10, 1, 10, 20, 30))
-	assert.True(t, activityStatsIsOutstandingMarkerCustom(40, 0, 10, 20, 30))
-	assert.True(t, activityStatsIsOutstandingMarkerCustom(10, 0, 0, 20, 30))
+	assert.False(t, activityStatsIsOutstandingMarkerCustom(10, 0, false, 10, 20, 30))
+	assert.True(t, activityStatsIsOutstandingMarkerCustom(10, 1, false, 10, 20, 30))
+	assert.True(t, activityStatsIsOutstandingMarkerCustom(40, 0, false, 10, 20, 30))
+	assert.True(t, activityStatsIsOutstandingMarkerCustom(10, 0, false, 0, 20, 30))
+	assert.True(t, activityStatsIsOutstandingMarkerCustom(10, 0, true, 10, 20, 30))
+}
+
+func TestActivityStatsGoatMarkerSQLCustomMatchesConfiguredTagDescendants(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+
+	_, err = db.Exec(`
+CREATE TABLE scene_markers (id INTEGER PRIMARY KEY, primary_tag_id INTEGER);
+CREATE TABLE scene_markers_tags (scene_marker_id INTEGER, tag_id INTEGER);
+CREATE TABLE tags_relations (parent_id INTEGER, child_id INTEGER);
+
+INSERT INTO tags_relations (parent_id, child_id) VALUES (500, 400), (400, 10);
+INSERT INTO scene_markers (id, primary_tag_id) VALUES (1, 10), (2, 20), (3, 20);
+INSERT INTO scene_markers_tags (scene_marker_id, tag_id) VALUES (3, 400);
+`)
+	require.NoError(t, err)
+
+	rows, err := db.Query("SELECT sm.id, " + activityStatsGoatMarkerSQLCustom("sm", 500) + " FROM scene_markers sm ORDER BY sm.id")
+	require.NoError(t, err)
+	defer rows.Close()
+
+	var matches []bool
+	for rows.Next() {
+		var id int
+		var isGoat bool
+		require.NoError(t, rows.Scan(&id, &isGoat))
+		matches = append(matches, isGoat)
+	}
+	require.NoError(t, rows.Err())
+	assert.Equal(t, []bool{true, false, true}, matches)
 }
 
 func TestActivityStatsValueConversionsCustom(t *testing.T) {

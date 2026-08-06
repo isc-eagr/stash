@@ -128,7 +128,7 @@ WHERE snm.scene_id = %[1]s
 AND snm.end_seconds > snm.start_seconds`, sceneIDExpr, durationExpr)
 }
 
-func activityPercentOutstandingMarkerConditionForTagIDsCustom(markerAlias string, tagIDs []int) string {
+func activityPercentOutstandingMarkerConditionForTagIDsCustom(markerAlias string, tagIDs []int, goatTagID int) string {
 	validRange := fmt.Sprintf(`%[1]s.end_seconds IS NOT NULL
 AND %[1]s.end_seconds > %[1]s.seconds`, markerAlias)
 	if len(tagIDs) == 0 {
@@ -140,6 +140,11 @@ AND %[1]s.end_seconds > %[1]s.seconds`, markerAlias)
 		parts = append(parts, fmt.Sprintf("%d", id))
 	}
 
+	goatCondition := "0"
+	if goatTagID != 0 {
+		goatCondition = sceneMarkerEffectiveTagHierarchyConditionCustom(markerAlias, goatTagID)
+	}
+
 	return fmt.Sprintf(`%[1]s
 AND (
 	%[2]s.primary_tag_id NOT IN (%[3]s)
@@ -147,16 +152,17 @@ AND (
 		SELECT 1 FROM scene_markers_tags smt_quality
 		WHERE smt_quality.scene_marker_id = %[2]s.id
 	)
-)`, validRange, markerAlias, strings.Join(parts, ","))
+	OR %[4]s
+)`, validRange, markerAlias, strings.Join(parts, ","), goatCondition)
 }
 
-func activityPercentSceneOutstandingSourceForTagIDsSQLCustom(sceneIDExpr string, tagIDs []int) string {
+func activityPercentSceneOutstandingSourceForTagIDsSQLCustom(sceneIDExpr string, tagIDs []int, goatTagID int) string {
 	return fmt.Sprintf(`SELECT sm.scene_id,
 MAX(0, sm.seconds) AS seconds,
 MIN((%[2]s), sm.end_seconds) AS end_seconds
 FROM scene_markers sm
 WHERE sm.scene_id = %[1]s
-AND %[3]s`, sceneIDExpr, activityPercentSceneDurationExprCustom(sceneIDExpr), activityPercentOutstandingMarkerConditionForTagIDsCustom("sm", tagIDs))
+AND %[3]s`, sceneIDExpr, activityPercentSceneDurationExprCustom(sceneIDExpr), activityPercentOutstandingMarkerConditionForTagIDsCustom("sm", tagIDs, goatTagID))
 }
 
 func activityPercentIntersectionSourceSQLCustom(firstSourceSQL string, secondSourceSQL string) string {
@@ -185,7 +191,8 @@ func activityPercentStandardSecondsFromSourcesExprCustom(totalExpr string, outst
 }
 
 func activityPercentSceneOutstandingSecondsExprCustom(sceneIDExpr string) string {
-	outstandingSourceSQL := activityPercentSceneOutstandingSourceForTagIDsSQLCustom(sceneIDExpr, activityPercentConfiguredTagIDsCustom())
+	tags := GetRoleTagIDs()
+	outstandingSourceSQL := activityPercentSceneOutstandingSourceForTagIDsSQLCustom(sceneIDExpr, activityPercentConfiguredTagIDsCustom(), tags.GoatTagID)
 	return activityPercentOutstandingSecondsFromSourcesExprCustom(
 		outstandingSourceSQL,
 		activityPercentSceneNegativeSourceSQLCustom(sceneIDExpr),
@@ -193,9 +200,10 @@ func activityPercentSceneOutstandingSecondsExprCustom(sceneIDExpr string) string
 }
 
 func activityPercentSceneStandardSecondsExprCustom(sceneIDExpr string) string {
+	tags := GetRoleTagIDs()
 	return activityPercentStandardSecondsFromSourcesExprCustom(
 		activityPercentSceneDurationExprCustom(sceneIDExpr),
-		activityPercentSceneOutstandingSourceForTagIDsSQLCustom(sceneIDExpr, activityPercentConfiguredTagIDsCustom()),
+		activityPercentSceneOutstandingSourceForTagIDsSQLCustom(sceneIDExpr, activityPercentConfiguredTagIDsCustom(), tags.GoatTagID),
 		activityPercentSceneNegativeSourceSQLCustom(sceneIDExpr),
 	)
 }
@@ -366,7 +374,7 @@ WHERE s_outstanding.studio_id = studios.id
 AND %s
 AND %s`,
 		activityPercentSceneDurationExprCustom("s_outstanding.id"),
-		activityPercentOutstandingMarkerConditionForTagIDsCustom("sm", activityPercentConfiguredTagIDsCustom()),
+		activityPercentOutstandingMarkerConditionForTagIDsCustom("sm", activityPercentConfiguredTagIDsCustom(), GetRoleTagIDs().GoatTagID),
 		activityPercentStudioMeaningfulSceneConditionCustom("s_outstanding"),
 	)
 }

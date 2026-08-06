@@ -16,6 +16,7 @@ type RoleTagIDs struct {
 	ReallyHotTagID int // CUSTOM: distinguishes regular and Really Hot facial scenes
 	OrgasmTagID    int // CUSTOM: added for performer orgasm sort
 	FeetTagID      int // CUSTOM: added for performer feet sort
+	GoatTagID      int // CUSTOM: forces GOAT markers into Outstanding quality coverage
 }
 
 // GetRoleTagIDs retrieves role tag IDs from UI configuration
@@ -47,6 +48,9 @@ func GetRoleTagIDs() RoleTagIDs {
 	}
 	if id, ok := roleTagIds["feetTagId"].(string); ok && id != "" {
 		result.FeetTagID, _ = strconv.Atoi(id)
+	}
+	if id, ok := roleTagIds["goatTagId"].(string); ok && id != "" {
+		result.GoatTagID, _ = strconv.Atoi(id)
 	}
 	return result
 }

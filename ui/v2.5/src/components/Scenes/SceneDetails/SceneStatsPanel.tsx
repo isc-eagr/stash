@@ -50,6 +50,7 @@ import {
   type ISceneStatsRoleInteraction,
   type SceneStatsPartnerCategory,
 } from "./sceneStatsPartnerInteractions_custom"; // CUSTOM
+import { isChronologicalSceneMarkerGoatTagged } from "./sceneMarkerChronologyLayout_custom"; // CUSTOM
 
 interface IProps {
   scene: GQL.SceneDataFragment;
@@ -229,10 +230,13 @@ function isOutstandingMarker(
     sexTagId?: string;
     oralTagId?: string;
     soloTagId?: string;
+    goatTagId?: string;
   }
 ) {
   return (
-    !getMarkerActivityCategory(marker, roleTagIds) || marker.tags.length > 0
+    isChronologicalSceneMarkerGoatTagged(marker, roleTagIds.goatTagId) ||
+    !getMarkerActivityCategory(marker, roleTagIds) ||
+    marker.tags.length > 0
   );
 }
 
@@ -294,6 +298,7 @@ function getActivityStats(
     sexTagId?: string;
     oralTagId?: string;
     soloTagId?: string;
+    goatTagId?: string;
   }
 ): IActivityStats | undefined {
   const totalSeconds = scene.files[0]?.duration ?? 0;
