@@ -1,11 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  getVatoStatsStudioScope,
   getVatoStatsStudioRoleCounts,
   getVatoStatsStudioSummary,
   getVatoStatsStudioTierRows,
   type IVatoStatsStudioPerformer,
 } from "../src/components/VatoStats/vatoStatsStudioScope_custom.ts";
+
+test("studio detail scope follows the child studio content switch", () => {
+  const studio = { id: "42", name: "Mi Estudio" };
+
+  assert.deepEqual(getVatoStatsStudioScope(studio, false), {
+    id: "42",
+    name: "Mi Estudio",
+    depth: 0,
+  });
+  assert.deepEqual(getVatoStatsStudioScope(studio, true), {
+    id: "42",
+    name: "Mi Estudio",
+    depth: -1,
+  });
+  assert.equal(getVatoStatsStudioScope({ id: "99" }, false).name, "Studio 99");
+});
 
 const performers: IVatoStatsStudioPerformer[] = [
   {

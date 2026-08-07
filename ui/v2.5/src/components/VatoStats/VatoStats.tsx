@@ -21,9 +21,11 @@ import {
 } from "src/utils/statsDrilldown_custom";
 import { VatoStatsRatingAdvisor } from "./VatoStatsRatingAdvisor_custom";
 import {
+  getVatoStatsStudioScope,
   getVatoStatsStudioRoleCounts,
   getVatoStatsStudioSummary,
   getVatoStatsStudioTierRows,
+  type IVatoStatsStudioScope,
 } from "./vatoStatsStudioScope_custom";
 
 import "./VatoStats.scss";
@@ -155,11 +157,9 @@ type VatoStatsAgeCount = {
   count: number;
 };
 
-type VatoStatsStudioScope = {
-  id: string;
-  name: string;
-  depth: number;
-};
+interface IVatoStatsDashboardProps {
+  studioScope?: IVatoStatsStudioScope;
+}
 
 type VatoStatsPerformer = {
   id: string;
@@ -1223,7 +1223,7 @@ const VatoStatsSummary: React.FC<{
   oralTag?: { id: string; name: string };
   soloTag?: { id: string; name: string };
   facialTag?: { id: string; name: string };
-  studioScope?: VatoStatsStudioScope;
+  studioScope?: IVatoStatsStudioScope;
 }> = ({
   summary,
   strictTop,
@@ -1384,7 +1384,7 @@ const performerRatingTiers = [
 
 const VatoStatsTierTable: React.FC<{
   rows: PerformerEthnicityTierRow[];
-  studioScope?: VatoStatsStudioScope;
+  studioScope?: IVatoStatsStudioScope;
 }> = ({ rows, studioScope }) => {
   if (rows.length === 0) return null;
 
@@ -1517,8 +1517,9 @@ const VatoStatsTierTable: React.FC<{
   );
 };
 
-const VatoStats: React.FC = () => {
-  const titleProps = useTitleProps("VatoStats");
+export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
+  studioScope: fixedStudioScope,
+}) => {
   const [selectedStudio, setSelectedStudio] = useState<Studio>();
   const [includeChildStudios, setIncludeChildStudios] = useState(true);
   const [metric, setMetric] = useState<PodiumMetric>("scene_o_count");
@@ -1526,17 +1527,18 @@ const VatoStats: React.FC = () => {
   const [showPerformerList, setShowPerformerList] = useState(false);
   const { configuration } = useConfigurationContext();
   const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-  const studioScope = useMemo<VatoStatsStudioScope | undefined>(
+  const selectedStudioScope = useMemo<IVatoStatsStudioScope | undefined>(
     () =>
       selectedStudio
-        ? {
-            id: selectedStudio.id,
-            name: selectedStudio.name,
-            depth: includeChildStudios ? -1 : 0,
-          }
+        ? getVatoStatsStudioScope(selectedStudio, includeChildStudios)
         : undefined,
     [includeChildStudios, selectedStudio]
   );
+  const studioScope = fixedStudioScope ?? selectedStudioScope;
+  const pageTitle = fixedStudioScope
+    ? `${fixedStudioScope.name} VatoStats`
+    : "VatoStats";
+  const titleProps = useTitleProps(pageTitle);
   const { data, error, loading } = useQuery<{
     vatoStatsPerformers: VatoStatsPerformer[];
     sceneOrgasmCount: number;
@@ -1726,6 +1728,7 @@ const VatoStats: React.FC = () => {
           className="vatostats-page"
           loading
           loadingMessage="Loading vato stats..."
+          showNavigation={!fixedStudioScope}
         />
       </>
     );
@@ -1733,19 +1736,22 @@ const VatoStats: React.FC = () => {
     return (
       <>
         <Helmet {...titleProps} />
-        <StatsPage className="vatostats-page">
+        <StatsPage
+          className="vatostats-page"
+          showNavigation={!fixedStudioScope}
+        >
           <ErrorMessage error={error.message} />
         </StatsPage>
       </>
     );
 
   return (
-    <StatsPage className="vatostats-page">
+    <StatsPage className="vatostats-page" showNavigation={!fixedStudioScope}>
       <Helmet {...titleProps} />
 
       <header className="vatostats-header">
         <div>
-          <h1>VatoStats</h1>
+          <h1>{pageTitle}</h1>
           <div className="vatostats-total">
             {filters.length > 0
               ? formatStatsDrilldownTotal(
@@ -1757,18 +1763,20 @@ const VatoStats: React.FC = () => {
               : formatStatsTotal(performers.length, "vato", "vatos")}
           </div>
         </div>
-        <StatsStudioSelector
-          includeChildStudios={includeChildStudios}
-          onIncludeChildStudiosChange={(include) => {
-            setIncludeChildStudios(include);
-            setFilters([]);
-          }}
-          onStudioChange={(studio) => {
-            setSelectedStudio(studio);
-            setFilters([]);
-          }}
-          studio={selectedStudio}
-        />
+        {!fixedStudioScope && (
+          <StatsStudioSelector
+            includeChildStudios={includeChildStudios}
+            onIncludeChildStudiosChange={(include) => {
+              setIncludeChildStudios(include);
+              setFilters([]);
+            }}
+            onStudioChange={(studio) => {
+              setSelectedStudio(studio);
+              setFilters([]);
+            }}
+            studio={selectedStudio}
+          />
+        )}
       </header>
 
       {performers.length === 0 ? (
@@ -1896,5 +1904,7 @@ const VatoStats: React.FC = () => {
     </StatsPage>
   );
 };
+
+const VatoStats: React.FC = () => <VatoStatsDashboard />;
 
 export default VatoStats;

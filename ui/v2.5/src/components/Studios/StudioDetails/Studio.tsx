@@ -32,6 +32,7 @@ import {
 import { StudioGroupsPanel } from "./StudioGroupsPanel";
 import { StudioCategoryStrip } from "./StudioCategoryStrip"; // CUSTOM
 import { StudioStatsPanel } from "./StudioStatsPanel"; // CUSTOM
+import { StudioVatoStatsPanel } from "./StudioVatoStatsPanel"; // CUSTOM
 import { faTrashAlt } from "@fortawesome/free-solid-svg-icons";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import { DetailImage } from "src/components/Shared/DetailImage";
@@ -76,6 +77,7 @@ const validTabs = [
   "groups",
   "childstudios",
   "stats",
+  "vatostats", // CUSTOM
 ] as const;
 type TabKey = (typeof validTabs)[number];
 
@@ -274,7 +276,10 @@ const StudioTabs: React.FC<{
           studio={studio}
         />
       </Tab>
-      <Tab eventKey="stats" title="Stats">
+      <Tab
+        eventKey="stats"
+        title="Scene Stats" // CUSTOM
+      >
         {contentSwitch}
         <StudioStatsPanel
           month={statsMonth} // CUSTOM
@@ -283,6 +288,15 @@ const StudioTabs: React.FC<{
           year={statsYear} // CUSTOM
         />
       </Tab>
+      {/* CUSTOM: begin */}
+      <Tab eventKey="vatostats" title="Vato Stats">
+        {contentSwitch}
+        <StudioVatoStatsPanel
+          studio={studio}
+          showChildStudioContent={showAllDetails}
+        />
+      </Tab>
+      {/* CUSTOM: end */}
     </Tabs>
   );
 };

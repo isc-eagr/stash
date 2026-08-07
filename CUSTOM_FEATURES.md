@@ -1274,8 +1274,8 @@ extend type Query {
 - `TotalPenisMeters` resolver: Sums performer penis lengths (defaulting to 17cm when null), converts to meters
 - `TotalOrgasmTime` resolver: Sums duration of all orgasm markers (uses end_seconds - seconds, or 20s default if no end time)
 - `TotalFacialTime` resolver: Sums duration of all facial markers (uses end_seconds - seconds, or 20s default if no end time)
-- `TotalSexTime` resolver: Sums each completed sex activity marker duration once, without performer weighting
-- `TotalOralTime` resolver: Sums each completed oral activity marker duration once, without performer weighting
+- `TotalSexTime` resolver: Merges overlapping completed sex activity ranges per scene, clips them to video duration, and sums the resulting coverage without performer weighting
+- `TotalOralTime` resolver: Merges overlapping completed oral activity ranges per scene, clips them to video duration, and sums the resulting coverage without performer weighting
 
 ### Frontend Files
 
@@ -1288,14 +1288,14 @@ extend type Query {
 - **Total Penis Meters**: Sums all performer penis lengths (uses 17cm default), displays in meters with 🍆 emoji
 - **Total Orgasm Time**: Sum of all orgasm marker durations (end_seconds - seconds), using 20s default when no end timestamp
 - **Total Facial Time**: Sum of all facial marker durations (end_seconds - seconds), using 20s default when no end timestamp
-- **Total Fucking Time**: Sum of completed markers whose primary tag is the configured sex activity tag; markers without a valid end timestamp are excluded and performers do not multiply the duration
-- **Total Sucking Pito Time**: Sum of completed markers whose primary tag is the configured oral activity tag; markers without a valid end timestamp are excluded and performers do not multiply the duration
+- **Total Fucking Time**: Overlap-merged, video-bounded coverage of completed markers whose primary tag is the configured sex activity tag; markers without a valid end timestamp are excluded and performers do not multiply the duration
+- **Total Sucking Pito Time**: Overlap-merged, video-bounded coverage of completed markers whose primary tag is the configured oral activity tag; markers without a valid end timestamp are excluded and performers do not multiply the duration
 - **Clickable Total Orgasms**: Links to Markers page filtered by orgasm tag (using configured orgasmTagId)
 - **Clickable Total Facials**: Links to Markers page filtered by facial tag (using configured facialTagId)
 
 ### Tests
 
-- `internal/api/scene_stats_activity_time_custom_test.go` - Verifies sex/oral totals, completed-range validation, exact activity-tag matching, overlap summation, and performer-independent durations
+- `internal/api/scene_stats_activity_time_custom_test.go` - Verifies sex/oral totals, completed-range validation, exact activity-tag matching, overlap merging, video-bound clipping, scene isolation, and performer-independent durations
 
 ---
 
@@ -3315,7 +3315,7 @@ Renames the user-facing English UI vocabulary from Performer/Performers to Vato/
 
 ### Overview
 
-Adds a hidden `/vatostats` page focused on vato aggregate analytics. A clearable Studio selector can scope the dashboard to vatos with scenes from that Studio, with an Include child studios switch; all scene-derived counts, O totals, role metrics, age distributions, summary cards, tier rows, charts, podiums, Rating Advisor averages, and performer drilldown links honor the selected scope. The page shows linked vato summary cards, preserving their drilldown links and including solo-only and one-scene vatos, a top-three podium for a selectable metric ordered left-to-right as gold, silver, and bronze, the moved Tier vatos by ethnicity table, performer Rating Advisor averages, plus coordinated vertical bar charts for ethnicity, exact scene age, rating buckets, metallic rating, height buckets, country, hair color, eye color, circumcision status, and rounded exact penis size. Rolling-year podium options include O Count from recorded O dates in the last year and Rating limited to performers created in the last year. The podium metric selector sits with the podium descriptor instead of in the page header. The Metallic Rating chart includes a None bar for explicitly set ratings that do not qualify for any configured metallic tier; null/unset ratings are excluded from None. Clicking a bar drills into that category/value and refreshes the podium plus every chart from the filtered vato set; Back and Clear controls unwind the drill-down. Unknown values are shown as separate chart-header counters so a large Unknown population does not compress the visible bars.
+Adds a hidden `/vatostats` page focused on vato aggregate analytics. A clearable Studio selector can scope the dashboard to vatos with scenes from that Studio, with an Include child studios switch; all scene-derived counts, O totals, role metrics, age distributions, summary cards, tier rows, charts, podiums, Rating Advisor averages, and performer drilldown links honor the selected scope. The same reusable dashboard appears as the Studio detail `Vato Stats` tab at `/studios/:id/vatostats`, fixed to that Studio and governed by the detail page's Include child studio content switch. The page shows linked vato summary cards, preserving their drilldown links and including solo-only and one-scene vatos, a top-three podium for a selectable metric ordered left-to-right as gold, silver, and bronze, the moved Tier vatos by ethnicity table, performer Rating Advisor averages, plus coordinated vertical bar charts for ethnicity, exact scene age, rating buckets, metallic rating, height buckets, country, hair color, eye color, circumcision status, and rounded exact penis size. Rolling-year podium options include O Count from recorded O dates in the last year and Rating limited to performers created in the last year. The podium metric selector sits with the podium descriptor instead of in the page header. The Metallic Rating chart includes a None bar for explicitly set ratings that do not qualify for any configured metallic tier; null/unset ratings are excluded from None. Clicking a bar drills into that category/value and refreshes the podium plus every chart from the filtered vato set; Back and Clear controls unwind the drill-down. Unknown values are shown as separate chart-header counters so a large Unknown population does not compress the visible bars.
 
 ### Files Modified
 
@@ -3324,6 +3324,8 @@ Adds a hidden `/vatostats` page focused on vato aggregate analytics. A clearable
 - `internal/api/resolver_custom_test.go` - Adds focused tests for exact scene-age helper behavior, Unknown cleanup, and ID-filter safety.
 - `internal/api/vato_stats_query_custom_test.go` - Verifies that the optimized aggregate query counts each scene and O event once, finds the latest O date, computes career span, preserves zero-O vatos, classifies rolling-year O events and performer creation dates, and excludes unrelated Studios from a direct-Studio scope.
 - `ui/v2.5/src/App.tsx` - Adds the hidden `/vatostats` route.
+- `ui/v2.5/src/components/VatoStats/VatoStats.tsx` - Exposes the reusable dashboard with either its global Studio selector or a fixed Studio scope.
+- `ui/v2.5/src/components/Studios/StudioDetails/Studio.tsx` - Renames the existing tab to Scene Stats and adds the Vato Stats tab.
 
 ### Files Added
 
@@ -3335,6 +3337,7 @@ Adds a hidden `/vatostats` page focused on vato aggregate analytics. A clearable
 - `ui/v2.5/src/components/VatoStats/vatoStatsStudioScope_custom.ts` - Derives Studio-scoped summary, role, and tier aggregates from the compact vato rows.
 - `ui/v2.5/src/components/StatsStudioSelector_custom.tsx` - Shared clearable Studio selector and child-Studio depth switch for SceneStats and VatoStats.
 - `ui/v2.5/tests/vatoStatsStudioScope_custom.test.ts` - Verifies Studio-only summary, role, and tier calculations.
+- `ui/v2.5/src/components/Studios/StudioDetails/StudioVatoStatsPanel.tsx` - Embeds VatoStats with the Studio detail scope and child-Studio depth selection.
 
 ### Test Cases Added
 
@@ -3342,7 +3345,7 @@ Adds a hidden `/vatostats` page focused on vato aggregate analytics. A clearable
 - `TestVatoStatsSetAgeCount` - Covers merging repeated scene-age counts.
 - `TestVatoStatsPerformersQueryCustomAggregatesSceneOsAndCareerOnce` - Covers the pre-aggregated scene-O and single-pass career-span query.
 - `metallicRatingChart_custom.test.ts` - Covers None, null/unset ratings, zero ratings, recognized tiers, and tag-override tiers without a stored rating.
-- `vatoStatsStudioScope_custom.test.ts` - Covers scoped penis/O summaries, role classifications, solo-only and one-scene counts, and ethnicity/tier rows.
+- `vatoStatsStudioScope_custom.test.ts` - Covers direct versus child-Studio scope construction, scoped penis/O summaries, role classifications, solo-only and one-scene counts, and ethnicity/tier rows.
 
 ### GraphQL Schema Changes
 
@@ -3361,7 +3364,7 @@ Adds a hidden `/vatostats` page focused on vato aggregate analytics. A clearable
 
 ### Overview
 
-Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene metrics from CustomStats while adding scene podium metrics and scene distribution charts. A clearable Studio selector can scope the global page to one Studio tree, while the same dashboard replaces the Studio detail Stats tab at `/studios/:id/stats`, where every dataset, summary, insight, and scene/marker drilldown is scoped to that Studio; both surfaces expose or honor an Include child studios switch. Both routes support release year/month drilldowns. The page separates the original dashboard into an Overview section and a lazy Activity & Ratings section containing Activity Type and Quality donuts plus Solo, Standard, and Group Rating Advisor averages. The podium metric selector sits directly above the podium instead of in the page header. The Metallic Rating chart includes a None bar for explicitly set ratings that do not qualify for a configured tier, without classifying null/unset ratings as None. Zero or absent vato/facial counts, zero or absent ordinary ratings, null metallic ratings, missing/invalid release parts, and scenes without a recognized sex/oral/solo type use each chart's Unknown counter instead of zero-value bars; a stored metallic rating of zero remains None. Release year charts drill down to month and day; day bars link to the Scenes page filtered by effective release date.
+Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene metrics from CustomStats while adding scene podium metrics and scene distribution charts. A clearable Studio selector can scope the global page to one Studio tree, while the same dashboard powers the Studio detail Scene Stats tab at `/studios/:id/stats`, where every dataset, summary, insight, and scene/marker drilldown is scoped to that Studio; both surfaces expose or honor an Include child studios switch. Both routes support release year/month drilldowns. The page separates the original dashboard into an Overview section and a lazy Activity & Ratings section containing Activity Type and Quality donuts plus Solo, Standard, and Group Rating Advisor averages. The podium metric selector sits directly above the podium instead of in the page header. The Metallic Rating chart includes a None bar for explicitly set ratings that do not qualify for a configured tier, without classifying null/unset ratings as None. Zero or absent vato/facial counts, zero or absent ordinary ratings, null metallic ratings, missing/invalid release parts, and scenes without a recognized sex/oral/solo type use each chart's Unknown counter instead of zero-value bars; a stored metallic rating of zero remains None. Release year charts drill down to month and day; day bars link to the Scenes page filtered by effective release date.
 
 ### Files Added
 

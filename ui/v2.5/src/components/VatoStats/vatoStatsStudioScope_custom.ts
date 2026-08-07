@@ -1,3 +1,20 @@
+export interface IVatoStatsStudioScope {
+  id: string;
+  name: string;
+  depth: number;
+}
+
+export function getVatoStatsStudioScope(
+  studio: { id: string; name?: string | null },
+  includeChildStudios: boolean
+): IVatoStatsStudioScope {
+  return {
+    id: studio.id,
+    name: studio.name ?? `Studio ${studio.id}`,
+    depth: includeChildStudios ? -1 : 0,
+  };
+}
+
 export interface IVatoStatsStudioPerformer {
   penis_length?: number | null;
   scene_count: number;
