@@ -8,8 +8,10 @@ import {
   getSceneMarkerTagColorCustom,
 } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
 import type { IActivityPieSlice } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
+import { PerformerSceneRatingAdvisorStats } from "../PerformerSceneRatingAdvisor_custom"; // CUSTOM
 
 interface IProps {
+  active: boolean;
   performer: GQL.PerformerDataFragment;
 }
 
@@ -162,7 +164,10 @@ function renderStatsChartFooter(rows: IStatsChartFooterRow[]) {
   );
 }
 
-export const PerformerStatsPanel: React.FC<IProps> = ({ performer }) => {
+export const PerformerStatsPanel: React.FC<IProps> = ({
+  active,
+  performer,
+}) => {
   const { soloTag } = useRoleTags();
   const soloMarkerColor = getSceneMarkerTagColorCustom(soloTag?.name);
   const stats = performer.activity_stats;
@@ -266,6 +271,11 @@ export const PerformerStatsPanel: React.FC<IProps> = ({ performer }) => {
           />
         ))}
       </div>
+      {/* CUSTOM */}
+      <PerformerSceneRatingAdvisorStats
+        active={active}
+        performerId={performer.id}
+      />
     </div>
   );
 };

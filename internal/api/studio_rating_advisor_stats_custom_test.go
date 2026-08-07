@@ -175,4 +175,16 @@ func TestStudioRatingAdvisorStatsCustomAveragesOnlySetCriteria(t *testing.T) {
 	require.Equal(t, 4, global.Performers.EntityCount)
 	require.InDelta(t, 75, *global.OverallSceneAverageRating100, 0.0001)
 	require.InDelta(t, 72.5, *global.Performers.AverageRating100, 0.0001)
+
+	performerTwo := ratingAdvisorTestStatsFromQueryCustom(t, db, performerRatingAdvisorStatsQueryCustom, 2)
+	require.Zero(t, performerTwo.SoloScenes.EntityCount)
+	require.Equal(t, 2, performerTwo.SexScenes.EntityCount)
+	require.Zero(t, performerTwo.GroupScenes.EntityCount)
+	require.InDelta(t, 70, *performerTwo.OverallSceneAverageRating100, 0.0001)
+
+	performerFour := ratingAdvisorTestStatsFromQueryCustom(t, db, performerRatingAdvisorStatsQueryCustom, 4)
+	require.Zero(t, performerFour.SoloScenes.EntityCount)
+	require.Zero(t, performerFour.SexScenes.EntityCount)
+	require.Equal(t, 1, performerFour.GroupScenes.EntityCount)
+	require.InDelta(t, 100, *performerFour.OverallSceneAverageRating100, 0.0001)
 }

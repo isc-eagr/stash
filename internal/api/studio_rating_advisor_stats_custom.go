@@ -250,6 +250,16 @@ const globalRatingAdvisorStatsQueryCustom = `WITH selected_scenes(id, performer_
   GROUP BY scenes.id
 )` + studioRatingAdvisorStatsQueryBodyCustom
 
+const performerRatingAdvisorStatsQueryCustom = `WITH selected_scenes(id, performer_count, rating100) AS (
+  SELECT scenes.id, COUNT(DISTINCT performers_scenes.performer_id), scenes.rating
+  FROM scenes
+  JOIN performers_scenes selected_performer_scenes
+    ON selected_performer_scenes.scene_id = scenes.id
+    AND selected_performer_scenes.performer_id = ?
+  LEFT JOIN performers_scenes ON performers_scenes.scene_id = scenes.id
+  GROUP BY scenes.id
+)` + studioRatingAdvisorStatsQueryBodyCustom
+
 func studioRatingAdvisorNearestChoiceIndexCustom(metric studioRatingAdvisorMetricConfigCustom, rawValue float64) int {
 	if len(metric.choices) == 0 {
 		return 0
@@ -474,6 +484,14 @@ func queryGlobalRatingAdvisorStatsCustom(ctx context.Context) (*StudioRatingAdvi
 	return queryRatingAdvisorStatsCustom(ctx, globalRatingAdvisorStatsQueryCustom, nil)
 }
 
+func queryPerformerRatingAdvisorStatsCustom(ctx context.Context, performerID int) (*StudioRatingAdvisorStats, error) {
+	return queryRatingAdvisorStatsCustom(
+		ctx,
+		performerRatingAdvisorStatsQueryCustom,
+		[]interface{}{performerID},
+	)
+}
+
 func queryRatingAdvisorStatsCustom(ctx context.Context, query string, args []interface{}) (*StudioRatingAdvisorStats, error) {
 	_, rawRows, err := manager.GetInstance().Database.QuerySQL(
 		ctx,
@@ -523,6 +541,21 @@ func (r *queryResolver) GlobalRatingAdvisorStats(ctx context.Context, studioID *
 		} else {
 			ret, err = queryStudioRatingAdvisorStatsCustom(ctx, *parsedStudioID, depth)
 		}
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func (r *queryResolver) PerformerRatingAdvisorStats(ctx context.Context, performerID string) (ret *StudioRatingAdvisorStats, err error) {
+	parsedPerformerID, parseErr := strconv.Atoi(performerID)
+	if parseErr != nil || parsedPerformerID < 1 {
+		return nil, fmt.Errorf("invalid performer ID: %s", performerID)
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = queryPerformerRatingAdvisorStatsCustom(ctx, parsedPerformerID)
 		return err
 	}); err != nil {
 		return nil, err

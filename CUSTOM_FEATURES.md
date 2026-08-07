@@ -2939,6 +2939,8 @@ GraphQL adds `StudioRatingAdvisorStats`, section/criterion/adjustment payload ty
 
 Studio card scene-count hovers reuse the Solo Criteria, Standard Criteria, and Group Criteria panels, while performer-count hovers reuse the Performers panel. These panels use the existing aggregate query lazily on first hover and share Apollo's per-studio cache, avoiding per-card Rating Advisor requests during list loading. Their measured popover containers stay within the viewport and scroll vertically when necessary. Both the Studio Stats page and the card/count hover completely omit zero-rated-scene Solo/Standard/Group criteria sections, displaying only the remaining panels side by side on wide screens before collapsing responsively. Studio rating-criteria filters and average sort labels use the same Solo/Standard/Group rubric terminology.
 
+Performer detail Stats tabs reuse the same Solo Criteria, Standard Criteria, and Group Criteria panels, scoped to scenes where that performer appears. The shared performer rating tooltip also appends these scene panels, so the same averages are available from performer cards and the performer detail header. The performer aggregate and tooltip are lazy/cache-backed, and categories with no qualifying scenes are omitted completely.
+
 `TestStudioRatingAdvisorAverageSortExpressionsOrderByDisplayedAverages` executes all four Studio stored-rating sort expressions against representative solo, standard, group, and distinct-performer data.
 
 ### Files Modified
@@ -2953,6 +2955,7 @@ Studio card scene-count hovers reuse the Solo Criteria, Standard Criteria, and G
 - `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx` - Scene detail advisor button
 - `ui/v2.5/src/components/Scenes/SceneCard.tsx` - Lazy criteria tooltip on painted scene-card rating stars
 - `ui/v2.5/src/components/Performers/PerformerDetails/Performer.tsx` - Performer detail advisor button
+- `ui/v2.5/src/components/Performers/PerformerDetails/PerformerStatsPanel.tsx` - Performer-scoped scene Rating Advisor panels on the Stats tab
 - `ui/v2.5/src/components/Performers/PerformerCard.tsx` - Lazy criteria tooltip on painted performer-card rating stars
 - `ui/v2.5/src/components/Shared/Rating/RatingSystem.tsx` - Forces ratings to display as 0-100 values
 - `ui/v2.5/src/components/Shared/Rating/RatingNumber.tsx` - Simplifies manual ratings to a plain 0-100 input
@@ -2968,7 +2971,9 @@ Studio card scene-count hovers reuse the Solo Criteria, Standard Criteria, and G
 - `ui/v2.5/src/models/list-filter/scenes.ts`, `ui/v2.5/src/models/list-filter/performers.ts`, `ui/v2.5/src/models/list-filter/studios.ts` - Registers direct/average rating criteria filters and Studio average-criterion sorts
 - `ui/v2.5/src/locales/en-GB.json`, `ui/v2.5/src/locales/en-US.json` - Adds rating criteria filter labels
 - `graphql/schema/types/studio_custom.graphql` - Adds Studio Rating Advisor aggregate payloads and the depth-aware Studio field
+- `graphql/schema/types/stats_custom.graphql` - Adds the performer-scoped Rating Advisor aggregate query
 - `ui/v2.5/graphql/queries/studio.graphql` - Adds the lazy Studio Rating Advisor Stats query and shared section fragment
+- `ui/v2.5/graphql/queries/stats_custom.graphql` - Fetches performer-scoped scene Rating Advisor averages
 - `ui/v2.5/src/components/Studios/StudioDetails/StudioStatsPanel.tsx` - Renders the four rating summaries below the activity charts
 - `ui/v2.5/src/components/Studios/StudioCard.tsx` - Adds lazy scene/performer count average-panel hovers
 
@@ -3015,7 +3020,8 @@ Studio card scene-count hovers reuse the Solo Criteria, Standard Criteria, and G
 - `pkg/sqlite/rating_rebalance_solo_group_custom_test.go` - Executes the standalone migration against representative solo, group, and regular-scene rows, including rerun safety and group-only bonus removal
 - `ui/v2.5/src/components/Performers/performerTypes_custom.ts` - Shared performer list/card data type for the lean list query
 - `internal/api/studio_rating_advisor_stats_custom.go` - Set-based studio rubric aggregate, per-criterion denominator handling, normalized bar averages, and adjustment counts
-- `internal/api/studio_rating_advisor_stats_custom_test.go` - Focused SQLite aggregate coverage for direct/child studios, partial advisor data, and level-1 orgasm-quality contributions/fill
+- `internal/api/studio_rating_advisor_stats_custom_test.go` - Focused SQLite aggregate coverage for direct/child studios, performer-scoped scene membership, partial advisor data, and level-1 orgasm-quality contributions/fill
+- `ui/v2.5/src/components/Performers/PerformerSceneRatingAdvisor_custom.tsx` - Shared performer-scoped section rendering and Stats-tab query state
 - `ui/v2.5/src/components/Studios/StudioDetails/StudioRatingAdvisorStats.tsx` - Four responsive popup-style Rating Advisor average sections
 - `ui/v2.5/src/components/Studios/StudioDetails/StudioRatingAdvisorStats.scss` - Studio Rating Advisor section layout and responsive styling
 - `ui/v2.5/src/components/Studios/StudioRatingAdvisorPopover_custom.tsx` - Lazy card-count hover wrapper reusing the Studio Stats sections

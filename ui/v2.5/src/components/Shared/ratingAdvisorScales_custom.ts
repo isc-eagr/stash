@@ -97,7 +97,7 @@ const RATING_ADVISOR_ADJUSTMENT_TOOLTIP_LABELS_CUSTOM: Record<string, string> =
   {
     theme: "Uniform",
     oralOnly: "Oral-only",
-    godTierOrgasm: "Orgasm",
+    godTierOrgasm: "GOAT Orgasm",
     goatElement: "GOAT",
     unlikelyTop: "Unlikely top",
     orgasmBonus: "O Bonus",

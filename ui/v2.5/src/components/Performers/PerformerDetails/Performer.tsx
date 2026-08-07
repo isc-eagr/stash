@@ -347,7 +347,10 @@ const PerformerTabs: React.FC<{
         />
       </Tab>
       <Tab eventKey="stats" title="Stats">
-        <PerformerStatsPanel performer={performer} />
+        <PerformerStatsPanel
+          active={tabKey === "stats"}
+          performer={performer}
+        />
       </Tab>
       {/* CUSTOM: end */}
     </Tabs>

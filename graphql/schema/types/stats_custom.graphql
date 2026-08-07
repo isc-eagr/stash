@@ -208,6 +208,8 @@ extend type Query {
   sceneStatsActivity(studio_id: ID, depth: Int): StudioActivityStats!
   "Get scene and performer Rating Advisor averages, optionally scoped to a studio tree"
   globalRatingAdvisorStats(studio_id: ID, depth: Int): StudioRatingAdvisorStats!
+  "Get scene Rating Advisor averages for scenes containing one performer"
+  performerRatingAdvisorStats(performer_id: ID!): StudioRatingAdvisorStats!
   "Get a count of performers per ethnicity (non-empty only), sorted by highest count first"
   performerEthnicityCounts: [PerformerEthnicityCount!]!
   "Get a count of 5-star performers per ethnicity (non-empty only), sorted by highest count first"

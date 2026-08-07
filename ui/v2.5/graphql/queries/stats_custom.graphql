@@ -43,3 +43,19 @@ query VatoStatsRatingAdvisor($studioId: ID, $depth: Int) {
     }
   }
 }
+
+# CUSTOM: Scene Rating Advisor data scoped to one performer's appearances.
+query PerformerRatingAdvisorStats($performerId: ID!) {
+  performerRatingAdvisorStats(performer_id: $performerId) {
+    overall_scene_average_rating100
+    solo_scenes {
+      ...StudioRatingAdvisorSectionData
+    }
+    sex_scenes {
+      ...StudioRatingAdvisorSectionData
+    }
+    group_scenes {
+      ...StudioRatingAdvisorSectionData
+    }
+  }
+}

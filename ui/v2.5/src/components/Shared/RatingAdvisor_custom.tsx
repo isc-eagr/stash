@@ -4,6 +4,10 @@ import { Badge, Button, OverlayTrigger, Popover } from "react-bootstrap";
 import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 import { ModalComponent } from "src/components/Shared/Modal";
 import { RatingNumber } from "src/components/Shared/Rating/RatingNumber";
+import {
+  getVisiblePerformerSceneRatingAdvisorDefinitions,
+  PerformerSceneRatingAdvisorSections,
+} from "src/components/Performers/PerformerSceneRatingAdvisor_custom"; // CUSTOM
 import * as GQL from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useToast } from "src/hooks/Toast";
@@ -879,6 +883,14 @@ export const RatingCriteriaTooltip: React.FC<IRatingCriteriaTooltipProps> = ({
     variables: { entity_type: entityType, entity_id: entityId },
     fetchPolicy: "cache-first",
   });
+  const [
+    loadPerformerSceneStats,
+    {
+      data: performerSceneStatsData,
+      loading: performerSceneStatsLoading,
+      error: performerSceneStatsError,
+    },
+  ] = GQL.usePerformerRatingAdvisorStatsLazyQuery(); // CUSTOM
   const [showTooltip, setShowTooltip] = useState(false);
   const suppressNextShowRef = useRef(false);
   const effectiveScores = ratingScores ?? data?.ratingScores;
@@ -975,6 +987,15 @@ export const RatingCriteriaTooltip: React.FC<IRatingCriteriaTooltipProps> = ({
   );
   const hasAnySummary =
     hasRatedCriteria || bonusRows.length > 0 || penaltyRows.length > 0;
+  const performerSceneStats =
+    performerSceneStatsData?.performerRatingAdvisorStats; // CUSTOM
+  const visiblePerformerSceneDefinitions =
+    getVisiblePerformerSceneRatingAdvisorDefinitions(performerSceneStats); // CUSTOM
+  const showPerformerSceneArea =
+    entityType === "performer" &&
+    (performerSceneStatsLoading ||
+      !!performerSceneStatsError ||
+      visiblePerformerSceneDefinitions.length > 0); // CUSTOM
   const popoverID = `rating-criteria-${entityType}-${entityId}`;
 
   function handleToggle(show: boolean) {
@@ -987,6 +1008,15 @@ export const RatingCriteriaTooltip: React.FC<IRatingCriteriaTooltipProps> = ({
     setShowTooltip(show);
     if (show && !data && !loading && !error) {
       void loadScores();
+    }
+    if (
+      show &&
+      entityType === "performer" &&
+      !performerSceneStatsData &&
+      !performerSceneStatsLoading &&
+      !performerSceneStatsError
+    ) {
+      void loadPerformerSceneStats({ variables: { performerId: entityId } });
     }
   }
 
@@ -1070,7 +1100,7 @@ export const RatingCriteriaTooltip: React.FC<IRatingCriteriaTooltipProps> = ({
     );
   }
 
-  const content =
+  const ratingSummaryContent =
     loading && !hasAnySummary ? (
       <div className="rating-criteria-tooltip-status">Loading summary…</div>
     ) : error && !effectiveScores ? (
@@ -1113,12 +1143,52 @@ export const RatingCriteriaTooltip: React.FC<IRatingCriteriaTooltipProps> = ({
       </div>
     );
 
+  // CUSTOM: begin - performer-scoped scene criteria panels
+  const content = showPerformerSceneArea ? (
+    <div className="performer-rating-criteria-tooltip-layout">
+      <section className="performer-rating-criteria-own-summary">
+        <span className="performer-rating-criteria-tooltip-title">
+          Vato Criteria
+        </span>
+        {ratingSummaryContent}
+      </section>
+      <section className="performer-rating-criteria-scene-summary">
+        <span className="performer-rating-criteria-tooltip-title">
+          Scene Criteria
+        </span>
+        {performerSceneStatsLoading && !performerSceneStats && (
+          <div className="rating-criteria-tooltip-status">
+            Loading scene rating averages…
+          </div>
+        )}
+        {performerSceneStatsError && !performerSceneStats && (
+          <div className="rating-criteria-tooltip-status">
+            Scene rating averages could not be loaded.
+          </div>
+        )}
+        {performerSceneStats && (
+          <PerformerSceneRatingAdvisorSections stats={performerSceneStats} />
+        )}
+      </section>
+    </div>
+  ) : (
+    ratingSummaryContent
+  );
+  // CUSTOM: end
+
   return (
     <OverlayTrigger
       delay={{ show: 250, hide: 100 }}
       onToggle={handleToggle}
       overlay={
-        <Popover className="rating-criteria-tooltip" id={popoverID}>
+        <Popover
+          className={`rating-criteria-tooltip ${
+            showPerformerSceneArea
+              ? `rating-criteria-tooltip-performer-scenes rating-criteria-tooltip-performer-scenes-${visiblePerformerSceneDefinitions.length}`
+              : ""
+          }`}
+          id={popoverID}
+        >
           <div className="rating-criteria-tooltip-content">{content}</div>
         </Popover>
       }
