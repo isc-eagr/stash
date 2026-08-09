@@ -64,7 +64,6 @@ import type {
   IMultiSegmentLoopApi,
 } from "./multi-segment-loop";
 import { filterLoopSegmentsOutsideNegativeMarkers } from "./loopSegments_custom";
-import { startNegativeMarkerSkippingCustom } from "./playbackTiming_custom";
 import { MultiSegmentLoopControls } from "./MultiSegmentLoopControls";
 
 // Performer image overlay components
@@ -334,6 +333,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     // Negative marker skipping - enabled by default
     const [negativeMarkerSkipEnabled, setNegativeMarkerSkipEnabled] =
       useState(true);
+    const lastSkipTimeRef = useRef<number>(0); // Prevent rapid re-skipping
 
     // Performer image overlay state
     const [showImageOverlayModal, setShowImageOverlayModal] = useState(false);
@@ -1508,9 +1508,36 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       if (!player) return;
 
       const negativeMarkers = scene.negative_markers ?? [];
-      if (!negativeMarkerSkipEnabled || negativeMarkers.length === 0) return;
+      if (negativeMarkers.length === 0) return;
 
-      return startNegativeMarkerSkippingCustom(player, negativeMarkers);
+      function checkNegativeMarkers(this: VideoJsPlayer) {
+        if (!negativeMarkerSkipEnabled) return;
+        if (this.paused()) return;
+
+        const currentTime = this.currentTime();
+        const now = Date.now();
+
+        // Prevent rapid re-skipping (debounce 500ms)
+        if (now - lastSkipTimeRef.current < 500) return;
+
+        for (const marker of negativeMarkers) {
+          if (
+            currentTime >= marker.start_seconds &&
+            currentTime < marker.end_seconds
+          ) {
+            // Skip to end of this negative marker
+            lastSkipTimeRef.current = now;
+            this.currentTime(marker.end_seconds);
+            break;
+          }
+        }
+      }
+
+      player.on("timeupdate", checkNegativeMarkers);
+
+      return () => {
+        player.off("timeupdate", checkNegativeMarkers);
+      };
     }, [getPlayer, scene.negative_markers, negativeMarkerSkipEnabled]);
     // CUSTOM: end
 

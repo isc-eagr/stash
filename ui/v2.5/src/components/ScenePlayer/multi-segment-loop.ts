@@ -1,8 +1,4 @@
 import videojs, { VideoJsPlayer } from "video.js";
-import {
-  reachesPlaybackBoundaryCustom,
-  startPrecisePlaybackMonitorCustom,
-} from "./playbackTiming_custom";
 
 export interface ILoopSegment {
   id: string;
@@ -40,9 +36,9 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   private enabled: boolean = false;
   private currentSegmentIndex: number = 0;
   private pendingStart: number | null = null;
+  private checkInterval: number | null = null;
+  private loopMargin: number = 0.1; // margin in seconds before end to trigger loop
   private loopSingleId: string | null = null; // ID of segment to loop single
-  private stopPrecisePlaybackMonitor?: () => void;
-  private readonly playingHandler = () => this.onPlaying();
 
   // Timeline visualization elements
   private segmentMarkers: Map<string, HTMLDivElement> = new Map();
@@ -87,12 +83,9 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   }
 
   private setupTimeUpdateHandler(): void {
-    this.player.on("playing", this.playingHandler);
-    this.stopPrecisePlaybackMonitor = startPrecisePlaybackMonitorCustom(
-      this.player,
-      ({ currentTime, boundaryLead }) =>
-        this.checkLoop(currentTime, boundaryLead)
-    );
+    this.player.on("timeupdate", this.checkLoop.bind(this));
+    this.player.on("playing", this.onPlaying.bind(this));
+    this.player.on("pause", this.onPause.bind(this));
   }
 
   private onPlaying(): void {
@@ -111,16 +104,16 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     }
   }
 
-  private checkLoop(currentTime: number, boundaryLead: number): void {
-    if (
-      !this.enabled ||
-      this.segments.length === 0 ||
-      this.player.paused() ||
-      this.player.seeking()
-    ) {
+  private onPause(): void {
+    // Nothing specific needed on pause for now
+  }
+
+  private checkLoop(): void {
+    if (!this.enabled || this.segments.length === 0 || this.player.paused()) {
       return;
     }
 
+    const currentTime = this.player.currentTime();
     const currentSegment = this.segments[this.currentSegmentIndex];
 
     if (!currentSegment) {
@@ -128,13 +121,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     }
 
     // Check if we've reached the end of the current segment
-    if (
-      reachesPlaybackBoundaryCustom(
-        currentTime,
-        currentSegment.end,
-        boundaryLead
-      )
-    ) {
+    if (currentTime >= currentSegment.end - this.loopMargin) {
       this.advanceToNextSegment();
     }
   }
@@ -713,8 +700,9 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   dispose(): void {
     this.clearSegmentMarkers();
     this.clearPendingMarker();
-    this.stopPrecisePlaybackMonitor?.();
-    this.player.off("playing", this.playingHandler);
+    this.player.off("timeupdate", this.checkLoop.bind(this));
+    this.player.off("playing", this.onPlaying.bind(this));
+    this.player.off("pause", this.onPause.bind(this));
     super.dispose();
   }
 }

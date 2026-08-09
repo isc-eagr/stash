@@ -911,7 +911,7 @@ These configuration paths are used throughout the custom features:
 
 ### Overview
 
-An enhanced looping system for the scene player that allows you to define multiple A-B segments instead of just one. When loop is enabled, the player will play through all defined segments in order, then repeat from the first segment. Loop transitions and negative-marker skips use presented-frame callbacks when the browser supports them, with an animation-frame fallback, so decimal timestamps retain millisecond precision without relying on coarse `timeupdate` events. Boundary prediction uses the measured video-frame cadence to move before the first frame outside a loop or inside a negative marker; overlapping negative ranges seek directly past the complete blocked span. Negative-marker skips are single-flight: frame callbacks cannot restart an unresolved seek, playback resumes after the destination resolves when it was previously playing, and an explicit pause during the seek is respected.
+An enhanced looping system for the scene player that allows you to define multiple A-B segments instead of just one. When loop is enabled, the player will play through all defined segments in order, then repeat from the first segment.
 
 ### Usage
 
@@ -930,10 +930,8 @@ An enhanced looping system for the scene player that allows you to define multip
 - `ui/v2.5/src/components/ScenePlayer/multi-segment-loop.ts` - VideoJS plugin for multi-segment looping
 - `ui/v2.5/src/components/ScenePlayer/MultiSegmentLoopControls.tsx` - React component for segment management UI
 - `ui/v2.5/src/components/ScenePlayer/multiSegmentSelection_custom.ts` - Bulk selection helper functions
-- `ui/v2.5/src/components/ScenePlayer/playbackTiming_custom.ts` - Shared frame-aware boundary monitor and negative-marker range handling
 - `ui/v2.5/src/@types/videojs-multi-segment-loop.d.ts` - TypeScript type declarations
 - `ui/v2.5/tests/multiSegmentSelection_custom.test.ts` - Bulk selection helper tests
-- `ui/v2.5/tests/playbackTiming_custom.test.ts` - Millisecond boundary, frame lead, and negative-range skip tests
 
 ### Files Modified
 
@@ -956,13 +954,10 @@ An enhanced looping system for the scene player that allows you to define multip
 - Persistent pending marker when setting start point
 - Segment list with jump-to-segment functionality
 - Total duration calculation for all segments
-- Frame-aware transitions replace the former fixed 100-millisecond loop margin
-- Scene-player and multi-video-viewer negative markers skip before a blocked frame is presented
 
 ### Test Cases Added
 
 - `ui/v2.5/tests/multiSegmentSelection_custom.test.ts` - Verifies selected and unselected segment ID deletion lists for the bulk actions
-- `ui/v2.5/tests/playbackTiming_custom.test.ts` - Verifies millisecond segment thresholds, frame-rate-aware lookahead, playback-rate adjustment, overlapping negative ranges, reversed range normalization, single-flight seeks, post-seek resume, and explicit-pause preservation
 
 ### Configuration Dependencies
 
@@ -974,7 +969,7 @@ An enhanced looping system for the scene player that allows you to define multip
 
 ### Overview
 
-A dedicated player page that allows you to select multiple markers from the Markers page (`/scenes/markers`) and play them sequentially in a loop. This works across different scenes - the player automatically loads each scene's video and seeks to the marker position. End-boundary advancement uses the shared presented-frame timing monitor so the player changes markers before presenting the first frame beyond the marker's decimal end timestamp. A second hidden video slot preloads and seeks to the next marker that requires a scene change, then becomes active at the boundary to avoid paying source startup time between markers.
+A dedicated player page that allows you to select multiple markers from the Markers page (`/scenes/markers`) and play them sequentially in a loop. This works across different scenes - the player automatically loads each scene's video and seeks to the marker position. A second hidden video slot preloads and seeks to the next marker that requires a scene change, then becomes active at the boundary to avoid paying source startup time between markers.
 
 ### Marker Playback Queue
 
@@ -1025,7 +1020,6 @@ The queue is in-memory only and is cleared when leaving the marker list.
 - Double-buffered cross-scene playback that warms and seeks the next required source in advance
 - Same-scene markers reuse the active video, while preload selection skips ahead to the next actual source change
 - Automatic advancement from one marker to the next
-- Frame-aware marker-end transitions instead of coarse `timeupdate` polling
 - Loop mode to continuously play all markers
 - Previous/Next navigation controls
 - Playlist sidebar with all markers listed
