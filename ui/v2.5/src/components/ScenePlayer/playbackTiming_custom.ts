@@ -101,6 +101,93 @@ export function getNegativeMarkerSkipTargetCustom(
   return target;
 }
 
+export class NegativeMarkerSkipCoordinatorCustom {
+  private pendingTarget: number | undefined;
+  private resumeAfterSeek = false;
+
+  beginSkip(
+    currentTime: number,
+    boundaryLead: number,
+    markers: readonly INegativePlaybackRangeCustom[],
+    isSeeking: boolean,
+    wasPlaying: boolean
+  ): number | undefined {
+    if (this.pendingTarget !== undefined || isSeeking) return undefined;
+
+    const target = getNegativeMarkerSkipTargetCustom(
+      currentTime,
+      boundaryLead,
+      markers
+    );
+    if (target === undefined) return undefined;
+
+    this.pendingTarget = target;
+    this.resumeAfterSeek = wasPlaying;
+    return target;
+  }
+
+  completeSeek(isPaused: boolean): boolean {
+    if (this.pendingTarget === undefined) return false;
+
+    const shouldResume = this.resumeAfterSeek && isPaused;
+    this.reset();
+    return shouldResume;
+  }
+
+  cancelResume(): void {
+    this.resumeAfterSeek = false;
+  }
+
+  reset(): void {
+    this.pendingTarget = undefined;
+    this.resumeAfterSeek = false;
+  }
+}
+
+export function startNegativeMarkerSkippingCustom(
+  player: VideoJsPlayer,
+  markers: readonly INegativePlaybackRangeCustom[]
+): () => void {
+  const coordinator = new NegativeMarkerSkipCoordinatorCustom();
+  const handleSeeked = () => {
+    if (!coordinator.completeSeek(player.paused())) return;
+    void player.play()?.catch(() => undefined);
+  };
+  const handlePause = () => coordinator.cancelResume();
+
+  player.on("seeked", handleSeeked);
+  player.on("pause", handlePause);
+  // Register the monitor after the completion listener. If another seek lands
+  // inside a blocked range, its seeked event may start a new protected seek;
+  // the same event must not also be mistaken for that new seek's completion.
+  const stopPlaybackMonitor = startPrecisePlaybackMonitorCustom(
+    player,
+    ({ currentTime, boundaryLead }) => {
+      const skipTarget = coordinator.beginSkip(
+        currentTime,
+        boundaryLead,
+        markers,
+        player.seeking(),
+        !player.paused()
+      );
+      if (skipTarget === undefined) return;
+
+      try {
+        player.currentTime(skipTarget);
+      } catch {
+        coordinator.reset();
+      }
+    }
+  );
+
+  return () => {
+    stopPlaybackMonitor();
+    coordinator.reset();
+    player.off("seeked", handleSeeked);
+    player.off("pause", handlePause);
+  };
+}
+
 export function startPrecisePlaybackMonitorCustom(
   player: VideoJsPlayer,
   callback: PlaybackBoundaryCallbackCustom

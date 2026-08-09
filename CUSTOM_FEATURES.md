@@ -911,7 +911,7 @@ These configuration paths are used throughout the custom features:
 
 ### Overview
 
-An enhanced looping system for the scene player that allows you to define multiple A-B segments instead of just one. When loop is enabled, the player will play through all defined segments in order, then repeat from the first segment. Loop transitions and negative-marker skips use presented-frame callbacks when the browser supports them, with an animation-frame fallback, so decimal timestamps retain millisecond precision without relying on coarse `timeupdate` events. Boundary prediction uses the measured video-frame cadence to move before the first frame outside a loop or inside a negative marker; overlapping negative ranges seek directly past the complete blocked span.
+An enhanced looping system for the scene player that allows you to define multiple A-B segments instead of just one. When loop is enabled, the player will play through all defined segments in order, then repeat from the first segment. Loop transitions and negative-marker skips use presented-frame callbacks when the browser supports them, with an animation-frame fallback, so decimal timestamps retain millisecond precision without relying on coarse `timeupdate` events. Boundary prediction uses the measured video-frame cadence to move before the first frame outside a loop or inside a negative marker; overlapping negative ranges seek directly past the complete blocked span. Negative-marker skips are single-flight: frame callbacks cannot restart an unresolved seek, playback resumes after the destination resolves when it was previously playing, and an explicit pause during the seek is respected.
 
 ### Usage
 
@@ -962,7 +962,7 @@ An enhanced looping system for the scene player that allows you to define multip
 ### Test Cases Added
 
 - `ui/v2.5/tests/multiSegmentSelection_custom.test.ts` - Verifies selected and unselected segment ID deletion lists for the bulk actions
-- `ui/v2.5/tests/playbackTiming_custom.test.ts` - Verifies millisecond segment thresholds, frame-rate-aware lookahead, playback-rate adjustment, overlapping negative ranges, and reversed range normalization
+- `ui/v2.5/tests/playbackTiming_custom.test.ts` - Verifies millisecond segment thresholds, frame-rate-aware lookahead, playback-rate adjustment, overlapping negative ranges, reversed range normalization, single-flight seeks, post-seek resume, and explicit-pause preservation
 
 ### Configuration Dependencies
 
@@ -974,7 +974,7 @@ An enhanced looping system for the scene player that allows you to define multip
 
 ### Overview
 
-A dedicated player page that allows you to select multiple markers from the Markers page (`/scenes/markers`) and play them sequentially in a loop. This works across different scenes - the player automatically loads each scene's video and seeks to the marker position. End-boundary advancement uses the shared presented-frame timing monitor so the player changes markers before presenting the first frame beyond the marker's decimal end timestamp.
+A dedicated player page that allows you to select multiple markers from the Markers page (`/scenes/markers`) and play them sequentially in a loop. This works across different scenes - the player automatically loads each scene's video and seeks to the marker position. End-boundary advancement uses the shared presented-frame timing monitor so the player changes markers before presenting the first frame beyond the marker's decimal end timestamp. A second hidden video slot preloads and seeks to the next marker that requires a scene change, then becomes active at the boundary to avoid paying source startup time between markers.
 
 ### Marker Playback Queue
 
@@ -1005,6 +1005,7 @@ The queue is in-memory only and is cleared when leaving the marker list.
 
 - `ui/v2.5/src/components/Scenes/MarkerPlaylistPlayer.tsx` - Main React component for the playlist player
 - `ui/v2.5/src/components/Scenes/MarkerPlaylistPlayer.scss` - Styles for the playlist player UI
+- `ui/v2.5/src/components/Scenes/markerPlaylistPreload_custom.ts` - Source-change preload selection and matching helpers
 - `ui/v2.5/src/components/Scenes/MarkerQueueIndicator.tsx` - Queue indicator component showing count and controls
 - `ui/v2.5/src/hooks/MarkerQueue.tsx` - React context for managing the marker playback queue
 
@@ -1021,6 +1022,8 @@ The queue is in-memory only and is cleared when leaving the marker list.
 
 - Select any number of markers from the markers list
 - Cross-scene playback - automatically loads the correct video for each marker
+- Double-buffered cross-scene playback that warms and seeks the next required source in advance
+- Same-scene markers reuse the active video, while preload selection skips ahead to the next actual source change
 - Automatic advancement from one marker to the next
 - Frame-aware marker-end transitions instead of coarse `timeupdate` polling
 - Loop mode to continuously play all markers
@@ -1030,6 +1033,10 @@ The queue is in-memory only and is cleared when leaving the marker list.
 - Duration display for total playlist time
 - "Now Playing" indicator showing current marker
 - Displays marker-assigned performers (when present)
+
+### Test Cases Added
+
+- `ui/v2.5/tests/markerPlaylistPreload_custom.test.ts` - Verifies same-scene skipping, loop wraparound, non-looping behavior, single-marker loops, and exact warmed-marker matching
 
 ### URL Parameters
 
@@ -3510,7 +3517,7 @@ The Create Marker, Add to Loop, and Open in Viewer toolbar sticks to the top of 
 
 Marker rows and `/scenes/markers` marker cards display direct primary tags, direct secondary tags, context-overlap tags, and hierarchy-inferred parent tags with distinct badge colors. Parent tags are collapsed behind a small `+N` toggle by default, and they are also included in scene-local tag search options, so a marker tagged with a child tag can be searched by its parent tag. Duplicate tags only render once at the highest available tier: primary, then secondary, then overlap, then parent.
 
-Scene detail pages also include an icon toggle beside the scene tabs that hides the scene overview/header block, allowing the active tab panel to use the full vertical space of the left column. The scene player scrubber marker tags and timeline marker tooltips use the same performer/tag-card hover presentation as the Markers tab pills. Direct marker tags keep their solid blue Top and green Bottom pill treatments; tags contributed solely by a containing overlap context use the same role colors at a muted opacity with a fine dashed border. GOAT-tagged thumbnail-scrubber tags, player-timeline dots/ranges, and timeline hover cards reuse the persistent Royal Sapphire treatment from marker cards and panel pills. Timeline tooltips use the same containment-derived performer tags as the Markers tab, including one performer tile with both role colors when the same performer has top and bottom tags across overlapping markers. This applies to outstanding/highlight and Activity Type markers: a smaller fully-contained activity marker inherits the containing activity marker's tags and roles, while the larger marker does not inherit from a marker that covers only part of its range. Fullscreen player controls hide on idle even while paused. Clicking either a scene player timeline marker or a thumbnail-scrubber marker performs a one-shot focus into the Markers tab, so later filter/edit changes do not keep auto-scrolling back to that marker. Every click receives a distinct latest-wins request: repeated clicks on the same marker restart the focus, while newer clicks cancel older pending frames, smooth scrolling, glow timers, and glow animation state. The focused marker or its rendered Activity Type group glows fuchsia for 10 seconds, including current-playback and Royal Sapphire/GOAT-themed activity pills, keeping the transient interaction state distinct from the persistent sapphire tier. Marker focus scrolls only the tab content, keeping the scene tab rows visible when the panel is vertically expanded. Timeline markers, marker ranges, and thumbnail-scrubber tags gain a restrained blue hover aura without moving their position or hit targets.
+Scene detail pages also include an icon toggle beside the scene tabs that hides the scene overview/header block, allowing the active tab panel to use the full vertical space of the left column. The scene player scrubber marker tags and timeline marker tooltips use the same performer/tag-card hover presentation as the Markers tab pills. Direct marker tags keep their solid blue Top and green Bottom pill treatments; tags contributed solely by a containing overlap context use the same role colors at a muted opacity with a fine dashed border. GOAT-tagged thumbnail-scrubber tags, player-timeline dots/ranges, and timeline hover cards reuse the persistent Royal Sapphire treatment from marker cards and panel pills. Timeline tooltips use the same containment-derived performer tags as the Markers tab, including one performer tile with both role colors when the same performer has top and bottom tags across overlapping markers. This applies to outstanding/highlight and Activity Type markers: a smaller fully-contained activity marker inherits the containing activity marker's tags and roles, while the larger marker does not inherit from a marker that covers only part of its range. Fullscreen player controls hide on idle even while paused. Clicking either a scene player timeline marker or a thumbnail-scrubber marker performs a one-shot focus into the Markers tab, so later filter/edit changes do not keep auto-scrolling back to that marker. Every click receives a distinct latest-wins request: repeated clicks on the same marker restart the focus, while newer clicks cancel older pending frames, smooth scrolling, glow timers, and glow animation state. The focused marker or its rendered Activity Type group glows fuchsia for 10 seconds, including current-playback and Royal Sapphire/GOAT-themed activity pills, keeping the transient interaction state distinct from the persistent sapphire tier. Marker focus scrolls only the tab content, keeping the scene tab rows visible when the panel is vertically expanded. Timeline markers, marker ranges, and thumbnail-scrubber tags gain a restrained blue hover aura without moving their position or hit targets. Hovered timeline ranges also receive a thin neutral contrast rim so adjacent ranges remain distinct regardless of their semantic color, while overlapping negative-marker ranges stay visibly red above the hover treatment.
 
 ### Files Modified
 

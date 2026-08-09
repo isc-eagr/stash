@@ -373,7 +373,8 @@ $font-family-monospace: sfmono-regular, menlo, monaco, consolas,
       cursor: pointer;
 
       &:hover {
-        box-shadow: 0 0 0 1px rgba(126, 205, 255, 0.3),
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.78),
+          0 0 0 2px rgba(126, 205, 255, 0.28),
           0 0 0.7rem rgba(72, 175, 240, 0.42);
         filter: brightness(1.16);
         z-index: 101;
@@ -387,7 +388,7 @@ $font-family-monospace: sfmono-regular, menlo, monaco, consolas,
     &.vjs-negative-marker-range {
       background-color: rgba(220, 53, 69, 0.7) !important;
       box-shadow: 0 0 4px rgba(220, 53, 69, 0.5);
-      z-index: 5;
+      z-index: 102; /* Keep negative overlaps visible above hovered markers. */
     }
     /* CUSTOM: end */
   }

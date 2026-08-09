@@ -64,6 +64,18 @@ assert.match(
   "timeline ranges use the marker panel's Royal Sapphire border and compact glow"
 );
 
+assert.match(
+  scrubberStyles,
+  /\.vjs-marker-range\s*\{[\s\S]*?&:not\(\.vjs-negative-marker-range\)[\s\S]*?&:hover\s*\{[\s\S]*?box-shadow:\s*0 0 0 1px rgba\(255,\s*255,\s*255,\s*0\.78\),[\s\S]*?0 0 0 2px rgba\(126,\s*205,\s*255,\s*0\.28\)/,
+  "hovered timeline ranges use a neutral contrast rim to separate same-color neighbors"
+);
+
+assert.match(
+  scrubberStyles,
+  /&\.vjs-negative-marker-range\s*\{[\s\S]*?z-index:\s*102;/,
+  "negative timeline ranges remain above hovered positive ranges"
+);
+
 assert.doesNotMatch(
   scrubberStyles,
   /&\.vjs-marker-royal-sapphire\s*\{[\s\S]*?background-image:\s*linear-gradient/,

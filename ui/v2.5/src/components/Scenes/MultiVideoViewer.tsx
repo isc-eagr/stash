@@ -23,10 +23,7 @@ import MarkersPlugin, {
 import "src/components/ScenePlayer/multi-segment-loop";
 import type MultiSegmentLoopPlugin from "src/components/ScenePlayer/multi-segment-loop";
 import type { ILoopSegment } from "src/components/ScenePlayer/multi-segment-loop";
-import {
-  getNegativeMarkerSkipTargetCustom,
-  startPrecisePlaybackMonitorCustom,
-} from "src/components/ScenePlayer/playbackTiming_custom";
+import { startNegativeMarkerSkippingCustom } from "src/components/ScenePlayer/playbackTiming_custom";
 import { MultiSegmentLoopControls } from "src/components/ScenePlayer/MultiSegmentLoopControls";
 import "src/components/ScenePlayer/styles.scss";
 import {
@@ -936,25 +933,16 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
   useEffect(() => {
     const player = getPlayer();
     const negativeMarkers = overlay.negativeMarkers ?? [];
-    if (!playerReadyToken || !player || negativeMarkers.length === 0) return;
+    if (
+      !playerReadyToken ||
+      !player ||
+      !negativeMarkerSkipEnabled ||
+      negativeMarkers.length === 0
+    ) {
+      return;
+    }
 
-    const stopPlaybackMonitor = startPrecisePlaybackMonitorCustom(
-      player,
-      ({ currentTime, boundaryLead }) => {
-        if (!negativeMarkerSkipEnabled) return;
-
-        const skipTarget = getNegativeMarkerSkipTargetCustom(
-          currentTime,
-          boundaryLead,
-          negativeMarkers
-        );
-        if (skipTarget !== undefined) {
-          player.currentTime(skipTarget);
-        }
-      }
-    );
-
-    return stopPlaybackMonitor;
+    return startNegativeMarkerSkippingCustom(player, negativeMarkers);
   }, [
     getPlayer,
     negativeMarkerSkipEnabled,

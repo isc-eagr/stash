@@ -64,10 +64,7 @@ import type {
   IMultiSegmentLoopApi,
 } from "./multi-segment-loop";
 import { filterLoopSegmentsOutsideNegativeMarkers } from "./loopSegments_custom";
-import {
-  getNegativeMarkerSkipTargetCustom,
-  startPrecisePlaybackMonitorCustom,
-} from "./playbackTiming_custom";
+import { startNegativeMarkerSkippingCustom } from "./playbackTiming_custom";
 import { MultiSegmentLoopControls } from "./MultiSegmentLoopControls";
 
 // Performer image overlay components
@@ -1511,25 +1508,9 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       if (!player) return;
 
       const negativeMarkers = scene.negative_markers ?? [];
-      if (negativeMarkers.length === 0) return;
+      if (!negativeMarkerSkipEnabled || negativeMarkers.length === 0) return;
 
-      const stopPlaybackMonitor = startPrecisePlaybackMonitorCustom(
-        player,
-        ({ currentTime, boundaryLead }) => {
-          if (!negativeMarkerSkipEnabled) return;
-
-          const skipTarget = getNegativeMarkerSkipTargetCustom(
-            currentTime,
-            boundaryLead,
-            negativeMarkers
-          );
-          if (skipTarget !== undefined) {
-            player.currentTime(skipTarget);
-          }
-        }
-      );
-
-      return stopPlaybackMonitor;
+      return startNegativeMarkerSkippingCustom(player, negativeMarkers);
     }, [getPlayer, scene.negative_markers, negativeMarkerSkipEnabled]);
     // CUSTOM: end
 

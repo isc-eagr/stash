@@ -48,6 +48,10 @@ import {
   reachesPlaybackBoundaryCustom,
   startPreciseVideoElementMonitorCustom,
 } from "src/components/ScenePlayer/playbackTiming_custom";
+import {
+  getNextSceneMarkerIndexCustom,
+  markerPreloadMatchesCustom,
+} from "./markerPlaylistPreload_custom";
 import "./MarkerPlaylistPlayer.scss";
 
 const FIND_MARKERS_FOR_PLAYLIST = gql`
@@ -96,22 +100,45 @@ interface IMarkerInfo {
   bottomPerformers?: IPerformerHoverPerformer[]; // CUSTOM
 }
 
+interface IPreparedVideoSlot {
+  markerId: string;
+  sceneId: string;
+  seconds: number;
+  ready: boolean;
+}
+
 export const MarkerPlaylistPlayer: React.FC = () => {
   const intl = useIntl();
   const location = useLocation();
   const Toast = useToast();
 
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const primaryVideoRef = useRef<HTMLVideoElement>(null);
+  const preloadVideoRef = useRef<HTMLVideoElement>(null);
+  const videoRefs = useMemo(
+    () => [primaryVideoRef, preloadVideoRef] as const,
+    []
+  );
+  const activeVideoSlotRef = useRef(0);
+  const preparedVideoSlotsRef = useRef<Array<IPreparedVideoSlot | null>>([
+    null,
+    null,
+  ]);
+  const videoSlotLoadTokensRef = useRef([0, 0]);
+  const videoSlotReadyCallbacksRef = useRef<Array<(() => void) | undefined>>([
+    undefined,
+    undefined,
+  ]);
+  const markerLoadRequestRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoWrapperRef = useRef<HTMLDivElement>(null);
   const initialLoadedRef = useRef(false);
   const [markers, setMarkers] = useState<IMarkerInfo[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [activeVideoSlot, setActiveVideoSlot] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showPlaylist, setShowPlaylist] = useState(true);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [loopEnabled, _setLoopEnabled] = useState(true);
-  const [currentSceneId, setCurrentSceneId] = useState<string>("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [loopSingleMarkerId, setLoopSingleMarkerId] = useState<string | null>(
     null
@@ -196,63 +223,161 @@ export const MarkerPlaylistPlayer: React.FC = () => {
 
     setMarkers(sortedMarkers);
     setCurrentIndex(0);
-    setCurrentSceneId("");
+    preparedVideoSlotsRef.current = [null, null];
+    markerLoadRequestRef.current += 1;
     initialLoadedRef.current = false;
   }, [data?.findSceneMarkers.scene_markers, markerIds]);
 
-  // Hack: Hide controls briefly when loading/seeking, then show again
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _showControlsHack = useCallback(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    // Native controls are always hidden
-    video.controls = false; // controls removed, we use only custom controls below
-    setTimeout(() => {
-      video.controls = true;
-    }, 500); // 500ms delay, tweak as needed
-  }, []);
+  const getActiveVideo = useCallback(
+    () => videoRefs[activeVideoSlotRef.current].current,
+    [videoRefs]
+  );
+
+  const prepareVideoSlot = useCallback(
+    (slot: number, marker: IMarkerInfo, onReady?: () => void) => {
+      const video = videoRefs[slot].current;
+      if (!video) return;
+
+      const preparedSlot = preparedVideoSlotsRef.current[slot];
+      if (markerPreloadMatchesCustom(preparedSlot, marker)) {
+        if (preparedSlot?.ready) {
+          onReady?.();
+        } else if (onReady) {
+          videoSlotReadyCallbacksRef.current[slot] = onReady;
+        }
+        return;
+      }
+
+      const loadToken = videoSlotLoadTokensRef.current[slot] + 1;
+      videoSlotLoadTokensRef.current[slot] = loadToken;
+      videoSlotReadyCallbacksRef.current[slot] = onReady;
+      preparedVideoSlotsRef.current[slot] = {
+        markerId: marker.id,
+        sceneId: marker.sceneId,
+        seconds: marker.seconds,
+        ready: false,
+      };
+
+      video.pause();
+      video.muted = true;
+      video.preload = "auto";
+
+      const isCurrentLoad = () =>
+        videoSlotLoadTokensRef.current[slot] === loadToken;
+
+      const finishPreparing = () => {
+        if (!isCurrentLoad() || video.seeking) return;
+        if (video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) return;
+
+        const currentPreparedSlot = preparedVideoSlotsRef.current[slot];
+        if (
+          !currentPreparedSlot ||
+          !markerPreloadMatchesCustom(currentPreparedSlot, marker)
+        ) {
+          return;
+        }
+
+        currentPreparedSlot.ready = true;
+        const readyCallback = videoSlotReadyCallbacksRef.current[slot];
+        videoSlotReadyCallbacksRef.current[slot] = undefined;
+        readyCallback?.();
+      };
+
+      const seekToMarker = () => {
+        if (!isCurrentLoad()) return;
+
+        video.addEventListener("seeked", finishPreparing, { once: true });
+        video.addEventListener("canplay", finishPreparing, { once: true });
+        video.currentTime = marker.seconds;
+        finishPreparing();
+      };
+
+      if (
+        video.getAttribute("src") === marker.streamUrl &&
+        video.readyState >= HTMLMediaElement.HAVE_METADATA
+      ) {
+        seekToMarker();
+      } else {
+        video.addEventListener("loadedmetadata", seekToMarker, { once: true });
+        video.src = marker.streamUrl;
+        video.load();
+      }
+    },
+    [videoRefs]
+  );
+
+  const activatePreparedVideoSlot = useCallback(
+    (slot: number, index: number, marker: IMarkerInfo, autoPlay: boolean) => {
+      const previousVideo = getActiveVideo();
+      const nextVideo = videoRefs[slot].current;
+      if (!nextVideo) return;
+
+      if (previousVideo && previousVideo !== nextVideo) {
+        nextVideo.volume = previousVideo.volume;
+        nextVideo.muted = previousVideo.muted;
+        previousVideo.pause();
+      } else {
+        nextVideo.muted = false;
+      }
+
+      if (Math.abs(nextVideo.currentTime - marker.seconds) > 0.05) {
+        nextVideo.currentTime = marker.seconds;
+      }
+      activeVideoSlotRef.current = slot;
+      setActiveVideoSlot(slot);
+      setCurrentIndex(index);
+      setIsPlaying(autoPlay);
+
+      if (autoPlay) {
+        nextVideo.play().catch((error) => {
+          setIsPlaying(false);
+          console.error(error);
+        });
+      }
+    },
+    [getActiveVideo, videoRefs]
+  );
 
   // Load a specific marker
   const loadMarker = useCallback(
     (index: number, autoPlay = true) => {
-      const video = videoRef.current;
+      const video = getActiveVideo();
       if (!video || index < 0 || index >= markers.length) return;
-      // No need to hack controls, native controls are always hidden
+
       const marker = markers[index];
-      const needsNewSource = currentSceneId !== marker.sceneId;
+      const activeSlot = activeVideoSlotRef.current;
+      const activePreparedSlot = preparedVideoSlotsRef.current[activeSlot];
+      const requestId = markerLoadRequestRef.current + 1;
+      markerLoadRequestRef.current = requestId;
 
-      if (needsNewSource) {
-        // Load new video source
-        video.src = marker.streamUrl;
-        setCurrentSceneId(marker.sceneId);
-
-        const handleLoadedMetadata = () => {
-          video.currentTime = marker.seconds;
-          if (autoPlay) {
-            video.play().catch(console.error);
-          }
-          video.removeEventListener("loadedmetadata", handleLoadedMetadata);
-        };
-        video.addEventListener("loadedmetadata", handleLoadedMetadata);
-        video.load();
-      } else {
-        // Same scene, just seek
+      if (activePreparedSlot?.sceneId === marker.sceneId) {
         video.currentTime = marker.seconds;
-        // Always call play() if autoPlay - calling play() on an already playing video is a no-op
+        preparedVideoSlotsRef.current[activeSlot] = {
+          markerId: marker.id,
+          sceneId: marker.sceneId,
+          seconds: marker.seconds,
+          ready: true,
+        };
+        setCurrentIndex(index);
         if (autoPlay) {
           video.play().catch(console.error);
         }
+        return;
       }
 
-      setCurrentIndex(index);
+      const targetSlot = activeSlot === 0 ? 1 : 0;
+      video.pause();
+      prepareVideoSlot(targetSlot, marker, () => {
+        if (markerLoadRequestRef.current !== requestId) return;
+        activatePreparedVideoSlot(targetSlot, index, marker, autoPlay);
+      });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [markers, currentSceneId]
+    [activatePreparedVideoSlot, getActiveVideo, markers, prepareVideoSlot]
   );
 
   // Handle precise presented-frame timing to check for marker end
   useEffect(() => {
-    const video = videoRef.current;
+    const video = getActiveVideo();
     if (!video || markers.length === 0) return;
 
     const stopPlaybackMonitor = startPreciseVideoElementMonitorCustom(
@@ -296,7 +421,15 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       video.removeEventListener("play", handlePlay);
       video.removeEventListener("pause", handlePause);
     };
-  }, [markers, currentIndex, loopEnabled, loopSingleMarkerId, loadMarker]);
+  }, [
+    activeVideoSlot,
+    currentIndex,
+    getActiveVideo,
+    loadMarker,
+    loopEnabled,
+    loopSingleMarkerId,
+    markers,
+  ]);
 
   // Track fullscreen state
   useEffect(() => {
@@ -369,16 +502,43 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       initialLoadedRef.current = false;
       return;
     }
-    if (!initialLoadedRef.current && videoRef.current) {
+    if (!initialLoadedRef.current && getActiveVideo()) {
       initialLoadedRef.current = true;
       loadMarker(0, false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [markers.length]);
+  }, [getActiveVideo, loadMarker, markers]);
+
+  // Warm the next marker that needs a source change while the current marker plays.
+  useEffect(() => {
+    const activePreparedSlot =
+      preparedVideoSlotsRef.current[activeVideoSlotRef.current];
+    const currentMarker = markers[currentIndex];
+    if (!currentMarker || activePreparedSlot?.markerId !== currentMarker.id) {
+      return;
+    }
+
+    const preloadIndex = getNextSceneMarkerIndexCustom(
+      markers,
+      currentIndex,
+      loopEnabled,
+      loopSingleMarkerId
+    );
+    if (preloadIndex === undefined) return;
+
+    const preloadSlot = activeVideoSlotRef.current === 0 ? 1 : 0;
+    prepareVideoSlot(preloadSlot, markers[preloadIndex]);
+  }, [
+    activeVideoSlot,
+    currentIndex,
+    loopEnabled,
+    loopSingleMarkerId,
+    markers,
+    prepareVideoSlot,
+  ]);
 
   // When markers or currentIndex changes, ensure playback continues smoothly after deletion/reorder
   useEffect(() => {
-    const video = videoRef.current;
+    const video = getActiveVideo();
     if (!video || markers.length === 0) return;
     // If currentIndex is out of bounds, fix it
     if (currentIndex >= markers.length) {
@@ -389,35 +549,40 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     if (video.paused) return;
     const marker = markers[currentIndex];
     if (!marker) return;
-    // If the video src or sceneId doesn't match, reload
-    if (video.src !== marker.streamUrl || currentSceneId !== marker.sceneId) {
-      video.src = marker.streamUrl;
-      setCurrentSceneId(marker.sceneId);
-      const handleLoadedMetadata = () => {
-        video.currentTime = marker.seconds;
-        video.play().catch(() => {});
-        video.removeEventListener("loadedmetadata", handleLoadedMetadata);
-      };
-      video.addEventListener("loadedmetadata", handleLoadedMetadata);
-      video.load();
-    } else {
-      // Ensure we're within marker time bounds: seek to marker.seconds if we're before it
-      if (video.currentTime < marker.seconds) {
-        video.currentTime = marker.seconds;
-      }
-      video.play().catch(() => {});
+    const activePreparedSlot =
+      preparedVideoSlotsRef.current[activeVideoSlotRef.current];
+    if (activePreparedSlot?.markerId !== marker.id) {
+      loadMarker(currentIndex);
+      return;
     }
-  }, [markers, currentIndex, currentSceneId]);
+
+    if (video.currentTime < marker.seconds) {
+      video.currentTime = marker.seconds;
+    }
+    video.play().catch(() => {});
+  }, [currentIndex, getActiveVideo, loadMarker, markers]);
 
   const handlePlayPause = useCallback(() => {
-    const video = videoRef.current;
+    const video = getActiveVideo();
     if (!video) return;
+
+    const currentMarker = markers[currentIndex];
+    const activePreparedSlot =
+      preparedVideoSlotsRef.current[activeVideoSlotRef.current];
+    if (
+      currentMarker &&
+      !markerPreloadMatchesCustom(activePreparedSlot, currentMarker)
+    ) {
+      loadMarker(currentIndex);
+      return;
+    }
+
     if (video.paused) {
       video.play().catch(console.error);
     } else {
       video.pause();
     }
-  }, []);
+  }, [currentIndex, getActiveVideo, loadMarker, markers]);
 
   const handleNext = useCallback(() => {
     if (markers.length === 0) return;
@@ -863,7 +1028,32 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                 isFullscreen && !showFullscreenOverlay ? "none" : undefined,
             }}
           >
-            <video ref={videoRef} playsInline className="video-player" />
+            <video
+              ref={primaryVideoRef}
+              preload="auto"
+              playsInline
+              aria-hidden={activeVideoSlot !== 0}
+              className="video-player"
+              style={{
+                inset: 0,
+                opacity: activeVideoSlot === 0 ? 1 : 0,
+                pointerEvents: activeVideoSlot === 0 ? "auto" : "none",
+                position: "absolute",
+              }}
+            />
+            <video
+              ref={preloadVideoRef}
+              preload="auto"
+              playsInline
+              aria-hidden={activeVideoSlot !== 1}
+              className="video-player"
+              style={{
+                inset: 0,
+                opacity: activeVideoSlot === 1 ? 1 : 0,
+                pointerEvents: activeVideoSlot === 1 ? "auto" : "none",
+                position: "absolute",
+              }}
+            />
             {renderCurrentPerformerOverlay()}
             {/* Fullscreen navigation buttons - prev/next marker */}
             {isFullscreen && showFullscreenOverlay && markers.length > 1 && (
