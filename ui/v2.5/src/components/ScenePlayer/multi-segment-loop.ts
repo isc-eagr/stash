@@ -1,4 +1,8 @@
 import videojs, { VideoJsPlayer } from "video.js";
+import {
+  reachesPlaybackBoundaryCustom,
+  startPrecisePlaybackMonitorCustom,
+} from "./playbackTiming_custom";
 
 export interface ILoopSegment {
   id: string;
@@ -36,9 +40,9 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   private enabled: boolean = false;
   private currentSegmentIndex: number = 0;
   private pendingStart: number | null = null;
-  private checkInterval: number | null = null;
-  private loopMargin: number = 0.1; // margin in seconds before end to trigger loop
   private loopSingleId: string | null = null; // ID of segment to loop single
+  private stopPrecisePlaybackMonitor?: () => void;
+  private readonly playingHandler = () => this.onPlaying();
 
   // Timeline visualization elements
   private segmentMarkers: Map<string, HTMLDivElement> = new Map();
@@ -83,9 +87,12 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   }
 
   private setupTimeUpdateHandler(): void {
-    this.player.on("timeupdate", this.checkLoop.bind(this));
-    this.player.on("playing", this.onPlaying.bind(this));
-    this.player.on("pause", this.onPause.bind(this));
+    this.player.on("playing", this.playingHandler);
+    this.stopPrecisePlaybackMonitor = startPrecisePlaybackMonitorCustom(
+      this.player,
+      ({ currentTime, boundaryLead }) =>
+        this.checkLoop(currentTime, boundaryLead)
+    );
   }
 
   private onPlaying(): void {
@@ -104,16 +111,16 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     }
   }
 
-  private onPause(): void {
-    // Nothing specific needed on pause for now
-  }
-
-  private checkLoop(): void {
-    if (!this.enabled || this.segments.length === 0 || this.player.paused()) {
+  private checkLoop(currentTime: number, boundaryLead: number): void {
+    if (
+      !this.enabled ||
+      this.segments.length === 0 ||
+      this.player.paused() ||
+      this.player.seeking()
+    ) {
       return;
     }
 
-    const currentTime = this.player.currentTime();
     const currentSegment = this.segments[this.currentSegmentIndex];
 
     if (!currentSegment) {
@@ -121,7 +128,13 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     }
 
     // Check if we've reached the end of the current segment
-    if (currentTime >= currentSegment.end - this.loopMargin) {
+    if (
+      reachesPlaybackBoundaryCustom(
+        currentTime,
+        currentSegment.end,
+        boundaryLead
+      )
+    ) {
       this.advanceToNextSegment();
     }
   }
@@ -130,7 +143,11 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     const fromSegment = this.segments[this.currentSegmentIndex];
 
     // Check if single loop is enabled for the current segment
-    if (this.loopSingleId && fromSegment && this.loopSingleId === fromSegment.id) {
+    if (
+      this.loopSingleId &&
+      fromSegment &&
+      this.loopSingleId === fromSegment.id
+    ) {
       // Loop back to the start of the same segment
       this.player.currentTime(fromSegment.start);
       return;
@@ -481,7 +498,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
    */
   setLoopSingleId(segmentId: string | null): void {
     this.loopSingleId = segmentId;
-    
+
     // If enabling single loop, jump to that segment immediately
     if (segmentId !== null) {
       const segmentIndex = this.segments.findIndex((s) => s.id === segmentId);
@@ -489,7 +506,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
         this.jumpToSegment(segmentIndex);
       }
     }
-    
+
     this.updateActiveSegmentMarker();
     if (this.onLoopSingleChange) {
       this.onLoopSingleChange(segmentId);
@@ -696,9 +713,8 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   dispose(): void {
     this.clearSegmentMarkers();
     this.clearPendingMarker();
-    this.player.off("timeupdate", this.checkLoop.bind(this));
-    this.player.off("playing", this.onPlaying.bind(this));
-    this.player.off("pause", this.onPause.bind(this));
+    this.stopPrecisePlaybackMonitor?.();
+    this.player.off("playing", this.playingHandler);
     super.dispose();
   }
 }

@@ -23,6 +23,10 @@ import MarkersPlugin, {
 import "src/components/ScenePlayer/multi-segment-loop";
 import type MultiSegmentLoopPlugin from "src/components/ScenePlayer/multi-segment-loop";
 import type { ILoopSegment } from "src/components/ScenePlayer/multi-segment-loop";
+import {
+  getNegativeMarkerSkipTargetCustom,
+  startPrecisePlaybackMonitorCustom,
+} from "src/components/ScenePlayer/playbackTiming_custom";
 import { MultiSegmentLoopControls } from "src/components/ScenePlayer/MultiSegmentLoopControls";
 import "src/components/ScenePlayer/styles.scss";
 import {
@@ -371,7 +375,6 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
   const sizeRef = useRef({ width: overlay.width, height: overlay.height });
   const onSizeChangeRef = useRef(onSizeChange);
   const aspectRatioRef = useRef<number | null>(null);
-  const lastNegativeSkipRef = useRef(0);
   const [playerReadyToken, setPlayerReadyToken] = useState(0);
   const [segmentPresets, setSegmentPresets] = useState<
     IVideoViewerSegmentPreset[]
@@ -935,30 +938,23 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
     const negativeMarkers = overlay.negativeMarkers ?? [];
     if (!playerReadyToken || !player || negativeMarkers.length === 0) return;
 
-    function checkNegativeMarkers(this: VideoJsPlayer) {
-      if (!negativeMarkerSkipEnabled || this.paused()) return;
+    const stopPlaybackMonitor = startPrecisePlaybackMonitorCustom(
+      player,
+      ({ currentTime, boundaryLead }) => {
+        if (!negativeMarkerSkipEnabled) return;
 
-      const currentTime = this.currentTime();
-      const now = Date.now();
-      if (now - lastNegativeSkipRef.current < 500) return;
-
-      for (const marker of negativeMarkers) {
-        if (
-          currentTime >= marker.start_seconds &&
-          currentTime < marker.end_seconds
-        ) {
-          lastNegativeSkipRef.current = now;
-          this.currentTime(marker.end_seconds);
-          break;
+        const skipTarget = getNegativeMarkerSkipTargetCustom(
+          currentTime,
+          boundaryLead,
+          negativeMarkers
+        );
+        if (skipTarget !== undefined) {
+          player.currentTime(skipTarget);
         }
       }
-    }
+    );
 
-    player.on("timeupdate", checkNegativeMarkers);
-
-    return () => {
-      player.off("timeupdate", checkNegativeMarkers);
-    };
+    return stopPlaybackMonitor;
   }, [
     getPlayer,
     negativeMarkerSkipEnabled,

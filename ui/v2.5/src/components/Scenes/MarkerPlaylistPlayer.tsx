@@ -44,6 +44,10 @@ import {
   useMarkerPlaylistDestroy,
 } from "src/core/StashService";
 import { useToast } from "src/hooks/Toast";
+import {
+  reachesPlaybackBoundaryCustom,
+  startPreciseVideoElementMonitorCustom,
+} from "src/components/ScenePlayer/playbackTiming_custom";
 import "./MarkerPlaylistPlayer.scss";
 
 const FIND_MARKERS_FOR_PLAYLIST = gql`
@@ -246,48 +250,49 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     [markers, currentSceneId]
   );
 
-  // Handle timeupdate to check for marker end
+  // Handle precise presented-frame timing to check for marker end
   useEffect(() => {
     const video = videoRef.current;
     if (!video || markers.length === 0) return;
 
-    const handleTimeUpdate = () => {
-      const marker = markers[currentIndex];
-      if (!marker) return;
+    const stopPlaybackMonitor = startPreciseVideoElementMonitorCustom(
+      video,
+      ({ currentTime, boundaryLead }) => {
+        const marker = markers[currentIndex];
+        if (!marker) return;
 
-      const { currentTime } = video;
-      const endTime = marker.end_seconds ?? marker.seconds + 20; // Default 20s if no end
+        const endTime = marker.end_seconds ?? marker.seconds + 20; // Default 20s if no end
 
-      if (currentTime >= endTime) {
-        // Check if this marker is set to single loop
-        if (loopSingleMarkerId === marker.id) {
-          // Loop back to the start of this same marker
-          video.currentTime = marker.seconds;
-          return;
-        }
+        if (reachesPlaybackBoundaryCustom(currentTime, endTime, boundaryLead)) {
+          // Check if this marker is set to single loop
+          if (loopSingleMarkerId === marker.id) {
+            // Loop back to the start of this same marker
+            video.currentTime = marker.seconds;
+            return;
+          }
 
-        // Move to next marker
-        const nextIndex = currentIndex + 1;
-        if (nextIndex < markers.length) {
-          loadMarker(nextIndex);
-        } else if (loopEnabled) {
-          // Loop back to first
-          loadMarker(0);
-        } else {
-          video.pause();
+          // Move to next marker
+          const nextIndex = currentIndex + 1;
+          if (nextIndex < markers.length) {
+            loadMarker(nextIndex);
+          } else if (loopEnabled) {
+            // Loop back to first
+            loadMarker(0);
+          } else {
+            video.pause();
+          }
         }
       }
-    };
+    );
 
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
 
-    video.addEventListener("timeupdate", handleTimeUpdate);
     video.addEventListener("play", handlePlay);
     video.addEventListener("pause", handlePause);
 
     return () => {
-      video.removeEventListener("timeupdate", handleTimeUpdate);
+      stopPlaybackMonitor();
       video.removeEventListener("play", handlePlay);
       video.removeEventListener("pause", handlePause);
     };
