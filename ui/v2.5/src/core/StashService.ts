@@ -288,8 +288,8 @@ export const queryFindSceneMarkers = (filter: ListFilterModel) =>
 export const useMarkerStrings = (skip = false) =>
   GQL.useMarkerStringsQuery({ skip }); // CUSTOM
 
-export const useSceneNegativeMarkerNames = () =>
-  GQL.useSceneNegativeMarkerNamesQuery({ fetchPolicy: "network-only" }); // CUSTOM
+export const useSceneNegativeMarkerNames = (skip = false) =>
+  GQL.useSceneNegativeMarkerNamesQuery({ fetchPolicy: "network-only", skip }); // CUSTOM
 
 export const useFindGallery = (id: string) => {
   const skip = id === "new" || id === "";

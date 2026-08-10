@@ -59,6 +59,7 @@ This document describes all custom features and modifications added on top of th
 49. [Black Steel Application Theme](#49-black-steel-application-theme)
 50. [Cinematic Loading Overlay](#50-cinematic-loading-overlay)
 51. [Negative Marker Create Parity](#51-negative-marker-create-parity)
+52. [Scene Marker Duplicate and In-Between Actions](#52-scene-marker-duplicate-and-in-between-actions)
 
 ---
 
@@ -3794,3 +3795,40 @@ Gap and overlap warnings expose the complete action set on both forms: fix the p
 ### Configuration Dependencies
 
 - Uses the existing scene player A-B loop state and `configuration.ui.roleTagIds` gap-warning categorization.
+
+---
+
+## 52. Scene Marker Duplicate and In-Between Actions
+
+### Overview
+
+Adds two actions on a dedicated row below Save and Cancel while editing an existing scene marker. **Duplicate Marker** opens a new-marker draft preloaded with every editable field from the saved original and leaves the original untouched. **Insert Marker In-Between** opens a bounded insert dialog with radio options for a regular marker, a negative marker, or an empty gap. Every mode requires start and end times strictly inside the original marker's millisecond bounds. Regular-marker mode shows the full marker form, negative-marker mode shows its title and range fields, and gap mode asks only for the range.
+
+After a valid insertion, the original range becomes two markers that retain the original metadata: the original record ends one millisecond before the selected range starts, and a new right-side record starts one millisecond after the selected range ends while retaining the original end time. Regular and negative modes create their selected marker type inside that range; gap mode creates no middle record. If the split cannot finish, newly created marker or negative-marker records are rolled back and the editor remains open with the original unchanged.
+
+### Files Modified
+
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkerForm.tsx` - Adds the three insert modes, conditional fields, second-row action buttons, bounds validation, split mutations, rollback handling, and duplicate form hydration.
+- `ui/v2.5/src/core/StashService.ts` - Allows negative-marker title suggestions to stay skipped until negative-marker insert mode is selected.
+- `CUSTOM_FEATURES.md` - Documents the scene marker actions.
+
+### Files Added
+
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerFormActions_custom.ts` - Provides insert-mode record selection, duplicate-draft mapping, millisecond bounds validation, and exact split-boundary calculations.
+- `ui/v2.5/tests/sceneMarkerFormActions_custom.test.ts` - Covers all insert-mode outcomes, duplicate field preservation, bounded insert validation, required end times, and one-millisecond split math.
+
+### Test Cases Added
+
+- Verifies duplicate drafts preserve title, times, primary/additional tags, and top/bottom performers.
+- Verifies regular and negative insert modes create the expected middle record type, while gap mode creates none.
+- Verifies inserted marker times must be strictly inside both original bounds.
+- Verifies inserted markers require an end time and open-ended originals cannot be split.
+- Verifies `10:24.768` produces a left-side end of `10:24.767` and the right side begins exactly one millisecond after the inserted marker's end.
+
+### GraphQL Schema Changes
+
+- None. The flow composes the existing scene-marker and negative-marker create/update/destroy mutations.
+
+### Configuration Dependencies
+
+- None.
