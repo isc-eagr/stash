@@ -23,6 +23,7 @@ import type { PerformerListData } from "../performerTypes_custom"; // CUSTOM
 import {
   getPerformerRolePartnerSectionSubtitle,
   getPerformerRolePartnerSectionTitle,
+  shouldShowPerformerRolePartnerDuration,
 } from "../performerRolePartnerLabels_custom"; // CUSTOM
 import "./PerformerAppearsWithByRolePanel_custom.scss"; // CUSTOM
 
@@ -252,10 +253,12 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
           ) : undefined
         }
       />
-      <div className="co-performer-role-duration">
-        <span>Time together</span>
-        <strong>{TextUtils.secondsToTimestamp(durationSeconds)}</strong>
-      </div>
+      {shouldShowPerformerRolePartnerDuration(roleCategory) && (
+        <div className="co-performer-role-duration">
+          <span>Time together</span>
+          <strong>{TextUtils.secondsToTimestamp(durationSeconds)}</strong>
+        </div>
+      )}
     </div>
   );
   // CUSTOM: end

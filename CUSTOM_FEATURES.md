@@ -709,7 +709,7 @@ The panel includes the existing performer detail metadata and custom fields whil
 
 An **In This Scene** section at the bottom derives this vato's opposite-role partners from the current scene markers. It groups linked portraits under the same role-specific wording used by the performer Partners tab, deduplicates partners repeated across markers, and always orders populated groups as Sex Top, Oral Top, Sex Bottom, then Oral Bottom.
 
-The performer **Partners** tab uses the same blue top and green bottom role-title treatments. Every partner card also shows the merged timed-marker duration the two vatos spent together in that exact role configuration, including a visible `0:00` when no timed interval is available. Overlapping timed markers in the same scene are merged so the total is not double-counted.
+The performer **Partners** tab uses the same blue top and green bottom role-title treatments. Sex and oral partner cards also show the merged timed-marker duration the two vatos spent together in that exact role configuration, including a visible `0:00` when no timed interval is available; facial partner cards omit the duration strip. Overlapping timed markers in the same scene are merged so the total is not double-counted.
 
 The performer detail label `penis_length` is displayed as **Verga** on both the full performer page and the scene overview drawer.
 
@@ -729,6 +729,7 @@ The performer detail label `penis_length` is displayed as **Verga** on both the 
 **Test cases:**
 
 - `ui/v2.5/tests/scenePerformerOverviewFields_custom.test.ts` verifies the exact three-field exclusion contract, retention of the remaining performer metadata, plain-click versus modifier-click card behavior, deduplicated/sorted partner previews, fixed scene-interaction ordering, retention of zero-value activity durations, and viewport-aware popover flipping.
+- `ui/v2.5/tests/performerRolePartnerLabels_custom.test.ts` verifies that shared duration is enabled for sex and oral partner cards and disabled for facial partner cards.
 - `internal/api/performer_partner_duration_custom_test.go` verifies unique shared-scene counts, same-scene interval merging, untimed zero-duration behavior, and opposite-role filtering.
 
 GraphQL adds `duration_seconds` to `PerformerWithSceneCount`. No new configuration is required; duration calculation reuses the configured sex, oral, and facial role tags.

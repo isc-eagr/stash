@@ -43,3 +43,9 @@ export function getPerformerRolePartnerSectionSubtitle(
 ) {
   return `${category} ${type}`;
 }
+
+export function shouldShowPerformerRolePartnerDuration(
+  category: PerformerRolePartnerCategory
+) {
+  return category === "sex" || category === "oral";
+}
