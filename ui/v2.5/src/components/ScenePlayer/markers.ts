@@ -1,5 +1,12 @@
 import videojs, { VideoJsPlayer } from "video.js";
 import CryptoJS from "crypto-js";
+import {
+  getSceneMarkerTimestampPickerHorizontalLayout,
+  getSceneMarkerTimestampOptions,
+  shouldScheduleSceneMarkerTimestampPickerHide,
+  type SceneMarkerTimestampBoundary,
+} from "./sceneMarkerTimestampCopy_custom"; // CUSTOM
+import TextUtils from "src/utils/text"; // CUSTOM
 
 export interface IMarker {
   id?: string;
@@ -42,7 +49,11 @@ export interface INegativeMarker {
 
 interface IMarkersOptions {
   markers?: IMarker[];
-  onMarkerClick?: (marker: IMarker, seconds: number) => void;
+  onMarkerClick?: (
+    marker: IMarker | INegativeMarker,
+    seconds: number,
+    boundary?: SceneMarkerTimestampBoundary
+  ) => void; // CUSTOM
 }
 
 class MarkersPlugin extends videojs.getPlugin("plugin") {
@@ -56,11 +67,19 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
   private oTimestampDivs: HTMLDivElement[] = []; // CUSTOM
   private markerTooltip: HTMLElement | null = null;
   private defaultTooltip: HTMLElement | null = null;
+  private timestampCopyPicker: HTMLElement | null = null; // CUSTOM
+  private timestampCopyPickerOwner: HTMLElement | null = null; // CUSTOM
+  private timestampCopyHideTimer?: number; // CUSTOM
 
   private layerHeight: number = 9;
 
   private tagColors: { [tag: string]: string } = {};
-  private onMarkerClick?: (marker: IMarker, seconds: number) => void;
+  private onMarkerClick?: (
+    marker: IMarker | INegativeMarker,
+    seconds: number,
+    boundary?: SceneMarkerTimestampBoundary
+  ) => void; // CUSTOM
+  private timestampCopyMode = false; // CUSTOM
 
   private _fallbackDuration: number = 0; // CUSTOM: used when player.duration() is 0 (preload=none, not started yet)
 
@@ -81,6 +100,22 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       if (parent) parent.appendChild(tooltip);
       this.markerTooltip = tooltip;
 
+      // CUSTOM: begin - stable, interactive timestamp picker used instead of
+      // overlapping boundary handles on adjacent markers.
+      const timestampCopyPicker = videojs.dom.createEl("div") as HTMLElement;
+      timestampCopyPicker.className =
+        "vjs-marker-timestamp-picker scene-marker-timestamp-picker";
+      timestampCopyPicker.style.visibility = "hidden";
+      timestampCopyPicker.addEventListener("mouseenter", () => {
+        window.clearTimeout(this.timestampCopyHideTimer);
+      });
+      timestampCopyPicker.addEventListener("mouseleave", () => {
+        this.scheduleTimestampCopyPickerHide();
+      });
+      if (parent) parent.appendChild(timestampCopyPicker);
+      this.timestampCopyPicker = timestampCopyPicker;
+      // CUSTOM: end
+
       this.defaultTooltip = player
         .el()
         .querySelector<HTMLElement>(
@@ -89,9 +124,184 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     });
   }
 
-  setOnMarkerClick(onMarkerClick?: (marker: IMarker, seconds: number) => void) {
+  setOnMarkerClick(
+    onMarkerClick?: (
+      marker: IMarker | INegativeMarker,
+      seconds: number,
+      boundary?: SceneMarkerTimestampBoundary
+    ) => void
+  ) {
     this.onMarkerClick = onMarkerClick;
   }
+
+  // CUSTOM: Show an exact-time picker while a marker form is waiting for a
+  // timestamp copied from the player timeline.
+  setTimestampCopyMode(enabled: boolean) {
+    this.timestampCopyMode = enabled;
+    if (!enabled) this.hideTimestampCopyPicker(); // CUSTOM
+  }
+
+  // CUSTOM: begin - interactive timestamp picker for scene marker boundaries
+  private hideTimestampCopyPicker() {
+    window.clearTimeout(this.timestampCopyHideTimer);
+    this.timestampCopyPickerOwner = null;
+    if (this.timestampCopyPicker) {
+      this.timestampCopyPicker.style.visibility = "hidden";
+    }
+    if (this.defaultTooltip) this.defaultTooltip.style.visibility = "visible";
+  }
+
+  private scheduleTimestampCopyPickerHide(owner?: HTMLElement) {
+    if (
+      !shouldScheduleSceneMarkerTimestampPickerHide(
+        this.timestampCopyPickerOwner,
+        owner
+      )
+    ) {
+      return;
+    }
+
+    window.clearTimeout(this.timestampCopyHideTimer);
+    this.timestampCopyHideTimer = window.setTimeout(
+      () => this.hideTimestampCopyPicker(),
+      350
+    );
+  }
+
+  private showTimestampCopyPicker(
+    marker: IMarker | INegativeMarker,
+    layer: number,
+    target: HTMLElement,
+    cursorClientX?: number
+  ) {
+    const picker = this.timestampCopyPicker;
+    if (!picker) return;
+
+    window.clearTimeout(this.timestampCopyHideTimer);
+    this.timestampCopyPickerOwner = target;
+    this.hideMarkerTooltip();
+    picker.replaceChildren();
+
+    const isNegativeMarker = "start_seconds" in marker;
+    const timestampSource = isNegativeMarker
+      ? {
+          id: marker.id,
+          seconds: marker.start_seconds,
+          end_seconds: marker.end_seconds,
+        }
+      : marker;
+    const markerTitle = isNegativeMarker
+      ? marker.name || "Negative marker"
+      : marker.title || marker.primaryTag.name;
+
+    const title = document.createElement("div");
+    title.className = "scene-marker-timestamp-picker-title";
+    title.textContent = markerTitle;
+    picker.appendChild(title);
+
+    const range = document.createElement("div");
+    range.className = "scene-marker-timestamp-picker-range";
+    const rangeLabel = document.createElement("span");
+    rangeLabel.className = "scene-marker-timestamp-picker-range-label";
+    rangeLabel.textContent = "Marker range";
+    range.appendChild(rangeLabel);
+
+    const startTimestamp = TextUtils.secondsToTimestamp(
+      timestampSource.seconds,
+      true
+    );
+    const endTimestamp =
+      timestampSource.end_seconds !== null &&
+      timestampSource.end_seconds !== undefined
+        ? TextUtils.secondsToTimestamp(timestampSource.end_seconds, true)
+        : "No end time";
+    const rangeValue = document.createElement("span");
+    rangeValue.className = "scene-marker-timestamp-picker-range-value";
+    rangeValue.textContent = `${startTimestamp} – ${endTimestamp}`;
+    range.appendChild(rangeValue);
+    picker.appendChild(range);
+
+    const actions = document.createElement("div");
+    actions.className = "scene-marker-timestamp-picker-actions";
+    getSceneMarkerTimestampOptions(timestampSource).forEach((option) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `scene-marker-timestamp-picker-option scene-marker-timestamp-picker-option-${option.boundary}`;
+      button.title = `Copy marker ${option.label.toLowerCase()} time`;
+      button.setAttribute(
+        "aria-label",
+        `Use marker ${option.label.toLowerCase()} time ${TextUtils.secondsToTimestamp(
+          option.seconds,
+          true
+        )}`
+      );
+
+      const label = document.createElement("span");
+      label.className = "scene-marker-timestamp-picker-option-label";
+      label.textContent = option.label;
+      button.appendChild(label);
+
+      const time = document.createElement("span");
+      time.className = "scene-marker-timestamp-picker-option-time";
+      time.textContent = TextUtils.secondsToTimestamp(option.seconds, true);
+      button.appendChild(time);
+
+      button.addEventListener("pointerdown", (event) => {
+        event.stopPropagation();
+      });
+      button.addEventListener("mousedown", (event) => {
+        event.stopPropagation();
+      });
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.player.currentTime(option.seconds);
+        this.onMarkerClick?.(marker, option.seconds, option.boundary);
+        this.hideTimestampCopyPicker();
+      });
+      actions.appendChild(button);
+    });
+    picker.appendChild(actions);
+
+    picker.style.visibility = "hidden";
+    picker.style.width = "";
+    picker.style.left = "0px";
+    picker.style.removeProperty("--timestamp-picker-caret-left");
+
+    const parent = picker.parentElement;
+    if (parent) {
+      const parentRect = parent.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const padding = 6;
+      const maxWidth = Math.max(parentRect.width - padding * 2, 0);
+      const naturalWidth = picker.offsetWidth;
+      picker.style.width = naturalWidth > maxWidth ? `${maxWidth}px` : "";
+
+      const pickerWidth = picker.offsetWidth;
+      const cursorX =
+        cursorClientX !== undefined && Number.isFinite(cursorClientX)
+          ? cursorClientX - parentRect.left
+          : targetRect.left + targetRect.width / 2 - parentRect.left;
+      const layout = getSceneMarkerTimestampPickerHorizontalLayout({
+        parentWidth: parentRect.width,
+        pickerWidth,
+        cursorX,
+        padding,
+      });
+      picker.style.left = `${layout.left}px`;
+      picker.style.setProperty(
+        "--timestamp-picker-caret-left",
+        `${layout.caretLeft}px`
+      );
+    }
+
+    picker.style.top = `-${
+      this.layerHeight * layer + picker.offsetHeight + 12
+    }px`;
+    picker.style.visibility = "visible";
+    if (this.defaultTooltip) this.defaultTooltip.style.visibility = "hidden";
+  }
+  // CUSTOM: end
 
   // CUSTOM: begin - enhanced tooltip with performer roles and negative marker styling
   private showMarkerTooltip(
@@ -351,6 +561,10 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
 
     markerSet.dot = videojs.dom.createEl("div") as HTMLDivElement;
     markerSet.dot.className = "vjs-marker";
+    if (this.timestampCopyMode) {
+      markerSet.dot.classList.add("vjs-marker-timestamp-copy"); // CUSTOM
+      markerSet.dot.title = "Choose a marker timestamp"; // CUSTOM
+    }
     if (marker.isRoyalSapphire) {
       markerSet.dot.classList.add("vjs-marker-royal-sapphire"); // CUSTOM
     }
@@ -366,6 +580,10 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     markerSet.dot.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
+      if (this.timestampCopyMode && markerSet.dot) {
+        this.showTimestampCopyPicker(marker, 0, markerSet.dot, event.clientX); // CUSTOM
+        return;
+      }
       this.player.currentTime(marker.seconds);
       this.onMarkerClick?.(marker, marker.seconds);
     });
@@ -381,7 +599,12 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       markerSet.dot.style.backgroundColor =
         this.tagColors[marker.primaryTag.name];
     }
-    markerSet.dot.addEventListener("mouseenter", () => {
+    markerSet.dot.addEventListener("mouseenter", (event) => {
+      if (this.timestampCopyMode && markerSet.dot) {
+        this.showTimestampCopyPicker(marker, 0, markerSet.dot, event.clientX); // CUSTOM
+        markerSet.dot.toggleAttribute("marker-tooltip-shown", true);
+        return;
+      }
       this.showMarkerTooltip(
         marker.title,
         0,
@@ -397,7 +620,11 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     });
 
     markerSet.dot.addEventListener("mouseout", () => {
-      this.hideMarkerTooltip();
+      if (this.timestampCopyMode) {
+        this.scheduleTimestampCopyPickerHide(markerSet.dot); // CUSTOM
+      } else {
+        this.hideMarkerTooltip();
+      }
       markerSet.dot?.toggleAttribute("marker-tooltip-shown", false);
     });
 
@@ -474,6 +701,9 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
 
     markerSet.range = rangeDiv;
     markerSet.range.style.display = "block";
+    if (this.timestampCopyMode) {
+      markerSet.range.classList.add("vjs-marker-range-timestamp-copy"); // CUSTOM
+    }
     markerSet.range.addEventListener("pointermove", (e) => {
       e.stopPropagation();
     });
@@ -486,6 +716,15 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     markerSet.range.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
+      if (this.timestampCopyMode && markerSet.range) {
+        this.showTimestampCopyPicker(
+          marker,
+          layer,
+          markerSet.range,
+          event.clientX
+        ); // CUSTOM
+        return;
+      }
       const seekBarRect = seekBar.getBoundingClientRect();
       const clickRatio =
         seekBarRect.width > 0
@@ -502,7 +741,17 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       this.player.currentTime(clickedSeconds);
       this.onMarkerClick?.(marker, clickedSeconds);
     });
-    markerSet.range.addEventListener("mouseenter", () => {
+    markerSet.range.addEventListener("mouseenter", (event) => {
+      if (this.timestampCopyMode && markerSet.range) {
+        this.showTimestampCopyPicker(
+          marker,
+          layer,
+          markerSet.range,
+          event.clientX
+        ); // CUSTOM
+        markerSet.range.toggleAttribute("marker-tooltip-shown", true);
+        return;
+      }
       this.showMarkerTooltip(
         marker.title,
         layer,
@@ -518,7 +767,11 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     });
 
     markerSet.range.addEventListener("mouseout", () => {
-      this.hideMarkerTooltip();
+      if (this.timestampCopyMode) {
+        this.scheduleTimestampCopyPickerHide(markerSet.range); // CUSTOM
+      } else {
+        this.hideMarkerTooltip();
+      }
       markerSet.range?.toggleAttribute("marker-tooltip-shown", false);
     });
     parent.appendChild(rangeDiv);
@@ -611,6 +864,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
   }
 
   clearMarkers() {
+    this.hideTimestampCopyPicker(); // CUSTOM
     for (const markerSet of this.markerDivs) {
       if (markerSet.dot?.hasAttribute("marker-tooltip-shown")) {
         this.hideMarkerTooltip();
@@ -660,15 +914,38 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       // Force red color for negative markers
       rangeDiv.style.backgroundColor = "#dc3545";
       rangeDiv.style.opacity = "0.7";
+      if (this.timestampCopyMode) {
+        rangeDiv.classList.add("vjs-negative-marker-range-timestamp-copy");
+        rangeDiv.title = "Choose a negative marker timestamp";
+        rangeDiv.style.opacity = "0.95";
+      }
 
-      rangeDiv.addEventListener("mouseenter", () => {
+      rangeDiv.addEventListener("click", (event) => {
+        if (!this.timestampCopyMode) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        this.showTimestampCopyPicker(marker, 0, rangeDiv, event.clientX);
+      });
+
+      rangeDiv.addEventListener("mouseenter", (event) => {
+        if (this.timestampCopyMode) {
+          this.showTimestampCopyPicker(marker, 0, rangeDiv, event.clientX);
+          rangeDiv.toggleAttribute("marker-tooltip-shown", true);
+          return;
+        }
+
         const title = marker.name || "Skip Section";
         this.showMarkerTooltip(title, 0, undefined, undefined, true, rangeDiv);
         rangeDiv.toggleAttribute("marker-tooltip-shown", true);
       });
 
       rangeDiv.addEventListener("mouseout", () => {
-        this.hideMarkerTooltip();
+        if (this.timestampCopyMode) {
+          this.scheduleTimestampCopyPickerHide(rangeDiv);
+        } else {
+          this.hideMarkerTooltip();
+        }
         rangeDiv.toggleAttribute("marker-tooltip-shown", false);
       });
 

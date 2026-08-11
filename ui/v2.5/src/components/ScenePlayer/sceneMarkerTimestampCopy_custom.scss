@@ -1,0 +1,252 @@
+.video-js {
+  .vjs-marker-timestamp-copy {
+    box-shadow: 0 0 0 2px #38bdf8, 0 0 0.7rem rgba(56, 189, 248, 0.85);
+    cursor: pointer;
+    width: 10px;
+    z-index: 104;
+
+    &::after {
+      align-items: center;
+      background: #172533;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      bottom: calc(100% + 4px);
+      box-shadow: 0 0 0.55rem rgba(0, 0, 0, 0.85);
+      color: #fff;
+      content: "\2022\2022\2022";
+      display: flex;
+      font-size: 9px;
+      font-weight: 800;
+      height: 20px;
+      justify-content: center;
+      left: 50%;
+      position: absolute;
+      transform: translateX(-50%);
+      width: 20px;
+    }
+  }
+
+  .vjs-marker-range-timestamp-copy {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95),
+      0 0 0.8rem rgba(56, 189, 248, 0.8);
+    cursor: pointer;
+    min-width: 12px;
+    z-index: 104;
+  }
+
+  .vjs-negative-marker-range-timestamp-copy {
+    border: 2px solid #fecaca;
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.9),
+      0 0 1rem rgba(239, 68, 68, 0.8);
+    cursor: pointer;
+    min-width: 12px;
+    z-index: 105;
+  }
+
+  .vjs-marker-timestamp-picker {
+    background: #17232e;
+    border: 1px solid #486174;
+    border-radius: 0.6rem;
+    box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.68);
+    pointer-events: auto;
+    position: absolute;
+    width: max-content;
+    z-index: 110;
+
+    &::before,
+    &::after {
+      border-left: 9px solid transparent;
+      border-right: 9px solid transparent;
+      content: "";
+      left: var(--timestamp-picker-caret-left, 50%);
+      position: absolute;
+      transform: translateX(-50%);
+    }
+
+    &::before {
+      border-top: 9px solid rgba(125, 211, 252, 0.85);
+      bottom: -9px;
+    }
+
+    &::after {
+      border-left-width: 8px;
+      border-right-width: 8px;
+      border-top: 8px solid #141e27;
+      bottom: -7px;
+    }
+  }
+}
+
+.scrubber-tag-timestamp-copy {
+  box-shadow: 0 0 0 2px #38bdf8, 0 0 0.7rem rgba(56, 189, 248, 0.8);
+  cursor: pointer;
+  z-index: 5;
+}
+
+.scrubber-marker-copy-label {
+  align-items: center;
+  background: #38bdf8;
+  border-radius: 0.2rem;
+  color: #071019;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-weight: 800;
+  height: 15px;
+  justify-content: center;
+  padding: 0 0.25rem;
+}
+
+.scrubber-negative-marker-timestamp-copy {
+  align-items: center;
+  background: linear-gradient(
+    90deg,
+    rgba(190, 24, 93, 0.95),
+    rgba(239, 68, 68, 0.95)
+  );
+  border: 2px solid #fecaca;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.9),
+    0 0 0.8rem rgba(239, 68, 68, 0.75);
+  display: flex;
+  justify-content: center;
+  z-index: 6;
+}
+
+.scrubber-negative-marker-copy-label {
+  background: #111b24;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 0.25rem;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.35;
+  padding: 0 0.25rem;
+  pointer-events: none;
+}
+
+.scene-marker-timestamp-copy-popover {
+  background: #17232e;
+  border: 1px solid #486174;
+  border-radius: 0.6rem;
+  box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.68);
+  max-width: min(22rem, calc(100vw - 2rem));
+}
+
+.scene-marker-timestamp-picker {
+  color: #f5f8fa;
+  min-width: min(20rem, calc(100vw - 3rem));
+  padding: 0.8rem;
+}
+
+.scene-marker-timestamp-picker-title {
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.scene-marker-timestamp-picker-range {
+  background: rgba(4, 10, 16, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+  padding: 0.6rem 0.7rem;
+}
+
+.scene-marker-timestamp-picker-range-label {
+  color: #91a9bc;
+  font-size: 0.61rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.scene-marker-timestamp-picker-range-value {
+  color: #e1edf5;
+  font-family: sfmono-regular, menlo, monaco, consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.scene-marker-timestamp-picker-actions {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: 1fr;
+  margin-top: 0.65rem;
+}
+
+.scene-marker-timestamp-picker-option {
+  align-items: center;
+  background: #243440;
+  border: 1px solid #405565;
+  border-left-width: 4px;
+  border-radius: 0.4rem;
+  color: #f5f8fa;
+  cursor: pointer;
+  display: flex;
+  gap: 1.25rem;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 0.65rem 0.7rem;
+  text-align: left;
+  transition: background 120ms ease, border-color 120ms ease,
+    box-shadow 120ms ease;
+
+  &:hover,
+  &:focus-visible {
+    background: #304858;
+    border-color: #8ab2cc;
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.24);
+    color: #fff;
+    outline: none;
+  }
+
+  &-start {
+    border-left-color: #38bdf8;
+
+    .scene-marker-timestamp-picker-option-time {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: rgba(125, 211, 252, 0.55);
+      color: #bcecff;
+    }
+  }
+
+  &-end {
+    border-left-color: #fbbf24;
+
+    .scene-marker-timestamp-picker-option-time {
+      background: rgba(251, 191, 36, 0.16);
+      border-color: rgba(253, 224, 71, 0.5);
+      color: #ffe28a;
+    }
+  }
+}
+
+.scene-marker-timestamp-picker-option-label {
+  color: #c8d8e4;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.scene-marker-timestamp-picker-option-time {
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  font-family: sfmono-regular, menlo, monaco, consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1.15;
+  padding: 0.3rem 0.5rem;
+  white-space: nowrap;
+}

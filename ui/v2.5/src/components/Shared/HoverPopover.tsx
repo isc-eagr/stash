@@ -13,6 +13,8 @@ interface IHoverPopover {
   popoverClassName?: string; // CUSTOM
   estimatedContentHeight?: number; // CUSTOM
   style?: React.CSSProperties; // CUSTOM
+  anchorToCursor?: boolean; // CUSTOM
+  disabled?: boolean; // CUSTOM
   placement?: OverlayProps["placement"];
   onOpen?: () => void;
   onClose?: () => void;
@@ -30,6 +32,8 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
     popoverClassName, // CUSTOM
     estimatedContentHeight, // CUSTOM
     style, // CUSTOM
+    anchorToCursor = false, // CUSTOM
+    disabled = false, // CUSTOM
     placement = "top",
     onOpen,
     onClose,
@@ -38,16 +42,30 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
     const [show, setShow] = useState(false);
     const [effectivePlacement, setEffectivePlacement] = useState(placement); // CUSTOM
     const [popoverMaxHeight, setPopoverMaxHeight] = useState<number>(); // CUSTOM
+    const [cursorAnchorPosition, setCursorAnchorPosition] = useState<{
+      left: number;
+      top: number;
+    }>(); // CUSTOM
     const triggerRef = useRef<HTMLDivElement>(null);
     const popoverRef = useRef<HTMLDivElement | null>(null); // CUSTOM
+    const cursorAnchorRef = useRef<HTMLSpanElement>(null); // CUSTOM
     const enterTimer = useRef<number>();
     const leaveTimer = useRef<number>();
 
+    const getPopoverTarget = useCallback(
+      () =>
+        anchorToCursor
+          ? cursorAnchorRef.current
+          : target?.current ?? triggerRef.current,
+      [anchorToCursor, target]
+    ); // CUSTOM
+
     const handleMouseEnter = useCallback(() => {
+      if (disabled) return; // CUSTOM
       window.clearTimeout(leaveTimer.current);
       enterTimer.current = window.setTimeout(() => {
         // CUSTOM: begin - keep tall top/bottom popovers inside the viewport
-        const targetElement = target?.current ?? triggerRef.current;
+        const targetElement = getPopoverTarget();
         if (
           typeof placement === "string" &&
           (placement.startsWith("bottom") || placement.startsWith("top")) &&
@@ -74,14 +92,38 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
         setShow(true);
         onOpen?.();
       }, enterDelay);
-    }, [enterDelay, estimatedContentHeight, onOpen, placement, target]);
+    }, [
+      enterDelay,
+      disabled,
+      estimatedContentHeight,
+      getPopoverTarget,
+      onOpen,
+      placement,
+    ]);
+
+    // CUSTOM: pin cursor-anchored popovers where the pointer entered so the
+    // menu stays nearby without moving away while the user reaches for it.
+    const handleTriggerMouseEnter = useCallback(
+      (event: React.MouseEvent<HTMLDivElement>) => {
+        if (disabled) return; // CUSTOM
+        if (anchorToCursor) {
+          const rect = event.currentTarget.getBoundingClientRect();
+          setCursorAnchorPosition({
+            left: event.clientX - rect.left,
+            top: event.clientY - rect.top,
+          });
+        }
+        handleMouseEnter();
+      },
+      [anchorToCursor, disabled, handleMouseEnter]
+    );
 
     // CUSTOM: begin - re-evaluate after lazy popover content loads or resizes
     useEffect(() => {
       if (!show || !popoverRef.current) return;
 
       const popoverElement = popoverRef.current;
-      const targetElement = target?.current ?? triggerRef.current;
+      const targetElement = getPopoverTarget();
       if (!targetElement || typeof placement !== "string") return;
 
       const updateLayout = () => {
@@ -119,7 +161,7 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
         resizeObserver?.disconnect();
         window.removeEventListener("resize", updateLayout);
       };
-    }, [estimatedContentHeight, placement, show, target]);
+    }, [estimatedContentHeight, getPopoverTarget, placement, show]);
     // CUSTOM: end
 
     const handleMouseLeave = useCallback(() => {
@@ -138,22 +180,46 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
       []
     );
 
+    // CUSTOM: an exclusive sibling popover can immediately dismiss this one.
+    useEffect(() => {
+      if (!disabled) return;
+
+      window.clearTimeout(enterTimer.current);
+      window.clearTimeout(leaveTimer.current);
+      setShow(false);
+    }, [disabled]);
+
     return (
       <>
         <div
           className={className}
           style={style} // CUSTOM
-          onMouseEnter={handleMouseEnter}
+          onMouseEnter={handleTriggerMouseEnter} // CUSTOM
           onMouseLeave={handleMouseLeave}
           ref={triggerRef}
         >
           {children}
+          {/* CUSTOM: cursor-local overlay target */}
+          {anchorToCursor && cursorAnchorPosition && (
+            <span
+              ref={cursorAnchorRef}
+              aria-hidden="true"
+              style={{
+                height: 1,
+                left: cursorAnchorPosition.left,
+                pointerEvents: "none",
+                position: "absolute",
+                top: cursorAnchorPosition.top,
+                width: 1,
+              }}
+            />
+          )}
         </div>
         {triggerRef.current && (
           <Overlay
-            show={show}
+            show={show && !disabled} // CUSTOM
             placement={effectivePlacement}
-            target={target?.current ?? triggerRef.current}
+            target={getPopoverTarget() ?? triggerRef.current} // CUSTOM
           >
             <Popover
               onMouseEnter={handleMouseEnter}

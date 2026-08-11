@@ -3884,3 +3884,50 @@ After a valid insertion, the original range becomes two markers that retain the 
 ### Configuration Dependencies
 
 - None.
+
+---
+
+## 53. Copy Scene Marker Timestamps From the Player Timeline
+
+### Overview
+
+Adds a copy-from-marker action beside both time inputs in the Create/Edit Marker form. The action is ordered immediately after Select Current Timestamp and before Jump To. Starting it from either Start time or End time puts the scene player into a one-shot timestamp selection mode while preserving the originating destination field. Hovering a regular or negative marker on either the video progress bar or thumbnail scrubber opens a stable picker showing the marker title, its full millisecond-precise range, and two uncluttered full-width Start and End buttons whose timestamps are the color-coded selectable chips. The picker is anchored at the cursor entry/click position instead of the center of a potentially long marker and remains fixed while the pointer moves onto it. Negative-marker hover takes exclusive ownership over any overlapping regular marker so only the negative picker remains open and stale mouse-leave events cannot dismiss it. Selecting a timestamp copies that exact boundary into the launching field, exits copy mode, and keeps the marker form open. Open-ended regular markers offer only their available start timestamp, and ordinary marker seeking/focus behavior remains unchanged outside copy mode. Marker-level selection avoids competing controls at adjacent boundaries, so markers separated by only one millisecond remain easy to use.
+
+### Files Modified
+
+- `ui/v2.5/src/components/Shared/DurationInput.tsx` - Adds the optional copy-from-marker button and active state in the current/copy/jump action order.
+- `ui/v2.5/src/components/Shared/HoverPopover.tsx` - Supports fixed cursor-entry anchoring and exclusive sibling suppression for interactive scrubber pickers.
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkerForm.tsx` - Launches copy mode from the requested create/edit field, applies one-shot selections, and shows selection guidance.
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkersPanel.tsx` - Passes timestamp-copy state through the marker editor.
+- `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx` - Coordinates the sibling marker form and scene player while intercepting copy-mode marker clicks.
+- `ui/v2.5/src/components/ScenePlayer/ScenePlayer.tsx` - Enables exact range endpoints during copy mode, including on mobile or when normal range markers are hidden.
+- `ui/v2.5/src/components/ScenePlayer/ScenePlayerScrubber.tsx` - Opens cursor-anchored exact-time pickers from regular and negative thumbnail scrubber markers.
+- `ui/v2.5/src/components/ScenePlayer/markers.ts` - Adds the cursor-anchored interactive picker for regular and negative progress-bar ranges and dots.
+- `ui/v2.5/src/index.scss` - Imports the isolated timestamp-copy styles after the scene player stylesheet.
+- `CUSTOM_FEATURES.md` - Documents marker timestamp copying.
+
+### Files Added
+
+- `ui/v2.5/src/components/ScenePlayer/sceneMarkerTimestampCopy_custom.ts` - Defines copy request/selection contracts and exact boundary resolution.
+- `ui/v2.5/src/components/ScenePlayer/sceneMarkerTimestampCopy_custom.scss` - Styles active markers and the stable exact-time picker.
+- `ui/v2.5/src/components/ScenePlayer/SceneMarkerTimestampCopyPopover_custom.tsx` - Renders the interactive exact-time picker in the thumbnail scrubber.
+- `ui/v2.5/tests/sceneMarkerTimestampCopy_custom.test.ts` - Covers destination-field preservation and boundary selection.
+
+### Test Cases Added
+
+- Verifies a source start can be copied into the End time field that launched the request.
+- Verifies a source end can be copied into the Start time field that launched the request.
+- Verifies open-ended markers do not offer a nonexistent end timestamp.
+- Verifies the picker exposes separate labeled options with exact seconds and omits End for open-ended markers.
+- Verifies an End and the following Start remain distinct when separated by only one millisecond.
+- Verifies a normalized negative-marker end can be copied into the launching field.
+- Verifies picker positioning centers on the cursor and remains clamped inside the timeline edge.
+- Verifies a stale overlapping regular-marker leave cannot hide the negative marker that owns the active picker.
+
+### GraphQL Schema Changes
+
+- None.
+
+### Configuration Dependencies
+
+- None. Copy mode temporarily shows range endpoints even when the normal range-marker display is disabled.

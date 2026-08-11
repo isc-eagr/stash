@@ -79,6 +79,15 @@ import {
   type ISceneMarkerFocusRequest,
 } from "./sceneMarkerFocusScroll_custom";
 import { ScenePerformerOverviewProvider } from "./ScenePerformerOverviewPanel_custom";
+import {
+  resolveSceneMarkerTimestampCopySelection,
+  type ISceneMarkerTimestampCopyRequest,
+  type ISceneMarkerTimestampCopySelection,
+  type ISceneMarkerTimestampSource,
+  type SceneMarkerTimestampBoundary,
+  type SceneMarkerTimestampField,
+  type SceneMarkerTimestampSourceKind,
+} from "src/components/ScenePlayer/sceneMarkerTimestampCopy_custom";
 // CUSTOM: end
 
 const SubmitStashBoxDraft = lazyComponent(
@@ -189,6 +198,10 @@ interface IProps {
   activeReleaseId: string | null; // CUSTOM
   setActiveReleaseId: (id: string | null) => void; // CUSTOM
   currentTimestamp?: number; // CUSTOM
+  markerTimestampCopyRequest?: ISceneMarkerTimestampCopyRequest; // CUSTOM
+  markerTimestampCopySelection?: ISceneMarkerTimestampCopySelection; // CUSTOM
+  onMarkerTimestampCopyRequest: (field?: SceneMarkerTimestampField) => void; // CUSTOM
+  onMarkerTimestampCopySelectionHandled: (requestId: number) => void; // CUSTOM
 }
 
 interface ISceneParams {
@@ -222,6 +235,10 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     activeReleaseId, // CUSTOM
     setActiveReleaseId, // CUSTOM
     currentTimestamp, // CUSTOM
+    markerTimestampCopyRequest, // CUSTOM
+    markerTimestampCopySelection, // CUSTOM
+    onMarkerTimestampCopyRequest, // CUSTOM
+    onMarkerTimestampCopySelectionHandled, // CUSTOM
   } = props;
 
   const Toast = useToast();
@@ -732,6 +749,12 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               currentTimestamp={currentTimestamp} // CUSTOM
               focusedMarkerRequest={scrubberMarkerFocusRequest} // CUSTOM
               onFocusedMarkerHandled={onScrubberMarkerFocusHandled} // CUSTOM
+              markerTimestampCopyRequest={markerTimestampCopyRequest} // CUSTOM
+              markerTimestampCopySelection={markerTimestampCopySelection} // CUSTOM
+              onMarkerTimestampCopyRequest={onMarkerTimestampCopyRequest} // CUSTOM
+              onMarkerTimestampCopySelectionHandled={
+                onMarkerTimestampCopySelectionHandled
+              } // CUSTOM
             />
           </Tab.Pane>
           {/* CUSTOM: begin - negative markers pane */}
@@ -1078,6 +1101,44 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
     !(configuration?.interface.showScrubber ?? true)
   );
   const [currentTimestamp, setCurrentTimestamp] = useState<number>(0); // CUSTOM
+  // CUSTOM: begin - route marker boundary selections back to the form field
+  // that requested a copied timestamp.
+  const markerTimestampCopyRequestId = useRef(0);
+  const [markerTimestampCopyRequest, setMarkerTimestampCopyRequest] =
+    useState<ISceneMarkerTimestampCopyRequest>();
+  const [markerTimestampCopySelection, setMarkerTimestampCopySelection] =
+    useState<ISceneMarkerTimestampCopySelection>();
+
+  const onMarkerTimestampCopyRequest = useCallback(
+    (field?: SceneMarkerTimestampField) => {
+      setMarkerTimestampCopySelection(undefined);
+      setMarkerTimestampCopyRequest((currentRequest) => {
+        if (!field || currentRequest?.field === field) return undefined;
+
+        markerTimestampCopyRequestId.current += 1;
+        return {
+          field,
+          requestId: markerTimestampCopyRequestId.current,
+        };
+      });
+    },
+    []
+  );
+
+  const onMarkerTimestampCopySelectionHandled = useCallback(
+    (requestId: number) => {
+      setMarkerTimestampCopySelection((currentSelection) =>
+        currentSelection?.requestId === requestId ? undefined : currentSelection
+      );
+    },
+    []
+  );
+
+  useEffect(() => {
+    setMarkerTimestampCopyRequest(undefined);
+    setMarkerTimestampCopySelection(undefined);
+  }, [id]);
+  // CUSTOM: end
 
   const _setTimestamp = useRef<(value: number) => void>();
   const _multiSegmentLoopApi = useRef<IMultiSegmentLoopApi | null>(null); // CUSTOM
@@ -1311,14 +1372,55 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
 
   // CUSTOM: begin - bridge player scrubber marker clicks to ScenePage tabs
   const onScenePlayerMarkerClick = useCallback(
-    (markerId: string, seconds: number) => {
+    (
+      markerId: string,
+      seconds: number,
+      boundary?: SceneMarkerTimestampBoundary,
+      sourceKind: SceneMarkerTimestampSourceKind = "scene-marker"
+    ) => {
+      // CUSTOM: timestamp-copy mode consumes the marker click and leaves the
+      // Create Marker form open instead of focusing the source marker card.
+      if (markerTimestampCopyRequest) {
+        if (!boundary) return;
+
+        let sourceMarker: ISceneMarkerTimestampSource | undefined;
+        if (sourceKind === "negative-marker") {
+          const negativeMarker = scene?.negative_markers.find(
+            (candidate) => candidate.id === markerId
+          );
+          if (negativeMarker) {
+            sourceMarker = {
+              id: negativeMarker.id,
+              seconds: negativeMarker.start_seconds,
+              end_seconds: negativeMarker.end_seconds,
+            };
+          }
+        } else {
+          sourceMarker = scene?.scene_markers.find(
+            (sceneMarker) => sceneMarker.id === markerId
+          );
+        }
+        if (!sourceMarker) return;
+
+        const selection = resolveSceneMarkerTimestampCopySelection(
+          markerTimestampCopyRequest,
+          sourceMarker,
+          boundary
+        );
+        if (!selection) return;
+
+        setMarkerTimestampCopySelection(selection);
+        setMarkerTimestampCopyRequest(undefined);
+        return;
+      }
+
       window.dispatchEvent(
         new CustomEvent("stash:scene-marker-scrubber-click", {
           detail: { markerId, seconds },
         })
       );
     },
-    []
+    [markerTimestampCopyRequest, scene?.negative_markers, scene?.scene_markers]
   );
   // CUSTOM: end
 
@@ -1380,6 +1482,12 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
         activeReleaseId={activeReleaseId} // CUSTOM
         setActiveReleaseId={setActiveReleaseId} // CUSTOM
         currentTimestamp={currentTimestamp} // CUSTOM
+        markerTimestampCopyRequest={markerTimestampCopyRequest} // CUSTOM
+        markerTimestampCopySelection={markerTimestampCopySelection} // CUSTOM
+        onMarkerTimestampCopyRequest={onMarkerTimestampCopyRequest} // CUSTOM
+        onMarkerTimestampCopySelectionHandled={
+          onMarkerTimestampCopySelectionHandled
+        } // CUSTOM
       />
       <div className={`scene-player-container ${collapsed ? "expanded" : ""}`}>
         <ScenePlayer
@@ -1393,6 +1501,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
           sendMultiSegmentLoopApi={getMultiSegmentLoopApi} // CUSTOM
           onTimeChange={setCurrentTimestamp} // CUSTOM
           onMarkerClick={onScenePlayerMarkerClick} // CUSTOM
+          markerTimestampCopyActive={!!markerTimestampCopyRequest} // CUSTOM
           onComplete={onComplete}
           onNext={() => queueNext(true)}
           onPrevious={() => queuePrevious(true)}

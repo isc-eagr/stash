@@ -3,6 +3,7 @@ import {
   faChevronUp,
   faClock,
   faArrowRight, // CUSTOM
+  faCopy, // CUSTOM
 } from "@fortawesome/free-solid-svg-icons";
 import React, { useMemo, useState } from "react";
 import { Button, ButtonGroup, InputGroup, Form } from "react-bootstrap";
@@ -15,6 +16,8 @@ interface IProps {
   setValue(value: number | null): void;
   onReset?(): void;
   onSeekTo?(): void; // CUSTOM
+  onCopyFromMarker?(): void; // CUSTOM
+  copyFromMarkerActive?: boolean; // CUSTOM
   className?: string;
   placeholder?: string;
   error?: string;
@@ -29,6 +32,8 @@ export const DurationInput: React.FC<IProps> = ({
   setValue,
   onReset,
   onSeekTo, // CUSTOM
+  onCopyFromMarker, // CUSTOM
+  copyFromMarkerActive = false, // CUSTOM
   className,
   placeholder,
   error,
@@ -111,6 +116,25 @@ export const DurationInput: React.FC<IProps> = ({
       );
     }
   }
+
+  function maybeRenderCopyFromMarker() {
+    if (onCopyFromMarker) {
+      return (
+        <Button
+          variant={copyFromMarkerActive ? "info" : "secondary"}
+          onClick={() => onCopyFromMarker()}
+          aria-pressed={copyFromMarkerActive}
+          title={
+            copyFromMarkerActive
+              ? "Cancel marker timestamp selection"
+              : "Copy from an existing marker"
+          }
+        >
+          <Icon icon={faCopy} />
+        </Button>
+      );
+    }
+  }
   // CUSTOM: end
 
   const inputValue = useMemo(() => {
@@ -142,6 +166,7 @@ export const DurationInput: React.FC<IProps> = ({
         />
         <InputGroup.Append>
           {maybeRenderReset()}
+          {maybeRenderCopyFromMarker()} {/* CUSTOM */}
           {maybeRenderSeekTo()} {/* CUSTOM */}
           {renderButtons()}
         </InputGroup.Append>

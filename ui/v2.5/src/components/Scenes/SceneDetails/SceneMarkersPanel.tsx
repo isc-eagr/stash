@@ -38,6 +38,11 @@ import {
   scrollSceneMarkerIntoTabView,
   type ISceneMarkerFocusRequest,
 } from "./sceneMarkerFocusScroll_custom";
+import type {
+  ISceneMarkerTimestampCopyRequest,
+  ISceneMarkerTimestampCopySelection,
+  SceneMarkerTimestampField,
+} from "src/components/ScenePlayer/sceneMarkerTimestampCopy_custom";
 // CUSTOM: end
 
 interface ISceneMarkersPanelProps {
@@ -48,6 +53,10 @@ interface ISceneMarkersPanelProps {
   currentTimestamp?: number; // CUSTOM
   focusedMarkerRequest?: ISceneMarkerFocusRequest; // CUSTOM
   onFocusedMarkerHandled?: (requestId: number) => void; // CUSTOM
+  markerTimestampCopyRequest?: ISceneMarkerTimestampCopyRequest; // CUSTOM
+  markerTimestampCopySelection?: ISceneMarkerTimestampCopySelection; // CUSTOM
+  onMarkerTimestampCopyRequest: (field?: SceneMarkerTimestampField) => void; // CUSTOM
+  onMarkerTimestampCopySelectionHandled: (requestId: number) => void; // CUSTOM
 }
 
 function getSceneTabScrollElement() {
@@ -62,6 +71,10 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   currentTimestamp, // CUSTOM
   focusedMarkerRequest, // CUSTOM
   onFocusedMarkerHandled, // CUSTOM
+  markerTimestampCopyRequest, // CUSTOM
+  markerTimestampCopySelection, // CUSTOM
+  onMarkerTimestampCopyRequest, // CUSTOM
+  onMarkerTimestampCopySelectionHandled, // CUSTOM
 }) => {
   const { configuration } = useConfigurationContext(); // CUSTOM
   const { data, loading } = GQL.useFindSceneMarkerTagsQuery({
@@ -546,6 +559,12 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
         sceneID={sceneId}
         marker={editingMarker}
         onClose={closeEditor}
+        markerTimestampCopyRequest={markerTimestampCopyRequest} // CUSTOM
+        markerTimestampCopySelection={markerTimestampCopySelection} // CUSTOM
+        onMarkerTimestampCopyRequest={onMarkerTimestampCopyRequest} // CUSTOM
+        onMarkerTimestampCopySelectionHandled={
+          onMarkerTimestampCopySelectionHandled
+        } // CUSTOM
       />
     );
   }

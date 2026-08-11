@@ -21,6 +21,10 @@ import "./persist-volume";
 import "./autostart-button";
 import MarkersPlugin, { type IMarker } from "./markers";
 void MarkersPlugin;
+import type {
+  SceneMarkerTimestampBoundary,
+  SceneMarkerTimestampSourceKind,
+} from "./sceneMarkerTimestampCopy_custom"; // CUSTOM
 import "./vtt-thumbnails";
 import "./big-buttons";
 import "./track-activity";
@@ -276,7 +280,13 @@ interface IScenePlayerProps {
   sendSetTimestamp: (setTimestamp: (value: number) => void) => void;
   sendMultiSegmentLoopApi?: (api: IMultiSegmentLoopApi) => void; // CUSTOM
   onTimeChange?: (time: number) => void; // CUSTOM
-  onMarkerClick?: (markerId: string, seconds: number) => void; // CUSTOM
+  onMarkerClick?: (
+    markerId: string,
+    seconds: number,
+    boundary?: SceneMarkerTimestampBoundary,
+    sourceKind?: SceneMarkerTimestampSourceKind
+  ) => void; // CUSTOM
+  markerTimestampCopyActive?: boolean; // CUSTOM
   onComplete: () => void;
   onNext: () => void;
   onPrevious: () => void;
@@ -294,6 +304,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     sendMultiSegmentLoopApi, // CUSTOM
     onTimeChange, // CUSTOM
     onMarkerClick, // CUSTOM
+    markerTimestampCopyActive = false, // CUSTOM
     onComplete,
     onNext,
     onPrevious,
@@ -1777,9 +1788,12 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         window.cancelAnimationFrame(markerRenderFrame.current);
       }
       markers.clearMarkers();
-      markers.setOnMarkerClick((marker, seconds) => {
+      markers.setTimestampCopyMode(markerTimestampCopyActive); // CUSTOM
+      markers.setOnMarkerClick((marker, seconds, boundary) => {
         if (marker.id) {
-          onMarkerClick?.(marker.id, seconds);
+          const sourceKind: SceneMarkerTimestampSourceKind =
+            "start_seconds" in marker ? "negative-marker" : "scene-marker";
+          onMarkerClick?.(marker.id, seconds, boundary, sourceKind); // CUSTOM
         }
       });
 
@@ -1796,7 +1810,8 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       markers.findColors(uniqueTagNames);
 
       const showRangeTags =
-        !ScreenUtils.isMobile() && (uiConfig?.showRangeMarkers ?? true);
+        markerTimestampCopyActive ||
+        (!ScreenUtils.isMobile() && (uiConfig?.showRangeMarkers ?? true)); // CUSTOM: copy picker needs selectable marker ranges
       const timestampMarkers: IMarker[] = [];
       const rangeMarkers: IMarker[] = [];
 
@@ -1844,7 +1859,14 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         markers.addOTimestampMarkers(oTimestampEntries);
         // CUSTOM: end
       });
-    }, [getPlayer, scene, uiConfig, file, onMarkerClick]); // CUSTOM: file added so duration is current when scene changes
+    }, [
+      getPlayer,
+      scene,
+      uiConfig,
+      file,
+      onMarkerClick,
+      markerTimestampCopyActive,
+    ]); // CUSTOM
 
     useEffect(() => {
       const player = getPlayer();
@@ -2149,6 +2171,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             onSeek={onScrubberSeek}
             onScroll={onScrubberScroll}
             onMarkerClick={onMarkerClick} // CUSTOM
+            timestampCopyActive={markerTimestampCopyActive} // CUSTOM
           />
         )}
         {/* CUSTOM: begin - multi-segment loop controls, performer image overlay modal, performer image overlays */}

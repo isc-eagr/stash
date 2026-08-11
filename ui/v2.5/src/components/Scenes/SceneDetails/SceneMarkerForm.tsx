@@ -50,6 +50,11 @@ import {
   INSERT_MARKER_SOURCE_END_REQUIRED,
   type SceneMarkerInsertMode,
 } from "./sceneMarkerFormActions_custom";
+import type {
+  ISceneMarkerTimestampCopyRequest,
+  ISceneMarkerTimestampCopySelection,
+  SceneMarkerTimestampField,
+} from "src/components/ScenePlayer/sceneMarkerTimestampCopy_custom";
 // CUSTOM: end
 
 interface IPerformer {
@@ -112,12 +117,20 @@ interface ISceneMarkerForm {
   sceneID: string;
   marker?: GQL.SceneMarkerDataFragment;
   onClose: () => void;
+  markerTimestampCopyRequest?: ISceneMarkerTimestampCopyRequest; // CUSTOM
+  markerTimestampCopySelection?: ISceneMarkerTimestampCopySelection; // CUSTOM
+  onMarkerTimestampCopyRequest: (field?: SceneMarkerTimestampField) => void; // CUSTOM
+  onMarkerTimestampCopySelectionHandled: (requestId: number) => void; // CUSTOM
 }
 
 export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   sceneID,
   marker,
   onClose,
+  markerTimestampCopyRequest, // CUSTOM
+  markerTimestampCopySelection, // CUSTOM
+  onMarkerTimestampCopyRequest, // CUSTOM
+  onMarkerTimestampCopySelectionHandled, // CUSTOM
 }) => {
   const intl = useIntl();
 
@@ -279,6 +292,30 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     // CUSTOM: end
     onSubmit: (values) => onSave(schema.cast(values)),
   });
+  const { setFieldValue } = formik; // CUSTOM: stable timestamp-copy dependency
+  // CUSTOM: begin - apply a selected source-marker boundary to the field that
+  // launched copy mode, then acknowledge the one-shot selection.
+  useEffect(() => {
+    if (!markerTimestampCopySelection) return;
+
+    void setFieldValue(
+      markerTimestampCopySelection.field,
+      markerTimestampCopySelection.seconds
+    );
+    onMarkerTimestampCopySelectionHandled(
+      markerTimestampCopySelection.requestId
+    );
+  }, [
+    markerTimestampCopySelection,
+    onMarkerTimestampCopySelectionHandled,
+    setFieldValue,
+  ]);
+
+  useEffect(
+    () => () => onMarkerTimestampCopyRequest(undefined),
+    [onMarkerTimestampCopyRequest]
+  );
+  // CUSTOM: end
   // CUSTOM: fetch negative titles only while that insert mode is visible.
   const { data: negativeMarkerNameData, loading: negativeMarkerNamesLoading } =
     useSceneNegativeMarkerNames(
@@ -697,6 +734,8 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
             player.currentTime(formik.values.seconds);
           }
         }}
+        onCopyFromMarker={() => onMarkerTimestampCopyRequest("seconds")}
+        copyFromMarkerActive={markerTimestampCopyRequest?.field === "seconds"}
         // CUSTOM: end
         error={error}
       />
@@ -730,6 +769,10 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
               player.currentTime(formik.values.end_seconds);
             }
           }}
+          onCopyFromMarker={() => onMarkerTimestampCopyRequest("end_seconds")}
+          copyFromMarkerActive={
+            markerTimestampCopyRequest?.field === "end_seconds"
+          }
           // CUSTOM: end
           error={error}
         />
@@ -774,6 +817,37 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         <Form.Label {...splitProps.labelProps}>{title}</Form.Label>
         <Col {...splitProps.fieldProps}>{control}</Col>
       </Form.Group>
+    );
+  }
+  // CUSTOM: end
+
+  // CUSTOM: begin - timestamp copy guidance shown while the player timeline is
+  // waiting for an existing marker boundary in the create/edit form.
+  function renderTimestampCopyNotice() {
+    if (!markerTimestampCopyRequest) return null;
+
+    const destination =
+      markerTimestampCopyRequest.field === "seconds"
+        ? "Start time"
+        : "End time";
+
+    return (
+      <Alert variant="info" className="d-flex align-items-center py-2">
+        <span>
+          Hover a regular or negative marker in the player timeline to preview
+          its exact range, then choose <strong>Start</strong> or{" "}
+          <strong>End</strong>. The timestamp will be copied into {destination}.
+        </span>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="ml-auto"
+          onClick={() => onMarkerTimestampCopyRequest(undefined)}
+        >
+          Cancel
+        </Button>
+      </Alert>
     );
   }
   // CUSTOM: end
@@ -1165,6 +1239,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         {renderTimeField()}
         {renderEndTimeField()}
         {renderDurationField()}
+        {renderTimestampCopyNotice()} {/* CUSTOM */}
         {(!isInsertBetween || formik.values.insert_mode === "marker") &&
           renderGapWarning()}
         {(!isInsertBetween || formik.values.insert_mode === "marker") &&
