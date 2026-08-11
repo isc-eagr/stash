@@ -51,6 +51,11 @@ const sortByOptions = [
 ]
   .map(ListFilterOptions.createSortBy)
   .concat([
+    // CUSTOM
+    {
+      messageID: "average_scene_rating",
+      value: "average_scene_rating",
+    },
     {
       messageID: "scene_count",
       value: "scenes_count",

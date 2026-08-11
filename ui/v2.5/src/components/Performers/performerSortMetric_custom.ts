@@ -55,6 +55,11 @@ const definitions: Record<
     format: "rating",
     value: (source) => backendOr(source, source.performer.rating100),
   },
+  average_scene_rating: {
+    messageID: "average_scene_rating",
+    format: "rating",
+    value: (source) => source.activeSortValue,
+  },
   penis_length: {
     messageID: "penis_length",
     format: "decimal",

@@ -74,6 +74,10 @@ interface IPerformerCategoryStripProps {
   studioContext?: { id: string; label: string; depth: number }; // CUSTOM
   /** Active performer-list sort, used to emphasize an already visible role count. */
   activeSortBy?: string; // CUSTOM
+  /** Optional target used by embedded overview surfaces. */
+  linkTarget?: React.HTMLAttributeAnchorTarget; // CUSTOM
+  /** Removes the standard vertical margin inside compact embedded surfaces. */
+  flushMargins?: boolean; // CUSTOM
 }
 
 /**
@@ -103,6 +107,8 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   hideUniquePartnerCounts = false,
   studioContext, // CUSTOM
   activeSortBy, // CUSTOM
+  linkTarget, // CUSTOM
+  flushMargins = false, // CUSTOM
 }) => {
   const { configuration } = useConfigurationContext();
 
@@ -223,6 +229,8 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
             <Link
               to={`/performers/${partner.id}`}
               className="performer-tag performer-hover-image-link zoom-2"
+              target={linkTarget} // CUSTOM
+              rel={linkTarget === "_blank" ? "noopener noreferrer" : undefined} // CUSTOM
             >
               <img
                 className="image-thumbnail performer-hover-image-thumbnail"
@@ -230,12 +238,16 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                 src={partner.image_path ?? ""}
               />
             </Link>
-            <PerformerLink performer={partner} className="d-block" />
+            <PerformerLink
+              performer={partner}
+              className="d-block"
+              target={linkTarget} // CUSTOM
+            />
           </div>
         ))}
       </div>
     ),
-    []
+    [linkTarget]
   );
 
   const renderMiniPartnerPopover = useCallback(
@@ -718,7 +730,11 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
 
   return (
     <>
-      <div className="performer-category-strip performer-role-badges my-3">
+      <div
+        className={cx("performer-category-strip performer-role-badges", {
+          "my-3": !flushMargins,
+        })} // CUSTOM
+      >
         {safeRolesToShow.map((role, idx) => {
           const categoryIcon =
             role.category === "sex"
@@ -982,7 +998,16 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                 }
               >
                 {categoryUrl && !sceneId ? (
-                  <Link to={categoryUrl} className="role-badge-link">
+                  <Link
+                    to={categoryUrl}
+                    className="role-badge-link"
+                    target={linkTarget} // CUSTOM
+                    rel={
+                      linkTarget === "_blank"
+                        ? "noopener noreferrer"
+                        : undefined
+                    } // CUSTOM
+                  >
                     {categoryIconElement}
                     {role.category !== "solo" && (
                       <span className="role-total-count">{role.count}</span>
@@ -1018,7 +1043,16 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                     }}
                   >
                     {categoryUrl && !sceneId ? (
-                      <Link to={categoryUrl} className="role-badge-link">
+                      <Link
+                        to={categoryUrl}
+                        className="role-badge-link"
+                        target={linkTarget} // CUSTOM
+                        rel={
+                          linkTarget === "_blank"
+                            ? "noopener noreferrer"
+                            : undefined
+                        } // CUSTOM
+                      >
                         <span className="role-total-count">
                           {role.count ?? 1}
                         </span>
@@ -1310,6 +1344,12 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                               <Link
                                 to={allPartnersUrl}
                                 className="role-badge-link"
+                                target={linkTarget} // CUSTOM
+                                rel={
+                                  linkTarget === "_blank"
+                                    ? "noopener noreferrer"
+                                    : undefined
+                                } // CUSTOM
                                 title={`${
                                   p.name || "Performer"
                                 } has been with ${uniquePartnerCount} unique partner${
@@ -1356,7 +1396,16 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                       );
                       const topBadge =
                         partnerTopUrl && partnerTopCount > 0 ? (
-                          <Link to={partnerTopUrl} className="role-badge-link">
+                          <Link
+                            to={partnerTopUrl}
+                            className="role-badge-link"
+                            target={linkTarget} // CUSTOM
+                            rel={
+                              linkTarget === "_blank"
+                                ? "noopener noreferrer"
+                                : undefined
+                            } // CUSTOM
+                          >
                             <Badge
                               pill
                               variant={ROLE_COLORS_CUSTOM.top.variant}
@@ -1448,6 +1497,12 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                           <Link
                             to={partnerBottomUrl}
                             className="role-badge-link"
+                            target={linkTarget} // CUSTOM
+                            rel={
+                              linkTarget === "_blank"
+                                ? "noopener noreferrer"
+                                : undefined
+                            } // CUSTOM
                           >
                             <Badge
                               pill
@@ -1585,7 +1640,16 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                           }`
                     }
                   >
-                    <Link to={orgasmUrl} className="role-badge-link">
+                    <Link
+                      to={orgasmUrl}
+                      className="role-badge-link"
+                      target={linkTarget} // CUSTOM
+                      rel={
+                        linkTarget === "_blank"
+                          ? "noopener noreferrer"
+                          : undefined
+                      } // CUSTOM
+                    >
                       <img
                         src={spermsSvg}
                         alt="Orgasm"
@@ -1600,7 +1664,16 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                         sceneId && orgasmTopCount === 1 ? "hidden" : "visible",
                     }}
                   >
-                    <Link to={orgasmUrl} className="role-badge-link">
+                    <Link
+                      to={orgasmUrl}
+                      className="role-badge-link"
+                      target={linkTarget} // CUSTOM
+                      rel={
+                        linkTarget === "_blank"
+                          ? "noopener noreferrer"
+                          : undefined
+                      } // CUSTOM
+                    >
                       <span className="role-total-count">{orgasmTopCount}</span>
                     </Link>
                   </div>
@@ -1655,7 +1728,16 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                     }
                   >
                     {!sceneId ? (
-                      <Link to={feetUrl} className="role-badge-link">
+                      <Link
+                        to={feetUrl}
+                        className="role-badge-link"
+                        target={linkTarget} // CUSTOM
+                        rel={
+                          linkTarget === "_blank"
+                            ? "noopener noreferrer"
+                            : undefined
+                        } // CUSTOM
+                      >
                         <img
                           src={feetSvg}
                           alt="Feet"
@@ -1668,7 +1750,16 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                   </div>
                   {!sceneId && (
                     <div className="feet-count">
-                      <Link to={feetUrl} className="role-badge-link">
+                      <Link
+                        to={feetUrl}
+                        className="role-badge-link"
+                        target={linkTarget} // CUSTOM
+                        rel={
+                          linkTarget === "_blank"
+                            ? "noopener noreferrer"
+                            : undefined
+                        } // CUSTOM
+                      >
                         <span className="role-total-count">{feetTopCount}</span>
                       </Link>
                     </div>

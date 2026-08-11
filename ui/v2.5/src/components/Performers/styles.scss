@@ -62,6 +62,29 @@
     display: inline-flex;
     gap: 0.5rem;
     margin-top: 0.25rem;
+
+    /* CUSTOM: Distinguish the Scene Rating Advisor average with a blue star. */
+    .performer-scene-average-rating {
+      align-items: center;
+      display: inline-flex;
+      gap: 0.35rem;
+      line-height: 1;
+
+      .fa-icon {
+        color: #58c7f3;
+      }
+    }
+
+    .performer-scene-average-rating-value {
+      font-weight: 700;
+    }
+
+    .performer-scene-average-rating-label {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.75rem;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
   }
 
   // the detail element ids are the same as field type name

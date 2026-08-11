@@ -60,6 +60,7 @@ const batchSorts: Record<CatalogSortMetricKindCustom, Set<string>> = {
     "scenes_duration",
     "scenes_size",
     "last_o_at",
+    "average_scene_rating",
     "sex_topped_partners",
     "oral_topped_partners",
     "facial_topped_partners",

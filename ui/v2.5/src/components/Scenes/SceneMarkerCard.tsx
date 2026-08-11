@@ -39,6 +39,7 @@ import {
   catalogCardSortHighlightClassCustom,
   isCatalogCardSortHighlightedCustom,
 } from "../Shared/catalogCardSortHighlight_custom"; // CUSTOM
+import { useScenePerformerOverview } from "./SceneDetails/ScenePerformerOverviewPanel_custom"; // CUSTOM
 
 interface ISceneMarkerCardProps {
   marker: GQL.SceneMarkerDataFragment;
@@ -157,6 +158,7 @@ const SceneMarkerCardDetails = PatchComponent(
       props.marker.top_performers.length > 0 &&
       props.marker.bottom_performers.length > 0;
     const [showParentTags, setShowParentTags] = useState(false);
+    const performerOverview = useScenePerformerOverview(); // CUSTOM
     const markerContext = useMemo(
       () => props.markerContext ?? toSceneMarkerCardContext(props.marker),
       [props.marker, props.markerContext]
@@ -175,29 +177,65 @@ const SceneMarkerCardDetails = PatchComponent(
         content={
           <div className="performer-hover-grid">
             <div className="performer-tag-container performer-hover-row">
-              <Link
-                to={`/performers/${performer.id}`}
-                className="performer-tag performer-hover-image-link zoom-2"
-              >
-                <img
-                  className="image-thumbnail performer-hover-image-thumbnail"
-                  alt={performer.name ?? ""}
-                  src={performer.image_path ?? ""}
-                />
-              </Link>
+              {/* CUSTOM: scene contexts open the performer overview from marker portraits. */}
+              {performerOverview ? (
+                <button
+                  type="button"
+                  aria-label={`Open ${performer.name ?? "vato"} overview`}
+                  className="performer-tag performer-hover-image-link zoom-2"
+                  onClick={() =>
+                    performerOverview.openPerformerOverview(performer.id)
+                  }
+                >
+                  <img
+                    className="image-thumbnail performer-hover-image-thumbnail"
+                    alt={performer.name ?? ""}
+                    src={performer.image_path ?? ""}
+                  />
+                </button>
+              ) : (
+                <Link
+                  to={`/performers/${performer.id}`}
+                  className="performer-tag performer-hover-image-link zoom-2"
+                >
+                  <img
+                    className="image-thumbnail performer-hover-image-thumbnail"
+                    alt={performer.name ?? ""}
+                    src={performer.image_path ?? ""}
+                  />
+                </Link>
+              )}
             </div>
           </div>
         }
       >
-        <Link
-          to={`/performers/${performer.id}`}
-          className="performer-chip-link"
-        >
-          <Badge variant={variant} className="performer-chip mr-1">
-            {showArrow && <Icon icon={arrowIcon} className="mr-1" />}
-            {performer.name}
-          </Badge>
-        </Link>
+        {/* CUSTOM: performer names open the same scene overview as portraits. */}
+        {performerOverview ? (
+          <button
+            type="button"
+            className="performer-chip-link scene-performer-overview-chip-button"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              performerOverview.openPerformerOverview(performer.id);
+            }}
+          >
+            <Badge variant={variant} className="performer-chip mr-1">
+              {showArrow && <Icon icon={arrowIcon} className="mr-1" />}
+              {performer.name}
+            </Badge>
+          </button>
+        ) : (
+          <Link
+            to={`/performers/${performer.id}`}
+            className="performer-chip-link"
+          >
+            <Badge variant={variant} className="performer-chip mr-1">
+              {showArrow && <Icon icon={arrowIcon} className="mr-1" />}
+              {performer.name}
+            </Badge>
+          </Link>
+        )}
       </HoverPopover>
     );
 

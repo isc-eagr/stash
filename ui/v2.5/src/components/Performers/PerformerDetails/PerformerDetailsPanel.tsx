@@ -21,6 +21,8 @@ interface IPerformerDetails {
   performer: GQL.PerformerDataFragment;
   collapsed?: boolean;
   fullWidth?: boolean;
+  excludedFields?: readonly string[]; // CUSTOM: scene performer overview omissions
+  linkTarget?: React.HTMLAttributeAnchorTarget; // CUSTOM: optional external navigation behavior
 }
 
 const PerformerDetailGroup: React.FC<PropsWithChildren<IPerformerDetails>> =
@@ -30,7 +32,14 @@ const PerformerDetailGroup: React.FC<PropsWithChildren<IPerformerDetails>> =
 
 export const PerformerDetailsPanel: React.FC<IPerformerDetails> =
   PatchComponent("PerformerDetailsPanel", (props) => {
-    const { performer, fullWidth, collapsed } = props;
+    const {
+      performer,
+      fullWidth,
+      collapsed,
+      excludedFields = [],
+      linkTarget,
+    } = props; // CUSTOM
+    const isFieldExcluded = (field: string) => excludedFields.includes(field); // CUSTOM
 
     // Network state
     const intl = useIntl();
@@ -42,7 +51,12 @@ export const PerformerDetailsPanel: React.FC<IPerformerDetails> =
       return (
         <ul className="pl-0">
           {(performer.tags ?? []).map((tag) => (
-            <TagLink key={tag.id} linkType="performer" tag={tag} />
+            <TagLink
+              key={tag.id}
+              linkType="performer"
+              tag={tag}
+              target={linkTarget} // CUSTOM
+            />
           ))}
         </ul>
       );
@@ -153,16 +167,22 @@ export const PerformerDetailsPanel: React.FC<IPerformerDetails> =
           value={FormatCircumcised(performer.circumcised)}
           fullWidth={fullWidth}
         />
-        <DetailItem
-          id="tattoos"
-          value={performer?.tattoos}
-          fullWidth={fullWidth}
-        />
-        <DetailItem
-          id="piercings"
-          value={performer?.piercings}
-          fullWidth={fullWidth}
-        />
+        {/* CUSTOM: begin - optional field omissions for compact overview surfaces */}
+        {!isFieldExcluded("tattoos") && (
+          <DetailItem
+            id="tattoos"
+            value={performer?.tattoos}
+            fullWidth={fullWidth}
+          />
+        )}
+        {!isFieldExcluded("piercings") && (
+          <DetailItem
+            id="piercings"
+            value={performer?.piercings}
+            fullWidth={fullWidth}
+          />
+        )}
+        {/* CUSTOM: end */}
         <DetailItem
           id="career_length"
           value={formatYearRange(
@@ -173,11 +193,14 @@ export const PerformerDetailsPanel: React.FC<IPerformerDetails> =
         />
         <DetailItem id="details" value={details} fullWidth={fullWidth} />
         <DetailItem id="tags" value={renderTagsField()} fullWidth={fullWidth} />
-        <DetailItem
-          id="stash_ids"
-          value={renderStashIDs()}
-          fullWidth={fullWidth}
-        />
+        {/* CUSTOM: scene performer overview omits Stash IDs. */}
+        {!isFieldExcluded("stash_ids") && (
+          <DetailItem
+            id="stash_ids"
+            value={renderStashIDs()}
+            fullWidth={fullWidth}
+          />
+        )}
         {(fullWidth || !collapsed) && (
           <CustomFields values={performer.custom_fields} />
         )}

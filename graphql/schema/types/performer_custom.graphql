@@ -112,6 +112,8 @@ type PerformerRoleStats {
 type PerformerWithSceneCount {
   performer: Performer!
   scene_count: Int!
+  "Merged timed-marker duration shared in this role configuration, in seconds" # CUSTOM
+  duration_seconds: Float! # CUSTOM
 }
 
 "Co-performers grouped by their role relationship to a performer"

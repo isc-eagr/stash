@@ -1,0 +1,60 @@
+/* CUSTOM: Role colors and shared activity duration for performer partner cards. */
+
+.performer-appears-with-by-role-panel {
+  .role-section-header {
+    border-left: 3px solid transparent;
+    padding-left: 0.65rem;
+  }
+
+  .role-section-top {
+    .role-section-header {
+      border-left-color: #17a2b8;
+    }
+
+    .role-section-title,
+    .role-section-subtitle {
+      color: #17a2b8;
+    }
+  }
+
+  .role-section-bottom {
+    .role-section-header {
+      border-left-color: #28a745;
+    }
+
+    .role-section-title,
+    .role-section-subtitle {
+      color: #28a745;
+    }
+  }
+
+  .co-performer-card-with-duration {
+    width: 180px;
+
+    &.is-top .co-performer-role-duration strong {
+      color: #17a2b8;
+    }
+
+    &.is-bottom .co-performer-role-duration strong {
+      color: #28a745;
+    }
+  }
+
+  .co-performer-role-duration {
+    align-items: center;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 0 0 0.25rem 0.25rem;
+    display: flex;
+    font-size: 0.75rem;
+    justify-content: space-between;
+    padding: 0.35rem 0.5rem;
+
+    span {
+      color: rgba(255, 255, 255, 0.65);
+    }
+
+    strong {
+      font-size: 0.85rem;
+    }
+  }
+}

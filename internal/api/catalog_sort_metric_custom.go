@@ -17,6 +17,7 @@ var performerBatchSortMetricsCustom = map[string]bool{
 	"scenes_duration":          true,
 	"scenes_size":              true,
 	"last_o_at":                true,
+	"average_scene_rating":     true,
 	"sex_topped_partners":      true,
 	"oral_topped_partners":     true,
 	"facial_topped_partners":   true,

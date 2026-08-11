@@ -24,6 +24,7 @@ import {
   getPerformerRolePartnerSectionSubtitle,
   getPerformerRolePartnerSectionTitle,
 } from "../performerRolePartnerLabels_custom"; // CUSTOM
+import "./PerformerAppearsWithByRolePanel_custom.scss"; // CUSTOM
 
 interface IPerformerAppearsWithByRolePanelProps {
   active: boolean;
@@ -33,6 +34,7 @@ interface IPerformerAppearsWithByRolePanelProps {
 interface IPerformerWithCount {
   performer: PerformerListData;
   sceneCount: number;
+  durationSeconds: number; // CUSTOM
 }
 
 interface IRoleSectionProps {
@@ -49,6 +51,7 @@ interface IRoleSectionProps {
 interface ICoPerformerCardProps {
   performer: PerformerListData;
   sceneCount: number;
+  durationSeconds: number; // CUSTOM
   currentPerformer: GQL.PerformerDataFragment;
   roleCategory: "sex" | "oral" | "facial";
   roleType: "top" | "bottom";
@@ -57,6 +60,7 @@ interface ICoPerformerCardProps {
 const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
   performer,
   sceneCount,
+  durationSeconds, // CUSTOM
   currentPerformer,
   roleCategory,
   roleType,
@@ -161,92 +165,100 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
     });
   };
 
+  // CUSTOM: begin - show the merged duration for this role configuration
   return (
-    <GridCard
-      className={`performer-card co-performer-card ${getRatingClass()}`}
-      url={`/performers/${performer.id}`}
-      width={180}
-      pretitleIcon={
-        <GenderIcon className="gender-icon" gender={performer.gender} />
-      }
-      title={
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <span className="performer-name">{performer.name}</span>
-          {sharedSceneCount > 1 && (
-            <span
-              className="badge badge-primary"
-              style={{
-                borderRadius: "50%",
-                width: "20px",
-                height: "20px",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "0.7rem",
-                padding: 0,
-              }}
-            >
-              {sharedSceneCount}
-            </span>
-          )}
-        </div>
-      }
-      image={
-        <img
-          loading="lazy"
-          decoding="async"
-          className="performer-card-image"
-          alt={performer.name ?? ""}
-          src={performer.image_path ?? ""}
-        />
-      }
-      overlays={
-        <>
-          <FavoriteIcon
-            favorite={performer.favorite}
-            onToggleFavorite={onToggleFavorite}
-            size="2x"
-            className="hide-not-favorite"
-          />
-          {performer.rating100 && (
-            <RatingBanner rating={performer.rating100} compact />
-          )}
-          {performer.country && (
-            <Link to={NavUtils.makePerformersCountryUrl(performer)}>
-              <CountryFlag
-                className="performer-card__country-flag"
-                country={performer.country}
-                includeOverlay
-              />
-              <span className="performer-card__country-string">
-                {performer.country}
+    <div className={`co-performer-card-with-duration is-${roleType}`}>
+      <GridCard
+        className={`performer-card co-performer-card ${getRatingClass()}`}
+        url={`/performers/${performer.id}`}
+        width={180}
+        pretitleIcon={
+          <GenderIcon className="gender-icon" gender={performer.gender} />
+        }
+        title={
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <span className="performer-name">{performer.name}</span>
+            {sharedSceneCount > 1 && (
+              <span
+                className="badge badge-primary"
+                style={{
+                  borderRadius: "50%",
+                  width: "20px",
+                  height: "20px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "0.7rem",
+                  padding: 0,
+                }}
+              >
+                {sharedSceneCount}
               </span>
-            </Link>
-          )}
-        </>
-      }
-      details={
-        <div className="performer-card__age">
-          {age !== 0 ? ageString : "\u00A0"}
-        </div>
-      }
-      popovers={
-        sharedScenesUrl && sharedSceneCount > 0 ? (
+            )}
+          </div>
+        }
+        image={
+          <img
+            loading="lazy"
+            decoding="async"
+            className="performer-card-image"
+            alt={performer.name ?? ""}
+            src={performer.image_path ?? ""}
+          />
+        }
+        overlays={
           <>
-            <hr />
-            <ButtonGroup className="card-popovers">
-              <PopoverCountButton
-                className="scene-count"
-                type="scene"
-                count={sharedSceneCount}
-                url={sharedScenesUrl}
-              />
-            </ButtonGroup>
+            <FavoriteIcon
+              favorite={performer.favorite}
+              onToggleFavorite={onToggleFavorite}
+              size="2x"
+              className="hide-not-favorite"
+            />
+            {performer.rating100 && (
+              <RatingBanner rating={performer.rating100} compact />
+            )}
+            {performer.country && (
+              <Link to={NavUtils.makePerformersCountryUrl(performer)}>
+                <CountryFlag
+                  className="performer-card__country-flag"
+                  country={performer.country}
+                  includeOverlay
+                />
+                <span className="performer-card__country-string">
+                  {performer.country}
+                </span>
+              </Link>
+            )}
           </>
-        ) : undefined
-      }
-    />
+        }
+        details={
+          <div className="performer-card__age">
+            {age !== 0 ? ageString : "\u00A0"}
+          </div>
+        }
+        popovers={
+          sharedScenesUrl && sharedSceneCount > 0 ? (
+            <>
+              <hr />
+              <ButtonGroup className="card-popovers">
+                <PopoverCountButton
+                  className="scene-count"
+                  type="scene"
+                  count={sharedSceneCount}
+                  url={sharedScenesUrl}
+                />
+              </ButtonGroup>
+            </>
+          ) : undefined
+        }
+      />
+      <div className="co-performer-role-duration">
+        <span>Time together</span>
+        <strong>{TextUtils.secondsToTimestamp(durationSeconds)}</strong>
+      </div>
+    </div>
   );
+  // CUSTOM: end
 };
 
 const RoleSection: React.FC<IRoleSectionProps> = ({
@@ -262,7 +274,7 @@ const RoleSection: React.FC<IRoleSectionProps> = ({
 
   return (
     <div
-      className="role-section mb-3"
+      className={`role-section role-section-${roleType} mb-3`} // CUSTOM
       style={{
         display: "block",
         width: "100%",
@@ -296,6 +308,7 @@ const RoleSection: React.FC<IRoleSectionProps> = ({
               <CoPerformerCard
                 performer={p.performer}
                 sceneCount={p.sceneCount}
+                durationSeconds={p.durationSeconds} // CUSTOM
                 currentPerformer={currentPerformer}
                 roleCategory={roleCategory}
                 roleType={roleType}
@@ -361,6 +374,7 @@ export const PerformerAppearsWithByRolePanel: React.FC<IPerformerAppearsWithByRo
         .map((item) => ({
           performer: item.performer,
           sceneCount: item.scene_count,
+          durationSeconds: item.duration_seconds, // CUSTOM
         }))
         .sort((a, b) => {
           const nameA = (a.performer.name ?? "").toLowerCase();

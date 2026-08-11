@@ -31,6 +31,19 @@ func TestCatalogSortMetricExpressionsReuseValidatedSorts(t *testing.T) {
 		t.Fatalf("performer expression did not use scene duration: %s", performerExpression)
 	}
 
+	performerSceneAverageExpression, err := PerformerSortMetricExpressionCustom("average_scene_rating")
+	if err != nil {
+		t.Fatalf("performer scene average expression: %v", err)
+	}
+	if !strings.Contains(performerSceneAverageExpression, "AVG(performer_rating_scene.rating)") {
+		t.Fatalf("performer expression did not use the scene rating average: %s", performerSceneAverageExpression)
+	}
+	if !strings.Contains(performerSceneAverageExpression, "soloPerformerAppeal") ||
+		!strings.Contains(performerSceneAverageExpression, "topAttractiveness") ||
+		!strings.Contains(performerSceneAverageExpression, "groupTopAttractiveness") {
+		t.Fatalf("performer expression did not include every Rating Advisor rubric: %s", performerSceneAverageExpression)
+	}
+
 	tagExpression, err := TagSortMetricExpressionCustom("scenes_size")
 	if err != nil {
 		t.Fatalf("tag expression: %v", err)

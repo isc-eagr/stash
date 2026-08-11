@@ -43,6 +43,7 @@ import {
   hasCatalogCardSortValueCustom,
   isCatalogCardSortHighlightedCustom,
 } from "../Shared/catalogCardSortHighlight_custom";
+import { shouldOpenScenePerformerOverview } from "src/utils/scenePerformerOverview_custom"; // CUSTOM
 // CUSTOM: end
 
 export interface IPerformerCardExtraCriteria {
@@ -113,6 +114,8 @@ interface IPerformerCardProps {
   activeSortBy?: string;
   activeSortDirection?: GQL.SortDirectionEnum;
   activeSortValue?: string | null;
+  /** Opens scene-specific performer UI instead of navigating the primary links. */
+  onOpenSceneOverview?: (performerId: string) => void;
   // CUSTOM: end
 }
 
@@ -587,9 +590,11 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
           sortDirection={sortDirection}
         />
         {/* Age line */}
-        <div className="performer-card__age">
-          {age !== 0 ? ageString : "\u00A0"}
-        </div>
+        {(age !== 0 || !sceneId) && (
+          <div className="performer-card__age">
+            {age !== 0 ? ageString : "\u00A0"}
+          </div>
+        )}
 
         {/* Role badges using shared component */}
         <PerformerCategoryStrip
@@ -663,6 +668,7 @@ export const PerformerCard: React.FC<IPerformerCardProps> = PatchComponent(
       onSelectedChanged,
       zoomIndex,
       extraCriteria,
+      onOpenSceneOverview, // CUSTOM
     } = props;
     const { configuration } = useConfigurationContext(); // CUSTOM
 
@@ -711,6 +717,18 @@ export const PerformerCard: React.FC<IPerformerCardProps> = PatchComponent(
       <GridCard
         className={`performer-card zoom-${zoomIndex} ${getRatingClass()}`} // CUSTOM: added getRatingClass()
         url={`/performers/${performer.id}`}
+        onPrimaryClick={
+          onOpenSceneOverview
+            ? (event) => {
+                if (!shouldOpenScenePerformerOverview(event)) {
+                  return;
+                }
+
+                event.preventDefault();
+                onOpenSceneOverview(performer.id);
+              }
+            : undefined
+        } // CUSTOM
         width={cardWidth}
         pretitleIcon={
           <GenderIcon className="gender-icon" gender={performer.gender} />

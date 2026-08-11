@@ -36,6 +36,7 @@ interface ICardProps {
   resumeTime?: number;
   duration?: number;
   interactiveHeatmap?: string;
+  onPrimaryClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void; // CUSTOM
 
   // move logic - both of the following are required to enable move dragging
   objectId?: string; // required for move dragging
@@ -223,6 +224,14 @@ export const GridCard: React.FC<ICardProps> = PatchComponent(
       }
     }
 
+    // CUSTOM: allow entity cards to replace their primary image/title navigation.
+    function handlePrimaryClick(event: React.MouseEvent<HTMLAnchorElement>) {
+      handleImageClick(event);
+      if (!event.defaultPrevented) {
+        props.onPrimaryClick?.(event);
+      }
+    }
+
     function maybeRenderInteractiveHeatmap() {
       if (props.interactiveHeatmap) {
         return (
@@ -283,7 +292,7 @@ export const GridCard: React.FC<ICardProps> = PatchComponent(
           <Link
             to={props.url}
             className={props.linkClassName}
-            onClick={handleImageClick}
+            onClick={handlePrimaryClick} // CUSTOM
           >
             {props.image}
           </Link>
@@ -292,7 +301,8 @@ export const GridCard: React.FC<ICardProps> = PatchComponent(
         </div>
         {maybeRenderInteractiveHeatmap()}
         <div className="card-section">
-          <Link to={props.url} onClick={handleImageClick}>
+          {/* CUSTOM: allow callers to replace the primary title navigation. */}
+          <Link to={props.url} onClick={handlePrimaryClick}>
             <h5 className="card-section-title flex-aligned">
               {props.pretitleIcon}
               <TruncatedText text={props.title} lineCount={2} />

@@ -687,6 +687,52 @@ For facial markers specifically, global context now shows **individual marker co
 - Facial counts now show marker-based counts globally to match scene context precision
 - Example: If a scene has 2 facials by the same performer to the same receiver, global context shows "2" instead of "1"
 
+### Compact Scene Performer Cards
+
+Scene-detail performer cards use a tighter layout than performer cards elsewhere:
+
+- Removes the empty age row when the scene does not have a calculable performer age
+- Removes the unused scene-role grid row and reduces the role area to the actual two top/bottom chip rows
+- Keeps hidden top or bottom placeholders so role chips remain aligned across cards
+- Reduces scene-only title, role-strip, divider, and card-bottom spacing
+
+**Files modified:**
+
+- `ui/v2.5/src/components/Performers/PerformerCard.tsx`
+- `ui/v2.5/src/components/Scenes/styles.scss`
+
+### Scene Vato Overview Panel
+
+Scene performer cards plus performer portraits and names shown in scene-marker activity/highlight UI open a compact overview drawer from the right side of the viewport. The drawer loads the full performer record on demand and supports backdrop, X-button, and Escape-key dismissal. All drawer links open in a new tab, including the vato name, tags, role metrics, and partner portraits.
+
+The panel includes the existing performer detail metadata and custom fields while intentionally omitting tattoos, piercings, and Stash IDs. It shows the performer rating and scene-average rating in collision-safe metric cards, the reusable sex/oral/solo/top/bottom role strip fitted beneath the performer name, catalog totals, an exact non-clickable Studios count, and an exact Partners count with lazy portrait previews on hover. Panel popovers render above the drawer layer, and the Partners popup measures its content and available viewport space so it flips above the trigger when it cannot fit below. Five always-visible activity-duration metrics reuse the performer Stats values: time fucking, getting fucked, getting his pito sucked, sucking pito, and jerking; top values are blue and bottom values are green. Activity Time appears after the general performer data and before the scene-specific interactions. The favorite/external/social action strip is intentionally omitted.
+
+An **In This Scene** section at the bottom derives this vato's opposite-role partners from the current scene markers. It groups linked portraits under the same role-specific wording used by the performer Partners tab, deduplicates partners repeated across markers, and always orders populated groups as Sex Top, Oral Top, Sex Bottom, then Oral Bottom.
+
+The performer **Partners** tab uses the same blue top and green bottom role-title treatments. Every partner card also shows the merged timed-marker duration the two vatos spent together in that exact role configuration, including a visible `0:00` when no timed interval is available. Overlapping timed markers in the same scene are merged so the total is not double-counted.
+
+The performer detail label `penis_length` is displayed as **Verga** on both the full performer page and the scene overview drawer.
+
+**Files created or modified:**
+
+- `ui/v2.5/src/components/Scenes/SceneDetails/ScenePerformerOverviewPanel_custom.tsx` and `.scss` - Scene-scoped drawer state, full performer query, overview rendering, responsive slide-in layout, and safe-mode metadata parity
+- `ui/v2.5/src/utils/scenePerformerOverview_custom.ts` - Explicit overview field exclusions, primary-click behavior, activity metric mapping, and scene-only partner grouping/deduplication
+- `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx` and `SceneDetailPanel.tsx` - Scene provider and Details-tab performer-card wiring
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerHoverPopover_custom.tsx` and `ui/v2.5/src/components/Scenes/SceneMarkerCard.tsx` - Marker portrait and performer-name drawer triggers
+- `ui/v2.5/src/components/Performers/PerformerDetails/PerformerDetailsPanel.tsx`, `PerformerCategoryStrip.tsx`, and `ui/v2.5/src/components/Shared/TagLink.tsx` - Reusable field exclusions, role strip, and optional new-tab link behavior
+- `ui/v2.5/src/components/Shared/HoverPopover.tsx` and `hoverPopoverPlacement_custom.ts` - Content-aware top/bottom placement for lazy popovers
+- `ui/v2.5/src/components/Performers/PerformerCard.tsx` and `ui/v2.5/src/components/Shared/GridCard/GridCard.tsx` - Optional primary-link interception for scene performer cards
+- `ui/v2.5/src/components/Performers/PerformerDetails/PerformerAppearsWithByRolePanel.tsx` and `PerformerAppearsWithByRolePanel_custom.scss` - Blue/green role headings and per-partner shared activity duration
+- `internal/api/performer_partner_duration_custom.go`, `internal/api/resolver_query_find_performer_custom.go`, `graphql/schema/types/performer_custom.graphql`, and `ui/v2.5/graphql/queries/performer.graphql` - Merged role-duration calculation and GraphQL delivery
+- `ui/v2.5/src/locales/en-GB.json` and `ui/v2.5/src/components/VatoStats/VatoStats.tsx` - Verga labels in performer details and Vato Stats
+
+**Test cases:**
+
+- `ui/v2.5/tests/scenePerformerOverviewFields_custom.test.ts` verifies the exact three-field exclusion contract, retention of the remaining performer metadata, plain-click versus modifier-click card behavior, deduplicated/sorted partner previews, fixed scene-interaction ordering, retention of zero-value activity durations, and viewport-aware popover flipping.
+- `internal/api/performer_partner_duration_custom_test.go` verifies unique shared-scene counts, same-scene interval merging, untimed zero-duration behavior, and opposite-role filtering.
+
+GraphQL adds `duration_seconds` to `PerformerWithSceneCount`. No new configuration is required; duration calculation reuses the configured sex, oral, and facial role tags.
+
 ### Batched Lazy Role Stats (Performer Cards)
 
 Performer list cards no longer request role and partner-count resolver fields in the initial `PerformerListData` fragment. The card grid renders the base cards first, then lazily requests all role stats for the visible performers through one batched GraphQL query.
@@ -2949,7 +2995,11 @@ Studio card scene-count hovers reuse the Solo Criteria, Standard Criteria, and G
 
 Performer detail Stats tabs reuse the same Solo Criteria, Standard Criteria, and Group Criteria panels, scoped to scenes where that performer appears. The shared performer rating tooltip also appends these scene panels, so the same averages are available from performer cards and the performer detail header. The performer aggregate and tooltip are lazy/cache-backed, and categories with no qualifying scenes are omitted completely.
 
+The performer detail header also paints the overall Scene Average Rating beside the performer's own rating. It uses a blue star without a separate highlighted container and a concise "Scene Average Rating" hover tooltip. The Performers list adds a Scene Average Rating sort using the same Solo/Standard/Group eligibility rules; grid cards show the exact active average through the catalog sort-metric badge.
+
 `TestStudioRatingAdvisorAverageSortExpressionsOrderByDisplayedAverages` executes all four Studio stored-rating sort expressions against representative solo, standard, group, and distinct-performer data.
+
+`TestPerformerSceneAverageRatingExprCustomMatchesRatingAdvisorEligibility` executes the performer sort expression against qualifying Solo, Standard, and Group scenes, excludes scenes without a matching rubric, and verifies the computed averages.
 
 ### Files Modified
 
@@ -2962,7 +3012,7 @@ Performer detail Stats tabs reuse the same Solo Criteria, Standard Criteria, and
 - `ui/v2.5/src/core/StashService.ts` - Routes by-ID performer loads through the full-data query
 - `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx` - Scene detail advisor button
 - `ui/v2.5/src/components/Scenes/SceneCard.tsx` - Lazy criteria tooltip on painted scene-card rating stars
-- `ui/v2.5/src/components/Performers/PerformerDetails/Performer.tsx` - Performer detail advisor button
+- `ui/v2.5/src/components/Performers/PerformerDetails/Performer.tsx` - Performer detail advisor button and Scene Average Rating header metric
 - `ui/v2.5/src/components/Performers/PerformerDetails/PerformerStatsPanel.tsx` - Performer-scoped scene Rating Advisor panels on the Stats tab
 - `ui/v2.5/src/components/Performers/PerformerCard.tsx` - Lazy criteria tooltip on painted performer-card rating stars
 - `ui/v2.5/src/components/Shared/Rating/RatingSystem.tsx` - Forces ratings to display as 0-100 values
@@ -2974,9 +3024,9 @@ Performer detail Stats tabs reuse the same Solo Criteria, Standard Criteria, and
 - `internal/api/resolver_mutation_scene.go`, `internal/api/resolver_mutation_performer.go`, `internal/api/resolver_mutation_configure.go` - Keeps advisor ownership and dependent ratings synchronized across manual ratings, casts, markers, deletion, merges, and role-tag configuration changes
 - `rating_scores.up.sql` - Rejects invalid entity types and orphan score rows, and removes score rows automatically when scenes or performers are deleted
 - `pkg/models/scene.go`, `pkg/models/performer.go`, `pkg/models/studio.go` - Adds rating criteria filter fields
-- `pkg/sqlite/scene_filter.go`, `pkg/sqlite/performer_filter.go`, `pkg/sqlite/studio_filter.go`, `pkg/sqlite/studio_rating_criteria_custom.go` - Hooks direct and average rating criteria filters into entity queries and provides Studio rubric/performer stored-rating sorts
+- `pkg/sqlite/scene_filter.go`, `pkg/sqlite/performer_filter.go`, `pkg/sqlite/studio_filter.go`, `pkg/sqlite/studio_rating_criteria_custom.go`, `pkg/sqlite/performer_scene_average_rating_sort_custom.go` - Hooks direct and average rating criteria filters into entity queries and provides Studio and performer-list stored-rating sorts
 - `pkg/sqlite/rating_criteria_filter_custom_test.go` - Covers group key isolation plus numeric and presence filter operators
-- `ui/v2.5/src/models/list-filter/scenes.ts`, `ui/v2.5/src/models/list-filter/performers.ts`, `ui/v2.5/src/models/list-filter/studios.ts` - Registers direct/average rating criteria filters and Studio average-criterion sorts
+- `ui/v2.5/src/models/list-filter/scenes.ts`, `ui/v2.5/src/models/list-filter/performers.ts`, `ui/v2.5/src/models/list-filter/studios.ts` - Registers direct/average rating criteria filters plus Studio and performer Scene Average Rating sorts
 - `ui/v2.5/src/locales/en-GB.json`, `ui/v2.5/src/locales/en-US.json` - Adds rating criteria filter labels
 - `graphql/schema/types/studio_custom.graphql` - Adds Studio Rating Advisor aggregate payloads and the depth-aware Studio field
 - `graphql/schema/types/stats_custom.graphql` - Adds the performer-scoped Rating Advisor aggregate query
@@ -3029,7 +3079,8 @@ Performer detail Stats tabs reuse the same Solo Criteria, Standard Criteria, and
 - `ui/v2.5/src/components/Performers/performerTypes_custom.ts` - Shared performer list/card data type for the lean list query
 - `internal/api/studio_rating_advisor_stats_custom.go` - Set-based studio rubric aggregate, per-criterion denominator handling, normalized bar averages, and adjustment counts
 - `internal/api/studio_rating_advisor_stats_custom_test.go` - Focused SQLite aggregate coverage for direct/child studios, performer-scoped scene membership, partial advisor data, and level-1 orgasm-quality contributions/fill
-- `ui/v2.5/src/components/Performers/PerformerSceneRatingAdvisor_custom.tsx` - Shared performer-scoped section rendering and Stats-tab query state
+- `ui/v2.5/src/components/Performers/PerformerSceneRatingAdvisor_custom.tsx` - Shared performer-scoped section rendering, Stats-tab query state, and header average metric
+- `pkg/sqlite/performer_scene_average_rating_sort_custom_test.go` - Executes and verifies the performer Scene Average Rating sort expression and rubric eligibility
 - `ui/v2.5/src/components/Studios/StudioDetails/StudioRatingAdvisorStats.tsx` - Four responsive popup-style Rating Advisor average sections
 - `ui/v2.5/src/components/Studios/StudioDetails/StudioRatingAdvisorStats.scss` - Studio Rating Advisor section layout and responsive styling
 - `ui/v2.5/src/components/Studios/StudioRatingAdvisorPopover_custom.tsx` - Lazy card-count hover wrapper reusing the Studio Stats sections

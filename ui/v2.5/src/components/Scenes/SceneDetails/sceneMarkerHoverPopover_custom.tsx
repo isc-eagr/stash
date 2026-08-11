@@ -14,6 +14,7 @@ import {
   type ISceneMarkerChronologySearchMarker,
 } from "./sceneMarkerChronologySearch_custom";
 import { isChronologicalSceneMarkerGoatTagged } from "./sceneMarkerChronologyLayout_custom";
+import { useScenePerformerOverview } from "./ScenePerformerOverviewPanel_custom";
 
 export type MarkerRatingCardClassGetter = (
   marker: Pick<GQL.SceneMarkerDataFragment, "primary_tag" | "tags">
@@ -65,30 +66,56 @@ export const ActivityTypePerformerTile: React.FC<{
   className?: string;
   title?: string;
   children?: React.ReactNode;
-}> = ({ performer, role, className, title, children }) => (
-  <div
-    key={`${role ?? "performer"}-${performer.id}`}
-    className={cx(
-      "scene-marker-activity-performer",
-      role && `scene-marker-activity-performer-${role.toLowerCase()}`,
-      className
-    )}
-    title={
-      title ??
-      (role ? `${role}: ${performer.name}` : performer.name ?? undefined)
-    }
-  >
-    <div className="scene-marker-activity-performer-image">
-      {performer.image_path ? (
-        <img src={performer.image_path} alt={performer.name ?? ""} />
-      ) : (
-        <Icon icon={faUser} />
+}> = ({ performer, role, className, title, children }) => {
+  const performerOverview = useScenePerformerOverview();
+  const portrait = performer.image_path ? (
+    <img src={performer.image_path} alt={performer.name ?? ""} />
+  ) : (
+    <Icon icon={faUser} />
+  );
+
+  return (
+    <div
+      key={`${role ?? "performer"}-${performer.id}`}
+      className={cx(
+        "scene-marker-activity-performer",
+        role && `scene-marker-activity-performer-${role.toLowerCase()}`,
+        className
       )}
+      title={
+        title ??
+        (role ? `${role}: ${performer.name}` : performer.name ?? undefined)
+      }
+    >
+      {performerOverview ? (
+        <button
+          type="button"
+          aria-label={`Open ${performer.name ?? "vato"} overview`}
+          className="scene-marker-activity-performer-image scene-marker-activity-performer-image-button"
+          onClick={() => performerOverview.openPerformerOverview(performer.id)}
+        >
+          {portrait}
+        </button>
+      ) : (
+        <div className="scene-marker-activity-performer-image">{portrait}</div>
+      )}
+      {performerOverview ? (
+        <button
+          type="button"
+          className="scene-marker-activity-performer-name scene-marker-activity-performer-name-button"
+          onClick={() => performerOverview.openPerformerOverview(performer.id)}
+        >
+          {performer.name}
+        </button>
+      ) : (
+        <div className="scene-marker-activity-performer-name">
+          {performer.name}
+        </div>
+      )}
+      {children}
     </div>
-    <div className="scene-marker-activity-performer-name">{performer.name}</div>
-    {children}
-  </div>
-);
+  );
+};
 
 export const HighlightPerformerTagPills = <
   M extends ISceneMarkerChronologySearchMarker

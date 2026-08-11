@@ -7,6 +7,7 @@ import { PerformerCard } from "src/components/Performers/PerformerCard";
 import { sortPerformers } from "src/core/performers";
 import { DirectorLink } from "src/components/Shared/Link";
 import { CustomFields } from "src/components/Shared/CustomFields";
+import { useScenePerformerOverview } from "./ScenePerformerOverviewPanel_custom"; // CUSTOM
 
 interface ISceneDetailProps {
   scene: GQL.SceneDataFragment;
@@ -14,6 +15,7 @@ interface ISceneDetailProps {
 
 export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
   const intl = useIntl();
+  const performerOverview = useScenePerformerOverview(); // CUSTOM
 
   function renderDetails() {
     if (!props.scene.details || props.scene.details === "") return;
@@ -59,6 +61,7 @@ export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
         sceneId={props.scene.id} // CUSTOM
         scenePerformerCount={performers.length} // CUSTOM
         scenePartnerPerformers={performers} // CUSTOM
+        onOpenSceneOverview={performerOverview?.openPerformerOverview} // CUSTOM
       />
     ));
 

@@ -78,6 +78,7 @@ import {
   completeSceneMarkerFocusRequest,
   type ISceneMarkerFocusRequest,
 } from "./sceneMarkerFocusScroll_custom";
+import { ScenePerformerOverviewProvider } from "./ScenePerformerOverviewPanel_custom";
 // CUSTOM: end
 
 const SubmitStashBoxDraft = lazyComponent(
@@ -894,7 +895,8 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   // CUSTOM: end
 
   return (
-    <>
+    <ScenePerformerOverviewProvider scene={scene}>
+      {/* CUSTOM: scene-scoped vato overview drawer */}
       <Helmet>
         <title>{title}</title>
       </Helmet>
@@ -1028,7 +1030,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
         show={showDraftModal}
         onHide={() => setShowDraftModal(false)}
       />
-    </>
+    </ScenePerformerOverviewProvider>
   );
 });
 

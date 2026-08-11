@@ -19,6 +19,7 @@ import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { useToast } from "src/hooks/Toast";
 import { useConfigurationContext } from "src/hooks/Config";
 import { RatingAdvisorButton } from "src/components/Shared/RatingAdvisor_custom"; // CUSTOM
+import { PerformerSceneAverageRating } from "../PerformerSceneRatingAdvisor_custom"; // CUSTOM
 import {
   CompressedPerformerDetailsPanel,
   PerformerDetailsPanel,
@@ -629,6 +630,7 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                     onRatingSaved={refetch}
                   />{" "}
                   {/* CUSTOM */}
+                  <PerformerSceneAverageRating performerId={performer.id} />
                   {!!performer.o_counter && (
                     // CUSTOM: begin
                     <OCounterButton

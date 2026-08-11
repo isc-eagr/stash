@@ -24,12 +24,14 @@ interface ISortNameLinkProps {
   link: string;
   className?: string;
   sortName?: string;
+  target?: React.HTMLAttributeAnchorTarget; // CUSTOM: scene overview links open in a new tab
 }
 
 const SortNameLinkComponent: React.FC<ISortNameLinkProps> = ({
   link,
   sortName,
   className,
+  target, // CUSTOM
   children,
 }) => {
   return (
@@ -39,7 +41,13 @@ const SortNameLinkComponent: React.FC<ISortNameLinkProps> = ({
       className={cx("tag-item tag-link", className)}
       variant="secondary"
     >
-      <Link to={link}>{children}</Link>
+      <Link
+        to={link}
+        target={target} // CUSTOM
+        rel={target === "_blank" ? "noopener noreferrer" : undefined} // CUSTOM
+      >
+        {children}
+      </Link>
     </Badge>
   );
 };
@@ -47,16 +55,24 @@ const SortNameLinkComponent: React.FC<ISortNameLinkProps> = ({
 interface ICommonLinkProps {
   link: string;
   className?: string;
+  target?: React.HTMLAttributeAnchorTarget; // CUSTOM: scene overview links open in a new tab
 }
 
 const CommonLinkComponent: React.FC<ICommonLinkProps> = ({
   link,
   className,
+  target, // CUSTOM
   children,
 }) => {
   return (
     <Badge className={cx("tag-item tag-link", className)} variant="secondary">
-      <Link to={link}>{children}</Link>
+      <Link
+        to={link}
+        target={target} // CUSTOM
+        rel={target === "_blank" ? "noopener noreferrer" : undefined} // CUSTOM
+      >
+        {children}
+      </Link>
     </Badge>
   );
 };
@@ -65,6 +81,7 @@ interface IPerformerLinkProps {
   performer: INamedObject & { disambiguation?: string | null };
   linkType?: "scene" | "gallery" | "image" | "scene_marker";
   className?: string;
+  target?: React.HTMLAttributeAnchorTarget; // CUSTOM
 }
 
 export type PerformerLinkType = IPerformerLinkProps["linkType"];
@@ -73,6 +90,7 @@ export const PerformerLink: React.FC<IPerformerLinkProps> = ({
   performer,
   linkType = "scene",
   className,
+  target, // CUSTOM
 }) => {
   const link = useMemo(() => {
     switch (linkType) {
@@ -91,7 +109,7 @@ export const PerformerLink: React.FC<IPerformerLinkProps> = ({
   const title = performer.name || "";
 
   return (
-    <CommonLinkComponent link={link} className={className}>
+    <CommonLinkComponent link={link} className={className} target={target}>
       <span>{title}</span>
       {performer.disambiguation && (
         <span className="performer-disambiguation">{` (${performer.disambiguation})`}</span>
@@ -242,6 +260,7 @@ interface ITagLinkProps {
   hoverPlacement?: Placement;
   showHierarchyIcon?: boolean;
   hierarchyTooltipID?: string;
+  target?: React.HTMLAttributeAnchorTarget; // CUSTOM
 }
 
 export const TagLink: React.FC<ITagLinkProps> = PatchComponent(
@@ -253,6 +272,7 @@ export const TagLink: React.FC<ITagLinkProps> = PatchComponent(
     hoverPlacement,
     showHierarchyIcon = false,
     hierarchyTooltipID,
+    target, // CUSTOM
   }) => {
     const link = useMemo(() => {
       switch (linkType) {
@@ -294,8 +314,13 @@ export const TagLink: React.FC<ITagLinkProps> = PatchComponent(
         sortName={tag.sort_name || title}
         link={link}
         className={className}
+        target={target} // CUSTOM
       >
-        <TagPopover id={tag.id ?? ""} placement={hoverPlacement}>
+        <TagPopover
+          id={tag.id ?? ""}
+          placement={hoverPlacement}
+          hide={target === "_blank"} // CUSTOM: avoid same-tab links inside the hover card
+        >
           {title}
           {showHierarchyIcon && (
             <OverlayTrigger placement="top" overlay={tooltip}>

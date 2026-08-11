@@ -1,5 +1,8 @@
 import React from "react";
+import { faStar } from "@fortawesome/free-solid-svg-icons";
+import { OverlayTrigger, Tooltip } from "react-bootstrap";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
+import { Icon } from "src/components/Shared/Icon";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import {
   RatingAdvisorStatsContent,
@@ -19,6 +22,46 @@ export const performerSceneRatingAdvisorSectionKeys: PerformerSceneRatingAdvisor
 
 type PerformerRatingAdvisorStatsData =
   GQL.PerformerRatingAdvisorStatsQuery["performerRatingAdvisorStats"];
+
+function formatSceneAverageRating(value: number) {
+  return value.toLocaleString(undefined, { maximumFractionDigits: 1 });
+}
+
+export const PerformerSceneAverageRating: React.FC<{
+  performerId: string;
+}> = ({ performerId }) => {
+  const { data, error } = GQL.usePerformerRatingAdvisorStatsQuery({
+    variables: { performerId },
+  });
+  const average =
+    data?.performerRatingAdvisorStats.overall_scene_average_rating100;
+  if (error || average === null || average === undefined) return null;
+
+  const formattedAverage = formatSceneAverageRating(average);
+  const tooltip = "Scene Average Rating";
+
+  return (
+    <OverlayTrigger
+      placement="top"
+      overlay={
+        <Tooltip id={`performer-${performerId}-scene-average-rating-tooltip`}>
+          {tooltip}
+        </Tooltip>
+      }
+    >
+      <span
+        aria-label={`${tooltip}: ${formattedAverage} out of 100.`}
+        className="performer-scene-average-rating"
+      >
+        <Icon icon={faStar} />
+        <span className="performer-scene-average-rating-value">
+          {formattedAverage}
+        </span>
+        <span className="performer-scene-average-rating-label">Scene avg</span>
+      </span>
+    </OverlayTrigger>
+  );
+};
 
 export function getVisiblePerformerSceneRatingAdvisorDefinitions(
   stats?: PerformerRatingAdvisorStatsData

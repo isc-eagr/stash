@@ -333,7 +333,7 @@ const chartDefinitions: Array<{ key: ChartCategory; label: string }> = [
   { key: "hair", label: "Hair Color" },
   { key: "eye", label: "Eye Color" },
   { key: "circumcised", label: "Circumcised" },
-  { key: "penis", label: "Penis Size" },
+  { key: "penis", label: "Verga" },
 ];
 
 const countryDemonyms: Record<string, string> = {

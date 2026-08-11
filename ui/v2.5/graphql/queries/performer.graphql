@@ -55,36 +55,42 @@ query PerformerCoPerformersByRole($performer_id: ID!) {
         ...PerformerListData
       }
       scene_count
+      duration_seconds
     }
     sex_as_bottom {
       performer {
         ...PerformerListData
       }
       scene_count
+      duration_seconds
     }
     oral_as_top {
       performer {
         ...PerformerListData
       }
       scene_count
+      duration_seconds
     }
     oral_as_bottom {
       performer {
         ...PerformerListData
       }
       scene_count
+      duration_seconds
     }
     facial_as_top {
       performer {
         ...PerformerListData
       }
       scene_count
+      duration_seconds
     }
     facial_as_bottom {
       performer {
         ...PerformerListData
       }
       scene_count
+      duration_seconds
     }
     unique_count
   }

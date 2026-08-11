@@ -830,6 +830,7 @@ var performerSortOptions = sortOptions{
 	"updated_at",
 	"weight",
 	// CUSTOM: begin - role-based metric sort options
+	"average_scene_rating",
 	"sex_scenes_count",
 	"oral_scenes_count",
 	"facial_scenes_count",
@@ -905,6 +906,8 @@ func (qb *PerformerStore) getPerformerSort(findFilter *models.FindFilterType, pe
 	case "latest_scene":
 		sortQuery += qb.sortByLatestScene(direction)
 	// CUSTOM: begin - role-based metric sort options
+	case "average_scene_rating":
+		sortQuery += qb.sortBySceneAverageRatingCustom(direction)
 	case "sex_scenes_count":
 		sortQuery += qb.sortByPerformerSexSceneCount(direction, studioSQL)
 	case "oral_scenes_count":
