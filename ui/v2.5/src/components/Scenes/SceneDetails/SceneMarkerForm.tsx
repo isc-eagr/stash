@@ -53,6 +53,7 @@ import {
 import type {
   ISceneMarkerTimestampCopyRequest,
   ISceneMarkerTimestampCopySelection,
+  SceneMarkerTimestampDestination,
   SceneMarkerTimestampField,
 } from "src/components/ScenePlayer/sceneMarkerTimestampCopy_custom";
 // CUSTOM: end
@@ -119,7 +120,10 @@ interface ISceneMarkerForm {
   onClose: () => void;
   markerTimestampCopyRequest?: ISceneMarkerTimestampCopyRequest; // CUSTOM
   markerTimestampCopySelection?: ISceneMarkerTimestampCopySelection; // CUSTOM
-  onMarkerTimestampCopyRequest: (field?: SceneMarkerTimestampField) => void; // CUSTOM
+  onMarkerTimestampCopyRequest: (
+    field: SceneMarkerTimestampField | undefined,
+    destination: SceneMarkerTimestampDestination
+  ) => void; // CUSTOM
   onMarkerTimestampCopySelectionHandled: (requestId: number) => void; // CUSTOM
 }
 
@@ -296,7 +300,12 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   // CUSTOM: begin - apply a selected source-marker boundary to the field that
   // launched copy mode, then acknowledge the one-shot selection.
   useEffect(() => {
-    if (!markerTimestampCopySelection) return;
+    if (
+      !markerTimestampCopySelection ||
+      markerTimestampCopySelection.destination !== "scene-marker-form"
+    ) {
+      return;
+    }
 
     void setFieldValue(
       markerTimestampCopySelection.field,
@@ -312,7 +321,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   ]);
 
   useEffect(
-    () => () => onMarkerTimestampCopyRequest(undefined),
+    () => () => onMarkerTimestampCopyRequest(undefined, "scene-marker-form"),
     [onMarkerTimestampCopyRequest]
   );
   // CUSTOM: end
@@ -734,8 +743,13 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
             player.currentTime(formik.values.seconds);
           }
         }}
-        onCopyFromMarker={() => onMarkerTimestampCopyRequest("seconds")}
-        copyFromMarkerActive={markerTimestampCopyRequest?.field === "seconds"}
+        onCopyFromMarker={() =>
+          onMarkerTimestampCopyRequest("seconds", "scene-marker-form")
+        }
+        copyFromMarkerActive={
+          markerTimestampCopyRequest?.destination === "scene-marker-form" &&
+          markerTimestampCopyRequest.field === "seconds"
+        }
         // CUSTOM: end
         error={error}
       />
@@ -769,9 +783,12 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
               player.currentTime(formik.values.end_seconds);
             }
           }}
-          onCopyFromMarker={() => onMarkerTimestampCopyRequest("end_seconds")}
+          onCopyFromMarker={() =>
+            onMarkerTimestampCopyRequest("end_seconds", "scene-marker-form")
+          }
           copyFromMarkerActive={
-            markerTimestampCopyRequest?.field === "end_seconds"
+            markerTimestampCopyRequest?.destination === "scene-marker-form" &&
+            markerTimestampCopyRequest.field === "end_seconds"
           }
           // CUSTOM: end
           error={error}
@@ -824,7 +841,12 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   // CUSTOM: begin - timestamp copy guidance shown while the player timeline is
   // waiting for an existing marker boundary in the create/edit form.
   function renderTimestampCopyNotice() {
-    if (!markerTimestampCopyRequest) return null;
+    if (
+      !markerTimestampCopyRequest ||
+      markerTimestampCopyRequest.destination !== "scene-marker-form"
+    ) {
+      return null;
+    }
 
     const destination =
       markerTimestampCopyRequest.field === "seconds"
@@ -843,7 +865,9 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
           variant="secondary"
           size="sm"
           className="ml-auto"
-          onClick={() => onMarkerTimestampCopyRequest(undefined)}
+          onClick={() =>
+            onMarkerTimestampCopyRequest(undefined, "scene-marker-form")
+          }
         >
           Cancel
         </Button>

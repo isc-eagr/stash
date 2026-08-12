@@ -85,6 +85,7 @@ import {
   type ISceneMarkerTimestampCopySelection,
   type ISceneMarkerTimestampSource,
   type SceneMarkerTimestampBoundary,
+  type SceneMarkerTimestampDestination,
   type SceneMarkerTimestampField,
   type SceneMarkerTimestampSourceKind,
 } from "src/components/ScenePlayer/sceneMarkerTimestampCopy_custom";
@@ -200,7 +201,10 @@ interface IProps {
   currentTimestamp?: number; // CUSTOM
   markerTimestampCopyRequest?: ISceneMarkerTimestampCopyRequest; // CUSTOM
   markerTimestampCopySelection?: ISceneMarkerTimestampCopySelection; // CUSTOM
-  onMarkerTimestampCopyRequest: (field?: SceneMarkerTimestampField) => void; // CUSTOM
+  onMarkerTimestampCopyRequest: (
+    field: SceneMarkerTimestampField | undefined,
+    destination: SceneMarkerTimestampDestination
+  ) => void; // CUSTOM
   onMarkerTimestampCopySelectionHandled: (requestId: number) => void; // CUSTOM
 }
 
@@ -763,6 +767,12 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               scene={scene}
               isVisible={activeTabKey === "scene-negative-markers-panel"}
               onRefetch={props.onRefetch}
+              markerTimestampCopyRequest={markerTimestampCopyRequest} // CUSTOM
+              markerTimestampCopySelection={markerTimestampCopySelection} // CUSTOM
+              onMarkerTimestampCopyRequest={onMarkerTimestampCopyRequest} // CUSTOM
+              onMarkerTimestampCopySelectionHandled={
+                onMarkerTimestampCopySelectionHandled
+              } // CUSTOM
             />
           </Tab.Pane>
           {/* CUSTOM: end */}
@@ -1110,14 +1120,32 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
     useState<ISceneMarkerTimestampCopySelection>();
 
   const onMarkerTimestampCopyRequest = useCallback(
-    (field?: SceneMarkerTimestampField) => {
-      setMarkerTimestampCopySelection(undefined);
+    (
+      field: SceneMarkerTimestampField | undefined,
+      destination: SceneMarkerTimestampDestination
+    ) => {
+      setMarkerTimestampCopySelection((currentSelection) =>
+        field || currentSelection?.destination === destination
+          ? undefined
+          : currentSelection
+      );
       setMarkerTimestampCopyRequest((currentRequest) => {
-        if (!field || currentRequest?.field === field) return undefined;
+        if (!field) {
+          return currentRequest?.destination === destination
+            ? undefined
+            : currentRequest;
+        }
+        if (
+          currentRequest?.field === field &&
+          currentRequest.destination === destination
+        ) {
+          return undefined;
+        }
 
         markerTimestampCopyRequestId.current += 1;
         return {
           field,
+          destination,
           requestId: markerTimestampCopyRequestId.current,
         };
       });

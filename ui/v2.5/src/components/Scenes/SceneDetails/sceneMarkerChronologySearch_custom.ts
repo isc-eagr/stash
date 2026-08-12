@@ -1,7 +1,8 @@
 // CUSTOM: Chronological scene marker search helpers.
 
 const defaultMarkerDurationSeconds = 20;
-const markerContainmentToleranceSeconds = 3;
+const minimumInheritedTagOverlapRatio = 0.5;
+const minimumDerivedWindowSeconds = 3;
 export interface ISceneMarkerChronologySearchTag {
   id: string;
   name?: string | null;
@@ -158,17 +159,6 @@ function markerTagsWithParents(marker: ISceneMarkerChronologySearchMarker) {
   return [...tags, ...tags.flatMap(tagParents)];
 }
 
-function markerOverlapsTimeRange(
-  a: ISceneMarkerChronologySearchMarker,
-  b: ISceneMarkerChronologySearchMarker
-) {
-  return (
-    (!a.scene?.id || !b.scene?.id || a.scene.id === b.scene.id) &&
-    b.seconds < markerEndSeconds(a) &&
-    markerEndSeconds(b) > a.seconds
-  );
-}
-
 function markersAreInSameScene(
   a: ISceneMarkerChronologySearchMarker,
   b: ISceneMarkerChronologySearchMarker
@@ -176,17 +166,20 @@ function markersAreInSameScene(
   return !a.scene?.id || !b.scene?.id || a.scene.id === b.scene.id;
 }
 
-function markerContainsTimeRange(
-  container: ISceneMarkerChronologySearchMarker,
-  contained: ISceneMarkerChronologySearchMarker
+function markerInheritsTagsFrom(
+  marker: ISceneMarkerChronologySearchMarker,
+  source: ISceneMarkerChronologySearchMarker
 ) {
+  const markerDuration = markerDurationSeconds(marker);
+  const overlapSeconds =
+    Math.min(markerEndSeconds(marker), markerEndSeconds(source)) -
+    Math.max(marker.seconds, source.seconds);
+
   return (
-    container.id !== contained.id &&
-    markersAreInSameScene(container, contained) &&
-    container.seconds - contained.seconds <=
-      markerContainmentToleranceSeconds &&
-    markerEndSeconds(contained) - markerEndSeconds(container) <=
-      markerContainmentToleranceSeconds
+    marker.id !== source.id &&
+    markersAreInSameScene(marker, source) &&
+    markerDuration > 0 &&
+    overlapSeconds >= markerDuration * minimumInheritedTagOverlapRatio
   );
 }
 
@@ -198,13 +191,16 @@ function rangeDurationSeconds(range: { seconds: number; end_seconds: number }) {
   return range.end_seconds - range.seconds;
 }
 
-function markerStrictlyContainsTimeRange(
+function markerStrictlyCoversTimeRange(
   container: ISceneMarkerChronologySearchMarker,
-  contained: ISceneMarkerChronologySearchMarker
+  covered: ISceneMarkerChronologySearchMarker
 ) {
   return (
-    markerContainsTimeRange(container, contained) &&
-    markerDurationSeconds(container) > markerDurationSeconds(contained)
+    container.id !== covered.id &&
+    markersAreInSameScene(container, covered) &&
+    container.seconds <= covered.seconds &&
+    markerEndSeconds(container) >= markerEndSeconds(covered) &&
+    markerDurationSeconds(container) > markerDurationSeconds(covered)
   );
 }
 
@@ -268,7 +264,7 @@ function markerTagContext(
   return [
     marker,
     ...allMarkers
-      .filter((candidate) => markerContainsTimeRange(candidate, marker))
+      .filter((candidate) => markerInheritsTagsFrom(marker, candidate))
       .sort(compareChronologicalMarkers),
   ];
 }
@@ -472,8 +468,7 @@ function subtractCoveredMarkerRanges<
 
   return remaining
     .filter(
-      (range) =>
-        rangeDurationSeconds(range) >= markerContainmentToleranceSeconds
+      (range) => rangeDurationSeconds(range) >= minimumDerivedWindowSeconds
     )
     .map((range) =>
       createDerivedWindow(range.seconds, range.end_seconds, window.markers)
@@ -502,7 +497,7 @@ export function getChronologicalSceneMarkerDerivedWindows<
     const seconds = boundaries[index];
     const end_seconds = boundaries[index + 1];
 
-    if (end_seconds - seconds < markerContainmentToleranceSeconds) {
+    if (end_seconds - seconds < minimumDerivedWindowSeconds) {
       continue;
     }
 
@@ -528,7 +523,7 @@ export function filterCoveredChronologicalSceneMarkers<
     .filter(
       (marker) =>
         !markers.some((candidate) =>
-          markerStrictlyContainsTimeRange(candidate, marker)
+          markerStrictlyCoversTimeRange(candidate, marker)
         )
     )
     .sort(compareChronologicalMarkers);
@@ -666,7 +661,7 @@ export function getChronologicalSceneMarkerDisplayTags<
 >(marker: M, allMarkers: M[]): ISceneMarkerChronologyDisplayTag[] {
   return getChronologicalSceneMarkerDisplayTagsFromRelatedMarkers(
     marker,
-    allMarkers.filter((candidate) => markerOverlapsTimeRange(marker, candidate))
+    allMarkers.filter((candidate) => markerInheritsTagsFrom(marker, candidate))
   );
 }
 
@@ -833,7 +828,7 @@ export function getChronologicalSceneMarkerHighlightContextMarkers<
       .filter(
         (candidate) =>
           candidate.id !== marker.id &&
-          markerContainsTimeRange(candidate, marker)
+          markerInheritsTagsFrom(marker, candidate)
       )
       .sort(compareChronologicalMarkers),
   ];

@@ -125,6 +125,15 @@ assert.deepEqual(
 );
 
 assert.deepEqual(
+  filterCoveredChronologicalSceneMarkers([
+    marker("recipient", 15, 60, feet),
+    marker("source", 30, 150, oral),
+  ]).map((m) => m.id),
+  ["recipient", "source"],
+  "playback/viewer selection preserves partial-overlap markers even when tag inheritance applies"
+);
+
+assert.deepEqual(
   getChronologicalSceneMarkerDerivedWindows(
     [marker("feet-wide", 60, 180, feet), marker("bj-wide", 120, 240, bj)],
     { tags: [feet, bj], topPerformers: [], bottomPerformers: [] },
@@ -192,7 +201,7 @@ assert.deepEqual(
     []
   ).map((window) => [window.seconds, window.end_seconds]),
   [],
-  "derived windows shorter than the containment threshold are discarded"
+  "derived windows shorter than the minimum display duration are discarded"
 );
 
 assert.equal(
@@ -241,8 +250,8 @@ assert.deepEqual(
     ],
     { tags: [oral], topPerformers: [], bottomPerformers: [] }
   ).map((m) => m.id),
-  ["2"],
-  "single-tag searches do not match markers by partial overlap alone"
+  ["1", "2"],
+  "single-tag searches include a marker inheriting through exactly fifty percent overlap"
 );
 
 assert.deepEqual(
@@ -251,7 +260,7 @@ assert.deepEqual(
     { tags: [feet, verga], topPerformers: [], bottomPerformers: [] }
   ).map((m) => m.id),
   [],
-  "single-tag markers must be contained to satisfy a multi-tag context search"
+  "single-tag markers must overlap by at least half to satisfy a multi-tag context search"
 );
 
 assert.deepEqual(
@@ -264,7 +273,7 @@ assert.deepEqual(
     { tags: [feet, bj, orgasm], topPerformers: [], bottomPerformers: [] }
   ).map((m) => m.id),
   [],
-  "multi-tag searches reject chain overlaps without containment context"
+  "multi-tag searches reject chain overlaps without one qualifying inheritance context"
 );
 
 assert.deepEqual(
@@ -277,7 +286,7 @@ assert.deepEqual(
     { tags: [feet, bj, orgasm], topPerformers: [], bottomPerformers: [] }
   ).map((m) => m.id),
   ["2", "3"],
-  "multi-tag searches match contained or tolerance-contained marker contexts with every selected tag"
+  "multi-tag searches match marker contexts inheriting every selected tag"
 );
 
 assert.deepEqual(
@@ -326,8 +335,8 @@ assert.deepEqual(
     marker("2", 0, 30, oral),
     marker("3", 15, 25, bj),
   ]).map((displayTag) => `${displayTag.kind}:${displayTag.tag.id}`),
-  ["primary:feet", "overlap:oral"],
-  "card context tags match the containing-marker context used by performer hovers"
+  ["primary:feet", "overlap:oral", "overlap:bj"],
+  "card context tags include every source covering at least half of the marker"
 );
 
 assert.deepEqual(
@@ -344,15 +353,15 @@ assert.deepEqual(
     [
       marker("1", 0, 20, footwear, [verga]),
       marker("2", 10, 30, feet, [verga, bj]),
-      marker("3", 12, 18, boots),
+      marker("3", 5, 15, boots),
     ]
   ).map((displayTag) => `${displayTag.kind}:${displayTag.tag.id}`),
   [
     "primary:footwear",
     "secondary:verga",
+    "overlap:boots",
     "overlap:feet",
     "overlap:bj",
-    "overlap:boots",
   ],
   "duplicate display tags keep the highest directness tier"
 );
@@ -379,7 +388,7 @@ assert.deepEqual(
     [feet]
   ).map((t) => t.id),
   ["verga"],
-  "next tag options only include tags that still produce a direct or contained-context match"
+  "next tag options only include tags that still produce a direct or inherited-context match"
 );
 
 assert.deepEqual(
@@ -437,16 +446,38 @@ assert.deepEqual(
       marker("large-feet", 60, 180, feet),
       marker("small-deepthroat", 75, 85, oral),
       marker("partial-deepthroat", 120, 220, oral),
+      marker("below-threshold", 131, 231, oral),
     ],
     { tags: [feet], topPerformers: [], bottomPerformers: [] }
   ).map((m) => m.id),
-  ["large-feet", "small-deepthroat"],
-  "single-tag filters match direct markers and fully contained marker contexts, but not partial overlaps"
+  ["large-feet", "small-deepthroat", "partial-deepthroat"],
+  "single-tag filters inherit through majority overlap but reject overlap below fifty percent"
 );
 
 const body = tag("body", "Body");
 const sex = tag("sex", "Sex");
 const facial = tag("facial", "Facial");
+
+assert.deepEqual(
+  filterChronologicalSceneMarkers(
+    [marker("body-majority", 15, 60, body), marker("sex-source", 30, 150, sex)],
+    { tags: [body, sex], topPerformers: [], bottomPerformers: [] }
+  ).map((m) => m.id),
+  ["body-majority"],
+  "tag inheritance is directed by overlap percentage of the receiving marker"
+);
+
+assert.deepEqual(
+  filterChronologicalSceneMarkers(
+    [
+      marker("body-below-half", 0, 60, body),
+      marker("sex-source", 30.001, 150, sex),
+    ],
+    { tags: [body, sex], topPerformers: [], bottomPerformers: [] }
+  ).map((m) => m.id),
+  [],
+  "tag inheritance rejects overlap below fifty percent"
+);
 
 assert.deepEqual(
   filterChronologicalSceneMarkers([marker("body-bj", 243, 275, body, [bj])], {
@@ -767,7 +798,7 @@ const nearEqualGroups = groupChronologicalSceneMarkerHighlights(
 assert.equal(
   nearEqualGroups.length,
   1,
-  "markers within the containment tolerance share one final configuration card"
+  "markers with mutual majority overlap share one final configuration card"
 );
 assert.deepEqual(
   nearEqualGroups[0].segments.map((segment) => [

@@ -16,11 +16,24 @@ import {
   findSceneMarkerGapWarnings,
   type SceneMarkerGapWarning,
 } from "./sceneMarkerGapWarning_custom";
+import type {
+  ISceneMarkerTimestampCopyRequest,
+  ISceneMarkerTimestampCopySelection,
+  SceneMarkerTimestampDestination,
+  SceneMarkerTimestampField,
+} from "src/components/ScenePlayer/sceneMarkerTimestampCopy_custom"; // CUSTOM
 
 interface ISceneNegativeMarkersPanelProps {
   scene: GQL.SceneDataFragment;
   isVisible: boolean;
   onRefetch: () => void;
+  markerTimestampCopyRequest?: ISceneMarkerTimestampCopyRequest; // CUSTOM
+  markerTimestampCopySelection?: ISceneMarkerTimestampCopySelection; // CUSTOM
+  onMarkerTimestampCopyRequest: (
+    field: SceneMarkerTimestampField | undefined,
+    destination: SceneMarkerTimestampDestination
+  ) => void; // CUSTOM
+  onMarkerTimestampCopySelectionHandled: (requestId: number) => void; // CUSTOM
 }
 
 function formatGapMilliseconds(seconds: number) {
@@ -38,7 +51,15 @@ function formatNegativeMarkerGapWarning(
 
 export const SceneNegativeMarkersPanel: React.FC<
   ISceneNegativeMarkersPanelProps
-> = ({ scene, isVisible, onRefetch }) => {
+> = ({
+  scene,
+  isVisible,
+  onRefetch,
+  markerTimestampCopyRequest, // CUSTOM
+  markerTimestampCopySelection, // CUSTOM
+  onMarkerTimestampCopyRequest, // CUSTOM
+  onMarkerTimestampCopySelectionHandled, // CUSTOM
+}) => {
   const { configuration } = useConfigurationContext();
   const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
   const [editingMarker, setEditingMarker] = useState<GQL.SceneNegativeMarker>();
@@ -124,6 +145,12 @@ export const SceneNegativeMarkersPanel: React.FC<
         sceneMarkers={scene.scene_markers}
         negativeMarkers={scene.negative_markers}
         onClose={closeEditor}
+        markerTimestampCopyRequest={markerTimestampCopyRequest} // CUSTOM
+        markerTimestampCopySelection={markerTimestampCopySelection} // CUSTOM
+        onMarkerTimestampCopyRequest={onMarkerTimestampCopyRequest} // CUSTOM
+        onMarkerTimestampCopySelectionHandled={
+          onMarkerTimestampCopySelectionHandled
+        } // CUSTOM
       />
     );
   }

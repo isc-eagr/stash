@@ -11,12 +11,17 @@ const marker = { id: "marker-1", seconds: 12.25, end_seconds: 38.5 };
 
 assert.deepEqual(
   resolveSceneMarkerTimestampCopySelection(
-    { field: "end_seconds", requestId: 7 },
+    {
+      field: "end_seconds",
+      destination: "scene-marker-form",
+      requestId: 7,
+    },
     marker,
     "start"
   ),
   {
     field: "end_seconds",
+    destination: "scene-marker-form",
     requestId: 7,
     boundary: "start",
     markerId: "marker-1",
@@ -27,12 +32,13 @@ assert.deepEqual(
 
 assert.deepEqual(
   resolveSceneMarkerTimestampCopySelection(
-    { field: "seconds", requestId: 8 },
+    { field: "seconds", destination: "scene-marker-form", requestId: 8 },
     marker,
     "end"
   ),
   {
     field: "seconds",
+    destination: "scene-marker-form",
     requestId: 8,
     boundary: "end",
     markerId: "marker-1",
@@ -43,7 +49,11 @@ assert.deepEqual(
 
 assert.equal(
   resolveSceneMarkerTimestampCopySelection(
-    { field: "end_seconds", requestId: 9 },
+    {
+      field: "end_seconds",
+      destination: "scene-marker-form",
+      requestId: 9,
+    },
     { id: "marker-2", seconds: 5, end_seconds: null },
     "end"
   ),
@@ -92,18 +102,23 @@ assert.deepEqual(
 
 assert.deepEqual(
   resolveSceneMarkerTimestampCopySelection(
-    { field: "seconds", requestId: 10 },
+    {
+      field: "start_seconds",
+      destination: "negative-marker-form",
+      requestId: 10,
+    },
     { id: "negative-1", seconds: 14.125, end_seconds: 21.875 },
     "end"
   ),
   {
-    field: "seconds",
+    field: "start_seconds",
+    destination: "negative-marker-form",
     requestId: 10,
     boundary: "end",
     markerId: "negative-1",
     seconds: 21.875,
   },
-  "a normalized negative-marker end can be copied into the launching field"
+  "a normalized negative-marker end can be copied into a negative-marker field"
 );
 
 assert.deepEqual(

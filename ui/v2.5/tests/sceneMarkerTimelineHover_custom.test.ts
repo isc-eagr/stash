@@ -95,25 +95,18 @@ assert.deepEqual(
   "one activity hover card carries both direct role colors without overlap context"
 );
 
-const containingSexMarker = marker(
-  "containing-sex",
-  100,
-  200,
-  sex,
-  [alex],
-  [ben]
-);
-const containedOralMarker = marker(
-  "contained-oral",
+const sourceSexMarker = marker("source-sex", 100, 200, sex, [alex], [ben]);
+const recipientOralMarker = marker(
+  "recipient-oral",
+  85,
   130,
-  150,
   oral,
   [ben],
   [alex]
 );
-const overlappingActivityMarkers = [containingSexMarker, containedOralMarker];
+const overlappingActivityMarkers = [sourceSexMarker, recipientOralMarker];
 const oralHover = getSceneMarkerTimelineHoverPerformers(
-  containedOralMarker,
+  recipientOralMarker,
   overlappingActivityMarkers
 );
 
@@ -127,11 +120,11 @@ assert.deepEqual(
     { performer: ben.id, topTags: [oral.id], bottomTags: [sex.id] },
     { performer: alex.id, topTags: [sex.id], bottomTags: [oral.id] },
   ],
-  "a contained activity marker inherits the containing activity marker tags and roles"
+  "an activity marker inherits tags and roles from a source overlapping most of its duration"
 );
 
 const sexHover = getSceneMarkerTimelineHoverPerformers(
-  containingSexMarker,
+  sourceSexMarker,
   overlappingActivityMarkers
 );
 
@@ -145,5 +138,5 @@ assert.deepEqual(
     { performer: alex.id, topTags: [sex.id], bottomTags: [] },
     { performer: ben.id, topTags: [], bottomTags: [sex.id] },
   ],
-  "a containing activity marker does not inherit tags from a smaller contained marker"
+  "the longer source marker does not inherit when the same overlap covers less than half of it"
 );

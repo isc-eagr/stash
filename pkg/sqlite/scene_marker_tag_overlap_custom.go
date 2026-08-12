@@ -4,7 +4,10 @@ package sqlite
 
 import "fmt"
 
-const sceneMarkerDefaultEndOffsetCustom = 20
+const (
+	sceneMarkerDefaultEndOffsetCustom           = 20
+	sceneMarkerInheritedTagOverlapPercentCustom = 50
+)
 
 func sceneMarkerEndExprCustom(smAlias string) string {
 	return fmt.Sprintf("COALESCE(%[1]s.end_seconds, %[1]s.seconds + %d)", smAlias, sceneMarkerDefaultEndOffsetCustom)
@@ -19,6 +22,15 @@ func sceneMarkerOverlapWhereCustom(baseAlias string, overlapAlias string) string
 AND %[2]s.id != %[1]s.id
 AND %[2]s.seconds < %[3]s
 AND %[4]s > %[1]s.seconds`, baseAlias, overlapAlias, sceneMarkerEndExprCustom(baseAlias), sceneMarkerEndExprCustom(overlapAlias))
+}
+
+func sceneMarkerTagInheritanceWhereCustom(markerAlias string, sourceAlias string) string {
+	return fmt.Sprintf(`%[2]s.scene_id = %[1]s.scene_id
+AND %[2]s.id != %[1]s.id
+AND %[3]s > %[1]s.seconds
+AND %[2]s.seconds < %[3]s
+AND %[4]s > %[1]s.seconds
+AND 100 * (MIN(%[3]s, %[4]s) - MAX(%[1]s.seconds, %[2]s.seconds)) >= %[5]d * (%[3]s - %[1]s.seconds)`, markerAlias, sourceAlias, sceneMarkerEndExprCustom(markerAlias), sceneMarkerEndExprCustom(sourceAlias), sceneMarkerInheritedTagOverlapPercentCustom)
 }
 
 func sceneMarkerSameOrOverlapWhereCustom(baseAlias string, overlapAlias string) string {
@@ -42,7 +54,7 @@ UNION ALL
 SELECT smt_overlap.tag_id AS tag_id
 FROM scene_markers sm_overlap
 JOIN scene_markers_tags smt_overlap ON smt_overlap.scene_marker_id = sm_overlap.id
-WHERE %[2]s`, sceneMarkerDirectTagSetSQLCustom(smAlias), sceneMarkerOverlapWhereCustom(smAlias, "sm_overlap"))
+WHERE %[2]s`, sceneMarkerDirectTagSetSQLCustom(smAlias), sceneMarkerTagInheritanceWhereCustom(smAlias, "sm_overlap"))
 }
 
 func sceneMarkerDirectHasTagInClauseCustom(smAlias string, tagIDsBinding string) string {

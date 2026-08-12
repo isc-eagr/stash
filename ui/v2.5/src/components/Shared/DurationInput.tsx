@@ -165,8 +165,8 @@ export const DurationInput: React.FC<IProps> = ({
           placeholder={placeholder}
         />
         <InputGroup.Append>
-          {maybeRenderReset()}
           {maybeRenderCopyFromMarker()} {/* CUSTOM */}
+          {maybeRenderReset()}
           {maybeRenderSeekTo()} {/* CUSTOM */}
           {renderButtons()}
         </InputGroup.Append>

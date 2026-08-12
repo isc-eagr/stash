@@ -958,7 +958,7 @@ WHERE %s
 			}
 
 			// ===== TAG MATCHING =====
-			// Each tag must be present directly or through overlapping markers. The returned
+			// Each tag must be present directly or through directed 50%-overlap inheritance. The returned
 			// marker must directly carry at least one requested tag, and the shortest
 			// overlapping matching marker wins.
 			if len(g.TagIDs) > 0 {

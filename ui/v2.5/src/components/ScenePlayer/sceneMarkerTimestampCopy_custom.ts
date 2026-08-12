@@ -1,4 +1,11 @@
-export type SceneMarkerTimestampField = "seconds" | "end_seconds";
+export type SceneMarkerTimestampField =
+  | "seconds"
+  | "start_seconds"
+  | "end_seconds";
+
+export type SceneMarkerTimestampDestination =
+  | "scene-marker-form"
+  | "negative-marker-form";
 
 export type SceneMarkerTimestampBoundary = "start" | "end";
 
@@ -6,6 +13,7 @@ export type SceneMarkerTimestampSourceKind = "scene-marker" | "negative-marker";
 
 export interface ISceneMarkerTimestampCopyRequest {
   field: SceneMarkerTimestampField;
+  destination: SceneMarkerTimestampDestination;
   requestId: number;
 }
 

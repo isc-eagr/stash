@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react"; // CUSTOM
 import { Alert, Button, Col, Form, Row } from "react-bootstrap"; // CUSTOM
 import { FormattedMessage, useIntl } from "react-intl";
 import { useFormik } from "formik";
@@ -22,6 +22,12 @@ import { formikUtils } from "src/utils/form";
 import { yupFormikValidate } from "src/utils/yup";
 import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
 import TextUtils from "src/utils/text"; // CUSTOM
+import type {
+  ISceneMarkerTimestampCopyRequest,
+  ISceneMarkerTimestampCopySelection,
+  SceneMarkerTimestampDestination,
+  SceneMarkerTimestampField,
+} from "src/components/ScenePlayer/sceneMarkerTimestampCopy_custom"; // CUSTOM
 // CUSTOM: begin
 import { findSceneMarkerGapWarningDetails } from "./sceneMarkerGapWarning_custom";
 import {
@@ -36,6 +42,13 @@ interface ISceneNegativeMarkerForm {
   sceneMarkers?: GQL.SceneMarkerDataFragment[];
   negativeMarkers?: GQL.SceneNegativeMarker[];
   onClose: () => void;
+  markerTimestampCopyRequest?: ISceneMarkerTimestampCopyRequest; // CUSTOM
+  markerTimestampCopySelection?: ISceneMarkerTimestampCopySelection; // CUSTOM
+  onMarkerTimestampCopyRequest: (
+    field: SceneMarkerTimestampField | undefined,
+    destination: SceneMarkerTimestampDestination
+  ) => void; // CUSTOM
+  onMarkerTimestampCopySelectionHandled: (requestId: number) => void; // CUSTOM
 }
 
 export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
@@ -44,6 +57,10 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
   sceneMarkers,
   negativeMarkers,
   onClose,
+  markerTimestampCopyRequest, // CUSTOM
+  markerTimestampCopySelection, // CUSTOM
+  onMarkerTimestampCopyRequest, // CUSTOM
+  onMarkerTimestampCopySelectionHandled, // CUSTOM
 }) => {
   const intl = useIntl();
 
@@ -109,6 +126,37 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
     validate: yupFormikValidate(schema),
     onSubmit: (values) => onSave(schema.cast(values)),
   });
+
+  // CUSTOM: begin - apply one-shot timeline timestamp selections only to the
+  // negative-marker editor that launched them.
+  const { setFieldValue } = formik;
+  useEffect(() => {
+    if (
+      !markerTimestampCopySelection ||
+      markerTimestampCopySelection.destination !== "negative-marker-form" ||
+      markerTimestampCopySelection.field === "seconds"
+    ) {
+      return;
+    }
+
+    void setFieldValue(
+      markerTimestampCopySelection.field,
+      markerTimestampCopySelection.seconds
+    );
+    onMarkerTimestampCopySelectionHandled(
+      markerTimestampCopySelection.requestId
+    );
+  }, [
+    markerTimestampCopySelection,
+    onMarkerTimestampCopySelectionHandled,
+    setFieldValue,
+  ]);
+
+  useEffect(
+    () => () => onMarkerTimestampCopyRequest(undefined, "negative-marker-form"),
+    [onMarkerTimestampCopyRequest]
+  );
+  // CUSTOM: end
 
   // CUSTOM: begin - warn about small unmarked gaps or overlaps next to this negative marker
   const gapWarnings = useMemo(
@@ -221,6 +269,13 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
             player.currentTime(formik.values.start_seconds);
           }
         }}
+        onCopyFromMarker={() =>
+          onMarkerTimestampCopyRequest("start_seconds", "negative-marker-form")
+        }
+        copyFromMarkerActive={
+          markerTimestampCopyRequest?.destination === "negative-marker-form" &&
+          markerTimestampCopyRequest.field === "start_seconds"
+        }
         error={error}
       />
     );
@@ -246,6 +301,14 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
               player.currentTime(formik.values.end_seconds);
             }
           }}
+          onCopyFromMarker={() =>
+            onMarkerTimestampCopyRequest("end_seconds", "negative-marker-form")
+          }
+          copyFromMarkerActive={
+            markerTimestampCopyRequest?.destination ===
+              "negative-marker-form" &&
+            markerTimestampCopyRequest.field === "end_seconds"
+          }
           error={error}
         />
         {formik.touched.end_seconds && formik.errors.end_seconds && (
@@ -258,6 +321,43 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
 
     return renderField("end_seconds", title, control);
   }
+
+  // CUSTOM: begin - mirror regular marker timestamp-copy guidance.
+  function renderTimestampCopyNotice() {
+    if (
+      !markerTimestampCopyRequest ||
+      markerTimestampCopyRequest.destination !== "negative-marker-form"
+    ) {
+      return null;
+    }
+
+    const destination =
+      markerTimestampCopyRequest.field === "start_seconds"
+        ? "Start time"
+        : "End time";
+
+    return (
+      <Alert variant="info" className="d-flex align-items-center py-2">
+        <span>
+          Hover a regular or negative marker in the player timeline to preview
+          its exact range, then choose <strong>Start</strong> or{" "}
+          <strong>End</strong>. The timestamp will be copied into {destination}.
+        </span>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="ml-auto"
+          onClick={() =>
+            onMarkerTimestampCopyRequest(undefined, "negative-marker-form")
+          }
+        >
+          Cancel
+        </Button>
+      </Alert>
+    );
+  }
+  // CUSTOM: end
 
   // CUSTOM: begin - match the regular marker's live duration display
   function renderDurationField() {
@@ -448,6 +548,7 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
         {renderStartTimeField()}
         {renderEndTimeField()}
         {renderDurationField()}
+        {renderTimestampCopyNotice()} {/* CUSTOM */}
         {renderGapWarning()}
       </div>
       <div className="buttons-container px-3">

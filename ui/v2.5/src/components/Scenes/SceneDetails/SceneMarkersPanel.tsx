@@ -41,6 +41,7 @@ import {
 import type {
   ISceneMarkerTimestampCopyRequest,
   ISceneMarkerTimestampCopySelection,
+  SceneMarkerTimestampDestination,
   SceneMarkerTimestampField,
 } from "src/components/ScenePlayer/sceneMarkerTimestampCopy_custom";
 // CUSTOM: end
@@ -55,7 +56,10 @@ interface ISceneMarkersPanelProps {
   onFocusedMarkerHandled?: (requestId: number) => void; // CUSTOM
   markerTimestampCopyRequest?: ISceneMarkerTimestampCopyRequest; // CUSTOM
   markerTimestampCopySelection?: ISceneMarkerTimestampCopySelection; // CUSTOM
-  onMarkerTimestampCopyRequest: (field?: SceneMarkerTimestampField) => void; // CUSTOM
+  onMarkerTimestampCopyRequest: (
+    field: SceneMarkerTimestampField | undefined,
+    destination: SceneMarkerTimestampDestination
+  ) => void; // CUSTOM
   onMarkerTimestampCopySelectionHandled: (requestId: number) => void; // CUSTOM
 }
 

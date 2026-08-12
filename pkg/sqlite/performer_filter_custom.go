@@ -812,7 +812,7 @@ func (qb *performerFilterHandler) performerMarkerTagsCriterionHandler(input *mod
 			}
 
 		case models.CriterionModifierIncludesAll:
-			// Performer must be in a direct-tag marker whose overlapping markers satisfy all specified tags
+			// Performer must be in a direct-tag marker whose 50%-overlap inherited tags satisfy all specified tags.
 			sql = fmt.Sprintf(`EXISTS (
 				SELECT 1 FROM scene_marker_performers smp
 				JOIN scene_markers sm ON sm.id = smp.scene_marker_id
