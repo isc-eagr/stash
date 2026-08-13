@@ -1,16 +1,11 @@
-import {
-  ConfigDataFragment,
-} from "src/core/generated-graphql";
+import { ConfigDataFragment } from "src/core/generated-graphql";
 import { IUIConfig } from "src/core/config";
-import {
-  Criterion,
-  CriterionOption,
-} from "./criterion";
+import { Criterion, CriterionOption } from "./criterion";
 import { CriterionType } from "../types";
 import { IntlShape } from "react-intl";
 
 // Helper to safely access roleTagIds from config
-function getRoleTagIds(config?: ConfigDataFragment): IUIConfig['roleTagIds'] {
+function getRoleTagIds(config?: ConfigDataFragment): IUIConfig["roleTagIds"] {
   const ui = config?.ui as IUIConfig | undefined;
   return ui?.roleTagIds ?? {};
 }
@@ -21,7 +16,7 @@ const primaryOptions = ["sex", "oral", "solo"] as const;
 const secondaryOptions = ["facial"] as const;
 const allOptions = [...primaryOptions, ...secondaryOptions] as const;
 
-export type SceneTypeOption = typeof allOptions[number];
+export type SceneTypeOption = (typeof allOptions)[number];
 
 // ===================== Scene Scene Type Criterion =====================
 
@@ -33,7 +28,7 @@ export const SceneSceneTypeCriterionOption = new CriterionOption({
 
 export class SceneSceneTypeCriterion extends Criterion {
   public value: string[] = [];
-  private roleTagIds: IUIConfig['roleTagIds'];
+  private roleTagIds: IUIConfig["roleTagIds"];
 
   public static readonly primaryOptions = [...primaryOptions];
   public static readonly secondaryOptions = [...secondaryOptions];
@@ -62,7 +57,7 @@ export class SceneSceneTypeCriterion extends Criterion {
     if (this.value.length === 0) return false;
     // At most one primary option
     const selectedPrimaries = this.value.filter((v) =>
-      SceneSceneTypeCriterion.primaryOptions.includes(v as any)
+      SceneSceneTypeCriterion.primaryOptions.some((option) => option === v)
     );
     return selectedPrimaries.length <= 1;
   }
@@ -117,7 +112,7 @@ export const PerformerSceneTypeCriterionOption = new CriterionOption({
 
 export class PerformerSceneTypeCriterion extends Criterion {
   public value: string[] = [];
-  private roleTagIds: IUIConfig['roleTagIds'];
+  private roleTagIds: IUIConfig["roleTagIds"];
 
   public static readonly allOptions = [...allOptions];
 

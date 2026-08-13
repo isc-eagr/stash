@@ -56,7 +56,7 @@ import chromecast from "@silvermine/videojs-chromecast";
 import abLoopPlugin from "videojs-abloop";
 import ScreenUtils from "src/utils/screen";
 import { PatchComponent } from "src/patch";
-// CUSTOM: begin - custom imports (goatee, multi-segment loop, performer image overlay)
+// CUSTOM: begin - custom imports (facial overlay, multi-segment loop, performer image overlay)
 import facialPng from "src/assets/facial.png"; // CUSTOM
 
 // Multi-segment loop plugin

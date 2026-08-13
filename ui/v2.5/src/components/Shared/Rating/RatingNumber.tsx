@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "../Icon";
 import { faStar } from "@fortawesome/free-solid-svg-icons";
 import { PatchComponent } from "src/patch";

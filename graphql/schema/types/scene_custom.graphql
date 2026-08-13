@@ -20,6 +20,14 @@ extend type Scene {
 
   "Video timestamps (seconds, parallel to o_history, null for entries recorded without a video position)"
   o_timestamps: [Float]!
+
+  "Flattened tag ancestry for every direct scene-marker tag"
+  scene_marker_tag_ancestors: [SceneMarkerTagAncestors!]!
+}
+
+type SceneMarkerTagAncestors {
+  tag_id: ID!
+  ancestor_ids: [ID!]!
 }
 
 type MultiSegmentLoopSegment {

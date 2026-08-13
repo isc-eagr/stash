@@ -20,8 +20,6 @@ const customCriterionTypes = new Set<CriterionType>([
   "partners",
   "performer_country",
   "performer_ethnicity",
-  "performer_marker_partners",
-  "performer_marker_tags",
   "performer_markers",
   "performer_rating",
   "performer_rating_criteria",

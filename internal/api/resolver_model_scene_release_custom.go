@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/stashapp/stash/internal/api/loaders"
 	"github.com/stashapp/stash/internal/api/urlbuilders"
@@ -110,9 +109,4 @@ func (r *sceneReleaseResolver) Streams(ctx context.Context, obj *models.SceneRel
 	streamURL := builder.GetStreamURL(apiKey)
 
 	return manager.GetReleaseStreamPaths(primaryFile, streamURL, config.GetMaxStreamingTranscodeSize())
-}
-
-// Helper function for ID conversion
-func sceneReleaseIDFromString(s string) (int, error) {
-	return strconv.Atoi(s)
 }

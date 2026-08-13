@@ -164,15 +164,6 @@ export function calculateRatingAdvisorRating100Custom(
   return Math.round(Math.max(0, scoreSubtotal) * 10) + orgasmBonus;
 }
 
-export function isRatingAdvisorRangeMetricCustom(
-  metric: IRatingAdvisorMetricScaleCustom
-) {
-  return (
-    metric.choices.length === metric.max + 1 &&
-    metric.choices.every((choice, index) => choice.value === index)
-  );
-}
-
 export function normalizeRatingAdvisorScoreValueCustom(
   metric: IRatingAdvisorMetricScaleCustom,
   rawValue?: number | null

@@ -104,102 +104,14 @@ func (r *queryResolver) PerformerEthnicities(ctx context.Context) (ret []string,
 // PerformerEthnicityCounts returns counts of performers grouped by non-empty ethnicity,
 // sorted by count descending.
 func (r *queryResolver) PerformerEthnicityCounts(ctx context.Context) (ret []*PerformerEthnicityCount, err error) {
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		db := manager.GetInstance().Database
-		query := "SELECT ethnicity, COUNT(*) as cnt FROM performers WHERE ethnicity IS NOT NULL AND TRIM(ethnicity) <> '' GROUP BY ethnicity ORDER BY cnt DESC"
-		_, rows, err := db.QuerySQL(ctx, query, nil)
-		if err != nil {
-			return err
-		}
-		out := make([]*PerformerEthnicityCount, 0, len(rows))
-		for _, row := range rows {
-			if len(row) < 2 {
-				continue
-			}
-			var eth string
-			switch v := row[0].(type) {
-			case string:
-				eth = v
-			case []byte:
-				eth = string(v)
-			default:
-				eth = fmt.Sprint(v)
-			}
-			var cnt int
-			switch v := row[1].(type) {
-			case int64:
-				cnt = int(v)
-			case int:
-				cnt = v
-			case []byte:
-				i, _ := strconv.Atoi(string(v))
-				cnt = i
-			case string:
-				i, _ := strconv.Atoi(v)
-				cnt = i
-			default:
-				i, _ := strconv.Atoi(fmt.Sprint(v))
-				cnt = i
-			}
-			out = append(out, &PerformerEthnicityCount{Ethnicity: eth, Count: cnt})
-		}
-		ret = out
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return ret, nil
+	return r.performerEthnicityCountsCustom(ctx, false)
 }
 
 // PerformerEthnicityFiveStarCounts returns counts of performers with a 5-star rating (rating100â†’5)
 // grouped by non-empty ethnicity, sorted by count descending. Threshold is rating >= 90, consistent
 // with Rating100To5 mapping (round(r/20) >= 4.5 â†’ 5).
 func (r *queryResolver) PerformerEthnicityFiveStarCounts(ctx context.Context) (ret []*PerformerEthnicityCount, err error) {
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		db := manager.GetInstance().Database
-		query := "SELECT ethnicity, COUNT(*) as cnt FROM performers WHERE rating IS NOT NULL AND rating >= 90 AND ethnicity IS NOT NULL AND TRIM(ethnicity) <> '' GROUP BY ethnicity ORDER BY cnt DESC"
-		_, rows, err := db.QuerySQL(ctx, query, nil)
-		if err != nil {
-			return err
-		}
-		out := make([]*PerformerEthnicityCount, 0, len(rows))
-		for _, row := range rows {
-			if len(row) < 2 {
-				continue
-			}
-			var eth string
-			switch v := row[0].(type) {
-			case string:
-				eth = v
-			case []byte:
-				eth = string(v)
-			default:
-				eth = fmt.Sprint(v)
-			}
-			var cnt int
-			switch v := row[1].(type) {
-			case int64:
-				cnt = int(v)
-			case int:
-				cnt = v
-			case []byte:
-				i, _ := strconv.Atoi(string(v))
-				cnt = i
-			case string:
-				i, _ := strconv.Atoi(v)
-				cnt = i
-			default:
-				i, _ := strconv.Atoi(fmt.Sprint(v))
-				cnt = i
-			}
-			out = append(out, &PerformerEthnicityCount{Ethnicity: eth, Count: cnt})
-		}
-		ret = out
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return ret, nil
+	return r.performerEthnicityCountsCustom(ctx, true)
 }
 
 // PerformerEthnicityTierCounts returns final metallic card-style counts grouped by
@@ -658,19 +570,6 @@ WHERE s.id IN (SELECT id FROM selected_scenes)
 ORDER BY s.date DESC, s.id DESC`, sceneScope, effectiveDateExpr, effectiveDateExpr)
 }
 
-func sceneStatsBaseQueryCustom(effectiveDateExpr string) string {
-	sceneScope, _ := activityStatsSceneScopeCustom(nil, nil)
-	return sceneStatsBaseScopedQueryCustom(effectiveDateExpr, sceneScope)
-}
-
-const sceneStatsPerformerQueryCustom = `
-SELECT
-  ps.scene_id,
-  p.ethnicity,
-  p.country
-FROM performers_scenes ps
-JOIN performers p ON p.id = ps.performer_id`
-
 func sceneStatsScopedPerformerQueryCustom(sceneScope string) string {
 	return sceneScope + `
 SELECT
@@ -690,16 +589,6 @@ func sceneStatsAddPerformerCustom(scene *SceneStatsScene, ethnicity string, coun
 	scene.PerformerEthnicities = append(scene.PerformerEthnicities, ethnicity)
 	scene.PerformerCountries = append(scene.PerformerCountries, country)
 }
-
-const sceneStatsMarkerQueryCustom = `
-SELECT
-  sm.scene_id,
-  sm.id,
-  sm.primary_tag_id,
-  smt.tag_id
-FROM scene_markers sm
-LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-ORDER BY sm.scene_id ASC, sm.id ASC`
 
 func sceneStatsScopedMarkerQueryCustom(sceneScope string) string {
 	return sceneScope + `
@@ -2750,57 +2639,7 @@ func (r *queryResolver) LongestPeriodWithoutO(ctx context.Context) (ret *SceneOD
 //
 // Uses roleTagIds.orgasmTagId from UI config and includes all subtags recursively.
 func (r *queryResolver) SceneOrgasmCount(ctx context.Context, studioID *string, depth *int) (int, error) {
-	var count int
-	sceneScope, sceneScopeArgs, err := sceneStatsSceneScopeCustom(studioID, depth)
-	if err != nil {
-		return 0, err
-	}
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		uiConfig := config.GetInstance().GetUIConfiguration()
-		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
-		var orgasmTagID int
-		var secondCameraTagID int
-		if roleTagIds != nil {
-			if orgasmID, ok := roleTagIds["orgasmTagId"].(string); ok && orgasmID != "" {
-				orgasmTagID, _ = strconv.Atoi(orgasmID)
-			}
-			if scID, ok := roleTagIds["secondCameraTagId"].(string); ok && scID != "" {
-				secondCameraTagID, _ = strconv.Atoi(scID)
-			}
-		}
-		if orgasmTagID == 0 {
-			return nil // No tag configured
-		}
-
-		db := manager.GetInstance().Database
-		args := append(append([]interface{}{}, sceneScopeArgs...), orgasmTagID, secondCameraTagID)
-		query := statsWeightedMarkerCountScopedQueryCustom(sceneScope)
-		_, rows, err := db.QuerySQL(ctx, query, args)
-		if err != nil {
-			return err
-		}
-		if len(rows) > 0 && len(rows[0]) > 0 {
-			switch v := rows[0][0].(type) {
-			case int64:
-				count = int(v)
-			case int:
-				count = v
-			case []byte:
-				i, _ := strconv.Atoi(string(v))
-				count = i
-			case string:
-				i, _ := strconv.Atoi(v)
-				count = i
-			default:
-				i, _ := strconv.Atoi(fmt.Sprint(v))
-				count = i
-			}
-		}
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-	return count, nil
+	return r.sceneWeightedMarkerCountCustom(ctx, "orgasmTagId", studioID, depth)
 }
 
 // SceneFacialCount returns the total number of facial events.
@@ -2810,693 +2649,65 @@ func (r *queryResolver) SceneOrgasmCount(ctx context.Context, studioID *string, 
 // Each matching marker counts once per assigned top, with a minimum of one.
 // Uses roleTagIds.facialTagId from UI config and includes all subtags recursively.
 func (r *queryResolver) SceneFacialCount(ctx context.Context, studioID *string, depth *int) (int, error) {
-	var count int
-	sceneScope, sceneScopeArgs, err := sceneStatsSceneScopeCustom(studioID, depth)
-	if err != nil {
-		return 0, err
-	}
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		uiConfig := config.GetInstance().GetUIConfiguration()
-		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
-		var facialTagID int
-		var secondCameraTagID int
-		if roleTagIds != nil {
-			if facialID, ok := roleTagIds["facialTagId"].(string); ok && facialID != "" {
-				facialTagID, _ = strconv.Atoi(facialID)
-			}
-			if scID, ok := roleTagIds["secondCameraTagId"].(string); ok && scID != "" {
-				secondCameraTagID, _ = strconv.Atoi(scID)
-			}
-		}
-		if facialTagID == 0 {
-			return nil // No tag configured
-		}
-
-		db := manager.GetInstance().Database
-		args := append(append([]interface{}{}, sceneScopeArgs...), facialTagID, secondCameraTagID)
-		query := statsWeightedMarkerCountScopedQueryCustom(sceneScope)
-		_, rows, err := db.QuerySQL(ctx, query, args)
-		if err != nil {
-			return err
-		}
-		if len(rows) > 0 && len(rows[0]) > 0 {
-			switch v := rows[0][0].(type) {
-			case int64:
-				count = int(v)
-			case int:
-				count = v
-			case []byte:
-				i, _ := strconv.Atoi(string(v))
-				count = i
-			case string:
-				i, _ := strconv.Atoi(v)
-				count = i
-			default:
-				i, _ := strconv.Atoi(fmt.Sprint(v))
-				count = i
-			}
-		}
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-	return count, nil
+	return r.sceneWeightedMarkerCountCustom(ctx, "facialTagId", studioID, depth)
 }
 
 // PerformersFacialGivenCount returns the number of distinct performers who have given facials.
 // Uses roleTagIds.facialTagId from UI config and includes all subtags recursively.
 func (r *queryResolver) PerformersFacialGivenCount(ctx context.Context) (int, error) {
-	var count int
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		uiConfig := config.GetInstance().GetUIConfiguration()
-		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
-		var facialTagID int
-		if roleTagIds != nil {
-			if facialID, ok := roleTagIds["facialTagId"].(string); ok && facialID != "" {
-				facialTagID, _ = strconv.Atoi(facialID)
-			}
-		}
-		if facialTagID == 0 {
-			return nil // No tag configured
-		}
-
-		db := manager.GetInstance().Database
-		query := `
-WITH RECURSIVE facial_tags(id) AS (
-  SELECT id FROM tags WHERE id = ?
-  UNION ALL
-  SELECT tr.child_id FROM tags_relations tr JOIN facial_tags ft ON tr.parent_id = ft.id
-),
-facial_markers AS (
-  SELECT DISTINCT sm.id
-  FROM scene_markers sm
-  LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-  WHERE sm.primary_tag_id IN (SELECT id FROM facial_tags)
-     OR smt.tag_id IN (SELECT id FROM facial_tags)
-)
-SELECT COUNT(DISTINCT smp.performer_id)
-FROM scene_marker_performers smp
-WHERE smp.scene_marker_id IN (SELECT id FROM facial_markers)
-  AND smp.role = 'top'`
-		args := []interface{}{facialTagID}
-		_, rows, err := db.QuerySQL(ctx, query, args)
-		if err != nil {
-			return err
-		}
-		if len(rows) > 0 && len(rows[0]) > 0 {
-			switch v := rows[0][0].(type) {
-			case int64:
-				count = int(v)
-			case int:
-				count = v
-			case []byte:
-				i, _ := strconv.Atoi(string(v))
-				count = i
-			case string:
-				i, _ := strconv.Atoi(v)
-				count = i
-			default:
-				i, _ := strconv.Atoi(fmt.Sprint(v))
-				count = i
-			}
-		}
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-	return count, nil
+	return r.performerFacialRoleCountCustom(ctx, "top")
 }
 
 // PerformersFacialReceivedCount returns the number of distinct performers who have received facials.
 // Uses roleTagIds.facialTagId from UI config and includes all subtags recursively.
 func (r *queryResolver) PerformersFacialReceivedCount(ctx context.Context) (int, error) {
-	var count int
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		uiConfig := config.GetInstance().GetUIConfiguration()
-		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
-		var facialTagID int
-		if roleTagIds != nil {
-			if facialID, ok := roleTagIds["facialTagId"].(string); ok && facialID != "" {
-				facialTagID, _ = strconv.Atoi(facialID)
-			}
-		}
-		if facialTagID == 0 {
-			return nil // No tag configured
-		}
-
-		db := manager.GetInstance().Database
-		query := `
-WITH RECURSIVE facial_tags(id) AS (
-  SELECT id FROM tags WHERE id = ?
-  UNION ALL
-  SELECT tr.child_id FROM tags_relations tr JOIN facial_tags ft ON tr.parent_id = ft.id
-),
-facial_markers AS (
-  SELECT DISTINCT sm.id
-  FROM scene_markers sm
-  LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-  WHERE sm.primary_tag_id IN (SELECT id FROM facial_tags)
-     OR smt.tag_id IN (SELECT id FROM facial_tags)
-)
-SELECT COUNT(DISTINCT smp.performer_id)
-FROM scene_marker_performers smp
-WHERE smp.scene_marker_id IN (SELECT id FROM facial_markers)
-  AND smp.role = 'bottom'`
-		args := []interface{}{facialTagID}
-		_, rows, err := db.QuerySQL(ctx, query, args)
-		if err != nil {
-			return err
-		}
-		if len(rows) > 0 && len(rows[0]) > 0 {
-			switch v := rows[0][0].(type) {
-			case int64:
-				count = int(v)
-			case int:
-				count = v
-			case []byte:
-				i, _ := strconv.Atoi(string(v))
-				count = i
-			case string:
-				i, _ := strconv.Atoi(v)
-				count = i
-			default:
-				i, _ := strconv.Atoi(fmt.Sprint(v))
-				count = i
-			}
-		}
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-	return count, nil
+	return r.performerFacialRoleCountCustom(ctx, "bottom")
 }
 
 // PerformersSexGivenCount returns the number of distinct performers who have been tops in sex markers.
 // Uses roleTagIds.sexTagId from UI config and matches primary/secondary subtags like its drilldown.
 func (r *queryResolver) PerformersSexGivenCount(ctx context.Context) (int, error) {
-	var count int
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		uiConfig := config.GetInstance().GetUIConfiguration()
-		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
-		var sexTagID int
-		if roleTagIds != nil {
-			if sexID, ok := roleTagIds["sexTagId"].(string); ok && sexID != "" {
-				sexTagID, _ = strconv.Atoi(sexID)
-			}
-		}
-		if sexTagID == 0 {
-			return nil // No tag configured
-		}
-
-		db := manager.GetInstance().Database
-		args := []interface{}{sexTagID, "top"}
-		_, rows, err := db.QuerySQL(ctx, performerRoleTagCountQueryCustom, args)
-		if err != nil {
-			return err
-		}
-		if len(rows) > 0 && len(rows[0]) > 0 {
-			switch v := rows[0][0].(type) {
-			case int64:
-				count = int(v)
-			case int:
-				count = v
-			case []byte:
-				i, _ := strconv.Atoi(string(v))
-				count = i
-			case string:
-				i, _ := strconv.Atoi(v)
-				count = i
-			default:
-				i, _ := strconv.Atoi(fmt.Sprint(v))
-				count = i
-			}
-		}
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-	return count, nil
+	return r.performerRoleTagCountCustom(ctx, "sexTagId", "top")
 }
 
 // PerformersSexReceivedCount returns the number of distinct performers who have been bottoms in sex markers.
 // Uses roleTagIds.sexTagId from UI config and matches primary/secondary subtags like its drilldown.
 func (r *queryResolver) PerformersSexReceivedCount(ctx context.Context) (int, error) {
-	var count int
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		uiConfig := config.GetInstance().GetUIConfiguration()
-		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
-		var sexTagID int
-		if roleTagIds != nil {
-			if sexID, ok := roleTagIds["sexTagId"].(string); ok && sexID != "" {
-				sexTagID, _ = strconv.Atoi(sexID)
-			}
-		}
-		if sexTagID == 0 {
-			return nil // No tag configured
-		}
-
-		db := manager.GetInstance().Database
-		args := []interface{}{sexTagID, "bottom"}
-		_, rows, err := db.QuerySQL(ctx, performerRoleTagCountQueryCustom, args)
-		if err != nil {
-			return err
-		}
-		if len(rows) > 0 && len(rows[0]) > 0 {
-			switch v := rows[0][0].(type) {
-			case int64:
-				count = int(v)
-			case int:
-				count = v
-			case []byte:
-				i, _ := strconv.Atoi(string(v))
-				count = i
-			case string:
-				i, _ := strconv.Atoi(v)
-				count = i
-			default:
-				i, _ := strconv.Atoi(fmt.Sprint(v))
-				count = i
-			}
-		}
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-	return count, nil
+	return r.performerRoleTagCountCustom(ctx, "sexTagId", "bottom")
 }
 
 // PerformersOralGivenCount returns the number of distinct performers who have been tops in oral markers.
 // Uses roleTagIds.oralTagId from UI config and matches primary/secondary subtags like its drilldown.
 func (r *queryResolver) PerformersOralGivenCount(ctx context.Context) (int, error) {
-	var count int
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		uiConfig := config.GetInstance().GetUIConfiguration()
-		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
-		var oralTagID int
-		if roleTagIds != nil {
-			if oralID, ok := roleTagIds["oralTagId"].(string); ok && oralID != "" {
-				oralTagID, _ = strconv.Atoi(oralID)
-			}
-		}
-		if oralTagID == 0 {
-			return nil // No tag configured
-		}
-
-		db := manager.GetInstance().Database
-		args := []interface{}{oralTagID, "top"}
-		_, rows, err := db.QuerySQL(ctx, performerRoleTagCountQueryCustom, args)
-		if err != nil {
-			return err
-		}
-		if len(rows) > 0 && len(rows[0]) > 0 {
-			switch v := rows[0][0].(type) {
-			case int64:
-				count = int(v)
-			case int:
-				count = v
-			case []byte:
-				i, _ := strconv.Atoi(string(v))
-				count = i
-			case string:
-				i, _ := strconv.Atoi(v)
-				count = i
-			default:
-				i, _ := strconv.Atoi(fmt.Sprint(v))
-				count = i
-			}
-		}
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-	return count, nil
+	return r.performerRoleTagCountCustom(ctx, "oralTagId", "top")
 }
 
 // PerformersOralReceivedCount returns the number of distinct performers who have been bottoms in oral markers.
 // Uses roleTagIds.oralTagId from UI config and matches primary/secondary subtags like its drilldown.
 func (r *queryResolver) PerformersOralReceivedCount(ctx context.Context) (int, error) {
-	var count int
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		uiConfig := config.GetInstance().GetUIConfiguration()
-		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
-		var oralTagID int
-		if roleTagIds != nil {
-			if oralID, ok := roleTagIds["oralTagId"].(string); ok && oralID != "" {
-				oralTagID, _ = strconv.Atoi(oralID)
-			}
-		}
-		if oralTagID == 0 {
-			return nil // No tag configured
-		}
-
-		db := manager.GetInstance().Database
-		args := []interface{}{oralTagID, "bottom"}
-		_, rows, err := db.QuerySQL(ctx, performerRoleTagCountQueryCustom, args)
-		if err != nil {
-			return err
-		}
-		if len(rows) > 0 && len(rows[0]) > 0 {
-			switch v := rows[0][0].(type) {
-			case int64:
-				count = int(v)
-			case int:
-				count = v
-			case []byte:
-				i, _ := strconv.Atoi(string(v))
-				count = i
-			case string:
-				i, _ := strconv.Atoi(v)
-				count = i
-			default:
-				i, _ := strconv.Atoi(fmt.Sprint(v))
-				count = i
-			}
-		}
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-	return count, nil
+	return r.performerRoleTagCountCustom(ctx, "oralTagId", "bottom")
 }
 
 // PerformersStrictTopCount returns the number of performers who have 'top' role in sex/oral/facial markers but no 'bottom' role in any of those.
 // Uses roleTagIds.sexTagId, roleTagIds.oralTagId, and roleTagIds.facialTagId from UI config.
 func (r *queryResolver) PerformersStrictTopCount(ctx context.Context) (int, error) {
-	var count int
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		uiConfig := config.GetInstance().GetUIConfiguration()
-		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
-		var sexTagID, oralTagID, facialTagID int
-		if roleTagIds != nil {
-			if sexID, ok := roleTagIds["sexTagId"].(string); ok && sexID != "" {
-				sexTagID, _ = strconv.Atoi(sexID)
-			}
-			if oralID, ok := roleTagIds["oralTagId"].(string); ok && oralID != "" {
-				oralTagID, _ = strconv.Atoi(oralID)
-			}
-			if facialID, ok := roleTagIds["facialTagId"].(string); ok && facialID != "" {
-				facialTagID, _ = strconv.Atoi(facialID)
-			}
-		}
-		if sexTagID == 0 && oralTagID == 0 && facialTagID == 0 {
-			return nil // No tags configured
-		}
-
-		db := manager.GetInstance().Database
-
-		// Build tag list for the query
-		var tagIDs []string
-		if sexTagID > 0 {
-			tagIDs = append(tagIDs, strconv.Itoa(sexTagID))
-		}
-		if oralTagID > 0 {
-			tagIDs = append(tagIDs, strconv.Itoa(oralTagID))
-		}
-		if facialTagID > 0 {
-			tagIDs = append(tagIDs, strconv.Itoa(facialTagID))
-		}
-
-		if len(tagIDs) == 0 {
-			return nil
-		}
-
-		tagList := strings.Join(tagIDs, ",")
-		query := fmt.Sprintf(`
-SELECT COUNT(DISTINCT smp.performer_id)
-FROM scene_marker_performers smp
-JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-WHERE smp.role = 'top'
-  AND (sm.primary_tag_id IN (%s) OR smt.tag_id IN (%s))
-  AND smp.performer_id NOT IN (
-    SELECT DISTINCT smp2.performer_id
-    FROM scene_marker_performers smp2
-    JOIN scene_markers sm2 ON sm2.id = smp2.scene_marker_id
-    LEFT JOIN scene_markers_tags smt2 ON smt2.scene_marker_id = sm2.id
-    WHERE smp2.role = 'bottom'
-      AND (sm2.primary_tag_id IN (%s) OR smt2.tag_id IN (%s))
-  )`, tagList, tagList, tagList, tagList)
-		_, rows, err := db.QuerySQL(ctx, query, nil)
-		if err != nil {
-			return err
-		}
-		if len(rows) > 0 && len(rows[0]) > 0 {
-			switch v := rows[0][0].(type) {
-			case int64:
-				count = int(v)
-			case int:
-				count = v
-			case []byte:
-				i, _ := strconv.Atoi(string(v))
-				count = i
-			case string:
-				i, _ := strconv.Atoi(v)
-				count = i
-			default:
-				i, _ := strconv.Atoi(fmt.Sprint(v))
-				count = i
-			}
-		}
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-	return count, nil
+	return r.performersStrictRoleCountCustom(ctx, "top", "bottom")
 }
 
 // PerformersStrictBottomCount returns the number of performers who have 'bottom' role in sex/oral/facial markers but no 'top' role in any of those.
 // Uses roleTagIds.sexTagId, roleTagIds.oralTagId, and roleTagIds.facialTagId from UI config.
 func (r *queryResolver) PerformersStrictBottomCount(ctx context.Context) (int, error) {
-	var count int
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		uiConfig := config.GetInstance().GetUIConfiguration()
-		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
-		var sexTagID, oralTagID, facialTagID int
-		if roleTagIds != nil {
-			if sexID, ok := roleTagIds["sexTagId"].(string); ok && sexID != "" {
-				sexTagID, _ = strconv.Atoi(sexID)
-			}
-			if oralID, ok := roleTagIds["oralTagId"].(string); ok && oralID != "" {
-				oralTagID, _ = strconv.Atoi(oralID)
-			}
-			if facialID, ok := roleTagIds["facialTagId"].(string); ok && facialID != "" {
-				facialTagID, _ = strconv.Atoi(facialID)
-			}
-		}
-		if sexTagID == 0 && oralTagID == 0 && facialTagID == 0 {
-			return nil // No tags configured
-		}
-
-		db := manager.GetInstance().Database
-
-		// Build tag list for the query
-		var tagIDs []string
-		if sexTagID > 0 {
-			tagIDs = append(tagIDs, strconv.Itoa(sexTagID))
-		}
-		if oralTagID > 0 {
-			tagIDs = append(tagIDs, strconv.Itoa(oralTagID))
-		}
-		if facialTagID > 0 {
-			tagIDs = append(tagIDs, strconv.Itoa(facialTagID))
-		}
-
-		if len(tagIDs) == 0 {
-			return nil
-		}
-
-		tagList := strings.Join(tagIDs, ",")
-		query := fmt.Sprintf(`
-SELECT COUNT(DISTINCT smp.performer_id)
-FROM scene_marker_performers smp
-JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-WHERE smp.role = 'bottom'
-  AND (sm.primary_tag_id IN (%s) OR smt.tag_id IN (%s))
-  AND smp.performer_id NOT IN (
-    SELECT DISTINCT smp2.performer_id
-    FROM scene_marker_performers smp2
-    JOIN scene_markers sm2 ON sm2.id = smp2.scene_marker_id
-    LEFT JOIN scene_markers_tags smt2 ON smt2.scene_marker_id = sm2.id
-    WHERE smp2.role = 'top'
-      AND (sm2.primary_tag_id IN (%s) OR smt2.tag_id IN (%s))
-  )`, tagList, tagList, tagList, tagList)
-		_, rows, err := db.QuerySQL(ctx, query, nil)
-		if err != nil {
-			return err
-		}
-		if len(rows) > 0 && len(rows[0]) > 0 {
-			switch v := rows[0][0].(type) {
-			case int64:
-				count = int(v)
-			case int:
-				count = v
-			case []byte:
-				i, _ := strconv.Atoi(string(v))
-				count = i
-			case string:
-				i, _ := strconv.Atoi(v)
-				count = i
-			default:
-				i, _ := strconv.Atoi(fmt.Sprint(v))
-				count = i
-			}
-		}
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-	return count, nil
+	return r.performersStrictRoleCountCustom(ctx, "bottom", "top")
 }
 
 // PerformersLenientTopCount returns the number of performers who have both top and oral bottom tags, but no bottom tag.
 func (r *queryResolver) PerformersLenientTopCount(ctx context.Context) (int, error) {
-	var count int
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		uiConfig := config.GetInstance().GetUIConfiguration()
-		sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
-		topTagName := "top"
-		bottomTagName := "bottom"
-		oralBottomTagName := "oralbottom"
-		if sceneTagAliases != nil {
-			if t, ok := sceneTagAliases["top"].(string); ok && t != "" {
-				topTagName = t
-			}
-			if b, ok := sceneTagAliases["bottom"].(string); ok && b != "" {
-				bottomTagName = b
-			}
-			if ob, ok := sceneTagAliases["oralbottom"].(string); ok && ob != "" {
-				oralBottomTagName = ob
-			}
-		}
-
-		db := manager.GetInstance().Database
-		query := `
-SELECT COUNT(DISTINCT smp.performer_id)
-FROM scene_marker_performers smp
-JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-JOIN tags t ON t.id = sm.primary_tag_id
-WHERE LOWER(TRIM(t.name)) = ?
-  AND smp.performer_id IN (
-    SELECT DISTINCT smp2.performer_id
-    FROM scene_marker_performers smp2
-    JOIN scene_markers sm2 ON sm2.id = smp2.scene_marker_id
-    JOIN tags t2 ON t2.id = sm2.primary_tag_id
-    WHERE LOWER(TRIM(t2.name)) = ?
-  )
-  AND smp.performer_id NOT IN (
-    SELECT DISTINCT smp3.performer_id
-    FROM scene_marker_performers smp3
-    JOIN scene_markers sm3 ON sm3.id = smp3.scene_marker_id
-    JOIN tags t3 ON t3.id = sm3.primary_tag_id
-    WHERE LOWER(TRIM(t3.name)) = ?
-  )`
-		args := []interface{}{
-			strings.ToLower(topTagName),
-			strings.ToLower(oralBottomTagName),
-			strings.ToLower(bottomTagName),
-		}
-		_, rows, err := db.QuerySQL(ctx, query, args)
-		if err != nil {
-			return err
-		}
-		if len(rows) > 0 && len(rows[0]) > 0 {
-			switch v := rows[0][0].(type) {
-			case int64:
-				count = int(v)
-			case int:
-				count = v
-			case []byte:
-				i, _ := strconv.Atoi(string(v))
-				count = i
-			case string:
-				i, _ := strconv.Atoi(v)
-				count = i
-			default:
-				i, _ := strconv.Atoi(fmt.Sprint(v))
-				count = i
-			}
-		}
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-	return count, nil
+	return r.performersLenientRoleCountCustom(ctx, "top", "oralbottom", "bottom")
 }
 
 // PerformersLenientBottomCount returns the number of performers who have both bottom and oral top tags, but no top tag.
 func (r *queryResolver) PerformersLenientBottomCount(ctx context.Context) (int, error) {
-	var count int
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		uiConfig := config.GetInstance().GetUIConfiguration()
-		sceneTagAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
-		topTagName := "top"
-		bottomTagName := "bottom"
-		oralTopTagName := "oraltop"
-		if sceneTagAliases != nil {
-			if t, ok := sceneTagAliases["top"].(string); ok && t != "" {
-				topTagName = t
-			}
-			if b, ok := sceneTagAliases["bottom"].(string); ok && b != "" {
-				bottomTagName = b
-			}
-			if ot, ok := sceneTagAliases["oraltop"].(string); ok && ot != "" {
-				oralTopTagName = ot
-			}
-		}
-
-		db := manager.GetInstance().Database
-		query := `
-SELECT COUNT(DISTINCT smp.performer_id)
-FROM scene_marker_performers smp
-JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-JOIN tags t ON t.id = sm.primary_tag_id
-WHERE LOWER(TRIM(t.name)) = ?
-  AND smp.performer_id IN (
-    SELECT DISTINCT smp2.performer_id
-    FROM scene_marker_performers smp2
-    JOIN scene_markers sm2 ON sm2.id = smp2.scene_marker_id
-    JOIN tags t2 ON t2.id = sm2.primary_tag_id
-    WHERE LOWER(TRIM(t2.name)) = ?
-  )
-  AND smp.performer_id NOT IN (
-    SELECT DISTINCT smp3.performer_id
-    FROM scene_marker_performers smp3
-    JOIN scene_markers sm3 ON sm3.id = smp3.scene_marker_id
-    JOIN tags t3 ON t3.id = sm3.primary_tag_id
-    WHERE LOWER(TRIM(t3.name)) = ?
-  )`
-		args := []interface{}{
-			strings.ToLower(bottomTagName),
-			strings.ToLower(oralTopTagName),
-			strings.ToLower(topTagName),
-		}
-		_, rows, err := db.QuerySQL(ctx, query, args)
-		if err != nil {
-			return err
-		}
-		if len(rows) > 0 && len(rows[0]) > 0 {
-			switch v := rows[0][0].(type) {
-			case int64:
-				count = int(v)
-			case int:
-				count = v
-			case []byte:
-				i, _ := strconv.Atoi(string(v))
-				count = i
-			case string:
-				i, _ := strconv.Atoi(v)
-				count = i
-			default:
-				i, _ := strconv.Atoi(fmt.Sprint(v))
-				count = i
-			}
-		}
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-	return count, nil
+	return r.performersLenientRoleCountCustom(ctx, "bottom", "oraltop", "top")
 }
 
 // PerformersSoloOnlyCount returns the number of performers who have solo markers but no oral/sex markers.
@@ -3809,101 +3020,7 @@ func (r *queryResolver) TotalPenisMeters(ctx context.Context) (float64, error) {
 // Duration is multiplied by the number of top performers (or 1 if no tops assigned).
 // Uses roleTagIds.orgasmTagId from UI config and includes all subtags recursively.
 func (r *queryResolver) TotalOrgasmTime(ctx context.Context, studioID *string, depth *int) (float64, error) {
-	var totalSeconds float64
-	sceneScope, sceneScopeArgs, err := sceneStatsSceneScopeCustom(studioID, depth)
-	if err != nil {
-		return 0, err
-	}
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		uiConfig := config.GetInstance().GetUIConfiguration()
-		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
-		var orgasmTagID int
-		var secondCameraTagID int
-		if roleTagIds != nil {
-			if orgasmID, ok := roleTagIds["orgasmTagId"].(string); ok && orgasmID != "" {
-				orgasmTagID, _ = strconv.Atoi(orgasmID)
-			}
-			if scID, ok := roleTagIds["secondCameraTagId"].(string); ok && scID != "" {
-				secondCameraTagID, _ = strconv.Atoi(scID)
-			}
-		}
-		if orgasmTagID == 0 {
-			return nil // No tag configured
-		}
-
-		db := manager.GetInstance().Database
-
-		// Build optional 2nd camera exclusion clause
-		secondCameraCTE := ""
-		secondCameraExclude := ""
-		args := append(append([]interface{}{}, sceneScopeArgs...), orgasmTagID)
-		if secondCameraTagID > 0 {
-			secondCameraCTE = `,
-second_camera_tags(id) AS (
-  SELECT id FROM tags WHERE id = ?
-  UNION ALL
-  SELECT tr.child_id FROM tags_relations tr JOIN second_camera_tags sct ON tr.parent_id = sct.id
-)`
-			secondCameraExclude = `
-  AND sm.id NOT IN (
-    SELECT smt2.scene_marker_id FROM scene_markers_tags smt2
-    WHERE smt2.tag_id IN (SELECT id FROM second_camera_tags)
-  )`
-			args = append(args, secondCameraTagID)
-		}
-
-		query := sceneScope + `,
-orgasm_tags(id) AS (
-  SELECT id FROM tags WHERE id = ?
-  UNION ALL
-  SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
-)` + secondCameraCTE + `,
-orgasm_markers AS (
-  SELECT DISTINCT sm.id, sm.seconds, sm.end_seconds
-  FROM scene_markers sm
-  LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-	  WHERE (sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
-	     OR smt.tag_id IN (SELECT id FROM orgasm_tags))
-	  AND sm.scene_id IN (SELECT id FROM selected_scenes)` + secondCameraExclude + `
-)
-SELECT COALESCE(SUM(
-  (CASE WHEN end_seconds IS NOT NULL THEN end_seconds - seconds ELSE 20.0 END) 
-  * 
-  (CASE WHEN top_count > 0 THEN top_count ELSE 1 END)
-), 0) AS total_time
-FROM (
-  SELECT om.id, om.seconds, om.end_seconds,
-    (SELECT COUNT(*) FROM scene_marker_performers smp WHERE smp.scene_marker_id = om.id AND smp.role = 'top') AS top_count
-  FROM orgasm_markers om
-) sub`
-		_, rows, err := db.QuerySQL(ctx, query, args)
-		if err != nil {
-			return err
-		}
-		if len(rows) > 0 && len(rows[0]) > 0 && rows[0][0] != nil {
-			switch v := rows[0][0].(type) {
-			case float64:
-				totalSeconds = v
-			case int64:
-				totalSeconds = float64(v)
-			case int:
-				totalSeconds = float64(v)
-			case []byte:
-				f, _ := strconv.ParseFloat(string(v), 64)
-				totalSeconds = f
-			case string:
-				f, _ := strconv.ParseFloat(v, 64)
-				totalSeconds = f
-			default:
-				f, _ := strconv.ParseFloat(fmt.Sprint(v), 64)
-				totalSeconds = f
-			}
-		}
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-	return totalSeconds, nil
+	return r.totalWeightedMarkerTimeCustom(ctx, "orgasmTagId", studioID, depth)
 }
 
 // TotalFacialTime calculates the total time (in seconds) of all facial markers.
@@ -3911,99 +3028,5 @@ FROM (
 // Duration is multiplied by the number of top performers (or 1 if no tops assigned).
 // Uses roleTagIds.facialTagId from UI config and includes all subtags recursively.
 func (r *queryResolver) TotalFacialTime(ctx context.Context, studioID *string, depth *int) (float64, error) {
-	var totalSeconds float64
-	sceneScope, sceneScopeArgs, err := sceneStatsSceneScopeCustom(studioID, depth)
-	if err != nil {
-		return 0, err
-	}
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		uiConfig := config.GetInstance().GetUIConfiguration()
-		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
-		var facialTagID int
-		var secondCameraTagID int
-		if roleTagIds != nil {
-			if facialID, ok := roleTagIds["facialTagId"].(string); ok && facialID != "" {
-				facialTagID, _ = strconv.Atoi(facialID)
-			}
-			if scID, ok := roleTagIds["secondCameraTagId"].(string); ok && scID != "" {
-				secondCameraTagID, _ = strconv.Atoi(scID)
-			}
-		}
-		if facialTagID == 0 {
-			return nil // No tag configured
-		}
-
-		db := manager.GetInstance().Database
-
-		// Build optional 2nd camera exclusion clause
-		secondCameraCTE := ""
-		secondCameraExclude := ""
-		args := append(append([]interface{}{}, sceneScopeArgs...), facialTagID)
-		if secondCameraTagID > 0 {
-			secondCameraCTE = `,
-second_camera_tags(id) AS (
-  SELECT id FROM tags WHERE id = ?
-  UNION ALL
-  SELECT tr.child_id FROM tags_relations tr JOIN second_camera_tags sct ON tr.parent_id = sct.id
-)`
-			secondCameraExclude = `
-  AND sm.id NOT IN (
-    SELECT smt2.scene_marker_id FROM scene_markers_tags smt2
-    WHERE smt2.tag_id IN (SELECT id FROM second_camera_tags)
-  )`
-			args = append(args, secondCameraTagID)
-		}
-
-		query := sceneScope + `,
-facial_tags(id) AS (
-  SELECT id FROM tags WHERE id = ?
-  UNION ALL
-  SELECT tr.child_id FROM tags_relations tr JOIN facial_tags ft ON tr.parent_id = ft.id
-)` + secondCameraCTE + `,
-facial_markers AS (
-  SELECT DISTINCT sm.id, sm.seconds, sm.end_seconds
-  FROM scene_markers sm
-  LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-	  WHERE (sm.primary_tag_id IN (SELECT id FROM facial_tags)
-	     OR smt.tag_id IN (SELECT id FROM facial_tags))
-	  AND sm.scene_id IN (SELECT id FROM selected_scenes)` + secondCameraExclude + `
-)
-SELECT COALESCE(SUM(
-  (CASE WHEN end_seconds IS NOT NULL THEN end_seconds - seconds ELSE 20.0 END) 
-  * 
-  (CASE WHEN top_count > 0 THEN top_count ELSE 1 END)
-), 0) AS total_time
-FROM (
-  SELECT fm.id, fm.seconds, fm.end_seconds,
-    (SELECT COUNT(*) FROM scene_marker_performers smp WHERE smp.scene_marker_id = fm.id AND smp.role = 'top') AS top_count
-  FROM facial_markers fm
-) sub`
-		_, rows, err := db.QuerySQL(ctx, query, args)
-		if err != nil {
-			return err
-		}
-		if len(rows) > 0 && len(rows[0]) > 0 && rows[0][0] != nil {
-			switch v := rows[0][0].(type) {
-			case float64:
-				totalSeconds = v
-			case int64:
-				totalSeconds = float64(v)
-			case int:
-				totalSeconds = float64(v)
-			case []byte:
-				f, _ := strconv.ParseFloat(string(v), 64)
-				totalSeconds = f
-			case string:
-				f, _ := strconv.ParseFloat(v, 64)
-				totalSeconds = f
-			default:
-				f, _ := strconv.ParseFloat(fmt.Sprint(v), 64)
-				totalSeconds = f
-			}
-		}
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-	return totalSeconds, nil
+	return r.totalWeightedMarkerTimeCustom(ctx, "facialTagId", studioID, depth)
 }

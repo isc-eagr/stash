@@ -10,18 +10,6 @@ import {
   isUnnamedPerformerId,
 } from "./unnamed-performer";
 
-// Generate a simple alphanumeric group ID (A, B, C, ...)
-let groupIdCounter = 0;
-export function generateSceneMarkersExcludeGroupId(): string {
-  const id = String.fromCharCode(65 + (groupIdCounter % 26)); // A-Z
-  groupIdCounter++;
-  return id;
-}
-
-export function resetSceneMarkersExcludeGroupIdCounter(): void {
-  groupIdCounter = 0;
-}
-
 /**
  * A single marker configuration within the criterion.
  * Each group represents one marker pattern to exclude in a scene.
@@ -283,12 +271,6 @@ export class SceneMarkersExcludeCriterion extends Criterion {
           label: p.label,
         })),
       }));
-      // Update counter to avoid ID collisions
-      const maxChar = Math.max(
-        ...this.value.groups.map((grp) => grp.groupId.charCodeAt(0)),
-        64
-      );
-      groupIdCounter = maxChar - 64;
     }
     // Load unnamed performers at criterion level
     if (raw.unnamed_performers) {
@@ -328,12 +310,6 @@ export class SceneMarkersExcludeCriterion extends Criterion {
           label: p.label,
         })),
       }));
-      // Update counter to avoid ID collisions
-      const maxChar = Math.max(
-        ...this.value.groups.map((grp) => grp.groupId.charCodeAt(0)),
-        64
-      );
-      groupIdCounter = maxChar - 64;
     }
     // Load unnamed performers at criterion level
     if (raw.unnamed_performers) {
@@ -590,12 +566,6 @@ export class SceneMarkersExcludeCriterion extends Criterion {
           label: p.label,
         })),
       }));
-      // Update counter to avoid ID collisions
-      const maxChar = Math.max(
-        ...this.value.groups.map((grp) => grp.groupId.charCodeAt(0)),
-        64
-      );
-      groupIdCounter = maxChar - 64;
     }
     // Load unnamed performers at criterion level
     if (data.unnamed_performers) {

@@ -10,18 +10,6 @@ import {
   isUnnamedPerformerId,
 } from "./unnamed-performer";
 
-// Generate a simple alphanumeric group ID (A, B, C, ...)
-let groupIdCounter = 0;
-export function generateSceneMarkersGroupId(): string {
-  const id = String.fromCharCode(65 + (groupIdCounter % 26)); // A-Z
-  groupIdCounter++;
-  return id;
-}
-
-export function resetSceneMarkersGroupIdCounter(): void {
-  groupIdCounter = 0;
-}
-
 /**
  * A single marker configuration within the criterion.
  * Each group represents one marker pattern to find in a scene.
@@ -292,12 +280,6 @@ export class SceneMarkersCriterion extends Criterion {
           label: p.label,
         })),
       }));
-      // Update counter to avoid ID collisions
-      const maxChar = Math.max(
-        ...this.value.groups.map((grp) => grp.groupId.charCodeAt(0)),
-        64
-      );
-      groupIdCounter = maxChar - 64;
     }
     this.value.require_overlap = raw.require_overlap ?? false;
     // Load unnamed performers at criterion level
@@ -339,12 +321,6 @@ export class SceneMarkersCriterion extends Criterion {
           label: p.label,
         })),
       }));
-      // Update counter to avoid ID collisions
-      const maxChar = Math.max(
-        ...this.value.groups.map((grp) => grp.groupId.charCodeAt(0)),
-        64
-      );
-      groupIdCounter = maxChar - 64;
     }
     this.value.require_overlap = raw.require_overlap ?? false;
     // Load unnamed performers at criterion level
@@ -616,12 +592,6 @@ export class SceneMarkersCriterion extends Criterion {
           label: p.label,
         })),
       }));
-      // Update counter to avoid ID collisions
-      const maxChar = Math.max(
-        ...this.value.groups.map((grp) => grp.groupId.charCodeAt(0)),
-        64
-      );
-      groupIdCounter = maxChar - 64;
     }
     this.value.require_overlap = data.require_overlap ?? false;
     // Load unnamed performers at criterion level

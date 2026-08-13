@@ -352,11 +352,13 @@ func (r *queryResolver) PerformerRoleStats(ctx context.Context, performerIDs []s
 
 // roleTagIDsConfig holds the configured role tag IDs
 type roleTagIDsConfig struct {
-	sexTagID    int
-	oralTagID   int
-	soloTagID   int
-	facialTagID int
-	orgasmTagID int
+	sexTagID          int
+	oralTagID         int
+	soloTagID         int
+	facialTagID       int
+	orgasmTagID       int
+	feetTagID         int
+	secondCameraTagID int
 }
 
 // getRoleTagIDsFromUIConfig extracts role tag IDs from UI configuration
@@ -385,6 +387,12 @@ func getRoleTagIDsFromUIConfig(uiConfig map[string]interface{}) roleTagIDsConfig
 	}
 	if orgasmTagID, ok := roleTagIDs["orgasmTagId"].(string); ok {
 		result.orgasmTagID, _ = strconv.Atoi(orgasmTagID)
+	}
+	if feetTagID, ok := roleTagIDs["feetTagId"].(string); ok {
+		result.feetTagID, _ = strconv.Atoi(feetTagID)
+	}
+	if secondCameraTagID, ok := roleTagIDs["secondCameraTagId"].(string); ok {
+		result.secondCameraTagID, _ = strconv.Atoi(secondCameraTagID)
 	}
 
 	return result
@@ -463,11 +471,6 @@ func (r *queryResolver) getCoPerformersWithCounts(ctx context.Context, performer
 	}
 
 	return counts, nil
-}
-
-// convertToPerformerWithSceneCount converts a map of performer IDs to scene counts to a slice of PerformerWithSceneCount
-func (r *queryResolver) convertToPerformerWithSceneCount(ctx context.Context, counts map[int]int) ([]*PerformerWithSceneCount, error) {
-	return r.convertToPerformerWithSceneCountCached(ctx, counts, make(map[int]*models.Performer))
 }
 
 func (r *queryResolver) convertToPerformerWithSceneCountCached(ctx context.Context, counts map[int]int, performerCache map[int]*models.Performer) ([]*PerformerWithSceneCount, error) {

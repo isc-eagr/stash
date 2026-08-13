@@ -53,11 +53,10 @@ func (qb *PerformerStore) UpdateImageBlob(ctx context.Context, performerID int, 
 // Role-based metric sort functions for performers
 // ============================================================
 
-// tagHierarchyCondition generates a SQL EXISTS condition that matches a tag ID
-// including all descendants up to 4 levels deep. Uses both primary_tag_id and
-// secondary tags (scene_markers_tags). The smAlias is the scene_markers table alias.
-func tagHierarchyCondition(smAlias string, tagID int) string {
-	return sceneMarkerEffectiveTagHierarchyConditionCustom(smAlias, tagID)
+// tagHierarchyCondition centralizes effective primary/secondary tag-family
+// matching for the custom performer filters and rating queries.
+func tagHierarchyCondition(sceneMarkerAlias string, tagID int) string {
+	return sceneMarkerEffectiveTagHierarchyConditionCustom(sceneMarkerAlias, tagID)
 }
 
 // sceneExclusionForTag generates a NOT IN clause that excludes scenes having markers

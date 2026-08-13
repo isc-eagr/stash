@@ -1,6 +1,6 @@
 package api
 
-// CUSTOM: statsWeightedMarkerCountQueryCustom is shared by orgasm/facial
+// CUSTOM: statsWeightedMarkerCountQueryBodyCustom is shared by orgasm/facial
 // totals. Each marker counts once per assigned top, with a minimum of one.
 const statsWeightedMarkerCountQueryBodyCustom = `target_tags(id) AS (
   SELECT id FROM tags WHERE id = ?
@@ -35,10 +35,6 @@ FROM (
   ) AS top_count
   FROM matching_markers mm
 ) marker_counts`
-
-const statsWeightedMarkerCountQueryCustom = `
-WITH RECURSIVE selected_scenes(id) AS (SELECT id FROM scenes),
-` + statsWeightedMarkerCountQueryBodyCustom
 
 func statsWeightedMarkerCountScopedQueryCustom(sceneScope string) string {
 	return sceneScope + ",\n" + statsWeightedMarkerCountQueryBodyCustom

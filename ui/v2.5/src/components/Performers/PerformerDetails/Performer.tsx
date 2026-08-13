@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import type { ApolloQueryResult } from "@apollo/client"; // CUSTOM
 import { Button, Tabs, Tab, Col, Row } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import { useHistory, Redirect, RouteComponentProps } from "react-router-dom";
@@ -66,7 +67,7 @@ import { PerformerImageManager } from "./PerformerImageManager";
 interface IProps {
   performer: GQL.PerformerDataFragment;
   tabKey?: TabKey;
-  refetch: () => Promise<unknown>; // CUSTOM
+  refetch: () => Promise<ApolloQueryResult<GQL.FindPerformerQuery>>; // CUSTOM
 }
 
 interface IPerformerParams {
@@ -364,7 +365,7 @@ interface IPerformerHeaderImageProps {
   encodingImage: boolean;
   lightboxImages: ILightboxImage[];
   performer: GQL.PerformerDataFragment;
-  refetch: () => Promise<unknown>; // CUSTOM
+  refetch: () => Promise<ApolloQueryResult<GQL.FindPerformerQuery>>; // CUSTOM
 }
 
 const PerformerHeaderImage: React.FC<IPerformerHeaderImageProps> =
@@ -390,7 +391,6 @@ const PerformerHeaderImage: React.FC<IPerformerHeaderImageProps> =
             {!!currentImage && (
               <PerformerImageManager
                 performer={performer}
-                activeImage={currentImage}
                 onImageChange={setCurrentImage}
                 refetch={refetch}
               >

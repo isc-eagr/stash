@@ -1,22 +1,27 @@
 import React, { useState, useEffect } from "react";
+import type { ApolloQueryResult } from "@apollo/client";
 import { Button } from "react-bootstrap";
 import { Icon } from "src/components/Shared/Icon";
-import { faUpload, faTrash, faStar, faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons";
+import {
+  faUpload,
+  faTrash,
+  faStar,
+  faChevronLeft,
+  faChevronRight,
+} from "@fortawesome/free-solid-svg-icons";
 import { useToast } from "src/hooks/Toast";
 import * as GQL from "src/core/generated-graphql";
 import "./PerformerImageManager.scss";
 
 interface IPerformerImageManagerProps {
   performer: GQL.PerformerDataFragment;
-  activeImage: string | null | undefined;
   onImageChange: (imagePath: string) => void;
-  refetch: () => Promise<any>;
+  refetch: () => Promise<ApolloQueryResult<GQL.FindPerformerQuery>>;
   children: React.ReactNode;
 }
 
 export const PerformerImageManager: React.FC<IPerformerImageManagerProps> = ({
   performer,
-  activeImage,
   onImageChange,
   refetch,
   children,
@@ -35,12 +40,12 @@ export const PerformerImageManager: React.FC<IPerformerImageManagerProps> = ({
   const additionalImages = performer.additional_images || [];
   const allImages = [
     { id: "default", path: defaultImage, isDefault: true },
-    ...additionalImages.map(img => ({ 
-      id: img.id, 
-      path: img.image_path, 
-      isDefault: false 
+    ...additionalImages.map((img) => ({
+      id: img.id,
+      path: img.image_path,
+      isDefault: false,
     })),
-  ].filter(img => img.path);
+  ].filter((img) => img.path);
 
   // Reset index if out of bounds after refetch
   useEffect(() => {
@@ -67,63 +72,77 @@ export const PerformerImageManager: React.FC<IPerformerImageManagerProps> = ({
     input.accept = "image/*";
     input.multiple = true;
     input.onchange = async (e: Event) => {
-      const {files} = (e.target as HTMLInputElement);
+      const { files } = e.target as HTMLInputElement;
       if (!files || files.length === 0) return;
 
       setIsLoading(true);
       try {
-      const uploaded: string[] = [];
-      const skippedDuplicates: string[] = [];
-      const failed: string[] = [];
+        const uploaded: string[] = [];
+        const skippedDuplicates: string[] = [];
+        const failed: string[] = [];
 
-      const isDuplicateError = (err: any): boolean => {
-        const gqlErrors = err?.graphQLErrors;
-        if (!Array.isArray(gqlErrors)) return false;
-        return gqlErrors.some((ge: any) => ge?.extensions?.code === "DUPLICATE_PERFORMER_IMAGE");
-      };
+        const isDuplicateError = (error: unknown): boolean => {
+          if (typeof error !== "object" || error === null) return false;
+
+          const gqlErrors = (
+            error as {
+              graphQLErrors?: unknown;
+            }
+          ).graphQLErrors;
+          if (!Array.isArray(gqlErrors)) return false;
+          return gqlErrors.some((graphQLError: unknown) => {
+            if (typeof graphQLError !== "object" || graphQLError === null) {
+              return false;
+            }
+            return (
+              (graphQLError as { extensions?: { code?: unknown } }).extensions
+                ?.code === "DUPLICATE_PERFORMER_IMAGE"
+            );
+          });
+        };
 
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
           const imageData = await readFileAsDataURL(file);
 
-        try {
-          await performerImageUpload({
-            variables: {
-              performer_id: performer.id,
-              image: imageData,
-            },
-          });
-          uploaded.push(file.name);
-        } catch (err) {
-          if (isDuplicateError(err)) {
-            skippedDuplicates.push(file.name);
-          } else {
-            failed.push(file.name);
+          try {
+            await performerImageUpload({
+              variables: {
+                performer_id: performer.id,
+                image: imageData,
+              },
+            });
+            uploaded.push(file.name);
+          } catch (err) {
+            if (isDuplicateError(err)) {
+              skippedDuplicates.push(file.name);
+            } else {
+              failed.push(file.name);
+            }
           }
         }
+
+        if (uploaded.length > 0) {
+          // Small delay to ensure transaction commits
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          await refetch();
         }
 
-      if (uploaded.length > 0) {
-        // Small delay to ensure transaction commits
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        await refetch();
-      }
+        const parts: string[] = [];
+        if (uploaded.length > 0) parts.push(`Uploaded: ${uploaded.join(", ")}`);
+        if (skippedDuplicates.length > 0)
+          parts.push(`Skipped duplicates: ${skippedDuplicates.join(", ")}`);
+        if (failed.length > 0) parts.push(`Failed: ${failed.join(", ")}`);
 
-      const parts: string[] = [];
-      if (uploaded.length > 0) parts.push(`Uploaded: ${uploaded.join(", ")}`);
-      if (skippedDuplicates.length > 0)
-        parts.push(`Skipped duplicates: ${skippedDuplicates.join(", ")}`);
-      if (failed.length > 0) parts.push(`Failed: ${failed.join(", ")}`);
-
-      if (failed.length > 0) {
-        Toast.toast({ content: parts.join("\n"), variant: "danger" });
-      } else if (skippedDuplicates.length > 0) {
-        Toast.toast({ content: parts.join("\n"), variant: "warning" });
-      } else {
-        Toast.toast({ content: parts.join("\n"), variant: "success" });
-      }
-    } catch (error) {
-      Toast.error(error);
+        if (failed.length > 0) {
+          Toast.toast({ content: parts.join("\n"), variant: "danger" });
+        } else if (skippedDuplicates.length > 0) {
+          Toast.toast({ content: parts.join("\n"), variant: "warning" });
+        } else {
+          Toast.toast({ content: parts.join("\n"), variant: "success" });
+        }
+      } catch (error) {
+        Toast.error(error);
       } finally {
         setIsLoading(false);
       }
@@ -134,7 +153,8 @@ export const PerformerImageManager: React.FC<IPerformerImageManagerProps> = ({
   const handleRemove = async () => {
     if (isDefaultImage) {
       Toast.toast({
-        content: "Cannot remove the default image. Set another image as default first.",
+        content:
+          "Cannot remove the default image. Set another image as default first.",
         variant: "warning",
       });
       return;
@@ -162,17 +182,21 @@ export const PerformerImageManager: React.FC<IPerformerImageManagerProps> = ({
         const newAdditionalImages = newPerformer.additional_images || [];
         const newAllImages = [
           { id: "default", path: newPerformer.image_path, isDefault: true },
-          ...newAdditionalImages.map((img: any) => ({
+          ...newAdditionalImages.map((img) => ({
             id: img.id,
             path: img.image_path,
             isDefault: false,
           })),
-        ].filter((img: any) => img.path);
+        ].filter((img) => img.path);
 
-        const newIndex = Math.min(deletedIndex, Math.max(0, newAllImages.length - 1));
+        const newIndex = Math.min(
+          deletedIndex,
+          Math.max(0, newAllImages.length - 1)
+        );
         setCurrentImageIndex(newIndex);
-        if (newAllImages[newIndex]?.path) {
-          onImageChange(newAllImages[newIndex].path);
+        const newImagePath = newAllImages[newIndex]?.path;
+        if (newImagePath) {
+          onImageChange(newImagePath);
         }
       }
     } catch (error) {
@@ -219,7 +243,8 @@ export const PerformerImageManager: React.FC<IPerformerImageManagerProps> = ({
   };
 
   const handlePrevious = () => {
-    const newIndex = currentImageIndex > 0 ? currentImageIndex - 1 : allImages.length - 1;
+    const newIndex =
+      currentImageIndex > 0 ? currentImageIndex - 1 : allImages.length - 1;
     setCurrentImageIndex(newIndex);
     const path = allImages[newIndex]?.path;
     if (path) {
@@ -228,7 +253,8 @@ export const PerformerImageManager: React.FC<IPerformerImageManagerProps> = ({
   };
 
   const handleNext = () => {
-    const newIndex = currentImageIndex < allImages.length - 1 ? currentImageIndex + 1 : 0;
+    const newIndex =
+      currentImageIndex < allImages.length - 1 ? currentImageIndex + 1 : 0;
     setCurrentImageIndex(newIndex);
     const path = allImages[newIndex]?.path;
     if (path) {
@@ -243,7 +269,7 @@ export const PerformerImageManager: React.FC<IPerformerImageManagerProps> = ({
       onMouseLeave={() => setIsHovered(false)}
     >
       {children}
-      
+
       {isHovered && (
         <>
           {/* Navigation arrows (only show if more than 1 image) */}

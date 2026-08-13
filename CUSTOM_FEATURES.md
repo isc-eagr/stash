@@ -1113,9 +1113,10 @@ A multi-panel viewer for scene markers, accessible from the Markers page (`/scen
 - **Close individual panel** – × button in title bar
 - **Fullscreen** – header button
 
-### Files Created
+### Active Implementation
 
-- `ui/v2.5/src/components/Scenes/MarkerViewer.tsx` - Main viewer component
+- `ui/v2.5/src/components/Viewers/UnifiedViewer.tsx` - Unified scene, marker, and image viewer used by the viewer routes
+- `ui/v2.5/src/components/Scenes/MultiVideoViewer.tsx` - Shared multi-panel canvas used by the unified viewer
 - `ui/v2.5/src/components/Scenes/MarkerViewer.scss` - Styles for the viewer
 
 ### Files Modified
@@ -1147,10 +1148,10 @@ A multi-panel viewer for full scenes, accessible from the Scenes page (`/scenes`
 4. Click the **grid icon** button to open `/scenes/viewer?ids=1,2,3`
 5. Drag, resize, close, fullscreen, and reflow panels as in the marker viewer
 
-### Files Created
+### Active Implementation
 
 - `ui/v2.5/src/components/Scenes/MultiVideoViewer.tsx` - Shared video panel viewer used by marker and scene viewers
-- `ui/v2.5/src/components/Scenes/SceneViewer.tsx` - Scene data adapter for the shared viewer
+- `ui/v2.5/src/components/Viewers/UnifiedViewer.tsx` - Scene data adapter and route target shared with marker and image viewing
 - `ui/v2.5/src/components/Scenes/SceneViewerQueueIndicator.tsx` - Scenes toolbar queue controls
 - `ui/v2.5/src/hooks/SceneViewerQueue.tsx` - In-memory scene viewer queue context
 
@@ -1159,7 +1160,7 @@ A multi-panel viewer for full scenes, accessible from the Scenes page (`/scenes`
 - `ui/v2.5/src/App.tsx` - Added `SceneViewerQueueProvider`
 - `ui/v2.5/src/components/Scenes/Scenes.tsx` - Added route for `/scenes/viewer`
 - `ui/v2.5/src/components/Scenes/SceneList.tsx` - Added scene viewer queue controls to the scenes toolbar
-- `ui/v2.5/src/components/Scenes/MarkerViewer.tsx` - Refactored to use the shared viewer component
+- `ui/v2.5/src/components/Scenes/Scenes.tsx` - Routes scene and marker viewer URLs to the unified viewer
 
 ### Data Loading
 
@@ -1457,50 +1458,32 @@ When viewing studios from a performer's Studios tab, the studio cards now hide c
 
 ### Overview
 
-Replaced the complex unified `performer_markers` filter with two simpler, more intuitive filters for searching performers by their scene marker participation:
-
-- **Marker Tags**: Filter by markers with specific tags and the performer's role
-- **Marker Partners**: Filter by markers shared with partners having specific attributes
+Provides unified include and exclude filters for searching performers by scene-marker tags, performer role/attributes, and partner role/attributes.
 
 ### Files Created/Modified
 
-**New Criterion Files:**
+**Criterion and component files:**
 
-- `ui/v2.5/src/models/list-filter/criteria/performer-marker-tags.ts` - Tag-based marker filter with role selection
-- `ui/v2.5/src/models/list-filter/criteria/performer-marker-partners.ts` - Partner attribute-based marker filter
-
-**New Filter Component Files:**
-
-- `ui/v2.5/src/components/List/Filters/PerformerMarkerTagsFilter.tsx` - UI for marker tags filter
-- `ui/v2.5/src/components/List/Filters/PerformerMarkerPartnersFilter.tsx` - UI for marker partners filter
+- `ui/v2.5/src/models/list-filter/criteria/performer-markers.ts`
+- `ui/v2.5/src/models/list-filter/criteria/performer-markers-exclude.ts`
+- `ui/v2.5/src/components/List/Filters/PerformerMarkersFilter.tsx`
+- `ui/v2.5/src/components/List/Filters/PerformerMarkersExcludeFilter.tsx`
 
 **Modified Files:**
 
-- `ui/v2.5/src/models/list-filter/performers.ts` - Replaced `PerformerMarkersCriterionOption` with two new options
-- `ui/v2.5/src/models/list-filter/types.ts` - Added `performer_marker_tags` and `performer_marker_partners` to CriterionType
-- `ui/v2.5/src/components/List/CriterionEditor.tsx` - Added filter renderers for new criterion types
-- `graphql/schema/types/filters.graphql` - Added new input types: `PerformerMarkerTagsCriterionInput` and `PerformerMarkerPartnersCriterionInput`
-- `internal/api/resolver_filter_performer.go` - Added no-op resolvers for new filter types
+- `ui/v2.5/src/models/list-filter/performers.ts` - Registers the unified include and exclude criteria
+- `ui/v2.5/src/models/list-filter/types.ts` - Registers `performer_markers` and its exclude counterpart
+- `ui/v2.5/src/components/List/CriterionEditor.tsx` - Renders both filter editors
 
 ### Features
 
-**Marker Tags Filter:**
-
-- Select one or more tags using the standard tag selector
-- Choose performer's role on markers: Top, Bottom, or Any (both)
-- Supports standard tag filter modifiers: Includes All, Includes, Excludes, Is Null, Not Null
-- Searches for performers who have markers matching the tag(s) and role configuration
-
-**Marker Partners Filter:**
-
-- Filter by partner's ethnicity (multi-select)
-- Filter by partner's country (multi-select with flags)
-- Filter by partner's rating (with range operators)
-- Choose partner's role: Top, Bottom, or Any (both)
-- Supports modifiers: Includes, Excludes
-- Searches for performers who share markers with partners matching the specified criteria
+- Select marker tags and hierarchy depth.
+- Match the performer or partner by ID, ethnicity, country, rating, and top/bottom role.
+- Use the include filter to require matching participation and the exclude filter to remove matching performers.
 
 ### GraphQL Schema
+
+The earlier `PerformerMarkerTagsCriterionInput` and `PerformerMarkerPartnersCriterionInput` fields remain available for GraphQL compatibility, but the in-repo UI now uses the unified performer-marker criteria above.
 
 ```graphql
 input PerformerMarkerTagsCriterionInput {
@@ -1527,13 +1510,6 @@ input PerformerMarkerPartnersCriterionInput {
   modifier: CriterionModifier!
 }
 ```
-
-### Migration Notes
-
-The old `performer_markers` filter with its complex include/exclude conditions was replaced with these two simpler filters. The UI is more intuitive and each filter has a specific purpose:
-
-- Use **Marker Tags** when you want to find performers based on what they did (the tags on their markers)
-- Use **Marker Partners** when you want to find performers based on who they worked with
 
 ---
 
@@ -1562,7 +1538,7 @@ CREATE INDEX IF NOT EXISTS idx_marker_playlists_name
 
 ### GraphQL Schema Extensions
 
-**File:** `graphql/schema/types/marker-playlist.graphql`
+**File:** `graphql/schema/types/marker-playlist_custom.graphql`
 
 ```graphql
 type MarkerPlaylist {
@@ -1955,7 +1931,7 @@ CREATE TABLE IF NOT EXISTS `scene_release_galleries` (
 
 ### GraphQL Schema
 
-**File:** `graphql/schema/types/scene-release.graphql`
+**File:** `graphql/schema/types/scene-release_custom.graphql`
 
 ```graphql
 type SceneRelease {
@@ -2281,7 +2257,8 @@ A dedicated full-page image viewer allowing users to view and manipulate multipl
 
 **New Files:**
 
-- `ui/v2.5/src/components/Images/ImageViewer.tsx` - Main viewer component
+- `ui/v2.5/src/components/Viewers/UnifiedViewer.tsx` - Unified image, marker, and scene viewer
+- `ui/v2.5/src/components/Images/DraggableImageOverlay_custom.tsx` - Shared draggable/resizable image overlay primitive
 
   - `DraggableImage` sub-component for individual draggable/resizable image overlays
   - Uses ref-based state management for drag/resize tracking
@@ -2308,8 +2285,7 @@ A dedicated full-page image viewer allowing users to view and manipulate multipl
 
 - `ui/v2.5/src/components/Images/Images.tsx`
 
-  - Added lazy-loaded `ImageViewer` component import
-  - Added route: `<Route exact path="/images/viewer" component={ImageViewer} />`
+  - Routes `/images/viewer` to the unified viewer
 
 - `ui/v2.5/src/components/Images/ImageList.tsx`
   - Integrated `ImageQueueIndicator` component
@@ -2423,7 +2399,6 @@ A feature that allows users to define "unnamed performers" (Performer A, Perform
 
 - `ui/v2.5/src/models/list-filter/criteria/unnamed-performer.ts` - Type definitions and utility functions for unnamed performers
 - `ui/v2.5/src/components/List/Filters/UnnamedPerformerManager.tsx` - React component for managing unnamed performers (add/edit/delete)
-- `ui/v2.5/src/components/List/Filters/PerformerSelectWithUnnamed.tsx` - Enhanced performer select that includes unnamed performers
 
 ### Files Modified
 
@@ -3044,18 +3019,6 @@ The performer detail header also paints the overall Scene Average Rating beside 
 - `ui/v2.5/src/components/Shared/groupSceneRating_custom.ts` - Group threshold, scoring weights, bonus values, persisted keys, and frontend mode selection
 - `ui/v2.5/src/components/Shared/soloSceneRating_custom.ts` - Solo scoring weights, persisted keys, and base maximum
 - `rating_scores.up.sql` - Standalone manual SQL script for generic persisted rating score tables
-- `rating_orgasm_bonus_recalculate_custom.sql` - Standalone, rerunnable manual SQL script that applies the progressive O-count tiers to existing scene/performer advisor ratings while leaving manual ratings untouched
-- `rating_remove_performer_unlikely_top_bonus_custom.sql` - Standalone manual SQL script to remove performer-level Unlikely Top bonus rows and recalculate affected performers
-- `rating_remove_standout_act_bonus_custom.sql` - Standalone manual SQL script to remove retired Standout Act bonus rows and subtract their stored contribution from affected ratings
-- `rating_reset_advisor_scores_custom.sql` - Standalone manual SQL script to delete all persisted advisor dimension rows while preserving existing scene/performer ratings
-- `rating_reset_group_scene_scores_custom.sql` - Removes advisor rows from existing 4+ performer scenes and clears their stored ratings to the no-rating state
-- `rating_reduce_god_tier_orgasm_bonus_custom.sql` - Reduces persisted scene God-tier bonuses from +20 to +10 and subtracts the same 10 points from affected scene ratings
-- `rating_rebalance_scene_energy_usable_factor_custom.sql` - Reweights regular-scene Energy answers from 30 to 20 maximum points, removes retired Standout answers, and recalculates affected scene ratings
-- `rating_increase_no_orgasm_penalty_custom.sql` - Increases active scene No orgasm penalties from -10 to -20 and subtracts the additional 10 points from affected scene ratings
-- `rating_rebalance_solo_group_rubrics_custom.sql` - Converts persisted solo/group rubric rows, removes retired mode-specific values, and updates affected scene ratings by their exact score deltas
-- `rating_cleanup_retired_scene_scores_custom.sql` - Purges all retired scene-advisor keys, normalizes legacy Energy rows, and recalculates affected scenes from current mode-specific allowlists
-- `rating_repair_one_performer_advisors_custom.sql` - Resets incompatible advisor rows on exactly-one-performer scenes and repairs non-zero ratings left without criteria by the old scene reset behavior
-- `rating_clear_zero_scene_ratings_custom.sql` - Normalizes every stored zero scene rating to SQL `NULL` without removing associated advisor rows
 - `graphql/schema/types/rating_custom.graphql` - Rating score GraphQL types, mutation, and read-only orgasm-count query
 - `internal/api/resolver_rating_score_custom.go` - Rating score query/mutation resolvers
 - `internal/api/resolver_rating_score_custom_test.go` - Verifies ownership semantics, cast/mode/config resets, delete behavior, scene rating-zero resets, and performer rating-preserving resets
@@ -3064,10 +3027,7 @@ The performer detail header also paints the overall Scene Average Rating beside 
 - `pkg/sqlite/rating_score_calculation_custom.go` - Canonical scene and performer rubrics, exact write validation, and contribution calculation that ignores client/persisted weights
 - `pkg/sqlite/rating_score_calculation_custom_test.go` - Covers all five payoff choices (including unchanged contributions for existing values), invalid inputs, legacy normalization, canonical scene/performer contributions, retired-key exclusion, and progressive scene/performer O-count tier totals
 - `pkg/sqlite/rating_scene_mode_custom_test.go` - Verifies that exactly one assigned performer selects the solo rubric independently of marker-derived mode hints
-- `pkg/sqlite/rating_score_scripts_custom_test.go` - Executes the schema and maintenance SQL against representative data, including orphan prevention, delete cleanup, progressive existing-rating recalculation, rerun safety, clamp order, manual-rating preservation, and performer-bonus cleanup
-- `pkg/sqlite/rating_cleanup_retired_scene_scores_custom_test.go` - Reproduces scene 3571's 92/76 mismatch and verifies cleanup, mode isolation, and rerun safety
-- `pkg/sqlite/rating_repair_one_performer_advisors_custom_test.go` - Verifies targeted one-performer repair, complete score cleanup, valid solo/default preservation, and rerun safety
-- `pkg/sqlite/rating_zero_scene_ratings_custom_test.go` - Verifies zero-to-NULL normalization, advisor-row preservation, rerun safety, and no-rating group resets
+- `pkg/sqlite/rating_score_scripts_custom_test.go` - Verifies the persisted rating-score schema and entity lifecycle
 - `pkg/models/rating_criteria_filter_custom.go` - Generic rating criteria filter input models
 - `pkg/sqlite/rating_criteria_filter_custom.go` - Shared SQLite predicates for criteria/bonus/penalty filters
 - `pkg/sqlite/studio_rating_criteria_custom.go` - Opt-in average scene/distinct-performer Studio predicates and numeric criterion sorts
@@ -3079,7 +3039,6 @@ The performer detail header also paints the overall Scene Average Rating beside 
 - `ui/v2.5/tests/ratingCriteriaFilter_custom.test.ts` - Verifies the standard and group Rating Criteria filters expose all five orgasm-quality levels with matching labels
 - `ui/v2.5/tests/groupSceneRating_custom.test.ts` - Verifies group mode priority, scoring totals, bonuses, and persisted filter keys
 - `ui/v2.5/tests/soloSceneRating_custom.test.ts` - Verifies the solo 50/30/20 scoring total and persisted keys
-- `pkg/sqlite/rating_rebalance_solo_group_custom_test.go` - Executes the standalone migration against representative solo, group, and regular-scene rows, including rerun safety and group-only bonus removal
 - `ui/v2.5/src/components/Performers/performerTypes_custom.ts` - Shared performer list/card data type for the lean list query
 - `internal/api/studio_rating_advisor_stats_custom.go` - Set-based studio rubric aggregate, per-criterion denominator handling, normalized bar averages, and adjustment counts
 - `internal/api/studio_rating_advisor_stats_custom_test.go` - Focused SQLite aggregate coverage for direct/child studios, performer-scoped scene membership, partial advisor data, and level-1 orgasm-quality contributions/fill
@@ -3557,7 +3516,7 @@ Activity ranges and Highlights are rendered as separate, always-visible lanes be
 
 Selection checkboxes follow the visible hierarchy: section selectors cover all displayed Activity and Highlight markers, multi-configuration sections expose a selector for each performer configuration, lanes select only their own marker type, and pills select individual markers or merged highlight segments. Parent selectors show an indeterminate state for partial selection and use larger hit areas. Distinct performer configurations remain separate, but their redundant Top/Bottom text labels are omitted because performer borders already communicate those roles. Exact duplicate configuration headers are omitted when a section contains only one performer configuration, so duration and selection metadata are not repeated.
 
-Scene-card performer-count hover popovers reuse the performer/tag-card presentation. Each scene performer displays the union produced by running every scene marker through the same directed 50%-overlap inheritance calculation as the in-scene marker hover: top-role tags use blue chips and bottom-role tags use green chips. A tag remains in both colors when the performer has both roles across different markers, and scene performers without marker assignments remain visible with no chips. On `/scenes`, every qualifying portrait applies the exact shared `/performers` card skin for its Bronze, Silver, Gold, or Royal Sapphire tier, including the configured theme, performer thresholds, and rating-override tags; no scene-only metallic palette is maintained. Each set rating appears in a tiny star-and-number pill below the portrait and above the name, keeping the score in normal layout flow instead of covering any part of the image.
+Scene-card performer-count hover popovers reuse `PerformerCategoryStrip` beneath each portrait instead of repeating raw marker-tag pills. The scene-context strip is derived from the marker data already loaded by each scene card, including descendant role tags, top/bottom directions, unique partner counts and portraits, Facial/Orgasm/Feet counts, and 2nd Camera exclusions, so opening a card does not issue one role query per vato. The popup expands responsively to fit up to three wider performer tiles per row, and its six possible role columns remain centered without clipping their category icons or arrows. Scene performers without configured marker roles remain visible with no strip. On `/scenes`, every qualifying portrait applies the exact shared `/performers` card skin for its Bronze, Silver, Gold, or Royal Sapphire tier, including the configured theme, performer thresholds, and rating-override tags; no scene-only metallic palette is maintained. Each set rating appears in a tiny star-and-number pill below the portrait and above the name, keeping the score in normal layout flow instead of covering any part of the image.
 
 Marker-card performer-count hovers now use that exact in-scene inherited-tag popup instead of the generic scene-performer popup. The card grid batches a slim scene-marker context lookup by visible scene IDs, so the popup and context tags remain complete across pagination without issuing one request per card. Marker-card overlap chips use the same directed 50%-overlap context calculation and remain gray; Sapphire card styling preserves these semantic tag colors and the blue/green performer-role chips instead of repainting them Sapphire.
 
@@ -3611,6 +3570,7 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - `ui/v2.5/src/components/ScenePlayer/sceneMarkerTimelineHover_custom.ts`
 - `ui/v2.5/src/components/ScenePlayer/sceneMarkerTimelineStyle_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneCardPerformerPopover_custom.tsx`
+- `ui/v2.5/src/components/Scenes/sceneCardPerformerRoles_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneCard.tsx`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerLayoutPreference_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerSelection_custom.ts`
@@ -3628,6 +3588,7 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - `ui/v2.5/tests/sceneMarkerVisualStates_custom.test.ts`
 - `ui/v2.5/tests/sceneMarkerTimelineStyle_custom.test.ts`
 - `ui/v2.5/tests/sceneCardPerformerRatingHighlight_custom.test.ts`
+- `ui/v2.5/tests/sceneCardPerformerRoles_custom.test.ts`
 - `ui/v2.5/tests/tagSelectRendererIdentity_custom.test.ts`
 
 ### Test Cases Added
@@ -3650,7 +3611,7 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - Verifies marker-card context tags use directed 50%-overlap inheritance, including the exact boundary, below-threshold rejection, and the wider-marker prohibition against inheriting from narrower sources.
 - Verifies single-tag performer filters do not create derived overlap ranges from nearby tag-only markers.
 - Verifies activity type markers are limited to configured sex/oral/solo primary-only markers and secondary tags make them highlights.
-- Verifies scene-card performer summaries union direct and overlap-computed marker tags independently for top and bottom roles, including the same tag appearing in both role colors.
+- Verifies scene-card performer strips derive configured role families through flattened tag ancestry, preserve independent top/bottom directions and partner IDs, deduplicate partner counts, and exclude 2nd Camera descendants from Facial and Orgasm totals.
 - Verifies scene-card performer portraits load rating/override-tag data, apply performer-specific thresholds and override precedence, reuse the shared premium/classic performer-card skins, and place a compact star-and-number rating below rather than over the portrait.
 - Verifies marker hover data keeps direct role tags primary and identifies overlap-contributed role tags for the muted dashed treatment.
 - Verifies the unified chronological section includes configured feet, orgasm, and facial primary tags as section markers without changing strict Activity Type marker classification.
@@ -3951,21 +3912,31 @@ Adds a copy-from-marker action beside both time inputs in the regular and negati
 
 ### Overview
 
-Scene cards replace the description text and seven-value Activity/Quality percentage footer with up to seven compact marker-derived insight chips, reserving descriptions for the scene detail page. Each chip exposes its exact duration, episode, marker-count, or attribution evidence on hover/focus. Activity-quality insights use only the percentage of the activity that is outstanding. The former activity-linked-highlight share rule is removed, so single-activity scenes cannot receive a meaningless 100% highlight-lean score; they can still reach Near-perfect when their actual outstanding coverage meets that level. The four configurable levels are Good, Great, Amazing, and Near-perfect, and only the two strongest ordinary activity insights compete for card space. Their tooltip states the outstanding percentage and duration, for example `38% of oral is Outstanding (2:38)`. Scenes containing more than one activity type always receive a mandatory Sex Leaning, Oral Leaning, or Balanced classification; the Sex/Oral shares drive the wording, while Solo-only comparisons can produce a `no sex` or `no oral` minority description. Single-activity scenes are excluded. A leaning chip describes the losing activity as none, minimal, some, a good amount, or a lot of using configurable minority-share levels.
+Scene cards replace the description text and seven-value Activity/Quality percentage footer with up to seven compact marker-derived insight chips, reserving descriptions for the scene detail page. Shared fact helpers merge overlapping marker intervals once and format compact evidence consistently. Activity-quality insights use only the percentage of the activity that is outstanding and require at least 5% of the full scene as activity evidence, preventing tiny markers from making whole-scene quality claims. The four configurable levels are Good, Great, Amazing, and Near-perfect, and only the two strongest ordinary activity insights compete for card space. Their tooltip states the outstanding percentage and duration, for example `38% of oral is Outstanding (2:38)`. Leaning is evaluated only when both Sex and Oral each cover at least 5% of the scene; Solo does not create a misleading missing-Sex or missing-Oral claim. A leaning chip describes the minority activity as minimal, some, a good amount, or a lot of using configurable minority-share levels, and its tooltip shows both shares and durations, for example `50% sex (10:30) - 50% oral (10:30)`.
 
-Role-assigned Sex and Oral markers form a directed performer-interaction graph from top to bottom. Each role lane or performer pairing must independently meet the same configurable relevance evidence used by other insights. For exactly two vatos, the strongest matching pattern is one of three mutually exclusive chips: `Fully Versatile Scene` when both vatos top and bottom in Sex and Oral, `Sexually Versatile` when both do so in Sex but not Oral, or `Orally Versatile` when both do so in Oral but not Sex; Fully always takes precedence. Scenes with three or more vatos retain the group patterns: `Round-Robin Scene`, `Oral Circle`, `Versatile Group`, `Balanced Orgy`, `Balanced Threesome`, `Traditional Scene`, or `One Vato Center Stage`. Balanced Orgy requires every vato to interact with at least half of the other vatos. More specific patterns take precedence, and interaction chips rank below GOAT/Really Hot but above leaning and generic tag insights.
+Role-assigned Sex and Oral markers form a directed performer-interaction graph from top to bottom. Each role direction must cover at least 5% of the full scene before it participates, so incidental marker slivers cannot establish versatility. For exactly two vatos, the strongest matching pattern is one of three mutually exclusive chips: `Fully Versatile Scene` when both vatos top and bottom in Sex and Oral, `Sexually Versatile` when both do so in Sex but not Oral, or `Orally Versatile` when both do so in Oral but not Sex; Fully always takes precedence. Versatile-chip tooltips use direct wording without the word "meaningfully." Scenes with three or more vatos retain the group patterns: `Round-Robin Scene`, `Oral Circle`, `Versatile Group`, `Balanced Orgy`, `Balanced Threesome`, `Traditional Scene`, or `One Vato Center Stage`. Balanced Orgy requires every vato to interact with at least half of the other vatos. More specific patterns take precedence.
 
-Every direct non-activity marker tag can produce a `Lots of <tag>` insight once its overlap-merged duration or distinct episode count becomes relevant. Highlight attribution uses top performers only. When all contributing markers have the same attached top performer set, the chip includes those names; multiple relevant tags for that same performer set collapse into one chip. Configured Orgasm and Facial families use explicit counts and intentionally omit performer names in ordinary and Really Hot variants. GOAT event/tag chips retain their top-performer attribution and merge compatible non-Facial tags by performer; GOAT Facial always remains its own chip. GOAT candidates are never removed by the normal seven-chip ceiling. Really Hot Facial suppresses the redundant Really Hot Orgasm chip, and GOAT Facial similarly suppresses GOAT Orgasm. New automatic orgasm chips report simultaneous top-vato orgasms and repeated top orgasms per performer, excluding configured 2nd Camera markers from the repeated count. Every other GOAT marker is automatic and produces a separate GOAT insight for each direct non-activity, non-qualifier tag; a marker without another descriptive tag falls back to `GOAT moment`. Tag-derived labels preserve each tag's exact name and casing; only configured activity/event families use their explicit `Orgasm` and `Facial` labels.
+Every direct non-activity, non-qualifier marker tag can produce an amount insight based solely on its overlap-merged share of the full scene. The three configurable levels are `Good amount of <tag>`, `Lots of <tag>`, and `<tag> as far as the eye can see`. Their tooltip includes both percentage and compact duration/marker evidence, for example `29% of scene · 2:55 (across 4 markers)`. These levels apply to every eligible ordinary highlight tag, not the fixed Facial variants. Highlight attribution uses top performers only. When all contributing markers have the same attached top performer set, the chip includes those names. Multiple tags collapse into one chip only when both their performer scope and amount level match; different levels remain separate to prevent long mixed-level sentences. The same qualifying tag contributed by different performer sets remains one generic, unattributed chip. A GOAT tag suppresses its ordinary amount insight only for the exact matching top-performer scope; other performers, grouped scopes, and unassigned scopes remain independent. Configured Orgasm and Facial families aggregate by semantic event category and unique marker instead of raw tag ID, so Facial subclasses contribute to one count. Flattened ancestor IDs supplied by the backend make activity, event, qualifier, and GOAT matching recursive through arbitrary tag-hierarchy depth. Facial classification takes precedence when the configured Facial family descends from Orgasm.
+
+Every Facial marker is represented regardless of relevance thresholds or the normal seven-chip ceiling through exactly three scene-wide, performer-free variants: `Facials ×N`, `Really Hot Facials ×N`, and `GOAT Facials ×N`. A marker contributes only to its strongest applicable variant, so GOAT wins over Really Hot. The three variants remain separate when they coexist, and no Facial chip includes performer names. Configured 2nd Camera markers are excluded from all three Facial variants. Other GOAT event/tag chips retain their top-performer attribution and merge compatible non-Facial tags only within the same performer scope; even an identical descriptor never combines GOAT markers from different performers. GOAT candidates are never removed by the normal seven-chip ceiling. Facial-over-Orgasm suppression is marker-local: a Facial does not erase a separate GOAT or Really Hot Orgasm elsewhere in the scene. Orgasm insights report simultaneous top-vato orgasms, repeated top orgasms per performer, and `Everybody Nuts` when every cast vato has a top-assigned Orgasm or Facial marker. `Everybody Nuts` is low-priority contextual evidence rather than an automatic event, so it yields near the chip ceiling. Configured 2nd Camera markers are excluded from all event counts. Every other GOAT marker produces a separate GOAT insight for each direct named non-qualifier tag, including configured activity tags such as `BJ`; only a marker with no other named tag falls back to `GOAT moment`. Tag-derived labels preserve each tag's exact name and casing.
 
 A GOAT-tagged Orgasm or Facial marker suppresses the matching Really Hot event chip.
 
-Negative evidence can produce `Few highlights` when outstanding episode count is small, and `Lots of filler` when time without any marker exceeds the configured percentage of the scene. Every positive marker covers its interval regardless of tag; negative-marker intervals are added to filler even when they overlap positive markers. The filler tooltip identifies the rule. Relevance never uses scene-coverage percentage. The seven-chip ceiling applies to non-GOAT candidates; GOAT candidates are all retained, then Really Hot candidates take precedence, the mandatory mixed-activity leaning chip reserves a slot, ordinary contextual insights occupy up to five slots, and ordinary activity-quality insights occupy up to two.
+Negative evidence produces `No Orgasm` when configured role tags exist but the scene has no countable Orgasm or Facial marker, excluding 2nd Camera markers. `No Orgasm` reserves a high-priority slot after mandatory GOAT/Facial evidence so ordinary activity and contextual candidates cannot crowd it out. `Few highlights` appears only when both conditions pass: outstanding merged episodes are no greater than the configured maximum and their merged duration is no greater than the configured percentage of the full scene. The default percentage maximum is 5%. `Lots of filler` appears when time without any marker exceeds its configured percentage; its tooltip uses the compact `<percent>% filler (<duration>)` form. Stored scene Rating Advisor criteria—not performer ratings—also produce role-attractiveness warnings: two- and three-vato scenes show `Ugly Top` or `Ugly Bottom` when the matching Top/Bottom Attractiveness raw value is 0, while group scenes with four or more vatos show `Ugly Tops` when Top Lineup Attractiveness is 0 or 1. Missing criteria do not trigger a warning. Every positive marker covers its interval regardless of tag; negative-marker intervals are added to filler even when they overlap positive markers.
+
+Performer-lineup context adds `Mexican vato`, `Mexican vatos ×N`, or `All-Mexican` from normalized Mexico country metadata. It also adds `Favorite Vatos ×N` for performers whose card resolves to Royal Sapphire through the shared metallic-rating thresholds and override-tag precedence; it does not use the database favorite flag.
+
+Candidate generation and selection are separate. A typed policy table defines lane, mandatory status, and display priority instead of deriving semantics from string key prefixes. The normal ceiling is seven chips, with all GOAT and Facial variants mandatory even when that exceeds seven. `No Orgasm` and leaning reserve their slots, optional automatic events fill next, up to two activity-quality chips follow, and remaining space admits up to five contextual chips. Final visual order is GOAT, Facial, No Orgasm, Really Hot event, orgasm event, activity quality, leaning, interaction, negative rating, Favorite Vatos, Mexican lineup, filler, Few highlights, generic amount tags, then Everybody Nuts; evidence score and label break ties within a kind.
 
 ### Files Added or Modified
 
-- `ui/v2.5/src/components/Scenes/sceneCardInsightsData_custom.ts` - Pure interval merging, tag/event/GOAT classification, performer role-graph patterns, activity attribution, leaning/minority levels, quality leveling, negative evidence, prioritization, vocabulary, and threshold normalization.
+- `ui/v2.5/src/components/Scenes/sceneCardInsightsData_custom.ts` - Rule orchestration, tag/event/GOAT classification, performer role-graph patterns, activity attribution, leaning/minority levels, quality leveling, and negative evidence.
+- `ui/v2.5/src/components/Scenes/sceneCardInsightTypes_custom.ts`, `sceneCardInsightFacts_custom.ts`, and `sceneCardInsightSelection_custom.ts` - Shared insight contracts, interval/evidence facts, tooltip formatting, and the centralized typed selection policy.
+- `ui/v2.5/src/components/Scenes/sceneCardInsightPerformerRules_custom.ts` and `ui/v2.5/src/utils/ratingCardStyles_custom.ts` - Mexican and Royal Sapphire lineup rules using the same exact metallic-card resolution as performer cards.
 - `ui/v2.5/src/components/Scenes/SceneCardInsights_custom.tsx` - Accessible chip strip and evidence tooltips.
 - `ui/v2.5/src/components/Scenes/SceneCard.tsx` and `styles.scss` - Card integration, insight presentation, and active activity-sort fallback badge behavior.
+- `graphql/schema/types/scene_custom.graphql`, `internal/api/resolver_model_scene_marker_tag_ancestors_custom.go`, and `pkg/sqlite/scene_marker_tag_ancestors_custom.go` - Scene-level flattened marker-tag ancestry GraphQL field and recursive SQLite lookup.
+- `ui/v2.5/graphql/data/scene-slim.graphql` and generated GraphQL bindings - Supplies flattened marker-tag ancestry, performer country/rating evidence, and stored scene Rating Advisor criteria used by scene-card insight calculations.
 - `ui/v2.5/src/core/config.ts`, `ui/v2.5/src/components/Settings/SettingsCustomPanel.tsx`, `ui/v2.5/src/components/Settings/Settings.tsx`, and `ui/v2.5/src/locales/en-GB.json`/`en-US.json` - Persisted UI configuration, actual painted example chips beside every numeric insight cutoff, and the Custom Settings tab placed at the bottom of the Settings navigation.
 - `ui/v2.5/tests/sceneCardInsightsData_custom.test.ts` - Focused deterministic insight tests.
 - `ui/v2.5/tests/sceneCardDescription_custom.test.ts` - Guards the card-only description removal.
@@ -3973,20 +3944,49 @@ Negative evidence can produce `Few highlights` when outstanding episode count is
 
 ### Test Cases Added
 
-- Verifies arbitrary non-activity tags qualify through merged duration or distinct episodes without using scene coverage.
+- Verifies arbitrary non-activity tags depend solely on configurable scene coverage, select Good amount of/Lots of/as far as the eye can see at the configured boundaries, and include percentage plus compact duration/marker evidence in all three tooltips.
 - Verifies overlapping marker ranges merge into one episode.
-- Verifies GOAT fans out to every direct descriptive tag, excludes qualifier/activity labels, preserves exact tag names, and falls back to a GOAT moment.
-- Verifies automatic Really Hot and GOAT Orgasm/Facial insights, Facial-over-Orgasm precedence, GOAT performer merging, separate GOAT Facial chips, GOAT priority beyond the normal chip ceiling, performer suppression for ordinary/Really Hot event chips, top-only highlight attribution, simultaneous/repeated orgasm chips, ordinary event counts, and same-performer tag consolidation.
-- Verifies activity-quality levels using only outstanding activity percentage, explicit percentage/duration tooltips, mandatory mixed-activity leaning, single-activity scoring, configurable cutoffs, Sex/Oral leaning and minority-activity levels, episode-only Few Highlights, all-marker coverage, negative-marker filler overlap, percentage-based filler, negative insights, and the non-GOAT seven-chip maximum.
-- Verifies the three mutually exclusive two-vato versatility patterns, the retained 3+ vato group patterns including Versatile Group and Balanced Orgy, pattern precedence, configurable interaction evidence, and suppression when a listed scene performer has no meaningful interaction.
+- Verifies GOAT fans out to every direct named non-qualifier tag, preserves configured activity names such as `BJ`, preserves exact casing, and falls back to a GOAT moment only without another named tag.
+- Verifies automatic Really Hot and GOAT Orgasm/Facial insights, semantic Facial-family aggregation, exactly three always-visible performer-free Facials/Really Hot Facials/GOAT Facials variants, marker-local Facial-over-Orgasm precedence, 2nd Camera exclusion, arbitrary-depth ancestor classification, GOAT performer merging and ordinary-tag suppression without cross-performer leakage, GOAT/Facial priority beyond the normal chip ceiling, top-only highlight attribution, simultaneous/repeated orgasm chips, low-priority Everybody Nuts behavior, ordinary event counts, and same-performer tag consolidation only within the same amount level.
+- `pkg/sqlite/scene_marker_tag_ancestors_custom_test.go` verifies that flattened marker-tag ancestry includes parent and grandparent levels.
+- Verifies activity-quality levels using only outstanding activity percentage plus minimum whole-scene evidence, compact duration/marker tooltips, evidence-qualified Sex/Oral leaning and minority-activity levels, single-activity exclusion, configurable cutoffs, Few Highlights episode-and-percentage AND behavior, all-marker coverage, compact percentage/duration filler evidence, high-priority No Orgasm retention near the chip ceiling, scene-criteria-based Ugly Top/Ugly Bottom/Ugly Tops warnings, performer-rating exclusion, and the ordinary seven-chip maximum.
+- Verifies the three mutually exclusive two-vato versatility patterns, direct versatile-tooltip wording, the retained 3+ vato group patterns including Versatile Group and Balanced Orgy, pattern precedence, minimum interaction evidence per direction, and suppression when a listed scene performer has no qualifying interaction.
+- Verifies Mexican single/multiple/all-cast labels and Favorite Vatos exact Royal Sapphire numeric-threshold/override-tag precedence.
 - Verifies scene cards do not render scene description text.
 - Verifies scene insight chips forward tooltip refs and hover/focus event props.
 
 ### GraphQL Schema Changes
 
-- None. Scene list cards already receive scene performers plus marker tags, parent IDs, top/bottom performers, start/end times, and file duration in `SlimSceneData`.
+- Adds `Scene.scene_marker_tag_ancestors: [SceneMarkerTagAncestors!]!`, containing each direct marker tag ID and all of its recursive ancestor IDs. `SlimSceneData` requests the field for scene-card classification.
 
 ### Configuration Dependencies
 
-- Uses the existing configured Sex, Oral, Solo, Orgasm, Facial, Really Hot, and GOAT tag IDs.
-- `configuration.ui.sceneCardInsightThresholds` configures relevant episode count, relevant merged duration, all four quality levels, Few Highlights maximum episodes, Filler total percentage, the Balanced Scene tolerance, and the three leaning-scene minority levels. Defaults are 3 episodes, more than 60 seconds, 20/40/60/80%, 1 outstanding episode, 20% filler, a 10 percentage-point Sex/Oral balance tolerance, and 10%/25%/40% minority shares for some/a good amount/a lot of. Interaction roles and performer pairings reuse the configured relevance episode/duration thresholds.
+- Uses the existing configured Sex, Oral, Solo, Orgasm, Facial, Really Hot, GOAT, and 2nd Camera tag IDs.
+- `configuration.ui.sceneCardInsightThresholds` configures the Good amount of/Lots of/as far as the eye can see tag-coverage levels, all four activity-quality levels, Few Highlights maximum episodes and scene percentage, Filler total percentage, the Balanced Scene tolerance, and the three leaning-scene minority levels. Defaults are 10/25/50% tag coverage, 20/40/60/80% activity quality, 1 outstanding episode and 5% highlight coverage, 20% filler, a 10 percentage-point Sex/Oral balance tolerance, and 10%/25%/40% minority shares for some/a good amount/a lot of.
+- Favorite Vatos uses the existing performer Royal Sapphire threshold plus configured Gold/Ruby/Emerald/Sapphire/Royal Sapphire override tag IDs, with override tags taking precedence exactly as they do on performer cards.
+
+---
+
+## Custom TypeScript Test Validation
+
+### Overview
+
+The custom TypeScript tests under `ui/v2.5/tests` run through `npm run test:custom` and are included in `npm run validate`. A test-only Node loader resolves the same `src/` aliases and extensionless TypeScript imports used by Vite, then transpiles TypeScript syntax without producing repository artifacts.
+
+### Files Added or Modified
+
+- `ui/v2.5/package.json` - Adds `test:custom` and includes it in UI validation.
+- `ui/v2.5/tests/runCustomTests_custom.ts` - Discovers and imports every `*.test.ts` file in stable order.
+- `ui/v2.5/tests/customTestLoader_custom.mjs` - Test-only TypeScript and module-resolution bridge.
+
+### Test Cases Added
+
+- The runner executes all existing custom TypeScript test files; the current suite registers 95 test cases across 53 files.
+
+### GraphQL Schema Changes
+
+- None.
+
+### Configuration Dependencies
+
+- Requires the existing UI development dependencies and Node.js 22 or newer.

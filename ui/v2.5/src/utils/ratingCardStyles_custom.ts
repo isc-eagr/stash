@@ -172,3 +172,25 @@ export function getRatingCardClass({
 
   return `${themeClass} ${tierClass}`;
 }
+
+export function isRoyalSapphireRatingCard({
+  rating,
+  tags,
+  overrideTagIds,
+  thresholds,
+  thresholdEntity,
+}: {
+  rating?: number | null;
+  tags?: readonly IRatingCardTag[] | null;
+  overrideTagIds?: IRatingCardOverrideTagIds | null;
+  thresholds?: IRatingCardThresholdConfig | null;
+  thresholdEntity?: "scene" | "performer";
+}) {
+  const overrideClass = getRatingTierOverrideClass(tags, overrideTagIds);
+  if (overrideClass) return overrideClass === "rating-royal-sapphire";
+
+  return (
+    getRatingTierClass(rating, thresholds, thresholdEntity) ===
+    "rating-royal-sapphire"
+  );
+}

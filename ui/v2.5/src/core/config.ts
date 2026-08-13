@@ -150,14 +150,16 @@ export interface IUIConfig {
   };
   // CUSTOM: begin - scene card insight thresholds
   sceneCardInsightThresholds?: {
-    relevantMinEpisodes?: number;
-    relevantMinDurationSeconds?: number;
     goodOutstandingPercent?: number;
     greatOutstandingPercent?: number;
     amazingOutstandingPercent?: number;
     nearPerfectOutstandingPercent?: number;
     fewHighlightsMaxEpisodes?: number;
+    fewHighlightsMaxPercent?: number;
     fillerTotalPercent?: number;
+    tagGoodAmountMinPercent?: number;
+    tagLotsMinPercent?: number;
+    tagEyeCanSeeMinPercent?: number;
     leaningBalanceTolerancePercent?: number;
     leaningMinoritySomePercent?: number;
     leaningMinorityGoodAmountPercent?: number;

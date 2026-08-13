@@ -45,7 +45,8 @@ INSERT INTO performers_scenes(performer_id, scene_id) VALUES (10, 1), (20, 1);
 `)
 	require.NoError(t, err)
 
-	rows, err := db.Query(sceneStatsBaseQueryCustom(sceneOStatsEffectiveDateExpr("s")))
+	sceneScope, _ := activityStatsSceneScopeCustom(nil, nil)
+	rows, err := db.Query(sceneStatsBaseScopedQueryCustom(sceneOStatsEffectiveDateExpr("s"), sceneScope))
 	require.NoError(t, err)
 	defer rows.Close()
 

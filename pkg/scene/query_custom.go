@@ -10,24 +10,6 @@ import (
 	"github.com/stashapp/stash/pkg/models"
 )
 
-// CountByTagIDAndPerformerID returns the number of scenes that have the given
-// tag and include the given performer. Depth applies to the tag hierarchy.
-func CountByTagIDAndPerformerID(ctx context.Context, r models.SceneQueryer, tagID int, performerID int, depth *int) (int, error) {
-	filter := &models.SceneFilterType{
-		Tags: &models.HierarchicalMultiCriterionInput{
-			Value:    []string{strconv.Itoa(tagID)},
-			Modifier: models.CriterionModifierIncludes,
-			Depth:    depth,
-		},
-		Performers: &models.MultiCriterionInput{
-			Value:    []string{strconv.Itoa(performerID)},
-			Modifier: models.CriterionModifierIncludes,
-		},
-	}
-
-	return r.QueryCount(ctx, filter, nil)
-}
-
 // CountScenesByPerformerMarkerRole counts distinct scenes where a performer participates
 // in markers with the given primary tag (including subtags) and optionally a specific role (top/bottom).
 // If role is empty, counts all markers with that tag regardless of role.

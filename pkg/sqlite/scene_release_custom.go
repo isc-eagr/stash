@@ -384,10 +384,6 @@ func (qb *SceneReleaseStore) UpdateCover(ctx context.Context, releaseID int, ima
 	return qb.UpdateImage(ctx, releaseID, sceneReleaseCoverBlobColumn, image)
 }
 
-func (qb *SceneReleaseStore) destroyCover(ctx context.Context, releaseID int) error {
-	return qb.DestroyImage(ctx, releaseID, sceneReleaseCoverBlobColumn)
-}
-
 // GetFiles returns the video files for a release
 func (qb *SceneReleaseStore) GetFiles(ctx context.Context, releaseID int) ([]*models.VideoFile, error) {
 	fileIDs, err := qb.GetFileIDs(ctx, releaseID)

@@ -64,3 +64,8 @@ node_modules
 dist
 .DS_Store
 /.local*
+
+# CUSTOM: local agent/build artifacts
+/build_output.txt
+/go.mod.bak
+/.codex/visualizations/

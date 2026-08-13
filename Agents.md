@@ -121,7 +121,7 @@ Always apply small changes at a time, but do ensure that work is complete withou
    - **Key imports to check after merge**:
      - `ConfigurationContext` from `src/hooks/Config` (for React.useContext)
      - `useConfigurationContext` from `src/hooks/Config` (hook version)
-     - Custom SVG imports (gay.svg, mouth.svg, goatee.svg, straight.svg)
+     - Custom image imports (gay.svg, mouth.svg, facial.png, straight.svg)
    - **Generated code**: After resolving conflicts, always run `make generate` to regenerate GraphQL bindings.
    - **Testing post-merge**: Run `make ui-start` and test the UI to catch runtime errors (missing imports, renamed components, etc.).
    - **Custom `_custom` files won't conflict** — they don't exist in upstream. Only inline `// CUSTOM` markers in modified upstream files will appear in merge diffs. Re-apply them after resolving.

@@ -8,6 +8,12 @@ fragment SlimSceneData on Scene {
   date
   effective_date # CUSTOM
   rating100
+  # CUSTOM: scene Rating Advisor criteria used by negative insight chips
+  rating_scores {
+    section
+    key
+    raw_value
+  }
   o_counter
   organized
   interactive
@@ -70,6 +76,12 @@ fragment SlimSceneData on Scene {
     # CUSTOM: end
   }
 
+  # CUSTOM: flattened marker-tag ancestry for recursive insight classification
+  scene_marker_tag_ancestors {
+    tag_id
+    ancestor_ids
+  }
+
   # CUSTOM: begin
   negative_markers {
     id
@@ -114,6 +126,7 @@ fragment SlimSceneData on Scene {
     name
     disambiguation
     gender
+    country # CUSTOM: performer-country insight chips
     favorite
     image_path
     birthdate # CUSTOM: active performer-age sort metric

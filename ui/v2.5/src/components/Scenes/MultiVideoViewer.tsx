@@ -37,8 +37,8 @@ import cx from "classnames";
 import * as GQL from "src/core/generated-graphql";
 import { Icon } from "src/components/Shared/Icon";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
-import { DraggableImage } from "src/components/Images/ImageViewer";
-import type { IOverlayState as IImageOverlayState } from "src/components/Images/ImageViewer";
+import { DraggableImage } from "src/components/Images/DraggableImageOverlay_custom"; // CUSTOM
+import type { IOverlayState as IImageOverlayState } from "src/components/Images/DraggableImageOverlay_custom"; // CUSTOM
 import { useConfigurationContext } from "src/hooks/Config";
 import ScreenUtils from "src/utils/screen";
 import "./MarkerViewer.scss";

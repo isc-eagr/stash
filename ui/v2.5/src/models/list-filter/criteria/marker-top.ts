@@ -1,5 +1,5 @@
 import { CriterionModifier } from "src/core/generated-graphql";
-import { Criterion, CriterionOption, ModifierCriterion } from "./criterion";
+import { Criterion, CriterionOption } from "./criterion";
 import { ILabeledId, CriterionType } from "../types";
 import { IntlShape } from "react-intl";
 import { RatingCriterion } from "./tags";
@@ -21,6 +21,12 @@ export interface IMarkerTopFilter {
 export interface IMarkerTopValue {
   filters: IMarkerTopFilter[];
 }
+
+export const MarkerTopCriterionOption: CriterionOption = new CriterionOption({
+  messageID: "markers_filter.top",
+  type: "marker_top" as CriterionType,
+  makeCriterion: () => new MarkerTopCriterion(),
+});
 
 /**
  * MarkerTopCriterion - Filter by top performer attributes.
@@ -254,9 +260,3 @@ export class MarkerTopCriterion extends Criterion {
     }
   }
 }
-
-export const MarkerTopCriterionOption: CriterionOption = new CriterionOption({
-  messageID: "markers_filter.top",
-  type: "marker_top" as CriterionType,
-  makeCriterion: () => new MarkerTopCriterion(),
-});

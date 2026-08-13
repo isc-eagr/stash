@@ -68,23 +68,6 @@ JOIN %s %s
 WHERE studio_rating_scene.studio_id = studios.id`, table, scoreAlias, scoreAlias, scoreAlias)
 }
 
-func studioRatingCriteriaAverageClauseCustom(
-	scope studioRatingCriteriaScopeCustom,
-	key string,
-	criterion models.FloatCriterionInput,
-) sqlClause {
-	clause, args := getFloatCriterionWhereClause("AVG(studio_rating_score.raw_value)", criterion)
-	allArgs := []interface{}{key}
-	allArgs = append(allArgs, args...)
-
-	return makeClause(fmt.Sprintf(`EXISTS (
-	SELECT AVG(studio_rating_score.raw_value)
-	%s
-	AND studio_rating_score.key = ?
-	HAVING %s
-)`, studioRatingCriteriaScoreSourceSQLCustom(scope, ratingCriteriaScoresTable, "studio_rating_score"), clause), allArgs...)
-}
-
 func studioRatingCriteriaPresenceClauseCustom(
 	scope studioRatingCriteriaScopeCustom,
 	table string,

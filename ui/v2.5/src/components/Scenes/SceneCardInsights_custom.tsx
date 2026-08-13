@@ -47,9 +47,15 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
       getSceneCardInsights(
         scene,
         configuration?.ui?.roleTagIds,
-        configuration?.ui?.sceneCardInsightThresholds
+        configuration?.ui?.sceneCardInsightThresholds,
+        {
+          overrideTagIds: configuration?.ui?.ratingCardOverrideTagIds,
+          thresholds: configuration?.ui?.ratingCardThresholds,
+        }
       ),
     [
+      configuration?.ui?.ratingCardOverrideTagIds,
+      configuration?.ui?.ratingCardThresholds,
       configuration?.ui?.roleTagIds,
       configuration?.ui?.sceneCardInsightThresholds,
       scene,

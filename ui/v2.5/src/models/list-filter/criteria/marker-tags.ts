@@ -10,10 +10,6 @@ export function generateGroupId(): string {
   return id;
 }
 
-export function resetGroupIdCounter(): void {
-  groupIdCounter = 0;
-}
-
 /**
  * A single marker tag group within the criterion.
  */

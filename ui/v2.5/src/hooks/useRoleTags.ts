@@ -10,16 +10,17 @@ import { IRoleTags } from "src/components/Studios/StudioCard";
  */
 export function useRoleTags(): IRoleTags {
   const { configuration } = useConfigurationContext();
-  const roleTagIds = configuration?.ui?.roleTagIds ?? {};
+  const { sexTagId, oralTagId, soloTagId, facialTagId } =
+    configuration?.ui?.roleTagIds ?? {};
 
   const tagIdsToFetch = useMemo(() => {
     const ids: string[] = [];
-    if (roleTagIds.sexTagId) ids.push(roleTagIds.sexTagId);
-    if (roleTagIds.oralTagId) ids.push(roleTagIds.oralTagId);
-    if (roleTagIds.soloTagId) ids.push(roleTagIds.soloTagId);
-    if (roleTagIds.facialTagId) ids.push(roleTagIds.facialTagId);
+    if (sexTagId) ids.push(sexTagId);
+    if (oralTagId) ids.push(oralTagId);
+    if (soloTagId) ids.push(soloTagId);
+    if (facialTagId) ids.push(facialTagId);
     return ids;
-  }, [roleTagIds]);
+  }, [sexTagId, oralTagId, soloTagId, facialTagId]);
 
   const { data: tagsData } = GQL.useFindTagsForSelectQuery({
     variables: { ids: tagIdsToFetch },
@@ -29,10 +30,10 @@ export function useRoleTags(): IRoleTags {
   return useMemo(() => {
     const allTags = tagsData?.findTags?.tags ?? [];
     return {
-      sexTag: allTags.find((t) => t.id === roleTagIds.sexTagId) ?? null,
-      oralTag: allTags.find((t) => t.id === roleTagIds.oralTagId) ?? null,
-      soloTag: allTags.find((t) => t.id === roleTagIds.soloTagId) ?? null,
-      facialTag: allTags.find((t) => t.id === roleTagIds.facialTagId) ?? null,
+      sexTag: allTags.find((t) => t.id === sexTagId) ?? null,
+      oralTag: allTags.find((t) => t.id === oralTagId) ?? null,
+      soloTag: allTags.find((t) => t.id === soloTagId) ?? null,
+      facialTag: allTags.find((t) => t.id === facialTagId) ?? null,
     };
-  }, [tagsData, roleTagIds]);
+  }, [tagsData, sexTagId, oralTagId, soloTagId, facialTagId]);
 }

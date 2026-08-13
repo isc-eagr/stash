@@ -16,6 +16,14 @@ export interface IMarkerBottomValue {
   filters: IMarkerBottomFilter[];
 }
 
+export const MarkerBottomCriterionOption: CriterionOption = new CriterionOption(
+  {
+    messageID: "markers_filter.bottom",
+    type: "marker_bottom" as CriterionType,
+    makeCriterion: () => new MarkerBottomCriterion(),
+  }
+);
+
 /**
  * MarkerBottomCriterion - Filter by bottom performer attributes.
  * Must target an existing MarkerTagsCriterion group.
@@ -271,11 +279,3 @@ export class MarkerBottomCriterion extends Criterion {
     }
   }
 }
-
-export const MarkerBottomCriterionOption: CriterionOption = new CriterionOption(
-  {
-    messageID: "markers_filter.bottom",
-    type: "marker_bottom" as CriterionType,
-    makeCriterion: () => new MarkerBottomCriterion(),
-  }
-);

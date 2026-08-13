@@ -147,6 +147,12 @@
   color: #f4d77c;
 }
 
+.scene-card-insight-lineup {
+  background: rgba(20, 184, 166, 0.13);
+  border-color: rgba(45, 212, 191, 0.62);
+  color: #a7f3e8;
+}
+
 .scene-card-insight-goat {
   background: rgba(55, 90, 214, 0.2);
   border-color: #6da8ff;
@@ -2484,7 +2490,7 @@ input[type="range"].blue-slider {
   /* CUSTOM: begin - compact, non-overlaying vato rating below scene-card portraits */
   .scene-card-performer-rating {
     align-items: center;
-    background: rgba(7, 10, 12, 0.94);
+    background: rgba(7, 10, 12, 0.78);
     border: 1px solid rgba(255, 255, 255, 0.22);
     border-radius: 999px;
     color: #f6f8fa;
@@ -2494,6 +2500,7 @@ input[type="range"].blue-slider {
     font-weight: 700;
     gap: 0.2rem;
     line-height: 1;
+    margin-top: 0.28rem;
     padding: 0.18rem 0.38rem;
 
     .fa-icon {
@@ -2555,6 +2562,43 @@ input[type="range"].blue-slider {
     }
   }
 }
+
+/* CUSTOM: begin - scene-card vato hover category strips */
+.hover-popover-content.popover.scene-card-performer-popover {
+  max-width: min(49rem, calc(100vw - 1rem));
+
+  .scene-marker-highlight-popover-card {
+    max-width: min(48rem, calc(100vw - 2rem));
+  }
+
+  .scene-marker-activity-config-performers {
+    align-items: flex-start;
+  }
+
+  .scene-marker-activity-performer,
+  .scene-marker-highlight-performer {
+    max-width: 14.5rem;
+    min-width: 14.5rem;
+  }
+
+  .scene-marker-activity-performer-image {
+    width: 7.5rem;
+  }
+
+  .scene-card-performer-role-strip {
+    max-width: 100%;
+    width: 100%;
+
+    .performer-role-badges {
+      grid-auto-columns: 2.15rem;
+      justify-content: center;
+      margin-top: 0.35rem;
+      overflow: visible;
+    }
+  }
+}
+
+/* CUSTOM: end */
 
 .scene-marker-highlight-popover-card:is(
     .rating-card-theme-premium,

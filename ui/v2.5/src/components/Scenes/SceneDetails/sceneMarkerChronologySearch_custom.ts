@@ -872,14 +872,6 @@ export function getChronologicalSceneMarkerHighlightPerformerOrgasmRank<
   return 2;
 }
 
-export function getChronologicalSceneMarkerHighlightGroupKey<
-  M extends ISceneMarkerChronologySearchMarker
->(marker: M, allMarkers: M[]) {
-  return getHighlightPerformerGroupKey(
-    getChronologicalSceneMarkerHighlightPerformers(marker, allMarkers)
-  );
-}
-
 function getHighlightMarkerSegment<
   M extends ISceneMarkerChronologySearchMarker
 >(

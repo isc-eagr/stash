@@ -80,14 +80,30 @@ assert.match(
 );
 
 assert.match(
+  sceneFragmentSource,
+  /performers\s*\{[\s\S]*?country[\s\S]*?rating100/,
+  "slim scene cards request performer country for lineup insights"
+);
+
+assert.match(
   popoverSource,
   /getRatingCardClass\(\{[\s\S]*?thresholdEntity:\s*"performer"[\s\S]*?\}\)/,
   "the scene-card hover evaluates each portrait with performer thresholds"
 );
 assert.match(
   popoverSource,
-  /markerSummary\s*\?\s*\{\s*\.\.\.markerSummary,\s*performer\s*\}/,
-  "marker role summaries are reattached to the full rated performer record"
+  /getSceneCardPerformerMarkerRoles\([\s\S]*?configuration\?\.ui\.roleTagIds[\s\S]*?\)/,
+  "scene-card hovers derive role strips from their already-loaded marker data"
+);
+assert.match(
+  popoverSource,
+  /<PerformerCategoryStrip[\s\S]*?sceneId=\{scene\.id\}[\s\S]*?markerRoles=\{performer\.markerRoles\}[\s\S]*?flushMargins/,
+  "each scene-card portrait uses the shared scene-context performer category strip"
+);
+assert.doesNotMatch(
+  popoverSource,
+  /HighlightPerformerTagPills/,
+  "raw marker-tag pills are removed from the scene-card performer hover"
 );
 assert.match(
   popoverSource,
@@ -127,8 +143,18 @@ const ratingBadgeStyles = sceneStyles.match(
 assert.ok(ratingBadgeStyles, "the compact rating badge styles are defined");
 assert.match(ratingBadgeStyles, /font-size:\s*0\.68rem/);
 assert.match(ratingBadgeStyles, /display:\s*inline-flex/);
+assert.match(ratingBadgeStyles, /margin-top:\s*0\.28rem/);
+assert.match(ratingBadgeStyles, /background:\s*rgba\(7,\s*10,\s*12,\s*0\.78\)/);
 assert.doesNotMatch(
   ratingBadgeStyles,
   /position:\s*absolute/,
   "the compact rating never overlays the portrait"
 );
+
+const categoryStripStyles = sceneStyles.match(
+  /CUSTOM: begin - scene-card vato hover category strips[\s\S]*?CUSTOM: end/
+)?.[0];
+assert.ok(categoryStripStyles, "scene-card category strip sizing is defined");
+assert.match(categoryStripStyles, /max-width:\s*min\(49rem,/);
+assert.match(categoryStripStyles, /min-width:\s*14\.5rem/);
+assert.match(categoryStripStyles, /grid-auto-columns:\s*2\.15rem/);

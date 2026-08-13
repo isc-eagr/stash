@@ -238,8 +238,6 @@ export type CriterionType =
   | "marker_performers"
   | "has_marker_performers"
   | "performer_markers"
-  | "performer_marker_tags"
-  | "performer_marker_partners"
   | "scene_director"
   | "has_end_time"
   | "marker_length"

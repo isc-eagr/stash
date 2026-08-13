@@ -208,8 +208,8 @@ Use these from PowerShell/cmd when the Makefile quick UI target is too slow or f
 - `mingw32-make generate`
 - `go build ./cmd/stash`
 - `go build ./...` only when the change needs a full repo compile
-- `cd ui/v2.5 && npm.cmd run eslint -- src/components/CustomStats.tsx src/components/Shared/RatingAdvisor_custom.tsx src/models/list-filter/criteria/rating-criteria_custom.ts src/components/List/Filters/RatingCriteriaFilter_custom.tsx`
-- `cd ui/v2.5 && npm.cmd run prettier -- --check src/components/CustomStats.tsx src/components/Shared/RatingAdvisor_custom.tsx src/models/list-filter/criteria/rating-criteria_custom.ts src/components/List/Filters/RatingCriteriaFilter_custom.tsx ../../graphql/schema/types/stats_custom.graphql ../../CUSTOM_FEATURES.md`
+- `cd ui/v2.5 && npm.cmd run eslint -- src/components/Shared/RatingAdvisor_custom.tsx src/models/list-filter/criteria/rating-criteria_custom.ts src/components/List/Filters/RatingCriteriaFilter_custom.tsx`
+- `cd ui/v2.5 && npm.cmd run prettier -- --check src/components/Shared/RatingAdvisor_custom.tsx src/models/list-filter/criteria/rating-criteria_custom.ts src/components/List/Filters/RatingCriteriaFilter_custom.tsx ../../graphql/schema/types/stats_custom.graphql ../../CUSTOM_FEATURES.md`
 - `cd ui/v2.5 && npm.cmd run check`
 - `git diff --check`
 

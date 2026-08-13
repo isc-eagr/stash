@@ -133,8 +133,6 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   const [activeVideoSlot, setActiveVideoSlot] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showPlaylist, setShowPlaylist] = useState(true);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [loopEnabled, _setLoopEnabled] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [loopSingleMarkerId, setLoopSingleMarkerId] = useState<string | null>(
     null
@@ -395,11 +393,9 @@ export const MarkerPlaylistPlayer: React.FC = () => {
         const nextIndex = currentIndex + 1;
         if (nextIndex < markers.length) {
           loadMarker(nextIndex);
-        } else if (loopEnabled) {
-          // Loop back to first
-          loadMarker(0);
         } else {
-          video.pause();
+          // The playlist always loops back to the first marker.
+          loadMarker(0);
         }
       }
     };
@@ -421,7 +417,6 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     currentIndex,
     getActiveVideo,
     loadMarker,
-    loopEnabled,
     loopSingleMarkerId,
     markers,
   ]);
@@ -477,18 +472,12 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const wrapper = videoWrapperRef.current;
-    if (!wrapper) return;
-
-    wrapper.addEventListener("mousemove", showPlayerOverlay);
-
     return () => {
-      wrapper.removeEventListener("mousemove", showPlayerOverlay);
       if (fullscreenOverlayTimeoutRef.current) {
         clearTimeout(fullscreenOverlayTimeoutRef.current);
       }
     };
-  }, [showPlayerOverlay]);
+  }, []);
   // CUSTOM: end
 
   // Load first marker when markers are ready
@@ -515,7 +504,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     const preloadIndex = getNextSceneMarkerIndexCustom(
       markers,
       currentIndex,
-      loopEnabled,
+      true,
       loopSingleMarkerId
     );
     if (preloadIndex === undefined) return;
@@ -525,7 +514,6 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   }, [
     activeVideoSlot,
     currentIndex,
-    loopEnabled,
     loopSingleMarkerId,
     markers,
     prepareVideoSlot,

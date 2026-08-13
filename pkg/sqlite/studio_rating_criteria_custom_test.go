@@ -13,13 +13,20 @@ import (
 )
 
 func TestStudioRatingCriteriaAverageClauseCustomUsesRelatedSceneAverage(t *testing.T) {
-	clause := studioRatingCriteriaAverageClauseCustom(
+	clause, err, ok := studioRatingCriteriaAveragesClauseCustom(
 		studioRatingCriteriaScenesCustom,
-		"soloPerformance",
-		models.FloatCriterionInput{Modifier: models.CriterionModifierGreaterThanEquals, Value: 3},
+		[]*models.RatingScoreCriterionFilterInput{{
+			Key: "soloPerformance",
+			Value: &models.FloatCriterionInput{
+				Modifier: models.CriterionModifierGreaterThanEquals,
+				Value:    3,
+			},
+		}},
 	)
+	require.NoError(t, err)
+	require.True(t, ok)
 
-	assert.Contains(t, clause.sql, "AVG(studio_rating_score.raw_value) >= ?")
+	assert.Contains(t, clause.sql, "AVG(CASE WHEN studio_rating_score.key = ? THEN studio_rating_score.raw_value END) >= ?")
 	assert.Contains(t, clause.sql, "studio_rating_scene.studio_id = studios.id")
 	assert.Equal(t, []interface{}{"soloPerformance", float64(3)}, clause.args)
 }
@@ -132,11 +139,18 @@ INSERT INTO rating_criteria_scores(entity_type, entity_id, key) VALUES
 }
 
 func TestStudioPerformerRatingCriteriaAverageClauseCustomDeduplicatesPerformers(t *testing.T) {
-	clause := studioRatingCriteriaAverageClauseCustom(
+	clause, err, ok := studioRatingCriteriaAveragesClauseCustom(
 		studioRatingCriteriaPerformersCustom,
-		"face",
-		models.FloatCriterionInput{Modifier: models.CriterionModifierLessThanEquals, Value: 4},
+		[]*models.RatingScoreCriterionFilterInput{{
+			Key: "face",
+			Value: &models.FloatCriterionInput{
+				Modifier: models.CriterionModifierLessThanEquals,
+				Value:    4,
+			},
+		}},
 	)
+	require.NoError(t, err)
+	require.True(t, ok)
 
 	assert.Contains(t, clause.sql, "studio_rating_score.entity_type = 'performer'")
 	assert.Contains(t, clause.sql, "SELECT DISTINCT studio_rating_ps.performer_id")
@@ -196,11 +210,18 @@ INSERT INTO rating_criteria_scores(entity_type, entity_id, key, raw_value) VALUE
 `)
 	require.NoError(t, err)
 
-	clause := studioRatingCriteriaAverageClauseCustom(
+	clause, clauseErr, ok := studioRatingCriteriaAveragesClauseCustom(
 		studioRatingCriteriaPerformersCustom,
-		"face",
-		models.FloatCriterionInput{Modifier: models.CriterionModifierGreaterThan, Value: 3.5},
+		[]*models.RatingScoreCriterionFilterInput{{
+			Key: "face",
+			Value: &models.FloatCriterionInput{
+				Modifier: models.CriterionModifierGreaterThan,
+				Value:    3.5,
+			},
+		}},
 	)
+	require.NoError(t, clauseErr)
+	require.True(t, ok)
 	rows, err := db.Query("SELECT studios.id FROM studios WHERE "+clause.sql+" ORDER BY studios.id", clause.args...)
 	require.NoError(t, err)
 	defer rows.Close()

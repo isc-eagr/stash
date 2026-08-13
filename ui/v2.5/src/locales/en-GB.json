@@ -687,13 +687,17 @@
       },
       "scene_card_insights": {
         "heading": "Scene Card Insights",
-        "relevant_episodes": {
-          "heading": "Relevant episode count",
-          "description": "A non-activity tag, activity, performer role, or performer pairing becomes relevant at this many distinct merged episodes."
+        "tag_good_amount": {
+          "heading": "Good amount of tag threshold (%)",
+          "description": "Minimum scene percentage covered by a highlight tag for a Good amount of chip."
         },
-        "relevant_duration": {
-          "heading": "Relevant duration (seconds)",
-          "description": "A non-activity tag, activity, performer role, or performer pairing becomes relevant when its merged duration exceeds this value."
+        "tag_lots": {
+          "heading": "Lots of tag threshold (%)",
+          "description": "Minimum scene percentage covered by a highlight tag for a Lots of chip. This is normalized to be at least the Good amount threshold."
+        },
+        "tag_eye_can_see": {
+          "heading": "As far as the eye can see tag threshold (%)",
+          "description": "Minimum scene percentage covered by a highlight tag for the as-far-as-the-eye-can-see chip level. This is normalized to be at least the Lots of threshold."
         },
         "good": {
           "heading": "Good activity threshold (%)",
@@ -713,7 +717,11 @@
         },
         "few_highlights_episodes": {
           "heading": "Few highlights maximum episodes",
-          "description": "The Few highlights insight requires no more than this many outstanding episodes."
+          "description": "The Few highlights insight requires no more than this many outstanding episodes and must also meet the highlight-percentage maximum."
+        },
+        "few_highlights_percent": {
+          "heading": "Few highlights maximum scene percentage (%)",
+          "description": "The Few highlights insight requires highlights to cover no more than this percentage of the scene and must also meet the episode maximum."
         },
         "filler_percent": {
           "heading": "Filler total percentage (%)",

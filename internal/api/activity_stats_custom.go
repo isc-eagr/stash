@@ -462,10 +462,6 @@ func queryStudioActivityStatsCustom(ctx context.Context, studioID int, depth *in
 	return queryActivityStatsCustom(ctx, &studioID, depth, performerID, sexTagID, oralTagID, soloTagID, goatTagID)
 }
 
-func queryGlobalActivityStatsCustom(ctx context.Context, sexTagID int, oralTagID int, soloTagID int, goatTagID int) (*StudioActivityStats, error) {
-	return queryActivityStatsCustom(ctx, nil, nil, nil, sexTagID, oralTagID, soloTagID, goatTagID)
-}
-
 func (r *queryResolver) SceneStatsActivity(ctx context.Context, studioID *string, depth *int) (ret *StudioActivityStats, err error) {
 	sexTagID, oralTagID, soloTagID, goatTagID := activityStatsRoleTagIDsCustom()
 	if sexTagID == 0 && oralTagID == 0 && soloTagID == 0 {

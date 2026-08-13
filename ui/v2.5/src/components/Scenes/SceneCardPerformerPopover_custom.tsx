@@ -10,14 +10,9 @@ import {
 } from "src/utils/ratingCardStyles_custom";
 import { HoverPopover } from "../Shared/HoverPopover";
 import { Icon } from "../Shared/Icon";
-import {
-  ActivityTypePerformerTile,
-  HighlightPerformerTagPills,
-} from "./SceneDetails/sceneMarkerHoverPopover_custom";
-import {
-  getSceneMarkerPerformerTagSummaries,
-  type ISceneMarkerChronologyHighlightPerformer,
-} from "./SceneDetails/sceneMarkerChronologySearch_custom";
+import { ActivityTypePerformerTile } from "./SceneDetails/sceneMarkerHoverPopover_custom";
+import { PerformerCategoryStrip } from "../Performers/PerformerDetails/PerformerCategoryStrip";
+import { getSceneCardPerformerMarkerRoles } from "./sceneCardPerformerRoles_custom";
 import cx from "classnames";
 
 interface IProps {
@@ -25,43 +20,22 @@ interface IProps {
   className?: string;
 }
 
-type SceneCardPerformerSummary = Omit<
-  ISceneMarkerChronologyHighlightPerformer<
-    GQL.SlimSceneDataFragment["scene_markers"][number]
-  >,
-  "performer"
-> & {
-  performer: GQL.SlimSceneDataFragment["performers"][number];
-};
-
 export const SceneCardPerformerPopover: React.FC<IProps> = ({
   scene,
   className,
 }) => {
   const { configuration } = useConfigurationContext();
   const performers = useMemo(() => {
-    const markerSummaries = getSceneMarkerPerformerTagSummaries(
-      scene.scene_markers
-    );
-    const markerSummariesByPerformerID = new Map(
-      markerSummaries.map((summary) => [summary.performer.id, summary])
+    const markerRolesByPerformerID = getSceneCardPerformerMarkerRoles(
+      scene,
+      configuration?.ui.roleTagIds
     );
 
-    return sortPerformers(scene.performers).map<SceneCardPerformerSummary>(
-      (performer) => {
-        const markerSummary = markerSummariesByPerformerID.get(performer.id);
-        return markerSummary
-          ? { ...markerSummary, performer }
-          : {
-              performer,
-              topTags: [],
-              bottomTags: [],
-              topOverlapTagIDs: new Set<string>(),
-              bottomOverlapTagIDs: new Set<string>(),
-            };
-      }
-    );
-  }, [scene.performers, scene.scene_markers]);
+    return sortPerformers(scene.performers).map((performer) => ({
+      performer,
+      markerRoles: markerRolesByPerformerID.get(performer.id) ?? [],
+    }));
+  }, [configuration?.ui.roleTagIds, scene]);
 
   const popoverContent = (
     <div className="scene-marker-highlight-popover-card">
@@ -100,7 +74,16 @@ export const SceneCardPerformerPopover: React.FC<IProps> = ({
                 ) : undefined
               }
             >
-              <HighlightPerformerTagPills performer={performer} />
+              <div className="scene-card-performer-role-strip">
+                <PerformerCategoryStrip
+                  performer={performer.performer}
+                  sceneId={scene.id}
+                  markerRoles={performer.markerRoles}
+                  scenePerformerCount={scene.performers.length}
+                  scenePartnerPerformers={scene.performers}
+                  flushMargins
+                />
+              </div>
             </ActivityTypePerformerTile>
           );
         })}
@@ -112,7 +95,8 @@ export const SceneCardPerformerPopover: React.FC<IProps> = ({
     <HoverPopover
       className={cx("performer-count", className)}
       placement="bottom"
-      popoverClassName="scene-marker-highlight-popover"
+      popoverClassName="scene-marker-highlight-popover scene-card-performer-popover"
+      estimatedContentHeight={390}
       content={popoverContent}
     >
       <Button className="minimal">

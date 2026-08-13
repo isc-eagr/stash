@@ -130,8 +130,6 @@ export const MarkerTagsFilter: React.FC<IMarkerTagsFilterProps> = ({
   criterion,
   setCriterion,
 }) => {
-  const intl = useIntl();
-
   const onAddGroup = () => {
     const c = criterion.clone() as MarkerTagsCriterion;
     c.addGroup();

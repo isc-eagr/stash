@@ -122,7 +122,7 @@ export const SettingsCustomPanel: React.FC = () => {
   ) {
     saveUI({
       sceneCardInsightThresholds: {
-        ...(ui.sceneCardInsightThresholds ?? {}),
+        ...sceneCardInsightThresholds,
         [key]: value,
       },
     });
@@ -368,33 +368,48 @@ export const SettingsCustomPanel: React.FC = () => {
       {/* CUSTOM: begin - configurable scene card insight thresholds */}
       <SettingSection headingID="config.ui.scene_card_insights.heading">
         <NumberSetting
-          id="scene-card-insights-relevant-episodes"
+          id="scene-card-insights-tag-good-amount"
           heading={sceneCardInsightSettingHeading(
             intl.formatMessage({
-              id: "config.ui.scene_card_insights.relevant_episodes.heading",
+              id: "config.ui.scene_card_insights.tag_good_amount.heading",
             }),
-            "Lots of pito from Tyga Martinez",
+            "Good amount of pito",
             "tag"
           )}
-          subHeadingID="config.ui.scene_card_insights.relevant_episodes.description"
-          value={sceneCardInsightThresholds.relevantMinEpisodes}
+          subHeadingID="config.ui.scene_card_insights.tag_good_amount.description"
+          value={sceneCardInsightThresholds.tagGoodAmountMinPercent}
           onChange={(value) =>
-            saveSceneCardInsightThreshold("relevantMinEpisodes", value)
+            saveSceneCardInsightThreshold("tagGoodAmountMinPercent", value)
           }
         />
         <NumberSetting
-          id="scene-card-insights-relevant-duration"
+          id="scene-card-insights-tag-lots"
           heading={sceneCardInsightSettingHeading(
             intl.formatMessage({
-              id: "config.ui.scene_card_insights.relevant_duration.heading",
+              id: "config.ui.scene_card_insights.tag_lots.heading",
             }),
-            "Lots of pito from Tyga Martinez",
+            "Lots of pito",
             "tag"
           )}
-          subHeadingID="config.ui.scene_card_insights.relevant_duration.description"
-          value={sceneCardInsightThresholds.relevantMinDurationSeconds}
+          subHeadingID="config.ui.scene_card_insights.tag_lots.description"
+          value={sceneCardInsightThresholds.tagLotsMinPercent}
           onChange={(value) =>
-            saveSceneCardInsightThreshold("relevantMinDurationSeconds", value)
+            saveSceneCardInsightThreshold("tagLotsMinPercent", value)
+          }
+        />
+        <NumberSetting
+          id="scene-card-insights-tag-eye-can-see"
+          heading={sceneCardInsightSettingHeading(
+            intl.formatMessage({
+              id: "config.ui.scene_card_insights.tag_eye_can_see.heading",
+            }),
+            "pito as far as the eye can see",
+            "tag"
+          )}
+          subHeadingID="config.ui.scene_card_insights.tag_eye_can_see.description"
+          value={sceneCardInsightThresholds.tagEyeCanSeeMinPercent}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold("tagEyeCanSeeMinPercent", value)
           }
         />
         <NumberSetting
@@ -473,6 +488,21 @@ export const SettingsCustomPanel: React.FC = () => {
           value={sceneCardInsightThresholds.fewHighlightsMaxEpisodes}
           onChange={(value) =>
             saveSceneCardInsightThreshold("fewHighlightsMaxEpisodes", value)
+          }
+        />
+        <NumberSetting
+          id="scene-card-insights-few-highlights-percent"
+          heading={sceneCardInsightSettingHeading(
+            intl.formatMessage({
+              id: "config.ui.scene_card_insights.few_highlights_percent.heading",
+            }),
+            "Few highlights",
+            "negative"
+          )}
+          subHeadingID="config.ui.scene_card_insights.few_highlights_percent.description"
+          value={sceneCardInsightThresholds.fewHighlightsMaxPercent}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold("fewHighlightsMaxPercent", value)
           }
         />
         <NumberSetting

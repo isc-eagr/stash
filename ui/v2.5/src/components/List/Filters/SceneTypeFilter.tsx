@@ -22,7 +22,7 @@ export const SceneSceneTypeFilter: React.FC<ISceneSceneTypeFilterProps> = ({
   const intl = useIntl();
 
   const selectedPrimary = criterion.value.find((v) =>
-    SceneSceneTypeCriterion.primaryOptions.includes(v as any)
+    SceneSceneTypeCriterion.primaryOptions.some((option) => option === v)
   );
   const hasFacial = criterion.value.includes("facial");
 

@@ -35,7 +35,9 @@ func TestStatsWeightedMarkerCountQueryCustomCountsTopsPerMarker(t *testing.T) {
 	}
 
 	var count int
-	if err := db.QueryRow(statsWeightedMarkerCountQueryCustom, 1, 9).Scan(&count); err != nil {
+	sceneScope, _ := activityStatsSceneScopeCustom(nil, nil)
+	query := statsWeightedMarkerCountScopedQueryCustom(sceneScope)
+	if err := db.QueryRow(query, 1, 9).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 4 {

@@ -14,7 +14,12 @@ class SeekMenuItem extends videojs.getComponent("MenuItem") {
   public seconds: number;
   private parentButton: SeekMenuButton;
 
-  constructor(player: VideoJsPlayer, parentButton: SeekMenuButton, seconds: number, selected: boolean) {
+  constructor(
+    player: VideoJsPlayer,
+    parentButton: SeekMenuButton,
+    seconds: number,
+    selected: boolean
+  ) {
     const options = {} as videojs.MenuItemOptions;
     options.selectable = true;
     options.multiSelectable = false;
@@ -27,7 +32,7 @@ class SeekMenuItem extends videojs.getComponent("MenuItem") {
     this.parentButton = parentButton;
 
     this.addClass("vjs-seek-menu-item");
-    
+
     if (selected) {
       this.addClass("vjs-selected");
     }
@@ -51,7 +56,11 @@ class SeekMenuButton extends videojs.getComponent("MenuButton") {
   private isForward: boolean = true;
   private siblingButton?: SeekMenuButton;
 
-  constructor(player: VideoJsPlayer, isForward: boolean, initialSeconds: number = DEFAULT_SEEK) {
+  constructor(
+    player: VideoJsPlayer,
+    isForward: boolean,
+    initialSeconds: number = DEFAULT_SEEK
+  ) {
     // Set properties before super() call since createEl() will be called during super()
     // We can't actually do this in JS - properties are set after super()
     // So we'll handle this in createEl with a workaround
@@ -59,7 +68,7 @@ class SeekMenuButton extends videojs.getComponent("MenuButton") {
 
     this.seekSeconds = initialSeconds;
     this.isForward = isForward;
-    
+
     // Re-apply classes now that isForward is set
     this.removeClass("skip-forward");
     this.removeClass("skip-back");
@@ -67,8 +76,12 @@ class SeekMenuButton extends videojs.getComponent("MenuButton") {
     this.addClass(isForward ? "skip-forward" : "skip-back");
     this.addClass("vjs-seek-menu-button");
 
-    this.controlText(isForward ? `Skip forward ${this.seekSeconds} seconds` : `Skip back ${this.seekSeconds} seconds`);
-    
+    this.controlText(
+      isForward
+        ? `Skip forward ${this.seekSeconds} seconds`
+        : `Skip back ${this.seekSeconds} seconds`
+    );
+
     // Update the button text/icon
     this.updateButtonDisplay();
   }
@@ -93,7 +106,7 @@ class SeekMenuButton extends videojs.getComponent("MenuButton") {
 
   createItems(): videojs.MenuItem[] {
     const items: videojs.MenuItem[] = [];
-    
+
     for (const seconds of SEEK_OPTIONS) {
       const item = new SeekMenuItem(
         this.player(),
@@ -114,7 +127,7 @@ class SeekMenuButton extends videojs.getComponent("MenuButton") {
     if (target.closest(".vjs-menu")) {
       return;
     }
-    
+
     this.performSeek();
   }
 
@@ -122,22 +135,26 @@ class SeekMenuButton extends videojs.getComponent("MenuButton") {
     const player = this.player();
     const currentTime = player.currentTime() || 0;
     const duration = player.duration() || 0;
-    
+
     let newTime: number;
     if (this.isForward) {
       newTime = Math.min(currentTime + this.seekSeconds, duration);
     } else {
       newTime = Math.max(currentTime - this.seekSeconds, 0);
     }
-    
+
     player.currentTime(newTime);
   }
 
   setSeekSeconds(seconds: number, syncSibling: boolean = true) {
     this.seekSeconds = seconds;
     this.updateButtonDisplay();
-    this.controlText(this.isForward ? `Skip forward ${seconds} seconds` : `Skip back ${seconds} seconds`);
-    
+    this.controlText(
+      this.isForward
+        ? `Skip forward ${seconds} seconds`
+        : `Skip back ${seconds} seconds`
+    );
+
     // Sync the sibling button to the same value
     if (syncSibling && this.siblingButton) {
       this.siblingButton.setSeekSeconds(seconds, false);
@@ -175,14 +192,13 @@ class SeekButtonsPlugin extends videojs.getPlugin("plugin") {
     super(player, options);
 
     const forwardSeconds = options?.forward ?? DEFAULT_SEEK;
-    const backSeconds = options?.back ?? DEFAULT_SEEK;
 
     player.ready(() => {
-      this.setupButtons(forwardSeconds, backSeconds);
+      this.setupButtons(forwardSeconds);
     });
   }
 
-  private setupButtons(forwardSeconds: number, backSeconds: number) {
+  private setupButtons(forwardSeconds: number) {
     const { controlBar } = this.player;
     const playToggle = controlBar.getChild("playToggle");
 
@@ -194,8 +210,8 @@ class SeekButtonsPlugin extends videojs.getPlugin("plugin") {
     // Create forward button
     this.forwardButton = new SeekMenuButton(this.player, true, initialSeconds);
     controlBar.addChild(this.forwardButton);
-    
-    // Create back button  
+
+    // Create back button
     this.backButton = new SeekMenuButton(this.player, false, initialSeconds);
     controlBar.addChild(this.backButton);
 
@@ -209,7 +225,10 @@ class SeekButtonsPlugin extends videojs.getPlugin("plugin") {
 
     // Insert forward button after play toggle
     if (playToggleEl.nextSibling) {
-      controlBarEl.insertBefore(this.forwardButton.el(), playToggleEl.nextSibling);
+      controlBarEl.insertBefore(
+        this.forwardButton.el(),
+        playToggleEl.nextSibling
+      );
     } else {
       controlBarEl.appendChild(this.forwardButton.el());
     }

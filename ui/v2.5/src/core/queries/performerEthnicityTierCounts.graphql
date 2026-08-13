@@ -1,9 +1,0 @@
-query PerformerEthnicityTierCounts {
-  performerEthnicityTierCounts {
-    ethnicity
-    bronze
-    silver
-    gold
-    royal_sapphire
-  }
-}

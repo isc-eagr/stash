@@ -62,6 +62,15 @@ const modifierOptions = [
 
 const defaultModifier = CriterionModifier.IncludesAll;
 
+export const PerformerMarkersCriterionOption: ModifierCriterionOption =
+  new ModifierCriterionOption({
+    messageID: "performer_markers",
+    type: "performer_markers" as CriterionType,
+    modifierOptions,
+    defaultModifier,
+    makeCriterion: () => new PerformerMarkersCriterion(),
+  });
+
 /**
  * PerformerMarkersCriterion - A criterion for filtering performers by their markers.
  * Has a single group with performer/partner criteria, each with role dropdowns.
@@ -188,7 +197,7 @@ export class PerformerMarkersCriterion extends Criterion {
 
   protected decodeValue(v: unknown): void {
     if (!v) return;
-    
+
     const raw = v as {
       group?: {
         tag_ids: Array<{ id: string; label: string }>;
@@ -351,8 +360,10 @@ export class PerformerMarkersCriterion extends Criterion {
 
     // Use "performer_markers" GraphQL field and send as include array
     // If there's already a performer_markers value from exclude filter, merge with it
-    const existing = input["performer_markers"] as Record<string, unknown> | undefined;
-    input["performer_markers"] = {
+    const existing = input.performer_markers as
+      | Record<string, unknown>
+      | undefined;
+    input.performer_markers = {
       ...existing,
       include: [condition],
     };
@@ -369,15 +380,6 @@ export class PerformerMarkersCriterion extends Criterion {
     }
   }
 }
-
-export const PerformerMarkersCriterionOption: ModifierCriterionOption =
-  new ModifierCriterionOption({
-    messageID: "performer_markers",
-    type: "performer_markers" as CriterionType,
-    modifierOptions,
-    defaultModifier,
-    makeCriterion: () => new PerformerMarkersCriterion(),
-  });
 
 // Export modifierOptions for use in CriterionEditor
 export const performerMarkersModifierOptions = modifierOptions;

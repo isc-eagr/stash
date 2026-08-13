@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Accordion, Button, Card } from "react-bootstrap";
 import {
   FormattedMessage,
@@ -197,24 +197,27 @@ const _SceneFileInfoPanel: React.FC<ISceneFileInfoPanelProps> = (
   // CUSTOM: begin - release creation
   const [createRelease] = useSceneReleaseCreate();
 
-  async function onSplitAsRelease(file: GQL.VideoFileDataFragment) {
-    try {
-      setLoading(true);
-      await createRelease({
-        variables: {
-          input: {
-            scene_id: props.scene.id,
-            file_ids: [file.id],
+  const onSplitAsRelease = useCallback(
+    async (file: GQL.VideoFileDataFragment) => {
+      try {
+        setLoading(true);
+        await createRelease({
+          variables: {
+            input: {
+              scene_id: props.scene.id,
+              file_ids: [file.id],
+            },
           },
-        },
-      });
-      Toast.success("File split as release");
-    } catch (e) {
-      Toast.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }
+        });
+        Toast.success("File split as release");
+      } catch (e) {
+        Toast.error(e);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [createRelease, props.scene.id, Toast]
+  );
   // CUSTOM: end
 
   function renderStashIDs() {
@@ -325,7 +328,14 @@ const _SceneFileInfoPanel: React.FC<ISceneFileInfoPanelProps> = (
         ))}
       </Accordion>
     );
-  }, [props.scene, loading, Toast, deletingFile, reassigningFile, createRelease]); // CUSTOM: added createRelease dep
+  }, [
+    props.scene,
+    loading,
+    Toast,
+    deletingFile,
+    reassigningFile,
+    onSplitAsRelease,
+  ]); // CUSTOM: release split callback dependency
 
   return (
     <>

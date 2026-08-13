@@ -8,6 +8,13 @@ export interface IExcludeMarkerTagsValue {
   targetGroupId?: string; // Optional: if set, excludes only from that group; if not, global exclusion
 }
 
+export const ExcludeMarkerTagsCriterionOption: CriterionOption =
+  new CriterionOption({
+    messageID: "markers_filter.exclude_tags",
+    type: "exclude_marker_tags" as CriterionType,
+    makeCriterion: () => new ExcludeMarkerTagsCriterion(),
+  });
+
 /**
  * ExcludeMarkerTagsCriterion - Exclude scenes that have markers with these tags.
  * Can be global (no targetGroupId) or group-specific.
@@ -126,10 +133,3 @@ export class ExcludeMarkerTagsCriterion extends Criterion {
     }
   }
 }
-
-export const ExcludeMarkerTagsCriterionOption: CriterionOption =
-  new CriterionOption({
-    messageID: "markers_filter.exclude_tags",
-    type: "exclude_marker_tags" as CriterionType,
-    makeCriterion: () => new ExcludeMarkerTagsCriterion(),
-  });

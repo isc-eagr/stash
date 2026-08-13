@@ -31,8 +31,11 @@ import {
 } from "src/components/Shared/catalogCardSortHighlight_custom"; // CUSTOM
 import cx from "classnames"; // CUSTOM
 
+type PerformerCategoryStripData = Pick<PerformerListData, "id" | "name"> &
+  Partial<PerformerListData>; // CUSTOM: scene-card hovers only load compact performer data
+
 interface IPerformerCategoryStripProps {
-  performer: PerformerListData;
+  performer: PerformerCategoryStripData;
   /** Scene ID for scene context - enables role badges based on marker roles */
   sceneId?: string;
   /** Marker roles in the current scene (used when sceneId is provided) */
@@ -151,6 +154,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   const miniImagesFetched = useRef(false);
 
   const handleArrowHover = useCallback(() => {
+    if (sceneId) return; // CUSTOM: scene partner portraits are already supplied by the parent
     if (miniImagesFetched.current) return;
     miniImagesFetched.current = true;
     if (studioContext) {
@@ -166,6 +170,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     }
   }, [
     performer.id,
+    sceneId, // CUSTOM
     studioContext,
     fetchGlobalMiniImages,
     fetchStudioMiniImages,

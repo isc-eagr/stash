@@ -36,7 +36,7 @@ assert.equal(
 );
 assert.equal(
   sceneBonuses.find((definition) => definition.key === "unlikelyTop")?.label,
-  "Regular Unlikely Top Bonus"
+  "Standard Unlikely Top Bonus"
 );
 assert.equal(
   sceneBonuses.some(

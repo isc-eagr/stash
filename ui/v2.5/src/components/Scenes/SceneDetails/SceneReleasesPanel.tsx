@@ -1,5 +1,14 @@
 import React, { useState, useMemo } from "react";
-import { Button, Card, Badge, Modal, Form, Accordion, Row, Col } from "react-bootstrap";
+import {
+  Button,
+  Card,
+  Badge,
+  Modal,
+  Form,
+  Accordion,
+  Row,
+  Col,
+} from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import { useHistory } from "react-router-dom";
 import { DateInput } from "src/components/Shared/DateInput";
@@ -17,8 +26,19 @@ import {
 import { useToast } from "src/hooks/Toast";
 import { Icon } from "src/components/Shared/Icon";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
-import { faPlay, faPlus, faTrash, faExchangeAlt, faPencilAlt, faChevronDown, faChevronRight, faFile, faFilm, faMinus } from "@fortawesome/free-solid-svg-icons";
-import SceneSelectorDialog from "./SceneSelectorDialog";
+import {
+  faPlay,
+  faPlus,
+  faTrash,
+  faExchangeAlt,
+  faPencilAlt,
+  faChevronDown,
+  faChevronRight,
+  faFile,
+  faFilm,
+  faMinus,
+} from "@fortawesome/free-solid-svg-icons";
+import { SceneSelectorDialog } from "./SceneSelectorDialog";
 import { Studio, StudioSelect } from "src/components/Studios/StudioSelect";
 import { Gallery, GallerySelect } from "src/components/Galleries/GallerySelect";
 import ImageUtils from "src/utils/image";
@@ -68,15 +88,31 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [editingReleaseId, setEditingReleaseId] = useState<string | null>(null);
   const [showSceneSelectorModal, setShowSceneSelectorModal] = useState(false);
-  const [pendingConvertSceneId, setPendingConvertSceneId] = useState<string | null>(null); // scene selected, waiting for options
-  const [convertSceneOptions, setConvertSceneOptions] = useState({ transferOHistory: false, transferMarkers: false });
+  const [pendingConvertSceneId, setPendingConvertSceneId] = useState<
+    string | null
+  >(null); // scene selected, waiting for options
+  const [convertSceneOptions, setConvertSceneOptions] = useState({
+    transferOHistory: false,
+    transferMarkers: false,
+  });
   const [showAddFileModal, setShowAddFileModal] = useState<string | null>(null); // release ID
-  const [showConvertToSceneModal, setShowConvertToSceneModal] = useState<string | null>(null); // release ID
-  const [convertOptions, setConvertOptions] = useState({ transferOHistory: false, transferMarkers: false });
+  const [showConvertToSceneModal, setShowConvertToSceneModal] = useState<
+    string | null
+  >(null); // release ID
+  const [convertOptions, setConvertOptions] = useState({
+    transferOHistory: false,
+    transferMarkers: false,
+  });
   const [formData, setFormData] = useState<IReleaseFormData>(emptyFormData);
-  const [expandedReleases, setExpandedReleases] = useState<Set<string>>(new Set());
+  const [expandedReleases, setExpandedReleases] = useState<Set<string>>(
+    new Set()
+  );
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
-  const [showRemoveFileModal, setShowRemoveFileModal] = useState<{ releaseId: string; fileId: string; fileName: string } | null>(null);
+  const [showRemoveFileModal, setShowRemoveFileModal] = useState<{
+    releaseId: string;
+    fileId: string;
+    fileName: string;
+  } | null>(null);
 
   // For studio and gallery selects
   const [selectedStudio, setSelectedStudio] = useState<Studio | null>(null);
@@ -86,11 +122,13 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
   const [updateRelease, { loading: updating }] = useSceneReleaseUpdate();
   const [destroyRelease, { loading: destroying }] = useSceneReleaseDestroy();
   const [addFileToRelease, { loading: addingFile }] = useSceneReleaseAddFile();
-  const [removeFileFromRelease, { loading: removingFile }] = useSceneReleaseRemoveFile();
+  const [removeFileFromRelease, { loading: removingFile }] =
+    useSceneReleaseRemoveFile();
   const [convertScene, { loading: converting }] = useConvertSceneToRelease();
-  const [convertReleaseToScene, { loading: convertingToScene }] = useConvertReleaseToScene();
+  const [convertReleaseToScene, { loading: convertingToScene }] =
+    useConvertReleaseToScene();
 
-  const releases = scene.releases ?? [];
+  const releases = useMemo(() => scene.releases ?? [], [scene.releases]);
 
   // Sort releases by date ascending
   const sortedReleases = useMemo(() => {
@@ -105,15 +143,15 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
   // Get file IDs that are already used in releases
   const usedFileIds = useMemo(() => {
     const ids = new Set<string>();
-    releases.forEach(release => {
-      release.files.forEach(file => ids.add(file.id));
+    releases.forEach((release) => {
+      release.files.forEach((file) => ids.add(file.id));
     });
     return ids;
   }, [releases]);
 
   // Available files from scene that are not already in a release
   const availableFiles = useMemo(() => {
-    return (scene.files ?? []).filter(file => !usedFileIds.has(file.id));
+    return (scene.files ?? []).filter((file) => !usedFileIds.has(file.id));
   }, [scene.files, usedFileIds]);
 
   const openNewReleaseModal = () => {
@@ -134,11 +172,19 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
       details: release.details || "",
       director: release.director || "",
       studio_id: release.studio?.id || "",
-      gallery_ids: release.galleries?.map(g => g.id) || [],
+      gallery_ids: release.galleries?.map((g) => g.id) || [],
       cover_image: null, // Don't prefill - only set if changing
     });
-    setSelectedStudio(release.studio ? { id: release.studio.id, name: release.studio.name } as Studio : null);
-    setSelectedGalleries(release.galleries?.map(g => ({ id: g.id, title: g.title } as Gallery)) || []);
+    setSelectedStudio(
+      release.studio
+        ? ({ id: release.studio.id, name: release.studio.name } as Studio)
+        : null
+    );
+    setSelectedGalleries(
+      release.galleries?.map(
+        (g) => ({ id: g.id, title: g.title } as Gallery)
+      ) || []
+    );
     setShowReleaseModal(true);
   };
 
@@ -160,7 +206,7 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
         details: formData.details || undefined,
         director: formData.director || undefined,
         studio_id: selectedStudio?.id || undefined,
-        gallery_ids: selectedGalleries.map(g => g.id),
+        gallery_ids: selectedGalleries.map((g) => g.id),
         cover_image: formData.cover_image || undefined,
       };
 
@@ -175,13 +221,18 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
         });
         // Clear broken image state for this release so it re-fetches the new image
         if (formData.cover_image) {
-          setBrokenImages(prev => {
+          setBrokenImages((prev) => {
             const next = new Set(prev);
             next.delete(editingReleaseId);
             return next;
           });
         }
-        Toast.success(intl.formatMessage({ id: "toast.updated_entity" }, { entity: "release" }));
+        Toast.success(
+          intl.formatMessage(
+            { id: "toast.updated_entity" },
+            { entity: "release" }
+          )
+        );
       } else {
         await createRelease({
           variables: {
@@ -191,7 +242,12 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
             },
           },
         });
-        Toast.success(intl.formatMessage({ id: "toast.created_entity" }, { entity: "release" }));
+        Toast.success(
+          intl.formatMessage(
+            { id: "toast.created_entity" },
+            { entity: "release" }
+          )
+        );
       }
       closeReleaseModal();
       onRefetch();
@@ -201,12 +257,12 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
   };
 
   const handleDeleteRelease = async (releaseId: string) => {
-    const release = releases.find(r => r.id === releaseId);
+    const release = releases.find((r) => r.id === releaseId);
     const releaseStudioName = release?.studio?.name || "Unknown Studio";
     const sceneTitle = scene.title || "Untitled Scene";
     const sceneStudioName = scene.studio?.name || "Unknown Studio";
     const message = `Are you sure you want to delete the ${releaseStudioName} release of "${sceneTitle}" from ${sceneStudioName}?`;
-    
+
     if (!window.confirm(message)) {
       return;
     }
@@ -216,7 +272,12 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
           input: { id: releaseId },
         },
       });
-      Toast.success(intl.formatMessage({ id: "toast.deleted_entity" }, { entity: "release" }));
+      Toast.success(
+        intl.formatMessage(
+          { id: "toast.deleted_entity" },
+          { entity: "release" }
+        )
+      );
       if (activeReleaseId === releaseId) {
         onSetActiveRelease(null);
       }
@@ -238,10 +299,18 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
           },
         },
       });
-      Toast.success(intl.formatMessage({ id: "toast.created_entity" }, { entity: "release" }));
+      Toast.success(
+        intl.formatMessage(
+          { id: "toast.created_entity" },
+          { entity: "release" }
+        )
+      );
       setShowSceneSelectorModal(false);
       setPendingConvertSceneId(null);
-      setConvertSceneOptions({ transferOHistory: false, transferMarkers: false });
+      setConvertSceneOptions({
+        transferOHistory: false,
+        transferMarkers: false,
+      });
       onRefetch();
     } catch (e) {
       Toast.error(e);
@@ -254,7 +323,11 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
     setShowSceneSelectorModal(false);
   };
 
-  const handleAddFile = async (releaseId: string, fileIdOrPath: string, isPath: boolean = false) => {
+  const handleAddFile = async (
+    releaseId: string,
+    fileIdOrPath: string,
+    isPath: boolean = false
+  ) => {
     try {
       await addFileToRelease({
         variables: {
@@ -273,7 +346,11 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
     }
   };
 
-  const handleRemoveFile = async (releaseId: string, fileId: string, deleteFromFilesystem: boolean) => {
+  const handleRemoveFile = async (
+    releaseId: string,
+    fileId: string,
+    deleteFromFilesystem: boolean
+  ) => {
     try {
       await removeFileFromRelease({
         variables: {
@@ -284,7 +361,11 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
           },
         },
       });
-      Toast.success(deleteFromFilesystem ? "File removed and deleted from filesystem" : "File removed from release");
+      Toast.success(
+        deleteFromFilesystem
+          ? "File removed and deleted from filesystem"
+          : "File removed from release"
+      );
       setShowRemoveFileModal(null);
       onRefetch();
     } catch (e) {
@@ -294,7 +375,7 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
 
   const handleConvertToScene = async () => {
     if (!showConvertToSceneModal) return;
-    
+
     try {
       const result = await convertReleaseToScene({
         variables: {
@@ -309,7 +390,7 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
       setShowConvertToSceneModal(null);
       setConvertOptions({ transferOHistory: false, transferMarkers: false });
       onRefetch();
-      
+
       // Navigate to the new scene
       if (result.data?.convertReleaseToScene?.id) {
         history.push(`/scenes/${result.data.convertReleaseToScene.id}`);
@@ -328,7 +409,7 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
   };
 
   const toggleReleaseExpanded = (releaseId: string) => {
-    setExpandedReleases(prev => {
+    setExpandedReleases((prev) => {
       const next = new Set(prev);
       if (next.has(releaseId)) {
         next.delete(releaseId);
@@ -348,10 +429,17 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
   };
 
   const handleImageError = (releaseId: string) => {
-    setBrokenImages(prev => new Set(prev).add(releaseId));
+    setBrokenImages((prev) => new Set(prev).add(releaseId));
   };
 
-  const isLoading = creating || updating || destroying || converting || addingFile || removingFile || convertingToScene;
+  const isLoading =
+    creating ||
+    updating ||
+    destroying ||
+    converting ||
+    addingFile ||
+    removingFile ||
+    convertingToScene;
 
   const renderCoverImage = () => {
     // Show preview of new image if set, otherwise show existing image for edit mode
@@ -366,12 +454,14 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
       );
     }
     if (editingReleaseId) {
-      const release = releases.find(r => r.id === editingReleaseId);
+      const release = releases.find((r) => r.id === editingReleaseId);
       if (release?.paths?.screenshot && !brokenImages.has(editingReleaseId)) {
         return (
           <img
             className="scene-cover mb-2"
-            src={`${release.paths.screenshot}?t=${new Date(release.updated_at).getTime()}`}
+            src={`${release.paths.screenshot}?t=${new Date(
+              release.updated_at
+            ).getTime()}`}
             alt={intl.formatMessage({ id: "cover_image" })}
             style={{ maxWidth: "100%", maxHeight: "200px" }}
             onError={() => handleImageError(editingReleaseId)}
@@ -403,26 +493,38 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
         >
           <Icon icon={faExchangeAlt} />
           <span className="ml-1">
-            <FormattedMessage id="actions.add_from_existing" defaultMessage="New From Existing Scene" />
+            <FormattedMessage
+              id="actions.add_from_existing"
+              defaultMessage="New From Existing Scene"
+            />
           </span>
         </Button>
       </div>
 
       {sortedReleases.length === 0 ? (
         <div className="text-muted">
-          <FormattedMessage id="no_releases_message" defaultMessage="No releases yet. Add a release to track alternate versions of this scene." />
+          <FormattedMessage
+            id="no_releases_message"
+            defaultMessage="No releases yet. Add a release to track alternate versions of this scene."
+          />
         </div>
       ) : (
         <Accordion>
           {sortedReleases.map((release) => {
             const isExpanded = expandedReleases.has(release.id);
             // Only show screenshot if it's a non-empty string and hasn't errored
-            const hasScreenshot = release.paths?.screenshot && 
-              release.paths.screenshot.length > 0 && 
+            const hasScreenshot =
+              release.paths?.screenshot &&
+              release.paths.screenshot.length > 0 &&
               !brokenImages.has(release.id);
-            
+
             return (
-              <Card key={release.id} className={`mb-2 ${activeReleaseId === release.id ? "border-primary" : ""}`}>
+              <Card
+                key={release.id}
+                className={`mb-2 ${
+                  activeReleaseId === release.id ? "border-primary" : ""
+                }`}
+              >
                 <Card.Header className="d-flex align-items-center p-2">
                   <Button
                     variant="link"
@@ -431,11 +533,17 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                   >
                     <Icon icon={isExpanded ? faChevronDown : faChevronRight} />
                   </Button>
-                  
-                  <div className="flex-grow-1" style={{ cursor: "pointer" }} onClick={() => toggleReleaseExpanded(release.id)}>
+
+                  <div
+                    className="flex-grow-1"
+                    style={{ cursor: "pointer" }}
+                    onClick={() => toggleReleaseExpanded(release.id)}
+                  >
                     <strong>{release.title || "Untitled Release"}</strong>
                     {activeReleaseId === release.id && (
-                      <Badge variant="primary" className="ml-2">Playing</Badge>
+                      <Badge variant="primary" className="ml-2">
+                        Playing
+                      </Badge>
                     )}
                     {release.date && (
                       <span className="text-muted ml-2">{release.date}</span>
@@ -445,7 +553,11 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                   <div className="d-flex">
                     {release.files.length > 0 && (
                       <Button
-                        variant={activeReleaseId === release.id ? "success" : "outline-success"}
+                        variant={
+                          activeReleaseId === release.id
+                            ? "success"
+                            : "outline-success"
+                        }
                         size="sm"
                         className="mr-1"
                         onClick={() => handleMarkForPlayback(release.id)}
@@ -491,13 +603,15 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                     </Button>
                   </div>
                 </Card.Header>
-                
+
                 {isExpanded && (
                   <Card.Body>
                     {hasScreenshot ? (
                       <div className="mb-3">
                         <img
-                          src={`${release.paths.screenshot!}?t=${new Date(release.updated_at).getTime()}`}
+                          src={`${release.paths.screenshot!}?t=${new Date(
+                            release.updated_at
+                          ).getTime()}`}
                           alt={release.title || "Release cover"}
                           className="img-fluid rounded w-100"
                           onError={() => handleImageError(release.id)}
@@ -507,13 +621,21 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                     <dl className="row mb-0">
                       {release.studio && (
                         <>
-                          <dt className="col-sm-3"><FormattedMessage id="studio" /></dt>
+                          <dt className="col-sm-3">
+                            <FormattedMessage id="studio" />
+                          </dt>
                           <dd className="col-sm-9">
                             {release.studio.image_path ? (
-                              <img 
+                              <img
                                 src={release.studio.image_path}
                                 alt={release.studio.name}
-                                style={{ height: "2em", maxHeight: "2em", maxWidth: "200px", verticalAlign: "middle", objectFit: "contain" }}
+                                style={{
+                                  height: "2em",
+                                  maxHeight: "2em",
+                                  maxWidth: "200px",
+                                  verticalAlign: "middle",
+                                  objectFit: "contain",
+                                }}
                                 title={release.studio.name}
                               />
                             ) : (
@@ -524,21 +646,39 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                       )}
                       {release.code && (
                         <>
-                          <dt className="col-sm-3" style={{ whiteSpace: "nowrap" }}><FormattedMessage id="studio_code" defaultMessage="Studio Code" /></dt>
+                          <dt
+                            className="col-sm-3"
+                            style={{ whiteSpace: "nowrap" }}
+                          >
+                            <FormattedMessage
+                              id="studio_code"
+                              defaultMessage="Studio Code"
+                            />
+                          </dt>
                           <dd className="col-sm-9">{release.code}</dd>
                         </>
                       )}
                       {release.director && (
                         <>
-                          <dt className="col-sm-3"><FormattedMessage id="director" /></dt>
+                          <dt className="col-sm-3">
+                            <FormattedMessage id="director" />
+                          </dt>
                           <dd className="col-sm-9">{release.director}</dd>
                         </>
                       )}
                       {release.url && (
                         <>
-                          <dt className="col-sm-3"><FormattedMessage id="url" /></dt>
+                          <dt className="col-sm-3">
+                            <FormattedMessage id="url" />
+                          </dt>
                           <dd className="col-sm-9">
-                            <a href={release.url} target="_blank" rel="noopener noreferrer">{release.url}</a>
+                            <a
+                              href={release.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {release.url}
+                            </a>
                           </dd>
                         </>
                       )}
@@ -547,17 +687,27 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                           <dt className="col-sm-3">Files</dt>
                           <dd className="col-sm-9">
                             {release.files.map((f) => (
-                              <div key={f.id} className="d-flex align-items-center justify-content-between mb-1">
-                                <a href={`file:///${f.path.replace(/\\/g, '/')}`}>{f.path}</a>
+                              <div
+                                key={f.id}
+                                className="d-flex align-items-center justify-content-between mb-1"
+                              >
+                                <a
+                                  href={`file:///${f.path.replace(/\\/g, "/")}`}
+                                >
+                                  {f.path}
+                                </a>
                                 <Button
                                   variant="outline-danger"
                                   size="sm"
                                   className="ml-2"
-                                  onClick={() => setShowRemoveFileModal({
-                                    releaseId: release.id,
-                                    fileId: f.id,
-                                    fileName: f.path.split(/[\\/]/).pop() || f.path
-                                  })}
+                                  onClick={() =>
+                                    setShowRemoveFileModal({
+                                      releaseId: release.id,
+                                      fileId: f.id,
+                                      fileName:
+                                        f.path.split(/[\\/]/).pop() || f.path,
+                                    })
+                                  }
                                   title="Remove file from release"
                                 >
                                   <Icon icon={faMinus} />
@@ -569,60 +719,112 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                       )}
                       {release.files.length > 0 && (
                         <>
-                          <dt className="col-sm-3" style={{ whiteSpace: "nowrap" }}>Metadata</dt>
+                          <dt
+                            className="col-sm-3"
+                            style={{ whiteSpace: "nowrap" }}
+                          >
+                            Metadata
+                          </dt>
                           <dd className="col-sm-9">
                             {release.files.map((f) => {
                               // Get scene's primary file for comparison
-                              const sceneFile = scene.files && scene.files.length > 0 ? scene.files[0] : null;
-                              
+                              const sceneFile =
+                                scene.files && scene.files.length > 0
+                                  ? scene.files[0]
+                                  : null;
+
                               // Helper to get color based on comparison
-                              const getColor = (releaseVal: number, sceneVal: number | undefined, higherIsBetter: boolean) => {
+                              const getColor = (
+                                releaseVal: number,
+                                sceneVal: number | undefined,
+                                higherIsBetter: boolean
+                              ) => {
                                 if (!sceneVal) return "#fff";
-                                if (releaseVal > sceneVal) return higherIsBetter ? "#28a745" : "#dc3545";
-                                if (releaseVal < sceneVal) return higherIsBetter ? "#dc3545" : "#28a745";
+                                if (releaseVal > sceneVal)
+                                  return higherIsBetter ? "#28a745" : "#dc3545";
+                                if (releaseVal < sceneVal)
+                                  return higherIsBetter ? "#dc3545" : "#28a745";
                                 return "#fff";
                               };
 
                               // For duration, compare at the second level to avoid millisecond differences
-                              const durationColor = f.duration && sceneFile?.duration 
-                                ? getColor(Math.floor(f.duration), Math.floor(sceneFile.duration), true) 
-                                : "#fff";
-                              const fpsColor = f.frame_rate && sceneFile?.frame_rate 
-                                ? getColor(f.frame_rate, sceneFile.frame_rate, true) 
-                                : "#fff";
-                              const resolutionColor = f.height && sceneFile?.height 
-                                ? getColor(f.height, sceneFile.height, true) 
-                                : "#fff";
-                              const fileSizeColor = f.size && sceneFile?.size 
-                                ? getColor(f.size, sceneFile.size, true) 
-                                : "#fff";
+                              const durationColor =
+                                f.duration && sceneFile?.duration
+                                  ? getColor(
+                                      Math.floor(f.duration),
+                                      Math.floor(sceneFile.duration),
+                                      true
+                                    )
+                                  : "#fff";
+                              const fpsColor =
+                                f.frame_rate && sceneFile?.frame_rate
+                                  ? getColor(
+                                      f.frame_rate,
+                                      sceneFile.frame_rate,
+                                      true
+                                    )
+                                  : "#fff";
+                              const resolutionColor =
+                                f.height && sceneFile?.height
+                                  ? getColor(f.height, sceneFile.height, true)
+                                  : "#fff";
+                              const fileSizeColor =
+                                f.size && sceneFile?.size
+                                  ? getColor(f.size, sceneFile.size, true)
+                                  : "#fff";
 
                               // Format file size
-                              const fileSizeInfo = f.size ? TextUtils.fileSize(f.size) : null;
+                              const fileSizeInfo = f.size
+                                ? TextUtils.fileSize(f.size)
+                                : null;
 
                               return (
-                                <div key={f.id} style={{ fontWeight: "bold", fontSize: "1.1em" }}>
+                                <div
+                                  key={f.id}
+                                  style={{
+                                    fontWeight: "bold",
+                                    fontSize: "1.1em",
+                                  }}
+                                >
                                   {f.duration && (
                                     <span style={{ color: durationColor }}>
                                       {TextUtils.secondsToTimestamp(f.duration)}
                                     </span>
                                   )}
-                                  {f.duration && f.frame_rate && <span style={{ color: "#fff" }}> | </span>}
+                                  {f.duration && f.frame_rate && (
+                                    <span style={{ color: "#fff" }}> | </span>
+                                  )}
                                   {f.frame_rate && (
                                     <span style={{ color: fpsColor }}>
-                                      {intl.formatNumber(f.frame_rate, { maximumFractionDigits: 2, minimumFractionDigits: 0 })} fps
+                                      {intl.formatNumber(f.frame_rate, {
+                                        maximumFractionDigits: 2,
+                                        minimumFractionDigits: 0,
+                                      })}{" "}
+                                      fps
                                     </span>
                                   )}
-                                  {f.frame_rate && f.width && f.height && <span style={{ color: "#fff" }}> | </span>}
+                                  {f.frame_rate && f.width && f.height && (
+                                    <span style={{ color: "#fff" }}> | </span>
+                                  )}
                                   {f.width && f.height && (
                                     <span style={{ color: resolutionColor }}>
                                       {TextUtils.resolution(f.width, f.height)}
                                     </span>
                                   )}
-                                  {f.width && f.height && fileSizeInfo && <span style={{ color: "#fff" }}> | </span>}
+                                  {f.width && f.height && fileSizeInfo && (
+                                    <span style={{ color: "#fff" }}> | </span>
+                                  )}
                                   {fileSizeInfo && (
                                     <span style={{ color: fileSizeColor }}>
-                                      {intl.formatNumber(fileSizeInfo.size, { maximumFractionDigits: TextUtils.fileSizeFractionalDigits(fileSizeInfo.unit) })} {TextUtils.formatFileSizeUnit(fileSizeInfo.unit)}
+                                      {intl.formatNumber(fileSizeInfo.size, {
+                                        maximumFractionDigits:
+                                          TextUtils.fileSizeFractionalDigits(
+                                            fileSizeInfo.unit
+                                          ),
+                                      })}{" "}
+                                      {TextUtils.formatFileSizeUnit(
+                                        fileSizeInfo.unit
+                                      )}
                                     </span>
                                   )}
                                 </div>
@@ -633,7 +835,9 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                       )}
                       {release.galleries && release.galleries.length > 0 && (
                         <>
-                          <dt className="col-sm-3"><FormattedMessage id="galleries" /></dt>
+                          <dt className="col-sm-3">
+                            <FormattedMessage id="galleries" />
+                          </dt>
                           <dd className="col-sm-9">
                             {release.galleries.map((g, idx) => (
                               <span key={g.id}>
@@ -648,7 +852,9 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                       )}
                       {release.details && (
                         <>
-                          <dt className="col-sm-3"><FormattedMessage id="details" /></dt>
+                          <dt className="col-sm-3">
+                            <FormattedMessage id="details" />
+                          </dt>
                           <dd className="col-sm-9">{release.details}</dd>
                         </>
                       )}
@@ -666,9 +872,17 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
         <Modal.Header closeButton>
           <Modal.Title>
             {editingReleaseId ? (
-              <FormattedMessage id="actions.edit_entity" defaultMessage="Edit {entityType}" values={{ entityType: "Release" }} />
+              <FormattedMessage
+                id="actions.edit_entity"
+                defaultMessage="Edit {entityType}"
+                values={{ entityType: "Release" }}
+              />
             ) : (
-              <FormattedMessage id="actions.create_entity" defaultMessage="Create {entityType}" values={{ entityType: "Release" }} />
+              <FormattedMessage
+                id="actions.create_entity"
+                defaultMessage="Create {entityType}"
+                values={{ entityType: "Release" }}
+              />
             )}
           </Modal.Title>
         </Modal.Header>
@@ -677,17 +891,23 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label><FormattedMessage id="title" /></Form.Label>
+                  <Form.Label>
+                    <FormattedMessage id="title" />
+                  </Form.Label>
                   <Form.Control
                     type="text"
                     value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, title: e.target.value })
+                    }
                   />
                 </Form.Group>
               </Col>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label><FormattedMessage id="date" /></Form.Label>
+                  <Form.Label>
+                    <FormattedMessage id="date" />
+                  </Form.Label>
                   <DateInput
                     value={formData.date}
                     onValueChange={(date) => setFormData({ ...formData, date })}
@@ -699,45 +919,66 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label><FormattedMessage id="studio_code" defaultMessage="Studio Code" /></Form.Label>
+                  <Form.Label>
+                    <FormattedMessage
+                      id="studio_code"
+                      defaultMessage="Studio Code"
+                    />
+                  </Form.Label>
                   <Form.Control
                     type="text"
                     value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, code: e.target.value })
+                    }
                   />
                 </Form.Group>
               </Col>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label><FormattedMessage id="director" /></Form.Label>
+                  <Form.Label>
+                    <FormattedMessage id="director" />
+                  </Form.Label>
                   <Form.Control
                     type="text"
                     value={formData.director}
-                    onChange={(e) => setFormData({ ...formData, director: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, director: e.target.value })
+                    }
                   />
                 </Form.Group>
               </Col>
             </Row>
 
             <Form.Group className="mb-3">
-              <Form.Label><FormattedMessage id="studio" /></Form.Label>
+              <Form.Label>
+                <FormattedMessage id="studio" />
+              </Form.Label>
               <StudioSelect
-                onSelect={(items) => setSelectedStudio(items.length > 0 ? items[0] : null)}
+                onSelect={(items) =>
+                  setSelectedStudio(items.length > 0 ? items[0] : null)
+                }
                 values={selectedStudio ? [selectedStudio] : []}
               />
             </Form.Group>
 
             <Form.Group className="mb-3">
-              <Form.Label><FormattedMessage id="url" /></Form.Label>
+              <Form.Label>
+                <FormattedMessage id="url" />
+              </Form.Label>
               <Form.Control
                 type="url"
                 value={formData.url}
-                onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, url: e.target.value })
+                }
               />
             </Form.Group>
 
             <Form.Group className="mb-3">
-              <Form.Label><FormattedMessage id="galleries" /></Form.Label>
+              <Form.Label>
+                <FormattedMessage id="galleries" />
+              </Form.Label>
               <GallerySelect
                 values={selectedGalleries}
                 onSelect={(items) => setSelectedGalleries(items)}
@@ -746,22 +987,25 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
             </Form.Group>
 
             <Form.Group className="mb-3">
-              <Form.Label><FormattedMessage id="details" /></Form.Label>
+              <Form.Label>
+                <FormattedMessage id="details" />
+              </Form.Label>
               <Form.Control
                 as="textarea"
                 rows={3}
                 value={formData.details}
-                onChange={(e) => setFormData({ ...formData, details: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, details: e.target.value })
+                }
               />
             </Form.Group>
 
             <Form.Group className="mb-3">
-              <Form.Label><FormattedMessage id="cover_image" /></Form.Label>
+              <Form.Label>
+                <FormattedMessage id="cover_image" />
+              </Form.Label>
               {renderCoverImage()}
-              <ImageInput
-                isEditing
-                onImageChange={onCoverImageChange}
-              />
+              <ImageInput isEditing onImageChange={onCoverImageChange} />
             </Form.Group>
           </Form>
         </Modal.Body>
@@ -769,7 +1013,11 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
           <Button variant="secondary" onClick={closeReleaseModal}>
             <FormattedMessage id="actions.cancel" />
           </Button>
-          <Button variant="primary" onClick={handleSaveRelease} disabled={creating || updating}>
+          <Button
+            variant="primary"
+            onClick={handleSaveRelease}
+            disabled={creating || updating}
+          >
             {editingReleaseId ? (
               <FormattedMessage id="actions.save" />
             ) : (
@@ -789,24 +1037,45 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
       )}
 
       {/* Convert Scene Options Modal */}
-      <Modal show={!!pendingConvertSceneId} onHide={() => { setPendingConvertSceneId(null); setConvertSceneOptions({ transferOHistory: false, transferMarkers: false }); }}>
+      <Modal
+        show={!!pendingConvertSceneId}
+        onHide={() => {
+          setPendingConvertSceneId(null);
+          setConvertSceneOptions({
+            transferOHistory: false,
+            transferMarkers: false,
+          });
+        }}
+      >
         <Modal.Header closeButton>
           <Modal.Title>Convert Scene to Release</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>The selected scene will be converted into a release of this scene. All its files and metadata will be preserved in the new release.</p>
-          <p><strong>Note:</strong> The source scene will be deleted after conversion.</p>
-          
+          <p>
+            The selected scene will be converted into a release of this scene.
+            All its files and metadata will be preserved in the new release.
+          </p>
+          <p>
+            <strong>Note:</strong> The source scene will be deleted after
+            conversion.
+          </p>
+
           <Form.Group className="mb-3">
             <Form.Check
               type="checkbox"
               id="convertSceneTransferOHistory"
               label="Transfer O-history from source scene to this scene"
               checked={convertSceneOptions.transferOHistory}
-              onChange={(e) => setConvertSceneOptions(prev => ({ ...prev, transferOHistory: e.target.checked }))}
+              onChange={(e) =>
+                setConvertSceneOptions((prev) => ({
+                  ...prev,
+                  transferOHistory: e.target.checked,
+                }))
+              }
             />
             <Form.Text className="text-muted">
-              If enabled, all O-dates from the source scene will be transferred to this scene.
+              If enabled, all O-dates from the source scene will be transferred
+              to this scene.
             </Form.Text>
           </Form.Group>
 
@@ -816,31 +1085,59 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
               id="convertSceneTransferMarkers"
               label="Transfer markers from source scene to this scene"
               checked={convertSceneOptions.transferMarkers}
-              onChange={(e) => setConvertSceneOptions(prev => ({ ...prev, transferMarkers: e.target.checked }))}
+              onChange={(e) =>
+                setConvertSceneOptions((prev) => ({
+                  ...prev,
+                  transferMarkers: e.target.checked,
+                }))
+              }
             />
             <Form.Text className="text-muted">
-              If enabled, all scene markers from the source scene will be transferred to this scene.
+              If enabled, all scene markers from the source scene will be
+              transferred to this scene.
             </Form.Text>
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => { setPendingConvertSceneId(null); setConvertSceneOptions({ transferOHistory: false, transferMarkers: false }); }}>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setPendingConvertSceneId(null);
+              setConvertSceneOptions({
+                transferOHistory: false,
+                transferMarkers: false,
+              });
+            }}
+          >
             <FormattedMessage id="actions.cancel" />
           </Button>
-          <Button variant="primary" onClick={() => pendingConvertSceneId && handleConvertScene(pendingConvertSceneId)} disabled={converting}>
+          <Button
+            variant="primary"
+            onClick={() =>
+              pendingConvertSceneId && handleConvertScene(pendingConvertSceneId)
+            }
+            disabled={converting}
+          >
             Convert to Release
           </Button>
         </Modal.Footer>
       </Modal>
 
       {/* Add File Modal */}
-      <Modal show={!!showAddFileModal} onHide={() => setShowAddFileModal(null)} size="lg">
+      <Modal
+        show={!!showAddFileModal}
+        onHide={() => setShowAddFileModal(null)}
+        size="lg"
+      >
         <Modal.Header closeButton>
           <Modal.Title>Add File to Release</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {availableFiles.length === 0 ? (
-            <p className="text-muted">No available files. All scene files are already assigned to releases.</p>
+            <p className="text-muted">
+              No available files. All scene files are already assigned to
+              releases.
+            </p>
           ) : (
             <div className="list-group">
               {availableFiles.map((file) => (
@@ -848,12 +1145,17 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                   key={file.id}
                   type="button"
                   className="list-group-item list-group-item-action"
-                  onClick={() => showAddFileModal && handleAddFile(showAddFileModal, file.id, false)}
+                  onClick={() =>
+                    showAddFileModal &&
+                    handleAddFile(showAddFileModal, file.id, false)
+                  }
                   disabled={addingFile}
                 >
                   <div className="d-flex justify-content-between align-items-center">
                     <div>
-                      <div className="font-weight-bold">{file.path.split(/[\\/]/).pop()}</div>
+                      <div className="font-weight-bold">
+                        {file.path.split(/[\\/]/).pop()}
+                      </div>
                       <small className="text-muted">{file.path}</small>
                     </div>
                     <div className="text-right">
@@ -864,7 +1166,10 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                       )}
                       {file.size && (
                         <span className="badge badge-info">
-                          {TextUtils.fileSize(file.size).size.toFixed(1)} {TextUtils.formatFileSizeUnit(TextUtils.fileSize(file.size).unit)}
+                          {TextUtils.fileSize(file.size).size.toFixed(1)}{" "}
+                          {TextUtils.formatFileSizeUnit(
+                            TextUtils.fileSize(file.size).unit
+                          )}
                         </span>
                       )}
                     </div>
@@ -882,24 +1187,39 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
       </Modal>
 
       {/* Convert to Scene Modal */}
-      <Modal show={!!showConvertToSceneModal} onHide={() => setShowConvertToSceneModal(null)}>
+      <Modal
+        show={!!showConvertToSceneModal}
+        onHide={() => setShowConvertToSceneModal(null)}
+      >
         <Modal.Header closeButton>
           <Modal.Title>Convert Release to Scene</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>This will convert the release into a new standalone scene, keeping all its data (title, date, studio, etc.) and associated file(s).</p>
-          <p><strong>Note:</strong> The release will be deleted and a new scene will be created.</p>
-          
+          <p>
+            This will convert the release into a new standalone scene, keeping
+            all its data (title, date, studio, etc.) and associated file(s).
+          </p>
+          <p>
+            <strong>Note:</strong> The release will be deleted and a new scene
+            will be created.
+          </p>
+
           <Form.Group className="mb-3">
             <Form.Check
               type="checkbox"
               id="transferOHistory"
               label="Transfer O-history from parent scene"
               checked={convertOptions.transferOHistory}
-              onChange={(e) => setConvertOptions(prev => ({ ...prev, transferOHistory: e.target.checked }))}
+              onChange={(e) =>
+                setConvertOptions((prev) => ({
+                  ...prev,
+                  transferOHistory: e.target.checked,
+                }))
+              }
             />
             <Form.Text className="text-muted">
-              If enabled, all O-dates from the parent scene will be transferred to the new scene.
+              If enabled, all O-dates from the parent scene will be transferred
+              to the new scene.
             </Form.Text>
           </Form.Group>
 
@@ -909,55 +1229,78 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
               id="transferMarkers"
               label="Transfer markers from parent scene"
               checked={convertOptions.transferMarkers}
-              onChange={(e) => setConvertOptions(prev => ({ ...prev, transferMarkers: e.target.checked }))}
+              onChange={(e) =>
+                setConvertOptions((prev) => ({
+                  ...prev,
+                  transferMarkers: e.target.checked,
+                }))
+              }
             />
             <Form.Text className="text-muted">
-              If enabled, all scene markers from the parent scene will be transferred to the new scene.
+              If enabled, all scene markers from the parent scene will be
+              transferred to the new scene.
             </Form.Text>
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowConvertToSceneModal(null)}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowConvertToSceneModal(null)}
+          >
             <FormattedMessage id="actions.cancel" />
           </Button>
-          <Button variant="primary" onClick={handleConvertToScene} disabled={convertingToScene}>
+          <Button
+            variant="primary"
+            onClick={handleConvertToScene}
+            disabled={convertingToScene}
+          >
             Convert to Scene
           </Button>
         </Modal.Footer>
       </Modal>
 
       {/* Remove File Modal */}
-      <Modal show={!!showRemoveFileModal} onHide={() => setShowRemoveFileModal(null)}>
+      <Modal
+        show={!!showRemoveFileModal}
+        onHide={() => setShowRemoveFileModal(null)}
+      >
         <Modal.Header closeButton>
           <Modal.Title>Remove File from Release</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <p>
-            How would you like to remove <strong>{showRemoveFileModal?.fileName}</strong> from this release?
+            How would you like to remove{" "}
+            <strong>{showRemoveFileModal?.fileName}</strong> from this release?
           </p>
-          
+
           <div className="d-grid gap-2">
             <Button
               variant="warning"
               className="mb-2"
-              onClick={() => showRemoveFileModal && handleRemoveFile(
-                showRemoveFileModal.releaseId,
-                showRemoveFileModal.fileId,
-                false
-              )}
+              onClick={() =>
+                showRemoveFileModal &&
+                handleRemoveFile(
+                  showRemoveFileModal.releaseId,
+                  showRemoveFileModal.fileId,
+                  false
+                )
+              }
               disabled={removingFile}
             >
               Remove from release only
               <br />
               <small className="text-muted">(keeps the file on disk)</small>
             </Button>
-            
+
             <Button
               variant="danger"
               onClick={() => {
-                if (showRemoveFileModal && window.confirm(
-                  `⚠️ DESTRUCTIVE ACTION\n\nThis will permanently delete "${showRemoveFileModal.fileName}" from your filesystem!\n\nAre you absolutely sure?`
-                )) {
+                if (
+                  showRemoveFileModal &&
+                  window.confirm(
+                    `⚠️ DESTRUCTIVE ACTION\n\nThis will permanently delete "${showRemoveFileModal.fileName}" from your filesystem!\n\nAre you absolutely sure?`
+                  )
+                ) {
                   handleRemoveFile(
                     showRemoveFileModal.releaseId,
                     showRemoveFileModal.fileId,
@@ -974,7 +1317,10 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
           </div>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowRemoveFileModal(null)}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowRemoveFileModal(null)}
+          >
             <FormattedMessage id="actions.cancel" />
           </Button>
         </Modal.Footer>

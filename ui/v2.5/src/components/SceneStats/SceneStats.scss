@@ -399,8 +399,11 @@
 }
 
 .scenestats-bar-count {
+  color: #d8bf83;
+  font-weight: 800;
   min-width: 0;
   overflow: hidden;
+  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -434,12 +437,6 @@
   min-height: 0.65rem;
   position: absolute;
   right: 0;
-}
-
-.scenestats-bar-count {
-  color: #d8bf83;
-  font-weight: 800;
-  text-align: center;
 }
 
 .scenestats-empty {
