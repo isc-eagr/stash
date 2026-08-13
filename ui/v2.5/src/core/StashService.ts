@@ -286,7 +286,10 @@ export const queryFindSceneMarkers = (filter: ListFilterModel) =>
   });
 
 export const useMarkerStrings = (skip = false) =>
-  GQL.useMarkerStringsQuery({ skip }); // CUSTOM
+  GQL.useMarkerStringsQuery({
+    skip,
+    variables: { sort: "count" },
+  }); // CUSTOM: rank title suggestions by saved-marker usage
 
 export const useSceneNegativeMarkerNames = (skip = false) =>
   GQL.useSceneNegativeMarkerNamesQuery({ fetchPolicy: "network-only", skip }); // CUSTOM

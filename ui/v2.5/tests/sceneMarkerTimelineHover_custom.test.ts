@@ -98,8 +98,8 @@ assert.deepEqual(
 const sourceSexMarker = marker("source-sex", 100, 200, sex, [alex], [ben]);
 const recipientOralMarker = marker(
   "recipient-oral",
-  85,
-  130,
+  100,
+  160,
   oral,
   [ben],
   [alex]
@@ -120,7 +120,7 @@ assert.deepEqual(
     { performer: ben.id, topTags: [oral.id], bottomTags: [sex.id] },
     { performer: alex.id, topTags: [sex.id], bottomTags: [oral.id] },
   ],
-  "an activity marker inherits tags and roles from a source overlapping most of its duration"
+  "a narrower activity marker inherits tags and roles from its wider source"
 );
 
 const sexHover = getSceneMarkerTimelineHoverPerformers(
@@ -138,5 +138,5 @@ assert.deepEqual(
     { performer: alex.id, topTags: [sex.id], bottomTags: [] },
     { performer: ben.id, topTags: [], bottomTags: [sex.id] },
   ],
-  "the longer source marker does not inherit when the same overlap covers less than half of it"
+  "the wider source marker does not inherit from the narrower marker inside it"
 );

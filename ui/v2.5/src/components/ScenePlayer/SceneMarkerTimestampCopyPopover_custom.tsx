@@ -12,56 +12,53 @@ interface ISceneMarkerTimestampCopyPopoverProps {
     end_seconds?: number | null;
     primary_tag?: { name: string };
   };
+  action?: "copy" | "seek";
   onSelect: (boundary: SceneMarkerTimestampBoundary, seconds: number) => void;
 }
 
 export const SceneMarkerTimestampCopyPopover: React.FC<
   ISceneMarkerTimestampCopyPopoverProps
-> = ({ marker, onSelect }) => {
+> = ({ marker, action = "copy", onSelect }) => {
   const options = getSceneMarkerTimestampOptions(marker);
-  const startTimestamp = TextUtils.secondsToTimestamp(marker.seconds, true);
-  const endTimestamp =
-    marker.end_seconds !== null && marker.end_seconds !== undefined
-      ? TextUtils.secondsToTimestamp(marker.end_seconds, true)
-      : "No end time";
+  const actionLabel = action === "seek" ? "Seek to" : "Use";
 
   return (
     <div className="scene-marker-timestamp-picker">
       <div className="scene-marker-timestamp-picker-title">
-        {marker.title || marker.primary_tag?.name || "Untitled marker"}
+        {marker.primary_tag?.name || marker.title || "Untitled marker"}
       </div>
-      <div className="scene-marker-timestamp-picker-range">
-        <span className="scene-marker-timestamp-picker-range-label">
-          Marker range
-        </span>
-        <span className="scene-marker-timestamp-picker-range-value">
-          {startTimestamp} – {endTimestamp}
-        </span>
-      </div>
-      <div className="scene-marker-timestamp-picker-actions">
-        {options.map((option) => (
-          <button
-            key={option.boundary}
-            type="button"
-            className={`scene-marker-timestamp-picker-option scene-marker-timestamp-picker-option-${option.boundary}`}
-            aria-label={`Use marker ${option.label.toLowerCase()} time ${TextUtils.secondsToTimestamp(
-              option.seconds,
-              true
-            )}`}
-            onMouseDown={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onSelect(option.boundary, option.seconds);
-            }}
-          >
-            <span className="scene-marker-timestamp-picker-option-label">
-              {option.label}
-            </span>
-            <span className="scene-marker-timestamp-picker-option-time">
+      <div
+        className="scene-marker-timestamp-picker-range"
+        aria-label="Marker range"
+      >
+        {options.map((option, index) => (
+          <React.Fragment key={option.boundary}>
+            {index > 0 && (
+              <span
+                className="scene-marker-timestamp-picker-range-divider"
+                aria-hidden="true"
+              >
+                {"\u2013"}
+              </span>
+            )}
+            <button
+              type="button"
+              className={`scene-marker-timestamp-picker-chip scene-marker-timestamp-picker-chip-${option.boundary}`}
+              aria-label={`${actionLabel} marker ${option.label.toLowerCase()} time ${TextUtils.secondsToTimestamp(
+                option.seconds,
+                true
+              )}`}
+              title={`${actionLabel} marker ${option.label.toLowerCase()} time`}
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onSelect(option.boundary, option.seconds);
+              }}
+            >
               {TextUtils.secondsToTimestamp(option.seconds, true)}
-            </span>
-          </button>
+            </button>
+          </React.Fragment>
         ))}
       </div>
     </div>

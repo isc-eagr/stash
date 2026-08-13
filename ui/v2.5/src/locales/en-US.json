@@ -45,6 +45,57 @@
         "heading": "Simple marker preview skip tags",
         "description": "Marker video/webp previews are skipped when the marker has one of these as its only tag. Screenshots are still generated."
       },
+      "scene_card_insights": {
+        "heading": "Scene Card Insights",
+        "relevant_episodes": {
+          "heading": "Relevant episode count",
+          "description": "A non-activity tag, activity, performer role, or performer pairing becomes relevant at this many distinct merged episodes. Example chip: Lots of Feet from Tyga Martinez."
+        },
+        "relevant_duration": {
+          "heading": "Relevant duration (seconds)",
+          "description": "A non-activity tag, activity, performer role, or performer pairing becomes relevant when its merged duration exceeds this value. Example chip: Lots of Feet from Tyga Martinez."
+        },
+        "good": {
+          "heading": "Good activity threshold (%)",
+          "description": "Minimum percentage of the activity that is outstanding for the Good level. Example chip: Good oral."
+        },
+        "great": {
+          "heading": "Great activity threshold (%)",
+          "description": "Minimum percentage of the activity that is outstanding for the Great level. Example chip: Great oral."
+        },
+        "amazing": {
+          "heading": "Amazing activity threshold (%)",
+          "description": "Minimum percentage of the activity that is outstanding for the Amazing level. Example chip: Amazing oral."
+        },
+        "near_perfect": {
+          "heading": "Near-perfect activity threshold (%)",
+          "description": "Minimum percentage of the activity that is outstanding for the Near-perfect level. Example chip: Near-perfect oral."
+        },
+        "few_highlights_episodes": {
+          "heading": "Few highlights maximum episodes",
+          "description": "The Few highlights insight requires no more than this many outstanding episodes. Example chip: Few highlights."
+        },
+        "filler_percent": {
+          "heading": "Filler total percentage (%)",
+          "description": "Lots of filler appears when time without any marker exceeds this percentage of the scene; negative markers count as filler even when they overlap positive markers. Example chip: Lots of filler."
+        },
+        "leaning_balance_tolerance": {
+          "heading": "Balanced scene tolerance (%)",
+          "description": "A scene with multiple activity types is Balanced when Sex and Oral shares differ by no more than this many percentage points; otherwise it is Sex Leaning or Oral Leaning. Example chip: Sex Leaning Scene with a good amount of oral."
+        },
+        "leaning_minority_some": {
+          "heading": "Leaning scene: Some minority activity (%)",
+          "description": "Minimum minority Sex or Oral share described as some; smaller non-zero shares are described as minimal. Example chip: Sex Leaning Scene with some oral."
+        },
+        "leaning_minority_good_amount": {
+          "heading": "Leaning scene: Good amount (%)",
+          "description": "Minimum minority Sex or Oral share described as a good amount. This is normalized to be at least the Some threshold. Example chip: Sex Leaning Scene with a good amount of oral."
+        },
+        "leaning_minority_a_lot": {
+          "heading": "Leaning scene: A lot of minority activity (%)",
+          "description": "Minimum minority Sex or Oral share described as a lot of. This is normalized to be at least the Good amount threshold. Example chip: Sex Leaning Scene with a lot of oral."
+        }
+      },
       "scene_player": {
         "options": {
           "show_official_scene_marker_layout": "Show official scene marker layout",

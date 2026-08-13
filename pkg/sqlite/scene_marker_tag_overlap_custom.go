@@ -30,6 +30,7 @@ AND %[2]s.id != %[1]s.id
 AND %[3]s > %[1]s.seconds
 AND %[2]s.seconds < %[3]s
 AND %[4]s > %[1]s.seconds
+AND (%[4]s - %[2]s.seconds) >= (%[3]s - %[1]s.seconds)
 AND 100 * (MIN(%[3]s, %[4]s) - MAX(%[1]s.seconds, %[2]s.seconds)) >= %[5]d * (%[3]s - %[1]s.seconds)`, markerAlias, sourceAlias, sceneMarkerEndExprCustom(markerAlias), sceneMarkerEndExprCustom(sourceAlias), sceneMarkerInheritedTagOverlapPercentCustom)
 }
 

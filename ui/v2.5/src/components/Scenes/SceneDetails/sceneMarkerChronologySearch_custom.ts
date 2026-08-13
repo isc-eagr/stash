@@ -171,6 +171,7 @@ function markerInheritsTagsFrom(
   source: ISceneMarkerChronologySearchMarker
 ) {
   const markerDuration = markerDurationSeconds(marker);
+  const sourceDuration = markerDurationSeconds(source);
   const overlapSeconds =
     Math.min(markerEndSeconds(marker), markerEndSeconds(source)) -
     Math.max(marker.seconds, source.seconds);
@@ -179,6 +180,7 @@ function markerInheritsTagsFrom(
     marker.id !== source.id &&
     markersAreInSameScene(marker, source) &&
     markerDuration > 0 &&
+    sourceDuration >= markerDuration &&
     overlapSeconds >= markerDuration * minimumInheritedTagOverlapRatio
   );
 }

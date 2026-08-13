@@ -31,6 +31,7 @@ import { SceneIDSelect } from "../Scenes/SceneSelect";
 import {
   canCreateMarkerTitle,
   mergeMarkerTitleSuggestions,
+  sortMarkerTitleSuggestionsByUsage,
 } from "./markerTitleSuggestions_custom"; // CUSTOM
 
 export type SelectObject = {
@@ -39,6 +40,7 @@ export type SelectObject = {
   title?: string | null;
 };
 type Option = { value: string; label: string };
+const emptyMarkerTitles: string[] = [];
 
 interface ITypeProps {
   type?:
@@ -116,40 +118,41 @@ const LimitedSelectMenu = <T extends boolean>(
   const maxOptionsShown =
     configuration?.ui.maxOptionsShown ?? defaultMaxOptionsShown;
 
-  const [hiddenCount, setHiddenCount] = useState<number>(0);
   const hiddenCountStyle = {
     padding: "8px 12px",
     opacity: "50%",
   };
-  const menuChildren = useMemo(() => {
+  const { hiddenCount, menuChildren } = useMemo(() => {
     if (Array.isArray(props.children)) {
       // limit the number of select options showing in the select dropdowns
       // always showing the 'Create "..."' option when it exists
-      let creationOptionIndex = (props.children as React.ReactNode[]).findIndex(
-        (child: React.ReactNode) => {
-          let maybeCreatableOption = child as React.ReactElement<
-            OptionProps<
-              Option & { __isNew__: boolean },
-              T,
-              GroupBase<Option & { __isNew__: boolean }>
-            >,
-            ""
-          >;
-          return maybeCreatableOption?.props?.data?.__isNew__;
-        }
-      );
+      const creationOptionIndex = (
+        props.children as React.ReactNode[]
+      ).findIndex((child: React.ReactNode) => {
+        let maybeCreatableOption = child as React.ReactElement<
+          OptionProps<
+            Option & { __isNew__: boolean },
+            T,
+            GroupBase<Option & { __isNew__: boolean }>
+          >,
+          ""
+        >;
+        return maybeCreatableOption?.props?.data?.__isNew__;
+      });
       if (creationOptionIndex >= maxOptionsShown) {
-        setHiddenCount(props.children.length - maxOptionsShown - 1);
-        return props.children
-          .slice(0, maxOptionsShown - 1)
-          .concat([props.children[creationOptionIndex]]);
-      } else {
-        setHiddenCount(Math.max(props.children.length - maxOptionsShown, 0));
-        return props.children.slice(0, maxOptionsShown);
+        return {
+          hiddenCount: props.children.length - maxOptionsShown - 1,
+          menuChildren: props.children
+            .slice(0, maxOptionsShown - 1)
+            .concat([props.children[creationOptionIndex]]),
+        };
       }
+      return {
+        hiddenCount: Math.max(props.children.length - maxOptionsShown, 0),
+        menuChildren: props.children.slice(0, maxOptionsShown),
+      };
     }
-    setHiddenCount(0);
-    return props.children;
+    return { hiddenCount: 0, menuChildren: props.children };
   }, [props.children, maxOptionsShown]);
   return (
     <reactSelectComponents.MenuList {...props}>
@@ -191,14 +194,18 @@ const SelectComponent = <T extends boolean>({
     T
   >;
 
-  const options = groupHeader
-    ? [
-        {
-          label: groupHeader,
-          options: items,
-        },
-      ]
-    : items;
+  const options = useMemo<OptionsOrGroups<Option, GroupBase<Option>>>(
+    () =>
+      groupHeader
+        ? [
+            {
+              label: groupHeader,
+              options: items,
+            },
+          ]
+        : items,
+    [groupHeader, items]
+  );
 
   const styles: StylesConfig<Option, T> = {
     option: (base) => ({
@@ -327,32 +334,51 @@ export const MarkerTitleSuggest: React.FC<IMarkerSuggestProps> = (props) => {
   const includeRegularTitles = props.includeRegularTitles ?? true; // CUSTOM
   const { data, loading } = useMarkerStrings(!includeRegularTitles); // CUSTOM
   const titleSuggestionsLoading = loading || props.additionalTitlesLoading; // CUSTOM
-  const suggestions = data?.markerStrings ?? [];
+  const suggestions = data?.markerStrings;
+  const additionalTitles =
+    props.additionalTitles && props.additionalTitles.length > 0
+      ? props.additionalTitles
+      : emptyMarkerTitles;
 
   const onChange = (selectedItem: OnChangeValue<Option, false>) =>
     props.onChange(selectedItem?.value ?? "");
 
   // CUSTOM: begin - allow custom marker types to contribute title suggestions
-  const suggestionTitles = mergeMarkerTitleSuggestions(
-    suggestions.map((item) => item?.title),
-    props.additionalTitles,
-    includeRegularTitles
+  const regularSuggestionTitles = useMemo(
+    () => sortMarkerTitleSuggestionsByUsage(suggestions ?? []),
+    [suggestions]
   );
-  const items = suggestionTitles.map((title) => ({
-    label: title,
-    value: title,
-  }));
-  // CUSTOM: end
-  const initialIds = props.initialMarkerTitle ? [props.initialMarkerTitle] : [];
+  const suggestionTitles = useMemo(
+    () =>
+      mergeMarkerTitleSuggestions(
+        regularSuggestionTitles,
+        additionalTitles,
+        includeRegularTitles
+      ),
+    [additionalTitles, includeRegularTitles, regularSuggestionTitles]
+  );
+  const initialIds = useMemo(
+    () => (props.initialMarkerTitle ? [props.initialMarkerTitle] : []),
+    [props.initialMarkerTitle]
+  );
+  const items = useMemo(() => {
+    const suggestionItems = suggestionTitles.map((title) => ({
+      label: title,
+      value: title,
+    }));
 
-  // add initial value to items if still loading, to ensure existing value
-  // is populated
-  if (titleSuggestionsLoading && initialIds.length > 0) {
-    items.push({
-      label: initialIds[0],
-      value: initialIds[0],
-    });
-  }
+    // add initial value to items if still loading, to ensure existing value
+    // is populated
+    if (titleSuggestionsLoading && initialIds.length > 0) {
+      suggestionItems.push({
+        label: initialIds[0],
+        value: initialIds[0],
+      });
+    }
+
+    return suggestionItems;
+  }, [initialIds, suggestionTitles, titleSuggestionsLoading]);
+  // CUSTOM: end
 
   return (
     <SelectComponent

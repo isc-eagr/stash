@@ -6,7 +6,6 @@ import * as GQL from "src/core/generated-graphql";
 import { Icon } from "../Shared/Icon";
 import { GalleryLink, TagLink, SceneMarkerLink } from "../Shared/TagLink";
 import { HoverPopover } from "../Shared/HoverPopover";
-import { TruncatedText } from "../Shared/TruncatedText";
 import NavUtils from "src/utils/navigation";
 import TextUtils from "src/utils/text";
 import { SceneQueue } from "src/models/sceneQueue";
@@ -37,7 +36,7 @@ import {
   getRatingCardClass,
   isRatingCardHomePage,
 } from "src/utils/ratingCardStyles_custom"; // CUSTOM
-import { SceneActivityMetrics } from "./SceneActivityMetrics_custom"; // CUSTOM
+import { SceneCardInsights } from "./SceneCardInsights_custom"; // CUSTOM
 import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
 import { getSceneSortMetricCustom } from "./sceneSortMetric_custom"; // CUSTOM
 import {
@@ -364,16 +363,10 @@ const SceneCardPopovers = PatchComponent(
         "tag_count",
         "performer_count",
         "o_counter",
-        "group_scene_number",
-        "sex_activity_percent",
-        "oral_activity_percent",
-        "solo_activity_percent",
-        "other_activity_percent",
-        "outstanding_activity_percent",
-        "standard_activity_percent",
-        "unusable_activity_percent"
+        "group_scene_number"
       ); // CUSTOM
-      if (
+      // CUSTOM: keep insights visible even when the card has no popover controls
+      const shouldRenderPopoverGroup =
         !props.compact &&
         (props.scene.tags.length > 0 ||
           props.scene.performers.length > 0 ||
@@ -383,36 +376,37 @@ const SceneCardPopovers = PatchComponent(
           props.scene.galleries.length > 0 ||
           props.scene.organized ||
           sceneNumber !== undefined ||
-          highlightsVisiblePopoverMetric)
-      ) {
-        return (
-          <>
-            <Description
-              sceneNumber={sceneNumber}
-              className={catalogCardSortHighlightClassCustom(
-                props.activeSortBy,
-                "group_scene_number"
-              )}
-            />
-            <hr />
-            <ButtonGroup className="card-popovers">
-              {maybeRenderTagPopoverButton()}
-              {maybeRenderPerformerPopoverButton()}
-              {maybeRenderGroupPopoverButton()}
-              {maybeRenderSceneMarkerPopoverButton()}
-              {maybeRenderOCounter()}
+          highlightsVisiblePopoverMetric);
 
-              {maybeRenderGallery()}
-              {maybeRenderOrganized()}
-              {maybeRenderDupeCopies()}
-            </ButtonGroup>
-            <SceneActivityMetrics
-              scene={props.scene}
-              activeSortBy={props.activeSortBy}
-            />
-          </>
-        );
-      }
+      return (
+        <>
+          {shouldRenderPopoverGroup && (
+            <>
+              <Description
+                sceneNumber={sceneNumber}
+                className={catalogCardSortHighlightClassCustom(
+                  props.activeSortBy,
+                  "group_scene_number"
+                )}
+              />
+              <hr />
+              <ButtonGroup className="card-popovers">
+                {maybeRenderTagPopoverButton()}
+                {maybeRenderPerformerPopoverButton()}
+                {maybeRenderGroupPopoverButton()}
+                {maybeRenderSceneMarkerPopoverButton()}
+                {maybeRenderOCounter()}
+
+                {maybeRenderGallery()}
+                {maybeRenderOrganized()}
+                {maybeRenderDupeCopies()}
+              </ButtonGroup>
+            </>
+          )}
+          {/* CUSTOM: render insights independently of popover controls */}
+          <SceneCardInsights scene={props.scene} />
+        </>
+      );
     }
 
     return <>{maybeRenderPopoverButtonGroup()}</>;
@@ -438,16 +432,6 @@ const SceneCardDetails = PatchComponent(
           (sceneGroup) => sceneGroup.group.id === props.fromGroupId
         )?.scene_index
       : undefined; // CUSTOM
-    const isActivitySort = isCatalogCardSortHighlightedCustom(
-      props.activeSortBy,
-      "sex_activity_percent",
-      "oral_activity_percent",
-      "solo_activity_percent",
-      "other_activity_percent",
-      "outstanding_activity_percent",
-      "standard_activity_percent",
-      "unusable_activity_percent"
-    );
     const embeddedSortMetric =
       (!props.compact &&
         isCatalogCardSortHighlightedCustom(
@@ -456,9 +440,6 @@ const SceneCardDetails = PatchComponent(
           "performer_count",
           "o_counter"
         )) ||
-      (!props.compact &&
-        isActivitySort &&
-        hasCatalogCardSortValueCustom(sortMetric?.value)) ||
       (!props.compact &&
         hasCatalogCardSortValueCustom(contextualGroupSceneNumber) &&
         isCatalogCardSortHighlightedCustom(
@@ -505,11 +486,7 @@ const SceneCardDetails = PatchComponent(
         <span className="file-path extra-scene-info">
           {objectPath(props.scene)}
         </span>
-        <TruncatedText
-          className="scene-card__description"
-          text={props.scene.details}
-          lineCount={3}
-        />
+        {/* CUSTOM: scene descriptions remain exclusive to scene detail pages */}
       </div>
     );
   }

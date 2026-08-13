@@ -9,8 +9,13 @@ import { FormattedMessage, useIntl } from "react-intl";
 import { faTrashAlt } from "@fortawesome/free-solid-svg-icons";
 import { objectPath } from "src/core/files";
 
+type DeletableScene = Pick<
+  GQL.SlimSceneDataFragment,
+  "files" | "id" | "interactive"
+>; // CUSTOM: accept both slim-list and full-detail scene payloads
+
 interface IDeleteSceneDialogProps {
-  selected: GQL.SlimSceneDataFragment[];
+  selected: DeletableScene[]; // CUSTOM
   onClose: (confirmed: boolean) => void;
 }
 

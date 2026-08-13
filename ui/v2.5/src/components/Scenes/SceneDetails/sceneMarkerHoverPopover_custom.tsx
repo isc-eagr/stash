@@ -64,9 +64,19 @@ export const ActivityTypePerformerTile: React.FC<{
   performer: SceneMarkerHoverPerformer;
   role?: "Top" | "Bottom";
   className?: string;
+  imageClassName?: string;
+  imageAccessory?: React.ReactNode;
   title?: string;
   children?: React.ReactNode;
-}> = ({ performer, role, className, title, children }) => {
+}> = ({
+  performer,
+  role,
+  className,
+  imageClassName,
+  imageAccessory,
+  title,
+  children,
+}) => {
   const performerOverview = useScenePerformerOverview();
   const portrait = performer.image_path ? (
     <img src={performer.image_path} alt={performer.name ?? ""} />
@@ -91,14 +101,25 @@ export const ActivityTypePerformerTile: React.FC<{
         <button
           type="button"
           aria-label={`Open ${performer.name ?? "vato"} overview`}
-          className="scene-marker-activity-performer-image scene-marker-activity-performer-image-button"
+          className={cx(
+            "scene-marker-activity-performer-image scene-marker-activity-performer-image-button",
+            imageClassName
+          )}
           onClick={() => performerOverview.openPerformerOverview(performer.id)}
         >
           {portrait}
         </button>
       ) : (
-        <div className="scene-marker-activity-performer-image">{portrait}</div>
+        <div
+          className={cx(
+            "scene-marker-activity-performer-image",
+            imageClassName
+          )}
+        >
+          {portrait}
+        </div>
       )}
+      {imageAccessory}
       {performerOverview ? (
         <button
           type="button"

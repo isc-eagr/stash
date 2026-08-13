@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import {
   getSceneMarkerTimestampPickerHorizontalLayout,
   getSceneMarkerTimestampOptions,
   resolveSceneMarkerTimestampCopySelection,
   shouldScheduleSceneMarkerTimestampPickerHide,
+  shouldShowSceneMarkerTooltip,
 } from "../src/components/ScenePlayer/sceneMarkerTimestampCopy_custom.ts";
 
 const marker = { id: "marker-1", seconds: 12.25, end_seconds: 38.5 };
@@ -67,7 +69,13 @@ assert.deepEqual(
     { boundary: "start", label: "Start", seconds: 12.25 },
     { boundary: "end", label: "End", seconds: 38.5 },
   ],
-  "the picker presents both exact timestamps as separate labeled choices"
+  "the picker presents both exact timestamps as separate selectable choices"
+);
+
+assert.deepEqual(
+  getSceneMarkerTimestampOptions(marker).map((option) => option.seconds),
+  [12.25, 38.5],
+  "the reusable picker exposes exact start and end targets for scrubber seeking"
 );
 
 assert.deepEqual(
@@ -158,4 +166,53 @@ assert.equal(
   ),
   true,
   "the active negative marker retains ownership of its picker lifecycle"
+);
+
+assert.equal(
+  shouldShowSceneMarkerTooltip({
+    activeOwner: negativeMarkerOwner,
+    activeIsNegative: true,
+    requestedOwner: regularMarkerOwner,
+    requestedIsNegative: false,
+  }),
+  false,
+  "a regular-marker hover cannot replace an overlapping negative-marker popup"
+);
+assert.equal(
+  shouldShowSceneMarkerTooltip({
+    activeOwner: regularMarkerOwner,
+    activeIsNegative: false,
+    requestedOwner: negativeMarkerOwner,
+    requestedIsNegative: true,
+  }),
+  true,
+  "a negative-marker hover immediately takes ownership from a regular marker"
+);
+
+const timelineMarkerSource = readFileSync(
+  new URL("../src/components/ScenePlayer/markers.ts", import.meta.url),
+  "utf8"
+);
+const thumbnailScrubberSource = readFileSync(
+  new URL(
+    "../src/components/ScenePlayer/ScenePlayerScrubber.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
+
+assert.match(
+  timelineMarkerSource,
+  /scene-marker-timeline-seek-picker[\s\S]*?appendTimestampRangeChips\([\s\S]*?"seek"/,
+  "normal Video.js marker hover cards include direct start/end seek chips"
+);
+assert.match(
+  timelineMarkerSource,
+  /cursorClientX !== undefined[\s\S]*?cursorClientX - parentRect\.left/,
+  "normal Video.js marker hover cards anchor horizontally at the cursor"
+);
+assert.match(
+  thumbnailScrubberSource,
+  /timestampCopyActive \? \([\s\S]*?<SceneMarkerTimestampCopyPopover[\s\S]*?: \([\s\S]*?<SceneMarkerHighlightPerformersPopover/,
+  "the thumbnail scrubber keeps its performer/tag popup outside timestamp-copy mode"
 );

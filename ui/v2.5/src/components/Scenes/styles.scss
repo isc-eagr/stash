@@ -77,6 +77,91 @@
 }
 /* CUSTOM: end */
 
+/* CUSTOM: begin - compact scene card insight chips */
+.scene-card-insights {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+  margin: -0.1rem 0 0.65rem;
+  padding: 0 0.65rem;
+}
+
+.scene-card-insight-setting-heading {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+
+  .scene-card-insight {
+    cursor: default;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+}
+
+.scene-card-insight {
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  color: $text-color;
+  cursor: help;
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.15;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0.22rem 0.52rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px rgba($primary, 0.6);
+    outline: none;
+  }
+}
+
+.scene-card-insight-activity {
+  background: rgba(56, 139, 253, 0.12);
+  border-color: rgba(88, 166, 255, 0.62);
+  color: #b9dcff;
+}
+
+.scene-card-insight-interaction {
+  background: rgba(163, 113, 247, 0.14);
+  border-color: rgba(188, 140, 255, 0.68);
+  color: #dec8ff;
+}
+
+.scene-card-insight-tag {
+  background: rgba(46, 160, 67, 0.1);
+  border-color: rgba(63, 185, 80, 0.55);
+  color: #b7e7bf;
+}
+
+.scene-card-insight-event {
+  background: rgba(210, 153, 34, 0.12);
+  border-color: rgba(227, 179, 65, 0.65);
+  color: #f4d77c;
+}
+
+.scene-card-insight-goat {
+  background: rgba(55, 90, 214, 0.2);
+  border-color: #6da8ff;
+  box-shadow: 0 0 0.35rem rgba(72, 128, 255, 0.5);
+  color: #d9e9ff;
+}
+
+.scene-card-insight-negative {
+  background: rgba(218, 54, 51, 0.12);
+  border-color: rgba(248, 81, 73, 0.62);
+  color: #ffb4ae;
+}
+
+/* CUSTOM: end */
+
 .scene-hand-icon {
   margin-right: 0.5rem;
   color: #ffffff; // White color for the hand icon
@@ -2395,6 +2480,29 @@ input[type="range"].blue-slider {
       width: 100%;
     }
   }
+
+  /* CUSTOM: begin - compact, non-overlaying vato rating below scene-card portraits */
+  .scene-card-performer-rating {
+    align-items: center;
+    background: rgba(7, 10, 12, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 999px;
+    color: #f6f8fa;
+    display: inline-flex;
+    font-size: 0.68rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    gap: 0.2rem;
+    line-height: 1;
+    padding: 0.18rem 0.38rem;
+
+    .fa-icon {
+      color: #ffe35c;
+      font-size: 0.62rem;
+    }
+  }
+
+  /* CUSTOM: end */
 
   .scene-marker-activity-performer-name {
     color: #d9e2ea;

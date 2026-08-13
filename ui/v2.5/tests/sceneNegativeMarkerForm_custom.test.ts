@@ -7,6 +7,7 @@ import {
 import {
   canCreateMarkerTitle,
   mergeMarkerTitleSuggestions,
+  sortMarkerTitleSuggestionsByUsage,
 } from "../src/components/Shared/markerTitleSuggestions_custom.ts";
 
 assert.deepEqual(
@@ -109,6 +110,16 @@ assert.deepEqual(
   markerTitleSuggestions,
   ["Skip intro", "shared title"],
   "negative marker suggestions exclude regular titles and remove negative-title duplicates"
+);
+assert.deepEqual(
+  sortMarkerTitleSuggestionsByUsage([
+    { title: "Oral", count: 4 },
+    { title: "Anal", count: 8 },
+    { title: "Blowjob", count: 4 },
+    { title: "", count: 99 },
+  ]),
+  ["Anal", "Blowjob", "Oral"],
+  "regular marker titles rank by usage, with alphabetical ordering only for ties"
 );
 assert.equal(
   canCreateMarkerTitle("  SKIP INTRO ", markerTitleSuggestions),

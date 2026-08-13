@@ -117,6 +117,12 @@ fragment SlimSceneData on Scene {
     favorite
     image_path
     birthdate # CUSTOM: active performer-age sort metric
+    # CUSTOM: begin - scene card performer hover rating highlights
+    rating100
+    rating_tier_tags: tags {
+      id
+    }
+    # CUSTOM: end
   }
 
   stash_ids {

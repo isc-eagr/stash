@@ -148,6 +148,22 @@ export interface IUIConfig {
     goldTagId?: string;
     royalSapphireTagId?: string;
   };
+  // CUSTOM: begin - scene card insight thresholds
+  sceneCardInsightThresholds?: {
+    relevantMinEpisodes?: number;
+    relevantMinDurationSeconds?: number;
+    goodOutstandingPercent?: number;
+    greatOutstandingPercent?: number;
+    amazingOutstandingPercent?: number;
+    nearPerfectOutstandingPercent?: number;
+    fewHighlightsMaxEpisodes?: number;
+    fillerTotalPercent?: number;
+    leaningBalanceTolerancePercent?: number;
+    leaningMinoritySomePercent?: number;
+    leaningMinorityGoodAmountPercent?: number;
+    leaningMinorityALotPercent?: number;
+  };
+  // CUSTOM: end
   simpleMarkerPreviewExcludedTagIds?: string[]; // Extra primary-only marker tags that skip video/webp preview generation
 
   // Tag IDs used for scene marker role categorization

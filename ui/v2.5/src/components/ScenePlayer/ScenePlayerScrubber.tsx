@@ -374,12 +374,12 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
             )} // CUSTOM: mirror GOAT/Royal Sapphire marker styling in the scrubber
             popoverClassName={
               timestampCopyActive
-                ? "scene-marker-timestamp-copy-popover"
+                ? "scene-marker-timestamp-picker-popover"
                 : "scene-marker-highlight-popover"
             } // CUSTOM
             enterDelay={timestampCopyActive ? 75 : undefined} // CUSTOM
             leaveDelay={timestampCopyActive ? 350 : undefined} // CUSTOM
-            estimatedContentHeight={timestampCopyActive ? 190 : undefined} // CUSTOM
+            estimatedContentHeight={timestampCopyActive ? 110 : undefined} // CUSTOM
             anchorToCursor={timestampCopyActive} // CUSTOM
             disabled={timestampCopyActive && !!activeNegativeTimestampPickerId} // CUSTOM
             placement="bottom"
@@ -460,10 +460,10 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
           <HoverPopover
             key={marker.id}
             className="scrubber-negative-marker scrubber-negative-marker-timestamp-copy"
-            popoverClassName="scene-marker-timestamp-copy-popover"
+            popoverClassName="scene-marker-timestamp-picker-popover"
             enterDelay={0}
             leaveDelay={350}
-            estimatedContentHeight={190}
+            estimatedContentHeight={110}
             anchorToCursor
             placement="bottom"
             style={style}

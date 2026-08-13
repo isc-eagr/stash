@@ -250,8 +250,8 @@ assert.deepEqual(
     ],
     { tags: [oral], topPerformers: [], bottomPerformers: [] }
   ).map((m) => m.id),
-  ["1", "2"],
-  "single-tag searches include a marker inheriting through exactly fifty percent overlap"
+  ["2"],
+  "a wider marker does not inherit from a narrower marker covering exactly half of it"
 );
 
 assert.deepEqual(
@@ -285,8 +285,8 @@ assert.deepEqual(
     ],
     { tags: [feet, bj, orgasm], topPerformers: [], bottomPerformers: [] }
   ).map((m) => m.id),
-  ["2", "3"],
-  "multi-tag searches match marker contexts inheriting every selected tag"
+  ["3"],
+  "multi-tag searches only match recipients that can inherit every selected tag from equal-or-longer sources"
 );
 
 assert.deepEqual(
@@ -353,7 +353,7 @@ assert.deepEqual(
     [
       marker("1", 0, 20, footwear, [verga]),
       marker("2", 10, 30, feet, [verga, bj]),
-      marker("3", 5, 15, boots),
+      marker("3", 5, 25, boots),
     ]
   ).map((displayTag) => `${displayTag.kind}:${displayTag.tag.id}`),
   [
@@ -457,6 +457,15 @@ assert.deepEqual(
 const body = tag("body", "Body");
 const sex = tag("sex", "Sex");
 const facial = tag("facial", "Facial");
+
+assert.deepEqual(
+  filterChronologicalSceneMarkers(
+    [marker("body-wide", 0, 100, body), marker("sex-narrow", 25, 75, sex)],
+    { tags: [body, sex], topPerformers: [], bottomPerformers: [] }
+  ).map((m) => m.id),
+  ["sex-narrow"],
+  "a narrower marker inherits from a wider marker without the wider marker inheriting back"
+);
 
 assert.deepEqual(
   filterChronologicalSceneMarkers(
@@ -785,7 +794,7 @@ const nearEqualFeetMarker = marker(
 const nearEqualSexMarker = marker(
   "highlight-near-equal-sex",
   302,
-  398,
+  402,
   sex,
   [],
   [tyga]
@@ -798,7 +807,7 @@ const nearEqualGroups = groupChronologicalSceneMarkerHighlights(
 assert.equal(
   nearEqualGroups.length,
   1,
-  "markers with mutual majority overlap share one final configuration card"
+  "equal-duration markers with mutual majority overlap share one final configuration card"
 );
 assert.deepEqual(
   nearEqualGroups[0].segments.map((segment) => [
@@ -807,7 +816,7 @@ assert.deepEqual(
   ]),
   [
     [300, 400],
-    [302, 398],
+    [302, 402],
   ],
   "near-equal markers still render one full pill per database marker"
 );

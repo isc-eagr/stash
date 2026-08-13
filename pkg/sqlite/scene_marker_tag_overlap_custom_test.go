@@ -28,10 +28,17 @@ func TestMarkerEffectiveTagsUseFiftyPercentOverlapCustom(t *testing.T) {
 		}
 
 		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+		setMarkerRange(t, ctx, recipientMarkerID, 0, 100)
+		setMarkerRange(t, ctx, sourceMarkerID, 25, 75)
+
+		ids := markersToIDs(queryMarkers(ctx, t, db.SceneMarker, filter, nil))
+		assert.NotContains(t, ids, recipientMarkerID, "a wider marker should not inherit from a narrower marker covering half of it")
+		assert.Contains(t, ids, sourceMarkerID, "the narrower marker should still inherit from the wider marker")
+
 		setMarkerRange(t, ctx, recipientMarkerID, 0, 60)
 		setMarkerRange(t, ctx, sourceMarkerID, 30, 150)
 
-		ids := markersToIDs(queryMarkers(ctx, t, db.SceneMarker, filter, nil))
+		ids = markersToIDs(queryMarkers(ctx, t, db.SceneMarker, filter, nil))
 		assert.Contains(t, ids, recipientMarkerID, "exactly fifty percent overlap should inherit source tags")
 		assert.NotContains(t, ids, sourceMarkerID, "the longer source should not inherit across the same shorter overlap")
 

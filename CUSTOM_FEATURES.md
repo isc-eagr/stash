@@ -60,6 +60,8 @@ This document describes all custom features and modifications added on top of th
 50. [Cinematic Loading Overlay](#50-cinematic-loading-overlay)
 51. [Negative Marker Create Parity](#51-negative-marker-create-parity)
 52. [Scene Marker Duplicate and In-Between Actions](#52-scene-marker-duplicate-and-in-between-actions)
+53. [Copy Scene Marker Timestamps From the Player Timeline](#53-copy-scene-marker-timestamps-from-the-player-timeline)
+54. [Scene Card Marker Insights](#54-scene-card-marker-insights)
 
 ---
 
@@ -351,16 +353,16 @@ Multiple new filter criteria for scenes.
 - `pkg/sqlite/scene_marker_tag_overlap_custom.go` - Shared directed 50%-overlap marker-tag inheritance SQL helpers
 - `pkg/sqlite/performer_filter_custom.go`, `pkg/sqlite/performer_custom.go`, `pkg/sqlite/studio_custom.go` - Performer/studio marker tag filters and sorts reuse overlap-aware marker tag matching
 - `pkg/sqlite/scene_marker_test.go` - Integration tests for overlap-aware scene include/exclude, marker-page filtering, overlap groups, and direct marker performer ownership
-- `pkg/sqlite/scene_marker_tag_overlap_custom_test.go` - Integration coverage for the exact 50% inheritance boundary, below-threshold rejection, and asymmetric inheritance
+- `pkg/sqlite/scene_marker_tag_overlap_custom_test.go` - Integration coverage for the exact 50% inheritance boundary, below-threshold rejection, and the rule preventing wider markers from inheriting from narrower sources
 - `docs/scene_marker_filter_builder_poc.html` - Standalone proof-of-concept for a dedicated marker filter builder UI
 
 Allows filtering scenes by their marker tags with **role-specific performer attributes**:
 
-- `EQUALS`: Groups of tags where each group requires all tags present in a single marker, including effective tags inherited from source markers that overlap at least 50% of the receiving marker's duration
+- `EQUALS`: Groups of tags where each group requires all tags present in a single marker, including effective tags inherited from equal-or-longer source markers that overlap at least 50% of the receiving marker's duration
 - `INCLUDES`: Any scene with markers having any of the specified tags
 - `Scene Markers: Exclude`: Exclusion groups use the same directed 50%-overlap inheritance, so a scene can be excluded when a marker plus its inherited source tags collectively satisfy the group
 - Marker-list results only return markers that directly have at least one requested tag; when multiple overlapping direct-tag markers satisfy the same tag-only group, the shortest marker wins
-- Marker performer constraints are always evaluated against the marker itself. A source marker meeting the 50% threshold can contribute effective tags, but it does not contribute top/bottom performer assignments.
+- Marker performer constraints are always evaluated against the marker itself. An equal-or-longer source marker meeting the 50% threshold can contribute effective tags, but it does not contribute top/bottom performer assignments.
 - `overlap_groups`: Advanced direct marker requirements that must be satisfied by markers whose time ranges overlap. These explicit overlap searches retain any positive time intersection and are separate from directed tag inheritance. The groups reuse `SceneMarkerTagGroupInput`, including named and unnamed top/bottom/both-role performer criteria, so searches like "feet marker with unnamed top overlaps BJ marker with unnamed bottom" can be expressed without collapsing role assignments across markers. Reusing the same unnamed performer ID across overlap groups requires the same actual performer in each specified role. Marker-list overlap results return only the narrowest matched requirement marker.
 - The Markers page `Markers` filter supports multiple marker rows inside one criterion; two or more rows are always treated as overlapping marker requirements so overlap searches can be expressed without adding duplicate sidebar criteria.
 
@@ -502,7 +504,7 @@ Whenever a Studio list sort other than Name or Random is active, each card shows
 
 ### Catalog Active-Sort Metric Badges
 
-The same emerald active-sort treatment is shared by the Scenes, Vatos, Groups, Images, Markers, Galleries, and Tags grid catalogs. Each catalog suppresses it for its own default sort (Scene Date, Vato/Group/Tag Name, Image/Gallery Path, and Marker Title) and for both plain and seeded Random sorts. For other sorts, an exact value already visible on the card is highlighted in place—covering ratings, applicable dates/media specs, count controls, scene activity percentages, marker timing, and configured vato role badges—while non-card and aggregate values continue to use the compact label/value/direction strip. Zero-count controls remain visible while their metric is active so every card still communicates its sorted value without a duplicate strip.
+The same emerald active-sort treatment is shared by the Scenes, Vatos, Groups, Images, Markers, Galleries, and Tags grid catalogs. Each catalog suppresses it for its own default sort (Scene Date, Vato/Group/Tag Name, Image/Gallery Path, and Marker Title) and for both plain and seeded Random sorts. For other sorts, an exact value already visible on the card is highlighted in place—covering ratings, applicable dates/media specs, count controls, marker timing, and configured vato role badges—while non-card and aggregate values continue to use the compact label/value/direction strip. Scene activity/quality percentage sorts use that strip because interpreted scene insights replace the old seven-value percentage footer. Zero-count controls remain visible while their metric is active so every card still communicates its sorted value without a duplicate strip.
 
 - `ui/v2.5/src/components/Shared/SortMetricBadge_custom.tsx`, `SortMetricBadge_custom.scss`, `sortMetric_custom.ts`, and `catalogCardSortHighlight_custom.ts` provide the common strip/highlight presentation, formatting, seeded-random normalization, and default-sort suppression.
 - The catalog-specific `*SortMetric_custom.ts` files map each available sort to the corresponding scene, performer, group, image, gallery, marker, or tag card value.
@@ -793,7 +795,7 @@ interface IPerformerCardProps {
 1. **Performer Scene Tags Button**: Green button showing aggregated performer scene tags for the scene
 2. **Role Icons on Overlay**: Visual indicators for scene type (gay, oral, solo, facial)
 3. **Gold Facial Icon (Really Hot Facial)**: Facial icon displays in gold when a scene has a marker tagged with BOTH the configured Facial tag AND the new Really Hot qualifier tag. White facial icon shows for plain facial markers; gold facial icon takes precedence when the really-hot combo is found. Configurable via Settings → Interface → Role Tags → "Really Hot qualifier tag". Applies to both the scene card overlay and the in-scene player overlay.
-4. **Activity Duration Percentages**: Scene cards show a two-row runtime strip. The first row shows Sex, Oral, Solo, and Other percentages from configured primary role marker tags; same-category overlaps are merged, cross-category overlaps count toward each category, and Other represents runtime without a sex/oral/solo marker. The second row shows Outstanding, Standard, and Unusable: Outstanding is any timed marker that is not a configured sex/oral/solo primary marker, or a configured sex/oral/solo primary marker with secondary tags; Standard is unmarked runtime or plain configured sex/oral/solo marker runtime not overlapped by Outstanding; Unusable comes from negative/Skip marker ranges.
+4. **Activity Duration Percentages**: The shared runtime calculation provides Sex, Oral, Solo, and Other percentages from configured primary role marker tags; same-category overlaps are merged, cross-category overlaps count toward each category, and Other represents runtime without a sex/oral/solo marker. It also provides Outstanding, Standard, and Unusable: Outstanding is any timed marker that is not a configured sex/oral/solo primary marker, or a configured sex/oral/solo primary marker with secondary tags; Standard is unmarked runtime or plain configured sex/oral/solo marker runtime not overlapped by Outstanding; Unusable comes from negative/Skip marker ranges. Scene details retain the two-row metric strip; scene cards use the compact interpreted insights documented in section 54 instead of repeating all seven percentages.
 
 ### Custom Assets Added
 
@@ -1263,7 +1265,7 @@ CREATE INDEX `idx_scene_marker_performers_performer_role` ON `scene_marker_perfo
   - Marker Performer Country - Filter by country of marker performers
   - Marker Performer Ethnicity - Filter by ethnicity of marker performers
   - Marker Performer Rating - Filter by rating of marker performers
-- The Markers page tag matching treats a marker as inheriting tags from same-scene source markers whose overlap covers at least 50% of the receiving marker's duration, while preserving direct primary/secondary tag matching. The calculation is directional, so a shorter marker can inherit from a longer marker without the longer marker inheriting back. Returned marker rows must directly have at least one requested tag, and overlapping matches collapse to the shortest qualifying marker.
+- The Markers page tag matching treats a marker as inheriting tags from same-scene sources of equal or greater duration whose overlap covers at least 50% of the receiving marker's duration, while preserving direct primary/secondary tag matching. The calculation is directional: a shorter marker can inherit from a longer marker, but a wider marker never inherits from a narrower source inside it. Returned marker rows must directly have at least one requested tag, and overlapping matches collapse to the shortest qualifying marker.
 - **Performer "Markers" Tab**: New performer details tab that shows only markers linked directly to the performer via `scene_marker_performers`
 - Full CRUD support for marker performers with backward compatibility
 
@@ -3555,7 +3557,7 @@ Activity ranges and Highlights are rendered as separate, always-visible lanes be
 
 Selection checkboxes follow the visible hierarchy: section selectors cover all displayed Activity and Highlight markers, multi-configuration sections expose a selector for each performer configuration, lanes select only their own marker type, and pills select individual markers or merged highlight segments. Parent selectors show an indeterminate state for partial selection and use larger hit areas. Distinct performer configurations remain separate, but their redundant Top/Bottom text labels are omitted because performer borders already communicate those roles. Exact duplicate configuration headers are omitted when a section contains only one performer configuration, so duration and selection metadata are not repeated.
 
-Scene-card performer-count hover popovers reuse the performer/tag-card presentation. Each scene performer displays the union produced by running every scene marker through the same directed 50%-overlap inheritance calculation as the in-scene marker hover: top-role tags use blue chips and bottom-role tags use green chips. A tag remains in both colors when the performer has both roles across different markers, and scene performers without marker assignments remain visible with no chips.
+Scene-card performer-count hover popovers reuse the performer/tag-card presentation. Each scene performer displays the union produced by running every scene marker through the same directed 50%-overlap inheritance calculation as the in-scene marker hover: top-role tags use blue chips and bottom-role tags use green chips. A tag remains in both colors when the performer has both roles across different markers, and scene performers without marker assignments remain visible with no chips. On `/scenes`, every qualifying portrait applies the exact shared `/performers` card skin for its Bronze, Silver, Gold, or Royal Sapphire tier, including the configured theme, performer thresholds, and rating-override tags; no scene-only metallic palette is maintained. Each set rating appears in a tiny star-and-number pill below the portrait and above the name, keeping the score in normal layout flow instead of covering any part of the image.
 
 Marker-card performer-count hovers now use that exact in-scene inherited-tag popup instead of the generic scene-performer popup. The card grid batches a slim scene-marker context lookup by visible scene IDs, so the popup and context tags remain complete across pagination without issuing one request per card. Marker-card overlap chips use the same directed 50%-overlap context calculation and remain gray; Sapphire card styling preserves these semantic tag colors and the blue/green performer-role chips instead of repainting them Sapphire.
 
@@ -3563,9 +3565,9 @@ The unified section has scene-local selectable search fields for tags, top perfo
 
 The Create Marker, Add to Loop, and Open in Viewer toolbar sticks to the top of the marker-tab scroll area. The scene-tabs shell keeps the tab content as the single desktop scroll parent so the sticky positioning remains effective. Activity Type headers also stick directly below the measured toolbar, preserving context through long runs of performer configurations; each header is bounded by its own Activity Type section, so it hands off cleanly to the next header instead of accumulating. Bulk action labels include the selected count, and the status row distinguishes visible selections from markers hidden by active filters. Separate one-click actions select the visible results, select the full scene result set, or clear any partial selection. Opening the Viewer preserves selection because it is non-mutating; adding to the loop clears selection to prevent accidental duplicate insertion.
 
-Marker rows and `/scenes/markers` marker cards display direct primary tags, direct secondary tags, inherited overlap tags, and hierarchy-inferred parent tags with distinct badge colors. A source marker contributes inherited tags when its intersection covers at least 50% of the receiving marker's duration; the source evaluates its own duration independently, so inheritance can be one-way. Parent tags are collapsed behind a small `+N` toggle by default, and they are also included in scene-local tag search options, so a marker tagged with a child tag can be searched by its parent tag. Duplicate tags only render once at the highest available tier: primary, then secondary, then overlap, then parent.
+Marker rows and `/scenes/markers` marker cards display direct primary tags, direct secondary tags, inherited overlap tags, and hierarchy-inferred parent tags with distinct badge colors. A source marker contributes inherited tags when it is at least as long as the receiving marker and their intersection covers at least 50% of the receiver's duration. This keeps inheritance one-way from wider to narrower markers and prevents a wider marker from absorbing tags from narrower markers inside it. Parent tags are collapsed behind a small `+N` toggle by default, and they are also included in scene-local tag search options, so a marker tagged with a child tag can be searched by its parent tag. Duplicate tags only render once at the highest available tier: primary, then secondary, then overlap, then parent.
 
-Scene detail pages also include an icon toggle beside the scene tabs that hides the scene overview/header block, allowing the active tab panel to use the full vertical space of the left column. The scene player scrubber marker tags and timeline marker tooltips use the same performer/tag-card hover presentation as the Markers tab pills. Direct marker tags keep their solid blue Top and green Bottom pill treatments; tags contributed solely by a qualifying overlap source use the same role colors at a muted opacity with a fine dashed border. GOAT-tagged thumbnail-scrubber tags, player-timeline dots/ranges, and timeline hover cards reuse the persistent Royal Sapphire treatment from marker cards and panel pills. Timeline tooltips use the same 50%-overlap-derived performer tags as the Markers tab, including one performer tile with both role colors when the same performer has top and bottom tags across overlapping markers. This applies to outstanding/highlight and Activity Type markers: a marker inherits another marker's tags and roles when their intersection covers at least 50% of its own duration. Because each marker uses its own duration as the denominator, a shorter marker can inherit from a longer source without the longer source inheriting back. Fullscreen player controls hide on idle even while paused. Clicking either a scene player timeline marker or a thumbnail-scrubber marker performs a one-shot focus into the Markers tab, so later filter/edit changes do not keep auto-scrolling back to that marker. Every click receives a distinct latest-wins request: repeated clicks on the same marker restart the focus, while newer clicks cancel older pending frames, smooth scrolling, glow timers, and glow animation state. The focused marker or its rendered Activity Type group glows fuchsia for 10 seconds, including current-playback and Royal Sapphire/GOAT-themed activity pills, keeping the transient interaction state distinct from the persistent sapphire tier. Marker focus scrolls only the tab content, keeping the scene tab rows visible when the panel is vertically expanded. Timeline markers, marker ranges, and thumbnail-scrubber tags gain a restrained blue hover aura without moving their position or hit targets. Hovered timeline ranges also receive a thin neutral contrast rim so adjacent ranges remain distinct regardless of their semantic color, while overlapping negative-marker ranges stay visibly red above the hover treatment.
+Scene detail pages also include an icon toggle beside the scene tabs that hides the scene overview/header block, allowing the active tab panel to use the full vertical space of the left column. The scene player scrubber marker tags and timeline marker tooltips use the same performer/tag-card hover presentation as the Markers tab pills. Direct marker tags keep their solid blue Top and green Bottom pill treatments; tags contributed solely by a qualifying overlap source use the same role colors at a muted opacity with a fine dashed border. GOAT-tagged thumbnail-scrubber tags, player-timeline dots/ranges, and timeline hover cards reuse the persistent Royal Sapphire treatment from marker cards and panel pills. Timeline tooltips use the same 50%-overlap-derived performer tags as the Markers tab, including one performer tile with both role colors when the same performer has top and bottom tags across overlapping markers. This applies to outstanding/highlight and Activity Type markers: a marker inherits another marker's tags and roles when the source is at least as long and their intersection covers at least 50% of the receiver's duration. A shorter marker can therefore inherit from a longer source, while the wider marker cannot inherit from a narrower marker inside it. Fullscreen player controls hide on idle even while paused. Clicking either a scene player timeline marker or a thumbnail-scrubber marker performs a one-shot focus into the Markers tab, so later filter/edit changes do not keep auto-scrolling back to that marker. Every click receives a distinct latest-wins request: repeated clicks on the same marker restart the focus, while newer clicks cancel older pending frames, smooth scrolling, glow timers, and glow animation state. The focused marker or its rendered Activity Type group glows fuchsia for 10 seconds, including current-playback and Royal Sapphire/GOAT-themed activity pills, keeping the transient interaction state distinct from the persistent sapphire tier. Marker focus scrolls only the tab content, keeping the scene tab rows visible when the panel is vertically expanded. Timeline markers, marker ranges, and thumbnail-scrubber tags gain a restrained blue hover aura without moving their position or hit targets. Hovered timeline ranges also receive a thin neutral contrast rim so adjacent ranges remain distinct regardless of their semantic color, while overlapping negative-marker ranges stay visibly red above the hover treatment.
 
 ### Files Modified
 
@@ -3578,6 +3580,7 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - `ui/v2.5/src/components/Scenes/SceneMarkerCard.tsx`
 - `ui/v2.5/src/components/Scenes/SceneMarkerCardGrid.tsx`
 - `ui/v2.5/src/components/Scenes/SceneMarkerRecommendationRow.tsx`
+- `ui/v2.5/src/components/Scenes/DeleteScenesDialog.tsx`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerChronologySearch_custom.ts`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerHoverPopover_custom.tsx`
 - `ui/v2.5/src/components/Shared/ratingCardStyles_custom.scss`
@@ -3624,6 +3627,7 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - `ui/v2.5/tests/sceneMarkerSectionNavigation_custom.test.ts`
 - `ui/v2.5/tests/sceneMarkerVisualStates_custom.test.ts`
 - `ui/v2.5/tests/sceneMarkerTimelineStyle_custom.test.ts`
+- `ui/v2.5/tests/sceneCardPerformerRatingHighlight_custom.test.ts`
 - `ui/v2.5/tests/tagSelectRendererIdentity_custom.test.ts`
 
 ### Test Cases Added
@@ -3643,10 +3647,11 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 - Verifies GOAT-tagged highlight markers are detected for Royal Sapphire styling.
 - Verifies displayed marker tag badges distinguish primary, secondary, overlap, and parent tags while deduping to the highest tier.
 - Verifies displayed overlap tags are only inferred between markers from the same scene.
-- Verifies marker-card context tags use directed 50%-overlap inheritance, including the exact boundary, below-threshold rejection, and one-way short-marker inheritance.
+- Verifies marker-card context tags use directed 50%-overlap inheritance, including the exact boundary, below-threshold rejection, and the wider-marker prohibition against inheriting from narrower sources.
 - Verifies single-tag performer filters do not create derived overlap ranges from nearby tag-only markers.
 - Verifies activity type markers are limited to configured sex/oral/solo primary-only markers and secondary tags make them highlights.
 - Verifies scene-card performer summaries union direct and overlap-computed marker tags independently for top and bottom roles, including the same tag appearing in both role colors.
+- Verifies scene-card performer portraits load rating/override-tag data, apply performer-specific thresholds and override precedence, reuse the shared premium/classic performer-card skins, and place a compact star-and-number rating below rather than over the portrait.
 - Verifies marker hover data keeps direct role tags primary and identifies overlap-contributed role tags for the muted dashed treatment.
 - Verifies the unified chronological section includes configured feet, orgasm, and facial primary tags as section markers without changing strict Activity Type marker classification.
 - Verifies facial-tagged orgasm markers are assigned to Facial instead of standard Orgasm, including child facial tags.
@@ -3671,6 +3676,7 @@ Scene detail pages also include an icon toggle beside the scene tabs that hides 
 
 - Uses existing `configuration.ui.roleTagIds.sexTagId`, `oralTagId`, and `soloTagId` to identify Activity Type markers.
 - Uses existing `configuration.ui.roleTagIds.feetTagId`, `orgasmTagId`, and `facialTagId` to add non-activity sections to the unified chronological marker section.
+- Scene-card performer portraits reuse `configuration.ui.ratingCardTheme`, performer-specific `ratingCardThresholds`, `ratingCardOverrideTagIds`, and the configured GOAT tag for tier selection.
 - Uses `configuration.ui.showOfficialSceneMarkerLayout` to switch the scene Markers tab between the custom chronological layout and the upstream grouped layout.
 
 ---
@@ -3803,7 +3809,7 @@ The default Stash theme uses a cool-blue accent. Black Steel replaces that accen
 
 ### Overview
 
-Brings the negative marker create/edit form's shared range-editing features in line with the regular scene marker form. New negative markers use an active A-B loop as their initial range, fall back to a valid ten-second range at the player position, and show the live calculated duration below the end time. The creatable title picker fetches distinct negative-marker names globally across all scenes while skipping the regular-marker title query entirely. It requests fresh global results whenever the form opens, excludes blank names, preserves the first-used casing, and deduplicates case-insensitively so a saved name is selected instead of repeatedly offered as a new creation.
+Brings the negative marker create/edit form's shared range-editing features in line with the regular scene marker form. New negative markers use an active A-B loop as their initial range, fall back to a valid ten-second range at the player position, and show the live calculated duration below the end time. The creatable title picker fetches distinct negative-marker names globally across all scenes while skipping the regular-marker title query entirely. It requests fresh global results whenever the form opens, ranks saved titles by use count, excludes blank names, preserves the first-used casing, and deduplicates case-insensitively so a saved name is selected instead of repeatedly offered as a new creation. Both marker title pickers retain stable option identities across form renders, so Arrow Up/Down focus stays on the intended result.
 
 Gap and overlap warnings expose the complete action set on both forms: fix the previous or next issue on the marker being edited, fix either adjacent scene or negative marker instead, fix both issues on the current marker, or fix both adjacent markers when both are known.
 
@@ -3811,13 +3817,13 @@ Gap and overlap warnings expose the complete action set on both forms: fix the p
 
 - `ui/v2.5/src/components/Scenes/SceneDetails/SceneNegativeMarkerForm.tsx` - Adds A-B initialization, title suggestions, live duration, and all adjacent-marker fix actions.
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerGapWarning_custom.ts` - Exposes detailed adjacent-marker action metadata to the negative marker form.
-- `ui/v2.5/src/components/Shared/Select.tsx` - Allows the shared marker title picker to use custom marker-type suggestions, suppress duplicate Create options, and opt out of regular-marker titles.
-- `ui/v2.5/src/core/StashService.ts` - Skips the regular marker-title query and fetches fresh global negative-marker names for negative-marker forms.
+- `ui/v2.5/src/components/Shared/Select.tsx` - Ranks and stabilizes shared marker-title suggestions so keyboard navigation does not reset, while supporting custom marker-type sources.
+- `ui/v2.5/src/core/StashService.ts` - Requests regular marker titles ordered by saved-marker use count and fetches fresh global negative-marker names for negative-marker forms.
 - `ui/v2.5/graphql/queries/misc.graphql` - Adds the global negative-marker name query used by the form.
 - `graphql/schema/schema_custom.graphql` - Exposes global negative-marker names through the custom GraphQL query surface.
 - `pkg/models/scene_negative_marker_custom.go` - Adds the global name lookup to the negative-marker repository contract.
 - `pkg/models/mocks/SceneNegativeMarkerReaderWriter_custom.go` - Implements the new repository method in the negative-marker mock.
-- `pkg/sqlite/scene_negative_marker_custom.go` - Loads distinct, non-blank names across every scene.
+- `pkg/sqlite/scene_negative_marker_custom.go` - Loads distinct, non-blank names across every scene ranked by use count.
 - `internal/api/resolver_scene_negative_marker_custom.go` - Resolves the global name query in a read transaction.
 - `internal/api/generated_exec.go`, `ui/v2.5/src/core/generated-graphql.ts` - Regenerated GraphQL server and UI bindings.
 - `ui/v2.5/tests/sceneMarkerGapWarning_custom.test.ts` - Verifies negative markers receive update metadata for adjacent scene and negative markers.
@@ -3837,8 +3843,8 @@ Gap and overlap warnings expose the complete action set on both forms: fix the p
 - Verifies a loop without a usable end still creates a valid range.
 - Verifies editing preserves the saved range regardless of the active loop.
 - Verifies live duration calculation and invalid-range suppression.
-- Verifies regular marker titles are excluded, while saved negative-marker titles are deduplicated case-insensitively and are not offered as new Create options.
-- Verifies global negative-marker names include multiple scenes, exclude blank names, deduplicate trimmed case variants, preserve first-used casing, and sort alphabetically.
+- Verifies regular marker titles are ranked by use count, while saved negative-marker titles are deduplicated case-insensitively and are not offered as new Create options.
+- Verifies global negative-marker names include multiple scenes, exclude blank names, deduplicate trimmed case variants, preserve first-used casing, and rank by use count.
 - Verifies both adjacent-marker action payloads include the correct marker ID, kind, and boundary update.
 
 ### GraphQL Schema Changes
@@ -3892,7 +3898,7 @@ After a valid insertion, the original range becomes two markers that retain the 
 
 ### Overview
 
-Adds a copy-from-marker action beside both time inputs in the regular and negative Create/Edit Marker forms. The action is the first button, before Select Current Timestamp and Jump To. Starting it from either Start time or End time puts the scene player into a one-shot timestamp selection mode while preserving the originating form and destination field. Hovering a regular or negative marker on either the video progress bar or thumbnail scrubber opens a stable picker showing the marker title, its full millisecond-precise range, and two uncluttered full-width Start and End buttons whose timestamps are the color-coded selectable chips. The picker is anchored at the cursor entry/click position instead of the center of a potentially long marker and remains fixed while the pointer moves onto it. Negative-marker hover takes exclusive ownership over any overlapping regular marker so only the negative picker remains open and stale mouse-leave events cannot dismiss it. Selecting a timestamp copies that exact boundary into the launching field, exits copy mode, and keeps the originating marker form open. Open-ended regular markers offer only their available start timestamp, and ordinary marker seeking/focus behavior remains unchanged outside copy mode. Marker-level selection avoids competing controls at adjacent boundaries, so markers separated by only one millisecond remain easy to use.
+Adds a copy-from-marker action beside both time inputs in the regular and negative Create/Edit Marker forms. The action is the first button, before Select Current Timestamp and Jump To. Starting it from either Start time or End time puts the scene player into a one-shot timestamp selection mode while preserving the originating form and destination field. Hovering a regular or negative marker on either the video progress bar or thumbnail scrubber opens a stable picker showing only the marker tag and its full millisecond-precise range, with the Start and End timestamps as violet and yellow selectable chips inside that range. Both copy-mode and ordinary Video.js seek-bar popups are anchored at the cursor entry position instead of the center of a potentially long marker and remain fixed while the pointer moves onto them. Negative-marker hover takes exclusive ownership over any overlapping regular marker in both paths, so only the negative picker remains open and stale mouse-leave events cannot dismiss it. Selecting a chip copies that exact boundary into the launching field, exits copy mode, and keeps the originating marker form open. Outside copy mode, the timestamp chips appear beneath the existing performer/tag hover content on regular markers painted on the Video.js seek bar and inside the negative-marker popup, and seek playback directly to the selected boundary. Open-ended regular markers offer only their available start timestamp, and ordinary marker seeking/focus behavior remains unchanged outside copy mode. Marker-level selection avoids competing controls at adjacent boundaries, so markers separated by only one millisecond remain easy to use.
 
 ### Files Modified
 
@@ -3904,8 +3910,8 @@ Adds a copy-from-marker action beside both time inputs in the regular and negati
 - `ui/v2.5/src/components/Scenes/SceneDetails/SceneNegativeMarkersPanel.tsx` - Passes timestamp-copy state through the negative-marker editor.
 - `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx` - Coordinates the sibling marker form and scene player while intercepting copy-mode marker clicks.
 - `ui/v2.5/src/components/ScenePlayer/ScenePlayer.tsx` - Enables exact range endpoints during copy mode, including on mobile or when normal range markers are hidden.
-- `ui/v2.5/src/components/ScenePlayer/ScenePlayerScrubber.tsx` - Opens cursor-anchored exact-time pickers from regular and negative thumbnail scrubber markers.
-- `ui/v2.5/src/components/ScenePlayer/markers.ts` - Adds the cursor-anchored interactive picker for regular and negative progress-bar ranges and dots.
+- `ui/v2.5/src/components/ScenePlayer/ScenePlayerScrubber.tsx` - Opens the reusable exact-time picker from thumbnail scrubber markers during timestamp-copy mode.
+- `ui/v2.5/src/components/ScenePlayer/markers.ts` - Adds the cursor-anchored copy picker and embeds direct-seek chips in the regular Video.js marker performer/tag hover card.
 - `ui/v2.5/src/index.scss` - Imports the isolated timestamp-copy styles after the scene player stylesheet.
 - `CUSTOM_FEATURES.md` - Documents marker timestamp copying.
 
@@ -3921,7 +3927,10 @@ Adds a copy-from-marker action beside both time inputs in the regular and negati
 - Verifies a source start can be copied into the End time field that launched the request.
 - Verifies a source end can be copied into the Start time field that launched the request.
 - Verifies open-ended markers do not offer a nonexistent end timestamp.
-- Verifies the picker exposes separate labeled options with exact seconds and omits End for open-ended markers.
+- Verifies the picker exposes separate selectable options with exact seconds and omits End for open-ended markers.
+- Verifies the reusable picker exposes the exact Start and End targets used by direct scrubber seeking.
+- Verifies direct-seek chips are attached to normal Video.js marker hover cards while the thumbnail scrubber retains its performer/tag popup.
+- Verifies normal seek-bar popups anchor at the cursor and negative markers retain ownership over overlapping regular markers.
 - Verifies an End and the following Start remain distinct when separated by only one millisecond.
 - Verifies a normalized negative-marker end can be copied into the launching field.
 - Verifies the destination contract preserves a negative-marker form field instead of routing the value to a regular-marker editor.
@@ -3935,3 +3944,49 @@ Adds a copy-from-marker action beside both time inputs in the regular and negati
 ### Configuration Dependencies
 
 - None. Copy mode temporarily shows range endpoints even when the normal range-marker display is disabled.
+
+---
+
+## 54. Scene Card Marker Insights
+
+### Overview
+
+Scene cards replace the description text and seven-value Activity/Quality percentage footer with up to seven compact marker-derived insight chips, reserving descriptions for the scene detail page. Each chip exposes its exact duration, episode, marker-count, or attribution evidence on hover/focus. Activity-quality insights use only the percentage of the activity that is outstanding. The former activity-linked-highlight share rule is removed, so single-activity scenes cannot receive a meaningless 100% highlight-lean score; they can still reach Near-perfect when their actual outstanding coverage meets that level. The four configurable levels are Good, Great, Amazing, and Near-perfect, and only the two strongest ordinary activity insights compete for card space. Their tooltip states the outstanding percentage and duration, for example `38% of oral is Outstanding (2:38)`. Scenes containing more than one activity type always receive a mandatory Sex Leaning, Oral Leaning, or Balanced classification; the Sex/Oral shares drive the wording, while Solo-only comparisons can produce a `no sex` or `no oral` minority description. Single-activity scenes are excluded. A leaning chip describes the losing activity as none, minimal, some, a good amount, or a lot of using configurable minority-share levels.
+
+Role-assigned Sex and Oral markers form a directed performer-interaction graph from top to bottom. Each role lane or performer pairing must independently meet the same configurable relevance evidence used by other insights. For exactly two vatos, the strongest matching pattern is one of three mutually exclusive chips: `Fully Versatile Scene` when both vatos top and bottom in Sex and Oral, `Sexually Versatile` when both do so in Sex but not Oral, or `Orally Versatile` when both do so in Oral but not Sex; Fully always takes precedence. Scenes with three or more vatos retain the group patterns: `Round-Robin Scene`, `Oral Circle`, `Versatile Group`, `Balanced Orgy`, `Balanced Threesome`, `Traditional Scene`, or `One Vato Center Stage`. Balanced Orgy requires every vato to interact with at least half of the other vatos. More specific patterns take precedence, and interaction chips rank below GOAT/Really Hot but above leaning and generic tag insights.
+
+Every direct non-activity marker tag can produce a `Lots of <tag>` insight once its overlap-merged duration or distinct episode count becomes relevant. Highlight attribution uses top performers only. When all contributing markers have the same attached top performer set, the chip includes those names; multiple relevant tags for that same performer set collapse into one chip. Configured Orgasm and Facial families use explicit counts and intentionally omit performer names in ordinary and Really Hot variants. GOAT event/tag chips retain their top-performer attribution and merge compatible non-Facial tags by performer; GOAT Facial always remains its own chip. GOAT candidates are never removed by the normal seven-chip ceiling. Really Hot Facial suppresses the redundant Really Hot Orgasm chip, and GOAT Facial similarly suppresses GOAT Orgasm. New automatic orgasm chips report simultaneous top-vato orgasms and repeated top orgasms per performer, excluding configured 2nd Camera markers from the repeated count. Every other GOAT marker is automatic and produces a separate GOAT insight for each direct non-activity, non-qualifier tag; a marker without another descriptive tag falls back to `GOAT moment`. Tag-derived labels preserve each tag's exact name and casing; only configured activity/event families use their explicit `Orgasm` and `Facial` labels.
+
+A GOAT-tagged Orgasm or Facial marker suppresses the matching Really Hot event chip.
+
+Negative evidence can produce `Few highlights` when outstanding episode count is small, and `Lots of filler` when time without any marker exceeds the configured percentage of the scene. Every positive marker covers its interval regardless of tag; negative-marker intervals are added to filler even when they overlap positive markers. The filler tooltip identifies the rule. Relevance never uses scene-coverage percentage. The seven-chip ceiling applies to non-GOAT candidates; GOAT candidates are all retained, then Really Hot candidates take precedence, the mandatory mixed-activity leaning chip reserves a slot, ordinary contextual insights occupy up to five slots, and ordinary activity-quality insights occupy up to two.
+
+### Files Added or Modified
+
+- `ui/v2.5/src/components/Scenes/sceneCardInsightsData_custom.ts` - Pure interval merging, tag/event/GOAT classification, performer role-graph patterns, activity attribution, leaning/minority levels, quality leveling, negative evidence, prioritization, vocabulary, and threshold normalization.
+- `ui/v2.5/src/components/Scenes/SceneCardInsights_custom.tsx` - Accessible chip strip and evidence tooltips.
+- `ui/v2.5/src/components/Scenes/SceneCard.tsx` and `styles.scss` - Card integration, insight presentation, and active activity-sort fallback badge behavior.
+- `ui/v2.5/src/core/config.ts`, `ui/v2.5/src/components/Settings/SettingsCustomPanel.tsx`, `ui/v2.5/src/components/Settings/Settings.tsx`, and `ui/v2.5/src/locales/en-GB.json`/`en-US.json` - Persisted UI configuration, actual painted example chips beside every numeric insight cutoff, and the Custom Settings tab placed at the bottom of the Settings navigation.
+- `ui/v2.5/tests/sceneCardInsightsData_custom.test.ts` - Focused deterministic insight tests.
+- `ui/v2.5/tests/sceneCardDescription_custom.test.ts` - Guards the card-only description removal.
+- `ui/v2.5/tests/sceneCardInsightsTooltip_custom.test.ts` - Guards OverlayTrigger ref and event-prop forwarding for chip tooltips.
+
+### Test Cases Added
+
+- Verifies arbitrary non-activity tags qualify through merged duration or distinct episodes without using scene coverage.
+- Verifies overlapping marker ranges merge into one episode.
+- Verifies GOAT fans out to every direct descriptive tag, excludes qualifier/activity labels, preserves exact tag names, and falls back to a GOAT moment.
+- Verifies automatic Really Hot and GOAT Orgasm/Facial insights, Facial-over-Orgasm precedence, GOAT performer merging, separate GOAT Facial chips, GOAT priority beyond the normal chip ceiling, performer suppression for ordinary/Really Hot event chips, top-only highlight attribution, simultaneous/repeated orgasm chips, ordinary event counts, and same-performer tag consolidation.
+- Verifies activity-quality levels using only outstanding activity percentage, explicit percentage/duration tooltips, mandatory mixed-activity leaning, single-activity scoring, configurable cutoffs, Sex/Oral leaning and minority-activity levels, episode-only Few Highlights, all-marker coverage, negative-marker filler overlap, percentage-based filler, negative insights, and the non-GOAT seven-chip maximum.
+- Verifies the three mutually exclusive two-vato versatility patterns, the retained 3+ vato group patterns including Versatile Group and Balanced Orgy, pattern precedence, configurable interaction evidence, and suppression when a listed scene performer has no meaningful interaction.
+- Verifies scene cards do not render scene description text.
+- Verifies scene insight chips forward tooltip refs and hover/focus event props.
+
+### GraphQL Schema Changes
+
+- None. Scene list cards already receive scene performers plus marker tags, parent IDs, top/bottom performers, start/end times, and file duration in `SlimSceneData`.
+
+### Configuration Dependencies
+
+- Uses the existing configured Sex, Oral, Solo, Orgasm, Facial, Really Hot, and GOAT tag IDs.
+- `configuration.ui.sceneCardInsightThresholds` configures relevant episode count, relevant merged duration, all four quality levels, Few Highlights maximum episodes, Filler total percentage, the Balanced Scene tolerance, and the three leaning-scene minority levels. Defaults are 3 episodes, more than 60 seconds, 20/40/60/80%, 1 outstanding episode, 20% filler, a 10 percentage-point Sex/Oral balance tolerance, and 10%/25%/40% minority shares for some/a good amount/a lot of. Interaction roles and performer pairings reuse the configured relevance episode/duration thresholds.

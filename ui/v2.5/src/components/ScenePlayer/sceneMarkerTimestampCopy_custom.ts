@@ -48,6 +48,22 @@ export function shouldScheduleSceneMarkerTimestampPickerHide(
   return requestedOwner === undefined || activeOwner === requestedOwner;
 }
 
+export function shouldShowSceneMarkerTooltip({
+  activeOwner,
+  activeIsNegative,
+  requestedOwner,
+  requestedIsNegative,
+}: {
+  activeOwner: unknown;
+  activeIsNegative: boolean;
+  requestedOwner: unknown;
+  requestedIsNegative: boolean;
+}) {
+  return (
+    requestedIsNegative || !activeIsNegative || activeOwner === requestedOwner
+  );
+}
+
 export function getSceneMarkerTimestampPickerHorizontalLayout({
   parentWidth,
   pickerWidth,

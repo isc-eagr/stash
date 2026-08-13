@@ -12,6 +12,12 @@ import {
   getRatingCardThresholdsForEntity,
   normalizeRatingCardThresholds,
 } from "src/utils/ratingCardStyles_custom";
+import {
+  normalizeSceneCardInsightThresholds,
+  type ISceneCardInsight,
+  type SceneCardInsightThresholdKey,
+} from "src/components/Scenes/sceneCardInsightsData_custom"; // CUSTOM
+import { SceneCardInsightChip } from "src/components/Scenes/SceneCardInsights_custom"; // CUSTOM
 import { SettingSection } from "./SettingSection";
 import {
   BooleanSetting,
@@ -32,6 +38,19 @@ type RoleTagKey =
   | "reallyHotTagId"
   | "goatTagId";
 
+function sceneCardInsightSettingHeading(
+  label: string,
+  chipLabel: string,
+  tone: ISceneCardInsight["tone"]
+) {
+  return (
+    <span className="scene-card-insight-setting-heading">
+      <span>{label}</span>
+      <SceneCardInsightChip label={chipLabel} tone={tone} />
+    </span>
+  );
+}
+
 export const SettingsCustomPanel: React.FC = () => {
   const intl = useIntl();
   const Toast = useToast();
@@ -48,6 +67,9 @@ export const SettingsCustomPanel: React.FC = () => {
     ui.ratingCardThresholds,
     "performer"
   );
+  const sceneCardInsightThresholds = normalizeSceneCardInsightThresholds(
+    ui.sceneCardInsightThresholds
+  ); // CUSTOM
 
   function saveRatingCardThreshold(
     entityType: "scene" | "performer",
@@ -92,6 +114,20 @@ export const SettingsCustomPanel: React.FC = () => {
       },
     });
   }
+
+  // CUSTOM: begin - configurable scene card insight thresholds
+  function saveSceneCardInsightThreshold(
+    key: SceneCardInsightThresholdKey,
+    value: number
+  ) {
+    saveUI({
+      sceneCardInsightThresholds: {
+        ...(ui.sceneCardInsightThresholds ?? {}),
+        [key]: value,
+      },
+    });
+  }
+  // CUSTOM: end
 
   async function deleteSimpleMarkerPreviews() {
     try {
@@ -328,6 +364,200 @@ export const SettingsCustomPanel: React.FC = () => {
           />
         </Setting>
       </SettingSection>
+
+      {/* CUSTOM: begin - configurable scene card insight thresholds */}
+      <SettingSection headingID="config.ui.scene_card_insights.heading">
+        <NumberSetting
+          id="scene-card-insights-relevant-episodes"
+          heading={sceneCardInsightSettingHeading(
+            intl.formatMessage({
+              id: "config.ui.scene_card_insights.relevant_episodes.heading",
+            }),
+            "Lots of pito from Tyga Martinez",
+            "tag"
+          )}
+          subHeadingID="config.ui.scene_card_insights.relevant_episodes.description"
+          value={sceneCardInsightThresholds.relevantMinEpisodes}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold("relevantMinEpisodes", value)
+          }
+        />
+        <NumberSetting
+          id="scene-card-insights-relevant-duration"
+          heading={sceneCardInsightSettingHeading(
+            intl.formatMessage({
+              id: "config.ui.scene_card_insights.relevant_duration.heading",
+            }),
+            "Lots of pito from Tyga Martinez",
+            "tag"
+          )}
+          subHeadingID="config.ui.scene_card_insights.relevant_duration.description"
+          value={sceneCardInsightThresholds.relevantMinDurationSeconds}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold("relevantMinDurationSeconds", value)
+          }
+        />
+        <NumberSetting
+          id="scene-card-insights-good"
+          heading={sceneCardInsightSettingHeading(
+            intl.formatMessage({
+              id: "config.ui.scene_card_insights.good.heading",
+            }),
+            "Good oral",
+            "activity"
+          )}
+          subHeadingID="config.ui.scene_card_insights.good.description"
+          value={sceneCardInsightThresholds.goodOutstandingPercent}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold("goodOutstandingPercent", value)
+          }
+        />
+        <NumberSetting
+          id="scene-card-insights-great"
+          heading={sceneCardInsightSettingHeading(
+            intl.formatMessage({
+              id: "config.ui.scene_card_insights.great.heading",
+            }),
+            "Great oral",
+            "activity"
+          )}
+          subHeadingID="config.ui.scene_card_insights.great.description"
+          value={sceneCardInsightThresholds.greatOutstandingPercent}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold("greatOutstandingPercent", value)
+          }
+        />
+        <NumberSetting
+          id="scene-card-insights-amazing"
+          heading={sceneCardInsightSettingHeading(
+            intl.formatMessage({
+              id: "config.ui.scene_card_insights.amazing.heading",
+            }),
+            "Amazing oral",
+            "activity"
+          )}
+          subHeadingID="config.ui.scene_card_insights.amazing.description"
+          value={sceneCardInsightThresholds.amazingOutstandingPercent}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold("amazingOutstandingPercent", value)
+          }
+        />
+        <NumberSetting
+          id="scene-card-insights-near-perfect"
+          heading={sceneCardInsightSettingHeading(
+            intl.formatMessage({
+              id: "config.ui.scene_card_insights.near_perfect.heading",
+            }),
+            "Near-perfect oral",
+            "activity"
+          )}
+          subHeadingID="config.ui.scene_card_insights.near_perfect.description"
+          value={sceneCardInsightThresholds.nearPerfectOutstandingPercent}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold(
+              "nearPerfectOutstandingPercent",
+              value
+            )
+          }
+        />
+        <NumberSetting
+          id="scene-card-insights-few-highlights-episodes"
+          heading={sceneCardInsightSettingHeading(
+            intl.formatMessage({
+              id: "config.ui.scene_card_insights.few_highlights_episodes.heading",
+            }),
+            "Few highlights",
+            "negative"
+          )}
+          subHeadingID="config.ui.scene_card_insights.few_highlights_episodes.description"
+          value={sceneCardInsightThresholds.fewHighlightsMaxEpisodes}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold("fewHighlightsMaxEpisodes", value)
+          }
+        />
+        <NumberSetting
+          id="scene-card-insights-filler-total"
+          heading={sceneCardInsightSettingHeading(
+            intl.formatMessage({
+              id: "config.ui.scene_card_insights.filler_percent.heading",
+            }),
+            "Lots of filler",
+            "negative"
+          )}
+          subHeadingID="config.ui.scene_card_insights.filler_percent.description"
+          value={sceneCardInsightThresholds.fillerTotalPercent}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold("fillerTotalPercent", value)
+          }
+        />
+        <NumberSetting
+          id="scene-card-insights-leaning-balance-tolerance"
+          heading={sceneCardInsightSettingHeading(
+            intl.formatMessage({
+              id: "config.ui.scene_card_insights.leaning_balance_tolerance.heading",
+            }),
+            "Balanced Scene",
+            "activity"
+          )}
+          subHeadingID="config.ui.scene_card_insights.leaning_balance_tolerance.description"
+          value={sceneCardInsightThresholds.leaningBalanceTolerancePercent}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold(
+              "leaningBalanceTolerancePercent",
+              value
+            )
+          }
+        />
+        <NumberSetting
+          id="scene-card-insights-leaning-minority-some"
+          heading={sceneCardInsightSettingHeading(
+            intl.formatMessage({
+              id: "config.ui.scene_card_insights.leaning_minority_some.heading",
+            }),
+            "Sex Leaning Scene with some oral",
+            "activity"
+          )}
+          subHeadingID="config.ui.scene_card_insights.leaning_minority_some.description"
+          value={sceneCardInsightThresholds.leaningMinoritySomePercent}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold("leaningMinoritySomePercent", value)
+          }
+        />
+        <NumberSetting
+          id="scene-card-insights-leaning-minority-good-amount"
+          heading={sceneCardInsightSettingHeading(
+            intl.formatMessage({
+              id: "config.ui.scene_card_insights.leaning_minority_good_amount.heading",
+            }),
+            "Sex Leaning Scene with a good amount of oral",
+            "activity"
+          )}
+          subHeadingID="config.ui.scene_card_insights.leaning_minority_good_amount.description"
+          value={sceneCardInsightThresholds.leaningMinorityGoodAmountPercent}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold(
+              "leaningMinorityGoodAmountPercent",
+              value
+            )
+          }
+        />
+        <NumberSetting
+          id="scene-card-insights-leaning-minority-a-lot"
+          heading={sceneCardInsightSettingHeading(
+            intl.formatMessage({
+              id: "config.ui.scene_card_insights.leaning_minority_a_lot.heading",
+            }),
+            "Sex Leaning Scene with a lot of oral",
+            "activity"
+          )}
+          subHeadingID="config.ui.scene_card_insights.leaning_minority_a_lot.description"
+          value={sceneCardInsightThresholds.leaningMinorityALotPercent}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold("leaningMinorityALotPercent", value)
+          }
+        />
+      </SettingSection>
+      {/* CUSTOM: end */}
 
       <SettingSection headingID="config.ui.card_rating_styles.heading">
         <SelectSetting

@@ -27,7 +27,8 @@ INSERT INTO scene_negative_markers (scene_id, name) VALUES
   (2, 'Credits'),
   (3, ''),
   (3, '   '),
-  (4, 'Interview');
+  (4, 'Interview'),
+  (5, 'credits');
 `)
 	require.NoError(t, err)
 
@@ -38,5 +39,5 @@ INSERT INTO scene_negative_markers (scene_id, name) VALUES
 
 	names, err := NewSceneNegativeMarkerStore().FindNames(ctx)
 	require.NoError(t, err)
-	require.Equal(t, []string{"Credits", "Interview", "Skip Intro"}, names)
+	require.Equal(t, []string{"Credits", "Skip Intro", "Interview"}, names)
 }

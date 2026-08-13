@@ -95,12 +95,12 @@ func (s *SceneNegativeMarkerStore) FindNames(ctx context.Context) ([]string, err
 SELECT TRIM(marker.name) AS name
 FROM scene_negative_markers marker
 JOIN (
-  SELECT MIN(id) AS id
+  SELECT MIN(id) AS id, COUNT(*) AS usage_count
   FROM scene_negative_markers
   WHERE TRIM(name) <> ''
   GROUP BY LOWER(TRIM(name))
 ) first_marker ON first_marker.id = marker.id
-ORDER BY LOWER(TRIM(marker.name)), TRIM(marker.name)`
+ORDER BY first_marker.usage_count DESC, LOWER(TRIM(marker.name)), TRIM(marker.name)`
 
 	rows, err := dbWrapper.Queryx(ctx, query)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {

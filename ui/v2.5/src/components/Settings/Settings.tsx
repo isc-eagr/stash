@@ -26,7 +26,6 @@ const validTabs = [
   "tasks",
   "library",
   "interface",
-  "custom", // CUSTOM
   "security",
   "metadata-providers",
   "services",
@@ -36,6 +35,7 @@ const validTabs = [
   "tools",
   "changelog",
   "about",
+  "custom", // CUSTOM
 ] as const;
 type TabKey = (typeof validTabs)[number];
 
@@ -75,14 +75,6 @@ const SettingTabs: React.FC<{ tab: TabKey }> = ({ tab }) => {
               <LinkContainer to="/settings?tab=interface">
                 <Nav.Link eventKey="interface">
                   <FormattedMessage id="config.categories.interface" />
-                </Nav.Link>
-              </LinkContainer>
-            </Nav.Item>
-            {/* CUSTOM */}
-            <Nav.Item>
-              <LinkContainer to="/settings?tab=custom">
-                <Nav.Link eventKey="custom">
-                  <FormattedMessage id="config.categories.custom" />
                 </Nav.Link>
               </LinkContainer>
             </Nav.Item>
@@ -149,6 +141,14 @@ const SettingTabs: React.FC<{ tab: TabKey }> = ({ tab }) => {
                 </Nav.Link>
               </LinkContainer>
             </Nav.Item>
+            {/* CUSTOM: keep the custom settings section at the bottom */}
+            <Nav.Item>
+              <LinkContainer to="/settings?tab=custom">
+                <Nav.Link eventKey="custom">
+                  <FormattedMessage id="config.categories.custom" />
+                </Nav.Link>
+              </LinkContainer>
+            </Nav.Item>
             <Nav.Item>
               <div className="advanced-switch">
                 <Form.Label htmlFor="advanced-settings">
@@ -177,10 +177,6 @@ const SettingTabs: React.FC<{ tab: TabKey }> = ({ tab }) => {
             </Tab.Pane>
             <Tab.Pane eventKey="interface">
               <SettingsInterfacePanel />
-            </Tab.Pane>
-            {/* CUSTOM */}
-            <Tab.Pane eventKey="custom">
-              <SettingsCustomPanel />
             </Tab.Pane>
             <Tab.Pane eventKey="security">
               <SettingsSecurityPanel />
@@ -211,6 +207,10 @@ const SettingTabs: React.FC<{ tab: TabKey }> = ({ tab }) => {
             </Tab.Pane>
             <Tab.Pane eventKey="about" unmountOnExit>
               <SettingsAboutPanel />
+            </Tab.Pane>
+            {/* CUSTOM: keep the custom settings section at the bottom */}
+            <Tab.Pane eventKey="custom">
+              <SettingsCustomPanel />
             </Tab.Pane>
           </Tab.Content>
         </Col>

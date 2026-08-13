@@ -7,8 +7,8 @@ const actionLabels: Record<
   Record<PerformerRolePartnerType, string>
 > = {
   sex: {
-    top: "fucked these vatos",
-    bottom: "been fucked by these pitos",
+    top: "gave dick to these vatos",
+    bottom: "took dick from these vatos",
   },
   oral: {
     top: "had his pito sucked by these vatos",
