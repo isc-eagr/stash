@@ -100,6 +100,16 @@ assert.match(
   /<PerformerCategoryStrip[\s\S]*?sceneId=\{scene\.id\}[\s\S]*?markerRoles=\{performer\.markerRoles\}[\s\S]*?flushMargins/,
   "each scene-card portrait uses the shared scene-context performer category strip"
 );
+assert.match(
+  popoverSource,
+  /detailLink=\{`\/performers\/\$\{performer\.performer\.id\}`\}/,
+  "scene-card hover portraits and names target the performer's detail page"
+);
+assert.match(
+  markerHoverSource,
+  /detailLink\s*\?\s*\([\s\S]*?<Link[\s\S]*?scene-marker-activity-performer-image scene-marker-activity-performer-detail-link[\s\S]*?detailLink\s*\?\s*\([\s\S]*?<Link[\s\S]*?scene-marker-activity-performer-name scene-marker-activity-performer-detail-link/,
+  "the shared performer tile renders both its portrait and name as detail links when requested"
+);
 assert.doesNotMatch(
   popoverSource,
   /HighlightPerformerTagPills/,

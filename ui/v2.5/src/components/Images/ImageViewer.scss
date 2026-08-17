@@ -1,14 +1,15 @@
 .image-viewer-container {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: #000 !important;
+  /* CUSTOM: the fullscreen viewer must override application theme backgrounds. */
+  /* stylelint-disable-next-line declaration-no-important -- fullscreen surface owns its background */
   background: #000 !important;
+  bottom: 0;
+  height: 100vh;
+  left: 0;
   overflow: hidden;
+  position: fixed;
+  right: 0;
+  top: 0;
+  width: 100vw;
   z-index: 99999;
 
   &.empty {
@@ -16,29 +17,29 @@
     flex-direction: column;
 
     .image-viewer-empty {
-      flex: 1;
-      display: flex;
       align-items: center;
-      justify-content: center;
       color: #888;
+      display: flex;
+      flex: 1;
       font-size: 1.2rem;
+      justify-content: center;
     }
   }
 }
 
 .image-viewer-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 50px;
-  background: rgba(0, 0, 0, 0.8);
-  display: flex;
   align-items: center;
-  padding: 0 1rem;
-  gap: 1rem;
-  z-index: 100001;
+  background: rgba(0, 0, 0, 0.8);
   border-bottom: 1px solid #333;
+  display: flex;
+  gap: 1rem;
+  height: 50px;
+  left: 0;
+  padding: 0 1rem;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 100001;
 
   .image-count {
     color: #fff;
@@ -48,11 +49,11 @@
 }
 
 .image-viewer-overlay {
-  position: fixed;
-  z-index: 100000;
   cursor: grab;
-  user-select: none;
   overflow: visible;
+  position: fixed;
+  user-select: none;
+  z-index: 100000;
 
   &.dragging {
     cursor: grabbing;
@@ -77,35 +78,35 @@
   }
 
   img {
-    width: 100%;
     height: 100%;
     object-fit: contain;
     pointer-events: none;
+    width: 100%;
   }
 
   .iv-controls-bar {
-    position: absolute;
-    top: -32px;
-    left: 0;
     display: flex;
     gap: 2px;
+    left: 0;
     opacity: 0;
+    position: absolute;
+    top: -32px;
     transition: opacity 0.15s;
     z-index: 100002;
 
     .iv-ctrl-btn {
-      width: 26px;
-      height: 26px;
-      border-radius: 4px;
+      align-items: center;
       background: rgba(30, 30, 30, 0.85);
       border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
       color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       cursor: pointer;
-      padding: 0;
+      display: flex;
       font-size: 0.7rem;
+      height: 26px;
+      justify-content: center;
+      padding: 0;
+      width: 26px;
 
       &:hover {
         background: rgba(60, 60, 60, 0.95);
@@ -118,48 +119,56 @@
   }
 
   .iv-resize-handle-tl {
+    background: linear-gradient(
+      315deg,
+      transparent 50%,
+      rgba(255, 255, 255, 0.6) 50%
+    );
+    cursor: nw-resize;
+    height: 16px;
+    left: 0;
+    opacity: 0;
     position: absolute;
     top: 0;
-    left: 0;
-    width: 16px;
-    height: 16px;
-    cursor: nw-resize;
-    opacity: 0;
     transition: opacity 0.15s;
-    background: linear-gradient(315deg, transparent 50%, rgba(255, 255, 255, 0.6) 50%);
+    width: 16px;
   }
 
   .iv-resize-handle {
-    position: absolute;
+    background: linear-gradient(
+      135deg,
+      transparent 50%,
+      rgba(255, 255, 255, 0.6) 50%
+    );
     bottom: 0;
-    right: 0;
-    width: 16px;
-    height: 16px;
     cursor: se-resize;
+    height: 16px;
     opacity: 0;
+    position: absolute;
+    right: 0;
     transition: opacity 0.15s;
-    background: linear-gradient(135deg, transparent 50%, rgba(255, 255, 255, 0.6) 50%);
+    width: 16px;
   }
 
   // Crop handles – thin bars on each edge
   .iv-crop-handle {
-    position: absolute;
-    opacity: 0;
-    transition: opacity 0.15s;
     background: rgba(100, 180, 255, 0.7);
+    opacity: 0;
+    position: absolute;
+    transition: opacity 0.15s;
     z-index: 100001;
 
     &.iv-crop-top,
     &.iv-crop-bottom {
+      cursor: ns-resize;
+      height: 3px;
       left: 40%;
       right: 40%;
-      height: 3px;
-      cursor: ns-resize;
     }
 
     &.iv-crop-top {
-      transform: translateY(-50%);
       bottom: auto;
+      transform: translateY(-50%);
     }
 
     &.iv-crop-bottom {
@@ -169,10 +178,10 @@
 
     &.iv-crop-left,
     &.iv-crop-right {
-      top: 40%;
       bottom: 40%;
-      width: 3px;
       cursor: ew-resize;
+      top: 40%;
+      width: 3px;
     }
 
     &.iv-crop-left {

@@ -16,7 +16,7 @@ const actionLabels: Record<
   },
   facial: {
     top: "put his mecos in these vatos' faces",
-    bottom: "had these mecos in his face",
+    bottom: "had mecos from these vatos in his face",
   },
 };
 
@@ -26,7 +26,7 @@ export function getPerformerRolePartnerPopupText(
   performerName?: string | null
 ) {
   const name = performerName || "Performer";
-  return `${name} has ${actionLabels[category][type]}`;
+  return `${name} ${actionLabels[category][type]}`;
 }
 
 export function getPerformerRolePartnerSectionTitle(
@@ -48,4 +48,26 @@ export function shouldShowPerformerRolePartnerDuration(
   category: PerformerRolePartnerCategory
 ) {
   return category === "sex" || category === "oral";
+}
+
+const rareRoleActionLabels: Record<
+  Exclude<PerformerRolePartnerCategory, "facial">,
+  Record<PerformerRolePartnerType, string>
+> = {
+  sex: {
+    top: "giving dick",
+    bottom: "taking dick",
+  },
+  oral: {
+    top: "having his pito sucked",
+    bottom: "sucking pito",
+  },
+};
+
+// Keeps rarity-chip wording aligned with the action language in the Partners tab.
+export function getPerformerRareRoleAction(
+  category: Exclude<PerformerRolePartnerCategory, "facial">,
+  type: PerformerRolePartnerType
+) {
+  return rareRoleActionLabels[category][type];
 }

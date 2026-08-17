@@ -7,6 +7,7 @@ import {
   useContainerDimensions,
 } from "../Shared/GridCard/GridCard";
 import { PatchComponent } from "src/patch";
+import { usePerformerCardRoleStats } from "../Performers/performerRoleStats_custom"; // CUSTOM
 
 interface ISceneCardGrid {
   scenes: GQL.SlimSceneDataFragment[];
@@ -36,6 +37,18 @@ export const SceneCardGrid: React.FC<ISceneCardGrid> = PatchComponent(
     const [componentRef, { width: containerWidth }] = useContainerDimensions();
 
     const cardWidth = useCardWidth(containerWidth, zoomIndex, zoomWidths);
+    const insightPerformers = React.useMemo(
+      () =>
+        Array.from(
+          new Map(
+            scenes
+              .flatMap((scene) => scene.performers)
+              .map((performer) => [performer.id, performer])
+          ).values()
+        ),
+      [scenes]
+    ); // CUSTOM
+    const roleStatsByPerformer = usePerformerCardRoleStats(insightPerformers); // CUSTOM
 
     return (
       <div className="row justify-content-center" ref={componentRef}>
@@ -55,6 +68,7 @@ export const SceneCardGrid: React.FC<ISceneCardGrid> = PatchComponent(
             fromGroupId={fromGroupId}
             activeSortBy={activeSortBy} // CUSTOM
             activeSortDirection={activeSortDirection} // CUSTOM
+            roleStatsByPerformer={roleStatsByPerformer} // CUSTOM
           />
         ))}
       </div>

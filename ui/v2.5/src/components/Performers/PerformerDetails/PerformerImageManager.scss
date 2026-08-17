@@ -1,26 +1,28 @@
+/* CUSTOM: Bootstrap button styles require explicit navigation overlay overrides. */
+/* stylelint-disable declaration-no-important -- preserve image navigation contrast over performer photos */
 .performer-image-manager {
-  position: relative;
   display: inline-block;
+  position: relative;
 
   &.loading {
-    pointer-events: none;
     opacity: 0.7;
+    pointer-events: none;
   }
 
   .performer-image-nav {
+    background-color: rgba(0, 0, 0, 0.3) !important;
+    border: none !important;
+    opacity: 0.5;
+    padding: 0.4rem 0.6rem;
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    z-index: 10;
-    opacity: 0.5;
     transition: opacity 0.2s, background-color 0.2s;
-    padding: 0.4rem 0.6rem;
-    background-color: rgba(0, 0, 0, 0.3) !important;
-    border: none !important;
+    z-index: 10;
 
     &:hover {
-      opacity: 0.9;
       background-color: rgba(0, 0, 0, 0.5) !important;
+      opacity: 0.9;
     }
 
     &.performer-image-nav-left {
@@ -33,24 +35,24 @@
   }
 
   .performer-image-controls {
-    position: absolute;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 6px;
     bottom: 10px;
+    display: flex;
+    gap: 0.4rem;
     left: 50%;
+    padding: 0.4rem 0.6rem;
+    position: absolute;
     transform: translateX(-50%);
     z-index: 10;
-    background: rgba(0, 0, 0, 0.4);
-    padding: 0.4rem 0.6rem;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
   }
 
   .performer-image-btn {
-    padding: 0.3rem 0.5rem;
     font-size: 0.8rem;
     line-height: 1;
     opacity: 0.7;
+    padding: 0.3rem 0.5rem;
     transition: opacity 0.2s;
 
     &:hover {
@@ -65,14 +67,15 @@
   }
 
   .performer-image-counter {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 10;
     background: rgba(0, 0, 0, 0.4);
-    color: rgba(255, 255, 255, 0.8);
-    padding: 0.2rem 0.5rem;
     border-radius: 4px;
+    color: rgba(255, 255, 255, 0.8);
     font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    z-index: 10;
   }
 }
+/* stylelint-enable declaration-no-important */

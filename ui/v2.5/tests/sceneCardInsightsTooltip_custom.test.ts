@@ -22,5 +22,15 @@ assert.match(
 assert.match(
   insightsSource,
   /ref=\{ref\}/,
-  "scene insight chips should attach the OverlayTrigger ref"
+  "scene insight chips should attach the hover-trigger ref"
+);
+assert.match(
+  insightsSource,
+  /getSceneCardInsightSets/,
+  "the insight strip should retain both visible and complete insight sets"
+);
+assert.match(
+  insightsSource,
+  /scene-card-insights-popup/,
+  "hovering the insight area should expose the complete insight popup"
 );

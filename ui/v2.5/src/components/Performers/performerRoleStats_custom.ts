@@ -6,6 +6,7 @@ import type { IPerformerRoleStats } from "./PerformerCard";
 interface IPerformerCardRoleStatsQueryData {
   performerRoleStats: Array<{
     performer_id: string;
+    scene_count: number;
     sex_scene_count: number;
     oral_scene_count: number;
     solo_scene_count: number;
@@ -14,6 +15,8 @@ interface IPerformerCardRoleStatsQueryData {
     sex_bottom_count: number;
     oral_top_count: number;
     oral_bottom_count: number;
+    oral_role_top_count: number;
+    oral_role_bottom_count: number;
     facial_marker_count: number;
     facial_top_count: number;
     facial_bottom_count: number;
@@ -41,6 +44,7 @@ const PerformerCardRoleStatsQuery = gql`
   query PerformerCardRoleStats($performer_ids: [ID!]!) {
     performerRoleStats(performer_ids: $performer_ids) {
       performer_id
+      scene_count
       sex_scene_count
       oral_scene_count
       solo_scene_count
@@ -49,6 +53,8 @@ const PerformerCardRoleStatsQuery = gql`
       sex_bottom_count
       oral_top_count
       oral_bottom_count
+      oral_role_top_count
+      oral_role_bottom_count
       facial_marker_count
       facial_top_count
       facial_bottom_count
@@ -100,6 +106,7 @@ export function usePerformerCardRoleStats(
 
     roleStatsData?.performerRoleStats.forEach((p) => {
       ret.set(p.performer_id, {
+        scene_count: p.scene_count,
         sex_scene_count: p.sex_scene_count,
         sex_top_count: p.sex_top_count,
         sex_bottom_count: p.sex_bottom_count,
@@ -109,6 +116,8 @@ export function usePerformerCardRoleStats(
         oral_scene_count: p.oral_scene_count,
         oral_top_count: p.oral_top_count,
         oral_bottom_count: p.oral_bottom_count,
+        oral_role_top_count: p.oral_role_top_count,
+        oral_role_bottom_count: p.oral_role_bottom_count,
         oral_with_top_count: p.oral_with_top_count,
         oral_with_bottom_count: p.oral_with_bottom_count,
         oral_unique_partner_count: p.oral_unique_partner_count,

@@ -301,7 +301,7 @@ func (r *queryResolver) PerformerRoleStats(ctx context.Context, performerIDs []s
 	var statsByPerformer map[int]*scene.PerformerRoleStatsData
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		var err error
-		statsByPerformer, err = scene.GetPerformerRoleStatsBatch(ctx, r.repository.SceneMarker, r.repository.Tag, ids, sexTagID, oralTagID, soloTagID, facialTagID, orgasmTagID, feetTagID, secondCameraTagID)
+		statsByPerformer, err = scene.GetPerformerRoleStatsBatch(ctx, r.repository.SceneMarker, r.repository.Scene, r.repository.Tag, ids, sexTagID, oralTagID, soloTagID, facialTagID, orgasmTagID, feetTagID, secondCameraTagID)
 		return err
 	}); err != nil {
 		return nil, err
@@ -320,6 +320,7 @@ func (r *queryResolver) PerformerRoleStats(ctx context.Context, performerIDs []s
 		}
 		ret = append(ret, &PerformerRoleStats{
 			PerformerID:                 strconv.Itoa(data.PerformerID),
+			SceneCount:                  data.SceneCount,
 			SexSceneCount:               data.SexSceneCount,
 			SexTopCount:                 data.SexTopCount,
 			SexBottomCount:              data.SexBottomCount,
@@ -328,6 +329,8 @@ func (r *queryResolver) PerformerRoleStats(ctx context.Context, performerIDs []s
 			OralSceneCount:              data.OralSceneCount,
 			OralTopCount:                data.OralTopCount,
 			OralBottomCount:             data.OralBottomCount,
+			OralRoleTopCount:            data.OralRoleTopCount,
+			OralRoleBottomCount:         data.OralRoleBottomCount,
 			OralWithTopCount:            data.OralWithTopCount,
 			OralWithBottomCount:         data.OralWithBottomCount,
 			SoloSceneCount:              data.SoloSceneCount,

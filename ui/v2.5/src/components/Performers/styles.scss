@@ -121,9 +121,11 @@
 
 .performer-card {
   /* CUSTOM: begin - removed fixed base width */
+
   /* Remove fixed base width to avoid layout jump when JS-calculated width applies.
      Other grids (scenes, galleries, images) rely on the inline width from GridCard
      without a CSS default, so align performers with that pattern. */
+
   /* CUSTOM: end */
 
   @media (max-width: 576px) {
@@ -168,10 +170,12 @@
   }
 
   /* CUSTOM: begin - reserve space for two-line title */
+
   /* Reserve space for a two-line title to avoid reflow during font load */
   .card-section-title {
     min-height: 2.6rem; /* ~2 lines at ~1.2-1.3 line-height */
   }
+
   /* CUSTOM: end */
 
   &:hover button.btn.favorite-button.not-favorite {
@@ -180,18 +184,22 @@
 
   &__age {
     color: $muted-gray;
-    /* CUSTOM: begin - reserve space and normalize font for age line */
-    /* Reserve space even when age is not present */
-    min-height: 1.1rem; /* roughly one line of body text */
+
     /* Ensure age line doesn't inherit heading styles when rendered inside the title */
     display: block;
-    font-weight: normal;
+    font-family: $font-family-base; /* ensure body font family, not heading */
     font-size: 1rem; /* standard body size */
+    font-weight: normal;
+    letter-spacing: normal;
     line-height: 1.2;
     margin-top: 0.15rem;
+
+    /* CUSTOM: begin - reserve space and normalize font for age line */
+
+    /* Reserve space even when age is not present */
+    min-height: 1.1rem; /* roughly one line of body text */
     text-transform: none;
-    letter-spacing: normal;
-    font-family: $font-family-base; /* ensure body font family, not heading */
+
     /* CUSTOM: end */
   }
 
@@ -206,22 +214,26 @@
     padding: 0 0 1rem 0;
 
     /* CUSTOM: begin - keep gender icon aligned with top of name block */
+
     /* Keep gender icon aligned with the top of the name block,
        not vertically centered when tags add extra rows */
     .card-section-title.flex-aligned {
       align-items: flex-start;
     }
+
     /* CUSTOM: end */
   }
 }
 
 /* CUSTOM: begin - role badges, scene tags, metallic cards, tag editor, scene modal */
+/* stylelint-disable declaration-no-important, max-nesting-depth -- Bootstrap badge overrides and nested card states mirror the component markup */
+
 /* Role badges in performer card details section (below age) */
 .performer-role-badges {
   /* CUSTOM: begin - table-like performer metric strip */
   align-items: start !important;
-  display: grid !important;
   box-sizing: border-box;
+  display: grid !important;
   gap: 0.2rem;
   grid-auto-columns: minmax(0, calc((100% - 1rem) / 6));
   grid-auto-flow: column;
@@ -232,16 +244,17 @@
   overflow-y: hidden;
   padding-bottom: 0.25rem;
   width: 100%;
+
   /* CUSTOM: end */
 
   .role-badge-item {
-    display: grid;
-    grid-template-rows: 1.5rem 1.5rem 3.25rem;
     align-items: center;
     align-self: flex-start;
-    gap: 0.24rem;
     background: transparent !important;
     border-radius: 6px;
+    display: grid;
+    gap: 0.24rem;
+    grid-template-rows: 1.5rem 1.5rem 3.25rem;
     justify-items: center;
     min-width: 0;
     overflow: visible;
@@ -253,12 +266,12 @@
     }
 
     .category-icon-container {
+      align-items: center;
       display: inline-flex;
       flex-direction: row;
-      align-items: center;
-      justify-content: center;
       gap: 0.16rem;
       grid-row: 1;
+      justify-content: center;
       max-width: 100%;
       min-height: 1.5rem;
       min-width: 0;
@@ -272,8 +285,8 @@
 
         .role-badge-link,
         > span {
-          display: inline-flex;
           align-items: center;
+          display: inline-flex;
           gap: 0.08rem;
           justify-content: center;
         }
@@ -287,20 +300,20 @@
       }
 
       .category-icon {
-        width: 1.2rem;
-        height: 1.2rem;
-        object-fit: contain;
         filter: brightness(0) invert(1); /* Make white */
         flex-shrink: 0;
+        height: 1.2rem;
+        object-fit: contain;
+        width: 1.2rem;
       }
 
       .category-icon-fa {
-        font-size: 1.12rem;
+        align-items: center;
         color: white;
         display: flex;
-        align-items: center;
-        justify-content: center;
         flex-shrink: 0;
+        font-size: 1.12rem;
+        justify-content: center;
       }
 
       .role-total-count {
@@ -309,9 +322,9 @@
     }
 
     .role-badge-link {
+      align-items: center;
       color: inherit;
       display: inline-flex;
-      align-items: center;
       gap: 0.16rem;
       justify-content: center;
       max-width: 100%;
@@ -327,9 +340,9 @@
     .role-total-count,
     .arrow-count,
     .arrow-percent {
+      align-items: center;
       color: white;
       display: inline-flex;
-      align-items: center;
       font-size: 0.78rem;
       font-variant-numeric: tabular-nums;
       font-weight: 700;
@@ -343,8 +356,8 @@
     .solo-count,
     .orgasm-count,
     .feet-count {
-      display: inline-flex;
       align-items: center;
+      display: inline-flex;
       grid-row: 2;
       justify-content: center;
       min-height: 1.5rem;
@@ -478,31 +491,38 @@
 
 /* Inline scene tag strip under performer name: wrap and clamp to 3 rows */
 .performer-card__scene-tags {
+  align-content: flex-start; /* pack rows from top */
   display: flex;
   flex-wrap: wrap;
-  align-content: flex-start; /* pack rows from top */
-  position: relative; /* allow bottom-right ellipsis overlay */
+
   /* space between chips without relying on bootstrap margins */
   gap: 0.15rem; /* tighter and even spacing to reduce wrapping */
+
+  /* Reserve a fixed height equal to 2 rows of chips so all cards align */
+
+  /* 2 * chip-height + 1 * row-gap + small slack */
+  height: calc(2 * 1.6rem + 1 * 0.15rem + 0.05rem);
+  overflow: hidden; /* clip overflow beyond 2 rows */
   padding-bottom: 1px; /* prevent last row from being visually cut by overflow */
+  position: relative; /* allow bottom-right ellipsis overlay */
 
   /* Standardize chip height for precise clamping */
   .tag-item {
-    display: inline-flex;
     align-items: center;
     box-sizing: border-box; /* include padding/border within fixed height */
-    height: 1.6rem; /* fixed chip height tuned for Bootstrap badge */
-    padding: 0 0.45rem; /* slightly tighter to reduce reflow on count arrival */
-    margin: 0; /* override global margin from index.scss to avoid extra row height */
-    white-space: nowrap; /* prevent chip text wrapping */
-    line-height: 1; /* ensure height is controlled by the container */
+    display: inline-flex;
     font-size: 0.76rem; /* compact font size for dense chips */
+    height: 1.6rem; /* fixed chip height tuned for Bootstrap badge */
+    line-height: 1; /* ensure height is controlled by the container */
+    margin: 0; /* override global margin from index.scss to avoid extra row height */
+    padding: 0 0.45rem; /* slightly tighter to reduce reflow on count arrival */
+    white-space: nowrap; /* prevent chip text wrapping */
   }
 
   /* normalize inner link to not affect chip height */
   .tag-item a {
-    display: inline-flex;
     align-items: center;
+    display: inline-flex;
     line-height: 1;
   }
 
@@ -510,14 +530,10 @@
   .tag-item.tag-link {
     padding: 0; /* let the anchor handle horizontal padding */
   }
+
   .tag-item.tag-link a {
     padding: 0 0.5rem; /* horizontal padding only; no vertical padding */
   }
-
-  /* Reserve a fixed height equal to 2 rows of chips so all cards align */
-  /* 2 * chip-height + 1 * row-gap + small slack */
-  height: calc(2 * 1.6rem + 1 * 0.15rem + 0.05rem);
-  overflow: hidden; /* clip overflow beyond 2 rows */
 }
 
 /* Tooltip chips: keep same visual and clearly non-clickable */
@@ -527,32 +543,33 @@
 
 /* Ellipsis overlay when tag list overflows */
 .performer-card__scene-tags-ellipsis {
-  position: absolute;
-  right: 0.1rem;
-  bottom: 0.05rem;
-  z-index: 1;
-  color: $text-muted;
-  font-weight: 700;
-  line-height: 1;
-  pointer-events: none;
-  /* fade background behind the ellipsis for readability over chips */
-  padding-left: 0.35rem;
   background: linear-gradient(
     90deg,
     rgba($card-bg, 0) 0%,
     rgba($card-bg, 0.6) 40%,
     rgba($card-bg, 0.9) 100%
   );
+  bottom: 0.05rem;
+  color: $text-muted;
+  font-weight: 700;
+  line-height: 1;
+
+  /* fade background behind the ellipsis for readability over chips */
+  padding-left: 0.35rem;
+  pointer-events: none;
+  position: absolute;
+  right: 0.1rem;
+  z-index: 1;
 }
 
 /* Reserve width for inline tag counts to avoid reflow when counts load */
 .performer-card__scene-tags .tag-count-slot {
   display: inline-block;
-  width: 3.2ch; /* space for up to three digits like (999) */
+  font-variant-numeric: tabular-nums; /* stable digit widths */
   margin-left: 0.1rem; /* slight separation from tag name */
   overflow: hidden;
   white-space: nowrap;
-  font-variant-numeric: tabular-nums; /* stable digit widths */
+  width: 3.2ch; /* space for up to three digits like (999) */
 }
 
 /* ===== ANIMATION OPTIONS FOR METALLIC CARDS ===== */
@@ -565,13 +582,13 @@
       0 2px 8px rgba(212, 175, 55, 0.2), inset 0 2px 0 rgba(255, 237, 78, 0.4),
       inset 0 -2px 0 rgba(184, 134, 11, 0.4);
   }
+
   50% {
     box-shadow: 0 0 16px rgba(212, 175, 55, 0.4),
       0 2px 10px rgba(212, 175, 55, 0.3), inset 0 2px 0 rgba(255, 237, 78, 0.5),
       inset 0 -2px 0 rgba(184, 134, 11, 0.5);
   }
 }
-
 @keyframes metallic-pulse-silver {
   0%,
   100% {
@@ -579,6 +596,7 @@
       0 2px 8px rgba(192, 192, 192, 0.3), inset 0 2px 0 rgba(240, 240, 240, 0.5),
       inset 0 -2px 0 rgba(140, 140, 140, 0.5);
   }
+
   50% {
     box-shadow: 0 0 18px rgba(192, 192, 192, 0.55),
       0 2px 10px rgba(192, 192, 192, 0.4),
@@ -586,7 +604,6 @@
       inset 0 -2px 0 rgba(140, 140, 140, 0.6);
   }
 }
-
 @keyframes metallic-pulse-bronze {
   0%,
   100% {
@@ -594,6 +611,7 @@
       0 2px 8px rgba(184, 115, 51, 0.2), inset 0 2px 0 rgba(230, 150, 80, 0.4),
       inset 0 -2px 0 rgba(140, 90, 40, 0.4);
   }
+
   50% {
     box-shadow: 0 0 16px rgba(184, 115, 51, 0.4),
       0 2px 10px rgba(184, 115, 51, 0.3), inset 0 2px 0 rgba(230, 150, 80, 0.5),
@@ -606,6 +624,7 @@
   0% {
     background-position: 0% 0%;
   }
+
   100% {
     background-position: 100% 100%;
   }
@@ -618,30 +637,31 @@
     border-color: #d4af37;
     filter: drop-shadow(0 0 2px rgba(212, 175, 55, 0.3));
   }
+
   50% {
     border-color: #e6c459;
     filter: drop-shadow(0 0 4px rgba(212, 175, 55, 0.5));
   }
 }
-
 @keyframes border-pulse-silver {
   0%,
   100% {
     border-color: #b8b8b8;
     filter: drop-shadow(0 0 2px rgba(192, 192, 192, 0.3));
   }
+
   50% {
     border-color: #d0d0d0;
     filter: drop-shadow(0 0 4px rgba(192, 192, 192, 0.5));
   }
 }
-
 @keyframes border-pulse-bronze {
   0%,
   100% {
     border-color: #b87333;
     filter: drop-shadow(0 0 2px rgba(184, 115, 51, 0.3));
   }
+
   50% {
     border-color: #cd7f32;
     filter: drop-shadow(0 0 4px rgba(184, 115, 51, 0.5));
@@ -649,7 +669,7 @@
 }
 
 .performer-card.rating-5-stars {
-  box-sizing: border-box;
+  animation: metallic-shimmer 4s linear infinite alternate;
   background: linear-gradient(
     135deg,
     rgba(255, 215, 0, 0.35) 0%,
@@ -663,26 +683,26 @@
   box-shadow: 0 0 12px rgba(212, 175, 55, 0.3),
     0 2px 8px rgba(212, 175, 55, 0.2), inset 0 2px 0 rgba(255, 237, 78, 0.4),
     inset 0 -2px 0 rgba(184, 134, 11, 0.4);
+  box-sizing: border-box;
   transition: all 0.3s ease;
-  animation: metallic-shimmer 4s linear infinite alternate;
 
   &:hover {
+    animation: none;
     background: linear-gradient(
       180deg,
       rgba(255, 215, 0, 0.3) 0%,
       rgba(255, 215, 0, 0.2) 50%,
       rgba(255, 215, 0, 0.23) 100%
     );
+    border-color: #e6c459;
     box-shadow: 0 0 15px rgba(212, 175, 55, 0.4),
       0 2px 10px rgba(212, 175, 55, 0.3);
-    border-color: #e6c459;
     transform: translateY(-2px);
-    animation: none;
   }
 }
 
 .performer-card.rating-4-stars {
-  box-sizing: border-box;
+  animation: metallic-shimmer 4s linear infinite alternate;
   background: linear-gradient(
     135deg,
     rgba(200, 200, 200, 0.4) 0%,
@@ -696,26 +716,26 @@
   box-shadow: 0 0 14px rgba(192, 192, 192, 0.45),
     0 2px 8px rgba(192, 192, 192, 0.3), inset 0 2px 0 rgba(240, 240, 240, 0.5),
     inset 0 -2px 0 rgba(140, 140, 140, 0.5);
+  box-sizing: border-box;
   transition: all 0.3s ease;
-  animation: metallic-shimmer 4s linear infinite alternate;
 
   &:hover {
+    animation: none;
     background: linear-gradient(
       180deg,
       rgba(230, 230, 230, 0.4) 0%,
       rgba(210, 210, 210, 0.3) 50%,
       rgba(220, 220, 220, 0.33) 100%
     );
+    border-color: #d0d0d0;
     box-shadow: 0 0 18px rgba(192, 192, 192, 0.55),
       0 2px 10px rgba(192, 192, 192, 0.4);
-    border-color: #d0d0d0;
     transform: translateY(-2px);
-    animation: none;
   }
 }
 
 .performer-card.rating-3-stars {
-  box-sizing: border-box;
+  animation: metallic-shimmer 4s linear infinite alternate;
   background: linear-gradient(
     135deg,
     rgba(205, 127, 50, 0.3) 0%,
@@ -729,21 +749,21 @@
   box-shadow: 0 0 12px rgba(184, 115, 51, 0.3),
     0 2px 8px rgba(184, 115, 51, 0.2), inset 0 2px 0 rgba(230, 150, 80, 0.4),
     inset 0 -2px 0 rgba(140, 90, 40, 0.4);
+  box-sizing: border-box;
   transition: all 0.3s ease;
-  animation: metallic-shimmer 4s linear infinite alternate;
 
   &:hover {
+    animation: none;
     background: linear-gradient(
       180deg,
       rgba(205, 127, 50, 0.3) 0%,
       rgba(205, 127, 50, 0.2) 50%,
       rgba(205, 127, 50, 0.23) 100%
     );
+    border-color: #cd7f32;
     box-shadow: 0 0 15px rgba(184, 115, 51, 0.4),
       0 2px 10px rgba(184, 115, 51, 0.3);
-    border-color: #cd7f32;
     transform: translateY(-2px);
-    animation: none;
   }
 }
 
@@ -960,37 +980,37 @@
 #performer-page {
   // Apply rotation to all hand icons (faHand/category-icon-fa)
   .category-icon-fa {
-    transform: rotate(-45deg);
     display: inline-block;
+    transform: rotate(-45deg);
   }
 
   .scene-category-count {
-    display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
     background-color: transparent !important;
     border: none !important;
     box-shadow: none !important;
+    display: inline-flex;
+    gap: 0.25rem;
 
     .category-icon {
-      width: 1em;
-      height: 1em;
       display: inline-block;
-      vertical-align: -0.125em;
-      filter: brightness(0) invert(1);
       -webkit-filter: brightness(0) invert(1);
+      filter: brightness(0) invert(1);
+      height: 1em;
+      vertical-align: -0.125em;
+      width: 1em;
     }
 
     .category-icon-fa {
-      font-size: 1em;
-      color: #ffffff;
-      display: flex;
       align-items: center;
+      color: #fff;
+      display: flex;
+      font-size: 1em;
     }
 
     span {
-      min-width: 1em;
       display: inline-block;
+      min-width: 1em;
       text-align: center;
     }
 
@@ -999,17 +1019,17 @@
     &:active,
     &:focus-visible {
       background-color: transparent !important;
-      color: inherit !important;
       border: none !important;
       box-shadow: none !important;
+      color: inherit !important;
       outline: none !important;
     }
 
     &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
       background-color: transparent !important;
       border: none !important;
+      cursor: not-allowed;
+      opacity: 0.5;
     }
   }
 
@@ -1020,12 +1040,12 @@
     &:focus:not(:disabled),
     &:active:not(:disabled) {
       .category-icon {
-        filter: brightness(0) invert(1) !important;
         -webkit-filter: brightness(0) invert(1) !important;
+        filter: brightness(0) invert(1) !important;
       }
 
       .category-icon-fa {
-        color: #ffffff !important;
+        color: #fff !important;
       }
     }
   }
@@ -1038,8 +1058,8 @@
       background-color: transparent !important;
 
       .category-icon {
-        filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
         -webkit-filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
+        filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
       }
     }
   }
@@ -1053,4 +1073,7 @@
   margin-top: 0.25rem;
   text-align: center;
 }
+
+/* stylelint-enable declaration-no-important, max-nesting-depth */
+
 /* CUSTOM: end */

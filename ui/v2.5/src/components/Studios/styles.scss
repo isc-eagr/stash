@@ -70,6 +70,7 @@
   .studio-activity-metric__unusable {
     font-size: 0.95em;
   }
+
   /* CUSTOM: end */
 
   &:hover button.btn.favorite-button.not-favorite {
@@ -77,28 +78,29 @@
   }
 
   /* CUSTOM: begin - scene category count buttons */
+  /* stylelint-disable declaration-no-important -- Bootstrap button and icon hover states require explicit overrides */
   .scene-category-count {
-    display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
     background-color: transparent !important;
     border: none !important;
     box-shadow: none !important;
+    display: inline-flex;
+    gap: 0.25rem;
 
     .category-icon {
-      width: 1em;
-      height: 1em;
       display: inline-block;
-      vertical-align: -0.125em;
-      filter: brightness(0) invert(1);
       -webkit-filter: brightness(0) invert(1);
+      filter: brightness(0) invert(1);
+      height: 1em;
+      vertical-align: -0.125em;
+      width: 1em;
     }
 
     .category-icon-fa {
-      font-size: 1em;
-      color: #ffffff;
-      transform: rotate(-45deg);
+      color: #fff;
       display: inline-block;
+      font-size: 1em;
+      transform: rotate(-45deg);
     }
 
     &:hover,
@@ -106,17 +108,17 @@
     &:active,
     &:focus-visible {
       background-color: transparent !important;
-      color: inherit !important;
       border: none !important;
       box-shadow: none !important;
+      color: inherit !important;
       outline: none !important;
     }
 
     &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
       background-color: transparent !important;
       border: none !important;
+      cursor: not-allowed;
+      opacity: 0.5;
     }
   }
 
@@ -127,12 +129,12 @@
     &:focus:not(:disabled),
     &:active:not(:disabled) {
       .category-icon {
-        filter: brightness(0) invert(1) !important;
         -webkit-filter: brightness(0) invert(1) !important;
+        filter: brightness(0) invert(1) !important;
       }
 
       .category-icon-fa {
-        color: #ffffff !important;
+        color: #fff !important;
       }
     }
   }
@@ -145,11 +147,14 @@
       background-color: transparent !important;
 
       .category-icon {
-        filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
         -webkit-filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
+        filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
       }
     }
   }
+
+  /* stylelint-enable declaration-no-important */
+
   /* CUSTOM: end */
 }
 
@@ -233,10 +238,10 @@
 #studio-page {
   /* CUSTOM: begin - detail header image wrapper */
   .detail-header-image-wrapper {
-    float: left;
-    height: 100%;
     display: flex;
     flex-direction: column;
+    float: left;
+    height: 100%;
     padding: 0;
 
     @media (max-width: 576px) {
@@ -245,16 +250,17 @@
     }
 
     .detail-header-image {
-      padding: 0 1rem;
-      height: auto;
       float: none;
+      height: auto;
+      padding: 0 1rem;
     }
 
     .studio-category-strip {
-      padding: 0.5rem 1rem 0 1rem;
       justify-content: center;
+      padding: 0.5rem 1rem 0 1rem;
     }
   }
+
   /* CUSTOM: end */
 
   .studio-head {
@@ -270,29 +276,30 @@
   }
 
   /* CUSTOM: begin - studio category strip */
+  /* stylelint-disable declaration-no-important -- Bootstrap button and icon hover states require explicit overrides */
   .studio-category-strip {
     .scene-category-count {
-      display: inline-flex;
       align-items: center;
-      gap: 0.25rem;
       background-color: transparent !important;
       border: none !important;
       box-shadow: none !important;
+      display: inline-flex;
+      gap: 0.25rem;
 
       .category-icon {
-        width: 1em;
-        height: 1em;
         display: inline-block;
-        vertical-align: -0.125em;
-        filter: brightness(0) invert(1);
         -webkit-filter: brightness(0) invert(1);
+        filter: brightness(0) invert(1);
+        height: 1em;
+        vertical-align: -0.125em;
+        width: 1em;
       }
 
       .category-icon-fa {
-        font-size: 1em;
-        color: #ffffff;
-        transform: rotate(-45deg);
+        color: #fff;
         display: inline-block;
+        font-size: 1em;
+        transform: rotate(-45deg);
       }
 
       &:hover,
@@ -300,17 +307,17 @@
       &:active,
       &:focus-visible {
         background-color: transparent !important;
-        color: inherit !important;
         border: none !important;
         box-shadow: none !important;
+        color: inherit !important;
         outline: none !important;
       }
 
       &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
         background-color: transparent !important;
         border: none !important;
+        cursor: not-allowed;
+        opacity: 0.5;
       }
     }
 
@@ -321,12 +328,12 @@
       &:focus:not(:disabled),
       &:active:not(:disabled) {
         .category-icon {
-          filter: brightness(0) invert(1) !important;
           -webkit-filter: brightness(0) invert(1) !important;
+          filter: brightness(0) invert(1) !important;
         }
 
         .category-icon-fa {
-          color: #ffffff !important;
+          color: #fff !important;
         }
       }
     }
@@ -339,12 +346,15 @@
         background-color: transparent !important;
 
         .category-icon {
-          filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
           -webkit-filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
+          filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
         }
       }
     }
   }
+
+  /* stylelint-enable declaration-no-important */
+
   /* CUSTOM: end */
 
   /* CUSTOM: begin - studio activity duration metrics */
@@ -398,6 +408,7 @@
   .studio-activity-metric__unusable {
     font-size: 0.95em;
   }
+
   /* CUSTOM: end */
 
   .rating-number .text-input {

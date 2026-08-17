@@ -1063,8 +1063,8 @@ div.dropdown-menu {
   line-height: 1rem;
   padding: 0;
   right: auto;
-  text-transform: none;
   text-shadow: none;
+  text-transform: none;
   top: 0.45rem;
   transform: none;
   width: 2.75rem;
@@ -1388,15 +1388,16 @@ div.dropdown-menu {
   }
 
   /* CUSTOM: begin */
+  /* stylelint-disable declaration-no-important -- Stats navigation buttons override Bootstrap interaction states */
   &-category-button {
-    display: inline-flex;
     align-items: center;
-    justify-content: center;
     background-color: transparent !important;
     border: none !important;
     box-shadow: none !important;
-    padding: 0 !important;
+    display: inline-flex;
     font-size: 3vw;
+    justify-content: center;
+    padding: 0 !important;
 
     @media (max-width: 576px) {
       font-size: 16px;
@@ -1407,34 +1408,34 @@ div.dropdown-menu {
     &:active,
     &:focus-visible {
       background-color: transparent !important;
-      color: inherit !important;
       border: none !important;
       box-shadow: none !important;
+      color: inherit !important;
       outline: none !important;
       text-decoration: none !important;
     }
 
     &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
       background-color: transparent !important;
       border: none !important;
+      cursor: not-allowed;
+      opacity: 0.5;
     }
 
     .stats-category-icon {
-      width: 1.5em;
-      height: 1.5em;
       display: inline-block;
-      vertical-align: -0.125em;
-      filter: brightness(0) invert(1);
       -webkit-filter: brightness(0) invert(1);
+      filter: brightness(0) invert(1);
+      height: 1.5em;
+      vertical-align: -0.125em;
+      width: 1.5em;
     }
 
     .stats-category-icon-fa {
-      font-size: 1.5em;
-      color: #ffffff;
-      transform: rotate(-45deg);
+      color: #fff;
       display: inline-block;
+      font-size: 1.5em;
+      transform: rotate(-45deg);
     }
   }
 
@@ -1444,12 +1445,12 @@ div.dropdown-menu {
     &:focus:not(:disabled),
     &:active:not(:disabled) {
       .stats-category-icon {
-        filter: brightness(0) invert(1) !important;
         -webkit-filter: brightness(0) invert(1) !important;
+        filter: brightness(0) invert(1) !important;
       }
 
       .stats-category-icon-fa {
-        color: #ffffff !important;
+        color: #fff !important;
       }
     }
   }
@@ -1461,11 +1462,14 @@ div.dropdown-menu {
       background-color: transparent !important;
 
       .stats-category-icon {
-        filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
         -webkit-filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
+        filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
       }
     }
   }
+
+  /* stylelint-enable declaration-no-important */
+
   /* CUSTOM: end */
 }
 
@@ -1481,7 +1485,7 @@ div.dropdown-menu {
   align-items: center;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 8px;
-  color: #ffffff;
+  color: #fff;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -1500,7 +1504,7 @@ div.dropdown-menu {
   &:hover,
   &:focus {
     background-color: rgba(255, 255, 255, 0.08);
-    color: #ffffff;
+    color: #fff;
     text-decoration: none;
   }
 }
@@ -1515,6 +1519,7 @@ div.dropdown-menu {
     grid-template-columns: 1fr;
   }
 }
+
 /* CUSTOM: end */
 
 $detailTabWidth: calc(100% / 3);

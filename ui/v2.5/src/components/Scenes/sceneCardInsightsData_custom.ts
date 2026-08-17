@@ -1,4 +1,5 @@
 import type { IUIConfig } from "src/core/config";
+import { getPerformerRareRoleAction } from "../Performers/performerRolePartnerLabels_custom";
 import {
   formatDuration,
   hasMinimumRuleEvidence,
@@ -15,6 +16,7 @@ import {
 import { getPerformerLineupCandidates } from "./sceneCardInsightPerformerRules_custom";
 import {
   compareSceneCardInsightCandidates,
+  selectAllSceneCardInsights,
   selectSceneCardInsights,
 } from "./sceneCardInsightSelection_custom";
 import type {
@@ -22,6 +24,7 @@ import type {
   SceneCardInsightCandidate,
   SceneCardInsightMarker,
   SceneCardInsightPerformer,
+  SceneCardInsightPerformerRoleStats,
   SceneCardInsightRatingConfig,
   SceneCardInsightScene,
   SceneCardInsightTag,
@@ -31,6 +34,7 @@ import type {
 export type {
   ISceneCardInsight,
   SceneCardInsightRatingConfig,
+  SceneCardInsightPerformerRoleStats,
   SceneCardInsightScene,
   SceneCardInsightThresholdKey,
   SceneCardInsightThresholds,
@@ -674,14 +678,9 @@ function getOrgasmAutomaticCandidates(
   scene: SceneCardInsightScene,
   roleTagIds: IUIConfig["roleTagIds"]
 ): InsightCandidate[] {
-  const completionMarkers = scene.scene_markers.filter(
+  const orgasmMarkers = scene.scene_markers.filter(
     (marker) =>
       !markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId) &&
-      (markerHasConfiguredTag(marker, roleTagIds?.orgasmTagId) ||
-        markerHasConfiguredTag(marker, roleTagIds?.facialTagId))
-  );
-  const orgasmMarkers = completionMarkers.filter(
-    (marker) =>
       markerHasConfiguredTag(marker, roleTagIds?.orgasmTagId) &&
       !markerHasConfiguredTag(marker, roleTagIds?.facialTagId)
   );
@@ -738,6 +737,13 @@ function getOrgasmAutomaticCandidates(
     });
   });
 
+  /* CUSTOM: begin - Everybody Nuts is intentionally disabled for now.
+  const completionMarkers = scene.scene_markers.filter(
+    (marker) =>
+      !markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId) &&
+      (markerHasConfiguredTag(marker, roleTagIds?.orgasmTagId) ||
+        markerHasConfiguredTag(marker, roleTagIds?.facialTagId))
+  );
   const castIDs = new Set(scene.performers.map((performer) => performer.id));
   const finishingPerformerIDs = new Set(
     completionMarkers.flatMap((marker) =>
@@ -757,6 +763,7 @@ function getOrgasmAutomaticCandidates(
       score: 30_000 + castIDs.size,
     });
   }
+  CUSTOM: end */
 
   return candidates.sort(compareSceneCardInsightCandidates);
 }
@@ -971,8 +978,7 @@ function getAutomaticCandidates(
 function getTagCandidates(
   scene: SceneCardInsightScene,
   roleTagIds: IUIConfig["roleTagIds"],
-  thresholds: SceneCardInsightThresholds,
-  automaticCandidates: InsightCandidate[]
+  thresholds: SceneCardInsightThresholds
 ) {
   const sceneDuration = scene.files[0]?.duration ?? 0;
   const groups = new Map<string, TagMarkerGroup>();
@@ -1016,10 +1022,6 @@ function getTagCandidates(
           goatPerformerScopesByTagID.set(tag.id, scopes);
         });
     });
-  const hasReallyHotOrgasm = automaticCandidates.some(
-    (candidate) => candidate.kind === "really-hot-event"
-  );
-
   type TagCandidatePart = InsightCandidate & {
     amountLevel: TagAmountLevel;
     markers: Map<string, SceneCardInsightMarker>;
@@ -1118,32 +1120,9 @@ function getTagCandidates(
     }
   );
 
-  const ordinaryOrgasmMarkers = scene.scene_markers.filter(
-    (marker) =>
-      markerHasConfiguredTag(marker, roleTagIds?.orgasmTagId) &&
-      !markerHasConfiguredTag(marker, roleTagIds?.facialTagId) &&
-      !markerHasConfiguredTag(marker, roleTagIds?.goatTagId) &&
-      !markerHasConfiguredTag(marker, roleTagIds?.reallyHotTagId) &&
-      !markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId)
+  return [...performerCandidates, ...unscopedCandidates].sort(
+    compareSceneCardInsightCandidates
   );
-  const ordinaryEventCandidates: InsightCandidate[] = [];
-  if (ordinaryOrgasmMarkers.length > 0 && !hasReallyHotOrgasm) {
-    const stats = markerStats(ordinaryOrgasmMarkers, sceneDuration);
-    ordinaryEventCandidates.push({
-      key: "standard-orgasm",
-      label: eventCountLabel("orgasm", stats.markerCount),
-      detail: markerCoverageDetail(stats),
-      tone: "event",
-      kind: "orgasm-event",
-      score: stats.duration * 100 + stats.episodes,
-    });
-  }
-
-  return [
-    ...ordinaryEventCandidates,
-    ...performerCandidates,
-    ...unscopedCandidates,
-  ].sort(compareSceneCardInsightCandidates);
 }
 
 type InteractionCategory = "sex" | "oral";
@@ -1495,6 +1474,105 @@ function getInteractionCandidate(
   return [];
 }
 
+const rareRoleMinimumScenes = 5;
+const rareRoleMaximumPercent = 20;
+
+function getRareRoleCandidates(
+  scene: SceneCardInsightScene,
+  roleTagIds: IUIConfig["roleTagIds"],
+  roleStatsByPerformer?: ReadonlyMap<string, SceneCardInsightPerformerRoleStats>
+): InsightCandidate[] {
+  if (!roleStatsByPerformer) return [];
+
+  const activeRoles = new Set<string>();
+  const activeFacialPerformers = new Set<string>();
+  scene.scene_markers.forEach((marker) => {
+    if (markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId)) return;
+
+    const category = activityCategoryForMarker(marker, roleTagIds);
+    if (category === "sex" || category === "oral") {
+      (marker.top_performers ?? []).forEach((performer) =>
+        activeRoles.add(`${category}:top:${performer.id}`)
+      );
+      (marker.bottom_performers ?? []).forEach((performer) =>
+        activeRoles.add(`${category}:bottom:${performer.id}`)
+      );
+    }
+
+    if (markerHasConfiguredTag(marker, roleTagIds?.facialTagId)) {
+      [
+        ...(marker.top_performers ?? []),
+        ...(marker.bottom_performers ?? []),
+      ].forEach((performer) => activeFacialPerformers.add(performer.id));
+    }
+  });
+
+  const candidates: InsightCandidate[] = [];
+  scene.performers.forEach((performer) => {
+    const stats = roleStatsByPerformer.get(performer.id);
+    if (!stats) return;
+
+    (["sex", "oral"] as InteractionCategory[]).forEach((category) => {
+      const topCount =
+        category === "sex"
+          ? stats.sex_top_count
+          : stats.oral_role_top_count ?? 0;
+      const bottomCount =
+        category === "sex"
+          ? stats.sex_bottom_count
+          : stats.oral_role_bottom_count ?? 0;
+      const total = topCount + bottomCount;
+      if (total < rareRoleMinimumScenes) return;
+
+      (["top", "bottom"] as InteractionRole[]).forEach((role) => {
+        if (!activeRoles.has(`${category}:${role}:${performer.id}`)) return;
+        const count = role === "top" ? topCount : bottomCount;
+        const percent = (count / total) * 100;
+        if (count <= 0 || percent > rareRoleMaximumPercent) {
+          return;
+        }
+
+        const action = getPerformerRareRoleAction(category, role);
+        const usualRole: InteractionRole = role === "top" ? "bottom" : "top";
+        candidates.push({
+          key: `rare-${category}-${role}-${performer.id}`,
+          label: `Rare instance of ${performer.name} ${action}`,
+          detail: `${count} of ${total} ${category}-role scenes (${Math.round(
+            percent
+          )}%) · usually ${getPerformerRareRoleAction(category, usualRole)}`,
+          tone: "rare",
+          kind: "rare-role",
+          score: (rareRoleMaximumPercent - percent) * 1000 + total,
+        });
+      });
+    });
+
+    if (
+      activeFacialPerformers.has(performer.id) &&
+      stats.scene_count >= rareRoleMinimumScenes &&
+      stats.facial_scene_count > 0
+    ) {
+      const facialPercent =
+        (stats.facial_scene_count / stats.scene_count) * 100;
+      if (facialPercent <= rareRoleMaximumPercent) {
+        candidates.push({
+          key: `rare-facial-${performer.id}`,
+          label: `Rare instance of ${performer.name} in a facial scene`,
+          detail: `${stats.facial_scene_count} of ${
+            stats.scene_count
+          } scenes (${Math.round(facialPercent)}%) include a Facial`,
+          tone: "rare",
+          kind: "rare-role",
+          score:
+            (rareRoleMaximumPercent - facialPercent) * 1000 + stats.scene_count,
+        });
+      }
+    }
+  });
+
+  return candidates.sort(compareSceneCardInsightCandidates);
+}
+
 function complementIntervals(
   intervals: InsightInterval[],
   sceneDuration: number
@@ -1651,23 +1729,60 @@ function getNegativeCandidates(
   return candidates.sort(compareSceneCardInsightCandidates);
 }
 
-export function getSceneCardInsights(
+function getSceneCardInsightCandidates(
   scene: SceneCardInsightScene,
   roleTagIds: IUIConfig["roleTagIds"],
   configuredThresholds?: IUIConfig["sceneCardInsightThresholds"],
-  ratingConfig?: SceneCardInsightRatingConfig
-): ISceneCardInsight[] {
+  ratingConfig?: SceneCardInsightRatingConfig,
+  roleStatsByPerformer?: ReadonlyMap<string, SceneCardInsightPerformerRoleStats>
+) {
   scene = withSceneTagAncestors(scene);
   const thresholds = normalizeSceneCardInsightThresholds(configuredThresholds);
   const automaticCandidates = getAutomaticCandidates(scene, roleTagIds);
-  const candidates = [
+  return [
     ...automaticCandidates,
     ...getActivityCandidates(scene, roleTagIds, thresholds),
     ...getLeaningCandidate(scene, roleTagIds, thresholds),
     ...getInteractionCandidate(scene, roleTagIds),
+    ...getRareRoleCandidates(scene, roleTagIds, roleStatsByPerformer),
     ...getNegativeCandidates(scene, roleTagIds, thresholds),
     ...getPerformerLineupCandidates(scene, ratingConfig),
-    ...getTagCandidates(scene, roleTagIds, thresholds, automaticCandidates),
+    ...getTagCandidates(scene, roleTagIds, thresholds),
   ];
-  return selectSceneCardInsights(candidates);
+}
+
+export function getSceneCardInsightSets(
+  scene: SceneCardInsightScene,
+  roleTagIds: IUIConfig["roleTagIds"],
+  configuredThresholds?: IUIConfig["sceneCardInsightThresholds"],
+  ratingConfig?: SceneCardInsightRatingConfig,
+  roleStatsByPerformer?: ReadonlyMap<string, SceneCardInsightPerformerRoleStats>
+) {
+  const candidates = getSceneCardInsightCandidates(
+    scene,
+    roleTagIds,
+    configuredThresholds,
+    ratingConfig,
+    roleStatsByPerformer
+  );
+  return {
+    visible: selectSceneCardInsights(candidates),
+    all: selectAllSceneCardInsights(candidates),
+  };
+}
+
+export function getSceneCardInsights(
+  scene: SceneCardInsightScene,
+  roleTagIds: IUIConfig["roleTagIds"],
+  configuredThresholds?: IUIConfig["sceneCardInsightThresholds"],
+  ratingConfig?: SceneCardInsightRatingConfig,
+  roleStatsByPerformer?: ReadonlyMap<string, SceneCardInsightPerformerRoleStats>
+): ISceneCardInsight[] {
+  return getSceneCardInsightSets(
+    scene,
+    roleTagIds,
+    configuredThresholds,
+    ratingConfig,
+    roleStatsByPerformer
+  ).visible;
 }

@@ -306,10 +306,12 @@
 }
 
 /* CUSTOM: begin */
+
 /* Ensure consistent performer card width in carousel on desktop */
 .slick-list .performer-card.card {
   width: 20rem;
 }
+
 /* CUSTOM: end */
 
 @media (max-width: 576px) {
@@ -508,14 +510,19 @@
 }
 
 /* CUSTOM: begin */
+/* stylelint-disable declaration-no-important -- Slick's inline layout styles require explicit overrides */
+
 /* Fix performer role badges in slick slider - ensure horizontal layout */
 .slick-slide .performer-role-badges .category-icon-container {
+  align-items: center !important;
   display: flex !important;
   flex-direction: row !important;
-  align-items: center !important;
   gap: 0.16rem !important;
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
 }
+
+/* stylelint-enable declaration-no-important */
+
 /* CUSTOM: end */

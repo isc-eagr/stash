@@ -61,6 +61,7 @@ export const SceneCardPerformerPopover: React.FC<IProps> = ({
               imageClassName={
                 ratingClass ? cx("performer-card", ratingClass) : undefined
               }
+              detailLink={`/performers/${performer.performer.id}`}
               imageAccessory={
                 rating !== undefined && rating !== null ? (
                   <span

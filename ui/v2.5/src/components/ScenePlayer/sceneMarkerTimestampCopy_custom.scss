@@ -83,6 +83,17 @@
   z-index: 5;
 }
 
+/* CUSTOM: begin - deterministic hover priority for overlapping scrubber markers */
+.scrubber-tag-popover-trigger-timestamp-copy {
+  z-index: 5;
+}
+
+.scrubber-negative-markers-timestamp-copy {
+  z-index: 6;
+}
+
+/* CUSTOM: end */
+
 .scrubber-marker-copy-label {
   align-items: center;
   background: #38bdf8;

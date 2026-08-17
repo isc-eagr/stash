@@ -8,6 +8,8 @@ import { sortPerformers } from "src/core/performers";
 import { DirectorLink } from "src/components/Shared/Link";
 import { CustomFields } from "src/components/Shared/CustomFields";
 import { useScenePerformerOverview } from "./ScenePerformerOverviewPanel_custom"; // CUSTOM
+import { SceneCardInsights } from "../SceneCardInsights_custom"; // CUSTOM
+import { usePerformerCardRoleStats } from "../../Performers/performerRoleStats_custom"; // CUSTOM
 
 interface ISceneDetailProps {
   scene: GQL.SceneDataFragment;
@@ -16,6 +18,9 @@ interface ISceneDetailProps {
 export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
   const intl = useIntl();
   const performerOverview = useScenePerformerOverview(); // CUSTOM
+  const roleStatsByPerformer = usePerformerCardRoleStats(
+    props.scene.performers
+  ); // CUSTOM
 
   function renderDetails() {
     if (!props.scene.details || props.scene.details === "") return;
@@ -100,6 +105,12 @@ export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
               <FormattedMessage id="scene_code" />: {props.scene.code}{" "}
             </h6>
           )}
+          {/* CUSTOM: scene insights between Studio Code and Description */}
+          <SceneCardInsights
+            scene={props.scene}
+            roleStatsByPerformer={roleStatsByPerformer}
+            detailPage
+          />
           {props.scene.director && (
             <h6>
               <FormattedMessage id="director" />:{" "}

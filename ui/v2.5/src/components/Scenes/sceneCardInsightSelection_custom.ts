@@ -29,6 +29,7 @@ export const sceneCardInsightPolicies: Record<
   "activity-quality": { lane: "activity", priority: 830 },
   leaning: { lane: "leaning", priority: 825 },
   interaction: { lane: "context", priority: 800 },
+  "rare-role": { lane: "context", priority: 795 },
   "negative-rating": { lane: "context", priority: 790 },
   "favorite-lineup": { lane: "context", priority: 780 },
   "country-lineup": { lane: "context", priority: 770 },
@@ -62,9 +63,9 @@ export function selectSceneCardInsights(
     (candidate) => sceneCardInsightPolicies[candidate.kind].mandatory
   );
   if (mandatory.length > maxInsights) {
-    return mandatory.map(
-      ({ kind: _kind, score: _score, ...insight }) => insight
-    );
+    return mandatory
+      .slice(0, maxInsights)
+      .map(({ kind: _kind, score: _score, ...insight }) => insight);
   }
 
   const leaning = sorted.filter(
@@ -113,5 +114,13 @@ export function selectSceneCardInsights(
   return [...automatic, ...activities, ...leaning, ...context]
     .sort(compareSceneCardInsightCandidates)
     .slice(0, maxInsights)
+    .map(({ kind: _kind, score: _score, ...insight }) => insight);
+}
+
+export function selectAllSceneCardInsights(
+  candidates: SceneCardInsightCandidate[]
+): ISceneCardInsight[] {
+  return [...candidates]
+    .sort(compareSceneCardInsightCandidates)
     .map(({ kind: _kind, score: _score, ...insight }) => insight);
 }

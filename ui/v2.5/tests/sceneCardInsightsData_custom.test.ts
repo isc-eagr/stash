@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getSceneCardInsights } from "../src/components/Scenes/sceneCardInsightsData_custom.ts";
+import {
+  getSceneCardInsightSets,
+  getSceneCardInsights,
+} from "../src/components/Scenes/sceneCardInsightsData_custom.ts";
 
 const tag = (
   id: string,
@@ -657,7 +660,7 @@ test("GOAT tags with the same descriptor stay separated across performer scopes"
   assert.equal(sceneLabels.includes("GOAT Pito"), false);
 });
 
-test("all GOAT highlights remain visible beyond the normal chip ceiling", () => {
+test("all GOAT highlights remain available beyond the visible chip ceiling", () => {
   const goat = tag("goat", "GOAT");
   const goatMarkers = Array.from({ length: 8 }, (_, index) =>
     marker(
@@ -669,12 +672,18 @@ test("all GOAT highlights remain visible beyond the normal chip ceiling", () => 
       [performer(`performer-${index}`, `Vato ${index}`)]
     )
   );
-  const sceneLabels = labels(goatMarkers, 600, suppressNegatives);
+  const insightSets = getSceneCardInsightSets(
+    makeScene(goatMarkers, 600),
+    roleTagIds,
+    suppressNegatives
+  );
 
   assert.equal(
-    sceneLabels.filter((label) => label.startsWith("GOAT ")).length,
+    insightSets.all.filter((insight) => insight.label.startsWith("GOAT "))
+      .length,
     goatMarkers.length
   );
+  assert.equal(insightSets.visible.length, 7);
 });
 
 test("Really Hot facial preserves separate Really Hot orgasm markers", () => {
@@ -746,7 +755,7 @@ test("Really Hot orgasm remains automatic when no Really Hot facial exists", () 
   assert.ok(sceneLabels.includes("Really Hot orgasm ×2"));
 });
 
-test("ordinary orgasm and facial insights include marker counts", () => {
+test("ordinary Orgasm counts stay hidden while Facial counts remain", () => {
   const tyga = performer("tyga", "Tyga Martinez");
   const sceneLabels = labels(
     [
@@ -762,11 +771,11 @@ test("ordinary orgasm and facial insights include marker counts", () => {
   );
 
   assert.ok(sceneLabels.includes("Tyga Martinez nuts 3 times"));
-  assert.ok(sceneLabels.includes("Orgasm ×3"));
+  assert.equal(sceneLabels.includes("Orgasm ×3"), false);
   assert.ok(sceneLabels.includes("Facials ×3"));
 });
 
-test("Everybody Nuts accepts Orgasm or Facial finishes and ignores 2nd Camera", () => {
+test("Everybody Nuts remains disabled even when every vato finishes", () => {
   const first = performer("first", "First Vato");
   const second = performer("second", "Second Vato");
   const sceneLabels = labels(
@@ -788,7 +797,7 @@ test("Everybody Nuts accepts Orgasm or Facial finishes and ignores 2nd Camera", 
   );
 
   assert.equal(sceneLabels.includes("Everybody Nuts"), false);
-  assert.ok(
+  assert.equal(
     labels(
       [
         marker("first-orgasm", tag("orgasm", "Orgasm"), 10, 15, [], [first]),
@@ -797,11 +806,12 @@ test("Everybody Nuts accepts Orgasm or Facial finishes and ignores 2nd Camera", 
       100,
       suppressNegatives,
       [first, second]
-    ).includes("Everybody Nuts")
+    ).includes("Everybody Nuts"),
+    false
   );
 });
 
-test("outstanding amount chips display before Everybody Nuts", () => {
+test("outstanding amount chips remain while Everybody Nuts is disabled", () => {
   const first = performer("first", "First Vato");
   const second = performer("second", "Second Vato");
   const sceneLabels = labels(
@@ -814,14 +824,10 @@ test("outstanding amount chips display before Everybody Nuts", () => {
     suppressNegatives,
     [first, second]
   );
-  const amountIndex = sceneLabels.indexOf(
-    "Body as far as the eye can see from First Vato"
+  assert.ok(
+    sceneLabels.includes("Body as far as the eye can see from First Vato")
   );
-  const everybodyNutsIndex = sceneLabels.indexOf("Everybody Nuts");
-
-  assert.notEqual(amountIndex, -1);
-  assert.notEqual(everybodyNutsIndex, -1);
-  assert.ok(amountIndex < everybodyNutsIndex);
+  assert.equal(sceneLabels.includes("Everybody Nuts"), false);
 });
 
 test("orgasm chips detect simultaneous top vatos and repeated top orgasms", () => {
@@ -1690,6 +1696,131 @@ test("quality level thresholds are configurable", () => {
   );
 });
 
+test("a current sex role is rare only at five role scenes and twenty percent or less", () => {
+  const chacalito = performer("chacalito", "Chacalito Regio");
+  const sexBottomScene = makeScene([
+    interactionMarker("sex-bottom", "sex", performer("top", "Top"), chacalito),
+  ]);
+  const qualifyingStats = new Map([
+    [
+      chacalito.id,
+      {
+        scene_count: 20,
+        sex_top_count: 4,
+        sex_bottom_count: 1,
+        oral_role_top_count: 0,
+        oral_role_bottom_count: 0,
+        facial_scene_count: 0,
+      },
+    ],
+  ]);
+
+  const qualifyingLabels = getSceneCardInsights(
+    sexBottomScene,
+    roleTagIds,
+    suppressNegatives,
+    undefined,
+    qualifyingStats
+  ).map((insight) => insight.label);
+  assert.ok(
+    qualifyingLabels.includes("Rare instance of Chacalito Regio taking dick")
+  );
+
+  const tooLittleHistory = new Map([
+    [chacalito.id, { ...qualifyingStats.get(chacalito.id)!, sex_top_count: 2 }],
+  ]);
+  const shortHistoryLabels = getSceneCardInsights(
+    sexBottomScene,
+    roleTagIds,
+    suppressNegatives,
+    undefined,
+    tooLittleHistory
+  ).map((insight) => insight.label);
+  assert.equal(
+    shortHistoryLabels.includes("Rare instance of Chacalito Regio taking dick"),
+    false
+  );
+});
+
+test("sex and oral rarity use separate role denominators", () => {
+  const vato = performer("vato", "Versatile Vato");
+  const scene = makeScene([
+    interactionMarker(
+      "sex-bottom",
+      "sex",
+      performer("sex-top", "Sex Top"),
+      vato
+    ),
+    interactionMarker(
+      "oral-top",
+      "oral",
+      vato,
+      performer("oral-bottom", "Oral Bottom"),
+      80
+    ),
+  ]);
+  const stats = new Map([
+    [
+      vato.id,
+      {
+        scene_count: 40,
+        sex_top_count: 15,
+        sex_bottom_count: 3,
+        oral_role_top_count: 2,
+        oral_role_bottom_count: 10,
+        facial_scene_count: 0,
+      },
+    ],
+  ]);
+  const sceneLabels = getSceneCardInsightSets(
+    scene,
+    roleTagIds,
+    suppressNegatives,
+    undefined,
+    stats
+  ).all.map((insight) => insight.label);
+
+  assert.ok(
+    sceneLabels.includes("Rare instance of Versatile Vato taking dick")
+  );
+  assert.ok(
+    sceneLabels.includes(
+      "Rare instance of Versatile Vato having his pito sucked"
+    )
+  );
+});
+
+test("Facial rarity compares facial scenes with all performer scenes", () => {
+  const vato = performer("facial-vato", "Facial Vato");
+  const scene = makeScene([
+    marker("facial", tag("facial", "Facial"), 0, 5, [], [vato]),
+  ]);
+  const stats = new Map([
+    [
+      vato.id,
+      {
+        scene_count: 12,
+        sex_top_count: 0,
+        sex_bottom_count: 0,
+        oral_role_top_count: 0,
+        oral_role_bottom_count: 0,
+        facial_scene_count: 2,
+      },
+    ],
+  ]);
+  const sceneLabels = getSceneCardInsights(
+    scene,
+    roleTagIds,
+    suppressNegatives,
+    undefined,
+    stats
+  ).map((insight) => insight.label);
+
+  assert.ok(
+    sceneLabels.includes("Rare instance of Facial Vato in a facial scene")
+  );
+});
+
 test("No Orgasm reserves a high-priority slot near the chip ceiling", () => {
   const goat = tag("goat", "GOAT");
   const sceneLabels = labels(
@@ -1719,9 +1850,9 @@ test("No Orgasm reserves a high-priority slot near the chip ceiling", () => {
   );
 });
 
-test("all GOAT tags remain visible even beyond the seven-chip ceiling", () => {
+test("the visible strip caps GOAT tags at seven while the full set keeps all", () => {
   const goat = tag("goat", "GOAT");
-  const sceneLabels = labels(
+  const scene = makeScene(
     [
       marker("goat-1", tag("other", "Other"), 0, 20, [
         goat,
@@ -1735,18 +1866,24 @@ test("all GOAT tags remain visible even beyond the seven-chip ceiling", () => {
         tag("h", "H"),
       ]),
     ],
-    100,
+    100
+  );
+  const insightSets = getSceneCardInsightSets(
+    scene,
+    roleTagIds,
     suppressNegatives
   );
 
-  assert.equal(sceneLabels.length, 9);
+  assert.equal(insightSets.visible.length, 7);
+  assert.equal(insightSets.all.length, 10);
   assert.equal(
-    sceneLabels.every((label) => label.startsWith("GOAT ")),
-    true
+    insightSets.all.filter((insight) => insight.label.startsWith("GOAT "))
+      .length,
+    9
   );
 });
 
-test("Facials remain visible beyond the ordinary chip ceiling", () => {
+test("the visible strip remains capped when GOAT and Facial chips compete", () => {
   const goat = tag("goat", "GOAT");
   const goatMarkers = Array.from({ length: 7 }, (_, index) =>
     marker(
@@ -1757,20 +1894,24 @@ test("Facials remain visible beyond the ordinary chip ceiling", () => {
       [goat]
     )
   );
-  const sceneLabels = labels(
+  const scene = makeScene(
     [
       ...goatMarkers,
       marker("standard-facial", tag("facial", "Facial"), 80, 81),
     ],
-    100,
+    100
+  );
+  const insightSets = getSceneCardInsightSets(
+    scene,
+    roleTagIds,
     suppressNegatives
   );
 
-  assert.equal(sceneLabels.length, 8);
-  assert.ok(sceneLabels.includes("Facials ×1"));
+  assert.equal(insightSets.visible.length, 7);
+  assert.ok(insightSets.all.some((insight) => insight.label === "Facials ×1"));
 });
 
-test("Everybody Nuts yields to automatic orgasm chips near the insight ceiling", () => {
+test("disabled Everybody Nuts does not displace automatic orgasm chips", () => {
   const markers = Array.from({ length: 7 }, (_, index) => {
     const scenePerformer = performer(`vato-${index}`, `Vato ${index}`);
     return [

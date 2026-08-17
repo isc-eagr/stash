@@ -189,6 +189,17 @@ assert.equal(
   "a negative-marker hover immediately takes ownership from a regular marker"
 );
 
+assert.equal(
+  shouldShowSceneMarkerTooltip({
+    activeOwner: negativeMarkerOwner,
+    activeIsNegative: true,
+    requestedOwner: regularMarkerOwner,
+    requestedIsNegative: false,
+  }),
+  false,
+  "timestamp-copy pickers can use the same negative-over-regular ownership rule"
+);
+
 const timelineMarkerSource = readFileSync(
   new URL("../src/components/ScenePlayer/markers.ts", import.meta.url),
   "utf8"
@@ -210,6 +221,16 @@ assert.match(
   timelineMarkerSource,
   /cursorClientX !== undefined[\s\S]*?cursorClientX - parentRect\.left/,
   "normal Video.js marker hover cards anchor horizontally at the cursor"
+);
+assert.match(
+  timelineMarkerSource,
+  /timestampCopyPickerOwnerIsNegative[\s\S]*?shouldShowSceneMarkerTooltip\([\s\S]*?requestedIsNegative:\s*isNegativeMarker/,
+  "the Video.js timestamp-copy picker rejects competing regular-marker hover events while a negative marker owns it"
+);
+assert.match(
+  thumbnailScrubberSource,
+  /scrubber-negative-markers-timestamp-copy/,
+  "the thumbnail scrubber gives negative marker hit targets deterministic overlap priority in copy mode"
 );
 assert.match(
   thumbnailScrubberSource,

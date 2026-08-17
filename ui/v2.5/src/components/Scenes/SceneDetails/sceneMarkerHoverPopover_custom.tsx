@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import cx from "classnames";
 import { Badge } from "react-bootstrap";
+import { Link } from "react-router-dom";
 import { faUser } from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import { Icon } from "src/components/Shared/Icon";
@@ -66,6 +67,7 @@ export const ActivityTypePerformerTile: React.FC<{
   className?: string;
   imageClassName?: string;
   imageAccessory?: React.ReactNode;
+  detailLink?: string;
   title?: string;
   children?: React.ReactNode;
 }> = ({
@@ -74,6 +76,7 @@ export const ActivityTypePerformerTile: React.FC<{
   className,
   imageClassName,
   imageAccessory,
+  detailLink,
   title,
   children,
 }) => {
@@ -97,7 +100,18 @@ export const ActivityTypePerformerTile: React.FC<{
         (role ? `${role}: ${performer.name}` : performer.name ?? undefined)
       }
     >
-      {performerOverview ? (
+      {detailLink ? (
+        <Link
+          to={detailLink}
+          aria-label={`Open ${performer.name ?? "vato"} details`}
+          className={cx(
+            "scene-marker-activity-performer-image scene-marker-activity-performer-detail-link",
+            imageClassName
+          )}
+        >
+          {portrait}
+        </Link>
+      ) : performerOverview ? (
         <button
           type="button"
           aria-label={`Open ${performer.name ?? "vato"} overview`}
@@ -120,7 +134,14 @@ export const ActivityTypePerformerTile: React.FC<{
         </div>
       )}
       {imageAccessory}
-      {performerOverview ? (
+      {detailLink ? (
+        <Link
+          to={detailLink}
+          className="scene-marker-activity-performer-name scene-marker-activity-performer-detail-link"
+        >
+          {performer.name}
+        </Link>
+      ) : performerOverview ? (
         <button
           type="button"
           className="scene-marker-activity-performer-name scene-marker-activity-performer-name-button"

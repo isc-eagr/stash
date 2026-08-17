@@ -20,6 +20,8 @@ import {
 import {
   buildIntersectedLoopSegments,
   buildIntervalLoopSegments,
+  getSceneStatsScopedLoopSegments,
+  type SceneStatsLoopSelectionScope,
 } from "./sceneStatsLoopSegments_custom"; // CUSTOM
 import {
   getSceneStatsCombinedPerformerActivity,
@@ -971,8 +973,8 @@ const SceneStatsPanel: React.FC<IProps> = ({
     };
   }
 
-  function buildSelectedLoopSegments() {
-    const selectedSegments = buildSelectedActivityLoopSegments();
+  function buildSelectedLoopSegments(scope: SceneStatsLoopSelectionScope) {
+    const overviewSegments = buildSelectedActivityLoopSegments();
     const selectedMarkers = new Map<string, IActivityMarker>();
 
     performerStats.forEach((entry) => {
@@ -1008,34 +1010,38 @@ const SceneStatsPanel: React.FC<IProps> = ({
       })
     );
 
-    return dedupeLoopSegments([
-      ...selectedSegments,
-      ...buildLoopSegments([...selectedMarkers.values()]),
-      ...roleInteractionSegments,
-    ]);
+    return dedupeLoopSegments(
+      getSceneStatsScopedLoopSegments(scope, {
+        overview: overviewSegments,
+        performer: buildLoopSegments([...selectedMarkers.values()]),
+        interaction: roleInteractionSegments,
+      })
+    );
   }
 
-  function clearLoopSelection() {
-    setSelectedActivities(new Set());
+  function clearLoopSelection(scope: SceneStatsLoopSelectionScope) {
+    if (scope === "overview") {
+      setSelectedActivities(new Set());
+      return;
+    }
+
     setSelectedPerformerRows(new Set());
     setSelectedRoleInteractions(new Set());
   }
 
-  function addSelectedActivitiesToLoop() {
-    const loopSegments = buildSelectedLoopSegments();
+  function addSelectedStatsToLoop(scope: SceneStatsLoopSelectionScope) {
+    const loopSegments = buildSelectedLoopSegments(scope);
     if (loopSegments.length === 0) return;
 
     addMultiSegmentLoopSegments(loopSegments);
-    clearLoopSelection();
+    clearLoopSelection(scope);
   }
 
-  const selectedLoopSegments = buildSelectedLoopSegments();
-  const selectedLoopDuration = mergeDuration(selectedLoopSegments);
-  const selectionCount =
-    selectedActivities.size +
-    selectedPerformerRows.size +
-    selectedRoleInteractions.size;
-  const canAddToLoop = selectedLoopSegments.length > 0;
+  const overviewLoopSegments = buildSelectedLoopSegments("overview");
+  const detailLoopSegments = buildSelectedLoopSegments("details");
+  const overviewSelectionCount = selectedActivities.size;
+  const detailSelectionCount =
+    selectedPerformerRows.size + selectedRoleInteractions.size;
 
   function renderOverviewPanel(
     title: string,
@@ -1785,9 +1791,28 @@ const SceneStatsPanel: React.FC<IProps> = ({
     );
   }
 
-  function renderLoopTray() {
+  function renderLoopTray(scope: SceneStatsLoopSelectionScope) {
+    const isOverview = scope === "overview";
+    const selectedLoopSegments = isOverview
+      ? overviewLoopSegments
+      : detailLoopSegments;
+    const selectedLoopDuration = mergeDuration(selectedLoopSegments);
+    const selectionCount = isOverview
+      ? overviewSelectionCount
+      : detailSelectionCount;
+
     return (
-      <div className="scene-stats-loop-tray">
+      <div
+        aria-label={
+          isOverview
+            ? "Stats panel loop selection"
+            : "Detailed Scene Stats loop selection"
+        }
+        className={cx("scene-stats-loop-tray", {
+          "scene-stats-loop-tray-panel": isOverview,
+        })}
+        role="group"
+      >
         <div className="scene-stats-loop-status">
           {selectionCount > 0 && (
             <>
@@ -1806,7 +1831,7 @@ const SceneStatsPanel: React.FC<IProps> = ({
         <div className="scene-stats-loop-actions">
           <Button
             disabled={selectionCount === 0}
-            onClick={clearLoopSelection}
+            onClick={() => clearLoopSelection(scope)}
             size="sm"
             type="button"
             variant="outline-secondary"
@@ -1814,8 +1839,8 @@ const SceneStatsPanel: React.FC<IProps> = ({
             Clear
           </Button>
           <Button
-            disabled={!canAddToLoop}
-            onClick={addSelectedActivitiesToLoop}
+            disabled={selectedLoopSegments.length === 0}
+            onClick={() => addSelectedStatsToLoop(scope)}
             size="sm"
             type="button"
             variant="primary"
@@ -1833,6 +1858,8 @@ const SceneStatsPanel: React.FC<IProps> = ({
         {renderOverviewPanel("Activity Type", activityRows, true)}
         {renderOverviewPanel("Quality", qualityRows, true)}
       </div>
+
+      {renderLoopTray("overview")}
 
       {performerStats.length > 0 &&
         shouldShowSceneStatsDetails(scene.performers.length) && (
@@ -1860,7 +1887,7 @@ const SceneStatsPanel: React.FC<IProps> = ({
         show={showDetailsModal}
       >
         <section className="scene-stats-detail-workspace">
-          {renderLoopTray()}
+          {renderLoopTray("details")}
 
           <div className="scene-stats-detail-toolbar">
             <ButtonGroup aria-label="Scene stats detail view" size="sm">

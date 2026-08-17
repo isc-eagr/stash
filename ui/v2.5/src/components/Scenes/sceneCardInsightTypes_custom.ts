@@ -14,6 +14,7 @@ export type SceneCardInsightTone =
   | "goat"
   | "event"
   | "lineup"
+  | "rare"
   | "negative";
 
 export interface ISceneCardInsight {
@@ -73,6 +74,15 @@ export type SceneCardInsightScene = Pick<GQL.SlimSceneDataFragment, "id"> & {
   }>;
 };
 
+export type SceneCardInsightPerformerRoleStats = {
+  scene_count: number;
+  sex_top_count: number;
+  sex_bottom_count: number;
+  oral_role_top_count?: number;
+  oral_role_bottom_count?: number;
+  facial_scene_count: number;
+};
+
 export type SceneCardInsightCandidateKind =
   | "goat"
   | "facial"
@@ -82,6 +92,7 @@ export type SceneCardInsightCandidateKind =
   | "leaning"
   | "no-orgasm"
   | "interaction"
+  | "rare-role"
   | "negative-rating"
   | "favorite-lineup"
   | "country-lineup"

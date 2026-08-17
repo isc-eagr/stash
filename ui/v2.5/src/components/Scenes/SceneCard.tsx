@@ -37,6 +37,7 @@ import {
   isRatingCardHomePage,
 } from "src/utils/ratingCardStyles_custom"; // CUSTOM
 import { SceneCardInsights } from "./SceneCardInsights_custom"; // CUSTOM
+import type { SceneCardInsightPerformerRoleStats } from "./sceneCardInsightsData_custom"; // CUSTOM
 import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
 import { getSceneSortMetricCustom } from "./sceneSortMetric_custom"; // CUSTOM
 import {
@@ -133,6 +134,10 @@ interface ISceneCardProps {
   fromGroupId?: string;
   activeSortBy?: string; // CUSTOM
   activeSortDirection?: GQL.SortDirectionEnum; // CUSTOM
+  roleStatsByPerformer?: ReadonlyMap<
+    string,
+    SceneCardInsightPerformerRoleStats
+  >; // CUSTOM
 }
 
 const Description: React.FC<{
@@ -404,7 +409,10 @@ const SceneCardPopovers = PatchComponent(
             </>
           )}
           {/* CUSTOM: render insights independently of popover controls */}
-          <SceneCardInsights scene={props.scene} />
+          <SceneCardInsights
+            scene={props.scene}
+            roleStatsByPerformer={props.roleStatsByPerformer}
+          />
         </>
       );
     }

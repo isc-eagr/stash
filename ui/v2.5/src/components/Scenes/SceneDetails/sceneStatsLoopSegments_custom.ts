@@ -6,6 +6,14 @@ export interface ISceneStatsLoopInterval {
   end: number;
 }
 
+export type SceneStatsLoopSelectionScope = "overview" | "details";
+
+interface ISceneStatsScopedLoopSegments {
+  overview: ILoopSegmentInput[];
+  performer: ILoopSegmentInput[];
+  interaction: ILoopSegmentInput[];
+}
+
 const minimumLoopSegmentMilliseconds = 1;
 
 function mergeLoopIntervals(intervals: ISceneStatsLoopInterval[]) {
@@ -81,5 +89,14 @@ export function buildIntersectedLoopSegments(
       ];
     })
   );
+}
+
+export function getSceneStatsScopedLoopSegments(
+  scope: SceneStatsLoopSelectionScope,
+  segments: ISceneStatsScopedLoopSegments
+) {
+  if (scope === "overview") return segments.overview;
+
+  return [...segments.performer, ...segments.interaction];
 }
 // CUSTOM: end

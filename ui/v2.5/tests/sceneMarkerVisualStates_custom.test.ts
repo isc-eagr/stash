@@ -23,7 +23,7 @@ const markerPanelStyles = readFileSync(
 
 assert.match(
   scrubberSource,
-  /className=\{cx\(\s*"scrubber-tag-popover-trigger",\s*getMarkerRatingCardClass\(marker\)\s*\)\}/,
+  /className=\{cx\(\s*"scrubber-tag-popover-trigger",[\s\S]*?getMarkerRatingCardClass\(marker\)\s*\)\}/,
   "scrubber marker tags receive the shared GOAT/Royal Sapphire rating class"
 );
 

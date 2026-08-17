@@ -1877,6 +1877,7 @@ func countMarkersByRoleWithSecondaryInScenes(
 // Returned by GetPerformerRoleStatsBatch so card grids can fetch all stats in one resolver.
 type PerformerRoleStatsData struct {
 	PerformerID                 int
+	SceneCount                  int
 	SexSceneCount               int
 	SexTopCount                 int
 	SexBottomCount              int
@@ -1885,6 +1886,8 @@ type PerformerRoleStatsData struct {
 	OralSceneCount              int
 	OralTopCount                int
 	OralBottomCount             int
+	OralRoleTopCount            int
+	OralRoleBottomCount         int
 	OralWithTopCount            int
 	OralWithBottomCount         int
 	SoloSceneCount              int
@@ -1909,6 +1912,7 @@ type PerformerRoleStatsData struct {
 func GetPerformerRoleStatsBatch(
 	ctx context.Context,
 	markerQB models.SceneMarkerReader,
+	sceneQB models.SceneCounter,
 	tagFinder models.TagFinder,
 	performerIDs []int,
 	sexTagID, oralTagID, soloTagID, facialTagID, orgasmTagID, feetTagID, secondCameraTagID int,
@@ -1926,6 +1930,14 @@ func GetPerformerRoleStatsBatch(
 	}
 	if len(targetIDs) == 0 {
 		return result, nil
+	}
+
+	sceneCounts, err := getPerformerSceneCountsBatch(ctx, sceneQB, targetIDs)
+	if err != nil {
+		return nil, err
+	}
+	for id, stats := range result {
+		stats.SceneCount = sceneCounts[id]
 	}
 
 	sexScenes, err := collectPrimaryTagScenesForPerformers(ctx, markerQB, tagFinder, targetIDs, targets, sexTagID, "")
@@ -1959,6 +1971,8 @@ func GetPerformerRoleStatsBatch(
 		return nil, err
 	}
 	for id, stats := range result {
+		stats.OralRoleTopCount = len(oralTopScenes[id])
+		stats.OralRoleBottomCount = len(oralBottomScenes[id])
 		stats.OralSceneCount = countScenesExcluding(oralScenes[id], sexScenes[id])
 		stats.OralTopCount = countScenesExcluding(oralTopScenes[id], sexScenes[id])
 		stats.OralBottomCount = countScenesExcluding(oralBottomScenes[id], sexScenes[id])
@@ -1972,14 +1986,6 @@ func GetPerformerRoleStatsBatch(
 		stats.SoloSceneCount = countScenesExcluding(soloScenes[id], sexScenes[id], oralScenes[id])
 	}
 
-	facialScenes, err := collectPrimaryTagScenesForPerformers(ctx, markerQB, tagFinder, targetIDs, targets, facialTagID, "")
-	if err != nil {
-		return nil, err
-	}
-	for id, stats := range result {
-		stats.FacialSceneCount = len(facialScenes[id])
-	}
-
 	if err := fillMarkerRoleStatsWithSecondary(ctx, markerQB, tagFinder, targetIDs, targets, result, facialTagID, orgasmTagID, feetTagID, secondCameraTagID); err != nil {
 		return nil, err
 	}
@@ -1988,6 +1994,26 @@ func GetPerformerRoleStatsBatch(
 	}
 
 	return result, nil
+}
+
+type performerSceneCountBatchReader interface {
+	CountByPerformerIDs(ctx context.Context, performerIDs []int) (map[int]int, error)
+}
+
+func getPerformerSceneCountsBatch(ctx context.Context, sceneQB models.SceneCounter, performerIDs []int) (map[int]int, error) {
+	if batchReader, ok := sceneQB.(performerSceneCountBatchReader); ok {
+		return batchReader.CountByPerformerIDs(ctx, performerIDs)
+	}
+
+	ret := make(map[int]int, len(performerIDs))
+	for _, performerID := range performerIDs {
+		count, err := sceneQB.CountByPerformerID(ctx, performerID)
+		if err != nil {
+			return nil, err
+		}
+		ret[performerID] = count
+	}
+	return ret, nil
 }
 
 func collectPrimaryTagScenesForPerformers(
@@ -2062,6 +2088,10 @@ func fillMarkerRoleStatsWithSecondary(
 	}
 
 	countedFacialAny := make(map[int]map[int]bool)
+	facialScenesByPerformer := make(map[int]map[int]bool, len(targets))
+	for performerID := range targets {
+		facialScenesByPerformer[performerID] = make(map[int]bool)
+	}
 	for _, row := range rows {
 		allTagIDs := append([]int{row.PrimaryTagID}, tagsByMarker[row.SceneMarkerID]...)
 		if containsAnyTag(allTagIDs, secondCameraTags) {
@@ -2080,6 +2110,9 @@ func fillMarkerRoleStatsWithSecondary(
 		}
 		stats := result[row.PerformerID]
 		if hasFacial {
+			if row.Role == "top" || row.Role == "bottom" {
+				facialScenesByPerformer[row.PerformerID][row.SceneID] = true
+			}
 			if countedFacialAny[row.SceneMarkerID] == nil {
 				countedFacialAny[row.SceneMarkerID] = make(map[int]bool)
 			}
@@ -2104,6 +2137,9 @@ func fillMarkerRoleStatsWithSecondary(
 				stats.FeetTopCount++
 			}
 		}
+	}
+	for performerID, scenes := range facialScenesByPerformer {
+		result[performerID].FacialSceneCount = len(scenes)
 	}
 
 	return nil

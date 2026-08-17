@@ -56,6 +56,7 @@ export interface IPerformerCardExtraCriteria {
 }
 
 export interface IPerformerRoleStats {
+  scene_count: number; // CUSTOM
   sex_scene_count: number;
   sex_top_count: number;
   sex_bottom_count: number;
@@ -65,6 +66,8 @@ export interface IPerformerRoleStats {
   oral_scene_count: number;
   oral_top_count: number;
   oral_bottom_count: number;
+  oral_role_top_count?: number; // CUSTOM
+  oral_role_bottom_count?: number; // CUSTOM
   oral_with_top_count: number;
   oral_with_bottom_count: number;
   oral_unique_partner_count: number;
@@ -83,7 +86,6 @@ export interface IPerformerRoleStats {
 }
 
 interface IPerformerStudioStats extends IPerformerRoleStats {
-  scene_count: number;
   group_count: number;
   image_count: number;
   gallery_count: number;

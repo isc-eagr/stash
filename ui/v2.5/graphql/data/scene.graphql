@@ -38,7 +38,6 @@ fragment SceneData on Scene {
   play_history
   o_history
   o_timestamps # CUSTOM
-
   files {
     ...VideoFileData
   }
@@ -57,6 +56,12 @@ fragment SceneData on Scene {
 
   scene_markers {
     ...SceneMarkerData
+  }
+
+  # CUSTOM: flattened marker-tag ancestry for recursive insight classification
+  scene_marker_tag_ancestors {
+    tag_id
+    ancestor_ids
   }
 
   galleries {
@@ -86,6 +91,10 @@ fragment SceneData on Scene {
 
   performers {
     ...PerformerData
+    # CUSTOM: exact metallic-rating override evidence for detail insights
+    rating_tier_tags: tags {
+      id
+    }
   }
 
   stash_ids {

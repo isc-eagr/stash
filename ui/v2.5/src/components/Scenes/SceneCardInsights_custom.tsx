@@ -1,14 +1,20 @@
 import React, { useMemo } from "react";
-import { OverlayTrigger, Tooltip } from "react-bootstrap";
 import { useConfigurationContext } from "src/hooks/Config";
+import { HoverPopover } from "../Shared/HoverPopover";
 import {
-  getSceneCardInsights,
+  getSceneCardInsightSets,
   type ISceneCardInsight,
+  type SceneCardInsightPerformerRoleStats,
   type SceneCardInsightScene,
 } from "./sceneCardInsightsData_custom";
 
 interface ISceneCardInsightsProps {
   scene: SceneCardInsightScene;
+  roleStatsByPerformer?: ReadonlyMap<
+    string,
+    SceneCardInsightPerformerRoleStats
+  >;
+  detailPage?: boolean;
 }
 
 interface ISceneCardInsightChipProps
@@ -40,51 +46,76 @@ SceneCardInsightChip.displayName = "SceneCardInsightChip";
 
 export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
   scene,
+  roleStatsByPerformer,
+  detailPage,
 }) => {
   const { configuration } = useConfigurationContext();
-  const insights = useMemo(
+  const insightSets = useMemo(
     () =>
-      getSceneCardInsights(
+      getSceneCardInsightSets(
         scene,
         configuration?.ui?.roleTagIds,
         configuration?.ui?.sceneCardInsightThresholds,
         {
           overrideTagIds: configuration?.ui?.ratingCardOverrideTagIds,
           thresholds: configuration?.ui?.ratingCardThresholds,
-        }
+        },
+        roleStatsByPerformer
       ),
     [
       configuration?.ui?.ratingCardOverrideTagIds,
       configuration?.ui?.ratingCardThresholds,
       configuration?.ui?.roleTagIds,
       configuration?.ui?.sceneCardInsightThresholds,
+      roleStatsByPerformer,
       scene,
     ]
   );
 
-  if (insights.length === 0) return null;
+  if (insightSets.visible.length === 0) return null;
+
+  const popup = (
+    <div className="scene-card-insights-popup" aria-label="All scene insights">
+      {insightSets.all.map((insight) => (
+        <div className="scene-card-insights-popup-row" key={insight.key}>
+          <SceneCardInsightChip label={insight.label} tone={insight.tone} />
+          <span className="scene-card-insights-popup-detail">
+            {insight.detail}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
-    <div className="scene-card-insights" aria-label="Scene insights">
-      {insights.map((insight) => {
-        const tooltipID = `scene-insight-${scene.id}-${insight.key}`;
-        const ariaLabel = `${insight.label}: ${insight.detail}`;
-        return (
-          <OverlayTrigger
-            key={insight.key}
-            overlay={<Tooltip id={tooltipID}>{insight.detail}</Tooltip>}
-            placement="bottom"
-            trigger={["hover", "focus"]}
-          >
+    <HoverPopover
+      className={`scene-card-insights-hover${
+        detailPage ? " scene-card-insights-hover-detail" : ""
+      }`}
+      content={popup}
+      estimatedContentHeight={Math.min(520, insightSets.all.length * 56 + 24)}
+      placement="bottom"
+      popoverClassName="scene-card-insights-popover"
+    >
+      <div
+        className={`scene-card-insights${
+          detailPage ? " scene-card-insights-detail" : ""
+        }`}
+        aria-label={`Scene insights. ${insightSets.all.length} total; hover to show all.`}
+      >
+        {insightSets.visible.map((insight) => {
+          const ariaLabel = `${insight.label}: ${insight.detail}`;
+          return (
             <SceneCardInsightChip
+              key={insight.key}
               label={insight.label}
               tone={insight.tone}
               ariaLabel={ariaLabel}
               tabIndex={0}
             />
-          </OverlayTrigger>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+    </HoverPopover>
   );
 };

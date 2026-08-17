@@ -74,6 +74,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
   private defaultTooltip: HTMLElement | null = null;
   private timestampCopyPicker: HTMLElement | null = null; // CUSTOM
   private timestampCopyPickerOwner: HTMLElement | null = null; // CUSTOM
+  private timestampCopyPickerOwnerIsNegative = false; // CUSTOM
   private timestampCopyHideTimer?: number; // CUSTOM
 
   private layerHeight: number = 9;
@@ -156,6 +157,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
   private hideTimestampCopyPicker() {
     window.clearTimeout(this.timestampCopyHideTimer);
     this.timestampCopyPickerOwner = null;
+    this.timestampCopyPickerOwnerIsNegative = false; // CUSTOM
     if (this.timestampCopyPicker) {
       this.timestampCopyPicker.style.visibility = "hidden";
     }
@@ -237,12 +239,26 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     const picker = this.timestampCopyPicker;
     if (!picker) return;
 
+    const isNegativeMarker = "start_seconds" in marker;
+    // CUSTOM: keep the higher-priority negative marker stable when overlapping
+    // regular marker elements emit competing mouseenter events.
+    if (
+      !shouldShowSceneMarkerTooltip({
+        activeOwner: this.timestampCopyPickerOwner,
+        activeIsNegative: this.timestampCopyPickerOwnerIsNegative,
+        requestedOwner: target,
+        requestedIsNegative: isNegativeMarker,
+      })
+    ) {
+      return;
+    }
+
     window.clearTimeout(this.timestampCopyHideTimer);
     this.timestampCopyPickerOwner = target;
+    this.timestampCopyPickerOwnerIsNegative = isNegativeMarker; // CUSTOM
     this.hideMarkerTooltip();
     picker.replaceChildren();
 
-    const isNegativeMarker = "start_seconds" in marker;
     const timestampSource = isNegativeMarker
       ? {
           id: marker.id,

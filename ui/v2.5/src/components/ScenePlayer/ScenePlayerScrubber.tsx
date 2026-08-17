@@ -370,6 +370,8 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
           <HoverPopover
             className={cx(
               "scrubber-tag-popover-trigger",
+              timestampCopyActive &&
+                "scrubber-tag-popover-trigger-timestamp-copy", // CUSTOM
               getMarkerRatingCardClass(marker)
             )} // CUSTOM: mirror GOAT/Royal Sapphire marker styling in the scrubber
             popoverClassName={
@@ -551,7 +553,13 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
         <div className="scrubber-viewport">
           <div ref={sliderEl} className="scrubber-slider">
             <div className="scrubber-tags">{renderTags()}</div>
-            <div className="scrubber-negative-markers">
+            <div
+              className={cx(
+                "scrubber-negative-markers",
+                timestampCopyActive &&
+                  "scrubber-negative-markers-timestamp-copy"
+              )} // CUSTOM: keep negative overlap targets above regular markers
+            >
               {renderNegativeMarkers()}
             </div>{" "}
             {/* CUSTOM */}
