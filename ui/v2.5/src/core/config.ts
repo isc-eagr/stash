@@ -157,6 +157,9 @@ export interface IUIConfig {
     fewHighlightsMaxEpisodes?: number;
     fewHighlightsMaxPercent?: number;
     fillerTotalPercent?: number;
+    lacklusterNegativePercent?: number;
+    lacklusterOutstandingSuppressPercent?: number;
+    lacklusterNonOutstandingPercent?: number;
     tagGoodAmountMinPercent?: number;
     tagLotsMinPercent?: number;
     tagEyeCanSeeMinPercent?: number;

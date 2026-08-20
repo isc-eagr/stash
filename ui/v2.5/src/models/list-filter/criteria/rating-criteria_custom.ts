@@ -550,6 +550,11 @@ export const SceneRatingCriteriaCriterionOption =
         label: "Production / Visual Quality Penalty",
         section: "penalties",
       },
+      {
+        key: "extremelyPolished",
+        label: "Extremely Polished Penalty",
+        section: "penalties",
+      },
     ],
   });
 

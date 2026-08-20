@@ -22,6 +22,11 @@ export const sceneCardInsightPolicies: Record<
   InsightPolicy
 > = {
   goat: { lane: "automatic", mandatory: true, priority: 1000 },
+  "outstanding-activity": {
+    lane: "automatic",
+    mandatory: true,
+    priority: 975,
+  },
   facial: { lane: "automatic", mandatory: true, priority: 950 },
   "no-orgasm": { lane: "priority", priority: 925 },
   "really-hot-event": { lane: "automatic", priority: 900 },
@@ -33,9 +38,11 @@ export const sceneCardInsightPolicies: Record<
   "negative-rating": { lane: "context", priority: 790 },
   "favorite-lineup": { lane: "context", priority: 780 },
   "country-lineup": { lane: "context", priority: 770 },
+  lackluster: { lane: "context", priority: 765 },
   filler: { lane: "context", priority: 760 },
   "few-highlights": { lane: "context", priority: 750 },
   tag: { lane: "context", priority: 700 },
+  feet: { lane: "context", priority: 650 },
   "everybody-nuts": { lane: "context", priority: 690 },
 };
 
@@ -54,6 +61,10 @@ export function compareSceneCardInsightCandidates(
 const maxInsights = 7;
 const maxActivityInsights = 2;
 const ordinaryContextSlots = 5;
+
+export function hasSceneCardInsightOverflow(totalInsights: number) {
+  return totalInsights > maxInsights;
+}
 
 export function selectSceneCardInsights(
   candidates: SceneCardInsightCandidate[]

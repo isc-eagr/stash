@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/stashapp/stash/pkg/models"
+	scenepkg "github.com/stashapp/stash/pkg/scene" // CUSTOM
 )
 
 func (r *queryResolver) FindSceneMarkers(ctx context.Context, sceneMarkerFilter *models.SceneMarkerFilterType, filter *models.FindFilterType, ids []string) (ret *FindSceneMarkersResultType, err error) {
@@ -16,12 +17,23 @@ func (r *queryResolver) FindSceneMarkers(ctx context.Context, sceneMarkerFilter 
 		var sceneMarkers []*models.SceneMarker
 		var err error
 		var total int
+		var duration float64 // CUSTOM
 
 		if len(idInts) > 0 {
 			sceneMarkers, err = r.repository.SceneMarker.FindMany(ctx, idInts)
 			total = len(sceneMarkers)
+			duration = scenepkg.SumMarkerDurationsCustom(sceneMarkers) // CUSTOM
 		} else {
 			sceneMarkers, total, err = r.repository.SceneMarker.Query(ctx, sceneMarkerFilter, filter)
+			// CUSTOM: begin - filtered marker-duration aggregate for list metadata
+			if err == nil {
+				duration, err = scenepkg.MarkerDurationByFilterCustom(
+					ctx,
+					r.repository.SceneMarker,
+					sceneMarkerFilter,
+				)
+			}
+			// CUSTOM: end
 		}
 
 		if err != nil {
@@ -30,6 +42,7 @@ func (r *queryResolver) FindSceneMarkers(ctx context.Context, sceneMarkerFilter 
 
 		ret = &FindSceneMarkersResultType{
 			Count:        total,
+			Duration:     duration, // CUSTOM
 			SceneMarkers: sceneMarkers,
 		}
 

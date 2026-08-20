@@ -190,6 +190,13 @@ assert.equal(
   "Production"
 );
 assert.equal(
+  getRatingAdvisorAdjustmentTooltipLabelCustom(
+    "extremelyPolished",
+    "Extremely polished penalty"
+  ),
+  "Extremely polished"
+);
+assert.equal(
   getRatingAdvisorAdjustmentTooltipLabelCustom("unknown", "Fallback"),
   "Fallback"
 );

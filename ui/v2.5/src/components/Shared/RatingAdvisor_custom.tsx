@@ -355,6 +355,27 @@ const sceneMetrics: IAdvisorMetric[] = [
       },
     ],
   },
+  {
+    key: "extremelyPolished",
+    title: "Extremely polished",
+    max: 0,
+    section: "penalty",
+    hint: "Flip it on when heavy production makes the scene feel artificial and flaw-free.",
+    choices: [
+      {
+        value: 0,
+        label: "No penalty",
+        description:
+          "The scene still feels human, spontaneous, and believable.",
+      },
+      {
+        value: -1,
+        label: "Extremely polished penalty",
+        description:
+          "Everything feels overproduced: flawless performers, fake moaning, and a manufactured aesthetic kill the authenticity.",
+      },
+    ],
+  },
 ];
 
 const soloSceneMetrics: IAdvisorMetric[] = [
@@ -459,6 +480,7 @@ const soloSceneMetrics: IAdvisorMetric[] = [
   },
   sceneMetrics.find((metric) => metric.key === "noOrgasm")!,
   sceneMetrics.find((metric) => metric.key === "production")!,
+  sceneMetrics.find((metric) => metric.key === "extremelyPolished")!,
 ];
 
 const groupSceneMetrics: IAdvisorMetric[] = [
@@ -565,6 +587,7 @@ const groupSceneMetrics: IAdvisorMetric[] = [
   { ...sceneMetrics.find((metric) => metric.key === "goatElement")! },
   sceneMetrics.find((metric) => metric.key === "noOrgasm")!,
   sceneMetrics.find((metric) => metric.key === "production")!,
+  sceneMetrics.find((metric) => metric.key === "extremelyPolished")!,
 ];
 
 const performerMetrics: IAdvisorMetric[] = [

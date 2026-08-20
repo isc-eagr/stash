@@ -48,6 +48,7 @@ import { SidebarPerformersFilter } from "../List/Filters/PerformersFilter";
 import { SidebarTagsFilter } from "../List/Filters/TagsFilter";
 import { SceneTagsCriterionOption } from "src/models/list-filter/criteria/tags"; // CUSTOM
 import { Button } from "react-bootstrap";
+import TextUtils from "src/utils/text"; // CUSTOM
 // CUSTOM: begin - marker queue imports
 import { useMarkerQueue } from "src/hooks/MarkerQueue";
 import { MarkerQueueIndicator } from "./MarkerQueueIndicator";
@@ -207,6 +208,18 @@ interface ISceneMarkerList {
   extraOperations?: IItemListOperation<GQL.FindSceneMarkersQueryResult>[];
 }
 
+// CUSTOM: mirror the scene-list duration byline on filtered marker lists.
+function renderMarkerMetadataByline(result: GQL.FindSceneMarkersQueryResult) {
+  const duration = result.data?.findSceneMarkers.duration;
+  if (duration === undefined) return null;
+
+  return (
+    <span className="scene-markers-stats">
+      &nbsp;({TextUtils.secondsAsTimeString(duration, 3)})
+    </span>
+  );
+}
+
 export const FilteredSceneMarkerList = PatchComponent(
   "FilteredSceneMarkerList",
   (props: ISceneMarkerList) => {
@@ -336,6 +349,9 @@ export const FilteredSceneMarkerList = PatchComponent(
     });
 
     const playRandom = usePlayRandom(effectiveFilter, totalCount);
+    const metadataByline = cachedResult.loading // CUSTOM
+      ? null
+      : renderMarkerMetadataByline(cachedResult);
 
     const convertedExtraOperations: IListFilterOperation[] =
       extraOperations.map((o) => ({
@@ -483,6 +499,7 @@ export const FilteredSceneMarkerList = PatchComponent(
                   itemsPerPage={filter.itemsPerPage}
                   currentPage={filter.currentPage}
                   totalItems={totalCount}
+                  metadataByline={metadataByline}
                 />
               </div>
 

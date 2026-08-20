@@ -46,7 +46,7 @@ assert.equal(
 );
 assert.deepEqual(
   scenePenalties.map((definition) => definition.key),
-  ["noOrgasm", "production"]
+  ["noOrgasm", "production", "extremelyPolished"]
 );
 
 assert.deepEqual(

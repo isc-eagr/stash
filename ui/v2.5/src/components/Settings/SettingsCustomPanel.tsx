@@ -521,6 +521,59 @@ export const SettingsCustomPanel: React.FC = () => {
           }
         />
         <NumberSetting
+          id="scene-card-insights-lackluster-negative"
+          heading={sceneCardInsightSettingHeading(
+            intl.formatMessage({
+              id: "config.ui.scene_card_insights.lackluster_negative.heading",
+            }),
+            "Lackluster sex/oral",
+            "negative"
+          )}
+          subHeadingID="config.ui.scene_card_insights.lackluster_negative.description"
+          value={sceneCardInsightThresholds.lacklusterNegativePercent}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold("lacklusterNegativePercent", value)
+          }
+        />
+        <NumberSetting
+          id="scene-card-insights-lackluster-outstanding-suppress"
+          heading={sceneCardInsightSettingHeading(
+            intl.formatMessage({
+              id: "config.ui.scene_card_insights.lackluster_outstanding_suppress.heading",
+            }),
+            "Lackluster sex/oral",
+            "negative"
+          )}
+          subHeadingID="config.ui.scene_card_insights.lackluster_outstanding_suppress.description"
+          value={
+            sceneCardInsightThresholds.lacklusterOutstandingSuppressPercent
+          }
+          onChange={(value) =>
+            saveSceneCardInsightThreshold(
+              "lacklusterOutstandingSuppressPercent",
+              value
+            )
+          }
+        />
+        <NumberSetting
+          id="scene-card-insights-lackluster-non-outstanding"
+          heading={sceneCardInsightSettingHeading(
+            intl.formatMessage({
+              id: "config.ui.scene_card_insights.lackluster_non_outstanding.heading",
+            }),
+            "Lackluster sex/oral",
+            "negative"
+          )}
+          subHeadingID="config.ui.scene_card_insights.lackluster_non_outstanding.description"
+          value={sceneCardInsightThresholds.lacklusterNonOutstandingPercent}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold(
+              "lacklusterNonOutstandingPercent",
+              value
+            )
+          }
+        />
+        <NumberSetting
           id="scene-card-insights-leaning-balance-tolerance"
           heading={sceneCardInsightSettingHeading(
             intl.formatMessage({

@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/stashapp/stash/internal/manager"
@@ -304,6 +305,8 @@ type studioListActivityMarkerCustom struct {
 	primaryTagID   int
 	secondaryCount int
 	isGoat         bool
+	isOrgasm       bool
+	isReallyHot    bool
 }
 
 type studioListNegativeMarkerCustom struct {
@@ -314,6 +317,10 @@ type studioListNegativeMarkerCustom struct {
 
 func queryStudioListActivityStatsCustom(ctx context.Context, studioIDs []int, statsByID map[int]*StudioListStats) error {
 	sexTagID, oralTagID, soloTagID, goatTagID := activityStatsRoleTagIDsCustom()
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	_, _, _, _, orgasmTagID, _, _ := getRoleTagIDs(uiConfig)
+	roleTagIDs, _ := uiConfig["roleTagIds"].(map[string]interface{})
+	reallyHotTagID, _ := strconv.Atoi(customStringConfigValue(roleTagIDs["reallyHotTagId"]))
 	if sexTagID == 0 && oralTagID == 0 && soloTagID == 0 {
 		return nil
 	}
@@ -342,6 +349,8 @@ SELECT scenes.studio_id,
        scene_markers.end_seconds,
        scene_markers.primary_tag_id,
        COUNT(scene_markers_tags.tag_id),
+       %s,
+       %s,
        %s
 FROM scene_markers
 JOIN scenes ON scenes.id = scene_markers.scene_id
@@ -354,7 +363,11 @@ GROUP BY scenes.studio_id,
          scene_markers.scene_id,
          scene_markers.seconds,
          scene_markers.end_seconds,
-         scene_markers.primary_tag_id`, requested, activityStatsGoatMarkerSQLCustom("scene_markers", goatTagID))
+		 scene_markers.primary_tag_id`,
+		requested,
+		activityStatsGoatMarkerSQLCustom("scene_markers", goatTagID),
+		activityStatsMarkerHasTagSQLCustom("scene_markers", orgasmTagID),
+		activityStatsMarkerHasTagSQLCustom("scene_markers", reallyHotTagID))
 
 	_, markerRows, err := manager.GetInstance().Database.QuerySQL(ctx, markerQuery, args)
 	if err != nil {
@@ -391,7 +404,7 @@ WHERE scene_negative_markers.end_seconds > scene_negative_markers.start_seconds`
 
 	markersByStudio := make(map[int][]studioListActivityMarkerCustom, len(studioIDs))
 	for _, row := range markerRows {
-		if len(row) < 7 {
+		if len(row) < 9 {
 			continue
 		}
 		studioID := activityStatsIntCustom(row[0])
@@ -402,6 +415,8 @@ WHERE scene_negative_markers.end_seconds > scene_negative_markers.start_seconds`
 			primaryTagID:   activityStatsIntCustom(row[4]),
 			secondaryCount: activityStatsIntCustom(row[5]),
 			isGoat:         activityStatsBoolCustom(row[6]),
+			isOrgasm:       activityStatsBoolCustom(row[7]),
+			isReallyHot:    activityStatsBoolCustom(row[8]),
 		})
 	}
 
@@ -472,7 +487,7 @@ func calculateStudioListActivityStatsCustom(
 			sceneCounts[category][marker.sceneID] = true
 			meaningfulSceneIDs[marker.sceneID] = true
 		}
-		if activityStatsIsOutstandingMarkerCustom(marker.primaryTagID, marker.secondaryCount, marker.isGoat, sexTagID, oralTagID, soloTagID) {
+		if activityStatsIsOutstandingMarkerCustom(marker.primaryTagID, marker.secondaryCount, marker.isGoat, marker.isOrgasm, marker.isReallyHot, sexTagID, oralTagID, soloTagID) {
 			byCategory[activityOutstandingCustom] = append(byCategory[activityOutstandingCustom], interval)
 		}
 	}

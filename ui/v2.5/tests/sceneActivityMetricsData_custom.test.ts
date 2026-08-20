@@ -60,3 +60,35 @@ assert.equal(
   75,
   "GOAT activity coverage is removed from Standard"
 );
+
+const ordinaryOrgasmMetrics = getSceneActivityMetrics(
+  {
+    id: "scene-ordinary-orgasm",
+    files: [{ duration: 100 }],
+    scene_markers: [marker("orgasm", 10, 30)],
+  },
+  { orgasmTagId: "orgasm" }
+);
+
+assert.equal(
+  ordinaryOrgasmMetrics?.quality.find((metric) => metric.key === "outstanding")
+    ?.percent,
+  0,
+  "an ordinary Orgasm does not count as Outstanding"
+);
+
+const hotOrgasmMetrics = getSceneActivityMetrics(
+  {
+    id: "scene-hot-orgasm",
+    files: [{ duration: 100 }],
+    scene_markers: [marker("orgasm", 10, 30, ["really-hot"])],
+  },
+  { orgasmTagId: "orgasm", reallyHotTagId: "really-hot" }
+);
+
+assert.equal(
+  hotOrgasmMetrics?.quality.find((metric) => metric.key === "outstanding")
+    ?.percent,
+  20,
+  "a Really Hot Orgasm remains Outstanding"
+);

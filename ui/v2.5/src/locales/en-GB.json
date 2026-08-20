@@ -727,6 +727,18 @@
           "heading": "Filler total percentage (%)",
           "description": "Lots of filler appears when time without any marker exceeds this percentage of the scene; negative markers count as filler even when they overlap positive markers."
         },
+        "lackluster_negative": {
+          "heading": "Lackluster negative-time threshold (%)",
+          "description": "Sex or Oral is Lackluster when negative-marker time exceeds this share of that activity, unless its Outstanding share reaches the suppression threshold."
+        },
+        "lackluster_outstanding_suppress": {
+          "heading": "Lackluster Outstanding suppression (%)",
+          "description": "A sufficiently Outstanding Sex or Oral activity suppresses its negative-time Lackluster rule. GOAT activity always suppresses Lackluster."
+        },
+        "lackluster_non_outstanding": {
+          "heading": "Lackluster non-Outstanding threshold (%)",
+          "description": "Sex or Oral is Lackluster when at least this share of the activity is not Outstanding."
+        },
         "leaning_balance_tolerance": {
           "heading": "Balanced scene tolerance (%)",
           "description": "A scene with multiple activity types is Balanced when Sex and Oral shares differ by no more than this many percentage points; otherwise it is Sex Leaning or Oral Leaning."

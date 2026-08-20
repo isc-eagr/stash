@@ -712,7 +712,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         <TagSelect
           onSelect={(t) => onSetPrimaryTag(t[0])}
           values={primaryTag ? [primaryTag] : []}
-          hoverPlacement="right"
+          disableHoverPopovers
         />
         {formik.touched.primary_tag_id && (
           <Form.Control.Feedback type="invalid">
@@ -1097,7 +1097,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         isMulti
         onSelect={onSetTags}
         values={tags}
-        hoverPlacement="right"
+        disableHoverPopovers
       />
     );
 

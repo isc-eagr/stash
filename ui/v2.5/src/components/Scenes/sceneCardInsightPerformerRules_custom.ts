@@ -61,9 +61,9 @@ export function getPerformerLineupCandidates(
     candidates.push({
       key: "lineup-favorite-vatos",
       label: `Favorite Vatos ×${favoritePerformers.length}`,
-      detail: `Royal Sapphire: ${performerNames(
+      detail: performerNames(
         favoritePerformers.map((performer) => performer.name)
-      )}`,
+      ),
       tone: "lineup",
       kind: "favorite-lineup",
       score: favoritePerformers.length,

@@ -13,6 +13,11 @@ extend type SceneMarker {
     @deprecated(reason: "Use top_performers and bottom_performers instead")
 }
 
+extend type FindSceneMarkersResultType {
+  "Summed length of all timed markers matching the current filter."
+  duration: Float!
+}
+
 extend input SceneMarkerCreateInput {
   "Top performer IDs (active/top role). Must be performers already assigned to the scene."
   top_performer_ids: [ID!]

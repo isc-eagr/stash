@@ -92,9 +92,9 @@ var studioRatingAdvisorConfigsCustom = map[string]studioRatingAdvisorSectionConf
 		criterionOrder: []string{"soloPerformerAppeal", "soloPerformance", "soloUsability"},
 		adjustments: studioRatingAdvisorAdjustmentKeysCustom(
 			[]string{"orgasm-count-bonus", "orgasmBonus", "feetBonus", "theme", "goatElement"},
-			[]string{"noOrgasm", "production"},
+			[]string{"noOrgasm", "production", "extremelyPolished"},
 		),
-		adjustmentOrder: []string{"orgasm-count-bonus", "orgasmBonus", "feetBonus", "theme", "goatElement", "noOrgasm", "production"},
+		adjustmentOrder: []string{"orgasm-count-bonus", "orgasmBonus", "feetBonus", "theme", "goatElement", "noOrgasm", "production", "extremelyPolished"},
 	},
 	studioRatingAdvisorSexScenesCustom: {
 		criteria: map[string]studioRatingAdvisorMetricConfigCustom{
@@ -107,9 +107,9 @@ var studioRatingAdvisorConfigsCustom = map[string]studioRatingAdvisorSectionConf
 		criterionOrder: []string{"topAttractiveness", "bottomAttractiveness", "chemistry", "payoff", "standout"},
 		adjustments: studioRatingAdvisorAdjustmentKeysCustom(
 			[]string{"orgasm-count-bonus", "theme", "oralOnly", "godTierOrgasm", "goatElement", "unlikelyTop"},
-			[]string{"noOrgasm", "production"},
+			[]string{"noOrgasm", "production", "extremelyPolished"},
 		),
-		adjustmentOrder: []string{"orgasm-count-bonus", "theme", "oralOnly", "godTierOrgasm", "goatElement", "unlikelyTop", "noOrgasm", "production"},
+		adjustmentOrder: []string{"orgasm-count-bonus", "theme", "oralOnly", "godTierOrgasm", "goatElement", "unlikelyTop", "noOrgasm", "production", "extremelyPolished"},
 	},
 	studioRatingAdvisorGroupScenesCustom: {
 		criteria: map[string]studioRatingAdvisorMetricConfigCustom{
@@ -121,9 +121,9 @@ var studioRatingAdvisorConfigsCustom = map[string]studioRatingAdvisorSectionConf
 		criterionOrder: []string{"groupTopAttractiveness", "groupEnergy", "groupPayoff", "groupUsability"},
 		adjustments: studioRatingAdvisorAdjustmentKeysCustom(
 			[]string{"orgasm-count-bonus", "groupBottomAttractiveness", "groupOralOnly", "theme", "godTierOrgasm", "goatElement"},
-			[]string{"noOrgasm", "production"},
+			[]string{"noOrgasm", "production", "extremelyPolished"},
 		),
-		adjustmentOrder: []string{"orgasm-count-bonus", "groupBottomAttractiveness", "groupOralOnly", "theme", "godTierOrgasm", "goatElement", "noOrgasm", "production"},
+		adjustmentOrder: []string{"orgasm-count-bonus", "groupBottomAttractiveness", "groupOralOnly", "theme", "godTierOrgasm", "goatElement", "noOrgasm", "production", "extremelyPolished"},
 	},
 	studioRatingAdvisorPerformersCustom: {
 		criteria: map[string]studioRatingAdvisorMetricConfigCustom{

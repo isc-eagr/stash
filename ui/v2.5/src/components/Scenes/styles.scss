@@ -104,8 +104,10 @@
 }
 
 .scene-card-insights-popup {
-  display: grid;
-  gap: 0.6rem;
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
   max-height: min(
     calc(100vh - 4rem),
     var(--hover-popover-max-height, calc(100vh - 4rem))
@@ -116,16 +118,32 @@
   padding: 0.7rem;
 }
 
-.scene-card-insights-popup-row {
-  align-items: flex-start;
-  display: grid;
-  gap: 0.28rem;
+.scene-card-insight-tooltip-detail {
+  white-space: pre-line;
 }
 
-.scene-card-insights-popup-detail {
-  color: rgba($text-color, 0.78);
-  font-size: 0.74rem;
-  line-height: 1.25;
+.scene-card-insights-more {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+  color: $text-color;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 1rem;
+  font-weight: 700;
+  height: 1.55rem;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  width: 1.55rem;
+
+  &:focus-visible,
+  &:hover {
+    background: rgba($primary, 0.25);
+    border-color: rgba($primary, 0.75);
+    color: #fff;
+  }
 }
 
 .scene-card-insight-setting-heading {
@@ -161,6 +179,11 @@
     box-shadow: 0 0 0 2px rgba($primary, 0.6);
     outline: none;
   }
+}
+
+/* CUSTOM: the consolidated outstanding-activity chip opens its matrix. */
+.scene-card-insight-clickable {
+  cursor: pointer;
 }
 
 .scene-card-insight-activity {
@@ -200,10 +223,11 @@
 }
 
 .scene-card-insight-goat {
-  background: rgba(55, 90, 214, 0.2);
-  border-color: #6da8ff;
-  box-shadow: 0 0 0.35rem rgba(72, 128, 255, 0.5);
-  color: #d9e9ff;
+  /* CUSTOM: GOAT insight chips use the premium gold treatment. */
+  background: rgba(212, 175, 55, 0.18);
+  border-color: #d4af37;
+  box-shadow: 0 0 0.35rem rgba(212, 175, 55, 0.42);
+  color: #ffe9a3;
 }
 
 .scene-card-insight-negative {

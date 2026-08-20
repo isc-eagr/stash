@@ -8,6 +8,11 @@ type PerformerTagSceneCount {
   count: Int!
 }
 
+extend type Tag {
+  # CUSTOM: Sum of timed marker lengths for this tag and optional descendants.
+  scene_marker_duration(depth: Int): Float!
+}
+
 extend type Query {
   performerTagSceneCounts(
     performer_id: ID!

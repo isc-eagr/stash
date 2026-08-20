@@ -141,6 +141,26 @@ func TestCanonicalRatingScoreInputRejectsUnsupportedValues(t *testing.T) {
 	assert.InDelta(t, 3, weighted, 0.0001)
 }
 
+func TestExtremelyPolishedPenaltyIsSupportedByEverySceneRubric(t *testing.T) {
+	for name, rubric := range map[string]ratingScoreRubricCustom{
+		"standard": defaultSceneRatingRubricCustom,
+		"solo":     soloSceneRatingRubricCustom,
+		"group":    groupSceneRatingRubricCustom,
+	} {
+		t.Run(name, func(t *testing.T) {
+			raw, weighted, err := canonicalRatingScoreInputCustom(
+				rubric,
+				models.RatingScoreSectionPenalty,
+				"extremelyPolished",
+				-1,
+			)
+			assert.NoError(t, err)
+			assert.Equal(t, -1.0, raw)
+			assert.Equal(t, -1.0, weighted)
+		})
+	}
+}
+
 func TestRetiredSceneRatingKeysAreExcludedFromEveryRubric(t *testing.T) {
 	retiredBySection := map[string][]string{
 		models.RatingScoreSectionCriterion: {

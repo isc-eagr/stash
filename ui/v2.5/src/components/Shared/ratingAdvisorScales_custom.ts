@@ -109,6 +109,7 @@ const RATING_ADVISOR_ADJUSTMENT_TOOLTIP_LABELS_CUSTOM: Record<string, string> =
     tattoosBonus: "Tattoos",
     noOrgasm: "No orgasm",
     production: "Production",
+    extremelyPolished: "Extremely polished",
     feminine: "Feminine",
     "orgasm-count-bonus": "Orgasm count",
   };

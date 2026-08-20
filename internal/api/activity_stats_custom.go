@@ -95,13 +95,18 @@ func activityStatsCategoryCustom(primaryTagID int, sexTagID int, oralTagID int, 
 	}
 }
 
-func activityStatsIsOutstandingMarkerCustom(primaryTagID int, secondaryTagCount int, isGoat bool, sexTagID int, oralTagID int, soloTagID int) bool {
+func activityStatsIsOutstandingMarkerCustom(primaryTagID int, secondaryTagCount int, isGoat bool, isOrgasm bool, isReallyHot bool, sexTagID int, oralTagID int, soloTagID int) bool {
+	// CUSTOM: an ordinary Orgasm/Facial marker is Standard unless it is
+	// explicitly Really Hot (GOAT remains Outstanding regardless).
+	if isOrgasm {
+		return isGoat || isReallyHot
+	}
 	_, isRoleMarker := activityStatsCategoryCustom(primaryTagID, sexTagID, oralTagID, soloTagID)
 	return isGoat || !isRoleMarker || secondaryTagCount > 0
 }
 
-func activityStatsGoatMarkerSQLCustom(markerAlias string, goatTagID int) string {
-	if goatTagID == 0 {
+func activityStatsMarkerHasTagSQLCustom(markerAlias string, tagID int) string {
+	if tagID == 0 {
 		return "0"
 	}
 
@@ -121,7 +126,11 @@ func activityStatsGoatMarkerSQLCustom(markerAlias string, goatTagID int) string 
 		FROM scene_markers_tags
 		WHERE scene_markers_tags.scene_marker_id = %[1]s.id
 	   )
-)`, markerAlias, goatTagID)
+)`, markerAlias, tagID)
+}
+
+func activityStatsGoatMarkerSQLCustom(markerAlias string, goatTagID int) string {
+	return activityStatsMarkerHasTagSQLCustom(markerAlias, goatTagID)
 }
 
 func activityStatsMergedIntervalsCustom(intervals []activityIntervalCustom) []activityIntervalCustom {
@@ -487,6 +496,10 @@ func (r *queryResolver) SceneStatsActivity(ctx context.Context, studioID *string
 }
 
 func queryActivityStatsCustom(ctx context.Context, studioID *int, depth *int, performerID *int, sexTagID int, oralTagID int, soloTagID int, goatTagID int) (*StudioActivityStats, error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	_, _, _, _, orgasmTagID, _, _ := getRoleTagIDs(uiConfig)
+	roleTagIDs, _ := uiConfig["roleTagIds"].(map[string]interface{})
+	reallyHotTagID, _ := strconv.Atoi(customStringConfigValue(roleTagIDs["reallyHotTagId"]))
 	sceneScope, sceneScopeArgs := activityStatsSceneScopeCustom(studioID, depth)
 	durationQuery := sceneScope + `
 SELECT sc.id, COALESCE(MAX(video_files.duration), 0)
@@ -533,13 +546,16 @@ GROUP BY sc.id`
 	}
 
 	markerQuery := sceneScope + fmt.Sprintf(`
-SELECT sm.scene_id, sm.seconds, sm.end_seconds, sm.primary_tag_id, COUNT(smt.tag_id), %s
+SELECT sm.scene_id, sm.seconds, sm.end_seconds, sm.primary_tag_id, COUNT(smt.tag_id), %s, %s, %s
 FROM scene_markers sm
 JOIN scenes sc ON sc.id = sm.scene_id
 LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
 WHERE sc.id IN (SELECT id FROM selected_scenes)
   AND sm.end_seconds IS NOT NULL
-  AND sm.end_seconds > sm.seconds`, activityStatsGoatMarkerSQLCustom("sm", goatTagID))
+  AND sm.end_seconds > sm.seconds`,
+		activityStatsGoatMarkerSQLCustom("sm", goatTagID),
+		activityStatsMarkerHasTagSQLCustom("sm", orgasmTagID),
+		activityStatsMarkerHasTagSQLCustom("sm", reallyHotTagID))
 
 	args := append([]interface{}{}, sceneScopeArgs...)
 	if performerID != nil {
@@ -572,7 +588,7 @@ GROUP BY sm.id, sm.scene_id, sm.seconds, sm.end_seconds, sm.primary_tag_id`
 	}
 	meaningfulSceneIDs := map[int]bool{}
 	for _, row := range markerRows {
-		if len(row) < 6 {
+		if len(row) < 8 {
 			continue
 		}
 
@@ -601,7 +617,7 @@ GROUP BY sm.id, sm.scene_id, sm.seconds, sm.end_seconds, sm.primary_tag_id`
 			sceneCounts[category][sceneID] = true
 			meaningfulSceneIDs[sceneID] = true
 		}
-		if activityStatsIsOutstandingMarkerCustom(primaryTagID, activityStatsIntCustom(row[4]), activityStatsBoolCustom(row[5]), sexTagID, oralTagID, soloTagID) {
+		if activityStatsIsOutstandingMarkerCustom(primaryTagID, activityStatsIntCustom(row[4]), activityStatsBoolCustom(row[5]), activityStatsBoolCustom(row[6]), activityStatsBoolCustom(row[7]), sexTagID, oralTagID, soloTagID) {
 			byCategory[activityOutstandingCustom] = append(byCategory[activityOutstandingCustom], interval)
 		}
 	}

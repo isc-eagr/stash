@@ -4,6 +4,7 @@ query FindSceneMarkers(
 ) {
   findSceneMarkers(filter: $filter, scene_marker_filter: $scene_marker_filter) {
     count
+    duration # CUSTOM: summed duration for the filtered Markers page
     scene_markers {
       ...SceneMarkerData
     }

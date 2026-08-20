@@ -53,6 +53,8 @@ import {
   type SceneStatsPartnerCategory,
 } from "./sceneStatsPartnerInteractions_custom"; // CUSTOM
 import { isChronologicalSceneMarkerGoatTagged } from "./sceneMarkerChronologyLayout_custom"; // CUSTOM
+import { OutstandingActivityMatrixTable } from "../OutstandingActivityMatrix_custom"; // CUSTOM
+import { getOutstandingActivityMatrix } from "../sceneCardInsightsData_custom"; // CUSTOM
 
 interface IProps {
   scene: GQL.SceneDataFragment;
@@ -61,13 +63,18 @@ interface IProps {
 
 type ActivityCategory = "sex" | "oral" | "solo";
 type PerformerActivityCategory = ActivityCategory | "both";
-type SceneStatsDetailView = "performer" | "interactions";
+type SceneStatsDetailView = "performer" | "interactions" | "activity"; // CUSTOM
 type SceneStatsInteractionView = SceneStatsPartnerCategory | "both";
 
 interface IInterval {
   start: number;
   end: number;
 }
+
+type SceneStatsMarkerTag = {
+  id: string;
+  parents?: SceneStatsMarkerTag[] | null;
+};
 
 interface IActivityMarker {
   marker: GQL.SceneDataFragment["scene_markers"][number];
@@ -84,8 +91,16 @@ interface IActivityStats {
   outstandingSeconds: number;
   standardSeconds: number;
   unusableSeconds: number;
+  qualityByActivity: Record<ActivityCategory, IActivityQualityStats>;
   markers: IActivityMarker[];
   loopSegments: Record<string, ILoopSegmentInput[]>;
+}
+
+interface IActivityQualityStats {
+  totalSeconds: number;
+  outstandingSeconds: number;
+  standardSeconds: number;
+  unusableSeconds: number;
 }
 
 interface IStatsRow {
@@ -173,6 +188,16 @@ function uncoveredIntervals(totalSeconds: number, intervals: IInterval[]) {
   return subtractIntervals([{ start: 0, end: totalSeconds }], intervals);
 }
 
+function intersectIntervals(first: IInterval[], second: IInterval[]) {
+  return mergeIntervals(first).flatMap((firstInterval) =>
+    mergeIntervals(second).flatMap((secondInterval) => {
+      const start = Math.max(firstInterval.start, secondInterval.start);
+      const end = Math.min(firstInterval.end, secondInterval.end);
+      return end > start ? [{ start, end }] : [];
+    })
+  );
+}
+
 function percent(seconds: number, totalSeconds: number) {
   if (totalSeconds <= 0) return 0;
   return Math.round((seconds / totalSeconds) * 100);
@@ -201,6 +226,17 @@ function getStatsRowColor(row: IStatsRow, soloColor?: string) {
   if (row.color) return row.color;
   if (row.role === "top") return ACTIVITY_PIE_COLORS.top;
   if (row.role === "bottom") return ACTIVITY_PIE_COLORS.bottom;
+
+  // CUSTOM: activity-specific quality rows use keys such as
+  // "sex-outstanding"; retain the global Quality chart palette.
+  const qualityKey = row.key.split("-").at(-1);
+  if (
+    qualityKey === "outstanding" ||
+    qualityKey === "standard" ||
+    qualityKey === "unusable"
+  ) {
+    return getActivityColor(qualityKey, soloColor);
+  }
 
   return getActivityColor(row.category ?? row.key, soloColor);
 }
@@ -233,8 +269,28 @@ function isOutstandingMarker(
     oralTagId?: string;
     soloTagId?: string;
     goatTagId?: string;
+    orgasmTagId?: string;
+    reallyHotTagId?: string;
   }
 ) {
+  const tagMatches = (
+    tag: SceneStatsMarkerTag,
+    targetTagId: string | undefined
+  ): boolean =>
+    !!targetTagId &&
+    (tag.id === targetTagId ||
+      !!tag.parents?.some((parent) => tagMatches(parent, targetTagId)));
+  const hasTag = (targetTagId: string | undefined) =>
+    [marker.primary_tag, ...marker.tags].some((tag) =>
+      tagMatches(tag, targetTagId)
+    );
+  // CUSTOM: a bare Orgasm/Facial no longer upgrades quality by itself.
+  if (hasTag(roleTagIds.orgasmTagId)) {
+    return (
+      isChronologicalSceneMarkerGoatTagged(marker, roleTagIds.goatTagId) ||
+      hasTag(roleTagIds.reallyHotTagId)
+    );
+  }
   return (
     isChronologicalSceneMarkerGoatTagged(marker, roleTagIds.goatTagId) ||
     !getMarkerActivityCategory(marker, roleTagIds) ||
@@ -301,6 +357,8 @@ function getActivityStats(
     oralTagId?: string;
     soloTagId?: string;
     goatTagId?: string;
+    orgasmTagId?: string;
+    reallyHotTagId?: string;
   }
 ): IActivityStats | undefined {
   const totalSeconds = scene.files[0]?.duration ?? 0;
@@ -372,6 +430,31 @@ function getActivityStats(
     ...outstandingIntervals,
     ...unusableIntervals,
   ]);
+  const qualityByActivity = (
+    Object.keys(intervals) as ActivityCategory[]
+  ).reduce((byActivity, category) => {
+    const categoryActivityIntervals = intervals[category];
+    const outstanding = intersectIntervals(
+      categoryActivityIntervals,
+      outstandingVisibleIntervals
+    );
+    const unusable = intersectIntervals(
+      categoryActivityIntervals,
+      unusableIntervals
+    );
+    byActivity[category] = {
+      totalSeconds: mergeDuration(categoryActivityIntervals),
+      outstandingSeconds: mergeDuration(outstanding),
+      unusableSeconds: mergeDuration(unusable),
+      standardSeconds: mergeDuration(
+        subtractIntervals(categoryActivityIntervals, [
+          ...outstandingIntervals,
+          ...unusableIntervals,
+        ])
+      ),
+    };
+    return byActivity;
+  }, {} as Record<ActivityCategory, IActivityQualityStats>);
 
   const loopSegments: Record<string, ILoopSegmentInput[]> = {
     sex: markers
@@ -397,6 +480,7 @@ function getActivityStats(
     otherSeconds: mergeDuration(activityOtherIntervals),
     outstandingSeconds: mergeDuration(outstandingVisibleIntervals),
     standardSeconds: mergeDuration(standardIntervals),
+    qualityByActivity,
     markers,
     loopSegments,
   };
@@ -661,6 +745,19 @@ const SceneStatsPanel: React.FC<IProps> = ({
     () => getActivityStats(scene, configuration?.ui?.roleTagIds ?? {}),
     [configuration?.ui?.roleTagIds, scene]
   );
+  const outstandingActivityMatrix = useMemo(
+    () =>
+      getOutstandingActivityMatrix(
+        scene,
+        configuration?.ui?.roleTagIds,
+        configuration?.ui?.sceneCardInsightThresholds
+      ),
+    [
+      configuration?.ui?.roleTagIds,
+      configuration?.ui?.sceneCardInsightThresholds,
+      scene,
+    ]
+  );
   const performerStats = useMemo(
     () => (stats ? getPerformerStats(stats) : []),
     [stats]
@@ -798,6 +895,44 @@ const SceneStatsPanel: React.FC<IProps> = ({
       ),
     },
   ];
+  const qualityRowsByActivity = (
+    Object.keys(activityStats.qualityByActivity) as ActivityCategory[]
+  )
+    .map((category) => {
+      const quality = activityStats.qualityByActivity[category];
+      if (quality.totalSeconds <= 0) return undefined;
+      const label = category[0].toUpperCase() + category.slice(1);
+      return {
+        title: `${label} Quality`,
+        totalSeconds: quality.totalSeconds,
+        rows: [
+          {
+            key: `${category}-outstanding`,
+            label: "Outstanding",
+            seconds: quality.outstandingSeconds,
+            percent: percent(quality.outstandingSeconds, quality.totalSeconds),
+          },
+          {
+            key: `${category}-standard`,
+            label: "Standard",
+            seconds: quality.standardSeconds,
+            percent: percent(quality.standardSeconds, quality.totalSeconds),
+          },
+          {
+            key: `${category}-unusable`,
+            label: "Unusable",
+            seconds: quality.unusableSeconds,
+            percent: percent(quality.unusableSeconds, quality.totalSeconds),
+          },
+        ] as IStatsRow[],
+      };
+    })
+    .filter(
+      (
+        value
+      ): value is { title: string; totalSeconds: number; rows: IStatsRow[] } =>
+        !!value
+    );
 
   function toggleActivity(category: string) {
     setSelectedActivities((current) => {
@@ -1046,7 +1181,8 @@ const SceneStatsPanel: React.FC<IProps> = ({
   function renderOverviewPanel(
     title: string,
     rows: IStatsRow[],
-    stacked = false
+    stacked = false,
+    totalSeconds = activityStats.totalSeconds
   ) {
     const visibleRows = rows.filter(
       (row) => row.seconds > 0 && row.percent > 0
@@ -1056,9 +1192,7 @@ const SceneStatsPanel: React.FC<IProps> = ({
       <section className="scene-stats-overview-panel">
         <div className="scene-stats-section-heading">
           <h5>{title}</h5>
-          <span>
-            {TextUtils.secondsToTimestamp(activityStats.totalSeconds)}
-          </span>
+          <span>{TextUtils.secondsToTimestamp(totalSeconds)}</span>
         </div>
         {stacked && (
           <div
@@ -1859,20 +1993,37 @@ const SceneStatsPanel: React.FC<IProps> = ({
         {renderOverviewPanel("Quality", qualityRows, true)}
       </div>
 
+      {qualityRowsByActivity.length > 0 && (
+        <div className="scene-stats-overview-grid mt-3">
+          {qualityRowsByActivity.map((quality) =>
+            renderOverviewPanel(
+              quality.title,
+              quality.rows,
+              true,
+              quality.totalSeconds
+            )
+          )}
+        </div>
+      )}
+
       {renderLoopTray("overview")}
 
-      {performerStats.length > 0 &&
-        shouldShowSceneStatsDetails(scene.performers.length) && (
-          <Button
-            block
-            className="scene-stats-details-launch"
-            onClick={() => setShowDetailsModal(true)}
-            type="button"
-            variant="outline-primary"
-          >
-            Open Detailed Stats
-          </Button>
-        )}
+      {(outstandingActivityMatrix.rows.length > 0 ||
+        (performerStats.length > 0 &&
+          shouldShowSceneStatsDetails(scene.performers.length))) && (
+        <Button
+          block
+          className="scene-stats-details-launch"
+          onClick={() => {
+            setDetailView(performerStats.length > 0 ? "performer" : "activity");
+            setShowDetailsModal(true);
+          }}
+          type="button"
+          variant="outline-primary"
+        >
+          Open Detailed Stats
+        </Button>
+      )}
 
       <ModalComponent
         accept={{
@@ -1891,13 +2042,15 @@ const SceneStatsPanel: React.FC<IProps> = ({
 
           <div className="scene-stats-detail-toolbar">
             <ButtonGroup aria-label="Scene stats detail view" size="sm">
-              <Button
-                aria-pressed={detailView === "performer"}
-                onClick={() => setDetailView("performer")}
-                variant={detailView === "performer" ? "primary" : "secondary"}
-              >
-                Performer Explorer
-              </Button>
+              {performerStats.length > 0 && (
+                <Button
+                  aria-pressed={detailView === "performer"}
+                  onClick={() => setDetailView("performer")}
+                  variant={detailView === "performer" ? "primary" : "secondary"}
+                >
+                  Performer Explorer
+                </Button>
+              )}
               {roleInteractions.length > 0 && (
                 <Button
                   aria-pressed={detailView === "interactions"}
@@ -1909,10 +2062,26 @@ const SceneStatsPanel: React.FC<IProps> = ({
                   Interaction Matrix
                 </Button>
               )}
+              {/* CUSTOM: dedicated full activity matrix view */}
+              {outstandingActivityMatrix.rows.length > 0 && (
+                <Button
+                  aria-pressed={detailView === "activity"}
+                  onClick={() => setDetailView("activity")}
+                  variant={detailView === "activity" ? "primary" : "secondary"}
+                >
+                  Activity Matrix
+                </Button>
+              )}
             </ButtonGroup>
           </div>
 
-          {detailView === "performer" || roleInteractions.length === 0 ? (
+          {/* CUSTOM: keep the large activity table out of the compact panel. */}
+          {detailView === "activity" ? (
+            <OutstandingActivityMatrixTable
+              matrix={outstandingActivityMatrix}
+              title="Activity matrix"
+            />
+          ) : detailView === "performer" || roleInteractions.length === 0 ? (
             <>
               <div className="scene-stats-performer-navigation">
                 <div className="scene-stats-performer-ribbon">

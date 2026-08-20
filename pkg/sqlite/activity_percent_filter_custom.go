@@ -128,7 +128,7 @@ WHERE snm.scene_id = %[1]s
 AND snm.end_seconds > snm.start_seconds`, sceneIDExpr, durationExpr)
 }
 
-func activityPercentOutstandingMarkerConditionForTagIDsCustom(markerAlias string, tagIDs []int, goatTagID int) string {
+func activityPercentOutstandingMarkerConditionForTagIDsCustom(markerAlias string, tagIDs []int, goatTagID int, orgasmTagID int, reallyHotTagID int) string {
 	validRange := fmt.Sprintf(`%[1]s.end_seconds IS NOT NULL
 AND %[1]s.end_seconds > %[1]s.seconds`, markerAlias)
 	if len(tagIDs) == 0 {
@@ -144,25 +144,39 @@ AND %[1]s.end_seconds > %[1]s.seconds`, markerAlias)
 	if goatTagID != 0 {
 		goatCondition = sceneMarkerEffectiveTagHierarchyConditionCustom(markerAlias, goatTagID)
 	}
+	orgasmCondition := "0"
+	if orgasmTagID != 0 {
+		orgasmCondition = sceneMarkerEffectiveTagHierarchyConditionCustom(markerAlias, orgasmTagID)
+	}
+	reallyHotCondition := "0"
+	if reallyHotTagID != 0 {
+		reallyHotCondition = sceneMarkerEffectiveTagHierarchyConditionCustom(markerAlias, reallyHotTagID)
+	}
 
 	return fmt.Sprintf(`%[1]s
 AND (
-	%[2]s.primary_tag_id NOT IN (%[3]s)
-	OR EXISTS (
-		SELECT 1 FROM scene_markers_tags smt_quality
-		WHERE smt_quality.scene_marker_id = %[2]s.id
+	%[4]s
+	OR (
+		NOT %[5]s
+		AND (
+			%[2]s.primary_tag_id NOT IN (%[3]s)
+			OR EXISTS (
+				SELECT 1 FROM scene_markers_tags smt_quality
+				WHERE smt_quality.scene_marker_id = %[2]s.id
+			)
+		)
 	)
-	OR %[4]s
-)`, validRange, markerAlias, strings.Join(parts, ","), goatCondition)
+	OR (%[5]s AND %[6]s)
+)`, validRange, markerAlias, strings.Join(parts, ","), goatCondition, orgasmCondition, reallyHotCondition)
 }
 
-func activityPercentSceneOutstandingSourceForTagIDsSQLCustom(sceneIDExpr string, tagIDs []int, goatTagID int) string {
+func activityPercentSceneOutstandingSourceForTagIDsSQLCustom(sceneIDExpr string, tagIDs []int, goatTagID int, orgasmTagID int, reallyHotTagID int) string {
 	return fmt.Sprintf(`SELECT sm.scene_id,
 MAX(0, sm.seconds) AS seconds,
 MIN((%[2]s), sm.end_seconds) AS end_seconds
 FROM scene_markers sm
 WHERE sm.scene_id = %[1]s
-AND %[3]s`, sceneIDExpr, activityPercentSceneDurationExprCustom(sceneIDExpr), activityPercentOutstandingMarkerConditionForTagIDsCustom("sm", tagIDs, goatTagID))
+AND %[3]s`, sceneIDExpr, activityPercentSceneDurationExprCustom(sceneIDExpr), activityPercentOutstandingMarkerConditionForTagIDsCustom("sm", tagIDs, goatTagID, orgasmTagID, reallyHotTagID))
 }
 
 func activityPercentIntersectionSourceSQLCustom(firstSourceSQL string, secondSourceSQL string) string {
@@ -192,7 +206,7 @@ func activityPercentStandardSecondsFromSourcesExprCustom(totalExpr string, outst
 
 func activityPercentSceneOutstandingSecondsExprCustom(sceneIDExpr string) string {
 	tags := GetRoleTagIDs()
-	outstandingSourceSQL := activityPercentSceneOutstandingSourceForTagIDsSQLCustom(sceneIDExpr, activityPercentConfiguredTagIDsCustom(), tags.GoatTagID)
+	outstandingSourceSQL := activityPercentSceneOutstandingSourceForTagIDsSQLCustom(sceneIDExpr, activityPercentConfiguredTagIDsCustom(), tags.GoatTagID, tags.OrgasmTagID, tags.ReallyHotTagID)
 	return activityPercentOutstandingSecondsFromSourcesExprCustom(
 		outstandingSourceSQL,
 		activityPercentSceneNegativeSourceSQLCustom(sceneIDExpr),
@@ -203,7 +217,7 @@ func activityPercentSceneStandardSecondsExprCustom(sceneIDExpr string) string {
 	tags := GetRoleTagIDs()
 	return activityPercentStandardSecondsFromSourcesExprCustom(
 		activityPercentSceneDurationExprCustom(sceneIDExpr),
-		activityPercentSceneOutstandingSourceForTagIDsSQLCustom(sceneIDExpr, activityPercentConfiguredTagIDsCustom(), tags.GoatTagID),
+		activityPercentSceneOutstandingSourceForTagIDsSQLCustom(sceneIDExpr, activityPercentConfiguredTagIDsCustom(), tags.GoatTagID, tags.OrgasmTagID, tags.ReallyHotTagID),
 		activityPercentSceneNegativeSourceSQLCustom(sceneIDExpr),
 	)
 }
@@ -374,7 +388,7 @@ WHERE s_outstanding.studio_id = studios.id
 AND %s
 AND %s`,
 		activityPercentSceneDurationExprCustom("s_outstanding.id"),
-		activityPercentOutstandingMarkerConditionForTagIDsCustom("sm", activityPercentConfiguredTagIDsCustom(), GetRoleTagIDs().GoatTagID),
+		activityPercentOutstandingMarkerConditionForTagIDsCustom("sm", activityPercentConfiguredTagIDsCustom(), GetRoleTagIDs().GoatTagID, GetRoleTagIDs().OrgasmTagID, GetRoleTagIDs().ReallyHotTagID),
 		activityPercentStudioMeaningfulSceneConditionCustom("s_outstanding"),
 	)
 }

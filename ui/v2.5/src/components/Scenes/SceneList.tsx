@@ -62,34 +62,50 @@ import { SidebarFolderFilter } from "../List/Filters/FolderFilter";
 import { SceneViewerQueueIndicator } from "./SceneViewerQueueIndicator"; // CUSTOM
 import { useSceneViewerQueue } from "src/hooks/SceneViewerQueue"; // CUSTOM
 
-function renderMetadataByline(result: GQL.FindScenesQueryResult) {
+// CUSTOM: begin - allow scoped lists to append aggregates to scene totals.
+function renderMetadataByline(
+  result: GQL.FindScenesQueryResult,
+  additionalMetadataByline?: React.ReactNode
+) {
   const duration = result?.data?.findScenes?.duration;
   const size = result?.data?.findScenes?.filesize;
 
-  if (!duration && !size) {
+  if (!duration && !size && !additionalMetadataByline) {
     return;
   }
 
-  const separator = duration && size ? " - " : "";
+  const parts: React.ReactNode[] = [];
+  if (duration) {
+    parts.push(
+      <span className="scenes-duration" key="scene-duration">
+        {TextUtils.secondsAsTimeString(duration, 3)}
+        {additionalMetadataByline ? " scenes" : ""}
+      </span>
+    );
+  }
+  if (additionalMetadataByline) parts.push(additionalMetadataByline);
+  if (size) {
+    parts.push(
+      <span className="scenes-size" key="scene-size">
+        <FileSize size={size} />
+      </span>
+    );
+  }
 
   return (
     <span className="scenes-stats">
       &nbsp;(
-      {duration ? (
-        <span className="scenes-duration">
-          {TextUtils.secondsAsTimeString(duration, 3)}
-        </span>
-      ) : undefined}
-      {separator}
-      {size ? (
-        <span className="scenes-size">
-          <FileSize size={size} />
-        </span>
-      ) : undefined}
+      {parts.map((part, index) => (
+        <React.Fragment key={index}>
+          {index > 0 && " - "}
+          {part}
+        </React.Fragment>
+      ))}
       )
     </span>
   );
 }
+// CUSTOM: end
 
 function usePlayScene() {
   const history = useHistory();
@@ -362,6 +378,7 @@ interface IFilteredScenes {
   view?: View;
   alterQuery?: boolean;
   fromGroupId?: string;
+  additionalMetadataByline?: React.ReactNode; // CUSTOM
 }
 
 export const FilteredSceneList = PatchComponent(
@@ -376,7 +393,14 @@ export const FilteredSceneList = PatchComponent(
 
     const searchFocus = useFocus();
 
-    const { filterHook, defaultSort, view, alterQuery, fromGroupId } = props;
+    const {
+      filterHook,
+      defaultSort,
+      view,
+      alterQuery,
+      fromGroupId,
+      additionalMetadataByline, // CUSTOM
+    } = props;
 
     // CUSTOM: begin - clear scene viewer queue when leaving the scene list
     useEffect(() => {
@@ -559,8 +583,10 @@ export const FilteredSceneList = PatchComponent(
     const metadataByline = useMemo(() => {
       if (cachedResult.loading) return null;
 
-      return renderMetadataByline(cachedResult) ?? null;
-    }, [cachedResult]);
+      return (
+        renderMetadataByline(cachedResult, additionalMetadataByline) ?? null
+      );
+    }, [additionalMetadataByline, cachedResult]);
 
     const queue = useMemo(
       () => SceneQueue.fromListFilterModel(filter),

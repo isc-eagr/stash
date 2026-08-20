@@ -39,6 +39,7 @@ export type SceneCardInsightTag = {
 export type SceneCardInsightPerformer = {
   id: string;
   name: string;
+  image_path?: string | null;
   country?: string | null;
   rating100?: number | null;
   rating_tier_tags?: Array<{ id: string }>;
@@ -88,6 +89,7 @@ export type SceneCardInsightCandidateKind =
   | "facial"
   | "really-hot-event"
   | "orgasm-event"
+  | "outstanding-activity"
   | "activity-quality"
   | "leaning"
   | "no-orgasm"
@@ -97,8 +99,10 @@ export type SceneCardInsightCandidateKind =
   | "favorite-lineup"
   | "country-lineup"
   | "filler"
+  | "lackluster"
   | "few-highlights"
   | "everybody-nuts"
+  | "feet"
   | "tag";
 
 export type SceneCardInsightCandidate = ISceneCardInsight & {

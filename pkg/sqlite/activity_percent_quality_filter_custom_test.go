@@ -43,7 +43,7 @@ INSERT INTO scene_negative_markers (scene_id, start_seconds, end_seconds) VALUES
 `)
 	require.NoError(t, err)
 
-	outstandingSource := activityPercentSceneOutstandingSourceForTagIDsSQLCustom("scenes.id", []int{10, 20, 30}, 500)
+	outstandingSource := activityPercentSceneOutstandingSourceForTagIDsSQLCustom("scenes.id", []int{10, 20, 30}, 500, 700, 701)
 	unusableSource := activityPercentSceneNegativeSourceSQLCustom("scenes.id")
 	outstandingExpr := activityPercentOutstandingSecondsFromSourcesExprCustom(outstandingSource, unusableSource)
 	standardExpr := activityPercentStandardSecondsFromSourcesExprCustom(
@@ -60,4 +60,39 @@ INSERT INTO scene_negative_markers (scene_id, start_seconds, end_seconds) VALUES
 	require.InDelta(t, 40, standard, 0.001)
 	require.InDelta(t, 20, unusable, 0.001)
 	require.InDelta(t, 100, outstanding+standard+unusable, 0.001)
+}
+
+func TestOutstandingMarkerConditionCustomKeepsPlainOrgasmStandard(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+
+	_, err = db.Exec(`
+CREATE TABLE scene_markers (id INTEGER PRIMARY KEY, scene_id INTEGER, primary_tag_id INTEGER, seconds REAL, end_seconds REAL);
+CREATE TABLE scene_markers_tags (scene_marker_id INTEGER, tag_id INTEGER);
+CREATE TABLE tags_relations (parent_id INTEGER, child_id INTEGER);
+
+INSERT INTO scene_markers (id, scene_id, primary_tag_id, seconds, end_seconds) VALUES
+  (1, 1, 700, 0, 10),
+  (2, 1, 700, 10, 20),
+  (3, 1, 99, 20, 30);
+INSERT INTO scene_markers_tags (scene_marker_id, tag_id) VALUES (2, 701);
+`)
+	require.NoError(t, err)
+
+	condition := activityPercentOutstandingMarkerConditionForTagIDsCustom(
+		"sm", []int{10, 20, 30}, 500, 700, 701,
+	)
+	rows, err := db.Query("SELECT sm.id FROM scene_markers sm WHERE " + condition + " ORDER BY sm.id")
+	require.NoError(t, err)
+	defer rows.Close()
+
+	var ids []int
+	for rows.Next() {
+		var id int
+		require.NoError(t, rows.Scan(&id))
+		ids = append(ids, id)
+	}
+	require.NoError(t, rows.Err())
+	require.Equal(t, []int{2, 3}, ids)
 }

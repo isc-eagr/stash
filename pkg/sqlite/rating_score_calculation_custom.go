@@ -40,8 +40,9 @@ var defaultSceneRatingRubricCustom = ratingScoreRubricCustom{
 		"unlikelyTop":   {choices: []float64{0, 0.5}, weight: 1},
 	},
 	models.RatingScoreSectionPenalty: {
-		"noOrgasm":   {choices: []float64{0, -2}, weight: 1},
-		"production": {choices: []float64{0, -1}, weight: 1},
+		"noOrgasm":          {choices: []float64{0, -2}, weight: 1},
+		"production":        {choices: []float64{0, -1}, weight: 1},
+		"extremelyPolished": {choices: []float64{0, -1}, weight: 1},
 	},
 }
 
@@ -60,8 +61,9 @@ var groupSceneRatingRubricCustom = ratingScoreRubricCustom{
 		"goatElement":               {choices: []float64{0, 2}, weight: 1},
 	},
 	models.RatingScoreSectionPenalty: {
-		"noOrgasm":   {choices: []float64{0, -2}, weight: 1},
-		"production": {choices: []float64{0, -1}, weight: 1},
+		"noOrgasm":          {choices: []float64{0, -2}, weight: 1},
+		"production":        {choices: []float64{0, -1}, weight: 1},
+		"extremelyPolished": {choices: []float64{0, -1}, weight: 1},
 	},
 }
 
@@ -78,8 +80,9 @@ var soloSceneRatingRubricCustom = ratingScoreRubricCustom{
 		"theme":       {choices: []float64{0, 0.5}, weight: 1},
 	},
 	models.RatingScoreSectionPenalty: {
-		"noOrgasm":   {choices: []float64{0, -2}, weight: 1},
-		"production": {choices: []float64{0, -1}, weight: 1},
+		"noOrgasm":          {choices: []float64{0, -2}, weight: 1},
+		"production":        {choices: []float64{0, -1}, weight: 1},
+		"extremelyPolished": {choices: []float64{0, -1}, weight: 1},
 	},
 }
 

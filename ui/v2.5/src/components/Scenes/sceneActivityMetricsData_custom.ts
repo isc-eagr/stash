@@ -24,11 +24,18 @@ type SceneActivityInterval = {
   end: number;
 };
 
+type SceneActivityMetricTag = {
+  id: string;
+  parents?: SceneActivityMetricTag[] | null;
+};
+
 export type SceneActivityRoleTagIds = {
   sexTagId?: string;
   oralTagId?: string;
   soloTagId?: string;
   goatTagId?: string;
+  orgasmTagId?: string;
+  reallyHotTagId?: string;
 };
 
 export type SceneActivityScene = Pick<GQL.SlimSceneDataFragment, "id"> & {
@@ -69,10 +76,40 @@ function sceneActivityMarkerCategory(
   return undefined;
 }
 
+function sceneActivityTagMatches(
+  tag: SceneActivityMetricTag,
+  targetTagId: string | undefined
+): boolean {
+  return (
+    !!targetTagId &&
+    (tag.id === targetTagId ||
+      !!tag.parents?.some((parent) =>
+        sceneActivityTagMatches(parent, targetTagId)
+      ))
+  );
+}
+
+function sceneActivityMarkerHasTag(
+  marker: SceneActivityScene["scene_markers"][number],
+  targetTagId: string | undefined
+) {
+  return [marker.primary_tag, ...marker.tags].some((tag) =>
+    sceneActivityTagMatches(tag, targetTagId)
+  );
+}
+
 function sceneActivityMarkerIsOutstanding(
   marker: SceneActivityScene["scene_markers"][number],
   roleTagIds: SceneActivityRoleTagIds
 ): boolean {
+  // CUSTOM: ordinary orgasms, including Facial descendants, are standard.
+  // They only become Outstanding with an explicit Really Hot/GOAT qualifier.
+  if (sceneActivityMarkerHasTag(marker, roleTagIds.orgasmTagId)) {
+    return (
+      isChronologicalSceneMarkerGoatTagged(marker, roleTagIds.goatTagId) ||
+      sceneActivityMarkerHasTag(marker, roleTagIds.reallyHotTagId)
+    );
+  }
   return (
     isChronologicalSceneMarkerGoatTagged(marker, roleTagIds.goatTagId) ||
     !sceneActivityMarkerCategory(marker, roleTagIds) ||
