@@ -62,8 +62,8 @@ assert.match(
 );
 assert.match(
   insightsSource,
-  /insight\.key === "outstanding-activity" \|\| insight\.key === "feet"/,
-  "both the activity and Feet chips should open the activity matrix"
+  /insight\.key === "outstanding-activity" \|\|\s+insight\.key === "outstanding-activity-presence" \|\|\s+insight\.key === "feet" \|\|\s+\(insightSets\.goatOpensActivityMatrix && insight\.key\.startsWith\("goat-"\)\)/,
+  "Outstanding Activity, Feet, and fallback GOAT chips should open the activity matrix"
 );
 assert.doesNotMatch(
   insightsSource,

@@ -1,3 +1,5 @@
+import { toMarkerMilliseconds } from "./sceneMarkerTimestamp_custom";
+
 export interface ISceneNegativeMarkerFormRange {
   start_seconds: number;
   end_seconds: number;
@@ -25,7 +27,7 @@ export function getSceneNegativeMarkerInitialRange({
     };
   }
 
-  const current = Math.round(playerPosition ?? 0);
+  const current = toMarkerMilliseconds(playerPosition);
   const { start } = abLoop ?? {};
   if (abLoop?.enabled && typeof start === "number" && Number.isFinite(start)) {
     const loopEnd =

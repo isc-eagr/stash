@@ -51,6 +51,10 @@ type SceneOEvent {
   id: ID!
   scene_id: ID!
   o_date: String!
+  "Whether this is the earliest dated O recorded for the scene"
+  is_first_for_scene: Boolean!
+  "This O's chronological number within its scene"
+  scene_o_number: Int!
   video_timestamp: Float
   "Primary and secondary marker tags associated with the O timestamp"
   associated_tags: [Tag!]!
@@ -163,6 +167,17 @@ type SceneStatsResult {
   scenes: [SceneStatsScene!]!
 }
 
+"One total-only row in a global, studio, or performer Activity Matrix"
+type SceneStatsActivityMatrixRow {
+  tag_id: ID!
+  tag_name: String!
+  "Direct parents used to render the optional sub-tag tree"
+  parent_tag_ids: [ID!]!
+  duration: Float!
+  marker_count: Int!
+  percent: Float!
+}
+
 "Exact scene-age count for a vato on the Vato Stats page"
 type VatoStatsAgeCount {
   age_range: String!
@@ -206,6 +221,13 @@ extend type Query {
   sceneStats(studio_id: ID, depth: Int): SceneStatsResult!
   "Get activity and quality duration stats for SceneStats, optionally scoped to a studio tree"
   sceneStatsActivity(studio_id: ID, depth: Int): StudioActivityStats!
+  "Get tag activity totals for the global, studio-scoped, or performer-scoped Activity Matrix"
+  sceneStatsActivityMatrix(
+    studio_id: ID
+    depth: Int
+    performer_id: ID
+    include_subtags: Boolean! = false
+  ): [SceneStatsActivityMatrixRow!]!
   "Get scene and performer Rating Advisor averages, optionally scoped to a studio tree"
   globalRatingAdvisorStats(studio_id: ID, depth: Int): StudioRatingAdvisorStats!
   "Get scene Rating Advisor averages for scenes containing one performer"
@@ -223,16 +245,18 @@ extend type Query {
   sceneOMonthCounts(year: Int!): [SceneOMonthCount!]!
   "Get recorded scene O events grouped by day for a year/month"
   sceneODayCounts(year: Int!, month: Int!): [SceneODayCount!]!
-  "Get recorded scene O events on a date, ordered chronologically"
+  "Get recorded scene O events on a date, ordered newest first"
   sceneOEventsByDate(date: String!): [SceneOEvent!]!
-  "Get recorded scene O events covered by a marker tag, ordered chronologically"
+  "Get recorded scene O events covered by a marker tag, ordered newest first"
   sceneOEventsByTag(tagID: ID!): [SceneOEvent!]!
   "Get the count of recorded scene O events without a timestamp-covered marker tag"
   sceneOCountWithoutMarkerTags: Int!
   "Get recorded scene O events without a timestamp-covered marker tag"
   sceneOEventsWithoutMarkerTags: [SceneOEvent!]!
-  "Get recorded scene O events associated with a vato, ordered chronologically"
+  "Get recorded scene O events associated with a vato, ordered newest first"
   sceneOEventsByPerformer(performerID: ID!): [SceneOEvent!]!
+  "Get recorded O events for one scene, ordered newest first"
+  sceneOEventsByScene(sceneID: ID!): [SceneOEvent!]!
   # CUSTOM: end
   "Get the date with the highest number of recorded scene O events"
   mostOsInDay: SceneODayStat

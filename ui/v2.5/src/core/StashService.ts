@@ -1638,7 +1638,7 @@ const sceneMarkerMutationImpactedQueries = [
 
 export const useSceneMarkerCreate = () =>
   GQL.useSceneMarkerCreateMutation({
-    refetchQueries: ["PerformerSceneMarkerRoles"], // CUSTOM
+    refetchQueries: ["FindScene", "PerformerSceneMarkerRoles"], // CUSTOM: keep scene player markers and performer roles in sync
     awaitRefetchQueries: true, // CUSTOM
     update(cache, result, { variables }) {
       if (!result.data?.sceneMarkerCreate || !variables) return;
@@ -1662,7 +1662,7 @@ export const useSceneMarkerCreate = () =>
 
 export const useSceneMarkerUpdate = () =>
   GQL.useSceneMarkerUpdateMutation({
-    refetchQueries: ["PerformerSceneMarkerRoles"], // CUSTOM
+    refetchQueries: ["FindScene", "PerformerSceneMarkerRoles"], // CUSTOM: keep scene player markers and performer roles in sync
     awaitRefetchQueries: true, // CUSTOM
     update(cache, result, { variables }) {
       if (!result.data?.sceneMarkerUpdate || !variables) return;
@@ -1696,7 +1696,7 @@ export const useBulkSceneMarkerUpdate = () =>
 
 export const useSceneMarkerDestroy = () =>
   GQL.useSceneMarkerDestroyMutation({
-    refetchQueries: ["PerformerSceneMarkerRoles"], // CUSTOM
+    refetchQueries: ["FindScene", "PerformerSceneMarkerRoles"], // CUSTOM: keep scene player markers and performer roles in sync
     awaitRefetchQueries: true, // CUSTOM
     update(cache, result, { variables }) {
       if (!result.data?.sceneMarkerDestroy || !variables) return;

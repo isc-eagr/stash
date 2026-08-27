@@ -86,10 +86,10 @@ export type SceneCardInsightPerformerRoleStats = {
 
 export type SceneCardInsightCandidateKind =
   | "goat"
-  | "facial"
-  | "really-hot-event"
+  | "event-report"
   | "orgasm-event"
   | "outstanding-activity"
+  | "outstanding-activity-presence"
   | "activity-quality"
   | "leaning"
   | "no-orgasm"

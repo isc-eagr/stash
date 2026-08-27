@@ -8,6 +8,7 @@ import {
   getSceneMarkerTagColorCustom,
 } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
 import type { IActivityPieSlice } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
+import { SceneStatsActivityMatrix } from "src/components/SceneStats/SceneStatsActivityMatrix_custom"; // CUSTOM
 import { PerformerSceneRatingAdvisorStats } from "../PerformerSceneRatingAdvisor_custom"; // CUSTOM
 
 interface IProps {
@@ -275,6 +276,12 @@ export const PerformerStatsPanel: React.FC<IProps> = ({
       <PerformerSceneRatingAdvisorStats
         active={active}
         performerId={performer.id}
+      />
+      {/* CUSTOM */}
+      <SceneStatsActivityMatrix
+        active={active}
+        performerId={performer.id}
+        performerName={performer.name}
       />
     </div>
   );

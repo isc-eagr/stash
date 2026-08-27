@@ -40,6 +40,7 @@ const marker = (
 const oral = tag("oral", "Oral");
 const feet = tag("feet", "Feet");
 const orgasm = tag("orgasm", "Orgasm");
+const facial = tag("facial", "Facial");
 const goat = tag("goat", "GOAT");
 const topA = performer("top-a", "Top A");
 const bottomB = performer("bottom-b", "Bottom B");
@@ -95,9 +96,9 @@ assert.deepEqual(
   ]),
   [
     ["oral|top-a|bottom-b", [], ["highlight"]],
-    ["feet|top-a|", ["feet-activity"], ["highlight"]],
+    ["feet|top-a|", ["feet-activity"], []],
   ],
-  "a highlight contained by multiple activity contexts is duplicated into every matching group, while filtered-out activity pills stay hidden"
+  "overlap-only highlights remain in Oral, while Feet excludes them and filtered-out activity pills stay hidden"
 );
 
 assert.deepEqual(
@@ -121,4 +122,85 @@ assert.equal(
   ),
   false,
   "non-GOAT highlights do not get Royal Sapphire styling"
+);
+
+const directFeetHighlight = marker(
+  "direct-feet-highlight",
+  20,
+  40,
+  feet,
+  [goat],
+  [topA]
+);
+const directOrgasmHighlight = marker(
+  "direct-orgasm-highlight",
+  20,
+  40,
+  orgasm,
+  [goat],
+  [topA]
+);
+const directFacialHighlight = marker(
+  "direct-facial-highlight",
+  20,
+  40,
+  facial,
+  [goat],
+  [topA]
+);
+const overlapOnlyHighlight = marker(
+  "overlap-only-highlight",
+  20,
+  40,
+  oral,
+  [goat],
+  [topA]
+);
+const orgasmActivity = marker("orgasm-activity", 10, 80, orgasm, [], [topA]);
+const facialActivity = marker("facial-activity", 10, 80, facial, [], [topA]);
+const specialSectionLayout = buildChronologicalSceneMarkerLayout({
+  allActivityMarkers: [feetActivity, orgasmActivity, facialActivity],
+  visibleActivityMarkers: [feetActivity, orgasmActivity, facialActivity],
+  highlightGroups: groupChronologicalSceneMarkerHighlights(
+    [
+      directFeetHighlight,
+      directOrgasmHighlight,
+      directFacialHighlight,
+      overlapOnlyHighlight,
+    ],
+    [
+      feetActivity,
+      orgasmActivity,
+      facialActivity,
+      directFeetHighlight,
+      directOrgasmHighlight,
+      directFacialHighlight,
+      overlapOnlyHighlight,
+    ]
+  ),
+  allMarkers: [
+    feetActivity,
+    orgasmActivity,
+    facialActivity,
+    directFeetHighlight,
+    directOrgasmHighlight,
+    directFacialHighlight,
+    overlapOnlyHighlight,
+  ],
+  roleTagIds,
+});
+
+assert.deepEqual(
+  specialSectionLayout.groups.map((group) => [
+    group.primaryTag.id,
+    group.highlightGroups.flatMap((highlightGroup) =>
+      highlightGroup.markers.map((marker) => marker.id)
+    ),
+  ]),
+  [
+    ["feet", ["direct-feet-highlight"]],
+    ["orgasm", ["direct-orgasm-highlight"]],
+    ["facial", ["direct-facial-highlight"]],
+  ],
+  "Feet, Orgasm, and Facial sections exclude highlights that inherit their tag only through overlap"
 );

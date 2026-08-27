@@ -4,9 +4,11 @@ import type { IUIConfig } from "src/core/config";
 import {
   compareActivityTypeSceneMarkers,
   getActivityTypeSceneMarkerGroupKey,
+  getActivityTypeSectionMarkerTagId,
   getActivityTypeSectionTagIds,
   groupActivityTypeSceneMarkers,
   isActivityTypeSectionSceneMarker,
+  markerDirectlyMatchesConfiguredTag,
   type ActivityTypeGroupableMarker,
 } from "./sceneMarkerActivityType_custom";
 import {
@@ -92,6 +94,31 @@ function cloneHighlightGroupWithSegments<M extends ChronologicalLayoutMarker>(
   };
 }
 
+function segmentCanAppearInActivityGroup<M extends ChronologicalLayoutMarker>(
+  segment: ISceneMarkerChronologyHighlightSegment<M>,
+  group: IChronologicalSceneMarkerLayoutGroup<M>,
+  roleTagIds?: IUIConfig["roleTagIds"]
+) {
+  const sectionTagId = getActivityTypeSectionMarkerTagId(
+    group.sortMarker,
+    roleTagIds
+  );
+  const requiresDirectTag = new Set([
+    roleTagIds?.feetTagId,
+    roleTagIds?.orgasmTagId,
+    roleTagIds?.facialTagId,
+  ]).has(sectionTagId);
+
+  // CUSTOM: Feet, Orgasm, and Facial sections only show markers carrying the
+  // section tag directly; overlap inheritance must not add unrelated pills.
+  return (
+    !requiresDirectTag ||
+    segment.markers.every((marker) =>
+      markerDirectlyMatchesConfiguredTag(marker, sectionTagId)
+    )
+  );
+}
+
 export function isChronologicalSceneMarkerGoatTagged(
   marker: Pick<ISceneMarkerChronologySearchMarker, "primary_tag" | "tags">,
   goatTagId?: string | null
@@ -168,6 +195,14 @@ export function buildChronologicalSceneMarkerLayout<
       }
 
       matchedGroupKeys.forEach((key) => {
+        const group = layoutGroupsByKey.get(key);
+        if (
+          !group ||
+          !segmentCanAppearInActivityGroup(segment, group, roleTagIds)
+        ) {
+          return;
+        }
+
         const segments = segmentsByGroupKey.get(key) ?? [];
         segments.push(segment);
         segmentsByGroupKey.set(key, segments);

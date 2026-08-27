@@ -104,7 +104,10 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
 
   const renderInsightChip = (insight: ISceneCardInsight) => {
     const opensActivityMatrix =
-      insight.key === "outstanding-activity" || insight.key === "feet";
+      insight.key === "outstanding-activity" ||
+      insight.key === "outstanding-activity-presence" ||
+      insight.key === "feet" ||
+      (insightSets.goatOpensActivityMatrix && insight.key.startsWith("goat-"));
     const ariaLabel = `${insight.label}: ${insight.detail}`;
 
     return (

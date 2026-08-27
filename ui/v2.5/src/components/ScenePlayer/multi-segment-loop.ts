@@ -1,4 +1,8 @@
 import videojs, { VideoJsPlayer } from "video.js";
+import {
+  getPlaybackBoundaryDelayMs,
+  isPlaybackBoundaryDue,
+} from "./playbackBoundary_custom"; // CUSTOM
 
 export interface ILoopSegment {
   id: string;
@@ -36,9 +40,18 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   private enabled: boolean = false;
   private currentSegmentIndex: number = 0;
   private pendingStart: number | null = null;
-  private checkInterval: number | null = null;
-  private loopMargin: number = 0.1; // margin in seconds before end to trigger loop
+  private boundaryTimer: number | null = null; // CUSTOM
+  private scheduledBoundary: number | null = null; // CUSTOM
   private loopSingleId: string | null = null; // ID of segment to loop single
+
+  // CUSTOM: begin - stable listener references for precise boundary scheduling
+  private readonly boundCheckLoop = this.checkLoop.bind(this);
+  private readonly boundOnPlaying = this.onPlaying.bind(this);
+  private readonly boundOnPause = this.onPause.bind(this);
+  private readonly boundRescheduleBoundary = (): void => {
+    this.scheduleBoundaryCheck(true);
+  };
+  // CUSTOM: end
 
   // Timeline visualization elements
   private segmentMarkers: Map<string, HTMLDivElement> = new Map();
@@ -83,9 +96,14 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   }
 
   private setupTimeUpdateHandler(): void {
-    this.player.on("timeupdate", this.checkLoop.bind(this));
-    this.player.on("playing", this.onPlaying.bind(this));
-    this.player.on("pause", this.onPause.bind(this));
+    this.player.on("timeupdate", this.boundCheckLoop);
+    this.player.on("playing", this.boundOnPlaying);
+    this.player.on("pause", this.boundOnPause);
+    // CUSTOM: begin - keep the one-shot timer aligned after rate and seek changes
+    this.player.on("waiting", this.boundOnPause);
+    this.player.on("ratechange", this.boundRescheduleBoundary);
+    this.player.on("seeked", this.boundRescheduleBoundary);
+    // CUSTOM: end
   }
 
   private onPlaying(): void {
@@ -101,15 +119,18 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
       ) {
         this.player.currentTime(currentSegment.start);
       }
+
+      this.scheduleBoundaryCheck(true); // CUSTOM
     }
   }
 
   private onPause(): void {
-    // Nothing specific needed on pause for now
+    this.clearBoundaryTimer(); // CUSTOM
   }
 
   private checkLoop(): void {
     if (!this.enabled || this.segments.length === 0 || this.player.paused()) {
+      this.clearBoundaryTimer(); // CUSTOM
       return;
     }
 
@@ -121,10 +142,67 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     }
 
     // Check if we've reached the end of the current segment
-    if (currentTime >= currentSegment.end - this.loopMargin) {
+    if (currentTime >= currentSegment.end) {
       this.advanceToNextSegment();
+      return;
     }
+
+    this.scheduleBoundaryCheck(); // CUSTOM
   }
+
+  // CUSTOM: begin - schedule the exact media boundary instead of cutting 100 ms early
+  private scheduleBoundaryCheck(force: boolean = false): void {
+    if (!this.enabled || this.segments.length === 0 || this.player.paused()) {
+      this.clearBoundaryTimer();
+      return;
+    }
+
+    const currentSegment = this.segments[this.currentSegmentIndex];
+    if (!currentSegment) {
+      this.clearBoundaryTimer();
+      return;
+    }
+
+    if (
+      !force &&
+      this.boundaryTimer !== null &&
+      this.scheduledBoundary === currentSegment.end
+    ) {
+      return;
+    }
+
+    this.clearBoundaryTimer();
+    this.scheduledBoundary = currentSegment.end;
+    const delay = getPlaybackBoundaryDelayMs(
+      this.player.currentTime(),
+      currentSegment.end,
+      this.player.playbackRate()
+    );
+
+    this.boundaryTimer = window.setTimeout(() => {
+      this.boundaryTimer = null;
+      this.scheduledBoundary = null;
+
+      const segment = this.segments[this.currentSegmentIndex];
+      if (!segment || !this.enabled || this.player.paused()) return;
+
+      if (isPlaybackBoundaryDue(this.player.currentTime(), segment.end)) {
+        this.advanceToNextSegment();
+      } else {
+        // Playback can stall while the wall-clock timer continues.
+        this.scheduleBoundaryCheck(true);
+      }
+    }, delay);
+  }
+
+  private clearBoundaryTimer(): void {
+    if (this.boundaryTimer !== null) {
+      window.clearTimeout(this.boundaryTimer);
+      this.boundaryTimer = null;
+    }
+    this.scheduledBoundary = null;
+  }
+  // CUSTOM: end
 
   private advanceToNextSegment(): void {
     const fromSegment = this.segments[this.currentSegmentIndex];
@@ -137,6 +215,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     ) {
       // Loop back to the start of the same segment
       this.player.currentTime(fromSegment.start);
+      this.scheduleBoundaryCheck(true); // CUSTOM
       return;
     }
 
@@ -148,6 +227,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
 
     // Seek to start of next segment
     this.player.currentTime(toSegment.start);
+    this.scheduleBoundaryCheck(true); // CUSTOM
 
     // Update visual markers
     this.updateActiveSegmentMarker();
@@ -181,6 +261,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   setSegments(segments: ILoopSegment[]): void {
     this.segments = [...segments];
     this.currentSegmentIndex = 0;
+    this.scheduleBoundaryCheck(true); // CUSTOM
     this.renderSegmentMarkers();
     this.updateControlButton();
     if (this.onSegmentsChange) {
@@ -205,6 +286,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
       title,
     };
     this.segments.push(segment);
+    this.scheduleBoundaryCheck(true); // CUSTOM
     this.renderSegmentMarkers();
     this.updateControlButton();
     if (this.onSegmentsChange) {
@@ -226,6 +308,8 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     if (this.currentSegmentIndex >= this.segments.length) {
       this.currentSegmentIndex = Math.max(0, this.segments.length - 1);
     }
+
+    this.scheduleBoundaryCheck(true); // CUSTOM
 
     this.renderSegmentMarkers();
     this.updateControlButton();
@@ -251,6 +335,8 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     segment.start = Math.min(start, end);
     segment.end = Math.max(start, end);
 
+    this.scheduleBoundaryCheck(true); // CUSTOM
+
     this.renderSegmentMarkers();
     this.updateControlButton();
     if (this.onSegmentsChange) {
@@ -266,6 +352,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     this.segments = [];
     this.currentSegmentIndex = 0;
     this.pendingStart = null;
+    this.clearBoundaryTimer(); // CUSTOM
     this.renderSegmentMarkers();
     this.updateControlButton();
     if (this.onSegmentsChange) {
@@ -340,6 +427,12 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
       }
     }
 
+    if (enabled) {
+      this.scheduleBoundaryCheck(true); // CUSTOM
+    } else {
+      this.clearBoundaryTimer(); // CUSTOM
+    }
+
     this.updateActiveSegmentMarker();
     this.updateControlButton();
     if (this.onEnabledChange) {
@@ -378,6 +471,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     this.currentSegmentIndex = index;
     const segment = this.segments[index];
     this.player.currentTime(segment.start);
+    this.scheduleBoundaryCheck(true); // CUSTOM
 
     this.updateActiveSegmentMarker();
     if (this.onCurrentSegmentChange) {
@@ -438,6 +532,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
       this.currentSegmentIndex++;
     }
 
+    this.scheduleBoundaryCheck(true); // CUSTOM
     this.renderSegmentMarkers();
     if (this.onSegmentsChange) {
       this.onSegmentsChange(this.getSegments());
@@ -698,11 +793,17 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   }
 
   dispose(): void {
+    this.clearBoundaryTimer(); // CUSTOM
     this.clearSegmentMarkers();
     this.clearPendingMarker();
-    this.player.off("timeupdate", this.checkLoop.bind(this));
-    this.player.off("playing", this.onPlaying.bind(this));
-    this.player.off("pause", this.onPause.bind(this));
+    this.player.off("timeupdate", this.boundCheckLoop);
+    this.player.off("playing", this.boundOnPlaying);
+    this.player.off("pause", this.boundOnPause);
+    // CUSTOM: begin
+    this.player.off("waiting", this.boundOnPause);
+    this.player.off("ratechange", this.boundRescheduleBoundary);
+    this.player.off("seeked", this.boundRescheduleBoundary);
+    // CUSTOM: end
     super.dispose();
   }
 }

@@ -22,6 +22,20 @@ const matrixStyles = readFileSync(
   ),
   "utf8"
 );
+const sceneStatsMatrixSource = readFileSync(
+  new URL(
+    "../src/components/SceneStats/SceneStatsActivityMatrix_custom.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
+const performerStatsSource = readFileSync(
+  new URL(
+    "../src/components/Performers/PerformerDetails/PerformerStatsPanel.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
 
 const compactPanel = statsSource.indexOf("scene-stats-overview-grid");
 const detailsModal = statsSource.indexOf("<ModalComponent", compactPanel);
@@ -59,4 +73,24 @@ assert.match(
   matrixStyles,
   /\.outstanding-activity-performer-image\s*\{[\s\S]*?aspect-ratio:\s*2 \/ 3;[\s\S]*?border-radius:\s*0\.25rem;[\s\S]*?width:\s*6\.25rem;/,
   "activity headers should match the Interaction Matrix portrait geometry"
+);
+assert.match(
+  matrixSource,
+  /showPercent &&/,
+  "the shared matrix should make percentage evidence optional"
+);
+assert.match(
+  sceneStatsMatrixSource,
+  /showPercent=\{false\}/,
+  "global and studio matrices should omit scoped scene-time percentages"
+);
+assert.match(
+  performerStatsSource,
+  /<SceneStatsActivityMatrix[\s\S]*?active=\{active\}[\s\S]*?performerId=\{performer\.id\}[\s\S]*?performerName=\{performer\.name\}/,
+  "performer Stats should render an Activity Matrix scoped to that performer"
+);
+assert.ok(
+  performerStatsSource.indexOf("<SceneStatsActivityMatrix") >
+    performerStatsSource.indexOf("<PerformerSceneRatingAdvisorStats"),
+  "performer Activity Matrix should render below Scene Rating Averages"
 );

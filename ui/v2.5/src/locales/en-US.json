@@ -47,6 +47,10 @@
       },
       "scene_card_insights": {
         "heading": "Scene Card Insights",
+        "common_activity_tags": {
+          "heading": "Very common Outstanding Activity tags",
+          "description": "The top two present tags from this set use amount wording. Every other present Outstanding Activity tag is listed together in a Scene contains chip."
+        },
         "tag_good_amount": {
           "heading": "Good amount of tag threshold (%)",
           "description": "Minimum scene percentage covered by a highlight tag for a Good amount of chip."
@@ -74,6 +78,10 @@
         "near_perfect": {
           "heading": "Near-perfect activity threshold (%)",
           "description": "Minimum percentage of the activity that is outstanding for the Near-perfect level."
+        },
+        "rare_role_maximum": {
+          "heading": "Rare instance maximum role share (%)",
+          "description": "A current Sex or Oral role is rare when it accounts for no more than this percentage of the vato's role history. The chip still requires at least five comparable role scenes."
         },
         "few_highlights_episodes": {
           "heading": "Few highlights maximum episodes",
@@ -119,7 +127,9 @@
       "scene_player": {
         "options": {
           "show_official_scene_marker_layout": "Show official scene marker layout",
-          "show_official_scene_marker_layout_desc": "Use the upstream primary-tag grouped layout in the scene Markers tab instead of the custom chronological layout."
+          "show_official_scene_marker_layout_desc": "Use the upstream primary-tag grouped layout in the scene Markers tab instead of the custom chronological layout.",
+          "enable_scene_o_hotkey": "Enable O keyboard shortcut",
+          "enable_scene_o_hotkey_desc": "Pressing O on a scene page records an O. Disable this to turn off only that shortcut."
         }
       }
     }

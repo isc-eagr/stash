@@ -297,10 +297,38 @@
 }
 
 .ostats-event-time {
+  align-items: center;
   color: #8fb7e8;
+  display: flex;
   font-size: 0.78rem;
   font-weight: 800;
+  gap: 0.45rem;
   margin-bottom: 0.2rem;
+}
+
+.ostats-event-new {
+  background: #35a853;
+  border: 1px solid rgba(174, 255, 193, 0.72);
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  padding: 0.2rem 0.38rem;
+}
+
+/* CUSTOM */
+.ostats-event-ordinal {
+  background: #7549b8;
+  border: 1px solid rgba(216, 184, 255, 0.72);
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 0.2rem 0.38rem;
 }
 
 .ostats-event-title {
@@ -322,6 +350,16 @@
   span {
     min-width: 0;
     overflow-wrap: anywhere;
+  }
+}
+
+.ostats-event-performer {
+  color: inherit;
+  font-weight: 700;
+
+  &:hover,
+  &:focus-visible {
+    color: #fff;
   }
 }
 

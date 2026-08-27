@@ -51,6 +51,48 @@
     border-bottom: 0;
   }
 
+  .outstanding-activity-tag-link {
+    color: #8fc7ff;
+    text-decoration: underline;
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.18em;
+
+    &:focus,
+    &:hover {
+      color: #c3e1ff;
+      text-decoration-thickness: 0.13em;
+    }
+  }
+
+  .outstanding-activity-tag-tree-label {
+    align-items: center;
+    display: flex;
+    min-width: 0;
+  }
+
+  .outstanding-activity-tree-toggle {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: rgba(255, 255, 255, 0.72);
+    display: inline-flex;
+    flex: 0 0 1.35rem;
+    height: 1.35rem;
+    justify-content: center;
+    margin: 0 0.2rem 0 -0.2rem;
+    padding: 0;
+
+    &:focus,
+    &:hover {
+      color: #fff;
+    }
+  }
+
+  .outstanding-activity-tree-spacer {
+    flex: 0 0 1.35rem;
+    margin-right: 0.2rem;
+  }
+
   .outstanding-activity-cell-value {
     display: flex;
     flex-direction: column;
@@ -58,6 +100,30 @@
 
     small {
       color: rgba(255, 255, 255, 0.62);
+    }
+  }
+
+  .outstanding-activity-cell-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .outstanding-activity-cell-label {
+    color: rgba(255, 255, 255, 0.72);
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.045em;
+    margin-right: 0.4rem;
+    text-transform: uppercase;
+  }
+
+  .outstanding-activity-cell-value-goat {
+    strong,
+    small,
+    .outstanding-activity-cell-label {
+      color: #f4ca64;
     }
   }
 
@@ -93,6 +159,19 @@
 
 .outstanding-activity-dialog {
   max-width: min(96vw, 1400px);
+}
+
+.outstanding-activity-total-only {
+  max-width: 42rem;
+
+  table {
+    min-width: 34rem;
+    width: 100%;
+  }
+
+  th:first-child {
+    width: 65%;
+  }
 }
 
 @media (max-width: 576px) {

@@ -184,6 +184,13 @@ export const SettingsCustomPanel: React.FC = () => {
           checked={ui.showOfficialSceneMarkerLayout ?? undefined}
           onChange={(v) => saveUI({ showOfficialSceneMarkerLayout: v })}
         />
+        <BooleanSetting
+          id="enable-scene-o-hotkey"
+          headingID="config.ui.scene_player.options.enable_scene_o_hotkey"
+          subHeadingID="config.ui.scene_player.options.enable_scene_o_hotkey_desc"
+          checked={ui.enableSceneOHotkey ?? true}
+          onChange={(v) => saveUI({ enableSceneOHotkey: v })}
+        />
         <Setting
           id="delete-simple-marker-previews-task"
           headingID="dialogs.scene_gen.delete_simple_marker_previews"
@@ -367,6 +374,26 @@ export const SettingsCustomPanel: React.FC = () => {
 
       {/* CUSTOM: begin - configurable scene card insight thresholds */}
       <SettingSection headingID="config.ui.scene_card_insights.heading">
+        <Setting
+          id="scene-card-insights-common-activity-tags"
+          headingID="config.ui.scene_card_insights.common_activity_tags.heading"
+          subHeadingID="config.ui.scene_card_insights.common_activity_tags.description"
+        >
+          <TagIDSelect
+            isMulti
+            creatable={false}
+            ids={ui.roleTagIds?.outstandingActivityCommonTagIds ?? []}
+            menuPortalTarget={document.body}
+            onSelect={(items: TagOption[]) =>
+              saveUI({
+                roleTagIds: {
+                  ...(ui.roleTagIds ?? {}),
+                  outstandingActivityCommonTagIds: items.map((item) => item.id),
+                },
+              })
+            }
+          />
+        </Setting>
         <NumberSetting
           id="scene-card-insights-tag-good-amount"
           heading={sceneCardInsightSettingHeading(
@@ -473,6 +500,21 @@ export const SettingsCustomPanel: React.FC = () => {
               "nearPerfectOutstandingPercent",
               value
             )
+          }
+        />
+        <NumberSetting
+          id="scene-card-insights-rare-role-maximum"
+          heading={sceneCardInsightSettingHeading(
+            intl.formatMessage({
+              id: "config.ui.scene_card_insights.rare_role_maximum.heading",
+            }),
+            "Rare instance of a vato taking dick",
+            "rare"
+          )}
+          subHeadingID="config.ui.scene_card_insights.rare_role_maximum.description"
+          value={sceneCardInsightThresholds.rareRoleMaximumPercent}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold("rareRoleMaximumPercent", value)
           }
         />
         <NumberSetting

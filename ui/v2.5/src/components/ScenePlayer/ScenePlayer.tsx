@@ -68,6 +68,12 @@ import type {
   IMultiSegmentLoopApi,
 } from "./multi-segment-loop";
 import { filterLoopSegmentsOutsideNegativeMarkers } from "./loopSegments_custom";
+import {
+  findContainingOrNextPlaybackRange,
+  getPlaybackBoundaryDelayMs,
+  isPlaybackBoundaryDue,
+  mergePlaybackRanges,
+} from "./playbackBoundary_custom"; // CUSTOM
 import { MultiSegmentLoopControls } from "./MultiSegmentLoopControls";
 
 // Performer image overlay components
@@ -344,7 +350,6 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     // Negative marker skipping - enabled by default
     const [negativeMarkerSkipEnabled, setNegativeMarkerSkipEnabled] =
       useState(true);
-    const lastSkipTimeRef = useRef<number>(0); // Prevent rapid re-skipping
 
     // Performer image overlay state
     const [showImageOverlayModal, setShowImageOverlayModal] = useState(false);
@@ -1512,42 +1517,131 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       };
     }, [getPlayer, interactiveClient, scene]);
 
-    // CUSTOM: begin - negative marker skip logic
-    // Negative marker skip logic
+    // CUSTOM: begin - precise negative marker skip logic
     useEffect(() => {
-      const player = getPlayer();
-      if (!player) return;
+      const maybePlayer = getPlayer();
+      if (!maybePlayer) return;
+      const player: VideoJsPlayer = maybePlayer;
 
-      const negativeMarkers = scene.negative_markers ?? [];
-      if (negativeMarkers.length === 0) return;
+      const negativeRanges = mergePlaybackRanges(
+        (scene.negative_markers ?? []).map((marker) => ({
+          start: marker.start_seconds,
+          end: marker.end_seconds,
+        }))
+      );
+      if (negativeRanges.length === 0) return;
+
+      let boundaryTimer: number | null = null;
+      let scheduledBoundary: number | null = null;
+
+      function clearBoundaryTimer() {
+        if (boundaryTimer !== null) {
+          window.clearTimeout(boundaryTimer);
+          boundaryTimer = null;
+        }
+        scheduledBoundary = null;
+      }
+
+      function skipRange(range: { start: number; end: number }) {
+        clearBoundaryTimer();
+        player.currentTime(range.end);
+      }
+
+      function scheduleNextBoundary(force: boolean = false) {
+        if (!negativeMarkerSkipEnabled || player.paused()) {
+          clearBoundaryTimer();
+          return;
+        }
+
+        const currentTime = player.currentTime();
+        const range = findContainingOrNextPlaybackRange(
+          negativeRanges,
+          currentTime
+        );
+        if (!range) {
+          clearBoundaryTimer();
+          return;
+        }
+
+        if (currentTime >= range.start) {
+          skipRange(range);
+          return;
+        }
+
+        if (
+          !force &&
+          boundaryTimer !== null &&
+          scheduledBoundary === range.start
+        ) {
+          return;
+        }
+
+        clearBoundaryTimer();
+        scheduledBoundary = range.start;
+        const delay = getPlaybackBoundaryDelayMs(
+          currentTime,
+          range.start,
+          player.playbackRate()
+        );
+
+        boundaryTimer = window.setTimeout(() => {
+          boundaryTimer = null;
+          scheduledBoundary = null;
+
+          if (!negativeMarkerSkipEnabled || player.paused()) return;
+
+          const boundaryRange = findContainingOrNextPlaybackRange(
+            negativeRanges,
+            player.currentTime()
+          );
+          if (
+            boundaryRange &&
+            isPlaybackBoundaryDue(player.currentTime(), boundaryRange.start)
+          ) {
+            skipRange(boundaryRange);
+          } else {
+            // Playback can stall while the wall-clock timer continues.
+            scheduleNextBoundary(true);
+          }
+        }, delay);
+      }
 
       function checkNegativeMarkers(this: VideoJsPlayer) {
         if (!negativeMarkerSkipEnabled) return;
         if (this.paused()) return;
 
         const currentTime = this.currentTime();
-        const now = Date.now();
-
-        // Prevent rapid re-skipping (debounce 500ms)
-        if (now - lastSkipTimeRef.current < 500) return;
-
-        for (const marker of negativeMarkers) {
-          if (
-            currentTime >= marker.start_seconds &&
-            currentTime < marker.end_seconds
-          ) {
-            // Skip to end of this negative marker
-            lastSkipTimeRef.current = now;
-            this.currentTime(marker.end_seconds);
-            break;
-          }
+        const range = findContainingOrNextPlaybackRange(
+          negativeRanges,
+          currentTime
+        );
+        if (range && currentTime >= range.start) {
+          skipRange(range);
+        } else {
+          scheduleNextBoundary();
         }
       }
 
+      function rescheduleNextBoundary() {
+        scheduleNextBoundary(true);
+      }
+
       player.on("timeupdate", checkNegativeMarkers);
+      player.on("playing", checkNegativeMarkers);
+      player.on("ratechange", rescheduleNextBoundary);
+      player.on("seeked", rescheduleNextBoundary);
+      player.on("pause", clearBoundaryTimer);
+      player.on("waiting", clearBoundaryTimer);
+      rescheduleNextBoundary();
 
       return () => {
+        clearBoundaryTimer();
         player.off("timeupdate", checkNegativeMarkers);
+        player.off("playing", checkNegativeMarkers);
+        player.off("ratechange", rescheduleNextBoundary);
+        player.off("seeked", rescheduleNextBoundary);
+        player.off("pause", clearBoundaryTimer);
+        player.off("waiting", clearBoundaryTimer);
       };
     }, [getPlayer, scene.negative_markers, negativeMarkerSkipEnabled]);
     // CUSTOM: end

@@ -50,6 +50,7 @@ import {
   INSERT_MARKER_SOURCE_END_REQUIRED,
   type SceneMarkerInsertMode,
 } from "./sceneMarkerFormActions_custom";
+import { toMarkerMilliseconds } from "./sceneMarkerTimestamp_custom";
 import type {
   ISceneMarkerTimestampCopyRequest,
   ISceneMarkerTimestampCopySelection,
@@ -238,7 +239,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       const hasAbLoop = Number.isFinite(start);
 
       if (opts?.enabled && hasAbLoop) {
-        const current = Math.round(getPlayerPosition() ?? 0);
+        const current = toMarkerMilliseconds(getPlayerPosition());
         const rawEnd =
           Number.isFinite(end) && (end as number) > 0 ? (end as number) : null;
         const endSeconds =
@@ -267,7 +268,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     return {
       insert_mode: "marker" as const, // CUSTOM
       title: "",
-      seconds: Math.round(getPlayerPosition() ?? 0),
+      seconds: toMarkerMilliseconds(getPlayerPosition()),
       end_seconds: null,
       primary_tag_id: "",
       tag_ids: [],

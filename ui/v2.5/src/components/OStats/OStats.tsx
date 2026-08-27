@@ -10,7 +10,15 @@ import { useConfigurationContext } from "src/hooks/Config";
 import { useTitleProps } from "src/hooks/title";
 import { statsCountryName } from "src/utils/statsCountry_custom";
 import { formatStatsTotal } from "src/utils/statsDrilldown_custom";
+import {
+  makeOStatsPerformerUrl,
+  makeOStatsSceneEventUrl,
+} from "src/utils/oStatsNavigation_custom";
 import TextUtils from "src/utils/text";
+import {
+  formatSceneOOrdinalLabelCustom,
+  shouldShowSceneOOrdinalChipCustom,
+} from "./oStatsEventPresentation_custom"; // CUSTOM
 
 import "./OStats.scss";
 
@@ -51,6 +59,8 @@ const SCENE_O_EVENTS_BY_DATE = gql`
       id
       scene_id
       o_date
+      is_first_for_scene
+      scene_o_number
       video_timestamp
       associated_tags {
         id
@@ -82,6 +92,8 @@ const SCENE_O_EVENTS_BY_TAG = gql`
       id
       scene_id
       o_date
+      is_first_for_scene
+      scene_o_number
       video_timestamp
       associated_tags {
         id
@@ -113,6 +125,8 @@ const SCENE_O_EVENTS_WITHOUT_MARKER_TAGS = gql`
       id
       scene_id
       o_date
+      is_first_for_scene
+      scene_o_number
       video_timestamp
       associated_tags {
         id
@@ -144,6 +158,8 @@ const SCENE_O_EVENTS_BY_ETHNICITY = gql`
       id
       scene_id
       o_date
+      is_first_for_scene
+      scene_o_number
       video_timestamp
       associated_tags {
         id
@@ -175,6 +191,8 @@ const SCENE_O_EVENTS_BY_COUNTRY = gql`
       id
       scene_id
       o_date
+      is_first_for_scene
+      scene_o_number
       video_timestamp
       associated_tags {
         id
@@ -206,6 +224,8 @@ const SCENE_O_EVENTS_BY_STUDIO = gql`
       id
       scene_id
       o_date
+      is_first_for_scene
+      scene_o_number
       video_timestamp
       associated_tags {
         id
@@ -237,6 +257,8 @@ const SCENE_O_EVENTS_WITH_UNKNOWN_STUDIO = gql`
       id
       scene_id
       o_date
+      is_first_for_scene
+      scene_o_number
       video_timestamp
       associated_tags {
         id
@@ -268,6 +290,8 @@ const SCENE_O_EVENTS_BY_PERFORMER_AGE = gql`
       id
       scene_id
       o_date
+      is_first_for_scene
+      scene_o_number
       video_timestamp
       associated_tags {
         id
@@ -299,6 +323,8 @@ const SCENE_O_EVENTS_WITH_UNKNOWN_PERFORMER_AGE = gql`
       id
       scene_id
       o_date
+      is_first_for_scene
+      scene_o_number
       video_timestamp
       associated_tags {
         id
@@ -330,6 +356,8 @@ const SCENE_O_EVENTS_BY_RELEASE_YEAR = gql`
       id
       scene_id
       o_date
+      is_first_for_scene
+      scene_o_number
       video_timestamp
       associated_tags {
         id
@@ -361,6 +389,8 @@ const SCENE_O_EVENTS_WITH_UNKNOWN_RELEASE_YEAR = gql`
       id
       scene_id
       o_date
+      is_first_for_scene
+      scene_o_number
       video_timestamp
       associated_tags {
         id
@@ -392,6 +422,8 @@ const SCENE_O_EVENTS_BEFORE_TRACKING_START = gql`
       id
       scene_id
       o_date
+      is_first_for_scene
+      scene_o_number
       video_timestamp
       associated_tags {
         id
@@ -423,6 +455,41 @@ const SCENE_O_EVENTS_BY_PERFORMER = gql`
       id
       scene_id
       o_date
+      is_first_for_scene
+      scene_o_number
+      video_timestamp
+      associated_tags {
+        id
+        name
+      }
+      scene {
+        id
+        title
+        date
+        paths {
+          screenshot
+        }
+        studio {
+          id
+          name
+        }
+        performers {
+          id
+          name
+        }
+      }
+    }
+  }
+`;
+
+const SCENE_O_EVENTS_BY_SCENE = gql`
+  query OStatsSceneOEventsByScene($sceneID: ID!) {
+    sceneOEventsByScene(sceneID: $sceneID) {
+      id
+      scene_id
+      o_date
+      is_first_for_scene
+      scene_o_number
       video_timestamp
       associated_tags {
         id
@@ -453,6 +520,15 @@ const PERFORMER_NAME = gql`
     findPerformer(id: $id) {
       id
       name
+    }
+  }
+`;
+
+const SCENE_NAME = gql`
+  query OStatsSceneName($id: ID!) {
+    findScene(id: $id) {
+      id
+      title
     }
   }
 `;
@@ -592,6 +668,8 @@ type SceneOEvent = {
   id: string;
   scene_id: string;
   o_date: string;
+  is_first_for_scene: boolean;
+  scene_o_number: number;
   video_timestamp?: number | null;
   associated_tags: Array<{
     id: string;
@@ -682,6 +760,7 @@ interface IRouteParams {
   releaseYear?: string;
   unknownCategory?: string;
   performerId?: string;
+  sceneId?: string;
   year?: string;
   month?: string;
   day?: string;
@@ -831,6 +910,7 @@ const OStatsTimeline: React.FC<{
   releaseYear?: number;
   unknownCategory?: string;
   performerId?: string;
+  sceneId?: string;
   emptyLabel: string;
 }> = ({
   date,
@@ -842,6 +922,7 @@ const OStatsTimeline: React.FC<{
   releaseYear,
   unknownCategory,
   performerId,
+  sceneId,
   emptyLabel,
 }) => {
   const dateQuery = useQuery<{
@@ -917,6 +998,12 @@ const OStatsTimeline: React.FC<{
     variables: { performerID: performerId },
     skip: !performerId,
   });
+  const sceneQuery = useQuery<{
+    sceneOEventsByScene: SceneOEvent[];
+  }>(SCENE_O_EVENTS_BY_SCENE, {
+    variables: { sceneID: sceneId },
+    skip: !sceneId,
+  });
 
   const loading = date
     ? dateQuery.loading
@@ -942,6 +1029,8 @@ const OStatsTimeline: React.FC<{
     ? unknownReleaseYearQuery.loading
     : unknownCategory === "date"
     ? unknownDateQuery.loading
+    : sceneId
+    ? sceneQuery.loading
     : performerQuery.loading;
   const error = date
     ? dateQuery.error
@@ -967,6 +1056,8 @@ const OStatsTimeline: React.FC<{
     ? unknownReleaseYearQuery.error
     : unknownCategory === "date"
     ? unknownDateQuery.error
+    : sceneId
+    ? sceneQuery.error
     : performerQuery.error;
 
   if (loading) return <LoadingIndicator />;
@@ -996,7 +1087,11 @@ const OStatsTimeline: React.FC<{
     ? unknownReleaseYearQuery.data?.sceneOEventsWithUnknownReleaseYear ?? []
     : unknownCategory === "date"
     ? unknownDateQuery.data?.sceneOEventsBeforeTrackingStart ?? []
+    : sceneId
+    ? sceneQuery.data?.sceneOEventsByScene ?? []
     : performerQuery.data?.sceneOEventsByPerformer ?? [];
+
+  const linkToEntity = !!sceneId || !!performerId;
 
   return (
     <>
@@ -1008,13 +1103,11 @@ const OStatsTimeline: React.FC<{
       ) : (
         <ol className="ostats-timeline">
           {events.map((event) => {
-            const scenePath =
-              event.video_timestamp !== null &&
-              event.video_timestamp !== undefined
-                ? `/scenes/${event.scene.id}?t=${Math.floor(
-                    event.video_timestamp
-                  )}`
-                : `/scenes/${event.scene.id}`;
+            const scenePath = makeOStatsSceneEventUrl(
+              event.scene.id,
+              event.video_timestamp,
+              linkToEntity
+            );
 
             return (
               <li className="ostats-event" key={event.id}>
@@ -1022,6 +1115,16 @@ const OStatsTimeline: React.FC<{
                 <div className="ostats-event-body">
                   <div className="ostats-event-time">
                     {formatODate(event.o_date)}
+                    {event.is_first_for_scene && (
+                      <span className="ostats-event-new">NEW</span>
+                    )}
+                    {shouldShowSceneOOrdinalChipCustom(
+                      event.is_first_for_scene
+                    ) && (
+                      <span className="ostats-event-ordinal">
+                        {formatSceneOOrdinalLabelCustom(event.scene_o_number)}
+                      </span>
+                    )}
                   </div>
                   <Link className="ostats-event-title" to={scenePath}>
                     {event.scene.title || `Scene ${event.scene.id}`}
@@ -1038,9 +1141,20 @@ const OStatsTimeline: React.FC<{
                     )}
                     {event.scene.performers.length > 0 && (
                       <span>
-                        {event.scene.performers
-                          .map((performer) => performer.name)
-                          .join(", ")}
+                        {event.scene.performers.map((performer, index) => (
+                          <React.Fragment key={performer.id}>
+                            {index > 0 && ", "}
+                            <Link
+                              className="ostats-event-performer"
+                              to={makeOStatsPerformerUrl(
+                                performer.id,
+                                linkToEntity
+                              )}
+                            >
+                              {performer.name}
+                            </Link>
+                          </React.Fragment>
+                        ))}
                       </span>
                     )}
                   </div>
@@ -1077,6 +1191,7 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
   const { oStatsExcludedTagIds } = roleTagIds;
   const selectedTagId = match.params.tagId;
   const selectedPerformerId = match.params.performerId;
+  const selectedSceneId = match.params.sceneId;
   const selectedStudioId = match.params.studioId;
   const selectedEthnicity = match.params.ethnicity
     ? decodeURIComponent(match.params.ethnicity)
@@ -1108,7 +1223,8 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     !!selectedPerformerAge ||
     !!selectedReleaseYear ||
     !!selectedUnknownCategory ||
-    !!selectedPerformerId;
+    !!selectedPerformerId ||
+    !!selectedSceneId;
   const isDetailPage =
     !!selectedYear ||
     !!selectedTagId ||
@@ -1118,10 +1234,12 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     !!selectedPerformerAge ||
     !!selectedReleaseYear ||
     !!selectedUnknownCategory ||
-    !!selectedPerformerId;
+    !!selectedPerformerId ||
+    !!selectedSceneId;
   const showDateNavigation =
     !selectedTagId &&
     !selectedPerformerId &&
+    !selectedSceneId &&
     !selectedEthnicity &&
     !selectedCountry &&
     !selectedStudioId &&
@@ -1133,6 +1251,12 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
   }>(PERFORMER_NAME, {
     variables: { id: selectedPerformerId },
     skip: !selectedPerformerId,
+  });
+  const sceneQuery = useQuery<{
+    findScene: { id: string; title?: string | null } | null;
+  }>(SCENE_NAME, {
+    variables: { id: selectedSceneId },
+    skip: !selectedSceneId,
   });
   const studioQuery = useQuery<{
     findStudio: { id: string; name: string } | null;
@@ -1389,6 +1513,11 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
         `Vato ${selectedPerformerId}`
       }`;
     }
+    if (selectedSceneId) {
+      return `O's from ${
+        sceneQuery.data?.findScene?.title || `Scene ${selectedSceneId}`
+      }`;
+    }
     if (selectedEthnicity) return `O's to ${selectedEthnicity} vatos`;
     if (selectedCountry)
       return `O's to ${statsCountryName(selectedCountry)} vatos`;
@@ -1425,6 +1554,7 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     if (selectedTagId) return "By Marker Tag";
     if (selectedUnknownCategory === "marker-tag") return "By Marker Tag";
     if (selectedPerformerId) return "By Vato";
+    if (selectedSceneId) return "By Scene";
     if (selectedEthnicity) return "By Ethnicity";
     if (selectedCountry) return "By Country";
     if (selectedStudioId || selectedUnknownCategory === "studio") {
@@ -1566,6 +1696,7 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
                     selectedCountry ||
                     selectedStudioId ||
                     selectedPerformerId ||
+                    selectedSceneId ||
                     selectedPerformerAge ||
                     selectedReleaseYear ||
                     selectedUnknownCategory
@@ -1613,11 +1744,14 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
             releaseYear={selectedReleaseYear}
             unknownCategory={selectedUnknownCategory}
             performerId={selectedPerformerId}
+            sceneId={selectedSceneId}
             emptyLabel={
               selectedTagId
                 ? "No O events found for this marker tag."
                 : selectedPerformerId
                 ? "No O events found for this vato."
+                : selectedSceneId
+                ? "No O events found for this scene."
                 : selectedEthnicity
                 ? "No O events found for this ethnicity."
                 : selectedCountry

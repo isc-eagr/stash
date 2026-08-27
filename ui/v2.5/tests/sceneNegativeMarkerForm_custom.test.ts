@@ -12,13 +12,13 @@ import {
 
 assert.deepEqual(
   getSceneNegativeMarkerInitialRange({
-    playerPosition: 42.4,
+    playerPosition: 42.4567,
   }),
   {
-    start_seconds: 42,
-    end_seconds: 52,
+    start_seconds: 42.457,
+    end_seconds: 52.457,
   },
-  "new negative markers default to a ten-second range at the player position"
+  "new negative markers retain the player position to the nearest millisecond"
 );
 
 assert.deepEqual(
@@ -39,7 +39,7 @@ assert.deepEqual(
 
 assert.deepEqual(
   getSceneNegativeMarkerInitialRange({
-    playerPosition: 75.4,
+    playerPosition: 75.4567,
     abLoop: {
       enabled: true,
       start: 60,
@@ -48,9 +48,9 @@ assert.deepEqual(
   }),
   {
     start_seconds: 60,
-    end_seconds: 75,
+    end_seconds: 75.457,
   },
-  "an active loop without a B point uses the later player position"
+  "an active loop without a B point keeps the later player position to milliseconds"
 );
 
 assert.deepEqual(

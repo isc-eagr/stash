@@ -33,21 +33,32 @@ import {
   faFolderOpen,
   faChevronLeft,
   faChevronRight,
+  faThumbsUp,
 } from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import TextUtils from "src/utils/text";
 import { markerTitle } from "src/core/markers";
 import cx from "classnames";
+import { SweatDrops } from "src/components/Shared/SweatDrops"; // CUSTOM
 import {
   useFindMarkerPlaylistsQuery,
   useMarkerPlaylistCreate,
   useMarkerPlaylistDestroy,
+  useSceneRecordOAtTimestamp,
 } from "src/core/StashService";
 import { useToast } from "src/hooks/Toast";
+import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
 import {
   getNextSceneMarkerIndexCustom,
   markerPreloadMatchesCustom,
 } from "./markerPlaylistPreload_custom";
+import { getToggledMarkerPlaylistLoopIdCustom } from "./markerPlaylistLoop_custom"; // CUSTOM
+import {
+  getMarkerPlaylistImageUrlCustom,
+  scrollMarkerPlaylistItemIntoViewCustom,
+} from "./markerPlaylistPresentation_custom"; // CUSTOM
+import { getMarkerPlaylistORecordTargetCustom } from "./markerPlaylistORecord_custom"; // CUSTOM
+import { formatORecordedToastCustom } from "./oRecordToast_custom"; // CUSTOM
 import "./MarkerPlaylistPlayer.scss";
 
 const FIND_MARKERS_FOR_PLAYLIST = gql`
@@ -91,7 +102,7 @@ interface IMarkerInfo {
   sceneId: string;
   sceneTitle: string;
   streamUrl: string;
-  previewUrl: string;
+  imageUrl: string; // CUSTOM: generated screenshot with preview fallback
   topPerformers?: IPerformerHoverPerformer[]; // CUSTOM
   bottomPerformers?: IPerformerHoverPerformer[]; // CUSTOM
 }
@@ -107,6 +118,8 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   const intl = useIntl();
   const location = useLocation();
   const Toast = useToast();
+  const { configuration } = useConfigurationContext(); // CUSTOM
+  const { sfwContentMode } = configuration.interface; // CUSTOM
 
   const primaryVideoRef = useRef<HTMLVideoElement>(null);
   const preloadVideoRef = useRef<HTMLVideoElement>(null);
@@ -127,6 +140,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   const markerLoadRequestRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoWrapperRef = useRef<HTMLDivElement>(null);
+  const activePlaylistItemRef = useRef<HTMLElement | null>(null); // CUSTOM
   const initialLoadedRef = useRef(false);
   const [markers, setMarkers] = useState<IMarkerInfo[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -142,6 +156,11 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   const fullscreenOverlayTimeoutRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
+  const recordedOToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  ); // CUSTOM
+  const [recordedOToast, setRecordedOToast] = useState<string>(); // CUSTOM
+  const currentMarker = markers[currentIndex]; // CUSTOM
 
   // Save/Load playlist state
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -152,6 +171,8 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     useFindMarkerPlaylistsQuery();
   const [createPlaylist] = useMarkerPlaylistCreate();
   const [destroyPlaylist] = useMarkerPlaylistDestroy();
+  const [recordOAtTimestamp, { loading: isRecordingO }] =
+    useSceneRecordOAtTimestamp(currentMarker?.sceneId ?? ""); // CUSTOM
 
   // Parse marker IDs from URL
   const markerIds = useMemo(() => {
@@ -208,7 +229,10 @@ export const MarkerPlaylistPlayer: React.FC = () => {
           sceneId: m.scene.id,
           sceneTitle: m.scene.title || "Untitled Scene",
           streamUrl,
-          previewUrl: m.preview,
+          imageUrl: getMarkerPlaylistImageUrlCustom({
+            screenshot: m.screenshot,
+            preview: m.preview,
+          }), // CUSTOM: screenshots are generated independently of WebP previews
           topPerformers: topPerformers.length > 0 ? topPerformers : undefined,
           bottomPerformers:
             bottomPerformers.length > 0 ? bottomPerformers : undefined,
@@ -492,12 +516,19 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     }
   }, [getActiveVideo, loadMarker, markers]);
 
+  // CUSTOM: Keep the marker that is playing visible in a long playlist.
+  useEffect(() => {
+    if (showPlaylist) {
+      scrollMarkerPlaylistItemIntoViewCustom(activePlaylistItemRef.current);
+    }
+  }, [currentIndex, markers, showPlaylist]);
+
   // Warm the next marker that needs a source change while the current marker plays.
   useEffect(() => {
     const activePreparedSlot =
       preparedVideoSlotsRef.current[activeVideoSlotRef.current];
-    const currentMarker = markers[currentIndex];
-    if (!currentMarker || activePreparedSlot?.markerId !== currentMarker.id) {
+    const activeMarker = markers[currentIndex];
+    if (!activeMarker || activePreparedSlot?.markerId !== activeMarker.id) {
       return;
     }
 
@@ -549,12 +580,12 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     const video = getActiveVideo();
     if (!video) return;
 
-    const currentMarker = markers[currentIndex];
+    const activeMarker = markers[currentIndex];
     const activePreparedSlot =
       preparedVideoSlotsRef.current[activeVideoSlotRef.current];
     if (
-      currentMarker &&
-      !markerPreloadMatchesCustom(activePreparedSlot, currentMarker)
+      activeMarker &&
+      !markerPreloadMatchesCustom(activePreparedSlot, activeMarker)
     ) {
       loadMarker(currentIndex);
       return;
@@ -566,6 +597,78 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       video.pause();
     }
   }, [currentIndex, getActiveVideo, loadMarker, markers]);
+
+  // CUSTOM: Share the same single-marker loop toggle between the sidebar and fullscreen overlay.
+  const handleToggleSingleMarkerLoop = useCallback(
+    (index: number) => {
+      const marker = markers[index];
+      if (!marker) return;
+
+      const nextLoopSingleMarkerId = getToggledMarkerPlaylistLoopIdCustom(
+        loopSingleMarkerId,
+        marker.id
+      );
+      setLoopSingleMarkerId(nextLoopSingleMarkerId);
+
+      if (nextLoopSingleMarkerId) {
+        loadMarker(index);
+      }
+    },
+    [loadMarker, loopSingleMarkerId, markers]
+  );
+
+  // CUSTOM: the global toast is outside the browser fullscreen element.
+  const showFullscreenORecordedToast = useCallback((message: string) => {
+    setRecordedOToast(message);
+    if (recordedOToastTimeoutRef.current) {
+      clearTimeout(recordedOToastTimeoutRef.current);
+    }
+    recordedOToastTimeoutRef.current = setTimeout(() => {
+      setRecordedOToast(undefined);
+    }, 3000);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (recordedOToastTimeoutRef.current) {
+        clearTimeout(recordedOToastTimeoutRef.current);
+      }
+    },
+    []
+  );
+
+  // CUSTOM: record an O for the marker's scene at the active video's exact time.
+  const handleRecordO = useCallback(async () => {
+    const target = getMarkerPlaylistORecordTargetCustom(
+      currentMarker,
+      getActiveVideo()?.currentTime ?? Number.NaN
+    );
+    if (!target) return;
+
+    try {
+      await recordOAtTimestamp({
+        variables: {
+          id: target.sceneId,
+          video_timestamp: target.videoTimestamp,
+        },
+      });
+      const message = formatORecordedToastCustom(target.videoTimestamp);
+      if (isFullscreen) {
+        showFullscreenORecordedToast(message);
+      } else {
+        Toast.success(message);
+      }
+    } catch (error) {
+      Toast.error(error);
+    }
+  }, [
+    Toast,
+    currentMarker,
+    getActiveVideo,
+    isFullscreen,
+    recordOAtTimestamp,
+    showFullscreenORecordedToast,
+  ]);
 
   const handleNext = useCallback(() => {
     if (markers.length === 0) return;
@@ -763,7 +866,6 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     );
   }
 
-  const currentMarker = markers[currentIndex];
   const currentTopPerformers = currentMarker?.topPerformers ?? [];
   const currentBottomPerformers = currentMarker?.bottomPerformers ?? [];
   const currentMarkerHasPerformers =
@@ -877,6 +979,50 @@ export const MarkerPlaylistPlayer: React.FC = () => {
             )}
           </div>
         )}
+      </div>
+    );
+  };
+
+  // CUSTOM: keep the replay and O controls available in both normal and fullscreen player modes.
+  const renderMarkerEventControls = () => {
+    if (!currentMarker || (isFullscreen && !showFullscreenOverlay)) {
+      return null;
+    }
+
+    const isLoopingCurrentMarker = loopSingleMarkerId === currentMarker.id;
+    return (
+      <div
+        className="marker-event-controls"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button
+          type="button"
+          className={cx("marker-loop-btn", { active: isLoopingCurrentMarker })}
+          onClick={() => handleToggleSingleMarkerLoop(currentIndex)}
+          title={
+            isLoopingCurrentMarker
+              ? intl.formatMessage({
+                  id: "marker_playlist.disable_single_loop",
+                  defaultMessage: "Disable single marker loop",
+                })
+              : intl.formatMessage({
+                  id: "marker_playlist.enable_single_loop",
+                  defaultMessage: "Loop this marker",
+                })
+          }
+        >
+          <Icon icon={faRedo} />
+        </button>
+        <button
+          type="button"
+          className="marker-record-o-btn"
+          disabled={isRecordingO}
+          onClick={handleRecordO}
+          title="Record O at current video time"
+          aria-label="Record O at current video time"
+        >
+          {!sfwContentMode ? <SweatDrops /> : <Icon icon={faThumbsUp} />}
+        </button>
       </div>
     );
   };
@@ -1037,30 +1183,42 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                 position: "absolute",
               }}
             />
+            {recordedOToast && (
+              <div className="marker-o-recorded-toast" role="status">
+                {recordedOToast}
+              </div>
+            )}
             {renderCurrentPerformerOverlay()}
-            {/* Fullscreen navigation buttons - prev/next marker */}
-            {isFullscreen && showFullscreenOverlay && markers.length > 1 && (
+            {renderMarkerEventControls()}
+            {/* CUSTOM: Fullscreen marker navigation. */}
+            {isFullscreen && showFullscreenOverlay && currentMarker && (
               <>
-                <button
-                  className="fullscreen-nav-btn prev"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handlePrevious();
-                  }}
-                  title="Previous marker"
-                >
-                  <Icon icon={faChevronLeft} />
-                </button>
-                <button
-                  className="fullscreen-nav-btn next"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleNext();
-                  }}
-                  title="Next marker"
-                >
-                  <Icon icon={faChevronRight} />
-                </button>
+                {markers.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      className="fullscreen-nav-btn prev"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePrevious();
+                      }}
+                      title="Previous marker"
+                    >
+                      <Icon icon={faChevronLeft} />
+                    </button>
+                    <button
+                      type="button"
+                      className="fullscreen-nav-btn next"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleNext();
+                      }}
+                      title="Next marker"
+                    >
+                      <Icon icon={faChevronRight} />
+                    </button>
+                  </>
+                )}
               </>
             )}
             {!isFullscreen && (
@@ -1177,6 +1335,11 @@ export const MarkerPlaylistPlayer: React.FC = () => {
               {markers.map((marker, index) => (
                 <ListGroup.Item
                   key={marker.id}
+                  ref={(element: HTMLAnchorElement | null) => {
+                    if (index === currentIndex) {
+                      activePlaylistItemRef.current = element;
+                    }
+                  }} // CUSTOM: current marker is the auto-scroll target
                   className={cx("marker-item", {
                     active: index === currentIndex,
                   })}
@@ -1184,51 +1347,56 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                   onClick={() => handleJumpToMarker(index)}
                 >
                   <div className="marker-preview">
-                    <img src={marker.previewUrl} alt={marker.title} />
+                    <img src={marker.imageUrl} alt={marker.title} />
                     <span className="marker-number-badge">{index + 1}</span>
                   </div>
                   <div className="marker-info">
                     <div className="marker-title">{marker.title}</div>
                     <div className="scene-title">{marker.sceneTitle}</div>
-                    {/* Only show arrows if marker has performers in BOTH roles (top and bottom) */}
-                    {(() => {
-                      const showRoleArrows =
-                        (marker.topPerformers?.length ?? 0) > 0 &&
-                        (marker.bottomPerformers?.length ?? 0) > 0;
-                      return (
-                        <>
-                          {marker.topPerformers &&
-                            marker.topPerformers.length > 0 && (
-                              <div className="marker-performers top">
-                                {renderPerformerChips(
-                                  marker.topPerformers,
-                                  "top",
-                                  showRoleArrows,
-                                  true
+                    {/* CUSTOM: Keep role chips and marker timing together in a compact row. */}
+                    <div className="marker-detail-row">
+                      <div className="marker-performer-roles">
+                        {/* Only show arrows if marker has performers in BOTH roles (top and bottom) */}
+                        {(() => {
+                          const showRoleArrows =
+                            (marker.topPerformers?.length ?? 0) > 0 &&
+                            (marker.bottomPerformers?.length ?? 0) > 0;
+                          return (
+                            <>
+                              {marker.topPerformers &&
+                                marker.topPerformers.length > 0 && (
+                                  <div className="marker-performers top">
+                                    {renderPerformerChips(
+                                      marker.topPerformers,
+                                      "top",
+                                      showRoleArrows,
+                                      true
+                                    )}
+                                  </div>
                                 )}
-                              </div>
-                            )}
-                          {marker.bottomPerformers &&
-                            marker.bottomPerformers.length > 0 && (
-                              <div className="marker-performers bottom">
-                                {renderPerformerChips(
-                                  marker.bottomPerformers,
-                                  "bottom",
-                                  showRoleArrows,
-                                  true
+                              {marker.bottomPerformers &&
+                                marker.bottomPerformers.length > 0 && (
+                                  <div className="marker-performers bottom">
+                                    {renderPerformerChips(
+                                      marker.bottomPerformers,
+                                      "bottom",
+                                      showRoleArrows,
+                                      true
+                                    )}
+                                  </div>
                                 )}
-                              </div>
-                            )}
-                        </>
-                      );
-                    })()}
-                    <div className="marker-times">
-                      {formatTime(marker.seconds)}
-                      {marker.end_seconds &&
-                        ` - ${formatTime(marker.end_seconds)}`}
-                      <span className="duration">
-                        ({formatTime(getMarkerDuration(marker))})
-                      </span>
+                            </>
+                          );
+                        })()}
+                      </div>
+                      <div className="marker-times">
+                        {formatTime(marker.seconds)}
+                        {marker.end_seconds &&
+                          ` - ${formatTime(marker.end_seconds)}`}
+                        <span className="duration">
+                          ({formatTime(getMarkerDuration(marker))})
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <div className="marker-action-btns">
@@ -1241,14 +1409,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (loopSingleMarkerId === marker.id) {
-                          // Disable single loop
-                          setLoopSingleMarkerId(null);
-                        } else {
-                          // Enable single loop and immediately jump to this marker
-                          setLoopSingleMarkerId(marker.id);
-                          handleJumpToMarker(index);
-                        }
+                        handleToggleSingleMarkerLoop(index);
                       }}
                       title={
                         loopSingleMarkerId === marker.id

@@ -93,6 +93,8 @@ export interface IUIConfig {
   showMultiSegmentLoopControls?: boolean;
   // if true, the scene Markers tab uses the upstream grouped primary-tag layout
   showOfficialSceneMarkerLayout?: boolean;
+  // if false, the O keyboard shortcut is disabled on scene details
+  enableSceneOHotkey?: boolean;
   // CUSTOM: end
 
   // maximum number of items to shown in the dropdown list - defaults to 200
@@ -154,6 +156,7 @@ export interface IUIConfig {
     greatOutstandingPercent?: number;
     amazingOutstandingPercent?: number;
     nearPerfectOutstandingPercent?: number;
+    rareRoleMaximumPercent?: number;
     fewHighlightsMaxEpisodes?: number;
     fewHighlightsMaxPercent?: number;
     fillerTotalPercent?: number;
@@ -184,6 +187,7 @@ export interface IUIConfig {
     reallyHotTagId?: string; // Tag ID for "really hot" qualifier (gold facial icon when combined with facial)
     goatTagId?: string; // Tag ID for GOAT card styling override
     oStatsExcludedTagIds?: string[]; // Tag IDs hidden from O Stats marker-tag charts
+    outstandingActivityCommonTagIds?: string[]; // CUSTOM: common tags eligible for the amount-based Outstanding Activity chip
   };
   // CUSTOM: end
 }

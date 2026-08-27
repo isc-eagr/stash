@@ -89,6 +89,26 @@
     }
   }
 
+  /* CUSTOM: begin - give the common activity tag selector room for multiple chips */
+  #scene-card-insights-common-activity-tags {
+    > div:first-child {
+      flex: 0 1 40%;
+      min-width: 0;
+    }
+
+    > div:last-child {
+      flex: 1 1 60%;
+      min-width: 0;
+      text-align: left;
+    }
+
+    .react-select {
+      width: 100%;
+    }
+  }
+
+  /* CUSTOM: end */
+
   .setting-group {
     &.collapsible > .setting {
       cursor: pointer;

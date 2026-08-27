@@ -127,45 +127,12 @@ func (qb *sceneMarkerFilterHandler) tagsCriterionHandler(criterion *models.Hiera
 
 				switch tags.Modifier {
 				case models.CriterionModifierEquals:
-					// CUSTOM: begin - overlap-aware all-tags marker matching
-					tagsLen := len(tags.Value)
-					valuesSelect := fmt.Sprintf("(SELECT column2 FROM (%s))", valuesClause)
-					f.addWhere(sceneMarkerDirectHasTagInClauseCustom("scene_markers", valuesSelect))
-					f.addWhere(sceneMarkerEffectiveTagsCountClauseCustom("scene_markers", valuesSelect, tagsLen))
-					f.addWhere(fmt.Sprintf(`NOT EXISTS (
-						SELECT 1 FROM scene_markers sm_narrow
-						WHERE %[1]s
-						AND %[2]s
-						AND %[3]s
-						AND %[4]s
-					)`,
-						sceneMarkerOverlapWhereCustom("scene_markers", "sm_narrow"),
-						sceneMarkerDirectHasTagInClauseCustom("sm_narrow", valuesSelect),
-						sceneMarkerEffectiveTagsCountClauseCustom("sm_narrow", valuesSelect, tagsLen),
-						sceneMarkerIsNarrowerThanClauseCustom("sm_narrow", "scene_markers"),
-					))
-					// CUSTOM: end
+					// CUSTOM: ordinary marker tag criteria are direct-only. Overlap-aware
+					// matching is reserved for the explicit scene_marker_tags filter.
+					f.addWhere("marker_tags.root_tag_id IS NOT NULL")
+					f.addHaving(fmt.Sprintf("count(distinct marker_tags.root_tag_id) IS %d", len(tags.Value)))
 				case models.CriterionModifierNotEquals:
 					f.setError(fmt.Errorf("not equals modifier is not supported for scene marker tags"))
-				case models.CriterionModifierIncludesAll:
-					// CUSTOM: begin - overlap-aware all-tags marker matching
-					tagsLen := len(tags.Value)
-					valuesSelect := fmt.Sprintf("(SELECT column2 FROM (%s))", valuesClause)
-					f.addWhere(sceneMarkerDirectHasTagInClauseCustom("scene_markers", valuesSelect))
-					f.addWhere(sceneMarkerEffectiveTagsCountClauseCustom("scene_markers", valuesSelect, tagsLen))
-					f.addWhere(fmt.Sprintf(`NOT EXISTS (
-						SELECT 1 FROM scene_markers sm_narrow
-						WHERE %[1]s
-						AND %[2]s
-						AND %[3]s
-						AND %[4]s
-					)`,
-						sceneMarkerOverlapWhereCustom("scene_markers", "sm_narrow"),
-						sceneMarkerDirectHasTagInClauseCustom("sm_narrow", valuesSelect),
-						sceneMarkerEffectiveTagsCountClauseCustom("sm_narrow", valuesSelect, tagsLen),
-						sceneMarkerIsNarrowerThanClauseCustom("sm_narrow", "scene_markers"),
-					))
-					// CUSTOM: end
 				default:
 					addHierarchicalConditionClauses(f, tags, "marker_tags", "root_tag_id")
 				}

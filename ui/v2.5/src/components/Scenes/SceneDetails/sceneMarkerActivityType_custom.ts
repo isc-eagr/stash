@@ -80,7 +80,7 @@ function tagMatchesConfiguredTag(tag: ActivityTypeTag, tagId?: string) {
   );
 }
 
-function markerHasConfiguredTag(
+export function markerDirectlyMatchesConfiguredTag(
   marker: Pick<GQL.SceneMarkerDataFragment, "primary_tag" | "tags">,
   tagId?: string
 ) {
@@ -111,7 +111,7 @@ export function getActivityTypeSectionMarkerTagId(
 ) {
   if (
     tagMatchesConfiguredTag(marker.primary_tag, roleTagIds?.orgasmTagId) &&
-    markerHasConfiguredTag(marker, roleTagIds?.facialTagId)
+    markerDirectlyMatchesConfiguredTag(marker, roleTagIds?.facialTagId)
   ) {
     return roleTagIds?.facialTagId;
   }

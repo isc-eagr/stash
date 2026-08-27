@@ -16,6 +16,7 @@ import {
   findSceneMarkerGapWarnings,
   type SceneMarkerGapWarning,
 } from "./sceneMarkerGapWarning_custom";
+import { getSceneNegativeMarkerTotalDuration } from "./sceneNegativeMarkerDuration_custom"; // CUSTOM
 import type {
   ISceneMarkerTimestampCopyRequest,
   ISceneMarkerTimestampCopySelection,
@@ -70,6 +71,14 @@ export const SceneNegativeMarkersPanel: React.FC<
       (a, b) => a.start_seconds - b.start_seconds
     );
   }, [scene.negative_markers]);
+  const totalSkippedSeconds = useMemo(
+    () =>
+      getSceneNegativeMarkerTotalDuration(
+        negativeMarkers,
+        scene.files[0]?.duration
+      ),
+    [negativeMarkers, scene.files]
+  );
   const negativeMarkerWarningsById = useMemo(() => {
     const warningsById = new Map<string, string[]>();
 
@@ -163,6 +172,17 @@ export const SceneNegativeMarkersPanel: React.FC<
             <FormattedMessage id="actions.add" defaultMessage="Add" />
           </Button>
         </div>
+        {negativeMarkers.length > 0 && (
+          <span className="text-muted">
+            <FormattedMessage
+              id="negative_markers_total_time"
+              defaultMessage="Total skipped time: {duration}"
+              values={{
+                duration: TextUtils.formatDurationRange(totalSkippedSeconds),
+              }}
+            />
+          </span>
+        )}
       </div>
 
       <p className="text-muted mb-3">

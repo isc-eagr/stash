@@ -38,6 +38,8 @@ import {
   getAbLoopPlugin,
   getPlayerPosition,
 } from "src/components/ScenePlayer/util";
+import { formatORecordedToastCustom } from "../oRecordToast_custom"; // CUSTOM
+import { shouldEnableSceneOHotkeyCustom } from "./sceneOHotkeyPreference_custom"; // CUSTOM
 import {
   faEllipsisV,
   faChevronRight,
@@ -252,6 +254,9 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const [generateScreenshot] = useSceneGenerateScreenshot();
   const { configuration } = useConfigurationContext();
   const { showStudioText } = configuration?.ui ?? {};
+  const isSceneOHotkeyEnabled = shouldEnableSceneOHotkeyCustom(
+    configuration?.ui
+  ); // CUSTOM
 
   const [showDraftModal, setShowDraftModal] = useState(false);
   const boxes = configuration?.general?.stashBoxes ?? [];
@@ -291,8 +296,10 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
         await recordOAtTimestamp({
           variables: { id: scene.id, video_timestamp: playerPos },
         });
+        Toast.success(formatORecordedToastCustom(playerPos));
       } else {
         await incrementO();
+        Toast.success(formatORecordedToastCustom());
       }
     } catch (e) {
       Toast.error(e);
@@ -308,9 +315,11 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     Mousetrap.bind("k", () => setActiveTabKey("scene-markers-panel"));
     Mousetrap.bind("i", () => setActiveTabKey("scene-file-info-panel"));
     Mousetrap.bind("h", () => setActiveTabKey("scene-history-panel"));
-    Mousetrap.bind("o", () => {
-      onIncrementOClick();
-    });
+    if (isSceneOHotkeyEnabled) {
+      Mousetrap.bind("o", () => {
+        onIncrementOClick();
+      });
+    }
     Mousetrap.bind("p n", () => onQueueNext());
     Mousetrap.bind("p p", () => onQueuePrevious());
     Mousetrap.bind("p r", () => onQueueRandom());

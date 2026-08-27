@@ -288,6 +288,8 @@ export const App: React.FC = () => {
             <Route path="/gevi-latest" component={GEVILatest} /> {/* CUSTOM */}
             <Route path="/ostats/vato/:performerId" component={OStats} />{" "}
             {/* CUSTOM */}
+            <Route path="/ostats/scene/:sceneId" component={OStats} />{" "}
+            {/* CUSTOM */}
             <Route path="/ostats/tag/:tagId" component={OStats} />{" "}
             {/* CUSTOM */}
             <Route

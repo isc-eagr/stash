@@ -129,7 +129,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Top(s) Attractiveness",
     max: 5,
     weight: 0.6,
-    hint: "How hot the top vato or lineup looks to you.",
+    hint: "How hot the top vato or lineup looks specifically in this scene. This may differ from the performer's overall face and body ratings.",
     choices: sceneVatoAttractivenessChoices,
   },
   {
@@ -137,7 +137,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Bottom(s) Attractiveness",
     max: 5,
     weight: 0.2,
-    hint: "How hot the bottom vato or lineup looks to you.",
+    hint: "How hot the bottom vato or lineup looks specifically in this scene. This may differ from the performer's overall face and body ratings.",
     choices: sceneVatoAttractivenessChoices,
   },
   {
@@ -384,7 +384,7 @@ const soloSceneMetrics: IAdvisorMetric[] = [
     title: "Vato Attractiveness",
     max: 5,
     weight: SOLO_SCENE_WEIGHTS_CUSTOM.attractiveness,
-    hint: "How hot the solo vato is, face to body to rifle.",
+    hint: "How hot the solo vato looks specifically in this scene, from face to body to rifle. This may differ from the performer's overall face and body ratings.",
     choices: sceneVatoAttractivenessChoices,
   },
   {
@@ -489,7 +489,7 @@ const groupSceneMetrics: IAdvisorMetric[] = [
     key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.topAttractiveness,
     title: "Top Lineup Attractiveness",
     weight: GROUP_SCENE_WEIGHTS_CUSTOM.topAttractiveness,
-    hint: "How hot the vatos doing the topping look as a lineup.",
+    hint: "How hot the vatos doing the topping look as a lineup specifically in this scene. This may differ from the performers' overall face and body ratings.",
   },
   {
     key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.energyCoordination,

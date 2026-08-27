@@ -488,6 +488,15 @@ func sceneOStatsPerformerID(value string) (int, error) {
 	return performerID, nil
 }
 
+func sceneOStatsSceneID(value string) (int, error) {
+	sceneID, err := strconv.Atoi(value)
+	if err != nil || sceneID < 1 {
+		return 0, fmt.Errorf("invalid scene ID: %s", value)
+	}
+
+	return sceneID, nil
+}
+
 func sceneOStatsStudioID(value string) (int, error) {
 	studioID, err := strconv.Atoi(value)
 	if err != nil || studioID < 1 {
@@ -884,7 +893,7 @@ ORDER BY day ASC`
 	return ret, nil
 }
 
-// SceneOEventsByDate returns the recorded O events for a date in chronological order.
+// SceneOEventsByDate returns the recorded O events for a date in reverse chronological order.
 func (r *queryResolver) SceneOEventsByDate(ctx context.Context, date string) (ret []*SceneOEvent, err error) {
 	date, err = validateSceneOStatsDate(date)
 	if err != nil {
@@ -899,37 +908,14 @@ FROM scenes_o_dates od
 JOIN scenes s ON s.id = od.scene_id
 WHERE od.o_date IS NOT NULL AND date(od.o_date, 'localtime') = date(?)
   AND date(od.o_date, 'localtime') >= date(?)
-ORDER BY datetime(od.o_date, 'localtime') ASC, COALESCE(od.video_timestamp, -1) ASC, s.title ASC`
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`
 		_, rows, err := db.QuerySQL(ctx, query, []interface{}{date, sceneODateTrackingStart})
 		if err != nil {
 			return err
 		}
 
-		out := make([]*SceneOEvent, 0, len(rows))
-		for _, row := range rows {
-			if len(row) < 4 {
-				continue
-			}
-
-			sceneID := customIntValue(row[1])
-			scene, err := r.repository.Scene.Find(ctx, sceneID)
-			if err != nil {
-				return err
-			}
-			if scene == nil {
-				continue
-			}
-
-			out = append(out, &SceneOEvent{
-				ID:             fmt.Sprint(row[0]),
-				SceneID:        fmt.Sprint(sceneID),
-				ODate:          customStringValue(row[2]),
-				VideoTimestamp: customFloatPtrValue(row[3]),
-				Scene:          scene,
-			})
-		}
-
-		if err := r.populateSceneOEventAssociatedTags(ctx, out); err != nil {
+		out, err := r.sceneOEventsFromRows(ctx, rows)
+		if err != nil {
 			return err
 		}
 
@@ -1015,7 +1001,7 @@ SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
 FROM scenes_o_dates od
 JOIN scenes s ON s.id = od.scene_id
 JOIN tagged_o_events toe ON toe.o_id = od.rowid
-ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) ASC, s.title ASC`
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`
 			args = []interface{}{orgasmTagID, tagIDInt, tagIDInt}
 		} else {
 			query = `
@@ -1041,7 +1027,7 @@ SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
 FROM scenes_o_dates od
 JOIN scenes s ON s.id = od.scene_id
 JOIN tagged_o_events toe ON toe.o_id = od.rowid
-ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) ASC, s.title ASC`
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`
 			args = []interface{}{tagIDInt, tagIDInt}
 		}
 
@@ -1050,31 +1036,8 @@ ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1)
 			return err
 		}
 
-		out := make([]*SceneOEvent, 0, len(rows))
-		for _, row := range rows {
-			if len(row) < 4 {
-				continue
-			}
-
-			sceneID := customIntValue(row[1])
-			scene, err := r.repository.Scene.Find(ctx, sceneID)
-			if err != nil {
-				return err
-			}
-			if scene == nil {
-				continue
-			}
-
-			out = append(out, &SceneOEvent{
-				ID:             fmt.Sprint(row[0]),
-				SceneID:        fmt.Sprint(sceneID),
-				ODate:          customStringValue(row[2]),
-				VideoTimestamp: customFloatPtrValue(row[3]),
-				Scene:          scene,
-			})
-		}
-
-		if err := r.populateSceneOEventAssociatedTags(ctx, out); err != nil {
+		out, err := r.sceneOEventsFromRows(ctx, rows)
+		if err != nil {
 			return err
 		}
 
@@ -1133,12 +1096,12 @@ FROM scenes_o_dates od
 JOIN scenes s ON s.id = od.scene_id
 WHERE od.o_date IS NOT NULL
 %s
-ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) ASC, s.title ASC`, sceneOWithoutMarkerTagsPredicate)
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`, sceneOWithoutMarkerTagsPredicate)
 	return r.sceneOEventsFromStatsQuery(ctx, query, nil)
 }
 
-// SceneOEventsByPerformer returns all recorded O events for scenes
-// associated with a performer, newest first.
+// SceneOEventsByPerformer returns all recorded O events for scenes associated
+// with a performer in reverse chronological order.
 func (r *queryResolver) SceneOEventsByPerformer(ctx context.Context, performerID string) (ret []*SceneOEvent, err error) {
 	performerIDInt, err := sceneOStatsPerformerID(performerID)
 	if err != nil {
@@ -1154,7 +1117,7 @@ JOIN scenes s ON s.id = od.scene_id
 JOIN performers_scenes ps ON ps.scene_id = od.scene_id
 WHERE ps.performer_id = ?
   AND od.o_date IS NOT NULL
-ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) ASC, s.title ASC`
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`
 		_, rows, err := db.QuerySQL(ctx, query, []interface{}{performerIDInt})
 		if err != nil {
 			return err
@@ -1171,6 +1134,24 @@ ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1)
 	}
 
 	return ret, nil
+}
+
+// SceneOEventsByScene returns all recorded O events for one scene in
+// reverse chronological order.
+func (r *queryResolver) SceneOEventsByScene(ctx context.Context, sceneID string) (ret []*SceneOEvent, err error) {
+	sceneIDInt, err := sceneOStatsSceneID(sceneID)
+	if err != nil {
+		return nil, err
+	}
+
+	query := `
+SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
+FROM scenes_o_dates od
+JOIN scenes s ON s.id = od.scene_id
+WHERE od.scene_id = ?
+  AND od.o_date IS NOT NULL
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC`
+	return r.sceneOEventsFromStatsQuery(ctx, query, []interface{}{sceneIDInt})
 }
 
 // SceneOCountsByTag returns timestamped scene O events grouped by marker tags
@@ -1572,6 +1553,65 @@ func (r *queryResolver) populateSceneOEventAssociatedTags(ctx context.Context, e
 	return nil
 }
 
+func sceneOEventOrdinalsQuery(placeholders string) string {
+	return fmt.Sprintf(`
+SELECT ranked.scene_id, ranked.o_id, ranked.scene_o_number
+FROM (
+  SELECT
+    od.scene_id,
+    od.rowid AS o_id,
+    ROW_NUMBER() OVER (
+      PARTITION BY od.scene_id
+      ORDER BY datetime(od.o_date, 'localtime') ASC,
+        COALESCE(od.video_timestamp, -1) ASC,
+        od.rowid ASC
+    ) AS scene_o_number
+  FROM scenes_o_dates od
+  WHERE od.scene_id IN (%s)
+    AND od.o_date IS NOT NULL
+) ranked`, placeholders)
+}
+
+func (r *queryResolver) populateSceneOEventSequence(ctx context.Context, events []*SceneOEvent) error {
+	byID := make(map[string]*SceneOEvent, len(events))
+	seenSceneIDs := make(map[int]bool)
+	sceneIDs := make([]int, 0, len(events))
+	for _, event := range events {
+		byID[event.ID] = event
+		sceneID, err := strconv.Atoi(event.SceneID)
+		if err != nil || seenSceneIDs[sceneID] {
+			continue
+		}
+		seenSceneIDs[sceneID] = true
+		sceneIDs = append(sceneIDs, sceneID)
+	}
+	if len(sceneIDs) == 0 {
+		return nil
+	}
+
+	db := manager.GetInstance().Database
+	for start := 0; start < len(sceneIDs); start += 450 {
+		chunk := sceneOEventIDChunk(sceneIDs, start, 450)
+		placeholders, args := sceneOEventIDPlaceholders(chunk)
+		_, rows, err := db.QuerySQL(ctx, sceneOEventOrdinalsQuery(placeholders), args)
+		if err != nil {
+			return err
+		}
+
+		for _, row := range rows {
+			if len(row) < 3 {
+				continue
+			}
+			if event := byID[fmt.Sprint(row[1])]; event != nil {
+				event.SceneONumber = customIntValue(row[2])
+				event.IsFirstForScene = event.SceneONumber == 1
+			}
+		}
+	}
+
+	return nil
+}
+
 func (r *queryResolver) sceneOEventsFromRows(ctx context.Context, rows [][]interface{}) ([]*SceneOEvent, error) {
 	out := make([]*SceneOEvent, 0, len(rows))
 	for _, row := range rows {
@@ -1598,6 +1638,9 @@ func (r *queryResolver) sceneOEventsFromRows(ctx context.Context, rows [][]inter
 	}
 
 	if err := r.populateSceneOEventAssociatedTags(ctx, out); err != nil {
+		return nil, err
+	}
+	if err := r.populateSceneOEventSequence(ctx, out); err != nil {
 		return nil, err
 	}
 
@@ -1720,7 +1763,7 @@ FROM scenes_o_dates od
 JOIN scenes s ON s.id = od.scene_id
 WHERE od.o_date IS NOT NULL
   %s
-ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) ASC, s.title ASC`, ethnicityPredicate)
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`, ethnicityPredicate)
 		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
 			return err
@@ -1833,7 +1876,7 @@ FROM scenes_o_dates od
 JOIN scenes s ON s.id = od.scene_id
 WHERE od.o_date IS NOT NULL
   %s
-ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) ASC, s.title ASC`, countryPredicate)
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`, countryPredicate)
 	return r.sceneOEventsFromStatsQuery(ctx, query, args)
 }
 
@@ -1903,7 +1946,7 @@ FROM scenes_o_dates od
 JOIN scenes s ON s.id = od.scene_id
 WHERE s.studio_id = ?
   AND od.o_date IS NOT NULL
-ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) ASC, s.title ASC`
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`
 	return r.sceneOEventsFromStatsQuery(ctx, query, []interface{}{studioIDInt})
 }
 
@@ -1916,7 +1959,7 @@ FROM scenes_o_dates od
 JOIN scenes s ON s.id = od.scene_id
 WHERE s.studio_id IS NULL
   AND od.o_date IS NOT NULL
-ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) ASC, s.title ASC`
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`
 	return r.sceneOEventsFromStatsQuery(ctx, query, nil)
 }
 
@@ -2000,7 +2043,7 @@ SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
 FROM scenes_o_dates od
 JOIN scenes s ON s.id = od.scene_id
 JOIN matching_o_events moe ON moe.o_id = od.rowid
-ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) ASC, s.title ASC`, ageExpr, agePredicate)
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`, ageExpr, agePredicate)
 	return r.sceneOEventsFromStatsQuery(ctx, query, args)
 }
 
@@ -2087,7 +2130,7 @@ SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
 FROM scenes_o_dates od
 JOIN scenes s ON s.id = od.scene_id
 JOIN matching_o_events moe ON moe.o_id = od.rowid
-ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) ASC, s.title ASC`, effectiveDateExpr, yearPredicate)
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`, effectiveDateExpr, yearPredicate)
 	return r.sceneOEventsFromStatsQuery(ctx, query, args)
 }
 
@@ -2139,7 +2182,7 @@ FROM scenes_o_dates od
 JOIN scenes s ON s.id = od.scene_id
 WHERE od.o_date IS NOT NULL
   AND (date(od.o_date, 'localtime') < date(?) OR date(od.o_date, 'localtime') IS NULL)
-ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) ASC, s.title ASC`
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`
 	return r.sceneOEventsFromStatsQuery(ctx, query, []interface{}{sceneODateTrackingStart})
 }
 

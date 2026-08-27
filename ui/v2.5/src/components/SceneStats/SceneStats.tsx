@@ -8,7 +8,12 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { Alert, Button, ButtonGroup, Form, Nav } from "react-bootstrap";
 import { Helmet } from "react-helmet";
-import { Link, RouteComponentProps, useHistory } from "react-router-dom";
+import {
+  Link,
+  RouteComponentProps,
+  useHistory,
+  useLocation,
+} from "react-router-dom";
 import { FormattedNumber } from "react-intl";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { StatsPage } from "src/components/StatsPage_custom";
@@ -52,6 +57,12 @@ import {
   sceneStatsVatoCountBuckets,
 } from "./sceneStatsSummary_custom";
 import { SceneStatsInsights } from "./SceneStatsInsights_custom";
+import { SceneStatsActivityMatrix } from "./SceneStatsActivityMatrix_custom"; // CUSTOM
+import {
+  sceneStatsSearchForSection,
+  sceneStatsSectionFromSearch,
+  type SceneStatsSection,
+} from "./sceneStatsSection_custom"; // CUSTOM
 
 import "./SceneStats.scss";
 
@@ -1149,12 +1160,13 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
     : "SceneStats";
   const titleProps = useTitleProps(pageTitle);
   const history = useHistory();
+  const location = useLocation(); // CUSTOM
   const [metric, setMetric] = useState<PodiumMetric>("o_counter");
   const [filters, setFilters] = useState<ChartFilter[]>([]);
   const [showSceneList, setShowSceneList] = useState(false);
-  const [activeSection, setActiveSection] = useState<"overview" | "insights">(
-    "overview"
-  );
+  const [activeSection, setActiveSection] = useState<SceneStatsSection>(() =>
+    sceneStatsSectionFromSearch(location.search)
+  ); // CUSTOM
   const selectedYear = Number(selectedYearParam);
   const selectedMonth = Number(selectedMonthParam);
   const hasSelectedYear = Number.isInteger(selectedYear) && selectedYear > 0;
@@ -1231,6 +1243,11 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
     }),
     [facialTag, oralTag, reallyHotTag, sexTag, soloTag]
   );
+
+  // CUSTOM: Keep the selected stats tab restorable through browser history.
+  useEffect(() => {
+    setActiveSection(sceneStatsSectionFromSearch(location.search));
+  }, [location.search]);
   const categoryCounts = useMemo(
     () =>
       scenes.reduce(
@@ -1397,9 +1414,17 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
       <Nav
         activeKey={activeSection}
         className="scenestats-sections"
-        onSelect={(key) =>
-          setActiveSection(key === "insights" ? "insights" : "overview")
-        }
+        // CUSTOM: begin
+        onSelect={(key) => {
+          const section: SceneStatsSection =
+            key === "insights" || key === "activity-matrix" ? key : "overview";
+          setActiveSection(section);
+          history.replace({
+            ...location,
+            search: sceneStatsSearchForSection(location.search, section),
+          });
+        }}
+        // CUSTOM: end
         variant="tabs"
       >
         <Nav.Item>
@@ -1408,6 +1433,11 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
         <Nav.Item>
           <Nav.Link eventKey="insights">Activity &amp; Ratings</Nav.Link>
         </Nav.Item>
+        {/* CUSTOM: begin */}
+        <Nav.Item>
+          <Nav.Link eventKey="activity-matrix">Activity Matrix</Nav.Link>
+        </Nav.Item>
+        {/* CUSTOM: end */}
       </Nav>
 
       {activeSection === "overview" && (
@@ -1848,6 +1878,15 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
           studioName={effectiveStudioScope?.name}
         />
       )}
+      {/* CUSTOM: begin */}
+      {activeSection === "activity-matrix" && (
+        <SceneStatsActivityMatrix
+          depth={effectiveStudioScope?.depth}
+          studioId={effectiveStudioScope?.id}
+          studioName={effectiveStudioScope?.name}
+        />
+      )}
+      {/* CUSTOM: end */}
     </StatsPage>
   );
 };

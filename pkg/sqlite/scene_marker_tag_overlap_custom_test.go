@@ -48,3 +48,25 @@ func TestMarkerEffectiveTagsUseFiftyPercentOverlapCustom(t *testing.T) {
 		assert.NotContains(t, ids, recipientMarkerID, "overlap below fifty percent should not inherit source tags")
 	})
 }
+
+func TestMarkerTagsIncludesAllDoesNotUseOverlapCustom(t *testing.T) {
+	runWithRollbackTxn(t, "ordinary marker tags remain direct only", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		dickTagID := strconv.Itoa(tagIDs[tagIdx2WithMarkers])
+		recipientMarkerID := markerIDs[markerIdxWithTag]
+		sourceMarkerID := markerIDs[markerIdxWithSceneTag]
+
+		setMarkerRange(t, ctx, recipientMarkerID, 0, 60)
+		setMarkerRange(t, ctx, sourceMarkerID, 30, 150)
+
+		ids := markersToIDs(queryMarkers(ctx, t, db.SceneMarker, &models.SceneMarkerFilterType{
+			Tags: &models.HierarchicalMultiCriterionInput{
+				Modifier: models.CriterionModifierIncludesAll,
+				Value:    []string{feetTagID, dickTagID},
+			},
+		}, nil))
+
+		assert.NotContains(t, ids, recipientMarkerID, "ordinary INCLUDES_ALL must not inherit tags from an overlapping marker")
+		assert.NotContains(t, ids, sourceMarkerID, "ordinary INCLUDES_ALL must only inspect each marker's direct tags")
+	})
+}

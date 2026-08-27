@@ -36,6 +36,28 @@ query SceneStatsInsights($studioId: ID, $depth: Int) {
   }
 }
 
+# CUSTOM: Total-only Activity Matrix for global, studio-scoped, and performer-scoped stats.
+query SceneStatsActivityMatrix(
+  $studioId: ID
+  $depth: Int
+  $performerId: ID
+  $includeSubTags: Boolean!
+) {
+  sceneStatsActivityMatrix(
+    studio_id: $studioId
+    depth: $depth
+    performer_id: $performerId
+    include_subtags: $includeSubTags
+  ) {
+    tag_id
+    tag_name
+    parent_tag_ids
+    duration
+    marker_count
+    percent
+  }
+}
+
 query VatoStatsRatingAdvisor($studioId: ID, $depth: Int) {
   globalRatingAdvisorStats(studio_id: $studioId, depth: $depth) {
     performers {

@@ -508,7 +508,8 @@ func (qb *performerFilterHandler) markerTagsCriterionHandler(tags *models.Hierar
 				)`, sceneMarkerDirectHasTagInClauseCustom("sm", fmt.Sprintf("(SELECT column2 FROM (%s))", valuesClause))))
 
 			case models.CriterionModifierIncludesAll:
-				// At least one marker with all the tags
+				// At least one marker that directly carries all the tags. Generic
+				// INCLUDES_ALL must not opt into overlap inheritance.
 				f.addWhere(fmt.Sprintf(`EXISTS (
 					SELECT 1 FROM performers_scenes ps
 					JOIN scenes s ON s.id = ps.scene_id
@@ -516,10 +517,10 @@ func (qb *performerFilterHandler) markerTagsCriterionHandler(tags *models.Hierar
 					WHERE ps.performer_id = performers.id
 					AND %s
 					AND %s
-				)`, sceneMarkerDirectHasTagInClauseCustom("sm", fmt.Sprintf("(SELECT column2 FROM (%s))", valuesClause)), sceneMarkerEffectiveTagsCountClauseCustom("sm", fmt.Sprintf("(SELECT column2 FROM (%s))", valuesClause), len(criterion.Value))))
+				)`, sceneMarkerDirectHasTagInClauseCustom("sm", fmt.Sprintf("(SELECT column2 FROM (%s))", valuesClause)), sceneMarkerDirectTagsCountClauseCustom("sm", fmt.Sprintf("(SELECT column2 FROM (%s))", valuesClause), len(criterion.Value))))
 
 			case models.CriterionModifierEquals:
-				// At least one marker with exactly the specified tags
+				// At least one marker with the specified direct tags.
 				f.addWhere(fmt.Sprintf(`EXISTS (
 					SELECT 1 FROM performers_scenes ps
 					JOIN scenes s ON s.id = ps.scene_id
@@ -527,7 +528,7 @@ func (qb *performerFilterHandler) markerTagsCriterionHandler(tags *models.Hierar
 					WHERE ps.performer_id = performers.id
 					AND %s
 					AND %s
-				)`, sceneMarkerDirectHasTagInClauseCustom("sm", fmt.Sprintf("(SELECT column2 FROM (%s))", valuesClause)), sceneMarkerEffectiveTagsCountClauseCustom("sm", fmt.Sprintf("(SELECT column2 FROM (%s))", valuesClause), len(criterion.Value))))
+				)`, sceneMarkerDirectHasTagInClauseCustom("sm", fmt.Sprintf("(SELECT column2 FROM (%s))", valuesClause)), sceneMarkerDirectTagsCountClauseCustom("sm", fmt.Sprintf("(SELECT column2 FROM (%s))", valuesClause), len(criterion.Value))))
 			}
 		}
 
@@ -812,14 +813,14 @@ func (qb *performerFilterHandler) performerMarkerTagsCriterionHandler(input *mod
 			}
 
 		case models.CriterionModifierIncludesAll:
-			// Performer must be in a direct-tag marker whose 50%-overlap inherited tags satisfy all specified tags.
+			// Performer must be in a marker that directly carries all specified tags.
 			sql = fmt.Sprintf(`EXISTS (
 				SELECT 1 FROM scene_marker_performers smp
 				JOIN scene_markers sm ON sm.id = smp.scene_marker_id
 				WHERE smp.performer_id = performers.id %s
 				AND %s
 				AND %s
-			)`, roleClause, sceneMarkerDirectHasTagInClauseCustom("sm", ph), sceneMarkerEffectiveTagsCountClauseCustom("sm", ph, len(input.TagIds)))
+			)`, roleClause, sceneMarkerDirectHasTagInClauseCustom("sm", ph), sceneMarkerDirectTagsCountClauseCustom("sm", ph, len(input.TagIds)))
 
 			for _, tid := range input.TagIds {
 				args = append(args, tid)
