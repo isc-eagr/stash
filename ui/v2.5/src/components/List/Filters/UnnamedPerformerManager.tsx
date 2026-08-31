@@ -111,6 +111,7 @@ export const UnnamedPerformerEditor: React.FC<IUnnamedPerformerEditorProps> = ({
     );
     criterion.value = editedPerformer.rating_criteria ?? {
       criteria: {},
+      bonusValues: {},
       bonuses: {},
       penalties: {},
     };

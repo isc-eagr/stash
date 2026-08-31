@@ -331,6 +331,7 @@ input RatingScorePresenceFilterInput {
 
 input RatingCriteriaFilterInput {
   criteria: [RatingScoreCriterionFilterInput!]
+  bonus_values: [RatingScoreCriterionFilterInput!] # CUSTOM: numeric bonus levels such as GOAT +5/+10/+15/+20
   bonuses: [RatingScorePresenceFilterInput!]
   penalties: [RatingScorePresenceFilterInput!]
 }

@@ -61,6 +61,15 @@ func TestRatingCriteriaCriterionHandler(t *testing.T) {
 				},
 			},
 		},
+		BonusValues: []*models.RatingScoreCriterionFilterInput{
+			{
+				Key: "goatElement",
+				Value: &models.FloatCriterionInput{
+					Value:    1.5,
+					Modifier: models.CriterionModifierGreaterThanEquals,
+				},
+			},
+		},
 		Bonuses: []*models.RatingScorePresenceFilterInput{
 			nil,
 			{Key: ""},
@@ -75,10 +84,12 @@ func TestRatingCriteriaCriterionHandler(t *testing.T) {
 	ratingCriteriaCriterionHandler(criterion, "scene", "scenes").handle(testCtx, builder)
 
 	require.NoError(t, builder.getError())
-	require.Len(t, builder.whereClauses, 3)
+	require.Len(t, builder.whereClauses, 4)
 	assert.Contains(t, builder.whereClauses[0].sql, "rating_criteria_scores")
 	assert.Contains(t, builder.whereClauses[1].sql, "rating_bonus_scores")
-	assert.Contains(t, builder.whereClauses[2].sql, "rating_penalty_scores")
+	assert.Contains(t, builder.whereClauses[1].sql, "rs.raw_value >= ?")
+	assert.Contains(t, builder.whereClauses[2].sql, "rating_bonus_scores")
+	assert.Contains(t, builder.whereClauses[3].sql, "rating_penalty_scores")
 }
 
 func TestRatingCriteriaCriterionHandlerInvalidModifier(t *testing.T) {

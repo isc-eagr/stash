@@ -27,6 +27,7 @@ import {
   getSceneStatsCombinedPerformerActivity,
   getSceneStatsPerformerActivityLabels,
   getSceneStatsPerformerActivityPercent,
+  shouldShowSceneStatsPerformerParticipation,
   type ISceneStatsPerformerActivityMetric,
 } from "./sceneStatsPerformerActivity_custom"; // CUSTOM
 import {
@@ -1282,50 +1283,63 @@ const SceneStatsPanel: React.FC<IProps> = ({
     const activityLabels = getSceneStatsPerformerActivityLabels(
       categoryRow.category ?? "sex"
     );
+    const showParticipation = shouldShowSceneStatsPerformerParticipation(
+      scene.performers.length,
+      categoryRow.category ?? "sex"
+    );
 
     return (
       <section className="scene-stats-performer-activity" key={categoryRow.key}>
-        <div className="scene-stats-performer-activity-total">
-          <span>{activityLabels.sceneTotalLabel}</span>
-          <span className="custom-stats-value">
-            {TextUtils.secondsToTimestamp(
-              categoryRow.totalActivitySeconds ?? 0
-            )}
-          </span>
-        </div>
-        <div className="scene-stats-performer-activity-heading">
-          <Form.Check
-            checked={selectedPerformerRows.has(categorySelectionKey)}
-            className="custom-stats-check"
-            id={`scene-stats-${scene.id}-${categorySelectionKey}`}
-            label={activityLabels.performerParticipationLabel}
-            onChange={() => togglePerformerRow(categorySelectionKey)}
-          />
-          <span className="custom-stats-value">
-            {TextUtils.secondsToTimestamp(categoryRow.seconds)}
-          </span>
-          <span className="custom-stats-value">
-            {formatPercentValue(categoryRow)}
-          </span>
-        </div>
-        <div
-          aria-label={`${
-            activityLabels.performerParticipationLabel
-          }: ${formatPercentValue(categoryRow)}`}
-          aria-valuemax={100}
-          aria-valuemin={0}
-          aria-valuenow={categoryRow.percent}
-          className="scene-stats-progress-track"
-          role="progressbar"
-        >
-          <span
-            className="scene-stats-progress-fill"
-            style={{
-              backgroundColor: getStatsRowColor(categoryRow, soloMarkerColor),
-              width: `${Math.max(0, Math.min(100, categoryRow.percent))}%`,
-            }}
-          />
-        </div>
+        {/* CUSTOM: begin */}
+        {showParticipation && (
+          <>
+            <div className="scene-stats-performer-activity-total">
+              <span>{activityLabels.sceneTotalLabel}</span>
+              <span className="custom-stats-value">
+                {TextUtils.secondsToTimestamp(
+                  categoryRow.totalActivitySeconds ?? 0
+                )}
+              </span>
+            </div>
+            <div className="scene-stats-performer-activity-heading">
+              <Form.Check
+                checked={selectedPerformerRows.has(categorySelectionKey)}
+                className="custom-stats-check"
+                id={`scene-stats-${scene.id}-${categorySelectionKey}`}
+                label={activityLabels.performerParticipationLabel}
+                onChange={() => togglePerformerRow(categorySelectionKey)}
+              />
+              <span className="custom-stats-value">
+                {TextUtils.secondsToTimestamp(categoryRow.seconds)}
+              </span>
+              <span className="custom-stats-value">
+                {formatPercentValue(categoryRow)}
+              </span>
+            </div>
+            <div
+              aria-label={`${
+                activityLabels.performerParticipationLabel
+              }: ${formatPercentValue(categoryRow)}`}
+              aria-valuemax={100}
+              aria-valuemin={0}
+              aria-valuenow={categoryRow.percent}
+              className="scene-stats-progress-track"
+              role="progressbar"
+            >
+              <span
+                className="scene-stats-progress-fill"
+                style={{
+                  backgroundColor: getStatsRowColor(
+                    categoryRow,
+                    soloMarkerColor
+                  ),
+                  width: `${Math.max(0, Math.min(100, categoryRow.percent))}%`,
+                }}
+              />
+            </div>
+          </>
+        )}
+        {/* CUSTOM: end */}
         <div className="scene-stats-role-rows">
           {roleRows.map((row) => {
             const selectionKey = getPerformerRowSelectionKey(

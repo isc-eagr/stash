@@ -36,7 +36,7 @@ var defaultSceneRatingRubricCustom = ratingScoreRubricCustom{
 		"theme":         {choices: []float64{0, 0.5}, weight: 1},
 		"oralOnly":      {choices: []float64{0, 0.5}, weight: 1},
 		"godTierOrgasm": {choices: []float64{0, 1}, weight: 1},
-		"goatElement":   {choices: []float64{0, 2}, weight: 1},
+		"goatElement":   {choices: []float64{0, 0.5, 1, 1.5, 2}, weight: 1},
 		"unlikelyTop":   {choices: []float64{0, 0.5}, weight: 1},
 	},
 	models.RatingScoreSectionPenalty: {
@@ -58,7 +58,7 @@ var groupSceneRatingRubricCustom = ratingScoreRubricCustom{
 		"groupOralOnly":             {choices: []float64{0, 2}, weight: 1},
 		"theme":                     {choices: []float64{0, 0.5}, weight: 1},
 		"godTierOrgasm":             {choices: []float64{0, 1}, weight: 1},
-		"goatElement":               {choices: []float64{0, 2}, weight: 1},
+		"goatElement":               {choices: []float64{0, 0.5, 1, 1.5, 2}, weight: 1},
 	},
 	models.RatingScoreSectionPenalty: {
 		"noOrgasm":          {choices: []float64{0, -2}, weight: 1},
@@ -76,7 +76,7 @@ var soloSceneRatingRubricCustom = ratingScoreRubricCustom{
 	models.RatingScoreSectionBonus: {
 		"orgasmBonus": {choices: []float64{0, 1}, weight: 1},
 		"feetBonus":   {choices: []float64{0, 1}, weight: 1},
-		"goatElement": {choices: []float64{0, 2}, weight: 1},
+		"goatElement": {choices: []float64{0, 0.5, 1, 1.5, 2}, weight: 1},
 		"theme":       {choices: []float64{0, 0.5}, weight: 1},
 	},
 	models.RatingScoreSectionPenalty: {

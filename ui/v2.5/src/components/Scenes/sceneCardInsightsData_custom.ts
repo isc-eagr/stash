@@ -406,6 +406,16 @@ function eventReportLabel(
   }`;
 }
 
+// CUSTOM: Match the SceneStats event weighting rule: one event per assigned
+// top, with a minimum of one event for markers without a top assignment.
+function eventMarkerCount(marker: SceneCardInsightMarker) {
+  return Math.max(marker.top_performers?.length ?? 0, 1);
+}
+
+function eventMarkersCount(markers: SceneCardInsightMarker[]) {
+  return markers.reduce((total, marker) => total + eventMarkerCount(marker), 0);
+}
+
 export type OutstandingActivityAmountLevel =
   | "some"
   | "good-amount"
@@ -1137,27 +1147,32 @@ function getEventReportCandidates(
   return reports.flatMap(({ category, markers }) => {
     if (markers.length === 0) return [];
     const stats = markerStats(markers, sceneDuration);
-    const goatCount = markers.filter((marker) =>
-      markerHasConfiguredTag(marker, roleTagIds?.goatTagId)
-    ).length;
-    const reallyHotCount = markers.filter(
-      (marker) =>
-        !markerHasConfiguredTag(marker, roleTagIds?.goatTagId) &&
-        markerHasConfiguredTag(marker, roleTagIds?.reallyHotTagId)
-    ).length;
+    const eventCount = eventMarkersCount(markers);
+    const goatCount = eventMarkersCount(
+      markers.filter((marker) =>
+        markerHasConfiguredTag(marker, roleTagIds?.goatTagId)
+      )
+    );
+    const reallyHotCount = eventMarkersCount(
+      markers.filter(
+        (marker) =>
+          !markerHasConfiguredTag(marker, roleTagIds?.goatTagId) &&
+          markerHasConfiguredTag(marker, roleTagIds?.reallyHotTagId)
+      )
+    );
     return [
       {
         key: `${category}-report`,
         label: eventReportLabel(
           category,
-          stats.markerCount,
+          eventCount,
           goatCount,
           reallyHotCount
         ),
         detail: markerCoverageDetail(stats),
         tone: "event" as const,
         kind: "event-report" as const,
-        score: stats.duration * 100 + stats.markerCount,
+        score: stats.duration * 100 + eventCount,
       },
     ];
   });

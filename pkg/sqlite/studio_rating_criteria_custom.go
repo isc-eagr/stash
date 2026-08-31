@@ -88,6 +88,7 @@ func studioRatingCriteriaPresenceClauseCustom(
 
 func studioRatingCriteriaAveragesClauseCustom(
 	scope studioRatingCriteriaScopeCustom,
+	table string,
 	criteria []*models.RatingScoreCriterionFilterInput,
 ) (sqlClause, error, bool) {
 	var havingClauses []string
@@ -115,7 +116,7 @@ func studioRatingCriteriaAveragesClauseCustom(
 	SELECT COUNT(*)
 	%s
 	HAVING %s
-)`, studioRatingCriteriaScoreSourceSQLCustom(scope, ratingCriteriaScoresTable, "studio_rating_score"), strings.Join(havingClauses, " AND ")), args...), nil, true
+)`, studioRatingCriteriaScoreSourceSQLCustom(scope, table, "studio_rating_score"), strings.Join(havingClauses, " AND ")), args...), nil, true
 }
 
 func studioRatingCriteriaCriterionHandlerCustom(
@@ -127,13 +128,22 @@ func studioRatingCriteriaCriterionHandlerCustom(
 			return
 		}
 
-		averageClause, err, ok := studioRatingCriteriaAveragesClauseCustom(scope, criterion.Criteria)
+		averageClause, err, ok := studioRatingCriteriaAveragesClauseCustom(scope, ratingCriteriaScoresTable, criterion.Criteria)
 		if err != nil {
 			f.setError(err)
 			return
 		}
 		if ok {
 			f.whereClauses = append(f.whereClauses, averageClause)
+		}
+
+		bonusValueClause, err, ok := studioRatingCriteriaAveragesClauseCustom(scope, ratingBonusScoresTable, criterion.BonusValues)
+		if err != nil {
+			f.setError(err)
+			return
+		}
+		if ok {
+			f.whereClauses = append(f.whereClauses, bonusValueClause)
 		}
 
 		for _, item := range criterion.Bonuses {

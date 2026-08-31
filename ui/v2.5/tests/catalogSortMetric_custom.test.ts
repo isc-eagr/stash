@@ -29,6 +29,7 @@ const scene = {
   tags: [],
   scene_markers: [],
   negative_markers: [],
+  rating_scores: [{ section: "bonus", key: "goatElement", raw_value: 1.5 }],
 };
 
 const performer = {
@@ -81,6 +82,15 @@ test("each catalog resolves its active card metric and value", () => {
     getSceneSortMetricCustom("file_count", scene as never, "ASC" as never, {})
       ?.value,
     1
+  );
+  assert.equal(
+    getSceneSortMetricCustom(
+      "goat_element_bonus",
+      scene as never,
+      "DESC" as never,
+      {}
+    )?.value,
+    "+15"
   );
   assert.equal(
     getPerformerSortMetricCustom("sex_activity_percent", performer as never)

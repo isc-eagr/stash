@@ -15,6 +15,7 @@ import (
 func TestStudioRatingCriteriaAverageClauseCustomUsesRelatedSceneAverage(t *testing.T) {
 	clause, err, ok := studioRatingCriteriaAveragesClauseCustom(
 		studioRatingCriteriaScenesCustom,
+		ratingCriteriaScoresTable,
 		[]*models.RatingScoreCriterionFilterInput{{
 			Key: "soloPerformance",
 			Value: &models.FloatCriterionInput{
@@ -141,6 +142,7 @@ INSERT INTO rating_criteria_scores(entity_type, entity_id, key) VALUES
 func TestStudioPerformerRatingCriteriaAverageClauseCustomDeduplicatesPerformers(t *testing.T) {
 	clause, err, ok := studioRatingCriteriaAveragesClauseCustom(
 		studioRatingCriteriaPerformersCustom,
+		ratingCriteriaScoresTable,
 		[]*models.RatingScoreCriterionFilterInput{{
 			Key: "face",
 			Value: &models.FloatCriterionInput{
@@ -174,6 +176,13 @@ func TestStudioRatingCriteriaCriterionHandlerCustomCombinesAverageAndPresence(t 
 				Value:    3,
 			},
 		}},
+		BonusValues: []*models.RatingScoreCriterionFilterInput{{
+			Key: "goatElement",
+			Value: &models.FloatCriterionInput{
+				Modifier: models.CriterionModifierGreaterThanEquals,
+				Value:    1.5,
+			},
+		}},
 		Bonuses:   []*models.RatingScorePresenceFilterInput{{Key: "theme", Value: true}},
 		Penalties: []*models.RatingScorePresenceFilterInput{{Key: "production", Value: false}},
 	}
@@ -182,11 +191,13 @@ func TestStudioRatingCriteriaCriterionHandlerCustomCombinesAverageAndPresence(t 
 	studioRatingCriteriaCriterionHandlerCustom(criterion, studioRatingCriteriaScenesCustom).handle(context.Background(), builder)
 
 	require.NoError(t, builder.err)
-	require.Len(t, builder.whereClauses, 3)
+	require.Len(t, builder.whereClauses, 4)
 	assert.Contains(t, builder.whereClauses[0].sql, "AVG(CASE WHEN studio_rating_score.key = ? THEN studio_rating_score.raw_value END) BETWEEN ? AND ?")
 	assert.Equal(t, 1, strings.Count(builder.whereClauses[0].sql, "FROM scenes studio_rating_scene"))
 	assert.Contains(t, builder.whereClauses[1].sql, ratingBonusScoresTable)
-	assert.Contains(t, builder.whereClauses[2].sql, "NOT (EXISTS")
+	assert.Equal(t, []interface{}{"goatElement", float64(1.5)}, builder.whereClauses[1].args)
+	assert.Contains(t, builder.whereClauses[2].sql, ratingBonusScoresTable)
+	assert.Contains(t, builder.whereClauses[3].sql, "NOT (EXISTS")
 }
 
 func TestStudioPerformerRatingCriteriaAverageClauseCustomUsesDistinctStudioPerformers(t *testing.T) {
@@ -212,6 +223,7 @@ INSERT INTO rating_criteria_scores(entity_type, entity_id, key, raw_value) VALUE
 
 	clause, clauseErr, ok := studioRatingCriteriaAveragesClauseCustom(
 		studioRatingCriteriaPerformersCustom,
+		ratingCriteriaScoresTable,
 		[]*models.RatingScoreCriterionFilterInput{{
 			Key: "face",
 			Value: &models.FloatCriterionInput{

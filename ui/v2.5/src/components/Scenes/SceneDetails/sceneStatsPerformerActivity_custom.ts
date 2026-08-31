@@ -45,6 +45,13 @@ export function getSceneStatsPerformerActivityPercent(
   return percent(performerSeconds, activitySeconds);
 }
 
+export function shouldShowSceneStatsPerformerParticipation(
+  performerCount: number,
+  category: "both" | "oral" | "sex" | "solo"
+) {
+  return category === "solo" || performerCount >= 3;
+}
+
 export function getSceneStatsCombinedPerformerActivity(
   sex: ISceneStatsPerformerActivityMetric | undefined,
   oral: ISceneStatsPerformerActivityMetric | undefined

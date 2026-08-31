@@ -1132,6 +1132,26 @@ test("Really Hot orgasms are summarized in the Orgasm report", () => {
   );
 });
 
+test("one orgasm marker counts once per assigned top in the event report", () => {
+  const reallyHot = tag("really-hot", "Really Hot");
+  const sceneLabels = labels(
+    [
+      marker(
+        "shared-orgasm",
+        tag("orgasm", "Orgasm"),
+        10,
+        20,
+        [reallyHot],
+        [performer("top-1", "Top One"), performer("top-2", "Top Two")]
+      ),
+    ],
+    100,
+    suppressNegatives
+  );
+
+  assert.ok(sceneLabels.includes("2 orgasms: 2 Really Hot"));
+});
+
 test("ordinary orgasms and facials stay inside their aggregate reports", () => {
   const tyga = performer("tyga", "Tyga Martinez");
   const sceneLabels = labels(
@@ -1237,7 +1257,7 @@ test("orgasm chips detect simultaneous top vatos and repeated top orgasms", () =
 
   assert.ok(sceneLabels.includes("2 vatos nut at the same time"));
   assert.ok(sceneLabels.includes("First Vato nuts 3 times"));
-  assert.ok(sceneLabels.includes("3 orgasms"));
+  assert.ok(sceneLabels.includes("4 orgasms"));
 });
 
 test("flattened ancestor IDs classify deep event descendants", () => {

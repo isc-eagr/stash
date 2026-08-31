@@ -8,6 +8,7 @@ import {
 } from "../src/models/list-filter/criteria/rating-criteria_custom.ts";
 
 const sceneCriteria = SceneRatingCriteriaCriterionOption.criteria;
+const sceneBonusValues = SceneRatingCriteriaCriterionOption.bonusValues;
 const sceneBonuses = SceneRatingCriteriaCriterionOption.bonuses;
 const scenePenalties = SceneRatingCriteriaCriterionOption.penalties;
 
@@ -37,6 +38,23 @@ assert.equal(
 assert.equal(
   sceneBonuses.find((definition) => definition.key === "unlikelyTop")?.label,
   "Standard Unlikely Top Bonus"
+);
+assert.deepEqual(sceneBonusValues, [
+  {
+    key: "goatElement",
+    label: "GOAT Element Bonus Amount",
+    choices: [
+      { value: 0.5, label: "GOAT +5" },
+      { value: 1, label: "GOAT +10" },
+      { value: 1.5, label: "GOAT +15" },
+      { value: 2, label: "GOAT +20" },
+    ],
+    showRawValue: false,
+  },
+]);
+assert.equal(
+  sceneBonuses.some((definition) => definition.key === "goatElement"),
+  true
 );
 assert.equal(
   sceneBonuses.some(
@@ -91,6 +109,12 @@ criterion.value = {
       value: { value: 2, value2: 4 },
     },
   },
+  bonusValues: {
+    goatElement: {
+      modifier: CriterionModifier.Equals,
+      value: { value: 1.5, value2: undefined },
+    },
+  },
   bonuses: {
     groupBottomAttractiveness: true,
     groupOralOnly: false,
@@ -125,6 +149,16 @@ assert.deepEqual(input.rating_criteria, {
         modifier: CriterionModifier.Between,
         value: 2,
         value2: 4,
+      },
+    },
+  ],
+  bonus_values: [
+    {
+      key: "goatElement",
+      value: {
+        modifier: CriterionModifier.Equals,
+        value: 1.5,
+        value2: undefined,
       },
     },
   ],

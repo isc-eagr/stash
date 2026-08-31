@@ -54,7 +54,7 @@ func (r ratingScoreRow) resolve(section string) *models.RatingScore {
 	}
 
 	return &models.RatingScore{
-		ID:            r.ID,
+		ID:            ratingScoreGraphQLIDCustom(r.EntityType, r.EntityID, section, r.Key),
 		EntityType:    r.EntityType,
 		EntityID:      r.EntityID,
 		Section:       section,
@@ -65,6 +65,10 @@ func (r ratingScoreRow) resolve(section string) *models.RatingScore {
 		CreatedAt:     r.CreatedAt,
 		UpdatedAt:     r.UpdatedAt,
 	}
+}
+
+func ratingScoreGraphQLIDCustom(entityType string, entityID int, section string, key string) string {
+	return fmt.Sprintf("%s:%d:%s:%s", entityType, entityID, section, key)
 }
 
 type RatingScoreStore struct{}

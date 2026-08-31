@@ -4,6 +4,7 @@ import {
   getSceneStatsCombinedPerformerActivity,
   getSceneStatsPerformerActivityLabels,
   getSceneStatsPerformerActivityPercent,
+  shouldShowSceneStatsPerformerParticipation,
 } from "../src/components/Scenes/SceneDetails/sceneStatsPerformerActivity_custom.ts";
 
 assert.deepEqual(
@@ -40,6 +41,36 @@ assert.equal(
   getSceneStatsPerformerActivityPercent(0, 0),
   0,
   "empty activity durations produce a zero percentage"
+);
+
+assert.equal(
+  shouldShowSceneStatsPerformerParticipation(1, "sex"),
+  false,
+  "one-performer scenes hide Sex participation"
+);
+
+assert.equal(
+  shouldShowSceneStatsPerformerParticipation(2, "both"),
+  false,
+  "two-performer scenes hide Overall participation"
+);
+
+assert.equal(
+  shouldShowSceneStatsPerformerParticipation(2, "oral"),
+  false,
+  "two-performer scenes hide Oral participation"
+);
+
+assert.equal(
+  shouldShowSceneStatsPerformerParticipation(3, "sex"),
+  true,
+  "group scenes keep meaningful performer participation"
+);
+
+assert.equal(
+  shouldShowSceneStatsPerformerParticipation(1, "solo"),
+  true,
+  "Solo participation remains available"
 );
 
 assert.deepEqual(

@@ -111,6 +111,28 @@ func TestCanonicalRatingScoreContributionSupportsEveryOrgasmQualityLevel(t *test
 	}
 }
 
+func TestGoatElementSupportsEveryBonusLevelInEverySceneRubric(t *testing.T) {
+	for name, rubric := range map[string]ratingScoreRubricCustom{
+		"standard": defaultSceneRatingRubricCustom,
+		"solo":     soloSceneRatingRubricCustom,
+		"group":    groupSceneRatingRubricCustom,
+	} {
+		t.Run(name, func(t *testing.T) {
+			for _, expected := range []float64{0.5, 1, 1.5, 2} {
+				raw, weighted, err := canonicalRatingScoreInputCustom(
+					rubric,
+					models.RatingScoreSectionBonus,
+					"goatElement",
+					expected,
+				)
+				assert.NoError(t, err)
+				assert.Equal(t, expected, raw)
+				assert.Equal(t, expected, weighted)
+			}
+		})
+	}
+}
+
 func TestCanonicalRatingScoreInputRejectsUnsupportedValues(t *testing.T) {
 	_, _, err := canonicalRatingScoreInputCustom(
 		defaultSceneRatingRubricCustom,

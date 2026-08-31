@@ -39,6 +39,27 @@ func ratingCriteriaCriterionHandler(
 			)
 		}
 
+		for _, c := range criterion.BonusValues {
+			if c == nil || c.Value == nil || c.Key == "" {
+				continue
+			}
+			if !c.Value.ValidModifier() {
+				f.setError(fmt.Errorf("invalid modifier %s for rating bonus %s", c.Value.Modifier, c.Key))
+				return
+			}
+
+			f.whereClauses = append(
+				f.whereClauses,
+				ratingScoreNumericClause(
+					ratingBonusScoresTable,
+					entityType,
+					primaryTable,
+					c.Key,
+					*c.Value,
+				),
+			)
+		}
+
 		for _, c := range criterion.Bonuses {
 			if c == nil || c.Key == "" {
 				continue

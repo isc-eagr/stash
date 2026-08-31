@@ -27,8 +27,10 @@ import {
   getRatingAdvisorChoiceScoreCustom,
   normalizeRatingAdvisorScoreValueCustom,
   ratingAdvisorSixLevelChoicesCustom,
+  resolveRatingAdvisorScoresCustom,
   SCENE_ENERGY_WEIGHT_CUSTOM,
   SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM,
+  SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM,
   SCENE_NO_ORGASM_PENALTY_CUSTOM,
   SCENE_ORGASM_QUALITY_CHOICES_CUSTOM,
   SCENE_USABLE_FACTOR_MAX_CUSTOM,
@@ -243,19 +245,8 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "GOAT element",
     max: 2,
     section: "bonus",
-    hint: "For one GOAT-level act, angle, blowjob, or other killer moment.",
-    choices: [
-      {
-        value: 0,
-        label: "No GOAT element",
-        description: "Nothing here reaches GOAT territory.",
-      },
-      {
-        value: 2,
-        label: "GOAT element",
-        description: "One part is so damn good it lifts the whole scene.",
-      },
-    ],
+    hint: "Choose how much one GOAT-level act, angle, blowjob, or other killer moment adds.",
+    choices: SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM,
   },
   {
     key: "unlikelyTop",
@@ -904,7 +895,7 @@ export const RatingCriteriaTooltip: React.FC<IRatingCriteriaTooltipProps> = ({
     { entity_type: string; entity_id: string }
   >(RatingAdvisorScoresQuery, {
     variables: { entity_type: entityType, entity_id: entityId },
-    fetchPolicy: "cache-first",
+    fetchPolicy: "cache-and-network",
   });
   const [
     loadPerformerSceneStats,
@@ -916,7 +907,11 @@ export const RatingCriteriaTooltip: React.FC<IRatingCriteriaTooltipProps> = ({
   ] = GQL.usePerformerRatingAdvisorStatsLazyQuery(); // CUSTOM
   const [showTooltip, setShowTooltip] = useState(false);
   const suppressNextShowRef = useRef(false);
-  const effectiveScores = ratingScores ?? data?.ratingScores;
+  const effectiveScores = resolveRatingAdvisorScoresCustom(
+    undefined,
+    data?.ratingScores,
+    ratingScores
+  );
   const metrics = getTooltipMetrics(
     entityType,
     sceneRatingMode,
@@ -1383,7 +1378,11 @@ const RatingAdvisorModal: React.FC<{
   useEffect(() => {
     const incomingScores = getInitialScores(
       metrics,
-      authoritativeScores ?? ratingScores ?? advisorScoresData?.ratingScores
+      resolveRatingAdvisorScoresCustom(
+        authoritativeScores,
+        advisorScoresData?.ratingScores,
+        ratingScores
+      )
     );
     setScores((current) => {
       for (const key of savingMetricKeysRef.current) {
@@ -1703,10 +1702,13 @@ const RatingAdvisorModal: React.FC<{
     const inactiveChoice = metric.choices.find(
       (choice) => getChoiceScore(metric, choice.value) === 0
     );
+    const activeChoiceCount = metric.choices.filter(
+      (choice) => getChoiceScore(metric, choice.value) !== 0
+    ).length;
     const active = score !== undefined && getChoiceScore(metric, score) !== 0;
     const activeBonus = active && metric.section === "bonus";
 
-    if (!activeChoice || !inactiveChoice) {
+    if (!activeChoice || !inactiveChoice || activeChoiceCount > 1) {
       return renderMetric(metric);
     }
 

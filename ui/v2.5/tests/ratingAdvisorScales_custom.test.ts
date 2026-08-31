@@ -8,11 +8,14 @@ import {
   getRatingAdvisorCompletionCustom,
   getRatingAdvisorChoiceHeatLevelCustom,
   getRatingAdvisorChoiceScoreCustom,
+  getSceneGoatElementBonusFilterChoicesCustom,
   getSceneOrgasmQualityFilterChoicesCustom,
   normalizeRatingAdvisorScoreValueCustom,
   ratingAdvisorSixLevelChoicesCustom,
+  resolveRatingAdvisorScoresCustom,
   SCENE_ENERGY_WEIGHT_CUSTOM,
   SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM,
+  SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM,
   SCENE_NO_ORGASM_PENALTY_CUSTOM,
   SCENE_ORGASM_QUALITY_CHOICES_CUSTOM,
   SCENE_USABLE_FACTOR_MAX_CUSTOM,
@@ -41,6 +44,52 @@ assert.equal(
   SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM * 10,
   10,
   "scene God-tier orgasms add 10 rating points"
+);
+assert.deepEqual(
+  SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM.map(({ value, label }) => ({
+    value,
+    label,
+  })),
+  [
+    { value: 0, label: "No GOAT element" },
+    { value: 0.5, label: "GOAT +5" },
+    { value: 1, label: "GOAT +10" },
+    { value: 1.5, label: "GOAT +15" },
+    { value: 2, label: "GOAT +20" },
+  ]
+);
+assert.deepEqual(getSceneGoatElementBonusFilterChoicesCustom(), [
+  { value: 0.5, label: "GOAT +5" },
+  { value: 1, label: "GOAT +10" },
+  { value: 1.5, label: "GOAT +15" },
+  { value: 2, label: "GOAT +20" },
+]);
+
+const initialGoatScores = [{ key: "goatElement", raw_value: 0 }];
+const queriedGoatScores = [{ key: "goatElement", raw_value: 0.5 }];
+const mutationGoatScores = [{ key: "goatElement", raw_value: 1 }];
+assert.equal(
+  resolveRatingAdvisorScoresCustom(
+    undefined,
+    queriedGoatScores,
+    initialGoatScores
+  ),
+  queriedGoatScores,
+  "a fresh query wins over a stale scene snapshot when reopening the advisor"
+);
+assert.equal(
+  resolveRatingAdvisorScoresCustom(
+    mutationGoatScores,
+    queriedGoatScores,
+    initialGoatScores
+  ),
+  mutationGoatScores,
+  "the mutation response remains authoritative while the advisor is open"
+);
+assert.equal(
+  resolveRatingAdvisorScoresCustom(undefined, undefined, initialGoatScores),
+  initialGoatScores,
+  "the initial scene snapshot is used until fresher scores arrive"
 );
 assert.equal(
   SCENE_NO_ORGASM_PENALTY_CUSTOM * 10,

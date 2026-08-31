@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import { createPortal } from "react-dom"; // CUSTOM
+import { faThumbsUp } from "@fortawesome/free-solid-svg-icons"; // CUSTOM
 import videojs, { VideoJsPlayer, VideoJsPlayerOptions } from "video.js";
 import useScript from "src/hooks/useScript";
 import "videojs-contrib-dash";
@@ -36,10 +37,14 @@ import {
   useSceneSaveActivity,
   useSceneIncrementPlayCount,
   useConfigureInterface,
+  useSceneRecordOAtTimestamp, // CUSTOM
 } from "src/core/StashService";
+import { useToast } from "src/hooks/Toast"; // CUSTOM
 
 import * as GQL from "src/core/generated-graphql";
 import { ScenePlayerScrubber } from "./ScenePlayerScrubber";
+import { Icon } from "src/components/Shared/Icon"; // CUSTOM
+import { SweatDrops } from "src/components/Shared/SweatDrops"; // CUSTOM
 import { useConfigurationContext } from "src/hooks/Config";
 import {
   ConnectionState,
@@ -48,6 +53,11 @@ import {
 import { SceneInteractiveStatus } from "src/hooks/Interactive/status";
 import { languageMap } from "src/utils/caption";
 import { VIDEO_PLAYER_ID } from "./util";
+import { formatORecordedToastCustom } from "../Scenes/oRecordToast_custom"; // CUSTOM
+import {
+  getScenePlayerORecordTargetCustom,
+  SCENE_PLAYER_O_IDLE_MS,
+} from "./scenePlayerORecord_custom"; // CUSTOM
 
 // @ts-ignore
 import airplay from "@silvermine/videojs-airplay";
@@ -324,6 +334,9 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const [sceneSaveActivity] = useSceneSaveActivity();
     const [sceneIncrementPlayCount] = useSceneIncrementPlayCount();
     const [updateInterfaceConfig] = useConfigureInterface();
+    const [recordOAtTimestamp, { loading: isRecordingO }] =
+      useSceneRecordOAtTimestamp(scene.id); // CUSTOM
+    const Toast = useToast(); // CUSTOM
 
     const [time, setTime] = useState(0);
     const [ready, setReady] = useState(false);
@@ -338,6 +351,9 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
 
     const [fullscreen, setFullscreen] = useState(false);
     const [showScrubber, setShowScrubber] = useState(false);
+    const [showORecordOverlay, setShowORecordOverlay] = useState(true); // CUSTOM
+    const [recordedOToast, setRecordedOToast] = useState<string>(); // CUSTOM
+    const recordedOToastTimeoutRef = useRef<number>(); // CUSTOM
     // CUSTOM: begin - multi-segment loop, negative marker, performer overlay state + handlers
     const [segmentPresets, setSegmentPresets] = useState<SegmentPreset[]>([]);
     const [multiSegments, setMultiSegments] = useState<ILoopSegment[]>([]);
@@ -418,6 +434,61 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       if (_player.isDisposed()) return null;
       return _player;
     }, [_player]);
+
+    // CUSTOM: begin - record an O at the exact active scene-player timestamp
+    const showFullscreenORecordedToast = useCallback((message: string) => {
+      setRecordedOToast(message);
+      if (recordedOToastTimeoutRef.current) {
+        clearTimeout(recordedOToastTimeoutRef.current);
+      }
+      recordedOToastTimeoutRef.current = window.setTimeout(() => {
+        setRecordedOToast(undefined);
+      }, 3000);
+    }, []);
+
+    useEffect(
+      () => () => {
+        if (recordedOToastTimeoutRef.current) {
+          clearTimeout(recordedOToastTimeoutRef.current);
+        }
+      },
+      []
+    );
+
+    const handlePlayerRecordO = useCallback(async () => {
+      const player = getPlayer();
+      const target = getScenePlayerORecordTargetCustom(
+        scene.id,
+        player?.currentTime() ?? Number.NaN
+      );
+      if (!target || isRecordingO) return;
+
+      try {
+        await recordOAtTimestamp({
+          variables: {
+            id: target.sceneId,
+            video_timestamp: target.videoTimestamp,
+          },
+        });
+        const message = formatORecordedToastCustom(target.videoTimestamp);
+        if (fullscreen) {
+          showFullscreenORecordedToast(message);
+        } else {
+          Toast.success(message);
+        }
+      } catch (error) {
+        Toast.error(error);
+      }
+    }, [
+      Toast,
+      fullscreen,
+      getPlayer,
+      isRecordingO,
+      recordOAtTimestamp,
+      scene.id,
+      showFullscreenORecordedToast,
+    ]);
+    // CUSTOM: end
 
     useEffect(() => {
       if (hideScrubberOverride || fullscreen) {
@@ -571,7 +642,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         },
         nativeControlsForTouch: false,
         playbackRates: [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2],
-        inactivityTimeout: 700,
+        inactivityTimeout: SCENE_PLAYER_O_IDLE_MS, // CUSTOM: two-second O-control idle timeout
         preload: "none",
         playsinline: true,
         techOrder: ["chromecast", "html5"],
@@ -1463,16 +1534,30 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         setFullscreen(this.isFullscreen());
       }
 
+      // CUSTOM: begin - match the player overlay to the two-second Video.js idle state
+      function useractive() {
+        setShowORecordOverlay(true);
+      }
+
+      function userinactive() {
+        setShowORecordOverlay(false);
+      }
+      // CUSTOM: end
+
       player.on("canplay", canplay);
       player.on("playing", playing);
       player.on("loadstart", loadstart);
       player.on("fullscreenchange", fullscreenchange);
+      player.on("useractive", useractive); // CUSTOM
+      player.on("userinactive", userinactive); // CUSTOM
 
       return () => {
         player.off("canplay", canplay);
         player.off("playing", playing);
         player.off("loadstart", loadstart);
         player.off("fullscreenchange", fullscreenchange);
+        player.off("useractive", useractive); // CUSTOM
+        player.off("userinactive", userinactive); // CUSTOM
       };
     }, [getPlayer]);
 
@@ -2235,6 +2320,39 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         onKeyDownCapture={onKeyDown}
       >
         <div className="video-wrapper" ref={videoRef}>
+          {/* CUSTOM: lower-right O overlay shared by normal and fullscreen playback */}
+          {_player?.el() &&
+            createPortal(
+              <button
+                type="button"
+                className={cx("scene-player-record-o-overlay", {
+                  "is-hidden": !showORecordOverlay,
+                })}
+                disabled={isRecordingO}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void handlePlayerRecordO();
+                }}
+                title="Record O at current video time"
+                aria-label="Record O at current video time"
+              >
+                {!interfaceConfig?.sfwContentMode ? (
+                  <SweatDrops />
+                ) : (
+                  <Icon icon={faThumbsUp} />
+                )}
+              </button>,
+              _player.el()!
+            )}
+          {/* CUSTOM: fullscreen-safe O-record confirmation */}
+          {recordedOToast &&
+            _player?.el() &&
+            createPortal(
+              <div className="scene-player-o-recorded-toast" role="status">
+                {recordedOToast}
+              </div>,
+              _player.el()!
+            )}
           {/* CUSTOM: begin - facial goatee overlay (white) or gold (really hot facial) */}
           {hasReallyHotFacial && (
             <img

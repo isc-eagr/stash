@@ -192,6 +192,71 @@ $font-family-monospace: sfmono-regular, menlo, monaco, consolas,
 
   /* CUSTOM: end */
 
+  /* CUSTOM: begin - marker-player-style O overlay and fullscreen confirmation */
+  .scene-player-record-o-overlay {
+    align-items: center;
+    background: rgba(0, 0, 0, 0.55);
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    font-size: 1.1rem;
+    height: 48px;
+    justify-content: center;
+    opacity: 1;
+    position: absolute;
+    right: 1.5rem;
+    top: 1.5rem;
+    transition: background 0.2s, color 0.2s, opacity 0.2s, transform 0.2s,
+      visibility 0.2s;
+    visibility: visible;
+    width: 48px;
+    z-index: 10000;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.85);
+      transform: scale(1.06);
+    }
+
+    &:focus-visible {
+      box-shadow: 0 0 0 3px rgba(108, 152, 198, 0.75);
+      outline: none;
+    }
+
+    &:disabled {
+      cursor: wait;
+      opacity: 0.65;
+      transform: none;
+    }
+
+    &.is-hidden {
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+    }
+  }
+
+  .scene-player-o-recorded-toast {
+    background: rgba(53, 168, 83, 0.94);
+    border: 1px solid rgba(174, 255, 193, 0.72);
+    border-radius: 0.45rem;
+    box-shadow: 0 0.3rem 1rem rgba(0, 0, 0, 0.35);
+    color: #fff;
+    font-family: $font-family-base;
+    font-size: 1rem;
+    font-weight: 800;
+    left: 50%;
+    padding: 0.65rem 1rem;
+    pointer-events: none;
+    position: absolute;
+    top: 1.5rem;
+    transform: translateX(-50%);
+    z-index: 10001;
+  }
+
+  /* CUSTOM: end */
+
   .vjs-time-control {
     align-items: center;
     display: flex;

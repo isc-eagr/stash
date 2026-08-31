@@ -19,6 +19,8 @@ interface IRatingCriteriaFilter {
   setCriterion: (c: RatingCriteriaCriterion) => void;
 }
 
+type RatingNumericSection = "criteria" | "bonusValues";
+
 function firstChoice(definition: IRatingCriteriaNumericDefinition) {
   return definition.choices[0]?.value ?? 0;
 }
@@ -48,8 +50,13 @@ function choiceIndex(
   }, 0);
 }
 
-function choiceLabel(choice: IRatingCriteriaChoice) {
-  return `${choice.value} - ${choice.label}`;
+function choiceLabel(
+  definition: IRatingCriteriaNumericDefinition,
+  choice: IRatingCriteriaChoice
+) {
+  return definition.showRawValue === false
+    ? choice.label
+    : `${choice.value} - ${choice.label}`;
 }
 
 export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
@@ -57,15 +64,19 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
   setCriterion,
 }) => {
   const intl = useIntl();
-  const { criteria, bonuses, penalties } = criterion.ratingCriteriaOption;
+  const { criteria, bonusValues, bonuses, penalties } =
+    criterion.ratingCriteriaOption;
 
   function updateCriterion(next: RatingCriteriaCriterion) {
     setCriterion(next);
   }
 
-  function enableNumeric(definition: IRatingCriteriaNumericDefinition) {
+  function enableNumeric(
+    section: RatingNumericSection,
+    definition: IRatingCriteriaNumericDefinition
+  ) {
     const next = cloneDeep(criterion);
-    next.value.criteria[definition.key] = {
+    next.value[section][definition.key] = {
       modifier: CriterionModifier.GreaterThanEquals,
       value: {
         value: firstChoice(definition),
@@ -76,11 +87,12 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
   }
 
   function updateNumericModifier(
+    section: RatingNumericSection,
     definition: IRatingCriteriaNumericDefinition,
     modifier: CriterionModifier
   ) {
     const next = cloneDeep(criterion);
-    const current = next.value.criteria[definition.key];
+    const current = next.value[section][definition.key];
     if (!current) return;
 
     current.modifier = modifier;
@@ -93,12 +105,13 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
   }
 
   function updateNumericValue(
+    section: RatingNumericSection,
     definition: IRatingCriteriaNumericDefinition,
     property: "value" | "value2",
     choiceIndexValue: string
   ) {
     const next = cloneDeep(criterion);
-    const current = next.value.criteria[definition.key];
+    const current = next.value[section][definition.key];
     if (!current) return;
 
     const selectedChoice = definition.choices[Number(choiceIndexValue)];
@@ -106,9 +119,12 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
     updateCriterion(next);
   }
 
-  function clearNumeric(definition: IRatingCriteriaNumericDefinition) {
+  function clearNumeric(
+    section: RatingNumericSection,
+    definition: IRatingCriteriaNumericDefinition
+  ) {
     const next = cloneDeep(criterion);
-    delete next.value.criteria[definition.key];
+    delete next.value[section][definition.key];
     updateCriterion(next);
   }
 
@@ -127,6 +143,7 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
   }
 
   function renderSlider(
+    section: RatingNumericSection,
     definition: IRatingCriteriaNumericDefinition,
     property: "value" | "value2",
     labelID: string,
@@ -142,7 +159,7 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
           <FormattedMessage id={labelID} />
           {selectedChoice && (
             <span className="rating-criteria-filter-slider-value">
-              {choiceLabel(selectedChoice)}
+              {choiceLabel(definition, selectedChoice)}
             </span>
           )}
         </Form.Label>
@@ -152,7 +169,12 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
           max={Math.max(definition.choices.length - 1, 0)}
           min={0}
           onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-            updateNumericValue(definition, property, event.target.value)
+            updateNumericValue(
+              section,
+              definition,
+              property,
+              event.target.value
+            )
           }
           step={1}
           type="range"
@@ -163,7 +185,11 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
             <option
               key={choice.value}
               value={index}
-              label={`${choice.value}`}
+              label={
+                definition.showRawValue === false
+                  ? choice.label
+                  : `${choice.value}`
+              }
             />
           ))}
         </datalist>
@@ -171,15 +197,18 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
     );
   }
 
-  function renderNumeric(definition: IRatingCriteriaNumericDefinition) {
-    const current = criterion.value.criteria[definition.key];
+  function renderNumeric(
+    section: RatingNumericSection,
+    definition: IRatingCriteriaNumericDefinition
+  ) {
+    const current = criterion.value[section][definition.key];
     if (!current) {
       return (
         <div className="rating-criteria-filter-row" key={definition.key}>
           <div className="rating-criteria-filter-label">{definition.label}</div>
           <Button
             className="rating-criteria-filter-action"
-            onClick={() => enableNumeric(definition)}
+            onClick={() => enableNumeric(section, definition)}
           >
             <FormattedMessage id="actions.add" />
           </Button>
@@ -195,10 +224,11 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
             options={ratingCriteriaModifierOptions}
             value={current.modifier}
             onChanged={(modifier) =>
-              updateNumericModifier(definition, modifier)
+              updateNumericModifier(section, definition, modifier)
             }
           />
           {renderSlider(
+            section,
             definition,
             "value",
             current.modifier === CriterionModifier.LessThanEquals
@@ -208,6 +238,7 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
           )}
           {current.modifier === CriterionModifier.Between &&
             renderSlider(
+              section,
               definition,
               "value2",
               "criterion.less_than",
@@ -215,7 +246,7 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
             )}
           <Button
             className="rating-criteria-filter-action"
-            onClick={() => clearNumeric(definition)}
+            onClick={() => clearNumeric(section, definition)}
           >
             <FormattedMessage id="actions.remove" />
           </Button>
@@ -263,13 +294,16 @@ export const RatingCriteriaFilter: React.FC<IRatingCriteriaFilter> = ({
         <div className="rating-criteria-filter-heading">
           <FormattedMessage id="rating_criteria.dimensions" />
         </div>
-        {criteria.map(renderNumeric)}
+        {criteria.map((definition) => renderNumeric("criteria", definition))}
       </div>
-      {bonuses.length > 0 && (
+      {(bonusValues.length > 0 || bonuses.length > 0) && (
         <div className="rating-criteria-filter-section">
           <div className="rating-criteria-filter-heading">
             <FormattedMessage id="rating_criteria.bonuses" />
           </div>
+          {bonusValues.map((definition) =>
+            renderNumeric("bonusValues", definition)
+          )}
           {bonuses.map(renderPresence)}
         </div>
       )}

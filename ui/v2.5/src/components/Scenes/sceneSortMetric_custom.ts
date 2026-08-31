@@ -220,6 +220,16 @@ const definitions: Record<
     format: "rating",
     value: ({ scene }) => scene.rating100,
   },
+  goat_element_bonus: {
+    messageID: "goat_element_bonus",
+    format: "text",
+    value: ({ scene }) => {
+      const rawValue = scene.rating_scores.find(
+        (score) => score.section === "bonus" && score.key === "goatElement"
+      )?.raw_value;
+      return rawValue ? `+${Math.round(rawValue * 10)}` : "+0";
+    },
+  },
   file_mod_time: {
     messageID: "file_mod_time",
     format: "datetime",

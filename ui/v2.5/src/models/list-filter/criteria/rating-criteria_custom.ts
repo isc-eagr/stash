@@ -1,6 +1,9 @@
 import { IntlShape } from "react-intl";
 import { GROUP_SCENE_RATING_KEYS_CUSTOM } from "src/components/Shared/groupSceneRating_custom";
-import { getSceneOrgasmQualityFilterChoicesCustom } from "src/components/Shared/ratingAdvisorScales_custom";
+import {
+  getSceneGoatElementBonusFilterChoicesCustom,
+  getSceneOrgasmQualityFilterChoicesCustom,
+} from "src/components/Shared/ratingAdvisorScales_custom";
 import { SOLO_SCENE_RATING_KEYS_CUSTOM } from "src/components/Shared/soloSceneRating_custom";
 import { CriterionModifier } from "src/core/generated-graphql";
 import { Criterion, CriterionOption } from "./criterion";
@@ -13,6 +16,7 @@ export interface IRatingCriteriaNumericDefinition {
   key: string;
   label: string;
   choices: IRatingCriteriaChoice[];
+  showRawValue?: boolean;
 }
 
 export interface IRatingCriteriaChoice {
@@ -33,6 +37,7 @@ export interface IRatingCriteriaNumericValue {
 
 export interface IRatingCriteriaValue {
   criteria: Record<string, IRatingCriteriaNumericValue | undefined>;
+  bonusValues: Record<string, IRatingCriteriaNumericValue | undefined>;
   bonuses: Record<string, boolean | undefined>;
   penalties: Record<string, boolean | undefined>;
 }
@@ -42,12 +47,21 @@ interface IRatingCriteriaCriterionOptionParams {
   messageID: string;
   inputField?: "rating_criteria" | "performer_rating_criteria";
   criteria: IRatingCriteriaNumericDefinition[];
+  bonusValues: IRatingCriteriaNumericDefinition[];
   bonuses: IRatingCriteriaPresenceDefinition[];
   penalties: IRatingCriteriaPresenceDefinition[];
 }
 
 export interface IRatingCriteriaCriterionInput {
   criteria?: {
+    key: string;
+    value: {
+      modifier: CriterionModifier;
+      value: number;
+      value2?: number;
+    };
+  }[];
+  bonus_values?: {
     key: string;
     value: {
       modifier: CriterionModifier;
@@ -200,6 +214,7 @@ const masculinityChoices = [
 function emptyRatingCriteriaValue(): IRatingCriteriaValue {
   return {
     criteria: {},
+    bonusValues: {},
     bonuses: {},
     penalties: {},
   };
@@ -234,15 +249,17 @@ function normalizeValue(value: unknown): IRatingCriteriaValue {
   }
 
   const data = value as IRatingCriteriaValue;
-  for (const [key, criterion] of Object.entries(data.criteria ?? {})) {
-    if (!criterion) continue;
+  for (const section of ["criteria", "bonusValues"] as const) {
+    for (const [key, criterion] of Object.entries(data[section] ?? {})) {
+      if (!criterion) continue;
 
-    ret.criteria[key] = {
-      modifier: ratingCriteriaModifierOptions.includes(criterion.modifier)
-        ? criterion.modifier
-        : CriterionModifier.GreaterThanEquals,
-      value: normalizeNumberValue(criterion.value),
-    };
+      ret[section][key] = {
+        modifier: ratingCriteriaModifierOptions.includes(criterion.modifier)
+          ? criterion.modifier
+          : CriterionModifier.GreaterThanEquals,
+        value: normalizeNumberValue(criterion.value),
+      };
+    }
   }
 
   for (const section of ["bonuses", "penalties"] as const) {
@@ -293,6 +310,20 @@ export function ratingCriteriaValueToCriterionInput(
       },
     }));
 
+  const bonus_values = Object.entries(value.bonusValues ?? {})
+    .filter(
+      (entry): entry is [string, IRatingCriteriaNumericValue] =>
+        !!entry[1] && isNumberCriterionValid(entry[1])
+    )
+    .map(([key, criterion]) => ({
+      key,
+      value: {
+        modifier: criterion.modifier,
+        value: criterion.value.value ?? 0,
+        value2: criterion.value.value2,
+      },
+    }));
+
   const bonuses = Object.entries(value.bonuses)
     .filter(([, presence]) => presence !== undefined)
     .map(([key, presence]) => ({
@@ -307,12 +338,18 @@ export function ratingCriteriaValueToCriterionInput(
       value: presence ?? false,
     }));
 
-  if (criteria.length === 0 && bonuses.length === 0 && penalties.length === 0) {
+  if (
+    criteria.length === 0 &&
+    bonus_values.length === 0 &&
+    bonuses.length === 0 &&
+    penalties.length === 0
+  ) {
     return undefined;
   }
 
   return {
     criteria,
+    bonus_values,
     bonuses,
     penalties,
   };
@@ -320,6 +357,7 @@ export function ratingCriteriaValueToCriterionInput(
 
 export class RatingCriteriaCriterionOption extends CriterionOption {
   public readonly criteria: IRatingCriteriaNumericDefinition[];
+  public readonly bonusValues: IRatingCriteriaNumericDefinition[];
   public readonly bonuses: IRatingCriteriaPresenceDefinition[];
   public readonly penalties: IRatingCriteriaPresenceDefinition[];
   public readonly inputField: "rating_criteria" | "performer_rating_criteria";
@@ -332,6 +370,7 @@ export class RatingCriteriaCriterionOption extends CriterionOption {
         new RatingCriteriaCriterion(o as RatingCriteriaCriterionOption),
     });
     this.criteria = options.criteria;
+    this.bonusValues = options.bonusValues;
     this.bonuses = options.bonuses;
     this.penalties = options.penalties;
     this.inputField = options.inputField ?? "rating_criteria";
@@ -349,6 +388,17 @@ export class RatingCriteriaCriterion extends Criterion {
     this.value = {
       criteria: Object.fromEntries(
         Object.entries(this.value.criteria).map(([key, criterion]) => [
+          key,
+          criterion
+            ? {
+                modifier: criterion.modifier,
+                value: { ...criterion.value },
+              }
+            : undefined,
+        ])
+      ),
+      bonusValues: Object.fromEntries(
+        Object.entries(this.value.bonusValues ?? {}).map(([key, criterion]) => [
           key,
           criterion
             ? {
@@ -418,11 +468,16 @@ export class RatingCriteriaCriterion extends Criterion {
       (value) => value !== undefined
     ).length;
 
+    const bonusValueCount = Object.values(this.value.bonusValues ?? {}).filter(
+      (criterion): criterion is IRatingCriteriaNumericValue =>
+        !!criterion && isNumberCriterionValid(criterion)
+    ).length;
+
     const penaltyCount = Object.values(this.value.penalties).filter(
       (value) => value !== undefined
     ).length;
 
-    return criteriaCount + bonusCount + penaltyCount;
+    return criteriaCount + bonusValueCount + bonusCount + penaltyCount;
   }
 }
 
@@ -492,6 +547,14 @@ export const SceneRatingCriteriaCriterionOption =
         choices: usableFactorChoices,
       },
     ],
+    bonusValues: [
+      {
+        key: "goatElement",
+        label: "GOAT Element Bonus Amount",
+        choices: getSceneGoatElementBonusFilterChoicesCustom(),
+        showRawValue: false,
+      },
+    ],
     bonuses: [
       {
         key: "theme",
@@ -520,7 +583,7 @@ export const SceneRatingCriteriaCriterionOption =
       },
       {
         key: "goatElement",
-        label: "GOAT Element Bonus",
+        label: "GOAT Element Presence",
         section: "bonuses",
       },
       {
@@ -589,6 +652,7 @@ export const PerformerRatingCriteriaCriterionOption =
         choices: masculinityChoices,
       },
     ],
+    bonusValues: [],
     bonuses: [
       {
         key: "consistency",
@@ -620,6 +684,7 @@ export const StudioRatingCriteriaCriterionOption =
     type: "rating_criteria",
     messageID: "studio_average_rating_criteria",
     criteria: SceneRatingCriteriaCriterionOption.criteria,
+    bonusValues: SceneRatingCriteriaCriterionOption.bonusValues,
     bonuses: SceneRatingCriteriaCriterionOption.bonuses,
     penalties: SceneRatingCriteriaCriterionOption.penalties,
   });
@@ -630,6 +695,7 @@ export const StudioPerformerRatingCriteriaCriterionOption =
     messageID: "studio_average_performer_rating_criteria",
     inputField: "performer_rating_criteria",
     criteria: PerformerRatingCriteriaCriterionOption.criteria,
+    bonusValues: PerformerRatingCriteriaCriterionOption.bonusValues,
     bonuses: PerformerRatingCriteriaCriterionOption.bonuses,
     penalties: PerformerRatingCriteriaCriterionOption.penalties,
   });

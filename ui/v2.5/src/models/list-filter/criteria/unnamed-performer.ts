@@ -140,6 +140,17 @@ function cloneRatingCriteriaValue(
           : undefined,
       ])
     ),
+    bonusValues: Object.fromEntries(
+      Object.entries(value.bonusValues ?? {}).map(([key, criterion]) => [
+        key,
+        criterion
+          ? {
+              modifier: criterion.modifier,
+              value: { ...criterion.value },
+            }
+          : undefined,
+      ])
+    ),
     bonuses: { ...(value.bonuses ?? {}) },
     penalties: { ...(value.penalties ?? {}) },
   };
@@ -152,6 +163,8 @@ function getRatingCriteriaCount(value: IRatingCriteriaValue | null) {
 
   return (
     Object.values(value.criteria ?? {}).filter((criterion) => !!criterion)
+      .length +
+    Object.values(value.bonusValues ?? {}).filter((criterion) => !!criterion)
       .length +
     Object.values(value.bonuses ?? {}).filter(
       (presence) => presence !== undefined

@@ -12,9 +12,10 @@ type RatingScorePresenceFilterInput struct {
 }
 
 type RatingCriteriaFilterInput struct {
-	Criteria  []*RatingScoreCriterionFilterInput `json:"criteria"`
-	Bonuses   []*RatingScorePresenceFilterInput  `json:"bonuses"`
-	Penalties []*RatingScorePresenceFilterInput  `json:"penalties"`
+	Criteria    []*RatingScoreCriterionFilterInput `json:"criteria"`
+	BonusValues []*RatingScoreCriterionFilterInput `json:"bonus_values"`
+	Bonuses     []*RatingScorePresenceFilterInput  `json:"bonuses"`
+	Penalties   []*RatingScorePresenceFilterInput  `json:"penalties"`
 }
 
 // CUSTOM: end

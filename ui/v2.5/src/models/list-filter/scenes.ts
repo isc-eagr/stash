@@ -111,6 +111,10 @@ const sortByOptions = [
       messageID: "scene_code",
       value: "code",
     },
+    {
+      messageID: "goat_element_bonus",
+      value: "goat_element_bonus",
+    }, // CUSTOM
     // CUSTOM: begin - activity percentage sorts
     {
       messageID: "sex_activity_percent",

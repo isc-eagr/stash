@@ -1252,6 +1252,7 @@ var sceneSortOptions = sortOptions{
 	"file_mod_time",
 	"framerate",
 	"group_scene_number",
+	"goat_element_bonus", // CUSTOM
 	"id",
 	"interactive",
 	"interactive_speed",
@@ -1338,6 +1339,8 @@ func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindF
 	case "group_scene_number":
 		query.joinSort(groupsScenesTable, "scene_group", "scenes.id = scene_group.scene_id")
 		query.sortAndPagination += getSort("scene_index", direction, "scene_group")
+	case "goat_element_bonus": // CUSTOM
+		query.sortAndPagination += qb.sortByGoatElementBonusCustom(direction)
 	case "tag_count":
 		query.sortAndPagination += getCountSort(sceneTable, scenesTagsTable, sceneIDColumn, direction)
 	case "performer_count":

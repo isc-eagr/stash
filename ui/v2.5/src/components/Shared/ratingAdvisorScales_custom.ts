@@ -11,6 +11,41 @@ export const SCENE_ENERGY_WEIGHT_CUSTOM = 0.4;
 export const SCENE_USABLE_FACTOR_MAX_CUSTOM = 4;
 export const SCENE_USABLE_FACTOR_WEIGHT_CUSTOM = 0.5;
 
+export const SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM: IRatingAdvisorChoiceCustom[] =
+  [
+    {
+      value: 0,
+      label: "No GOAT element",
+      description: "Nothing here reaches GOAT territory.",
+    },
+    {
+      value: 0.5,
+      label: "GOAT +5",
+      description: "A standout GOAT touch gives the scene a small lift.",
+    },
+    {
+      value: 1,
+      label: "GOAT +10",
+      description: "A strong GOAT moment gives the scene a real boost.",
+    },
+    {
+      value: 1.5,
+      label: "GOAT +15",
+      description: "A major GOAT moment lifts the scene hard.",
+    },
+    {
+      value: 2,
+      label: "GOAT +20",
+      description: "One part is so damn good it lifts the whole scene.",
+    },
+  ];
+
+export function getSceneGoatElementBonusFilterChoicesCustom() {
+  return SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM.filter(
+    ({ value }) => value > 0
+  ).map(({ value, label }) => ({ value, label }));
+}
+
 export const SCENE_ORGASM_QUALITY_CHOICES_CUSTOM: IRatingAdvisorChoiceCustom[] =
   [
     {
@@ -125,6 +160,14 @@ export interface IRatingAdvisorMetricScaleCustom {
   max: number;
   weight?: number;
   choices: readonly IRatingAdvisorChoiceCustom[];
+}
+
+export function resolveRatingAdvisorScoresCustom<T>(
+  mutationScores?: readonly T[] | null,
+  queriedScores?: readonly T[] | null,
+  initialScores?: readonly T[] | null
+) {
+  return mutationScores ?? queriedScores ?? initialScores;
 }
 
 export type RatingAdvisorSixLevelChoiceTextCustom = Omit<

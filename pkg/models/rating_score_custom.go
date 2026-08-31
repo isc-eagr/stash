@@ -19,7 +19,7 @@ const (
 )
 
 type RatingScore struct {
-	ID            int       `json:"id"`
+	ID            string    `json:"id"`
 	EntityType    string    `json:"entity_type"`
 	EntityID      int       `json:"entity_id"`
 	Section       string    `json:"section"`
