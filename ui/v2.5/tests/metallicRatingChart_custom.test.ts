@@ -24,4 +24,8 @@ assert.deepEqual(metallicRatingChartBucket(null, "gold"), {
   label: "Gold",
   sortValue: 3,
 });
-assert.equal(metallicRatingChartBucket(null, "gold", true), undefined);
+assert.deepEqual(metallicRatingChartBucket(null, "royal_sapphire"), {
+  key: "royal_sapphire",
+  label: "Royal Sapphire",
+  sortValue: 4,
+});

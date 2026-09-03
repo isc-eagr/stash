@@ -890,6 +890,7 @@ export const SceneCard = PatchComponent(
         theme: configuration?.ui?.ratingCardTheme,
         thresholds: configuration?.ui?.ratingCardThresholds,
         overrideTagIds: configuration?.ui?.ratingCardOverrideTagIds,
+        ratingScores: props.scene.rating_scores, // CUSTOM
         disabled: isRatingCardHomePage(),
       });
     }

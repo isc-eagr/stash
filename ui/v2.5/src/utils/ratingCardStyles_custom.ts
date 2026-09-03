@@ -32,6 +32,35 @@ interface IRatingCardTag {
   id?: string | null;
 }
 
+interface IRatingCardScore {
+  section?: string | null;
+  key?: string | null;
+  raw_value?: number | null;
+}
+
+const royalSapphireGoatElementValues = new Set([0.5, 1, 1.5, 2]);
+
+export function isRoyalSapphireSceneBonus(
+  key?: string | null,
+  rawValue?: number | null
+): boolean {
+  if (rawValue === undefined || rawValue === null) return false;
+
+  return key === "godTierOrgasm"
+    ? rawValue === 1
+    : key === "goatElement" && royalSapphireGoatElementValues.has(rawValue);
+}
+
+export function hasRoyalSapphireSceneBonus(
+  scores: readonly IRatingCardScore[] | null | undefined
+): boolean {
+  return !!scores?.some(
+    (score) =>
+      (!score.section || score.section === "bonus") &&
+      isRoyalSapphireSceneBonus(score.key, score.raw_value)
+  );
+}
+
 export function normalizeRatingCardTheme(
   theme?: string | null
 ): RatingCardTheme {
@@ -116,9 +145,11 @@ function getRatingTierClass(
 function getRatingTierOverrideClass(
   tags: readonly IRatingCardTag[] | null | undefined,
   overrideTagIds?: IRatingCardOverrideTagIds | null,
-  goatTagId?: string | null
+  goatTagId?: string | null,
+  sceneHasRoyalSapphireBonus?: boolean
 ): string {
   if (
+    sceneHasRoyalSapphireBonus ||
     hasConfiguredTag(tags, overrideTagIds?.royalSapphireTagId) ||
     hasConfiguredTag(tags, goatTagId)
   ) {
@@ -145,6 +176,8 @@ export function getRatingCardClass({
   theme,
   thresholds,
   thresholdEntity,
+  ratingScores,
+  sceneHasRoyalSapphireBonus,
   disabled,
 }: {
   rating?: number | null;
@@ -154,6 +187,8 @@ export function getRatingCardClass({
   theme?: string | null;
   thresholds?: IRatingCardThresholdConfig | null;
   thresholdEntity?: "scene" | "performer";
+  ratingScores?: readonly IRatingCardScore[] | null;
+  sceneHasRoyalSapphireBonus?: boolean;
   disabled?: boolean;
 }): string {
   if (disabled) return "";
@@ -163,7 +198,9 @@ export function getRatingCardClass({
   const overrideClass = getRatingTierOverrideClass(
     tags,
     overrideTagIds,
-    goatTagId
+    goatTagId,
+    thresholdEntity !== "performer" &&
+      (sceneHasRoyalSapphireBonus || hasRoyalSapphireSceneBonus(ratingScores))
   );
   if (overrideClass) return `${themeClass} ${overrideClass}`;
 
@@ -179,14 +216,24 @@ export function isRoyalSapphireRatingCard({
   overrideTagIds,
   thresholds,
   thresholdEntity,
+  ratingScores,
+  sceneHasRoyalSapphireBonus,
 }: {
   rating?: number | null;
   tags?: readonly IRatingCardTag[] | null;
   overrideTagIds?: IRatingCardOverrideTagIds | null;
   thresholds?: IRatingCardThresholdConfig | null;
   thresholdEntity?: "scene" | "performer";
+  ratingScores?: readonly IRatingCardScore[] | null;
+  sceneHasRoyalSapphireBonus?: boolean;
 }) {
-  const overrideClass = getRatingTierOverrideClass(tags, overrideTagIds);
+  const overrideClass = getRatingTierOverrideClass(
+    tags,
+    overrideTagIds,
+    undefined,
+    thresholdEntity !== "performer" &&
+      (sceneHasRoyalSapphireBonus || hasRoyalSapphireSceneBonus(ratingScores))
+  );
   if (overrideClass) return overrideClass === "rating-royal-sapphire";
 
   return (

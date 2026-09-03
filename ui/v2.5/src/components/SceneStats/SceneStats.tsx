@@ -93,6 +93,7 @@ const SCENE_STATS_SCENES = gql`
         primary_width
         primary_height
         most_recent_o_date
+        has_royal_sapphire_bonus # CUSTOM
       }
     }
     sceneOrgasmCount(studio_id: $studioId, depth: $depth)
@@ -143,6 +144,7 @@ type SceneStatsScene = {
   primary_width?: number | null;
   primary_height?: number | null;
   most_recent_o_date?: string | null;
+  has_royal_sapphire_bonus: boolean; // CUSTOM
 };
 
 type SceneStatsData = {
@@ -483,6 +485,7 @@ function sceneMetallicRating(
   const goatTagId = uiConfig?.roleTagIds?.goatTagId;
 
   if (
+    scene.has_royal_sapphire_bonus || // CUSTOM
     sceneHasTagID(scene, overrideTagIds?.royalSapphireTagId) ||
     sceneHasTagID(scene, goatTagId)
   ) {
@@ -530,8 +533,9 @@ function sceneMatchesFilter(
     case "metallic_rating": {
       const metallicRating = sceneMetallicRating(scene, configuration);
       return (
-        metallicRatingChartBucket(scene.rating100, metallicRating, true)
-          ?.key === filter.value
+        // CUSTOM: explicit metallic overrides remain valid without a rating
+        metallicRatingChartBucket(scene.rating100, metallicRating)?.key ===
+        filter.value
       );
     }
     case "release_day":
@@ -665,9 +669,8 @@ function buildSceneCharts(
 
     const metallicRating = metallicRatingChartBucket(
       scene.rating100,
-      sceneMetallicRating(scene, configuration),
-      true
-    );
+      sceneMetallicRating(scene, configuration)
+    ); // CUSTOM: keep unrated tag/bonus overrides in metallic buckets
     if (metallicRating) {
       addDatum(
         metallicRatingBuckets,

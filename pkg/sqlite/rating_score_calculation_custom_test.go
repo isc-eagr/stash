@@ -118,6 +118,14 @@ func TestGoatElementSupportsEveryBonusLevelInEverySceneRubric(t *testing.T) {
 		"group":    groupSceneRatingRubricCustom,
 	} {
 		t.Run(name, func(t *testing.T) {
+			_, _, err := canonicalRatingScoreInputCustom(
+				rubric,
+				models.RatingScoreSectionBonus,
+				"goatElement",
+				0,
+			)
+			assert.Error(t, err, "an absent GOAT bonus must be deleted instead of stored as zero")
+
 			for _, expected := range []float64{0.5, 1, 1.5, 2} {
 				raw, weighted, err := canonicalRatingScoreInputCustom(
 					rubric,
@@ -131,6 +139,17 @@ func TestGoatElementSupportsEveryBonusLevelInEverySceneRubric(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCanonicalRatingScoreContributionTreatsLegacyGoatZeroAsAbsent(t *testing.T) {
+	row := ratingScoreRow{
+		EntityType: models.RatingEntityScene,
+		Section:    models.RatingScoreSectionBonus,
+		Key:        "goatElement",
+		RawValue:   0,
+	}
+
+	assert.Zero(t, canonicalRatingScoreContributionCustom(row))
 }
 
 func TestCanonicalRatingScoreInputRejectsUnsupportedValues(t *testing.T) {

@@ -35,12 +35,13 @@ type metallicRatingOverrideTags struct {
 }
 
 type metallicRatingFilterConfig struct {
-	primaryTable string
-	ratingColumn string
-	tagJoinTable string
-	tagJoinFK    string
-	thresholds   metallicRatingThresholds
-	overrides    metallicRatingOverrideTags
+	primaryTable              string
+	ratingColumn              string
+	tagJoinTable              string
+	tagJoinFK                 string
+	includeSceneRatingBonuses bool
+	thresholds                metallicRatingThresholds
+	overrides                 metallicRatingOverrideTags
 }
 
 var defaultMetallicRatingThresholds = metallicRatingThresholds{
@@ -64,12 +65,13 @@ func metallicRatingCriterionHandler(
 		}
 
 		cfg := metallicRatingFilterConfig{
-			primaryTable: primaryTable,
-			ratingColumn: ratingColumn,
-			tagJoinTable: tagJoinTable,
-			tagJoinFK:    tagJoinFK,
-			thresholds:   getMetallicRatingThresholds(thresholdEntity),
-			overrides:    getMetallicRatingOverrideTags(),
+			primaryTable:              primaryTable,
+			ratingColumn:              ratingColumn,
+			tagJoinTable:              tagJoinTable,
+			tagJoinFK:                 tagJoinFK,
+			includeSceneRatingBonuses: primaryTable == sceneTable,
+			thresholds:                getMetallicRatingThresholds(thresholdEntity),
+			overrides:                 getMetallicRatingOverrideTags(),
 		}
 
 		includes := normalizeMetallicRatingTiers(criterion.Value)
@@ -159,17 +161,55 @@ func (c metallicRatingFilterConfig) anyMetallicClause() sqlClause {
 
 func (c metallicRatingFilterConfig) tierClause(tier string) sqlClause {
 	var clauses []sqlClause
+	royalSapphireBonusClause := c.royalSapphireBonusClause()
 
-	if overrideTagIDs := c.overrideTagIDsForTier(tier); len(overrideTagIDs) > 0 {
-		clauses = append(clauses, andClauses(
-			c.hasNoAnyTagClause(c.higherPriorityOverrideTagIDsForTier(tier)),
-			c.hasAnyTagClause(overrideTagIDs),
-		))
+	if tier == metallicTierRoyalSapphire && c.includeSceneRatingBonuses {
+		clauses = append(clauses, royalSapphireBonusClause)
 	}
 
-	clauses = append(clauses, andClauses(c.hasNoOverrideTagClause(), c.ratingRangeClause(tier)))
+	if overrideTagIDs := c.overrideTagIDsForTier(tier); len(overrideTagIDs) > 0 {
+		overrideClauses := []sqlClause{
+			c.hasNoAnyTagClause(c.higherPriorityOverrideTagIDsForTier(tier)),
+			c.hasAnyTagClause(overrideTagIDs),
+		}
+		if tier != metallicTierRoyalSapphire && c.includeSceneRatingBonuses {
+			overrideClauses = append(overrideClauses, royalSapphireBonusClause.not())
+		}
+		clauses = append(clauses, andClauses(overrideClauses...))
+	}
+
+	ratingClauses := []sqlClause{c.hasNoOverrideTagClause(), c.ratingRangeClause(tier)}
+	if tier != metallicTierRoyalSapphire && c.includeSceneRatingBonuses {
+		ratingClauses = append(ratingClauses, royalSapphireBonusClause.not())
+	}
+	clauses = append(clauses, andClauses(ratingClauses...))
 
 	return orClauses(clauses...)
+}
+
+func (c metallicRatingFilterConfig) royalSapphireBonusClause() sqlClause {
+	if !c.includeSceneRatingBonuses {
+		return makeClause("0 = 1")
+	}
+
+	return makeClause(
+		fmt.Sprintf(`EXISTS (
+			SELECT 1
+			FROM %s mrb
+			WHERE mrb.entity_type = ?
+				AND mrb.entity_id = %s.id
+				AND ((mrb.key = ? AND mrb.raw_value IN (?, ?, ?, ?))
+					OR (mrb.key = ? AND mrb.raw_value = ?))
+		)`, ratingBonusScoresTable, c.primaryTable),
+		models.RatingEntityScene,
+		"goatElement",
+		0.5,
+		1.0,
+		1.5,
+		2.0,
+		"godTierOrgasm",
+		1.0,
+	)
 }
 
 func (c metallicRatingFilterConfig) ratingRangeClause(tier string) sqlClause {

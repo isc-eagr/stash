@@ -571,7 +571,15 @@ SELECT
   CASE
     WHEN date(%s) >= date('now', '-1 year') THEN 1
     ELSE 0
-  END AS is_release_past_year
+  END AS is_release_past_year,
+  EXISTS (
+    SELECT 1
+    FROM rating_bonus_scores rsb
+    WHERE rsb.entity_type = 'scene'
+      AND rsb.entity_id = s.id
+      AND ((rsb.key = 'goatElement' AND rsb.raw_value IN (0.5, 1, 1.5, 2))
+        OR (rsb.key = 'godTierOrgasm' AND rsb.raw_value = 1))
+  ) AS has_royal_sapphire_bonus
 FROM scenes s
 LEFT JOIN file_stats fs ON fs.scene_id = s.id
 LEFT JOIN o_stats os ON os.scene_id = s.id
@@ -632,7 +640,7 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 		out := &SceneStatsResult{Scenes: []*SceneStatsScene{}}
 		byID := make(map[int]*SceneStatsScene, len(rows))
 		for _, row := range rows {
-			if len(row) < 14 {
+			if len(row) < 15 {
 				continue
 			}
 
@@ -642,24 +650,25 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 			}
 
 			scene := &SceneStatsScene{
-				ID:                   strconv.Itoa(id),
-				Title:                sceneStatsStringPtrValue(row[1]),
-				Date:                 sceneStatsStringPtrValue(row[2]),
-				EffectiveDate:        sceneStatsStringPtrValue(row[3]),
-				Rating100:            vatoStatsIntPtrValue(row[4]),
-				OCounter:             customIntValue(row[5]),
-				Duration:             sceneStatsFloatValue(row[6]),
-				Filesize:             sceneStatsFloatValue(row[7]),
-				PrimaryWidth:         vatoStatsIntPtrValue(row[8]),
-				PrimaryHeight:        vatoStatsIntPtrValue(row[9]),
-				MostRecentODate:      sceneStatsStringPtrValue(row[10]),
-				OCounterPastYear:     customIntValue(row[11]),
-				IsPastYear:           customIntValue(row[12]) != 0,
-				IsReleasePastYear:    customIntValue(row[13]) != 0,
-				PerformerEthnicities: []string{},
-				PerformerCountries:   []string{},
-				MarkerTagGroups:      []*SceneStatsMarkerTagGroup{},
-				TagIds:               []string{},
+				ID:                    strconv.Itoa(id),
+				Title:                 sceneStatsStringPtrValue(row[1]),
+				Date:                  sceneStatsStringPtrValue(row[2]),
+				EffectiveDate:         sceneStatsStringPtrValue(row[3]),
+				Rating100:             vatoStatsIntPtrValue(row[4]),
+				OCounter:              customIntValue(row[5]),
+				Duration:              sceneStatsFloatValue(row[6]),
+				Filesize:              sceneStatsFloatValue(row[7]),
+				PrimaryWidth:          vatoStatsIntPtrValue(row[8]),
+				PrimaryHeight:         vatoStatsIntPtrValue(row[9]),
+				MostRecentODate:       sceneStatsStringPtrValue(row[10]),
+				OCounterPastYear:      customIntValue(row[11]),
+				IsPastYear:            customIntValue(row[12]) != 0,
+				IsReleasePastYear:     customIntValue(row[13]) != 0,
+				HasRoyalSapphireBonus: customIntValue(row[14]) != 0,
+				PerformerEthnicities:  []string{},
+				PerformerCountries:    []string{},
+				MarkerTagGroups:       []*SceneStatsMarkerTagGroup{},
+				TagIds:                []string{},
 			}
 			out.Scenes = append(out.Scenes, scene)
 			byID[id] = scene

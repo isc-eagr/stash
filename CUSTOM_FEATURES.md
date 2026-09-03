@@ -2805,6 +2805,8 @@ Rating-based card styling uses these thresholds:
 
 Configured override tags can force Bronze, Silver, Gold, or Royal Sapphire styling independent of rating. The legacy GOAT tag remains a Royal Sapphire override. Overrides take precedence over rating-based thresholds.
 
+Scenes also become Royal Sapphire regardless of rating when their persisted Rating Advisor bonuses include any GOAT element value (`+5`, `+10`, `+15`, or `+20`) or the God-tier orgasm bonus. This scene-only override takes precedence over lower-tier configured tags and is shared by scene cards, the live Rating Advisor summary, SceneStats metallic charts, scene metallic filters, and studio metallic scene counts/sorts. SceneStats metallic charts honor explicit tag and bonus overrides even when a scene has no numeric rating; only unrated scenes without an override remain in the Unknown bucket.
+
 ### Configuration
 
 Stored in UI config:
@@ -2836,11 +2838,13 @@ configuration.ui.roleTagIds.goatTagId = "<tag id>";
 
 ### Metallic Rating Filter
 
-Adds a `metallic_rating` filter to scenes, performers, images, galleries, groups, and studios. The filter matches the final card style after configured tag overrides and rating thresholds are applied, and supports include/exclude modifiers for `bronze`, `silver`, `gold`, and `royal_sapphire` (displayed as Royal Sapphire).
+Adds a `metallic_rating` filter to scenes, performers, images, galleries, groups, and studios. The filter matches the final card style after configured tag overrides, scene Rating Advisor bonus overrides, and rating thresholds are applied, and supports include/exclude modifiers for `bronze`, `silver`, `gold`, and `royal_sapphire` (displayed as Royal Sapphire).
 
 ### Files Modified
 
 - `ui/v2.5/src/components/Scenes/SceneCard.tsx` - Uses shared rating card class helper for scene cards
+- `ui/v2.5/src/components/Shared/RatingAdvisor_custom.tsx` - Applies scene bonus overrides to the live tier summary
+- `ui/v2.5/src/components/SceneStats/SceneStats.tsx` - Includes scene bonus overrides in metallic chart buckets
 - `ui/v2.5/src/components/Scenes/SceneMarkerCard.tsx` - Uses the GOAT/Royal Sapphire override for marker cards
 - `ui/v2.5/src/components/Performers/PerformerCard.tsx` - Uses shared rating card class helper for performer cards
 - `ui/v2.5/src/components/Performers/PerformerDetails/PerformerAppearsWithByRolePanel.tsx` - Applies the same card style logic to co-performer cards
@@ -2851,7 +2855,10 @@ Adds a `metallic_rating` filter to scenes, performers, images, galleries, groups
 - `ui/v2.5/src/components/Settings/SettingsInterfacePanel/SettingsInterfacePanel.tsx` - Adds rating card theme, threshold, and override tag settings
 - `ui/v2.5/src/core/config.ts` - Adds rating card theme, thresholds, and override tag UI config typing
 - `graphql/schema/types/filters_custom.graphql` - Adds `metallic_rating` filter fields
+- `graphql/schema/types/stats_custom.graphql` - Exposes the compact scene bonus-override flag used by SceneStats
+- `internal/api/resolver_custom.go` - Populates the compact SceneStats bonus-override flag
 - `pkg/sqlite/metallic_rating_filter_custom.go` - Shared backend metallic style filter predicate
+- `pkg/sqlite/studio_sort_metric_custom.go` - Reuses scene bonus overrides in studio metallic counts and sorts
 - `pkg/sqlite/*_filter.go` - Hooks metallic rating filters into scene, performer, image, gallery, group, and studio filters
 - `ui/v2.5/src/models/list-filter/criteria/metallic-rating_custom.ts` - Frontend metallic rating criterion
 - `ui/v2.5/src/models/list-filter/{scenes,performers,images,galleries,groups,studios}.ts` - Registers the metallic rating filter
@@ -2865,6 +2872,10 @@ Adds a `metallic_rating` filter to scenes, performers, images, galleries, groups
 - `ui/v2.5/src/utils/ratingCardMotion_custom.ts` - Shared IntersectionObserver/MutationObserver controller for premium-card animation visibility
 - `ui/v2.5/src/components/Shared/ratingCardStyles_custom.scss` - Premium/Royal Sapphire card shell styling
 - `ui/v2.5/tests/ratingCardMotion_custom.test.ts` - Verifies only premium metallic-tier cards opt into visibility-controlled motion
+- `ui/v2.5/tests/ratingCardSceneBonus_custom.test.ts` - Verifies all four GOAT values and the God-tier orgasm bonus force scene-only Royal Sapphire precedence
+- `ui/v2.5/tests/metallicRatingChart_custom.test.ts` - Verifies unrated items retain explicit metallic override buckets while unrated items without an override remain unknown
+- `pkg/sqlite/studio_sort_metric_custom_test.go` - Verifies persisted scene bonuses count as Royal Sapphire and beat lower-tier tag overrides
+- `internal/api/scene_stats_past_year_custom_test.go` - Verifies the compact SceneStats query reports the scene bonus override
 
 ---
 
@@ -2879,7 +2890,7 @@ Suggested tiers use the same configurable 100-based thresholds as the premium/cl
 Both scene and performer advisor ratings also include a non-editable progressive O Count bonus. Each qualifying O earns +1 at counts 3-5, +2 at 6-11, +3 at 12-23, +4 at 24-47, and one additional point whenever the count range doubles again. Scenes qualify on every O from the 3rd, while performers qualify every two Os at counts 3, 5, 7, 9, and so on. This makes later returns increasingly valuable without increasing the tier weight on every single count.
 When scene o-history is added, deleted, reset, or recorded with a video timestamp, the stored advisor rating is recalculated for that scene and any attached performers that already have persisted advisor scores. Performer advisor ratings are also recalculated when scene casts change, including bulk edits, performer deletion, and performer/scene merges.
 
-The server owns the canonical rubric. Score writes validate the entity's current scene/performer mode, section, key, and exact raw-value choice, then derive `weighted_value` instead of trusting the client. Recalculation likewise derives every contribution from canonical raw values. Invalid writes are rejected; legacy persisted values are normalized to the nearest current choice during recalculation. The five-level orgasm-payoff scale accepts 0 through 4. Level 0 means absent or actively bad/off-camera/off-putting orgasms; level 1 means present but weak, barely there, or unimpressive orgasms. Adding level 1 does not migrate or remap any existing scene rating answers. Every scene rubric accepts GOAT element raw values `0.5`, `1`, `1.5`, and `2`, contributing +5, +10, +15, or +20 to the stored 100-based rating.
+The server owns the canonical rubric. Score writes validate the entity's current scene/performer mode, section, key, and exact raw-value choice, then derive `weighted_value` instead of trusting the client. Recalculation likewise derives every contribution from canonical raw values. Invalid writes are rejected; legacy persisted values are normalized to the nearest current choice during recalculation. The five-level orgasm-payoff scale accepts 0 through 4. Level 0 means absent or actively bad/off-camera/off-putting orgasms; level 1 means present but weak, barely there, or unimpressive orgasms. Adding level 1 does not migrate or remap any existing scene rating answers. Every scene rubric accepts GOAT element raw values `0.5`, `1`, `1.5`, and `2`, contributing +5, +10, +15, or +20 to the stored 100-based rating. GOAT has no selectable zero choice: clearing/deleting the bonus represents zero, while any legacy stored zero row is treated as absent.
 
 Individual answers can be cleared, and Reset advisor removes all advisor rows while preserving the current overall rating. Entering a manual overall rating also removes advisor rows so later lifecycle events cannot unexpectedly reclaim that rating. Zero-valued optional adjustments are deleted instead of persisted, while an intentional zero-valued core answer still counts as advisor ownership.
 
@@ -3073,7 +3084,7 @@ The performer detail header also paints the overall Scene Average Rating beside 
 - `ui/v2.5/src/models/list-filter/criteria/rating-criteria_custom.ts` - Frontend rating criteria filter criterion classes
 - `ui/v2.5/src/components/List/Filters/RatingCriteriaFilter_custom.tsx` - Combined rating criteria filter editor
 - `ui/v2.5/src/components/Shared/ratingAdvisorScales_custom.ts` - Shared helpers for simplified rating advisor scales and progressive O-count tiers
-- `ui/v2.5/tests/ratingAdvisorScales_custom.test.ts` - Verifies simplified scales, all four GOAT bonus tiers, fresh-score precedence over stale entity snapshots, the five orgasm-quality labels/descriptions, progressive scene/performer O-count totals, point contributions, unrated state, intentional zero scores, and core completion
+- `ui/v2.5/tests/ratingAdvisorScales_custom.test.ts` - Verifies simplified scales, the four positive GOAT bonus tiers, legacy GOAT-zero absence, fresh-score precedence over stale entity snapshots, the five orgasm-quality labels/descriptions, progressive scene/performer O-count totals, point contributions, unrated state, intentional zero scores, and core completion
 - `ui/v2.5/tests/ratingCriteriaFilter_custom.test.ts` - Verifies the standard/group Rating Criteria filters, all five orgasm-quality levels, and numeric GOAT bonus serialization
 - `ui/v2.5/tests/groupSceneRating_custom.test.ts` - Verifies group mode priority, scoring totals, bonuses, and persisted filter keys
 - `ui/v2.5/tests/soloSceneRating_custom.test.ts` - Verifies the solo 50/30/20 scoring total and persisted keys

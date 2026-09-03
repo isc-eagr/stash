@@ -26,6 +26,7 @@ CREATE TABLE files (id INTEGER PRIMARY KEY, size INTEGER);
 CREATE TABLE video_files (file_id INTEGER, duration REAL, width INTEGER, height INTEGER);
 CREATE TABLE scene_releases (scene_id INTEGER, date DATETIME);
 CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date DATETIME);
+CREATE TABLE rating_bonus_scores (entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL);
 CREATE TABLE performers (id INTEGER PRIMARY KEY, ethnicity TEXT, country TEXT, created_at DATETIME);
 CREATE TABLE performers_scenes (performer_id INTEGER, scene_id INTEGER);
 INSERT INTO scenes(id, title, date, rating, created_at) VALUES
@@ -38,6 +39,9 @@ INSERT INTO scenes_o_dates(scene_id, o_date) VALUES
   (1, datetime('now', '-3 months')),
   (1, datetime('now', '-2 years')),
   (2, datetime('now', '-2 years'));
+INSERT INTO rating_bonus_scores(entity_type, entity_id, key, raw_value) VALUES
+  ('scene', 1, 'goatElement', 0.5),
+  ('scene', 2, 'godTierOrgasm', 0);
 INSERT INTO performers(id, created_at) VALUES
   (10, datetime('now', '-3 months')),
   (20, datetime('now', '-2 years'));
@@ -55,10 +59,11 @@ INSERT INTO performers_scenes(performer_id, scene_id) VALUES (10, 1), (20, 1);
 		oCountPastYear    int
 		isPastYear        bool
 		isReleasePastYear bool
+		hasSapphireBonus  bool
 	}
 	results := map[int]result{}
 	for rows.Next() {
-		values := make([]interface{}, 14)
+		values := make([]interface{}, 15)
 		destinations := make([]interface{}, len(values))
 		for i := range values {
 			destinations[i] = &values[i]
@@ -69,6 +74,7 @@ INSERT INTO performers_scenes(performer_id, scene_id) VALUES (10, 1), (20, 1);
 			oCountPastYear:    customIntValue(values[11]),
 			isPastYear:        customIntValue(values[12]) != 0,
 			isReleasePastYear: customIntValue(values[13]) != 0,
+			hasSapphireBonus:  customIntValue(values[14]) != 0,
 		}
 	}
 	require.NoError(t, rows.Err())
@@ -78,6 +84,7 @@ INSERT INTO performers_scenes(performer_id, scene_id) VALUES (10, 1), (20, 1);
 		oCountPastYear:    1,
 		isPastYear:        true,
 		isReleasePastYear: true,
+		hasSapphireBonus:  true,
 	}, results[1])
 	require.Equal(t, result{oCount: 1}, results[2])
 

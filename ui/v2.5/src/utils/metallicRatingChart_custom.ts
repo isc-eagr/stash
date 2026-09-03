@@ -28,13 +28,8 @@ const metallicRatingChartBuckets: Record<
 
 export function metallicRatingChartBucket(
   rating?: number | null,
-  metallicRating?: string | null,
-  requireRating = false
+  metallicRating?: string | null
 ): MetallicRatingChartBucket | undefined {
-  if (requireRating && (rating === null || rating === undefined)) {
-    return undefined;
-  }
-
   if (
     metallicRating &&
     Object.prototype.hasOwnProperty.call(

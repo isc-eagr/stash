@@ -45,12 +45,13 @@ func studioMetallicSceneCountExprForConfigCustom(tier string, cfg metallicRating
 
 func studioMetallicSceneCountExprCustom(tier string) string {
 	return studioMetallicSceneCountExprForConfigCustom(tier, metallicRatingFilterConfig{
-		primaryTable: "studio_metallic_scene",
-		ratingColumn: "studio_metallic_scene.rating",
-		tagJoinTable: "scenes_tags",
-		tagJoinFK:    "scene_id",
-		thresholds:   getMetallicRatingThresholds("scene"),
-		overrides:    getMetallicRatingOverrideTags(),
+		primaryTable:              "studio_metallic_scene",
+		ratingColumn:              "studio_metallic_scene.rating",
+		tagJoinTable:              "scenes_tags",
+		tagJoinFK:                 "scene_id",
+		includeSceneRatingBonuses: true,
+		thresholds:                getMetallicRatingThresholds("scene"),
+		overrides:                 getMetallicRatingOverrideTags(),
 	})
 }
 

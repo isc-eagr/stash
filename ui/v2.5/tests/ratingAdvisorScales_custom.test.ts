@@ -10,6 +10,7 @@ import {
   getRatingAdvisorChoiceScoreCustom,
   getSceneGoatElementBonusFilterChoicesCustom,
   getSceneOrgasmQualityFilterChoicesCustom,
+  normalizeRatingAdvisorPersistedScoreValueCustom,
   normalizeRatingAdvisorScoreValueCustom,
   ratingAdvisorSixLevelChoicesCustom,
   resolveRatingAdvisorScoresCustom,
@@ -51,7 +52,6 @@ assert.deepEqual(
     label,
   })),
   [
-    { value: 0, label: "No GOAT element" },
     { value: 0.5, label: "GOAT +5" },
     { value: 1, label: "GOAT +10" },
     { value: 1.5, label: "GOAT +15" },
@@ -64,8 +64,23 @@ assert.deepEqual(getSceneGoatElementBonusFilterChoicesCustom(), [
   { value: 1.5, label: "GOAT +15" },
   { value: 2, label: "GOAT +20" },
 ]);
+assert.equal(
+  normalizeRatingAdvisorPersistedScoreValueCustom(
+    { max: 2, choices: SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM },
+    0
+  ),
+  undefined,
+  "a legacy GOAT zero row is treated as an absent bonus"
+);
+assert.equal(
+  normalizeRatingAdvisorPersistedScoreValueCustom(
+    { max: 2, choices: SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM },
+    0.5
+  ),
+  0.5
+);
 
-const initialGoatScores = [{ key: "goatElement", raw_value: 0 }];
+const initialGoatScores = [{ key: "goatElement", raw_value: 2 }];
 const queriedGoatScores = [{ key: "goatElement", raw_value: 0.5 }];
 const mutationGoatScores = [{ key: "goatElement", raw_value: 1 }];
 assert.equal(

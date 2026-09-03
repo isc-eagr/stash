@@ -159,6 +159,7 @@ type SceneStatsScene {
   primary_width: Int
   primary_height: Int
   most_recent_o_date: String
+  has_royal_sapphire_bonus: Boolean!
 }
 
 "Compact SceneStats dataset returned without per-scene GraphQL relationship resolution"

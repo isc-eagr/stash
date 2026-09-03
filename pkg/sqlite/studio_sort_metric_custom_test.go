@@ -20,12 +20,18 @@ func TestStudioMetallicSceneCountExpressionsHonorTiersAndOverrides(t *testing.T)
 		`CREATE TABLE studios (id INTEGER PRIMARY KEY)`,
 		`CREATE TABLE scenes (id INTEGER PRIMARY KEY, studio_id INTEGER, rating INTEGER)`,
 		`CREATE TABLE scenes_tags (scene_id INTEGER, tag_id INTEGER)`,
+		`CREATE TABLE rating_bonus_scores (entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL)`,
 		`INSERT INTO studios(id) VALUES (1), (2)`,
 		`INSERT INTO scenes(id, studio_id, rating) VALUES
       (1, 1, 95), (2, 1, 87), (3, 1, 75), (4, 1, 65), (5, 1, 50),
-      (6, 2, 50), (7, 2, 95), (8, 2, 65), (9, 2, 50), (10, 2, 50)`,
+      (6, 2, 50), (7, 2, 95), (8, 2, 65), (9, 2, 50), (10, 2, 50),
+      (11, 2, 20), (12, 2, 20), (13, 2, 20), (14, 2, 20), (15, 2, 20), (16, 2, 20)`,
 		`INSERT INTO scenes_tags(scene_id, tag_id) VALUES
-      (6, 100), (7, 101), (8, 100), (8, 101), (9, 102), (10, 103)`,
+      (6, 100), (7, 101), (8, 100), (8, 101), (9, 102), (10, 103), (15, 101)`,
+		`INSERT INTO rating_bonus_scores(entity_type, entity_id, key, raw_value) VALUES
+      ('scene', 11, 'goatElement', 0.5), ('scene', 12, 'goatElement', 1),
+      ('scene', 13, 'goatElement', 1.5), ('scene', 14, 'goatElement', 2),
+      ('scene', 15, 'godTierOrgasm', 1), ('scene', 16, 'godTierOrgasm', 0)`,
 	}
 	for _, statement := range statements {
 		if _, err := db.Exec(statement); err != nil {
@@ -34,11 +40,12 @@ func TestStudioMetallicSceneCountExpressionsHonorTiersAndOverrides(t *testing.T)
 	}
 
 	cfg := metallicRatingFilterConfig{
-		primaryTable: "studio_metallic_scene",
-		ratingColumn: "studio_metallic_scene.rating",
-		tagJoinTable: "scenes_tags",
-		tagJoinFK:    "scene_id",
-		thresholds:   defaultMetallicRatingThresholds,
+		primaryTable:              "studio_metallic_scene",
+		ratingColumn:              "studio_metallic_scene.rating",
+		tagJoinTable:              "scenes_tags",
+		tagJoinFK:                 "scene_id",
+		includeSceneRatingBonuses: true,
+		thresholds:                defaultMetallicRatingThresholds,
 		overrides: metallicRatingOverrideTags{
 			bronze:        "101",
 			gold:          "100",
@@ -61,7 +68,7 @@ ORDER BY studios.id`,
 	}
 	defer rows.Close()
 
-	want := [][]int{{1, 1, 1, 1, 1}, {2, 2, 2, 0, 1}}
+	want := [][]int{{1, 1, 1, 1, 1}, {2, 7, 2, 0, 1}}
 	rowCount := 0
 	for ; rows.Next(); rowCount++ {
 		if rowCount >= len(want) {

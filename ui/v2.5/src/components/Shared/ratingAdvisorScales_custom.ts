@@ -14,11 +14,6 @@ export const SCENE_USABLE_FACTOR_WEIGHT_CUSTOM = 0.5;
 export const SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM: IRatingAdvisorChoiceCustom[] =
   [
     {
-      value: 0,
-      label: "No GOAT element",
-      description: "Nothing here reaches GOAT territory.",
-    },
-    {
       value: 0.5,
       label: "GOAT +5",
       description: "A standout GOAT touch gives the scene a small lift.",
@@ -41,9 +36,10 @@ export const SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM: IRatingAdvisorChoiceCustom
   ];
 
 export function getSceneGoatElementBonusFilterChoicesCustom() {
-  return SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM.filter(
-    ({ value }) => value > 0
-  ).map(({ value, label }) => ({ value, label }));
+  return SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM.map(({ value, label }) => ({
+    value,
+    label,
+  }));
 }
 
 export const SCENE_ORGASM_QUALITY_CHOICES_CUSTOM: IRatingAdvisorChoiceCustom[] =
@@ -228,6 +224,20 @@ export function normalizeRatingAdvisorScoreValueCustom(
       ? choice
       : nearest
   ).value;
+}
+
+export function normalizeRatingAdvisorPersistedScoreValueCustom(
+  metric: IRatingAdvisorMetricScaleCustom,
+  rawValue?: number | null
+) {
+  if (rawValue === undefined || rawValue === null) {
+    return undefined;
+  }
+  if (rawValue === 0 && !metric.choices.some((choice) => choice.value === 0)) {
+    return undefined;
+  }
+
+  return normalizeRatingAdvisorScoreValueCustom(metric, rawValue);
 }
 
 export function getRatingAdvisorCompletionCustom(

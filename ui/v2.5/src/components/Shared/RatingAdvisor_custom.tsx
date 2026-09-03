@@ -14,6 +14,7 @@ import { useToast } from "src/hooks/Toast";
 import {
   getRatingCardClass,
   getRatingCardThresholdsForEntity,
+  isRoyalSapphireSceneBonus,
   normalizeRatingCardThresholds,
 } from "src/utils/ratingCardStyles_custom";
 import {
@@ -25,7 +26,7 @@ import {
   getRatingAdvisorCompletionCustom,
   getRatingAdvisorChoiceHeatLevelCustom,
   getRatingAdvisorChoiceScoreCustom,
-  normalizeRatingAdvisorScoreValueCustom,
+  normalizeRatingAdvisorPersistedScoreValueCustom,
   ratingAdvisorSixLevelChoicesCustom,
   resolveRatingAdvisorScoresCustom,
   SCENE_ENERGY_WEIGHT_CUSTOM,
@@ -956,10 +957,10 @@ export const RatingCriteriaTooltip: React.FC<IRatingCriteriaTooltipProps> = ({
           normalizePersistedScoreSection(candidate.section) === metric.section
       );
       const rawValue = score?.raw_value;
-      const normalizedValue =
-        rawValue === undefined || rawValue === null
-          ? undefined
-          : normalizeRatingAdvisorScoreValueCustom(metric, rawValue);
+      const normalizedValue = normalizeRatingAdvisorPersistedScoreValueCustom(
+        metric,
+        rawValue
+      );
       const contribution =
         normalizedValue === undefined
           ? 0
@@ -1236,7 +1237,10 @@ function getInitialScores(
           getMetricSection(metric)
     );
     ret[metric.key] = persistedScore
-      ? normalizeRatingAdvisorScoreValueCustom(metric, persistedScore.raw_value)
+      ? normalizeRatingAdvisorPersistedScoreValueCustom(
+          metric,
+          persistedScore.raw_value
+        )
       : undefined;
     return ret;
   }, {});
@@ -1282,11 +1286,12 @@ function formatMetricContribution(metric: IAdvisorMetric, score?: number) {
 
 function getSceneSuggestion(
   total: number,
-  thresholds: ReturnType<typeof normalizeRatingCardThresholds>
+  thresholds: ReturnType<typeof normalizeRatingCardThresholds>,
+  royalSapphireOverride = false
 ): IRatingSuggestion {
   const rating100 = Math.round(total * 10);
 
-  if (rating100 >= thresholds.royalSapphire) {
+  if (royalSapphireOverride || rating100 >= thresholds.royalSapphire) {
     return {
       rating100,
       tier: "Elite / Royal Sapphire",
@@ -1434,12 +1439,21 @@ const RatingAdvisorModal: React.FC<{
     confirmedRating100 === undefined &&
     !advisorScoresData &&
     (advisorScoresLoading || !!advisorScoresError);
-  const suggestion = getSceneSuggestion(displayRating100 / 10, thresholds);
+  const sceneHasRoyalSapphireBonus =
+    entityType === "scene" &&
+    (isRoyalSapphireSceneBonus("goatElement", scores.goatElement) ||
+      isRoyalSapphireSceneBonus("godTierOrgasm", scores.godTierOrgasm));
+  const suggestion = getSceneSuggestion(
+    displayRating100 / 10,
+    thresholds,
+    sceneHasRoyalSapphireBonus
+  );
   const ratingTierClass = getRatingCardClass({
     rating: suggestion.rating100,
     theme: configuration?.ui?.ratingCardTheme,
     thresholds: configuration?.ui?.ratingCardThresholds,
     thresholdEntity: entityType,
+    sceneHasRoyalSapphireBonus,
   });
   const advisorTitle =
     entityType === "performer"
