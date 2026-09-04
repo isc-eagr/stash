@@ -1075,7 +1075,7 @@ func (t *viewHistoryTable) addDates(ctx context.Context, id int, dates []time.Ti
 		}
 	}
 
-	return t.getDates(ctx, id)
+	return t.resultDatesCustom(ctx, id) // CUSTOM: count-only GraphQL callers skip loading every date
 }
 
 func (t *viewHistoryTable) deleteDates(ctx context.Context, id int, dates []time.Time) ([]time.Time, error) {
@@ -1108,7 +1108,7 @@ func (t *viewHistoryTable) deleteDates(ctx context.Context, id int, dates []time
 		}
 	}
 
-	return t.getDates(ctx, id)
+	return t.resultDatesCustom(ctx, id) // CUSTOM: count-only GraphQL callers skip loading every date
 }
 
 func (t *viewHistoryTable) deleteAllDates(ctx context.Context, id int) (int, error) {

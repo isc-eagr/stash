@@ -14,6 +14,7 @@ import { Link } from "react-router-dom";
 import { faTimes, faUser } from "@fortawesome/free-solid-svg-icons";
 import { PerformerCategoryStrip } from "src/components/Performers/PerformerDetails/PerformerCategoryStrip";
 import { PerformerDetailsPanel } from "src/components/Performers/PerformerDetails/PerformerDetailsPanel";
+import { PerformerActivityTime } from "src/components/Performers/PerformerDetails/PerformerActivityTime";
 import { PerformerSceneAverageRating } from "src/components/Performers/PerformerSceneRatingAdvisor_custom";
 import { getPerformerRolePartnerSectionTitle } from "src/components/Performers/performerRolePartnerLabels_custom";
 import { AliasList } from "src/components/Shared/DetailsPage/AliasList";
@@ -27,11 +28,9 @@ import { useConfigurationContext } from "src/hooks/Config";
 import {
   SCENE_PERFORMER_OVERVIEW_EXCLUDED_FIELDS,
   SCENE_PERFORMER_OVERVIEW_LINK_PROPS,
-  getScenePerformerOverviewActivityMetrics,
   getScenePerformerOverviewInteractions,
   getUniqueScenePerformerOverviewPartners,
 } from "src/utils/scenePerformerOverview_custom";
-import TextUtils from "src/utils/text";
 import "./ScenePerformerOverviewPanel_custom.scss";
 
 interface IScenePerformerOverviewContext {
@@ -101,13 +100,6 @@ const ScenePerformerOverviewPanel: React.FC<{
     partnerImages.length > 0
       ? Math.ceil(partnerImages.length / 3) * 220 + 24
       : 80;
-  const activityMetrics = useMemo(
-    () =>
-      performer
-        ? getScenePerformerOverviewActivityMetrics(performer.activity_stats)
-        : [],
-    [performer]
-  );
   const sceneInteractions = useMemo(
     () =>
       getScenePerformerOverviewInteractions(
@@ -317,27 +309,11 @@ const ScenePerformerOverviewPanel: React.FC<{
                 linkTarget={SCENE_PERFORMER_OVERVIEW_LINK_PROPS.target}
               />
 
-              <section
-                aria-labelledby={`scene-performer-overview-activity-${performer.id}`}
+              <PerformerActivityTime
+                activityStats={performer.activity_stats}
                 className="scene-performer-overview-activity"
-              >
-                <h3 id={`scene-performer-overview-activity-${performer.id}`}>
-                  Activity Time
-                </h3>
-                <div className="scene-performer-overview-activity-grid">
-                  {activityMetrics.map((metric) => (
-                    <div
-                      className={`scene-performer-overview-activity-metric is-${metric.role}`}
-                      key={metric.key}
-                    >
-                      <span>{metric.label}</span>
-                      <strong>
-                        {TextUtils.secondsToTimestamp(metric.seconds)}
-                      </strong>
-                    </div>
-                  ))}
-                </div>
-              </section>
+                headingId={`scene-performer-overview-activity-${performer.id}`}
+              />
 
               <section
                 aria-labelledby={`scene-performer-overview-interactions-${performer.id}`}

@@ -21,8 +21,16 @@ extend type Query {
   "Get distinct performer ethnicities"
   performerEthnicities: [String!]!
 
+  "Get marker roles for every performer in a scene"
+  scenePerformerMarkerRoles(scene_id: ID!): [ScenePerformerMarkerRoles!]!
+
   "Find all database-backed task progress trackers"
   findTaskProgressTrackers: [TaskProgressTracker!]!
+}
+
+type ScenePerformerMarkerRoles {
+  performer_id: ID!
+  roles: [String!]!
 }
 
 extend type Mutation {

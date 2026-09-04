@@ -145,3 +145,75 @@ func TestVatoStatsPerformersQueryCustomAggregatesSceneOsAndCareerOnce(t *testing
 		t.Fatalf("studio aggregate = %#v, want Alpha with one direct scene", studioSceneCounts)
 	}
 }
+
+func TestVatoStatsRoleCountsQueryCustomCombinesRoleMarkerScans(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	statements := []string{
+		`CREATE TABLE scenes (id INTEGER PRIMARY KEY)`,
+		`CREATE TABLE tags_relations (parent_id INTEGER, child_id INTEGER)`,
+		`CREATE TABLE scene_markers (id INTEGER PRIMARY KEY, scene_id INTEGER, primary_tag_id INTEGER)`,
+		`CREATE TABLE scene_markers_tags (scene_marker_id INTEGER, tag_id INTEGER)`,
+		`CREATE TABLE scene_marker_performers (scene_marker_id INTEGER, performer_id INTEGER, role TEXT)`,
+		`INSERT INTO scenes(id) VALUES (10), (11)`,
+		`INSERT INTO tags_relations(parent_id, child_id) VALUES (100, 101), (200, 201), (300, 301)`,
+		`INSERT INTO scene_markers(id, scene_id, primary_tag_id) VALUES
+      (1, 10, 101),
+      (2, 10, 200),
+      (3, 10, 301),
+      (4, 11, 999),
+      (5, 11, 999)`,
+		`INSERT INTO scene_markers_tags(scene_marker_id, tag_id) VALUES
+      (3, 300),
+      (4, 301),
+      (5, 101)`,
+		`INSERT INTO scene_marker_performers(scene_marker_id, performer_id, role) VALUES
+      (1, 1, 'top'),
+      (2, 1, 'bottom'),
+      (3, 1, 'top'),
+      (4, 1, 'bottom'),
+      (5, 1, 'top'),
+      (1, 2, 'bottom')`,
+	}
+	for _, statement := range statements {
+		if _, err := db.Exec(statement); err != nil {
+			t.Fatalf("execute %q: %v", statement, err)
+		}
+	}
+
+	globalScope, _ := activityStatsSceneScopeCustom(nil, nil)
+	query, args := vatoStatsRoleCountsQueryCustom(globalScope, []int{1}, 100, 200, 300)
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		t.Fatal("expected one performer role row")
+	}
+	values := make([]int, 7)
+	destinations := make([]interface{}, len(values))
+	for i := range values {
+		destinations[i] = &values[i]
+	}
+	if err := rows.Scan(destinations...); err != nil {
+		t.Fatal(err)
+	}
+	want := []int{1, 1, 0, 0, 1, 1, 1}
+	for i := range want {
+		if values[i] != want[i] {
+			t.Fatalf("combined role row = %v, want %v", values, want)
+		}
+	}
+	if rows.Next() {
+		t.Fatal("performer ID filter returned an unrelated performer")
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+}

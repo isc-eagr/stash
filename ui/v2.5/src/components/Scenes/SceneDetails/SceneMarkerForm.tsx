@@ -9,6 +9,9 @@ import {
   useSceneMarkerUpdate,
   useSceneMarkerDestroy,
   useFindScene, // CUSTOM
+  useSceneNegativeMarkerCreate, // CUSTOM
+  useSceneNegativeMarkerDestroy, // CUSTOM
+  useSceneNegativeMarkerUpdate, // CUSTOM
   useSceneNegativeMarkerNames, // CUSTOM
 } from "src/core/StashService";
 import { DurationInput } from "src/components/Shared/DurationInput";
@@ -141,19 +144,11 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
 
   const [sceneMarkerCreate] = useSceneMarkerCreate();
   const [sceneMarkerUpdate] = useSceneMarkerUpdate();
-  const [sceneMarkerDestroy] = useSceneMarkerDestroy();
-  const [sceneNegativeMarkerUpdate] =
-    GQL.useSceneNegativeMarkerUpdateMutation(); // CUSTOM
+  const [sceneMarkerDestroy] = useSceneMarkerDestroy(sceneID); // CUSTOM
+  const [sceneNegativeMarkerUpdate] = useSceneNegativeMarkerUpdate(); // CUSTOM
   // CUSTOM: begin - inserted negative marker lifecycle
-  const [sceneNegativeMarkerCreate] = GQL.useSceneNegativeMarkerCreateMutation({
-    refetchQueries: ["FindScene"],
-    awaitRefetchQueries: true,
-  });
-  const [sceneNegativeMarkerDestroy] =
-    GQL.useSceneNegativeMarkerDestroyMutation({
-      refetchQueries: ["FindScene"],
-      awaitRefetchQueries: true,
-    });
+  const [sceneNegativeMarkerCreate] = useSceneNegativeMarkerCreate();
+  const [sceneNegativeMarkerDestroy] = useSceneNegativeMarkerDestroy(sceneID);
   // CUSTOM: end
   const Toast = useToast();
   const { configuration } = useConfigurationContext(); // CUSTOM

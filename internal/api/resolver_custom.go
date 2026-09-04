@@ -535,6 +535,7 @@ file_stats AS (
   FROM scenes_files sf
   JOIN files f ON f.id = sf.file_id
   LEFT JOIN video_files vf ON vf.file_id = sf.file_id
+  WHERE sf.scene_id IN (SELECT id FROM selected_scenes)
   GROUP BY sf.scene_id
 ),
 o_stats AS (
@@ -549,7 +550,16 @@ o_stats AS (
       END
     ) AS o_counter_past_year
   FROM scenes_o_dates
+  WHERE scene_id IN (SELECT id FROM selected_scenes)
   GROUP BY scene_id
+),
+royal_sapphire_bonus_scenes AS (
+  SELECT DISTINCT entity_id AS scene_id
+  FROM rating_bonus_scores
+  WHERE entity_type = 'scene'
+    AND entity_id IN (SELECT id FROM selected_scenes)
+    AND ((key = 'goatElement' AND raw_value IN (0.5, 1, 1.5, 2))
+      OR (key = 'godTierOrgasm' AND raw_value = 1))
 )
 SELECT
   s.id,
@@ -572,17 +582,11 @@ SELECT
     WHEN date(%s) >= date('now', '-1 year') THEN 1
     ELSE 0
   END AS is_release_past_year,
-  EXISTS (
-    SELECT 1
-    FROM rating_bonus_scores rsb
-    WHERE rsb.entity_type = 'scene'
-      AND rsb.entity_id = s.id
-      AND ((rsb.key = 'goatElement' AND rsb.raw_value IN (0.5, 1, 1.5, 2))
-        OR (rsb.key = 'godTierOrgasm' AND rsb.raw_value = 1))
-  ) AS has_royal_sapphire_bonus
+  CASE WHEN rsb.scene_id IS NOT NULL THEN 1 ELSE 0 END AS has_royal_sapphire_bonus
 FROM scenes s
 LEFT JOIN file_stats fs ON fs.scene_id = s.id
 LEFT JOIN o_stats os ON os.scene_id = s.id
+LEFT JOIN royal_sapphire_bonus_scenes rsb ON rsb.scene_id = s.id
 WHERE s.id IN (SELECT id FROM selected_scenes)
 ORDER BY s.date DESC, s.id DESC`, sceneScope, effectiveDateExpr, effectiveDateExpr)
 }
@@ -607,17 +611,61 @@ func sceneStatsAddPerformerCustom(scene *SceneStatsScene, ethnicity string, coun
 	scene.PerformerCountries = append(scene.PerformerCountries, country)
 }
 
-func sceneStatsScopedMarkerQueryCustom(sceneScope string) string {
-	return sceneScope + `
+func sceneStatsScopedMarkerQueryCustom(sceneScope string, trackedTagIDs []int) (string, []interface{}) {
+	if len(trackedTagIDs) == 0 {
+		return sceneScope + `
+SELECT sm.scene_id, sm.id, NULL, NULL
+FROM scene_markers sm
+WHERE 0`, nil
+	}
+
+	placeholders := make([]string, 0, len(trackedTagIDs))
+	args := make([]interface{}, 0, len(trackedTagIDs))
+	seen := make(map[int]struct{}, len(trackedTagIDs))
+	for _, tagID := range trackedTagIDs {
+		if tagID <= 0 {
+			continue
+		}
+		if _, exists := seen[tagID]; exists {
+			continue
+		}
+		seen[tagID] = struct{}{}
+		placeholders = append(placeholders, "(?)")
+		args = append(args, tagID)
+	}
+	if len(args) == 0 {
+		return sceneStatsScopedMarkerQueryCustom(sceneScope, nil)
+	}
+
+	return sceneScope + `,
+tracked_tag_roots(id) AS (
+  VALUES ` + strings.Join(placeholders, ",") + `
+),
+tracked_tags(id) AS (
+  SELECT id FROM tracked_tag_roots
+  UNION
+  SELECT tr.child_id
+  FROM tags_relations tr
+  JOIN tracked_tag_roots roots ON roots.id = tr.parent_id
+)
 SELECT
   sm.scene_id,
   sm.id,
-  sm.primary_tag_id,
+  CASE
+    WHEN sm.primary_tag_id IN (SELECT id FROM tracked_tags) THEN sm.primary_tag_id
+    ELSE NULL
+  END,
   smt.tag_id
 FROM scene_markers sm
-LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+LEFT JOIN scene_markers_tags smt
+  ON smt.scene_marker_id = sm.id
+  AND smt.tag_id IN (SELECT id FROM tracked_tags)
 WHERE sm.scene_id IN (SELECT id FROM selected_scenes)
-ORDER BY sm.scene_id ASC, sm.id ASC`
+  AND (
+    sm.primary_tag_id IN (SELECT id FROM tracked_tags)
+    OR smt.tag_id IS NOT NULL
+  )
+ORDER BY sm.scene_id ASC, sm.id ASC`, args
 }
 
 // SceneStats returns compact scalar and ID data for the SceneStats dashboard.
@@ -715,7 +763,17 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 			scene.TagIds = append(scene.TagIds, fmt.Sprint(row[1]))
 		}
 
-		_, markerRows, err := db.QuerySQL(ctx, sceneStatsScopedMarkerQueryCustom(sceneScope), sceneScopeArgs)
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		sexTagID, oralTagID, soloTagID, facialTagID, _, _, _ := getRoleTagIDs(uiConfig)
+		markerQuery, markerArgs := sceneStatsScopedMarkerQueryCustom(sceneScope, []int{
+			sexTagID,
+			oralTagID,
+			soloTagID,
+			facialTagID,
+			configuredRoleTagIDCustom(uiConfig, "reallyHotTagId"),
+		})
+		markerArgs = append(append([]interface{}{}, sceneScopeArgs...), markerArgs...)
+		_, markerRows, err := db.QuerySQL(ctx, markerQuery, markerArgs)
 		if err != nil {
 			return err
 		}
@@ -2410,69 +2468,34 @@ func (r *queryResolver) VatoStatsPerformers(ctx context.Context, studioID *strin
 
 		uiConfig := config.GetInstance().GetUIConfiguration()
 		sexTagID, oralTagID, soloTagID, facialTagID, _, _, _ := getRoleTagIDs(uiConfig)
-		applyRoleSceneCounts := func(tagID int, includeSecondary bool, countColumn string, setTop func(*VatoStatsPerformer, int), setBottom func(*VatoStatsPerformer, int)) error {
-			if tagID == 0 {
-				return nil
-			}
-			roleIDClause, roleIDArgs := vatoStatsIDFilter("smp.performer_id", ids)
-			tagCondition := "sm.primary_tag_id IN (SELECT id FROM role_tags)"
-			if includeSecondary {
-				tagCondition = `(sm.primary_tag_id IN (SELECT id FROM role_tags)
-    OR EXISTS (
-      SELECT 1
-      FROM scene_markers_tags smt
-      WHERE smt.scene_marker_id = sm.id
-        AND smt.tag_id IN (SELECT id FROM role_tags)
-    ))`
-			}
-			sexRoleQuery := sceneScope + fmt.Sprintf(`,
-role_tags(id) AS (
-  SELECT id FROM tags WHERE id = ?
-  UNION ALL
-  SELECT tr.child_id FROM tags_relations tr JOIN role_tags rt ON tr.parent_id = rt.id
-)
-SELECT
-  smp.performer_id,
-  COUNT(DISTINCT CASE WHEN smp.role = 'top' THEN %s END) AS role_top_count,
-  COUNT(DISTINCT CASE WHEN smp.role = 'bottom' THEN %s END) AS role_bottom_count
-FROM scene_marker_performers smp
-JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-WHERE %s
-	AND sm.scene_id IN (SELECT id FROM selected_scenes)
-  %s
-GROUP BY smp.performer_id`, countColumn, countColumn, tagCondition, roleIDClause)
-			roleArgs := append(append([]interface{}{}, sceneScopeArgs...), tagID)
-			roleArgs = append(roleArgs, roleIDArgs...)
-			_, roleRows, err := db.QuerySQL(ctx, sexRoleQuery, roleArgs)
+		roleQuery, roleQueryArgs := vatoStatsRoleCountsQueryCustom(
+			sceneScope,
+			ids,
+			sexTagID,
+			oralTagID,
+			facialTagID,
+		)
+		if roleQuery != "" {
+			roleQueryArgs = append(append([]interface{}{}, sceneScopeArgs...), roleQueryArgs...)
+			_, roleRows, err := db.QuerySQL(ctx, roleQuery, roleQueryArgs)
 			if err != nil {
 				return err
 			}
 			for _, row := range roleRows {
-				if len(row) < 3 {
+				if len(row) < 7 {
 					continue
 				}
 				performer := byID[customIntValue(row[0])]
 				if performer == nil {
 					continue
 				}
-				setTop(performer, customIntValue(row[1]))
-				setBottom(performer, customIntValue(row[2]))
+				performer.SexTopCount = customIntValue(row[1])
+				performer.SexBottomCount = customIntValue(row[2])
+				performer.OralTopCount = customIntValue(row[3])
+				performer.OralBottomCount = customIntValue(row[4])
+				performer.FacialGivenCount = customIntValue(row[5])
+				performer.FacialReceivedCount = customIntValue(row[6])
 			}
-			return nil
-		}
-		if err := applyRoleSceneCounts(sexTagID, false, "sm.scene_id", func(performer *VatoStatsPerformer, count int) {
-			performer.SexTopCount = count
-		}, func(performer *VatoStatsPerformer, count int) {
-			performer.SexBottomCount = count
-		}); err != nil {
-			return err
-		}
-		if err := applyRoleSceneCounts(oralTagID, false, "sm.scene_id", func(performer *VatoStatsPerformer, count int) {
-			performer.OralTopCount = count
-		}, func(performer *VatoStatsPerformer, count int) {
-			performer.OralBottomCount = count
-		}); err != nil {
-			return err
 		}
 		if soloTagID != 0 {
 			soloIDClause, soloIDArgs := vatoStatsIDFilter("smp.performer_id", ids)
@@ -2510,14 +2533,6 @@ GROUP BY smp.performer_id`
 				}
 			}
 		}
-		if err := applyRoleSceneCounts(facialTagID, true, "sm.id", func(performer *VatoStatsPerformer, count int) {
-			performer.FacialGivenCount = count
-		}, func(performer *VatoStatsPerformer, count int) {
-			performer.FacialReceivedCount = count
-		}); err != nil {
-			return err
-		}
-
 		ageIDClause, ageIDArgs := vatoStatsIDFilter("ps.performer_id", ids)
 		ageQuery := sceneScope + fmt.Sprintf(`
 SELECT

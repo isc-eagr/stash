@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -50,7 +51,11 @@ INSERT INTO performers_scenes(performer_id, scene_id) VALUES (10, 1), (20, 1);
 	require.NoError(t, err)
 
 	sceneScope, _ := activityStatsSceneScopeCustom(nil, nil)
-	rows, err := db.Query(sceneStatsBaseScopedQueryCustom(sceneOStatsEffectiveDateExpr("s"), sceneScope))
+	baseQuery := sceneStatsBaseScopedQueryCustom(sceneOStatsEffectiveDateExpr("s"), sceneScope)
+	require.Contains(t, baseQuery, "WHERE sf.scene_id IN (SELECT id FROM selected_scenes)")
+	require.Contains(t, baseQuery, "WHERE scene_id IN (SELECT id FROM selected_scenes)")
+	require.Contains(t, baseQuery, "royal_sapphire_bonus_scenes AS")
+	rows, err := db.Query(baseQuery)
 	require.NoError(t, err)
 	defer rows.Close()
 
@@ -98,4 +103,60 @@ INSERT INTO performers_scenes(performer_id, scene_id) VALUES (10, 1), (20, 1);
 	sceneStatsAddPerformerCustom(oldRelease, "A", "MX")
 	require.Equal(t, 1, oldRelease.PerformerCount)
 	require.Zero(t, oldRelease.PerformerCountPastYear)
+}
+
+func TestSceneStatsScopedMarkerQueryCustomOnlyReturnsDashboardTags(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+
+	_, err = db.Exec(`
+CREATE TABLE scenes (id INTEGER PRIMARY KEY);
+CREATE TABLE scene_markers (id INTEGER PRIMARY KEY, scene_id INTEGER, primary_tag_id INTEGER);
+CREATE TABLE scene_markers_tags (scene_marker_id INTEGER, tag_id INTEGER);
+CREATE TABLE tags_relations (parent_id INTEGER, child_id INTEGER);
+INSERT INTO scenes(id) VALUES (1);
+INSERT INTO tags_relations(parent_id, child_id) VALUES (100, 101), (101, 102);
+INSERT INTO scene_markers(id, scene_id, primary_tag_id) VALUES
+  (1, 1, 100),
+  (2, 1, 200),
+  (3, 1, 200),
+  (4, 1, 101),
+  (5, 1, 102);
+INSERT INTO scene_markers_tags(scene_marker_id, tag_id) VALUES
+  (1, 200),
+  (2, 101),
+  (3, 200),
+  (4, 100),
+  (4, 200),
+  (5, 200);
+`)
+	require.NoError(t, err)
+
+	sceneScope, _ := activityStatsSceneScopeCustom(nil, nil)
+	query, args := sceneStatsScopedMarkerQueryCustom(sceneScope, []int{100, 100, 0})
+	require.Equal(t, []interface{}{100}, args)
+	rows, err := db.Query(query, args...)
+	require.NoError(t, err)
+	defer rows.Close()
+
+	var got []string
+	for rows.Next() {
+		var sceneID, markerID int
+		var primaryTagID, secondaryTagID sql.NullInt64
+		require.NoError(t, rows.Scan(&sceneID, &markerID, &primaryTagID, &secondaryTagID))
+		got = append(got, fmt.Sprintf(
+			"%d:%d:%d:%d",
+			sceneID,
+			markerID,
+			primaryTagID.Int64,
+			secondaryTagID.Int64,
+		))
+	}
+	require.NoError(t, rows.Err())
+	require.Equal(t, []string{
+		"1:1:100:0",
+		"1:2:0:101",
+		"1:4:101:100",
+	}, got)
 }

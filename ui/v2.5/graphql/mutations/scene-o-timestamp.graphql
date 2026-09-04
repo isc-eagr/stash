@@ -3,6 +3,5 @@
 mutation SceneRecordOAtTimestamp($id: ID!, $video_timestamp: Float!) {
   sceneRecordOAtTimestamp(id: $id, video_timestamp: $video_timestamp) {
     count
-    history
   }
 }

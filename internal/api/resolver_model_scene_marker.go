@@ -3,41 +3,21 @@ package api
 import (
 	"context"
 
+	"github.com/stashapp/stash/internal/api/loaders" // CUSTOM
 	"github.com/stashapp/stash/internal/api/urlbuilders"
 	"github.com/stashapp/stash/pkg/models"
 )
 
 func (r *sceneMarkerResolver) Scene(ctx context.Context, obj *models.SceneMarker) (ret *models.Scene, err error) {
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = r.repository.Scene.Find(ctx, obj.SceneID)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-
-	return ret, nil
+	return loaders.From(ctx).SceneByID.Load(obj.SceneID) // CUSTOM: request-batched
 }
 
 func (r *sceneMarkerResolver) PrimaryTag(ctx context.Context, obj *models.SceneMarker) (ret *models.Tag, err error) {
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = r.repository.Tag.Find(ctx, obj.PrimaryTagID)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-
-	return ret, err
+	return loaders.From(ctx).TagByID.Load(obj.PrimaryTagID) // CUSTOM: request-batched
 }
 
 func (r *sceneMarkerResolver) Tags(ctx context.Context, obj *models.SceneMarker) (ret []*models.Tag, err error) {
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = r.repository.Tag.FindBySceneMarkerID(ctx, obj.ID)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-
-	return ret, err
+	return r.sceneMarkerTagsCustom(ctx, obj) // CUSTOM: request-batched
 }
 
 func (r *sceneMarkerResolver) Stream(ctx context.Context, obj *models.SceneMarker) (string, error) {

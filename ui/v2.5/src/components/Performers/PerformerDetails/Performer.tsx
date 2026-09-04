@@ -62,6 +62,7 @@ import { OCounterButton } from "src/components/Shared/CountButton";
 import { PerformerCategoryStrip } from "./PerformerCategoryStrip";
 import { Counter } from "src/components/Shared/Counter";
 import { PerformerImageManager } from "./PerformerImageManager";
+import { PerformerActivityTime } from "./PerformerActivityTime";
 // CUSTOM: end
 
 interface IProps {
@@ -599,7 +600,9 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
               performer={performer}
               refetch={refetch} // CUSTOM
             />
-            <div className="row">
+            <div
+              className="row performer-header-content" // CUSTOM
+            >
               <div className="performer-head col">
                 <DetailTitle
                   name={performer.name}
@@ -687,6 +690,16 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                   </Col>
                 )}
               </div>
+              {/* CUSTOM: begin - reuse the Vato Overview activity cards in the performer header */}
+              {!isEditing && (
+                <div className="performer-header-activity col-lg-5 col-xl-4">
+                  <PerformerActivityTime
+                    activityStats={performer.activity_stats}
+                    headingId={`performer-activity-time-${performer.id}`}
+                  />
+                </div>
+              )}
+              {/* CUSTOM: end */}
             </div>
           </div>
         </div>

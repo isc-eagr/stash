@@ -56,6 +56,8 @@ import {
   makeSceneStatsVatoCountURL,
   sceneStatsVatoCountBuckets,
 } from "./sceneStatsSummary_custom";
+import { type SceneStatsScene } from "./sceneStatsCompactData_custom"; // CUSTOM
+import { useSceneStatsCompactQuery } from "./useSceneStatsCompactQuery_custom"; // CUSTOM
 import { SceneStatsInsights } from "./SceneStatsInsights_custom";
 import { SceneStatsActivityMatrix } from "./SceneStatsActivityMatrix_custom"; // CUSTOM
 import {
@@ -66,36 +68,9 @@ import {
 
 import "./SceneStats.scss";
 
-const SCENE_STATS_SCENES = gql`
-  query SceneStatsScenes($studioId: ID, $depth: Int) {
-    sceneStats(studio_id: $studioId, depth: $depth) {
-      count
-      scenes {
-        id
-        title
-        date
-        effective_date
-        rating100
-        o_counter
-        o_counter_past_year
-        is_past_year
-        is_release_past_year
-        duration
-        filesize
-        performer_count
-        performer_count_past_year
-        performer_ethnicities
-        performer_countries
-        scene_markers: marker_tag_groups {
-          tag_ids
-        }
-        tags: tag_ids
-        primary_width
-        primary_height
-        most_recent_o_date
-        has_royal_sapphire_bonus # CUSTOM
-      }
-    }
+// CUSTOM: Keep expensive marker-duration totals off the first-render request.
+const SCENE_STATS_TOTALS = gql`
+  query SceneStatsTotals($studioId: ID, $depth: Int) {
     sceneOrgasmCount(studio_id: $studioId, depth: $depth)
     sceneFacialCount(studio_id: $studioId, depth: $depth)
     totalOrgasmTime(studio_id: $studioId, depth: $depth)
@@ -119,39 +94,7 @@ const SCENE_STATS_ROLE_TAGS = gql`
   }
 `;
 
-type SceneStatsMarker = {
-  tag_ids: string[];
-};
-
-type SceneStatsScene = {
-  id: string;
-  title?: string | null;
-  date?: string | null;
-  effective_date?: string | null;
-  rating100?: number | null;
-  o_counter?: number | null;
-  o_counter_past_year: number;
-  is_past_year: boolean;
-  is_release_past_year: boolean;
-  duration: number;
-  filesize: number;
-  performer_count: number;
-  performer_count_past_year: number;
-  performer_ethnicities: string[];
-  performer_countries: string[];
-  scene_markers: SceneStatsMarker[];
-  tags: string[];
-  primary_width?: number | null;
-  primary_height?: number | null;
-  most_recent_o_date?: string | null;
-  has_royal_sapphire_bonus: boolean; // CUSTOM
-};
-
-type SceneStatsData = {
-  sceneStats: {
-    count: number;
-    scenes: SceneStatsScene[];
-  };
+type SceneStatsTotalsData = {
   sceneOrgasmCount: number;
   sceneFacialCount: number;
   totalOrgasmTime: number;
@@ -1195,7 +1138,12 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
     [roleTagIds]
   );
 
-  const sceneQuery = useQuery<SceneStatsData>(SCENE_STATS_SCENES, {
+  const sceneQuery = useSceneStatsCompactQuery(
+    effectiveStudioScope?.id,
+    effectiveStudioScope?.depth
+  );
+  const totalsQuery = useQuery<SceneStatsTotalsData>(SCENE_STATS_TOTALS, {
+    skip: sceneQuery.loading || !!sceneQuery.error,
     variables: {
       depth: effectiveStudioScope?.depth,
       studioId: effectiveStudioScope?.id,
@@ -1208,10 +1156,7 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
       variables: { ids: roleTagIDList },
     }
   );
-  const scenes = useMemo(
-    () => sceneQuery.data?.sceneStats.scenes ?? [],
-    [sceneQuery.data?.sceneStats.scenes]
-  );
+  const { scenes } = sceneQuery;
   const vatoCountBuckets = useMemo(
     () =>
       sceneStatsVatoCountBuckets(scenes.map((scene) => scene.performer_count)),
@@ -1368,7 +1313,7 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
       </>
     );
 
-  if (sceneQuery.loading || roleTagsQuery.loading || !sceneQuery.data)
+  if (sceneQuery.loading || roleTagsQuery.loading)
     return (
       <>
         <Helmet {...titleProps} />
@@ -1381,7 +1326,7 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
       </>
     );
 
-  const summary = sceneQuery.data;
+  const summary: Partial<SceneStatsTotalsData> = totalsQuery.data ?? {};
 
   return (
     <StatsPage className="scenestats-page" showNavigation={!studioScope}>
@@ -1445,6 +1390,9 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
 
       {activeSection === "overview" && (
         <>
+          {totalsQuery.error && (
+            <ErrorMessage error={totalsQuery.error.message} />
+          )}
           {(sexTag || oralTag || soloTag || facialTag) && (
             <section
               className="scenestats-summary-grid scenestats-category-grid"

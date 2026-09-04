@@ -55,6 +55,7 @@ import {
   formatCustomFieldInput,
 } from "src/components/Shared/CustomFields";
 import { cloneDeep } from "@apollo/client/utilities";
+import { changedSceneEditFieldsCustom } from "./sceneEditInput_custom"; // CUSTOM
 
 const SceneScrapeDialog = lazyComponent(() => import("./SceneScrapeDialog"));
 const SceneQueryModal = lazyComponent(() => import("./SceneQueryModal"));
@@ -98,7 +99,8 @@ export const SceneEditPanel: React.FC<IProps> = ({
 
   useEffect(() => {
     setGalleries(
-      scene.direct_galleries?.map((g) => ({ // CUSTOM: direct_galleries
+      scene.direct_galleries?.map((g) => ({
+        // CUSTOM: direct_galleries
         id: g.id,
         title: galleryTitle(g),
         files: g.files,
@@ -174,13 +176,33 @@ export const SceneEditPanel: React.FC<IProps> = ({
 
   const [customFieldsError, setCustomFieldsError] = useState<string>();
 
-  function submit(values: InputValues) {
-    const input = {
-      ...schema.cast(values),
-      custom_fields: formatCustomFieldInput(isNew, values.custom_fields),
-    };
-    onSave(input);
+  // CUSTOM: begin - avoid rewriting every scene relationship on small edits
+  function buildSubmitInputCustom(values: InputValues) {
+    const castValues = schema.cast(values);
+    const changedValues = isNew
+      ? { ...castValues }
+      : changedSceneEditFieldsCustom(
+          castValues,
+          schema.cast(initialValues) as typeof castValues
+        );
+
+    if (
+      isNew ||
+      Object.prototype.hasOwnProperty.call(changedValues, "custom_fields")
+    ) {
+      changedValues.custom_fields = formatCustomFieldInput(
+        isNew,
+        values.custom_fields
+      );
+    }
+
+    return changedValues as GQL.SceneCreateInput;
   }
+
+  function submit(values: InputValues) {
+    onSave(buildSubmitInputCustom(values));
+  }
+  // CUSTOM: end
 
   const formik = useFormik<InputValues>({
     initialValues,
@@ -293,7 +315,8 @@ export const SceneEditPanel: React.FC<IProps> = ({
     formik.setFieldValue("groups", newGroups);
   }
 
-  async function onSave(input: InputValues, andNew?: boolean) {
+  async function onSave(input: GQL.SceneCreateInput, andNew?: boolean) {
+    // CUSTOM: updates may contain only dirty fields
     setIsLoading(true);
     try {
       await onSubmit(input, andNew);
@@ -305,11 +328,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
   }
 
   async function onSaveAndNewClick() {
-    const input = {
-      ...schema.cast(formik.values),
-      custom_fields: formatCustomFieldInput(isNew, formik.values.custom_fields),
-    };
-    onSave(input, true);
+    onSave(buildSubmitInputCustom(formik.values), true); // CUSTOM
   }
 
   const encodingImage = ImageUtils.usePasteImage(onImageLoad);

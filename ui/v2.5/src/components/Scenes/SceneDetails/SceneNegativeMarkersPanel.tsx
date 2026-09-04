@@ -4,6 +4,7 @@ import { FormattedMessage } from "react-intl";
 import Mousetrap from "mousetrap";
 import * as GQL from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
+import { useSceneNegativeMarkerDestroy } from "src/core/StashService"; // CUSTOM
 import { SceneNegativeMarkerForm } from "./SceneNegativeMarkerForm";
 import TextUtils from "src/utils/text";
 import { Icon } from "src/components/Shared/Icon";
@@ -13,7 +14,7 @@ import {
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import {
-  findSceneMarkerGapWarnings,
+  prepareSceneMarkerWarnings,
   type SceneMarkerGapWarning,
 } from "./sceneMarkerGapWarning_custom";
 import { getSceneNegativeMarkerTotalDuration } from "./sceneNegativeMarkerDuration_custom"; // CUSTOM
@@ -27,7 +28,6 @@ import type {
 interface ISceneNegativeMarkersPanelProps {
   scene: GQL.SceneDataFragment;
   isVisible: boolean;
-  onRefetch: () => void;
   markerTimestampCopyRequest?: ISceneMarkerTimestampCopyRequest; // CUSTOM
   markerTimestampCopySelection?: ISceneMarkerTimestampCopySelection; // CUSTOM
   onMarkerTimestampCopyRequest: (
@@ -55,7 +55,6 @@ export const SceneNegativeMarkersPanel: React.FC<
 > = ({
   scene,
   isVisible,
-  onRefetch,
   markerTimestampCopyRequest, // CUSTOM
   markerTimestampCopySelection, // CUSTOM
   onMarkerTimestampCopyRequest, // CUSTOM
@@ -64,7 +63,7 @@ export const SceneNegativeMarkersPanel: React.FC<
   const { configuration } = useConfigurationContext();
   const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
   const [editingMarker, setEditingMarker] = useState<GQL.SceneNegativeMarker>();
-  const [destroyMarker] = GQL.useSceneNegativeMarkerDestroyMutation();
+  const [destroyMarker] = useSceneNegativeMarkerDestroy(scene.id); // CUSTOM
 
   const negativeMarkers = useMemo(() => {
     return [...(scene.negative_markers ?? [])].sort(
@@ -81,17 +80,17 @@ export const SceneNegativeMarkersPanel: React.FC<
   );
   const negativeMarkerWarningsById = useMemo(() => {
     const warningsById = new Map<string, string[]>();
+    const warningCalculator = prepareSceneMarkerWarnings({
+      sceneMarkers: scene.scene_markers ?? [],
+      negativeMarkers: scene.negative_markers ?? [],
+      roleTagIds: configuration?.ui.roleTagIds ?? {},
+    });
 
     negativeMarkers.forEach((marker) => {
-      const warnings = findSceneMarkerGapWarnings({
-        draft: {
-          id: marker.id,
-          seconds: marker.start_seconds,
-          end_seconds: marker.end_seconds,
-        },
-        sceneMarkers: scene.scene_markers ?? [],
-        negativeMarkers: scene.negative_markers ?? [],
-        roleTagIds: configuration?.ui.roleTagIds ?? {},
+      const warnings = warningCalculator.findGapWarnings({
+        id: marker.id,
+        seconds: marker.start_seconds,
+        end_seconds: marker.end_seconds,
       });
       const warningMessages = [
         warnings?.previous &&
@@ -120,8 +119,7 @@ export const SceneNegativeMarkersPanel: React.FC<
   const closeEditor = useCallback(() => {
     setEditingMarker(undefined);
     setIsEditorOpen(false);
-    onRefetch();
-  }, [onRefetch]);
+  }, []); // CUSTOM: mutations update the normalized scene cache directly
 
   // Set up hotkeys
   useEffect(() => {
@@ -138,12 +136,11 @@ export const SceneNegativeMarkersPanel: React.FC<
     async (id: string) => {
       try {
         await destroyMarker({ variables: { id } });
-        onRefetch();
       } catch (e) {
         console.error("Failed to delete negative marker", e);
       }
     },
-    [destroyMarker, onRefetch]
+    [destroyMarker]
   );
 
   if (isEditorOpen) {

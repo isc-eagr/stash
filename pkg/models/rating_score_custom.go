@@ -65,6 +65,7 @@ type RatingScoreWriter interface {
 	Delete(ctx context.Context, entityType string, entityID int, section string, key string) (bool, error)
 	DeleteByEntity(ctx context.Context, entityType string, entityID int) error
 	RecalculateRating(ctx context.Context, entityType string, entityID int) (int, error)
+	AdjustRatingsForSceneOCountChangeCustom(ctx context.Context, sceneID int, previousCount int, updatedCount int) error
 	ResetSceneScores(ctx context.Context, sceneID int) (bool, error)
 	ResetAllSceneScores(ctx context.Context) (int, error)
 }

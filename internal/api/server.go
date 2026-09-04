@@ -137,7 +137,7 @@ func Initialize() (*Server, error) {
 		r.Use(httplog.RequestLogger(httpLogger))
 	}
 	r.Use(SecurityHeadersMiddleware)
-	r.Use(middleware.Compress(4))
+	r.Use(customCompressMiddleware()) // CUSTOM: compress GraphQL response MIME type
 	r.Use(middleware.StripSlashes)
 	r.Use(BaseURLMiddleware)
 
@@ -213,7 +213,7 @@ func Initialize() (*Server, error) {
 
 	r.Mount("/performer", server.getPerformerRoutes())
 	r.Mount("/scene", server.getSceneRoutes())
-	r.Mount("/scene-release", server.getSceneReleaseRoutes()) // CUSTOM: scene release routes
+	r.Mount("/scene-release", server.getSceneReleaseRoutes())  // CUSTOM: scene release routes
 	r.Mount("/gevi-latest-data", server.getGEVILatestRoutes()) // CUSTOM: GEVI latest scenes/vatos API
 	r.Mount("/gallery", server.getGalleryRoutes())
 	r.Mount("/image", server.getImageRoutes())

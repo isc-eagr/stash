@@ -708,7 +708,7 @@ Scene-detail performer cards use a tighter layout than performer cards elsewhere
 
 Scene performer cards plus performer portraits and names shown in scene-marker activity/highlight UI open a compact overview drawer from the right side of the viewport. The drawer loads the full performer record on demand and supports backdrop, X-button, and Escape-key dismissal. All drawer links open in a new tab, including the vato name, tags, role metrics, and partner portraits.
 
-The panel includes the existing performer detail metadata and custom fields while intentionally omitting tattoos, piercings, and Stash IDs. It shows the performer rating and scene-average rating in collision-safe metric cards, the reusable sex/oral/solo/top/bottom role strip fitted beneath the performer name, catalog totals, an exact non-clickable Studios count, and an exact Partners count with lazy portrait previews on hover. Panel popovers render above the drawer layer, and the Partners popup measures its content and available viewport space so it flips above the trigger when it cannot fit below. Five always-visible activity-duration metrics reuse the performer Stats values: time fucking, getting fucked, getting his pito sucked, sucking pito, and jerking; top values are blue and bottom values are green. Activity Time appears after the general performer data and before the scene-specific interactions. The favorite/external/social action strip is intentionally omitted.
+The panel includes the existing performer detail metadata and custom fields while intentionally omitting tattoos, piercings, and Stash IDs. It shows the performer rating and scene-average rating in collision-safe metric cards, the reusable sex/oral/solo/top/bottom role strip fitted beneath the performer name, catalog totals, an exact non-clickable Studios count, and an exact Partners count with lazy portrait previews on hover. Panel popovers render above the drawer layer, and the Partners popup measures its content and available viewport space so it flips above the trigger when it cannot fit below. Five always-visible activity-duration metrics reuse the performer Stats values: time fucking, getting fucked, getting his pito sucked, sucking pito, and jerking; top values are blue and bottom values are green. The same responsive Activity Time card component also fills the right side of the standard performer-page header, moving below the performer details on narrower screens. Activity Time appears after the general performer data and before the scene-specific interactions. The favorite/external/social action strip is intentionally omitted.
 
 An **In This Scene** section at the bottom derives this vato's opposite-role partners from the current scene markers. It groups linked portraits under the same role-specific wording used by the performer Partners tab, deduplicates partners repeated across markers, and always orders populated groups as Sex Top, Oral Top, Sex Bottom, then Oral Bottom.
 
@@ -719,6 +719,7 @@ The performer detail label `penis_length` is displayed as **Verga** on both the 
 **Files created or modified:**
 
 - `ui/v2.5/src/components/Scenes/SceneDetails/ScenePerformerOverviewPanel_custom.tsx` and `.scss` - Scene-scoped drawer state, full performer query, overview rendering, responsive slide-in layout, and safe-mode metadata parity
+- `ui/v2.5/src/components/Performers/PerformerDetails/PerformerActivityTime.tsx`, `Performer.tsx`, and `ui/v2.5/src/components/Performers/styles.scss` - Shared activity cards and their responsive performer-header placement
 - `ui/v2.5/src/utils/scenePerformerOverview_custom.ts` - Explicit overview field exclusions, primary-click behavior, activity metric mapping, and scene-only partner grouping/deduplication
 - `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx` and `SceneDetailPanel.tsx` - Scene provider and Details-tab performer-card wiring
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerHoverPopover_custom.tsx` and `ui/v2.5/src/components/Scenes/SceneMarkerCard.tsx` - Marker portrait and performer-name drawer triggers
@@ -732,6 +733,7 @@ The performer detail label `penis_length` is displayed as **Verga** on both the 
 **Test cases:**
 
 - `ui/v2.5/tests/scenePerformerOverviewFields_custom.test.ts` verifies the exact three-field exclusion contract, retention of the remaining performer metadata, plain-click versus modifier-click card behavior, deduplicated/sorted partner previews, fixed scene-interaction ordering, retention of zero-value activity durations, and viewport-aware popover flipping.
+- `ui/v2.5/tests/performerActivityTime_custom.test.ts` verifies all five shared labels, roles, and formatted duration values, including zero durations.
 - `ui/v2.5/tests/performerRolePartnerLabels_custom.test.ts` verifies that shared duration is enabled for sex and oral partner cards and disabled for facial partner cards.
 - `internal/api/performer_partner_duration_custom_test.go` verifies unique shared-scene counts, same-scene interval merging, untimed zero-duration behavior, and opposite-role filtering.
 
@@ -3399,7 +3401,7 @@ Adds a hidden `/vatostats` page focused on vato aggregate analytics. A clearable
 ### Files Modified
 
 - `graphql/schema/types/stats_custom.graphql` - Adds `VatoStatsPerformer`, `VatoStatsAgeCount`, and the optionally Studio-scoped `vatoStatsPerformers(studio_id, depth)` query.
-- `internal/api/resolver_custom.go` - Adds the `vatoStatsPerformers` resolver, including optional Studio-tree scoping, scene O counts from `scenes_o_dates`, most recent O date, career span, scene counts, demographic fields, exact scene-age counts, metallic rating tier, image URLs, optimized batched sex/oral/solo role scene counts, and facial role marker counts using primary or secondary facial tags and descendants. The initial aggregate pre-groups O records per scene and computes career span in the main performer-scene pass to avoid row multiplication and a duplicate association scan.
+- `internal/api/resolver_custom.go` - Adds the `vatoStatsPerformers` resolver, including optional Studio-tree scoping, scene O counts from `scenes_o_dates`, most recent O date, career span, scene counts, demographic fields, exact scene-age counts, metallic rating tier, image URLs, optimized batched sex/oral/solo role scene counts, and facial role marker counts using primary or secondary facial tags and descendants. The initial aggregate pre-groups O records per scene and computes career span in the main performer-scene pass to avoid row multiplication and a duplicate association scan; sex, oral, and facial roles are calculated together in one marker scan.
 - `internal/api/resolver_custom_test.go` - Adds focused tests for exact scene-age helper behavior, Unknown cleanup, and ID-filter safety.
 - `internal/api/vato_stats_query_custom_test.go` - Verifies that the optimized aggregate query counts each scene and O event once, finds the latest O date, computes career span, preserves zero-O vatos, classifies rolling-year O events and performer creation dates, and excludes unrelated Studios from a direct-Studio scope.
 - `ui/v2.5/src/App.tsx` - Adds the hidden `/vatostats` route.
@@ -3417,12 +3419,14 @@ Adds a hidden `/vatostats` page focused on vato aggregate analytics. A clearable
 - `ui/v2.5/src/components/StatsStudioSelector_custom.tsx` - Shared clearable Studio selector and child-Studio depth switch for SceneStats and VatoStats.
 - `ui/v2.5/tests/vatoStatsStudioScope_custom.test.ts` - Verifies Studio-only summary, role, and tier calculations.
 - `ui/v2.5/src/components/Studios/StudioDetails/StudioVatoStatsPanel.tsx` - Embeds VatoStats with the Studio detail scope and child-Studio depth selection.
+- `internal/api/vato_stats_role_counts_custom.go` - Combines sex, oral, and facial role aggregation into one scoped marker query.
 
 ### Test Cases Added
 
 - `TestVatoStatsAgeRange` - Covers exact scene-age labels.
 - `TestVatoStatsSetAgeCount` - Covers merging repeated scene-age counts.
 - `TestVatoStatsPerformersQueryCustomAggregatesSceneOsAndCareerOnce` - Covers the pre-aggregated scene-O and single-pass career-span query.
+- `TestVatoStatsRoleCountsQueryCustomCombinesRoleMarkerScans` - Covers the combined role query, descendant tags, primary-versus-secondary tag semantics, facial de-duplication, and performer scoping.
 - `metallicRatingChart_custom.test.ts` - Covers None, null/unset ratings, zero ratings, recognized tiers, and tag-override tiers without a stored rating.
 - `vatoStatsStudioScope_custom.test.ts` - Covers direct versus child-Studio scope construction, scoped penis/O summaries, role classifications, solo-only and one-scene counts, and ethnicity/tier rows.
 
@@ -3452,11 +3456,14 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 - `ui/v2.5/src/components/SceneStats/sceneStatsDuration_custom.ts`
 - `ui/v2.5/src/components/SceneStats/sceneStatsFacialCounts_custom.ts`
 - `ui/v2.5/src/components/SceneStats/sceneStatsChartBuckets_custom.ts`
+- `ui/v2.5/src/components/SceneStats/sceneStatsCompactData_custom.ts`
+- `ui/v2.5/src/components/SceneStats/useSceneStatsCompactQuery_custom.ts`
 - `ui/v2.5/src/components/SceneStats/SceneStatsInsights_custom.tsx`
 - `ui/v2.5/src/components/Shared/ActivityStatsCharts_custom.tsx`
 - `ui/v2.5/tests/sceneStatsDuration_custom.test.ts`
 - `ui/v2.5/tests/sceneStatsFacialCounts_custom.test.ts`
 - `ui/v2.5/tests/sceneStatsChartBuckets_custom.test.ts`
+- `ui/v2.5/tests/sceneStatsCompactData_custom.test.ts`
 - `ui/v2.5/src/utils/metallicRatingChart_custom.ts`
 - `ui/v2.5/tests/metallicRatingChart_custom.test.ts`
 
@@ -3474,6 +3481,7 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 - `ui/v2.5/src/components/SceneStats/sceneStatsFacialCounts_custom.ts` - Supports compact marker tag-ID groups.
 - `ui/v2.5/src/components/Studios/StudioDetails/StudioStatsPanel.tsx`, `Studio.tsx`, and `ui/v2.5/src/components/Studios/Studios.tsx` - Reuse SceneStats in the Studio tab and retain its release drilldown route.
 - `internal/api/scene_stats_scope_custom.go` - Shares optional global/Studio-tree scene scoping across SceneStats resolvers.
+- `internal/api/compression_custom.go` and `internal/api/server.go` - Preserve the default HTTP compression types and add gqlgen's `application/graphql-response+json` MIME type.
 - `ui/v2.5/src/components/StatsStudioSelector_custom.tsx` and `statsPage_custom.scss` - Add the shared Studio selector and responsive layout used by both global dashboards.
 
 ### Features
@@ -3482,7 +3490,7 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 - Charts: By Vato Ethnicity, By Vato Country, By Vato Count, By Release Year/Month/Day, Has Facial, By Number of Facial, By Number of Really Hot Facial, Scene Type, By Length/Duration, By Resolution.
 - Duration chart bucketing: 0-4 minutes is grouped together, 5-45 minutes remains individual, and durations after 45 minutes are grouped in five-minute buckets such as 46-50 and 51-55.
 - Preserves the existing scene category metric button icons, colors, and links from the retired CustomStats page.
-- Performance: SceneStats now uses a small number of set-based SQL queries and a compact payload. It avoids the previous `findScenes(per_page: -1)` request with deeply nested relationship fields, and it returns only the most recent O date needed for the Most Recent O metric rather than every O-history date.
+- Performance: SceneStats now uses a small number of set-based SQL queries and a compact payload. It avoids the previous `findScenes(per_page: -1)` request with deeply nested relationship fields, returns only the most recent O date needed for the Most Recent O metric, scopes file/O aggregates before grouping, pre-aggregates Royal Sapphire bonus scenes once, and returns marker groups only for the configured dashboard tag families. The six marker count/duration totals are requested after the compact scene dataset arrives so they no longer block the first dashboard render. The large scene dataset uses short GraphQL response aliases plus a typed decoder and bypasses Apollo entity normalization; GraphQL JSON responses are gzip-eligible under their standards-based response MIME type.
 - Global insights: Activity and Quality use the same meaningful-scene denominator and shared donut component as Studio Stats. Rating criteria include all three scene rubrics; global performer criteria intentionally appear in VatoStats.
 - Studio SceneStats: all compact scene data, O/facial totals, activity durations, Activity & Quality charts, and Rating Advisor averages use the selected Studio scope. Studio-scoped category and marker links preserve that scope, including the child-Studio depth selection.
 
@@ -3491,13 +3499,15 @@ Adds `/scenestats` and retires `/customstats`. SceneStats owns the old scene met
 - `sceneStatsFacialCounts_custom.test.ts` verifies facial and really-hot facial counting from compact marker tag-ID groups, the original marker shape, and Facial Count podium ordering.
 - `sceneStatsPodiumEligibility_custom.test.ts` verifies that rolling-year Vato Count and Facial Count podiums exclude scenes released before the rolling year while rolling-year Rating retains scene-creation eligibility.
 - `sceneStatsChartBuckets_custom.test.ts` verifies zero/null Unknown classification, metallic zero-versus-null behavior, activity-type precedence, the `9999` unknown-year sentinel, and invalid/missing month/day handling.
+- `sceneStatsCompactData_custom.test.ts` verifies every compact response alias expands to the existing SceneStats dashboard model.
 - `metallicRatingChart_custom.test.ts` verifies shared SceneStats/VatoStats metallic bucket labels and ordering, including the set-rating-only None bucket.
 - `internal/api/scene_stats_activity_time_custom_test.go` verifies completed sex/oral marker duration totals, exclusion of missing/invalid ends, exact activity-tag separation, and performer-independent counting.
 - `internal/api/activity_stats_custom_test.go` verifies global and Studio scene-scope construction.
 - `internal/api/studio_rating_advisor_stats_custom_test.go` verifies global averages include scenes and performers without a Studio while Studio-scoped results remain isolated.
-- `internal/api/scene_stats_past_year_custom_test.go` verifies rolling-year scene creation, effective release, and O eligibility plus release-scoped performer counts.
+- `internal/api/scene_stats_past_year_custom_test.go` verifies rolling-year scene creation, effective release, and O eligibility, release-scoped performer counts, scoped base aggregates, pre-aggregated bonus lookup, and compact dashboard-tag marker rows.
 - `internal/api/scene_stats_scope_custom_test.go` verifies global and recursive Studio scope SQL construction plus invalid-ID handling.
 - `internal/api/stats_marker_counts_custom_test.go` verifies weighted SceneStats marker totals exclude unrelated Studios and honor the child-Studio depth selection.
+- `internal/api/compression_custom_test.go` verifies both ordinary JSON and GraphQL response JSON are gzip-compressed without dropping the server's existing compression behavior.
 
 ### GraphQL Schema Changes
 
@@ -4067,6 +4077,74 @@ The scene details Skip tab shows the total unique video time covered by its nega
 ### Configuration Dependencies
 
 - None.
+
+---
+
+## Marker Mutation Performance
+
+### Overview
+
+Regular and negative marker saves update the current scene's normalized Apollo cache immediately instead of blocking on the complete `FindScene` graph. Mounted marker groups and performer-role badges refresh through narrow, non-awaited operations. Performer marker roles are calculated for the whole scene in one backend batch, and GraphQL marker relationships share request-scoped loaders for scenes, tags, and top/bottom performers. Regular marker updates skip unchanged relationship rewrites and rating-mode scans. Marker gap warnings build sorted range indexes once per render and reuse them across every marker card.
+
+### Files Added or Modified
+
+- `graphql/schema/schema_custom.graphql`, `internal/api/resolver_query_scene_performer_marker_roles_custom.go`, `pkg/models/scene_performer_marker_roles_custom.go`, and `pkg/scene/performer_marker_roles_custom.go` - Add the scene-wide performer-role query and one-pass calculation.
+- `internal/api/loaders/batch_loader_custom.go`, `scene_marker_relations_custom.go`, `dataloaders.go`, and the SceneMarker resolvers - Batch direct marker relationships for GraphQL requests.
+- `internal/api/resolver_mutation_scene.go` - Avoids unchanged tag/performer writes and unnecessary scene-rating mode comparisons.
+- `ui/v2.5/src/core/StashService.ts`, `sceneMarkerCache_custom.ts`, and both marker forms/panels - Apply scoped normalized cache updates and narrow background refreshes without synchronous full-cache garbage collection.
+- `ui/v2.5/graphql/mutations/scene-marker.graphql` - Uses a direct marker mutation fragment that omits the recursively nested scene graph.
+- `ui/v2.5/src/components/Performers/PerformerCard.tsx` - Shares one scene-wide marker-role operation across performer cards.
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerGapWarning_custom.ts` and both marker panels - Reuse prepared warning indexes across all cards.
+
+### Test Cases Added
+
+- Verifies request batching and caching for custom marker relationship loaders.
+- Verifies scene-wide role output and constant marker/tag/performer association query counts.
+- Verifies unchanged relationship comparisons used by marker updates.
+- Verifies normalized marker cache insertion/removal without duplicates.
+- Verifies prepared warning results match the standalone calculation and do not reread every source marker per lookup.
+
+### GraphQL Schema Changes
+
+- Adds `scenePerformerMarkerRoles(scene_id: ID!): [ScenePerformerMarkerRoles!]!` with `performer_id` and `roles` fields.
+
+### Configuration Dependencies
+
+- Uses the existing configured Sex, Oral, Solo, Facial, Orgasm, Feet, and 2nd Camera role tag IDs.
+
+---
+
+## Scene Detail Mutation Performance
+
+### Overview
+
+Scene-detail mutations avoid work that is unrelated to the field being changed. The Organized toolbar action uses a three-field mutation response. Edit-tab saves submit only dirty values, return a metadata-only scene fragment, and suppress identical relationship sets before SQLite can delete and recreate joins. Scene cache invalidation is based on the changed relationship fields and defers global cache garbage collection.
+
+Play and O history actions request count-only results while retaining backward-compatible full-history responses for GraphQL clients that select `history`. Count-only requests use `COUNT` instead of reading and allocating every date. The UI inserts or removes the known dates in normalized cache and keeps O video timestamps aligned. Resume-time and play-duration resets update only their scene fields. O mutations adjust scene and performer rating bonuses from one batched target/count query instead of reloading rating scores and O counts separately for every performer.
+
+### Files Added or Modified
+
+- `ui/v2.5/graphql/mutations/scene.graphql` and `scene-o-timestamp.graphql` - Add the lightweight Organized/edit response fragments and count-only History operations.
+- `ui/v2.5/src/components/Scenes/SceneDetails/Scene.tsx`, `SceneEditPanel.tsx`, and `sceneEditInput_custom.ts` - Route Organized separately and submit only dirty edit fields.
+- `ui/v2.5/src/core/StashService.ts` and `sceneHistoryCache_custom.ts` - Apply scoped invalidation and local, timestamp-aligned History updates without synchronous hot-path garbage collection.
+- `internal/api/scene_update_relationships_custom.go` - Suppresses unchanged URL, performer, tag, gallery, group, and stash-ID relationship writes.
+- `internal/api/history_mutation_selection_custom.go`, `pkg/models/history_mutation_custom.go`, and `pkg/sqlite/history_result_custom.go` - Preserve full-history compatibility while making count-only requests constant-payload operations.
+- `pkg/models/rating_score_custom.go`, its mock, and `pkg/sqlite/rating_score_o_history_custom.go` - Batch O-rating adjustment targets and counts.
+
+### Test Cases Added
+
+- Verifies dirty scene-edit field selection, including nested relationship and custom-field values.
+- Verifies locally inserted/deleted History dates remain sorted and paired with the correct O video timestamps.
+- Guards lightweight Organized/edit/History GraphQL documents and absence of synchronous O-deletion cache GC.
+- Verifies unchanged scene relationship suppression, count-only history context propagation, and O-rating bonus deltas.
+
+### GraphQL Schema Changes
+
+- None. Existing mutation contracts remain compatible; only UI operation selections were narrowed.
+
+### Configuration Dependencies
+
+- Uses the existing Rating Advisor score configuration when O-derived rating bonuses are active.
 
 ---
 

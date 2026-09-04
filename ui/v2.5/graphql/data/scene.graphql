@@ -189,3 +189,18 @@ fragment SelectSceneData on Scene {
     screenshot
   }
 }
+
+# CUSTOM: minimal normalized-cache view used by count-only History mutations.
+fragment SceneHistoryCacheData on Scene {
+  id
+  play_count
+  play_history
+  last_played_at
+  play_duration
+  o_counter
+  o_history
+  o_timestamps
+  performers {
+    id
+  }
+}

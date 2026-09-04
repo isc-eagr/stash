@@ -4,6 +4,7 @@ import {
   findSceneMarkerGapWarningDetails,
   findSceneMarkerGapWarnings,
   findSceneMarkerWarnings,
+  prepareSceneMarkerWarnings,
   sceneMarkerWarningDraft,
 } from "../src/components/Scenes/SceneDetails/sceneMarkerGapWarning_custom.ts";
 
@@ -13,6 +14,57 @@ const roleTagIds = {
   soloTagId: "solo",
 };
 const roleTagIdsWithFacial = { ...roleTagIds, facialTagId: "facial" };
+
+// CUSTOM: begin – prepared warning calculation performance regression coverage
+const preparedSceneMarkers = Array.from({ length: 40 }, (_, index) => ({
+  id: `prepared-${index}`,
+  seconds: index * 10,
+  end_seconds: index * 10 + 9,
+  primary_tag: { id: index % 2 === 0 ? "sex" : "highlight" },
+  tags: [],
+  top_performers: [{ id: "top" }],
+  bottom_performers: [{ id: "bottom" }],
+}));
+const preparedNegativeMarkers = [
+  { id: "prepared-negative", start_seconds: 95, end_seconds: 96 },
+];
+let preparedSourceReads = 0;
+const observedPreparedSceneMarkers = preparedSceneMarkers.map(
+  (marker) =>
+    new Proxy(marker, {
+      get(target, property, receiver) {
+        preparedSourceReads += 1;
+        return Reflect.get(target, property, receiver);
+      },
+    })
+);
+const preparedCalculator = prepareSceneMarkerWarnings({
+  sceneMarkers: observedPreparedSceneMarkers,
+  negativeMarkers: preparedNegativeMarkers,
+  roleTagIds,
+});
+const sourceReadsAfterPreparation = preparedSourceReads;
+
+preparedSceneMarkers.forEach((marker) => {
+  const draft = sceneMarkerWarningDraft(marker);
+  assert.deepEqual(
+    preparedCalculator.findWarnings(draft),
+    findSceneMarkerWarnings({
+      draft,
+      sceneMarkers: preparedSceneMarkers,
+      negativeMarkers: preparedNegativeMarkers,
+      roleTagIds,
+    }),
+    `prepared warnings match the standalone API for ${marker.id}`
+  );
+});
+
+assert.equal(
+  preparedSourceReads,
+  sourceReadsAfterPreparation,
+  "prepared warning lookups reuse indexed ranges without rereading source markers"
+);
+// CUSTOM: end
 
 const baseDraft = {
   seconds: 60,

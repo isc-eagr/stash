@@ -18,6 +18,7 @@ import {
   useSceneRecordOAtTimestamp, // CUSTOM
   useSceneGenerateScreenshot,
   useSceneUpdate,
+  useSceneOrganizedUpdate, // CUSTOM
   queryFindScenes,
   queryFindScenesByID,
   useSceneIncrementPlayCount,
@@ -251,6 +252,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const intl = useIntl();
   const history = useHistory();
   const [updateScene] = useSceneUpdate();
+  const [updateSceneOrganized] = useSceneOrganizedUpdate(); // CUSTOM
   const [generateScreenshot] = useSceneGenerateScreenshot();
   const { configuration } = useConfigurationContext();
   const { showStudioText } = configuration?.ui ?? {};
@@ -370,7 +372,8 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const onOrganizedClick = async () => {
     try {
       setOrganizedLoading(true);
-      await updateScene({
+      await updateSceneOrganized({
+        // CUSTOM: lightweight toolbar mutation
         variables: {
           input: {
             id: scene.id,
@@ -775,7 +778,6 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             <SceneNegativeMarkersPanel
               scene={scene}
               isVisible={activeTabKey === "scene-negative-markers-panel"}
-              onRefetch={props.onRefetch}
               markerTimestampCopyRequest={markerTimestampCopyRequest} // CUSTOM
               markerTimestampCopySelection={markerTimestampCopySelection} // CUSTOM
               onMarkerTimestampCopyRequest={onMarkerTimestampCopyRequest} // CUSTOM

@@ -30,7 +30,7 @@ func (qb *oDateManager) AddOAtVideoTimestamp(ctx context.Context, id int, videoT
 		return nil, fmt.Errorf("inserting o with video timestamp: %w", err)
 	}
 
-	return qb.tableMgr.getDates(ctx, id)
+	return qb.tableMgr.resultDatesCustom(ctx, id)
 }
 
 // GetOVideoTimestamps returns video_timestamp values for ALL O entries of the

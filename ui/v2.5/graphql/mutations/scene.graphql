@@ -6,7 +6,100 @@ mutation SceneCreate($input: SceneCreateInput!) {
 
 mutation SceneUpdate($input: SceneUpdateInput!) {
   sceneUpdate(input: $input) {
-    ...SceneData
+    ...SceneUpdateData
+  }
+}
+
+# CUSTOM: lightweight path for the toolbar Organized toggle.
+mutation SceneOrganizedUpdate($input: SceneUpdateInput!) {
+  sceneUpdate(input: $input) {
+    id
+    organized
+    updated_at
+  }
+}
+
+# CUSTOM: keep edit saves complete enough to repaint edited metadata without
+# re-resolving markers, histories, files, releases, and other heavyweight data.
+fragment SceneUpdateData on Scene {
+  id
+  title
+  code
+  details
+  director
+  urls
+  date
+  effective_date
+  rating100
+  organized
+  updated_at
+  custom_fields
+  paths {
+    screenshot
+  }
+  direct_galleries {
+    id
+    title
+    files {
+      path
+    }
+    folder {
+      path
+    }
+    paths {
+      cover
+      preview
+    }
+  }
+  galleries {
+    id
+    title
+    files {
+      path
+    }
+    folder {
+      path
+    }
+    paths {
+      cover
+      preview
+    }
+  }
+  studio {
+    ...SlimStudioData
+  }
+  groups {
+    group {
+      id
+      name
+      front_image_path
+    }
+    scene_index
+  }
+  tags {
+    id
+    name
+    sort_name
+    image_path
+  }
+  performers {
+    id
+    name
+    disambiguation
+    gender
+    country
+    favorite
+    image_path
+    birthdate
+    rating100
+    rating_tier_tags: tags {
+      id
+    }
+  }
+  stash_ids {
+    endpoint
+    stash_id
+    updated_at
   }
 }
 
@@ -50,14 +143,12 @@ mutation SceneResetActivity(
 mutation SceneAddPlay($id: ID!, $times: [Timestamp!]) {
   sceneAddPlay(id: $id, times: $times) {
     count
-    history
   }
 }
 
 mutation SceneDeletePlay($id: ID!, $times: [Timestamp!]) {
   sceneDeletePlay(id: $id, times: $times) {
     count
-    history
   }
 }
 
@@ -68,14 +159,12 @@ mutation SceneResetPlayCount($id: ID!) {
 mutation SceneAddO($id: ID!, $times: [Timestamp!]) {
   sceneAddO(id: $id, times: $times) {
     count
-    history
   }
 }
 
 mutation SceneDeleteO($id: ID!, $times: [Timestamp!]) {
   sceneDeleteO(id: $id, times: $times) {
     count
-    history
   }
 }
 

@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/99designs/gqlgen/graphql"
+	"github.com/stashapp/stash/internal/api/loaders" // CUSTOM: batch SceneMarkerTags primary tags
 	"github.com/stashapp/stash/internal/build"
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/internal/manager/config" // CUSTOM: needed for Stats role tag computation
@@ -424,37 +425,42 @@ func (r *queryResolver) SceneMarkerTags(ctx context.Context, scene_id string) ([
 
 	var keys []int
 	tags := make(map[int]*SceneMarkerTag)
+	var sceneMarkers []*models.SceneMarker // CUSTOM
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		sceneMarkers, err := r.repository.SceneMarker.FindBySceneID(ctx, sceneID)
+		var err error                                                            // CUSTOM
+		sceneMarkers, err = r.repository.SceneMarker.FindBySceneID(ctx, sceneID) // CUSTOM
 		if err != nil {
 			return err
 		}
-
-		tqb := r.repository.Tag
-		for _, sceneMarker := range sceneMarkers {
-			markerPrimaryTag, err := tqb.Find(ctx, sceneMarker.PrimaryTagID)
-			if err != nil {
-				return err
-			}
-
-			if markerPrimaryTag == nil {
-				return fmt.Errorf("tag with id %d not found", sceneMarker.PrimaryTagID)
-			}
-
-			_, hasKey := tags[markerPrimaryTag.ID]
-			if !hasKey {
-				sceneMarkerTag := &SceneMarkerTag{Tag: markerPrimaryTag}
-				tags[markerPrimaryTag.ID] = sceneMarkerTag
-				keys = append(keys, markerPrimaryTag.ID)
-			}
-			tags[markerPrimaryTag.ID].SceneMarkers = append(tags[markerPrimaryTag.ID].SceneMarkers, sceneMarker)
-		}
-
 		return nil
 	}); err != nil {
 		return nil, err
 	}
+
+	// CUSTOM: begin - resolve all primary tags in one dataloader batch instead
+	// of issuing one tag query per marker.
+	primaryTagIDs := make([]int, len(sceneMarkers))
+	for i, sceneMarker := range sceneMarkers {
+		primaryTagIDs[i] = sceneMarker.PrimaryTagID
+	}
+	markerPrimaryTags, errs := loaders.From(ctx).TagByID.LoadAll(primaryTagIDs)
+	if err := firstError(errs); err != nil {
+		return nil, err
+	}
+	for i, sceneMarker := range sceneMarkers {
+		markerPrimaryTag := markerPrimaryTags[i]
+		if markerPrimaryTag == nil {
+			return nil, fmt.Errorf("tag with id %d not found", sceneMarker.PrimaryTagID)
+		}
+
+		if _, hasKey := tags[markerPrimaryTag.ID]; !hasKey {
+			tags[markerPrimaryTag.ID] = &SceneMarkerTag{Tag: markerPrimaryTag}
+			keys = append(keys, markerPrimaryTag.ID)
+		}
+		tags[markerPrimaryTag.ID].SceneMarkers = append(tags[markerPrimaryTag.ID].SceneMarkers, sceneMarker)
+	}
+	// CUSTOM: end
 
 	// Sort so that primary tags that show up earlier in the video are first.
 	sort.Slice(keys, func(i, j int) bool {

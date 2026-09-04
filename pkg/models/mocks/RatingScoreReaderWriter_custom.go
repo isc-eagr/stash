@@ -81,6 +81,11 @@ func (_m *RatingScoreReaderWriter) RecalculateRating(ctx context.Context, entity
 	return r0, r1
 }
 
+func (_m *RatingScoreReaderWriter) AdjustRatingsForSceneOCountChangeCustom(ctx context.Context, sceneID int, previousCount int, updatedCount int) error {
+	ret := _m.Called(ctx, sceneID, previousCount, updatedCount)
+	return ret.Error(0)
+}
+
 func (_m *RatingScoreReaderWriter) ResetSceneScores(ctx context.Context, sceneID int) (bool, error) {
 	ret := _m.Called(ctx, sceneID)
 

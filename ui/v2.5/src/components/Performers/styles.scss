@@ -16,6 +16,7 @@
 
   .performer-head {
     display: inline-block;
+    min-width: 0; /* CUSTOM: allow the activity-time column to fit beside performer details */
     vertical-align: top;
 
     .name-icons {
@@ -52,6 +53,20 @@
       min-width: 2rem;
     }
   }
+
+  /* CUSTOM: begin - activity-time cards beside the performer header details */
+  .performer-header-activity {
+    align-self: flex-start;
+    padding-top: 0.35rem;
+  }
+
+  @media (max-width: 991.98px) {
+    .performer-header-activity {
+      margin-top: 0.75rem;
+    }
+  }
+
+  /* CUSTOM: end */
 
   .alias {
     font-weight: bold;
@@ -109,6 +124,65 @@
   }
   /* stylelint-enable selector-class-pattern */
 }
+
+/* CUSTOM: begin - reusable performer activity-time cards */
+.performer-activity-time {
+  h3 {
+    color: #f5f8fa;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin: 0;
+    text-transform: uppercase;
+  }
+}
+
+.performer-activity-time-grid {
+  display: grid;
+  gap: 0.45rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 0.65rem;
+}
+
+.performer-activity-time-metric {
+  background: rgba(255, 255, 255, 0.045);
+  border-left: 3px solid #8a9ba8;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+
+  span {
+    color: #a9acb2;
+    font-size: 0.67rem;
+    line-height: 1.2;
+  }
+
+  strong {
+    color: #f5f8fa;
+    font-size: 1rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &.is-top {
+    border-left-color: #17a2b8;
+
+    strong {
+      color: #17a2b8;
+    }
+  }
+
+  &.is-bottom {
+    border-left-color: #28a745;
+
+    strong {
+      color: #28a745;
+    }
+  }
+}
+
+/* CUSTOM: end */
 
 .new-view {
   margin-bottom: 2rem;

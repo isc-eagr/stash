@@ -426,77 +426,22 @@ func getScenesByPerformerMarkerRole(ctx context.Context, r models.SceneMarkerQue
 	return sceneSet, nil
 }
 
-// GetPerformerMarkerRolesForScene returns the roles a performer has in a specific scene's markers.
+// getPerformerMarkerRolesForSceneFromData is the original single-performer evaluator retained
+// as a semantic reference for the scene-wide accumulator in performer_marker_roles_custom.go.
 // Returns array of strings like "sex_top", "sex_bottom", "oral_top", "oral_bottom",
 // "facial_top_X", "facial_bottom_X" (with counts), "facial_unique_X" (unique markers),
 // "sex_top_partners_X", "sex_bottom_partners_X" (unique partners per role),
 // "oral_top_partners_X", "oral_bottom_partners_X" (unique partners per role),
 // "facial_top_partners_X", "facial_bottom_partners_X" (unique partners per role),
 // "orgasm_top_X", "feet_top_X", "solo" based on their participation in markers.
-// Uses TagFinder to check if marker tags are descendants of the configured role tags.
-//
 // Note: facial_unique_X represents the actual number of distinct facial markers,
 // preventing double-counting when a performer is both top and bottom in the same marker.
 // Partner counts represent unique performers (by ID) with opposite role in the same markers.
-func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerReader, tagFinder models.TagFinder, performerID int, sceneID int, sexTagID int, oralTagID int, soloTagID int, facialTagID int, orgasmTagID int, feetTagID int, secondCameraTagID int) ([]string, error) {
+func getPerformerMarkerRolesForSceneFromData(performerID int, markers []*models.SceneMarker, allScenePerformers map[int][]*models.MarkerPerformer, allSceneSecondaryTags map[int][]int, sexTagSet, oralTagSet, soloTagSet, facialTagSet, orgasmTagSet, feetTagSet, secondCameraTagSet map[int]bool) []string {
 	roles := []string{}
 
-	// Query all markers for this scene using FindBySceneID
-	markers, err := r.FindBySceneID(ctx, sceneID)
-	if err != nil {
-		return nil, err
-	}
-
 	if len(markers) == 0 {
-		return roles, nil
-	}
-
-	// Build sets of all descendant tag IDs for each role tag (for subtag matching)
-	sexTagSet := make(map[int]bool)
-	oralTagSet := make(map[int]bool)
-	soloTagSet := make(map[int]bool)
-	facialTagSet := make(map[int]bool)
-	orgasmTagSet := make(map[int]bool)
-	feetTagSet := make(map[int]bool)
-	secondCameraTagSet := make(map[int]bool)
-
-	// Helper to build descendant set
-	buildDescendantSet := func(tagID int, tagSet map[int]bool) error {
-		if tagID == 0 {
-			return nil
-		}
-		tagSet[tagID] = true
-		descendants, err := tagFinder.FindAllDescendants(ctx, tagID, nil)
-		if err != nil {
-			return err
-		}
-		for _, d := range descendants {
-			tagSet[d.ID] = true
-		}
-		return nil
-	}
-
-	// Build all descendant sets
-	if err := buildDescendantSet(sexTagID, sexTagSet); err != nil {
-		return nil, err
-	}
-	if err := buildDescendantSet(oralTagID, oralTagSet); err != nil {
-		return nil, err
-	}
-	if err := buildDescendantSet(soloTagID, soloTagSet); err != nil {
-		return nil, err
-	}
-	if err := buildDescendantSet(facialTagID, facialTagSet); err != nil {
-		return nil, err
-	}
-	if err := buildDescendantSet(orgasmTagID, orgasmTagSet); err != nil {
-		return nil, err
-	}
-	if err := buildDescendantSet(feetTagID, feetTagSet); err != nil {
-		return nil, err
-	}
-	if err := buildDescendantSet(secondCameraTagID, secondCameraTagSet); err != nil {
-		return nil, err
+		return roles
 	}
 
 	// Track orgasm, feet, and facial marker counts for this performer (we need count, not just presence)
@@ -560,22 +505,7 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 		return matchedSex, matchedOral, matchedOrgasm, matchedFeet, matchedFacialTop, matchedFacialBottom
 	}
 
-	// Check each marker to see if this performer is top or bottom
-	// CUSTOM: begin - batch-fetch performer and tag associations to eliminate N+1 queries
-	sceneMarkerIDs := make([]int, len(markers))
-	for i, m := range markers {
-		sceneMarkerIDs[i] = m.ID
-	}
-	allScenePerformers, err := r.GetPerformersForMarkers(ctx, sceneMarkerIDs)
-	if err != nil {
-		return nil, err
-	}
-	allSceneSecondaryTags, err := r.GetTagIDsForMarkers(ctx, sceneMarkerIDs)
-	if err != nil {
-		return nil, err
-	}
-	// CUSTOM: end
-
+	// Check each marker to see if this performer is top or bottom.
 	for _, marker := range markers {
 		performers := allScenePerformers[marker.ID]         // CUSTOM: use batched result
 		secondaryTagIDs := allSceneSecondaryTags[marker.ID] // CUSTOM: use batched result
@@ -880,7 +810,7 @@ func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerRe
 		roles = append(roles, fmt.Sprintf("feet_top_%d", feetTopCount))
 	}
 
-	return roles, nil
+	return roles
 }
 
 // appendIfNotExists is a helper to append string if not already in slice.

@@ -20,7 +20,7 @@ mutation SceneMarkerCreate(
       bottom_performer_ids: $bottom_performer_ids # CUSTOM
     }
   ) {
-    ...SceneMarkerData
+    ...SceneMarkerMutationData # CUSTOM: omit the nested scene graph from save responses
   }
 }
 
@@ -48,7 +48,7 @@ mutation SceneMarkerUpdate(
       bottom_performer_ids: $bottom_performer_ids # CUSTOM
     }
   ) {
-    ...SceneMarkerData
+    ...SceneMarkerMutationData # CUSTOM: omit the nested scene graph from save responses
   }
 }
 
@@ -65,4 +65,54 @@ mutation SceneMarkerDestroy($id: ID!) {
 
 mutation SceneMarkersDestroy($ids: [ID!]!) {
   sceneMarkersDestroy(ids: $ids)
+}
+
+# CUSTOM: marker saves only need the marker and its direct relationships. The
+# full SceneMarkerData fragment recursively fetches scene files and performers.
+fragment SceneMarkerMutationData on SceneMarker {
+  id
+  created_at
+  updated_at
+  title
+  seconds
+  end_seconds
+  stream
+  preview
+  screenshot
+  primary_tag {
+    id
+    name
+    parents {
+      id
+      name
+    }
+  }
+  tags {
+    id
+    name
+    parents {
+      id
+      name
+    }
+  }
+  performers {
+    id
+    name
+    alias_list
+    disambiguation
+  }
+  top_performers {
+    id
+    name
+    alias_list
+    disambiguation
+    image_path
+  }
+  bottom_performers {
+    id
+    name
+    alias_list
+    disambiguation
+    image_path
+  }
 }

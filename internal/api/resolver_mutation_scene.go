@@ -270,16 +270,11 @@ func (r *mutationResolver) sceneUpdate(ctx context.Context, input models.SceneUp
 		return nil, err
 	}
 
-	// CUSTOM: begin - reset advisor scores when cast crosses the group threshold
-	var previousPerformerIDs []int
-	if updatedScene.PerformerIDs != nil {
-		performerIDs, err := qb.GetPerformerIDs(ctx, sceneID)
-		if err != nil {
-			return nil, err
-		}
-		previousPerformerIDs = performerIDs
+	// CUSTOM: skip no-op relationship rewrites and retain the old cast only when it changed.
+	previousPerformerIDs, err := suppressUnchangedSceneRelationshipsCustom(ctx, qb, sceneID, updatedScene)
+	if err != nil {
+		return nil, err
 	}
-	// CUSTOM: end
 
 	// ensure that title is set where scene has no file
 	if updatedScene.Title.Set && updatedScene.Title.Value == "" {
@@ -999,11 +994,54 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 		if updatedMarker.SceneID.Set {
 			updatedSceneID = updatedMarker.SceneID.Value
 		}
-		// CUSTOM: moving or retagging a marker can switch either scene rubric.
-		previousModes, err := r.sceneRatingModesCustom(ctx, []int{existingMarker.SceneID, updatedSceneID})
-		if err != nil {
-			return err
+		// CUSTOM: begin - avoid relationship rewrites and rubric scans when the
+		// form submitted values that are already stored.
+		modeMayChange := updatedSceneID != existingMarker.SceneID
+		if updatedMarker.PrimaryTagID.Set {
+			if updatedMarker.PrimaryTagID.Value == existingMarker.PrimaryTagID {
+				updatedMarker.PrimaryTagID.Set = false
+			} else {
+				modeMayChange = true
+			}
 		}
+		if tagIdsIncluded {
+			primaryTagID := existingMarker.PrimaryTagID
+			if updatedMarker.PrimaryTagID.Set {
+				primaryTagID = updatedMarker.PrimaryTagID.Value
+			}
+			tagIDs = sliceutil.Exclude(tagIDs, []int{primaryTagID})
+			existingTagIDs, err := qb.GetTagIDs(ctx, markerID)
+			if err != nil {
+				return err
+			}
+			if equalSceneMarkerIDSetsCustom(existingTagIDs, tagIDs) {
+				tagIdsIncluded = false
+			} else {
+				modeMayChange = true
+			}
+		}
+
+		if topPerformerIdsIncluded || bottomPerformerIdsIncluded {
+			existingPerformers, err := qb.GetPerformers(ctx, markerID)
+			if err != nil {
+				return err
+			}
+			if topPerformerIdsIncluded && equalSceneMarkerIDSetsCustom(markerPerformerIDsForRoleCustom(existingPerformers, "top"), topPerformerIDs) {
+				topPerformerIdsIncluded = false
+			}
+			if bottomPerformerIdsIncluded && equalSceneMarkerIDSetsCustom(markerPerformerIDsForRoleCustom(existingPerformers, "bottom"), bottomPerformerIDs) {
+				bottomPerformerIdsIncluded = false
+			}
+		}
+
+		var previousModes map[int]string
+		if modeMayChange {
+			previousModes, err = r.sceneRatingModesCustom(ctx, []int{existingMarker.SceneID, updatedSceneID})
+			if err != nil {
+				return err
+			}
+		}
+		// CUSTOM: end
 
 		// Validate end_seconds
 		shouldValidateEndSeconds := (updatedMarker.Seconds.Set || updatedMarker.EndSeconds.Set) && !updatedMarker.EndSeconds.Null
@@ -1048,8 +1086,7 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 
 		if tagIdsIncluded {
 			// Save the marker tags
-			// If this tag is the primary tag, then let's not add it.
-			tagIDs = sliceutil.Exclude(tagIDs, []int{newMarker.PrimaryTagID})
+			// The primary tag was excluded while comparing relationships above. // CUSTOM
 			if err := qb.UpdateTags(ctx, markerID, tagIDs); err != nil {
 				return err
 			}
@@ -1368,6 +1405,7 @@ func (r *mutationResolver) SceneIncrementPlayCount(ctx context.Context, id strin
 }
 
 func (r *mutationResolver) SceneAddPlay(ctx context.Context, id string, t []*time.Time) (*HistoryMutationResult, error) {
+	ctx = historyMutationContextCustom(ctx) // CUSTOM: avoid loading history when it was not selected
 	sceneID, err := strconv.Atoi(id)
 	if err != nil {
 		return nil, fmt.Errorf("converting id: %w", err)
@@ -1392,12 +1430,13 @@ func (r *mutationResolver) SceneAddPlay(ctx context.Context, id string, t []*tim
 	}
 
 	return &HistoryMutationResult{
-		Count:   len(updatedTimes),
+		Count:   models.HistoryMutationResultCountCustom(ctx, len(updatedTimes)), // CUSTOM
 		History: sliceutil.ValuesToPtrs(updatedTimes),
 	}, nil
 }
 
 func (r *mutationResolver) SceneDeletePlay(ctx context.Context, id string, t []*time.Time) (*HistoryMutationResult, error) {
+	ctx = historyMutationContextCustom(ctx) // CUSTOM: avoid loading history when it was not selected
 	sceneID, err := strconv.Atoi(id)
 	if err != nil {
 		return nil, err
@@ -1421,7 +1460,7 @@ func (r *mutationResolver) SceneDeletePlay(ctx context.Context, id string, t []*
 	}
 
 	return &HistoryMutationResult{
-		Count:   len(updatedTimes),
+		Count:   models.HistoryMutationResultCountCustom(ctx, len(updatedTimes)), // CUSTOM
 		History: sliceutil.ValuesToPtrs(updatedTimes),
 	}, nil
 }
@@ -1456,11 +1495,15 @@ func (r *mutationResolver) SceneIncrementO(ctx context.Context, id string) (ret 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.Scene
 
+		previousCount, err := qb.GetOCount(ctx, sceneID) // CUSTOM
+		if err != nil {
+			return err
+		}
 		updatedTimes, err = qb.AddO(ctx, sceneID, nil)
 		if err != nil {
 			return err
 		}
-		return r.recalculateSceneODateRatingBonus(ctx, sceneID)
+		return r.repository.RatingScore.AdjustRatingsForSceneOCountChangeCustom(ctx, sceneID, previousCount, len(updatedTimes)) // CUSTOM
 	}); err != nil {
 		return 0, err
 	}
@@ -1480,11 +1523,15 @@ func (r *mutationResolver) SceneDecrementO(ctx context.Context, id string) (ret 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.Scene
 
+		previousCount, err := qb.GetOCount(ctx, sceneID) // CUSTOM
+		if err != nil {
+			return err
+		}
 		updatedTimes, err = qb.DeleteO(ctx, sceneID, nil)
 		if err != nil {
 			return err
 		}
-		return r.recalculateSceneODateRatingBonus(ctx, sceneID)
+		return r.repository.RatingScore.AdjustRatingsForSceneOCountChangeCustom(ctx, sceneID, previousCount, len(updatedTimes)) // CUSTOM
 	}); err != nil {
 		return 0, err
 	}
@@ -1501,11 +1548,15 @@ func (r *mutationResolver) SceneResetO(ctx context.Context, id string) (ret int,
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.Scene
 
+		previousCount, err := qb.GetOCount(ctx, sceneID) // CUSTOM
+		if err != nil {
+			return err
+		}
 		ret, err = qb.ResetO(ctx, sceneID)
 		if err != nil {
 			return err
 		}
-		return r.recalculateSceneODateRatingBonus(ctx, sceneID)
+		return r.repository.RatingScore.AdjustRatingsForSceneOCountChangeCustom(ctx, sceneID, previousCount, ret) // CUSTOM
 	}); err != nil {
 		return 0, err
 	}
@@ -1514,6 +1565,7 @@ func (r *mutationResolver) SceneResetO(ctx context.Context, id string) (ret int,
 }
 
 func (r *mutationResolver) SceneAddO(ctx context.Context, id string, t []*time.Time) (*HistoryMutationResult, error) {
+	ctx = historyMutationContextCustom(ctx) // CUSTOM: avoid loading history when it was not selected
 	sceneID, err := strconv.Atoi(id)
 	if err != nil {
 		return nil, fmt.Errorf("converting id: %w", err)
@@ -1531,22 +1583,28 @@ func (r *mutationResolver) SceneAddO(ctx context.Context, id string, t []*time.T
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.Scene
 
+		previousCount, err := qb.GetOCount(ctx, sceneID) // CUSTOM
+		if err != nil {
+			return err
+		}
 		updatedTimes, err = qb.AddO(ctx, sceneID, times)
 		if err != nil {
 			return err
 		}
-		return r.recalculateSceneODateRatingBonus(ctx, sceneID)
+		updatedCount := models.HistoryMutationResultCountCustom(ctx, len(updatedTimes))                                    // CUSTOM
+		return r.repository.RatingScore.AdjustRatingsForSceneOCountChangeCustom(ctx, sceneID, previousCount, updatedCount) // CUSTOM
 	}); err != nil {
 		return nil, err
 	}
 
 	return &HistoryMutationResult{
-		Count:   len(updatedTimes),
+		Count:   models.HistoryMutationResultCountCustom(ctx, len(updatedTimes)), // CUSTOM
 		History: sliceutil.ValuesToPtrs(updatedTimes),
 	}, nil
 }
 
 func (r *mutationResolver) SceneDeleteO(ctx context.Context, id string, t []*time.Time) (*HistoryMutationResult, error) {
+	ctx = historyMutationContextCustom(ctx) // CUSTOM: avoid loading history when it was not selected
 	sceneID, err := strconv.Atoi(id)
 	if err != nil {
 		return nil, fmt.Errorf("converting id: %w", err)
@@ -1563,17 +1621,22 @@ func (r *mutationResolver) SceneDeleteO(ctx context.Context, id string, t []*tim
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.Scene
 
+		previousCount, err := qb.GetOCount(ctx, sceneID) // CUSTOM
+		if err != nil {
+			return err
+		}
 		updatedTimes, err = qb.DeleteO(ctx, sceneID, times)
 		if err != nil {
 			return err
 		}
-		return r.recalculateSceneODateRatingBonus(ctx, sceneID)
+		updatedCount := models.HistoryMutationResultCountCustom(ctx, len(updatedTimes))                                    // CUSTOM
+		return r.repository.RatingScore.AdjustRatingsForSceneOCountChangeCustom(ctx, sceneID, previousCount, updatedCount) // CUSTOM
 	}); err != nil {
 		return nil, err
 	}
 
 	return &HistoryMutationResult{
-		Count:   len(updatedTimes),
+		Count:   models.HistoryMutationResultCountCustom(ctx, len(updatedTimes)), // CUSTOM
 		History: sliceutil.ValuesToPtrs(updatedTimes),
 	}, nil
 }

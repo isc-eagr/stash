@@ -7,7 +7,10 @@ import * as GQL from "src/core/generated-graphql";
 import {
   useFindScene,
   useSceneMarkerUpdate,
+  useSceneNegativeMarkerCreate,
+  useSceneNegativeMarkerDestroy,
   useSceneNegativeMarkerNames,
+  useSceneNegativeMarkerUpdate,
 } from "src/core/StashService"; // CUSTOM
 import { DurationInput } from "src/components/Shared/DurationInput";
 import { MarkerTitleSuggest } from "src/components/Shared/Select"; // CUSTOM
@@ -64,9 +67,9 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
 }) => {
   const intl = useIntl();
 
-  const [createMarker] = GQL.useSceneNegativeMarkerCreateMutation();
-  const [updateMarker] = GQL.useSceneNegativeMarkerUpdateMutation();
-  const [destroyMarker] = GQL.useSceneNegativeMarkerDestroyMutation();
+  const [createMarker] = useSceneNegativeMarkerCreate(); // CUSTOM
+  const [updateMarker] = useSceneNegativeMarkerUpdate(); // CUSTOM
+  const [destroyMarker] = useSceneNegativeMarkerDestroy(sceneID); // CUSTOM
   const [updateSceneMarker] = useSceneMarkerUpdate(); // CUSTOM
   const Toast = useToast();
   const { configuration } = useConfigurationContext(); // CUSTOM

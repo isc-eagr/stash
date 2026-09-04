@@ -27,7 +27,7 @@ import {
 import { shouldShowOfficialSceneMarkerLayout } from "./sceneMarkerLayoutPreference_custom";
 import TextUtils from "src/utils/text";
 import {
-  findSceneMarkerWarnings,
+  prepareSceneMarkerWarnings,
   sceneMarkerWarningDraft,
 } from "./sceneMarkerGapWarning_custom";
 import { getSceneActivityMetrics } from "../sceneActivityMetricsData_custom";
@@ -169,14 +169,16 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   }, [configuration?.ui.roleTagIds, sceneData?.findScene]);
   const markerWarningMessagesById = useMemo(() => {
     const warningsById = new Map<string, string[]>();
+    const warningCalculator = prepareSceneMarkerWarnings({
+      sceneMarkers,
+      negativeMarkers,
+      roleTagIds: configuration?.ui.roleTagIds ?? {},
+    });
 
     sceneMarkers.forEach((marker) => {
-      const warningMessages = findSceneMarkerWarnings({
-        draft: sceneMarkerWarningDraft(marker),
-        sceneMarkers,
-        negativeMarkers,
-        roleTagIds: configuration?.ui.roleTagIds ?? {},
-      }).map((warning) => warning.message);
+      const warningMessages = warningCalculator
+        .findWarnings(sceneMarkerWarningDraft(marker))
+        .map((warning) => warning.message);
 
       if (warningMessages.length > 0) {
         warningsById.set(marker.id, warningMessages);

@@ -502,21 +502,24 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
     // CUSTOM: begin - scene marker roles query
     // Query for scene marker roles when in scene context
     const SCENE_MARKER_ROLES_QUERY = gql`
-      query PerformerSceneMarkerRoles($performer_id: ID!, $scene_id: ID!) {
-        findPerformer(id: $performer_id) {
-          id
-          scene_marker_roles(scene_id: $scene_id)
+      query PerformerSceneMarkerRoles($scene_id: ID!) {
+        scenePerformerMarkerRoles(scene_id: $scene_id) {
+          performer_id
+          roles
         }
       }
     `;
 
     const { data: rolesData } = useQuery(SCENE_MARKER_ROLES_QUERY, {
-      variables: { performer_id: performer.id, scene_id: sceneId },
+      variables: { scene_id: sceneId },
       skip: !sceneId,
       fetchPolicy: "cache-and-network",
     });
 
-    const markerRoles = rolesData?.findPerformer?.scene_marker_roles ?? [];
+    const markerRoles =
+      rolesData?.scenePerformerMarkerRoles?.find(
+        (entry: { performer_id: string }) => entry.performer_id === performer.id
+      )?.roles ?? [];
     // CUSTOM: end
     const sortDirection = activeSortDirection ?? GQL.SortDirectionEnum.Asc; // CUSTOM
     const performerSortData = {

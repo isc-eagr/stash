@@ -318,7 +318,6 @@
   }
 }
 
-.scene-performer-overview-activity,
 .scene-performer-overview-interactions {
   margin: 0 1rem;
 
@@ -334,52 +333,8 @@
 
 .scene-performer-overview-activity {
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  margin: 0 1rem;
   padding: 0.8rem 0 1rem;
-}
-
-.scene-performer-overview-activity-grid {
-  display: grid;
-  gap: 0.45rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 0.65rem;
-}
-
-.scene-performer-overview-activity-metric {
-  background: rgba(255, 255, 255, 0.045);
-  border-left: 3px solid #8a9ba8;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-width: 0;
-  padding: 0.55rem 0.65rem;
-
-  span {
-    color: #a9acb2;
-    font-size: 0.67rem;
-    line-height: 1.2;
-  }
-
-  strong {
-    color: #f5f8fa;
-    font-size: 1rem;
-    font-variant-numeric: tabular-nums;
-  }
-
-  &.is-top {
-    border-left-color: #17a2b8;
-
-    strong {
-      color: #17a2b8;
-    }
-  }
-
-  &.is-bottom {
-    border-left-color: #28a745;
-
-    strong {
-      color: #28a745;
-    }
-  }
 }
 
 .scene-performer-overview-interactions {
