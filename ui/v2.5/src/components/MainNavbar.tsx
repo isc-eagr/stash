@@ -62,7 +62,7 @@ const messages = defineMessages({
   },
   groups: {
     id: "groups",
-    defaultMessage: "Groups",
+    defaultMessage: "Movies", // CUSTOM
   },
   markers: {
     id: "markers",

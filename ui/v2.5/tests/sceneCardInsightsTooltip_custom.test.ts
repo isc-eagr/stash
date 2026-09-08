@@ -36,6 +36,16 @@ assert.match(
 );
 assert.match(
   insightsSource,
+  /getSceneCardInsightsPopoverPlacement\(\s*event\.currentTarget\.getBoundingClientRect\(\)\.bottom,\s*window\.innerHeight/,
+  "the complete insight report should open above its trigger when space below is limited"
+);
+assert.match(
+  insightsSource,
+  /placement=\{allInsightsPlacement\}/,
+  "the complete insight report should use the calculated vertical placement"
+);
+assert.match(
+  insightsSource,
   /\{hasOverflow && \(\s*<button/,
   "the plus control should render only when the complete set exceeds the visible limit"
 );
@@ -62,8 +72,8 @@ assert.match(
 );
 assert.match(
   insightsSource,
-  /insight\.key === "outstanding-activity" \|\|\s+insight\.key === "outstanding-activity-presence" \|\|\s+insight\.key === "feet" \|\|\s+\(insightSets\.goatOpensActivityMatrix && insight\.key\.startsWith\("goat-"\)\)/,
-  "Outstanding Activity, Feet, and fallback GOAT chips should open the activity matrix"
+  /insight\.key === "outstanding-activity" \|\|\s+insight\.key === "outstanding-activity-presence" \|\|\s+insight\.key === "feet" \|\|\s+insight\.key\.startsWith\("goat-"\)/,
+  "Outstanding Activity, Feet, and GOAT chips should open the activity matrix"
 );
 assert.doesNotMatch(
   insightsSource,

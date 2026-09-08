@@ -1,0 +1,246 @@
+.insight-stats-shell {
+  margin: 2rem auto;
+  max-width: 1600px;
+  padding: 0 1.5rem;
+}
+
+.insight-stats-header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+
+  h1 {
+    font-size: 2rem;
+    margin: 0.5rem 0;
+  }
+
+  p {
+    color: #adb5bd;
+    margin: 0;
+  }
+}
+
+.insight-stats-eyebrow {
+  color: #d8bf83;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+/* CUSTOM: Make Insights Engine actions easier to spot against the dark stats surface. */
+.insight-stats-action.btn {
+  background-color: rgba(216, 191, 131, 0.1);
+  border-color: rgba(216, 191, 131, 0.78);
+  color: #f2d998;
+  font-weight: 700;
+  transition: background-color 150ms ease, border-color 150ms ease,
+    box-shadow 150ms ease, color 150ms ease;
+
+  &:hover,
+  &:focus,
+  &:not(:disabled):not(.disabled):active {
+    background-color: rgba(216, 191, 131, 0.24);
+    border-color: #f0d58e;
+    box-shadow: 0 0 0 0.15rem rgba(216, 191, 131, 0.16);
+    color: #fff;
+  }
+
+  &:disabled,
+  &.disabled {
+    background-color: transparent;
+    border-color: rgba(216, 191, 131, 0.35);
+    color: rgba(242, 217, 152, 0.62);
+    opacity: 0.72;
+  }
+}
+
+.insight-stats-action-danger.btn {
+  background-color: rgba(219, 55, 55, 0.1);
+  border-color: rgba(255, 126, 126, 0.82);
+  color: #ffb0b0;
+
+  &:hover,
+  &:focus,
+  &:not(:disabled):not(.disabled):active {
+    background-color: rgba(219, 55, 55, 0.25);
+    border-color: #ff9696;
+    color: #fff;
+  }
+}
+
+.insight-stats-notice {
+  background: rgba(216, 191, 131, 0.07);
+  border-left: 3px solid #d8bf83;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+}
+
+.insight-stats-summary {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-bottom: 1rem;
+
+  > div {
+    background: rgba(128, 128, 128, 0.08);
+    border: 1px solid rgba(128, 128, 128, 0.2);
+    border-radius: 0.75rem;
+    padding: 1rem;
+  }
+
+  strong {
+    display: block;
+    font-size: 1.8rem;
+  }
+
+  span {
+    color: #adb5bd;
+    font-size: 0.85rem;
+  }
+}
+
+.insight-stats-layout {
+  align-items: start;
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: 300px minmax(0, 1fr);
+}
+
+.insight-stats-controls {
+  background: rgba(128, 128, 128, 0.06);
+  border: 1px solid rgba(128, 128, 128, 0.25);
+  border-radius: 0.75rem;
+  padding: 1rem;
+
+  h2 {
+    font-size: 1.2rem;
+  }
+}
+
+.insight-stats-help {
+  color: #adb5bd;
+  font-size: 0.8rem;
+  margin: 1rem 0;
+}
+
+.insight-stats-threshold {
+  border-top: 1px solid rgba(128, 128, 128, 0.2);
+  padding: 0.85rem 0;
+
+  label {
+    font-size: 0.8rem;
+  }
+
+  > div {
+    align-items: center;
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  input[type="range"] {
+    accent-color: #d8bf83;
+    min-width: 0;
+    width: 100%;
+  }
+
+  input[type="number"] {
+    flex: 0 0 4.5rem;
+    width: 4.5rem;
+  }
+}
+
+.insight-stats-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+
+  .form-group {
+    flex: 1 1 180px;
+  }
+
+  label {
+    font-size: 0.8rem;
+  }
+}
+
+.insight-stats-table-status,
+.insight-stats-pagination {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.insight-stats-table {
+  font-size: 0.85rem;
+
+  thead th {
+    border-top: 0;
+    vertical-align: top;
+  }
+
+  tbody th {
+    font-weight: 400;
+    min-width: 240px;
+    width: 49%;
+  }
+
+  td {
+    min-width: 105px;
+  }
+
+  small {
+    color: #adb5bd;
+    display: block;
+    font-size: 0.75rem;
+    margin-top: 0.3rem;
+  }
+}
+
+.insight-stats-coverage {
+  font-variant-numeric: tabular-nums;
+
+  span {
+    color: #adb5bd;
+    display: block;
+    font-size: 0.8rem;
+  }
+
+  meter {
+    display: block;
+    height: 0.6rem;
+    margin-top: 0.35rem;
+    width: 85px;
+  }
+}
+
+.insight-stats-changed {
+  color: #d8bf83;
+  font-variant-numeric: tabular-nums;
+}
+
+.insight-stats-modal-thresholds {
+  display: grid;
+  gap: 0 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+@media (max-width: 1000px) {
+  .insight-stats-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .insight-stats-sliders {
+    display: grid;
+    gap: 0 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  .insight-stats-shell {
+    padding: 0 0.75rem;
+  }
+}

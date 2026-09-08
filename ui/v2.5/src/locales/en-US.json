@@ -51,6 +51,10 @@
           "heading": "Very common Outstanding Activity tags",
           "description": "The top two present tags from this set use amount wording. Every other present Outstanding Activity tag is listed together in a Scene contains chip."
         },
+        "visible_limit": {
+          "heading": "Visible insight chips",
+          "description": "Maximum number of insight chips shown on a scene card before the plus button appears."
+        },
         "tag_good_amount": {
           "heading": "Good amount of tag threshold (%)",
           "description": "Minimum scene percentage covered by a highlight tag for a Good amount of chip."

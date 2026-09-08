@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { gql, useQuery } from "@apollo/client";
 import { Alert, Button, Form } from "react-bootstrap";
 import { Helmet } from "react-helmet";
@@ -7,7 +7,9 @@ import { Link } from "react-router-dom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { StatsPage } from "src/components/StatsPage_custom";
 import { StatsStudioSelector } from "src/components/StatsStudioSelector_custom";
-import type { Studio } from "src/components/Studios/StudioSelect";
+import { StatsFilterBar } from "src/components/StatsFilterBar_custom";
+import { useStatsViewState } from "src/hooks/useStatsViewState_custom";
+import { removeStatsFilter } from "src/utils/statsViewState_custom";
 import * as GQL from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useTitleProps } from "src/hooks/title";
@@ -335,6 +337,13 @@ const chartDefinitions: Array<{ key: ChartCategory; label: string }> = [
   { key: "circumcised", label: "Circumcised" },
   { key: "penis", label: "Verga" },
 ];
+
+const vatoViewOptions = {
+  prefix: "vato",
+  categories: chartDefinitions.map((definition) => definition.key),
+  metrics: metricOptions.map((option) => option.key),
+  defaultMetric: "scene_o_count" as PodiumMetric,
+};
 
 const countryDemonyms: Record<string, string> = {
   "United States": "American",
@@ -1134,6 +1143,8 @@ const VatoStatsChart: React.FC<{
         {unknownCount > 0 && (
           <button
             className="vatostats-unknown-count"
+            aria-label={`Filter by ${label}: Unknown`}
+            title={`Filter by ${label}: Unknown`}
             onClick={() =>
               onSelect({ category, label: "Unknown", value: UNKNOWN_KEY })
             }
@@ -1148,7 +1159,7 @@ const VatoStatsChart: React.FC<{
           {unknownCount > 0 ? "Only Unknown data" : "No data"}
         </div>
       ) : (
-        <div className="vatostats-bars" role="list">
+        <div className="vatostats-bars">
           {data.map((datum) => (
             <button
               className="vatostats-bar-cell"
@@ -1157,7 +1168,10 @@ const VatoStatsChart: React.FC<{
                 onSelect({ category, label: datum.label, value: datum.key })
               }
               type="button"
-              role="listitem"
+              aria-label={`Filter by ${label}: ${
+                datum.label
+              } (${datum.count.toLocaleString()} vatos)`}
+              title={`Filter by ${label}: ${datum.label}`}
             >
               <span className="vatostats-bar-count">
                 {datum.count.toLocaleString()}
@@ -1183,33 +1197,28 @@ const VatoStatsChart: React.FC<{
 
 const VatoStatsFilterBar: React.FC<{
   filters: ChartFilter[];
+  total: string;
+  onRemove: (index: number) => void;
   onBack: () => void;
   onClear: () => void;
-}> = ({ filters, onBack, onClear }) => {
+}> = ({ filters, total, onRemove, onBack, onClear }) => {
   if (filters.length === 0) return null;
 
   return (
-    <div className="vatostats-filter-bar" aria-label="Active VatoStats filters">
-      <Button onClick={onBack} size="sm" variant="secondary">
-        Back
-      </Button>
-      <Button onClick={onClear} size="sm" variant="secondary">
-        Clear
-      </Button>
-      <div className="vatostats-filter-list">
-        {filters.map((filter, index) => (
-          <span
-            className="vatostats-filter-chip"
-            key={`${filter.category}-${filter.value}-${index}`}
-          >
-            {chartDefinitions.find(
-              (definition) => definition.key === filter.category
-            )?.label ?? filter.category}
-            : {filter.label}
-          </span>
-        ))}
-      </div>
-    </div>
+    <StatsFilterBar
+      label="Active Vato Stats filters"
+      total={total}
+      onUndo={onBack}
+      onClear={onClear}
+      filters={filters.map((filter, index) => ({
+        label: `${
+          chartDefinitions.find(
+            (definition) => definition.key === filter.category
+          )?.label ?? filter.category
+        }: ${filter.label}`,
+        onRemove: () => onRemove(index),
+      }))}
+    />
   );
 };
 
@@ -1348,9 +1357,12 @@ const VatoStatsSummary: React.FC<{
             className="vatostats-summary-card linked"
             key={card.label}
             to={card.path}
+            title={`View matching vatos: ${card.label}`}
           >
             <div className="vatostats-summary-value">{card.value}</div>
-            <div className="vatostats-summary-label">{card.label}</div>
+            <div className="vatostats-summary-label">
+              {card.label} <span aria-hidden="true">→</span>
+            </div>
           </Link>
         ) : (
           <div className="vatostats-summary-card" key={card.label}>
@@ -1520,11 +1532,20 @@ const VatoStatsTierTable: React.FC<{
 export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
   studioScope: fixedStudioScope,
 }) => {
-  const [selectedStudio, setSelectedStudio] = useState<Studio>();
-  const [includeChildStudios, setIncludeChildStudios] = useState(true);
-  const [metric, setMetric] = useState<PodiumMetric>("scene_o_count");
-  const [filters, setFilters] = useState<ChartFilter[]>([]);
-  const [showPerformerList, setShowPerformerList] = useState(false);
+  const {
+    view,
+    updateView,
+    setMetric,
+    setFilters,
+    setShowList: setShowPerformerList,
+  } = useStatsViewState(vatoViewOptions);
+  const {
+    studio: selectedStudio,
+    includeChildStudios,
+    metric,
+    filters,
+    showList: showPerformerList,
+  } = view;
   const { configuration } = useConfigurationContext();
   const roleTagIds = configuration?.ui?.roleTagIds ?? {};
   const selectedStudioScope = useMemo<IVatoStatsStudioScope | undefined>(
@@ -1767,22 +1788,34 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
           <StatsStudioSelector
             includeChildStudios={includeChildStudios}
             onIncludeChildStudiosChange={(include) => {
-              setIncludeChildStudios(include);
-              setFilters([]);
+              updateView({ includeChildStudios: include, filters: [] });
             }}
             onStudioChange={(studio) => {
-              setSelectedStudio(studio);
-              setFilters([]);
+              updateView({ studio, filters: [] });
             }}
             studio={selectedStudio}
           />
         )}
       </header>
 
+      <VatoStatsFilterBar
+        filters={filters}
+        total={`${filteredPerformers.length.toLocaleString()} matching vatos`}
+        onRemove={(index) =>
+          setFilters((current) => removeStatsFilter(current, index))
+        }
+        onBack={() => setFilters((current) => current.slice(0, -1))}
+        onClear={() => setFilters([])}
+      />
+
       {performers.length === 0 ? (
         <Alert variant="secondary">No vatos with scenes found.</Alert>
       ) : (
         <>
+          <p className="stats-interaction-help">
+            {studioScope ? "Studio" : "Library"} totals below. Linked totals
+            open matching records →
+          </p>
           <VatoStatsSummary
             facialTag={facialTag}
             lenientBottom={
@@ -1882,6 +1915,10 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
             studioScope={studioScope}
           />
           <VatoStatsRatingAdvisor studioScope={studioScope} />
+          <p className="stats-interaction-help">
+            Select a bar or Unknown badge to filter the charts and rankings on
+            this page.
+          </p>
           <div className="vatostats-chart-grid">
             {chartDefinitions.map((definition) => (
               <VatoStatsChart
@@ -1896,11 +1933,6 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
           </div>
         </>
       )}
-      <VatoStatsFilterBar
-        filters={filters}
-        onBack={() => setFilters((current) => current.slice(0, -1))}
-        onClear={() => setFilters([])}
-      />
     </StatsPage>
   );
 };

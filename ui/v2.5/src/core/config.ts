@@ -152,6 +152,7 @@ export interface IUIConfig {
   };
   // CUSTOM: begin - scene card insight thresholds
   sceneCardInsightThresholds?: {
+    visibleInsightLimit?: number;
     goodOutstandingPercent?: number;
     greatOutstandingPercent?: number;
     amazingOutstandingPercent?: number;

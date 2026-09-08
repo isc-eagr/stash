@@ -1,4 +1,4 @@
-import { faFilm, faUsers } from "@fortawesome/free-solid-svg-icons";
+import { faFilm, faSliders, faUsers } from "@fortawesome/free-solid-svg-icons";
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Icon } from "src/components/Shared/Icon";
@@ -19,6 +19,11 @@ const customStatsLinks = [
     label: "Vato Stats",
     href: "/vatostats",
     icon: <Icon icon={faUsers} />,
+  },
+  {
+    label: "Insight Stats",
+    href: "/insightstats",
+    icon: <Icon icon={faSliders} />,
   },
 ];
 

@@ -42,6 +42,7 @@ export type {
 } from "./sceneCardInsightTypes_custom";
 
 export const defaultSceneCardInsightThresholds: SceneCardInsightThresholds = {
+  visibleInsightLimit: 7,
   goodOutstandingPercent: 20,
   greatOutstandingPercent: 40,
   amazingOutstandingPercent: 60,
@@ -75,6 +76,12 @@ function finiteInteger(
 export function normalizeSceneCardInsightThresholds(
   value?: IUIConfig["sceneCardInsightThresholds"]
 ): SceneCardInsightThresholds {
+  const visibleInsightLimit = finiteInteger(
+    value?.visibleInsightLimit,
+    defaultSceneCardInsightThresholds.visibleInsightLimit,
+    1,
+    20
+  );
   const goodOutstandingPercent = finiteInteger(
     value?.goodOutstandingPercent,
     defaultSceneCardInsightThresholds.goodOutstandingPercent,
@@ -158,6 +165,7 @@ export function normalizeSceneCardInsightThresholds(
   );
 
   return {
+    visibleInsightLimit,
     goodOutstandingPercent,
     greatOutstandingPercent,
     amazingOutstandingPercent,
@@ -527,7 +535,8 @@ function allMarkerPerformers(marker: SceneCardInsightMarker) {
 export function getOutstandingActivityMatrix(
   sourceScene: SceneCardInsightScene,
   roleTagIds: IUIConfig["roleTagIds"],
-  configuredThresholds?: IUIConfig["sceneCardInsightThresholds"]
+  configuredThresholds?: IUIConfig["sceneCardInsightThresholds"],
+  includePerformers = true // CUSTOM: Stats needs totals only.
 ): IOutstandingActivityMatrix {
   const scene = withSceneTagAncestors(sourceScene);
   const sceneDuration = scene.files[0]?.duration ?? 0;
@@ -557,13 +566,17 @@ export function getOutstandingActivityMatrix(
     });
 
   const performers = new Map(
-    scene.performers.map((performer) => [performer.id, performer])
+    (includePerformers ? scene.performers : []).map((performer) => [
+      performer.id,
+      performer,
+    ]) // CUSTOM
   );
   let hasSceneWideActivity = false;
 
   const rows = Array.from(groups.values()).map(({ tag, markers }) => {
     const cellMarkers = new Map<string, Map<string, SceneCardInsightMarker>>();
     markers.forEach((marker) => {
+      if (!includePerformers) return; // CUSTOM
       const creditedPerformers = allMarkerPerformers(marker);
       if (creditedPerformers.length === 0) {
         hasSceneWideActivity = true;
@@ -1080,6 +1093,7 @@ function getOrgasmAutomaticCandidates(
     candidates.push({
       key: `orgasm-repeat-${performer.id}`,
       label: `${performer.name} ${orgasmRepeatPhrase(markers.size)}`,
+      statsLabel: "Repeated orgasms", // CUSTOM: group performer instances.
       detail: `${markers.size} orgasm markers as top, excluding 2nd camera`,
       tone: "event",
       kind: "orgasm-event",
@@ -1246,6 +1260,8 @@ function getAutomaticCandidates(
     return {
       key: `goat-${groupKey}`,
       label: `GOAT ${joinInsightNames(descriptors)}${performerSuffix}`,
+      statsLabel: `GOAT ${joinInsightNames(descriptors)}`, // CUSTOM
+      statsParts: descriptors.map((name) => `GOAT ${name}`), // CUSTOM
       detail: markerCoverageDetail(stats),
       tone: "goat",
       kind: "goat",
@@ -1258,6 +1274,7 @@ function getAutomaticCandidates(
     const performerSuffix = performer ? ` from ${performer.label}` : "";
     goatCandidates.push({
       key: `goat-moment:${groupKey}`,
+      statsLabel: "GOAT moment", // CUSTOM
       label:
         stats.markerCount === 1
           ? `GOAT moment${performerSuffix}`
@@ -1341,6 +1358,9 @@ function getTagCandidates(
     const topRows = commonRows.slice(0, 2);
     candidates.push({
       key: "outstanding-activity",
+      statsParts: topRows.map((row) =>
+        tagAmountLabel(row.amountLevel, displayTagName(row.tag))
+      ), // CUSTOM
       label: getOutstandingActivityChipLabel({
         ...activityMatrix,
         rows: commonRows,
@@ -1359,6 +1379,9 @@ function getTagCandidates(
   if (uncommonRows.length > 0) {
     candidates.push({
       key: "outstanding-activity-presence",
+      statsParts: uncommonRows.map(
+        (row) => `Scene contains ${displayTagName(row.tag)}`
+      ), // CUSTOM
       label: `Scene contains ${joinInsightNames(
         uncommonRows.map((row) => displayTagName(row.tag))
       )}`,
@@ -1406,6 +1429,7 @@ function getFeetCandidates(
     {
       key: "feet",
       label: names.length > 0 ? `Feet from ${joinInsightNames(names)}` : "Feet",
+      statsLabel: "Feet", // CUSTOM: group performer instances.
       detail: markerCoverageDetail(stats),
       tone: "tag",
       kind: "feet",
@@ -1605,6 +1629,7 @@ function getInteractionCandidate(
     {
       key: `interaction-${key}`,
       label,
+      statsLabel: label, // CUSTOM: group performer-specific details.
       detail,
       tone: "interaction",
       kind: "interaction",
@@ -1826,6 +1851,7 @@ function getRareRoleCandidates(
         candidates.push({
           key: `rare-${category}-${role}-${performer.id}`,
           label: `Rare instance of ${performer.name} ${action}`,
+          statsLabel: `Rare ${category} ${role}`, // CUSTOM: group performer instances.
           detail: `${count} of ${total} ${category}-role scenes (${Math.round(
             percent
           )}%) · usually ${getPerformerRareRoleAction(category, usualRole)}`,
@@ -2053,12 +2079,18 @@ export function getSceneCardInsightSets(
   roleTagIds: IUIConfig["roleTagIds"],
   configuredThresholds?: IUIConfig["sceneCardInsightThresholds"],
   ratingConfig?: SceneCardInsightRatingConfig,
-  roleStatsByPerformer?: ReadonlyMap<string, SceneCardInsightPerformerRoleStats>
+  roleStatsByPerformer?: ReadonlyMap<
+    string,
+    SceneCardInsightPerformerRoleStats
+  >,
+  includePerformerMatrix = true // CUSTOM
 ) {
+  const thresholds = normalizeSceneCardInsightThresholds(configuredThresholds);
   const outstandingActivityMatrix = getOutstandingActivityMatrix(
     scene,
     roleTagIds,
-    configuredThresholds
+    configuredThresholds,
+    includePerformerMatrix // CUSTOM
   );
   const candidates = getSceneCardInsightCandidates(
     scene,
@@ -2077,8 +2109,13 @@ export function getSceneCardInsightSets(
         candidate.kind === "outstanding-activity-presence"
     );
   return {
-    visible: selectSceneCardInsights(candidates),
+    visible: selectSceneCardInsights(
+      candidates,
+      thresholds.visibleInsightLimit
+    ),
     all: selectAllSceneCardInsights(candidates),
+    candidates, // CUSTOM: Stats uses the same candidates and selection as cards.
+    visibleInsightLimit: thresholds.visibleInsightLimit,
     goatOpensActivityMatrix,
     outstandingActivityMatrix,
   };

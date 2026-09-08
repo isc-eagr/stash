@@ -1,4 +1,5 @@
-import { isRoyalSapphireRatingCard } from "src/utils/ratingCardStyles_custom";
+// CUSTOM: Relative runtime import also resolves in the standalone stats worker.
+import { isRoyalSapphireRatingCard } from "../../utils/ratingCardStyles_custom";
 import type {
   SceneCardInsightCandidate,
   SceneCardInsightRatingConfig,

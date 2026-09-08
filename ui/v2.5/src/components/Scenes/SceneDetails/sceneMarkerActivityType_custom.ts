@@ -59,7 +59,10 @@ export function getActivityTypeSectionTagIds(
 }
 
 export function isActivityTypeSceneMarker(
-  marker: Pick<GQL.SceneMarkerDataFragment, "primary_tag" | "tags">,
+  marker: {
+    primary_tag: Pick<GQL.Tag, "id">;
+    tags: unknown[];
+  },
   activityTypeTagIds: ActivityTypeTagIds
 ) {
   return (

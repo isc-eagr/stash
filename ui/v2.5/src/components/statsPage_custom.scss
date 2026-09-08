@@ -8,6 +8,74 @@
   min-height: 16rem;
 }
 
+/* CUSTOM: Shared removable filters and explicit interaction cues. */
+.stats-filter-bar {
+  align-items: center;
+  background: #101820;
+  border: 1px solid #52677d;
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  position: sticky;
+  top: 3.5rem;
+  z-index: 10;
+}
+
+.stats-filter-total {
+  font-weight: 700;
+}
+
+.stats-filter-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.stats-filter-chip {
+  background: #203c59;
+  border: 1px solid #6689ad;
+  border-radius: 1rem;
+  color: #fff;
+  cursor: pointer;
+  min-height: 2rem;
+  overflow-wrap: anywhere;
+  padding: 0.25rem 0.65rem;
+  text-align: left;
+
+  &:hover {
+    background: #315778;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
+}
+
+.stats-interaction-help {
+  color: #c3cedb;
+  font-size: 0.875rem;
+  margin: 0.75rem 0;
+}
+
+@media (max-width: 575.98px) {
+  .stats-filter-bar {
+    position: static;
+  }
+}
+
+/* CUSTOM: Keep all four statistics destinations on one row above mobile. */
+@media (min-width: 576px) {
+  .stats-page .stats-links {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 .stats-studio-selector {
   align-items: flex-end;
   display: flex;

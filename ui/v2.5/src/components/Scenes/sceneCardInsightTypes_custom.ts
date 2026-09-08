@@ -108,6 +108,9 @@ export type SceneCardInsightCandidateKind =
 export type SceneCardInsightCandidate = ISceneCardInsight & {
   kind: SceneCardInsightCandidateKind;
   score: number;
+  // CUSTOM: Stable combination text for statistics, independent of performer names.
+  statsLabel?: string;
+  statsParts?: string[]; // CUSTOM: Individual tag labels without parsing tag names.
 };
 
 export type SceneCardInsightRatingConfig = {

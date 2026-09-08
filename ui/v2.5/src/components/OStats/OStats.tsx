@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { gql, useQuery } from "@apollo/client";
 import { Alert, Button, ButtonGroup } from "react-bootstrap";
 import { Helmet } from "react-helmet";
-import { Link, RouteComponentProps, useHistory } from "react-router-dom";
+import { Link, RouteComponentProps } from "react-router-dom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { StatsPage } from "src/components/StatsPage_custom";
@@ -19,6 +19,7 @@ import {
   formatSceneOOrdinalLabelCustom,
   shouldShowSceneOOrdinalChipCustom,
 } from "./oStatsEventPresentation_custom"; // CUSTOM
+import { partitionOStatsMarkerTagCountsCustom } from "./oStatsMarkerTagCharts_custom"; // CUSTOM
 
 import "./OStats.scss";
 
@@ -834,8 +835,13 @@ const OStatsChart: React.FC<{
   data: IBarDatum[];
   emptyLabel: string;
   scrollable?: boolean;
-}> = ({ data, emptyLabel, scrollable = false }) => {
-  const history = useHistory();
+  actionLabel?: string;
+}> = ({
+  data,
+  emptyLabel,
+  scrollable = false,
+  actionLabel = "View O events",
+}) => {
   const max = Math.max(...data.map((item) => item.count), 1);
 
   if (data.length === 0) {
@@ -845,18 +851,19 @@ const OStatsChart: React.FC<{
   return (
     <div
       className={`ostats-chart${scrollable ? " ostats-chart-scrollable" : ""}`}
-      role="list"
     >
       {data.map((item) => {
         const height = `${Math.max((item.count / max) * 100, 6)}%`;
 
         return (
-          <button
+          <Link
             className="ostats-bar-cell"
             key={item.key}
-            onClick={() => history.push(item.path)}
-            type="button"
-            role="listitem"
+            to={item.path}
+            aria-label={`${actionLabel}: ${item.label}${
+              item.subLabel ? ` ${item.subLabel}` : ""
+            }, ${formatStatsTotal(item.count, "O event", "O events")}`}
+            title={`${actionLabel}: ${item.label}`}
           >
             <span className="ostats-bar-value">
               {item.count.toLocaleString()}
@@ -870,7 +877,7 @@ const OStatsChart: React.FC<{
             {item.subLabel && (
               <span className="ostats-bar-sublabel">{item.subLabel}</span>
             )}
-          </button>
+          </Link>
         );
       })}
     </div>
@@ -1185,10 +1192,9 @@ const OStatsTimeline: React.FC<{
 };
 
 const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
-  const history = useHistory();
   const { configuration } = useConfigurationContext();
   const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-  const { oStatsExcludedTagIds } = roleTagIds;
+  const { oStatsExcludedTagIds, oralTagId, sexTagId, soloTagId } = roleTagIds;
   const selectedTagId = match.params.tagId;
   const selectedPerformerId = match.params.performerId;
   const selectedSceneId = match.params.sceneId;
@@ -1372,17 +1378,43 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
     yearQuery.data?.sceneOYearCounts,
   ]);
 
-  const tagChartData = useMemo<IBarDatum[]>(() => {
-    const excludedTagIds = new Set(oStatsExcludedTagIds ?? []);
-    return (countsByTagQuery.data?.sceneOCountsByTag ?? [])
-      .filter((item) => !excludedTagIds.has(item.tag_id))
-      .map((item) => ({
+  const { activityTypeCounts, markerTagCounts } = useMemo(
+    () =>
+      partitionOStatsMarkerTagCountsCustom(
+        countsByTagQuery.data?.sceneOCountsByTag ?? [],
+        { oralTagId, sexTagId, soloTagId },
+        oStatsExcludedTagIds
+      ),
+    [
+      countsByTagQuery.data?.sceneOCountsByTag,
+      oStatsExcludedTagIds,
+      oralTagId,
+      sexTagId,
+      soloTagId,
+    ]
+  );
+
+  const activityTypeChartData = useMemo<IBarDatum[]>(
+    () =>
+      activityTypeCounts.map((item) => ({
         key: item.tag_id,
         label: item.tag_name,
         count: item.count,
         path: `/ostats/tag/${item.tag_id}`,
-      }));
-  }, [countsByTagQuery.data?.sceneOCountsByTag, oStatsExcludedTagIds]);
+      })),
+    [activityTypeCounts]
+  );
+
+  const tagChartData = useMemo<IBarDatum[]>(
+    () =>
+      markerTagCounts.map((item) => ({
+        key: item.tag_id,
+        label: item.tag_name,
+        count: item.count,
+        path: `/ostats/tag/${item.tag_id}`,
+      })),
+    [markerTagCounts]
+  );
 
   const ethnicityChartData = useMemo<IBarDatum[]>(
     () =>
@@ -1587,40 +1619,47 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
             {O_STATS_TRACKING_START} onward. All other charts include every
             recorded O.
           </p>
+          {!showTimeline && (
+            <p className="ostats-interaction-help">
+              Date bars open the next date breakdown or that day&apos;s O
+              events. Other bars and Unknown links open matching O events. Use
+              your browser&apos;s Back button to return to this view.
+            </p>
+          )}
         </div>
         {showDateNavigation && (
           <ButtonGroup aria-label="O date stats navigation">
-            <Button
-              disabled={!isDetailPage}
-              onClick={() => history.push("/ostats")}
-              variant={!isDetailPage ? "primary" : "secondary"}
-            >
-              By Year
-            </Button>
-            <Button
-              disabled={!selectedYear || showTimeline}
-              onClick={() =>
-                selectedYear && history.push(`/ostats/${selectedYear}`)
-              }
-              variant={selectedYear && !selectedMonth ? "primary" : "secondary"}
-            >
-              By Month
-            </Button>
-            <Button
-              disabled={!selectedYear || !selectedMonth}
-              onClick={() =>
-                selectedYear &&
-                selectedMonth &&
-                history.push(`/ostats/${selectedYear}/${selectedMonth}`)
-              }
-              variant={
-                selectedYear && selectedMonth && !selectedDate
-                  ? "primary"
-                  : "secondary"
-              }
-            >
-              By Day
-            </Button>
+            {[
+              { label: "By Year", path: "/ostats", active: !isDetailPage },
+              {
+                label: "By Month",
+                path: selectedYear ? `/ostats/${selectedYear}` : undefined,
+                active: !!selectedYear && !selectedMonth,
+              },
+              {
+                label: "By Day",
+                path:
+                  selectedYear && selectedMonth
+                    ? `/ostats/${selectedYear}/${selectedMonth}`
+                    : undefined,
+                active: !!selectedYear && !!selectedMonth && !selectedDate,
+              },
+            ].map((item) =>
+              item.path ? (
+                <Link
+                  key={item.label}
+                  to={item.path}
+                  className={`btn btn-${item.active ? "primary" : "secondary"}`}
+                  aria-current={item.active ? "page" : undefined}
+                >
+                  {item.label}
+                </Link>
+              ) : (
+                <Button key={item.label} disabled variant="secondary">
+                  {item.label}
+                </Button>
+              )
+            )}
           </ButtonGroup>
         )}
       </header>
@@ -1678,43 +1717,35 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
             {!isDetailPage &&
               (unreliableDateCountQuery.data?.sceneOUnreliableDateCount ?? 0) >
                 0 && (
-                <button
+                <Link
                   className="ostats-unknown-count"
-                  onClick={() => history.push("/ostats/unknown/date")}
-                  type="button"
+                  to="/ostats/unknown/date"
+                  title="View O events with an unknown date"
                 >
-                  Unknown:{" "}
+                  View Unknown:{" "}
                   {unreliableDateCountQuery.data?.sceneOUnreliableDateCount.toLocaleString()}
-                </button>
+                  {" →"}
+                </Link>
               )}
             {isDetailPage && (
               <Button
-                onClick={() => {
-                  if (
-                    selectedTagId ||
-                    selectedEthnicity ||
-                    selectedCountry ||
-                    selectedStudioId ||
-                    selectedPerformerId ||
-                    selectedSceneId ||
-                    selectedPerformerAge ||
-                    selectedReleaseYear ||
-                    selectedUnknownCategory
-                  ) {
-                    history.push("/ostats");
-                  } else if (selectedDate && selectedYear && selectedMonth) {
-                    history.push(`/ostats/${selectedYear}/${selectedMonth}`);
-                  } else if (selectedMonth && selectedYear) {
-                    history.push(`/ostats/${selectedYear}`);
-                  } else {
-                    history.push("/ostats");
-                  }
-                }}
+                as={Link}
+                to={
+                  selectedDate && selectedYear && selectedMonth
+                    ? `/ostats/${selectedYear}/${selectedMonth}`
+                    : !showTimeline && selectedMonth && selectedYear
+                    ? `/ostats/${selectedYear}`
+                    : "/ostats"
+                }
                 className="ostats-back-button"
                 size="sm"
                 variant="secondary"
               >
-                Back
+                {selectedDate && selectedYear && selectedMonth
+                  ? `View days in ${monthName(selectedMonth)} ${selectedYear}`
+                  : !showTimeline && selectedMonth && selectedYear
+                  ? `View months in ${selectedYear}`
+                  : "View all O stats"}
               </Button>
             )}
           </div>
@@ -1731,6 +1762,13 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
           <OStatsChart
             data={chartData}
             emptyLabel="No reliable O events in this range."
+            actionLabel={
+              !selectedYear
+                ? "View monthly breakdown for"
+                : !selectedMonth
+                ? "View daily breakdown for"
+                : "View O events on"
+            }
           />
         )}
         {!error && !loading && showTimeline && (
@@ -1775,17 +1813,29 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
       {!error && !loading && !showTimeline && !selectedYear && (
         <section className="ostats-section">
           <div className="ostats-subheader">
+            <h2>By Activity Type</h2>
+          </div>
+          <OStatsChart
+            data={activityTypeChartData}
+            emptyLabel="Configure Sex, Oral, or Solo marker tags to see activity-type counts."
+          />
+        </section>
+      )}
+      {!error && !loading && !showTimeline && !selectedYear && (
+        <section className="ostats-section">
+          <div className="ostats-subheader">
             <h2>By Marker Tag</h2>
             {(unknownMarkerTagCountQuery.data?.sceneOCountWithoutMarkerTags ??
               0) > 0 && (
-              <button
+              <Link
                 className="ostats-unknown-count"
-                onClick={() => history.push("/ostats/unknown/marker-tag")}
-                type="button"
+                to="/ostats/unknown/marker-tag"
+                title="View O events with an unknown marker tag"
               >
-                Unknown:{" "}
+                View Unknown:{" "}
                 {unknownMarkerTagCountQuery.data?.sceneOCountWithoutMarkerTags.toLocaleString()}
-              </button>
+                {" →"}
+              </Link>
             )}
           </div>
           <OStatsChart
@@ -1799,13 +1849,13 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
           <div className="ostats-subheader">
             <h2>By Ethnicity</h2>
             {ethnicityUnknownCount > 0 && (
-              <button
+              <Link
                 className="ostats-unknown-count"
-                onClick={() => history.push("/ostats/ethnicity/Unknown")}
-                type="button"
+                to="/ostats/ethnicity/Unknown"
+                title="View O events with an unknown performer ethnicity"
               >
-                Unknown: {ethnicityUnknownCount.toLocaleString()}
-              </button>
+                View Unknown: {ethnicityUnknownCount.toLocaleString()} →
+              </Link>
             )}
           </div>
           <OStatsChart
@@ -1819,13 +1869,13 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
           <div className="ostats-subheader">
             <h2>By Country</h2>
             {countryUnknownCount > 0 && (
-              <button
+              <Link
                 className="ostats-unknown-count"
-                onClick={() => history.push("/ostats/country/Unknown")}
-                type="button"
+                to="/ostats/country/Unknown"
+                title="View O events with an unknown performer country"
               >
-                Unknown: {countryUnknownCount.toLocaleString()}
-              </button>
+                View Unknown: {countryUnknownCount.toLocaleString()} →
+              </Link>
             )}
           </div>
           <OStatsChart
@@ -1841,14 +1891,15 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
             <h2>By Studio</h2>
             {(countsByStudioQuery.data?.sceneOCountsByStudio.unknown_count ??
               0) > 0 && (
-              <button
+              <Link
                 className="ostats-unknown-count"
-                onClick={() => history.push("/ostats/unknown/studio")}
-                type="button"
+                to="/ostats/unknown/studio"
+                title="View O events with an unknown studio"
               >
-                Unknown:{" "}
+                View Unknown:{" "}
                 {countsByStudioQuery.data?.sceneOCountsByStudio.unknown_count.toLocaleString()}
-              </button>
+                {" →"}
+              </Link>
             )}
           </div>
           <OStatsChart
@@ -1864,14 +1915,15 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
             <h2>By Performer Age</h2>
             {(countsByPerformerAgeQuery.data?.sceneOCountsByPerformerAge
               .unknown_count ?? 0) > 0 && (
-              <button
+              <Link
                 className="ostats-unknown-count"
-                onClick={() => history.push("/ostats/unknown/performer-age")}
-                type="button"
+                to="/ostats/unknown/performer-age"
+                title="View O events with an unknown performer age"
               >
-                Unknown:{" "}
+                View Unknown:{" "}
                 {countsByPerformerAgeQuery.data?.sceneOCountsByPerformerAge.unknown_count.toLocaleString()}
-              </button>
+                {" →"}
+              </Link>
             )}
           </div>
           <OStatsChart
@@ -1887,14 +1939,15 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
             <h2>By Scene Release Year</h2>
             {(countsByReleaseYearQuery.data?.sceneOCountsByReleaseYear
               .unknown_count ?? 0) > 0 && (
-              <button
+              <Link
                 className="ostats-unknown-count"
-                onClick={() => history.push("/ostats/unknown/release-year")}
-                type="button"
+                to="/ostats/unknown/release-year"
+                title="View O events with an unknown scene release year"
               >
-                Unknown:{" "}
+                View Unknown:{" "}
                 {countsByReleaseYearQuery.data?.sceneOCountsByReleaseYear.unknown_count.toLocaleString()}
-              </button>
+                {" →"}
+              </Link>
             )}
           </div>
           <OStatsChart

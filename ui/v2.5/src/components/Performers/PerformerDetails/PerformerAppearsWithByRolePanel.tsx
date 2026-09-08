@@ -7,10 +7,8 @@ import { FormattedMessage, useIntl } from "react-intl";
 import { PatchComponent } from "src/patch";
 import { GridCard } from "../../Shared/GridCard/GridCard";
 import { CountryFlag } from "../../Shared/CountryFlag";
-import { FavoriteIcon } from "../../Shared/FavoriteIcon";
 import { RatingBanner } from "../../Shared/RatingBanner";
 import GenderIcon from "../GenderIcon";
-import { usePerformerUpdate } from "src/core/StashService";
 import { ButtonGroup } from "react-bootstrap";
 import NavUtils from "src/utils/navigation";
 import TextUtils from "src/utils/text";
@@ -68,7 +66,6 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
 }) => {
   const intl = useIntl();
   const { configuration } = useConfigurationContext();
-  const [updatePerformer] = usePerformerUpdate();
 
   const age = TextUtils.age(performer.birthdate, performer.death_date);
   const ageL10String = intl.formatMessage({
@@ -79,19 +76,6 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
     { id: "media_info.performer_card.age" },
     { age, years_old: ageL10String }
   );
-
-  function onToggleFavorite(v: boolean) {
-    if (performer.id) {
-      updatePerformer({
-        variables: {
-          input: {
-            id: performer.id,
-            favorite: v,
-          },
-        },
-      });
-    }
-  }
 
   // Get role tag IDs
   const roleTagIds = configuration?.ui?.roleTagIds ?? {};
@@ -209,12 +193,7 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
         }
         overlays={
           <>
-            <FavoriteIcon
-              favorite={performer.favorite}
-              onToggleFavorite={onToggleFavorite}
-              size="2x"
-              className="hide-not-favorite"
-            />
+            {/* CUSTOM: Partners cards intentionally omit the favorite action. */}
             {performer.rating100 && (
               <RatingBanner rating={performer.rating100} compact />
             )}

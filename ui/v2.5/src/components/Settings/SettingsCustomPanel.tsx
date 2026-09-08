@@ -395,6 +395,15 @@ export const SettingsCustomPanel: React.FC = () => {
           />
         </Setting>
         <NumberSetting
+          id="scene-card-insights-visible-limit"
+          headingID="config.ui.scene_card_insights.visible_limit.heading"
+          subHeadingID="config.ui.scene_card_insights.visible_limit.description"
+          value={sceneCardInsightThresholds.visibleInsightLimit}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold("visibleInsightLimit", value)
+          }
+        />
+        <NumberSetting
           id="scene-card-insights-tag-good-amount"
           heading={sceneCardInsightSettingHeading(
             intl.formatMessage({

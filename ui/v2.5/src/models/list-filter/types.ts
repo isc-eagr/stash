@@ -123,6 +123,7 @@ export interface IOptionType {
 }
 
 export type CriterionType =
+  | "insight_chip" // CUSTOM
   | "path"
   | "rating100"
   | "metallic_rating" // CUSTOM

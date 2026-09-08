@@ -10,6 +10,7 @@ import {
   StringBooleanCriterion, // CUSTOM
 } from "./criteria/criterion";
 import { CountryCriterion } from "./criteria/country"; // CUSTOM
+import { InsightChipCriterionOption } from "./criteria/insight-chip_custom"; // CUSTOM
 import { CriterionModifier } from "src/core/generated-graphql"; // CUSTOM
 import { HasMarkersCriterionOption } from "./criteria/has-markers";
 import { SceneIsMissingCriterionOption } from "./criteria/is-missing";
@@ -160,6 +161,7 @@ export const DurationCriterionOption =
   createDurationCriterionOption("duration");
 
 const criterionOptions = [
+  InsightChipCriterionOption, // CUSTOM: linked coverage snapshots.
   createStringCriterionOption("title"),
   createStringCriterionOption("code", "scene_code"),
   PathCriterionOption,

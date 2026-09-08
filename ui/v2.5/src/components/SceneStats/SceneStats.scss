@@ -1,5 +1,5 @@
 .scenestats-page {
-  padding-bottom: 6.5rem;
+  padding-bottom: 2.5rem;
 }
 
 .scenestats-header {
@@ -349,11 +349,19 @@
   border: 1px solid rgba(218, 179, 94, 0.36);
   border-radius: 999px;
   color: #f0d58f;
+  cursor: pointer;
   flex: 0 0 auto;
   font-size: 0.8rem;
   font-weight: 800;
   line-height: 1.2;
   padding: 0.25rem 0.6rem;
+
+  &:hover,
+  &:focus-visible {
+    background: #70592f;
+    outline: 2px solid #f0d58f;
+    outline-offset: 2px;
+  }
 }
 
 .scenestats-bars {
@@ -392,6 +400,8 @@
 
   &:not(:disabled):hover,
   &:not(:disabled):focus-visible {
+    color: inherit;
+    text-decoration: none;
     .scenestats-bar-fill {
       filter: brightness(1.12);
     }

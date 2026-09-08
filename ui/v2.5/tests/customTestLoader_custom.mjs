@@ -18,6 +18,10 @@ async function resolveTypeScriptCandidate(url, context, nextResolve) {
 }
 
 export async function resolve(specifier, context, nextResolve) {
+  if (specifier === "react/jsx-runtime") {
+    return nextResolve("react/jsx-runtime.js", context);
+  }
+
   if (specifier === "@apollo/client") {
     return nextResolve(
       new URL("../node_modules/@apollo/client/index.js", import.meta.url).href,

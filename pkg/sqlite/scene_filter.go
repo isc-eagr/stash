@@ -55,6 +55,7 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 	sceneFilter := qb.sceneFilter
 	return compoundHandler{
 		intCriterionHandler(sceneFilter.ID, "scenes.id", nil),
+		insightSceneIDsCriterionHandler(sceneFilter.InsightSceneIDs), // CUSTOM
 		pathCriterionHandler(sceneFilter.Path, "folders.path", "files.basename", qb.addFoldersTable),
 		qb.fileCountCriterionHandler(sceneFilter.FileCount),
 		qb.releaseCountCriterionHandler(sceneFilter.ReleaseCount), // CUSTOM

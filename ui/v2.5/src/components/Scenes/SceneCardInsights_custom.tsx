@@ -10,6 +10,17 @@ import {
 import { OutstandingActivityMatrixModal } from "./OutstandingActivityMatrix_custom";
 import { hasSceneCardInsightOverflow } from "./sceneCardInsightSelection_custom";
 
+const insightPopoverHeightAllowance = 180;
+
+export function getSceneCardInsightsPopoverPlacement(
+  triggerBottom: number,
+  viewportHeight: number
+) {
+  return triggerBottom + insightPopoverHeightAllowance > viewportHeight
+    ? "top"
+    : "bottom";
+}
+
 interface ISceneCardInsightsProps {
   scene: SceneCardInsightScene;
   roleStatsByPerformer?: ReadonlyMap<
@@ -78,6 +89,9 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
   const [showAllInsights, setShowAllInsights] = useState(false);
   const [allInsightsTarget, setAllInsightsTarget] =
     useState<HTMLElement | null>(null);
+  const [allInsightsPlacement, setAllInsightsPlacement] = useState<
+    "top" | "bottom"
+  >("bottom");
   const insightSets = useMemo(
     () =>
       getSceneCardInsightSets(
@@ -100,14 +114,17 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
     ]
   );
   if (insightSets.visible.length === 0) return null;
-  const hasOverflow = hasSceneCardInsightOverflow(insightSets.all.length);
+  const hasOverflow = hasSceneCardInsightOverflow(
+    insightSets.all.length,
+    insightSets.visibleInsightLimit
+  );
 
   const renderInsightChip = (insight: ISceneCardInsight) => {
     const opensActivityMatrix =
       insight.key === "outstanding-activity" ||
       insight.key === "outstanding-activity-presence" ||
       insight.key === "feet" ||
-      (insightSets.goatOpensActivityMatrix && insight.key.startsWith("goat-"));
+      insight.key.startsWith("goat-");
     const ariaLabel = `${insight.label}: ${insight.detail}`;
 
     return (
@@ -183,6 +200,12 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
+              setAllInsightsPlacement(
+                getSceneCardInsightsPopoverPlacement(
+                  event.currentTarget.getBoundingClientRect().bottom,
+                  window.innerHeight
+                )
+              );
               setAllInsightsTarget(event.currentTarget);
               setShowAllInsights(true);
             }}
@@ -195,7 +218,7 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
       <Overlay
         target={allInsightsTarget}
         show={showAllInsights}
-        placement="bottom"
+        placement={allInsightsPlacement}
         rootClose
         onHide={() => setShowAllInsights(false)}
       >

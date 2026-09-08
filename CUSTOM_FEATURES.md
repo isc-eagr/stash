@@ -62,6 +62,8 @@ This document describes all custom features and modifications added on top of th
 52. [Scene Marker Duplicate and In-Between Actions](#52-scene-marker-duplicate-and-in-between-actions)
 53. [Copy Scene Marker Timestamps From the Player Timeline](#53-copy-scene-marker-timestamps-from-the-player-timeline)
 54. [Scene Card Marker Insights](#54-scene-card-marker-insights)
+55. [Groups UI Labelled as Movies](#55-groups-ui-labelled-as-movies)
+56. [Partners Tab Performer Cards Without Favorite Action](#56-partners-tab-performer-cards-without-favorite-action)
 
 ---
 
@@ -217,9 +219,16 @@ Custom analytics are split into focused hidden pages instead of the retired `/cu
 - `ui/v2.5/src/components/statsPage_custom.scss`
 - `ui/v2.5/src/components/OStats/OStats.tsx`
 - `ui/v2.5/src/components/OStats/OStats.scss`
+- `ui/v2.5/src/components/StatsFilterBar_custom.tsx`
+- `ui/v2.5/src/components/SceneStats/sceneStatsUnknownFilters_custom.ts`
+- `ui/v2.5/src/hooks/useStatsViewState_custom.ts`
+- `ui/v2.5/src/utils/statsViewState_custom.ts`
 - `ui/v2.5/src/utils/statsDrilldown_custom.ts`
 - `ui/v2.5/tests/sceneStatsSummary_custom.test.ts`
 - `ui/v2.5/tests/statsDrilldown_custom.test.ts`
+- `ui/v2.5/tests/statsViewState_custom.test.ts`
+- `ui/v2.5/tests/sceneStatsUnknownFilters_custom.test.ts`
+- `ui/v2.5/tests/oStatsInteraction_custom.test.ts`
 - `internal/api/stats_marker_counts_custom.go`
 - `internal/api/stats_marker_counts_custom_test.go`
 
@@ -235,6 +244,9 @@ Custom analytics are split into focused hidden pages instead of the retired `/cu
 - The shared navigation remains visible while Stats, SceneStats, or VatoStats loads, with a page-specific labeled spinner below it.
 - SceneStats and VatoStats show explicit drilldown and overall totals after chart selections; OStats shows the selected O-event total for date and category drilldowns.
 - OStats tag drilldowns fetch the selected tag directly so their titles display the tag name instead of its numeric ID.
+- SceneStats and VatoStats filters are individually removable, with matching totals and clear/undo actions in a shared accessible filter bar.
+- SceneStats and VatoStats persist studio scope, child-studio mode, filters, podium metric, and list visibility in the URL so refresh and browser history restore the view.
+- Chart actions use native links for navigation and native buttons for filtering, with descriptive labels that distinguish filtering from opening matching records.
 
 ### Orgasm & Facial Counting Logic
 
@@ -3265,7 +3277,7 @@ Custom filter criteria are highlighted in green in the Edit Filter picker so for
 
 ### Overview
 
-Adds a hidden `/ostats` page for scene O analytics. The page is intentionally not linked from the main UI; it is accessible by typing the URL, from tag-card O counters when a tag has timestamped O events, and from either control in a performer-card O counter for a vato drilldown in a new tab. The root page shows O-date record cards and clickable bar charts by O date year/month/day, marker tag, associated vato ethnicity, vato country, scene studio, vato age at the scene's effective release date, and scene effective release year. The Year/Month/Day navigation is only shown for the O-date chart path; country, studio, performer age, and scene release year stay in count-sorted horizontal, scrollable graphs. Every chart has an O-event timeline drilldown and a discrete Unknown chip when applicable. Country codes are displayed as readable country names across OStats, VatoStats, and SceneStats while their original values remain intact for filtering. The date charts only use reliable O dates from March 8, 2024 onward, while the other charts include every recorded O. Timelines are newest-first; each row shows associated marker tags and an ordinal chip such as `2nd O`, while the earliest dated O recorded for its scene shows the green `NEW` chip instead of a redundant `1st O`. Scene and vato links open newest-first `/ostats/scene/<scene id>` and `/ostats/vato/<performer id>` detail timelines; those detail timelines then link through to the actual scene at the O timestamp or performer page. The Generate task can also create exact static screenshots for O events that have a `video_timestamp`, and the timelines use those O screenshots when available.
+Adds a hidden `/ostats` page for scene O analytics. The page is intentionally not linked from the main UI; it is accessible by typing the URL, from tag-card O counters when a tag has timestamped O events, and from either control in a performer-card O counter for a vato drilldown in a new tab. The root page shows O-date record cards and clickable bar charts by O date year/month/day, activity type, marker tag, associated vato ethnicity, vato country, scene studio, vato age at the scene's effective release date, and scene effective release year. The Activity Type chart contains only the configured Sex, Oral, and Solo marker tags; the Marker Tag chart excludes those three tags as well as tags hidden by the OStats exclusion setting. The Year/Month/Day navigation is only shown for the O-date chart path; country, studio, performer age, and scene release year stay in count-sorted horizontal, scrollable graphs. Every chart has an O-event timeline drilldown and a discrete Unknown chip when applicable. Country codes are displayed as readable country names across OStats, VatoStats, and SceneStats while their original values remain intact for filtering. The date charts only use reliable O dates from March 8, 2024 onward, while the other charts include every recorded O. Timelines are newest-first; each row shows associated marker tags and an ordinal chip such as `2nd O`, while the earliest dated O recorded for its scene shows the green `NEW` chip instead of a redundant `1st O`. Scene and vato links open newest-first `/ostats/scene/<scene id>` and `/ostats/vato/<performer id>` detail timelines; those detail timelines then link through to the actual scene at the O timestamp or performer page. The Generate task can also create exact static screenshots for O events that have a `video_timestamp`, and the timelines use those O screenshots when available.
 
 ### Files Modified
 
@@ -3296,6 +3308,7 @@ Adds a hidden `/ostats` page for scene O analytics. The page is intentionally no
 - `ui/v2.5/src/components/OStats/OStats.tsx` - Hidden O stats chart and timeline page
 - `ui/v2.5/src/components/OStats/OStats.scss` - Page-specific chart and timeline styles
 - `ui/v2.5/src/components/OStats/oStatsEventPresentation_custom.ts` - Formats per-scene O ordinal labels
+- `ui/v2.5/src/components/OStats/oStatsMarkerTagCharts_custom.ts` - Splits configured Sex, Oral, and Solo activity tags from all other visible O marker-tag counts
 - `ui/v2.5/src/utils/statsCountry_custom.ts` - Converts ISO country codes to readable country labels without changing filter values
 - `ui/v2.5/src/utils/oStatsNavigation_custom.ts` - Builds encoded OStats studio, scene, and vato drilldown URLs plus second-click entity URLs
 - `ui/v2.5/tests/oStatsNavigation_custom.test.ts` - Covers OStats drilldown URL construction, encoding, and detail-to-entity navigation
@@ -3303,6 +3316,7 @@ Adds a hidden `/ostats` page for scene O analytics. The page is intentionally no
 - `internal/api/resolver_custom_test.go` - Date validation tests for O stats helpers
 - `internal/api/o_stats_events_custom_test.go` - Covers per-scene O ordinal selection and scene drilldown ID validation
 - `ui/v2.5/tests/oStatsEventPresentation_custom.test.ts` - Covers ordinal suffixes for timeline chips
+- `ui/v2.5/tests/oStatsMarkerTagCharts_custom.test.ts` - Covers activity-type partitioning and OStats marker-tag exclusions
 
 ### Test Cases Added
 
@@ -3993,7 +4007,7 @@ Performer-history rarity adds `Rare instance of <vato> <action>` chips when the 
 
 Every direct non-activity, non-qualifier marker tag contributes to one Outstanding Activity matrix. Rows are tag names sorted by overlap-merged scene duration descending, with marker count and name as deterministic tie-breakers. Columns show every scene performer's picture and name plus a Scene-wide column when markers lack performer attribution. Each cell shows that tag's ordinary Outstanding and GOAT duration/count as separate lines; GOAT evidence uses a gold treatment, and a GOAT-only cell omits the ordinary Outstanding line. The Total cell also shows the tag's combined share of the full scene. The redundant Total column is omitted for a one-performer scene. Both top and bottom marker performers receive their corresponding cell evidence. Feet overrides the normal category exclusions and participates in every activity matrix, including when it occurs on a GOAT-qualified marker, while retaining its separate presence chip.
 
-Scene insights split configured Outstanding Activity tags into two mandatory chips. Custom Settings supplies a multi-select for very common activity tags: the first chip applies the existing amount wording to the top two present tags from that configured family (`Some <tag>`, `Good amount of <tag>`, `Lots of <tag>`, or `<tag> as far as the eye can see`), while the second reports every other present matrix tag as `Scene contains <tags>`. Configured family matching includes tag descendants. Any activity tag already named by a GOAT chip is excluded from both Outstanding chips. The common chip selects its top two only after that exclusion, so the next-highest-duration common tag backfills a removed GOAT tag; either chip keeps a single remaining tag and disappears when none remain. If both Outstanding chips disappear, the GOAT chip opens the complete matrix instead. When both top common tags share a tier, the qualifier is emitted once around their joined names, such as `face and pito as far as the eye can see`. Both hover tooltips preserve per-tag scene percentage, duration, and marker count, and both chips open the complete matrix. The separate Feet presence chip is suppressed after a common-tag family is configured because Feet is already included in one of these two chips. An empty configuration preserves the original single top-two chip and separate Feet chip for existing installations. The scene Stats panel keeps its compact overview, while the same full table occupies a dedicated Activity Matrix tab inside Open Detailed Stats. GOAT chips continue to render separately with higher precedence. Their companion tags, including Feet, remain counted and visible in the matrix even though those named tags are suppressed from the Outstanding chips. Configured Orgasm and Facial families remain outside the matrix and aggregate by semantic event category and unique marker instead of raw tag ID, so Facial subclasses contribute to one count. Flattened ancestor IDs supplied by the backend make activity, event, qualifier, and GOAT matching recursive through arbitrary tag-hierarchy depth. Facial classification takes precedence when the configured Facial family descends from Orgasm.
+Scene insights split configured Outstanding Activity tags into two mandatory chips. Custom Settings supplies a multi-select for very common activity tags: the first chip applies the existing amount wording to the top two present tags from that configured family (`Some <tag>`, `Good amount of <tag>`, `Lots of <tag>`, or `<tag> as far as the eye can see`), while the second reports every other present matrix tag as `Scene contains <tags>`. Configured family matching includes tag descendants. Any activity tag already named by a GOAT chip is excluded from both Outstanding chips. The common chip selects its top two only after that exclusion, so the next-highest-duration common tag backfills a removed GOAT tag; either chip keeps a single remaining tag and disappears when none remain. Every GOAT chip opens the complete matrix. When both top common tags share a tier, the qualifier is emitted once around their joined names, such as `face and pito as far as the eye can see`. Both hover tooltips preserve per-tag scene percentage, duration, and marker count, and both chips open the complete matrix. The separate Feet presence chip is suppressed after a common-tag family is configured because Feet is already included in one of these two chips. An empty configuration preserves the original single top-two chip and separate Feet chip for existing installations. The scene Stats panel keeps its compact overview, while the same full table occupies a dedicated Activity Matrix tab inside Open Detailed Stats. GOAT chips continue to render separately with higher precedence. Their companion tags, including Feet, remain counted and visible in the matrix even though those named tags are suppressed from the Outstanding chips. Configured Orgasm and Facial families remain outside the matrix and aggregate by semantic event category and unique marker instead of raw tag ID, so Facial subclasses contribute to one count. Flattened ancestor IDs supplied by the backend make activity, event, qualifier, and GOAT matching recursive through arbitrary tag-hierarchy depth. Facial classification takes precedence when the configured Facial family descends from Orgasm.
 
 Event-report totals follow the Scene Stats weighting rule: every Orgasm or Facial marker counts once per assigned top, with a minimum of one for a marker without tops. The GOAT and Really Hot subtotals use the same weight as the report headline.
 
@@ -4007,7 +4021,7 @@ Negative evidence produces `No Orgasm` when configured role tags exist but the s
 
 Performer-lineup context adds `Mexican vato`, `Mexican vatos ×N`, or `All-Mexican` from normalized Mexico country metadata. It also adds `Favorite Vatos ×N` for performers whose card resolves to Royal Sapphire through the shared metallic-rating thresholds and override-tag precedence; it does not use the database favorite flag.
 
-Candidate generation and selection are separate. A typed policy table defines lane, mandatory status, and display priority instead of deriving semantics from string key prefixes. The card and scene Details tab both show at most seven initial chips. When more than seven candidates exist, a dedicated `+` control appears after the visible strip and opens a scroll-safe popup anchored to that control; the strip and its ordinary chips have no click action. The popup contains every generated candidate as the same horizontally flowing chips used inside a scene, without inline helper text. Individual chip evidence remains available on hover, while Outstanding Activity and Feet retain their direct Activity Matrix action. The two event reports, `No Orgasm`, and leaning reserve their slots; repeated/simultaneous orgasm patterns fill the remaining automatic-event capacity, up to two activity-quality chips follow, and remaining space admits up to five contextual chips. Final visual order starts with GOAT, then the consolidated Outstanding Activity chip, event reports, No Orgasm, repeated/simultaneous orgasm patterns, activity quality, lackluster Sex/Oral quality, leaning, rare role, interaction, negative rating, Favorite Vatos, Mexican lineup, filler, Few highlights, and remaining context; evidence score and label break ties within a kind. A dormant Everybody Nuts candidate type/policy is retained solely to make later restoration of the commented generation block straightforward.
+Candidate generation and selection are separate. A typed policy table defines lane, mandatory status, and display priority instead of deriving semantics from string key prefixes. The card and scene Details tab both show up to the configurable visible-chip limit (seven by default). When more candidates exist, a dedicated `+` control appears after the visible strip and opens a scroll-safe popup anchored to that control; when space below is limited, it opens above the trigger. The strip and its ordinary chips have no click action. The popup contains every generated candidate as the same horizontally flowing chips used inside a scene, without inline helper text. Individual chip evidence remains available on hover, while Outstanding Activity, Feet, and every GOAT chip retain their direct Activity Matrix action. The two event reports, `No Orgasm`, and leaning reserve their slots; repeated/simultaneous orgasm patterns fill the remaining automatic-event capacity, up to two activity-quality chips follow, and remaining space admits contextual chips. Final visual order starts with GOAT, then the consolidated Outstanding Activity chip, event reports, No Orgasm, repeated/simultaneous orgasm patterns, activity quality, lackluster Sex/Oral quality, leaning, rare role, interaction, negative rating, Favorite Vatos, Mexican lineup, filler, Few highlights, and remaining context; evidence score and label break ties within a kind. A dormant Everybody Nuts candidate type/policy is retained solely to make later restoration of the commented generation block straightforward.
 
 ### Files Added or Modified
 
@@ -4056,7 +4070,7 @@ Candidate generation and selection are separate. A typed policy table defines la
 ### Configuration Dependencies
 
 - Uses the existing configured Sex, Oral, Solo, Orgasm, Facial, Really Hot, GOAT, and 2nd Camera tag IDs.
-- `configuration.ui.sceneCardInsightThresholds` configures the Good amount of/Lots of/as far as the eye can see tag-coverage levels, all four activity-quality levels, Rare instance maximum role share, Few Highlights maximum episodes and scene percentage, Filler total percentage, the three Lackluster Sex/Oral thresholds, the Balanced Scene tolerance, and the three leaning-scene minority levels. Defaults are 10/25/50% tag coverage, 20/40/60/80% activity quality, 20% maximum rare-role share, 1 outstanding episode and 5% highlight coverage, 20% filler, 30% negative / 35% Outstanding suppression / 85% non-Outstanding for Lackluster, a 10 percentage-point Sex/Oral balance tolerance, and 10%/25%/40% minority shares for some/a good amount/a lot of.
+- `configuration.ui.sceneCardInsightThresholds` configures the visible-chip limit (default 7, bounded from 1 to 20), Good amount of/Lots of/as far as the eye can see tag-coverage levels, all four activity-quality levels, Rare instance maximum role share, Few Highlights maximum episodes and scene percentage, Filler total percentage, the three Lackluster Sex/Oral thresholds, the Balanced Scene tolerance, and the three leaning-scene minority levels. Defaults are 10/25/50% tag coverage, 20/40/60/80% activity quality, 20% maximum rare-role share, 1 outstanding episode and 5% highlight coverage, 20% filler, 30% negative / 35% Outstanding suppression / 85% non-Outstanding for Lackluster, a 10 percentage-point Sex/Oral balance tolerance, and 10%/25%/40% minority shares for some/a good amount/a lot of. The full-insights popover opens above its plus trigger when there is insufficient room below it.
 - Favorite Vatos uses the existing performer Royal Sapphire threshold plus configured Gold/Ruby/Emerald/Sapphire/Royal Sapphire override tag IDs, with override tags taking precedence exactly as they do on performer cards.
 
 ## Negative Marker Total Time
@@ -4077,6 +4091,23 @@ The scene details Skip tab shows the total unique video time covered by its nega
 ### Configuration Dependencies
 
 - None.
+
+---
+
+## 55. Groups UI Labelled as Movies
+
+### Overview
+
+The Groups entity is presented as “Movies” in the English UI. Internal GraphQL names, routes, IDs, component names, and backend structures remain unchanged.
+
+### Files Modified
+
+- `ui/v2.5/src/components/MainNavbar.tsx`
+- `ui/v2.5/src/locales/en-GB.json`
+
+### Tests
+
+No behavior or data model changes; frontend formatting and type checks cover the modified UI surface.
 
 ---
 
@@ -4171,3 +4202,58 @@ The custom TypeScript tests under `ui/v2.5/tests` run through `npm run test:cust
 ### Configuration Dependencies
 
 - Requires the existing UI development dependencies and Node.js 22 or newer.
+
+---
+
+## Insight Stats Threshold Playground
+
+### Overview
+
+The **Insight Stats** destination in the shared `/stats` navigation opens `/insightstats`. It scans all library scenes and compares saved chip thresholds with a temporary local preview. The table includes scene counts, library percentages, changes in scene counts and percentage points, zero-count chip types, and the engine's disabled/reserved kinds. Users can choose all qualifying chips (including overflow) or only chips visible on scene cards.
+
+The page reuses the card engine's candidates and selection rules, including performer role history, tag ancestry, Rating Advisor criteria, negative markers, and performer rating tiers. Percentages use only eligible scenes: scenes must have at least one activity type marker (a primary configured Sex, Oral, or Solo marker without secondary tags) with an end time. Each eligible scene counts once per row or combination; overlapping rows are not additive. Quality, balance, and interaction patterns each occupy one main row; their individual labels live in the drilldown. Tag drilldowns default to individual tags (one scene may count toward multiple tags), with a toggle retaining full combinations. Performer-specific candidates such as Rare Oral Top, repeated orgasms, Feet, and center-stage interactions are grouped by chip meaning rather than performer. GOAT combinations group across performer names. The first-column entries use the same card chip component and tones, with a tooltip describing each rule. Searchable, paginated drilldowns show observed chip combinations, up to three example scenes, and the relevant threshold controls.
+
+All threshold changes stay in component state and never save configuration. Reset restores the saved values. A background worker loads bounded pages through existing read-only GraphQL queries, retains the scan for subsequent simulations, and cancels obsolete calculations after newer input. IndexedDB caches the scan and saved-threshold baseline for 12 hours. Refresh bypasses the cache; leaving the page terminates the worker. Settings changes reevaluate the cached scan. Cache failures fall back to a fresh scan and are disclosed. Performer-by-tag matrices and full performer-stat queries are omitted: only the role counts needed by Rare Role are derived from the scanned markers, preserving backend tag ancestry and narrower-marker precedence. Intrinsic cast checks remain for interaction and lineup chips. Clicking a current or preview count opens all matching scenes using a removable chip snapshot filter, combined with normal filtering, sorting, and pagination. Match links are browser-local and expire after 12 hours; missing matches fail closed.
+
+### Files Added or Modified
+
+- `ui/v2.5/src/components/InsightStats/InsightStats.tsx`, `InsightStats.scss`, and `InsightThresholdControl.tsx` — page, responsive table, drilldown, and temporary controls.
+- `ui/v2.5/src/components/InsightStats/insightStatsCatalog_custom.ts` — chip inventory and threshold descriptions.
+- `ui/v2.5/src/components/InsightStats/insightStatsData_custom.ts` — scene-deduplicated counts and combination comparison.
+- `ui/v2.5/src/components/InsightStats/insightStatsQuery_custom.ts` — paginated scene reads, with incomplete-scan checks.
+- `ui/v2.5/src/components/InsightStats/insightStatsWorker_custom.ts` and `useInsightStats_custom.ts` — background scan, cached baseline, debounced previews, stale-result protection, and worker cleanup.
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerActivityType_custom.ts` — shared activity-type marker classification used by the stats eligibility rule.
+- `ui/v2.5/src/components/Scenes/sceneCardInsightTypes_custom.ts` and `sceneCardInsightsData_custom.ts` — expose existing candidates and stable GOAT combination text for statistics without changing card eligibility or selection.
+- `ui/v2.5/src/components/Scenes/sceneCardInsightPerformerRules_custom.ts` — relative runtime import for worker bundling. The worker is bundled inline as a blob to comply with Stash's existing Content Security Policy.
+- `ui/v2.5/src/App.tsx`, `ui/v2.5/src/components/StatsLinks_custom.tsx`, and `statsPage_custom.scss` — route and four-destination stats navigation.
+
+### Test Cases Added
+
+- `ui/v2.5/tests/insightStats_custom.test.ts` — zero counts, complete threshold inventory, activity-marker eligibility and percentage denominators, GOAT deduplication, merged quality chips, engine/selection parity, local-only threshold changes and reset, rare-role boundaries, tag-combination changes, disappearing/new variants, cancellation, pagination, and query validation against the actual GraphQL schema.
+- `ui/v2.5/tests/insightStatsWorker_custom.test.ts` — read-only snapshot reuse and suppression of obsolete preview results.
+- `ui/v2.5/tests/insightStatsCoverage_custom.test.ts` covers tag splitting, scene-ID deduplication, family grouping, totals-only matrix parity, role-count derivation, cache expiry, and snapshot links. `pkg/sqlite/scene_insight_filter_custom_test.go` verifies absent/empty/large match sets and composition with normal queries.
+- `insightStatsCache_custom.ts` and `insightStatsRoles_custom.ts` implement persistence and minimal role counts. `src/utils/insightSceneLinks_custom.ts`, `src/models/list-filter/criteria/insight-chip_custom.ts`, `scenes.ts`, and `types.ts` implement the removable scene chip filter.
+
+### GraphQL Schema Changes
+
+- Adds `SceneFilterType.insight_scene_ids: [ID!]` in `filters_custom.graphql`, mapped in `pkg/models/scene.go` and applied by `pkg/sqlite/scene_insight_filter_custom.go` through `scene_filter.go`. A single JSON SQL parameter handles large match sets. Backend and UI GraphQL bindings are regenerated; no migration is required.
+
+### Configuration Dependencies
+
+- Reads current `sceneCardInsightThresholds`, `roleTagIds` (including common activity tags), `ratingCardThresholds`, and `ratingCardOverrideTagIds`. Preview controls change only insight thresholds in memory; tag mappings and rating-tier settings remain those from the scan.
+
+---
+
+## 56. Partners Tab Performer Cards Without Favorite Action
+
+### Overview
+
+Performer cards shown on a performer’s Partners tab no longer display the favorite/heart control or issue favorite updates. Favorite controls remain available on performer cards elsewhere in the UI.
+
+### Files Modified
+
+- `ui/v2.5/src/components/Performers/PerformerDetails/PerformerAppearsWithByRolePanel.tsx`
+
+### Tests
+
+No data or backend behavior changes; the modified TypeScript surface is covered by the frontend lint, formatting, and type checks.

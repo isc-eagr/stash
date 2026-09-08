@@ -429,6 +429,8 @@ extend input SceneMarkerFilterType {
 }
 
 extend input SceneFilterType {
+  "Scene IDs from an Insight Stats coverage snapshot"
+  insight_scene_ids: [ID!]
   "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, royal_sapphire."
   metallic_rating: MultiCriterionInput
   "Filter by stored scene rating criteria, bonuses, and penalties from the rating advisor."

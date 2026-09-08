@@ -14,6 +14,11 @@ test("the full insight control appears only above the seven-chip limit", () => {
   assert.equal(hasSceneCardInsightOverflow(8), true);
 });
 
+test("the full insight control respects a configured visible-chip limit", () => {
+  assert.equal(hasSceneCardInsightOverflow(4, 4), false);
+  assert.equal(hasSceneCardInsightOverflow(5, 4), true);
+});
+
 const tag = (
   id: string,
   name: string,

@@ -69,6 +69,11 @@ const FrontPage = lazyComponent(
 const Scenes = lazyComponent(() => import("./components/Scenes/Scenes"));
 const Settings = lazyComponent(() => import("./components/Settings/Settings"));
 const Stats = lazyComponent(() => import("./components/Stats"));
+// CUSTOM: begin - Insight coverage and temporary threshold simulation.
+const InsightStats = lazyComponent(
+  () => import("./components/InsightStats/InsightStats")
+);
+// CUSTOM: end
 const OStats = lazyComponent(() => import("./components/OStats/OStats")); // CUSTOM
 const SceneStats = lazyComponent(
   () => import("./components/SceneStats/SceneStats")
@@ -279,6 +284,8 @@ export const App: React.FC = () => {
             <Route path="/studios" component={Studios} />
             <Route path="/groups" component={Groups} />
             <Route path="/stats" component={Stats} />
+            {/* CUSTOM */}
+            <Route path="/insightstats" component={InsightStats} />
             <Route
               path="/scenestats/:year?/:month?"
               component={SceneStats}

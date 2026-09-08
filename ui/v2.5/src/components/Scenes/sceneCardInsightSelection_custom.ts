@@ -64,16 +64,19 @@ export function compareSceneCardInsightCandidates(
   );
 }
 
-const maxInsights = 7;
+const defaultMaxInsights = 7;
 const maxActivityInsights = 2;
-const ordinaryContextSlots = 5;
 
-export function hasSceneCardInsightOverflow(totalInsights: number) {
+export function hasSceneCardInsightOverflow(
+  totalInsights: number,
+  maxInsights = defaultMaxInsights
+) {
   return totalInsights > maxInsights;
 }
 
 export function selectSceneCardInsights(
-  candidates: SceneCardInsightCandidate[]
+  candidates: SceneCardInsightCandidate[],
+  maxInsights = defaultMaxInsights
 ): ISceneCardInsight[] {
   const sorted = [...candidates].sort(compareSceneCardInsightCandidates);
   const mandatory = sorted.filter(
@@ -116,7 +119,7 @@ export function selectSceneCardInsights(
     )
     .slice(0, Math.min(maxActivityInsights, availableAfterAutomatic));
   const contextCapacity = Math.min(
-    ordinaryContextSlots,
+    Math.max(0, maxInsights - maxActivityInsights),
     Math.max(
       0,
       maxInsights - automatic.length - leaning.length - activities.length

@@ -18,6 +18,12 @@ import { FormattedNumber } from "react-intl";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { StatsPage } from "src/components/StatsPage_custom";
 import { StatsStudioSelector } from "src/components/StatsStudioSelector_custom";
+import { StatsFilterBar } from "src/components/StatsFilterBar_custom";
+import { useStatsViewState } from "src/hooks/useStatsViewState_custom";
+import {
+  removeStatsFilter,
+  writeStatsView,
+} from "src/utils/statsViewState_custom";
 import type { Studio } from "src/components/Studios/StudioSelect";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useTitleProps } from "src/hooks/title";
@@ -67,6 +73,10 @@ import {
 } from "./sceneStatsSection_custom"; // CUSTOM
 
 import "./SceneStats.scss";
+import {
+  isSceneStatsUnknownValue,
+  STATS_UNKNOWN_FILTER_VALUE,
+} from "./sceneStatsUnknownFilters_custom";
 
 // CUSTOM: Keep expensive marker-duration totals off the first-render request.
 const SCENE_STATS_TOTALS = gql`
@@ -233,6 +243,12 @@ const chartDefinitions: Record<ChartCategory, string> = {
 };
 
 const CHART_INITIAL_BAR_COUNT = 48;
+const sceneViewOptions = {
+  prefix: "scene",
+  categories: Object.keys(chartDefinitions) as ChartCategory[],
+  metrics: metricOptions.map((option) => option.key),
+  defaultMetric: "o_counter" as PodiumMetric,
+};
 const SCENE_LIST_PAGE_SIZE = 60;
 
 function cleanValue(value?: string | null) {
@@ -458,6 +474,33 @@ function sceneMatchesFilter(
   roleTagIDs: RoleTagIDSets,
   configuration: ReturnType<typeof useConfigurationContext>["configuration"]
 ) {
+  if (
+    filter.value === STATS_UNKNOWN_FILTER_VALUE ||
+    filter.value.startsWith(`${STATS_UNKNOWN_FILTER_VALUE}:`)
+  ) {
+    const level = filter.value.split(":")[1];
+    return isSceneStatsUnknownValue(
+      filter.category,
+      {
+        ethnicities: scene.performer_ethnicities,
+        countries: scene.performer_countries,
+        performerCount: scene.performer_count,
+        ratingBucket: sceneStatsRatingBucket(scene.rating100),
+        metallicRatingBucket: metallicRatingChartBucket(
+          scene.rating100,
+          sceneMetallicRating(scene, configuration)
+        )?.key,
+        releaseYear: releaseYear(scene),
+        releaseMonth: releaseMonth(scene),
+        releaseDay: releaseDay(scene),
+        facialCount: facialCount(scene, roleTagIDs.facial),
+        reallyHotFacialCount: reallyHotFacialCount(scene, roleTagIDs),
+        sceneType: sceneType(scene, roleTagIDs),
+        resolution: sceneResolutionLabel(scene),
+      },
+      level === "month" || level === "day" ? level : "year"
+    );
+  }
   switch (filter.category) {
     case "ethnicity":
       return scene.performer_ethnicities.some(
@@ -896,8 +939,19 @@ const SceneStatsChart: React.FC<{
   label: string;
   onSelect: (filter: ChartFilter) => void;
   unknownCount?: number;
-}> = ({ actions, data, label, onSelect, unknownCount = 0 }) => {
-  const history = useHistory();
+  unknownCategory?: ChartCategory;
+  releaseLevel?: "year" | "month" | "day";
+  releaseSearch?: string;
+}> = ({
+  actions,
+  data,
+  label,
+  onSelect,
+  unknownCount = 0,
+  unknownCategory,
+  releaseLevel = "year",
+  releaseSearch = "",
+}) => {
   const [showAllBars, setShowAllBars] = useState(false);
   const visibleData = showAllBars
     ? data
@@ -915,45 +969,79 @@ const SceneStatsChart: React.FC<{
         <h2>{label}</h2>
         <div className="scenestats-chart-actions">
           {actions}
-          {unknownCount > 0 && (
-            <span className="scenestats-unknown-count">
+          {unknownCount > 0 && unknownCategory && (
+            <button
+              className="scenestats-unknown-count"
+              type="button"
+              title={`Filter by ${label}: Unknown`}
+              aria-label={`Filter by ${label}: Unknown`}
+              onClick={() =>
+                onSelect({
+                  category: unknownCategory,
+                  label: "Unknown",
+                  value:
+                    unknownCategory === "release_day"
+                      ? `${STATS_UNKNOWN_FILTER_VALUE}:${releaseLevel}`
+                      : STATS_UNKNOWN_FILTER_VALUE,
+                })
+              }
+            >
               Unknown: {unknownCount.toLocaleString()}
-            </span>
+            </button>
           )}
         </div>
       </div>
       {data.length === 0 ? (
         <div className="scenestats-empty">No data</div>
       ) : (
-        <div className="scenestats-bars" role="list">
-          {visibleData.map((datum) => (
-            <button
-              className="scenestats-bar-cell"
-              disabled={!datum.filter && !datum.path}
-              key={datum.key}
-              onClick={() => {
-                if (datum.path) history.push(datum.path);
-                if (datum.filter) onSelect(datum.filter);
-              }}
-              type="button"
-              role="listitem"
-            >
-              <span className="scenestats-bar-count">
-                {datum.count.toLocaleString()}
-              </span>
-              <span className="scenestats-bar-track">
-                <span
-                  className="scenestats-bar-fill"
-                  style={{
-                    height: `${Math.max((datum.count / max) * 100, 6)}%`,
-                  }}
-                />
-              </span>
-              <span className="scenestats-bar-label" title={datum.label}>
-                {datum.label}
-              </span>
-            </button>
-          ))}
+        <div className="scenestats-bars">
+          {visibleData.map((datum) => {
+            const content = (
+              <>
+                <span className="scenestats-bar-count">
+                  {datum.count.toLocaleString()}
+                </span>
+                <span className="scenestats-bar-track">
+                  <span
+                    className="scenestats-bar-fill"
+                    style={{
+                      height: `${Math.max((datum.count / max) * 100, 6)}%`,
+                    }}
+                  />
+                </span>
+                <span className="scenestats-bar-label" title={datum.label}>
+                  {datum.label}
+                </span>
+              </>
+            );
+            return datum.path ? (
+              <Link
+                className="scenestats-bar-cell"
+                key={datum.key}
+                to={{ pathname: datum.path, search: releaseSearch }}
+                aria-label={`View release breakdown for ${
+                  datum.label
+                } (${datum.count.toLocaleString()} scenes)`}
+                title={`View release breakdown for ${datum.label}`}
+              >
+                {content}
+              </Link>
+            ) : (
+              <button
+                className="scenestats-bar-cell"
+                key={datum.key}
+                type="button"
+                disabled={!datum.filter}
+                onClick={() => datum.filter && onSelect(datum.filter)}
+                aria-label={`Filter by ${label}: ${
+                  datum.label
+                } (${datum.count.toLocaleString()} scenes)`}
+                title={`Filter by ${label}: ${datum.label}`}
+              >
+                {content}
+              </button>
+            );
+          })}
         </div>
       )}
       {hiddenCount > 0 && (
@@ -973,6 +1061,10 @@ const SceneStatsChart: React.FC<{
 
 const SceneStatsFilterBar: React.FC<{
   filters: ChartFilter[];
+  total: string;
+  onRemove: (index: number) => void;
+  onRemoveYear: () => void;
+  onRemoveMonth: () => void;
   hasSelectedMonth: boolean;
   hasSelectedYear: boolean;
   onBack: () => void;
@@ -981,6 +1073,10 @@ const SceneStatsFilterBar: React.FC<{
   selectedYear: number;
 }> = ({
   filters,
+  total,
+  onRemove,
+  onRemoveYear,
+  onRemoveMonth,
   hasSelectedMonth,
   hasSelectedYear,
   onBack,
@@ -991,35 +1087,29 @@ const SceneStatsFilterBar: React.FC<{
   if (filters.length === 0 && !hasSelectedYear) return null;
 
   return (
-    <div
-      className="scenestats-filter-bar"
-      aria-label="Active SceneStats filters"
-    >
-      <Button onClick={onBack} size="sm" variant="secondary">
-        Back
-      </Button>
-      <Button onClick={onClear} size="sm" variant="secondary">
-        Clear
-      </Button>
-      <div className="scenestats-filter-list">
-        {hasSelectedYear && (
-          <span className="scenestats-filter-chip">
-            Release:{" "}
-            {hasSelectedMonth
-              ? `${monthName(selectedMonth, "long")} ${selectedYear}`
-              : selectedYear}
-          </span>
-        )}
-        {filters.map((filter, index) => (
-          <span
-            className="scenestats-filter-chip"
-            key={`${filter.category}-${filter.value}-${index}`}
-          >
-            {chartDefinitions[filter.category]}: {filter.label}
-          </span>
-        ))}
-      </div>
-    </div>
+    <StatsFilterBar
+      label="Active Scene Stats overview filters"
+      total={total}
+      onUndo={onBack}
+      onClear={onClear}
+      filters={[
+        ...(hasSelectedYear
+          ? [{ label: `Release year: ${selectedYear}`, onRemove: onRemoveYear }]
+          : []),
+        ...(hasSelectedMonth
+          ? [
+              {
+                label: `Release month: ${monthName(selectedMonth, "long")}`,
+                onRemove: onRemoveMonth,
+              },
+            ]
+          : []),
+        ...filters.map((filter, index) => ({
+          label: `${chartDefinitions[filter.category]}: ${filter.label}`,
+          onRemove: () => onRemove(index),
+        })),
+      ]}
+    />
   );
 };
 
@@ -1087,8 +1177,20 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
   navigationBase = "/scenestats",
   studioScope,
 }) => {
-  const [selectedStudio, setSelectedStudio] = useState<Studio>();
-  const [includeChildStudios, setIncludeChildStudios] = useState(true);
+  const {
+    view,
+    updateView,
+    setMetric,
+    setFilters,
+    setShowList: setShowSceneList,
+  } = useStatsViewState(sceneViewOptions);
+  const {
+    studio: selectedStudio,
+    includeChildStudios,
+    metric,
+    filters,
+    showList: showSceneList,
+  } = view;
   const selectedStudioScope = useMemo<ISceneStatsStudioScope | undefined>(
     () =>
       selectedStudio
@@ -1107,9 +1209,6 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
   const titleProps = useTitleProps(pageTitle);
   const history = useHistory();
   const location = useLocation(); // CUSTOM
-  const [metric, setMetric] = useState<PodiumMetric>("o_counter");
-  const [filters, setFilters] = useState<ChartFilter[]>([]);
-  const [showSceneList, setShowSceneList] = useState(false);
   const [activeSection, setActiveSection] = useState<SceneStatsSection>(() =>
     sceneStatsSectionFromSearch(location.search)
   ); // CUSTOM
@@ -1284,13 +1383,32 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
   }
 
   function clearReleaseSelection() {
-    if (hasSelectedYear) history.push(navigationBase);
+    updateView(
+      (current) => ({
+        filters: current.filters.filter(
+          (filter) => filter.category !== "release_day"
+        ),
+      }),
+      navigationBase
+    );
+  }
+
+  function navigateRelease(path: string) {
+    updateView(
+      (current) => ({
+        filters: current.filters.filter(
+          (filter) => filter.category !== "release_day"
+        ),
+      }),
+      path
+    );
   }
 
   function selectStudio(studio?: Studio) {
-    setSelectedStudio(studio);
-    setFilters([]);
-    if (hasSelectedYear) history.push(navigationBase);
+    updateView(
+      { studio, filters: [] },
+      hasSelectedYear ? navigationBase : undefined
+    );
   }
 
   if (sceneQuery.error)
@@ -1327,6 +1445,10 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
     );
 
   const summary: Partial<SceneStatsTotalsData> = totalsQuery.data ?? {};
+  const releaseSearch = writeStatsView(location.search, sceneViewOptions, {
+    ...view,
+    filters: filters.filter((filter) => filter.category !== "release_day"),
+  });
 
   return (
     <StatsPage className="scenestats-page" showNavigation={!studioScope}>
@@ -1350,14 +1472,39 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
           <StatsStudioSelector
             includeChildStudios={includeChildStudios}
             onIncludeChildStudiosChange={(include) => {
-              setIncludeChildStudios(include);
-              setFilters([]);
+              updateView({ includeChildStudios: include, filters: [] });
             }}
             onStudioChange={selectStudio}
             studio={selectedStudio}
           />
         )}
       </header>
+
+      {activeSection === "overview" && (
+        <SceneStatsFilterBar
+          filters={filters}
+          total={`${filteredScenes.length.toLocaleString()} matching scenes`}
+          hasSelectedMonth={hasSelectedMonth}
+          hasSelectedYear={hasSelectedYear}
+          onRemove={(index) =>
+            setFilters((current) => removeStatsFilter(current, index))
+          }
+          onRemoveYear={clearReleaseSelection}
+          onRemoveMonth={() =>
+            navigateRelease(`${navigationBase}/${selectedYear}`)
+          }
+          onBack={() => {
+            if (filters.length > 0)
+              setFilters((current) => current.slice(0, -1));
+            else if (hasSelectedMonth)
+              navigateRelease(`${navigationBase}/${selectedYear}`);
+            else clearReleaseSelection();
+          }}
+          onClear={() => updateView({ filters: [] }, navigationBase)}
+          selectedMonth={selectedMonth}
+          selectedYear={selectedYear}
+        />
+      )}
 
       <Nav
         activeKey={activeSection}
@@ -1367,7 +1514,7 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
           const section: SceneStatsSection =
             key === "insights" || key === "activity-matrix" ? key : "overview";
           setActiveSection(section);
-          history.replace({
+          history.push({
             ...location,
             search: sceneStatsSearchForSection(location.search, section),
           });
@@ -1393,6 +1540,10 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
           {totalsQuery.error && (
             <ErrorMessage error={totalsQuery.error.message} />
           )}
+          <p className="stats-interaction-help">
+            {effectiveStudioScope ? "Studio" : "Library"} totals below. Linked
+            cards open matching scenes or markers →
+          </p>
           {(sexTag || oralTag || soloTag || facialTag) && (
             <section
               className="scenestats-summary-grid scenestats-category-grid"
@@ -1672,36 +1823,45 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
                 />
               )}
 
+              <p className="stats-interaction-help">
+                Select a bar or Unknown badge to filter this overview. Release
+                year and month links open the next date breakdown.
+              </p>
               <div className="scenestats-chart-grid">
                 <SceneStatsChart
                   data={charts.ethnicity.data}
                   label="By Vato Ethnicity"
                   onSelect={addFilter}
                   unknownCount={charts.ethnicity.unknownCount}
+                  unknownCategory="ethnicity"
                 />
                 <SceneStatsChart
                   data={charts.country.data}
                   label="By Vato Country"
                   onSelect={addFilter}
                   unknownCount={charts.country.unknownCount}
+                  unknownCategory="country"
                 />
                 <SceneStatsChart
                   data={charts.performerCount.data}
                   label="By Vato Count"
                   onSelect={addFilter}
                   unknownCount={charts.performerCount.unknownCount}
+                  unknownCategory="performer_count"
                 />
                 <SceneStatsChart
                   data={charts.rating.data}
                   label="By Rating"
                   onSelect={addFilter}
                   unknownCount={charts.rating.unknownCount}
+                  unknownCategory="rating"
                 />
                 <SceneStatsChart
                   data={charts.metallicRating.data}
                   label="By Metallic Rating"
                   onSelect={addFilter}
                   unknownCount={charts.metallicRating.unknownCount}
+                  unknownCategory="metallic_rating"
                 />
                 <SceneStatsChart
                   actions={
@@ -1710,37 +1870,54 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
                         aria-label="Scene release stats navigation"
                         size="sm"
                       >
-                        <Button
-                          disabled={!hasSelectedYear}
-                          onClick={() => history.push(navigationBase)}
-                          variant={!hasSelectedYear ? "primary" : "secondary"}
-                        >
-                          By Year
-                        </Button>
-                        <Button
-                          disabled={!hasSelectedYear}
-                          onClick={() =>
-                            history.push(`${navigationBase}/${selectedYear}`)
-                          }
-                          variant={
-                            hasSelectedYear && !hasSelectedMonth
-                              ? "primary"
-                              : "secondary"
-                          }
-                        >
-                          By Month
-                        </Button>
-                        <Button
-                          disabled={!hasSelectedYear || !hasSelectedMonth}
-                          onClick={() =>
-                            history.push(
-                              `${navigationBase}/${selectedYear}/${selectedMonth}`
-                            )
-                          }
-                          variant={hasSelectedMonth ? "primary" : "secondary"}
-                        >
-                          By Day
-                        </Button>
+                        {[
+                          {
+                            label: "By Year",
+                            path: navigationBase,
+                            available: true,
+                            active: !hasSelectedYear,
+                          },
+                          {
+                            label: "By Month",
+                            path: `${navigationBase}/${selectedYear}`,
+                            available: hasSelectedYear,
+                            active: hasSelectedYear && !hasSelectedMonth,
+                          },
+                          {
+                            label: "By Day",
+                            path: `${navigationBase}/${selectedYear}/${selectedMonth}`,
+                            available: hasSelectedYear && hasSelectedMonth,
+                            active: hasSelectedMonth,
+                          },
+                        ].map((destination) =>
+                          destination.available ? (
+                            <Link
+                              key={destination.label}
+                              className={`btn btn-sm btn-${
+                                destination.active ? "primary" : "secondary"
+                              }`}
+                              aria-current={
+                                destination.active ? "page" : undefined
+                              }
+                              title={`View scene releases ${destination.label.toLowerCase()}`}
+                              to={{
+                                pathname: destination.path,
+                                search: releaseSearch,
+                              }}
+                            >
+                              {destination.label}
+                            </Link>
+                          ) : (
+                            <Button
+                              key={destination.label}
+                              disabled
+                              size="sm"
+                              variant="secondary"
+                            >
+                              {destination.label}
+                            </Button>
+                          )
+                        )}
                       </ButtonGroup>
                       {hasSelectedYear && (
                         <span>
@@ -1764,6 +1941,15 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
                   }
                   onSelect={addFilter}
                   unknownCount={charts.release.unknownCount}
+                  unknownCategory="release_day"
+                  releaseLevel={
+                    hasSelectedMonth
+                      ? "day"
+                      : hasSelectedYear
+                      ? "month"
+                      : "year"
+                  }
+                  releaseSearch={releaseSearch}
                 />
                 <SceneStatsChart
                   data={charts.facialStatus}
@@ -1775,18 +1961,21 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
                   label="By Number of Facial"
                   onSelect={addFilter}
                   unknownCount={charts.facialCount.unknownCount}
+                  unknownCategory="facial_count"
                 />
                 <SceneStatsChart
                   data={charts.reallyHotFacialCount.data}
                   label="By Number of Really Hot Facial"
                   onSelect={addFilter}
                   unknownCount={charts.reallyHotFacialCount.unknownCount}
+                  unknownCategory="really_hot_facial_count"
                 />
                 <SceneStatsChart
                   data={charts.sceneType.data}
                   label="Scene Type"
                   onSelect={addFilter}
                   unknownCount={charts.sceneType.unknownCount}
+                  unknownCategory="scene_type"
                 />
                 <SceneStatsChart
                   data={charts.duration}
@@ -1798,28 +1987,11 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
                   label="By Resolution"
                   onSelect={addFilter}
                   unknownCount={charts.resolution.unknownCount}
+                  unknownCategory="resolution"
                 />
               </div>
             </>
           )}
-          <SceneStatsFilterBar
-            filters={filters}
-            hasSelectedMonth={hasSelectedMonth}
-            hasSelectedYear={hasSelectedYear}
-            onBack={() => {
-              if (filters.length > 0) {
-                setFilters((current) => current.slice(0, -1));
-              } else {
-                clearReleaseSelection();
-              }
-            }}
-            onClear={() => {
-              setFilters([]);
-              clearReleaseSelection();
-            }}
-            selectedMonth={selectedMonth}
-            selectedYear={selectedYear}
-          />
         </>
       )}
       {activeSection === "insights" && (
