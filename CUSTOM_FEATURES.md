@@ -64,6 +64,7 @@ This document describes all custom features and modifications added on top of th
 54. [Scene Card Marker Insights](#54-scene-card-marker-insights)
 55. [Groups UI Labelled as Movies](#55-groups-ui-labelled-as-movies)
 56. [Partners Tab Performer Cards Without Favorite Action](#56-partners-tab-performer-cards-without-favorite-action)
+57. [Sequential Marker Actions](#sequential-marker-actions)
 
 ---
 
@@ -285,59 +286,50 @@ extend type Query {
 
 ### Overview
 
-A widget for tracking progress on tagging tasks. Users can define trackers linked to specific tags and monitor completion progress.
+Tag-based task tracking with recorded daily completions and incoming work. Compact cards show counts, progress, an Items per day finish planner, and separate Details/Edit actions; the Details modal contains the graph, links, and forecasts. Overall Progress measures organized scenes only.
+
+### Behavior
+
+- Removing a direct tag or deleting its tagged item records a completion; adding the tag records incoming work. Marker primary and secondary tags are deduplicated and updated atomically.
+- Track scenes, markers, images, galleries, performers, studios, and groups, with a selectable scope. Child tags are excluded.
+- Backlog mode includes incoming work. Fixed batches retain baseline membership and only reopen items belonging to that batch.
+- Daily history uses America/Mexico_City dates. The chart shows completed/incoming bars, remaining or cumulative completions, a visually distinct seven-day average, baseline changes, and accessible daily data. View Daily Data lists only days with completed or incoming activity, while the chart retains zero-activity calendar days for an honest timeline. Clicking a day opens paginated activity; fixed batches have paginated remaining-item links. Item-type links only appear when their current count is non-zero.
+- Active, paused, completed, and archived states are changed through the Status dropdown in Edit. Compact cards expose Details and Edit directly, plus arrow controls for reordering. Paused trackers keep recording. Archived trackers freeze activity and start a fresh baseline on resume. Restoring a deletion preserves its baseline and membership.
+- Tracker edits use a version check to reject stale writes. Refreshes preserve visible data on errors and are manual after the initial page load (mutations also refetch their results).
+- Existing trackers are activated and receive Started On **2026-09-07**, with an initial baseline and no invented historical completions. The retrofit runs once. New trackers record from creation; resetting scope/baseline preserves prior history.
+- Each tracker card has a compact browser-local Items per day planner that recalculates the finish date immediately. Observed finish estimates use net progress over up to seven complete days, require three days, and exclude today's partial activity.
 
 ### Files
 
-**NEW:** `ui/v2.5/src/components/TaskProgress.tsx`
+- `ui/v2.5/src/components/TaskProgress.tsx`, `TaskProgress/*`, `TaskProgressHistoryChart.tsx`, `TaskProgressHistoryChart.scss`, `taskProgress_custom.ts`
+- `ui/v2.5/graphql/{data,queries,mutations}/task_progress_tracker_custom.graphql`
+- `graphql/schema/types/task_progress_tracker_custom.graphql`, `graphql/schema/schema_custom.graphql`
+- `internal/api/resolver_task_progress_tracker_custom.go`, `resolver_task_progress_history_custom.go`, and marker mutation integration
+- `pkg/models/task_progress_tracker_custom.go` and its repository mock
+- `pkg/scene/marker_import_custom.go`, `marker_import.go`, and `marker_import_custom_test.go`: atomic marker import tag updates
+- `pkg/sqlite/task_progress_tracker_custom.go`, `task_progress_metrics_custom.go`, `task_progress_tracking_custom.go`, `database_custom.go`, and entity store hooks
+- `task_progress_tracker_history.up.sql`
 
-- `ui/v2.5/src/components/taskProgress_custom.ts`
-- `ui/v2.5/tests/taskProgress_custom.test.ts`
-- `graphql/schema/types/task_progress_tracker_custom.graphql`
-- `graphql/schema/schema_custom.graphql`
-- `internal/api/resolver_task_progress_tracker_custom.go`
-- `pkg/models/task_progress_tracker_custom.go`
-- `pkg/sqlite/task_progress_tracker_custom.go`
-- `pkg/models/repository.go`, `pkg/sqlite/database.go`, `pkg/sqlite/transaction.go`
-- `ui/v2.5/graphql/data/task_progress_tracker_custom.graphql`
-- `ui/v2.5/graphql/queries/task_progress_tracker_custom.graphql`
-- `ui/v2.5/graphql/mutations/task_progress_tracker_custom.graphql`
-- `task_progress_trackers.up.sql`
-- `task_progress_trackers_started_on.up.sql`
+### Database and configuration
 
-### Features
-
-- Create, edit, delete, and drag-to-reorder progress trackers
-- Trackers can be marked as currently being worked on; marked cards persist a `Working on` badge and blue highlight
-- Creation asks for a title, description, and linked tag; the goal is automatically captured from the tag's current item count
-- Each tracker has a mutable **Started On** calendar date, defaulting to its creation date; it is shown and edited in `DD/MM/YYYY` format
-- Goals remain fixed until the user explicitly resets one to the current count from the edit dialog; arbitrary numeric goals are not accepted
-- Editing supports the title, description, tag, and the controlled goal reset
-- Shows the current tagged item count vs the fixed goal (progress bar)
-- Linked tags count all directly tagged item types: scenes, scene markers, images, galleries, performers, studios, and groups
-- Persists the title, description, fixed goal, tag relationship, user-defined order, and working-on state in the SQLite `task_progress_trackers` table
-- All tracker CRUD, goal resets, and reordering use dedicated GraphQL queries and mutations
-- Legacy tracker records in `configuration.ui.taskProgressTrackers` are imported into SQLite on the first database query, preserving old `name`/`initialValue` records, and the legacy configuration key is then removed
-
-### Database Setup
-
-Apply `task_progress_trackers.up.sql` to each new Stash SQLite database before using the updated page. For an existing task-progress table, apply `task_progress_trackers_started_on.up.sql` once to add and backfill the **Started On** date. These standalone SQL files follow this fork's custom migration policy and are not added to the upstream migration chain.
+Startup automatically creates/updates the custom tracker, event, and fixed-membership tables and applies the one-time retrofit. No manual SQL execution is required. `task_progress_tracker_history.up.sql` is the standalone SQL reference; this feature does not enter the upstream migration chain. Legacy `configuration.ui.taskProgressTrackers` records are imported automatically and removed from that configuration after success. The obsolete persisted daily-rate column is removed automatically; planning rates are browser-local.
 
 ### GraphQL
 
-- Query: `findTaskProgressTrackers`
+- Queries: `findTaskProgressTrackers`, `taskProgressEvents`, `taskProgressPendingItems`, `taskProgressPreview`
 - Mutations: `taskProgressTrackerCreate`, `taskProgressTrackerUpdate`, `taskProgressTrackerDestroy`, `taskProgressTrackersReorder`
+- Tracker fields include status, mode, version, scope, recording date, current/completed/incoming counts, item counts, and daily history. Update input supports `expected_version`.
 
 ### Tests
 
-- Legacy UI-configuration import and fixed-goal preservation
-- SQLite CRUD, direct tagged-item goal calculation, and persisted reorder behavior
-- Resolver-level create and controlled goal-reset behavior
-- Goal calculation across every supported tagged item type
-- Drag reorder behavior
-- Working-on state toggling
-- Fixed-goal progress calculations, including growing and empty backlogs
-- Started On date defaults, edits, display formatting, input validation, and existing-database backfill
+- `pkg/sqlite/database_bootstrap_custom_test.go`: fresh schema, existing tracker retrofit, repeat startup
+- `pkg/sqlite/task_progress_tracker_custom_test.go`: CRUD, counts, order, history aggregation, fixed membership
+- `pkg/sqlite/task_progress_tracking_custom_test.go`: tag changes, deletion, deduplication, lifecycle recording
+- `internal/api/resolver_task_progress_tracker_custom_test.go`: import, validation, baseline reset, stale edits, undo
+- `ui/v2.5/tests/taskProgress_custom.test.ts`: history gaps, range boundaries, averages, cumulative counts, dates
+- `ui/v2.5/tests/taskProgressView_custom.test.ts`: Mexico City day boundaries, progress semantics, net forecasts
+- `ui/v2.5/tests/taskProgressCard_custom.test.ts`: compact card rendering and graph omission
+- `ui/v2.5/tests/taskProgressTrackerModal_custom.test.ts`: status options and non-zero item-type visibility
 
 ---
 
@@ -2691,19 +2683,9 @@ In the marker edit form (SceneMarkerForm), a read-only "Duration" field appears 
 
 ## 34. Task Progress Completion Estimate
 
-### Overview
+Each tracker card provides a compact browser-local Items per day input beside its planned finish date. It recalculates the date immediately. Observed estimates use complete recording days and subtract incoming work from completions; paused trackers and growing backlogs have no observed finish date. See section 5 for files and tests.
 
-Adds a small calculator widget to each task progress tracker card (and the Overall Progress card) that estimates when the task will be completed based on a user-entered items-per-day rate. Not persisted — just an ephemeral in-page calculator.
-
-### Behavior
-
-- Each tracker card shows an "Items/day" input at the bottom when items remain
-- When a value is entered, it displays: "Done by DD/MM/YYYY (X days) at Y/day"
-- The Overall Progress card also includes the same widget for the total unorganized scene count
-
-### Files Modified
-
-- `ui/v2.5/src/components/TaskProgress.tsx` — Added `itemsPerDay` state map and `overallItemsPerDay` state; added completion estimate widget to each tracker card and the Overall Progress card
+The Overall Progress card retains a separate browser-local scenes-per-day plan calculated exclusively from unorganized scenes.
 
 ---
 
@@ -4017,7 +3999,7 @@ The global `/scenestats` dashboard and studio `/studios/<id>/stats` dashboard sh
 
 Countable event markers produce only two scene-wide report chips: an Orgasm report and a Facial report. The Orgasm report includes only configured Orgasm markers that are not also Facial markers; the Facial report includes the configured Facial family, including Facial descendants of Orgasm. Examples are `6 orgasms: 1 GOAT, 2 Really Hot` and `3 facials: 1 GOAT, 1 Really Hot`. Ordinary event markers remain in the total but receive no separate mention. Within each report, a GOAT marker supersedes its Really Hot qualifier, so it only contributes to the GOAT count. Configured 2nd Camera markers are excluded from both reports. Legacy Standard/Really Hot/GOAT Orgasm and Facial variant chips are not emitted. The preserved event-pattern chips are `Tyga Martinez nuts twice` (or `nuts N times`) and `2 vatos nut at the same time`; repeated-orgasm detection retains the configured Orgasm family behavior. `Everybody Nuts` generation is preserved in a commented block but intentionally disabled. Other GOAT tags retain their top-performer attribution and merge compatible non-event tags only within the same performer scope; even an identical descriptor never combines GOAT markers from different performers. Every other GOAT marker produces a separate GOAT insight for each direct named non-qualifier tag, including configured activity tags such as `BJ`; only a marker with no other named tag falls back to `GOAT moment`. Tag-derived labels preserve each tag's exact name and casing.
 
-Negative evidence produces `No Orgasm` when configured role tags exist but the scene has no countable Orgasm or Facial marker, excluding 2nd Camera markers. `No Orgasm` reserves a high-priority slot after mandatory event-report evidence so ordinary activity and contextual candidates cannot crowd it out. `Lackluster sex` and `Lackluster oral` remain contextual candidates but display immediately beside the positive Good/Great/Amazing/Near-perfect activity-quality report because they describe the same quality dimension. `Few highlights` appears only when both conditions pass: outstanding merged episodes are no greater than the configured maximum and their merged duration is no greater than the configured percentage of the full scene. The default percentage maximum is 5%. `Lots of filler` appears when time without any marker exceeds its configured percentage; its tooltip uses the compact `<percent>% filler (<duration>)` form. Stored scene Rating Advisor criteria—not performer ratings—also produce role-attractiveness warnings: two- and three-vato scenes show `Ugly Top` or `Ugly Bottom` when the matching Top/Bottom Attractiveness raw value is 0, while group scenes with four or more vatos show `Ugly Tops` when Top Lineup Attractiveness is 0 or 1. Missing criteria do not trigger a warning. Every positive marker covers its interval regardless of tag; negative-marker intervals are added to filler even when they overlap positive markers.
+Negative evidence produces `No Orgasm` when configured role tags exist but the scene has no countable Orgasm or Facial marker, excluding 2nd Camera markers. `No Orgasm` reserves a high-priority slot after mandatory event-report evidence so ordinary activity and contextual candidates cannot crowd it out. `Lackluster sex` and `Lackluster oral` remain contextual candidates but display immediately beside the positive Good/Great/Amazing/Near-perfect activity-quality report because they describe the same quality dimension. `Few highlights` and `Lots of filler` are considered only after the scene has at least one completed primary Sex, Oral, or Solo marker (excluding 2nd Camera), so unprocessed scenes do not receive either chip. `Few highlights` appears only when both conditions pass: outstanding merged episodes are no greater than the configured maximum and their merged duration is no greater than the configured percentage of the full scene. The default percentage maximum is 5%. `Lots of filler` appears when time without any marker exceeds its configured percentage; its tooltip uses the compact `<percent>% filler (<duration>)` form and can appear alongside `Lackluster`. Stored scene Rating Advisor criteria—not performer ratings—also produce role-attractiveness warnings: two- and three-vato scenes show `Ugly Top` or `Ugly Bottom` when the matching Top/Bottom Attractiveness raw value is 0, while group scenes with four or more vatos show `Ugly Tops` when Top Lineup Attractiveness is 0 or 1. Missing criteria do not trigger a warning. Every positive marker covers its interval regardless of tag; negative-marker intervals are added to filler even when they overlap positive markers.
 
 Performer-lineup context adds `Mexican vato`, `Mexican vatos ×N`, or `All-Mexican` from normalized Mexico country metadata. It also adds `Favorite Vatos ×N` for performers whose card resolves to Royal Sapphire through the shared metallic-rating thresholds and override-tag precedence; it does not use the database favorite flag.
 
@@ -4257,3 +4239,64 @@ Performer cards shown on a performer’s Partners tab no longer display the favo
 ### Tests
 
 No data or backend behavior changes; the modified TypeScript surface is covered by the frontend lint, formatting, and type checks.
+
+---
+
+## Sequential Marker Actions
+
+### Overview
+
+The regular and negative scene-marker New/Edit dialogs include **Save & Add Next Marker** and **Save & Add Next Negative Marker** actions. Both actions require an end time, save the current marker first, and open a new draft whose start is exactly one millisecond after the saved marker's end.
+
+The next regular marker retains the current title, primary tag, secondary tags, and top/bottom performer assignments while clearing its end time. The next negative marker opens with a blank name and a valid ten-second default range. Its name suggestions use existing negative-marker names. From the Negative Markers panel, the regular action switches to the Markers tab and opens the regular editor at the adjacent timestamp. The two actions also remain available when a regular-marker dialog continues into its inline negative-marker draft. Both actions are available from new markers and existing-marker edits, and remain disabled until the current marker has an end time.
+
+### Files Added or Modified
+
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerSequentialActions_custom.ts` - One-millisecond start calculation, draft creation, and cross-panel create requests.
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkerForm.tsx`, `SceneNegativeMarkerForm.tsx`, `SceneMarkersPanel.tsx`, `SceneNegativeMarkersPanel.tsx`, and `Scene.tsx` - Save-and-add actions and the adjacent regular-marker editor handoff.
+- `ui/v2.5/src/components/Scenes/SceneDetails/sceneNegativeMarkerForm_custom.ts` and `ui/v2.5/tests/sceneNegativeMarkerForm_custom.test.ts` - Valid adjacent negative-marker range creation and focused coverage.
+- `ui/v2.5/tests/sceneMarkerSequentialActions_custom.test.ts` - Focused boundary, retained marker setup, and clean negative-marker draft coverage.
+
+### GraphQL Schema Changes
+
+None. The actions use the existing regular and negative scene-marker mutations.
+
+### Configuration Dependencies
+
+None.
+
+---
+
+## Mobile Remote O Recording
+
+### Overview
+
+The `/remote/o` page records an O against a paired browser's current scene and video position. On a scene, open **File Info** and choose **Pair phone for O**, enter the server address reachable from the phone, and scan the QR code. Codes expire after five minutes and work once. The phone remembers the browser in local storage; subsequent scene changes, player reloads, and Stash restarts do not require rescanning. Clearing browser storage or forgetting the pairing requires a new scan. Pairing identifies the player and does not bypass normal Stash authentication.
+
+The phone shows the active scene, playback status, timestamp, and a large O button. The player samples its own time when the command arrives, so accuracy is subject to network delay. Successful recording returns a timestamped receipt. Paused playback is supported; buffering, seeking, unloaded video, stale connections, and mismatched scenes/sessions are rejected. Scene players and the marker playlist both participate; multiple tabs/panels sharing a browser identity cannot simultaneously own the remote. Disable remote control in the other tab/panel using its pairing dialog to change ownership.
+
+Each scene/source activation uses a fresh session. State expires after five seconds without a heartbeat. Each tap has a unique command ID; concurrent retries reuse a receipt and only one O is written. Commands expire after 30 seconds and their IDs/receipts are retained in memory for 24 hours. A server identity embedded in each command prevents an unconfirmed pre-restart tap from being replayed as a new O. Pending taps survive a phone-page reload in session storage. If confirmation is unavailable, retry the same tap, or check O history before explicitly starting another. After a server crash, history is authoritative for an interrupted write.
+
+### Files Added or Modified
+
+- `internal/api/remote_playback_custom.go` — session ownership, expiring one-use pairing, command delivery, and receipt registry.
+- `internal/api/resolver_remote_playback_custom.go` — GraphQL handlers and serialized recording transaction.
+- `internal/api/resolver_mutation_scene_custom.go` — shared O write/rating adjustment and finite non-negative timestamp validation.
+- `graphql/schema/schema_custom.graphql` and `ui/v2.5/graphql/remote-playback_custom.graphql` — remote queries, mutations, subscriptions, and generated bindings.
+- `ui/v2.5/src/components/RemoteO/RemoteO.tsx`, `RemotePairing.tsx`, `remotePlayback_custom.ts`, and `useRemotePlayer_custom.ts` — mobile remote, QR pairing, validation, and active-player bridge.
+- `ui/v2.5/src/components/ScenePlayer/ScenePlayer.tsx`, `ui/v2.5/src/components/Scenes/MarkerPlaylistPlayer.tsx`, and `ui/v2.5/src/App.tsx` — player integrations and route.
+- `ui/login/login.html` — preserves the pairing fragment through login without adding the code to the credentials POST.
+- `ui/v2.5/package.json` and `pnpm-lock.yaml` — pinned `qrcode.react` dependency; QR generation happens locally.
+
+### Test Cases Added
+
+- `internal/api/remote_playback_custom_test.go` — one-use/expired pairing, competing and stale sessions, invalid positions, unavailable players, command/receipt replay, restart rejection, canceled subscriptions, and simultaneous retries producing exactly one O and rating adjustment.
+- `ui/v2.5/tests/remotePlayback_custom.test.ts` — scene/session matching, paused/buffering behavior, invalid timestamps, prefixed pairing URLs, saved pending requests, and execution of the login handler to verify fragment preservation without token disclosure in the POST body.
+
+### GraphQL Schema Changes
+
+Adds remote playback state, request, command, and receipt types; state query; update/disconnect/request/record/pairing mutations; and state/command/result subscriptions. Backend and frontend bindings are regenerated. No database migration is required.
+
+### Configuration Dependencies
+
+The phone and playback browser must reach the same Stash instance. Use the existing login when authentication is enabled, and a phone-reachable address including the correct port. A reverse-proxy path prefix is preserved. Local browser storage holds the remembered identity/address; the pairing code is carried in the URL fragment. External players are not integrated; casting accuracy depends on the active browser player's reported timestamp. Device-to-device behavior still requires a live smoke test after deployment.

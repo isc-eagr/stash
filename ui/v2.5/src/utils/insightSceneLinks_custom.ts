@@ -39,7 +39,7 @@ export function createInsightSceneLink(label: string, ids: string[]) {
   localStorage.setItem(prefix + key, JSON.stringify(match));
   return `/scenes?c=${encodeURIComponent(
     JSON.stringify({ type: "insight_chip", modifier: "EQUALS", value: key })
-  )}`;
+  )}&z=2`;
 }
 
 export function openInsightSceneLink(label: string, ids: string[]) {

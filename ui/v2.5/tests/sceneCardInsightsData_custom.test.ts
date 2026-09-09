@@ -1614,9 +1614,8 @@ test("filler treats all positive markers as coverage and negative markers as fil
   assert.ok(
     negativeOverlap.some((insight) => insight.label === "Lackluster sex")
   );
-  assert.equal(
-    negativeOverlap.some((insight) => insight.label === "Lots of filler"),
-    false
+  assert.ok(
+    negativeOverlap.some((insight) => insight.label === "Lots of filler")
   );
 });
 
@@ -2058,7 +2057,7 @@ test("Few highlights and Lots of filler use their configurable cutoffs", () => {
   const defaultLabels = labels(markers, 600);
   assert.ok(defaultLabels.includes("Few highlights"));
   assert.ok(defaultLabels.includes("Lackluster sex"));
-  assert.equal(defaultLabels.includes("Lots of filler"), false);
+  assert.ok(defaultLabels.includes("Lots of filler"));
 
   const configuredLabels = labels(markers, 600, {
     fewHighlightsMaxEpisodes: 0,
@@ -2069,7 +2068,11 @@ test("Few highlights and Lots of filler use their configurable cutoffs", () => {
 });
 
 test("Few highlights requires both the episode and scene-percentage limits", () => {
-  const oneShortHighlight = [marker("highlight", tag("feet", "Feet"), 0, 30)];
+  const completedActivity = marker("sex", tag("sex", "Sex"), 100, 200);
+  const oneShortHighlight = [
+    completedActivity,
+    marker("highlight", tag("feet", "Feet"), 0, 30),
+  ];
   const matchingInsight = getSceneCardInsights(
     makeScene(oneShortHighlight, 600),
     roleTagIds,
@@ -2085,16 +2088,21 @@ test("Few highlights requires both the episode and scene-percentage limits", () 
   );
 
   assert.equal(
-    labels([marker("long-highlight", tag("feet", "Feet"), 0, 31)], 600, {
-      ...suppressNegatives,
-      fewHighlightsMaxEpisodes: 1,
-      fewHighlightsMaxPercent: 5,
-    }).includes("Few highlights"),
+    labels(
+      [completedActivity, marker("long-highlight", tag("feet", "Feet"), 0, 31)],
+      600,
+      {
+        ...suppressNegatives,
+        fewHighlightsMaxEpisodes: 1,
+        fewHighlightsMaxPercent: 5,
+      }
+    ).includes("Few highlights"),
     false
   );
   assert.equal(
     labels(
       [
+        completedActivity,
         marker("highlight-1", tag("feet", "Feet"), 0, 10),
         marker("highlight-2", tag("feet", "Feet"), 20, 30),
       ],
@@ -2109,11 +2117,23 @@ test("Few highlights requires both the episode and scene-percentage limits", () 
   );
 });
 
-test("an unmarked scene reports both missing highlights and filler", () => {
-  const sceneLabels = labels([], 600);
+test("Few highlights and Lots of filler require a completed activity marker", () => {
+  const unmarkedLabels = labels([], 600);
+  const incompleteActivityLabels = labels(
+    [marker("incomplete-sex", tag("sex", "Sex"), 0, null)],
+    600
+  );
+  const completedActivityLabels = labels(
+    [marker("completed-sex", tag("sex", "Sex"), 0, 10)],
+    600
+  );
 
-  assert.ok(sceneLabels.includes("Few highlights"));
-  assert.ok(sceneLabels.includes("Lots of filler"));
+  for (const sceneLabels of [unmarkedLabels, incompleteActivityLabels]) {
+    assert.equal(sceneLabels.includes("Few highlights"), false);
+    assert.equal(sceneLabels.includes("Lots of filler"), false);
+  }
+  assert.ok(completedActivityLabels.includes("Few highlights"));
+  assert.ok(completedActivityLabels.includes("Lots of filler"));
 });
 
 test("quality level thresholds are configurable", () => {
@@ -2501,7 +2521,7 @@ test("a Facial descendant counts toward a vato's repeated orgasms", () => {
   assert.equal(sceneLabels.includes("3 orgasms"), false);
 });
 
-test("Lackluster activity suppresses Lots of filler", () => {
+test("Lackluster activity does not suppress Lots of filler", () => {
   const scene = {
     ...makeScene([marker("sex", tag("sex", "Sex"), 0, 100)], 100),
     negative_markers: [{ id: "negative", start_seconds: 0, end_seconds: 40 }],
@@ -2512,7 +2532,7 @@ test("Lackluster activity suppresses Lots of filler", () => {
   }).all.map((insight) => insight.label);
 
   assert.ok(insightLabels.includes("Lackluster sex"));
-  assert.equal(insightLabels.includes("Lots of filler"), false);
+  assert.ok(insightLabels.includes("Lots of filler"));
 });
 
 test("GOAT activity suppresses Lackluster", () => {

@@ -35,6 +35,13 @@
         xhr.onreadystatechange = function() {
             if (xhr.readyState == 4) {
                 if (xhr.status == 200) {
+                    // CUSTOM: begin - preserve a remote pairing fragment inherited by the login redirect.
+                    // Keep the one-use code in the browser; do not add it to the login POST body.
+                    if (/^#pair=[a-f0-9]{48}$/.test(window.location.hash) &&
+                        /\/remote\/o(?:\?|$)/.test(returnURL) && returnURL.indexOf("#") === -1) {
+                        returnURL += window.location.hash;
+                    }
+                    // CUSTOM: end
                     window.location.replace(returnURL);
                 } else {
                     document.getElementsByClassName("login-error")[0].innerHTML = localeStrings.invalid_credentials;

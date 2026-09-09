@@ -1,4 +1,5 @@
 import React, { Suspense, useEffect, useState } from "react";
+import RemoteO from "./components/RemoteO/RemoteO"; // CUSTOM
 import {
   Route,
   Switch,
@@ -275,6 +276,8 @@ export const App: React.FC = () => {
         <Suspense fallback={<LoadingIndicator />}>
           <Switch>
             <Route exact path="/" component={FrontPage} />
+            {/* CUSTOM: persistent paired mobile O remote */}
+            <Route exact path="/remote/o" component={RemoteO} />
             <Route exact path="/viewer" component={UnifiedViewer} />
             <Route path="/scenes" component={Scenes} />
             <Route path="/images" component={Images} />

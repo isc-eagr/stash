@@ -60,6 +60,6 @@ export function makeSceneStatsVatoCountURL(bucket: SceneStatsVatoCountBucket) {
     type: "performer_count",
     ...rangeByBucket[bucket],
   };
-  return `/scenes?c=${encodeURIComponent(JSON.stringify(criterionData))}`;
+  return `/scenes?c=${encodeURIComponent(JSON.stringify(criterionData))}&z=2`;
 }
 // CUSTOM: end

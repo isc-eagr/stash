@@ -219,6 +219,7 @@ test("chip links restore all matching IDs, and missing snapshots fail closed", (
     const params = JSON.parse(
       new URL(link, "http://localhost").searchParams.get("c")!
     );
+    assert.equal(new URL(link, "http://localhost").searchParams.get("z"), "2");
     assert.deepEqual(readInsightSceneMatch(params.value)?.ids, ["1", "2"]);
     const criterion = new InsightChipCriterion();
     criterion.fromDecodedParams(params);

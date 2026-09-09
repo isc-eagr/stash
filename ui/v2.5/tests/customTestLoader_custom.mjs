@@ -29,6 +29,16 @@ export async function resolve(specifier, context, nextResolve) {
     );
   }
 
+  if (specifier === "@apollo/client/utilities") {
+    return nextResolve(
+      new URL(
+        "../node_modules/@apollo/client/utilities/index.js",
+        import.meta.url
+      ).href,
+      context
+    );
+  }
+
   if (specifier.startsWith("src/")) {
     const resolved = await resolveTypeScriptCandidate(
       new URL(specifier.slice(4), sourceRoot),

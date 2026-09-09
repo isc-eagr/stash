@@ -108,7 +108,7 @@ const allMenuItems: IMenuItem[] = [
   {
     name: "scenes",
     message: messages.scenes,
-    href: "/scenes",
+    href: "/scenes?z=2",
     icon: faPlayCircle,
     hotkey: "g s",
     userCreatable: true,

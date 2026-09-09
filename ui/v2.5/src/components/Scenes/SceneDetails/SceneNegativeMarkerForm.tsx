@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react"; // CUSTOM
+import React, { useEffect, useMemo, useState } from "react"; // CUSTOM
 import { Alert, Button, Col, Form, Row } from "react-bootstrap"; // CUSTOM
 import { FormattedMessage, useIntl } from "react-intl";
 import { useFormik } from "formik";
@@ -36,7 +36,12 @@ import { findSceneMarkerGapWarningDetails } from "./sceneMarkerGapWarning_custom
 import {
   getSceneNegativeMarkerDuration,
   getSceneNegativeMarkerInitialRange,
+  getSceneNegativeMarkerSequentialRange,
 } from "./sceneNegativeMarkerForm_custom";
+import {
+  getSequentialMarkerStart,
+  hasSequentialMarkerEnd,
+} from "./sceneMarkerSequentialActions_custom";
 // CUSTOM: end
 
 interface ISceneNegativeMarkerForm {
@@ -45,6 +50,7 @@ interface ISceneNegativeMarkerForm {
   sceneMarkers?: GQL.SceneMarkerDataFragment[];
   negativeMarkers?: GQL.SceneNegativeMarker[];
   onClose: () => void;
+  onAddNextMarker: (seconds: number) => void; // CUSTOM: open the regular marker editor
   markerTimestampCopyRequest?: ISceneMarkerTimestampCopyRequest; // CUSTOM
   markerTimestampCopySelection?: ISceneMarkerTimestampCopySelection; // CUSTOM
   onMarkerTimestampCopyRequest: (
@@ -60,6 +66,7 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
   sceneMarkers,
   negativeMarkers,
   onClose,
+  onAddNextMarker, // CUSTOM
   markerTimestampCopyRequest, // CUSTOM
   markerTimestampCopySelection, // CUSTOM
   onMarkerTimestampCopyRequest, // CUSTOM
@@ -74,7 +81,12 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
   const Toast = useToast();
   const { configuration } = useConfigurationContext(); // CUSTOM
 
-  const isNew = marker === undefined;
+  const [sequentialNegativeRange, setSequentialNegativeRange] = useState<{
+    start_seconds: number;
+    end_seconds: number;
+  }>();
+  const isSequentialNegative = sequentialNegativeRange !== undefined;
+  const isNew = marker === undefined || isSequentialNegative;
   const { data: sceneData } = useFindScene(sceneID); // CUSTOM
   const warningSceneMarkers = useMemo(
     () => sceneMarkers ?? sceneData?.findScene?.scene_markers ?? [],
@@ -107,6 +119,13 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
 
   // CUSTOM: begin - match regular marker A-B loop range initialization
   const initialValues = useMemo(() => {
+    if (sequentialNegativeRange) {
+      return {
+        name: "",
+        ...sequentialNegativeRange,
+      };
+    }
+
     const abLoop = getAbLoopPlugin()?.getOptions();
     const range = getSceneNegativeMarkerInitialRange({
       marker,
@@ -118,7 +137,7 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
       name: marker?.name ?? "",
       ...range,
     };
-  }, [marker]);
+  }, [marker, sequentialNegativeRange]);
   // CUSTOM: end
 
   type InputValues = yup.InferType<typeof schema>;
@@ -166,7 +185,7 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
     () =>
       findSceneMarkerGapWarningDetails({
         draft: {
-          id: marker?.id,
+          id: isNew ? undefined : marker?.id,
           seconds: formik.values.start_seconds,
           end_seconds: formik.values.end_seconds,
         },
@@ -178,6 +197,7 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
       configuration?.ui.roleTagIds,
       formik.values.end_seconds,
       formik.values.start_seconds,
+      isNew,
       marker?.id,
       warningNegativeMarkers,
       warningSceneMarkers,
@@ -185,7 +205,7 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
   );
   // CUSTOM: end
 
-  async function onSave(input: InputValues) {
+  async function persistMarker(input: InputValues): Promise<boolean> {
     try {
       if (isNew) {
         await createMarker({
@@ -212,8 +232,77 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
       }
     } catch (e) {
       Toast.error(e);
+      return false;
+    }
+
+    return true;
+  }
+
+  async function onSave(input: InputValues) {
+    if (await persistMarker(input)) {
+      onClose(); // CUSTOM: preserve the form after a failed mutation
+    }
+  }
+
+  async function validateAndPersist(): Promise<InputValues | undefined> {
+    const errors = await formik.validateForm();
+    if (!isEqual(errors, {})) {
+      Toast.error(
+        "Complete the required negative-marker fields before saving."
+      );
+      return undefined;
+    }
+
+    const input = schema.cast(formik.values);
+    return (await persistMarker(input)) ? input : undefined;
+  }
+
+  // CUSTOM: save the current negative marker, then continue at its end boundary.
+  async function onSaveAndAddNextNegativeMarker() {
+    if (
+      formik.isSubmitting ||
+      !hasSequentialMarkerEnd(formik.values.end_seconds)
+    ) {
+      return;
+    }
+
+    formik.setSubmitting(true);
+    try {
+      const input = await validateAndPersist();
+      if (!input || !hasSequentialMarkerEnd(input.end_seconds)) return;
+
+      const nextRange = getSceneNegativeMarkerSequentialRange(
+        input.end_seconds
+      );
+      setSequentialNegativeRange(nextRange);
+      formik.resetForm({
+        values: {
+          name: "",
+          ...nextRange,
+        },
+      });
     } finally {
+      formik.setSubmitting(false);
+    }
+  }
+
+  async function onSaveAndAddNextMarker() {
+    if (
+      formik.isSubmitting ||
+      !hasSequentialMarkerEnd(formik.values.end_seconds)
+    ) {
+      return;
+    }
+
+    formik.setSubmitting(true);
+    try {
+      const input = await validateAndPersist();
+      if (!input || !hasSequentialMarkerEnd(input.end_seconds)) return;
+
       onClose();
+      onAddNextMarker(getSequentialMarkerStart(input.end_seconds));
+    } finally {
+      formik.setSubmitting(false);
     }
   }
 
@@ -582,6 +671,33 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
             </Button>
           )}
         </div>
+        {/* CUSTOM: begin - adjacent regular and negative marker actions */}
+        <div className="d-flex flex-wrap mt-2 scene-marker-sequential-actions">
+          <Button
+            variant="secondary"
+            type="button"
+            disabled={
+              formik.isSubmitting ||
+              !hasSequentialMarkerEnd(formik.values.end_seconds)
+            }
+            onClick={() => void onSaveAndAddNextMarker()}
+          >
+            Save &amp; Add Next Marker
+          </Button>
+          <Button
+            variant="secondary"
+            type="button"
+            className="ml-2"
+            disabled={
+              formik.isSubmitting ||
+              !hasSequentialMarkerEnd(formik.values.end_seconds)
+            }
+            onClick={() => void onSaveAndAddNextNegativeMarker()}
+          >
+            Save &amp; Add Next Negative Marker
+          </Button>
+        </div>
+        {/* CUSTOM: end */}
       </div>
     </Form>
   );

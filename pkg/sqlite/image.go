@@ -296,10 +296,31 @@ func (qb *ImageStore) Create(ctx context.Context, newObject *models.CreateImageI
 
 	*newObject.Image = *updated
 
+	// CUSTOM: begin - record initially tagged images as incoming work
+	afterTags, err := taskProgressTagSnapshotCustom(ctx, "image", id)
+	if err != nil {
+		return err
+	}
+	if err := recordTaskProgressTagDiffCustom(ctx, "image", id, nil, afterTags); err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	return nil
 }
 
 func (qb *ImageStore) UpdatePartial(ctx context.Context, id int, partial models.ImagePartial) (*models.Image, error) {
+	// CUSTOM: begin - diff logical membership around tag updates
+	var beforeTags taskProgressTagSetCustom
+	if partial.TagIDs != nil {
+		var err error
+		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "image", id)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
 	r := imageRowRecord{
 		updateRecord{
 			Record: make(exp.Record),
@@ -346,10 +367,38 @@ func (qb *ImageStore) UpdatePartial(ctx context.Context, id int, partial models.
 		return nil, err
 	}
 
-	return qb.find(ctx, id)
+	updated, err := qb.find(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// CUSTOM: begin
+	if beforeTags != nil {
+		afterTags, err := taskProgressTagSnapshotCustom(ctx, "image", id)
+		if err != nil {
+			return nil, err
+		}
+		if err := recordTaskProgressTagDiffCustom(ctx, "image", id, beforeTags, afterTags); err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
+	return updated, nil
 }
 
 func (qb *ImageStore) Update(ctx context.Context, updatedObject *models.Image) error {
+	// CUSTOM: begin - snapshot only when this full update carries tags
+	var beforeTags taskProgressTagSetCustom
+	if updatedObject.TagIDs.Loaded() {
+		var err error
+		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "image", updatedObject.ID)
+		if err != nil {
+			return err
+		}
+	}
+	// CUSTOM: end
+
 	var r imageRow
 	r.fromImage(*updatedObject)
 
@@ -391,11 +440,36 @@ func (qb *ImageStore) Update(ctx context.Context, updatedObject *models.Image) e
 			return err
 		}
 	}
+
+	// CUSTOM: begin
+	if beforeTags != nil {
+		afterTags, err := taskProgressTagSnapshotCustom(ctx, "image", updatedObject.ID)
+		if err != nil {
+			return err
+		}
+		if err := recordTaskProgressTagDiffCustom(ctx, "image", updatedObject.ID, beforeTags, afterTags); err != nil {
+			return err
+		}
+	}
+	// CUSTOM: end
 	return nil
 }
 
 func (qb *ImageStore) Destroy(ctx context.Context, id int) error {
-	return qb.tableMgr.destroyExisting(ctx, []int{id})
+	// CUSTOM: begin - deletion completes the image for all matching trackers
+	beforeTags, err := taskProgressTagSnapshotCustom(ctx, "image", id)
+	if err != nil {
+		return err
+	}
+	itemLabel, err := taskProgressItemLabelCustom(ctx, "image", id)
+	if err != nil {
+		return err
+	}
+	if err := qb.tableMgr.destroyExisting(ctx, []int{id}); err != nil {
+		return err
+	}
+	return recordTaskProgressTagDiffCustom(ctx, "image", id, beforeTags, nil, itemLabel)
+	// CUSTOM: end
 }
 
 // returns nil, nil if not found
@@ -1107,8 +1181,25 @@ func (qb *ImageStore) GetTagIDs(ctx context.Context, imageID int) ([]int, error)
 }
 
 func (qb *ImageStore) UpdateTags(ctx context.Context, imageID int, tagIDs []int) error {
+	// CUSTOM: begin - imports can replace image tags through this dedicated path
+	beforeTags, err := taskProgressTagSnapshotCustom(ctx, "image", imageID)
+	if err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	// Delete the existing joins and then create new ones
-	return imageRepository.tags.replace(ctx, imageID, tagIDs)
+	if err := imageRepository.tags.replace(ctx, imageID, tagIDs); err != nil {
+		return err
+	}
+
+	// CUSTOM: begin
+	afterTags, err := taskProgressTagSnapshotCustom(ctx, "image", imageID)
+	if err != nil {
+		return err
+	}
+	return recordTaskProgressTagDiffCustom(ctx, "image", imageID, beforeTags, afterTags)
+	// CUSTOM: end
 }
 
 func (qb *ImageStore) GetURLs(ctx context.Context, imageID int) ([]string, error) {

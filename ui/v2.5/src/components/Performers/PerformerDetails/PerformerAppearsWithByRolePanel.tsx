@@ -131,7 +131,7 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
             },
           ],
         })
-      )}&sortby=date`
+      )}&sortby=date&z=2`
     : undefined;
 
   // Use the scene count from GraphQL query

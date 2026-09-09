@@ -1,0 +1,98 @@
+# CUSTOM: Persistent player pairing and ephemeral remote O-control sessions.
+
+mutation RemotePlaybackPairingCreate($player_id: String!) {
+  remotePlaybackPairingCreate(player_id: $player_id)
+}
+
+mutation RemotePlaybackPairingRedeem($token: String!) {
+  remotePlaybackPairingRedeem(token: $token)
+}
+
+query RemotePlaybackState($player_id: String!) {
+  remotePlaybackState(player_id: $player_id) {
+    server_id
+    player_id
+    session_id
+    scene_id
+    scene_title
+    video_timestamp
+    duration
+    playback_rate
+    status
+    updated_at
+  }
+}
+
+mutation RemotePlaybackUpdate($input: RemotePlaybackStateInput!) {
+  remotePlaybackUpdate(input: $input) {
+    server_id
+    player_id
+    session_id
+    scene_id
+    scene_title
+    video_timestamp
+    duration
+    playback_rate
+    status
+    updated_at
+  }
+}
+
+mutation RemotePlaybackDisconnect($player_id: String!, $session_id: String!) {
+  remotePlaybackDisconnect(player_id: $player_id, session_id: $session_id)
+}
+
+mutation RemotePlaybackRequestO($input: RemotePlaybackORequestInput!) {
+  remotePlaybackRequestO(input: $input) {
+    command_id
+    player_id
+    session_id
+    expected_scene_id
+  }
+}
+
+mutation RemotePlaybackRecordO($input: RemotePlaybackORecordInput!) {
+  remotePlaybackRecordO(input: $input) {
+    command_id
+    player_id
+    scene_id
+    video_timestamp
+    count
+    recorded_at
+  }
+}
+
+subscription RemotePlaybackStateSubscribe($player_id: String!) {
+  remotePlaybackStateSubscribe(player_id: $player_id) {
+    server_id
+    player_id
+    session_id
+    scene_id
+    scene_title
+    video_timestamp
+    duration
+    playback_rate
+    status
+    updated_at
+  }
+}
+
+subscription RemotePlaybackCommandSubscribe($player_id: String!) {
+  remotePlaybackCommandSubscribe(player_id: $player_id) {
+    command_id
+    player_id
+    session_id
+    expected_scene_id
+  }
+}
+
+subscription RemotePlaybackOResultSubscribe($player_id: String!) {
+  remotePlaybackOResultSubscribe(player_id: $player_id) {
+    command_id
+    player_id
+    scene_id
+    video_timestamp
+    count
+    recorded_at
+  }
+}

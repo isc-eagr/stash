@@ -69,3 +69,6 @@ dist
 /build_output.txt
 /go.mod.bak
 /.codex/visualizations/
+.codex
+.pnpm-store
+data

@@ -1,0 +1,392 @@
+.task-progress-page {
+  margin: 3rem auto 0;
+  max-width: 1500px;
+  padding: 0 clamp(0.75rem, 2vw, 2rem) 2rem;
+
+  .progress-tracker-heading,
+  .progress-page-heading {
+    align-items: flex-start;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+  }
+
+  .progress-page-heading {
+    align-items: flex-end;
+    border-bottom: 1px solid rgba(138, 155, 168, 0.35);
+    margin-bottom: 1.25rem;
+    padding-bottom: 1rem;
+
+    h2 {
+      font-size: 1.75rem;
+      margin: 0;
+    }
+
+    > div:last-child {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+  }
+
+  .progress-tracker-toolbar {
+    align-items: center;
+    background: rgba(16, 22, 26, 0.25);
+    border: 1px solid rgba(138, 155, 168, 0.35);
+    border-radius: 2px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    padding: 0.6rem 0.75rem;
+
+    .form-group {
+      align-items: center;
+      display: flex;
+      gap: 0.5rem;
+      margin: 0;
+    }
+
+    .form-label {
+      color: var(--black-steel-text-muted, #bfccd6);
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin: 0;
+      text-transform: uppercase;
+    }
+
+    .form-control {
+      min-width: 9rem;
+      width: auto;
+    }
+  }
+
+  .progress-tracker-card {
+    height: auto;
+    margin: 0;
+    position: relative;
+    transition: border-color 150ms ease, box-shadow 150ms ease,
+      transform 150ms ease;
+
+    &:hover,
+    &:focus-within {
+      border-color: rgba(138, 155, 168, 0.65);
+      box-shadow: 0 0.6rem 1.4rem rgba(0, 0, 0, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .card-body {
+      border-top: 1px solid rgba(128, 128, 128, 0.25);
+      padding: 0.85rem;
+    }
+  }
+
+  .progress-tracker-summary {
+    background: transparent;
+    border: 0;
+    border-radius: inherit;
+    color: inherit;
+    padding: 0.85rem;
+    text-align: left;
+    width: 100%;
+  }
+
+  .progress-tracker-card-actions {
+    display: flex;
+    gap: 0.4rem;
+    padding: 0 0.85rem 0.85rem;
+  }
+
+  .progress-tracker-plan {
+    align-items: center;
+    border-top: 1px solid rgba(138, 155, 168, 0.2);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.5rem;
+    margin: 0 0.85rem;
+    padding: 0.5rem 0;
+
+    .form-label {
+      color: var(--black-steel-text-muted, #bfccd6);
+      font-size: 0.75rem;
+      margin: 0;
+    }
+
+    .form-control {
+      font-size: 0.8rem;
+      height: calc(1.5em + 0.35rem + 2px);
+      max-width: 4.5rem;
+      padding: 0.15rem 0.35rem;
+    }
+
+    > span {
+      color: var(--black-steel-text-muted, #bfccd6);
+      font-size: 0.75rem;
+      margin-left: auto;
+    }
+  }
+
+  .progress-tracker-reorder {
+    display: flex;
+    gap: 0.1rem;
+    position: absolute;
+    right: 0.35rem;
+    top: 0.3rem;
+    z-index: 2;
+
+    .btn {
+      color: var(--black-steel-text-muted, #bfccd6);
+      line-height: 1;
+      padding: 0.25rem;
+
+      &:hover:not(:disabled),
+      &:focus-visible {
+        color: var(--black-steel-link, #48aff0);
+      }
+    }
+  }
+
+  .progress-tracker-title {
+    font-size: 1rem;
+    overflow-wrap: anywhere;
+  }
+
+  .progress-tracker-heading {
+    padding-right: 3.5rem;
+  }
+
+  .progress-tracker-status {
+    align-items: center;
+    display: flex;
+    flex-shrink: 0;
+    gap: 0.35rem;
+  }
+
+  .progress-tracker-counts {
+    color: var(--black-steel-text-muted, #bfccd6);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 0.8rem;
+    gap: 0.3rem 0.75rem;
+    margin: 0.6rem 0;
+
+    span strong {
+      color: var(--black-steel-text, #f5f8fa);
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .progress-tracker-percentage {
+      color: var(--black-steel-text, #f5f8fa);
+      margin-left: auto;
+    }
+  }
+
+  .progress-tracker-meter {
+    background: rgba(138, 155, 168, 0.2);
+    border-radius: 3px;
+    display: block;
+    height: 5px;
+    overflow: hidden;
+
+    > span {
+      background: var(--black-steel-accent, #137cbd);
+      display: block;
+      height: 100%;
+    }
+  }
+
+  .progress-tracker-modal-meta {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .progress-tracker-modal-meta span {
+    color: var(--black-steel-text-muted, #bfccd6);
+    font-size: 0.85rem;
+  }
+
+  .progress-tracker-modal-items,
+  .progress-tracker-modal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .progress-tracker-modal-items {
+    margin-top: 0.75rem;
+  }
+
+  .progress-overall-card {
+    margin: 0 0 1rem;
+
+    .card-header {
+      align-items: center;
+      background: rgba(16, 22, 26, 0.22);
+      border-bottom: 1px solid rgba(138, 155, 168, 0.25);
+      display: flex;
+      justify-content: space-between;
+      padding: 0.85rem 1rem;
+
+      h3,
+      p {
+        margin: 0;
+      }
+
+      p {
+        color: var(--black-steel-text-muted, #bfccd6);
+        font-size: 0.8rem;
+        margin-top: 0.2rem;
+      }
+    }
+
+    .card-body {
+      padding: 1rem;
+    }
+  }
+
+  .progress-overall-summary {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.75rem;
+    margin-bottom: 0.65rem;
+
+    strong {
+      font-size: 1.35rem;
+    }
+
+    span {
+      color: var(--black-steel-text-muted, #bfccd6);
+      font-size: 0.85rem;
+    }
+
+    .progress-overall-percentage {
+      color: var(--black-steel-text, #f5f8fa);
+      margin-left: auto;
+    }
+  }
+
+  .progress-description {
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
+  .progress-forecast {
+    border-top: 1px solid rgba(128, 128, 128, 0.35);
+    padding-top: 1rem;
+  }
+
+  .progress-tracker-card .progress-forecast {
+    margin-top: 1rem;
+  }
+
+  .progress-plan-input {
+    max-width: 10rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .task-progress-page {
+    margin-top: 1.5rem;
+
+    .progress-page-heading {
+      align-items: stretch;
+      flex-direction: column;
+
+      > div:last-child {
+        width: 100%;
+
+        .btn {
+          flex: 1;
+        }
+      }
+    }
+
+    .progress-tracker-toolbar {
+      align-items: stretch;
+
+      .form-group {
+        width: 100%;
+      }
+
+      .form-control {
+        flex: 1;
+      }
+    }
+  }
+}
+
+// React-Bootstrap renders modal dialogs at document level, outside the page wrapper.
+.task-progress-tracker-modal,
+.task-progress-form-modal,
+.task-progress-details-modal {
+  .modal-content {
+    border-radius: 2px;
+  }
+
+  .modal-header {
+    padding: 0.75rem 1rem;
+
+    .modal-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+  }
+
+  .modal-body {
+    padding: 1rem;
+  }
+
+  .modal-footer {
+    gap: 0.5rem;
+    padding: 0.65rem 1rem;
+  }
+}
+
+.progress-tracker-modal-actions {
+  justify-content: flex-end;
+}
+
+.task-progress-tracker-modal {
+  .form-group {
+    max-width: 18rem;
+  }
+
+  .modal-body > .progress-description {
+    border-left: 2px solid rgba(138, 155, 168, 0.45);
+    color: var(--black-steel-text-muted, #bfccd6);
+    padding-left: 0.75rem;
+  }
+}
+
+.task-progress-details-modal {
+  .table-responsive {
+    max-height: min(32rem, 60vh);
+  }
+
+  .modal-body {
+    padding-top: 0.5rem;
+  }
+}
+
+.task-progress-form-modal {
+  .form-group,
+  fieldset {
+    margin-bottom: 1rem;
+  }
+
+  .form-text {
+    color: var(--black-steel-text-muted, #bfccd6);
+    font-size: 0.8rem;
+  }
+
+  .modal-body {
+    max-height: min(42rem, 72vh);
+    overflow-y: auto;
+  }
+}

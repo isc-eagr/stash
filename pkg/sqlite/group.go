@@ -204,10 +204,31 @@ func (qb *GroupStore) Create(ctx context.Context, newObject *models.Group) error
 
 	*newObject = *updated
 
+	// CUSTOM: begin - record initially tagged groups as incoming work
+	afterTags, err := taskProgressTagSnapshotCustom(ctx, "group", id)
+	if err != nil {
+		return err
+	}
+	if err := recordTaskProgressTagDiffCustom(ctx, "group", id, nil, afterTags); err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	return nil
 }
 
 func (qb *GroupStore) UpdatePartial(ctx context.Context, id int, partial models.GroupPartial) (*models.Group, error) {
+	// CUSTOM: begin - diff logical membership around tag updates
+	var beforeTags taskProgressTagSetCustom
+	if partial.TagIDs != nil {
+		var err error
+		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "group", id)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
 	r := groupRowRecord{
 		updateRecord{
 			Record: make(exp.Record),
@@ -244,10 +265,38 @@ func (qb *GroupStore) UpdatePartial(ctx context.Context, id int, partial models.
 		return nil, err
 	}
 
-	return qb.find(ctx, id)
+	updated, err := qb.find(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// CUSTOM: begin
+	if beforeTags != nil {
+		afterTags, err := taskProgressTagSnapshotCustom(ctx, "group", id)
+		if err != nil {
+			return nil, err
+		}
+		if err := recordTaskProgressTagDiffCustom(ctx, "group", id, beforeTags, afterTags); err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
+	return updated, nil
 }
 
 func (qb *GroupStore) Update(ctx context.Context, updatedObject *models.Group) error {
+	// CUSTOM: begin - snapshot only when this full update carries tags
+	var beforeTags taskProgressTagSetCustom
+	if updatedObject.TagIDs.Loaded() {
+		var err error
+		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "group", updatedObject.ID)
+		if err != nil {
+			return err
+		}
+	}
+	// CUSTOM: end
+
 	var r groupRow
 	r.fromGroup(*updatedObject)
 
@@ -273,16 +322,44 @@ func (qb *GroupStore) Update(ctx context.Context, updatedObject *models.Group) e
 		return err
 	}
 
+	// CUSTOM: begin
+	if beforeTags != nil {
+		afterTags, err := taskProgressTagSnapshotCustom(ctx, "group", updatedObject.ID)
+		if err != nil {
+			return err
+		}
+		if err := recordTaskProgressTagDiffCustom(ctx, "group", updatedObject.ID, beforeTags, afterTags); err != nil {
+			return err
+		}
+	}
+	// CUSTOM: end
+
 	return nil
 }
 
 func (qb *GroupStore) Destroy(ctx context.Context, id int) error {
+	// CUSTOM: begin - deletion completes the group for all matching trackers
+	beforeTags, err := taskProgressTagSnapshotCustom(ctx, "group", id)
+	if err != nil {
+		return err
+	}
+	itemLabel, err := taskProgressItemLabelCustom(ctx, "group", id)
+	if err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	// must handle image checksums manually
 	if err := qb.destroyImages(ctx, id); err != nil {
 		return err
 	}
 
-	return groupRepository.destroyExisting(ctx, []int{id})
+	if err := groupRepository.destroyExisting(ctx, []int{id}); err != nil {
+		return err
+	}
+
+	// CUSTOM
+	return recordTaskProgressTagDiffCustom(ctx, "group", id, beforeTags, nil, itemLabel)
 }
 
 // returns nil, nil if not found

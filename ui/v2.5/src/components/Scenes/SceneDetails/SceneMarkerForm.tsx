@@ -54,6 +54,12 @@ import {
   type SceneMarkerInsertMode,
 } from "./sceneMarkerFormActions_custom";
 import { toMarkerMilliseconds } from "./sceneMarkerTimestamp_custom";
+import {
+  getSequentialMarkerDraft,
+  hasSequentialMarkerEnd,
+  type ISceneMarkerSequentialDraft,
+  type SceneMarkerSequentialRecordKind,
+} from "./sceneMarkerSequentialActions_custom";
 import type {
   ISceneMarkerTimestampCopyRequest,
   ISceneMarkerTimestampCopySelection,
@@ -121,6 +127,7 @@ const PerformerSelectOption: React.FC<
 interface ISceneMarkerForm {
   sceneID: string;
   marker?: GQL.SceneMarkerDataFragment;
+  initialSeconds?: number; // CUSTOM: cross-panel adjacent negative-marker handoff
   onClose: () => void;
   markerTimestampCopyRequest?: ISceneMarkerTimestampCopyRequest; // CUSTOM
   markerTimestampCopySelection?: ISceneMarkerTimestampCopySelection; // CUSTOM
@@ -134,6 +141,7 @@ interface ISceneMarkerForm {
 export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   sceneID,
   marker,
+  initialSeconds, // CUSTOM
   onClose,
   markerTimestampCopyRequest, // CUSTOM
   markerTimestampCopySelection, // CUSTOM
@@ -157,11 +165,14 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   const [tags, setTags] = useState<Tag[]>([]);
   // CUSTOM: begin - create a duplicate or a bounded marker from the edit form
   const [createAction, setCreateAction] = useState<
-    "duplicate" | "insert-between"
+    "duplicate" | "insert-between" | "next-marker" | "next-negative-marker"
   >();
+  const [sequentialDraft, setSequentialDraft] =
+    useState<ISceneMarkerSequentialDraft>();
   const isInsertBetween = createAction === "insert-between";
   const isNew = marker === undefined || createAction !== undefined;
-  const draftMarker = isInsertBetween ? undefined : marker;
+  const draftMarker =
+    isInsertBetween || createAction?.startsWith("next-") ? undefined : marker;
   // CUSTOM: end
   // CUSTOM: begin – performer state & scene data
   const [topPerformers, setTopPerformers] = useState<IPerformer[]>([]);
@@ -225,7 +236,22 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
 
   // useMemo to only run getPlayerPosition when the input marker actually changes
   const initialValues = useMemo(() => {
+    if (sequentialDraft) return sequentialDraft;
+
     if (!draftMarker) {
+      if (initialSeconds !== undefined) {
+        return {
+          insert_mode: "marker" as const,
+          title: "",
+          seconds: initialSeconds,
+          end_seconds: null,
+          primary_tag_id: "",
+          tag_ids: [],
+          top_performer_ids: [],
+          bottom_performer_ids: [],
+        };
+      }
+
       // CUSTOM: insert-between uses normal new-marker defaults
       const abLoopPlugin = getAbLoopPlugin();
       const opts = abLoopPlugin?.getOptions();
@@ -270,7 +296,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       top_performer_ids: [],
       bottom_performer_ids: [],
     };
-  }, [draftMarker]); // CUSTOM
+  }, [draftMarker, initialSeconds, sequentialDraft]); // CUSTOM
 
   type InputValues = yup.InferType<typeof schema>;
   const validateSchema = yupFormikValidate<InputValues>(schema); // CUSTOM
@@ -324,7 +350,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   // CUSTOM: fetch negative titles only while that insert mode is visible.
   const { data: negativeMarkerNameData, loading: negativeMarkerNamesLoading } =
     useSceneNegativeMarkerNames(
-      !isInsertBetween || formik.values.insert_mode !== "negative-marker"
+      formik.values.insert_mode !== "negative-marker"
     );
   const negativeMarkerTitles =
     negativeMarkerNameData?.sceneNegativeMarkerNames ?? [];
@@ -501,7 +527,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   }, [draftMarker?.bottom_performers]); // CUSTOM
   // CUSTOM: end
 
-  async function onSave(input: InputValues) {
+  async function persistMarker(input: InputValues): Promise<boolean> {
     const createdMarkerIDs: string[] = []; // CUSTOM: rollback split creates on failure
     const createdNegativeMarkerIDs: string[] = []; // CUSTOM
 
@@ -511,7 +537,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         const rangeErrors = getSceneMarkerInsertRangeErrors(marker, input);
         if (Object.keys(rangeErrors).length > 0 || input.end_seconds === null) {
           await formik.setErrors(rangeErrors as FormikErrors<InputValues>);
-          return;
+          return false;
         }
 
         const insertedRecordKind = getSceneMarkerInsertRecordKind(
@@ -594,6 +620,17 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
               marker.bottom_performers?.map((performer) => performer.id) ?? [],
           },
         });
+      } else if (isNew && input.insert_mode === "negative-marker") {
+        await sceneNegativeMarkerCreate({
+          variables: {
+            input: {
+              scene_id: sceneID,
+              name: input.title,
+              start_seconds: input.seconds,
+              end_seconds: input.end_seconds as number,
+            },
+          },
+        });
       } else if (isNew) {
         await sceneMarkerCreate({
           variables: {
@@ -640,11 +677,69 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         }
       }
       Toast.error(e);
+      return false;
+    }
+
+    return true;
+  }
+
+  async function onSave(input: InputValues) {
+    if (await persistMarker(input)) {
+      onClose(); // CUSTOM: keep the form open when saving fails
+    }
+  }
+
+  // CUSTOM: begin - save the current marker or inline negative-marker draft,
+  // then open its adjacent regular or negative-marker draft.
+  async function onSaveAndAddSequential(
+    recordKind: SceneMarkerSequentialRecordKind
+  ) {
+    if (
+      isInsertBetween ||
+      formik.isSubmitting ||
+      !hasSequentialMarkerEnd(formik.values.end_seconds)
+    ) {
       return;
     }
 
-    onClose(); // CUSTOM: keep the form open when saving fails
+    formik.setSubmitting(true);
+    try {
+      const errors = await validateSchema(formik.values);
+      if (!isEqual(errors, {})) {
+        await formik.setErrors(errors);
+        Toast.error("Complete the required marker fields before saving.");
+        return;
+      }
+
+      const currentValues = schema.cast(formik.values);
+      const saved = await persistMarker(currentValues);
+      if (!saved) return;
+      if (!hasSequentialMarkerEnd(currentValues.end_seconds)) return;
+
+      const nextDraft = getSequentialMarkerDraft(
+        {
+          ...currentValues,
+          end_seconds: currentValues.end_seconds,
+        },
+        recordKind
+      );
+      setSequentialDraft(nextDraft);
+      setCreateAction(
+        recordKind === "marker" ? "next-marker" : "next-negative-marker"
+      );
+      formik.resetForm({ values: nextDraft });
+
+      if (recordKind === "negative-marker") {
+        setPrimaryTag(undefined);
+        setTags([]);
+        setTopPerformers([]);
+        setBottomPerformers([]);
+      }
+    } finally {
+      formik.setSubmitting(false);
+    }
   }
+  // CUSTOM: end
 
   async function onDelete() {
     if (isNew) return;
@@ -682,19 +777,19 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
 
   function renderTitleField() {
     const title = intl.formatMessage({ id: "title" });
-    const isNegativeMarkerInsert =
-      isInsertBetween && formik.values.insert_mode === "negative-marker";
+    const isNegativeMarkerDraft =
+      formik.values.insert_mode === "negative-marker";
     const control = (
       <MarkerTitleSuggest
         initialMarkerTitle={formik.values.title}
         onChange={(v) => formik.setFieldValue("title", v)}
         additionalTitles={
-          isNegativeMarkerInsert ? negativeMarkerTitles : undefined
+          isNegativeMarkerDraft ? negativeMarkerTitles : undefined
         } // CUSTOM
         additionalTitlesLoading={
-          isNegativeMarkerInsert ? negativeMarkerNamesLoading : undefined
+          isNegativeMarkerDraft ? negativeMarkerNamesLoading : undefined
         } // CUSTOM
-        includeRegularTitles={!isNegativeMarkerInsert} // CUSTOM
+        includeRegularTitles={!isNegativeMarkerDraft} // CUSTOM
       />
     );
 
@@ -909,6 +1004,24 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         <Alert variant="info" className="py-2">
           This is a new marker preloaded from the original. The original marker
           will remain unchanged.
+        </Alert>
+      );
+    }
+
+    if (createAction === "next-marker") {
+      return (
+        <Alert variant="info" className="py-2">
+          The previous marker was saved. This new marker starts one millisecond
+          after its end and retains its marker setup.
+        </Alert>
+      );
+    }
+
+    if (createAction === "next-negative-marker") {
+      return (
+        <Alert variant="info" className="py-2">
+          The previous marker was saved. This new negative marker starts one
+          millisecond after its end.
         </Alert>
       );
     }
@@ -1252,20 +1365,15 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       <div className="form-container px-3">
         {renderInsertModeField()}
         {renderCreateActionNotice()}
-        {(!isInsertBetween || formik.values.insert_mode !== "gap") &&
-          renderTitleField()}
-        {(!isInsertBetween || formik.values.insert_mode === "marker") &&
-          renderPrimaryTagField()}
+        {formik.values.insert_mode !== "gap" && renderTitleField()}
+        {formik.values.insert_mode === "marker" && renderPrimaryTagField()}
         {renderTimeField()}
         {renderEndTimeField()}
         {renderDurationField()}
         {renderTimestampCopyNotice()} {/* CUSTOM */}
-        {(!isInsertBetween || formik.values.insert_mode === "marker") &&
-          renderGapWarning()}
-        {(!isInsertBetween || formik.values.insert_mode === "marker") &&
-          renderTagsField()}
-        {(!isInsertBetween || formik.values.insert_mode === "marker") &&
-          renderPerformersField()}
+        {formik.values.insert_mode === "marker" && renderGapWarning()}
+        {formik.values.insert_mode === "marker" && renderTagsField()}
+        {formik.values.insert_mode === "marker" && renderPerformersField()}
         {/* CUSTOM: conditional insert-mode fields */}
         {/* ^^^ CUSTOM: renderDurationField + renderPerformersField */}
       </div>
@@ -1301,6 +1409,35 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
             </Button>
           )}
         </div>
+        {/* CUSTOM: begin - save the current marker and begin an adjacent draft */}
+        {!isInsertBetween && (
+          <div className="d-flex flex-wrap mt-2 scene-marker-sequential-actions">
+            <Button
+              variant="secondary"
+              type="button"
+              disabled={
+                formik.isSubmitting ||
+                !hasSequentialMarkerEnd(formik.values.end_seconds)
+              }
+              onClick={() => void onSaveAndAddSequential("marker")}
+            >
+              Save &amp; Add Next Marker
+            </Button>
+            <Button
+              variant="secondary"
+              type="button"
+              className="ml-2"
+              disabled={
+                formik.isSubmitting ||
+                !hasSequentialMarkerEnd(formik.values.end_seconds)
+              }
+              onClick={() => void onSaveAndAddSequential("negative-marker")}
+            >
+              Save &amp; Add Next Negative Marker
+            </Button>
+          </div>
+        )}
+        {/* CUSTOM: end */}
         {/* CUSTOM: begin - marker create actions live on their own row */}
         {!isNew && marker && (
           <div className="d-flex flex-wrap mt-2">

@@ -7,6 +7,24 @@ fragment TaskProgressTrackerData on TaskProgressTracker {
   tag_id
   tag_name
   position
-  is_working_on
   started_on
+  status
+  mode
+  version
+  history_started_on
+  item_types
+  current_count
+  completed_count
+  incoming_count
+  item_counts {
+    item_type
+    count
+  }
+  history {
+    date
+    completed
+    incoming
+    remaining
+    baseline_count
+  }
 }

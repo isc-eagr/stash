@@ -287,10 +287,31 @@ func (qb *GalleryStore) Create(ctx context.Context, newObject *models.CreateGall
 
 	*newObject.Gallery = *updated
 
+	// CUSTOM: begin - record initially tagged galleries as incoming work
+	afterTags, err := taskProgressTagSnapshotCustom(ctx, "gallery", id)
+	if err != nil {
+		return err
+	}
+	if err := recordTaskProgressTagDiffCustom(ctx, "gallery", id, nil, afterTags); err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	return nil
 }
 
 func (qb *GalleryStore) Update(ctx context.Context, updatedObject *models.UpdateGalleryInput) error {
+	// CUSTOM: begin - snapshot only when this full update carries tags
+	var beforeTags taskProgressTagSetCustom
+	if updatedObject.TagIDs.Loaded() {
+		var err error
+		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "gallery", updatedObject.ID)
+		if err != nil {
+			return err
+		}
+	}
+	// CUSTOM: end
+
 	var r galleryRow
 	r.fromGallery(*updatedObject.Gallery)
 
@@ -334,10 +355,33 @@ func (qb *GalleryStore) Update(ctx context.Context, updatedObject *models.Update
 		return err
 	}
 
+	// CUSTOM: begin
+	if beforeTags != nil {
+		afterTags, err := taskProgressTagSnapshotCustom(ctx, "gallery", updatedObject.ID)
+		if err != nil {
+			return err
+		}
+		if err := recordTaskProgressTagDiffCustom(ctx, "gallery", updatedObject.ID, beforeTags, afterTags); err != nil {
+			return err
+		}
+	}
+	// CUSTOM: end
+
 	return nil
 }
 
 func (qb *GalleryStore) UpdatePartial(ctx context.Context, id int, partial models.GalleryPartial) (*models.Gallery, error) {
+	// CUSTOM: begin - diff logical membership around tag updates
+	var beforeTags taskProgressTagSetCustom
+	if partial.TagIDs != nil {
+		var err error
+		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "gallery", id)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
 	r := galleryRowRecord{
 		updateRecord{
 			Record: make(exp.Record),
@@ -383,11 +427,41 @@ func (qb *GalleryStore) UpdatePartial(ctx context.Context, id int, partial model
 		return nil, err
 	}
 
-	return qb.find(ctx, id)
+	updated, err := qb.find(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// CUSTOM: begin
+	if beforeTags != nil {
+		afterTags, err := taskProgressTagSnapshotCustom(ctx, "gallery", id)
+		if err != nil {
+			return nil, err
+		}
+		if err := recordTaskProgressTagDiffCustom(ctx, "gallery", id, beforeTags, afterTags); err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
+	return updated, nil
 }
 
 func (qb *GalleryStore) Destroy(ctx context.Context, id int) error {
-	return qb.tableMgr.destroyExisting(ctx, []int{id})
+	// CUSTOM: begin - deletion completes the gallery for all matching trackers
+	beforeTags, err := taskProgressTagSnapshotCustom(ctx, "gallery", id)
+	if err != nil {
+		return err
+	}
+	itemLabel, err := taskProgressItemLabelCustom(ctx, "gallery", id)
+	if err != nil {
+		return err
+	}
+	if err := qb.tableMgr.destroyExisting(ctx, []int{id}); err != nil {
+		return err
+	}
+	return recordTaskProgressTagDiffCustom(ctx, "gallery", id, beforeTags, nil, itemLabel)
+	// CUSTOM: end
 }
 
 func (qb *GalleryStore) GetFiles(ctx context.Context, id int) ([]models.File, error) {

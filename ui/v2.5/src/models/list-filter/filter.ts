@@ -426,6 +426,9 @@ export class ListFilterModel {
     }
     if (params.z) {
       query.push(`z=${params.z}`);
+    } else if (this.mode === FilterMode.Scenes) {
+      // CUSTOM: keep links into the scenes list at the compact default zoom.
+      query.push("z=2");
     }
     if (params.p) {
       query.push(`p=${params.p}`);

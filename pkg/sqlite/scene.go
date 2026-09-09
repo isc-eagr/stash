@@ -427,10 +427,31 @@ func (qb *SceneStore) Create(ctx context.Context, newObject *models.Scene, fileI
 
 	*newObject = *updated
 
+	// CUSTOM: begin - record newly tagged tracker work after the create succeeds
+	afterTags, err := taskProgressTagSnapshotCustom(ctx, "scene", id)
+	if err != nil {
+		return err
+	}
+	if err := recordTaskProgressTagDiffCustom(ctx, "scene", id, nil, afterTags); err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	return nil
 }
 
 func (qb *SceneStore) UpdatePartial(ctx context.Context, id int, partial models.ScenePartial) (*models.Scene, error) {
+	// CUSTOM: begin - diff logical tag membership instead of physical join writes
+	var beforeTags taskProgressTagSetCustom
+	if partial.TagIDs != nil {
+		var err error
+		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "scene", id)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
 	r := sceneRowRecord{
 		updateRecord{
 			Record: make(exp.Record),
@@ -489,10 +510,38 @@ func (qb *SceneStore) UpdatePartial(ctx context.Context, id int, partial models.
 		}
 	}
 
-	return qb.find(ctx, id)
+	updated, err := qb.find(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// CUSTOM: begin - record the final tag-set transition
+	if beforeTags != nil {
+		afterTags, err := taskProgressTagSnapshotCustom(ctx, "scene", id)
+		if err != nil {
+			return nil, err
+		}
+		if err := recordTaskProgressTagDiffCustom(ctx, "scene", id, beforeTags, afterTags); err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
+	return updated, nil
 }
 
 func (qb *SceneStore) Update(ctx context.Context, updatedObject *models.Scene) error {
+	// CUSTOM: begin - snapshot only when the full update carries tags
+	var beforeTags taskProgressTagSetCustom
+	if updatedObject.TagIDs.Loaded() {
+		var err error
+		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "scene", updatedObject.ID)
+		if err != nil {
+			return err
+		}
+	}
+	// CUSTOM: end
+
 	var r sceneRow
 	r.fromScene(*updatedObject)
 
@@ -558,10 +607,33 @@ func (qb *SceneStore) Update(ctx context.Context, updatedObject *models.Scene) e
 		}
 	}
 
+	// CUSTOM: begin - record the final tag-set transition
+	if beforeTags != nil {
+		afterTags, err := taskProgressTagSnapshotCustom(ctx, "scene", updatedObject.ID)
+		if err != nil {
+			return err
+		}
+		if err := recordTaskProgressTagDiffCustom(ctx, "scene", updatedObject.ID, beforeTags, afterTags); err != nil {
+			return err
+		}
+	}
+	// CUSTOM: end
+
 	return nil
 }
 
 func (qb *SceneStore) Destroy(ctx context.Context, id int) error {
+	// CUSTOM: begin - deletion completes every directly tagged tracker item
+	beforeTags, err := taskProgressTagSnapshotCustom(ctx, "scene", id)
+	if err != nil {
+		return err
+	}
+	itemLabel, err := taskProgressItemLabelCustom(ctx, "scene", id)
+	if err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	// must handle image checksums manually
 	if err := qb.destroyCover(ctx, id); err != nil {
 		return err
@@ -570,7 +642,12 @@ func (qb *SceneStore) Destroy(ctx context.Context, id int) error {
 	// scene markers should be handled prior to calling destroy
 	// galleries should be handled prior to calling destroy
 
-	return qb.tableMgr.destroyExisting(ctx, []int{id})
+	if err := qb.tableMgr.destroyExisting(ctx, []int{id}); err != nil {
+		return err
+	}
+
+	// CUSTOM
+	return recordTaskProgressTagDiffCustom(ctx, "scene", id, beforeTags, nil, itemLabel)
 }
 
 // returns nil, nil if not found

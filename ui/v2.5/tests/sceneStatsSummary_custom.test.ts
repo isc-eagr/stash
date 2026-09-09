@@ -32,6 +32,10 @@ assert.deepEqual(JSON.parse(encodedCriterion), {
 
 const decodedVatoCriterion = (bucket: "one" | "standard" | "group") => {
   const bucketURL = makeSceneStatsVatoCountURL(bucket);
+  assert.equal(
+    new URL(bucketURL, "http://localhost").searchParams.get("z"),
+    "2"
+  );
   const encoded = new URLSearchParams(bucketURL.split("?")[1]).get("c");
   assert.ok(encoded);
   return JSON.parse(encoded);

@@ -4,3 +4,57 @@ query FindTaskProgressTrackers {
     ...TaskProgressTrackerData
   }
 }
+
+query TaskProgressEvents($tracker_id: ID!, $date: String!, $after_id: ID) {
+  taskProgressEvents(
+    tracker_id: $tracker_id
+    date: $date
+    after_id: $after_id
+  ) {
+    has_more
+    events {
+      id
+      event_type
+      item_type
+      item_id
+      item_label
+      occurred_on
+      occurred_at
+      url
+    }
+  }
+}
+
+query TaskProgressPendingItems(
+  $tracker_id: ID!
+  $item_type: String!
+  $offset: Int
+) {
+  taskProgressPendingItems(
+    tracker_id: $tracker_id
+    item_type: $item_type
+    offset: $offset
+  ) {
+    has_more
+    events {
+      id
+      item_type
+      item_id
+      item_label
+      url
+    }
+  }
+}
+
+query TaskProgressPreview($tag_id: ID!, $item_types: [String!]) {
+  taskProgressPreview(tag_id: $tag_id, item_types: $item_types)
+}
+
+query TaskProgressOrganizedScenes {
+  stats {
+    scene_count
+  }
+  findScenes(scene_filter: { organized: true }) {
+    count
+  }
+}

@@ -1932,10 +1932,17 @@ function getAttractivenessNegativeCandidates(
 function getNegativeCandidates(
   scene: SceneCardInsightScene,
   roleTagIds: IUIConfig["roleTagIds"],
-  thresholds: SceneCardInsightThresholds,
-  hasLacklusterActivity: boolean
+  thresholds: SceneCardInsightThresholds
 ) {
   const sceneDuration = scene.files[0]?.duration ?? 0;
+  // CUSTOM: Filler/highlight scarcity is only meaningful after a completed
+  // primary activity range proves that the scene has been processed.
+  const hasCompletedActivityMarker = scene.scene_markers.some(
+    (marker) =>
+      !markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId) &&
+      activityCategoryForMarker(marker, roleTagIds) !== undefined &&
+      markerInterval(marker, sceneDuration) !== undefined
+  );
   const highlightStats = markerStats(
     scene.scene_markers.filter(
       (marker) =>
@@ -1970,6 +1977,7 @@ function getNegativeCandidates(
   }
 
   if (
+    hasCompletedActivityMarker &&
     highlightStats.episodes <= thresholds.fewHighlightsMaxEpisodes &&
     highlightPercent <= thresholds.fewHighlightsMaxPercent
   ) {
@@ -1985,7 +1993,7 @@ function getNegativeCandidates(
     });
   }
 
-  if (sceneDuration > 0 && !hasLacklusterActivity) {
+  if (sceneDuration > 0 && hasCompletedActivityMarker) {
     const markedIntervals = scene.scene_markers.flatMap((marker) => {
       const interval = markerInterval(marker, sceneDuration);
       return interval ? [interval] : [];
@@ -2054,12 +2062,7 @@ function getSceneCardInsightCandidates(
       roleStatsByPerformer
     ),
     ...lacklusterCandidates,
-    ...getNegativeCandidates(
-      scene,
-      roleTagIds,
-      thresholds,
-      lacklusterCandidates.length > 0
-    ),
+    ...getNegativeCandidates(scene, roleTagIds, thresholds),
     ...getPerformerLineupCandidates(scene, ratingConfig),
     // CUSTOM: the configured uncommon-tag chip already reports Feet presence.
     ...(roleTagIds?.outstandingActivityCommonTagIds?.length

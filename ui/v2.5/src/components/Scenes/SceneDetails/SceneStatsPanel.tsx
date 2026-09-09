@@ -1290,6 +1290,10 @@ const SceneStatsPanel: React.FC<IProps> = ({
 
     return (
       <section className="scene-stats-performer-activity" key={categoryRow.key}>
+        {/* CUSTOM: restore the activity category title */}
+        <div className="scene-stats-performer-activity-title">
+          {categoryRow.label}
+        </div>
         {/* CUSTOM: begin */}
         {showParticipation && (
           <>

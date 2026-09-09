@@ -28,6 +28,7 @@ import type {
 interface ISceneNegativeMarkersPanelProps {
   scene: GQL.SceneDataFragment;
   isVisible: boolean;
+  onAddNextMarker: (seconds: number) => void; // CUSTOM: hand off adjacent regular drafts
   markerTimestampCopyRequest?: ISceneMarkerTimestampCopyRequest; // CUSTOM
   markerTimestampCopySelection?: ISceneMarkerTimestampCopySelection; // CUSTOM
   onMarkerTimestampCopyRequest: (
@@ -55,6 +56,7 @@ export const SceneNegativeMarkersPanel: React.FC<
 > = ({
   scene,
   isVisible,
+  onAddNextMarker, // CUSTOM
   markerTimestampCopyRequest, // CUSTOM
   markerTimestampCopySelection, // CUSTOM
   onMarkerTimestampCopyRequest, // CUSTOM
@@ -151,6 +153,7 @@ export const SceneNegativeMarkersPanel: React.FC<
         sceneMarkers={scene.scene_markers}
         negativeMarkers={scene.negative_markers}
         onClose={closeEditor}
+        onAddNextMarker={onAddNextMarker} // CUSTOM
         markerTimestampCopyRequest={markerTimestampCopyRequest} // CUSTOM
         markerTimestampCopySelection={markerTimestampCopySelection} // CUSTOM
         onMarkerTimestampCopyRequest={onMarkerTimestampCopyRequest} // CUSTOM

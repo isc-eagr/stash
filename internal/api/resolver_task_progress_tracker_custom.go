@@ -17,6 +17,42 @@ import (
 const taskProgressTrackersUIConfigKey = "taskProgressTrackers"
 
 const taskProgressDateLayoutCustom = "2006-01-02"
+const taskProgressHistoryEpochCustom = "2026-09-07"
+
+func taskProgressItemTypesCustom(values []string) ([]string, error) {
+	if len(values) == 0 {
+		return append([]string(nil), models.TaskProgressItemTypes...), nil
+	}
+	allowed := make(map[string]struct{}, len(models.TaskProgressItemTypes))
+	for _, value := range models.TaskProgressItemTypes {
+		allowed[value] = struct{}{}
+	}
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if _, ok := allowed[value]; !ok {
+			return nil, fmt.Errorf("%w: unsupported task progress item type %q", ErrInput, value)
+		}
+		seen[value] = struct{}{}
+	}
+	ret := make([]string, 0, len(seen))
+	for _, value := range models.TaskProgressItemTypes {
+		if _, ok := seen[value]; ok {
+			ret = append(ret, value)
+		}
+	}
+	return ret, nil
+}
+
+func taskProgressStatusCustom(value string) (string, error) {
+	value = strings.ToUpper(strings.TrimSpace(value))
+	switch value {
+	case models.TaskProgressTrackerStatusActive, models.TaskProgressTrackerStatusPaused, models.TaskProgressTrackerStatusArchived, models.TaskProgressTrackerStatusCompleted:
+		return value, nil
+	default:
+		return "", fmt.Errorf("%w: status must be ACTIVE, PAUSED, COMPLETED, or ARCHIVED", ErrInput)
+	}
+}
 
 func taskProgressStartedOnCustom(value string) (string, error) {
 	value = strings.TrimSpace(value)
@@ -135,14 +171,25 @@ func (r *queryResolver) FindTaskProgressTrackers(ctx context.Context) (ret []*mo
 			}
 
 			tracker := models.TaskProgressTracker{
-				Title:       title,
-				Description: strings.TrimSpace(stored.Description),
-				Goal:        legacyTaskProgressGoalCustom(stored),
-				TagID:       tagID,
-				Position:    position,
-				IsWorkingOn: stored.IsWorkingOn,
+				Title:            title,
+				Description:      strings.TrimSpace(stored.Description),
+				Goal:             legacyTaskProgressGoalCustom(stored),
+				TagID:            tagID,
+				Position:         position,
+				IsWorkingOn:      stored.IsWorkingOn,
+				StartedOn:        taskProgressHistoryEpochCustom,
+				HistoryStartedOn: taskProgressHistoryEpochCustom,
+				Status:           models.TaskProgressTrackerStatusActive,
+				ItemTypes:        append([]string(nil), models.TaskProgressItemTypes...),
+			}
+			tracker.Goal, err = r.repository.TaskProgressTracker.CountDirectlyTaggedItems(ctx, tagID, tracker.ItemTypes)
+			if err != nil {
+				return err
 			}
 			if err := r.repository.TaskProgressTracker.Create(ctx, &tracker); err != nil {
+				return err
+			}
+			if err := r.repository.TaskProgressTracker.CreateBaseline(ctx, &tracker); err != nil {
 				return err
 			}
 		}
@@ -178,12 +225,25 @@ func (r *mutationResolver) TaskProgressTrackerCreate(ctx context.Context, input 
 			return nil, err
 		}
 	}
-
+	itemTypes, err := taskProgressItemTypesCustom(input.ItemTypes)
+	if err != nil {
+		return nil, err
+	}
 	tracker := &models.TaskProgressTracker{
 		Title:       title,
 		Description: strings.TrimSpace(input.Description),
 		TagID:       tagID,
 		StartedOn:   startedOn,
+		Status:      models.TaskProgressTrackerStatusActive,
+		IsWorkingOn: true,
+		ItemTypes:   itemTypes,
+		Mode:        "BACKLOG",
+	}
+	if input.Mode != nil {
+		if *input.Mode != "FIXED" && *input.Mode != "BACKLOG" {
+			return nil, fmt.Errorf("%w: mode must be FIXED or BACKLOG", ErrInput)
+		}
+		tracker.Mode = *input.Mode
 	}
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		tag, err := r.repository.Tag.Find(ctx, tagID)
@@ -194,15 +254,22 @@ func (r *mutationResolver) TaskProgressTrackerCreate(ctx context.Context, input 
 			return fmt.Errorf("%w: tag %d not found", ErrInput, tagID)
 		}
 
-		tracker.Goal, err = r.repository.TaskProgressTracker.CountDirectlyTaggedItems(ctx, tagID)
+		tracker.Goal, err = r.repository.TaskProgressTracker.CountDirectlyTaggedItems(ctx, tagID, tracker.ItemTypes)
 		if err != nil {
 			return err
 		}
-		return r.repository.TaskProgressTracker.Create(ctx, tracker)
+		if err := r.repository.TaskProgressTracker.Create(ctx, tracker); err != nil {
+			return err
+		}
+		if err := r.repository.TaskProgressTracker.CreateBaseline(ctx, tracker); err != nil {
+			return err
+		}
+		ret, err = r.repository.TaskProgressTracker.Find(ctx, tracker.ID)
+		return err
 	}); err != nil {
 		return nil, err
 	}
-	return tracker, nil
+	return ret, nil
 }
 
 func (r *mutationResolver) TaskProgressTrackerUpdate(ctx context.Context, input TaskProgressTrackerUpdateInput) (ret *models.TaskProgressTracker, err error) {
@@ -219,6 +286,10 @@ func (r *mutationResolver) TaskProgressTrackerUpdate(ctx context.Context, input 
 		if tracker == nil {
 			return fmt.Errorf("%w: task progress tracker %d not found", ErrInput, id)
 		}
+		if input.ExpectedVersion != nil && *input.ExpectedVersion != tracker.Version {
+			return fmt.Errorf("%w: tracker changed in another window; refresh and try again", ErrInput)
+		}
+		previousStatus := tracker.Status
 
 		if input.Title != nil {
 			title := strings.TrimSpace(*input.Title)
@@ -254,20 +325,57 @@ func (r *mutationResolver) TaskProgressTrackerUpdate(ctx context.Context, input 
 			tagChanged = tracker.TagID != tagID
 			tracker.TagID = tagID
 		}
-		if input.IsWorkingOn != nil {
-			tracker.IsWorkingOn = *input.IsWorkingOn
-		}
-
-		resetGoal := input.ResetGoal != nil && *input.ResetGoal
-		if tagChanged || resetGoal {
-			tracker.Goal, err = r.repository.TaskProgressTracker.CountDirectlyTaggedItems(ctx, tracker.TagID)
+		if input.Status != nil {
+			status, err := taskProgressStatusCustom(*input.Status)
 			if err != nil {
 				return err
 			}
+			tracker.Status = status
 		}
+		scopeChanged := false
+		if input.Mode != nil {
+			if *input.Mode != "FIXED" && *input.Mode != "BACKLOG" {
+				return fmt.Errorf("%w: mode must be FIXED or BACKLOG", ErrInput)
+			}
+			scopeChanged = tracker.Mode != *input.Mode
+			tracker.Mode = *input.Mode
+		}
+		if input.ItemTypes != nil {
+			itemTypes, err := taskProgressItemTypesCustom(input.ItemTypes)
+			if err != nil {
+				return err
+			}
+			scopeChanged = scopeChanged || strings.Join(itemTypes, ",") != strings.Join(tracker.ItemTypes, ",")
+			tracker.ItemTypes = itemTypes
+		}
+
+		resetGoal := input.ResetGoal != nil && *input.ResetGoal
+		if input.Status != nil && previousStatus == "ARCHIVED" && tracker.Status != "ARCHIVED" {
+			resetGoal = true
+		}
+		if tagChanged || scopeChanged || resetGoal {
+			tracker.Goal, err = r.repository.TaskProgressTracker.CountDirectlyTaggedItems(ctx, tracker.TagID, tracker.ItemTypes)
+			if err != nil {
+				return err
+			}
+			tracker.StartedOn = models.TaskProgressReportingDate(time.Now())
+			tracker.CurrentCount = tracker.Goal
+		}
+		if tracker.Status == models.TaskProgressTrackerStatusCompleted && tracker.CurrentCount > 0 {
+			if input.Status != nil && previousStatus != models.TaskProgressTrackerStatusDeleted {
+				return fmt.Errorf("%w: complete the remaining items before marking this tracker completed", ErrInput)
+			}
+			tracker.Status = models.TaskProgressTrackerStatusActive
+		}
+		tracker.IsWorkingOn = tracker.Status == models.TaskProgressTrackerStatusActive
 
 		if err := r.repository.TaskProgressTracker.Update(ctx, tracker); err != nil {
 			return err
+		}
+		if tagChanged || scopeChanged || resetGoal {
+			if err := r.repository.TaskProgressTracker.CreateBaseline(ctx, tracker); err != nil {
+				return err
+			}
 		}
 		ret, err = r.repository.TaskProgressTracker.Find(ctx, id)
 		return err

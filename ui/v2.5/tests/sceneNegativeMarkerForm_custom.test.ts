@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   getSceneNegativeMarkerDuration,
   getSceneNegativeMarkerInitialRange,
+  getSceneNegativeMarkerSequentialRange,
 } from "../src/components/Scenes/SceneDetails/sceneNegativeMarkerForm_custom.ts";
 import {
   canCreateMarkerTitle,
@@ -98,6 +99,15 @@ assert.equal(
   getSceneNegativeMarkerDuration(80, 60),
   undefined,
   "invalid ranges do not display a duration"
+);
+
+assert.deepEqual(
+  getSceneNegativeMarkerSequentialRange(80.75),
+  {
+    start_seconds: 80.751,
+    end_seconds: 90.751,
+  },
+  "the next negative marker starts one millisecond after the saved marker"
 );
 
 const markerTitleSuggestions = mergeMarkerTitleSuggestions(

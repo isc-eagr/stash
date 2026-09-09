@@ -311,10 +311,31 @@ func (qb *PerformerStore) Create(ctx context.Context, newObject *models.CreatePe
 
 	*newObject.Performer = *updated
 
+	// CUSTOM: begin - record initially tagged performers as incoming work
+	afterTags, err := taskProgressTagSnapshotCustom(ctx, "performer", id)
+	if err != nil {
+		return err
+	}
+	if err := recordTaskProgressTagDiffCustom(ctx, "performer", id, nil, afterTags); err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	return nil
 }
 
 func (qb *PerformerStore) UpdatePartial(ctx context.Context, id int, partial models.PerformerPartial) (*models.Performer, error) {
+	// CUSTOM: begin - diff logical membership around tag updates
+	var beforeTags taskProgressTagSetCustom
+	if partial.TagIDs != nil {
+		var err error
+		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "performer", id)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
 	r := performerRowRecord{
 		updateRecord{
 			Record: make(exp.Record),
@@ -356,10 +377,38 @@ func (qb *PerformerStore) UpdatePartial(ctx context.Context, id int, partial mod
 		return nil, err
 	}
 
-	return qb.find(ctx, id)
+	updated, err := qb.find(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// CUSTOM: begin
+	if beforeTags != nil {
+		afterTags, err := taskProgressTagSnapshotCustom(ctx, "performer", id)
+		if err != nil {
+			return nil, err
+		}
+		if err := recordTaskProgressTagDiffCustom(ctx, "performer", id, beforeTags, afterTags); err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
+	return updated, nil
 }
 
 func (qb *PerformerStore) Update(ctx context.Context, updatedObject *models.UpdatePerformerInput) error {
+	// CUSTOM: begin - snapshot only when this full update carries tags
+	var beforeTags taskProgressTagSetCustom
+	if updatedObject.TagIDs.Loaded() {
+		var err error
+		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "performer", updatedObject.ID)
+		if err != nil {
+			return err
+		}
+	}
+	// CUSTOM: end
+
 	var r performerRow
 	r.fromPerformer(*updatedObject.Performer)
 
@@ -395,16 +444,44 @@ func (qb *PerformerStore) Update(ctx context.Context, updatedObject *models.Upda
 		return err
 	}
 
+	// CUSTOM: begin
+	if beforeTags != nil {
+		afterTags, err := taskProgressTagSnapshotCustom(ctx, "performer", updatedObject.ID)
+		if err != nil {
+			return err
+		}
+		if err := recordTaskProgressTagDiffCustom(ctx, "performer", updatedObject.ID, beforeTags, afterTags); err != nil {
+			return err
+		}
+	}
+	// CUSTOM: end
+
 	return nil
 }
 
 func (qb *PerformerStore) Destroy(ctx context.Context, id int) error {
+	// CUSTOM: begin - deletion completes the performer for all matching trackers
+	beforeTags, err := taskProgressTagSnapshotCustom(ctx, "performer", id)
+	if err != nil {
+		return err
+	}
+	itemLabel, err := taskProgressItemLabelCustom(ctx, "performer", id)
+	if err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	// must handle image checksums manually
 	if err := qb.destroyImage(ctx, id); err != nil {
 		return err
 	}
 
-	return performerRepository.destroyExisting(ctx, []int{id})
+	if err := performerRepository.destroyExisting(ctx, []int{id}); err != nil {
+		return err
+	}
+
+	// CUSTOM
+	return recordTaskProgressTagDiffCustom(ctx, "performer", id, beforeTags, nil, itemLabel)
 }
 
 // returns nil, nil if not found

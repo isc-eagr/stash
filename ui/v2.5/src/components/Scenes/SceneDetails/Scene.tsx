@@ -37,8 +37,11 @@ import { OrganizedButton } from "./OrganizedButton";
 import { useConfigurationContext } from "src/hooks/Config";
 import {
   getAbLoopPlugin,
+  getPlayer,
   getPlayerPosition,
 } from "src/components/ScenePlayer/util";
+import { useRemotePlayerCustom } from "src/components/RemoteO/useRemotePlayer_custom"; // CUSTOM
+import type { PlaybackSnapshot } from "src/components/RemoteO/remotePlayback_custom"; // CUSTOM
 import { formatORecordedToastCustom } from "../oRecordToast_custom"; // CUSTOM
 import { shouldEnableSceneOHotkeyCustom } from "./sceneOHotkeyPreference_custom"; // CUSTOM
 import {
@@ -81,6 +84,7 @@ import {
   completeSceneMarkerFocusRequest,
   type ISceneMarkerFocusRequest,
 } from "./sceneMarkerFocusScroll_custom";
+import type { ISceneMarkerCreateRequest } from "./sceneMarkerSequentialActions_custom";
 import { ScenePerformerOverviewProvider } from "./ScenePerformerOverviewPanel_custom";
 import {
   resolveSceneMarkerTimestampCopySelection,
@@ -209,6 +213,7 @@ interface IProps {
     destination: SceneMarkerTimestampDestination
   ) => void; // CUSTOM
   onMarkerTimestampCopySelectionHandled: (requestId: number) => void; // CUSTOM
+  remotePlayer: ReturnType<typeof useRemotePlayerCustom>; // CUSTOM
 }
 
 interface ISceneParams {
@@ -246,6 +251,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     markerTimestampCopySelection, // CUSTOM
     onMarkerTimestampCopyRequest, // CUSTOM
     onMarkerTimestampCopySelectionHandled, // CUSTOM
+    remotePlayer, // CUSTOM
   } = props;
 
   const Toast = useToast();
@@ -284,6 +290,9 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const scrubberMarkerFocusRequestId = useRef(0);
   const [scrubberMarkerFocusRequest, setScrubberMarkerFocusRequest] =
     useState<ISceneMarkerFocusRequest>();
+  const sequentialMarkerCreateRequestId = useRef(0);
+  const [sequentialMarkerCreateRequest, setSequentialMarkerCreateRequest] =
+    useState<ISceneMarkerCreateRequest>();
   // CUSTOM: end
 
   const [isMerging, setIsMerging] = useState(false);
@@ -469,6 +478,25 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
       completeSceneMarkerFocusRequest(currentRequest, requestId)
     );
   }, []);
+
+  // CUSTOM: a saved negative marker can continue directly in the regular editor.
+  const onAddNextMarkerFromNegativeMarker = useCallback((seconds: number) => {
+    sequentialMarkerCreateRequestId.current += 1;
+    setSequentialMarkerCreateRequest({
+      seconds,
+      requestId: sequentialMarkerCreateRequestId.current,
+    });
+    setActiveTabKey("scene-markers-panel");
+  }, []);
+
+  const onSequentialMarkerCreateRequestHandled = useCallback(
+    (requestId: number) => {
+      setSequentialMarkerCreateRequest((currentRequest) =>
+        currentRequest?.requestId === requestId ? undefined : currentRequest
+      );
+    },
+    []
+  );
   // CUSTOM: end
 
   async function onRescan() {
@@ -765,6 +793,10 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               currentTimestamp={currentTimestamp} // CUSTOM
               focusedMarkerRequest={scrubberMarkerFocusRequest} // CUSTOM
               onFocusedMarkerHandled={onScrubberMarkerFocusHandled} // CUSTOM
+              createMarkerRequest={sequentialMarkerCreateRequest} // CUSTOM
+              onCreateMarkerRequestHandled={
+                onSequentialMarkerCreateRequestHandled
+              } // CUSTOM
               markerTimestampCopyRequest={markerTimestampCopyRequest} // CUSTOM
               markerTimestampCopySelection={markerTimestampCopySelection} // CUSTOM
               onMarkerTimestampCopyRequest={onMarkerTimestampCopyRequest} // CUSTOM
@@ -778,6 +810,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             <SceneNegativeMarkersPanel
               scene={scene}
               isVisible={activeTabKey === "scene-negative-markers-panel"}
+              onAddNextMarker={onAddNextMarkerFromNegativeMarker} // CUSTOM
               markerTimestampCopyRequest={markerTimestampCopyRequest} // CUSTOM
               markerTimestampCopySelection={markerTimestampCopySelection} // CUSTOM
               onMarkerTimestampCopyRequest={onMarkerTimestampCopyRequest} // CUSTOM
@@ -815,7 +848,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             className="file-info-panel"
             eventKey="scene-file-info-panel"
           >
-            <SceneFileInfoPanel scene={scene} />
+            <SceneFileInfoPanel scene={scene} remotePlayer={remotePlayer} />
           </Tab.Pane>
           <Tab.Pane eventKey="scene-edit-panel" mountOnEnter>
             <SceneEditPanel
@@ -1224,6 +1257,40 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
   }, [scene, activeReleaseId]);
   // CUSTOM: end
 
+  // CUSTOM: keep the remote publisher beside the player, while its pairing
+  // control lives in the File Info panel so it is easy to find later.
+  const remotePlayerReady = useRef(false);
+  const onRemotePlayerReady = useCallback((ready: boolean) => {
+    remotePlayerReady.current = ready;
+  }, []);
+  const remotePlayer = useRemotePlayerCustom(
+    `${sceneForPlayer?.id ?? id}-${sceneForPlayer?.files[0]?.id ?? ""}`,
+    (): PlaybackSnapshot | undefined => {
+      const player = getPlayer();
+      if (
+        !remotePlayerReady.current ||
+        !player ||
+        player.isDisposed() ||
+        !sceneForPlayer
+      ) {
+        return undefined;
+      }
+      return {
+        scene_id: sceneForPlayer.id,
+        scene_title: sceneForPlayer.title || "Untitled scene",
+        video_timestamp: player.currentTime(),
+        duration: player.duration(),
+        playback_rate: player.playbackRate(),
+        status:
+          player.seeking() || player.readyState() < 3
+            ? "buffering"
+            : player.paused()
+            ? "paused"
+            : "playing",
+      };
+    }
+  );
+
   const autoplay = queryParams.get("autoplay") === "true";
   const autoPlayOnSelected =
     configuration?.interface.autostartVideoOnPlaySelected ?? false;
@@ -1527,6 +1594,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
         onMarkerTimestampCopySelectionHandled={
           onMarkerTimestampCopySelectionHandled
         } // CUSTOM
+        remotePlayer={remotePlayer} // CUSTOM
       />
       <div className={`scene-player-container ${collapsed ? "expanded" : ""}`}>
         <ScenePlayer
@@ -1540,6 +1608,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
           sendMultiSegmentLoopApi={getMultiSegmentLoopApi} // CUSTOM
           onTimeChange={setCurrentTimestamp} // CUSTOM
           onMarkerClick={onScenePlayerMarkerClick} // CUSTOM
+          onRemotePlayerReady={onRemotePlayerReady} // CUSTOM
           markerTimestampCopyActive={!!markerTimestampCopyRequest} // CUSTOM
           onComplete={onComplete}
           onNext={() => queueNext(true)}

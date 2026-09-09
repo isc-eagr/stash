@@ -282,6 +282,16 @@ func (db *Database) initialise() error {
 		return fmt.Errorf("opening write database: %w", err)
 	}
 
+	// CUSTOM: begin - Bootstrap fork-owned task progress tables outside the upstream migration chain.
+	if err := db.ensureTaskProgressSchemaCustom(context.Background()); err != nil {
+		_ = db.readDB.Close()
+		_ = db.writeDB.Close()
+		db.readDB = nil
+		db.writeDB = nil
+		return fmt.Errorf("initializing custom database schema: %w", err)
+	}
+	// CUSTOM: end
+
 	return nil
 }
 

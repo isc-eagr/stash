@@ -38,6 +38,7 @@ import {
   scrollSceneMarkerIntoTabView,
   type ISceneMarkerFocusRequest,
 } from "./sceneMarkerFocusScroll_custom";
+import type { ISceneMarkerCreateRequest } from "./sceneMarkerSequentialActions_custom";
 import type {
   ISceneMarkerTimestampCopyRequest,
   ISceneMarkerTimestampCopySelection,
@@ -54,6 +55,8 @@ interface ISceneMarkersPanelProps {
   currentTimestamp?: number; // CUSTOM
   focusedMarkerRequest?: ISceneMarkerFocusRequest; // CUSTOM
   onFocusedMarkerHandled?: (requestId: number) => void; // CUSTOM
+  createMarkerRequest?: ISceneMarkerCreateRequest; // CUSTOM: adjacent negative-marker handoff
+  onCreateMarkerRequestHandled: (requestId: number) => void; // CUSTOM
   markerTimestampCopyRequest?: ISceneMarkerTimestampCopyRequest; // CUSTOM
   markerTimestampCopySelection?: ISceneMarkerTimestampCopySelection; // CUSTOM
   onMarkerTimestampCopyRequest: (
@@ -75,6 +78,8 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   currentTimestamp, // CUSTOM
   focusedMarkerRequest, // CUSTOM
   onFocusedMarkerHandled, // CUSTOM
+  createMarkerRequest, // CUSTOM
+  onCreateMarkerRequestHandled, // CUSTOM
   markerTimestampCopyRequest, // CUSTOM
   markerTimestampCopySelection, // CUSTOM
   onMarkerTimestampCopyRequest, // CUSTOM
@@ -88,6 +93,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
   const [editingMarker, setEditingMarker] =
     useState<GQL.SceneMarkerDataFragment>();
+  const [initialMarkerSeconds, setInitialMarkerSeconds] = useState<number>();
   // CUSTOM: begin – expandable cards, selection state, memoized callbacks & markers
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>(
     {}
@@ -113,14 +119,19 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   const markerToolbarRef = useRef<HTMLDivElement>(null); // CUSTOM: measured sticky toolbar
   const focusedMarkerId = focusedMarkerRequest?.markerId;
 
-  const onOpenEditor = useCallback((marker?: GQL.SceneMarkerDataFragment) => {
-    markerPanelScrollTop.current = getSceneTabScrollElement()?.scrollTop ?? 0;
-    setIsEditorOpen(true);
-    setEditingMarker(marker ?? undefined);
-  }, []);
+  const onOpenEditor = useCallback(
+    (marker?: GQL.SceneMarkerDataFragment, initialSeconds?: number) => {
+      markerPanelScrollTop.current = getSceneTabScrollElement()?.scrollTop ?? 0;
+      setIsEditorOpen(true);
+      setEditingMarker(marker ?? undefined);
+      setInitialMarkerSeconds(marker ? undefined : initialSeconds);
+    },
+    []
+  );
 
   const closeEditor = useCallback(() => {
     setEditingMarker(undefined);
+    setInitialMarkerSeconds(undefined);
     setIsEditorOpen(false);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -131,6 +142,19 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
       });
     });
   }, []);
+
+  // CUSTOM: open a regular-marker draft immediately after a saved negative marker.
+  useEffect(() => {
+    if (!isVisible || !createMarkerRequest) return;
+
+    onOpenEditor(undefined, createMarkerRequest.seconds);
+    onCreateMarkerRequestHandled(createMarkerRequest.requestId);
+  }, [
+    createMarkerRequest,
+    isVisible,
+    onCreateMarkerRequestHandled,
+    onOpenEditor,
+  ]);
 
   const sceneMarkers = useMemo(() => {
     const markersByID = new Map<string, GQL.SceneMarkerDataFragment>();
@@ -564,6 +588,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
       <SceneMarkerForm
         sceneID={sceneId}
         marker={editingMarker}
+        initialSeconds={initialMarkerSeconds} // CUSTOM
         onClose={closeEditor}
         markerTimestampCopyRequest={markerTimestampCopyRequest} // CUSTOM
         markerTimestampCopySelection={markerTimestampCopySelection} // CUSTOM

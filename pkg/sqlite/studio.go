@@ -233,10 +233,31 @@ func (qb *StudioStore) Create(ctx context.Context, newObject *models.CreateStudi
 	}
 
 	*newObject.Studio = *updated
+
+	// CUSTOM: begin - record initially tagged studios as incoming work
+	afterTags, err := taskProgressTagSnapshotCustom(ctx, "studio", id)
+	if err != nil {
+		return err
+	}
+	if err := recordTaskProgressTagDiffCustom(ctx, "studio", id, nil, afterTags); err != nil {
+		return err
+	}
+	// CUSTOM: end
 	return nil
 }
 
 func (qb *StudioStore) UpdatePartial(ctx context.Context, input models.StudioPartial) (*models.Studio, error) {
+	// CUSTOM: begin - diff logical membership around tag updates
+	var beforeTags taskProgressTagSetCustom
+	if input.TagIDs != nil {
+		var err error
+		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "studio", input.ID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
 	r := studioRowRecord{
 		updateRecord{
 			Record: make(exp.Record),
@@ -277,11 +298,39 @@ func (qb *StudioStore) UpdatePartial(ctx context.Context, input models.StudioPar
 		return nil, err
 	}
 
-	return qb.find(ctx, input.ID)
+	updated, err := qb.find(ctx, input.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// CUSTOM: begin
+	if beforeTags != nil {
+		afterTags, err := taskProgressTagSnapshotCustom(ctx, "studio", input.ID)
+		if err != nil {
+			return nil, err
+		}
+		if err := recordTaskProgressTagDiffCustom(ctx, "studio", input.ID, beforeTags, afterTags); err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
+	return updated, nil
 }
 
 // This is only used by the Import/Export functionality
 func (qb *StudioStore) Update(ctx context.Context, updatedObject *models.UpdateStudioInput) error {
+	// CUSTOM: begin - snapshot only when this full update carries tags
+	var beforeTags taskProgressTagSetCustom
+	if updatedObject.TagIDs.Loaded() {
+		var err error
+		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "studio", updatedObject.ID)
+		if err != nil {
+			return err
+		}
+	}
+	// CUSTOM: end
+
 	var r studioRow
 	r.fromStudio(*updatedObject.Studio)
 
@@ -315,16 +364,44 @@ func (qb *StudioStore) Update(ctx context.Context, updatedObject *models.UpdateS
 		return err
 	}
 
+	// CUSTOM: begin
+	if beforeTags != nil {
+		afterTags, err := taskProgressTagSnapshotCustom(ctx, "studio", updatedObject.ID)
+		if err != nil {
+			return err
+		}
+		if err := recordTaskProgressTagDiffCustom(ctx, "studio", updatedObject.ID, beforeTags, afterTags); err != nil {
+			return err
+		}
+	}
+	// CUSTOM: end
+
 	return nil
 }
 
 func (qb *StudioStore) Destroy(ctx context.Context, id int) error {
+	// CUSTOM: begin - deletion completes the studio for all matching trackers
+	beforeTags, err := taskProgressTagSnapshotCustom(ctx, "studio", id)
+	if err != nil {
+		return err
+	}
+	itemLabel, err := taskProgressItemLabelCustom(ctx, "studio", id)
+	if err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	// must handle image checksums manually
 	if err := qb.destroyImage(ctx, id); err != nil {
 		return err
 	}
 
-	return studioRepository.destroyExisting(ctx, []int{id})
+	if err := studioRepository.destroyExisting(ctx, []int{id}); err != nil {
+		return err
+	}
+
+	// CUSTOM
+	return recordTaskProgressTagDiffCustom(ctx, "studio", id, beforeTags, nil, itemLabel)
 }
 
 // returns nil, nil if not found

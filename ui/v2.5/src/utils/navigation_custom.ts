@@ -1077,7 +1077,7 @@ export const makePerformerMarkerScenesUrl = (
       ],
       unnamed_performers: [],
     })
-  )}&sortby=date`;
+  )}&sortby=date&z=2`;
 };
 
 // Marker-based performer scenes URL with top/bottom role filter
@@ -1149,7 +1149,7 @@ export const makePerformerMarkerScenesWithRoleUrl = (
     )}`;
   }
 
-  return `${url}&sortby=date`;
+  return `${url}&sortby=date&z=2`;
 };
 
 export const makeStudioMarkerScenesUrl = (
@@ -1215,7 +1215,7 @@ export const makeStudioMarkerScenesUrl = (
     )}`;
   }
 
-  return `${url}&sortby=date`;
+  return `${url}&sortby=date&z=2`;
 };
 
 export const makePerformerStudioMarkerScenesUrl = (
@@ -1284,7 +1284,7 @@ export const makePerformerStudioMarkerScenesUrl = (
     )}`;
   }
 
-  return `${url}&sortby=date`;
+  return `${url}&sortby=date&z=2`;
 };
 
 // Build a Scene Markers URL filtered by scene marker tags (linked through scene_marker_performers)
@@ -1343,7 +1343,7 @@ export const makeScenesWithMarkerTagUrl = (
       ],
       unnamed_performers: [],
     })
-  )}&sortby=date`;
+  )}&sortby=date&z=2`;
 };
 
 // URL to list SCENES with exclusive marker tag filtering (includes tag, excludes other tags)
@@ -1395,7 +1395,7 @@ export const makeScenesWithExclusiveMarkerTagUrl = (
     )}`;
   }
 
-  return `${url}&sortby=date`;
+  return `${url}&sortby=date&z=2`;
 };
 
 // Navigate to scene markers where performer is "top" for a given tag (e.g., orgasm markers)

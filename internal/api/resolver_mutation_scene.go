@@ -1063,6 +1063,11 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 			}
 		}
 
+		// CUSTOM: apply primary and secondary tag changes together so tracker history
+		// observes the final membership, including a primary/secondary tag swap.
+		if tagIdsIncluded {
+			updatedMarker.TagIDs = &models.UpdateIDs{IDs: tagIDs, Mode: models.RelationshipUpdateModeSet}
+		}
 		newMarker, err := qb.UpdatePartial(ctx, markerID, updatedMarker)
 		if err != nil {
 			return err
@@ -1084,13 +1089,7 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 			}
 		}
 
-		if tagIdsIncluded {
-			// Save the marker tags
-			// The primary tag was excluded while comparing relationships above. // CUSTOM
-			if err := qb.UpdateTags(ctx, markerID, tagIDs); err != nil {
-				return err
-			}
-		}
+		// CUSTOM: marker tags were saved atomically by UpdatePartial above.
 
 		// CUSTOM: begin - update marker performers (top/bottom)
 		if performerIdsIncluded {

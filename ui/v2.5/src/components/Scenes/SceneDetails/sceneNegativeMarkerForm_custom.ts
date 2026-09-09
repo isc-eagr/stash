@@ -1,4 +1,5 @@
 import { toMarkerMilliseconds } from "./sceneMarkerTimestamp_custom";
+import { getSequentialMarkerStart } from "./sceneMarkerSequentialActions_custom";
 
 export interface ISceneNegativeMarkerFormRange {
   start_seconds: number;
@@ -46,6 +47,17 @@ export function getSceneNegativeMarkerInitialRange({
   return {
     start_seconds: current,
     end_seconds: current + 10,
+  };
+}
+
+export function getSceneNegativeMarkerSequentialRange(
+  endSeconds: number
+): ISceneNegativeMarkerFormRange {
+  const start_seconds = getSequentialMarkerStart(endSeconds);
+
+  return {
+    start_seconds,
+    end_seconds: start_seconds + 10,
   };
 }
 

@@ -6,6 +6,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"time"
 
@@ -20,7 +21,21 @@ func (r *mutationResolver) SceneRecordOAtTimestamp(ctx context.Context, id strin
 		return nil, fmt.Errorf("converting id: %w", err)
 	}
 
-	var updatedTimes []time.Time
+	updatedTimes, err := r.recordSceneOAtTimestampCustom(ctx, sceneID, videoTimestamp)
+	if err != nil {
+		return nil, err
+	}
+
+	return &HistoryMutationResult{
+		Count:   models.HistoryMutationResultCountCustom(ctx, len(updatedTimes)),
+		History: sliceutil.ValuesToPtrs(updatedTimes),
+	}, nil
+}
+
+func (r *mutationResolver) recordSceneOAtTimestampCustom(ctx context.Context, sceneID int, videoTimestamp float64) (updatedTimes []time.Time, err error) {
+	if math.IsNaN(videoTimestamp) || math.IsInf(videoTimestamp, 0) || videoTimestamp < 0 {
+		return nil, fmt.Errorf("video timestamp must be finite and non-negative")
+	}
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		previousCount, err := r.repository.Scene.GetOCount(ctx, sceneID)
@@ -36,9 +51,5 @@ func (r *mutationResolver) SceneRecordOAtTimestamp(ctx context.Context, id strin
 	}); err != nil {
 		return nil, err
 	}
-
-	return &HistoryMutationResult{
-		Count:   models.HistoryMutationResultCountCustom(ctx, len(updatedTimes)),
-		History: sliceutil.ValuesToPtrs(updatedTimes),
-	}, nil
+	return updatedTimes, nil
 }

@@ -8,11 +8,66 @@ type TaskProgressTracker {
   tag_id: ID!
   tag_name: String!
   position: Int!
-  is_working_on: Boolean!
   "Calendar date the task was started, formatted as YYYY-MM-DD"
   started_on: String!
+  "ACTIVE, PAUSED, COMPLETED, ARCHIVED, or DELETED"
+  status: String!
+  "BACKLOG includes new work; FIXED follows only the initial batch"
+  mode: String!
+  version: Int!
+  history_started_on: String!
+  "Directly tagged entity types included in this tracker"
+  item_types: [String!]!
+  current_count: Int!
+  completed_count: Int!
+  incoming_count: Int!
+  item_counts: [TaskProgressItemCount!]!
+  history: [TaskProgressDay!]!
   created_at: Time!
   updated_at: Time!
+}
+
+type TaskProgressItemCount {
+  item_type: String!
+  count: Int!
+}
+
+type TaskProgressDay {
+  date: String!
+  completed: Int!
+  incoming: Int!
+  remaining: Int!
+  baseline_count: Int
+}
+
+type TaskProgressEvent {
+  id: ID!
+  event_type: String!
+  item_type: String!
+  item_id: ID!
+  item_label: String!
+  occurred_on: String!
+  occurred_at: Time!
+  url: String!
+}
+
+type TaskProgressEventPage {
+  events: [TaskProgressEvent!]!
+  has_more: Boolean!
+}
+
+extend type Query {
+  taskProgressEvents(
+    tracker_id: ID!
+    date: String!
+    after_id: ID
+  ): TaskProgressEventPage!
+  taskProgressPendingItems(
+    tracker_id: ID!
+    item_type: String!
+    offset: Int
+  ): TaskProgressEventPage!
+  taskProgressPreview(tag_id: ID!, item_types: [String!]): Int!
 }
 
 input TaskProgressTrackerCreateInput {
@@ -21,6 +76,8 @@ input TaskProgressTrackerCreateInput {
   tag_id: ID!
   "Optional calendar date in YYYY-MM-DD or DD/MM/YYYY format; defaults to the creation date"
   started_on: String
+  item_types: [String!]
+  mode: String
 }
 
 input TaskProgressTrackerUpdateInput {
@@ -29,7 +86,10 @@ input TaskProgressTrackerUpdateInput {
   description: String
   tag_id: ID
   reset_goal: Boolean
-  is_working_on: Boolean
   "Calendar date in YYYY-MM-DD or DD/MM/YYYY format"
   started_on: String
+  status: String
+  mode: String
+  expected_version: Int
+  item_types: [String!]
 }

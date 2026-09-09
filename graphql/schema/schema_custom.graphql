@@ -26,6 +26,64 @@ extend type Query {
 
   "Find all database-backed task progress trackers"
   findTaskProgressTrackers: [TaskProgressTracker!]!
+
+  "Get the live state of a paired scene player"
+  remotePlaybackState(player_id: String!): RemotePlaybackState
+}
+
+type RemotePlaybackState {
+  server_id: String!
+  player_id: String!
+  session_id: String!
+  scene_id: ID!
+  scene_title: String!
+  video_timestamp: Float!
+  duration: Float!
+  playback_rate: Float!
+  status: String!
+  updated_at: String!
+}
+
+input RemotePlaybackStateInput {
+  player_id: String!
+  session_id: String!
+  scene_id: ID!
+  scene_title: String!
+  video_timestamp: Float!
+  duration: Float!
+  playback_rate: Float!
+  status: String!
+}
+
+input RemotePlaybackORequestInput {
+  command_id: String!
+  player_id: String!
+  session_id: String!
+  expected_scene_id: ID!
+}
+
+type RemotePlaybackCommand {
+  command_id: String!
+  player_id: String!
+  session_id: String!
+  expected_scene_id: ID!
+}
+
+input RemotePlaybackORecordInput {
+  command_id: String!
+  player_id: String!
+  session_id: String!
+  scene_id: ID!
+  video_timestamp: Float!
+}
+
+type RemotePlaybackOResult {
+  command_id: String!
+  player_id: String!
+  scene_id: ID!
+  video_timestamp: Float!
+  count: Int!
+  recorded_at: String!
 }
 
 type ScenePerformerMarkerRoles {
@@ -34,6 +92,10 @@ type ScenePerformerMarkerRoles {
 }
 
 extend type Mutation {
+  "Create a five-minute, one-use mobile pairing code (normal Stash login still required)"
+  remotePlaybackPairingCreate(player_id: String!): String!
+  "Exchange a one-use pairing code for a remembered browser identity"
+  remotePlaybackPairingRedeem(token: String!): String!
   saveSceneMultiSegmentLoopPreset(
     input: SceneMultiSegmentLoopPresetInput!
   ): MultiSegmentLoopPreset!
@@ -88,4 +150,26 @@ extend type Mutation {
     id: ID!
     video_timestamp: Float!
   ): HistoryMutationResult!
+
+  "Publish the current state of a player paired with the remote O page"
+  remotePlaybackUpdate(input: RemotePlaybackStateInput!): RemotePlaybackState!
+  "Remove a player session immediately instead of waiting for its heartbeat to expire"
+  remotePlaybackDisconnect(player_id: String!, session_id: String!): Boolean!
+  "Ask the paired player to sample its authoritative timestamp"
+  remotePlaybackRequestO(
+    input: RemotePlaybackORequestInput!
+  ): RemotePlaybackCommand!
+  "Record the O after the paired player samples its local video timestamp"
+  remotePlaybackRecordO(
+    input: RemotePlaybackORecordInput!
+  ): RemotePlaybackOResult!
+}
+
+extend type Subscription {
+  "Live state changes for the paired mobile remote"
+  remotePlaybackStateSubscribe(player_id: String!): RemotePlaybackState!
+  "O-record commands delivered to the authoritative player"
+  remotePlaybackCommandSubscribe(player_id: String!): RemotePlaybackCommand!
+  "Successful O-record confirmations delivered to the mobile remote"
+  remotePlaybackOResultSubscribe(player_id: String!): RemotePlaybackOResult!
 }

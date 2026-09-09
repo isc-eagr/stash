@@ -19,6 +19,21 @@ export interface ITagItemCounts {
   group_count: number;
 }
 
+export interface ITaskProgressHistoryEntry {
+  date: string;
+  completed: number;
+  incoming: number;
+  remaining: number;
+  baselineCount?: number;
+}
+
+export interface ITaskProgressHistoryPoint extends ITaskProgressHistoryEntry {
+  completedAverage: number;
+  cumulativeCompleted: number;
+}
+
+export type TaskProgressHistoryRange = 7 | 30 | "all";
+
 export function getTagItemCount(tag: ITagItemCounts): number {
   return (
     tag.scene_count +
@@ -69,6 +84,129 @@ export function getTrackerProgress(goal: number, currentCount: number) {
       : Math.min((done / safeGoal) * 100, 100);
 
   return { done, remaining, percentage };
+}
+
+function parseTaskProgressCalendarDate(value: string): Date | undefined {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.toISOString().slice(0, 10) !== value
+  ) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
+function formatTaskProgressCalendarDate(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
+
+function currentTaskProgressCalendarDate(): string {
+  const current = new Date();
+  return `${current.getFullYear()}-${padTaskProgressDatePart(
+    current.getMonth() + 1
+  )}-${padTaskProgressDatePart(current.getDate())}`;
+}
+
+function addTaskProgressCalendarDays(value: string, days: number): string {
+  const parsed = parseTaskProgressCalendarDate(value);
+  if (!parsed) return value;
+
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+  return formatTaskProgressCalendarDate(parsed);
+}
+
+function safeTaskProgressHistoryCount(value: number): number {
+  return Number.isFinite(value) ? Math.max(value, 0) : 0;
+}
+
+/**
+ * Produces one point per calendar day and carries the last remaining count
+ * through days without activity. Calendar dates are handled in UTC so a
+ * browser timezone cannot shift a recorded day.
+ */
+export function buildTaskProgressHistorySeries(
+  entries: readonly ITaskProgressHistoryEntry[],
+  range: TaskProgressHistoryRange,
+  today: string = currentTaskProgressCalendarDate()
+): ITaskProgressHistoryPoint[] {
+  const parsedToday = parseTaskProgressCalendarDate(today);
+  if (!parsedToday) return [];
+
+  const groupedEntries = new Map<string, ITaskProgressHistoryEntry>();
+  entries.forEach((entry) => {
+    if (!parseTaskProgressCalendarDate(entry.date) || entry.date > today) {
+      return;
+    }
+
+    const existing = groupedEntries.get(entry.date);
+    groupedEntries.set(entry.date, {
+      date: entry.date,
+      completed:
+        (existing?.completed ?? 0) +
+        safeTaskProgressHistoryCount(entry.completed),
+      incoming:
+        (existing?.incoming ?? 0) +
+        safeTaskProgressHistoryCount(entry.incoming),
+      remaining: safeTaskProgressHistoryCount(entry.remaining),
+      baselineCount:
+        entry.baselineCount === undefined
+          ? existing?.baselineCount
+          : safeTaskProgressHistoryCount(entry.baselineCount),
+    });
+  });
+
+  const sortedEntries = [...groupedEntries.values()].sort((a, b) =>
+    a.date.localeCompare(b.date)
+  );
+  const [firstEntry] = sortedEntries;
+  if (!firstEntry) return [];
+
+  let { remaining } = firstEntry;
+  let cumulativeCompleted = 0;
+  const points: ITaskProgressHistoryPoint[] = [];
+  for (
+    let { date } = firstEntry;
+    date <= today;
+    date = addTaskProgressCalendarDays(date, 1)
+  ) {
+    const entry = groupedEntries.get(date);
+    if (entry) remaining = entry.remaining;
+
+    const completed = entry?.completed ?? 0;
+    const incoming = entry?.incoming ?? 0;
+    cumulativeCompleted += completed;
+    const rollingStart = Math.max(points.length - 6, 0);
+    const recentCompleted = points
+      .slice(rollingStart)
+      .reduce((total, point) => total + point.completed, completed);
+    const completedAverage =
+      recentCompleted / (points.length - rollingStart + 1);
+
+    points.push({
+      date,
+      completed,
+      incoming,
+      remaining,
+      baselineCount: entry?.baselineCount,
+      completedAverage,
+      cumulativeCompleted,
+    });
+  }
+
+  if (range === "all") return points;
+
+  const requestedStart = addTaskProgressCalendarDays(today, -(range - 1));
+  return points.filter((point) => point.date >= requestedStart);
+}
+
+export function filterTaskProgressHistoryActivityPoints(
+  points: readonly ITaskProgressHistoryPoint[]
+): ITaskProgressHistoryPoint[] {
+  return points.filter((point) => point.completed > 0 || point.incoming > 0);
 }
 
 function padTaskProgressDatePart(value: number): string {

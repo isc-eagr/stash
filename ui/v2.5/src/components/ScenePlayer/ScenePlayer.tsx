@@ -306,6 +306,7 @@ interface IScenePlayerProps {
   onComplete: () => void;
   onNext: () => void;
   onPrevious: () => void;
+  onRemotePlayerReady?: (ready: boolean) => void; // CUSTOM
 }
 
 export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
@@ -324,6 +325,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     onComplete,
     onNext,
     onPrevious,
+    onRemotePlayerReady, // CUSTOM
   }) => {
     const { configuration } = useConfigurationContext();
     const interfaceConfig = configuration?.interface;
@@ -340,6 +342,13 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
 
     const [time, setTime] = useState(0);
     const [ready, setReady] = useState(false);
+
+    // CUSTOM: prevent the parent remote publisher from sampling the previous
+    // scene while Video.js switches the shared player source.
+    useEffect(() => {
+      onRemotePlayerReady?.(false);
+      return () => onRemotePlayerReady?.(false);
+    }, [scene.id, onRemotePlayerReady]);
 
     const {
       interactive: interactiveClient,
@@ -1528,6 +1537,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
 
       function loadstart(this: VideoJsPlayer) {
         setReady(true);
+        onRemotePlayerReady?.(true); // CUSTOM
       }
 
       function fullscreenchange(this: VideoJsPlayer) {
@@ -1558,8 +1568,9 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         player.off("fullscreenchange", fullscreenchange);
         player.off("useractive", useractive); // CUSTOM
         player.off("userinactive", userinactive); // CUSTOM
+        onRemotePlayerReady?.(false); // CUSTOM
       };
-    }, [getPlayer]);
+    }, [getPlayer, onRemotePlayerReady]);
 
     // delay before second play event after a play event to adjust for video player issues
     const DELAY_FOR_SECOND_PLAY_MS = 1000;

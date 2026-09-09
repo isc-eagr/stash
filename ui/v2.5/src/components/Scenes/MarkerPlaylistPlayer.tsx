@@ -1,3 +1,4 @@
+import { useRemotePlayerCustom } from "../RemoteO/useRemotePlayer_custom"; // CUSTOM
 import React, {
   useCallback,
   useEffect,
@@ -250,6 +251,32 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     () => videoRefs[activeVideoSlotRef.current].current,
     [videoRefs]
   );
+
+  // CUSTOM: begin - each marker activation gets a fresh remote session.
+  useRemotePlayerCustom(`${currentMarker?.id ?? ""}:${currentIndex}`, () => {
+    const video = getActiveVideo();
+    const prepared = preparedVideoSlotsRef.current[activeVideoSlotRef.current];
+    if (
+      !video ||
+      !currentMarker ||
+      !markerPreloadMatchesCustom(prepared, currentMarker)
+    )
+      return undefined;
+    return {
+      scene_id: currentMarker.sceneId,
+      scene_title: currentMarker.sceneTitle,
+      video_timestamp: video.currentTime,
+      duration: video.duration,
+      playback_rate: video.playbackRate,
+      status:
+        video.seeking || video.readyState < 3
+          ? "buffering"
+          : video.paused
+          ? "paused"
+          : "playing",
+    };
+  });
+  // CUSTOM: end
 
   const prepareVideoSlot = useCallback(
     (slot: number, marker: IMarkerInfo, onReady?: () => void) => {

@@ -25,6 +25,8 @@ import { TextField, URLField, URLsField } from "src/utils/field";
 import { StashIDPill } from "src/components/Shared/StashID";
 import { PatchComponent } from "../../../patch";
 import { FileSize } from "src/components/Shared/FileSize";
+import { RemotePairing } from "src/components/RemoteO/RemotePairing"; // CUSTOM
+import type { useRemotePlayerCustom } from "src/components/RemoteO/useRemotePlayer_custom"; // CUSTOM
 
 interface IFileInfoPanelProps {
   sceneID: string;
@@ -182,6 +184,7 @@ const FileInfoPanel: React.FC<IFileInfoPanelProps> = (
 
 interface ISceneFileInfoPanelProps {
   scene: GQL.SceneDataFragment;
+  remotePlayer: ReturnType<typeof useRemotePlayerCustom>; // CUSTOM
 }
 
 const _SceneFileInfoPanel: React.FC<ISceneFileInfoPanelProps> = (
@@ -339,6 +342,9 @@ const _SceneFileInfoPanel: React.FC<ISceneFileInfoPanelProps> = (
 
   return (
     <>
+      <div className="mb-3">
+        <RemotePairing {...props.remotePlayer} />
+      </div>
       <dl className="container scene-file-info details-list">
         {props.scene.files.length > 0 && (
           <URLField

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/doug-martin/goqu/v9"
@@ -17,17 +18,22 @@ import (
 const taskProgressTrackerTable = "task_progress_trackers"
 
 type taskProgressTrackerRow struct {
-	ID          int       `db:"id" goqu:"skipinsert,skipupdate"`
-	Title       string    `db:"title"`
-	Description string    `db:"description"`
-	Goal        int       `db:"goal"`
-	TagID       int       `db:"tag_id"`
-	Position    int       `db:"position"`
-	IsWorkingOn bool      `db:"is_working_on"`
-	StartedOn   string    `db:"started_on"`
-	CreatedAt   time.Time `db:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at"`
-	TagName     string    `db:"tag_name" goqu:"skipinsert,skipupdate"`
+	ID               int       `db:"id" goqu:"skipinsert,skipupdate"`
+	Title            string    `db:"title"`
+	Description      string    `db:"description"`
+	Goal             int       `db:"goal"`
+	TagID            int       `db:"tag_id"`
+	Position         int       `db:"position"`
+	IsWorkingOn      bool      `db:"is_working_on"`
+	StartedOn        string    `db:"started_on"`
+	Status           string    `db:"status"`
+	Mode             string    `db:"mode"`
+	Version          int       `db:"version"`
+	HistoryStartedOn string    `db:"history_started_on"`
+	ItemTypes        string    `db:"item_types"`
+	CreatedAt        time.Time `db:"created_at"`
+	UpdatedAt        time.Time `db:"updated_at"`
+	TagName          string    `db:"tag_name" goqu:"skipinsert,skipupdate"`
 }
 
 func (r *taskProgressTrackerRow) fromModel(tracker models.TaskProgressTracker) {
@@ -39,6 +45,9 @@ func (r *taskProgressTrackerRow) fromModel(tracker models.TaskProgressTracker) {
 	r.Position = tracker.Position
 	r.IsWorkingOn = tracker.IsWorkingOn
 	r.StartedOn = tracker.StartedOn
+	r.Status = tracker.Status
+	r.Mode, r.Version, r.HistoryStartedOn = tracker.Mode, tracker.Version, tracker.HistoryStartedOn
+	r.ItemTypes = strings.Join(tracker.ItemTypes, ",")
 	r.CreatedAt = tracker.CreatedAt
 	r.UpdatedAt = tracker.UpdatedAt
 }
@@ -54,8 +63,11 @@ func (r *taskProgressTrackerRow) resolve() *models.TaskProgressTracker {
 		Position:    r.Position,
 		IsWorkingOn: r.IsWorkingOn,
 		StartedOn:   r.StartedOn,
-		CreatedAt:   r.CreatedAt,
-		UpdatedAt:   r.UpdatedAt,
+		Status:      r.Status,
+		Mode:        r.Mode, Version: r.Version, HistoryStartedOn: r.HistoryStartedOn,
+		ItemTypes: taskProgressItemTypesCustom(r.ItemTypes),
+		CreatedAt: r.CreatedAt,
+		UpdatedAt: r.UpdatedAt,
 	}
 }
 
@@ -95,6 +107,9 @@ func (s *TaskProgressTrackerStore) selectDataset() *goqu.SelectDataset {
 			table.Col("position"),
 			table.Col("is_working_on"),
 			table.Col("started_on"),
+			table.Col("status"),
+			table.Col("mode"), table.Col("version"), table.Col("history_started_on"),
+			table.Col("item_types"),
 			table.Col("created_at"),
 			table.Col("updated_at"),
 			tags.Col("name"),
@@ -111,29 +126,22 @@ func (s *TaskProgressTrackerStore) Find(ctx context.Context, id int) (*models.Ta
 }
 
 func (s *TaskProgressTrackerStore) FindAll(ctx context.Context) ([]*models.TaskProgressTracker, error) {
-	query := s.selectDataset().Order(
+	query := s.selectDataset().Where(s.table().Col("status").Neq("DELETED")).Order(
 		s.table().Col("position").Asc(),
 		s.table().Col("id").Asc(),
 	)
 	return s.getMany(ctx, query)
 }
 
-func (s *TaskProgressTrackerStore) CountDirectlyTaggedItems(ctx context.Context, tagID int) (int, error) {
-	const query = `
-SELECT
-  (SELECT COUNT(DISTINCT scene_id) FROM scenes_tags WHERE tag_id = ?) +
-  (SELECT COUNT(*) FROM scene_markers
-    WHERE primary_tag_id = ?
-       OR id IN (SELECT scene_marker_id FROM scene_markers_tags WHERE tag_id = ?)) +
-  (SELECT COUNT(DISTINCT image_id) FROM images_tags WHERE tag_id = ?) +
-  (SELECT COUNT(DISTINCT gallery_id) FROM galleries_tags WHERE tag_id = ?) +
-  (SELECT COUNT(DISTINCT performer_id) FROM performers_tags WHERE tag_id = ?) +
-  (SELECT COUNT(DISTINCT studio_id) FROM studios_tags WHERE tag_id = ?) +
-  (SELECT COUNT(DISTINCT group_id) FROM groups_tags WHERE tag_id = ?)`
+func (s *TaskProgressTrackerStore) CountDirectlyTaggedItems(ctx context.Context, tagID int, itemTypes []string) (int, error) {
+	counts, err := taskProgressCountsForTagCustom(ctx, tagID)
+	if err != nil {
+		return 0, err
+	}
 
 	var count int
-	if err := dbWrapper.Get(ctx, &count, query, tagID, tagID, tagID, tagID, tagID, tagID, tagID, tagID); err != nil {
-		return 0, fmt.Errorf("counting directly tagged task progress items: %w", err)
+	for _, itemType := range taskProgressItemTypesCustom(strings.Join(itemTypes, ",")) {
+		count += counts[itemType]
 	}
 	return count, nil
 }
@@ -144,8 +152,19 @@ func (s *TaskProgressTrackerStore) Create(ctx context.Context, tracker *models.T
 		tracker.CreatedAt = now
 	}
 	if tracker.StartedOn == "" {
-		tracker.StartedOn = tracker.CreatedAt.Format("2006-01-02")
+		tracker.StartedOn = models.TaskProgressReportingDate(now)
 	}
+	if tracker.Status == "" {
+		tracker.Status = models.TaskProgressTrackerStatusActive
+	}
+	if tracker.Mode == "" {
+		tracker.Mode = "BACKLOG"
+	}
+	tracker.Version = 1
+	if tracker.HistoryStartedOn == "" {
+		tracker.HistoryStartedOn = models.TaskProgressReportingDate(now)
+	}
+	tracker.ItemTypes = taskProgressItemTypesCustom(strings.Join(tracker.ItemTypes, ","))
 	tracker.UpdatedAt = now
 
 	if tracker.Position < 0 {
@@ -173,7 +192,40 @@ func (s *TaskProgressTrackerStore) Create(ctx context.Context, tracker *models.T
 	return nil
 }
 
+func (s *TaskProgressTrackerStore) CreateBaseline(ctx context.Context, tracker *models.TaskProgressTracker) error {
+	if _, err := dbWrapper.Exec(ctx, "DELETE FROM task_progress_tracker_members WHERE tracker_id = ?", tracker.ID); err != nil {
+		return err
+	}
+	if tracker.Mode == "FIXED" {
+		for _, itemType := range tracker.ItemTypes {
+			query := taskProgressMembershipSQLCustom(itemType)
+			if _, err := dbWrapper.Exec(ctx, "INSERT INTO task_progress_tracker_members(tracker_id,item_type,item_id,state) SELECT ?, ?, item_id, 'PENDING' FROM ("+query+") WHERE tag_id = ?", tracker.ID, itemType, tracker.TagID); err != nil {
+				return err
+			}
+		}
+	}
+	const query = `
+INSERT INTO task_progress_tracker_events
+  (tracker_id, event_type, occurred_on, occurred_at, baseline_count, tag_id)
+VALUES (?, ?, ?, ?, ?, ?)`
+	// An imported legacy tracker starts at the agreed history epoch; subsequent
+	// baseline resets always use the day the reset actually happened.
+	day := models.TaskProgressReportingDate(time.Now())
+	var hasHistory bool
+	if err := dbWrapper.Get(ctx, &hasHistory, "SELECT EXISTS(SELECT 1 FROM task_progress_tracker_events WHERE tracker_id = ?)", tracker.ID); err != nil {
+		return err
+	}
+	if !hasHistory && tracker.HistoryStartedOn != "" {
+		day = tracker.HistoryStartedOn
+	}
+	if _, err := dbWrapper.Exec(ctx, query, tracker.ID, models.TaskProgressEventBaseline, day, time.Now().UTC(), tracker.Goal, tracker.TagID); err != nil {
+		return fmt.Errorf("creating task progress tracker baseline: %w", err)
+	}
+	return nil
+}
+
 func (s *TaskProgressTrackerStore) Update(ctx context.Context, tracker *models.TaskProgressTracker) error {
+	tracker.Version++
 	tracker.UpdatedAt = time.Now()
 	row := taskProgressTrackerRow{}
 	row.fromModel(*tracker)
@@ -184,7 +236,7 @@ func (s *TaskProgressTrackerStore) Update(ctx context.Context, tracker *models.T
 }
 
 func (s *TaskProgressTrackerStore) Delete(ctx context.Context, id int) error {
-	query := dialect.Delete(s.table()).Prepared(true).Where(s.tableMgr.byID(id))
+	query := dialect.Update(s.table()).Prepared(true).Set(goqu.Record{"status": "DELETED", "is_working_on": false, "version": goqu.L("version + 1"), "updated_at": time.Now()}).Where(s.tableMgr.byID(id))
 	if _, err := exec(ctx, query); err != nil {
 		return fmt.Errorf("deleting task progress tracker: %w", err)
 	}
@@ -194,7 +246,7 @@ func (s *TaskProgressTrackerStore) Delete(ctx context.Context, id int) error {
 func (s *TaskProgressTrackerStore) Reorder(ctx context.Context, ids []int) error {
 	for position, id := range ids {
 		query := dialect.Update(s.table()).Prepared(true).
-			Set(goqu.Record{"position": position, "updated_at": time.Now()}).
+			Set(goqu.Record{"position": position, "version": goqu.L("version + 1"), "updated_at": time.Now()}).
 			Where(s.tableMgr.byID(id))
 		if _, err := exec(ctx, query); err != nil {
 			return fmt.Errorf("reordering task progress tracker %d: %w", id, err)
@@ -227,6 +279,9 @@ func (s *TaskProgressTrackerStore) getMany(ctx context.Context, query *goqu.Sele
 			&row.Position,
 			&row.IsWorkingOn,
 			&row.StartedOn,
+			&row.Status,
+			&row.Mode, &row.Version, &row.HistoryStartedOn,
+			&row.ItemTypes,
 			&row.CreatedAt,
 			&row.UpdatedAt,
 			&row.TagName,
@@ -238,5 +293,61 @@ func (s *TaskProgressTrackerStore) getMany(ctx context.Context, query *goqu.Sele
 	}); err != nil {
 		return nil, err
 	}
+	if err := loadTaskProgressMetricsCustom(ctx, trackers); err != nil {
+		return nil, err
+	}
 	return trackers, nil
+}
+
+func taskProgressItemTypesCustom(value string) []string {
+	allowed := make(map[string]struct{}, len(models.TaskProgressItemTypes))
+	for _, itemType := range models.TaskProgressItemTypes {
+		allowed[itemType] = struct{}{}
+	}
+
+	seen := make(map[string]struct{})
+	for _, itemType := range strings.Split(value, ",") {
+		itemType = strings.TrimSpace(itemType)
+		if _, ok := allowed[itemType]; ok {
+			seen[itemType] = struct{}{}
+		}
+	}
+	if len(seen) == 0 {
+		return append([]string(nil), models.TaskProgressItemTypes...)
+	}
+
+	ret := make([]string, 0, len(seen))
+	for _, itemType := range models.TaskProgressItemTypes {
+		if _, ok := seen[itemType]; ok {
+			ret = append(ret, itemType)
+		}
+	}
+	return ret
+}
+
+func taskProgressCountsForTagCustom(ctx context.Context, tagID int) (map[string]int, error) {
+	queries := map[string]string{
+		"scene": "SELECT COUNT(DISTINCT scene_id) FROM scenes_tags WHERE tag_id = ?",
+		"scene_marker": `SELECT COUNT(*) FROM scene_markers WHERE primary_tag_id = ?
+OR id IN (SELECT scene_marker_id FROM scene_markers_tags WHERE tag_id = ?)`,
+		"image":     "SELECT COUNT(DISTINCT image_id) FROM images_tags WHERE tag_id = ?",
+		"gallery":   "SELECT COUNT(DISTINCT gallery_id) FROM galleries_tags WHERE tag_id = ?",
+		"performer": "SELECT COUNT(DISTINCT performer_id) FROM performers_tags WHERE tag_id = ?",
+		"studio":    "SELECT COUNT(DISTINCT studio_id) FROM studios_tags WHERE tag_id = ?",
+		"group":     "SELECT COUNT(DISTINCT group_id) FROM groups_tags WHERE tag_id = ?",
+	}
+
+	ret := make(map[string]int, len(queries))
+	for itemType, query := range queries {
+		args := []interface{}{tagID}
+		if itemType == "scene_marker" {
+			args = append(args, tagID)
+		}
+		var count int
+		if err := dbWrapper.Get(ctx, &count, query, args...); err != nil {
+			return nil, fmt.Errorf("counting directly tagged %s task progress items: %w", itemType, err)
+		}
+		ret[itemType] = count
+	}
+	return ret, nil
 }
