@@ -98,6 +98,7 @@ Always apply small changes at a time, but do ensure that work is complete withou
 
 8. Response style and safety
    - When suggesting edits, include exact file paths and minimal patches. Prefer adding code near existing patterns (e.g., follow `resolver_model_*` naming and placement).
+   - Keep UI copy concise. Heavy helper text is strongly discouraged; prefer short labels or focused tooltips, and add explanatory text only when it prevents a likely mistake or clarifies genuinely non-obvious behavior.
    - For changes affecting generated code, always update `gqlgen.yml` or run `make generate` and include generated diffs in PRs.
    - Do not add database migrations to the default codebase. Instead, please add them as separate SQL files.
 
@@ -129,6 +130,7 @@ Always apply small changes at a time, but do ensure that work is complete withou
 
 11. CUSTOM_FEATURES.md documentation
    - All custom features added to this fork are documented in `CUSTOM_FEATURES.md` at the repo root.
+   - **Scope rule:** Document only independently user-visible features that are new compared with the upstream baseline. Do not add standalone entries for minor performance optimizations, UI/styling improvements, layout readjustments, copy changes, refactors, test coverage, or other changes within an existing custom feature; fold relevant implementation details into the parent feature instead.
    - **Adding a feature**: When implementing a new custom feature, add a section to CUSTOM_FEATURES.md describing:
      - Overview of the feature
      - Files created or modified
