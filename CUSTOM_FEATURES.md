@@ -286,11 +286,12 @@ extend type Query {
 
 ### Overview
 
-Tag-based task tracking with recorded daily completions and incoming work. Compact cards show counts, progress, an Items per day finish planner, and separate Details/Edit actions; the Details modal contains the graph, links, and forecasts. Overall Progress measures organized scenes only.
+Tag-based task tracking with recorded daily completions and incoming work. Compact cards show counts, progress, an Items per day finish planner, and separate Details/Edit actions; the Details modal begins with number-only completed, remaining, and percentage summary cards, then contains the graph, links, and forecasts. Overall Progress measures organized scenes only and includes its own persisted history; its compact card also keeps the history graph behind a Details button.
 
 ### Behavior
 
 - Removing a direct tag or deleting its tagged item records a completion; adding the tag records incoming work. Marker primary and secondary tags are deduplicated and updated atomically.
+- Overall Progress records newly created scenes and organized-to-unorganized reversals as incoming work, and unorganized-to-organized changes as completions. Scene deletion only recalculates its total, organized, and remaining snapshots; it never records false completed work.
 - Track scenes, markers, images, galleries, performers, studios, and groups, with a selectable scope. Child tags are excluded.
 - Backlog mode includes incoming work. Fixed batches retain baseline membership and only reopen items belonging to that batch.
 - Daily history uses America/Mexico_City dates. The chart shows completed/incoming bars, remaining or cumulative completions, a visually distinct seven-day average, baseline changes, and accessible daily data. View Daily Data lists only days with completed or incoming activity, while the chart retains zero-activity calendar days for an honest timeline. Clicking a day opens paginated activity; fixed batches have paginated remaining-item links. Item-type links only appear when their current count is non-zero.
@@ -298,6 +299,7 @@ Tag-based task tracking with recorded daily completions and incoming work. Compa
 - Tracker edits use a version check to reject stale writes. Refreshes preserve visible data on errors and are manual after the initial page load (mutations also refetch their results).
 - Existing trackers are activated and receive Started On **2026-09-07**, with an initial baseline and no invented historical completions. The retrofit runs once. New trackers record from creation; resetting scope/baseline preserves prior history.
 - Each tracker card has a compact browser-local Items per day planner that recalculates the finish date immediately. Observed finish estimates use net progress over up to seven complete days, require three days, and exclude today's partial activity.
+- Tracker Details shows completed, remaining, percentage complete, and percentage remaining as responsive top cards. Fixed-batch completed counts use the current baseline rather than historical activity events.
 
 ### Files
 
@@ -307,8 +309,8 @@ Tag-based task tracking with recorded daily completions and incoming work. Compa
 - `internal/api/resolver_task_progress_tracker_custom.go`, `resolver_task_progress_history_custom.go`, and marker mutation integration
 - `pkg/models/task_progress_tracker_custom.go` and its repository mock
 - `pkg/scene/marker_import_custom.go`, `marker_import.go`, and `marker_import_custom_test.go`: atomic marker import tag updates
-- `pkg/sqlite/task_progress_tracker_custom.go`, `task_progress_metrics_custom.go`, `task_progress_tracking_custom.go`, `database_custom.go`, and entity store hooks
-- `task_progress_tracker_history.up.sql`
+- `pkg/sqlite/task_progress_tracker_custom.go`, `task_progress_metrics_custom.go`, `task_progress_tracking_custom.go`, `task_progress_overall_custom.go`, `database_custom.go`, and entity store hooks
+- `task_progress_tracker_history.up.sql`, `task_progress_overall_history.up.sql`
 
 ### Database and configuration
 
@@ -316,7 +318,7 @@ Startup automatically creates/updates the custom tracker, event, and fixed-membe
 
 ### GraphQL
 
-- Queries: `findTaskProgressTrackers`, `taskProgressEvents`, `taskProgressPendingItems`, `taskProgressPreview`
+- Queries: `findTaskProgressTrackers`, `taskProgressOverall`, `taskProgressEvents`, `taskProgressPendingItems`, `taskProgressPreview`
 - Mutations: `taskProgressTrackerCreate`, `taskProgressTrackerUpdate`, `taskProgressTrackerDestroy`, `taskProgressTrackersReorder`
 - Tracker fields include status, mode, version, scope, recording date, current/completed/incoming counts, item counts, and daily history. Update input supports `expected_version`.
 
@@ -325,10 +327,13 @@ Startup automatically creates/updates the custom tracker, event, and fixed-membe
 - `pkg/sqlite/database_bootstrap_custom_test.go`: fresh schema, existing tracker retrofit, repeat startup
 - `pkg/sqlite/task_progress_tracker_custom_test.go`: CRUD, counts, order, history aggregation, fixed membership
 - `pkg/sqlite/task_progress_tracking_custom_test.go`: tag changes, deletion, deduplication, lifecycle recording
+- `pkg/sqlite/task_progress_overall_custom_test.go`: overall scene creation, organization reversals, deletion adjustments, and current-count recalculation
 - `internal/api/resolver_task_progress_tracker_custom_test.go`: import, validation, baseline reset, stale edits, undo
 - `ui/v2.5/tests/taskProgress_custom.test.ts`: history gaps, range boundaries, averages, cumulative counts, dates
+- `ui/v2.5/tests/taskProgressOverall_custom.test.ts`: compact Overall card, Details modal placement, and shared history chart reuse
 - `ui/v2.5/tests/taskProgressView_custom.test.ts`: Mexico City day boundaries, progress semantics, net forecasts
 - `ui/v2.5/tests/taskProgressCard_custom.test.ts`: compact card rendering and graph omission
+- `ui/v2.5/tests/taskProgressAtAGlance_custom.test.ts`: tracker summary labels, percentages, and fixed-batch baseline counts
 - `ui/v2.5/tests/taskProgressTrackerModal_custom.test.ts`: status options and non-zero item-type visibility
 
 ---
@@ -2834,7 +2839,7 @@ configuration.ui.roleTagIds.goatTagId = "<tag id>";
 
 ### Metallic Rating Filter
 
-Adds a `metallic_rating` filter to scenes, performers, images, galleries, groups, and studios. The filter matches the final card style after configured tag overrides, scene Rating Advisor bonus overrides, and rating thresholds are applied, and supports include/exclude modifiers for `bronze`, `silver`, `gold`, and `royal_sapphire` (displayed as Royal Sapphire).
+Adds a `metallic_rating` filter to scenes, performers, images, galleries, groups, and studios. The filter matches the final card style after configured tag overrides, scene Rating Advisor bonus overrides, and rating thresholds are applied, and supports include/exclude modifiers for `bronze`, `silver`, `gold`, and `royal_sapphire` (displayed as Royal Sapphire). Scene filtering also promotes scenes with a marker carrying the configured GOAT tag or one of its descendants, whether primary or secondary, to Royal Sapphire; that promotion takes precedence over every lower tier.
 
 ### Files Modified
 
@@ -2854,6 +2859,7 @@ Adds a `metallic_rating` filter to scenes, performers, images, galleries, groups
 - `graphql/schema/types/stats_custom.graphql` - Exposes the compact scene bonus-override flag used by SceneStats
 - `internal/api/resolver_custom.go` - Populates the compact SceneStats bonus-override flag
 - `pkg/sqlite/metallic_rating_filter_custom.go` - Shared backend metallic style filter predicate
+- `pkg/sqlite/metallic_rating_filter_marker_custom_test.go` - Verifies GOAT-family marker promotion and mutually exclusive final scene tiers
 - `pkg/sqlite/studio_sort_metric_custom.go` - Reuses scene bonus overrides in studio metallic counts and sorts
 - `pkg/sqlite/*_filter.go` - Hooks metallic rating filters into scene, performer, image, gallery, group, and studio filters
 - `ui/v2.5/src/models/list-filter/criteria/metallic-rating_custom.ts` - Frontend metallic rating criterion
@@ -3999,7 +4005,7 @@ The global `/scenestats` dashboard and studio `/studios/<id>/stats` dashboard sh
 
 Countable event markers produce only two scene-wide report chips: an Orgasm report and a Facial report. The Orgasm report includes only configured Orgasm markers that are not also Facial markers; the Facial report includes the configured Facial family, including Facial descendants of Orgasm. Examples are `6 orgasms: 1 GOAT, 2 Really Hot` and `3 facials: 1 GOAT, 1 Really Hot`. Ordinary event markers remain in the total but receive no separate mention. Within each report, a GOAT marker supersedes its Really Hot qualifier, so it only contributes to the GOAT count. Configured 2nd Camera markers are excluded from both reports. Legacy Standard/Really Hot/GOAT Orgasm and Facial variant chips are not emitted. The preserved event-pattern chips are `Tyga Martinez nuts twice` (or `nuts N times`) and `2 vatos nut at the same time`; repeated-orgasm detection retains the configured Orgasm family behavior. `Everybody Nuts` generation is preserved in a commented block but intentionally disabled. Other GOAT tags retain their top-performer attribution and merge compatible non-event tags only within the same performer scope; even an identical descriptor never combines GOAT markers from different performers. Every other GOAT marker produces a separate GOAT insight for each direct named non-qualifier tag, including configured activity tags such as `BJ`; only a marker with no other named tag falls back to `GOAT moment`. Tag-derived labels preserve each tag's exact name and casing.
 
-Negative evidence produces `No Orgasm` when configured role tags exist but the scene has no countable Orgasm or Facial marker, excluding 2nd Camera markers. `No Orgasm` reserves a high-priority slot after mandatory event-report evidence so ordinary activity and contextual candidates cannot crowd it out. `Lackluster sex` and `Lackluster oral` remain contextual candidates but display immediately beside the positive Good/Great/Amazing/Near-perfect activity-quality report because they describe the same quality dimension. `Few highlights` and `Lots of filler` are considered only after the scene has at least one completed primary Sex, Oral, or Solo marker (excluding 2nd Camera), so unprocessed scenes do not receive either chip. `Few highlights` appears only when both conditions pass: outstanding merged episodes are no greater than the configured maximum and their merged duration is no greater than the configured percentage of the full scene. The default percentage maximum is 5%. `Lots of filler` appears when time without any marker exceeds its configured percentage; its tooltip uses the compact `<percent>% filler (<duration>)` form and can appear alongside `Lackluster`. Stored scene Rating Advisor criteria—not performer ratings—also produce role-attractiveness warnings: two- and three-vato scenes show `Ugly Top` or `Ugly Bottom` when the matching Top/Bottom Attractiveness raw value is 0, while group scenes with four or more vatos show `Ugly Tops` when Top Lineup Attractiveness is 0 or 1. Missing criteria do not trigger a warning. Every positive marker covers its interval regardless of tag; negative-marker intervals are added to filler even when they overlap positive markers.
+Negative evidence produces `No Orgasm` when configured role tags exist, the scene has at least one completed primary Sex, Oral, or Solo marker, and it has no countable Orgasm or Facial marker; 2nd Camera markers are excluded throughout. `No Orgasm` reserves a high-priority slot after mandatory event-report evidence so ordinary activity and contextual candidates cannot crowd it out. `Lackluster sex` and `Lackluster oral` remain contextual candidates but display immediately beside the positive Good/Great/Amazing/Near-perfect activity-quality report because they describe the same quality dimension. `Few highlights` and `Lots of filler` are considered only after the scene has at least one completed primary Sex, Oral, or Solo marker (excluding 2nd Camera), so unprocessed scenes do not receive either chip. `Few highlights` appears only when both conditions pass: outstanding merged episodes are no greater than the configured maximum and their merged duration is no greater than the configured percentage of the full scene. The default percentage maximum is 5%. `Lots of filler` appears when time without any marker exceeds its configured percentage; its tooltip uses the compact `<percent>% filler (<duration>)` form and can appear alongside `Lackluster`. Stored scene Rating Advisor criteria—not performer ratings—also produce role-attractiveness warnings: two- and three-vato scenes show `Ugly Top` or `Ugly Bottom` when the matching Top/Bottom Attractiveness raw value is 0, while group scenes with four or more vatos show `Ugly Tops` when Top Lineup Attractiveness is 0 or 1. Missing criteria do not trigger a warning. Every positive marker covers its interval regardless of tag; negative-marker intervals are added to filler even when they overlap positive markers.
 
 Performer-lineup context adds `Mexican vato`, `Mexican vatos ×N`, or `All-Mexican` from normalized Mexico country metadata. It also adds `Favorite Vatos ×N` for performers whose card resolves to Royal Sapphire through the shared metallic-rating thresholds and override-tag precedence; it does not use the database favorite flag.
 
@@ -4191,38 +4197,41 @@ The custom TypeScript tests under `ui/v2.5/tests` run through `npm run test:cust
 
 ### Overview
 
-The **Insight Stats** destination in the shared `/stats` navigation opens `/insightstats`. It scans all library scenes and compares saved chip thresholds with a temporary local preview. The table includes scene counts, library percentages, changes in scene counts and percentage points, zero-count chip types, and the engine's disabled/reserved kinds. Users can choose all qualifying chips (including overflow) or only chips visible on scene cards.
+The **Insight Stats** destination in the shared `/stats` navigation opens `/insightstats`. It scans all library scenes and compares saved chip thresholds with a temporary local preview. The table includes scene counts, library percentages, changes in scene counts and percentage points, zero-count chip types, and the engine's disabled/reserved kinds. Users can choose all qualifying chips (including overflow) or only chips visible on scene cards. A separate rating-tier playground provides independent scene and vato numeric threshold inputs for Bronze, Silver, Gold, and Royal Sapphire, with all four metallic inputs arranged on one line in each panel. Side-by-side Scene and Vato panels align each threshold set with its responsive table. Tiers descend from Royal Sapphire through Gold, Silver, Bronze, and No Metallic Tier. Each flat tier table presents Current Count, Projected Count, Current Percentage, Projected Percentage, and Numeric Rating columns, followed by the static source columns; projected values are highlighted green or red when they rise or fall. Percentages use only rated scenes or vatos. Current counts and percentages open an exact-ID Scenes or Vatos list snapshot, including source-specific cells that the regular Metallic Rating filter cannot express; projections stay unlinked. Separate spinner statuses identify chip and rating preview calculations. The final tier follows card/filter precedence: scene Rating Advisor Sapphire bonus, configured GOAT marker (including descendants), highest configured entity-tag override, then the numeric threshold. Vatos are deduplicated across the scanned cast.
 
 The page reuses the card engine's candidates and selection rules, including performer role history, tag ancestry, Rating Advisor criteria, negative markers, and performer rating tiers. Percentages use only eligible scenes: scenes must have at least one activity type marker (a primary configured Sex, Oral, or Solo marker without secondary tags) with an end time. Each eligible scene counts once per row or combination; overlapping rows are not additive. Quality, balance, and interaction patterns each occupy one main row; their individual labels live in the drilldown. Tag drilldowns default to individual tags (one scene may count toward multiple tags), with a toggle retaining full combinations. Performer-specific candidates such as Rare Oral Top, repeated orgasms, Feet, and center-stage interactions are grouped by chip meaning rather than performer. GOAT combinations group across performer names. The first-column entries use the same card chip component and tones, with a tooltip describing each rule. Searchable, paginated drilldowns show observed chip combinations, up to three example scenes, and the relevant threshold controls.
 
-All threshold changes stay in component state and never save configuration. Reset restores the saved values. A background worker loads bounded pages through existing read-only GraphQL queries, retains the scan for subsequent simulations, and cancels obsolete calculations after newer input. IndexedDB caches the scan and saved-threshold baseline for 12 hours. Refresh bypasses the cache; leaving the page terminates the worker. Settings changes reevaluate the cached scan. Cache failures fall back to a fresh scan and are disclosed. Performer-by-tag matrices and full performer-stat queries are omitted: only the role counts needed by Rare Role are derived from the scanned markers, preserving backend tag ancestry and narrower-marker precedence. Intrinsic cast checks remain for interaction and lineup chips. Clicking a current or preview count opens all matching scenes using a removable chip snapshot filter, combined with normal filtering, sorting, and pagination. Match links are browser-local and expire after 12 hours; missing matches fail closed.
+All chip and rating threshold changes stay in component state and never save configuration. Separate reset actions restore the saved values. A background worker loads bounded pages through existing read-only GraphQL queries, retains the scan for subsequent simulations, and cancels obsolete calculations after newer input. IndexedDB caches the scan and saved-threshold baseline for 12 hours. Refresh bypasses the cache; leaving the page terminates the worker. Settings changes reevaluate the cached scan. Cache failures fall back to a fresh scan and are disclosed. Performer-by-tag matrices and full performer-stat queries are omitted: only the role counts needed by Rare Role are derived from the scanned markers, preserving backend tag ancestry and narrower-marker precedence. Intrinsic cast checks remain for interaction and lineup chips. Clicking a current or preview count opens all matching scenes using a removable chip snapshot filter, combined with normal filtering, sorting, and pagination. Match links are browser-local and expire after 12 hours; missing matches fail closed.
 
 ### Files Added or Modified
 
-- `ui/v2.5/src/components/InsightStats/InsightStats.tsx`, `InsightStats.scss`, and `InsightThresholdControl.tsx` — page, responsive table, drilldown, and temporary controls.
+- `ui/v2.5/src/components/InsightStats/InsightStats.tsx`, `InsightStats.scss`, `InsightThresholdControl.tsx`, and `RatingThresholdControl.tsx` — page, responsive tables, drilldown, and temporary chip/rating controls.
 - `ui/v2.5/src/components/InsightStats/insightStatsCatalog_custom.ts` — chip inventory and threshold descriptions.
-- `ui/v2.5/src/components/InsightStats/insightStatsData_custom.ts` — scene-deduplicated counts and combination comparison.
+- `ui/v2.5/src/components/InsightStats/insightStatsData_custom.ts` — scene-deduplicated counts, exact tier/source entity IDs, and combination comparison.
 - `ui/v2.5/src/components/InsightStats/insightStatsQuery_custom.ts` — paginated scene reads, with incomplete-scan checks.
 - `ui/v2.5/src/components/InsightStats/insightStatsWorker_custom.ts` and `useInsightStats_custom.ts` — background scan, cached baseline, debounced previews, stale-result protection, and worker cleanup.
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerActivityType_custom.ts` — shared activity-type marker classification used by the stats eligibility rule.
-- `ui/v2.5/src/components/Scenes/sceneCardInsightTypes_custom.ts` and `sceneCardInsightsData_custom.ts` — expose existing candidates and stable GOAT combination text for statistics without changing card eligibility or selection.
+- `ui/v2.5/src/components/Scenes/sceneCardInsightTypes_custom.ts` and `sceneCardInsightsData_custom.ts` — expose existing candidates, tier fields, and stable GOAT combination text for statistics without changing card eligibility or selection.
+- `ui/v2.5/src/utils/ratingCardStyles_custom.ts` and `ui/v2.5/src/components/Scenes/SceneCard.tsx` — share configured GOAT-marker ancestry detection and promote matching scene cards to Royal Sapphire.
 - `ui/v2.5/src/components/Scenes/sceneCardInsightPerformerRules_custom.ts` — relative runtime import for worker bundling. The worker is bundled inline as a blob to comply with Stash's existing Content Security Policy.
 - `ui/v2.5/src/App.tsx`, `ui/v2.5/src/components/StatsLinks_custom.tsx`, and `statsPage_custom.scss` — route and four-destination stats navigation.
 
 ### Test Cases Added
 
-- `ui/v2.5/tests/insightStats_custom.test.ts` — zero counts, complete threshold inventory, activity-marker eligibility and percentage denominators, GOAT deduplication, merged quality chips, engine/selection parity, local-only threshold changes and reset, rare-role boundaries, tag-combination changes, disappearing/new variants, cancellation, pagination, and query validation against the actual GraphQL schema.
+- `ui/v2.5/tests/insightStats_custom.test.ts` — zero counts, complete threshold inventory, activity-marker eligibility and percentage denominators, GOAT deduplication, merged quality chips, engine/selection parity, local-only threshold changes and reset, exact mutually exclusive scene/vato rating-tier boundaries, rated-population totals, No Metallic Tier, source attribution, override precedence, rating-threshold previews, performer deduplication, rare-role boundaries, tag-combination changes, disappearing/new variants, cancellation, pagination, and query validation against the actual GraphQL schema.
+- `ui/v2.5/tests/insightStatsPresentation_custom.test.ts` — verifies descending tiers, aligned side-by-side panels, separate actual/projected columns, exact-ID drilldowns, separate spinner states, rated percentages, the No Metallic Tier row, and readable component sizing.
+- `ui/v2.5/tests/ratingCardSceneBonus_custom.test.ts` — verifies direct/descendant GOAT marker detection and Royal Sapphire precedence over lower-tier tag overrides.
 - `ui/v2.5/tests/insightStatsWorker_custom.test.ts` — read-only snapshot reuse and suppression of obsolete preview results.
-- `ui/v2.5/tests/insightStatsCoverage_custom.test.ts` covers tag splitting, scene-ID deduplication, family grouping, totals-only matrix parity, role-count derivation, cache expiry, and snapshot links. `pkg/sqlite/scene_insight_filter_custom_test.go` verifies absent/empty/large match sets and composition with normal queries.
-- `insightStatsCache_custom.ts` and `insightStatsRoles_custom.ts` implement persistence and minimal role counts. `src/utils/insightSceneLinks_custom.ts`, `src/models/list-filter/criteria/insight-chip_custom.ts`, `scenes.ts`, and `types.ts` implement the removable scene chip filter.
+- `ui/v2.5/tests/insightStatsCoverage_custom.test.ts` covers tag splitting, entity-ID deduplication, family grouping, totals-only matrix parity, role-count derivation, cache expiry, and Scene/Vato snapshot links. `pkg/sqlite/scene_insight_filter_custom_test.go` and `performer_insight_filter_custom_test.go` verify absent, empty, matching, and large snapshot sets.
+- `insightStatsCache_custom.ts` and `insightStatsRoles_custom.ts` implement persistence and minimal role counts. `src/utils/insightSceneLinks_custom.ts`, `src/models/list-filter/criteria/insight-chip_custom.ts`, `scenes.ts`, `performers.ts`, and `types.ts` implement removable exact-ID Scene and Vato filters.
 
 ### GraphQL Schema Changes
 
-- Adds `SceneFilterType.insight_scene_ids: [ID!]` in `filters_custom.graphql`, mapped in `pkg/models/scene.go` and applied by `pkg/sqlite/scene_insight_filter_custom.go` through `scene_filter.go`. A single JSON SQL parameter handles large match sets. Backend and UI GraphQL bindings are regenerated; no migration is required.
+- Adds `SceneFilterType.insight_scene_ids: [ID!]` and `PerformerFilterType.insight_performer_ids: [ID!]` in `filters_custom.graphql`, mapped in the corresponding `pkg/models` filter types and applied by the SQLite scene/performer handlers. A single JSON SQL parameter handles large match sets. Backend and UI GraphQL bindings are regenerated; no migration is required.
 
 ### Configuration Dependencies
 
-- Reads current `sceneCardInsightThresholds`, `roleTagIds` (including common activity tags), `ratingCardThresholds`, and `ratingCardOverrideTagIds`. Preview controls change only insight thresholds in memory; tag mappings and rating-tier settings remain those from the scan.
+- Reads current `sceneCardInsightThresholds`, `roleTagIds` (including common activity and GOAT tags), `ratingCardThresholds`, and `ratingCardOverrideTagIds`. Preview controls change chip and scene/vato rating thresholds in memory; tag mappings remain those from the scan.
 
 ---
 
@@ -4300,3 +4309,64 @@ Adds remote playback state, request, command, and receipt types; state query; up
 ### Configuration Dependencies
 
 The phone and playback browser must reach the same Stash instance. Use the existing login when authentication is enabled, and a phone-reachable address including the correct port. A reverse-proxy path prefix is preserved. Local browser storage holds the remembered identity/address; the pairing code is carried in the URL fragment. External players are not integrated; casting accuracy depends on the active browser player's reported timestamp. Device-to-device behavior still requires a live smoke test after deployment.
+
+---
+
+## Compact Low-Cardinality Stats Charts
+
+### Overview
+
+Scene Stats and Vato Stats keep high-cardinality and time-series charts full width while placing stable charts with only a few categories into responsive multi-column grids. Scene Stats keeps the related Has Facial, By Number of Facial, and By Number of Really Hot Facial charts together in a three-column row, while Metallic Rating, Scene Type, and Resolution use the compact grid; Vato Stats compacts Metallic Rating and Circumcised. Compact chart bars flex to the panel width and collapse back to one column on smaller screens. Overflowing strips stay left-aligned so the first bar remains reachable while scrolling through the full data set.
+
+### Files Added or Modified
+
+- `ui/v2.5/src/components/SceneStats/SceneStats.tsx` and `SceneStats.scss` — separate stable charts into a compact responsive grid and let their bars use the available panel width.
+- `ui/v2.5/src/components/VatoStats/VatoStats.tsx` and `VatoStats.scss` — separate stable Metallic Rating and Circumcised charts into the compact grid with the same responsive bar sizing.
+
+### Test Cases Added
+
+- `ui/v2.5/tests/statsChartLayout_custom.test.ts` — verifies both pages keep the selected stable charts in compact grids and flex their bars into the available panel width.
+- No data or backend behavior changes; the modified TypeScript and SCSS surfaces are covered by the frontend formatting, lint, and type checks.
+
+### GraphQL Schema Changes
+
+- None.
+
+### Configuration Dependencies
+
+- None.
+
+
+---
+
+## Scene Tagger Copper Styling and Save Preview
+
+### Overview
+
+Scene Tagger groups each local scene and its scraped matches inside one bordered card. The Black Steel theme uses steel surfaces and copper borders to connect the rows and emphasize the selected match. The local-details disclosure now has a text label and expanded state.
+
+The selected result shows a live Changes on Save comparison above Save, with Local now and After Save columns, explicit Added/Removed/Changed labels, highlighted changed values, and collapsible unchanged fields. It covers title, studio code, date, director, details, studio, performers, tags, URLs, Stash IDs, and organized state. Selected cover replacements show both images. Helper text is limited to concise change counts and an unmatched-performer status; cover replacement still depends on a valid download, and image equality is not assumed. Unresolved performer matches are identified as excluded from the save.
+
+Preview and Save share the same update builder, preserving null remote fields by default, field exclusions, performer/URL merging, current tag selections, and source-specific Stash ID replacement. Entity comparisons use local IDs and resolve display names through existing select queries. Stash ID order and refresh timestamps do not count as metadata changes. Small screens can scroll the comparison horizontally.
+
+When title, details, date, studio code, or director has a local value but the scraped field is null or missing, the main comparison shows Remote empty and Kept locally. Each such row has an unchecked Clear on Save checkbox; selecting it previews Removed and sends an explicit null on Save. Unchecking restores the local value. Excluded fields cannot be cleared, and clear selections belong only to the current scraped result. The header counts actual changes separately from informational kept values.
+
+### Files Added or Modified
+
+- `ui/v2.5/src/components/Tagger/scenes/sceneSavePreview_custom.ts` — shared update builder and field comparison logic.
+- `ui/v2.5/src/components/Tagger/scenes/SceneSavePreview.tsx` — comparison, entity names, cover preview, and unchanged-field disclosure.
+- `ui/v2.5/src/components/Tagger/scenes/sceneSavePreview_custom.scss` — grouped scene/result styling and responsive comparison.
+- `ui/v2.5/src/components/Tagger/scenes/StashSearchResult.tsx` — shared save input, preview integration, and Save below the comparison.
+- `ui/v2.5/src/components/Tagger/scenes/TaggerScene.tsx` — grouping class and accessible local-details disclosure.
+
+### Test Cases Added
+
+- `ui/v2.5/tests/sceneSavePreview_custom.test.ts` — exclusions, absent and empty scraped values, performer and URL deduplication, unresolved performers, tag merge/overwrite/clear selections, studio replacement, organized state, source-specific Stash IDs, timestamp/order equality, informational remote-empty rows, opt-in clearing and undo for all five scalar fields, exclusion precedence, stale clear selections with incoming values, both-empty fields, and rendered comparison/cover/unchanged/checkbox states.
+
+### GraphQL Schema Changes
+
+- None. Uses existing entity select queries.
+
+### Configuration Dependencies
+
+- Respects Tagger's existing cover, tags, tag-operation, performer-gender, and mark-organized settings. Copper colors apply under the existing masculine-black application theme, with fallback styling for the default theme. No new configuration or backend changes.

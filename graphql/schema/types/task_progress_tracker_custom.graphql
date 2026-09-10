@@ -32,6 +32,14 @@ type TaskProgressItemCount {
   count: Int!
 }
 
+type TaskProgressOverall {
+  total_count: Int!
+  organized_count: Int!
+  completed_count: Int!
+  incoming_count: Int!
+  history: [TaskProgressDay!]!
+}
+
 type TaskProgressDay {
   date: String!
   completed: Int!
@@ -57,6 +65,7 @@ type TaskProgressEventPage {
 }
 
 extend type Query {
+  taskProgressOverall: TaskProgressOverall!
   taskProgressEvents(
     tracker_id: ID!
     date: String!

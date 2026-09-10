@@ -124,6 +124,7 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 	convertLegacyCareerLengthFilter(&filter)
 
 	return compoundHandler{
+		insightPerformerIDsCriterionHandlerCustom(filter.InsightPerformerIDs), // CUSTOM
 		stringCriterionHandler(filter.Name, tableName+".name"),
 		stringCriterionHandler(filter.Disambiguation, tableName+".disambiguation"),
 		stringCriterionHandler(filter.Details, tableName+".details"),

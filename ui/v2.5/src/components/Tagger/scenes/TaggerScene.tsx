@@ -41,7 +41,10 @@ const TaggerSceneDetails: React.FC<ITaggerSceneDetails> = ({ scene }) => {
             <h4>{objectTitle(scene)}</h4>
             <h5>
               {scene.studio?.name}
-              {scene.studio?.name && (scene.effective_date ?? scene.date) && ` • `} {/* CUSTOM */}
+              {scene.studio?.name &&
+                (scene.effective_date ?? scene.date) &&
+                ` • `}{" "}
+              {/* CUSTOM */}
               {scene.effective_date ?? scene.date} {/* CUSTOM */}
             </h5>
             <TruncatedText text={scene.details ?? ""} lineCount={3} />
@@ -80,8 +83,14 @@ const TaggerSceneDetails: React.FC<ITaggerSceneDetails> = ({ scene }) => {
       <Button
         onClick={() => setOpen(!open)}
         className="minimal collapse-button"
+        aria-expanded={open} // CUSTOM
         size="lg"
       >
+        {/* CUSTOM: begin */}
+        <span className="mr-2">
+          {open ? "Hide local details" : "Show local details"}
+        </span>
+        {/* CUSTOM: end */}
         <Icon icon={open ? faChevronUp : faChevronDown} />
       </Button>
     </div>
@@ -245,7 +254,8 @@ export const TaggerScene: React.FC<PropsWithChildren<ITaggerScene>> = ({
   let shiftKey = false;
 
   return (
-    <div key={scene.id} className="mt-3 search-item">
+    // CUSTOM: give each local scene and its scraped matches one visual container.
+    <div key={scene.id} className="mt-3 search-item tagger-scene-group">
       <div className="row">
         {onSelectedChanged && (
           <div className="col-auto d-flex align-items-start pt-2 pr-2">

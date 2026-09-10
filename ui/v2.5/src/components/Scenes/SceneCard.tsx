@@ -34,6 +34,7 @@ import { OCounterButton } from "../Shared/CountButton";
 import { defaultPreviewVolume } from "src/core/config";
 import {
   getRatingCardClass,
+  hasRoyalSapphireSceneMarker,
   isRatingCardHomePage,
 } from "src/utils/ratingCardStyles_custom"; // CUSTOM
 import { SceneCardInsights } from "./SceneCardInsights_custom"; // CUSTOM
@@ -891,6 +892,11 @@ export const SceneCard = PatchComponent(
         thresholds: configuration?.ui?.ratingCardThresholds,
         overrideTagIds: configuration?.ui?.ratingCardOverrideTagIds,
         ratingScores: props.scene.rating_scores, // CUSTOM
+        sceneHasRoyalSapphireBonus: hasRoyalSapphireSceneMarker(
+          props.scene.scene_markers,
+          configuration?.ui?.roleTagIds?.goatTagId,
+          props.scene.scene_marker_tag_ancestors
+        ), // CUSTOM
         disabled: isRatingCardHomePage(),
       });
     }

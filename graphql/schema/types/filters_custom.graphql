@@ -361,6 +361,8 @@ input PerformerActivityPercentFilterInput {
 }
 
 extend input PerformerFilterType {
+  "Performer IDs from an Insight Stats drilldown snapshot"
+  insight_performer_ids: [ID!]
   "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, royal_sapphire."
   metallic_rating: MultiCriterionInput
   "Filter by stored performer rating criteria, bonuses, and penalties from the rating advisor."

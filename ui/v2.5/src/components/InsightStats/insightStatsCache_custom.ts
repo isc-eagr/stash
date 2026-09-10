@@ -21,7 +21,8 @@ export function isFreshInsightSnapshot(
 // IndexedDB holds the large scan without blocking the UI or using localStorage quota.
 async function database() {
   return new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open("stash-insight-stats-v2", 1);
+    // CUSTOM: v6 snapshots include exact tier/source drilldown IDs.
+    const request = indexedDB.open("stash-insight-stats-v6", 1);
     request.onupgradeneeded = () => request.result.createObjectStore("scans");
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);

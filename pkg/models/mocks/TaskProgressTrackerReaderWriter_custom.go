@@ -11,8 +11,22 @@ type TaskProgressTrackerReaderWriter struct {
 	mock.Mock
 }
 
-func (m *TaskProgressTrackerReaderWriter) Events(ctx context.Context,id int,date string,after int)(*models.TaskProgressEventPage,error){a:=m.Called(ctx,id,date,after);v,_:=a.Get(0).(*models.TaskProgressEventPage);return v,a.Error(1)}
-func (m *TaskProgressTrackerReaderWriter) PendingItems(ctx context.Context,id int,typ string,offset int)(*models.TaskProgressEventPage,error){a:=m.Called(ctx,id,typ,offset);v,_:=a.Get(0).(*models.TaskProgressEventPage);return v,a.Error(1)}
+func (m *TaskProgressTrackerReaderWriter) Events(ctx context.Context, id int, date string, after int) (*models.TaskProgressEventPage, error) {
+	a := m.Called(ctx, id, date, after)
+	v, _ := a.Get(0).(*models.TaskProgressEventPage)
+	return v, a.Error(1)
+}
+func (m *TaskProgressTrackerReaderWriter) PendingItems(ctx context.Context, id int, typ string, offset int) (*models.TaskProgressEventPage, error) {
+	a := m.Called(ctx, id, typ, offset)
+	v, _ := a.Get(0).(*models.TaskProgressEventPage)
+	return v, a.Error(1)
+}
+
+func (m *TaskProgressTrackerReaderWriter) Overall(ctx context.Context) (*models.TaskProgressOverall, error) {
+	args := m.Called(ctx)
+	overall, _ := args.Get(0).(*models.TaskProgressOverall)
+	return overall, args.Error(1)
+}
 
 func (m *TaskProgressTrackerReaderWriter) Find(ctx context.Context, id int) (*models.TaskProgressTracker, error) {
 	args := m.Called(ctx, id)

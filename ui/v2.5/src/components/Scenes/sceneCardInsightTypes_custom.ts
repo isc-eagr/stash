@@ -22,6 +22,7 @@ export interface ISceneCardInsight {
   label: string;
   detail: string;
   tone: SceneCardInsightTone;
+  performers?: SceneCardInsightPerformer[];
 }
 
 export type SceneCardInsightTagParent = {
@@ -58,6 +59,9 @@ export type SceneCardInsightMarker = Pick<
 export type SceneCardInsightScene = Pick<GQL.SlimSceneDataFragment, "id"> & {
   files: Array<Pick<GQL.VideoFileDataFragment, "duration">>;
   performers: SceneCardInsightPerformer[];
+  // CUSTOM: rating fields used by the Insight Stats tier summary.
+  rating100?: number | null;
+  rating_tier_tags?: Array<{ id: string }>;
   rating_scores?: Array<{
     section: string;
     key: string;

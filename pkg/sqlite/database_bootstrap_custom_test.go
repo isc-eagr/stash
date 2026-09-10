@@ -22,6 +22,7 @@ func createTaskProgressSourceTablesCustom(t *testing.T, db *sqlx.DB, includeGrou
 	t.Helper()
 	_, err := db.Exec(`
 CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
+CREATE TABLE scenes (id INTEGER PRIMARY KEY, organized BOOLEAN NOT NULL DEFAULT 0);
 CREATE TABLE scenes_tags (scene_id INTEGER, tag_id INTEGER);
 CREATE TABLE scene_markers (id INTEGER PRIMARY KEY, primary_tag_id INTEGER);
 CREATE TABLE scene_markers_tags (scene_marker_id INTEGER, tag_id INTEGER);
@@ -53,9 +54,10 @@ SELECT COUNT(*)
      'task_progress_trackers',
      'task_progress_tracker_events',
      'task_progress_tracker_members',
+     'task_progress_overall_events',
      'custom_schema_migrations'
    )`))
-	require.Equal(t, 4, tableCount)
+	require.Equal(t, 5, tableCount)
 
 	var columns []string
 	require.NoError(t, db.Select(&columns, "SELECT name FROM pragma_table_info('task_progress_trackers')"))
@@ -69,6 +71,15 @@ SELECT COUNT(*)
 		taskProgressHistoryMigrationCustom,
 	))
 	require.Equal(t, 1, markerCount)
+	require.NoError(t, db.Get(&markerCount,
+		"SELECT COUNT(*) FROM custom_schema_migrations WHERE name = ?",
+		taskProgressOverallHistoryMigrationCustom,
+	))
+	require.Equal(t, 1, markerCount)
+
+	var baselineCount int
+	require.NoError(t, db.Get(&baselineCount, "SELECT COUNT(*) FROM task_progress_overall_events WHERE event_type = 'BASELINE'"))
+	require.Equal(t, 1, baselineCount)
 }
 
 func TestTaskProgressSchemaBootstrapRetrofitsOnceCustom(t *testing.T) {

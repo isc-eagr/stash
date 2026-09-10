@@ -25,15 +25,6 @@ export function InsightThresholdControl({
       <label htmlFor={id}>{insightThresholdLabels[thresholdKey]}</label>
       <div>
         <input
-          type="range"
-          min={min}
-          max={max}
-          step={1}
-          value={value}
-          aria-label={`${insightThresholdLabels[thresholdKey]} slider`}
-          onChange={(event) => onChange(thresholdKey, event.target.value)}
-        />
-        <input
           className="form-control"
           id={id}
           type="number"

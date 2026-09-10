@@ -51,7 +51,7 @@ CREATE TABLE task_progress_tracker_members (
 
 CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT NOT NULL, sort_name TEXT);
 INSERT INTO tags(id,name) VALUES (10,'Ten'), (20,'Twenty');
-CREATE TABLE scenes (id INTEGER PRIMARY KEY, title TEXT NOT NULL DEFAULT '');
+CREATE TABLE scenes (id INTEGER PRIMARY KEY, title TEXT NOT NULL DEFAULT '', organized BOOLEAN NOT NULL DEFAULT 0);
 CREATE TABLE scenes_tags (scene_id INTEGER NOT NULL, tag_id INTEGER NOT NULL, UNIQUE(scene_id, tag_id));
 CREATE TABLE scene_markers (
   id INTEGER PRIMARY KEY,
@@ -74,6 +74,16 @@ CREATE TABLE studios (id INTEGER PRIMARY KEY, name TEXT NOT NULL DEFAULT '');
 CREATE TABLE studios_tags (studio_id INTEGER NOT NULL, tag_id INTEGER NOT NULL, UNIQUE(studio_id, tag_id));
 CREATE TABLE groups (id INTEGER PRIMARY KEY, name TEXT NOT NULL DEFAULT '');
 CREATE TABLE groups_tags (group_id INTEGER NOT NULL, tag_id INTEGER NOT NULL, UNIQUE(group_id, tag_id));
+CREATE TABLE task_progress_overall_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_type TEXT NOT NULL,
+  scene_id INTEGER NOT NULL DEFAULT 0,
+  occurred_on TEXT NOT NULL,
+  occurred_at DATETIME NOT NULL,
+  total_count INTEGER NOT NULL,
+  organized_count INTEGER NOT NULL,
+  remaining_count INTEGER NOT NULL
+);
 `)
 	require.NoError(t, err)
 

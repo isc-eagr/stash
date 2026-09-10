@@ -38,6 +38,21 @@ interface IRatingCardScore {
   raw_value?: number | null;
 }
 
+interface IRatingCardMarkerTag extends IRatingCardTag {
+  ancestor_ids?: readonly string[] | null;
+  parents?: readonly IRatingCardMarkerTag[] | null;
+}
+
+interface IRatingCardMarker {
+  primary_tag?: IRatingCardMarkerTag | null;
+  tags?: readonly IRatingCardMarkerTag[] | null;
+}
+
+interface IRatingCardMarkerTagAncestors {
+  tag_id?: string | null;
+  ancestor_ids?: readonly string[] | null;
+}
+
 const royalSapphireGoatElementValues = new Set([0.5, 1, 1.5, 2]);
 
 export function isRoyalSapphireSceneBonus(
@@ -58,6 +73,44 @@ export function hasRoyalSapphireSceneBonus(
     (score) =>
       (!score.section || score.section === "bonus") &&
       isRoyalSapphireSceneBonus(score.key, score.raw_value)
+  );
+}
+
+// CUSTOM: A configured GOAT marker (including a descendant tag) promotes its
+// whole scene to Royal Sapphire, matching the scene metallic filter.
+export function hasRoyalSapphireSceneMarker(
+  markers: readonly IRatingCardMarker[] | null | undefined,
+  goatTagId?: string | null,
+  tagAncestors?: readonly IRatingCardMarkerTagAncestors[] | null
+): boolean {
+  if (!goatTagId) return false;
+
+  const ancestorsByTagId = new Map(
+    tagAncestors?.map(({ tag_id, ancestor_ids }) => [
+      tag_id,
+      ancestor_ids ?? [],
+    ]) ?? []
+  );
+  const matches = (
+    tag: IRatingCardMarkerTag | null | undefined,
+    visited = new Set<string>()
+  ): boolean => {
+    if (!tag?.id) return false;
+    if (tag.id === goatTagId) return true;
+    if (
+      tag.ancestor_ids?.includes(goatTagId) ||
+      ancestorsByTagId.get(tag.id)?.includes(goatTagId)
+    ) {
+      return true;
+    }
+    if (visited.has(tag.id)) return false;
+    visited.add(tag.id);
+    return !!tag.parents?.some((parent) => matches(parent, visited));
+  };
+
+  return !!markers?.some(
+    (marker) =>
+      matches(marker.primary_tag) || marker.tags?.some((tag) => matches(tag))
   );
 }
 

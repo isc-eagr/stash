@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Overlay, OverlayTrigger, Popover, Tooltip } from "react-bootstrap";
 import { useConfigurationContext } from "src/hooks/Config";
+import { PerformerPopoverContent } from "../Shared/PerformerPopoverButton";
 import {
   getSceneCardInsightSets,
   type ISceneCardInsight,
@@ -125,16 +126,31 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
       insight.key === "outstanding-activity-presence" ||
       insight.key === "feet" ||
       insight.key.startsWith("goat-");
-    const ariaLabel = `${insight.label}: ${insight.detail}`;
+    const hasOrgasmPerformers =
+      insight.key === "orgasm-report" && insight.performers !== undefined;
+    const ariaLabel = hasOrgasmPerformers
+      ? `${insight.label}: performers who nutted.`
+      : `${insight.label}: ${insight.detail}`;
 
     return (
       <OverlayTrigger
         key={insight.key}
         overlay={
-          <Tooltip id={`scene-insight-${scene.id}-${insight.key}`}>
-            <span className="scene-card-insight-tooltip-detail">
-              <SceneCardInsightDetail detail={insight.detail} />
-            </span>
+          <Tooltip
+            className={
+              hasOrgasmPerformers
+                ? "scene-card-insight-performers-tooltip"
+                : undefined
+            }
+            id={`scene-insight-${scene.id}-${insight.key}`}
+          >
+            {hasOrgasmPerformers ? (
+              <PerformerPopoverContent performers={insight.performers ?? []} />
+            ) : (
+              <span className="scene-card-insight-tooltip-detail">
+                <SceneCardInsightDetail detail={insight.detail} />
+              </span>
+            )}
           </Tooltip>
         }
         placement="bottom"

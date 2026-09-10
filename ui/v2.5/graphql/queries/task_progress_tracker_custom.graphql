@@ -51,10 +51,17 @@ query TaskProgressPreview($tag_id: ID!, $item_types: [String!]) {
 }
 
 query TaskProgressOrganizedScenes {
-  stats {
-    scene_count
-  }
-  findScenes(scene_filter: { organized: true }) {
-    count
+  taskProgressOverall {
+    total_count
+    organized_count
+    completed_count
+    incoming_count
+    history {
+      date
+      completed
+      incoming
+      remaining
+      baseline_count
+    }
   }
 }

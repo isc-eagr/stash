@@ -590,6 +590,36 @@ test("a Facial contributes only to the Facial report below coverage thresholds",
   assert.equal(sceneLabels.includes("1 orgasm"), false);
 });
 
+test("the orgasm report exposes its unique top performers for the chip tooltip", () => {
+  const first = performer("first", "First Vato", {
+    image_path: "/performer/first/image",
+  });
+  const second = performer("second", "Second Vato", {
+    image_path: "/performer/second/image",
+  });
+  const insight = getSceneCardInsights(
+    makeScene(
+      [
+        marker("orgasm-1", tag("orgasm", "Orgasm"), 0, 5, [], [first]),
+        marker(
+          "orgasm-2",
+          tag("orgasm", "Orgasm"),
+          10,
+          15,
+          [],
+          [first, second]
+        ),
+      ],
+      100
+    ),
+    roleTagIds,
+    suppressNegatives
+  ).find((candidate) => candidate.key === "orgasm-report");
+
+  assert.deepEqual(insight?.performers, [first, second]);
+  assert.equal(insight?.detail, "0:10 (across 2 markers)");
+});
+
 test("Facial-family subtags aggregate exclusively into the Facial report", () => {
   const facial = tag("facial", "Facial", [tag("orgasm", "Orgasm")]);
   const selfFacial = tag("self-facial", "Self Facial", [facial]);
@@ -2026,11 +2056,29 @@ test("Favorite Vatos uses exact Royal Sapphire metallic rating precedence", () =
   assert.equal(favorite?.detail, "Override Favorite, Threshold Favorite");
 });
 
-test("No Orgasm appears only when no countable Orgasm or Facial exists", () => {
-  assert.ok(labels([], 100, suppressNegatives).includes("No Orgasm"));
+test("No Orgasm requires completed activity with no countable Orgasm or Facial", () => {
+  assert.equal(labels([], 100, suppressNegatives).includes("No Orgasm"), false);
   assert.equal(
     labels(
-      [marker("facial", tag("facial", "Facial"), 10, 15)],
+      [marker("incomplete-sex", tag("sex", "Sex"), 0, null)],
+      100,
+      suppressNegatives
+    ).includes("No Orgasm"),
+    false
+  );
+  assert.ok(
+    labels(
+      [marker("sex", tag("sex", "Sex"), 0, 50)],
+      100,
+      suppressNegatives
+    ).includes("No Orgasm")
+  );
+  assert.equal(
+    labels(
+      [
+        marker("sex", tag("sex", "Sex"), 0, 50),
+        marker("facial", tag("facial", "Facial"), 10, 15),
+      ],
       100,
       suppressNegatives
     ).includes("No Orgasm"),
@@ -2039,6 +2087,7 @@ test("No Orgasm appears only when no countable Orgasm or Facial exists", () => {
   assert.ok(
     labels(
       [
+        marker("sex", tag("sex", "Sex"), 0, 50),
         marker("camera", tag("orgasm", "Orgasm"), 10, 15, [
           tag("second-camera", "2nd Camera"),
         ]),
@@ -2415,7 +2464,7 @@ test("the visible strip caps GOAT tags at seven while the full set keeps all", (
   );
 
   assert.equal(insightSets.visible.length, 7);
-  assert.equal(insightSets.all.length, 10);
+  assert.equal(insightSets.all.length, 9);
   assert.equal(
     insightSets.all.filter((insight) => insight.label.startsWith("GOAT "))
       .length,

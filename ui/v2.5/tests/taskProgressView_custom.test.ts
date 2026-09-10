@@ -5,6 +5,7 @@ import {
   progressForecast,
   progressPercentage,
   progressToday,
+  taskProgressCompletedCount,
 } from "../src/components/TaskProgress/progressMath_custom.ts";
 
 assert.equal(
@@ -31,6 +32,16 @@ assert.equal(
   }),
   20,
   "reopening and completing twice does not inflate fixed-batch percentage"
+);
+assert.equal(
+  taskProgressCompletedCount({
+    mode: "FIXED",
+    goal: 100,
+    completed_count: 90,
+    current_count: 40,
+  }),
+  60,
+  "fixed-batch summaries count completed baseline items instead of activity events"
 );
 assert.equal(
   overallProgressPercentage(80, 20),

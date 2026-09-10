@@ -300,6 +300,40 @@
   grid-template-columns: 1fr;
 }
 
+/* CUSTOM: Let fixed, low-cardinality charts share the available row width. */
+.scenestats-chart-grid + .scenestats-chart-grid {
+  margin-top: 1rem;
+}
+
+.scenestats-chart-grid--compact {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+
+  .scenestats-bars {
+    justify-content: flex-start;
+  }
+
+  .scenestats-bar-cell {
+    flex: 1 1 0;
+    max-width: 8rem;
+    min-width: 3.75rem;
+  }
+}
+
+/* CUSTOM: Keep facial activity charts on one related row at desktop widths. */
+.scenestats-chart-grid--facial {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+
+  .scenestats-bars {
+    justify-content: flex-start;
+  }
+
+  .scenestats-bar-cell {
+    flex: 1 1 0;
+    max-width: 8rem;
+    min-width: 3.75rem;
+  }
+}
+
 .scenestats-chart-panel {
   background: #090a0d;
   border: 1px solid rgba(218, 179, 94, 0.22);
@@ -402,6 +436,7 @@
   &:not(:disabled):focus-visible {
     color: inherit;
     text-decoration: none;
+
     .scenestats-bar-fill {
       filter: brightness(1.12);
     }
@@ -549,6 +584,14 @@
 
   .scenestats-metric-control {
     min-width: 0;
+  }
+
+  .scenestats-chart-grid--compact {
+    grid-template-columns: 1fr;
+  }
+
+  .scenestats-chart-grid--facial {
+    grid-template-columns: 1fr;
   }
 
   .scenestats-podium {

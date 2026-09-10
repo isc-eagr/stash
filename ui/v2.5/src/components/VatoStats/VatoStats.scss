@@ -238,6 +238,25 @@
   grid-template-columns: 1fr;
 }
 
+/* CUSTOM: Let fixed, low-cardinality charts share the available row width. */
+.vatostats-chart-grid + .vatostats-chart-grid {
+  margin-top: 1rem;
+}
+
+.vatostats-chart-grid--compact {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+
+  .vatostats-bars {
+    justify-content: flex-start;
+  }
+
+  .vatostats-bar-cell {
+    flex: 1 1 0;
+    max-width: 8rem;
+    min-width: 3.75rem;
+  }
+}
+
 .vatostats-chart-panel {
   background: #070b12;
   border: 1px solid rgba(71, 134, 212, 0.22);
@@ -447,6 +466,10 @@
 
   .vatostats-metric-control {
     min-width: 0;
+  }
+
+  .vatostats-chart-grid--compact {
+    grid-template-columns: 1fr;
   }
 
   .vatostats-podium {

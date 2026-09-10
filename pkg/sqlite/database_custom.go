@@ -8,8 +8,9 @@ import (
 )
 
 const (
-	taskProgressHistoryMigrationCustom = "task_progress_history_v1"
-	taskProgressHistoryEpochCustom     = "2026-09-07"
+	taskProgressHistoryMigrationCustom        = "task_progress_history_v1"
+	taskProgressOverallHistoryMigrationCustom = "task_progress_overall_history_v1"
+	taskProgressHistoryEpochCustom            = "2026-09-07"
 )
 
 const taskProgressTrackerTableSchemaCustom = `
@@ -74,6 +75,22 @@ CREATE INDEX IF NOT EXISTS idx_task_progress_tracker_members_state
   ON task_progress_tracker_members(tracker_id, state);
 `
 
+const taskProgressOverallEventTableSchemaCustom = `
+CREATE TABLE IF NOT EXISTS task_progress_overall_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_type TEXT NOT NULL CHECK(event_type IN ('BASELINE', 'COMPLETED', 'INCOMING', 'ADJUSTMENT')),
+  scene_id INTEGER NOT NULL DEFAULT 0,
+  occurred_on TEXT NOT NULL,
+  occurred_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  total_count INTEGER NOT NULL CHECK(total_count >= 0),
+  organized_count INTEGER NOT NULL CHECK(organized_count >= 0),
+  remaining_count INTEGER NOT NULL CHECK(remaining_count >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_progress_overall_events_date
+  ON task_progress_overall_events(occurred_on, id);
+`
+
 const taskProgressTrackerCurrentCountExpressionCustom = `
   (SELECT COUNT(DISTINCT scene_id) FROM scenes_tags WHERE tag_id = task_progress_trackers.tag_id) +
   (SELECT COUNT(*) FROM scene_markers
@@ -118,6 +135,9 @@ CREATE TABLE IF NOT EXISTS custom_schema_migrations (
 	if _, err := tx.ExecContext(ctx, taskProgressEventTableSchemaCustom); err != nil {
 		return fmt.Errorf("creating task progress event schema: %w", err)
 	}
+	if _, err := tx.ExecContext(ctx, taskProgressOverallEventTableSchemaCustom); err != nil {
+		return fmt.Errorf("creating overall task progress event schema: %w", err)
+	}
 
 	var applied bool
 	if err := tx.GetContext(ctx, &applied,
@@ -140,10 +160,46 @@ CREATE TABLE IF NOT EXISTS custom_schema_migrations (
 		}
 	}
 
+	if err := ensureTaskProgressOverallHistoryCustom(ctx, tx); err != nil {
+		return err
+	}
+
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("committing task progress schema bootstrap: %w", err)
 	}
 
+	return nil
+}
+
+func ensureTaskProgressOverallHistoryCustom(ctx context.Context, tx *sqlx.Tx) error {
+	var applied bool
+	if err := tx.GetContext(ctx, &applied,
+		"SELECT EXISTS(SELECT 1 FROM custom_schema_migrations WHERE name = ?)",
+		taskProgressOverallHistoryMigrationCustom,
+	); err != nil {
+		return fmt.Errorf("checking overall task progress history bootstrap: %w", err)
+	}
+	if applied {
+		return nil
+	}
+
+	const baselineQuery = `
+INSERT INTO task_progress_overall_events (
+  event_type, occurred_on, occurred_at, total_count, organized_count, remaining_count
+)
+SELECT 'BASELINE', ?, ?, COUNT(*),
+       COALESCE(SUM(CASE WHEN organized THEN 1 ELSE 0 END), 0),
+       COALESCE(SUM(CASE WHEN organized THEN 0 ELSE 1 END), 0)
+  FROM scenes`
+	if _, err := tx.ExecContext(ctx, baselineQuery, taskProgressHistoryEpochCustom, taskProgressHistoryEpochCustom+" 00:00:00"); err != nil {
+		return fmt.Errorf("creating overall task progress history baseline: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx,
+		"INSERT INTO custom_schema_migrations(name) VALUES (?)",
+		taskProgressOverallHistoryMigrationCustom,
+	); err != nil {
+		return fmt.Errorf("recording overall task progress history bootstrap: %w", err)
+	}
 	return nil
 }
 

@@ -33,6 +33,17 @@ func TestLegacyTaskProgressTrackersCustom(t *testing.T) {
 	require.True(t, trackers[0].IsWorkingOn)
 }
 
+func TestTaskProgressOverallCustom(t *testing.T) {
+	db := mocks.NewDatabase()
+	resolver := newResolver(db)
+	expected := &models.TaskProgressOverall{TotalCount: 12, OrganizedCount: 7}
+	db.TaskProgressTracker.On("Overall", mock.Anything).Return(expected, nil).Once()
+
+	actual, err := (&queryResolver{resolver}).TaskProgressOverall(context.Background())
+	require.NoError(t, err)
+	require.Same(t, expected, actual)
+}
+
 func TestTaskProgressTrackerCreateCalculatesFixedGoalCustom(t *testing.T) {
 	db := mocks.NewDatabase()
 	resolver := newResolver(db)

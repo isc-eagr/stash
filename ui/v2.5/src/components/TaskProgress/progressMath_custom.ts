@@ -9,13 +9,18 @@ export function progressToday(now = new Date()) {
   }).format(now);
 }
 
+export function taskProgressCompletedCount(
+  tracker: Pick<Tracker, "mode" | "goal" | "current_count" | "completed_count">
+) {
+  return tracker.mode === "FIXED"
+    ? Math.max(0, tracker.goal - tracker.current_count)
+    : tracker.completed_count;
+}
+
 export function progressPercentage(
   tracker: Pick<Tracker, "mode" | "goal" | "current_count" | "completed_count">
 ) {
-  const completed =
-    tracker.mode === "FIXED"
-      ? Math.max(0, tracker.goal - tracker.current_count)
-      : tracker.completed_count;
+  const completed = taskProgressCompletedCount(tracker);
   const total = completed + tracker.current_count;
   return total === 0 ? 100 : Math.min(100, (completed / total) * 100);
 }

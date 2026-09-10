@@ -250,5 +250,6 @@ WHERE tag_id = ?
 func taskProgressTablesMissingCustom(err error) bool {
 	message := err.Error()
 	return strings.Contains(message, "no such table: task_progress_trackers") ||
-		strings.Contains(message, "no such table: "+taskProgressTrackerEventTableCustom)
+		strings.Contains(message, "no such table: "+taskProgressTrackerEventTableCustom) ||
+		strings.Contains(message, "no such table: task_progress_overall_events")
 }

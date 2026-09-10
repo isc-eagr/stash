@@ -8,6 +8,8 @@ export const INSIGHT_STATS_SCENES_QUERY = `
       count
       scenes {
         id title
+        rating100
+        rating_tier_tags: tags { id }
         files { duration }
         performers { id name country rating100 rating_tier_tags: tags { id } }
         rating_scores { section key raw_value }

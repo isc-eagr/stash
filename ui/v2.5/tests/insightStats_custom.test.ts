@@ -9,10 +9,14 @@ import {
 } from "../src/components/InsightStats/insightStatsCatalog_custom.ts";
 import {
   calculateInsightStats,
+  calculateInsightStatsRatingTierPopulation,
+  calculateInsightStatsRatingTiers,
   compareInsightStatsVariants,
   countInsightStatsScene,
   createInsightStatsResult,
+  insightStatsFinalRatingTier,
   insightStatsPercentage,
+  insightStatsRatingTier,
   isInsightStatsEligibleScene,
 } from "../src/components/InsightStats/insightStatsData_custom.ts";
 import {
@@ -68,6 +72,228 @@ test("insight catalog includes zero rows and every configurable threshold", () =
   );
   assert.equal(insightStatsPercentage(0, 0), 0);
   assert.equal(insightStatsPercentage(1, 4), 25);
+});
+
+test("rating tier counts use exact mutually exclusive scene and vato threshold bands", () => {
+  const ratingCardThresholds = {
+    scene: { bronze: 50, silver: 70, gold: 80, royalSapphire: 95 },
+    performer: { bronze: 60, silver: 75, gold: 85, royalSapphire: 90 },
+  };
+  const ratedScenes = [
+    {
+      ...scene,
+      id: "bronze-scene",
+      rating100: 50,
+      performers: [
+        { id: "bronze-vato", name: "Bronze", rating100: 60 },
+        { id: "silver-vato", name: "Silver", rating100: 75 },
+      ],
+    },
+    {
+      ...scene,
+      id: "silver-scene",
+      rating100: 70,
+      performers: [
+        { id: "silver-vato", name: "Silver", rating100: 75 },
+        { id: "gold-vato", name: "Gold", rating100: 85 },
+      ],
+    },
+    {
+      ...scene,
+      id: "gold-scene",
+      rating100: 80,
+      performers: [
+        { id: "sapphire-vato", name: "Sapphire", rating100: 90 },
+        { id: "unrated-vato", name: "Unrated", rating100: null },
+      ],
+    },
+    { ...scene, id: "sapphire-scene", rating100: 95 },
+    { ...scene, id: "below-scene", rating100: 49 },
+  ];
+  const counts = calculateInsightStatsRatingTiers(ratedScenes, {
+    ratingCardThresholds,
+  });
+  for (const tier of ["bronze", "silver", "gold", "royalSapphire"] as const) {
+    assert.equal(counts[tier].scenes.total, 1);
+    assert.equal(counts[tier].scenes.sources.threshold, 1);
+    assert.equal(counts[tier].vatos.total, 1);
+    assert.equal(counts[tier].vatos.sources.threshold, 1);
+  }
+  assert.equal(
+    insightStatsRatingTier(94, ratingCardThresholds, "scene"),
+    "gold"
+  );
+  assert.equal(
+    insightStatsRatingTier(95, ratingCardThresholds, "scene"),
+    "royalSapphire"
+  );
+  assert.equal(
+    insightStatsRatingTier(59, ratingCardThresholds, "performer"),
+    undefined
+  );
+});
+
+test("rating tier totals use final card precedence and deterministic source attribution", () => {
+  const config = {
+    roleTagIds: { ...roleTagIds, goatTagId: "goat" },
+    ratingCardThresholds: {
+      scene: { bronze: 50, silver: 70, gold: 80, royalSapphire: 95 },
+      performer: { bronze: 50, silver: 70, gold: 80, royalSapphire: 95 },
+    },
+    ratingCardOverrideTagIds: {
+      bronzeTagId: "bronze-override",
+      silverTagId: "silver-override",
+      goldTagId: "gold-override",
+      royalSapphireTagId: "sapphire-override",
+    },
+  };
+  const ratedScenes = [
+    {
+      ...scene,
+      id: "goat-marker",
+      rating100: 50,
+      rating_tier_tags: [{ id: "bronze-override" }],
+      scene_markers: [marker("goat", "goat-child", 0, 10)],
+      scene_marker_tag_ancestors: [
+        { tag_id: "goat-child", ancestor_ids: ["goat"] },
+      ],
+      performers: [
+        {
+          id: "tagged-vato",
+          name: "Tagged",
+          rating100: 99,
+          rating_tier_tags: [
+            { id: "bronze-override" },
+            { id: "gold-override" },
+          ],
+        },
+      ],
+    },
+    {
+      ...scene,
+      id: "advisor",
+      rating100: null,
+      rating_tier_tags: [{ id: "sapphire-override" }],
+      rating_scores: [{ section: "bonus", key: "goatElement", raw_value: 0.5 }],
+      performers: [
+        {
+          id: "tagged-vato",
+          name: "Tagged duplicate",
+          rating100: 99,
+          rating_tier_tags: [{ id: "bronze-override" }],
+        },
+        { id: "rating-vato", name: "Rating", rating100: 70 },
+      ],
+    },
+    {
+      ...scene,
+      id: "tag-override",
+      rating100: 99,
+      rating_tier_tags: [{ id: "silver-override" }],
+    },
+  ];
+  const counts = calculateInsightStatsRatingTiers(ratedScenes, config);
+  assert.equal(counts.royalSapphire.scenes.total, 2);
+  assert.equal(counts.royalSapphire.scenes.sources.goatMarker, 1);
+  assert.deepEqual(counts.royalSapphire.scenes.sourceIds.goatMarker, [
+    "goat-marker",
+  ]);
+  assert.equal(counts.royalSapphire.scenes.sources.ratingAdvisor, 1);
+  assert.deepEqual(counts.royalSapphire.scenes.sourceIds.ratingAdvisor, [
+    "advisor",
+  ]);
+  assert.equal(counts.silver.scenes.total, 1);
+  assert.equal(counts.silver.scenes.sources.tagOverride, 1);
+  assert.equal(counts.gold.vatos.total, 1);
+  assert.equal(counts.gold.vatos.sources.tagOverride, 1);
+  assert.deepEqual(counts.gold.vatos.sourceIds.tagOverride, ["tagged-vato"]);
+  assert.equal(counts.silver.vatos.total, 1);
+  assert.equal(counts.silver.vatos.sources.threshold, 1);
+  assert.deepEqual(counts.silver.vatos.ids, ["rating-vato"]);
+  assert.equal(
+    insightStatsFinalRatingTier(ratedScenes[0], config, "scene", ratedScenes[0])
+      ?.source,
+    "goatMarker"
+  );
+});
+
+test("rating threshold previews move only normally rated items", () => {
+  const scenes = [
+    { ...scene, id: "rated", rating100: 75 },
+    {
+      ...scene,
+      id: "overridden",
+      rating100: 75,
+      rating_tier_tags: [{ id: "gold-override" }],
+    },
+  ];
+  const base = {
+    ratingCardThresholds: {
+      scene: { bronze: 50, silver: 70, gold: 80, royalSapphire: 95 },
+    },
+    ratingCardOverrideTagIds: { goldTagId: "gold-override" },
+  };
+  const preview = {
+    ...base,
+    ratingCardThresholds: {
+      scene: { bronze: 50, silver: 76, gold: 80, royalSapphire: 95 },
+    },
+  };
+  const currentCounts = calculateInsightStatsRatingTiers(scenes, base);
+  const previewCounts = calculateInsightStatsRatingTiers(scenes, preview);
+  assert.equal(currentCounts.silver.scenes.sources.threshold, 1);
+  assert.equal(previewCounts.bronze.scenes.sources.threshold, 1);
+  assert.equal(currentCounts.gold.scenes.sources.tagOverride, 1);
+  assert.equal(previewCounts.gold.scenes.sources.tagOverride, 1);
+});
+
+test("rating tier percentages use rated populations and retain a no-tier row", () => {
+  const scenes = [
+    {
+      ...scene,
+      id: "bronze",
+      rating100: 60,
+      performers: [
+        { id: "rated-vato", name: "Rated", rating100: 40 },
+        { id: "unrated-vato", name: "Unrated", rating100: null },
+      ],
+    },
+    {
+      ...scene,
+      id: "below",
+      rating100: 20,
+      performers: [
+        { id: "rated-vato", name: "Rated duplicate", rating100: 40 },
+      ],
+    },
+    {
+      ...scene,
+      id: "unrated-override",
+      rating100: null,
+      rating_tier_tags: [{ id: "gold-override" }],
+      performers: [],
+    },
+  ];
+  const config = {
+    ratingCardThresholds: {
+      scene: { bronze: 50, silver: 70, gold: 80, royalSapphire: 95 },
+      performer: { bronze: 50, silver: 70, gold: 80, royalSapphire: 95 },
+    },
+    ratingCardOverrideTagIds: { goldTagId: "gold-override" },
+  };
+  const counts = calculateInsightStatsRatingTiers(scenes, config);
+  const population = calculateInsightStatsRatingTierPopulation(scenes);
+  assert.deepEqual(population, { scenes: 2, vatos: 1 });
+  assert.equal(counts.bronze.scenes.ratedTotal, 1);
+  assert.equal(counts.none.scenes.total, 1);
+  assert.equal(counts.none.scenes.ratedTotal, 1);
+  assert.equal(counts.none.vatos.total, 1);
+  assert.equal(counts.gold.scenes.total, 1);
+  assert.equal(
+    counts.gold.scenes.ratedTotal,
+    0,
+    "an unrated override remains in raw counts but not rated percentages"
+  );
 });
 
 test("chip catalog keeps card tones and useful interaction rules for tooltips", () => {

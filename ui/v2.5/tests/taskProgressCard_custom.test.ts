@@ -71,6 +71,16 @@ assert.match(
   "Edit uses a visible outlined primary button style"
 );
 assert.match(markup, /Items per day/, "planning lives on each tracker card");
+const footerIndex = markup.indexOf("progress-tracker-footer");
+const actionsIndex = markup.indexOf(
+  "progress-tracker-card-actions",
+  footerIndex
+);
+const planIndex = markup.indexOf("progress-tracker-plan", footerIndex);
+assert.ok(
+  footerIndex >= 0 && actionsIndex > footerIndex && planIndex > actionsIndex,
+  "tracker actions render before the right-aligned planning controls"
+);
 assert.match(markup, /Move earlier/);
 assert.match(markup, /Move later/);
 assert.doesNotMatch(

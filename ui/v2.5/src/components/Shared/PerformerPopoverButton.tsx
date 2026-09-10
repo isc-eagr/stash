@@ -18,13 +18,12 @@ interface IProps {
   className?: string; // CUSTOM
 }
 
-export const PerformerPopoverButton: React.FC<IProps> = ({
-  performers,
-  linkType,
-  className, // CUSTOM
-}) => {
+export const PerformerPopoverContent: React.FC<
+  Pick<IProps, "performers" | "linkType">
+> = ({ performers, linkType }) => {
   const sorted = sortPerformers(performers);
-  const popoverContent = (
+
+  return (
     <div className="performer-hover-grid">
       {sorted.map((performer) => (
         <div
@@ -50,6 +49,16 @@ export const PerformerPopoverButton: React.FC<IProps> = ({
         </div>
       ))}
     </div>
+  );
+};
+
+export const PerformerPopoverButton: React.FC<IProps> = ({
+  performers,
+  linkType,
+  className, // CUSTOM
+}) => {
+  const popoverContent = (
+    <PerformerPopoverContent performers={performers} linkType={linkType} />
   ); // CUSTOM
 
   return (

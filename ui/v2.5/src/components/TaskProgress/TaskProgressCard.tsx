@@ -104,42 +104,45 @@ export const TaskProgressCard: React.FC<IProps> = ({
           <span style={{ width: `${percentage}%` }} />
         </span>
       </div>
-      <div className="progress-tracker-plan">
-        <Form.Label htmlFor={planStorageKey}>{t("Items per day")}</Form.Label>
-        <Form.Control
-          id={planStorageKey}
-          inputMode="numeric"
-          min={0}
-          max={1000000}
-          step={1}
-          type="number"
-          value={planRate || ""}
-          onChange={(event) => {
-            const next = Math.max(
-              0,
-              Math.min(1000000, Math.floor(Number(event.target.value) || 0))
-            );
-            setPlanRate(next);
-            try {
-              localStorage.setItem(planStorageKey, String(next));
-            } catch {
-              // Planning remains available for this session if storage is unavailable.
-            }
-          }}
-        />
-        {planDate && (
-          <span>
-            {t("Finish")}: {planDate}
-          </span>
-        )}
-      </div>
-      <div className="progress-tracker-card-actions">
-        <Button size="sm" variant="primary" onClick={onOpen}>
-          {t("Details")}
-        </Button>
-        <Button size="sm" variant="outline-primary" onClick={onEdit}>
-          {t("Edit")}
-        </Button>
+      {/* CUSTOM: Keep actions on the left and planning controls on the right. */}
+      <div className="progress-tracker-footer">
+        <div className="progress-tracker-card-actions">
+          <Button size="sm" variant="primary" onClick={onOpen}>
+            {t("Details")}
+          </Button>
+          <Button size="sm" variant="outline-primary" onClick={onEdit}>
+            {t("Edit")}
+          </Button>
+        </div>
+        <div className="progress-tracker-plan">
+          <Form.Label htmlFor={planStorageKey}>{t("Items per day")}</Form.Label>
+          <Form.Control
+            id={planStorageKey}
+            inputMode="numeric"
+            min={0}
+            max={1000000}
+            step={1}
+            type="number"
+            value={planRate || ""}
+            onChange={(event) => {
+              const next = Math.max(
+                0,
+                Math.min(1000000, Math.floor(Number(event.target.value) || 0))
+              );
+              setPlanRate(next);
+              try {
+                localStorage.setItem(planStorageKey, String(next));
+              } catch {
+                // Planning remains available for this session if storage is unavailable.
+              }
+            }}
+          />
+          {planDate && (
+            <span>
+              {t("Finish")}: {planDate}
+            </span>
+          )}
+        </div>
       </div>
       <div
         className="progress-tracker-reorder"

@@ -29,6 +29,7 @@ import { PerformerPartnersCriterionOption } from "./criteria/performer-partners"
 import { PerformerSceneTypeCriterionOption } from "./criteria/scene-type";
 import { PerformerActivityTypeCriterionOption } from "./criteria/activity-type_custom"; // CUSTOM
 import { PerformerListEthnicityCriterionOption } from "./criteria/performer-ethnicity_custom"; // CUSTOM
+import { InsightPerformerCriterionOption } from "./criteria/insight-chip_custom"; // CUSTOM
 // CUSTOM: end
 
 const defaultSortBy = "name";
@@ -204,6 +205,7 @@ const stringCriteria: CriterionType[] = [
 ];
 
 const criterionOptions = [
+  InsightPerformerCriterionOption, // CUSTOM: linked Insight Stats snapshots.
   FavoritePerformerCriterionOption,
   CircumcisedCriterionOption,
   PerformerIsMissingCriterionOption,

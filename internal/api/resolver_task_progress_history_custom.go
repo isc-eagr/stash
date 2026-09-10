@@ -9,6 +9,14 @@ import (
 	"github.com/stashapp/stash/pkg/models"
 )
 
+func (r *queryResolver) TaskProgressOverall(ctx context.Context) (ret *models.TaskProgressOverall, err error) {
+	err = r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = r.repository.TaskProgressTracker.Overall(ctx)
+		return err
+	})
+	return
+}
+
 func (r *queryResolver) TaskProgressEvents(ctx context.Context, trackerID string, date string, afterID *string) (ret *models.TaskProgressEventPage, err error) {
 	id, err := strconv.Atoi(trackerID)
 	if err != nil {

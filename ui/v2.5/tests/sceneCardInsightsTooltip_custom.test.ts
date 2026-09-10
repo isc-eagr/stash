@@ -67,8 +67,18 @@ assert.doesNotMatch(
 );
 assert.match(
   insightsSource,
-  /<Tooltip id=\{`scene-insight-/,
+  /<Tooltip[\s\S]*?id=\{`scene-insight-/,
   "individual chips should retain their hover tooltips"
+);
+assert.match(
+  insightsSource,
+  /insight\.key === "orgasm-report" && insight\.performers !== undefined/,
+  "orgasm report tooltips should use their finisher performer data"
+);
+assert.match(
+  insightsSource,
+  /<PerformerPopoverContent performers=\{insight\.performers \?\? \[\]\}/,
+  "orgasm report tooltips should reuse the performer portrait grid"
 );
 assert.match(
   insightsSource,

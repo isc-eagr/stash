@@ -109,9 +109,10 @@ type CircumcisionCriterionInput struct {
 
 type PerformerFilterType struct {
 	OperatorFilter[PerformerFilterType]
-	Name           *StringCriterionInput `json:"name"`
-	Disambiguation *StringCriterionInput `json:"disambiguation"`
-	Details        *StringCriterionInput `json:"details"`
+	InsightPerformerIDs []string              `json:"insight_performer_ids"` // CUSTOM: Insight Stats drilldown snapshot.
+	Name                *StringCriterionInput `json:"name"`
+	Disambiguation      *StringCriterionInput `json:"disambiguation"`
+	Details             *StringCriterionInput `json:"details"`
 	// Filter by favorite
 	FilterFavorites *bool `json:"filter_favorites"`
 	// Filter by birth year

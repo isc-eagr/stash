@@ -122,6 +122,15 @@
   white-space: pre-line;
 }
 
+// CUSTOM: Let the orgasm insight tooltip use the same full portrait grid as
+// the performer-count popover rather than Bootstrap's narrow text tooltip.
+.scene-card-insight-performers-tooltip {
+  .tooltip-inner {
+    max-width: min(30rem, calc(100vw - 1rem));
+    padding: 0;
+  }
+}
+
 .scene-card-insights-more {
   align-items: center;
   background: rgba(255, 255, 255, 0.08);

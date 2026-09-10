@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   getRatingCardClass,
   hasRoyalSapphireSceneBonus,
+  hasRoyalSapphireSceneMarker,
   isRoyalSapphireSceneBonus,
 } from "../src/utils/ratingCardStyles_custom.ts";
 
@@ -49,4 +50,31 @@ assert.equal(
   }),
   "",
   "scene-only bonuses never promote performer cards"
+);
+
+assert.equal(
+  hasRoyalSapphireSceneMarker(
+    [
+      {
+        primary_tag: { id: "goat-child" },
+        tags: [{ id: "ordinary" }],
+      },
+    ],
+    "goat",
+    [{ tag_id: "goat-child", ancestor_ids: ["goat"] }]
+  ),
+  true,
+  "configured GOAT marker descendants promote the scene"
+);
+
+assert.equal(
+  getRatingCardClass({
+    rating: 20,
+    tags: [{ id: "bronze" }],
+    overrideTagIds: { bronzeTagId: "bronze" },
+    sceneHasRoyalSapphireBonus: true,
+    theme: "premium",
+  }),
+  "rating-card-theme-premium rating-royal-sapphire",
+  "GOAT marker promotion beats lower-tier override tags"
 );

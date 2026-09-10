@@ -1857,13 +1857,6 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
                   unknownCategory="rating"
                 />
                 <SceneStatsChart
-                  data={charts.metallicRating.data}
-                  label="By Metallic Rating"
-                  onSelect={addFilter}
-                  unknownCount={charts.metallicRating.unknownCount}
-                  unknownCategory="metallic_rating"
-                />
-                <SceneStatsChart
                   actions={
                     <div className="scenestats-release-chart-actions">
                       <ButtonGroup
@@ -1952,6 +1945,14 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
                   releaseSearch={releaseSearch}
                 />
                 <SceneStatsChart
+                  data={charts.duration}
+                  label="By Length/Duration"
+                  onSelect={addFilter}
+                />
+              </div>
+              {/* CUSTOM: Keep facial charts together because they describe the same activity. */}
+              <div className="scenestats-chart-grid scenestats-chart-grid--facial">
+                <SceneStatsChart
                   data={charts.facialStatus}
                   label="Has Facial"
                   onSelect={addFilter}
@@ -1970,17 +1971,22 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
                   unknownCount={charts.reallyHotFacialCount.unknownCount}
                   unknownCategory="really_hot_facial_count"
                 />
+              </div>
+              {/* CUSTOM: Keep fixed, low-cardinality charts in a space-efficient grid. */}
+              <div className="scenestats-chart-grid scenestats-chart-grid--compact">
+                <SceneStatsChart
+                  data={charts.metallicRating.data}
+                  label="By Metallic Rating"
+                  onSelect={addFilter}
+                  unknownCount={charts.metallicRating.unknownCount}
+                  unknownCategory="metallic_rating"
+                />
                 <SceneStatsChart
                   data={charts.sceneType.data}
                   label="Scene Type"
                   onSelect={addFilter}
                   unknownCount={charts.sceneType.unknownCount}
                   unknownCategory="scene_type"
-                />
-                <SceneStatsChart
-                  data={charts.duration}
-                  label="By Length/Duration"
-                  onSelect={addFilter}
                 />
                 <SceneStatsChart
                   data={charts.resolution.data}

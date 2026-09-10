@@ -4,11 +4,24 @@ package sqlite
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/stashapp/stash/pkg/models"
 )
+
+// insightPerformerIDsCriterionHandlerCustom restores the exact vato set saved
+// by an Insight Stats drilldown. One JSON parameter avoids SQLite's bind limit.
+func insightPerformerIDsCriterionHandlerCustom(ids []string) criterionHandlerFunc {
+	return func(_ context.Context, f *filterBuilder) {
+		if ids == nil {
+			return
+		}
+		encoded, _ := json.Marshal(ids)
+		f.addWhere("performers.id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))", string(encoded))
+	}
+}
 
 func expandPerformerEthnicitySelectionsCustom(value string) []string {
 	var ret []string

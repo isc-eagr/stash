@@ -333,6 +333,19 @@ function activityCategoryForMarker(
   return undefined;
 }
 
+function hasCompletedActivityMarker(
+  scene: SceneCardInsightScene,
+  roleTagIds: IUIConfig["roleTagIds"],
+  sceneDuration: number
+) {
+  return scene.scene_markers.some(
+    (marker) =>
+      !markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId) &&
+      activityCategoryForMarker(marker, roleTagIds) !== undefined &&
+      markerInterval(marker, sceneDuration) !== undefined
+  );
+}
+
 function tagIsActivity(
   tag: SceneCardInsightTag,
   roleTagIds: IUIConfig["roleTagIds"]
@@ -1174,6 +1187,16 @@ function getEventReportCandidates(
           markerHasConfiguredTag(marker, roleTagIds?.reallyHotTagId)
       )
     );
+    const performers = Array.from(
+      new Map(
+        markers.flatMap((marker) =>
+          (marker.top_performers ?? []).map((performer) => [
+            performer.id,
+            performer,
+          ])
+        )
+      ).values()
+    );
     return [
       {
         key: `${category}-report`,
@@ -1187,6 +1210,9 @@ function getEventReportCandidates(
         tone: "event" as const,
         kind: "event-report" as const,
         score: stats.duration * 100 + eventCount,
+        // CUSTOM: The orgasm chip tooltip identifies finishers by their top
+        // marker assignment instead of repeating marker coverage statistics.
+        ...(category === "orgasm" ? { performers } : {}),
       },
     ];
   });
@@ -1937,11 +1963,10 @@ function getNegativeCandidates(
   const sceneDuration = scene.files[0]?.duration ?? 0;
   // CUSTOM: Filler/highlight scarcity is only meaningful after a completed
   // primary activity range proves that the scene has been processed.
-  const hasCompletedActivityMarker = scene.scene_markers.some(
-    (marker) =>
-      !markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId) &&
-      activityCategoryForMarker(marker, roleTagIds) !== undefined &&
-      markerInterval(marker, sceneDuration) !== undefined
+  const hasCompletedActivity = hasCompletedActivityMarker(
+    scene,
+    roleTagIds,
+    sceneDuration
   );
   const highlightStats = markerStats(
     scene.scene_markers.filter(
@@ -1957,7 +1982,10 @@ function getNegativeCandidates(
     sceneDuration
   );
 
-  if (roleTagIds?.orgasmTagId || roleTagIds?.facialTagId) {
+  if (
+    hasCompletedActivity &&
+    (roleTagIds?.orgasmTagId || roleTagIds?.facialTagId)
+  ) {
     const hasOrgasm = scene.scene_markers.some(
       (marker) =>
         !markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId) &&
@@ -1977,7 +2005,7 @@ function getNegativeCandidates(
   }
 
   if (
-    hasCompletedActivityMarker &&
+    hasCompletedActivity &&
     highlightStats.episodes <= thresholds.fewHighlightsMaxEpisodes &&
     highlightPercent <= thresholds.fewHighlightsMaxPercent
   ) {
@@ -1993,7 +2021,7 @@ function getNegativeCandidates(
     });
   }
 
-  if (sceneDuration > 0 && hasCompletedActivityMarker) {
+  if (sceneDuration > 0 && hasCompletedActivity) {
     const markedIntervals = scene.scene_markers.flatMap((marker) => {
       const interval = markerInterval(marker, sceneDuration);
       return interval ? [interval] : [];

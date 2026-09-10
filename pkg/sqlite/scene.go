@@ -435,6 +435,9 @@ func (qb *SceneStore) Create(ctx context.Context, newObject *models.Scene, fileI
 	if err := recordTaskProgressTagDiffCustom(ctx, "scene", id, nil, afterTags); err != nil {
 		return err
 	}
+	if err := recordTaskProgressOverallSceneChangeCustom(ctx, taskProgressOverallSceneCreatedCustom, id, false, updated.Organized); err != nil {
+		return err
+	}
 	// CUSTOM: end
 
 	return nil
@@ -443,9 +446,17 @@ func (qb *SceneStore) Create(ctx context.Context, newObject *models.Scene, fileI
 func (qb *SceneStore) UpdatePartial(ctx context.Context, id int, partial models.ScenePartial) (*models.Scene, error) {
 	// CUSTOM: begin - diff logical tag membership instead of physical join writes
 	var beforeTags taskProgressTagSetCustom
+	var beforeOrganized bool
 	if partial.TagIDs != nil {
 		var err error
 		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "scene", id)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if partial.Organized.Set {
+		var err error
+		beforeOrganized, err = taskProgressSceneOrganizedCustom(ctx, id)
 		if err != nil {
 			return nil, err
 		}
@@ -525,6 +536,11 @@ func (qb *SceneStore) UpdatePartial(ctx context.Context, id int, partial models.
 			return nil, err
 		}
 	}
+	if partial.Organized.Set {
+		if err := recordTaskProgressOverallSceneChangeCustom(ctx, taskProgressOverallSceneUpdatedCustom, id, beforeOrganized, updated.Organized); err != nil {
+			return nil, err
+		}
+	}
 	// CUSTOM: end
 
 	return updated, nil
@@ -533,8 +549,11 @@ func (qb *SceneStore) UpdatePartial(ctx context.Context, id int, partial models.
 func (qb *SceneStore) Update(ctx context.Context, updatedObject *models.Scene) error {
 	// CUSTOM: begin - snapshot only when the full update carries tags
 	var beforeTags taskProgressTagSetCustom
+	beforeOrganized, err := taskProgressSceneOrganizedCustom(ctx, updatedObject.ID)
+	if err != nil {
+		return err
+	}
 	if updatedObject.TagIDs.Loaded() {
-		var err error
 		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "scene", updatedObject.ID)
 		if err != nil {
 			return err
@@ -617,6 +636,9 @@ func (qb *SceneStore) Update(ctx context.Context, updatedObject *models.Scene) e
 			return err
 		}
 	}
+	if err := recordTaskProgressOverallSceneChangeCustom(ctx, taskProgressOverallSceneUpdatedCustom, updatedObject.ID, beforeOrganized, updatedObject.Organized); err != nil {
+		return err
+	}
 	// CUSTOM: end
 
 	return nil
@@ -646,8 +668,12 @@ func (qb *SceneStore) Destroy(ctx context.Context, id int) error {
 		return err
 	}
 
-	// CUSTOM
-	return recordTaskProgressTagDiffCustom(ctx, "scene", id, beforeTags, nil, itemLabel)
+	// CUSTOM: begin
+	if err := recordTaskProgressTagDiffCustom(ctx, "scene", id, beforeTags, nil, itemLabel); err != nil {
+		return err
+	}
+	return recordTaskProgressOverallSceneChangeCustom(ctx, taskProgressOverallSceneDestroyedCustom, id, false, false)
+	// CUSTOM: end
 }
 
 // returns nil, nil if not found

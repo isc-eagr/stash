@@ -17,8 +17,10 @@ import {
   isFreshInsightSnapshot,
 } from "../src/components/InsightStats/insightStatsCache_custom.ts";
 import {
+  createInsightEntityLink,
   createInsightSceneLink,
   openInsightSceneLink,
+  readInsightEntityMatch,
   readInsightSceneMatch,
 } from "../src/utils/insightSceneLinks_custom.ts";
 import { InsightChipCriterion } from "../src/models/list-filter/criteria/insight-chip_custom.ts";
@@ -234,6 +236,32 @@ test("chip links restore all matching IDs, and missing snapshots fail closed", (
     assert.equal(openInsightSceneLink("Good amount of body", ["3"]), true);
     assert.equal(opened[0][1], "_blank");
     assert.equal(opened[0][2], "noopener,noreferrer");
+
+    const performerLink = createInsightEntityLink("performer", "Gold", [
+      "8",
+      "9",
+      "8",
+    ]);
+    const performerParams = JSON.parse(
+      new URL(performerLink, "http://localhost").searchParams.get("c")!
+    );
+    assert.equal(
+      new URL(performerLink, "http://localhost").pathname,
+      "/performers"
+    );
+    assert.deepEqual(
+      readInsightEntityMatch(performerParams.value, "performer")?.ids,
+      ["8", "9"]
+    );
+    assert.equal(
+      readInsightEntityMatch(performerParams.value, "scene"),
+      undefined
+    );
+    const performerCriterion = new InsightChipCriterion("performer");
+    performerCriterion.fromDecodedParams(performerParams);
+    const performerInput = {};
+    performerCriterion.applyToCriterionInput(performerInput);
+    assert.deepEqual(performerInput, { insight_performer_ids: ["8", "9"] });
   } finally {
     if (original) Object.defineProperty(globalThis, "localStorage", original);
     else Reflect.deleteProperty(globalThis, "localStorage");

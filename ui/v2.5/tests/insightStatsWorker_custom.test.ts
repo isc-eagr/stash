@@ -120,6 +120,7 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
         type: "simulate",
         requestId: 1,
         thresholds: normalizeSceneCardInsightThresholds(),
+        ratingThresholds: {},
       },
     });
     await waitForRevision(1);
@@ -130,6 +131,7 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
         thresholds: normalizeSceneCardInsightThresholds({
           fillerTotalPercent: 100,
         }),
+        ratingThresholds: {},
       },
     });
     scope.onmessage({
@@ -139,6 +141,7 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
         thresholds: normalizeSceneCardInsightThresholds({
           fillerTotalPercent: 99,
         }),
+        ratingThresholds: {},
       },
     });
     await waitForRevision(3);

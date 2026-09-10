@@ -12,9 +12,10 @@ const (
 	TaskProgressTrackerStatusCompleted = "COMPLETED"
 	TaskProgressTrackerStatusDeleted   = "DELETED"
 
-	TaskProgressEventBaseline  = "BASELINE"
-	TaskProgressEventCompleted = "COMPLETED"
-	TaskProgressEventIncoming  = "INCOMING"
+	TaskProgressEventBaseline   = "BASELINE"
+	TaskProgressEventCompleted  = "COMPLETED"
+	TaskProgressEventIncoming   = "INCOMING"
+	TaskProgressEventAdjustment = "ADJUSTMENT"
 )
 
 var TaskProgressItemTypes = []string{
@@ -56,6 +57,16 @@ type TaskProgressEventPage struct {
 	HasMore bool                 `json:"has_more"`
 }
 
+// TaskProgressOverall is the persisted history and current scene counts for
+// the built-in organized-scenes tracker.
+type TaskProgressOverall struct {
+	TotalCount     int                `json:"total_count"`
+	OrganizedCount int                `json:"organized_count"`
+	CompletedCount int                `json:"completed_count"`
+	IncomingCount  int                `json:"incoming_count"`
+	History        []*TaskProgressDay `json:"history"`
+}
+
 // TaskProgressReportingDate groups activity by the user's reporting timezone.
 func TaskProgressReportingDate(now time.Time) string {
 	return now.In(time.FixedZone("America/Mexico_City", -6*60*60)).Format("2006-01-02")
@@ -89,6 +100,7 @@ type TaskProgressTracker struct {
 type TaskProgressTrackerReader interface {
 	Find(ctx context.Context, id int) (*TaskProgressTracker, error)
 	FindAll(ctx context.Context) ([]*TaskProgressTracker, error)
+	Overall(ctx context.Context) (*TaskProgressOverall, error)
 	CountDirectlyTaggedItems(ctx context.Context, tagID int, itemTypes []string) (int, error)
 	Events(ctx context.Context, trackerID int, date string, afterID int) (*TaskProgressEventPage, error)
 	PendingItems(ctx context.Context, trackerID int, itemType string, offset int) (*TaskProgressEventPage, error)

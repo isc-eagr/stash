@@ -37,6 +37,7 @@ CREATE TABLE task_progress_trackers (
   FOREIGN KEY(tag_id) REFERENCES tags(id) ON DELETE CASCADE
 );
 CREATE TABLE scenes_tags (scene_id INTEGER, tag_id INTEGER);
+CREATE TABLE scenes (id INTEGER PRIMARY KEY, organized BOOLEAN NOT NULL DEFAULT 0);
 CREATE TABLE scene_markers (id INTEGER PRIMARY KEY, primary_tag_id INTEGER);
 CREATE TABLE scene_markers_tags (scene_marker_id INTEGER, tag_id INTEGER);
 CREATE TABLE images_tags (image_id INTEGER, tag_id INTEGER);

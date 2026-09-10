@@ -33,6 +33,11 @@ import { ExternalLink } from "src/components/Shared/ExternalLink";
 import { compareScenesForSort } from "./utils";
 import { StashIDPill } from "src/components/Shared/StashID";
 
+import { buildSceneSaveInput } from "./sceneSavePreview_custom"; // CUSTOM
+import type { SceneClearFields } from "./sceneSavePreview_custom"; // CUSTOM
+import { SceneSavePreview } from "./SceneSavePreview"; // CUSTOM
+import "./sceneSavePreview_custom.scss"; // CUSTOM
+
 const getDurationIcon = (matchPercentage: number) => {
   if (matchPercentage > 65)
     return (
@@ -286,6 +291,14 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
   const [excludedFields, setExcludedFields] = useState<Record<string, boolean>>(
     {}
   );
+  // CUSTOM: begin - clearing consent belongs only to this scraped result.
+  const [clearSelection, setClearSelection] = useState<{
+    result: IScrapedScene;
+    fields: SceneClearFields;
+  }>({ result: scene, fields: {} });
+  const clearMissingFields =
+    clearSelection.result === scene ? clearSelection.fields : {};
+  // CUSTOM: end
   const [tagIDs, setTagIDs, setInitialTagIDs] = useInitialState<string[]>(
     getInitialTags()
   );
@@ -331,22 +344,25 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
       [name]: value,
     });
 
+  // CUSTOM: begin - use the same update values for preview and persistence.
+  const saveInput = buildSceneSaveInput({
+    local: stashScene,
+    remote: scene,
+    excluded: excludedFields,
+    performerIDs,
+    studioID,
+    tagIDs,
+    endpoint: currentSource?.sourceInput.stash_box_endpoint,
+    organized: config.markSceneAsOrganizedOnSave,
+    clearMissingFields,
+  });
+  const selectedCover =
+    !excludedFields.cover_image && config.setCoverImage
+      ? scene.image
+      : undefined;
+  // CUSTOM: end
+
   async function handleSave() {
-    const excludedFieldList = Object.keys(excludedFields).filter(
-      (f) => excludedFields[f]
-    );
-
-    function resolveField<T>(field: string, stashField: T, remoteField: T) {
-      // #2452 - don't overwrite fields that are already set if the remote field is empty
-      const remoteFieldIsNull =
-        remoteField === null || remoteField === undefined;
-      if (excludedFieldList.includes(field) || remoteFieldIsNull) {
-        return stashField;
-      }
-
-      return remoteField;
-    }
-
     let imgData;
     if (!excludedFields.cover_image && config.setCoverImage) {
       const imgurl = scene.image;
@@ -363,63 +379,12 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
       }
     }
 
-    const filteredPerformerIDs = performerIDs.filter(
-      (id) => id !== undefined
-    ) as string[];
-
-    const sceneCreateInput: GQL.SceneUpdateInput = {
-      id: stashScene.id ?? "",
-      title: resolveField("title", stashScene.title, scene.title),
-      details: resolveField("details", stashScene.details, scene.details),
-      date: resolveField("date", stashScene.date, scene.date),
-      performer_ids: uniq(
-        stashScene.performers.map((p) => p.id).concat(filteredPerformerIDs)
-      ),
-      studio_id: studioID,
-      cover_image: resolveField("cover_image", undefined, imgData),
-      tag_ids: tagIDs,
-      stash_ids: stashScene.stash_ids ?? [],
-      code: resolveField("code", stashScene.code, scene.code),
-      director: resolveField("director", stashScene.director, scene.director),
-    };
-
-    const includeUrl = !excludedFieldList.includes("url");
-    if (includeUrl && scene.urls) {
-      sceneCreateInput.urls = uniq(stashScene.urls.concat(scene.urls));
-    } else {
-      sceneCreateInput.urls = stashScene.urls;
-    }
-
-    const includeStashID = !excludedFieldList.includes("stash_ids");
-    if (
-      includeStashID &&
-      currentSource?.sourceInput.stash_box_endpoint &&
-      scene.remote_site_id
-    ) {
-      sceneCreateInput.stash_ids = [
-        ...(stashScene?.stash_ids
-          .map((s) => {
-            return {
-              endpoint: s.endpoint,
-              stash_id: s.stash_id,
-              updated_at: s.updated_at,
-            };
-          })
-          .filter(
-            (s) => s.endpoint !== currentSource.sourceInput.stash_box_endpoint
-          ) ?? []),
-        {
-          endpoint: currentSource.sourceInput.stash_box_endpoint,
-          stash_id: scene.remote_site_id,
-          updated_at: new Date().toISOString(),
-        },
-      ];
-    } else {
-      // #2348 - don't include stash_ids if we're not setting them
-      delete sceneCreateInput.stash_ids;
-    }
-
-    await saveScene(sceneCreateInput, includeStashID);
+    // CUSTOM: begin - cover bytes are only fetched when saving.
+    await saveScene(
+      { ...saveInput, cover_image: imgData },
+      !excludedFields.stash_ids
+    );
+    // CUSTOM: end
   }
 
   function showPerformerModal(t: GQL.ScrapedPerformer) {
@@ -846,14 +811,36 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
           {maybeRenderStudioField()}
           {renderPerformerField()}
           {maybeRenderTagsField()}
-
-          <div className="row no-gutters mt-2 align-items-center justify-content-end">
+        </div>
+      )}
+      {/* CUSTOM: begin */}
+      {isActive && (
+        <div className="col-12">
+          <SceneSavePreview
+            local={stashScene}
+            input={saveInput}
+            remote={scene}
+            excluded={excludedFields}
+            onClearField={(field, clear) =>
+              setClearSelection((previous) => ({
+                result: scene,
+                fields: {
+                  ...(previous.result === scene ? previous.fields : {}),
+                  [field]: clear,
+                },
+              }))
+            }
+            cover={selectedCover}
+            unresolved={performerIDs.filter((id) => !id).length}
+          />
+          <div className="tagger-save-actions">
             <OperationButton operation={handleSave}>
               <FormattedMessage id="actions.save" />
             </OperationButton>
           </div>
         </div>
       )}
+      {/* CUSTOM: end */}
     </>
   );
 };
@@ -897,7 +884,11 @@ export const SceneSearchResults: React.FC<ISceneSearchResults> = ({
   }
 
   return (
-    <ul className="pl-0 mt-3 mb-0">
+    // CUSTOM: label the results as belonging to the scene above.
+    <ul
+      className="pl-0 mt-3 mb-0 tagger-scene-results"
+      aria-label="Scraped matches for this scene"
+    >
       {scenes.map((s, i) => (
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions, react/no-array-index-key
         <li

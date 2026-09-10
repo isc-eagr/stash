@@ -4,6 +4,7 @@ import { FormattedNumber } from "react-intl";
 import { Link } from "react-router-dom";
 import type { TaskProgressTrackerDataFragment as Tracker } from "src/core/generated-graphql";
 import { TaskProgressHistoryChart } from "../TaskProgressHistoryChart";
+import { TaskProgressAtAGlance } from "./TaskProgressAtAGlance";
 import type { IDetailSelection } from "./TaskProgressDetails";
 import {
   itemLabels,
@@ -53,13 +54,13 @@ export const TaskProgressTrackerModal: React.FC<IProps> = ({
           <div className="progress-tracker-modal-meta">
             <Link to={`/tags/${tracker.tag_id}`}>{tracker.tag_name}</Link>
             <span>
-              {t("Started on")}: {tracker.started_on} ·{" "}
-              {t(tracker.mode === "FIXED" ? "Fixed batch" : "Backlog")}
+              {t("Started on")}: {tracker.started_on}
             </span>
           </div>
           {tracker.description && (
             <p className="progress-description">{tracker.description}</p>
           )}
+          <TaskProgressAtAGlance tracker={tracker} />
           {error && (
             <Alert variant="danger" role="alert">
               {error}

@@ -3,6 +3,7 @@ import type {
   SceneCardInsightPerformerRoleStats,
   SceneCardInsightThresholds,
 } from "../Scenes/sceneCardInsightTypes_custom";
+import type { IRatingCardThresholdConfig } from "../../utils/ratingCardStyles_custom";
 import {
   calculateInsightStats,
   type InsightStatsConfig,
@@ -26,6 +27,7 @@ export type InsightStatsWorkerInput =
       type: "simulate";
       requestId: number;
       thresholds: SceneCardInsightThresholds;
+      ratingThresholds: IRatingCardThresholdConfig;
     };
 export type InsightStatsWorkerOutput =
   | { type: "progress"; message: string }
@@ -49,6 +51,7 @@ let roles = new Map<string, SceneCardInsightPerformerRoleStats>();
 let baseline: InsightStatsResult | undefined;
 let baselineThresholds = normalizeSceneCardInsightThresholds();
 let previewThresholds = baselineThresholds;
+let previewRatingThresholds: IRatingCardThresholdConfig = {};
 let requestId = 0;
 let scannedAt = "";
 let cacheAvailable = false;
@@ -63,12 +66,18 @@ function fail(error: unknown) {
 async function simulate() {
   if (!baseline) return;
   const revision = requestId;
+  const previewConfig = {
+    ...config,
+    ratingCardThresholds: previewRatingThresholds,
+  };
   const preview =
-    JSON.stringify(previewThresholds) === JSON.stringify(baselineThresholds)
+    JSON.stringify(previewThresholds) === JSON.stringify(baselineThresholds) &&
+    JSON.stringify(previewRatingThresholds) ===
+      JSON.stringify(config.ratingCardThresholds ?? {})
       ? baseline
       : await calculateInsightStats(
           scenes,
-          config,
+          previewConfig,
           previewThresholds,
           roles,
           () => revision !== requestId
@@ -129,10 +138,12 @@ worker.onmessage = ({ data }) => {
       config.sceneCardInsightThresholds
     );
     previewThresholds = baselineThresholds;
+    previewRatingThresholds = config.ratingCardThresholds ?? {};
     void load(data.url, data.force).catch(fail);
   } else {
     requestId = data.requestId;
     previewThresholds = data.thresholds;
+    previewRatingThresholds = data.ratingThresholds;
     void simulate().catch(fail);
   }
 };

@@ -338,6 +338,13 @@ const chartDefinitions: Array<{ key: ChartCategory; label: string }> = [
   { key: "penis", label: "Verga" },
 ];
 
+// CUSTOM: These categories have a small, stable set of values and benefit from
+// sharing a row instead of reserving the full chart width.
+const compactChartCategories: ChartCategory[] = [
+  "metallic_rating",
+  "circumcised",
+];
+
 const vatoViewOptions = {
   prefix: "vato",
   categories: chartDefinitions.map((definition) => definition.key),
@@ -1920,16 +1927,37 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
             this page.
           </p>
           <div className="vatostats-chart-grid">
-            {chartDefinitions.map((definition) => (
-              <VatoStatsChart
-                category={definition.key}
-                data={chartData[definition.key].data}
-                key={definition.key}
-                label={definition.label}
-                onSelect={addFilter}
-                unknownCount={chartData[definition.key].unknownCount}
-              />
-            ))}
+            {chartDefinitions
+              .filter(
+                (definition) => !compactChartCategories.includes(definition.key)
+              )
+              .map((definition) => (
+                <VatoStatsChart
+                  category={definition.key}
+                  data={chartData[definition.key].data}
+                  key={definition.key}
+                  label={definition.label}
+                  onSelect={addFilter}
+                  unknownCount={chartData[definition.key].unknownCount}
+                />
+              ))}
+          </div>
+          {/* CUSTOM: Keep fixed, low-cardinality charts in a space-efficient grid. */}
+          <div className="vatostats-chart-grid vatostats-chart-grid--compact">
+            {chartDefinitions
+              .filter((definition) =>
+                compactChartCategories.includes(definition.key)
+              )
+              .map((definition) => (
+                <VatoStatsChart
+                  category={definition.key}
+                  data={chartData[definition.key].data}
+                  key={definition.key}
+                  label={definition.label}
+                  onSelect={addFilter}
+                  unknownCount={chartData[definition.key].unknownCount}
+                />
+              ))}
           </div>
         </>
       )}
