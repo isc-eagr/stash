@@ -168,13 +168,13 @@ test("scan cache expires at twelve hours and rejects invalid timestamps", () => 
   const now = Date.parse(scannedAt);
   assert.ok(
     isFreshInsightSnapshot(
-      { scenes: [], scannedAt },
+      { sceneDataVersion: 2, scenes: [], scannedAt },
       now + insightCacheLifetime - 1
     )
   );
   assert.equal(
     isFreshInsightSnapshot(
-      { scenes: [], scannedAt },
+      { sceneDataVersion: 2, scenes: [], scannedAt },
       now + insightCacheLifetime
     ),
     false

@@ -156,6 +156,27 @@
     fill: #0f9960;
   }
 
+  &-goal-red {
+    fill: #db3737;
+  }
+
+  &-goal-orange {
+    fill: #f08c3a;
+  }
+
+  &-goal-yellow {
+    fill: #f2c94c;
+  }
+
+  &-goal-green {
+    fill: #0f9960;
+  }
+
+  &-goal-sapphire {
+    fill: #4db8ff;
+    filter: drop-shadow(0 0 3px rgba(77, 184, 255, 0.9));
+  }
+
   &-incoming {
     fill: #d9822b;
   }

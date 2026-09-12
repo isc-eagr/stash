@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS task_progress_trackers (
   title TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
   goal INTEGER NOT NULL,
+  goal_per_day INTEGER CHECK(goal_per_day IS NULL OR goal_per_day > 0),
   tag_id INTEGER NOT NULL,
   position INTEGER NOT NULL DEFAULT 0,
   is_working_on BOOLEAN NOT NULL DEFAULT 0,
@@ -242,6 +243,7 @@ func ensureTaskProgressTrackerColumnsCustom(ctx context.Context, tx *sqlx.Tx) er
 		{"history_started_on", "TEXT NOT NULL DEFAULT ''"},
 		{"mode", "TEXT NOT NULL DEFAULT 'BACKLOG' CHECK(mode IN ('FIXED', 'BACKLOG'))"},
 		{"version", "INTEGER NOT NULL DEFAULT 1 CHECK(version >= 1)"},
+		{"goal_per_day", "INTEGER CHECK(goal_per_day IS NULL OR goal_per_day > 0)"},
 	}
 
 	for _, addition := range additions {

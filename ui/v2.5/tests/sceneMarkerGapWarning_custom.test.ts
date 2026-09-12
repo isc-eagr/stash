@@ -97,7 +97,7 @@ assert.deepEqual(
   }
 );
 
-assert.equal(
+assert.deepEqual(
   findSceneMarkerGapWarnings({
     draft: {
       ...baseDraft,
@@ -165,7 +165,7 @@ assert.equal(
   "one-millisecond previous gaps are treated as already closed"
 );
 
-assert.equal(
+assert.deepEqual(
   findSceneMarkerGapWarnings({
     draft: baseDraft,
     sceneMarkers: [
@@ -179,9 +179,15 @@ assert.equal(
     ],
     negativeMarkers: [],
     roleTagIds,
-  }),
-  undefined,
-  "highlight markers do not warn against activity markers"
+  })?.next,
+  {
+    issueType: "gap",
+    issueSeconds: 1,
+    markerBoundarySeconds: 121,
+    closeToSeconds: 120.999,
+    adjacentMarkerType: "marker",
+  },
+  "markers warn across activity and highlight types"
 );
 
 assert.deepEqual(
@@ -212,7 +218,7 @@ assert.deepEqual(
   "activity markers warn against other activity markers"
 );
 
-assert.equal(
+assert.deepEqual(
   findSceneMarkerGapWarnings({
     draft: {
       ...baseDraft,
@@ -229,9 +235,15 @@ assert.equal(
     ],
     negativeMarkers: [],
     roleTagIds,
-  }),
-  undefined,
-  "activity markers do not warn against highlight markers"
+  })?.next,
+  {
+    issueType: "gap",
+    issueSeconds: 1,
+    markerBoundarySeconds: 121,
+    closeToSeconds: 120.999,
+    adjacentMarkerType: "marker",
+  },
+  "activity markers warn against highlight markers"
 );
 
 assert.deepEqual(
@@ -401,7 +413,7 @@ assert.deepEqual(
   "negative markers warn about sub-second gaps after highlight markers"
 );
 
-assert.equal(
+assert.deepEqual(
   findSceneMarkerGapWarnings({
     draft: {
       seconds: 502,
@@ -425,12 +437,18 @@ assert.equal(
     ],
     negativeMarkers: [],
     roleTagIds,
-  }),
-  undefined,
-  "markers containing a previous gap suppress its warning regardless of lane"
+  })?.previous,
+  {
+    issueType: "gap",
+    issueSeconds: 0.329,
+    markerBoundarySeconds: 501.671,
+    closeToSeconds: 501.672,
+    adjacentMarkerType: "Body",
+  },
+  "a covering marker does not suppress a previous-gap warning"
 );
 
-assert.equal(
+assert.deepEqual(
   findSceneMarkerGapWarnings({
     draft: {
       ...baseDraft,
@@ -454,9 +472,15 @@ assert.equal(
     ],
     negativeMarkers: [],
     roleTagIds,
-  }),
-  undefined,
-  "markers containing a next gap suppress its warning regardless of lane"
+  })?.next,
+  {
+    issueType: "gap",
+    issueSeconds: 1,
+    markerBoundarySeconds: 121,
+    closeToSeconds: 120.999,
+    adjacentMarkerType: "Face",
+  },
+  "a covering marker does not suppress a next-gap warning"
 );
 
 assert.equal(
@@ -704,9 +728,11 @@ assert.deepEqual(
     ],
     negativeMarkers: [],
     roleTagIds,
-  }).filter((warning) => warning.issueType === "gap"),
-  [],
-  "highlight markers with activity context tags are still classified as highlights"
+  })
+    .filter((warning) => warning.issueType === "gap")
+    .map((warning) => warning.boundary),
+  ["next"],
+  "highlight markers with activity context tags warn across marker types"
 );
 
 const nextSceneWarning = findSceneMarkerWarnings({
@@ -746,6 +772,32 @@ assert.deepEqual(
     otherCloseToSeconds: 120.001,
   },
   "broader marker warnings include metadata for fixing the other scene marker"
+);
+
+// CUSTOM: a short gap must be reported even when its two markers use
+// different primary-tag classifications (scene 353 regression).
+assert.equal(
+  findSceneMarkerGapWarnings({
+    draft: {
+      id: "orgasm",
+      seconds: 1452,
+      end_seconds: 1453,
+      primary_tag_id: "orgasm",
+      primary_tag: { id: "orgasm", name: "Orgasm" },
+    },
+    sceneMarkers: [
+      {
+        id: "pito-body",
+        seconds: 1400,
+        end_seconds: 1451.781,
+        primary_tag: { id: "pito", name: "Pito" },
+      },
+    ],
+    negativeMarkers: [],
+    roleTagIds,
+  })?.previous?.issueSeconds,
+  0.219,
+  "Pito/Body-to-Orgasm gaps are warned across marker types"
 );
 
 assert.deepEqual(

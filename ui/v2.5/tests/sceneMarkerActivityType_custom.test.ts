@@ -87,8 +87,8 @@ assert.deepEqual(
       isActivityTypeSectionSceneMarker(m, activityTypeSectionTagIds)
     )
     .map((m) => m.id),
-  ["sex", "feet", "orgasm", "facial"],
-  "activity tab section markers include configured feet, orgasm, and facial primary tags"
+  ["sex", "orgasm", "facial"],
+  "marker-panel sections exclude Feet while retaining the configured activity sections"
 );
 
 assert.deepEqual(

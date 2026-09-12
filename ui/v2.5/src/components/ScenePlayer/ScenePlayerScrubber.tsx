@@ -40,6 +40,7 @@ interface IScenePlayerScrubberProps {
     sourceKind?: SceneMarkerTimestampSourceKind
   ) => void; // CUSTOM
   timestampCopyActive?: boolean; // CUSTOM
+  timestampRangeCopyActive?: boolean; // CUSTOM
 }
 
 interface ISceneSpriteItem {
@@ -59,6 +60,7 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
   onScroll,
   onMarkerClick, // CUSTOM
   timestampCopyActive = false, // CUSTOM
+  timestampRangeCopyActive = false, // CUSTOM
 }) => {
   const contentEl = useRef<HTMLDivElement>(null);
   const indicatorEl = useRef<HTMLDivElement>(null);
@@ -390,6 +392,7 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
               timestampCopyActive ? (
                 <SceneMarkerTimestampCopyPopover
                   marker={marker}
+                  rangeSelectionActive={timestampRangeCopyActive} // CUSTOM
                   onSelect={(boundary, seconds) => {
                     onSeek(seconds);
                     onMarkerClick?.(
@@ -482,6 +485,7 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
                   seconds: marker.start_seconds,
                   end_seconds: marker.end_seconds,
                 }}
+                rangeSelectionActive={timestampRangeCopyActive} // CUSTOM
                 onSelect={(boundary, seconds) => {
                   onSeek(seconds);
                   onMarkerClick?.(

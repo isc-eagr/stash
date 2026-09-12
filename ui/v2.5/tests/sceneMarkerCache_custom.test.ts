@@ -24,6 +24,20 @@ test("marker cache insertion does not duplicate an existing reference", () => {
   );
 });
 
+test("marker cache insertion repairs stale duplicate references", () => {
+  assert.deepEqual(
+    upsertCacheReferenceCustom(
+      [
+        { __ref: "SceneMarker:1" },
+        { __ref: "SceneMarker:1" },
+        { __ref: "SceneMarker:2" },
+      ],
+      { __ref: "SceneMarker:1" }
+    ),
+    [{ __ref: "SceneMarker:1" }, { __ref: "SceneMarker:2" }]
+  );
+});
+
 test("marker cache removal only removes the requested normalized reference", () => {
   assert.deepEqual(
     removeCacheReferenceCustom(

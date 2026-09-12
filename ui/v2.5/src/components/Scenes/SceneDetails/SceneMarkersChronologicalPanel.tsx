@@ -92,7 +92,6 @@ type ActivityTypeSectionKey =
   | "oral"
   | "sex"
   | "solo"
-  | "feet"
   | "orgasm"
   | "facial"
   | "other-highlights";
@@ -993,12 +992,6 @@ export const SceneMarkersChronologicalPanel: React.FC<
       { key: "sex", tagId: roleTagIds?.sexTagId, fallbackLabel: "Sex" },
       { key: "solo", tagId: roleTagIds?.soloTagId, fallbackLabel: "Solo" },
       {
-        key: "feet",
-        tagId: roleTagIds?.feetTagId,
-        fallbackLabel: "Feet",
-        hideActivityPills: true,
-      },
-      {
         key: "orgasm",
         tagId: roleTagIds?.orgasmTagId,
         fallbackLabel: "Orgasm",
@@ -1048,21 +1041,14 @@ export const SceneMarkersChronologicalPanel: React.FC<
         .filter((section) => isSceneMarkerJumpSection(section.key))
         .map(({ key, label }) => ({ key, label })),
       ...(layout.fallbackHighlightGroups.length > 0
-        ? [
-            {
-              key: fallbackHighlightSectionKey,
-              label: "Other Highlights",
-            },
-          ]
+        ? [{ key: fallbackHighlightSectionKey, label: "Other Highlights" }]
         : []),
     ],
     [activityTypeSections, layout.fallbackHighlightGroups.length]
   );
 
   const renderSectionNavigation = () => {
-    if (jumpSections.length === 0) {
-      return null;
-    }
+    if (jumpSections.length === 0) return null;
 
     return (
       <nav

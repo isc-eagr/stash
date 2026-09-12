@@ -65,6 +65,8 @@
   .progress-tracker-card {
     height: auto;
     margin: 0;
+    // CUSTOM: Summary and footer supply the card's aligned inner spacing.
+    padding: 0;
     position: relative;
     transition: border-color 150ms ease, box-shadow 150ms ease,
       transform 150ms ease;
@@ -159,11 +161,22 @@
   }
 
   .progress-tracker-title {
-    font-size: 1rem;
+    font-size: 1.2rem;
     overflow-wrap: anywhere;
+    transform: scale(1.12);
+    transform-origin: left center;
+  }
+
+  .progress-tracker-title-row {
+    align-items: center;
+    display: flex;
+    gap: 0.8rem;
+    min-width: 0;
+    transform: translateY(-0.3rem);
   }
 
   .progress-tracker-heading {
+    gap: 1.5rem;
     padding-right: 3.5rem;
   }
 
@@ -174,13 +187,52 @@
     gap: 0.35rem;
   }
 
+  .progress-tracker-daily-goal {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    font-size: 1.7rem;
+    line-height: 1;
+    transform: scale(1.18);
+    transform-origin: left center;
+
+    small {
+      font-size: 0.72rem;
+      font-weight: 700;
+      margin-top: 0.15rem;
+      white-space: nowrap;
+    }
+
+    &-red {
+      color: #f55656;
+    }
+
+    &-orange {
+      color: #f08c3a;
+    }
+
+    &-yellow {
+      color: #f2c94c;
+    }
+
+    &-green {
+      color: #35c46a;
+    }
+
+    &-sapphire {
+      color: #4db8ff;
+      filter: drop-shadow(0 0 0.3rem rgba(77, 184, 255, 0.95));
+    }
+  }
+
   .progress-tracker-counts {
     color: var(--black-steel-text-muted, #bfccd6);
     display: flex;
     flex-wrap: wrap;
     font-size: 0.8rem;
     gap: 0.3rem 0.75rem;
-    margin: 0.6rem 0;
+    margin: 1.35rem 0 0.6rem;
 
     span strong {
       color: var(--black-steel-text, #f5f8fa);

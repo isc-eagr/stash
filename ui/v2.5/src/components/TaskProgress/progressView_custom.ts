@@ -6,6 +6,7 @@ import {
   TagsCriterionOption,
 } from "src/models/list-filter/criteria/tags";
 import { FilterMode } from "src/core/generated-graphql";
+import { progressToday } from "./progressMath_custom";
 
 export type Tracker = TaskProgressTrackerDataFragment;
 export const itemTypes = [
@@ -60,6 +61,38 @@ export function visibleTaskProgressItemCounts<T extends { count: number }>(
   items: readonly T[]
 ): T[] {
   return items.filter((item) => item.count > 0);
+}
+
+export type TaskProgressDailyGoalState =
+  | "red"
+  | "orange"
+  | "yellow"
+  | "green"
+  | "sapphire";
+
+export function taskProgressDailyGoalState(
+  completed: number,
+  goal: number
+): TaskProgressDailyGoalState {
+  const ratio = goal > 0 ? completed / goal : 0;
+  if (ratio <= 0.25) return "red";
+  if (ratio <= 0.5) return "orange";
+  if (ratio <= 0.8) return "yellow";
+  if (ratio <= 1) return "green";
+  return "sapphire";
+}
+
+export function taskProgressDailyGoal(
+  tracker: Pick<Tracker, "goal_per_day" | "history" | "status">,
+  today = progressToday()
+) {
+  if (tracker.status !== "ACTIVE" || !tracker.goal_per_day) return undefined;
+
+  const completed =
+    tracker.history.find((day) => day.date === today)?.completed ?? 0;
+  const state = taskProgressDailyGoalState(completed, tracker.goal_per_day);
+
+  return { completed, goal: tracker.goal_per_day, state };
 }
 
 export function useProgressText() {

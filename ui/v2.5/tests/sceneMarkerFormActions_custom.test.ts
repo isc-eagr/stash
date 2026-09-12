@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import test from "node:test";
 
 import {
   getSceneMarkerDuplicateValues,
+  getSceneMarkerGapDraftValues,
   getSceneMarkerInsertRangeErrors,
   getSceneMarkerInsertRecordKind,
   getSceneMarkerSplitBounds,
@@ -10,6 +12,28 @@ import {
   INSERT_MARKER_SOURCE_END_REQUIRED,
   INSERT_MARKER_START_OUT_OF_BOUNDS,
 } from "../src/components/Scenes/SceneDetails/sceneMarkerFormActions_custom.ts";
+
+test("a selected marker range becomes one complete gap draft", () => {
+  const original = {
+    insert_mode: "marker" as const,
+    title: "Keep unrelated draft fields",
+    seconds: 10,
+    end_seconds: 20,
+  };
+
+  assert.deepEqual(
+    getSceneMarkerGapDraftValues(original, {
+      seconds: 12.345,
+      end_seconds: 18.765,
+    }),
+    {
+      ...original,
+      insert_mode: "gap",
+      seconds: 12.345,
+      end_seconds: 18.765,
+    }
+  );
+});
 
 assert.equal(
   getSceneMarkerInsertRecordKind("marker"),

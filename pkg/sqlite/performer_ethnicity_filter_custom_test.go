@@ -73,3 +73,60 @@ func TestPerformerEthnicityCriterionHandlerCustomPreservesNullFilter(t *testing.
 		assert.Equal(t, "(performers.ethnicity IS NULL OR TRIM(performers.ethnicity) = '')", f.whereClauses[0].sql)
 	}
 }
+
+func TestPerformerSelectionCriteriaSupportUnknownAndMultipleCountries(t *testing.T) {
+	tests := []struct {
+		name     string
+		handler  criterionHandlerFunc
+		wantSQL  string
+		wantArgs []interface{}
+	}{
+		{
+			name: "ethnicity combines an unknown value with selected values",
+			handler: performerEthnicityCriterionHandlerCustom(
+				&models.StringCriterionInput{
+					Modifier: models.CriterionModifierIncludes,
+					Value:    "Latino,__unknown__",
+				},
+				"performers.ethnicity",
+			),
+			wantSQL:  "((performers.ethnicity IS NULL OR TRIM(performers.ethnicity) = '') OR performers.ethnicity IN (?, ?))",
+			wantArgs: []interface{}{"Latino", "Afrolatino"},
+		},
+		{
+			name: "country matches every selected value",
+			handler: performerCountryCriterionHandlerCustom(
+				&models.StringCriterionInput{
+					Modifier: models.CriterionModifierIncludes,
+					Value:    "MX,US",
+				},
+				"performers.country",
+			),
+			wantSQL:  "performers.country IN (?, ?)",
+			wantArgs: []interface{}{"MX", "US"},
+		},
+		{
+			name: "country matches blank and null values for unknown",
+			handler: performerCountryCriterionHandlerCustom(
+				&models.StringCriterionInput{
+					Modifier: models.CriterionModifierIncludes,
+					Value:    "__unknown__",
+				},
+				"performers.country",
+			),
+			wantSQL:  "(performers.country IS NULL OR TRIM(performers.country) = '')",
+			wantArgs: []interface{}{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &filterBuilder{}
+			f.handleCriterion(context.Background(), tt.handler)
+			if assert.Len(t, f.whereClauses, 1) {
+				assert.Equal(t, tt.wantSQL, f.whereClauses[0].sql)
+				assert.Equal(t, tt.wantArgs, f.whereClauses[0].args)
+			}
+		})
+	}
+}

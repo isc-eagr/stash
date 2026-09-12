@@ -4,6 +4,7 @@ import {
   getGroupSceneBaseMaximumCustom,
   getSceneRatingModeCustom,
   GROUP_SCENE_BONUSES_CUSTOM,
+  GROUP_SCENE_ENERGY_COORDINATION_CHOICES_CUSTOM,
   GROUP_SCENE_RATING_KEYS_CUSTOM,
 } from "../src/components/Shared/groupSceneRating_custom.ts";
 
@@ -16,7 +17,7 @@ assert.equal(getSceneRatingModeCustom(3, true), "solo");
 assert.equal(getSceneRatingModeCustom(4, false), "group");
 assert.equal(getSceneRatingModeCustom(4, true), "group");
 assert.equal(getGroupSceneBaseMaximumCustom() * 10, 100);
-assert.equal(GROUP_SCENE_BONUSES_CUSTOM.bottomAttractiveness * 10, 10);
+assert.equal(GROUP_SCENE_BONUSES_CUSTOM.bottomAttractiveness * 10, 5);
 assert.equal(GROUP_SCENE_BONUSES_CUSTOM.oralOnly * 10, 20);
 
 assert.deepEqual(Object.values(GROUP_SCENE_RATING_KEYS_CUSTOM.criteria), [
@@ -33,3 +34,7 @@ assert.deepEqual(groupBonusKeys, [
   "groupOralOnly",
 ]);
 assert.ok(!groupBonusKeys.includes("largeGroup"));
+assert.deepEqual(
+  GROUP_SCENE_ENERGY_COORDINATION_CHOICES_CUSTOM.map(({ label }) => label),
+  ["Disconnected", "Uneven", "Good", "Strong", "Excellent", "Perfect execution"]
+);

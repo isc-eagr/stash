@@ -69,7 +69,7 @@
   }
 }
 
-/* CUSTOM: Keep all four statistics destinations on one row above mobile. */
+/* CUSTOM: Keep statistics destinations on one row above mobile. */
 @media (min-width: 576px) {
   .stats-page .stats-links {
     grid-template-columns: repeat(4, minmax(0, 1fr));

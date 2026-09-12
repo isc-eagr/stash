@@ -4,6 +4,7 @@ fragment TaskProgressTrackerData on TaskProgressTracker {
   title
   description
   goal
+  goal_per_day
   tag_id
   tag_name
   position

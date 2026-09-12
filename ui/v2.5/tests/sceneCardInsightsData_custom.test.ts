@@ -306,6 +306,53 @@ test("configured common tags split amount and uncommon presence chips", () => {
   );
 });
 
+test("activity descendants are outstanding tags while only direct tags establish activity", () => {
+  const deepthroat = tag("deepthroat", "deepthroat", [{ id: "oral" }]);
+  const configuredRoleTagIds = {
+    ...roleTagIds,
+    outstandingActivityCommonTagIds: ["pito"],
+  };
+  const insightSets = getSceneCardInsightSets(
+    makeScene(
+      [
+        marker("oral", tag("oral", "Oral"), 0, 20),
+        marker("deepthroat", deepthroat, 20, 40),
+      ],
+      100
+    ),
+    configuredRoleTagIds,
+    suppressNegatives
+  );
+
+  assert.deepEqual(
+    getOutstandingActivityMatrix(
+      makeScene(
+        [
+          marker("oral", tag("oral", "Oral"), 0, 20),
+          marker("deepthroat", deepthroat, 20, 40),
+        ],
+        100
+      ),
+      configuredRoleTagIds
+    ).rows.map((row) => row.tag.name),
+    ["deepthroat"]
+  );
+  assert.equal(
+    insightSets.all.find(
+      (insight) => insight.key === "outstanding-activity-presence"
+    )?.label,
+    "Scene contains deepthroat"
+  );
+  assert.equal(
+    getSceneCardInsights(
+      makeScene([marker("deepthroat", deepthroat, 0, 100)], 100),
+      configuredRoleTagIds,
+      suppressNegatives
+    ).some((insight) => insight.label.endsWith(" oral")),
+    false
+  );
+});
+
 test("GOAT chip tags are removed from both outstanding chips with common backfill", () => {
   const salchicha = performer("salchicha", "Salchicha");
   const goat = tag("goat", "GOAT");
@@ -1614,6 +1661,31 @@ test("leaning scenes describe the losing activity by configurable levels", () =>
         leaningMinorityALotPercent: 60,
       }
     ).includes("Sex Leaning Scene with minimal oral")
+  );
+});
+
+test("leaning scenes allow a minimal minority activity below the whole-scene evidence floor", () => {
+  assert.ok(
+    labels(
+      [
+        marker("oral", tag("oral", "Oral"), 43.5016, 62.692959),
+        marker("sex", tag("sex", "Sex"), 68.445973, 599.463054),
+      ],
+      678.58,
+      { ...suppressNegatives, leaningMinoritySomePercent: 19 }
+    ).includes("Sex Leaning Scene with minimal oral")
+  );
+
+  assert.equal(
+    labels(
+      [
+        marker("tiny-sex", tag("sex", "Sex"), 0, 1),
+        marker("tiny-oral", tag("oral", "Oral"), 2, 3),
+      ],
+      100,
+      suppressNegatives
+    ).some((label) => label.includes("Leaning Scene")),
+    false
   );
 });
 

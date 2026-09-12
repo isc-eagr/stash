@@ -57,6 +57,16 @@ func TestCanonicalRatingScoreContributionUsesCurrentScales(t *testing.T) {
 			expected: 1,
 		},
 		{
+			name: "group attractive bottom bonus is five rating points",
+			row: ratingScoreRow{
+				EntityType: models.RatingEntityScene,
+				Section:    models.RatingScoreSectionBonus,
+				Key:        "groupBottomAttractiveness",
+				RawValue:   0.5,
+			},
+			expected: 0.5,
+		},
+		{
 			name: "retired criterion",
 			row: ratingScoreRow{
 				EntityType:    models.RatingEntityScene,
@@ -180,6 +190,26 @@ func TestCanonicalRatingScoreInputRejectsUnsupportedValues(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 5.0, raw)
 	assert.InDelta(t, 3, weighted, 0.0001)
+}
+
+func TestGroupAttractiveBottomBonusAcceptsFivePoints(t *testing.T) {
+	raw, weighted, err := canonicalRatingScoreInputCustom(
+		groupSceneRatingRubricCustom,
+		models.RatingScoreSectionBonus,
+		"groupBottomAttractiveness",
+		0.5,
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, 0.5, raw)
+	assert.Equal(t, 0.5, weighted)
+
+	_, _, err = canonicalRatingScoreInputCustom(
+		groupSceneRatingRubricCustom,
+		models.RatingScoreSectionBonus,
+		"groupBottomAttractiveness",
+		1,
+	)
+	assert.Error(t, err)
 }
 
 func TestExtremelyPolishedPenaltyIsSupportedByEverySceneRubric(t *testing.T) {

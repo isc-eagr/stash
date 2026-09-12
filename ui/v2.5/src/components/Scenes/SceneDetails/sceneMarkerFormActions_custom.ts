@@ -65,6 +65,21 @@ export function getSceneMarkerDuplicateValues(
   };
 }
 
+export function getSceneMarkerGapDraftValues<
+  T extends {
+    insert_mode: SceneMarkerInsertMode;
+    seconds: number;
+    end_seconds?: number | null;
+  }
+>(values: T, selectedRange: { seconds: number; end_seconds: number }): T {
+  return {
+    ...values,
+    insert_mode: "gap",
+    seconds: selectedRange.seconds,
+    end_seconds: selectedRange.end_seconds,
+  };
+}
+
 export function getSceneMarkerInsertRangeErrors(
   source: ISceneMarkerInsertSourceRange,
   draft: ISceneMarkerInsertDraftRange

@@ -142,11 +142,17 @@ export function buildChronologicalSceneMarkerLayout<
     IChronologicalSceneMarkerLayoutGroup<M>
   >();
   const activityTypeSectionTagIds = getActivityTypeSectionTagIds(roleTagIds);
+  // CUSTOM: Feet is a highlight, not a standalone marker-panel section. It
+  // joins an overlapping activity/performer group or falls under Other
+  // Highlights when it has no activity context.
+  const sectionActivityMarkers = allActivityMarkers.filter((marker) =>
+    isActivityTypeSectionSceneMarker(marker, activityTypeSectionTagIds)
+  );
   const visibleActivityMarkerIDs = new Set(
     visibleActivityMarkers.map((marker) => marker.id)
   );
 
-  groupActivityTypeSceneMarkers(allActivityMarkers).forEach((group) => {
+  groupActivityTypeSceneMarkers(sectionActivityMarkers).forEach((group) => {
     layoutGroupsByKey.set(group.key, {
       ...emptyLayoutGroup(group),
       markers: group.markers.filter((marker) =>
@@ -189,11 +195,7 @@ export function buildChronologicalSceneMarkerLayout<
           });
       });
 
-      if (matchedGroupKeys.size === 0) {
-        fallbackSegments.push(segment);
-        return;
-      }
-
+      let addedToActivityGroup = false;
       matchedGroupKeys.forEach((key) => {
         const group = layoutGroupsByKey.get(key);
         if (
@@ -206,7 +208,15 @@ export function buildChronologicalSceneMarkerLayout<
         const segments = segmentsByGroupKey.get(key) ?? [];
         segments.push(segment);
         segmentsByGroupKey.set(key, segments);
+        addedToActivityGroup = true;
       });
+
+      // CUSTOM: A Feet highlight may overlap a special event (such as an
+      // Orgasm) without belonging to that event's direct-tag-only group.
+      // Keep it editable in Other Highlights rather than dropping it.
+      if (!addedToActivityGroup) {
+        fallbackSegments.push(segment);
+      }
     });
 
     if (fallbackSegments.length > 0) {

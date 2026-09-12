@@ -239,6 +239,12 @@ func (r *mutationResolver) TaskProgressTrackerCreate(ctx context.Context, input 
 		ItemTypes:   itemTypes,
 		Mode:        "BACKLOG",
 	}
+	if input.GoalPerDay != nil {
+		if *input.GoalPerDay <= 0 {
+			return nil, fmt.Errorf("%w: goal per day must be greater than zero", ErrInput)
+		}
+		tracker.GoalPerDay = input.GoalPerDay
+	}
 	if input.Mode != nil {
 		if *input.Mode != "FIXED" && *input.Mode != "BACKLOG" {
 			return nil, fmt.Errorf("%w: mode must be FIXED or BACKLOG", ErrInput)
@@ -300,6 +306,16 @@ func (r *mutationResolver) TaskProgressTrackerUpdate(ctx context.Context, input 
 		}
 		if input.Description != nil {
 			tracker.Description = strings.TrimSpace(*input.Description)
+		}
+		if input.GoalPerDay != nil {
+			if *input.GoalPerDay < 0 {
+				return fmt.Errorf("%w: goal per day must not be negative", ErrInput)
+			}
+			if *input.GoalPerDay == 0 {
+				tracker.GoalPerDay = nil
+			} else {
+				tracker.GoalPerDay = input.GoalPerDay
+			}
 		}
 		if input.StartedOn != nil {
 			startedOn, err := taskProgressStartedOnCustom(*input.StartedOn)

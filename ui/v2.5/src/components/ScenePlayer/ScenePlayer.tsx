@@ -303,6 +303,7 @@ interface IScenePlayerProps {
     sourceKind?: SceneMarkerTimestampSourceKind
   ) => void; // CUSTOM
   markerTimestampCopyActive?: boolean; // CUSTOM
+  markerTimestampRangeCopyActive?: boolean; // CUSTOM
   onComplete: () => void;
   onNext: () => void;
   onPrevious: () => void;
@@ -322,6 +323,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     onTimeChange, // CUSTOM
     onMarkerClick, // CUSTOM
     markerTimestampCopyActive = false, // CUSTOM
+    markerTimestampRangeCopyActive = false, // CUSTOM
     onComplete,
     onNext,
     onPrevious,
@@ -1978,7 +1980,10 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         window.cancelAnimationFrame(markerRenderFrame.current);
       }
       markers.clearMarkers();
-      markers.setTimestampCopyMode(markerTimestampCopyActive); // CUSTOM
+      markers.setTimestampCopyMode(
+        markerTimestampCopyActive,
+        markerTimestampRangeCopyActive
+      ); // CUSTOM
       markers.setOnMarkerClick((marker, seconds, boundary) => {
         if (marker.id) {
           const sourceKind: SceneMarkerTimestampSourceKind =
@@ -2056,6 +2061,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       file,
       onMarkerClick,
       markerTimestampCopyActive,
+      markerTimestampRangeCopyActive,
     ]); // CUSTOM
 
     useEffect(() => {
@@ -2395,6 +2401,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             onScroll={onScrubberScroll}
             onMarkerClick={onMarkerClick} // CUSTOM
             timestampCopyActive={markerTimestampCopyActive} // CUSTOM
+            timestampRangeCopyActive={markerTimestampRangeCopyActive} // CUSTOM
           />
         )}
         {/* CUSTOM: begin - multi-segment loop controls, performer image overlay modal, performer image overlays */}

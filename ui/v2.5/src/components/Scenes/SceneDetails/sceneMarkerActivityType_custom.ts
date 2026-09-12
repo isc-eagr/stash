@@ -51,7 +51,6 @@ export function getActivityTypeSectionTagIds(
       roleTagIds?.sexTagId,
       roleTagIds?.oralTagId,
       roleTagIds?.soloTagId,
-      roleTagIds?.feetTagId,
       roleTagIds?.orgasmTagId,
       roleTagIds?.facialTagId,
     ].filter((id): id is string => !!id)

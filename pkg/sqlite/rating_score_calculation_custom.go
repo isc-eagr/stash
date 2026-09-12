@@ -54,7 +54,7 @@ var groupSceneRatingRubricCustom = ratingScoreRubricCustom{
 		"groupUsability":         {choices: ratingRangeChoicesCustom(4), weight: 0.5},
 	},
 	models.RatingScoreSectionBonus: {
-		"groupBottomAttractiveness": {choices: []float64{0, 1}, weight: 1},
+		"groupBottomAttractiveness": {choices: []float64{0, 0.5}, weight: 1},
 		"groupOralOnly":             {choices: []float64{0, 2}, weight: 1},
 		"theme":                     {choices: []float64{0, 0.5}, weight: 1},
 		"godTierOrgasm":             {choices: []float64{0, 1}, weight: 1},

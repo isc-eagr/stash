@@ -25,6 +25,7 @@ import {
   type ISceneMarkerChronologySearchFilters,
 } from "./sceneMarkerChronologySearch_custom";
 import { shouldShowOfficialSceneMarkerLayout } from "./sceneMarkerLayoutPreference_custom";
+import { getSceneMarkerScrollElement } from "./sceneMarkerDockPlacement_custom";
 import TextUtils from "src/utils/text";
 import {
   prepareSceneMarkerWarnings,
@@ -67,7 +68,7 @@ interface ISceneMarkersPanelProps {
 }
 
 function getSceneTabScrollElement() {
-  return document.querySelector<HTMLElement>(".scene-tabs .tab-content");
+  return getSceneMarkerScrollElement(); // CUSTOM: sidebar or below-player dock
 }
 
 export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
@@ -347,9 +348,14 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
         );
 
         if (markerElement) {
-          const scrollElement =
-            markerElement.closest<HTMLElement>(".tab-content");
+          const scrollElement = getSceneMarkerScrollElement(markerElement);
           if (scrollElement) {
+            // CUSTOM: reveal the dock on the page before centering within it.
+            if (
+              scrollElement.hasAttribute("data-scene-marker-scroll-container")
+            ) {
+              scrollElement.scrollIntoView({ block: "nearest" });
+            }
             scrollSceneMarkerIntoTabView(scrollElement, markerElement);
           }
           onFocusedMarkerHandled?.(requestId);

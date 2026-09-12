@@ -3,22 +3,16 @@ import type {
   SceneCardInsightPerformerRoleStats,
   SceneCardInsightThresholds,
 } from "../Scenes/sceneCardInsightTypes_custom";
-import type { IRatingCardThresholdConfig } from "../../utils/ratingCardStyles_custom";
 import {
   calculateInsightStats,
   type InsightStatsConfig,
   type InsightStatsResult,
   type InsightStatsScene,
 } from "./insightStatsData_custom";
-import {
-  createInsightStatsRequest,
-  loadInsightStatsScenes,
-} from "./insightStatsQuery_custom";
 import { deriveInsightRoleCounts } from "./insightStatsRoles_custom";
 import {
-  readInsightSnapshot,
-  writeInsightSnapshot,
-  isFreshInsightSnapshot,
+  loadInsightSnapshot,
+  writeInsightBaseline,
 } from "./insightStatsCache_custom";
 
 export type InsightStatsWorkerInput =
@@ -27,7 +21,6 @@ export type InsightStatsWorkerInput =
       type: "simulate";
       requestId: number;
       thresholds: SceneCardInsightThresholds;
-      ratingThresholds: IRatingCardThresholdConfig;
     };
 export type InsightStatsWorkerOutput =
   | { type: "progress"; message: string }
@@ -51,7 +44,6 @@ let roles = new Map<string, SceneCardInsightPerformerRoleStats>();
 let baseline: InsightStatsResult | undefined;
 let baselineThresholds = normalizeSceneCardInsightThresholds();
 let previewThresholds = baselineThresholds;
-let previewRatingThresholds: IRatingCardThresholdConfig = {};
 let requestId = 0;
 let scannedAt = "";
 let cacheAvailable = false;
@@ -66,18 +58,12 @@ function fail(error: unknown) {
 async function simulate() {
   if (!baseline) return;
   const revision = requestId;
-  const previewConfig = {
-    ...config,
-    ratingCardThresholds: previewRatingThresholds,
-  };
   const preview =
-    JSON.stringify(previewThresholds) === JSON.stringify(baselineThresholds) &&
-    JSON.stringify(previewRatingThresholds) ===
-      JSON.stringify(config.ratingCardThresholds ?? {})
+    JSON.stringify(previewThresholds) === JSON.stringify(baselineThresholds)
       ? baseline
       : await calculateInsightStats(
           scenes,
-          previewConfig,
+          config,
           previewThresholds,
           roles,
           () => revision !== requestId
@@ -94,20 +80,25 @@ async function simulate() {
 }
 
 async function load(url: string, force = false) {
-  const request = createInsightStatsRequest(url);
-  const cached = force ? undefined : await readInsightSnapshot(url);
-  const usable = cached && isFreshInsightSnapshot(cached) ? cached : undefined;
-  scenes =
-    usable?.scenes ??
-    (await loadInsightStatsScenes(request, (loaded, total) => {
+  const {
+    snapshot,
+    fromCache,
+    cacheAvailable: stored,
+  } = await loadInsightSnapshot(
+    url,
+    new AbortController().signal,
+    (loaded, total) => {
       worker.postMessage({
         type: "progress",
         message: `Reading scenes: ${loaded.toLocaleString()} / ${total.toLocaleString()}`,
       });
-    }));
+    },
+    { force }
+  );
+  scenes = snapshot.scenes;
   worker.postMessage({
     type: "progress",
-    message: usable ? "Using cached scan…" : "Evaluating chip coverage…",
+    message: fromCache ? "Using cached scan…" : "Evaluating chip coverage…",
   });
   roles = deriveInsightRoleCounts(scenes, config);
   worker.postMessage({
@@ -116,17 +107,13 @@ async function load(url: string, force = false) {
   });
   const configKey = JSON.stringify(config);
   baseline =
-    (usable?.configKey === configKey ? usable.baseline : undefined) ??
+    (snapshot.configKey === configKey ? snapshot.baseline : undefined) ??
     (await calculateInsightStats(scenes, config, baselineThresholds, roles));
-  scannedAt = usable?.scannedAt ?? new Date().toISOString();
-  cacheAvailable =
-    usable?.configKey === configKey ||
-    (await writeInsightSnapshot(url, {
-      scenes,
-      scannedAt,
-      configKey,
-      baseline,
-    }));
+  scannedAt = snapshot.scannedAt;
+  cacheAvailable = stored;
+  if (baseline && (snapshot.configKey !== configKey || !snapshot.baseline)) {
+    await writeInsightBaseline(url, snapshot, configKey, baseline);
+  }
   await simulate();
 }
 
@@ -138,12 +125,10 @@ worker.onmessage = ({ data }) => {
       config.sceneCardInsightThresholds
     );
     previewThresholds = baselineThresholds;
-    previewRatingThresholds = config.ratingCardThresholds ?? {};
     void load(data.url, data.force).catch(fail);
   } else {
     requestId = data.requestId;
     previewThresholds = data.thresholds;
-    previewRatingThresholds = data.ratingThresholds;
     void simulate().catch(fail);
   }
 };

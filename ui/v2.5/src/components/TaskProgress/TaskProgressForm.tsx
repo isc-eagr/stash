@@ -42,6 +42,9 @@ export const TaskProgressForm: React.FC<IProps> = ({
   const types = tracker?.item_types ?? itemTypes;
   const [mode, setMode] = useState(tracker?.mode ?? "BACKLOG");
   const [status, setStatus] = useState(tracker?.status ?? "ACTIVE");
+  const [goalPerDay, setGoalPerDay] = useState(
+    tracker?.goal_per_day?.toString() ?? ""
+  );
   const [reset, setReset] = useState(false);
   const [preview, setPreview] = useState<number>();
   const [error, setError] = useState<string>();
@@ -97,6 +100,7 @@ export const TaskProgressForm: React.FC<IProps> = ({
         tag_id: tag.id,
         item_types: types,
         mode,
+        goal_per_day: goalPerDay ? Number(goalPerDay) : tracker ? 0 : undefined,
         reset_goal: reset || scopeChanged,
         ...(tracker ? { status } : {}),
       })
@@ -156,6 +160,31 @@ export const TaskProgressForm: React.FC<IProps> = ({
                 </Form.Control>
               </Form.Group>
             )}
+            <Form.Group controlId="progress-goal-per-day">
+              <Form.Label>{t("Goal per day")}</Form.Label>
+              <Form.Control
+                inputMode="numeric"
+                min={1}
+                max={1000000}
+                step={1}
+                type="number"
+                value={goalPerDay}
+                onChange={(event) => {
+                  const { value } = event.target;
+                  setGoalPerDay(
+                    value === ""
+                      ? ""
+                      : String(
+                          Math.max(
+                            1,
+                            Math.min(1000000, Math.floor(Number(value) || 1))
+                          )
+                        )
+                  );
+                }}
+                placeholder={t("Optional")}
+              />
+            </Form.Group>
             <Form.Group>
               <Form.Label id="progress-tag-label">{t("Tag")}</Form.Label>
               <TagSelect

@@ -49,6 +49,7 @@ func TestTaskProgressTrackerCreateCalculatesFixedGoalCustom(t *testing.T) {
 	resolver := newResolver(db)
 	tag := &models.Tag{ID: 3, Name: "Inbox"}
 	created := &models.TaskProgressTracker{}
+	dailyGoal := 4
 
 	db.Tag.On("Find", mock.Anything, 3).Return(tag, nil).Once()
 	db.TaskProgressTracker.On("CountDirectlyTaggedItems", mock.Anything, 3, models.TaskProgressItemTypes).Return(17, nil).Once()
@@ -70,6 +71,7 @@ func TestTaskProgressTrackerCreateCalculatesFixedGoalCustom(t *testing.T) {
 			Title:       "  Database cleanup  ",
 			Description: "  Work through the inbox  ",
 			TagID:       "3",
+			GoalPerDay:  &dailyGoal,
 		},
 	)
 	require.NoError(t, err)
@@ -77,6 +79,25 @@ func TestTaskProgressTrackerCreateCalculatesFixedGoalCustom(t *testing.T) {
 	require.Equal(t, "Database cleanup", tracker.Title)
 	require.Equal(t, "Work through the inbox", tracker.Description)
 	require.Equal(t, 17, tracker.Goal)
+	require.Equal(t, 4, *tracker.GoalPerDay)
+	db.AssertExpectations(t)
+}
+
+func TestTaskProgressTrackerDailyGoalCustom(t *testing.T) {
+	db := mocks.NewDatabase()
+	resolver := newResolver(db)
+	dailyGoal := 4
+	existing := &models.TaskProgressTracker{ID: 8, GoalPerDay: &dailyGoal}
+	db.TaskProgressTracker.On("Find", mock.Anything, 8).Return(existing, nil).Twice()
+	db.TaskProgressTracker.On("Update", mock.Anything, existing).Return(nil).Once()
+
+	clearGoal := 0
+	tracker, err := resolver.Mutation().TaskProgressTrackerUpdate(
+		context.Background(),
+		TaskProgressTrackerUpdateInput{ID: "8", GoalPerDay: &clearGoal},
+	)
+	require.NoError(t, err)
+	require.Nil(t, tracker.GoalPerDay)
 	db.AssertExpectations(t)
 }
 

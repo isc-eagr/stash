@@ -6,6 +6,11 @@ import { SweatDrops } from "src/components/Shared/SweatDrops";
 
 const customStatsLinks = [
   {
+    label: "Playground",
+    href: "/stats/playground",
+    icon: <Icon icon={faSliders} />,
+  },
+  {
     label: "O Stats",
     href: "/ostats",
     icon: <SweatDrops />,
@@ -19,11 +24,6 @@ const customStatsLinks = [
     label: "Vato Stats",
     href: "/vatostats",
     icon: <Icon icon={faUsers} />,
-  },
-  {
-    label: "Insight Stats",
-    href: "/insightstats",
-    icon: <Icon icon={faSliders} />,
   },
 ];
 

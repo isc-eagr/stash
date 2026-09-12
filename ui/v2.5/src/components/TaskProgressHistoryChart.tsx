@@ -5,6 +5,7 @@ import {
   filterTaskProgressHistoryActivityPoints,
   formatTaskProgressDate,
 } from "./taskProgress_custom";
+import { taskProgressDailyGoalState } from "./TaskProgress/progressView_custom";
 import type {
   ITaskProgressHistoryEntry,
   ITaskProgressHistoryPoint,
@@ -19,6 +20,7 @@ interface IProps {
   onSelectDay?: (date: string) => void;
   selectedDate?: string;
   today?: string;
+  dailyGoal?: number;
 }
 
 const CHART_WIDTH = 720;
@@ -67,6 +69,7 @@ export const TaskProgressHistoryChart: React.FC<IProps> = ({
   onSelectDay,
   selectedDate,
   today,
+  dailyGoal,
 }) => {
   const intl = useIntl();
   const [chartID] = React.useState(createTaskProgressHistoryChartID);
@@ -322,7 +325,14 @@ export const TaskProgressHistoryChart: React.FC<IProps> = ({
           return (
             <g aria-hidden="true" key={`${point.date}-bars`}>
               <rect
-                className="task-progress-history-chart-completed"
+                className={`task-progress-history-chart-completed${
+                  dailyGoal
+                    ? ` task-progress-history-chart-goal-${taskProgressDailyGoalState(
+                        point.completed,
+                        dailyGoal
+                      )}`
+                    : ""
+                }`}
                 height={MARGIN.top + PLOT_HEIGHT - completedY}
                 width={barWidth}
                 x={centerX - barGroupWidth / 2}

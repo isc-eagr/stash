@@ -11,9 +11,42 @@ export const GROUP_SCENE_WEIGHTS_CUSTOM = {
 } as const;
 
 export const GROUP_SCENE_BONUSES_CUSTOM = {
-  bottomAttractiveness: 1,
+  bottomAttractiveness: 0.5,
   oralOnly: 2,
 } as const;
+
+export const GROUP_SCENE_ENERGY_COORDINATION_CHOICES_CUSTOM = [
+  {
+    label: "Disconnected",
+    description:
+      "Dead energy, messy flow, and most of these vatos are basically furniture.",
+  },
+  {
+    label: "Uneven",
+    description:
+      "A little action lands, but the energy and coordination stay inconsistent.",
+  },
+  {
+    label: "Good",
+    description:
+      "Good stretches, solid involvement, and a group flow that mostly works.",
+  },
+  {
+    label: "Strong",
+    description:
+      "Good energy, most vatos get involved, and the group action works.",
+  },
+  {
+    label: "Excellent",
+    description:
+      "Every verga gets used well and the intensity stays hot throughout.",
+  },
+  {
+    label: "Perfect execution",
+    description:
+      "Seamless, intense, and fully coordinated. Every vato matters the whole time.",
+  },
+];
 
 export const GROUP_SCENE_RATING_KEYS_CUSTOM = {
   criteria: {

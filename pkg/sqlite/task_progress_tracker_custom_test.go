@@ -26,6 +26,7 @@ CREATE TABLE task_progress_trackers (
   title TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
   goal INTEGER NOT NULL,
+  goal_per_day INTEGER,
   tag_id INTEGER NOT NULL,
   position INTEGER NOT NULL DEFAULT 0,
   is_working_on BOOLEAN NOT NULL DEFAULT 0,
@@ -87,6 +88,8 @@ INSERT INTO groups_tags (group_id, tag_id) VALUES (1, 1);
 		Goal:        goal,
 		TagID:       1,
 	}
+	dailyGoal := 4
+	first.GoalPerDay = &dailyGoal
 	require.NoError(t, store.Create(ctx, first))
 	require.NoError(t, store.CreateBaseline(ctx, first))
 	require.NotZero(t, first.ID)
@@ -94,6 +97,7 @@ INSERT INTO groups_tags (group_id, tag_id) VALUES (1, 1);
 	require.Equal(t, 0, first.Position)
 	require.Equal(t, models.TaskProgressReportingDate(first.CreatedAt), first.StartedOn)
 	require.Equal(t, models.TaskProgressTrackerStatusActive, first.Status)
+	require.Equal(t, 4, *first.GoalPerDay)
 	require.Len(t, first.ItemCounts, 7)
 
 	second := &models.TaskProgressTracker{Title: "Second", Goal: goal, TagID: 1}
@@ -107,6 +111,7 @@ INSERT INTO groups_tags (group_id, tag_id) VALUES (1, 1);
 	require.NoError(t, err)
 	require.Equal(t, "Updated", updated.Description)
 	require.Equal(t, "2026-07-20", updated.StartedOn)
+	require.Equal(t, 4, *updated.GoalPerDay)
 
 	require.NoError(t, store.Reorder(ctx, []int{second.ID, first.ID}))
 	trackers, err := store.FindAll(ctx)

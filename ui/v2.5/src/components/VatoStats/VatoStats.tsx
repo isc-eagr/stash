@@ -2,7 +2,6 @@ import React, { useMemo } from "react";
 import { gql, useQuery } from "@apollo/client";
 import { Alert, Button, Form } from "react-bootstrap";
 import { Helmet } from "react-helmet";
-import { FormattedMessage, FormattedNumber } from "react-intl";
 import { Link } from "react-router-dom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { StatsPage } from "src/components/StatsPage_custom";
@@ -26,7 +25,6 @@ import {
   getVatoStatsStudioScope,
   getVatoStatsStudioRoleCounts,
   getVatoStatsStudioSummary,
-  getVatoStatsStudioTierRows,
   type IVatoStatsStudioScope,
 } from "./vatoStatsStudioScope_custom";
 
@@ -84,18 +82,6 @@ const VATO_SUMMARY_STATS = gql`
     performersFacialReceivedCount
     performersSoloOnlyCount
     performersOneSceneCount
-  }
-`;
-
-const PERFORMER_ETHNICITY_TIER_COUNTS = gql`
-  query VatoStatsPerformerEthnicityTierCounts {
-    performerEthnicityTierCounts {
-      ethnicity
-      bronze
-      silver
-      gold
-      royal_sapphire
-    }
   }
 `;
 
@@ -255,20 +241,6 @@ type VatoStatsRoleTagsData = {
   findTags: {
     tags: Array<{ id: string; name: string }>;
   };
-};
-
-type PerformerEthnicityTierKey =
-  | "bronze"
-  | "silver"
-  | "gold"
-  | "royal_sapphire";
-
-type PerformerEthnicityTierRow = {
-  ethnicity: string;
-  bronze: number;
-  silver: number;
-  gold: number;
-  royal_sapphire: number;
 };
 
 type FindPerformersCountData = {
@@ -1382,160 +1354,6 @@ const VatoStatsSummary: React.FC<{
   );
 };
 
-const performerRatingTiers = [
-  {
-    key: "bronze",
-    label: "Bronze",
-  },
-  {
-    key: "silver",
-    label: "Silver",
-  },
-  {
-    key: "gold",
-    label: "Gold",
-  },
-  {
-    key: "royal_sapphire",
-    label: "Sapphire",
-  },
-] as const;
-
-const VatoStatsTierTable: React.FC<{
-  rows: PerformerEthnicityTierRow[];
-  studioScope?: IVatoStatsStudioScope;
-}> = ({ rows, studioScope }) => {
-  if (rows.length === 0) return null;
-
-  const scopedPath = (path: string) =>
-    studioScope
-      ? NavUtils.withStudioScope(
-          path,
-          studioScope.id,
-          studioScope.name,
-          studioScope.depth
-        )
-      : path;
-
-  const totals = performerRatingTiers.reduce(
-    (acc, tier) => ({
-      ...acc,
-      [tier.key]: rows.reduce((sum, row) => sum + row[tier.key], 0),
-    }),
-    {} as Record<PerformerEthnicityTierKey, number>
-  );
-  const grandTotal = performerRatingTiers.reduce(
-    (sum, tier) => sum + totals[tier.key],
-    0
-  );
-
-  return (
-    <section className="vatostats-tier-table" aria-label="Tier vatos">
-      <h2>
-        <FormattedMessage
-          id="stats.tier_performers_by_ethnicity"
-          defaultMessage="Tier vatos by ethnicity"
-        />
-      </h2>
-      <div className="table-responsive">
-        <table className="table table-sm table-striped mb-0">
-          <thead>
-            <tr>
-              <th>
-                <FormattedMessage id="ethnicity" defaultMessage="Ethnicity" />
-              </th>
-              {performerRatingTiers.map((tier) => (
-                <th key={tier.key} className="text-right">
-                  {tier.label}
-                </th>
-              ))}
-              <th className="text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => {
-              const rowTotal =
-                row.bronze + row.silver + row.gold + row.royal_sapphire;
-
-              return (
-                <tr key={`tiers-${row.ethnicity}`}>
-                  <td>
-                    <Link
-                      to={scopedPath(
-                        NavUtils.makePerformersEthnicityUrl(row.ethnicity)
-                      )}
-                    >
-                      {row.ethnicity}
-                    </Link>
-                  </td>
-                  {performerRatingTiers.map((tier) => {
-                    const count = row[tier.key];
-                    return (
-                      <td key={tier.key} className="text-right">
-                        {count > 0 ? (
-                          <Link
-                            to={scopedPath(
-                              NavUtils.makePerformersEthnicityMetallicRatingUrl(
-                                row.ethnicity,
-                                tier.key
-                              )
-                            )}
-                          >
-                            <FormattedNumber value={count} />
-                          </Link>
-                        ) : (
-                          <FormattedNumber value={count} />
-                        )}
-                      </td>
-                    );
-                  })}
-                  <td className="text-right">
-                    <Link
-                      to={scopedPath(
-                        NavUtils.makePerformersEthnicityAnyMetallicRatingUrl(
-                          row.ethnicity
-                        )
-                      )}
-                    >
-                      <FormattedNumber value={rowTotal} />
-                    </Link>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            <tr>
-              <th>Total</th>
-              {performerRatingTiers.map((tier) => {
-                const total = totals[tier.key];
-                return (
-                  <th key={tier.key} className="text-right">
-                    {total > 0 ? (
-                      <Link
-                        to={scopedPath(
-                          NavUtils.makePerformersMetallicRatingUrl(tier.key)
-                        )}
-                      >
-                        <FormattedNumber value={total} />
-                      </Link>
-                    ) : (
-                      <FormattedNumber value={total} />
-                    )}
-                  </th>
-                );
-              })}
-              <th className="text-right">
-                <FormattedNumber value={grandTotal} />
-              </th>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    </section>
-  );
-};
-
 export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
   studioScope: fixedStudioScope,
 }) => {
@@ -1582,11 +1400,6 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
     VATO_SUMMARY_STATS,
     { skip: deferGlobalAuxiliaryQueries }
   );
-  const { data: tierData } = useQuery<{
-    performerEthnicityTierCounts: PerformerEthnicityTierRow[];
-  }>(PERFORMER_ETHNICITY_TIER_COUNTS, {
-    skip: deferGlobalAuxiliaryQueries,
-  });
   const strictTopQuery = useQuery<FindPerformersCountData>(
     VATO_STRICT_TOP_COUNT,
     {
@@ -1694,10 +1507,6 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
   );
   const studioRoleCounts = useMemo(
     () => (studioScope ? getVatoStatsStudioRoleCounts(performers) : undefined),
-    [performers, studioScope]
-  );
-  const studioTierRows = useMemo(
-    () => (studioScope ? getVatoStatsStudioTierRows(performers) : undefined),
     [performers, studioScope]
   );
   const filteredPerformers = useMemo(
@@ -1915,12 +1724,6 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
               ))}
             </section>
           )}
-          <VatoStatsTierTable
-            rows={
-              studioTierRows ?? tierData?.performerEthnicityTierCounts ?? []
-            }
-            studioScope={studioScope}
-          />
           <VatoStatsRatingAdvisor studioScope={studioScope} />
           <p className="stats-interaction-help">
             Select a bar or Unknown badge to filter the charts and rankings on

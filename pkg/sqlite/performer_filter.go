@@ -151,7 +151,7 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 
 		qb.performerIsMissingCriterionHandler(filter.IsMissing),
 		performerEthnicityCriterionHandlerCustom(filter.Ethnicity, tableName+".ethnicity"), // CUSTOM
-		stringCriterionHandler(filter.Country, tableName+".country"),
+		performerCountryCriterionHandlerCustom(filter.Country, tableName+".country"),       // CUSTOM
 		stringCriterionHandler(filter.EyeColor, tableName+".eye_color"),
 
 		// special handler for legacy height filter

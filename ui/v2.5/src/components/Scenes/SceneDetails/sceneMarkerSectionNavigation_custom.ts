@@ -2,7 +2,6 @@ const sceneMarkerJumpSectionKeys = new Set([
   "oral",
   "sex",
   "solo",
-  "feet",
   "orgasm",
   "facial",
   "other-highlights",
@@ -32,9 +31,7 @@ export function scrollToSceneMarkerSection(
     getSceneMarkerSectionAnchorId(sectionKey)
   );
 
-  if (!target) {
-    return false;
-  }
+  if (!target) return false;
 
   target.scrollIntoView({
     behavior: "smooth",

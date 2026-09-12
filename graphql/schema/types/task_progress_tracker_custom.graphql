@@ -5,6 +5,8 @@ type TaskProgressTracker {
   title: String!
   description: String!
   goal: Int!
+  "Optional number of items targeted for completion each active day"
+  goal_per_day: Int
   tag_id: ID!
   tag_name: String!
   position: Int!
@@ -87,6 +89,8 @@ input TaskProgressTrackerCreateInput {
   started_on: String
   item_types: [String!]
   mode: String
+  "Optional positive daily completion goal"
+  goal_per_day: Int
 }
 
 input TaskProgressTrackerUpdateInput {
@@ -101,4 +105,6 @@ input TaskProgressTrackerUpdateInput {
   mode: String
   expected_version: Int
   item_types: [String!]
+  "Positive value sets the daily goal; zero clears it"
+  goal_per_day: Int
 }

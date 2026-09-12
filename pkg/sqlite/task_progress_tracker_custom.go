@@ -22,6 +22,7 @@ type taskProgressTrackerRow struct {
 	Title            string    `db:"title"`
 	Description      string    `db:"description"`
 	Goal             int       `db:"goal"`
+	GoalPerDay       *int      `db:"goal_per_day"`
 	TagID            int       `db:"tag_id"`
 	Position         int       `db:"position"`
 	IsWorkingOn      bool      `db:"is_working_on"`
@@ -41,6 +42,7 @@ func (r *taskProgressTrackerRow) fromModel(tracker models.TaskProgressTracker) {
 	r.Title = tracker.Title
 	r.Description = tracker.Description
 	r.Goal = tracker.Goal
+	r.GoalPerDay = tracker.GoalPerDay
 	r.TagID = tracker.TagID
 	r.Position = tracker.Position
 	r.IsWorkingOn = tracker.IsWorkingOn
@@ -58,6 +60,7 @@ func (r *taskProgressTrackerRow) resolve() *models.TaskProgressTracker {
 		Title:       r.Title,
 		Description: r.Description,
 		Goal:        r.Goal,
+		GoalPerDay:  r.GoalPerDay,
 		TagID:       r.TagID,
 		TagName:     r.TagName,
 		Position:    r.Position,
@@ -103,6 +106,7 @@ func (s *TaskProgressTrackerStore) selectDataset() *goqu.SelectDataset {
 			table.Col("title"),
 			table.Col("description"),
 			table.Col("goal"),
+			table.Col("goal_per_day"),
 			table.Col("tag_id"),
 			table.Col("position"),
 			table.Col("is_working_on"),
@@ -275,6 +279,7 @@ func (s *TaskProgressTrackerStore) getMany(ctx context.Context, query *goqu.Sele
 			&row.Title,
 			&row.Description,
 			&row.Goal,
+			&row.GoalPerDay,
 			&row.TagID,
 			&row.Position,
 			&row.IsWorkingOn,

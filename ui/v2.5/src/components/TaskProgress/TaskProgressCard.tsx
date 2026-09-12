@@ -1,7 +1,12 @@
 import React, { useState } from "react";
 import { Badge, Button, Card, Form } from "react-bootstrap";
 import { FormattedNumber } from "react-intl";
-import { faArrowDown, faArrowUp } from "@fortawesome/free-solid-svg-icons";
+import {
+  faArrowDown,
+  faArrowUp,
+  faCheck,
+  faTriangleExclamation,
+} from "@fortawesome/free-solid-svg-icons";
 import type { TaskProgressTrackerDataFragment as Tracker } from "src/core/generated-graphql";
 import { Icon } from "../Shared/Icon";
 import {
@@ -9,6 +14,7 @@ import {
   taskProgressStatusLabel,
   taskProgressStatusVariant,
   progressToday,
+  taskProgressDailyGoal,
   useProgressText,
 } from "./progressView_custom";
 import { plannedTaskProgressFinishDate } from "./progressMath_custom";
@@ -40,6 +46,7 @@ export const TaskProgressCard: React.FC<IProps> = ({
 }) => {
   const t = useProgressText();
   const percentage = progressPercentage(tracker);
+  const dailyGoal = taskProgressDailyGoal(tracker);
   const planStorageKey = `task-progress-tracker-plan-${tracker.id}`;
   const [planRate, setPlanRate] = useState(() => {
     try {
@@ -70,7 +77,26 @@ export const TaskProgressCard: React.FC<IProps> = ({
     >
       <div className="progress-tracker-summary">
         <span className="progress-tracker-heading">
-          <strong className="progress-tracker-title">{tracker.title}</strong>
+          <span className="progress-tracker-title-row">
+            {dailyGoal && (
+              <span
+                className={`progress-tracker-daily-goal progress-tracker-daily-goal-${dailyGoal.state}`}
+                title={t("Today's goal")}
+              >
+                <Icon
+                  icon={
+                    !["green", "sapphire"].includes(dailyGoal.state)
+                      ? faTriangleExclamation
+                      : faCheck
+                  }
+                />
+                <small>
+                  {dailyGoal.completed} / {dailyGoal.goal}
+                </small>
+              </span>
+            )}
+            <strong className="progress-tracker-title">{tracker.title}</strong>
+          </span>
           <span className="progress-tracker-status">
             <Badge variant={taskProgressStatusVariant(tracker.status)}>
               {t(taskProgressStatusLabel(tracker.status))}

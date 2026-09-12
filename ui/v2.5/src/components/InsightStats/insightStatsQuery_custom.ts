@@ -1,4 +1,4 @@
-import type { InsightStatsScene } from "./insightStatsData_custom";
+import type { StatsScene } from "../Shared/statsSceneData_custom";
 
 // Deliberately fetch only engine inputs, in bounded pages, without filling the
 // Apollo entity cache with an entire library's markers and performers.
@@ -7,12 +7,14 @@ export const INSIGHT_STATS_SCENES_QUERY = `
     findScenes(filter: { page: $page, per_page: 200, sort: "id", direction: ASC }) {
       count
       scenes {
-        id title
+        id title date
         rating100
+        paths { screenshot }
+        studio { id name }
         rating_tier_tags: tags { id }
         files { duration }
-        performers { id name country rating100 rating_tier_tags: tags { id } }
-        rating_scores { section key raw_value }
+        performers { id name ethnicity country rating100 rating_tier_tags: tags { id } }
+        rating_scores { section key raw_value weighted_value }
         scene_markers {
           id seconds end_seconds
           primary_tag { id name }
@@ -32,7 +34,10 @@ type GraphQLRequest = <T>(
   variables: Record<string, unknown>
 ) => Promise<T>;
 
-export function createInsightStatsRequest(url: string): GraphQLRequest {
+export function createInsightStatsRequest(
+  url: string,
+  signal?: AbortSignal
+): GraphQLRequest {
   return async <T>(
     query: string,
     variables: Record<string, unknown>
@@ -40,6 +45,7 @@ export function createInsightStatsRequest(url: string): GraphQLRequest {
     const response = await fetch(url, {
       method: "POST",
       credentials: "same-origin",
+      signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query, variables }),
     });
@@ -58,14 +64,16 @@ export function createInsightStatsRequest(url: string): GraphQLRequest {
 
 export async function loadInsightStatsScenes(
   request: GraphQLRequest,
-  progress: (loaded: number, total: number) => void
+  progress: (loaded: number, total: number) => void,
+  signal?: AbortSignal
 ) {
-  const scenes: InsightStatsScene[] = [];
+  const scenes: StatsScene[] = [];
   const seen = new Set<string>();
   let total: number | undefined;
   for (let page = 1; ; page += 1) {
+    if (signal?.aborted) throw new Error("Loading cancelled.");
     const data = await request<{
-      findScenes: { count: number; scenes: InsightStatsScene[] };
+      findScenes: { count: number; scenes: StatsScene[] };
     }>(INSIGHT_STATS_SCENES_QUERY, { page });
     const batch = data.findScenes;
     if (total !== undefined && total !== batch.count)
@@ -81,6 +89,7 @@ export async function loadInsightStatsScenes(
       seen.add(scene.id);
       scenes.push(scene);
     });
+    if (signal?.aborted) throw new Error("Loading cancelled.");
     progress(scenes.length, total);
     if (scenes.length === total) return scenes;
     if (!batch.scenes.length || scenes.length > total)

@@ -39,6 +39,7 @@ import {
 } from "./ratingAdvisorScales_custom";
 import {
   GROUP_SCENE_BONUSES_CUSTOM,
+  GROUP_SCENE_ENERGY_COORDINATION_CHOICES_CUSTOM,
   GROUP_SCENE_RATING_KEYS_CUSTOM,
   GROUP_SCENE_WEIGHTS_CUSTOM,
   type SceneRatingModeCustom,
@@ -489,38 +490,9 @@ const groupSceneMetrics: IAdvisorMetric[] = [
     max: 5,
     weight: GROUP_SCENE_WEIGHTS_CUSTOM.energyCoordination,
     hint: "How hot the action feels and how well the whole lineup works together.",
-    choices: ratingAdvisorSixLevelChoicesCustom([
-      {
-        label: "Disconnected",
-        description:
-          "Dead energy, messy flow, and most of these vatos are basically furniture.",
-      },
-      {
-        label: "Weak",
-        description:
-          "A little action lands, but the energy and coordination stay rough.",
-      },
-      {
-        label: "Uneven",
-        description:
-          "Some hot stretches, some waiting around, and an inconsistent group flow.",
-      },
-      {
-        label: "Strong",
-        description:
-          "Good energy, most vatos get involved, and the group action works.",
-      },
-      {
-        label: "Excellent",
-        description:
-          "Every verga gets used well and the intensity stays hot throughout.",
-      },
-      {
-        label: "Perfect execution",
-        description:
-          "Seamless, intense, and fully coordinated. Every vato matters the whole time.",
-      },
-    ]),
+    choices: ratingAdvisorSixLevelChoicesCustom(
+      GROUP_SCENE_ENERGY_COORDINATION_CHOICES_CUSTOM
+    ),
   },
   {
     ...sceneMetrics.find((metric) => metric.key === "payoff")!,

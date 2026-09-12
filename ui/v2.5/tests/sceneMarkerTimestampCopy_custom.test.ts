@@ -34,6 +34,44 @@ assert.deepEqual(
 
 assert.deepEqual(
   resolveSceneMarkerTimestampCopySelection(
+    { field: "range", destination: "scene-marker-form", requestId: 11 },
+    marker,
+    "range"
+  ),
+  {
+    field: "range",
+    destination: "scene-marker-form",
+    requestId: 11,
+    boundary: "range",
+    markerId: "marker-1",
+    seconds: 12.25,
+    end_seconds: 38.5,
+  },
+  "range selection copies both exact marker boundaries atomically"
+);
+
+assert.equal(
+  resolveSceneMarkerTimestampCopySelection(
+    { field: "range", destination: "scene-marker-form", requestId: 12 },
+    { id: "marker-2", seconds: 5, end_seconds: null },
+    "range"
+  ),
+  undefined,
+  "an open-ended marker cannot supply a gap range"
+);
+
+assert.equal(
+  resolveSceneMarkerTimestampCopySelection(
+    { field: "seconds", destination: "scene-marker-form", requestId: 13 },
+    marker,
+    "range"
+  ),
+  undefined,
+  "a range click cannot be consumed by a single-boundary request"
+);
+
+assert.deepEqual(
+  resolveSceneMarkerTimestampCopySelection(
     { field: "seconds", destination: "scene-marker-form", requestId: 8 },
     marker,
     "end"
@@ -211,6 +249,13 @@ const thumbnailScrubberSource = readFileSync(
   ),
   "utf8"
 );
+const markerFormSource = readFileSync(
+  new URL(
+    "../src/components/Scenes/SceneDetails/SceneMarkerForm.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
 
 assert.match(
   timelineMarkerSource,
@@ -231,6 +276,16 @@ assert.match(
   thumbnailScrubberSource,
   /scrubber-negative-markers-timestamp-copy/,
   "the thumbnail scrubber gives negative marker hit targets deterministic overlap priority in copy mode"
+);
+assert.match(
+  markerFormSource,
+  /Create Gap From Marker/,
+  "the marker editor exposes the full-range gap workflow"
+);
+assert.match(
+  markerFormSource,
+  /markerTimestampCopySelection\.field === "range"[\s\S]*?setFieldValue\("seconds"[\s\S]*?setFieldValue\([\s\S]*?"end_seconds"/,
+  "the gap workflow applies both selected marker boundaries to one draft"
 );
 assert.match(
   thumbnailScrubberSource,

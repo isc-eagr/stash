@@ -1,10 +1,4 @@
 import type { IUIConfig } from "src/core/config";
-// CUSTOM: Relative runtime imports also resolve inside the standalone stats worker.
-import {
-  getRatingCardThresholdsForEntity,
-  hasRoyalSapphireSceneBonus,
-  hasRoyalSapphireSceneMarker,
-} from "../../utils/ratingCardStyles_custom";
 import {
   getActivityTypeTagIds,
   isActivityTypeSceneMarker,
@@ -30,33 +24,6 @@ export type InsightStatsScene = SceneCardInsightScene & {
 };
 export type InsightStatsMode = "all" | "visible";
 export type InsightStatsCount = { all: number; visible: number };
-export type InsightStatsRatingTier =
-  | "bronze"
-  | "silver"
-  | "gold"
-  | "royalSapphire"
-  | "none";
-export type InsightStatsRatingTierSource =
-  | "threshold"
-  | "goatMarker"
-  | "tagOverride"
-  | "ratingAdvisor";
-export type InsightStatsRatingTierEntityCount = {
-  total: number;
-  ratedTotal: number;
-  ids: string[];
-  ratedIds: string[];
-  sources: Record<InsightStatsRatingTierSource, number>;
-  sourceIds: Record<InsightStatsRatingTierSource, string[]>;
-};
-export type InsightStatsRatingTierCount = {
-  scenes: InsightStatsRatingTierEntityCount;
-  vatos: InsightStatsRatingTierEntityCount;
-};
-export type InsightStatsRatingTierCounts = Record<
-  InsightStatsRatingTier,
-  InsightStatsRatingTierCount
->;
 export type InsightStatsVariant = InsightStatsCount & {
   label: string;
   sceneIds: { all: string[]; visible: string[] };
@@ -74,38 +41,8 @@ export type InsightStatsResult = {
   excludedWithoutMarkers: number;
   excludedWithoutEndTime: number;
   withoutDuration: number;
-  ratingTiers: InsightStatsRatingTierCounts;
-  ratingTierPopulation: { scenes: number; vatos: number };
   rows: Map<string, InsightStatsRow>;
 };
-
-function createInsightStatsRatingTierCounts(): InsightStatsRatingTierCounts {
-  const entityCount = (): InsightStatsRatingTierEntityCount => ({
-    total: 0,
-    ratedTotal: 0,
-    ids: [],
-    ratedIds: [],
-    sources: {
-      threshold: 0,
-      goatMarker: 0,
-      tagOverride: 0,
-      ratingAdvisor: 0,
-    },
-    sourceIds: {
-      threshold: [],
-      goatMarker: [],
-      tagOverride: [],
-      ratingAdvisor: [],
-    },
-  });
-  return {
-    bronze: { scenes: entityCount(), vatos: entityCount() },
-    silver: { scenes: entityCount(), vatos: entityCount() },
-    gold: { scenes: entityCount(), vatos: entityCount() },
-    royalSapphire: { scenes: entityCount(), vatos: entityCount() },
-    none: { scenes: entityCount(), vatos: entityCount() },
-  };
-}
 
 export function createInsightStatsResult(): InsightStatsResult {
   return {
@@ -115,8 +52,6 @@ export function createInsightStatsResult(): InsightStatsResult {
     excludedWithoutMarkers: 0,
     excludedWithoutEndTime: 0,
     withoutDuration: 0,
-    ratingTiers: createInsightStatsRatingTierCounts(),
-    ratingTierPopulation: { scenes: 0, vatos: 0 },
     rows: new Map(
       insightStatsCatalog.map(({ id }) => [
         id,
@@ -129,161 +64,6 @@ export function createInsightStatsResult(): InsightStatsResult {
         },
       ])
     ),
-  };
-}
-
-export function insightStatsRatingTier(
-  rating: number | null | undefined,
-  config: InsightStatsConfig["ratingCardThresholds"],
-  entityType: "scene" | "performer"
-): InsightStatsRatingTier | undefined {
-  if (rating === null || rating === undefined) return undefined;
-  const thresholds = getRatingCardThresholdsForEntity(config, entityType);
-  if (rating >= thresholds.royalSapphire) return "royalSapphire";
-  if (rating >= thresholds.gold) return "gold";
-  if (rating >= thresholds.silver) return "silver";
-  if (rating >= thresholds.bronze) return "bronze";
-  return undefined;
-}
-
-type InsightStatsRatingEntity = {
-  rating100?: number | null;
-  rating_tier_tags?: Array<{ id: string }>;
-};
-
-type InsightStatsRatingOutcome = {
-  tier: InsightStatsRatingTier;
-  source: InsightStatsRatingTierSource;
-};
-
-function configuredRatingOverrideTier(
-  tags: InsightStatsRatingEntity["rating_tier_tags"],
-  config: InsightStatsConfig
-): InsightStatsRatingTier | undefined {
-  const hasTag = (id?: string | null) =>
-    !!id && !!tags?.some((tag) => tag.id === id);
-  if (
-    hasTag(config.ratingCardOverrideTagIds?.royalSapphireTagId) ||
-    hasTag(config.roleTagIds?.goatTagId)
-  ) {
-    return "royalSapphire";
-  }
-  if (hasTag(config.ratingCardOverrideTagIds?.goldTagId)) return "gold";
-  if (hasTag(config.ratingCardOverrideTagIds?.silverTagId)) return "silver";
-  if (hasTag(config.ratingCardOverrideTagIds?.bronzeTagId)) return "bronze";
-  return undefined;
-}
-
-// CUSTOM: Attribute one final, mutually exclusive tier using the same
-// precedence as cards and the metallic filter. Source priority is deterministic
-// when multiple Royal Sapphire promotions apply.
-export function insightStatsFinalRatingTier(
-  entity: InsightStatsRatingEntity,
-  config: InsightStatsConfig,
-  entityType: "scene" | "performer",
-  scene?: InsightStatsScene
-): InsightStatsRatingOutcome | undefined {
-  if (
-    entityType === "scene" &&
-    hasRoyalSapphireSceneBonus(scene?.rating_scores)
-  ) {
-    return { tier: "royalSapphire", source: "ratingAdvisor" };
-  }
-  if (
-    entityType === "scene" &&
-    hasRoyalSapphireSceneMarker(
-      scene?.scene_markers,
-      config.roleTagIds?.goatTagId,
-      scene?.scene_marker_tag_ancestors
-    )
-  ) {
-    return { tier: "royalSapphire", source: "goatMarker" };
-  }
-  const overrideTier = configuredRatingOverrideTier(
-    entity.rating_tier_tags,
-    config
-  );
-  if (overrideTier) return { tier: overrideTier, source: "tagOverride" };
-  const thresholdTier = insightStatsRatingTier(
-    entity.rating100,
-    config.ratingCardThresholds,
-    entityType
-  );
-  return thresholdTier
-    ? { tier: thresholdTier, source: "threshold" }
-    : undefined;
-}
-
-function addRatingTierOutcome(
-  counts: InsightStatsRatingTierCounts,
-  outcome: InsightStatsRatingOutcome | undefined,
-  entity: "scenes" | "vatos",
-  rated: boolean,
-  id: string
-) {
-  const finalOutcome =
-    outcome ??
-    (rated ? ({ tier: "none", source: "threshold" } as const) : undefined);
-  if (!finalOutcome) return;
-  const tierCount = counts[finalOutcome.tier][entity];
-  tierCount.total += 1;
-  tierCount.ids.push(id);
-  if (rated) {
-    tierCount.ratedTotal += 1;
-    tierCount.ratedIds.push(id);
-  }
-  tierCount.sources[finalOutcome.source] += 1;
-  tierCount.sourceIds[finalOutcome.source].push(id);
-}
-
-export function calculateInsightStatsRatingTiers(
-  scenes: readonly InsightStatsScene[],
-  config: InsightStatsConfig
-): InsightStatsRatingTierCounts {
-  const counts = createInsightStatsRatingTierCounts();
-  const performers = new Map<string, InsightStatsScene["performers"][number]>();
-  scenes.forEach((scene) => {
-    addRatingTierOutcome(
-      counts,
-      insightStatsFinalRatingTier(scene, config, "scene", scene),
-      "scenes",
-      scene.rating100 !== null && scene.rating100 !== undefined,
-      scene.id
-    );
-    scene.performers.forEach((performer) => {
-      if (!performers.has(performer.id))
-        performers.set(performer.id, performer);
-    });
-  });
-  performers.forEach((performer) => {
-    addRatingTierOutcome(
-      counts,
-      insightStatsFinalRatingTier(performer, config, "performer"),
-      "vatos",
-      performer.rating100 !== null && performer.rating100 !== undefined,
-      performer.id
-    );
-  });
-  return counts;
-}
-
-export function calculateInsightStatsRatingTierPopulation(
-  scenes: readonly InsightStatsScene[]
-) {
-  return {
-    scenes: scenes.filter(
-      (scene) => scene.rating100 !== null && scene.rating100 !== undefined
-    ).length,
-    vatos: new Set(
-      scenes.flatMap((scene) =>
-        scene.performers
-          .filter(
-            (performer) =>
-              performer.rating100 !== null && performer.rating100 !== undefined
-          )
-          .map((performer) => performer.id)
-      )
-    ).size,
   };
 }
 
@@ -377,9 +157,6 @@ export async function calculateInsightStats(
 ): Promise<InsightStatsResult | undefined> {
   const result = createInsightStatsResult();
   result.scanned = scenes.length;
-  result.ratingTiers = calculateInsightStatsRatingTiers(scenes, config);
-  result.ratingTierPopulation =
-    calculateInsightStatsRatingTierPopulation(scenes);
   for (let index = 0; index < scenes.length; index += 1) {
     if (index % 25 === 0) {
       // Let newer threshold changes cancel obsolete work, even inside the worker.

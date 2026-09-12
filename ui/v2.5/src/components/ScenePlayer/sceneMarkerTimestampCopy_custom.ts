@@ -1,13 +1,14 @@
 export type SceneMarkerTimestampField =
   | "seconds"
   | "start_seconds"
-  | "end_seconds";
+  | "end_seconds"
+  | "range";
 
 export type SceneMarkerTimestampDestination =
   | "scene-marker-form"
   | "negative-marker-form";
 
-export type SceneMarkerTimestampBoundary = "start" | "end";
+export type SceneMarkerTimestampBoundary = "start" | "end" | "range";
 
 export type SceneMarkerTimestampSourceKind = "scene-marker" | "negative-marker";
 
@@ -22,6 +23,7 @@ export interface ISceneMarkerTimestampCopySelection
   boundary: SceneMarkerTimestampBoundary;
   markerId: string;
   seconds: number;
+  end_seconds?: number;
 }
 
 export interface ISceneMarkerTimestampSource {
@@ -115,6 +117,27 @@ export function resolveSceneMarkerTimestampCopySelection(
   marker: ISceneMarkerTimestampSource,
   boundary: SceneMarkerTimestampBoundary
 ): ISceneMarkerTimestampCopySelection | undefined {
+  if (boundary === "range") {
+    if (
+      request.field !== "range" ||
+      !marker.id ||
+      marker.end_seconds === null ||
+      marker.end_seconds === undefined ||
+      !Number.isFinite(marker.seconds) ||
+      !Number.isFinite(marker.end_seconds)
+    ) {
+      return undefined;
+    }
+
+    return {
+      ...request,
+      boundary,
+      markerId: marker.id,
+      seconds: marker.seconds,
+      end_seconds: marker.end_seconds,
+    };
+  }
+
   const seconds = getSceneMarkerTimestampOptions(marker).find(
     (option) => option.boundary === boundary
   )?.seconds;

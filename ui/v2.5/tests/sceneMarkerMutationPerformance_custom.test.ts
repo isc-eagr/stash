@@ -17,6 +17,13 @@ const negativePanelSource = readFileSync(
   ),
   "utf8"
 );
+const markerFormSource = readFileSync(
+  new URL(
+    "../src/components/Scenes/SceneDetails/SceneMarkerForm.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
 
 test("individual marker saves avoid the complete scene refetch hot path", () => {
   const markerHooks = stashServiceSource.slice(
@@ -46,4 +53,19 @@ test("negative marker panel relies on normalized cache updates", () => {
     /useSceneNegativeMarkerDestroy\(scene\.id\)/
   );
   assert.doesNotMatch(negativePanelSource, /onRefetch/);
+});
+
+test("multi-mutation marker splits suppress intermediate grouped refetches", () => {
+  const splitSave = markerFormSource.slice(
+    markerFormSource.indexOf("if (isInsertBetween && marker)"),
+    markerFormSource.indexOf(
+      '} else if (isNew && input.insert_mode === "negative-marker")'
+    )
+  );
+
+  assert.equal(
+    splitSave.match(/refetchQueries:\s*\[\]/g)?.length,
+    2,
+    "only the final source update should trigger the authoritative marker-group refresh"
+  );
 });

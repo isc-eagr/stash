@@ -124,7 +124,7 @@ SQLite and UI tests cover the 50% overlap boundary, exclusion behavior, role mat
 
 ### Overview
 
-The custom statistics experience is split into hidden, focused destinations instead of the retired `/customstats` page. Shared navigation links to `/scenestats`, `/vatostats`, `/ostats`, and `/insightstats`; Scene and Vato Stats can also be embedded in Studio detail tabs with a recursive child-studio scope.
+The custom statistics experience is split into hidden, focused destinations instead of the retired `/customstats` page. Shared navigation links to `/scenestats`, `/vatostats`, `/ostats`, and the `/stats/playground` hub; Scene and Vato Stats can also be embedded in Studio detail tabs with a recursive child-studio scope.
 
 ### Scene Stats (`/scenestats`)
 
@@ -135,7 +135,7 @@ The custom statistics experience is split into hidden, focused destinations inst
 
 ### Vato Stats (`/vatostats`)
 
-- Vato summary cards, top-three podiums, Rating Advisor averages, tier-by-ethnicity rows, and charts for ethnicity, scene age, rating, metallic rating, height, country, hair, eyes, circumcision, and penis size.
+- Vato summary cards, top-three podiums, Rating Advisor averages, and charts for ethnicity, scene age, rating, metallic rating, height, country, hair, eyes, circumcision, and penis size.
 - Studio scope and Include child studios apply to every aggregate and drilldown. Rolling-year O Count and performer-creation Rating use their documented date windows.
 - Solo-only and one-scene vatos are retained; unknown values appear as counters rather than zero-value bars.
 
@@ -144,10 +144,10 @@ The custom statistics experience is split into hidden, focused destinations inst
 - Hidden O-date timelines and drilldowns by year/month/day, activity type, marker tag, vato ethnicity/country/age, Studio, and scene effective release year.
 - Newest-first event timelines show associated marker tags, per-scene ordinal chips, scene/vato links, and optional exact O screenshots generated from video timestamps. Reliable-date filtering starts at 2024-03-08 for date charts only.
 
-### Insight Stats (`/insightstats`)
+### Insight Stats (Playground tab)
 
-- Scans the library in bounded pages and compares saved Scene Insight chips with temporary in-memory thresholds. Current/preview counts link to exact Scene or Vato ID snapshots.
-- Includes drilldowns for chip evidence and a separate Scene/Vato metallic-rating threshold playground. Threshold changes never persist; the scan is cached in IndexedDB for 12 hours and obsolete worker calculations are cancelled.
+- Scans the library in bounded pages and compares saved Scene Insight chips with temporary in-memory thresholds. Current/preview chip counts link to exact Scene ID snapshots, and chip-family drilldowns retain their evidence and combinations.
+- Insight Stats is the fourth `/stats/playground` tab rather than a standalone destination. Its threshold changes never persist; the scan is cached in IndexedDB for 12 hours and obsolete worker calculations are cancelled. The scene scan and cache are shared with the other Playground tabs, including the extra fields needed by their filters and tooltips.
 
 ### Implementation and schema
 
@@ -157,7 +157,7 @@ The custom statistics experience is split into hidden, focused destinations inst
 
 ### Tests
 
-Go and UI tests cover scope construction, interval merging, marker weighting, rolling-year eligibility, chart buckets/Unknown handling, Activity Matrix aggregation, O event ordering/navigation, worker cancellation/cache reuse, and exact Scene/Vato snapshot filters.
+Go and UI tests cover scope construction, interval merging, marker weighting, rolling-year eligibility, chart buckets/Unknown handling, Activity Matrix aggregation, O event ordering/navigation, chip-preview worker cancellation/cache reuse, Playground tab routing, and exact Scene/Vato snapshot filters.
 
 ---
 
@@ -174,6 +174,7 @@ Tag-based task tracking records daily completions and incoming work for scenes, 
 - History uses America/Mexico_City dates. The chart preserves zero-activity calendar days, shows completed/incoming bars and a seven-day average, and provides paginated daily activity and fixed-batch remaining-item links.
 - Paused trackers continue recording; archived trackers freeze activity and resume with a fresh baseline. Version checks reject stale edits, and restoring a deletion preserves baseline membership.
 - Each card has a browser-local Items-per-day planner with immediate finish-date calculation. Observed estimates require three complete days, use net progress, and exclude today's partial activity. The Overall Progress card has its own scenes-per-day plan.
+- Trackers can also persist an optional Goal per day. Active tracker cards show red/yellow/green/gold daily status icons for zero/below/met/exceeded progress, including the completed/goal count; completed history bars use the same colors. Paused, completed, archived, and goal-less trackers retain the original presentation.
 - Details shows completed, remaining, and percentage summary cards above the shared history chart. Fixed-batch completed counts use the current baseline.
 
 ### Key files and schema
@@ -181,12 +182,12 @@ Tag-based task tracking records daily completions and incoming work for scenes, 
 - `graphql/schema/types/task_progress_tracker_custom.graphql` and `schema_custom.graphql`
 - `internal/api/resolver_task_progress_tracker_custom.go`, `resolver_task_progress_history_custom.go`
 - `pkg/models/task_progress_tracker_custom.go`, `pkg/sqlite/task_progress_*_custom.go`, and entity-store hooks
-- `task_progress_tracker_history.up.sql`, `task_progress_overall_history.up.sql`
+- `task_progress_tracker_history.up.sql`, `task_progress_overall_history.up.sql`, `task_progress_tracker_goal_per_day.up.sql`
 - `ui/v2.5/src/components/TaskProgress*` and `ui/v2.5/graphql/{data,queries,mutations}/task_progress_tracker_custom.graphql`
 
 ### Tests
 
-Coverage includes bootstrap/retrofit, CRUD/order/versioning, fixed membership, lifecycle recording, tag and deletion events, Overall Progress transitions, history aggregation, date boundaries, forecasts, card/modal rendering, and visible-data rules.
+Coverage includes bootstrap/retrofit, CRUD/order/versioning, fixed membership, lifecycle recording, tag and deletion events, Overall Progress transitions, history aggregation, date boundaries, forecasts, daily-goal states, card/modal rendering, and visible-data rules.
 
 ---
 
@@ -335,7 +336,7 @@ Simple primary-only Sex/Oral/Solo markers, plus a configurable skip-tag list, ca
 
 ### Rating Advisor
 
-Scene and performer detail pages provide weighted Rating Advisor questionnaires whose raw answers are validated and persisted server-side. Recalculation derives canonical weighted values and updates `rating100`. Scene mode has standard, solo, and 4+-performer group rubrics; performers have their own rubric. GOAT elements support +5/+10/+15/+20 contributions, and a progressive O-count bonus is applied without making the O control editable. Cast/marker/O-history changes recalculate affected advisor ratings; mode changes reset incompatible rows while preserving manual ratings.
+Scene and performer detail pages provide weighted Rating Advisor questionnaires whose raw answers are validated and persisted server-side. Recalculation derives canonical weighted values and updates `rating100`. Scene mode has standard, solo, and 4+-performer group rubrics; performers have their own rubric. The group rubric uses Uneven at Energy / Coordination level 1, Good at level 2, and a +5 Attractive Bottom lineup bonus. GOAT elements support +5/+10/+15/+20 contributions, and a progressive O-count bonus is applied without making the O control editable. Cast/marker/O-history changes recalculate affected advisor ratings; mode changes reset incompatible rows while preserving manual ratings.
 
 Answers can be cleared, Reset Advisor removes advisor rows, and manual overall ratings relinquish advisor ownership. Legacy rows are normalized or removed by the provided repair scripts. Rating Criteria filters/sorts and Studio average criteria use the same rubric definitions.
 
@@ -361,21 +362,25 @@ Tests cover rubric scales and mode boundaries, GOAT values, progressive O bonuse
 
 ### Chronological marker panel
 
-Scene details provide a unified chronological Markers tab with Activity Type and Highlights lanes. Sections cover Oral, Sex, Solo, Feet, Orgasm, Facial, and Other Highlights; markers with the same activity and Top/Bottom configuration are grouped. Direct, secondary, overlap-inherited, and parent tags have distinct badge treatments, and a directed 50% overlap rule drives inherited tags. Scene-local tag/Top/Bottom searches, visible/full-scene selection, sticky toolbars, loop insertion, and marker-card hover context are built into the panel. The upstream grouped layout remains available through the Custom Settings `showOfficialSceneMarkerLayout` toggle.
+Scene details provide a unified chronological Markers tab with Activity Type and Highlights lanes. Sections cover Oral, Sex, Solo, Orgasm, Facial, and Other Highlights; markers with the same activity and Top/Bottom configuration are grouped. Direct, secondary, overlap-inherited, and parent tags have distinct badge treatments, and a directed 50% overlap rule drives inherited tags. Scene-local tag/Top/Bottom searches, visible/full-scene selection, sticky toolbars, loop insertion, and marker-card hover context are built into the panel. The upstream grouped layout remains available through the Custom Settings `showOfficialSceneMarkerLayout` toggle.
+
+At desktop widths (1200px and above), the Markers tab offers Sidebar / Below player placement. The optional full-width dock keeps the player size unchanged and places performer portraits beside the activity and highlight lanes. Switching placement preserves selections, filters, and edit drafts; narrower screens use the sidebar. Placement is saved locally in `stash.sceneMarkerPlacement` and defaults to Sidebar. This is a presentation-only change with no schema or backend configuration changes.
 
 ### Timing and editing actions
 
 - Start and end timestamps in scene markers are clickable and seek the player. Marker duration is shown in view and edit modes; the Skip tab shows unique negative-marker time with overlapping ranges merged and bounded to video duration.
 - Tag detail Scenes and the global Markers catalog show the summed duration of the active tag/marker result, honoring the Include Sub-Tag Content setting and ignoring open or backwards ranges.
-- Scene marker and negative-marker forms warn about gaps/overlaps of three seconds or less in their relevant lanes. One-millisecond gaps are treated as closed, and actions can adjust the current or adjacent marker (including a fix-both action).
+- Scene marker and negative-marker forms warn about gaps/overlaps of three seconds or less in their relevant lanes. Coverage in an unrelated lane does not suppress a lane-local gap warning. One-millisecond gaps are treated as closed, and actions can adjust the current or adjacent marker (including a fix-both action).
 - Marker forms support Duplicate, In-Between, and Save & Add Next Marker/Negative Marker actions. Adjacent drafts use a one-millisecond boundary, retain the appropriate marker setup, and validate finite non-negative ranges.
 - Player scrubber/timeline markers can focus the corresponding marker pill or group once, with latest-click-wins scrolling and a transient fuchsia focus ring. Marker timeline tags and hover cards reuse role, overlap, and Royal Sapphire semantics.
+- The marker edit form can split its marker around the exact full range of another bounded marker selected from the player scrubber, leaving that selected range as a gap. Marker mutations update the active scene cache immediately, deduplicate stale marker references, and defer grouped-list refreshes so multi-step splits do not race intermediate snapshots.
 - The scene page can hide the overview/header block so the active tab uses the full vertical space. The circular scene-page O control shares the playlist player's exact timestamp recording and fullscreen-safe confirmation.
 
 ### Key files and tests
 
 - `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkersChronologicalPanel.tsx`, `SceneMarkersPanel.tsx`, `SceneNegativeMarkersPanel.tsx`
 - `ui/v2.5/src/components/Scenes/SceneDetails/sceneMarkerChronology*_custom.ts`, `sceneMarkerGapWarning_custom.ts`, `sceneMarkerSequentialActions_custom.ts`
+- `ui/v2.5/src/components/Scenes/SceneDetails/SceneMarkerDock_custom.{tsx,scss}`, `sceneMarkerDockPlacement_custom.ts`; `ui/v2.5/tests/sceneMarkerDock_custom.test.ts` covers placement, persistence/storage failures, scroll-parent selection, and moving the panel without replacing its subtree.
 - `ui/v2.5/src/components/ScenePlayer/sceneMarkerTimeline*_custom.ts`, `scenePlayerORecord_custom.ts`
 - `pkg/scene/marker_query_custom.go`, `pkg/sqlite/scene_marker_tag_overlap_custom.go`
 
@@ -437,7 +442,32 @@ Implementation: `ui/v2.5/src/components/Tagger/scenes/{SceneSavePreview.tsx,scen
 
 ---
 
-## 20. Merge and maintenance guidance
+## 20. Scene Rating Playground
+
+The Stats navigation includes **Playground** at `/stats/playground`, with four tabs: **Scene Explorer**, **Scene Tiers**, **Vato Tiers**, and **Insight Stats**. Scene Explorer is a scene-discovery scatter graph with four quadrants. Select either axis from the scene Rating Advisor criteria or Scene Overall Rating, choose Standard, Solo, or Group, and adjust the dividing values. Scene types follow advisor mode rules (four-plus performers take group priority; single performers or solo-only activity use the solo rubric). Insight Stats retains its chip-threshold comparison and drilldowns here; it no longer hosts metallic-tier previews.
+
+Combined filters cover Scene Type (Solo, Oral, Sex), Vato Ethnicity, Vato Country, Vato Count, Metallic Rating, facial status, and the presence or absence of Rating Advisor bonuses and penalties. Scene Type uses the same configured activity markers and priority as Scene Stats (Sex, then Oral, then Solo), including descendant tags; the Rating Mode filter chooses the advisor rubric. Ordinary values within one filter use OR; separate filters and selected adjustments use AND. Metallic tiers respect configured thresholds, tag overrides, and Royal Sapphire bonuses/GOAT markers. Facial and Really Hot tags must occur on the same marker for a really hot facial.
+
+With **Spread points** enabled, up to three randomly selected scenes represent each shared coordinate, capped at 250 sampled scenes overall. **Shuffle scenes** draws fresh discoveries without reloading the library; the sample stays stable while hovering. Spread points defaults on and slightly offsets discrete advisor scores to soften the grid. Placement tries stable alternate offsets and omits dots that cannot maintain 14 pixels of separation, adapting to smaller screens. Shown and omitted counts describe the final layout; hovering or keyboard navigation reaches each displayed scene independently. Offsets stay inside the original quadrant and axis bounds and never change tooltip values, filtering, or overall-rating coordinates. Turn spreading off to restore exact positions and one scene per shared coordinate. Hover or pin a point for its thumbnail, title/link, studio, date, duration, cast, axis scores, and overall rating. Missing or invalid scores are excluded and counted separately; zero scores remain valid and ratings above 100 expand the axis. Library data loads in cancellable, bounded pages with progress and retryable errors.
+
+Scene data reuses Insight Stats' existing IndexedDB snapshot, 12-hour expiry, URL key, and paginated query. The common scan adds ethnicity, scene-preview details, and weighted rating adjustments; opening either page populates the same cache for both. Insight Stats retains its configuration-keyed calculation in that snapshot, and an older calculation cannot overwrite a newer scan. **Reload scenes** bypasses and replaces the shared snapshot. Older snapshots without the expanded fields are refreshed once, and the obsolete separate Playground database is retired. Expired, failed, or cancelled scans are never treated as fresh data, and unavailable browser storage falls back to normal loading. Filter additions, removals, and clearing immediately recompute and redraw a fresh sample without a network request; Playground does not cache filters or plotted results.
+
+**Scene Tiers** uses the shared scene scan to compare saved metallic tiers with a temporary Scene threshold draft. It starts with all rating modes and Scene Type grouping, with Standard/Solo/Group mode choices and the same combined scene filters as Scene Explorer. Studio grouping uses studio IDs to keep identically named studios separate. Filters select the saved/current cohort, so threshold edits only change its projected tier allocation. Five summary cards, row distributions, tier cells, and totals show saved current and recalculated projected counts/percentages; each value opens an exact current or projected Scene ID snapshot. Reloading scenes refreshes the shared scan, while changing filters, grouping, sorting, or draft thresholds recomputes locally.
+
+**Vato Tiers** replaces the tier-by-ethnicity table in Vato Stats (including studio dashboards). Ethnicity and Country multi-select filters combine with AND across fields and OR within each field; rows can be grouped by either dimension. Age is intentionally deferred. Five summary cards appear in order: Royal Sapphire, Gold, Silver, Bronze, and No Tier; each shows saved current and temporary projected counts/percentages, while its track reflects the projected distribution. The table presents the same current/projected comparison for every row, tier cell, and total. Current values link directly to `/performers` with the matching visible Metallic Rating, Ethnicity, and Country filters; projected values open exact in-memory Vato ID snapshots. Active filters remain part of every destination. Unknown and comma-separated Country/Ethnicity values are handled by the performer filter so drilldowns match the displayed counts, and country codes display as country names. The tab loads on first use and retains its filters when switching tabs. Bounded performer queries use the existing server metallic-rating filter, preserving configured thresholds and override-tag precedence, including vatos without scenes. No Tier includes only rated vatos below Bronze, never unrated vatos; no scene scan is required for tier data. Reload vatos refreshes its in-memory data independently from the scene cache. Errors and cancelled/incomplete scans never display partial totals.
+
+- Tier files: `ui/v2.5/src/components/Playground/{PlaygroundSceneTiers.tsx,sceneTiersData_custom.ts,PlaygroundVatoTiers.tsx,VatoTiers.scss,vatoTiersData_custom.ts,useVatoTiers_custom.ts,RatingTierThresholds.tsx}`; removed the old table and its auxiliary request from `ui/v2.5/src/components/VatoStats/VatoStats.tsx` and its styles from `VatoStats.scss`.
+- Tier tests: `ui/v2.5/tests/vatoTiers_custom.test.ts` covers combined filters, missing values, normalized countries, group/tier totals including No Tier, card order, direct filtered-list URLs, schema validation, pagination, changed-library and incomplete-response failures, cancellation, and rendered populated/loading/error/empty states. `pkg/sqlite/performer_ethnicity_filter_custom_test.go` covers visible Country/Ethnicity drilldown selection semantics, including unknown values.
+
+- Created: `ui/v2.5/src/components/Playground/{Playground.tsx,Playground.scss,PlaygroundChart.tsx,playgroundData_custom.ts,playgroundCatalog_custom.ts,playgroundChart_custom.ts,usePlaygroundScenes_custom.ts}` and `ui/v2.5/src/components/Shared/statsSceneData_custom.ts`.
+- Modified: `ui/v2.5/src/App.tsx`, `ui/v2.5/src/components/StatsLinks_custom.tsx`, and `ui/v2.5/src/components/statsPage_custom.scss` for the route and navigation; `ui/v2.5/src/components/InsightStats/{insightStatsCache_custom.ts,insightStatsQuery_custom.ts,insightStatsWorker_custom.ts}` for the shared scan.
+- Tests: `ui/v2.5/tests/playground_custom.test.ts` covers scene modes, combined filters and immediate filter updates, missing/zero scores, scales, metallic overrides, facial marker relationships, random coordinate sampling, and chart hit testing. `playgroundQuery_custom.test.ts` validates the shared request against the actual GraphQL schema and covers pagination, changing libraries, errors, and cancellation. `playgroundCache_custom.test.ts` covers shared-field compatibility, 12-hour expiry, old-snapshot replacement, manual refresh, installation isolation, storage failures, and cancellation. `insightStatsWorker_custom.test.ts` verifies reuse in both directions, shared refresh, legacy-cache cleanup, and protection against obsolete calculation writes.
+- GraphQL schema changes: none; uses existing scene, performer, marker, and rating score fields.
+- Configuration dependencies: existing `configuration.ui.roleTagIds`, `ratingCardThresholds`, and `ratingCardOverrideTagIds`. Facial filtering requires the Facial role tag; distinguishing really hot facials also requires the Really Hot role tag.
+
+---
+
+## 21. Merge and maintenance guidance
 
 When merging a newer upstream Stash release:
 

@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from "react";
+import { faExternalLinkAlt } from "@fortawesome/free-solid-svg-icons";
 import { Overlay, OverlayTrigger, Popover, Tooltip } from "react-bootstrap";
 import { useConfigurationContext } from "src/hooks/Config";
 import { PerformerPopoverContent } from "../Shared/PerformerPopoverButton";
+import { Icon } from "../Shared/Icon";
 import {
   getSceneCardInsightSets,
   type ISceneCardInsight,
@@ -33,7 +35,7 @@ interface ISceneCardInsightsProps {
 
 interface ISceneCardInsightChipProps
   extends React.HTMLAttributes<HTMLSpanElement> {
-  label: string;
+  label: React.ReactNode;
   tone: ISceneCardInsight["tone"];
   ariaLabel?: string;
   tabIndex?: number;
@@ -164,7 +166,18 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
           className={
             opensActivityMatrix ? "scene-card-insight-clickable" : undefined
           }
-          label={insight.label}
+          label={
+            <>
+              {insight.label}
+              {opensActivityMatrix && (
+                <Icon
+                  aria-hidden="true"
+                  className="scene-card-insight-modal-icon"
+                  icon={faExternalLinkAlt}
+                />
+              )}
+            </>
+          }
           onClick={
             opensActivityMatrix
               ? (event) => {

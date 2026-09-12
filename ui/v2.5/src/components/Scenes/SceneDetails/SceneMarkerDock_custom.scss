@@ -1,0 +1,107 @@
+/* CUSTOM: Optional full-width marker dock; player sizing stays upstream. */
+.scene-marker-dock-target {
+  flex: 0 0 100%;
+  max-width: 100%;
+  min-width: 0;
+  order: 14;
+  padding: 1rem 15px;
+
+  &:empty {
+    display: none;
+  }
+}
+
+.scene-marker-dock-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+
+  .btn-group {
+    margin-left: auto;
+  }
+}
+
+.scene-marker-dock-shortcut {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+
+  .btn {
+    font-size: 0.8rem;
+  }
+}
+
+.scene-marker-dock-below {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 0.25rem;
+  min-width: 0;
+
+  .scene-marker-dock-heading {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+    padding: 0.6rem 0.75rem;
+  }
+
+  .scene-marker-dock-content {
+    max-height: 70vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+
+    > form {
+      margin: 0 auto;
+      max-width: 70rem;
+      padding: 0.75rem 15px;
+    }
+  }
+
+  .scene-markers-panel {
+    .scene-marker-toolbar-actions {
+      display: flex;
+      flex-wrap: wrap;
+    }
+
+    .scene-marker-activity-config-card {
+      align-items: start;
+      column-gap: 1.25rem;
+      display: grid;
+      grid-template-columns: minmax(14rem, 24%) minmax(0, 1fr);
+      row-gap: 0.65rem;
+    }
+
+    .scene-marker-activity-config-header {
+      grid-column: 1 / -1;
+      grid-row: 1;
+    }
+
+    .scene-marker-activity-config-body {
+      display: contents;
+    }
+
+    .scene-marker-activity-config-performers {
+      grid-column: 1;
+      grid-row: 2 / span 2;
+    }
+
+    .scene-marker-activity-performer {
+      max-width: 6.5rem;
+      min-width: 6.5rem;
+    }
+
+    .scene-marker-activity-performer-image {
+      width: 6.5rem;
+    }
+
+    .scene-marker-activity-lane {
+      grid-column: 2;
+      grid-row: 2;
+    }
+
+    .scene-marker-highlight-lane {
+      grid-column: 2;
+      grid-row: 3;
+    }
+  }
+}

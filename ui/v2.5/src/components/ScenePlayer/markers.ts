@@ -86,6 +86,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     boundary?: SceneMarkerTimestampBoundary
   ) => void; // CUSTOM
   private timestampCopyMode = false; // CUSTOM
+  private timestampRangeCopyMode = false; // CUSTOM
 
   private _fallbackDuration: number = 0; // CUSTOM: used when player.duration() is 0 (preload=none, not started yet)
 
@@ -148,8 +149,9 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
 
   // CUSTOM: Show an exact-time picker while a marker form is waiting for a
   // timestamp copied from the player timeline.
-  setTimestampCopyMode(enabled: boolean) {
+  setTimestampCopyMode(enabled: boolean, rangeSelectionActive = false) {
     this.timestampCopyMode = enabled;
+    this.timestampRangeCopyMode = enabled && rangeSelectionActive;
     if (!enabled) this.hideTimestampCopyPicker(); // CUSTOM
   }
 
@@ -295,42 +297,83 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     rangeValue.className = "scene-marker-timestamp-picker-range-value";
     rangeValue.textContent = `${startTimestamp} – ${endTimestamp}`;
     range.appendChild(rangeValue);
-    getSceneMarkerTimestampOptions(timestampSource).forEach((option, index) => {
-      if (index > 0) {
-        const divider = document.createElement("span");
-        divider.className = "scene-marker-timestamp-picker-range-divider";
-        divider.setAttribute("aria-hidden", "true");
-        divider.textContent = "\u2013";
-        range.appendChild(divider);
+    if (this.timestampRangeCopyMode) {
+      if (
+        timestampSource.end_seconds !== null &&
+        timestampSource.end_seconds !== undefined
+      ) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className =
+          "scene-marker-timestamp-picker-chip scene-marker-timestamp-picker-chip-range";
+        button.title = "Use full marker range";
+        button.setAttribute(
+          "aria-label",
+          `Use full marker range ${startTimestamp} through ${endTimestamp}`
+        );
+        button.textContent = "Use full range";
+        button.addEventListener("pointerdown", (event) =>
+          event.stopPropagation()
+        );
+        button.addEventListener("mousedown", (event) =>
+          event.stopPropagation()
+        );
+        button.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          this.player.currentTime(timestampSource.seconds);
+          this.onMarkerClick?.(marker, timestampSource.seconds, "range");
+          this.hideTimestampCopyPicker();
+        });
+        range.appendChild(button);
+      } else {
+        const unavailable = document.createElement("span");
+        unavailable.textContent = "This marker has no end time";
+        range.appendChild(unavailable);
       }
+    } else {
+      getSceneMarkerTimestampOptions(timestampSource).forEach(
+        (option, index) => {
+          if (index > 0) {
+            const divider = document.createElement("span");
+            divider.className = "scene-marker-timestamp-picker-range-divider";
+            divider.setAttribute("aria-hidden", "true");
+            divider.textContent = "\u2013";
+            range.appendChild(divider);
+          }
 
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = `scene-marker-timestamp-picker-chip scene-marker-timestamp-picker-chip-${option.boundary}`;
-      button.title = `Copy marker ${option.label.toLowerCase()} time`;
-      button.setAttribute(
-        "aria-label",
-        `Use marker ${option.label.toLowerCase()} time ${TextUtils.secondsToTimestamp(
-          option.seconds,
-          true
-        )}`
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = `scene-marker-timestamp-picker-chip scene-marker-timestamp-picker-chip-${option.boundary}`;
+          button.title = `Copy marker ${option.label.toLowerCase()} time`;
+          button.setAttribute(
+            "aria-label",
+            `Use marker ${option.label.toLowerCase()} time ${TextUtils.secondsToTimestamp(
+              option.seconds,
+              true
+            )}`
+          );
+          button.textContent = TextUtils.secondsToTimestamp(
+            option.seconds,
+            true
+          );
+          button.addEventListener("pointerdown", (event) => {
+            event.stopPropagation();
+          });
+          button.addEventListener("mousedown", (event) => {
+            event.stopPropagation();
+          });
+          button.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            this.player.currentTime(option.seconds);
+            this.onMarkerClick?.(marker, option.seconds, option.boundary);
+            this.hideTimestampCopyPicker();
+          });
+          range.appendChild(button);
+        }
       );
-      button.textContent = TextUtils.secondsToTimestamp(option.seconds, true);
-      button.addEventListener("pointerdown", (event) => {
-        event.stopPropagation();
-      });
-      button.addEventListener("mousedown", (event) => {
-        event.stopPropagation();
-      });
-      button.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        this.player.currentTime(option.seconds);
-        this.onMarkerClick?.(marker, option.seconds, option.boundary);
-        this.hideTimestampCopyPicker();
-      });
-      range.appendChild(button);
-    });
+    }
     picker.appendChild(range);
 
     picker.style.visibility = "hidden";

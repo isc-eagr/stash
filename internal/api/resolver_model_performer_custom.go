@@ -12,11 +12,6 @@ import (
 	"github.com/stashapp/stash/pkg/scene"
 )
 
-func (r *performerResolver) SceneTags(ctx context.Context, obj *models.Performer, sceneID string) (ret []*models.Tag, err error) {
-	// DEPRECATED: performer_scene_tags has been removed. Return empty array for backward compatibility.
-	return nil, nil
-}
-
 // SceneMarkerRoles returns the roles a performer has in a specific scene's markers
 func (r *performerResolver) SceneMarkerRoles(ctx context.Context, obj *models.Performer, sceneID string) (ret []string, err error) {
 	// convert sceneID to int

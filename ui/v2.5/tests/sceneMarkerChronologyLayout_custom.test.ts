@@ -74,7 +74,7 @@ const allMarkers = [
   unmatchedHighlight,
 ];
 const highlightGroups = groupChronologicalSceneMarkerHighlights(
-  [sharedHighlight, unmatchedHighlight],
+  [feetActivity, sharedHighlight, unmatchedHighlight],
   allMarkers
 );
 
@@ -94,11 +94,8 @@ assert.deepEqual(
       highlightGroup.markers.map((m) => m.id)
     ),
   ]),
-  [
-    ["oral|top-a|bottom-b", [], ["highlight"]],
-    ["feet|top-a|", ["feet-activity"], []],
-  ],
-  "overlap-only highlights remain in Oral, while Feet excludes them and filtered-out activity pills stay hidden"
+  [["oral|top-a|bottom-b", [], ["feet-activity", "highlight"]]],
+  "Feet highlights join their overlapping activity group instead of creating a Feet section"
 );
 
 assert.deepEqual(
@@ -198,9 +195,16 @@ assert.deepEqual(
     ),
   ]),
   [
-    ["feet", ["direct-feet-highlight"]],
     ["orgasm", ["direct-orgasm-highlight"]],
     ["facial", ["direct-facial-highlight"]],
   ],
-  "Feet, Orgasm, and Facial sections exclude highlights that inherit their tag only through overlap"
+  "Orgasm and Facial sections exclude highlights that inherit their tag only through overlap"
+);
+
+assert.deepEqual(
+  specialSectionLayout.fallbackHighlightGroups.flatMap((highlightGroup) =>
+    highlightGroup.markers.map((marker) => marker.id)
+  ),
+  ["direct-feet-highlight", "overlap-only-highlight"],
+  "Feet and other non-matching highlights remain editable in Other Highlights"
 );

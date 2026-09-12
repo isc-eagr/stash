@@ -73,6 +73,11 @@ export const TaskProgressTrackerModal: React.FC<IProps> = ({
               baselineCount: day.baseline_count ?? undefined,
             }))}
             today={progressToday()}
+            dailyGoal={
+              tracker.status === "ACTIVE"
+                ? tracker.goal_per_day ?? undefined
+                : undefined
+            }
             onSelectDay={(date) => onDetails({ tracker, date })}
           />
           <div className="progress-tracker-modal-items">

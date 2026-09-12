@@ -321,13 +321,16 @@ function activityCategoryForMarker(
   marker: SceneCardInsightMarker,
   roleTagIds: IUIConfig["roleTagIds"]
 ): ActivityCategory | undefined {
-  if (tagMatchesConfiguredTag(marker.primary_tag, roleTagIds?.sexTagId)) {
+  // Activity ranges are explicit authoring, not a family inference. A Sex,
+  // Oral, or Solo descendant is its own outstanding activity and must not
+  // establish a broad activity-type range.
+  if (marker.primary_tag.id === roleTagIds?.sexTagId) {
     return "sex";
   }
-  if (tagMatchesConfiguredTag(marker.primary_tag, roleTagIds?.oralTagId)) {
+  if (marker.primary_tag.id === roleTagIds?.oralTagId) {
     return "oral";
   }
-  if (tagMatchesConfiguredTag(marker.primary_tag, roleTagIds?.soloTagId)) {
+  if (marker.primary_tag.id === roleTagIds?.soloTagId) {
     return "solo";
   }
   return undefined;
@@ -354,7 +357,7 @@ function tagIsActivity(
     roleTagIds?.sexTagId,
     roleTagIds?.oralTagId,
     roleTagIds?.soloTagId,
-  ].some((tagID) => tagMatchesConfiguredTag(tag, tagID));
+  ].some((tagID) => tag.id === tagID);
 }
 
 function tagIsQualifier(
@@ -951,8 +954,14 @@ function getLeaningCandidate(
   if (
     sexDuration <= 0 ||
     oralDuration <= 0 ||
-    !hasMinimumRuleEvidence(activityMarkersFor("sex"), sceneDuration) ||
-    !hasMinimumRuleEvidence(activityMarkersFor("oral"), sceneDuration)
+    // CUSTOM: A "minimal" minority activity may intentionally cover less than
+    // the normal whole-scene evidence floor. Require the combined sex/oral
+    // coverage to establish the scene classification instead of rejecting the
+    // minority activity before its configured leaning band can be applied.
+    !hasMinimumRuleEvidence(
+      [...activityMarkersFor("sex"), ...activityMarkersFor("oral")],
+      sceneDuration
+    )
   ) {
     return [];
   }

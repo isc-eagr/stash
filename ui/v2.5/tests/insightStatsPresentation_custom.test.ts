@@ -2,6 +2,15 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+const statsLinks = readFileSync(
+  new URL("../src/components/StatsLinks_custom.tsx", import.meta.url),
+  "utf8"
+);
+const playground = readFileSync(
+  new URL("../src/components/Playground/Playground.tsx", import.meta.url),
+  "utf8"
+);
 const component = readFileSync(
   new URL("../src/components/InsightStats/InsightStats.tsx", import.meta.url),
   "utf8"
@@ -24,82 +33,61 @@ const insightThresholdControl = readFileSync(
   ),
   "utf8"
 );
-const ratingThresholdControl = readFileSync(
+const sceneFilters = readFileSync(
   new URL(
-    "../src/components/InsightStats/RatingThresholdControl.tsx",
+    "../src/components/Playground/PlaygroundSceneFilters.tsx",
     import.meta.url
   ),
   "utf8"
 );
+const sceneTiers = readFileSync(
+  new URL(
+    "../src/components/Playground/PlaygroundSceneTiers.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
+const statsPageStyles = readFileSync(
+  new URL("../src/components/statsPage_custom.scss", import.meta.url),
+  "utf8"
+);
 
-test("rating preview identifies mutable columns and rated percentages", () => {
-  assert.match(component, /label: "Numeric rating", previewChanges: true/);
-  assert.match(component, /label: "GOAT marker", previewChanges: false/);
-  assert.match(component, /label: "Tag override", previewChanges: false/);
-  assert.match(component, /label: "Advisor Sapphire bonus"/);
-  assert.match(component, /Current Percentage/);
-  assert.match(component, /Projected Percentage/);
-  assert.match(component, /label: "No Metallic Tier"/);
-  assert.doesNotMatch(component, /→/);
+test("Insight Stats is the fourth Playground tab, not a standalone route or stats link", () => {
+  assert.match(playground, /<Tab eventKey="scenes" title="Scene Explorer">/);
+  assert.match(playground, /<Tab eventKey="scene-tiers" title="Scene Tiers">/);
+  assert.match(playground, /<Tab eventKey="vatos" title="Vato Tiers">/);
+  assert.match(playground, /<Tab eventKey="insights" title="Insight Stats">/);
+  assert.match(playground, /import \{ InsightStats \}/);
+  assert.doesNotMatch(app, /insightstats|InsightStats/);
+  assert.doesNotMatch(statsLinks, /Insight Stats|\/insightstats/);
 });
 
-test("chip and rating previews expose separate spinner states", () => {
-  assert.match(component, /updatingRatings/);
-  assert.match(component, /Updating tier preview…/);
+test("chip preview exposes a single pending state", () => {
   assert.match(component, /updatingChips/);
   assert.match(component, /Updating chip preview…/);
   assert.match(component, /<Spinner animation="border" size="sm"/);
-  assert.match(hook, /updatingChips: updatingPreview\.chips/);
-  assert.match(hook, /updatingRatings: updatingPreview\.ratings/);
+  assert.match(hook, /updatingChips: updatingPreview/);
+  assert.doesNotMatch(component, /updatingRatings|tier preview/);
+  assert.doesNotMatch(hook, /updatingRatings|updatingPreview\.ratings/);
 });
 
-test("rating preview uses readable component and table sizing", () => {
-  assert.ok(styles.includes(".insight-stats-rating-tiers"));
-  assert.ok(styles.includes(".insight-stats-rating-tier-table"));
-  assert.ok(styles.includes("font-size: 1rem;"));
-});
-
-test("threshold controls use numeric inputs without sliders", () => {
+test("chip coverage keeps its temporary numeric thresholds without a rating-tier control", () => {
   assert.match(insightThresholdControl, /type="number"/);
-  assert.match(ratingThresholdControl, /type="number"/);
   assert.doesNotMatch(insightThresholdControl, /type="range"|slider/);
-  assert.doesNotMatch(ratingThresholdControl, /type="range"|slider/);
-  assert.match(component, /insight-stats-rating-thresholds/);
-  assert.match(styles, /grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
-  assert.doesNotMatch(styles, /input\[type="range"\]|insight-stats-sliders/);
+  assert.match(component, /insight-stats-threshold-grid/);
+  assert.match(component, /aria-label="Chip coverage"/);
+  assert.match(component, /Current vs\. preview combinations/);
+  assert.doesNotMatch(component, /RatingTierTable|rating-tier|Numeric Rating/);
+  assert.doesNotMatch(styles, /insight-stats-rating|rating-tier/);
 });
 
-test("scene and vato tiers render in separate focused tables", () => {
-  assert.ok(component.includes("insight-stats-rating-tier-panels"));
-  assert.ok(component.includes("RatingTierTable"));
-  assert.doesNotMatch(component, /rowSpan|colSpan/);
-});
-
-test("tiers descend and actual values provide exact entity drilldowns", () => {
-  assert.ok(
-    component.indexOf('tier: "royalSapphire"') <
-      component.indexOf('tier: "gold"')
-  );
-  assert.ok(
-    component.indexOf('tier: "gold"') < component.indexOf('tier: "silver"')
-  );
-  assert.ok(
-    component.indexOf('tier: "silver"') < component.indexOf('tier: "bronze"')
-  );
-  assert.ok(
-    component.indexOf('tier: "bronze"') < component.indexOf('tier: "none"')
-  );
-  assert.match(component, /openInsightEntityLink/);
-  assert.match(component, /sourceIds\[source\]/);
-  assert.match(component, /ratedIds/);
-  assert.match(component, />Current Count<\/th>/);
-  assert.match(component, />Projected Count<\/th>/);
-  assert.match(component, />Current Percentage<\/th>/);
-  assert.match(component, />Projected Percentage<\/th>/);
-  assert.match(component, />Numeric Rating<\/th>/);
-  assert.match(component, /insight-stats-rating-tier-projection-increase/);
-  assert.match(component, /insight-stats-rating-tier-projection-decrease/);
-  assert.match(styles, /insight-stats-rating-tier-projection-increase/);
-  assert.match(styles, /insight-stats-rating-tier-projection-decrease/);
-  assert.doesNotMatch(component, /Actual count|Projected count/);
+test("tier filters keep rating mode together and use directional projection colors", () => {
+  assert.match(sceneTiers, /<PlaygroundSceneFilters[\s\S]*showMode/);
+  assert.match(sceneFilters, /<Form\.Label>Rating Mode<\/Form\.Label>/);
+  assert.doesNotMatch(sceneFilters, /Any selected value/);
+  assert.match(component, /insight-stats-changed increase/);
+  assert.match(component, /insight-stats-changed decrease/);
+  assert.match(styles, /&\.increase/);
+  assert.match(styles, /&\.decrease/);
+  assert.match(statsPageStyles, /grid-template-columns: repeat\(4/);
 });

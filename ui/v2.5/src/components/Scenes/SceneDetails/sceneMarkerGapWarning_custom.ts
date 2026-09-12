@@ -84,8 +84,6 @@ type SceneMarkerGapRange = {
   sourceOrder: number;
 };
 
-type SceneMarkerGapMarkerKind = "activity" | "highlight" | "negative";
-
 const maxGapSeconds = 3;
 const defaultMarkerDurationSeconds = 20;
 const markerGapCloseOffsetSeconds = 0.001;
@@ -98,50 +96,6 @@ function tagMatches(tag: SceneMarkerGapTag | null | undefined, tagId: string) {
   return (
     tag?.id === tagId || tag?.parents?.some((parent) => parent.id === tagId)
   );
-}
-
-function markerHasActivityTag(
-  marker: SceneMarkerGapSceneMarker,
-  activityTagIds: string[]
-) {
-  return activityTagIds.some((tagId) => tagMatches(marker.primary_tag, tagId));
-}
-
-function draftHasActivityTag(
-  draft: SceneMarkerGapDraft,
-  activityTagIds: string[]
-) {
-  return (
-    activityTagIds.some((tagId) => draft.primary_tag_id === tagId) ||
-    activityTagIds.some((tagId) => tagMatches(draft.primary_tag, tagId))
-  );
-}
-
-function draftHasSceneMarkerTagFields(draft: SceneMarkerGapDraft) {
-  return (
-    draft.primary_tag_id !== undefined ||
-    draft.tag_ids !== undefined ||
-    draft.primary_tag !== undefined ||
-    draft.tags !== undefined
-  );
-}
-
-function draftMarkerKind(
-  draft: SceneMarkerGapDraft,
-  activityTagIds: string[]
-): SceneMarkerGapMarkerKind {
-  if (!draftHasSceneMarkerTagFields(draft)) return "negative";
-
-  return draftHasActivityTag(draft, activityTagIds) ? "activity" : "highlight";
-}
-
-function markerKind(
-  marker: SceneMarkerGapSceneMarker,
-  activityTagIds: string[]
-): SceneMarkerGapMarkerKind {
-  return markerHasActivityTag(marker, activityTagIds)
-    ? "activity"
-    : "highlight";
 }
 
 function isSmallGap(gapSeconds: number) {
@@ -166,17 +120,6 @@ function markerType(marker: SceneMarkerGapSceneMarker) {
 
 function negativeMarkerType(marker: SceneMarkerGapNegativeMarker) {
   return marker.name ? `Negative marker: ${marker.name}` : "Negative marker";
-}
-
-function activityTypeTagIds(roleTagIds: SceneMarkerGapRoleTagIds) {
-  return [
-    roleTagIds.sexTagId,
-    roleTagIds.oralTagId,
-    roleTagIds.soloTagId,
-    roleTagIds.feetTagId,
-    roleTagIds.orgasmTagId,
-    roleTagIds.facialTagId,
-  ].filter((tagId): tagId is string => !!tagId);
 }
 
 function roleRequiredTagIds(roleTagIds: SceneMarkerGapRoleTagIds) {
@@ -267,7 +210,6 @@ function negativeMarkerRange(
 type SceneMarkerGapRangeIndex = {
   byStart: SceneMarkerGapRange[];
   byEnd: SceneMarkerGapRange[];
-  maxEndRangeByStartIndex: SceneMarkerGapRange[];
 };
 
 export type SceneMarkerWarningCalculator = {
@@ -294,18 +236,6 @@ function createRangeIndex(
     byStart,
     byEnd: [...ranges].sort(
       (a, b) => a.end - b.end || b.sourceOrder - a.sourceOrder
-    ),
-    maxEndRangeByStartIndex: byStart.reduce<SceneMarkerGapRange[]>(
-      (maximums, range) => {
-        const previousMaximum = maximums[maximums.length - 1];
-        maximums.push(
-          !previousMaximum || range.end > previousMaximum.end
-            ? range
-            : previousMaximum
-        );
-        return maximums;
-      },
-      []
     ),
   };
 }
@@ -344,32 +274,6 @@ function firstIndexAtLeast(
   return low;
 }
 
-function isGapCoveredByIndex(
-  gapStartSeconds: number,
-  gapEndSeconds: number,
-  allRanges: SceneMarkerGapRangeIndex,
-  excludedMarkerId?: string
-) {
-  const endIndex = firstIndexAfter(
-    allRanges.byStart,
-    gapStartSeconds,
-    (range) => range.start
-  );
-
-  const maximumRange = allRanges.maxEndRangeByStartIndex[endIndex - 1];
-  if (!maximumRange || maximumRange.end < gapEndSeconds) return false;
-  if (maximumRange.markerId !== excludedMarkerId) return true;
-
-  // ID spaces can overlap between regular and negative markers. The fallback
-  // preserves the legacy behavior of excluding every range with the draft ID.
-  return allRanges.byStart
-    .slice(0, endIndex)
-    .some(
-      (range) =>
-        range.markerId !== excludedMarkerId && range.end >= gapEndSeconds
-    );
-}
-
 function stripGapWarningDetail(
   warning: SceneMarkerGapWarningDetail
 ): SceneMarkerGapWarning {
@@ -384,10 +288,7 @@ function stripGapWarningDetail(
 
 function findPreparedSceneMarkerGapWarningDetails(
   draft: SceneMarkerGapDraft,
-  activityTagIds: string[],
-  allRanges: SceneMarkerGapRangeIndex,
-  activityRanges: SceneMarkerGapRangeIndex,
-  highlightRanges: SceneMarkerGapRangeIndex
+  allRanges: SceneMarkerGapRangeIndex
 ):
   | {
       previous?: SceneMarkerGapWarningDetail;
@@ -405,13 +306,9 @@ function findPreparedSceneMarkerGapWarningDetails(
     return undefined;
   }
 
-  const draftKind = draftMarkerKind(draft, activityTagIds);
-  const ranges =
-    draftKind === "negative"
-      ? allRanges
-      : draftKind === "activity"
-      ? activityRanges
-      : highlightRanges;
+  // CUSTOM: gaps and overlaps are timeline issues, so every marker type is
+  // relevant regardless of its primary tag or activity classification.
+  const ranges = allRanges;
   let previousOverlapRange:
     | { range: SceneMarkerGapRange; overlapSeconds: number }
     | undefined;
@@ -526,13 +423,7 @@ function findPreparedSceneMarkerGapWarningDetails(
   } else if (
     !previousOverlapRange &&
     previousGapRange &&
-    isSmallGap(previousGapSeconds) &&
-    !isGapCoveredByIndex(
-      previousGapRange.end,
-      draft.seconds,
-      allRanges,
-      draft.id
-    )
+    isSmallGap(previousGapSeconds)
   ) {
     warnings.previous = {
       issueType: "gap",
@@ -565,17 +456,7 @@ function findPreparedSceneMarkerGapWarningDetails(
       adjacentMarkerId: nextOverlapRange.range.markerId,
       adjacentMarkerKind: nextOverlapRange.range.markerKind,
     };
-  } else if (
-    !nextOverlapRange &&
-    nextGapRange &&
-    isSmallGap(nextGapSeconds) &&
-    !isGapCoveredByIndex(
-      draftEndSeconds,
-      nextGapRange.start,
-      allRanges,
-      draft.id
-    )
-  ) {
+  } else if (!nextOverlapRange && nextGapRange && isSmallGap(nextGapSeconds)) {
     warnings.next = {
       issueType: "gap",
       issueSeconds: roundToMilliseconds(nextGapSeconds),
@@ -606,7 +487,6 @@ export function prepareSceneMarkerWarnings({
   negativeMarkers: SceneMarkerGapNegativeMarker[];
   roleTagIds: SceneMarkerGapRoleTagIds;
 }): SceneMarkerWarningCalculator {
-  const activityTagIds = activityTypeTagIds(roleTagIds);
   const sceneRanges = sceneMarkers
     .map((marker, index) => markerRange(marker, index))
     .filter((range): range is SceneMarkerGapRange => !!range);
@@ -616,31 +496,9 @@ export function prepareSceneMarkerWarnings({
     )
     .filter((range): range is SceneMarkerGapRange => !!range);
   const allRanges = createRangeIndex([...sceneRanges, ...negativeRanges]);
-  const activityRanges = createRangeIndex([
-    ...sceneRanges.filter(
-      (range) =>
-        markerKind(sceneMarkers[range.sourceOrder], activityTagIds) ===
-        "activity"
-    ),
-    ...negativeRanges,
-  ]);
-  const highlightRanges = createRangeIndex([
-    ...sceneRanges.filter(
-      (range) =>
-        markerKind(sceneMarkers[range.sourceOrder], activityTagIds) ===
-        "highlight"
-    ),
-    ...negativeRanges,
-  ]);
 
   const findGapWarningDetails = (draft: SceneMarkerGapDraft) =>
-    findPreparedSceneMarkerGapWarningDetails(
-      draft,
-      activityTagIds,
-      allRanges,
-      activityRanges,
-      highlightRanges
-    );
+    findPreparedSceneMarkerGapWarningDetails(draft, allRanges);
   const findGapWarnings = (draft: SceneMarkerGapDraft) => {
     const details = findGapWarningDetails(draft);
     if (!details) return undefined;

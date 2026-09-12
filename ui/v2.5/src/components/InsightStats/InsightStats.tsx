@@ -7,18 +7,8 @@ import {
   Spinner,
   Tooltip,
 } from "react-bootstrap";
-import { Helmet } from "react-helmet";
-import {
-  openInsightEntityLink,
-  openInsightSceneLink,
-} from "src/utils/insightSceneLinks_custom";
-import {
-  getRatingCardThresholdsForEntity,
-  type IRatingCardThresholdConfig,
-} from "src/utils/ratingCardStyles_custom";
+import { openInsightSceneLink } from "src/utils/insightSceneLinks_custom";
 import { useConfigurationContext } from "src/hooks/Config";
-import { useTitleProps } from "src/hooks/title";
-import { StatsPage } from "../StatsPage_custom";
 import { normalizeSceneCardInsightThresholds } from "../Scenes/sceneCardInsightsData_custom";
 import { SceneCardInsightChip } from "../Scenes/SceneCardInsights_custom";
 import type {
@@ -36,55 +26,10 @@ import {
   insightStatsPercentage,
   type InsightStatsConfig,
   type InsightStatsMode,
-  type InsightStatsRatingTier,
-  type InsightStatsRatingTierCounts,
-  type InsightStatsRatingTierSource,
 } from "./insightStatsData_custom";
 import { useInsightStats } from "./useInsightStats_custom";
 import { InsightThresholdControl } from "./InsightThresholdControl";
-import {
-  RatingThresholdControl,
-  type RatingThresholdKey,
-} from "./RatingThresholdControl";
 import "./InsightStats.scss";
-
-const ratingTierLabels: Array<{
-  tier: InsightStatsRatingTier;
-  label: string;
-  className: string;
-}> = [
-  {
-    tier: "royalSapphire",
-    label: "Royal Sapphire",
-    className: "royal-sapphire",
-  },
-  { tier: "gold", label: "Gold", className: "gold" },
-  { tier: "silver", label: "Silver", className: "silver" },
-  { tier: "bronze", label: "Bronze", className: "bronze" },
-  { tier: "none", label: "No Metallic Tier", className: "none" },
-];
-
-const ratingTierSources: Array<{
-  source: InsightStatsRatingTierSource;
-  label: string;
-  previewChanges: boolean;
-}> = [
-  { source: "threshold", label: "Numeric rating", previewChanges: true },
-  { source: "goatMarker", label: "GOAT marker", previewChanges: false },
-  { source: "tagOverride", label: "Tag override", previewChanges: false },
-  {
-    source: "ratingAdvisor",
-    label: "Advisor Sapphire bonus",
-    previewChanges: false,
-  },
-];
-
-const ratingThresholdKeys: RatingThresholdKey[] = [
-  "bronze",
-  "silver",
-  "gold",
-  "royalSapphire",
-];
 
 function PreviewUpdateStatus({ label }: { label: string }) {
   return (
@@ -99,197 +44,6 @@ function PreviewUpdateStatus({ label }: { label: string }) {
   );
 }
 
-function RatingTierActualLink({
-  count,
-  display,
-  ids,
-  entity,
-  label,
-}: {
-  count: number;
-  display?: string;
-  ids: string[];
-  entity: "scenes" | "vatos";
-  label: string;
-}) {
-  const [error, setError] = useState<string>();
-  if (count === 0) {
-    return (
-      <span className="insight-stats-rating-tier-count">{display ?? 0}</span>
-    );
-  }
-  return (
-    <span className="insight-stats-rating-tier-count">
-      <Button
-        className="insight-stats-rating-tier-link p-0"
-        variant="link"
-        title={`View matching ${entity}`}
-        onClick={() => {
-          try {
-            if (
-              !openInsightEntityLink(
-                entity === "scenes" ? "scene" : "performer",
-                label,
-                ids
-              )
-            ) {
-              setError("Pop-up blocked");
-            }
-          } catch {
-            setError("Unable to create link");
-          }
-        }}
-      >
-        {display ?? count.toLocaleString()}
-      </Button>
-      {error && <small role="alert">{error}</small>}
-    </span>
-  );
-}
-
-function RatingTierTable({
-  title,
-  entity,
-  current,
-  preview,
-  population,
-}: {
-  title: string;
-  entity: "scenes" | "vatos";
-  current: InsightStatsRatingTierCounts;
-  preview: InsightStatsRatingTierCounts;
-  population: number;
-}) {
-  const sources =
-    entity === "scenes"
-      ? ratingTierSources
-      : ratingTierSources.filter(
-          ({ source }) => source === "threshold" || source === "tagOverride"
-        );
-  const staticSources = sources.filter(({ source }) => source !== "threshold");
-  return (
-    <section className="insight-stats-rating-tier-table-section">
-      <h3>
-        {title} <small>{population.toLocaleString()} rated</small>
-      </h3>
-      <div className="table-responsive">
-        <table
-          className="table insight-stats-rating-tier-table"
-          aria-label={`${title} metallic rating tiers`}
-        >
-          <thead>
-            <tr>
-              <th scope="col">Tier</th>
-              <th scope="col">Current Count</th>
-              <th scope="col">Projected Count</th>
-              <th scope="col">Current Percentage</th>
-              <th scope="col">Projected Percentage</th>
-              <th scope="col">Numeric Rating</th>
-              {staticSources.map(({ source, label }) => (
-                <th scope="col" key={source}>
-                  {label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {ratingTierLabels.map(({ tier, label, className }) => {
-              const currentTier = current[tier][entity];
-              const previewTier = preview[tier][entity];
-              const currentPercentage = population
-                ? (currentTier.ratedTotal / population) * 100
-                : 0;
-              const previewPercentage = population
-                ? (previewTier.ratedTotal / population) * 100
-                : 0;
-              const projectionClass = (
-                currentValue: number,
-                projectedValue: number
-              ) =>
-                projectedValue > currentValue
-                  ? " insight-stats-rating-tier-projection-increase"
-                  : projectedValue < currentValue
-                  ? " insight-stats-rating-tier-projection-decrease"
-                  : "";
-              return (
-                <tr
-                  className={`insight-stats-rating-tier-${className}`}
-                  key={tier}
-                >
-                  <th scope="row">{label}</th>
-                  <td>
-                    <strong>
-                      <RatingTierActualLink
-                        count={currentTier.total}
-                        ids={currentTier.ids}
-                        entity={entity}
-                        label={`${title} · ${label} · Total`}
-                      />
-                    </strong>
-                  </td>
-                  <td>
-                    <strong
-                      className={`insight-stats-rating-tier-count${projectionClass(
-                        currentTier.total,
-                        previewTier.total
-                      )}`}
-                    >
-                      {previewTier.total.toLocaleString()}
-                    </strong>
-                  </td>
-                  <td>
-                    <RatingTierActualLink
-                      count={currentTier.ratedTotal}
-                      display={`${currentPercentage.toFixed(1)}%`}
-                      ids={currentTier.ratedIds}
-                      entity={entity}
-                      label={`${title} · ${label} · Rated total`}
-                    />
-                  </td>
-                  <td>
-                    <span
-                      className={`insight-stats-rating-tier-count${projectionClass(
-                        currentTier.ratedTotal,
-                        previewTier.ratedTotal
-                      )}`}
-                    >
-                      {previewPercentage.toFixed(1)}%
-                    </span>
-                  </td>
-                  <td>
-                    <span
-                      className={`insight-stats-rating-tier-count${projectionClass(
-                        currentTier.sources.threshold,
-                        previewTier.sources.threshold
-                      )}`}
-                    >
-                      {previewTier.sources.threshold.toLocaleString()}
-                    </span>
-                  </td>
-                  {staticSources.map(({ source, label: sourceLabel }) => (
-                    <td key={source}>
-                      <RatingTierActualLink
-                        count={currentTier.sources[source]}
-                        ids={currentTier.sourceIds[source]}
-                        entity={entity}
-                        label={`${title} · ${label} · ${sourceLabel}`}
-                      />
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
-}
-
-/*
- * Kept below RatingTierTable so this page's existing coverage table can share
- * the same exact-ID snapshot behavior without changing its presentation.
- */
 function Coverage({
   count,
   total,
@@ -353,7 +107,15 @@ function Change({
   const delta = preview - current;
   const prefix = delta > 0 ? "+" : "";
   return (
-    <span className={delta ? "insight-stats-changed" : "text-muted"}>
+    <span
+      className={
+        delta > 0
+          ? "insight-stats-changed increase"
+          : delta < 0
+          ? "insight-stats-changed decrease"
+          : "text-muted"
+      }
+    >
       {prefix}
       {delta.toLocaleString()}
       <small>
@@ -364,8 +126,7 @@ function Change({
   );
 }
 
-const InsightStats: React.FC = () => {
-  const titleProps = useTitleProps("Insight Stats");
+export const InsightStats: React.FC = () => {
   const { configuration } = useConfigurationContext();
   const { ui } = configuration;
   const missingMappings = (
@@ -397,18 +158,7 @@ const InsightStats: React.FC = () => {
       ),
     [configJSON]
   );
-  const savedRatingThresholds = useMemo<IRatingCardThresholdConfig>(() => {
-    const configured = (JSON.parse(configJSON) as InsightStatsConfig)
-      .ratingCardThresholds;
-    return {
-      scene: getRatingCardThresholdsForEntity(configured, "scene"),
-      performer: getRatingCardThresholdsForEntity(configured, "performer"),
-    };
-  }, [configJSON]);
   const [draft, setDraft] = useState<SceneCardInsightThresholds>(saved);
-  const [ratingDraft, setRatingDraft] = useState<IRatingCardThresholdConfig>(
-    savedRatingThresholds
-  );
   const [refresh, setRefresh] = useState(0);
   const [mode, setMode] = useState<InsightStatsMode>("all");
   const [search, setSearch] = useState("");
@@ -420,20 +170,15 @@ const InsightStats: React.FC = () => {
   const [variantPage, setVariantPage] = useState(0);
   useEffect(() => {
     setDraft(saved);
-    setRatingDraft(savedRatingThresholds);
-  }, [saved, savedRatingThresholds]);
-  const { result, error, message, updatingChips, updatingRatings } =
-    useInsightStats(configJSON, draft, ratingDraft, refresh);
+  }, [saved]);
+  const { result, error, message, updatingChips } = useInsightStats(
+    configJSON,
+    draft,
+    refresh
+  );
   const changedKeys = (
     Object.keys(saved) as SceneCardInsightThresholdKey[]
   ).filter((key) => saved[key] !== draft[key]);
-  const changedRatingThresholds = (["scene", "performer"] as const).flatMap(
-    (entity) =>
-      ratingThresholdKeys.filter(
-        (key) =>
-          savedRatingThresholds[entity]?.[key] !== ratingDraft[entity]?.[key]
-      )
-  );
   const total = result?.current.total ?? 0;
   const selectedDefinition = insightStatsCatalog.find(
     ({ id }) => id === selected
@@ -490,20 +235,6 @@ const InsightStats: React.FC = () => {
     );
   };
 
-  const setRatingThreshold = (
-    entity: "scene" | "performer",
-    key: RatingThresholdKey,
-    value: number
-  ) => {
-    setRatingDraft((previous) => ({
-      ...previous,
-      [entity]: {
-        ...getRatingCardThresholdsForEntity(previous, entity),
-        [key]: value,
-      },
-    }));
-  };
-
   const selectDefinition = (id: string) => {
     setSelected(id);
     setVariantSearch("");
@@ -514,8 +245,7 @@ const InsightStats: React.FC = () => {
     `insight-stats-tooltip-${id.replace(/[^a-z0-9-]/gi, "-")}`;
 
   return (
-    <StatsPage className="insight-stats-page">
-      <Helmet {...titleProps} />
+    <>
       <div className="insight-stats-shell">
         <header className="insight-stats-header">
           <div>
@@ -585,73 +315,6 @@ const InsightStats: React.FC = () => {
               {result.current.withoutDuration.toLocaleString()} eligible scenes
               without duration.
             </p>
-            <section
-              className="insight-stats-rating-tiers"
-              aria-labelledby="insight-stats-rating-tiers-heading"
-              aria-busy={updatingRatings}
-            >
-              <div className="insight-stats-rating-tiers-heading">
-                <div>
-                  <h2 id="insight-stats-rating-tiers-heading">
-                    Rating tier preview
-                  </h2>
-                  {updatingRatings && (
-                    <PreviewUpdateStatus label="Updating tier preview…" />
-                  )}
-                </div>
-                <Button
-                  className="insight-stats-action"
-                  size="sm"
-                  variant="outline-secondary"
-                  disabled={!changedRatingThresholds.length}
-                  onClick={() => setRatingDraft(savedRatingThresholds)}
-                >
-                  Reset rating preview
-                </Button>
-              </div>
-              <div className="insight-stats-rating-tier-panels">
-                {(["scene", "performer"] as const).map((thresholdEntity) => {
-                  const entity =
-                    thresholdEntity === "scene" ? "scenes" : "vatos";
-                  const title =
-                    thresholdEntity === "scene" ? "Scenes" : "Vatos";
-                  return (
-                    <section
-                      className="insight-stats-rating-tier-panel"
-                      key={thresholdEntity}
-                    >
-                      <h3>
-                        {thresholdEntity === "scene" ? "Scene" : "Vato"}{" "}
-                        thresholds
-                      </h3>
-                      <div className="insight-stats-rating-thresholds">
-                        {ratingThresholdKeys.map((key) => (
-                          <RatingThresholdControl
-                            key={key}
-                            entity={thresholdEntity}
-                            thresholdKey={key}
-                            value={
-                              getRatingCardThresholdsForEntity(
-                                ratingDraft,
-                                thresholdEntity
-                              )[key]
-                            }
-                            onChange={setRatingThreshold}
-                          />
-                        ))}
-                      </div>
-                      <RatingTierTable
-                        title={title}
-                        entity={entity}
-                        current={result.current.ratingTiers}
-                        preview={result.preview.ratingTiers}
-                        population={result.current.ratingTierPopulation[entity]}
-                      />
-                    </section>
-                  );
-                })}
-              </div>
-            </section>
             {total === 0 && (
               <div role="status" className="alert alert-info">
                 No eligible scenes in this scan. The chip catalog remains
@@ -1032,7 +695,7 @@ const InsightStats: React.FC = () => {
           </div>
         </Modal.Body>
       </Modal>
-    </StatsPage>
+    </>
   );
 };
 

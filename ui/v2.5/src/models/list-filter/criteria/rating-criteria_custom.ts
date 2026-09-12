@@ -1,5 +1,8 @@
 import { IntlShape } from "react-intl";
-import { GROUP_SCENE_RATING_KEYS_CUSTOM } from "src/components/Shared/groupSceneRating_custom";
+import {
+  GROUP_SCENE_ENERGY_COORDINATION_CHOICES_CUSTOM,
+  GROUP_SCENE_RATING_KEYS_CUSTOM,
+} from "src/components/Shared/groupSceneRating_custom";
 import {
   getSceneGoatElementBonusFilterChoicesCustom,
   getSceneOrgasmQualityFilterChoicesCustom,
@@ -122,14 +125,11 @@ const energyChoices = [
   "Perfect quality",
 ].map((label, value) => ({ value, label }));
 
-const groupEnergyCoordinationChoices = [
-  "Disconnected",
-  "Weak",
-  "Uneven",
-  "Strong",
-  "Excellent",
-  "Perfect execution",
-].map((label, value) => ({ value, label }));
+const groupEnergyCoordinationChoices =
+  GROUP_SCENE_ENERGY_COORDINATION_CHOICES_CUSTOM.map(({ label }, value) => ({
+    value,
+    label,
+  }));
 
 const performanceChoices = [
   "Weak",

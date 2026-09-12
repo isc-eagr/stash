@@ -11,6 +11,8 @@ import (
 	"github.com/stashapp/stash/pkg/models"
 )
 
+const performerUnknownSelectionCustom = "__unknown__"
+
 // insightPerformerIDsCriterionHandlerCustom restores the exact vato set saved
 // by an Insight Stats drilldown. One JSON parameter avoids SQLite's bind limit.
 func insightPerformerIDsCriterionHandlerCustom(ids []string) criterionHandlerFunc {
@@ -37,7 +39,7 @@ func expandPerformerEthnicitySelectionsCustom(value string) []string {
 
 	for _, value := range strings.Split(value, ",") {
 		value = strings.TrimSpace(value)
-		if value == "" {
+		if value == "" || value == performerUnknownSelectionCustom {
 			continue
 		}
 
@@ -55,6 +57,75 @@ func expandPerformerEthnicitySelectionsCustom(value string) []string {
 	}
 
 	return ret
+}
+
+func expandPerformerCountrySelectionsCustom(value string) []string {
+	var ret []string
+	seen := make(map[string]struct{})
+	for _, value := range strings.Split(value, ",") {
+		value = strings.TrimSpace(value)
+		if value == "" || value == performerUnknownSelectionCustom {
+			continue
+		}
+		if _, found := seen[value]; found {
+			continue
+		}
+		seen[value] = struct{}{}
+		ret = append(ret, value)
+	}
+	return ret
+}
+
+func hasPerformerUnknownSelectionCustom(value string) bool {
+	for _, value := range strings.Split(value, ",") {
+		if strings.TrimSpace(value) == performerUnknownSelectionCustom {
+			return true
+		}
+	}
+	return false
+}
+
+func addPerformerSelectionClauseCustom(
+	f *filterBuilder,
+	column string,
+	values []string,
+	includeUnknown bool,
+	modifier models.CriterionModifier,
+) {
+	if len(values) == 0 && !includeUnknown {
+		return
+	}
+
+	unknownClause := "(" + column + " IS NULL OR TRIM(" + column + ") = '')"
+	operator := " IN "
+	negate := modifier == models.CriterionModifierNotEquals || modifier == models.CriterionModifierExcludes
+	if negate {
+		operator = " NOT IN "
+	}
+
+	if !includeUnknown {
+		args := make([]interface{}, len(values))
+		for i, value := range values {
+			args[i] = value
+		}
+		f.addWhere(column+operator+getInBinding(len(values)), args...)
+		return
+	}
+
+	var clause string
+	args := make([]interface{}, len(values))
+	for i, value := range values {
+		args[i] = value
+	}
+	if len(values) == 0 {
+		clause = unknownClause
+	} else {
+		clause = "(" + unknownClause + " OR " + column + " IN " + getInBinding(len(values)) + ")"
+	}
+	if negate {
+		clause = "NOT " + clause
+	}
+	f.addWhere(clause, args...)
 }
 
 // performerEthnicityCriterionHandlerCustom handles the comma-separated values
@@ -76,20 +147,41 @@ func performerEthnicityCriterionHandlerCustom(criterion *models.StringCriterionI
 
 	return func(_ context.Context, f *filterBuilder) {
 		values := expandPerformerEthnicitySelectionsCustom(criterion.Value)
-		if len(values) == 0 {
-			return
-		}
+		addPerformerSelectionClauseCustom(
+			f,
+			column,
+			values,
+			hasPerformerUnknownSelectionCustom(criterion.Value),
+			criterion.Modifier,
+		)
+	}
+}
 
-		args := make([]interface{}, len(values))
-		for i, value := range values {
-			args[i] = value
-		}
+// performerCountryCriterionHandlerCustom accepts comma-separated country values
+// emitted by Vato Tiers drilldowns, including the explicit Unknown selection.
+func performerCountryCriterionHandlerCustom(criterion *models.StringCriterionInput, column string) criterionHandlerFunc {
+	if criterion == nil {
+		return func(context.Context, *filterBuilder) {}
+	}
 
-		operator := " IN "
-		if criterion.Modifier == models.CriterionModifierNotEquals || criterion.Modifier == models.CriterionModifierExcludes {
-			operator = " NOT IN "
-		}
-		f.addWhere(column+operator+getInBinding(len(values)), args...)
+	switch criterion.Modifier {
+	case models.CriterionModifierEquals,
+		models.CriterionModifierNotEquals,
+		models.CriterionModifierIncludes,
+		models.CriterionModifierExcludes:
+		// handled below
+	default:
+		return stringCriterionHandler(criterion, column)
+	}
+
+	return func(_ context.Context, f *filterBuilder) {
+		addPerformerSelectionClauseCustom(
+			f,
+			column,
+			expandPerformerCountrySelectionsCustom(criterion.Value),
+			hasPerformerUnknownSelectionCustom(criterion.Value),
+			criterion.Modifier,
+		)
 	}
 }
 

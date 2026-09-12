@@ -159,28 +159,6 @@ func (r *Resolver) ratingScoreUpdateResultCustom(ctx context.Context, entityType
 	}, nil
 }
 
-func (r *Resolver) recalculateSceneODateRatingBonus(ctx context.Context, sceneID int) error {
-	if err := r.recalculateRatingIfAdvisorScoresExist(ctx, models.RatingEntityScene, sceneID); err != nil {
-		return err
-	}
-
-	performers, err := r.repository.Performer.FindBySceneID(ctx, sceneID)
-	if err != nil {
-		return err
-	}
-
-	for _, performer := range performers {
-		if performer == nil {
-			continue
-		}
-		if err := r.recalculateRatingIfAdvisorScoresExist(ctx, models.RatingEntityPerformer, performer.ID); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func uniqueRatingEntityIDsCustom(groups ...[]int) []int {
 	seen := make(map[int]struct{})
 	var ret []int

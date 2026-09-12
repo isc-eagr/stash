@@ -1,3 +1,7 @@
+import {
+  visualToLocalClipPath,
+  getRotatorStyle,
+} from "src/utils/imageOverlayGeometry_custom";
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import cx from "classnames";
@@ -40,49 +44,6 @@ interface IPerformerImageOverlayProps {
 const DEFAULT_SIZE = 200;
 const MIN_SIZE = 80;
 const BASE_Z = 10000;
-
-// Converts visual (screen-space) crop percentages to local (pre-rotation) CSS inset values.
-function visualToLocalClipPath(
-  vTop: number,
-  vRight: number,
-  vBottom: number,
-  vLeft: number,
-  rotation: number
-): string {
-  switch (rotation) {
-    case 90:
-      return `inset(${vRight}% ${vBottom}% ${vLeft}% ${vTop}%)`;
-    case 180:
-      return `inset(${vBottom}% ${vLeft}% ${vTop}% ${vRight}%)`;
-    case 270:
-      return `inset(${vLeft}% ${vTop}% ${vRight}% ${vBottom}%)`;
-    default:
-      return `inset(${vTop}% ${vRight}% ${vBottom}% ${vLeft}%)`;
-  }
-}
-
-function getRotatorStyle(
-  rotation: number,
-  containerW: number,
-  containerH: number
-): React.CSSProperties {
-  if (rotation === 0 || rotation === 180) {
-    return {
-      width: "100%",
-      height: "100%",
-      transform: `rotate(${rotation}deg)`,
-    };
-  }
-  return {
-    position: "absolute",
-    width: containerH,
-    height: containerW,
-    left: (containerW - containerH) / 2,
-    top: (containerH - containerW) / 2,
-    transform: `rotate(${rotation}deg)`,
-    transformOrigin: "center",
-  };
-}
 
 export const PerformerImageOverlay: React.FC<IPerformerImageOverlayProps> = ({
   images,

@@ -11,41 +11,6 @@
   top: 0;
   width: 100vw;
   z-index: 99999;
-
-  &.empty {
-    display: flex;
-    flex-direction: column;
-
-    .image-viewer-empty {
-      align-items: center;
-      color: #888;
-      display: flex;
-      flex: 1;
-      font-size: 1.2rem;
-      justify-content: center;
-    }
-  }
-}
-
-.image-viewer-header {
-  align-items: center;
-  background: rgba(0, 0, 0, 0.8);
-  border-bottom: 1px solid #333;
-  display: flex;
-  gap: 1rem;
-  height: 50px;
-  left: 0;
-  padding: 0 1rem;
-  position: fixed;
-  right: 0;
-  top: 0;
-  z-index: 100001;
-
-  .image-count {
-    color: #fff;
-    font-size: 0.9rem;
-    margin-left: auto;
-  }
 }
 
 .image-viewer-overlay {
@@ -200,18 +165,6 @@
 
     &:hover {
       background: rgba(100, 180, 255, 1);
-    }
-  }
-}
-
-// Queue indicator styles
-.image-queue-indicator {
-  .queue-count-badge {
-    cursor: default;
-    padding: 0.25rem 0.5rem;
-
-    .badge {
-      font-size: 0.85em;
     }
   }
 }

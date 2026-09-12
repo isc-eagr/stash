@@ -78,6 +78,7 @@ type TaskProgressTracker struct {
 	Title            string                   `json:"title"`
 	Description      string                   `json:"description"`
 	Goal             int                      `json:"goal"`
+	GoalPerDay       *int                     `json:"goal_per_day,omitempty"`
 	TagID            int                      `json:"tag_id"`
 	TagName          string                   `json:"tag_name"`
 	Position         int                      `json:"position"`

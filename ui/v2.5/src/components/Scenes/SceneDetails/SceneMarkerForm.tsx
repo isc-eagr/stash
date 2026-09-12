@@ -1,5 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Col, Form, Row } from "react-bootstrap";
+import {
+  Alert,
+  Button,
+  Col,
+  Dropdown,
+  DropdownButton,
+  Form,
+  Row,
+} from "react-bootstrap"; // CUSTOM
 import { FormattedMessage, useIntl } from "react-intl";
 import { useFormik, type FormikErrors } from "formik"; // CUSTOM
 import * as yup from "yup";
@@ -47,6 +55,7 @@ import {
 } from "./sceneMarkerGapWarning_custom";
 import {
   getSceneMarkerDuplicateValues,
+  getSceneMarkerGapDraftValues,
   getSceneMarkerInsertRangeErrors,
   getSceneMarkerInsertRecordKind,
   getSceneMarkerSplitBounds,
@@ -165,11 +174,16 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   const [tags, setTags] = useState<Tag[]>([]);
   // CUSTOM: begin - create a duplicate or a bounded marker from the edit form
   const [createAction, setCreateAction] = useState<
-    "duplicate" | "insert-between" | "next-marker" | "next-negative-marker"
+    | "duplicate"
+    | "insert-between"
+    | "gap-from-marker"
+    | "next-marker"
+    | "next-negative-marker"
   >();
   const [sequentialDraft, setSequentialDraft] =
     useState<ISceneMarkerSequentialDraft>();
-  const isInsertBetween = createAction === "insert-between";
+  const isInsertBetween =
+    createAction === "insert-between" || createAction === "gap-from-marker";
   const isNew = marker === undefined || createAction !== undefined;
   const draftMarker =
     isInsertBetween || createAction?.startsWith("next-") ? undefined : marker;
@@ -318,7 +332,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     // CUSTOM: end
     onSubmit: (values) => onSave(schema.cast(values)),
   });
-  const { setFieldValue } = formik; // CUSTOM: stable timestamp-copy dependency
+  const { setFieldValue, setValues } = formik; // CUSTOM: stable timestamp-copy dependencies
   // CUSTOM: begin - apply a selected source-marker boundary to the field that
   // launched copy mode, then acknowledge the one-shot selection.
   useEffect(() => {
@@ -329,17 +343,50 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       return;
     }
 
-    void setFieldValue(
-      markerTimestampCopySelection.field,
-      markerTimestampCopySelection.seconds
-    );
+    if (
+      markerTimestampCopySelection.field === "range" &&
+      markerTimestampCopySelection.markerId === marker?.id
+    ) {
+      Toast.error("Choose another marker to define the gap.");
+      onMarkerTimestampCopySelectionHandled(
+        markerTimestampCopySelection.requestId
+      );
+      onMarkerTimestampCopyRequest("range", "scene-marker-form");
+      return;
+    }
+
+    if (
+      markerTimestampCopySelection.field === "range" &&
+      markerTimestampCopySelection.end_seconds !== undefined
+    ) {
+      // CUSTOM: apply the complete range atomically. Three separately validated
+      // field updates could finish out of order and leave stale range errors,
+      // which kept Save disabled until the same marker was selected again.
+      void setValues(
+        (values) =>
+          getSceneMarkerGapDraftValues(values, {
+            seconds: markerTimestampCopySelection.seconds,
+            end_seconds: markerTimestampCopySelection.end_seconds!,
+          }),
+        true
+      );
+    } else if (markerTimestampCopySelection.field !== "range") {
+      void setFieldValue(
+        markerTimestampCopySelection.field,
+        markerTimestampCopySelection.seconds
+      );
+    }
     onMarkerTimestampCopySelectionHandled(
       markerTimestampCopySelection.requestId
     );
   }, [
     markerTimestampCopySelection,
+    marker?.id,
     onMarkerTimestampCopySelectionHandled,
+    onMarkerTimestampCopyRequest,
     setFieldValue,
+    setValues,
+    Toast,
   ]);
 
   useEffect(
@@ -481,6 +528,13 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     );
     setCreateAction("duplicate");
   }
+
+  function onCreateGapFromMarker() {
+    if (!marker) return;
+
+    setCreateAction("gap-from-marker");
+    onMarkerTimestampCopyRequest("range", "scene-marker-form");
+  }
   // CUSTOM: end
 
   useEffect(() => {
@@ -545,6 +599,9 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         );
         if (insertedRecordKind === "scene-marker") {
           const insertedResult = await sceneMarkerCreate({
+            // CUSTOM: the final source update performs the single authoritative
+            // grouped-marker refresh for this multi-mutation split.
+            refetchQueries: [],
             variables: {
               scene_id: sceneID,
               title: input.title,
@@ -586,6 +643,9 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
           end_seconds: input.end_seconds,
         });
         const rightResult = await sceneMarkerCreate({
+          // CUSTOM: avoid racing an intermediate scene snapshot against the
+          // final source-marker update below.
+          refetchQueries: [],
           variables: {
             scene_id: sceneID,
             title: marker.title,
@@ -939,6 +999,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       return null;
     }
 
+    const isRangeSelection = markerTimestampCopyRequest.field === "range";
     const destination =
       markerTimestampCopyRequest.field === "seconds"
         ? "Start time"
@@ -947,9 +1008,20 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     return (
       <Alert variant="info" className="d-flex align-items-center py-2">
         <span>
-          Hover a regular or negative marker in the player timeline to preview
-          its exact range, then choose <strong>Start</strong> or{" "}
-          <strong>End</strong>. The timestamp will be copied into {destination}.
+          {isRangeSelection ? (
+            <>
+              Hover another marker in the player timeline, then choose{" "}
+              <strong>Use full range</strong>. Its exact boundaries will become
+              the gap inside this marker.
+            </>
+          ) : (
+            <>
+              Hover a regular or negative marker in the player timeline to
+              preview its exact range, then choose <strong>Start</strong> or{" "}
+              <strong>End</strong>. The timestamp will be copied into{" "}
+              {destination}.
+            </>
+          )}
         </span>
         <Button
           type="button"
@@ -1022,6 +1094,33 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         <Alert variant="info" className="py-2">
           The previous marker was saved. This new negative marker starts one
           millisecond after its end.
+        </Alert>
+      );
+    }
+
+    if (createAction === "gap-from-marker") {
+      const rangeCopyActive =
+        markerTimestampCopyRequest?.destination === "scene-marker-form" &&
+        markerTimestampCopyRequest.field === "range";
+
+      return (
+        <Alert variant="info" className="py-2">
+          Select another bounded marker from the player timeline. Saving will
+          split this marker around that marker&apos;s exact range and leave the
+          selected range as a gap.
+          {!rangeCopyActive && (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="ml-2"
+              onClick={() =>
+                onMarkerTimestampCopyRequest("range", "scene-marker-form")
+              }
+            >
+              Select Marker Range
+            </Button>
+          )}
         </Alert>
       );
     }
@@ -1409,12 +1508,17 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
             </Button>
           )}
         </div>
-        {/* CUSTOM: begin - save the current marker and begin an adjacent draft */}
+        {/* CUSTOM: begin - keep specialized marker actions in one compact menu */}
         {!isInsertBetween && (
-          <div className="d-flex flex-wrap mt-2 scene-marker-sequential-actions">
-            <Button
-              variant="secondary"
-              type="button"
+          <DropdownButton
+            drop="up"
+            size="sm"
+            variant="secondary"
+            title="Marker actions"
+            className="mt-2 scene-marker-sequential-actions"
+          >
+            <Dropdown.Header>Continue after this marker</Dropdown.Header>
+            <Dropdown.Item
               disabled={
                 formik.isSubmitting ||
                 !hasSequentialMarkerEnd(formik.values.end_seconds)
@@ -1422,11 +1526,8 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
               onClick={() => void onSaveAndAddSequential("marker")}
             >
               Save &amp; Add Next Marker
-            </Button>
-            <Button
-              variant="secondary"
-              type="button"
-              className="ml-2"
+            </Dropdown.Item>
+            <Dropdown.Item
               disabled={
                 formik.isSubmitting ||
                 !hasSequentialMarkerEnd(formik.values.end_seconds)
@@ -1434,29 +1535,25 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
               onClick={() => void onSaveAndAddSequential("negative-marker")}
             >
               Save &amp; Add Next Negative Marker
-            </Button>
-          </div>
-        )}
-        {/* CUSTOM: end */}
-        {/* CUSTOM: begin - marker create actions live on their own row */}
-        {!isNew && marker && (
-          <div className="d-flex flex-wrap mt-2">
-            <Button
-              variant="secondary"
-              type="button"
-              onClick={() => setCreateAction("insert-between")}
-            >
-              Insert Marker In-Between
-            </Button>
-            <Button
-              variant="secondary"
-              type="button"
-              className="ml-2"
-              onClick={onDuplicateMarker}
-            >
-              Duplicate Marker
-            </Button>
-          </div>
+            </Dropdown.Item>
+            {!isNew && marker && (
+              <>
+                <Dropdown.Divider />
+                <Dropdown.Header>Create from this marker</Dropdown.Header>
+                <Dropdown.Item
+                  onClick={() => setCreateAction("insert-between")}
+                >
+                  Insert Marker In-Between
+                </Dropdown.Item>
+                <Dropdown.Item onClick={onCreateGapFromMarker}>
+                  Create Gap From Marker
+                </Dropdown.Item>
+                <Dropdown.Item onClick={onDuplicateMarker}>
+                  Duplicate Marker
+                </Dropdown.Item>
+              </>
+            )}
+          </DropdownButton>
         )}
         {/* CUSTOM: end */}
       </div>

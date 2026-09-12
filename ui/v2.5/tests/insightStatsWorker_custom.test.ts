@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeSceneCardInsightThresholds } from "../src/components/Scenes/sceneCardInsightsData_custom.ts";
+import {
+  loadInsightSnapshot,
+  writeInsightBaseline,
+} from "../src/components/InsightStats/insightStatsCache_custom.ts";
+import { playgroundScenesFromSnapshot } from "../src/components/Playground/playgroundData_custom.ts";
 import type {
   InsightStatsWorkerInput,
   InsightStatsWorkerOutput,
@@ -10,11 +15,20 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
   const originalSelf = Object.getOwnPropertyDescriptor(globalThis, "self");
   const originalDB = Object.getOwnPropertyDescriptor(globalThis, "indexedDB");
   const cachedScans = new Map<string, unknown>();
+  const retiredCaches: string[] = [];
   // Asynchronous storage boundary: clone values just as IndexedDB does.
   Object.defineProperty(globalThis, "indexedDB", {
     configurable: true,
     value: {
-      open: () => {
+      deleteDatabase: (name: string) => {
+        retiredCaches.push(name);
+      },
+      open: (name: string) => {
+        assert.equal(
+          name,
+          "stash-insight-stats-v6",
+          "Playground tabs use the existing Insight Stats store"
+        );
         const db = {
           close() {},
           transaction: () => {
@@ -26,11 +40,18 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
                     result: structuredClone(cachedScans.get(key)),
                     onsuccess: () => {},
                   };
-                  queueMicrotask(() => request.onsuccess());
+                  queueMicrotask(() => {
+                    request.onsuccess();
+                    queueMicrotask(() => transaction.oncomplete());
+                  });
                   return request;
                 },
                 put: (value: unknown, key: string) => {
                   cachedScans.set(key, structuredClone(value));
+                  queueMicrotask(() => transaction.oncomplete());
+                },
+                delete: (key: string) => {
+                  cachedScans.delete(key);
                   queueMicrotask(() => transaction.oncomplete());
                 },
               }),
@@ -66,6 +87,10 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
             count: 30,
             scenes: Array.from({ length: 30 }, (_, index) => ({
               id: String(index),
+              paths: { screenshot: `/scene/${index}/screenshot` },
+              rating_tier_tags: [],
+              rating_scores: [],
+              scene_marker_tag_ancestors: [],
               files: [{ duration: 600 }],
               performers: [],
               scene_markers: [
@@ -107,6 +132,22 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
     }
   };
   try {
+    // Playground can populate the shared scan before the worker ever starts.
+    const firstSnapshot = await loadInsightSnapshot(
+      "http://localhost/graphql",
+      new AbortController().signal,
+      () => {}
+    );
+    assert.equal(
+      playgroundScenesFromSnapshot(firstSnapshot.snapshot.scenes).length,
+      30
+    );
+    assert.equal(fetchCount, 1);
+    assert.deepEqual(
+      retiredCaches,
+      ["stash-playground-v1"],
+      "only the obsolete Playground database is retired"
+    );
     await import("../src/components/InsightStats/insightStatsWorker_custom.ts");
     scope.onmessage({
       data: {
@@ -120,7 +161,6 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
         type: "simulate",
         requestId: 1,
         thresholds: normalizeSceneCardInsightThresholds(),
-        ratingThresholds: {},
       },
     });
     await waitForRevision(1);
@@ -131,7 +171,6 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
         thresholds: normalizeSceneCardInsightThresholds({
           fillerTotalPercent: 100,
         }),
-        ratingThresholds: {},
       },
     });
     scope.onmessage({
@@ -141,7 +180,6 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
         thresholds: normalizeSceneCardInsightThresholds({
           fillerTotalPercent: 99,
         }),
-        ratingThresholds: {},
       },
     });
     await waitForRevision(3);
@@ -154,7 +192,7 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
     assert.equal(
       fetchCount,
       1,
-      "Slider previews must not reload scenes or write settings"
+      "Chip previews must not reload scenes or write settings"
     );
     const latest = output.find(
       (message) => message.type === "result" && message.requestId === 3
@@ -164,6 +202,20 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
     assert.equal(latest.current.rows.get("filler")?.all, 30);
     assert.equal(latest.preview.rows.get("filler")?.all, 30);
     assert.equal(latest.cacheAvailable, true);
+    const playgroundRead = await loadInsightSnapshot(
+      "http://localhost/graphql",
+      new AbortController().signal,
+      () => assert.fail("Reading the worker's snapshot must not fetch")
+    );
+    assert.ok(
+      playgroundRead.snapshot.baseline,
+      "Playground reuses the scan without removing Insight Stats' cached calculation"
+    );
+    assert.equal(
+      playgroundScenesFromSnapshot(playgroundRead.snapshot.scenes)[0].paths
+        .screenshot,
+      "/scene/0/screenshot"
+    );
     const reopen = async (force = false) => {
       const previous = output.filter(
         (message) => message.type === "result"
@@ -197,6 +249,29 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
     ).toISOString();
     await reopen();
     assert.equal(fetchCount, 3, "Expired scans reload");
+    await loadInsightSnapshot(
+      "http://localhost/graphql",
+      new AbortController().signal,
+      () => {},
+      { force: true }
+    );
+    assert.equal(
+      fetchCount,
+      4,
+      "Playground refresh replaces the same shared scan"
+    );
+    await reopen();
+    assert.equal(fetchCount, 4, "Insight Stats reuses a fresh Playground scan");
+    assert.equal(
+      await writeInsightBaseline(
+        "http://localhost/graphql",
+        { ...firstSnapshot.snapshot, scannedAt: new Date(0).toISOString() },
+        "obsolete",
+        latest.current
+      ),
+      false,
+      "an older calculation cannot overwrite a newly refreshed library"
+    );
   } finally {
     globalThis.fetch = originalFetch;
     if (originalSelf) Object.defineProperty(globalThis, "self", originalSelf);

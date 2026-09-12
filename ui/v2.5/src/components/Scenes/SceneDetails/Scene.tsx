@@ -44,6 +44,7 @@ import { useRemotePlayerCustom } from "src/components/RemoteO/useRemotePlayer_cu
 import type { PlaybackSnapshot } from "src/components/RemoteO/remotePlayback_custom"; // CUSTOM
 import { formatORecordedToastCustom } from "../oRecordToast_custom"; // CUSTOM
 import { shouldEnableSceneOHotkeyCustom } from "./sceneOHotkeyPreference_custom"; // CUSTOM
+import { SceneMarkerDock } from "./SceneMarkerDock_custom"; // CUSTOM
 import {
   faEllipsisV,
   faChevronRight,
@@ -214,6 +215,7 @@ interface IProps {
   ) => void; // CUSTOM
   onMarkerTimestampCopySelectionHandled: (requestId: number) => void; // CUSTOM
   remotePlayer: ReturnType<typeof useRemotePlayerCustom>; // CUSTOM
+  markerDockTarget: HTMLDivElement | null; // CUSTOM
 }
 
 interface ISceneParams {
@@ -785,25 +787,32 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             />
           </Tab.Pane>
           <Tab.Pane eventKey="scene-markers-panel">
-            <SceneMarkersPanel
-              sceneId={scene.id}
-              onClickMarker={onClickMarker}
+            {/* CUSTOM: keep the same panel mounted in either placement */}
+            <SceneMarkerDock
+              target={props.markerDockTarget}
               isVisible={activeTabKey === "scene-markers-panel"}
-              addMultiSegmentLoopSegments={addMultiSegmentLoopSegments} // CUSTOM
-              currentTimestamp={currentTimestamp} // CUSTOM
-              focusedMarkerRequest={scrubberMarkerFocusRequest} // CUSTOM
-              onFocusedMarkerHandled={onScrubberMarkerFocusHandled} // CUSTOM
-              createMarkerRequest={sequentialMarkerCreateRequest} // CUSTOM
-              onCreateMarkerRequestHandled={
-                onSequentialMarkerCreateRequestHandled
-              } // CUSTOM
-              markerTimestampCopyRequest={markerTimestampCopyRequest} // CUSTOM
-              markerTimestampCopySelection={markerTimestampCopySelection} // CUSTOM
-              onMarkerTimestampCopyRequest={onMarkerTimestampCopyRequest} // CUSTOM
-              onMarkerTimestampCopySelectionHandled={
-                onMarkerTimestampCopySelectionHandled
-              } // CUSTOM
-            />
+              collapsed={collapsed}
+            >
+              <SceneMarkersPanel
+                sceneId={scene.id}
+                onClickMarker={onClickMarker}
+                isVisible={activeTabKey === "scene-markers-panel"}
+                addMultiSegmentLoopSegments={addMultiSegmentLoopSegments} // CUSTOM
+                currentTimestamp={currentTimestamp} // CUSTOM
+                focusedMarkerRequest={scrubberMarkerFocusRequest} // CUSTOM
+                onFocusedMarkerHandled={onScrubberMarkerFocusHandled} // CUSTOM
+                createMarkerRequest={sequentialMarkerCreateRequest} // CUSTOM
+                onCreateMarkerRequestHandled={
+                  onSequentialMarkerCreateRequestHandled
+                } // CUSTOM
+                markerTimestampCopyRequest={markerTimestampCopyRequest} // CUSTOM
+                markerTimestampCopySelection={markerTimestampCopySelection} // CUSTOM
+                onMarkerTimestampCopyRequest={onMarkerTimestampCopyRequest} // CUSTOM
+                onMarkerTimestampCopySelectionHandled={
+                  onMarkerTimestampCopySelectionHandled
+                } // CUSTOM
+              />
+            </SceneMarkerDock>
           </Tab.Pane>
           {/* CUSTOM: begin - negative markers pane */}
           <Tab.Pane eventKey="scene-negative-markers-panel">
@@ -1117,6 +1126,8 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
   match,
 }) => {
   const { id } = match.params;
+  const [markerDockTarget, setMarkerDockTarget] =
+    useState<HTMLDivElement | null>(null); // CUSTOM
   const { configuration } = useConfigurationContext();
   const { data, loading, error, refetch } = useFindScene(id); // CUSTOM: refetch
 
@@ -1595,6 +1606,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
           onMarkerTimestampCopySelectionHandled
         } // CUSTOM
         remotePlayer={remotePlayer} // CUSTOM
+        markerDockTarget={markerDockTarget} // CUSTOM
       />
       <div className={`scene-player-container ${collapsed ? "expanded" : ""}`}>
         <ScenePlayer
@@ -1610,11 +1622,16 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
           onMarkerClick={onScenePlayerMarkerClick} // CUSTOM
           onRemotePlayerReady={onRemotePlayerReady} // CUSTOM
           markerTimestampCopyActive={!!markerTimestampCopyRequest} // CUSTOM
+          markerTimestampRangeCopyActive={
+            markerTimestampCopyRequest?.field === "range"
+          } // CUSTOM
           onComplete={onComplete}
           onNext={() => queueNext(true)}
           onPrevious={() => queuePrevious(true)}
         />
       </div>
+      {/* CUSTOM: full-width sibling leaves the player column unchanged */}
+      <div className="scene-marker-dock-target" ref={setMarkerDockTarget} />
     </div>
   );
 };

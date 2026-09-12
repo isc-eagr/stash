@@ -85,6 +85,11 @@ assert.match(
   /insight\.key === "outstanding-activity" \|\|\s+insight\.key === "outstanding-activity-presence" \|\|\s+insight\.key === "feet" \|\|\s+insight\.key\.startsWith\("goat-"\)/,
   "Outstanding Activity, Feet, and GOAT chips should open the activity matrix"
 );
+assert.match(
+  insightsSource,
+  /opensActivityMatrix && \(\s*<Icon[\s\S]*?scene-card-insight-modal-icon/,
+  "chips that open the activity matrix should display the modal affordance icon"
+);
 assert.doesNotMatch(
   insightsSource,
   /scene-card-insights-popup-detail/,

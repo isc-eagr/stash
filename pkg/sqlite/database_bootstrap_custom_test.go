@@ -62,7 +62,7 @@ SELECT COUNT(*)
 	var columns []string
 	require.NoError(t, db.Select(&columns, "SELECT name FROM pragma_table_info('task_progress_trackers')"))
 	require.Subset(t, columns, []string{
-		"status", "item_types", "history_started_on", "mode", "version",
+		"status", "item_types", "history_started_on", "mode", "version", "goal_per_day",
 	})
 
 	var markerCount int

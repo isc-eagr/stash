@@ -102,6 +102,70 @@ const encodeCustomFilterCriterion = (criterion: Record<string, unknown>) =>
     .replaceAll("=", encodeURIComponent("="))
     .replaceAll("+", encodeURIComponent("+"));
 
+const vatoTierKeys = ["bronze", "silver", "gold", "royal_sapphire"];
+const metallicRatingIncludeNonMetallicValue = "__include_non_metallic__";
+
+export interface IVatoTierPerformerUrlFilters {
+  country?: string[];
+  ethnicity?: string[];
+  tier?: "bronze" | "silver" | "gold" | "royal_sapphire" | "none";
+}
+
+// Builds a visible performer-list filter for a Vato Tiers card or table cell.
+// The unknown sentinel is resolved by the performer filter, so a URL can preserve
+// either a known value, an unknown value, or both selected together.
+export const makeVatoTierPerformersUrl = ({
+  country = [],
+  ethnicity = [],
+  tier,
+}: IVatoTierPerformerUrlFilters) => {
+  const criteria: Record<string, unknown>[] = [];
+  if (ethnicity.length) {
+    criteria.push({
+      type: "ethnicity",
+      modifier: "INCLUDES",
+      value: ethnicity.join(","),
+    });
+  }
+  if (country.length) {
+    criteria.push({
+      type: "country",
+      modifier: "INCLUDES",
+      value: country.join(","),
+    });
+  }
+  if (tier) {
+    criteria.push(
+      tier === "none"
+        ? {
+            type: "metallic_rating",
+            modifier: "EXCLUDES",
+            value: [...vatoTierKeys, metallicRatingIncludeNonMetallicValue],
+          }
+        : {
+            type: "metallic_rating",
+            modifier: "INCLUDES",
+            value: [tier],
+          }
+    );
+    if (tier === "none") {
+      criteria.push({
+        type: "rating100",
+        modifier: "NOT_NULL",
+        value: 0,
+      });
+    }
+  }
+
+  // Keep the sentinel in the URL rather than substituting a null-only filter:
+  // a blank legacy value and a NULL value are both displayed as Unknown.
+  const encodedCriteria = criteria.map((criterion) =>
+    encodeCustomFilterCriterion(criterion)
+  );
+  const query = encodedCriteria.map((criterion) => `c=${criterion}`).join("&");
+  return `/performers${query ? `?${query}&` : "?"}sortby=name`;
+};
+
 export const makePerformersEthnicityMetallicRatingUrl = (
   ethnicity: string,
   tier: "bronze" | "silver" | "gold" | "royal_sapphire"

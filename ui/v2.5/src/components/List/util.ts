@@ -11,6 +11,7 @@ import { usePrevious } from "src/hooks/state";
 import * as GQL from "src/core/generated-graphql";
 import { DisplayMode } from "src/models/list-filter/types";
 import { Criterion } from "src/models/list-filter/criteria/criterion";
+import { getDefaultFilterForListLocationCustom } from "./defaultFilterUrl_custom"; // CUSTOM
 
 function locationEquals(
   loc1: ReturnType<typeof useLocation> | undefined,
@@ -32,6 +33,7 @@ export function useFilterURL(
   const history = useHistory();
   const location = useLocation();
   const prevLocation = usePrevious(location);
+  const prevDefaultFilter = usePrevious(defaultFilter); // CUSTOM
 
   // when the filter changes, update the URL
   const updateFilter = useCallback(
@@ -56,11 +58,20 @@ export function useFilterURL(
   useEffect(() => {
     // don't apply if active is false
     // also don't apply if location is unchanged
-    if (!active || locationEquals(prevLocation, location)) return;
+    const defaultFilterChanged = prevDefaultFilter !== defaultFilter; // CUSTOM
+    if (
+      !active ||
+      (locationEquals(prevLocation, location) && !defaultFilterChanged)
+    )
+      return; // CUSTOM
 
-    // re-init to load default filter on empty new query params
-    if (!location.search) {
-      if (defaultFilter) updateFilter(defaultFilter.clone());
+    // CUSTOM: Empty and zoom-only menu URLs load the saved default first. The
+    // requested zoom remains an overlay instead of replacing the saved filter.
+    const defaultForLocation = defaultFilter
+      ? getDefaultFilterForListLocationCustom(defaultFilter, location.search)
+      : undefined;
+    if (defaultForLocation) {
+      updateFilter(defaultForLocation);
       return;
     }
 
@@ -83,6 +94,7 @@ export function useFilterURL(
   }, [
     active,
     prevLocation,
+    prevDefaultFilter,
     location,
     defaultFilter,
     setFilter,
@@ -114,9 +126,7 @@ export function useDefaultFilter(emptyFilter: ListFilterModel, view?: View) {
     }
   }, [view, config?.ui.defaultFilters, emptyFilter]);
 
-  const retFilter = defaultFilter ?? emptyFilter;
-
-  return { defaultFilter: retFilter };
+  return { defaultFilter }; // CUSTOM: distinguish no saved default from one that loaded
 }
 
 function useEmptyFilter(props: {

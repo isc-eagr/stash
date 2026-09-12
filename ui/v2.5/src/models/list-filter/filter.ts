@@ -145,9 +145,11 @@ export class ListFilterModel {
         params.sortdir === "desc"
           ? SortDirectionEnum.Desc
           : SortDirectionEnum.Asc;
-    } else {
+    } else if (params.sortby !== undefined) {
       // #3193 - sortdir undefined means asc
       // #3559 - unless sortby is date, then desc
+      // CUSTOM: presentation-only URL parameters must not replace the current
+      // default sort direction.
       this.sortDirection =
         params.sortby === "date"
           ? SortDirectionEnum.Desc
