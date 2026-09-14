@@ -28,9 +28,21 @@ assert.match(
 );
 assert.match(overallSource, /\{t\("Details"\)\}/);
 assert.match(
+  overallSource,
+  /useTaskProgressOverallGoalUpdateMutation/,
+  "the Overall items-per-day goal is persisted through the API"
+);
+assert.doesNotMatch(
+  overallSource,
+  /localStorage/,
+  "the Overall goal is no longer browser-local"
+);
+assert.match(overallSource, /<TaskProgressGoalSummary/);
+assert.match(
   modalSource,
   /<TaskProgressHistoryChart/,
   "the Overall Progress modal reuses the shared tracker history chart"
 );
 assert.match(modalSource, /size="xl"/);
 assert.match(modalSource, /\{t\("Overall Progress"\)\}/);
+assert.match(modalSource, /currentGoalPerDay=\{goalPerDay\}/);

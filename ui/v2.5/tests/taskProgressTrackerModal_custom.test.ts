@@ -14,6 +14,24 @@ const modalSource = readFileSync(
   ),
   "utf8"
 );
+const formSource = readFileSync(
+  new URL(
+    "../src/components/TaskProgress/TaskProgressForm.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
+const detailsSource = readFileSync(
+  new URL(
+    "../src/components/TaskProgress/TaskProgressDetails.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
+const pageSource = readFileSync(
+  new URL("../src/components/TaskProgress.tsx", import.meta.url),
+  "utf8"
+);
 
 assert.deepEqual(taskProgressStatuses, [
   "ACTIVE",
@@ -41,3 +59,23 @@ assert.doesNotMatch(
   /Fixed batch|Backlog/,
   "tracker details omit the mode label from the start-date metadata"
 );
+assert.doesNotMatch(
+  modalSource,
+  /onEdit:|onDelete:|<Modal\.Footer/,
+  "tracker Details provides no edit, delete, or bottom close actions"
+);
+assert.doesNotMatch(
+  detailsSource,
+  /<Modal\.Footer/,
+  "activity Details has only its top-right close control"
+);
+assert.match(formSource, /Delete tracker/);
+assert.match(formSource, /Archive tracker/);
+assert.match(formSource, /I understand, continue/);
+assert.match(formSource, /Permanently delete tracker/);
+assert.match(formSource, /deleteAcknowledged/);
+assert.match(
+  formSource,
+  /Deleting permanently removes this tracker, its event history, its tracked items, and its goal history\. This cannot be undone\./
+);
+assert.doesNotMatch(pageSource, /Undo delete/);

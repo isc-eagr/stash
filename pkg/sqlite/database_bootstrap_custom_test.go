@@ -55,9 +55,10 @@ SELECT COUNT(*)
      'task_progress_tracker_events',
      'task_progress_tracker_members',
      'task_progress_overall_events',
+     'task_progress_goal_history',
      'custom_schema_migrations'
    )`))
-	require.Equal(t, 5, tableCount)
+	require.Equal(t, 6, tableCount)
 
 	var columns []string
 	require.NoError(t, db.Select(&columns, "SELECT name FROM pragma_table_info('task_progress_trackers')"))
@@ -74,6 +75,11 @@ SELECT COUNT(*)
 	require.NoError(t, db.Get(&markerCount,
 		"SELECT COUNT(*) FROM custom_schema_migrations WHERE name = ?",
 		taskProgressOverallHistoryMigrationCustom,
+	))
+	require.Equal(t, 1, markerCount)
+	require.NoError(t, db.Get(&markerCount,
+		"SELECT COUNT(*) FROM custom_schema_migrations WHERE name = ?",
+		taskProgressGoalHistoryMigrationCustom,
 	))
 	require.Equal(t, 1, markerCount)
 

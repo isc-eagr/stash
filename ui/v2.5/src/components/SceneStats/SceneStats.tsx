@@ -141,6 +141,7 @@ type PodiumMetric =
 type ChartCategory =
   | "ethnicity"
   | "country"
+  | "o_count"
   | "performer_count"
   | "rating"
   | "metallic_rating"
@@ -230,6 +231,7 @@ const metricOptions: Array<{
 const chartDefinitions: Record<ChartCategory, string> = {
   ethnicity: "Vato Ethnicity",
   country: "Vato Country",
+  o_count: "O Count",
   performer_count: "Vato Count",
   rating: "Rating",
   metallic_rating: "Metallic Rating",
@@ -484,6 +486,7 @@ function sceneMatchesFilter(
       {
         ethnicities: scene.performer_ethnicities,
         countries: scene.performer_countries,
+        oCount: scene.o_counter,
         performerCount: scene.performer_count,
         ratingBucket: sceneStatsRatingBucket(scene.rating100),
         metallicRatingBucket: metallicRatingChartBucket(
@@ -510,6 +513,8 @@ function sceneMatchesFilter(
       return scene.performer_countries.some(
         (country) => cleanValue(country) === filter.value
       );
+    case "o_count":
+      return String(sceneStatsPositiveCount(scene.o_counter)) === filter.value;
     case "performer_count":
       return (
         String(sceneStatsPositiveCount(scene.performer_count)) === filter.value
@@ -564,6 +569,7 @@ function buildSceneCharts(
 ) {
   const ethnicityBuckets = new Map<string, ChartDatum>();
   const countryBuckets = new Map<string, ChartDatum>();
+  const oCountBuckets = new Map<string, ChartDatum>();
   const performerCountBuckets = new Map<string, ChartDatum>();
   const ratingBuckets = new Map<string, ChartDatum>();
   const metallicRatingBuckets = new Map<string, ChartDatum>();
@@ -576,6 +582,7 @@ function buildSceneCharts(
   const resolutionBuckets = new Map<string, ChartDatum>();
   let unknownEthnicityCount = 0;
   let unknownCountryCount = 0;
+  let unknownOCount = 0;
   let unknownPerformerCount = 0;
   let unknownRatingCount = 0;
   let unknownMetallicRatingCount = 0;
@@ -620,6 +627,17 @@ function buildSceneCharts(
           label,
           value: country,
         });
+      });
+    }
+
+    const oCount = sceneStatsPositiveCount(scene.o_counter);
+    if (oCount === undefined) {
+      unknownOCount += 1;
+    } else {
+      addDatum(oCountBuckets, String(oCount), String(oCount), oCount, {
+        category: "o_count",
+        label: String(oCount),
+        value: String(oCount),
       });
     }
 
@@ -844,6 +862,10 @@ function buildSceneCharts(
     country: {
       data: Array.from(countryBuckets.values()).sort(countSort),
       unknownCount: unknownCountryCount,
+    },
+    oCount: {
+      data: Array.from(oCountBuckets.values()).sort(numericSort),
+      unknownCount: unknownOCount,
     },
     performerCount: {
       data: Array.from(performerCountBuckets.values()).sort(numericSort),
@@ -1709,7 +1731,7 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
                   <div className="scenestats-summary-value">
                     {summary.sceneOrgasmCount.toLocaleString()}
                   </div>
-                  <div className="scenestats-summary-label">Total orgasms</div>
+                  <div className="scenestats-summary-label">Total Nuts</div>
                 </Link>
               )}
               {typeof summary.totalOrgasmTime === "number" &&
@@ -1719,7 +1741,7 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
                       {formatDuration(summary.totalOrgasmTime)}
                     </div>
                     <div className="scenestats-summary-label">
-                      Total orgasm time
+                      Total Nut Time
                     </div>
                   </div>
                 )}
@@ -1841,6 +1863,13 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
                   onSelect={addFilter}
                   unknownCount={charts.country.unknownCount}
                   unknownCategory="country"
+                />
+                <SceneStatsChart
+                  data={charts.oCount.data}
+                  label="By O Count"
+                  onSelect={addFilter}
+                  unknownCount={charts.oCount.unknownCount}
+                  unknownCategory="o_count"
                 />
                 <SceneStatsChart
                   data={charts.performerCount.data}

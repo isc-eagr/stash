@@ -49,6 +49,10 @@ func (m *TaskProgressTrackerReaderWriter) CreateBaseline(ctx context.Context, tr
 	return m.Called(ctx, tracker).Error(0)
 }
 
+func (m *TaskProgressTrackerReaderWriter) SetOverallGoalPerDay(ctx context.Context, goalPerDay *int) error {
+	return m.Called(ctx, goalPerDay).Error(0)
+}
+
 func (m *TaskProgressTrackerReaderWriter) Create(ctx context.Context, tracker *models.TaskProgressTracker) error {
 	return m.Called(ctx, tracker).Error(0)
 }

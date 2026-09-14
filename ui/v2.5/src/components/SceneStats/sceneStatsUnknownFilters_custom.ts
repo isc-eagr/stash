@@ -5,6 +5,7 @@ export const STATS_UNKNOWN_FILTER_VALUE = "__unknown__";
 export type SceneStatsUnknownValues = {
   ethnicities?: ReadonlyArray<string | null | undefined>;
   countries?: ReadonlyArray<string | null | undefined>;
+  oCount?: number | null;
   performerCount?: number | null;
   ratingBucket?: string | null;
   metallicRatingBucket?: string | null;
@@ -36,6 +37,8 @@ export function isSceneStatsUnknownValue(
       return !hasKnownDemographic(values.ethnicities);
     case "country":
       return !hasKnownDemographic(values.countries);
+    case "o_count":
+      return sceneStatsPositiveCount(values.oCount) === undefined;
     case "performer_count":
       return sceneStatsPositiveCount(values.performerCount) === undefined;
     case "rating":

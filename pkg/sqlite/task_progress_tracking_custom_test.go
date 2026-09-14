@@ -23,6 +23,7 @@ func newTaskProgressTrackingTestDBCustom(t *testing.T) (*sqlx.DB, context.Contex
 CREATE TABLE task_progress_trackers (
   id INTEGER PRIMARY KEY,
   tag_id INTEGER NOT NULL,
+  goal_per_day INTEGER,
   status TEXT NOT NULL,
   item_types TEXT NOT NULL,
   mode TEXT NOT NULL,
@@ -83,6 +84,13 @@ CREATE TABLE task_progress_overall_events (
   total_count INTEGER NOT NULL,
   organized_count INTEGER NOT NULL,
   remaining_count INTEGER NOT NULL
+);
+CREATE TABLE task_progress_goal_history (
+  tracker_id INTEGER NOT NULL DEFAULT 0,
+  effective_on TEXT NOT NULL,
+  goal_per_day INTEGER,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY(tracker_id, effective_on)
 );
 `)
 	require.NoError(t, err)

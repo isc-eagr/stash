@@ -32,6 +32,12 @@ INSERT INTO task_progress_overall_events(
 	_, err = dbWrapper.Exec(ctx, "UPDATE scenes SET organized=1 WHERE id=3")
 	require.NoError(t, err)
 	require.NoError(t, recordTaskProgressOverallSceneChangeCustom(ctx, taskProgressOverallSceneUpdatedCustom, 3, false, true))
+	_, err = dbWrapper.Exec(ctx, `
+UPDATE task_progress_overall_events
+   SET occurred_at = ?
+ WHERE scene_id = 3 AND event_type = 'COMPLETED'`,
+		time.Now().UTC().Add(-taskProgressOverallQuickUndoWindowCustom-time.Second))
+	require.NoError(t, err)
 
 	_, err = dbWrapper.Exec(ctx, "UPDATE scenes SET organized=0 WHERE id=3")
 	require.NoError(t, err)
@@ -67,6 +73,31 @@ SELECT COUNT(*) FROM task_progress_overall_events
 	require.Equal(t, time.Now().In(taskProgressTimezoneCustom).Format("2006-01-02"), overall.History[len(overall.History)-1].Date)
 }
 
+func TestTaskProgressOverallQuickOrganizedUndoDoesNotCountActivityCustom(t *testing.T) {
+	_, ctx := newTaskProgressTrackingTestDBCustom(t)
+	_, err := dbWrapper.Exec(ctx, "INSERT INTO scenes(id,title,organized) VALUES (1,'Mistake',0)")
+	require.NoError(t, err)
+
+	_, err = dbWrapper.Exec(ctx, "UPDATE scenes SET organized=1 WHERE id=1")
+	require.NoError(t, err)
+	require.NoError(t, recordTaskProgressOverallSceneChangeCustom(ctx, taskProgressOverallSceneUpdatedCustom, 1, false, true))
+
+	_, err = dbWrapper.Exec(ctx, "UPDATE scenes SET organized=0 WHERE id=1")
+	require.NoError(t, err)
+	require.NoError(t, recordTaskProgressOverallSceneChangeCustom(ctx, taskProgressOverallSceneUpdatedCustom, 1, true, false))
+
+	store := NewTaskProgressTrackerStore()
+	overall, err := store.Overall(ctx)
+	require.NoError(t, err)
+	require.Zero(t, overall.CompletedCount)
+	require.Zero(t, overall.IncomingCount)
+	require.Empty(t, overall.History)
+
+	var eventCount int
+	require.NoError(t, dbWrapper.Get(ctx, &eventCount, "SELECT COUNT(*) FROM task_progress_overall_events WHERE scene_id = 1"))
+	require.Zero(t, eventCount)
+}
+
 func TestTaskProgressOverallNoOpOrganizedUpdateCustom(t *testing.T) {
 	_, ctx := newTaskProgressTrackingTestDBCustom(t)
 	_, err := dbWrapper.Exec(ctx, "INSERT INTO scenes(id,title,organized) VALUES (1,'Same',0)")
@@ -76,4 +107,27 @@ func TestTaskProgressOverallNoOpOrganizedUpdateCustom(t *testing.T) {
 	var count int
 	require.NoError(t, dbWrapper.Get(ctx, &count, "SELECT COUNT(*) FROM task_progress_overall_events"))
 	require.Zero(t, count)
+}
+
+func TestTaskProgressOverallGoalPersistsCustom(t *testing.T) {
+	_, ctx := newTaskProgressTrackingTestDBCustom(t)
+	_, err := dbWrapper.Exec(ctx, `
+INSERT INTO task_progress_overall_events(
+  event_type,occurred_on,occurred_at,total_count,organized_count,remaining_count
+) VALUES ('BASELINE','2026-09-07','2026-09-07 00:00:00',0,0,0);`)
+	require.NoError(t, err)
+
+	store := NewTaskProgressTrackerStore()
+	goal := 9
+	require.NoError(t, store.SetOverallGoalPerDay(ctx, &goal))
+	overall, err := store.Overall(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 9, *overall.GoalPerDay)
+	require.Equal(t, 9, *overall.History[len(overall.History)-1].GoalPerDay)
+
+	require.NoError(t, store.SetOverallGoalPerDay(ctx, nil))
+	overall, err = store.Overall(ctx)
+	require.NoError(t, err)
+	require.Nil(t, overall.GoalPerDay)
+	require.Nil(t, overall.History[len(overall.History)-1].GoalPerDay)
 }

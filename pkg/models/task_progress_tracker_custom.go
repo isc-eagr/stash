@@ -39,6 +39,7 @@ type TaskProgressDay struct {
 	Incoming      int    `json:"incoming"`
 	Remaining     int    `json:"remaining"`
 	BaselineCount *int   `json:"baseline_count,omitempty"`
+	GoalPerDay    *int   `json:"goal_per_day,omitempty"`
 }
 
 type TaskProgressEvent struct {
@@ -64,6 +65,7 @@ type TaskProgressOverall struct {
 	OrganizedCount int                `json:"organized_count"`
 	CompletedCount int                `json:"completed_count"`
 	IncomingCount  int                `json:"incoming_count"`
+	GoalPerDay     *int               `json:"goal_per_day,omitempty"`
 	History        []*TaskProgressDay `json:"history"`
 }
 
@@ -113,6 +115,7 @@ type TaskProgressTrackerWriter interface {
 	Delete(ctx context.Context, id int) error
 	Reorder(ctx context.Context, ids []int) error
 	CreateBaseline(ctx context.Context, tracker *TaskProgressTracker) error
+	SetOverallGoalPerDay(ctx context.Context, goalPerDay *int) error
 }
 
 type TaskProgressTrackerReaderWriter interface {

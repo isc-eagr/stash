@@ -44,6 +44,20 @@ func TestTaskProgressOverallCustom(t *testing.T) {
 	require.Same(t, expected, actual)
 }
 
+func TestTaskProgressOverallGoalUpdateCustom(t *testing.T) {
+	db := mocks.NewDatabase()
+	resolver := newResolver(db)
+	goal := 12
+	expected := &models.TaskProgressOverall{GoalPerDay: &goal}
+	db.TaskProgressTracker.On("SetOverallGoalPerDay", mock.Anything, &goal).Return(nil).Once()
+	db.TaskProgressTracker.On("Overall", mock.Anything).Return(expected, nil).Once()
+
+	actual, err := resolver.Mutation().TaskProgressOverallGoalUpdate(context.Background(), &goal)
+	require.NoError(t, err)
+	require.Same(t, expected, actual)
+	db.AssertExpectations(t)
+}
+
 func TestTaskProgressTrackerCreateCalculatesFixedGoalCustom(t *testing.T) {
 	db := mocks.NewDatabase()
 	resolver := newResolver(db)

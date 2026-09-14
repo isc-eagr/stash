@@ -108,20 +108,33 @@ func loadTaskProgressMetricsCustom(ctx context.Context, trackers []*models.TaskP
 		}
 	}
 	// Aggregate events in SQLite; only one row per tracker/day crosses into Go.
-	q := `WITH daily AS (
+	q := `WITH dates AS (
+ SELECT tracker_id,occurred_on FROM task_progress_tracker_events WHERE tracker_id IN ` + getInBinding(len(ids)) + `
+ UNION
+ SELECT tracker_id,effective_on FROM task_progress_goal_history WHERE tracker_id IN ` + getInBinding(len(ids)) + `
+), daily AS (
  SELECT tracker_id,occurred_on,
  SUM(event_type='COMPLETED') AS completed, SUM(event_type='INCOMING') AS incoming,
  MAX(CASE WHEN event_type='BASELINE' THEN id END) AS baseline_id
  FROM task_progress_tracker_events WHERE tracker_id IN ` + getInBinding(len(ids)) + `
  GROUP BY tracker_id,occurred_on
 )
-SELECT d.tracker_id,d.occurred_on,d.completed,d.incoming,b.baseline_count,
-CASE WHEN d.baseline_id IS NULL THEN d.incoming-d.completed ELSE
+SELECT dates.tracker_id,dates.occurred_on,COALESCE(d.completed,0),COALESCE(d.incoming,0),b.baseline_count,
+CASE WHEN d.baseline_id IS NULL THEN COALESCE(d.incoming,0)-COALESCE(d.completed,0) ELSE
  COALESCE((SELECT SUM(CASE e.event_type WHEN 'INCOMING' THEN 1 WHEN 'COMPLETED' THEN -1 ELSE 0 END)
  FROM task_progress_tracker_events e WHERE e.tracker_id=d.tracker_id AND e.occurred_on=d.occurred_on AND e.id>d.baseline_id),0) END
-FROM daily d LEFT JOIN task_progress_tracker_events b ON b.id=d.baseline_id
-ORDER BY d.tracker_id,d.occurred_on`
-	rows, err = dbWrapper.QueryxContext(ctx, q, args...)
+,
+(SELECT g.goal_per_day FROM task_progress_goal_history g
+  WHERE g.tracker_id=dates.tracker_id AND g.effective_on<=dates.occurred_on
+  ORDER BY g.effective_on DESC,g.created_at DESC LIMIT 1)
+FROM dates LEFT JOIN daily d ON d.tracker_id=dates.tracker_id AND d.occurred_on=dates.occurred_on
+LEFT JOIN task_progress_tracker_events b ON b.id=d.baseline_id
+ORDER BY dates.tracker_id,dates.occurred_on`
+	historyArgs := make([]interface{}, 0, len(args)*3)
+	historyArgs = append(historyArgs, args...)
+	historyArgs = append(historyArgs, args...)
+	historyArgs = append(historyArgs, args...)
+	rows, err = dbWrapper.QueryxContext(ctx, q, historyArgs...)
 	if err != nil {
 		return fmt.Errorf("loading task progress daily history: %w", err)
 	}
@@ -130,7 +143,7 @@ ORDER BY d.tracker_id,d.occurred_on`
 	for rows.Next() {
 		var id, delta int
 		d := &models.TaskProgressDay{}
-		if err := rows.Scan(&id, &d.Date, &d.Completed, &d.Incoming, &d.BaselineCount, &delta); err != nil {
+		if err := rows.Scan(&id, &d.Date, &d.Completed, &d.Incoming, &d.BaselineCount, &delta, &d.GoalPerDay); err != nil {
 			return err
 		}
 		t := byID[id]

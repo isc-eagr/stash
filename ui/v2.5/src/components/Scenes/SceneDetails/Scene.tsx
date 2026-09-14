@@ -1299,7 +1299,8 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
             ? "paused"
             : "playing",
       };
-    }
+    },
+    getPlayer // CUSTOM: loop control and fullscreen toast host
   );
 
   const autoplay = queryParams.get("autoplay") === "true";

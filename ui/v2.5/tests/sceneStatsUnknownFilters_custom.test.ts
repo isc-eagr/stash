@@ -28,6 +28,7 @@ for (const [category, key] of [
 }
 
 for (const [category, key] of [
+  ["o_count", "oCount"],
   ["performer_count", "performerCount"],
   ["facial_count", "facialCount"],
   ["really_hot_facial_count", "reallyHotFacialCount"],

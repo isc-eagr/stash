@@ -9,9 +9,10 @@ import (
 )
 
 const (
-	taskProgressOverallSceneCreatedCustom   = "CREATED"
-	taskProgressOverallSceneUpdatedCustom   = "UPDATED"
-	taskProgressOverallSceneDestroyedCustom = "DESTROYED"
+	taskProgressOverallSceneCreatedCustom    = "CREATED"
+	taskProgressOverallSceneUpdatedCustom    = "UPDATED"
+	taskProgressOverallSceneDestroyedCustom  = "DESTROYED"
+	taskProgressOverallQuickUndoWindowCustom = time.Minute
 )
 
 func taskProgressSceneOrganizedCustom(ctx context.Context, sceneID int) (bool, error) {
@@ -43,6 +44,36 @@ func recordTaskProgressOverallSceneChangeCustom(ctx context.Context, change stri
 	}
 
 	now := time.Now().UTC()
+	if eventType == models.TaskProgressEventIncoming &&
+		change == taskProgressOverallSceneUpdatedCustom {
+		const discardQuickUndoQuery = `
+DELETE FROM task_progress_overall_events
+WHERE id = (
+  SELECT id
+    FROM task_progress_overall_events
+   WHERE scene_id = ?
+     AND event_type = 'COMPLETED'
+     AND occurred_at >= ?
+   ORDER BY occurred_at DESC, id DESC
+   LIMIT 1
+)`
+		result, err := dbWrapper.Exec(ctx, discardQuickUndoQuery,
+			sceneID,
+			now.Add(-taskProgressOverallQuickUndoWindowCustom),
+		)
+		if err != nil {
+			if taskProgressTablesMissingCustom(err) {
+				return nil
+			}
+			return fmt.Errorf("discarding quick overall task progress undo: %w", err)
+		}
+		if removed, err := result.RowsAffected(); err != nil {
+			return fmt.Errorf("counting discarded quick overall task progress undo: %w", err)
+		} else if removed > 0 {
+			return nil
+		}
+	}
+
 	const query = `
 INSERT INTO task_progress_overall_events (
   event_type, scene_id, occurred_on, occurred_at, total_count, organized_count, remaining_count
@@ -67,6 +98,11 @@ SELECT ?, ?, ?, ?, COUNT(*),
 
 func (s *TaskProgressTrackerStore) Overall(ctx context.Context) (*models.TaskProgressOverall, error) {
 	ret := &models.TaskProgressOverall{History: []*models.TaskProgressDay{}}
+	goalPerDay, err := taskProgressGoalPerDayCustom(ctx, 0)
+	if err != nil {
+		return nil, err
+	}
+	ret.GoalPerDay = goalPerDay
 	counts := struct {
 		Total     int `db:"total_count"`
 		Organized int `db:"organized_count"`
@@ -81,24 +117,31 @@ SELECT COUNT(*) AS total_count,
 	ret.TotalCount, ret.OrganizedCount = counts.Total, counts.Organized
 
 	const historyQuery = `
-WITH daily AS (
+WITH dates AS (
+  SELECT occurred_on FROM task_progress_overall_events
+  UNION
+  SELECT effective_on FROM task_progress_goal_history WHERE tracker_id = 0
+), daily AS (
   SELECT occurred_on,
          SUM(event_type = 'COMPLETED') AS completed,
          SUM(event_type = 'INCOMING') AS incoming,
-         MAX(CASE WHEN event_type = 'BASELINE' THEN id END) AS baseline_id,
-         MAX(id) AS last_id
+         MAX(CASE WHEN event_type = 'BASELINE' THEN id END) AS baseline_id
     FROM task_progress_overall_events
    GROUP BY occurred_on
 )
-SELECT d.occurred_on,
-       d.completed,
-       d.incoming,
-       last.remaining_count,
-       baseline.remaining_count
-  FROM daily d
-  JOIN task_progress_overall_events last ON last.id = d.last_id
+SELECT dates.occurred_on,
+       COALESCE(d.completed, 0),
+       COALESCE(d.incoming, 0),
+       (SELECT remaining_count FROM task_progress_overall_events e
+         WHERE e.occurred_on <= dates.occurred_on ORDER BY e.occurred_on DESC, e.id DESC LIMIT 1),
+       baseline.remaining_count,
+       (SELECT goal_per_day FROM task_progress_goal_history g
+         WHERE g.tracker_id = 0 AND g.effective_on <= dates.occurred_on
+         ORDER BY g.effective_on DESC, g.created_at DESC LIMIT 1)
+  FROM dates
+  LEFT JOIN daily d ON d.occurred_on = dates.occurred_on
   LEFT JOIN task_progress_overall_events baseline ON baseline.id = d.baseline_id
- ORDER BY d.occurred_on`
+ ORDER BY dates.occurred_on`
 	rows, err := dbWrapper.QueryxContext(ctx, historyQuery)
 	if err != nil {
 		return nil, fmt.Errorf("loading overall task progress history: %w", err)
@@ -106,7 +149,7 @@ SELECT d.occurred_on,
 	defer rows.Close()
 	for rows.Next() {
 		day := &models.TaskProgressDay{}
-		if err := rows.Scan(&day.Date, &day.Completed, &day.Incoming, &day.Remaining, &day.BaselineCount); err != nil {
+		if err := rows.Scan(&day.Date, &day.Completed, &day.Incoming, &day.Remaining, &day.BaselineCount, &day.GoalPerDay); err != nil {
 			return nil, fmt.Errorf("scanning overall task progress history: %w", err)
 		}
 		ret.CompletedCount += day.Completed

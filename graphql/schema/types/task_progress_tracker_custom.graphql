@@ -39,6 +39,8 @@ type TaskProgressOverall {
   organized_count: Int!
   completed_count: Int!
   incoming_count: Int!
+  "Persisted number of scenes targeted for organization each day"
+  goal_per_day: Int
   history: [TaskProgressDay!]!
 }
 
@@ -48,6 +50,8 @@ type TaskProgressDay {
   incoming: Int!
   remaining: Int!
   baseline_count: Int
+  "Daily goal that applied on this calendar date"
+  goal_per_day: Int
 }
 
 type TaskProgressEvent {
@@ -79,6 +83,11 @@ extend type Query {
     offset: Int
   ): TaskProgressEventPage!
   taskProgressPreview(tag_id: ID!, item_types: [String!]): Int!
+}
+
+extend type Mutation {
+  "Persist or clear the Overall Progress daily goal"
+  taskProgressOverallGoalUpdate(goal_per_day: Int): TaskProgressOverall!
 }
 
 input TaskProgressTrackerCreateInput {

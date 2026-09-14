@@ -151,11 +151,6 @@ export const TaskProgressDetails: React.FC<{
           </Button>
         )}
       </Modal.Body>
-      <Modal.Footer>
-        <Button variant="secondary" onClick={onClose}>
-          {t("Close")}
-        </Button>
-      </Modal.Footer>
     </Modal>
   );
 };

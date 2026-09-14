@@ -95,6 +95,16 @@ export function taskProgressDailyGoal(
   return { completed, goal: tracker.goal_per_day, state };
 }
 
+export function taskProgressHistoryEntries(
+  history: Pick<Tracker, "history">["history"]
+) {
+  return history.map((day) => ({
+    ...day,
+    baselineCount: day.baseline_count ?? undefined,
+    goalPerDay: day.goal_per_day,
+  }));
+}
+
 export function useProgressText() {
   const intl = useIntl();
   return (label: string) =>

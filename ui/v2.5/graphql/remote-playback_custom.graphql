@@ -10,6 +10,15 @@ mutation RemotePlaybackPairingRedeem($token: String!) {
 
 query RemotePlaybackState($player_id: String!) {
   remotePlaybackState(player_id: $player_id) {
+    loop_enabled
+    loop_revision
+    loop_segments {
+      id
+      start
+      end
+      title
+    }
+    selected_segment_ids
     server_id
     player_id
     session_id
@@ -48,6 +57,7 @@ mutation RemotePlaybackRequestO($input: RemotePlaybackORequestInput!) {
     player_id
     session_id
     expected_scene_id
+    video_timestamp
   }
 }
 
@@ -79,11 +89,18 @@ subscription RemotePlaybackStateSubscribe($player_id: String!) {
 
 subscription RemotePlaybackCommandSubscribe($player_id: String!) {
   remotePlaybackCommandSubscribe(player_id: $player_id) {
+    selected_segment_ids
+    loop_revision
     command_id
     player_id
     session_id
     expected_scene_id
+    video_timestamp
   }
+}
+
+mutation RemotePlaybackSelectSegments($input: RemoteLoopSelectionInput!) {
+  remotePlaybackSelectSegments(input: $input)
 }
 
 subscription RemotePlaybackOResultSubscribe($player_id: String!) {

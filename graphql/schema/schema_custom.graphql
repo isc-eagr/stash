@@ -32,6 +32,10 @@ extend type Query {
 }
 
 type RemotePlaybackState {
+  loop_enabled: Boolean!
+  loop_segments: [RemoteLoopSegment!]!
+  selected_segment_ids: [String!]!
+  loop_revision: String!
   server_id: String!
   player_id: String!
   session_id: String!
@@ -45,6 +49,10 @@ type RemotePlaybackState {
 }
 
 input RemotePlaybackStateInput {
+  loop_enabled: Boolean! = false
+  loop_segments: [RemoteLoopSegmentInput!]! = []
+  selected_segment_ids: [String!]! = []
+  loop_revision: String! = ""
   player_id: String!
   session_id: String!
   scene_id: ID!
@@ -63,10 +71,40 @@ input RemotePlaybackORequestInput {
 }
 
 type RemotePlaybackCommand {
+  selected_segment_ids: [String!]
+  loop_revision: String
   command_id: String!
   player_id: String!
   session_id: String!
   expected_scene_id: ID!
+  video_timestamp: Float!
+}
+
+# CUSTOM: Temporary remote loop selection, scoped to the published configuration.
+type RemoteLoopSegment {
+  id: String!
+  start: Float!
+  end: Float!
+  title: String!
+}
+
+input RemoteLoopSegmentInput {
+  id: String!
+  start: Float!
+  end: Float!
+  title: String!
+}
+
+input RemoteLoopSelectionInput {
+  player_id: String!
+  session_id: String!
+  expected_scene_id: ID!
+  loop_revision: String!
+  selected_segment_ids: [String!]!
+}
+
+extend type Mutation {
+  remotePlaybackSelectSegments(input: RemoteLoopSelectionInput!): Boolean!
 }
 
 input RemotePlaybackORecordInput {

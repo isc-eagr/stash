@@ -1,5 +1,9 @@
 import videojs, { VideoJsPlayer } from "video.js";
 import {
+  nextSelectedSegmentCustom,
+  remoteLoopRevisionCustom,
+} from "./remoteLoopSelection_custom"; // CUSTOM
+import {
   getPlaybackBoundaryDelayMs,
   isPlaybackBoundaryDue,
 } from "./playbackBoundary_custom"; // CUSTOM
@@ -43,6 +47,44 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   private boundaryTimer: number | null = null; // CUSTOM
   private scheduledBoundary: number | null = null; // CUSTOM
   private loopSingleId: string | null = null; // ID of segment to loop single
+  private remoteSelectedIds: string[] = []; // CUSTOM: temporary playback subset
+
+  // CUSTOM: begin - remote selection preserves segments and preset configuration
+  getRemoteLoopState() {
+    return {
+      loop_enabled: this.enabled,
+      loop_revision: remoteLoopRevisionCustom(this.enabled, this.segments),
+      loop_segments: this.segments.map((s) => ({ ...s, title: s.title ?? "" })),
+      selected_segment_ids: this.remoteSelectedIds.filter((id) =>
+        this.segments.some((s) => s.id === id)
+      ),
+    };
+  }
+
+  selectRemoteSegments(ids: string[], revision: string): boolean {
+    if (
+      !this.enabled ||
+      revision !== this.getRemoteLoopState().loop_revision ||
+      ids.some((id) => !this.segments.some((s) => s.id === id))
+    )
+      return false;
+    this.remoteSelectedIds = [...new Set(ids)];
+    if (
+      ids.length &&
+      !ids.includes(this.segments[this.currentSegmentIndex]?.id)
+    ) {
+      this.jumpToSegment(this.segments.findIndex((s) => ids.includes(s.id)));
+    } else if (ids.length) {
+      const segment = this.segments[this.currentSegmentIndex];
+      const time = this.player.currentTime();
+      if (time < segment.start || time >= segment.end) {
+        this.jumpToSegment(this.currentSegmentIndex);
+      }
+    }
+    this.scheduleBoundaryCheck(true);
+    return true;
+  }
+  // CUSTOM: end
 
   // CUSTOM: begin - stable listener references for precise boundary scheduling
   private readonly boundCheckLoop = this.checkLoop.bind(this);
@@ -141,6 +183,15 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
       return;
     }
 
+    // CUSTOM: keep the subset valid after local segment removal or editing.
+    const selected = this.getRemoteLoopState().selected_segment_ids;
+    if (selected.length && !selected.includes(currentSegment.id)) {
+      this.jumpToSegment(
+        this.segments.findIndex((s) => selected.includes(s.id))
+      );
+      return;
+    }
+
     // Check if we've reached the end of the current segment
     if (currentTime >= currentSegment.end) {
       this.advanceToNextSegment();
@@ -209,6 +260,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
 
     // Check if single loop is enabled for the current segment
     if (
+      this.remoteSelectedIds.length === 0 && // CUSTOM: subset takes precedence
       this.loopSingleId &&
       fromSegment &&
       this.loopSingleId === fromSegment.id
@@ -220,7 +272,11 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     }
 
     // Move to next segment, or wrap to first
-    const nextIndex = (this.currentSegmentIndex + 1) % this.segments.length;
+    const nextIndex = nextSelectedSegmentCustom(
+      this.segments,
+      this.getRemoteLoopState().selected_segment_ids,
+      this.currentSegmentIndex
+    ); // CUSTOM
     this.currentSegmentIndex = nextIndex;
 
     const toSegment = this.segments[this.currentSegmentIndex];
@@ -259,6 +315,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
    * Set all segments (replaces existing)
    */
   setSegments(segments: ILoopSegment[]): void {
+    this.remoteSelectedIds = []; // CUSTOM
     this.segments = [...segments];
     this.currentSegmentIndex = 0;
     this.scheduleBoundaryCheck(true); // CUSTOM
@@ -303,6 +360,9 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     if (index === -1) return false;
 
     this.segments.splice(index, 1);
+    this.remoteSelectedIds = this.remoteSelectedIds.filter(
+      (selected) => selected !== id
+    ); // CUSTOM
 
     // Adjust current segment index if needed
     if (this.currentSegmentIndex >= this.segments.length) {
@@ -349,6 +409,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
    * Clear all segments
    */
   clearSegments(): void {
+    this.remoteSelectedIds = []; // CUSTOM
     this.segments = [];
     this.currentSegmentIndex = 0;
     this.pendingStart = null;
@@ -414,6 +475,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
    * Enable or disable the loop
    */
   setEnabled(enabled: boolean): void {
+    if (!enabled) this.remoteSelectedIds = []; // CUSTOM
     const wasEnabled = this.enabled;
     this.enabled = enabled;
 
@@ -467,6 +529,12 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
    */
   jumpToSegment(index: number): boolean {
     if (index < 0 || index >= this.segments.length) return false;
+    // CUSTOM: an explicit local jump outside the subset restores normal playback.
+    if (
+      this.remoteSelectedIds.length &&
+      !this.remoteSelectedIds.includes(this.segments[index].id)
+    )
+      this.remoteSelectedIds = [];
 
     this.currentSegmentIndex = index;
     const segment = this.segments[index];

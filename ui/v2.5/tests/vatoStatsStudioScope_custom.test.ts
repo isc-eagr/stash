@@ -77,7 +77,6 @@ test("studio summary uses only the scoped performer rows", () => {
     performersFacialGivenCount: 0,
     performersFacialReceivedCount: 0,
     performersSoloOnlyCount: 1,
-    performersOneSceneCount: 2,
   });
 });
 

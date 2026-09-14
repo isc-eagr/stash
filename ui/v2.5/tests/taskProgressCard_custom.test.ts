@@ -12,6 +12,7 @@ const tracker = {
   tag_id: "2",
   tag_name: "Pending",
   goal: 10,
+  goal_per_day: 3,
   position: 0,
   started_on: "2026-09-07",
   history_started_on: "2026-09-07",
@@ -30,6 +31,7 @@ const tracker = {
       incoming: 1,
       remaining: 8,
       baseline_count: 10,
+      goal_per_day: 3,
     },
   ],
 };
@@ -71,6 +73,15 @@ assert.match(
   "Edit uses a visible outlined primary button style"
 );
 assert.match(markup, /Items per day/, "planning lives on each tracker card");
+assert.match(markup, /progress-tracker-plan-title[^>]*>Estimated Finish Date/);
+assert.match(
+  markup,
+  /progress-tracker-plan-label[^>]*>[\s\S]*?At[\s\S]*?items\/day:[\s\S]*?progress-tracker-plan-date/,
+  "finish planning is organized into a title line and a compact calculation line"
+);
+assert.match(markup, /Today/);
+assert.match(markup, /This week/);
+assert.match(markup, /This month/);
 const footerIndex = markup.indexOf("progress-tracker-footer");
 const actionsIndex = markup.indexOf(
   "progress-tracker-card-actions",

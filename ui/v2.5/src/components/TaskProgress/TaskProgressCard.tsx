@@ -15,9 +15,11 @@ import {
   taskProgressStatusVariant,
   progressToday,
   taskProgressDailyGoal,
+  taskProgressHistoryEntries,
   useProgressText,
 } from "./progressView_custom";
 import { plannedTaskProgressFinishDate } from "./progressMath_custom";
+import { TaskProgressGoalSummary } from "./TaskProgressGoalSummary";
 
 interface IProps {
   tracker: Tracker;
@@ -129,6 +131,11 @@ export const TaskProgressCard: React.FC<IProps> = ({
         <span className="progress-tracker-meter" aria-hidden="true">
           <span style={{ width: `${percentage}%` }} />
         </span>
+        <TaskProgressGoalSummary
+          compact
+          currentGoalPerDay={tracker.goal_per_day}
+          history={taskProgressHistoryEntries(tracker.history)}
+        />
       </div>
       {/* CUSTOM: Keep actions on the left and planning controls on the right. */}
       <div className="progress-tracker-footer">
@@ -141,33 +148,38 @@ export const TaskProgressCard: React.FC<IProps> = ({
           </Button>
         </div>
         <div className="progress-tracker-plan">
-          <Form.Label htmlFor={planStorageKey}>{t("Items per day")}</Form.Label>
-          <Form.Control
-            id={planStorageKey}
-            inputMode="numeric"
-            min={0}
-            max={1000000}
-            step={1}
-            type="number"
-            value={planRate || ""}
-            onChange={(event) => {
-              const next = Math.max(
-                0,
-                Math.min(1000000, Math.floor(Number(event.target.value) || 0))
-              );
-              setPlanRate(next);
-              try {
-                localStorage.setItem(planStorageKey, String(next));
-              } catch {
-                // Planning remains available for this session if storage is unavailable.
-              }
-            }}
-          />
-          {planDate && (
-            <span>
-              {t("Finish")}: {planDate}
-            </span>
-          )}
+          <strong className="progress-tracker-plan-title">
+            Estimated Finish Date
+          </strong>
+          <Form.Label className="progress-tracker-plan-label">
+            <span>At</span>
+            <Form.Control
+              aria-label={t("Items per day")}
+              id={planStorageKey}
+              inputMode="numeric"
+              min={0}
+              max={1000000}
+              step={1}
+              type="number"
+              value={planRate || ""}
+              onChange={(event) => {
+                const next = Math.max(
+                  0,
+                  Math.min(1000000, Math.floor(Number(event.target.value) || 0))
+                );
+                setPlanRate(next);
+                try {
+                  localStorage.setItem(planStorageKey, String(next));
+                } catch {
+                  // Planning remains available for this session if storage is unavailable.
+                }
+              }}
+            />
+            <span>items/day:</span>
+            <strong className="progress-tracker-plan-date">
+              {planDate ?? "—"}
+            </strong>
+          </Form.Label>
         </div>
       </div>
       <div

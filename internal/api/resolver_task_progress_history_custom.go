@@ -17,6 +17,22 @@ func (r *queryResolver) TaskProgressOverall(ctx context.Context) (ret *models.Ta
 	return
 }
 
+func (r *mutationResolver) TaskProgressOverallGoalUpdate(ctx context.Context, goalPerDay *int) (ret *models.TaskProgressOverall, err error) {
+	if goalPerDay != nil && *goalPerDay <= 0 {
+		return nil, fmt.Errorf("%w: goal per day must be greater than zero", ErrInput)
+	}
+	if err := r.withTxn(ctx, func(ctx context.Context) error {
+		if err := r.repository.TaskProgressTracker.SetOverallGoalPerDay(ctx, goalPerDay); err != nil {
+			return err
+		}
+		ret, err = r.repository.TaskProgressTracker.Overall(ctx)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 func (r *queryResolver) TaskProgressEvents(ctx context.Context, trackerID string, date string, afterID *string) (ret *models.TaskProgressEventPage, err error) {
 	id, err := strconv.Atoi(trackerID)
 	if err != nil {

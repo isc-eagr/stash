@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
+  aggregateTaskProgressHistorySeries,
   buildTaskProgressHistorySeries,
   filterTaskProgressHistoryActivityPoints,
   formatTaskProgressDate,
@@ -9,6 +10,8 @@ import {
   parseTaskProgressDate,
   reorderProgressTrackers,
   toggleProgressTrackerWorkingOn,
+  taskProgressCurrentGoalPeriods,
+  taskProgressHistoryPercentages,
 } from "../src/components/taskProgress_custom.ts";
 import type { IProgressTracker } from "../src/components/taskProgress_custom.ts";
 
@@ -42,6 +45,160 @@ assert.deepEqual(
   reorderProgressTrackers(trackers, "c", "a").map((tracker) => tracker.id),
   ["c", "a", "b"],
   "dragging a tracker persists its new order"
+);
+
+const goalHistory = buildTaskProgressHistorySeries(
+  [
+    {
+      date: "2026-09-07",
+      completed: 2,
+      incoming: 0,
+      remaining: 20,
+      goalPerDay: 2,
+    },
+    {
+      date: "2026-09-10",
+      completed: 4,
+      incoming: 0,
+      remaining: 16,
+      goalPerDay: 4,
+    },
+  ],
+  "all",
+  "2026-09-13"
+);
+assert.deepEqual(
+  goalHistory.map((point) => point.goalPerDay),
+  [2, 2, 2, 4, 4, 4, 4],
+  "daily history carries each goal only until its effective replacement"
+);
+
+const weeklyGoalHistory = aggregateTaskProgressHistorySeries(
+  goalHistory,
+  "week"
+);
+assert.equal(weeklyGoalHistory.length, 1);
+assert.equal(weeklyGoalHistory[0].completed, 6);
+assert.equal(
+  weeklyGoalHistory[0].goalPerDay,
+  22,
+  "weekly graph goals sum the daily goals that applied during the week"
+);
+
+const monthlyGoalHistory = aggregateTaskProgressHistorySeries(
+  goalHistory,
+  "month"
+);
+assert.equal(monthlyGoalHistory.length, 1);
+assert.equal(monthlyGoalHistory[0].completed, 6);
+assert.equal(monthlyGoalHistory[0].goalPerDay, 22);
+
+const currentGoals = taskProgressCurrentGoalPeriods(
+  goalHistory,
+  4,
+  "2026-09-10"
+);
+assert.deepEqual(currentGoals.day, {
+  completed: 4,
+  goal: 4,
+  start: "2026-09-10",
+  end: "2026-09-10",
+});
+assert.deepEqual(
+  { completed: currentGoals.week.completed, goal: currentGoals.week.goal },
+  { completed: 6, goal: 10 },
+  "the current weekly target preserves old daily goals and counts only elapsed days"
+);
+assert.equal(
+  currentGoals.month.goal,
+  10,
+  "the current monthly target counts only elapsed goal days"
+);
+assert.equal(currentGoals.week.start, "2026-09-07", "weeks start on Monday");
+assert.equal(currentGoals.week.end, "2026-09-10");
+
+const elapsedWeek = taskProgressCurrentGoalPeriods(
+  [
+    {
+      date: "2026-09-07",
+      completed: 7,
+      incoming: 0,
+      remaining: 100,
+      goalPerDay: 10,
+    },
+    {
+      date: "2026-09-11",
+      completed: 28,
+      incoming: 0,
+      remaining: 72,
+      goalPerDay: 10,
+    },
+  ],
+  10,
+  "2026-09-11"
+);
+assert.deepEqual(
+  { completed: elapsedWeek.week.completed, goal: elapsedWeek.week.goal },
+  { completed: 35, goal: 50 },
+  "Friday compares weekly completion with Monday through Friday goals"
+);
+
+const elapsedGoals = taskProgressCurrentGoalPeriods(
+  [
+    {
+      date: "2026-09-01",
+      completed: 7,
+      incoming: 0,
+      remaining: 100,
+      goalPerDay: 10,
+    },
+    {
+      date: "2026-09-05",
+      completed: 28,
+      incoming: 0,
+      remaining: 72,
+      goalPerDay: 10,
+    },
+  ],
+  10,
+  "2026-09-05"
+);
+assert.deepEqual(
+  {
+    completed: elapsedGoals.month.completed,
+    goal: elapsedGoals.month.goal,
+  },
+  { completed: 35, goal: 50 },
+  "month progress compares completion with only its five elapsed goal days"
+);
+
+const partialWeek = aggregateTaskProgressHistorySeries(
+  buildTaskProgressHistorySeries(
+    [
+      {
+        date: "2026-09-07",
+        completed: 2,
+        incoming: 0,
+        remaining: 20,
+        goalPerDay: 2,
+      },
+      {
+        date: "2026-09-10",
+        completed: 4,
+        incoming: 0,
+        remaining: 16,
+        goalPerDay: 4,
+      },
+    ],
+    "all",
+    "2026-09-10"
+  ),
+  "week"
+);
+assert.equal(
+  partialWeek[0].goalPerDay,
+  10,
+  "the current weekly graph bar uses only elapsed daily goals"
 );
 
 const workingTrackers = toggleProgressTrackerWorkingOn(trackers, "b");
@@ -248,4 +405,31 @@ assert.deepEqual(
   ]).map((point) => point.date),
   ["2026-09-08"],
   "daily data omits inactive zero days"
+);
+
+const historyPercentages = taskProgressHistoryPercentages({
+  completed: 27,
+  incoming: 0,
+  remaining: 803,
+  cumulativeCompleted: 197,
+});
+assert.equal(historyPercentages.completedPercentage, 19.7);
+assert.equal(historyPercentages.remainingPercentage, 80.3);
+assert.ok(
+  Math.abs(historyPercentages.periodProgressPercentage - 2.7) < 0.000001,
+  "period progress is the percentage-point change from the previous bucket"
+);
+
+const incomingPercentages = taskProgressHistoryPercentages({
+  completed: 0,
+  incoming: 10,
+  remaining: 90,
+  cumulativeCompleted: 10,
+});
+assert.equal(incomingPercentages.completedPercentage, 10);
+assert.equal(incomingPercentages.remainingPercentage, 90);
+assert.ok(
+  Math.abs(incomingPercentages.periodProgressPercentage + 1.1111111111) <
+    0.000001,
+  "incoming work can reduce the tracker completion percentage"
 );

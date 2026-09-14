@@ -10,6 +10,7 @@ import (
 const (
 	taskProgressHistoryMigrationCustom        = "task_progress_history_v1"
 	taskProgressOverallHistoryMigrationCustom = "task_progress_overall_history_v1"
+	taskProgressGoalHistoryMigrationCustom    = "task_progress_goal_history_v1"
 	taskProgressHistoryEpochCustom            = "2026-09-07"
 )
 
@@ -92,6 +93,25 @@ CREATE INDEX IF NOT EXISTS idx_task_progress_overall_events_date
   ON task_progress_overall_events(occurred_on, id);
 `
 
+const taskProgressGoalHistoryTableSchemaCustom = `
+CREATE TABLE IF NOT EXISTS task_progress_goal_history (
+  tracker_id INTEGER NOT NULL DEFAULT 0 CHECK(tracker_id >= 0),
+  effective_on TEXT NOT NULL,
+  goal_per_day INTEGER CHECK(goal_per_day IS NULL OR goal_per_day > 0),
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY(tracker_id, effective_on)
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_progress_goal_history_lookup
+  ON task_progress_goal_history(tracker_id, effective_on DESC);
+
+CREATE TRIGGER IF NOT EXISTS task_progress_goal_history_tracker_delete
+AFTER DELETE ON task_progress_trackers
+BEGIN
+  DELETE FROM task_progress_goal_history WHERE tracker_id = OLD.id;
+END;
+`
+
 const taskProgressTrackerCurrentCountExpressionCustom = `
   (SELECT COUNT(DISTINCT scene_id) FROM scenes_tags WHERE tag_id = task_progress_trackers.tag_id) +
   (SELECT COUNT(*) FROM scene_markers
@@ -139,6 +159,12 @@ CREATE TABLE IF NOT EXISTS custom_schema_migrations (
 	if _, err := tx.ExecContext(ctx, taskProgressOverallEventTableSchemaCustom); err != nil {
 		return fmt.Errorf("creating overall task progress event schema: %w", err)
 	}
+	if _, err := tx.ExecContext(ctx, taskProgressGoalHistoryTableSchemaCustom); err != nil {
+		return fmt.Errorf("creating task progress goal history schema: %w", err)
+	}
+	if err := ensureTaskProgressGoalHistoryCustom(ctx, tx); err != nil {
+		return err
+	}
 
 	var applied bool
 	if err := tx.GetContext(ctx, &applied,
@@ -169,6 +195,41 @@ CREATE TABLE IF NOT EXISTS custom_schema_migrations (
 		return fmt.Errorf("committing task progress schema bootstrap: %w", err)
 	}
 
+	return nil
+}
+
+func ensureTaskProgressGoalHistoryCustom(ctx context.Context, tx *sqlx.Tx) error {
+	var applied bool
+	if err := tx.GetContext(ctx, &applied,
+		"SELECT EXISTS(SELECT 1 FROM custom_schema_migrations WHERE name = ?)",
+		taskProgressGoalHistoryMigrationCustom,
+	); err != nil {
+		return fmt.Errorf("checking task progress goal history bootstrap: %w", err)
+	}
+	if applied {
+		return nil
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+INSERT OR IGNORE INTO task_progress_goal_history(tracker_id, effective_on, goal_per_day)
+SELECT id,
+       COALESCE(NULLIF(history_started_on, ''), NULLIF(started_on, ''), ?),
+       goal_per_day
+  FROM task_progress_trackers`, taskProgressHistoryEpochCustom); err != nil {
+		return fmt.Errorf("retrofitting task progress tracker goal history: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx,
+		"INSERT OR IGNORE INTO task_progress_goal_history(tracker_id, effective_on, goal_per_day) VALUES (0, ?, NULL)",
+		taskProgressHistoryEpochCustom,
+	); err != nil {
+		return fmt.Errorf("creating overall task progress goal history: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx,
+		"INSERT INTO custom_schema_migrations(name) VALUES (?)",
+		taskProgressGoalHistoryMigrationCustom,
+	); err != nil {
+		return fmt.Errorf("recording task progress goal history bootstrap: %w", err)
+	}
 	return nil
 }
 

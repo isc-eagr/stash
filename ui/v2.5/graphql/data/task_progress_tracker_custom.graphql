@@ -27,5 +27,6 @@ fragment TaskProgressTrackerData on TaskProgressTracker {
     incoming
     remaining
     baseline_count
+    goal_per_day
   }
 }

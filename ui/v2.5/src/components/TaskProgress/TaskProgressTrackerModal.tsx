@@ -5,11 +5,13 @@ import { Link } from "react-router-dom";
 import type { TaskProgressTrackerDataFragment as Tracker } from "src/core/generated-graphql";
 import { TaskProgressHistoryChart } from "../TaskProgressHistoryChart";
 import { TaskProgressAtAGlance } from "./TaskProgressAtAGlance";
+import { TaskProgressGoalSummary } from "./TaskProgressGoalSummary";
 import type { IDetailSelection } from "./TaskProgressDetails";
 import {
   itemLabels,
   progressForecast,
   progressToday,
+  taskProgressHistoryEntries,
   remainingTagURL,
   useProgressText,
   visibleTaskProgressItemCounts,
@@ -17,21 +19,15 @@ import {
 
 interface IProps {
   tracker: Tracker;
-  busy: boolean;
   error?: string;
   onClose: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
   onDetails: (selection: IDetailSelection) => void;
 }
 
 export const TaskProgressTrackerModal: React.FC<IProps> = ({
   tracker,
-  busy,
   error,
   onClose,
-  onEdit,
-  onDelete,
   onDetails,
 }) => {
   const t = useProgressText();
@@ -61,6 +57,10 @@ export const TaskProgressTrackerModal: React.FC<IProps> = ({
             <p className="progress-description">{tracker.description}</p>
           )}
           <TaskProgressAtAGlance tracker={tracker} />
+          <TaskProgressGoalSummary
+            currentGoalPerDay={tracker.goal_per_day}
+            history={taskProgressHistoryEntries(tracker.history)}
+          />
           {error && (
             <Alert variant="danger" role="alert">
               {error}
@@ -68,16 +68,8 @@ export const TaskProgressTrackerModal: React.FC<IProps> = ({
           )}
           <TaskProgressHistoryChart
             title={tracker.title}
-            history={tracker.history.map((day) => ({
-              ...day,
-              baselineCount: day.baseline_count ?? undefined,
-            }))}
+            history={taskProgressHistoryEntries(tracker.history)}
             today={progressToday()}
-            dailyGoal={
-              tracker.status === "ACTIVE"
-                ? tracker.goal_per_day ?? undefined
-                : undefined
-            }
             onSelectDay={(date) => onDetails({ tracker, date })}
           />
           <div className="progress-tracker-modal-items">
@@ -125,27 +117,6 @@ export const TaskProgressTrackerModal: React.FC<IProps> = ({
             )}
           </div>
         </Modal.Body>
-        <Modal.Footer className="progress-tracker-modal-actions">
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={busy}
-            onClick={onEdit}
-          >
-            {t("Edit")}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline-danger"
-            disabled={busy}
-            onClick={onDelete}
-          >
-            {t("Delete")}
-          </Button>
-          <Button size="sm" variant="secondary" onClick={onClose}>
-            {t("Close")}
-          </Button>
-        </Modal.Footer>
       </Modal>
     </>
   );

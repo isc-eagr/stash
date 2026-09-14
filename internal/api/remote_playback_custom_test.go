@@ -23,7 +23,7 @@ func remoteTestRequestCustom(h *remotePlaybackHubCustom, state RemotePlaybackSta
 }
 
 func remoteTestRecordCustom(request RemotePlaybackORequestInput) RemotePlaybackORecordInput {
-	return RemotePlaybackORecordInput{CommandID: request.CommandID, PlayerID: request.PlayerID, SessionID: request.SessionID, SceneID: request.ExpectedSceneID, VideoTimestamp: 13.25}
+	return RemotePlaybackORecordInput{CommandID: request.CommandID, PlayerID: request.PlayerID, SessionID: request.SessionID, SceneID: request.ExpectedSceneID, VideoTimestamp: remoteTestStateCustom().VideoTimestamp}
 }
 
 func remoteReceiveCustom[T any](t *testing.T, ch <-chan T) T {
@@ -176,16 +176,20 @@ func TestRemotePlaybackCommandAndReceiptCustom(t *testing.T) {
 	if _, err := h.request(request); err != nil {
 		t.Fatal(err)
 	}
-	if got := remoteReceiveCustom(t, commands); got.CommandID != request.CommandID || got.ExpectedSceneID != state.SceneID {
-		t.Fatalf("wrong command: %+v", got)
+	original := remoteReceiveCustom(t, commands)
+	if original.CommandID != request.CommandID || original.ExpectedSceneID != state.SceneID || original.VideoTimestamp != state.VideoTimestamp {
+		t.Fatalf("wrong command: %+v", original)
+	}
+	h.pending[request.CommandID].createdAt = time.Now().Add(-remotePlaybackInitialCommandTTL - time.Second)
+	state.VideoTimestamp = 44.5
+	if _, err := h.update(state); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := h.request(request); err != nil {
 		t.Fatalf("retry: %v", err)
 	}
-	select {
-	case <-commands:
-		t.Fatal("retry delivered duplicate pending command")
-	default:
+	if got := remoteReceiveCustom(t, commands); got.CommandID != original.CommandID || got.VideoTimestamp != original.VideoTimestamp {
+		t.Fatalf("wrong command: %+v", got)
 	}
 	mismatch := request
 	mismatch.ExpectedSceneID = "43"
@@ -265,7 +269,7 @@ func TestRemotePlaybackRejectUnavailableCustom(t *testing.T) {
 }
 
 func TestRemotePlaybackRejectRecordCustom(t *testing.T) {
-	for _, invalid := range []string{"expired command", "stale player", "scene changed", "buffering", "unready", "negative", "NaN", "infinite", "beyond duration"} {
+	for _, invalid := range []string{"expired command", "stale player", "scene changed", "buffering", "unready", "different timestamp", "negative", "NaN", "infinite", "beyond duration"} {
 		t.Run(invalid, func(t *testing.T) {
 			h := newRemotePlaybackHubCustom()
 			ctx, cancel := context.WithCancel(context.Background())
@@ -282,7 +286,7 @@ func TestRemotePlaybackRejectRecordCustom(t *testing.T) {
 			record := remoteTestRecordCustom(request)
 			switch invalid {
 			case "expired command":
-				h.pending[request.CommandID].createdAt = time.Now().Add(-remotePlaybackCommandTTL - time.Second)
+				h.pending[request.CommandID].createdAt = time.Now().Add(-remotePlaybackPendingCommandTTL - time.Second)
 			case "stale player":
 				h.stateAt[state.PlayerID] = time.Now().Add(-remotePlaybackStateTTL - time.Second)
 			case "scene changed":
@@ -291,6 +295,8 @@ func TestRemotePlaybackRejectRecordCustom(t *testing.T) {
 				state.Status = "buffering"
 			case "unready":
 				state.Duration = 0
+			case "different timestamp":
+				record.VideoTimestamp++
 			case "negative":
 				record.VideoTimestamp = -1
 			case "NaN":
@@ -351,7 +357,7 @@ func TestRemotePlaybackCanceledSubscriptionsCustom(t *testing.T) {
 	}
 }
 
-func TestRemotePlaybackExpiredRequestCannotRetryCustom(t *testing.T) {
+func TestRemotePlaybackExpiredPendingCannotRetryCustom(t *testing.T) {
 	h := newRemotePlaybackHubCustom()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -365,7 +371,14 @@ func TestRemotePlaybackExpiredRequestCannotRetryCustom(t *testing.T) {
 		t.Fatal(err)
 	}
 	remoteReceiveCustom(t, commands)
-	h.pending[request.CommandID].createdAt = time.Now().Add(-remotePlaybackCommandTTL - time.Second)
+	expiredAt := time.Now().Add(-remotePlaybackPendingCommandTTL - time.Second)
+	expiredID := h.serverID + "_" + strconv.FormatInt(expiredAt.UnixMilli(), 10) + "_expired-command"
+	expired := h.pending[request.CommandID]
+	delete(h.pending, request.CommandID)
+	expired.CommandID = expiredID
+	expired.createdAt = expiredAt
+	h.pending[expiredID] = expired
+	request.CommandID = expiredID
 	if _, err := h.request(request); err == nil {
 		t.Fatal("expired retry could record a later timestamp")
 	}

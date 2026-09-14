@@ -56,12 +56,14 @@ query TaskProgressOrganizedScenes {
     organized_count
     completed_count
     incoming_count
+    goal_per_day
     history {
       date
       completed
       incoming
       remaining
       baseline_count
+      goal_per_day
     }
   }
 }

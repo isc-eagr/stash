@@ -22,6 +22,8 @@ interface IProps {
       status?: string;
     }
   ) => Promise<boolean>;
+  onArchive?: () => Promise<boolean>;
+  onDelete?: () => Promise<boolean>;
 }
 
 export const TaskProgressForm: React.FC<IProps> = ({
@@ -30,6 +32,8 @@ export const TaskProgressForm: React.FC<IProps> = ({
   busy,
   onClose,
   onSave,
+  onArchive,
+  onDelete,
 }) => {
   const t = useProgressText();
   const client = useApolloClient();
@@ -49,6 +53,8 @@ export const TaskProgressForm: React.FC<IProps> = ({
   const [preview, setPreview] = useState<number>();
   const [error, setError] = useState<string>();
   const [counting, setCounting] = useState(false);
+  const [deleteStep, setDeleteStep] = useState<1 | 2>();
+  const [deleteAcknowledged, setDeleteAcknowledged] = useState(false);
   const scopeChanged =
     !!tracker &&
     (tag.id !== tracker.tag_id ||
@@ -106,6 +112,17 @@ export const TaskProgressForm: React.FC<IProps> = ({
       })
     )
       onClose();
+  };
+  const archiveTracker = async () => {
+    if (!tracker || busy || !onArchive) return;
+    if (await onArchive()) onClose();
+  };
+  const deleteTracker = async () => {
+    if (!tracker || busy || !onDelete || !deleteAcknowledged) return;
+    if (await onDelete()) {
+      setDeleteStep(undefined);
+      onClose();
+    }
   };
   return (
     <Modal
@@ -259,6 +276,20 @@ export const TaskProgressForm: React.FC<IProps> = ({
           </fieldset>
         </Modal.Body>
         <Modal.Footer>
+          {tracker && onDelete && (
+            <Button
+              className="mr-auto"
+              disabled={busy}
+              onClick={() => {
+                setDeleteAcknowledged(false);
+                setDeleteStep(1);
+              }}
+              type="button"
+              variant="outline-danger"
+            >
+              {t("Delete tracker")}
+            </Button>
+          )}
           <Button variant="secondary" onClick={onClose} disabled={busy}>
             {t("Cancel")}
           </Button>
@@ -267,6 +298,100 @@ export const TaskProgressForm: React.FC<IProps> = ({
           </Button>
         </Modal.Footer>
       </Form>
+      {tracker && deleteStep && (
+        <Modal
+          centered
+          show
+          onHide={() => {
+            if (!busy) setDeleteStep(undefined);
+          }}
+        >
+          <Modal.Header closeButton={!busy}>
+            <Modal.Title className="text-danger">
+              {t(
+                deleteStep === 1
+                  ? "Archive this tracker instead?"
+                  : "Delete tracker permanently?"
+              )}
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            {deleteStep === 1 ? (
+              <>
+                <Alert variant="warning">
+                  {t(
+                    "Archiving keeps this tracker and all of its progress history."
+                  )}
+                </Alert>
+                <p>
+                  {t(
+                    "Deleting permanently removes this tracker, its event history, its tracked items, and its goal history. This cannot be undone."
+                  )}
+                </p>
+              </>
+            ) : (
+              <>
+                <Alert variant="danger">
+                  {t(
+                    "This is the final confirmation. Deleted tracker data cannot be recovered."
+                  )}
+                </Alert>
+                <Form.Check
+                  checked={deleteAcknowledged}
+                  id="progress-delete-acknowledged"
+                  label={t(
+                    "I understand that this permanently deletes all tracker data."
+                  )}
+                  onChange={(event) =>
+                    setDeleteAcknowledged(event.target.checked)
+                  }
+                />
+              </>
+            )}
+          </Modal.Body>
+          <Modal.Footer>
+            {deleteStep === 1 ? (
+              <>
+                <Button
+                  disabled={busy || !onArchive}
+                  onClick={() => void archiveTracker()}
+                  type="button"
+                  variant="secondary"
+                >
+                  {t("Archive tracker")}
+                </Button>
+                <Button
+                  disabled={busy}
+                  onClick={() => setDeleteStep(2)}
+                  type="button"
+                  variant="danger"
+                >
+                  {t("I understand, continue")}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  disabled={busy}
+                  onClick={() => setDeleteStep(undefined)}
+                  type="button"
+                  variant="secondary"
+                >
+                  {t("Cancel")}
+                </Button>
+                <Button
+                  disabled={busy || !deleteAcknowledged}
+                  onClick={() => void deleteTracker()}
+                  type="button"
+                  variant="danger"
+                >
+                  {t("Permanently delete tracker")}
+                </Button>
+              </>
+            )}
+          </Modal.Footer>
+        </Modal>
+      )}
     </Modal>
   );
 };

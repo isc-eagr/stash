@@ -24,7 +24,6 @@ const TaskProgress: React.FC = () => {
   const [details, setDetails] = useState<IDetailSelection>();
   const [filter, setFilter] = useState("CURRENT");
   const [dragged, setDragged] = useState<string>();
-  const [deleted, setDeleted] = useState<Tracker>();
   const [selectedTrackerID, setSelectedTrackerID] = useState<string>();
   const trackers = data.trackers ?? [];
   const visible = trackers.filter(
@@ -72,26 +71,6 @@ const TaskProgress: React.FC = () => {
             onClick={() => void data.refresh()}
           >
             {t("Retry")}
-          </Button>
-        </Alert>
-      )}
-      {deleted && (
-        <Alert variant="info">
-          {t("Tracker deleted.")}{" "}
-          <Button
-            size="sm"
-            disabled={data.busy}
-            onClick={async () => {
-              if (
-                await data.update({
-                  id: deleted.id,
-                  status: deleted.status,
-                })
-              )
-                setDeleted(undefined);
-            }}
-          >
-            {t("Undo delete")}
           </Button>
         </Alert>
       )}
@@ -175,6 +154,19 @@ const TaskProgress: React.FC = () => {
                   expected_version: editor.version,
                 })
           }
+          onArchive={
+            editor === "new"
+              ? undefined
+              : () =>
+                  data.update({
+                    id: editor.id,
+                    status: "ARCHIVED",
+                    expected_version: editor.version,
+                  })
+          }
+          onDelete={
+            editor === "new" ? undefined : () => data.destroy(editor.id)
+          }
         />
       )}
       {selectedTrackerID &&
@@ -186,19 +178,8 @@ const TaskProgress: React.FC = () => {
           return (
             <TaskProgressTrackerModal
               tracker={selected}
-              busy={data.busy}
               error={data.error}
               onClose={() => setSelectedTrackerID(undefined)}
-              onEdit={() => {
-                setSelectedTrackerID(undefined);
-                setEditor(selected);
-              }}
-              onDelete={async () => {
-                if (await data.destroy(selected.id)) {
-                  setSelectedTrackerID(undefined);
-                  setDeleted(selected);
-                }
-              }}
               onDetails={setDetails}
             />
           );

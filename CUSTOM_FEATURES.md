@@ -129,15 +129,16 @@ The custom statistics experience is split into hidden, focused destinations inst
 ### Scene Stats (`/scenestats`)
 
 - Scene podiums cover O Count, Rating, Duration, File Size, Most Recent O, Vato Count, and Facial Count, including rolling-year variants.
-- Charts cover vato ethnicity/country/count, release year/month/day, facial status/count, Really Hot Facial count, scene type, duration buckets, resolution, and metallic rating (including a set-but-unqualified `None` bucket).
+- Charts cover vato ethnicity/country/count, O Count, release year/month/day, facial status/count, Really Hot Facial count, scene type, duration buckets, resolution, and metallic rating (including a set-but-unqualified `None` bucket).
 - Activity Type and Quality donuts, orgasm/facial totals, total orgasm/facial/sex/oral time, Rating Advisor averages, and the Outstanding Activity Matrix are available globally and for Studio-scoped Scene Stats.
 - Chart selections open scoped list drilldowns; URL-backed state restores Studio scope, filters, podium metric, list visibility, selected section, and child-studio mode on refresh/back navigation.
 
 ### Vato Stats (`/vatostats`)
 
-- Vato summary cards, top-three podiums, Rating Advisor averages, and charts for ethnicity, scene age, rating, metallic rating, height, country, hair, eyes, circumcision, and penis size.
+- Five Vato summary cards—Total Vatos, Meters of Pito, Estimated Liters, Total Nuts, and Total Nut Time—follow the page title, ahead of top-three podiums, Rating Advisor averages, and charts for ethnicity, scene age, rating, metallic rating, height, country, hair, eyes, circumcision, penis size, O Count, Total Scenes, Sex/Oral Top and Bottom scenes, and Facials Given/Received. Global Vato Stats includes zero-scene vatos so Total Scenes can show its zero bucket; Studio-scoped stats remain limited to vatos with matching scoped scenes.
 - Studio scope and Include child studios apply to every aggregate and drilldown. Rolling-year O Count and performer-creation Rating use their documented date windows.
 - Solo-only and one-scene vatos are retained; unknown values appear as counters rather than zero-value bars.
+- Role cards are replaced by clickable **By Role Strictness** (Pure tops, Lenient tops, Pure bottoms, Lenient bottoms, Solo Only) and **By Role** (Sex/Oral/Facial tops and bottoms, Solo) charts. Pure roles include sex and/or oral with no opposite sex/oral role; lenient roles require exclusively one sex role plus the opposite oral role. Facials do not affect strictness. Solo Only requires every scene in the current scope to be solo; Solo includes any solo appearance. Role bars count distinct vatos, retain zero counts, and follow the current studio scope and chart filters. Classification and drilldown predicates share `vatoStatsRoles_custom.ts`, covered by `vatoStatsRoles_custom.test.ts` (oral-only, versatile, facial-independent, solo-only/mixed, overlapping roles, and empty data). No schema or configuration changes.
 
 ### O Stats (`/ostats`)
 
@@ -171,10 +172,11 @@ Tag-based task tracking records daily completions and incoming work for scenes, 
 
 - Removing a direct tag or deleting a tagged item records completion; adding the tag records incoming work. Marker primary/secondary tag updates are atomic and deduplicated.
 - Overall Progress tracks organized scenes. New scenes and organized-to-unorganized reversals are incoming work; unorganized-to-organized changes are completions. Deleting a scene recalculates snapshots without inventing completion events.
-- History uses America/Mexico_City dates. The chart preserves zero-activity calendar days, shows completed/incoming bars and a seven-day average, and provides paginated daily activity and fixed-batch remaining-item links.
+- History uses America/Mexico_City dates. The chart preserves zero-activity calendar days, defaults to full-width completed bars with optional Incoming bars, and provides paginated daily activity and fixed-batch remaining-item links. Its organized hover tooltip shows the selected point's completed or remaining percentage plus the percentage-point progress made during that day, week, or month.
 - Paused trackers continue recording; archived trackers freeze activity and resume with a fresh baseline. Version checks reject stale edits, and restoring a deletion preserves baseline membership.
-- Each card has a browser-local Items-per-day planner with immediate finish-date calculation. Observed estimates require three complete days, use net progress, and exclude today's partial activity. The Overall Progress card has its own scenes-per-day plan.
-- Trackers can also persist an optional Goal per day. Active tracker cards show red/yellow/green/gold daily status icons for zero/below/met/exceeded progress, including the completed/goal count; completed history bars use the same colors. Paused, completed, archived, and goal-less trackers retain the original presentation.
+- Each card has a compact two-line, browser-local Items-per-day finish planner with immediate date calculation. Observed estimates require three complete days, use net progress, and exclude today's partial activity. Overall Progress instead persists its Items-per-day goal in the database.
+- Trackers and Overall Progress persist an optional Goal per day. Their cards and details show Today, This week, and This month completed/goal progress; weekly periods start Monday, and current weekly/monthly targets count only elapsed calendar dates. History charts switch between daily, weekly, and monthly aggregation and color completed bars by the applicable period goal.
+- Goal changes are effective on the current reporting date. Effective-dated goal history preserves prior daily colors and rolls old and new daily targets into their corresponding weekly/monthly periods instead of retroactively applying the latest goal.
 - Details shows completed, remaining, and percentage summary cards above the shared history chart. Fixed-batch completed counts use the current baseline.
 
 ### Key files and schema
@@ -182,12 +184,12 @@ Tag-based task tracking records daily completions and incoming work for scenes, 
 - `graphql/schema/types/task_progress_tracker_custom.graphql` and `schema_custom.graphql`
 - `internal/api/resolver_task_progress_tracker_custom.go`, `resolver_task_progress_history_custom.go`
 - `pkg/models/task_progress_tracker_custom.go`, `pkg/sqlite/task_progress_*_custom.go`, and entity-store hooks
-- `task_progress_tracker_history.up.sql`, `task_progress_overall_history.up.sql`, `task_progress_tracker_goal_per_day.up.sql`
+- `task_progress_tracker_history.up.sql`, `task_progress_overall_history.up.sql`, `task_progress_tracker_goal_per_day.up.sql`, `task_progress_goal_history.up.sql`
 - `ui/v2.5/src/components/TaskProgress*` and `ui/v2.5/graphql/{data,queries,mutations}/task_progress_tracker_custom.graphql`
 
 ### Tests
 
-Coverage includes bootstrap/retrofit, CRUD/order/versioning, fixed membership, lifecycle recording, tag and deletion events, Overall Progress transitions, history aggregation, date boundaries, forecasts, daily-goal states, card/modal rendering, and visible-data rules.
+Coverage includes bootstrap/retrofit, CRUD/order/versioning, fixed membership, lifecycle recording, tag and deletion events, Overall Progress transitions and goal persistence, effective-dated daily goals, weekly/monthly aggregation, date boundaries, forecasts, goal states, card/modal rendering, and visible-data rules.
 
 ---
 
@@ -426,9 +428,13 @@ Implementation: `deploy_prod_custom.bat` and `scripts/deploy_prod_custom.ps1`.
 
 The `/remote/o` page pairs a phone with the active browser player through a one-use, five-minute QR code and records an O against the player’s current scene and timestamp. The phone remembers the pairing locally; scene changes, reloads, and Stash restarts do not require rescanning.
 
-The player samples its own time when a command arrives. Paused playback is valid; buffering, seeking, unloaded video, stale sessions, mismatched scenes, and competing browser owners are rejected. Each tap has a command ID and receipt so retries are idempotent and write at most one O/rating adjustment. Commands expire after 30 seconds; pending taps survive a phone-page reload in session storage. Pairing respects normal authentication and reverse-proxy prefixes.
+When multi-segment looping is on, tap segment buttons to loop only those segments in their existing order. “Deselect all” restores normal looping without changing segments or saved presets. Selection is temporary and clears when the loop is disabled or replaced; stale scene/configuration commands are rejected. Successful remote O recording shows “O recorded” inside the main player for one second, including fullscreen.
 
-Implementation: `internal/api/remote_playback_custom.go`, `resolver_remote_playback_custom.go`, `ui/v2.5/src/components/RemoteO/*`, and player integrations in `ScenePlayer.tsx`/`MarkerPlaylistPlayer.tsx`. GraphQL state/command/receipt queries, mutations, and subscriptions are in `remote-playback_custom.graphql`. Tests cover pairing/session ownership, validation, replay/restart safety, subscriptions, and exactly-once recording.
+Loop control adds `RemoteLoopControls.tsx`, `remoteLoopSelection_custom.ts`, `remote_loop_selection_custom.go`, and `remoteToast_custom.ts`, with changes to `RemoteO.tsx`, `useRemotePlayer_custom.ts`, `Scene.tsx`, and `multi-segment-loop.ts`. The custom GraphQL schema adds loop state and a selection mutation; no database or configuration changes are needed. Focused tests in `remote_loop_selection_custom_test.go` and `remoteLoopSelection_custom.test.ts` cover selection delivery, stale/invalid requests, subset order, reset behavior, and fullscreen toast lifetime.
+
+The server freezes the latest player-reported timestamp when the first tap is accepted. New command IDs must arrive within 30 seconds, but an accepted tap remains available for same-ID/same-timestamp redelivery for 24 hours while the same player session and scene remain active. This includes transient delivery and player-side recording failures, while the receipt keeps database and rating updates exactly-once. Paused playback is valid; buffering, seeking, unloaded video, stale sessions, mismatched scenes, and competing browser owners are rejected. Pending taps survive a phone-page reload in session storage, while a definitive expired/invalid/stale-session rejection clears the dead saved tap so the phone can record again. Pairing respects normal authentication and reverse-proxy prefixes.
+
+Implementation: `internal/api/remote_playback_custom.go`, `resolver_remote_playback_custom.go`, `ui/v2.5/src/components/RemoteO/*`, and player integrations in `ScenePlayer.tsx`/`MarkerPlaylistPlayer.tsx`. GraphQL state/command/receipt queries, mutations, and subscriptions are in `remote-playback_custom.graphql`. Tests cover pairing/session ownership, validation, same-ID/same-timestamp command redelivery, replay/restart safety, subscriptions, and exactly-once recording.
 
 ---
 

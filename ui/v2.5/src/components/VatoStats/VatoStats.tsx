@@ -9,24 +9,21 @@ import { StatsStudioSelector } from "src/components/StatsStudioSelector_custom";
 import { StatsFilterBar } from "src/components/StatsFilterBar_custom";
 import { useStatsViewState } from "src/hooks/useStatsViewState_custom";
 import { removeStatsFilter } from "src/utils/statsViewState_custom";
-import * as GQL from "src/core/generated-graphql";
-import { useConfigurationContext } from "src/hooks/Config";
 import { useTitleProps } from "src/hooks/title";
-import { ListFilterModel } from "src/models/list-filter/filter";
-import NavUtils from "src/utils/navigation";
+import TextUtils from "src/utils/text";
 import { metallicRatingChartBucket } from "src/utils/metallicRatingChart_custom";
 import { statsCountryName } from "src/utils/statsCountry_custom";
-import {
-  formatStatsDrilldownTotal,
-  formatStatsTotal,
-} from "src/utils/statsDrilldown_custom";
 import { VatoStatsRatingAdvisor } from "./VatoStatsRatingAdvisor_custom";
 import {
   getVatoStatsStudioScope,
-  getVatoStatsStudioRoleCounts,
   getVatoStatsStudioSummary,
   type IVatoStatsStudioScope,
 } from "./vatoStatsStudioScope_custom";
+
+import {
+  buildVatoRoleChartData,
+  vatoMatchesRole,
+} from "./vatoStatsRoles_custom";
 
 import "./VatoStats.scss";
 
@@ -67,6 +64,7 @@ const VATO_STATS_PERFORMERS = gql`
       }
     }
     sceneOrgasmCount(studio_id: $studioId, depth: $depth)
+    totalOrgasmTime(studio_id: $studioId, depth: $depth)
   }
 `;
 
@@ -74,69 +72,6 @@ const VATO_SUMMARY_STATS = gql`
   query VatoSummaryStats {
     estimatedLiters
     totalPenisMeters
-    performersSexGivenCount
-    performersSexReceivedCount
-    performersOralGivenCount
-    performersOralReceivedCount
-    performersFacialGivenCount
-    performersFacialReceivedCount
-    performersSoloOnlyCount
-    performersOneSceneCount
-  }
-`;
-
-const VATO_STATS_ROLE_TAGS = gql`
-  query VatoStatsRoleTags($ids: [ID!]) {
-    findTags(ids: $ids) {
-      tags {
-        id
-        name
-      }
-    }
-  }
-`;
-
-const VATO_STRICT_TOP_COUNT = gql`
-  query VatoStatsStrictTopCount(
-    $filter: FindFilterType
-    $performer_filter: PerformerFilterType
-  ) {
-    findPerformers(filter: $filter, performer_filter: $performer_filter) {
-      count
-    }
-  }
-`;
-
-const VATO_LENIENT_TOP_COUNT = gql`
-  query VatoStatsLenientTopCount(
-    $filter: FindFilterType
-    $performer_filter: PerformerFilterType
-  ) {
-    findPerformers(filter: $filter, performer_filter: $performer_filter) {
-      count
-    }
-  }
-`;
-
-const VATO_STRICT_BOTTOM_COUNT = gql`
-  query VatoStatsStrictBottomCount(
-    $filter: FindFilterType
-    $performer_filter: PerformerFilterType
-  ) {
-    findPerformers(filter: $filter, performer_filter: $performer_filter) {
-      count
-    }
-  }
-`;
-
-const VATO_LENIENT_BOTTOM_COUNT = gql`
-  query VatoStatsLenientBottomCount(
-    $filter: FindFilterType
-    $performer_filter: PerformerFilterType
-  ) {
-    findPerformers(filter: $filter, performer_filter: $performer_filter) {
-      count
-    }
   }
 `;
 
@@ -180,6 +115,8 @@ type VatoStatsPerformer = {
 };
 
 type ChartCategory =
+  | "role_strictness"
+  | "role"
   | "ethnicity"
   | "age"
   | "rating"
@@ -189,7 +126,15 @@ type ChartCategory =
   | "hair"
   | "eye"
   | "circumcised"
-  | "penis";
+  | "penis"
+  | "scene_o_count"
+  | "scene_count"
+  | "sex_top_count"
+  | "sex_bottom_count"
+  | "oral_top_count"
+  | "oral_bottom_count"
+  | "facial_given_count"
+  | "facial_received_count";
 
 type PodiumMetric =
   | "scene_o_count"
@@ -227,26 +172,6 @@ type ChartDataResult = {
 type VatoSummaryStatsData = {
   estimatedLiters: number;
   totalPenisMeters: number;
-  performersSexGivenCount: number;
-  performersSexReceivedCount: number;
-  performersOralGivenCount: number;
-  performersOralReceivedCount: number;
-  performersFacialGivenCount: number;
-  performersFacialReceivedCount: number;
-  performersSoloOnlyCount: number;
-  performersOneSceneCount: number;
-};
-
-type VatoStatsRoleTagsData = {
-  findTags: {
-    tags: Array<{ id: string; name: string }>;
-  };
-};
-
-type FindPerformersCountData = {
-  findPerformers: {
-    count: number;
-  };
 };
 
 const metricOptions: Array<{
@@ -298,6 +223,8 @@ const metricOptions: Array<{
 ];
 
 const chartDefinitions: Array<{ key: ChartCategory; label: string }> = [
+  { key: "role_strictness", label: "By Role Strictness" },
+  { key: "role", label: "By Role" },
   { key: "ethnicity", label: "Ethnicity" },
   { key: "age", label: "Scene Age" },
   { key: "rating", label: "Rating" },
@@ -308,11 +235,22 @@ const chartDefinitions: Array<{ key: ChartCategory; label: string }> = [
   { key: "eye", label: "Eye Color" },
   { key: "circumcised", label: "Circumcised" },
   { key: "penis", label: "Verga" },
+  // CUSTOM: Graph the count-based podium metrics as drill-down distributions.
+  { key: "scene_o_count", label: "O Count" },
+  { key: "scene_count", label: "Total Scenes" },
+  { key: "sex_top_count", label: "Sex Top Scenes" },
+  { key: "sex_bottom_count", label: "Sex Bottom Scenes" },
+  { key: "oral_top_count", label: "Oral Top Scenes" },
+  { key: "oral_bottom_count", label: "Oral Bottom Scenes" },
+  { key: "facial_given_count", label: "Facials Given" },
+  { key: "facial_received_count", label: "Facials Received" },
 ];
 
 // CUSTOM: These categories have a small, stable set of values and benefit from
 // sharing a row instead of reserving the full chart width.
 const compactChartCategories: ChartCategory[] = [
+  "role_strictness",
+  "role",
   "metallic_rating",
   "circumcised",
 ];
@@ -713,9 +651,30 @@ function numericValueLabel(value?: number | null) {
   return String(Math.round(value));
 }
 
+function nonNegativeNumericValueLabel(value?: number | null) {
+  if (value === null || value === undefined || value < 0) return undefined;
+  return String(Math.round(value));
+}
+
 function numericSortFromLabel(label: string) {
   const first = Number(label.split("-")[0]);
   return Number.isFinite(first) ? first : Number.MAX_SAFE_INTEGER;
+}
+
+// CUSTOM: A zero scene count means a vato has no matching scenes, not missing data.
+function excludeZeroCountFromChart(category: ChartCategory) {
+  switch (category) {
+    case "scene_o_count":
+    case "sex_top_count":
+    case "sex_bottom_count":
+    case "oral_top_count":
+    case "oral_bottom_count":
+    case "facial_given_count":
+    case "facial_received_count":
+      return true;
+    default:
+      return false;
+  }
 }
 
 function chartSortValue(
@@ -726,6 +685,14 @@ function chartSortValue(
   switch (category) {
     case "height":
     case "rating":
+    case "scene_o_count":
+    case "scene_count":
+    case "sex_top_count":
+    case "sex_bottom_count":
+    case "oral_top_count":
+    case "oral_bottom_count":
+    case "facial_given_count":
+    case "facial_received_count":
       return numericSortFromLabel(value ?? "");
     case "metallic_rating":
       return (
@@ -768,6 +735,16 @@ function categoryValue(performer: VatoStatsPerformer, category: ChartCategory) {
       return cleanValue(performer.circumcised);
     case "penis":
       return numericValueLabel(performer.penis_length);
+    case "scene_count":
+      return nonNegativeNumericValueLabel(performer.scene_count);
+    case "scene_o_count":
+    case "sex_top_count":
+    case "sex_bottom_count":
+    case "oral_top_count":
+    case "oral_bottom_count":
+    case "facial_given_count":
+    case "facial_received_count":
+      return numericValueLabel(performer[category]);
     default:
       return undefined;
   }
@@ -777,6 +754,9 @@ function performerMatchesFilter(
   performer: VatoStatsPerformer,
   filter: ChartFilter
 ) {
+  if (filter.category === "role" || filter.category === "role_strictness") {
+    return vatoMatchesRole(performer, filter.category, filter.value);
+  }
   if (filter.category === "age") {
     if (filter.value === UNKNOWN_KEY)
       return performer.unknown_scene_age_count > 0;
@@ -848,117 +828,8 @@ function formatDecimal(value?: number, suffix = "") {
   })}${suffix}`;
 }
 
-function randomSortID() {
-  return Math.floor(Math.random() * 100000000);
-}
-
-function performerMarkerRoleURL(
-  tag: { id: string; name: string } | undefined,
-  role: "any" | "top" | "bottom",
-  depth = 0
-) {
-  if (!tag) return undefined;
-  const criterionData = {
-    type: "performer_markers",
-    modifier: "INCLUDES_ALL",
-    group: {
-      tag_ids: [{ id: tag.id, label: tag.name }],
-      depth,
-      performer_ids: [],
-      performer_ethnicities: [],
-      performer_countries: [],
-      performer_rating: null,
-      performer_role: role,
-      partner_ids: [],
-      partner_ethnicities: [],
-      partner_countries: [],
-      partner_rating: null,
-      partner_role: "any",
-    },
-  };
-  return `/performers?c=${encodeURIComponent(
-    JSON.stringify(criterionData)
-  )}&sortby=random_${randomSortID()}`;
-}
-
-function partnersFilterURL(value: Record<string, unknown>) {
-  const criterion = {
-    type: "partners",
-    value: JSON.stringify(value),
-  };
-  return `/performers?c=${encodeURIComponent(
-    JSON.stringify(criterion)
-  )}&sortby=random_${randomSortID()}`;
-}
-
-function performerSceneCountURL(sceneCount: number) {
-  const filter = new ListFilterModel(GQL.FilterMode.Performers, undefined);
-  const criterion = filter.makeCriterion("scene_count");
-  if (criterion) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (criterion as any).modifier = GQL.CriterionModifier.Equals;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (criterion as any).value = sceneCount;
-    filter.criteria.push(criterion);
-  }
-  return `/performers?${filter.makeQueryParameters()}&sortby=random_${randomSortID()}`;
-}
-
-function soloOnlyPerformersURL(
-  soloTag: { id: string; name: string } | undefined,
-  oralTag: { id: string; name: string } | undefined,
-  sexTag: { id: string; name: string } | undefined
-) {
-  if (!soloTag) return undefined;
-  const criteria = [
-    {
-      type: "performer_markers",
-      modifier: "INCLUDES_ALL",
-      group: {
-        tag_ids: [{ id: soloTag.id, label: soloTag.name }],
-        depth: -1,
-        performer_ids: [],
-        performer_ethnicities: [],
-        performer_countries: [],
-        performer_rating: null,
-        performer_role: "any",
-        partner_ids: [],
-        partner_ethnicities: [],
-        partner_countries: [],
-        partner_rating: null,
-        partner_role: "any",
-      },
-    },
-  ];
-
-  const excludeTags = [];
-  if (oralTag) excludeTags.push({ id: oralTag.id, label: oralTag.name });
-  if (sexTag) excludeTags.push({ id: sexTag.id, label: sexTag.name });
-
-  if (excludeTags.length > 0) {
-    criteria.push({
-      type: "performer_markers_exclude",
-      modifier: "INCLUDES_ALL",
-      group: {
-        tag_ids: excludeTags,
-        depth: -1,
-        performer_ids: [],
-        performer_ethnicities: [],
-        performer_countries: [],
-        performer_rating: null,
-        performer_role: "any",
-        partner_ids: [],
-        partner_ethnicities: [],
-        partner_countries: [],
-        partner_rating: null,
-        partner_role: "any",
-      },
-    });
-  }
-
-  return `/performers?${criteria
-    .map((criterion) => `c=${encodeURIComponent(JSON.stringify(criterion))}`)
-    .join("&")}&sortby=random_${randomSortID()}`;
+function formatDuration(totalSeconds: number) {
+  return TextUtils.formatDurationRange(totalSeconds);
 }
 
 function addDatum(
@@ -980,6 +851,9 @@ function buildChartData(
   performers: VatoStatsPerformer[],
   category: ChartCategory
 ) {
+  if (category === "role" || category === "role_strictness") {
+    return buildVatoRoleChartData(performers, category);
+  }
   const buckets = new Map<string, ChartDatum>();
   let unknownCount = 0;
 
@@ -1002,7 +876,7 @@ function buildChartData(
 
     const value = categoryValue(performer, category);
     if (!value) {
-      unknownCount += 1;
+      if (!excludeZeroCountFromChart(category)) unknownCount += 1;
       return;
     }
 
@@ -1159,7 +1033,12 @@ const VatoStatsChart: React.FC<{
                 <span
                   className="vatostats-bar-fill"
                   style={{
-                    height: `${Math.max((datum.count / max) * 100, 6)}%`,
+                    minHeight: datum.count === 0 ? 0 : undefined,
+                    height: `${
+                      datum.count === 0
+                        ? 0
+                        : Math.max((datum.count / max) * 100, 6)
+                    }%`,
                   }}
                 />
               </span>
@@ -1203,153 +1082,41 @@ const VatoStatsFilterBar: React.FC<{
 
 const VatoStatsSummary: React.FC<{
   summary?: VatoSummaryStatsData;
-  strictTop?: number;
-  lenientTop?: number;
-  strictBottom?: number;
-  lenientBottom?: number;
-  sexTag?: { id: string; name: string };
-  oralTag?: { id: string; name: string };
-  soloTag?: { id: string; name: string };
-  facialTag?: { id: string; name: string };
-  studioScope?: IVatoStatsStudioScope;
-}> = ({
-  summary,
-  strictTop,
-  lenientTop,
-  strictBottom,
-  lenientBottom,
-  sexTag,
-  oralTag,
-  soloTag,
-  facialTag,
-  studioScope,
-}) => {
+  totalNuts: number;
+  totalNutTime: number;
+  totalVatos: number;
+}> = ({ summary, totalNuts, totalNutTime, totalVatos }) => {
   const cards = [
     {
+      label: "Total Vatos",
+      value: totalVatos.toLocaleString(),
+    },
+    {
       label: "Meters Of Pito",
-      value: formatDecimal(summary?.totalPenisMeters, " m"),
+      value: formatDecimal(summary?.totalPenisMeters, " m") ?? "—",
+    },
+    {
+      label: "Total Nuts",
+      value: totalNuts.toLocaleString(),
+    },
+    {
+      label: "Total Nut Time",
+      value: formatDuration(totalNutTime),
     },
     {
       label: "Estimated Liters",
-      value: formatDecimal(summary?.estimatedLiters, " L"),
+      value: formatDecimal(summary?.estimatedLiters, " L") ?? "—",
     },
-    {
-      label: "Tops",
-      value: summary?.performersSexGivenCount?.toLocaleString(),
-      path: performerMarkerRoleURL(sexTag, "top", -1),
-    },
-    {
-      label: "Bottoms",
-      value: summary?.performersSexReceivedCount?.toLocaleString(),
-      path: performerMarkerRoleURL(sexTag, "bottom", -1),
-    },
-    {
-      label: "Strict Tops",
-      value: strictTop?.toLocaleString(),
-      path: partnersFilterURL({
-        sex_topped: { modifier: "GREATER_THAN", value: 0 },
-        sex_bottomed: { modifier: "EQUALS", value: 0 },
-        oral_bottomed: { modifier: "EQUALS", value: 0 },
-        facial_bottomed: { modifier: "EQUALS", value: 0 },
-      }),
-    },
-    {
-      label: "Lenient Tops",
-      value: lenientTop?.toLocaleString(),
-      path: partnersFilterURL({
-        sex_topped: { modifier: "GREATER_THAN", value: 0 },
-        sex_bottomed: { modifier: "EQUALS", value: 0 },
-        any_non_sex_bottomed: { modifier: "GREATER_THAN", value: 0 },
-      }),
-    },
-    {
-      label: "Strict Bottoms",
-      value: strictBottom?.toLocaleString(),
-      path: partnersFilterURL({
-        sex_bottomed: { modifier: "GREATER_THAN", value: 0 },
-        sex_topped: { modifier: "EQUALS", value: 0 },
-        oral_topped: { modifier: "EQUALS", value: 0 },
-        facial_topped: { modifier: "EQUALS", value: 0 },
-      }),
-    },
-    {
-      label: "Lenient Bottoms",
-      value: lenientBottom?.toLocaleString(),
-      path: partnersFilterURL({
-        sex_bottomed: { modifier: "GREATER_THAN", value: 0 },
-        sex_topped: { modifier: "EQUALS", value: 0 },
-        any_non_sex_topped: { modifier: "GREATER_THAN", value: 0 },
-      }),
-    },
-    {
-      label: "Oral Tops",
-      value: summary?.performersOralGivenCount?.toLocaleString(),
-      path: performerMarkerRoleURL(oralTag, "top", -1),
-    },
-    {
-      label: "Oral Bottoms",
-      value: summary?.performersOralReceivedCount?.toLocaleString(),
-      path: performerMarkerRoleURL(oralTag, "bottom", -1),
-    },
-    {
-      label: "Facial Tops",
-      value: summary?.performersFacialGivenCount?.toLocaleString(),
-      path: performerMarkerRoleURL(facialTag, "top", -1),
-    },
-    {
-      label: "Facial Bottoms",
-      value: summary?.performersFacialReceivedCount?.toLocaleString(),
-      path: performerMarkerRoleURL(facialTag, "bottom", -1),
-    },
-    {
-      label: "Solo Only Vatos",
-      value: summary?.performersSoloOnlyCount?.toLocaleString(),
-      path: soloOnlyPerformersURL(soloTag, oralTag, sexTag),
-    },
-    {
-      label: "One Scene Vatos",
-      value: summary?.performersOneSceneCount?.toLocaleString(),
-      path: performerSceneCountURL(1),
-    },
-  ]
-    .map((card) => ({
-      ...card,
-      path:
-        card.path && studioScope
-          ? NavUtils.withStudioScope(
-              card.path,
-              studioScope.id,
-              studioScope.name,
-              studioScope.depth
-            )
-          : card.path,
-    }))
-    .filter((card) => card.value !== undefined);
-
-  if (cards.length === 0) return null;
+  ];
 
   return (
     <section className="vatostats-summary-grid" aria-label="Vato summary stats">
-      {cards.map((card) =>
-        card.path ? (
-          <Link
-            className="vatostats-summary-card linked"
-            key={card.label}
-            to={card.path}
-            title={`View matching vatos: ${card.label}`}
-          >
-            <div className="vatostats-summary-value">{card.value}</div>
-            <div className="vatostats-summary-label">
-              {card.label} <span aria-hidden="true">→</span>
-            </div>
-          </Link>
-        ) : (
-          <div className="vatostats-summary-card" key={card.label}>
-            <div className="vatostats-summary-value">{card.value}</div>
-            <div className="vatostats-summary-label">{card.label}</div>
-          </div>
-        )
-      )}
+      {cards.map((card) => (
+        <div className="vatostats-summary-card" key={card.label}>
+          <div className="vatostats-summary-value">{card.value}</div>
+          <div className="vatostats-summary-label">{card.label}</div>
+        </div>
+      ))}
     </section>
   );
 };
@@ -1371,8 +1138,6 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
     filters,
     showList: showPerformerList,
   } = view;
-  const { configuration } = useConfigurationContext();
-  const roleTagIds = configuration?.ui?.roleTagIds ?? {};
   const selectedStudioScope = useMemo<IVatoStatsStudioScope | undefined>(
     () =>
       selectedStudio
@@ -1388,6 +1153,7 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
   const { data, error, loading } = useQuery<{
     vatoStatsPerformers: VatoStatsPerformer[];
     sceneOrgasmCount: number;
+    totalOrgasmTime: number;
   }>(VATO_STATS_PERFORMERS, {
     variables: {
       depth: studioScope?.depth,
@@ -1400,100 +1166,6 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
     VATO_SUMMARY_STATS,
     { skip: deferGlobalAuxiliaryQueries }
   );
-  const strictTopQuery = useQuery<FindPerformersCountData>(
-    VATO_STRICT_TOP_COUNT,
-    {
-      skip: deferGlobalAuxiliaryQueries,
-      variables: {
-        filter: { per_page: 1 },
-        performer_filter: {
-          partners: {
-            sex_topped: { value: 0, modifier: "GREATER_THAN" },
-            sex_bottomed: { value: 0, modifier: "EQUALS" },
-            oral_bottomed: { value: 0, modifier: "EQUALS" },
-            facial_bottomed: { value: 0, modifier: "EQUALS" },
-          },
-        },
-      },
-    }
-  );
-  const lenientTopQuery = useQuery<FindPerformersCountData>(
-    VATO_LENIENT_TOP_COUNT,
-    {
-      skip: deferGlobalAuxiliaryQueries,
-      variables: {
-        filter: { per_page: 1 },
-        performer_filter: {
-          partners: {
-            sex_topped: { value: 0, modifier: "GREATER_THAN" },
-            sex_bottomed: { value: 0, modifier: "EQUALS" },
-            any_non_sex_bottomed: { value: 0, modifier: "GREATER_THAN" },
-          },
-        },
-      },
-    }
-  );
-  const strictBottomQuery = useQuery<FindPerformersCountData>(
-    VATO_STRICT_BOTTOM_COUNT,
-    {
-      skip: deferGlobalAuxiliaryQueries,
-      variables: {
-        filter: { per_page: 1 },
-        performer_filter: {
-          partners: {
-            sex_bottomed: { value: 0, modifier: "GREATER_THAN" },
-            sex_topped: { value: 0, modifier: "EQUALS" },
-            oral_topped: { value: 0, modifier: "EQUALS" },
-            facial_topped: { value: 0, modifier: "EQUALS" },
-          },
-        },
-      },
-    }
-  );
-  const lenientBottomQuery = useQuery<FindPerformersCountData>(
-    VATO_LENIENT_BOTTOM_COUNT,
-    {
-      skip: deferGlobalAuxiliaryQueries,
-      variables: {
-        filter: { per_page: 1 },
-        performer_filter: {
-          partners: {
-            sex_bottomed: { value: 0, modifier: "GREATER_THAN" },
-            sex_topped: { value: 0, modifier: "EQUALS" },
-            any_non_sex_topped: { value: 0, modifier: "GREATER_THAN" },
-          },
-        },
-      },
-    }
-  );
-  const roleTagIDList = useMemo(
-    () =>
-      [
-        roleTagIds.sexTagId,
-        roleTagIds.oralTagId,
-        roleTagIds.soloTagId,
-        roleTagIds.facialTagId,
-      ].filter((id): id is string => !!id),
-    [
-      roleTagIds.facialTagId,
-      roleTagIds.oralTagId,
-      roleTagIds.sexTagId,
-      roleTagIds.soloTagId,
-    ]
-  );
-  const { data: tagsData } = useQuery<VatoStatsRoleTagsData>(
-    VATO_STATS_ROLE_TAGS,
-    {
-      skip: deferAuxiliaryQueries || roleTagIDList.length === 0,
-      variables: { ids: roleTagIDList },
-    }
-  );
-  const roleTags = tagsData?.findTags.tags ?? [];
-  const sexTag = roleTags.find((tag) => tag.id === roleTagIds.sexTagId);
-  const oralTag = roleTags.find((tag) => tag.id === roleTagIds.oralTagId);
-  const soloTag = roleTags.find((tag) => tag.id === roleTagIds.soloTagId);
-  const facialTag = roleTags.find((tag) => tag.id === roleTagIds.facialTagId);
-
   const performers = useMemo(
     () => data?.vatoStatsPerformers ?? [],
     [data?.vatoStatsPerformers]
@@ -1504,10 +1176,6 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
         ? getVatoStatsStudioSummary(performers, data?.sceneOrgasmCount ?? 0)
         : undefined,
     [data?.sceneOrgasmCount, performers, studioScope]
-  );
-  const studioRoleCounts = useMemo(
-    () => (studioScope ? getVatoStatsStudioRoleCounts(performers) : undefined),
-    [performers, studioScope]
   );
   const filteredPerformers = useMemo(
     () =>
@@ -1587,19 +1255,7 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
       <Helmet {...titleProps} />
 
       <header className="vatostats-header">
-        <div>
-          <h1>{pageTitle}</h1>
-          <div className="vatostats-total">
-            {filters.length > 0
-              ? formatStatsDrilldownTotal(
-                  filteredPerformers.length,
-                  performers.length,
-                  "vato",
-                  "vatos"
-                )
-              : formatStatsTotal(performers.length, "vato", "vatos")}
-          </div>
-        </div>
+        <h1>{pageTitle}</h1>
         {!fixedStudioScope && (
           <StatsStudioSelector
             includeChildStudios={includeChildStudios}
@@ -1625,36 +1281,17 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
       />
 
       {performers.length === 0 ? (
-        <Alert variant="secondary">No vatos with scenes found.</Alert>
+        <Alert variant="secondary">No vatos found.</Alert>
       ) : (
         <>
           <p className="stats-interaction-help">
-            {studioScope ? "Studio" : "Library"} totals below. Linked totals
-            open matching records →
+            {studioScope ? "Studio" : "Library"} totals at a glance.
           </p>
           <VatoStatsSummary
-            facialTag={facialTag}
-            lenientBottom={
-              studioRoleCounts?.lenientBottom ??
-              lenientBottomQuery.data?.findPerformers.count
-            }
-            lenientTop={
-              studioRoleCounts?.lenientTop ??
-              lenientTopQuery.data?.findPerformers.count
-            }
-            oralTag={oralTag}
-            sexTag={sexTag}
-            soloTag={soloTag}
-            strictBottom={
-              studioRoleCounts?.strictBottom ??
-              strictBottomQuery.data?.findPerformers.count
-            }
-            strictTop={
-              studioRoleCounts?.strictTop ??
-              strictTopQuery.data?.findPerformers.count
-            }
-            studioScope={studioScope}
             summary={studioSummary ?? summaryData}
+            totalNuts={data?.sceneOrgasmCount ?? 0}
+            totalNutTime={data?.totalOrgasmTime ?? 0}
+            totalVatos={performers.length}
           />
           <div className="vatostats-podium-toolbar">
             <div className="vatostats-podium-descriptor">

@@ -1,31 +1,33 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Alert, Button, Card, Form, ProgressBar } from "react-bootstrap";
 import { FormattedNumber } from "react-intl";
-import { useTaskProgressOrganizedScenesQuery } from "src/core/generated-graphql";
+import {
+  useTaskProgressOrganizedScenesQuery,
+  useTaskProgressOverallGoalUpdateMutation,
+} from "src/core/generated-graphql";
 import {
   overallProgressPercentage,
   useProgressText,
   progressToday,
 } from "./progressView_custom";
 import { TaskProgressOverallModal } from "./TaskProgressOverallModal";
+import { TaskProgressGoalSummary } from "./TaskProgressGoalSummary";
 
-const storageKey = "task-progress-organized-plan";
 export const TaskProgressOverall: React.FC = () => {
   const t = useProgressText();
   const query = useTaskProgressOrganizedScenesQuery({
     fetchPolicy: "network-only",
     notifyOnNetworkStatusChange: true,
   });
+  const [updateGoal] = useTaskProgressOverallGoalUpdateMutation();
   const [showDetails, setShowDetails] = useState(false);
-  const [rate, setRate] = useState(() => {
-    try {
-      return Math.max(0, Number(localStorage.getItem(storageKey)) || 0);
-    } catch {
-      return 0;
-    }
-  });
-  const [storageError, setStorageError] = useState(false);
+  const [rate, setRate] = useState(0);
+  const [savingGoal, setSavingGoal] = useState(false);
+  const [goalError, setGoalError] = useState<string>();
   const overall = query.data?.taskProgressOverall;
+  useEffect(() => {
+    if (overall) setRate(overall.goal_per_day ?? 0);
+  }, [overall]);
   const total = overall?.total_count;
   const done = overall?.organized_count;
   const remaining =
@@ -90,10 +92,23 @@ export const TaskProgressOverall: React.FC = () => {
                 aria-label={t("Organized scenes")}
                 now={percentage}
               />
+              {overall && (
+                <TaskProgressGoalSummary
+                  currentGoalPerDay={overall.goal_per_day}
+                  history={overall.history.map((day) => ({
+                    ...day,
+                    baselineCount: day.baseline_count ?? undefined,
+                    goalPerDay: day.goal_per_day,
+                  }))}
+                />
+              )}
             </>
           )}
-          <Form.Group controlId="overall-progress-rate" className="mt-3">
-            <Form.Label>{t("Planned scenes per day")}</Form.Label>
+          <Form.Group
+            controlId="overall-progress-rate"
+            className="progress-overall-goal-form mt-3"
+          >
+            <Form.Label>{t("Items per day")}</Form.Label>
             <Form.Control
               className="progress-plan-input"
               type="number"
@@ -107,18 +122,33 @@ export const TaskProgressOverall: React.FC = () => {
                   Math.min(1000000, Math.floor(Number(e.target.value) || 0))
                 );
                 setRate(next);
-                try {
-                  localStorage.setItem(storageKey, String(next));
-                  setStorageError(false);
-                } catch {
-                  setStorageError(true);
-                }
               }}
             />
+            <Button
+              disabled={savingGoal || rate === (overall?.goal_per_day ?? 0)}
+              onClick={async () => {
+                setSavingGoal(true);
+                setGoalError(undefined);
+                try {
+                  await updateGoal({
+                    variables: { goal_per_day: rate > 0 ? rate : null },
+                  });
+                  await query.refetch();
+                } catch (error) {
+                  setGoalError(
+                    error instanceof Error ? error.message : String(error)
+                  );
+                } finally {
+                  setSavingGoal(false);
+                }
+              }}
+              size="sm"
+              variant="primary"
+            >
+              {t(savingGoal ? "Saving…" : "Save")}
+            </Button>
           </Form.Group>
-          {storageError && (
-            <p role="alert">{t("Your browser could not save this plan.")}</p>
-          )}
+          {goalError && <p role="alert">{goalError}</p>}
           {due && (
             <p>
               {t("Planned finish")}: {due} · {t("Assumes no new work")}
@@ -139,6 +169,7 @@ export const TaskProgressOverall: React.FC = () => {
       {showDetails && overall && (
         <TaskProgressOverallModal
           history={overall.history}
+          goalPerDay={overall.goal_per_day}
           onClose={() => setShowDetails(false)}
         />
       )}

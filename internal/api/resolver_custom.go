@@ -2309,7 +2309,7 @@ func vatoStatsSetAgeCount(performer *VatoStatsPerformer, ageRange string, count 
 	})
 }
 
-func vatoStatsPerformersQueryCustom(sceneScope string, royalSapphireClause string, goldClause string, silverClause string, bronzeClause string) string {
+func vatoStatsPerformersQueryCustom(sceneScope string, includeZeroScenePerformers bool, royalSapphireClause string, goldClause string, silverClause string, bronzeClause string) string {
 	return fmt.Sprintf(`
 %s,
 scene_o_stats AS (
@@ -2364,23 +2364,25 @@ SELECT
   performers.penis_length,
   performers.circumcised,
   CASE WHEN performers.image_blob IS NULL OR TRIM(performers.image_blob) = '' THEN 0 ELSE 1 END AS has_image,
-  performer_scene_stats.scene_count,
-  performer_scene_stats.scene_o_count,
+  COALESCE(performer_scene_stats.scene_count, 0) AS scene_count,
+  COALESCE(performer_scene_stats.scene_o_count, 0) AS scene_o_count,
   performer_scene_stats.most_recent_o_date,
-  performer_scene_stats.career_span_days,
-  performer_scene_stats.scene_o_count_past_year,
+  COALESCE(performer_scene_stats.career_span_days, 0) AS career_span_days,
+  COALESCE(performer_scene_stats.scene_o_count_past_year, 0) AS scene_o_count_past_year,
   CASE
     WHEN datetime(performers.created_at) >= datetime('now', '-1 year') THEN 1
     ELSE 0
   END AS is_past_year
 FROM performers
-JOIN performer_scene_stats ON performer_scene_stats.performer_id = performers.id
+LEFT JOIN performer_scene_stats ON performer_scene_stats.performer_id = performers.id
+WHERE performer_scene_stats.performer_id IS NOT NULL OR %t
 ORDER BY performers.name COLLATE NOCASE ASC`,
 		sceneScope,
 		royalSapphireClause,
 		goldClause,
 		silverClause,
 		bronzeClause,
+		includeZeroScenePerformers,
 	)
 }
 
@@ -2405,6 +2407,7 @@ func (r *queryResolver) VatoStatsPerformers(ctx context.Context, studioID *strin
 		db := manager.GetInstance().Database
 		query := vatoStatsPerformersQueryCustom(
 			sceneScope,
+			studioID == nil, // CUSTOM: global Total Scenes includes zero-scene vatos
 			royalSapphireClause,
 			goldClause,
 			silverClause,
@@ -2430,7 +2433,7 @@ func (r *queryResolver) VatoStatsPerformers(ctx context.Context, studioID *strin
 
 			id := customIntValue(row[0])
 			sceneCount := customIntValue(row[12])
-			if id == 0 || sceneCount == 0 {
+			if id == 0 {
 				continue
 			}
 

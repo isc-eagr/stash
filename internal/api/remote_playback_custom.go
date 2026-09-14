@@ -18,32 +18,42 @@ import (
 )
 
 const (
-	remotePlaybackStateTTL   = 5 * time.Second
-	remotePlaybackCommandTTL = 30 * time.Second
+	remotePlaybackStateTTL          = 5 * time.Second
+	remotePlaybackInitialCommandTTL = 30 * time.Second
+	remotePlaybackPendingCommandTTL = 24 * time.Hour
+	remotePlaybackResultTTL         = 24 * time.Hour
 )
 
 type RemotePlaybackState struct {
-	ServerID       string  `json:"server_id"`
-	PlayerID       string  `json:"player_id"`
-	SessionID      string  `json:"session_id"`
-	SceneID        string  `json:"scene_id"`
-	SceneTitle     string  `json:"scene_title"`
-	VideoTimestamp float64 `json:"video_timestamp"`
-	Duration       float64 `json:"duration"`
-	PlaybackRate   float64 `json:"playback_rate"`
-	Status         string  `json:"status"`
-	UpdatedAt      string  `json:"updated_at"`
+	LoopEnabled        bool                 `json:"loop_enabled"`
+	LoopSegments       []*RemoteLoopSegment `json:"loop_segments"`
+	SelectedSegmentIDs []string             `json:"selected_segment_ids"`
+	LoopRevision       string               `json:"loop_revision"`
+	ServerID           string               `json:"server_id"`
+	PlayerID           string               `json:"player_id"`
+	SessionID          string               `json:"session_id"`
+	SceneID            string               `json:"scene_id"`
+	SceneTitle         string               `json:"scene_title"`
+	VideoTimestamp     float64              `json:"video_timestamp"`
+	Duration           float64              `json:"duration"`
+	PlaybackRate       float64              `json:"playback_rate"`
+	Status             string               `json:"status"`
+	UpdatedAt          string               `json:"updated_at"`
 }
 
 type RemotePlaybackStateInput struct {
-	PlayerID       string  `json:"player_id"`
-	SessionID      string  `json:"session_id"`
-	SceneID        string  `json:"scene_id"`
-	SceneTitle     string  `json:"scene_title"`
-	VideoTimestamp float64 `json:"video_timestamp"`
-	Duration       float64 `json:"duration"`
-	PlaybackRate   float64 `json:"playback_rate"`
-	Status         string  `json:"status"`
+	LoopEnabled        bool                      `json:"loop_enabled"`
+	LoopSegments       []*RemoteLoopSegmentInput `json:"loop_segments"`
+	SelectedSegmentIDs []string                  `json:"selected_segment_ids"`
+	LoopRevision       string                    `json:"loop_revision"`
+	PlayerID           string                    `json:"player_id"`
+	SessionID          string                    `json:"session_id"`
+	SceneID            string                    `json:"scene_id"`
+	SceneTitle         string                    `json:"scene_title"`
+	VideoTimestamp     float64                   `json:"video_timestamp"`
+	Duration           float64                   `json:"duration"`
+	PlaybackRate       float64                   `json:"playback_rate"`
+	Status             string                    `json:"status"`
 }
 
 type RemotePlaybackORequestInput struct {
@@ -54,11 +64,14 @@ type RemotePlaybackORequestInput struct {
 }
 
 type RemotePlaybackCommand struct {
-	CommandID       string `json:"command_id"`
-	PlayerID        string `json:"player_id"`
-	SessionID       string `json:"session_id"`
-	ExpectedSceneID string `json:"expected_scene_id"`
-	createdAt       time.Time
+	SelectedSegmentIDs []string `json:"selected_segment_ids"`
+	LoopRevision       *string  `json:"loop_revision"`
+	CommandID          string   `json:"command_id"`
+	PlayerID           string   `json:"player_id"`
+	SessionID          string   `json:"session_id"`
+	ExpectedSceneID    string   `json:"expected_scene_id"`
+	VideoTimestamp     float64  `json:"video_timestamp"`
+	createdAt          time.Time
 }
 
 type RemotePlaybackORecordInput struct {
@@ -172,11 +185,20 @@ func copyRemotePlaybackStateCustom(state *RemotePlaybackState) *RemotePlaybackSt
 		return nil
 	}
 	copy := *state
+	copy.LoopSegments = make([]*RemoteLoopSegment, len(state.LoopSegments))
+	for i, segment := range state.LoopSegments {
+		value := *segment
+		copy.LoopSegments[i] = &value
+	}
+	copy.SelectedSegmentIDs = append([]string{}, state.SelectedSegmentIDs...)
 	return &copy
 }
 
 func copyRemotePlaybackCommandCustom(command *RemotePlaybackCommand) *RemotePlaybackCommand {
 	copy := *command
+	if command.SelectedSegmentIDs != nil {
+		copy.SelectedSegmentIDs = append([]string{}, command.SelectedSegmentIDs...)
+	}
 	return &copy
 }
 
@@ -193,7 +215,7 @@ func (h *remotePlaybackHubCustom) cleanupLocked(now time.Time) {
 	}
 	for id, result := range h.results {
 		recorded, _ := time.Parse(time.RFC3339Nano, result.RecordedAt)
-		if now.Sub(recorded) > 24*time.Hour {
+		if now.Sub(recorded) > remotePlaybackResultTTL {
 			delete(h.results, id)
 		}
 	}
@@ -205,7 +227,7 @@ func (h *remotePlaybackHubCustom) cleanupLocked(now time.Time) {
 	}
 	for commandID, command := range h.pending {
 		// Retain expired IDs so a retry cannot become a new tap at a later time.
-		if now.Sub(command.createdAt) > 24*time.Hour {
+		if now.Sub(command.createdAt) > remotePlaybackPendingCommandTTL {
 			delete(h.pending, commandID)
 		}
 	}
@@ -219,12 +241,20 @@ func (h *remotePlaybackHubCustom) update(input RemotePlaybackStateInput) (*Remot
 	defer h.recordMutex.Unlock()
 	now := time.Now()
 	state := &RemotePlaybackState{
-		ServerID: h.serverID,
-		PlayerID: input.PlayerID, SessionID: input.SessionID,
+		LoopEnabled: input.LoopEnabled, LoopRevision: input.LoopRevision,
+		SelectedSegmentIDs: append([]string{}, input.SelectedSegmentIDs...),
+		ServerID:           h.serverID,
+		PlayerID:           input.PlayerID, SessionID: input.SessionID,
 		SceneID: input.SceneID, SceneTitle: strings.TrimSpace(input.SceneTitle),
 		VideoTimestamp: input.VideoTimestamp, Duration: input.Duration,
 		PlaybackRate: input.PlaybackRate, Status: input.Status,
 		UpdatedAt: now.Format(time.RFC3339Nano),
+	}
+	for _, segment := range input.LoopSegments {
+		if segment == nil || segment.ID == "" || !isFiniteNonNegativeCustom(segment.Start) || !isFiniteNonNegativeCustom(segment.End) || segment.End <= segment.Start {
+			return nil, errors.New("invalid loop segment")
+		}
+		state.LoopSegments = append(state.LoopSegments, &RemoteLoopSegment{ID: segment.ID, Start: segment.Start, End: segment.End, Title: segment.Title})
 	}
 
 	h.mutex.Lock()
@@ -289,12 +319,25 @@ func (h *remotePlaybackHubCustom) request(input RemotePlaybackORequestInput) (*R
 			default:
 			}
 		}
-		return &RemotePlaybackCommand{CommandID: input.CommandID, PlayerID: input.PlayerID, SessionID: input.SessionID, ExpectedSceneID: input.ExpectedSceneID}, nil
+		return &RemotePlaybackCommand{CommandID: input.CommandID, PlayerID: input.PlayerID, SessionID: input.SessionID, ExpectedSceneID: input.ExpectedSceneID, VideoTimestamp: result.VideoTimestamp}, nil
 	}
 	if existing := h.pending[input.CommandID]; existing != nil {
 		if existing.PlayerID == input.PlayerID && existing.SessionID == input.SessionID && existing.ExpectedSceneID == input.ExpectedSceneID {
-			if now.Sub(existing.createdAt) > remotePlaybackCommandTTL {
+			if now.Sub(existing.createdAt) > remotePlaybackPendingCommandTTL {
 				return nil, errors.New("remote command expired without a receipt; check O history before recording again")
+			}
+			state := h.states[input.PlayerID]
+			if state == nil {
+				return nil, errors.New("paired player is offline")
+			}
+			if state.SessionID != input.SessionID || state.SceneID != input.ExpectedSceneID {
+				return nil, errors.New("the player changed sessions or scenes; refresh and try again")
+			}
+			if state.Status == "buffering" || state.Duration <= 0 {
+				return nil, errors.New("player is buffering or not ready")
+			}
+			if !h.deliverCommandLockedCustom(existing) {
+				return nil, errors.New("paired player command queue is busy")
 			}
 			return copyRemotePlaybackCommandCustom(existing), nil
 		}
@@ -307,7 +350,7 @@ func (h *remotePlaybackHubCustom) request(input RemotePlaybackORequestInput) (*R
 		return nil, errors.New("invalid remote command ID")
 	}
 	issuedMillis, err := strconv.ParseInt(parts[1], 10, 64)
-	if err != nil || now.Sub(time.UnixMilli(issuedMillis)) > remotePlaybackCommandTTL || time.UnixMilli(issuedMillis).After(now.Add(time.Second)) {
+	if err != nil || now.Sub(time.UnixMilli(issuedMillis)) > remotePlaybackInitialCommandTTL || time.UnixMilli(issuedMillis).After(now.Add(time.Second)) {
 		return nil, errors.New("remote command expired; check O history before recording again")
 	}
 	state := h.states[input.PlayerID]
@@ -330,21 +373,25 @@ func (h *remotePlaybackHubCustom) request(input RemotePlaybackORequestInput) (*R
 	command := &RemotePlaybackCommand{
 		CommandID: input.CommandID, PlayerID: input.PlayerID,
 		SessionID: input.SessionID, ExpectedSceneID: input.ExpectedSceneID,
-		createdAt: now,
+		VideoTimestamp: state.VideoTimestamp, createdAt: now,
 	}
+	if !h.deliverCommandLockedCustom(command) {
+		return nil, errors.New("paired player command queue is busy")
+	}
+	h.pending[input.CommandID] = command
+	return copyRemotePlaybackCommandCustom(command), nil
+}
+
+func (h *remotePlaybackHubCustom) deliverCommandLockedCustom(command *RemotePlaybackCommand) bool {
 	delivered := false
-	for _, subscriber := range subscribers {
+	for _, subscriber := range h.commandSubscribers[command.PlayerID] {
 		select {
 		case subscriber <- copyRemotePlaybackCommandCustom(command):
 			delivered = true
 		default:
 		}
 	}
-	if !delivered {
-		return nil, errors.New("paired player command queue is busy")
-	}
-	h.pending[input.CommandID] = command
-	return copyRemotePlaybackCommandCustom(command), nil
+	return delivered
 }
 
 func (h *remotePlaybackHubCustom) validateRecord(input RemotePlaybackORecordInput) (*RemotePlaybackOResult, error) {
@@ -361,11 +408,14 @@ func (h *remotePlaybackHubCustom) validateRecord(input RemotePlaybackORecordInpu
 		return copyRemotePlaybackResultCustom(result), nil
 	}
 	command := h.pending[input.CommandID]
-	if command == nil || time.Since(command.createdAt) > remotePlaybackCommandTTL {
+	if command == nil || time.Since(command.createdAt) > remotePlaybackPendingCommandTTL {
 		return nil, errors.New("remote command is missing or expired")
 	}
 	if command.PlayerID != input.PlayerID || command.SessionID != input.SessionID || command.ExpectedSceneID != input.SceneID {
 		return nil, errors.New("remote command does not match the active player session and scene")
+	}
+	if input.VideoTimestamp != command.VideoTimestamp {
+		return nil, errors.New("video timestamp does not match the original remote tap")
 	}
 	state := h.states[input.PlayerID]
 	if state == nil || state.SessionID != input.SessionID || state.SceneID != input.SceneID {

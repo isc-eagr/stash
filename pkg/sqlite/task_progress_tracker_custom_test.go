@@ -118,18 +118,26 @@ INSERT INTO groups_tags (group_id, tag_id) VALUES (1, 1);
 	require.NoError(t, err)
 	require.Equal(t, []int{second.ID, first.ID}, []int{trackers[0].ID, trackers[1].ID})
 
+	_, err = dbWrapper.Exec(ctx, `
+INSERT INTO task_progress_tracker_members(tracker_id,item_type,item_id,state)
+VALUES (?, 'scene', 1, 'PENDING')`, first.ID)
+	require.NoError(t, err)
 	require.NoError(t, store.Delete(ctx, first.ID))
 	deleted, err := store.Find(ctx, first.ID)
 	require.NoError(t, err)
-	require.Equal(t, "DELETED", deleted.Status)
+	require.Nil(t, deleted, "deletion permanently removes the tracker")
 	remaining, err := store.FindAll(ctx)
 	require.NoError(t, err)
 	require.Len(t, remaining, 1)
-	deleted.Status = "ACTIVE"
-	require.NoError(t, store.Update(ctx, deleted))
-	restored, err := store.Find(ctx, first.ID)
-	require.NoError(t, err)
-	require.NotEmpty(t, restored.History, "undo preserves history")
+	for _, tableName := range []string{
+		"task_progress_tracker_events",
+		"task_progress_tracker_members",
+		"task_progress_goal_history",
+	} {
+		var count int
+		require.NoError(t, dbWrapper.Get(ctx, &count, "SELECT COUNT(*) FROM "+tableName+" WHERE tracker_id = ?", first.ID))
+		require.Zero(t, count, "deletion removes related "+tableName)
+	}
 }
 
 func TestTaskProgressTrackerStartedOnUpgradeCustom(t *testing.T) {

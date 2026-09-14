@@ -39,7 +39,6 @@ export interface IVatoStatsStudioSummary {
   performersFacialGivenCount: number;
   performersFacialReceivedCount: number;
   performersSoloOnlyCount: number;
-  performersOneSceneCount: number;
 }
 
 export interface IVatoStatsStudioRoleCounts {
@@ -91,9 +90,6 @@ export function getVatoStatsStudioSummary(
         performer.solo_scene_count > 0 &&
         performer.sex_top_count + performer.sex_bottom_count === 0 &&
         performer.oral_top_count + performer.oral_bottom_count === 0
-    ).length,
-    performersOneSceneCount: performers.filter(
-      (performer) => performer.scene_count === 1
     ).length,
   };
 }

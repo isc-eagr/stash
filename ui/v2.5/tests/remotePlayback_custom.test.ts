@@ -7,6 +7,7 @@ import {
   remotePairingURLCustom,
   remotePendingCustom,
   remoteCommandIdCustom,
+  remotePendingRejectedCustom,
 } from "../src/components/RemoteO/remotePlayback_custom";
 
 const snapshot = {
@@ -107,6 +108,21 @@ assert.equal(
   remotePendingCustom('{"player_id":"player"}', "player"),
   undefined
 );
+for (const message of [
+  "remote command expired without a receipt; check O history before recording again",
+  "server restarted or command belongs to another server; check O history before recording again",
+  "the player changed sessions or scenes; refresh and try again",
+  "invalid remote command ID",
+]) {
+  assert.equal(remotePendingRejectedCustom(message), true);
+}
+for (const message of [
+  "Failed to fetch",
+  "paired player is offline",
+  "paired player is not listening for remote commands",
+]) {
+  assert.equal(remotePendingRejectedCustom(message), false);
+}
 
 // Execute the actual login handler: an inherited QR fragment must survive login,
 // while remaining absent from the credentials POST and unrelated redirects.

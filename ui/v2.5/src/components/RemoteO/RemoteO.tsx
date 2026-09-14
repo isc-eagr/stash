@@ -7,8 +7,10 @@ import {
   remoteTimeCustom,
   remotePendingCustom,
   remoteCommandIdCustom,
+  remotePendingRejectedCustom,
 } from "./remotePlayback_custom";
 import { Link } from "react-router-dom";
+import RemoteLoopControls from "./RemoteLoopControls";
 
 const pairingKey = "stash.remoteO.pairedPlayer";
 const pendingKey = "stash.remoteO.pending";
@@ -163,7 +165,15 @@ export default function RemoteO() {
         variables: { input: request },
       });
     } catch (err) {
-      setError((err as Error).message);
+      const { message } = err as Error;
+      if (remotePendingRejectedCustom(message)) {
+        pendingRef.current = undefined;
+        setPending(undefined);
+        sessionStorage.removeItem(pendingKey);
+        setError(`${message} The failed tap was cleared; tap O to try again.`);
+      } else {
+        setError(message);
+      }
       setBusy(false);
     }
   }
@@ -212,7 +222,7 @@ export default function RemoteO() {
         }
         style={{
           width: "100%",
-          minHeight: "42vh",
+          minHeight: state?.loop_enabled ? "20vh" : "42vh",
           fontSize: pending ? "2rem" : "6rem",
           touchAction: "manipulation",
           borderRadius: 24,
@@ -220,12 +230,20 @@ export default function RemoteO() {
       >
         {busy ? "Recording…" : pending ? "Retry this tap" : "O"}
       </Button>
+      {state?.loop_enabled && state.loop_segments.length > 0 && (
+        <RemoteLoopControls
+          key={`${state.session_id}:${state.scene_id}:${state.loop_revision}`}
+          state={state}
+          online={online && !pairing}
+        />
+      )}
       {pending && !busy && (
         <div className="mt-3">
           <p>
-            A retry uses the same tap ID and cannot record a duplicate. If the
-            result remains unknown, check the scene’s O history before starting
-            another tap.
+            A retry uses the same tap ID and timestamp and cannot record a
+            duplicate. It remains available for 24 hours while the same player
+            session and scene stay active. If the result remains unknown, check
+            the scene’s O history before starting another tap.
           </p>
           <Link
             to={`/scenes/${pending.expected_scene_id}`}

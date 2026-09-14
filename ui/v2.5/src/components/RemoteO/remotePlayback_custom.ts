@@ -82,6 +82,18 @@ export function remotePendingCustom(
   return undefined;
 }
 
+export function remotePendingRejectedCustom(message: string): boolean {
+  return [
+    "remote command expired",
+    "server restarted or command belongs to another server",
+    "command ID is already in use",
+    "invalid remote command ID",
+    "command ID must be between",
+    "command ID contains an invalid character",
+    "the player changed sessions or scenes",
+  ].some((reason) => message.includes(reason));
+}
+
 export function remoteSnapshotValidCustom(snapshot: PlaybackSnapshot): boolean {
   return (
     !!snapshot.scene_id &&

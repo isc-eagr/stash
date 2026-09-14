@@ -20,3 +20,21 @@ mutation TaskProgressTrackersReorder($ids: [ID!]!) {
     ...TaskProgressTrackerData
   }
 }
+
+mutation TaskProgressOverallGoalUpdate($goal_per_day: Int) {
+  taskProgressOverallGoalUpdate(goal_per_day: $goal_per_day) {
+    total_count
+    organized_count
+    completed_count
+    incoming_count
+    goal_per_day
+    history {
+      date
+      completed
+      incoming
+      remaining
+      baseline_count
+      goal_per_day
+    }
+  }
+}

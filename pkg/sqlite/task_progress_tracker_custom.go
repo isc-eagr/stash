@@ -193,6 +193,9 @@ func (s *TaskProgressTrackerStore) Create(ctx context.Context, tracker *models.T
 		return fmt.Errorf("finding task progress tracker after insert: %w", err)
 	}
 	*tracker = *created
+	if err := recordTaskProgressGoalCustom(ctx, tracker.ID, tracker.HistoryStartedOn, tracker.GoalPerDay); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -229,6 +232,15 @@ VALUES (?, ?, ?, ?, ?, ?)`
 }
 
 func (s *TaskProgressTrackerStore) Update(ctx context.Context, tracker *models.TaskProgressTracker) error {
+	var previousGoal sql.NullInt64
+	if err := dbWrapper.Get(ctx, &previousGoal, "SELECT goal_per_day FROM task_progress_trackers WHERE id = ?", tracker.ID); err != nil {
+		return fmt.Errorf("loading previous task progress tracker goal: %w", err)
+	}
+	var previousGoalPerDay *int
+	if previousGoal.Valid {
+		value := int(previousGoal.Int64)
+		previousGoalPerDay = &value
+	}
 	tracker.Version++
 	tracker.UpdatedAt = time.Now()
 	row := taskProgressTrackerRow{}
@@ -236,11 +248,25 @@ func (s *TaskProgressTrackerStore) Update(ctx context.Context, tracker *models.T
 	if err := s.tableMgr.updateByID(ctx, tracker.ID, row); err != nil {
 		return fmt.Errorf("updating task progress tracker: %w", err)
 	}
+	if !taskProgressGoalsEqualCustom(previousGoalPerDay, tracker.GoalPerDay) {
+		if err := recordTaskProgressGoalCustom(ctx, tracker.ID, models.TaskProgressReportingDate(time.Now()), tracker.GoalPerDay); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (s *TaskProgressTrackerStore) Delete(ctx context.Context, id int) error {
-	query := dialect.Update(s.table()).Prepared(true).Set(goqu.Record{"status": "DELETED", "is_working_on": false, "version": goqu.L("version + 1"), "updated_at": time.Now()}).Where(s.tableMgr.byID(id))
+	for _, tableName := range []string{
+		"task_progress_tracker_events",
+		"task_progress_tracker_members",
+		"task_progress_goal_history",
+	} {
+		if _, err := dbWrapper.Exec(ctx, "DELETE FROM "+tableName+" WHERE tracker_id = ?", id); err != nil {
+			return fmt.Errorf("deleting task progress tracker data from %s: %w", tableName, err)
+		}
+	}
+	query := dialect.Delete(s.table()).Prepared(true).Where(s.tableMgr.byID(id))
 	if _, err := exec(ctx, query); err != nil {
 		return fmt.Errorf("deleting task progress tracker: %w", err)
 	}
