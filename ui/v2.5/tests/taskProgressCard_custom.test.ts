@@ -1,9 +1,18 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import React from "react";
 import ReactDOMServer from "react-dom/server.js";
 import { IntlProvider } from "react-intl";
 import { MemoryRouter } from "react-router-dom";
 import { TaskProgressCard } from "../src/components/TaskProgress/TaskProgressCard.tsx";
+
+const cardSource = readFileSync(
+  new URL(
+    "../src/components/TaskProgress/TaskProgressCard.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
 
 const tracker = {
   id: "1",
@@ -67,6 +76,17 @@ assert.match(
 );
 assert.match(markup, /Edit/);
 assert.match(markup, /27\.27%/, "tracker percentages keep two decimal places");
+assert.match(
+  markup,
+  /progress-ring/,
+  "tracker totals include the compact circular progress indicator"
+);
+assert.match(markup, /Complete/, "the progress indicator has a visible label");
+assert.doesNotMatch(
+  cardSource,
+  /taskProgressDailyGoal|faCheck|faTriangleExclamation/,
+  "daily completion is shown in the goal cards rather than repeated beside the title"
+);
 assert.match(
   markup,
   /btn-outline-primary/,

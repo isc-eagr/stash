@@ -1,25 +1,24 @@
 import React, { useState } from "react";
 import { Badge, Button, Card, Form } from "react-bootstrap";
 import { FormattedNumber } from "react-intl";
-import {
-  faArrowDown,
-  faArrowUp,
-  faCheck,
-  faTriangleExclamation,
-} from "@fortawesome/free-solid-svg-icons";
+import { faArrowDown, faArrowUp } from "@fortawesome/free-solid-svg-icons";
 import type { TaskProgressTrackerDataFragment as Tracker } from "src/core/generated-graphql";
 import { Icon } from "../Shared/Icon";
+import { formatTaskProgressDate } from "../taskProgress_custom";
 import {
   progressPercentage,
   taskProgressStatusLabel,
   taskProgressStatusVariant,
   progressToday,
-  taskProgressDailyGoal,
   taskProgressHistoryEntries,
   useProgressText,
 } from "./progressView_custom";
-import { plannedTaskProgressFinishDate } from "./progressMath_custom";
+import {
+  plannedTaskProgressFinishDate,
+  taskProgressCompletedCount,
+} from "./progressMath_custom";
 import { TaskProgressGoalSummary } from "./TaskProgressGoalSummary";
+import { TaskProgressRing } from "./TaskProgressRing";
 
 interface IProps {
   tracker: Tracker;
@@ -48,7 +47,7 @@ export const TaskProgressCard: React.FC<IProps> = ({
 }) => {
   const t = useProgressText();
   const percentage = progressPercentage(tracker);
-  const dailyGoal = taskProgressDailyGoal(tracker);
+  const completedCount = taskProgressCompletedCount(tracker);
   const planStorageKey = `task-progress-tracker-plan-${tracker.id}`;
   const [planRate, setPlanRate] = useState(() => {
     try {
@@ -78,61 +77,44 @@ export const TaskProgressCard: React.FC<IProps> = ({
       }}
     >
       <div className="progress-tracker-summary">
-        <span className="progress-tracker-heading">
-          <span className="progress-tracker-title-row">
-            {dailyGoal && (
-              <span
-                className={`progress-tracker-daily-goal progress-tracker-daily-goal-${dailyGoal.state}`}
-                title={t("Today's goal")}
-              >
-                <Icon
-                  icon={
-                    !["green", "sapphire"].includes(dailyGoal.state)
-                      ? faTriangleExclamation
-                      : faCheck
-                  }
-                />
-                <small>
-                  {dailyGoal.completed} / {dailyGoal.goal}
-                </small>
+        <div className="progress-tracker-hero">
+          <div className="progress-tracker-overview">
+            <span className="progress-tracker-heading">
+              <span className="progress-tracker-title-row">
+                <strong className="progress-tracker-title">
+                  {tracker.title}
+                </strong>
               </span>
-            )}
-            <strong className="progress-tracker-title">{tracker.title}</strong>
-          </span>
-          <span className="progress-tracker-status">
-            <Badge variant={taskProgressStatusVariant(tracker.status)}>
-              {t(taskProgressStatusLabel(tracker.status))}
-            </Badge>
-          </span>
-        </span>
-        <span className="progress-tracker-counts">
-          <span>
-            <strong>
-              <FormattedNumber value={tracker.completed_count} />
-            </strong>{" "}
-            {t("completed")}
-          </span>
-          <span>
-            <strong>
-              <FormattedNumber value={tracker.incoming_count} />
-            </strong>{" "}
-            {t("incoming")}
-          </span>
-          <span>
-            <strong>
-              <FormattedNumber value={tracker.current_count} />
-            </strong>{" "}
-            {t("remaining")}
-          </span>
-          <strong className="progress-tracker-percentage">
-            {percentage.toFixed(2)}%
-          </strong>
-        </span>
-        <span className="progress-tracker-meter" aria-hidden="true">
-          <span style={{ width: `${percentage}%` }} />
-        </span>
+              <span className="progress-tracker-status">
+                <Badge variant={taskProgressStatusVariant(tracker.status)}>
+                  {t(taskProgressStatusLabel(tracker.status))}
+                </Badge>
+              </span>
+            </span>
+            <div className="progress-tracker-counts">
+              <span>
+                <strong>
+                  <FormattedNumber value={completedCount} />
+                </strong>
+                <small>{t("completed")}</small>
+              </span>
+              <span>
+                <strong>
+                  <FormattedNumber value={tracker.incoming_count} />
+                </strong>
+                <small>{t("incoming")}</small>
+              </span>
+              <span>
+                <strong>
+                  <FormattedNumber value={tracker.current_count} />
+                </strong>
+                <small>{t("remaining")}</small>
+              </span>
+            </div>
+          </div>
+          <TaskProgressRing percentage={percentage} label={t("Complete")} />
+        </div>
         <TaskProgressGoalSummary
-          compact
           currentGoalPerDay={tracker.goal_per_day}
           history={taskProgressHistoryEntries(tracker.history)}
         />
@@ -177,7 +159,7 @@ export const TaskProgressCard: React.FC<IProps> = ({
             />
             <span>items/day:</span>
             <strong className="progress-tracker-plan-date">
-              {planDate ?? "—"}
+              {planDate ? formatTaskProgressDate(planDate) : "—"}
             </strong>
           </Form.Label>
         </div>

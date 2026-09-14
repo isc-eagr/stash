@@ -4,6 +4,7 @@ import { Alert, Button, Modal, Table } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import * as GQL from "src/core/generated-graphql";
 import { Tracker, itemLabels, useProgressText } from "./progressView_custom";
+import { formatTaskProgressDate } from "../taskProgress_custom";
 
 export interface IDetailSelection {
   tracker: Tracker;
@@ -82,7 +83,9 @@ export const TaskProgressDetails: React.FC<{
       <Modal.Header closeButton>
         <Modal.Title>
           {selection.tracker.title} ·{" "}
-          {selection.date ?? t(itemLabels[selection.itemType ?? "scene"])}
+          {selection.date
+            ? formatTaskProgressDate(selection.date)
+            : t(itemLabels[selection.itemType ?? "scene"])}
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>

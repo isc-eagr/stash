@@ -233,14 +233,14 @@ assert.deepEqual(
 
 assert.equal(
   formatTaskProgressDate("2026-07-09"),
-  "09/07/2026",
-  "stored task dates display in DD/MM/YYYY format"
+  "09-Jul-2026",
+  "stored task dates display in DD-Mon-YYYY format"
 );
 
 assert.equal(
   formatTaskProgressDate(new Date(2026, 0, 2)),
-  "02/01/2026",
-  "completion estimates display in DD/MM/YYYY format"
+  "02-Jan-2026",
+  "completion estimates display in DD-Mon-YYYY format"
 );
 
 assert.equal(

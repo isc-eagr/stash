@@ -46,7 +46,7 @@ export const TaskProgressGoalSummary: React.FC<IProps> = ({
           goal.goal > 0 ? Math.min(100, (goal.completed / goal.goal) * 100) : 0;
         return (
           <div
-            className={`progress-goal-period progress-goal-period-${state}`}
+            className={`progress-goal-period progress-goal-period-${key} progress-goal-period-${state}`}
             key={key}
           >
             {compact ? (
@@ -58,13 +58,13 @@ export const TaskProgressGoalSummary: React.FC<IProps> = ({
                 </small>
               </span>
             ) : (
-              <>
+              <div className="progress-goal-period-heading">
+                <span className="progress-goal-period-label">{label}</span>
                 <strong>
                   {Math.round(goal.completed)} /{" "}
                   {goal.goal ? Math.round(goal.goal) : "—"}
                 </strong>
-                <span>{label}</span>
-              </>
+              </div>
             )}
             <span aria-hidden="true" className="progress-goal-meter">
               <span style={{ width: `${percentage}%` }} />

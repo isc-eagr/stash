@@ -43,11 +43,6 @@ function createTaskProgressHistoryChartID() {
   return nextTaskProgressHistoryChartID;
 }
 
-function historyDateValue(date: string): number {
-  const [year, month, day] = date.split("-").map(Number);
-  return Date.UTC(year, month - 1, day);
-}
-
 function linePath(
   points: readonly ITaskProgressHistoryPoint[],
   x: (index: number) => number,
@@ -176,22 +171,8 @@ export const TaskProgressHistoryChart: React.FC<IProps> = ({
   const metricPath = linePath(points, xForIndex, metricY);
   const tickStep = Math.max(1, Math.ceil(points.length / 6));
   const descriptionID = `task-progress-history-${chartID}-description`;
-  const formatShortDate = (date: string) =>
-    intl.formatDate(historyDateValue(date), {
-      day: "numeric",
-      month: "short",
-      timeZone: "UTC",
-    });
-  const formatPeriodLabel = (date: string) => {
-    if (granularity === "month") {
-      return intl.formatDate(historyDateValue(date), {
-        month: "short",
-        year: "numeric",
-        timeZone: "UTC",
-      });
-    }
-    return formatShortDate(date);
-  };
+  const formatShortDate = (date: string) => formatTaskProgressDate(date);
+  const formatPeriodLabel = (date: string) => formatTaskProgressDate(date);
   const formatTooltipPeriodLabel = (date: string) => {
     if (granularity === "day") return formatTaskProgressDate(date);
     if (granularity === "week") {

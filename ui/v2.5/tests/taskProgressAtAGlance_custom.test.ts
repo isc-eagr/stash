@@ -44,3 +44,9 @@ assert.match(
 assert.match(markup, /40.*Items remaining/);
 assert.match(markup, /60\.00%.*Percentage completed/);
 assert.match(markup, /40\.00%.*Percentage remaining/);
+assert.match(markup, /progress-tracker-at-a-glance-card/);
+assert.doesNotMatch(
+  markup,
+  /progress-tracker-at-a-glance-card-(completed|remaining|percentage)/,
+  "at-a-glance cards use the shared neutral treatment"
+);

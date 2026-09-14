@@ -32,6 +32,18 @@ export function overallProgressPercentage(total: number, done: number) {
   return Math.min(100, Math.max(0, (done / total) * 100));
 }
 
+export function progressRingStrokeOffset(
+  percentage: number,
+  circumference: number
+) {
+  if (!Number.isFinite(circumference) || circumference <= 0) return 0;
+
+  const normalized = Number.isFinite(percentage)
+    ? Math.min(100, Math.max(0, percentage))
+    : 0;
+  return circumference * (1 - normalized / 100);
+}
+
 export function plannedTaskProgressFinishDate(
   remaining: number,
   itemsPerDay: number,

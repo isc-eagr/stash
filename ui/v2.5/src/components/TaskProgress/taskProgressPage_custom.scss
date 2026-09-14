@@ -63,6 +63,13 @@
   }
 
   .progress-tracker-card {
+    background: linear-gradient(
+      135deg,
+      rgba(22, 31, 37, 0.94),
+      rgba(12, 19, 24, 0.96)
+    );
+    border-color: rgba(138, 155, 168, 0.38);
+    border-radius: 0.45rem;
     height: auto;
     margin: 0;
     // CUSTOM: Summary and footer supply the card's aligned inner spacing.
@@ -89,7 +96,7 @@
     border: 0;
     border-radius: inherit;
     color: inherit;
-    padding: 1.15rem 1.2rem 1.05rem;
+    padding: 1.05rem 1.35rem 0.95rem;
     text-align: left;
     width: 100%;
   }
@@ -169,10 +176,8 @@
   }
 
   .progress-tracker-title {
-    font-size: 1.2rem;
+    font-size: 1.35rem;
     overflow-wrap: anywhere;
-    transform: scale(1.12);
-    transform-origin: left center;
   }
 
   .progress-tracker-title-row {
@@ -180,11 +185,10 @@
     display: flex;
     gap: 0.8rem;
     min-width: 0;
-    transform: translateY(-0.3rem);
   }
 
   .progress-tracker-heading {
-    gap: 1.5rem;
+    gap: 1rem;
     padding-right: 3.5rem;
   }
 
@@ -195,116 +199,169 @@
     gap: 0.35rem;
   }
 
-  .progress-tracker-daily-goal {
-    align-items: center;
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-    font-size: 1.7rem;
-    line-height: 1;
-    transform: scale(1.18);
-    transform-origin: left center;
-
-    small {
-      font-size: 0.72rem;
-      font-weight: 700;
-      margin-top: 0.15rem;
-      white-space: nowrap;
-    }
-
-    &-red {
-      color: #f55656;
-    }
-
-    &-orange {
-      color: #f08c3a;
-    }
-
-    &-yellow {
-      color: #f2c94c;
-    }
-
-    &-green {
-      color: #35c46a;
-    }
-
-    &-sapphire {
-      color: #4db8ff;
-      filter: drop-shadow(0 0 0.3rem rgba(77, 184, 255, 0.95));
-    }
-  }
-
   .progress-tracker-counts {
-    color: var(--black-steel-text-muted, #bfccd6);
-    display: flex;
-    flex-wrap: wrap;
-    font-size: 0.8rem;
-    gap: 0.3rem 0.75rem;
-    margin: 1.35rem 0 0.6rem;
-
-    span strong {
-      color: var(--black-steel-text, #f5f8fa);
-      font-size: 0.95rem;
-      font-weight: 700;
-    }
-
-    .progress-tracker-percentage {
-      color: var(--black-steel-text, #f5f8fa);
-      margin-left: auto;
-    }
-  }
-
-  .progress-tracker-meter {
-    background: rgba(138, 155, 168, 0.2);
-    border-radius: 3px;
-    display: block;
-    height: 5px;
-    overflow: hidden;
+    display: grid;
+    gap: 0.6rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
 
     > span {
-      background: var(--black-steel-accent, #137cbd);
-      display: block;
-      height: 100%;
+      border-left: 1px solid rgba(138, 155, 168, 0.3);
+      display: grid;
+      gap: 0.2rem;
+      min-width: 0;
+      padding-left: 0.75rem;
+
+      &:first-child {
+        border-left: 0;
+        padding-left: 0;
+      }
     }
-  }
 
-  /* CUSTOM: Daily goals roll up into current calendar-week and calendar-month progress. */
-  .progress-goal-summary {
-    display: grid;
-    gap: 0.45rem;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    margin-top: 0.75rem;
-  }
-
-  .progress-goal-period {
-    background: rgba(16, 22, 26, 0.32);
-    border: 1px solid currentcolor;
-    border-radius: 2px;
-    min-width: 0;
-    padding: 0.6rem 0.7rem;
-
-    > strong,
-    > span:not(.progress-goal-meter) {
+    strong,
+    small {
       display: block;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    > strong {
-      color: currentcolor;
-      font-size: 1.1rem;
+    strong {
+      color: var(--black-steel-text, #f5f8fa);
+      font-size: clamp(1.2rem, 1.85vw, 1.7rem);
       font-weight: 700;
-      line-height: 1.15;
+      line-height: 1;
     }
 
-    > span:not(.progress-goal-meter) {
-      color: currentcolor;
-      font-size: 0.72rem;
+    small {
+      color: var(--black-steel-text-muted, #bfccd6);
+      font-size: 0.75rem;
       font-weight: 600;
-      margin-top: 0.3rem;
       text-transform: uppercase;
     }
+  }
+
+  .progress-tracker-hero {
+    align-items: stretch;
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin: 0 0 1.1rem;
+  }
+
+  .progress-tracker-overview {
+    display: grid;
+    gap: 0.9rem;
+    min-width: 0;
+  }
+
+  .progress-overall-hero {
+    align-items: center;
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin: 1.6rem 0 1.25rem;
+  }
+
+  .progress-tracker-hero .progress-ring {
+    align-self: stretch;
+    min-height: 7.1rem;
+    width: auto;
+  }
+
+  .progress-ring {
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    position: relative;
+    width: clamp(6.5rem, 10vw, 9rem);
+
+    svg {
+      height: 100%;
+      inset: 0;
+      position: absolute;
+      transform: rotate(-90deg);
+      width: 100%;
+    }
+
+    circle {
+      fill: none;
+      stroke-width: 8;
+    }
+
+    .progress-ring-track {
+      stroke: rgba(138, 155, 168, 0.24);
+    }
+
+    .progress-ring-value {
+      stroke: rgba(235, 241, 244, 0.88);
+      stroke-linecap: round;
+      transition: stroke-dashoffset 200ms ease;
+    }
+  }
+
+  .progress-ring-text {
+    align-items: center;
+    display: grid;
+    gap: 0.15rem;
+    justify-items: center;
+    position: relative;
+    text-align: center;
+
+    strong {
+      color: var(--black-steel-text, #f5f8fa);
+      font-size: 1.2rem;
+      line-height: 1;
+    }
+
+    small {
+      color: var(--black-steel-text-muted, #bfccd6);
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+  }
+
+  /* CUSTOM: Daily goals roll up into current calendar-week and calendar-month progress. */
+  .progress-goal-summary {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-top: 0.15rem;
+  }
+
+  .progress-goal-period {
+    background: linear-gradient(
+      135deg,
+      rgba(22, 34, 41, 0.86),
+      rgba(13, 23, 29, 0.86)
+    );
+    border: 1px solid rgba(138, 155, 168, 0.25);
+    border-radius: 0.4rem;
+    min-width: 0;
+    padding: 0.6rem 0.75rem 0.65rem;
+  }
+
+  .progress-goal-period-heading {
+    display: grid;
+    gap: 0.2rem;
+
+    strong {
+      color: currentcolor;
+      font-size: clamp(0.9rem, 1.15vw, 1.1rem);
+      font-weight: 700;
+      line-height: 1;
+    }
+  }
+
+  .progress-goal-period-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
   }
 
   .progress-goal-summary-compact {
@@ -335,39 +392,56 @@
 
   .progress-goal-meter {
     background: rgba(138, 155, 168, 0.2);
-    border-radius: 2px;
+    border-radius: 999px;
     display: block;
-    height: 4px;
+    height: 0.45rem;
+    margin-top: 0.55rem;
     overflow: hidden;
 
     > span {
-      background: currentcolor;
+      background: linear-gradient(
+        90deg,
+        var(--progress-goal-bar-start),
+        var(--progress-goal-bar-end)
+      );
+      border-radius: inherit;
+      box-shadow: 0 0 0.6rem var(--progress-goal-bar-start);
       display: block;
       height: 100%;
     }
   }
 
   .progress-goal-period-red {
+    --progress-goal-bar-end: #f97878;
+    --progress-goal-bar-start: #c83c3c;
     box-shadow: inset 0 0 0 1px rgba(245, 86, 86, 0.18);
     color: #f55656;
   }
 
   .progress-goal-period-orange {
+    --progress-goal-bar-end: #ffad5b;
+    --progress-goal-bar-start: #ce6622;
     box-shadow: inset 0 0 0 1px rgba(240, 140, 58, 0.18);
     color: #f08c3a;
   }
 
   .progress-goal-period-yellow {
+    --progress-goal-bar-end: #f8dc6a;
+    --progress-goal-bar-start: #cb9f27;
     box-shadow: inset 0 0 0 1px rgba(242, 201, 76, 0.18);
     color: #f2c94c;
   }
 
   .progress-goal-period-green {
+    --progress-goal-bar-end: #68dc91;
+    --progress-goal-bar-start: #239b50;
     box-shadow: inset 0 0 0 1px rgba(53, 196, 106, 0.18);
     color: #35c46a;
   }
 
   .progress-goal-period-sapphire {
+    --progress-goal-bar-end: #78c9ff;
+    --progress-goal-bar-start: #287eb6;
     box-shadow: inset 0 0 0 1px rgba(77, 184, 255, 0.18);
     color: #4db8ff;
   }
@@ -384,59 +458,113 @@
   }
 
   .progress-overall-card {
+    background: linear-gradient(
+      135deg,
+      rgba(21, 31, 37, 0.96),
+      rgba(10, 18, 23, 0.98)
+    );
+    border-color: rgba(138, 155, 168, 0.42);
+    border-radius: 0.5rem;
     margin: 0 0 1rem;
-
-    .card-header {
-      align-items: center;
-      background: rgba(16, 22, 26, 0.22);
-      border-bottom: 1px solid rgba(138, 155, 168, 0.25);
-      display: flex;
-      justify-content: space-between;
-      padding: 0.85rem 1rem;
-
-      h3,
-      p {
-        margin: 0;
-      }
-
-      p {
-        color: var(--black-steel-text-muted, #bfccd6);
-        font-size: 0.8rem;
-        margin-top: 0.2rem;
-      }
-    }
+    overflow: hidden;
 
     .card-body {
-      padding: 1rem;
+      padding: 1.35rem;
+    }
+  }
+
+  .progress-overall-heading {
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h3 {
+      font-size: 1.35rem;
+      font-weight: 700;
+    }
+
+    p {
+      color: var(--black-steel-text-muted, #bfccd6);
+      font-size: 0.8rem;
+      margin-top: 0.25rem;
+      text-transform: uppercase;
     }
   }
 
   .progress-overall-summary {
-    align-items: baseline;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem 0.75rem;
-    margin-bottom: 0.65rem;
+    display: grid;
+    gap: 0.6rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+
+    > span {
+      border-left: 1px solid rgba(138, 155, 168, 0.3);
+      display: grid;
+      gap: 0.2rem;
+      min-width: 0;
+      padding-left: 0.75rem;
+
+      &:first-child {
+        border-left: 0;
+        padding-left: 0;
+      }
+    }
+
+    strong,
+    small {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
     strong {
-      font-size: 1.35rem;
-    }
-
-    span {
-      color: var(--black-steel-text-muted, #bfccd6);
-      font-size: 0.85rem;
-    }
-
-    .progress-overall-percentage {
       color: var(--black-steel-text, #f5f8fa);
-      margin-left: auto;
+      font-size: clamp(1.7rem, 3.2vw, 2.75rem);
+      font-weight: 700;
+      line-height: 1;
     }
+
+    small {
+      color: var(--black-steel-text-muted, #bfccd6);
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+  }
+
+  .progress-overall-footer {
+    align-items: end;
+    border-top: 1px solid rgba(138, 155, 168, 0.22);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
+    justify-content: space-between;
+    margin-top: 1rem;
+    padding-top: 0.8rem;
   }
 
   .progress-overall-card-actions {
     display: flex;
-    justify-content: flex-end;
-    margin-top: 1rem;
+    margin-left: auto;
+  }
+
+  .progress-overall-plan {
+    display: grid;
+    gap: 0.1rem;
+    margin: 0;
+    text-align: right;
+
+    span {
+      color: var(--black-steel-text-muted, #bfccd6);
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    strong {
+      font-size: 0.95rem;
+    }
   }
 
   .progress-description {
@@ -462,10 +590,14 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
+    margin: 0;
 
     .form-label {
+      color: var(--black-steel-text-muted, #bfccd6);
+      font-size: 0.75rem;
+      font-weight: 600;
       margin: 0;
-      width: 100%;
+      text-transform: uppercase;
     }
   }
 }
@@ -474,77 +606,96 @@
 .task-progress-tracker-modal {
   .progress-goal-summary {
     display: grid;
-    gap: 0.45rem;
+    gap: 0.75rem;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    margin-top: 0.75rem;
+    margin: 1rem 0;
   }
 
   .progress-goal-period {
-    background: rgba(16, 22, 26, 0.32);
-    border: 1px solid currentcolor;
-    border-radius: 2px;
+    background: linear-gradient(
+      135deg,
+      rgba(22, 34, 41, 0.86),
+      rgba(13, 23, 29, 0.86)
+    );
+    border: 1px solid rgba(138, 155, 168, 0.25);
+    border-radius: 0.4rem;
     min-width: 0;
-    padding: 0.6rem 0.7rem;
+    padding: 0.6rem 0.75rem 0.65rem;
+  }
 
-    > strong,
-    > span:not(.progress-goal-meter) {
-      display: block;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+  .progress-goal-period-heading {
+    display: grid;
+    gap: 0.2rem;
 
-    > strong {
+    strong {
       color: currentcolor;
-      font-size: 1.1rem;
+      font-size: 1rem;
       font-weight: 700;
-      line-height: 1.15;
+      line-height: 1;
     }
+  }
 
-    > span:not(.progress-goal-meter) {
-      color: currentcolor;
-      font-size: 0.72rem;
-      font-weight: 600;
-      margin-top: 0.3rem;
-      text-transform: uppercase;
-    }
+  .progress-goal-period-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
   }
 
   .progress-goal-meter {
     background: rgba(138, 155, 168, 0.2);
-    border-radius: 2px;
+    border-radius: 999px;
     display: block;
-    height: 4px;
+    height: 0.45rem;
+    margin-top: 0.55rem;
     overflow: hidden;
 
     > span {
-      background: currentcolor;
+      background: linear-gradient(
+        90deg,
+        var(--progress-goal-bar-start),
+        var(--progress-goal-bar-end)
+      );
+      border-radius: inherit;
+      box-shadow: 0 0 0.6rem var(--progress-goal-bar-start);
       display: block;
       height: 100%;
     }
   }
 
   .progress-goal-period-red {
+    --progress-goal-bar-end: #f97878;
+    --progress-goal-bar-start: #c83c3c;
     box-shadow: inset 0 0 0 1px rgba(245, 86, 86, 0.18);
     color: #f55656;
   }
 
   .progress-goal-period-orange {
+    --progress-goal-bar-end: #ffad5b;
+    --progress-goal-bar-start: #ce6622;
     box-shadow: inset 0 0 0 1px rgba(240, 140, 58, 0.18);
     color: #f08c3a;
   }
 
   .progress-goal-period-yellow {
+    --progress-goal-bar-end: #f8dc6a;
+    --progress-goal-bar-start: #cb9f27;
     box-shadow: inset 0 0 0 1px rgba(242, 201, 76, 0.18);
     color: #f2c94c;
   }
 
   .progress-goal-period-green {
+    --progress-goal-bar-end: #68dc91;
+    --progress-goal-bar-start: #239b50;
     box-shadow: inset 0 0 0 1px rgba(53, 196, 106, 0.18);
     color: #35c46a;
   }
 
   .progress-goal-period-sapphire {
+    --progress-goal-bar-end: #78c9ff;
+    --progress-goal-bar-start: #287eb6;
     box-shadow: inset 0 0 0 1px rgba(77, 184, 255, 0.18);
     color: #4db8ff;
   }
@@ -579,8 +730,66 @@
       }
     }
 
+    .progress-tracker-counts,
+    .progress-overall-summary {
+      gap: 0.4rem;
+
+      > span {
+        padding-left: 0.45rem;
+      }
+    }
+
+    .progress-goal-summary {
+      gap: 0.45rem;
+    }
+
+    .progress-goal-period {
+      padding: 0.5rem 0.55rem 0.55rem;
+    }
+
+    .progress-goal-period-heading {
+      gap: 0.15rem;
+
+      strong {
+        font-size: 0.82rem;
+      }
+    }
+
+    .progress-goal-period-label {
+      font-size: 0.6rem;
+    }
+
+    .progress-goal-meter {
+      height: 0.4rem;
+      margin-top: 0.45rem;
+    }
+
+    .progress-overall-footer {
+      align-items: stretch;
+    }
+
+    .progress-overall-card-actions {
+      margin-left: 0;
+    }
+
+    .progress-overall-plan {
+      text-align: left;
+    }
+  }
+}
+@media (max-width: 399.98px) {
+  .task-progress-page {
     .progress-goal-summary {
       grid-template-columns: 1fr;
+    }
+
+    .progress-tracker-hero,
+    .progress-overall-hero {
+      grid-template-columns: 1fr;
+    }
+
+    .progress-ring {
+      justify-self: center;
     }
   }
 }
@@ -618,37 +827,121 @@
 }
 
 .task-progress-tracker-modal {
-  .form-group {
-    max-width: 18rem;
+  .modal-content {
+    background: linear-gradient(
+      135deg,
+      rgba(18, 29, 37, 0.99),
+      rgba(9, 17, 23, 0.99)
+    );
+    border-color: rgba(113, 154, 181, 0.46);
+    border-radius: 0.55rem;
   }
 
-  .progress-tracker-modal-meta {
-    align-items: center;
+  .modal-header {
+    align-items: flex-start;
+    border-bottom-color: rgba(138, 155, 168, 0.24);
+    padding: 1.2rem 1.35rem;
+    position: relative;
+
+    .close {
+      margin: 0;
+      padding: 0.5rem;
+      position: absolute;
+      right: 0.7rem;
+      top: 0.65rem;
+    }
+  }
+
+  .modal-body {
+    padding: 1.2rem 1.35rem 1.35rem;
+  }
+
+  .progress-tracker-modal-header {
+    align-items: flex-start;
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem 1rem;
-    margin-bottom: 1rem;
+    gap: 0.8rem 2rem;
+    justify-content: space-between;
+    padding-right: 2rem;
+    width: 100%;
   }
 
-  .progress-tracker-modal-meta span {
+  .modal-title {
+    color: var(--black-steel-text, #f5f8fa);
+    font-size: 1.55rem;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .progress-tracker-modal-description {
     color: var(--black-steel-text-muted, #bfccd6);
     font-size: 0.85rem;
+    margin: 0.35rem 0 0;
+    max-width: 42rem;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
   }
 
-  /* CUSTOM: Compact tracker totals above the history chart. */
+  .progress-tracker-modal-context {
+    align-items: stretch;
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .progress-tracker-modal-context-field {
+    border-left: 1px solid rgba(138, 155, 168, 0.3);
+    display: grid;
+    gap: 0.2rem;
+    min-width: 8rem;
+    padding: 0 1rem;
+
+    &:first-child {
+      border-left: 0;
+      padding-left: 0;
+    }
+
+    small {
+      color: var(--black-steel-text-muted, #bfccd6);
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    strong {
+      color: var(--black-steel-text, #f5f8fa);
+      font-size: 0.9rem;
+      overflow-wrap: anywhere;
+    }
+
+    &.progress-tracker-modal-context-field[href] {
+      text-decoration: none;
+
+      &:hover,
+      &:focus-visible {
+        strong {
+          color: var(--black-steel-link, #48aff0);
+        }
+      }
+    }
+  }
+
   .progress-tracker-at-a-glance {
     display: grid;
-    gap: 0.65rem;
+    gap: 0.75rem;
     grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-    margin: 1rem 0;
+    margin: 0;
   }
 
   .progress-tracker-at-a-glance-card {
-    background: rgba(16, 22, 26, 0.32);
-    border: 1px solid rgba(138, 155, 168, 0.25);
-    border-radius: 2px;
+    background: linear-gradient(
+      135deg,
+      rgba(27, 42, 51, 0.7),
+      rgba(15, 24, 31, 0.7)
+    );
+    border: 1px solid rgba(138, 155, 168, 0.35);
+    border-radius: 0.45rem;
     min-width: 0;
-    padding: 0.7rem 0.8rem;
+    padding: 0.85rem 0.9rem;
 
     strong,
     span {
@@ -657,7 +950,7 @@
 
     strong {
       color: var(--black-steel-text, #f5f8fa);
-      font-size: 1.35rem;
+      font-size: 1.6rem;
       font-weight: 700;
       line-height: 1.1;
     }
@@ -671,10 +964,168 @@
     }
   }
 
-  .modal-body > .progress-description {
-    border-left: 2px solid rgba(138, 155, 168, 0.45);
-    color: var(--black-steel-text-muted, #bfccd6);
-    padding-left: 0.75rem;
+  .progress-tracker-modal-history {
+    background: rgba(11, 22, 31, 0.48);
+    border: 1px solid rgba(77, 145, 190, 0.5);
+    border-radius: 0.5rem;
+    margin-top: 1rem;
+    padding: 1rem;
+  }
+
+  .progress-tracker-modal-section-heading {
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    p {
+      color: var(--black-steel-text-muted, #bfccd6);
+      font-size: 0.8rem;
+      margin-top: 0.2rem;
+    }
+  }
+
+  .progress-tracker-modal-history .task-progress-history-chart {
+    background: transparent;
+    border: 0;
+    margin: 0.85rem 0 0;
+    max-width: none;
+    padding: 0;
+  }
+
+  .progress-tracker-modal-items {
+    display: grid;
+    gap: 0.4rem;
+    margin-top: 1rem;
+
+    > span {
+      color: var(--black-steel-text-muted, #bfccd6);
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    > div {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+  }
+
+  .progress-tracker-modal-forecast {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 1rem 0;
+
+    > div {
+      background: linear-gradient(
+        135deg,
+        rgba(27, 42, 51, 0.7),
+        rgba(15, 24, 31, 0.7)
+      );
+      border: 1px solid rgba(138, 155, 168, 0.35);
+      border-radius: 0.45rem;
+      display: grid;
+      gap: 0.25rem;
+      min-width: 0;
+      padding: 0.8rem 0.9rem;
+    }
+
+    span {
+      color: var(--black-steel-text-muted, #bfccd6);
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    strong {
+      color: var(--black-steel-text, #f5f8fa);
+      font-size: 1.1rem;
+      line-height: 1.15;
+    }
+  }
+}
+
+@media (max-width: 575.98px) {
+  .task-progress-tracker-modal {
+    .modal-header,
+    .modal-body {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+
+    .progress-tracker-modal-header {
+      gap: 0.85rem;
+    }
+
+    .progress-tracker-modal-context {
+      width: 100%;
+    }
+
+    .progress-tracker-modal-context-field {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .progress-tracker-at-a-glance {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .progress-tracker-at-a-glance-card {
+      padding: 0.7rem;
+
+      strong {
+        font-size: 1.3rem;
+      }
+    }
+
+    .progress-goal-summary {
+      gap: 0.45rem;
+    }
+
+    .progress-goal-period {
+      padding: 0.5rem 0.55rem 0.55rem;
+    }
+
+    .progress-goal-period-heading {
+      gap: 0.15rem;
+
+      strong {
+        font-size: 0.82rem;
+      }
+    }
+
+    .progress-goal-period-label {
+      font-size: 0.6rem;
+    }
+
+    .progress-goal-meter {
+      height: 0.4rem;
+      margin-top: 0.45rem;
+    }
+
+    .progress-tracker-modal-history {
+      padding: 0.75rem;
+    }
+
+    .progress-tracker-modal-forecast {
+      gap: 0.45rem;
+
+      > div {
+        padding: 0.7rem;
+      }
+    }
+  }
+}
+@media (max-width: 399.98px) {
+  .task-progress-tracker-modal .progress-tracker-modal-forecast {
+    grid-template-columns: 1fr;
   }
 }
 

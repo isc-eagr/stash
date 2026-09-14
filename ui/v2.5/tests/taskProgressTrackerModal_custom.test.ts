@@ -53,7 +53,25 @@ assert.deepEqual(
   "zero-count item types stay hidden from the tracker modal"
 );
 assert.match(modalSource, /<TaskProgressAtAGlance tracker=\{tracker\} \/>/);
-assert.match(modalSource, /\{t\("Started on"\)\}: \{tracker\.started_on\}/);
+assert.match(modalSource, /progress-tracker-modal-context/);
+assert.match(modalSource, /<small>\{t\("Started on"\)\}<\/small>/);
+assert.match(
+  modalSource,
+  /<strong>\{formatTaskProgressDate\(tracker\.started_on\)\}<\/strong>/
+);
+assert.match(modalSource, /\{t\("Estimated pace"\)\}/);
+assert.match(modalSource, /\{t\("Estimated finish"\)\}/);
+assert.match(
+  modalSource,
+  /<TaskProgressAtAGlance tracker=\{tracker\} \/>\s*\{forecast\.days >= 3/
+);
+assert.match(modalSource, /progress-tracker-modal-history/);
+assert.match(modalSource, /\{t\("Activity progression"\)\}/);
+assert.doesNotMatch(
+  modalSource,
+  /progress-tracker-modal-meta/,
+  "the modal replaces the loose metadata row with a structured context header"
+);
 assert.doesNotMatch(
   modalSource,
   /Fixed batch|Backlog/,

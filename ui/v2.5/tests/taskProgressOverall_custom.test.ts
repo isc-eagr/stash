@@ -39,6 +39,16 @@ assert.doesNotMatch(
 );
 assert.match(overallSource, /<TaskProgressGoalSummary/);
 assert.match(
+  overallSource,
+  /<TaskProgressRing/,
+  "the Overall Progress card uses the shared circular progress indicator"
+);
+assert.doesNotMatch(
+  overallSource,
+  /<ProgressBar/,
+  "the Overall Progress card no longer duplicates progress as a linear bar"
+);
+assert.match(
   modalSource,
   /<TaskProgressHistoryChart/,
   "the Overall Progress modal reuses the shared tracker history chart"

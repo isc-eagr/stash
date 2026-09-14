@@ -3,6 +3,7 @@ import { useApolloClient } from "@apollo/client";
 import { Alert, Button, Form, Modal } from "react-bootstrap";
 import * as GQL from "src/core/generated-graphql";
 import { TagSelect } from "../Tags/TagSelect";
+import { formatTaskProgressDate } from "../taskProgress_custom";
 import {
   itemTypes,
   taskProgressStatusLabel,
@@ -242,7 +243,8 @@ export const TaskProgressForm: React.FC<IProps> = ({
             {tracker && (
               <>
                 <p>
-                  {t("Started on")}: {tracker.started_on}
+                  {t("Started on")}:{" "}
+                  {formatTaskProgressDate(tracker.started_on)}
                 </p>
                 <Form.Check
                   id="progress-reset"

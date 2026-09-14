@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Button, Card, Form, ProgressBar } from "react-bootstrap";
+import { Alert, Button, Card, Form } from "react-bootstrap";
 import { FormattedNumber } from "react-intl";
 import {
   useTaskProgressOrganizedScenesQuery,
@@ -10,8 +10,10 @@ import {
   useProgressText,
   progressToday,
 } from "./progressView_custom";
+import { formatTaskProgressDate } from "../taskProgress_custom";
 import { TaskProgressOverallModal } from "./TaskProgressOverallModal";
 import { TaskProgressGoalSummary } from "./TaskProgressGoalSummary";
+import { TaskProgressRing } from "./TaskProgressRing";
 
 export const TaskProgressOverall: React.FC = () => {
   const t = useProgressText();
@@ -50,13 +52,13 @@ export const TaskProgressOverall: React.FC = () => {
   return (
     <>
       <Card className="progress-overall-card">
-        <Card.Header>
-          <div>
-            <h3 className="h5">{t("Overall Progress")}</h3>
-            <p>{t("Organized scenes")}</p>
-          </div>
-        </Card.Header>
         <Card.Body>
+          <div className="progress-overall-heading">
+            <div>
+              <h3>{t("Overall Progress")}</h3>
+              <p>{t("Organized scenes")}</p>
+            </div>
+          </div>
           {query.error && (
             <Alert variant="warning">
               {t("Could not refresh organized scenes.")}{" "}
@@ -69,29 +71,32 @@ export const TaskProgressOverall: React.FC = () => {
             <p role="status">{t("Loading…")}</p>
           ) : (
             <>
-              <div className="progress-overall-summary">
-                <strong>
-                  <FormattedNumber value={done} />
-                </strong>
-                <span>{t("organized")}</span>
-                <span>/</span>
-                <strong>
-                  <FormattedNumber value={remaining ?? 0} />
-                </strong>
-                <span>{t("remaining")}</span>
-                <span>/</span>
-                <strong>
-                  <FormattedNumber value={total} />
-                </strong>
-                <span>{t("total")}</span>
-                <strong className="progress-overall-percentage">
-                  {percentage.toFixed(2)}%
-                </strong>
+              <div className="progress-overall-hero">
+                <div className="progress-overall-summary">
+                  <span>
+                    <strong>
+                      <FormattedNumber value={done} />
+                    </strong>
+                    <small>{t("organized")}</small>
+                  </span>
+                  <span>
+                    <strong>
+                      <FormattedNumber value={remaining ?? 0} />
+                    </strong>
+                    <small>{t("remaining")}</small>
+                  </span>
+                  <span>
+                    <strong>
+                      <FormattedNumber value={total} />
+                    </strong>
+                    <small>{t("total")}</small>
+                  </span>
+                </div>
+                <TaskProgressRing
+                  percentage={percentage}
+                  label={t("Complete")}
+                />
               </div>
-              <ProgressBar
-                aria-label={t("Organized scenes")}
-                now={percentage}
-              />
               {overall && (
                 <TaskProgressGoalSummary
                   currentGoalPerDay={overall.goal_per_day}
@@ -104,66 +109,69 @@ export const TaskProgressOverall: React.FC = () => {
               )}
             </>
           )}
-          <Form.Group
-            controlId="overall-progress-rate"
-            className="progress-overall-goal-form mt-3"
-          >
-            <Form.Label>{t("Items per day")}</Form.Label>
-            <Form.Control
-              className="progress-plan-input"
-              type="number"
-              min={0}
-              max={1000000}
-              step={1}
-              value={rate || ""}
-              onChange={(e) => {
-                const next = Math.max(
-                  0,
-                  Math.min(1000000, Math.floor(Number(e.target.value) || 0))
-                );
-                setRate(next);
-              }}
-            />
-            <Button
-              disabled={savingGoal || rate === (overall?.goal_per_day ?? 0)}
-              onClick={async () => {
-                setSavingGoal(true);
-                setGoalError(undefined);
-                try {
-                  await updateGoal({
-                    variables: { goal_per_day: rate > 0 ? rate : null },
-                  });
-                  await query.refetch();
-                } catch (error) {
-                  setGoalError(
-                    error instanceof Error ? error.message : String(error)
+          <div className="progress-overall-footer">
+            <Form.Group
+              controlId="overall-progress-rate"
+              className="progress-overall-goal-form"
+            >
+              <Form.Label>{t("Items per day")}</Form.Label>
+              <Form.Control
+                className="progress-plan-input"
+                type="number"
+                min={0}
+                max={1000000}
+                step={1}
+                value={rate || ""}
+                onChange={(e) => {
+                  const next = Math.max(
+                    0,
+                    Math.min(1000000, Math.floor(Number(e.target.value) || 0))
                   );
-                } finally {
-                  setSavingGoal(false);
-                }
-              }}
-              size="sm"
-              variant="primary"
-            >
-              {t(savingGoal ? "Saving…" : "Save")}
-            </Button>
-          </Form.Group>
-          {goalError && <p role="alert">{goalError}</p>}
-          {due && (
-            <p>
-              {t("Planned finish")}: {due} · {t("Assumes no new work")}
-            </p>
-          )}
-          <div className="progress-overall-card-actions">
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={!overall}
-              onClick={() => setShowDetails(true)}
-            >
-              {t("Details")}
-            </Button>
+                  setRate(next);
+                }}
+              />
+              <Button
+                disabled={savingGoal || rate === (overall?.goal_per_day ?? 0)}
+                onClick={async () => {
+                  setSavingGoal(true);
+                  setGoalError(undefined);
+                  try {
+                    await updateGoal({
+                      variables: { goal_per_day: rate > 0 ? rate : null },
+                    });
+                    await query.refetch();
+                  } catch (error) {
+                    setGoalError(
+                      error instanceof Error ? error.message : String(error)
+                    );
+                  } finally {
+                    setSavingGoal(false);
+                  }
+                }}
+                size="sm"
+                variant="primary"
+              >
+                {t(savingGoal ? "Saving…" : "Save")}
+              </Button>
+            </Form.Group>
+            {due && (
+              <p className="progress-overall-plan">
+                <span>{t("Estimated finish")}</span>
+                <strong>{formatTaskProgressDate(due)}</strong>
+              </p>
+            )}
+            <div className="progress-overall-card-actions">
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={!overall}
+                onClick={() => setShowDetails(true)}
+              >
+                {t("Details")}
+              </Button>
+            </div>
           </div>
+          {goalError && <p role="alert">{goalError}</p>}
         </Card.Body>
       </Card>
       {showDetails && overall && (
