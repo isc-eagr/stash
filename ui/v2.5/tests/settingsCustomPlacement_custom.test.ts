@@ -27,3 +27,8 @@ assert.match(
   /SceneCardInsightChip[\s\S]*Lots of filler/,
   "Scene Card Insight settings should show painted example chips"
 );
+assert.doesNotMatch(
+  customPanelSource,
+  /leaningBalanceTolerancePercent|leaningMinority(?:Some|GoodAmount|ALot)Percent/,
+  "Custom Settings should not expose obsolete sex/oral wording thresholds"
+);

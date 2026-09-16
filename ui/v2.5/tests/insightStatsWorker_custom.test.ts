@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeSceneCardInsightThresholds } from "../src/components/Scenes/sceneCardInsightsData_custom.ts";
 import {
+  insightStatsConfigKey,
   loadInsightSnapshot,
   writeInsightBaseline,
 } from "../src/components/InsightStats/insightStatsCache_custom.ts";
@@ -210,6 +211,11 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
     assert.ok(
       playgroundRead.snapshot.baseline,
       "Playground reuses the scan without removing Insight Stats' cached calculation"
+    );
+    assert.equal(
+      playgroundRead.snapshot.configKey,
+      insightStatsConfigKey({ roleTagIds: { sexTagId: "sex" } }),
+      "cached totals include the insight-engine version"
     );
     assert.equal(
       playgroundScenesFromSnapshot(playgroundRead.snapshot.scenes)[0].paths

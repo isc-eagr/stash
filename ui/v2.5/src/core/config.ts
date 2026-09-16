@@ -167,10 +167,6 @@ export interface IUIConfig {
     tagGoodAmountMinPercent?: number;
     tagLotsMinPercent?: number;
     tagEyeCanSeeMinPercent?: number;
-    leaningBalanceTolerancePercent?: number;
-    leaningMinoritySomePercent?: number;
-    leaningMinorityGoodAmountPercent?: number;
-    leaningMinorityALotPercent?: number;
   };
   // CUSTOM: end
   simpleMarkerPreviewExcludedTagIds?: string[]; // Extra primary-only marker tags that skip video/webp preview generation

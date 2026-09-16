@@ -127,7 +127,7 @@ test("GOAT parts deduplicate performers and preserve tag names containing conjun
   assert.ok(row.parts.has("GOAT tag with and inside"));
 });
 
-test("main catalog consolidates quality, balance, and interaction patterns", () => {
+test("main catalog consolidates quality, fucking/eating-pito split, and interaction patterns", () => {
   const ids = insightStatsMainCatalog.map((r) => r.id);
   for (const id of ["activity-quality", "leaning", "interaction"])
     assert.ok(ids.includes(id));

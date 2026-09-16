@@ -147,7 +147,7 @@ The custom statistics experience is split into hidden, focused destinations inst
 
 ### Insight Stats (Playground tab)
 
-- Scans the library in bounded pages and compares saved Scene Insight chips with temporary in-memory thresholds. Current/preview chip counts link to exact Scene ID snapshots, and chip-family drilldowns retain their evidence and combinations.
+- Scans the library in bounded pages and compares saved Scene Insight chips with temporary in-memory thresholds. Current/preview chip counts link to exact Scene ID snapshots, and chip-family drilldowns retain their evidence and combinations. Mixed Sex/Oral chips report the direct duration split (for example, `67% fucking, 33% eating pito`) instead of qualitative leaning bands, so their linked Scene filters use the same percentage labels.
 - Insight Stats is the fourth `/stats/playground` tab rather than a standalone destination. Its threshold changes never persist; the scan is cached in IndexedDB for 12 hours and obsolete worker calculations are cancelled. The scene scan and cache are shared with the other Playground tabs, including the extra fields needed by their filters and tooltips.
 
 ### Implementation and schema
@@ -178,6 +178,7 @@ Tag-based task tracking records daily completions and incoming work for scenes, 
 - Trackers and Overall Progress persist an optional Goal per day. Their cards and details show Today, This week, and This month completed/goal progress; weekly periods start Monday, and current weekly/monthly targets count only elapsed calendar dates. History charts switch between daily, weekly, and monthly aggregation and color completed bars by the applicable period goal.
 - Goal changes are effective on the current reporting date. Effective-dated goal history preserves prior daily colors and rolls old and new daily targets into their corresponding weekly/monthly periods instead of retroactively applying the latest goal.
 - Details shows completed, remaining, and percentage summary cards above the shared history chart. Fixed-batch completed counts use the current baseline.
+- The main progress page includes a browser-local Timer Countdown modal. A duration in minutes starts a real-time countdown with pause/resume and final stop controls. After reaching zero it tracks overtime from `00:00`; Stop freezes the timer and displays total active time taken, with no restart action available in that modal. The large display transitions from green through light green, yellow, orange, and red as the percentage remaining crosses 80%, 60%, 40%, and 20%.
 
 ### Key files and schema
 
@@ -185,11 +186,11 @@ Tag-based task tracking records daily completions and incoming work for scenes, 
 - `internal/api/resolver_task_progress_tracker_custom.go`, `resolver_task_progress_history_custom.go`
 - `pkg/models/task_progress_tracker_custom.go`, `pkg/sqlite/task_progress_*_custom.go`, and entity-store hooks
 - `task_progress_tracker_history.up.sql`, `task_progress_overall_history.up.sql`, `task_progress_tracker_goal_per_day.up.sql`, `task_progress_goal_history.up.sql`
-- `ui/v2.5/src/components/TaskProgress*` and `ui/v2.5/graphql/{data,queries,mutations}/task_progress_tracker_custom.graphql`
+- `ui/v2.5/src/components/TaskProgress*`, `TaskProgressTimerCountdown_custom.tsx`, and `taskProgressTimer_custom.ts`; `ui/v2.5/graphql/{data,queries,mutations}/task_progress_tracker_custom.graphql`
 
 ### Tests
 
-Coverage includes bootstrap/retrofit, CRUD/order/versioning, fixed membership, lifecycle recording, tag and deletion events, Overall Progress transitions and goal persistence, effective-dated daily goals, weekly/monthly aggregation, date boundaries, forecasts, goal states, card/modal rendering, and visible-data rules.
+Coverage includes bootstrap/retrofit, CRUD/order/versioning, fixed membership, lifecycle recording, tag and deletion events, Overall Progress transitions and goal persistence, effective-dated daily goals, weekly/monthly aggregation, date boundaries, forecasts, goal states, card/modal rendering, visible-data rules, and Timer Countdown duration/formatting, pause/overtime/stop timing, and color thresholds.
 
 ---
 
@@ -219,6 +220,7 @@ Performer details have a Studios tab showing only Studios represented in that pe
 ### Cards, partners, and scene context
 
 - Performer cards show role-aware scene counts, partner counts, activity-time metrics, and lazy-loaded role statistics. Partner badges use a person icon plus Top/Bottom direction so they are distinct from scene counts.
+- Performer detail **Stats** presents Activity, Sex Roles, and Oral Roles time as horizontal percentage bars, with aligned durations and totals for quick comparison.
 - The scene performer overview drawer opens from scene-detail cards and marker portraits, loads the full performer record on demand, shows role/activity metrics and scene-local partners, and supports new-tab links, backdrop, X, and Escape dismissal. Scene cards use the same configured performer card skin and show a small rating pill below the portrait.
 - The Partners tab uses role-colored headings, deduplicated partner portraits, and merged shared Sex/Oral marker duration. Partners-tab cards intentionally omit the favorite control; normal performer cards retain it.
 
@@ -232,7 +234,7 @@ The scene player can display up to two performer-library images over the video. 
 
 ### Key files
 
-- `ui/v2.5/src/components/Performers/PerformerDetails/{PerformerImageManager,PerformerActivityTime}.tsx`
+- `ui/v2.5/src/components/Performers/PerformerDetails/{PerformerImageManager,PerformerActivityTime,PerformerStatsPanel,PerformerStatsBarChart_custom}.tsx` and `ui/v2.5/src/components/Scenes/styles.scss`
 - `ui/v2.5/src/components/Scenes/SceneDetails/ScenePerformerOverviewPanel_custom.tsx`
 - `ui/v2.5/src/components/ScenePlayer/{PerformerImageSelectModal,PerformerImageOverlay}.tsx`
 - `pkg/models/model_performer_image_custom.go`, `pkg/sqlite/performer_image_custom.go`, `internal/api/resolver_model_performer_image_custom.go`
@@ -240,7 +242,7 @@ The scene player can display up to two performer-library images over the video. 
 
 ### Tests
 
-Tests cover image CRUD/default behavior and duplicate handling, profile-image counting, role/activity cards, scene drawer fields and links, partner duration merging, and overlay selection/interaction behavior.
+Tests cover image CRUD/default behavior and duplicate handling, profile-image counting, role/activity cards, horizontal-stat-bar boundaries, scene drawer fields and links, partner duration merging, and overlay selection/interaction behavior.
 
 ---
 

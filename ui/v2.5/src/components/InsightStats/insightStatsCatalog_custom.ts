@@ -54,11 +54,6 @@ export const insightThresholdLabels: Record<
   tagGoodAmountMinPercent: "Good amount of tags: minimum % of scene",
   tagLotsMinPercent: "Lots of tags: minimum % of scene",
   tagEyeCanSeeMinPercent: "As far as the eye can see: minimum % of scene",
-  leaningBalanceTolerancePercent: "Balanced: maximum sex/oral difference (pp)",
-  leaningMinoritySomePercent: "Some minority activity: minimum % of sex + oral",
-  leaningMinorityGoodAmountPercent:
-    "Good amount of minority: minimum % of sex + oral",
-  leaningMinorityALotPercent: "A lot of minority: minimum % of sex + oral",
 };
 
 type InsightKindInfo = {
@@ -109,14 +104,9 @@ const kindInfo: Record<SceneCardInsightCandidateKind, InsightKindInfo> = {
     ],
   },
   leaning: {
-    label: "Activity balance",
-    note: "Sex versus oral duration, with the engine’s minimum evidence rules.",
-    thresholds: [
-      "leaningBalanceTolerancePercent",
-      "leaningMinoritySomePercent",
-      "leaningMinorityGoodAmountPercent",
-      "leaningMinorityALotPercent",
-    ],
+    label: "Fucking / eating pito split",
+    note: "Direct percentage split of combined fucking and eating pito duration, with the engine’s minimum evidence rules.",
+    thresholds: [],
   },
   "no-orgasm": {
     label: "No Orgasm",
@@ -303,25 +293,6 @@ export const insightStatsCatalog: InsightStatsDefinition[] = [
   ),
   definition("no-orgasm"),
   definition("leaning"),
-  definition(
-    "leaning",
-    "balanced",
-    "Balanced Scene",
-    (candidate) => candidate.label === "Balanced Scene"
-  ),
-  ...["Sex", "Oral"].flatMap((activity) =>
-    ["minimal", "some", "a good amount of", "a lot of"].map((amount) => {
-      const label = `${activity} Leaning Scene with ${amount} ${
-        activity === "Sex" ? "oral" : "sex"
-      }`;
-      return definition(
-        "leaning",
-        `leaning-${activity}-${amount}`,
-        label,
-        (candidate) => candidate.kind === "leaning" && candidate.label === label
-      );
-    })
-  ),
   ...interactions.map(([key, label]) =>
     keyed(
       "interaction",
@@ -371,9 +342,5 @@ export const insightStatsCatalog: InsightStatsDefinition[] = [
 ];
 
 export const insightStatsMainCatalog = insightStatsCatalog.filter(
-  (row) =>
-    !row.id.startsWith("quality-") &&
-    !row.id.startsWith("leaning-") &&
-    row.id !== "balanced" &&
-    !row.id.startsWith("interaction-")
+  (row) => !row.id.startsWith("quality-") && !row.id.startsWith("interaction-")
 );

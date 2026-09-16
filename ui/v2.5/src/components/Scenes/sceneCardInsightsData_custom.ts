@@ -57,10 +57,6 @@ export const defaultSceneCardInsightThresholds: SceneCardInsightThresholds = {
   tagGoodAmountMinPercent: 10,
   tagLotsMinPercent: 25,
   tagEyeCanSeeMinPercent: 50,
-  leaningBalanceTolerancePercent: 10,
-  leaningMinoritySomePercent: 10,
-  leaningMinorityGoodAmountPercent: 25,
-  leaningMinorityALotPercent: 40,
 };
 
 function finiteInteger(
@@ -139,31 +135,6 @@ export function normalizeSceneCardInsightThresholds(
       100
     )
   );
-  const leaningMinoritySomePercent = finiteInteger(
-    value?.leaningMinoritySomePercent,
-    defaultSceneCardInsightThresholds.leaningMinoritySomePercent,
-    0,
-    100
-  );
-  const leaningMinorityGoodAmountPercent = Math.max(
-    leaningMinoritySomePercent,
-    finiteInteger(
-      value?.leaningMinorityGoodAmountPercent,
-      defaultSceneCardInsightThresholds.leaningMinorityGoodAmountPercent,
-      0,
-      100
-    )
-  );
-  const leaningMinorityALotPercent = Math.max(
-    leaningMinorityGoodAmountPercent,
-    finiteInteger(
-      value?.leaningMinorityALotPercent,
-      defaultSceneCardInsightThresholds.leaningMinorityALotPercent,
-      0,
-      100
-    )
-  );
-
   return {
     visibleInsightLimit,
     goodOutstandingPercent,
@@ -215,15 +186,6 @@ export function normalizeSceneCardInsightThresholds(
     tagGoodAmountMinPercent,
     tagLotsMinPercent,
     tagEyeCanSeeMinPercent,
-    leaningBalanceTolerancePercent: finiteInteger(
-      value?.leaningBalanceTolerancePercent,
-      defaultSceneCardInsightThresholds.leaningBalanceTolerancePercent,
-      0,
-      100
-    ),
-    leaningMinoritySomePercent,
-    leaningMinorityGoodAmountPercent,
-    leaningMinorityALotPercent,
   };
 }
 
@@ -908,28 +870,9 @@ function getLacklusterActivityCandidates(
   });
 }
 
-function minorityActivityPhrase(
-  activity: "sex" | "oral",
-  percent: number,
-  thresholds: SceneCardInsightThresholds
-) {
-  if (percent <= 0) return `no ${activity}`;
-  if (percent < thresholds.leaningMinoritySomePercent) {
-    return `minimal ${activity}`;
-  }
-  if (percent < thresholds.leaningMinorityGoodAmountPercent) {
-    return `some ${activity}`;
-  }
-  if (percent < thresholds.leaningMinorityALotPercent) {
-    return `a good amount of ${activity}`;
-  }
-  return `a lot of ${activity}`;
-}
-
 function getLeaningCandidate(
   scene: SceneCardInsightScene,
-  roleTagIds: IUIConfig["roleTagIds"],
-  thresholds: SceneCardInsightThresholds
+  roleTagIds: IUIConfig["roleTagIds"]
 ): InsightCandidate[] {
   const sceneDuration = scene.files[0]?.duration ?? 0;
   const activityMarkersFor = (category: ActivityCategory) =>
@@ -954,10 +897,9 @@ function getLeaningCandidate(
   if (
     sexDuration <= 0 ||
     oralDuration <= 0 ||
-    // CUSTOM: A "minimal" minority activity may intentionally cover less than
-    // the normal whole-scene evidence floor. Require the combined sex/oral
-    // coverage to establish the scene classification instead of rejecting the
-    // minority activity before its configured leaning band can be applied.
+    // CUSTOM: A small minority activity may intentionally cover less than the
+    // normal whole-scene evidence floor. Require combined sex/oral coverage so
+    // the percentage split still reports brief minority activity.
     !hasMinimumRuleEvidence(
       [...activityMarkersFor("sex"), ...activityMarkersFor("oral")],
       sceneDuration
@@ -968,24 +910,19 @@ function getLeaningCandidate(
   const combinedDuration = sexDuration + oralDuration;
   const sexPercent = (sexDuration / combinedDuration) * 100;
   const oralPercent = (oralDuration / combinedDuration) * 100;
-  const difference = Math.abs(sexPercent - oralPercent);
-  const balanced = difference <= thresholds.leaningBalanceTolerancePercent;
-  const sexLeaning = sexPercent > oralPercent;
-  const label = balanced
-    ? "Balanced Scene"
-    : `${sexLeaning ? "Sex" : "Oral"} Leaning Scene with ${
-        sexLeaning
-          ? minorityActivityPhrase("oral", oralPercent, thresholds)
-          : minorityActivityPhrase("sex", sexPercent, thresholds)
-      }`;
+  const label = `${Math.round(sexPercent)}% fucking, ${Math.round(
+    oralPercent
+  )}% eating pito`;
 
   return [
     {
       key: "activity-leaning",
       label,
-      detail: `${Math.round(sexPercent)}% sex (${formatDuration(
+      detail: `${Math.round(sexPercent)}% fucking (${formatDuration(
         sexDuration
-      )}) - ${Math.round(oralPercent)}% oral (${formatDuration(oralDuration)})`,
+      )}) - ${Math.round(oralPercent)}% eating pito (${formatDuration(
+        oralDuration
+      )})`,
       tone: "activity",
       kind: "leaning",
       score: combinedDuration,
@@ -2090,7 +2027,7 @@ function getSceneCardInsightCandidates(
   return [
     ...automaticCandidates,
     ...getActivityCandidates(scene, roleTagIds, thresholds),
-    ...getLeaningCandidate(scene, roleTagIds, thresholds),
+    ...getLeaningCandidate(scene, roleTagIds),
     ...getInteractionCandidate(scene, roleTagIds),
     ...getRareRoleCandidates(
       scene,

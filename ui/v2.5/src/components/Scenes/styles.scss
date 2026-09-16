@@ -3347,21 +3347,102 @@ input[type="range"].blue-slider {
 }
 
 .performer-stats-panel .custom-stats-overview {
-  column-gap: 1.5rem;
-  row-gap: 1.5rem;
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .performer-stats-panel {
   padding-bottom: 2rem;
 }
 
-.performer-stats-panel .performer-stats-chart:first-child {
-  margin-right: 2rem;
+/* CUSTOM: begin - comparable performer activity bars */
+.performer-stats-bar-chart {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.35rem;
+  min-width: 0;
+  padding: 0.85rem;
 }
 
-.performer-stats-chart {
-  width: 13.75rem;
+.performer-stats-bar-chart-header {
+  align-items: baseline;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  margin-bottom: 0.8rem;
 }
+
+.performer-stats-bar-chart-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.performer-stats-bar-chart-total {
+  color: $text-muted;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.performer-stats-bar-chart-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.performer-stats-bar-chart-row-header {
+  align-items: baseline;
+  column-gap: 0.45rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  margin-bottom: 0.25rem;
+}
+
+.performer-stats-bar-chart-swatch {
+  align-self: center;
+  border-radius: 50%;
+  display: block;
+  height: 0.62rem;
+  width: 0.62rem;
+}
+
+.performer-stats-bar-chart-label,
+.performer-stats-bar-chart-value,
+.performer-stats-bar-chart-percent {
+  font-size: 0.78rem;
+}
+
+.performer-stats-bar-chart-value,
+.performer-stats-bar-chart-percent {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.performer-stats-bar-chart-percent {
+  color: $text-muted;
+}
+
+.performer-stats-bar-chart-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  height: 0.6rem;
+  overflow: hidden;
+}
+
+.performer-stats-bar-chart-fill {
+  display: block;
+  height: 100%;
+}
+
+@media (max-width: 768px) {
+  .performer-stats-panel .custom-stats-overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* CUSTOM: end */
 
 .studio-stats-chart {
   width: 15rem;

@@ -1139,6 +1139,126 @@
   }
 }
 
+// CUSTOM: begin - Timer Countdown modal
+.task-progress-timer-modal {
+  .modal-content {
+    background: linear-gradient(
+      135deg,
+      rgba(18, 29, 37, 0.99),
+      rgba(9, 17, 23, 0.99)
+    );
+    border-color: rgba(113, 154, 181, 0.46);
+    border-radius: 0.55rem;
+  }
+
+  .modal-header {
+    border-bottom-color: rgba(138, 155, 168, 0.24);
+  }
+
+  .modal-footer {
+    border-top-color: rgba(138, 155, 168, 0.24);
+  }
+}
+
+.task-progress-timer-body {
+  text-align: center;
+
+  .form-group {
+    margin-bottom: 0;
+  }
+
+  .form-control {
+    margin: 0 auto;
+    max-width: 12rem;
+    text-align: center;
+  }
+
+  .form-text {
+    color: var(--black-steel-text-muted, #bfccd6);
+  }
+}
+
+.task-progress-timer-display {
+  align-items: center;
+  background: rgba(138, 155, 168, 0.09);
+  border: 0.18rem solid currentcolor;
+  border-radius: 0.6rem;
+  display: flex;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: clamp(3rem, 14vw, 8rem);
+  font-variant-numeric: tabular-nums;
+  justify-content: center;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  margin: 1.5rem auto 0.75rem;
+  min-height: 13rem;
+  padding: 1rem 1.5rem;
+  text-shadow: 0 0 1.2rem currentcolor;
+  transition: background-color 180ms ease, border-color 180ms ease,
+    color 180ms ease, text-shadow 180ms ease;
+}
+
+.task-progress-timer-green {
+  background: rgba(53, 196, 106, 0.13);
+  color: #35c46a;
+}
+
+.task-progress-timer-light-green {
+  background: rgba(104, 220, 145, 0.13);
+  color: #68dc91;
+}
+
+.task-progress-timer-yellow {
+  background: rgba(242, 201, 76, 0.13);
+  color: #f2c94c;
+}
+
+.task-progress-timer-orange {
+  background: rgba(240, 140, 58, 0.13);
+  color: #f08c3a;
+}
+
+.task-progress-timer-red {
+  background: rgba(245, 86, 86, 0.13);
+  color: #f55656;
+}
+
+.task-progress-timer-status {
+  color: var(--black-steel-text-muted, #bfccd6);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  min-height: 1.2rem;
+  text-transform: uppercase;
+}
+
+.task-progress-timer-total {
+  align-items: center;
+  border-top: 1px solid rgba(138, 155, 168, 0.24);
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin: 1rem auto 0;
+  padding-top: 0.75rem;
+
+  span {
+    color: var(--black-steel-text-muted, #bfccd6);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  strong {
+    color: var(--black-steel-text, #f5f8fa);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+    font-size: 1.15rem;
+    font-variant-numeric: tabular-nums;
+  }
+}
+// CUSTOM: end - Timer Countdown modal
+
 .task-progress-form-modal {
   .form-group,
   fieldset {

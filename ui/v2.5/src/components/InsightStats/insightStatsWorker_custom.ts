@@ -11,6 +11,7 @@ import {
 } from "./insightStatsData_custom";
 import { deriveInsightRoleCounts } from "./insightStatsRoles_custom";
 import {
+  insightStatsConfigKey,
   loadInsightSnapshot,
   writeInsightBaseline,
 } from "./insightStatsCache_custom";
@@ -105,7 +106,7 @@ async function load(url: string, force = false) {
     type: "progress",
     message: "Evaluating current chip coverage…",
   });
-  const configKey = JSON.stringify(config);
+  const configKey = insightStatsConfigKey(config);
   baseline =
     (snapshot.configKey === configKey ? snapshot.baseline : undefined) ??
     (await calculateInsightStats(scenes, config, baselineThresholds, roles));

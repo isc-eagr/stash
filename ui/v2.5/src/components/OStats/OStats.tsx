@@ -23,8 +23,6 @@ import { partitionOStatsMarkerTagCountsCustom } from "./oStatsMarkerTagCharts_cu
 
 import "./OStats.scss";
 
-const O_STATS_TRACKING_START = "2024-03-08";
-
 const SCENE_O_YEAR_COUNTS = gql`
   query OStatsSceneOYearCounts {
     sceneOYearCounts {
@@ -894,10 +892,13 @@ const OStatsTimestampImage: React.FC<{
     : event.scene.paths.screenshot;
 
   if (imagePath) {
+    // CUSTOM: dim fallback scene covers while exact O screenshots stay normal.
     return (
       <img
         alt={event.scene.title ?? ""}
-        className="ostats-event-thumb"
+        className={`ostats-event-thumb${
+          hasTimestamp ? "" : " ostats-event-thumb-scene-cover"
+        }`}
         loading="lazy"
         src={imagePath}
       />
@@ -1614,18 +1615,6 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
       <header className="ostats-header">
         <div>
           <h1>{renderTitle()}</h1>
-          <p className="ostats-total">
-            Date breakdowns use reliable tracked O dates from{" "}
-            {O_STATS_TRACKING_START} onward. All other charts include every
-            recorded O.
-          </p>
-          {!showTimeline && (
-            <p className="ostats-interaction-help">
-              Date bars open the next date breakdown or that day&apos;s O
-              events. Other bars and Unknown links open matching O events. Use
-              your browser&apos;s Back button to return to this view.
-            </p>
-          )}
         </div>
         {showDateNavigation && (
           <ButtonGroup aria-label="O date stats navigation">
@@ -1817,7 +1806,7 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({ match }) => {
           </div>
           <OStatsChart
             data={activityTypeChartData}
-            emptyLabel="Configure Sex, Oral, or Solo marker tags to see activity-type counts."
+            emptyLabel="No activity-type counts found."
           />
         </section>
       )}

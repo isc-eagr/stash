@@ -88,6 +88,16 @@ test("chip catalog keeps card tones and useful interaction rules for tooltips", 
     insightStatsCatalog.find(({ id }) => id === "ugly-tops")?.note ?? "",
     /Group Top Attractiveness/
   );
+  assert.equal(
+    insightStatsCatalog.find(({ id }) => id === "leaning")?.label,
+    "Fucking / eating pito split"
+  );
+  assert.equal(
+    insightStatsCatalog.some(
+      ({ id }) => id === "balanced" || id.startsWith("leaning-")
+    ),
+    false
+  );
 });
 
 test("coverage totals require an ended activity type marker", async () => {

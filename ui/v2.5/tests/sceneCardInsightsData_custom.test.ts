@@ -1509,7 +1509,7 @@ test("activity-quality levels are combined into one scene report", () => {
   );
 });
 
-test("sex scenes are classified as sex leaning, oral leaning, or balanced", () => {
+test("mixed sex and oral scenes display their direct percentage split", () => {
   assert.ok(
     labels(
       [
@@ -1518,7 +1518,7 @@ test("sex scenes are classified as sex leaning, oral leaning, or balanced", () =
       ],
       200,
       suppressNegatives
-    ).includes("Sex Leaning Scene with a good amount of oral")
+    ).includes("75% fucking, 25% eating pito")
   );
   assert.ok(
     labels(
@@ -1528,7 +1528,7 @@ test("sex scenes are classified as sex leaning, oral leaning, or balanced", () =
       ],
       200,
       suppressNegatives
-    ).includes("Oral Leaning Scene with a good amount of sex")
+    ).includes("25% fucking, 75% eating pito")
   );
   assert.ok(
     labels(
@@ -1538,11 +1538,11 @@ test("sex scenes are classified as sex leaning, oral leaning, or balanced", () =
       ],
       200,
       suppressNegatives
-    ).includes("Balanced Scene")
+    ).includes("50% fucking, 50% eating pito")
   );
 });
 
-test("leaning tooltips show each activity percentage and duration", () => {
+test("sex and oral split tooltips show each activity percentage and duration", () => {
   const insight = getSceneCardInsights(
     makeScene(
       [
@@ -1553,9 +1553,12 @@ test("leaning tooltips show each activity percentage and duration", () => {
     ),
     roleTagIds,
     suppressNegatives
-  ).find((candidate) => candidate.label === "Balanced Scene");
+  ).find((candidate) => candidate.label === "50% fucking, 50% eating pito");
 
-  assert.equal(insight?.detail, "50% sex (10:30) - 50% oral (10:30)");
+  assert.equal(
+    insight?.detail,
+    "50% fucking (10:30) - 50% eating pito (10:30)"
+  );
 });
 
 test("single-activity scenes do not get a leaning chip", () => {
@@ -1601,70 +1604,7 @@ test("single-activity scenes do not get a leaning chip", () => {
   );
 });
 
-test("balanced-scene tolerance is configurable", () => {
-  const markers = [
-    marker("sex", tag("sex", "Sex"), 0, 54),
-    marker("oral", tag("oral", "Oral"), 54, 100),
-  ];
-
-  assert.ok(labels(markers, 100, suppressNegatives).includes("Balanced Scene"));
-  assert.ok(
-    labels(markers, 100, {
-      ...suppressNegatives,
-      leaningBalanceTolerancePercent: 5,
-    }).includes("Sex Leaning Scene with a lot of oral")
-  );
-});
-
-test("leaning scenes describe the losing activity by configurable levels", () => {
-  assert.ok(
-    labels(
-      [
-        marker("sex", tag("sex", "Sex"), 0, 95),
-        marker("oral", tag("oral", "Oral"), 95, 100),
-      ],
-      100,
-      suppressNegatives
-    ).includes("Sex Leaning Scene with minimal oral")
-  );
-  assert.ok(
-    labels(
-      [
-        marker("sex", tag("sex", "Sex"), 0, 80),
-        marker("oral", tag("oral", "Oral"), 80, 100),
-      ],
-      100,
-      suppressNegatives
-    ).includes("Sex Leaning Scene with some oral")
-  );
-  assert.ok(
-    labels(
-      [
-        marker("sex", tag("sex", "Sex"), 0, 60),
-        marker("oral", tag("oral", "Oral"), 60, 100),
-      ],
-      100,
-      suppressNegatives
-    ).includes("Sex Leaning Scene with a lot of oral")
-  );
-  assert.ok(
-    labels(
-      [
-        marker("sex", tag("sex", "Sex"), 0, 80),
-        marker("oral", tag("oral", "Oral"), 80, 100),
-      ],
-      100,
-      {
-        ...suppressNegatives,
-        leaningMinoritySomePercent: 25,
-        leaningMinorityGoodAmountPercent: 40,
-        leaningMinorityALotPercent: 60,
-      }
-    ).includes("Sex Leaning Scene with minimal oral")
-  );
-});
-
-test("leaning scenes allow a minimal minority activity below the whole-scene evidence floor", () => {
+test("sex and oral splits allow brief minority activity below the whole-scene evidence floor", () => {
   assert.ok(
     labels(
       [
@@ -1672,8 +1612,8 @@ test("leaning scenes allow a minimal minority activity below the whole-scene evi
         marker("sex", tag("sex", "Sex"), 68.445973, 599.463054),
       ],
       678.58,
-      { ...suppressNegatives, leaningMinoritySomePercent: 19 }
-    ).includes("Sex Leaning Scene with minimal oral")
+      suppressNegatives
+    ).includes("97% fucking, 3% eating pito")
   );
 
   assert.equal(
@@ -1684,7 +1624,7 @@ test("leaning scenes allow a minimal minority activity below the whole-scene evi
       ],
       100,
       suppressNegatives
-    ).some((label) => label.includes("Leaning Scene")),
+    ).some((label) => /^\d+% fucking, \d+% eating pito$/.test(label)),
     false
   );
 });
@@ -2502,10 +2442,10 @@ test("No Orgasm reserves a high-priority slot near the chip ceiling", () => {
 
   assert.equal(sceneLabels.length, 7);
   assert.ok(sceneLabels.includes("No Orgasm"));
-  assert.equal(sceneLabels.includes("Balanced Scene"), true);
+  assert.equal(sceneLabels.includes("50% fucking, 50% eating pito"), true);
   assert.equal(
-    sceneLabels.some(
-      (label) => label.endsWith(" sex") || label.endsWith(" oral")
+    sceneLabels.some((label) =>
+      /^(Good|Great|Amazing|Near-perfect) (sex|oral)$/.test(label)
     ),
     false
   );

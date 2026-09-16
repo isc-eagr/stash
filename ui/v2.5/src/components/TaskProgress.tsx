@@ -8,6 +8,7 @@ import {
 import { TaskProgressForm } from "./TaskProgress/TaskProgressForm";
 import { TaskProgressOverall } from "./TaskProgress/TaskProgressOverall";
 import { TaskProgressTrackerModal } from "./TaskProgress/TaskProgressTrackerModal";
+import { TaskProgressTimerCountdown } from "./TaskProgress/TaskProgressTimerCountdown_custom";
 import { useTaskProgressTrackers } from "./TaskProgress/useTaskProgressTrackers_custom";
 import {
   taskProgressStatusLabel,
@@ -25,6 +26,8 @@ const TaskProgress: React.FC = () => {
   const [filter, setFilter] = useState("CURRENT");
   const [dragged, setDragged] = useState<string>();
   const [selectedTrackerID, setSelectedTrackerID] = useState<string>();
+  // CUSTOM: Timer Countdown is a browser-local utility for the progress page.
+  const [showTimer, setShowTimer] = useState(false);
   const trackers = data.trackers ?? [];
   const visible = trackers.filter(
     (tracker) =>
@@ -54,6 +57,10 @@ const TaskProgress: React.FC = () => {
             onClick={() => void data.refresh()}
           >
             {t("Refresh")}
+          </Button>
+          {/* CUSTOM: Open the browser-local countdown timer modal. */}
+          <Button variant="secondary" onClick={() => setShowTimer(true)}>
+            {t("Timer Countdown")}
           </Button>
           <Button onClick={() => setEditor("new")} disabled={data.busy}>
             {t("Add tracker")}
@@ -190,6 +197,9 @@ const TaskProgress: React.FC = () => {
           selection={details}
           onClose={() => setDetails(undefined)}
         />
+      )}
+      {showTimer && (
+        <TaskProgressTimerCountdown onClose={() => setShowTimer(false)} />
       )}
     </main>
   );

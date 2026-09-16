@@ -110,22 +110,6 @@
         "lackluster_non_outstanding": {
           "heading": "Lackluster non-Outstanding threshold (%)",
           "description": "Sex or Oral is Lackluster when at least this share of the activity is not Outstanding."
-        },
-        "leaning_balance_tolerance": {
-          "heading": "Balanced scene tolerance (%)",
-          "description": "A scene with multiple activity types is Balanced when Sex and Oral shares differ by no more than this many percentage points; otherwise it is Sex Leaning or Oral Leaning."
-        },
-        "leaning_minority_some": {
-          "heading": "Leaning scene: Some minority activity (%)",
-          "description": "Minimum minority Sex or Oral share described as some; smaller non-zero shares are described as minimal."
-        },
-        "leaning_minority_good_amount": {
-          "heading": "Leaning scene: Good amount (%)",
-          "description": "Minimum minority Sex or Oral share described as a good amount. This is normalized to be at least the Some threshold."
-        },
-        "leaning_minority_a_lot": {
-          "heading": "Leaning scene: A lot of minority activity (%)",
-          "description": "Minimum minority Sex or Oral share described as a lot of. This is normalized to be at least the Good amount threshold."
         }
       },
       "scene_player": {
