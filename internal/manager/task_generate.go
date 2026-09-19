@@ -134,7 +134,6 @@ func (j *GenerateJob) Execute(ctx context.Context, progress *job.Progress) error
 			MarkerPaths:        instance.Paths.SceneMarkers,
 			ScenePaths:         instance.Paths.Scene,
 			Overwrite:          j.overwrite,
-			HighQualityMarkers: instance.Config.GetMarkerPreviewSourceQuality(), // CUSTOM
 		}
 
 		r := j.repository
@@ -496,8 +495,6 @@ func (j *GenerateJob) queueSceneJobs(ctx context.Context, g *generate.Generator,
 			ImagePreview:               j.input.MarkerImagePreviews,
 			Screenshot:                 j.input.MarkerScreenshots,
 			DeleteSimpleMarkerPreviews: j.input.DeleteSimpleMarkerPreviews,                 // CUSTOM
-			HighQualityMarkers:         instance.Config.GetMarkerPreviewSourceQuality(),    // CUSTOM
-			SkipQualityCheck:           instance.Config.GetMarkerPreviewSkipQualityCheck(), // CUSTOM
 
 			generator: g,
 		}
@@ -575,8 +572,6 @@ func (j *GenerateJob) queueMarkerJob(g *generate.Generator, marker *models.Scene
 		ImagePreview:               j.input.MarkerImagePreviews,
 		Screenshot:                 j.input.MarkerScreenshots,
 		DeleteSimpleMarkerPreviews: j.input.DeleteSimpleMarkerPreviews,                 // CUSTOM
-		HighQualityMarkers:         instance.Config.GetMarkerPreviewSourceQuality(),    // CUSTOM
-		SkipQualityCheck:           instance.Config.GetMarkerPreviewSkipQualityCheck(), // CUSTOM
 		generator:                  g,
 	}
 	j.totals.markers++

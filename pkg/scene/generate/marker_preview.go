@@ -60,11 +60,7 @@ type sceneMarkerOptions struct {
 func (g Generator) markerPreviewVideo(input string, options sceneMarkerOptions) generateFn {
 	return func(lockCtx *fsutil.LockContext, tmpFn string) error {
 		var videoFilter ffmpeg.VideoFilter
-		// CUSTOM: begin - conditionally scale down based on quality setting
-		if !g.HighQualityMarkers {
-			videoFilter = videoFilter.ScaleWidth(markerPreviewWidth)
-		}
-		// CUSTOM: end
+		videoFilter = videoFilter.ScaleWidth(markerPreviewWidth)
 
 		var videoArgs ffmpeg.Args
 		videoArgs = videoArgs.VideoFilter(videoFilter)
@@ -128,11 +124,7 @@ func (g Generator) SceneMarkerWebp(ctx context.Context, input string, hash strin
 func (g Generator) sceneMarkerWebp(input string, options sceneMarkerOptions) generateFn {
 	return func(lockCtx *fsutil.LockContext, tmpFn string) error {
 		var videoFilter ffmpeg.VideoFilter
-		// CUSTOM: begin - conditionally scale down based on quality setting
-		if !g.HighQualityMarkers {
-			videoFilter = videoFilter.ScaleWidth(markerPreviewWidth)
-		}
-		// CUSTOM: end
+		videoFilter = videoFilter.ScaleWidth(markerPreviewWidth)
 		videoFilter = videoFilter.Fps(markerWebpFPS)
 
 		var videoArgs ffmpeg.Args

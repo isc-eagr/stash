@@ -22,8 +22,6 @@ type GenerateMarkersTask struct {
 	ImagePreview               bool
 	Screenshot                 bool
 	DeleteSimpleMarkerPreviews bool // CUSTOM: delete previews for simple marker preview skip tags
-	HighQualityMarkers         bool // CUSTOM: generate marker previews at source resolution
-	SkipQualityCheck           bool // CUSTOM: skip existing marker quality mismatch detection
 
 	simpleMarkerPreviewTagIDs          map[int]struct{} // CUSTOM
 	simpleMarkerSecondaryTagIDs        map[int][]int    // CUSTOM
@@ -142,12 +140,6 @@ func (t *GenerateMarkersTask) generateMarker(videoFile *models.VideoFile, scene 
 		}
 	} else {
 		// CUSTOM: end
-		// CUSTOM: begin - delete quality-mismatched files so generator regenerates them
-		if !g.Overwrite && !t.SkipQualityCheck {
-			t.deleteQualityMismatchedFiles(sceneHash, int(seconds), videoFile.Width, videoFile.Height)
-		}
-		// CUSTOM: end
-
 		if t.VideoPreview {
 			if err := g.MarkerPreviewVideo(context.TODO(), videoFile.Path, sceneHash, seconds, sceneMarker.EndSeconds, instance.Config.GetPreviewAudio()); err != nil {
 				logger.Errorf("[generator] failed to generate marker video: %v", err)
@@ -185,15 +177,6 @@ func (t *GenerateMarkersTask) markersNeeded(ctx context.Context) int {
 	}
 
 	sceneHash := t.Scene.GetHash(t.fileNamingAlgorithm)
-	// CUSTOM: begin - get source dimensions for quality mismatch detection
-	sourceWidth := 0
-	sourceHeight := 0
-	if vf := t.Scene.Files.Primary(); vf != nil {
-		sourceWidth = vf.Width
-		sourceHeight = vf.Height
-	}
-	// CUSTOM: end
-	// CUSTOM
 	t.prepareSimpleMarkerPreviewExclusions(ctx, sceneMarkers)
 	for _, sceneMarker := range sceneMarkers {
 		seconds := int(sceneMarker.Seconds)
@@ -210,9 +193,6 @@ func (t *GenerateMarkersTask) markersNeeded(ctx context.Context) int {
 		if t.Overwrite || !t.markerExists(sceneHash, seconds) {
 			markers++
 			// CUSTOM: begin - also count markers that need quality regeneration
-		} else if !t.SkipQualityCheck && t.markerQualityMismatch(sceneHash, seconds, sourceWidth, sourceHeight) {
-			markers++
-			// CUSTOM: end
 		}
 	}
 

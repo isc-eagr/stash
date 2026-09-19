@@ -1918,8 +1918,6 @@ func (i *Config) setDefaultValues() {
 	i.setDefault(PreviewExcludeStart, previewExcludeStartDefault)
 	i.setDefault(PreviewExcludeEnd, previewExcludeEndDefault)
 	i.setDefault(PreviewAudio, previewAudioDefault)
-	i.setDefault(MarkerPreviewSourceQuality, markerPreviewSourceQualityDefault)       // CUSTOM
-	i.setDefault(MarkerPreviewSkipQualityCheck, markerPreviewSkipQualityCheckDefault) // CUSTOM
 	i.setDefault(SoundOnPreview, false)
 
 	i.setDefault(UseCustomSpriteInterval, UseCustomSpriteIntervalDefault)

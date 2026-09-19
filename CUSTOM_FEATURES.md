@@ -404,7 +404,7 @@ Implementation: `internal/gevi/latest_custom.go`, `internal/api/routes_gevi_late
 
 ### Custom Settings
 
-Settings > Custom consolidates fork-only controls: role tags, multi-segment loops, marker preview quality/skip lists, rating-card theme/thresholds/override tags, O screenshot generation, OStats exclusions, and the application theme. Generic upstream settings remain in their normal tabs.
+Settings > Custom consolidates fork-only controls: role tags, multi-segment loops, marker preview skip lists, rating-card theme/thresholds/override tags, O screenshot generation, OStats exclusions, and the application theme. Generic upstream settings remain in their normal tabs.
 
 ### Black Steel and loading overlay
 
@@ -502,7 +502,7 @@ The following are implementation refinements or parts of the features above, so 
 - `configuration.ui.ratingCardTheme`, `ratingCardThresholds`, and `ratingCardOverrideTagIds`
 - `configuration.ui.sceneCardInsightThresholds`
 - `configuration.ui.applicationTheme`
-- `configuration.ui.markerPreviewSourceQuality`, `markerPreviewSkipQualityCheck`, and `simpleMarkerPreviewExcludedTagIds`
+- `configuration.ui.simpleMarkerPreviewExcludedTagIds`
 
 ---
 

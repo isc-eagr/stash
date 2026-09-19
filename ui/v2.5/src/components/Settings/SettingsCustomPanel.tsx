@@ -54,7 +54,7 @@ function sceneCardInsightSettingHeading(
 export const SettingsCustomPanel: React.FC = () => {
   const intl = useIntl();
   const Toast = useToast();
-  const { general, ui, loading, error, saveGeneral, saveUI } = useSettings();
+  const { ui, loading, error, saveUI } = useSettings();
 
   if (error) return <h1>{error.message}</h1>;
   if (loading) return <LoadingIndicator />;
@@ -220,23 +220,6 @@ export const SettingsCustomPanel: React.FC = () => {
             }
           />
         </Setting>
-      </SettingSection>
-
-      <SettingSection headingID="config.general.preview_generation">
-        <BooleanSetting
-          id="marker-preview-source-quality"
-          headingID="config.general.marker_preview_source_quality_head"
-          subHeadingID="config.general.marker_preview_source_quality_desc"
-          checked={general.markerPreviewSourceQuality ?? false}
-          onChange={(v) => saveGeneral({ markerPreviewSourceQuality: v })}
-        />
-        <BooleanSetting
-          id="marker-preview-skip-quality-check"
-          headingID="config.general.marker_preview_skip_quality_check_head"
-          subHeadingID="config.general.marker_preview_skip_quality_check_desc"
-          checked={general.markerPreviewSkipQualityCheck ?? false}
-          onChange={(v) => saveGeneral({ markerPreviewSkipQualityCheck: v })}
-        />
       </SettingSection>
 
       <SettingSection headingID="config.ui.role_tags.heading">

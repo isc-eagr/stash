@@ -291,8 +291,6 @@ func (r *mutationResolver) ConfigureGeneral(ctx context.Context, input ConfigGen
 	r.setConfigFloat(config.PreviewSegmentDuration, input.PreviewSegmentDuration)
 	r.setConfigString(config.PreviewExcludeStart, input.PreviewExcludeStart)
 	r.setConfigString(config.PreviewExcludeEnd, input.PreviewExcludeEnd)
-	r.setConfigBool(config.MarkerPreviewSourceQuality, input.MarkerPreviewSourceQuality)       // CUSTOM
-	r.setConfigBool(config.MarkerPreviewSkipQualityCheck, input.MarkerPreviewSkipQualityCheck) // CUSTOM
 	if input.PreviewPreset != nil {
 		c.SetString(config.PreviewPreset, input.PreviewPreset.String())
 	}
