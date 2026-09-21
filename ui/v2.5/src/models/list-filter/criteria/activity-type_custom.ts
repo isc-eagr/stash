@@ -26,7 +26,6 @@ const baseMetricKeys: ActivityTypeMetricKey[] = [
   "sex_percent",
   "oral_percent",
   "solo_percent",
-  "other_percent",
 ];
 
 const performerMetricKeys: ActivityTypeMetricKey[] = [

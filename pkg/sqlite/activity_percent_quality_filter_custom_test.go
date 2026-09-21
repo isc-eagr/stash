@@ -2,11 +2,62 @@ package sqlite
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
+
+	"github.com/stashapp/stash/internal/manager/config"
+	"github.com/stashapp/stash/pkg/models"
 )
+
+func TestOralPercentFilterUsesClassifiedActivityTotalCustom(t *testing.T) {
+	uiConfig := config.InitializeEmpty()
+	previousUIConfig := uiConfig.GetUIConfiguration()
+	t.Cleanup(func() { uiConfig.SetUIConfiguration(previousUIConfig) })
+	uiConfig.SetUIConfiguration(map[string]interface{}{
+		"roleTagIds": map[string]interface{}{
+			"sexTagId":  "268",
+			"oralTagId": "196",
+			"soloTagId": "24",
+		},
+	})
+
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+
+	_, err = db.Exec(`
+CREATE TABLE scenes (id INTEGER PRIMARY KEY);
+CREATE TABLE scenes_files (scene_id INTEGER, file_id INTEGER);
+CREATE TABLE video_files (file_id INTEGER, duration REAL);
+CREATE TABLE scene_markers (id INTEGER PRIMARY KEY, scene_id INTEGER, primary_tag_id INTEGER, seconds REAL, end_seconds REAL);
+CREATE TABLE scene_markers_tags (scene_marker_id INTEGER, tag_id INTEGER);
+
+INSERT INTO scenes (id) VALUES (5992);
+INSERT INTO scenes_files (scene_id, file_id) VALUES (5992, 1);
+INSERT INTO video_files (file_id, duration) VALUES (1, 764.11);
+INSERT INTO scene_markers (id, scene_id, primary_tag_id, seconds, end_seconds)
+  VALUES (17012, 5992, 196, 5.513121, 762.924137);
+`)
+	require.NoError(t, err)
+
+	percentExpr := activityPercentScenePercentExprCustom(activityPercentOralCustom)
+	var percent float64
+	err = db.QueryRow("SELECT " + percentExpr + " FROM scenes").Scan(&percent)
+	require.NoError(t, err)
+	require.InDelta(t, 100, percent, 0.000001)
+
+	whereClause, args := getIntCriterionWhereClause(activityPercentFilterExprCustom(percentExpr), models.IntCriterionInput{
+		Modifier: models.CriterionModifierLessThan,
+		Value:    100,
+	})
+	var matchingScenes int
+	err = db.QueryRow("SELECT COUNT(*) FROM scenes WHERE "+whereClause, args...).Scan(&matchingScenes)
+	require.NoError(t, err)
+	require.Zero(t, matchingScenes, "an exact 100% Oral share must not match Oral < 100%")
+}
 
 func TestSceneQualityPercentExpressionsCustom(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
@@ -43,23 +94,36 @@ INSERT INTO scene_negative_markers (scene_id, start_seconds, end_seconds) VALUES
 `)
 	require.NoError(t, err)
 
-	outstandingSource := activityPercentSceneOutstandingSourceForTagIDsSQLCustom("scenes.id", []int{10, 20, 30}, 500, 700, 701)
+	activitySource := `SELECT sm.scene_id,
+MAX(0, sm.seconds) AS seconds,
+MIN(100, sm.end_seconds) AS end_seconds
+FROM scene_markers sm
+WHERE sm.scene_id = scenes.id
+AND sm.primary_tag_id IN (10, 20, 30)
+AND sm.end_seconds > sm.seconds`
+	rawOutstandingSource := activityPercentSceneOutstandingSourceForTagIDsSQLCustom("scenes.id", []int{10, 20, 30}, 500, 700, 701)
+	outstandingSource := activityPercentIntersectionSourceSQLCustom(activitySource, rawOutstandingSource)
 	unusableSource := activityPercentSceneNegativeSourceSQLCustom("scenes.id")
 	outstandingExpr := activityPercentOutstandingSecondsFromSourcesExprCustom(outstandingSource, unusableSource)
 	standardExpr := activityPercentStandardSecondsFromSourcesExprCustom(
-		activityPercentSceneDurationExprCustom("scenes.id"),
-		outstandingSource,
+		activitySource,
+		rawOutstandingSource,
 		unusableSource,
+	)
+	unclassifiedExpr := activityPercentNonNegativeDifferenceExprCustom(
+		activityPercentSceneDurationExprCustom("scenes.id"),
+		activityPercentMergedSecondsExprCustom(fmt.Sprintf("%s\nUNION ALL\n%s", activitySource, unusableSource)),
 	)
 	unusableExpr := activityPercentSceneUnusableSecondsExprCustom("scenes.id")
 
-	row := db.QueryRow("SELECT " + outstandingExpr + ", " + standardExpr + ", " + unusableExpr + " FROM scenes WHERE scenes.id = 1")
-	var outstanding, standard, unusable float64
-	require.NoError(t, row.Scan(&outstanding, &standard, &unusable))
-	require.InDelta(t, 40, outstanding, 0.001)
-	require.InDelta(t, 40, standard, 0.001)
+	row := db.QueryRow("SELECT " + outstandingExpr + ", " + standardExpr + ", " + unclassifiedExpr + ", " + unusableExpr + " FROM scenes WHERE scenes.id = 1")
+	var outstanding, standard, unclassified, unusable float64
+	require.NoError(t, row.Scan(&outstanding, &standard, &unclassified, &unusable))
+	require.InDelta(t, 35, outstanding, 0.001)
+	require.InDelta(t, 20, standard, 0.001)
+	require.InDelta(t, 25, unclassified, 0.001)
 	require.InDelta(t, 20, unusable, 0.001)
-	require.InDelta(t, 100, outstanding+standard+unusable, 0.001)
+	require.InDelta(t, 100, outstanding+standard+unclassified+unusable, 0.001)
 }
 
 func TestOutstandingMarkerConditionCustomKeepsPlainOrgasmStandard(t *testing.T) {

@@ -8,6 +8,14 @@ const insightsSource = readFileSync(
   ),
   "utf8"
 );
+const hoverPopoverSource = readFileSync(
+  new URL("../src/components/Shared/HoverPopover.tsx", import.meta.url),
+  "utf8"
+);
+const sceneStyles = readFileSync(
+  new URL("../src/components/Scenes/styles.scss", import.meta.url),
+  "utf8"
+);
 
 assert.match(
   insightsSource,
@@ -72,18 +80,53 @@ assert.match(
 );
 assert.match(
   insightsSource,
-  /insight\.key === "orgasm-report" && insight\.performers !== undefined/,
-  "orgasm report tooltips should use their finisher performer data"
+  /insight\.orgasmFacialEvents !== undefined/,
+  "the combined report should open a performer event popover"
 );
 assert.match(
   insightsSource,
-  /<PerformerPopoverContent performers=\{insight\.performers \?\? \[\]\}/,
-  "orgasm report tooltips should reuse the performer portrait grid"
+  /<SceneCardOrgasmFacialPopover[\s\S]*?events=\{insight\.orgasmFacialEvents\}/,
+  "the combined report should render every orgasm and facial event"
 );
 assert.match(
   insightsSource,
-  /insight\.key === "outstanding-activity" \|\|\s+insight\.key === "outstanding-activity-presence" \|\|\s+insight\.key === "feet" \|\|\s+insight\.key\.startsWith\("goat-"\)/,
-  "Outstanding Activity, Feet, and GOAT chips should open the activity matrix"
+  /<HoverPopover[\s\S]*?className="scene-card-insight-hover-popover"[\s\S]*?estimatedContentHeight=\{520\}[\s\S]*?placement="bottom"[\s\S]*?popoverClassName="scene-marker-highlight-popover scene-card-performer-popover scene-card-insight-event-popover"/,
+  "event details should use the persistent, viewport-aware hover popover"
+);
+assert.match(
+  insightsSource,
+  /data-hover-popover-measure="true"/,
+  "event details should measure their full content before choosing a vertical placement"
+);
+assert.match(
+  hoverPopoverSource,
+  /onMouseEnter=\{handleMouseEnter\}[\s\S]*?onMouseLeave=\{handleMouseLeave\}/,
+  "the event popover should stay open while the pointer is over its content"
+);
+assert.match(
+  insightsSource,
+  /role=\{isFacial \? "Top" : undefined\}[\s\S]*?role="Bottom"/,
+  "facials should retain their top and bottom styling while orgasms stay unoutlined"
+);
+assert.match(
+  insightsSource,
+  /scene-card-event-quality-pill--\$\{/,
+  "event details should display GOAT and Really Hot pills"
+);
+assert.match(
+  sceneStyles,
+  /\.scene-card-insight-event-popover\s*\{[^}]*width: min\(49rem, calc\(100vw - 1rem\)\)/,
+  "event details should claim the available horizontal popup space"
+);
+assert.match(
+  sceneStyles,
+  /grid-template-columns: repeat\(auto-fit, minmax\(min\(100%, 15rem\), 1fr\)\)/,
+  "event cards should flow into multiple columns"
+);
+assert.match(
+  insightsSource,
+  /insight\.key === "outstanding-activity" \|\|\s+insight\.key === "outstanding-activity-presence" \|\|\s+insight\.key\.startsWith\("goat-"\)/,
+  "Outstanding Activity and GOAT chips should open the activity matrix"
 );
 assert.match(
   insightsSource,

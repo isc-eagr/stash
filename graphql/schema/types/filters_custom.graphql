@@ -347,6 +347,7 @@ input ActivityPercentFilterInput {
 input QualityPercentFilterInput {
   outstanding_percent: IntCriterionInput
   standard_percent: IntCriterionInput
+  unclassified_percent: IntCriterionInput
   unusable_percent: IntCriterionInput
 }
 
@@ -462,7 +463,7 @@ extend input SceneFilterType {
   performer_rating_all: Boolean
   "Filter by configured sex/oral/solo/other activity percentages"
   activity_percentages: ActivityPercentFilterInput
-  "Filter by outstanding/standard/unusable quality percentages"
+  "Filter by outstanding/standard/unclassified/unusable quality percentages"
   quality_percentages: QualityPercentFilterInput
   sex_activity_percent: IntCriterionInput
   oral_activity_percent: IntCriterionInput
@@ -470,6 +471,7 @@ extend input SceneFilterType {
   other_activity_percent: IntCriterionInput
   outstanding_activity_percent: IntCriterionInput
   standard_activity_percent: IntCriterionInput
+  unclassified_activity_percent: IntCriterionInput
   unusable_activity_percent: IntCriterionInput
 }
 
@@ -507,7 +509,7 @@ extend input GroupFilterType {
 extend input StudioFilterType {
   "Filter by configured sex/oral/solo activity percentages"
   activity_percentages: ActivityPercentFilterInput
-  "Filter by aggregated outstanding/standard/unusable percentages"
+  "Filter by aggregated outstanding/standard/unclassified/unusable percentages"
   quality_percentages: QualityPercentFilterInput
   "Filter by average scene Rating Advisor criteria for the studio"
   rating_criteria: RatingCriteriaFilterInput
@@ -519,6 +521,7 @@ extend input StudioFilterType {
   other_activity_percent: IntCriterionInput
   outstanding_activity_percent: IntCriterionInput
   standard_activity_percent: IntCriterionInput
+  unclassified_activity_percent: IntCriterionInput
   unusable_activity_percent: IntCriterionInput
 }
 

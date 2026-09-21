@@ -906,6 +906,7 @@
   --rating-card-highlight-rgb: 224, 242, 254;
   --rating-card-name-rgb: 219, 242, 255;
   --rating-card-text-rgb: 205, 230, 255;
+  --rating-card-classic-border: rgba(188, 215, 255, 0.86);
   --rating-card-icon-filter: brightness(0) saturate(100%) invert(42%) sepia(94%)
     saturate(2785%) hue-rotate(203deg) brightness(104%) contrast(106%);
   --rating-card-text-gradient: linear-gradient(
@@ -1492,6 +1493,36 @@ html.application-theme-masculine-black
     )::before {
     opacity: 0.84;
     transform: none;
+  }
+}
+
+:is(
+    .scene-card.rating-card-theme-premium,
+    .scene-card.rating-card-theme-classic
+  ):is(
+    .rating-3-stars,
+    .rating-4-stars,
+    .rating-5-stars,
+    .rating-royal-sapphire
+  ) {
+  .scene-activity-metric,
+  .scene-activity-metric__copy strong,
+  .scene-activity-metric__copy small {
+    color: rgb(var(--rating-card-text-rgb)) !important;
+  }
+
+  .scene-activity-metric__icon {
+    color: rgb(var(--rating-card-text-rgb)) !important;
+  }
+
+  .scene-activity-metric__svg {
+    filter: var(--rating-card-icon-filter) !important;
+    -webkit-filter: var(--rating-card-icon-filter) !important;
+  }
+
+  .scene-activity-metric__icon .fa-icon,
+  .scene-activity-metric__icon .svg-inline--fa {
+    color: rgb(var(--rating-card-text-rgb)) !important;
   }
 }
 

@@ -2000,9 +2000,16 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       const uniqueTagNames = markerData
         .map((marker) => marker.primaryTag.name)
         .filter((value, index, self) => self.indexOf(value) === index);
+      // CUSTOM: match the configured solo role by ID for its shared scrubber color.
+      const soloTagId = uiConfig?.roleTagIds?.soloTagId;
+      const soloTagNames = soloTagId
+        ? markerData
+            .filter((marker) => marker.primaryTag.id === soloTagId)
+            .map((marker) => marker.primaryTag.name)
+        : [];
 
       // Wait for colors
-      markers.findColors(uniqueTagNames);
+      markers.findColors(uniqueTagNames, soloTagNames); // CUSTOM
 
       const showRangeTags =
         markerTimestampCopyActive ||

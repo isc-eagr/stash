@@ -38,7 +38,10 @@ export const SceneCardPerformerPopover: React.FC<IProps> = ({
   }, [configuration?.ui.roleTagIds, scene]);
 
   const popoverContent = (
-    <div className="scene-marker-highlight-popover-card">
+    <div
+      className="scene-marker-highlight-popover-card"
+      data-hover-popover-measure="true"
+    >
       <div className="scene-marker-activity-config-performers">
         {performers.map((performer) => {
           const rating = performer.performer.rating100;
@@ -96,7 +99,7 @@ export const SceneCardPerformerPopover: React.FC<IProps> = ({
     <HoverPopover
       className={cx("performer-count", className)}
       placement="bottom"
-      popoverClassName="scene-marker-highlight-popover scene-card-performer-popover"
+      popoverClassName="scene-marker-highlight-popover scene-card-performer-popover scene-card-performer-count-popover"
       estimatedContentHeight={390}
       content={popoverContent}
     >

@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { faExternalLinkAlt } from "@fortawesome/free-solid-svg-icons";
 import { Overlay, OverlayTrigger, Popover, Tooltip } from "react-bootstrap";
 import { useConfigurationContext } from "src/hooks/Config";
-import { PerformerPopoverContent } from "../Shared/PerformerPopoverButton";
+import { HoverPopover } from "../Shared/HoverPopover";
 import { Icon } from "../Shared/Icon";
 import {
   getSceneCardInsightSets,
@@ -12,6 +12,7 @@ import {
 } from "./sceneCardInsightsData_custom";
 import { OutstandingActivityMatrixModal } from "./OutstandingActivityMatrix_custom";
 import { hasSceneCardInsightOverflow } from "./sceneCardInsightSelection_custom";
+import { ActivityTypePerformerTile } from "./SceneDetails/sceneMarkerHoverPopover_custom";
 
 const insightPopoverHeightAllowance = 180;
 
@@ -82,6 +83,110 @@ function SceneCardInsightDetail({ detail }: Pick<ISceneCardInsight, "detail">) {
   );
 }
 
+function SceneCardOrgasmFacialPopover({
+  events,
+}: {
+  events?: ISceneCardInsight["orgasmFacialEvents"];
+}) {
+  const eventNumbers: Record<"orgasm" | "facial", number> = {
+    orgasm: 0,
+    facial: 0,
+  };
+
+  return (
+    <div className="scene-card-orgasm-facial-events">
+      {(events ?? []).map((event) => {
+        eventNumbers[event.category] += 1;
+        const isFacial = event.category === "facial";
+        const hasPerformers =
+          event.topPerformers.length > 0 || event.bottomPerformers.length > 0;
+        const qualityModifier =
+          event.quality === "GOAT"
+            ? "goat"
+            : event.quality === "Really Hot"
+            ? "really-hot"
+            : undefined;
+
+        return (
+          <section
+            className={`scene-card-orgasm-facial-event${
+              isFacial ? " scene-card-orgasm-facial-event--facial" : ""
+            }${
+              qualityModifier
+                ? ` scene-card-orgasm-facial-event--${qualityModifier}`
+                : ""
+            }`}
+            key={event.id}
+          >
+            <div className="scene-card-orgasm-facial-event-heading">
+              <h4>
+                <span>
+                  {isFacial ? "Facial" : "Orgasm"}{" "}
+                  {eventNumbers[event.category]}
+                </span>
+                {event.quality && (
+                  <span
+                    className={`scene-card-event-quality-pill scene-card-event-quality-pill--${qualityModifier}`}
+                  >
+                    {event.quality}
+                  </span>
+                )}
+              </h4>
+            </div>
+            <div className="scene-marker-activity-config-performers">
+              {event.topPerformers.map((performer) => (
+                <ActivityTypePerformerTile
+                  key={`${event.id}-top-${performer.id}`}
+                  performer={performer}
+                  role={isFacial ? "Top" : undefined}
+                  detailLink={`/performers/${performer.id}`}
+                  title={`${isFacial ? "Top" : "Orgasm"}: ${performer.name}`}
+                />
+              ))}
+              {isFacial &&
+                event.bottomPerformers.map((performer) => (
+                  <ActivityTypePerformerTile
+                    key={`${event.id}-bottom-${performer.id}`}
+                    performer={performer}
+                    role="Bottom"
+                    detailLink={`/performers/${performer.id}`}
+                    title={`Bottom: ${performer.name}`}
+                  />
+                ))}
+              {!hasPerformers && (
+                <div className="scene-marker-activity-config-empty">
+                  No performers assigned
+                </div>
+              )}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+function SceneCardInsightPerformerPopover({
+  performer,
+}: {
+  performer: NonNullable<ISceneCardInsight["performerPreview"]>;
+}) {
+  return (
+    <div
+      className="scene-marker-highlight-popover-card scene-card-insight-performer-preview"
+      data-hover-popover-measure="true"
+    >
+      <div className="scene-marker-activity-config-performers">
+        <ActivityTypePerformerTile
+          performer={performer}
+          detailLink={`/performers/${performer.id}`}
+          title={performer.name}
+        />
+      </div>
+    </div>
+  );
+}
+
 export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
   scene,
   roleStatsByPerformer,
@@ -126,83 +231,122 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
     const opensActivityMatrix =
       insight.key === "outstanding-activity" ||
       insight.key === "outstanding-activity-presence" ||
-      insight.key === "feet" ||
       insight.key.startsWith("goat-");
-    const hasOrgasmPerformers =
-      insight.key === "orgasm-report" && insight.performers !== undefined;
-    const ariaLabel = hasOrgasmPerformers
-      ? `${insight.label}: performers who nutted.`
+    const hasOrgasmFacialEvents = insight.orgasmFacialEvents !== undefined;
+    const hasEventPortraits = hasOrgasmFacialEvents;
+    const ariaLabel = hasOrgasmFacialEvents
+      ? `${insight.label}: event performers and quality.`
       : `${insight.label}: ${insight.detail}`;
+
+    const chip = (
+      <SceneCardInsightChip
+        ariaLabel={
+          opensActivityMatrix
+            ? `${ariaLabel}. Open activity matrix.`
+            : ariaLabel
+        }
+        className={
+          opensActivityMatrix
+            ? "scene-card-insight-clickable"
+            : insight.key === "orgasm-facial-report"
+            ? "scene-card-insight-orgasm-facial-report"
+            : undefined
+        }
+        label={
+          <>
+            {insight.label}
+            {opensActivityMatrix && (
+              <Icon
+                aria-hidden="true"
+                className="scene-card-insight-modal-icon"
+                icon={faExternalLinkAlt}
+              />
+            )}
+          </>
+        }
+        onClick={
+          opensActivityMatrix
+            ? (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setShowAllInsights(false);
+                setShowOutstandingActivity(true);
+              }
+            : undefined
+        }
+        onKeyDown={
+          opensActivityMatrix
+            ? (event) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+                event.stopPropagation();
+                setShowAllInsights(false);
+                setShowOutstandingActivity(true);
+              }
+            : undefined
+        }
+        role={opensActivityMatrix ? "button" : undefined}
+        tabIndex={0}
+        tone={insight.tone}
+      />
+    );
+
+    if (hasEventPortraits) {
+      return (
+        <HoverPopover
+          key={insight.key}
+          className="scene-card-insight-hover-popover"
+          content={
+            <div
+              className="scene-marker-highlight-popover-card"
+              data-hover-popover-measure="true"
+            >
+              <SceneCardOrgasmFacialPopover
+                events={insight.orgasmFacialEvents}
+              />
+            </div>
+          }
+          estimatedContentHeight={520}
+          placement="bottom"
+          popoverClassName="scene-marker-highlight-popover scene-card-performer-popover scene-card-insight-event-popover"
+        >
+          {chip}
+        </HoverPopover>
+      );
+    }
+
+    if (insight.performerPreview) {
+      return (
+        <HoverPopover
+          key={insight.key}
+          className="scene-card-insight-hover-popover"
+          content={
+            <SceneCardInsightPerformerPopover
+              performer={insight.performerPreview}
+            />
+          }
+          estimatedContentHeight={300}
+          placement="bottom"
+          popoverClassName="scene-marker-highlight-popover scene-card-insight-performer-popover"
+        >
+          {chip}
+        </HoverPopover>
+      );
+    }
 
     return (
       <OverlayTrigger
         key={insight.key}
         overlay={
-          <Tooltip
-            className={
-              hasOrgasmPerformers
-                ? "scene-card-insight-performers-tooltip"
-                : undefined
-            }
-            id={`scene-insight-${scene.id}-${insight.key}`}
-          >
-            {hasOrgasmPerformers ? (
-              <PerformerPopoverContent performers={insight.performers ?? []} />
-            ) : (
-              <span className="scene-card-insight-tooltip-detail">
-                <SceneCardInsightDetail detail={insight.detail} />
-              </span>
-            )}
+          <Tooltip id={`scene-insight-${scene.id}-${insight.key}`}>
+            <span className="scene-card-insight-tooltip-detail">
+              <SceneCardInsightDetail detail={insight.detail} />
+            </span>
           </Tooltip>
         }
         placement="bottom"
       >
-        <SceneCardInsightChip
-          ariaLabel={
-            opensActivityMatrix
-              ? `${ariaLabel}. Open activity matrix.`
-              : ariaLabel
-          }
-          className={
-            opensActivityMatrix ? "scene-card-insight-clickable" : undefined
-          }
-          label={
-            <>
-              {insight.label}
-              {opensActivityMatrix && (
-                <Icon
-                  aria-hidden="true"
-                  className="scene-card-insight-modal-icon"
-                  icon={faExternalLinkAlt}
-                />
-              )}
-            </>
-          }
-          onClick={
-            opensActivityMatrix
-              ? (event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  setShowAllInsights(false);
-                  setShowOutstandingActivity(true);
-                }
-              : undefined
-          }
-          onKeyDown={
-            opensActivityMatrix
-              ? (event) => {
-                  if (event.key !== "Enter" && event.key !== " ") return;
-                  event.preventDefault();
-                  event.stopPropagation();
-                  setShowAllInsights(false);
-                  setShowOutstandingActivity(true);
-                }
-              : undefined
-          }
-          role={opensActivityMatrix ? "button" : undefined}
-          tabIndex={0}
-          tone={insight.tone}
-        />
+        {chip}
       </OverlayTrigger>
     );
   };

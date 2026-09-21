@@ -170,7 +170,7 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
         type: "simulate",
         requestId: 2,
         thresholds: normalizeSceneCardInsightThresholds({
-          fillerTotalPercent: 100,
+          visibleInsightLimit: 5,
         }),
       },
     });
@@ -179,7 +179,7 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
         type: "simulate",
         requestId: 3,
         thresholds: normalizeSceneCardInsightThresholds({
-          fillerTotalPercent: 99,
+          visibleInsightLimit: 6,
         }),
       },
     });
@@ -200,8 +200,8 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
     );
     assert.ok(latest?.type === "result");
     assert.equal(latest.current.total, 30);
-    assert.equal(latest.current.rows.get("filler")?.all, 30);
-    assert.equal(latest.preview.rows.get("filler")?.all, 30);
+    assert.equal(latest.current.rows.has("filler"), false);
+    assert.equal(latest.preview.rows.has("filler"), false);
     assert.equal(latest.cacheAvailable, true);
     const playgroundRead = await loadInsightSnapshot(
       "http://localhost/graphql",

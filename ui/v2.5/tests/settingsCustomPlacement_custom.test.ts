@@ -24,8 +24,13 @@ assert.ok(
 );
 assert.match(
   customPanelSource,
-  /SceneCardInsightChip[\s\S]*Lots of filler/,
-  "Scene Card Insight settings should show painted example chips"
+  /SceneCardInsightChip/,
+  "Scene Card Insight settings should retain painted example chips"
+);
+assert.doesNotMatch(
+  customPanelSource,
+  /fillerTotalPercent|Lots of filler|scene-card-insights-filler-total/,
+  "the retired Lots of filler setting should not be exposed"
 );
 assert.doesNotMatch(
   customPanelSource,

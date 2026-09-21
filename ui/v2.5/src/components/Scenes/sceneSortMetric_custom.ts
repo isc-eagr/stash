@@ -5,6 +5,7 @@ import {
 } from "../Shared/sortMetric_custom";
 import {
   getSceneActivityMetrics,
+  type SceneActivityMetricRows,
   type SceneActivityRoleTagIds,
 } from "./sceneActivityMetricsData_custom";
 
@@ -23,6 +24,7 @@ type SceneSortMetricScene = GQL.SlimSceneDataFragment & {
 type SceneSortMetricSource = {
   direction: GQL.SortDirectionEnum;
   fromGroupId?: string;
+  activityMetrics?: SceneActivityMetricRows;
   roleTagIds: SceneActivityRoleTagIds;
   scene: SceneSortMetricScene;
 };
@@ -61,12 +63,14 @@ const activityPercent = (
     | "sex"
     | "oral"
     | "solo"
-    | "other"
     | "outstanding"
     | "standard"
+    | "unclassified"
     | "unusable"
 ) => {
-  const metrics = getSceneActivityMetrics(source.scene, source.roleTagIds);
+  const metrics =
+    source.activityMetrics ??
+    getSceneActivityMetrics(source.scene, source.roleTagIds);
   return [...(metrics?.activity ?? []), ...(metrics?.quality ?? [])].find(
     (metric) => metric.key === key
   )?.percent;
@@ -284,11 +288,6 @@ const definitions: Record<
     format: "percent",
     value: (source) => activityPercent(source, "solo"),
   },
-  other_activity_percent: {
-    messageID: "other_activity_percent",
-    format: "percent",
-    value: (source) => activityPercent(source, "other"),
-  },
   outstanding_activity_percent: {
     messageID: "outstanding_activity_percent",
     format: "percent",
@@ -298,6 +297,11 @@ const definitions: Record<
     messageID: "standard_activity_percent",
     format: "percent",
     value: (source) => activityPercent(source, "standard"),
+  },
+  unclassified_activity_percent: {
+    messageID: "unclassified_activity_percent",
+    format: "percent",
+    value: (source) => activityPercent(source, "unclassified"),
   },
   unusable_activity_percent: {
     messageID: "unusable_activity_percent",
@@ -321,11 +325,13 @@ export function getSceneSortMetricCustom(
   scene: SceneSortMetricScene,
   direction: GQL.SortDirectionEnum,
   roleTagIds: SceneActivityRoleTagIds,
-  fromGroupId?: string
+  fromGroupId?: string,
+  activityMetrics?: SceneActivityMetricRows
 ) {
   return resolveSortMetricCustom(sortBy, "date", definitions, {
     direction,
     fromGroupId,
+    activityMetrics,
     roleTagIds,
     scene,
   });

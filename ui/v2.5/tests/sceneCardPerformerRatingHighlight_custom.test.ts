@@ -166,5 +166,5 @@ const categoryStripStyles = sceneStyles.match(
 )?.[0];
 assert.ok(categoryStripStyles, "scene-card category strip sizing is defined");
 assert.match(categoryStripStyles, /max-width:\s*min\(49rem,/);
-assert.match(categoryStripStyles, /min-width:\s*14\.5rem/);
+assert.match(categoryStripStyles, /min-width:\s*10rem/);
 assert.match(categoryStripStyles, /grid-auto-columns:\s*2\.15rem/);

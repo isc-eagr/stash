@@ -51,13 +51,7 @@ import {
   faChevronLeft,
   faCompress,
   faExpand,
-  faHand, // CUSTOM
 } from "@fortawesome/free-solid-svg-icons";
-// CUSTOM: begin - role icon SVG imports
-import mouthSvg from "src/assets/mouth.svg";
-import gaySvg from "src/assets/gay.svg";
-import straightSvg from "src/assets/straight.svg";
-// CUSTOM: end
 import { objectPath, objectTitle } from "src/core/files";
 import { RatingAdvisorButton } from "src/components/Shared/RatingAdvisor_custom"; // CUSTOM
 import { getSceneRatingModeCustom } from "src/components/Shared/groupSceneRating_custom"; // CUSTOM
@@ -74,7 +68,6 @@ import { SceneMergeModal } from "../SceneMergeDialog";
 import { FormattedDate } from "src/components/Shared/Date";
 import { StudioLogo } from "src/components/Shared/StudioLogo";
 // CUSTOM: begin - multi-segment loop and icon imports
-import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import type {
   IMultiSegmentLoopApi,
   ILoopSegmentInput,
@@ -894,23 +887,8 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     [scene]
   );
 
-  // CUSTOM: begin - role tag icon logic
-  // Determine which icon to show based on scene markers with role tags
-  const iconToShow = useMemo(() => {
-    type SceneIconToShow =
-      | {
-          type: "straight" | "gay" | "mouth";
-          className: string;
-          title: string;
-        }
-      | {
-          type: "hand";
-          icon: IconDefinition;
-          className: string;
-          title: string;
-        }
-      | null;
-
+  // CUSTOM: preserve the configured scene rating mode after retiring title icons.
+  const sceneTypeForRating = useMemo<"gay" | "mouth" | "hand" | null>(() => {
     // Get role tag IDs from configuration
     const roleTagIds = configuration?.ui?.roleTagIds ?? {};
     const { sexTagId } = roleTagIds;
@@ -952,33 +930,19 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
     // Priority: sex > oral > solo
     if (sexTagId && markerTagIds.has(sexTagId)) {
-      return {
-        type: "gay",
-        className: "scene-gay-icon",
-        title: "Scene has sex markers",
-      } as SceneIconToShow;
+      return "gay";
     }
 
     if (oralTagId && markerTagIds.has(oralTagId)) {
-      return {
-        type: "mouth",
-        className: "scene-mouth-icon",
-        title: "Scene has oral markers",
-      } as SceneIconToShow;
+      return "mouth";
     }
 
     if (soloTagId && markerTagIds.has(soloTagId)) {
-      return {
-        type: "hand",
-        icon: faHand,
-        className: "scene-hand-icon",
-        title: "Scene has solo markers",
-      } as SceneIconToShow;
+      return "hand";
     }
 
     return null;
   }, [scene, configuration?.ui]);
-  // CUSTOM: end
 
   return (
     <ScenePerformerOverviewProvider scene={scene}>
@@ -999,43 +963,10 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
           <div className="scene-header-container">
             <StudioLogo studio={scene.studio} showText={showStudioText} />
             <h3 className={cx("scene-header", { "no-studio": !scene.studio })}>
-              {/* CUSTOM: begin - role icon in header */}
-              <span style={{ display: "flex", alignItems: "center" }}>
-                {iconToShow?.type === "mouth" ? (
-                  <img
-                    src={mouthSvg}
-                    alt={iconToShow.title}
-                    title={iconToShow.title}
-                    className={iconToShow.className}
-                  />
-                ) : iconToShow?.type === "gay" ? (
-                  <img
-                    src={gaySvg}
-                    alt={iconToShow.title}
-                    title={iconToShow.title}
-                    className={iconToShow.className}
-                  />
-                ) : iconToShow?.type === "straight" ? (
-                  <img
-                    src={straightSvg}
-                    alt={iconToShow.title}
-                    title={iconToShow.title}
-                    className={iconToShow.className}
-                  />
-                ) : iconToShow?.type === "hand" ? (
-                  <Icon
-                    icon={iconToShow.icon}
-                    className={iconToShow.className}
-                    title={iconToShow.title}
-                  />
-                ) : null}
-                <TruncatedText lineCount={2} text={title} />
-              </span>
-              {/* CUSTOM: end */}
+              <TruncatedText lineCount={2} text={title} />
             </h3>
           </div>
 
-          {/* CUSTOM: scene activity duration metrics */}
           <SceneActivityMetrics
             scene={scene}
             className="scene-activity-metrics--detail"
@@ -1067,7 +998,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                 entityId={scene.id}
                 sceneRatingMode={getSceneRatingModeCustom(
                   scene.performers.length,
-                  iconToShow?.type === "hand"
+                  sceneTypeForRating === "hand"
                 )}
                 rating100={scene.rating100}
                 ratingScores={scene.rating_scores}

@@ -385,7 +385,7 @@ export const InsightStats: React.FC = () => {
                   type="search"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="GOAT, filler, rare…"
+                  placeholder="GOAT, rare roles…" // CUSTOM
                 />
               </Form.Group>
               <Form.Group controlId="insight-stats-sort">

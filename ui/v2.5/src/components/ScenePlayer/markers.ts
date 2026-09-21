@@ -1,5 +1,6 @@
 import videojs, { VideoJsPlayer } from "video.js";
 import CryptoJS from "crypto-js";
+import { ACTIVITY_PIE_COLORS } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
 import {
   getSceneMarkerTimestampPickerHorizontalLayout,
   getSceneMarkerTimestampOptions,
@@ -1223,8 +1224,8 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
   }
   // CUSTOM: end
 
-  // Implementing the findColors method
-  findColors(tagNames: string[]) {
+  // CUSTOM: use role-aware colors for configured solo tags in the scrubber.
+  findColors(tagNames: string[], soloTagNames: string[] = []) {
     // Compute base hues for each tag
     const baseHues: { [tag: string]: number } = {};
     for (const tag of tagNames) {
@@ -1237,7 +1238,9 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     // Convert adjusted hues to colors and store in tagColors dictionary
     for (const tag of tagNames) {
       this.tagColors[tag] =
-        this.semanticTagColor(tag) ?? this.hueToColor(adjustedHues[tag]); // CUSTOM
+        (soloTagNames.includes(tag) && ACTIVITY_PIE_COLORS.solo) ||
+        this.semanticTagColor(tag) ||
+        this.hueToColor(adjustedHues[tag]); // CUSTOM: fixed shared color for solo markers
     }
   }
 

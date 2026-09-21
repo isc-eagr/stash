@@ -260,6 +260,7 @@ export type CriterionType =
   | "other_activity_percent"
   | "outstanding_activity_percent"
   | "standard_activity_percent"
+  | "unclassified_activity_percent"
   | "unusable_activity_percent"
   | "sex_top_activity_percent"
   | "sex_bottom_activity_percent"

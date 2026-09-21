@@ -173,11 +173,6 @@ const definitions: Record<
     format: "percent",
     value: ({ stats }) => stats?.studio_activity_stats.solo_percent,
   },
-  other_activity_percent: {
-    messageID: "other_activity_percent",
-    format: "percent",
-    value: ({ stats }) => stats?.studio_activity_stats.other_percent,
-  },
   outstanding_activity_percent: {
     messageID: "outstanding_activity_percent",
     format: "percent",
@@ -187,6 +182,11 @@ const definitions: Record<
     messageID: "standard_activity_percent",
     format: "percent",
     value: ({ stats }) => stats?.studio_activity_stats.standard_percent,
+  },
+  unclassified_activity_percent: {
+    messageID: "unclassified_activity_percent",
+    format: "percent",
+    value: ({ stats }) => stats?.studio_activity_stats.other_percent,
   },
   unusable_activity_percent: {
     messageID: "unusable_activity_percent",

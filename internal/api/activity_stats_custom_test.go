@@ -98,6 +98,19 @@ func TestActivityStatsPercentCustom(t *testing.T) {
 	assert.Equal(t, 25.0, activityStatsPercentCustom(15, 60))
 }
 
+func TestActivityStatsTypePercentsCustomIgnoreUnclassifiedRuntime(t *testing.T) {
+	sexPercent, oralPercent, soloPercent := activityStatsTypePercentsCustom(60, 30, 10)
+	assert.Equal(t, 60.0, sexPercent)
+	assert.Equal(t, 30.0, oralPercent)
+	assert.Equal(t, 10.0, soloPercent)
+	assert.Equal(t, 100.0, sexPercent+oralPercent+soloPercent)
+
+	sexPercent, oralPercent, soloPercent = activityStatsTypePercentsCustom(0, 0, 0)
+	assert.Zero(t, sexPercent)
+	assert.Zero(t, oralPercent)
+	assert.Zero(t, soloPercent)
+}
+
 func TestActivityStatsOtherSecondsCustom(t *testing.T) {
 	activityIntervals := []activityIntervalCustom{
 		{sceneID: 1, start: 0, end: 30},

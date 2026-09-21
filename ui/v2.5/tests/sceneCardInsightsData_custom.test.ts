@@ -104,10 +104,7 @@ const labels = (
     thresholds
   ).map((insight) => insight.label);
 
-const suppressNegatives = {
-  fewHighlightsMaxEpisodes: 0,
-  fillerTotalPercent: 100,
-};
+const defaultThresholds = {};
 
 test("the matrix hides Total only when one performer makes it redundant", () => {
   const matrix = getOutstandingActivityMatrix(
@@ -157,7 +154,7 @@ const ratingCriterionLabels = (
       rating_scores: ratingScores,
     },
     roleTagIds,
-    suppressNegatives
+    defaultThresholds
   ).map((insight) => insight.label);
 };
 
@@ -241,7 +238,7 @@ test("one outstanding activity chip shows the top two tags below GOAT", () => {
       100
     ),
     roleTagIds,
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.equal(insightSets.visible[0].label, "GOAT Pito");
@@ -277,7 +274,7 @@ test("configured common tags split amount and uncommon presence chips", () => {
       100
     ),
     configuredRoleTagIds,
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.equal(
@@ -321,7 +318,7 @@ test("activity descendants are outstanding tags while only direct tags establish
       100
     ),
     configuredRoleTagIds,
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.deepEqual(
@@ -347,7 +344,7 @@ test("activity descendants are outstanding tags while only direct tags establish
     getSceneCardInsights(
       makeScene([marker("deepthroat", deepthroat, 0, 100)], 100),
       configuredRoleTagIds,
-      suppressNegatives
+      defaultThresholds
     ).some((insight) => insight.label.endsWith(" oral")),
     false
   );
@@ -374,7 +371,7 @@ test("GOAT chip tags are removed from both outstanding chips with common backfil
       ...roleTagIds,
       outstandingActivityCommonTagIds: ["pito", "face", "body"],
     },
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.ok(
@@ -410,7 +407,7 @@ test("GOAT suppression keeps one remaining tag and removes empty chips", () => {
       ...roleTagIds,
       outstandingActivityCommonTagIds: ["pito", "face"],
     },
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.equal(
@@ -437,7 +434,7 @@ test("GOAT opens the matrix when GOAT suppression removes both chips", () => {
       ...roleTagIds,
       outstandingActivityCommonTagIds: ["pito"],
     },
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.equal(
@@ -451,7 +448,7 @@ test("GOAT opens the matrix when GOAT suppression removes both chips", () => {
   assert.equal(insightSets.goatOpensActivityMatrix, true);
 });
 
-test("Feet is a presence chip while ordinary tags require minimum scene coverage", () => {
+test("Feet remains ordinary tag evidence without a dedicated chip", () => {
   const feet = tag("feet", "Feet");
   const closeup = tag("closeup", "Closeup");
   const sceneLabels = labels(
@@ -462,26 +459,26 @@ test("Feet is a presence chip while ordinary tags require minimum scene coverage
       marker("closeup-3", closeup, 180, 200),
     ],
     500,
-    suppressNegatives
+    defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("Feet"));
+  assert.equal(sceneLabels.includes("Feet"), false);
   assert.ok(sceneLabels.includes("Good amount of Feet and Closeup"));
 });
 
-test("Feet participates in the activity matrix while keeping its own chip", () => {
+test("Feet remains in the activity matrix without a dedicated chip", () => {
   const feetMarker = marker("feet-1", tag("feet", "Feet"), 0, 20, [
     tag("goat", "GOAT"),
   ]);
   const matrix = getOutstandingActivityMatrix(
     makeScene([feetMarker], 100),
     roleTagIds,
-    suppressNegatives
+    defaultThresholds
   );
   const insightSets = getSceneCardInsightSets(
     makeScene([feetMarker], 100),
     roleTagIds,
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.deepEqual(
@@ -492,7 +489,10 @@ test("Feet participates in the activity matrix while keeping its own chip", () =
     duration: 20,
     markerCount: 1,
   });
-  assert.ok(insightSets.all.some((insight) => insight.key === "feet"));
+  assert.equal(
+    insightSets.all.some((insight) => insight.key === "feet"),
+    false
+  );
   assert.equal(
     insightSets.all.some((insight) => insight.key === "outstanding-activity"),
     false
@@ -509,7 +509,7 @@ test("same-level top tags share one amount qualifier and retain legacy details",
       100
     ),
     roleTagIds,
-    suppressNegatives
+    defaultThresholds
   ).all.find((candidate) => candidate.key === "outstanding-activity");
 
   assert.equal(insight?.label, "face and pito as far as the eye can see");
@@ -523,25 +523,35 @@ test("activity below the good-amount threshold uses Some", () => {
   const insight = getSceneCardInsightSets(
     makeScene([marker("brief", tag("brief", "Brief touch"), 0, 5)], 100),
     roleTagIds,
-    suppressNegatives
+    defaultThresholds
   ).all.find((candidate) => candidate.key === "outstanding-activity");
 
   assert.equal(insight?.label, "Some Brief touch");
 });
 
-test("Feet is present even when its ranges overlap", () => {
+test("overlapping Feet markers do not restore the retired chip", () => {
   const feet = tag("feet", "Feet");
+  const scene = makeScene(
+    [
+      marker("feet-1", feet, 0, 25),
+      marker("feet-2", feet, 10, 30),
+      marker("feet-3", feet, 20, 35),
+    ],
+    600
+  );
+  const insightSets = getSceneCardInsightSets(
+    scene,
+    roleTagIds,
+    defaultThresholds
+  );
   assert.equal(
-    labels(
-      [
-        marker("feet-1", feet, 0, 25),
-        marker("feet-2", feet, 10, 30),
-        marker("feet-3", feet, 20, 35),
-      ],
-      600,
-      suppressNegatives
-    ).includes("Feet"),
-    true
+    insightSets.all.some((insight) => insight.key === "feet"),
+    false
+  );
+  assert.equal(
+    getOutstandingActivityMatrix(scene, roleTagIds, defaultThresholds).rows[0]
+      .duration,
+    35
   );
 });
 
@@ -550,7 +560,7 @@ test("tag levels are based solely on scene coverage", () => {
   const sceneLabels = labels(
     [marker("closeup-1", closeup, 0, 10)],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.ok(sceneLabels.includes("Good amount of Closeup"));
@@ -566,7 +576,7 @@ test("the consolidated chip keeps separate qualifiers for its top two tags", () 
       marker("body-3", tag("body", "Body"), 110, 120, [], [tyga]),
     ],
     200,
-    { ...suppressNegatives, tagEyeCanSeeMinPercent: 80 }
+    { ...defaultThresholds, tagEyeCanSeeMinPercent: 80 }
   );
 
   assert.ok(sceneLabels.includes("Lots of Dick · Good amount of Body"));
@@ -584,7 +594,7 @@ test("same-level tags remain legible inside the consolidated chip", () => {
       marker("body", tag("body", "Body"), 70, 125, [], [tyga]),
     ],
     200,
-    { ...suppressNegatives, tagEyeCanSeeMinPercent: 80 }
+    { ...defaultThresholds, tagEyeCanSeeMinPercent: 80 }
   );
 
   assert.ok(sceneLabels.includes("Lots of Dick and Body"));
@@ -597,7 +607,7 @@ test("unscoped top tags share the one consolidated chip", () => {
       marker("body", tag("body", "body"), 30, 51),
     ],
     100,
-    { ...suppressNegatives, tagEyeCanSeeMinPercent: 80 }
+    { ...defaultThresholds, tagEyeCanSeeMinPercent: 80 }
   );
 
   assert.ok(sceneLabels.includes("Good amount of body and pito"));
@@ -613,7 +623,7 @@ test("the same outstanding tag from different performers stays one generic chip"
       marker("pito-erivaldo", pito, 40, 71, [], [erivaldo]),
     ],
     100,
-    { ...suppressNegatives, tagEyeCanSeeMinPercent: 80 }
+    { ...defaultThresholds, tagEyeCanSeeMinPercent: 80 }
   );
 
   assert.ok(sceneLabels.includes("Lots of pito"));
@@ -626,18 +636,21 @@ test("the same outstanding tag from different performers stays one generic chip"
   );
 });
 
-test("a Facial contributes only to the Facial report below coverage thresholds", () => {
+test("a Facial contributes only to the combined event report below coverage thresholds", () => {
   const sceneLabels = labels(
     [marker("facial", tag("facial", "Facial"), 0, 1)],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("1 facial"));
-  assert.equal(sceneLabels.includes("1 orgasm"), false);
+  assert.ok(sceneLabels.includes("1 total · 1 facial"));
+  assert.equal(
+    sceneLabels.some((label) => label.includes("regular")),
+    false
+  );
 });
 
-test("the orgasm report exposes its unique top performers for the chip tooltip", () => {
+test("the combined event report preserves each orgasm's top performer", () => {
   const first = performer("first", "First Vato", {
     image_path: "/performer/first/image",
   });
@@ -660,14 +673,168 @@ test("the orgasm report exposes its unique top performers for the chip tooltip",
       100
     ),
     roleTagIds,
-    suppressNegatives
-  ).find((candidate) => candidate.key === "orgasm-report");
+    defaultThresholds
+  ).find((candidate) => candidate.key === "orgasm-facial-report");
 
-  assert.deepEqual(insight?.performers, [first, second]);
+  assert.deepEqual(insight?.orgasmFacialEvents, [
+    {
+      id: "orgasm-1-0",
+      category: "orgasm",
+      topPerformers: [first],
+      bottomPerformers: [],
+    },
+    {
+      id: "orgasm-2-0",
+      category: "orgasm",
+      topPerformers: [first],
+      bottomPerformers: [],
+    },
+    {
+      id: "orgasm-2-1",
+      category: "orgasm",
+      topPerformers: [second],
+      bottomPerformers: [],
+    },
+  ]);
+  assert.equal(insight?.label, "3 total · 3 regular");
   assert.equal(insight?.detail, "0:10 (across 2 markers)");
 });
 
-test("Facial-family subtags aggregate exclusively into the Facial report", () => {
+test("the combined event report preserves each Facial's top and bottom portraits", () => {
+  const firstTop = performer("top-1", "First Top", {
+    image_path: "/performer/top-1/image",
+  });
+  const secondTop = performer("top-2", "Second Top", {
+    image_path: "/performer/top-2/image",
+  });
+  const bottom = performer("bottom", "Bottom", {
+    image_path: "/performer/bottom/image",
+  });
+  const insight = getSceneCardInsights(
+    makeScene(
+      [
+        marker(
+          "facial-1",
+          tag("facial", "Facial"),
+          0,
+          5,
+          [],
+          [firstTop],
+          [bottom]
+        ),
+        marker(
+          "facial-2",
+          tag("facial", "Facial"),
+          10,
+          15,
+          [],
+          [secondTop],
+          [bottom]
+        ),
+      ],
+      100
+    ),
+    roleTagIds,
+    defaultThresholds
+  ).find((candidate) => candidate.key === "orgasm-facial-report");
+
+  assert.deepEqual(insight?.orgasmFacialEvents, [
+    {
+      id: "facial-1-0",
+      category: "facial",
+      topPerformers: [firstTop],
+      bottomPerformers: [bottom],
+    },
+    {
+      id: "facial-2-0",
+      category: "facial",
+      topPerformers: [secondTop],
+      bottomPerformers: [bottom],
+    },
+  ]);
+  assert.equal(insight?.label, "2 total · 2 facials");
+});
+
+test("the combined event report summarizes and preserves every event", () => {
+  const top = (id: string) => performer(id, `Top ${id}`);
+  const bottom = performer("bottom", "Bottom");
+  const goat = tag("goat", "GOAT");
+  const reallyHot = tag("really-hot", "Really Hot");
+  const insight = getSceneCardInsights(
+    makeScene(
+      [
+        marker(
+          "facial-goat",
+          tag("facial", "Facial"),
+          0,
+          5,
+          [goat],
+          [top("f1")],
+          [bottom]
+        ),
+        marker(
+          "facial-hot",
+          tag("facial", "Facial"),
+          10,
+          15,
+          [reallyHot],
+          [top("f2")],
+          [bottom]
+        ),
+        marker(
+          "orgasm-goat",
+          tag("orgasm", "Orgasm"),
+          20,
+          25,
+          [goat],
+          [top("o1")]
+        ),
+        marker(
+          "orgasm-hot-1",
+          tag("orgasm", "Orgasm"),
+          30,
+          35,
+          [reallyHot],
+          [top("o2")]
+        ),
+        marker(
+          "orgasm-hot-2",
+          tag("orgasm", "Orgasm"),
+          40,
+          45,
+          [reallyHot],
+          [top("o3")]
+        ),
+      ],
+      100
+    ),
+    roleTagIds,
+    defaultThresholds
+  ).find((candidate) => candidate.key === "orgasm-facial-report");
+
+  assert.equal(
+    insight?.label,
+    "5 total · 2 facials (1 GOAT, 1 Really Hot) · 3 regular (1 GOAT, 2 Really Hot)"
+  );
+  assert.equal(insight?.orgasmFacialEvents?.length, 5);
+  assert.deepEqual(
+    insight?.orgasmFacialEvents?.map(({ category, quality }) => [
+      category,
+      quality,
+    ]),
+    [
+      ["facial", "GOAT"],
+      ["facial", "Really Hot"],
+      ["orgasm", "GOAT"],
+      ["orgasm", "Really Hot"],
+      ["orgasm", "Really Hot"],
+    ]
+  );
+  assert.deepEqual(insight?.orgasmFacialEvents?.[0].bottomPerformers, [bottom]);
+  assert.deepEqual(insight?.orgasmFacialEvents?.[2].bottomPerformers, []);
+});
+
+test("Facial-family subtags aggregate exclusively into the Facial section", () => {
   const facial = tag("facial", "Facial", [tag("orgasm", "Orgasm")]);
   const selfFacial = tag("self-facial", "Self Facial", [facial]);
   const sceneLabels = labels(
@@ -678,14 +845,17 @@ test("Facial-family subtags aggregate exclusively into the Facial report", () =>
       marker("self-facial-2", selfFacial, 30, 35),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("4 facials"));
-  assert.equal(sceneLabels.includes("4 orgasms"), false);
+  assert.ok(sceneLabels.includes("4 total · 4 facials"));
+  assert.equal(
+    sceneLabels.some((label) => label.includes("regular")),
+    false
+  );
 });
 
-test("the Facial report includes GOAT and Really Hot counts without variant chips", () => {
+test("the Facial section includes GOAT and Really Hot counts", () => {
   const peuops = performer("peuops", "Peuops Ramos");
   const qualifiers = {
     goat: tag("goat", "GOAT"),
@@ -721,9 +891,9 @@ test("the Facial report includes GOAT and Really Hot counts without variant chip
       ),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
-  assert.ok(sceneLabels.includes("5 facials: 1 GOAT, 2 Really Hot"));
+  assert.ok(sceneLabels.includes("5 total · 5 facials (1 GOAT, 2 Really Hot)"));
   assert.equal(
     sceneLabels.some((label) => label.includes("orgasm")),
     false
@@ -736,7 +906,7 @@ test("the Facial report includes GOAT and Really Hot counts without variant chip
   );
 });
 
-test("2nd Camera markers never inflate either event report", () => {
+test("2nd Camera markers never inflate the combined event report", () => {
   const secondCamera = tag("second-camera", "2nd Camera");
   const reallyHot = tag("really-hot", "Really Hot");
   const goat = tag("goat", "GOAT");
@@ -756,10 +926,10 @@ test("2nd Camera markers never inflate either event report", () => {
       ]),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("3 facials: 1 GOAT, 1 Really Hot"));
+  assert.ok(sceneLabels.includes("3 total · 3 facials (1 GOAT, 1 Really Hot)"));
   assert.equal(
     sceneLabels.some((label) => label.includes("orgasm")),
     false
@@ -790,7 +960,7 @@ test("tag amount levels use configurable scene-coverage percentages", () => {
   const defaultRow = getOutstandingActivityMatrix(
     makeScene(markers, 600),
     roleTagIds,
-    suppressNegatives
+    defaultThresholds
   ).rows[0];
 
   assert.equal(defaultRow.amountLevel, "lots");
@@ -799,7 +969,7 @@ test("tag amount levels use configurable scene-coverage percentages", () => {
   assert.equal(defaultRow.markerCount, 4);
   assert.ok(
     labels(markers, 600, {
-      ...suppressNegatives,
+      ...defaultThresholds,
       tagGoodAmountMinPercent: 5,
       tagLotsMinPercent: 20,
       tagEyeCanSeeMinPercent: 25,
@@ -807,7 +977,7 @@ test("tag amount levels use configurable scene-coverage percentages", () => {
   );
   assert.ok(
     labels(markers, 600, {
-      ...suppressNegatives,
+      ...defaultThresholds,
       tagGoodAmountMinPercent: 5,
       tagLotsMinPercent: 40,
       tagEyeCanSeeMinPercent: 80,
@@ -818,7 +988,7 @@ test("tag amount levels use configurable scene-coverage percentages", () => {
     makeScene(markers, 600),
     roleTagIds,
     {
-      ...suppressNegatives,
+      ...defaultThresholds,
       tagGoodAmountMinPercent: 5,
       tagLotsMinPercent: 40,
       tagEyeCanSeeMinPercent: 80,
@@ -829,7 +999,7 @@ test("tag amount levels use configurable scene-coverage percentages", () => {
     makeScene(markers, 600),
     roleTagIds,
     {
-      ...suppressNegatives,
+      ...defaultThresholds,
       tagGoodAmountMinPercent: 5,
       tagLotsMinPercent: 20,
       tagEyeCanSeeMinPercent: 25,
@@ -842,7 +1012,7 @@ test("amount levels apply generically to primary and secondary highlight tags", 
   const sceneLabels = labels(
     [marker("highlight", tag("hands", "Hands"), 0, 61, [tag("body", "Body")])],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.ok(
@@ -865,7 +1035,7 @@ test("GOAT emits every direct named tag and treats GOAT as a qualifier", () => {
       ]),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.ok(sceneLabels.includes("GOAT Feet"));
@@ -882,7 +1052,7 @@ test("a GOAT activity marker preserves its exact tag name", () => {
     labels(
       [marker("goat-1", tag("oral", "BJ"), 0, 20, [tag("goat", "GOAT")])],
       100,
-      suppressNegatives
+      defaultThresholds
     ).includes("GOAT BJ")
   );
 });
@@ -892,7 +1062,7 @@ test("a GOAT marker with no non-qualifier tag reports a GOAT moment", () => {
     labels(
       [marker("goat-1", tag("goat", "GOAT"), 0, 20)],
       100,
-      suppressNegatives
+      defaultThresholds
     ).includes("GOAT moment")
   );
 });
@@ -912,7 +1082,7 @@ test("GOAT outstanding insights include a consistently associated performer", ()
         ),
       ],
       100,
-      suppressNegatives
+      defaultThresholds
     ).includes("GOAT Pito from Tyga Martinez")
   );
 });
@@ -930,13 +1100,13 @@ test("a tag named by a GOAT chip is suppressed from outstanding chips", () => {
   const insightSets = getSceneCardInsightSets(
     makeScene(markers, 100),
     roleTagIds,
-    { ...suppressNegatives, tagEyeCanSeeMinPercent: 80 }
+    { ...defaultThresholds, tagEyeCanSeeMinPercent: 80 }
   );
   const sceneLabels = insightSets.visible.map((insight) => insight.label);
   const matrix = getOutstandingActivityMatrix(
     makeScene(markers, 100),
     roleTagIds,
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.ok(sceneLabels.includes("GOAT Pito from First Vato"));
@@ -978,7 +1148,7 @@ test("ordinary matrix activity combines scopes and tracks GOAT separately", () =
       marker("ordinary-third", pito, 50, 80, [], [third]),
     ],
     100,
-    { ...suppressNegatives, tagEyeCanSeeMinPercent: 80 }
+    { ...defaultThresholds, tagEyeCanSeeMinPercent: 80 }
   );
   const unassignedLabels = labels(
     [
@@ -987,7 +1157,7 @@ test("ordinary matrix activity combines scopes and tracks GOAT separately", () =
       marker("ordinary-first", pito, 50, 80, [], [first]),
     ],
     100,
-    { ...suppressNegatives, tagEyeCanSeeMinPercent: 80 }
+    { ...defaultThresholds, tagEyeCanSeeMinPercent: 80 }
   );
 
   assert.ok(groupedLabels.includes("GOAT Pito from First Vato & Second Vato"));
@@ -996,7 +1166,7 @@ test("ordinary matrix activity combines scopes and tracks GOAT separately", () =
   assert.equal(unassignedLabels.includes("Lots of Pito"), false);
 });
 
-test("event reports absorb GOAT Orgasm and Facial markers", () => {
+test("the combined event report includes GOAT Orgasm and Facial markers", () => {
   const tyga = performer("tyga", "Tyga Martinez");
   const goat = tag("goat", "GOAT");
   const sceneLabels = labels(
@@ -1006,11 +1176,12 @@ test("event reports absorb GOAT Orgasm and Facial markers", () => {
       marker("goat-pito", tag("pito", "Pito"), 60, 80, [goat], [tyga]),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("1 orgasm: 1 GOAT"));
-  assert.ok(sceneLabels.includes("1 facial: 1 GOAT"));
+  assert.ok(
+    sceneLabels.includes("2 total · 1 facial (1 GOAT) · 1 regular (1 GOAT)")
+  );
   assert.ok(sceneLabels.includes("GOAT Pito from Tyga Martinez"));
   assert.equal(
     sceneLabels.some((label) => label.startsWith("GOAT Orgasm")),
@@ -1018,7 +1189,7 @@ test("event reports absorb GOAT Orgasm and Facial markers", () => {
   );
 });
 
-test("GOAT takes precedence over Really Hot in the Facial report", () => {
+test("GOAT takes precedence over Really Hot in the Facial section", () => {
   const peuops = performer("peuops", "Peuops Ramos");
   const goat = tag("goat", "GOAT");
   const orgasm = tag("orgasm", "Orgasm");
@@ -1036,10 +1207,10 @@ test("GOAT takes precedence over Really Hot in the Facial report", () => {
       ),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("1 facial: 1 GOAT"));
+  assert.ok(sceneLabels.includes("1 total · 1 facial (1 GOAT)"));
   assert.equal(
     sceneLabels.some((label) => label.includes("orgasm")),
     false
@@ -1051,7 +1222,7 @@ test("GOAT takes precedence over Really Hot in the Facial report", () => {
   );
 });
 
-test("GOAT Facial-family subtags aggregate in the Facial report without performers", () => {
+test("GOAT Facial-family subtags aggregate without performers", () => {
   const peuops = performer("peuops", "Peuops Ramos");
   const goat = tag("goat", "GOAT");
   const facial = tag("facial", "Facial", [tag("orgasm", "Orgasm")]);
@@ -1062,10 +1233,10 @@ test("GOAT Facial-family subtags aggregate in the Facial report without performe
       marker("self-facial", selfFacial, 10, 15, [goat], [peuops]),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("2 facials: 2 GOAT"));
+  assert.ok(sceneLabels.includes("2 total · 2 facials (2 GOAT)"));
   assert.equal(
     sceneLabels.some((label) => label.includes("orgasm")),
     false
@@ -1088,7 +1259,7 @@ test("GOAT activity tags stay separated across performer scopes", () => {
       marker("goat-erivaldo", tag("sex", "Sex"), 10, 15, [goat], [erivaldo]),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.ok(sceneLabels.includes("GOAT Sex from Peuops Ramos"));
@@ -1107,7 +1278,7 @@ test("GOAT tags with the same descriptor stay separated across performer scopes"
       marker("goat-erivaldo", pito, 10, 15, [goat], [erivaldo]),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.ok(sceneLabels.includes("GOAT Pito from Peuops Ramos"));
@@ -1130,7 +1301,7 @@ test("all GOAT highlights remain available beyond the visible chip ceiling", () 
   const insightSets = getSceneCardInsightSets(
     makeScene(goatMarkers, 600),
     roleTagIds,
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.equal(
@@ -1141,7 +1312,7 @@ test("all GOAT highlights remain available beyond the visible chip ceiling", () 
   assert.equal(insightSets.visible.length, 7);
 });
 
-test("Facial activity stays out of the Orgasm report", () => {
+test("the combined event report keeps Facial and Orgasm totals distinct", () => {
   const reallyHot = tag("really-hot", "Really Hot");
   const tyga = performer("tyga", "Tyga Martinez");
   const sceneLabels = labels(
@@ -1151,24 +1322,27 @@ test("Facial activity stays out of the Orgasm report", () => {
       marker("facial-1", tag("facial", "Facial"), 50, 60, [reallyHot], [tyga]),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("2 orgasms: 2 Really Hot"));
-  assert.ok(sceneLabels.includes("1 facial: 1 Really Hot"));
+  assert.ok(
+    sceneLabels.includes(
+      "3 total · 1 facial (1 Really Hot) · 2 regular (2 Really Hot)"
+    )
+  );
   assert.ok(sceneLabels.includes("Tyga Martinez nuts twice"));
 });
 
-test("a Really Hot Facial contributes only to the Facial report", () => {
+test("a Really Hot Facial contributes only to the Facial section", () => {
   const orgasm = tag("orgasm", "Orgasm");
   const facial = tag("facial", "Facial", [orgasm]);
   const sceneLabels = labels(
     [marker("hot-facial", facial, 10, 20, [tag("really-hot", "Really Hot")])],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("1 facial: 1 Really Hot"));
+  assert.ok(sceneLabels.includes("1 total · 1 facial (1 Really Hot)"));
   assert.equal(
     sceneLabels.some((label) => label.includes("orgasm")),
     false
@@ -1186,17 +1360,17 @@ test("GOAT event markers do not also count as Really Hot", () => {
       ]),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("1 facial: 1 GOAT"));
+  assert.ok(sceneLabels.includes("1 total · 1 facial (1 GOAT)"));
   assert.equal(
     sceneLabels.some((label) => label.includes("Really Hot")),
     false
   );
 });
 
-test("Really Hot orgasms are summarized in the Orgasm report", () => {
+test("Really Hot orgasms are summarized in the regular section", () => {
   const reallyHot = tag("really-hot", "Really Hot");
   const sceneLabels = labels(
     [
@@ -1204,12 +1378,12 @@ test("Really Hot orgasms are summarized in the Orgasm report", () => {
       marker("orgasm-2", tag("orgasm", "Orgasm"), 30, 40, [reallyHot]),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("2 orgasms: 2 Really Hot"));
+  assert.ok(sceneLabels.includes("2 total · 2 regular (2 Really Hot)"));
   assert.equal(
-    sceneLabels.some((label) => label.endsWith("facials")),
+    sceneLabels.some((label) => label.includes("facial")),
     false
   );
 });
@@ -1228,13 +1402,13 @@ test("one orgasm marker counts once per assigned top in the event report", () =>
       ),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("2 orgasms: 2 Really Hot"));
+  assert.ok(sceneLabels.includes("2 total · 2 regular (2 Really Hot)"));
 });
 
-test("ordinary orgasms and facials stay inside their aggregate reports", () => {
+test("ordinary orgasms and facials stay inside their aggregate report", () => {
   const tyga = performer("tyga", "Tyga Martinez");
   const sceneLabels = labels(
     [
@@ -1246,71 +1420,17 @@ test("ordinary orgasms and facials stay inside their aggregate reports", () => {
       marker("facial-3", tag("facial", "Facial"), 100, 110, [], [tyga]),
     ],
     200,
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.ok(sceneLabels.includes("Tyga Martinez nuts 3 times"));
-  assert.ok(sceneLabels.includes("3 orgasms"));
-  assert.ok(sceneLabels.includes("3 facials"));
+  assert.ok(sceneLabels.includes("6 total · 3 facials · 3 regular"));
   assert.equal(
     sceneLabels.some((label) =>
       /^(?:GOAT|Really Hot )?(?:Facials|Orgasm)/.test(label)
     ),
     false
   );
-});
-
-test("Everybody Nuts remains disabled even when every vato finishes", () => {
-  const first = performer("first", "First Vato");
-  const second = performer("second", "Second Vato");
-  const sceneLabels = labels(
-    [
-      marker("first-orgasm", tag("orgasm", "Orgasm"), 10, 15, [], [first]),
-      marker("second-facial", tag("facial", "Facial"), 20, 25, [], [second]),
-      marker(
-        "camera-only-third",
-        tag("orgasm", "Orgasm"),
-        30,
-        35,
-        [tag("second-camera", "2nd Camera")],
-        [performer("third", "Third Vato")]
-      ),
-    ],
-    100,
-    suppressNegatives,
-    [first, second, performer("third", "Third Vato")]
-  );
-
-  assert.equal(sceneLabels.includes("Everybody Nuts"), false);
-  assert.equal(
-    labels(
-      [
-        marker("first-orgasm", tag("orgasm", "Orgasm"), 10, 15, [], [first]),
-        marker("second-facial", tag("facial", "Facial"), 20, 25, [], [second]),
-      ],
-      100,
-      suppressNegatives,
-      [first, second]
-    ).includes("Everybody Nuts"),
-    false
-  );
-});
-
-test("the outstanding activity chip remains while Everybody Nuts is disabled", () => {
-  const first = performer("first", "First Vato");
-  const second = performer("second", "Second Vato");
-  const sceneLabels = labels(
-    [
-      marker("first-orgasm", tag("orgasm", "Orgasm"), 0, 5, [], [first]),
-      marker("second-orgasm", tag("orgasm", "Orgasm"), 10, 15, [], [second]),
-      marker("body", tag("body", "Body"), 20, 80, [], [first]),
-    ],
-    100,
-    suppressNegatives,
-    [first, second]
-  );
-  assert.ok(sceneLabels.includes("Body as far as the eye can see"));
-  assert.equal(sceneLabels.includes("Everybody Nuts"), false);
 });
 
 test("orgasm chips detect simultaneous top vatos and repeated top orgasms", () => {
@@ -1334,12 +1454,12 @@ test("orgasm chips detect simultaneous top vatos and repeated top orgasms", () =
       ),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.ok(sceneLabels.includes("2 vatos nut at the same time"));
   assert.ok(sceneLabels.includes("First Vato nuts 3 times"));
-  assert.ok(sceneLabels.includes("4 orgasms"));
+  assert.ok(sceneLabels.includes("4 total · 4 regular"));
 });
 
 test("flattened ancestor IDs classify deep event descendants", () => {
@@ -1371,293 +1491,95 @@ test("flattened ancestor IDs classify deep event descendants", () => {
   const sceneLabels = getSceneCardInsights(
     scene,
     roleTagIds,
-    suppressNegatives
+    defaultThresholds
   ).map((insight) => insight.label);
 
   assert.ok(sceneLabels.includes("First Vato nuts twice"));
-  assert.ok(sceneLabels.includes("2 orgasms"));
+  assert.ok(sceneLabels.includes("2 total · 2 regular"));
   assert.equal(sceneLabels.includes("Lots of Deep Orgasm"), false);
 });
 
-test("highlight performer attribution uses top performers only", () => {
-  const top = performer("top", "Top Vato");
-  const bottom = performer("bottom", "Bottom Vato");
-  const sceneLabels = labels(
-    [marker("top-feet", tag("feet", "Feet"), 0, 61, [], [top], [bottom])],
-    100,
-    { ...suppressNegatives, tagEyeCanSeeMinPercent: 80 }
-  );
-
-  assert.ok(sceneLabels.includes("Feet from Bottom Vato and Top Vato"));
-});
-
-test("activity quality uses outstanding density and outstanding lean to assign levels", () => {
-  const sceneLabels = labels(
-    [
-      marker("oral", tag("oral", "Oral"), 0, 120),
-      marker("sex", tag("sex", "Sex"), 200, 320),
-      marker("oral-highlight", tag("feet", "Feet"), 0, 72),
-      marker("sex-highlight", tag("pito", "Pito"), 200, 248),
-    ],
-    400,
-    suppressNegatives
-  );
-
-  assert.ok(sceneLabels.includes("Amazing oral and Great sex"));
-});
-
-test("lackluster activity appears beside the positive activity-quality chip", () => {
-  const sceneInsights = getSceneCardInsights(
+test("objective activity summaries stay out of the insight candidate set", () => {
+  const sets = getSceneCardInsightSets(
     makeScene(
       [
-        marker("oral", tag("oral", "Oral"), 0, 100),
-        marker("oral-highlight", tag("feet", "Feet"), 0, 40),
-        marker("sex", tag("sex", "Sex"), 100, 200),
+        marker("sex", tag("sex", "Sex"), 0, 120),
+        marker("oral", tag("oral", "Oral"), 200, 320),
+        marker("solo", tag("solo", "Solo"), 400, 500),
+        marker("sex-highlight", tag("feet", "Feet"), 0, 60),
+        marker("oral-highlight", tag("pito", "Pito"), 200, 272),
+      ],
+      600
+    ),
+    roleTagIds,
+    defaultThresholds
+  );
+  assert.equal(
+    sets.candidates.some((candidate) =>
+      candidate.key.startsWith("activity-summary-")
+    ),
+    false
+  );
+});
+
+test("activity-only Insight Stats buckets remain available without card chips", () => {
+  const sets = getSceneCardInsightSets(
+    makeScene(
+      [
+        marker("sex", tag("sex", "Sex"), 0, 60),
+        marker("oral", tag("oral", "Oral"), 60, 100),
+      ],
+      100
+    ),
+    roleTagIds,
+    defaultThresholds
+  );
+
+  assert.ok(
+    sets.candidates.some((candidate) => candidate.kind === "activity-quality")
+  );
+  assert.ok(sets.candidates.some((candidate) => candidate.kind === "leaning"));
+  assert.equal(
+    sets.visible.some((insight) => insight.tone === "activity"),
+    false
+  );
+});
+
+test("activity quality and sex/oral split are stats-only range buckets", () => {
+  const sets = getSceneCardInsightSets(
+    makeScene(
+      [
+        marker("sex", tag("sex", "Sex"), 0, 130),
+        marker("sex-highlight", tag("feet", "Feet"), 0, 26),
+        marker("oral", tag("oral", "Oral"), 130, 200),
+        marker("oral-highlight", tag("pito", "Pito"), 130, 179),
       ],
       200
     ),
     roleTagIds,
-    suppressNegatives
+    defaultThresholds
   );
-  const qualityIndex = sceneInsights.findIndex(
-    (insight) => insight.label === "Great oral"
+  const quality = sets.candidates.find(
+    (candidate) => candidate.kind === "activity-quality"
   );
-  const lacklusterIndex = sceneInsights.findIndex(
-    (insight) => insight.label === "Lackluster sex"
-  );
-
-  assert.ok(qualityIndex >= 0);
-  assert.equal(lacklusterIndex, qualityIndex + 1);
-});
-
-test("single-activity scenes ignore the meaningless 100% highlight lean", () => {
-  const markers = [
-    marker("oral", tag("oral", "Oral"), 0, 120),
-    marker("oral-highlight", tag("feet", "Feet"), 0, 72),
-  ];
-  const sceneInsights = getSceneCardInsights(
-    makeScene(markers, 120),
-    roleTagIds,
-    suppressNegatives
-  );
-  const oralInsight = sceneInsights.find((insight) =>
-    insight.label.endsWith(" oral")
-  );
-
-  assert.equal(oralInsight?.label, "Amazing oral");
-  assert.doesNotMatch(oralInsight?.detail ?? "", /activity-linked highlights/);
-});
-
-test("single-activity scenes can still be near-perfect from outstanding coverage", () => {
-  const sceneLabels = labels(
-    [
-      marker("oral", tag("oral", "Oral"), 0, 120),
-      marker("oral-highlight", tag("feet", "Feet"), 0, 96),
-    ],
-    120,
-    suppressNegatives
-  );
-
-  assert.ok(sceneLabels.includes("Near-perfect oral"));
-});
-
-test("activity quality uses only the percentage of the activity that is outstanding", () => {
-  const markers = [
-    marker("oral", tag("oral", "Oral"), 0, 100),
-    marker("highlight", tag("feet", "Feet"), 51, 151),
-  ];
-  assert.ok(labels(markers, 200, suppressNegatives).includes("Great oral"));
-
-  const oralInsight = getSceneCardInsights(
-    makeScene(markers, 200),
-    roleTagIds,
-    suppressNegatives
-  ).find((insight) => insight.label.endsWith(" oral"));
-  assert.equal(oralInsight?.detail, "49% of oral is Outstanding (0:49)");
-});
-
-test("tiny activity evidence cannot create a whole-scene quality claim", () => {
-  const sceneLabels = labels(
-    [marker("tiny-sex", tag("sex", "Sex"), 0, 1, [tag("pito", "pito")])],
-    100,
-    suppressNegatives
+  const split = sets.candidates.find(
+    (candidate) => candidate.kind === "leaning"
   );
 
   assert.equal(
-    sceneLabels.some((label) => label.endsWith(" sex")),
-    false
+    quality?.label,
+    "0-20% outstanding sex, 61-80% outstanding oral"
   );
-});
-
-test("activity-quality levels are combined into one scene report", () => {
-  const sceneLabels = labels(
-    [
-      marker("oral", tag("oral", "Oral"), 0, 100),
-      marker("sex", tag("sex", "Sex"), 120, 220),
-      marker("solo", tag("solo", "Solo"), 240, 340),
-      marker("oral-highlight", tag("oral-hot", "Oral Hot"), 0, 80),
-      marker("sex-highlight", tag("sex-hot", "Sex Hot"), 120, 200),
-      marker("solo-highlight", tag("solo-hot", "Solo Hot"), 240, 320),
-    ],
-    400,
-    suppressNegatives
-  );
-
+  assert.equal(split?.label, "61-70% fucking, 31-40% eating pito");
+  assert.equal(quality?.statsOnly, true);
+  assert.equal(split?.statsOnly, true);
   assert.equal(
-    sceneLabels.filter((label) => label.startsWith("Near-perfect")).length,
-    1
-  );
-});
-
-test("mixed sex and oral scenes display their direct percentage split", () => {
-  assert.ok(
-    labels(
-      [
-        marker("sex", tag("sex", "Sex"), 0, 150),
-        marker("oral", tag("oral", "Oral"), 150, 200),
-      ],
-      200,
-      suppressNegatives
-    ).includes("75% fucking, 25% eating pito")
-  );
-  assert.ok(
-    labels(
-      [
-        marker("sex", tag("sex", "Sex"), 0, 50),
-        marker("oral", tag("oral", "Oral"), 50, 200),
-      ],
-      200,
-      suppressNegatives
-    ).includes("25% fucking, 75% eating pito")
-  );
-  assert.ok(
-    labels(
-      [
-        marker("sex", tag("sex", "Sex"), 0, 100),
-        marker("oral", tag("oral", "Oral"), 100, 200),
-      ],
-      200,
-      suppressNegatives
-    ).includes("50% fucking, 50% eating pito")
-  );
-});
-
-test("sex and oral split tooltips show each activity percentage and duration", () => {
-  const insight = getSceneCardInsights(
-    makeScene(
-      [
-        marker("sex", tag("sex", "Sex"), 0, 630),
-        marker("oral", tag("oral", "Oral"), 630, 1260),
-      ],
-      1260
-    ),
-    roleTagIds,
-    suppressNegatives
-  ).find((candidate) => candidate.label === "50% fucking, 50% eating pito");
-
-  assert.equal(
-    insight?.detail,
-    "50% fucking (10:30) - 50% eating pito (10:30)"
-  );
-});
-
-test("single-activity scenes do not get a leaning chip", () => {
-  const oralOnly = labels(
-    [marker("oral", tag("oral", "Oral"), 0, 100)],
-    100,
-    suppressNegatives
-  );
-  const soloOnly = labels(
-    [marker("solo", tag("solo", "Solo"), 0, 100)],
-    100,
-    suppressNegatives
-  );
-  const sexOnly = labels(
-    [marker("sex", tag("sex", "Sex"), 0, 100)],
-    100,
-    suppressNegatives
-  );
-
-  assert.equal(
-    oralOnly.some((label) => label.endsWith("Scene")),
+    sets.visible.some((insight) => insight.key === quality?.key),
     false
   );
   assert.equal(
-    soloOnly.some((label) => label.endsWith("Scene")),
+    sets.visible.some((insight) => insight.key === split?.key),
     false
-  );
-  assert.equal(
-    sexOnly.some((label) => label.endsWith("Scene")),
-    false
-  );
-
-  assert.equal(
-    labels(
-      [
-        marker("sex", tag("sex", "Sex"), 0, 100),
-        marker("solo", tag("solo", "Solo"), 100, 200),
-      ],
-      200,
-      suppressNegatives
-    ).some((label) => label.includes("Leaning Scene")),
-    false
-  );
-});
-
-test("sex and oral splits allow brief minority activity below the whole-scene evidence floor", () => {
-  assert.ok(
-    labels(
-      [
-        marker("oral", tag("oral", "Oral"), 43.5016, 62.692959),
-        marker("sex", tag("sex", "Sex"), 68.445973, 599.463054),
-      ],
-      678.58,
-      suppressNegatives
-    ).includes("97% fucking, 3% eating pito")
-  );
-
-  assert.equal(
-    labels(
-      [
-        marker("tiny-sex", tag("sex", "Sex"), 0, 1),
-        marker("tiny-oral", tag("oral", "Oral"), 2, 3),
-      ],
-      100,
-      suppressNegatives
-    ).some((label) => /^\d+% fucking, \d+% eating pito$/.test(label)),
-    false
-  );
-});
-
-test("filler treats all positive markers as coverage and negative markers as filler", () => {
-  const fullyMarked = getSceneCardInsights(
-    {
-      ...makeScene([marker("other", tag("other", "Other"), 0, 600)], 600),
-      negative_markers: [],
-    },
-    roleTagIds,
-    { ...suppressNegatives, fillerTotalPercent: 20 }
-  );
-  assert.equal(
-    fullyMarked.some((insight) => insight.label === "Lots of filler"),
-    false
-  );
-
-  const negativeOverlap = getSceneCardInsights(
-    {
-      ...makeScene([marker("sex", tag("sex", "Sex"), 0, 600)], 600),
-      negative_markers: [
-        { id: "negative", start_seconds: 0, end_seconds: 240 },
-      ],
-    },
-    roleTagIds,
-    { ...suppressNegatives, fillerTotalPercent: 20 }
-  );
-  assert.ok(
-    negativeOverlap.some((insight) => insight.label === "Lackluster sex")
-  );
-  assert.ok(
-    negativeOverlap.some((insight) => insight.label === "Lots of filler")
   );
 });
 
@@ -1668,7 +1590,7 @@ test("two-vato versatility requires reciprocal activity directions", () => {
     labels(
       [interactionMarker("sex", "sex", top, bottom)],
       100,
-      suppressNegatives
+      defaultThresholds
     ).includes("Traditional Scene")
   );
 
@@ -1678,7 +1600,7 @@ test("two-vato versatility requires reciprocal activity directions", () => {
       interactionMarker("oral-reversal", "oral", bottom, top),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
   assert.equal(reversedLabels.includes("Orally Versatile"), false);
   assert.equal(reversedLabels.includes("Sexually Versatile"), false);
@@ -1694,7 +1616,7 @@ test("traditional two-vato scenes preserve consistent top and bottom roles acros
       interactionMarker("oral", "oral", top, bottom),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.ok(sceneLabels.includes("Traditional Scene"));
@@ -1711,7 +1633,7 @@ test("two-vato versatility labels use the reciprocal activity", () => {
       interactionMarker("sex-reverse", "sex", second, first),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
   assert.ok(sceneLabels.includes("Sexually Versatile"));
   assert.equal(sceneLabels.includes("Orally Versatile"), false);
@@ -1722,7 +1644,7 @@ test("two-vato versatility labels use the reciprocal activity", () => {
       interactionMarker("oral-reverse", "oral", second, first),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
   assert.ok(oralVersatileLabels.includes("Orally Versatile"));
 });
@@ -1741,7 +1663,7 @@ test("versatile chip tooltips omit meaningfully", () => {
       300
     ),
     roleTagIds,
-    suppressNegatives
+    defaultThresholds
   ).find((candidate) => candidate.label === "Fully Versatile Scene");
 
   assert.equal(
@@ -1762,7 +1684,7 @@ test("a traditional group may have multiple tops and one consistent bottom", () 
         interactionMarker("sex-2", "sex", secondTop, bottom),
       ],
       100,
-      suppressNegatives
+      defaultThresholds
     ).includes("Traditional Scene")
   );
 });
@@ -1792,7 +1714,7 @@ test("interaction roles require marker evidence for every direction", () => {
     ),
   ];
   assert.ok(
-    labels(markers, 100, suppressNegatives).includes("Orally Versatile")
+    labels(markers, 100, defaultThresholds).includes("Orally Versatile")
   );
 });
 
@@ -1805,7 +1727,7 @@ test("any reciprocal marker presence establishes versatility", () => {
       marker("reverse", tag("sex", "Sex"), 2, 3, [], [second], [first]),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.ok(sceneLabels.includes("Sexually Versatile"));
@@ -1819,7 +1741,7 @@ test("two-vato role patterns distinguish fully versatile and sexually versatile 
     interactionMarker("sex-reverse", "sex", second, first),
   ];
   assert.ok(
-    labels(versatileMarkers, 100, suppressNegatives).includes(
+    labels(versatileMarkers, 100, defaultThresholds).includes(
       "Sexually Versatile"
     )
   );
@@ -1831,7 +1753,7 @@ test("two-vato role patterns distinguish fully versatile and sexually versatile 
       interactionMarker("oral-reverse", "oral", second, first),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
   assert.ok(fullyVersatileLabels.includes("Fully Versatile Scene"));
   assert.equal(fullyVersatileLabels.includes("Sexually Versatile"), false);
@@ -1848,7 +1770,7 @@ test("two-vato versatility counts oral tags attached to interaction markers", ()
     marker("oral-reverse", tag("sex", "Sex"), 0, 61, [oral], [second], [first]),
   ];
 
-  const sceneLabels = labels(markers, 100, suppressNegatives);
+  const sceneLabels = labels(markers, 100, defaultThresholds);
 
   assert.ok(sceneLabels.includes("Fully Versatile Scene"));
   assert.equal(sceneLabels.includes("Sexually Versatile"), false);
@@ -1865,10 +1787,10 @@ test("three-vato graphs distinguish Oral Circle, Versatile Group, and Balanced T
   ];
 
   assert.ok(
-    labels(cycle("oral"), 100, suppressNegatives).includes("Oral Circle")
+    labels(cycle("oral"), 100, defaultThresholds).includes("Oral Circle")
   );
   assert.ok(
-    labels(cycle("sex"), 100, suppressNegatives).includes("Versatile Group")
+    labels(cycle("sex"), 100, defaultThresholds).includes("Versatile Group")
   );
   assert.ok(
     labels(
@@ -1878,7 +1800,7 @@ test("three-vato graphs distinguish Oral Circle, Versatile Group, and Balanced T
         interactionMarker("pair-3", "sex", second, third),
       ],
       100,
-      suppressNegatives
+      defaultThresholds
     ).includes("Balanced Threesome")
   );
 });
@@ -1902,7 +1824,7 @@ test("four-vato graphs distinguish Round-Robin, Balanced Orgy, and Center Stage"
         interactionMarker(`round-${index}`, "sex", top, bottom)
       ),
       100,
-      suppressNegatives
+      defaultThresholds
     ).includes("Round-Robin Scene")
   );
 
@@ -1915,7 +1837,7 @@ test("four-vato graphs distinguish Round-Robin, Balanced Orgy, and Center Stage"
         interactionMarker("balanced-4", "sex", third, fourth),
       ],
       100,
-      suppressNegatives
+      defaultThresholds
     ).includes("Balanced Orgy")
   );
 
@@ -1927,7 +1849,7 @@ test("four-vato graphs distinguish Round-Robin, Balanced Orgy, and Center Stage"
         interactionMarker("center-3", "sex", first, fourth),
       ],
       100,
-      suppressNegatives
+      defaultThresholds
     ).includes("One Vato Center Stage")
   );
 });
@@ -1943,7 +1865,7 @@ test("interaction patterns require every listed scene performer to participate",
       sidelined,
     ]),
     roleTagIds,
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.equal(
@@ -2000,7 +1922,7 @@ test("ugly-role insights ignore performer ratings and non-criterion rows", () =>
       rating_scores: [ratingScore("topAttractiveness", 0, "bonus")],
     },
     roleTagIds,
-    suppressNegatives
+    defaultThresholds
   ).map((insight) => insight.label);
 
   assert.equal(
@@ -2021,7 +1943,7 @@ test("Mexican lineup chips distinguish one, several, and an all-Mexican cast", (
     getSceneCardInsights(
       makeScene([], 100, scenePerformers),
       roleTagIds,
-      suppressNegatives
+      defaultThresholds
     ).map((insight) => insight.label);
 
   assert.ok(lineupLabels([mexican, brazilian]).includes("Mexican vato"));
@@ -2052,7 +1974,7 @@ test("Favorite Vatos uses exact Royal Sapphire metallic rating precedence", () =
       downgradedByOverride,
     ]),
     roleTagIds,
-    suppressNegatives,
+    defaultThresholds,
     {
       overrideTagIds: {
         goldTagId: "gold",
@@ -2069,12 +1991,12 @@ test("Favorite Vatos uses exact Royal Sapphire metallic rating precedence", () =
 });
 
 test("No Orgasm requires completed activity with no countable Orgasm or Facial", () => {
-  assert.equal(labels([], 100, suppressNegatives).includes("No Orgasm"), false);
+  assert.equal(labels([], 100, defaultThresholds).includes("No Orgasm"), false);
   assert.equal(
     labels(
       [marker("incomplete-sex", tag("sex", "Sex"), 0, null)],
       100,
-      suppressNegatives
+      defaultThresholds
     ).includes("No Orgasm"),
     false
   );
@@ -2082,7 +2004,7 @@ test("No Orgasm requires completed activity with no countable Orgasm or Facial",
     labels(
       [marker("sex", tag("sex", "Sex"), 0, 50)],
       100,
-      suppressNegatives
+      defaultThresholds
     ).includes("No Orgasm")
   );
   assert.equal(
@@ -2092,7 +2014,7 @@ test("No Orgasm requires completed activity with no countable Orgasm or Facial",
         marker("facial", tag("facial", "Facial"), 10, 15),
       ],
       100,
-      suppressNegatives
+      defaultThresholds
     ).includes("No Orgasm"),
     false
   );
@@ -2105,80 +2027,12 @@ test("No Orgasm requires completed activity with no countable Orgasm or Facial",
         ]),
       ],
       100,
-      suppressNegatives
+      defaultThresholds
     ).includes("No Orgasm")
   );
 });
 
-test("Few highlights and Lots of filler use their configurable cutoffs", () => {
-  const markers = [
-    marker("sex", tag("sex", "Sex"), 0, 100),
-    marker("highlight", tag("feet", "Feet"), 200, 210),
-  ];
-  const defaultLabels = labels(markers, 600);
-  assert.ok(defaultLabels.includes("Few highlights"));
-  assert.ok(defaultLabels.includes("Lackluster sex"));
-  assert.ok(defaultLabels.includes("Lots of filler"));
-
-  const configuredLabels = labels(markers, 600, {
-    fewHighlightsMaxEpisodes: 0,
-    fillerTotalPercent: 100,
-  });
-  assert.equal(configuredLabels.includes("Few highlights"), false);
-  assert.equal(configuredLabels.includes("Lots of filler"), false);
-});
-
-test("Few highlights requires both the episode and scene-percentage limits", () => {
-  const completedActivity = marker("sex", tag("sex", "Sex"), 100, 200);
-  const oneShortHighlight = [
-    completedActivity,
-    marker("highlight", tag("feet", "Feet"), 0, 30),
-  ];
-  const matchingInsight = getSceneCardInsights(
-    makeScene(oneShortHighlight, 600),
-    roleTagIds,
-    {
-      ...suppressNegatives,
-      fewHighlightsMaxEpisodes: 1,
-      fewHighlightsMaxPercent: 5,
-    }
-  ).find((insight) => insight.label === "Few highlights");
-  assert.equal(
-    matchingInsight?.detail,
-    "5% highlights · 0:30 (across 1 marker)"
-  );
-
-  assert.equal(
-    labels(
-      [completedActivity, marker("long-highlight", tag("feet", "Feet"), 0, 31)],
-      600,
-      {
-        ...suppressNegatives,
-        fewHighlightsMaxEpisodes: 1,
-        fewHighlightsMaxPercent: 5,
-      }
-    ).includes("Few highlights"),
-    false
-  );
-  assert.equal(
-    labels(
-      [
-        completedActivity,
-        marker("highlight-1", tag("feet", "Feet"), 0, 10),
-        marker("highlight-2", tag("feet", "Feet"), 20, 30),
-      ],
-      600,
-      {
-        ...suppressNegatives,
-        fewHighlightsMaxEpisodes: 1,
-        fewHighlightsMaxPercent: 5,
-      }
-    ).includes("Few highlights"),
-    false
-  );
-});
-
-test("Few highlights and Lots of filler require a completed activity marker", () => {
+test("Lots of filler remains retired for every marker coverage state", () => {
   const unmarkedLabels = labels([], 600);
   const incompleteActivityLabels = labels(
     [marker("incomplete-sex", tag("sex", "Sex"), 0, null)],
@@ -2189,31 +2043,13 @@ test("Few highlights and Lots of filler require a completed activity marker", ()
     600
   );
 
-  for (const sceneLabels of [unmarkedLabels, incompleteActivityLabels]) {
-    assert.equal(sceneLabels.includes("Few highlights"), false);
+  for (const sceneLabels of [
+    unmarkedLabels,
+    incompleteActivityLabels,
+    completedActivityLabels,
+  ]) {
     assert.equal(sceneLabels.includes("Lots of filler"), false);
   }
-  assert.ok(completedActivityLabels.includes("Few highlights"));
-  assert.ok(completedActivityLabels.includes("Lots of filler"));
-});
-
-test("quality level thresholds are configurable", () => {
-  const markers = [
-    marker("oral", tag("oral", "Oral"), 0, 100),
-    marker("highlight", tag("feet", "Feet"), 0, 50),
-  ];
-  const sceneLabels = labels(markers, 100, {
-    ...suppressNegatives,
-    goodOutstandingPercent: 70,
-    greatOutstandingPercent: 80,
-    amazingOutstandingPercent: 90,
-    nearPerfectOutstandingPercent: 95,
-  });
-
-  assert.equal(
-    sceneLabels.some((label) => label.endsWith(" oral")),
-    false
-  );
 });
 
 test("a current sex role is rare only at five role scenes and twenty percent or less", () => {
@@ -2238,7 +2074,7 @@ test("a current sex role is rare only at five role scenes and twenty percent or 
   const qualifyingLabels = getSceneCardInsights(
     sexBottomScene,
     roleTagIds,
-    suppressNegatives,
+    defaultThresholds,
     undefined,
     qualifyingStats
   ).map((insight) => insight.label);
@@ -2252,7 +2088,7 @@ test("a current sex role is rare only at five role scenes and twenty percent or 
   const shortHistoryLabels = getSceneCardInsights(
     sexBottomScene,
     roleTagIds,
-    suppressNegatives,
+    defaultThresholds,
     undefined,
     tooLittleHistory
   ).map((insight) => insight.label);
@@ -2284,14 +2120,14 @@ test("rare-role percentage threshold is configurable", () => {
   const labelsWithNineteenPercentLimit = getSceneCardInsights(
     scene,
     roleTagIds,
-    { ...suppressNegatives, rareRoleMaximumPercent: 19 },
+    { ...defaultThresholds, rareRoleMaximumPercent: 19 },
     undefined,
     stats
   ).map((insight) => insight.label);
   const labelsWithTwentyPercentLimit = getSceneCardInsights(
     scene,
     roleTagIds,
-    { ...suppressNegatives, rareRoleMaximumPercent: 20 },
+    { ...defaultThresholds, rareRoleMaximumPercent: 20 },
     undefined,
     stats
   ).map((insight) => insight.label);
@@ -2330,7 +2166,7 @@ test("rare-role chips sort above Traditional and Versatile interaction chips", (
   const sceneLabels = getSceneCardInsights(
     scene,
     roleTagIds,
-    suppressNegatives,
+    defaultThresholds,
     undefined,
     roleStats
   ).map((insight) => insight.label);
@@ -2377,7 +2213,7 @@ test("sex and oral rarity use separate role denominators", () => {
   const sceneLabels = getSceneCardInsightSets(
     scene,
     roleTagIds,
-    suppressNegatives,
+    defaultThresholds,
     undefined,
     stats
   ).all.map((insight) => insight.label);
@@ -2413,7 +2249,7 @@ test("Facial rarity chips are disabled", () => {
   const sceneLabels = getSceneCardInsights(
     scene,
     roleTagIds,
-    suppressNegatives,
+    defaultThresholds,
     undefined,
     stats
   ).map((insight) => insight.label);
@@ -2437,12 +2273,12 @@ test("No Orgasm reserves a high-priority slot near the chip ceiling", () => {
       marker("goat-5", tag("highlight-5", "Highlight 5"), 62, 72, [goat]),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
-  assert.equal(sceneLabels.length, 7);
+  assert.equal(sceneLabels.length, 6);
   assert.ok(sceneLabels.includes("No Orgasm"));
-  assert.equal(sceneLabels.includes("50% fucking, 50% eating pito"), true);
+  assert.equal(sceneLabels.includes("50% fucking, 50% eating pito"), false);
   assert.equal(
     sceneLabels.some((label) =>
       /^(Good|Great|Amazing|Near-perfect) (sex|oral)$/.test(label)
@@ -2472,7 +2308,7 @@ test("the visible strip caps GOAT tags at seven while the full set keeps all", (
   const insightSets = getSceneCardInsightSets(
     scene,
     roleTagIds,
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.equal(insightSets.visible.length, 7);
@@ -2484,7 +2320,7 @@ test("the visible strip caps GOAT tags at seven while the full set keeps all", (
   );
 });
 
-test("the visible strip retains the mandatory Facial report near the chip ceiling", () => {
+test("the visible strip retains the combined event report near the chip ceiling", () => {
   const goat = tag("goat", "GOAT");
   const goatMarkers = Array.from({ length: 7 }, (_, index) =>
     marker(
@@ -2505,13 +2341,15 @@ test("the visible strip retains the mandatory Facial report near the chip ceilin
   const insightSets = getSceneCardInsightSets(
     scene,
     roleTagIds,
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.equal(insightSets.visible.length, 7);
-  assert.ok(insightSets.all.some((insight) => insight.label === "1 facial"));
+  assert.ok(
+    insightSets.all.some((insight) => insight.label === "1 total · 1 facial")
+  );
   assert.equal(
-    insightSets.all.some((insight) => insight.label === "1 orgasm"),
+    insightSets.all.some((insight) => insight.label.includes("regular")),
     false
   );
 });
@@ -2550,14 +2388,13 @@ test("event reports retain all repeated-orgasm patterns in the overflow set", ()
   const insightSets = getSceneCardInsightSets(
     makeScene(markers, 100),
     roleTagIds,
-    suppressNegatives
+    defaultThresholds
   );
-  const sceneLabels = insightSets.visible.map((insight) => insight.label);
   const allLabels = insightSets.all.map((insight) => insight.label);
 
-  assert.ok(sceneLabels.includes("14 orgasms"));
-  assert.ok(sceneLabels.includes("1 facial: 1 Really Hot"));
-  assert.equal(sceneLabels.includes("Everybody Nuts"), false);
+  assert.ok(
+    allLabels.includes("15 total · 1 facial (1 Really Hot) · 14 regular")
+  );
   assert.equal(
     allLabels.filter((label) => label.includes("nuts twice")).length,
     7
@@ -2574,42 +2411,31 @@ test("a Facial descendant counts toward a vato's repeated orgasms", () => {
       marker("facial-3", facial, 20, 25, [], [vato]),
     ],
     100,
-    suppressNegatives
+    defaultThresholds
   );
 
   assert.ok(sceneLabels.includes("Facial Finisher nuts 3 times"));
-  assert.ok(sceneLabels.includes("3 facials"));
-  assert.equal(sceneLabels.includes("3 orgasms"), false);
+  assert.ok(sceneLabels.includes("3 total · 3 facials"));
+  assert.equal(
+    sceneLabels.some((label) => label.includes("regular")),
+    false
+  );
 });
 
-test("Lackluster activity does not suppress Lots of filler", () => {
+test("Lackluster and Lots of filler chips stay retired", () => {
   const scene = {
     ...makeScene([marker("sex", tag("sex", "Sex"), 0, 100)], 100),
     negative_markers: [{ id: "negative", start_seconds: 0, end_seconds: 40 }],
   };
   const insightLabels = getSceneCardInsightSets(scene, roleTagIds, {
-    ...suppressNegatives,
-    fillerTotalPercent: 20,
+    ...defaultThresholds,
   }).all.map((insight) => insight.label);
 
-  assert.ok(insightLabels.includes("Lackluster sex"));
-  assert.ok(insightLabels.includes("Lots of filler"));
-});
-
-test("GOAT activity suppresses Lackluster", () => {
-  const scene = {
-    ...makeScene(
-      [marker("sex", tag("sex", "Sex"), 0, 100, [tag("goat", "GOAT")])],
-      100
-    ),
-    negative_markers: [{ id: "negative", start_seconds: 0, end_seconds: 40 }],
-  };
-  const insightLabels = getSceneCardInsightSets(scene, roleTagIds, {
-    ...suppressNegatives,
-    fillerTotalPercent: 100,
-  }).all.map((insight) => insight.label);
-
-  assert.equal(insightLabels.includes("Lackluster sex"), false);
+  assert.equal(
+    insightLabels.some((label) => label.startsWith("Lackluster")),
+    false
+  );
+  assert.equal(insightLabels.includes("Lots of filler"), false);
 });
 
 test("the matrix retains a separate performer cell per tag", () => {
@@ -2623,7 +2449,7 @@ test("the matrix retains a separate performer cell per tag", () => {
       200
     ),
     roleTagIds,
-    { ...suppressNegatives, tagEyeCanSeeMinPercent: 80 }
+    { ...defaultThresholds, tagEyeCanSeeMinPercent: 80 }
   );
 
   assert.equal(

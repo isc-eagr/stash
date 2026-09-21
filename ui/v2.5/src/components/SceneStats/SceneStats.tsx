@@ -71,6 +71,7 @@ import {
   sceneStatsSectionFromSearch,
   type SceneStatsSection,
 } from "./sceneStatsSection_custom"; // CUSTOM
+import { sceneStatsAverages } from "./sceneStatsAverages_custom"; // CUSTOM
 
 import "./SceneStats.scss";
 import {
@@ -1277,7 +1278,11 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
       variables: { ids: roleTagIDList },
     }
   );
-  const { scenes } = sceneQuery;
+  const { scenes, uniquePerformerCount } = sceneQuery;
+  const averages = useMemo(
+    () => sceneStatsAverages(scenes, uniquePerformerCount),
+    [scenes, uniquePerformerCount]
+  );
   const vatoCountBuckets = useMemo(
     () =>
       sceneStatsVatoCountBuckets(scenes.map((scene) => scene.performer_count)),
@@ -1562,10 +1567,43 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
           {totalsQuery.error && (
             <ErrorMessage error={totalsQuery.error.message} />
           )}
-          <p className="stats-interaction-help">
-            {effectiveStudioScope ? "Studio" : "Library"} totals below. Linked
-            cards open matching scenes or markers →
-          </p>
+          {!effectiveStudioScope && (
+            <p className="stats-interaction-help">
+              Library totals below. Linked cards open matching scenes or markers
+              →
+            </p>
+          )}
+          <section
+            className="scenestats-summary-grid"
+            aria-label="Average scene statistics"
+          >
+            <div className="scenestats-summary-card">
+              <div className="scenestats-summary-value">
+                {averages.averageSceneLength === undefined
+                  ? "—"
+                  : TextUtils.secondsAsTimeString(
+                      averages.averageSceneLength,
+                      2
+                    )}
+              </div>
+              <div className="scenestats-summary-label">
+                Average Scene Length
+              </div>
+            </div>
+            <div className="scenestats-summary-card">
+              <div className="scenestats-summary-value">
+                {averages.averageScenesPerPerformer === undefined
+                  ? "—"
+                  : averages.averageScenesPerPerformer.toLocaleString(
+                      undefined,
+                      { maximumFractionDigits: 1 }
+                    )}
+              </div>
+              <div className="scenestats-summary-label">
+                Average Scenes Per Performer
+              </div>
+            </div>
+          </section>
           {(sexTag || oralTag || soloTag || facialTag) && (
             <section
               className="scenestats-summary-grid scenestats-category-grid"

@@ -703,49 +703,9 @@
           "heading": "As far as the eye can see tag threshold (%)",
           "description": "Minimum scene percentage covered by a highlight tag for the as-far-as-the-eye-can-see chip level. This is normalized to be at least the Lots of threshold."
         },
-        "good": {
-          "heading": "Good activity threshold (%)",
-          "description": "Minimum percentage of the activity that is outstanding for the Good level."
-        },
-        "great": {
-          "heading": "Great activity threshold (%)",
-          "description": "Minimum percentage of the activity that is outstanding for the Great level. Example chip: Great oral."
-        },
-        "amazing": {
-          "heading": "Amazing activity threshold (%)",
-          "description": "Minimum percentage of the activity that is outstanding for the Amazing level."
-        },
-        "near_perfect": {
-          "heading": "Near-perfect activity threshold (%)",
-          "description": "Minimum percentage of the activity that is outstanding for the Near-perfect level."
-        },
         "rare_role_maximum": {
           "heading": "Rare instance maximum role share (%)",
           "description": "A current Sex or Oral role is rare when it accounts for no more than this percentage of the vato's role history. The chip still requires at least five comparable role scenes."
-        },
-        "few_highlights_episodes": {
-          "heading": "Few highlights maximum episodes",
-          "description": "The Few highlights insight requires no more than this many outstanding episodes and must also meet the highlight-percentage maximum."
-        },
-        "few_highlights_percent": {
-          "heading": "Few highlights maximum scene percentage (%)",
-          "description": "The Few highlights insight requires highlights to cover no more than this percentage of the scene and must also meet the episode maximum."
-        },
-        "filler_percent": {
-          "heading": "Filler total percentage (%)",
-          "description": "Lots of filler appears when time without any marker exceeds this percentage of the scene; negative markers count as filler even when they overlap positive markers."
-        },
-        "lackluster_negative": {
-          "heading": "Lackluster negative-time threshold (%)",
-          "description": "Sex or Oral is Lackluster when negative-marker time exceeds this share of that activity, unless its Outstanding share reaches the suppression threshold."
-        },
-        "lackluster_outstanding_suppress": {
-          "heading": "Lackluster Outstanding suppression (%)",
-          "description": "A sufficiently Outstanding Sex or Oral activity suppresses its negative-time Lackluster rule. GOAT activity always suppresses Lackluster."
-        },
-        "lackluster_non_outstanding": {
-          "heading": "Lackluster non-Outstanding threshold (%)",
-          "description": "Sex or Oral is Lackluster when at least this share of the activity is not Outstanding."
         }
       },
       "simple_marker_preview_excluded_tags": {
@@ -1434,6 +1394,26 @@
   "include_sub_studios": "Include subsidiary studios",
   "include_sub_tag_content": "Include sub-tag content",
   "include_sub_tags": "Include sub-tags",
+  "marker_editor.unrestricted": "Unrestricted",
+  "marker_editor.overlapping": "Overlapping markers",
+  "marker_editor.every_config": "Every configuration required",
+  "marker_editor.excluded": "Excluded configurations",
+  "marker_editor.edit": "Edit markers",
+  "marker_editor.configurations": "Marker configurations",
+  "marker_editor.add_overlap": "Overlapping marker",
+  "marker_editor.add_marker": "Marker",
+  "marker_editor.require_overlap": "Require overlap",
+  "marker_editor.sections": "Marker sections",
+  "marker_editor.roles": "Role requirements",
+  "marker_editor.both": "Both · AND",
+  "marker_editor.either": "Either · OR",
+  "marker_editor.same_person": "Same vato",
+  "marker_editor.all": "Match all",
+  "marker_editor.copy": "Copy as different vato",
+  "marker_editor.distinct": "Different unnamed vatos match different people.",
+  "marker_editor.new_vato": "Unnamed vato",
+  "marker_editor.reuse": "Reuse vato",
+  "marker_editor.delete_vato": "Delete vato from all markers",
   "index_of_total": "{index} of {total}",
   "instagram": "Instagram",
   "interactive": "Interactive",
@@ -1661,6 +1641,7 @@
   "quality_type_filter_hint": "Leave blank to ignore a metric. Filled rows are combined with AND.",
   "quality_type.outstanding_percent": "Outstanding",
   "quality_type.standard_percent": "Standard",
+  "quality_type.unclassified_percent": "Unclassified",
   "quality_type.unusable_percent": "Unusable",
   "sex_scene_count": "Sex Scene Count",
   "oral_scene_count": "Oral Scene Count",
@@ -1671,6 +1652,7 @@
   "other_activity_percent": "Other %",
   "outstanding_activity_percent": "Outstanding %",
   "standard_activity_percent": "Standard %",
+  "unclassified_activity_percent": "Unclassified %",
   "unusable_activity_percent": "Unusable %",
   "standard_facial_count": "Facial Count (Standard)",
   "really_hot_facial_count": "Facial Count (Really Hot)",

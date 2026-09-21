@@ -87,6 +87,15 @@ test("existing Studio card aggregates resolve before inline highlighting", () =>
     format: "percent",
     value: 40,
   });
+  assert.deepEqual(
+    getStudioSortMetricCustom("unclassified_activity_percent", source),
+    {
+      sortBy: "unclassified_activity_percent",
+      messageID: "unclassified_activity_percent",
+      format: "percent",
+      value: 10,
+    }
+  );
   assert.deepEqual(getStudioSortMetricCustom("o_count", source), {
     sortBy: "o_count",
     messageID: "o_count",

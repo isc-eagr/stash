@@ -4,12 +4,7 @@ import type {
   SceneCardInsightCandidateKind,
 } from "./sceneCardInsightTypes_custom";
 
-type InsightLane =
-  | "automatic"
-  | "priority"
-  | "activity"
-  | "leaning"
-  | "context";
+type InsightLane = "automatic" | "priority" | "activity" | "context";
 
 type InsightPolicy = {
   lane: InsightLane;
@@ -36,20 +31,14 @@ export const sceneCardInsightPolicies: Record<
   "no-orgasm": { lane: "priority", priority: 925 },
   "orgasm-event": { lane: "automatic", priority: 850 },
   "activity-quality": { lane: "activity", priority: 830 },
-  // CUSTOM: Keep negative Sex/Oral quality beside the positive quality report.
-  lackluster: { lane: "context", priority: 829 },
-  leaning: { lane: "leaning", priority: 825 },
+  leaning: { lane: "context", priority: 825 },
   // CUSTOM: History-backed rare roles outrank broad interaction patterns.
   "rare-role": { lane: "context", priority: 805 },
   interaction: { lane: "context", priority: 800 },
   "negative-rating": { lane: "context", priority: 790 },
   "favorite-lineup": { lane: "context", priority: 780 },
   "country-lineup": { lane: "context", priority: 770 },
-  filler: { lane: "context", priority: 760 },
-  "few-highlights": { lane: "context", priority: 750 },
   tag: { lane: "context", priority: 700 },
-  feet: { lane: "context", priority: 650 },
-  "everybody-nuts": { lane: "context", priority: 690 },
 };
 
 export function compareSceneCardInsightCandidates(
@@ -65,7 +54,7 @@ export function compareSceneCardInsightCandidates(
 }
 
 const defaultMaxInsights = 7;
-const maxActivityInsights = 2;
+const maxActivityInsights = 3;
 
 export function hasSceneCardInsightOverflow(
   totalInsights: number,
@@ -78,7 +67,9 @@ export function selectSceneCardInsights(
   candidates: SceneCardInsightCandidate[],
   maxInsights = defaultMaxInsights
 ): ISceneCardInsight[] {
-  const sorted = [...candidates].sort(compareSceneCardInsightCandidates);
+  const sorted = candidates
+    .filter((candidate) => !candidate.statsOnly)
+    .sort(compareSceneCardInsightCandidates);
   const mandatory = sorted.filter(
     (candidate) => sceneCardInsightPolicies[candidate.kind].mandatory
   );
@@ -88,9 +79,6 @@ export function selectSceneCardInsights(
       .map(({ kind: _kind, score: _score, ...insight }) => insight);
   }
 
-  const leaning = sorted.filter(
-    (candidate) => sceneCardInsightPolicies[candidate.kind].lane === "leaning"
-  );
   const prioritized = sorted.filter(
     (candidate) => sceneCardInsightPolicies[candidate.kind].lane === "priority"
   );
@@ -101,17 +89,14 @@ export function selectSceneCardInsights(
 
   const automaticCapacity = Math.max(
     0,
-    maxInsights - mandatory.length - prioritized.length - leaning.length
+    maxInsights - mandatory.length - prioritized.length
   );
   const automatic = [
     ...mandatory,
     ...prioritized,
     ...optionalAutomatic.slice(0, automaticCapacity),
   ];
-  const availableAfterAutomatic = Math.max(
-    0,
-    maxInsights - automatic.length - leaning.length
-  );
+  const availableAfterAutomatic = Math.max(0, maxInsights - automatic.length);
   const activities = sorted
     .filter(
       (candidate) =>
@@ -120,10 +105,7 @@ export function selectSceneCardInsights(
     .slice(0, Math.min(maxActivityInsights, availableAfterAutomatic));
   const contextCapacity = Math.min(
     Math.max(0, maxInsights - maxActivityInsights),
-    Math.max(
-      0,
-      maxInsights - automatic.length - leaning.length - activities.length
-    )
+    Math.max(0, maxInsights - automatic.length - activities.length)
   );
   const context = sorted
     .filter(
@@ -131,7 +113,7 @@ export function selectSceneCardInsights(
     )
     .slice(0, contextCapacity);
 
-  return [...automatic, ...activities, ...leaning, ...context]
+  return [...automatic, ...activities, ...context]
     .sort(compareSceneCardInsightCandidates)
     .slice(0, maxInsights)
     .map(({ kind: _kind, score: _score, ...insight }) => insight);
@@ -141,6 +123,7 @@ export function selectAllSceneCardInsights(
   candidates: SceneCardInsightCandidate[]
 ): ISceneCardInsight[] {
   return [...candidates]
+    .filter((candidate) => !candidate.statsOnly)
     .sort(compareSceneCardInsightCandidates)
     .map(({ kind: _kind, score: _score, ...insight }) => insight);
 }

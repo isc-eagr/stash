@@ -165,6 +165,7 @@ type SceneStatsScene {
 "Compact SceneStats dataset returned without per-scene GraphQL relationship resolution"
 type SceneStatsResult {
   count: Int!
+  unique_performer_count: Int!
   scenes: [SceneStatsScene!]!
 }
 
@@ -240,61 +241,99 @@ extend type Query {
   "Get performer rating-tier counts per ethnicity (non-empty only), sorted by highest tier total first"
   performerEthnicityTierCounts: [PerformerEthnicityTierCount!]!
   "Get a count of scene orgasm events grouped by year (ascending by year)"
-  sceneOYearCounts: [SceneOYearCount!]!
+  sceneOYearCounts(studio_id: ID, depth: Int): [SceneOYearCount!]!
   # CUSTOM: begin
   "Get recorded scene O events grouped by month for a year"
-  sceneOMonthCounts(year: Int!): [SceneOMonthCount!]!
+  sceneOMonthCounts(year: Int!, studio_id: ID, depth: Int): [SceneOMonthCount!]!
   "Get recorded scene O events grouped by day for a year/month"
-  sceneODayCounts(year: Int!, month: Int!): [SceneODayCount!]!
+  sceneODayCounts(
+    year: Int!
+    month: Int!
+    studio_id: ID
+    depth: Int
+  ): [SceneODayCount!]!
   "Get recorded scene O events on a date, ordered newest first"
-  sceneOEventsByDate(date: String!): [SceneOEvent!]!
+  sceneOEventsByDate(date: String!, studio_id: ID, depth: Int): [SceneOEvent!]!
   "Get recorded scene O events covered by a marker tag, ordered newest first"
-  sceneOEventsByTag(tagID: ID!): [SceneOEvent!]!
+  sceneOEventsByTag(tagID: ID!, studio_id: ID, depth: Int): [SceneOEvent!]!
   "Get the count of recorded scene O events without a timestamp-covered marker tag"
-  sceneOCountWithoutMarkerTags: Int!
+  sceneOCountWithoutMarkerTags(studio_id: ID, depth: Int): Int!
   "Get recorded scene O events without a timestamp-covered marker tag"
-  sceneOEventsWithoutMarkerTags: [SceneOEvent!]!
+  sceneOEventsWithoutMarkerTags(studio_id: ID, depth: Int): [SceneOEvent!]!
   "Get recorded scene O events associated with a vato, ordered newest first"
-  sceneOEventsByPerformer(performerID: ID!): [SceneOEvent!]!
+  sceneOEventsByPerformer(
+    performerID: ID!
+    studio_id: ID
+    depth: Int
+  ): [SceneOEvent!]!
   "Get recorded O events for one scene, ordered newest first"
-  sceneOEventsByScene(sceneID: ID!): [SceneOEvent!]!
+  sceneOEventsByScene(sceneID: ID!, studio_id: ID, depth: Int): [SceneOEvent!]!
   # CUSTOM: end
   "Get the date with the highest number of recorded scene O events"
-  mostOsInDay: SceneODayStat
+  mostOsInDay(studio_id: ID, depth: Int): SceneODayStat
   "Get the longest period without a recorded scene O event"
-  longestPeriodWithoutO: SceneODrySpell
+  longestPeriodWithoutO(studio_id: ID, depth: Int): SceneODrySpell
   "Get timestamped scene O events grouped by marker primary and secondary tags covering the O timestamp"
-  sceneOCountsByTag: [SceneOCountByTag!]!
+  sceneOCountsByTag(studio_id: ID, depth: Int): [SceneOCountByTag!]!
   "Get scene O events grouped by associated vato ethnicity"
-  sceneOCountsByEthnicity: [SceneOCountByEthnicity!]!
+  sceneOCountsByEthnicity(studio_id: ID, depth: Int): [SceneOCountByEthnicity!]!
   "Get recorded scene O events associated with a vato ethnicity"
-  sceneOEventsByEthnicity(ethnicity: String!): [SceneOEvent!]!
+  sceneOEventsByEthnicity(
+    ethnicity: String!
+    studio_id: ID
+    depth: Int
+  ): [SceneOEvent!]!
   "Get scene O events grouped by associated vato country"
-  sceneOCountsByCountry: [SceneOCountByCountry!]!
+  sceneOCountsByCountry(studio_id: ID, depth: Int): [SceneOCountByCountry!]!
   "Get recorded scene O events associated with a vato country"
-  sceneOEventsByCountry(country: String!): [SceneOEvent!]!
+  sceneOEventsByCountry(
+    country: String!
+    studio_id: ID
+    depth: Int
+  ): [SceneOEvent!]!
   "Get scene O events grouped by scene studio"
-  sceneOCountsByStudio: SceneOCountsByStudio!
+  sceneOCountsByStudio(studio_id: ID, depth: Int): SceneOCountsByStudio!
   "Get recorded scene O events for a scene studio"
-  sceneOEventsByStudio(studioID: ID!): [SceneOEvent!]!
+  sceneOEventsByStudio(
+    studioID: ID!
+    scope_studio_id: ID
+    depth: Int
+  ): [SceneOEvent!]!
   "Get recorded scene O events whose scene has no studio"
-  sceneOEventsWithUnknownStudio: [SceneOEvent!]!
+  sceneOEventsWithUnknownStudio(studio_id: ID, depth: Int): [SceneOEvent!]!
   "Get scene O events grouped by performer age at the scene's effective release date"
-  sceneOCountsByPerformerAge: SceneOCountsByPerformerAge!
+  sceneOCountsByPerformerAge(
+    studio_id: ID
+    depth: Int
+  ): SceneOCountsByPerformerAge!
   "Get recorded scene O events associated with a performer age at the scene's effective release date"
-  sceneOEventsByPerformerAge(age: Int!): [SceneOEvent!]!
+  sceneOEventsByPerformerAge(
+    age: Int!
+    studio_id: ID
+    depth: Int
+  ): [SceneOEvent!]!
   "Get scene O events without a usable performer age at the scene's effective release date"
-  sceneOEventsWithUnknownPerformerAge: [SceneOEvent!]!
+  sceneOEventsWithUnknownPerformerAge(
+    studio_id: ID
+    depth: Int
+  ): [SceneOEvent!]!
   "Get scene O events grouped by the scene's effective release year"
-  sceneOCountsByReleaseYear: SceneOCountsByReleaseYear!
+  sceneOCountsByReleaseYear(
+    studio_id: ID
+    depth: Int
+  ): SceneOCountsByReleaseYear!
   "Get recorded scene O events for a scene effective release year"
-  sceneOEventsByReleaseYear(year: Int!): [SceneOEvent!]!
+  sceneOEventsByReleaseYear(
+    year: Int!
+    studio_id: ID
+    depth: Int
+  ): [SceneOEvent!]!
   "Get scene O events without an effective release date"
-  sceneOEventsWithUnknownReleaseYear: [SceneOEvent!]!
+  sceneOEventsWithUnknownReleaseYear(studio_id: ID, depth: Int): [SceneOEvent!]!
   "Get the count of recorded O events whose date predates reliable O-date tracking"
-  sceneOUnreliableDateCount: Int!
+  sceneOUnreliableDateCount(studio_id: ID, depth: Int): Int!
   "Get recorded O events whose date predates reliable O-date tracking"
-  sceneOEventsBeforeTrackingStart: [SceneOEvent!]!
+  sceneOEventsBeforeTrackingStart(studio_id: ID, depth: Int): [SceneOEvent!]!
   "Get per-vato aggregate data for the Vato Stats page, optionally scoped to a studio tree"
   vatoStatsPerformers(studio_id: ID, depth: Int): [VatoStatsPerformer!]!
   "Get total number of 'orgasm' marker-tag entries, optionally scoped to a studio tree"

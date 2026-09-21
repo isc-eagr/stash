@@ -19,7 +19,6 @@ import {
   faBox,
   faCopy,
   faFilm,
-  faHand, // CUSTOM
   faImages,
   faMapMarkerAlt,
   faTag,
@@ -38,6 +37,11 @@ import {
   isRatingCardHomePage,
 } from "src/utils/ratingCardStyles_custom"; // CUSTOM
 import { SceneCardInsights } from "./SceneCardInsights_custom"; // CUSTOM
+import { SceneActivityMetrics } from "./SceneActivityMetrics_custom"; // CUSTOM
+import {
+  getSceneActivityMetrics,
+  hasVisibleSceneActivitySortMetricCustom,
+} from "./sceneActivityMetricsData_custom"; // CUSTOM
 import type { SceneCardInsightPerformerRoleStats } from "./sceneCardInsightsData_custom"; // CUSTOM
 import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
 import { getSceneSortMetricCustom } from "./sceneSortMetric_custom"; // CUSTOM
@@ -46,12 +50,7 @@ import {
   hasCatalogCardSortValueCustom,
   isCatalogCardSortHighlightedCustom,
 } from "../Shared/catalogCardSortHighlight_custom"; // CUSTOM
-// CUSTOM: begin - role icon SVG imports
-import mouthSvg from "src/assets/mouth.svg";
-import gaySvg from "src/assets/gay.svg";
-import straightSvg from "src/assets/straight.svg";
 import facialPng from "src/assets/facial.png"; // CUSTOM
-// CUSTOM: end
 
 interface IScenePreviewProps {
   isPortrait: boolean;
@@ -158,26 +157,6 @@ const Description: React.FC<{
     </>
   );
 };
-
-type SceneCardTitleIcon =
-  | {
-      type: "gay" | "mouth" | "straight" | "goatee";
-      className: string;
-      title: string;
-    }
-  | {
-      type: "hand";
-      icon: typeof faHand;
-      className: string;
-      title: string;
-    };
-
-// CUSTOM: begin - role tag icon hierarchy type
-type SceneMarkerTag = {
-  id?: string;
-  parents?: SceneMarkerTag[];
-};
-// CUSTOM: end
 
 const SceneCardPopovers = PatchComponent(
   "SceneCard.Popovers",
@@ -387,15 +366,21 @@ const SceneCardPopovers = PatchComponent(
       return (
         <>
           {shouldRenderPopoverGroup && (
+            <Description
+              sceneNumber={sceneNumber}
+              className={catalogCardSortHighlightClassCustom(
+                props.activeSortBy,
+                "group_scene_number"
+              )}
+            />
+          )}
+          {/* CUSTOM: scene insights precede the compact card controls. */}
+          <SceneCardInsights
+            scene={props.scene}
+            roleStatsByPerformer={props.roleStatsByPerformer}
+          />
+          {shouldRenderPopoverGroup && (
             <>
-              <Description
-                sceneNumber={sceneNumber}
-                className={catalogCardSortHighlightClassCustom(
-                  props.activeSortBy,
-                  "group_scene_number"
-                )}
-              />
-              <hr />
               <ButtonGroup className="card-popovers">
                 {maybeRenderTagPopoverButton()}
                 {maybeRenderPerformerPopoverButton()}
@@ -409,11 +394,6 @@ const SceneCardPopovers = PatchComponent(
               </ButtonGroup>
             </>
           )}
-          {/* CUSTOM: render insights independently of popover controls */}
-          <SceneCardInsights
-            scene={props.scene}
-            roleStatsByPerformer={props.roleStatsByPerformer}
-          />
         </>
       );
     }
@@ -428,12 +408,18 @@ const SceneCardDetails = PatchComponent(
     const { configuration } = useConfigurationContext(); // CUSTOM
     const sortDirection =
       props.activeSortDirection ?? GQL.SortDirectionEnum.Asc; // CUSTOM
+    const roleTagIds = configuration?.ui?.roleTagIds;
+    const activityMetrics = useMemo(
+      () => getSceneActivityMetrics(props.scene, roleTagIds ?? {}),
+      [props.scene, roleTagIds]
+    ); // CUSTOM
     const sortMetric = getSceneSortMetricCustom(
       props.activeSortBy,
       props.scene,
       sortDirection,
-      configuration?.ui?.roleTagIds ?? {},
-      props.fromGroupId
+      roleTagIds ?? {},
+      props.fromGroupId,
+      activityMetrics
     ); // CUSTOM
     const file = props.scene.files[0];
     const contextualGroupSceneNumber = props.fromGroupId
@@ -442,6 +428,10 @@ const SceneCardDetails = PatchComponent(
         )?.scene_index
       : undefined; // CUSTOM
     const embeddedSortMetric =
+      hasVisibleSceneActivitySortMetricCustom(
+        props.activeSortBy,
+        activityMetrics
+      ) ||
       (!props.compact &&
         isCatalogCardSortHighlightedCustom(
           props.activeSortBy,
@@ -492,6 +482,15 @@ const SceneCardDetails = PatchComponent(
           {props.scene.effective_date ?? props.scene.date}
         </span>{" "}
         {/* CUSTOM: effective_date */}
+        <SceneActivityMetrics
+          scene={props.scene}
+          className="scene-activity-metrics--card"
+          activeSortBy={props.activeSortBy}
+          activityMetrics={activityMetrics}
+          showDistributionBars // CUSTOM
+          showDistributionLabels={false} // CUSTOM
+          hideFullyUnclassifiedQualityBar // CUSTOM
+        />
         <span className="file-path extra-scene-info">
           {objectPath(props.scene)}
         </span>
@@ -724,148 +723,6 @@ export const SceneCard = PatchComponent(
       [props.scene]
     );
 
-    // CUSTOM: begin - role tag icon logic
-    // Determine which icon to show based on scene markers with role tags
-    const iconToShow = useMemo<SceneCardTitleIcon | null>(() => {
-      // Get role tag IDs from configuration
-      const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-      const { sexTagId } = roleTagIds;
-      const { oralTagId } = roleTagIds;
-      const { soloTagId } = roleTagIds;
-      const { facialTagId } = roleTagIds;
-
-      // Helper to check if a tag matches (including recursive parent/child relationships)
-      // Returns true if tag.id === targetId OR any ancestor of tag has id === targetId
-      const tagMatches = (
-        tag: SceneMarkerTag | null | undefined,
-        targetId: string | undefined,
-        visited: Set<string> = new Set()
-      ): boolean => {
-        if (!targetId || !tag?.id) return false;
-        if (tag.id === targetId) return true;
-        // Prevent infinite loops
-        if (visited.has(tag.id)) return false;
-        visited.add(tag.id);
-        // Recursively check all parents (ancestors)
-        const parents = tag.parents ?? [];
-        return parents.some((p) => tagMatches(p, targetId, visited));
-      };
-
-      // Get scene marker tag IDs (including hierarchy)
-      const markerTagIds = new Set<string>();
-      const sceneMarkers = props.scene.scene_markers ?? [];
-      for (const marker of sceneMarkers) {
-        // Determine if this marker is an oral marker
-        let isOralMarker = false;
-        if (
-          marker?.primary_tag &&
-          oralTagId &&
-          tagMatches(marker.primary_tag, oralTagId)
-        ) {
-          isOralMarker = true;
-        }
-        if (!isOralMarker) {
-          const markerTags = marker?.tags ?? [];
-          for (const tag of markerTags) {
-            if (oralTagId && tagMatches(tag, oralTagId)) {
-              isOralMarker = true;
-              break;
-            }
-          }
-        }
-
-        // Add oral markers to tag set
-        if (isOralMarker && oralTagId) {
-          markerTagIds.add(oralTagId);
-        }
-
-        // Check primary tag for non-oral tags
-        if (marker?.primary_tag) {
-          if (sexTagId && tagMatches(marker.primary_tag, sexTagId))
-            markerTagIds.add(sexTagId);
-          if (soloTagId && tagMatches(marker.primary_tag, soloTagId))
-            markerTagIds.add(soloTagId);
-          if (facialTagId && tagMatches(marker.primary_tag, facialTagId))
-            markerTagIds.add(facialTagId);
-        }
-        // Check secondary tags for non-oral tags
-        const markerTags = marker?.tags ?? [];
-        for (const tag of markerTags) {
-          if (sexTagId && tagMatches(tag, sexTagId)) markerTagIds.add(sexTagId);
-          if (soloTagId && tagMatches(tag, soloTagId))
-            markerTagIds.add(soloTagId);
-          if (facialTagId && tagMatches(tag, facialTagId))
-            markerTagIds.add(facialTagId);
-        }
-      }
-
-      // Priority: sex > oral > solo > facial
-      if (sexTagId && markerTagIds.has(sexTagId)) {
-        return {
-          type: "gay",
-          className: "scene-gay-icon",
-          title: "Scene has sex markers",
-        };
-      }
-
-      if (oralTagId && markerTagIds.has(oralTagId)) {
-        return {
-          type: "mouth",
-          className: "scene-mouth-icon",
-          title: "Scene has oral markers",
-        };
-      }
-
-      if (soloTagId && markerTagIds.has(soloTagId)) {
-        return {
-          type: "hand",
-          icon: faHand,
-          className: "scene-hand-icon",
-          title: "Scene has solo markers",
-        };
-      }
-
-      // Note: facial is intentionally not included here - it shows in the overlay instead
-      return null;
-    }, [props.scene, configuration?.ui]);
-
-    const pretitleIcon = useMemo(() => {
-      const pieces: JSX.Element[] = [];
-      if (iconToShow) {
-        if (iconToShow.type === "hand") {
-          pieces.push(
-            <Icon
-              key="primary"
-              icon={iconToShow.icon}
-              className={iconToShow.className}
-              title={iconToShow.title}
-            />
-          );
-        } else {
-          pieces.push(
-            <img
-              key="primary"
-              src={
-                iconToShow.type === "gay"
-                  ? gaySvg
-                  : iconToShow.type === "straight"
-                  ? straightSvg
-                  : iconToShow.type === "goatee"
-                  ? facialPng
-                  : mouthSvg
-              }
-              alt={iconToShow.title}
-              title={iconToShow.title}
-              className={iconToShow.className}
-            />
-          );
-        }
-      }
-      if (pieces.length === 0) return undefined;
-      return <>{pieces}</>;
-    }, [iconToShow]);
-    // CUSTOM: end
-
     function zoomIndex() {
       if (!props.compact && props.zoomIndex !== undefined) {
         return `zoom-${props.zoomIndex}`;
@@ -916,7 +773,6 @@ export const SceneCard = PatchComponent(
         className={`scene-card ${zoomIndex()} ${filelessClass()} ${getRatingClass()}`} // CUSTOM: getRatingClass
         url={sceneLink}
         title={objectTitle(props.scene)}
-        pretitleIcon={pretitleIcon} // CUSTOM
         width={props.width}
         linkClassName="scene-card-link"
         thumbnailSectionClassName="video-section"

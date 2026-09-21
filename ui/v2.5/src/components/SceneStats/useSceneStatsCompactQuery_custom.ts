@@ -9,6 +9,7 @@ import {
 const SCENE_STATS_COMPACT_QUERY = `
   query SceneStatsScenes($studioId: ID, $depth: Int) {
     s: sceneStats(studio_id: $studioId, depth: $depth) {
+      u: unique_performer_count
       r: scenes {
         i: id
         t: title
@@ -45,6 +46,7 @@ interface ISceneStatsCompactQueryResult {
   error?: Error;
   loading: boolean;
   scenes: SceneStatsScene[];
+  uniquePerformerCount: number;
 }
 
 // This large dashboard result intentionally bypasses Apollo normalization.
@@ -57,11 +59,12 @@ export function useSceneStatsCompactQuery(
   const [result, setResult] = useState<ISceneStatsCompactQueryResult>({
     loading: true,
     scenes: [],
+    uniquePerformerCount: 0,
   });
 
   useEffect(() => {
     const abortController = new AbortController();
-    setResult({ loading: true, scenes: [] });
+    setResult({ loading: true, scenes: [], uniquePerformerCount: 0 });
 
     void fetch(getPlatformURL("graphql").toString(), {
       body: JSON.stringify({
@@ -92,7 +95,7 @@ export function useSceneStatsCompactQuery(
         if (abortController.signal.aborted) return;
         setResult({
           loading: false,
-          scenes: expandSceneStatsCompactData(payload.data),
+          ...expandSceneStatsCompactData(payload.data),
         });
       })
       .catch((error: unknown) => {
@@ -101,6 +104,7 @@ export function useSceneStatsCompactQuery(
           error: error instanceof Error ? error : new Error(String(error)),
           loading: false,
           scenes: [],
+          uniquePerformerCount: 0,
         });
       });
 

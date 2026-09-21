@@ -33,6 +33,7 @@ import { StudioGroupsPanel } from "./StudioGroupsPanel";
 import { StudioCategoryStrip } from "./StudioCategoryStrip"; // CUSTOM
 import { StudioStatsPanel } from "./StudioStatsPanel"; // CUSTOM
 import { StudioVatoStatsPanel } from "./StudioVatoStatsPanel"; // CUSTOM
+import { StudioOStatsPanel } from "./StudioOStatsPanel"; // CUSTOM
 import { faTrashAlt } from "@fortawesome/free-solid-svg-icons";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import { DetailImage } from "src/components/Shared/DetailImage";
@@ -78,6 +79,7 @@ const validTabs = [
   "childstudios",
   "stats",
   "vatostats", // CUSTOM
+  "ostats", // CUSTOM
 ] as const;
 type TabKey = (typeof validTabs)[number];
 
@@ -292,6 +294,13 @@ const StudioTabs: React.FC<{
       <Tab eventKey="vatostats" title="Vato Stats">
         {contentSwitch}
         <StudioVatoStatsPanel
+          studio={studio}
+          showChildStudioContent={showAllDetails}
+        />
+      </Tab>
+      <Tab eventKey="ostats" title="O Stats">
+        {contentSwitch}
+        <StudioOStatsPanel
           studio={studio}
           showChildStudioContent={showAllDetails}
         />

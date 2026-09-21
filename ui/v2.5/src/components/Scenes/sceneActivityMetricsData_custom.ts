@@ -1,23 +1,55 @@
 import type * as GQL from "src/core/generated-graphql";
 import { isChronologicalSceneMarkerGoatTagged } from "./SceneDetails/sceneMarkerChronologyLayout_custom";
+import {
+  getActivityTypePercentagesCustom,
+  getPartitionPercentagesCustom,
+} from "../Shared/activityTypePercentages_custom";
 
 export type SceneActivityCategory = "sex" | "oral" | "solo";
-type SceneQualityCategory = "outstanding" | "standard" | "unusable";
-type SceneActivityMetricKey =
+type SceneQualityCategory =
+  | "outstanding"
+  | "standard"
+  | "unclassified"
+  | "unusable";
+export type SceneActivityMetricKey =
   | SceneActivityCategory
-  | "other"
-  | SceneQualityCategory;
+  | SceneQualityCategory
+  | `${SceneActivityCategory}-${SceneQualityCategory}`
+  | "other";
 
 export type SceneActivityMetric = {
   key: SceneActivityMetricKey;
   label: string;
   percent: number;
+  duration?: number;
+  showPercent?: boolean;
+  color?: string;
+  outstandingPercent?: number;
+  outstandingDuration?: number;
 };
 
-type SceneActivityMetricRows = {
+export type SceneActivityMetricRows = {
   activity: SceneActivityMetric[];
   quality: SceneActivityMetric[];
 };
+
+export function hasVisibleSceneActivitySortMetricCustom(
+  sortBy: string | undefined,
+  metrics: SceneActivityMetricRows | undefined
+): boolean {
+  const suffix = "_activity_percent";
+  if (!sortBy?.endsWith(suffix) || !metrics) return false;
+
+  const key = sortBy.slice(0, -suffix.length);
+  return (
+    metrics.activity.some(
+      (metric) => metric.key === key && (metric.duration ?? 0) > 0
+    ) ||
+    metrics.quality.some(
+      (metric) => metric.key === key && (metric.duration ?? 0) > 0
+    )
+  );
+}
 
 type SceneActivityInterval = {
   start: number;
@@ -166,15 +198,36 @@ function subtractSceneActivityIntervals(
   });
 }
 
+function intersectSceneActivityIntervals(
+  firstIntervals: SceneActivityInterval[],
+  secondIntervals: SceneActivityInterval[]
+) {
+  const first = mergeSceneActivityIntervals(firstIntervals);
+  const second = mergeSceneActivityIntervals(secondIntervals);
+  const intersections: SceneActivityInterval[] = [];
+  let firstIndex = 0;
+  let secondIndex = 0;
+
+  while (firstIndex < first.length && secondIndex < second.length) {
+    const start = Math.max(first[firstIndex].start, second[secondIndex].start);
+    const end = Math.min(first[firstIndex].end, second[secondIndex].end);
+    if (end > start) intersections.push({ start, end });
+
+    if (first[firstIndex].end < second[secondIndex].end) {
+      firstIndex += 1;
+    } else {
+      secondIndex += 1;
+    }
+  }
+
+  return intersections;
+}
+
 function getSceneActivityDuration(intervals: SceneActivityInterval[]) {
   return mergeSceneActivityIntervals(intervals).reduce(
     (sum, interval) => sum + interval.end - interval.start,
     0
   );
-}
-
-function getSceneActivityPercent(duration: number, sceneDuration: number) {
-  return Math.round((duration / sceneDuration) * 100);
 }
 
 export function getSceneActivityMetrics(
@@ -224,75 +277,103 @@ export function getSceneActivityMetrics(
       }))
       .filter((interval) => interval.end > interval.start) ?? [];
 
-  const allActivityIntervals = [
-    ...intervalsByCategory.sex,
-    ...intervalsByCategory.oral,
-    ...intervalsByCategory.solo,
-  ];
-  const activityCoveredDuration =
-    getSceneActivityDuration(allActivityIntervals);
+  const activityDurations = {
+    sex: getSceneActivityDuration(intervalsByCategory.sex),
+    oral: getSceneActivityDuration(intervalsByCategory.oral),
+    solo: getSceneActivityDuration(intervalsByCategory.solo),
+  };
+  const activityPercentages =
+    getActivityTypePercentagesCustom(activityDurations);
+  const activityIntervals = Object.values(intervalsByCategory).flat();
+  const activityOutstandingIntervals = intersectSceneActivityIntervals(
+    activityIntervals,
+    outstandingIntervals
+  );
+  const usableOutstandingIntervals = subtractSceneActivityIntervals(
+    activityOutstandingIntervals,
+    unusableIntervals
+  );
   const outstandingDuration = getSceneActivityDuration(
-    subtractSceneActivityIntervals(outstandingIntervals, unusableIntervals)
+    usableOutstandingIntervals
   );
   const unusableDuration = getSceneActivityDuration(unusableIntervals);
-  const qualityCoveredDuration = getSceneActivityDuration([
+  const standardIntervals = subtractSceneActivityIntervals(activityIntervals, [
     ...outstandingIntervals,
     ...unusableIntervals,
   ]);
+  const standardDuration = getSceneActivityDuration(standardIntervals);
+  const unclassifiedIntervals = subtractSceneActivityIntervals(
+    [{ start: 0, end: sceneDuration }],
+    [...activityIntervals, ...unusableIntervals]
+  );
+  const unclassifiedDuration = getSceneActivityDuration(unclassifiedIntervals);
+  const qualityDurations = {
+    outstanding: outstandingDuration,
+    standard: standardDuration,
+    unclassified: unclassifiedDuration,
+    unusable: unusableDuration,
+  };
+  const qualityPercentages = getPartitionPercentagesCustom(qualityDurations, [
+    "outstanding",
+    "standard",
+    "unclassified",
+    "unusable",
+  ]);
 
   return {
-    activity: [
-      {
-        key: "sex",
-        label: "Sex",
-        percent: getSceneActivityPercent(
-          getSceneActivityDuration(intervalsByCategory.sex),
-          sceneDuration
-        ),
-      },
-      {
-        key: "oral",
-        label: "Oral",
-        percent: getSceneActivityPercent(
-          getSceneActivityDuration(intervalsByCategory.oral),
-          sceneDuration
-        ),
-      },
-      {
-        key: "solo",
-        label: "Solo",
-        percent: getSceneActivityPercent(
-          getSceneActivityDuration(intervalsByCategory.solo),
-          sceneDuration
-        ),
-      },
-      {
-        key: "other",
-        label: "Other",
-        percent: getSceneActivityPercent(
-          Math.max(0, sceneDuration - activityCoveredDuration),
-          sceneDuration
-        ),
-      },
-    ],
+    activity: (
+      [
+        ["sex", "Fucking"],
+        ["oral", "Eating pito"],
+        ["solo", "Jerking"],
+      ] as const
+    ).flatMap(([key, label]) => {
+      const duration = activityDurations[key];
+      if (duration <= 0) return [];
+      const activityOutstandingDuration = getSceneActivityDuration(
+        intersectSceneActivityIntervals(
+          intervalsByCategory[key],
+          usableOutstandingIntervals
+        )
+      );
+
+      return [
+        {
+          key,
+          label,
+          percent: activityPercentages[key],
+          duration,
+          outstandingPercent: Math.round(
+            (activityOutstandingDuration / duration) * 100
+          ),
+          outstandingDuration: activityOutstandingDuration,
+        },
+      ];
+    }),
     quality: [
       {
         key: "outstanding",
         label: "Outstanding",
-        percent: getSceneActivityPercent(outstandingDuration, sceneDuration),
+        duration: outstandingDuration,
+        percent: qualityPercentages.outstanding,
       },
       {
         key: "standard",
         label: "Standard",
-        percent: getSceneActivityPercent(
-          Math.max(0, sceneDuration - qualityCoveredDuration),
-          sceneDuration
-        ),
+        duration: standardDuration,
+        percent: qualityPercentages.standard,
+      },
+      {
+        key: "unclassified",
+        label: "Unclassified",
+        duration: unclassifiedDuration,
+        percent: qualityPercentages.unclassified,
       },
       {
         key: "unusable",
         label: "Unusable",
-        percent: getSceneActivityPercent(unusableDuration, sceneDuration),
+        duration: unusableDuration,
+        percent: qualityPercentages.unusable,
       },
     ],
   };

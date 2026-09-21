@@ -1,14 +1,11 @@
 import React from "react";
 import * as GQL from "src/core/generated-graphql";
-import { useRoleTags } from "src/hooks/useRoleTags";
-import {
-  ACTIVITY_PIE_COLORS,
-  getSceneMarkerTagColorCustom,
-} from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
+import { ACTIVITY_PIE_COLORS } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
 import { SceneStatsActivityMatrix } from "src/components/SceneStats/SceneStatsActivityMatrix_custom"; // CUSTOM
 import { PerformerSceneRatingAdvisorStats } from "../PerformerSceneRatingAdvisor_custom"; // CUSTOM
 import { PerformerStatsBarChart } from "./PerformerStatsBarChart_custom"; // CUSTOM
 import type { IPerformerStatsBarRow } from "./PerformerStatsBarChart_custom"; // CUSTOM
+import { getActivityTypePercentagesCustom } from "src/components/Shared/activityTypePercentages_custom"; // CUSTOM
 
 interface IProps {
   active: boolean;
@@ -27,29 +24,33 @@ export const PerformerStatsPanel: React.FC<IProps> = ({
   active,
   performer,
 }) => {
-  const { soloTag } = useRoleTags();
-  const soloMarkerColor = getSceneMarkerTagColorCustom(soloTag?.name);
+  const soloMarkerColor = ACTIVITY_PIE_COLORS.solo;
   const stats = performer.activity_stats;
+  const activityPercentages = getActivityTypePercentagesCustom({
+    sex: stats.sex_seconds,
+    oral: stats.oral_seconds,
+    solo: stats.solo_seconds,
+  });
   const activityRows: IPerformerStatsBarRow[] = [
     {
       key: "sex",
       label: activityLabels.sex,
       seconds: stats.sex_seconds,
-      percent: stats.sex_percent,
+      percent: activityPercentages.sex,
       color: ACTIVITY_PIE_COLORS.sex,
     },
     {
       key: "oral",
       label: activityLabels.oral,
       seconds: stats.oral_seconds,
-      percent: stats.oral_percent,
+      percent: activityPercentages.oral,
       color: ACTIVITY_PIE_COLORS.oral,
     },
     {
       key: "solo",
       label: activityLabels.solo,
       seconds: stats.solo_seconds,
-      percent: stats.solo_percent,
+      percent: activityPercentages.solo,
       color: soloMarkerColor,
     },
   ];

@@ -199,11 +199,17 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 		}
 	}
 
+	var sharedUnnamedBindings map[string]string
 	buildUnnamedPerformerSelect := func(smAlias string, role string, slot models.UnnamedPerformerCriterionInput, smpAlias string, performerAlias string, bothRoles bool) sqlFragment {
 		attr := buildPerformerAttributeClause(performerAlias, slot.Ethnicities, slot.Countries, slot.Rating, slot.RatingCriteria)
 		clauses := []string{
 			fmt.Sprintf("%s.scene_marker_id = %s.id", smpAlias, smAlias),
 			attr.clause,
+		}
+		if slot.ID != nil {
+			if binding := sharedUnnamedBindings[*slot.ID]; binding != "" {
+				clauses = append(clauses, smpAlias+".performer_id = "+binding)
+			}
 		}
 		if role != "" {
 			clauses = append(clauses, fmt.Sprintf("%s.role = '%s'", smpAlias, role))
@@ -1448,6 +1454,22 @@ WHERE sm_excl.scene_id = {primaryTable}.id
 					}
 					f.addWhere(excludeSubq, excludeArgs...)
 				}
+			}
+
+			identityClause, identityArgs := sceneMarkerSharedIdentityClauseCustom(c.GroupsExtended, h.primaryTable+".id", func(group models.SceneMarkerTagGroupInput, alias string, bindings map[string]string) (string, []any) {
+				sharedUnnamedBindings = bindings
+				condition, ok := buildSceneMarkerGroupCondition(group, alias)
+				sharedUnnamedBindings = nil
+				if !ok {
+					return "0=1", nil
+				}
+				return condition.clause, condition.args
+			})
+			if f.getError() != nil {
+				return
+			}
+			if identityClause != "" {
+				f.addWhere(identityClause, identityArgs...)
 			}
 
 			// Process GroupsExtendedExclude - exclude scenes with markers matching these full criteria.

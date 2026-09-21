@@ -99,6 +99,8 @@ The fork adds marker-aware and role-aware criteria to the Scenes, Markers, Perfo
 - Explicit overlap groups require marker ranges to overlap. Directed tag inheritance is separate: an equal-or-longer source marker contributes tags only when its intersection covers at least 50% of the receiving marker. A wider marker never inherits from a narrower marker inside it.
 - The Markers page has a Marker Performers criterion, a Has Roles criterion (Top/Bottom checkboxes), a Studio criterion with hierarchical child-studio matching, and a unified include/exclude Performer Markers criterion.
 - Unnamed performers (Performer A, Performer B, …) can be defined by ethnicity, country, rating, and Rating Advisor criteria. Reusing a letter requires the same actual performer across the referenced roles/configurations.
+- Non-overlapping scene-marker configurations bind shared unnamed IDs to one person while requiring different unnamed IDs and each configuration to resolve to distinct people and markers. `pkg/sqlite/scene_marker_identity_custom.go` preserves each configuration's tag and AND/OR constraints; `scene_marker_identity_custom_test.go` covers giving/receiving the same activity, reciprocal roles, single-marker self-role rejection, different-person rejection, unrestricted tags, alternative roles, and multiple shared identities.
+- Markers and Scene Markers (including Exclude) use compact summaries and a shared outline editor (`MarkerFilterEditor.tsx`, `markerFilterEditor_custom.ts`, and `markerFilterEditor_custom.scss`). Existing selectors and Rating Criteria are retained; unnamed vatos can be created, copied as distinct people, or reused directly within a role. Apply commits the draft; Cancel preserves the original filter. `markerFilterEditor_custom.test.ts` covers identity, draft isolation, rating criteria, and query/saved-filter preservation. No schema or configuration changes.
 
 ### Scene and performer criteria
 
@@ -124,13 +126,14 @@ SQLite and UI tests cover the 50% overlap boundary, exclusion behavior, role mat
 
 ### Overview
 
-The custom statistics experience is split into hidden, focused destinations instead of the retired `/customstats` page. Shared navigation links to `/scenestats`, `/vatostats`, `/ostats`, and the `/stats/playground` hub; Scene and Vato Stats can also be embedded in Studio detail tabs with a recursive child-studio scope.
+The custom statistics experience is split into hidden, focused destinations instead of the retired `/customstats` page. Shared navigation links to `/scenestats`, `/vatostats`, `/ostats`, and the `/stats/playground` hub; Scene, Vato, and O Stats can also be embedded in Studio detail tabs with an optional child-studio scope.
 
 ### Scene Stats (`/scenestats`)
 
 - Scene podiums cover O Count, Rating, Duration, File Size, Most Recent O, Vato Count, and Facial Count, including rolling-year variants.
 - Charts cover vato ethnicity/country/count, O Count, release year/month/day, facial status/count, Really Hot Facial count, scene type, duration buckets, resolution, and metallic rating (including a set-but-unqualified `None` bucket).
-- Activity Type and Quality donuts, orgasm/facial totals, total orgasm/facial/sex/oral time, Rating Advisor averages, and the Outstanding Activity Matrix are available globally and for Studio-scoped Scene Stats.
+- Global and Studio Scene Stats show average scene length for scenes with a known duration and average scenes per distinct performer in the current scope.
+- Activity Type and Quality donuts, orgasm/facial totals, total orgasm/facial/sex/oral time, Rating Advisor averages, and the Outstanding Activity Matrix are available globally and for Studio-scoped Scene Stats. Sex, Oral, and Solo partition 100% of classified activity duration; unclassified Other time is shown only as a raw duration in a scene's Stats tab.
 - Chart selections open scoped list drilldowns; URL-backed state restores Studio scope, filters, podium metric, list visibility, selected section, and child-studio mode on refresh/back navigation.
 
 ### Vato Stats (`/vatostats`)
@@ -144,10 +147,11 @@ The custom statistics experience is split into hidden, focused destinations inst
 
 - Hidden O-date timelines and drilldowns by year/month/day, activity type, marker tag, vato ethnicity/country/age, Studio, and scene effective release year.
 - Newest-first event timelines show associated marker tags, per-scene ordinal chips, scene/vato links, and optional exact O screenshots generated from video timestamps. Reliable-date filtering starts at 2024-03-08 for date charts only.
+- Studio details add O Stats beside Vato Stats. Every applicable aggregate and drilldown filters to that studio, follows the existing Include child studios switch, and keeps the scope while navigating charts and event groups. The global daily-record summaries and By Studio breakdown are omitted from the embedded Studio view.
 
 ### Insight Stats (Playground tab)
 
-- Scans the library in bounded pages and compares saved Scene Insight chips with temporary in-memory thresholds. Current/preview chip counts link to exact Scene ID snapshots, and chip-family drilldowns retain their evidence and combinations. Mixed Sex/Oral chips report the direct duration split (for example, `67% fucking, 33% eating pito`) instead of qualitative leaning bands, so their linked Scene filters use the same percentage labels.
+- Scans the library in bounded pages and compares saved Scene Insight chips with temporary in-memory thresholds. Current/preview chip counts link to exact Scene ID snapshots, and chip-family drilldowns retain their evidence and combinations. Activity quality combinations group Outstanding Sex and Oral shares into 20-point ranges; Fucking / eating pito splits use 10-point ranges.
 - Insight Stats is the fourth `/stats/playground` tab rather than a standalone destination. Its threshold changes never persist; the scan is cached in IndexedDB for 12 hours and obsolete worker calculations are cancelled. The scene scan and cache are shared with the other Playground tabs, including the extra fields needed by their filters and tooltips.
 
 ### Implementation and schema
@@ -158,7 +162,7 @@ The custom statistics experience is split into hidden, focused destinations inst
 
 ### Tests
 
-Go and UI tests cover scope construction, interval merging, marker weighting, rolling-year eligibility, chart buckets/Unknown handling, Activity Matrix aggregation, O event ordering/navigation, chip-preview worker cancellation/cache reuse, Playground tab routing, and exact Scene/Vato snapshot filters.
+Go and UI tests cover scope construction (including Studio O Stats), interval merging, marker weighting, rolling-year eligibility, chart buckets/Unknown handling, Activity Matrix aggregation, O event ordering/navigation, objective activity icon summaries and zero suppression, quality/split percentage ranges, chip-preview worker cancellation/cache reuse, Playground tab routing, and exact Scene/Vato snapshot filters.
 
 ---
 
@@ -250,11 +254,11 @@ Tests cover image CRUD/default behavior and duplicate handling, profile-image co
 
 ### Scene card metrics
 
-Scene cards and scene details show configurable Sex/Oral/Solo/Facial icons, Really Hot facial precedence, role-aware performer strips, and partitioned Activity Type/Quality percentages. Same-category intervals are merged; cross-category activity is retained in each category; Quality partitions runtime into Outstanding, Standard, and Unusable. GOAT marker descendants count as Outstanding and use the same Royal Sapphire styling as rating cards.
+Scene cards and details show role-aware performer strips and partitioned Activity Type/Quality percentages. Sex, Oral, and Solo percentages use their combined classified duration as the denominator and are rounded together to exactly 100%; Other is shown only as a duration in Activity Type stats. Same-category intervals are merged and cross-category activity is retained in each category. Quality partitions runtime into Outstanding, Standard, Unclassified, and Unusable: Unclassified is time outside activity-type and negative markers (and may include other markers such as Feet), while Unusable is time covered by negative markers. GOAT marker descendants count as Outstanding and use the same Royal Sapphire styling as rating cards. Activity boxes show each nonzero Sex, Oral, or Solo share and duration with an icon, plus its Outstanding share and duration; the copy is numeric-only while accessible labels identify each metric. Matching quality boxes show the nonzero Outstanding, Standard, Unclassified, and Unusable shares and durations with their icons. Icons use one neutral color on un-tiered cards, and tiered cards use the matching metallic ring color. Activity boxes appear below the release date on cards and directly below the title on scene details; card popovers follow Scene Insights. The former activity summary insight chips, scene-type title icon, and old qualitative activity-quality chips and thresholds have been removed.
 
 ### Scene Insights
 
-Scene cards and scene details expose a typed, evidence-backed insight strip with a complete hover popup. It can report GOAT and common Outstanding Activity tags, event reports for Orgasm/Facial, repeated or simultaneous orgasms, activity quality, filler/highlights, Mexican or Royal-Sapphire lineup context, role rarity, interactions, and stored Rating Advisor warnings. A configurable visible-chip limit keeps the card compact; the popup retains every candidate and its evidence.
+Scene cards and scene details expose a typed, evidence-backed insight strip with a complete hover popup. It can report GOAT and common Outstanding Activity tags, one combined Orgasm/Facial event chip, repeated or simultaneous orgasms, activity quality, Mexican or Royal-Sapphire lineup context, role rarity, interactions, and stored Rating Advisor warnings. The combined chip summarizes the total, facial and regular counts, and GOAT/Really Hot counts; its event popover shows every counted event with quality pills. Facial events show top portraits in blue and bottom portraits in green, while regular orgasms show only the top performer without a role outline. Insight Stats uses one Orgasm and Facial reports family with descending total, regular, facial, GOAT, and Really Hot event-count breakdowns. The hover stays open as the pointer enters the popup; event cards use a responsive column grid and the popup scrolls within the available viewport space. A configurable visible-chip limit keeps the card compact; the popup retains every visible candidate and its evidence. The Lackluster, Few Highlights, Everybody Nuts, standalone Feet, and Lots of filler insight families and their related thresholds are retired from scene cards, settings, and Insight Stats. Feet remains available through ordinary tag reports and the activity matrix. Quality combinations and Fucking / eating pito splits are retained for Insight Stats as bounded percentage ranges rather than separate card chips.
 
 The Outstanding Activity Matrix is available from a scene, vato, global Scene Stats, or Studio Scene Stats. It merges intervals, shows duration and marker counts by tag and performer, supports direct/sub-tag roll-up, and links to the matching tag-marker view. GOAT evidence remains separate and higher priority. Scene cards use batched performer history and marker context so insights do not issue one query per card.
 
@@ -267,7 +271,7 @@ The Outstanding Activity Matrix is available from a scene, vato, global Scene St
 
 ### Tests
 
-Coverage includes candidate selection/priority, GOAT and event precedence, tag ancestry, interval merging, Activity Matrix totals, vato attribution, quality/filler boundaries, and seven-chip rendering.
+Coverage includes candidate selection/priority, GOAT and event precedence, per-facial role portraits, tag ancestry, interval merging, Activity Matrix totals, vato attribution, retired chip-family removal, quality boundaries, and seven-chip rendering.
 
 ---
 

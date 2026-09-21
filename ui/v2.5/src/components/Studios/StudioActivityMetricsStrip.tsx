@@ -3,22 +3,26 @@ import { OverlayTrigger, Tooltip } from "react-bootstrap";
 import {
   faBan,
   faCheckCircle,
-  faClock,
   faHand,
+  faQuestionCircle,
   faStar,
 } from "@fortawesome/free-solid-svg-icons";
 import { Icon } from "src/components/Shared/Icon";
 import * as GQL from "src/core/generated-graphql";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
+import {
+  getActivityTypePercentagesCustom,
+  getPartitionPercentagesCustom,
+} from "src/components/Shared/activityTypePercentages_custom";
 
 type StudioActivityMetricKey =
   | "sex"
   | "oral"
   | "solo"
-  | "other"
   | "outstanding"
   | "standard"
+  | "unclassified"
   | "unusable";
 
 type StudioActivityMetric = {
@@ -34,10 +38,16 @@ type StudioActivityStats = Pick<
   | "sex_percent"
   | "oral_percent"
   | "solo_percent"
-  | "activity_other_percent"
+  | "sex_seconds"
+  | "oral_seconds"
+  | "solo_seconds"
   | "outstanding_percent"
   | "standard_percent"
   | "unusable_percent"
+  | "other_seconds"
+  | "outstanding_seconds"
+  | "standard_seconds"
+  | "unusable_seconds"
   | "sex_scene_count"
   | "oral_scene_count"
   | "solo_scene_count"
@@ -78,9 +88,6 @@ function renderStudioActivityMetric(
         {metric.key === "solo" && (
           <Icon icon={faHand} className="studio-activity-metric__hand" />
         )}
-        {metric.key === "other" && (
-          <Icon icon={faClock} className="studio-activity-metric__other" />
-        )}
         {metric.key === "outstanding" && (
           <Icon icon={faStar} className="studio-activity-metric__outstanding" />
         )}
@@ -92,6 +99,12 @@ function renderStudioActivityMetric(
         )}
         {metric.key === "unusable" && (
           <Icon icon={faBan} className="studio-activity-metric__unusable" />
+        )}
+        {metric.key === "unclassified" && (
+          <Icon
+            icon={faQuestionCircle}
+            className="studio-activity-metric__unclassified"
+          />
         )}
         <span>{metric.percent}%</span>
       </span>
@@ -105,51 +118,65 @@ export const StudioActivityMetricsStrip: React.FC<IProps> = ({
   showHeadings = false,
 }) => {
   if (!stats || stats.total_seconds <= 0) return null;
+  const activityPercentages = getActivityTypePercentagesCustom({
+    sex: stats.sex_seconds,
+    oral: stats.oral_seconds,
+    solo: stats.solo_seconds,
+  });
 
   const activityMetrics: StudioActivityMetric[] = [
     {
       key: "sex",
       label: "Sex",
-      percent: Math.round(stats.sex_percent),
+      percent: activityPercentages.sex,
       sceneCount: stats.sex_scene_count,
     },
     {
       key: "oral",
       label: "Oral",
-      percent: Math.round(stats.oral_percent),
+      percent: activityPercentages.oral,
       sceneCount: stats.oral_scene_count,
     },
     {
       key: "solo",
       label: "Solo",
-      percent: Math.round(stats.solo_percent),
+      percent: activityPercentages.solo,
       sceneCount: stats.solo_scene_count,
-    },
-    {
-      key: "other",
-      label: "Other",
-      percent: Math.round(stats.activity_other_percent),
-      sceneCount: null,
     },
   ];
 
+  const qualityPercentages = getPartitionPercentagesCustom(
+    {
+      outstanding: stats.outstanding_seconds,
+      standard: stats.standard_seconds,
+      unclassified: stats.other_seconds,
+      unusable: stats.unusable_seconds,
+    },
+    ["outstanding", "standard", "unclassified", "unusable"]
+  );
   const qualityMetrics: StudioActivityMetric[] = [
     {
       key: "outstanding",
       label: "Outstanding",
-      percent: Math.round(stats.outstanding_percent),
+      percent: qualityPercentages.outstanding,
       sceneCount: null,
     },
     {
       key: "standard",
       label: "Standard",
-      percent: Math.round(stats.standard_percent),
+      percent: qualityPercentages.standard,
+      sceneCount: null,
+    },
+    {
+      key: "unclassified",
+      label: "Unclassified",
+      percent: qualityPercentages.unclassified,
       sceneCount: null,
     },
     {
       key: "unusable",
       label: "Unusable",
-      percent: Math.round(stats.unusable_percent),
+      percent: qualityPercentages.unusable,
       sceneCount: null,
     },
   ];

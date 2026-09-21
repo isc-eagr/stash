@@ -153,17 +153,7 @@ export interface IUIConfig {
   // CUSTOM: begin - scene card insight thresholds
   sceneCardInsightThresholds?: {
     visibleInsightLimit?: number;
-    goodOutstandingPercent?: number;
-    greatOutstandingPercent?: number;
-    amazingOutstandingPercent?: number;
-    nearPerfectOutstandingPercent?: number;
     rareRoleMaximumPercent?: number;
-    fewHighlightsMaxEpisodes?: number;
-    fewHighlightsMaxPercent?: number;
-    fillerTotalPercent?: number;
-    lacklusterNegativePercent?: number;
-    lacklusterOutstandingSuppressPercent?: number;
-    lacklusterNonOutstandingPercent?: number;
     tagGoodAmountMinPercent?: number;
     tagLotsMinPercent?: number;
     tagEyeCanSeeMinPercent?: number;

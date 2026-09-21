@@ -1,13 +1,11 @@
 import type { IUIConfig } from "src/core/config";
 import { getPerformerRareRoleAction } from "../Performers/performerRolePartnerLabels_custom";
 import {
-  formatDuration,
   hasMinimumRuleEvidence,
   intervalDuration,
   markerCoverageDetail,
   markerInterval,
   markerStats,
-  mergeIntervals,
   overlapSeconds,
   percentOfScene,
   type InsightInterval,
@@ -22,6 +20,7 @@ import {
 import type {
   ISceneCardInsight,
   SceneCardInsightCandidate,
+  SceneCardInsightEvent,
   SceneCardInsightMarker,
   SceneCardInsightPerformer,
   SceneCardInsightPerformerRoleStats,
@@ -43,17 +42,7 @@ export type {
 
 export const defaultSceneCardInsightThresholds: SceneCardInsightThresholds = {
   visibleInsightLimit: 7,
-  goodOutstandingPercent: 20,
-  greatOutstandingPercent: 40,
-  amazingOutstandingPercent: 60,
-  nearPerfectOutstandingPercent: 80,
   rareRoleMaximumPercent: 20,
-  fewHighlightsMaxEpisodes: 1,
-  fewHighlightsMaxPercent: 5,
-  fillerTotalPercent: 20,
-  lacklusterNegativePercent: 30,
-  lacklusterOutstandingSuppressPercent: 35,
-  lacklusterNonOutstandingPercent: 85,
   tagGoodAmountMinPercent: 10,
   tagLotsMinPercent: 25,
   tagEyeCanSeeMinPercent: 50,
@@ -77,39 +66,6 @@ export function normalizeSceneCardInsightThresholds(
     defaultSceneCardInsightThresholds.visibleInsightLimit,
     1,
     20
-  );
-  const goodOutstandingPercent = finiteInteger(
-    value?.goodOutstandingPercent,
-    defaultSceneCardInsightThresholds.goodOutstandingPercent,
-    0,
-    100
-  );
-  const greatOutstandingPercent = Math.max(
-    goodOutstandingPercent,
-    finiteInteger(
-      value?.greatOutstandingPercent,
-      defaultSceneCardInsightThresholds.greatOutstandingPercent,
-      0,
-      100
-    )
-  );
-  const amazingOutstandingPercent = Math.max(
-    greatOutstandingPercent,
-    finiteInteger(
-      value?.amazingOutstandingPercent,
-      defaultSceneCardInsightThresholds.amazingOutstandingPercent,
-      0,
-      100
-    )
-  );
-  const nearPerfectOutstandingPercent = Math.max(
-    amazingOutstandingPercent,
-    finiteInteger(
-      value?.nearPerfectOutstandingPercent,
-      defaultSceneCardInsightThresholds.nearPerfectOutstandingPercent,
-      0,
-      100
-    )
   );
   const tagGoodAmountMinPercent = finiteInteger(
     value?.tagGoodAmountMinPercent,
@@ -137,49 +93,9 @@ export function normalizeSceneCardInsightThresholds(
   );
   return {
     visibleInsightLimit,
-    goodOutstandingPercent,
-    greatOutstandingPercent,
-    amazingOutstandingPercent,
-    nearPerfectOutstandingPercent,
     rareRoleMaximumPercent: finiteInteger(
       value?.rareRoleMaximumPercent,
       defaultSceneCardInsightThresholds.rareRoleMaximumPercent,
-      0,
-      100
-    ),
-    fewHighlightsMaxEpisodes: finiteInteger(
-      value?.fewHighlightsMaxEpisodes,
-      defaultSceneCardInsightThresholds.fewHighlightsMaxEpisodes,
-      0,
-      100
-    ),
-    fewHighlightsMaxPercent: finiteInteger(
-      value?.fewHighlightsMaxPercent,
-      defaultSceneCardInsightThresholds.fewHighlightsMaxPercent,
-      0,
-      100
-    ),
-    fillerTotalPercent: finiteInteger(
-      value?.fillerTotalPercent,
-      defaultSceneCardInsightThresholds.fillerTotalPercent,
-      0,
-      100
-    ),
-    lacklusterNegativePercent: finiteInteger(
-      value?.lacklusterNegativePercent,
-      defaultSceneCardInsightThresholds.lacklusterNegativePercent,
-      0,
-      100
-    ),
-    lacklusterOutstandingSuppressPercent: finiteInteger(
-      value?.lacklusterOutstandingSuppressPercent,
-      defaultSceneCardInsightThresholds.lacklusterOutstandingSuppressPercent,
-      0,
-      100
-    ),
-    lacklusterNonOutstandingPercent: finiteInteger(
-      value?.lacklusterNonOutstandingPercent,
-      defaultSceneCardInsightThresholds.lacklusterNonOutstandingPercent,
       0,
       100
     ),
@@ -192,12 +108,6 @@ export function normalizeSceneCardInsightThresholds(
 type ActivityCategory = "sex" | "oral" | "solo";
 type EventCategory = "orgasm" | "facial";
 type InsightCandidate = SceneCardInsightCandidate;
-
-const activityLabels: Record<ActivityCategory, string> = {
-  sex: "sex",
-  oral: "oral",
-  solo: "solo",
-};
 
 function allMarkerTags(marker: SceneCardInsightMarker) {
   return [marker.primary_tag, ...marker.tags];
@@ -370,36 +280,40 @@ function eventCategoryForTag(
   return undefined;
 }
 
-function eventReportLabel(
-  category: EventCategory,
-  count: number,
-  goatCount: number,
-  reallyHotCount: number
-) {
-  const eventName =
-    category === "orgasm"
-      ? count === 1
-        ? "orgasm"
-        : "orgasms"
-      : count === 1
-      ? "facial"
-      : "facials";
-  const highlights: string[] = [];
-  if (goatCount > 0) highlights.push(`${goatCount} GOAT`);
-  if (reallyHotCount > 0) highlights.push(`${reallyHotCount} Really Hot`);
-  return `${count} ${eventName}${
-    highlights.length > 0 ? `: ${highlights.join(", ")}` : ""
+function eventReportLabel(events: SceneCardInsightEvent[]) {
+  const categories: Array<{ category: EventCategory; name: string }> = [
+    { category: "facial", name: "facial" },
+    { category: "orgasm", name: "regular" },
+  ];
+  const sections = categories.flatMap(({ category, name }) => {
+    const categoryEvents = events.filter(
+      (event) => event.category === category
+    );
+    if (categoryEvents.length === 0) return [];
+
+    const qualifiers = [
+      ["GOAT", categoryEvents.filter((event) => event.quality === "GOAT")],
+      [
+        "Really Hot",
+        categoryEvents.filter((event) => event.quality === "Really Hot"),
+      ],
+    ] as const;
+    const qualifierSummary = qualifiers
+      .filter(([, qualifiedEvents]) => qualifiedEvents.length > 0)
+      .map(([label, qualifiedEvents]) => `${qualifiedEvents.length} ${label}`)
+      .join(", ");
+    const eventName =
+      category === "facial" && categoryEvents.length !== 1 ? "facials" : name;
+    return [
+      `${categoryEvents.length} ${eventName}${
+        qualifierSummary ? ` (${qualifierSummary})` : ""
+      }`,
+    ];
+  });
+
+  return `${events.length} total${
+    sections.length > 0 ? ` · ${sections.join(" · ")}` : ""
   }`;
-}
-
-// CUSTOM: Match the SceneStats event weighting rule: one event per assigned
-// top, with a minimum of one event for markers without a top assignment.
-function eventMarkerCount(marker: SceneCardInsightMarker) {
-  return Math.max(marker.top_performers?.length ?? 0, 1);
-}
-
-function eventMarkersCount(markers: SceneCardInsightMarker[]) {
-  return markers.reduce((total, marker) => total + eventMarkerCount(marker), 0);
 }
 
 export type OutstandingActivityAmountLevel =
@@ -640,29 +554,22 @@ export function getOutstandingActivityChipLabel(
     .join(" · ");
 }
 
-function activityQualityLevel(
-  percent: number,
-  thresholds: SceneCardInsightThresholds
-) {
-  if (percent >= thresholds.nearPerfectOutstandingPercent) {
-    return { label: "Near-perfect", rank: 4 };
-  }
-  if (percent >= thresholds.amazingOutstandingPercent) {
-    return { label: "Amazing", rank: 3 };
-  }
-  if (percent >= thresholds.greatOutstandingPercent) {
-    return { label: "Great", rank: 2 };
-  }
-  if (percent >= thresholds.goodOutstandingPercent) {
-    return { label: "Good", rank: 1 };
-  }
-  return undefined;
+function percentageRange(percent: number, bucketSize: number) {
+  const value = Math.max(0, Math.min(100, Math.round(percent)));
+  const minimum =
+    value <= bucketSize
+      ? 0
+      : Math.floor((value - 1) / bucketSize) * bucketSize + 1;
+  const maximum = Math.min(
+    100,
+    minimum === 0 ? bucketSize : minimum + bucketSize - 1
+  );
+  return `${minimum}-${maximum}%`;
 }
 
 function getActivityCandidates(
   scene: SceneCardInsightScene,
-  roleTagIds: IUIConfig["roleTagIds"],
-  thresholds: SceneCardInsightThresholds
+  roleTagIds: IUIConfig["roleTagIds"]
 ): InsightCandidate[] {
   const sceneDuration = scene.files[0]?.duration ?? 0;
   const activityMarkers: Record<ActivityCategory, SceneCardInsightMarker[]> = {
@@ -727,207 +634,66 @@ function getActivityCandidates(
     oral: markerStats(activityMarkers.oral, sceneDuration),
     solo: markerStats(activityMarkers.solo, sceneDuration),
   };
-  const qualityParts = (
-    Object.keys(activityMarkers) as ActivityCategory[]
-  ).flatMap((category) => {
-    const activityStats = activityStatsByCategory[category];
-    if (!hasMinimumRuleEvidence(activityMarkers[category], sceneDuration)) {
-      return [];
-    }
-    const outstandingDuration = outstandingDurations[category];
-    if (outstandingDuration <= 0) return [];
-    const activityOutstandingPercent =
-      activityStats.duration > 0
-        ? Math.min(100, (outstandingDuration / activityStats.duration) * 100)
-        : 0;
-    const level = activityQualityLevel(activityOutstandingPercent, thresholds);
-    if (!level) return [];
+  const candidates: InsightCandidate[] = [];
 
-    const activityName = activityLabels[category];
-    const detail = `${Math.round(
-      activityOutstandingPercent
-    )}% of ${activityName} is Outstanding (${formatDuration(
-      outstandingDuration
-    )})`;
-    return {
-      category,
-      label: `${level.label} ${activityName}`,
-      detail,
-      score:
-        level.rank * 1_000_000 +
-        activityOutstandingPercent * 1_000 +
-        outstandingDuration,
-    };
-  });
-
-  if (qualityParts.length === 0) return [];
-
-  // CUSTOM: Present the scene's Sex/Oral/Solo quality as one readable report.
-  // Sorting by quality keeps “Near-perfect oral and amazing sex” natural.
-  const sortedParts = [...qualityParts].sort(
-    (a, b) => b.score - a.score || a.label.localeCompare(b.label)
-  );
-  return [
-    {
-      key: `activity-quality-${sortedParts
-        .map((part) => part.category)
-        .join("-")}`,
-      label: sortedParts.map((part) => part.label).join(" and "),
-      detail: sortedParts.map((part) => part.detail).join(" · "),
+  const sexDuration = activityStatsByCategory.sex.duration;
+  const oralDuration = activityStatsByCategory.oral.duration;
+  const sexOutstandingPercent =
+    sexDuration > 0 ? (outstandingDurations.sex / sexDuration) * 100 : 0;
+  const oralOutstandingPercent =
+    oralDuration > 0 ? (outstandingDurations.oral / oralDuration) * 100 : 0;
+  if (sexDuration > 0 && oralDuration > 0) {
+    const qualityLabel = `${percentageRange(
+      sexOutstandingPercent,
+      20
+    )} outstanding sex, ${percentageRange(
+      oralOutstandingPercent,
+      20
+    )} outstanding oral`;
+    candidates.push({
+      key: "activity-quality-stats",
+      label: qualityLabel,
+      detail: qualityLabel,
       tone: "activity",
       kind: "activity-quality",
-      score: Math.max(...sortedParts.map((part) => part.score)),
-    },
-  ];
-}
-
-function getLacklusterActivityCandidates(
-  scene: SceneCardInsightScene,
-  roleTagIds: IUIConfig["roleTagIds"],
-  thresholds: SceneCardInsightThresholds
-): InsightCandidate[] {
-  const sceneDuration = scene.files[0]?.duration ?? 0;
-  if (sceneDuration <= 0) return [];
-
-  const negativeIntervals = (scene.negative_markers ?? []).flatMap((marker) => {
-    const start = Math.max(0, Math.min(marker.start_seconds, sceneDuration));
-    const end = Math.max(0, Math.min(marker.end_seconds, sceneDuration));
-    return end > start ? [{ start, end }] : [];
-  });
-  const highlightMarkers = scene.scene_markers.filter(
-    (marker) =>
-      !markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId) &&
-      markerIsHighlight(marker, roleTagIds)
-  );
-  const goatMarkers = scene.scene_markers.filter(
-    (marker) =>
-      !markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId) &&
-      markerHasConfiguredTag(marker, roleTagIds?.goatTagId)
-  );
-
-  return (["sex", "oral"] as ActivityCategory[]).flatMap((category) => {
-    const activityIntervals = scene.scene_markers
-      .filter(
-        (marker) =>
-          !markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId) &&
-          activityCategoryForMarker(marker, roleTagIds) === category
-      )
-      .flatMap((marker) => {
-        const interval = markerInterval(marker, sceneDuration);
-        return interval ? [interval] : [];
-      });
-    const activityDuration = intervalDuration(activityIntervals);
-    if (activityDuration <= 0) return [];
-
-    const overlapsActivity = (intervals: InsightInterval[]) =>
-      intervalDuration(
-        intervals.flatMap((interval) =>
-          activityIntervals.flatMap((activityInterval) => {
-            const start = Math.max(interval.start, activityInterval.start);
-            const end = Math.min(interval.end, activityInterval.end);
-            return end > start ? [{ start, end }] : [];
-          })
-        )
-      );
-    const outstandingDuration = overlapsActivity(
-      highlightMarkers.flatMap((marker) => {
-        const interval = markerInterval(marker, sceneDuration);
-        return interval ? [interval] : [];
-      })
-    );
-    const negativeDuration = overlapsActivity(negativeIntervals);
-    const outstandingPercent = (outstandingDuration / activityDuration) * 100;
-    const negativePercent = (negativeDuration / activityDuration) * 100;
-    const nonOutstandingPercent = Math.max(0, 100 - outstandingPercent);
-    const hasGoat =
-      overlapsActivity(
-        goatMarkers.flatMap((marker) => {
-          const interval = markerInterval(marker, sceneDuration);
-          return interval ? [interval] : [];
-        })
-      ) > 0;
-    if (hasGoat) return [];
-
-    const negativeRule =
-      negativePercent > thresholds.lacklusterNegativePercent &&
-      outstandingPercent < thresholds.lacklusterOutstandingSuppressPercent;
-    const nonOutstandingRule =
-      nonOutstandingPercent >= thresholds.lacklusterNonOutstandingPercent;
-    if (!negativeRule && !nonOutstandingRule) return [];
-
-    return [
-      {
-        key: `lackluster-${category}`,
-        label: `Lackluster ${activityLabels[category]}`,
-        detail: `${Math.round(negativePercent)}% negative · ${Math.round(
-          nonOutstandingPercent
-        )}% non-Outstanding`,
-        tone: "negative",
-        kind: "lackluster",
-        score: Math.max(negativePercent, nonOutstandingPercent),
-      },
-    ];
-  });
-}
-
-function getLeaningCandidate(
-  scene: SceneCardInsightScene,
-  roleTagIds: IUIConfig["roleTagIds"]
-): InsightCandidate[] {
-  const sceneDuration = scene.files[0]?.duration ?? 0;
-  const activityMarkersFor = (category: ActivityCategory) =>
-    scene.scene_markers.filter(
-      (marker) => activityCategoryForMarker(marker, roleTagIds) === category
-    );
-  const activityDurations = (
-    Object.keys(activityLabels) as ActivityCategory[]
-  ).map((category) => ({
-    category,
-    duration: markerStats(activityMarkersFor(category), sceneDuration).duration,
-  }));
-  if (activityDurations.filter(({ duration }) => duration > 0).length <= 1) {
-    return [];
+      score: sexDuration + oralDuration,
+      statsOnly: true,
+      statsLabel: qualityLabel,
+      statsParts: [qualityLabel],
+    });
   }
 
-  const sexDuration =
-    activityDurations.find(({ category }) => category === "sex")?.duration ?? 0;
-  const oralDuration =
-    activityDurations.find(({ category }) => category === "oral")?.duration ??
-    0;
+  const activityMarkersFor = (category: ActivityCategory) =>
+    activityMarkers[category];
   if (
-    sexDuration <= 0 ||
-    oralDuration <= 0 ||
-    // CUSTOM: A small minority activity may intentionally cover less than the
-    // normal whole-scene evidence floor. Require combined sex/oral coverage so
-    // the percentage split still reports brief minority activity.
-    !hasMinimumRuleEvidence(
+    sexDuration > 0 &&
+    oralDuration > 0 &&
+    hasMinimumRuleEvidence(
       [...activityMarkersFor("sex"), ...activityMarkersFor("oral")],
       sceneDuration
     )
   ) {
-    return [];
-  }
-  const combinedDuration = sexDuration + oralDuration;
-  const sexPercent = (sexDuration / combinedDuration) * 100;
-  const oralPercent = (oralDuration / combinedDuration) * 100;
-  const label = `${Math.round(sexPercent)}% fucking, ${Math.round(
-    oralPercent
-  )}% eating pito`;
-
-  return [
-    {
-      key: "activity-leaning",
-      label,
-      detail: `${Math.round(sexPercent)}% fucking (${formatDuration(
-        sexDuration
-      )}) - ${Math.round(oralPercent)}% eating pito (${formatDuration(
-        oralDuration
-      )})`,
+    const combinedDuration = sexDuration + oralDuration;
+    const sexPercent = (sexDuration / combinedDuration) * 100;
+    const oralPercent = (oralDuration / combinedDuration) * 100;
+    const leaningLabel = `${percentageRange(
+      sexPercent,
+      10
+    )} fucking, ${percentageRange(oralPercent, 10)} eating pito`;
+    candidates.push({
+      key: "activity-split-stats",
+      label: leaningLabel,
+      detail: leaningLabel,
       tone: "activity",
       kind: "leaning",
       score: combinedDuration,
-    },
-  ];
+      statsOnly: true,
+      statsLabel: leaningLabel,
+      statsParts: [leaningLabel],
+    });
+  }
+
+  return candidates;
 }
 
 type TagMarkerGroup = {
@@ -1055,38 +821,11 @@ function getOrgasmAutomaticCandidates(
       statsLabel: "Repeated orgasms", // CUSTOM: group performer instances.
       detail: `${markers.size} orgasm markers as top, excluding 2nd camera`,
       tone: "event",
+      performerPreview: performer, // CUSTOM: show the vato tied to the repeated-orgasm chip.
       kind: "orgasm-event",
       score: 1_000_000 + markers.size,
     });
   });
-
-  /* CUSTOM: begin - Everybody Nuts is intentionally disabled for now.
-  const completionMarkers = scene.scene_markers.filter(
-    (marker) =>
-      !markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId) &&
-      (markerHasConfiguredTag(marker, roleTagIds?.orgasmTagId) ||
-        markerHasConfiguredTag(marker, roleTagIds?.facialTagId))
-  );
-  const castIDs = new Set(scene.performers.map((performer) => performer.id));
-  const finishingPerformerIDs = new Set(
-    completionMarkers.flatMap((marker) =>
-      (marker.top_performers ?? []).map((performer) => performer.id)
-    )
-  );
-  if (
-    castIDs.size >= 2 &&
-    [...castIDs].every((performerID) => finishingPerformerIDs.has(performerID))
-  ) {
-    candidates.push({
-      key: "orgasm-everybody-nuts",
-      label: "Everybody Nuts",
-      detail: `All ${castIDs.size} vatos have an orgasm marker as top`,
-      tone: "event",
-      kind: "everybody-nuts",
-      score: 30_000 + castIDs.size,
-    });
-  }
-  CUSTOM: end */
 
   return candidates.sort(compareSceneCardInsightCandidates);
 }
@@ -1099,69 +838,131 @@ function getEventReportCandidates(
   const countableMarkers = scene.scene_markers.filter(
     (marker) => !markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId)
   );
-  const facialMarkers = countableMarkers.filter((marker) =>
-    markerHasConfiguredTag(marker, roleTagIds?.facialTagId)
-  );
-  // CUSTOM: Facial markers belong exclusively to the Facial report, even
-  // when the Facial family is a descendant of the configured Orgasm family.
-  const orgasmMarkers = countableMarkers.filter(
-    (marker) =>
-      markerHasConfiguredTag(marker, roleTagIds?.orgasmTagId) &&
-      !markerHasConfiguredTag(marker, roleTagIds?.facialTagId)
-  );
-  const reports: Array<{
-    category: EventCategory;
-    markers: SceneCardInsightMarker[];
-  }> = [
-    { category: "orgasm", markers: orgasmMarkers },
-    { category: "facial", markers: facialMarkers },
-  ];
+  // CUSTOM: Facial markers belong to their own section, even when the Facial
+  // family is a descendant of the configured Orgasm family.
+  const markers = countableMarkers
+    .filter(
+      (marker) =>
+        markerHasConfiguredTag(marker, roleTagIds?.facialTagId) ||
+        markerHasConfiguredTag(marker, roleTagIds?.orgasmTagId)
+    )
+    .sort((a, b) => a.seconds - b.seconds || a.id.localeCompare(b.id));
+  if (markers.length === 0) return [];
 
-  return reports.flatMap(({ category, markers }) => {
-    if (markers.length === 0) return [];
-    const stats = markerStats(markers, sceneDuration);
-    const eventCount = eventMarkersCount(markers);
-    const goatCount = eventMarkersCount(
-      markers.filter((marker) =>
-        markerHasConfiguredTag(marker, roleTagIds?.goatTagId)
-      )
-    );
-    const reallyHotCount = eventMarkersCount(
-      markers.filter(
-        (marker) =>
-          !markerHasConfiguredTag(marker, roleTagIds?.goatTagId) &&
-          markerHasConfiguredTag(marker, roleTagIds?.reallyHotTagId)
-      )
-    );
-    const performers = Array.from(
-      new Map(
-        markers.flatMap((marker) =>
-          (marker.top_performers ?? []).map((performer) => [
-            performer.id,
-            performer,
-          ])
-        )
-      ).values()
-    );
-    return [
-      {
-        key: `${category}-report`,
-        label: eventReportLabel(
-          category,
-          eventCount,
-          goatCount,
-          reallyHotCount
-        ),
-        detail: markerCoverageDetail(stats),
-        tone: "event" as const,
-        kind: "event-report" as const,
-        score: stats.duration * 100 + eventCount,
-        // CUSTOM: The orgasm chip tooltip identifies finishers by their top
-        // marker assignment instead of repeating marker coverage statistics.
-        ...(category === "orgasm" ? { performers } : {}),
-      },
-    ];
+  const events: SceneCardInsightEvent[] = markers.flatMap((marker) => {
+    const category: EventCategory = markerHasConfiguredTag(
+      marker,
+      roleTagIds?.facialTagId
+    )
+      ? "facial"
+      : "orgasm";
+    const topPerformers = marker.top_performers ?? [];
+    const eventCount = Math.max(topPerformers.length, 1);
+    const quality = markerHasConfiguredTag(marker, roleTagIds?.goatTagId)
+      ? "GOAT"
+      : markerHasConfiguredTag(marker, roleTagIds?.reallyHotTagId)
+      ? "Really Hot"
+      : undefined;
+
+    return Array.from({ length: eventCount }, (_, index) => ({
+      id: `${marker.id}-${index}`,
+      category,
+      topPerformers: topPerformers[index] ? [topPerformers[index]] : [],
+      bottomPerformers:
+        category === "facial" ? marker.bottom_performers ?? [] : [],
+      ...(quality ? { quality } : {}),
+    }));
   });
+  const stats = markerStats(markers, sceneDuration);
+  const label = eventReportLabel(events);
+  const regularEvents = events.filter((event) => event.category === "orgasm");
+  const facialEvents = events.filter((event) => event.category === "facial");
+  const goatEvents = events.filter((event) => event.quality === "GOAT");
+  const reallyHotEvents = events.filter(
+    (event) => event.quality === "Really Hot"
+  );
+  const statParts = [
+    {
+      group: 0,
+      matchingEvents: events,
+      singular: "total orgasm",
+      plural: "total orgasms",
+    },
+    {
+      group: 1,
+      matchingEvents: regularEvents,
+      singular: "regular orgasm",
+      plural: "regular orgasms",
+    },
+    {
+      group: 2,
+      matchingEvents: facialEvents,
+      singular: "facial",
+      plural: "facials",
+    },
+    {
+      group: 3,
+      matchingEvents: goatEvents,
+      singular: "GOAT event",
+      plural: "GOAT events",
+    },
+    {
+      group: 4,
+      matchingEvents: regularEvents.filter((event) => event.quality === "GOAT"),
+      singular: "GOAT regular orgasm",
+      plural: "GOAT regular orgasms",
+    },
+    {
+      group: 5,
+      matchingEvents: facialEvents.filter((event) => event.quality === "GOAT"),
+      singular: "GOAT facial",
+      plural: "GOAT facials",
+    },
+    {
+      group: 6,
+      matchingEvents: reallyHotEvents,
+      singular: "Really Hot event",
+      plural: "Really Hot events",
+    },
+    {
+      group: 7,
+      matchingEvents: regularEvents.filter(
+        (event) => event.quality === "Really Hot"
+      ),
+      singular: "Really Hot regular orgasm",
+      plural: "Really Hot regular orgasms",
+    },
+    {
+      group: 8,
+      matchingEvents: facialEvents.filter(
+        (event) => event.quality === "Really Hot"
+      ),
+      singular: "Really Hot facial",
+      plural: "Really Hot facials",
+    },
+  ].filter(({ matchingEvents }) => matchingEvents.length > 0);
+  const statsParts = statParts.map(({ matchingEvents, ...part }) => {
+    const count = matchingEvents.length;
+    const text = `${count} ${count === 1 ? part.singular : part.plural}`;
+    return { text, group: part.group, value: count };
+  });
+  const statsPartOrder = Object.fromEntries(
+    statsParts.map(({ text, group, value }) => [text, { group, value }])
+  );
+
+  return [
+    {
+      key: "orgasm-facial-report",
+      label,
+      detail: markerCoverageDetail(stats),
+      tone: "event",
+      kind: "event-report",
+      score: stats.duration * 100 + events.length,
+      statsParts: statsParts.map(({ text }) => text),
+      statsPartOrder,
+      orgasmFacialEvents: events,
+    },
+  ];
 }
 
 function getAutomaticCandidates(
@@ -1370,44 +1171,6 @@ function getTagCandidates(
   }
 
   return candidates;
-}
-
-function getFeetCandidates(
-  scene: SceneCardInsightScene,
-  roleTagIds: IUIConfig["roleTagIds"]
-): InsightCandidate[] {
-  const sceneDuration = scene.files[0]?.duration ?? 0;
-  const markers = scene.scene_markers.filter(
-    (marker) =>
-      !markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId) &&
-      markerHasConfiguredTag(marker, roleTagIds?.feetTagId)
-  );
-  if (markers.length === 0) return [];
-
-  // CUSTOM: Feet is a single, low-priority presence note rather than an
-  // amount/coverage tier. Collect the whole cast touched by Feet markers.
-  const performers = new Map<string, SceneCardInsightPerformer>();
-  markers.forEach((marker) =>
-    [
-      ...(marker.top_performers ?? []),
-      ...(marker.bottom_performers ?? []),
-    ].forEach((performer) => performers.set(performer.id, performer))
-  );
-  const names = Array.from(performers.values())
-    .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
-    .map((performer) => performer.name);
-  const stats = markerStats(markers, sceneDuration);
-  return [
-    {
-      key: "feet",
-      label: names.length > 0 ? `Feet from ${joinInsightNames(names)}` : "Feet",
-      statsLabel: "Feet", // CUSTOM: group performer instances.
-      detail: markerCoverageDetail(stats),
-      tone: "tag",
-      kind: "feet",
-      score: stats.duration + stats.episodes,
-    },
-  ];
 }
 
 type InteractionCategory = "sex" | "oral";
@@ -1828,6 +1591,7 @@ function getRareRoleCandidates(
             percent
           )}%) · usually ${getPerformerRareRoleAction(category, usualRole)}`,
           tone: "rare",
+          performerPreview: performer, // CUSTOM: show the vato tied to the rare-role chip.
           kind: "rare-role",
           score: (thresholds.rareRoleMaximumPercent - percent) * 1000 + total,
         });
@@ -1836,21 +1600,6 @@ function getRareRoleCandidates(
   });
 
   return candidates.sort(compareSceneCardInsightCandidates);
-}
-
-function complementIntervals(
-  intervals: InsightInterval[],
-  sceneDuration: number
-) {
-  const gaps: InsightInterval[] = [];
-  let cursor = 0;
-  mergeIntervals(intervals).forEach((interval) => {
-    if (interval.start > cursor)
-      gaps.push({ start: cursor, end: interval.start });
-    cursor = Math.max(cursor, interval.end);
-  });
-  if (cursor < sceneDuration) gaps.push({ start: cursor, end: sceneDuration });
-  return gaps;
 }
 
 function getAttractivenessNegativeCandidates(
@@ -1903,30 +1652,17 @@ function getAttractivenessNegativeCandidates(
 
 function getNegativeCandidates(
   scene: SceneCardInsightScene,
-  roleTagIds: IUIConfig["roleTagIds"],
-  thresholds: SceneCardInsightThresholds
+  roleTagIds: IUIConfig["roleTagIds"]
 ) {
   const sceneDuration = scene.files[0]?.duration ?? 0;
-  // CUSTOM: Filler/highlight scarcity is only meaningful after a completed
-  // primary activity range proves that the scene has been processed.
+  // CUSTOM: No-orgasm is only meaningful after a completed primary activity
+  // range proves that the scene has been processed.
   const hasCompletedActivity = hasCompletedActivityMarker(
     scene,
     roleTagIds,
     sceneDuration
   );
-  const highlightStats = markerStats(
-    scene.scene_markers.filter(
-      (marker) =>
-        !markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId) &&
-        markerIsHighlight(marker, roleTagIds)
-    ),
-    sceneDuration
-  );
   const candidates = getAttractivenessNegativeCandidates(scene);
-  const highlightPercent = percentOfScene(
-    highlightStats.duration,
-    sceneDuration
-  );
 
   if (
     hasCompletedActivity &&
@@ -1950,58 +1686,6 @@ function getNegativeCandidates(
     }
   }
 
-  if (
-    hasCompletedActivity &&
-    highlightStats.episodes <= thresholds.fewHighlightsMaxEpisodes &&
-    highlightPercent <= thresholds.fewHighlightsMaxPercent
-  ) {
-    candidates.push({
-      key: "few-highlights",
-      label: "Few highlights",
-      detail: `${Math.round(
-        highlightPercent
-      )}% highlights · ${markerCoverageDetail(highlightStats)}`,
-      tone: "negative",
-      kind: "few-highlights",
-      score: 100 - highlightPercent,
-    });
-  }
-
-  if (sceneDuration > 0 && hasCompletedActivity) {
-    const markedIntervals = scene.scene_markers.flatMap((marker) => {
-      const interval = markerInterval(marker, sceneDuration);
-      return interval ? [interval] : [];
-    });
-    const fillerIntervals = complementIntervals(markedIntervals, sceneDuration);
-    const negativeIntervals = (scene.negative_markers ?? []).flatMap(
-      (marker) => {
-        const start = Math.max(
-          0,
-          Math.min(marker.start_seconds, sceneDuration)
-        );
-        const end = Math.max(0, Math.min(marker.end_seconds, sceneDuration));
-        return end > start ? [{ start, end }] : [];
-      }
-    );
-    const totalFillerDuration = intervalDuration([
-      ...fillerIntervals,
-      ...negativeIntervals,
-    ]);
-    const fillerPercent = (totalFillerDuration / sceneDuration) * 100;
-    if (fillerPercent > thresholds.fillerTotalPercent) {
-      candidates.push({
-        key: "lots-of-filler",
-        label: "Lots of filler",
-        detail: `${Math.round(fillerPercent)}% filler (${formatDuration(
-          totalFillerDuration
-        )})`,
-        tone: "negative",
-        kind: "filler",
-        score: totalFillerDuration,
-      });
-    }
-  }
-
   return candidates.sort(compareSceneCardInsightCandidates);
 }
 
@@ -2019,15 +1703,9 @@ function getSceneCardInsightCandidates(
   scene = withSceneTagAncestors(scene);
   const thresholds = normalizeSceneCardInsightThresholds(configuredThresholds);
   const automaticCandidates = getAutomaticCandidates(scene, roleTagIds);
-  const lacklusterCandidates = getLacklusterActivityCandidates(
-    scene,
-    roleTagIds,
-    thresholds
-  );
   return [
     ...automaticCandidates,
-    ...getActivityCandidates(scene, roleTagIds, thresholds),
-    ...getLeaningCandidate(scene, roleTagIds),
+    ...getActivityCandidates(scene, roleTagIds),
     ...getInteractionCandidate(scene, roleTagIds),
     ...getRareRoleCandidates(
       scene,
@@ -2035,13 +1713,8 @@ function getSceneCardInsightCandidates(
       thresholds,
       roleStatsByPerformer
     ),
-    ...lacklusterCandidates,
-    ...getNegativeCandidates(scene, roleTagIds, thresholds),
+    ...getNegativeCandidates(scene, roleTagIds),
     ...getPerformerLineupCandidates(scene, ratingConfig),
-    // CUSTOM: the configured uncommon-tag chip already reports Feet presence.
-    ...(roleTagIds?.outstandingActivityCommonTagIds?.length
-      ? []
-      : getFeetCandidates(scene, roleTagIds)),
     ...getTagCandidates(
       scene,
       roleTagIds,

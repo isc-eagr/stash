@@ -10,13 +10,9 @@ import {
 import { ModalComponent } from "src/components/Shared/Modal";
 import * as GQL from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
-import { useRoleTags } from "src/hooks/useRoleTags";
 import TextUtils from "src/utils/text";
 import type { ILoopSegmentInput } from "src/components/ScenePlayer/multi-segment-loop";
-import {
-  ACTIVITY_PIE_COLORS,
-  getSceneMarkerTagColorCustom,
-} from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
+import { ACTIVITY_PIE_COLORS } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
 import {
   buildIntersectedLoopSegments,
   buildIntervalLoopSegments,
@@ -56,6 +52,15 @@ import {
 import { isChronologicalSceneMarkerGoatTagged } from "./sceneMarkerChronologyLayout_custom"; // CUSTOM
 import { OutstandingActivityMatrixTable } from "../OutstandingActivityMatrix_custom"; // CUSTOM
 import { getOutstandingActivityMatrix } from "../sceneCardInsightsData_custom"; // CUSTOM
+import { SceneActivityMetricBox } from "../SceneActivityMetrics_custom"; // CUSTOM
+import type {
+  SceneActivityMetric,
+  SceneActivityMetricKey,
+} from "../sceneActivityMetricsData_custom"; // CUSTOM
+import {
+  getActivityTypePercentagesCustom,
+  getPartitionPercentagesCustom,
+} from "src/components/Shared/activityTypePercentages_custom"; // CUSTOM
 
 interface IProps {
   scene: GQL.SceneDataFragment;
@@ -91,6 +96,7 @@ interface IActivityStats {
   otherSeconds: number;
   outstandingSeconds: number;
   standardSeconds: number;
+  unclassifiedSeconds: number;
   unusableSeconds: number;
   qualityByActivity: Record<ActivityCategory, IActivityQualityStats>;
   markers: IActivityMarker[];
@@ -109,6 +115,7 @@ interface IStatsRow {
   label: string;
   seconds: number;
   percent: number;
+  showPercent?: boolean;
   category?: PerformerActivityCategory;
   totalActivitySeconds?: number;
   role?: "top" | "bottom";
@@ -217,6 +224,7 @@ function getActivityColor(key: string, soloColor = ACTIVITY_PIE_COLORS.solo) {
     other: ACTIVITY_PIE_COLORS.other,
     outstanding: ACTIVITY_PIE_COLORS.outstanding,
     standard: ACTIVITY_PIE_COLORS.standard,
+    unclassified: ACTIVITY_PIE_COLORS.other,
     unusable: ACTIVITY_PIE_COLORS.unusable,
   };
 
@@ -234,6 +242,7 @@ function getStatsRowColor(row: IStatsRow, soloColor?: string) {
   if (
     qualityKey === "outstanding" ||
     qualityKey === "standard" ||
+    qualityKey === "unclassified" ||
     qualityKey === "unusable"
   ) {
     return getActivityColor(qualityKey, soloColor);
@@ -372,7 +381,6 @@ function getActivityStats(
   };
   const markers: IActivityMarker[] = [];
   const outstandingIntervals: IInterval[] = [];
-  const outstandingLoopSegments: ILoopSegmentInput[] = [];
   const unusableIntervals =
     scene.negative_markers
       ?.map((marker) => ({
@@ -403,11 +411,6 @@ function getActivityStats(
 
     if (isOutstandingMarker(marker, roleTagIds)) {
       outstandingIntervals.push(interval);
-      outstandingLoopSegments.push({
-        start: interval.start,
-        end: interval.end,
-        title: `OUTSTANDING: ${marker.title}`,
-      });
     }
   });
 
@@ -423,12 +426,20 @@ function getActivityStats(
     totalSeconds,
     activityIntervals
   );
+  const activityOutstandingIntervals = intersectIntervals(
+    activityIntervals,
+    outstandingIntervals
+  );
   const outstandingVisibleIntervals = subtractIntervals(
-    outstandingIntervals,
+    activityOutstandingIntervals,
     unusableIntervals
   );
-  const standardIntervals = uncoveredIntervals(totalSeconds, [
+  const standardIntervals = subtractIntervals(activityIntervals, [
     ...outstandingIntervals,
+    ...unusableIntervals,
+  ]);
+  const unclassifiedIntervals = uncoveredIntervals(totalSeconds, [
+    ...activityIntervals,
     ...unusableIntervals,
   ]);
   const qualityByActivity = (
@@ -468,8 +479,15 @@ function getActivityStats(
       .filter((marker) => marker.category === "solo")
       .map((marker) => buildMarkerLoopSegment(marker, "SOLO")),
     other: buildIntervalLoopSegments("OTHER", activityOtherIntervals),
-    outstanding: outstandingLoopSegments,
+    outstanding: buildIntervalLoopSegments(
+      "OUTSTANDING",
+      outstandingVisibleIntervals
+    ),
     standard: buildIntervalLoopSegments("STANDARD", standardIntervals),
+    unclassified: buildIntervalLoopSegments(
+      "UNCLASSIFIED",
+      unclassifiedIntervals
+    ),
   };
 
   return {
@@ -481,6 +499,7 @@ function getActivityStats(
     otherSeconds: mergeDuration(activityOtherIntervals),
     outstandingSeconds: mergeDuration(outstandingVisibleIntervals),
     standardSeconds: mergeDuration(standardIntervals),
+    unclassifiedSeconds: mergeDuration(unclassifiedIntervals),
     qualityByActivity,
     markers,
     loopSegments,
@@ -702,18 +721,7 @@ const SceneStatsPanel: React.FC<IProps> = ({
   addMultiSegmentLoopSegments,
 }) => {
   const { configuration } = useConfigurationContext();
-  const { soloTag } = useRoleTags();
-  const sceneMarkerTagNames = useMemo(
-    () =>
-      scene.scene_markers
-        .map((marker) => marker.primary_tag.name)
-        .filter((tagName): tagName is string => !!tagName),
-    [scene.scene_markers]
-  );
-  const soloMarkerColor = getSceneMarkerTagColorCustom(
-    soloTag?.name,
-    sceneMarkerTagNames
-  );
+  const soloMarkerColor = ACTIVITY_PIE_COLORS.solo;
   const [selectedActivities, setSelectedActivities] = useState<Set<string>>(
     new Set()
   );
@@ -824,31 +832,50 @@ const SceneStatsPanel: React.FC<IProps> = ({
   const roleInteractionByKey = new Map(
     roleInteractions.map((interaction) => [interaction.key, interaction])
   );
+  const classifiedActivitySeconds =
+    activityStats.sexSeconds +
+    activityStats.oralSeconds +
+    activityStats.soloSeconds;
+  const activityPercentages = getActivityTypePercentagesCustom({
+    sex: activityStats.sexSeconds,
+    oral: activityStats.oralSeconds,
+    solo: activityStats.soloSeconds,
+  });
+  const qualityPercentages = getPartitionPercentagesCustom(
+    {
+      outstanding: activityStats.outstandingSeconds,
+      standard: activityStats.standardSeconds,
+      unclassified: activityStats.unclassifiedSeconds,
+      unusable: activityStats.unusableSeconds,
+    },
+    ["outstanding", "standard", "unclassified", "unusable"]
+  );
 
+  // CUSTOM: align activity metric tooltips with the scene card terminology.
   const activityRows: IStatsRow[] = [
     {
       key: "sex",
-      label: "Sex",
+      label: "Fucking",
       seconds: activityStats.sexSeconds,
-      percent: percent(activityStats.sexSeconds, activityStats.totalSeconds),
+      percent: activityPercentages.sex,
       category: "sex",
       selectableKey: "sex",
       loopSegments: activityStats.loopSegments.sex,
     },
     {
       key: "oral",
-      label: "Oral",
+      label: "Eating pito",
       seconds: activityStats.oralSeconds,
-      percent: percent(activityStats.oralSeconds, activityStats.totalSeconds),
+      percent: activityPercentages.oral,
       category: "oral",
       selectableKey: "oral",
       loopSegments: activityStats.loopSegments.oral,
     },
     {
       key: "solo",
-      label: "Solo",
+      label: "Jerking",
       seconds: activityStats.soloSeconds,
-      percent: percent(activityStats.soloSeconds, activityStats.totalSeconds),
+      percent: activityPercentages.solo,
       category: "solo",
       selectableKey: "solo",
       loopSegments: activityStats.loopSegments.solo,
@@ -858,7 +885,8 @@ const SceneStatsPanel: React.FC<IProps> = ({
       key: "other",
       label: "Other",
       seconds: activityStats.otherSeconds,
-      percent: percent(activityStats.otherSeconds, activityStats.totalSeconds),
+      percent: 0,
+      showPercent: false,
       selectableKey: "other",
       loopSegments: activityStats.loopSegments.other,
     },
@@ -868,10 +896,7 @@ const SceneStatsPanel: React.FC<IProps> = ({
       key: "outstanding",
       label: "Outstanding",
       seconds: activityStats.outstandingSeconds,
-      percent: percent(
-        activityStats.outstandingSeconds,
-        activityStats.totalSeconds
-      ),
+      percent: qualityPercentages.outstanding,
       selectableKey: "outstanding",
       loopSegments: activityStats.loopSegments.outstanding,
     },
@@ -879,21 +904,23 @@ const SceneStatsPanel: React.FC<IProps> = ({
       key: "standard",
       label: "Standard",
       seconds: activityStats.standardSeconds,
-      percent: percent(
-        activityStats.standardSeconds,
-        activityStats.totalSeconds
-      ),
+      percent: qualityPercentages.standard,
       selectableKey: "standard",
       loopSegments: activityStats.loopSegments.standard,
+    },
+    {
+      key: "unclassified",
+      label: "Unclassified",
+      seconds: activityStats.unclassifiedSeconds,
+      percent: qualityPercentages.unclassified,
+      selectableKey: "unclassified",
+      loopSegments: activityStats.loopSegments.unclassified,
     },
     {
       key: "unusable",
       label: "Unusable",
       seconds: activityStats.unusableSeconds,
-      percent: percent(
-        activityStats.unusableSeconds,
-        activityStats.totalSeconds
-      ),
+      percent: qualityPercentages.unusable,
     },
   ];
   const qualityRowsByActivity = (
@@ -1179,6 +1206,7 @@ const SceneStatsPanel: React.FC<IProps> = ({
   const detailSelectionCount =
     selectedPerformerRows.size + selectedRoleInteractions.size;
 
+  // CUSTOM: keep scene overview stats as selectable card-style metrics below the bars.
   function renderOverviewPanel(
     title: string,
     rows: IStatsRow[],
@@ -1186,8 +1214,9 @@ const SceneStatsPanel: React.FC<IProps> = ({
     totalSeconds = activityStats.totalSeconds
   ) {
     const visibleRows = rows.filter(
-      (row) => row.seconds > 0 && row.percent > 0
+      (row) => row.seconds > 0 && (row.showPercent === false || row.percent > 0)
     );
+    const chartRows = visibleRows.filter((row) => row.showPercent !== false);
 
     return (
       <section className="scene-stats-overview-panel">
@@ -1201,7 +1230,7 @@ const SceneStatsPanel: React.FC<IProps> = ({
             className="scene-stats-stacked-bar"
             role="img"
           >
-            {visibleRows.map((row) => (
+            {chartRows.map((row) => (
               <span
                 className={`scene-stats-stacked-segment scene-stats-stacked-segment--${row.key}`}
                 key={row.key}
@@ -1216,51 +1245,37 @@ const SceneStatsPanel: React.FC<IProps> = ({
             ))}
           </div>
         )}
-        <div className="scene-stats-overview-rows">
+        <div className="scene-stats-overview-rows scene-stats-overview-metric-boxes">
           {visibleRows.map((row) => {
             const selectable =
               !!row.selectableKey && !!row.loopSegments?.length;
+            const metric: SceneActivityMetric = {
+              key: row.key as SceneActivityMetricKey,
+              label: row.label,
+              duration: row.seconds,
+              percent: row.percent,
+              showPercent: row.showPercent,
+              color: getStatsRowColor(row, soloMarkerColor),
+            };
+            const control = selectable ? (
+              <div className="scene-activity-metric__control">
+                <Form.Check
+                  checked={selectedActivities.has(row.selectableKey!)}
+                  className="custom-stats-check"
+                  id={"scene-stats-" + scene.id + "-" + row.selectableKey}
+                  label={<span className="sr-only">{row.label}</span>}
+                  onChange={() => toggleActivity(row.selectableKey!)}
+                />
+              </div>
+            ) : undefined;
 
             return (
-              <div className="scene-stats-overview-row" key={row.key}>
-                <div className="scene-stats-overview-row-meta">
-                  {selectable ? (
-                    <Form.Check
-                      checked={selectedActivities.has(row.selectableKey!)}
-                      className="custom-stats-check"
-                      id={`scene-stats-${scene.id}-${row.selectableKey}`}
-                      label={row.label}
-                      onChange={() => toggleActivity(row.selectableKey!)}
-                    />
-                  ) : (
-                    <span className="custom-stats-label">{row.label}</span>
-                  )}
-                  <span className="custom-stats-value">
-                    {TextUtils.secondsToTimestamp(row.seconds)}
-                  </span>
-                  <span className="custom-stats-value">
-                    {formatPercentValue(row)}
-                  </span>
-                </div>
-                {!stacked && (
-                  <div
-                    aria-label={`${row.label}: ${formatPercentValue(row)}`}
-                    aria-valuemax={100}
-                    aria-valuemin={0}
-                    aria-valuenow={row.percent}
-                    className="scene-stats-progress-track"
-                    role="progressbar"
-                  >
-                    <span
-                      className="scene-stats-progress-fill"
-                      style={{
-                        backgroundColor: getStatsRowColor(row, soloMarkerColor),
-                        width: `${Math.max(0, Math.min(100, row.percent))}%`,
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
+              <SceneActivityMetricBox
+                control={control}
+                key={row.key}
+                metric={metric}
+                sceneId={scene.id}
+              />
             );
           })}
         </div>
@@ -2007,7 +2022,12 @@ const SceneStatsPanel: React.FC<IProps> = ({
   return (
     <div className="scene-stats-panel mt-3">
       <div className="scene-stats-overview-grid">
-        {renderOverviewPanel("Activity Type", activityRows, true)}
+        {renderOverviewPanel(
+          "Activity Type",
+          activityRows,
+          true,
+          classifiedActivitySeconds
+        )}
         {renderOverviewPanel("Quality", qualityRows, true)}
       </div>
 

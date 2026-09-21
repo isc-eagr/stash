@@ -24,6 +24,7 @@ import {
   IUnnamedPerformer,
   createUnnamedPerformer,
   formatUnnamedPerformerSummary,
+  cloneUnnamedPerformer,
 } from "src/models/list-filter/criteria/unnamed-performer";
 import {
   PerformerRatingCriteriaCriterionOption,
@@ -62,6 +63,7 @@ interface IUnnamedPerformerEditorProps {
   onSave: (performer: IUnnamedPerformer) => void;
   onCancel: () => void;
   isNew?: boolean;
+  inModal?: boolean; // CUSTOM: keep existing selectors above the marker editor modal
 }
 
 /**
@@ -72,11 +74,13 @@ export const UnnamedPerformerEditor: React.FC<IUnnamedPerformerEditorProps> = ({
   onSave,
   onCancel,
   isNew = false,
+  inModal = false, // CUSTOM
 }) => {
   const intl = useIntl();
-  const [editedPerformer, setEditedPerformer] = useState<IUnnamedPerformer>({
-    ...performer,
-  });
+  // CUSTOM: isolate nested rating criteria until the vato is saved.
+  const [editedPerformer, setEditedPerformer] = useState<IUnnamedPerformer>(
+    () => cloneUnnamedPerformer(performer)
+  );
 
   // Fetch ethnicity options
   const { data: ethnicityData } = usePerformerEthnicitiesQuery();
@@ -195,6 +199,11 @@ export const UnnamedPerformerEditor: React.FC<IUnnamedPerformerEditorProps> = ({
             onChange={onEthnicitiesChange}
             components={{ IndicatorSeparator: null }}
             menuPortalTarget={document.body}
+            styles={
+              inModal
+                ? { menuPortal: (base) => ({ ...base, zIndex: 9999 }) }
+                : undefined
+            } // CUSTOM
           />
         </Form.Group>
 
@@ -217,6 +226,11 @@ export const UnnamedPerformerEditor: React.FC<IUnnamedPerformerEditorProps> = ({
             })}
             onChange={onCountriesChange}
             menuPortalTarget={document.body}
+            styles={
+              inModal
+                ? { menuPortal: (base) => ({ ...base, zIndex: 9999 }) }
+                : undefined
+            } // CUSTOM
             components={{
               IndicatorSeparator: null,
               Option: CountryOption,

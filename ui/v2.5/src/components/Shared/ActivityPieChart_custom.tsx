@@ -10,7 +10,7 @@ import {
 export const ACTIVITY_PIE_COLORS = {
   sex: "#d9822b",
   oral: "#00b3a4",
-  solo: "#8a9ba8",
+  solo: "#a855f7",
   other: "#8a9ba8",
   outstanding: "#ffd700",
   standard: "#28a745",

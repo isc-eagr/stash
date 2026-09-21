@@ -66,6 +66,34 @@ test("insight catalog includes zero rows and every configurable threshold", () =
     Object.keys(insightThresholdLabels).sort(),
     Object.keys(normalizeSceneCardInsightThresholds()).sort()
   );
+  assert.equal(
+    insightStatsCatalog.some(
+      ({ id, label, kind }) =>
+        [
+          "activity-summary",
+          "few-highlights",
+          "everybody-nuts",
+          "feet",
+          "filler",
+          "lackluster",
+        ].includes(id) ||
+        /feet|filler|lackluster|few highlights|everybody nuts/i.test(label) ||
+        /filler|lackluster/i.test(kind)
+    ),
+    false
+  );
+  assert.equal(
+    Object.keys(insightThresholdLabels).some((key) => /filler/i.test(key)),
+    false,
+    "retired filler insight thresholds are absent from Insight Stats"
+  );
+  assert.equal(
+    Object.keys(normalizeSceneCardInsightThresholds()).some((key) =>
+      /filler/i.test(key)
+    ),
+    false,
+    "retired filler settings are absent from the normalized threshold set"
+  );
   assert.equal(insightStatsPercentage(0, 0), 0);
   assert.equal(insightStatsPercentage(1, 4), 25);
 });
@@ -81,8 +109,14 @@ test("chip catalog keeps card tones and useful interaction rules for tooltips", 
     "Four or more vatos, each interacting with at least half of the possible partners."
   );
   assert.match(
-    insightStatsCatalog.find(({ id }) => id === "orgasm-report")?.note ?? "",
-    /excluding 2nd Camera/
+    insightStatsCatalog.find(({ id }) => id === "orgasm-facial-report")?.note ??
+      "",
+    /2nd Camera tag are excluded/
+  );
+  assert.equal(
+    insightStatsCatalog.some(({ id }) => id === "facial-report"),
+    false,
+    "Orgasm and Facial reports share one Insight Stats family"
   );
   assert.match(
     insightStatsCatalog.find(({ id }) => id === "ugly-tops")?.note ?? "",
@@ -97,6 +131,74 @@ test("chip catalog keeps card tones and useful interaction rules for tooltips", 
       ({ id }) => id === "balanced" || id.startsWith("leaning-")
     ),
     false
+  );
+});
+
+test("Orgasm and Facial reports split event counts and sort each breakdown descending", async () => {
+  const first = {
+    ...scene,
+    id: "five-events",
+    scene_markers: [
+      marker("sex", "sex", 0, 300),
+      marker("facial-goat", "facial", 1, 2, ["goat", "hot"]),
+      marker("facial-hot", "facial", 3, 4, ["hot"]),
+      marker("orgasm-hot", "orgasm", 5, 6, ["hot"]),
+      marker("orgasm-plain-1", "orgasm", 7, 8),
+      marker("orgasm-plain-2", "orgasm", 9, 10),
+    ],
+  };
+  const second = {
+    ...scene,
+    id: "three-events",
+    scene_markers: [
+      marker("sex", "sex", 0, 300),
+      marker("facial", "facial", 1, 2),
+      marker("orgasm-1", "orgasm", 3, 4),
+      marker("orgasm-2", "orgasm", 5, 6),
+    ],
+  };
+  const result = await calculateInsightStats(
+    [first, second],
+    { roleTagIds },
+    normalizeSceneCardInsightThresholds(),
+    new Map()
+  );
+  const row = result?.rows.get("orgasm-facial-report");
+
+  assert.equal(row?.all, 2);
+  assert.equal(row?.parts.get("5 total orgasms")?.all, 1);
+  assert.equal(row?.parts.get("3 total orgasms")?.all, 1);
+  assert.equal(row?.parts.get("3 regular orgasms")?.all, 1);
+  assert.equal(row?.parts.get("2 regular orgasms")?.all, 1);
+  assert.equal(row?.parts.get("2 facials")?.all, 1);
+  assert.equal(row?.parts.get("1 facial")?.all, 1);
+  assert.equal(row?.parts.get("1 GOAT event")?.all, 1);
+  assert.equal(row?.parts.get("1 GOAT facial")?.all, 1);
+  assert.equal(row?.parts.get("2 Really Hot events")?.all, 1);
+  assert.equal(row?.parts.get("1 Really Hot regular orgasm")?.all, 1);
+  assert.equal(row?.parts.get("1 Really Hot facial")?.all, 1);
+  assert.equal(
+    row?.parts.has("2 Really Hot facials"),
+    false,
+    "GOAT takes precedence over Really Hot for a marker carrying both tags"
+  );
+  assert.deepEqual(
+    compareInsightStatsVariants(row!, row!, "all", "", true).map(
+      ({ label }) => label
+    ),
+    [
+      "5 total orgasms",
+      "3 total orgasms",
+      "3 regular orgasms",
+      "2 regular orgasms",
+      "2 facials",
+      "1 facial",
+      "1 GOAT event",
+      "1 GOAT facial",
+      "2 Really Hot events",
+      "1 Really Hot regular orgasm",
+      "1 Really Hot facial",
+    ]
   );
 });
 
@@ -169,58 +271,40 @@ test("GOAT families and combinations count a scene once across performer chips",
   assert.equal(result.total, 1);
 });
 
-test("quality components are counted even when the engine merges them into one chip", () => {
-  const result = createInsightStatsResult();
-  const candidate: SceneCardInsightCandidate = {
-    key: "activity-quality-sex-oral",
-    label: "Amazing sex and Good oral",
-    detail: "",
-    kind: "activity-quality",
-    tone: "activity",
-    score: 1,
-  };
-  countInsightStatsScene(result, scene, [candidate], new Set([candidate.key]));
-  assert.equal(result.rows.get("quality-Amazing sex")?.all, 1);
-  assert.equal(result.rows.get("quality-Good oral")?.visible, 1);
-  assert.equal(result.rows.get("quality-Good sex")?.all, 0);
-  assert.equal(result.rows.get("activity-quality")?.all, 1);
-});
-
-test("threshold simulation changes quality counts without mutating saved settings or scenes", async () => {
+test("Insight Stats counts Outstanding and activity splits in bounded percentage ranges", async () => {
   const input = {
     ...scene,
-    scene_markers: [marker("sex", "sex", 0, 600), marker("hot", "hot", 0, 180)],
+    files: [{ duration: 200 }],
+    scene_markers: [
+      marker("sex", "sex", 0, 130),
+      marker("sex-hot", "hot", 0, 26),
+      marker("oral", "oral", 130, 200),
+      marker("oral-hot", "hot", 130, 179),
+    ],
   };
-  const config = {
-    roleTagIds,
-    sceneCardInsightThresholds: {
-      goodOutstandingPercent: 20,
-      greatOutstandingPercent: 40,
-    },
-  };
-  const before = JSON.stringify({ input, config });
-  const current = await calculateInsightStats(
+  const result = await calculateInsightStats(
     [input],
-    config,
-    normalizeSceneCardInsightThresholds(config.sceneCardInsightThresholds),
+    { roleTagIds },
+    normalizeSceneCardInsightThresholds(),
     new Map()
   );
-  const preview = await calculateInsightStats(
-    [input],
-    config,
-    normalizeSceneCardInsightThresholds({ goodOutstandingPercent: 35 }),
-    new Map()
+  const quality = result?.rows.get("activity-quality");
+  const split = result?.rows.get("leaning");
+
+  assert.equal(quality?.all, 1);
+  assert.equal(
+    quality?.variants.get("0-20% outstanding sex, 61-80% outstanding oral")
+      ?.all,
+    1
   );
-  assert.equal(current?.rows.get("quality-Good sex")?.all, 1);
-  assert.equal(preview?.rows.get("quality-Good sex")?.all, 0);
-  assert.equal(JSON.stringify({ input, config }), before);
-  const reset = await calculateInsightStats(
-    [input],
-    config,
-    normalizeSceneCardInsightThresholds(config.sceneCardInsightThresholds),
-    new Map()
+  assert.equal(quality?.variants.size, 1);
+  assert.equal(split?.all, 1);
+  assert.equal(
+    split?.variants.get("61-70% fucking, 31-40% eating pito")?.all,
+    1
   );
-  assert.deepEqual(reset, current);
+  assert.equal(split?.variants.size, 1);
+  assert.equal(result?.rows.has("activity-summary"), false);
 });
 
 test("coverage agrees with card selection and lowering the visible limit does not change qualification", async () => {
@@ -251,6 +335,7 @@ test("coverage agrees with card selection and lowering the visible limit does no
   ))!;
   assert.equal(sets.visible.length, 1);
   assert.ok(sets.all.length > 1);
+  const visibleKeys = new Set(sets.visible.map(({ key }) => key));
   insightStatsCatalog.forEach((definition) => {
     const matches = sets.candidates.filter(definition.matches);
     assert.equal(
@@ -261,8 +346,10 @@ test("coverage agrees with card selection and lowering the visible limit does no
     assert.equal(
       result.rows.get(definition.id)?.visible,
       Number(
-        matches.some((candidate) =>
-          sets.visible.some(({ key }) => key === candidate.key)
+        matches.some(
+          (candidate) =>
+            candidate.statsVisibleKeys?.some((key) => visibleKeys.has(key)) ??
+            visibleKeys.has(candidate.key)
         )
       ),
       definition.id
@@ -272,7 +359,7 @@ test("coverage agrees with card selection and lowering the visible limit does no
     sets.candidates.every((candidate) =>
       insightStatsCatalog.some((definition) => definition.matches(candidate))
     ),
-    "All generated candidates belong to a catalog row"
+    "every candidate belongs to a catalog row"
   );
   const unlimited = (await calculateInsightStats(
     [input],

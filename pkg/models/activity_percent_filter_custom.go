@@ -9,9 +9,10 @@ type ActivityPercentFilterInput struct {
 }
 
 type QualityPercentFilterInput struct {
-	OutstandingPercent *IntCriterionInput `json:"outstanding_percent,omitempty"`
-	StandardPercent    *IntCriterionInput `json:"standard_percent,omitempty"`
-	UnusablePercent    *IntCriterionInput `json:"unusable_percent,omitempty"`
+	OutstandingPercent  *IntCriterionInput `json:"outstanding_percent,omitempty"`
+	StandardPercent     *IntCriterionInput `json:"standard_percent,omitempty"`
+	UnclassifiedPercent *IntCriterionInput `json:"unclassified_percent,omitempty"`
+	UnusablePercent     *IntCriterionInput `json:"unusable_percent,omitempty"`
 }
 
 type PerformerActivityPercentFilterInput struct {

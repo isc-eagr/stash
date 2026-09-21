@@ -11,6 +11,7 @@ export interface IQualityTypeMetric {
 export interface IQualityTypeValue {
   outstanding_percent?: IQualityTypeMetric;
   standard_percent?: IQualityTypeMetric;
+  unclassified_percent?: IQualityTypeMetric;
   unusable_percent?: IQualityTypeMetric;
 }
 
@@ -19,6 +20,7 @@ export type QualityTypeMetricKey = keyof IQualityTypeValue;
 const metricKeys: QualityTypeMetricKey[] = [
   "outstanding_percent",
   "standard_percent",
+  "unclassified_percent",
   "unusable_percent",
 ];
 

@@ -174,6 +174,7 @@ const SceneMarkerCardDetails = PatchComponent(
         key={performer.id}
         className="performer-hover-popover"
         placement="top"
+        popoverClassName="scene-marker-performer-hover-popover" // CUSTOM
         content={
           <div className="performer-hover-grid">
             <div className="performer-tag-container performer-hover-row">

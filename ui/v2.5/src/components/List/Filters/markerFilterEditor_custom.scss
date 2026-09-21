@@ -1,0 +1,184 @@
+.marker-editor-summary {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.marker-editor-summary-group {
+  border-bottom: 1px solid rgba(128, 128, 128, 0.25);
+  padding-bottom: 0.5rem;
+}
+
+.marker-editor-summary-title.btn {
+  font-weight: 600;
+  padding: 0 0 0.35rem;
+  text-align: left;
+}
+
+.marker-editor-summary-row.btn {
+  color: inherit;
+  display: grid;
+  font-size: 0.875rem;
+  gap: 0.5rem;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  padding: 0.2rem 0;
+  text-align: left;
+  width: 100%;
+}
+
+.marker-editor-summary-value {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.marker-editor-open {
+  justify-self: start;
+}
+
+.marker-editor-modal {
+  .modal-dialog {
+    max-width: 1000px;
+  }
+
+  .modal-body {
+    padding: 1.25rem;
+  }
+}
+
+.marker-editor-groups {
+  border-bottom: 1px solid rgba(128, 128, 128, 0.25);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+}
+
+.marker-editor-group-options {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.marker-editor-layout {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(160px, 1fr) minmax(0, 3fr);
+}
+
+.marker-editor-outline {
+  align-self: start;
+  border-right: 1px solid rgba(128, 128, 128, 0.25);
+  display: grid;
+  gap: 0.5rem;
+  padding-right: 1.25rem;
+}
+
+.marker-editor-section.btn {
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  color: inherit;
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  white-space: normal;
+
+  &[aria-pressed="true"] {
+    background: rgba(128, 128, 128, 0.12);
+    border-color: currentColor;
+  }
+
+  small {
+    opacity: 0.75;
+    overflow-wrap: anywhere;
+  }
+}
+
+.marker-editor-mode {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.marker-editor-detail {
+  min-height: 230px;
+  min-width: 0;
+
+  .unnamed-performer-editor {
+    margin-bottom: 0;
+  }
+}
+
+.marker-editor-vatos,
+.marker-editor-reuse {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.marker-editor-vato {
+  align-items: center;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  border-radius: 0.35rem;
+  display: flex;
+  gap: 0.25rem;
+  min-width: 0;
+  padding-right: 0.3rem;
+}
+
+.marker-editor-vato-content.btn {
+  color: inherit;
+  display: grid;
+  flex: 1;
+  gap: 0.25rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 0.65rem;
+  text-align: left;
+  white-space: normal;
+}
+
+.marker-editor-vato-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.marker-editor-reuse .btn {
+  display: grid;
+  overflow-wrap: anywhere;
+  text-align: left;
+  white-space: normal;
+}
+
+.marker-editor-shared {
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 575px) {
+  .marker-editor-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .marker-editor-outline {
+    border-bottom: 1px solid rgba(128, 128, 128, 0.25);
+    border-right: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding-bottom: 0.75rem;
+    padding-right: 0;
+  }
+
+  .marker-editor-section.btn {
+    padding: 0.5rem;
+  }
+
+  .marker-editor-mode {
+    grid-column: 1 / -1;
+  }
+}

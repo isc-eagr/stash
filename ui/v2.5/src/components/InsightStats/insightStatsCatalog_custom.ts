@@ -22,11 +22,6 @@ const insightStatsTones: Record<
   "negative-rating": "negative",
   "favorite-lineup": "lineup",
   "country-lineup": "lineup",
-  filler: "negative",
-  lackluster: "negative",
-  "few-highlights": "negative",
-  "everybody-nuts": "event",
-  feet: "tag",
   tag: "tag",
 };
 
@@ -39,18 +34,7 @@ export const insightThresholdLabels: Record<
   string
 > = {
   visibleInsightLimit: "Visible chips per card",
-  goodOutstandingPercent: "Good: minimum Outstanding % of activity",
-  greatOutstandingPercent: "Great: minimum Outstanding % of activity",
-  amazingOutstandingPercent: "Amazing: minimum Outstanding % of activity",
-  nearPerfectOutstandingPercent:
-    "Near-perfect: minimum Outstanding % of activity",
   rareRoleMaximumPercent: "Rare role: maximum % of role history",
-  fewHighlightsMaxEpisodes: "Few highlights: maximum episodes",
-  fewHighlightsMaxPercent: "Few highlights: maximum % of scene",
-  fillerTotalPercent: "Lots of filler: above % of scene",
-  lacklusterNegativePercent: "Lackluster: above negative % of activity",
-  lacklusterOutstandingSuppressPercent: "Lackluster: suppress at Outstanding %",
-  lacklusterNonOutstandingPercent: "Lackluster: minimum non-Outstanding %",
   tagGoodAmountMinPercent: "Good amount of tags: minimum % of scene",
   tagLotsMinPercent: "Lots of tags: minimum % of scene",
   tagEyeCanSeeMinPercent: "As far as the eye can see: minimum % of scene",
@@ -95,17 +79,12 @@ const kindInfo: Record<SceneCardInsightCandidateKind, InsightKindInfo> = {
   },
   "activity-quality": {
     label: "Activity quality combinations",
-    note: "Outstanding share of each activity. Combined chips also count in their individual quality rows.",
-    thresholds: [
-      "goodOutstandingPercent",
-      "greatOutstandingPercent",
-      "amazingOutstandingPercent",
-      "nearPerfectOutstandingPercent",
-    ],
+    note: "Outstanding sex and oral shares grouped into 20-point percentage ranges.",
+    thresholds: [],
   },
   leaning: {
     label: "Fucking / eating pito split",
-    note: "Direct percentage split of combined fucking and eating pito duration, with the engine’s minimum evidence rules.",
+    note: "Fucking and eating pito shares grouped into 10-point percentage ranges, with the existing minimum evidence rule.",
     thresholds: [],
   },
   "no-orgasm": {
@@ -136,40 +115,6 @@ const kindInfo: Record<SceneCardInsightCandidateKind, InsightKindInfo> = {
   "country-lineup": {
     label: "Mexican lineup",
     note: "At least one performer has country MX, MEX, or Mexico; All-Mexican requires at least two and no others.",
-    thresholds: [],
-  },
-  filler: {
-    label: "Lots of filler",
-    note: "Unmarked plus negative duration. Suppressed when a Lackluster chip applies.",
-    thresholds: [
-      "fillerTotalPercent",
-      "lacklusterNegativePercent",
-      "lacklusterOutstandingSuppressPercent",
-      "lacklusterNonOutstandingPercent",
-    ],
-  },
-  lackluster: {
-    label: "Lackluster activity",
-    note: "Negative / non-Outstanding share of activity, with Outstanding suppression.",
-    thresholds: [
-      "lacklusterNegativePercent",
-      "lacklusterOutstandingSuppressPercent",
-      "lacklusterNonOutstandingPercent",
-    ],
-  },
-  "few-highlights": {
-    label: "Few highlights",
-    note: "Both the episode and scene-percentage limits must be met.",
-    thresholds: ["fewHighlightsMaxEpisodes", "fewHighlightsMaxPercent"],
-  },
-  "everybody-nuts": {
-    label: "Everybody Nuts",
-    note: "Disabled in the current engine.",
-    thresholds: [],
-  },
-  feet: {
-    label: "Feet",
-    note: "At least one non-2nd-Camera marker has the configured Feet tag.",
     thresholds: [],
   },
   tag: {
@@ -253,30 +198,12 @@ export const insightStatsCatalog: InsightStatsDefinition[] = [
   definition("outstanding-activity"),
   definition("outstanding-activity-presence"),
   definition("activity-quality"),
-  ...["sex", "oral", "solo"].flatMap((activity) =>
-    ["Good", "Great", "Amazing", "Near-perfect"].map((level) => {
-      const label = `${level} ${activity}`;
-      return definition(
-        "activity-quality",
-        `quality-${label}`,
-        label,
-        (candidate) =>
-          candidate.kind === "activity-quality" &&
-          candidate.label.split(" and ").includes(label)
-      );
-    })
-  ),
-  keyed(
+  definition(
     "event-report",
-    "orgasm-report",
-    "Orgasm reports",
-    "Non-Facial Orgasm markers, excluding 2nd Camera; each top performer counts once, and unassigned markers count once. GOAT and Really Hot markers are highlighted."
-  ),
-  keyed(
-    "event-report",
-    "facial-report",
-    "Facial reports",
-    "Facial markers, excluding 2nd Camera; each top performer counts once, and unassigned markers count once. GOAT and Really Hot markers are highlighted."
+    "orgasm-facial-report",
+    "Orgasm and Facial reports",
+    (candidate) => candidate.key === "orgasm-facial-report",
+    "Each variant counts top-performer events (or one when unassigned): total orgasms, regular orgasms, facials, and GOAT / Really Hot totals and subtypes. GOAT takes precedence when a marker has both quality tags; markers with the 2nd Camera tag are excluded."
   ),
   keyed(
     "orgasm-event",
@@ -331,16 +258,9 @@ export const insightStatsCatalog: InsightStatsDefinition[] = [
   ),
   definition("favorite-lineup"),
   definition("country-lineup"),
-  ...["sex", "oral"].map((activity) =>
-    keyed("lackluster", `lackluster-${activity}`, `Lackluster ${activity}`)
-  ),
-  definition("filler"),
-  definition("few-highlights"),
-  definition("feet"),
-  definition("everybody-nuts"),
   definition("tag"),
 ];
 
 export const insightStatsMainCatalog = insightStatsCatalog.filter(
-  (row) => !row.id.startsWith("quality-") && !row.id.startsWith("interaction-")
+  (row) => !row.id.startsWith("interaction-")
 );

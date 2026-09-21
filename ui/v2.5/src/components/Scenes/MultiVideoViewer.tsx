@@ -880,7 +880,14 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
     const uniqueTagNames = markerData
       .map((marker) => marker.primaryTag.name)
       .filter((value, index, self) => self.indexOf(value) === index);
-    markers.findColors(uniqueTagNames);
+    // CUSTOM: use the configured solo role ID for its shared scrubber color.
+    const soloTagId = uiConfig?.roleTagIds?.soloTagId;
+    const soloTagNames = soloTagId
+      ? markerData
+          .filter((marker) => marker.primaryTag.id === soloTagId)
+          .map((marker) => marker.primaryTag.name)
+      : [];
+    markers.findColors(uniqueTagNames, soloTagNames); // CUSTOM
 
     const showRangeTags =
       !ScreenUtils.isMobile() && (uiConfig?.showRangeMarkers ?? true);
@@ -913,6 +920,7 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
     overlay.oTimestamps,
     overlay.timelineMarkers,
     uiConfig?.showRangeMarkers,
+    uiConfig?.roleTagIds?.soloTagId,
   ]);
 
   useEffect(() => {

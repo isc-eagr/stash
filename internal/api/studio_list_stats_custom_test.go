@@ -52,8 +52,13 @@ func TestCalculateStudioListActivityStatsCustom(t *testing.T) {
 	assertStudioListFloatCustom(t, "sex seconds", got.SexSeconds, 20)
 	assertStudioListFloatCustom(t, "oral seconds", got.OralSeconds, 10)
 	assertStudioListFloatCustom(t, "solo seconds", got.SoloSeconds, 10)
+	assertStudioListFloatCustom(t, "sex percent", got.SexPercent, 50)
+	assertStudioListFloatCustom(t, "oral percent", got.OralPercent, 25)
+	assertStudioListFloatCustom(t, "solo percent", got.SoloPercent, 25)
 	assertStudioListFloatCustom(t, "unusable seconds", got.UnusableSeconds, 10)
-	assertStudioListFloatCustom(t, "outstanding seconds", got.OutstandingSeconds, 20)
+	assertStudioListFloatCustom(t, "outstanding seconds", got.OutstandingSeconds, 10)
+	assertStudioListFloatCustom(t, "standard seconds", got.StandardSeconds, 30)
+	assertStudioListFloatCustom(t, "unclassified seconds", got.OtherSeconds, 100)
 	if got.SexSceneCount != 1 || got.OralSceneCount != 1 || got.SoloSceneCount != 1 {
 		t.Fatalf("unexpected activity scene counts: sex=%d oral=%d solo=%d", got.SexSceneCount, got.OralSceneCount, got.SoloSceneCount)
 	}
@@ -74,7 +79,7 @@ func TestCalculateStudioListActivityStatsCustomExcludesScenesWithoutTimedRoleMar
 	)
 
 	assertStudioListFloatCustom(t, "meaningful total seconds", got.TotalSeconds, 100)
-	assertStudioListFloatCustom(t, "meaningful sex percent", got.SexPercent, 30)
+	assertStudioListFloatCustom(t, "meaningful sex percent", got.SexPercent, 100)
 	assertStudioListFloatCustom(t, "excluded unusable seconds", got.UnusableSeconds, 0)
 }
 

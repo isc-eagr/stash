@@ -56,34 +56,39 @@ type CompactSceneStatsScene = {
 
 export type SceneStatsCompactData = {
   s: {
+    u: number;
     r: CompactSceneStatsScene[];
   };
 };
 
-export function expandSceneStatsCompactData(
-  data?: SceneStatsCompactData
-): SceneStatsScene[] {
-  return (data?.s.r ?? []).map((scene) => ({
-    id: scene.i,
-    title: scene.t,
-    date: scene.d,
-    effective_date: scene.e,
-    rating100: scene.a,
-    o_counter: scene.o,
-    o_counter_past_year: scene.p,
-    is_past_year: scene.n,
-    is_release_past_year: scene.l,
-    duration: scene.u,
-    filesize: scene.z,
-    performer_count: scene.v,
-    performer_count_past_year: scene.w,
-    performer_ethnicities: scene.j,
-    performer_countries: scene.k,
-    scene_markers: scene.m.map((marker) => ({ tag_ids: marker.g })),
-    tags: scene.g,
-    primary_width: scene.x,
-    primary_height: scene.y,
-    most_recent_o_date: scene.q,
-    has_royal_sapphire_bonus: scene.h,
-  }));
+export function expandSceneStatsCompactData(data?: SceneStatsCompactData): {
+  scenes: SceneStatsScene[];
+  uniquePerformerCount: number;
+} {
+  return {
+    scenes: (data?.s.r ?? []).map((scene) => ({
+      id: scene.i,
+      title: scene.t,
+      date: scene.d,
+      effective_date: scene.e,
+      rating100: scene.a,
+      o_counter: scene.o,
+      o_counter_past_year: scene.p,
+      is_past_year: scene.n,
+      is_release_past_year: scene.l,
+      duration: scene.u,
+      filesize: scene.z,
+      performer_count: scene.v,
+      performer_count_past_year: scene.w,
+      performer_ethnicities: scene.j,
+      performer_countries: scene.k,
+      scene_markers: scene.m.map((marker) => ({ tag_ids: marker.g })),
+      tags: scene.g,
+      primary_width: scene.x,
+      primary_height: scene.y,
+      most_recent_o_date: scene.q,
+      has_royal_sapphire_bonus: scene.h,
+    })),
+    uniquePerformerCount: data?.s.u ?? 0,
+  };
 }

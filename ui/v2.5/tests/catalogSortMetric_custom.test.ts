@@ -93,6 +93,15 @@ test("each catalog resolves its active card metric and value", () => {
     "+15"
   );
   assert.equal(
+    getSceneSortMetricCustom(
+      "unclassified_activity_percent",
+      scene as never,
+      "ASC" as never,
+      {}
+    )?.value,
+    100
+  );
+  assert.equal(
     getPerformerSortMetricCustom("sex_activity_percent", performer as never)
       ?.value,
     42

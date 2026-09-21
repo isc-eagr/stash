@@ -130,16 +130,16 @@ const sortByOptions = [
       value: "solo_activity_percent",
     },
     {
-      messageID: "other_activity_percent",
-      value: "other_activity_percent",
-    },
-    {
       messageID: "outstanding_activity_percent",
       value: "outstanding_activity_percent",
     },
     {
       messageID: "standard_activity_percent",
       value: "standard_activity_percent",
+    },
+    {
+      messageID: "unclassified_activity_percent",
+      value: "unclassified_activity_percent",
     },
     {
       messageID: "unusable_activity_percent",

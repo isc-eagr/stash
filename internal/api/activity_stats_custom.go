@@ -82,6 +82,15 @@ func activityStatsPercentCustom(part float64, total float64) float64 {
 	return (part / total) * 100
 }
 
+// CUSTOM: Activity Type percentages partition only the classified Sex, Oral,
+// and Solo duration. Unclassified scene runtime is reported separately.
+func activityStatsTypePercentsCustom(sexSeconds, oralSeconds, soloSeconds float64) (float64, float64, float64) {
+	totalActivitySeconds := sexSeconds + oralSeconds + soloSeconds
+	return activityStatsPercentCustom(sexSeconds, totalActivitySeconds),
+		activityStatsPercentCustom(oralSeconds, totalActivitySeconds),
+		activityStatsPercentCustom(soloSeconds, totalActivitySeconds)
+}
+
 func activityStatsCategoryCustom(primaryTagID int, sexTagID int, oralTagID int, soloTagID int) (activityCategoryCustom, bool) {
 	switch primaryTagID {
 	case sexTagID:
@@ -217,6 +226,47 @@ func activityStatsSubtractIntervalsCustom(intervals []activityIntervalCustom, su
 		}
 	}
 
+	return ret
+}
+
+func activityStatsIntersectIntervalsCustom(first, second []activityIntervalCustom) []activityIntervalCustom {
+	first = activityStatsMergedIntervalsCustom(first)
+	second = activityStatsMergedIntervalsCustom(second)
+	ret := []activityIntervalCustom{}
+	firstIndex, secondIndex := 0, 0
+	for firstIndex < len(first) && secondIndex < len(second) {
+		left := first[firstIndex]
+		right := second[secondIndex]
+		if left.sceneID < right.sceneID {
+			firstIndex++
+			continue
+		}
+		if right.sceneID < left.sceneID {
+			secondIndex++
+			continue
+		}
+
+		start := left.start
+		if right.start > start {
+			start = right.start
+		}
+		end := left.end
+		if right.end < end {
+			end = right.end
+		}
+		if end > start {
+			ret = append(ret, activityIntervalCustom{sceneID: left.sceneID, start: start, end: end})
+		}
+
+		if left.end < right.end {
+			firstIndex++
+		} else if right.end < left.end {
+			secondIndex++
+		} else {
+			firstIndex++
+			secondIndex++
+		}
+	}
 	return ret
 }
 
@@ -699,16 +749,21 @@ WHERE sc.id IN (SELECT id FROM selected_scenes)
 		byCategory[activitySoloCustom]...,
 	)
 	activityOtherSeconds := activityStatsActivityOtherSecondsCustom(totalSeconds, activityIntervals)
-	outstandingSeconds := activityStatsDurationCustom(activityStatsSubtractIntervalsCustom(
+	activityOutstandingIntervals := activityStatsIntersectIntervalsCustom(
+		activityIntervals,
 		byCategory[activityOutstandingCustom],
+	)
+	outstandingSeconds := activityStatsDurationCustom(activityStatsSubtractIntervalsCustom(
+		activityOutstandingIntervals,
 		byCategory[activityUnusableCustom],
 	))
-	standardSeconds := activityStatsOtherSecondsCustom(
-		totalSeconds,
-		byCategory[activityOutstandingCustom],
-		byCategory[activityUnusableCustom],
+	standardIntervals := activityStatsSubtractIntervalsCustom(
+		activityIntervals,
+		append(activityOutstandingIntervals, byCategory[activityUnusableCustom]...),
 	)
+	standardSeconds := activityStatsDurationCustom(standardIntervals)
 	otherSeconds := activityStatsOtherSecondsCustom(totalSeconds, activityIntervals, byCategory[activityUnusableCustom])
+	sexPercent, oralPercent, soloPercent := activityStatsTypePercentsCustom(sexSeconds, oralSeconds, soloSeconds)
 
 	return &StudioActivityStats{
 		TotalSeconds:         totalSeconds,
@@ -720,9 +775,9 @@ WHERE sc.id IN (SELECT id FROM selected_scenes)
 		OutstandingSeconds:   outstandingSeconds,
 		StandardSeconds:      standardSeconds,
 		UnusableSeconds:      unusableSeconds,
-		SexPercent:           activityStatsPercentCustom(sexSeconds, totalSeconds),
-		OralPercent:          activityStatsPercentCustom(oralSeconds, totalSeconds),
-		SoloPercent:          activityStatsPercentCustom(soloSeconds, totalSeconds),
+		SexPercent:           sexPercent,
+		OralPercent:          oralPercent,
+		SoloPercent:          soloPercent,
 		OtherPercent:         activityStatsPercentCustom(otherSeconds, totalSeconds),
 		ActivityOtherPercent: activityStatsPercentCustom(activityOtherSeconds, totalSeconds),
 		OutstandingPercent:   activityStatsPercentCustom(outstandingSeconds, totalSeconds),

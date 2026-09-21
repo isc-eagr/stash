@@ -28,6 +28,8 @@ export type InsightStatsVariant = InsightStatsCount & {
   label: string;
   sceneIds: { all: string[]; visible: string[] };
   examples: Array<{ id: string; title: string; label: string }>;
+  sortGroup?: number;
+  sortValue?: number;
 };
 export type InsightStatsRow = InsightStatsCount & {
   sceneIds: { all: string[]; visible: string[] };
@@ -95,11 +97,13 @@ export function countInsightStatsScene(
     const matches = candidates.filter(definition.matches);
     if (!matches.length) return;
     const row = result.rows.get(definition.id)!;
+    const isVisible = (candidate: SceneCardInsightCandidate) =>
+      candidate.statsVisibleKeys?.some((key) => visibleKeys.has(key)) ??
+      visibleKeys.has(candidate.key);
     row.all += 1;
     row.sceneIds.all.push(scene.id);
-    if (matches.some(({ key }) => visibleKeys.has(key)))
-      row.sceneIds.visible.push(scene.id);
-    if (matches.some(({ key }) => visibleKeys.has(key))) row.visible += 1;
+    if (matches.some(isVisible)) row.sceneIds.visible.push(scene.id);
+    if (matches.some(isVisible)) row.visible += 1;
     const variants = new Map<string, SceneCardInsightCandidate[]>();
     const parts = new Map<string, SceneCardInsightCandidate[]>();
     matches.forEach((candidate) => {
@@ -132,9 +136,15 @@ export function countInsightStatsScene(
         };
         variant.all += 1;
         variant.sceneIds.all.push(scene.id);
-        if (group.some(({ key }) => visibleKeys.has(key)))
-          variant.sceneIds.visible.push(scene.id);
-        if (group.some(({ key }) => visibleKeys.has(key))) variant.visible += 1;
+        if (group.some(isVisible)) variant.sceneIds.visible.push(scene.id);
+        if (group.some(isVisible)) variant.visible += 1;
+        const partOrder = group
+          .map((candidate) => candidate.statsPartOrder?.[label])
+          .find((value) => value !== undefined);
+        if (partOrder) {
+          variant.sortGroup = partOrder.group;
+          variant.sortValue = partOrder.value;
+        }
         if (variant.examples.length < 3)
           variant.examples.push({
             id: scene.id,
@@ -223,11 +233,23 @@ export function compareInsightStatsVariants(
       previewIds: previewVariants.get(label)?.sceneIds[mode] ?? [],
       examples: (previewVariants.get(label) ?? currentVariants.get(label))!
         .examples,
+      sortGroup: (previewVariants.get(label) ?? currentVariants.get(label))!
+        .sortGroup,
+      sortValue: (previewVariants.get(label) ?? currentVariants.get(label))!
+        .sortValue,
     }))
-    .sort(
-      (a, b) =>
+    .sort((a, b) => {
+      const statsOrder =
+        a.sortGroup !== undefined || b.sortGroup !== undefined
+          ? (a.sortGroup ?? Number.MAX_SAFE_INTEGER) -
+              (b.sortGroup ?? Number.MAX_SAFE_INTEGER) ||
+            (b.sortValue ?? 0) - (a.sortValue ?? 0)
+          : 0;
+      return (
+        statsOrder ||
         b.preview - a.preview ||
         b.current - a.current ||
         a.label.localeCompare(b.label)
-    );
+      );
+    });
 }

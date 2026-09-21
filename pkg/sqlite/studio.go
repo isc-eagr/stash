@@ -744,6 +744,7 @@ var studioSortOptions = sortOptions{
 	"other_activity_percent",                   // CUSTOM
 	"outstanding_activity_percent",             // CUSTOM
 	"standard_activity_percent",                // CUSTOM
+	"unclassified_activity_percent",            // CUSTOM
 	"unusable_activity_percent",                // CUSTOM
 	"rating_criteria_solo_performer_appeal",    // CUSTOM
 	"rating_criteria_solo_performance",         // CUSTOM
@@ -827,6 +828,8 @@ func (qb *StudioStore) getStudioSort(findFilter *models.FindFilterType) (string,
 		sortQuery += qb.sortByActivityPercentCustom(activityPercentOutstandingCustom, direction)
 	case "standard_activity_percent": // CUSTOM
 		sortQuery += qb.sortByActivityPercentCustom(activityPercentStandardCustom, direction)
+	case "unclassified_activity_percent": // CUSTOM
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentUnclassifiedCustom, direction)
 	case "unusable_activity_percent": // CUSTOM
 		sortQuery += qb.sortByActivityPercentCustom(activityPercentUnusableCustom, direction)
 	case "facial_scenes_count": // CUSTOM

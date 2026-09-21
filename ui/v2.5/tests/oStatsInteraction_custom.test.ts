@@ -8,7 +8,7 @@ const source = readFileSync(
 
 assert.match(
   source,
-  /<Link\s+className="ostats-bar-cell"[\s\S]*?to=\{item\.path\}[\s\S]*?aria-label=/,
+  /<Link\s+className="ostats-bar-cell"[\s\S]*?to=\{addOStatsStudioScopeToPath\(item\.path, studioScope\)\}[\s\S]*?aria-label=/,
   "chart destinations must be keyboard-accessible links with descriptive names"
 );
 assert.doesNotMatch(
@@ -28,7 +28,7 @@ assert.equal(
 for (const [, attributes] of unknownLinks) {
   assert.match(
     attributes,
-    /to="\/ostats\//,
+    /to=\{addOStatsStudioScopeToPath\(\s*"\/ostats\//,
     "Unknown groups need a destination"
   );
   assert.match(
@@ -47,4 +47,20 @@ assert.doesNotMatch(
   source,
   />\s*Back\s*<\//,
   "return navigation should name its destination instead of implying browser history"
+);
+
+assert.match(
+  source,
+  /MOST_OS_IN_DAY,[\s\S]*?skip: isDetailPage \|\| embedded/,
+  "embedded Studio O Stats should not query the global daily record"
+);
+assert.match(
+  source,
+  /LONGEST_PERIOD_WITHOUT_O,[\s\S]*?skip: isDetailPage \|\| embedded/,
+  "embedded Studio O Stats should not query the global dry-spell record"
+);
+assert.match(
+  source,
+  /!embedded && !error && !loading && !showTimeline && !selectedYear && \([\s\S]*?<h2>By Studio<\/h2>/,
+  "the By Studio breakdown should remain global-only"
 );

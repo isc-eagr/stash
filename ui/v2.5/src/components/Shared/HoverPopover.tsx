@@ -129,10 +129,15 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
       const updateLayout = () => {
         const triggerRect = targetElement.getBoundingClientRect();
         const popoverRect = popoverElement.getBoundingClientRect();
+        const measuredContentHeight =
+          popoverElement.querySelector<HTMLElement>(
+            "[data-hover-popover-measure]"
+          )?.scrollHeight ?? 0;
         const contentHeight = Math.max(
           estimatedContentHeight ?? 0,
           popoverRect.height,
-          popoverElement.scrollHeight
+          popoverElement.scrollHeight,
+          measuredContentHeight
         );
         const layout = getHoverPopoverVerticalLayout({
           preferredPlacement: placement,

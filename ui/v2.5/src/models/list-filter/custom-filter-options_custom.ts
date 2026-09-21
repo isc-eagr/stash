@@ -41,6 +41,7 @@ const customCriterionTypes = new Set<CriterionType>([
   "other_activity_percent",
   "outstanding_activity_percent",
   "standard_activity_percent",
+  "unclassified_activity_percent",
   "unusable_activity_percent",
 ]);
 

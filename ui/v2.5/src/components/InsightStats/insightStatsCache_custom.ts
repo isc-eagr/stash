@@ -6,7 +6,7 @@ import {
 } from "./insightStatsQuery_custom";
 
 export const insightCacheLifetime = 12 * 60 * 60 * 1000;
-export const insightStatsEngineVersion = 2;
+export const insightStatsEngineVersion = 3;
 
 export function insightStatsConfigKey(config: unknown) {
   // CUSTOM: Recalculate cached chip totals when engine semantics change while

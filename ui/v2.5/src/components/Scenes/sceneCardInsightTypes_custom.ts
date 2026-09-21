@@ -22,8 +22,17 @@ export interface ISceneCardInsight {
   label: string;
   detail: string;
   tone: SceneCardInsightTone;
-  performers?: SceneCardInsightPerformer[];
+  performerPreview?: SceneCardInsightPerformer; // CUSTOM: performer portrait for rare/repeated orgasm chips.
+  orgasmFacialEvents?: SceneCardInsightEvent[];
 }
+
+export type SceneCardInsightEvent = {
+  id: string;
+  category: "orgasm" | "facial";
+  topPerformers: SceneCardInsightPerformer[];
+  bottomPerformers: SceneCardInsightPerformer[];
+  quality?: "GOAT" | "Really Hot";
+};
 
 export type SceneCardInsightTagParent = {
   id: string;
@@ -102,19 +111,18 @@ export type SceneCardInsightCandidateKind =
   | "negative-rating"
   | "favorite-lineup"
   | "country-lineup"
-  | "filler"
-  | "lackluster"
-  | "few-highlights"
-  | "everybody-nuts"
-  | "feet"
   | "tag";
 
 export type SceneCardInsightCandidate = ISceneCardInsight & {
   kind: SceneCardInsightCandidateKind;
   score: number;
+  statsOnly?: boolean;
+  statsVisibleKeys?: string[];
   // CUSTOM: Stable combination text for statistics, independent of performer names.
   statsLabel?: string;
-  statsParts?: string[]; // CUSTOM: Individual tag labels without parsing tag names.
+  statsParts?: string[]; // CUSTOM: Independent drilldown labels for Insight Stats.
+  // CUSTOM: Sort split statistic labels by category and their numeric count.
+  statsPartOrder?: Record<string, { group: number; value: number }>;
 };
 
 export type SceneCardInsightRatingConfig = {

@@ -525,16 +525,21 @@ func calculateStudioListActivityStatsCustom(
 		byCategory[activitySoloCustom]...,
 	)
 	activityOtherSeconds := activityStatsActivityOtherSecondsCustom(totalSeconds, activityIntervals)
-	outstandingSeconds := activityStatsDurationCustom(activityStatsSubtractIntervalsCustom(
+	activityOutstandingIntervals := activityStatsIntersectIntervalsCustom(
+		activityIntervals,
 		byCategory[activityOutstandingCustom],
+	)
+	outstandingSeconds := activityStatsDurationCustom(activityStatsSubtractIntervalsCustom(
+		activityOutstandingIntervals,
 		byCategory[activityUnusableCustom],
 	))
-	standardSeconds := activityStatsOtherSecondsCustom(
-		totalSeconds,
-		byCategory[activityOutstandingCustom],
-		byCategory[activityUnusableCustom],
+	standardIntervals := activityStatsSubtractIntervalsCustom(
+		activityIntervals,
+		append(activityOutstandingIntervals, byCategory[activityUnusableCustom]...),
 	)
+	standardSeconds := activityStatsDurationCustom(standardIntervals)
 	otherSeconds := activityStatsOtherSecondsCustom(totalSeconds, activityIntervals, byCategory[activityUnusableCustom])
+	sexPercent, oralPercent, soloPercent := activityStatsTypePercentsCustom(sexSeconds, oralSeconds, soloSeconds)
 
 	return &StudioActivityStats{
 		TotalSeconds:         totalSeconds,
@@ -546,9 +551,9 @@ func calculateStudioListActivityStatsCustom(
 		OutstandingSeconds:   outstandingSeconds,
 		StandardSeconds:      standardSeconds,
 		UnusableSeconds:      unusableSeconds,
-		SexPercent:           activityStatsPercentCustom(sexSeconds, totalSeconds),
-		OralPercent:          activityStatsPercentCustom(oralSeconds, totalSeconds),
-		SoloPercent:          activityStatsPercentCustom(soloSeconds, totalSeconds),
+		SexPercent:           sexPercent,
+		OralPercent:          oralPercent,
+		SoloPercent:          soloPercent,
 		OtherPercent:         activityStatsPercentCustom(otherSeconds, totalSeconds),
 		ActivityOtherPercent: activityStatsPercentCustom(activityOtherSeconds, totalSeconds),
 		OutstandingPercent:   activityStatsPercentCustom(outstandingSeconds, totalSeconds),
