@@ -130,11 +130,10 @@ export const TaskProgressCard: React.FC<IProps> = ({
           </Button>
         </div>
         <div className="progress-tracker-plan">
-          <strong className="progress-tracker-plan-title">
-            Estimated Finish Date
-          </strong>
           <Form.Label className="progress-tracker-plan-label">
-            <span>At</span>
+            <span className="progress-tracker-plan-title">
+              Estimated finish at
+            </span>
             <Form.Control
               aria-label={t("Items per day")}
               id={planStorageKey}

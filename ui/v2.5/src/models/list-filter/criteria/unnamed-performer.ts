@@ -9,7 +9,10 @@
  */
 
 import { CriterionModifier } from "src/core/generated-graphql";
-import { IRatingCriteriaValue } from "./rating-criteria_custom";
+import {
+  IRatingCriteriaValue,
+  PerformerRatingCriteriaCriterionOption,
+} from "./rating-criteria_custom";
 
 // Rating criterion for unnamed performers
 export interface IUnnamedPerformerRating {
@@ -97,10 +100,7 @@ export function formatUnnamedPerformerSummary(
     }
   }
 
-  const ratingCriteriaCount = getRatingCriteriaCount(performer.rating_criteria);
-  if (ratingCriteriaCount > 0) {
-    parts.push(`${ratingCriteriaCount} rating criteria`);
-  }
+  parts.push(...getRatingCriteriaLabels(performer.rating_criteria));
 
   if (parts.length === 0) {
     return "Any performer";
@@ -156,23 +156,32 @@ function cloneRatingCriteriaValue(
   };
 }
 
-function getRatingCriteriaCount(value: IRatingCriteriaValue | null) {
+function getRatingCriteriaLabels(value: IRatingCriteriaValue | null) {
   if (!value) {
-    return 0;
+    return [];
   }
 
-  return (
-    Object.values(value.criteria ?? {}).filter((criterion) => !!criterion)
-      .length +
-    Object.values(value.bonusValues ?? {}).filter((criterion) => !!criterion)
-      .length +
-    Object.values(value.bonuses ?? {}).filter(
-      (presence) => presence !== undefined
-    ).length +
-    Object.values(value.penalties ?? {}).filter(
-      (presence) => presence !== undefined
-    ).length
-  );
+  const option = PerformerRatingCriteriaCriterionOption;
+  const labels: string[] = [];
+  for (const section of ["criteria", "bonusValues"] as const) {
+    for (const [key, criterion] of Object.entries(value[section] ?? {})) {
+      if (!criterion) continue;
+      labels.push(
+        option[section].find((definition) => definition.key === key)?.label ??
+          key
+      );
+    }
+  }
+  for (const section of ["bonuses", "penalties"] as const) {
+    for (const [key, presence] of Object.entries(value[section] ?? {})) {
+      if (presence === undefined) continue;
+      const label =
+        option[section].find((definition) => definition.key === key)?.label ??
+        key;
+      labels.push(presence ? label : `No ${label}`);
+    }
+  }
+  return labels;
 }
 
 function getModifierSymbol(modifier: CriterionModifier): string {

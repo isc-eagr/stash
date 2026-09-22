@@ -252,6 +252,7 @@
   "marker_editor.copy": "Copy as different vato",
   "marker_editor.distinct": "Different unnamed vatos match different people.",
   "marker_editor.new_vato": "Unnamed vato",
+  "marker_editor.edit_vato": "Edit unnamed vato",
   "marker_editor.reuse": "Reuse vato",
   "marker_editor.delete_vato": "Delete vato from all markers",
   "add_marker_tags_first": "Add a Markers: Tags filter first to enable this filter.",

@@ -11,6 +11,7 @@ import {
   reorderProgressTrackers,
   toggleProgressTrackerWorkingOn,
   taskProgressCurrentGoalPeriods,
+  taskProgressCurrentPercentageChanges,
   taskProgressHistoryPercentages,
 } from "../src/components/taskProgress_custom.ts";
 import type { IProgressTracker } from "../src/components/taskProgress_custom.ts";
@@ -432,4 +433,34 @@ assert.ok(
   Math.abs(incomingPercentages.periodProgressPercentage + 1.1111111111) <
     0.000001,
   "incoming work can reduce the tracker completion percentage"
+);
+
+const currentPercentageChanges = taskProgressCurrentPercentageChanges(
+  [
+    {
+      date: "2026-09-01",
+      completed: 60,
+      incoming: 0,
+      remaining: 40,
+    },
+    {
+      date: "2026-09-21",
+      completed: 10,
+      incoming: 0,
+      remaining: 30,
+    },
+  ],
+  "2026-09-21"
+);
+assert.ok(
+  Math.abs(currentPercentageChanges.day - 10) < 0.000001,
+  "today compares the current completion percentage with yesterday's close"
+);
+assert.ok(
+  Math.abs(currentPercentageChanges.week - 10) < 0.000001,
+  "this week compares with the previous week's close"
+);
+assert.ok(
+  Math.abs(currentPercentageChanges.month - 70) < 0.000001,
+  "this month compares with the previous month's close"
 );

@@ -294,7 +294,10 @@ function isOutstandingMarker(
     [marker.primary_tag, ...marker.tags].some((tag) =>
       tagMatches(tag, targetTagId)
     );
-  // CUSTOM: a bare Orgasm/Facial no longer upgrades quality by itself.
+  // CUSTOM: every timed non-activity marker is Outstanding across its full range.
+  if (!getMarkerActivityCategory(marker, roleTagIds)) return true;
+
+  // Orgasm-tagged activity markers need an explicit Really Hot/GOAT qualifier.
   if (hasTag(roleTagIds.orgasmTagId)) {
     return (
       isChronologicalSceneMarkerGoatTagged(marker, roleTagIds.goatTagId) ||
@@ -303,7 +306,6 @@ function isOutstandingMarker(
   }
   return (
     isChronologicalSceneMarkerGoatTagged(marker, roleTagIds.goatTagId) ||
-    !getMarkerActivityCategory(marker, roleTagIds) ||
     marker.tags.length > 0
   );
 }
@@ -426,12 +428,10 @@ function getActivityStats(
     totalSeconds,
     activityIntervals
   );
-  const activityOutstandingIntervals = intersectIntervals(
-    activityIntervals,
-    outstandingIntervals
-  );
+  // CUSTOM: retain overlapping non-activity coverage and include any portion
+  // outside Sex/Oral/Solo instead of clipping Outstanding to activity.
   const outstandingVisibleIntervals = subtractIntervals(
-    activityOutstandingIntervals,
+    outstandingIntervals,
     unusableIntervals
   );
   const standardIntervals = subtractIntervals(activityIntervals, [
@@ -440,6 +440,7 @@ function getActivityStats(
   ]);
   const unclassifiedIntervals = uncoveredIntervals(totalSeconds, [
     ...activityIntervals,
+    ...outstandingIntervals,
     ...unusableIntervals,
   ]);
   const qualityByActivity = (

@@ -643,7 +643,7 @@ test("a Facial contributes only to the combined event report below coverage thre
     defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("1 total · 1 facial"));
+  assert.ok(sceneLabels.includes("1 orgasm · 1 facial"));
   assert.equal(
     sceneLabels.some((label) => label.includes("regular")),
     false
@@ -696,7 +696,7 @@ test("the combined event report preserves each orgasm's top performer", () => {
       bottomPerformers: [],
     },
   ]);
-  assert.equal(insight?.label, "3 total · 3 regular");
+  assert.equal(insight?.label, "3 orgasms · 3 regular");
   assert.equal(insight?.detail, "0:10 (across 2 markers)");
 });
 
@@ -752,7 +752,7 @@ test("the combined event report preserves each Facial's top and bottom portraits
       bottomPerformers: [bottom],
     },
   ]);
-  assert.equal(insight?.label, "2 total · 2 facials");
+  assert.equal(insight?.label, "2 orgasms · 2 facials");
 });
 
 test("the combined event report summarizes and preserves every event", () => {
@@ -814,7 +814,7 @@ test("the combined event report summarizes and preserves every event", () => {
 
   assert.equal(
     insight?.label,
-    "5 total · 2 facials (1 GOAT, 1 Really Hot) · 3 regular (1 GOAT, 2 Really Hot)"
+    "5 orgasms · 2 facials (1 GOAT, 1 Really Hot) · 3 regular (1 GOAT, 2 Really Hot)"
   );
   assert.equal(insight?.orgasmFacialEvents?.length, 5);
   assert.deepEqual(
@@ -848,7 +848,7 @@ test("Facial-family subtags aggregate exclusively into the Facial section", () =
     defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("4 total · 4 facials"));
+  assert.ok(sceneLabels.includes("4 orgasms · 4 facials"));
   assert.equal(
     sceneLabels.some((label) => label.includes("regular")),
     false
@@ -893,9 +893,11 @@ test("the Facial section includes GOAT and Really Hot counts", () => {
     100,
     defaultThresholds
   );
-  assert.ok(sceneLabels.includes("5 total · 5 facials (1 GOAT, 2 Really Hot)"));
+  assert.ok(
+    sceneLabels.includes("5 orgasms · 5 facials (1 GOAT, 2 Really Hot)")
+  );
   assert.equal(
-    sceneLabels.some((label) => label.includes("orgasm")),
+    sceneLabels.some((label) => /^(?:GOAT|Really Hot )?orgasm/i.test(label)),
     false
   );
   assert.equal(
@@ -929,9 +931,11 @@ test("2nd Camera markers never inflate the combined event report", () => {
     defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("3 total · 3 facials (1 GOAT, 1 Really Hot)"));
+  assert.ok(
+    sceneLabels.includes("3 orgasms · 3 facials (1 GOAT, 1 Really Hot)")
+  );
   assert.equal(
-    sceneLabels.some((label) => label.includes("orgasm")),
+    sceneLabels.some((label) => /^(?:GOAT|Really Hot )?orgasm/i.test(label)),
     false
   );
 });
@@ -1180,7 +1184,7 @@ test("the combined event report includes GOAT Orgasm and Facial markers", () => 
   );
 
   assert.ok(
-    sceneLabels.includes("2 total · 1 facial (1 GOAT) · 1 regular (1 GOAT)")
+    sceneLabels.includes("2 orgasms · 1 facial (1 GOAT) · 1 regular (1 GOAT)")
   );
   assert.ok(sceneLabels.includes("GOAT Pito from Tyga Martinez"));
   assert.equal(
@@ -1210,9 +1214,9 @@ test("GOAT takes precedence over Really Hot in the Facial section", () => {
     defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("1 total · 1 facial (1 GOAT)"));
+  assert.ok(sceneLabels.includes("1 orgasm · 1 facial (1 GOAT)"));
   assert.equal(
-    sceneLabels.some((label) => label.includes("orgasm")),
+    sceneLabels.some((label) => /^(?:GOAT|Really Hot )?orgasm/i.test(label)),
     false
   );
   assert.ok(sceneLabels.includes("GOAT pito from Peuops Ramos"));
@@ -1236,9 +1240,9 @@ test("GOAT Facial-family subtags aggregate without performers", () => {
     defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("2 total · 2 facials (2 GOAT)"));
+  assert.ok(sceneLabels.includes("2 orgasms · 2 facials (2 GOAT)"));
   assert.equal(
-    sceneLabels.some((label) => label.includes("orgasm")),
+    sceneLabels.some((label) => /^(?:GOAT|Really Hot )?orgasm/i.test(label)),
     false
   );
   assert.equal(
@@ -1327,7 +1331,7 @@ test("the combined event report keeps Facial and Orgasm totals distinct", () => 
 
   assert.ok(
     sceneLabels.includes(
-      "3 total · 1 facial (1 Really Hot) · 2 regular (2 Really Hot)"
+      "3 orgasms · 1 facial (1 Really Hot) · 2 regular (2 Really Hot)"
     )
   );
   assert.ok(sceneLabels.includes("Tyga Martinez nuts twice"));
@@ -1342,9 +1346,9 @@ test("a Really Hot Facial contributes only to the Facial section", () => {
     defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("1 total · 1 facial (1 Really Hot)"));
+  assert.ok(sceneLabels.includes("1 orgasm · 1 facial (1 Really Hot)"));
   assert.equal(
-    sceneLabels.some((label) => label.includes("orgasm")),
+    sceneLabels.some((label) => /^(?:GOAT|Really Hot )?orgasm/i.test(label)),
     false
   );
 });
@@ -1363,7 +1367,7 @@ test("GOAT event markers do not also count as Really Hot", () => {
     defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("1 total · 1 facial (1 GOAT)"));
+  assert.ok(sceneLabels.includes("1 orgasm · 1 facial (1 GOAT)"));
   assert.equal(
     sceneLabels.some((label) => label.includes("Really Hot")),
     false
@@ -1381,7 +1385,7 @@ test("Really Hot orgasms are summarized in the regular section", () => {
     defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("2 total · 2 regular (2 Really Hot)"));
+  assert.ok(sceneLabels.includes("2 orgasms · 2 regular (2 Really Hot)"));
   assert.equal(
     sceneLabels.some((label) => label.includes("facial")),
     false
@@ -1405,7 +1409,7 @@ test("one orgasm marker counts once per assigned top in the event report", () =>
     defaultThresholds
   );
 
-  assert.ok(sceneLabels.includes("2 total · 2 regular (2 Really Hot)"));
+  assert.ok(sceneLabels.includes("2 orgasms · 2 regular (2 Really Hot)"));
 });
 
 test("ordinary orgasms and facials stay inside their aggregate report", () => {
@@ -1424,7 +1428,7 @@ test("ordinary orgasms and facials stay inside their aggregate report", () => {
   );
 
   assert.ok(sceneLabels.includes("Tyga Martinez nuts 3 times"));
-  assert.ok(sceneLabels.includes("6 total · 3 facials · 3 regular"));
+  assert.ok(sceneLabels.includes("6 orgasms · 3 facials · 3 regular"));
   assert.equal(
     sceneLabels.some((label) =>
       /^(?:GOAT|Really Hot )?(?:Facials|Orgasm)/.test(label)
@@ -1439,27 +1443,38 @@ test("orgasm chips detect simultaneous top vatos and repeated top orgasms", () =
   const orgasmSubtag = tag("orgasm-subtag", "Big Orgasm", [
     tag("orgasm", "Orgasm"),
   ]);
-  const sceneLabels = labels(
-    [
-      marker("simultaneous", orgasmSubtag, 0, 10, [], [first, second]),
-      marker("first-repeat", tag("orgasm", "Orgasm"), 20, 30, [], [first]),
-      marker("first-repeat-2", tag("orgasm", "Orgasm"), 40, 50, [], [first]),
-      marker(
-        "first-camera",
-        tag("orgasm", "Orgasm"),
-        60,
-        70,
-        [tag("second-camera", "2nd Camera")],
-        [first]
-      ),
-    ],
-    100,
+  const insights = getSceneCardInsights(
+    makeScene(
+      [
+        marker("simultaneous", orgasmSubtag, 0, 10, [], [first, second]),
+        marker("first-repeat", tag("orgasm", "Orgasm"), 20, 30, [], [first]),
+        marker("first-repeat-2", tag("orgasm", "Orgasm"), 40, 50, [], [first]),
+        marker(
+          "first-camera",
+          tag("orgasm", "Orgasm"),
+          60,
+          70,
+          [tag("second-camera", "2nd Camera")],
+          [first]
+        ),
+      ],
+      100
+    ),
+    roleTagIds,
     defaultThresholds
+  );
+  const sceneLabels = insights.map((insight) => insight.label);
+  const simultaneous = insights.find(
+    (insight) => insight.key === "orgasm-simultaneous"
   );
 
   assert.ok(sceneLabels.includes("2 vatos nut at the same time"));
+  assert.deepEqual(
+    simultaneous?.performerPreviews?.map((scenePerformer) => scenePerformer.id),
+    ["first", "second"]
+  );
   assert.ok(sceneLabels.includes("First Vato nuts 3 times"));
-  assert.ok(sceneLabels.includes("4 total · 4 regular"));
+  assert.ok(sceneLabels.includes("4 orgasms · 4 regular"));
 });
 
 test("flattened ancestor IDs classify deep event descendants", () => {
@@ -1495,7 +1510,7 @@ test("flattened ancestor IDs classify deep event descendants", () => {
   ).map((insight) => insight.label);
 
   assert.ok(sceneLabels.includes("First Vato nuts twice"));
-  assert.ok(sceneLabels.includes("2 total · 2 regular"));
+  assert.ok(sceneLabels.includes("2 orgasms · 2 regular"));
   assert.equal(sceneLabels.includes("Lots of Deep Orgasm"), false);
 });
 
@@ -1988,6 +2003,10 @@ test("Favorite Vatos uses exact Royal Sapphire metallic rating precedence", () =
   );
 
   assert.equal(favorite?.detail, "Override Favorite, Threshold Favorite");
+  assert.deepEqual(
+    favorite?.performerPreviews?.map((scenePerformer) => scenePerformer.id),
+    ["threshold", "override"]
+  );
 });
 
 test("No Orgasm requires completed activity with no countable Orgasm or Facial", () => {
@@ -2346,7 +2365,7 @@ test("the visible strip retains the combined event report near the chip ceiling"
 
   assert.equal(insightSets.visible.length, 7);
   assert.ok(
-    insightSets.all.some((insight) => insight.label === "1 total · 1 facial")
+    insightSets.all.some((insight) => insight.label === "1 orgasm · 1 facial")
   );
   assert.equal(
     insightSets.all.some((insight) => insight.label.includes("regular")),
@@ -2393,7 +2412,7 @@ test("event reports retain all repeated-orgasm patterns in the overflow set", ()
   const allLabels = insightSets.all.map((insight) => insight.label);
 
   assert.ok(
-    allLabels.includes("15 total · 1 facial (1 Really Hot) · 14 regular")
+    allLabels.includes("15 orgasms · 1 facial (1 Really Hot) · 14 regular")
   );
   assert.equal(
     allLabels.filter((label) => label.includes("nuts twice")).length,
@@ -2415,7 +2434,7 @@ test("a Facial descendant counts toward a vato's repeated orgasms", () => {
   );
 
   assert.ok(sceneLabels.includes("Facial Finisher nuts 3 times"));
-  assert.ok(sceneLabels.includes("3 total · 3 facials"));
+  assert.ok(sceneLabels.includes("3 orgasms · 3 facials"));
   assert.equal(
     sceneLabels.some((label) => label.includes("regular")),
     false

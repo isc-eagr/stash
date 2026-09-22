@@ -68,6 +68,7 @@ export function getPerformerLineupCandidates(
       tone: "lineup",
       kind: "favorite-lineup",
       score: favoritePerformers.length,
+      performerPreviews: favoritePerformers,
     });
   }
 

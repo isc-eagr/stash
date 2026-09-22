@@ -112,34 +112,6 @@
   }
 }
 
-.marker-editor-vatos,
-.marker-editor-reuse {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.marker-editor-vato {
-  align-items: center;
-  border: 1px solid rgba(128, 128, 128, 0.35);
-  border-radius: 0.35rem;
-  display: flex;
-  gap: 0.25rem;
-  min-width: 0;
-  padding-right: 0.3rem;
-}
-
-.marker-editor-vato-content.btn {
-  color: inherit;
-  display: grid;
-  flex: 1;
-  gap: 0.25rem;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  padding: 0.65rem;
-  text-align: left;
-  white-space: normal;
-}
-
 .marker-editor-vato-actions {
   align-items: center;
   display: flex;
@@ -148,11 +120,8 @@
   margin: 0.75rem 0;
 }
 
-.marker-editor-reuse .btn {
-  display: grid;
-  overflow-wrap: anywhere;
-  text-align: left;
-  white-space: normal;
+.marker-editor-edit-vato.form-control {
+  width: auto;
 }
 
 .marker-editor-shared {

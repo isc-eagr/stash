@@ -1,6 +1,10 @@
 import React from "react";
+import { FormattedNumber } from "react-intl";
 import type { ITaskProgressHistoryEntry } from "../taskProgress_custom";
-import { taskProgressCurrentGoalPeriods } from "../taskProgress_custom";
+import {
+  taskProgressCurrentGoalPeriods,
+  taskProgressCurrentPercentageChanges,
+} from "../taskProgress_custom";
 import { progressToday } from "./progressMath_custom";
 import {
   taskProgressDailyGoalState,
@@ -19,31 +23,52 @@ export const TaskProgressGoalSummary: React.FC<IProps> = ({
   compact = false,
 }) => {
   const t = useProgressText();
+  const today = progressToday();
   const goals = taskProgressCurrentGoalPeriods(
     history,
     currentGoalPerDay,
-    progressToday()
+    today
   );
+  const changes = taskProgressCurrentPercentageChanges(history, today);
   const periods = [
     { key: "day", label: t("Today") },
     { key: "week", label: t("This week") },
     { key: "month", label: t("This month") },
   ] as const;
-
-  if (!periods.some(({ key }) => goals[key].goal > 0)) return null;
+  const hasDailyGoal = (currentGoalPerDay ?? 0) > 0;
 
   return (
     <section
-      aria-label={t("Goal progress")}
+      aria-label={t(hasDailyGoal ? "Goal progress" : "Completed items")}
       className={`progress-goal-summary${
         compact ? " progress-goal-summary-compact" : ""
       }`}
     >
       {periods.map(({ key, label }) => {
         const goal = goals[key];
-        const state = taskProgressDailyGoalState(goal.completed, goal.goal);
+        const state = hasDailyGoal
+          ? taskProgressDailyGoalState(goal.completed, goal.goal)
+          : "green";
         const percentage =
           goal.goal > 0 ? Math.min(100, (goal.completed / goal.goal) * 100) : 0;
+        const completed = Math.round(goal.completed);
+        const progress = hasDailyGoal
+          ? `${completed} / ${Math.round(goal.goal)}`
+          : completed;
+        const values = (
+          <span className="progress-goal-period-values">
+            {compact ? <small>{progress}</small> : <strong>{progress}</strong>}
+            <small className="progress-goal-period-change">
+              <FormattedNumber
+                maximumFractionDigits={2}
+                minimumFractionDigits={2}
+                signDisplay="always"
+                style="percent"
+                value={changes[key] / 100}
+              />
+            </small>
+          </span>
+        );
         return (
           <div
             className={`progress-goal-period progress-goal-period-${key} progress-goal-period-${state}`}
@@ -52,23 +77,19 @@ export const TaskProgressGoalSummary: React.FC<IProps> = ({
             {compact ? (
               <span>
                 <strong>{label}</strong>
-                <small>
-                  {Math.round(goal.completed)} /{" "}
-                  {goal.goal ? Math.round(goal.goal) : "—"}
-                </small>
+                {values}
               </span>
             ) : (
               <div className="progress-goal-period-heading">
                 <span className="progress-goal-period-label">{label}</span>
-                <strong>
-                  {Math.round(goal.completed)} /{" "}
-                  {goal.goal ? Math.round(goal.goal) : "—"}
-                </strong>
+                {values}
               </div>
             )}
-            <span aria-hidden="true" className="progress-goal-meter">
-              <span style={{ width: `${percentage}%` }} />
-            </span>
+            {hasDailyGoal && (
+              <span aria-hidden="true" className="progress-goal-meter">
+                <span style={{ width: `${percentage}%` }} />
+              </span>
+            )}
           </div>
         );
       })}

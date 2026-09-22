@@ -166,10 +166,10 @@ function SceneCardOrgasmFacialPopover({
   );
 }
 
-function SceneCardInsightPerformerPopover({
-  performer,
+function SceneCardInsightPerformersPopover({
+  performers,
 }: {
-  performer: NonNullable<ISceneCardInsight["performerPreview"]>;
+  performers: NonNullable<ISceneCardInsight["performerPreviews"]>;
 }) {
   return (
     <div
@@ -177,11 +177,14 @@ function SceneCardInsightPerformerPopover({
       data-hover-popover-measure="true"
     >
       <div className="scene-marker-activity-config-performers">
-        <ActivityTypePerformerTile
-          performer={performer}
-          detailLink={`/performers/${performer.id}`}
-          title={performer.name}
-        />
+        {performers.map((performer) => (
+          <ActivityTypePerformerTile
+            key={performer.id}
+            performer={performer}
+            detailLink={`/performers/${performer.id}`}
+            title={performer.name}
+          />
+        ))}
       </div>
     </div>
   );
@@ -233,6 +236,7 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
       insight.key === "outstanding-activity-presence" ||
       insight.key.startsWith("goat-");
     const hasOrgasmFacialEvents = insight.orgasmFacialEvents !== undefined;
+    const orgasmFacialEventCount = insight.orgasmFacialEvents?.length ?? 0;
     const hasEventPortraits = hasOrgasmFacialEvents;
     const ariaLabel = hasOrgasmFacialEvents
       ? `${insight.label}: event performers and quality.`
@@ -308,24 +312,31 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
           }
           estimatedContentHeight={520}
           placement="bottom"
-          popoverClassName="scene-marker-highlight-popover scene-card-performer-popover scene-card-insight-event-popover"
+          popoverClassName={`scene-marker-highlight-popover scene-card-performer-popover scene-card-insight-event-popover scene-card-insight-event-popover-${
+            orgasmFacialEventCount === 1
+              ? "single"
+              : orgasmFacialEventCount === 2
+              ? "double"
+              : "multiple"
+          }`}
         >
           {chip}
         </HoverPopover>
       );
     }
 
-    if (insight.performerPreview) {
+    const performerPreviews =
+      insight.performerPreviews ??
+      (insight.performerPreview ? [insight.performerPreview] : undefined);
+    if (performerPreviews) {
       return (
         <HoverPopover
           key={insight.key}
           className="scene-card-insight-hover-popover"
           content={
-            <SceneCardInsightPerformerPopover
-              performer={insight.performerPreview}
-            />
+            <SceneCardInsightPerformersPopover performers={performerPreviews} />
           }
-          estimatedContentHeight={300}
+          estimatedContentHeight={420}
           placement="bottom"
           popoverClassName="scene-marker-highlight-popover scene-card-insight-performer-popover"
         >

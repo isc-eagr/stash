@@ -5,6 +5,7 @@ import type { ILabeledId } from "src/models/list-filter/types";
 import {
   cloneUnnamedPerformer,
   createUnnamedPerformer,
+  formatUnnamedPerformerSummary,
   isUnnamedPerformerId,
 } from "src/models/list-filter/criteria/unnamed-performer";
 import type { IUnnamedPerformer } from "src/models/list-filter/criteria/unnamed-performer";
@@ -52,6 +53,27 @@ export function mergeMarkerNamedVatosCustom(
     ...current.filter((p) => isUnnamedPerformerId(p.id)),
     ...performers.map((p) => ({ id: p.id, label: p.name ?? p.id })),
   ];
+}
+
+export function markerSelectedVatosCustom(
+  performers: Array<{ id: string; name?: string | null }>
+): ILabeledId[] {
+  return performers.map((performer) => ({
+    id: performer.id,
+    label: performer.name ?? performer.id,
+  }));
+}
+
+export function markerUnnamedSelectOptionsCustom(people: IUnnamedPerformer[]) {
+  return people.map((performer) => ({
+    id: performer.id,
+    name: performer.label,
+    alias_list: [] as string[],
+    disambiguation: formatUnnamedPerformerSummary(performer),
+    image_path: "",
+    birthdate: null,
+    death_date: null,
+  }));
 }
 
 export function assignMarkerUnnamedCustom(

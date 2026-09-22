@@ -5,6 +5,7 @@ import ReactDOMServer from "react-dom/server.js";
 import { IntlProvider } from "react-intl";
 import { MemoryRouter } from "react-router-dom";
 import { TaskProgressCard } from "../src/components/TaskProgress/TaskProgressCard.tsx";
+import { progressToday } from "../src/components/TaskProgress/progressMath_custom.ts";
 
 const cardSource = readFileSync(
   new URL(
@@ -14,7 +15,7 @@ const cardSource = readFileSync(
   "utf8"
 );
 
-const tracker = {
+const tracker: React.ComponentProps<typeof TaskProgressCard>["tracker"] = {
   id: "1",
   title: "Organize videos",
   description: "My task notes",
@@ -45,28 +46,71 @@ const tracker = {
   ],
 };
 const noop = () => {};
-const markup = ReactDOMServer.renderToStaticMarkup(
-  React.createElement(
-    IntlProvider,
-    { locale: "en", messages: {} },
+const renderCard = (
+  value: React.ComponentProps<typeof TaskProgressCard>["tracker"]
+) =>
+  ReactDOMServer.renderToStaticMarkup(
     React.createElement(
-      MemoryRouter,
-      {},
-      React.createElement(TaskProgressCard, {
-        tracker,
-        busy: false,
-        first: true,
-        last: false,
-        onOpen: noop,
-        onEdit: noop,
-        onMove: noop,
-        onDragStart: noop,
-        onDragEnd: noop,
-        onDrop: noop,
-      })
+      IntlProvider,
+      { locale: "en", messages: {} },
+      React.createElement(
+        MemoryRouter,
+        {},
+        React.createElement(TaskProgressCard, {
+          tracker: value,
+          busy: false,
+          first: true,
+          last: false,
+          onOpen: noop,
+          onEdit: noop,
+          onMove: noop,
+          onDragStart: noop,
+          onDragEnd: noop,
+          onDrop: noop,
+        })
+      )
     )
-  )
+  );
+const markup = renderCard(tracker);
+const noGoalMarkup = renderCard({
+  ...tracker,
+  goal_per_day: null,
+  history: [
+    {
+      ...tracker.history[0],
+      completed: 5,
+      date: progressToday(),
+      goal_per_day: null,
+    },
+  ],
+});
+
+assert.equal(
+  (noGoalMarkup.match(/progress-goal-period-green/g) ?? []).length,
+  3,
+  "trackers without a daily goal show all current periods in green"
 );
+assert.equal(
+  (noGoalMarkup.match(/<strong>5<\/strong>/g) ?? []).length,
+  3,
+  "trackers without a daily goal show raw completed totals"
+);
+assert.doesNotMatch(
+  noGoalMarkup,
+  /progress-goal-meter/,
+  "trackers without a daily goal omit target meters"
+);
+assert.equal(
+  (noGoalMarkup.match(/progress-goal-period-change/g) ?? []).length,
+  3,
+  "each current period shows its percentage-point change"
+);
+assert.match(
+  noGoalMarkup,
+  /\+38\.46%/,
+  "percentage-point changes are signed and rounded to two decimal places"
+);
+
 assert.match(markup, /Organize videos/);
 assert.match(markup, /Details/);
 assert.match(
@@ -93,11 +137,10 @@ assert.match(
   "Edit uses a visible outlined primary button style"
 );
 assert.match(markup, /Items per day/, "planning lives on each tracker card");
-assert.match(markup, /progress-tracker-plan-title[^>]*>Estimated Finish Date/);
 assert.match(
   markup,
-  /progress-tracker-plan-label[^>]*>[\s\S]*?At[\s\S]*?items\/day:[\s\S]*?progress-tracker-plan-date/,
-  "finish planning is organized into a title line and a compact calculation line"
+  /progress-tracker-plan-label[^>]*>[\s\S]*?progress-tracker-plan-title[^>]*>Estimated finish at[\s\S]*?items\/day:[\s\S]*?progress-tracker-plan-date/,
+  "finish planning reads as one compact calculation"
 );
 assert.match(markup, /Today/);
 assert.match(markup, /This week/);

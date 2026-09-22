@@ -134,8 +134,10 @@ function sceneActivityMarkerIsOutstanding(
   marker: SceneActivityScene["scene_markers"][number],
   roleTagIds: SceneActivityRoleTagIds
 ): boolean {
-  // CUSTOM: ordinary orgasms, including Facial descendants, are standard.
-  // They only become Outstanding with an explicit Really Hot/GOAT qualifier.
+  // CUSTOM: every timed non-activity marker is Outstanding across its full range.
+  if (!sceneActivityMarkerCategory(marker, roleTagIds)) return true;
+
+  // Orgasm-tagged activity markers need an explicit Really Hot/GOAT qualifier.
   if (sceneActivityMarkerHasTag(marker, roleTagIds.orgasmTagId)) {
     return (
       isChronologicalSceneMarkerGoatTagged(marker, roleTagIds.goatTagId) ||
@@ -144,7 +146,6 @@ function sceneActivityMarkerIsOutstanding(
   }
   return (
     isChronologicalSceneMarkerGoatTagged(marker, roleTagIds.goatTagId) ||
-    !sceneActivityMarkerCategory(marker, roleTagIds) ||
     marker.tags.length > 0
   );
 }
@@ -285,12 +286,10 @@ export function getSceneActivityMetrics(
   const activityPercentages =
     getActivityTypePercentagesCustom(activityDurations);
   const activityIntervals = Object.values(intervalsByCategory).flat();
-  const activityOutstandingIntervals = intersectSceneActivityIntervals(
-    activityIntervals,
-    outstandingIntervals
-  );
+  // CUSTOM: retain overlapping non-activity coverage and include any portion
+  // outside Sex/Oral/Solo instead of clipping Outstanding to activity.
   const usableOutstandingIntervals = subtractSceneActivityIntervals(
-    activityOutstandingIntervals,
+    outstandingIntervals,
     unusableIntervals
   );
   const outstandingDuration = getSceneActivityDuration(
@@ -304,7 +303,7 @@ export function getSceneActivityMetrics(
   const standardDuration = getSceneActivityDuration(standardIntervals);
   const unclassifiedIntervals = subtractSceneActivityIntervals(
     [{ start: 0, end: sceneDuration }],
-    [...activityIntervals, ...unusableIntervals]
+    [...activityIntervals, ...outstandingIntervals, ...unusableIntervals]
   );
   const unclassifiedDuration = getSceneActivityDuration(unclassifiedIntervals);
   const qualityDurations = {

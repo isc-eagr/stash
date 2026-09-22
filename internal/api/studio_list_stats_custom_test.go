@@ -30,6 +30,7 @@ func TestCalculateStudioListActivityStatsCustom(t *testing.T) {
 	markers := []studioListActivityMarkerCustom{
 		{sceneID: 1, start: 0, end: 20, primaryTagID: 11},
 		{sceneID: 1, start: 20, end: 30, primaryTagID: 22, isGoat: true},
+		{sceneID: 1, start: 15, end: 35, primaryTagID: 99},
 		{sceneID: 1, start: 40, end: 50, primaryTagID: 99},
 		{sceneID: 2, start: -5, end: 10, primaryTagID: 33},
 	}
@@ -56,9 +57,9 @@ func TestCalculateStudioListActivityStatsCustom(t *testing.T) {
 	assertStudioListFloatCustom(t, "oral percent", got.OralPercent, 25)
 	assertStudioListFloatCustom(t, "solo percent", got.SoloPercent, 25)
 	assertStudioListFloatCustom(t, "unusable seconds", got.UnusableSeconds, 10)
-	assertStudioListFloatCustom(t, "outstanding seconds", got.OutstandingSeconds, 10)
-	assertStudioListFloatCustom(t, "standard seconds", got.StandardSeconds, 30)
-	assertStudioListFloatCustom(t, "unclassified seconds", got.OtherSeconds, 100)
+	assertStudioListFloatCustom(t, "outstanding seconds", got.OutstandingSeconds, 30)
+	assertStudioListFloatCustom(t, "standard seconds", got.StandardSeconds, 25)
+	assertStudioListFloatCustom(t, "unclassified seconds", got.OtherSeconds, 85)
 	if got.SexSceneCount != 1 || got.OralSceneCount != 1 || got.SoloSceneCount != 1 {
 		t.Fatalf("unexpected activity scene counts: sex=%d oral=%d solo=%d", got.SexSceneCount, got.OralSceneCount, got.SoloSceneCount)
 	}

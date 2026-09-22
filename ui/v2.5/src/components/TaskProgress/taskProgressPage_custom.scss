@@ -101,7 +101,7 @@
     width: 100%;
   }
 
-  /* CUSTOM: Keep actions and the compact two-line plan aligned in the footer. */
+  /* CUSTOM: Keep actions and the compact finish estimate aligned in the footer. */
   .progress-tracker-footer {
     align-items: flex-start;
     border-top: 1px solid rgba(138, 155, 168, 0.2);
@@ -119,9 +119,9 @@
   }
 
   .progress-tracker-plan {
-    display: grid;
-    gap: 0.15rem;
-    justify-items: end;
+    align-items: center;
+    display: flex;
+    justify-content: flex-end;
     margin: 0 0 0 auto;
     padding: 0.55rem 0 0.7rem;
 
@@ -132,14 +132,21 @@
     }
 
     .progress-tracker-plan-title {
-      font-size: 0.95rem;
-      line-height: 1.15;
+      color: var(--black-steel-text-muted, #bfccd6);
+      font-weight: 600;
     }
 
     .progress-tracker-plan-label {
       align-items: center;
       display: inline-flex;
+      flex-wrap: wrap;
       gap: 0.35rem;
+      justify-content: flex-end;
+
+      span,
+      strong {
+        white-space: nowrap;
+      }
     }
 
     .form-control {
@@ -185,11 +192,15 @@
     display: flex;
     gap: 0.8rem;
     min-width: 0;
+    width: 100%;
   }
 
   .progress-tracker-heading {
-    gap: 1rem;
-    padding-right: 3.5rem;
+    display: grid;
+    gap: 0.45rem;
+    justify-content: initial;
+    justify-items: start;
+    padding-right: 0;
   }
 
   .progress-tracker-status {
@@ -263,9 +274,7 @@
   }
 
   .progress-tracker-hero .progress-ring {
-    align-self: stretch;
-    min-height: 7.1rem;
-    width: auto;
+    align-self: center;
   }
 
   .progress-ring {
@@ -602,6 +611,22 @@
   }
 }
 
+.progress-goal-period-values {
+  align-items: baseline;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.progress-goal-period-change {
+  color: var(--black-steel-text-muted, #bfccd6);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 /* CUSTOM: Goal summary cards also render inside the Bootstrap Details modal portal. */
 .task-progress-tracker-modal {
   .progress-goal-summary {
@@ -779,6 +804,10 @@
 }
 @media (max-width: 399.98px) {
   .task-progress-page {
+    .progress-tracker-heading {
+      padding-right: 3.5rem;
+    }
+
     .progress-goal-summary {
       grid-template-columns: 1fr;
     }

@@ -1,12 +1,7 @@
 import { useState } from "react";
 import { Button, ButtonGroup, Form, Modal } from "react-bootstrap";
 import { useIntl } from "react-intl";
-import {
-  faArrowDown,
-  faArrowUp,
-  faCopy,
-  faTimes,
-} from "@fortawesome/free-solid-svg-icons";
+import { faArrowDown, faArrowUp } from "@fortawesome/free-solid-svg-icons";
 import { PerformerIDSelect } from "src/components/Performers/PerformerSelect";
 import { TagIDSelect } from "src/components/Tags/TagSelect";
 import { Icon } from "src/components/Shared/Icon";
@@ -14,18 +9,16 @@ import {
   cloneUnnamedPerformer,
   createUnnamedPerformer,
   formatUnnamedPerformerSummary,
-  isUnnamedPerformerId,
 } from "src/models/list-filter/criteria/unnamed-performer";
 import type { IUnnamedPerformer } from "src/models/list-filter/criteria/unnamed-performer";
 import { ROLE_COLORS_CUSTOM } from "src/utils/roleColors_custom";
 import { UnnamedPerformerEditor } from "./UnnamedPerformerManager";
 import {
-  assignMarkerUnnamedCustom,
-  copyMarkerUnnamedCustom,
   markerEditorDraftCustom,
   markerEditorGroupsCustom,
+  markerUnnamedSelectOptionsCustom,
   markerUnnamedUsesCustom,
-  mergeMarkerNamedVatosCustom,
+  markerSelectedVatosCustom,
   removeMarkerUnnamedCustom,
   saveMarkerUnnamedCustom,
 } from "./markerFilterEditor_custom";
@@ -63,7 +56,6 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
   const [groupId, setGroupId] = useState("");
   const [section, setSection] = useState<MarkerSection>("tags");
   const [editing, setEditing] = useState<IEditingVato | null>(null);
-  const [showReuse, setShowReuse] = useState(false);
   const source = draft ?? criterion;
   const groups = markerEditorGroupsCustom(source);
   const group = groups.find((g) => g.groupId === groupId) ?? groups[0];
@@ -85,12 +77,7 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
       ? "bottom_performer_ids"
       : "top_performer_ids";
   const selected = group?.[role] ?? [];
-  const unnamed = selected
-    .map((p) => people.find((up) => up.id === p.id))
-    .filter((p): p is IUnnamedPerformer => !!p);
-  const reuse = people.filter(
-    (p) => !selected.some((entry) => entry.id === p.id)
-  );
+  const unnamedOptions = markerUnnamedSelectOptionsCustom(people);
   const editingUses = editing
     ? markerUnnamedUsesCustom(groups, editing.performer.id)
     : [];
@@ -120,18 +107,15 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
     setGroupId(targetId ?? markerEditorGroupsCustom(next)[0].groupId);
     setSection(targetSection);
     setEditing(null);
-    setShowReuse(false);
   }
 
   function close() {
     setDraft(null);
     setEditing(null);
-    setShowReuse(false);
   }
 
   function chooseSection(next: MarkerSection) {
     setSection(next);
-    setShowReuse(false);
   }
 
   function addGroup() {
@@ -141,7 +125,6 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
     setDraft(next);
     setGroupId(id);
     setSection("tags");
-    setShowReuse(false);
   }
 
   function performerLabel(id: string, fallback: string) {
@@ -282,7 +265,6 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
                   disabled={!!editing}
                   onClick={() => {
                     setGroupId(g.groupId);
-                    setShowReuse(false);
                   }}
                 >
                   {msg("marker", "Marker")} {g.groupId}
@@ -343,7 +325,6 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
                         groups.find((g) => g.groupId !== group.groupId)
                           ?.groupId ?? ""
                       );
-                      setShowReuse(false);
                     }}
                   >
                     {msg("actions.remove", "Remove")} {group.groupId}
@@ -461,13 +442,7 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
                         onCancel={() => setEditing(null)}
                         onSave={(performer) => {
                           edit((next) =>
-                            saveMarkerUnnamedCustom(
-                              next,
-                              performer,
-                              editing.isNew
-                                ? { groupId: group.groupId, role: editing.role }
-                                : undefined
-                            )
+                            saveMarkerUnnamedCustom(next, performer)
                           );
                           setEditing(null);
                         }}
@@ -514,106 +489,21 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
                         <Form.Label>{labels[role]}</Form.Label>
                         <PerformerIDSelect
                           isMulti
-                          ids={selected
-                            .filter((p) => !isUnnamedPerformerId(p.id))
-                            .map((p) => p.id)}
+                          ids={selected.map((p) => p.id)}
+                          additionalOptions={unnamedOptions}
                           onSelect={(performers) =>
                             updateGroup({
-                              [role]: mergeMarkerNamedVatosCustom(
-                                selected,
-                                performers
-                              ),
+                              [role]: markerSelectedVatosCustom(performers),
                             })
                           }
                           menuPortalTarget={document.body}
                         />
                       </Form.Group>
-                      <div className="marker-editor-vatos">
-                        {unnamed.map((performer) => (
-                          <div
-                            className="marker-editor-vato"
-                            key={performer.id}
-                          >
-                            <Button
-                              variant="link"
-                              className="marker-editor-vato-content"
-                              onClick={() =>
-                                setEditing({
-                                  performer: cloneUnnamedPerformer(performer),
-                                  isNew: false,
-                                  role,
-                                })
-                              }
-                            >
-                              <span>{performer.label}</span>
-                              <small>
-                                {formatUnnamedPerformerSummary(performer)}
-                              </small>
-                              {markerUnnamedUsesCustom(groups, performer.id)
-                                .length > 1 && (
-                                <small className="text-muted">
-                                  {usesLabel(performer.id)}
-                                </small>
-                              )}
-                            </Button>
-                            <Button
-                              variant="link"
-                              size="sm"
-                              aria-label={`${msg(
-                                "marker_editor.copy",
-                                "Copy as different vato"
-                              )}: ${performer.label}`}
-                              title={msg(
-                                "marker_editor.copy",
-                                "Copy as different vato"
-                              )}
-                              onClick={() =>
-                                setEditing({
-                                  performer: copyMarkerUnnamedCustom(
-                                    performer,
-                                    people
-                                  ),
-                                  isNew: true,
-                                  role,
-                                })
-                              }
-                            >
-                              <Icon icon={faCopy} />
-                            </Button>
-                            <Button
-                              variant="link"
-                              size="sm"
-                              aria-label={`${msg(
-                                "actions.remove",
-                                "Remove"
-                              )}: ${performer.label}`}
-                              onClick={() =>
-                                updateGroup({
-                                  [role]: selected.filter(
-                                    (p) => p.id !== performer.id
-                                  ),
-                                })
-                              }
-                            >
-                              <Icon icon={faTimes} />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                      {unnamed.length > 1 && (
-                        <small className="text-muted">
-                          {msg(
-                            "marker_editor.distinct",
-                            "Different unnamed vatos match different people."
-                          )}
-                        </small>
-                      )}
                       <div className="marker-editor-vato-actions">
                         <Button
                           variant="outline-primary"
                           size="sm"
                           onClick={() => {
-                            setShowReuse(false);
                             setEditing({
                               performer: createUnnamedPerformer(people),
                               isNew: true,
@@ -623,46 +513,43 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
                         >
                           + {msg("marker_editor.new_vato", "Unnamed vato")}
                         </Button>
-                        {!!reuse.length && (
-                          <Button
-                            variant="link"
+                        {!!people.length && (
+                          <Form.Control
+                            as="select"
                             size="sm"
-                            aria-expanded={showReuse}
-                            onClick={() => setShowReuse(!showReuse)}
+                            className="marker-editor-edit-vato"
+                            value=""
+                            aria-label={msg(
+                              "marker_editor.edit_vato",
+                              "Edit unnamed vato"
+                            )}
+                            onChange={(event) => {
+                              const performer = people.find(
+                                (person) =>
+                                  person.id === event.currentTarget.value
+                              );
+                              if (performer)
+                                setEditing({
+                                  performer: cloneUnnamedPerformer(performer),
+                                  isNew: false,
+                                  role,
+                                });
+                            }}
                           >
-                            {msg("marker_editor.reuse", "Reuse vato")}
-                          </Button>
+                            <option value="">
+                              {msg(
+                                "marker_editor.edit_vato",
+                                "Edit unnamed vato"
+                              )}
+                            </option>
+                            {people.map((performer) => (
+                              <option key={performer.id} value={performer.id}>
+                                {performer.label}
+                              </option>
+                            ))}
+                          </Form.Control>
                         )}
                       </div>
-                      {showReuse && (
-                        <div className="marker-editor-reuse">
-                          {reuse.map((performer) => (
-                            <Button
-                              variant="outline-secondary"
-                              key={performer.id}
-                              onClick={() => {
-                                edit((next) => {
-                                  const target = markerEditorGroupsCustom(
-                                    next
-                                  ).find((g) => g.groupId === group.groupId);
-                                  if (target)
-                                    assignMarkerUnnamedCustom(
-                                      target,
-                                      role,
-                                      performer
-                                    );
-                                });
-                                setShowReuse(false);
-                              }}
-                            >
-                              <span>{performer.label}</span>
-                              <small>
-                                {formatUnnamedPerformerSummary(performer)}
-                              </small>
-                            </Button>
-                          ))}
-                        </div>
-                      )}
                     </>
                   )}
                 </div>

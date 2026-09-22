@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Alert, Button, Form } from "react-bootstrap";
+import { useHistory, useLocation } from "react-router-dom"; // CUSTOM
 import { TaskProgressCard } from "./TaskProgress/TaskProgressCard";
 import {
   TaskProgressDetails,
@@ -9,6 +10,11 @@ import { TaskProgressForm } from "./TaskProgress/TaskProgressForm";
 import { TaskProgressOverall } from "./TaskProgress/TaskProgressOverall";
 import { TaskProgressTrackerModal } from "./TaskProgress/TaskProgressTrackerModal";
 import { TaskProgressTimerCountdown } from "./TaskProgress/TaskProgressTimerCountdown_custom";
+import {
+  taskProgressFilterFromSearch,
+  taskProgressFilterValues,
+  taskProgressSearchForFilter,
+} from "./TaskProgress/taskProgressNavigation_custom"; // CUSTOM
 import { useTaskProgressTrackers } from "./TaskProgress/useTaskProgressTrackers_custom";
 import {
   taskProgressStatusLabel,
@@ -23,7 +29,10 @@ const TaskProgress: React.FC = () => {
   const t = useProgressText();
   const [editor, setEditor] = useState<Tracker | "new">();
   const [details, setDetails] = useState<IDetailSelection>();
-  const [filter, setFilter] = useState("CURRENT");
+  // CUSTOM: Keep the selected tracker status in the URL so reloads preserve the view.
+  const history = useHistory();
+  const location = useLocation();
+  const filter = taskProgressFilterFromSearch(location.search);
   const [dragged, setDragged] = useState<string>();
   const [selectedTrackerID, setSelectedTrackerID] = useState<string>();
   // CUSTOM: Timer Countdown is a browser-local utility for the progress page.
@@ -87,16 +96,17 @@ const TaskProgress: React.FC = () => {
           <Form.Control
             as="select"
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            onChange={(e) =>
+              history.replace({
+                ...location,
+                search: taskProgressSearchForFilter(
+                  location.search,
+                  e.target.value
+                ),
+              })
+            }
           >
-            {[
-              "CURRENT",
-              "ACTIVE",
-              "PAUSED",
-              "COMPLETED",
-              "ARCHIVED",
-              "ALL",
-            ].map((v) => (
+            {taskProgressFilterValues.map((v) => (
               <option key={v} value={v}>
                 {t(taskProgressStatusLabel(v))}
               </option>
@@ -120,7 +130,8 @@ const TaskProgress: React.FC = () => {
           {visible.map((tracker) => {
             const index = trackers.findIndex((v) => v.id === tracker.id);
             return (
-              <div key={tracker.id} className={"col-12 col-md-6 col-xl-4 mb-3"}>
+              // CUSTOM: Keep tracker cards at two columns on larger screens.
+              <div key={tracker.id} className={"col-12 col-md-6 mb-3"}>
                 <TaskProgressCard
                   tracker={tracker}
                   busy={data.busy}

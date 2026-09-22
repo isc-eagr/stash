@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   OptionProps,
   components as reactSelectComponents,
@@ -58,6 +58,11 @@ type FindPerformersResult = Awaited<
   ReturnType<typeof queryFindPerformersForSelect>
 >["data"]["findPerformers"]["performers"];
 
+// CUSTOM: local pseudo-performers can be shown before stored performers.
+interface IAdditionalPerformerOptionsCustom {
+  additionalOptions?: Performer[];
+}
+
 function sortPerformersByRelevance(
   input: string,
   performers: FindPerformersResult
@@ -82,7 +87,7 @@ const _PerformerSelect: React.FC<
       hoverPlacementLabel?: Placement;
       hoverPlacementOptions?: Placement;
       excludeIds?: string[];
-    }
+    } & IAdditionalPerformerOptionsCustom
 > = (props) => {
   const [createPerformer] = usePerformerCreate();
 
@@ -102,6 +107,9 @@ const _PerformerSelect: React.FC<
   }
 
   async function loadPerformers(input: string): Promise<Option[]> {
+    const additional = (props.additionalOptions ?? []).filter((performer) =>
+      (performer.name ?? "").toLowerCase().includes(input.toLowerCase())
+    ); // CUSTOM
     const filter = new ListFilterModel(GQL.FilterMode.Performers);
     filter.currentPage = 1;
     filter.itemsPerPage = maxOptionsShown;
@@ -117,7 +125,7 @@ const _PerformerSelect: React.FC<
         query.data.findPerformers.performers.filter(filterExcluded);
       if (matches.length > 0) {
         // Matches found, return them immediately.
-        return matches.map(toOption);
+        return [...additional, ...matches].map(toOption); // CUSTOM
       }
       // If no stash_id matches found, continue with standard name/alias search.
       filter.criteria = []; // Clear stash_id criterion to search by name/alias below.
@@ -126,10 +134,11 @@ const _PerformerSelect: React.FC<
     filter.searchTerm = input;
 
     const query = await queryFindPerformersForSelect(filter);
-    return performerSelectSort(
+    const stored = performerSelectSort(
       input,
       query.data.findPerformers.performers.filter(filterExcluded)
-    ).map(toOption);
+    );
+    return [...additional, ...stored].map(toOption); // CUSTOM
   }
 
   const PerformerOption: React.FC<OptionProps<Option, boolean>> = (
@@ -138,6 +147,28 @@ const _PerformerSelect: React.FC<
     let thisOptionProps = optionProps;
 
     const { object } = optionProps.data;
+
+    // CUSTOM: unnamed filter vatos have no performer page or portrait.
+    if (
+      props.additionalOptions?.some((performer) => performer.id === object.id)
+    ) {
+      return (
+        <reactSelectComponents.Option {...optionProps}>
+          <span className="performer-select-option performer-select-local-option">
+            <span className="performer-select-row">
+              <span className="performer-select-details">
+                <span className="performer-select-name">{object.name}</span>
+                {object.disambiguation && (
+                  <span className="performer-select-disambiguation">
+                    {object.disambiguation}
+                  </span>
+                )}
+              </span>
+            </span>
+          </span>
+        </reactSelectComponents.Option>
+      );
+    }
 
     let { name } = object;
 
@@ -230,6 +261,17 @@ const _PerformerSelect: React.FC<
     let thisOptionProps = optionProps;
 
     const { object } = optionProps.data;
+
+    // CUSTOM: avoid opening a performer popover for local unnamed identities.
+    if (
+      props.additionalOptions?.some((performer) => performer.id === object.id)
+    ) {
+      return (
+        <reactSelectComponents.MultiValueLabel {...optionProps}>
+          <span className="performer-select-value">{object.name}</span>
+        </reactSelectComponents.MultiValueLabel>
+      );
+    }
 
     thisOptionProps = {
       ...optionProps,
@@ -354,9 +396,9 @@ export const PerformerSelect = PatchComponent(
   _PerformerSelect
 );
 
-const _PerformerIDSelect: React.FC<IFilterProps & IFilterIDProps<Performer>> = (
-  props
-) => {
+const _PerformerIDSelect: React.FC<
+  IFilterProps & IFilterIDProps<Performer> & IAdditionalPerformerOptionsCustom
+> = (props) => {
   const { ids, onSelect: onSelectValues } = props;
 
   const [values, setValues] = useState<Performer[]>([]);
@@ -367,12 +409,22 @@ const _PerformerIDSelect: React.FC<IFilterProps & IFilterIDProps<Performer>> = (
     onSelectValues?.(items);
   }
 
-  async function loadObjectsByID(idsToLoad: string[]): Promise<Performer[]> {
-    const query = await queryFindPerformersByIDForSelect(idsToLoad);
-    const { performers: loadedPerformers } = query.data.findPerformers;
+  const loadObjectsByID = useCallback(
+    async (idsToLoad: string[]): Promise<Performer[]> => {
+      const additional = (props.additionalOptions ?? []).filter((performer) =>
+        idsToLoad.includes(performer.id)
+      ); // CUSTOM
+      const storedIDs = idsToLoad.filter(
+        (id) => !additional.some((performer) => performer.id === id)
+      ); // CUSTOM
+      if (!storedIDs.length) return additional; // CUSTOM
+      const query = await queryFindPerformersByIDForSelect(storedIDs);
+      const { performers: loadedPerformers } = query.data.findPerformers;
 
-    return loadedPerformers;
-  }
+      return [...additional, ...loadedPerformers]; // CUSTOM
+    },
+    [props.additionalOptions]
+  );
 
   useEffect(() => {
     if (!idsChanged) {
@@ -396,7 +448,7 @@ const _PerformerIDSelect: React.FC<IFilterProps & IFilterIDProps<Performer>> = (
     };
 
     load();
-  }, [ids, idsChanged, values]);
+  }, [ids, idsChanged, loadObjectsByID, values]);
 
   return <PerformerSelect {...props} values={values} onSelect={onSelect} />;
 };

@@ -247,6 +247,9 @@ function markerIsHighlight(
   marker: SceneCardInsightMarker,
   roleTagIds: IUIConfig["roleTagIds"]
 ) {
+  // CUSTOM: non-role markers make overlapping activity Outstanding.
+  if (!activityCategoryForMarker(marker, roleTagIds)) return true;
+
   // CUSTOM: An orgasm (including Facial descendants) is not Outstanding by
   // itself. It needs an explicit quality qualifier; GOAT remains exceptional.
   if (markerHasConfiguredTag(marker, roleTagIds?.orgasmTagId)) {
@@ -311,7 +314,7 @@ function eventReportLabel(events: SceneCardInsightEvent[]) {
     ];
   });
 
-  return `${events.length} total${
+  return `${events.length} ${events.length === 1 ? "orgasm" : "orgasms"}${
     sections.length > 0 ? ` · ${sections.join(" · ")}` : ""
   }`;
 }
@@ -774,16 +777,22 @@ function getOrgasmAutomaticCandidates(
   );
   const candidates: InsightCandidate[] = [];
 
-  const simultaneousCounts = orgasmMarkers.map((marker) => {
-    const topPerformers = new Map(
-      (marker.top_performers ?? []).map((performer) => [
-        performer.id,
-        performer,
-      ])
+  const simultaneousPerformers = orgasmMarkers.reduce<
+    SceneCardInsightPerformer[]
+  >((largestGroup, marker) => {
+    const simultaneousMarkerPerformers = Array.from(
+      new Map(
+        (marker.top_performers ?? []).map((performer) => [
+          performer.id,
+          performer,
+        ])
+      ).values()
     );
-    return topPerformers.size;
-  });
-  const simultaneousCount = Math.max(0, ...simultaneousCounts);
+    return simultaneousMarkerPerformers.length > largestGroup.length
+      ? simultaneousMarkerPerformers
+      : largestGroup;
+  }, []);
+  const simultaneousCount = simultaneousPerformers.length;
   if (simultaneousCount >= 2) {
     candidates.push({
       key: "orgasm-simultaneous",
@@ -792,6 +801,7 @@ function getOrgasmAutomaticCandidates(
       tone: "event",
       kind: "orgasm-event",
       score: 2_000_000 + simultaneousCount,
+      performerPreviews: simultaneousPerformers,
     });
   }
 

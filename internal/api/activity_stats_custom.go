@@ -105,13 +105,15 @@ func activityStatsCategoryCustom(primaryTagID int, sexTagID int, oralTagID int, 
 }
 
 func activityStatsIsOutstandingMarkerCustom(primaryTagID int, secondaryTagCount int, isGoat bool, isOrgasm bool, isReallyHot bool, sexTagID int, oralTagID int, soloTagID int) bool {
-	// CUSTOM: an ordinary Orgasm/Facial marker is Standard unless it is
-	// explicitly Really Hot (GOAT remains Outstanding regardless).
+	_, isRoleMarker := activityStatsCategoryCustom(primaryTagID, sexTagID, oralTagID, soloTagID)
+	if !isRoleMarker {
+		return true
+	}
+	// CUSTOM: Orgasm-tagged activity markers need an explicit Really Hot/GOAT qualifier.
 	if isOrgasm {
 		return isGoat || isReallyHot
 	}
-	_, isRoleMarker := activityStatsCategoryCustom(primaryTagID, sexTagID, oralTagID, soloTagID)
-	return isGoat || !isRoleMarker || secondaryTagCount > 0
+	return isGoat || secondaryTagCount > 0
 }
 
 func activityStatsMarkerHasTagSQLCustom(markerAlias string, tagID int) string {
@@ -671,6 +673,11 @@ GROUP BY sm.id, sm.scene_id, sm.seconds, sm.end_seconds, sm.primary_tag_id`
 			byCategory[activityOutstandingCustom] = append(byCategory[activityOutstandingCustom], interval)
 		}
 	}
+	activityIntervals := append(append(
+		append([]activityIntervalCustom{}, byCategory[activitySexCustom]...),
+		byCategory[activityOralCustom]...),
+		byCategory[activitySoloCustom]...,
+	)
 
 	negativeMarkerQuery := sceneScope + `
 SELECT snm.scene_id, snm.start_seconds, snm.end_seconds
@@ -743,18 +750,13 @@ WHERE sc.id IN (SELECT id FROM selected_scenes)
 	oralSeconds := activityStatsDurationCustom(byCategory[activityOralCustom])
 	soloSeconds := activityStatsDurationCustom(byCategory[activitySoloCustom])
 	unusableSeconds := activityStatsDurationCustom(byCategory[activityUnusableCustom])
-	activityIntervals := append(append(
-		append([]activityIntervalCustom{}, byCategory[activitySexCustom]...),
-		byCategory[activityOralCustom]...),
-		byCategory[activitySoloCustom]...,
-	)
 	activityOtherSeconds := activityStatsActivityOtherSecondsCustom(totalSeconds, activityIntervals)
 	activityOutstandingIntervals := activityStatsIntersectIntervalsCustom(
 		activityIntervals,
 		byCategory[activityOutstandingCustom],
 	)
 	outstandingSeconds := activityStatsDurationCustom(activityStatsSubtractIntervalsCustom(
-		activityOutstandingIntervals,
+		byCategory[activityOutstandingCustom],
 		byCategory[activityUnusableCustom],
 	))
 	standardIntervals := activityStatsSubtractIntervalsCustom(
@@ -762,7 +764,13 @@ WHERE sc.id IN (SELECT id FROM selected_scenes)
 		append(activityOutstandingIntervals, byCategory[activityUnusableCustom]...),
 	)
 	standardSeconds := activityStatsDurationCustom(standardIntervals)
-	otherSeconds := activityStatsOtherSecondsCustom(totalSeconds, activityIntervals, byCategory[activityUnusableCustom])
+	qualityCoveredIntervals := append([]activityIntervalCustom{}, activityIntervals...)
+	qualityCoveredIntervals = append(qualityCoveredIntervals, byCategory[activityOutstandingCustom]...)
+	otherSeconds := activityStatsOtherSecondsCustom(
+		totalSeconds,
+		qualityCoveredIntervals,
+		byCategory[activityUnusableCustom],
+	)
 	sexPercent, oralPercent, soloPercent := activityStatsTypePercentsCustom(sexSeconds, oralSeconds, soloSeconds)
 
 	return &StudioActivityStats{

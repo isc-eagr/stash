@@ -160,11 +160,16 @@ assert.equal(
 const qualityPartitionMetrics = getSceneActivityMetrics(
   {
     id: "scene-quality-partition",
-    files: [{ duration: 100 }],
-    scene_markers: [marker("sex", 0, 40), marker("feet", 40, 60, ["goat"])],
-    negative_markers: [{ start_seconds: 60, end_seconds: 80 }],
+    files: [{ duration: 400 }],
+    scene_markers: [
+      marker("sex", 0, 40),
+      marker("feet", 20, 30),
+      marker("body", 40, 360),
+      marker("orgasm", 380, 390),
+    ],
+    negative_markers: [{ start_seconds: 360, end_seconds: 380 }],
   },
-  { sexTagId: "sex", goatTagId: "goat" }
+  { sexTagId: "sex", goatTagId: "goat", orgasmTagId: "orgasm" }
 );
 
 assert.deepEqual(
@@ -173,12 +178,12 @@ assert.deepEqual(
     duration,
   })),
   [
-    { key: "outstanding", duration: 0 },
-    { key: "standard", duration: 40 },
-    { key: "unclassified", duration: 40 },
+    { key: "outstanding", duration: 340 },
+    { key: "standard", duration: 30 },
+    { key: "unclassified", duration: 10 },
     { key: "unusable", duration: 20 },
   ],
-  "a Feet-only marker is Unclassified and negative-marker time is Unusable"
+  "non-activity markers are Outstanding both inside and outside activity"
 );
 
 const ordinaryOrgasmMetrics = getSceneActivityMetrics(
@@ -193,8 +198,8 @@ const ordinaryOrgasmMetrics = getSceneActivityMetrics(
 assert.equal(
   ordinaryOrgasmMetrics?.quality.find((metric) => metric.key === "outstanding")
     ?.percent,
-  0,
-  "an ordinary Orgasm does not count as Outstanding"
+  20,
+  "a standalone Orgasm marker counts as Outstanding"
 );
 
 const hotOrgasmMetrics = getSceneActivityMetrics(

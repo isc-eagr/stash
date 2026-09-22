@@ -266,6 +266,8 @@ func (qb *PerformerStore) selectDataset() *goqu.SelectDataset {
 }
 
 func (qb *PerformerStore) Create(ctx context.Context, newObject *models.CreatePerformerInput) error {
+	defaultPerformerGenderCustom(newObject) // CUSTOM
+
 	var r performerRow
 	r.fromPerformer(*newObject.Performer)
 

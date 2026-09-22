@@ -90,8 +90,13 @@ assert.match(
 );
 assert.match(
   insightsSource,
-  /<HoverPopover[\s\S]*?className="scene-card-insight-hover-popover"[\s\S]*?estimatedContentHeight=\{520\}[\s\S]*?placement="bottom"[\s\S]*?popoverClassName="scene-marker-highlight-popover scene-card-performer-popover scene-card-insight-event-popover"/,
+  /<HoverPopover[\s\S]*?className="scene-card-insight-hover-popover"[\s\S]*?estimatedContentHeight=\{520\}[\s\S]*?placement="bottom"[\s\S]*?popoverClassName=\{`scene-marker-highlight-popover scene-card-performer-popover scene-card-insight-event-popover/,
   "event details should use the persistent, viewport-aware hover popover"
+);
+assert.match(
+  insightsSource,
+  /orgasmFacialEventCount === 1[\s\S]*?"single"[\s\S]*?orgasmFacialEventCount === 2[\s\S]*?"double"[\s\S]*?"multiple"/,
+  "event popovers should select a width tier from their event count"
 );
 assert.match(
   insightsSource,
@@ -116,7 +121,17 @@ assert.match(
 assert.match(
   sceneStyles,
   /\.scene-card-insight-event-popover\s*\{[^}]*width: min\(49rem, calc\(100vw - 1rem\)\)/,
-  "event details should claim the available horizontal popup space"
+  "large event details should claim the available horizontal popup space"
+);
+assert.match(
+  sceneStyles,
+  /\.scene-card-insight-event-popover-single\s*\{[^}]*width: min\(17rem, calc\(100vw - 1rem\)\)/,
+  "a single event should use a compact popup"
+);
+assert.match(
+  sceneStyles,
+  /\.scene-card-insight-event-popover-double\s*\{[^}]*width: min\(32rem, calc\(100vw - 1rem\)\)/,
+  "two events should use a medium popup"
 );
 assert.match(
   sceneStyles,

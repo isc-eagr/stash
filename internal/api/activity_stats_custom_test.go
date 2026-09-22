@@ -208,7 +208,7 @@ func TestActivityStatsIsOutstandingMarkerCustom(t *testing.T) {
 	assert.True(t, activityStatsIsOutstandingMarkerCustom(40, 0, false, false, false, 10, 20, 30))
 	assert.True(t, activityStatsIsOutstandingMarkerCustom(10, 0, false, false, false, 0, 20, 30))
 	assert.True(t, activityStatsIsOutstandingMarkerCustom(10, 0, true, false, false, 10, 20, 30))
-	assert.False(t, activityStatsIsOutstandingMarkerCustom(40, 1, false, true, false, 10, 20, 30))
+	assert.True(t, activityStatsIsOutstandingMarkerCustom(40, 1, false, true, false, 10, 20, 30))
 	assert.True(t, activityStatsIsOutstandingMarkerCustom(40, 0, false, true, true, 10, 20, 30))
 }
 

@@ -12,11 +12,40 @@ import {
   copyMarkerUnnamedCustom,
   markerEditorDraftCustom,
   markerEditorGroupsCustom,
+  markerUnnamedSelectOptionsCustom,
   markerUnnamedUsesCustom,
+  markerSelectedVatosCustom,
   mergeMarkerNamedVatosCustom,
   removeMarkerUnnamedCustom,
   saveMarkerUnnamedCustom,
 } from "../src/components/List/Filters/markerFilterEditor_custom";
+
+const dropdownVato = createUnnamedPerformer([]);
+dropdownVato.ethnicities = ["Black"];
+dropdownVato.countries = ["Colombia"];
+dropdownVato.rating_criteria = {
+  criteria: {},
+  bonusValues: {},
+  bonuses: { dick: true },
+  penalties: {},
+};
+const dropdownOptions = markerUnnamedSelectOptionsCustom([dropdownVato]);
+assert.equal(dropdownOptions[0].id, dropdownVato.id);
+assert.equal(dropdownOptions[0].name, dropdownVato.label);
+assert.match(dropdownOptions[0].disambiguation, /Black/);
+assert.match(dropdownOptions[0].disambiguation, /Colombia/);
+assert.match(dropdownOptions[0].disambiguation, /Pito Bonus/);
+assert.deepEqual(
+  markerSelectedVatosCustom([
+    dropdownOptions[0],
+    { id: "42", name: "Named vato" },
+  ]),
+  [
+    { id: dropdownVato.id, label: dropdownVato.label },
+    { id: "42", label: "Named vato" },
+  ],
+  "the unified selector preserves unnamed-first selection order"
+);
 
 for (const CriterionClass of [
   MarkerPerformersCriterion,

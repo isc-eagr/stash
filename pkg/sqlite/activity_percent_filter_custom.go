@@ -158,18 +158,18 @@ AND %[1]s.end_seconds > %[1]s.seconds`, markerAlias)
 
 	return fmt.Sprintf(`%[1]s
 AND (
-	%[4]s
+	%[2]s.primary_tag_id NOT IN (%[3]s)
 	OR (
-		NOT %[5]s
+		%[2]s.primary_tag_id IN (%[3]s)
 		AND (
-			%[2]s.primary_tag_id NOT IN (%[3]s)
-			OR EXISTS (
+			%[4]s
+			OR (NOT %[5]s AND EXISTS (
 				SELECT 1 FROM scene_markers_tags smt_quality
 				WHERE smt_quality.scene_marker_id = %[2]s.id
-			)
+			))
+			OR (%[5]s AND %[6]s)
 		)
 	)
-	OR (%[5]s AND %[6]s)
 )`, validRange, markerAlias, strings.Join(parts, ","), goatCondition, orgasmCondition, reallyHotCondition)
 }
 
@@ -232,9 +232,12 @@ AND sm.end_seconds > sm.seconds`, sceneIDExpr, activityPercentSceneDurationExprC
 
 func activityPercentSceneOutstandingSecondsExprCustom(sceneIDExpr string) string {
 	tags := GetRoleTagIDs()
-	outstandingSourceSQL := activityPercentIntersectionSourceSQLCustom(
-		activityPercentQualityActivitySourceSQLCustom(sceneIDExpr),
-		activityPercentSceneOutstandingSourceForTagIDsSQLCustom(sceneIDExpr, activityPercentConfiguredTagIDsCustom(), tags.GoatTagID, tags.OrgasmTagID, tags.ReallyHotTagID),
+	outstandingSourceSQL := activityPercentSceneOutstandingSourceForTagIDsSQLCustom(
+		sceneIDExpr,
+		activityPercentConfiguredTagIDsCustom(),
+		tags.GoatTagID,
+		tags.OrgasmTagID,
+		tags.ReallyHotTagID,
 	)
 	return activityPercentOutstandingSecondsFromSourcesExprCustom(
 		outstandingSourceSQL,
@@ -252,9 +255,18 @@ func activityPercentSceneStandardSecondsExprCustom(sceneIDExpr string) string {
 }
 
 func activityPercentSceneUnclassifiedSecondsExprCustom(sceneIDExpr string) string {
-	coveredSourceSQL := fmt.Sprintf("%s\nUNION ALL\n%s",
+	tags := GetRoleTagIDs()
+	outstandingSourceSQL := activityPercentSceneOutstandingSourceForTagIDsSQLCustom(
+		sceneIDExpr,
+		activityPercentConfiguredTagIDsCustom(),
+		tags.GoatTagID,
+		tags.OrgasmTagID,
+		tags.ReallyHotTagID,
+	)
+	coveredSourceSQL := fmt.Sprintf("%s\nUNION ALL\n%s\nUNION ALL\n%s",
 		activityPercentQualityActivitySourceSQLCustom(sceneIDExpr),
 		activityPercentSceneNegativeSourceSQLCustom(sceneIDExpr),
+		outstandingSourceSQL,
 	)
 	return activityPercentNonNegativeDifferenceExprCustom(
 		activityPercentSceneDurationExprCustom(sceneIDExpr),
@@ -468,10 +480,7 @@ func activityPercentStudioUnusableSecondsExprCustom() string {
 }
 
 func activityPercentStudioOutstandingSecondsExprCustom() string {
-	outstandingSourceSQL := activityPercentIntersectionSourceSQLCustom(
-		activityPercentStudioQualityActivitySourceSQLCustom(),
-		activityPercentStudioOutstandingSourceSQLCustom(),
-	)
+	outstandingSourceSQL := activityPercentStudioOutstandingSourceSQLCustom()
 	return activityPercentOutstandingSecondsFromSourcesExprCustom(
 		outstandingSourceSQL,
 		activityPercentStudioNegativeSourceSQLCustom(),
@@ -487,9 +496,10 @@ func activityPercentStudioStandardSecondsExprCustom() string {
 }
 
 func activityPercentStudioUnclassifiedSecondsExprCustom() string {
-	coveredSourceSQL := fmt.Sprintf("%s\nUNION ALL\n%s",
+	coveredSourceSQL := fmt.Sprintf("%s\nUNION ALL\n%s\nUNION ALL\n%s",
 		activityPercentStudioQualityActivitySourceSQLCustom(),
 		activityPercentStudioNegativeSourceSQLCustom(),
+		activityPercentStudioOutstandingSourceSQLCustom(),
 	)
 	return activityPercentNonNegativeDifferenceExprCustom(
 		activityPercentStudioDenominatorExprCustom(),

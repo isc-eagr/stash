@@ -384,6 +384,31 @@ export function taskProgressCurrentGoalPeriods(
   };
 }
 
+export function taskProgressCurrentPercentageChanges(
+  entries: readonly ITaskProgressHistoryEntry[],
+  today: string = currentTaskProgressCalendarDate()
+): Record<TaskProgressHistoryGranularity, number> {
+  const points = buildTaskProgressHistorySeries(entries, "all", today);
+  const changeFor = (granularity: TaskProgressHistoryGranularity) => {
+    const periods = aggregateTaskProgressHistorySeries(points, granularity);
+    const current = periods[periods.length - 1];
+    if (
+      !current ||
+      current.date !== taskProgressPeriodStart(today, granularity)
+    ) {
+      return 0;
+    }
+
+    return taskProgressHistoryPercentages(current).periodProgressPercentage;
+  };
+
+  return {
+    day: changeFor("day"),
+    week: changeFor("week"),
+    month: changeFor("month"),
+  };
+}
+
 export function filterTaskProgressHistoryActivityPoints(
   points: readonly ITaskProgressHistoryPoint[]
 ): ITaskProgressHistoryPoint[] {

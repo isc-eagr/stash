@@ -23,6 +23,7 @@ export interface ISceneCardInsight {
   detail: string;
   tone: SceneCardInsightTone;
   performerPreview?: SceneCardInsightPerformer; // CUSTOM: performer portrait for rare/repeated orgasm chips.
+  performerPreviews?: SceneCardInsightPerformer[]; // CUSTOM: performer portraits for lineup chips.
   orgasmFacialEvents?: SceneCardInsightEvent[];
 }
 

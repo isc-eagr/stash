@@ -168,12 +168,6 @@ export const UnnamedPerformerEditor: React.FC<IUnnamedPerformerEditorProps> = ({
       <Card.Header className="d-flex align-items-center">
         <Icon icon={faUser} className="me-2" />
         <strong>{editedPerformer.label}</strong>
-        <small className="ms-2 text-muted">
-          <FormattedMessage
-            id="unnamed_performer.define_criteria"
-            defaultMessage="Define criteria (optional)"
-          />
-        </small>
       </Card.Header>
       <Card.Body>
         {/* Ethnicity */}

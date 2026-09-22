@@ -470,7 +470,6 @@ func calculateStudioListActivityStatsCustom(
 		activitySoloCustom: {},
 	}
 	meaningfulSceneIDs := map[int]bool{}
-
 	for _, marker := range markers {
 		sceneDuration, ok := sceneDurations[marker.sceneID]
 		if !ok || sceneDuration <= 0 {
@@ -491,6 +490,11 @@ func calculateStudioListActivityStatsCustom(
 			byCategory[activityOutstandingCustom] = append(byCategory[activityOutstandingCustom], interval)
 		}
 	}
+	activityIntervals := append(append(
+		append([]activityIntervalCustom{}, byCategory[activitySexCustom]...),
+		byCategory[activityOralCustom]...),
+		byCategory[activitySoloCustom]...,
+	)
 
 	for _, marker := range negativeMarkers {
 		sceneDuration, ok := sceneDurations[marker.sceneID]
@@ -519,18 +523,13 @@ func calculateStudioListActivityStatsCustom(
 	oralSeconds := activityStatsDurationCustom(byCategory[activityOralCustom])
 	soloSeconds := activityStatsDurationCustom(byCategory[activitySoloCustom])
 	unusableSeconds := activityStatsDurationCustom(byCategory[activityUnusableCustom])
-	activityIntervals := append(append(
-		append([]activityIntervalCustom{}, byCategory[activitySexCustom]...),
-		byCategory[activityOralCustom]...),
-		byCategory[activitySoloCustom]...,
-	)
 	activityOtherSeconds := activityStatsActivityOtherSecondsCustom(totalSeconds, activityIntervals)
 	activityOutstandingIntervals := activityStatsIntersectIntervalsCustom(
 		activityIntervals,
 		byCategory[activityOutstandingCustom],
 	)
 	outstandingSeconds := activityStatsDurationCustom(activityStatsSubtractIntervalsCustom(
-		activityOutstandingIntervals,
+		byCategory[activityOutstandingCustom],
 		byCategory[activityUnusableCustom],
 	))
 	standardIntervals := activityStatsSubtractIntervalsCustom(
@@ -538,7 +537,13 @@ func calculateStudioListActivityStatsCustom(
 		append(activityOutstandingIntervals, byCategory[activityUnusableCustom]...),
 	)
 	standardSeconds := activityStatsDurationCustom(standardIntervals)
-	otherSeconds := activityStatsOtherSecondsCustom(totalSeconds, activityIntervals, byCategory[activityUnusableCustom])
+	qualityCoveredIntervals := append([]activityIntervalCustom{}, activityIntervals...)
+	qualityCoveredIntervals = append(qualityCoveredIntervals, byCategory[activityOutstandingCustom]...)
+	otherSeconds := activityStatsOtherSecondsCustom(
+		totalSeconds,
+		qualityCoveredIntervals,
+		byCategory[activityUnusableCustom],
+	)
 	sexPercent, oralPercent, soloPercent := activityStatsTypePercentsCustom(sexSeconds, oralSeconds, soloSeconds)
 
 	return &StudioActivityStats{

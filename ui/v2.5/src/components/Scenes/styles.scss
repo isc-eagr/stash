@@ -2842,12 +2842,12 @@ input[type="range"].blue-slider {
 
   .scene-marker-activity-performer,
   .scene-marker-highlight-performer {
-    max-width: 10rem;
-    min-width: 10rem;
+    max-width: 13.5rem;
+    min-width: 13.5rem;
   }
 
   .scene-marker-activity-performer-image {
-    width: 7.5rem;
+    width: 13.5rem;
   }
 
   .scene-card-performer-role-strip {
@@ -2903,15 +2903,15 @@ input[type="range"].blue-slider {
 // CUSTOM: Insight event portraits use the same opaque card surface as the
 // scene performer popover while keeping facial role borders blue and green.
 .popover.scene-card-performer-popover.scene-card-insight-event-popover {
-  // CUSTOM: Match the orgasm popup's 9rem portraits and badge-style names.
+  // CUSTOM: Enlarge the orgasm popup portraits by 150% and retain badge-style names.
   .scene-marker-activity-performer,
   .scene-marker-highlight-performer {
-    max-width: 9rem;
-    min-width: 9rem;
+    max-width: 13.5rem;
+    min-width: 13.5rem;
   }
 
   .scene-marker-activity-performer-image {
-    width: 9rem;
+    width: 13.5rem;
   }
 
   .scene-marker-activity-performer-name {
@@ -2934,19 +2934,19 @@ input[type="range"].blue-slider {
 
 /* CUSTOM: begin - performer portraits for rare and repeated orgasm insights */
 .hover-popover-content.popover.scene-card-insight-performer-popover {
-  max-width: min(16rem, calc(100vw - 1rem));
+  max-width: min(49rem, calc(100vw - 1rem));
 
   .scene-marker-highlight-popover-card {
-    max-width: min(14rem, calc(100vw - 2rem));
+    max-width: min(48rem, calc(100vw - 2rem));
   }
 
   .scene-marker-activity-performer {
-    max-width: 9rem;
-    min-width: 9rem;
+    max-width: 13.5rem;
+    min-width: 13.5rem;
   }
 
   .scene-marker-activity-performer-image {
-    width: 9rem;
+    width: 13.5rem;
   }
 }
 
@@ -3072,6 +3072,15 @@ input[type="range"].blue-slider {
     .scene-marker-activity-performer-image {
     border: 3px solid #5cb85c;
   }
+}
+
+// CUSTOM: Keep small orgasm/facial reports close to their actual card count.
+.scene-card-insight-event-popover-single {
+  width: min(17rem, calc(100vw - 1rem));
+}
+
+.scene-card-insight-event-popover-double {
+  width: min(32rem, calc(100vw - 1rem));
 }
 
 /* CUSTOM: end */

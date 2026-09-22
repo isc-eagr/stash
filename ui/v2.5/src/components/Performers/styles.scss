@@ -931,6 +931,12 @@
   }
 }
 
+/* CUSTOM: separate unnamed-vato criteria from its name in marker selectors. */
+.performer-select-local-option .performer-select-details {
+  gap: 0.25rem;
+  padding: 0.15rem 0;
+}
+
 .edit-performers-dialog .modal-body {
   max-height: calc(100vh - 12rem);
   overflow-y: auto;

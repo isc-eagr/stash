@@ -243,3 +243,12 @@ func (qb *PerformerStore) sortByPerformerRolePartners(category string, role stri
 		%s
 	), 0) %s`, role, oppositeRole, tagHierarchyCondition("sm", tagID), studioSQL, getSortDirection(direction))
 }
+
+func defaultPerformerGenderCustom(input *models.CreatePerformerInput) {
+	if input == nil || input.Performer == nil || input.Gender != nil {
+		return
+	}
+
+	gender := models.GenderEnumMale
+	input.Gender = &gender
+}
