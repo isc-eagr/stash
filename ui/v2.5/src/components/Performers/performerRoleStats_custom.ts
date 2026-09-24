@@ -1,6 +1,7 @@
 import { gql, useLazyQuery } from "@apollo/client";
 import { useEffect, useMemo } from "react";
 import type { IPerformerRoleStats } from "./PerformerCard";
+import type * as GQL from "src/core/generated-graphql";
 
 // CUSTOM: shared lazy role stats loader for performer cards rendered outside PerformerCardGrid.
 interface IPerformerCardRoleStatsQueryData {
@@ -138,4 +139,24 @@ export function usePerformerCardRoleStats(
 
     return ret;
   }, [roleStatsData]);
+}
+
+// CUSTOM: detail, hover, and profile cards show exact marker totals for these badges.
+// The batch query intentionally exposes scene totals for the corresponding fields.
+export function withExactPerformerMarkerCounts(
+  stats: IPerformerRoleStats | undefined,
+  performer: Pick<
+    GQL.Performer,
+    | "facial_marker_top_count"
+    | "facial_marker_bottom_count"
+    | "feet_marker_count"
+  >
+): IPerformerRoleStats | undefined {
+  if (!stats) return undefined;
+  return {
+    ...stats,
+    facial_top_count: performer.facial_marker_top_count,
+    facial_bottom_count: performer.facial_marker_bottom_count,
+    feet_top_count: performer.feet_marker_count,
+  };
 }

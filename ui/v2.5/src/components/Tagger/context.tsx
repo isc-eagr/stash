@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { initialConfig, ITaggerConfig } from "src/components/Tagger/constants";
 import * as GQL from "src/core/generated-graphql";
 import {
-  queryFindPerformer,
+  queryFindPerformerForTagger, // CUSTOM
   queryFindStudio,
   queryScrapeScene,
   queryScrapeSceneQuery,
@@ -642,7 +642,7 @@ export const TaggerContext: React.FC = ({ children }) => {
       return;
 
     try {
-      const queryResult = await queryFindPerformer(performerID);
+      const queryResult = await queryFindPerformerForTagger(performerID); // CUSTOM
       if (queryResult.data.findPerformer) {
         const target = queryResult.data.findPerformer;
 

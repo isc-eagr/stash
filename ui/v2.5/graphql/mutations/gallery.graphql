@@ -1,6 +1,6 @@
 mutation GalleryCreate($input: GalleryCreateInput!) {
   galleryCreate(input: $input) {
-    ...GalleryData
+    ...SelectGalleryData # CUSTOM: newly created selection needs no detail payload
   }
 }
 

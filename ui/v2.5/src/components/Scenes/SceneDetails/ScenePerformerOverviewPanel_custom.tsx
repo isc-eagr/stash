@@ -24,6 +24,10 @@ import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { RatingBanner } from "src/components/Shared/RatingBanner";
 import * as GQL from "src/core/generated-graphql";
 import { useFindPerformer } from "src/core/StashService";
+import {
+  usePerformerCardRoleStats,
+  withExactPerformerMarkerCounts,
+} from "src/components/Performers/performerRoleStats_custom";
 import { useConfigurationContext } from "src/hooks/Config";
 import {
   SCENE_PERFORMER_OVERVIEW_EXCLUDED_FIELDS,
@@ -55,8 +59,19 @@ const ScenePerformerOverviewPanel: React.FC<{
   const intl = useIntl();
   const { configuration } = useConfigurationContext();
   const { data, loading, error } = useFindPerformer(performerId);
+  const roleStatPerformers = useMemo(
+    () => [{ id: performerId }],
+    [performerId]
+  );
+  const roleStatsByPerformer = usePerformerCardRoleStats(roleStatPerformers);
   const performer =
     data?.findPerformer?.id === performerId ? data.findPerformer : undefined;
+  const roleStats = performer
+    ? withExactPerformerMarkerCounts(
+        roleStatsByPerformer.get(performerId),
+        performer
+      )
+    : undefined;
   const titleId = `scene-performer-overview-title-${performerId}`;
   const { data: coPerformerCountData } = GQL.usePerformerCoPerformerCountQuery({
     variables: { performer_id: performerId },
@@ -216,6 +231,7 @@ const ScenePerformerOverviewPanel: React.FC<{
                   >
                     <PerformerCategoryStrip
                       performer={performer}
+                      globalStatsOverride={roleStats}
                       linkTarget={SCENE_PERFORMER_OVERVIEW_LINK_PROPS.target}
                       flushMargins
                     />

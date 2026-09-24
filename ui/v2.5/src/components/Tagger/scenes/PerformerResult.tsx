@@ -62,7 +62,8 @@ const PerformerResult: React.FC<IPerformerResultProps> = ({
   ageFromDate,
 }) => {
   const { data: performerData, loading: stashLoading } =
-    GQL.useFindPerformerQuery({
+    GQL.useFindPerformerForTaggerQuery({
+      // CUSTOM: avoid role totals in stored-ID lookup
       variables: { id: performer.stored_id ?? "" },
       skip: !performer.stored_id,
     });

@@ -3,7 +3,7 @@ import type * as GQL from "src/core/generated-graphql";
 // CUSTOM: list/card views use a lightweight list fragment; detail-only payloads and
 // role stats may be supplied by detail queries or lazy card stats queries.
 type PerformerRoleStatsFields = Pick<
-  GQL.PerformerDataFragment,
+  GQL.Performer,
   | "sex_scene_count"
   | "oral_scene_count"
   | "solo_scene_count"

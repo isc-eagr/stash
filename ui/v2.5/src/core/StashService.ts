@@ -353,12 +353,19 @@ export const queryFindGalleriesByIDForSelect = (galleryIDs: string[]) =>
 
 export const useFindPerformer = (id: string) => {
   const skip = id === "new" || id === "";
-  return GQL.useFindPerformerQuery({ variables: { id }, skip });
+  return GQL.useFindPerformerProfileQuery({ variables: { id }, skip }); // CUSTOM
 };
 
 export const queryFindPerformer = (id: string) =>
   client.query<GQL.FindPerformerQuery>({
     query: GQL.FindPerformerDocument,
+    variables: { id },
+  });
+
+// CUSTOM: Tagger only needs identity and Stash IDs, not role totals.
+export const queryFindPerformerForTagger = (id: string) =>
+  client.query<GQL.FindPerformerForTaggerQuery>({
+    query: GQL.FindPerformerForTaggerDocument,
     variables: { id },
   });
 

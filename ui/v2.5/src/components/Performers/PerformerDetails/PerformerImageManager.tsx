@@ -16,7 +16,7 @@ import "./PerformerImageManager.scss";
 interface IPerformerImageManagerProps {
   performer: GQL.PerformerDataFragment;
   onImageChange: (imagePath: string) => void;
-  refetch: () => Promise<ApolloQueryResult<GQL.FindPerformerQuery>>;
+  refetch: () => Promise<ApolloQueryResult<GQL.FindPerformerProfileQuery>>; // CUSTOM
   children: React.ReactNode;
 }
 

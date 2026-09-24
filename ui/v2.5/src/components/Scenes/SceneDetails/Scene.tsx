@@ -259,6 +259,9 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const activeRelease = activeReleaseId
     ? scene.releases.find((release) => release.id === activeReleaseId)
     : undefined; // CUSTOM
+  // CUSTOM: show the selected release's studio in the scene header while it
+  // is the active playback owner.
+  const headerStudio = activeRelease?.studio ?? scene.studio;
 
   const Toast = useToast();
   const intl = useIntl();
@@ -1025,8 +1028,8 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
       >
         <div className="scene-overview">
           <div className="scene-header-container">
-            <StudioLogo studio={scene.studio} showText={showStudioText} />
-            <h3 className={cx("scene-header", { "no-studio": !scene.studio })}>
+            <StudioLogo studio={headerStudio} showText={showStudioText} />
+            <h3 className={cx("scene-header", { "no-studio": !headerStudio })}>
               <TruncatedText lineCount={2} text={title} />
             </h3>
           </div>

@@ -63,12 +63,17 @@ import { PerformerCategoryStrip } from "./PerformerCategoryStrip";
 import { Counter } from "src/components/Shared/Counter";
 import { PerformerImageManager } from "./PerformerImageManager";
 import { PerformerActivityTime } from "./PerformerActivityTime";
+import {
+  usePerformerCardRoleStats,
+  withExactPerformerMarkerCounts,
+} from "../performerRoleStats_custom"; // CUSTOM
+import type { IPerformerRoleStats } from "../PerformerCard"; // CUSTOM
 // CUSTOM: end
 
 interface IProps {
   performer: GQL.PerformerDataFragment;
   tabKey?: TabKey;
-  refetch: () => Promise<ApolloQueryResult<GQL.FindPerformerQuery>>; // CUSTOM
+  refetch: () => Promise<ApolloQueryResult<GQL.FindPerformerProfileQuery>>; // CUSTOM
 }
 
 interface IPerformerParams {
@@ -366,14 +371,15 @@ interface IPerformerHeaderImageProps {
   encodingImage: boolean;
   lightboxImages: ILightboxImage[];
   performer: GQL.PerformerDataFragment;
-  refetch: () => Promise<ApolloQueryResult<GQL.FindPerformerQuery>>; // CUSTOM
+  roleStats?: IPerformerRoleStats; // CUSTOM
+  refetch: () => Promise<ApolloQueryResult<GQL.FindPerformerProfileQuery>>; // CUSTOM
 }
 
 const PerformerHeaderImage: React.FC<IPerformerHeaderImageProps> =
   PatchComponent(
     "PerformerHeaderImage",
     // CUSTOM: begin - PerformerImageManager, currentImage state, PerformerCategoryStrip
-    ({ encodingImage, activeImage, performer, refetch }) => {
+    ({ encodingImage, activeImage, performer, roleStats, refetch }) => {
       const [currentImage, setCurrentImage] = React.useState(activeImage);
 
       React.useEffect(() => {
@@ -404,7 +410,10 @@ const PerformerHeaderImage: React.FC<IPerformerHeaderImageProps> =
                 </LightboxLink>
               </PerformerImageManager>
             )}
-            <PerformerCategoryStrip performer={performer} />
+            <PerformerCategoryStrip
+              performer={performer}
+              globalStatsOverride={roleStats}
+            />
           </div>
         </HeaderImage>
       );
@@ -419,6 +428,15 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
     const Toast = useToast();
     const history = useHistory();
     const intl = useIntl();
+    const roleStatPerformers = useMemo(
+      () => [{ id: performer.id }],
+      [performer.id]
+    ); // CUSTOM
+    const roleStatsByPerformer = usePerformerCardRoleStats(roleStatPerformers); // CUSTOM
+    const roleStats = withExactPerformerMarkerCounts(
+      roleStatsByPerformer.get(performer.id),
+      performer
+    ); // CUSTOM
 
     // Configuration settings
     const { configuration } = useConfigurationContext();
@@ -598,6 +616,7 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
               encodingImage={encodingImage}
               lightboxImages={lightboxImages}
               performer={performer}
+              roleStats={roleStats} // CUSTOM: retain exact marker badge values
               refetch={refetch} // CUSTOM
             />
             <div

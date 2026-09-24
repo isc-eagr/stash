@@ -90,7 +90,7 @@ fragment SceneData on Scene {
   }
 
   performers {
-    ...PerformerData
+    ...PerformerListData # CUSTOM: role totals load through the batched scene card query
     # CUSTOM: exact metallic-rating override evidence for detail insights
     rating_tier_tags: tags {
       id

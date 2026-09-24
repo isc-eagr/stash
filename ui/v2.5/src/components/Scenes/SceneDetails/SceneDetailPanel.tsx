@@ -66,6 +66,7 @@ export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
         sceneId={props.scene.id} // CUSTOM
         scenePerformerCount={performers.length} // CUSTOM
         scenePartnerPerformers={performers} // CUSTOM
+        roleStats={roleStatsByPerformer.get(performer.id)} // CUSTOM: use the batched totals
         onOpenSceneOverview={performerOverview?.openPerformerOverview} // CUSTOM
       />
     ));

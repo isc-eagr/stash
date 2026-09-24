@@ -20,6 +20,31 @@ query FindPerformersByID($performer_ids: [Int!]) {
     count
     performers {
       ...PerformerData
+      # CUSTOM: retain the existing full merge selection; merge optimization is separate.
+      sex_scene_count
+      oral_scene_count
+      solo_scene_count
+      facial_scene_count
+      sex_top_count
+      sex_bottom_count
+      oral_top_count
+      oral_bottom_count
+      facial_top_count
+      facial_bottom_count
+      facial_marker_count
+      facial_marker_with_top_count
+      facial_marker_with_bottom_count
+      orgasm_top_count
+      feet_top_count
+      sex_with_top_count
+      sex_with_bottom_count
+      oral_with_top_count
+      oral_with_bottom_count
+      facial_with_top_count
+      facial_with_bottom_count
+      sex_unique_partner_count
+      oral_unique_partner_count
+      facial_unique_partner_count
     }
   }
 }
@@ -27,6 +52,65 @@ query FindPerformersByID($performer_ids: [Int!]) {
 query FindPerformer($id: ID!) {
   findPerformer(id: $id) {
     ...PerformerData
+    # CUSTOM: retain the legacy full query for callers outside the detail view.
+    sex_scene_count
+    oral_scene_count
+    solo_scene_count
+    facial_scene_count
+    sex_top_count
+    sex_bottom_count
+    oral_top_count
+    oral_bottom_count
+    facial_top_count
+    facial_bottom_count
+    facial_marker_count
+    facial_marker_with_top_count
+    facial_marker_with_bottom_count
+    orgasm_top_count
+    feet_top_count
+    sex_with_top_count
+    sex_with_bottom_count
+    oral_with_top_count
+    oral_with_bottom_count
+    facial_with_top_count
+    facial_with_bottom_count
+    sex_unique_partner_count
+    oral_unique_partner_count
+    facial_unique_partner_count
+  }
+}
+
+query FindPerformerProfile($id: ID!) {
+  findPerformer(id: $id) {
+    ...PerformerData
+  }
+}
+
+# CUSTOM: card and Tagger lookups do not need exact marker counts or profile data.
+query FindPerformerForCard($id: ID!) {
+  findPerformer(id: $id) {
+    ...PerformerListData
+    # CUSTOM: retain exact marker badge counts used before batching.
+    facial_marker_top_count
+    facial_marker_bottom_count
+    feet_marker_count
+  }
+}
+
+query FindPerformerForTagger($id: ID!) {
+  findPerformer(id: $id) {
+    id
+    name
+    alias_list
+    disambiguation
+    image_path
+    birthdate
+    death_date
+    stash_ids {
+      stash_id
+      endpoint
+      updated_at
+    }
   }
 }
 
