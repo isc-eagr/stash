@@ -24,7 +24,9 @@ type SceneReleaseFinder interface {
 
 type sceneReleaseRoutes struct {
 	routes
-	releaseFinder SceneReleaseFinder
+	releaseFinder     SceneReleaseFinder
+	sceneMarkerFinder SceneMarkerFinder // CUSTOM
+	captionFinder     CaptionFinder     // CUSTOM
 }
 
 func (rs sceneReleaseRoutes) Routes() chi.Router {
@@ -33,6 +35,17 @@ func (rs sceneReleaseRoutes) Routes() chi.Router {
 	r.Route("/{releaseId}", func(r chi.Router) {
 		r.Use(rs.SceneReleaseCtx)
 		r.Get("/screenshot", rs.Screenshot)
+		r.Get("/preview", rs.PreviewCustom)                                               // CUSTOM
+		r.Get("/webp", rs.WebpCustom)                                                     // CUSTOM
+		r.Get("/{sceneHash}_thumbs.vtt", rs.VttThumbsCustom)                              // CUSTOM: VTT sprite references are relative
+		r.Get("/{sceneHash}_sprite.jpg", rs.VttSpriteCustom)                              // CUSTOM
+		r.Get("/funscript", rs.FunscriptCustom)                                           // CUSTOM
+		r.Get("/interactive_csv", rs.InteractiveCSVCustom)                                // CUSTOM
+		r.Get("/interactive_heatmap", rs.InteractiveHeatmapCustom)                        // CUSTOM
+		r.Get("/caption", rs.CaptionCustom)                                               // CUSTOM
+		r.Get("/scene_marker/{sceneMarkerId}/stream", rs.SceneMarkerStreamCustom)         // CUSTOM
+		r.Get("/scene_marker/{sceneMarkerId}/preview", rs.SceneMarkerPreviewCustom)       // CUSTOM
+		r.Get("/scene_marker/{sceneMarkerId}/screenshot", rs.SceneMarkerScreenshotCustom) // CUSTOM
 
 		// streaming endpoints
 		r.Get("/stream", rs.StreamDirect)

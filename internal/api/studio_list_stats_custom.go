@@ -544,7 +544,12 @@ func calculateStudioListActivityStatsCustom(
 		qualityCoveredIntervals,
 		byCategory[activityUnusableCustom],
 	)
-	sexPercent, oralPercent, soloPercent := activityStatsTypePercentsCustom(sexSeconds, oralSeconds, soloSeconds)
+	sexPercent, oralPercent, soloPercent := activityStatsTypePercentsCustom(
+		sexSeconds,
+		oralSeconds,
+		soloSeconds,
+		activityStatsDurationCustom(activityIntervals),
+	)
 
 	return &StudioActivityStats{
 		TotalSeconds:         totalSeconds,

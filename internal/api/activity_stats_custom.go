@@ -82,10 +82,9 @@ func activityStatsPercentCustom(part float64, total float64) float64 {
 	return (part / total) * 100
 }
 
-// CUSTOM: Activity Type percentages partition only the classified Sex, Oral,
-// and Solo duration. Unclassified scene runtime is reported separately.
-func activityStatsTypePercentsCustom(sexSeconds, oralSeconds, soloSeconds float64) (float64, float64, float64) {
-	totalActivitySeconds := sexSeconds + oralSeconds + soloSeconds
+// CUSTOM: Activity Type percentages use the union of classified Sex, Oral,
+// and Solo intervals, so overlapping categories can total more than 100%.
+func activityStatsTypePercentsCustom(sexSeconds, oralSeconds, soloSeconds, totalActivitySeconds float64) (float64, float64, float64) {
 	return activityStatsPercentCustom(sexSeconds, totalActivitySeconds),
 		activityStatsPercentCustom(oralSeconds, totalActivitySeconds),
 		activityStatsPercentCustom(soloSeconds, totalActivitySeconds)
@@ -447,10 +446,18 @@ WHERE sm.primary_tag_id IN (?, ?, ?)
 		OralBottomSeconds: activityStatsDurationCustom(oralBottomIntervals),
 	}
 
-	ret.TotalActivitySeconds = ret.SexSeconds + ret.OralSeconds + ret.SoloSeconds
-	ret.SexPercent = activityStatsPercentCustom(ret.SexSeconds, ret.TotalActivitySeconds)
-	ret.OralPercent = activityStatsPercentCustom(ret.OralSeconds, ret.TotalActivitySeconds)
-	ret.SoloPercent = activityStatsPercentCustom(ret.SoloSeconds, ret.TotalActivitySeconds)
+	activityIntervals := append(append(
+		append([]activityIntervalCustom{}, byCategory[activitySexCustom]...),
+		byCategory[activityOralCustom]...),
+		byCategory[activitySoloCustom]...,
+	)
+	ret.TotalActivitySeconds = activityStatsDurationCustom(activityIntervals)
+	ret.SexPercent, ret.OralPercent, ret.SoloPercent = activityStatsTypePercentsCustom(
+		ret.SexSeconds,
+		ret.OralSeconds,
+		ret.SoloSeconds,
+		ret.TotalActivitySeconds,
+	)
 	ret.SexTopPercent = activityStatsPercentCustom(ret.SexTopSeconds, ret.SexSeconds)
 	ret.SexBottomPercent = activityStatsPercentCustom(ret.SexBottomSeconds, ret.SexSeconds)
 	ret.OralTopPercent = activityStatsPercentCustom(ret.OralTopSeconds, ret.OralSeconds)
@@ -771,7 +778,12 @@ WHERE sc.id IN (SELECT id FROM selected_scenes)
 		qualityCoveredIntervals,
 		byCategory[activityUnusableCustom],
 	)
-	sexPercent, oralPercent, soloPercent := activityStatsTypePercentsCustom(sexSeconds, oralSeconds, soloSeconds)
+	sexPercent, oralPercent, soloPercent := activityStatsTypePercentsCustom(
+		sexSeconds,
+		oralSeconds,
+		soloSeconds,
+		activityStatsDurationCustom(activityIntervals),
+	)
 
 	return &StudioActivityStats{
 		TotalSeconds:         totalSeconds,

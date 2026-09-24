@@ -185,6 +185,11 @@
     font-size: 10px;
   }
 
+  /* CUSTOM: Keep all 30-day date ticks while making their labels easier to scan. */
+  &-date-label.thirty-day {
+    font-size: 9px;
+  }
+
   &-completed {
     fill: #0f9960;
   }

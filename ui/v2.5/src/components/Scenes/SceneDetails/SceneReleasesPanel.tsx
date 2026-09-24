@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   Button,
   Card,
@@ -8,9 +8,10 @@ import {
   Accordion,
   Row,
   Col,
+  Dropdown,
 } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
-import { useHistory } from "react-router-dom";
+import { Prompt, useHistory } from "react-router-dom";
 import { DateInput } from "src/components/Shared/DateInput";
 import { ImageInput } from "src/components/Shared/ImageInput";
 import * as GQL from "src/core/generated-graphql";
@@ -41,13 +42,30 @@ import {
 import { SceneSelectorDialog } from "./SceneSelectorDialog";
 import { Studio, StudioSelect } from "src/components/Studios/StudioSelect";
 import { Gallery, GallerySelect } from "src/components/Galleries/GallerySelect";
+import {
+  Performer,
+  PerformerSelect,
+} from "src/components/Performers/PerformerSelect";
+import { Tag, TagSelect } from "src/components/Tags/TagSelect";
+import { IGroupEntry, SceneGroupTable } from "./SceneGroupTable";
+import {
+  CustomFieldMap,
+  CustomFieldsInput,
+} from "src/components/Shared/CustomFields";
 import ImageUtils from "src/utils/image";
 import TextUtils from "src/utils/text";
+import {
+  summarizeReleaseConversionCustom,
+  summarizeSceneConversionCustom,
+} from "./sceneReleaseConversionSummary_custom"; // CUSTOM
+import "./SceneReleasesPanel_custom.scss";
 
 interface IReleaseFormData {
   title: string;
   code: string;
-  url: string;
+  urls: string;
+  rating100: string;
+  organized: boolean;
   date: string;
   details: string;
   director: string;
@@ -59,7 +77,9 @@ interface IReleaseFormData {
 const emptyFormData: IReleaseFormData = {
   title: "",
   code: "",
-  url: "",
+  urls: "",
+  rating100: "",
+  organized: false,
   date: "",
   details: "",
   director: "",
@@ -84,6 +104,16 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
   const intl = useIntl();
   const Toast = useToast();
   const history = useHistory();
+  // CUSTOM: preserve each request ID across network failures and retries.
+  const conversionRequestIds = useRef(new Map<string, string>());
+  const conversionRequestId = (key: string) => {
+    let requestId = conversionRequestIds.current.get(key);
+    if (!requestId) {
+      requestId = window.crypto.randomUUID();
+      conversionRequestIds.current.set(key, requestId);
+    }
+    return requestId;
+  };
 
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [editingReleaseId, setEditingReleaseId] = useState<string | null>(null);
@@ -91,19 +121,22 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
   const [pendingConvertSceneId, setPendingConvertSceneId] = useState<
     string | null
   >(null); // scene selected, waiting for options
-  const [convertSceneOptions, setConvertSceneOptions] = useState({
-    transferOHistory: false,
-    transferMarkers: false,
-  });
+  const [showDeleteReleaseModal, setShowDeleteReleaseModal] = useState<
+    string | null
+  >(null);
   const [showAddFileModal, setShowAddFileModal] = useState<string | null>(null); // release ID
   const [showConvertToSceneModal, setShowConvertToSceneModal] = useState<
     string | null
   >(null); // release ID
-  const [convertOptions, setConvertOptions] = useState({
-    transferOHistory: false,
-    transferMarkers: false,
-  });
   const [formData, setFormData] = useState<IReleaseFormData>(emptyFormData);
+  const [selectedPerformers, setSelectedPerformers] = useState<Performer[]>([]);
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
+  const [groupEntries, setGroupEntries] = useState<IGroupEntry[]>([]);
+  const [stashIDs, setStashIDs] = useState<GQL.StashIdInput[]>([]);
+  const [customFields, setCustomFields] = useState<CustomFieldMap>({});
+  const [customFieldsError, setCustomFieldsError] = useState<string>();
+  const [showDiscardReleaseModal, setShowDiscardReleaseModal] = useState(false);
+  const releaseDraftBaseline = useRef<string | null>(null);
   const [expandedReleases, setExpandedReleases] = useState<Set<string>>(
     new Set()
   );
@@ -128,7 +161,42 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
   const [convertReleaseToScene, { loading: convertingToScene }] =
     useConvertReleaseToScene();
 
+  const { data: conversionSourceData, loading: conversionSourceLoading } =
+    GQL.useFindSceneQuery({
+      variables: { id: pendingConvertSceneId ?? "" },
+      skip: !pendingConvertSceneId,
+    }); // CUSTOM: show what the scene conversion moves
+  const conversionSource = conversionSourceData?.findScene;
+  const sourceSummary = conversionSource
+    ? summarizeSceneConversionCustom(conversionSource)
+    : undefined; // CUSTOM
+
   const releases = useMemo(() => scene.releases ?? [], [scene.releases]);
+  const conversionRelease = releases.find(
+    (release) => release.id === showConvertToSceneModal
+  ); // CUSTOM
+  const releaseSummary = conversionRelease
+    ? summarizeReleaseConversionCustom(conversionRelease)
+    : undefined; // CUSTOM
+  const releaseDraftFingerprint = JSON.stringify({
+    formData,
+    studio: selectedStudio?.id,
+    galleries: selectedGalleries.map((gallery) => gallery.id),
+    performers: selectedPerformers.map((performer) => performer.id),
+    tags: selectedTags.map((tag) => tag.id),
+    groups: groupEntries.map((entry) => [entry.group.id, entry.scene_index]),
+    stashIDs,
+    customFields,
+  });
+  useEffect(() => {
+    if (showReleaseModal && releaseDraftBaseline.current === null) {
+      releaseDraftBaseline.current = releaseDraftFingerprint;
+    }
+  }, [showReleaseModal, releaseDraftFingerprint]);
+  const releaseDraftDirty =
+    showReleaseModal &&
+    releaseDraftBaseline.current !== null &&
+    releaseDraftBaseline.current !== releaseDraftFingerprint;
 
   // Sort releases by date ascending
   const sortedReleases = useMemo(() => {
@@ -159,6 +227,12 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
     setFormData(emptyFormData);
     setSelectedStudio(null);
     setSelectedGalleries([]);
+    setSelectedPerformers([]);
+    setSelectedTags([]);
+    setGroupEntries([]);
+    setStashIDs([]);
+    setCustomFields({});
+    setCustomFieldsError(undefined);
     setShowReleaseModal(true);
   };
 
@@ -167,7 +241,9 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
     setFormData({
       title: release.title || "",
       code: release.code || "",
-      url: release.url || "",
+      urls: release.urls.join("\n"),
+      rating100: release.rating100?.toString() || "",
+      organized: release.organized,
       date: release.date || "",
       details: release.details || "",
       director: release.director || "",
@@ -185,29 +261,95 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
         (g) => ({ id: g.id, title: g.title } as Gallery)
       ) || []
     );
+    setSelectedPerformers(release.performers);
+    setSelectedTags(release.tags);
+    setGroupEntries(
+      release.groups.map((item) => ({
+        group: item.group,
+        scene_index: item.scene_index,
+      }))
+    );
+    setStashIDs(release.stash_ids);
+    setCustomFields((release.custom_fields || {}) as CustomFieldMap);
+    setCustomFieldsError(undefined);
     setShowReleaseModal(true);
   };
 
   const closeReleaseModal = () => {
     setShowReleaseModal(false);
+    setShowDiscardReleaseModal(false);
+    releaseDraftBaseline.current = null;
     setEditingReleaseId(null);
     setFormData(emptyFormData);
     setSelectedStudio(null);
     setSelectedGalleries([]);
+    setSelectedPerformers([]);
+    setSelectedTags([]);
+    setGroupEntries([]);
+    setStashIDs([]);
+    setCustomFields({});
+    setCustomFieldsError(undefined);
+  };
+
+  const requestCloseReleaseModal = () => {
+    if (releaseDraftDirty) {
+      setShowDiscardReleaseModal(true);
+    } else {
+      closeReleaseModal();
+    }
   };
 
   const handleSaveRelease = async () => {
+    if (customFieldsError) {
+      Toast.error(customFieldsError);
+      return;
+    }
+    const ratingText = formData.rating100.trim();
+    const rating100 = ratingText === "" ? null : Number(ratingText);
+    if (
+      rating100 !== null &&
+      (!Number.isInteger(rating100) || rating100 < 0 || rating100 > 100)
+    ) {
+      Toast.error("Rating must be a whole number from 0 to 100");
+      return;
+    }
+    const urls = formData.urls
+      .split(/\r?\n/)
+      .map((url) => url.trim())
+      .filter(Boolean);
+    if (
+      stashIDs.some((item) => !item.endpoint.trim() || !item.stash_id.trim())
+    ) {
+      Toast.error("Stash IDs need both an endpoint and an ID");
+      return;
+    }
     try {
+      const editingRelease = releases.find(
+        (release) => release.id === editingReleaseId
+      );
       const input = {
-        title: formData.title || undefined,
-        code: formData.code || undefined,
-        url: formData.url || undefined,
-        date: formData.date || undefined,
-        details: formData.details || undefined,
-        director: formData.director || undefined,
-        studio_id: selectedStudio?.id || undefined,
+        title: formData.title,
+        code: formData.code,
+        urls,
+        rating100:
+          editingRelease && rating100 === (editingRelease.rating100 ?? null)
+            ? undefined
+            : rating100,
+        organized: formData.organized,
+        performer_ids: selectedPerformers.map((performer) => performer.id),
+        tag_ids: selectedTags.map((tag) => tag.id),
+        groups: groupEntries.map((entry) => ({
+          group_id: entry.group.id,
+          scene_index: entry.scene_index,
+        })),
+        stash_ids: stashIDs,
+        custom_fields: { full: customFields },
+        date: formData.date,
+        details: formData.details,
+        director: formData.director,
+        studio_id: selectedStudio?.id || "",
         gallery_ids: selectedGalleries.map((g) => g.id),
-        cover_image: formData.cover_image || undefined,
+        cover_image: formData.cover_image ?? undefined,
       };
 
       if (editingReleaseId) {
@@ -257,15 +399,6 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
   };
 
   const handleDeleteRelease = async (releaseId: string) => {
-    const release = releases.find((r) => r.id === releaseId);
-    const releaseStudioName = release?.studio?.name || "Unknown Studio";
-    const sceneTitle = scene.title || "Untitled Scene";
-    const sceneStudioName = scene.studio?.name || "Unknown Studio";
-    const message = `Are you sure you want to delete the ${releaseStudioName} release of "${sceneTitle}" from ${sceneStudioName}?`;
-
-    if (!window.confirm(message)) {
-      return;
-    }
     try {
       await destroyRelease({
         variables: {
@@ -281,6 +414,7 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
       if (activeReleaseId === releaseId) {
         onSetActiveRelease(null);
       }
+      setShowDeleteReleaseModal(null);
       onRefetch();
     } catch (e) {
       Toast.error(e);
@@ -288,14 +422,14 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
   };
 
   const handleConvertScene = async (sourceSceneId: string) => {
+    const requestKey = `scene:${sourceSceneId}:${scene.id}`;
     try {
       await convertScene({
         variables: {
           input: {
             source_scene_id: sourceSceneId,
             target_scene_id: scene.id,
-            transfer_o_history: convertSceneOptions.transferOHistory,
-            transfer_markers: convertSceneOptions.transferMarkers,
+            request_id: conversionRequestId(requestKey),
           },
         },
       });
@@ -307,10 +441,7 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
       );
       setShowSceneSelectorModal(false);
       setPendingConvertSceneId(null);
-      setConvertSceneOptions({
-        transferOHistory: false,
-        transferMarkers: false,
-      });
+      conversionRequestIds.current.delete(requestKey);
       onRefetch();
     } catch (e) {
       Toast.error(e);
@@ -364,7 +495,7 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
       Toast.success(
         deleteFromFilesystem
           ? "File removed and deleted from filesystem"
-          : "File removed from release"
+          : "File moved to main scene"
       );
       setShowRemoveFileModal(null);
       onRefetch();
@@ -375,20 +506,20 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
 
   const handleConvertToScene = async () => {
     if (!showConvertToSceneModal) return;
+    const requestKey = `release:${showConvertToSceneModal}`;
 
     try {
       const result = await convertReleaseToScene({
         variables: {
           input: {
             release_id: showConvertToSceneModal,
-            transfer_o_history: convertOptions.transferOHistory,
-            transfer_markers: convertOptions.transferMarkers,
+            request_id: conversionRequestId(requestKey),
           },
         },
       });
       Toast.success("Release converted to scene");
       setShowConvertToSceneModal(null);
-      setConvertOptions({ transferOHistory: false, transferMarkers: false });
+      conversionRequestIds.current.delete(requestKey);
       onRefetch();
 
       // Navigate to the new scene
@@ -453,7 +584,7 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
         />
       );
     }
-    if (editingReleaseId) {
+    if (editingReleaseId && formData.cover_image !== "") {
       const release = releases.find((r) => r.id === editingReleaseId);
       if (release?.paths?.screenshot && !brokenImages.has(editingReleaseId)) {
         return (
@@ -474,6 +605,10 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
 
   return (
     <div className="scene-releases-panel">
+      <Prompt
+        when={releaseDraftDirty}
+        message={intl.formatMessage({ id: "dialogs.unsaved_changes" })}
+      />
       {isLoading && <LoadingIndicator />}
 
       <div className="mb-3">
@@ -525,32 +660,59 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                   activeReleaseId === release.id ? "border-primary" : ""
                 }`}
               >
-                <Card.Header className="d-flex align-items-center p-2">
+                <Card.Header className="scene-release-summary">
+                  {hasScreenshot ? (
+                    <img
+                      className="scene-release-summary__cover"
+                      src={`${release.paths.screenshot!}?t=${new Date(
+                        release.updated_at
+                      ).getTime()}`}
+                      alt=""
+                      onError={() => handleImageError(release.id)}
+                    />
+                  ) : (
+                    <span
+                      className="scene-release-summary__cover scene-release-summary__placeholder"
+                      aria-hidden="true"
+                    >
+                      <Icon icon={faFilm} />
+                    </span>
+                  )}
                   <Button
                     variant="link"
-                    className="p-0 mr-2 text-decoration-none"
+                    className="scene-release-summary__label text-left text-decoration-none"
                     onClick={() => toggleReleaseExpanded(release.id)}
+                    aria-expanded={isExpanded}
+                    aria-controls={
+                      isExpanded ? `release-details-${release.id}` : undefined
+                    }
+                    aria-label={`${isExpanded ? "Collapse" : "Expand"} ${
+                      release.title || "release"
+                    }`}
                   >
-                    <Icon icon={isExpanded ? faChevronDown : faChevronRight} />
+                    <span className="scene-release-summary__title">
+                      <Icon
+                        icon={isExpanded ? faChevronDown : faChevronRight}
+                      />{" "}
+                      <strong>{release.title || "Untitled Release"}</strong>
+                    </span>
+                    <span className="scene-release-summary__meta text-muted">
+                      {[
+                        release.date,
+                        release.studio?.name,
+                        `${release.files.length} files`,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
                   </Button>
-
-                  <div
-                    className="flex-grow-1"
-                    style={{ cursor: "pointer" }}
-                    onClick={() => toggleReleaseExpanded(release.id)}
-                  >
-                    <strong>{release.title || "Untitled Release"}</strong>
-                    {activeReleaseId === release.id && (
-                      <Badge variant="primary" className="ml-2">
-                        Playing
-                      </Badge>
-                    )}
-                    {release.date && (
-                      <span className="text-muted ml-2">{release.date}</span>
-                    )}
-                  </div>
-
-                  <div className="d-flex">
+                  {release.rating100 != null && (
+                    <Badge variant="secondary">{release.rating100}/100</Badge>
+                  )}
+                  {activeReleaseId === release.id && (
+                    <Badge variant="primary">Playing</Badge>
+                  )}
+                  <div className="scene-release-summary__actions">
                     {release.files.length > 0 && (
                       <Button
                         variant={
@@ -559,53 +721,67 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                             : "outline-success"
                         }
                         size="sm"
-                        className="mr-1"
                         onClick={() => handleMarkForPlayback(release.id)}
-                        title="Mark for playback"
+                        aria-label={
+                          activeReleaseId === release.id
+                            ? "Play main scene"
+                            : "Play release"
+                        }
                       >
                         <Icon icon={faPlay} />
                       </Button>
                     )}
-                    <Button
-                      variant="outline-info"
-                      size="sm"
-                      className="mr-1"
-                      onClick={() => setShowAddFileModal(release.id)}
-                      title="Add file to release"
-                    >
-                      <Icon icon={faFile} />
-                    </Button>
-                    <Button
-                      variant="outline-primary"
-                      size="sm"
-                      className="mr-1"
-                      onClick={() => openEditReleaseModal(release)}
-                      title={intl.formatMessage({ id: "actions.edit" })}
-                    >
-                      <Icon icon={faPencilAlt} />
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="mr-1"
-                      onClick={() => setShowConvertToSceneModal(release.id)}
-                      title="Convert to scene"
-                    >
-                      <Icon icon={faFilm} />
-                    </Button>
-                    <Button
-                      variant="outline-danger"
-                      size="sm"
-                      onClick={() => handleDeleteRelease(release.id)}
-                      title={intl.formatMessage({ id: "actions.delete" })}
-                    >
-                      <Icon icon={faTrash} />
-                    </Button>
+                    <Dropdown alignRight>
+                      <Dropdown.Toggle
+                        variant="secondary"
+                        size="sm"
+                        aria-label={`Actions for ${release.title || "release"}`}
+                      >
+                        <FormattedMessage
+                          id="actions.actions"
+                          defaultMessage="Actions"
+                        />
+                      </Dropdown.Toggle>
+                      <Dropdown.Menu>
+                        <Dropdown.Item
+                          onClick={() => openEditReleaseModal(release)}
+                        >
+                          <Icon icon={faPencilAlt} />{" "}
+                          <FormattedMessage id="actions.edit" />
+                        </Dropdown.Item>
+                        <Dropdown.Item
+                          onClick={() => setShowAddFileModal(release.id)}
+                        >
+                          <Icon icon={faFile} />{" "}
+                          <FormattedMessage
+                            id="actions.add_file"
+                            defaultMessage="Add file"
+                          />
+                        </Dropdown.Item>
+                        <Dropdown.Item
+                          onClick={() => setShowConvertToSceneModal(release.id)}
+                        >
+                          <Icon icon={faFilm} />{" "}
+                          <FormattedMessage
+                            id="actions.convert_to_scene"
+                            defaultMessage="Convert to scene"
+                          />
+                        </Dropdown.Item>
+                        <Dropdown.Divider />
+                        <Dropdown.Item
+                          onClick={() => setShowDeleteReleaseModal(release.id)}
+                          className="text-danger"
+                        >
+                          <Icon icon={faTrash} />{" "}
+                          <FormattedMessage id="actions.delete" />
+                        </Dropdown.Item>
+                      </Dropdown.Menu>
+                    </Dropdown>
                   </div>
                 </Card.Header>
 
                 {isExpanded && (
-                  <Card.Body>
+                  <Card.Body id={`release-details-${release.id}`}>
                     {hasScreenshot ? (
                       <div className="mb-3">
                         <img
@@ -666,19 +842,99 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                           <dd className="col-sm-9">{release.director}</dd>
                         </>
                       )}
-                      {release.url && (
+                      {release.urls.length > 0 && (
                         <>
                           <dt className="col-sm-3">
                             <FormattedMessage id="url" />
                           </dt>
                           <dd className="col-sm-9">
-                            <a
-                              href={release.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              {release.url}
-                            </a>
+                            {release.urls.map((url) => (
+                              <div key={url} className="text-break">
+                                <a
+                                  href={url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  {url}
+                                </a>
+                              </div>
+                            ))}
+                          </dd>
+                        </>
+                      )}
+                      {release.performers.length > 0 && (
+                        <>
+                          <dt className="col-sm-3">
+                            <FormattedMessage id="performers" />
+                          </dt>
+                          <dd className="col-sm-9">
+                            {release.performers
+                              .map((performer) => performer.name)
+                              .join(", ")}
+                          </dd>
+                        </>
+                      )}
+                      {release.tags.length > 0 && (
+                        <>
+                          <dt className="col-sm-3">
+                            <FormattedMessage id="tags" />
+                          </dt>
+                          <dd className="col-sm-9">
+                            {release.tags.map((tag) => tag.name).join(", ")}
+                          </dd>
+                        </>
+                      )}
+                      {release.groups.length > 0 && (
+                        <>
+                          <dt className="col-sm-3">
+                            <FormattedMessage id="groups" />
+                          </dt>
+                          <dd className="col-sm-9">
+                            {release.groups
+                              .map((entry) => entry.group.name)
+                              .join(", ")}
+                          </dd>
+                        </>
+                      )}
+                      {release.stash_ids.length > 0 && (
+                        <>
+                          <dt className="col-sm-3">Stash IDs</dt>
+                          <dd className="col-sm-9">
+                            {release.stash_ids.map((item) => (
+                              <div
+                                key={`${item.endpoint}:${item.stash_id}`}
+                                className="text-break"
+                              >
+                                {item.endpoint}: {item.stash_id}
+                              </div>
+                            ))}
+                          </dd>
+                        </>
+                      )}
+                      {(release.play_history.length > 0 ||
+                        release.o_history.length > 0) && (
+                        <>
+                          <dt className="col-sm-3">Activity</dt>
+                          <dd className="col-sm-9">
+                            {release.play_history.length} plays ·{" "}
+                            {release.o_history.length} O events
+                          </dd>
+                        </>
+                      )}
+                      {release.rating_scores.length > 0 && (
+                        <>
+                          <dt className="col-sm-3">
+                            <FormattedMessage
+                              id="scene_release.rating_breakdown"
+                              defaultMessage="Rating breakdown"
+                            />
+                          </dt>
+                          <dd className="col-sm-9">
+                            {release.rating_scores.map((score) => (
+                              <div key={score.id}>
+                                {score.label || score.key}: {score.raw_value}
+                              </div>
+                            ))}
                           </dd>
                         </>
                       )}
@@ -868,7 +1124,11 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
       )}
 
       {/* Release Edit/Create Modal */}
-      <Modal show={showReleaseModal} onHide={closeReleaseModal} size="lg">
+      <Modal
+        show={showReleaseModal}
+        onHide={requestCloseReleaseModal}
+        size="lg"
+      >
         <Modal.Header closeButton>
           <Modal.Title>
             {editingReleaseId ? (
@@ -967,12 +1227,154 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                 <FormattedMessage id="url" />
               </Form.Label>
               <Form.Control
-                type="url"
-                value={formData.url}
+                as="textarea"
+                rows={2}
+                value={formData.urls}
                 onChange={(e) =>
-                  setFormData({ ...formData, url: e.target.value })
+                  setFormData({ ...formData, urls: e.target.value })
                 }
+                aria-label="Release URLs, one per line"
               />
+            </Form.Group>
+
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Rating (0–100)</Form.Label>
+                  <Form.Control
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={formData.rating100}
+                    onChange={(e) =>
+                      setFormData({ ...formData, rating100: e.target.value })
+                    }
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Check
+                    type="checkbox"
+                    label={<FormattedMessage id="organized" />}
+                    checked={formData.organized}
+                    onChange={(e) =>
+                      setFormData({ ...formData, organized: e.target.checked })
+                    }
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Form.Group className="mb-3">
+              <Form.Label>
+                <FormattedMessage id="performers" />
+              </Form.Label>
+              <PerformerSelect
+                isMulti
+                values={selectedPerformers}
+                onSelect={(items) => setSelectedPerformers(items)}
+                ageFromDate={formData.date}
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>
+                <FormattedMessage id="tags" />
+              </Form.Label>
+              <TagSelect
+                isMulti
+                values={selectedTags}
+                onSelect={(items) => setSelectedTags(items)}
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>
+                <FormattedMessage id="groups" />
+              </Form.Label>
+              <SceneGroupTable
+                value={groupEntries}
+                onUpdate={setGroupEntries}
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Stash IDs</Form.Label>
+              {stashIDs.map((item, index) => (
+                <Row key={index} className="mb-2">
+                  <Col md={5}>
+                    <Form.Control
+                      aria-label={`Stash endpoint ${index + 1}`}
+                      value={item.endpoint}
+                      placeholder="Endpoint"
+                      onChange={(event) =>
+                        setStashIDs((current) =>
+                          current.map((existing, i) =>
+                            i === index
+                              ? {
+                                  ...existing,
+                                  endpoint: event.target.value,
+                                  updated_at: new Date().toISOString(),
+                                }
+                              : existing
+                          )
+                        )
+                      }
+                    />
+                  </Col>
+                  <Col md={5}>
+                    <Form.Control
+                      aria-label={`Stash ID ${index + 1}`}
+                      value={item.stash_id}
+                      placeholder="ID"
+                      onChange={(event) =>
+                        setStashIDs((current) =>
+                          current.map((existing, i) =>
+                            i === index
+                              ? {
+                                  ...existing,
+                                  stash_id: event.target.value,
+                                  updated_at: new Date().toISOString(),
+                                }
+                              : existing
+                          )
+                        )
+                      }
+                    />
+                  </Col>
+                  <Col md={2}>
+                    <Button
+                      variant="outline-danger"
+                      aria-label={`Remove Stash ID ${index + 1}`}
+                      onClick={() =>
+                        setStashIDs((current) =>
+                          current.filter((_, i) => i !== index)
+                        )
+                      }
+                    >
+                      <Icon icon={faMinus} />
+                    </Button>
+                  </Col>
+                </Row>
+              ))}
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                onClick={() =>
+                  setStashIDs((current) => [
+                    ...current,
+                    {
+                      endpoint: "",
+                      stash_id: "",
+                      updated_at: new Date().toISOString(),
+                    },
+                  ])
+                }
+              >
+                <Icon icon={faPlus} /> Add Stash ID
+              </Button>
             </Form.Group>
 
             <Form.Group className="mb-3">
@@ -1006,11 +1408,31 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
               </Form.Label>
               {renderCoverImage()}
               <ImageInput isEditing onImageChange={onCoverImageChange} />
+              {editingReleaseId && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => setFormData({ ...formData, cover_image: "" })}
+                >
+                  <FormattedMessage
+                    id="scene_release.remove_cover"
+                    defaultMessage="Remove cover"
+                  />
+                </Button>
+              )}
             </Form.Group>
+
+            <CustomFieldsInput
+              values={customFields}
+              onChange={setCustomFields}
+              error={customFieldsError}
+              setError={setCustomFieldsError}
+            />
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={closeReleaseModal}>
+          <Button variant="secondary" onClick={requestCloseReleaseModal}>
             <FormattedMessage id="actions.cancel" />
           </Button>
           <Button
@@ -1027,6 +1449,69 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
         </Modal.Footer>
       </Modal>
 
+      <Modal
+        show={showDiscardReleaseModal}
+        onHide={() => setShowDiscardReleaseModal(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <FormattedMessage
+              id="dialogs.unsaved_changes"
+              defaultMessage="Unsaved changes"
+            />
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <FormattedMessage
+            id="scene_release.discard_changes"
+            defaultMessage="Discard changes to this release?"
+          />
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setShowDiscardReleaseModal(false)}
+          >
+            <FormattedMessage id="actions.cancel" />
+          </Button>
+          <Button variant="danger" onClick={closeReleaseModal}>
+            <FormattedMessage id="actions.discard" defaultMessage="Discard" />
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Scene Selector Modal */}
+      <Modal
+        show={!!showDeleteReleaseModal}
+        onHide={() => setShowDeleteReleaseModal(null)}
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Delete release</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          The release will be removed. Its files will return to the main scene.
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setShowDeleteReleaseModal(null)}
+          >
+            <FormattedMessage id="actions.cancel" />
+          </Button>
+          <Button
+            variant="danger"
+            disabled={destroying}
+            onClick={() =>
+              showDeleteReleaseModal &&
+              handleDeleteRelease(showDeleteReleaseModal)
+            }
+          >
+            <FormattedMessage id="actions.delete" />
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
       {/* Scene Selector Modal */}
       {showSceneSelectorModal && (
         <SceneSelectorDialog
@@ -1039,75 +1524,42 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
       {/* Convert Scene Options Modal */}
       <Modal
         show={!!pendingConvertSceneId}
-        onHide={() => {
-          setPendingConvertSceneId(null);
-          setConvertSceneOptions({
-            transferOHistory: false,
-            transferMarkers: false,
-          });
-        }}
+        onHide={() => setPendingConvertSceneId(null)}
       >
         <Modal.Header closeButton>
           <Modal.Title>Convert Scene to Release</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>
-            The selected scene will be converted into a release of this scene.
-            All its files and metadata will be preserved in the new release.
+          {conversionSourceLoading ? (
+            <LoadingIndicator />
+          ) : conversionSource ? (
+            <dl className="row mb-2">
+              <dt className="col-3">Source</dt>
+              <dd className="col-9">
+                {conversionSource.title || conversionSource.id}
+              </dd>
+              <dt className="col-3">Target</dt>
+              <dd className="col-9">{scene.title || scene.id}</dd>
+              <dt className="col-3">Moving</dt>
+              <dd className="col-9">
+                {sourceSummary?.files} files · {sourceSummary?.plays} plays ·{" "}
+                {sourceSummary?.oEvents} O events
+                {conversionSource.releases.length > 0 &&
+                  ` · ${conversionSource.releases.length} existing releases`}
+              </dd>
+            </dl>
+          ) : (
+            <p>Source scene is unavailable.</p>
+          )}
+          <p className="text-muted mb-0">
+            The source scene is removed after its data moves to the
+            target&apos;s releases.
           </p>
-          <p>
-            <strong>Note:</strong> The source scene will be deleted after
-            conversion.
-          </p>
-
-          <Form.Group className="mb-3">
-            <Form.Check
-              type="checkbox"
-              id="convertSceneTransferOHistory"
-              label="Transfer O-history from source scene to this scene"
-              checked={convertSceneOptions.transferOHistory}
-              onChange={(e) =>
-                setConvertSceneOptions((prev) => ({
-                  ...prev,
-                  transferOHistory: e.target.checked,
-                }))
-              }
-            />
-            <Form.Text className="text-muted">
-              If enabled, all O-dates from the source scene will be transferred
-              to this scene.
-            </Form.Text>
-          </Form.Group>
-
-          <Form.Group className="mb-3">
-            <Form.Check
-              type="checkbox"
-              id="convertSceneTransferMarkers"
-              label="Transfer markers from source scene to this scene"
-              checked={convertSceneOptions.transferMarkers}
-              onChange={(e) =>
-                setConvertSceneOptions((prev) => ({
-                  ...prev,
-                  transferMarkers: e.target.checked,
-                }))
-              }
-            />
-            <Form.Text className="text-muted">
-              If enabled, all scene markers from the source scene will be
-              transferred to this scene.
-            </Form.Text>
-          </Form.Group>
         </Modal.Body>
         <Modal.Footer>
           <Button
             variant="secondary"
-            onClick={() => {
-              setPendingConvertSceneId(null);
-              setConvertSceneOptions({
-                transferOHistory: false,
-                transferMarkers: false,
-              });
-            }}
+            onClick={() => setPendingConvertSceneId(null)}
           >
             <FormattedMessage id="actions.cancel" />
           </Button>
@@ -1116,7 +1568,9 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
             onClick={() =>
               pendingConvertSceneId && handleConvertScene(pendingConvertSceneId)
             }
-            disabled={converting}
+            disabled={
+              converting || conversionSourceLoading || !conversionSource
+            }
           >
             Convert to Release
           </Button>
@@ -1195,52 +1649,25 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
           <Modal.Title>Convert Release to Scene</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>
-            This will convert the release into a new standalone scene, keeping
-            all its data (title, date, studio, etc.) and associated file(s).
+          {conversionRelease && (
+            <dl className="row mb-2">
+              <dt className="col-3">Source</dt>
+              <dd className="col-9">
+                {conversionRelease.title || conversionRelease.id}
+              </dd>
+              <dt className="col-3">Target</dt>
+              <dd className="col-9">New standalone scene</dd>
+              <dt className="col-3">Moving</dt>
+              <dd className="col-9">
+                {releaseSummary?.files} files · {releaseSummary?.plays} plays ·{" "}
+                {releaseSummary?.oEvents} O events
+              </dd>
+            </dl>
+          )}
+          <p className="text-muted mb-0">
+            The release is removed after conversion;{" "}
+            {scene.title || "the parent scene"} keeps its own data and history.
           </p>
-          <p>
-            <strong>Note:</strong> The release will be deleted and a new scene
-            will be created.
-          </p>
-
-          <Form.Group className="mb-3">
-            <Form.Check
-              type="checkbox"
-              id="transferOHistory"
-              label="Transfer O-history from parent scene"
-              checked={convertOptions.transferOHistory}
-              onChange={(e) =>
-                setConvertOptions((prev) => ({
-                  ...prev,
-                  transferOHistory: e.target.checked,
-                }))
-              }
-            />
-            <Form.Text className="text-muted">
-              If enabled, all O-dates from the parent scene will be transferred
-              to the new scene.
-            </Form.Text>
-          </Form.Group>
-
-          <Form.Group className="mb-3">
-            <Form.Check
-              type="checkbox"
-              id="transferMarkers"
-              label="Transfer markers from parent scene"
-              checked={convertOptions.transferMarkers}
-              onChange={(e) =>
-                setConvertOptions((prev) => ({
-                  ...prev,
-                  transferMarkers: e.target.checked,
-                }))
-              }
-            />
-            <Form.Text className="text-muted">
-              If enabled, all scene markers from the parent scene will be
-              transferred to the new scene.
-            </Form.Text>
-          </Form.Group>
         </Modal.Body>
         <Modal.Footer>
           <Button
@@ -1287,27 +1714,21 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
               }
               disabled={removingFile}
             >
-              Remove from release only
+              Move to main scene
               <br />
               <small className="text-muted">(keeps the file on disk)</small>
             </Button>
 
             <Button
               variant="danger"
-              onClick={() => {
-                if (
-                  showRemoveFileModal &&
-                  window.confirm(
-                    `⚠️ DESTRUCTIVE ACTION\n\nThis will permanently delete "${showRemoveFileModal.fileName}" from your filesystem!\n\nAre you absolutely sure?`
-                  )
-                ) {
-                  handleRemoveFile(
-                    showRemoveFileModal.releaseId,
-                    showRemoveFileModal.fileId,
-                    true
-                  );
-                }
-              }}
+              onClick={() =>
+                showRemoveFileModal &&
+                handleRemoveFile(
+                  showRemoveFileModal.releaseId,
+                  showRemoveFileModal.fileId,
+                  true
+                )
+              }
               disabled={removingFile}
             >
               Remove and DELETE from filesystem

@@ -14,6 +14,7 @@ import (
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/models"
+	"github.com/stashapp/stash/pkg/sqlite"
 )
 
 // CUSTOM: Custom resolver types for extended GraphQL types
@@ -1464,11 +1465,7 @@ func sceneOStatsReleaseYear(year int) error {
 }
 
 func sceneOStatsEffectiveDateExpr(sceneAlias string) string {
-	return fmt.Sprintf(`COALESCE(
-  MIN(COALESCE(%s.date, '9999-12-31'), COALESCE((SELECT MIN(date) FROM scene_releases WHERE scene_id = %s.id), '9999-12-31')),
-  %s.date,
-  (SELECT MIN(date) FROM scene_releases WHERE scene_id = %s.id)
-)`, sceneAlias, sceneAlias, sceneAlias, sceneAlias)
+	return sqlite.EffectiveSceneDateSQLCustom(sceneAlias)
 }
 
 func sceneOStatsPerformerAgeExpr(sceneAlias string, performerAlias string) string {

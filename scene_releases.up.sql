@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS `scene_releases` (
     `date` date,
     `date_precision` tinyint,
     `studio_id` integer,
-    `cover_blob` varchar(255),
+    `cover_blob` varchar(255) REFERENCES `blobs`(`checksum`),
     `play_order` integer NOT NULL DEFAULT 0,
     `created_at` datetime NOT NULL,
     `updated_at` datetime NOT NULL,
@@ -49,3 +49,12 @@ CREATE TABLE IF NOT EXISTS `scene_release_galleries` (
 );
 
 CREATE INDEX IF NOT EXISTS `idx_scene_release_galleries_gallery_id` ON `scene_release_galleries`(`gallery_id`);
+
+CREATE VIEW IF NOT EXISTS scene_all_galleries_custom AS
+SELECT scene_id, gallery_id FROM scenes_galleries
+UNION
+SELECT sr.scene_id, srg.gallery_id FROM scene_release_galleries srg
+JOIN scene_releases sr ON sr.id = srg.release_id;
+
+-- Metadata ownership tables are also supplied in scene_releases_metadata_v2.up.sql
+-- for existing installations. Run that script after this one on fresh installs.

@@ -261,6 +261,7 @@ func (s *TaskProgressTrackerStore) Delete(ctx context.Context, id int) error {
 		"task_progress_tracker_events",
 		"task_progress_tracker_members",
 		"task_progress_goal_history",
+		"task_progress_milestone_members",
 	} {
 		if _, err := dbWrapper.Exec(ctx, "DELETE FROM "+tableName+" WHERE tracker_id = ?", id); err != nil {
 			return fmt.Errorf("deleting task progress tracker data from %s: %w", tableName, err)

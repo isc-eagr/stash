@@ -26,6 +26,11 @@ import { useToast } from "src/hooks/Toast";
 import { TextField } from "src/utils/field";
 import { getPlayer } from "src/components/ScenePlayer/util"; // CUSTOM
 import TextUtils from "src/utils/text";
+import { isReleaseMarkerSeekableCustom } from "./sceneReleaseMarkerSeek_custom"; // CUSTOM
+import {
+  useSceneReleaseEditHistoryCustom,
+  useSceneReleaseResetActivityCustom,
+} from "../sceneReleaseActivity_custom"; // CUSTOM
 
 const History: React.FC<{
   className?: string;
@@ -35,8 +40,18 @@ const History: React.FC<{
   noneID: string;
   // CUSTOM: begin - optional parallel video timestamps + seek callback
   videoTimestamps?: Array<number | null>;
+  maxDuration?: number | null; // CUSTOM
   // CUSTOM: end
-}> = ({ className, history, unknownDate, noneID, onRemove, videoTimestamps }) => { // CUSTOM: videoTimestamps
+}> = ({
+  className,
+  history,
+  unknownDate,
+  noneID,
+  onRemove,
+  videoTimestamps,
+  maxDuration, // CUSTOM
+}) => {
+  // CUSTOM: videoTimestamps
   const intl = useIntl();
 
   if (history.length === 0) {
@@ -68,15 +83,20 @@ const History: React.FC<{
               const h = Math.floor(ts / 3600);
               const m = Math.floor((ts % 3600) / 60);
               const s = Math.floor(ts % 60);
-              const label = h > 0
-                ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
-                : `${m}:${String(s).padStart(2, "0")}`;
+              const label =
+                h > 0
+                  ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(
+                      2,
+                      "0"
+                    )}`
+                  : `${m}:${String(s).padStart(2, "0")}`;
               return (
                 <button
                   type="button"
                   className="o-video-ts-badge btn btn-link p-0 ms-2"
                   onClick={() => getPlayer()?.currentTime(ts)}
                   title={`Seek to ${label}`}
+                  disabled={!isReleaseMarkerSeekableCustom(ts, maxDuration)} // CUSTOM
                 >
                   ({label})
                 </button>
@@ -193,9 +213,14 @@ const DatePickerModal: React.FC<{
 
 interface ISceneHistoryProps {
   scene: GQL.SceneDataFragment;
+  release?: GQL.SceneReleaseDataFragment; // CUSTOM
 }
 
-export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
+export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({
+  scene,
+  release,
+}) => {
+  // CUSTOM
   const intl = useIntl();
   const Toast = useToast();
 
@@ -221,6 +246,23 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
   const [resetO] = useSceneResetO(scene.id);
   const [resetResume] = useSceneResetActivity(scene.id, true, false);
   const [resetDuration] = useSceneResetActivity(scene.id, false, true);
+  const [editReleaseHistory] = useSceneReleaseEditHistoryCustom(); // CUSTOM
+  const [resetReleaseActivity] = useSceneReleaseResetActivityCustom(); // CUSTOM
+
+  async function editRelease(
+    kind: "play" | "o",
+    action: "add" | "delete" | "clear",
+    at?: string
+  ) {
+    if (!release) return;
+    try {
+      await editReleaseHistory({
+        variables: { id: release.id, kind, action, at },
+      });
+    } catch (e) {
+      Toast.error(e);
+    }
+  }
 
   function dateStringToISOString(time: string) {
     const date = TextUtils.stringToFuzzyDateTime(time);
@@ -229,6 +271,7 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
   }
 
   function handleAddPlayDate(time?: string) {
+    if (release) return void editRelease("play", "add", time); // CUSTOM
     incrementPlayCount({
       variables: {
         id: scene.id,
@@ -238,6 +281,7 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
   }
 
   function handleDeletePlayDate(time: string) {
+    if (release) return void editRelease("play", "delete", time); // CUSTOM
     decrementPlayCount({
       variables: {
         id: scene.id,
@@ -248,6 +292,7 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
 
   function handleClearPlayDates() {
     setDialogPartial({ playHistory: false });
+    if (release) return void editRelease("play", "clear"); // CUSTOM
     clearPlayCount({
       variables: {
         id: scene.id,
@@ -256,6 +301,7 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
   }
 
   function handleAddODate(time?: string) {
+    if (release) return void editRelease("o", "add", time); // CUSTOM
     incrementOCount({
       variables: {
         id: scene.id,
@@ -265,6 +311,7 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
   }
 
   function handleDeleteODate(time: string) {
+    if (release) return void editRelease("o", "delete", time); // CUSTOM
     decrementOCount({
       variables: {
         id: scene.id,
@@ -275,6 +322,7 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
 
   function handleClearODates() {
     setDialogPartial({ oHistory: false });
+    if (release) return void editRelease("o", "clear"); // CUSTOM
     resetO({
       variables: {
         id: scene.id,
@@ -284,6 +332,12 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
 
   async function handleResetResume() {
     try {
+      if (release) {
+        await resetReleaseActivity({
+          variables: { id: release.id, reset_resume: true },
+        });
+        return;
+      } // CUSTOM
       await resetResume({
         variables: {
           id: scene.id,
@@ -307,6 +361,12 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
 
   async function handleResetDuration() {
     try {
+      if (release) {
+        await resetReleaseActivity({
+          variables: { id: release.id, reset_duration: true },
+        });
+        return;
+      } // CUSTOM
       await resetDuration({
         variables: {
           id: scene.id,
@@ -379,10 +439,17 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
     );
   }
 
-  const playHistory = (scene.play_history ?? []).filter(
+  const playHistory = (
+    release?.play_history ??
+    scene.play_history ??
+    []
+  ).filter(
+    // CUSTOM
     (h) => h != null
   ) as string[];
-  const oHistory = (scene.o_history ?? []).filter((h) => h != null) as string[];
+  const oHistory = (release?.o_history ?? scene.o_history ?? []).filter(
+    (h) => h != null
+  ) as string[]; // CUSTOM
 
   const oHistoryMessageID = sfwContentMode ? "o_history_sfw" : "o_history";
   const noneMessageID = sfwContentMode
@@ -392,6 +459,12 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
   return (
     <div>
       {maybeRenderDialogs()}
+      {release && (
+        <div className="text-muted small mb-2">
+          Release: {release.title || release.id}
+        </div>
+      )}{" "}
+      {/* CUSTOM */}
       <div className="play-history">
         <div className="history-header">
           <h5>
@@ -424,17 +497,18 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
         <History
           history={playHistory ?? []}
           noneID="playdate_recorded_no"
-          unknownDate={scene.created_at}
+          unknownDate={release?.created_at ?? scene.created_at} // CUSTOM
           onRemove={(t) => handleDeletePlayDate(t)}
         />
         <dl className="details-list">
           <TextField
             id="media_info.play_duration"
-            value={TextUtils.secondsToTimestamp(scene.play_duration ?? 0)}
+            value={TextUtils.secondsToTimestamp(
+              release?.play_duration ?? scene.play_duration ?? 0
+            )} // CUSTOM
           />
         </dl>
       </div>
-
       <div className="o-history">
         <div className="history-header">
           <h5>
@@ -466,9 +540,10 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
         <History
           history={oHistory}
           noneID={noneMessageID}
-          unknownDate={scene.created_at}
+          unknownDate={release?.created_at ?? scene.created_at} // CUSTOM
           onRemove={(t) => handleDeleteODate(t)}
-          videoTimestamps={scene.o_timestamps ?? []} // CUSTOM
+          videoTimestamps={release?.o_timestamps ?? scene.o_timestamps ?? []} // CUSTOM
+          maxDuration={release?.files[0]?.duration} // CUSTOM
         />
       </div>
     </div>

@@ -16,6 +16,7 @@ import { SceneMarkerForm } from "./SceneMarkerForm";
 // CUSTOM: begin
 import { markerTitle } from "src/core/markers";
 import type { ILoopSegmentInput } from "src/components/ScenePlayer/multi-segment-loop";
+import { sceneMarkerLoopSegmentCustom } from "src/components/ScenePlayer/sceneMarkerLoopSegment_custom"; // CUSTOM
 import { SceneMarkersChronologicalPanel } from "./SceneMarkersChronologicalPanel";
 import {
   filterCoveredChronologicalSceneMarkers,
@@ -497,13 +498,9 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
       sceneMarkers.filter((m) => selectedMarkerIds.has(m.id))
     );
 
-    const markerSegments: ILoopSegmentInput[] = selectedMarkers.map((m) => {
-      const start = m.seconds;
-      const endRaw = m.end_seconds ?? m.seconds + 20;
-      const end = endRaw > start ? endRaw : start + 1;
-      const title = markerTitle(m);
-      return { start, end, title };
-    });
+    const markerSegments: ILoopSegmentInput[] = selectedMarkers.map((m) =>
+      sceneMarkerLoopSegmentCustom(m, markerTitle(m))
+    ); // CUSTOM
     const derivedSegments: ILoopSegmentInput[] = selectedDerivedWindows.map(
       (window) => ({
         start: window.seconds,

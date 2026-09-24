@@ -76,48 +76,46 @@ export const TaskProgressCard: React.FC<IProps> = ({
         if (!busy) onDrop();
       }}
     >
-      <div className="progress-tracker-summary">
-        <div className="progress-tracker-hero">
-          <div className="progress-tracker-overview">
-            <span className="progress-tracker-heading">
-              <span className="progress-tracker-title-row">
-                <strong className="progress-tracker-title">
-                  {tracker.title}
-                </strong>
-              </span>
-              <span className="progress-tracker-status">
-                <Badge variant={taskProgressStatusVariant(tracker.status)}>
-                  {t(taskProgressStatusLabel(tracker.status))}
-                </Badge>
-              </span>
+      <div className="progress-tracker-summary progress-card-visuals">
+        <div className="progress-tracker-overview">
+          <span className="progress-tracker-heading">
+            <span className="progress-tracker-title-row">
+              <strong className="progress-tracker-title">
+                {tracker.title}
+              </strong>
             </span>
-            <div className="progress-tracker-counts">
-              <span>
-                <strong>
-                  <FormattedNumber value={completedCount} />
-                </strong>
-                <small>{t("completed")}</small>
-              </span>
-              <span>
-                <strong>
-                  <FormattedNumber value={tracker.incoming_count} />
-                </strong>
-                <small>{t("incoming")}</small>
-              </span>
-              <span>
-                <strong>
-                  <FormattedNumber value={tracker.current_count} />
-                </strong>
-                <small>{t("remaining")}</small>
-              </span>
-            </div>
+            <span className="progress-tracker-status">
+              <Badge
+                variant={
+                  tracker.status === "ACTIVE" && completedCount === 0
+                    ? "light"
+                    : taskProgressStatusVariant(tracker.status)
+                }
+              >
+                {t(taskProgressStatusLabel(tracker.status))}
+              </Badge>
+            </span>
+          </span>
+          <div className="progress-tracker-counts">
+            <span>
+              <strong>
+                <FormattedNumber value={completedCount} />
+              </strong>
+              <small>{t("completed")}</small>
+            </span>
+            <span>
+              <strong>
+                <FormattedNumber value={tracker.current_count} />
+              </strong>
+              <small>{t("remaining")}</small>
+            </span>
           </div>
-          <TaskProgressRing percentage={percentage} label={t("Complete")} />
+          <TaskProgressGoalSummary
+            currentGoalPerDay={tracker.goal_per_day}
+            history={taskProgressHistoryEntries(tracker.history)}
+          />
         </div>
-        <TaskProgressGoalSummary
-          currentGoalPerDay={tracker.goal_per_day}
-          history={taskProgressHistoryEntries(tracker.history)}
-        />
+        <TaskProgressRing percentage={percentage} label={t("Complete")} />
       </div>
       {/* CUSTOM: Keep actions on the left and planning controls on the right. */}
       <div className="progress-tracker-footer">

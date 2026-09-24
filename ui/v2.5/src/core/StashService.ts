@@ -27,6 +27,7 @@ import {
   addSceneHistoryEntriesCustom,
   removeSceneHistoryEntriesCustom,
 } from "./sceneHistoryCache_custom";
+import { releaseMutationCacheRefreshCustom } from "./sceneReleaseCache_custom";
 // CUSTOM: end
 
 const { client, wsClient, cache: clientCache } = createClient();
@@ -2012,6 +2013,7 @@ export const useMarkerPlaylistDestroy = () =>
 // Scene Release hooks
 export const useSceneReleaseCreate = () =>
   GQL.useSceneReleaseCreateMutation({
+    ...releaseMutationCacheRefreshCustom, // CUSTOM
     update(cache, result, { variables }) {
       if (!result.data?.sceneReleaseCreate || !variables) return;
 
@@ -2029,6 +2031,7 @@ export const useSceneReleaseCreate = () =>
 
 export const useSceneReleaseUpdate = () =>
   GQL.useSceneReleaseUpdateMutation({
+    ...releaseMutationCacheRefreshCustom, // CUSTOM
     update(cache, result) {
       if (!result.data?.sceneReleaseUpdate) return;
       cache.gc();
@@ -2037,6 +2040,7 @@ export const useSceneReleaseUpdate = () =>
 
 export const useSceneReleaseDestroy = () =>
   GQL.useSceneReleaseDestroyMutation({
+    ...releaseMutationCacheRefreshCustom, // CUSTOM
     update(cache, result, { variables }) {
       if (!result.data?.sceneReleaseDestroy || !variables) return;
 
@@ -2048,6 +2052,7 @@ export const useSceneReleaseDestroy = () =>
 
 export const useSceneReleaseAddFile = () =>
   GQL.useSceneReleaseAddFileMutation({
+    ...releaseMutationCacheRefreshCustom, // CUSTOM
     update(cache, result) {
       if (!result.data?.sceneReleaseAddFile) return;
       cache.gc();
@@ -2056,6 +2061,7 @@ export const useSceneReleaseAddFile = () =>
 
 export const useSceneReleaseRemoveFile = () =>
   GQL.useSceneReleaseRemoveFileMutation({
+    ...releaseMutationCacheRefreshCustom, // CUSTOM
     update(cache, result, { variables }) {
       if (!result.data?.sceneReleaseRemoveFile || !variables) return;
       // Evict the file from cache if it was deleted
@@ -2073,6 +2079,7 @@ export const useSceneReleaseRemoveFile = () =>
 
 export const useConvertSceneToRelease = () =>
   GQL.useConvertSceneToReleaseMutation({
+    ...releaseMutationCacheRefreshCustom, // CUSTOM
     update(cache, result, { variables }) {
       if (!result.data?.convertSceneToRelease || !variables) return;
 
@@ -2097,6 +2104,7 @@ export const useConvertSceneToRelease = () =>
 
 export const useConvertReleaseToScene = () =>
   GQL.useConvertReleaseToSceneMutation({
+    ...releaseMutationCacheRefreshCustom, // CUSTOM
     update(cache, result, { variables }) {
       if (!result.data?.convertReleaseToScene || !variables) return;
 

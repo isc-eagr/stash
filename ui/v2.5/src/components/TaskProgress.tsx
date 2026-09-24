@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Alert, Button, Form } from "react-bootstrap";
+import { Alert, Button, Form, Nav } from "react-bootstrap"; // CUSTOM
 import { useHistory, useLocation } from "react-router-dom"; // CUSTOM
 import { TaskProgressCard } from "./TaskProgress/TaskProgressCard";
 import {
@@ -9,6 +9,8 @@ import {
 import { TaskProgressForm } from "./TaskProgress/TaskProgressForm";
 import { TaskProgressOverall } from "./TaskProgress/TaskProgressOverall";
 import { TaskProgressTrackerModal } from "./TaskProgress/TaskProgressTrackerModal";
+import { TaskProgressMilestones } from "./TaskProgress/TaskProgressMilestones"; // CUSTOM
+import { milestoneSearch } from "./TaskProgress/milestoneView_custom"; // CUSTOM
 import { TaskProgressTimerCountdown } from "./TaskProgress/TaskProgressTimerCountdown_custom";
 import {
   taskProgressFilterFromSearch,
@@ -32,6 +34,10 @@ const TaskProgress: React.FC = () => {
   // CUSTOM: Keep the selected tracker status in the URL so reloads preserve the view.
   const history = useHistory();
   const location = useLocation();
+  const view =
+    new URLSearchParams(location.search).get("view") === "milestones"
+      ? "milestones"
+      : "trackers"; // CUSTOM
   const filter = taskProgressFilterFromSearch(location.search);
   const [dragged, setDragged] = useState<string>();
   const [selectedTrackerID, setSelectedTrackerID] = useState<string>();
@@ -60,100 +66,141 @@ const TaskProgress: React.FC = () => {
           <h2>{t("Task Progress")}</h2>
         </div>
         <div>
-          <Button
-            variant="secondary"
-            disabled={data.loading || data.busy}
-            onClick={() => void data.refresh()}
-          >
-            {t("Refresh")}
-          </Button>
+          {view === "trackers" && (
+            <Button
+              variant="secondary"
+              disabled={data.loading || data.busy}
+              onClick={() => void data.refresh()}
+            >
+              {t("Refresh")}
+            </Button>
+          )}
           {/* CUSTOM: Open the browser-local countdown timer modal. */}
-          <Button variant="secondary" onClick={() => setShowTimer(true)}>
-            {t("Timer Countdown")}
-          </Button>
-          <Button onClick={() => setEditor("new")} disabled={data.busy}>
-            {t("Add tracker")}
-          </Button>
+          {view === "trackers" && (
+            <Button variant="secondary" onClick={() => setShowTimer(true)}>
+              {t("Timer Countdown")}
+            </Button>
+          )}
+          {view === "trackers" && (
+            <Button onClick={() => setEditor("new")} disabled={data.busy}>
+              {t("Add tracker")}
+            </Button>
+          )}
         </div>
       </div>
-      <TaskProgressOverall />
-      {data.error && (
-        <Alert variant="danger" role="alert">
-          {data.error}{" "}
-          {data.trackers && t("Showing the last successful results.")}{" "}
-          <Button
-            size="sm"
-            variant="outline-light"
-            onClick={() => void data.refresh()}
-          >
-            {t("Retry")}
-          </Button>
-        </Alert>
-      )}
-      <div className="progress-tracker-toolbar">
-        <Form.Group controlId="progress-status" className="mb-0">
-          <Form.Label className="mr-2">{t("Show")}</Form.Label>
-          <Form.Control
-            as="select"
-            value={filter}
-            onChange={(e) =>
-              history.replace({
-                ...location,
-                search: taskProgressSearchForFilter(
-                  location.search,
-                  e.target.value
-                ),
-              })
-            }
-          >
-            {taskProgressFilterValues.map((v) => (
-              <option key={v} value={v}>
-                {t(taskProgressStatusLabel(v))}
-              </option>
-            ))}
-          </Form.Control>
-        </Form.Group>
-        <small aria-live="polite">
-          {data.loading ? (
-            t("Refreshing…")
-          ) : data.lastUpdated ? (
-            <>
-              {t("Last refreshed")}: {data.lastUpdated.toLocaleTimeString()}
-            </>
-          ) : null}
-        </small>
-      </div>
-      {!data.trackers && data.loading ? (
-        <p role="status">{t("Loading trackers…")}</p>
+      {/* CUSTOM: Milestones share the progress page while showing one dashboard. */}
+      <Nav
+        variant="tabs"
+        activeKey={view}
+        className="progress-page-tabs"
+        onSelect={(key) =>
+          history.push({
+            ...location,
+            search: milestoneSearch(
+              location.search,
+              undefined,
+              key === "milestones" ? "milestones" : "trackers"
+            ),
+          })
+        }
+      >
+        <Nav.Item>
+          <Nav.Link eventKey="trackers">{t("Trackers")}</Nav.Link>
+        </Nav.Item>
+        <Nav.Item>
+          <Nav.Link eventKey="milestones">{t("Milestones")}</Nav.Link>
+        </Nav.Item>
+      </Nav>
+      {view === "trackers" ? (
+        <>
+          <TaskProgressOverall />
+          {data.error && (
+            <Alert variant="danger" role="alert">
+              {data.error}{" "}
+              {data.trackers && t("Showing the last successful results.")}{" "}
+              <Button
+                size="sm"
+                variant="outline-light"
+                onClick={() => void data.refresh()}
+              >
+                {t("Retry")}
+              </Button>
+            </Alert>
+          )}
+          <div className="progress-tracker-toolbar">
+            <Form.Group controlId="progress-status" className="mb-0">
+              <Form.Label className="mr-2">{t("Show")}</Form.Label>
+              <Form.Control
+                as="select"
+                value={filter}
+                onChange={(e) =>
+                  history.replace({
+                    ...location,
+                    search: taskProgressSearchForFilter(
+                      location.search,
+                      e.target.value
+                    ),
+                  })
+                }
+              >
+                {taskProgressFilterValues.map((v) => (
+                  <option key={v} value={v}>
+                    {t(taskProgressStatusLabel(v))}
+                  </option>
+                ))}
+              </Form.Control>
+            </Form.Group>
+            <small aria-live="polite">
+              {data.loading ? (
+                t("Refreshing…")
+              ) : data.lastUpdated ? (
+                <>
+                  {t("Last refreshed")}: {data.lastUpdated.toLocaleTimeString()}
+                </>
+              ) : null}
+            </small>
+          </div>
+          {!data.trackers && data.loading ? (
+            <p role="status">{t("Loading trackers…")}</p>
+          ) : (
+            <div className="row">
+              {visible.map((tracker) => {
+                const index = trackers.findIndex((v) => v.id === tracker.id);
+                return (
+                  // CUSTOM: Keep tracker cards at two columns on larger screens.
+                  <div key={tracker.id} className={"col-12 col-md-6 mb-3"}>
+                    <TaskProgressCard
+                      tracker={tracker}
+                      busy={data.busy}
+                      first={index === 0}
+                      last={index === trackers.length - 1}
+                      onOpen={() => setSelectedTrackerID(tracker.id)}
+                      onEdit={() => setEditor(tracker)}
+                      onMove={(direction) =>
+                        move(tracker.id, index + direction)
+                      }
+                      onDragStart={() => setDragged(tracker.id)}
+                      onDragEnd={() => setDragged(undefined)}
+                      onDrop={() => {
+                        if (dragged) move(dragged, index);
+                        setDragged(undefined);
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {data.trackers && !visible.length && (
+            <p>{t("No trackers in this view.")}</p>
+          )}
+        </>
       ) : (
-        <div className="row">
-          {visible.map((tracker) => {
-            const index = trackers.findIndex((v) => v.id === tracker.id);
-            return (
-              // CUSTOM: Keep tracker cards at two columns on larger screens.
-              <div key={tracker.id} className={"col-12 col-md-6 mb-3"}>
-                <TaskProgressCard
-                  tracker={tracker}
-                  busy={data.busy}
-                  first={index === 0}
-                  last={index === trackers.length - 1}
-                  onOpen={() => setSelectedTrackerID(tracker.id)}
-                  onEdit={() => setEditor(tracker)}
-                  onMove={(direction) => move(tracker.id, index + direction)}
-                  onDragStart={() => setDragged(tracker.id)}
-                  onDragEnd={() => setDragged(undefined)}
-                  onDrop={() => {
-                    if (dragged) move(dragged, index);
-                    setDragged(undefined);
-                  }}
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
-      {data.trackers && !visible.length && (
-        <p>{t("No trackers in this view.")}</p>
+        <TaskProgressMilestones
+          trackers={trackers}
+          onOpenTracker={setSelectedTrackerID}
+          onRefreshTrackers={data.refresh}
+        />
       )}
       {editor && (
         <TaskProgressForm

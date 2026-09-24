@@ -11,6 +11,7 @@ type SceneMarker struct {
 	EndSeconds   *float64  `json:"end_seconds"`
 	PrimaryTagID int       `json:"primary_tag_id"`
 	SceneID      int       `json:"scene_id"`
+	ReleaseID    *int      `json:"release_id"` // CUSTOM
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

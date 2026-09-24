@@ -9,6 +9,7 @@ import (
 type SceneNegativeMarker struct {
 	ID           int       `json:"id"`
 	SceneID      int       `json:"scene_id"`
+	ReleaseID    *int      `json:"release_id"`
 	Name         string    `json:"name"`
 	StartSeconds float64   `json:"start_seconds"`
 	EndSeconds   float64   `json:"end_seconds"`

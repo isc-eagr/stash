@@ -33,7 +33,8 @@ type sceneMarkerRow struct {
 	Title        string     `db:"title"` // TODO: make db schema (and gql schema) nullable
 	Seconds      float64    `db:"seconds"`
 	PrimaryTagID int        `db:"primary_tag_id"`
-	SceneID      int        `db:"scene_id"`
+	SceneID      null.Int   `db:"scene_id"`                                // CUSTOM
+	ReleaseID    null.Int   `db:"release_id" goqu:"skipinsert,skipupdate"` // CUSTOM: managed by conversion until release marker editing is exposed
 	CreatedAt    Timestamp  `db:"created_at"`
 	UpdatedAt    Timestamp  `db:"updated_at"`
 	EndSeconds   null.Float `db:"end_seconds"`
@@ -47,7 +48,11 @@ func (r *sceneMarkerRow) fromSceneMarker(o models.SceneMarker) {
 		r.EndSeconds = null.FloatFrom(*o.EndSeconds)
 	}
 	r.PrimaryTagID = o.PrimaryTagID
-	r.SceneID = o.SceneID
+	r.SceneID = intFromPtr(&o.SceneID)    // CUSTOM
+	r.ReleaseID = intFromPtr(o.ReleaseID) // CUSTOM
+	if o.ReleaseID != nil {
+		r.SceneID = null.Int{} // CUSTOM
+	}
 	r.CreatedAt = Timestamp{Timestamp: o.CreatedAt}
 	r.UpdatedAt = Timestamp{Timestamp: o.UpdatedAt}
 }
@@ -59,7 +64,8 @@ func (r *sceneMarkerRow) resolve() *models.SceneMarker {
 		Seconds:      r.Seconds,
 		EndSeconds:   r.EndSeconds.Ptr(),
 		PrimaryTagID: r.PrimaryTagID,
-		SceneID:      r.SceneID,
+		SceneID:      int(r.SceneID.Int64),                                                            // CUSTOM
+		ReleaseID:    nullIntPtr(r.ReleaseID),                                                         // CUSTOM
 		CreatedAt:    resolveSceneMarkerTimestampCustom(r.CreatedAt.Timestamp, r.UpdatedAt.Timestamp), // CUSTOM
 		UpdatedAt:    resolveSceneMarkerTimestampCustom(r.UpdatedAt.Timestamp, r.CreatedAt.Timestamp), // CUSTOM
 	}

@@ -1512,6 +1512,10 @@ html.application-theme-masculine-black
   }
 
   .scene-activity-metric__icon {
+    border-color: var(
+      --rating-card-classic-border,
+      var(--rating-card-border-color, rgba(255, 255, 255, 0.28))
+    ) !important;
     color: rgb(var(--rating-card-text-rgb)) !important;
   }
 

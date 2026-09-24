@@ -169,7 +169,13 @@ export const TaskProgressHistoryChart: React.FC<IProps> = ({
   const metricY = (point: ITaskProgressHistoryPoint) =>
     MARGIN.top + PLOT_HEIGHT - (metricValue(point) / metricMax) * PLOT_HEIGHT;
   const metricPath = linePath(points, xForIndex, metricY);
-  const tickStep = Math.max(1, Math.ceil(points.length / 6));
+  // CUSTOM: space at most six date labels evenly, including both endpoints.
+  const tickCount = Math.min(6, points.length);
+  const tickIndices = new Set(
+    Array.from({ length: tickCount }, (_, tick) =>
+      Math.round((tick * (points.length - 1)) / Math.max(1, tickCount - 1))
+    )
+  );
   const descriptionID = `task-progress-history-${chartID}-description`;
   const formatShortDate = (date: string) => formatTaskProgressDate(date);
   const formatPeriodLabel = (date: string) => formatTaskProgressDate(date);
@@ -550,14 +556,12 @@ export const TaskProgressHistoryChart: React.FC<IProps> = ({
           ))}
 
           {points.map((point, index) => {
-            const showTick =
-              index === 0 ||
-              index === points.length - 1 ||
-              index % tickStep === 0;
-            return showTick ? (
+            return tickIndices.has(index) ? (
               <text
                 aria-hidden="true"
-                className="task-progress-history-chart-date-label"
+                className={`task-progress-history-chart-date-label${
+                  range === 30 && granularity === "day" ? " thirty-day" : ""
+                }`} // CUSTOM
                 key={`${point.date}-label`}
                 textAnchor="middle"
                 x={xForIndex(index)}

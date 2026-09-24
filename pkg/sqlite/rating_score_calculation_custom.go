@@ -48,8 +48,8 @@ var defaultSceneRatingRubricCustom = ratingScoreRubricCustom{
 
 var groupSceneRatingRubricCustom = ratingScoreRubricCustom{
 	models.RatingScoreSectionCriterion: {
-		"groupTopAttractiveness": {choices: ratingRangeChoicesCustom(5), weight: 0.4},
-		"groupEnergy":            {choices: ratingRangeChoicesCustom(5), weight: 0.8},
+		"groupTopAttractiveness": {choices: ratingRangeChoicesCustom(5), weight: 0.6},
+		"groupEnergy":            {choices: ratingRangeChoicesCustom(5), weight: 0.6},
 		"groupPayoff":            {choices: ratingRangeChoicesCustom(4), weight: 0.5},
 		"groupUsability":         {choices: ratingRangeChoicesCustom(4), weight: 0.5},
 	},
@@ -117,7 +117,7 @@ func ratingScoreKeysForRubricCustom(rubric ratingScoreRubricCustom) map[string]m
 
 func ratingScoreMetricForRowCustom(row ratingScoreRow) (ratingScoreMetricCustom, bool) {
 	rubrics := []ratingScoreRubricCustom{performerRatingRubricCustom}
-	if row.EntityType == models.RatingEntityScene {
+	if row.EntityType == models.RatingEntityScene || row.EntityType == models.RatingEntityRelease {
 		rubrics = []ratingScoreRubricCustom{
 			defaultSceneRatingRubricCustom,
 			groupSceneRatingRubricCustom,

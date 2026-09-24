@@ -137,7 +137,9 @@ type SceneWriter interface {
 	SceneDestroyer
 
 	AddFileID(ctx context.Context, id int, fileID FileID) error
-	RemoveFileID(ctx context.Context, sceneID int, fileID FileID) error // CUSTOM
+	RemoveFileID(ctx context.Context, sceneID int, fileID FileID) error    // CUSTOM
+	EnsurePrimaryFileCustom(ctx context.Context, sceneID int) error        // CUSTOM
+	DetachCoverForConversionCustom(ctx context.Context, sceneID int) error // CUSTOM
 	AddGalleryIDs(ctx context.Context, sceneID int, galleryIDs []int) error
 	AssignFiles(ctx context.Context, sceneID int, fileID []FileID) error
 

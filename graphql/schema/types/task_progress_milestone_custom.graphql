@@ -1,0 +1,52 @@
+# CUSTOM: Group task progress trackers into independent milestones.
+type TaskProgressMilestone {
+  id: ID!
+  name: String!
+  target_date: String
+  goal_per_day: Int
+  version: Int!
+  tracker_ids: [ID!]!
+  trackers: [TaskProgressTracker!]!
+  total_count: Int!
+  completed_count: Int!
+  incoming_count: Int!
+  current_count: Int!
+  item_counts: [TaskProgressItemCount!]!
+  history: [TaskProgressDay!]!
+  created_at: Time!
+  updated_at: Time!
+}
+
+input TaskProgressMilestoneCreateInput {
+  name: String!
+  target_date: String
+  goal_per_day: Int
+  tracker_ids: [ID!]
+}
+
+input TaskProgressMilestoneUpdateInput {
+  id: ID!
+  expected_version: Int!
+  name: String
+  "An empty string clears the target date"
+  target_date: String
+  "Zero clears the daily goal"
+  goal_per_day: Int
+  "An empty list removes all members"
+  tracker_ids: [ID!]
+}
+
+extend type Query {
+  findTaskProgressMilestones: [TaskProgressMilestone!]!
+  taskProgressMilestone(id: ID!): TaskProgressMilestone
+}
+
+extend type Mutation {
+  taskProgressMilestoneCreate(
+    input: TaskProgressMilestoneCreateInput!
+  ): TaskProgressMilestone!
+  taskProgressMilestoneUpdate(
+    input: TaskProgressMilestoneUpdateInput!
+  ): TaskProgressMilestone!
+  taskProgressMilestoneDestroy(id: ID!): Boolean!
+}

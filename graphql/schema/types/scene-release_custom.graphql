@@ -8,8 +8,28 @@ type SceneRelease {
   details: String
   director: String
   url: String
+  urls: [String!]!
   date: String
   studio: Studio
+  rating100: Int
+  rating_scores: [RatingScore!]!
+  organized: Boolean!
+  resume_time: Float!
+  play_duration: Float!
+  interactive: Boolean!
+  interactive_speed: Int
+  captions: [VideoCaption!]!
+  performers: [Performer!]!
+  tags: [Tag!]!
+  groups: [SceneGroup!]!
+  stash_ids: [StashID!]!
+  custom_fields: Map!
+  play_history: [Time!]!
+  o_history: [Time!]!
+  o_timestamps: [Float]!
+  scene_markers: [SceneMarker!]!
+  negative_markers: [SceneNegativeMarker!]!
+  multi_segment_loop_presets: [MultiSegmentLoopPreset!]!
   "Cover image paths for this release"
   paths: SceneReleasePaths!
   "Video files associated with this release"
@@ -26,6 +46,13 @@ type SceneRelease {
 
 type SceneReleasePaths {
   screenshot: String
+  preview: String
+  webp: String
+  vtt: String
+  sprite: String
+  funscript: String
+  interactive_heatmap: String
+  caption: String
 }
 
 input SceneReleaseCreateInput {
@@ -36,7 +63,15 @@ input SceneReleaseCreateInput {
   details: String
   director: String
   url: String
+  urls: [String!]
   date: String
+  rating100: Int
+  organized: Boolean
+  performer_ids: [ID!]
+  tag_ids: [ID!]
+  groups: [SceneGroupInput!]
+  stash_ids: [StashIDInput!]
+  custom_fields: CustomFieldsInput
   studio_id: ID
   "This should be a URL or a base64 encoded data URL"
   cover_image: String
@@ -55,7 +90,15 @@ input SceneReleaseUpdateInput {
   details: String
   director: String
   url: String
+  urls: [String!]
   date: String
+  rating100: Int
+  organized: Boolean
+  performer_ids: [ID!]
+  tag_ids: [ID!]
+  groups: [SceneGroupInput!]
+  stash_ids: [StashIDInput!]
+  custom_fields: CustomFieldsInput
   studio_id: ID
   "This should be a URL or a base64 encoded data URL"
   cover_image: String
@@ -93,8 +136,38 @@ input SceneReleaseRemoveFileInput {
   delete_from_filesystem: Boolean
 }
 
+input SceneReleaseMarkerInput {
+  release_id: ID!
+  id: ID
+  title: String!
+  seconds: Float!
+  end_seconds: Float
+  primary_tag_id: ID!
+  tag_ids: [ID!]!
+  top_performer_ids: [ID!]!
+  bottom_performer_ids: [ID!]!
+}
+
+input SceneReleaseNegativeMarkerInput {
+  release_id: ID!
+  id: ID
+  name: String!
+  start_seconds: Float!
+  end_seconds: Float!
+}
+
+input SceneReleaseLoopPresetInput {
+  release_id: ID!
+  name: String!
+  enabled: Boolean!
+  current_segment_index: Int!
+  segments: [MultiSegmentLoopSegmentInput!]!
+}
+
 "Input for converting an existing scene into a release of another scene"
 input ConvertSceneToReleaseInput {
+  "Stable identifier for safely retrying the same conversion"
+  request_id: String
   "The scene ID to convert into a release"
   source_scene_id: ID!
   "The scene ID that will become the parent of the new release"
@@ -107,6 +180,8 @@ input ConvertSceneToReleaseInput {
 
 "Input for converting a release into a new scene"
 input ConvertReleaseToSceneInput {
+  "Stable identifier for safely retrying the same conversion"
+  request_id: String
   "The release ID to convert into a scene"
   release_id: ID!
   "Whether to transfer o-count/o-history from the parent scene"

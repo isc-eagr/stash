@@ -15,6 +15,7 @@ type SceneLoopSegment struct {
 type SceneLoopPreset struct {
 	ID                  int                `json:"id"`
 	SceneID             int                `json:"scene_id"`
+	ReleaseID           *int               `json:"release_id"`
 	Name                string             `json:"name"`
 	Enabled             bool               `json:"enabled"`
 	CurrentSegmentIndex int                `json:"current_segment_index"`

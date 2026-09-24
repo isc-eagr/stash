@@ -11,6 +11,7 @@ import (
 	"github.com/doug-martin/goqu/v9"
 	"github.com/doug-martin/goqu/v9/exp"
 	"github.com/jmoiron/sqlx"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/stashapp/stash/pkg/logger"
 	"github.com/stashapp/stash/pkg/models"
@@ -20,7 +21,8 @@ const sceneLoopPresetTable = "scene_multi_segment_loop_presets"
 
 type sceneLoopPresetRow struct {
 	ID                  int       `db:"id" goqu:"skipinsert"`
-	SceneID             int       `db:"scene_id"`
+	SceneID             null.Int  `db:"scene_id"`
+	ReleaseID           null.Int  `db:"release_id" goqu:"skipinsert,skipupdate"`
 	Name                string    `db:"name"`
 	Segments            string    `db:"segments"`
 	Enabled             bool      `db:"enabled"`
@@ -31,7 +33,7 @@ type sceneLoopPresetRow struct {
 
 func (r *sceneLoopPresetRow) fromModel(p models.SceneLoopPreset) {
 	r.ID = p.ID
-	r.SceneID = p.SceneID
+	r.SceneID = intFromPtr(&p.SceneID)
 	r.Name = p.Name
 	r.Enabled = p.Enabled
 	r.CurrentSegmentIndex = p.CurrentSegmentIndex
@@ -51,7 +53,8 @@ func (r *sceneLoopPresetRow) fromModel(p models.SceneLoopPreset) {
 func (r *sceneLoopPresetRow) resolve() *models.SceneLoopPreset {
 	ret := &models.SceneLoopPreset{
 		ID:                  r.ID,
-		SceneID:             r.SceneID,
+		SceneID:             int(r.SceneID.Int64),
+		ReleaseID:           nullIntPtr(r.ReleaseID),
 		Name:                r.Name,
 		Enabled:             r.Enabled,
 		CurrentSegmentIndex: r.CurrentSegmentIndex,
@@ -200,16 +203,7 @@ func (s *SceneLoopPresetStore) getMany(ctx context.Context, q *goqu.SelectDatase
 
 	if err := queryFunc(ctx, q, single, func(rows *sqlx.Rows) error {
 		var row sceneLoopPresetRow
-		if err := rows.Scan(
-			&row.ID,
-			&row.SceneID,
-			&row.Name,
-			&row.Segments,
-			&row.Enabled,
-			&row.CurrentSegmentIndex,
-			&row.CreatedAt,
-			&row.UpdatedAt,
-		); err != nil {
+		if err := rows.StructScan(&row); err != nil { // CUSTOM: legacy and upgraded tables have different columns
 			return fmt.Errorf("scanning %s: %w", sceneLoopPresetTable, err)
 		}
 

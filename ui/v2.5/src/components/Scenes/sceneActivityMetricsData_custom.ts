@@ -283,9 +283,12 @@ export function getSceneActivityMetrics(
     oral: getSceneActivityDuration(intervalsByCategory.oral),
     solo: getSceneActivityDuration(intervalsByCategory.solo),
   };
-  const activityPercentages =
-    getActivityTypePercentagesCustom(activityDurations);
   const activityIntervals = Object.values(intervalsByCategory).flat();
+  const activityTimeSeconds = getSceneActivityDuration(activityIntervals);
+  const activityPercentages = getActivityTypePercentagesCustom(
+    activityDurations,
+    activityTimeSeconds
+  );
   // CUSTOM: retain overlapping non-activity coverage and include any portion
   // outside Sex/Oral/Solo instead of clipping Outstanding to activity.
   const usableOutstandingIntervals = subtractSceneActivityIntervals(

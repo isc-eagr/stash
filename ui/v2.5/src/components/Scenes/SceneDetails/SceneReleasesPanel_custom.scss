@@ -1,0 +1,48 @@
+.scene-release-summary {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem;
+
+  &__cover {
+    border-radius: 0.25rem;
+    flex: 0 0 4rem;
+    height: 3rem;
+    object-fit: cover;
+    width: 4rem;
+  }
+
+  &__placeholder {
+    align-items: center;
+    background: var(--secondary);
+    display: flex;
+    justify-content: center;
+  }
+
+  &__label {
+    flex: 1 1 10rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    padding: 0;
+  }
+
+  &__title,
+  &__meta {
+    display: block;
+  }
+
+  &__meta {
+    font-size: 0.85rem;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 0.4rem;
+    margin-left: auto;
+  }
+}
+
+.scene-releases-panel .card-body dd {
+  overflow-wrap: anywhere;
+}

@@ -40,6 +40,11 @@ import {
   useSceneRecordOAtTimestamp, // CUSTOM
 } from "src/core/StashService";
 import { useToast } from "src/hooks/Toast"; // CUSTOM
+import {
+  useSceneReleaseSaveActivityCustom,
+  useSceneReleaseAddPlayCustom,
+  useSceneReleaseRecordOCustom,
+} from "src/components/Scenes/sceneReleaseActivity_custom"; // CUSTOM
 
 import * as GQL from "src/core/generated-graphql";
 import { ScenePlayerScrubber } from "./ScenePlayerScrubber";
@@ -78,6 +83,9 @@ import type {
   IMultiSegmentLoopApi,
 } from "./multi-segment-loop";
 import { filterLoopSegmentsOutsideNegativeMarkers } from "./loopSegments_custom";
+import { sceneMarkerLoopSegmentCustom } from "./sceneMarkerLoopSegment_custom"; // CUSTOM
+import { markerTitle } from "src/core/markers"; // CUSTOM
+import { scenePlayerGalleryIDsCustom } from "./scenePlayerGalleryIDs_custom"; // CUSTOM
 import {
   findContainingOrNextPlaybackRange,
   getPlaybackBoundaryDelayMs,
@@ -289,12 +297,15 @@ function getMarkerTitle(marker: MarkerFragment) {
 
 interface IScenePlayerProps {
   scene: GQL.SceneDataFragment;
+  playbackReleaseId?: string; // CUSTOM: activity belongs to the selected release
+  playbackPerformerIds?: string[]; // CUSTOM: release overlay uses release cast
   hideScrubberOverride: boolean;
   autoplay?: boolean;
   permitLoop?: boolean;
   initialTimestamp: number;
   sendSetTimestamp: (setTimestamp: (value: number) => void) => void;
   sendMultiSegmentLoopApi?: (api: IMultiSegmentLoopApi) => void; // CUSTOM
+  addMultiSegmentLoopSegments?: (segments: ILoopSegmentInput[]) => void; // CUSTOM
   onTimeChange?: (time: number) => void; // CUSTOM
   onMarkerClick?: (
     markerId: string,
@@ -314,12 +325,15 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
   "ScenePlayer",
   ({
     scene,
+    playbackReleaseId, // CUSTOM
+    playbackPerformerIds, // CUSTOM
     hideScrubberOverride,
     autoplay,
     permitLoop = true,
     initialTimestamp: _initialTimestamp,
     sendSetTimestamp,
     sendMultiSegmentLoopApi, // CUSTOM
+    addMultiSegmentLoopSegments, // CUSTOM
     onTimeChange, // CUSTOM
     onMarkerClick, // CUSTOM
     markerTimestampCopyActive = false, // CUSTOM
@@ -333,10 +347,17 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const interfaceConfig = configuration?.interface;
     const uiConfig = configuration?.ui;
     const videoRef = useRef<HTMLDivElement>(null);
+    const addMarkerSegmentsRef = useRef(addMultiSegmentLoopSegments); // CUSTOM
+    addMarkerSegmentsRef.current = addMultiSegmentLoopSegments; // CUSTOM
     const [_player, setPlayer] = useState<VideoJsPlayer>();
     const sceneId = useRef<string>();
     const [sceneSaveActivity] = useSceneSaveActivity();
     const [sceneIncrementPlayCount] = useSceneIncrementPlayCount();
+    // CUSTOM: begin - keep release playback writes on the selected owner
+    const [releaseSaveActivity] = useSceneReleaseSaveActivityCustom();
+    const [releaseAddPlay] = useSceneReleaseAddPlayCustom();
+    const [releaseRecordO] = useSceneReleaseRecordOCustom();
+    // CUSTOM: end
     const [updateInterfaceConfig] = useConfigureInterface();
     const [recordOAtTimestamp, { loading: isRecordingO }] =
       useSceneRecordOAtTimestamp(scene.id); // CUSTOM
@@ -388,6 +409,10 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const [saveLoopPreset] = GQL.useSaveSceneMultiSegmentLoopPresetMutation();
     const [deleteLoopPreset] =
       GQL.useDeleteSceneMultiSegmentLoopPresetMutation();
+    // CUSTOM: release loop presets persist on their selected owner.
+    const [saveReleaseLoopPreset] = GQL.useSceneReleaseLoopPresetSaveMutation();
+    const [deleteReleaseLoopPreset] =
+      GQL.useSceneReleaseLoopPresetDestroyMutation();
 
     const handleDeleteSegmentPreset = useCallback(
       async (name: string) => {
@@ -398,9 +423,16 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         if (!preset) return;
 
         try {
-          await deleteLoopPreset({
-            variables: { scene_id: scene.id, name: preset.name },
-          });
+          if (playbackReleaseId) {
+            await deleteReleaseLoopPreset({
+              variables: { release_id: playbackReleaseId, name: preset.name },
+              refetchQueries: "active",
+            });
+          } else {
+            await deleteLoopPreset({
+              variables: { scene_id: scene.id, name: preset.name },
+            });
+          }
           setSegmentPresets((prev) =>
             prev.filter((p) => p.name.toLowerCase() !== name.toLowerCase())
           );
@@ -408,7 +440,13 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
           console.warn("Failed to delete multi-segment loop preset", error);
         }
       },
-      [segmentPresets, deleteLoopPreset, scene.id]
+      [
+        segmentPresets,
+        deleteLoopPreset,
+        deleteReleaseLoopPreset,
+        playbackReleaseId,
+        scene.id,
+      ]
     );
     // CUSTOM: end
 
@@ -475,12 +513,21 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       if (!target || isRecordingO) return;
 
       try {
-        await recordOAtTimestamp({
-          variables: {
-            id: target.sceneId,
-            video_timestamp: target.videoTimestamp,
-          },
-        });
+        if (playbackReleaseId) {
+          await releaseRecordO({
+            variables: {
+              id: playbackReleaseId,
+              video_timestamp: target.videoTimestamp,
+            },
+          });
+        } else {
+          await recordOAtTimestamp({
+            variables: {
+              id: target.sceneId,
+              video_timestamp: target.videoTimestamp,
+            },
+          });
+        }
         const message = formatORecordedToastCustom(target.videoTimestamp);
         if (fullscreen) {
           showFullscreenORecordedToast(message);
@@ -496,6 +543,8 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       getPlayer,
       isRecordingO,
       recordOAtTimestamp,
+      releaseRecordO,
+      playbackReleaseId,
       scene.id,
       showFullscreenORecordedToast,
     ]);
@@ -1031,10 +1080,24 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         };
 
         try {
-          const result = await saveLoopPreset({
-            variables: { input: presetInput },
-          });
-          const saved = result.data?.saveSceneMultiSegmentLoopPreset;
+          // CUSTOM: save through the release mutation when playback is scoped.
+          const saved = playbackReleaseId
+            ? (
+                await saveReleaseLoopPreset({
+                  variables: {
+                    input: {
+                      release_id: playbackReleaseId,
+                      name,
+                      enabled: multiSegmentEnabled,
+                      current_segment_index: currentSegmentIndex,
+                      segments: presetInput.segments,
+                    },
+                  },
+                  refetchQueries: "active",
+                })
+              ).data?.sceneReleaseLoopPresetSave
+            : (await saveLoopPreset({ variables: { input: presetInput } })).data
+                ?.saveSceneMultiSegmentLoopPreset;
           if (!saved) return false;
 
           const updated: SegmentPreset = {
@@ -1073,6 +1136,8 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         currentSegmentIndex,
         scene.id,
         saveLoopPreset,
+        saveReleaseLoopPreset,
+        playbackReleaseId,
       ]
     );
 
@@ -1991,6 +2056,16 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
           onMarkerClick?.(marker.id, seconds, boundary, sourceKind); // CUSTOM
         }
       });
+      // CUSTOM: use the same segment conversion and page loop API as the Markers panel.
+      markers.setOnMarkerAddToLoop((marker) => {
+        const sceneMarker = scene.scene_markers.find(
+          (item) => item.id === marker.id
+        );
+        if (!sceneMarker) return;
+        addMarkerSegmentsRef.current?.([
+          sceneMarkerLoopSegmentCustom(sceneMarker, markerTitle(sceneMarker)),
+        ]);
+      });
 
       // CUSTOM: provide known duration so markers render before playback (preload=none means player.duration() is 0 until play)
       if (file?.duration) {
@@ -2115,6 +2190,17 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       async function saveActivity(resumeTime: number, playDuration: number) {
         if (!scene.id) return;
 
+        if (playbackReleaseId) {
+          await releaseSaveActivity({
+            variables: {
+              id: playbackReleaseId,
+              play_duration: playDuration,
+              resume_time: resumeTime,
+            },
+          });
+          return;
+        }
+
         await sceneSaveActivity({
           variables: {
             id: scene.id,
@@ -2126,6 +2212,11 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
 
       async function incrementPlayCount() {
         if (!scene.id) return;
+
+        if (playbackReleaseId) {
+          await releaseAddPlay({ variables: { id: playbackReleaseId } });
+          return;
+        }
 
         await sceneIncrementPlayCount({
           variables: {
@@ -2147,6 +2238,9 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       minimumPlayPercent,
       sceneIncrementPlayCount,
       sceneSaveActivity,
+      playbackReleaseId,
+      releaseSaveActivity,
+      releaseAddPlay,
     ]);
 
     // Sync autostart button with config changes
@@ -2446,13 +2540,10 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         {showImageOverlayModal &&
           createPortal(
             <PerformerImageSelectModal
-              performerIds={scene.performers.map((p) => p.id)}
-              galleryIds={[
-                ...(scene.galleries?.map((g) => g.id) ?? []),
-                ...(scene.releases?.flatMap(
-                  (r) => r.galleries?.map((g) => g.id) ?? []
-                ) ?? []),
-              ]}
+              performerIds={
+                playbackPerformerIds ?? scene.performers.map((p) => p.id)
+              }
+              galleryIds={scenePlayerGalleryIDsCustom(scene, playbackReleaseId)} // CUSTOM
               selectedImages={selectedOverlayImages}
               onConfirm={(images) => setSelectedOverlayImages(images)}
               onClose={() => setShowImageOverlayModal(false)}

@@ -998,7 +998,17 @@ func (qb *GalleryStore) ResetCover(ctx context.Context, galleryID int) error {
 }
 
 func (qb *GalleryStore) GetSceneIDs(ctx context.Context, id int) ([]int, error) {
-	return galleryRepository.scenes.getIDs(ctx, id)
+	// CUSTOM: include scenes linked through a release and deduplicate scenes
+	// that also have a direct gallery association.
+	const query = `SELECT scene_id FROM scenes_galleries WHERE gallery_id = ?
+		UNION SELECT sr.scene_id FROM scene_release_galleries srg
+		JOIN scene_releases sr ON sr.id = srg.release_id
+		WHERE srg.gallery_id = ? ORDER BY scene_id`
+	var ids []int
+	if err := dbWrapper.Select(ctx, &ids, query, id, id); err != nil {
+		return nil, err
+	}
+	return ids, nil
 }
 
 func (qb *GalleryStore) AddSceneIDs(ctx context.Context, galleryID int, sceneIDs []int) error {

@@ -9,6 +9,21 @@ import (
 )
 
 func (r *sceneMarkerResolver) Scene(ctx context.Context, obj *models.SceneMarker) (ret *models.Scene, err error) {
+	// CUSTOM: release markers resolve their parent scene for legacy links.
+	if obj.ReleaseID != nil {
+		var release *models.SceneRelease
+		if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+			var err error
+			release, err = r.repository.SceneRelease.Find(ctx, *obj.ReleaseID)
+			return err
+		}); err != nil {
+			return nil, err
+		}
+		if release == nil {
+			return nil, nil
+		}
+		return loaders.From(ctx).SceneByID.Load(release.SceneID)
+	}
 	return loaders.From(ctx).SceneByID.Load(obj.SceneID) // CUSTOM: request-batched
 }
 

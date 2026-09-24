@@ -2,10 +2,7 @@ import React from "react";
 import type { SceneActivityMetricRows } from "src/components/Scenes/sceneActivityMetricsData_custom";
 import { SceneActivityMetrics } from "src/components/Scenes/SceneActivityMetrics_custom";
 import type { StudioActivityStats } from "src/core/generated-graphql";
-import {
-  getActivityTypePercentagesCustom,
-  getPartitionPercentagesCustom,
-} from "src/components/Shared/activityTypePercentages_custom";
+import { getPartitionPercentagesCustom } from "src/components/Shared/activityTypePercentages_custom";
 
 interface IProps {
   stats: StudioActivityStats;
@@ -16,11 +13,6 @@ export const ActivityStatsCharts: React.FC<IProps> = ({
   stats,
   className = "",
 }) => {
-  const activityPercentages = getActivityTypePercentagesCustom({
-    sex: stats.sex_seconds,
-    oral: stats.oral_seconds,
-    solo: stats.solo_seconds,
-  });
   const qualityPercentages = getPartitionPercentagesCustom(
     {
       outstanding: stats.outstanding_seconds,
@@ -36,19 +28,19 @@ export const ActivityStatsCharts: React.FC<IProps> = ({
         key: "sex",
         label: "Fucking",
         duration: stats.sex_seconds,
-        percent: activityPercentages.sex,
+        percent: Math.round(stats.sex_percent),
       },
       {
         key: "oral",
         label: "Eating pito",
         duration: stats.oral_seconds,
-        percent: activityPercentages.oral,
+        percent: Math.round(stats.oral_percent),
       },
       {
         key: "solo",
         label: "Jerking",
         duration: stats.solo_seconds,
-        percent: activityPercentages.solo,
+        percent: Math.round(stats.solo_percent),
       },
       {
         key: "other",

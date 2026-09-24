@@ -509,6 +509,9 @@ var selectPerformerOCountSQL = utils.StrFormat(
 		"LEFT JOIN {scenes} ON {scenes}.id = s.{scene_id} "+
 		"LEFT JOIN {scenes_o_dates} ON {scenes_o_dates}.{scene_id} = {scenes}.id "+
 		"WHERE s.{performer_id} = {performers}.id "+
+		"UNION ALL SELECT COUNT(o.o_date) FROM scene_release_performers rp " + // CUSTOM: release-owned events use release cast
+		"JOIN scene_release_o_dates o ON o.release_id = rp.release_id " + // CUSTOM
+		"WHERE rp.performer_id = {performers}.id " + // CUSTOM
 		")",
 	map[string]interface{}{
 		"performers_images": performersImagesTable,
@@ -526,11 +529,14 @@ var selectPerformerOCountSQL = utils.StrFormat(
 
 // used for sorting and filtering play count on performer view count
 var selectPerformerPlayCountSQL = utils.StrFormat(
-	"SELECT COUNT(DISTINCT {view_date}) FROM ("+
+	"SELECT COUNT({view_date}) FROM ("+ // CUSTOM: count every event, including same-timestamp duplicates
 		"SELECT {view_date} FROM {performers_scenes} s "+
 		"LEFT JOIN {scenes} ON {scenes}.id = s.{scene_id} "+
 		"LEFT JOIN {scenes_view_dates} ON {scenes_view_dates}.{scene_id} = {scenes}.id "+
-		"WHERE s.{performer_id} = {performers}.id"+
+		"WHERE s.{performer_id} = {performers}.id " +
+		"UNION ALL SELECT v.view_date FROM scene_release_performers rp " + // CUSTOM
+		"JOIN scene_release_view_dates v ON v.release_id = rp.release_id " + // CUSTOM
+		"WHERE rp.performer_id = {performers}.id" + // CUSTOM
 		")",
 	map[string]interface{}{
 		"performer_id":      performerIDColumn,

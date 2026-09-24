@@ -60,6 +60,7 @@ import {
 } from "./markerPlaylistPresentation_custom"; // CUSTOM
 import { getMarkerPlaylistORecordTargetCustom } from "./markerPlaylistORecord_custom"; // CUSTOM
 import { formatORecordedToastCustom } from "./oRecordToast_custom"; // CUSTOM
+import { useSceneReleaseRecordOCustom } from "./sceneReleaseActivity_custom"; // CUSTOM
 import "./MarkerPlaylistPlayer.scss";
 
 const FIND_MARKERS_FOR_PLAYLIST = gql`
@@ -101,6 +102,7 @@ interface IMarkerInfo {
   seconds: number;
   end_seconds: number | null;
   sceneId: string;
+  releaseId?: string | null; // CUSTOM
   sceneTitle: string;
   streamUrl: string;
   imageUrl: string; // CUSTOM: generated screenshot with preview fallback
@@ -111,6 +113,7 @@ interface IMarkerInfo {
 interface IPreparedVideoSlot {
   markerId: string;
   sceneId: string;
+  releaseId?: string | null; // CUSTOM
   seconds: number;
   ready: boolean;
 }
@@ -174,6 +177,8 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   const [destroyPlaylist] = useMarkerPlaylistDestroy();
   const [recordOAtTimestamp, { loading: isRecordingO }] =
     useSceneRecordOAtTimestamp(currentMarker?.sceneId ?? ""); // CUSTOM
+  const [recordReleaseOAtTimestamp, { loading: isRecordingReleaseO }] =
+    useSceneReleaseRecordOCustom(); // CUSTOM
 
   // Parse marker IDs from URL
   const markerIds = useMemo(() => {
@@ -205,8 +210,9 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       .filter((m): m is GQL.SceneMarkerDataFragment => m !== undefined)
       .map((m) => {
         // Use scene.paths.stream if available, otherwise construct the URL
-        const streamUrl =
-          m.scene.paths?.stream || `/scene/${m.scene.id}/stream`;
+        const streamUrl = m.release_id
+          ? `/scene-release/${m.release_id}/stream`
+          : m.scene.paths?.stream || `/scene/${m.scene.id}/stream`; // CUSTOM
 
         const topPerformers = (m.top_performers ?? []).map((p) => ({
           id: p.id,
@@ -228,6 +234,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
           seconds: m.seconds,
           end_seconds: m.end_seconds ?? null,
           sceneId: m.scene.id,
+          releaseId: m.release_id, // CUSTOM
           sceneTitle: m.scene.title || "Untitled Scene",
           streamUrl,
           imageUrl: getMarkerPlaylistImageUrlCustom({
@@ -254,6 +261,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
 
   // CUSTOM: begin - each marker activation gets a fresh remote session.
   useRemotePlayerCustom(`${currentMarker?.id ?? ""}:${currentIndex}`, () => {
+    if (currentMarker?.releaseId) return undefined; // CUSTOM: remote O API owns scenes only
     const video = getActiveVideo();
     const prepared = preparedVideoSlotsRef.current[activeVideoSlotRef.current];
     if (
@@ -299,6 +307,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       preparedVideoSlotsRef.current[slot] = {
         markerId: marker.id,
         sceneId: marker.sceneId,
+        releaseId: marker.releaseId, // CUSTOM
         seconds: marker.seconds,
         ready: false,
       };
@@ -395,11 +404,16 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       const requestId = markerLoadRequestRef.current + 1;
       markerLoadRequestRef.current = requestId;
 
-      if (activePreparedSlot?.sceneId === marker.sceneId) {
+      if (
+        activePreparedSlot?.sceneId === marker.sceneId &&
+        activePreparedSlot.releaseId === marker.releaseId
+      ) {
+        // CUSTOM
         video.currentTime = marker.seconds;
         preparedVideoSlotsRef.current[activeSlot] = {
           markerId: marker.id,
           sceneId: marker.sceneId,
+          releaseId: marker.releaseId, // CUSTOM
           seconds: marker.seconds,
           ready: true,
         };
@@ -673,12 +687,21 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     if (!target) return;
 
     try {
-      await recordOAtTimestamp({
-        variables: {
-          id: target.sceneId,
-          video_timestamp: target.videoTimestamp,
-        },
-      });
+      if (currentMarker?.releaseId) {
+        await recordReleaseOAtTimestamp({
+          variables: {
+            id: currentMarker.releaseId,
+            video_timestamp: target.videoTimestamp,
+          },
+        });
+      } else {
+        await recordOAtTimestamp({
+          variables: {
+            id: target.sceneId,
+            video_timestamp: target.videoTimestamp,
+          },
+        });
+      }
       const message = formatORecordedToastCustom(target.videoTimestamp);
       if (isFullscreen) {
         showFullscreenORecordedToast(message);
@@ -694,6 +717,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     getActiveVideo,
     isFullscreen,
     recordOAtTimestamp,
+    recordReleaseOAtTimestamp,
     showFullscreenORecordedToast,
   ]);
 
@@ -1043,7 +1067,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
         <button
           type="button"
           className="marker-record-o-btn"
-          disabled={isRecordingO}
+          disabled={isRecordingO || isRecordingReleaseO} // CUSTOM
           onClick={handleRecordO}
           title="Record O at current video time"
           aria-label="Record O at current video time"
@@ -1298,7 +1322,11 @@ export const MarkerPlaylistPlayer: React.FC = () => {
             <div className="now-playing-scene">
               <span className="scene-label">Scene:</span>
               <a
-                href={`/scenes/${currentMarker?.sceneId}`}
+                href={`/scenes/${currentMarker?.sceneId}${
+                  currentMarker?.releaseId
+                    ? `?release=${currentMarker.releaseId}`
+                    : ""
+                }`}
                 className="scene-title-link"
                 target="_blank"
                 rel="noopener noreferrer"

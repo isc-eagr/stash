@@ -10,6 +10,7 @@ import (
 	"github.com/doug-martin/goqu/v9"
 	"github.com/doug-martin/goqu/v9/exp"
 	"github.com/jmoiron/sqlx"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/stashapp/stash/pkg/models"
 )
@@ -18,7 +19,8 @@ const sceneNegativeMarkerTable = "scene_negative_markers"
 
 type sceneNegativeMarkerRow struct {
 	ID           int       `db:"id" goqu:"skipinsert"`
-	SceneID      int       `db:"scene_id"`
+	SceneID      null.Int  `db:"scene_id"`
+	ReleaseID    null.Int  `db:"release_id" goqu:"skipinsert,skipupdate"`
 	Name         string    `db:"name"`
 	StartSeconds float64   `db:"start_seconds"`
 	EndSeconds   float64   `db:"end_seconds"`
@@ -28,7 +30,7 @@ type sceneNegativeMarkerRow struct {
 
 func (r *sceneNegativeMarkerRow) fromModel(m models.SceneNegativeMarker) {
 	r.ID = m.ID
-	r.SceneID = m.SceneID
+	r.SceneID = intFromPtr(&m.SceneID)
 	r.Name = m.Name
 	r.StartSeconds = m.StartSeconds
 	r.EndSeconds = m.EndSeconds
@@ -39,7 +41,8 @@ func (r *sceneNegativeMarkerRow) fromModel(m models.SceneNegativeMarker) {
 func (r *sceneNegativeMarkerRow) resolve() *models.SceneNegativeMarker {
 	return &models.SceneNegativeMarker{
 		ID:           r.ID,
-		SceneID:      r.SceneID,
+		SceneID:      int(r.SceneID.Int64),
+		ReleaseID:    nullIntPtr(r.ReleaseID),
 		Name:         r.Name,
 		StartSeconds: r.StartSeconds,
 		EndSeconds:   r.EndSeconds,
@@ -190,15 +193,7 @@ func (s *SceneNegativeMarkerStore) getMany(ctx context.Context, q *goqu.SelectDa
 
 	if err := queryFunc(ctx, q, single, func(rows *sqlx.Rows) error {
 		var row sceneNegativeMarkerRow
-		if err := rows.Scan(
-			&row.ID,
-			&row.SceneID,
-			&row.Name,
-			&row.StartSeconds,
-			&row.EndSeconds,
-			&row.CreatedAt,
-			&row.UpdatedAt,
-		); err != nil {
+		if err := rows.StructScan(&row); err != nil { // CUSTOM: legacy and upgraded tables have different columns
 			return fmt.Errorf("scanning %s: %w", sceneNegativeMarkerTable, err)
 		}
 

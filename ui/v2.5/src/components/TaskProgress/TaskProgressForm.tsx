@@ -233,7 +233,7 @@ export const TaskProgressForm: React.FC<IProps> = ({
                 onChange={(e) => setMode(e.target.value)}
               >
                 <option value="BACKLOG">
-                  {t("Ongoing backlog — includes incoming work")}
+                  {t("Ongoing backlog — includes newly matching items")}
                 </option>
                 <option value="FIXED">
                   {t("Fixed batch — only items in this baseline")}

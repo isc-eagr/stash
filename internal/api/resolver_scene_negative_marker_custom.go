@@ -69,6 +69,9 @@ func (r *mutationResolver) SceneNegativeMarkerUpdate(ctx context.Context, input 
 		if marker == nil {
 			return fmt.Errorf("negative marker %d not found", id)
 		}
+		if marker.ReleaseID != nil { // CUSTOM: release ranges use owner-scoped mutations
+			return fmt.Errorf("negative marker %d belongs to a release", id)
+		}
 
 		// Apply updates
 		if input.Name != nil {
@@ -102,6 +105,9 @@ func (r *mutationResolver) SceneNegativeMarkerDestroy(ctx context.Context, id st
 	}
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
+		marker, err := r.repository.SceneNegativeMarker.Find(ctx, idInt) // CUSTOM
+		if err != nil { return err }
+		if marker == nil || marker.ReleaseID != nil { return fmt.Errorf("scene negative marker %d not found", idInt) } // CUSTOM
 		return r.repository.SceneNegativeMarker.Delete(ctx, idInt)
 	}); err != nil {
 		return false, err

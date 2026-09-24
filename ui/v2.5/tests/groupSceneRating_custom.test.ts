@@ -6,6 +6,7 @@ import {
   GROUP_SCENE_BONUSES_CUSTOM,
   GROUP_SCENE_ENERGY_COORDINATION_CHOICES_CUSTOM,
   GROUP_SCENE_RATING_KEYS_CUSTOM,
+  GROUP_SCENE_WEIGHTS_CUSTOM,
 } from "../src/components/Shared/groupSceneRating_custom.ts";
 
 assert.equal(getSceneRatingModeCustom(0, false), "default");
@@ -17,6 +18,8 @@ assert.equal(getSceneRatingModeCustom(3, true), "solo");
 assert.equal(getSceneRatingModeCustom(4, false), "group");
 assert.equal(getSceneRatingModeCustom(4, true), "group");
 assert.equal(getGroupSceneBaseMaximumCustom() * 10, 100);
+assert.equal(GROUP_SCENE_WEIGHTS_CUSTOM.topAttractiveness * 50, 30);
+assert.equal(GROUP_SCENE_WEIGHTS_CUSTOM.energyCoordination * 50, 30);
 assert.equal(GROUP_SCENE_BONUSES_CUSTOM.bottomAttractiveness * 10, 5);
 assert.equal(GROUP_SCENE_BONUSES_CUSTOM.oralOnly * 10, 20);
 

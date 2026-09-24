@@ -54,6 +54,59 @@ func TestRatingScoreSchemaEnforcesEntityLifecycle(t *testing.T) {
 	assert.Zero(t, count)
 }
 
+func TestGroupSceneRatingWeightMigrationRecalculatesAndIsIdempotent(t *testing.T) {
+	db := openRatingScriptDatabaseCustom(t)
+	_, err := db.Exec(`
+		INSERT INTO scenes (id, rating) VALUES (1, 54), (2, 0), (3, 75);
+		INSERT INTO performers_scenes (performer_id, scene_id) VALUES
+			(1, 1), (2, 1), (3, 1), (4, 1),
+			(1, 2), (2, 2), (3, 2), (4, 2),
+			(1, 3), (2, 3), (3, 3);
+		INSERT INTO rating_criteria_scores (entity_type, entity_id, key, raw_value, weighted_value) VALUES
+			('scene', 1, 'groupTopAttractiveness', 5, 2),
+			('scene', 1, 'groupEnergy', 1, 0.8),
+			('scene', 1, 'groupPayoff', 4, 2),
+			('scene', 1, 'groupUsability', 2, 1),
+			('scene', 2, 'groupTopAttractiveness', 5, 2),
+			('scene', 2, 'groupEnergy', 0, 0),
+			('scene', 3, 'groupTopAttractiveness', 5, 2);
+		INSERT INTO rating_bonus_scores (entity_type, entity_id, key, raw_value, weighted_value)
+			VALUES ('scene', 1, 'theme', 0.5, 0.5);
+		INSERT INTO rating_penalty_scores (entity_type, entity_id, key, raw_value, weighted_value)
+			VALUES ('scene', 1, 'production', -1, -1), ('scene', 2, 'noOrgasm', -2, -2);
+		INSERT INTO scenes_o_dates (scene_id) VALUES (1), (1), (1);
+	`)
+	require.NoError(t, err)
+
+	migration, err := os.ReadFile(filepath.Join("..", "..", "group_scene_rating_30_30.up.sql"))
+	require.NoError(t, err)
+	for run := 0; run < 2; run++ {
+		_, err = db.Exec(string(migration))
+		require.NoError(t, err)
+		var affectedCount int
+		require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM group_scene_rating_weight_changes_custom").Scan(&affectedCount))
+		if run == 0 {
+			assert.Equal(t, 2, affectedCount)
+		} else {
+			assert.Zero(t, affectedCount, "a rerun must not report migrated scenes again")
+		}
+
+		var rating int
+		require.NoError(t, db.QueryRow("SELECT rating FROM scenes WHERE id = 1").Scan(&rating))
+		assert.Equal(t, 62, rating)
+		require.NoError(t, db.QueryRow("SELECT rating FROM scenes WHERE id = 2").Scan(&rating))
+		assert.Equal(t, 10, rating, "a previously clamped rating must be recomputed from raw answers")
+		require.NoError(t, db.QueryRow("SELECT rating FROM scenes WHERE id = 3").Scan(&rating))
+		assert.Equal(t, 75, rating, "three-performer scenes must be untouched")
+
+		var top, energy float64
+		require.NoError(t, db.QueryRow("SELECT weighted_value FROM rating_criteria_scores WHERE entity_id = 1 AND key = 'groupTopAttractiveness'").Scan(&top))
+		require.NoError(t, db.QueryRow("SELECT weighted_value FROM rating_criteria_scores WHERE entity_id = 1 AND key = 'groupEnergy'").Scan(&energy))
+		assert.InDelta(t, 3, top, 0.000001)
+		assert.InDelta(t, 0.6, energy, 0.000001)
+	}
+}
+
 func TestGoatTierReviewMigrationTagsOnlyLegacyActiveBonuses(t *testing.T) {
 	db := openRatingScriptDatabaseCustom(t)
 	_, err := db.Exec(`

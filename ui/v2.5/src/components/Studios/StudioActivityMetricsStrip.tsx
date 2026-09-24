@@ -11,10 +11,7 @@ import { Icon } from "src/components/Shared/Icon";
 import * as GQL from "src/core/generated-graphql";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
-import {
-  getActivityTypePercentagesCustom,
-  getPartitionPercentagesCustom,
-} from "src/components/Shared/activityTypePercentages_custom";
+import { getPartitionPercentagesCustom } from "src/components/Shared/activityTypePercentages_custom";
 
 type StudioActivityMetricKey =
   | "sex"
@@ -118,29 +115,23 @@ export const StudioActivityMetricsStrip: React.FC<IProps> = ({
   showHeadings = false,
 }) => {
   if (!stats || stats.total_seconds <= 0) return null;
-  const activityPercentages = getActivityTypePercentagesCustom({
-    sex: stats.sex_seconds,
-    oral: stats.oral_seconds,
-    solo: stats.solo_seconds,
-  });
-
   const activityMetrics: StudioActivityMetric[] = [
     {
       key: "sex",
       label: "Sex",
-      percent: activityPercentages.sex,
+      percent: Math.round(stats.sex_percent),
       sceneCount: stats.sex_scene_count,
     },
     {
       key: "oral",
       label: "Oral",
-      percent: activityPercentages.oral,
+      percent: Math.round(stats.oral_percent),
       sceneCount: stats.oral_scene_count,
     },
     {
       key: "solo",
       label: "Solo",
-      percent: activityPercentages.solo,
+      percent: Math.round(stats.solo_percent),
       sceneCount: stats.solo_scene_count,
     },
   ];

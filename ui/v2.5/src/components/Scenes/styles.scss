@@ -65,7 +65,7 @@
   display: flex;
   height: 0.22rem;
   margin-bottom: 0.08rem;
-  overflow: hidden;
+  overflow: visible; /* CUSTOM: overlapping activity coverage may exceed 100% */
   width: 100%;
 }
 
@@ -157,6 +157,8 @@
 .scene-activity-metric__icon {
   align-items: center;
   background-color: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
   color: #fff;
   display: inline-flex;
   flex: 0 0 1.5rem;
@@ -3125,7 +3127,7 @@ input[type="range"].blue-slider {
   justify-content: flex-start;
   min-height: 12rem;
   text-align: center;
-  width: 8rem;
+  width: min(13rem, calc(100vw - 2rem));
 }
 
 .scene-marker-form-performer-option-label,
@@ -3172,7 +3174,8 @@ input[type="range"].blue-slider {
   .scene-marker-form-performer-face {
     border-radius: 0.25rem;
     font-size: 3rem;
-    width: 7.2rem;
+    height: min(18rem, calc((100vw - 4rem) * 1.5));
+    width: min(12rem, calc(100vw - 4rem));
   }
 }
 
@@ -3194,7 +3197,6 @@ input[type="range"].blue-slider {
     display: flex;
     flex-wrap: wrap;
     gap: 0.75rem;
-    max-height: 28rem;
     padding: 0.75rem;
   }
 
@@ -4019,12 +4021,13 @@ input[type="range"].blue-slider {
   display: flex;
   height: 0.75rem;
   margin-bottom: 0.8rem;
-  overflow: hidden;
+  overflow: visible; /* CUSTOM: overlapping activity coverage may exceed 100% */
   width: 100%;
 }
 
 .scene-stats-stacked-segment {
   display: block;
+  flex: 0 0 auto; /* CUSTOM: preserve each overlapping activity share */
   height: 100%;
 }
 

@@ -90,6 +90,7 @@ interface IActivityMarker {
 
 interface IActivityStats {
   totalSeconds: number;
+  activityTimeSeconds: number; // CUSTOM: union duration for overlapping types
   sexSeconds: number;
   oralSeconds: number;
   soloSeconds: number;
@@ -493,6 +494,7 @@ function getActivityStats(
 
   return {
     totalSeconds,
+    activityTimeSeconds: mergeDuration(activityIntervals), // CUSTOM
     sexSeconds,
     oralSeconds,
     soloSeconds,
@@ -833,15 +835,17 @@ const SceneStatsPanel: React.FC<IProps> = ({
   const roleInteractionByKey = new Map(
     roleInteractions.map((interaction) => [interaction.key, interaction])
   );
-  const classifiedActivitySeconds =
-    activityStats.sexSeconds +
-    activityStats.oralSeconds +
-    activityStats.soloSeconds;
-  const activityPercentages = getActivityTypePercentagesCustom({
-    sex: activityStats.sexSeconds,
-    oral: activityStats.oralSeconds,
-    solo: activityStats.soloSeconds,
-  });
+  // CUSTOM: use unique covered time so activity percentages can exceed 100%.
+  const classifiedActivitySeconds = activityStats.activityTimeSeconds;
+  // CUSTOM: calculate each category against the union of classified intervals.
+  const activityPercentages = getActivityTypePercentagesCustom(
+    {
+      sex: activityStats.sexSeconds,
+      oral: activityStats.oralSeconds,
+      solo: activityStats.soloSeconds,
+    },
+    activityStats.activityTimeSeconds
+  );
   const qualityPercentages = getPartitionPercentagesCustom(
     {
       outstanding: activityStats.outstandingSeconds,

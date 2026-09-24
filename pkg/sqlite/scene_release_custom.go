@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 
 	"github.com/doug-martin/goqu/v9"
@@ -63,7 +64,7 @@ type sceneReleaseRow struct {
 	UpdatedAt     Timestamp   `db:"updated_at"`
 
 	// not used in resolutions or updates
-	CoverBlob zero.String `db:"cover_blob"`
+	CoverBlob zero.String `db:"cover_blob" goqu:"skipinsert,skipupdate"`
 }
 
 func (r *sceneReleaseRow) fromSceneRelease(o models.SceneRelease) {
@@ -226,6 +227,11 @@ func (qb *SceneReleaseStore) UpdatePartial(ctx context.Context, id int, partial 
 			return nil, err
 		}
 	}
+	if partial.URL.Set {
+		if err := qb.updateFirstURLCustom(ctx, id, partial.URL.Value); err != nil {
+			return nil, err
+		}
+	}
 
 	if partial.GalleryIDs != nil {
 		if err := sceneReleaseGalleriesTableMgr.modifyJoins(ctx, id, partial.GalleryIDs.IDs, partial.GalleryIDs.Mode); err != nil {
@@ -234,6 +240,13 @@ func (qb *SceneReleaseStore) UpdatePartial(ctx context.Context, id int, partial 
 	}
 
 	if partial.PrimaryFileID != nil {
+		fileIDs, err := qb.GetFileIDs(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if !slices.Contains(fileIDs, *partial.PrimaryFileID) {
+			return nil, errors.New("primary file must belong to the release")
+		}
 		if err := sceneReleaseFilesTableMgr.setPrimary(ctx, id, *partial.PrimaryFileID); err != nil {
 			return nil, err
 		}
@@ -243,6 +256,23 @@ func (qb *SceneReleaseStore) UpdatePartial(ctx context.Context, id int, partial 
 }
 
 func (qb *SceneReleaseStore) Destroy(ctx context.Context, id int) error {
+	// A release cover is a blob reference. Remove it before deleting the row so
+	// unused blobs can be reclaimed without affecting covers still in use.
+	if err := qb.UpdateCover(ctx, id, nil); err != nil {
+		return err
+	}
+	for _, table := range []string{ratingCriteriaScoresTable, ratingBonusScoresTable, ratingPenaltyScoresTable} {
+		exists, err := releaseTransferTableExistsCustom(ctx, table)
+		if err != nil {
+			return err
+		}
+		if exists {
+			query := fmt.Sprintf(`DELETE FROM %s WHERE entity_type = 'scene_release' AND entity_id = ?`, table)
+			if _, err := dbWrapper.Exec(ctx, query, id); err != nil {
+				return err
+			}
+		}
+	}
 	return qb.tableMgr.destroyExisting(ctx, []int{id})
 }
 
@@ -318,7 +348,9 @@ func (qb *SceneReleaseStore) FindBySceneID(ctx context.Context, sceneID int) ([]
 func (qb *SceneReleaseStore) GetFileIDs(ctx context.Context, releaseID int) ([]models.FileID, error) {
 	joinTable := sceneReleaseFilesJoinTable
 
-	q := dialect.From(joinTable).Select(joinTable.Col(fileIDColumn)).Where(joinTable.Col(sceneReleaseIDColumn).Eq(releaseID))
+	q := dialect.From(joinTable).Select(joinTable.Col(fileIDColumn)).
+		Where(joinTable.Col(sceneReleaseIDColumn).Eq(releaseID)).
+		Order(joinTable.Col("primary").Desc(), joinTable.Col(fileIDColumn).Asc())
 
 	const single = false
 	var ret []models.FileID
@@ -337,8 +369,67 @@ func (qb *SceneReleaseStore) GetFileIDs(ctx context.Context, releaseID int) ([]m
 }
 
 func (qb *SceneReleaseStore) AddFileID(ctx context.Context, releaseID int, fileID models.FileID) error {
-	const firstPrimary = false
-	return sceneReleaseFilesTableMgr.insertJoins(ctx, releaseID, firstPrimary, []models.FileID{fileID})
+	fileIDs, err := qb.GetFileIDs(ctx, releaseID)
+	if err != nil {
+		return err
+	}
+	if err := sceneReleaseFilesTableMgr.insertJoins(ctx, releaseID, len(fileIDs) == 0, []models.FileID{fileID}); err != nil {
+		return err
+	}
+	return ensurePrimaryFileCustom(ctx, sceneReleaseFilesTableMgr, releaseID)
+}
+
+// MoveFileToReleaseCustom keeps a file with one owner inside a scene family.
+// Legacy references in unrelated families are rejected instead of being stolen.
+func (qb *SceneReleaseStore) MoveFileToReleaseCustom(ctx context.Context, releaseID int, fileID models.FileID) error {
+	var sceneID int
+	if err := dbWrapper.Get(ctx, &sceneID, `SELECT scene_id FROM scene_releases WHERE id = ?`, releaseID); err != nil {
+		return fmt.Errorf("finding release %d: %w", releaseID, err)
+	}
+
+	var foreignSceneOwners int
+	if err := dbWrapper.Get(ctx, &foreignSceneOwners,
+		`SELECT COUNT(*) FROM scenes_files WHERE file_id = ? AND scene_id != ?`, fileID, sceneID); err != nil {
+		return err
+	}
+	var foreignReleaseOwners int
+	if err := dbWrapper.Get(ctx, &foreignReleaseOwners,
+		`SELECT COUNT(*) FROM scene_release_files rf JOIN scene_releases r ON r.id = rf.release_id
+		 WHERE rf.file_id = ? AND r.scene_id != ?`, fileID, sceneID); err != nil {
+		return err
+	}
+	if foreignSceneOwners+foreignReleaseOwners != 0 {
+		return fmt.Errorf("file %d belongs to another scene family", fileID)
+	}
+
+	if _, err := dbWrapper.Exec(ctx, `DELETE FROM scenes_files WHERE scene_id = ? AND file_id = ?`, sceneID, fileID); err != nil {
+		return err
+	}
+	if _, err := dbWrapper.Exec(ctx,
+		`DELETE FROM scene_release_files WHERE file_id = ? AND release_id IN
+		 (SELECT id FROM scene_releases WHERE scene_id = ? AND id != ?)`, fileID, sceneID, releaseID); err != nil {
+		return err
+	}
+	if _, err := dbWrapper.Exec(ctx,
+		`INSERT OR IGNORE INTO scene_release_files (release_id, file_id, "primary") VALUES (?, ?, 0)`, releaseID, fileID); err != nil {
+		return err
+	}
+	if err := ensurePrimaryFileCustom(ctx, sceneReleaseFilesTableMgr, releaseID); err != nil {
+		return err
+	}
+	if err := ensurePrimaryFileCustom(ctx, scenesFilesTableMgr, sceneID); err != nil {
+		return err
+	}
+	var siblingIDs []int
+	if err := dbWrapper.Select(ctx, &siblingIDs, `SELECT id FROM scene_releases WHERE scene_id = ? AND id != ?`, sceneID, releaseID); err != nil {
+		return err
+	}
+	for _, siblingID := range siblingIDs {
+		if err := ensurePrimaryFileCustom(ctx, sceneReleaseFilesTableMgr, siblingID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (qb *SceneReleaseStore) RemoveFileID(ctx context.Context, releaseID int, fileID models.FileID) error {
@@ -347,8 +438,10 @@ func (qb *SceneReleaseStore) RemoveFileID(ctx context.Context, releaseID int, fi
 		sceneReleaseFilesJoinTable.Col(fileIDColumn).Eq(fileID),
 	)
 
-	_, err := exec(ctx, q)
-	return err
+	if _, err := exec(ctx, q); err != nil {
+		return err
+	}
+	return ensurePrimaryFileCustom(ctx, sceneReleaseFilesTableMgr, releaseID)
 }
 
 // FileExistsInSceneReleases checks if a file belongs to any release of the given scene
@@ -368,6 +461,17 @@ func (qb *SceneReleaseStore) FileExistsInSceneReleases(ctx context.Context, scen
 	return count > 0, nil
 }
 
+// CountOtherFileOwnersCustom counts associations outside the release being
+// edited. A physical file must never be deleted while another owner uses it.
+func (qb *SceneReleaseStore) CountOtherFileOwnersCustom(ctx context.Context, releaseID int, fileID models.FileID) (int, error) {
+	const query = `SELECT
+		(SELECT COUNT(*) FROM scenes_files WHERE file_id = ?) +
+		(SELECT COUNT(*) FROM scene_release_files WHERE file_id = ? AND release_id != ?)`
+	var owners int
+	err := dbWrapper.Get(ctx, &owners, query, fileID, fileID, releaseID)
+	return owners, err
+}
+
 func (qb *SceneReleaseStore) GetGalleryIDs(ctx context.Context, releaseID int) ([]int, error) {
 	return sceneReleaseGalleriesTableMgr.get(ctx, releaseID)
 }
@@ -381,7 +485,43 @@ func (qb *SceneReleaseStore) HasCover(ctx context.Context, releaseID int) (bool,
 }
 
 func (qb *SceneReleaseStore) UpdateCover(ctx context.Context, releaseID int, image []byte) error {
-	return qb.UpdateImage(ctx, releaseID, sceneReleaseCoverBlobColumn, image)
+	oldChecksum, err := qb.getChecksum(ctx, releaseID, sceneReleaseCoverBlobColumn)
+	if err != nil {
+		return err
+	}
+	var newChecksum *string
+	var nextValue any
+	if len(image) != 0 {
+		checksum, err := qb.blobStore.Write(ctx, image)
+		if err != nil {
+			return err
+		}
+		newChecksum = &checksum
+		nextValue = checksum
+	}
+	if _, err := dbWrapper.Exec(ctx, `UPDATE scene_releases SET cover_blob = ? WHERE id = ?`, nextValue, releaseID); err != nil {
+		return err
+	}
+	if oldChecksum == nil || (newChecksum != nil && *oldChecksum == *newChecksum) {
+		return nil
+	}
+	var otherReleaseReferences int
+	if err := dbWrapper.Get(ctx, &otherReleaseReferences,
+		`SELECT COUNT(*) FROM scene_releases WHERE cover_blob = ?`, *oldChecksum); err != nil {
+		return err
+	}
+	if otherReleaseReferences != 0 {
+		return nil
+	}
+	return qb.blobStore.Delete(ctx, *oldChecksum)
+}
+
+// DetachCoverForConversionCustom removes only the departing owner's reference.
+// The destination already owns the same checksum, so deleting the blob here
+// would corrupt covers on older databases without a release-cover foreign key.
+func (qb *SceneReleaseStore) DetachCoverForConversionCustom(ctx context.Context, releaseID int) error {
+	_, err := dbWrapper.Exec(ctx, `UPDATE scene_releases SET cover_blob = NULL WHERE id = ?`, releaseID)
+	return err
 }
 
 // GetFiles returns the video files for a release
@@ -430,6 +570,13 @@ func (qb *SceneReleaseStore) AssignFilesToScene(ctx context.Context, releaseID i
 	// Add files to the scene (non-primary since scene should already have files)
 	// Only add if not already associated with the scene
 	for _, fileID := range fileIDs {
+		ownedBySibling, err := qb.FileExistsInSceneReleases(ctx, sceneID, fileID)
+		if err != nil {
+			return err
+		}
+		if ownedBySibling {
+			continue
+		}
 		// Check if already exists
 		existsQuery := dialect.Select(goqu.COUNT("*")).From(scenesFilesJoinTable).Where(
 			scenesFilesJoinTable.Col(sceneIDColumn).Eq(sceneID),
@@ -450,5 +597,5 @@ func (qb *SceneReleaseStore) AssignFilesToScene(ctx context.Context, releaseID i
 		}
 	}
 
-	return nil
+	return ensurePrimaryFileCustom(ctx, scenesFilesTableMgr, sceneID)
 }

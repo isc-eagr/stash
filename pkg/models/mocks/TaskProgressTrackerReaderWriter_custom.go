@@ -11,6 +11,26 @@ type TaskProgressTrackerReaderWriter struct {
 	mock.Mock
 }
 
+func (m *TaskProgressTrackerReaderWriter) FindMilestones(ctx context.Context) ([]*models.TaskProgressMilestone, error) {
+	a := m.Called(ctx)
+	v, _ := a.Get(0).([]*models.TaskProgressMilestone)
+	return v, a.Error(1)
+}
+func (m *TaskProgressTrackerReaderWriter) FindMilestone(ctx context.Context, id int) (*models.TaskProgressMilestone, error) {
+	a := m.Called(ctx, id)
+	v, _ := a.Get(0).(*models.TaskProgressMilestone)
+	return v, a.Error(1)
+}
+func (m *TaskProgressTrackerReaderWriter) CreateMilestone(ctx context.Context, milestone *models.TaskProgressMilestone) error {
+	return m.Called(ctx, milestone).Error(0)
+}
+func (m *TaskProgressTrackerReaderWriter) UpdateMilestone(ctx context.Context, milestone *models.TaskProgressMilestone, changeMembers bool) error {
+	return m.Called(ctx, milestone, changeMembers).Error(0)
+}
+func (m *TaskProgressTrackerReaderWriter) DeleteMilestone(ctx context.Context, id int) error {
+	return m.Called(ctx, id).Error(0)
+}
+
 func (m *TaskProgressTrackerReaderWriter) Events(ctx context.Context, id int, date string, after int) (*models.TaskProgressEventPage, error) {
 	a := m.Called(ctx, id, date, after)
 	v, _ := a.Get(0).(*models.TaskProgressEventPage)

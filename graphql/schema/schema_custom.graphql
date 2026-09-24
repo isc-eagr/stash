@@ -189,6 +189,25 @@ extend type Mutation {
     video_timestamp: Float!
   ): HistoryMutationResult!
 
+  "Save resume position and elapsed playback time for a release"
+  sceneReleaseSaveActivity(id: ID!, resume_time: Float, play_duration: Float): Boolean!
+  "Record one play for a release"
+  sceneReleaseAddPlay(id: ID!): Int!
+  "Record one O for a release at its video timestamp"
+  sceneReleaseRecordOAtTimestamp(id: ID!, video_timestamp: Float!): Int!
+  "Add, remove one matching event, or clear release-owned play/O history"
+  sceneReleaseEditHistory(id: ID!, kind: String!, action: String!, at: Timestamp): Boolean!
+  "Reset release resume position and/or accumulated playback duration"
+  sceneReleaseResetActivity(id: ID!, reset_resume: Boolean, reset_duration: Boolean): Boolean!
+  "Create or replace a marker owned by a release"
+  sceneReleaseMarkerSave(input: SceneReleaseMarkerInput!): SceneMarker!
+  "Delete only a marker owned by this release"
+  sceneReleaseMarkerDestroy(release_id: ID!, marker_id: ID!): Boolean!
+  sceneReleaseNegativeMarkerSave(input: SceneReleaseNegativeMarkerInput!): SceneNegativeMarker!
+  sceneReleaseNegativeMarkerDestroy(release_id: ID!, marker_id: ID!): Boolean!
+  sceneReleaseLoopPresetSave(input: SceneReleaseLoopPresetInput!): MultiSegmentLoopPreset!
+  sceneReleaseLoopPresetDestroy(release_id: ID!, name: String!): Boolean!
+
   "Publish the current state of a player paired with the remote O page"
   remotePlaybackUpdate(input: RemotePlaybackStateInput!): RemotePlaybackState!
   "Remove a player session immediately instead of waiting for its heartbeat to expire"

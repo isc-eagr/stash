@@ -121,4 +121,5 @@ type TaskProgressTrackerWriter interface {
 type TaskProgressTrackerReaderWriter interface {
 	TaskProgressTrackerReader
 	TaskProgressTrackerWriter
+	TaskProgressMilestoneReaderWriter
 }

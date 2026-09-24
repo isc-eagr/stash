@@ -162,6 +162,9 @@ CREATE TABLE IF NOT EXISTS custom_schema_migrations (
 	if _, err := tx.ExecContext(ctx, taskProgressGoalHistoryTableSchemaCustom); err != nil {
 		return fmt.Errorf("creating task progress goal history schema: %w", err)
 	}
+	if _, err := tx.ExecContext(ctx, taskProgressMilestoneSchemaCustom); err != nil { // CUSTOM
+		return fmt.Errorf("creating task progress milestone schema: %w", err)
+	}
 	if err := ensureTaskProgressGoalHistoryCustom(ctx, tx); err != nil {
 		return err
 	}

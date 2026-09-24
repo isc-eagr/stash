@@ -11,8 +11,10 @@ import (
 func (s *Server) getSceneReleaseRoutes() chi.Router {
 	repo := s.manager.Repository
 	return sceneReleaseRoutes{
-		routes:        routes{txnManager: repo.TxnManager},
-		releaseFinder: repo.SceneRelease,
+		routes:            routes{txnManager: repo.TxnManager},
+		releaseFinder:     repo.SceneRelease,
+		sceneMarkerFinder: repo.SceneMarker, // CUSTOM
+		captionFinder:     repo.File,        // CUSTOM
 	}.Routes()
 }
 

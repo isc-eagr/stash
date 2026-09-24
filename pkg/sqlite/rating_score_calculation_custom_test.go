@@ -36,6 +36,16 @@ func TestCanonicalRatingScoreContributionUsesCurrentScales(t *testing.T) {
 			expected: 3,
 		},
 		{
+			name: "group top lineup attractiveness",
+			row: ratingScoreRow{
+				EntityType: models.RatingEntityScene,
+				Section:    models.RatingScoreSectionCriterion,
+				Key:        "groupTopAttractiveness",
+				RawValue:   5,
+			},
+			expected: 3,
+		},
+		{
 			name: "group energy coordination",
 			row: ratingScoreRow{
 				EntityType: models.RatingEntityScene,
@@ -43,7 +53,7 @@ func TestCanonicalRatingScoreContributionUsesCurrentScales(t *testing.T) {
 				Key:        "groupEnergy",
 				RawValue:   5,
 			},
-			expected: 4,
+			expected: 3,
 		},
 		{
 			name: "bonus uses raw contribution",

@@ -824,36 +824,20 @@ func (qb *SceneStore) GetManyFileIDs(ctx context.Context, ids []int) ([][]models
 }
 
 func (qb *SceneStore) FindByFileID(ctx context.Context, fileID models.FileID) ([]*models.Scene, error) {
-	// CUSTOM: First check scenes_files table
-	sq := dialect.From(scenesFilesJoinTable).Select(scenesFilesJoinTable.Col(sceneIDColumn)).Where(
-		scenesFilesJoinTable.Col(fileIDColumn).Eq(fileID),
-	)
-
-	ret, err := qb.findBySubquery(ctx, sq)
-	if err != nil {
-		return nil, fmt.Errorf("getting scenes by file id %d: %w", fileID, err)
+	// CUSTOM: begin - collect every distinct family, even when one owner is
+	// direct and another is a release. Deletion relies on this complete set.
+	const query = `SELECT scene_id FROM scenes_files WHERE file_id = ?
+		UNION SELECT r.scene_id FROM scene_release_files rf
+		JOIN scene_releases r ON r.id = rf.release_id WHERE rf.file_id = ?`
+	var ids []int
+	if err := dbWrapper.Select(ctx, &ids, query, fileID, fileID); err != nil {
+		return nil, fmt.Errorf("getting scene families for file %d: %w", fileID, err)
 	}
-
-	// CUSTOM: Also check scene_release_files table - if a file is part of a release, return the parent scene
-	if len(ret) > 0 {
-		return ret, nil
+	if len(ids) == 0 {
+		return nil, nil
 	}
-
-	releaseFilesTable := goqu.T("scene_release_files")
-	releasesTable := goqu.T("scene_releases")
-
-	sqReleases := dialect.From(releaseFilesTable).
-		Select(releasesTable.Col("scene_id")).
-		InnerJoin(releasesTable, goqu.On(releaseFilesTable.Col("release_id").Eq(releasesTable.Col("id")))).
-		Where(releaseFilesTable.Col("file_id").Eq(fileID))
-
-	ret, err = qb.findBySubquery(ctx, sqReleases)
-	if err != nil {
-		return nil, fmt.Errorf("getting scenes by release file id %d: %w", fileID, err)
-	}
-	// END CUSTOM
-
-	return ret, nil
+	return qb.FindMany(ctx, ids)
+	// CUSTOM: end
 }
 
 func (qb *SceneStore) FindByPrimaryFileID(ctx context.Context, fileID models.FileID) ([]*models.Scene, error) {
@@ -965,16 +949,15 @@ func (qb *SceneStore) FindByPerformerID(ctx context.Context, performerID int) ([
 }
 
 func (qb *SceneStore) FindByGalleryID(ctx context.Context, galleryID int) ([]*models.Scene, error) {
-	sq := dialect.From(galleriesScenesJoinTable).Select(galleriesScenesJoinTable.Col(sceneIDColumn)).Where(
-		galleriesScenesJoinTable.Col(galleryIDColumn).Eq(galleryID),
-	)
-	ret, err := qb.findBySubquery(ctx, sq)
-
+	// CUSTOM: gallery links from releases belong to their parent scene too.
+	ids, err := qb.repo.Gallery.GetSceneIDs(ctx, galleryID)
 	if err != nil {
 		return nil, fmt.Errorf("getting scenes for gallery %d: %w", galleryID, err)
 	}
-
-	return ret, nil
+	if len(ids) == 0 {
+		return []*models.Scene{}, nil
+	}
+	return qb.FindByIDs(ctx, ids)
 }
 
 func (qb *SceneStore) CountByPerformerID(ctx context.Context, performerID int) (int, error) {
@@ -985,6 +968,7 @@ func (qb *SceneStore) CountByPerformerID(ctx context.Context, performerID int) (
 }
 
 func (qb *SceneStore) OCountByPerformerID(ctx context.Context, performerID int) (int, error) {
+	// CUSTOM: release O events count for the release's own cast.
 	table := qb.table()
 	joinTable := scenesPerformersJoinTable
 	oHistoryTable := goqu.T(scenesODatesTable)
@@ -1003,6 +987,17 @@ func (qb *SceneStore) OCountByPerformerID(ctx context.Context, performerID int) 
 	if err := querySimple(ctx, q, &ret); err != nil {
 		return 0, err
 	}
+	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_o_dates") // CUSTOM
+	if err != nil { // CUSTOM
+		return 0, err // CUSTOM
+	} // CUSTOM
+	if exists { // CUSTOM
+		var releaseCount int // CUSTOM
+		if err := dbWrapper.Get(ctx, &releaseCount, `SELECT COUNT(*) FROM scene_release_o_dates o JOIN scene_release_performers p ON p.release_id = o.release_id WHERE p.performer_id = ?`, performerID); err != nil { // CUSTOM
+			return 0, err // CUSTOM
+		} // CUSTOM
+		ret += releaseCount // CUSTOM
+	} // CUSTOM
 
 	return ret, nil
 }
@@ -1130,6 +1125,7 @@ func (qb *SceneStore) Duration(ctx context.Context) (float64, error) {
 }
 
 func (qb *SceneStore) PlayDuration(ctx context.Context) (float64, error) {
+	// CUSTOM: include release-owned playback in the library-wide duration.
 	table := qb.table()
 
 	q := dialect.Select(goqu.COALESCE(goqu.SUM("play_duration"), 0)).From(table)
@@ -1138,6 +1134,17 @@ func (qb *SceneStore) PlayDuration(ctx context.Context) (float64, error) {
 	if err := querySimple(ctx, q, &ret); err != nil {
 		return 0, err
 	}
+	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_metadata") // CUSTOM
+	if err != nil { // CUSTOM
+		return 0, err // CUSTOM
+	} // CUSTOM
+	if exists { // CUSTOM
+		var releaseDuration float64 // CUSTOM
+		if err := dbWrapper.Get(ctx, &releaseDuration, `SELECT COALESCE(SUM(play_duration),0) FROM scene_release_metadata`); err != nil { // CUSTOM
+			return 0, err // CUSTOM
+		} // CUSTOM
+		ret += releaseDuration // CUSTOM
+	} // CUSTOM
 
 	return ret, nil
 }
@@ -1518,14 +1525,7 @@ func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindF
 			fallback = "9223372036854775807"
 		}
 		// CUSTOM: Use effective_date (min of scene date and release dates) for age calculation
-		effectiveDateExpr := fmt.Sprintf(
-			`COALESCE(
-				MIN(COALESCE(%s.date, '9999-12-31'), COALESCE((SELECT MIN(date) FROM %s WHERE scene_id = %s.id), '9999-12-31')),
-				%s.date,
-				(SELECT MIN(date) FROM %s WHERE scene_id = %s.id)
-			)`,
-			sceneTable, sceneReleaseTable, sceneTable, sceneTable, sceneReleaseTable, sceneTable,
-		)
+		effectiveDateExpr := EffectiveSceneDateSQLCustom(sceneTable)
 		query.sortAndPagination += fmt.Sprintf(
 			" ORDER BY (SELECT COALESCE(%s(JulianDay(%s) - JulianDay(performers.birthdate)), %s) FROM %s as performers INNER JOIN %s AS aggregation WHERE performers.id = aggregation.%s AND aggregation.%s = %s.id) %s",
 			aggregation,
@@ -1544,14 +1544,7 @@ func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindF
 	case "effective_date": // CUSTOM
 		// Sort by the earliest date among scene.date and release dates
 		// Use a subquery to compute the minimum
-		effectiveDateExpr := fmt.Sprintf(
-			`COALESCE(
-				MIN(COALESCE(%s.date, '9999-12-31'), COALESCE((SELECT MIN(date) FROM %s WHERE scene_id = %s.id), '9999-12-31')),
-				%s.date,
-				(SELECT MIN(date) FROM %s WHERE scene_id = %s.id)
-			)`,
-			sceneTable, sceneReleaseTable, sceneTable, sceneTable, sceneReleaseTable, sceneTable,
-		)
+		effectiveDateExpr := EffectiveSceneDateSQLCustom(sceneTable)
 		query.sortAndPagination += fmt.Sprintf(" ORDER BY %s %s", effectiveDateExpr, getSortDirection(direction))
 		// END CUSTOM
 	case "sex_activity_percent": // CUSTOM

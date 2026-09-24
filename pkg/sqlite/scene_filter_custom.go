@@ -26,17 +26,19 @@ func (qb *sceneFilterHandler) effectiveDateCriterionHandler(effectiveDate *model
 			return
 		}
 
-		// Compute effective_date as the minimum of scene.date and all release dates
-		// Using a subquery: COALESCE(MIN(scene.date, (SELECT MIN(date) FROM scene_releases WHERE scene_id = scenes.id)), scene.date, (SELECT MIN(date) FROM scene_releases WHERE scene_id = scenes.id))
-		effectiveDateExpr := fmt.Sprintf(`COALESCE(
-			MIN(COALESCE(%s.date, '9999-12-31'), COALESCE((SELECT MIN(date) FROM %s WHERE scene_id = %s.id), '9999-12-31')),
-			%s.date,
-			(SELECT MIN(date) FROM %s WHERE scene_id = %s.id)
-		)`, sceneTable, sceneReleaseTable, sceneTable, sceneTable, sceneReleaseTable, sceneTable)
+		effectiveDateExpr := EffectiveSceneDateSQLCustom(sceneTable)
 
 		clause, args := getDateCriterionWhereClause(effectiveDateExpr, *effectiveDate)
 		f.addWhere(clause, args...)
 	}
+}
+
+// EffectiveSceneDateSQLCustom keeps undated scene families NULL while returning
+// the earliest actual scene or release date. Alias must be a trusted SQL name.
+func EffectiveSceneDateSQLCustom(sceneAlias string) string {
+	releaseDate := fmt.Sprintf("(SELECT MIN(date) FROM %s WHERE scene_id = %s.id)", sceneReleaseTable, sceneAlias)
+	return fmt.Sprintf("CASE WHEN %s.date IS NULL THEN %s WHEN %s IS NULL THEN %s.date ELSE MIN(%s.date, %s) END",
+		sceneAlias, releaseDate, releaseDate, sceneAlias, sceneAlias, releaseDate)
 }
 
 func (qb *sceneFilterHandler) hasMarkerPerformersCriterionHandler(hasMarkerPerformers *string) criterionHandlerFunc {

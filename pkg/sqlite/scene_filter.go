@@ -214,11 +214,11 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		},
 
 		&relatedFilterHandler{
-			relatedIDCol:   "scenes_galleries.gallery_id",
+			relatedIDCol:   "scene_all_galleries_custom.gallery_id", // CUSTOM
 			relatedRepo:    galleryRepository.repository,
 			relatedHandler: &galleryFilterHandler{sceneFilter.GalleriesFilter},
 			joinFn: func(f *filterBuilder) {
-				sceneRepository.galleries.innerJoin(f, "", "scenes.id")
+				f.addInnerJoin("scene_all_galleries_custom", "", "scene_all_galleries_custom.scene_id = scenes.id") // CUSTOM
 			},
 		},
 
@@ -641,10 +641,10 @@ func (qb *sceneFilterHandler) groupsCriterionHandler(groups *models.Hierarchical
 
 func (qb *sceneFilterHandler) galleriesCriterionHandler(galleries *models.MultiCriterionInput) criterionHandlerFunc {
 	addJoinsFunc := func(f *filterBuilder) {
-		sceneRepository.galleries.join(f, "", "scenes.id")
-		f.addLeftJoin("galleries", "", "scenes_galleries.gallery_id = galleries.id")
+		f.addLeftJoin("scene_all_galleries_custom", "", "scene_all_galleries_custom.scene_id = scenes.id") // CUSTOM
+		f.addLeftJoin("galleries", "", "scene_all_galleries_custom.gallery_id = galleries.id")       // CUSTOM
 	}
-	h := qb.getMultiCriterionHandlerBuilder(galleryTable, scenesGalleriesTable, "gallery_id", addJoinsFunc)
+	h := qb.getMultiCriterionHandlerBuilder(galleryTable, "scene_all_galleries_custom", "gallery_id", addJoinsFunc) // CUSTOM
 	return h.handler(galleries)
 }
 

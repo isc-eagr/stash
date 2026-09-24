@@ -1,0 +1,20 @@
+# CUSTOM
+mutation TaskProgressMilestoneCreate(
+  $input: TaskProgressMilestoneCreateInput!
+) {
+  taskProgressMilestoneCreate(input: $input) {
+    ...TaskProgressMilestoneData
+  }
+}
+
+mutation TaskProgressMilestoneUpdate(
+  $input: TaskProgressMilestoneUpdateInput!
+) {
+  taskProgressMilestoneUpdate(input: $input) {
+    ...TaskProgressMilestoneData
+  }
+}
+
+mutation TaskProgressMilestoneDestroy($id: ID!) {
+  taskProgressMilestoneDestroy(id: $id)
+}

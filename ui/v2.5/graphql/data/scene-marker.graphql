@@ -1,5 +1,6 @@
 fragment SceneMarkerData on SceneMarker {
   id
+  release_id # CUSTOM
   created_at # CUSTOM: active sort metric on marker cards
   updated_at # CUSTOM: active sort metric on marker cards
   title

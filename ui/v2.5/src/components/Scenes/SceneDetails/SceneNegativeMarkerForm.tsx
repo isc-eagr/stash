@@ -1,5 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react"; // CUSTOM
-import { Alert, Button, Col, Form, Row } from "react-bootstrap"; // CUSTOM
+import {
+  Alert,
+  Button,
+  Col,
+  Dropdown,
+  DropdownButton,
+  Form,
+  Row,
+} from "react-bootstrap"; // CUSTOM
 import { FormattedMessage, useIntl } from "react-intl";
 import { useFormik } from "formik";
 import * as yup from "yup";
@@ -671,11 +679,16 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
             </Button>
           )}
         </div>
-        {/* CUSTOM: begin - adjacent regular and negative marker actions */}
-        <div className="d-flex flex-wrap mt-2 scene-marker-sequential-actions">
-          <Button
-            variant="secondary"
-            type="button"
+        {/* CUSTOM: begin - keep specialized marker actions in one compact menu */}
+        <DropdownButton
+          drop="up"
+          size="sm"
+          variant="secondary"
+          title="Marker actions"
+          className="mt-2 scene-marker-sequential-actions"
+        >
+          <Dropdown.Header>Continue after this marker</Dropdown.Header>
+          <Dropdown.Item
             disabled={
               formik.isSubmitting ||
               !hasSequentialMarkerEnd(formik.values.end_seconds)
@@ -683,11 +696,8 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
             onClick={() => void onSaveAndAddNextMarker()}
           >
             Save &amp; Add Next Marker
-          </Button>
-          <Button
-            variant="secondary"
-            type="button"
-            className="ml-2"
+          </Dropdown.Item>
+          <Dropdown.Item
             disabled={
               formik.isSubmitting ||
               !hasSequentialMarkerEnd(formik.values.end_seconds)
@@ -695,8 +705,8 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
             onClick={() => void onSaveAndAddNextNegativeMarker()}
           >
             Save &amp; Add Next Negative Marker
-          </Button>
-        </div>
+          </Dropdown.Item>
+        </DropdownButton>
         {/* CUSTOM: end */}
       </div>
     </Form>

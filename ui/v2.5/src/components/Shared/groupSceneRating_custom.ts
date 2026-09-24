@@ -4,8 +4,8 @@ export type SceneRatingModeCustom = "default" | "solo" | "group";
 export const GROUP_SCENE_MIN_PERFORMERS_CUSTOM = 4;
 
 export const GROUP_SCENE_WEIGHTS_CUSTOM = {
-  topAttractiveness: 0.4,
-  energyCoordination: 0.8,
+  topAttractiveness: 0.6,
+  energyCoordination: 0.6,
   payoff: 0.5,
   usability: 0.5,
 } as const;

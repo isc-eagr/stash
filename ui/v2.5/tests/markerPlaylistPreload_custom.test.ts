@@ -59,3 +59,21 @@ assert.equal(
   false,
   "a different marker in the same scene still requires a new seek"
 );
+
+// CUSTOM: a release's stream differs from its parent and sibling releases.
+const releaseMarkers = [
+  { id: "1", sceneId: "scene-a" },
+  { id: "2", sceneId: "scene-a", releaseId: "release-a" },
+  { id: "3", sceneId: "scene-a", releaseId: "release-a" },
+  { id: "4", sceneId: "scene-a", releaseId: "release-b" },
+];
+assert.equal(getNextSceneMarkerIndexCustom(releaseMarkers, 0, true, null), 1);
+assert.equal(getNextSceneMarkerIndexCustom(releaseMarkers, 1, true, null), 3);
+assert.equal(
+  markerPreloadMatchesCustom(
+    { markerId: "2", sceneId: "scene-a", releaseId: "release-b" },
+    releaseMarkers[1]
+  ),
+  false,
+  "a prepared slot from another release must not be reused"
+);

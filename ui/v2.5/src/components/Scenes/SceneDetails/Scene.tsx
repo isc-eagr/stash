@@ -43,8 +43,15 @@ import {
 import { useRemotePlayerCustom } from "src/components/RemoteO/useRemotePlayer_custom"; // CUSTOM
 import type { PlaybackSnapshot } from "src/components/RemoteO/remotePlayback_custom"; // CUSTOM
 import { formatORecordedToastCustom } from "../oRecordToast_custom"; // CUSTOM
+import {
+  useSceneReleaseAddPlayCustom,
+  useSceneReleaseRecordOCustom,
+} from "../sceneReleaseActivity_custom"; // CUSTOM
 import { shouldEnableSceneOHotkeyCustom } from "./sceneOHotkeyPreference_custom"; // CUSTOM
 import { SceneMarkerDock } from "./SceneMarkerDock_custom"; // CUSTOM
+import { SceneReleaseMarkersCustom } from "./SceneReleaseMarkers_custom"; // CUSTOM
+import { SceneReleaseFileInfoCustom } from "./SceneReleaseFileInfo_custom"; // CUSTOM
+import { getSceneReleasePlaybackContextCustom } from "./sceneReleasePlaybackContext_custom"; // CUSTOM
 import {
   faEllipsisV,
   faChevronRight,
@@ -249,6 +256,10 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     remotePlayer, // CUSTOM
   } = props;
 
+  const activeRelease = activeReleaseId
+    ? scene.releases.find((release) => release.id === activeReleaseId)
+    : undefined; // CUSTOM
+
   const Toast = useToast();
   const intl = useIntl();
   const history = useHistory();
@@ -266,10 +277,16 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
   const [incrementO] = useSceneIncrementO(scene.id);
   const [recordOAtTimestamp] = useSceneRecordOAtTimestamp(scene.id); // CUSTOM
+  const [recordReleaseOAtTimestamp] = useSceneReleaseRecordOCustom(); // CUSTOM
 
   const [incrementPlay] = useSceneIncrementPlayCount();
+  const [incrementReleasePlay] = useSceneReleaseAddPlayCustom(); // CUSTOM
 
   function incrementPlayCount() {
+    if (activeReleaseId) {
+      incrementReleasePlay({ variables: { id: activeReleaseId } });
+      return;
+    }
     incrementPlay({
       variables: {
         id: scene.id,
@@ -298,6 +315,16 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const onIncrementOClick = async () => {
     try {
       const playerPos = getPlayerPosition();
+      if (activeReleaseId) {
+        await recordReleaseOAtTimestamp({
+          variables: {
+            id: activeReleaseId,
+            video_timestamp: playerPos ?? 0,
+          },
+        });
+        Toast.success(formatORecordedToastCustom(playerPos));
+        return;
+      }
       if (playerPos !== undefined) {
         await recordOAtTimestamp({
           variables: { id: scene.id, video_timestamp: playerPos },
@@ -673,7 +700,15 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             <Nav.Item>
               <Nav.Link eventKey="scene-negative-markers-panel">
                 <FormattedMessage id="negative_markers" defaultMessage="Skip" />
-                <Counter count={scene.negative_markers?.length ?? 0} hideZero />
+                <Counter
+                  count={
+                    activeRelease?.negative_markers.length ??
+                    scene.negative_markers?.length ??
+                    0
+                  }
+                  hideZero
+                />{" "}
+                {/* CUSTOM */}
               </Nav.Link>
             </Nav.Item>
             {/* CUSTOM: end */}
@@ -715,7 +750,12 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             <Nav.Item>
               <Nav.Link eventKey="scene-file-info-panel">
                 <FormattedMessage id="file_info" />
-                <Counter count={scene.files.length} hideZero hideOne />
+                <Counter
+                  count={activeRelease?.files.length ?? scene.files.length}
+                  hideZero
+                  hideOne
+                />{" "}
+                {/* CUSTOM */}
               </Nav.Link>
             </Nav.Item>
             <Nav.Item>
@@ -780,24 +820,56 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             />
           </Tab.Pane>
           <Tab.Pane eventKey="scene-markers-panel">
-            {/* CUSTOM: keep the same panel mounted in either placement */}
-            <SceneMarkerDock
-              target={props.markerDockTarget}
-              isVisible={activeTabKey === "scene-markers-panel"}
-              collapsed={collapsed}
-            >
-              <SceneMarkersPanel
-                sceneId={scene.id}
-                onClickMarker={onClickMarker}
+            {/* CUSTOM: release markers use the selected owner's media */}
+            {activeRelease ? (
+              <SceneReleaseMarkersCustom
+                key={`${activeRelease.id}-markers`} // CUSTOM: reset editor when owner changes
+                release={activeRelease}
+                kind="markers"
+                onSeek={setTimestamp}
+              />
+            ) : (
+              <SceneMarkerDock
+                target={props.markerDockTarget}
                 isVisible={activeTabKey === "scene-markers-panel"}
-                addMultiSegmentLoopSegments={addMultiSegmentLoopSegments} // CUSTOM
-                currentTimestamp={currentTimestamp} // CUSTOM
-                focusedMarkerRequest={scrubberMarkerFocusRequest} // CUSTOM
-                onFocusedMarkerHandled={onScrubberMarkerFocusHandled} // CUSTOM
-                createMarkerRequest={sequentialMarkerCreateRequest} // CUSTOM
-                onCreateMarkerRequestHandled={
-                  onSequentialMarkerCreateRequestHandled
-                } // CUSTOM
+                collapsed={collapsed}
+              >
+                <SceneMarkersPanel
+                  sceneId={scene.id}
+                  onClickMarker={onClickMarker}
+                  isVisible={activeTabKey === "scene-markers-panel"}
+                  addMultiSegmentLoopSegments={addMultiSegmentLoopSegments} // CUSTOM
+                  currentTimestamp={currentTimestamp} // CUSTOM
+                  focusedMarkerRequest={scrubberMarkerFocusRequest} // CUSTOM
+                  onFocusedMarkerHandled={onScrubberMarkerFocusHandled} // CUSTOM
+                  createMarkerRequest={sequentialMarkerCreateRequest} // CUSTOM
+                  onCreateMarkerRequestHandled={
+                    onSequentialMarkerCreateRequestHandled
+                  } // CUSTOM
+                  markerTimestampCopyRequest={markerTimestampCopyRequest} // CUSTOM
+                  markerTimestampCopySelection={markerTimestampCopySelection} // CUSTOM
+                  onMarkerTimestampCopyRequest={onMarkerTimestampCopyRequest} // CUSTOM
+                  onMarkerTimestampCopySelectionHandled={
+                    onMarkerTimestampCopySelectionHandled
+                  } // CUSTOM
+                />
+              </SceneMarkerDock>
+            )}
+          </Tab.Pane>
+          {/* CUSTOM: begin - negative markers pane */}
+          <Tab.Pane eventKey="scene-negative-markers-panel">
+            {activeRelease ? (
+              <SceneReleaseMarkersCustom
+                key={`${activeRelease.id}-negative`} // CUSTOM: reset editor when owner changes
+                release={activeRelease}
+                kind="negative"
+                onSeek={setTimestamp}
+              />
+            ) : (
+              <SceneNegativeMarkersPanel
+                scene={scene}
+                isVisible={activeTabKey === "scene-negative-markers-panel"}
+                onAddNextMarker={onAddNextMarkerFromNegativeMarker} // CUSTOM
                 markerTimestampCopyRequest={markerTimestampCopyRequest} // CUSTOM
                 markerTimestampCopySelection={markerTimestampCopySelection} // CUSTOM
                 onMarkerTimestampCopyRequest={onMarkerTimestampCopyRequest} // CUSTOM
@@ -805,21 +877,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                   onMarkerTimestampCopySelectionHandled
                 } // CUSTOM
               />
-            </SceneMarkerDock>
-          </Tab.Pane>
-          {/* CUSTOM: begin - negative markers pane */}
-          <Tab.Pane eventKey="scene-negative-markers-panel">
-            <SceneNegativeMarkersPanel
-              scene={scene}
-              isVisible={activeTabKey === "scene-negative-markers-panel"}
-              onAddNextMarker={onAddNextMarkerFromNegativeMarker} // CUSTOM
-              markerTimestampCopyRequest={markerTimestampCopyRequest} // CUSTOM
-              markerTimestampCopySelection={markerTimestampCopySelection} // CUSTOM
-              onMarkerTimestampCopyRequest={onMarkerTimestampCopyRequest} // CUSTOM
-              onMarkerTimestampCopySelectionHandled={
-                onMarkerTimestampCopySelectionHandled
-              } // CUSTOM
-            />
+            )}
           </Tab.Pane>
           {/* CUSTOM: end */}
           <Tab.Pane eventKey="scene-group-panel">
@@ -850,7 +908,12 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             className="file-info-panel"
             eventKey="scene-file-info-panel"
           >
-            <SceneFileInfoPanel scene={scene} remotePlayer={remotePlayer} />
+            {activeRelease ? (
+              <SceneReleaseFileInfoCustom release={activeRelease} />
+            ) : (
+              <SceneFileInfoPanel scene={scene} remotePlayer={remotePlayer} />
+            )}{" "}
+            {/* CUSTOM */}
           </Tab.Pane>
           <Tab.Pane eventKey="scene-edit-panel" mountOnEnter>
             <SceneEditPanel
@@ -861,7 +924,8 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             />
           </Tab.Pane>
           <Tab.Pane eventKey="scene-history-panel">
-            <SceneHistoryPanel scene={scene} />
+            <SceneHistoryPanel scene={scene} release={activeRelease} />{" "}
+            {/* CUSTOM */}
           </Tab.Pane>
           {/* CUSTOM: begin - stats pane */}
           <Tab.Pane eventKey="scene-stats-panel">
@@ -1012,13 +1076,25 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               </span>
               <span>
                 <ViewCountButton
-                  value={scene.play_count ?? 0}
+                  value={
+                    activeReleaseId
+                      ? scene.releases?.find(
+                          (release) => release.id === activeReleaseId
+                        )?.play_history.length ?? 0
+                      : scene.play_count ?? 0
+                  }
                   onIncrement={() => incrementPlayCount()}
                 />
               </span>
               <span>
                 <OCounterButton
-                  value={scene.o_counter ?? 0}
+                  value={
+                    activeReleaseId
+                      ? scene.releases?.find(
+                          (release) => release.id === activeReleaseId
+                        )?.o_history.length ?? 0
+                      : scene.o_counter ?? 0
+                  }
                   onIncrement={() => onIncrementOClick()}
                 />
               </span>
@@ -1170,41 +1246,48 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
 
   // CUSTOM: begin - active release playback state
   // State for active release playback
-  const [activeReleaseId, setActiveReleaseId] = useState<string | null>(null);
+  const requestedReleaseId = queryParams.get("release");
+  const activeReleaseId =
+    scene?.id === id &&
+    scene.releases?.some(
+      (release) => release.id === requestedReleaseId && release.files.length > 0
+    )
+      ? requestedReleaseId
+      : null;
 
-  // Create a modified scene for player that uses release files and streams when a release is active
-  const sceneForPlayer = useMemo((): GQL.SceneDataFragment | undefined => {
-    if (!scene) {
-      return undefined;
-    }
-    if (!activeReleaseId || !scene.releases) {
-      return scene;
-    }
+  const setActiveReleaseId = useCallback(
+    (releaseId: string | null) => {
+      const params = new URLSearchParams(location.search);
+      if (releaseId) params.set("release", releaseId);
+      else params.delete("release");
+      history.replace({ ...location, search: params.toString() });
+    },
+    [history, location]
+  );
 
-    const activeRelease = scene.releases.find((r) => r.id === activeReleaseId);
-    if (
-      !activeRelease ||
-      !activeRelease.files ||
-      activeRelease.files.length === 0
-    ) {
-      return scene;
+  useEffect(() => {
+    if (scene?.id === id && requestedReleaseId && !activeReleaseId) {
+      setActiveReleaseId(null);
     }
+  }, [scene, id, requestedReleaseId, activeReleaseId, setActiveReleaseId]);
 
-    // Swap the scene files and streams with release files and streams
-    return {
-      ...scene,
-      files: activeRelease.files,
-      sceneStreams: activeRelease.streams,
-    };
-  }, [scene, activeReleaseId]);
+  // CUSTOM: select an explicit owner before exposing media to the player.
+  const playbackContext = useMemo(
+    () => scene && getSceneReleasePlaybackContextCustom(scene, activeReleaseId),
+    [scene, activeReleaseId]
+  );
+  const sceneForPlayer = playbackContext?.scene;
   // CUSTOM: end
 
   // CUSTOM: keep the remote publisher beside the player, while its pairing
   // control lives in the File Info panel so it is easy to find later.
   const remotePlayerReady = useRef(false);
-  const onRemotePlayerReady = useCallback((ready: boolean) => {
-    remotePlayerReady.current = ready;
-  }, []);
+  const onRemotePlayerReady = useCallback(
+    (ready: boolean) => {
+      remotePlayerReady.current = ready && !activeReleaseId;
+    },
+    [activeReleaseId]
+  );
   const remotePlayer = useRemotePlayerCustom(
     `${sceneForPlayer?.id ?? id}-${sceneForPlayer?.files[0]?.id ?? ""}`,
     (): PlaybackSnapshot | undefined => {
@@ -1253,10 +1336,14 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
   }
 
   function addMultiSegmentLoopSegments(segments: ILoopSegmentInput[]) {
+    const selectedNegativeMarkers = activeReleaseId
+      ? scene?.releases?.find((release) => release.id === activeReleaseId)
+          ?.negative_markers
+      : scene?.negative_markers;
     _multiSegmentLoopApi.current?.addSegments(
       filterLoopSegmentsOutsideNegativeMarkers(
         segments,
-        scene?.negative_markers
+        selectedNegativeMarkers
       )
     );
   }
@@ -1427,6 +1514,10 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
       boundary?: SceneMarkerTimestampBoundary,
       sourceKind: SceneMarkerTimestampSourceKind = "scene-marker"
     ) => {
+      if (activeReleaseId) {
+        setTimestamp(seconds);
+        return;
+      }
       // CUSTOM: timestamp-copy mode consumes the marker click and leaves the
       // Create Marker form open instead of focusing the source marker card.
       if (markerTimestampCopyRequest) {
@@ -1469,7 +1560,12 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
         })
       );
     },
-    [markerTimestampCopyRequest, scene?.negative_markers, scene?.scene_markers]
+    [
+      activeReleaseId,
+      markerTimestampCopyRequest,
+      scene?.negative_markers,
+      scene?.scene_markers,
+    ]
   );
   // CUSTOM: end
 
@@ -1541,26 +1637,49 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
         markerDockTarget={markerDockTarget} // CUSTOM
       />
       <div className={`scene-player-container ${collapsed ? "expanded" : ""}`}>
-        <ScenePlayer
-          key={`ScenePlayer-${activeReleaseId || "main"}`} // CUSTOM: release-aware key
-          scene={sceneForPlayer!} // CUSTOM: sceneForPlayer
-          hideScrubberOverride={hideScrubber}
-          autoplay={autoplay}
-          permitLoop={!continuePlaylist}
-          initialTimestamp={initialTimestamp}
-          sendSetTimestamp={getSetTimestamp}
-          sendMultiSegmentLoopApi={getMultiSegmentLoopApi} // CUSTOM
-          onTimeChange={setCurrentTimestamp} // CUSTOM
-          onMarkerClick={onScenePlayerMarkerClick} // CUSTOM
-          onRemotePlayerReady={onRemotePlayerReady} // CUSTOM
-          markerTimestampCopyActive={!!markerTimestampCopyRequest} // CUSTOM
-          markerTimestampRangeCopyActive={
-            markerTimestampCopyRequest?.field === "range"
-          } // CUSTOM
-          onComplete={onComplete}
-          onNext={() => queueNext(true)}
-          onPrevious={() => queuePrevious(true)}
-        />
+        {activeReleaseId && (
+          <div className="text-center text-muted small py-1" role="status">
+            <FormattedMessage id="release" defaultMessage="Release" />:{" "}
+            {sceneForPlayer?.title || activeReleaseId}
+          </div>
+        )}
+        {activeReleaseId && !sceneForPlayer?.files.length ? (
+          <div className="text-center text-muted p-3" role="status">
+            This release has no video file.
+          </div>
+        ) : (
+          sceneForPlayer && (
+            <ScenePlayer
+              key={playbackContext?.ownerKey} // CUSTOM: reset media when owner or primary changes
+              scene={sceneForPlayer!} // CUSTOM: sceneForPlayer
+              playbackReleaseId={activeReleaseId ?? undefined} // CUSTOM
+              playbackPerformerIds={
+                activeReleaseId
+                  ? scene.releases
+                      .find((release) => release.id === activeReleaseId)
+                      ?.performers.map((performer) => performer.id)
+                  : undefined
+              } // CUSTOM
+              hideScrubberOverride={hideScrubber}
+              autoplay={autoplay}
+              permitLoop={!continuePlaylist}
+              initialTimestamp={initialTimestamp}
+              sendSetTimestamp={getSetTimestamp}
+              sendMultiSegmentLoopApi={getMultiSegmentLoopApi} // CUSTOM
+              addMultiSegmentLoopSegments={addMultiSegmentLoopSegments} // CUSTOM
+              onTimeChange={setCurrentTimestamp} // CUSTOM
+              onMarkerClick={onScenePlayerMarkerClick} // CUSTOM
+              onRemotePlayerReady={onRemotePlayerReady} // CUSTOM
+              markerTimestampCopyActive={!!markerTimestampCopyRequest} // CUSTOM
+              markerTimestampRangeCopyActive={
+                markerTimestampCopyRequest?.field === "range"
+              } // CUSTOM
+              onComplete={onComplete}
+              onNext={() => queueNext(true)}
+              onPrevious={() => queuePrevious(true)}
+            />
+          )
+        )}
       </div>
       {/* CUSTOM: full-width sibling leaves the player column unchanged */}
       <div className="scene-marker-dock-target" ref={setMarkerDockTarget} />

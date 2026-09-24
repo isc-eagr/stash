@@ -149,6 +149,8 @@ func TestStudioRatingAdvisorStatsCustomAveragesOnlySetCriteria(t *testing.T) {
 	require.InDelta(t, 3, topAttractiveness.AverageRawValue, 0.0001)
 	require.InDelta(t, 1.8, topAttractiveness.AverageWeightedValue, 0.0001)
 	require.InDelta(t, 60, topAttractiveness.AverageFillPercent, 0.0001)
+	groupEnergy := studioRatingAdvisorCriterionCustom(t, direct.GroupScenes, "groupEnergy")
+	require.InDelta(t, 2.4, groupEnergy.AverageWeightedValue, 0.0001)
 
 	chemistry := studioRatingAdvisorCriterionCustom(t, direct.SexScenes, "chemistry")
 	require.Equal(t, 1, chemistry.EntityCount)

@@ -1341,14 +1341,23 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     const performerSelectStyles = {
       menuPortal: (base: Record<string, unknown>) => ({
         ...base,
+        // CUSTOM: extend from the clicked control to the viewport edge.
+        right: 0,
+        width: "auto",
         zIndex: 9999,
+      }),
+      menu: (base: Record<string, unknown>) => ({
+        ...base,
+        // CUSTOM: grow from the clicked control, wrapping before the viewport edge.
+        left: 0,
+        maxWidth: "100%",
+        width: "max-content",
       }),
       menuList: (base: Record<string, unknown>) => ({
         ...base,
         display: "flex",
         flexWrap: "wrap" as const,
         gap: "0.75rem",
-        maxHeight: "28rem",
         padding: "0.75rem",
       }),
       option: (
@@ -1375,6 +1384,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       <div className="d-flex align-items-center">
         <Icon icon={faArrowUp} className="text-info mr-2" title="Top" />
         <div className="flex-grow-1">
+          {/* CUSTOM: use a content-sized menu within the visible viewport. */}
           <Select<IPerformerSelectOption, true>
             className="react-select scene-marker-form-performer-select"
             classNamePrefix="react-select"
@@ -1394,6 +1404,9 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
               id: "actions.select_performers",
             })}
             menuPortalTarget={document.body}
+            menuPosition="fixed"
+            minMenuHeight={390}
+            maxMenuHeight={448}
             menuPlacement="auto"
             styles={performerSelectStyles}
           />
@@ -1419,6 +1432,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       <div className="d-flex align-items-center">
         <Icon icon={faArrowDown} className="text-success mr-2" title="Bottom" />
         <div className="flex-grow-1">
+          {/* CUSTOM: use a content-sized menu within the visible viewport. */}
           <Select<IPerformerSelectOption, true>
             className="react-select scene-marker-form-performer-select"
             classNamePrefix="react-select"
@@ -1438,7 +1452,10 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
               id: "actions.select_performers",
             })}
             menuPortalTarget={document.body}
-            menuPlacement="top"
+            menuPosition="fixed"
+            minMenuHeight={390}
+            maxMenuHeight={448}
+            menuPlacement="auto"
             styles={performerSelectStyles}
           />
         </div>

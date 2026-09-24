@@ -4,6 +4,8 @@
 # See CUSTOM_FEATURES.md for documentation.
 
 extend type SceneMarker {
+  "Owning release, when this marker belongs to a scene release."
+  release_id: ID
   "Top performers associated with this marker (active/top role). Only performers assigned to the parent scene are selectable."
   top_performers: [Performer!]!
   "Bottom performers associated with this marker (passive/bottom role). Only performers assigned to the parent scene are selectable."

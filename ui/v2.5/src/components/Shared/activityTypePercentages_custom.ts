@@ -47,10 +47,22 @@ export function getPartitionPercentagesCustom<T extends string>(
   return result;
 }
 
-// CUSTOM: Allocate whole-number display percentages with the largest-remainder
-// method so the three classified activity types always add up to exactly 100.
+// CUSTOM: Activity types can overlap, so each percentage is calculated
+// independently against the union of classified activity time.
 export function getActivityTypePercentagesCustom(
-  durations: ActivityTypeDurationsCustom
+  durations: ActivityTypeDurationsCustom,
+  totalActivitySeconds: number
 ): ActivityTypeDurationsCustom {
-  return getPartitionPercentagesCustom(durations, activityTypeOrderCustom);
+  if (!Number.isFinite(totalActivitySeconds) || totalActivitySeconds <= 0) {
+    return { sex: 0, oral: 0, solo: 0 };
+  }
+
+  return Object.fromEntries(
+    activityTypeOrderCustom.map((key) => {
+      const duration = Number.isFinite(durations[key])
+        ? Math.max(0, durations[key])
+        : 0;
+      return [key, Math.round((duration / totalActivitySeconds) * 100)];
+    })
+  ) as ActivityTypeDurationsCustom;
 }

@@ -5,7 +5,6 @@ import { SceneStatsActivityMatrix } from "src/components/SceneStats/SceneStatsAc
 import { PerformerSceneRatingAdvisorStats } from "../PerformerSceneRatingAdvisor_custom"; // CUSTOM
 import { PerformerStatsBarChart } from "./PerformerStatsBarChart_custom"; // CUSTOM
 import type { IPerformerStatsBarRow } from "./PerformerStatsBarChart_custom"; // CUSTOM
-import { getActivityTypePercentagesCustom } from "src/components/Shared/activityTypePercentages_custom"; // CUSTOM
 
 interface IProps {
   active: boolean;
@@ -26,31 +25,27 @@ export const PerformerStatsPanel: React.FC<IProps> = ({
 }) => {
   const soloMarkerColor = ACTIVITY_PIE_COLORS.solo;
   const stats = performer.activity_stats;
-  const activityPercentages = getActivityTypePercentagesCustom({
-    sex: stats.sex_seconds,
-    oral: stats.oral_seconds,
-    solo: stats.solo_seconds,
-  });
+  // CUSTOM: backend percentages use union duration and may total over 100%.
   const activityRows: IPerformerStatsBarRow[] = [
     {
       key: "sex",
       label: activityLabels.sex,
       seconds: stats.sex_seconds,
-      percent: activityPercentages.sex,
+      percent: stats.sex_percent,
       color: ACTIVITY_PIE_COLORS.sex,
     },
     {
       key: "oral",
       label: activityLabels.oral,
       seconds: stats.oral_seconds,
-      percent: activityPercentages.oral,
+      percent: stats.oral_percent,
       color: ACTIVITY_PIE_COLORS.oral,
     },
     {
       key: "solo",
       label: activityLabels.solo,
       seconds: stats.solo_seconds,
-      percent: activityPercentages.solo,
+      percent: stats.solo_percent,
       color: soloMarkerColor,
     },
   ];

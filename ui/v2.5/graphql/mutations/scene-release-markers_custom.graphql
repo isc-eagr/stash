@@ -1,0 +1,44 @@
+mutation SceneReleaseMarkerSave($input: SceneReleaseMarkerInput!) {
+  sceneReleaseMarkerSave(input: $input) {
+    ...SceneMarkerData
+  }
+}
+
+mutation SceneReleaseMarkerDestroy($release_id: ID!, $marker_id: ID!) {
+  sceneReleaseMarkerDestroy(release_id: $release_id, marker_id: $marker_id)
+}
+
+mutation SceneReleaseNegativeMarkerSave(
+  $input: SceneReleaseNegativeMarkerInput!
+) {
+  sceneReleaseNegativeMarkerSave(input: $input) {
+    id
+    name
+    start_seconds
+    end_seconds
+  }
+}
+
+mutation SceneReleaseNegativeMarkerDestroy($release_id: ID!, $marker_id: ID!) {
+  sceneReleaseNegativeMarkerDestroy(
+    release_id: $release_id
+    marker_id: $marker_id
+  )
+}
+
+mutation SceneReleaseLoopPresetSave($input: SceneReleaseLoopPresetInput!) {
+  sceneReleaseLoopPresetSave(input: $input) {
+    id
+    name
+    enabled
+    current_segment_index
+    segments {
+      start
+      end
+    }
+  }
+}
+
+mutation SceneReleaseLoopPresetDestroy($release_id: ID!, $name: String!) {
+  sceneReleaseLoopPresetDestroy(release_id: $release_id, name: $name)
+}

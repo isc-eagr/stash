@@ -64,9 +64,9 @@ export const studioRatingAdvisorSectionDefinitions: ISectionDefinition[] = [
     criteria: {
       groupTopAttractiveness: {
         label: "Top Lineup Attractiveness",
-        max: 20,
+        max: 30,
       },
-      groupEnergy: { label: "Energy / coordination", max: 40 },
+      groupEnergy: { label: "Energy / coordination", max: 30 },
       groupPayoff: { label: "Orgasm Quality", max: 20 },
       groupUsability: { label: "Usability", max: 20 },
     },

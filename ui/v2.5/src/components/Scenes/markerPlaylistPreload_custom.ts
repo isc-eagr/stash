@@ -1,6 +1,7 @@
 export interface IMarkerPreloadCandidateCustom {
   id: string;
   sceneId: string;
+  releaseId?: string | null;
 }
 
 export function getNextSceneMarkerIndexCustom(
@@ -22,7 +23,10 @@ export function getNextSceneMarkerIndexCustom(
     }
 
     const wrappedIndex = candidateIndex % markers.length;
-    if (markers[wrappedIndex].sceneId !== currentMarker.sceneId) {
+    if (
+      markers[wrappedIndex].sceneId !== currentMarker.sceneId ||
+      markers[wrappedIndex].releaseId !== currentMarker.releaseId
+    ) {
       return wrappedIndex;
     }
   }
@@ -35,10 +39,15 @@ export function markerPreloadMatchesCustom(
     | {
         markerId: string;
         sceneId: string;
+        releaseId?: string | null;
       }
     | null
     | undefined,
   marker: IMarkerPreloadCandidateCustom
 ) {
-  return preload?.markerId === marker.id && preload.sceneId === marker.sceneId;
+  return (
+    preload?.markerId === marker.id &&
+    preload.sceneId === marker.sceneId &&
+    preload.releaseId === marker.releaseId
+  );
 }

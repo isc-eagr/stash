@@ -86,6 +86,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     seconds: number,
     boundary?: SceneMarkerTimestampBoundary
   ) => void; // CUSTOM
+  private onMarkerAddToLoop?: (marker: IMarker) => void; // CUSTOM
   private timestampCopyMode = false; // CUSTOM
   private timestampRangeCopyMode = false; // CUSTOM
 
@@ -146,6 +147,11 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     ) => void
   ) {
     this.onMarkerClick = onMarkerClick;
+  }
+
+  // CUSTOM: send the hovered scene marker through the scene page's loop action.
+  setOnMarkerAddToLoop(onMarkerAddToLoop?: (marker: IMarker) => void) {
+    this.onMarkerAddToLoop = onMarkerAddToLoop;
   }
 
   // CUSTOM: Show an exact-time picker while a marker form is waiting for a
@@ -437,7 +443,8 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     hoverPerformers?: IMarker["hover_performers"],
     ratingCardClass?: string,
     timestampSource?: ISceneMarkerTimestampSource,
-    cursorClientX?: number
+    cursorClientX?: number,
+    loopMarker?: IMarker // CUSTOM
   ) {
     if (!this.markerTooltip) return;
 
@@ -653,6 +660,26 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
           this.hideMarkerTooltip();
         }
       );
+      // CUSTOM: keep this action with the seek controls for ordinary markers.
+      if (loopMarker && this.onMarkerAddToLoop) {
+        const addToLoop = document.createElement("button");
+        addToLoop.type = "button";
+        addToLoop.className = "scene-marker-timeline-add-to-loop";
+        addToLoop.textContent = "Send Marker to Loop";
+        addToLoop.addEventListener("pointerdown", (event) =>
+          event.stopPropagation()
+        );
+        addToLoop.addEventListener("mousedown", (event) =>
+          event.stopPropagation()
+        );
+        addToLoop.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          this.onMarkerAddToLoop?.(loopMarker);
+          this.hideMarkerTooltip();
+        });
+        timestampPicker.appendChild(addToLoop);
+      }
       this.markerTooltip.appendChild(timestampPicker);
     }
     // CUSTOM: end
@@ -800,7 +827,8 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
         marker.hover_performers,
         marker.ratingCardClass,
         marker,
-        event.clientX
+        event.clientX,
+        marker // CUSTOM
       ); // CUSTOM: performer roles
       markerSet.dot?.toggleAttribute("marker-tooltip-shown", true);
     });
@@ -949,7 +977,8 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
         marker.hover_performers,
         marker.ratingCardClass,
         marker,
-        event.clientX
+        event.clientX,
+        marker // CUSTOM
       ); // CUSTOM: performer roles
       markerSet.range?.toggleAttribute("marker-tooltip-shown", true);
     });

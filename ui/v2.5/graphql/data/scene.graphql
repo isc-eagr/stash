@@ -150,7 +150,88 @@ fragment SceneReleaseData on SceneRelease {
   details
   director
   url
+  urls
   date
+  rating100
+  rating_scores {
+    id
+    section
+    key
+    raw_value
+    weighted_value
+    label
+  }
+  organized
+  resume_time
+  play_duration
+  interactive
+  interactive_speed
+  captions {
+    language_code
+    caption_type
+  }
+  performers {
+    id
+    name
+    alias_list
+    disambiguation
+    image_path
+    birthdate
+    death_date
+  }
+  tags {
+    ...SlimTagData
+    id
+    name
+    sort_name
+    aliases
+    image_path
+    stash_ids {
+      endpoint
+      stash_id
+      updated_at
+    }
+  }
+  groups {
+    scene_index
+    group {
+      ...SelectGroupData
+    }
+  }
+  stash_ids {
+    endpoint
+    stash_id
+    updated_at
+  }
+  custom_fields
+  play_history
+  o_history
+  o_timestamps
+  scene_markers {
+    ...SceneMarkerData
+  }
+  negative_markers {
+    id
+    scene_id
+    name
+    start_seconds
+    end_seconds
+    created_at
+    updated_at
+  }
+  multi_segment_loop_presets {
+    id
+    scene_id
+    name
+    enabled
+    current_segment_index
+    segments {
+      start
+      end
+    }
+    created_at
+    updated_at
+  }
   play_order
   created_at
   updated_at
@@ -159,6 +240,13 @@ fragment SceneReleaseData on SceneRelease {
   }
   paths {
     screenshot
+    preview
+    webp
+    vtt
+    sprite
+    funscript
+    interactive_heatmap
+    caption
   }
   files {
     ...VideoFileData

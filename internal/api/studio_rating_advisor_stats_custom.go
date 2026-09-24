@@ -113,8 +113,8 @@ var studioRatingAdvisorConfigsCustom = map[string]studioRatingAdvisorSectionConf
 	},
 	studioRatingAdvisorGroupScenesCustom: {
 		criteria: map[string]studioRatingAdvisorMetricConfigCustom{
-			"groupTopAttractiveness": studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(5), 0.4),
-			"groupEnergy":            studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(5), 0.8),
+			"groupTopAttractiveness": studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(5), 0.6),
+			"groupEnergy":            studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(5), 0.6),
 			"groupPayoff":            studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(4), 0.5),
 			"groupUsability":         studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(4), 0.5),
 		},

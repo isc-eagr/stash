@@ -1,0 +1,12 @@
+# CUSTOM
+query FindTaskProgressMilestones {
+  findTaskProgressMilestones {
+    ...TaskProgressMilestoneData
+  }
+}
+
+query TaskProgressMilestone($id: ID!) {
+  taskProgressMilestone(id: $id) {
+    ...TaskProgressMilestoneData
+  }
+}

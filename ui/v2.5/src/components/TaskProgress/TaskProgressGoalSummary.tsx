@@ -48,7 +48,9 @@ export const TaskProgressGoalSummary: React.FC<IProps> = ({
         const goal = goals[key];
         const state = hasDailyGoal
           ? taskProgressDailyGoalState(goal.completed, goal.goal)
-          : "green";
+          : goal.completed > 0
+          ? "green"
+          : "neutral"; // CUSTOM: Empty periods use the default white text color.
         const percentage =
           goal.goal > 0 ? Math.min(100, (goal.completed / goal.goal) * 100) : 0;
         const completed = Math.round(goal.completed);

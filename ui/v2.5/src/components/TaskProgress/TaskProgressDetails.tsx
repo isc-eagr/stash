@@ -114,7 +114,7 @@ export const TaskProgressDetails: React.FC<{
                         e.event_type === "COMPLETED"
                           ? "Completed"
                           : e.event_type === "INCOMING"
-                          ? "Incoming / reopened"
+                          ? "Added / reopened"
                           : "New baseline"
                       )
                     : t("Remaining")}

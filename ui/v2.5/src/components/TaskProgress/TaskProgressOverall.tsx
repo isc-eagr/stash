@@ -53,122 +53,123 @@ export const TaskProgressOverall: React.FC = () => {
     <>
       <Card className="progress-overall-card">
         <Card.Body>
-          <div className="progress-overall-heading">
-            <div>
-              <h3>{t("Overall Progress")}</h3>
-              <p>{t("Organized scenes")}</p>
-            </div>
-          </div>
-          {query.error && (
-            <Alert variant="warning">
-              {t("Could not refresh organized scenes.")}{" "}
-              <Button size="sm" onClick={() => void query.refetch()}>
-                {t("Retry")}
-              </Button>
-            </Alert>
-          )}
-          {total === undefined || done === undefined ? (
-            <p role="status">{t("Loading…")}</p>
-          ) : (
-            <>
-              <div className="progress-overall-hero">
-                <div className="progress-overall-summary">
-                  <span>
-                    <strong>
-                      <FormattedNumber value={done} />
-                    </strong>
-                    <small>{t("organized")}</small>
-                  </span>
-                  <span>
-                    <strong>
-                      <FormattedNumber value={remaining ?? 0} />
-                    </strong>
-                    <small>{t("remaining")}</small>
-                  </span>
-                  <span>
-                    <strong>
-                      <FormattedNumber value={total} />
-                    </strong>
-                    <small>{t("total")}</small>
-                  </span>
+          <div className="progress-card-visuals progress-overall-visuals">
+            <div className="progress-overall-overview">
+              <div className="progress-overall-heading">
+                <div>
+                  <h3>{t("Overall Progress")}</h3>
+                  <p>{t("Organized scenes")}</p>
                 </div>
-                <TaskProgressRing
-                  percentage={percentage}
-                  label={t("Complete")}
-                />
               </div>
-              {overall && (
-                <TaskProgressGoalSummary
-                  currentGoalPerDay={overall.goal_per_day}
-                  history={overall.history.map((day) => ({
-                    ...day,
-                    baselineCount: day.baseline_count ?? undefined,
-                    goalPerDay: day.goal_per_day,
-                  }))}
-                />
+              {query.error && (
+                <Alert variant="warning">
+                  {t("Could not refresh organized scenes.")}{" "}
+                  <Button size="sm" onClick={() => void query.refetch()}>
+                    {t("Retry")}
+                  </Button>
+                </Alert>
               )}
-            </>
-          )}
-          <div className="progress-overall-footer">
-            <Form.Group
-              controlId="overall-progress-rate"
-              className="progress-overall-goal-form"
-            >
-              <Form.Label>{t("Items per day")}</Form.Label>
-              <Form.Control
-                className="progress-plan-input"
-                type="number"
-                min={0}
-                max={1000000}
-                step={1}
-                value={rate || ""}
-                onChange={(e) => {
-                  const next = Math.max(
-                    0,
-                    Math.min(1000000, Math.floor(Number(e.target.value) || 0))
-                  );
-                  setRate(next);
-                }}
-              />
-              <Button
-                disabled={savingGoal || rate === (overall?.goal_per_day ?? 0)}
-                onClick={async () => {
-                  setSavingGoal(true);
-                  setGoalError(undefined);
-                  try {
-                    await updateGoal({
-                      variables: { goal_per_day: rate > 0 ? rate : null },
-                    });
-                    await query.refetch();
-                  } catch (error) {
-                    setGoalError(
-                      error instanceof Error ? error.message : String(error)
-                    );
-                  } finally {
-                    setSavingGoal(false);
-                  }
-                }}
-                size="sm"
-                variant="primary"
-              >
-                {t(savingGoal ? "Saving…" : "Save")}
-              </Button>
-            </Form.Group>
-            {due && (
-              <p className="progress-overall-plan">
-                <span>{t("Estimated finish")}</span>
-                <strong>{formatTaskProgressDate(due)}</strong>
-              </p>
+              {total === undefined || done === undefined ? (
+                <p role="status">{t("Loading…")}</p>
+              ) : (
+                <>
+                  <div className="progress-overall-summary">
+                    <span>
+                      <strong>
+                        <FormattedNumber value={done} />
+                      </strong>
+                      <small>{t("organized")}</small>
+                    </span>
+                    <span>
+                      <strong>
+                        <FormattedNumber value={remaining ?? 0} />
+                      </strong>
+                      <small>{t("remaining")}</small>
+                    </span>
+                    <span>
+                      <strong>
+                        <FormattedNumber value={total} />
+                      </strong>
+                      <small>{t("total")}</small>
+                    </span>
+                  </div>
+                  {overall && (
+                    <TaskProgressGoalSummary
+                      currentGoalPerDay={overall.goal_per_day}
+                      history={overall.history.map((day) => ({
+                        ...day,
+                        baselineCount: day.baseline_count ?? undefined,
+                        goalPerDay: day.goal_per_day,
+                      }))}
+                    />
+                  )}
+                </>
+              )}
+            </div>
+            {total !== undefined && done !== undefined && (
+              <TaskProgressRing percentage={percentage} label={t("Complete")} />
             )}
-            <div className="progress-overall-card-actions">
-              <Button
-                size="sm"
-                variant="primary"
-                disabled={!overall}
-                onClick={() => setShowDetails(true)}
+            <div className="progress-overall-footer">
+              <div className="progress-overall-card-actions">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  disabled={!overall}
+                  onClick={() => setShowDetails(true)}
+                >
+                  {t("Details")}
+                </Button>
+              </div>
+              <Form.Group
+                controlId="overall-progress-rate"
+                className="progress-overall-goal-form"
               >
-                {t("Details")}
-              </Button>
+                <Form.Label>{t("Items per day")}</Form.Label>
+                <Form.Control
+                  className="progress-plan-input"
+                  type="number"
+                  min={0}
+                  max={1000000}
+                  step={1}
+                  value={rate || ""}
+                  onChange={(e) => {
+                    const next = Math.max(
+                      0,
+                      Math.min(1000000, Math.floor(Number(e.target.value) || 0))
+                    );
+                    setRate(next);
+                  }}
+                />
+                <Button
+                  disabled={savingGoal || rate === (overall?.goal_per_day ?? 0)}
+                  onClick={async () => {
+                    setSavingGoal(true);
+                    setGoalError(undefined);
+                    try {
+                      await updateGoal({
+                        variables: { goal_per_day: rate > 0 ? rate : null },
+                      });
+                      await query.refetch();
+                    } catch (error) {
+                      setGoalError(
+                        error instanceof Error ? error.message : String(error)
+                      );
+                    } finally {
+                      setSavingGoal(false);
+                    }
+                  }}
+                  size="sm"
+                  variant="primary"
+                >
+                  {t(savingGoal ? "Saving…" : "Save")}
+                </Button>
+              </Form.Group>
+              {due && (
+                <p className="progress-overall-plan">
+                  <span>{t("Estimated finish")}</span>
+                  <strong>{formatTaskProgressDate(due)}</strong>
+                </p>
+              )}
             </div>
           </div>
           {goalError && <p role="alert">{goalError}</p>}
