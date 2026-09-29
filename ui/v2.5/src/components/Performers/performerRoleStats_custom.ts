@@ -1,9 +1,9 @@
-import { gql, useLazyQuery } from "@apollo/client";
-import { useEffect, useMemo } from "react";
+import { gql, useQuery } from "@apollo/client";
+import { useMemo } from "react";
 import type { IPerformerRoleStats } from "./PerformerCard";
 import type * as GQL from "src/core/generated-graphql";
 
-// CUSTOM: shared lazy role stats loader for performer cards rendered outside PerformerCardGrid.
+// CUSTOM: shared batched role stats loader for performer cards and scene insights.
 interface IPerformerCardRoleStatsQueryData {
   performerRoleStats: Array<{
     performer_id: string;
@@ -80,27 +80,19 @@ export function usePerformerCardRoleStats(
   performers: Array<{ id: string }>,
   skip?: boolean
 ) {
-  const [loadRoleStats, { data: roleStatsData }] = useLazyQuery<
+  // Canonical IDs let reordered/duplicated card lists share the same cache entry.
+  // useQuery compares variable values without an extra effect-driven load cycle.
+  const performerIDs = Array.from(
+    new Set(performers.map((p) => p.id).filter((id) => id !== ""))
+  ).sort();
+  const { data: roleStatsData } = useQuery<
     IPerformerCardRoleStatsQueryData,
     IPerformerCardRoleStatsQueryVariables
   >(PerformerCardRoleStatsQuery, {
     fetchPolicy: "cache-first",
+    variables: { performer_ids: performerIDs },
+    skip: skip || performerIDs.length === 0,
   });
-
-  const performerIDs = useMemo(
-    () => performers.map((p) => p.id).filter((id) => id !== ""),
-    [performers]
-  );
-
-  useEffect(() => {
-    if (skip || performerIDs.length === 0) return;
-
-    void loadRoleStats({
-      variables: {
-        performer_ids: performerIDs,
-      },
-    });
-  }, [loadRoleStats, performerIDs, skip]);
 
   return useMemo(() => {
     const ret = new Map<string, IPerformerRoleStats>();

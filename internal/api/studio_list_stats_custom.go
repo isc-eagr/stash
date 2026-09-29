@@ -227,47 +227,7 @@ func queryStudioListRoleStatsCustom(ctx context.Context, studioIDs []int, statsB
 		return nil
 	}
 
-	query := fmt.Sprintf(`
-WITH RECURSIVE requested(id) AS (VALUES %s),
-role_tags(role, tag_id) AS (
-  SELECT 'sex', ?
-  UNION SELECT 'oral', ?
-  UNION SELECT 'solo', ?
-  UNION SELECT 'facial', ?
-  UNION
-  SELECT role_tags.role, tags_relations.child_id
-  FROM role_tags
-  JOIN tags_relations ON tags_relations.parent_id = role_tags.tag_id
-),
-marker_tags(scene_id, tag_id) AS (
-  SELECT scene_markers.scene_id, scene_markers.primary_tag_id
-  FROM scene_markers
-  UNION
-  SELECT scene_markers.scene_id, scene_markers_tags.tag_id
-  FROM scene_markers
-  JOIN scene_markers_tags ON scene_markers_tags.scene_marker_id = scene_markers.id
-),
-scene_roles AS (
-  SELECT scenes.studio_id,
-         scenes.id AS scene_id,
-         MAX(CASE WHEN role_tags.role = 'sex' THEN 1 ELSE 0 END) AS has_sex,
-         MAX(CASE WHEN role_tags.role = 'oral' THEN 1 ELSE 0 END) AS has_oral,
-         MAX(CASE WHEN role_tags.role = 'solo' THEN 1 ELSE 0 END) AS has_solo,
-         MAX(CASE WHEN role_tags.role = 'facial' THEN 1 ELSE 0 END) AS has_facial
-  FROM scenes
-  JOIN requested ON requested.id = scenes.studio_id
-  JOIN marker_tags ON marker_tags.scene_id = scenes.id
-  JOIN role_tags ON role_tags.tag_id = marker_tags.tag_id
-  GROUP BY scenes.studio_id, scenes.id
-)
-SELECT requested.id,
-       COALESCE(SUM(CASE WHEN scene_roles.has_sex = 1 THEN 1 ELSE 0 END), 0),
-       COALESCE(SUM(CASE WHEN scene_roles.has_oral = 1 AND scene_roles.has_sex = 0 THEN 1 ELSE 0 END), 0),
-       COALESCE(SUM(CASE WHEN scene_roles.has_solo = 1 AND scene_roles.has_sex = 0 AND scene_roles.has_oral = 0 THEN 1 ELSE 0 END), 0),
-       COALESCE(SUM(CASE WHEN scene_roles.has_facial = 1 THEN 1 ELSE 0 END), 0)
-FROM requested
-LEFT JOIN scene_roles ON scene_roles.studio_id = requested.id
-GROUP BY requested.id`, studioListRequestedValuesCustom(len(studioIDs)))
+	query := fmt.Sprintf(studioListRoleStatsQueryCustom, studioListRequestedValuesCustom(len(studioIDs)))
 
 	args := studioListIDArgsCustom(studioIDs)
 	args = append(args, sexTagID, oralTagID, soloTagID, facialTagID)
@@ -587,3 +547,48 @@ func studioListClampedIntervalCustom(sceneID int, start, end, sceneDuration floa
 	}
 	return activityIntervalCustom{sceneID: sceneID, start: start, end: end}, true
 }
+
+// Limit both marker-tag branches to the requested studios before combining them.
+const studioListRoleStatsQueryCustom = `
+WITH RECURSIVE requested(id) AS (VALUES %s),
+role_tags(role, tag_id) AS (
+  SELECT 'sex', ?
+  UNION SELECT 'oral', ?
+  UNION SELECT 'solo', ?
+  UNION SELECT 'facial', ?
+  UNION
+  SELECT role_tags.role, tags_relations.child_id
+  FROM role_tags
+  JOIN tags_relations ON tags_relations.parent_id = role_tags.tag_id
+),
+marker_tags(scene_id, tag_id) AS (
+  SELECT scene_markers.scene_id, scene_markers.primary_tag_id
+  FROM scene_markers
+  WHERE scene_id IN (SELECT id FROM scenes WHERE studio_id IN (SELECT id FROM requested))
+  UNION
+  SELECT scene_markers.scene_id, scene_markers_tags.tag_id
+  FROM scene_markers
+  JOIN scene_markers_tags ON scene_markers_tags.scene_marker_id = scene_markers.id
+  WHERE scene_id IN (SELECT id FROM scenes WHERE studio_id IN (SELECT id FROM requested))
+),
+scene_roles AS (
+  SELECT scenes.studio_id,
+         scenes.id AS scene_id,
+         MAX(CASE WHEN role_tags.role = 'sex' THEN 1 ELSE 0 END) AS has_sex,
+         MAX(CASE WHEN role_tags.role = 'oral' THEN 1 ELSE 0 END) AS has_oral,
+         MAX(CASE WHEN role_tags.role = 'solo' THEN 1 ELSE 0 END) AS has_solo,
+         MAX(CASE WHEN role_tags.role = 'facial' THEN 1 ELSE 0 END) AS has_facial
+  FROM scenes
+  JOIN requested ON requested.id = scenes.studio_id
+  JOIN marker_tags ON marker_tags.scene_id = scenes.id
+  JOIN role_tags ON role_tags.tag_id = marker_tags.tag_id
+  GROUP BY scenes.studio_id, scenes.id
+)
+SELECT requested.id,
+       COALESCE(SUM(CASE WHEN scene_roles.has_sex = 1 THEN 1 ELSE 0 END), 0),
+       COALESCE(SUM(CASE WHEN scene_roles.has_oral = 1 AND scene_roles.has_sex = 0 THEN 1 ELSE 0 END), 0),
+       COALESCE(SUM(CASE WHEN scene_roles.has_solo = 1 AND scene_roles.has_sex = 0 AND scene_roles.has_oral = 0 THEN 1 ELSE 0 END), 0),
+       COALESCE(SUM(CASE WHEN scene_roles.has_facial = 1 THEN 1 ELSE 0 END), 0)
+FROM requested
+LEFT JOIN scene_roles ON scene_roles.studio_id = requested.id
+GROUP BY requested.id`

@@ -672,6 +672,93 @@
   }
 }
 
+/* CUSTOM: Keep calendar reports compact and readable at narrow widths. */
+.progress-reports {
+  .nav-pills {
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .progress-report-selectors {
+    align-items: flex-end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+
+    .form-group {
+      margin: 0;
+    }
+
+    .form-label {
+      color: var(--black-steel-text-muted, #bfccd6);
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+    }
+
+    .form-control,
+    .react-datepicker-wrapper {
+      min-width: 10rem;
+      width: auto;
+    }
+  }
+
+  .progress-report-period {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+
+    h3 {
+      font-size: 1.2rem;
+      margin: 0;
+    }
+
+    small {
+      color: var(--black-steel-text-muted, #bfccd6);
+    }
+  }
+
+  .progress-report-period-actions {
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  section {
+    margin-bottom: 1.5rem;
+  }
+
+  h4 {
+    border-bottom: 1px solid rgba(138, 155, 168, 0.32);
+    color: var(--black-steel-text, #f5f8fa);
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.015em;
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.45rem;
+  }
+
+  .table {
+    margin-bottom: 0;
+    min-width: 0;
+    width: auto;
+
+    th,
+    td {
+      padding: 0.45rem 0.65rem;
+      vertical-align: middle;
+    }
+
+    thead th {
+      white-space: nowrap;
+    }
+  }
+}
+
 /* CUSTOM: Milestone dashboard and compact contribution list. */
 .progress-page-tabs {
   margin-bottom: 1.25rem;

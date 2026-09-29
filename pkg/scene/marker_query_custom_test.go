@@ -70,3 +70,17 @@ func TestMarkerDurationByFilterCustomIgnoresPagination(t *testing.T) {
 	assert.Equal(t, 10.0, duration)
 	reader.AssertExpectations(t)
 }
+
+func TestMarkerDurationByQueryCustomPreservesSearch(t *testing.T) {
+	reader := &modelmocks.SceneMarkerReaderWriter{}
+	q, sort, page, perPage := "needle", "random_42", 3, 1
+	reader.On("Query", mock.Anything, (*models.SceneMarkerFilterType)(nil),
+		mock.MatchedBy(func(filter *models.FindFilterType) bool {
+			return filter.Q == &q && *filter.PerPage == -1 && filter.Page == nil && filter.Sort == nil
+		})).Return([]*models.SceneMarker{}, 0, nil).Once()
+	got, err := MarkerDurationByQueryCustom(context.Background(), reader, nil,
+		&models.FindFilterType{Q: &q, Sort: &sort, Page: &page, PerPage: &perPage})
+	assert.NoError(t, err)
+	assert.Zero(t, got)
+	reader.AssertExpectations(t)
+}

@@ -1,10 +1,15 @@
 import React, { useState } from "react";
 import { Button, Form, Modal } from "react-bootstrap";
+import ReactDatePicker from "react-datepicker";
 import Select from "react-select";
 import type {
   TaskProgressMilestoneDataFragment as Milestone,
   TaskProgressTrackerDataFragment as Tracker,
 } from "src/core/generated-graphql";
+import {
+  taskProgressISOToLocalDate,
+  taskProgressLocalDateToISO,
+} from "../taskProgress_custom";
 import { useProgressText } from "./progressView_custom";
 
 export interface IMilestoneFormValues {
@@ -39,6 +44,9 @@ export const TaskProgressMilestoneForm: React.FC<IProps> = ({
   const t = useProgressText();
   const [name, setName] = useState(milestone?.name ?? "");
   const [targetDate, setTargetDate] = useState(milestone?.target_date ?? "");
+  const selectedTargetDate = targetDate
+    ? taskProgressISOToLocalDate(targetDate)
+    : null;
   const [goal, setGoal] = useState(milestone?.goal_per_day ?? 0);
   const [trackerIDs, setTrackerIDs] = useState<string[]>(
     milestone?.tracker_ids ?? []
@@ -164,10 +172,19 @@ export const TaskProgressMilestoneForm: React.FC<IProps> = ({
           <div className="milestone-form-optional">
             <Form.Group controlId="milestone-target-date">
               <Form.Label>{t("Target date")}</Form.Label>
-              <Form.Control
-                type="date"
-                value={targetDate}
-                onChange={(event) => setTargetDate(event.target.value)}
+              <ReactDatePicker
+                id="milestone-target-date"
+                className="form-control"
+                wrapperClassName="w-100"
+                selected={selectedTargetDate}
+                onChange={(date) =>
+                  setTargetDate(date ? taskProgressLocalDateToISO(date) : "")
+                }
+                dateFormat="dd/MM/yyyy"
+                placeholderText="dd/mm/yyyy"
+                isClearable
+                showMonthDropdown
+                showYearDropdown
               />
             </Form.Group>
             <Form.Group controlId="milestone-goal">

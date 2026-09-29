@@ -380,7 +380,12 @@ function tagAmountLabel(level: OutstandingActivityAmountLevel, name: string) {
   return `Some ${name}`;
 }
 
-function tagCoverageDetail(row: IOutstandingActivityRow) {
+type TagPresenceRow = Pick<
+  IOutstandingActivityRow,
+  "tag" | "duration" | "markerCount" | "percent"
+>;
+
+function tagCoverageDetail(row: TagPresenceRow) {
   return `${Math.round(row.percent)}% of scene · ${markerCoverageDetail({
     duration: row.duration,
     episodes: row.markerCount,
@@ -1100,6 +1105,44 @@ function getGoatInsightTagIDs(
   return tagIDs;
 }
 
+function getEventSubtagPresenceRows(
+  scene: SceneCardInsightScene,
+  roleTagIds: IUIConfig["roleTagIds"]
+): TagPresenceRow[] {
+  const sceneDuration = scene.files[0]?.duration ?? 0;
+  const groups = new Map<string, TagMarkerGroup>();
+
+  scene.scene_markers
+    .filter(
+      (marker) => !markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId)
+    )
+    .forEach((marker) =>
+      allMarkerTags(marker).forEach((tag) => {
+        // CUSTOM: Event descendants remain present even when their marker also
+        // contributes to the GOAT or Orgasm/Facial reports.
+        if (
+          tag.id !== roleTagIds?.orgasmTagId &&
+          tag.id !== roleTagIds?.facialTagId &&
+          tag.id !== roleTagIds?.reallyHotTagId &&
+          tag.id !== roleTagIds?.goatTagId &&
+          eventCategoryForTag(tag, roleTagIds)
+        ) {
+          addTagMarker(groups, tag, marker);
+        }
+      })
+    );
+
+  return Array.from(groups.values()).map(({ tag, markers }) => {
+    const stats = markerStats(markers.values(), sceneDuration);
+    return {
+      tag,
+      duration: stats.duration,
+      markerCount: stats.markerCount,
+      percent: percentOfScene(stats.duration, sceneDuration),
+    };
+  });
+}
+
 function getTagCandidates(
   scene: SceneCardInsightScene,
   roleTagIds: IUIConfig["roleTagIds"],
@@ -1109,11 +1152,15 @@ function getTagCandidates(
   const activityMatrix =
     outstandingActivityMatrix ??
     getOutstandingActivityMatrix(scene, roleTagIds, thresholds);
-  if (activityMatrix.rows.length === 0) return [];
+  const eventSubtagRows = getEventSubtagPresenceRows(scene, roleTagIds);
+  if (activityMatrix.rows.length === 0 && eventSubtagRows.length === 0)
+    return [];
 
   const goatInsightTagIDs = getGoatInsightTagIDs(scene, roleTagIds);
   const chipRows = activityMatrix.rows.filter(
-    (row) => !goatInsightTagIDs.has(row.tag.id)
+    (row) =>
+      !goatInsightTagIDs.has(row.tag.id) &&
+      !eventCategoryForTag(row.tag, roleTagIds)
   );
 
   const commonTagIDs =
@@ -1126,7 +1173,7 @@ function getTagCandidates(
           commonTagIDs.some((tagID) => tagMatchesConfiguredTag(row.tag, tagID))
         )
       : chipRows;
-  const uncommonRows =
+  const uncommonRows: TagPresenceRow[] =
     commonTagIDs.length > 0
       ? chipRows.filter(
           (row) =>
@@ -1135,6 +1182,16 @@ function getTagCandidates(
             )
         )
       : [];
+  // CUSTOM: Event subtags always use presence wording, independently of the
+  // common-tag configuration and GOAT suppression for ordinary activity.
+  uncommonRows.push(...eventSubtagRows);
+  uncommonRows.sort(
+    (a, b) =>
+      b.duration - a.duration ||
+      b.markerCount - a.markerCount ||
+      displayTagName(a.tag).localeCompare(displayTagName(b.tag)) ||
+      a.tag.id.localeCompare(b.tag.id)
+  );
   const candidates: InsightCandidate[] = [];
 
   if (commonRows.length > 0) {

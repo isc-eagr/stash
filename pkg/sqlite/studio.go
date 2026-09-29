@@ -659,7 +659,7 @@ func (qb *StudioStore) makeQuery(ctx context.Context, studioFilter *models.Studi
 	}
 
 	var err error
-	query.sortAndPagination, err = qb.getStudioSort(findFilter)
+	query.sortAndPagination, err = qb.getStudioSortCustom(&query, findFilter) // CUSTOM: batch quality metrics over filtered studios
 	if err != nil {
 		return nil, err
 	}

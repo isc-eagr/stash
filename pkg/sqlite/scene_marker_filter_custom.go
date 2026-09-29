@@ -43,7 +43,7 @@ func (qb *sceneMarkerFilterHandler) studiosCriterionHandler(studios *models.Hier
 			foreignFK:    studioIDColumn,
 
 			parentFK:       "parent_id",
-			childFK:        "child_id",
+			childFK:        "id",
 			relationsTable: "studios",
 		}
 
@@ -840,10 +840,13 @@ WHERE %[3]s`, smpAlias, performerAlias, strings.Join(clauses, " AND ")), attrArg
 				}
 
 				if len(performerConditions) > 0 {
+					// Seed shared identities from the first marker's participants,
+					// avoiding a scan of all performers for each overlap combination.
 					conditions = append(conditions, fmt.Sprintf(`EXISTS (
-SELECT 1 FROM performers %[1]s
-WHERE %[2]s
-)`, performerAlias, strings.Join(performerConditions, "\n  AND ")))
+SELECT 1 FROM scene_marker_performers correlation_seed
+JOIN performers %[1]s ON %[1]s.id = correlation_seed.performer_id
+WHERE correlation_seed.scene_marker_id = %[3]s.id AND %[2]s
+)`, performerAlias, strings.Join(performerConditions, "\n  AND "), occurrences[0].markerAlias))
 					args = append(args, performerArgs...)
 				}
 			}
@@ -1009,6 +1012,15 @@ WHERE %s
 					appendTagArgs(&currentMatchArgs, g.TagIDs)
 					narrowMatchFragments = append(narrowMatchFragments, sceneMarkerEffectiveTagsCountClauseCustom("sm_narrow", ph, len(g.TagIDs)))
 					appendTagArgs(&narrowMatchArgs, g.TagIDs)
+				}
+
+				// A direct match already satisfies a single requested tag family.
+				// Keep narrowest-marker selection, but skip redundant inheritance scans.
+				if len(g.TagIDs) == 1 && len(directTagIDs) > 0 {
+					currentMatchFragments = []string{"1=1"}
+					narrowMatchFragments = []string{"1=1"}
+					currentMatchArgs = nil
+					narrowMatchArgs = nil
 				}
 
 				if len(directTagIDs) == 0 {
@@ -1588,47 +1600,7 @@ func (qb *sceneMarkerFilterHandler) customFiltersCriterionHandler(customFilters 
 			}
 			oralTagID := *customFilters.OralTagID
 
-			// Markers tagged with oralTagId (or a subtag) where ALL performers are both tops and bottoms
-			f.addWhere(fmt.Sprintf(`
-				-- Marker must be tagged with oralTagId or a descendant (primary or secondary)
-				(scene_markers.primary_tag_id IN (
-					WITH RECURSIVE oral_tags(id) AS (
-						SELECT id FROM tags WHERE id = %s
-						UNION ALL
-						SELECT tr.child_id FROM tags_relations tr JOIN oral_tags ot ON tr.parent_id = ot.id
-					)
-					SELECT id FROM oral_tags
-				)
-				OR EXISTS (
-					WITH RECURSIVE oral_tags(id) AS (
-						SELECT id FROM tags WHERE id = %s
-						UNION ALL
-						SELECT tr.child_id FROM tags_relations tr JOIN oral_tags ot ON tr.parent_id = ot.id
-					)
-					SELECT 1 FROM scene_markers_tags smt WHERE smt.scene_marker_id = scene_markers.id AND smt.tag_id IN (SELECT id FROM oral_tags)
-				))
-				-- Marker must have at least one performer
-				AND EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = scene_markers.id)
-				-- All performers on this marker must be both top AND bottom
-				AND NOT EXISTS (
-					SELECT 1 FROM scene_marker_performers smp 
-					WHERE smp.scene_marker_id = scene_markers.id
-					AND smp.performer_id NOT IN (
-						SELECT smp2.performer_id 
-						FROM scene_marker_performers smp2 
-						WHERE smp2.scene_marker_id = scene_markers.id AND smp2.role = 'top'
-					)
-				)
-				AND NOT EXISTS (
-					SELECT 1 FROM scene_marker_performers smp 
-					WHERE smp.scene_marker_id = scene_markers.id
-					AND smp.performer_id NOT IN (
-						SELECT smp2.performer_id 
-						FROM scene_marker_performers smp2 
-						WHERE smp2.scene_marker_id = scene_markers.id AND smp2.role = 'bottom'
-					)
-				)
-			`, oralTagID, oralTagID))
+			addSceneMarkerCircularOralFilterCustom(f, oralTagID)
 		}
 	}
 }

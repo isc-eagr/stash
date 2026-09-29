@@ -1,9 +1,43 @@
 package api
 
 import (
+	"database/sql"
+	"fmt"
 	"math"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
+
+func TestStudioListRoleStatsQueryCustom(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	defer db.Close()
+	_, err = db.Exec(`
+CREATE TABLE scenes(id INTEGER PRIMARY KEY, studio_id INTEGER);
+CREATE TABLE scene_markers(id INTEGER PRIMARY KEY, scene_id INTEGER, primary_tag_id INTEGER);
+CREATE TABLE scene_markers_tags(scene_marker_id INTEGER, tag_id INTEGER);
+CREATE TABLE tags_relations(parent_id INTEGER, child_id INTEGER);
+INSERT INTO scenes VALUES(1, 10), (2, 10), (3, 10), (4, 20), (5, 30);
+INSERT INTO tags_relations VALUES(1, 11), (11, 12);
+INSERT INTO scene_markers VALUES(1, 1, 12), (2, 2, 2), (3, 3, 3), (4, 4, 4), (5, 5, 1);
+INSERT INTO scene_markers_tags VALUES(1, 2), (1, 4), (1, 12), (2, 3);`)
+	require.NoError(t, err)
+	rows, err := db.Query(fmt.Sprintf(studioListRoleStatsQueryCustom, "(?),(?),(?)"), 10, 20, 99, 1, 2, 3, 4)
+	require.NoError(t, err)
+	defer rows.Close()
+	got := map[int][4]int{}
+	for rows.Next() {
+		var id int
+		var counts [4]int
+		require.NoError(t, rows.Scan(&id, &counts[0], &counts[1], &counts[2], &counts[3]))
+		got[id] = counts
+	}
+	require.NoError(t, rows.Err())
+	// Precedence remains sex > oral > solo; facial is independent. Descendants
+	// and primary/secondary duplicates count once, with no out-of-scope leakage.
+	require.Equal(t, map[int][4]int{10: {1, 1, 1, 1}, 20: {0, 0, 0, 1}, 99: {}}, got)
+}
 
 func TestApplyStudioListRoleRowsCustom(t *testing.T) {
 	statsByID := map[int]*StudioListStats{

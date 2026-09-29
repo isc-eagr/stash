@@ -68,98 +68,46 @@ func (qb *sceneFilterHandler) customFiltersCriterionHandler(customFilters *model
 			return
 		}
 
+		var tagID *string
 		switch customFilters.Type {
 		case "versatile_scenes":
-			// Use sexTagId if provided, otherwise return early
-			if customFilters.SexTagID == nil || *customFilters.SexTagID == "" {
-				return
-			}
-			sexTagID := *customFilters.SexTagID
-
-			f.addWhere(fmt.Sprintf(`
-				-- Get all performers in this scene
-				(SELECT COUNT(DISTINCT ps.performer_id) FROM performers_scenes ps WHERE ps.scene_id = scenes.id) > 0
-				AND
-				-- Count performers who have BOTH a top and a bottom marker for sexTagId
-				(SELECT COUNT(DISTINCT ps.performer_id)
-				 FROM performers_scenes ps
-				 WHERE ps.scene_id = scenes.id) =
-				(SELECT COUNT(DISTINCT ps.performer_id)
-				 FROM performers_scenes ps
-				 WHERE ps.scene_id = scenes.id
-				   AND EXISTS (
-					 WITH RECURSIVE sex_tags_top(id) AS (
-					   SELECT id FROM tags WHERE id = %s
-					   UNION ALL
-					   SELECT tr.child_id FROM tags_relations tr JOIN sex_tags_top st ON tr.parent_id = st.id
-					 )
-					 SELECT 1 FROM scene_markers sm
-					 JOIN scene_marker_performers smp ON smp.scene_marker_id = sm.id
-					 WHERE sm.scene_id = scenes.id
-					   AND smp.performer_id = ps.performer_id
-					   AND smp.role = 'top'
-					   AND (sm.primary_tag_id IN (SELECT id FROM sex_tags_top)
-					        OR EXISTS (SELECT 1 FROM scene_markers_tags smt WHERE smt.scene_marker_id = sm.id AND smt.tag_id IN (SELECT id FROM sex_tags_top)))
-				   )
-				   AND EXISTS (
-					 WITH RECURSIVE sex_tags_bottom(id) AS (
-					   SELECT id FROM tags WHERE id = %s
-					   UNION ALL
-					   SELECT tr.child_id FROM tags_relations tr JOIN sex_tags_bottom st ON tr.parent_id = st.id
-					 )
-					 SELECT 1 FROM scene_markers sm2
-					 JOIN scene_marker_performers smp2 ON smp2.scene_marker_id = sm2.id
-					 WHERE sm2.scene_id = scenes.id
-					   AND smp2.performer_id = ps.performer_id
-					   AND smp2.role = 'bottom'
-					   AND (sm2.primary_tag_id IN (SELECT id FROM sex_tags_bottom)
-					        OR EXISTS (SELECT 1 FROM scene_markers_tags smt2 WHERE smt2.scene_marker_id = sm2.id AND smt2.tag_id IN (SELECT id FROM sex_tags_bottom)))
-				   )
-				)
-			`, sexTagID, sexTagID))
-
+			tagID = customFilters.SexTagID
 		case "circular_oral":
-			// Use oralTagId if provided, otherwise return early
-			if customFilters.OralTagID == nil || *customFilters.OralTagID == "" {
-				return
-			}
-			oralTagID := *customFilters.OralTagID
-
-			// Scenes with a marker tagged with oralTagId (or subtag) where ALL performers are both tops and bottoms
-			f.addWhere(fmt.Sprintf(`EXISTS (
-				WITH RECURSIVE oral_tags(id) AS (
-					SELECT id FROM tags WHERE id = %s
-					UNION ALL
-					SELECT tr.child_id FROM tags_relations tr JOIN oral_tags ot ON tr.parent_id = ot.id
-				)
-				SELECT 1
-				FROM scene_markers sm
-				WHERE sm.scene_id = scenes.id
-				  AND (sm.primary_tag_id IN (SELECT id FROM oral_tags)
-				       OR EXISTS (SELECT 1 FROM scene_markers_tags smt WHERE smt.scene_marker_id = sm.id AND smt.tag_id IN (SELECT id FROM oral_tags)))
-				  -- Marker must have at least one performer
-				  AND EXISTS (SELECT 1 FROM scene_marker_performers smp WHERE smp.scene_marker_id = sm.id)
-				  -- All performers on this marker must be both top AND bottom
-				  AND NOT EXISTS (
-					SELECT 1 FROM scene_marker_performers smp 
-					WHERE smp.scene_marker_id = sm.id
-					AND smp.performer_id NOT IN (
-						SELECT smp2.performer_id 
-						FROM scene_marker_performers smp2 
-						WHERE smp2.scene_marker_id = sm.id AND smp2.role = 'top'
-					)
-				  )
-				  AND NOT EXISTS (
-					SELECT 1 FROM scene_marker_performers smp 
-					WHERE smp.scene_marker_id = sm.id
-					AND smp.performer_id NOT IN (
-						SELECT smp2.performer_id 
-						FROM scene_marker_performers smp2 
-						WHERE smp2.scene_marker_id = sm.id AND smp2.role = 'bottom'
-					)
-				  )
-			)`, oralTagID))
+			tagID = customFilters.OralTagID
+		default:
+			return
 		}
+		if tagID == nil || *tagID == "" {
+			return
+		}
+		matches, scopeArgs := sceneMarkerTagFamilyForFilterCustom(f)
+		var matchSQL string
+		if customFilters.Type == "versatile_scenes" {
+			// Aggregate each person's qualifying roles once, then require every
+			// scene performer to have both. Extra marker-only performers don't count.
+			matchSQL = `WITH matching_markers AS MATERIALIZED (` + matches + `),
+ both_roles AS MATERIALIZED (
+   SELECT sm.scene_id, mp.performer_id
+   FROM matching_markers sm JOIN scene_marker_performers mp ON mp.scene_marker_id = sm.id
+   WHERE mp.role IN ('top', 'bottom')
+   GROUP BY sm.scene_id, mp.performer_id HAVING COUNT(DISTINCT mp.role) = 2
+ )
+ SELECT ps.scene_id FROM performers_scenes ps
+ LEFT JOIN both_roles b ON b.scene_id = ps.scene_id AND b.performer_id = ps.performer_id
+ WHERE ps.scene_id IN (SELECT scene_id FROM both_roles)
+ GROUP BY ps.scene_id
+ HAVING COUNT(DISTINCT ps.performer_id) > 0
+   AND COUNT(DISTINCT ps.performer_id) = COUNT(DISTINCT b.performer_id)`
+		} else {
+			// All assigned marker performers must have both roles on that marker.
+			matchSQL = `SELECT sm.scene_id FROM (` + matches + `) sm
+ JOIN scene_marker_performers mp ON mp.scene_marker_id = sm.id
+ GROUP BY sm.id
+ HAVING COUNT(DISTINCT mp.performer_id) > 0
+   AND COUNT(DISTINCT mp.performer_id) = COUNT(DISTINCT CASE WHEN mp.role = 'top' THEN mp.performer_id END)
+   AND COUNT(DISTINCT mp.performer_id) = COUNT(DISTINCT CASE WHEN mp.role = 'bottom' THEN mp.performer_id END)`
+		}
+		f.addWhere("scenes.id IN ("+matchSQL+")", append([]interface{}{*tagID}, scopeArgs...)...)
 	}
 }
 
@@ -194,34 +142,15 @@ func (qb *sceneFilterHandler) sceneTypeCriterionHandler(sceneType *models.SceneT
 			facialTagID = *sceneType.FacialTagID
 		}
 
-		// Helper: generate EXISTS clause with CTE for a tag family match
-		existsMarkerForTag := func(cteName, tagID string) string {
-			return fmt.Sprintf(`EXISTS (
-				WITH RECURSIVE %s(id) AS (
-					SELECT id FROM tags WHERE id = %s
-					UNION ALL
-					SELECT tr.child_id FROM tags_relations tr JOIN %s tf ON tr.parent_id = tf.id
-				)
-				SELECT 1 FROM scene_markers sm
-				WHERE sm.scene_id = scenes.id
-				  AND (sm.primary_tag_id IN (SELECT id FROM %s)
-				       OR EXISTS (SELECT 1 FROM scene_markers_tags smt WHERE smt.scene_marker_id = sm.id AND smt.tag_id IN (SELECT id FROM %s)))
-			)`, cteName, tagID, cteName, cteName, cteName)
+		matches, scopeArgs := sceneMarkerTagFamilyForFilterCustom(f)
+		var args []interface{}
+		existsMarkerForTag := func(tagID string) string {
+			args = append(args, tagID)
+			args = append(args, scopeArgs...)
+			return "scenes.id IN (SELECT scene_id FROM (" + matches + ") WHERE scene_id IS NOT NULL)"
 		}
-
-		// Helper: generate NOT EXISTS clause with CTE for a tag family match
-		notExistsMarkerForTag := func(cteName, tagID string) string {
-			return fmt.Sprintf(`NOT EXISTS (
-				WITH RECURSIVE %s(id) AS (
-					SELECT id FROM tags WHERE id = %s
-					UNION ALL
-					SELECT tr.child_id FROM tags_relations tr JOIN %s tf ON tr.parent_id = tf.id
-				)
-				SELECT 1 FROM scene_markers sm
-				WHERE sm.scene_id = scenes.id
-				  AND (sm.primary_tag_id IN (SELECT id FROM %s)
-				       OR EXISTS (SELECT 1 FROM scene_markers_tags smt WHERE smt.scene_marker_id = sm.id AND smt.tag_id IN (SELECT id FROM %s)))
-			)`, cteName, tagID, cteName, cteName, cteName)
+		notExistsMarkerForTag := func(tagID string) string {
+			return "NOT (" + existsMarkerForTag(tagID) + ")"
 		}
 
 		var conditions []string
@@ -232,37 +161,37 @@ func (qb *sceneFilterHandler) sceneTypeCriterionHandler(sceneType *models.SceneT
 				if sexTagID == "" {
 					continue
 				}
-				conditions = append(conditions, existsMarkerForTag("sex_tags_st", sexTagID))
+				conditions = append(conditions, existsMarkerForTag(sexTagID))
 
 			case "oral":
 				if oralTagID == "" {
 					continue
 				}
-				conditions = append(conditions, existsMarkerForTag("oral_tags_st", oralTagID))
+				conditions = append(conditions, existsMarkerForTag(oralTagID))
 				// Exclude scenes with sex markers
 				if sexTagID != "" {
-					conditions = append(conditions, notExistsMarkerForTag("sex_excl_oral_st", sexTagID))
+					conditions = append(conditions, notExistsMarkerForTag(sexTagID))
 				}
 
 			case "solo":
 				if soloTagID == "" {
 					continue
 				}
-				conditions = append(conditions, existsMarkerForTag("solo_tags_st", soloTagID))
+				conditions = append(conditions, existsMarkerForTag(soloTagID))
 				// Exclude scenes with sex markers
 				if sexTagID != "" {
-					conditions = append(conditions, notExistsMarkerForTag("sex_excl_solo_st", sexTagID))
+					conditions = append(conditions, notExistsMarkerForTag(sexTagID))
 				}
 				// Exclude scenes with oral markers
 				if oralTagID != "" {
-					conditions = append(conditions, notExistsMarkerForTag("oral_excl_solo_st", oralTagID))
+					conditions = append(conditions, notExistsMarkerForTag(oralTagID))
 				}
 
 			case "facial":
 				if facialTagID == "" {
 					continue
 				}
-				conditions = append(conditions, existsMarkerForTag("facial_tags_st", facialTagID))
+				conditions = append(conditions, existsMarkerForTag(facialTagID))
 			}
 		}
 
@@ -271,7 +200,7 @@ func (qb *sceneFilterHandler) sceneTypeCriterionHandler(sceneType *models.SceneT
 		}
 
 		// Join all conditions with AND
-		f.addWhere(strings.Join(conditions, " AND "))
+		f.addWhere(strings.Join(conditions, " AND "), args...)
 	}
 }
 
@@ -453,10 +382,10 @@ func (qb *sceneFilterHandler) performerRatingCriterionHandler(pr *models.IntCrit
 			}
 
 			if !modeAll {
-				// ANY performer must satisfy: simple join + numeric comparison
-				f.addInnerJoin("performers_scenes", "", "scenes.id = performers_scenes.scene_id")
-				f.addInnerJoin("performers", "", "performers_scenes.performer_id = performers.id")
-				intCriterionHandler(pr, "performers.rating", nil)(ctx, f)
+				// A scene-ID set avoids row multiplication and keeps this
+				// branch from excluding performerless scenes in a sibling OR branch.
+				clause, args := getIntCriterionWhereClause("p.rating", *pr)
+				f.addWhere("scenes.id IN (SELECT ps.scene_id FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE "+clause+")", args...)
 				return
 			}
 
@@ -474,6 +403,12 @@ func (qb *sceneFilterHandler) performerRatingCriterionHandler(pr *models.IntCrit
 				f.addWhere(existsPerformer)
 			case models.CriterionModifierLessThan:
 				f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND (p.rating IS NULL OR p.rating >= ?))", pr.Value)
+				f.addWhere(existsPerformer)
+			case models.CriterionModifierGreaterThanEquals:
+				f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND (p.rating IS NULL OR p.rating < ?))", pr.Value)
+				f.addWhere(existsPerformer)
+			case models.CriterionModifierLessThanEquals:
+				f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND (p.rating IS NULL OR p.rating > ?))", pr.Value)
 				f.addWhere(existsPerformer)
 			case models.CriterionModifierBetween:
 				f.addWhere("NOT EXISTS (SELECT 1 FROM performers_scenes ps JOIN performers p ON p.id = ps.performer_id WHERE ps.scene_id = scenes.id AND (p.rating IS NULL OR p.rating < ? OR p.rating > ?))", pr.Value, pr.Value2)

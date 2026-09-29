@@ -645,10 +645,6 @@ func activityPercentPerformerStudioSQLCustom(filter *models.PerformerFilterType)
 	return ""
 }
 
-func (qb *SceneStore) sortByActivityPercentCustom(category activityPercentCategoryCustom, direction string) string {
-	return fmt.Sprintf(" ORDER BY %s %s", activityPercentScenePercentExprCustom(category), getSortDirection(direction))
-}
-
 func (qb *StudioStore) sortByActivityPercentCustom(category activityPercentCategoryCustom, direction string) string {
 	return fmt.Sprintf(" ORDER BY %s %s", activityPercentStudioPercentExprCustom(category), getSortDirection(direction))
 }

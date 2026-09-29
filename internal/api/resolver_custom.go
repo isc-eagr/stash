@@ -703,7 +703,7 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 				ID:                    strconv.Itoa(id),
 				Title:                 sceneStatsStringPtrValue(row[1]),
 				Date:                  sceneStatsStringPtrValue(row[2]),
-				EffectiveDate:         sceneStatsStringPtrValue(row[3]),
+				EffectiveDate:         sceneStatsEffectiveDateValueCustom(row[3], row[2]),
 				Rating100:             vatoStatsIntPtrValue(row[4]),
 				OCounter:              customIntValue(row[5]),
 				Duration:              sceneStatsFloatValue(row[6]),

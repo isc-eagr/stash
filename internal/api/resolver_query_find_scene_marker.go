@@ -13,6 +13,7 @@ func (r *queryResolver) FindSceneMarkers(ctx context.Context, sceneMarkerFilter 
 		return nil, err
 	}
 
+	fields := collectQueryFields(ctx) // CUSTOM: count-only callers do not need a full duration scan.
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		var sceneMarkers []*models.SceneMarker
 		var err error
@@ -22,15 +23,20 @@ func (r *queryResolver) FindSceneMarkers(ctx context.Context, sceneMarkerFilter 
 		if len(idInts) > 0 {
 			sceneMarkers, err = r.repository.SceneMarker.FindMany(ctx, idInts)
 			total = len(sceneMarkers)
-			duration = scenepkg.SumMarkerDurationsCustom(sceneMarkers) // CUSTOM
+			// CUSTOM: begin
+			if fields.Has("duration") {
+				duration = scenepkg.SumMarkerDurationsCustom(sceneMarkers)
+			}
+			// CUSTOM: end
 		} else {
 			sceneMarkers, total, err = r.repository.SceneMarker.Query(ctx, sceneMarkerFilter, filter)
 			// CUSTOM: begin - filtered marker-duration aggregate for list metadata
-			if err == nil {
-				duration, err = scenepkg.MarkerDurationByFilterCustom(
+			if err == nil && fields.Has("duration") {
+				duration, err = scenepkg.MarkerDurationByQueryCustom(
 					ctx,
 					r.repository.SceneMarker,
 					sceneMarkerFilter,
+					filter,
 				)
 			}
 			// CUSTOM: end

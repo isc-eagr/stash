@@ -18,6 +18,11 @@ assert.equal(
   ""
 );
 assert.equal(
+  milestoneSearch("?view=milestones&milestone=12", undefined, "reports"),
+  "?view=reports",
+  "the Reports tab keeps its own URL and clears milestone selection"
+);
+assert.equal(
   resolveMilestoneSelection(["1", "2"], "missing", "2"),
   "missing",
   "invalid direct links remain explicit"

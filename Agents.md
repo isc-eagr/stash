@@ -1,163 +1,38 @@
-## Copilot instructions for Stash (developer-facing)
+# Stash coding instructions
 
-These notes give focused, actionable guidance to an AI coding agent working on the Stash repo so it can be productive immediately. Keep responses concise and reference exact files/commands where helpful.
+Work in small, complete changes. Keep responses concise and conversational, mostly English with natural Mexican Spanish (mijo, ese, wey); avoid "holmes" and "carnal". Mention a clear follow-up improvement in a separate final section only when one is evident.
 
-Always perform a compilation/check before considering work complete. This is extremely important. Fix any errors found during the compile/check process before moving on. Do not do a full production/release build unless explicitly requested; use the fastest relevant compilation/check command for the files you changed. If you make changes that affect generated code, run `make generate` first, then use the narrowest compile check that still covers the changed surface; use `go build ./...` when schema/generated/shared-package changes require the full repo compile.
+## Code and documentation
 
-Always follow `CUSTOM_CODE_CONVENTIONS.md` for naming and file organization. This is crucial for maintainability and clarity in this codebase. Key rules:
-   - New Go files → `_custom.go` suffix (e.g. `resolver_model_scene_custom.go`)
-   - New GraphQL schema → `_custom.graphql` with `extend type/input/enum`
-   - Standalone custom functions → extract to `_custom.go`/`_custom.ts` files
-   - Inline modifications to upstream files → mark with `// CUSTOM` (Go/TS), `{/* CUSTOM */}` (JSX children), `/* CUSTOM */` (SCSS), `# CUSTOM` (GraphQL)
-   - Multi-line blocks → `// CUSTOM: begin` / `// CUSTOM: end`
+- This is a custom fork of upstream Stash. Follow [CUSTOM_CODE_CONVENTIONS.md](CUSTOM_CODE_CONVENTIONS.md) when editing code: put standalone Go/TypeScript additions in `_custom.go`/`_custom.ts`, GraphQL extensions in `_custom.graphql`, and mark changes inside upstream files with `CUSTOM` comments. New React components may use normal filenames.
+- In JSX, `{/* CUSTOM */}` belongs between children, never inside an opening tag after props; use a line comment for prop edits. JSON cannot contain comments.
+- Put custom database migrations in separate SQL files at the repo root, outside the upstream migration system.
+- Keep UI copy short. Add explanatory text only when it prevents a likely mistake.
+- Document independently user-visible custom features in [CUSTOM_FEATURES.md](CUSTOM_FEATURES.md): overview, changed files, tests, schema changes, and config dependencies. Fold styling, copy, performance, refactors, and tests for existing features into their parent entry. Remove an entry when upstream replaces the feature.
 
-The main developer LOVES to be spoken to in mexican-american/cholo/chicano/mexico-city english and spanish, mezclado, predominantly english. Please use a friendly and casual tone, like you're talking to a buddy. Extensively use terms like mijo, morro, ese, papi, wey, vato, ñero, homie, and so on (just avoid holmes and carnal). Be respectful but informal, like you're chatting with a close friend. Mix in some Spanglish phrases and expressions to keep it lively and authentic.
+## Verification
 
-If during implementation you find an obvious gap, or an improvement you feel could benefit the user, do suggest it when providing the final summary in a separate section.
+Always run a relevant compile/check before finishing and fix errors caused by the change. Use the narrowest check that covers the change; do not run production/release builds unless requested. Add focused tests for every new feature at the layer where its behavior can regress.
 
-Always apply small changes at a time, but do ensure that work is complete without the need for multiple prompts. Don't perform huge chunks of work in one single operation, because we will get rate-limited. Use sub-agents if necessary to break down big tasks into smaller, manageable pieces. But do ensure completeness after you're done. Things like doing the frontend but not the backend, or vice versa, are not acceptable.
+| Change | Minimum checks |
+| --- | --- |
+| Docs only | `git diff --check`; Prettier on touched Markdown |
+| Go | `go build ./cmd/stash`; add focused tests for behavior changes |
+| GraphQL/schema/generated | `mingw32-make generate` on Windows (`make generate` elsewhere), then `go build ./...` for generated/shared-package changes or `go build ./cmd/stash` for resolver/query-only changes; check generated UI types when touched |
+| Simple UI styling/copy | Targeted Prettier and applicable Stylelint/ESLint; `git diff --check` |
+| Ordinary TS/TSX | Targeted ESLint and Prettier; `cd ui/v2.5 && npm.cmd run check` when types, imports, props, hooks, or generated UI types change |
+| Bundle-risk UI (Vite/config/deps, routing, lazy loading, shared infrastructure, substantial refactor) | Ordinary UI checks plus `cd ui/v2.5 && npm.cmd run build` |
 
-1. Big-picture architecture
-   - Backend: Go monolith with HTTP/GraphQL API. Entrypoint: `cmd/stash/main.go` (starts `internal/manager` and `internal/api`).
-   - GraphQL: Schema files live in `graphql/schema` and `graphql/schema/types`. Server codegen target files are `internal/api/generated_exec.go` and `internal/api/generated_models.go` (see `gqlgen.yml`). Regeneration is done by `go:generate` in `cmd/stash` or `make generate`.
-   - UI: Vite + React in `ui/v2.5`. The UI interacts with the backend GraphQL API at runtime (default backend URL: `http://localhost:9999`).
-   - Native helpers: `pkg/` contains reusable packages (e.g. `pkg/models`, `pkg/plugin`, `pkg/stashbox`). `internal/` contains app internals and resolvers.
+On Windows, use `npm.cmd` if PowerShell blocks `npm`. If `mingw32-make validate-ui-quick` fails with `-n was unexpected at this time`, run direct `npm.cmd` lint/format commands. Follow an explicit request to skip validation.
 
-2. Common developer workflows (exact commands)
-   - Install UI deps (run once): `make pre-ui` (on Windows use `mingw32-make pre-ui`).
-   - Generate GraphQL/codegen (after schema changes): `make generate` (also runs UI generation). Alternatively run `go generate ./cmd/stash` to regenerate backend.
-   - Backend binary commands, only when an actual binary is needed: `make stash` (or `make build` for both `stash` and `phasher`). For release builds: `make build-release`.
-   - Fast backend compile check: `go build ./cmd/stash` (or `go build -o <tmp>/stash-check ./cmd/stash` to avoid touching the repo binary). Use this for backend-only or mixed changes before reaching for release builds.
-   - Fast frontend checks:
-     - Changed-file lint/format check: `make validate-ui-quick` (skips slow `tsc --noEmit`).
-     - Changed-file formatting: `make fmt-ui-quick`.
-     - TypeScript-only compile check: `cd ui/v2.5 && npm run check`.
-     - Vite parse/bundle check: `cd ui/v2.5 && npm run build` or `make ui-only`. This always bundles the full UI; there is no narrower Vite build target in this repo.
-     - On PowerShell, if npm is blocked by script execution policy, call `npm.cmd` or the local `.CMD` shim in `ui/v2.5/node_modules/.bin`.
-   - Frontend verification policy (risk-based):
-     - **Simple UI-only styling/copy changes:** do not run a TypeScript or Vite build. Run targeted Prettier plus Stylelint for SCSS, ESLint for TS/TSX when applicable, and `git diff --check`.
-     - **Ordinary UI changes:** run targeted ESLint and Prettier. Add `npm.cmd run check` when TS/TSX types, imports, component props, hooks, or generated UI types changed. This is the normal compile tier.
-     - **Large or bundle-risk UI changes:** additionally run `npm.cmd run build`. Use this for Vite/config/dependency changes, routing or lazy-loading changes, broad shared UI infrastructure, substantial multi-component refactors, or when JSX/TSX bundling risk is not covered by `npm run check`.
-     - **Explicit user request:** follow it, including a request to skip final validations.
-   - Windows sanity pass that worked in this repo/session:
-     - `mingw32-make generate` for GraphQL/schema/codegen changes.
-     - `go build ./cmd/stash` for backend-only or ordinary mixed backend/UI changes.
-     - `go build ./...` only for generated-code, shared package, or broad backend changes that need the full repo compile.
-     - `cd ui/v2.5 && npm.cmd run eslint -- <changed ts/tsx files>` for targeted UI lint.
-     - `cd ui/v2.5 && npm.cmd run prettier -- --check <changed ui/graphql/md files>` for targeted format validation.
-     - `cd ui/v2.5 && npm.cmd run check` only when TypeScript types/imports/generated UI types changed.
-     - `git diff --check` for a cheap final whitespace/conflict-marker sanity pass.
-     - Note: `mingw32-make validate-ui-quick` may fail under Windows `cmd` with `-n was unexpected at this time`; when that happens, run the direct `npm.cmd` eslint/prettier commands above instead.
-     - Note: Windows sandbox command startup can intermittently fail with `windows sandbox: spawn setup refresh`, even for simple read-only commands. Treat this as a sandbox/tooling hiccup, not a repo failure: retry once, and if the command is needed to complete the task, rerun the same command with `sandbox_permissions: "require_escalated"` and a narrow `prefix_rule`.
-   - Suggested quick verification by change type:
-     - Go-only: `go build ./cmd/stash` (add `go test ./...` when behavior changed).
-     - UI-only: use the frontend verification policy above; simple SCSS-only changes do not need a TypeScript or Vite build.
-     - JSX/TSX parse risk: prefer `cd ui/v2.5 && npm run check`; reserve `cd ui/v2.5 && npm run build` for the large/bundle-risk cases listed above.
-     - GraphQL/schema/generated changes: run `mingw32-make generate` on Windows (or `make generate` elsewhere), then `go build ./cmd/stash` for resolver/query-only changes or `go build ./...` for broad generated/shared changes.
-     - Docs-only: `git diff --check` plus prettier check on the touched markdown is enough.
-   - Run dev server: `make server-start` (uses `.local` and `config.yml`). In separate terminal run `make ui-start` to run the UI in dev mode.
-   - Run tests (fast): `make test`. Run integration tests too: `make it` (adds `integration` build tag).
-   - Lint: `make lint` (uses `golangci-lint`).
+## Where to work
 
-3. Codegen and GraphQL specifics
-   - `gqlgen.yml` loads schema globs: `graphql/schema/types/*.graphql` and `graphql/schema/*.graphql`. If you edit schema files in `graphql/schema/types`, run `make generate` to update `internal/api/generated_*.go`.
-   - The project uses explicit model mappings in `gqlgen.yml` (many custom scalars and type overrides). Avoid changing generated model field names without adjusting `gqlgen.yml`.
-   - UI GraphQL generation lives in `ui/v2.5` (yarn gqlgen). Running `make generate` will call `cd ui/v2.5 && yarn run gqlgen`.
+- Backend entrypoint: `cmd/stash/main.go`; GraphQL schema: `graphql/schema/**`; resolvers and generated bindings: `internal/api/`; query/filter code: `pkg/scene`, `pkg/gallery`, `pkg/image`, `pkg/sqlite`.
+- UI: `ui/v2.5`; UI GraphQL operations: `ui/v2.5/graphql/`; custom navigation: `ui/v2.5/src/utils/navigation_custom.ts`.
+- GraphQL generation updates backend and UI bindings. Include generated diffs when committing or opening a PR.
 
-4. Project conventions and patterns (concrete examples)
-   - Database/config storage and dev env: local dev state lives in `.local` (see `make server-start` and `make server-clean`). Use `.local` for transient test data.
-   - Build flags are composed by `Makefile` targets (e.g., `flags-release`, `flags-pie`, `flags-static-*`). For platform-specific builds, use `make flags-...` prefixes.
-   - GraphQL resolvers and API surface: look under `internal/api` for resolver implementations (files named `resolver_model_*.go`). Add resolver logic next to generated models; run `go generate`/`make generate` to keep generated code in sync.
-   - UI translations and assets: `ui/v2.5/src/locales` and `docs/readme_assets`.
+## Upstream merges and production
 
-5. Integration points and external dependencies
-   - FFmpeg is required at runtime; during dev the app may download it automatically (see README). CI and release builds expect `ffmpeg` or included binaries.
-   - Stash-box / StashDB clients and scraping: packages under `pkg/stashbox` and `pkg/scraper` are integration points for external metadata sources.
-   - Plugins: `pkg/plugin` hosts plugin interfaces; example plugins are under `pkg/plugin/examples`.
-
-6. Testing and CI hints
-   - **New feature test requirement**: Every new feature must include focused test cases for the new behavior before the work is considered complete. Add tests at the narrowest useful layer (Go unit tests for backend logic, resolver/filter tests for API/query behavior, UI/component or TypeScript tests where a frontend behavior has meaningful logic). If a feature spans backend and UI, cover the business logic where regressions are most likely, then add UI coverage when rendering or interaction behavior is non-trivial.
-   - Unit tests: `go test ./...` (wrapped by `make test`). Integration tests require `make it` (build tag `integration`).
-   - Frontend tests / validation: prefer `make validate-ui-quick` and `cd ui/v2.5 && npm run check`; use `make validate-ui` or `make ui` only when broader validation or backend UI artifacts are explicitly needed.
-   - Linting and formatting: `make fmt` for Go, `make fmt-ui` for UI. Use `make validate` to run full checks required by PRs.
-
-7. Quick navigation pointers (files to inspect for common tasks)
-   - Start/boot: `cmd/stash/main.go`
-   - GraphQL config: `gqlgen.yml`, `graphql/schema/**`
-   - Custom GraphQL extensions: `graphql/schema/types/*_custom.graphql`, `graphql/schema/*_custom.graphql`
-   - Generated API bindings: `internal/api/generated_exec.go`, `internal/api/generated_models.go`
-   - Resolver implementations: `internal/api/resolver_model_*.go` and `internal/api/*.go`
-   - Custom resolvers: `internal/api/*_custom.go` (mutations, queries, model resolvers)
-   - Manager and config: `internal/manager`, `internal/manager/config`
-   - Custom filter/sqlite: `pkg/sqlite/*_custom.go` (criterion handlers, per-entity filters)
-   - Custom query logic: `pkg/scene/query_custom.go`, `pkg/gallery/query_custom.go`, `pkg/image/query_custom.go`
-   - Custom models: `pkg/models/*_custom.go`
-   - UI: `ui/v2.5` (dev server, build, GraphQL codegen)
-   - Custom navigation utils: `ui/v2.5/src/utils/navigation_custom.ts` (41 custom nav functions)
-   - Custom UI GraphQL queries: `ui/v2.5/graphql/mutations/*`, `ui/v2.5/graphql/queries/*`, `ui/v2.5/graphql/data/*`
-
-8. Response style and safety
-   - When suggesting edits, include exact file paths and minimal patches. Prefer adding code near existing patterns (e.g., follow `resolver_model_*` naming and placement).
-   - Keep UI copy concise. Heavy helper text is strongly discouraged; prefer short labels or focused tooltips, and add explanatory text only when it prevents a likely mistake or clarifies genuinely non-obvious behavior.
-   - For changes affecting generated code, always update `gqlgen.yml` or run `make generate` and include generated diffs in PRs.
-   - Do not add database migrations to the default codebase. Instead, please add them as separate SQL files.
-
-9. JSX comment pitfalls (critical!)
-   - **NEVER** place `{/* CUSTOM */}` comments after JSX props in an opening tag. esbuild treats `{...}` as a spread expression there and throws `Expected "..." but found "}"`. Use `// CUSTOM` (line comment) instead:
-     ```tsx
-     // WRONG – breaks esbuild:
-     <Component prop={value} {/* CUSTOM */}
-     // RIGHT:
-     <Component prop={value} // CUSTOM
-     ```
-   - `{/* CUSTOM */}` is fine **between JSX children** (inside element bodies), just never after props.
-   - For multi-line custom prop blocks, use `// CUSTOM: begin` / `// CUSTOM: end` (line comments, not JSX block comments).
-
-10. Merging with upstream Stash releases
-   - This is a custom fork with features layered on top of the official Stash releases.
-   - **Current upstream tag**: `v0.31.0`
-   - **Merge strategy**: Always treat upstream (official release tags like `v0.31.0`) as the main version. Custom features are a "plugin" on top.
-   - **Merge command example**: `git fetch --tags && git merge v0.31.0`
-   - **Conflict resolution priority**: When conflicts occur, preserve upstream logic first, then layer custom code on top. Adapt custom code to match new upstream patterns.
-   - **Key imports to check after merge**:
-     - `ConfigurationContext` from `src/hooks/Config` (for React.useContext)
-     - `useConfigurationContext` from `src/hooks/Config` (hook version)
-     - Custom image imports (gay.svg, mouth.svg, facial.png, straight.svg)
-   - **Generated code**: After resolving conflicts, always run `make generate` to regenerate GraphQL bindings.
-   - **Testing post-merge**: Run `make ui-start` and test the UI to catch runtime errors (missing imports, renamed components, etc.).
-   - **Custom `_custom` files won't conflict** — they don't exist in upstream. Only inline `// CUSTOM` markers in modified upstream files will appear in merge diffs. Re-apply them after resolving.
-   - **Check `go build ./...` AND the Vite dev server** (`make ui-start`) after every merge. Go build catches backend issues; Vite catches JSX/TSX parse errors that Go won't see.
-
-11. CUSTOM_FEATURES.md documentation
-   - All custom features added to this fork are documented in `CUSTOM_FEATURES.md` at the repo root.
-   - **Scope rule:** Document only independently user-visible features that are new compared with the upstream baseline. Do not add standalone entries for minor performance optimizations, UI/styling improvements, layout readjustments, copy changes, refactors, test coverage, or other changes within an existing custom feature; fold relevant implementation details into the parent feature instead.
-   - **Adding a feature**: When implementing a new custom feature, add a section to CUSTOM_FEATURES.md describing:
-     - Overview of the feature
-     - Files created or modified
-     - Test cases added for the feature
-     - GraphQL schema changes (if any)
-     - Configuration dependencies (if any)
-   - **Removing a feature**: If upstream adds functionality that replaces a custom feature, remove the custom implementation and also remove the corresponding section from CUSTOM_FEATURES.md.
-   - **After merging**: Review CUSTOM_FEATURES.md to ensure it still accurately reflects the current state of custom features.
-
-12. Custom code isolation architecture
-   - All custom code has been systematically separated from upstream across 5 layers:
-     1. **GraphQL schema**: 8 `_custom.graphql` files using `extend type/input/enum`
-     2. **Go resolvers/API**: 20+ `_custom.go` files in `internal/api/`
-     3. **Go filter/sqlite**: 11+ `_custom.go` files in `pkg/sqlite/`
-     4. **Frontend**: 839+ `// CUSTOM` markers across 81 modified files + `navigation_custom.ts`
-     5. **Go packages**: `_custom.go` extractions in `pkg/scene/`, `pkg/gallery/`, `pkg/image/`, `pkg/models/`, `internal/manager/`
-   - Go methods on receiver structs can span multiple files in the same package — this is the key enabler for `_custom.go` extractions.
-   - `import type` is used for type-only imports in TypeScript to avoid circular dependencies (e.g. `navigation_custom.ts` importing `INamedObject` from `navigation.ts`).
-   - JSON locale files (`en-GB.json`, `en-US.json`) cannot have comments — custom keys are documented in CUSTOM_FEATURES.md instead.
-
-13. Explicit requests to start up the app.
-   - Do not start up the application without direct instruction to do so.
-   - For starting up the application, simply running C:\Stash\stash.exe and C:\Amt\Stash\stash.exe should be sufficient
-   - Agents sometimes determine that they need to run the .exes with weird command line options, don't add anything, simply run them directly. It has been tested thoroughly and ran multiple times and worked each time without anything added.
-
-14. Explicit requests for production deployments.
-   - We have a script to deploy to production, but it should only be run when explicitly requested by the main developer. Do not run production deployment scripts without direct instruction to do so.
-   - The script is located at C:\Code\stash\deploy_prod_custom.bat and should be run from the command line with appropriate permissions.
-   - Agents sometimes determine that they need to run the script with weird command line options, don't add anything, simply run the bat directly. It has been tested thoroughly and ran multiple times and worked each time without anything added.
-
+- Upstream is the main version; reapply custom code on top when resolving conflicts. After an upstream merge, run `make generate`, `go build ./...`, and `make ui-start` to catch UI parse/runtime errors; review `CUSTOM_FEATURES.md`.
+- Start the installed application only when directly requested. Run `C:\Stash\stash.exe` and `C:\Amt\Stash\stash.exe` directly, without extra arguments.
+- Deploy to production only when directly requested by the main developer. Run `C:\Code\stash\deploy_prod_custom.bat` directly, without extra arguments.

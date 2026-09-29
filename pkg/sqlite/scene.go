@@ -1542,27 +1542,23 @@ func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindF
 		query.joinSort(studioTable, "", "scenes.studio_id = studios.id")
 		query.sortAndPagination += getSort("name", direction, studioTable)
 	case "effective_date": // CUSTOM
-		// Sort by the earliest date among scene.date and release dates
-		// Use a subquery to compute the minimum
-		effectiveDateExpr := EffectiveSceneDateSQLCustom(sceneTable)
-		query.sortAndPagination += fmt.Sprintf(" ORDER BY %s %s", effectiveDateExpr, getSortDirection(direction))
-		// END CUSTOM
+		query.sortAndPagination += qb.sortByEffectiveDateCustom(query, direction)
 	case "sex_activity_percent": // CUSTOM
-		query.sortAndPagination += qb.sortByActivityPercentCustom(activityPercentSexCustom, direction)
+		query.sortAndPagination += qb.sortByBatchedActivityPercentCustom(query, activityPercentSexCustom, direction)
 	case "oral_activity_percent": // CUSTOM
-		query.sortAndPagination += qb.sortByActivityPercentCustom(activityPercentOralCustom, direction)
+		query.sortAndPagination += qb.sortByBatchedActivityPercentCustom(query, activityPercentOralCustom, direction)
 	case "solo_activity_percent": // CUSTOM
-		query.sortAndPagination += qb.sortByActivityPercentCustom(activityPercentSoloCustom, direction)
+		query.sortAndPagination += qb.sortByBatchedActivityPercentCustom(query, activityPercentSoloCustom, direction)
 	case "other_activity_percent": // CUSTOM
-		query.sortAndPagination += qb.sortByActivityPercentCustom(activityPercentOtherCustom, direction)
+		query.sortAndPagination += qb.sortByBatchedActivityPercentCustom(query, activityPercentOtherCustom, direction)
 	case "outstanding_activity_percent": // CUSTOM
-		query.sortAndPagination += qb.sortByActivityPercentCustom(activityPercentOutstandingCustom, direction)
+		query.sortAndPagination += qb.sortByBatchedActivityPercentCustom(query, activityPercentOutstandingCustom, direction)
 	case "standard_activity_percent": // CUSTOM
-		query.sortAndPagination += qb.sortByActivityPercentCustom(activityPercentStandardCustom, direction)
+		query.sortAndPagination += qb.sortByBatchedActivityPercentCustom(query, activityPercentStandardCustom, direction)
 	case "unclassified_activity_percent": // CUSTOM
-		query.sortAndPagination += qb.sortByActivityPercentCustom(activityPercentUnclassifiedCustom, direction)
+		query.sortAndPagination += qb.sortByBatchedActivityPercentCustom(query, activityPercentUnclassifiedCustom, direction)
 	case "unusable_activity_percent": // CUSTOM
-		query.sortAndPagination += qb.sortByActivityPercentCustom(activityPercentUnusableCustom, direction)
+		query.sortAndPagination += qb.sortByBatchedActivityPercentCustom(query, activityPercentUnusableCustom, direction)
 	default:
 		query.sortAndPagination += getSort(sort, direction, "scenes")
 	}

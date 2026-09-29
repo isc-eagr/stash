@@ -61,6 +61,7 @@ import { FilterTags } from "../List/FilterTags";
 import { SidebarFolderFilter } from "../List/Filters/FolderFilter";
 import { SceneViewerQueueIndicator } from "./SceneViewerQueueIndicator"; // CUSTOM
 import { useSceneViewerQueue } from "src/hooks/SceneViewerQueue"; // CUSTOM
+import { useOrgasmTagDescendantIds } from "./useOrgasmTagDescendantIds_custom"; // CUSTOM
 
 // CUSTOM: begin - allow scoped lists to append aggregates to scene totals.
 function renderMetadataByline(
@@ -415,21 +416,10 @@ export const FilteredSceneList = PatchComponent(
     const configuredSecondCameraTagId =
       configuration?.ui?.roleTagIds?.secondCameraTagId;
 
-    const orgasmDescendantsResult = GQL.useFindTagsQuery({
-      variables: {
-        filter: {
-          per_page: 5000,
-        },
-        tag_filter: {
-          parents: {
-            modifier: GQL.CriterionModifier.Includes,
-            value: configuredOrgasmTagId ? [configuredOrgasmTagId] : [],
-            depth: -1,
-          },
-        },
-      },
-      skip: view !== View.Scenes || !configuredOrgasmTagId,
-    });
+    const orgasmDescendantsResult = useOrgasmTagDescendantIds(
+      configuredOrgasmTagId,
+      view !== View.Scenes
+    );
 
     const orgasmTagIdSet = useMemo(() => {
       const set = new Set<string>();

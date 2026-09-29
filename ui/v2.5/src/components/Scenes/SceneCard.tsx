@@ -75,18 +75,27 @@ export const ScenePreview: React.FC<IScenePreviewProps> = ({
 }) => {
   const videoEl = useRef<HTMLVideoElement>(null);
 
+  // CUSTOM: begin - keep one observer per preview and release it on unmount.
   useEffect(() => {
+    const observedVideo = videoEl.current;
+    if (!observedVideo) return;
+
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.intersectionRatio > 0)
           // Catch is necessary due to DOMException if user hovers before clicking on page
-          videoEl.current?.play()?.catch(() => {});
-        else videoEl.current?.pause();
+          observedVideo.play().catch(() => {});
+        else observedVideo.pause();
       });
     });
 
-    if (videoEl.current) observer.observe(videoEl.current);
-  });
+    observer.observe(observedVideo);
+    return () => {
+      observer.disconnect();
+      observedVideo.pause();
+    };
+  }, []);
+  // CUSTOM: end
 
   useEffect(() => {
     if (videoEl?.current?.volume)

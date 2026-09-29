@@ -13,7 +13,6 @@ const SCENE_STATS_COMPACT_QUERY = `
       r: scenes {
         i: id
         t: title
-        d: date
         e: effective_date
         a: rating100
         o: o_counter
@@ -52,6 +51,7 @@ interface ISceneStatsCompactQueryResult {
 // This large dashboard result intentionally bypasses Apollo normalization.
 // At tens of thousands of scenes it is ephemeral aggregate input, not reusable
 // entity cache data, and the compact aliases cut repeated JSON field names.
+// effective_date already includes the scene date, so do not send both dates.
 export function useSceneStatsCompactQuery(
   studioId?: string,
   depth?: number

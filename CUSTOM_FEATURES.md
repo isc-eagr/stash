@@ -38,6 +38,7 @@ Scene markers can be associated with performers in explicit **Top** (giving) and
 ### User-visible behavior
 
 - Marker create/edit forms provide separate Top and Bottom performer selectors with role-colored indicators (blue Top, green Bottom).
+- In the marker New/Edit panel, the Primary Tag and Tags selectors keep the Create Tag option, and creating a tag requires clicking that option.
 - Scene marker cards, the chronological marker panel, marker playback, and marker viewers show the assigned performers and role.
 - Performer details include a Markers tab containing only markers linked directly to that performer.
 - The Partners tab groups co-performers by Sex, Oral, and Facial role, with shared timed-marker duration for Sex/Oral pairs and deduplicated partner portraits.
@@ -98,6 +99,7 @@ The fork adds marker-aware and role-aware criteria to the Scenes, Markers, Perfo
 - Scene marker include/exclude filters support groups of tags, primary/secondary tags, Top/Bottom/Both-role performer IDs, performer country, ethnicity, rating, and `INCLUDES`/`INCLUDES_ALL`/`EQUALS` semantics.
 - Explicit overlap groups require marker ranges to overlap. Directed tag inheritance is separate: an equal-or-longer source marker contributes tags only when its intersection covers at least 50% of the receiving marker. A wider marker never inherits from a narrower marker inside it.
 - The Markers page has a Marker Performers criterion, a Has Roles criterion (Top/Bottom checkboxes), a Studio criterion with hierarchical child-studio matching, and a unified include/exclude Performer Markers criterion.
+- Custom Markers-page SQL skips redundant inheritance checks for a single tag family and starts shared unnamed-performer overlap matching from marker participants. Circular Oral reuses a bound, cycle-safe tag family, and Studio descendants use the studio `id` column. Changes are in `pkg/sqlite/scene_marker_filter_custom.go` and `scene_marker_filter_optimization_custom.go`, with regression tests in `scene_marker_filter_optimization_custom_test.go` and an opt-in read-only comparison in `scene_marker_audit_custom_test.go`. See `docs/custom_marker_filter_audit_custom.md` for measurements. No schema, migration, or configuration changes.
 - Unnamed performers (Performer A, Performer B, …) can be defined by ethnicity, country, rating, and Rating Advisor criteria. Reusing a letter requires the same actual performer across the referenced roles/configurations.
 - Non-overlapping scene-marker configurations bind shared unnamed IDs to one person while requiring different unnamed IDs and each configuration to resolve to distinct people and markers. `pkg/sqlite/scene_marker_identity_custom.go` preserves each configuration's tag and AND/OR constraints; `scene_marker_identity_custom_test.go` covers giving/receiving the same activity, reciprocal roles, single-marker self-role rejection, different-person rejection, unrestricted tags, alternative roles, and multiple shared identities.
 - Markers and Scene Markers (including Exclude) use compact summaries and a shared outline editor (`MarkerFilterEditor.tsx`, `markerFilterEditor_custom.ts`, and `markerFilterEditor_custom.scss`). Existing selectors and Rating Criteria are retained; created unnamed vatos appear before named vatos in the same role selector and can be reused across configurations. Apply commits the draft; Cancel preserves the original filter. `markerFilterEditor_custom.test.ts` covers identity, unified role selections, draft isolation, rating criteria, and query/saved-filter preservation. No schema or configuration changes.
@@ -108,6 +110,7 @@ The fork adds marker-aware and role-aware criteria to the Scenes, Markers, Perfo
 - Performer Marker Tags and Performer Markers filters match marker participation, role, partner attributes, and tag ancestry. Custom radio filters include Versatile Scenes, Circular Oral, Strict/Lenient Tops, and Strict/Lenient Bottoms.
 - Performer country, ethnicity, rating, and profile-image-count criteria use database-backed values. Inclusive numeric operators (`>=`, `<=`) are available across numeric/date/duration controls.
 - Custom criteria are highlighted in the filter picker so fork-only filters are easy to identify.
+- Scene Activity/Quality percentage filters batch selected interval metrics over local candidates and preserve rounded comparisons, count queries, and nested logic. Scene Type and custom role filters use parameterized, cycle-safe tag-family sets; single-match Scene Marker groups stop early. Scene Performer Rating keeps ANY branches independent and enforces ALL for inclusive comparisons. See `docs/custom_scene_filter_audit_custom.md` for the audit and measured results. No schema, migration, or configuration changes.
 
 ### Key files
 
@@ -118,7 +121,7 @@ The fork adds marker-aware and role-aware criteria to the Scenes, Markers, Perfo
 
 ### Tests
 
-SQLite and UI tests cover the 50% overlap boundary, exclusion behavior, role matching, unnamed-performer identity, tag ancestry, scene-type precedence, Has Roles combinations, profile-image counts, and custom-filter serialization.
+SQLite and UI tests cover the 50% overlap boundary, exclusion behavior, role matching, unnamed-performer identity, tag ancestry, scene-type precedence, Has Roles combinations, profile-image counts, and custom-filter serialization. The scene-filter optimization tests additionally cover numeric operators, grouped/direct percentage aliases, AND/OR/NOT, counts/pagination/sorts, HAVING boundaries, cyclic ancestry, and performer-rating composition. The optional read-only filter audit compares original and optimized matching IDs.
 
 ---
 
@@ -184,6 +187,7 @@ Tag-based task tracking records daily completions and incoming work for scenes, 
 - Details shows completed, remaining, and percentage summary cards above the shared history chart. Fixed-batch completed counts use the current baseline.
 - The main progress page includes a browser-local Timer Countdown modal. A duration in minutes starts a real-time countdown with pause/resume and final stop controls. After reaching zero it tracks overtime from `00:00`; Stop freezes the timer and displays total active time taken, with no restart action available in that modal. The large display transitions from green through light green, yellow, orange, and red as the percentage remaining crosses 80%, 60%, 40%, and 20%.
 - Milestones group any non-deleted trackers other than Overall. Each milestone has a required name, optional target date, independent effective-dated daily goal, and members that may also belong to other milestones. The Milestones tab shows one selected milestone with summed counts, full member history, goals, forecasts, chart, and a compact per-tracker contribution list. When incoming work makes net pace non-positive, the estimated finish uses completion pace and says it assumes no new items arrive. Selection has a direct URL and is remembered in the browser; the finish planner is browser-local per milestone. Overlapping items count once per tracker. Changing membership recalculates history, and deleting a milestone leaves its trackers untouched.
+- The Reports tab shows weekly, monthly, and yearly calendar tables with Previous/Next navigation and direct date, month, and year selectors bounded by the first recorded activity. Trackers and milestones with completed items have separate sections sorted by period completions; Overall appears separately. Each row shows cumulative completed items through the period, daily goal days met, the sum of effective daily goals, actual period completions, and the percentage change in completion. Current periods count elapsed days only. Task Progress dates and date pickers display `dd/mm/yyyy`.
 
 ### Key files and schema
 
@@ -197,7 +201,7 @@ Tag-based task tracking records daily completions and incoming work for scenes, 
 ### Tests
 
 Coverage includes bootstrap/retrofit, CRUD/order/versioning, fixed membership, lifecycle recording, tag and deletion events, Overall Progress transitions and goal persistence, effective-dated daily goals, weekly/monthly aggregation, date boundaries and period percentage changes, forecasts, goal states, card/modal rendering, visible-data rules, and Timer Countdown duration/formatting, pause/overtime/stop timing, and color thresholds.
-Milestone tests cover persistence, membership, summed counts and history, daily goals, target pace, and URL selection.
+Milestone tests cover persistence, membership, summed counts and history, daily goals, target pace, and URL selection. Report tests cover calendar boundaries, activity-bounded period navigation, effective-dated goals, elapsed current periods, totals, and percentage changes.
 
 ---
 
@@ -209,6 +213,8 @@ Studio cards and detail pages expose Sex, Oral, Solo, Facial, and Unique Perform
 
 The studio list uses a page-level `studio_list_stats` query for batched counts, recursive O totals, role counts, and activity/quality percentages. This avoids one aggregate query per card while preserving the existing detail-page fields.
 
+Custom Studio quality filters and sorts batch interval calculations over matching studios. Role scene-count sorts use indexed existence checks; missing role configuration and release-only markers no longer break their ordering or exclusions. The [custom Studio SQL audit](docs/custom_studio_filter_sort_audit_custom.md) records measurements and scope. Regression tests cover scalar equivalence, boolean filter composition, pagination, interval overlap, rounding, tag configuration, and release-only markers. No schema, migration, or configuration changes are required; existing role-tag settings remain in effect.
+
 ### Performer Studios tab
 
 Performer details have a Studios tab showing only Studios represented in that performer's scenes. The list keeps the basic scene count but hides studio-wide category totals when performer-filtered, preventing misleading unscoped numbers. Studio detail pages also expose Scene Stats and Vato Stats tabs described in section 4.
@@ -218,6 +224,7 @@ Performer details have a Studios tab showing only Studios represented in that pe
 - `ui/v2.5/src/components/Studios/{StudioCard,StudioList,StudioCardGrid,StudioSortMetricStrip_custom}.tsx`
 - `ui/v2.5/src/components/Performers/PerformerDetails/PerformerStudiosPanel.tsx`
 - `internal/api/studio_list_stats_custom.go`, `pkg/sqlite/studio_sort_metric_custom.go`, `studio_facial_marker_sort_custom.go`
+- `pkg/sqlite/studio_activity_query_custom.go`, `studio_role_sort_custom.go`, their `_custom_test.go` files, and `studio_audit_custom_test.go`; hooks in `studio.go` and `studio_filter.go`
 - `graphql/schema/types/studio_custom.graphql` and `ui/v2.5/graphql/queries/studio.graphql`
 
 ---
@@ -261,7 +268,7 @@ Scene cards and details show role-aware performer strips, independent Activity T
 
 ### Scene Insights
 
-Scene cards and scene details expose a typed, evidence-backed insight strip with a complete hover popup. It can report GOAT and common Outstanding Activity tags, one combined Orgasm/Facial event chip, repeated or simultaneous orgasms, activity quality, Mexican or Royal-Sapphire lineup context, role rarity, interactions, and stored Rating Advisor warnings. The combined chip summarizes the total, facial and regular counts, and GOAT/Really Hot counts; its event popover shows every counted event with quality pills. Facial events show top portraits in blue and bottom portraits in green, while regular orgasms show only the top performer without a role outline. Insight Stats uses one Orgasm and Facial reports family with descending total, regular, facial, GOAT, and Really Hot event-count breakdowns. The hover stays open as the pointer enters the popup; event cards use a responsive column grid and the popup scrolls within the available viewport space. A configurable visible-chip limit keeps the card compact; the popup retains every visible candidate and its evidence. The Lackluster, Few Highlights, Everybody Nuts, standalone Feet, and Lots of filler insight families and their related thresholds are retired from scene cards, settings, and Insight Stats. Feet remains available through ordinary tag reports and the activity matrix. Quality combinations and Fucking / eating pito splits are retained for Insight Stats as bounded percentage ranges rather than separate card chips.
+Scene cards and scene details expose a typed, evidence-backed insight strip with a complete hover popup. It can report GOAT and common Outstanding Activity tags, one combined Orgasm/Facial event chip, repeated or simultaneous orgasms, activity quality, Mexican or Royal-Sapphire lineup context, role rarity, interactions, and stored Rating Advisor warnings. The Scene contains chip includes Orgasm and Facial subtags even when their markers also contribute to GOAT or event reports; the configured Orgasm, Facial, Really Hot, and GOAT tags are excluded from that chip. The combined chip summarizes the total, facial and regular counts, and GOAT/Really Hot counts; its event popover shows every counted event with quality pills. Facial events show top portraits in blue and bottom portraits in green, while regular orgasms show only the top performer without a role outline. Insight Stats uses one Orgasm and Facial reports family with descending total, regular, facial, GOAT, and Really Hot event-count breakdowns. The hover stays open as the pointer enters the popup; event cards use a responsive column grid and the popup scrolls within the available viewport space. A configurable visible-chip limit keeps the card compact; the popup retains every visible candidate and its evidence. The Lackluster, Few Highlights, Everybody Nuts, standalone Feet, and Lots of filler insight families and their related thresholds are retired from scene cards, settings, and Insight Stats. Feet remains available through ordinary tag reports and the activity matrix. Quality combinations and Fucking / eating pito splits are retained for Insight Stats as bounded percentage ranges rather than separate card chips.
 
 The Outstanding Activity Matrix is available from a scene, vato, global Scene Stats, or Studio Scene Stats. It merges intervals, shows duration and marker counts by tag and performer, supports direct/sub-tag roll-up, and links to the matching tag-marker view. GOAT evidence remains separate and higher priority. Scene cards use batched performer history and marker context so insights do not issue one query per card.
 

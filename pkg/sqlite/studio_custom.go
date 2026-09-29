@@ -59,21 +59,7 @@ func GetRoleTagIDs() RoleTagIDs {
 // that have scene markers with the specified tag (including ALL subtags recursively)
 // Checks both primary_tag_id AND secondary tags in scene_markers_tags
 func (qb *StudioStore) sortByMarkerRoleSceneCount(tagID int, direction string) string {
-	if tagID == 0 {
-		// If no tag is configured, sort as if count is 0
-		return fmt.Sprintf(" ORDER BY 0 %s", getSortDirection(direction))
-	}
-
-	// Count distinct scenes for each studio that have markers with the tag or its descendants
-	// Uses UNION ALL to check both primary tag and secondary tags (scene_markers_tags)
-	// Using COALESCE to handle studios with no matching markers (count = 0)
-	return fmt.Sprintf(` ORDER BY COALESCE((
-		SELECT COUNT(DISTINCT s.id)
-		FROM scenes s
-		INNER JOIN scene_markers sm ON sm.scene_id = s.id
-		WHERE s.studio_id = studios.id
-		AND %[1]s
-	), 0) %[2]s`, sceneMarkerEffectiveTagHierarchyConditionCustom("sm", tagID), getSortDirection(direction))
+	return studioSortMetricOrderClauseCustom(studioRoleSceneCountExpressionCustom(tagID), direction)
 }
 
 // sortBySexSceneCount counts scenes with sex markers
@@ -85,71 +71,13 @@ func (qb *StudioStore) sortBySexSceneCount(direction string) string {
 // sortByOralSceneCount counts scenes with oral markers but not sex markers
 func (qb *StudioStore) sortByOralSceneCount(direction string) string {
 	roleTagIDs := GetRoleTagIDs()
-	if roleTagIDs.OralTagID == 0 {
-		return fmt.Sprintf(" ORDER BY 0 %s", getSortDirection(direction))
-	}
-
-	// Build sex tag exclusion - exclude scenes that have ANY sex marker
-	// Checks both primary and secondary tags
-	sexExclude := ""
-	if roleTagIDs.SexTagID != 0 {
-		sexExclude = fmt.Sprintf(`
-			AND s.id NOT IN (
-				SELECT DISTINCT sm_sex.scene_id
-				FROM scene_markers sm_sex
-				WHERE %[1]s
-			)`, sceneMarkerEffectiveTagHierarchyConditionCustom("sm_sex", roleTagIDs.SexTagID))
-	}
-
-	// Count scenes with oral markers (including all subtags) excluding those with sex markers
-	// Checks both primary and secondary tags
-	return fmt.Sprintf(` ORDER BY COALESCE((
-		SELECT COUNT(DISTINCT s.id)
-		FROM scenes s
-		INNER JOIN scene_markers sm ON sm.scene_id = s.id
-		WHERE s.studio_id = studios.id
-		AND %[1]s
-		%[2]s
-	), 0) %[3]s`, sceneMarkerEffectiveTagHierarchyConditionCustom("sm", roleTagIDs.OralTagID), sexExclude, getSortDirection(direction))
+	return studioSortMetricOrderClauseCustom(studioRoleSceneCountExpressionCustom(roleTagIDs.OralTagID, roleTagIDs.SexTagID), direction)
 }
 
 // sortBySoloSceneCount counts scenes with solo markers but not sex/oral markers
 func (qb *StudioStore) sortBySoloSceneCount(direction string) string {
 	roleTagIDs := GetRoleTagIDs()
-	if roleTagIDs.SoloTagID == 0 {
-		return fmt.Sprintf(" ORDER BY 0 %s", getSortDirection(direction))
-	}
-
-	// Build exclusion for sex markers - checks both primary and secondary tags
-	excludeConditions := ""
-	if roleTagIDs.SexTagID != 0 {
-		excludeConditions += fmt.Sprintf(`
-			AND s.id NOT IN (
-				SELECT DISTINCT sm_sex.scene_id
-				FROM scene_markers sm_sex
-				WHERE %[1]s
-			)`, sceneMarkerEffectiveTagHierarchyConditionCustom("sm_sex", roleTagIDs.SexTagID))
-	}
-	// Build exclusion for oral markers - checks both primary and secondary tags
-	if roleTagIDs.OralTagID != 0 {
-		excludeConditions += fmt.Sprintf(`
-			AND s.id NOT IN (
-				SELECT DISTINCT sm_oral.scene_id
-				FROM scene_markers sm_oral
-				WHERE %[1]s
-			)`, sceneMarkerEffectiveTagHierarchyConditionCustom("sm_oral", roleTagIDs.OralTagID))
-	}
-
-	// Count scenes with solo markers (including all subtags) excluding those with sex/oral markers
-	// Checks both primary and secondary tags
-	return fmt.Sprintf(` ORDER BY COALESCE((
-		SELECT COUNT(DISTINCT s.id)
-		FROM scenes s
-		INNER JOIN scene_markers sm ON sm.scene_id = s.id
-		WHERE s.studio_id = studios.id
-		AND %[1]s
-		%[2]s
-	), 0) %[3]s`, sceneMarkerEffectiveTagHierarchyConditionCustom("sm", roleTagIDs.SoloTagID), excludeConditions, getSortDirection(direction))
+	return studioSortMetricOrderClauseCustom(studioRoleSceneCountExpressionCustom(roleTagIDs.SoloTagID, roleTagIDs.SexTagID, roleTagIDs.OralTagID), direction)
 }
 
 // sortByFacialSceneCount counts scenes with facial markers (independent of other markers)

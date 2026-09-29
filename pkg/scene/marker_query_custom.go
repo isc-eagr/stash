@@ -23,8 +23,23 @@ func MarkerDurationByTagID(ctx context.Context, r models.SceneMarkerQueryer, id 
 // MarkerDurationByFilterCustom returns the summed duration across every marker
 // matching a scene-marker filter, independently of list pagination. // CUSTOM
 func MarkerDurationByFilterCustom(ctx context.Context, r models.SceneMarkerQueryer, filter *models.SceneMarkerFilterType) (float64, error) {
+	return MarkerDurationByQueryCustom(ctx, r, filter, nil)
+}
+
+// MarkerDurationByQueryCustom includes text search but ignores pagination and
+// sorting. SQLite aggregates directly; other stores retain the portable fallback.
+func MarkerDurationByQueryCustom(ctx context.Context, r models.SceneMarkerQueryer, filter *models.SceneMarkerFilterType, findFilter *models.FindFilterType) (float64, error) {
+	if aggregate, ok := r.(interface {
+		QueryDurationCustom(context.Context, *models.SceneMarkerFilterType, *models.FindFilterType) (float64, error)
+	}); ok {
+		return aggregate.QueryDurationCustom(ctx, filter, findFilter)
+	}
 	allResults := -1
-	markers, _, err := r.Query(ctx, filter, &models.FindFilterType{PerPage: &allResults})
+	allFilter := &models.FindFilterType{PerPage: &allResults}
+	if findFilter != nil {
+		allFilter.Q = findFilter.Q
+	}
+	markers, _, err := r.Query(ctx, filter, allFilter)
 	if err != nil {
 		return 0, err
 	}

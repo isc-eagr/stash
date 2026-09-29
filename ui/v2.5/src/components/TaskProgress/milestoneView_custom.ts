@@ -23,7 +23,7 @@ export function resolveMilestoneSelection(
 export function milestoneSearch(
   search: string,
   milestoneID?: string,
-  view: "trackers" | "milestones" = "milestones"
+  view: "trackers" | "milestones" | "reports" = "milestones"
 ): string {
   const params = new URLSearchParams(search);
   if (view === "milestones") {
@@ -31,7 +31,8 @@ export function milestoneSearch(
     if (milestoneID) params.set("milestone", milestoneID);
     else params.delete("milestone");
   } else {
-    params.delete("view");
+    if (view === "reports") params.set("view", "reports");
+    else params.delete("view");
     params.delete("milestone");
   }
   const value = params.toString();

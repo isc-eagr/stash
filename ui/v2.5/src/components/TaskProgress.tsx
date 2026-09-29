@@ -10,6 +10,7 @@ import { TaskProgressForm } from "./TaskProgress/TaskProgressForm";
 import { TaskProgressOverall } from "./TaskProgress/TaskProgressOverall";
 import { TaskProgressTrackerModal } from "./TaskProgress/TaskProgressTrackerModal";
 import { TaskProgressMilestones } from "./TaskProgress/TaskProgressMilestones"; // CUSTOM
+import { TaskProgressReports } from "./TaskProgress/TaskProgressReports"; // CUSTOM
 import { milestoneSearch } from "./TaskProgress/milestoneView_custom"; // CUSTOM
 import { TaskProgressTimerCountdown } from "./TaskProgress/TaskProgressTimerCountdown_custom";
 import {
@@ -34,9 +35,10 @@ const TaskProgress: React.FC = () => {
   // CUSTOM: Keep the selected tracker status in the URL so reloads preserve the view.
   const history = useHistory();
   const location = useLocation();
+  const requestedView = new URLSearchParams(location.search).get("view");
   const view =
-    new URLSearchParams(location.search).get("view") === "milestones"
-      ? "milestones"
+    requestedView === "milestones" || requestedView === "reports"
+      ? requestedView
       : "trackers"; // CUSTOM
   const filter = taskProgressFilterFromSearch(location.search);
   const [dragged, setDragged] = useState<string>();
@@ -99,7 +101,7 @@ const TaskProgress: React.FC = () => {
             search: milestoneSearch(
               location.search,
               undefined,
-              key === "milestones" ? "milestones" : "trackers"
+              key === "milestones" || key === "reports" ? key : "trackers"
             ),
           })
         }
@@ -109,6 +111,10 @@ const TaskProgress: React.FC = () => {
         </Nav.Item>
         <Nav.Item>
           <Nav.Link eventKey="milestones">{t("Milestones")}</Nav.Link>
+        </Nav.Item>
+        {/* CUSTOM: Calendar reports share the Task Progress page. */}
+        <Nav.Item>
+          <Nav.Link eventKey="reports">{t("Reports")}</Nav.Link>
         </Nav.Item>
       </Nav>
       {view === "trackers" ? (
@@ -195,11 +201,17 @@ const TaskProgress: React.FC = () => {
             <p>{t("No trackers in this view.")}</p>
           )}
         </>
-      ) : (
+      ) : view === "milestones" ? (
         <TaskProgressMilestones
           trackers={trackers}
           onOpenTracker={setSelectedTrackerID}
           onRefreshTrackers={data.refresh}
+        />
+      ) : (
+        <TaskProgressReports
+          trackers={trackers}
+          trackersLoading={data.loading}
+          trackersError={data.error}
         />
       )}
       {editor && (

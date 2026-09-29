@@ -26,13 +26,6 @@ func (h *joinedSceneMarkerTagsHandler) handle(ctx context.Context, f *filterBuil
 		return
 	}
 
-	// Always join the scene_markers table for consistency with other handlers
-	f.addLeftJoin(h.joinTable, "", utils.StrFormat("{primaryTable}.id = {joinTable}.{joinPrimaryKey}", utils.StrFormatMap{
-		"primaryTable":   h.primaryTable,
-		"joinTable":      h.joinTable,
-		"joinPrimaryKey": h.joinPrimaryKey,
-	}))
-
 	c := *h.criterion
 	c.GroupsExtended = normalizeSceneMarkerTagGroupsSameUnnamedRolesCustom(c.GroupsExtended)
 	c.OverlapGroups = normalizeSceneMarkerTagGroupsSameUnnamedRolesCustom(c.OverlapGroups)
@@ -866,6 +859,13 @@ WHERE %[2]s
 		if c.Modifier == models.CriterionModifierNotNull {
 			notClause = "NOT"
 		}
+		// Only null checks use the outer marker rows. Other checks are self-contained
+		// subqueries; joining here would multiply their evaluations by marker count.
+		f.addLeftJoin(h.joinTable, "", utils.StrFormat("{primaryTable}.id = {joinTable}.{joinPrimaryKey}", utils.StrFormatMap{
+			"primaryTable":   h.primaryTable,
+			"joinTable":      h.joinTable,
+			"joinPrimaryKey": h.joinPrimaryKey,
+		}))
 		// Join marker tags to check presence/absence
 		f.addLeftJoin("scene_markers_tags", "", "scene_markers.id = scene_markers_tags.scene_marker_id")
 		f.addWhere(fmt.Sprintf("scene_markers_tags.tag_id IS %s NULL", notClause))
@@ -1419,16 +1419,9 @@ WHERE sm_excl.scene_id = {primaryTable}.id
 					continue // Skip the normal processing
 				}
 
-				// Build the COUNT(DISTINCT sm.id) query
 				whereClause := strings.Join(matchConditions, " AND ")
-				subq := utils.StrFormat(`(
-SELECT COUNT(DISTINCT sm.id)
-FROM scene_markers sm
-WHERE sm.scene_id = {primaryTable}.id
-  AND `+whereClause+`
-) >= ?`, utils.StrFormatMap{"primaryTable": h.primaryTable})
-
-				matchArgs = append(matchArgs, multiplicity)
+				subq, countArgs := sceneMarkerMultiplicityClauseCustom(h.primaryTable, whereClause, multiplicity)
+				matchArgs = append(matchArgs, countArgs...)
 				f.addWhere(subq, matchArgs...)
 
 				// Handle exclude_tag_ids (for groups that also have include conditions)
@@ -1589,19 +1582,13 @@ WHERE %s
 				continue
 			}
 			ph := getInBinding(len(g))
-			// Require at least <multiplicity> distinct markers matching the tag-set
-			subq := utils.StrFormat(`(
-SELECT COUNT(DISTINCT sm.id)
-FROM scene_markers sm
-WHERE sm.scene_id = {primaryTable}.id
-	AND `+sceneMarkerEffectiveTagsCountClauseCustom("sm", ph, len(g))+`
-) >= ?`, utils.StrFormatMap{"primaryTable": h.primaryTable})
+			subq, countArgs := sceneMarkerMultiplicityClauseCustom(h.primaryTable, sceneMarkerEffectiveTagsCountClauseCustom("sm", ph, len(g)), multiplicity)
 
 			args := make([]any, 0, len(g)+1)
 			for _, v := range g {
 				args = append(args, v)
 			}
-			args = append(args, multiplicity)
+			args = append(args, countArgs...)
 			f.addWhere(subq, args...)
 		}
 		return

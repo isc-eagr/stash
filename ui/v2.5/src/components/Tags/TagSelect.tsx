@@ -32,6 +32,7 @@ import { sortByRelevance } from "src/utils/query";
 import { PatchComponent, PatchFunction } from "src/patch";
 import { isUUID } from "src/utils/stashIds";
 import { filterByStashID } from "src/models/list-filter/utils";
+import { shouldPreventCreateOptionEnter } from "./tagSelectKeyboard_custom"; // CUSTOM
 
 export type SelectObject = {
   id: string;
@@ -70,6 +71,8 @@ export type TagSelectProps = IFilterProps &
     disableHoverPopovers?: boolean;
     // Optional extra tag filter constraints applied server-side when loading options
     tagFilter?: Partial<GQL.TagFilterType>;
+    // Require clicking the create option instead of pressing Enter // CUSTOM
+    createOnClickOnly?: boolean; // CUSTOM
     // CUSTOM: end
   };
 
@@ -80,9 +83,13 @@ const TagOption: React.FC<OptionProps<Option, boolean>> = (optionProps) => {
   const { object } = optionProps.data;
   const selectProps =
     optionProps.selectProps as typeof optionProps.selectProps &
-      Pick<TagSelectProps, "disableHoverPopovers" | "hoverPlacement">;
+      Pick<
+        TagSelectProps,
+        "disableHoverPopovers" | "hoverPlacement" | "createOnClickOnly"
+      >;
 
   const { name } = object;
+  const isCreateOption = selectProps.createOnClickOnly && object.id === ""; // CUSTOM
 
   // if name does not match the input value but an alias does, show the alias
   const { inputValue } = selectProps;
@@ -95,6 +102,13 @@ const TagOption: React.FC<OptionProps<Option, boolean>> = (optionProps) => {
 
   thisOptionProps = {
     ...optionProps,
+    // CUSTOM: flag the focused create option so Enter can be intercepted
+    innerProps: isCreateOption
+      ? ({
+          ...optionProps.innerProps,
+          "data-tag-create-option": "true",
+        } as typeof optionProps.innerProps)
+      : optionProps.innerProps,
     children: (
       <TagPopover
         id={object.id}
@@ -259,6 +273,16 @@ const _TagSelect: React.FC<TagSelectProps> = (props) => {
     return true;
   };
 
+  // CUSTOM: prevent Enter from creating a tag in opted-in fields
+  const onKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (event) => {
+    if (
+      props.createOnClickOnly &&
+      shouldPreventCreateOptionEnter(event.key, event.currentTarget)
+    ) {
+      event.preventDefault();
+    }
+  };
+
   return (
     <FilterSelectComponent<Tag, boolean>
       {...props}
@@ -280,6 +304,8 @@ const _TagSelect: React.FC<TagSelectProps> = (props) => {
       isMulti={props.isMulti ?? false}
       creatable={props.creatable ?? defaultCreatable}
       onCreate={onCreate}
+      onKeyDown={onKeyDown} // CUSTOM
+      tabSelectsValue={props.createOnClickOnly ? false : undefined} // CUSTOM
       placeholder={
         props.noSelectionString ??
         intl.formatMessage(

@@ -68,3 +68,31 @@ test("compact SceneStats rows expand to the dashboard model", () => {
     uniquePerformerCount: 0,
   });
 });
+
+test("compact SceneStats accepts an effective date without a duplicate scene date", () => {
+  const { scenes } = expandSceneStatsCompactData({
+    s: {
+      u: 0,
+      r: [
+        {
+          i: "42",
+          e: "2024-01-02",
+          p: 0,
+          n: false,
+          l: false,
+          u: 0,
+          z: 0,
+          v: 0,
+          w: 0,
+          j: [],
+          k: [],
+          m: [],
+          g: [],
+          h: false,
+        },
+      ],
+    },
+  });
+  assert.equal(scenes[0].effective_date, "2024-01-02");
+  assert.equal(scenes[0].date, undefined);
+});

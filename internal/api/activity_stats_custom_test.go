@@ -10,6 +10,48 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestPerformerActivityStatsQueryCustomPreservesRoleMembership(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	defer db.Close()
+	_, err = db.Exec(`
+CREATE TABLE scene_markers (id INTEGER PRIMARY KEY, scene_id INTEGER, seconds REAL, end_seconds REAL, primary_tag_id INTEGER);
+CREATE TABLE scene_marker_performers (scene_marker_id INTEGER, performer_id INTEGER, role TEXT);
+CREATE TABLE scene_markers_tags (scene_marker_id INTEGER, tag_id INTEGER);
+INSERT INTO scene_markers VALUES
+  (1, 101, 0, 10, 1), (2, 102, 5, 20, 2), (3, 103, 0, 30, 3),
+  (4, 104, 0, 10, 1), (5, 105, 0, 10, 4), (6, 106, 0, 10, 1),
+  (7, 107, 0, NULL, 1), (8, 108, 10, 5, 1);
+INSERT INTO scene_marker_performers VALUES
+  (1, 7, 'top'), (1, 7, 'bottom'), (1, 8, 'top'),
+  (2, 7, 'top'), (3, 7, 'bottom'), (4, 8, 'top'),
+  (5, 7, 'top'), (6, 7, 'top'), (7, 7, 'top'), (8, 7, 'top');
+INSERT INTO scene_markers_tags VALUES (6, 99);`)
+	require.NoError(t, err)
+	rows, err := db.Query(performerActivityStatsQueryCustom, 7, 7, 1, 2, 3, 7)
+	require.NoError(t, err)
+	defer rows.Close()
+	type activityRow struct {
+		scene, tag  int
+		start, end  float64
+		top, bottom bool
+	}
+	var got []activityRow
+	for rows.Next() {
+		var row activityRow
+		require.NoError(t, rows.Scan(&row.scene, &row.start, &row.end, &row.tag, &row.top, &row.bottom))
+		got = append(got, row)
+	}
+	require.NoError(t, rows.Err())
+	// Both-role assignments must not duplicate a marker. Other performers,
+	// unrelated tags, annotated markers and invalid intervals stay excluded.
+	assert.ElementsMatch(t, []activityRow{
+		{101, 1, 0, 10, true, true},
+		{102, 2, 5, 20, true, false},
+		{103, 3, 0, 30, false, true},
+	}, got)
+}
+
 func TestActivityStatsSceneScopeCustomSupportsGlobalAndStudioStats(t *testing.T) {
 	globalSQL, globalArgs := activityStatsSceneScopeCustom(nil, nil)
 	assert.Contains(t, globalSQL, "SELECT id FROM scenes")

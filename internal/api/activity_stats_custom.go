@@ -346,8 +346,9 @@ func (r *performerResolver) ActivityStats(ctx context.Context, obj *models.Perfo
 	return ret, nil
 }
 
-func queryPerformerActivityStatsCustom(ctx context.Context, performerID int, sexTagID int, oralTagID int, soloTagID int) (*PerformerActivityStats, error) {
-	query := `
+// Start with this performer's indexed marker IDs instead of scanning every
+// activity marker for each performer on a list page.
+const performerActivityStatsQueryCustom = `
 SELECT
   sm.scene_id,
   sm.seconds,
@@ -373,14 +374,14 @@ WHERE sm.primary_tag_id IN (?, ?, ?)
     SELECT 1 FROM scene_markers_tags smt
     WHERE smt.scene_marker_id = sm.id
   )
-  AND EXISTS (
-    SELECT 1 FROM scene_marker_performers smp
-    WHERE smp.scene_marker_id = sm.id
-      AND smp.performer_id = ?
+  AND sm.id IN (
+    SELECT scene_marker_id FROM scene_marker_performers
+    WHERE performer_id = ?
   )`
 
+func queryPerformerActivityStatsCustom(ctx context.Context, performerID int, sexTagID int, oralTagID int, soloTagID int) (*PerformerActivityStats, error) {
 	args := []interface{}{performerID, performerID, sexTagID, oralTagID, soloTagID, performerID}
-	_, rows, err := manager.GetInstance().Database.QuerySQL(ctx, query, args)
+	_, rows, err := manager.GetInstance().Database.QuerySQL(ctx, performerActivityStatsQueryCustom, args)
 	if err != nil {
 		return nil, err
 	}

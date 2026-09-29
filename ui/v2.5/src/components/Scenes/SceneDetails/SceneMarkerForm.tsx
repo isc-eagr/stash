@@ -864,6 +864,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
           onSelect={(t) => onSetPrimaryTag(t[0])}
           values={primaryTag ? [primaryTag] : []}
           disableHoverPopovers
+          createOnClickOnly // CUSTOM
         />
         {formik.touched.primary_tag_id && (
           <Form.Control.Feedback type="invalid">
@@ -1306,6 +1307,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         onSelect={onSetTags}
         values={tags}
         disableHoverPopovers
+        createOnClickOnly // CUSTOM
       />
     );
 

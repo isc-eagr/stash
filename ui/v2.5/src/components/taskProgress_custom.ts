@@ -441,30 +441,26 @@ export function parseTaskProgressDate(value: string): string | undefined {
 }
 
 export function formatTaskProgressDate(value: string | Date): string {
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-
   if (value instanceof Date) {
-    return `${padTaskProgressDatePart(value.getDate())}-${
-      months[value.getMonth()]
-    }-${value.getFullYear()}`;
+    return `${padTaskProgressDatePart(
+      value.getDate()
+    )}/${padTaskProgressDatePart(value.getMonth() + 1)}/${value.getFullYear()}`;
   }
 
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return value;
 
   const [, year, month, day] = match;
-  return `${day}-${months[Number(month) - 1]}-${year}`;
+  return `${day}/${month}/${year}`;
+}
+
+export function taskProgressLocalDateToISO(value: Date): string {
+  return `${value.getFullYear()}-${padTaskProgressDatePart(
+    value.getMonth() + 1
+  )}-${padTaskProgressDatePart(value.getDate())}`;
+}
+
+export function taskProgressISOToLocalDate(value: string): Date {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day, 12);
 }

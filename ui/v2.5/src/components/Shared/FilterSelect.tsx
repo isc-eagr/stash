@@ -39,6 +39,8 @@ interface IFilterSelectProps<T, IsMulti extends boolean>
     | "components"
     | "placeholder"
     | "closeMenuOnSelect"
+    | "onKeyDown" // CUSTOM
+    | "tabSelectsValue" // CUSTOM
   > {}
 
 const getSelectedItems = <T,>(

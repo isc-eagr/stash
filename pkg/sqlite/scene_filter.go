@@ -107,18 +107,8 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		},
 
 		intCriterionHandler(sceneFilter.Rating100, "scenes.rating", nil),
-		metallicRatingCriterionHandler(sceneFilter.MetallicRating, "scenes", "scenes.rating", "scenes_tags", "scene_id", "scene"),                                // CUSTOM
-		ratingCriteriaCriterionHandler(sceneFilter.RatingCriteria, models.RatingEntityScene, "scenes"),                                                           // CUSTOM
-		activityPercentFilterHandlerCustom(sceneFilter.ActivityPercentages, activityPercentScenePercentExprCustom),                                               // CUSTOM
-		qualityPercentFilterHandlerCustom(sceneFilter.QualityPercentages, activityPercentScenePercentExprCustom),                                                 // CUSTOM
-		activityPercentCriterionHandlerCustom(sceneFilter.SexActivityPercent, activityPercentScenePercentExprCustom(activityPercentSexCustom)),                   // CUSTOM
-		activityPercentCriterionHandlerCustom(sceneFilter.OralActivityPercent, activityPercentScenePercentExprCustom(activityPercentOralCustom)),                 // CUSTOM
-		activityPercentCriterionHandlerCustom(sceneFilter.SoloActivityPercent, activityPercentScenePercentExprCustom(activityPercentSoloCustom)),                 // CUSTOM
-		activityPercentCriterionHandlerCustom(sceneFilter.OtherActivityPercent, activityPercentScenePercentExprCustom(activityPercentOtherCustom)),               // CUSTOM
-		activityPercentCriterionHandlerCustom(sceneFilter.OutstandingActivityPercent, activityPercentScenePercentExprCustom(activityPercentOutstandingCustom)),   // CUSTOM
-		activityPercentCriterionHandlerCustom(sceneFilter.StandardActivityPercent, activityPercentScenePercentExprCustom(activityPercentStandardCustom)),         // CUSTOM
-		activityPercentCriterionHandlerCustom(sceneFilter.UnclassifiedActivityPercent, activityPercentScenePercentExprCustom(activityPercentUnclassifiedCustom)), // CUSTOM
-		activityPercentCriterionHandlerCustom(sceneFilter.UnusableActivityPercent, activityPercentScenePercentExprCustom(activityPercentUnusableCustom)),         // CUSTOM
+		metallicRatingCriterionHandler(sceneFilter.MetallicRating, "scenes", "scenes.rating", "scenes_tags", "scene_id", "scene"), // CUSTOM
+		ratingCriteriaCriterionHandler(sceneFilter.RatingCriteria, models.RatingEntityScene, "scenes"),                            // CUSTOM
 		qb.oCountCriterionHandler(sceneFilter.OCounter),
 		boolCriterionHandler(sceneFilter.Organized, "scenes.organized", nil),
 
@@ -132,8 +122,6 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 
 		qb.hasMarkersCriterionHandler(sceneFilter.HasMarkers),
 		qb.hasMarkerPerformersCriterionHandler(sceneFilter.HasMarkerPerformers), // CUSTOM
-		qb.customFiltersCriterionHandler(sceneFilter.CustomFilters),             // CUSTOM
-		qb.sceneTypeCriterionHandler(sceneFilter.SceneType),                     // CUSTOM
 		&joinedSceneMarkerTagsHandler{ // CUSTOM
 			criterion:      sceneFilter.SceneMarkerTags,
 			primaryTable:   sceneTable,
@@ -278,6 +266,9 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 				f.addInnerJoin("scene_markers", "", "scenes.id")
 			},
 		},
+		qb.customFiltersCriterionHandler(sceneFilter.CustomFilters), // CUSTOM: scope after ordinary criteria
+		qb.sceneTypeCriterionHandler(sceneFilter.SceneType),         // CUSTOM
+		qb.activityPercentagesCriterionHandlerCustom(),              // CUSTOM: run after local criteria to scope metric work
 	}
 }
 

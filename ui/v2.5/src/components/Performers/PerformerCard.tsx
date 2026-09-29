@@ -28,6 +28,7 @@ import { FavoriteIcon } from "../Shared/FavoriteIcon";
 import { PatchComponent } from "src/patch";
 import { ExternalLinksButton } from "../Shared/ExternalLinksButton";
 import { useConfigurationContext } from "src/hooks/Config";
+import { useStudioPerformerCardStats } from "./studioPerformerCardStats_custom"; // CUSTOM
 import { OCounterButton } from "../Shared/CountButton";
 import {
   getRatingCardClass,
@@ -679,14 +680,12 @@ export const PerformerCard: React.FC<IPerformerCardProps> = PatchComponent(
 
     const studioId = extraCriteria?.studio?.id;
     const studioDepth = extraCriteria?.studio?.depth ?? 0;
-    const { data: studioStatsData } = GQL.useFindStudioPerformerStatsQuery({
-      variables: {
-        id: studioId ?? "",
-        performerId: performer.id,
-        depth: studioDepth,
-      },
-      skip: !studioId,
-    });
+    // CUSTOM: fetch only the scoped statistics this card displays.
+    const { data: studioStatsData } = useStudioPerformerCardStats(
+      studioId,
+      performer.id,
+      studioDepth
+    );
 
     const studioStats = studioStatsData?.findStudio
       ? {

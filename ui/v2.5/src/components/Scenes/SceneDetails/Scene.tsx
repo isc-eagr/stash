@@ -674,6 +674,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
   const renderTabs = () => (
     <Tab.Container
+      mountOnEnter // CUSTOM: defer queries and rendering in unopened tabs, retaining state after first use.
       activeKey={activeTabKey}
       onSelect={(k) => k && setActiveTabKey(k)}
     >
@@ -894,7 +895,10 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               )}
             </Tab.Pane>
           )}
-          <Tab.Pane eventKey="scene-video-filter-panel">
+          <Tab.Pane
+            eventKey="scene-video-filter-panel"
+            mountOnEnter={false} // CUSTOM: this panel also applies player styles while hidden.
+          >
             <SceneVideoFilterPanel scene={scene} />
           </Tab.Pane>
           {/* CUSTOM: begin - releases pane */}

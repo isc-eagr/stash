@@ -1,3 +1,7 @@
+import {
+  usePerformerStudioCount,
+  usePerformerMarkerCount,
+} from "../performerDetailCounts_custom"; // CUSTOM
 import React, { useEffect, useMemo, useState } from "react";
 import type { ApolloQueryResult } from "@apollo/client"; // CUSTOM
 import { Button, Tabs, Tab, Col, Row } from "react-bootstrap";
@@ -106,62 +110,10 @@ const PerformerTabs: React.FC<{
   performer: GQL.PerformerDataFragment;
   abbreviateCounter: boolean;
 }> = ({ tabKey, performer, abbreviateCounter }) => {
-  // CUSTOM: begin - fetch studios count, markers count, co-performer count
-  // fetch count of studios where this performer has scenes
-  const { data: studiosData } = GQL.useFindStudiosQuery({
-    variables: {
-      studio_filter: {
-        scenes_filter: {
-          performers: {
-            modifier: GQL.CriterionModifier.Includes,
-            value: [performer.id],
-          },
-        },
-      },
-      // no need to fetch actual studios here; we only use the count
-      filter: { per_page: 1 },
-    },
-  });
-  const studiosCount = studiosData?.findStudios.count ?? 0;
-
-  // fetch count of markers directly assigned to this performer (as top or bottom)
-  const { data: performerMarkersData } = GQL.useFindSceneMarkersQuery({
-    variables: {
-      scene_marker_filter: {
-        scene_marker_tags: {
-          modifier: GQL.CriterionModifier.Equals,
-          groups_extended: [
-            {
-              tag_ids: [],
-              top_performer_ids: [performer.id],
-            },
-          ],
-        },
-      },
-      // no need to fetch actual markers here; we only use the count
-      filter: { per_page: 1 },
-    },
-  });
-  // Also count bottom markers
-  const { data: performerBottomMarkersData } = GQL.useFindSceneMarkersQuery({
-    variables: {
-      scene_marker_filter: {
-        scene_marker_tags: {
-          modifier: GQL.CriterionModifier.Equals,
-          groups_extended: [
-            {
-              tag_ids: [],
-              bottom_performer_ids: [performer.id],
-            },
-          ],
-        },
-      },
-      filter: { per_page: 1 },
-    },
-  });
-  const performerMarkersCount =
-    (performerMarkersData?.findSceneMarkers.count ?? 0) +
-    (performerBottomMarkersData?.findSceneMarkers.count ?? 0);
+  // CUSTOM: begin - count-only queries for tab badges.
+  const studiosCount = usePerformerStudioCount(performer.id);
+  const performerMarkersCount = usePerformerMarkerCount(performer.id);
+  // CUSTOM: end
 
   // CUSTOM: begin - fetch exact lightweight co-performer count for "Partners" tab
   const { data: coPerformerCountData } = GQL.usePerformerCoPerformerCountQuery({

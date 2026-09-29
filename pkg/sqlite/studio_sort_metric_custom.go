@@ -60,6 +60,10 @@ func (qb *StudioStore) sortByMetallicSceneCountCustom(tier string, direction str
 }
 
 func studioSortMetricOrderClauseCustom(expression string, direction string) string {
+	if expression == "0" {
+		// A bare integer is an ORDER BY column ordinal in SQLite.
+		expression = "(0 + 0)"
+	}
 	return fmt.Sprintf(" ORDER BY %s %s", expression, getSortDirection(direction))
 }
 

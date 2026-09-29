@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { gql, useQuery } from "@apollo/client";
+import { rankStatsItems } from "src/utils/statsRanking_custom";
 import { Alert, Button, Form } from "react-bootstrap";
 import { Helmet } from "react-helmet";
 import { Link } from "react-router-dom";
@@ -25,48 +26,12 @@ import {
   vatoMatchesRole,
 } from "./vatoStatsRoles_custom";
 
+import { useVatoStatsCompactQuery } from "./useVatoStatsCompactQuery_custom";
+import type { VatoStatsPerformer } from "./vatoStatsCompactData_custom";
+
 import "./VatoStats.scss";
 
 const UNKNOWN_KEY = "__unknown__";
-
-const VATO_STATS_PERFORMERS = gql`
-  query VatoStatsPerformers($studioId: ID, $depth: Int) {
-    vatoStatsPerformers(studio_id: $studioId, depth: $depth) {
-      id
-      name
-      image_path
-      rating100
-      scene_o_count
-      scene_o_count_past_year
-      is_past_year
-      scene_count
-      sex_top_count
-      sex_bottom_count
-      oral_top_count
-      oral_bottom_count
-      solo_scene_count
-      facial_given_count
-      facial_received_count
-      most_recent_o_date
-      career_span_days
-      metallic_rating
-      ethnicity
-      country
-      hair_color
-      eye_color
-      height_cm
-      penis_length
-      circumcised
-      unknown_scene_age_count
-      age_counts {
-        age_range
-        count
-      }
-    }
-    sceneOrgasmCount(studio_id: $studioId, depth: $depth)
-    totalOrgasmTime(studio_id: $studioId, depth: $depth)
-  }
-`;
 
 const VATO_SUMMARY_STATS = gql`
   query VatoSummaryStats {
@@ -75,44 +40,9 @@ const VATO_SUMMARY_STATS = gql`
   }
 `;
 
-type VatoStatsAgeCount = {
-  age_range: string;
-  count: number;
-};
-
 interface IVatoStatsDashboardProps {
   studioScope?: IVatoStatsStudioScope;
 }
-
-type VatoStatsPerformer = {
-  id: string;
-  name: string;
-  image_path?: string | null;
-  rating100?: number | null;
-  scene_o_count: number;
-  scene_o_count_past_year: number;
-  is_past_year: boolean;
-  scene_count: number;
-  sex_top_count: number;
-  sex_bottom_count: number;
-  oral_top_count: number;
-  oral_bottom_count: number;
-  solo_scene_count: number;
-  facial_given_count: number;
-  facial_received_count: number;
-  most_recent_o_date?: string | null;
-  career_span_days: number;
-  metallic_rating?: string | null;
-  ethnicity?: string | null;
-  country?: string | null;
-  hair_color?: string | null;
-  eye_color?: string | null;
-  height_cm?: number | null;
-  penis_length?: number | null;
-  circumcised?: string | null;
-  unknown_scene_age_count: number;
-  age_counts: VatoStatsAgeCount[];
-};
 
 type ChartCategory =
   | "role_strictness"
@@ -1150,16 +1080,10 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
     ? `${fixedStudioScope.name} VatoStats`
     : "VatoStats";
   const titleProps = useTitleProps(pageTitle);
-  const { data, error, loading } = useQuery<{
-    vatoStatsPerformers: VatoStatsPerformer[];
-    sceneOrgasmCount: number;
-    totalOrgasmTime: number;
-  }>(VATO_STATS_PERFORMERS, {
-    variables: {
-      depth: studioScope?.depth,
-      studioId: studioScope?.id,
-    },
-  });
+  const { data, error, loading } = useVatoStatsCompactQuery(
+    studioScope?.id,
+    studioScope?.depth
+  );
   const deferAuxiliaryQueries = loading || !!error;
   const deferGlobalAuxiliaryQueries = deferAuxiliaryQueries || !!studioScope;
   const { data: summaryData } = useQuery<VatoSummaryStatsData>(
@@ -1196,13 +1120,13 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
   );
   const filteredList = useMemo(
     () =>
-      filteredPerformers
-        .filter((performer) => metricIncludesPerformer(performer, metric))
-        .sort(
-          (a, b) =>
-            metricValue(b, metric) - metricValue(a, metric) ||
-            a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+      rankStatsItems(
+        filteredPerformers.filter((performer) =>
+          metricIncludesPerformer(performer, metric)
         ),
+        (performer) => metricValue(performer, metric),
+        (performer) => performer.name
+      ),
     [filteredPerformers, metric]
   );
   const podiumDescriptor = useMemo(

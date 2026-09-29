@@ -192,6 +192,7 @@ func CountMarkersByStudioRoleWithSecondary(ctx context.Context, markerQB models.
 	performerMode := "OR"
 	group.PerformerMode = &performerMode
 	filter := &models.SceneMarkerFilterType{
+		Scenes: studioMarkerSceneCriterionCustom(studioScenes),
 		SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
 			Modifier:       models.CriterionModifierEquals,
 			GroupsExtended: []models.SceneMarkerTagGroupInput{group},
@@ -199,7 +200,9 @@ func CountMarkersByStudioRoleWithSecondary(ctx context.Context, markerQB models.
 	}
 
 	allResults := -1
-	findFilter := &models.FindFilterType{PerPage: &allResults}
+	// Counts do not depend on title order; avoid title/file joins and collation.
+	sortByID := "id"
+	findFilter := &models.FindFilterType{PerPage: &allResults, Sort: &sortByID}
 
 	markers, _, err := markerQB.Query(ctx, filter, findFilter)
 	if err != nil {
@@ -571,6 +574,7 @@ func GetCoPerformersWithCountsByStudio(ctx context.Context, markerQB models.Scen
 	group.PerformerMode = &performerMode
 
 	filter := &models.SceneMarkerFilterType{
+		Scenes: studioMarkerSceneCriterionCustom(studioScenes),
 		SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
 			Modifier:       models.CriterionModifierEquals,
 			GroupsExtended: []models.SceneMarkerTagGroupInput{group},
@@ -578,7 +582,9 @@ func GetCoPerformersWithCountsByStudio(ctx context.Context, markerQB models.Scen
 	}
 
 	allResults := -1
-	findFilter := &models.FindFilterType{PerPage: &allResults}
+	// Counts do not depend on title order; avoid title/file joins and collation.
+	sortByID := "id"
+	findFilter := &models.FindFilterType{PerPage: &allResults, Sort: &sortByID}
 
 	markers, _, err := markerQB.Query(ctx, filter, findFilter)
 	if err != nil {
@@ -670,7 +676,9 @@ func getStudioSceneIDs(ctx context.Context, sceneQB models.SceneQueryer, studioI
 
 	// Use PerPage=-1 to fetch all studio scenes (avoid default pagination of 25)
 	allResults := -1
-	findFilter := &models.FindFilterType{PerPage: &allResults}
+	// Counts do not depend on title order; avoid title/file joins and collation.
+	sortByID := "id"
+	findFilter := &models.FindFilterType{PerPage: &allResults, Sort: &sortByID}
 
 	result, err := sceneQB.Query(ctx, models.SceneQueryOptions{
 		QueryOptions: models.QueryOptions{
@@ -683,14 +691,10 @@ func getStudioSceneIDs(ctx context.Context, sceneQB models.SceneQueryer, studioI
 		return nil, err
 	}
 
-	scenes, err := result.Resolve(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	sceneSet := make(map[int]bool)
-	for _, s := range scenes {
-		sceneSet[s.ID] = true
+	// Only IDs are needed to scope marker queries; do not hydrate scene records.
+	sceneSet := make(map[int]bool, len(result.IDs))
+	for _, id := range result.IDs {
+		sceneSet[id] = true
 	}
 
 	return sceneSet, nil
@@ -700,6 +704,7 @@ func getStudioSceneIDs(ctx context.Context, sceneQB models.SceneQueryer, studioI
 func getStudioScenesWithMarkerTag(ctx context.Context, markerQB models.SceneMarkerQueryer, studioScenes map[int]bool, tagID int, role string, performerID *int) (map[int]bool, error) {
 	allDepth := -1 // Include all subtags recursively
 	filter := &models.SceneMarkerFilterType{
+		Scenes: studioMarkerSceneCriterionCustom(studioScenes),
 		Tags: &models.HierarchicalMultiCriterionInput{
 			Value:    []string{strconv.Itoa(tagID)},
 			Modifier: models.CriterionModifierIncludes,
@@ -735,7 +740,9 @@ func getStudioScenesWithMarkerTag(ctx context.Context, markerQB models.SceneMark
 
 	// Use PerPage=-1 to get all results, not just the default 25
 	allResults := -1
-	findFilter := &models.FindFilterType{PerPage: &allResults}
+	// Counts do not depend on title order; avoid title/file joins and collation.
+	sortByID := "id"
+	findFilter := &models.FindFilterType{PerPage: &allResults, Sort: &sortByID}
 
 	markers, _, err := markerQB.Query(ctx, filter, findFilter)
 	if err != nil {
@@ -1125,6 +1132,7 @@ func getCoPerformersWithCountsInScenes(
 	group.PerformerMode = &performerMode
 
 	filter := &models.SceneMarkerFilterType{
+		Scenes: studioMarkerSceneCriterionCustom(studioScenes),
 		SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
 			Modifier:       models.CriterionModifierEquals,
 			GroupsExtended: []models.SceneMarkerTagGroupInput{group},
@@ -1132,7 +1140,9 @@ func getCoPerformersWithCountsInScenes(
 	}
 
 	allResults := -1
-	findFilter := &models.FindFilterType{PerPage: &allResults}
+	// Counts do not depend on title order; avoid title/file joins and collation.
+	sortByID := "id"
+	findFilter := &models.FindFilterType{PerPage: &allResults, Sort: &sortByID}
 
 	markers, _, err := markerQB.Query(ctx, filter, findFilter)
 	if err != nil {
@@ -1208,6 +1218,7 @@ func countMarkersByRoleWithSecondaryInScenes(
 	performerMode := "OR"
 	group.PerformerMode = &performerMode
 	filter := &models.SceneMarkerFilterType{
+		Scenes: studioMarkerSceneCriterionCustom(allStudioScenes),
 		SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
 			Modifier:       models.CriterionModifierEquals,
 			GroupsExtended: []models.SceneMarkerTagGroupInput{group},
@@ -1215,7 +1226,9 @@ func countMarkersByRoleWithSecondaryInScenes(
 	}
 
 	allResults := -1
-	findFilter := &models.FindFilterType{PerPage: &allResults}
+	// Counts do not depend on title order; avoid title/file joins and collation.
+	sortByID := "id"
+	findFilter := &models.FindFilterType{PerPage: &allResults, Sort: &sortByID}
 
 	markers, _, err := markerQB.Query(ctx, filter, findFilter)
 	if err != nil {

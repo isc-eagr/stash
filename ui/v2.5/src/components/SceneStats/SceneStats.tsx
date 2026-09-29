@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { gql, useQuery } from "@apollo/client";
+import { rankStatsItems } from "src/utils/statsRanking_custom";
 import {
   faHand,
   faUser,
@@ -1265,7 +1266,8 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
     effectiveStudioScope?.depth
   );
   const totalsQuery = useQuery<SceneStatsTotalsData>(SCENE_STATS_TOTALS, {
-    skip: sceneQuery.loading || !!sceneQuery.error,
+    skip:
+      activeSection !== "overview" || sceneQuery.loading || !!sceneQuery.error,
     variables: {
       depth: effectiveStudioScope?.depth,
       studioId: effectiveStudioScope?.id,
@@ -1360,22 +1362,21 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
   );
   const rankedScenes = useMemo(
     () =>
-      filteredScenes
-        .filter((scene) => sceneStatsPodiumIncludesScene(scene, metric))
-        .sort(
-          (a, b) =>
-            metricValue(b, metric, roleTagIDs) -
-              metricValue(a, metric, roleTagIDs) ||
-            (a.title ?? "").localeCompare(b.title ?? "", undefined, {
-              sensitivity: "base",
-            })
-        ),
-    [filteredScenes, metric, roleTagIDs]
+      rankStatsItems(
+        activeSection === "overview"
+          ? filteredScenes.filter((scene) =>
+              sceneStatsPodiumIncludesScene(scene, metric)
+            )
+          : [],
+        (scene) => metricValue(scene, metric, roleTagIDs),
+        (scene) => scene.title ?? ""
+      ),
+    [activeSection, filteredScenes, metric, roleTagIDs]
   );
   const charts = useMemo(
     () =>
       buildSceneCharts(
-        filteredScenes,
+        activeSection === "overview" ? filteredScenes : [],
         roleTagIDs,
         configuration,
         hasSelectedYear ? selectedYear : undefined,
@@ -1383,6 +1384,7 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
         navigationBase
       ),
     [
+      activeSection,
       configuration,
       filteredScenes,
       hasSelectedMonth,

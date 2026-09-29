@@ -43,13 +43,16 @@ func TestStudioSceneCountsDeduplicateAndRespectScopeCustom(t *testing.T) {
 			markers := &modelmocks.SceneMarkerReaderWriter{}
 			scenes := &modelmocks.SceneReaderWriter{}
 			performerID, depth := 7, -1
+			sceneResult := modelmocks.SceneQueryResult([]*models.Scene{{ID: 1}, {ID: 2}}, 2)
+			sceneResult.IDs = []int{1, 2} // Match the IDs returned by the SQLite query.
 			scenes.On("Query", mock.Anything, mock.MatchedBy(func(options models.SceneQueryOptions) bool {
 				filter := options.SceneFilter
 				return filter.Studios.Value[0] == "9" && *filter.Studios.Depth == depth && filter.Performers.Value[0] == "7"
-			})).Return(modelmocks.SceneQueryResult([]*models.Scene{{ID: 1}, {ID: 2}}, 2), nil).Once()
+			})).Return(sceneResult, nil).Once()
 			markers.On("Query", mock.Anything, mock.MatchedBy(func(filter *models.SceneMarkerFilterType) bool {
 				group := filter.SceneMarkerTags.GroupsExtended[0]
-				return filter.Tags.Value[0] == "10" && *filter.Tags.Depth == -1 &&
+				return filter.Scenes != nil && len(filter.Scenes.Value) == 2 &&
+					filter.Tags.Value[0] == "10" && *filter.Tags.Depth == -1 &&
 					(len(group.TopPerformerIDs) > 0) == (role != "bottom") &&
 					(len(group.BottomPerformerIDs) > 0) == (role != "top")
 			}), mock.Anything).Return([]*models.SceneMarker{{SceneID: 1}, {SceneID: 1}, {SceneID: 2}, {SceneID: 3}}, 4, nil).Once()

@@ -350,6 +350,94 @@ test("activity descendants are outstanding tags while only direct tags establish
   );
 });
 
+test("orgasm and facial subtags stay in Scene contains alongside GOAT and event reports", () => {
+  const orgasm = tag("orgasm", "Orgasm");
+  const facial = tag("facial", "Facial", [orgasm]);
+  const orgasmSpecial = tag("orgasm-special", "Orgasm Special", [orgasm]);
+  const selfFacial = tag("self-facial", "Self Facial", [facial]);
+  const scene = makeScene(
+    [
+      marker("goat-orgasm", tag("pito", "Pito"), 0, 20, [
+        tag("goat", "GOAT", [orgasm]),
+        orgasmSpecial,
+        tag("really-hot", "Really Hot", [orgasm]),
+      ]),
+      marker("facial-subtag", selfFacial, 30, 35),
+      marker("orgasm-root", orgasm, 40, 50, [orgasmSpecial]),
+      marker("facial-root", facial, 55, 60),
+      marker("camera", selfFacial, 65, 85, [
+        tag("second-camera", "2nd Camera"),
+      ]),
+    ],
+    100
+  );
+  const configuredRoleTagIds = {
+    ...roleTagIds,
+    outstandingActivityCommonTagIds: ["pito", "orgasm-special"],
+  };
+  const insightSets = getSceneCardInsightSets(
+    scene,
+    configuredRoleTagIds,
+    defaultThresholds
+  );
+  const presence = insightSets.all.find(
+    (insight) => insight.key === "outstanding-activity-presence"
+  );
+
+  assert.ok(insightSets.all.some((insight) => insight.label === "GOAT Pito"));
+  assert.ok(
+    insightSets.all.some((insight) => insight.key === "orgasm-facial-report")
+  );
+  assert.equal(
+    presence?.label,
+    "Scene contains Orgasm Special and Self Facial"
+  );
+  assert.ok(presence?.detail.includes("Orgasm Special: 30% of scene"));
+  assert.ok(presence?.detail.includes("Self Facial: 5% of scene"));
+  assert.deepEqual(presence?.statsParts, [
+    "Scene contains Orgasm Special",
+    "Scene contains Self Facial",
+  ]);
+  assert.equal(
+    insightSets.all.some((insight) => insight.key === "outstanding-activity"),
+    false
+  );
+  assert.deepEqual(
+    insightSets.outstandingActivityMatrix.rows.map((row) => row.tag.id),
+    ["pito"]
+  );
+});
+
+test("event subtags create a presence chip without configured common tags", () => {
+  const scene = makeScene(
+    [
+      marker(
+        "orgasm-subtag",
+        tag("orgasm-subtag", "Big Orgasm", [tag("orgasm", "Orgasm")]),
+        0,
+        10
+      ),
+    ],
+    100
+  );
+  const insightSets = getSceneCardInsightSets(
+    scene,
+    roleTagIds,
+    defaultThresholds
+  );
+
+  assert.equal(
+    insightSets.all.find(
+      (insight) => insight.key === "outstanding-activity-presence"
+    )?.label,
+    "Scene contains Big Orgasm"
+  );
+  assert.equal(
+    insightSets.all.some((insight) => insight.key === "outstanding-activity"),
+    false
+  );
+});
+
 test("GOAT chip tags are removed from both outstanding chips with common backfill", () => {
   const salchicha = performer("salchicha", "Salchicha");
   const goat = tag("goat", "GOAT");
@@ -834,7 +922,7 @@ test("the combined event report summarizes and preserves every event", () => {
   assert.deepEqual(insight?.orgasmFacialEvents?.[2].bottomPerformers, []);
 });
 
-test("Facial-family subtags aggregate exclusively into the Facial section", () => {
+test("Facial-family subtags retain the Facial report and a presence chip", () => {
   const facial = tag("facial", "Facial", [tag("orgasm", "Orgasm")]);
   const selfFacial = tag("self-facial", "Self Facial", [facial]);
   const sceneLabels = labels(
@@ -849,6 +937,7 @@ test("Facial-family subtags aggregate exclusively into the Facial section", () =
   );
 
   assert.ok(sceneLabels.includes("4 orgasms · 4 facials"));
+  assert.ok(sceneLabels.includes("Scene contains Self Facial"));
   assert.equal(
     sceneLabels.some((label) => label.includes("regular")),
     false
@@ -1193,7 +1282,7 @@ test("the combined event report includes GOAT Orgasm and Facial markers", () => 
   );
 });
 
-test("GOAT takes precedence over Really Hot in the Facial section", () => {
+test("GOAT takes precedence in the Facial report and Really Hot stays out of presence", () => {
   const peuops = performer("peuops", "Peuops Ramos");
   const goat = tag("goat", "GOAT");
   const orgasm = tag("orgasm", "Orgasm");
@@ -1511,6 +1600,7 @@ test("flattened ancestor IDs classify deep event descendants", () => {
 
   assert.ok(sceneLabels.includes("First Vato nuts twice"));
   assert.ok(sceneLabels.includes("2 orgasms · 2 regular"));
+  assert.ok(sceneLabels.includes("Scene contains Deep Orgasm"));
   assert.equal(sceneLabels.includes("Lots of Deep Orgasm"), false);
 });
 

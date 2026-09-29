@@ -1,3 +1,4 @@
+import { usePerformerStudioCount } from "src/components/Performers/performerDetailCounts_custom";
 import React, {
   PropsWithChildren,
   createContext,
@@ -76,19 +77,7 @@ const ScenePerformerOverviewPanel: React.FC<{
   const { data: coPerformerCountData } = GQL.usePerformerCoPerformerCountQuery({
     variables: { performer_id: performerId },
   });
-  const { data: studiosData } = GQL.useFindStudiosQuery({
-    variables: {
-      studio_filter: {
-        scenes_filter: {
-          performers: {
-            modifier: GQL.CriterionModifier.Includes,
-            value: [performerId],
-          },
-        },
-      },
-      filter: { per_page: 1 },
-    },
-  });
+  const studiosCount = usePerformerStudioCount(performerId);
   const [
     fetchPartnerImages,
     { data: partnerImagesData, loading: partnersLoading },
@@ -110,7 +99,6 @@ const ScenePerformerOverviewPanel: React.FC<{
   );
   const uniqueCoPerformerCount =
     coPerformerCountData?.performerCoPerformerCount ?? 0;
-  const studiosCount = studiosData?.findStudios.count ?? 0;
   const partnerPopoverEstimatedHeight =
     partnerImages.length > 0
       ? Math.ceil(partnerImages.length / 3) * 220 + 24
