@@ -66,6 +66,16 @@ func (r *queryResolver) FindStudios(ctx context.Context, studioFilter *models.St
 				return err
 			}
 		}
+		if metrics, ok := studioListRequestedMetricsCustom(ctx); ok {
+			studioIDs := make([]int, len(studios))
+			for i, studio := range studios {
+				studioIDs[i] = studio.ID
+			}
+			ret.StudioListMetrics, err = queryStudioListMetricsCustom(ctx, studioIDs, metrics)
+			if err != nil {
+				return err
+			}
+		}
 		// CUSTOM: end
 
 		return nil

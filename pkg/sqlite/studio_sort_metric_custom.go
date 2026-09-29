@@ -12,7 +12,12 @@ var studioMetallicSceneSortKeysCustom = map[string]string{
 	"gold_scenes_count":           metallicTierGold,
 	"silver_scenes_count":         metallicTierSilver,
 	"bronze_scenes_count":         metallicTierBronze,
+	"no_metallic_scenes_count":    studioNoMetallicTierCustom,
 }
+
+// studioNoMetallicTierCustom counts rated scenes that miss every metallic tier.
+// Unrated scenes are excluded, so the tiers plus this count cover rated scenes.
+const studioNoMetallicTierCustom = "no_metallic"
 
 func studioSortSQLLiteralCustom(value interface{}) string {
 	switch typed := value.(type) {
@@ -34,7 +39,14 @@ func studioSortRenderClauseCustom(clause sqlClause) string {
 }
 
 func studioMetallicSceneCountExprForConfigCustom(tier string, cfg metallicRatingFilterConfig) string {
-	tierClause := studioSortRenderClauseCustom(cfg.tierClause(tier))
+	clause := cfg.tierClause(tier)
+	if tier == studioNoMetallicTierCustom {
+		clause = andClauses(
+			makeClause(cfg.ratingColumn+" IS NOT NULL"),
+			notTrueClause(cfg.anyMetallicClause()),
+		)
+	}
+	tierClause := studioSortRenderClauseCustom(clause)
 	return fmt.Sprintf(`(
 	SELECT COUNT(*)
 	FROM scenes studio_metallic_scene

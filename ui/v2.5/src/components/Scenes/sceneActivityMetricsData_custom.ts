@@ -68,6 +68,7 @@ export type SceneActivityRoleTagIds = {
   goatTagId?: string;
   orgasmTagId?: string;
   reallyHotTagId?: string;
+  facialTagId?: string;
 };
 
 export type SceneActivityScene = Pick<GQL.SlimSceneDataFragment, "id"> & {
@@ -229,6 +230,36 @@ function getSceneActivityDuration(intervals: SceneActivityInterval[]) {
     (sum, interval) => sum + interval.end - interval.start,
     0
   );
+}
+
+export type SceneMarkerCountKeyCustom =
+  | "orgasm_count"
+  | "really_hot_orgasm_count"
+  | "facial_count"
+  | "really_hot_facial_count";
+
+// Counts orgasm/facial markers (primary or secondary tag, including subtags),
+// matching the backend marker-count sorts. Undefined when the needed role tags
+// are not configured.
+export function getSceneMarkerCountCustom(
+  scene: Pick<SceneActivityScene, "scene_markers">,
+  roleTagIds: SceneActivityRoleTagIds,
+  key: SceneMarkerCountKeyCustom
+): number | undefined {
+  const roleTagId = key.endsWith("orgasm_count")
+    ? roleTagIds.orgasmTagId
+    : roleTagIds.facialTagId;
+  const reallyHot = key.startsWith("really_hot_");
+  if (!roleTagId || (reallyHot && !roleTagIds.reallyHotTagId)) {
+    return undefined;
+  }
+
+  return scene.scene_markers.filter(
+    (marker) =>
+      sceneActivityMarkerHasTag(marker, roleTagId) &&
+      (!reallyHot ||
+        sceneActivityMarkerHasTag(marker, roleTagIds.reallyHotTagId))
+  ).length;
 }
 
 export function getSceneActivityMetrics(

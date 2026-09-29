@@ -29,14 +29,85 @@ interface IProps {
   sortDirection: GQL.SortDirectionEnum;
 }
 
-function numericSortValue(metric: ISortMetricBadgeCustom) {
-  if (typeof metric.value === "number") return metric.value;
-  if (typeof metric.value !== "string" || metric.value.trim() === "") {
+function numericSortValue(value: ISortMetricBadgeCustom["value"]) {
+  if (typeof value === "number") return value;
+  if (typeof value !== "string" || value.trim() === "") {
     return undefined;
   }
-  const parsed = Number(metric.value);
+  const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
 }
+
+// Formats one sort metric value. Shared by the card badge and list tables.
+export const SortMetricValueCustom: React.FC<{
+  format: SortMetricFormatCustom;
+  value?: ISortMetricBadgeCustom["value"];
+}> = ({ format, value }) => {
+  const intl = useIntl();
+  const number = numericSortValue(value);
+  switch (format) {
+    case "none":
+      return null;
+    case "boolean":
+      return (
+        <>
+          {typeof value === "boolean"
+            ? intl.formatMessage({ id: value ? "yes" : "no" })
+            : "—"}
+        </>
+      );
+    case "bytes":
+      return number === undefined ? <>{"—"}</> : <FileSize size={number} />;
+    case "count":
+      return <>{number?.toLocaleString() ?? "—"}</>;
+    case "percent":
+      return <>{number === undefined ? "—" : `${Math.round(number)}%`}</>;
+    case "rating":
+      return (
+        <>
+          {number === undefined
+            ? "—"
+            : `${number.toLocaleString(undefined, {
+                maximumFractionDigits: 1,
+              })}/100`}
+        </>
+      );
+    case "duration":
+      return (
+        <>
+          {number === undefined
+            ? "—"
+            : TextUtils.secondsAsTimeString(number, 3)}
+        </>
+      );
+    case "date":
+      return (
+        <>
+          {typeof value === "string" && value !== ""
+            ? TextUtils.formatDate(intl, value)
+            : "—"}
+        </>
+      );
+    case "datetime":
+      return (
+        <>
+          {typeof value === "string" && value !== ""
+            ? TextUtils.formatDateTime(intl, value)
+            : "—"}
+        </>
+      );
+    case "text":
+      return <>{typeof value === "string" && value !== "" ? value : "—"}</>;
+    default:
+      return (
+        <>
+          {number === undefined
+            ? "—"
+            : number.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+        </>
+      );
+  }
+};
 
 export const SortMetricBadgeCustom: React.FC<IProps> = ({
   metric,
@@ -45,65 +116,10 @@ export const SortMetricBadgeCustom: React.FC<IProps> = ({
   const intl = useIntl();
   if (!metric) return null;
 
-  const number = numericSortValue(metric);
-  let value: React.ReactNode;
-  switch (metric.format) {
-    case "none":
-      value = undefined;
-      break;
-    case "boolean":
-      value =
-        typeof metric.value === "boolean"
-          ? intl.formatMessage({ id: metric.value ? "yes" : "no" })
-          : "\u2014";
-      break;
-    case "bytes":
-      value = number === undefined ? "\u2014" : <FileSize size={number} />;
-      break;
-    case "count":
-      value = number?.toLocaleString() ?? "\u2014";
-      break;
-    case "percent":
-      value = number === undefined ? "\u2014" : `${Math.round(number)}%`;
-      break;
-    case "rating":
-      value =
-        number === undefined
-          ? "\u2014"
-          : `${number.toLocaleString(undefined, {
-              maximumFractionDigits: 1,
-            })}/100`;
-      break;
-    case "duration":
-      value =
-        number === undefined
-          ? "\u2014"
-          : TextUtils.secondsAsTimeString(number, 3);
-      break;
-    case "date":
-      value =
-        typeof metric.value === "string" && metric.value !== ""
-          ? TextUtils.formatDate(intl, metric.value)
-          : "\u2014";
-      break;
-    case "datetime":
-      value =
-        typeof metric.value === "string" && metric.value !== ""
-          ? TextUtils.formatDateTime(intl, metric.value)
-          : "\u2014";
-      break;
-    case "text":
-      value =
-        typeof metric.value === "string" && metric.value !== ""
-          ? metric.value
-          : "\u2014";
-      break;
-    default:
-      value =
-        number === undefined
-          ? "\u2014"
-          : number.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  }
+  const value =
+    metric.format === "none" ? undefined : (
+      <SortMetricValueCustom format={metric.format} value={metric.value} />
+    );
 
   const direction =
     sortDirection === GQL.SortDirectionEnum.Desc ? "descending" : "ascending";

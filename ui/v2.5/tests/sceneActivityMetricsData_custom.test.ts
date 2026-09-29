@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import {
   getSceneActivityMetrics,
+  getSceneMarkerCountCustom,
   hasVisibleSceneActivitySortMetricCustom,
 } from "../src/components/Scenes/sceneActivityMetricsData_custom.ts";
 
@@ -219,4 +220,58 @@ assert.equal(
     ?.percent,
   20,
   "a Really Hot Orgasm remains Outstanding"
+);
+
+// Marker counts: primary or secondary tag, direct subtags, Really Hot subsets.
+const countScene = {
+  scene_markers: [
+    {
+      seconds: 0,
+      end_seconds: 5,
+      primary_tag: { id: "orgasm", parents: [] },
+      tags: [{ id: "hot", parents: [] }],
+    },
+    {
+      seconds: 10,
+      end_seconds: 15,
+      primary_tag: { id: "sex", parents: [] },
+      tags: [{ id: "orgasm-child", parents: [{ id: "orgasm" }] }],
+    },
+    {
+      seconds: 20,
+      end_seconds: 25,
+      primary_tag: { id: "facial", parents: [] },
+      tags: [],
+    },
+  ],
+};
+const countTags = {
+  orgasmTagId: "orgasm",
+  facialTagId: "facial",
+  reallyHotTagId: "hot",
+};
+assert.equal(
+  getSceneMarkerCountCustom(countScene, countTags, "orgasm_count"),
+  2
+);
+assert.equal(
+  getSceneMarkerCountCustom(countScene, countTags, "really_hot_orgasm_count"),
+  1
+);
+assert.equal(
+  getSceneMarkerCountCustom(countScene, countTags, "facial_count"),
+  1
+);
+assert.equal(
+  getSceneMarkerCountCustom(countScene, countTags, "really_hot_facial_count"),
+  0
+);
+assert.equal(
+  getSceneMarkerCountCustom(
+    countScene,
+    { orgasmTagId: "orgasm" },
+    "really_hot_orgasm_count"
+  ),
+  undefined,
+  "Really Hot counts need the Really Hot tag configured"
 );

@@ -2,11 +2,14 @@ import React, { useMemo } from "react";
 import { Table, Form } from "react-bootstrap";
 import { CheckBoxSelect } from "../Shared/Select";
 import cx from "classnames";
+import { SortDirectionEnum } from "src/core/generated-graphql"; // CUSTOM
+import "./ListTable_custom.scss"; // CUSTOM
 
 export interface IColumn {
   label: string;
   value: string;
   mandatory?: boolean;
+  sortBy?: string; // CUSTOM: header click sorts by this key
 }
 
 export const ColumnSelector: React.FC<{
@@ -47,6 +50,12 @@ interface IListTableProps<T> {
   selectedIds: Set<string>;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
   renderCell: (column: IColumn, item: T, index: number) => React.ReactNode;
+  // CUSTOM: begin - optional header sorting and unsaved extra columns
+  extraColumns?: string[];
+  sortBy?: string;
+  sortDirection?: SortDirectionEnum;
+  onSort?: (sortBy: string) => void;
+  // CUSTOM: end
 }
 
 export const ListTable = <T extends { id: string }>(
@@ -61,13 +70,23 @@ export const ListTable = <T extends { id: string }>(
     selectedIds,
     onSelectChange,
     renderCell,
+    extraColumns, // CUSTOM
+    sortBy, // CUSTOM
+    sortDirection, // CUSTOM
+    onSort, // CUSTOM
   } = props;
 
   const visibleColumns = useMemo(() => {
-    return allColumns.filter(
+    const ret = allColumns.filter(
       (col) => col.mandatory || columns.includes(col.value)
     );
-  }, [columns, allColumns]);
+    // CUSTOM: begin - extra columns show after the saved ones without being saved
+    const extras = allColumns.filter(
+      (col) => extraColumns?.includes(col.value) && !ret.includes(col)
+    );
+    return [...ret, ...extras];
+    // CUSTOM: end
+  }, [columns, allColumns, extraColumns]); // CUSTOM: extraColumns
 
   const renderObjectRow = (item: T, index: number) => {
     let shiftKey = false;
@@ -93,7 +112,12 @@ export const ListTable = <T extends { id: string }>(
         </td>
 
         {visibleColumns.map((column) => (
-          <td key={column.value} className={`${column.value}-data`}>
+          <td
+            key={column.value}
+            className={cx(`${column.value}-data`, {
+              "sorted-column": !!sortBy && column.sortBy === sortBy, // CUSTOM
+            })}
+          >
             {renderCell(column, item, index)}
           </td>
         ))}
@@ -102,12 +126,43 @@ export const ListTable = <T extends { id: string }>(
   };
 
   const columnHeaders = useMemo(() => {
-    return visibleColumns.map((column) => (
-      <th key={column.value} className={`${column.value}-head`}>
-        {column.label}
-      </th>
-    ));
-  }, [visibleColumns]);
+    return visibleColumns.map((column) => {
+      // CUSTOM: begin - sortable headers
+      const sorted = !!sortBy && column.sortBy === sortBy;
+      const columnSortBy = column.sortBy;
+      return (
+        <th
+          key={column.value}
+          className={cx(`${column.value}-head`, { "sorted-column": sorted })}
+          aria-sort={
+            sorted
+              ? sortDirection === SortDirectionEnum.Desc
+                ? "descending"
+                : "ascending"
+              : undefined
+          }
+        >
+          {columnSortBy && onSort ? (
+            <button
+              type="button"
+              className="sortable-column-head"
+              onClick={() => onSort(columnSortBy)}
+            >
+              {column.label}
+              {sorted && (
+                <span aria-hidden="true" className="sort-direction">
+                  {sortDirection === SortDirectionEnum.Desc ? "↓" : "↑"}
+                </span>
+              )}
+            </button>
+          ) : (
+            column.label
+          )}
+        </th>
+      );
+      // CUSTOM: end
+    });
+  }, [visibleColumns, sortBy, sortDirection, onSort]); // CUSTOM: sort deps
 
   return (
     <div className={cx("table-list", className)}>

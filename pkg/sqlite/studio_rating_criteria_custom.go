@@ -38,6 +38,9 @@ const (
 	studioRatingAdvisorStandardAverageCustom  studioRatingAdvisorAverageSortCustom = "standard"
 	studioRatingAdvisorGroupAverageCustom     studioRatingAdvisorAverageSortCustom = "group"
 	studioRatingAdvisorPerformerAverageCustom studioRatingAdvisorAverageSortCustom = "performer"
+	// Overall matches the Rating Advisor's overall scene average: scenes in any
+	// of the solo, standard, or group sections.
+	studioRatingAdvisorOverallAverageCustom studioRatingAdvisorAverageSortCustom = "overall"
 )
 
 var studioRatingAdvisorAverageSortKeysCustom = map[string]studioRatingAdvisorAverageSortCustom{
@@ -45,6 +48,7 @@ var studioRatingAdvisorAverageSortKeysCustom = map[string]studioRatingAdvisorAve
 	"average_standard_scene_rating": studioRatingAdvisorStandardAverageCustom,
 	"average_group_scene_rating":    studioRatingAdvisorGroupAverageCustom,
 	"average_performer_rating":      studioRatingAdvisorPerformerAverageCustom,
+	"average_overall_scene_rating":  studioRatingAdvisorOverallAverageCustom,
 }
 
 func studioRatingCriteriaScoreSourceSQLCustom(scope studioRatingCriteriaScopeCustom, table string, scoreAlias string) string {
@@ -174,6 +178,52 @@ func (qb *StudioStore) sortByRatingCriteriaAverageCustom(key string, direction s
 	return fmt.Sprintf(" ORDER BY %s %s", studioRatingCriteriaAverageExprCustom(key), getSortDirection(direction))
 }
 
+// studioRatingAdvisorSceneConditionCustom limits studio_rating_scene to one
+// Rating Advisor scene section.
+func studioRatingAdvisorSceneConditionCustom(category studioRatingAdvisorAverageSortCustom) string {
+	switch category {
+	case studioRatingAdvisorSoloAverageCustom:
+		return `EXISTS (
+		SELECT 1 FROM rating_criteria_scores studio_rating_score
+		WHERE studio_rating_score.entity_type = 'scene'
+			AND studio_rating_score.entity_id = studio_rating_scene.id
+			AND studio_rating_score.key IN ('soloPerformerAppeal', 'soloPerformance', 'soloUsability')
+	)`
+	case studioRatingAdvisorStandardAverageCustom:
+		return `(
+		SELECT COUNT(DISTINCT studio_rating_ps.performer_id)
+		FROM performers_scenes studio_rating_ps
+		WHERE studio_rating_ps.scene_id = studio_rating_scene.id
+	) BETWEEN 2 AND 3
+	AND NOT EXISTS (
+		SELECT 1 FROM rating_criteria_scores studio_rating_score
+		WHERE studio_rating_score.entity_type = 'scene'
+			AND studio_rating_score.entity_id = studio_rating_scene.id
+			AND studio_rating_score.key IN ('soloPerformerAppeal', 'soloPerformance', 'soloUsability')
+	)
+	AND EXISTS (
+		SELECT 1 FROM rating_criteria_scores studio_rating_score
+		WHERE studio_rating_score.entity_type = 'scene'
+			AND studio_rating_score.entity_id = studio_rating_scene.id
+			AND studio_rating_score.key IN ('topAttractiveness', 'bottomAttractiveness', 'chemistry', 'payoff', 'standout')
+	)`
+	case studioRatingAdvisorGroupAverageCustom:
+		return `(
+		SELECT COUNT(DISTINCT studio_rating_ps.performer_id)
+		FROM performers_scenes studio_rating_ps
+		WHERE studio_rating_ps.scene_id = studio_rating_scene.id
+	) >= 4
+	AND EXISTS (
+		SELECT 1 FROM rating_criteria_scores studio_rating_score
+		WHERE studio_rating_score.entity_type = 'scene'
+			AND studio_rating_score.entity_id = studio_rating_scene.id
+			AND studio_rating_score.key IN ('groupTopAttractiveness', 'groupEnergy', 'groupPayoff', 'groupUsability')
+	)`
+	default:
+		return "1 = 1"
+	}
+}
+
 func studioRatingAdvisorAverageExprCustom(category studioRatingAdvisorAverageSortCustom) string {
 	if category == studioRatingAdvisorPerformerAverageCustom {
 		return `(
@@ -194,49 +244,15 @@ func studioRatingAdvisorAverageExprCustom(category studioRatingAdvisorAverageSor
 )`
 	}
 
-	categoryClause := ""
-	switch category {
-	case studioRatingAdvisorSoloAverageCustom:
-		categoryClause = `
-	AND EXISTS (
-		SELECT 1 FROM rating_criteria_scores studio_rating_score
-		WHERE studio_rating_score.entity_type = 'scene'
-			AND studio_rating_score.entity_id = studio_rating_scene.id
-			AND studio_rating_score.key IN ('soloPerformerAppeal', 'soloPerformance', 'soloUsability')
-	)`
-	case studioRatingAdvisorStandardAverageCustom:
-		categoryClause = `
-	AND (
-		SELECT COUNT(DISTINCT studio_rating_ps.performer_id)
-		FROM performers_scenes studio_rating_ps
-		WHERE studio_rating_ps.scene_id = studio_rating_scene.id
-	) BETWEEN 2 AND 3
-	AND NOT EXISTS (
-		SELECT 1 FROM rating_criteria_scores studio_rating_score
-		WHERE studio_rating_score.entity_type = 'scene'
-			AND studio_rating_score.entity_id = studio_rating_scene.id
-			AND studio_rating_score.key IN ('soloPerformerAppeal', 'soloPerformance', 'soloUsability')
-	)
-	AND EXISTS (
-		SELECT 1 FROM rating_criteria_scores studio_rating_score
-		WHERE studio_rating_score.entity_type = 'scene'
-			AND studio_rating_score.entity_id = studio_rating_scene.id
-			AND studio_rating_score.key IN ('topAttractiveness', 'bottomAttractiveness', 'chemistry', 'payoff', 'standout')
-	)`
-	case studioRatingAdvisorGroupAverageCustom:
-		categoryClause = `
-	AND (
-		SELECT COUNT(DISTINCT studio_rating_ps.performer_id)
-		FROM performers_scenes studio_rating_ps
-		WHERE studio_rating_ps.scene_id = studio_rating_scene.id
-	) >= 4
-	AND EXISTS (
-		SELECT 1 FROM rating_criteria_scores studio_rating_score
-		WHERE studio_rating_score.entity_type = 'scene'
-			AND studio_rating_score.entity_id = studio_rating_scene.id
-			AND studio_rating_score.key IN ('groupTopAttractiveness', 'groupEnergy', 'groupPayoff', 'groupUsability')
-	)`
+	condition := studioRatingAdvisorSceneConditionCustom(category)
+	if category == studioRatingAdvisorOverallAverageCustom {
+		condition = fmt.Sprintf("((%s) OR (%s) OR (%s))",
+			studioRatingAdvisorSceneConditionCustom(studioRatingAdvisorSoloAverageCustom),
+			studioRatingAdvisorSceneConditionCustom(studioRatingAdvisorStandardAverageCustom),
+			studioRatingAdvisorSceneConditionCustom(studioRatingAdvisorGroupAverageCustom),
+		)
 	}
+	categoryClause := "\n\tAND " + condition
 
 	return fmt.Sprintf(`(
 	SELECT AVG(studio_rating_scene.rating)

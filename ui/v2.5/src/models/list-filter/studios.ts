@@ -92,6 +92,10 @@ const sortByOptions = [
       value: "bronze_scenes_count",
     },
     {
+      messageID: "no_metallic_scene_count",
+      value: "no_metallic_scenes_count",
+    },
+    {
       messageID: "unique_performer_count",
       value: "unique_performers_count",
     },
@@ -191,10 +195,18 @@ const sortByOptions = [
       messageID: "average_performer_rating",
       value: "average_performer_rating",
     },
+    {
+      messageID: "average_overall_scene_rating",
+      value: "average_overall_scene_rating",
+    },
     // CUSTOM: end
   ]);
 
-const displayModeOptions = [DisplayMode.Grid, DisplayMode.Tagger];
+const displayModeOptions = [
+  DisplayMode.Grid,
+  DisplayMode.List, // CUSTOM
+  DisplayMode.Tagger,
+];
 const criterionOptions = [
   FavoriteStudioCriterionOption,
   createMandatoryStringCriterionOption("name"),

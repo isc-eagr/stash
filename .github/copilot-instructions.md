@@ -37,7 +37,8 @@ Always apply small changes at a time, but do ensure that work is complete withou
      - UI-only: `make validate-ui-quick`, then `cd ui/v2.5 && npm run check` when TypeScript types may be affected.
      - JSX/TSX parse risk: prefer `cd ui/v2.5 && npm run check`; use `cd ui/v2.5 && npm run build` only when a Vite/esbuild parse/bundle check is specifically needed.
      - GraphQL/schema/generated changes: run `make generate` first, then `go build ./...`.
-   - Run dev server: `make server-start` (uses `.local` and `config.yml`). In separate terminal run `make ui-start` to run the UI in dev mode.
+   - Run dev server: `make server-start` (uses `.local` and `config.yml`). In separate terminal run `make ui-start` to run the UI in dev mode. When the installed app already holds port 9999, run the dev backend with `--port 9998` and Vite with `VITE_APP_PLATFORM_PORT=9998`.
+   - Always bring the dev environment down after testing: stop every dev backend and Vite server you started and confirm their ports are free. See "Dev environment for testing" in `Agents.md`.
    - Run tests (fast): `make test`. Run integration tests too: `make it` (adds `integration` build tag).
    - Lint: `make lint` (uses `golangci-lint`).
 

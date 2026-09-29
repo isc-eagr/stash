@@ -11,6 +11,9 @@ interface IStudioSortMetricSource {
     rating100?: number | null;
     tags: readonly unknown[];
   };
+  // Values from studio_list_metrics, keyed by sort. When present, backend-only
+  // metrics read from here instead of the single active sort value.
+  metricValues?: Readonly<Record<string, string | null | undefined>>;
   stats?: {
     active_sort_value?: string | null;
     gallery_count: number;
@@ -41,14 +44,17 @@ export interface IStudioSortMetric extends IStudioSortMetricDefinition {
   value?: number | string | null;
 }
 
-const activeBackendValue = (source: IStudioSortMetricSource) =>
-  source.stats?.active_sort_value;
+const activeBackendValue = (source: IStudioSortMetricSource, sortBy: string) =>
+  source.metricValues
+    ? source.metricValues[sortBy]
+    : source.stats?.active_sort_value;
 
 const definitions: Record<
   string,
   IStudioSortMetricDefinition & {
     value: (
-      source: IStudioSortMetricSource
+      source: IStudioSortMetricSource,
+      sortBy: string
     ) => number | string | null | undefined;
   }
 > = {
@@ -145,6 +151,11 @@ const definitions: Record<
   },
   bronze_scenes_count: {
     messageID: "bronze_scene_count",
+    format: "count",
+    value: activeBackendValue,
+  },
+  no_metallic_scenes_count: {
+    messageID: "no_metallic_scene_count",
     format: "count",
     value: activeBackendValue,
   },
@@ -273,6 +284,11 @@ const definitions: Record<
     format: "rating",
     value: activeBackendValue,
   },
+  average_overall_scene_rating: {
+    messageID: "average_overall_scene_rating",
+    format: "rating",
+    value: activeBackendValue,
+  },
   created_at: {
     messageID: "created_at",
     format: "datetime",
@@ -306,6 +322,20 @@ export function getStudioSortMetricCustom(
     sortBy: normalizedSort,
     messageID: definition.messageID,
     format: definition.format,
-    value: definition.value(source),
+    value: definition.value(source, normalizedSort),
   };
+}
+
+export function getStudioSortMetricDefinitionCustom(
+  sortBy: string
+): IStudioSortMetricDefinition | undefined {
+  const definition = definitions[sortBy];
+  if (!definition) return undefined;
+  return { messageID: definition.messageID, format: definition.format };
+}
+
+// True when a metric is only available from the backend metric query rather
+// than the page-level StudioListStats payload.
+export function studioSortMetricNeedsBackendCustom(sortBy: string) {
+  return definitions[sortBy]?.value === activeBackendValue;
 }

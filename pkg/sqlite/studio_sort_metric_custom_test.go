@@ -25,7 +25,8 @@ func TestStudioMetallicSceneCountExpressionsHonorTiersAndOverrides(t *testing.T)
 		`INSERT INTO scenes(id, studio_id, rating) VALUES
       (1, 1, 95), (2, 1, 87), (3, 1, 75), (4, 1, 65), (5, 1, 50),
       (6, 2, 50), (7, 2, 95), (8, 2, 65), (9, 2, 50), (10, 2, 50),
-      (11, 2, 20), (12, 2, 20), (13, 2, 20), (14, 2, 20), (15, 2, 20), (16, 2, 20)`,
+      (11, 2, 20), (12, 2, 20), (13, 2, 20), (14, 2, 20), (15, 2, 20), (16, 2, 20),
+      (17, 2, NULL), (18, 1, NULL)`,
 		`INSERT INTO scenes_tags(scene_id, tag_id) VALUES
       (6, 100), (7, 101), (8, 100), (8, 101), (9, 102), (10, 103), (15, 101)`,
 		`INSERT INTO rating_bonus_scores(entity_type, entity_id, key, raw_value) VALUES
@@ -53,13 +54,14 @@ func TestStudioMetallicSceneCountExpressionsHonorTiersAndOverrides(t *testing.T)
 			goat:          "103",
 		},
 	}
-	query := fmt.Sprintf(`SELECT studios.id, %s, %s, %s, %s
+	query := fmt.Sprintf(`SELECT studios.id, %s, %s, %s, %s, %s
 FROM studios
 ORDER BY studios.id`,
 		studioMetallicSceneCountExprForConfigCustom(metallicTierRoyalSapphire, cfg),
 		studioMetallicSceneCountExprForConfigCustom(metallicTierGold, cfg),
 		studioMetallicSceneCountExprForConfigCustom(metallicTierSilver, cfg),
 		studioMetallicSceneCountExprForConfigCustom(metallicTierBronze, cfg),
+		studioMetallicSceneCountExprForConfigCustom(studioNoMetallicTierCustom, cfg),
 	)
 
 	rows, err := db.Query(query)
@@ -68,14 +70,15 @@ ORDER BY studios.id`,
 	}
 	defer rows.Close()
 
-	want := [][]int{{1, 1, 1, 1, 1}, {2, 7, 2, 0, 1}}
+	// The last column counts rated scenes below Bronze; unrated scenes are skipped.
+	want := [][]int{{1, 1, 1, 1, 1, 1}, {2, 7, 2, 0, 1, 1}}
 	rowCount := 0
 	for ; rows.Next(); rowCount++ {
 		if rowCount >= len(want) {
 			t.Fatal("received more Studio rows than expected")
 		}
-		got := make([]int, 5)
-		if err := rows.Scan(&got[0], &got[1], &got[2], &got[3], &got[4]); err != nil {
+		got := make([]int, 6)
+		if err := rows.Scan(&got[0], &got[1], &got[2], &got[3], &got[4], &got[5]); err != nil {
 			t.Fatal(err)
 		}
 		for column := range got {
@@ -105,6 +108,7 @@ func TestStudioMetallicSceneSortsRegisteredForBothDirections(t *testing.T) {
 		"gold_scenes_count",
 		"silver_scenes_count",
 		"bronze_scenes_count",
+		"no_metallic_scenes_count",
 	} {
 		if err := studioSortOptions.validateSort(sort); err != nil {
 			t.Fatalf("Studio sort %s is not allowed: %v", sort, err)

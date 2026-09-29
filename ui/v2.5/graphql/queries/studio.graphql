@@ -10,6 +10,20 @@ query FindStudios($filter: FindFilterType, $studio_filter: StudioFilterType) {
   }
 }
 
+# CUSTOM: begin - backend-only metric values for the studio list table columns
+query FindStudioListMetrics($ids: [ID!], $metrics: [String!]!) {
+  findStudios(ids: $ids) {
+    studio_list_metrics(metrics: $metrics) {
+      studio_id
+      values {
+        key
+        value
+      }
+    }
+  }
+}
+# CUSTOM: end
+
 query FindStudio($id: ID!) {
   findStudio(id: $id) {
     ...StudioDetailData # CUSTOM: modified

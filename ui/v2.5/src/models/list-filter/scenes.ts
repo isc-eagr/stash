@@ -146,6 +146,24 @@ const sortByOptions = [
       value: "unusable_activity_percent",
     },
     // CUSTOM: end
+    // CUSTOM: begin - marker count sorts
+    {
+      messageID: "orgasm_count",
+      value: "orgasm_count",
+    },
+    {
+      messageID: "really_hot_orgasm_count",
+      value: "really_hot_orgasm_count",
+    },
+    {
+      messageID: "facial_count",
+      value: "facial_count",
+    },
+    {
+      messageID: "really_hot_facial_count",
+      value: "really_hot_facial_count",
+    },
+    // CUSTOM: end
   ]);
 const displayModeOptions = [
   DisplayMode.Grid,

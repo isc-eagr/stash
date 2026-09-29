@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/99designs/gqlgen/graphql"
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/sqlite"
@@ -53,37 +54,124 @@ func queryStudioListStatsCustom(ctx context.Context, studioIDs []int, activeSort
 }
 
 func queryStudioListActiveSortValuesCustom(ctx context.Context, studioIDs []int, activeSort string, statsByID map[int]*StudioListStats) error {
-	expression, ok := sqlite.StudioSortMetricExpressionCustom(activeSort)
-	if !ok {
-		return nil
+	values, err := queryStudioListMetricValuesByIDCustom(ctx, studioIDs, []string{activeSort})
+	if err != nil {
+		return err
+	}
+	for studioID, metricValues := range values {
+		if stats := statsByID[studioID]; stats != nil {
+			stats.ActiveSortValue = metricValues[activeSort]
+		}
+	}
+	return nil
+}
+
+// studioListRequestedMetricsCustom returns the metric keys requested through
+// studio_list_metrics(metrics:), or false when that field is not selected.
+func studioListRequestedMetricsCustom(ctx context.Context) ([]string, bool) {
+	opCtx := graphql.GetOperationContext(ctx)
+	for _, field := range graphql.CollectFieldsCtx(ctx, nil) {
+		if field.Name != "studio_list_metrics" {
+			continue
+		}
+		raw, _ := field.ArgumentMap(opCtx.Variables)["metrics"].([]interface{})
+		metrics := make([]string, 0, len(raw))
+		for _, value := range raw {
+			if metric, ok := value.(string); ok {
+				metrics = append(metrics, metric)
+			}
+		}
+		return metrics, true
+	}
+	return nil, false
+}
+
+// queryStudioListMetricsCustom returns one entry per studio, in page order,
+// with a value for every requested metric that has a Studio sort expression.
+func queryStudioListMetricsCustom(ctx context.Context, studioIDs []int, metrics []string) ([]*StudioListMetricValues, error) {
+	valuesByID, err := queryStudioListMetricValuesByIDCustom(ctx, studioIDs, metrics)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*StudioListMetricValues, 0, len(studioIDs))
+	for _, studioID := range studioIDs {
+		entry := &StudioListMetricValues{
+			StudioID: strconv.Itoa(studioID),
+			Values:   []*StudioListMetricValue{},
+		}
+		for _, metric := range studioListSupportedMetricsCustom(metrics) {
+			entry.Values = append(entry.Values, &StudioListMetricValue{
+				Key:   metric,
+				Value: valuesByID[studioID][metric],
+			})
+		}
+		ret = append(ret, entry)
+	}
+	return ret, nil
+}
+
+// studioListSupportedMetricsCustom drops duplicate and unknown metric keys.
+func studioListSupportedMetricsCustom(metrics []string) []string {
+	seen := make(map[string]bool, len(metrics))
+	ret := make([]string, 0, len(metrics))
+	for _, metric := range metrics {
+		if seen[metric] {
+			continue
+		}
+		if _, ok := sqlite.StudioSortMetricExpressionCustom(metric); ok {
+			seen[metric] = true
+			ret = append(ret, metric)
+		}
+	}
+	return ret
+}
+
+func queryStudioListMetricValuesByIDCustom(ctx context.Context, studioIDs []int, metrics []string) (map[int]map[string]*string, error) {
+	metrics = studioListSupportedMetricsCustom(metrics)
+	ret := make(map[int]map[string]*string, len(studioIDs))
+	if len(studioIDs) == 0 || len(metrics) == 0 {
+		return ret, nil
+	}
+
+	expressions := make([]string, len(metrics))
+	for i, metric := range metrics {
+		expressions[i], _ = sqlite.StudioSortMetricExpressionCustom(metric)
 	}
 
 	query := fmt.Sprintf(`
 WITH requested(id) AS (VALUES %s)
 SELECT studios.id, %s
 FROM studios
-JOIN requested ON requested.id = studios.id`, studioListRequestedValuesCustom(len(studioIDs)), expression)
+JOIN requested ON requested.id = studios.id`, studioListRequestedValuesCustom(len(studioIDs)), strings.Join(expressions, ", "))
 	_, rows, err := manager.GetInstance().Database.QuerySQL(ctx, query, studioListIDArgsCustom(studioIDs))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, row := range rows {
-		if len(row) < 2 || row[1] == nil {
+		if len(row) < len(metrics)+1 {
 			continue
 		}
-		stats := statsByID[activityStatsIntCustom(row[0])]
-		if stats == nil {
-			continue
+		values := make(map[string]*string, len(metrics))
+		for i, metric := range metrics {
+			values[metric] = studioListMetricStringCustom(row[i+1])
 		}
-		value := fmt.Sprint(row[1])
-		if bytes, ok := row[1].([]byte); ok {
-			value = string(bytes)
-		}
-		stats.ActiveSortValue = &value
+		ret[activityStatsIntCustom(row[0])] = values
 	}
 
-	return nil
+	return ret, nil
+}
+
+func studioListMetricStringCustom(raw interface{}) *string {
+	if raw == nil {
+		return nil
+	}
+	value := fmt.Sprint(raw)
+	if bytes, ok := raw.([]byte); ok {
+		value = string(bytes)
+	}
+	return &value
 }
 
 func studioListRequestedValuesCustom(count int) string {

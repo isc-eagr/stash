@@ -55,6 +55,7 @@ func TestStudioRatingAdvisorAverageSortKeysCustomMatchStatsSections(t *testing.T
 		"average_standard_scene_rating": studioRatingAdvisorStandardAverageCustom,
 		"average_group_scene_rating":    studioRatingAdvisorGroupAverageCustom,
 		"average_performer_rating":      studioRatingAdvisorPerformerAverageCustom,
+		"average_overall_scene_rating":  studioRatingAdvisorOverallAverageCustom,
 	}, studioRatingAdvisorAverageSortKeysCustom)
 
 	solo := studioRatingAdvisorAverageExprCustom(studioRatingAdvisorSoloAverageCustom)
@@ -91,7 +92,8 @@ INSERT INTO studios(id) VALUES (1), (2);
 INSERT INTO scenes(id, studio_id, rating) VALUES
   (10, 1, 90), (11, 2, 50),
   (20, 1, 60), (21, 2, 80),
-  (30, 1, 70), (31, 2, 100);
+  (30, 1, 70), (31, 2, 100),
+  (40, 1, 100);
 INSERT INTO performers(id, rating) VALUES
   (1, 90), (2, 80), (3, 40), (4, 50),
   (5, 70), (6, 60), (7, 60), (8, 70);
@@ -119,6 +121,9 @@ INSERT INTO rating_criteria_scores(entity_type, entity_id, key) VALUES
 		{studioRatingAdvisorStandardAverageCustom, []int{2, 1}},
 		{studioRatingAdvisorGroupAverageCustom, []int{2, 1}},
 		{studioRatingAdvisorPerformerAverageCustom, []int{1, 2}},
+		// Scene 40 fits no section, so it must not lift studio 1's overall
+		// average (73.3) above studio 2's (76.7).
+		{studioRatingAdvisorOverallAverageCustom, []int{2, 1}},
 	}
 	for _, test := range tests {
 		expr := studioRatingAdvisorAverageExprCustom(test.category)

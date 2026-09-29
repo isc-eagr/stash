@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getStudioSortMetricCustom } from "../src/components/Studios/studioSortMetric_custom.ts";
+import {
+  getStudioSortMetricCustom,
+  getStudioSortMetricDefinitionCustom,
+  studioSortMetricNeedsBackendCustom,
+} from "../src/components/Studios/studioSortMetric_custom.ts";
 
 const source = {
   studio: {
@@ -46,6 +50,7 @@ test("metallic Studio scene sorts use the exact backend value", () => {
     ["gold_scenes_count", "gold_scene_count"],
     ["silver_scenes_count", "silver_scene_count"],
     ["bronze_scenes_count", "bronze_scene_count"],
+    ["no_metallic_scenes_count", "no_metallic_scene_count"],
   ];
 
   expected.forEach(([sortBy, messageID]) => {
@@ -102,4 +107,56 @@ test("existing Studio card aggregates resolve before inline highlighting", () =>
     format: "count",
     value: "7",
   });
+});
+
+test("list table metric values take precedence over the active sort value", () => {
+  const tableSource = {
+    ...source,
+    metricValues: { scenes_duration: "3600", gold_scenes_count: null },
+  };
+  assert.equal(
+    getStudioSortMetricCustom("scenes_duration", tableSource)?.value,
+    "3600"
+  );
+  assert.equal(
+    getStudioSortMetricCustom("gold_scenes_count", tableSource)?.value,
+    null
+  );
+  // Missing keys must not borrow the active sort's value.
+  assert.equal(
+    getStudioSortMetricCustom("silver_scenes_count", tableSource)?.value,
+    undefined
+  );
+  // Page payload metrics still come from the stats.
+  assert.equal(
+    getStudioSortMetricCustom("scenes_count", tableSource)?.value,
+    6
+  );
+});
+
+test("only backend-only Studio metrics are requested from the metrics query", () => {
+  for (const sortBy of [
+    "scenes_duration",
+    "latest_scene",
+    "o_count",
+    "no_metallic_scenes_count",
+    "average_performer_rating",
+    "average_overall_scene_rating",
+  ]) {
+    assert.equal(studioSortMetricNeedsBackendCustom(sortBy), true, sortBy);
+  }
+  for (const sortBy of [
+    "scenes_count",
+    "sex_activity_percent",
+    "tag_count",
+    "name",
+    "unknown",
+  ]) {
+    assert.equal(studioSortMetricNeedsBackendCustom(sortBy), false, sortBy);
+  }
+  assert.deepEqual(getStudioSortMetricDefinitionCustom("scenes_duration"), {
+    messageID: "scenes_duration",
+    format: "duration",
+  });
+  assert.equal(getStudioSortMetricDefinitionCustom("unknown"), undefined);
 });

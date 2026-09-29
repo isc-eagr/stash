@@ -5,8 +5,10 @@ import {
 } from "../Shared/sortMetric_custom";
 import {
   getSceneActivityMetrics,
+  getSceneMarkerCountCustom,
   type SceneActivityMetricRows,
   type SceneActivityRoleTagIds,
+  type SceneMarkerCountKeyCustom,
 } from "./sceneActivityMetricsData_custom";
 
 type SceneSortMetricScene = GQL.SlimSceneDataFragment & {
@@ -71,10 +73,18 @@ const activityPercent = (
   const metrics =
     source.activityMetrics ??
     getSceneActivityMetrics(source.scene, source.roleTagIds);
-  return [...(metrics?.activity ?? []), ...(metrics?.quality ?? [])].find(
-    (metric) => metric.key === key
-  )?.percent;
+  if (!metrics) return undefined;
+  // The metric rows omit zero-duration categories; the sort treats them as 0.
+  return (
+    [...metrics.activity, ...metrics.quality].find(
+      (metric) => metric.key === key
+    )?.percent ?? 0
+  );
 };
+
+const markerCount =
+  (key: SceneMarkerCountKeyCustom) => (source: SceneSortMetricSource) =>
+    getSceneMarkerCountCustom(source.scene, source.roleTagIds, key);
 
 const performerAge = (source: SceneSortMetricSource) => {
   const sceneDate = source.scene.effective_date ?? source.scene.date;
@@ -308,6 +318,26 @@ const definitions: Record<
     format: "percent",
     value: (source) => activityPercent(source, "unusable"),
   },
+  orgasm_count: {
+    messageID: "orgasm_count",
+    format: "count",
+    value: markerCount("orgasm_count"),
+  },
+  really_hot_orgasm_count: {
+    messageID: "really_hot_orgasm_count",
+    format: "count",
+    value: markerCount("really_hot_orgasm_count"),
+  },
+  facial_count: {
+    messageID: "facial_count",
+    format: "count",
+    value: markerCount("facial_count"),
+  },
+  really_hot_facial_count: {
+    messageID: "really_hot_facial_count",
+    format: "count",
+    value: markerCount("really_hot_facial_count"),
+  },
   created_at: {
     messageID: "created_at",
     format: "datetime",
@@ -335,4 +365,11 @@ export function getSceneSortMetricCustom(
     roleTagIds,
     scene,
   });
+}
+
+// Label and format for a scene sort, used by list table columns.
+export function getSceneSortMetricDefinitionCustom(sortBy: string) {
+  const definition = definitions[sortBy];
+  if (!definition) return undefined;
+  return { messageID: definition.messageID, format: definition.format };
 }

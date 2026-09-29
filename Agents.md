@@ -31,6 +31,11 @@ On Windows, use `npm.cmd` if PowerShell blocks `npm`. If `mingw32-make validate-
 - UI: `ui/v2.5`; UI GraphQL operations: `ui/v2.5/graphql/`; custom navigation: `ui/v2.5/src/utils/navigation_custom.ts`.
 - GraphQL generation updates backend and UI bindings. Include generated diffs when committing or opening a PR.
 
+## Dev environment for testing
+
+- The installed app usually owns port 9999 and uses the production database. Test against the dev backend on another port instead: run `go run ../cmd/stash --port 9998` from `.local` with `STASH_CONFIG_FILE=config.yml` (testing database), and start Vite with `VITE_APP_PLATFORM_PORT=9998`. `.claude/launch.json` has both configurations. Confirm the UI's GraphQL requests go to 9998 before testing.
+- Always bring the dev environment down when you finish testing: stop every dev backend and Vite server you started, then confirm their ports are free and no `go run` build of `stash` is still running. Do this even when the check fails or the task is interrupted.
+
 ## Upstream merges and production
 
 - Upstream is the main version; reapply custom code on top when resolving conflicts. After an upstream merge, run `make generate`, `go build ./...`, and `make ui-start` to catch UI parse/runtime errors; review `CUSTOM_FEATURES.md`.

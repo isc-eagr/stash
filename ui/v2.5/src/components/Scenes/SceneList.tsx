@@ -28,6 +28,8 @@ import { LoadedContent } from "../List/PagedList";
 import { useCloseEditDelete, useFilterOperations } from "../List/util";
 import { ListOperations } from "../List/ListOperationButtons";
 import { useFilteredItemList } from "../List/ItemList";
+import { sortFilterByColumnCustom } from "../List/listTableSort_custom"; // CUSTOM
+import { SCENE_TABLE_ASCENDING_SORTS_CUSTOM } from "./sceneListTableColumns_custom"; // CUSTOM
 import {
   Sidebar,
   SidebarPane,
@@ -204,9 +206,11 @@ const SceneList: React.FC<{
   selectedIds: Set<string>;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
   fromGroupId?: string;
+  onSort?: (sortBy: string) => void; // CUSTOM
 }> = PatchComponent(
   "SceneList",
-  ({ scenes, filter, selectedIds, onSelectChange, fromGroupId }) => {
+  ({ scenes, filter, selectedIds, onSelectChange, fromGroupId, onSort }) => {
+    // CUSTOM: onSort
     const queue = useMemo(
       () => SceneQueue.fromListFilterModel(filter),
       [filter]
@@ -237,6 +241,10 @@ const SceneList: React.FC<{
           queue={queue}
           selectedIds={selectedIds}
           onSelectChange={onSelectChange}
+          // CUSTOM: header sorting
+          sortBy={filter.sortBy}
+          sortDirection={filter.sortDirection}
+          onSort={onSort}
         />
       );
     }
@@ -584,6 +592,15 @@ export const FilteredSceneList = PatchComponent(
     );
 
     const playRandom = usePlayRandom(effectiveFilter, totalCount);
+    // CUSTOM: list table header sorting
+    const onSort = (sortBy: string) =>
+      setFilter(
+        sortFilterByColumnCustom(
+          filter,
+          sortBy,
+          SCENE_TABLE_ASCENDING_SORTS_CUSTOM
+        )
+      );
     const playSelected = usePlaySelected(selectedIds);
     const playFirst = usePlayFirst();
 
@@ -821,6 +838,7 @@ export const FilteredSceneList = PatchComponent(
                     selectedIds={selectedIds}
                     onSelectChange={onSelectChange}
                     fromGroupId={fromGroupId}
+                    onSort={onSort} // CUSTOM
                   />
                 </LoadedContent>
 

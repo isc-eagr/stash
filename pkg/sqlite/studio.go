@@ -762,10 +762,12 @@ var studioSortOptions = sortOptions{
 	"average_standard_scene_rating",            // CUSTOM
 	"average_group_scene_rating",               // CUSTOM
 	"average_performer_rating",                 // CUSTOM
+	"average_overall_scene_rating",             // CUSTOM
 	"royal_sapphire_scenes_count",              // CUSTOM
 	"gold_scenes_count",                        // CUSTOM
 	"silver_scenes_count",                      // CUSTOM
 	"bronze_scenes_count",                      // CUSTOM
+	"no_metallic_scenes_count",                 // CUSTOM
 	"facial_scenes_count",                      // CUSTOM
 	"standard_facial_count",                    // CUSTOM
 	"really_hot_facial_count",                  // CUSTOM

@@ -16,6 +16,8 @@ import { ExportDialog } from "../Shared/ExportDialog";
 import { DeleteEntityDialog } from "../Shared/DeleteEntityDialog";
 import { StudioTagger } from "../Tagger/studios/StudioTagger";
 import { StudioCardGrid } from "./StudioCardGrid";
+import { StudioListTable } from "./StudioListTable"; // CUSTOM
+import { sortFilterByColumnCustom } from "../List/listTableSort_custom"; // CUSTOM
 import { View } from "../List/views";
 import { EditStudiosDialog } from "./EditStudiosDialog";
 import {
@@ -55,6 +57,7 @@ const StudioList: React.FC<{
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
   fromParent?: boolean;
   performerId?: string; // CUSTOM
+  onSort?: (sortBy: string) => void; // CUSTOM
 }> = PatchComponent(
   "StudioList",
   ({
@@ -65,8 +68,9 @@ const StudioList: React.FC<{
     onSelectChange,
     fromParent,
     performerId,
+    onSort,
   }) => {
-    // CUSTOM: statsByStudioID, performerId
+    // CUSTOM: statsByStudioID, performerId, onSort
     if (studios.length === 0 && filter.displayMode !== DisplayMode.Tagger) {
       return null;
     }
@@ -87,7 +91,19 @@ const StudioList: React.FC<{
       );
     }
     if (filter.displayMode === DisplayMode.List) {
-      return <h1>TODO</h1>;
+      // CUSTOM: begin
+      return (
+        <StudioListTable
+          studios={studios}
+          statsByStudioID={statsByStudioID}
+          selectedIds={selectedIds}
+          onSelectChange={onSelectChange}
+          sortBy={filter.sortBy}
+          sortDirection={filter.sortDirection}
+          onSort={onSort}
+        />
+      );
+      // CUSTOM: end
     }
     if (filter.displayMode === DisplayMode.Wall) {
       return <h1>TODO</h1>;
@@ -319,6 +335,10 @@ export const FilteredStudioList = PatchComponent(
 
     const viewRandom = useViewRandom(effectiveFilter, totalCount);
 
+    // CUSTOM: table header sorting
+    const onSort = (sortBy: string) =>
+      setFilter(sortFilterByColumnCustom(filter, sortBy, ["name"]));
+
     function onExport(all: boolean) {
       showModal(
         <ExportDialog
@@ -474,6 +494,7 @@ export const FilteredStudioList = PatchComponent(
                   selectedIds={selectedIds}
                   onSelectChange={onSelectChange}
                   performerId={performerId} // CUSTOM
+                  onSort={onSort} // CUSTOM
                 />
               </LoadedContent>
 

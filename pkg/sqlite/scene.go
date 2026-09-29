@@ -1393,6 +1393,10 @@ var sceneSortOptions = sortOptions{
 	"standard_activity_percent",     // CUSTOM
 	"unclassified_activity_percent", // CUSTOM
 	"unusable_activity_percent",     // CUSTOM
+	"orgasm_count",                  // CUSTOM
+	"really_hot_orgasm_count",       // CUSTOM
+	"facial_count",                  // CUSTOM
+	"really_hot_facial_count",       // CUSTOM
 }
 
 func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindFilterType) error {
@@ -1560,7 +1564,11 @@ func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindF
 	case "unusable_activity_percent": // CUSTOM
 		query.sortAndPagination += qb.sortByBatchedActivityPercentCustom(query, activityPercentUnusableCustom, direction)
 	default:
-		query.sortAndPagination += getSort(sort, direction, "scenes")
+		if markerSort, ok := sceneMarkerCountSortKeysCustom[sort]; ok { // CUSTOM
+			query.sortAndPagination += qb.sortByMarkerCountCustom(query, markerSort, direction)
+		} else {
+			query.sortAndPagination += getSort(sort, direction, "scenes")
+		}
 	}
 
 	// Whatever the sorting, always use title/id as a final sort

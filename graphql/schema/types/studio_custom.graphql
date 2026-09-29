@@ -87,8 +87,21 @@ type StudioListStats {
   studio_activity_stats: StudioActivityStats!
 }
 
+type StudioListMetricValue {
+  "Studio sort key"
+  key: String!
+  value: String
+}
+
+type StudioListMetricValues {
+  studio_id: ID!
+  values: [StudioListMetricValue!]!
+}
+
 extend type FindStudiosResultType {
   studio_list_stats: [StudioListStats!]!
+  "Raw values for the requested Studio sort metrics, used by the studio list table columns"
+  studio_list_metrics(metrics: [String!]!): [StudioListMetricValues!]!
 }
 # CUSTOM: end
 

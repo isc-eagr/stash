@@ -135,3 +135,21 @@ func assertStudioListFloatCustom(t *testing.T, name string, got, want float64) {
 		t.Fatalf("%s: got %f, want %f", name, got, want)
 	}
 }
+
+func TestStudioListSupportedMetricsCustom(t *testing.T) {
+	got := studioListSupportedMetricsCustom([]string{
+		"scenes_duration",
+		"name",
+		"latest_scene",
+		"scenes_duration",
+		"not_a_metric",
+		"o_count",
+	})
+	require.Equal(t, []string{"scenes_duration", "latest_scene", "o_count"}, got)
+}
+
+func TestStudioListMetricStringCustom(t *testing.T) {
+	require.Nil(t, studioListMetricStringCustom(nil))
+	require.Equal(t, "2024-01-02", *studioListMetricStringCustom([]byte("2024-01-02")))
+	require.Equal(t, "42", *studioListMetricStringCustom(int64(42)))
+}

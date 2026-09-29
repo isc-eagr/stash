@@ -1,0 +1,14 @@
+.table-list.studio-table {
+  max-height: calc(100dvh - 210px);
+
+  .studio-table-logo {
+    height: 40px;
+    max-width: 120px;
+    object-fit: contain;
+    padding: 0.25rem;
+  }
+
+  .rating-stars {
+    white-space: nowrap;
+  }
+}
