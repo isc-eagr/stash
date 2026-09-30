@@ -172,6 +172,13 @@ input SceneMarkerTagGroupInput {
   who appears as BOTH top AND bottom and satisfies all criteria.
   """
   both_roles_unnamed_performers: [UnnamedPerformerCriterionInput!]
+  "Either-role performer IDs - performer must be on the marker in any role"
+  either_performer_ids: [ID!]
+  """
+  Unnamed performer slots for either role. Each entry must match a DISTINCT performer
+  on the marker in any role.
+  """
+  either_unnamed_performers: [UnnamedPerformerCriterionInput!]
 
   "Mode for performer matching: 'AND' = top AND bottom must match, 'OR' = either can match (default: 'OR')"
   performer_mode: String

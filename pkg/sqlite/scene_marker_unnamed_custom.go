@@ -18,7 +18,14 @@ func normalizeSceneMarkerTagGroupsSameUnnamedRolesCustom(groups []models.SceneMa
 	return ret
 }
 
+// In AND mode a vato listed as both top and bottom holds both roles on the
+// marker, exactly like a named vato. In OR mode either role is enough, so the
+// slots stay on their own sides.
 func normalizeSceneMarkerTagGroupSameUnnamedRolesCustom(group models.SceneMarkerTagGroupInput) models.SceneMarkerTagGroupInput {
+	if !markerGroupAndModeCustom(group) {
+		return group
+	}
+
 	bottomByID := make(map[string]models.UnnamedPerformerCriterionInput)
 	for _, slot := range group.BottomUnnamedPerformers {
 		if slot.ID == nil || *slot.ID == "" {

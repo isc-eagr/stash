@@ -1,31 +1,25 @@
 import { CriterionModifier } from "src/core/generated-graphql";
 import { Criterion, CriterionOption } from "./criterion";
-import { ILabeledId, CriterionType } from "../types";
+import { CriterionType } from "../types";
 import { IntlShape } from "react-intl";
-import { RatingCriterion } from "./tags";
-import { ratingCriteriaValueToCriterionInput } from "./rating-criteria_custom";
+import { cloneUnnamedPerformer, IUnnamedPerformer } from "./unnamed-performer";
 import {
-  cloneUnnamedPerformer,
-  IUnnamedPerformer,
-  isUnnamedPerformerId,
-} from "./unnamed-performer";
+  createSceneMarkerGroupCustom,
+  decodeSceneMarkerGroupCustom,
+  encodeMarkerUnnamedCustom,
+  encodeSceneMarkerGroupCustom,
+  ISceneMarkerGroupCustom,
+  markerCriterionSentenceCustom,
+  nextMarkerGroupIdCustom,
+  nonEmptyMarkerGroupsCustom,
+  sceneMarkerGroupInputCustom,
+} from "./marker-group_custom";
 
 /**
  * A single marker configuration within the criterion.
  * Each group represents one marker pattern to exclude in a scene.
  */
-export interface ISceneMarkersExcludeGroup {
-  groupId: string;
-  // Tags
-  tag_ids: ILabeledId[];
-  depth: number; // 0 = no sub-tags, -1 = all sub-tags
-  // Performer mode: AND = both top AND bottom must match, OR = top OR bottom can match
-  performer_mode: "AND" | "OR";
-  // Top performer criteria (can include unnamed performer IDs)
-  top_performer_ids: ILabeledId[];
-  // Bottom performer criteria (can include unnamed performer IDs)
-  bottom_performer_ids: ILabeledId[];
-}
+export type ISceneMarkersExcludeGroup = ISceneMarkerGroupCustom;
 
 /**
  * The value for SceneMarkersExcludeCriterion - contains multiple marker groups.
@@ -37,30 +31,10 @@ export interface ISceneMarkersExcludeValue {
   unnamed_performers: IUnnamedPerformer[];
 }
 
-function getNextSceneMarkersExcludeGroupId(
-  groups: ISceneMarkersExcludeGroup[]
-): string {
-  const usedIds = new Set(groups.map((g) => g.groupId));
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  for (const letter of alphabet) {
-    if (!usedIds.has(letter)) {
-      return letter;
-    }
-  }
-
-  return `${groups.length + 1}`;
-}
-
-// Default empty group
-function createEmptyGroup(groupId: string): ISceneMarkersExcludeGroup {
-  return {
-    groupId,
-    tag_ids: [],
-    depth: 0,
-    performer_mode: "OR",
-    top_performer_ids: [],
-    bottom_performer_ids: [],
-  };
+interface ISceneMarkersExcludeRaw {
+  modifier?: CriterionModifier;
+  groups?: Parameters<typeof decodeSceneMarkerGroupCustom>[0][];
+  unnamed_performers?: IUnnamedPerformer[];
 }
 
 // Simplified: Always use EQUALS modifier
@@ -69,9 +43,8 @@ const modifierOptions = [CriterionModifier.Equals];
 const defaultModifier = CriterionModifier.Equals;
 
 /**
- * SceneMarkersExcludeCriterion - A criterion for filtering scenes by excluding markers.
- * Supports multiple marker groups, each with tags and top/bottom performer criteria.
- * Each group has its own performer_mode (AND/OR).
+ * SceneMarkersExcludeCriterion - A criterion for filtering scenes by excluding
+ * markers. A scene is hidden when any configuration matches one of its markers.
  */
 export class SceneMarkersExcludeCriterion extends Criterion {
   public modifier: CriterionModifier = defaultModifier;
@@ -87,14 +60,7 @@ export class SceneMarkersExcludeCriterion extends Criterion {
 
   protected cloneValues() {
     this.value = {
-      groups: this.value.groups.map((g) => ({
-        groupId: g.groupId,
-        tag_ids: g.tag_ids.map((t) => ({ ...t })),
-        depth: g.depth,
-        performer_mode: g.performer_mode,
-        top_performer_ids: g.top_performer_ids.map((p) => ({ ...p })),
-        bottom_performer_ids: g.bottom_performer_ids.map((p) => ({ ...p })),
-      })),
+      groups: this.value.groups.map(encodeSceneMarkerGroupCustom),
       unnamed_performers: (this.value.unnamed_performers ?? []).map(
         cloneUnnamedPerformer
       ),
@@ -109,8 +75,8 @@ export class SceneMarkersExcludeCriterion extends Criterion {
    * Add a new group and return its ID.
    */
   public addGroup(): string {
-    const groupId = getNextSceneMarkersExcludeGroupId(this.value.groups);
-    this.value.groups.push(createEmptyGroup(groupId));
+    const groupId = nextMarkerGroupIdCustom(this.value.groups);
+    this.value.groups.push(createSceneMarkerGroupCustom(groupId));
     return groupId;
   }
 
@@ -145,351 +111,57 @@ export class SceneMarkersExcludeCriterion extends Criterion {
     const criterion = intl.formatMessage({
       id: this.criterionOption.messageID,
     });
-
-    if (this.value.groups.length === 0) {
-      return `${criterion}: ${intl.formatMessage({ id: "none" })}`;
-    }
-
-    // Build a summary of groups
-    const groupLabels = this.value.groups.map((g) => {
-      const parts: string[] = [];
-      if (g.tag_ids.length > 0) {
-        parts.push(g.tag_ids.map((t) => t.label).join(", "));
-      }
-      if (g.top_performer_ids.length > 0) {
-        parts.push("Top: ...");
-      }
-      if (g.bottom_performer_ids.length > 0) {
-        parts.push("Bottom: ...");
-      }
-      const modeLabel = g.performer_mode === "OR" ? "OR" : "AND";
-      return `${g.groupId}(${modeLabel}): ${parts.join(" + ") || "..."}`;
-    });
-
-    return `${criterion}: ${groupLabels.join(" | ")}`;
+    const sentence = markerCriterionSentenceCustom(
+      this.value.groups,
+      this.value.unnamed_performers ?? [],
+      "or"
+    );
+    return `${criterion}: ${sentence || intl.formatMessage({ id: "none" })}`;
   }
 
   public isValid(): boolean {
-    // Need at least one group with some criteria, or unnamed performers
-    return (
-      (this.value.unnamed_performers ?? []).length > 0 ||
-      this.value.groups.some(
-        (g) =>
-          g.tag_ids.length > 0 ||
-          g.top_performer_ids.length > 0 ||
-          g.bottom_performer_ids.length > 0
-      )
-    );
+    return nonEmptyMarkerGroupsCustom(this.value.groups).length > 0;
+  }
+
+  private encode() {
+    return {
+      groups: this.value.groups.map(encodeSceneMarkerGroupCustom),
+      unnamed_performers: encodeMarkerUnnamedCustom(
+        this.value.unnamed_performers
+      ),
+    };
+  }
+
+  private decode(raw: ISceneMarkersExcludeRaw | undefined) {
+    if (!raw) return;
+    if (raw.modifier) this.modifier = raw.modifier;
+    if (raw.groups) {
+      this.value.groups = raw.groups.map(decodeSceneMarkerGroupCustom);
+    }
+    if (raw.unnamed_performers) {
+      this.value.unnamed_performers = raw.unnamed_performers.map(
+        cloneUnnamedPerformer
+      );
+    }
   }
 
   public toQueryParams(): Record<string, unknown> {
     return {
       type: this.criterionOption.type,
       modifier: this.modifier,
-      groups: this.value.groups.map((g) => ({
-        groupId: g.groupId,
-        tag_ids: g.tag_ids.map((t) => ({ id: t.id, label: t.label })),
-        depth: g.depth,
-        performer_mode: g.performer_mode,
-        top_performer_ids: g.top_performer_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-        bottom_performer_ids: g.bottom_performer_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-      })),
-      // Unnamed performers at criterion level for sharing across groups
-      unnamed_performers: (this.value.unnamed_performers ?? []).map((up) => ({
-        id: up.id,
-        label: up.label,
-        letter: up.letter,
-        ethnicities: up.ethnicities,
-        countries: up.countries,
-        rating: up.rating,
-        rating_criteria: up.rating_criteria,
-      })),
+      ...this.encode(),
     };
-  }
-
-  protected encodeValue(): unknown {
-    return {
-      groups: this.value.groups.map((g) => ({
-        groupId: g.groupId,
-        tag_ids: g.tag_ids.map((t) => ({ id: t.id, label: t.label })),
-        depth: g.depth,
-        performer_mode: g.performer_mode,
-        top_performer_ids: g.top_performer_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-        bottom_performer_ids: g.bottom_performer_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-      })),
-      unnamed_performers: (this.value.unnamed_performers ?? []).map((up) => ({
-        id: up.id,
-        label: up.label,
-        letter: up.letter,
-        ethnicities: up.ethnicities,
-        countries: up.countries,
-        rating: up.rating,
-        rating_criteria: up.rating_criteria,
-      })),
-    };
-  }
-
-  protected decodeValue(v: unknown): void {
-    if (!v) return;
-
-    const raw = v as {
-      groups?: Array<{
-        groupId: string;
-        tag_ids: Array<{ id: string; label: string }>;
-        depth: number;
-        performer_mode?: "AND" | "OR";
-        top_performer_ids: Array<{ id: string; label: string }>;
-        bottom_performer_ids: Array<{ id: string; label: string }>;
-      }>;
-      unnamed_performers?: IUnnamedPerformer[];
-    };
-
-    if (raw.groups) {
-      this.value.groups = raw.groups.map((g) => ({
-        groupId: g.groupId,
-        tag_ids: g.tag_ids.map((t) => ({ id: t.id, label: t.label })),
-        depth: g.depth,
-        performer_mode: g.performer_mode ?? "OR",
-        top_performer_ids: g.top_performer_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-        bottom_performer_ids: g.bottom_performer_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-      }));
-    }
-    // Load unnamed performers at criterion level
-    if (raw.unnamed_performers) {
-      this.value.unnamed_performers = raw.unnamed_performers.map(
-        cloneUnnamedPerformer
-      );
-    }
   }
 
   public fromDecodedParams(params: Record<string, unknown>): void {
-    const raw = params as {
-      modifier?: CriterionModifier;
-      groups?: Array<{
-        groupId: string;
-        tag_ids: Array<{ id: string; label: string }>;
-        depth: number;
-        performer_mode?: "AND" | "OR";
-        top_performer_ids: Array<{ id: string; label: string }>;
-        bottom_performer_ids: Array<{ id: string; label: string }>;
-      }>;
-      unnamed_performers?: IUnnamedPerformer[];
-    };
-
-    if (raw.modifier) this.modifier = raw.modifier;
-    if (raw.groups) {
-      this.value.groups = raw.groups.map((g) => ({
-        groupId: g.groupId,
-        tag_ids: g.tag_ids.map((t) => ({ id: t.id, label: t.label })),
-        depth: g.depth,
-        performer_mode: g.performer_mode ?? "OR",
-        top_performer_ids: g.top_performer_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-        bottom_performer_ids: g.bottom_performer_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-      }));
-    }
-    // Load unnamed performers at criterion level
-    if (raw.unnamed_performers) {
-      this.value.unnamed_performers = raw.unnamed_performers.map(
-        cloneUnnamedPerformer
-      );
-    }
+    this.decode(params as ISceneMarkersExcludeRaw);
   }
 
   public applyToCriterionInput(input: Record<string, unknown>): void {
-    // Helper to get unnamed performer definition by ID
-    const getUnnamedDef = (id: string) =>
-      (this.value.unnamed_performers ?? []).find((up) => up.id === id);
-
-    // Build groups_extended from our groups
-    const groups_extended = this.value.groups.map((g) => {
-      // Each group has its own performer_mode
-      const performerMode = g.performer_mode ?? "AND";
-      const group: Record<string, unknown> = {
-        tag_ids: g.tag_ids.map((t) => t.id),
-        performer_mode: performerMode,
-      };
-
-      // Depth
-      if (g.depth !== 0) {
-        group.depth = g.depth;
-      }
-
-      // Separate named and unnamed performers
-      const topNamed = g.top_performer_ids.filter(
-        (p) => !isUnnamedPerformerId(p.id)
-      );
-      const topUnnamed = g.top_performer_ids.filter((p) =>
-        isUnnamedPerformerId(p.id)
-      );
-      const bottomNamed = g.bottom_performer_ids.filter(
-        (p) => !isUnnamedPerformerId(p.id)
-      );
-      const bottomUnnamed = g.bottom_performer_ids.filter((p) =>
-        isUnnamedPerformerId(p.id)
-      );
-
-      // Find NAMED performers that are in BOTH top and bottom (both_roles)
-      // ONLY in AND mode - in OR mode, same performer in both means "top OR bottom"
-      const bothRolesNamedIds = new Set<string>();
-      if (performerMode === "AND") {
-        for (const tp of topNamed) {
-          if (bottomNamed.some((bp) => bp.id === tp.id)) {
-            bothRolesNamedIds.add(tp.id);
-          }
-        }
-      }
-
-      // Find unnamed performers that are in BOTH top and bottom (both_roles).
-      // The same unnamed ID always represents the same actual performer.
-      const bothRolesUnnamedIds = new Set<string>();
-      for (const tp of topUnnamed) {
-        if (bottomUnnamed.some((bp) => bp.id === tp.id)) {
-          bothRolesUnnamedIds.add(tp.id);
-        }
-      }
-
-      // Build unnamed performer criterion arrays
-      // Include the unnamed performer ID so the backend can correlate
-      // the same unnamed performer across different marker groups
-      const topUnnamedPerformers: Array<{
-        id: string;
-        ethnicities?: string[];
-        countries?: string[];
-        rating?: RatingCriterion;
-        rating_criteria?: ReturnType<
-          typeof ratingCriteriaValueToCriterionInput
-        >;
-      }> = [];
-      const bottomUnnamedPerformers: Array<{
-        id: string;
-        ethnicities?: string[];
-        countries?: string[];
-        rating?: RatingCriterion;
-        rating_criteria?: ReturnType<
-          typeof ratingCriteriaValueToCriterionInput
-        >;
-      }> = [];
-      const bothRolesUnnamedPerformers: Array<{
-        id: string;
-        ethnicities?: string[];
-        countries?: string[];
-        rating?: RatingCriterion;
-        rating_criteria?: ReturnType<
-          typeof ratingCriteriaValueToCriterionInput
-        >;
-      }> = [];
-
-      // Add both-roles unnamed performers
-      for (const id of bothRolesUnnamedIds) {
-        const def = getUnnamedDef(id);
-        if (def) {
-          bothRolesUnnamedPerformers.push({
-            id: def.id,
-            ethnicities:
-              def.ethnicities.length > 0 ? def.ethnicities : undefined,
-            countries: def.countries.length > 0 ? def.countries : undefined,
-            rating: def.rating ?? undefined,
-            rating_criteria: ratingCriteriaValueToCriterionInput(
-              def.rating_criteria
-            ),
-          });
-        }
-      }
-
-      // Add top-only unnamed performers (not in both_roles)
-      for (const tp of topUnnamed) {
-        if (!bothRolesUnnamedIds.has(tp.id)) {
-          const def = getUnnamedDef(tp.id);
-          if (def) {
-            topUnnamedPerformers.push({
-              id: def.id,
-              ethnicities:
-                def.ethnicities.length > 0 ? def.ethnicities : undefined,
-              countries: def.countries.length > 0 ? def.countries : undefined,
-              rating: def.rating ?? undefined,
-              rating_criteria: ratingCriteriaValueToCriterionInput(
-                def.rating_criteria
-              ),
-            });
-          }
-        }
-      }
-
-      // Add bottom-only unnamed performers (not in both_roles)
-      for (const bp of bottomUnnamed) {
-        if (!bothRolesUnnamedIds.has(bp.id)) {
-          const def = getUnnamedDef(bp.id);
-          if (def) {
-            bottomUnnamedPerformers.push({
-              id: def.id,
-              ethnicities:
-                def.ethnicities.length > 0 ? def.ethnicities : undefined,
-              countries: def.countries.length > 0 ? def.countries : undefined,
-              rating: def.rating ?? undefined,
-              rating_criteria: ratingCriteriaValueToCriterionInput(
-                def.rating_criteria
-              ),
-            });
-          }
-        }
-      }
-
-      // Named performer IDs - separate both_roles from individual top/bottom
-      const topOnlyNamed = topNamed.filter((p) => !bothRolesNamedIds.has(p.id));
-      const bottomOnlyNamed = bottomNamed.filter(
-        (p) => !bothRolesNamedIds.has(p.id)
-      );
-      const bothRolesNamed = topNamed.filter((p) =>
-        bothRolesNamedIds.has(p.id)
-      );
-
-      if (topOnlyNamed.length > 0) {
-        group.top_performer_ids = topOnlyNamed.map((p) => p.id);
-      }
-      if (bottomOnlyNamed.length > 0) {
-        group.bottom_performer_ids = bottomOnlyNamed.map((p) => p.id);
-      }
-      if (bothRolesNamed.length > 0) {
-        group.both_roles_performer_ids = bothRolesNamed.map((p) => p.id);
-      }
-
-      // Unnamed performers
-      if (topUnnamedPerformers.length > 0) {
-        group.top_unnamed_performers = topUnnamedPerformers;
-      }
-      if (bottomUnnamedPerformers.length > 0) {
-        group.bottom_unnamed_performers = bottomUnnamedPerformers;
-      }
-      if (bothRolesUnnamedPerformers.length > 0) {
-        group.both_roles_unnamed_performers = bothRolesUnnamedPerformers;
-      }
-
-      return group;
-    });
+    const unnamed = this.value.unnamed_performers ?? [];
+    const groups_extended = nonEmptyMarkerGroupsCustom(this.value.groups).map(
+      (g) => sceneMarkerGroupInputCustom(g, unnamed)
+    );
 
     // Store in temporary key for later aggregation
     if (!input._sceneMarkerExcludeCriteria) {
@@ -507,72 +179,12 @@ export class SceneMarkersExcludeCriterion extends Criterion {
   public applyToSavedCriterion(input: Record<string, unknown>): void {
     input[this.criterionOption.type] = {
       modifier: this.modifier,
-      groups: this.value.groups.map((g) => ({
-        groupId: g.groupId,
-        tag_ids: g.tag_ids.map((t) => ({ id: t.id, label: t.label })),
-        depth: g.depth,
-        performer_mode: g.performer_mode,
-        top_performer_ids: g.top_performer_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-        bottom_performer_ids: g.bottom_performer_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-      })),
-      // Unnamed performers at criterion level
-      unnamed_performers: (this.value.unnamed_performers ?? []).map((up) => ({
-        id: up.id,
-        label: up.label,
-        letter: up.letter,
-        ethnicities: up.ethnicities,
-        countries: up.countries,
-        rating: up.rating,
-        rating_criteria: up.rating_criteria,
-      })),
+      ...this.encode(),
     };
   }
 
   public setFromSavedCriterion(savedCriterion: Record<string, unknown>): void {
-    const data = savedCriterion as {
-      modifier?: CriterionModifier;
-      groups?: Array<{
-        groupId: string;
-        tag_ids: Array<{ id: string; label: string }>;
-        depth: number;
-        performer_mode?: "AND" | "OR";
-        top_performer_ids: Array<{ id: string; label: string }>;
-        bottom_performer_ids: Array<{ id: string; label: string }>;
-      }>;
-      unnamed_performers?: IUnnamedPerformer[];
-    };
-
-    if (!data) return;
-
-    if (data.modifier) this.modifier = data.modifier;
-    if (data.groups) {
-      this.value.groups = data.groups.map((g) => ({
-        groupId: g.groupId,
-        tag_ids: g.tag_ids.map((t) => ({ id: t.id, label: t.label })),
-        depth: g.depth,
-        performer_mode: g.performer_mode ?? "OR",
-        top_performer_ids: g.top_performer_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-        bottom_performer_ids: g.bottom_performer_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-      }));
-    }
-    // Load unnamed performers at criterion level
-    if (data.unnamed_performers) {
-      this.value.unnamed_performers = data.unnamed_performers.map(
-        cloneUnnamedPerformer
-      );
-    }
+    this.decode(savedCriterion as ISceneMarkersExcludeRaw);
   }
 }
 

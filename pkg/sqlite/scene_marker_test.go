@@ -353,7 +353,7 @@ func TestMarkerQuerySceneMarkerTagsCorrelatesSameMarkerUnnamedPerformerRoles(t *
 		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
 		performerID := performerIDs[performerIdxWithScene]
 		unnamedID := "unnamed-A"
-		performerMode := "OR"
+		performerMode := "AND" // a vato listed as top and bottom holds both roles
 
 		ensureSceneMarkerPerformersTable(t, ctx)
 
@@ -735,7 +735,7 @@ func TestSceneQuerySceneMarkerTagsCorrelatesSameMarkerUnnamedPerformerRoles(t *t
 		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
 		performerID := performerIDs[performerIdxWithScene]
 		unnamedID := "unnamed-A"
-		performerMode := "OR"
+		performerMode := "AND" // a vato listed as top and bottom holds both roles
 
 		ensureSceneMarkerPerformersTable(t, ctx)
 
@@ -967,7 +967,7 @@ func TestSceneQuerySceneMarkerTagsExcludeCorrelatesSameMarkerUnnamedPerformerRol
 		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
 		performerID := performerIDs[performerIdxWithScene]
 		unnamedID := "unnamed-A"
-		performerMode := "OR"
+		performerMode := "AND" // a vato listed as top and bottom holds both roles
 		excludeModifier := models.CriterionModifierIncludes
 
 		ensureSceneMarkerPerformersTable(t, ctx)

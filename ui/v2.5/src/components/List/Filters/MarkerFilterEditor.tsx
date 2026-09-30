@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { Button, ButtonGroup, Form, Modal } from "react-bootstrap";
 import { useIntl } from "react-intl";
-import { faArrowDown, faArrowUp } from "@fortawesome/free-solid-svg-icons";
+import {
+  faArrowDown,
+  faArrowUp,
+  faPencilAlt,
+  faTimes,
+} from "@fortawesome/free-solid-svg-icons";
 import { PerformerIDSelect } from "src/components/Performers/PerformerSelect";
 import { TagIDSelect } from "src/components/Tags/TagSelect";
 import { Icon } from "src/components/Shared/Icon";
@@ -11,25 +16,37 @@ import {
   formatUnnamedPerformerSummary,
 } from "src/models/list-filter/criteria/unnamed-performer";
 import type { IUnnamedPerformer } from "src/models/list-filter/criteria/unnamed-performer";
+import {
+  MARKER_ROLE_PREFIX_CUSTOM,
+  MARKER_VATO_ROLES_CUSTOM,
+  isMarkerGroupEmptyCustom,
+  markerGroupPeopleCustom,
+  markerGroupSentenceCustom,
+  markerTagsSummaryCustom,
+  markerVatoLabelCustom,
+  setMarkerPeopleCustom,
+  setMarkerPersonRoleCustom,
+} from "src/models/list-filter/criteria/marker-group_custom";
+import type { MarkerVatoRoleCustom } from "src/models/list-filter/criteria/marker-group_custom";
 import { ROLE_COLORS_CUSTOM } from "src/utils/roleColors_custom";
 import { UnnamedPerformerEditor } from "./UnnamedPerformerManager";
 import {
+  markerEditorAppliedCustom,
   markerEditorDraftCustom,
   markerEditorGroupsCustom,
+  markerSelectedVatosCustom,
   markerUnnamedSelectOptionsCustom,
   markerUnnamedUsesCustom,
-  markerSelectedVatosCustom,
   removeMarkerUnnamedCustom,
   saveMarkerUnnamedCustom,
 } from "./markerFilterEditor_custom";
 import type {
   IMarkerEditorGroup,
   MarkerEditorCriterion,
-  MarkerEditorRole,
 } from "./markerFilterEditor_custom";
 import "./markerFilterEditor_custom.scss";
 
-type MarkerSection = "tags" | MarkerEditorRole;
+type MarkerSection = "tags" | "vatos";
 type MarkerScope = "markers" | "scenes" | "exclude";
 
 interface IMarkerFilterEditorProps<T extends MarkerEditorCriterion> {
@@ -41,7 +58,13 @@ interface IMarkerFilterEditorProps<T extends MarkerEditorCriterion> {
 interface IEditingVato {
   performer: IUnnamedPerformer;
   isNew: boolean;
-  role: MarkerEditorRole;
+}
+
+// Stable badge color per vato letter, so a shared vato is recognisable in
+// every marker.
+function vatoColorCustom(vato: IUnnamedPerformer) {
+  const index = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(vato.letter);
+  return `marker-editor-vato-color-${(index < 0 ? 0 : index) % 6}`;
 }
 
 export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
@@ -58,29 +81,46 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
   const [editing, setEditing] = useState<IEditingVato | null>(null);
   const source = draft ?? criterion;
   const groups = markerEditorGroupsCustom(source);
-  const group = groups.find((g) => g.groupId === groupId) ?? groups[0];
+  const groupIndex = Math.max(
+    0,
+    groups.findIndex((g) => g.groupId === groupId)
+  );
+  const group = groups[groupIndex];
   const people = source.value.unnamed_performers ?? [];
-  const labels = {
-    tags: msg("tags", "Tags"),
-    top_performer_ids: msg("top_performers", "Top Vatos"),
-    bottom_performer_ids: msg("bottom_performers", "Bottom Vatos"),
-  };
+  const unnamedOptions = markerUnnamedSelectOptionsCustom(people);
   const title =
     scope === "markers"
-      ? msg("marker_performers", "Markers")
+      ? msg("marker_performers", "Marker Match")
       : scope === "exclude"
       ? msg("scene_markers_exclude", "Scene Markers: Exclude")
       : msg("scene_markers", "Scene Markers");
   const unrestricted = msg("marker_editor.unrestricted", "Unrestricted");
-  const role =
-    section === "bottom_performer_ids"
-      ? "bottom_performer_ids"
-      : "top_performer_ids";
-  const selected = group?.[role] ?? [];
-  const unnamedOptions = markerUnnamedSelectOptionsCustom(people);
-  const editingUses = editing
-    ? markerUnnamedUsesCustom(groups, editing.performer.id)
-    : [];
+  const roleLabels: Record<MarkerVatoRoleCustom, string> = {
+    top: msg("marker_editor.role_top", "Top"),
+    bottom: msg("marker_editor.role_bottom", "Bottom"),
+    both: msg("marker_editor.role_both", "Both"),
+    either: msg("marker_editor.role_either", "Any role"),
+  };
+
+  function overlapping(value: T) {
+    return (
+      scope === "markers" ||
+      (scope === "scenes" &&
+        "require_overlap" in value.value &&
+        value.value.require_overlap)
+    );
+  }
+
+  function connectorLabel(value: T) {
+    if (scope === "exclude") return msg("marker_editor.connector_or", "or");
+    return overlapping(value)
+      ? msg("marker_editor.connector_while", "while")
+      : msg("marker_editor.connector_and", "and");
+  }
+
+  function markerLabel(index: number) {
+    return `${msg("marker", "Marker")} ${index + 1}`;
+  }
 
   function edit(change: (next: T) => void) {
     setDraft((current) => {
@@ -114,10 +154,6 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
     setEditing(null);
   }
 
-  function chooseSection(next: MarkerSection) {
-    setSection(next);
-  }
-
   function addGroup() {
     if (!draft) return;
     const next = markerEditorDraftCustom(draft);
@@ -127,101 +163,59 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
     setSection("tags");
   }
 
-  function performerLabel(id: string, fallback: string) {
-    return people.find((p) => p.id === id)?.label ?? fallback;
-  }
-
-  function sectionSummary(g: IMarkerEditorGroup, s: MarkerSection) {
-    const values = s === "tags" ? g.tag_ids : g[s];
+  function vatoBadge(id: string) {
+    const vato = people.find((p) => p.id === id);
+    if (!vato) return null;
     return (
-      values.map((p) => performerLabel(p.id, p.label)).join(", ") ||
-      unrestricted
+      <span
+        className={`marker-editor-vato-badge ${vatoColorCustom(vato)}`}
+        aria-hidden
+      >
+        {vato.letter}
+      </span>
     );
   }
 
   function usesLabel(id: string) {
     return markerUnnamedUsesCustom(groups, id)
-      .map((use) => `${use.groupId} · ${labels[use.role]}`)
+      .map((use) => `${markerLabel(use.index)} · ${roleLabels[use.role]}`)
       .join(" / ");
   }
 
-  function renderSummary(g: IMarkerEditorGroup) {
-    return (
-      <div className="marker-editor-summary-group" key={g.groupId}>
-        <Button
-          variant="link"
-          className="marker-editor-summary-title"
-          onClick={() => open(g.groupId)}
-        >
-          {msg("marker", "Marker")} {g.groupId}
-        </Button>
-        {(["tags", "top_performer_ids", "bottom_performer_ids"] as const).map(
-          (s) => {
-            const entries = s === "tags" ? g.tag_ids : g[s];
-            if (!entries.length) return null;
-            return (
-              <Button
-                key={s}
-                variant="link"
-                className="marker-editor-summary-row"
-                onClick={() => open(g.groupId, s)}
-              >
-                <span>{labels[s]}</span>
-                <span>
-                  {entries.map((p) => {
-                    const up =
-                      s !== "tags"
-                        ? people.find((v) => v.id === p.id)
-                        : undefined;
-                    return (
-                      <span className="marker-editor-summary-value" key={p.id}>
-                        {up
-                          ? `${up.label}: ${formatUnnamedPerformerSummary(up)}`
-                          : p.label}
-                      </span>
-                    );
-                  })}
-                  {s === "tags" && (!!g.depth || g.include_subtags) && (
-                    <small className="text-muted">
-                      {msg("include_sub_tags", "Include sub-tags")}
-                    </small>
-                  )}
-                </span>
-              </Button>
-            );
-          }
-        )}
-        {!!g.top_performer_ids.length && !!g.bottom_performer_ids.length && (
-          <small className="text-muted">
-            {g.performer_mode === "AND"
-              ? msg("performer_mode_and", "Top AND Bottom")
-              : msg("performer_mode_or", "Top OR Bottom")}
-          </small>
-        )}
-      </div>
-    );
+  function filledMarkers(value: T) {
+    return markerEditorGroupsCustom(value)
+      .map((g, index) => ({ g, index }))
+      .filter(({ g }) => !isMarkerGroupEmptyCustom(g));
   }
 
-  return (
-    <div className="marker-filter-editor">
+  function renderSummary() {
+    const rows = filledMarkers(criterion);
+    return (
       <div className="marker-editor-summary">
-        {markerEditorGroupsCustom(criterion).map(renderSummary)}
-        {markerEditorGroupsCustom(criterion).length > 1 && (
-          <small className="text-muted">
-            {scope === "markers"
-              ? msg("marker_editor.overlapping", "Overlapping markers")
-              : scope === "scenes" &&
-                "require_overlap" in criterion.value &&
-                criterion.value.require_overlap
-              ? msg("marker_editor.overlapping", "Overlapping markers")
-              : scope === "scenes"
-              ? msg(
-                  "marker_editor.every_config",
-                  "Every configuration required"
-                )
-              : msg("marker_editor.excluded", "Excluded configurations")}
-          </small>
-        )}
+        {rows.map(({ g, index }, i) => (
+          <div key={g.groupId}>
+            {i > 0 && (
+              <small className="marker-editor-connector text-muted">
+                {connectorLabel(criterion)}
+              </small>
+            )}
+            <Button
+              variant="link"
+              className="marker-editor-summary-row"
+              onClick={() => open(g.groupId)}
+            >
+              <span className="marker-editor-summary-title">
+                {markerLabel(index)}
+              </span>
+              <span>
+                {markerGroupSentenceCustom(
+                  g,
+                  criterion.value.unnamed_performers ?? []
+                )}
+              </span>
+            </Button>
+          </div>
+        ))}
         <Button
           variant="outline-primary"
           size="sm"
@@ -231,6 +225,217 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
           {msg("marker_editor.edit", "Edit markers")}
         </Button>
       </div>
+    );
+  }
+
+  function renderVatos() {
+    if (!group) return null;
+    const members = markerGroupPeopleCustom(group);
+    return (
+      <>
+        <Form.Group>
+          <Form.Label>{msg("marker_editor.vatos", "Vatos")}</Form.Label>
+          <PerformerIDSelect
+            isMulti
+            ids={members.map((p) => p.id)}
+            additionalOptions={unnamedOptions}
+            onSelect={(performers) =>
+              updateGroup(
+                setMarkerPeopleCustom(
+                  group,
+                  markerSelectedVatosCustom(performers)
+                )
+              )
+            }
+            menuPortalTarget={document.body}
+          />
+        </Form.Group>
+        {!!members.length && (
+          <ul className="marker-editor-vatos">
+            {members.map((person) => {
+              const vato = people.find((p) => p.id === person.id);
+              return (
+                <li className="marker-editor-vato" key={person.id}>
+                  <span className="marker-editor-vato-name">
+                    {vatoBadge(person.id)}
+                    <span>
+                      {vato?.label ?? person.label}
+                      {vato && (
+                        <small className="text-muted">
+                          {formatUnnamedPerformerSummary(vato)}
+                        </small>
+                      )}
+                    </span>
+                  </span>
+                  <ButtonGroup
+                    size="sm"
+                    className="marker-editor-roles"
+                    aria-label={`${msg("marker_editor.role", "Role")}: ${
+                      vato?.label ?? person.label
+                    }`}
+                  >
+                    {MARKER_VATO_ROLES_CUSTOM.map((role) => (
+                      <Button
+                        key={role}
+                        variant={
+                          person.role === role ? "primary" : "secondary"
+                        }
+                        aria-pressed={person.role === role}
+                        onClick={() =>
+                          updateGroup(
+                            setMarkerPersonRoleCustom(group, person.id, role)
+                          )
+                        }
+                      >
+                        {(role === "top" || role === "both") && (
+                          <Icon
+                            icon={faArrowUp}
+                            className={
+                              person.role === role
+                                ? undefined
+                                : `text-${ROLE_COLORS_CUSTOM.top.variant}`
+                            }
+                          />
+                        )}
+                        {(role === "bottom" || role === "both") && (
+                          <Icon
+                            icon={faArrowDown}
+                            className={
+                              person.role === role
+                                ? undefined
+                                : `text-${ROLE_COLORS_CUSTOM.bottom.variant}`
+                            }
+                          />
+                        )}{" "}
+                        {roleLabels[role]}
+                      </Button>
+                    ))}
+                  </ButtonGroup>
+                  <span className="marker-editor-vato-actions">
+                    {vato && (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        title={msg("marker_editor.edit_vato", "Edit vato")}
+                        aria-label={`${msg(
+                          "marker_editor.edit_vato",
+                          "Edit vato"
+                        )}: ${vato.label}`}
+                        onClick={() =>
+                          setEditing({
+                            performer: cloneUnnamedPerformer(vato),
+                            isNew: false,
+                          })
+                        }
+                      >
+                        <Icon icon={faPencilAlt} />
+                      </Button>
+                    )}
+                    <Button
+                      variant="link"
+                      size="sm"
+                      title={msg("actions.remove", "Remove")}
+                      aria-label={`${msg("actions.remove", "Remove")}: ${
+                        vato?.label ?? person.label
+                      }`}
+                      onClick={() =>
+                        updateGroup(
+                          setMarkerPeopleCustom(
+                            group,
+                            members.filter((p) => p.id !== person.id)
+                          )
+                        )
+                      }
+                    >
+                      <Icon icon={faTimes} />
+                    </Button>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <div className="marker-editor-vato-footer">
+          <Button
+            variant="outline-primary"
+            size="sm"
+            onClick={() =>
+              setEditing({
+                performer: createUnnamedPerformer(people),
+                isNew: true,
+              })
+            }
+          >
+            + {msg("marker_editor.new_vato", "Unnamed vato")}
+          </Button>
+          {!!people.length && (
+            <small className="text-muted">
+              {msg(
+                "marker_editor.vato_letters",
+                "Same letter = same vato in every marker. Different letters are different people."
+              )}
+            </small>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  function renderEditingVato() {
+    if (!editing || !group) return null;
+    const uses = markerUnnamedUsesCustom(groups, editing.performer.id);
+    return (
+      <>
+        {!editing.isNew && (
+          <div className="marker-editor-group-options">
+            <Button
+              variant="link"
+              size="sm"
+              className="text-danger"
+              onClick={() => {
+                edit((next) =>
+                  removeMarkerUnnamedCustom(next, editing.performer.id)
+                );
+                setEditing(null);
+              }}
+            >
+              {msg("marker_editor.delete_vato", "Delete vato from all markers")}
+            </Button>
+          </div>
+        )}
+        {uses.length > 1 && (
+          <div className="marker-editor-shared text-muted">
+            {msg("marker_editor.same_person", "Same vato")}:{" "}
+            {usesLabel(editing.performer.id)}
+          </div>
+        )}
+        <UnnamedPerformerEditor
+          key={editing.performer.id}
+          performer={editing.performer}
+          isNew={editing.isNew}
+          inModal
+          onCancel={() => setEditing(null)}
+          onSave={(performer) => {
+            edit((next) =>
+              saveMarkerUnnamedCustom(
+                next,
+                performer,
+                editing.isNew ? { groupId: group.groupId } : undefined
+              )
+            );
+            setEditing(null);
+          }}
+        />
+      </>
+    );
+  }
+
+  const applied = draft ? markerEditorAppliedCustom(draft) : null;
+  const draftRows = draft ? filledMarkers(draft) : [];
+
+  return (
+    <div className="marker-filter-editor">
+      {renderSummary()}
       <Modal
         show={draft !== null}
         onHide={close}
@@ -245,6 +450,26 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
         </Modal.Header>
         {draft && group && (
           <>
+            <Modal.Body className="marker-editor-sentence" aria-live="polite">
+              {draftRows.length ? (
+                draftRows.map(({ g, index }, i) => (
+                  <span key={g.groupId}>
+                    {i > 0 && (
+                      <span className="text-muted">
+                        {" "}
+                        {connectorLabel(draft)}{" "}
+                      </span>
+                    )}
+                    <strong>{markerLabel(index)}:</strong>{" "}
+                    {markerGroupSentenceCustom(g, people)}
+                  </span>
+                ))
+              ) : (
+                <span className="text-muted">
+                  {msg("marker_editor.no_markers", "No markers yet")}
+                </span>
+              )}
+            </Modal.Body>
             <Modal.Body
               className="marker-editor-groups"
               aria-label={msg(
@@ -252,7 +477,7 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
                 "Marker configurations"
               )}
             >
-              {groups.map((g) => (
+              {groups.map((g, index) => (
                 <Button
                   key={g.groupId}
                   variant={
@@ -263,11 +488,15 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
                   size="sm"
                   aria-pressed={g.groupId === group.groupId}
                   disabled={!!editing}
-                  onClick={() => {
-                    setGroupId(g.groupId);
-                  }}
+                  onClick={() => setGroupId(g.groupId)}
                 >
-                  {msg("marker", "Marker")} {g.groupId}
+                  {markerLabel(index)}
+                  {isMarkerGroupEmptyCustom(g) && (
+                    <small className="marker-editor-empty">
+                      {" "}
+                      · {msg("marker_editor.empty", "empty")}
+                    </small>
+                  )}
                 </Button>
               ))}
               <Button
@@ -311,7 +540,7 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
                           )
                         : msg(
                             "marker_editor.excluded",
-                            "Excluded configurations"
+                            "Any matching marker hides the scene"
                           )}
                     </small>
                   )}
@@ -327,7 +556,7 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
                       );
                     }}
                   >
-                    {msg("actions.remove", "Remove")} {group.groupId}
+                    {msg("actions.remove", "Remove")} {markerLabel(groupIndex)}
                   </Button>
                 </div>
               )}
@@ -336,13 +565,7 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
                   className="marker-editor-outline"
                   aria-label={msg("marker_editor.sections", "Marker sections")}
                 >
-                  {(
-                    [
-                      "tags",
-                      "top_performer_ids",
-                      "bottom_performer_ids",
-                    ] as const
-                  ).map((s) => (
+                  {(["tags", "vatos"] as const).map((s) => (
                     <Button
                       key={s}
                       variant="link"
@@ -350,108 +573,37 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
                       aria-pressed={section === s}
                       aria-controls="marker-editor-detail"
                       disabled={!!editing}
-                      onClick={() => chooseSection(s)}
+                      onClick={() => setSection(s)}
                     >
                       <span>
-                        {s !== "tags" && (
-                          <Icon
-                            icon={
-                              s === "top_performer_ids"
-                                ? faArrowUp
-                                : faArrowDown
-                            }
-                            className={`text-${
-                              s === "top_performer_ids"
-                                ? ROLE_COLORS_CUSTOM.top.variant
-                                : ROLE_COLORS_CUSTOM.bottom.variant
-                            }`}
-                          />
-                        )}{" "}
-                        {labels[s]}
+                        {s === "tags"
+                          ? msg("tags", "Tags")
+                          : msg("marker_editor.vatos", "Vatos")}
                       </span>
-                      <small>{sectionSummary(group, s)}</small>
+                      <small>
+                        {s === "tags"
+                          ? group.tag_ids.length
+                            ? markerTagsSummaryCustom(group)
+                            : unrestricted
+                          : markerGroupPeopleCustom(group)
+                              .map(
+                                (p) =>
+                                  `${
+                                    MARKER_ROLE_PREFIX_CUSTOM[p.role]
+                                  }${markerVatoLabelCustom(p, people)}`
+                              )
+                              .join(", ") || unrestricted}
+                      </small>
                     </Button>
                   ))}
-                  {!!group.top_performer_ids.length &&
-                    !!group.bottom_performer_ids.length && (
-                      <div className="marker-editor-mode">
-                        <small className="text-muted">
-                          {msg("marker_editor.roles", "Role requirements")}
-                        </small>
-                        <ButtonGroup vertical size="sm">
-                          {(["AND", "OR"] as const).map((mode) => (
-                            <Button
-                              key={mode}
-                              variant={
-                                group.performer_mode === mode
-                                  ? "primary"
-                                  : "outline-primary"
-                              }
-                              aria-pressed={group.performer_mode === mode}
-                              disabled={!!editing}
-                              onClick={() =>
-                                updateGroup({ performer_mode: mode })
-                              }
-                            >
-                              {mode === "AND"
-                                ? msg("marker_editor.both", "Both · AND")
-                                : msg("marker_editor.either", "Either · OR")}
-                            </Button>
-                          ))}
-                        </ButtonGroup>
-                      </div>
-                    )}
                 </nav>
                 <div className="marker-editor-detail" id="marker-editor-detail">
                   {editing ? (
-                    <>
-                      {!editing.isNew && (
-                        <div className="marker-editor-group-options">
-                          <Button
-                            variant="link"
-                            size="sm"
-                            className="text-danger"
-                            onClick={() => {
-                              edit((next) =>
-                                removeMarkerUnnamedCustom(
-                                  next,
-                                  editing.performer.id
-                                )
-                              );
-                              setEditing(null);
-                            }}
-                          >
-                            {msg(
-                              "marker_editor.delete_vato",
-                              "Delete vato from all markers"
-                            )}
-                          </Button>
-                        </div>
-                      )}
-                      {editingUses.length > 1 && (
-                        <div className="marker-editor-shared text-muted">
-                          {msg("marker_editor.same_person", "Same vato")}:{" "}
-                          {usesLabel(editing.performer.id)}
-                        </div>
-                      )}
-                      <UnnamedPerformerEditor
-                        key={editing.performer.id}
-                        performer={editing.performer}
-                        isNew={editing.isNew}
-                        inModal
-                        onCancel={() => setEditing(null)}
-                        onSave={(performer) => {
-                          edit((next) =>
-                            saveMarkerUnnamedCustom(next, performer)
-                          );
-                          setEditing(null);
-                        }}
-                      />
-                    </>
+                    renderEditingVato()
                   ) : section === "tags" ? (
                     <Form.Group>
                       <Form.Label>
-                        {labels.tags}{" "}
+                        {msg("tags", "Tags")}{" "}
                         <small className="text-muted">
                           · {msg("marker_editor.all", "Match all")}
                         </small>
@@ -484,73 +636,7 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
                       />
                     </Form.Group>
                   ) : (
-                    <>
-                      <Form.Group>
-                        <Form.Label>{labels[role]}</Form.Label>
-                        <PerformerIDSelect
-                          isMulti
-                          ids={selected.map((p) => p.id)}
-                          additionalOptions={unnamedOptions}
-                          onSelect={(performers) =>
-                            updateGroup({
-                              [role]: markerSelectedVatosCustom(performers),
-                            })
-                          }
-                          menuPortalTarget={document.body}
-                        />
-                      </Form.Group>
-                      <div className="marker-editor-vato-actions">
-                        <Button
-                          variant="outline-primary"
-                          size="sm"
-                          onClick={() => {
-                            setEditing({
-                              performer: createUnnamedPerformer(people),
-                              isNew: true,
-                              role,
-                            });
-                          }}
-                        >
-                          + {msg("marker_editor.new_vato", "Unnamed vato")}
-                        </Button>
-                        {!!people.length && (
-                          <Form.Control
-                            as="select"
-                            size="sm"
-                            className="marker-editor-edit-vato"
-                            value=""
-                            aria-label={msg(
-                              "marker_editor.edit_vato",
-                              "Edit unnamed vato"
-                            )}
-                            onChange={(event) => {
-                              const performer = people.find(
-                                (person) =>
-                                  person.id === event.currentTarget.value
-                              );
-                              if (performer)
-                                setEditing({
-                                  performer: cloneUnnamedPerformer(performer),
-                                  isNew: false,
-                                  role,
-                                });
-                            }}
-                          >
-                            <option value="">
-                              {msg(
-                                "marker_editor.edit_vato",
-                                "Edit unnamed vato"
-                              )}
-                            </option>
-                            {people.map((performer) => (
-                              <option key={performer.id} value={performer.id}>
-                                {performer.label}
-                              </option>
-                            ))}
-                          </Form.Control>
-                        )}
-                      </div>
-                    </>
+                    renderVatos()
                   )}
                 </div>
               </div>
@@ -561,9 +647,9 @@ export function MarkerFilterEditor<T extends MarkerEditorCriterion>({
               </Button>
               <Button
                 variant="primary"
-                disabled={!!editing || !draft.isValid()}
+                disabled={!!editing || !applied?.isValid()}
                 onClick={() => {
-                  setCriterion(draft);
+                  if (applied) setCriterion(applied);
                   close();
                 }}
               >

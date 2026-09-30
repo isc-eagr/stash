@@ -8,14 +8,22 @@ import {
   createUnnamedPerformer,
 } from "../src/models/list-filter/criteria/unnamed-performer";
 import {
+  markerCriterionSentenceCustom,
+  markerGroupPeopleCustom,
+  markerGroupRoleInputCustom,
+  markerGroupSentenceCustom,
+  normalizeMarkerGroupRolesCustom,
+  setMarkerPeopleCustom,
+  setMarkerPersonRoleCustom,
+} from "../src/models/list-filter/criteria/marker-group_custom";
+import {
   assignMarkerUnnamedCustom,
-  copyMarkerUnnamedCustom,
+  markerEditorAppliedCustom,
   markerEditorDraftCustom,
   markerEditorGroupsCustom,
   markerUnnamedSelectOptionsCustom,
   markerUnnamedUsesCustom,
   markerSelectedVatosCustom,
-  mergeMarkerNamedVatosCustom,
   removeMarkerUnnamedCustom,
   saveMarkerUnnamedCustom,
 } from "../src/components/List/Filters/markerFilterEditor_custom";
@@ -47,6 +55,137 @@ assert.deepEqual(
   "the unified selector preserves unnamed-first selection order"
 );
 
+// Roles: named and unnamed vatos follow the same rules.
+const roleGroup = {
+  groupId: "1",
+  tag_ids: [],
+  performer_mode: "AND" as const,
+  top_performer_ids: [],
+  bottom_performer_ids: [],
+  either_performer_ids: [],
+};
+const juan = { id: "42", label: "Juan" };
+const vatoA = createUnnamedPerformer([]);
+Object.assign(
+  roleGroup,
+  setMarkerPeopleCustom(roleGroup, [juan, { id: vatoA.id, label: vatoA.label }])
+);
+assert.deepEqual(
+  markerGroupPeopleCustom(roleGroup).map((p) => p.role),
+  ["either", "either"],
+  "new vatos default to any role"
+);
+for (const role of ["top", "bottom", "both", "either"] as const) {
+  const named = {
+    ...roleGroup,
+    ...setMarkerPersonRoleCustom(roleGroup, juan.id, role),
+  };
+  const unnamed = {
+    ...roleGroup,
+    ...setMarkerPersonRoleCustom(roleGroup, vatoA.id, role),
+  };
+  const field =
+    role === "both" ? "both_roles" : role === "either" ? "either" : role;
+  assert.deepEqual(
+    markerGroupRoleInputCustom(named, [vatoA])[`${field}_performer_ids`],
+    [juan.id],
+    `a named vato uses the ${role} role`
+  );
+  assert.equal(
+    (
+      markerGroupRoleInputCustom(unnamed, [vatoA])[
+        `${field}_unnamed_performers`
+      ] as Array<{ id: string }>
+    )[0].id,
+    vatoA.id,
+    `an unnamed vato uses the ${role} role`
+  );
+}
+
+// Legacy "Either · OR" groups: a vato in both lists meant either role, named
+// or unnamed. Everything else becomes AND.
+const legacyOr = normalizeMarkerGroupRolesCustom({
+  groupId: "A",
+  tag_ids: [],
+  performer_mode: "OR",
+  top_performer_ids: [juan, { id: vatoA.id, label: vatoA.label }],
+  bottom_performer_ids: [juan, { id: vatoA.id, label: vatoA.label }],
+});
+assert.equal(legacyOr.performer_mode, "AND");
+assert.deepEqual(
+  markerGroupPeopleCustom(legacyOr).map((p) => p.role),
+  ["either", "either"]
+);
+const legacyAnd = normalizeMarkerGroupRolesCustom({
+  ...legacyOr,
+  performer_mode: "AND",
+  top_performer_ids: [juan],
+  bottom_performer_ids: [juan],
+  either_performer_ids: [],
+});
+assert.deepEqual(
+  markerGroupPeopleCustom(legacyAnd).map((p) => p.role),
+  ["both"],
+  "AND with a vato in both lists keeps both roles"
+);
+const legacyUrl = new SceneMarkersCriterion();
+legacyUrl.fromDecodedParams({
+  modifier: "EQUALS",
+  groups: [
+    {
+      groupId: "A",
+      tag_ids: [{ id: "t", label: "Blowjob" }],
+      depth: 0,
+      performer_mode: "OR",
+      top_performer_ids: [juan],
+      bottom_performer_ids: [juan],
+    },
+  ],
+  unnamed_performers: [],
+});
+const legacyRequest: Record<string, unknown> = {};
+legacyUrl.applyToCriterionInput(legacyRequest);
+assert.deepEqual(
+  (legacyRequest._sceneMarkerIncludeCriteria as Record<string, unknown>[])[0]
+    .either_performer_ids,
+  [juan.id],
+  "old any-role links keep meaning any role"
+);
+
+// Plain-language summary.
+vatoA.ethnicities = ["Black"];
+const summaryGroup = {
+  ...roleGroup,
+  tag_ids: [{ id: "t", label: "Blowjob" }],
+  depth: -1,
+  ...setMarkerPersonRoleCustom(
+    { ...roleGroup, ...setMarkerPersonRoleCustom(roleGroup, juan.id, "top") },
+    vatoA.id,
+    "bottom"
+  ),
+};
+assert.equal(
+  markerGroupSentenceCustom(summaryGroup, [vatoA]),
+  "Blowjob (+ sub-tags): ↑Juan, ↓Vato A (Black)"
+);
+assert.equal(
+  markerCriterionSentenceCustom(
+    [
+      summaryGroup,
+      {
+        groupId: "2",
+        tag_ids: [{ id: "f", label: "Facial" }],
+        performer_mode: "AND",
+        top_performer_ids: [],
+        bottom_performer_ids: [],
+      },
+    ],
+    [vatoA],
+    "while"
+  ),
+  "Blowjob (+ sub-tags): ↑Juan, ↓Vato A (Black) while Facial"
+);
+
 for (const CriterionClass of [
   MarkerPerformersCriterion,
   SceneMarkersCriterion,
@@ -66,6 +205,7 @@ for (const CriterionClass of [
     "draft retains the original criterion's serialization"
   );
   assert.equal(markerEditorGroupsCustom(draft).length, 1);
+  assert.equal(draft.isValid(), false, "an empty filter cannot be applied");
 
   group.tag_ids = [
     { id: "tag-sex", label: "Sex" },
@@ -73,7 +213,6 @@ for (const CriterionClass of [
   ];
   if ("include_subtags" in group) group.include_subtags = true;
   else group.depth = -1;
-  group.performer_mode = "AND";
 
   const vato = createUnnamedPerformer([]);
   vato.ethnicities = ["Latino"];
@@ -97,14 +236,15 @@ for (const CriterionClass of [
   };
   saveMarkerUnnamedCustom(draft, vato, {
     groupId: group.groupId,
-    role: "top_performer_ids",
+    role: "top",
   });
   assert.equal(draft.value.unnamed_performers.length, 1);
   assert.equal(
-    group.top_performer_ids[0].id,
+    markerGroupPeopleCustom(group)[0].id,
     vato.id,
-    "creating a vato assigns it in the same update"
+    "creating a vato adds it to the marker in the same update"
   );
+  assert.equal(markerGroupPeopleCustom(group)[0].role, "top");
   vato.rating_criteria.criteria.test!.value.value = 99;
   assert.equal(
     draft.value.unnamed_performers[0].rating_criteria!.criteria.test!.value
@@ -113,67 +253,33 @@ for (const CriterionClass of [
     "saving isolates nested rating criteria"
   );
 
-  for (let i = 0; i < 3; i++) {
-    const copy = copyMarkerUnnamedCustom(
-      draft.value.unnamed_performers[0],
-      draft.value.unnamed_performers
-    );
-    saveMarkerUnnamedCustom(draft, copy, {
-      groupId: group.groupId,
-      role: "top_performer_ids",
-    });
-  }
-  const currentGroup = markerEditorGroupsCustom(draft)[0];
-  assert.equal(
-    new Set(currentGroup.top_performer_ids.map((p) => p.id)).size,
-    4,
-    "four copied vatos keep four distinct identities"
-  );
-  const copy = draft.value.unnamed_performers[1];
-  copy.rating_criteria!.criteria.test!.value.value = 6;
-  assert.equal(
-    draft.value.unnamed_performers[0].rating_criteria!.criteria.test!.value
-      .value,
-    3
-  );
-
   const secondId = draft.addGroup();
   const second = markerEditorGroupsCustom(draft).find(
     (g) => g.groupId === secondId
   )!;
   assignMarkerUnnamedCustom(
     second,
-    "bottom_performer_ids",
-    draft.value.unnamed_performers[0]
+    draft.value.unnamed_performers[0],
+    "bottom"
   );
-  assignMarkerUnnamedCustom(
-    second,
-    "bottom_performer_ids",
-    draft.value.unnamed_performers[0]
+  assignMarkerUnnamedCustom(second, draft.value.unnamed_performers[0], "top");
+  assert.equal(
+    markerGroupPeopleCustom(second).length,
+    1,
+    "reusing is idempotent"
   );
-  assert.equal(second.bottom_performer_ids.length, 1, "reusing is idempotent");
   assert.deepEqual(
     markerUnnamedUsesCustom(markerEditorGroupsCustom(draft), vato.id),
     [
-      { groupId: group.groupId, role: "top_performer_ids" },
-      { groupId: secondId, role: "bottom_performer_ids" },
+      { groupId: group.groupId, index: 0, role: "top" },
+      { groupId: secondId, index: 1, role: "bottom" },
     ]
   );
   const edited = cloneUnnamedPerformer(draft.value.unnamed_performers[0]);
   edited.label = "Shared vato";
   saveMarkerUnnamedCustom(draft, edited);
-  assert.equal(
-    markerEditorGroupsCustom(draft)[0].top_performer_ids[0].label,
-    "Shared vato"
-  );
-  assert.equal(second.bottom_performer_ids[0].label, "Shared vato");
-
-  const merged = mergeMarkerNamedVatosCustom(currentGroup.top_performer_ids, [
-    { id: "42", name: "Named vato" },
-  ]);
-  assert.equal(merged.length, 5, "named selections retain all unnamed slots");
-  currentGroup.top_performer_ids = merged;
-  assert.equal(mergeMarkerNamedVatosCustom(merged, []).length, 4);
+  assert.equal(markerGroupPeopleCustom(group)[0].label, "Shared vato");
+  assert.equal(markerGroupPeopleCustom(second)[0].label, "Shared vato");
 
   const request: Record<string, unknown> = {};
   draft.applyToCriterionInput(request);
@@ -207,6 +313,23 @@ for (const CriterionClass of [
     request,
     "saved filter persistence is unchanged"
   );
+
+  // Apply removes empty markers and unused vatos.
+  const pruneDraft = markerEditorDraftCustom(draft);
+  pruneDraft.addGroup();
+  saveMarkerUnnamedCustom(
+    pruneDraft,
+    createUnnamedPerformer(pruneDraft.value.unnamed_performers)
+  );
+  const applied = markerEditorAppliedCustom(pruneDraft);
+  assert.equal(markerEditorGroupsCustom(applied).length, 2);
+  assert.equal(applied.value.unnamed_performers.length, 1);
+  assert.equal(markerEditorGroupsCustom(pruneDraft).length, 3);
+  const emptyApplied = markerEditorAppliedCustom(
+    markerEditorDraftCustom(new CriterionClass())
+  );
+  assert.equal(emptyApplied.isValid(), false);
+
   const removalDraft = markerEditorDraftCustom(draft);
   removeMarkerUnnamedCustom(removalDraft, vato.id);
   assert.equal(
@@ -215,7 +338,7 @@ for (const CriterionClass of [
     0,
     "deleting a definition clears all its role references"
   );
-  assert.equal(removalDraft.value.unnamed_performers.length, 3);
+  assert.equal(removalDraft.value.unnamed_performers.length, 0);
   assert.equal(
     markerUnnamedUsesCustom(markerEditorGroupsCustom(draft), vato.id).length,
     2,
@@ -227,6 +350,20 @@ for (const CriterionClass of [
     "cancelling the editor leaves the original filter untouched"
   );
 }
+
+// Empty configurations never reach the backend or switch Marker Match into
+// overlap mode.
+const markerMatch = new MarkerPerformersCriterion();
+markerMatch.ensureGroups();
+markerMatch.getGroups()[0].tag_ids = [{ id: "t", label: "Blowjob" }];
+markerMatch.addGroup();
+const markerMatchRequest: Record<string, unknown> = {};
+markerMatch.applyToCriterionInput(markerMatchRequest);
+assert.equal(
+  (markerMatchRequest._sceneMarkerIncludeCriteria as unknown[]).length,
+  1
+);
+assert.equal(markerMatchRequest._sceneMarkerOverlapCriteria, undefined);
 
 const legacy = new MarkerPerformersCriterion();
 legacy.value.tag_ids = [{ id: "legacy", label: "Legacy" }];
@@ -247,5 +384,5 @@ overlapping.addGroup();
 assert.equal(markerEditorDraftCustom(overlapping).value.require_overlap, true);
 
 console.log(
-  "Marker editor: draft isolation, role assignments, copies, reuse, rating criteria, URL/saved-filter persistence, and legacy preservation passed."
+  "Marker editor: roles, legacy migration, summaries, pruning, draft isolation, rating criteria, URL/saved-filter persistence, and legacy preservation passed."
 );

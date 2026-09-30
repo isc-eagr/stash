@@ -1,31 +1,29 @@
 import type { MarkerPerformersCriterion } from "src/models/list-filter/criteria/marker-performers";
 import type { SceneMarkersCriterion } from "src/models/list-filter/criteria/scene-markers";
 import type { SceneMarkersExcludeCriterion } from "src/models/list-filter/criteria/scene-markers-exclude";
-import type { ILabeledId } from "src/models/list-filter/types";
 import {
   cloneUnnamedPerformer,
-  createUnnamedPerformer,
   formatUnnamedPerformerSummary,
-  isUnnamedPerformerId,
 } from "src/models/list-filter/criteria/unnamed-performer";
 import type { IUnnamedPerformer } from "src/models/list-filter/criteria/unnamed-performer";
+import {
+  isMarkerGroupEmptyCustom,
+  markerGroupPeopleCustom,
+  normalizeMarkerGroupRolesCustom,
+  setMarkerPeopleCustom,
+  unusedMarkerVatosCustom,
+} from "src/models/list-filter/criteria/marker-group_custom";
+import type {
+  IMarkerRoleGroupCustom,
+  MarkerVatoRoleCustom,
+} from "src/models/list-filter/criteria/marker-group_custom";
 
 export type MarkerEditorCriterion =
   | MarkerPerformersCriterion
   | SceneMarkersCriterion
   | SceneMarkersExcludeCriterion;
 
-export type MarkerEditorRole = "top_performer_ids" | "bottom_performer_ids";
-
-export interface IMarkerEditorGroup {
-  groupId: string;
-  tag_ids: ILabeledId[];
-  performer_mode: "AND" | "OR";
-  top_performer_ids: ILabeledId[];
-  bottom_performer_ids: ILabeledId[];
-  depth?: number;
-  include_subtags?: boolean;
-}
+export type IMarkerEditorGroup = IMarkerRoleGroupCustom;
 
 export function markerEditorGroupsCustom(
   criterion: MarkerEditorCriterion
@@ -35,29 +33,43 @@ export function markerEditorGroupsCustom(
     : criterion.value.groups;
 }
 
-// Keep class instances and legacy fields intact so serialization stays unchanged.
+// Keep class instances and legacy fields intact so serialization stays
+// unchanged. Legacy "Either · OR" groups open with explicit roles.
 export function markerEditorDraftCustom<T extends MarkerEditorCriterion>(
   criterion: T
 ): T {
   const draft = criterion.clone() as T;
   if ("ensureGroups" in draft) draft.ensureGroups();
   else if (!draft.value.groups.length) draft.addGroup();
+  markerEditorGroupsCustom(draft).forEach((group) =>
+    Object.assign(group, normalizeMarkerGroupRolesCustom(group))
+  );
   return draft;
 }
 
-export function mergeMarkerNamedVatosCustom(
-  current: ILabeledId[],
-  performers: Array<{ id: string; name?: string | null }>
-): ILabeledId[] {
-  return [
-    ...current.filter((p) => isUnnamedPerformerId(p.id)),
-    ...performers.map((p) => ({ id: p.id, label: p.name ?? p.id })),
-  ];
+// The criterion Apply commits: empty markers and unused unnamed vatos removed.
+export function markerEditorAppliedCustom<T extends MarkerEditorCriterion>(
+  draft: T
+): T {
+  const applied = draft.clone() as T;
+  const groups = markerEditorGroupsCustom(applied);
+  groups
+    .filter((group) => isMarkerGroupEmptyCustom(group))
+    .slice(groups.every((group) => isMarkerGroupEmptyCustom(group)) ? 1 : 0)
+    .forEach((group) => applied.removeGroup(group.groupId));
+  const unused = unusedMarkerVatosCustom(
+    markerEditorGroupsCustom(applied),
+    applied.value.unnamed_performers ?? []
+  );
+  applied.value.unnamed_performers = (
+    applied.value.unnamed_performers ?? []
+  ).filter((vato) => !unused.includes(vato));
+  return applied;
 }
 
 export function markerSelectedVatosCustom(
   performers: Array<{ id: string; name?: string | null }>
-): ILabeledId[] {
+) {
   return performers.map((performer) => ({
     id: performer.id,
     label: performer.name ?? performer.id,
@@ -78,56 +90,55 @@ export function markerUnnamedSelectOptionsCustom(people: IUnnamedPerformer[]) {
 
 export function assignMarkerUnnamedCustom(
   group: IMarkerEditorGroup,
-  role: MarkerEditorRole,
-  performer: IUnnamedPerformer
+  performer: IUnnamedPerformer,
+  role: MarkerVatoRoleCustom = "either"
 ) {
-  if (!group[role].some((p) => p.id === performer.id)) {
-    group[role] = [
-      ...group[role],
-      { id: performer.id, label: performer.label },
-    ];
-  }
+  if (markerGroupPeopleCustom(group).some((p) => p.id === performer.id)) return;
+  Object.assign(
+    group,
+    setMarkerPeopleCustom(
+      group,
+      [
+        ...markerGroupPeopleCustom(group),
+        { id: performer.id, label: performer.label },
+      ],
+      role
+    )
+  );
 }
 
 export function saveMarkerUnnamedCustom(
   criterion: MarkerEditorCriterion,
   performer: IUnnamedPerformer,
-  assignment?: { groupId: string; role: MarkerEditorRole }
+  assignment?: { groupId: string; role?: MarkerVatoRoleCustom }
 ) {
   const people = criterion.value.unnamed_performers ?? [];
   const saved = cloneUnnamedPerformer(performer);
   criterion.value.unnamed_performers = people.some((p) => p.id === saved.id)
     ? people.map((p) => (p.id === saved.id ? saved : p))
     : [...people, saved];
-  const groups = markerEditorGroupsCustom(criterion);
-  groups.forEach((group) => {
-    (["top_performer_ids", "bottom_performer_ids"] as const).forEach((role) => {
-      group[role] = group[role].map((p) =>
-        p.id === saved.id ? { id: saved.id, label: saved.label } : p
-      );
-    });
+  const relabel = (list?: IMarkerEditorGroup["top_performer_ids"]) =>
+    list?.map((p) =>
+      p.id === saved.id ? { id: saved.id, label: saved.label } : p
+    );
+  markerEditorGroupsCustom(criterion).forEach((group) => {
+    group.top_performer_ids = relabel(group.top_performer_ids) ?? [];
+    group.bottom_performer_ids = relabel(group.bottom_performer_ids) ?? [];
+    group.either_performer_ids = relabel(group.either_performer_ids);
     if (assignment?.groupId === group.groupId) {
-      assignMarkerUnnamedCustom(group, assignment.role, saved);
+      assignMarkerUnnamedCustom(group, saved, assignment.role);
     }
   });
-}
-
-export function copyMarkerUnnamedCustom(
-  source: IUnnamedPerformer,
-  people: IUnnamedPerformer[]
-): IUnnamedPerformer {
-  const { id, label, letter } = createUnnamedPerformer(people);
-  return { ...cloneUnnamedPerformer(source), id, label, letter };
 }
 
 export function markerUnnamedUsesCustom(
   groups: IMarkerEditorGroup[],
   id: string
 ) {
-  return groups.flatMap((group) =>
-    (["top_performer_ids", "bottom_performer_ids"] as const)
-      .filter((role) => group[role].some((p) => p.id === id))
-      .map((role) => ({ groupId: group.groupId, role }))
+  return groups.flatMap((group, index) =>
+    markerGroupPeopleCustom(group)
+      .filter((p) => p.id === id)
+      .map((p) => ({ groupId: group.groupId, index, role: p.role }))
   );
 }
 
@@ -138,11 +149,12 @@ export function removeMarkerUnnamedCustom(
   criterion.value.unnamed_performers =
     criterion.value.unnamed_performers.filter((p) => p.id !== id);
   markerEditorGroupsCustom(criterion).forEach((group) => {
-    group.top_performer_ids = group.top_performer_ids.filter(
-      (p) => p.id !== id
-    );
-    group.bottom_performer_ids = group.bottom_performer_ids.filter(
-      (p) => p.id !== id
+    Object.assign(
+      group,
+      setMarkerPeopleCustom(
+        group,
+        markerGroupPeopleCustom(group).filter((p) => p.id !== id)
+      )
     );
   });
 }

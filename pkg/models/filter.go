@@ -242,6 +242,10 @@ type SceneMarkerTagGroupInput struct {
 	BottomUnnamedPerformers    []UnnamedPerformerCriterionInput `json:"bottom_unnamed_performers"`
 	BothRolesUnnamedPerformers []UnnamedPerformerCriterionInput `json:"both_roles_unnamed_performers"`
 
+	// Either-role criteria (performer must be on the marker in any role)
+	EitherPerformerIDs      []string                         `json:"either_performer_ids"`
+	EitherUnnamedPerformers []UnnamedPerformerCriterionInput `json:"either_unnamed_performers"`
+
 	// Mode for performer matching
 	PerformerMode *string `json:"performer_mode"` // "AND" or "OR" (default: "OR")
 

@@ -34,6 +34,7 @@ import { StudioCategoryStrip } from "./StudioCategoryStrip"; // CUSTOM
 import { StudioStatsPanel } from "./StudioStatsPanel"; // CUSTOM
 import { StudioVatoStatsPanel } from "./StudioVatoStatsPanel"; // CUSTOM
 import { StudioOStatsPanel } from "./StudioOStatsPanel"; // CUSTOM
+import { StudioHeaderInsights } from "./StudioHeaderInsights"; // CUSTOM
 import { faTrashAlt } from "@fortawesome/free-solid-svg-icons";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import { DetailImage } from "src/components/Shared/DetailImage";
@@ -607,6 +608,18 @@ const StudioPage: React.FC<IProps> = ({
                 />
               )}
             </div>
+            {/* CUSTOM: begin - header activity/quality and rating averages */}
+            {!isEditing && (
+              <div className="studio-header-insights-col col">
+                <StudioHeaderInsights
+                  studio={studio}
+                  includeChildStudios={
+                    !!showAllCounts && studio.child_studios.length > 0
+                  }
+                />
+              </div>
+            )}
+            {/* CUSTOM: end */}
           </div>
         </div>
       </div>

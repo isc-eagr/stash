@@ -362,6 +362,104 @@
 
   /* CUSTOM: end */
 
+  /* CUSTOM: begin - header activity/quality and rating averages */
+  .studio-head {
+    flex-basis: 24rem;
+  }
+
+  .studio-header-insights-col {
+    flex: 1 1 36rem;
+    max-width: 62rem;
+    padding-top: 0.5rem;
+  }
+
+  .studio-header-insights {
+    container-type: inline-size;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .studio-header-activity .scene-activity-metrics--stats {
+    gap: 0.5rem;
+    grid-template-columns: minmax(0, 1fr);
+
+    .scene-activity-metrics__group {
+      background: rgba(0, 0, 0, 0.35);
+      gap: 0.45rem;
+      padding: 0.55rem 0.65rem;
+    }
+
+    .scene-activity-metrics__distribution {
+      height: 0.6rem;
+    }
+
+    .scene-activity-metrics__row {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+
+      @container (max-width: 46rem) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .scene-activity-metric--composition,
+    .scene-activity-metric--quality {
+      min-height: 2.4rem;
+    }
+  }
+
+  .studio-header-ratings {
+    display: grid;
+    gap: 0.5rem;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .studio-header-rating {
+    align-items: baseline;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.4rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.5rem;
+    padding: 0.45rem 0.65rem;
+
+    strong {
+      font-size: 1.1rem;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  .studio-header-rating-label {
+    color: $text-muted;
+    flex-basis: 100%;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .studio-header-rating-count {
+    color: $text-muted;
+    font-size: 0.75rem;
+  }
+
+  .studio-header-rating--main {
+    border-color: rgba(255, 193, 7, 0.45);
+
+    strong {
+      color: #ffc107;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .studio-header-ratings {
+      grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+    }
+  }
+
+  /* CUSTOM: end */
+
   /* CUSTOM: begin - studio activity duration metrics */
   .studio-activity-metrics {
     align-items: flex-start;

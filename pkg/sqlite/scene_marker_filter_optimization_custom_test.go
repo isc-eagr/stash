@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
@@ -65,10 +66,10 @@ func TestMarkerCustomFilterOptimizations(t *testing.T) {
 		{"single_family", `{"scene_marker_tags":{"modifier":"EQUALS","groups_extended":[{"tag_ids":["10"],"depth":-1}]}}`, []int{1, 3, 5, 6, 8, 9, 10}},
 		{"family_with_named", `{"scene_marker_tags":{"modifier":"EQUALS","groups_extended":[{"tag_ids":["10"],"depth":-1,"top_performer_ids":["2"]}]}}`, []int{5, 8}},
 		{"single_exclusion", `{"scene_marker_tags":{"modifier":"NOT_EQUALS","groups_extended":[{"tag_ids":["10"]}]}}`, []int{2, 4, 5, 7, 8, 9}},
-		{"shared_overlap", `{"scene_marker_tags":{"modifier":"EQUALS","overlap_groups":[{"tag_ids":["10"],"depth":-1,"top_unnamed_performers":[{"id":"a"}]},{"tag_ids":["20"],"bottom_unnamed_performers":[{"id":"a"}]}]}}`, []int{2, 5}},
-		{"shared_overlap_attributes", `{"scene_marker_tags":{"modifier":"EQUALS","overlap_groups":[{"tag_ids":["10"],"depth":-1,"top_unnamed_performers":[{"id":"a","countries":["US"]}]},{"tag_ids":["20"],"bottom_unnamed_performers":[{"id":"a"}]}]}}`, []int{5}},
-		{"shared_both_roles", `{"scene_marker_tags":{"modifier":"EQUALS","overlap_groups":[{"tag_ids":["10"],"depth":-1,"both_roles_unnamed_performers":[{"id":"a"}]},{"tag_ids":["20"],"bottom_unnamed_performers":[{"id":"a"}]}]}}`, []int{5}},
-		{"excluded_overlap", `{"scene_marker_tags":{"modifier":"NOT_EQUALS","overlap_groups":[{"tag_ids":["10"],"depth":-1,"top_unnamed_performers":[{"id":"a"}]},{"tag_ids":["20"],"bottom_unnamed_performers":[{"id":"a"}]}]}}`, []int{1, 3, 4, 6, 7, 8, 9, 10}},
+		{"shared_overlap", `{"scene_marker_tags":{"modifier":"EQUALS","overlap_groups":[{"tag_ids":["10"],"depth":-1,"top_unnamed_performers":[{"id":"a"}]},{"tag_ids":["20"],"bottom_unnamed_performers":[{"id":"a"}]}]}}`, []int{2}},
+		{"shared_overlap_attributes", `{"scene_marker_tags":{"modifier":"EQUALS","overlap_groups":[{"tag_ids":["10"],"depth":-1,"top_unnamed_performers":[{"id":"a","countries":["US"]}]},{"tag_ids":["20"],"bottom_unnamed_performers":[{"id":"a"}]}]}}`, nil},
+		{"shared_both_roles", `{"scene_marker_tags":{"modifier":"EQUALS","overlap_groups":[{"tag_ids":["10"],"depth":-1,"both_roles_unnamed_performers":[{"id":"a"}]},{"tag_ids":["20"],"bottom_unnamed_performers":[{"id":"a"}]}]}}`, nil},
+		{"excluded_overlap", `{"scene_marker_tags":{"modifier":"NOT_EQUALS","overlap_groups":[{"tag_ids":["10"],"depth":-1,"top_unnamed_performers":[{"id":"a"}]},{"tag_ids":["20"],"bottom_unnamed_performers":[{"id":"a"}]}]}}`, []int{1, 3, 4, 5, 6, 7, 8, 9, 10}},
 		{"circular", `{"custom_filters":{"type":"circular_oral","oral_tag_id":"10"}}`, []int{5, 9}},
 		{"circular_secondary", `{"custom_filters":{"type":"circular_oral","oral_tag_id":"20"}}`, []int{5}},
 		{"circular_invalid_id", `{"custom_filters":{"type":"circular_oral","oral_tag_id":"10 OR 1=1"}}`, nil},
@@ -114,6 +115,45 @@ func TestMarkerCustomFilterOptimizations(t *testing.T) {
 		require.NoError(t, tx.Select(&got, q.toSQL(true), q.allArgs()...))
 		require.Equal(t, []int{5, 9}, got)
 	})
+}
+
+// Marker 5 alone carries both requested tag families; every configuration now
+// needs its own marker, so it no longer satisfies an overlap search by itself.
+func TestMarkerMatchConfigurationsUseDifferentMarkersCustom(t *testing.T) {
+	ctx, tx := markerFilterFixtureCustom(t)
+	_, err := tx.Exec(`
+INSERT INTO scenes VALUES(6,NULL);
+INSERT INTO scene_markers(id,scene_id,primary_tag_id,seconds,end_seconds) VALUES
+ (20,6,11,0,60),(21,6,20,10,30),(22,6,30,0,100),(23,6,30,20,40);
+INSERT INTO scene_marker_performers VALUES
+ (20,2,'top'),(20,2,'bottom'),(21,2,'bottom'),(21,1,'top'),
+ (22,3,'top'),(23,1,'top');`)
+	require.NoError(t, err)
+	for _, tc := range []struct {
+		name, input string
+		want        []int
+	}{
+		{"shared_attributes", `{"overlap_groups":[{"tag_ids":["10"],"depth":-1,"top_unnamed_performers":[{"id":"a","countries":["US"]}]},{"tag_ids":["20"],"bottom_unnamed_performers":[{"id":"a"}]}]}`, []int{21}},
+		{"shared_both_roles", `{"overlap_groups":[{"tag_ids":["10"],"depth":-1,"both_roles_unnamed_performers":[{"id":"a"}]},{"tag_ids":["20"],"bottom_unnamed_performers":[{"id":"a"}]}]}`, []int{21}},
+		{"different_vatos_are_different_people", `{"overlap_groups":[{"tag_ids":["10"],"depth":-1,"top_unnamed_performers":[{"id":"a"}]},{"tag_ids":["20"],"bottom_unnamed_performers":[{"id":"b"}]}]}`, []int{4}},
+		{"vato_is_not_a_named_vato", `{"overlap_groups":[{"tag_ids":["10"],"depth":-1,"top_performer_ids":["2"]},{"tag_ids":["20"],"bottom_unnamed_performers":[{"id":"a"}]}]}`, nil},
+		{"and_roles_need_two_people", `{"overlap_groups":[{"tag_ids":["10"],"depth":-1,"performer_mode":"AND","top_unnamed_performers":[{"id":"a"}],"bottom_unnamed_performers":[{"id":"b"}]},{"tag_ids":["20"]}]}`, nil},
+		{"empty_configuration_is_ignored", `{"overlap_groups":[{"tag_ids":["20"],"top_performer_ids":["1"]},{"tag_ids":[]}]}`, []int{5, 21}},
+		{"either_role", `{"groups_extended":[{"tag_ids":["20"],"performer_mode":"AND","either_performer_ids":["2"]}]}`, []int{4, 5, 21}},
+		{"either_role_vato", `{"groups_extended":[{"tag_ids":["20"],"performer_mode":"AND","either_unnamed_performers":[{"id":"a","countries":["US"]}]}]}`, []int{4, 5, 21}},
+		{"shorter_marker_with_other_vato_does_not_hide", `{"groups_extended":[{"tag_ids":["30"],"top_performer_ids":["3"]}]}`, []int{9, 22}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var filter models.SceneMarkerFilterType
+			require.NoError(t, json.Unmarshal([]byte(`{"scene_marker_tags":`+strings.Replace(tc.input, "{", `{"modifier":"EQUALS",`, 1)+`}`), &filter))
+			q, err := (&SceneMarkerStore{}).makeQuery(ctx, &filter, nil)
+			require.NoError(t, err)
+			q.sortAndPagination = " ORDER BY scene_markers.id"
+			var got []int
+			require.NoError(t, tx.Select(&got, q.toSQL(true), q.allArgs()...))
+			require.Equal(t, tc.want, got)
+		})
+	}
 }
 
 func TestMarkerSingleTagMatchesOriginalPredicateCustom(t *testing.T) {
