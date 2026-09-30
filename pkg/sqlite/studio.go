@@ -760,6 +760,7 @@ var studioSortOptions = sortOptions{
 	"rating_criteria_group_usability",          // CUSTOM
 	"average_solo_scene_rating",                // CUSTOM
 	"average_standard_scene_rating",            // CUSTOM
+	"average_threesome_scene_rating",           // CUSTOM
 	"average_group_scene_rating",               // CUSTOM
 	"average_performer_rating",                 // CUSTOM
 	"average_overall_scene_rating",             // CUSTOM

@@ -60,9 +60,26 @@
     padding-top: 0.35rem;
   }
 
+  /* Two cells: a smaller Activity Time cell and a wider Versatility cell. */
+  .performer-header-activity-grid {
+    align-items: start;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+
+    .performer-versatility {
+      margin-top: 0;
+    }
+  }
+
   @media (max-width: 991.98px) {
     .performer-header-activity {
       margin-top: 0.75rem;
+    }
+  }
+  @media (max-width: 575.98px) {
+    .performer-header-activity-grid {
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 
@@ -142,6 +159,11 @@
   gap: 0.45rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 0.65rem;
+}
+
+/* CUSTOM: performer header rows: sex boxes, oral boxes, then the solo box. */
+.performer-activity-time--rows .performer-activity-time-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .performer-activity-time-metric {

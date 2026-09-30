@@ -108,13 +108,6 @@ func (r *queryResolver) PerformerEthnicityCounts(ctx context.Context) (ret []*Pe
 	return r.performerEthnicityCountsCustom(ctx, false)
 }
 
-// PerformerEthnicityFiveStarCounts returns counts of performers with a 5-star rating (rating100â†’5)
-// grouped by non-empty ethnicity, sorted by count descending. Threshold is rating >= 90, consistent
-// with Rating100To5 mapping (round(r/20) >= 4.5 â†’ 5).
-func (r *queryResolver) PerformerEthnicityFiveStarCounts(ctx context.Context) (ret []*PerformerEthnicityCount, err error) {
-	return r.performerEthnicityCountsCustom(ctx, true)
-}
-
 // PerformerEthnicityTierCounts returns final metallic card-style counts grouped by
 // non-empty ethnicity. It mirrors the performers metallic_rating filter semantics,
 // including override tags and higher-priority override precedence.
@@ -523,7 +516,7 @@ func sceneStatsStringPtrValue(value interface{}) *string {
 	return &ret
 }
 
-func sceneStatsBaseScopedQueryCustom(effectiveDateExpr string, sceneScope string) string {
+func sceneStatsBaseScopedQueryCustom(effectiveDateExpr string, sceneScope string, oDateWhere string) string {
 	return fmt.Sprintf(`
 %s,
 file_stats AS (
@@ -543,15 +536,9 @@ o_stats AS (
   SELECT
     scene_id,
     COUNT(*) AS o_counter,
-    MAX(o_date) AS most_recent_o_date,
-    SUM(
-      CASE
-        WHEN datetime(o_date) >= datetime('now', '-1 year') THEN 1
-        ELSE 0
-      END
-    ) AS o_counter_past_year
-  FROM scenes_o_dates
-  WHERE scene_id IN (SELECT id FROM selected_scenes)
+    MAX(o_date) AS most_recent_o_date
+  FROM scenes_o_dates od
+  WHERE scene_id IN (SELECT id FROM selected_scenes)%s
   GROUP BY scene_id
 ),
 royal_sapphire_bonus_scenes AS (
@@ -574,22 +561,13 @@ SELECT
   fs.primary_width,
   fs.primary_height,
   os.most_recent_o_date,
-  COALESCE(os.o_counter_past_year, 0) AS o_counter_past_year,
-  CASE
-    WHEN datetime(s.created_at) >= datetime('now', '-1 year') THEN 1
-    ELSE 0
-  END AS is_past_year,
-  CASE
-    WHEN date(%s) >= date('now', '-1 year') THEN 1
-    ELSE 0
-  END AS is_release_past_year,
   CASE WHEN rsb.scene_id IS NOT NULL THEN 1 ELSE 0 END AS has_royal_sapphire_bonus
 FROM scenes s
 LEFT JOIN file_stats fs ON fs.scene_id = s.id
 LEFT JOIN o_stats os ON os.scene_id = s.id
 LEFT JOIN royal_sapphire_bonus_scenes rsb ON rsb.scene_id = s.id
 WHERE s.id IN (SELECT id FROM selected_scenes)
-ORDER BY s.date DESC, s.id DESC`, sceneScope, effectiveDateExpr, effectiveDateExpr)
+ORDER BY s.date DESC, s.id DESC`, sceneScope, oDateWhere, effectiveDateExpr)
 }
 
 func sceneStatsScopedPerformerQueryCustom(sceneScope string) string {
@@ -604,23 +582,18 @@ JOIN performers p ON p.id = ps.performer_id
 WHERE ps.scene_id IN (SELECT id FROM selected_scenes)`
 }
 
-func sceneStatsAddPerformerCustom(scene *SceneStatsScene, ethnicity string, country string) {
+func sceneStatsAddPerformerCustom(scene *SceneStatsScene, performerID int, ethnicity string, country string) {
 	scene.PerformerCount++
-	if scene.IsReleasePastYear {
-		scene.PerformerCountPastYear++
-	}
+	scene.PerformerIds = append(scene.PerformerIds, strconv.Itoa(performerID))
 	scene.PerformerEthnicities = append(scene.PerformerEthnicities, ethnicity)
 	scene.PerformerCountries = append(scene.PerformerCountries, country)
 }
 
+// sceneStatsScopedMarkerQueryCustom returns one row per (scene, marker, role
+// family) for markers whose primary or secondary tag is a configured role tag
+// or any descendant of it. Descendants roll up to the configured family tag, so
+// the UI only needs the family IDs.
 func sceneStatsScopedMarkerQueryCustom(sceneScope string, trackedTagIDs []int) (string, []interface{}) {
-	if len(trackedTagIDs) == 0 {
-		return sceneScope + `
-SELECT sm.scene_id, sm.id, NULL, NULL
-FROM scene_markers sm
-WHERE 0`, nil
-	}
-
 	placeholders := make([]string, 0, len(trackedTagIDs))
 	args := make([]interface{}, 0, len(trackedTagIDs))
 	seen := make(map[int]struct{}, len(trackedTagIDs))
@@ -636,53 +609,56 @@ WHERE 0`, nil
 		args = append(args, tagID)
 	}
 	if len(args) == 0 {
-		return sceneStatsScopedMarkerQueryCustom(sceneScope, nil)
+		return sceneScope + `
+SELECT sm.scene_id, sm.id, NULL
+FROM scene_markers sm
+WHERE 0`, nil
 	}
 
 	return sceneScope + `,
 tracked_tag_roots(id) AS (
   VALUES ` + strings.Join(placeholders, ",") + `
 ),
-tracked_tags(id) AS (
-  SELECT id FROM tracked_tag_roots
+tracked_tags(root_id, id) AS (
+  SELECT id, id FROM tracked_tag_roots
   UNION
-  SELECT tr.child_id
+  SELECT tracked_tags.root_id, tr.child_id
   FROM tags_relations tr
-  JOIN tracked_tag_roots roots ON roots.id = tr.parent_id
+  JOIN tracked_tags ON tracked_tags.id = tr.parent_id
+),
+marker_tags(marker_id, scene_id, tag_id) AS (
+  SELECT sm.id, sm.scene_id, sm.primary_tag_id
+  FROM scene_markers sm
+  WHERE sm.scene_id IN (SELECT id FROM selected_scenes)
+    AND sm.primary_tag_id IN (SELECT id FROM tracked_tags)
+  UNION
+  SELECT sm.id, sm.scene_id, smt.tag_id
+  FROM scene_markers sm
+  JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+  WHERE sm.scene_id IN (SELECT id FROM selected_scenes)
+    AND smt.tag_id IN (SELECT id FROM tracked_tags)
 )
-SELECT
-  sm.scene_id,
-  sm.id,
-  CASE
-    WHEN sm.primary_tag_id IN (SELECT id FROM tracked_tags) THEN sm.primary_tag_id
-    ELSE NULL
-  END,
-  smt.tag_id
-FROM scene_markers sm
-LEFT JOIN scene_markers_tags smt
-  ON smt.scene_marker_id = sm.id
-  AND smt.tag_id IN (SELECT id FROM tracked_tags)
-WHERE sm.scene_id IN (SELECT id FROM selected_scenes)
-  AND (
-    sm.primary_tag_id IN (SELECT id FROM tracked_tags)
-    OR smt.tag_id IS NOT NULL
-  )
-ORDER BY sm.scene_id ASC, sm.id ASC`, args
+SELECT DISTINCT mt.scene_id, mt.marker_id, tt.root_id
+FROM marker_tags mt
+JOIN tracked_tags tt ON tt.id = mt.tag_id
+ORDER BY mt.scene_id ASC, mt.marker_id ASC, tt.root_id ASC`, args
 }
 
 // SceneStats returns compact scalar and ID data for the SceneStats dashboard.
 // It deliberately avoids resolving every scene's GraphQL relationships, which
 // becomes prohibitively expensive for libraries with many scenes and markers.
-func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth *int) (ret *SceneStatsResult, err error) {
-	sceneScope, sceneScopeArgs, err := sceneStatsSceneScopeCustom(studioID, depth)
+func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth *int, dateRangeInput *StatsDateRangeInput) (ret *SceneStatsResult, err error) {
+	sceneScope, sceneScopeArgs, dateRange, err := sceneStatsInputScopeCustom(studioID, depth, dateRangeInput)
 	if err != nil {
 		return nil, err
 	}
+	oDateWhere, oDateArgs := dateRange.oDateWhereSQL("od")
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		db := manager.GetInstance().Database
-		baseQuery := sceneStatsBaseScopedQueryCustom(sceneOStatsEffectiveDateExpr("s"), sceneScope)
-		_, rows, err := db.QuerySQL(ctx, baseQuery, sceneScopeArgs)
+		baseQuery := sceneStatsBaseScopedQueryCustom(sceneOStatsEffectiveDateExpr("s"), sceneScope, oDateWhere)
+		baseArgs := append(append([]interface{}{}, sceneScopeArgs...), oDateArgs...)
+		_, rows, err := db.QuerySQL(ctx, baseQuery, baseArgs)
 		if err != nil {
 			return err
 		}
@@ -690,7 +666,7 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 		out := &SceneStatsResult{Scenes: []*SceneStatsScene{}}
 		byID := make(map[int]*SceneStatsScene, len(rows))
 		for _, row := range rows {
-			if len(row) < 15 {
+			if len(row) < 12 {
 				continue
 			}
 
@@ -711,10 +687,8 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 				PrimaryWidth:          vatoStatsIntPtrValue(row[8]),
 				PrimaryHeight:         vatoStatsIntPtrValue(row[9]),
 				MostRecentODate:       sceneStatsStringPtrValue(row[10]),
-				OCounterPastYear:      customIntValue(row[11]),
-				IsPastYear:            customIntValue(row[12]) != 0,
-				IsReleasePastYear:     customIntValue(row[13]) != 0,
-				HasRoyalSapphireBonus: customIntValue(row[14]) != 0,
+				HasRoyalSapphireBonus: customIntValue(row[11]) != 0,
+				PerformerIds:          []string{},
 				PerformerEthnicities:  []string{},
 				PerformerCountries:    []string{},
 				MarkerTagGroups:       []*SceneStatsMarkerTagGroup{},
@@ -724,7 +698,6 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 			byID[id] = scene
 		}
 		out.Count = len(out.Scenes)
-		performerIDs := make(map[int]struct{})
 
 		if len(byID) == 0 {
 			ret = out
@@ -743,14 +716,13 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 			if scene == nil {
 				continue
 			}
-			performerIDs[customIntValue(row[1])] = struct{}{}
 			sceneStatsAddPerformerCustom(
 				scene,
+				customIntValue(row[1]),
 				customStringValue(row[2]),
 				customStringValue(row[3]),
 			)
 		}
-		out.UniquePerformerCount = len(performerIDs)
 
 		tagQuery := sceneScope + "\nSELECT scene_id, tag_id FROM scenes_tags WHERE scene_id IN (SELECT id FROM selected_scenes)"
 		_, tagRows, err := db.QuerySQL(ctx, tagQuery, sceneScopeArgs)
@@ -785,7 +757,7 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 		markerGroups := make(map[int]*SceneStatsMarkerTagGroup)
 		markerTagIDs := make(map[int]map[int]struct{})
 		for _, row := range markerRows {
-			if len(row) < 4 {
+			if len(row) < 3 {
 				continue
 			}
 			scene := byID[customIntValue(row[0])]
@@ -802,7 +774,7 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 				scene.MarkerTagGroups = append(scene.MarkerTagGroups, group)
 			}
 
-			for _, value := range row[2:4] {
+			for _, value := range row[2:3] {
 				tagID := customIntValue(value)
 				if tagID == 0 {
 					continue
@@ -825,8 +797,8 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 }
 
 // SceneOYearCounts returns counts of scene orgasm events grouped by year ascending.
-func (r *queryResolver) SceneOYearCounts(ctx context.Context, studioID *string, depth *int) (ret []*SceneOYearCount, err error) {
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+func (r *queryResolver) SceneOYearCounts(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOYearCount, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -889,11 +861,11 @@ GROUP BY year ORDER BY year ASC`
 }
 
 // SceneOMonthCounts returns counts of scene O events grouped by month for a year.
-func (r *queryResolver) SceneOMonthCounts(ctx context.Context, year int, studioID *string, depth *int) (ret []*SceneOMonthCount, err error) {
+func (r *queryResolver) SceneOMonthCounts(ctx context.Context, year int, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOMonthCount, err error) {
 	if year < 1 {
 		return nil, fmt.Errorf("invalid year: %d", year)
 	}
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -936,11 +908,11 @@ ORDER BY month ASC`
 }
 
 // SceneODayCounts returns counts of scene O events grouped by day for a month.
-func (r *queryResolver) SceneODayCounts(ctx context.Context, year int, month int, studioID *string, depth *int) (ret []*SceneODayCount, err error) {
+func (r *queryResolver) SceneODayCounts(ctx context.Context, year int, month int, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneODayCount, err error) {
 	if _, err := sceneOStatsDate(year, month, 1); err != nil {
 		return nil, err
 	}
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -984,12 +956,12 @@ ORDER BY day ASC`
 }
 
 // SceneOEventsByDate returns the recorded O events for a date in reverse chronological order.
-func (r *queryResolver) SceneOEventsByDate(ctx context.Context, date string, studioID *string, depth *int) (ret []*SceneOEvent, err error) {
+func (r *queryResolver) SceneOEventsByDate(ctx context.Context, date string, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
 	date, err = validateSceneOStatsDate(date)
 	if err != nil {
 		return nil, err
 	}
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -1024,12 +996,12 @@ ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1)
 }
 
 // SceneOEventsByTag returns recorded O events covered by the given marker tag.
-func (r *queryResolver) SceneOEventsByTag(ctx context.Context, tagID string, studioID *string, depth *int) (ret []*SceneOEvent, err error) {
+func (r *queryResolver) SceneOEventsByTag(ctx context.Context, tagID string, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
 	tagIDInt, err := strconv.Atoi(tagID)
 	if err != nil || tagIDInt < 1 {
 		return nil, fmt.Errorf("invalid tag ID: %s", tagID)
 	}
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -1167,8 +1139,8 @@ const sceneOWithoutMarkerTagsPredicate = `
 
 // SceneOCountWithoutMarkerTags returns all O entries that cannot be assigned a
 // marker-tag group because they lack a timestamp or a covering marker.
-func (r *queryResolver) SceneOCountWithoutMarkerTags(ctx context.Context, studioID *string, depth *int) (ret int, err error) {
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+func (r *queryResolver) SceneOCountWithoutMarkerTags(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret int, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return 0, err
 	}
@@ -1194,8 +1166,8 @@ WHERE od.o_date IS NOT NULL` + scope + sceneOWithoutMarkerTagsPredicate
 
 // SceneOEventsWithoutMarkerTags returns all O entries that cannot be assigned
 // a marker-tag group because they lack a timestamp or a covering marker.
-func (r *queryResolver) SceneOEventsWithoutMarkerTags(ctx context.Context, studioID *string, depth *int) (ret []*SceneOEvent, err error) {
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+func (r *queryResolver) SceneOEventsWithoutMarkerTags(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -1210,12 +1182,12 @@ ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1)
 
 // SceneOEventsByPerformer returns all recorded O events for scenes associated
 // with a performer in reverse chronological order.
-func (r *queryResolver) SceneOEventsByPerformer(ctx context.Context, performerID string, studioID *string, depth *int) (ret []*SceneOEvent, err error) {
+func (r *queryResolver) SceneOEventsByPerformer(ctx context.Context, performerID string, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
 	performerIDInt, err := sceneOStatsPerformerID(performerID)
 	if err != nil {
 		return nil, err
 	}
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -1252,12 +1224,12 @@ ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1)
 
 // SceneOEventsByScene returns all recorded O events for one scene in
 // reverse chronological order.
-func (r *queryResolver) SceneOEventsByScene(ctx context.Context, sceneID string, studioID *string, depth *int) (ret []*SceneOEvent, err error) {
+func (r *queryResolver) SceneOEventsByScene(ctx context.Context, sceneID string, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
 	sceneIDInt, err := sceneOStatsSceneID(sceneID)
 	if err != nil {
 		return nil, err
 	}
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -1277,8 +1249,8 @@ ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1)
 // SceneOCountsByTag returns timestamped scene O events grouped by marker tags
 // covering each event's video timestamp. Primary and secondary marker tags are
 // both counted, with each tag counted once per O event.
-func (r *queryResolver) SceneOCountsByTag(ctx context.Context, studioID *string, depth *int) (ret []*SceneOCountByTag, err error) {
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+func (r *queryResolver) SceneOCountsByTag(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOCountByTag, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -1790,8 +1762,8 @@ func (r *queryResolver) sceneOEventsFromStatsQuery(ctx context.Context, query st
 
 // SceneOCountsByEthnicity returns all recorded O events grouped by the
 // ethnicities of performers associated with each O's scene.
-func (r *queryResolver) SceneOCountsByEthnicity(ctx context.Context, studioID *string, depth *int) (ret []*SceneOCountByEthnicity, err error) {
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+func (r *queryResolver) SceneOCountsByEthnicity(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOCountByEthnicity, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -1841,12 +1813,12 @@ ORDER BY cnt DESC, ethnicity COLLATE NOCASE ASC`
 
 // SceneOEventsByEthnicity returns all recorded O events for scenes with an
 // associated performer ethnicity. "Unknown" includes missing/blank ethnicity.
-func (r *queryResolver) SceneOEventsByEthnicity(ctx context.Context, ethnicity string, studioID *string, depth *int) (ret []*SceneOEvent, err error) {
+func (r *queryResolver) SceneOEventsByEthnicity(ctx context.Context, ethnicity string, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
 	ethnicity, err = sceneOStatsEthnicityFilter(ethnicity)
 	if err != nil {
 		return nil, err
 	}
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -1914,8 +1886,8 @@ ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1)
 
 // SceneOCountsByCountry returns all recorded O events grouped by the countries
 // of performers associated with each O's scene.
-func (r *queryResolver) SceneOCountsByCountry(ctx context.Context, studioID *string, depth *int) (ret []*SceneOCountByCountry, err error) {
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+func (r *queryResolver) SceneOCountsByCountry(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOCountByCountry, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -1965,12 +1937,12 @@ ORDER BY cnt DESC, country COLLATE NOCASE ASC`
 
 // SceneOEventsByCountry returns all recorded O events for scenes with an
 // associated performer country. "Unknown" includes missing/blank country.
-func (r *queryResolver) SceneOEventsByCountry(ctx context.Context, country string, studioID *string, depth *int) (ret []*SceneOEvent, err error) {
+func (r *queryResolver) SceneOEventsByCountry(ctx context.Context, country string, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
 	country, err = sceneOStatsCountryFilter(country)
 	if err != nil {
 		return nil, err
 	}
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -2022,8 +1994,8 @@ ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1)
 
 // SceneOCountsByStudio returns all recorded O events grouped by the studio of
 // each event's scene, plus a separate count for scenes without a studio.
-func (r *queryResolver) SceneOCountsByStudio(ctx context.Context, studioID *string, depth *int) (ret *SceneOCountsByStudio, err error) {
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+func (r *queryResolver) SceneOCountsByStudio(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret *SceneOCountsByStudio, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -2079,12 +2051,12 @@ ORDER BY is_unknown ASC, cnt DESC, studio_name COLLATE NOCASE ASC`
 
 // SceneOEventsByStudio returns all recorded O events for scenes assigned to a
 // studio, newest first.
-func (r *queryResolver) SceneOEventsByStudio(ctx context.Context, studioID string, scopeStudioID *string, depth *int) (ret []*SceneOEvent, err error) {
+func (r *queryResolver) SceneOEventsByStudio(ctx context.Context, studioID string, scopeStudioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
 	studioIDInt, err := sceneOStatsStudioID(studioID)
 	if err != nil {
 		return nil, err
 	}
-	scope, scopeArgs, err := sceneOStatsScopeCustom(scopeStudioID, depth)
+	scope, scopeArgs, err := sceneOStatsScopeCustom(scopeStudioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -2102,8 +2074,8 @@ ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1)
 
 // SceneOEventsWithUnknownStudio returns all recorded O events whose scene has
 // no assigned studio, newest first.
-func (r *queryResolver) SceneOEventsWithUnknownStudio(ctx context.Context, studioID *string, depth *int) (ret []*SceneOEvent, err error) {
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+func (r *queryResolver) SceneOEventsWithUnknownStudio(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -2119,8 +2091,8 @@ ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1)
 
 // SceneOCountsByPerformerAge returns all recorded O events grouped by a
 // performer's age at the scene's effective release date.
-func (r *queryResolver) SceneOCountsByPerformerAge(ctx context.Context, studioID *string, depth *int) (ret *SceneOCountsByPerformerAge, err error) {
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+func (r *queryResolver) SceneOCountsByPerformerAge(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret *SceneOCountsByPerformerAge, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -2181,8 +2153,8 @@ ORDER BY is_unknown ASC, age ASC`, ageExpr, scope)
 	return ret, nil
 }
 
-func (r *queryResolver) sceneOEventsByPerformerAgeQuery(ctx context.Context, agePredicate string, args []interface{}, studioID *string, depth *int) ([]*SceneOEvent, error) {
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+func (r *queryResolver) sceneOEventsByPerformerAgeQuery(ctx context.Context, agePredicate string, args []interface{}, studioID *string, depth *int, dateRange *StatsDateRangeInput) ([]*SceneOEvent, error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -2212,23 +2184,23 @@ ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1)
 
 // SceneOEventsByPerformerAge returns all recorded O events associated with a
 // performer of the requested age at the scene's effective release date.
-func (r *queryResolver) SceneOEventsByPerformerAge(ctx context.Context, age int, studioID *string, depth *int) (ret []*SceneOEvent, err error) {
+func (r *queryResolver) SceneOEventsByPerformerAge(ctx context.Context, age int, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
 	if err := sceneOStatsPerformerAge(age); err != nil {
 		return nil, err
 	}
-	return r.sceneOEventsByPerformerAgeQuery(ctx, "age = ?", []interface{}{age}, studioID, depth)
+	return r.sceneOEventsByPerformerAgeQuery(ctx, "age = ?", []interface{}{age}, studioID, depth, dateRange)
 }
 
 // SceneOEventsWithUnknownPerformerAge returns all recorded O events with at
 // least one performer whose scene age cannot be calculated.
-func (r *queryResolver) SceneOEventsWithUnknownPerformerAge(ctx context.Context, studioID *string, depth *int) (ret []*SceneOEvent, err error) {
-	return r.sceneOEventsByPerformerAgeQuery(ctx, "age IS NULL OR age < 18 OR age > 80", nil, studioID, depth)
+func (r *queryResolver) SceneOEventsWithUnknownPerformerAge(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
+	return r.sceneOEventsByPerformerAgeQuery(ctx, "age IS NULL OR age < 18 OR age > 80", nil, studioID, depth, dateRange)
 }
 
 // SceneOCountsByReleaseYear returns all recorded O events grouped by the
 // scene's effective release year.
-func (r *queryResolver) SceneOCountsByReleaseYear(ctx context.Context, studioID *string, depth *int) (ret *SceneOCountsByReleaseYear, err error) {
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+func (r *queryResolver) SceneOCountsByReleaseYear(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret *SceneOCountsByReleaseYear, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -2279,8 +2251,8 @@ ORDER BY is_unknown ASC, year ASC`, effectiveDateExpr, scope)
 	return ret, nil
 }
 
-func (r *queryResolver) sceneOEventsByReleaseYearQuery(ctx context.Context, yearPredicate string, args []interface{}, studioID *string, depth *int) ([]*SceneOEvent, error) {
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+func (r *queryResolver) sceneOEventsByReleaseYearQuery(ctx context.Context, yearPredicate string, args []interface{}, studioID *string, depth *int, dateRange *StatsDateRangeInput) ([]*SceneOEvent, error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -2308,23 +2280,23 @@ JOIN matching_o_events moe ON moe.o_id = od.rowid
 
 // SceneOEventsByReleaseYear returns all recorded O events for a scene's
 // effective release year.
-func (r *queryResolver) SceneOEventsByReleaseYear(ctx context.Context, year int, studioID *string, depth *int) (ret []*SceneOEvent, err error) {
+func (r *queryResolver) SceneOEventsByReleaseYear(ctx context.Context, year int, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
 	if err := sceneOStatsReleaseYear(year); err != nil {
 		return nil, err
 	}
-	return r.sceneOEventsByReleaseYearQuery(ctx, "year = ?", []interface{}{year}, studioID, depth)
+	return r.sceneOEventsByReleaseYearQuery(ctx, "year = ?", []interface{}{year}, studioID, depth, dateRange)
 }
 
 // SceneOEventsWithUnknownReleaseYear returns all recorded O events for scenes
 // that have no effective release date.
-func (r *queryResolver) SceneOEventsWithUnknownReleaseYear(ctx context.Context, studioID *string, depth *int) (ret []*SceneOEvent, err error) {
-	return r.sceneOEventsByReleaseYearQuery(ctx, "year IS NULL", nil, studioID, depth)
+func (r *queryResolver) SceneOEventsWithUnknownReleaseYear(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
+	return r.sceneOEventsByReleaseYearQuery(ctx, "year IS NULL", nil, studioID, depth, dateRange)
 }
 
 // SceneOUnreliableDateCount returns the number of O entries that predate
 // reliable O-date tracking (or have an unparsable O date).
-func (r *queryResolver) SceneOUnreliableDateCount(ctx context.Context, studioID *string, depth *int) (ret int, err error) {
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+func (r *queryResolver) SceneOUnreliableDateCount(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret int, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return 0, err
 	}
@@ -2352,8 +2324,8 @@ WHERE od.o_date IS NOT NULL
 
 // SceneOEventsBeforeTrackingStart returns O entries that do not have a
 // reliable O date for the date-based timeline.
-func (r *queryResolver) SceneOEventsBeforeTrackingStart(ctx context.Context, studioID *string, depth *int) (ret []*SceneOEvent, err error) {
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+func (r *queryResolver) SceneOEventsBeforeTrackingStart(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -2424,23 +2396,17 @@ func vatoStatsSetAgeCount(performer *VatoStatsPerformer, ageRange string, count 
 	})
 }
 
-func vatoStatsPerformersQueryCustom(sceneScope string, includeZeroScenePerformers bool, royalSapphireClause string, goldClause string, silverClause string, bronzeClause string) string {
+func vatoStatsPerformersQueryCustom(sceneScope string, oDateWhere string, includeZeroScenePerformers bool, royalSapphireClause string, goldClause string, silverClause string, bronzeClause string) string {
 	return fmt.Sprintf(`
 %s,
 scene_o_stats AS (
   SELECT
     scene_id,
     COUNT(*) AS scene_o_count,
-    SUM(
-      CASE
-        WHEN datetime(o_date) >= datetime('now', '-1 year') THEN 1
-        ELSE 0
-      END
-    ) AS scene_o_count_past_year,
-    MAX(date(o_date)) AS most_recent_o_date
-  FROM scenes_o_dates
+    strftime('%%Y-%%m-%%dT%%H:%%M:%%SZ', MAX(datetime(o_date))) AS most_recent_o_date
+  FROM scenes_o_dates od
   WHERE o_date IS NOT NULL
-    AND scene_id IN (SELECT id FROM selected_scenes)
+    AND scene_id IN (SELECT id FROM selected_scenes)%s
   GROUP BY scene_id
 ),
 performer_scene_stats AS (
@@ -2448,7 +2414,6 @@ performer_scene_stats AS (
     ps.performer_id,
     COUNT(DISTINCT ps.scene_id) AS scene_count,
     COALESCE(SUM(scene_o_stats.scene_o_count), 0) AS scene_o_count,
-    COALESCE(SUM(scene_o_stats.scene_o_count_past_year), 0) AS scene_o_count_past_year,
     MAX(scene_o_stats.most_recent_o_date) AS most_recent_o_date,
     COALESCE(
       CAST(julianday(MAX(date(s.date))) - julianday(MIN(date(s.date))) AS INT),
@@ -2482,17 +2447,13 @@ SELECT
   COALESCE(performer_scene_stats.scene_count, 0) AS scene_count,
   COALESCE(performer_scene_stats.scene_o_count, 0) AS scene_o_count,
   performer_scene_stats.most_recent_o_date,
-  COALESCE(performer_scene_stats.career_span_days, 0) AS career_span_days,
-  COALESCE(performer_scene_stats.scene_o_count_past_year, 0) AS scene_o_count_past_year,
-  CASE
-    WHEN datetime(performers.created_at) >= datetime('now', '-1 year') THEN 1
-    ELSE 0
-  END AS is_past_year
+  COALESCE(performer_scene_stats.career_span_days, 0) AS career_span_days
 FROM performers
 LEFT JOIN performer_scene_stats ON performer_scene_stats.performer_id = performers.id
 WHERE performer_scene_stats.performer_id IS NOT NULL OR %t
 ORDER BY performers.name COLLATE NOCASE ASC`,
 		sceneScope,
+		oDateWhere,
 		royalSapphireClause,
 		goldClause,
 		silverClause,
@@ -2504,11 +2465,12 @@ ORDER BY performers.name COLLATE NOCASE ASC`,
 // VatoStatsPerformers returns the raw per-vato rows used by /vatostats. The UI
 // owns drill-down state so metric/category combinations can evolve without
 // adding a resolver for every chart.
-func (r *queryResolver) VatoStatsPerformers(ctx context.Context, studioID *string, depth *int) (ret []*VatoStatsPerformer, err error) {
-	sceneScope, sceneScopeArgs, err := sceneStatsSceneScopeCustom(studioID, depth)
+func (r *queryResolver) VatoStatsPerformers(ctx context.Context, studioID *string, depth *int, dateRangeInput *StatsDateRangeInput) (ret []*VatoStatsPerformer, err error) {
+	sceneScope, sceneScopeArgs, dateRange, err := sceneStatsInputScopeCustom(studioID, depth, dateRangeInput)
 	if err != nil {
 		return nil, err
 	}
+	oDateWhere, oDateArgs := dateRange.oDateWhereSQL("od")
 
 	baseURL, _ := ctx.Value(BaseURLCtxKey).(string)
 	thresholds := getCustomPerformerRatingTierThresholds()
@@ -2522,13 +2484,15 @@ func (r *queryResolver) VatoStatsPerformers(ctx context.Context, studioID *strin
 		db := manager.GetInstance().Database
 		query := vatoStatsPerformersQueryCustom(
 			sceneScope,
-			studioID == nil, // CUSTOM: global Total Scenes includes zero-scene vatos
+			oDateWhere,
+			studioID == nil && dateRange == nil, // CUSTOM: unscoped Total Scenes includes zero-scene vatos
 			royalSapphireClause,
 			goldClause,
 			silverClause,
 			bronzeClause,
 		)
 		args := append([]interface{}{}, sceneScopeArgs...)
+		args = append(args, oDateArgs...)
 		args = append(args, royalSapphireArgs...)
 		args = append(args, goldArgs...)
 		args = append(args, silverArgs...)
@@ -2542,7 +2506,7 @@ func (r *queryResolver) VatoStatsPerformers(ctx context.Context, studioID *strin
 		byID := make(map[int]*VatoStatsPerformer, len(rows))
 		ids := make([]int, 0, len(rows))
 		for _, row := range rows {
-			if len(row) < 18 {
+			if len(row) < 16 {
 				continue
 			}
 
@@ -2569,8 +2533,6 @@ func (r *queryResolver) VatoStatsPerformers(ctx context.Context, studioID *strin
 				SceneOCount:          customIntValue(row[13]),
 				MostRecentODate:      vatoStatsStringPtrValue(row[14]),
 				CareerSpanDays:       customIntValue(row[15]),
-				SceneOCountPastYear:  customIntValue(row[16]),
-				IsPastYear:           customIntValue(row[17]) != 0,
 				AgeCounts:            []*VatoStatsAgeCount{},
 				UnknownSceneAgeCount: sceneCount,
 			}
@@ -2706,18 +2668,24 @@ GROUP BY ps.performer_id, scene_age`, ageIDClause)
 	return ret, nil
 }
 
-// MostOsInDay returns the single date with the highest recorded scene O count.
-func (r *queryResolver) MostOsInDay(ctx context.Context, studioID *string, depth *int) (ret *SceneODayStat, err error) {
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+// sceneOMostOsInDayQueryCustom groups by local day so the record matches the
+// O date charts.
+func sceneOMostOsInDayQueryCustom(scope string) string {
+	return `SELECT date(od.o_date, 'localtime') AS day, COUNT(*) AS cnt
+FROM scenes_o_dates od
+WHERE od.o_date IS NOT NULL AND date(od.o_date, 'localtime') >= date(?) AND date(od.o_date, 'localtime') <> date(?)` + scope + `
+GROUP BY day ORDER BY cnt DESC, day ASC LIMIT 1`
+}
+
+// MostOsInDay returns the single local date with the highest recorded scene O count.
+func (r *queryResolver) MostOsInDay(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret *SceneODayStat, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		db := manager.GetInstance().Database
-		query := `SELECT date(od.o_date) AS day, COUNT(*) AS cnt
-FROM scenes_o_dates od
-WHERE od.o_date IS NOT NULL AND date(od.o_date) >= date(?) AND date(od.o_date) <> date(?)` + scope + `
-GROUP BY day ORDER BY cnt DESC, day ASC LIMIT 1`
+		query := sceneOMostOsInDayQueryCustom(scope)
 		args := append([]interface{}{sceneODateTrackingStart, sceneODateMostOsExcludedDay}, scopeArgs...)
 		_, rows, err := db.QuerySQL(ctx, query, args)
 		if err != nil {
@@ -2754,16 +2722,18 @@ GROUP BY day ORDER BY cnt DESC, day ASC LIMIT 1`
 
 // LongestPeriodWithoutO returns the longest gap between recorded scene O dates,
 // including the current gap from the most recent O date through today.
-func (r *queryResolver) LongestPeriodWithoutO(ctx context.Context, studioID *string, depth *int) (ret *SceneODrySpell, err error) {
-	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth)
+func (r *queryResolver) LongestPeriodWithoutO(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret *SceneODrySpell, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return nil, err
 	}
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		db := manager.GetInstance().Database
-		query := `SELECT DISTINCT date(od.o_date) AS day
+		// CUSTOM: local days match the date charts; the current gap ends today or
+		// at the end of the selected range.
+		query := `SELECT DISTINCT date(od.o_date, 'localtime') AS day
 FROM scenes_o_dates od
-WHERE od.o_date IS NOT NULL AND date(od.o_date) >= date(?)` + scope + `
+WHERE od.o_date IS NOT NULL AND date(od.o_date, 'localtime') >= date(?)` + scope + `
 ORDER BY day ASC`
 		args := append([]interface{}{sceneODateTrackingStart}, scopeArgs...)
 		_, rows, err := db.QuerySQL(ctx, query, args)
@@ -2805,6 +2775,11 @@ ORDER BY day ASC`
 		if parseErr != nil {
 			return parseErr
 		}
+		parsedRange, parseErr := parseStatsDateRangeCustom(dateRange)
+		if parseErr != nil {
+			return parseErr
+		}
+		today = parsedRange.endDate(today)
 		lastDate := dates[len(dates)-1]
 		currentDays := int(today.Sub(lastDate).Hours() / 24)
 		if currentDays > bestDays {
@@ -2839,8 +2814,8 @@ ORDER BY day ASC`
 //   - Count each matching marker once per assigned top, with a minimum of one
 //
 // Uses roleTagIds.orgasmTagId from UI config and includes all subtags recursively.
-func (r *queryResolver) SceneOrgasmCount(ctx context.Context, studioID *string, depth *int) (int, error) {
-	return r.sceneWeightedMarkerCountCustom(ctx, "orgasmTagId", studioID, depth)
+func (r *queryResolver) SceneOrgasmCount(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (int, error) {
+	return r.sceneWeightedMarkerCountCustom(ctx, "orgasmTagId", studioID, depth, dateRange)
 }
 
 // SceneFacialCount returns the total number of facial events.
@@ -2849,226 +2824,8 @@ func (r *queryResolver) SceneOrgasmCount(ctx context.Context, studioID *string, 
 // - it has any secondary tag that is the configured facial tag or any descendant of it.
 // Each matching marker counts once per assigned top, with a minimum of one.
 // Uses roleTagIds.facialTagId from UI config and includes all subtags recursively.
-func (r *queryResolver) SceneFacialCount(ctx context.Context, studioID *string, depth *int) (int, error) {
-	return r.sceneWeightedMarkerCountCustom(ctx, "facialTagId", studioID, depth)
-}
-
-// PerformersFacialGivenCount returns the number of distinct performers who have given facials.
-// Uses roleTagIds.facialTagId from UI config and includes all subtags recursively.
-func (r *queryResolver) PerformersFacialGivenCount(ctx context.Context) (int, error) {
-	return r.performerFacialRoleCountCustom(ctx, "top")
-}
-
-// PerformersFacialReceivedCount returns the number of distinct performers who have received facials.
-// Uses roleTagIds.facialTagId from UI config and includes all subtags recursively.
-func (r *queryResolver) PerformersFacialReceivedCount(ctx context.Context) (int, error) {
-	return r.performerFacialRoleCountCustom(ctx, "bottom")
-}
-
-// PerformersSexGivenCount returns the number of distinct performers who have been tops in sex markers.
-// Uses roleTagIds.sexTagId from UI config and matches primary/secondary subtags like its drilldown.
-func (r *queryResolver) PerformersSexGivenCount(ctx context.Context) (int, error) {
-	return r.performerRoleTagCountCustom(ctx, "sexTagId", "top")
-}
-
-// PerformersSexReceivedCount returns the number of distinct performers who have been bottoms in sex markers.
-// Uses roleTagIds.sexTagId from UI config and matches primary/secondary subtags like its drilldown.
-func (r *queryResolver) PerformersSexReceivedCount(ctx context.Context) (int, error) {
-	return r.performerRoleTagCountCustom(ctx, "sexTagId", "bottom")
-}
-
-// PerformersOralGivenCount returns the number of distinct performers who have been tops in oral markers.
-// Uses roleTagIds.oralTagId from UI config and matches primary/secondary subtags like its drilldown.
-func (r *queryResolver) PerformersOralGivenCount(ctx context.Context) (int, error) {
-	return r.performerRoleTagCountCustom(ctx, "oralTagId", "top")
-}
-
-// PerformersOralReceivedCount returns the number of distinct performers who have been bottoms in oral markers.
-// Uses roleTagIds.oralTagId from UI config and matches primary/secondary subtags like its drilldown.
-func (r *queryResolver) PerformersOralReceivedCount(ctx context.Context) (int, error) {
-	return r.performerRoleTagCountCustom(ctx, "oralTagId", "bottom")
-}
-
-// PerformersStrictTopCount returns the number of performers who have 'top' role in sex/oral/facial markers but no 'bottom' role in any of those.
-// Uses roleTagIds.sexTagId, roleTagIds.oralTagId, and roleTagIds.facialTagId from UI config.
-func (r *queryResolver) PerformersStrictTopCount(ctx context.Context) (int, error) {
-	return r.performersStrictRoleCountCustom(ctx, "top", "bottom")
-}
-
-// PerformersStrictBottomCount returns the number of performers who have 'bottom' role in sex/oral/facial markers but no 'top' role in any of those.
-// Uses roleTagIds.sexTagId, roleTagIds.oralTagId, and roleTagIds.facialTagId from UI config.
-func (r *queryResolver) PerformersStrictBottomCount(ctx context.Context) (int, error) {
-	return r.performersStrictRoleCountCustom(ctx, "bottom", "top")
-}
-
-// PerformersLenientTopCount returns the number of performers who have both top and oral bottom tags, but no bottom tag.
-func (r *queryResolver) PerformersLenientTopCount(ctx context.Context) (int, error) {
-	return r.performersLenientRoleCountCustom(ctx, "top", "oralbottom", "bottom")
-}
-
-// PerformersLenientBottomCount returns the number of performers who have both bottom and oral top tags, but no top tag.
-func (r *queryResolver) PerformersLenientBottomCount(ctx context.Context) (int, error) {
-	return r.performersLenientRoleCountCustom(ctx, "bottom", "oraltop", "top")
-}
-
-// PerformersSoloOnlyCount returns the number of performers who have solo markers but no oral/sex markers.
-// Uses roleTagIds.soloTagId, oralTagId, sexTagId from UI config with depth -1 (include subtags).
-func (r *queryResolver) PerformersSoloOnlyCount(ctx context.Context) (int, error) {
-	var count int
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		uiConfig := config.GetInstance().GetUIConfiguration()
-		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
-		var soloTagID, oralTagID, sexTagID int
-		if roleTagIds != nil {
-			if id, ok := roleTagIds["soloTagId"].(string); ok && id != "" {
-				soloTagID, _ = strconv.Atoi(id)
-			}
-			if id, ok := roleTagIds["oralTagId"].(string); ok && id != "" {
-				oralTagID, _ = strconv.Atoi(id)
-			}
-			if id, ok := roleTagIds["sexTagId"].(string); ok && id != "" {
-				sexTagID, _ = strconv.Atoi(id)
-			}
-		}
-		if soloTagID == 0 {
-			return nil // No solo tag configured
-		}
-
-		db := manager.GetInstance().Database
-
-		// Build exclude tag list
-		var excludeTagIDs []int
-		if oralTagID != 0 {
-			excludeTagIDs = append(excludeTagIDs, oralTagID)
-		}
-		if sexTagID != 0 {
-			excludeTagIDs = append(excludeTagIDs, sexTagID)
-		}
-
-		// Query with hierarchical tag expansion (depth -1 = all descendants)
-		// This matches the frontend performer_markers filter behavior
-		query := `
-WITH RECURSIVE solo_family(id) AS (
-  SELECT id FROM tags WHERE id = ?
-  UNION ALL
-  SELECT tr.child_id FROM tags_relations tr JOIN solo_family sf ON tr.parent_id = sf.id
-)
-SELECT COUNT(DISTINCT smp.performer_id)
-FROM scene_marker_performers smp
-JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-WHERE (
-  sm.primary_tag_id IN (SELECT id FROM solo_family)
-  OR EXISTS (SELECT 1 FROM scene_markers_tags smt WHERE smt.scene_marker_id = sm.id AND smt.tag_id IN (SELECT id FROM solo_family))
-)`
-
-		args := []interface{}{soloTagID}
-
-		// Add exclusion clause if we have exclude tags
-		if len(excludeTagIDs) > 0 {
-			// Build CTE for each exclude tag family
-			var excludeCTEs []string
-			var excludeConditions []string
-			for i, tagID := range excludeTagIDs {
-				cteName := fmt.Sprintf("exclude_family_%d", i)
-				excludeCTEs = append(excludeCTEs, fmt.Sprintf(`
-%s(id) AS (
-  SELECT id FROM tags WHERE id = ?
-  UNION ALL
-  SELECT tr.child_id FROM tags_relations tr JOIN %s ef ON tr.parent_id = ef.id
-)`, cteName, cteName))
-				args = append(args, tagID)
-				excludeConditions = append(excludeConditions, fmt.Sprintf(`
-  AND smp.performer_id NOT IN (
-    SELECT DISTINCT smp2.performer_id
-    FROM scene_marker_performers smp2
-    JOIN scene_markers sm2 ON sm2.id = smp2.scene_marker_id
-    WHERE sm2.primary_tag_id IN (SELECT id FROM %s)
-       OR EXISTS (SELECT 1 FROM scene_markers_tags smt2 WHERE smt2.scene_marker_id = sm2.id AND smt2.tag_id IN (SELECT id FROM %s))
-  )`, cteName, cteName))
-			}
-
-			// Rebuild query with exclude CTEs
-			query = `
-WITH RECURSIVE solo_family(id) AS (
-  SELECT id FROM tags WHERE id = ?
-  UNION ALL
-  SELECT tr.child_id FROM tags_relations tr JOIN solo_family sf ON tr.parent_id = sf.id
-),` + strings.Join(excludeCTEs, ",") + `
-SELECT COUNT(DISTINCT smp.performer_id)
-FROM scene_marker_performers smp
-JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-WHERE (
-  sm.primary_tag_id IN (SELECT id FROM solo_family)
-  OR EXISTS (SELECT 1 FROM scene_markers_tags smt WHERE smt.scene_marker_id = sm.id AND smt.tag_id IN (SELECT id FROM solo_family))
-)` + strings.Join(excludeConditions, "")
-			// args already has soloTagID as first element, followed by exclude tag IDs
-		}
-
-		_, rows, err := db.QuerySQL(ctx, query, args)
-		if err != nil {
-			return err
-		}
-		if len(rows) > 0 && len(rows[0]) > 0 {
-			switch v := rows[0][0].(type) {
-			case int64:
-				count = int(v)
-			case int:
-				count = v
-			case []byte:
-				i, _ := strconv.Atoi(string(v))
-				count = i
-			case string:
-				i, _ := strconv.Atoi(v)
-				count = i
-			default:
-				i, _ := strconv.Atoi(fmt.Sprint(v))
-				count = i
-			}
-		}
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-	return count, nil
-} // PerformersOneSceneCount returns the number of performers who appear in exactly one scene.
-func (r *queryResolver) PerformersOneSceneCount(ctx context.Context) (int, error) {
-	var count int
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		db := manager.GetInstance().Database
-		query := `
-SELECT COUNT(*)
-FROM (
-  SELECT performer_id
-  FROM performers_scenes
-  GROUP BY performer_id
-  HAVING COUNT(*) = 1
-)`
-		_, rows, err := db.QuerySQL(ctx, query, nil)
-		if err != nil {
-			return err
-		}
-		if len(rows) > 0 && len(rows[0]) > 0 {
-			switch v := rows[0][0].(type) {
-			case int64:
-				count = int(v)
-			case int:
-				count = v
-			case []byte:
-				i, _ := strconv.Atoi(string(v))
-				count = i
-			case string:
-				i, _ := strconv.Atoi(v)
-				count = i
-			default:
-				i, _ := strconv.Atoi(fmt.Sprint(v))
-				count = i
-			}
-		}
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-	return count, nil
+func (r *queryResolver) SceneFacialCount(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (int, error) {
+	return r.sceneWeightedMarkerCountCustom(ctx, "facialTagId", studioID, depth, dateRange)
 }
 
 func (r *queryResolver) PerformerTagSceneCounts(ctx context.Context, performer_id string, tag_ids []string) ([]*PerformerTagSceneCount, error) {
@@ -3166,68 +2923,18 @@ GROUP BY sm.primary_tag_id`
 	return result, nil
 }
 
-// EstimatedLiters calculates the estimated liters produced from orgasms.
-// Formula: orgasm count Ã— 3ml (average volume per orgasm), converted to liters.
-func (r *queryResolver) EstimatedLiters(ctx context.Context) (float64, error) {
-	orgasmCount, err := r.SceneOrgasmCount(ctx, nil, nil)
-	if err != nil {
-		return 0, err
-	}
-	// 3ml per orgasm, convert to liters (divide by 1000)
-	return float64(orgasmCount) * 3.0 / 1000.0, nil
-}
-
-// TotalPenisMeters sums all performer penis lengths, using 17cm as default if missing.
-// Result is converted from cm to meters.
-func (r *queryResolver) TotalPenisMeters(ctx context.Context) (float64, error) {
-	var totalCm float64
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		db := manager.GetInstance().Database
-		// Sum penis lengths, using 17cm as default for performers without a value
-		query := "SELECT SUM(COALESCE(penis_length, 17)) FROM performers"
-		_, rows, err := db.QuerySQL(ctx, query, nil)
-		if err != nil {
-			return err
-		}
-		if len(rows) > 0 && len(rows[0]) > 0 && rows[0][0] != nil {
-			switch v := rows[0][0].(type) {
-			case float64:
-				totalCm = v
-			case int64:
-				totalCm = float64(v)
-			case int:
-				totalCm = float64(v)
-			case []byte:
-				f, _ := strconv.ParseFloat(string(v), 64)
-				totalCm = f
-			case string:
-				f, _ := strconv.ParseFloat(v, 64)
-				totalCm = f
-			default:
-				f, _ := strconv.ParseFloat(fmt.Sprint(v), 64)
-				totalCm = f
-			}
-		}
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-	// Convert cm to meters
-	return totalCm / 100.0, nil
-}
-
 // TotalOrgasmTime calculates the total time (in seconds) of all orgasm markers.
 // For each orgasm marker, the duration is (end_seconds - seconds), or 20 seconds if end_seconds is NULL.
 // Duration is multiplied by the number of top performers (or 1 if no tops assigned).
 // Uses roleTagIds.orgasmTagId from UI config and includes all subtags recursively.
-func (r *queryResolver) TotalOrgasmTime(ctx context.Context, studioID *string, depth *int) (float64, error) {
-	return r.totalWeightedMarkerTimeCustom(ctx, "orgasmTagId", studioID, depth)
+func (r *queryResolver) TotalOrgasmTime(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (float64, error) {
+	return r.totalWeightedMarkerTimeCustom(ctx, "orgasmTagId", studioID, depth, dateRange)
 }
 
 // TotalFacialTime calculates the total time (in seconds) of all facial markers.
 // For each facial marker, the duration is (end_seconds - seconds), or 20 seconds if end_seconds is NULL.
 // Duration is multiplied by the number of top performers (or 1 if no tops assigned).
 // Uses roleTagIds.facialTagId from UI config and includes all subtags recursively.
-func (r *queryResolver) TotalFacialTime(ctx context.Context, studioID *string, depth *int) (float64, error) {
-	return r.totalWeightedMarkerTimeCustom(ctx, "facialTagId", studioID, depth)
+func (r *queryResolver) TotalFacialTime(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (float64, error) {
+	return r.totalWeightedMarkerTimeCustom(ctx, "facialTagId", studioID, depth, dateRange)
 }

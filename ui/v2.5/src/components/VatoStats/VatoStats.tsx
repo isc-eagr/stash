@@ -1,6 +1,8 @@
-import React, { useMemo } from "react";
-import { gql, useQuery } from "@apollo/client";
-import { rankStatsItems } from "src/utils/statsRanking_custom";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  mostRecentOTieBreaker,
+  rankStatsItems,
+} from "src/utils/statsRanking_custom";
 import { Alert, Button, Form } from "react-bootstrap";
 import { Helmet } from "react-helmet";
 import { Link } from "react-router-dom";
@@ -8,7 +10,14 @@ import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { StatsPage } from "src/components/StatsPage_custom";
 import { StatsStudioSelector } from "src/components/StatsStudioSelector_custom";
 import { StatsFilterBar } from "src/components/StatsFilterBar_custom";
+import {
+  StatsBarChart,
+  type IStatsBarDatum,
+} from "src/components/StatsBarChart_custom"; // CUSTOM
+import { StatsTopCards } from "src/components/StatsTopCards_custom"; // CUSTOM
+import { StatsDateRangeFilter } from "src/components/StatsDateRangeFilter_custom"; // CUSTOM
 import { useStatsViewState } from "src/hooks/useStatsViewState_custom";
+import { useStatsDateRange } from "src/hooks/useStatsDateRange_custom"; // CUSTOM
 import { removeStatsFilter } from "src/utils/statsViewState_custom";
 import { useTitleProps } from "src/hooks/title";
 import TextUtils from "src/utils/text";
@@ -17,9 +26,15 @@ import { statsCountryName } from "src/utils/statsCountry_custom";
 import { VatoStatsRatingAdvisor } from "./VatoStatsRatingAdvisor_custom";
 import {
   getVatoStatsStudioScope,
-  getVatoStatsStudioSummary,
+  getVatoStatsSummary,
   type IVatoStatsStudioScope,
+  type IVatoStatsSummary,
 } from "./vatoStatsStudioScope_custom";
+import {
+  VATO_O_PER_SCENE_MIN_SCENES,
+  buildVatoAgeChartData,
+  vatoOPerScene,
+} from "./vatoStatsMetrics_custom";
 
 import {
   buildVatoRoleChartData,
@@ -32,13 +47,6 @@ import type { VatoStatsPerformer } from "./vatoStatsCompactData_custom";
 import "./VatoStats.scss";
 
 const UNKNOWN_KEY = "__unknown__";
-
-const VATO_SUMMARY_STATS = gql`
-  query VatoSummaryStats {
-    estimatedLiters
-    totalPenisMeters
-  }
-`;
 
 interface IVatoStatsDashboardProps {
   studioScope?: IVatoStatsStudioScope;
@@ -68,9 +76,8 @@ type ChartCategory =
 
 type PodiumMetric =
   | "scene_o_count"
-  | "scene_o_count_past_year"
+  | "o_per_scene"
   | "rating100"
-  | "rating100_past_year"
   | "scene_count"
   | "sex_top_count"
   | "sex_bottom_count"
@@ -99,28 +106,18 @@ type ChartDataResult = {
   unknownCount: number;
 };
 
-type VatoSummaryStatsData = {
-  estimatedLiters: number;
-  totalPenisMeters: number;
-};
-
 const metricOptions: Array<{
   key: PodiumMetric;
   label: string;
   valueLabel: string;
 }> = [
-  { key: "scene_o_count", label: "O Counts", valueLabel: "O's" },
+  { key: "scene_o_count", label: "O Count", valueLabel: "O's" },
   {
-    key: "scene_o_count_past_year",
-    label: "O Count (past year)",
-    valueLabel: "O's",
+    key: "o_per_scene",
+    label: `O's per Scene (${VATO_O_PER_SCENE_MIN_SCENES}+ scenes)`,
+    valueLabel: "O's / scene",
   },
   { key: "rating100", label: "Rating", valueLabel: "rating" },
-  {
-    key: "rating100_past_year",
-    label: "Rating (past year)",
-    valueLabel: "rating",
-  },
   { key: "scene_count", label: "Total Scenes", valueLabel: "scenes" },
   { key: "sex_top_count", label: "Sex Top Scenes", valueLabel: "top scenes" },
   {
@@ -156,7 +153,7 @@ const chartDefinitions: Array<{ key: ChartCategory; label: string }> = [
   { key: "role_strictness", label: "By Role Strictness" },
   { key: "role", label: "By Role" },
   { key: "ethnicity", label: "Ethnicity" },
-  { key: "age", label: "Scene Age" },
+  { key: "age", label: "Age at Scene" },
   { key: "rating", label: "Rating" },
   { key: "metallic_rating", label: "Metallic Rating" },
   { key: "height", label: "Height" },
@@ -464,39 +461,6 @@ function circumcisedLabel(value: string) {
   return titleCase(value);
 }
 
-function podiumMetricLabel(metric: PodiumMetric) {
-  switch (metric) {
-    case "scene_o_count":
-      return "O-Count";
-    case "scene_o_count_past_year":
-      return "O-Count (past year)";
-    case "rating100":
-      return "Rating";
-    case "rating100_past_year":
-      return "Rating (past year)";
-    case "scene_count":
-      return "Total Scenes";
-    case "sex_top_count":
-      return "Sex Top Scenes";
-    case "sex_bottom_count":
-      return "Sex Bottom Scenes";
-    case "oral_top_count":
-      return "Oral Top Scenes";
-    case "oral_bottom_count":
-      return "Oral Bottom Scenes";
-    case "facial_given_count":
-      return "Facials Given";
-    case "facial_received_count":
-      return "Facials Received";
-    case "most_recent_o_date":
-      return "Most Recent O";
-    case "career_span_days":
-      return "Longest Career Span";
-    default:
-      return metricOptionLabel(metric);
-  }
-}
-
 function vatoStatsDescriptor(filters: ChartFilter[], metric: PodiumMetric) {
   const filterOrder: ChartCategory[] = [
     "circumcised",
@@ -556,7 +520,7 @@ function vatoStatsDescriptor(filters: ChartFilter[], metric: PodiumMetric) {
 
   const adjectiveText = adjectives.length > 0 ? `${adjectives.join(" ")} ` : "";
   const qualifierText = qualifiers.length > 0 ? ` ${qualifiers.join(" ")}` : "";
-  return `Best ${adjectiveText}pitos${qualifierText} (By ${podiumMetricLabel(
+  return `Best ${adjectiveText}pitos${qualifierText} (By ${metricOptionLabel(
     metric
   )})`;
 }
@@ -706,8 +670,8 @@ function metricValue(performer: VatoStatsPerformer, metric: PodiumMetric) {
     return Number.isFinite(timestamp) ? timestamp : 0;
   }
 
-  if (metric === "rating100_past_year") {
-    return performer.rating100 ?? 0;
+  if (metric === "o_per_scene") {
+    return vatoOPerScene(performer) ?? 0;
   }
 
   const value = performer[metric];
@@ -718,7 +682,7 @@ function metricIncludesPerformer(
   performer: VatoStatsPerformer,
   metric: PodiumMetric
 ) {
-  return metric !== "rating100_past_year" || performer.is_past_year;
+  return metric !== "o_per_scene" || vatoOPerScene(performer) !== undefined;
 }
 
 function formatCareerSpan(days: number) {
@@ -735,15 +699,19 @@ function formatMetricValue(
   metric: PodiumMetric
 ) {
   if (metric === "most_recent_o_date") {
-    return cleanValue(performer.most_recent_o_date) ?? "Unknown";
+    // Stored as a UTC timestamp so ties can break on time; show the local day.
+    const timestamp = mostRecentOTieBreaker(performer.most_recent_o_date);
+    return timestamp > 0 ? new Date(timestamp).toLocaleDateString() : "Unknown";
   }
   if (metric === "career_span_days") {
     return formatCareerSpan(performer.career_span_days);
   }
 
   const value = metricValue(performer, metric);
-  if (metric === "rating100" || metric === "rating100_past_year")
-    return `${value}/100`;
+  if (metric === "rating100") return `${value}/100`;
+  if (metric === "o_per_scene") {
+    return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }
   return value.toLocaleString();
 }
 
@@ -784,26 +752,11 @@ function buildChartData(
   if (category === "role" || category === "role_strictness") {
     return buildVatoRoleChartData(performers, category);
   }
+  if (category === "age") return buildVatoAgeChartData(performers);
   const buckets = new Map<string, ChartDatum>();
   let unknownCount = 0;
 
   performers.forEach((performer) => {
-    if (category === "age") {
-      performer.age_counts.forEach((ageCount) => {
-        addDatum(
-          buckets,
-          ageCount.age_range,
-          ageCount.age_range,
-          ageCount.count,
-          numericSortFromLabel(ageCount.age_range)
-        );
-      });
-      if (performer.unknown_scene_age_count > 0) {
-        unknownCount += performer.unknown_scene_age_count;
-      }
-      return;
-    }
-
     const value = categoryValue(performer, category);
     if (!value) {
       if (!excludeZeroCountFromChart(category)) unknownCount += 1;
@@ -845,141 +798,61 @@ function buildChartData(
   return { data, unknownCount };
 }
 
-const VatoStatsPodium: React.FC<{
-  performers: VatoStatsPerformer[];
-  metric: PodiumMetric;
-}> = ({ performers, metric }) => {
-  const metricOption = metricOptions.find((option) => option.key === metric);
-  const topPerformers = performers
-    .filter((performer) => metricIncludesPerformer(performer, metric))
-    .sort((a, b) => {
-      const valueDiff = metricValue(b, metric) - metricValue(a, metric);
-      return valueDiff || a.name.localeCompare(b.name);
-    })
-    .slice(0, 3);
-  const podiumSlots: Array<VatoStatsPerformer | undefined> = [
-    topPerformers[0],
-    topPerformers[1],
-    topPerformers[2],
-  ];
-  const ranks = [1, 2, 3] as const;
+const VATO_UNIT: [string, string] = ["vato", "vatos"];
+const VATO_LIST_PAGE_SIZE = 60;
 
-  return (
-    <div className="vatostats-podium" aria-label="Top vatos">
-      {podiumSlots.map((performer, index) => {
-        const rank = ranks[index];
-        const rankClass =
-          rank === 1 ? "gold" : rank === 2 ? "silver" : "bronze";
-
-        return (
-          <div
-            className={`vatostats-podium-card ${rankClass}`}
-            key={performer?.id ?? `empty-${rank}`}
-          >
-            {performer ? (
-              <>
-                <div className="vatostats-podium-rank">{rank}</div>
-                {performer.image_path ? (
-                  <img
-                    alt={performer.name}
-                    className="vatostats-podium-image"
-                    loading="lazy"
-                    src={performer.image_path}
-                  />
-                ) : (
-                  <div className="vatostats-podium-image empty" />
-                )}
-                <Link
-                  className="vatostats-podium-name"
-                  to={`/performers/${performer.id}`}
-                >
-                  {performer.name}
-                </Link>
-                <div className="vatostats-podium-value">
-                  {formatMetricValue(performer, metric)}{" "}
-                  {metricOption?.valueLabel}
-                </div>
-              </>
-            ) : (
-              <div className="vatostats-podium-empty">No vato</div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
+// Categories where one vato can land in several bars.
+const overlappingChartNotes: Partial<Record<ChartCategory, string>> = {
+  role: "A vato counts once for each role he has done, so bars can overlap.",
+  age: "A vato counts once for each age he did a scene at, so bars can overlap.",
 };
+
+// Numeric distributions whose natural order is not by count.
+const sortableChartCategories: ChartCategory[] = [
+  "age",
+  "rating",
+  "height",
+  "penis",
+  "scene_o_count",
+  "scene_count",
+  "sex_top_count",
+  "sex_bottom_count",
+  "oral_top_count",
+  "oral_bottom_count",
+  "facial_given_count",
+  "facial_received_count",
+];
 
 const VatoStatsChart: React.FC<{
   category: ChartCategory;
   data: ChartDatum[];
   label: string;
+  total: number;
   unknownCount: number;
   onSelect: (filter: ChartFilter) => void;
-}> = ({ category, data, label, unknownCount, onSelect }) => {
-  const max = Math.max(...data.map((datum) => datum.count), 1);
+}> = ({ category, data, label, total, unknownCount, onSelect }) => {
+  const bars: IStatsBarDatum[] = data.map((datum) => ({
+    key: datum.key,
+    label: datum.label,
+    count: datum.count,
+    onSelect: () =>
+      onSelect({ category, label: datum.label, value: datum.key }),
+  }));
 
   return (
-    <section className="vatostats-chart-panel">
-      <div className="vatostats-chart-heading">
-        <h2>{label}</h2>
-        {unknownCount > 0 && (
-          <button
-            className="vatostats-unknown-count"
-            aria-label={`Filter by ${label}: Unknown`}
-            title={`Filter by ${label}: Unknown`}
-            onClick={() =>
-              onSelect({ category, label: "Unknown", value: UNKNOWN_KEY })
-            }
-            type="button"
-          >
-            Unknown: {unknownCount.toLocaleString()}
-          </button>
-        )}
-      </div>
-      {data.length === 0 ? (
-        <div className="vatostats-empty">
-          {unknownCount > 0 ? "Only Unknown data" : "No data"}
-        </div>
-      ) : (
-        <div className="vatostats-bars">
-          {data.map((datum) => (
-            <button
-              className="vatostats-bar-cell"
-              key={datum.key}
-              onClick={() =>
-                onSelect({ category, label: datum.label, value: datum.key })
-              }
-              type="button"
-              aria-label={`Filter by ${label}: ${
-                datum.label
-              } (${datum.count.toLocaleString()} vatos)`}
-              title={`Filter by ${label}: ${datum.label}`}
-            >
-              <span className="vatostats-bar-count">
-                {datum.count.toLocaleString()}
-              </span>
-              <span className="vatostats-bar-track">
-                <span
-                  className="vatostats-bar-fill"
-                  style={{
-                    minHeight: datum.count === 0 ? 0 : undefined,
-                    height: `${
-                      datum.count === 0
-                        ? 0
-                        : Math.max((datum.count / max) * 100, 6)
-                    }%`,
-                  }}
-                />
-              </span>
-              <span className="vatostats-bar-label" title={datum.label}>
-                {datum.label}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-    </section>
+    <StatsBarChart
+      title={label}
+      data={bars}
+      unit={VATO_UNIT}
+      total={total}
+      totalNote={overlappingChartNotes[category]}
+      sortable={sortableChartCategories.includes(category)}
+      unknown={{
+        count: unknownCount,
+        onSelect: () =>
+          onSelect({ category, label: "Unknown", value: UNKNOWN_KEY }),
+      }}
+    />
   );
 };
 
@@ -1011,7 +884,7 @@ const VatoStatsFilterBar: React.FC<{
 };
 
 const VatoStatsSummary: React.FC<{
-  summary?: VatoSummaryStatsData;
+  summary: IVatoStatsSummary;
   totalNuts: number;
   totalNutTime: number;
   totalVatos: number;
@@ -1022,8 +895,8 @@ const VatoStatsSummary: React.FC<{
       value: totalVatos.toLocaleString(),
     },
     {
-      label: "Meters Of Pito",
-      value: formatDecimal(summary?.totalPenisMeters, " m") ?? "—",
+      label: "Meters of Pito",
+      value: formatDecimal(summary.totalPenisMeters, " m") ?? "—",
     },
     {
       label: "Total Nuts",
@@ -1035,7 +908,7 @@ const VatoStatsSummary: React.FC<{
     },
     {
       label: "Estimated Liters",
-      value: formatDecimal(summary?.estimatedLiters, " L") ?? "—",
+      value: formatDecimal(summary.estimatedLiters, " L") ?? "—",
     },
   ];
 
@@ -1047,6 +920,67 @@ const VatoStatsSummary: React.FC<{
           <div className="vatostats-summary-label">{card.label}</div>
         </div>
       ))}
+    </section>
+  );
+};
+
+const VatoStatsPerformerList: React.FC<{
+  metric: PodiumMetric;
+  performers: VatoStatsPerformer[];
+}> = ({ metric, performers }) => {
+  const [visibleCount, setVisibleCount] = useState(VATO_LIST_PAGE_SIZE);
+
+  useEffect(() => {
+    setVisibleCount(VATO_LIST_PAGE_SIZE);
+  }, [metric, performers]);
+
+  const visiblePerformers = performers.slice(0, visibleCount);
+  const hiddenCount = Math.max(performers.length - visiblePerformers.length, 0);
+
+  return (
+    <section className="vatostats-performer-list" aria-label="Filtered vatos">
+      <div className="vatostats-performer-list-heading">
+        Sorted by {metricOptionLabel(metric)} - Showing{" "}
+        {visiblePerformers.length.toLocaleString()} /{" "}
+        {performers.length.toLocaleString()}
+      </div>
+      {visiblePerformers.map((performer) => (
+        <Link
+          className="vatostats-performer-list-item"
+          key={performer.id}
+          to={`/performers/${performer.id}`}
+        >
+          {performer.image_path ? (
+            <img
+              alt=""
+              className="vatostats-performer-list-image"
+              loading="lazy"
+              src={performer.image_path}
+            />
+          ) : (
+            <span className="vatostats-performer-list-image empty" />
+          )}
+          <span className="vatostats-performer-list-name">
+            {performer.name}
+          </span>
+          <span className="vatostats-performer-list-meta">
+            {formatMetricValue(performer, metric)}
+          </span>
+        </Link>
+      ))}
+      {hiddenCount > 0 && (
+        <div className="vatostats-performer-list-more">
+          <Button
+            onClick={() =>
+              setVisibleCount((current) => current + VATO_LIST_PAGE_SIZE)
+            }
+            size="sm"
+            variant="secondary"
+          >
+            Show more
+          </Button>
+        </div>
+      )}
     </section>
   );
 };
@@ -1068,6 +1002,11 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
     filters,
     showList: showPerformerList,
   } = view;
+  const {
+    range: dateRange,
+    variable: dateRangeVariable,
+    setRange: setDateRange,
+  } = useStatsDateRange(); // CUSTOM
   const selectedStudioScope = useMemo<IVatoStatsStudioScope | undefined>(
     () =>
       selectedStudio
@@ -1077,29 +1016,17 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
   );
   const studioScope = fixedStudioScope ?? selectedStudioScope;
   const pageTitle = fixedStudioScope
-    ? `${fixedStudioScope.name} VatoStats`
-    : "VatoStats";
+    ? `${fixedStudioScope.name} Vato Stats`
+    : "Vato Stats";
   const titleProps = useTitleProps(pageTitle);
   const { data, error, loading } = useVatoStatsCompactQuery(
     studioScope?.id,
-    studioScope?.depth
-  );
-  const deferAuxiliaryQueries = loading || !!error;
-  const deferGlobalAuxiliaryQueries = deferAuxiliaryQueries || !!studioScope;
-  const { data: summaryData } = useQuery<VatoSummaryStatsData>(
-    VATO_SUMMARY_STATS,
-    { skip: deferGlobalAuxiliaryQueries }
+    studioScope?.depth,
+    dateRangeVariable
   );
   const performers = useMemo(
     () => data?.vatoStatsPerformers ?? [],
     [data?.vatoStatsPerformers]
-  );
-  const studioSummary = useMemo(
-    () =>
-      studioScope
-        ? getVatoStatsStudioSummary(performers, data?.sceneOrgasmCount ?? 0)
-        : undefined,
-    [data?.sceneOrgasmCount, performers, studioScope]
   );
   const filteredPerformers = useMemo(
     () =>
@@ -1107,6 +1034,12 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
         filters.every((filter) => performerMatchesFilter(performer, filter))
       ),
     [filters, performers]
+  );
+  // CUSTOM: vato-derived totals follow the chart filters; nut totals follow
+  // the studio and date range.
+  const summary = useMemo(
+    () => getVatoStatsSummary(filteredPerformers, data?.sceneOrgasmCount ?? 0),
+    [data?.sceneOrgasmCount, filteredPerformers]
   );
   const chartData = useMemo(
     () =>
@@ -1125,7 +1058,11 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
           metricIncludesPerformer(performer, metric)
         ),
         (performer) => metricValue(performer, metric),
-        (performer) => performer.name
+        (performer) => performer.name,
+        // CUSTOM: O Count ties go to the vato who reached it most recently.
+        metric === "scene_o_count"
+          ? (performer) => mostRecentOTieBreaker(performer.most_recent_o_date)
+          : undefined
       ),
     [filteredPerformers, metric]
   );
@@ -1148,6 +1085,24 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
       return [...current, filter];
     });
   }
+
+  const headerControls = (
+    <div className="stats-header-controls">
+      <StatsDateRangeFilter range={dateRange} onChange={setDateRange} />
+      {!fixedStudioScope && (
+        <StatsStudioSelector
+          includeChildStudios={includeChildStudios}
+          onIncludeChildStudiosChange={(include) => {
+            updateView({ includeChildStudios: include, filters: [] });
+          }}
+          onStudioChange={(studio) => {
+            updateView({ studio, filters: [] });
+          }}
+          studio={selectedStudio}
+        />
+      )}
+    </div>
+  );
 
   if (loading)
     return (
@@ -1174,24 +1129,15 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
       </>
     );
 
+  const hasScope = !!studioScope || !!dateRangeVariable;
+
   return (
     <StatsPage className="vatostats-page" showNavigation={!fixedStudioScope}>
       <Helmet {...titleProps} />
 
       <header className="vatostats-header">
         <h1>{pageTitle}</h1>
-        {!fixedStudioScope && (
-          <StatsStudioSelector
-            includeChildStudios={includeChildStudios}
-            onIncludeChildStudiosChange={(include) => {
-              updateView({ includeChildStudios: include, filters: [] });
-            }}
-            onStudioChange={(studio) => {
-              updateView({ studio, filters: [] });
-            }}
-            studio={selectedStudio}
-          />
-        )}
+        {headerControls}
       </header>
 
       <VatoStatsFilterBar
@@ -1209,39 +1155,57 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
       ) : (
         <>
           <p className="stats-interaction-help">
-            {studioScope ? "Studio" : "Library"} totals at a glance.
+            {hasScope ? "Scoped" : "Library"} totals at a glance.
           </p>
           <VatoStatsSummary
-            summary={studioSummary ?? summaryData}
+            summary={summary}
             totalNuts={data?.sceneOrgasmCount ?? 0}
             totalNutTime={data?.totalOrgasmTime ?? 0}
-            totalVatos={performers.length}
+            totalVatos={filteredPerformers.length}
           />
-          <div className="vatostats-podium-toolbar">
-            <div className="vatostats-podium-descriptor">
-              {podiumDescriptor}
-            </div>
-            <Form.Group
-              className="vatostats-metric-control"
-              controlId="vatoMetric"
-            >
-              <Form.Label>Podium metric</Form.Label>
-              <Form.Control
-                as="select"
-                onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>
-                  setMetric(event.target.value as PodiumMetric)
-                }
-                value={metric}
+          {filters.length > 0 && (
+            <p className="stats-scope-note">
+              Nut totals follow the studio and dates, not chart filters.
+            </p>
+          )}
+          {/* CUSTOM: ranked vato cards replace the three-slot podium. */}
+          <StatsTopCards
+            title={podiumDescriptor}
+            variant="vato"
+            emptyLabel="No vatos match this ranking."
+            items={filteredList.map((performer) => ({
+              key: performer.id,
+              title: performer.name,
+              imagePath: performer.image_path,
+              rating100: performer.rating100,
+              to: `/performers/${performer.id}`,
+              value: `${formatMetricValue(performer, metric)} ${
+                metricOptions.find((option) => option.key === metric)
+                  ?.valueLabel ?? ""
+              }`.trim(),
+            }))}
+            actions={
+              <Form.Group
+                className="vatostats-metric-control"
+                controlId="vatoMetric"
               >
-                {metricOptions.map((option) => (
-                  <option key={option.key} value={option.key}>
-                    {option.label}
-                  </option>
-                ))}
-              </Form.Control>
-            </Form.Group>
-          </div>
-          <VatoStatsPodium performers={filteredPerformers} metric={metric} />
+                <Form.Label>Rank by</Form.Label>
+                <Form.Control
+                  as="select"
+                  onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>
+                    setMetric(event.target.value as PodiumMetric)
+                  }
+                  value={metric}
+                >
+                  {metricOptions.map((option) => (
+                    <option key={option.key} value={option.key}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Form.Control>
+              </Form.Group>
+            }
+          />
           <div className="vatostats-list-toggle">
             <Button
               onClick={() => setShowPerformerList((current) => !current)}
@@ -1252,45 +1216,17 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
             </Button>
           </div>
           {showPerformerList && (
-            <section
-              className="vatostats-performer-list"
-              aria-label="Filtered vatos"
-            >
-              <div className="vatostats-performer-list-heading">
-                Sorted by {metricOptionLabel(metric)}
-              </div>
-              {filteredList.map((performer) => (
-                <Link
-                  className="vatostats-performer-list-item"
-                  key={performer.id}
-                  to={`/performers/${performer.id}`}
-                >
-                  {performer.image_path ? (
-                    <img
-                      alt=""
-                      className="vatostats-performer-list-image"
-                      loading="lazy"
-                      src={performer.image_path}
-                    />
-                  ) : (
-                    <span className="vatostats-performer-list-image empty" />
-                  )}
-                  <span className="vatostats-performer-list-name">
-                    {performer.name}
-                  </span>
-                  <span className="vatostats-performer-list-meta">
-                    {formatMetricValue(performer, metric)}
-                  </span>
-                </Link>
-              ))}
-            </section>
+            <VatoStatsPerformerList metric={metric} performers={filteredList} />
           )}
-          <VatoStatsRatingAdvisor studioScope={studioScope} />
+          <VatoStatsRatingAdvisor
+            dateRange={dateRangeVariable}
+            studioScope={studioScope}
+          />
           <p className="stats-interaction-help">
             Select a bar or Unknown badge to filter the charts and rankings on
             this page.
           </p>
-          <div className="vatostats-chart-grid">
+          <div className="stats-chart-grid">
             {chartDefinitions
               .filter(
                 (definition) => !compactChartCategories.includes(definition.key)
@@ -1302,12 +1238,13 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
                   key={definition.key}
                   label={definition.label}
                   onSelect={addFilter}
+                  total={filteredPerformers.length}
                   unknownCount={chartData[definition.key].unknownCount}
                 />
               ))}
           </div>
           {/* CUSTOM: Keep fixed, low-cardinality charts in a space-efficient grid. */}
-          <div className="vatostats-chart-grid vatostats-chart-grid--compact">
+          <div className="stats-chart-grid stats-chart-grid--compact">
             {chartDefinitions
               .filter((definition) =>
                 compactChartCategories.includes(definition.key)
@@ -1319,6 +1256,7 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
                   key={definition.key}
                   label={definition.label}
                   onSelect={addFilter}
+                  total={filteredPerformers.length}
                   unknownCount={chartData[definition.key].unknownCount}
                 />
               ))}

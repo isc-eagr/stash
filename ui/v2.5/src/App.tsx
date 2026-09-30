@@ -319,6 +319,13 @@ export const App: React.FC = () => {
             />{" "}
             {/* CUSTOM */}
             <Route
+              path="/ostats/rating/:ratingBucket"
+              component={OStats}
+            />{" "}
+            {/* CUSTOM */}
+            <Route path="/ostats/tier/:tier" component={OStats} />{" "}
+            {/* CUSTOM */}
+            <Route
               path="/ostats/unknown/:unknownCategory"
               component={OStats}
             />{" "}

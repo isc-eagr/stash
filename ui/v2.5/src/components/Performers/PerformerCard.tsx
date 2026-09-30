@@ -621,6 +621,8 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
               : undefined
           } // CUSTOM
           activeSortBy={activeSortBy}
+          // Cards outside a scene show versatility strips instead of role columns.
+          versatilityCard={!sceneId}
         />
         {/* CUSTOM: end */}
       </>

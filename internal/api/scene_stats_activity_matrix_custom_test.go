@@ -83,7 +83,7 @@ func TestSceneStatsActivityMatrixDescendantsCustom(t *testing.T) {
 
 func TestSceneStatsActivityMatrixPerformerScopeCustom(t *testing.T) {
 	performerID := "47"
-	scope, args, markerPerformerID, err := sceneStatsActivityMatrixScopeCustom(nil, nil, &performerID)
+	scope, args, markerPerformerID, err := sceneStatsActivityMatrixScopeCustom(nil, nil, &performerID, nil)
 	require.NoError(t, err)
 	require.NotNil(t, markerPerformerID)
 	assert.Equal(t, 47, *markerPerformerID)
@@ -97,6 +97,6 @@ func TestSceneStatsActivityMatrixPerformerScopeCustom(t *testing.T) {
 func TestSceneStatsActivityMatrixPerformerScopeCustomRejectsMixedScope(t *testing.T) {
 	studioID := "6"
 	performerID := "47"
-	_, _, _, err := sceneStatsActivityMatrixScopeCustom(&studioID, nil, &performerID)
+	_, _, _, err := sceneStatsActivityMatrixScopeCustom(&studioID, nil, &performerID, nil)
 	assert.EqualError(t, err, "performer_id cannot be combined with studio_id")
 }

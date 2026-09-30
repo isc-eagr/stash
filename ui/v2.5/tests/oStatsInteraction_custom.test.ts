@@ -5,38 +5,55 @@ const source = readFileSync(
   new URL("../src/components/OStats/OStats.tsx", import.meta.url),
   "utf8"
 );
+const chartSource = readFileSync(
+  new URL("../src/components/StatsBarChart_custom.tsx", import.meta.url),
+  "utf8"
+);
 
+// Shared chart: link bars keep native link semantics and descriptive names.
 assert.match(
-  source,
-  /<Link\s+className="ostats-bar-cell"[\s\S]*?to=\{addOStatsStudioScopeToPath\(item\.path, studioScope\)\}[\s\S]*?aria-label=/,
+  chartSource,
+  /<Link\s+className="stats-bar-chart-cell"[\s\S]*?to=\{datum\.to\}[\s\S]*?aria-label=\{label\}/,
   "chart destinations must be keyboard-accessible links with descriptive names"
 );
 assert.doesNotMatch(
-  source,
+  source + chartSource,
   /role="listitem"/,
   "chart controls must retain their native interactive semantics"
 );
 
-const unknownLinks = [
-  ...source.matchAll(/<Link\s+className="ostats-unknown-count"([^>]+)>/g),
-];
-assert.equal(
-  unknownLinks.length,
-  7,
+// Every event link keeps the studio scope and the date range.
+assert.match(
+  source,
+  /const withScope = \(path: string\) =>\s*addStatsDateRangeToPath\(\s*addOStatsStudioScopeToPath\(path, studioScope\),\s*location\.search\s*\)/,
+  "O Stats links should carry the studio scope and date range"
+);
+assert.match(
+  source,
+  /to: withScope\(datum\.path\)/,
+  "chart bars should navigate through the scoped path helper"
+);
+
+const unknownDestinations = [
+  ...source.matchAll(
+    /to: withScope\(\s*[`"]\/ostats\/(unknown\/[a-z-]+|ethnicity\/Unknown|country\/Unknown|rating\/\$\{O_STATS_UNKNOWN_BUCKET\}|tier\/\$\{O_STATS_UNKNOWN_BUCKET\})[`"]\s*\)/g
+  ),
+].map((match) => match[1]);
+assert.deepEqual(
+  unknownDestinations.sort(),
+  [
+    "country/Unknown",
+    "ethnicity/Unknown",
+    "rating/${O_STATS_UNKNOWN_BUCKET}",
+    "tier/${O_STATS_UNKNOWN_BUCKET}",
+    "unknown/date",
+    "unknown/marker-tag",
+    "unknown/performer-age",
+    "unknown/release-year",
+    "unknown/studio",
+  ].sort(),
   "all Unknown groups should open event views"
 );
-for (const [, attributes] of unknownLinks) {
-  assert.match(
-    attributes,
-    /to=\{addOStatsStudioScopeToPath\(\s*"\/ostats\//,
-    "Unknown groups need a destination"
-  );
-  assert.match(
-    attributes,
-    /title="View O events with an unknown [^"]+"/,
-    "Unknown links should explain which missing field they represent"
-  );
-}
 
 assert.match(
   source,
@@ -49,18 +66,26 @@ assert.doesNotMatch(
   "return navigation should name its destination instead of implying browser history"
 );
 
+// Embedded Studio O Stats omits the global records and By Studio chart.
 assert.match(
   source,
-  /MOST_OS_IN_DAY,[\s\S]*?skip: isDetailPage \|\| embedded/,
+  /mostOsInDay\(\$\{SCOPE_ARGUMENTS\}\) @include\(if: \$includeGlobal\)/,
   "embedded Studio O Stats should not query the global daily record"
 );
 assert.match(
   source,
-  /LONGEST_PERIOD_WITHOUT_O,[\s\S]*?skip: isDetailPage \|\| embedded/,
+  /longestPeriodWithoutO\(\$\{SCOPE_ARGUMENTS\}\) @include\(if: \$includeGlobal\)/,
   "embedded Studio O Stats should not query the global dry-spell record"
 );
 assert.match(
   source,
-  /!embedded && !error && !loading && !showTimeline && !selectedYear && \([\s\S]*?<h2>By Studio<\/h2>/,
+  /includeGlobal: !embedded/,
+  "records are included only outside the embedded Studio view"
+);
+assert.match(
+  source,
+  /\{!embedded && overview\.byStudio && \([\s\S]*?title="By Studio"/,
   "the By Studio breakdown should remain global-only"
 );
+
+console.log("O Stats interaction tests passed.");

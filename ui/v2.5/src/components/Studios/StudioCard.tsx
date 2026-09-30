@@ -322,7 +322,12 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       return (
         <StudioRatingAdvisorPopover
           studioId={studio.id}
-          sections={["solo_scenes", "sex_scenes", "group_scenes"]}
+          sections={[
+            "solo_scenes",
+            "sex_scenes",
+            "threesome_scenes",
+            "group_scenes",
+          ]}
         >
           {button}
         </StudioRatingAdvisorPopover>

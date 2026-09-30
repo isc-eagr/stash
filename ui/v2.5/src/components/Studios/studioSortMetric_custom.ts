@@ -274,6 +274,11 @@ const definitions: Record<
     format: "rating",
     value: activeBackendValue,
   },
+  average_threesome_scene_rating: {
+    messageID: "average_threesome_scene_rating",
+    format: "rating",
+    value: activeBackendValue,
+  },
   average_group_scene_rating: {
     messageID: "average_group_scene_rating",
     format: "rating",

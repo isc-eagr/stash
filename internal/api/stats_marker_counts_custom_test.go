@@ -35,7 +35,7 @@ func TestStatsWeightedMarkerCountQueryCustomCountsTopsPerMarker(t *testing.T) {
 	}
 
 	var count int
-	sceneScope, _ := activityStatsSceneScopeCustom(nil, nil)
+	sceneScope, _ := activityStatsSceneScopeCustom(nil, nil, nil)
 	query := statsWeightedMarkerCountScopedQueryCustom(sceneScope)
 	if err := db.QueryRow(query, 1, 9).Scan(&count); err != nil {
 		t.Fatal(err)
@@ -81,7 +81,7 @@ func TestStatsWeightedMarkerCountScopedQueryCustomFiltersStudioTree(t *testing.T
 		{name: "includes child studios", depth: -1, want: 2},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			scope, scopeArgs := activityStatsSceneScopeCustom(&studioID, &test.depth)
+			scope, scopeArgs := activityStatsSceneScopeCustom(&studioID, &test.depth, nil)
 			query := statsWeightedMarkerCountScopedQueryCustom(scope)
 			args := append(scopeArgs, 1, 9)
 			var count int

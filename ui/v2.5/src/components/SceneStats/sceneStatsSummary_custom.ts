@@ -7,6 +7,7 @@ export type SceneStatsMarkerLinkTag = {
 export type SceneStatsVatoCountBuckets = {
   one: number;
   standard: number;
+  threesome: number;
   group: number;
 };
 
@@ -16,12 +17,12 @@ export function sceneStatsVatoCountBuckets(
   return performerCounts.reduce<SceneStatsVatoCountBuckets>(
     (counts, performerCount) => {
       if (performerCount === 1) counts.one += 1;
-      else if (performerCount === 2 || performerCount === 3)
-        counts.standard += 1;
+      else if (performerCount === 2) counts.standard += 1;
+      else if (performerCount === 3) counts.threesome += 1;
       else if (performerCount >= 4) counts.group += 1;
       return counts;
     },
-    { one: 0, standard: 0, group: 0 }
+    { one: 0, standard: 0, threesome: 0, group: 0 }
   );
 }
 
@@ -48,12 +49,17 @@ export function makeSceneStatsMarkerTagURL(
   )}&sortby=title`;
 }
 
-export type SceneStatsVatoCountBucket = "one" | "standard" | "group";
+export type SceneStatsVatoCountBucket =
+  | "one"
+  | "standard"
+  | "threesome"
+  | "group";
 
 export function makeSceneStatsVatoCountURL(bucket: SceneStatsVatoCountBucket) {
   const rangeByBucket = {
     one: { modifier: "EQUALS", value: { value: 1 } },
-    standard: { modifier: "BETWEEN", value: { value: 2, value2: 3 } },
+    standard: { modifier: "EQUALS", value: { value: 2 } },
+    threesome: { modifier: "EQUALS", value: { value: 3 } },
     group: { modifier: "GREATER_THAN", value: { value: 3 } },
   } as const;
   const criterionData = {

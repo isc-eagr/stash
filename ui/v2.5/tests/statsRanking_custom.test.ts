@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { rankStatsItems } from "../src/utils/statsRanking_custom.ts";
+import {
+  mostRecentOTieBreaker,
+  rankStatsItems,
+} from "../src/utils/statsRanking_custom.ts";
 
 test("dashboard ranking preserves metric order and locale-aware stable ties", () => {
   const rows = [
@@ -43,4 +46,23 @@ test("dashboard ranking handles empty input without computing metrics", () => {
     ),
     []
   );
+});
+
+test("O Count ties go to whoever reached the count most recently", () => {
+  const rows = [
+    { name: "Alpha", o: 3, last: "2025-01-01T10:00:00Z" },
+    { name: "Bravo", o: 3, last: "2025-06-01T10:00:00Z" },
+    { name: "Charlie", o: 5, last: "2024-01-01T10:00:00Z" },
+    { name: "Delta", o: 3, last: null },
+  ];
+  assert.deepEqual(
+    rankStatsItems(
+      rows,
+      (row) => row.o,
+      (row) => row.name,
+      (row) => mostRecentOTieBreaker(row.last)
+    ).map((row) => row.name),
+    ["Charlie", "Bravo", "Alpha", "Delta"]
+  );
+  assert.equal(mostRecentOTieBreaker("not a date"), 0);
 });

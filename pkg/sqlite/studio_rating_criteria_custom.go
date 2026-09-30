@@ -36,16 +36,18 @@ type studioRatingAdvisorAverageSortCustom string
 const (
 	studioRatingAdvisorSoloAverageCustom      studioRatingAdvisorAverageSortCustom = "solo"
 	studioRatingAdvisorStandardAverageCustom  studioRatingAdvisorAverageSortCustom = "standard"
+	studioRatingAdvisorThreesomeAverageCustom studioRatingAdvisorAverageSortCustom = "threesome"
 	studioRatingAdvisorGroupAverageCustom     studioRatingAdvisorAverageSortCustom = "group"
 	studioRatingAdvisorPerformerAverageCustom studioRatingAdvisorAverageSortCustom = "performer"
 	// Overall matches the Rating Advisor's overall scene average: scenes in any
-	// of the solo, standard, or group sections.
+	// of the solo, standard, threesome, or group sections.
 	studioRatingAdvisorOverallAverageCustom studioRatingAdvisorAverageSortCustom = "overall"
 )
 
 var studioRatingAdvisorAverageSortKeysCustom = map[string]studioRatingAdvisorAverageSortCustom{
 	"average_solo_scene_rating":     studioRatingAdvisorSoloAverageCustom,
-	"average_standard_scene_rating": studioRatingAdvisorStandardAverageCustom,
+	"average_standard_scene_rating":  studioRatingAdvisorStandardAverageCustom,
+	"average_threesome_scene_rating": studioRatingAdvisorThreesomeAverageCustom,
 	"average_group_scene_rating":    studioRatingAdvisorGroupAverageCustom,
 	"average_performer_rating":      studioRatingAdvisorPerformerAverageCustom,
 	"average_overall_scene_rating":  studioRatingAdvisorOverallAverageCustom,
@@ -189,12 +191,17 @@ func studioRatingAdvisorSceneConditionCustom(category studioRatingAdvisorAverage
 			AND studio_rating_score.entity_id = studio_rating_scene.id
 			AND studio_rating_score.key IN ('soloPerformerAppeal', 'soloPerformance', 'soloUsability')
 	)`
-	case studioRatingAdvisorStandardAverageCustom:
-		return `(
+	// Standard (2 vatos) and Threesome (3 vatos) share the same rubric.
+	case studioRatingAdvisorStandardAverageCustom, studioRatingAdvisorThreesomeAverageCustom:
+		performerCount := 2
+		if category == studioRatingAdvisorThreesomeAverageCustom {
+			performerCount = 3
+		}
+		return fmt.Sprintf(`(
 		SELECT COUNT(DISTINCT studio_rating_ps.performer_id)
 		FROM performers_scenes studio_rating_ps
 		WHERE studio_rating_ps.scene_id = studio_rating_scene.id
-	) BETWEEN 2 AND 3
+	) = %d
 	AND NOT EXISTS (
 		SELECT 1 FROM rating_criteria_scores studio_rating_score
 		WHERE studio_rating_score.entity_type = 'scene'
@@ -206,7 +213,7 @@ func studioRatingAdvisorSceneConditionCustom(category studioRatingAdvisorAverage
 		WHERE studio_rating_score.entity_type = 'scene'
 			AND studio_rating_score.entity_id = studio_rating_scene.id
 			AND studio_rating_score.key IN ('topAttractiveness', 'bottomAttractiveness', 'chemistry', 'payoff', 'standout')
-	)`
+	)`, performerCount)
 	case studioRatingAdvisorGroupAverageCustom:
 		return `(
 		SELECT COUNT(DISTINCT studio_rating_ps.performer_id)
@@ -246,9 +253,10 @@ func studioRatingAdvisorAverageExprCustom(category studioRatingAdvisorAverageSor
 
 	condition := studioRatingAdvisorSceneConditionCustom(category)
 	if category == studioRatingAdvisorOverallAverageCustom {
-		condition = fmt.Sprintf("((%s) OR (%s) OR (%s))",
+		condition = fmt.Sprintf("((%s) OR (%s) OR (%s) OR (%s))",
 			studioRatingAdvisorSceneConditionCustom(studioRatingAdvisorSoloAverageCustom),
 			studioRatingAdvisorSceneConditionCustom(studioRatingAdvisorStandardAverageCustom),
+			studioRatingAdvisorSceneConditionCustom(studioRatingAdvisorThreesomeAverageCustom),
 			studioRatingAdvisorSceneConditionCustom(studioRatingAdvisorGroupAverageCustom),
 		)
 	}

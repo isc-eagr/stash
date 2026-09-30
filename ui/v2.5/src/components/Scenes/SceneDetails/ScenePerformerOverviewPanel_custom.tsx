@@ -16,6 +16,7 @@ import { faTimes, faUser } from "@fortawesome/free-solid-svg-icons";
 import { PerformerCategoryStrip } from "src/components/Performers/PerformerDetails/PerformerCategoryStrip";
 import { PerformerDetailsPanel } from "src/components/Performers/PerformerDetails/PerformerDetailsPanel";
 import { PerformerActivityTime } from "src/components/Performers/PerformerDetails/PerformerActivityTime";
+import { PerformerVersatility } from "src/components/Performers/PerformerDetails/PerformerVersatility_custom";
 import { PerformerSceneAverageRating } from "src/components/Performers/PerformerSceneRatingAdvisor_custom";
 import { getPerformerRolePartnerSectionTitle } from "src/components/Performers/performerRolePartnerLabels_custom";
 import { AliasList } from "src/components/Shared/DetailsPage/AliasList";
@@ -319,6 +320,18 @@ const ScenePerformerOverviewPanel: React.FC<{
                 headingId={`scene-performer-overview-activity-${performer.id}`}
               />
 
+              {roleStats && (
+                <PerformerVersatility
+                  className="scene-performer-overview-versatility"
+                  facialBottomedPartners={roleStats.facial_with_bottom_count}
+                  facialToppedPartners={roleStats.facial_with_top_count}
+                  oralBottomedPartners={roleStats.oral_with_bottom_count}
+                  oralToppedPartners={roleStats.oral_with_top_count}
+                  sexBottomedPartners={roleStats.sex_with_bottom_count}
+                  sexToppedPartners={roleStats.sex_with_top_count}
+                />
+              )}
+
               <section
                 aria-labelledby={`scene-performer-overview-interactions-${performer.id}`}
                 className="scene-performer-overview-interactions"
@@ -381,6 +394,9 @@ const ScenePerformerOverviewPanel: React.FC<{
   );
 };
 
+export const SCENE_PERFORMER_OVERVIEW_OPEN_CLASS =
+  "scene-performer-overview-drawer-shown";
+
 export const ScenePerformerOverviewProvider: React.FC<
   PropsWithChildren<{
     scene: Pick<GQL.SceneDataFragment, "scene_markers">;
@@ -417,6 +433,16 @@ export const ScenePerformerOverviewProvider: React.FC<
     },
     []
   );
+
+  // Hide the player's record-O button while the drawer is on screen,
+  // including its closing slide, so it cannot cover the drawer.
+  useEffect(() => {
+    if (!performerId) return;
+    document.body.classList.add(SCENE_PERFORMER_OVERVIEW_OPEN_CLASS);
+    return () => {
+      document.body.classList.remove(SCENE_PERFORMER_OVERVIEW_OPEN_CLASS);
+    };
+  }, [performerId]);
 
   return (
     <ScenePerformerOverviewContext.Provider value={{ openPerformerOverview }}>

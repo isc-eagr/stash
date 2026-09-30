@@ -6,7 +6,6 @@ test("compact SceneStats rows expand to the dashboard model", () => {
   assert.deepEqual(
     expandSceneStatsCompactData({
       s: {
-        u: 12,
         r: [
           {
             i: "42",
@@ -15,13 +14,10 @@ test("compact SceneStats rows expand to the dashboard model", () => {
             e: null,
             a: 85,
             o: 3,
-            p: 1,
-            n: true,
-            l: false,
             u: 600,
             z: 123456,
             v: 2,
-            w: 0,
+            b: ["7", "8"],
             j: ["Latino"],
             k: ["MX"],
             m: [{ g: ["10", "11"] }],
@@ -43,13 +39,10 @@ test("compact SceneStats rows expand to the dashboard model", () => {
           effective_date: null,
           rating100: 85,
           o_counter: 3,
-          o_counter_past_year: 1,
-          is_past_year: true,
-          is_release_past_year: false,
           duration: 600,
           filesize: 123456,
           performer_count: 2,
-          performer_count_past_year: 0,
+          performer_ids: ["7", "8"],
           performer_ethnicities: ["Latino"],
           performer_countries: ["MX"],
           scene_markers: [{ tag_ids: ["10", "11"] }],
@@ -60,30 +53,24 @@ test("compact SceneStats rows expand to the dashboard model", () => {
           has_royal_sapphire_bonus: true,
         },
       ],
-      uniquePerformerCount: 12,
     }
   );
   assert.deepEqual(expandSceneStatsCompactData(), {
     scenes: [],
-    uniquePerformerCount: 0,
   });
 });
 
 test("compact SceneStats accepts an effective date without a duplicate scene date", () => {
   const { scenes } = expandSceneStatsCompactData({
     s: {
-      u: 0,
       r: [
         {
           i: "42",
           e: "2024-01-02",
-          p: 0,
-          n: false,
-          l: false,
           u: 0,
           z: 0,
           v: 0,
-          w: 0,
+          b: [],
           j: [],
           k: [],
           m: [],

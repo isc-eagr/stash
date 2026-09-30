@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getPlatformURL } from "src/core/createClient";
+import type { StatsDateRangeInput } from "src/core/generated-graphql";
 import {
   expandSceneStatsCompactData,
   type SceneStatsCompactData,
@@ -7,22 +8,22 @@ import {
 } from "./sceneStatsCompactData_custom";
 
 const SCENE_STATS_COMPACT_QUERY = `
-  query SceneStatsScenes($studioId: ID, $depth: Int) {
-    s: sceneStats(studio_id: $studioId, depth: $depth) {
-      u: unique_performer_count
+  query SceneStatsScenes(
+    $studioId: ID
+    $depth: Int
+    $dateRange: StatsDateRangeInput
+  ) {
+    s: sceneStats(studio_id: $studioId, depth: $depth, date_range: $dateRange) {
       r: scenes {
         i: id
         t: title
         e: effective_date
         a: rating100
         o: o_counter
-        p: o_counter_past_year
-        n: is_past_year
-        l: is_release_past_year
         u: duration
         z: filesize
         v: performer_count
-        w: performer_count_past_year
+        b: performer_ids
         j: performer_ethnicities
         k: performer_countries
         m: marker_tag_groups { g: tag_ids }
@@ -45,7 +46,6 @@ interface ISceneStatsCompactQueryResult {
   error?: Error;
   loading: boolean;
   scenes: SceneStatsScene[];
-  uniquePerformerCount: number;
 }
 
 // This large dashboard result intentionally bypasses Apollo normalization.
@@ -54,23 +54,27 @@ interface ISceneStatsCompactQueryResult {
 // effective_date already includes the scene date, so do not send both dates.
 export function useSceneStatsCompactQuery(
   studioId?: string,
-  depth?: number
+  depth?: number,
+  dateRange?: StatsDateRangeInput | null
 ): ISceneStatsCompactQueryResult {
   const [result, setResult] = useState<ISceneStatsCompactQueryResult>({
     loading: true,
     scenes: [],
-    uniquePerformerCount: 0,
   });
 
   useEffect(() => {
     const abortController = new AbortController();
-    setResult({ loading: true, scenes: [], uniquePerformerCount: 0 });
+    setResult({ loading: true, scenes: [] });
 
     void fetch(getPlatformURL("graphql").toString(), {
       body: JSON.stringify({
         operationName: "SceneStatsScenes",
         query: SCENE_STATS_COMPACT_QUERY,
-        variables: { depth: depth ?? null, studioId: studioId ?? null },
+        variables: {
+          dateRange: dateRange ?? null,
+          depth: depth ?? null,
+          studioId: studioId ?? null,
+        },
       }),
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
@@ -104,12 +108,11 @@ export function useSceneStatsCompactQuery(
           error: error instanceof Error ? error : new Error(String(error)),
           loading: false,
           scenes: [],
-          uniquePerformerCount: 0,
         });
       });
 
     return () => abortController.abort();
-  }, [depth, studioId]);
+  }, [dateRange, depth, studioId]);
 
   return result;
 }

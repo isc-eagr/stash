@@ -5,55 +5,51 @@ const sceneStatsSource = readFileSync(
   new URL("../src/components/SceneStats/SceneStats.tsx", import.meta.url),
   "utf8"
 );
-const sceneStatsStyles = readFileSync(
-  new URL("../src/components/SceneStats/SceneStats.scss", import.meta.url),
-  "utf8"
-);
 const vatoStatsSource = readFileSync(
   new URL("../src/components/VatoStats/VatoStats.tsx", import.meta.url),
   "utf8"
 );
-const vatoStatsStyles = readFileSync(
-  new URL("../src/components/VatoStats/VatoStats.scss", import.meta.url),
+const oStatsSource = readFileSync(
+  new URL("../src/components/OStats/OStats.tsx", import.meta.url),
+  "utf8"
+);
+const chartStyles = readFileSync(
+  new URL("../src/components/statsBarChart_custom.scss", import.meta.url),
   "utf8"
 );
 
+for (const [name, source] of [
+  ["Scene Stats", sceneStatsSource],
+  ["Vato Stats", vatoStatsSource],
+  ["O Stats", oStatsSource],
+] as const) {
+  assert.match(
+    source,
+    /<StatsBarChart\b/,
+    `${name} should render the shared stats bar chart`
+  );
+  assert.doesNotMatch(
+    source,
+    /const (Scene|Vato|O)StatsChart: React\.FC<\{\s*actions\?/,
+    `${name} should not keep its own bar chart implementation`
+  );
+  assert.match(
+    source,
+    /<StatsDateRangeFilter\b/,
+    `${name} should offer the shared date range filter`
+  );
+}
+
 assert.match(
   sceneStatsSource,
-  /scenestats-chart-grid scenestats-chart-grid--compact/,
-  "Scene Stats should render a dedicated compact chart grid"
-);
-assert.match(
-  sceneStatsSource,
-  /scenestats-chart-grid scenestats-chart-grid--facial[\s\S]*?Has Facial[\s\S]*?By Number of Facial[\s\S]*?By Number of Really Hot Facial/,
+  /stats-chart-grid stats-chart-grid--thirds[\s\S]*?title="Has Facial"[\s\S]*?title="By Facial Count"[\s\S]*?title="By Really Hot Facial Count"/,
   "Scene Stats should keep the related facial charts together"
 );
 assert.match(
   sceneStatsSource,
-  /scenestats-chart-grid scenestats-chart-grid--compact[\s\S]*?By Metallic Rating[\s\S]*?Scene Type[\s\S]*?By Resolution/,
+  /stats-chart-grid stats-chart-grid--compact[\s\S]*?title="By Metallic Rating"[\s\S]*?title="Scene Type"[\s\S]*?title="By Resolution"/,
   "Scene Stats compact grid should contain the remaining stable charts"
 );
-assert.match(
-  sceneStatsStyles,
-  /\.scenestats-chart-grid--compact\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit/,
-  "Scene Stats compact charts should use responsive columns"
-);
-assert.match(
-  sceneStatsStyles,
-  /\.scenestats-chart-grid--compact[\s\S]*?\.scenestats-bar-cell\s*\{[\s\S]*?flex:\s*1 1 0;/,
-  "Scene Stats compact bars should flex into the panel width"
-);
-assert.match(
-  sceneStatsStyles,
-  /\.scenestats-chart-grid--compact[\s\S]*?\.scenestats-bars\s*\{[\s\S]*?justify-content:\s*flex-start;[\s\S]*?\.scenestats-chart-grid--facial[\s\S]*?\.scenestats-bars\s*\{[\s\S]*?justify-content:\s*flex-start;/,
-  "Scene Stats overflowing chart bars should keep the scroll origin reachable"
-);
-assert.match(
-  sceneStatsStyles,
-  /\.scenestats-chart-grid--facial\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3,/,
-  "Scene Stats facial charts should share one desktop row"
-);
-
 assert.match(
   vatoStatsSource,
   /compactChartCategories[\s\S]*?"metallic_rating"[\s\S]*?"circumcised"/,
@@ -61,21 +57,57 @@ assert.match(
 );
 assert.match(
   vatoStatsSource,
-  /vatostats-chart-grid vatostats-chart-grid--compact/,
+  /stats-chart-grid stats-chart-grid--compact/,
   "Vato Stats should render a dedicated compact chart grid"
 );
+
 assert.match(
-  vatoStatsStyles,
-  /\.vatostats-chart-grid--compact\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit/,
-  "Vato Stats compact charts should use responsive columns"
+  chartStyles,
+  /\.stats-chart-grid--compact\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit/,
+  "compact charts should use responsive columns"
 );
 assert.match(
-  vatoStatsStyles,
-  /\.vatostats-chart-grid--compact[\s\S]*?\.vatostats-bar-cell\s*\{[\s\S]*?flex:\s*1 1 0;/,
-  "Vato Stats compact bars should flex into the panel width"
+  chartStyles,
+  /\.stats-chart-grid--thirds\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3,/,
+  "facial charts should share one desktop row"
 );
 assert.match(
-  vatoStatsStyles,
-  /\.vatostats-chart-grid--compact[\s\S]*?\.vatostats-bars\s*\{[\s\S]*?justify-content:\s*flex-start;/,
-  "Vato Stats overflowing chart bars should keep the scroll origin reachable"
+  chartStyles,
+  /\.stats-chart-grid--compact,\s*\.stats-chart-grid--thirds\s*\{[\s\S]*?\.stats-bar-chart-bars\s*\{[\s\S]*?justify-content:\s*flex-start;[\s\S]*?\.stats-bar-chart-cell\s*\{[\s\S]*?flex:\s*1 1 0;/,
+  "compact bars should flex into the panel and keep the scroll origin reachable"
 );
+assert.match(
+  chartStyles,
+  /\.scenestats-page \.stats-bar-chart\s*\{[\s\S]*?--stats-chart-fill:/,
+  "Scene Stats keeps its gold chart theme through custom properties"
+);
+
+// Ranked image cards replace the three-slot podiums everywhere.
+for (const [name, source] of [
+  ["Scene Stats", sceneStatsSource],
+  ["Vato Stats", vatoStatsSource],
+  ["O Stats", oStatsSource],
+] as const) {
+  assert.match(
+    source,
+    /<StatsTopCards\b/,
+    `${name} should rank with image cards`
+  );
+  assert.doesNotMatch(
+    source,
+    /Podium metric/,
+    `${name} should not keep the podium label`
+  );
+}
+assert.match(
+  vatoStatsSource,
+  /<StatsTopCards\s+title=\{podiumDescriptor\}[\s\S]*?<Form\.Label>Rank by<\/Form\.Label>/,
+  "Vato Stats keeps the Best pitos title and ranks by a selectable metric"
+);
+assert.match(
+  sceneStatsSource,
+  /title="Top Scenes"[\s\S]*?<Form\.Label>Rank by<\/Form\.Label>/,
+  "Scene Stats ranks by a selectable metric"
+);
+
+console.log("Stats chart layout tests passed.");

@@ -42,6 +42,9 @@ query FindStudioRatingAdvisorStats($id: ID!, $depth: Int) {
       sex_scenes {
         ...StudioRatingAdvisorSectionData
       }
+      threesome_scenes {
+        ...StudioRatingAdvisorSectionData
+      }
       group_scenes {
         ...StudioRatingAdvisorSectionData
       }

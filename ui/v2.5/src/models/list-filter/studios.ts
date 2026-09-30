@@ -188,6 +188,10 @@ const sortByOptions = [
       value: "average_standard_scene_rating",
     },
     {
+      messageID: "average_threesome_scene_rating",
+      value: "average_threesome_scene_rating",
+    },
+    {
       messageID: "average_group_scene_rating",
       value: "average_group_scene_rating",
     },

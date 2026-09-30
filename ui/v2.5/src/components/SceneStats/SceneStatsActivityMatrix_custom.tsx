@@ -5,6 +5,7 @@ import { OutstandingActivityMatrixTable } from "src/components/Scenes/Outstandin
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { useSceneStatsActivityMatrixQuery } from "src/core/generated-graphql";
+import type { StatsDateRangeInput } from "src/core/generated-graphql";
 import {
   makeSceneStatsActivityMatrix,
   makeSceneStatsActivityMatrixTagURL,
@@ -22,6 +23,7 @@ interface IProps {
   studioName?: string;
   performerId?: string;
   performerName?: string;
+  dateRange?: StatsDateRangeInput | null;
 }
 
 export const SceneStatsActivityMatrix: React.FC<IProps> = ({
@@ -31,12 +33,13 @@ export const SceneStatsActivityMatrix: React.FC<IProps> = ({
   studioName,
   performerId,
   performerName,
+  dateRange,
 }) => {
   const history = useHistory();
   const location = useLocation();
   const includeSubTags = sceneStatsIncludeSubTagsFromSearch(location.search);
   const { data, error, loading } = useSceneStatsActivityMatrixQuery({
-    variables: { studioId, depth, performerId, includeSubTags },
+    variables: { studioId, depth, performerId, includeSubTags, dateRange },
     skip: !active,
   });
   const matrix = useMemo(

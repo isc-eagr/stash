@@ -1,6 +1,14 @@
 # CUSTOM: Activity/Quality and Rating Advisor data for global or studio-scoped SceneStats dashboards.
-query SceneStatsInsights($studioId: ID, $depth: Int) {
-  sceneStatsActivity(studio_id: $studioId, depth: $depth) {
+query SceneStatsInsights(
+  $studioId: ID
+  $depth: Int
+  $dateRange: StatsDateRangeInput
+) {
+  sceneStatsActivity(
+    studio_id: $studioId
+    depth: $depth
+    date_range: $dateRange
+  ) {
     total_seconds
     sex_seconds
     oral_seconds
@@ -22,12 +30,19 @@ query SceneStatsInsights($studioId: ID, $depth: Int) {
     oral_scene_count
     solo_scene_count
   }
-  globalRatingAdvisorStats(studio_id: $studioId, depth: $depth) {
+  globalRatingAdvisorStats(
+    studio_id: $studioId
+    depth: $depth
+    date_range: $dateRange
+  ) {
     overall_scene_average_rating100
     solo_scenes {
       ...StudioRatingAdvisorSectionData
     }
     sex_scenes {
+      ...StudioRatingAdvisorSectionData
+    }
+    threesome_scenes {
       ...StudioRatingAdvisorSectionData
     }
     group_scenes {
@@ -42,12 +57,14 @@ query SceneStatsActivityMatrix(
   $depth: Int
   $performerId: ID
   $includeSubTags: Boolean!
+  $dateRange: StatsDateRangeInput
 ) {
   sceneStatsActivityMatrix(
     studio_id: $studioId
     depth: $depth
     performer_id: $performerId
     include_subtags: $includeSubTags
+    date_range: $dateRange
   ) {
     tag_id
     tag_name
@@ -58,8 +75,16 @@ query SceneStatsActivityMatrix(
   }
 }
 
-query VatoStatsRatingAdvisor($studioId: ID, $depth: Int) {
-  globalRatingAdvisorStats(studio_id: $studioId, depth: $depth) {
+query VatoStatsRatingAdvisor(
+  $studioId: ID
+  $depth: Int
+  $dateRange: StatsDateRangeInput
+) {
+  globalRatingAdvisorStats(
+    studio_id: $studioId
+    depth: $depth
+    date_range: $dateRange
+  ) {
     performers {
       ...StudioRatingAdvisorSectionData
     }
@@ -74,6 +99,9 @@ query PerformerRatingAdvisorStats($performerId: ID!) {
       ...StudioRatingAdvisorSectionData
     }
     sex_scenes {
+      ...StudioRatingAdvisorSectionData
+    }
+    threesome_scenes {
       ...StudioRatingAdvisorSectionData
     }
     group_scenes {

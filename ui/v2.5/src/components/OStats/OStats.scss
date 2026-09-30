@@ -36,27 +36,6 @@
   gap: 0.75rem;
 }
 
-.ostats-unknown-count {
-  background: rgba(18, 49, 90, 0.82);
-  border: 1px solid rgba(84, 150, 230, 0.36);
-  border-radius: 999px;
-  color: #9cc8ff;
-  cursor: pointer;
-  flex: 0 0 auto;
-  font-size: 0.8rem;
-  font-weight: 800;
-  line-height: 1.2;
-  padding: 0.25rem 0.6rem;
-  text-decoration: none;
-
-  &:hover,
-  &:focus-visible {
-    background: rgba(39, 93, 157, 0.95);
-    color: #fff;
-    text-decoration: none;
-  }
-}
-
 .ostats-summary {
   display: grid;
   gap: 0.75rem;
@@ -121,102 +100,6 @@
   border-color: rgba(255, 255, 255, 0.3);
   color: #fff;
   font-weight: 600;
-}
-
-.ostats-chart {
-  align-items: start;
-  display: flex;
-  gap: 0.65rem;
-  min-height: 18rem;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 0.5rem 0 0.25rem;
-}
-
-.ostats-chart-scrollable {
-  .ostats-bar-cell {
-    flex: 0 0 4.5rem;
-    min-width: 4.5rem;
-  }
-}
-
-.ostats-bar-cell {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  color: inherit;
-  cursor: pointer;
-  display: grid;
-  flex: 0 0 4.5rem;
-  gap: 0.35rem;
-  grid-template-rows: 1.35rem 14rem minmax(2.6rem, auto) 1rem;
-  min-width: 4.5rem;
-  padding: 0;
-  text-align: center;
-  text-decoration: none;
-
-  &:hover,
-  &:focus-visible {
-    color: inherit;
-    text-decoration: none;
-
-    .ostats-bar {
-      filter: brightness(1.12);
-    }
-  }
-}
-
-.ostats-bar-track {
-  background: rgba(26, 61, 105, 0.36);
-  border-radius: 5px 5px 0 0;
-  display: block;
-  height: 14rem;
-  overflow: hidden;
-  position: relative;
-  width: 100%;
-}
-
-.ostats-bar {
-  background: linear-gradient(180deg, #77b8ff, #2e7fd6 52%, #104a92);
-  border-radius: inherit;
-  bottom: 0;
-  display: block;
-  left: 0;
-  min-height: 0.65rem;
-  position: absolute;
-  right: 0;
-}
-
-.ostats-bar-value,
-.ostats-bar-sublabel {
-  min-width: 0;
-  overflow: hidden;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  width: 100%;
-}
-
-.ostats-bar-value {
-  color: #8fb7e8;
-  font-weight: 800;
-}
-
-.ostats-bar-label {
-  align-self: start;
-  font-weight: 700;
-  line-height: 1.15;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  text-align: center;
-  white-space: normal;
-  width: 100%;
-}
-
-.ostats-bar-sublabel {
-  color: #8fb7e8;
-  font-size: 0.78rem;
-  font-weight: 700;
 }
 
 .ostats-empty {
@@ -418,12 +301,6 @@
   }
 }
 @media (max-width: 520px) {
-  .ostats-bar-cell,
-  .ostats-chart-scrollable .ostats-bar-cell {
-    flex-basis: 4rem;
-    min-width: 4rem;
-  }
-
   .ostats-event {
     grid-template-columns: 1fr;
   }
@@ -482,3 +359,120 @@
 }
 
 /* CUSTOM: end O stats drilldown screenshot cards */
+
+/* CUSTOM: begin O calendar heatmap and overview spacing */
+.ostats-page .stats-bar-chart,
+.ostats-page .stats-chart-grid,
+.ostats-section {
+  margin-top: 1rem;
+}
+
+.ostats-calendar {
+  --ostats-calendar-cell: 0.9rem;
+}
+
+.ostats-calendar-year {
+  margin: 0;
+  min-width: 6rem;
+}
+
+.ostats-calendar-summary {
+  color: #c7d9ee;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  font-weight: 700;
+  gap: 0.35rem 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.ostats-calendar-scroll {
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+}
+
+.ostats-calendar-grid {
+  display: grid;
+  gap: 3px;
+  grid-auto-rows: var(--ostats-calendar-cell);
+  width: max-content;
+}
+
+.ostats-calendar-month,
+.ostats-calendar-weekday {
+  color: #8fb7e8;
+  font-size: 0.68rem;
+  line-height: var(--ostats-calendar-cell);
+  white-space: nowrap;
+}
+
+.ostats-calendar-weekday {
+  padding-right: 0.35rem;
+  text-align: right;
+}
+
+.ostats-calendar-cell {
+  background: rgba(26, 61, 105, 0.36);
+  border-radius: 2px;
+  display: block;
+  height: var(--ostats-calendar-cell);
+  width: var(--ostats-calendar-cell);
+
+  &[href]:hover,
+  &[href]:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 1px;
+  }
+}
+
+.ostats-calendar-cell--outside {
+  background: transparent;
+}
+
+.ostats-calendar-cell--untracked {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(143, 183, 232, 0.12),
+    rgba(143, 183, 232, 0.12) 2px,
+    transparent 2px,
+    transparent 4px
+  );
+}
+
+.ostats-calendar-level-1 {
+  background: #1d4f8a;
+}
+
+.ostats-calendar-level-2 {
+  background: #2e7fd6;
+}
+
+.ostats-calendar-level-3 {
+  background: #5ea6f5;
+}
+
+.ostats-calendar-level-4 {
+  background: #b7dcff;
+}
+
+.ostats-calendar-legend {
+  --ostats-calendar-cell: 0.8rem;
+
+  align-items: center;
+  color: #8fb7e8;
+  display: flex;
+  font-size: 0.72rem;
+  gap: 3px;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+
+  span:first-child {
+    margin-right: 0.3rem;
+  }
+
+  span:last-child {
+    margin-left: 0.3rem;
+  }
+}
+
+/* CUSTOM: end O calendar heatmap and overview spacing */

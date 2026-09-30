@@ -521,6 +521,15 @@
     border-color: rgba(40, 167, 69, 0.92) !important;
   }
 
+  /* CUSTOM: card versatility counts keep their role colors over the card link color. */
+  .performer-card-versatility-count.is-top {
+    color: #17a2b8 !important;
+  }
+
+  .performer-card-versatility-count.is-bottom {
+    color: #28a745 !important;
+  }
+
   .scene-activity-metrics .scene-activity-metric,
   .scene-activity-metrics .scene-activity-metric > span {
     color: rgb(var(--rating-card-text-rgb)) !important;
@@ -835,6 +844,15 @@
 
   .performer-role-badges .bottom-badge.arrow-badge {
     border-color: rgba(40, 167, 69, 0.9) !important;
+  }
+
+  /* CUSTOM: card versatility counts keep their role colors over the card link color. */
+  .performer-card-versatility-count.is-top {
+    color: #17a2b8 !important;
+  }
+
+  .performer-card-versatility-count.is-bottom {
+    color: #28a745 !important;
   }
 
   hr {
@@ -1167,6 +1185,15 @@
 
   .performer-role-badges .bottom-badge.arrow-badge {
     border-color: rgba(40, 167, 69, 0.94) !important;
+  }
+
+  /* CUSTOM: card versatility counts keep their role colors over the card link color. */
+  .performer-card-versatility-count.is-top {
+    color: #17a2b8 !important;
+  }
+
+  .performer-card-versatility-count.is-bottom {
+    color: #28a745 !important;
   }
 
   hr {

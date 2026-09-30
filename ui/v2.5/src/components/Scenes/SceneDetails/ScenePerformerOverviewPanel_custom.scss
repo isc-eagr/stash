@@ -337,6 +337,12 @@
   padding: 0.8rem 0 1rem;
 }
 
+/* Full versatility bars between Activity Time and In This Scene. */
+.scene-performer-overview-versatility.performer-versatility {
+  margin: 0 1rem;
+  padding: 0.8rem 0 1rem;
+}
+
 .scene-performer-overview-interactions {
   border-top: 1px solid rgba(255, 255, 255, 0.14);
   padding: 1rem 0 1.5rem;
@@ -502,4 +508,11 @@
     animation: none;
     transition: none;
   }
+}
+
+/* CUSTOM: the player's record-O button hides while the drawer is shown. */
+body.scene-performer-overview-drawer-shown .scene-player-record-o-overlay {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
 }

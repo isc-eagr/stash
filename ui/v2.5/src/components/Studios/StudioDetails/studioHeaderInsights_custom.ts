@@ -8,6 +8,7 @@ export interface IStudioHeaderRatingStatsCustom {
   overall_scene_average_rating100?: number | null;
   solo_scenes: IRatingSectionCustom;
   sex_scenes: IRatingSectionCustom;
+  threesome_scenes: IRatingSectionCustom;
   group_scenes: IRatingSectionCustom;
   performers: IRatingSectionCustom;
 }
@@ -35,6 +36,12 @@ export function getStudioHeaderRatingTilesCustom(
   const sections = [
     { key: "solo", label: "Solo", noun: "scenes", s: stats.solo_scenes },
     { key: "standard", label: "Standard", noun: "scenes", s: stats.sex_scenes },
+    {
+      key: "threesome",
+      label: "Threesome",
+      noun: "scenes",
+      s: stats.threesome_scenes,
+    },
     { key: "group", label: "Group", noun: "scenes", s: stats.group_scenes },
     { key: "vatos", label: "Vatos", noun: "vatos", s: stats.performers },
   ];

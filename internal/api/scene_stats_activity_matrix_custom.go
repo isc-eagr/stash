@@ -363,9 +363,9 @@ func querySceneStatsActivityMatrixCustom(ctx context.Context, sceneScope string,
 	return ret, nil
 }
 
-func sceneStatsActivityMatrixScopeCustom(studioID *string, depth *int, performerID *string) (string, []interface{}, *int, error) {
+func sceneStatsActivityMatrixScopeCustom(studioID *string, depth *int, performerID *string, dateRangeInput *StatsDateRangeInput) (string, []interface{}, *int, error) {
 	if performerID == nil {
-		scope, args, err := sceneStatsSceneScopeCustom(studioID, depth)
+		scope, args, _, err := sceneStatsInputScopeCustom(studioID, depth, dateRangeInput)
 		return scope, args, nil, err
 	}
 	if studioID != nil {
@@ -383,8 +383,8 @@ func sceneStatsActivityMatrixScopeCustom(studioID *string, depth *int, performer
 	return scope, []interface{}{parsedID}, &parsedID, nil
 }
 
-func (r *queryResolver) SceneStatsActivityMatrix(ctx context.Context, studioID *string, depth *int, performerID *string, includeSubtags bool) (ret []*SceneStatsActivityMatrixRow, err error) {
-	sceneScope, args, markerPerformerID, err := sceneStatsActivityMatrixScopeCustom(studioID, depth, performerID)
+func (r *queryResolver) SceneStatsActivityMatrix(ctx context.Context, studioID *string, depth *int, performerID *string, includeSubtags bool, dateRange *StatsDateRangeInput) (ret []*SceneStatsActivityMatrixRow, err error) {
+	sceneScope, args, markerPerformerID, err := sceneStatsActivityMatrixScopeCustom(studioID, depth, performerID, dateRange)
 	if err != nil {
 		return nil, err
 	}

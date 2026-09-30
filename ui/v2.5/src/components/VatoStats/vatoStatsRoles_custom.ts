@@ -20,7 +20,7 @@ const roleDefinitions: Record<RoleCategory, RoleDefinition[]> = {
   role_strictness: [
     {
       key: "pure_tops",
-      label: "Pure tops",
+      label: "Pure Tops",
       matches: (v) =>
         (v.sex_top_count > 0 || v.oral_top_count > 0) &&
         v.sex_bottom_count === 0 &&
@@ -28,7 +28,7 @@ const roleDefinitions: Record<RoleCategory, RoleDefinition[]> = {
     },
     {
       key: "lenient_tops",
-      label: "Lenient tops",
+      label: "Lenient Tops",
       matches: (v) =>
         v.sex_top_count > 0 &&
         v.sex_bottom_count === 0 &&
@@ -36,7 +36,7 @@ const roleDefinitions: Record<RoleCategory, RoleDefinition[]> = {
     },
     {
       key: "pure_bottoms",
-      label: "Pure bottoms",
+      label: "Pure Bottoms",
       matches: (v) =>
         (v.sex_bottom_count > 0 || v.oral_bottom_count > 0) &&
         v.sex_top_count === 0 &&
@@ -44,7 +44,7 @@ const roleDefinitions: Record<RoleCategory, RoleDefinition[]> = {
     },
     {
       key: "lenient_bottoms",
-      label: "Lenient bottoms",
+      label: "Lenient Bottoms",
       matches: (v) =>
         v.sex_bottom_count > 0 && v.sex_top_count === 0 && v.oral_top_count > 0,
     },
@@ -65,12 +65,12 @@ const roleDefinitions: Record<RoleCategory, RoleDefinition[]> = {
   role: [
     {
       key: "sex_top_count",
-      label: "Sex tops",
+      label: "Sex Tops",
       matches: (v) => v.sex_top_count > 0,
     },
     {
       key: "sex_bottom_count",
-      label: "Sex bottoms",
+      label: "Sex Bottoms",
       matches: (v) => v.sex_bottom_count > 0,
     },
     {

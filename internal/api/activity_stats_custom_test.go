@@ -53,14 +53,14 @@ INSERT INTO scene_markers_tags VALUES (6, 99);`)
 }
 
 func TestActivityStatsSceneScopeCustomSupportsGlobalAndStudioStats(t *testing.T) {
-	globalSQL, globalArgs := activityStatsSceneScopeCustom(nil, nil)
+	globalSQL, globalArgs := activityStatsSceneScopeCustom(nil, nil, nil)
 	assert.Contains(t, globalSQL, "SELECT id FROM scenes")
 	assert.NotContains(t, globalSQL, "studio_id")
 	assert.Empty(t, globalArgs)
 
 	studioID := 7
 	depth := -1
-	studioSQL, studioArgs := activityStatsSceneScopeCustom(&studioID, &depth)
+	studioSQL, studioArgs := activityStatsSceneScopeCustom(&studioID, &depth, nil)
 	assert.Contains(t, studioSQL, "WITH RECURSIVE selected_studios")
 	assert.Contains(t, studioSQL, "studio_id IN (SELECT id FROM selected_studios)")
 	assert.Equal(t, 3, strings.Count(studioSQL, "?"))

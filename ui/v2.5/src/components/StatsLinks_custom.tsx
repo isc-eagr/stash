@@ -3,6 +3,7 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Icon } from "src/components/Shared/Icon";
 import { SweatDrops } from "src/components/Shared/SweatDrops";
+import { addStatsDateRangeToPath } from "src/utils/statsDateRange_custom";
 
 const customStatsLinks = [
   {
@@ -39,7 +40,8 @@ export const StatsLinks: React.FC = () => {
           <Link
             className={`stats-links-item${isActive ? " active" : ""}`}
             key={link.href}
-            to={link.href}
+            // Keep the selected date range when switching stats pages.
+            to={addStatsDateRangeToPath(link.href, location.search)}
           >
             <span className="stats-links-icon">{link.icon}</span>
             <span>{link.label}</span>

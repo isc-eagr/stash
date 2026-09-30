@@ -3,6 +3,7 @@ import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { RatingAdvisorStatsContent } from "src/components/Studios/StudioDetails/StudioRatingAdvisorStats";
 import { useVatoStatsRatingAdvisorQuery } from "src/core/generated-graphql";
+import type { StatsDateRangeInput } from "src/core/generated-graphql";
 
 interface IProps {
   studioScope?: {
@@ -10,11 +11,16 @@ interface IProps {
     name: string;
     depth: number;
   };
+  dateRange?: StatsDateRangeInput | null;
 }
 
-export const VatoStatsRatingAdvisor: React.FC<IProps> = ({ studioScope }) => {
+export const VatoStatsRatingAdvisor: React.FC<IProps> = ({
+  studioScope,
+  dateRange,
+}) => {
   const { data, error, loading } = useVatoStatsRatingAdvisorQuery({
     variables: {
+      dateRange,
       depth: studioScope?.depth,
       studioId: studioScope?.id,
     },

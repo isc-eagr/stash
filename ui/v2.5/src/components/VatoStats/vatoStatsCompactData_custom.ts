@@ -9,8 +9,6 @@ export type VatoStatsPerformer = {
   image_path?: string | null;
   rating100?: number | null;
   scene_o_count: number;
-  scene_o_count_past_year: number;
-  is_past_year: boolean;
   scene_count: number;
   sex_top_count: number;
   sex_bottom_count: number;
@@ -41,8 +39,6 @@ export type VatoStatsCompactData = {
     c: VatoStatsPerformer["image_path"];
     d: VatoStatsPerformer["rating100"];
     e: VatoStatsPerformer["scene_o_count"];
-    f: VatoStatsPerformer["scene_o_count_past_year"];
-    g: VatoStatsPerformer["is_past_year"];
     h: VatoStatsPerformer["scene_count"];
     i: VatoStatsPerformer["sex_top_count"];
     j: VatoStatsPerformer["sex_bottom_count"];
@@ -77,8 +73,6 @@ export function expandVatoStatsCompactData(data?: VatoStatsCompactData) {
         image_path: p.c,
         rating100: p.d,
         scene_o_count: p.e,
-        scene_o_count_past_year: p.f,
-        is_past_year: p.g,
         scene_count: p.h,
         sex_top_count: p.i,
         sex_bottom_count: p.j,

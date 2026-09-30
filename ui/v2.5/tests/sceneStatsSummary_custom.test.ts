@@ -8,7 +8,8 @@ import {
 
 assert.deepEqual(sceneStatsVatoCountBuckets([0, 1, 2, 3, 4, 7]), {
   one: 1,
-  standard: 2,
+  standard: 1,
+  threesome: 1,
   group: 2,
 });
 
@@ -30,7 +31,9 @@ assert.deepEqual(JSON.parse(encodedCriterion), {
   bottom_rating: null,
 });
 
-const decodedVatoCriterion = (bucket: "one" | "standard" | "group") => {
+const decodedVatoCriterion = (
+  bucket: "one" | "standard" | "threesome" | "group"
+) => {
   const bucketURL = makeSceneStatsVatoCountURL(bucket);
   assert.equal(
     new URL(bucketURL, "http://localhost").searchParams.get("z"),
@@ -48,8 +51,13 @@ assert.deepEqual(decodedVatoCriterion("one"), {
 });
 assert.deepEqual(decodedVatoCriterion("standard"), {
   type: "performer_count",
-  modifier: "BETWEEN",
-  value: { value: 2, value2: 3 },
+  modifier: "EQUALS",
+  value: { value: 2 },
+});
+assert.deepEqual(decodedVatoCriterion("threesome"), {
+  type: "performer_count",
+  modifier: "EQUALS",
+  value: { value: 3 },
 });
 assert.deepEqual(decodedVatoCriterion("group"), {
   type: "performer_count",

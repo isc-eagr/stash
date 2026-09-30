@@ -111,3 +111,49 @@
     }
   }
 }
+
+/* CUSTOM: shared date range picker beside the studio selector. */
+.stats-header-controls {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  justify-content: flex-end;
+}
+
+.stats-date-range-filter {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+
+  .form-group {
+    margin: 0;
+    min-width: 9rem;
+  }
+
+  .form-label {
+    color: #d8bf83;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+}
+
+.stats-scope-note {
+  color: #c3cedb;
+  font-size: 0.8rem;
+  margin: -0.5rem 0 0.75rem;
+}
+
+@media (max-width: 575.98px) {
+  .stats-header-controls,
+  .stats-date-range-filter {
+    justify-content: stretch;
+    width: 100%;
+
+    .form-group {
+      flex: 1 1 8rem;
+    }
+  }
+}

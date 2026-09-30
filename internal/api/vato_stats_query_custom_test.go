@@ -3,8 +3,8 @@ package api
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"testing"
-	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -55,8 +55,16 @@ func TestVatoStatsPerformersQueryCustomAggregatesSceneOsAndCareerOnce(t *testing
 		}
 	}
 
-	globalScope, _ := activityStatsSceneScopeCustom(nil, nil)
-	rows, err := db.Query(vatoStatsPerformersQueryCustom(globalScope, true, "rating >= 0", "0", "0", "0"))
+	var alphaMostRecentO string
+	if err := db.QueryRow(`SELECT strftime('%Y-%m-%dT%H:%M:%SZ', MAX(datetime(o_date))) FROM scenes_o_dates WHERE scene_id IN (10, 11)`).Scan(&alphaMostRecentO); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(alphaMostRecentO, "Z") || !strings.Contains(alphaMostRecentO, "T") {
+		t.Fatalf("most recent O = %q, want an RFC3339 UTC timestamp", alphaMostRecentO)
+	}
+
+	globalScope, _ := activityStatsSceneScopeCustom(nil, nil, nil)
+	rows, err := db.Query(vatoStatsPerformersQueryCustom(globalScope, "", true, "rating >= 0", "0", "0", "0"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,12 +75,10 @@ func TestVatoStatsPerformersQueryCustomAggregatesSceneOsAndCareerOnce(t *testing
 		oCount         int
 		mostRecentDate string
 		careerSpanDays int
-		oCountPastYear int
-		isPastYear     bool
 	}
 	got := map[string]aggregate{}
 	for rows.Next() {
-		values := make([]interface{}, 18)
+		values := make([]interface{}, 16)
 		destinations := make([]interface{}, len(values))
 		for i := range values {
 			destinations[i] = &values[i]
@@ -90,8 +96,6 @@ func TestVatoStatsPerformersQueryCustomAggregatesSceneOsAndCareerOnce(t *testing
 			oCount:         customIntValue(values[13]),
 			mostRecentDate: mostRecentDate,
 			careerSpanDays: customIntValue(values[15]),
-			oCountPastYear: customIntValue(values[16]),
-			isPastYear:     customIntValue(values[17]) != 0,
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -104,10 +108,8 @@ func TestVatoStatsPerformersQueryCustomAggregatesSceneOsAndCareerOnce(t *testing
 	if got["Alpha"] != (aggregate{
 		sceneCount:     2,
 		oCount:         4,
-		mostRecentDate: time.Now().UTC().AddDate(0, -6, 0).Format("2006-01-02"),
+		mostRecentDate: alphaMostRecentO, // full UTC timestamp so O Count ties can break on it
 		careerSpanDays: 366,
-		oCountPastYear: 1,
-		isPastYear:     true,
 	}) {
 		t.Fatalf("Alpha aggregate = %#v", got["Alpha"])
 	}
@@ -120,9 +122,9 @@ func TestVatoStatsPerformersQueryCustomAggregatesSceneOsAndCareerOnce(t *testing
 
 	studioID := 1
 	depth := 0
-	studioScope, studioArgs := activityStatsSceneScopeCustom(&studioID, &depth)
+	studioScope, studioArgs := activityStatsSceneScopeCustom(&studioID, &depth, nil)
 	studioRows, err := db.Query(
-		vatoStatsPerformersQueryCustom(studioScope, false, "rating >= 0", "0", "0", "0"),
+		vatoStatsPerformersQueryCustom(studioScope, "", false, "rating >= 0", "0", "0", "0"),
 		studioArgs...,
 	)
 	if err != nil {
@@ -132,7 +134,7 @@ func TestVatoStatsPerformersQueryCustomAggregatesSceneOsAndCareerOnce(t *testing
 
 	studioSceneCounts := map[string]int{}
 	for studioRows.Next() {
-		values := make([]interface{}, 18)
+		values := make([]interface{}, 16)
 		destinations := make([]interface{}, len(values))
 		for i := range values {
 			destinations[i] = &values[i]
@@ -189,7 +191,7 @@ func TestVatoStatsRoleCountsQueryCustomCombinesRoleMarkerScans(t *testing.T) {
 		}
 	}
 
-	globalScope, _ := activityStatsSceneScopeCustom(nil, nil)
+	globalScope, _ := activityStatsSceneScopeCustom(nil, nil, nil)
 	query, args := vatoStatsRoleCountsQueryCustom(globalScope, []int{1}, 100, 200, 300)
 	rows, err := db.Query(query, args...)
 	if err != nil {

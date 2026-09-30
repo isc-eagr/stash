@@ -8,16 +8,18 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/pkg/models"
 )
 
 const (
-	studioRatingAdvisorSoloScenesCustom  = "solo_scenes"
-	studioRatingAdvisorSexScenesCustom   = "sex_scenes"
-	studioRatingAdvisorGroupScenesCustom = "group_scenes"
-	studioRatingAdvisorPerformersCustom  = "performers"
+	studioRatingAdvisorSoloScenesCustom      = "solo_scenes"
+	studioRatingAdvisorSexScenesCustom       = "sex_scenes" // Standard: 2 vatos.
+	studioRatingAdvisorThreesomeScenesCustom = "threesome_scenes"
+	studioRatingAdvisorGroupScenesCustom     = "group_scenes"
+	studioRatingAdvisorPerformersCustom      = "performers"
 )
 
 type studioRatingAdvisorMetricConfigCustom struct {
@@ -82,6 +84,23 @@ func studioRatingAdvisorAdjustmentKeysCustom(bonuses, penalties []string) map[st
 	return ret
 }
 
+// Standard (2 vatos) and Threesome (3 vatos) scenes share one rubric.
+var studioRatingAdvisorSexSceneConfigCustom = studioRatingAdvisorSectionConfigCustom{
+	criteria: map[string]studioRatingAdvisorMetricConfigCustom{
+		"topAttractiveness":    studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(5), 0.6),
+		"bottomAttractiveness": studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(5), 0.2),
+		"chemistry":            studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(5), 0.4),
+		"payoff":               studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(4), 0.5),
+		"standout":             studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(4), 0.5),
+	},
+	criterionOrder: []string{"topAttractiveness", "bottomAttractiveness", "chemistry", "payoff", "standout"},
+	adjustments: studioRatingAdvisorAdjustmentKeysCustom(
+		[]string{"orgasm-count-bonus", "theme", "oralOnly", "godTierOrgasm", "goatElement", "unlikelyTop"},
+		[]string{"noOrgasm", "production", "extremelyPolished"},
+	),
+	adjustmentOrder: []string{"orgasm-count-bonus", "theme", "oralOnly", "godTierOrgasm", "goatElement", "unlikelyTop", "noOrgasm", "production", "extremelyPolished"},
+}
+
 var studioRatingAdvisorConfigsCustom = map[string]studioRatingAdvisorSectionConfigCustom{
 	studioRatingAdvisorSoloScenesCustom: {
 		criteria: map[string]studioRatingAdvisorMetricConfigCustom{
@@ -96,21 +115,8 @@ var studioRatingAdvisorConfigsCustom = map[string]studioRatingAdvisorSectionConf
 		),
 		adjustmentOrder: []string{"orgasm-count-bonus", "orgasmBonus", "feetBonus", "theme", "goatElement", "noOrgasm", "production", "extremelyPolished"},
 	},
-	studioRatingAdvisorSexScenesCustom: {
-		criteria: map[string]studioRatingAdvisorMetricConfigCustom{
-			"topAttractiveness":    studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(5), 0.6),
-			"bottomAttractiveness": studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(5), 0.2),
-			"chemistry":            studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(5), 0.4),
-			"payoff":               studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(4), 0.5),
-			"standout":             studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(4), 0.5),
-		},
-		criterionOrder: []string{"topAttractiveness", "bottomAttractiveness", "chemistry", "payoff", "standout"},
-		adjustments: studioRatingAdvisorAdjustmentKeysCustom(
-			[]string{"orgasm-count-bonus", "theme", "oralOnly", "godTierOrgasm", "goatElement", "unlikelyTop"},
-			[]string{"noOrgasm", "production", "extremelyPolished"},
-		),
-		adjustmentOrder: []string{"orgasm-count-bonus", "theme", "oralOnly", "godTierOrgasm", "goatElement", "unlikelyTop", "noOrgasm", "production", "extremelyPolished"},
-	},
+	studioRatingAdvisorSexScenesCustom:       studioRatingAdvisorSexSceneConfigCustom,
+	studioRatingAdvisorThreesomeScenesCustom: studioRatingAdvisorSexSceneConfigCustom,
 	studioRatingAdvisorGroupScenesCustom: {
 		criteria: map[string]studioRatingAdvisorMetricConfigCustom{
 			"groupTopAttractiveness": studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(5), 0.6),
@@ -153,9 +159,11 @@ eligible_entities(category, entity_type, entity_id, rating100) AS (
       AND scores.key IN ('soloPerformerAppeal', 'soloPerformance', 'soloUsability')
   )
   UNION ALL
-  SELECT 'sex_scenes', 'scene', selected_scenes.id, selected_scenes.rating100
+  SELECT
+    CASE selected_scenes.performer_count WHEN 2 THEN 'sex_scenes' ELSE 'threesome_scenes' END,
+    'scene', selected_scenes.id, selected_scenes.rating100
   FROM selected_scenes
-  WHERE selected_scenes.performer_count BETWEEN 2 AND 3
+  WHERE selected_scenes.performer_count IN (2, 3)
     AND NOT EXISTS (
       SELECT 1 FROM rating_criteria_scores scores
       WHERE scores.entity_type = 'scene'
@@ -243,12 +251,18 @@ selected_scenes(id, performer_count, rating100) AS (
   GROUP BY scenes.id
 )` + studioRatingAdvisorStatsQueryBodyCustom
 
-const globalRatingAdvisorStatsQueryCustom = `WITH selected_scenes(id, performer_count, rating100) AS (
+// scopedRatingAdvisorStatsQueryCustom renames the shared scope CTE so the
+// advisor body can keep reading selected_scenes with its extra columns.
+func scopedRatingAdvisorStatsQueryCustom(sceneScope string) string {
+	return strings.Replace(sceneScope, "selected_scenes(id)", "scoped_scenes(id)", 1) + `,
+selected_scenes(id, performer_count, rating100) AS (
   SELECT scenes.id, COUNT(DISTINCT performers_scenes.performer_id), scenes.rating
   FROM scenes
   LEFT JOIN performers_scenes ON performers_scenes.scene_id = scenes.id
+  WHERE scenes.id IN (SELECT id FROM scoped_scenes)
   GROUP BY scenes.id
 )` + studioRatingAdvisorStatsQueryBodyCustom
+}
 
 const performerRatingAdvisorStatsQueryCustom = `WITH selected_scenes(id, performer_count, rating100) AS (
   SELECT scenes.id, COUNT(DISTINCT performers_scenes.performer_id), scenes.rating
@@ -299,9 +313,10 @@ func studioRatingAdvisorWeightedValueCustom(metric studioRatingAdvisorMetricConf
 func studioRatingAdvisorEmptyStatsCustom() *StudioRatingAdvisorStats {
 	return &StudioRatingAdvisorStats{
 		SoloScenes:  &StudioRatingAdvisorSectionStats{Criteria: []*StudioRatingAdvisorCriterionAverage{}, Adjustments: []*StudioRatingAdvisorAdjustmentCount{}},
-		SexScenes:   &StudioRatingAdvisorSectionStats{Criteria: []*StudioRatingAdvisorCriterionAverage{}, Adjustments: []*StudioRatingAdvisorAdjustmentCount{}},
-		GroupScenes: &StudioRatingAdvisorSectionStats{Criteria: []*StudioRatingAdvisorCriterionAverage{}, Adjustments: []*StudioRatingAdvisorAdjustmentCount{}},
-		Performers:  &StudioRatingAdvisorSectionStats{Criteria: []*StudioRatingAdvisorCriterionAverage{}, Adjustments: []*StudioRatingAdvisorAdjustmentCount{}},
+		SexScenes:       &StudioRatingAdvisorSectionStats{Criteria: []*StudioRatingAdvisorCriterionAverage{}, Adjustments: []*StudioRatingAdvisorAdjustmentCount{}},
+		ThreesomeScenes: &StudioRatingAdvisorSectionStats{Criteria: []*StudioRatingAdvisorCriterionAverage{}, Adjustments: []*StudioRatingAdvisorAdjustmentCount{}},
+		GroupScenes:     &StudioRatingAdvisorSectionStats{Criteria: []*StudioRatingAdvisorCriterionAverage{}, Adjustments: []*StudioRatingAdvisorAdjustmentCount{}},
+		Performers:      &StudioRatingAdvisorSectionStats{Criteria: []*StudioRatingAdvisorCriterionAverage{}, Adjustments: []*StudioRatingAdvisorAdjustmentCount{}},
 	}
 }
 
@@ -311,6 +326,8 @@ func studioRatingAdvisorResultSectionCustom(ret *StudioRatingAdvisorStats, categ
 		return ret.SoloScenes
 	case studioRatingAdvisorSexScenesCustom:
 		return ret.SexScenes
+	case studioRatingAdvisorThreesomeScenesCustom:
+		return ret.ThreesomeScenes
 	case studioRatingAdvisorGroupScenesCustom:
 		return ret.GroupScenes
 	case studioRatingAdvisorPerformersCustom:
@@ -428,6 +445,7 @@ func aggregateStudioRatingAdvisorRowsCustom(rows []studioRatingAdvisorScoreRowCu
 	for _, category := range []string{
 		studioRatingAdvisorSoloScenesCustom,
 		studioRatingAdvisorSexScenesCustom,
+		studioRatingAdvisorThreesomeScenesCustom,
 		studioRatingAdvisorGroupScenesCustom,
 	} {
 		for entityID, rating := range accumulators[category].ratings {
@@ -480,10 +498,6 @@ func queryStudioRatingAdvisorStatsCustom(ctx context.Context, studioID int, dept
 	)
 }
 
-func queryGlobalRatingAdvisorStatsCustom(ctx context.Context) (*StudioRatingAdvisorStats, error) {
-	return queryRatingAdvisorStatsCustom(ctx, globalRatingAdvisorStatsQueryCustom, nil)
-}
-
 func queryPerformerRatingAdvisorStatsCustom(ctx context.Context, performerID int) (*StudioRatingAdvisorStats, error) {
 	return queryRatingAdvisorStatsCustom(
 		ctx,
@@ -525,22 +539,15 @@ func queryRatingAdvisorStatsCustom(ctx context.Context, query string, args []int
 	return aggregateStudioRatingAdvisorRowsCustom(rows), nil
 }
 
-func (r *queryResolver) GlobalRatingAdvisorStats(ctx context.Context, studioID *string, depth *int) (ret *StudioRatingAdvisorStats, err error) {
-	var parsedStudioID *int
-	if studioID != nil {
-		parsed, parseErr := strconv.Atoi(*studioID)
-		if parseErr != nil || parsed < 1 {
-			return nil, fmt.Errorf("invalid studio ID: %s", *studioID)
-		}
-		parsedStudioID = &parsed
+func (r *queryResolver) GlobalRatingAdvisorStats(ctx context.Context, studioID *string, depth *int, dateRangeInput *StatsDateRangeInput) (ret *StudioRatingAdvisorStats, err error) {
+	// CUSTOM: the shared stats scope applies the studio tree and date range.
+	sceneScope, sceneScopeArgs, _, err := sceneStatsInputScopeCustom(studioID, depth, dateRangeInput)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		if parsedStudioID == nil {
-			ret, err = queryGlobalRatingAdvisorStatsCustom(ctx)
-		} else {
-			ret, err = queryStudioRatingAdvisorStatsCustom(ctx, *parsedStudioID, depth)
-		}
+		ret, err = queryRatingAdvisorStatsCustom(ctx, scopedRatingAdvisorStatsQueryCustom(sceneScope), sceneScopeArgs)
 		return err
 	}); err != nil {
 		return nil, err

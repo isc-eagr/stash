@@ -41,7 +41,10 @@ export const PerformerStudiosPanel: React.FC<IPerformerDetailsProps> =
 
     return (
       <div className="performer-studios-panel">
-        <FilteredStudioList filterHook={filterHook} performerId={performer.id} />
+        <FilteredStudioList
+          filterHook={filterHook}
+          performerId={performer.id}
+        />
       </div>
     );
   });

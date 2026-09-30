@@ -63,7 +63,10 @@ type StudioRatingAdvisorSectionStats {
 type StudioRatingAdvisorStats {
   overall_scene_average_rating100: Float
   solo_scenes: StudioRatingAdvisorSectionStats!
+  "Standard scenes: 2 vatos"
   sex_scenes: StudioRatingAdvisorSectionStats!
+  "Threesome scenes: 3 vatos, same rubric as Standard"
+  threesome_scenes: StudioRatingAdvisorSectionStats!
   group_scenes: StudioRatingAdvisorSectionStats!
   performers: StudioRatingAdvisorSectionStats!
 }

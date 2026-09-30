@@ -96,12 +96,13 @@ func TestStudioRatingAdvisorStatsCustomAveragesOnlySetCriteria(t *testing.T) {
 		`CREATE TABLE rating_bonus_scores (entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL, weighted_value REAL)`,
 		`CREATE TABLE rating_penalty_scores (entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL, weighted_value REAL)`,
 		`INSERT INTO studios(id, parent_id) VALUES (1, NULL), (2, 1)`,
-		`INSERT INTO scenes(id, studio_id, rating) VALUES (10, 1, 90), (20, 1, 80), (21, 1, 60), (30, 1, 100), (40, 2, 70), (50, NULL, 50)`,
-		`INSERT INTO performers(id, rating) VALUES (1, 95), (2, 75), (3, NULL), (4, NULL), (5, NULL), (6, NULL), (7, NULL), (8, 65), (9, NULL), (10, 55)`,
+		`INSERT INTO scenes(id, studio_id, rating) VALUES (10, 1, 90), (20, 1, 80), (21, 1, 60), (22, 1, 40), (30, 1, 100), (40, 2, 70), (50, NULL, 50)`,
+		`INSERT INTO performers(id, rating) VALUES (1, 95), (2, 75), (3, NULL), (4, NULL), (5, NULL), (6, NULL), (7, NULL), (8, 65), (9, NULL), (10, 55), (11, NULL)`,
 		`INSERT INTO performers_scenes(performer_id, scene_id) VALUES
       (1, 10),
       (2, 20), (3, 20),
       (2, 21), (3, 21),
+      (2, 22), (3, 22), (11, 22),
       (4, 30), (5, 30), (6, 30), (7, 30),
       (8, 40), (9, 40),
       (10, 50)`,
@@ -111,6 +112,7 @@ func TestStudioRatingAdvisorStatsCustomAveragesOnlySetCriteria(t *testing.T) {
       ('scene', 20, 'topAttractiveness', 5, 99),
       ('scene', 20, 'chemistry', 0, 0),
       ('scene', 21, 'topAttractiveness', 1, 0.6),
+      ('scene', 22, 'topAttractiveness', 4, 2.4),
       ('scene', 30, 'groupEnergy', 4, 3.2),
       ('scene', 40, 'topAttractiveness', 3, 1.8),
       ('performer', 1, 'face', 5, 3),
@@ -136,11 +138,13 @@ func TestStudioRatingAdvisorStatsCustomAveragesOnlySetCriteria(t *testing.T) {
 	direct := studioRatingAdvisorTestStatsCustom(t, db, 0)
 	require.Equal(t, 1, direct.SoloScenes.EntityCount)
 	require.Equal(t, 2, direct.SexScenes.EntityCount)
+	require.Equal(t, 1, direct.ThreesomeScenes.EntityCount)
 	require.Equal(t, 1, direct.GroupScenes.EntityCount)
 	require.Equal(t, 2, direct.Performers.EntityCount)
-	require.InDelta(t, 82.5, *direct.OverallSceneAverageRating100, 0.0001)
+	require.InDelta(t, 74, *direct.OverallSceneAverageRating100, 0.0001)
 	require.InDelta(t, 90, *direct.SoloScenes.AverageRating100, 0.0001)
 	require.InDelta(t, 70, *direct.SexScenes.AverageRating100, 0.0001)
+	require.InDelta(t, 40, *direct.ThreesomeScenes.AverageRating100, 0.0001)
 	require.InDelta(t, 100, *direct.GroupScenes.AverageRating100, 0.0001)
 	require.InDelta(t, 85, *direct.Performers.AverageRating100, 0.0001)
 
@@ -149,6 +153,10 @@ func TestStudioRatingAdvisorStatsCustomAveragesOnlySetCriteria(t *testing.T) {
 	require.InDelta(t, 3, topAttractiveness.AverageRawValue, 0.0001)
 	require.InDelta(t, 1.8, topAttractiveness.AverageWeightedValue, 0.0001)
 	require.InDelta(t, 60, topAttractiveness.AverageFillPercent, 0.0001)
+	// Threesomes keep the Standard rubric but no longer share its averages.
+	threesomeTop := studioRatingAdvisorCriterionCustom(t, direct.ThreesomeScenes, "topAttractiveness")
+	require.Equal(t, 1, threesomeTop.EntityCount)
+	require.InDelta(t, 4, threesomeTop.AverageRawValue, 0.0001)
 	groupEnergy := studioRatingAdvisorCriterionCustom(t, direct.GroupScenes, "groupEnergy")
 	require.InDelta(t, 2.4, groupEnergy.AverageWeightedValue, 0.0001)
 
@@ -165,28 +173,32 @@ func TestStudioRatingAdvisorStatsCustomAveragesOnlySetCriteria(t *testing.T) {
 	withChildren := studioRatingAdvisorTestStatsCustom(t, db, -1)
 	require.Equal(t, 3, withChildren.SexScenes.EntityCount)
 	require.Equal(t, 3, withChildren.Performers.EntityCount)
-	require.InDelta(t, 80, *withChildren.OverallSceneAverageRating100, 0.0001)
+	require.InDelta(t, 73.3333, *withChildren.OverallSceneAverageRating100, 0.0001)
 	require.InDelta(t, 70, *withChildren.SexScenes.AverageRating100, 0.0001)
 	require.InDelta(t, 78.3333, *withChildren.Performers.AverageRating100, 0.0001)
 	require.InDelta(t, 3, studioRatingAdvisorCriterionCustom(t, withChildren.SexScenes, "topAttractiveness").AverageRawValue, 0.0001)
 
-	global := ratingAdvisorTestStatsFromQueryCustom(t, db, globalRatingAdvisorStatsQueryCustom)
+	globalScope, globalScopeArgs := activityStatsSceneScopeCustom(nil, nil, nil)
+	global := ratingAdvisorTestStatsFromQueryCustom(t, db, scopedRatingAdvisorStatsQueryCustom(globalScope), globalScopeArgs...)
 	require.Equal(t, 2, global.SoloScenes.EntityCount)
 	require.Equal(t, 3, global.SexScenes.EntityCount)
+	require.Equal(t, 1, global.ThreesomeScenes.EntityCount)
 	require.Equal(t, 1, global.GroupScenes.EntityCount)
 	require.Equal(t, 4, global.Performers.EntityCount)
-	require.InDelta(t, 75, *global.OverallSceneAverageRating100, 0.0001)
+	require.InDelta(t, 70, *global.OverallSceneAverageRating100, 0.0001)
 	require.InDelta(t, 72.5, *global.Performers.AverageRating100, 0.0001)
 
 	performerTwo := ratingAdvisorTestStatsFromQueryCustom(t, db, performerRatingAdvisorStatsQueryCustom, 2)
 	require.Zero(t, performerTwo.SoloScenes.EntityCount)
 	require.Equal(t, 2, performerTwo.SexScenes.EntityCount)
+	require.Equal(t, 1, performerTwo.ThreesomeScenes.EntityCount)
 	require.Zero(t, performerTwo.GroupScenes.EntityCount)
-	require.InDelta(t, 70, *performerTwo.OverallSceneAverageRating100, 0.0001)
+	require.InDelta(t, 60, *performerTwo.OverallSceneAverageRating100, 0.0001)
 
 	performerFour := ratingAdvisorTestStatsFromQueryCustom(t, db, performerRatingAdvisorStatsQueryCustom, 4)
 	require.Zero(t, performerFour.SoloScenes.EntityCount)
 	require.Zero(t, performerFour.SexScenes.EntityCount)
+	require.Zero(t, performerFour.ThreesomeScenes.EntityCount)
 	require.Equal(t, 1, performerFour.GroupScenes.EntityCount)
 	require.InDelta(t, 100, *performerFour.OverallSceneAverageRating100, 0.0001)
 }

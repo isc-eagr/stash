@@ -2,21 +2,28 @@ import { useEffect, useState } from "react";
 import { gql } from "@apollo/client";
 import { print } from "graphql";
 import { getPlatformURL } from "src/core/createClient";
+import type { StatsDateRangeInput } from "src/core/generated-graphql";
 import {
   expandVatoStatsCompactData,
   type VatoStatsCompactData,
 } from "./vatoStatsCompactData_custom";
 
 export const VATO_STATS_COMPACT_QUERY = gql`
-  query VatoStatsPerformersCompact($studioId: ID, $depth: Int) {
-    p: vatoStatsPerformers(studio_id: $studioId, depth: $depth) {
+  query VatoStatsPerformersCompact(
+    $studioId: ID
+    $depth: Int
+    $dateRange: StatsDateRangeInput
+  ) {
+    p: vatoStatsPerformers(
+      studio_id: $studioId
+      depth: $depth
+      date_range: $dateRange
+    ) {
       a: id
       b: name
       c: image_path
       d: rating100
       e: scene_o_count
-      f: scene_o_count_past_year
-      g: is_past_year
       h: scene_count
       i: sex_top_count
       j: sex_bottom_count
@@ -41,12 +48,24 @@ export const VATO_STATS_COMPACT_QUERY = gql`
         c: count
       }
     }
-    o: sceneOrgasmCount(studio_id: $studioId, depth: $depth)
-    t: totalOrgasmTime(studio_id: $studioId, depth: $depth)
+    o: sceneOrgasmCount(
+      studio_id: $studioId
+      depth: $depth
+      date_range: $dateRange
+    )
+    t: totalOrgasmTime(
+      studio_id: $studioId
+      depth: $depth
+      date_range: $dateRange
+    )
   }
 `;
 
-export function useVatoStatsCompactQuery(studioId?: string, depth?: number) {
+export function useVatoStatsCompactQuery(
+  studioId?: string,
+  depth?: number,
+  dateRange?: StatsDateRangeInput | null
+) {
   const [result, setResult] = useState<{
     data: ReturnType<typeof expandVatoStatsCompactData>;
     error?: Error;
@@ -62,7 +81,11 @@ export function useVatoStatsCompactQuery(studioId?: string, depth?: number) {
       body: JSON.stringify({
         operationName: "VatoStatsPerformersCompact",
         query: print(VATO_STATS_COMPACT_QUERY),
-        variables: { studioId: studioId ?? null, depth: depth ?? null },
+        variables: {
+          dateRange: dateRange ?? null,
+          depth: depth ?? null,
+          studioId: studioId ?? null,
+        },
       }),
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
@@ -101,7 +124,7 @@ export function useVatoStatsCompactQuery(studioId?: string, depth?: number) {
         });
       });
     return () => controller.abort();
-  }, [studioId, depth]);
+  }, [dateRange, studioId, depth]);
 
   return result;
 }

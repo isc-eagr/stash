@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/internal/manager/config"
@@ -105,8 +104,8 @@ func (r *queryResolver) performerEthnicityCountsCustom(ctx context.Context, five
 	return ret, nil
 }
 
-func (r *queryResolver) sceneWeightedMarkerCountCustom(ctx context.Context, roleTagKey string, studioID *string, depth *int) (count int, err error) {
-	sceneScope, sceneScopeArgs, err := sceneStatsSceneScopeCustom(studioID, depth)
+func (r *queryResolver) sceneWeightedMarkerCountCustom(ctx context.Context, roleTagKey string, studioID *string, depth *int, dateRange *StatsDateRangeInput) (count int, err error) {
+	sceneScope, sceneScopeArgs, _, err := sceneStatsInputScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return 0, err
 	}
@@ -133,65 +132,8 @@ func (r *queryResolver) sceneWeightedMarkerCountCustom(ctx context.Context, role
 	return count, nil
 }
 
-func (r *queryResolver) performerRoleTagCountCustom(ctx context.Context, roleTagKey string, role string) (count int, err error) {
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		tagID := configuredRoleTagIDCustom(config.GetInstance().GetUIConfiguration(), roleTagKey)
-		if tagID == 0 {
-			return nil
-		}
-
-		_, rows, err := manager.GetInstance().Database.QuerySQL(ctx, performerRoleTagCountQueryCustom, []interface{}{tagID, role})
-		if err != nil {
-			return err
-		}
-		count = customStatsFirstInt(rows)
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-
-	return count, nil
-}
-
-func (r *queryResolver) performerFacialRoleCountCustom(ctx context.Context, role string) (count int, err error) {
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		tagID := configuredRoleTagIDCustom(config.GetInstance().GetUIConfiguration(), "facialTagId")
-		if tagID == 0 {
-			return nil
-		}
-
-		const query = `
-WITH RECURSIVE facial_tags(id) AS (
-  SELECT id FROM tags WHERE id = ?
-  UNION ALL
-  SELECT tr.child_id FROM tags_relations tr JOIN facial_tags ft ON tr.parent_id = ft.id
-),
-facial_markers AS (
-  SELECT DISTINCT sm.id
-  FROM scene_markers sm
-  LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-  WHERE sm.primary_tag_id IN (SELECT id FROM facial_tags)
-     OR smt.tag_id IN (SELECT id FROM facial_tags)
-)
-SELECT COUNT(DISTINCT smp.performer_id)
-FROM scene_marker_performers smp
-WHERE smp.scene_marker_id IN (SELECT id FROM facial_markers)
-  AND smp.role = ?`
-		_, rows, err := manager.GetInstance().Database.QuerySQL(ctx, query, []interface{}{tagID, role})
-		if err != nil {
-			return err
-		}
-		count = customStatsFirstInt(rows)
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-
-	return count, nil
-}
-
-func (r *queryResolver) totalWeightedMarkerTimeCustom(ctx context.Context, roleTagKey string, studioID *string, depth *int) (totalSeconds float64, err error) {
-	sceneScope, sceneScopeArgs, err := sceneStatsSceneScopeCustom(studioID, depth)
+func (r *queryResolver) totalWeightedMarkerTimeCustom(ctx context.Context, roleTagKey string, studioID *string, depth *int, dateRange *StatsDateRangeInput) (totalSeconds float64, err error) {
+	sceneScope, sceneScopeArgs, _, err := sceneStatsInputScopeCustom(studioID, depth, dateRange)
 	if err != nil {
 		return 0, err
 	}
@@ -259,107 +201,4 @@ FROM (
 	}
 
 	return totalSeconds, nil
-}
-
-func (r *queryResolver) performersStrictRoleCountCustom(ctx context.Context, role string, oppositeRole string) (count int, err error) {
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		uiConfig := config.GetInstance().GetUIConfiguration()
-		tagIDs := []int{
-			configuredRoleTagIDCustom(uiConfig, "sexTagId"),
-			configuredRoleTagIDCustom(uiConfig, "oralTagId"),
-			configuredRoleTagIDCustom(uiConfig, "facialTagId"),
-		}
-		tagIDStrings := make([]string, 0, len(tagIDs))
-		for _, tagID := range tagIDs {
-			if tagID > 0 {
-				tagIDStrings = append(tagIDStrings, strconv.Itoa(tagID))
-			}
-		}
-		if len(tagIDStrings) == 0 {
-			return nil
-		}
-
-		tagList := strings.Join(tagIDStrings, ",")
-		query := fmt.Sprintf(`
-SELECT COUNT(DISTINCT smp.performer_id)
-FROM scene_marker_performers smp
-JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-WHERE smp.role = ?
-  AND (sm.primary_tag_id IN (%s) OR smt.tag_id IN (%s))
-  AND smp.performer_id NOT IN (
-    SELECT DISTINCT smp2.performer_id
-    FROM scene_marker_performers smp2
-    JOIN scene_markers sm2 ON sm2.id = smp2.scene_marker_id
-    LEFT JOIN scene_markers_tags smt2 ON smt2.scene_marker_id = sm2.id
-    WHERE smp2.role = ?
-      AND (sm2.primary_tag_id IN (%s) OR smt2.tag_id IN (%s))
-  )`, tagList, tagList, tagList, tagList)
-		_, rows, err := manager.GetInstance().Database.QuerySQL(ctx, query, []interface{}{role, oppositeRole})
-		if err != nil {
-			return err
-		}
-		count = customStatsFirstInt(rows)
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-
-	return count, nil
-}
-
-func (r *queryResolver) performersLenientRoleCountCustom(ctx context.Context, roleAliasKey string, supportingAliasKey string, excludedAliasKey string) (count int, err error) {
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		aliases := map[string]string{
-			"top":        "top",
-			"bottom":     "bottom",
-			"oraltop":    "oraltop",
-			"oralbottom": "oralbottom",
-		}
-		uiConfig := config.GetInstance().GetUIConfiguration()
-		configuredAliases, _ := uiConfig["sceneTagAliases"].(map[string]interface{})
-		for key, defaultValue := range aliases {
-			if value, ok := configuredAliases[key].(string); ok && value != "" {
-				aliases[key] = value
-			} else {
-				aliases[key] = defaultValue
-			}
-		}
-
-		const query = `
-SELECT COUNT(DISTINCT smp.performer_id)
-FROM scene_marker_performers smp
-JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-JOIN tags t ON t.id = sm.primary_tag_id
-WHERE LOWER(TRIM(t.name)) = ?
-  AND smp.performer_id IN (
-    SELECT DISTINCT smp2.performer_id
-    FROM scene_marker_performers smp2
-    JOIN scene_markers sm2 ON sm2.id = smp2.scene_marker_id
-    JOIN tags t2 ON t2.id = sm2.primary_tag_id
-    WHERE LOWER(TRIM(t2.name)) = ?
-  )
-  AND smp.performer_id NOT IN (
-    SELECT DISTINCT smp3.performer_id
-    FROM scene_marker_performers smp3
-    JOIN scene_markers sm3 ON sm3.id = smp3.scene_marker_id
-    JOIN tags t3 ON t3.id = sm3.primary_tag_id
-    WHERE LOWER(TRIM(t3.name)) = ?
-  )`
-		args := []interface{}{
-			strings.ToLower(aliases[roleAliasKey]),
-			strings.ToLower(aliases[supportingAliasKey]),
-			strings.ToLower(aliases[excludedAliasKey]),
-		}
-		_, rows, err := manager.GetInstance().Database.QuerySQL(ctx, query, args)
-		if err != nil {
-			return err
-		}
-		count = customStatsFirstInt(rows)
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-
-	return count, nil
 }

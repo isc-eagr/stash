@@ -51,11 +51,12 @@ func TestStudioRatingCriteriaSortKeysCustomIncludesEverySceneRubricDimension(t *
 
 func TestStudioRatingAdvisorAverageSortKeysCustomMatchStatsSections(t *testing.T) {
 	assert.Equal(t, map[string]studioRatingAdvisorAverageSortCustom{
-		"average_solo_scene_rating":     studioRatingAdvisorSoloAverageCustom,
-		"average_standard_scene_rating": studioRatingAdvisorStandardAverageCustom,
-		"average_group_scene_rating":    studioRatingAdvisorGroupAverageCustom,
-		"average_performer_rating":      studioRatingAdvisorPerformerAverageCustom,
-		"average_overall_scene_rating":  studioRatingAdvisorOverallAverageCustom,
+		"average_solo_scene_rating":      studioRatingAdvisorSoloAverageCustom,
+		"average_standard_scene_rating":  studioRatingAdvisorStandardAverageCustom,
+		"average_threesome_scene_rating": studioRatingAdvisorThreesomeAverageCustom,
+		"average_group_scene_rating":     studioRatingAdvisorGroupAverageCustom,
+		"average_performer_rating":       studioRatingAdvisorPerformerAverageCustom,
+		"average_overall_scene_rating":   studioRatingAdvisorOverallAverageCustom,
 	}, studioRatingAdvisorAverageSortKeysCustom)
 
 	solo := studioRatingAdvisorAverageExprCustom(studioRatingAdvisorSoloAverageCustom)
@@ -63,9 +64,13 @@ func TestStudioRatingAdvisorAverageSortKeysCustomMatchStatsSections(t *testing.T
 	assert.Contains(t, solo, "'soloPerformerAppeal'")
 
 	standard := studioRatingAdvisorAverageExprCustom(studioRatingAdvisorStandardAverageCustom)
-	assert.Contains(t, standard, "BETWEEN 2 AND 3")
+	assert.Contains(t, standard, ") = 2")
 	assert.Contains(t, standard, "'topAttractiveness'")
 	assert.Contains(t, standard, "NOT EXISTS")
+
+	threesome := studioRatingAdvisorAverageExprCustom(studioRatingAdvisorThreesomeAverageCustom)
+	assert.Contains(t, threesome, ") = 3")
+	assert.Contains(t, threesome, "'topAttractiveness'")
 
 	group := studioRatingAdvisorAverageExprCustom(studioRatingAdvisorGroupAverageCustom)
 	assert.Contains(t, group, ">= 4")
@@ -93,7 +98,8 @@ INSERT INTO scenes(id, studio_id, rating) VALUES
   (10, 1, 90), (11, 2, 50),
   (20, 1, 60), (21, 2, 80),
   (30, 1, 70), (31, 2, 100),
-  (40, 1, 100);
+  (40, 1, 100),
+  (50, 1, 70), (51, 2, 65);
 INSERT INTO performers(id, rating) VALUES
   (1, 90), (2, 80), (3, 40), (4, 50),
   (5, 70), (6, 60), (7, 60), (8, 70);
@@ -101,11 +107,14 @@ INSERT INTO performers_scenes(performer_id, scene_id) VALUES
   (1, 10), (3, 11),
   (1, 20), (2, 20), (3, 21), (4, 21),
   (1, 30), (2, 30), (5, 30), (6, 30),
-  (3, 31), (4, 31), (7, 31), (8, 31);
+  (3, 31), (4, 31), (7, 31), (8, 31),
+  (1, 50), (2, 50), (5, 50),
+  (3, 51), (4, 51), (7, 51);
 INSERT INTO rating_criteria_scores(entity_type, entity_id, key) VALUES
   ('scene', 10, 'soloPerformance'), ('scene', 11, 'soloPerformance'),
   ('scene', 20, 'chemistry'), ('scene', 21, 'chemistry'),
   ('scene', 30, 'groupEnergy'), ('scene', 31, 'groupEnergy'),
+  ('scene', 50, 'chemistry'), ('scene', 51, 'chemistry'),
   ('performer', 1, 'face'), ('performer', 2, 'face'),
   ('performer', 3, 'face'), ('performer', 4, 'face'),
   ('performer', 5, 'face'), ('performer', 6, 'face'),
@@ -118,11 +127,13 @@ INSERT INTO rating_criteria_scores(entity_type, entity_id, key) VALUES
 		wantIDs  []int
 	}{
 		{studioRatingAdvisorSoloAverageCustom, []int{1, 2}},
+		// Three-vato scenes 50/51 must stay out of Standard and drive Threesome.
 		{studioRatingAdvisorStandardAverageCustom, []int{2, 1}},
+		{studioRatingAdvisorThreesomeAverageCustom, []int{1, 2}},
 		{studioRatingAdvisorGroupAverageCustom, []int{2, 1}},
 		{studioRatingAdvisorPerformerAverageCustom, []int{1, 2}},
 		// Scene 40 fits no section, so it must not lift studio 1's overall
-		// average (73.3) above studio 2's (76.7).
+		// average (72.5) above studio 2's (73.75).
 		{studioRatingAdvisorOverallAverageCustom, []int{2, 1}},
 	}
 	for _, test := range tests {

@@ -10,7 +10,6 @@ export type SceneStatsFacialMarker = {
 
 export type SceneStatsFacialScene = {
   scene_markers?: SceneStatsFacialMarker[] | null;
-  is_release_past_year?: boolean;
 };
 
 export type SceneStatsFacialRoleTagIDs = {
@@ -45,13 +44,6 @@ export function facialCount(
     scene.scene_markers?.filter((marker) => markerHasTag(marker, facialTagIDs))
       .length ?? 0
   );
-}
-
-export function facialCountPastYear(
-  scene: SceneStatsFacialScene,
-  facialTagIDs?: Set<string>
-) {
-  return scene.is_release_past_year ? facialCount(scene, facialTagIDs) : 0;
 }
 
 export function reallyHotFacialCount(

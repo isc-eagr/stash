@@ -16,6 +16,7 @@ interface IProps {
 export type StudioRatingAdvisorSectionKey =
   | "solo_scenes"
   | "sex_scenes"
+  | "threesome_scenes"
   | "group_scenes"
   | "performers";
 
@@ -27,6 +28,15 @@ interface ISectionDefinition {
   ratingLabel: string;
   criteria: Record<string, { label: string; max: number }>;
 }
+
+// Standard (2 vatos) and Threesome (3 vatos) share one rubric.
+const sexSceneCriteria: ISectionDefinition["criteria"] = {
+  topAttractiveness: { label: "Top(s) Attractiveness", max: 30 },
+  bottomAttractiveness: { label: "Bottom(s) Attractiveness", max: 10 },
+  chemistry: { label: "Energy / sex quality", max: 20 },
+  payoff: { label: "Orgasm quality", max: 20 },
+  standout: { label: "Usable factor", max: 20 },
+};
 
 export const studioRatingAdvisorSectionDefinitions: ISectionDefinition[] = [
   {
@@ -47,13 +57,15 @@ export const studioRatingAdvisorSectionDefinitions: ISectionDefinition[] = [
     singular: "scene",
     plural: "scenes",
     ratingLabel: "Average scene rating",
-    criteria: {
-      topAttractiveness: { label: "Top(s) Attractiveness", max: 30 },
-      bottomAttractiveness: { label: "Bottom(s) Attractiveness", max: 10 },
-      chemistry: { label: "Energy / sex quality", max: 20 },
-      payoff: { label: "Orgasm quality", max: 20 },
-      standout: { label: "Usable factor", max: 20 },
-    },
+    criteria: sexSceneCriteria,
+  },
+  {
+    key: "threesome_scenes",
+    title: "Threesome Criteria",
+    singular: "scene",
+    plural: "scenes",
+    ratingLabel: "Average scene rating",
+    criteria: sexSceneCriteria,
   },
   {
     key: "group_scenes",
@@ -273,6 +285,7 @@ interface IRatingAdvisorStatsContentProps {
     overall_scene_average_rating100?: number | null;
     solo_scenes?: RatingAdvisorSection;
     sex_scenes?: RatingAdvisorSection;
+    threesome_scenes?: RatingAdvisorSection;
     group_scenes?: RatingAdvisorSection;
     performers?: RatingAdvisorSection;
   };

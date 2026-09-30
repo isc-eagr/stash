@@ -71,6 +71,7 @@ const METRIC_COLUMNS: [string, boolean][] = [
   ["average_overall_scene_rating", true],
   ["average_solo_scene_rating", true],
   ["average_standard_scene_rating", true],
+  ["average_threesome_scene_rating", true],
   ["average_group_scene_rating", true],
   ["created_at", false],
   ["updated_at", false],

@@ -67,6 +67,7 @@ import { PerformerCategoryStrip } from "./PerformerCategoryStrip";
 import { Counter } from "src/components/Shared/Counter";
 import { PerformerImageManager } from "./PerformerImageManager";
 import { PerformerActivityTime } from "./PerformerActivityTime";
+import { PerformerVersatility } from "./PerformerVersatility_custom"; // CUSTOM
 import {
   usePerformerCardRoleStats,
   withExactPerformerMarkerCounts,
@@ -661,13 +662,28 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                   </Col>
                 )}
               </div>
-              {/* CUSTOM: begin - reuse the Vato Overview activity cards in the performer header */}
+              {/* CUSTOM: begin - two cells: activity time (small, left) and versatility bars (right) */}
               {!isEditing && (
-                <div className="performer-header-activity col-lg-5 col-xl-4">
-                  <PerformerActivityTime
-                    activityStats={performer.activity_stats}
-                    headingId={`performer-activity-time-${performer.id}`}
-                  />
+                <div className="performer-header-activity col-lg-7 col-xl-6">
+                  <div className="performer-header-activity-grid">
+                    <PerformerActivityTime
+                      activityStats={performer.activity_stats}
+                      className="performer-activity-time--rows"
+                      headingId={`performer-activity-time-${performer.id}`}
+                    />
+                    {roleStats && (
+                      <PerformerVersatility
+                        oralBottomedPartners={roleStats.oral_with_bottom_count}
+                        oralToppedPartners={roleStats.oral_with_top_count}
+                        sexBottomedPartners={roleStats.sex_with_bottom_count}
+                        sexToppedPartners={roleStats.sex_with_top_count}
+                        facialBottomedPartners={
+                          roleStats.facial_with_bottom_count
+                        }
+                        facialToppedPartners={roleStats.facial_with_top_count}
+                      />
+                    )}
+                  </div>
                 </div>
               )}
               {/* CUSTOM: end */}

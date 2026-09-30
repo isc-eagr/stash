@@ -18,7 +18,7 @@ type PerformerSceneRatingAdvisorSectionKey = Exclude<
 >;
 
 export const performerSceneRatingAdvisorSectionKeys: PerformerSceneRatingAdvisorSectionKey[] =
-  ["solo_scenes", "sex_scenes", "group_scenes"];
+  ["solo_scenes", "sex_scenes", "threesome_scenes", "group_scenes"];
 
 type PerformerRatingAdvisorStatsData =
   GQL.PerformerRatingAdvisorStatsQuery["performerRatingAdvisorStats"];

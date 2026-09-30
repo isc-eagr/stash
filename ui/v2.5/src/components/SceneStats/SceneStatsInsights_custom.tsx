@@ -4,20 +4,23 @@ import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { RatingAdvisorStatsContent } from "src/components/Studios/StudioDetails/StudioRatingAdvisorStats";
 import { useSceneStatsInsightsQuery } from "src/core/generated-graphql";
+import type { StatsDateRangeInput } from "src/core/generated-graphql";
 
 interface IProps {
   studioId?: string;
   depth?: number;
   studioName?: string;
+  dateRange?: StatsDateRangeInput | null;
 }
 
 export const SceneStatsInsights: React.FC<IProps> = ({
   studioId,
   depth,
   studioName,
+  dateRange,
 }) => {
   const { data, error, loading } = useSceneStatsInsightsQuery({
-    variables: { studioId, depth },
+    variables: { studioId, depth, dateRange },
   });
 
   const scopeLabel = studioName ? `${studioName} scenes` : "every scene";
@@ -50,7 +53,12 @@ export const SceneStatsInsights: React.FC<IProps> = ({
       </section>
       <RatingAdvisorStatsContent
         description={ratingDescription}
-        sectionKeys={["solo_scenes", "sex_scenes", "group_scenes"]}
+        sectionKeys={[
+          "solo_scenes",
+          "sex_scenes",
+          "threesome_scenes",
+          "group_scenes",
+        ]}
         stats={data.globalRatingAdvisorStats}
         title={
           studioName

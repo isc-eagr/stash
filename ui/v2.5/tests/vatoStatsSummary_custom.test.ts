@@ -23,7 +23,7 @@ const summarySource = vatoStatsSource.slice(summaryStart, summaryEnd);
 
 assert.match(
   summarySource,
-  /label: "Total Vatos",\s*value: totalVatos\.toLocaleString\(\),[\s\S]*?label: "Meters Of Pito"/,
+  /label: "Total Vatos",\s*value: totalVatos\.toLocaleString\(\),[\s\S]*?label: "Meters of Pito"/,
   "Total Vatos should be the first Vato Stats summary card"
 );
 assert.match(

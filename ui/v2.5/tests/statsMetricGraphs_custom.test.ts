@@ -60,7 +60,7 @@ assert.match(
 
 assert.match(
   sceneStatsSource,
-  /o_count: "O Count"[\s\S]*?category: "o_count"[\s\S]*?label="By O Count"/,
+  /o_count: "O Count"[\s\S]*?category: "o_count"[\s\S]*?title="By O Count"/,
   "Scene Stats should bucket O counts and render a drill-down graph"
 );
 

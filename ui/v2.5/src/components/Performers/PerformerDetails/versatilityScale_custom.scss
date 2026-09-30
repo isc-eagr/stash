@@ -1,0 +1,171 @@
+/* CUSTOM: sex/oral versatility bars under Activity Time in the performer header. */
+.performer-versatility {
+  margin-top: 0.9rem;
+}
+
+.performer-versatility-title {
+  color: #f5f8fa;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+/* Sex, Oral, and Facial stack vertically. */
+.performer-versatility-scales {
+  display: grid;
+  gap: 0.45rem;
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: 0.65rem;
+}
+
+.performer-versatility-scale {
+  background: rgba(255, 255, 255, 0.045);
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+}
+
+.performer-versatility-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  justify-content: space-between;
+  margin-bottom: 0.55rem;
+
+  h3 {
+    color: #a9acb2;
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin: 0;
+  }
+}
+
+.performer-versatility-chip {
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.12rem 0.5rem;
+  white-space: nowrap;
+}
+
+.performer-versatility-empty {
+  color: #9aa7b6;
+  font-size: 0.68rem;
+}
+
+.performer-versatility-track {
+  background: linear-gradient(90deg, #0e5c2e, #ced4da 50%, #0d3b8c);
+  border-radius: 999px;
+  height: 0.5rem;
+  margin: 0 0.45rem;
+  position: relative;
+}
+
+.performer-versatility-marker {
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45);
+  height: 0.9rem;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 0.9rem;
+}
+
+.performer-versatility-ends {
+  color: #9aa7b6;
+  display: flex;
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+  gap: 0.5rem;
+  justify-content: space-between;
+  line-height: 1.25;
+  margin-top: 0.45rem;
+
+  span:last-child {
+    text-align: right;
+  }
+}
+
+/* CUSTOM: one-line versatility strips on performer cards. */
+.performer-card-versatility {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.performer-card-versatility-row {
+  align-items: center;
+  border-radius: 4px;
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: 1.35rem 1.5rem minmax(0, 1fr) 1.5rem;
+  padding: 0.05rem 0.1rem;
+
+  &.is-highlighted {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .performer-versatility-marker {
+    border-width: 1.5px;
+    height: 0.75rem;
+    width: 0.75rem;
+  }
+}
+
+.performer-card-versatility-icon {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+
+  /* White like the role-badge icons; metallic card themes tint over this. */
+  .category-icon {
+    filter: brightness(0) invert(1);
+    height: 1.2rem;
+    width: 1.2rem;
+  }
+
+  .category-icon-fa {
+    color: #fff;
+    font-size: 1.1rem;
+  }
+}
+
+/* Scoped under the row so role colors beat app-theme link colors. */
+.performer-card-versatility-row .performer-card-versatility-count {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  text-align: center;
+
+  &.is-top,
+  &.is-top:hover {
+    color: #17a2b8;
+  }
+
+  &.is-bottom,
+  &.is-bottom:hover {
+    color: #28a745;
+  }
+}
+
+.performer-card-versatility-track {
+  background: linear-gradient(90deg, #0e5c2e, #ced4da 50%, #0d3b8c);
+  border-radius: 999px;
+  display: block;
+  height: 0.4rem;
+  margin: 0 0.35rem;
+  position: relative;
+}
+
+/* Jerk, orgasm, and feet icons below the card strips need only two rows. */
+.performer-role-badges.performer-category-strip--card-icons {
+  margin-top: 0.4rem;
+
+  .role-badge-item {
+    grid-template-rows: 1.5rem 1.5rem;
+  }
+}

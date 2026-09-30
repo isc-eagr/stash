@@ -1,0 +1,199 @@
+/* CUSTOM: ranked image cards for O, Scene, and Vato Stats. Pages set the
+   accent through the custom properties below. */
+.stats-top {
+  --stats-top-bg: #070b12;
+  --stats-top-border: rgba(71, 134, 212, 0.22);
+  --stats-top-card-bg: rgba(17, 41, 72, 0.62);
+  --stats-top-card-border: rgba(72, 134, 211, 0.2);
+  --stats-top-card-hover: rgba(119, 184, 255, 0.8);
+  --stats-top-accent: #8fb7e8;
+
+  background: var(--stats-top-bg);
+  border: 1px solid var(--stats-top-border);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  padding: 1rem;
+}
+
+.scenestats-page .stats-top {
+  --stats-top-bg: #090a0d;
+  --stats-top-border: rgba(218, 179, 94, 0.22);
+  --stats-top-card-bg: rgba(47, 40, 27, 0.72);
+  --stats-top-card-border: rgba(218, 179, 94, 0.24);
+  --stats-top-card-hover: rgba(244, 210, 128, 0.78);
+  --stats-top-accent: #d8bf83;
+}
+
+.stats-top-heading {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+}
+
+.stats-top-title {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  min-width: 0;
+
+  h2 {
+    font-size: 1.1rem;
+    line-height: 1.2;
+    margin: 0;
+  }
+}
+
+.stats-top-note {
+  color: var(--stats-top-accent);
+  font-size: 0.78rem;
+}
+
+.stats-top-empty {
+  align-items: center;
+  color: var(--stats-top-accent);
+  display: flex;
+  min-height: 5rem;
+}
+
+.stats-top-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.stats-top--vato .stats-top-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+}
+
+.stats-top-card {
+  background: var(--stats-top-card-bg);
+  border: 1px solid var(--stats-top-card-border);
+  border-radius: 8px;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  height: 100%;
+  overflow: hidden;
+  padding: 0 0 0.75rem;
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--stats-top-card-hover);
+    color: #fff;
+    text-decoration: none;
+
+    img {
+      filter: brightness(1.08);
+    }
+  }
+}
+
+.stats-top-image {
+  aspect-ratio: 16 / 9;
+  background: rgba(255, 255, 255, 0.05);
+  display: block;
+  position: relative;
+
+  img {
+    display: block;
+    height: 100%;
+    object-fit: cover;
+    width: 100%;
+  }
+}
+
+.stats-top--vato .stats-top-image {
+  aspect-ratio: 3 / 4;
+
+  img {
+    object-position: top;
+  }
+}
+
+/* The rating star sits top-right; the rank stays top-left. */
+.stats-top-image .rating-banner.rating-banner-compact {
+  left: auto;
+  position: absolute;
+  right: 0.45rem;
+  top: 0.45rem;
+  z-index: 1;
+}
+
+.stats-top-rank {
+  align-items: center;
+  background: rgba(7, 11, 18, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 999px;
+  color: #fff;
+  display: flex;
+  font-size: 1rem;
+  font-weight: 800;
+  height: 2.2rem;
+  justify-content: center;
+  left: 0.55rem;
+  min-width: 2.2rem;
+  padding: 0 0.45rem;
+  position: absolute;
+  top: 0.55rem;
+
+  &.rank-1 {
+    background: #d4a93a;
+    border-color: #f5d57a;
+    color: #1b1406;
+  }
+
+  &.rank-2 {
+    background: #b9c2cc;
+    border-color: #e4e9ee;
+    color: #15191d;
+  }
+
+  &.rank-3 {
+    background: #b0703a;
+    border-color: #dc9b63;
+    color: #1b0f05;
+  }
+}
+
+.stats-top-name {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  padding: 0 0.8rem;
+}
+
+.stats-top-value {
+  align-items: baseline;
+  color: var(--stats-top-accent);
+  display: flex;
+  font-size: 0.9rem;
+  gap: 0.4rem;
+  margin-top: auto;
+  padding: 0 0.8rem;
+
+  strong {
+    color: #fff;
+    font-size: 1.1rem;
+  }
+}
+
+.stats-top-detail {
+  color: #9aa7b6;
+  margin-left: auto;
+}
+
+.stats-top-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}

@@ -1,15 +1,23 @@
 import React, { useMemo } from "react";
-import { gql, useQuery } from "@apollo/client";
+import { gql, useQuery, type DocumentNode } from "@apollo/client";
 import { Alert, Button, ButtonGroup } from "react-bootstrap";
 import { Helmet } from "react-helmet";
-import { Link, RouteComponentProps } from "react-router-dom";
+import { Link, RouteComponentProps, useLocation } from "react-router-dom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { StatsPage } from "src/components/StatsPage_custom";
+import {
+  StatsBarChart,
+  type IStatsBarDatum,
+} from "src/components/StatsBarChart_custom"; // CUSTOM
+import { StatsDateRangeFilter } from "src/components/StatsDateRangeFilter_custom"; // CUSTOM
 import { useConfigurationContext } from "src/hooks/Config";
+import { useStatsDateRange } from "src/hooks/useStatsDateRange_custom"; // CUSTOM
 import { useTitleProps } from "src/hooks/title";
 import { statsCountryName } from "src/utils/statsCountry_custom";
 import { formatStatsTotal } from "src/utils/statsDrilldown_custom";
+import { addStatsDateRangeToPath } from "src/utils/statsDateRange_custom"; // CUSTOM
+import { metallicRatingChartBucket } from "src/utils/metallicRatingChart_custom"; // CUSTOM
 import {
   addOStatsStudioScopeToPath,
   getOStatsStudioScopeVariables,
@@ -26,23 +34,300 @@ import {
   shouldShowSceneOOrdinalChipCustom,
 } from "./oStatsEventPresentation_custom"; // CUSTOM
 import { partitionOStatsMarkerTagCountsCustom } from "./oStatsMarkerTagCharts_custom"; // CUSTOM
+import {
+  fillOStatsDays,
+  fillOStatsMonths,
+  fillOStatsYears,
+} from "./oStatsDateSeries_custom"; // CUSTOM
+import {
+  O_STATS_UNKNOWN_BUCKET,
+  oStatsBucketCounts,
+  oStatsRatingBucket,
+  oStatsSceneIDsInBucket,
+  oStatsTierBucket,
+  type OStatsSceneCount,
+} from "./oStatsSceneBuckets_custom"; // CUSTOM
+import { OStatsCalendarHeatmap } from "./OStatsCalendarHeatmap_custom"; // CUSTOM
+import { StatsTopCards } from "src/components/StatsTopCards_custom"; // CUSTOM
+import { formatStatsBarPercent } from "src/utils/statsBarChart_custom"; // CUSTOM
 
 import "./OStats.scss";
 
-// CUSTOM: begin - studio scope flows through all O Stats aggregates and event queries.
-const SCENE_O_YEAR_COUNTS = gql`
-  query OStatsSceneOYearCounts($studioId: ID, $depth: Int) {
-    sceneOYearCounts(studio_id: $studioId, depth: $depth) {
+// CUSTOM: begin - every O Stats query accepts the studio tree and the O-date range.
+const O_EVENT_FIELDS = gql`
+  fragment OStatsSceneOEvent on SceneOEvent {
+    id
+    scene_id
+    o_date
+    is_first_for_scene
+    scene_o_number
+    video_timestamp
+    associated_tags {
+      id
+      name
+    }
+    scene {
+      id
+      title
+      date
+      paths {
+        screenshot
+      }
+      studio {
+        id
+        name
+      }
+      performers {
+        id
+        name
+      }
+    }
+  }
+`;
+
+const SCOPE_VARIABLES =
+  "$studioId: ID, $depth: Int, $dateRange: StatsDateRangeInput";
+const SCOPE_ARGUMENTS =
+  "studio_id: $studioId, depth: $depth, date_range: $dateRange";
+
+function eventsQuery(
+  operation: string,
+  field: string,
+  variables = "",
+  argumentsList = ""
+) {
+  return gql`
+    query ${operation}(${variables}${SCOPE_VARIABLES}) {
+      events: ${field}(${argumentsList}${SCOPE_ARGUMENTS}) {
+        ...OStatsSceneOEvent
+      }
+    }
+    ${O_EVENT_FIELDS}
+  `;
+}
+
+const EVENT_QUERIES = {
+  date: eventsQuery(
+    "OStatsEventsByDate",
+    "sceneOEventsByDate",
+    "$date: String!, ",
+    "date: $date, "
+  ),
+  tag: eventsQuery(
+    "OStatsEventsByTag",
+    "sceneOEventsByTag",
+    "$tagID: ID!, ",
+    "tagID: $tagID, "
+  ),
+  unknownMarkerTag: eventsQuery(
+    "OStatsEventsWithoutMarkerTags",
+    "sceneOEventsWithoutMarkerTags"
+  ),
+  ethnicity: eventsQuery(
+    "OStatsEventsByEthnicity",
+    "sceneOEventsByEthnicity",
+    "$ethnicity: String!, ",
+    "ethnicity: $ethnicity, "
+  ),
+  country: eventsQuery(
+    "OStatsEventsByCountry",
+    "sceneOEventsByCountry",
+    "$country: String!, ",
+    "country: $country, "
+  ),
+  unknownStudio: eventsQuery(
+    "OStatsEventsWithUnknownStudio",
+    "sceneOEventsWithUnknownStudio"
+  ),
+  age: eventsQuery(
+    "OStatsEventsByPerformerAge",
+    "sceneOEventsByPerformerAge",
+    "$age: Int!, ",
+    "age: $age, "
+  ),
+  unknownAge: eventsQuery(
+    "OStatsEventsWithUnknownPerformerAge",
+    "sceneOEventsWithUnknownPerformerAge"
+  ),
+  releaseYear: eventsQuery(
+    "OStatsEventsByReleaseYear",
+    "sceneOEventsByReleaseYear",
+    "$year: Int!, ",
+    "year: $year, "
+  ),
+  unknownReleaseYear: eventsQuery(
+    "OStatsEventsWithUnknownReleaseYear",
+    "sceneOEventsWithUnknownReleaseYear"
+  ),
+  unknownDate: eventsQuery(
+    "OStatsEventsBeforeTrackingStart",
+    "sceneOEventsBeforeTrackingStart"
+  ),
+  performer: eventsQuery(
+    "OStatsEventsByPerformer",
+    "sceneOEventsByPerformer",
+    "$performerID: ID!, ",
+    "performerID: $performerID, "
+  ),
+  scene: eventsQuery(
+    "OStatsEventsByScene",
+    "sceneOEventsByScene",
+    "$sceneID: ID!, ",
+    "sceneID: $sceneID, "
+  ),
+  scenes: eventsQuery(
+    "OStatsEventsByScenes",
+    "sceneOEventsByScenes",
+    "$sceneIDs: [ID!]!, ",
+    "sceneIDs: $sceneIDs, "
+  ),
+};
+
+// The studio drilldown names its own studio, so the scope uses scope_studio_id.
+const EVENTS_BY_STUDIO = gql`
+  query OStatsEventsByStudio(
+    $studioID: ID!
+    $studioId: ID
+    $depth: Int
+    $dateRange: StatsDateRangeInput
+  ) {
+    events: sceneOEventsByStudio(
+      studioID: $studioID
+      scope_studio_id: $studioId
+      depth: $depth
+      date_range: $dateRange
+    ) {
+      ...OStatsSceneOEvent
+    }
+  }
+  ${O_EVENT_FIELDS}
+`;
+
+const ENTITY_NAMES = gql`
+  query OStatsEntityNames(
+    $performerId: ID!
+    $sceneId: ID!
+    $studioId: ID!
+    $tagId: ID!
+    $withPerformer: Boolean!
+    $withScene: Boolean!
+    $withStudio: Boolean!
+    $withTag: Boolean!
+  ) {
+    findPerformer(id: $performerId) @include(if: $withPerformer) {
+      id
+      name
+    }
+    findScene(id: $sceneId) @include(if: $withScene) {
+      id
+      title
+    }
+    findStudio(id: $studioId) @include(if: $withStudio) {
+      id
+      name
+    }
+    findTag(id: $tagId) @include(if: $withTag) {
+      id
+      name
+    }
+  }
+`;
+
+// One request for every overview aggregate. Records and the By Studio chart
+// are global-only, so embedded Studio O Stats leaves them out.
+const O_STATS_OVERVIEW = gql`
+  query OStatsOverview(
+    $studioId: ID
+    $depth: Int
+    $dateRange: StatsDateRangeInput
+    $includeGlobal: Boolean!
+  ) {
+    calendarYears: sceneOYearCounts(studio_id: $studioId, depth: $depth) {
       year
+    }
+    years: sceneOYearCounts(${SCOPE_ARGUMENTS}) {
+      year
+      count
+    }
+    mostOsInDay(${SCOPE_ARGUMENTS}) @include(if: $includeGlobal) {
+      date
+      count
+    }
+    longestPeriodWithoutO(${SCOPE_ARGUMENTS}) @include(if: $includeGlobal) {
+      days
+      start_date
+      end_date
+    }
+    byTag: sceneOCountsByTag(${SCOPE_ARGUMENTS}) {
+      tag_id
+      tag_name
+      count
+    }
+    withoutMarkerTags: sceneOCountWithoutMarkerTags(${SCOPE_ARGUMENTS})
+    byEthnicity: sceneOCountsByEthnicity(${SCOPE_ARGUMENTS}) {
+      ethnicity
+      count
+    }
+    byCountry: sceneOCountsByCountry(${SCOPE_ARGUMENTS}) {
+      country
+      count
+    }
+    byStudio: sceneOCountsByStudio(${SCOPE_ARGUMENTS})
+      @include(if: $includeGlobal) {
+      counts {
+        studio_id
+        studio_name
+        count
+      }
+      unknown_count
+    }
+    byAge: sceneOCountsByPerformerAge(${SCOPE_ARGUMENTS}) {
+      counts {
+        age
+        count
+      }
+      unknown_count
+    }
+    byReleaseYear: sceneOCountsByReleaseYear(${SCOPE_ARGUMENTS}) {
+      counts {
+        year
+        count
+      }
+      unknown_count
+    }
+    unreliableDateCount: sceneOUnreliableDateCount(${SCOPE_ARGUMENTS})
+    byPerformer: sceneOCountsByPerformer(${SCOPE_ARGUMENTS}) {
+      performer_id
+      performer_name
+      image_path
+      rating100
+      count
+    }
+  }
+`;
+
+const O_STATS_SCENE_COUNTS = gql`
+  query OStatsSceneCounts(${SCOPE_VARIABLES}) {
+    sceneOCountsByScene(${SCOPE_ARGUMENTS}) {
+      scene_id
+      title
+      screenshot_path
+      rating100
+      tag_ids
+      has_royal_sapphire_bonus
       count
     }
   }
 `;
 
 const SCENE_O_MONTH_COUNTS = gql`
-  query OStatsSceneOMonthCounts($year: Int!, $studioId: ID, $depth: Int) {
-    sceneOMonthCounts(year: $year, studio_id: $studioId, depth: $depth) {
-      year
+  query OStatsSceneOMonthCounts(
+    $year: Int!
+    $studioId: ID
+    $depth: Int
+    $dateRange: StatsDateRangeInput
+  ) {
+    sceneOMonthCounts(year: $year, ${SCOPE_ARGUMENTS}) {
       month
       count
     }
@@ -55,679 +340,15 @@ const SCENE_O_DAY_COUNTS = gql`
     $month: Int!
     $studioId: ID
     $depth: Int
+    $dateRange: StatsDateRangeInput
   ) {
-    sceneODayCounts(
-      year: $year
-      month: $month
-      studio_id: $studioId
-      depth: $depth
-    ) {
-      date
+    sceneODayCounts(year: $year, month: $month, ${SCOPE_ARGUMENTS}) {
       day
       count
     }
   }
 `;
-
-const SCENE_O_EVENTS_BY_DATE = gql`
-  query OStatsSceneOEventsByDate($date: String!, $studioId: ID, $depth: Int) {
-    sceneOEventsByDate(date: $date, studio_id: $studioId, depth: $depth) {
-      id
-      scene_id
-      o_date
-      is_first_for_scene
-      scene_o_number
-      video_timestamp
-      associated_tags {
-        id
-        name
-      }
-      scene {
-        id
-        title
-        date
-        paths {
-          screenshot
-        }
-        studio {
-          id
-          name
-        }
-        performers {
-          id
-          name
-        }
-      }
-    }
-  }
-`;
-
-const SCENE_O_EVENTS_BY_TAG = gql`
-  query OStatsSceneOEventsByTag($tagID: ID!, $studioId: ID, $depth: Int) {
-    sceneOEventsByTag(tagID: $tagID, studio_id: $studioId, depth: $depth) {
-      id
-      scene_id
-      o_date
-      is_first_for_scene
-      scene_o_number
-      video_timestamp
-      associated_tags {
-        id
-        name
-      }
-      scene {
-        id
-        title
-        date
-        paths {
-          screenshot
-        }
-        studio {
-          id
-          name
-        }
-        performers {
-          id
-          name
-        }
-      }
-    }
-  }
-`;
-
-const SCENE_O_EVENTS_WITHOUT_MARKER_TAGS = gql`
-  query OStatsSceneOEventsWithoutMarkerTags($studioId: ID, $depth: Int) {
-    sceneOEventsWithoutMarkerTags(studio_id: $studioId, depth: $depth) {
-      id
-      scene_id
-      o_date
-      is_first_for_scene
-      scene_o_number
-      video_timestamp
-      associated_tags {
-        id
-        name
-      }
-      scene {
-        id
-        title
-        date
-        paths {
-          screenshot
-        }
-        studio {
-          id
-          name
-        }
-        performers {
-          id
-          name
-        }
-      }
-    }
-  }
-`;
-
-const SCENE_O_EVENTS_BY_ETHNICITY = gql`
-  query OStatsSceneOEventsByEthnicity(
-    $ethnicity: String!
-    $studioId: ID
-    $depth: Int
-  ) {
-    sceneOEventsByEthnicity(
-      ethnicity: $ethnicity
-      studio_id: $studioId
-      depth: $depth
-    ) {
-      id
-      scene_id
-      o_date
-      is_first_for_scene
-      scene_o_number
-      video_timestamp
-      associated_tags {
-        id
-        name
-      }
-      scene {
-        id
-        title
-        date
-        paths {
-          screenshot
-        }
-        studio {
-          id
-          name
-        }
-        performers {
-          id
-          name
-        }
-      }
-    }
-  }
-`;
-
-const SCENE_O_EVENTS_BY_COUNTRY = gql`
-  query OStatsSceneOEventsByCountry(
-    $country: String!
-    $studioId: ID
-    $depth: Int
-  ) {
-    sceneOEventsByCountry(
-      country: $country
-      studio_id: $studioId
-      depth: $depth
-    ) {
-      id
-      scene_id
-      o_date
-      is_first_for_scene
-      scene_o_number
-      video_timestamp
-      associated_tags {
-        id
-        name
-      }
-      scene {
-        id
-        title
-        date
-        paths {
-          screenshot
-        }
-        studio {
-          id
-          name
-        }
-        performers {
-          id
-          name
-        }
-      }
-    }
-  }
-`;
-
-const SCENE_O_EVENTS_BY_STUDIO = gql`
-  query OStatsSceneOEventsByStudio(
-    $studioID: ID!
-    $scopeStudioId: ID
-    $depth: Int
-  ) {
-    sceneOEventsByStudio(
-      studioID: $studioID
-      scope_studio_id: $scopeStudioId
-      depth: $depth
-    ) {
-      id
-      scene_id
-      o_date
-      is_first_for_scene
-      scene_o_number
-      video_timestamp
-      associated_tags {
-        id
-        name
-      }
-      scene {
-        id
-        title
-        date
-        paths {
-          screenshot
-        }
-        studio {
-          id
-          name
-        }
-        performers {
-          id
-          name
-        }
-      }
-    }
-  }
-`;
-
-const SCENE_O_EVENTS_WITH_UNKNOWN_STUDIO = gql`
-  query OStatsSceneOEventsWithUnknownStudio($studioId: ID, $depth: Int) {
-    sceneOEventsWithUnknownStudio(studio_id: $studioId, depth: $depth) {
-      id
-      scene_id
-      o_date
-      is_first_for_scene
-      scene_o_number
-      video_timestamp
-      associated_tags {
-        id
-        name
-      }
-      scene {
-        id
-        title
-        date
-        paths {
-          screenshot
-        }
-        studio {
-          id
-          name
-        }
-        performers {
-          id
-          name
-        }
-      }
-    }
-  }
-`;
-
-const SCENE_O_EVENTS_BY_PERFORMER_AGE = gql`
-  query OStatsSceneOEventsByPerformerAge(
-    $age: Int!
-    $studioId: ID
-    $depth: Int
-  ) {
-    sceneOEventsByPerformerAge(age: $age, studio_id: $studioId, depth: $depth) {
-      id
-      scene_id
-      o_date
-      is_first_for_scene
-      scene_o_number
-      video_timestamp
-      associated_tags {
-        id
-        name
-      }
-      scene {
-        id
-        title
-        date
-        paths {
-          screenshot
-        }
-        studio {
-          id
-          name
-        }
-        performers {
-          id
-          name
-        }
-      }
-    }
-  }
-`;
-
-const SCENE_O_EVENTS_WITH_UNKNOWN_PERFORMER_AGE = gql`
-  query OStatsSceneOEventsWithUnknownPerformerAge($studioId: ID, $depth: Int) {
-    sceneOEventsWithUnknownPerformerAge(studio_id: $studioId, depth: $depth) {
-      id
-      scene_id
-      o_date
-      is_first_for_scene
-      scene_o_number
-      video_timestamp
-      associated_tags {
-        id
-        name
-      }
-      scene {
-        id
-        title
-        date
-        paths {
-          screenshot
-        }
-        studio {
-          id
-          name
-        }
-        performers {
-          id
-          name
-        }
-      }
-    }
-  }
-`;
-
-const SCENE_O_EVENTS_BY_RELEASE_YEAR = gql`
-  query OStatsSceneOEventsByReleaseYear(
-    $year: Int!
-    $studioId: ID
-    $depth: Int
-  ) {
-    sceneOEventsByReleaseYear(
-      year: $year
-      studio_id: $studioId
-      depth: $depth
-    ) {
-      id
-      scene_id
-      o_date
-      is_first_for_scene
-      scene_o_number
-      video_timestamp
-      associated_tags {
-        id
-        name
-      }
-      scene {
-        id
-        title
-        date
-        paths {
-          screenshot
-        }
-        studio {
-          id
-          name
-        }
-        performers {
-          id
-          name
-        }
-      }
-    }
-  }
-`;
-
-const SCENE_O_EVENTS_WITH_UNKNOWN_RELEASE_YEAR = gql`
-  query OStatsSceneOEventsWithUnknownReleaseYear($studioId: ID, $depth: Int) {
-    sceneOEventsWithUnknownReleaseYear(studio_id: $studioId, depth: $depth) {
-      id
-      scene_id
-      o_date
-      is_first_for_scene
-      scene_o_number
-      video_timestamp
-      associated_tags {
-        id
-        name
-      }
-      scene {
-        id
-        title
-        date
-        paths {
-          screenshot
-        }
-        studio {
-          id
-          name
-        }
-        performers {
-          id
-          name
-        }
-      }
-    }
-  }
-`;
-
-const SCENE_O_EVENTS_BEFORE_TRACKING_START = gql`
-  query OStatsSceneOEventsBeforeTrackingStart($studioId: ID, $depth: Int) {
-    sceneOEventsBeforeTrackingStart(studio_id: $studioId, depth: $depth) {
-      id
-      scene_id
-      o_date
-      is_first_for_scene
-      scene_o_number
-      video_timestamp
-      associated_tags {
-        id
-        name
-      }
-      scene {
-        id
-        title
-        date
-        paths {
-          screenshot
-        }
-        studio {
-          id
-          name
-        }
-        performers {
-          id
-          name
-        }
-      }
-    }
-  }
-`;
-
-const SCENE_O_EVENTS_BY_PERFORMER = gql`
-  query OStatsSceneOEventsByPerformer(
-    $performerID: ID!
-    $studioId: ID
-    $depth: Int
-  ) {
-    sceneOEventsByPerformer(
-      performerID: $performerID
-      studio_id: $studioId
-      depth: $depth
-    ) {
-      id
-      scene_id
-      o_date
-      is_first_for_scene
-      scene_o_number
-      video_timestamp
-      associated_tags {
-        id
-        name
-      }
-      scene {
-        id
-        title
-        date
-        paths {
-          screenshot
-        }
-        studio {
-          id
-          name
-        }
-        performers {
-          id
-          name
-        }
-      }
-    }
-  }
-`;
-
-const SCENE_O_EVENTS_BY_SCENE = gql`
-  query OStatsSceneOEventsByScene($sceneID: ID!, $studioId: ID, $depth: Int) {
-    sceneOEventsByScene(
-      sceneID: $sceneID
-      studio_id: $studioId
-      depth: $depth
-    ) {
-      id
-      scene_id
-      o_date
-      is_first_for_scene
-      scene_o_number
-      video_timestamp
-      associated_tags {
-        id
-        name
-      }
-      scene {
-        id
-        title
-        date
-        paths {
-          screenshot
-        }
-        studio {
-          id
-          name
-        }
-        performers {
-          id
-          name
-        }
-      }
-    }
-  }
-`;
-
-const PERFORMER_NAME = gql`
-  query OStatsPerformerName($id: ID!) {
-    findPerformer(id: $id) {
-      id
-      name
-    }
-  }
-`;
-
-const SCENE_NAME = gql`
-  query OStatsSceneName($id: ID!) {
-    findScene(id: $id) {
-      id
-      title
-    }
-  }
-`;
-
-const STUDIO_NAME = gql`
-  query OStatsStudioName($id: ID!) {
-    findStudio(id: $id) {
-      id
-      name
-    }
-  }
-`;
-
-const TAG_NAME = gql`
-  query OStatsTagName($id: ID!) {
-    findTag(id: $id) {
-      id
-      name
-    }
-  }
-`;
-
-const MOST_OS_IN_DAY = gql`
-  query OStatsMostOsInDay($studioId: ID, $depth: Int) {
-    mostOsInDay(studio_id: $studioId, depth: $depth) {
-      date
-      count
-    }
-  }
-`;
-
-const LONGEST_PERIOD_WITHOUT_O = gql`
-  query OStatsLongestPeriodWithoutO($studioId: ID, $depth: Int) {
-    longestPeriodWithoutO(studio_id: $studioId, depth: $depth) {
-      days
-      start_date
-      end_date
-    }
-  }
-`;
-
-const SCENE_O_COUNTS_BY_TAG = gql`
-  query OStatsSceneOCountsByTag($studioId: ID, $depth: Int) {
-    sceneOCountsByTag(studio_id: $studioId, depth: $depth) {
-      tag_id
-      tag_name
-      count
-    }
-  }
-`;
-
-const SCENE_O_COUNT_WITHOUT_MARKER_TAGS = gql`
-  query OStatsSceneOCountWithoutMarkerTags($studioId: ID, $depth: Int) {
-    sceneOCountWithoutMarkerTags(studio_id: $studioId, depth: $depth)
-  }
-`;
-
-const SCENE_O_COUNTS_BY_ETHNICITY = gql`
-  query OStatsSceneOCountsByEthnicity($studioId: ID, $depth: Int) {
-    sceneOCountsByEthnicity(studio_id: $studioId, depth: $depth) {
-      ethnicity
-      count
-    }
-  }
-`;
-
-const SCENE_O_COUNTS_BY_COUNTRY = gql`
-  query OStatsSceneOCountsByCountry($studioId: ID, $depth: Int) {
-    sceneOCountsByCountry(studio_id: $studioId, depth: $depth) {
-      country
-      count
-    }
-  }
-`;
-
-const SCENE_O_COUNTS_BY_STUDIO = gql`
-  query OStatsSceneOCountsByStudio($studioId: ID, $depth: Int) {
-    sceneOCountsByStudio(studio_id: $studioId, depth: $depth) {
-      counts {
-        studio_id
-        studio_name
-        count
-      }
-      unknown_count
-    }
-  }
-`;
-
-const SCENE_O_COUNTS_BY_PERFORMER_AGE = gql`
-  query OStatsSceneOCountsByPerformerAge($studioId: ID, $depth: Int) {
-    sceneOCountsByPerformerAge(studio_id: $studioId, depth: $depth) {
-      counts {
-        age
-        count
-      }
-      unknown_count
-    }
-  }
-`;
-
-const SCENE_O_COUNTS_BY_RELEASE_YEAR = gql`
-  query OStatsSceneOCountsByReleaseYear($studioId: ID, $depth: Int) {
-    sceneOCountsByReleaseYear(studio_id: $studioId, depth: $depth) {
-      counts {
-        year
-        count
-      }
-      unknown_count
-    }
-  }
-`;
-
-const SCENE_O_UNRELIABLE_DATE_COUNT = gql`
-  query OStatsSceneOUnreliableDateCount($studioId: ID, $depth: Int) {
-    sceneOUnreliableDateCount(studio_id: $studioId, depth: $depth)
-  }
-`;
 // CUSTOM: end
-
-type YearCount = {
-  year: number;
-  count: number;
-};
-
-type MonthCount = {
-  year: number;
-  month: number;
-  count: number;
-};
-
-type DayCount = {
-  date: string;
-  day: number;
-  count: number;
-};
 
 type SceneOEvent = {
   id: string;
@@ -758,62 +379,46 @@ type SceneOEvent = {
   };
 };
 
-type SceneODayStat = {
-  date: string;
-  count: number;
-};
-
-type SceneODrySpell = {
-  days: number;
-  start_date: string;
-  end_date: string;
-};
-
-type SceneOCountByTag = {
-  tag_id: string;
-  tag_name: string;
-  count: number;
-};
-
-type SceneOCountByEthnicity = {
-  ethnicity: string;
-  count: number;
-};
-
-type SceneOCountByCountry = {
-  country: string;
-  count: number;
-};
-
-type SceneOCountByStudio = {
-  studio_id: string;
-  studio_name: string;
-  count: number;
-};
-
-type SceneOCountsByStudio = {
-  counts: SceneOCountByStudio[];
+type CountsWithUnknown<T> = {
+  counts: T[];
   unknown_count: number;
 };
 
-type SceneOCountByPerformerAge = {
-  age: number;
-  count: number;
+type OStatsOverviewData = {
+  calendarYears: Array<{ year: number }>;
+  years: Array<{ year: number; count: number }>;
+  mostOsInDay?: { date: string; count: number } | null;
+  longestPeriodWithoutO?: {
+    days: number;
+    start_date: string;
+    end_date: string;
+  } | null;
+  byTag: Array<{ tag_id: string; tag_name: string; count: number }>;
+  withoutMarkerTags: number;
+  byEthnicity: Array<{ ethnicity: string; count: number }>;
+  byCountry: Array<{ country: string; count: number }>;
+  byStudio?: CountsWithUnknown<{
+    studio_id: string;
+    studio_name: string;
+    count: number;
+  }>;
+  byAge: CountsWithUnknown<{ age: number; count: number }>;
+  byReleaseYear: CountsWithUnknown<{ year: number; count: number }>;
+  unreliableDateCount: number;
+  byPerformer: Array<{
+    performer_id: string;
+    performer_name: string;
+    image_path?: string | null;
+    rating100?: number | null;
+    count: number;
+  }>;
 };
 
-type SceneOCountsByPerformerAge = {
-  counts: SceneOCountByPerformerAge[];
-  unknown_count: number;
-};
-
-type SceneOCountByReleaseYear = {
-  year: number;
-  count: number;
-};
-
-type SceneOCountsByReleaseYear = {
-  counts: SceneOCountByReleaseYear[];
-  unknown_count: number;
+type EntityNamesData = {
+  findPerformer?: { id: string; name: string } | null;
+  findScene?: { id: string; title?: string | null } | null;
+  findStudio?: { id: string; name: string } | null;
+  findTag?: { id: string; name: string } | null;
 };
 
 interface IRouteParams {
@@ -823,6 +428,8 @@ interface IRouteParams {
   studioId?: string;
   performerAge?: string;
   releaseYear?: string;
+  ratingBucket?: string;
+  tier?: string;
   unknownCategory?: string;
   performerId?: string;
   sceneId?: string;
@@ -831,19 +438,31 @@ interface IRouteParams {
   day?: string;
 }
 
-interface IBarDatum {
-  key: string;
-  label: string;
-  subLabel?: string;
-  count: number;
-  path: string;
-}
+type TimelineConfig = {
+  query: DocumentNode;
+  variables: Record<string, unknown>;
+  emptyLabel: string;
+  skip?: boolean;
+};
+
+const O_UNIT: [string, string] = ["O", "O's"];
+const UNKNOWN_CATEGORIES = [
+  "date",
+  "marker-tag",
+  "studio",
+  "performer-age",
+  "release-year",
+];
 
 function asPositiveInt(value: string | undefined) {
   if (!value) return undefined;
 
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function oCountLabel(count: number) {
+  return `${count.toLocaleString()} ${count === 1 ? "O" : "O's"}`;
 }
 
 function isUnknownLabel(value: string) {
@@ -876,9 +495,8 @@ function monthName(month: number, format: "short" | "long" = "short") {
   });
 }
 
-function dayLabel(date: string) {
-  const parsed = new Date(`${date}T00:00:00Z`);
-  return parsed.toLocaleString(undefined, {
+function dayLabel(year: number, month: number, day: number) {
+  return new Date(Date.UTC(year, month - 1, day)).toLocaleString(undefined, {
     weekday: "short",
     day: "numeric",
     timeZone: "UTC",
@@ -895,61 +513,14 @@ function formatODate(value: string) {
   });
 }
 
-// CUSTOM: chart paths keep the active studio filter during O Stats navigation.
-const OStatsChart: React.FC<{
-  data: IBarDatum[];
-  emptyLabel: string;
-  scrollable?: boolean;
-  actionLabel?: string;
-  studioScope?: IOStatsStudioScope;
-}> = ({
-  data,
-  emptyLabel,
-  scrollable = false,
-  actionLabel = "View O events",
-  studioScope,
-}) => {
-  const max = Math.max(...data.map((item) => item.count), 1);
-
-  if (data.length === 0) {
-    return <div className="ostats-empty">{emptyLabel}</div>;
-  }
-
+function tierLabel(tier: string) {
   return (
-    <div
-      className={`ostats-chart${scrollable ? " ostats-chart-scrollable" : ""}`}
-    >
-      {data.map((item) => {
-        const height = `${Math.max((item.count / max) * 100, 6)}%`;
-
-        return (
-          <Link
-            className="ostats-bar-cell"
-            key={item.key}
-            to={addOStatsStudioScopeToPath(item.path, studioScope)}
-            aria-label={`${actionLabel}: ${item.label}${
-              item.subLabel ? ` ${item.subLabel}` : ""
-            }, ${formatStatsTotal(item.count, "O event", "O events")}`}
-            title={`${actionLabel}: ${item.label}`}
-          >
-            <span className="ostats-bar-value">
-              {item.count.toLocaleString()}
-            </span>
-            <span className="ostats-bar-track">
-              <span className="ostats-bar" style={{ height }} />
-            </span>
-            <span className="ostats-bar-label" title={item.label}>
-              {item.label}
-            </span>
-            {item.subLabel && (
-              <span className="ostats-bar-sublabel">{item.subLabel}</span>
-            )}
-          </Link>
-        );
-      })}
-    </div>
+    metallicRatingChartBucket(
+      undefined,
+      tier === O_STATS_UNKNOWN_BUCKET ? undefined : tier
+    )?.label ?? "Unknown"
   );
-};
+}
 
 const OStatsTimestampImage: React.FC<{
   event: SceneOEvent;
@@ -977,211 +548,22 @@ const OStatsTimestampImage: React.FC<{
   return <div className="ostats-event-thumb ostats-event-thumb-empty" />;
 };
 
-// CUSTOM: carries studio scope into O event drilldowns and links.
+// CUSTOM: one timeline renders every drilldown; links keep the studio scope
+// and date range.
 const OStatsTimeline: React.FC<{
-  date?: string;
-  tagId?: string;
-  ethnicity?: string;
-  country?: string;
-  studioId?: string;
-  performerAge?: number;
-  releaseYear?: number;
-  unknownCategory?: string;
-  performerId?: string;
-  sceneId?: string;
-  studioScope?: IOStatsStudioScope;
-  emptyLabel: string;
-}> = ({
-  date,
-  tagId,
-  ethnicity,
-  country,
-  studioId,
-  performerAge,
-  releaseYear,
-  unknownCategory,
-  performerId,
-  sceneId,
-  studioScope,
-  emptyLabel,
-}) => {
-  const scopeVariables = getOStatsStudioScopeVariables(studioScope);
-  const dateQuery = useQuery<{
-    sceneOEventsByDate: SceneOEvent[];
-  }>(SCENE_O_EVENTS_BY_DATE, {
-    variables: { date, ...scopeVariables },
-    skip: !date,
-  });
-  const tagQuery = useQuery<{
-    sceneOEventsByTag: SceneOEvent[];
-  }>(SCENE_O_EVENTS_BY_TAG, {
-    variables: { tagID: tagId, ...scopeVariables },
-    skip: !tagId,
-  });
-  const unknownMarkerTagQuery = useQuery<{
-    sceneOEventsWithoutMarkerTags: SceneOEvent[];
-  }>(SCENE_O_EVENTS_WITHOUT_MARKER_TAGS, {
-    variables: scopeVariables,
-    skip: unknownCategory !== "marker-tag",
-  });
-  const ethnicityQuery = useQuery<{
-    sceneOEventsByEthnicity: SceneOEvent[];
-  }>(SCENE_O_EVENTS_BY_ETHNICITY, {
-    variables: { ethnicity, ...scopeVariables },
-    skip: !ethnicity,
-  });
-  const countryQuery = useQuery<{
-    sceneOEventsByCountry: SceneOEvent[];
-  }>(SCENE_O_EVENTS_BY_COUNTRY, {
-    variables: { country, ...scopeVariables },
-    skip: !country,
-  });
-  const studioQuery = useQuery<{
-    sceneOEventsByStudio: SceneOEvent[];
-  }>(SCENE_O_EVENTS_BY_STUDIO, {
-    variables: {
-      studioID: studioId,
-      scopeStudioId: studioScope?.id ?? null,
-      depth: scopeVariables.depth,
-    },
-    skip: !studioId,
-  });
-  const unknownStudioQuery = useQuery<{
-    sceneOEventsWithUnknownStudio: SceneOEvent[];
-  }>(SCENE_O_EVENTS_WITH_UNKNOWN_STUDIO, {
-    variables: scopeVariables,
-    skip: unknownCategory !== "studio",
-  });
-  const performerAgeQuery = useQuery<{
-    sceneOEventsByPerformerAge: SceneOEvent[];
-  }>(SCENE_O_EVENTS_BY_PERFORMER_AGE, {
-    variables: { age: performerAge, ...scopeVariables },
-    skip: !performerAge,
-  });
-  const unknownPerformerAgeQuery = useQuery<{
-    sceneOEventsWithUnknownPerformerAge: SceneOEvent[];
-  }>(SCENE_O_EVENTS_WITH_UNKNOWN_PERFORMER_AGE, {
-    variables: scopeVariables,
-    skip: unknownCategory !== "performer-age",
-  });
-  const releaseYearQuery = useQuery<{
-    sceneOEventsByReleaseYear: SceneOEvent[];
-  }>(SCENE_O_EVENTS_BY_RELEASE_YEAR, {
-    variables: { year: releaseYear, ...scopeVariables },
-    skip: !releaseYear,
-  });
-  const unknownReleaseYearQuery = useQuery<{
-    sceneOEventsWithUnknownReleaseYear: SceneOEvent[];
-  }>(SCENE_O_EVENTS_WITH_UNKNOWN_RELEASE_YEAR, {
-    variables: scopeVariables,
-    skip: unknownCategory !== "release-year",
-  });
-  const unknownDateQuery = useQuery<{
-    sceneOEventsBeforeTrackingStart: SceneOEvent[];
-  }>(SCENE_O_EVENTS_BEFORE_TRACKING_START, {
-    variables: scopeVariables,
-    skip: unknownCategory !== "date",
-  });
-  const performerQuery = useQuery<{
-    sceneOEventsByPerformer: SceneOEvent[];
-  }>(SCENE_O_EVENTS_BY_PERFORMER, {
-    variables: { performerID: performerId, ...scopeVariables },
-    skip: !performerId,
-  });
-  const sceneQuery = useQuery<{
-    sceneOEventsByScene: SceneOEvent[];
-  }>(SCENE_O_EVENTS_BY_SCENE, {
-    variables: { sceneID: sceneId, ...scopeVariables },
-    skip: !sceneId,
-  });
-
-  const loading = date
-    ? dateQuery.loading
-    : tagId
-    ? tagQuery.loading
-    : unknownCategory === "marker-tag"
-    ? unknownMarkerTagQuery.loading
-    : ethnicity
-    ? ethnicityQuery.loading
-    : country
-    ? countryQuery.loading
-    : studioId
-    ? studioQuery.loading
-    : unknownCategory === "studio"
-    ? unknownStudioQuery.loading
-    : performerAge
-    ? performerAgeQuery.loading
-    : releaseYear
-    ? releaseYearQuery.loading
-    : unknownCategory === "performer-age"
-    ? unknownPerformerAgeQuery.loading
-    : unknownCategory === "release-year"
-    ? unknownReleaseYearQuery.loading
-    : unknownCategory === "date"
-    ? unknownDateQuery.loading
-    : sceneId
-    ? sceneQuery.loading
-    : performerQuery.loading;
-  const error = date
-    ? dateQuery.error
-    : tagId
-    ? tagQuery.error
-    : unknownCategory === "marker-tag"
-    ? unknownMarkerTagQuery.error
-    : ethnicity
-    ? ethnicityQuery.error
-    : country
-    ? countryQuery.error
-    : studioId
-    ? studioQuery.error
-    : unknownCategory === "studio"
-    ? unknownStudioQuery.error
-    : performerAge
-    ? performerAgeQuery.error
-    : releaseYear
-    ? releaseYearQuery.error
-    : unknownCategory === "performer-age"
-    ? unknownPerformerAgeQuery.error
-    : unknownCategory === "release-year"
-    ? unknownReleaseYearQuery.error
-    : unknownCategory === "date"
-    ? unknownDateQuery.error
-    : sceneId
-    ? sceneQuery.error
-    : performerQuery.error;
+  config: TimelineConfig;
+  linkToEntity: boolean;
+  withScope: (path: string) => string;
+}> = ({ config, linkToEntity, withScope }) => {
+  const { data, error, loading } = useQuery<{ events: SceneOEvent[] }>(
+    config.query,
+    { variables: config.variables, skip: config.skip }
+  );
 
   if (loading) return <LoadingIndicator />;
   if (error) return <ErrorMessage error={error.message} />;
 
-  const events = date
-    ? dateQuery.data?.sceneOEventsByDate ?? []
-    : tagId
-    ? tagQuery.data?.sceneOEventsByTag ?? []
-    : unknownCategory === "marker-tag"
-    ? unknownMarkerTagQuery.data?.sceneOEventsWithoutMarkerTags ?? []
-    : ethnicity
-    ? ethnicityQuery.data?.sceneOEventsByEthnicity ?? []
-    : country
-    ? countryQuery.data?.sceneOEventsByCountry ?? []
-    : studioId
-    ? studioQuery.data?.sceneOEventsByStudio ?? []
-    : unknownCategory === "studio"
-    ? unknownStudioQuery.data?.sceneOEventsWithUnknownStudio ?? []
-    : performerAge
-    ? performerAgeQuery.data?.sceneOEventsByPerformerAge ?? []
-    : releaseYear
-    ? releaseYearQuery.data?.sceneOEventsByReleaseYear ?? []
-    : unknownCategory === "performer-age"
-    ? unknownPerformerAgeQuery.data?.sceneOEventsWithUnknownPerformerAge ?? []
-    : unknownCategory === "release-year"
-    ? unknownReleaseYearQuery.data?.sceneOEventsWithUnknownReleaseYear ?? []
-    : unknownCategory === "date"
-    ? unknownDateQuery.data?.sceneOEventsBeforeTrackingStart ?? []
-    : sceneId
-    ? sceneQuery.data?.sceneOEventsByScene ?? []
-    : performerQuery.data?.sceneOEventsByPerformer ?? [];
-
-  const linkToEntity = !!sceneId || !!performerId;
+  const events = config.skip ? [] : data?.events ?? [];
 
   return (
     <>
@@ -1189,7 +571,7 @@ const OStatsTimeline: React.FC<{
         {formatStatsTotal(events.length, "O event", "O events")}
       </div>
       {events.length === 0 ? (
-        <div className="ostats-empty">{emptyLabel}</div>
+        <div className="ostats-empty">{config.emptyLabel}</div>
       ) : (
         <ol className="ostats-timeline">
           {events.map((event) => {
@@ -1218,7 +600,7 @@ const OStatsTimeline: React.FC<{
                   </div>
                   <Link
                     className="ostats-event-title"
-                    to={addOStatsStudioScopeToPath(scenePath, studioScope)}
+                    to={withScope(scenePath)}
                   >
                     {event.scene.title || `Scene ${event.scene.id}`}
                   </Link>
@@ -1239,12 +621,11 @@ const OStatsTimeline: React.FC<{
                             {index > 0 && ", "}
                             <Link
                               className="ostats-event-performer"
-                              to={addOStatsStudioScopeToPath(
+                              to={withScope(
                                 makeOStatsPerformerUrl(
                                   performer.id,
                                   linkToEntity
-                                ),
-                                studioScope
+                                )
                               )}
                             >
                               {performer.name}
@@ -1263,10 +644,7 @@ const OStatsTimeline: React.FC<{
                         <Link
                           className="ostats-event-tag"
                           key={tag.id}
-                          to={addOStatsStudioScopeToPath(
-                            `/ostats/tag/${tag.id}`,
-                            studioScope
-                          )}
+                          to={withScope(`/ostats/tag/${tag.id}`)}
                         >
                           {tag.name}
                         </Link>
@@ -1289,10 +667,25 @@ const OStatsContent: React.FC<{
   studioScope?: IOStatsStudioScope;
   embedded?: boolean;
 }> = ({ params, studioScope, embedded = false }) => {
-  const scopeVariables = getOStatsStudioScopeVariables(studioScope);
+  const location = useLocation();
+  const {
+    range: dateRange,
+    variable: dateRangeVariable,
+    setRange: setDateRange,
+  } = useStatsDateRange(); // CUSTOM
+  const scopeVariables = {
+    ...getOStatsStudioScopeVariables(studioScope),
+    dateRange: dateRangeVariable,
+  };
+  const withScope = (path: string) =>
+    addStatsDateRangeToPath(
+      addOStatsStudioScopeToPath(path, studioScope),
+      location.search
+    );
   const { configuration } = useConfigurationContext();
   const roleTagIds = configuration?.ui?.roleTagIds ?? {};
   const { oStatsExcludedTagIds, oralTagId, sexTagId, soloTagId } = roleTagIds;
+
   const selectedTagId = params.tagId;
   const selectedPerformerId = params.performerId;
   const selectedSceneId = params.sceneId;
@@ -1305,362 +698,293 @@ const OStatsContent: React.FC<{
     : undefined;
   const selectedPerformerAge = asPositiveInt(params.performerAge);
   const selectedReleaseYear = asPositiveInt(params.releaseYear);
-  const selectedUnknownCategory = [
-    "date",
-    "marker-tag",
-    "studio",
-    "performer-age",
-    "release-year",
-  ].includes(params.unknownCategory ?? "")
+  const selectedRatingBucket = params.ratingBucket;
+  const selectedTier = params.tier;
+  const selectedUnknownCategory = UNKNOWN_CATEGORIES.includes(
+    params.unknownCategory ?? ""
+  )
     ? params.unknownCategory
     : undefined;
   const selectedYear = asPositiveInt(params.year);
   const selectedMonth = asPositiveInt(params.month);
   const selectedDay = asPositiveInt(params.day);
   const selectedDate = makeDate(selectedYear, selectedMonth, selectedDay);
-  const showTimeline =
-    !!selectedDate ||
+  const isEntityDrilldown =
     !!selectedTagId ||
     !!selectedEthnicity ||
     !!selectedCountry ||
     !!selectedStudioId ||
     !!selectedPerformerAge ||
     !!selectedReleaseYear ||
+    !!selectedRatingBucket ||
+    !!selectedTier ||
     !!selectedUnknownCategory ||
     !!selectedPerformerId ||
     !!selectedSceneId;
-  const isDetailPage =
-    !!selectedYear ||
-    !!selectedTagId ||
-    !!selectedEthnicity ||
-    !!selectedCountry ||
-    !!selectedStudioId ||
-    !!selectedPerformerAge ||
-    !!selectedReleaseYear ||
-    !!selectedUnknownCategory ||
-    !!selectedPerformerId ||
-    !!selectedSceneId;
-  const showDateNavigation =
-    !selectedTagId &&
-    !selectedPerformerId &&
-    !selectedSceneId &&
-    !selectedEthnicity &&
-    !selectedCountry &&
-    !selectedStudioId &&
-    !selectedPerformerAge &&
-    !selectedReleaseYear &&
-    !selectedUnknownCategory;
-  const performerQuery = useQuery<{
-    findPerformer: { id: string; name: string } | null;
-  }>(PERFORMER_NAME, {
-    variables: { id: selectedPerformerId },
-    skip: !selectedPerformerId,
+  const showTimeline = !!selectedDate || isEntityDrilldown;
+  const isDetailPage = !!selectedYear || isEntityDrilldown;
+  const showDateNavigation = !isEntityDrilldown;
+  const needsSceneCounts =
+    !isDetailPage || !!selectedRatingBucket || !!selectedTier;
+
+  const namesQuery = useQuery<EntityNamesData>(ENTITY_NAMES, {
+    variables: {
+      performerId: selectedPerformerId ?? "0",
+      sceneId: selectedSceneId ?? "0",
+      studioId: selectedStudioId ?? "0",
+      tagId: selectedTagId ?? "0",
+      withPerformer: !!selectedPerformerId,
+      withScene: !!selectedSceneId,
+      withStudio: !!selectedStudioId,
+      withTag: !!selectedTagId,
+    },
+    skip:
+      !selectedPerformerId &&
+      !selectedSceneId &&
+      !selectedStudioId &&
+      !selectedTagId,
   });
-  const sceneQuery = useQuery<{
-    findScene: { id: string; title?: string | null } | null;
-  }>(SCENE_NAME, {
-    variables: { id: selectedSceneId },
-    skip: !selectedSceneId,
+  const overviewQuery = useQuery<OStatsOverviewData>(O_STATS_OVERVIEW, {
+    variables: { ...scopeVariables, includeGlobal: !embedded },
+    skip: isDetailPage,
   });
-  const studioQuery = useQuery<{
-    findStudio: { id: string; name: string } | null;
-  }>(STUDIO_NAME, {
-    variables: { id: selectedStudioId },
-    skip: !selectedStudioId,
+  const sceneCountsQuery = useQuery<{
+    sceneOCountsByScene: OStatsSceneCount[];
+  }>(O_STATS_SCENE_COUNTS, {
+    variables: scopeVariables,
+    skip: !needsSceneCounts,
   });
-  const tagNameQuery = useQuery<{
-    findTag: { id: string; name: string } | null;
-  }>(TAG_NAME, {
-    variables: { id: selectedTagId },
-    skip: !selectedTagId,
+  const monthQuery = useQuery<{
+    sceneOMonthCounts: Array<{ month: number; count: number }>;
+  }>(SCENE_O_MONTH_COUNTS, {
+    skip: !selectedYear || !!selectedMonth || showTimeline,
+    variables: { year: selectedYear, ...scopeVariables },
+  });
+  const dayQuery = useQuery<{
+    sceneODayCounts: Array<{ day: number; count: number }>;
+  }>(SCENE_O_DAY_COUNTS, {
+    skip: !selectedYear || !selectedMonth || showTimeline,
+    variables: { year: selectedYear, month: selectedMonth, ...scopeVariables },
   });
 
-  const yearQuery = useQuery<{ sceneOYearCounts: YearCount[] }>(
-    SCENE_O_YEAR_COUNTS,
-    { variables: scopeVariables, skip: isDetailPage }
+  const overview = overviewQuery.data;
+  const sceneCounts = useMemo(
+    () => sceneCountsQuery.data?.sceneOCountsByScene ?? [],
+    [sceneCountsQuery.data?.sceneOCountsByScene]
   );
-  const mostOsInDayQuery = useQuery<{ mostOsInDay: SceneODayStat | null }>(
-    MOST_OS_IN_DAY,
-    { variables: scopeVariables, skip: isDetailPage || embedded }
-  );
-  const longestPeriodWithoutOQuery = useQuery<{
-    longestPeriodWithoutO: SceneODrySpell | null;
-  }>(LONGEST_PERIOD_WITHOUT_O, {
-    variables: scopeVariables,
-    skip: isDetailPage || embedded,
-  });
-  const countsByTagQuery = useQuery<{ sceneOCountsByTag: SceneOCountByTag[] }>(
-    SCENE_O_COUNTS_BY_TAG,
-    {
-      variables: scopeVariables,
-      skip: isDetailPage,
-    }
-  );
-  const unknownMarkerTagCountQuery = useQuery<{
-    sceneOCountWithoutMarkerTags: number;
-  }>(SCENE_O_COUNT_WITHOUT_MARKER_TAGS, {
-    variables: scopeVariables,
-    skip: isDetailPage,
-  });
-  const countsByEthnicityQuery = useQuery<{
-    sceneOCountsByEthnicity: SceneOCountByEthnicity[];
-  }>(SCENE_O_COUNTS_BY_ETHNICITY, {
-    variables: scopeVariables,
-    skip: isDetailPage,
-  });
-  const countsByCountryQuery = useQuery<{
-    sceneOCountsByCountry: SceneOCountByCountry[];
-  }>(SCENE_O_COUNTS_BY_COUNTRY, {
-    variables: scopeVariables,
-    skip: isDetailPage,
-  });
-  const countsByStudioQuery = useQuery<{
-    sceneOCountsByStudio: SceneOCountsByStudio;
-  }>(SCENE_O_COUNTS_BY_STUDIO, {
-    variables: scopeVariables,
-    skip: isDetailPage || embedded,
-  });
-  const countsByPerformerAgeQuery = useQuery<{
-    sceneOCountsByPerformerAge: SceneOCountsByPerformerAge;
-  }>(SCENE_O_COUNTS_BY_PERFORMER_AGE, {
-    variables: scopeVariables,
-    skip: isDetailPage,
-  });
-  const countsByReleaseYearQuery = useQuery<{
-    sceneOCountsByReleaseYear: SceneOCountsByReleaseYear;
-  }>(SCENE_O_COUNTS_BY_RELEASE_YEAR, {
-    variables: scopeVariables,
-    skip: isDetailPage,
-  });
-  const unreliableDateCountQuery = useQuery<{
-    sceneOUnreliableDateCount: number;
-  }>(SCENE_O_UNRELIABLE_DATE_COUNT, {
-    variables: scopeVariables,
-    skip: isDetailPage,
-  });
-  const monthQuery = useQuery<{ sceneOMonthCounts: MonthCount[] }>(
-    SCENE_O_MONTH_COUNTS,
-    {
-      skip: !selectedYear || !!selectedMonth || showTimeline,
-      variables: { year: selectedYear, ...scopeVariables },
-    }
-  );
-  const dayQuery = useQuery<{ sceneODayCounts: DayCount[] }>(
-    SCENE_O_DAY_COUNTS,
-    {
-      skip: !!selectedTagId || !selectedYear || !selectedMonth || showTimeline,
-      variables: {
-        year: selectedYear,
-        month: selectedMonth,
-        ...scopeVariables,
-      },
-    }
-  );
+  const uiConfig = configuration?.ui;
+  const ratingOf = oStatsRatingBucket;
+  const tierOf = (scene: OStatsSceneCount) => oStatsTierBucket(scene, uiConfig);
+  const totalOs = sceneCounts.reduce((sum, scene) => sum + scene.count, 0);
 
-  const chartData = useMemo<IBarDatum[]>(() => {
+  // Date chart: zero-filled years, months, or days.
+  const dateChartData = useMemo<IStatsBarDatum[]>(() => {
     if (!selectedYear) {
-      return (yearQuery.data?.sceneOYearCounts ?? []).map((item) => ({
-        key: String(item.year),
-        label: String(item.year),
-        count: item.count,
-        path: `/ostats/${item.year}`,
+      return fillOStatsYears(overview?.years ?? []).map((point) => ({
+        key: String(point.value),
+        label: String(point.value),
+        count: point.count,
+        to: withScope(`/ostats/${point.value}`),
+        actionLabel: "View monthly breakdown for",
       }));
     }
-
     if (!selectedMonth) {
-      return (monthQuery.data?.sceneOMonthCounts ?? []).map((item) => ({
-        key: `${item.year}-${item.month}`,
-        label: monthName(item.month),
-        subLabel: String(item.year),
-        count: item.count,
-        path: `/ostats/${item.year}/${item.month}`,
-      }));
+      return fillOStatsMonths(monthQuery.data?.sceneOMonthCounts ?? []).map(
+        (point) => ({
+          key: `${selectedYear}-${point.value}`,
+          label: monthName(point.value),
+          subLabel: String(selectedYear),
+          count: point.count,
+          to: withScope(`/ostats/${selectedYear}/${point.value}`),
+          actionLabel: "View daily breakdown for",
+        })
+      );
     }
-
-    return (dayQuery.data?.sceneODayCounts ?? []).map((item) => ({
-      key: item.date,
-      label: dayLabel(item.date),
-      count: item.count,
-      path: `/ostats/${selectedYear}/${selectedMonth}/${item.day}`,
+    return fillOStatsDays(
+      selectedYear,
+      selectedMonth,
+      dayQuery.data?.sceneODayCounts ?? []
+    ).map((point) => ({
+      key: `${selectedYear}-${selectedMonth}-${point.value}`,
+      label: dayLabel(selectedYear, selectedMonth, point.value),
+      count: point.count,
+      to: withScope(`/ostats/${selectedYear}/${selectedMonth}/${point.value}`),
+      actionLabel: "View O events on",
     }));
+    // withScope only changes with the location and scope captured below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     dayQuery.data?.sceneODayCounts,
+    location.search,
     monthQuery.data?.sceneOMonthCounts,
+    overview?.years,
     selectedMonth,
     selectedYear,
-    yearQuery.data?.sceneOYearCounts,
+    studioScope,
   ]);
 
   const { activityTypeCounts, markerTagCounts } = useMemo(
     () =>
       partitionOStatsMarkerTagCountsCustom(
-        countsByTagQuery.data?.sceneOCountsByTag ?? [],
+        overview?.byTag ?? [],
         { oralTagId, sexTagId, soloTagId },
         oStatsExcludedTagIds
       ),
-    [
-      countsByTagQuery.data?.sceneOCountsByTag,
-      oStatsExcludedTagIds,
-      oralTagId,
-      sexTagId,
-      soloTagId,
-    ]
+    [overview?.byTag, oStatsExcludedTagIds, oralTagId, sexTagId, soloTagId]
   );
 
-  const activityTypeChartData = useMemo<IBarDatum[]>(
-    () =>
-      activityTypeCounts.map((item) => ({
-        key: item.tag_id,
-        label: item.tag_name,
-        count: item.count,
-        path: `/ostats/tag/${item.tag_id}`,
-      })),
-    [activityTypeCounts]
-  );
+  function eventBars<T>(
+    items: readonly T[],
+    toDatum: (item: T) => {
+      key: string;
+      label: string;
+      count: number;
+      path: string;
+    },
+    actionLabel = "View O events for"
+  ): IStatsBarDatum[] {
+    return items.map((item) => {
+      const datum = toDatum(item);
+      return {
+        key: datum.key,
+        label: datum.label,
+        count: datum.count,
+        to: withScope(datum.path),
+        actionLabel,
+      };
+    });
+  }
 
-  const tagChartData = useMemo<IBarDatum[]>(
-    () =>
-      markerTagCounts.map((item) => ({
-        key: item.tag_id,
-        label: item.tag_name,
-        count: item.count,
-        path: `/ostats/tag/${item.tag_id}`,
-      })),
-    [markerTagCounts]
-  );
+  const ratingCounts = oStatsBucketCounts(sceneCounts, ratingOf, (key) => ({
+    label: key,
+    sortValue: Number(key.split("-")[0]),
+  }));
+  const tierCounts = oStatsBucketCounts(sceneCounts, tierOf, (key) => {
+    const bucket = metallicRatingChartBucket(undefined, key);
+    return { label: bucket?.label ?? key, sortValue: bucket?.sortValue ?? 99 };
+  });
 
-  const ethnicityChartData = useMemo<IBarDatum[]>(
-    () =>
-      (countsByEthnicityQuery.data?.sceneOCountsByEthnicity ?? [])
-        .filter((item) => !isUnknownLabel(item.ethnicity))
-        .map((item) => ({
-          key: item.ethnicity,
-          label: item.ethnicity,
-          count: item.count,
-          path: `/ostats/ethnicity/${encodeURIComponent(item.ethnicity)}`,
-        })),
-    [countsByEthnicityQuery.data?.sceneOCountsByEthnicity]
-  );
+  // Rating/tier drilldowns resolve their scene set from the per-scene counts.
+  const bucketSceneIDs = selectedRatingBucket
+    ? oStatsSceneIDsInBucket(sceneCounts, ratingOf, selectedRatingBucket)
+    : selectedTier
+    ? oStatsSceneIDsInBucket(sceneCounts, tierOf, selectedTier)
+    : [];
 
-  const ethnicityUnknownCount = useMemo(
-    () =>
-      (countsByEthnicityQuery.data?.sceneOCountsByEthnicity ?? []).find(
-        (item) => isUnknownLabel(item.ethnicity)
-      )?.count ?? 0,
-    [countsByEthnicityQuery.data?.sceneOCountsByEthnicity]
-  );
+  function timelineConfig(): TimelineConfig | undefined {
+    if (selectedDate) {
+      return {
+        query: EVENT_QUERIES.date,
+        variables: { date: selectedDate, ...scopeVariables },
+        emptyLabel: "No reliable O events on this day.",
+      };
+    }
+    if (selectedTagId) {
+      return {
+        query: EVENT_QUERIES.tag,
+        variables: { tagID: selectedTagId, ...scopeVariables },
+        emptyLabel: "No O events found for this marker tag.",
+      };
+    }
+    if (selectedEthnicity) {
+      return {
+        query: EVENT_QUERIES.ethnicity,
+        variables: { ethnicity: selectedEthnicity, ...scopeVariables },
+        emptyLabel: "No O events found for this ethnicity.",
+      };
+    }
+    if (selectedCountry) {
+      return {
+        query: EVENT_QUERIES.country,
+        variables: { country: selectedCountry, ...scopeVariables },
+        emptyLabel: "No O events found for this country.",
+      };
+    }
+    if (selectedStudioId) {
+      return {
+        query: EVENTS_BY_STUDIO,
+        variables: { studioID: selectedStudioId, ...scopeVariables },
+        emptyLabel: "No O events found for this studio.",
+      };
+    }
+    if (selectedPerformerAge) {
+      return {
+        query: EVENT_QUERIES.age,
+        variables: { age: selectedPerformerAge, ...scopeVariables },
+        emptyLabel: "No O events found for this performer age.",
+      };
+    }
+    if (selectedReleaseYear) {
+      return {
+        query: EVENT_QUERIES.releaseYear,
+        variables: { year: selectedReleaseYear, ...scopeVariables },
+        emptyLabel: "No O events found for this scene release year.",
+      };
+    }
+    if (selectedRatingBucket || selectedTier) {
+      return {
+        query: EVENT_QUERIES.scenes,
+        variables: { sceneIDs: bucketSceneIDs, ...scopeVariables },
+        emptyLabel: selectedTier
+          ? "No O events found for this metallic tier."
+          : "No O events found for this scene rating.",
+        skip: bucketSceneIDs.length === 0,
+      };
+    }
+    const unknownQueries: Record<string, DocumentNode> = {
+      date: EVENT_QUERIES.unknownDate,
+      "marker-tag": EVENT_QUERIES.unknownMarkerTag,
+      studio: EVENT_QUERIES.unknownStudio,
+      "performer-age": EVENT_QUERIES.unknownAge,
+      "release-year": EVENT_QUERIES.unknownReleaseYear,
+    };
+    if (selectedUnknownCategory) {
+      return {
+        query: unknownQueries[selectedUnknownCategory],
+        variables: scopeVariables,
+        emptyLabel: "No O events found for this unknown-value group.",
+      };
+    }
+    if (selectedSceneId) {
+      return {
+        query: EVENT_QUERIES.scene,
+        variables: { sceneID: selectedSceneId, ...scopeVariables },
+        emptyLabel: "No O events found for this scene.",
+      };
+    }
+    if (selectedPerformerId) {
+      return {
+        query: EVENT_QUERIES.performer,
+        variables: { performerID: selectedPerformerId, ...scopeVariables },
+        emptyLabel: "No O events found for this vato.",
+      };
+    }
+    return undefined;
+  }
 
-  const countryChartData = useMemo<IBarDatum[]>(
-    () =>
-      (countsByCountryQuery.data?.sceneOCountsByCountry ?? [])
-        .filter((item) => !isUnknownLabel(item.country))
-        .map((item) => ({
-          key: item.country,
-          label: statsCountryName(item.country),
-          count: item.count,
-          path: `/ostats/country/${encodeURIComponent(item.country)}`,
-        }))
-        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
-    [countsByCountryQuery.data?.sceneOCountsByCountry]
-  );
-
-  const countryUnknownCount = useMemo(
-    () =>
-      (countsByCountryQuery.data?.sceneOCountsByCountry ?? []).find((item) =>
-        isUnknownLabel(item.country)
-      )?.count ?? 0,
-    [countsByCountryQuery.data?.sceneOCountsByCountry]
-  );
-
-  const studioChartData = useMemo<IBarDatum[]>(
-    () =>
-      (countsByStudioQuery.data?.sceneOCountsByStudio.counts ?? []).map(
-        (item) => ({
-          key: item.studio_id,
-          label: item.studio_name,
-          count: item.count,
-          path: `/ostats/studio/${item.studio_id}`,
-        })
-      ),
-    [countsByStudioQuery.data?.sceneOCountsByStudio.counts]
-  );
-
-  const performerAgeChartData = useMemo<IBarDatum[]>(
-    () =>
-      (countsByPerformerAgeQuery.data?.sceneOCountsByPerformerAge.counts ?? [])
-        .map((item) => ({
-          key: String(item.age),
-          label: String(item.age),
-          count: item.count,
-          path: `/ostats/age/${item.age}`,
-        }))
-        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
-    [countsByPerformerAgeQuery.data?.sceneOCountsByPerformerAge.counts]
-  );
-
-  const releaseYearChartData = useMemo<IBarDatum[]>(
-    () =>
-      (countsByReleaseYearQuery.data?.sceneOCountsByReleaseYear.counts ?? [])
-        .map((item) => ({
-          key: String(item.year),
-          label: String(item.year),
-          count: item.count,
-          path: `/ostats/release-year/${item.year}`,
-        }))
-        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
-    [countsByReleaseYearQuery.data?.sceneOCountsByReleaseYear.counts]
-  );
-
-  const selectedTagName = selectedTagId
-    ? tagNameQuery.data?.findTag?.name ??
-      tagChartData.find((item) => item.key === selectedTagId)?.label
-    : undefined;
-  const chartDrilldownTotal = chartData.reduce(
-    (total, item) => total + item.count,
-    0
-  );
   const loading =
-    (!isDetailPage &&
-      (yearQuery.loading ||
-        mostOsInDayQuery.loading ||
-        longestPeriodWithoutOQuery.loading ||
-        countsByTagQuery.loading ||
-        unknownMarkerTagCountQuery.loading ||
-        countsByEthnicityQuery.loading ||
-        countsByCountryQuery.loading ||
-        countsByStudioQuery.loading ||
-        countsByPerformerAgeQuery.loading ||
-        countsByReleaseYearQuery.loading ||
-        unreliableDateCountQuery.loading)) ||
+    (!isDetailPage && overviewQuery.loading) ||
+    (needsSceneCounts && sceneCountsQuery.loading) ||
     (!!selectedYear && !showTimeline && monthQuery.loading) ||
     (!!selectedYear && !!selectedMonth && !showTimeline && dayQuery.loading);
   const error =
-    yearQuery.error ??
-    mostOsInDayQuery.error ??
-    longestPeriodWithoutOQuery.error ??
-    countsByTagQuery.error ??
-    unknownMarkerTagCountQuery.error ??
-    countsByEthnicityQuery.error ??
-    countsByCountryQuery.error ??
-    countsByStudioQuery.error ??
-    countsByPerformerAgeQuery.error ??
-    countsByReleaseYearQuery.error ??
-    unreliableDateCountQuery.error ??
+    overviewQuery.error ??
+    sceneCountsQuery.error ??
     monthQuery.error ??
     dayQuery.error;
+  const names = namesQuery.data;
 
   function renderTitle() {
     if (selectedTagId)
-      return `O's tagged ${selectedTagName ?? "Loading tag..."}`;
+      return `O's tagged ${names?.findTag?.name ?? "Loading tag..."}`;
     if (selectedPerformerId) {
       return `O's to ${
-        performerQuery.data?.findPerformer?.name ??
-        `Vato ${selectedPerformerId}`
+        names?.findPerformer?.name ?? `Vato ${selectedPerformerId}`
       }`;
     }
     if (selectedSceneId) {
       return `O's from ${
-        sceneQuery.data?.findScene?.title || `Scene ${selectedSceneId}`
+        names?.findScene?.title || `Scene ${selectedSceneId}`
       }`;
     }
     if (selectedEthnicity) return `O's to ${selectedEthnicity} vatos`;
@@ -1668,12 +992,22 @@ const OStatsContent: React.FC<{
       return `O's to ${statsCountryName(selectedCountry)} vatos`;
     if (selectedStudioId) {
       return `O's from ${
-        studioQuery.data?.findStudio?.name ?? `Studio ${selectedStudioId}`
+        names?.findStudio?.name ?? `Studio ${selectedStudioId}`
       }`;
     }
     if (selectedPerformerAge) return `O's to ${selectedPerformerAge}-year-olds`;
     if (selectedReleaseYear)
       return `O's in scenes released in ${selectedReleaseYear}`;
+    if (selectedRatingBucket) {
+      return selectedRatingBucket === O_STATS_UNKNOWN_BUCKET
+        ? "O's in unrated scenes"
+        : `O's in scenes rated ${selectedRatingBucket}`;
+    }
+    if (selectedTier) {
+      return selectedTier === O_STATS_UNKNOWN_BUCKET
+        ? "O's in scenes without a metallic tier"
+        : `O's in ${tierLabel(selectedTier)} scenes`;
+    }
     if (selectedUnknownCategory === "date") return "O's with an unknown date";
     if (selectedUnknownCategory === "marker-tag") {
       return "O's with an unknown marker tag";
@@ -1692,12 +1026,13 @@ const OStatsContent: React.FC<{
       return `${monthName(selectedMonth, "long")} ${selectedYear}`;
     }
     if (selectedYear) return String(selectedYear);
-    return studioScope ? `${studioScope.name} O Stats` : "OStats";
+    return studioScope ? `${studioScope.name} O Stats` : "O Stats";
   }
 
   function renderModeLabel() {
-    if (selectedTagId) return "By Marker Tag";
-    if (selectedUnknownCategory === "marker-tag") return "By Marker Tag";
+    if (selectedTagId || selectedUnknownCategory === "marker-tag") {
+      return "By Marker Tag";
+    }
     if (selectedPerformerId) return "By Vato";
     if (selectedSceneId) return "By Scene";
     if (selectedEthnicity) return "By Ethnicity";
@@ -1711,6 +1046,8 @@ const OStatsContent: React.FC<{
     if (selectedReleaseYear || selectedUnknownCategory === "release-year") {
       return "By Scene Release Year";
     }
+    if (selectedRatingBucket) return "By Scene Rating";
+    if (selectedTier) return "By Metallic Tier";
     if (selectedUnknownCategory === "date") return "By Year";
     if (selectedDate) return "Day Summary";
     if (selectedYear && selectedMonth) return "By Day";
@@ -1718,7 +1055,71 @@ const OStatsContent: React.FC<{
     return "By Year";
   }
 
-  const titleProps = useTitleProps("OStats", renderTitle());
+  const pageTitle = renderTitle();
+  // Avoid "O Stats | O Stats" on the overview.
+  const titleProps = useTitleProps(
+    ...(pageTitle === "O Stats" ? [pageTitle] : [pageTitle, "O Stats"])
+  );
+  const timeline = showTimeline ? timelineConfig() : undefined;
+  const showOverview = !error && !loading && !isDetailPage;
+  const dateNavigation = showDateNavigation && (
+    <ButtonGroup aria-label="O date stats navigation" size="sm">
+      {[
+        { label: "By Year", path: "/ostats", active: !isDetailPage },
+        {
+          label: "By Month",
+          path: selectedYear ? `/ostats/${selectedYear}` : undefined,
+          active: !!selectedYear && !selectedMonth,
+        },
+        {
+          label: "By Day",
+          path:
+            selectedYear && selectedMonth
+              ? `/ostats/${selectedYear}/${selectedMonth}`
+              : undefined,
+          active: !!selectedYear && !!selectedMonth && !selectedDate,
+        },
+      ].map((item) =>
+        item.path ? (
+          <Link
+            key={item.label}
+            to={withScope(item.path)}
+            className={`btn btn-sm btn-${
+              item.active ? "primary" : "secondary"
+            }`}
+            aria-current={item.active ? "page" : undefined}
+          >
+            {item.label}
+          </Link>
+        ) : (
+          <Button key={item.label} disabled size="sm" variant="secondary">
+            {item.label}
+          </Button>
+        )
+      )}
+    </ButtonGroup>
+  );
+  const backButton = isDetailPage && (
+    <Button
+      as={Link}
+      to={withScope(
+        selectedDate && selectedYear && selectedMonth
+          ? `/ostats/${selectedYear}/${selectedMonth}`
+          : !showTimeline && selectedMonth && selectedYear
+          ? `/ostats/${selectedYear}`
+          : "/ostats"
+      )}
+      className="ostats-back-button"
+      size="sm"
+      variant="secondary"
+    >
+      {selectedDate && selectedYear && selectedMonth
+        ? `View days in ${monthName(selectedMonth)} ${selectedYear}`
+        : !showTimeline && selectedMonth && selectedYear
+        ? `View months in ${selectedYear}`
+        : "View all O stats"}
+    </Button>
+  );
 
   return (
     <StatsPage className="ostats-page" showNavigation={!embedded}>
@@ -1726,369 +1127,312 @@ const OStatsContent: React.FC<{
 
       <header className="ostats-header">
         <div>
-          <h1>{renderTitle()}</h1>
+          <h1>{pageTitle}</h1>
         </div>
-        {showDateNavigation && (
-          <ButtonGroup aria-label="O date stats navigation">
-            {[
-              { label: "By Year", path: "/ostats", active: !isDetailPage },
-              {
-                label: "By Month",
-                path: selectedYear ? `/ostats/${selectedYear}` : undefined,
-                active: !!selectedYear && !selectedMonth,
-              },
-              {
-                label: "By Day",
-                path:
-                  selectedYear && selectedMonth
-                    ? `/ostats/${selectedYear}/${selectedMonth}`
-                    : undefined,
-                active: !!selectedYear && !!selectedMonth && !selectedDate,
-              },
-            ].map((item) =>
-              item.path ? (
-                <Link
-                  key={item.label}
-                  to={addOStatsStudioScopeToPath(item.path, studioScope)}
-                  className={`btn btn-${item.active ? "primary" : "secondary"}`}
-                  aria-current={item.active ? "page" : undefined}
-                >
-                  {item.label}
-                </Link>
-              ) : (
-                <Button key={item.label} disabled variant="secondary">
-                  {item.label}
-                </Button>
-              )
-            )}
-          </ButtonGroup>
-        )}
+        <div className="stats-header-controls">
+          <StatsDateRangeFilter
+            range={dateRange}
+            onChange={setDateRange}
+            showField={false}
+          />
+        </div>
       </header>
 
-      {!embedded &&
-        !isDetailPage &&
-        (mostOsInDayQuery.data?.mostOsInDay ||
-          longestPeriodWithoutOQuery.data?.longestPeriodWithoutO) && (
-          <div className="ostats-summary" aria-label="O date records">
-            {mostOsInDayQuery.data?.mostOsInDay && (
-              <div className="ostats-summary-item">
-                <div className="ostats-summary-value">
-                  {mostOsInDayQuery.data.mostOsInDay.count}
-                </div>
-                <div className="ostats-summary-label">
-                  Most O&apos;s in a day
-                </div>
-                <div className="ostats-summary-detail">
-                  {mostOsInDayQuery.data.mostOsInDay.date}
-                </div>
-              </div>
-            )}
-            {longestPeriodWithoutOQuery.data?.longestPeriodWithoutO && (
-              <div className="ostats-summary-item">
-                <div className="ostats-summary-value">
-                  {longestPeriodWithoutOQuery.data.longestPeriodWithoutO.days}{" "}
-                  days
-                </div>
-                <div className="ostats-summary-label">
-                  Longest period without an O
-                </div>
-                <div className="ostats-summary-detail">
-                  {
-                    longestPeriodWithoutOQuery.data.longestPeriodWithoutO
-                      .start_date
-                  }{" "}
-                  -{" "}
-                  {
-                    longestPeriodWithoutOQuery.data.longestPeriodWithoutO
-                      .end_date
-                  }
-                </div>
-              </div>
-            )}
+      {showOverview && (
+        <div className="ostats-summary" aria-label="O totals and records">
+          <div className="ostats-summary-item">
+            <div className="ostats-summary-value">
+              {totalOs.toLocaleString()}
+            </div>
+            <div className="ostats-summary-label">Total O&apos;s</div>
+            <div className="ostats-summary-detail">
+              {sceneCounts.length.toLocaleString()}{" "}
+              {sceneCounts.length === 1 ? "scene" : "scenes"}
+            </div>
           </div>
-        )}
-
-      <section
-        className={`ostats-chart-panel${
-          showTimeline ? " ostats-timeline-panel" : ""
-        }`}
-      >
-        <div className="ostats-subheader">
-          <h2>{renderModeLabel()}</h2>
-          <div className="ostats-subheader-actions">
-            {!isDetailPage &&
-              (unreliableDateCountQuery.data?.sceneOUnreliableDateCount ?? 0) >
-                0 && (
-                <Link
-                  className="ostats-unknown-count"
-                  to={addOStatsStudioScopeToPath(
-                    "/ostats/unknown/date",
-                    studioScope
-                  )}
-                  title="View O events with an unknown date"
-                >
-                  View Unknown:{" "}
-                  {unreliableDateCountQuery.data?.sceneOUnreliableDateCount.toLocaleString()}
-                  {" →"}
-                </Link>
-              )}
-            {isDetailPage && (
-              <Button
-                as={Link}
-                to={addOStatsStudioScopeToPath(
-                  selectedDate && selectedYear && selectedMonth
-                    ? `/ostats/${selectedYear}/${selectedMonth}`
-                    : !showTimeline && selectedMonth && selectedYear
-                    ? `/ostats/${selectedYear}`
-                    : "/ostats",
-                  studioScope
-                )}
-                className="ostats-back-button"
-                size="sm"
-                variant="secondary"
-              >
-                {selectedDate && selectedYear && selectedMonth
-                  ? `View days in ${monthName(selectedMonth)} ${selectedYear}`
-                  : !showTimeline && selectedMonth && selectedYear
-                  ? `View months in ${selectedYear}`
-                  : "View all O stats"}
-              </Button>
-            )}
-          </div>
+          {overview?.mostOsInDay && (
+            <div className="ostats-summary-item">
+              <div className="ostats-summary-value">
+                {overview.mostOsInDay.count}
+              </div>
+              <div className="ostats-summary-label">Most O&apos;s in a day</div>
+              <div className="ostats-summary-detail">
+                {overview.mostOsInDay.date}
+              </div>
+            </div>
+          )}
+          {overview?.longestPeriodWithoutO && (
+            <div className="ostats-summary-item">
+              <div className="ostats-summary-value">
+                {overview.longestPeriodWithoutO.days} days
+              </div>
+              <div className="ostats-summary-label">
+                Longest period without an O
+              </div>
+              <div className="ostats-summary-detail">
+                {overview.longestPeriodWithoutO.start_date} -{" "}
+                {overview.longestPeriodWithoutO.end_date}
+              </div>
+            </div>
+          )}
         </div>
+      )}
 
-        {error && <ErrorMessage error={error.message} />}
-        {!error && loading && <LoadingIndicator message="Loading O stats..." />}
-        {!error && !loading && isDetailPage && !showTimeline && (
-          <div className="ostats-drilldown-total">
-            {formatStatsTotal(chartDrilldownTotal, "O event", "O events")}
-          </div>
-        )}
-        {!error && !loading && !showTimeline && (
-          <OStatsChart
-            data={chartData}
-            emptyLabel="No reliable O events in this range."
-            studioScope={studioScope}
-            actionLabel={
-              !selectedYear
-                ? "View monthly breakdown for"
-                : !selectedMonth
-                ? "View daily breakdown for"
-                : "View O events on"
-            }
-          />
-        )}
-        {!error && !loading && showTimeline && (
-          <OStatsTimeline
-            date={selectedDate}
-            tagId={selectedTagId}
-            ethnicity={selectedEthnicity}
-            country={selectedCountry}
-            studioId={selectedStudioId}
-            performerAge={selectedPerformerAge}
-            releaseYear={selectedReleaseYear}
-            unknownCategory={selectedUnknownCategory}
-            performerId={selectedPerformerId}
-            sceneId={selectedSceneId}
-            studioScope={studioScope}
-            emptyLabel={
-              selectedTagId
-                ? "No O events found for this marker tag."
-                : selectedPerformerId
-                ? "No O events found for this vato."
-                : selectedSceneId
-                ? "No O events found for this scene."
-                : selectedEthnicity
-                ? "No O events found for this ethnicity."
-                : selectedCountry
-                ? "No O events found for this country."
-                : selectedStudioId
-                ? "No O events found for this studio."
-                : selectedPerformerAge
-                ? "No O events found for this performer age."
-                : selectedReleaseYear
-                ? "No O events found for this scene release year."
-                : selectedUnknownCategory
-                ? "No O events found for this unknown-value group."
-                : "No reliable O events on this day."
-            }
-          />
-        )}
-        {!selectedDate && selectedYear && selectedMonth && selectedDay && (
-          <Alert variant="warning">That date does not exist.</Alert>
-        )}
-      </section>
-      {!error && !loading && !showTimeline && !selectedYear && (
-        <section className="ostats-section">
+      {error && <ErrorMessage error={error.message} />}
+      {!error && loading && <LoadingIndicator message="Loading O stats..." />}
+
+      {!error && !loading && showTimeline && (
+        <section className="ostats-chart-panel ostats-timeline-panel">
           <div className="ostats-subheader">
-            <h2>By Activity Type</h2>
+            <h2>{renderModeLabel()}</h2>
+            <div className="ostats-subheader-actions">
+              {dateNavigation}
+              {backButton}
+            </div>
           </div>
-          <OStatsChart
-            data={activityTypeChartData}
+          {timeline && (
+            <OStatsTimeline
+              config={timeline}
+              linkToEntity={!!selectedSceneId || !!selectedPerformerId}
+              withScope={withScope}
+            />
+          )}
+        </section>
+      )}
+
+      {/* CUSTOM: ranked scene and vato cards lead the overview. */}
+      {showOverview && overview && (
+        <>
+          <StatsTopCards
+            title="Top Scenes"
+            variant="scene"
+            emptyLabel="No O's in this range."
+            items={sceneCounts.map((scene) => ({
+              key: scene.scene_id,
+              title: scene.title || `Scene ${scene.scene_id}`,
+              imagePath: scene.screenshot_path,
+              rating100: scene.rating100,
+              value: oCountLabel(scene.count),
+              detail: formatStatsBarPercent(scene.count, totalOs),
+              to: withScope(`/ostats/scene/${scene.scene_id}`),
+            }))}
+          />
+          <StatsTopCards
+            title="Top Vatos"
+            variant="vato"
+            note="An O counts for every vato in its scene."
+            emptyLabel="No O's in this range."
+            items={overview.byPerformer.map((performer) => ({
+              key: performer.performer_id,
+              title: performer.performer_name,
+              imagePath: performer.image_path,
+              rating100: performer.rating100,
+              value: oCountLabel(performer.count),
+              detail: formatStatsBarPercent(performer.count, totalOs),
+              to: withScope(`/ostats/vato/${performer.performer_id}`),
+            }))}
+          />
+        </>
+      )}
+
+      {!error && !loading && !showTimeline && (
+        <StatsBarChart
+          title={renderModeLabel()}
+          data={dateChartData}
+          unit={O_UNIT}
+          sortable
+          emptyLabel="No reliable O events in this range."
+          unknown={
+            !isDetailPage
+              ? {
+                  count: overview?.unreliableDateCount ?? 0,
+                  to: withScope("/ostats/unknown/date"),
+                }
+              : undefined
+          }
+          actions={
+            <>
+              {dateNavigation}
+              {backButton}
+            </>
+          }
+        />
+      )}
+      {!selectedDate && selectedYear && selectedMonth && selectedDay && (
+        <Alert variant="warning">That date does not exist.</Alert>
+      )}
+
+      {showOverview && overview && (
+        <>
+          <OStatsCalendarHeatmap
+            studioScope={studioScope}
+            years={overview.calendarYears.map((item) => item.year)}
+          />
+          <div className="stats-chart-grid stats-chart-grid--compact">
+            <StatsBarChart
+              title="By Scene Rating"
+              data={eventBars(ratingCounts.data, (bucket) => ({
+                ...bucket,
+                path: `/ostats/rating/${bucket.key}`,
+              }))}
+              unit={O_UNIT}
+              total={totalOs}
+              sortable
+              unknown={{
+                count: ratingCounts.unknownCount,
+                to: withScope(`/ostats/rating/${O_STATS_UNKNOWN_BUCKET}`),
+              }}
+            />
+            <StatsBarChart
+              title="By Metallic Tier"
+              data={eventBars(tierCounts.data, (bucket) => ({
+                ...bucket,
+                path: `/ostats/tier/${bucket.key}`,
+              }))}
+              unit={O_UNIT}
+              total={totalOs}
+              unknown={{
+                count: tierCounts.unknownCount,
+                to: withScope(`/ostats/tier/${O_STATS_UNKNOWN_BUCKET}`),
+              }}
+            />
+          </div>
+          <StatsBarChart
+            title="By Activity Type"
+            data={eventBars(activityTypeCounts, (item) => ({
+              key: item.tag_id,
+              label: item.tag_name,
+              count: item.count,
+              path: `/ostats/tag/${item.tag_id}`,
+            }))}
+            unit={O_UNIT}
             emptyLabel="No activity-type counts found."
-            studioScope={studioScope}
           />
-        </section>
-      )}
-      {!error && !loading && !showTimeline && !selectedYear && (
-        <section className="ostats-section">
-          <div className="ostats-subheader">
-            <h2>By Marker Tag</h2>
-            {(unknownMarkerTagCountQuery.data?.sceneOCountWithoutMarkerTags ??
-              0) > 0 && (
-              <Link
-                className="ostats-unknown-count"
-                to={addOStatsStudioScopeToPath(
-                  "/ostats/unknown/marker-tag",
-                  studioScope
-                )}
-                title="View O events with an unknown marker tag"
-              >
-                View Unknown:{" "}
-                {unknownMarkerTagCountQuery.data?.sceneOCountWithoutMarkerTags.toLocaleString()}
-                {" →"}
-              </Link>
-            )}
-          </div>
-          <OStatsChart
-            data={tagChartData}
+          <StatsBarChart
+            title="By Marker Tag"
+            data={eventBars(markerTagCounts, (item) => ({
+              key: item.tag_id,
+              label: item.tag_name,
+              count: item.count,
+              path: `/ostats/tag/${item.tag_id}`,
+            }))}
+            unit={O_UNIT}
+            totalNote="An O counts once for each marker tag covering it, so bars can overlap."
             emptyLabel="No timestamped O marker-tag counts found."
-            studioScope={studioScope}
+            unknown={{
+              count: overview.withoutMarkerTags,
+              to: withScope("/ostats/unknown/marker-tag"),
+            }}
           />
-        </section>
-      )}
-      {!error && !loading && !showTimeline && !selectedYear && (
-        <section className="ostats-section">
-          <div className="ostats-subheader">
-            <h2>By Ethnicity</h2>
-            {ethnicityUnknownCount > 0 && (
-              <Link
-                className="ostats-unknown-count"
-                to={addOStatsStudioScopeToPath(
-                  "/ostats/ethnicity/Unknown",
-                  studioScope
-                )}
-                title="View O events with an unknown performer ethnicity"
-              >
-                View Unknown: {ethnicityUnknownCount.toLocaleString()} →
-              </Link>
+          <StatsBarChart
+            title="By Ethnicity"
+            data={eventBars(
+              overview.byEthnicity.filter(
+                (item) => !isUnknownLabel(item.ethnicity)
+              ),
+              (item) => ({
+                key: item.ethnicity,
+                label: item.ethnicity,
+                count: item.count,
+                path: `/ostats/ethnicity/${encodeURIComponent(item.ethnicity)}`,
+              })
             )}
-          </div>
-          <OStatsChart
-            data={ethnicityChartData}
+            unit={O_UNIT}
+            total={totalOs}
+            totalNote="An O counts once for each vato ethnicity in its scene, so bars can overlap."
             emptyLabel="No O ethnicity counts found."
-            studioScope={studioScope}
+            unknown={{
+              count:
+                overview.byEthnicity.find((item) =>
+                  isUnknownLabel(item.ethnicity)
+                )?.count ?? 0,
+              to: withScope("/ostats/ethnicity/Unknown"),
+            }}
           />
-        </section>
-      )}
-      {!error && !loading && !showTimeline && !selectedYear && (
-        <section className="ostats-section">
-          <div className="ostats-subheader">
-            <h2>By Country</h2>
-            {countryUnknownCount > 0 && (
-              <Link
-                className="ostats-unknown-count"
-                to={addOStatsStudioScopeToPath(
-                  "/ostats/country/Unknown",
-                  studioScope
-                )}
-                title="View O events with an unknown performer country"
-              >
-                View Unknown: {countryUnknownCount.toLocaleString()} →
-              </Link>
+          <StatsBarChart
+            title="By Country"
+            data={eventBars(
+              overview.byCountry
+                .filter((item) => !isUnknownLabel(item.country))
+                .map((item) => ({
+                  ...item,
+                  label: statsCountryName(item.country),
+                }))
+                .sort(
+                  (a, b) => b.count - a.count || a.label.localeCompare(b.label)
+                ),
+              (item) => ({
+                key: item.country,
+                label: item.label,
+                count: item.count,
+                path: `/ostats/country/${encodeURIComponent(item.country)}`,
+              })
             )}
-          </div>
-          <OStatsChart
-            data={countryChartData}
+            unit={O_UNIT}
+            total={totalOs}
+            totalNote="An O counts once for each vato country in its scene, so bars can overlap."
             emptyLabel="No O country counts found."
-            scrollable
-            studioScope={studioScope}
+            unknown={{
+              count:
+                overview.byCountry.find((item) => isUnknownLabel(item.country))
+                  ?.count ?? 0,
+              to: withScope("/ostats/country/Unknown"),
+            }}
           />
-        </section>
-      )}
-      {!embedded && !error && !loading && !showTimeline && !selectedYear && (
-        <section className="ostats-section">
-          <div className="ostats-subheader">
-            <h2>By Studio</h2>
-            {(countsByStudioQuery.data?.sceneOCountsByStudio.unknown_count ??
-              0) > 0 && (
-              <Link
-                className="ostats-unknown-count"
-                to={addOStatsStudioScopeToPath(
-                  "/ostats/unknown/studio",
-                  studioScope
-                )}
-                title="View O events with an unknown studio"
-              >
-                View Unknown:{" "}
-                {countsByStudioQuery.data?.sceneOCountsByStudio.unknown_count.toLocaleString()}
-                {" →"}
-              </Link>
-            )}
-          </div>
-          <OStatsChart
-            data={studioChartData}
-            emptyLabel="No O studio counts found."
-            scrollable
-            studioScope={studioScope}
-          />
-        </section>
-      )}
-      {!error && !loading && !showTimeline && !selectedYear && (
-        <section className="ostats-section">
-          <div className="ostats-subheader">
-            <h2>By Performer Age</h2>
-            {(countsByPerformerAgeQuery.data?.sceneOCountsByPerformerAge
-              .unknown_count ?? 0) > 0 && (
-              <Link
-                className="ostats-unknown-count"
-                to={addOStatsStudioScopeToPath(
-                  "/ostats/unknown/performer-age",
-                  studioScope
-                )}
-                title="View O events with an unknown performer age"
-              >
-                View Unknown:{" "}
-                {countsByPerformerAgeQuery.data?.sceneOCountsByPerformerAge.unknown_count.toLocaleString()}
-                {" →"}
-              </Link>
-            )}
-          </div>
-          <OStatsChart
-            data={performerAgeChartData}
+          {!embedded && overview.byStudio && (
+            <StatsBarChart
+              title="By Studio"
+              data={eventBars(overview.byStudio.counts, (item) => ({
+                key: item.studio_id,
+                label: item.studio_name,
+                count: item.count,
+                path: `/ostats/studio/${item.studio_id}`,
+              }))}
+              unit={O_UNIT}
+              total={totalOs}
+              emptyLabel="No O studio counts found."
+              unknown={{
+                count: overview.byStudio.unknown_count,
+                to: withScope("/ostats/unknown/studio"),
+              }}
+            />
+          )}
+          <StatsBarChart
+            title="By Performer Age"
+            data={eventBars(overview.byAge.counts, (item) => ({
+              key: String(item.age),
+              label: String(item.age),
+              count: item.count,
+              path: `/ostats/age/${item.age}`,
+            }))}
+            unit={O_UNIT}
+            total={totalOs}
+            totalNote="An O counts once for each vato age in its scene, so bars can overlap."
+            sortable
             emptyLabel="No O performer-age counts found."
-            scrollable
-            studioScope={studioScope}
+            unknown={{
+              count: overview.byAge.unknown_count,
+              to: withScope("/ostats/unknown/performer-age"),
+            }}
           />
-        </section>
-      )}
-      {!error && !loading && !showTimeline && !selectedYear && (
-        <section className="ostats-section">
-          <div className="ostats-subheader">
-            <h2>By Scene Release Year</h2>
-            {(countsByReleaseYearQuery.data?.sceneOCountsByReleaseYear
-              .unknown_count ?? 0) > 0 && (
-              <Link
-                className="ostats-unknown-count"
-                to={addOStatsStudioScopeToPath(
-                  "/ostats/unknown/release-year",
-                  studioScope
-                )}
-                title="View O events with an unknown scene release year"
-              >
-                View Unknown:{" "}
-                {countsByReleaseYearQuery.data?.sceneOCountsByReleaseYear.unknown_count.toLocaleString()}
-                {" →"}
-              </Link>
-            )}
-          </div>
-          <OStatsChart
-            data={releaseYearChartData}
+          <StatsBarChart
+            title="By Scene Release Year"
+            data={eventBars(overview.byReleaseYear.counts, (item) => ({
+              key: String(item.year),
+              label: String(item.year),
+              count: item.count,
+              path: `/ostats/release-year/${item.year}`,
+            }))}
+            unit={O_UNIT}
+            total={totalOs}
+            sortable
             emptyLabel="No O scene release-year counts found."
-            scrollable
-            studioScope={studioScope}
+            unknown={{
+              count: overview.byReleaseYear.unknown_count,
+              to: withScope("/ostats/unknown/release-year"),
+            }}
           />
-        </section>
+        </>
       )}
     </StatsPage>
   );
