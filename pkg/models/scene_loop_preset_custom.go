@@ -9,6 +9,7 @@ import (
 type SceneLoopSegment struct {
 	Start float64 `json:"start"`
 	End   float64 `json:"end"`
+	Title string  `json:"title,omitempty"`
 }
 
 // SceneLoopPreset stores a named collection of loop segments tied to a scene.

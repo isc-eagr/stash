@@ -33,6 +33,7 @@ type SceneMarkerTagAncestors {
 type MultiSegmentLoopSegment {
   start: Float!
   end: Float!
+  title: String
 }
 
 type MultiSegmentLoopPreset {
@@ -49,6 +50,7 @@ type MultiSegmentLoopPreset {
 input MultiSegmentLoopSegmentInput {
   start: Float!
   end: Float!
+  title: String
 }
 
 input SceneMultiSegmentLoopPresetInput {

@@ -35,6 +35,10 @@ import { StudioActivityMetricsStrip } from "./StudioActivityMetricsStrip"; // CU
 import { StudioRatingAdvisorPopover } from "./StudioRatingAdvisorPopover_custom"; // CUSTOM
 import { StudioSortMetricStrip } from "./StudioSortMetricStrip_custom"; // CUSTOM
 import {
+  PERFORMER_FACIALS_TOOLTIP,
+  STUDIO_FACIALS_TOOLTIP,
+} from "./studioFacialsTooltip_custom"; // CUSTOM
+import {
   catalogCardSortHighlightClassCustom,
   hasCatalogCardSortValueCustom,
   isCatalogCardSortHighlightedCustom,
@@ -269,10 +273,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
               "solo_scenes_count"
             )) ||
           (!!facialTag &&
-            isCatalogCardSortHighlightedCustom(
-              activeSortBy,
-              "facial_scenes_count"
-            )))); // CUSTOM
+            isCatalogCardSortHighlightedCustom(activeSortBy, "facial_count")))); // CUSTOM
     // CUSTOM: end
 
     function onToggleFavorite(v: boolean) {
@@ -471,43 +472,40 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       );
     }
 
-    // Facial scenes (marker-based) - facial icon
-    function maybeRenderFacialScenesButton() {
+    // Facials (marker count) - facial icon, links to the facial markers
+    function maybeRenderFacialsButton() {
       if (!facialTag) return null;
       if (!performerScopedCountsReady) return null;
 
       const count = performerId
-        ? performerStats?.role_stats?.facial_scene_count ?? 0
-        : stats?.studio_role_counts.facial_scene_count ?? 0; // CUSTOM
-      // Use depth -1 to include subtags
+        ? performerStats?.role_stats?.facial_marker_count ?? 0
+        : stats?.facial_count ?? 0; // CUSTOM
       const url = performerId
-        ? NavUtils.makePerformerStudioMarkerScenesUrl(
-            performerId,
-            navigationStudio,
-            facialTag.id,
-            "Facial",
-            undefined,
-            -1
+        ? NavUtils.withStudioScope(
+            NavUtils.makePerformerFacialMarkersWithRoleUrl(
+              { id: performerId },
+              facialTag.id,
+              facialTag.name
+            ),
+            navigationStudio.id,
+            navigationStudio.name
           )
-        : NavUtils.makeStudioMarkerScenesUrl(
+        : NavUtils.makeStudioMarkersUrl(
             navigationStudio,
             facialTag.id,
-            "Facial",
-            undefined,
-            -1
+            facialTag.name
           );
 
       return (
         <Button
           className={cx(
-            "minimal scene-category-count facial-scene-count",
-            catalogCardSortHighlightClassCustom(
-              activeSortBy,
-              "facial_scenes_count"
-            )
+            "minimal scene-category-count facial-marker-count",
+            catalogCardSortHighlightClassCustom(activeSortBy, "facial_count")
           )} // CUSTOM
           href={url}
-          title={`Facial scenes (${facialTag.name})`}
+          title={
+            performerId ? PERFORMER_FACIALS_TOOLTIP : STUDIO_FACIALS_TOOLTIP
+          }
           disabled={count === 0}
         >
           <img src={facialPng} alt="Facial" className="category-icon" />
@@ -808,7 +806,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         "sex_scenes_count",
         "oral_scenes_count",
         "solo_scenes_count",
-        "facial_scenes_count"
+        "facial_count"
       ); // CUSTOM
 
       if (
@@ -828,7 +826,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
                     {maybeRenderSexScenesButton()}
                     {maybeRenderOralScenesButton()}
                     {maybeRenderSoloScenesButton()}
-                    {maybeRenderFacialScenesButton()}
+                    {maybeRenderFacialsButton()}
                     {maybeRenderUniquePerformersButton()}
                   </ButtonGroup>
                 </div>

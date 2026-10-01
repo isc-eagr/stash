@@ -4,6 +4,7 @@ import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import * as selection from "../src/components/ScenePlayer/remoteLoopSelection_custom";
 import * as boundary from "../src/components/ScenePlayer/playbackBoundary_custom";
+import * as loopState from "../src/components/ScenePlayer/multiSegmentLoopState_custom";
 
 // Exercise the actual plugin with a minimal media clock and no browser renderer.
 const exports: Record<string, any> = {};
@@ -36,6 +37,8 @@ runInNewContext(
         ? videojs
         : id.includes("remoteLoopSelection")
         ? selection
+        : id.includes("multiSegmentLoopState")
+        ? loopState
         : boundary,
     window: { setTimeout: () => 1, clearTimeout() {} },
   }

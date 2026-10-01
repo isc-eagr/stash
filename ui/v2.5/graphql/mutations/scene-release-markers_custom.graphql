@@ -35,6 +35,7 @@ mutation SceneReleaseLoopPresetSave($input: SceneReleaseLoopPresetInput!) {
     segments {
       start
       end
+      title
     }
   }
 }

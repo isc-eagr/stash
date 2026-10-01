@@ -1703,3 +1703,27 @@ export const withStudioScope = (
   return `${base}c=${studioCriterion}${rest ? `&${rest}` : ""}`;
 };
 // CUSTOM: end
+
+// Markers page for one studio's markers with a tag (and its subtags)
+export const makeStudioMarkersUrl = (
+  studio: Partial<GQL.StudioDataFragment>,
+  tagId: string,
+  tagLabel: string
+) => {
+  if (!studio.id || !tagId) return "#";
+
+  const criterionData = {
+    type: "marker_performers",
+    modifier: "INCLUDES",
+    tag_ids: [{ id: tagId, label: tagLabel }],
+    include_subtags: true,
+    top_performer_ids: [],
+    bottom_performer_ids: [],
+    unnamed_performers: [],
+  };
+  const url = `/scenes/markers?c=${encodeURIComponent(
+    JSON.stringify(criterionData)
+  )}&sortby=title`;
+
+  return withStudioScope(url, studio.id, studio.name || `Studio ${studio.id}`);
+};

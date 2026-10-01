@@ -21,6 +21,7 @@ interface IStudioSortMetricSource {
     o_counter: number;
     scene_count: number;
     unique_performer_count: number;
+    facial_count: number;
     studio_activity_stats: {
       oral_percent: number;
       other_percent: number;
@@ -123,6 +124,11 @@ const definitions: Record<
     messageID: "facial_scene_count",
     format: "count",
     value: ({ stats }) => stats?.studio_role_counts.facial_scene_count,
+  },
+  facial_count: {
+    messageID: "facial_count",
+    format: "count",
+    value: ({ stats }) => stats?.facial_count,
   },
   standard_facial_count: {
     messageID: "standard_facial_count",

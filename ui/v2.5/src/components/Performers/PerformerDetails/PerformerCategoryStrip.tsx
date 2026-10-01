@@ -131,6 +131,9 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   const { orgasmTagId } = roleTagIds;
   const { feetTagId } = roleTagIds;
 
+  // Sort shown by each role's total: scene counts for sex/oral, facials for facial.
+  const roleTotalSortKey = (category: "sex" | "oral" | "facial") =>
+    category === "facial" ? "facial_count" : `${category}_scenes_count`;
   const isRoleSortHighlighted = (...sortKeys: string[]) =>
     !sceneId && isCatalogCardSortHighlightedCustom(activeSortBy, ...sortKeys);
   const shouldRenderRoleForActiveSort = (
@@ -141,9 +144,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     }
 
     return isRoleSortHighlighted(
-      ...(category === "sex" || category === "oral"
-        ? [`${category}_scenes_count`]
-        : []),
+      roleTotalSortKey(category),
       `${category}_unique_partners`,
       `${category}_topped_partners`,
       `${category}_bottomed_partners`
@@ -776,7 +777,11 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
 
     const tagLabel =
       role.category.charAt(0).toUpperCase() + role.category.slice(1);
-    const excludeTags = getExcludeTagsForCategory(role.category);
+    // CUSTOM: card rows count oral partners in any scene, so links keep sex scenes
+    const excludeTags =
+      versatilityCard && role.category === "oral"
+        ? undefined
+        : getExcludeTagsForCategory(role.category);
 
     // Use depth -1 for oral and facial to include subtags
     const markerDepth =
@@ -1006,10 +1011,9 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
           category={role.category}
           categoryUrl={categoryUrl}
           highlighted={
-            role.category !== "facial" &&
             !!catalogCardSortHighlightClassCustom(
               activeSortBy,
-              `${role.category}_scenes_count`
+              roleTotalSortKey(role.category)
             )
           }
           icon={categoryIconElement}
@@ -1038,10 +1042,10 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         <div
           className={cx(
             "category-icon-container",
-            (role.category === "sex" || role.category === "oral") &&
+            role.category !== "solo" &&
               catalogCardSortHighlightClassCustom(
                 activeSortBy,
-                `${role.category}_scenes_count`
+                roleTotalSortKey(role.category)
               )
           )}
           title={

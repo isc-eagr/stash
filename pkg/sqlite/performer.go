@@ -931,6 +931,7 @@ var performerSortOptions = sortOptions{
 	"feet_markers_count",
 	"facial_given_count",
 	"facial_received_count",
+	"facial_count",
 	"sex_unique_partners",
 	"oral_unique_partners",
 	"facial_unique_partners",
@@ -1023,6 +1024,8 @@ func (qb *PerformerStore) getPerformerSort(findFilter *models.FindFilterType, pe
 		sortQuery += qb.sortByPerformerFacialMarkerCount("top", direction, studioSQL)
 	case "facial_received_count": // CUSTOM
 		sortQuery += qb.sortByPerformerFacialMarkerCount("bottom", direction, studioSQL)
+	case "facial_count": // CUSTOM
+		sortQuery += qb.sortByPerformerFacialCountCustom(direction, studioSQL)
 	case "sex_unique_partners":
 		sortQuery += qb.sortByPerformerUniquePartners("sex", direction, studioSQL)
 	case "oral_unique_partners":

@@ -75,11 +75,22 @@ import { SceneMergeModal } from "../SceneMergeDialog";
 import { FormattedDate } from "src/components/Shared/Date";
 import { StudioLogo } from "src/components/Shared/StudioLogo";
 // CUSTOM: begin - multi-segment loop and icon imports
-import type {
-  IMultiSegmentLoopApi,
-  ILoopSegmentInput,
-} from "src/components/ScenePlayer/multi-segment-loop";
-import { filterLoopSegmentsOutsideNegativeMarkers } from "src/components/ScenePlayer/loopSegments_custom";
+import type MultiSegmentLoopPlugin from "src/components/ScenePlayer/multi-segment-loop";
+import type { ILoopSegmentInput } from "src/components/ScenePlayer/multi-segment-loop";
+import {
+  useMultiSegmentLoop,
+  type IMultiSegmentLoopController,
+} from "src/components/ScenePlayer/useMultiSegmentLoop_custom";
+import {
+  loopPresetsFromSource,
+  useMultiSegmentLoopPresets,
+  type IMultiSegmentLoopPresets,
+} from "src/components/ScenePlayer/useMultiSegmentLoopPresets_custom";
+import {
+  MULTI_SEGMENT_LOOP_EDITOR_OPEN_EVENT,
+  showMultiSegmentLoopControlsCustom,
+} from "src/components/ScenePlayer/multiSegmentLoopSettings_custom";
+import { SceneLoopPanel } from "./SceneLoopPanel";
 import { SceneActivityMetrics } from "../SceneActivityMetrics_custom";
 import {
   completeSceneMarkerFocusRequest,
@@ -189,6 +200,8 @@ interface IProps {
   scene: GQL.SceneDataFragment;
   setTimestamp: (num: number) => void;
   addMultiSegmentLoopSegments: (segments: ILoopSegmentInput[]) => void; // CUSTOM
+  multiSegmentLoop: IMultiSegmentLoopController; // CUSTOM
+  multiSegmentLoopPresets: IMultiSegmentLoopPresets; // CUSTOM
   queueScenes: QueuedScene[];
   onQueueNext: () => void;
   onQueuePrevious: () => void;
@@ -232,6 +245,8 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     scene,
     setTimestamp,
     addMultiSegmentLoopSegments, // CUSTOM
+    multiSegmentLoop, // CUSTOM
+    multiSegmentLoopPresets, // CUSTOM
     queueScenes,
     onQueueNext,
     onQueuePrevious,
@@ -274,6 +289,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const isSceneOHotkeyEnabled = shouldEnableSceneOHotkeyCustom(
     configuration?.ui
   ); // CUSTOM
+  const showLoopTab = showMultiSegmentLoopControlsCustom(configuration?.ui); // CUSTOM
 
   const [showDraftModal, setShowDraftModal] = useState(false);
   const boxes = configuration?.general?.stashBoxes ?? [];
@@ -498,6 +514,28 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     };
   }, [focusScrubberMarker]);
 
+  // CUSTOM: begin - the player's loop menu opens the Loop tab
+  useEffect(() => {
+    if (!showLoopTab) return;
+    const openLoopTab = () => {
+      setCollapsed(false);
+      setActiveTabKey("scene-loop-panel");
+    };
+    window.addEventListener(MULTI_SEGMENT_LOOP_EDITOR_OPEN_EVENT, openLoopTab);
+    return () =>
+      window.removeEventListener(
+        MULTI_SEGMENT_LOOP_EDITOR_OPEN_EVENT,
+        openLoopTab
+      );
+  }, [setCollapsed, showLoopTab]);
+
+  useEffect(() => {
+    if (!showLoopTab && activeTabKey === "scene-loop-panel") {
+      setActiveTabKey("scene-details-panel");
+    }
+  }, [activeTabKey, showLoopTab]);
+  // CUSTOM: end
+
   const onScrubberMarkerFocusHandled = useCallback((requestId: number) => {
     setScrubberMarkerFocusRequest((currentRequest) =>
       completeSceneMarkerFocusRequest(currentRequest, requestId)
@@ -715,6 +753,17 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                 {/* CUSTOM */}
               </Nav.Link>
             </Nav.Item>
+            {showLoopTab && (
+              <Nav.Item>
+                <Nav.Link eventKey="scene-loop-panel">
+                  <FormattedMessage id="multi_segment_loop.tab" />
+                  <Counter
+                    count={multiSegmentLoop.state.segments.length}
+                    hideZero
+                  />
+                </Nav.Link>
+              </Nav.Item>
+            )}
             {/* CUSTOM: end */}
             {scene.groups.length > 0 ? (
               <Nav.Item>
@@ -798,6 +847,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
         className={cx({
           "scene-tab-content-bootstrap-gutters": ![
             "scene-negative-markers-panel",
+            "scene-loop-panel",
             "scene-releases-panel",
             "scene-stats-panel",
           ].includes(activeTabKey),
@@ -883,6 +933,15 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               />
             )}
           </Tab.Pane>
+          {showLoopTab && (
+            <Tab.Pane eventKey="scene-loop-panel">
+              <SceneLoopPanel
+                loop={multiSegmentLoop}
+                presets={multiSegmentLoopPresets}
+                onSeek={setTimestamp}
+              />
+            </Tab.Pane>
+          )}
           {/* CUSTOM: end */}
           <Tab.Pane eventKey="scene-group-panel">
             <SceneGroupPanel scene={scene} />
@@ -1238,7 +1297,6 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
   // CUSTOM: end
 
   const _setTimestamp = useRef<(value: number) => void>();
-  const _multiSegmentLoopApi = useRef<IMultiSegmentLoopApi | null>(null); // CUSTOM
   const initialTimestamp = useMemo(() => {
     const t = queryParams.get("t");
     if (!t) return 0;
@@ -1284,6 +1342,24 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
     [scene, activeReleaseId]
   );
   const sceneForPlayer = playbackContext?.scene;
+
+  // The player publishes its loop plugin; the Loop tab and player menu share it.
+  const [loopPlugin, setLoopPlugin] = useState<MultiSegmentLoopPlugin>();
+  const multiSegmentLoop = useMultiSegmentLoop(
+    loopPlugin,
+    sceneForPlayer?.negative_markers
+  );
+  const loopPresetSource = useMemo(
+    () => loopPresetsFromSource(sceneForPlayer?.multi_segment_loop_presets),
+    [sceneForPlayer?.multi_segment_loop_presets]
+  );
+  const multiSegmentLoopPresets = useMultiSegmentLoopPresets(
+    activeReleaseId
+      ? { releaseId: activeReleaseId }
+      : { sceneId: sceneForPlayer?.id },
+    loopPresetSource,
+    multiSegmentLoop
+  );
   // CUSTOM: end
 
   // CUSTOM: keep the remote publisher beside the player, while its pairing
@@ -1337,22 +1413,9 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
     _setTimestamp.current = fn;
   }
 
-  // CUSTOM: begin - multi-segment loop API
-  function getMultiSegmentLoopApi(api: IMultiSegmentLoopApi) {
-    _multiSegmentLoopApi.current = api;
-  }
-
+  // CUSTOM: begin - markers and stats add to the current owner's loop
   function addMultiSegmentLoopSegments(segments: ILoopSegmentInput[]) {
-    const selectedNegativeMarkers = activeReleaseId
-      ? scene?.releases?.find((release) => release.id === activeReleaseId)
-          ?.negative_markers
-      : scene?.negative_markers;
-    _multiSegmentLoopApi.current?.addSegments(
-      filterLoopSegmentsOutsideNegativeMarkers(
-        segments,
-        selectedNegativeMarkers
-      )
-    );
+    multiSegmentLoop.addSegments(segments);
   }
   // CUSTOM: end
 
@@ -1616,6 +1679,8 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
         scene={scene}
         setTimestamp={setTimestamp}
         addMultiSegmentLoopSegments={addMultiSegmentLoopSegments}
+        multiSegmentLoop={multiSegmentLoop} // CUSTOM
+        multiSegmentLoopPresets={multiSegmentLoopPresets} // CUSTOM
         queueScenes={queueScenes}
         queueStart={queueStart}
         onDelete={onDelete}
@@ -1672,7 +1737,9 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
               permitLoop={!continuePlaylist}
               initialTimestamp={initialTimestamp}
               sendSetTimestamp={getSetTimestamp}
-              sendMultiSegmentLoopApi={getMultiSegmentLoopApi} // CUSTOM
+              multiSegmentLoop={multiSegmentLoop} // CUSTOM
+              multiSegmentLoopPresets={multiSegmentLoopPresets} // CUSTOM
+              onMultiSegmentLoopPluginChange={setLoopPlugin} // CUSTOM
               addMultiSegmentLoopSegments={addMultiSegmentLoopSegments} // CUSTOM
               onTimeChange={setCurrentTimestamp} // CUSTOM
               onMarkerClick={onScenePlayerMarkerClick} // CUSTOM

@@ -75,7 +75,7 @@ func (r *mutationResolver) SceneReleaseLoopPresetSave(ctx context.Context, input
 		if segment == nil || !validReleaseRangeCustom(segment.Start, segment.End) {
 			return nil, fmt.Errorf("%w: invalid loop segment", ErrInput)
 		}
-		segments[i] = models.SceneLoopSegment{Start: segment.Start, End: segment.End}
+		segments[i] = models.SceneLoopSegment{Start: segment.Start, End: segment.End, Title: loopSegmentTitle(segment.Title)}
 	}
 	preset := &models.SceneLoopPreset{Name: name, Enabled: input.Enabled, CurrentSegmentIndex: clampSegmentIndex(input.CurrentSegmentIndex, len(segments)), Segments: segments}
 	var parentSceneID int

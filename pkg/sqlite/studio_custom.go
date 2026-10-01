@@ -9,14 +9,15 @@ import (
 
 // RoleTagIDs holds the configured role tag IDs from UI config
 type RoleTagIDs struct {
-	SexTagID       int
-	OralTagID      int
-	SoloTagID      int
-	FacialTagID    int
-	ReallyHotTagID int // CUSTOM: distinguishes regular and Really Hot facial scenes
-	OrgasmTagID    int // CUSTOM: added for performer orgasm sort
-	FeetTagID      int // CUSTOM: added for performer feet sort
-	GoatTagID      int // CUSTOM: forces GOAT markers into Outstanding quality coverage
+	SexTagID          int
+	OralTagID         int
+	SoloTagID         int
+	FacialTagID       int
+	ReallyHotTagID    int // CUSTOM: distinguishes regular and Really Hot facial scenes
+	OrgasmTagID       int // CUSTOM: added for performer orgasm sort
+	FeetTagID         int // CUSTOM: added for performer feet sort
+	GoatTagID         int // CUSTOM: forces GOAT markers into Outstanding quality coverage
+	SecondCameraTagID int // CUSTOM: excluded from Facial Count
 }
 
 // GetRoleTagIDs retrieves role tag IDs from UI configuration
@@ -51,6 +52,9 @@ func GetRoleTagIDs() RoleTagIDs {
 	}
 	if id, ok := roleTagIds["goatTagId"].(string); ok && id != "" {
 		result.GoatTagID, _ = strconv.Atoi(id)
+	}
+	if id, ok := roleTagIds["secondCameraTagId"].(string); ok && id != "" {
+		result.SecondCameraTagID, _ = strconv.Atoi(id)
 	}
 	return result
 }

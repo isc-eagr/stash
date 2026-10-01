@@ -7,6 +7,17 @@ import {
   getPlaybackBoundaryDelayMs,
   isPlaybackBoundaryDue,
 } from "./playbackBoundary_custom"; // CUSTOM
+// CUSTOM: begin
+import {
+  findLoopSegmentIndexAtTime,
+  loopSegmentContainsTime,
+  loopSegmentIndexAfterRemoval,
+  loopSegmentIndexForEnable,
+  LOOP_SEGMENT_START_TOLERANCE_SECONDS,
+  nudgedLoopSegmentBounds,
+  type LoopSegmentEdge,
+} from "./multiSegmentLoopState_custom";
+// CUSTOM: end
 
 export interface ILoopSegment {
   id: string;
@@ -17,17 +28,25 @@ export interface ILoopSegment {
 
 export type ILoopSegmentInput = Omit<ILoopSegment, "id">;
 
-export interface IMultiSegmentLoopApi {
-  addSegments: (segments: ILoopSegmentInput[]) => void;
-  setSegments: (segments: ILoopSegmentInput[]) => void;
-  clearSegments: () => void;
+// CUSTOM: begin - immutable state published to every subscriber
+export interface IMultiSegmentLoopSnapshot {
+  segments: ILoopSegment[];
+  enabled: boolean;
+  currentSegmentIndex: number;
+  loopSingleId: string | null;
+  pendingStart: number | null;
+  remoteSelectedIds: string[];
 }
+
+export type MultiSegmentLoopListener = (
+  snapshot: IMultiSegmentLoopSnapshot
+) => void;
+// CUSTOM: end
 
 export interface IMultiSegmentLoopOptions {
   segments: ILoopSegment[];
   enabled: boolean;
   currentSegmentIndex: number;
-  createButton?: boolean;
 }
 
 class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
@@ -39,6 +58,12 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   private scheduledBoundary: number | null = null; // CUSTOM
   private loopSingleId: string | null = null; // ID of segment to loop single
   private remoteSelectedIds: string[] = []; // CUSTOM: temporary playback subset
+  // CUSTOM: begin - subscribers and seek bookkeeping
+  private listeners = new Set<MultiSegmentLoopListener>();
+  private snapshot: IMultiSegmentLoopSnapshot | null = null;
+  private internalSeekTarget: number | null = null;
+  private seekInProgress = false;
+  // CUSTOM: end
 
   // CUSTOM: begin - remote selection preserves segments and preset configuration
   getRemoteLoopState() {
@@ -46,9 +71,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
       loop_enabled: this.enabled,
       loop_revision: remoteLoopRevisionCustom(this.enabled, this.segments),
       loop_segments: this.segments.map((s) => ({ ...s, title: s.title ?? "" })),
-      selected_segment_ids: this.remoteSelectedIds.filter((id) =>
-        this.segments.some((s) => s.id === id)
-      ),
+      selected_segment_ids: this.selectedIds(),
     };
   }
 
@@ -73,7 +96,14 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
       }
     }
     this.scheduleBoundaryCheck(true);
+    this.emitChange();
     return true;
+  }
+
+  private selectedIds(): string[] {
+    return this.remoteSelectedIds.filter((id) =>
+      this.segments.some((s) => s.id === id)
+    );
   }
   // CUSTOM: end
 
@@ -81,6 +111,11 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   private readonly boundCheckLoop = this.checkLoop.bind(this);
   private readonly boundOnPlaying = this.onPlaying.bind(this);
   private readonly boundOnPause = this.onPause.bind(this);
+  private readonly boundOnSeeking = this.onSeeking.bind(this);
+  private readonly boundClearSeek = (): void => {
+    this.seekInProgress = false;
+  };
+  private readonly boundOnSeeked = this.onSeeked.bind(this);
   private readonly boundRescheduleBoundary = (): void => {
     this.scheduleBoundaryCheck(true);
   };
@@ -89,20 +124,6 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   // Timeline visualization elements
   private segmentMarkers: Map<string, HTMLDivElement> = new Map();
   private pendingMarker: HTMLDivElement | null = null;
-  private controlButton: { updateState?: () => void } | null = null;
-
-  // Callback references for external listeners
-  private onSegmentsChange?: (segments: ILoopSegment[]) => void;
-  private onEnabledChange?: (enabled: boolean) => void;
-  private onCurrentSegmentChange?: (
-    index: number,
-    segment: ILoopSegment | null
-  ) => void;
-  private onSegmentLoop?: (
-    fromSegment: ILoopSegment,
-    toSegment: ILoopSegment
-  ) => void;
-  private onLoopSingleChange?: (segmentId: string | null) => void;
 
   constructor(
     player: VideoJsPlayer,
@@ -122,9 +143,6 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
 
     player.ready(() => {
       this.setupTimeUpdateHandler();
-      if (options?.createButton) {
-        this.createControlButton();
-      }
     });
   }
 
@@ -135,9 +153,97 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     // CUSTOM: begin - keep the one-shot timer aligned after rate and seek changes
     this.player.on("waiting", this.boundOnPause);
     this.player.on("ratechange", this.boundRescheduleBoundary);
-    this.player.on("seeked", this.boundRescheduleBoundary);
+    this.player.on("seeking", this.boundOnSeeking);
+    this.player.on("seeked", this.boundOnSeeked);
+    this.player.on("loadstart", this.boundClearSeek);
+    this.player.on("durationchange", this.boundRenderSegmentMarkers);
     // CUSTOM: end
   }
+
+  // CUSTOM: begin - subscription API
+  /** Returns the current state. The object is replaced, never mutated. */
+  getSnapshot(): IMultiSegmentLoopSnapshot {
+    if (!this.snapshot) {
+      this.snapshot = {
+        segments: this.segments.map((segment) => ({ ...segment })),
+        enabled: this.enabled,
+        currentSegmentIndex: this.currentSegmentIndex,
+        loopSingleId: this.loopSingleId,
+        pendingStart: this.pendingStart,
+        remoteSelectedIds: this.selectedIds(),
+      };
+    }
+    return this.snapshot;
+  }
+
+  subscribe(listener: MultiSegmentLoopListener): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  private emitChange(): void {
+    this.snapshot = null;
+    const snapshot = this.getSnapshot();
+    this.listeners.forEach((listener) => listener(snapshot));
+  }
+
+  private seekTo(time: number): void {
+    this.internalSeekTarget = time;
+    this.player.currentTime(time);
+  }
+
+  private readonly boundRenderSegmentMarkers = (): void => {
+    this.renderSegmentMarkers();
+  };
+
+  // Browsers report the new time before "seeked", so hold the loop until then.
+  private onSeeking(): void {
+    this.seekInProgress = true;
+    this.clearBoundaryTimer();
+  }
+
+  // A user seek into another segment makes it the current segment.
+  private onSeeked(): void {
+    this.seekInProgress = false;
+    const internalTarget = this.internalSeekTarget;
+    this.internalSeekTarget = null;
+    const time = this.player.currentTime();
+    const userSeek =
+      internalTarget === null ||
+      Math.abs(time - internalTarget) > LOOP_SEGMENT_START_TOLERANCE_SECONDS;
+    if (userSeek && !this.adoptSegmentAtTime(time) && !this.player.paused()) {
+      // A seek outside every segment returns to the current one while playing.
+      this.jumpToSegment(this.currentSegmentIndex);
+      return;
+    }
+    this.scheduleBoundaryCheck(true);
+  }
+
+  /** Returns false when the loop is on and the time is outside every segment. */
+  private adoptSegmentAtTime(time: number): boolean {
+    if (!this.enabled || this.segments.length === 0) return true;
+    const current = this.segments[this.currentSegmentIndex];
+    if (current && loopSegmentContainsTime(current, time)) return true;
+
+    const index = findLoopSegmentIndexAtTime(
+      this.segments,
+      time,
+      this.currentSegmentIndex,
+      this.selectedIds()
+    );
+    if (index < 0) return false;
+
+    this.currentSegmentIndex = index;
+    if (this.loopSingleId !== null) {
+      this.loopSingleId = this.segments[index].id;
+    }
+    this.updateActiveSegmentMarker();
+    this.emitChange();
+    return true;
+  }
+  // CUSTOM: end
 
   private onPlaying(): void {
     // When playing starts and loop is enabled, ensure we're at a valid position
@@ -150,7 +256,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
         currentSegment &&
         (currentTime < currentSegment.start || currentTime > currentSegment.end)
       ) {
-        this.player.currentTime(currentSegment.start);
+        this.seekTo(currentSegment.start); // CUSTOM
       }
 
       this.scheduleBoundaryCheck(true); // CUSTOM
@@ -166,6 +272,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
       this.clearBoundaryTimer(); // CUSTOM
       return;
     }
+    if (this.seekInProgress || this.player.seeking?.()) return; // CUSTOM: wait for the seek to land
 
     const currentTime = this.player.currentTime();
     const currentSegment = this.segments[this.currentSegmentIndex];
@@ -175,7 +282,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     }
 
     // CUSTOM: keep the subset valid after local segment removal or editing.
-    const selected = this.getRemoteLoopState().selected_segment_ids;
+    const selected = this.selectedIds();
     if (selected.length && !selected.includes(currentSegment.id)) {
       this.jumpToSegment(
         this.segments.findIndex((s) => selected.includes(s.id))
@@ -186,6 +293,15 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     // Check if we've reached the end of the current segment
     if (currentTime >= currentSegment.end) {
       this.advanceToNextSegment();
+      return;
+    }
+
+    // CUSTOM: never play the gap before the current segment after an edit or removal.
+    if (
+      currentTime <
+      currentSegment.start - LOOP_SEGMENT_START_TOLERANCE_SECONDS
+    ) {
+      this.jumpToSegment(this.currentSegmentIndex);
       return;
     }
 
@@ -227,6 +343,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
 
       const segment = this.segments[this.currentSegmentIndex];
       if (!segment || !this.enabled || this.player.paused()) return;
+      if (this.seekInProgress) return; // CUSTOM: "seeked" reschedules
 
       if (isPlaybackBoundaryDue(this.player.currentTime(), segment.end)) {
         this.advanceToNextSegment();
@@ -257,7 +374,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
       this.loopSingleId === fromSegment.id
     ) {
       // Loop back to the start of the same segment
-      this.player.currentTime(fromSegment.start);
+      this.seekTo(fromSegment.start); // CUSTOM
       this.scheduleBoundaryCheck(true); // CUSTOM
       return;
     }
@@ -265,7 +382,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     // Move to next segment, or wrap to first
     const nextIndex = nextSelectedSegmentCustom(
       this.segments,
-      this.getRemoteLoopState().selected_segment_ids,
+      this.selectedIds(),
       this.currentSegmentIndex
     ); // CUSTOM
     this.currentSegmentIndex = nextIndex;
@@ -273,19 +390,12 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     const toSegment = this.segments[this.currentSegmentIndex];
 
     // Seek to start of next segment
-    this.player.currentTime(toSegment.start);
+    this.seekTo(toSegment.start); // CUSTOM
     this.scheduleBoundaryCheck(true); // CUSTOM
 
     // Update visual markers
     this.updateActiveSegmentMarker();
-
-    // Emit events
-    if (this.onCurrentSegmentChange) {
-      this.onCurrentSegmentChange(this.currentSegmentIndex, toSegment);
-    }
-    if (this.onSegmentLoop && fromSegment) {
-      this.onSegmentLoop(fromSegment, toSegment);
-    }
+    this.emitChange(); // CUSTOM
   }
 
   // Generate a unique ID for a segment
@@ -307,74 +417,75 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
    */
   setSegments(segments: ILoopSegment[]): void {
     this.remoteSelectedIds = []; // CUSTOM
-    this.segments = [...segments];
+    this.loopSingleId = null; // CUSTOM
+    this.segments = segments.map((segment) => ({ ...segment })); // CUSTOM
     this.currentSegmentIndex = 0;
     this.scheduleBoundaryCheck(true); // CUSTOM
     this.renderSegmentMarkers();
-    this.updateControlButton();
-    if (this.onSegmentsChange) {
-      this.onSegmentsChange(this.getSegments());
-    }
-    if (this.onCurrentSegmentChange) {
-      this.onCurrentSegmentChange(
-        this.currentSegmentIndex,
-        this.segments[0] || null
-      );
-    }
+    this.emitChange(); // CUSTOM
   }
 
   /**
    * Add a new segment
    */
   addSegment(start: number, end: number, title?: string): ILoopSegment {
-    const segment: ILoopSegment = {
+    const [segment] = this.addSegments([{ start, end, title }]); // CUSTOM
+    return segment;
+  }
+
+  // CUSTOM: begin - add several segments with one state update
+  addSegments(inputs: ILoopSegmentInput[]): ILoopSegment[] {
+    const added = inputs.map(({ start, end, title }) => ({
       id: this.generateId(),
       start: Math.min(start, end),
       end: Math.max(start, end),
       title,
-    };
-    this.segments.push(segment);
-    this.scheduleBoundaryCheck(true); // CUSTOM
+    }));
+    if (!added.length) return added;
+
+    this.segments = [...this.segments, ...added];
+    this.scheduleBoundaryCheck(true);
     this.renderSegmentMarkers();
-    this.updateControlButton();
-    if (this.onSegmentsChange) {
-      this.onSegmentsChange(this.getSegments());
-    }
-    return segment;
+    this.emitChange();
+    return added;
   }
+  // CUSTOM: end
 
   /**
    * Remove a segment by ID
    */
   removeSegment(id: string): boolean {
-    const index = this.segments.findIndex((s) => s.id === id);
-    if (index === -1) return false;
-
-    this.segments.splice(index, 1);
-    this.remoteSelectedIds = this.remoteSelectedIds.filter(
-      (selected) => selected !== id
-    ); // CUSTOM
-
-    // Adjust current segment index if needed
-    if (this.currentSegmentIndex >= this.segments.length) {
-      this.currentSegmentIndex = Math.max(0, this.segments.length - 1);
-    }
-
-    this.scheduleBoundaryCheck(true); // CUSTOM
-
-    this.renderSegmentMarkers();
-    this.updateControlButton();
-    if (this.onSegmentsChange) {
-      this.onSegmentsChange(this.getSegments());
-    }
-    if (this.onCurrentSegmentChange) {
-      this.onCurrentSegmentChange(
-        this.currentSegmentIndex,
-        this.segments[this.currentSegmentIndex] || null
-      );
-    }
-    return true;
+    return this.removeSegments([id]) > 0; // CUSTOM
   }
+
+  // CUSTOM: begin - removal keeps the playing segment selected
+  removeSegments(ids: string[]): number {
+    const removedIds = new Set(
+      ids.filter((id) => this.segments.some((segment) => segment.id === id))
+    );
+    if (!removedIds.size) return 0;
+
+    this.currentSegmentIndex = loopSegmentIndexAfterRemoval(
+      this.segments,
+      this.currentSegmentIndex,
+      removedIds
+    );
+    this.segments = this.segments.filter(
+      (segment) => !removedIds.has(segment.id)
+    );
+    this.remoteSelectedIds = this.remoteSelectedIds.filter(
+      (selected) => !removedIds.has(selected)
+    );
+    if (this.loopSingleId && removedIds.has(this.loopSingleId)) {
+      this.loopSingleId = null;
+    }
+
+    this.scheduleBoundaryCheck(true);
+    this.renderSegmentMarkers();
+    this.emitChange();
+    return removedIds.size;
+  }
+  // CUSTOM: end
 
   /**
    * Update a segment by ID
@@ -383,36 +494,59 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     const segment = this.segments.find((s) => s.id === id);
     if (!segment) return false;
 
-    segment.start = Math.min(start, end);
-    segment.end = Math.max(start, end);
+    // CUSTOM: replace instead of mutating so subscribers see the edit
+    this.segments = this.segments.map((s) =>
+      s.id === id
+        ? { ...s, start: Math.min(start, end), end: Math.max(start, end) }
+        : s
+    );
 
     this.scheduleBoundaryCheck(true); // CUSTOM
 
     this.renderSegmentMarkers();
-    this.updateControlButton();
-    if (this.onSegmentsChange) {
-      this.onSegmentsChange(this.getSegments());
-    }
+    this.emitChange(); // CUSTOM
     return true;
   }
+
+  // CUSTOM: begin - boundary edits shared by every loop editor
+  setSegmentBoundaryToCurrentTime(id: string, edge: LoopSegmentEdge): boolean {
+    const segment = this.segments.find((s) => s.id === id);
+    if (!segment) return false;
+    const time = this.player.currentTime() || 0;
+    return edge === "start"
+      ? this.updateSegment(id, time, segment.end)
+      : this.updateSegment(id, segment.start, time);
+  }
+
+  nudgeSegmentBoundary(
+    id: string,
+    edge: LoopSegmentEdge,
+    deltaSeconds: number
+  ): boolean {
+    const segment = this.segments.find((s) => s.id === id);
+    if (!segment) return false;
+    const { start, end } = nudgedLoopSegmentBounds(
+      segment,
+      edge,
+      deltaSeconds,
+      this.player.duration()
+    );
+    return this.updateSegment(id, start, end);
+  }
+  // CUSTOM: end
 
   /**
    * Clear all segments
    */
   clearSegments(): void {
     this.remoteSelectedIds = []; // CUSTOM
+    this.loopSingleId = null; // CUSTOM
     this.segments = [];
     this.currentSegmentIndex = 0;
     this.pendingStart = null;
     this.clearBoundaryTimer(); // CUSTOM
     this.renderSegmentMarkers();
-    this.updateControlButton();
-    if (this.onSegmentsChange) {
-      this.onSegmentsChange(this.getSegments());
-    }
-    if (this.onCurrentSegmentChange) {
-      this.onCurrentSegmentChange(0, null);
-    }
+    this.emitChange(); // CUSTOM
   }
 
   /**
@@ -430,12 +564,14 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
       // First click - set start point
       this.pendingStart = currentTime;
       this.renderPendingMarker();
+      this.emitChange(); // CUSTOM
       return { action: "start", pendingStart: currentTime };
     } else {
       // Second click - create segment
-      const segment = this.addSegment(this.pendingStart, currentTime);
+      const start = this.pendingStart;
       this.pendingStart = null;
       this.clearPendingMarker();
+      const segment = this.addSegment(start, currentTime);
       return { action: "end", segment };
     }
   }
@@ -446,6 +582,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   cancelPending(): void {
     this.pendingStart = null;
     this.clearPendingMarker();
+    this.emitChange(); // CUSTOM
   }
 
   /**
@@ -466,18 +603,23 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
    * Enable or disable the loop
    */
   setEnabled(enabled: boolean): void {
-    if (!enabled) this.remoteSelectedIds = []; // CUSTOM
+    // CUSTOM: turning the loop off also ends temporary subset/single-segment modes
+    if (!enabled) {
+      this.remoteSelectedIds = [];
+      this.loopSingleId = null;
+    }
     const wasEnabled = this.enabled;
     this.enabled = enabled;
 
     if (enabled && !wasEnabled && this.segments.length > 0) {
-      // When enabling, jump to the start of the first segment
-      this.currentSegmentIndex = 0;
-      const segment = this.segments[0];
-      this.player.currentTime(segment.start);
-      if (this.onCurrentSegmentChange) {
-        this.onCurrentSegmentChange(0, segment);
-      }
+      // CUSTOM: stay in the segment under the playhead, or start at the next one
+      const { index, seek } = loopSegmentIndexForEnable(
+        this.segments,
+        this.player.currentTime(),
+        this.currentSegmentIndex
+      );
+      this.currentSegmentIndex = index;
+      if (seek) this.seekTo(this.segments[index].start);
     }
 
     if (enabled) {
@@ -487,10 +629,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     }
 
     this.updateActiveSegmentMarker();
-    this.updateControlButton();
-    if (this.onEnabledChange) {
-      this.onEnabledChange(enabled);
-    }
+    this.emitChange(); // CUSTOM
   }
 
   /**
@@ -526,16 +665,18 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
       !this.remoteSelectedIds.includes(this.segments[index].id)
     )
       this.remoteSelectedIds = [];
+    // CUSTOM: single-segment mode follows an explicit jump.
+    if (this.loopSingleId !== null) {
+      this.loopSingleId = this.segments[index].id;
+    }
 
     this.currentSegmentIndex = index;
     const segment = this.segments[index];
-    this.player.currentTime(segment.start);
+    this.seekTo(segment.start); // CUSTOM
     this.scheduleBoundaryCheck(true); // CUSTOM
 
     this.updateActiveSegmentMarker();
-    if (this.onCurrentSegmentChange) {
-      this.onCurrentSegmentChange(index, segment);
-    }
+    this.emitChange(); // CUSTOM
     return true;
   }
 
@@ -573,8 +714,10 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
       return false;
     }
 
-    const [segment] = this.segments.splice(fromIndex, 1);
-    this.segments.splice(toIndex, 0, segment);
+    const segments = [...this.segments]; // CUSTOM
+    const [segment] = segments.splice(fromIndex, 1);
+    segments.splice(toIndex, 0, segment);
+    this.segments = segments; // CUSTOM
 
     // Adjust current segment index to follow the segment if it was moved
     if (this.currentSegmentIndex === fromIndex) {
@@ -593,35 +736,8 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
 
     this.scheduleBoundaryCheck(true); // CUSTOM
     this.renderSegmentMarkers();
-    if (this.onSegmentsChange) {
-      this.onSegmentsChange(this.getSegments());
-    }
+    this.emitChange(); // CUSTOM
     return true;
-  }
-
-  // Event listener setters
-  setOnSegmentsChange(callback: (segments: ILoopSegment[]) => void): void {
-    this.onSegmentsChange = callback;
-  }
-
-  setOnEnabledChange(callback: (enabled: boolean) => void): void {
-    this.onEnabledChange = callback;
-  }
-
-  setOnCurrentSegmentChange(
-    callback: (index: number, segment: ILoopSegment | null) => void
-  ): void {
-    this.onCurrentSegmentChange = callback;
-  }
-
-  setOnSegmentLoop(
-    callback: (fromSegment: ILoopSegment, toSegment: ILoopSegment) => void
-  ): void {
-    this.onSegmentLoop = callback;
-  }
-
-  setOnLoopSingleChange(callback: (segmentId: string | null) => void): void {
-    this.onLoopSingleChange = callback;
   }
 
   // Single segment loop methods
@@ -635,7 +751,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
 
   /**
    * Set a segment to loop single by ID. Pass null to disable single loop.
-   * When enabling, immediately jumps to that segment.
+   * When enabling, turns the loop on and jumps to that segment.
    */
   setLoopSingleId(segmentId: string | null): void {
     this.loopSingleId = segmentId;
@@ -644,14 +760,13 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     if (segmentId !== null) {
       const segmentIndex = this.segments.findIndex((s) => s.id === segmentId);
       if (segmentIndex !== -1) {
+        this.enabled = true; // CUSTOM: repeating one segment requires the loop to be on
         this.jumpToSegment(segmentIndex);
       }
     }
 
     this.updateActiveSegmentMarker();
-    if (this.onLoopSingleChange) {
-      this.onLoopSingleChange(segmentId);
-    }
+    this.emitChange(); // CUSTOM
   }
 
   /**
@@ -790,78 +905,21 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     });
   }
 
-  /**
-   * Create a toggle button in the control bar
-   */
-  private createControlButton(): void {
-    const Button = videojs.getComponent("Button");
-    const plugin = this;
-
-    class MultiSegmentLoopButton extends Button {
-      constructor(player: VideoJsPlayer, options: Record<string, unknown>) {
-        super(player, options);
-        this.controlText("Multi-Segment Loop");
-        this.addClass("vjs-multi-segment-loop-button");
-        this.updateState();
-      }
-
-      buildCSSClass(): string {
-        return `vjs-multi-segment-loop-button ${super.buildCSSClass()}`;
-      }
-
-      handleClick(): void {
-        plugin.toggleEnabled();
-        this.updateState();
-      }
-
-      updateState(): void {
-        if (plugin.isEnabled() && plugin.getSegments().length > 0) {
-          this.addClass("vjs-multi-segment-loop-active");
-        } else {
-          this.removeClass("vjs-multi-segment-loop-active");
-        }
-      }
-    }
-
-    videojs.registerComponent("MultiSegmentLoopButton", MultiSegmentLoopButton);
-
-    const controlBar = this.player.getChild("ControlBar");
-    if (controlBar) {
-      const button = new MultiSegmentLoopButton(this.player, {});
-      this.controlButton = button;
-
-      // Add button before fullscreen button
-      const fullscreenToggle = controlBar.getChild("FullscreenToggle");
-      if (fullscreenToggle) {
-        controlBar.addChild(
-          button,
-          {},
-          controlBar.children().indexOf(fullscreenToggle)
-        );
-      } else {
-        controlBar.addChild(button);
-      }
-    }
-  }
-
-  /**
-   * Update control button state (called when enabled or segments change)
-   */
-  private updateControlButton(): void {
-    this.controlButton?.updateState?.();
-  }
-
   dispose(): void {
     this.clearBoundaryTimer(); // CUSTOM
     this.clearSegmentMarkers();
     this.clearPendingMarker();
+    this.listeners.clear(); // CUSTOM
     this.player.off("timeupdate", this.boundCheckLoop);
     this.player.off("playing", this.boundOnPlaying);
     this.player.off("pause", this.boundOnPause);
     // CUSTOM: begin
     this.player.off("waiting", this.boundOnPause);
     this.player.off("ratechange", this.boundRescheduleBoundary);
-    this.player.off("seeked", this.boundRescheduleBoundary);
+    this.player.off("seeking", this.boundOnSeeking);
+    this.player.off("seeked", this.boundOnSeeked);
+    this.player.off("loadstart", this.boundClearSeek);
+    this.player.off("durationchange", this.boundRenderSegmentMarkers);
     // CUSTOM: end
     super.dispose();
   }

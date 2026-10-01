@@ -772,6 +772,7 @@ var studioSortOptions = sortOptions{
 	"facial_scenes_count",                      // CUSTOM
 	"standard_facial_count",                    // CUSTOM
 	"really_hot_facial_count",                  // CUSTOM
+	"facial_count",                             // CUSTOM
 	"unique_performers_count",                  // CUSTOM
 	"random",
 	"rating",
@@ -837,6 +838,8 @@ func (qb *StudioStore) getStudioSort(findFilter *models.FindFilterType) (string,
 		sortQuery += qb.sortByActivityPercentCustom(activityPercentUnusableCustom, direction)
 	case "facial_scenes_count": // CUSTOM
 		sortQuery += qb.sortByFacialSceneCount(direction)
+	case "facial_count": // CUSTOM
+		sortQuery += studioSortMetricOrderClauseCustom(studioFacialCountExprCustom(), direction)
 	case "o_count": // CUSTOM
 		sortQuery += qb.sortByOCount(direction)
 	case "unique_performers_count": // CUSTOM

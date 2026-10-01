@@ -68,6 +68,10 @@ const sortByOptions = [
       value: "facial_scenes_count",
     },
     {
+      messageID: "facial_count",
+      value: "facial_count",
+    },
+    {
       messageID: "standard_facial_count",
       value: "standard_facial_count",
     },

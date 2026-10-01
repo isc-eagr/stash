@@ -136,6 +136,8 @@ func StudioSortMetricExpressionCustom(sort string) (string, bool) {
 		return "studios.updated_at", true
 	case "o_count":
 		return studioOCountExprCustom(), true
+	case "facial_count":
+		return studioFacialCountExprCustom(), true
 	}
 
 	if ratingKey, ok := studioRatingCriteriaSortKeysCustom[sort]; ok {

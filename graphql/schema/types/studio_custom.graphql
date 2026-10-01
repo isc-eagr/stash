@@ -86,6 +86,7 @@ type StudioListStats {
   group_count: Int!
   o_counter: Int!
   unique_performer_count: Int!
+  facial_count: Int!
   studio_role_counts: StudioRoleCounts!
   studio_activity_stats: StudioActivityStats!
 }
@@ -141,6 +142,7 @@ extend type Studio {
   # Batched resolvers - replace N individual field calls with one resolver per studio
   studio_role_counts(depth: Int): StudioRoleCounts! # CUSTOM: batched sex/oral/solo/facial scene counts (no performer filter)
   studio_activity_stats(depth: Int): StudioActivityStats! # CUSTOM: duration percentages for configured activity tags
+  facial_count(depth: Int): Int! # CUSTOM: facials, counted like Scene Stats Total Facials
   studio_rating_advisor_stats(depth: Int): StudioRatingAdvisorStats! # CUSTOM: averaged advisor criteria and active adjustment counts
   studio_performer_activity_stats(
     performer_id: ID!

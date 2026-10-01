@@ -1,0 +1,288 @@
+/* CUSTOM: multi-segment loop player menu and Loop tab editor */
+
+// Player loop button and pop-up menu, styled like the Video.js menus.
+.video-js .vjs-control-bar .vjs-multi-segment-loop-control {
+  cursor: default;
+  flex: none;
+  position: relative;
+  width: auto;
+  z-index: 10;
+
+  .vjs-multi-segment-loop-btn {
+    background: none;
+    border: 0;
+    color: inherit;
+    cursor: pointer;
+    font-size: 1.4em;
+    height: 100%;
+    padding: 0 0.6em;
+    position: relative;
+
+    &:hover {
+      text-shadow: 0 0 1em #fff;
+    }
+
+    &.active {
+      color: $success;
+    }
+  }
+
+  .vjs-multi-segment-badge {
+    align-items: center;
+    background-color: #137cbd;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    color: #fff;
+    display: flex;
+    font-family: $font-family-base;
+    font-size: 10px;
+    font-weight: bold;
+    height: 16px;
+    justify-content: center;
+    line-height: 1;
+    min-width: 16px;
+    padding: 0 4px;
+    position: absolute;
+    right: -2px;
+    top: 2px;
+  }
+
+  .vjs-multi-segment-loop-menu {
+    background-color: rgba(43, 51, 63, 0.95);
+    border-radius: $border-radius;
+    bottom: 100%;
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.5);
+    color: $text-color;
+    font-family: $font-family-base;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin-bottom: 0.5rem;
+    padding: 0.75rem;
+    position: absolute;
+    right: 0;
+    text-align: left;
+    width: 17rem;
+
+    .msl-menu-row {
+      align-items: center;
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .custom-switch {
+      margin: 0;
+    }
+
+    .msl-menu-status {
+      color: $text-muted;
+      margin-left: auto;
+      white-space: nowrap;
+    }
+
+    .msl-menu-mark {
+      flex: 1;
+    }
+
+    .msl-menu-presets {
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      max-height: 10rem;
+      overflow-y: auto;
+      padding-top: 0.4rem;
+    }
+
+    .msl-menu-heading {
+      color: $text-muted;
+      font-size: 0.75rem;
+      padding: 0 0.5rem 0.2rem;
+      text-transform: uppercase;
+    }
+
+    .msl-menu-item {
+      background: none;
+      border: 0;
+      border-radius: $border-radius-sm;
+      color: inherit;
+      display: block;
+      overflow: hidden;
+      padding: 0.3rem 0.5rem;
+      text-align: left;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      width: 100%;
+
+      &:hover,
+      &:focus-visible {
+        background-color: rgba(255, 255, 255, 0.12);
+      }
+    }
+
+    .msl-menu-edit {
+      border-radius: 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      color: $link-color;
+      margin-top: 0.4rem;
+      padding-top: 0.5rem;
+    }
+  }
+}
+
+// Segment editor used by the scene Loop tab and the viewer dialog.
+.multi-segment-loop-editor {
+  .msl-toolbar {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+
+    .custom-switch {
+      margin: 0;
+    }
+  }
+
+  .msl-summary {
+    margin-left: auto;
+  }
+
+  .msl-empty {
+    padding: 1.5rem 0;
+    text-align: center;
+  }
+
+  .msl-row-select {
+    margin: 0;
+    padding-left: 0;
+
+    .form-check-input {
+      margin: 0;
+      position: static;
+    }
+  }
+
+  .msl-list-header {
+    align-items: center;
+    display: flex;
+    gap: 0.75rem;
+    min-height: 2.25rem;
+    padding: 0.25rem 0.75rem 0.25rem calc(0.75rem + 3px);
+  }
+
+  .msl-row {
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.03);
+    border-left: 3px solid transparent;
+    border-radius: $border-radius;
+    cursor: pointer;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.75rem;
+    margin-top: 0.4rem;
+    padding: 0.4rem 0.75rem;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.07);
+    }
+
+    &.selected {
+      background-color: rgba($link-color, 0.1);
+    }
+
+    &.active {
+      background-color: rgba($success, 0.14);
+      border-left-color: $success;
+    }
+
+    &.repeating {
+      border-left-color: $info;
+    }
+  }
+
+  .msl-row-index {
+    color: $text-muted;
+    font-weight: bold;
+    min-width: 1.25rem;
+    text-align: right;
+  }
+
+  .msl-row-range {
+    font-family: $font-family-monospace;
+    white-space: nowrap;
+
+    .btn {
+      font-family: inherit;
+      vertical-align: baseline;
+    }
+  }
+
+  .msl-row-separator {
+    color: $text-muted;
+    margin: 0 0.35rem;
+  }
+
+  .msl-row-duration {
+    color: $text-muted;
+    font-size: 0.85rem;
+  }
+
+  .msl-row-title {
+    color: $text-muted;
+    flex: 1 1 4rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .msl-row-actions {
+    display: flex;
+    gap: 0.25rem;
+    margin-left: auto;
+  }
+
+  .msl-row-editor {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 2rem;
+    padding: 0.6rem 0.75rem 0.4rem calc(0.75rem + 3px + 3rem);
+  }
+
+  .msl-boundary {
+    align-items: center;
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  .msl-boundary-label {
+    color: $text-muted;
+    min-width: 2.5rem;
+  }
+
+  .msl-boundary-time {
+    font-family: $font-family-monospace;
+    min-width: 5.5rem;
+    text-align: center;
+  }
+
+  .msl-presets {
+    margin-top: 1.5rem;
+  }
+
+  .msl-preset-row {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    max-width: 32rem;
+
+    .form-control {
+      flex: 1;
+    }
+  }
+
+  @media (max-width: 575.98px) {
+    .msl-row-editor {
+      padding-left: 0.75rem;
+    }
+  }
+}

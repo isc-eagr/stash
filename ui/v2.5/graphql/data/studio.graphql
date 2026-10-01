@@ -41,6 +41,7 @@ fragment StudioListStatsData on StudioListStats {
   group_count
   o_counter
   unique_performer_count
+  facial_count # CUSTOM
   studio_role_counts {
     sex_scene_count
     oral_scene_count
@@ -126,6 +127,7 @@ fragment StudioData on Studio {
     solo_scene_count
   }
   unique_performer_count
+  facial_count
   # CUSTOM: end
   image_count
   gallery_count

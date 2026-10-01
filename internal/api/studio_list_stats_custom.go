@@ -53,18 +53,25 @@ func queryStudioListStatsCustom(ctx context.Context, studioIDs []int, activeSort
 	return ret, nil
 }
 
+// queryStudioListActiveSortValuesCustom also fills Facial Count, which every
+// card shows, so both come from one sort-expression query.
 func queryStudioListActiveSortValuesCustom(ctx context.Context, studioIDs []int, activeSort string, statsByID map[int]*StudioListStats) error {
-	values, err := queryStudioListMetricValuesByIDCustom(ctx, studioIDs, []string{activeSort})
+	values, err := queryStudioListMetricValuesByIDCustom(ctx, studioIDs, []string{studioListFacialCountMetricCustom, activeSort})
 	if err != nil {
 		return err
 	}
 	for studioID, metricValues := range values {
 		if stats := statsByID[studioID]; stats != nil {
 			stats.ActiveSortValue = metricValues[activeSort]
+			if facialCount := metricValues[studioListFacialCountMetricCustom]; facialCount != nil {
+				stats.FacialCount = activityStatsIntCustom(*facialCount)
+			}
 		}
 	}
 	return nil
 }
+
+const studioListFacialCountMetricCustom = "facial_count"
 
 // studioListRequestedMetricsCustom returns the metric keys requested through
 // studio_list_metrics(metrics:), or false when that field is not selected.

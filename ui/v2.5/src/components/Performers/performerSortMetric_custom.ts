@@ -195,6 +195,11 @@ const definitions: Record<
     format: "count",
     value: (source) => roleValue(source, "feet_top_count"),
   },
+  facial_count: {
+    messageID: "facial_count",
+    format: "count",
+    value: (source) => roleValue(source, "facial_marker_count"),
+  },
   facial_given_count: {
     messageID: "facial_given_count",
     format: "count",

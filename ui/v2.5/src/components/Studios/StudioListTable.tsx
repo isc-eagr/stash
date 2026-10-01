@@ -60,6 +60,7 @@ const METRIC_COLUMNS: [string, boolean][] = [
   ["oral_scenes_count", false],
   ["solo_scenes_count", false],
   ["facial_scenes_count", false],
+  ["facial_count", false],
   ["standard_facial_count", false],
   ["really_hot_facial_count", false],
   ["royal_sapphire_scenes_count", true],

@@ -80,25 +80,32 @@ func (r *queryResolver) sceneWeightedMarkerCountCustom(ctx context.Context, role
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		uiConfig := config.GetInstance().GetUIConfiguration()
-		tagID := configuredRoleTagIDCustom(uiConfig, roleTagKey)
-		if tagID == 0 {
-			return nil
-		}
-
-		secondCameraTagID := configuredRoleTagIDCustom(uiConfig, "secondCameraTagId")
-		args := append(append([]interface{}{}, sceneScopeArgs...), tagID, secondCameraTagID)
-		_, rows, err := manager.GetInstance().Database.QuerySQL(ctx, statsWeightedMarkerCountScopedQueryCustom(sceneScope), args)
-		if err != nil {
-			return err
-		}
-		count = customStatsFirstInt(rows)
-		return nil
+		count, err = weightedMarkerCountInScopeCustom(ctx, roleTagKey, sceneScope, sceneScopeArgs)
+		return err
 	}); err != nil {
 		return 0, err
 	}
 
 	return count, nil
+}
+
+// weightedMarkerCountInScopeCustom counts role markers in the selected scenes,
+// once per assigned top (minimum one), excluding 2nd-camera markers. Call it
+// inside a read transaction.
+func weightedMarkerCountInScopeCustom(ctx context.Context, roleTagKey string, sceneScope string, sceneScopeArgs []interface{}) (int, error) {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	tagID := configuredRoleTagIDCustom(uiConfig, roleTagKey)
+	if tagID == 0 {
+		return 0, nil
+	}
+
+	secondCameraTagID := configuredRoleTagIDCustom(uiConfig, "secondCameraTagId")
+	args := append(append([]interface{}{}, sceneScopeArgs...), tagID, secondCameraTagID)
+	_, rows, err := manager.GetInstance().Database.QuerySQL(ctx, statsWeightedMarkerCountScopedQueryCustom(sceneScope), args)
+	if err != nil {
+		return 0, err
+	}
+	return customStatsFirstInt(rows), nil
 }
 
 func (r *queryResolver) totalWeightedMarkerTimeCustom(ctx context.Context, roleTagKey string, studioID *string, depth *int, dateRange *StatsDateRangeInput) (totalSeconds float64, err error) {

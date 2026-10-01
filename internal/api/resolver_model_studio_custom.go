@@ -47,6 +47,24 @@ func (r *studioResolver) StudioRoleCounts(ctx context.Context, obj *models.Studi
 	}, nil
 }
 
+// FacialCount uses the Scene Stats "Total Facials" rule for this studio's scenes.
+func (r *studioResolver) FacialCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
+	studioID := strconv.Itoa(obj.ID)
+	sceneScope, sceneScopeArgs, err := sceneStatsSceneScopeCustom(&studioID, depth, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = weightedMarkerCountInScopeCustom(ctx, "facialTagId", sceneScope, sceneScopeArgs)
+		return err
+	}); err != nil {
+		return 0, err
+	}
+
+	return ret, nil
+}
+
 // StudioPerformerRoleStats resolves all performer-filtered marker-based counts in a single batch,
 // cutting getStudioSceneIDs calls from ~21 down to 2 for a given (studioID, depth, performerID).
 func (r *studioResolver) StudioPerformerRoleStats(ctx context.Context, obj *models.Studio, performerID string, depth *int) (ret *StudioPerformerRoleStats, err error) {

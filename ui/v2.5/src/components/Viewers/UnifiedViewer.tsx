@@ -44,6 +44,7 @@ import {
   MultiVideoViewer,
 } from "src/components/Scenes/MultiVideoViewer";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage"; // CUSTOM
+import { loopPresetsFromSource } from "src/components/ScenePlayer/useMultiSegmentLoopPresets_custom"; // CUSTOM
 
 const FIND_UNIFIED_VIEWER_IMAGES = gql`
   query FindUnifiedViewerImages($ids: [ID!]) {
@@ -126,6 +127,7 @@ const FIND_UNIFIED_VIEWER_SCENES = gql`
           segments {
             start
             end
+            title
           }
         }
         performers {
@@ -209,6 +211,7 @@ interface ISceneForViewer {
     segments?: {
       start?: number | null;
       end?: number | null;
+      title?: string | null; // CUSTOM
     }[];
   }[];
   performers: {
@@ -1069,18 +1072,7 @@ export const UnifiedViewer: React.FC = () => {
             (timestamp): timestamp is { ts: number; date: string } =>
               timestamp !== null
           ),
-        segmentPresets: (scene.multi_segment_loop_presets ?? []).map(
-          (preset) => ({
-            id: preset.id ?? undefined,
-            name: preset.name,
-            enabled: preset.enabled ?? false,
-            currentSegmentIndex: preset.current_segment_index ?? 0,
-            segments: (preset.segments ?? []).map((segment) => ({
-              start: segment.start ?? 0,
-              end: segment.end ?? 0,
-            })),
-          })
-        ),
+        segmentPresets: loopPresetsFromSource(scene.multi_segment_loop_presets), // CUSTOM
         topPerformerNames: (scene.performers ?? [])
           .map(performerDisplayName)
           .filter(Boolean),

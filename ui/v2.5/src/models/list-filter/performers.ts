@@ -133,6 +133,10 @@ const sortByOptions = [
       value: "feet_markers_count",
     },
     {
+      messageID: "facial_count",
+      value: "facial_count",
+    },
+    {
       messageID: "facial_given_count",
       value: "facial_given_count",
     },

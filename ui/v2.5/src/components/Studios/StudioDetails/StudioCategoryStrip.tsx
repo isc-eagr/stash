@@ -8,7 +8,7 @@ import { useRoleTags } from "src/hooks/useRoleTags";
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import facialPng from "src/assets/facial.png"; // CUSTOM
-import { StudioActivityMetricsStrip } from "../StudioActivityMetricsStrip"; // CUSTOM
+import { STUDIO_FACIALS_TOOLTIP } from "../studioFacialsTooltip_custom"; // CUSTOM
 
 interface IStudioCategoryStripProps {
   studio: GQL.StudioDataFragment;
@@ -29,7 +29,7 @@ export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
   const sexCount = roleCounts?.sex_scene_count ?? 0;
   const oralCount = roleCounts?.oral_scene_count ?? 0;
   const soloCount = roleCounts?.solo_scene_count ?? 0;
-  const facialCount = roleCounts?.facial_scene_count ?? 0;
+  const facialCount = studio.facial_count ?? 0;
 
   // Sex scenes (marker-based) - gay icon
   function maybeRenderSexScenesButton() {
@@ -95,24 +95,21 @@ export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
     );
   }
 
-  // Facial scenes (marker-based) - facial icon
-  function maybeRenderFacialScenesButton() {
+  // Facials (marker count) - facial icon, links to this studio's facial markers
+  function maybeRenderFacialsButton() {
     if (!facialTag) return null;
 
-    // Use depth -1 to include subtags
-    const url = NavUtils.makeStudioMarkerScenesUrl(
+    const url = NavUtils.makeStudioMarkersUrl(
       studio,
       facialTag.id,
-      "Facial",
-      undefined,
-      -1
+      facialTag.name
     );
 
     return (
       <Button
-        className="minimal scene-category-count facial-scene-count ml-3"
+        className="minimal scene-category-count facial-marker-count ml-3"
         href={url}
-        title={`Facial scenes (${facialTag.name})`}
+        title={STUDIO_FACIALS_TOOLTIP}
         disabled={facialCount === 0}
       >
         <img src={facialPng} alt="Facial" className="category-icon" />
@@ -146,20 +143,14 @@ export const StudioCategoryStrip: React.FC<IStudioCategoryStripProps> = ({
   if (!hasAnyRoleTag) return null;
 
   return (
-    <>
-      <div className="studio-category-strip scene-category-buttons d-flex align-items-center my-3">
-        <ButtonGroup>
-          {maybeRenderSexScenesButton()}
-          {maybeRenderOralScenesButton()}
-          {maybeRenderSoloScenesButton()}
-        </ButtonGroup>
-        {maybeRenderFacialScenesButton()}
-        {maybeRenderUniquePerformersButton()}
-      </div>
-      <StudioActivityMetricsStrip
-        stats={studio.studio_activity_stats}
-        idPrefix={`studio-detail-activity-${studio.id}`}
-      />
-    </>
+    <div className="studio-category-strip scene-category-buttons d-flex align-items-center my-3">
+      <ButtonGroup>
+        {maybeRenderSexScenesButton()}
+        {maybeRenderOralScenesButton()}
+        {maybeRenderSoloScenesButton()}
+      </ButtonGroup>
+      {maybeRenderFacialsButton()}
+      {maybeRenderUniquePerformersButton()}
+    </div>
   );
 };

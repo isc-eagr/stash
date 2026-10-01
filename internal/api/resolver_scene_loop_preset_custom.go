@@ -24,10 +24,18 @@ func normalizeSegments(segments []models.SceneLoopSegment) ([]models.SceneLoopSe
 		if end == start {
 			end = start + 0.001
 		}
-		normalized[i] = models.SceneLoopSegment{Start: start, End: end}
+		normalized[i] = models.SceneLoopSegment{Start: start, End: end, Title: strings.TrimSpace(s.Title)}
 	}
 
 	return normalized, nil
+}
+
+// loopSegmentTitle maps an optional GraphQL title to the stored segment title.
+func loopSegmentTitle(title *string) string {
+	if title == nil {
+		return ""
+	}
+	return strings.TrimSpace(*title)
 }
 
 func clampSegmentIndex(idx int, segmentCount int) int {
@@ -47,7 +55,12 @@ func toAPIMultiSegmentLoopPreset(p *models.SceneLoopPreset) *MultiSegmentLoopPre
 
 	segments := make([]*MultiSegmentLoopSegment, 0, len(p.Segments))
 	for _, s := range p.Segments {
-		segments = append(segments, &MultiSegmentLoopSegment{Start: s.Start, End: s.End})
+		segment := &MultiSegmentLoopSegment{Start: s.Start, End: s.End}
+		if s.Title != "" {
+			title := s.Title
+			segment.Title = &title
+		}
+		segments = append(segments, segment)
 	}
 
 	return &MultiSegmentLoopPreset{
@@ -141,7 +154,7 @@ func (r *sceneMultiSegmentLoopPresetInputResolver) Segments(ctx context.Context,
 		if s == nil {
 			continue
 		}
-		segments = append(segments, models.SceneLoopSegment{Start: s.Start, End: s.End})
+		segments = append(segments, models.SceneLoopSegment{Start: s.Start, End: s.End, Title: loopSegmentTitle(s.Title)})
 	}
 
 	obj.Segments = segments

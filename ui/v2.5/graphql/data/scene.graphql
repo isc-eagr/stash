@@ -121,6 +121,7 @@ fragment SceneData on Scene {
     segments {
       start
       end
+      title
     }
     created_at
     updated_at
@@ -228,6 +229,7 @@ fragment SceneReleaseData on SceneRelease {
     segments {
       start
       end
+      title
     }
     created_at
     updated_at

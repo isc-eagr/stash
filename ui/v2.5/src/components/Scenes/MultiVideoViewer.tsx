@@ -2,11 +2,12 @@ import React, {
   ReactNode,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
 import { Helmet } from "react-helmet";
+import { useIntl } from "react-intl";
 import { Button } from "react-bootstrap";
 import videojs, { VideoJsPlayer, VideoJsPlayerOptions } from "video.js";
 import { UAParser } from "ua-parser-js";
@@ -22,8 +23,12 @@ import MarkersPlugin, {
 } from "src/components/ScenePlayer/markers";
 import "src/components/ScenePlayer/multi-segment-loop";
 import type MultiSegmentLoopPlugin from "src/components/ScenePlayer/multi-segment-loop";
-import type { ILoopSegment } from "src/components/ScenePlayer/multi-segment-loop";
-import { MultiSegmentLoopControls } from "src/components/ScenePlayer/MultiSegmentLoopControls";
+import { useMultiSegmentLoop } from "src/components/ScenePlayer/useMultiSegmentLoop_custom";
+import { useMultiSegmentLoopPresets } from "src/components/ScenePlayer/useMultiSegmentLoopPresets_custom";
+import { MultiSegmentLoopMenu } from "src/components/ScenePlayer/MultiSegmentLoopMenu";
+import { MultiSegmentLoopEditor } from "src/components/ScenePlayer/MultiSegmentLoopEditor";
+import { showMultiSegmentLoopControlsCustom } from "src/components/ScenePlayer/multiSegmentLoopSettings_custom";
+import { ModalComponent } from "src/components/Shared/Modal";
 import "src/components/ScenePlayer/styles.scss";
 import {
   faArrowDown,
@@ -34,7 +39,6 @@ import {
   faTimes,
 } from "@fortawesome/free-solid-svg-icons";
 import cx from "classnames";
-import * as GQL from "src/core/generated-graphql";
 import { Icon } from "src/components/Shared/Icon";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { DraggableImage } from "src/components/Images/DraggableImageOverlay_custom"; // CUSTOM
@@ -73,6 +77,7 @@ export interface IVideoViewerSegmentPreset {
   segments: Array<{
     start: number;
     end: number;
+    title?: string;
   }>;
 }
 
@@ -364,6 +369,7 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
   overlay,
   onSizeChange,
 }) => {
+  const intl = useIntl();
   const { configuration } = useConfigurationContext();
   const uiConfig = configuration?.ui;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -373,19 +379,22 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
   const aspectRatioRef = useRef<number | null>(null);
   const lastNegativeSkipRef = useRef(0);
   const [playerReadyToken, setPlayerReadyToken] = useState(0);
-  const [segmentPresets, setSegmentPresets] = useState<
-    IVideoViewerSegmentPreset[]
-  >([]);
-  const [multiSegments, setMultiSegments] = useState<ILoopSegment[]>([]);
-  const [multiSegmentEnabled, setMultiSegmentEnabled] = useState(false);
-  const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
-  const [pendingStart, setPendingStart] = useState<number | null>(null);
-  const [showPresetModal, setShowPresetModal] = useState(false);
-  const [loopSingleId, setLoopSingleId] = useState<string | null>(null);
+  const [loopPlugin, setLoopPlugin] = useState<MultiSegmentLoopPlugin>();
+  const [loopControlEl, setLoopControlEl] = useState<HTMLElement>();
+  const [showLoopEditor, setShowLoopEditor] = useState(false);
+  const showLoopControls = showMultiSegmentLoopControlsCustom(uiConfig);
   const [negativeMarkerSkipEnabled, setNegativeMarkerSkipEnabled] =
     useState(true);
-  const [saveLoopPreset] = GQL.useSaveSceneMultiSegmentLoopPresetMutation();
-  const [deleteLoopPreset] = GQL.useDeleteSceneMultiSegmentLoopPresetMutation();
+  const loop = useMultiSegmentLoop(loopPlugin, overlay.negativeMarkers);
+  const loopPresetSource = useMemo(
+    () => overlay.segmentPresets ?? [],
+    [overlay.segmentPresets]
+  );
+  const loopPresets = useMultiSegmentLoopPresets(
+    { sceneId: overlay.sceneId },
+    loopPresetSource,
+    loop
+  );
 
   const getPlayer = useCallback(() => {
     const player = playerRef.current;
@@ -397,60 +406,6 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
     const player = getPlayer();
     return player?.multiSegmentLoop?.() as MultiSegmentLoopPlugin | undefined;
   }, [getPlayer]);
-
-  const updateMultiSegmentButtons = useCallback(() => {
-    const player = getPlayer();
-    const plugin = getMultiSegmentPlugin();
-    const controlBar = player?.el()?.querySelector(".vjs-control-bar");
-    if (!controlBar) return;
-
-    const toggleButton = controlBar.querySelector(".vjs-multi-segment-toggle");
-    const toggleText = controlBar.querySelector(
-      ".vjs-multi-segment-toggle-text"
-    );
-    const badge = controlBar.querySelector(
-      ".vjs-multi-segment-badge"
-    ) as HTMLElement | null;
-
-    const hasSegments = (plugin?.getSegments().length ?? 0) > 0;
-    const enabled = plugin?.isEnabled() ?? false;
-
-    if (toggleText) {
-      toggleText.textContent = enabled ? "Loop ON" : "Loop OFF";
-    }
-
-    if (toggleButton) {
-      toggleButton.classList.toggle(
-        "vjs-multi-segment-active",
-        enabled && hasSegments
-      );
-      toggleButton.classList.toggle("vjs-disabled", !hasSegments);
-      if (hasSegments) {
-        toggleButton.removeAttribute("aria-disabled");
-      } else {
-        toggleButton.setAttribute("aria-disabled", "true");
-      }
-    }
-
-    if (badge) {
-      const count = segmentPresets.length;
-      badge.textContent = count.toString();
-      badge.style.display = count > 0 ? "" : "none";
-    }
-  }, [getMultiSegmentPlugin, getPlayer, segmentPresets.length]);
-
-  const syncAndRenderMultiSegmentState = useCallback(() => {
-    const plugin = getMultiSegmentPlugin();
-    if (!plugin) return;
-
-    plugin.renderSegmentMarkers();
-    setMultiSegments([...plugin.getSegments()]);
-    setMultiSegmentEnabled(plugin.isEnabled());
-    setCurrentSegmentIndex(plugin.getCurrentSegmentIndex());
-    setPendingStart(plugin.getPendingStart());
-    setLoopSingleId(plugin.getLoopSingleId());
-    updateMultiSegmentButtons();
-  }, [getMultiSegmentPlugin, updateMultiSegmentButtons]);
 
   useEffect(() => {
     sizeRef.current = { width: overlay.width, height: overlay.height };
@@ -548,7 +503,6 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
             segments: [],
             enabled: false,
             currentSegmentIndex: 0,
-            createButton: false,
           },
         },
       };
@@ -601,204 +555,28 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
     };
   }, [overlay.duration, overlay.sources, overlay.streamUrl, snapToAspectRatio]);
 
+  // Share the ready player's loop plugin with the menu and editor.
   useEffect(() => {
-    setSegmentPresets(overlay.segmentPresets ?? []);
-  }, [overlay.segmentPresets]);
+    setLoopPlugin(playerReadyToken ? getMultiSegmentPlugin() : undefined);
+  }, [getMultiSegmentPlugin, playerReadyToken]);
 
+  // Host for the loop button/menu, placed left of the playback rate button.
   useEffect(() => {
-    if (!playerReadyToken) return;
+    const controlBar = getPlayer()?.el()?.querySelector(".vjs-control-bar");
+    if (!playerReadyToken || !controlBar || !showLoopControls) return;
 
-    const plugin = getMultiSegmentPlugin();
-    if (!plugin) return;
-
-    plugin.setOnSegmentsChange((segments) => {
-      plugin.renderSegmentMarkers();
-      setMultiSegments([...segments]);
-      setPendingStart(plugin.getPendingStart());
-      updateMultiSegmentButtons();
-    });
-    plugin.setOnEnabledChange((enabled) => {
-      plugin.renderSegmentMarkers();
-      setMultiSegmentEnabled(enabled);
-      updateMultiSegmentButtons();
-    });
-    plugin.setOnCurrentSegmentChange((index) => {
-      plugin.renderSegmentMarkers();
-      setCurrentSegmentIndex(index);
-      updateMultiSegmentButtons();
-    });
-    plugin.setOnLoopSingleChange((segmentId) => {
-      plugin.renderSegmentMarkers();
-      setLoopSingleId(segmentId);
-      updateMultiSegmentButtons();
-    });
-
-    syncAndRenderMultiSegmentState();
-  }, [
-    getMultiSegmentPlugin,
-    playerReadyToken,
-    syncAndRenderMultiSegmentState,
-    updateMultiSegmentButtons,
-  ]);
-
-  useEffect(() => {
-    updateMultiSegmentButtons();
-  }, [segmentPresets.length, updateMultiSegmentButtons]);
-
-  useEffect(() => {
-    const player = getPlayer();
-    const plugin = getMultiSegmentPlugin();
-    if (!playerReadyToken || !player || !plugin) return;
-
-    let disposed = false;
-    let rafId = 0;
-    let toggleButton: HTMLDivElement | null = null;
-    let editButton: HTMLDivElement | null = null;
-    let handleToggleClick: ((e: MouseEvent) => void) | null = null;
-    let handleEditClick: ((e: MouseEvent) => void) | null = null;
-
-    const updateButtonState = (
-      toggle: Element | null,
-      text: Element | null,
-      badge: Element | null
-    ) => {
-      const hasSegments = plugin.getSegments().length > 0;
-      const enabled = plugin.isEnabled();
-
-      if (text) {
-        text.textContent = enabled ? "Loop ON" : "Loop OFF";
-      }
-
-      if (toggle) {
-        toggle.classList.toggle(
-          "vjs-multi-segment-active",
-          enabled && hasSegments
-        );
-        toggle.classList.toggle("vjs-disabled", !hasSegments);
-        if (hasSegments) {
-          toggle.removeAttribute("aria-disabled");
-        } else {
-          toggle.setAttribute("aria-disabled", "true");
-        }
-      }
-
-      if (badge instanceof HTMLElement) {
-        const count = segmentPresets.length;
-        badge.textContent = count.toString();
-        badge.style.display = count > 0 ? "" : "none";
-      }
-    };
-
-    const createButtons = () => {
-      if (disposed || player.isDisposed()) return true;
-
-      const controlBar = player.el()?.querySelector(".vjs-control-bar");
-      if (!controlBar) return false;
-
-      const existingToggle = controlBar.querySelector(
-        ".vjs-multi-segment-toggle"
-      );
-      if (existingToggle) {
-        updateButtonState(
-          existingToggle,
-          existingToggle.querySelector(".vjs-multi-segment-toggle-text"),
-          controlBar.querySelector(".vjs-multi-segment-badge")
-        );
-        return true;
-      }
-
-      toggleButton = document.createElement("div");
-      toggleButton.className = "vjs-multi-segment-toggle vjs-button";
-      toggleButton.setAttribute("role", "button");
-      toggleButton.tabIndex = 0;
-
-      const toggleText = document.createElement("span");
-      toggleText.className = "vjs-multi-segment-toggle-text";
-      toggleButton.appendChild(toggleText);
-
-      editButton = document.createElement("div");
-      editButton.className = "vjs-multi-segment-edit vjs-button";
-      editButton.setAttribute("role", "button");
-      editButton.tabIndex = 0;
-
-      const editIcon = document.createElement("span");
-      editIcon.className = "vjs-icon-placeholder";
-      editIcon.innerHTML =
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="14" height="14" fill="currentColor"><path d="M362.7 19.3c25-25 65.5-25 90.5 0l39.5 39.5c25 25 25 65.5 0 90.5L180.5 461.5c-7.6 7.6-17.1 13-27.5 15.7L30.5 509.8c-8.5 2.3-17.6-.2-23.8-6.4s-8.7-15.3-6.4-23.8L32.8 357c2.8-10.4 8.1-19.9 15.7-27.5L362.7 19.3z"/></svg>';
-      editButton.appendChild(editIcon);
-
-      const presetBadge = document.createElement("span");
-      presetBadge.className = "vjs-multi-segment-badge";
-      editButton.appendChild(presetBadge);
-
-      handleToggleClick = (e: MouseEvent) => {
-        e.stopPropagation();
-        if (plugin.getSegments().length === 0) return;
-        plugin.toggleEnabled();
-        syncAndRenderMultiSegmentState();
-        updateButtonState(toggleButton, toggleText, presetBadge);
-      };
-
-      handleEditClick = (e: MouseEvent) => {
-        e.stopPropagation();
-        setShowPresetModal(true);
-      };
-
-      toggleButton.addEventListener("click", handleToggleClick);
-      editButton.addEventListener("click", handleEditClick);
-
-      const playbackRateBtn = controlBar.querySelector(".vjs-playback-rate");
-      if (playbackRateBtn) {
-        controlBar.insertBefore(editButton, playbackRateBtn);
-        controlBar.insertBefore(toggleButton, editButton);
-      } else {
-        const fullscreenBtn = controlBar.querySelector(
-          ".vjs-fullscreen-control"
-        );
-        if (fullscreenBtn) {
-          controlBar.insertBefore(editButton, fullscreenBtn);
-          controlBar.insertBefore(toggleButton, editButton);
-        } else {
-          controlBar.appendChild(toggleButton);
-          controlBar.appendChild(editButton);
-        }
-      }
-
-      updateButtonState(toggleButton, toggleText, presetBadge);
-      return true;
-    };
-
-    const tryCreateButtons = (attemptsLeft = 10) => {
-      if (createButtons()) return;
-      if (attemptsLeft <= 0) return;
-      rafId = window.requestAnimationFrame(() =>
-        tryCreateButtons(attemptsLeft - 1)
-      );
-    };
-
-    player.ready(() => tryCreateButtons());
+    const host = document.createElement("div");
+    host.className = "vjs-control vjs-multi-segment-loop-control";
+    const playbackRateBtn = controlBar.querySelector(".vjs-playback-rate");
+    const fullscreenBtn = controlBar.querySelector(".vjs-fullscreen-control");
+    controlBar.insertBefore(host, playbackRateBtn ?? fullscreenBtn);
+    setLoopControlEl(host);
 
     return () => {
-      disposed = true;
-      if (rafId) {
-        window.cancelAnimationFrame(rafId);
-      }
-      if (toggleButton && handleToggleClick) {
-        toggleButton.removeEventListener("click", handleToggleClick);
-      }
-      if (editButton && handleEditClick) {
-        editButton.removeEventListener("click", handleEditClick);
-      }
-      toggleButton?.remove();
-      editButton?.remove();
+      host.remove();
+      setLoopControlEl(undefined);
     };
-  }, [
-    getMultiSegmentPlugin,
-    getPlayer,
-    playerReadyToken,
-    segmentPresets.length,
-    syncAndRenderMultiSegmentState,
-  ]);
+  }, [getPlayer, playerReadyToken, showLoopControls]);
 
   useEffect(() => {
     const player = getPlayer();
@@ -839,11 +617,11 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
 
     skipButton.addEventListener("click", handleClick);
 
-    const multiSegmentToggle = controlBar.querySelector(
-      ".vjs-multi-segment-toggle"
+    const loopControl = controlBar.querySelector(
+      ".vjs-multi-segment-loop-control"
     );
-    if (multiSegmentToggle) {
-      controlBar.insertBefore(skipButton, multiSegmentToggle);
+    if (loopControl) {
+      controlBar.insertBefore(skipButton, loopControl);
     } else {
       const playbackRateBtn = controlBar.querySelector(".vjs-playback-rate");
       if (playbackRateBtn) {
@@ -974,241 +752,6 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
     playerReadyToken,
   ]);
 
-  const handleMultiSegmentMarkPoint = useCallback(() => {
-    const plugin = getMultiSegmentPlugin();
-    if (!plugin) return;
-    plugin.markPoint();
-    syncAndRenderMultiSegmentState();
-  }, [getMultiSegmentPlugin, syncAndRenderMultiSegmentState]);
-
-  const handleMultiSegmentCancelPending = useCallback(() => {
-    const plugin = getMultiSegmentPlugin();
-    if (!plugin) return;
-    plugin.cancelPending();
-    syncAndRenderMultiSegmentState();
-  }, [getMultiSegmentPlugin, syncAndRenderMultiSegmentState]);
-
-  const handleMultiSegmentToggleEnabled = useCallback(() => {
-    const plugin = getMultiSegmentPlugin();
-    if (!plugin) return;
-    plugin.toggleEnabled();
-    syncAndRenderMultiSegmentState();
-  }, [getMultiSegmentPlugin, syncAndRenderMultiSegmentState]);
-
-  const handleMultiSegmentRemove = useCallback(
-    (id: string) => {
-      const plugin = getMultiSegmentPlugin();
-      if (!plugin) return;
-      plugin.removeSegment(id);
-      syncAndRenderMultiSegmentState();
-    },
-    [getMultiSegmentPlugin, syncAndRenderMultiSegmentState]
-  );
-
-  const handleMultiSegmentClear = useCallback(() => {
-    const plugin = getMultiSegmentPlugin();
-    if (!plugin) return;
-    plugin.clearSegments();
-    syncAndRenderMultiSegmentState();
-  }, [getMultiSegmentPlugin, syncAndRenderMultiSegmentState]);
-
-  const handleMultiSegmentJumpTo = useCallback(
-    (index: number) => {
-      const plugin = getMultiSegmentPlugin();
-      plugin?.jumpToSegment(index);
-      syncAndRenderMultiSegmentState();
-    },
-    [getMultiSegmentPlugin, syncAndRenderMultiSegmentState]
-  );
-
-  const handleMultiSegmentReorder = useCallback(
-    (fromIndex: number, toIndex: number) => {
-      const plugin = getMultiSegmentPlugin();
-      if (!plugin) return;
-      plugin.reorderSegment(fromIndex, toIndex);
-      syncAndRenderMultiSegmentState();
-    },
-    [getMultiSegmentPlugin, syncAndRenderMultiSegmentState]
-  );
-
-  const handleMultiSegmentToggleLoopSingle = useCallback(
-    (segmentId: string) => {
-      const plugin = getMultiSegmentPlugin();
-      plugin?.toggleLoopSingle(segmentId);
-      syncAndRenderMultiSegmentState();
-    },
-    [getMultiSegmentPlugin, syncAndRenderMultiSegmentState]
-  );
-
-  const handleMultiSegmentUpdateStart = useCallback(
-    (id: string) => {
-      const player = getPlayer();
-      const plugin = getMultiSegmentPlugin();
-      const segment = plugin?.getSegments().find((s) => s.id === id);
-      if (!player || !plugin || !segment) return;
-      plugin.updateSegment(id, player.currentTime() || 0, segment.end);
-      syncAndRenderMultiSegmentState();
-    },
-    [getMultiSegmentPlugin, getPlayer, syncAndRenderMultiSegmentState]
-  );
-
-  const handleMultiSegmentUpdateEnd = useCallback(
-    (id: string) => {
-      const player = getPlayer();
-      const plugin = getMultiSegmentPlugin();
-      const segment = plugin?.getSegments().find((s) => s.id === id);
-      if (!player || !plugin || !segment) return;
-      plugin.updateSegment(id, segment.start, player.currentTime() || 0);
-      syncAndRenderMultiSegmentState();
-    },
-    [getMultiSegmentPlugin, getPlayer, syncAndRenderMultiSegmentState]
-  );
-
-  const handleMultiSegmentAdjustStart = useCallback(
-    (id: string, deltaSeconds: number) => {
-      const plugin = getMultiSegmentPlugin();
-      const segment = plugin?.getSegments().find((s) => s.id === id);
-      if (!plugin || !segment) return;
-      const nextStart = Math.max(
-        0,
-        Math.min(segment.end - 0.1, segment.start + deltaSeconds)
-      );
-      plugin.updateSegment(id, nextStart, segment.end);
-      syncAndRenderMultiSegmentState();
-    },
-    [getMultiSegmentPlugin, syncAndRenderMultiSegmentState]
-  );
-
-  const handleMultiSegmentAdjustEnd = useCallback(
-    (id: string, deltaSeconds: number) => {
-      const player = getPlayer();
-      const plugin = getMultiSegmentPlugin();
-      const segment = plugin?.getSegments().find((s) => s.id === id);
-      if (!player || !plugin || !segment) return;
-      const duration = player.duration();
-      const maxEnd =
-        Number.isFinite(duration) && duration > 0 ? duration : Infinity;
-      const nextEnd = Math.min(
-        maxEnd,
-        Math.max(segment.start + 0.1, segment.end + deltaSeconds)
-      );
-      plugin.updateSegment(id, segment.start, nextEnd);
-      syncAndRenderMultiSegmentState();
-    },
-    [getMultiSegmentPlugin, getPlayer, syncAndRenderMultiSegmentState]
-  );
-
-  const handleSaveSegmentPreset = useCallback(
-    async (name: string) => {
-      if (!overlay.sceneId || multiSegments.length === 0) return false;
-
-      try {
-        const result = await saveLoopPreset({
-          variables: {
-            input: {
-              scene_id: overlay.sceneId,
-              name,
-              enabled: multiSegmentEnabled,
-              current_segment_index: currentSegmentIndex,
-              segments: multiSegments.map(({ start, end }) => ({
-                start,
-                end,
-              })),
-            },
-          },
-        });
-        const saved = result.data?.saveSceneMultiSegmentLoopPreset;
-        if (!saved) return false;
-
-        const updated: IVideoViewerSegmentPreset = {
-          id: saved.id ?? undefined,
-          name: saved.name,
-          enabled: saved.enabled ?? false,
-          currentSegmentIndex: saved.current_segment_index ?? 0,
-          segments: (saved.segments ?? []).map((segment) => ({
-            start: segment.start ?? 0,
-            end: segment.end ?? 0,
-          })),
-        };
-
-        setSegmentPresets((previous) => {
-          const index = previous.findIndex(
-            (preset) => preset.name.toLowerCase() === name.toLowerCase()
-          );
-          const next = [...previous];
-          if (index >= 0) {
-            next[index] = updated;
-          } else {
-            next.push(updated);
-          }
-          return next;
-        });
-
-        return true;
-      } catch (error) {
-        console.warn("Failed to save multi-segment loop preset", error);
-        return false;
-      }
-    },
-    [
-      currentSegmentIndex,
-      multiSegmentEnabled,
-      multiSegments,
-      overlay.sceneId,
-      saveLoopPreset,
-    ]
-  );
-
-  const handleLoadSegmentPreset = useCallback(
-    (name: string) => {
-      const plugin = getMultiSegmentPlugin();
-      const preset = segmentPresets.find(
-        (item) => item.name.toLowerCase() === name.toLowerCase()
-      );
-      if (!plugin || !preset) return false;
-
-      plugin.clearSegments();
-      preset.segments.forEach(({ start, end }) => {
-        plugin.addSegment(start, end);
-      });
-      plugin.setEnabled(preset.enabled && preset.segments.length > 0);
-
-      if (preset.enabled && preset.segments.length > 0) {
-        plugin.jumpToSegment(
-          Math.min(preset.currentSegmentIndex, preset.segments.length - 1)
-        );
-      }
-
-      syncAndRenderMultiSegmentState();
-      return true;
-    },
-    [getMultiSegmentPlugin, segmentPresets, syncAndRenderMultiSegmentState]
-  );
-
-  const handleDeleteSegmentPreset = useCallback(
-    async (name: string) => {
-      if (!overlay.sceneId) return;
-      const preset = segmentPresets.find(
-        (item) => item.name.toLowerCase() === name.toLowerCase()
-      );
-      if (!preset) return;
-
-      try {
-        await deleteLoopPreset({
-          variables: { scene_id: overlay.sceneId, name: preset.name },
-        });
-        setSegmentPresets((previous) =>
-          previous.filter(
-            (item) => item.name.toLowerCase() !== name.toLowerCase()
-          )
-        );
-      } catch (error) {
-        console.warn("Failed to delete multi-segment loop preset", error);
-      }
-    },
-    [deleteLoopPreset, overlay.sceneId, segmentPresets]
-  );
-
   useEffect(() => {
     const player = playerRef.current;
     if (!player || player.isDisposed()) return;
@@ -1268,37 +811,35 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
         className="mv-video"
         style={{ position: "relative" }}
       />
-      {showPresetModal &&
-        createPortal(
-          <MultiSegmentLoopControls
-            segments={multiSegments}
-            enabled={multiSegmentEnabled}
-            currentSegmentIndex={currentSegmentIndex}
-            pendingStart={pendingStart}
-            loopSingleId={loopSingleId}
-            onMarkPoint={handleMultiSegmentMarkPoint}
-            onCancelPending={handleMultiSegmentCancelPending}
-            onToggleEnabled={handleMultiSegmentToggleEnabled}
-            onRemoveSegment={handleMultiSegmentRemove}
-            onClearSegments={handleMultiSegmentClear}
-            onJumpToSegment={handleMultiSegmentJumpTo}
-            onReorderSegment={handleMultiSegmentReorder}
-            onToggleLoopSingle={handleMultiSegmentToggleLoopSingle}
-            onUpdateSegmentStart={handleMultiSegmentUpdateStart}
-            onUpdateSegmentEnd={handleMultiSegmentUpdateEnd}
-            onAdjustSegmentStart={handleMultiSegmentAdjustStart}
-            onAdjustSegmentEnd={handleMultiSegmentAdjustEnd}
-            presetNames={segmentPresets.map((preset) => preset.name)}
-            onSavePreset={handleSaveSegmentPreset}
-            onLoadPreset={handleLoadSegmentPreset}
-            onDeletePreset={handleDeleteSegmentPreset}
-            onClose={() => setShowPresetModal(false)}
-            collapsed={false}
-            isFullscreen={!!document.fullscreenElement}
-            zIndex={300000}
-          />,
-          portalTarget
-        )}
+      {loopPlugin && loopControlEl && (
+        <MultiSegmentLoopMenu
+          player={loopPlugin.player}
+          container={loopControlEl}
+          loop={loop}
+          presets={loopPresets}
+          fullscreen={!!document.fullscreenElement}
+          onEditSegments={() => setShowLoopEditor(true)}
+        />
+      )}
+      <ModalComponent
+        show={showLoopEditor}
+        header={intl.formatMessage({ id: "multi_segment_loop.title" })}
+        onHide={() => setShowLoopEditor(false)}
+        closeButton
+        accept={{
+          text: intl.formatMessage({ id: "actions.close" }),
+          variant: "secondary",
+          onClick: () => setShowLoopEditor(false),
+        }}
+        dialogClassName="multi-segment-loop-modal"
+        modalProps={{ container: portalTarget, size: "lg" }}
+      >
+        <MultiSegmentLoopEditor
+          loop={loop}
+          presets={loopPresets}
+          modalContainer={portalTarget}
+        />
+      </ModalComponent>
     </>
   );
 };

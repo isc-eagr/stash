@@ -221,6 +221,7 @@ mutation SaveSceneMultiSegmentLoopPreset(
     segments {
       start
       end
+      title
     }
     created_at
     updated_at

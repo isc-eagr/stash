@@ -174,7 +174,7 @@ export const SettingsCustomPanel: React.FC = () => {
           id="show-multi-segment-loop"
           headingID="config.ui.scene_player.options.show_multi_segment_loop_controls"
           subHeadingID="config.ui.scene_player.options.show_multi_segment_loop_controls_desc"
-          checked={ui.showMultiSegmentLoopControls ?? undefined}
+          checked={ui.showMultiSegmentLoopControls ?? true}
           onChange={(v) => saveUI({ showMultiSegmentLoopControls: v })}
         />
         <BooleanSetting
