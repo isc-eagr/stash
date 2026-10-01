@@ -1,27 +1,34 @@
 import cx from "classnames";
 import React from "react";
+import TextUtils from "src/utils/text";
 import {
   performerVersatility,
   versatilityRoleText,
+  versatilityRoleTimeText,
   type VersatilityCategory,
+  type VersatilityTimeCategory,
 } from "./versatilityScale_custom";
 
 import "./versatilityScale_custom.scss";
 
 interface IScale {
-  category: VersatilityCategory;
+  category: VersatilityCategory | VersatilityTimeCategory;
   title: string;
-  toppedPartners: number;
-  bottomedPartners: number;
+  // Unique partners or role seconds; only the ratio matters.
+  top: number;
+  bottom: number;
+  topText: string;
+  bottomText: string;
 }
 
 const VersatilityScale: React.FC<IScale> = ({
-  category,
   title,
-  toppedPartners,
-  bottomedPartners,
+  top,
+  bottom,
+  topText,
+  bottomText,
 }) => {
-  const versatility = performerVersatility(toppedPartners, bottomedPartners);
+  const versatility = performerVersatility(top, bottom);
 
   if (!versatility) {
     return (
@@ -34,10 +41,8 @@ const VersatilityScale: React.FC<IScale> = ({
     );
   }
 
-  const topPercent = Math.round(versatility.topShare * 100);
-  const topText = versatilityRoleText(category, "top", toppedPartners);
-  const bottomText = versatilityRoleText(category, "bottom", bottomedPartners);
-  const summary = `${title} versatility: ${versatility.label}. ${bottomText}. ${topText}.`;
+  const { bottomPercent, topPercent } = versatility;
+  const summary = `${title} versatility: ${versatility.label}. ${bottomText} (${bottomPercent}%). ${topText} (${topPercent}%).`;
 
   return (
     <div className="performer-versatility-scale">
@@ -53,24 +58,32 @@ const VersatilityScale: React.FC<IScale> = ({
           {versatility.label}
         </span>
       </div>
-      <div
-        aria-label={summary}
-        aria-valuemax={100}
-        aria-valuemin={0}
-        aria-valuenow={topPercent}
-        aria-valuetext={versatility.label}
-        className="performer-versatility-track"
-        role="meter"
-        title={summary}
-      >
-        <span
-          className="performer-versatility-marker"
-          style={{
-            // Bottom on the left, top on the right.
-            left: `${versatility.topShare * 100}%`,
-            backgroundColor: versatility.color,
-          }}
-        />
+      <div className="performer-versatility-meter">
+        <span className="performer-versatility-percent is-bottom">
+          {bottomPercent}%
+        </span>
+        <div
+          aria-label={summary}
+          aria-valuemax={100}
+          aria-valuemin={0}
+          aria-valuenow={topPercent}
+          aria-valuetext={versatility.label}
+          className="performer-versatility-track"
+          role="meter"
+          title={summary}
+        >
+          <span
+            className="performer-versatility-marker"
+            style={{
+              // Bottom on the left, top on the right.
+              left: `${versatility.topShare * 100}%`,
+              backgroundColor: versatility.color,
+            }}
+          />
+        </div>
+        <span className="performer-versatility-percent is-top">
+          {topPercent}%
+        </span>
       </div>
       <div className="performer-versatility-ends">
         <span>{bottomText}</span>
@@ -79,6 +92,72 @@ const VersatilityScale: React.FC<IScale> = ({
     </div>
   );
 };
+
+const VersatilitySection: React.FC<{
+  title: string;
+  scales: IScale[];
+  className?: string;
+  // Off when an outer heading already names the section.
+  showTitle?: boolean;
+}> = ({ title, scales, className, showTitle = true }) => {
+  if (scales.every((scale) => scale.top + scale.bottom <= 0)) {
+    return null;
+  }
+
+  return (
+    <section
+      className={cx("performer-versatility", className)}
+      aria-label={title}
+    >
+      {showTitle && <h3 className="performer-versatility-title">{title}</h3>}
+      <div className="performer-versatility-scales">
+        {scales.map((scale) => (
+          <VersatilityScale {...scale} key={scale.category} />
+        ))}
+      </div>
+    </section>
+  );
+};
+
+function partnerScale(
+  category: VersatilityCategory,
+  title: string,
+  toppedPartners: number,
+  bottomedPartners: number
+): IScale {
+  return {
+    category,
+    title,
+    top: toppedPartners,
+    bottom: bottomedPartners,
+    topText: versatilityRoleText(category, "top", toppedPartners),
+    bottomText: versatilityRoleText(category, "bottom", bottomedPartners),
+  };
+}
+
+function timeScale(
+  category: VersatilityTimeCategory,
+  title: string,
+  topSeconds: number,
+  bottomSeconds: number
+): IScale {
+  return {
+    category,
+    title,
+    top: topSeconds,
+    bottom: bottomSeconds,
+    topText: versatilityRoleTimeText(
+      category,
+      "top",
+      TextUtils.secondsToTimestamp(topSeconds)
+    ),
+    bottomText: versatilityRoleTimeText(
+      category,
+      "bottom",
+      TextUtils.secondsToTimestamp(bottomSeconds)
+    ),
+  };
+}
 
 // CUSTOM: sex, oral, and facial versatility from how many unique partners he topped vs
 // bottomed for, the same counts as the header role strip. Shown beside Activity
@@ -99,45 +178,54 @@ export const PerformerVersatility: React.FC<{
   facialToppedPartners,
   facialBottomedPartners,
   className,
-}) => {
-  const scales: IScale[] = [
-    {
-      category: "sex",
-      title: "Sex",
-      toppedPartners: sexToppedPartners,
-      bottomedPartners: sexBottomedPartners,
-    },
-    {
-      category: "oral",
-      title: "Oral",
-      toppedPartners: oralToppedPartners,
-      bottomedPartners: oralBottomedPartners,
-    },
-    {
-      category: "facial",
-      title: "Facial",
-      toppedPartners: facialToppedPartners,
-      bottomedPartners: facialBottomedPartners,
-    },
-  ];
+}) => (
+  <VersatilitySection
+    className={className}
+    scales={[
+      partnerScale("sex", "Sex", sexToppedPartners, sexBottomedPartners),
+      partnerScale("oral", "Oral", oralToppedPartners, oralBottomedPartners),
+      partnerScale(
+        "facial",
+        "Facial",
+        facialToppedPartners,
+        facialBottomedPartners
+      ),
+    ]}
+    title="Versatility"
+  />
+);
 
-  if (
-    scales.every((scale) => scale.toppedPartners + scale.bottomedPartners <= 0)
-  ) {
-    return null;
-  }
-
-  return (
-    <section
-      className={cx("performer-versatility", className)}
-      aria-label="Versatility"
-    >
-      <h3 className="performer-versatility-title">Versatility</h3>
-      <div className="performer-versatility-scales">
-        {scales.map((scale) => (
-          <VersatilityScale {...scale} key={scale.category} />
-        ))}
-      </div>
-    </section>
-  );
-};
+// CUSTOM: overall, sex, and oral versatility from top vs bottom time; Overall
+// adds sex and oral role seconds like the scene stats. Used by the performer
+// Stats tab and, per vato, the scene stats Performer Explorer.
+export const PerformerVersatilityByTime: React.FC<{
+  sexTopSeconds: number;
+  sexBottomSeconds: number;
+  oralTopSeconds: number;
+  oralBottomSeconds: number;
+  className?: string;
+  showTitle?: boolean;
+}> = ({
+  sexTopSeconds,
+  sexBottomSeconds,
+  oralTopSeconds,
+  oralBottomSeconds,
+  className,
+  showTitle,
+}) => (
+  <VersatilitySection
+    className={className}
+    showTitle={showTitle}
+    scales={[
+      timeScale(
+        "overall",
+        "Overall",
+        sexTopSeconds + oralTopSeconds,
+        sexBottomSeconds + oralBottomSeconds
+      ),
+      timeScale("sex", "Sex", sexTopSeconds, sexBottomSeconds),
+      timeScale("oral", "Oral", oralTopSeconds, oralBottomSeconds),
+    ]}
+    title="Versatility by Time"
+  />
+);

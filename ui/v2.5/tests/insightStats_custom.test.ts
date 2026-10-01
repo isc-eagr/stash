@@ -448,8 +448,8 @@ test("rare-role coverage uses performer history and responds at the inclusive th
       bottom.id,
       {
         scene_count: 12,
-        sex_top_count: 4,
-        sex_bottom_count: 1,
+        sex_top_count: 8,
+        sex_bottom_count: 2,
         oral_role_top_count: 0,
         oral_role_bottom_count: 0,
         facial_scene_count: 0,
@@ -472,6 +472,17 @@ test("rare-role coverage uses performer history and responds at the inclusive th
   assert.equal(preview.rows.get("rare-sex-bottom")?.all, 0);
   assert.equal(
     current.rows.get("rare-sex-bottom")?.variants.has("Rare sex bottom"),
+    true
+  );
+  // A role seen once stays reported as Only time below any threshold.
+  const onlyTime = (await calculateInsightStats(
+    [input],
+    { roleTagIds },
+    normalizeSceneCardInsightThresholds({ rareRoleMaximumPercent: 5 }),
+    new Map([[bottom.id, { ...roles.get(bottom.id)!, sex_bottom_count: 1 }]])
+  ))!;
+  assert.equal(
+    onlyTime.rows.get("rare-sex-bottom")?.variants.has("Only-time sex bottom"),
     true
   );
 });

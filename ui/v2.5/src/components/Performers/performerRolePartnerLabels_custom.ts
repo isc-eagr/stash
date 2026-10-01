@@ -71,3 +71,25 @@ export function getPerformerRareRoleAction(
 ) {
   return rareRoleActionLabels[category][type];
 }
+
+const onlyTimeRoleActionLabels: Record<
+  Exclude<PerformerRolePartnerCategory, "facial">,
+  Record<PerformerRolePartnerType, string>
+> = {
+  sex: {
+    top: "gives dick",
+    bottom: "takes dick",
+  },
+  oral: {
+    top: "gets his pito sucked",
+    bottom: "sucks pito",
+  },
+};
+
+// CUSTOM: wording for a role seen in exactly one scene of the vato's history.
+export function getPerformerOnlyTimeRoleAction(
+  category: Exclude<PerformerRolePartnerCategory, "facial">,
+  type: PerformerRolePartnerType
+) {
+  return onlyTimeRoleActionLabels[category][type];
+}

@@ -55,6 +55,29 @@
   font-size: 0.68rem;
 }
 
+/* Bottom percent, track, top percent. */
+.performer-versatility-meter {
+  align-items: center;
+  display: grid;
+  gap: 0.4rem;
+  grid-template-columns: 2.1rem minmax(0, 1fr) 2.1rem;
+}
+
+.performer-versatility-percent {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+
+  &.is-bottom {
+    color: #28a745;
+  }
+
+  &.is-top {
+    color: #17a2b8;
+    text-align: right;
+  }
+}
+
 .performer-versatility-track {
   background: linear-gradient(90deg, #0e5c2e, #ced4da 50%, #0d3b8c);
   border-radius: 999px;
@@ -136,6 +159,8 @@
 
 /* Scoped under the row so role colors beat app-theme link colors. */
 .performer-card-versatility-row .performer-card-versatility-count {
+  /* Block so a count inside a partner-hover wrapper centers like the rest. */
+  display: block;
   font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
   font-weight: 800;
@@ -161,11 +186,40 @@
   position: relative;
 }
 
-/* Jerk, orgasm, and feet icons below the card strips need only two rows. */
 .performer-role-badges.performer-category-strip--card-icons {
-  margin-top: 0.4rem;
+  justify-content: center;
+  margin-top: 1.3rem;
+}
 
-  .role-badge-item {
-    grid-template-rows: 1.5rem 1.5rem;
+/* Detail-page sizes, shared by the header (by partners) and the Stats tab (by time). */
+.performer-versatility--detail {
+  .performer-versatility-scale {
+    padding: 0.65rem 0.8rem;
   }
+
+  .performer-versatility-heading h3 {
+    color: #868791;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .performer-versatility-chip,
+  .performer-versatility-empty,
+  .performer-versatility-percent {
+    font-size: 0.85rem;
+  }
+
+  .performer-versatility-meter {
+    grid-template-columns: 2.6rem minmax(0, 1fr) 2.6rem;
+  }
+
+  .performer-versatility-ends {
+    font-size: 0.9rem;
+  }
+}
+
+/* Performer Stats tab: header-sized column instead of the full page width. */
+.performer-stats-panel > .performer-versatility {
+  margin: 0 0 1.5rem;
+  max-width: 40rem;
 }

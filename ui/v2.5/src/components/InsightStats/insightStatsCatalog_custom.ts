@@ -22,7 +22,6 @@ const insightStatsTones: Record<
   "negative-rating": "negative",
   "favorite-lineup": "lineup",
   "country-lineup": "lineup",
-  tag: "tag",
 };
 
 export function insightStatsTone(kind: SceneCardInsightCandidateKind) {
@@ -60,12 +59,12 @@ const kindInfo: Record<SceneCardInsightCandidateKind, InsightKindInfo> = {
   },
   "orgasm-event": {
     label: "Orgasm patterns",
-    note: "Configured Orgasm markers, excluding 2nd Camera; detects shared and repeated top assignments.",
+    note: "Configured Orgasm markers, excluding 2nd Camera; detects simultaneous tops (one marker, or markers that overlap or start within 5s) and repeated top assignments.",
     thresholds: [],
   },
   "outstanding-activity": {
     label: "Common tag combinations",
-    note: "Some / Good amount / Lots / As far as the eye can see. Reports up to two common tags.",
+    note: "Some / Good amount / Lots / As far as the eye can see. Reports up to two common tags; tags marked only without an end time report their marker count.",
     thresholds: [
       "tagGoodAmountMinPercent",
       "tagLotsMinPercent",
@@ -94,12 +93,12 @@ const kindInfo: Record<SceneCardInsightCandidateKind, InsightKindInfo> = {
   },
   interaction: {
     label: "Interaction patterns",
-    note: "Role assignments create the interaction graph; each chip uses its named pattern.",
+    note: "Non-2nd-Camera role assignments create the interaction graph. Each direction needs at least 5% of the runtime (untimed markers count by presence), and patterns describe only the vatos in the sex/oral action.",
     thresholds: [],
   },
   "rare-role": {
     label: "Rare roles",
-    note: "Library-wide performer history; requires at least five role scenes.",
+    note: "Library-wide performer history; requires at least five role scenes. Sex/Oral subtags count in the current scene, and a role seen in only one scene is reported as Only time at any threshold.",
     thresholds: ["rareRoleMaximumPercent"],
   },
   "negative-rating": {
@@ -115,11 +114,6 @@ const kindInfo: Record<SceneCardInsightCandidateKind, InsightKindInfo> = {
   "country-lineup": {
     label: "Mexican lineup",
     note: "At least one performer has country MX, MEX, or Mexico; All-Mexican requires at least two and no others.",
-    thresholds: [],
-  },
-  tag: {
-    label: "Legacy tag chip",
-    note: "Reserved kind; the current engine uses common / uncommon tag reports.",
     thresholds: [],
   },
 };
@@ -173,11 +167,12 @@ const interactions = [
 ];
 
 const interactionDescriptions: Record<string, string> = {
-  "fully-versatile": "Two vatos top and bottom each other in sex and oral.",
+  "fully-versatile":
+    "Two participating vatos top and bottom each other in sex and oral.",
   "sexually-versatile":
-    "Two vatos top and bottom each other in sex, but not oral.",
+    "Two participating vatos top and bottom each other in sex, but not oral.",
   "orally-versatile":
-    "Two vatos top and bottom each other in oral, but not sex.",
+    "Two participating vatos top and bottom each other in oral, but not sex.",
   "round-robin": "Four or more vatos, with every pair interacting.",
   "oral-circle":
     "Three or more vatos, with every vato giving and receiving oral.",
@@ -209,7 +204,7 @@ export const insightStatsCatalog: InsightStatsDefinition[] = [
     "orgasm-event",
     "orgasm-simultaneous",
     "Vatos nut at the same time",
-    "At least one non-2nd-Camera Orgasm marker has two or more top performers."
+    "Two or more top vatos on one non-2nd-Camera Orgasm marker, or on Orgasm markers that overlap or start within 5s."
   ),
   definition(
     "orgasm-event",
@@ -258,7 +253,6 @@ export const insightStatsCatalog: InsightStatsDefinition[] = [
   ),
   definition("favorite-lineup"),
   definition("country-lineup"),
-  definition("tag"),
 ];
 
 export const insightStatsMainCatalog = insightStatsCatalog.filter(

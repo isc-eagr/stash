@@ -553,6 +553,7 @@ const ActivityTypeGroupCard: React.FC<IActivityTypeGroupCard> = ({
                   key={`top-${performer.id}`}
                   performer={performer}
                   role="Top"
+                  hoverPortrait
                 />
               ))}
               {group.bottomPerformers.map((performer) => (
@@ -560,6 +561,7 @@ const ActivityTypeGroupCard: React.FC<IActivityTypeGroupCard> = ({
                   key={`bottom-${performer.id}`}
                   performer={performer}
                   role="Bottom"
+                  hoverPortrait
                 />
               ))}
             </>

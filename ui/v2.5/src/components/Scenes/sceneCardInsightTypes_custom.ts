@@ -22,9 +22,10 @@ export interface ISceneCardInsight {
   label: string;
   detail: string;
   tone: SceneCardInsightTone;
-  performerPreview?: SceneCardInsightPerformer; // CUSTOM: performer portrait for rare/repeated orgasm chips.
-  performerPreviews?: SceneCardInsightPerformer[]; // CUSTOM: performer portraits for lineup chips.
+  performerPreviews?: SceneCardInsightPerformer[]; // CUSTOM: portraits for performer and lineup chips.
   orgasmFacialEvents?: SceneCardInsightEvent[];
+  opensActivityMatrix?: boolean; // CUSTOM: only chips with a matching matrix row open it.
+  hasGoatEvent?: boolean; // CUSTOM: gold accent for event reports with a GOAT event.
 }
 
 export type SceneCardInsightEvent = {
@@ -111,8 +112,7 @@ export type SceneCardInsightCandidateKind =
   | "rare-role"
   | "negative-rating"
   | "favorite-lineup"
-  | "country-lineup"
-  | "tag";
+  | "country-lineup";
 
 export type SceneCardInsightCandidate = ISceneCardInsight & {
   kind: SceneCardInsightCandidateKind;
@@ -124,6 +124,7 @@ export type SceneCardInsightCandidate = ISceneCardInsight & {
   statsParts?: string[]; // CUSTOM: Independent drilldown labels for Insight Stats.
   // CUSTOM: Sort split statistic labels by category and their numeric count.
   statsPartOrder?: Record<string, { group: number; value: number }>;
+  matrixTagIds?: string[]; // CUSTOM: tags that can appear as Activity Matrix rows.
 };
 
 export type SceneCardInsightRatingConfig = {

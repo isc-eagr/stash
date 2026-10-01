@@ -66,7 +66,6 @@ import { OCounterButton } from "src/components/Shared/CountButton";
 import { PerformerCategoryStrip } from "./PerformerCategoryStrip";
 import { Counter } from "src/components/Shared/Counter";
 import { PerformerImageManager } from "./PerformerImageManager";
-import { PerformerActivityTime } from "./PerformerActivityTime";
 import { PerformerVersatility } from "./PerformerVersatility_custom"; // CUSTOM
 import {
   usePerformerCardRoleStats,
@@ -662,28 +661,18 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                   </Col>
                 )}
               </div>
-              {/* CUSTOM: begin - two cells: activity time (small, left) and versatility bars (right) */}
-              {!isEditing && (
-                <div className="performer-header-activity col-lg-7 col-xl-6">
-                  <div className="performer-header-activity-grid">
-                    <PerformerActivityTime
-                      activityStats={performer.activity_stats}
-                      className="performer-activity-time--rows"
-                      headingId={`performer-activity-time-${performer.id}`}
-                    />
-                    {roleStats && (
-                      <PerformerVersatility
-                        oralBottomedPartners={roleStats.oral_with_bottom_count}
-                        oralToppedPartners={roleStats.oral_with_top_count}
-                        sexBottomedPartners={roleStats.sex_with_bottom_count}
-                        sexToppedPartners={roleStats.sex_with_top_count}
-                        facialBottomedPartners={
-                          roleStats.facial_with_bottom_count
-                        }
-                        facialToppedPartners={roleStats.facial_with_top_count}
-                      />
-                    )}
-                  </div>
+              {/* CUSTOM: begin - versatility bars beside the header details */}
+              {!isEditing && roleStats && (
+                <div className="performer-header-activity col-lg-5 col-xl-4">
+                  <PerformerVersatility
+                    className="performer-versatility--detail"
+                    oralBottomedPartners={roleStats.oral_with_bottom_count}
+                    oralToppedPartners={roleStats.oral_with_top_count}
+                    sexBottomedPartners={roleStats.sex_with_bottom_count}
+                    sexToppedPartners={roleStats.sex_with_top_count}
+                    facialBottomedPartners={roleStats.facial_with_bottom_count}
+                    facialToppedPartners={roleStats.facial_with_top_count}
+                  />
                 </div>
               )}
               {/* CUSTOM: end */}

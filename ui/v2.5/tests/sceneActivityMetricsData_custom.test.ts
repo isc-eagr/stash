@@ -4,6 +4,8 @@ import {
   getSceneActivityMetrics,
   getSceneMarkerCountCustom,
   hasVisibleSceneActivitySortMetricCustom,
+  sceneActivityMarkerIsOutstanding,
+  sceneActivityTagAncestors,
 } from "../src/components/Scenes/sceneActivityMetricsData_custom.ts";
 
 const marker = (
@@ -274,4 +276,62 @@ assert.equal(
   ),
   undefined,
   "Really Hot counts need the Really Hot tag configured"
+);
+
+// Flattened ancestry classifies grandchild tags that only carry direct parents.
+const deepFacialScene = {
+  id: "deep-facial",
+  files: [{ duration: 100 }],
+  scene_markers: [
+    marker("sex", 0, 50, []),
+    {
+      ...marker("self-facial", 40, 45, ["facial"]),
+    },
+  ],
+  scene_marker_tag_ancestors: [
+    { tag_id: "self-facial", ancestor_ids: ["facial", "orgasm"] },
+  ],
+};
+assert.equal(
+  getSceneMarkerCountCustom(
+    deepFacialScene,
+    { orgasmTagId: "orgasm", facialTagId: "facial" },
+    "orgasm_count"
+  ),
+  1
+);
+const deepOrgasmQuality = getSceneActivityMetrics(
+  {
+    ...deepFacialScene,
+    scene_markers: [
+      {
+        ...marker("sex", 0, 50),
+        tags: [{ id: "self-facial", parents: [{ id: "facial" }] }],
+      },
+    ],
+  },
+  { sexTagId: "sex", orgasmTagId: "orgasm", facialTagId: "facial" }
+);
+// An unqualified orgasm descendant does not make the activity Outstanding.
+assert.equal(
+  deepOrgasmQuality?.quality.find(({ key }) => key === "outstanding")?.duration,
+  0
+);
+
+// The scene Stats tab shares this classifier, so a GOAT grandchild qualifies
+// an activity marker as Outstanding there too.
+assert.equal(
+  sceneActivityMarkerIsOutstanding(
+    {
+      ...marker("sex", 0, 50),
+      tags: [{ id: "goat-moment", parents: [{ id: "goat-family" }] }],
+    },
+    { sexTagId: "sex", goatTagId: "goat" },
+    sceneActivityTagAncestors({
+      scene_marker_tag_ancestors: [
+        { tag_id: "goat-moment", ancestor_ids: ["goat-family", "goat"] },
+      ],
+    })
+  ),
+  true
 );

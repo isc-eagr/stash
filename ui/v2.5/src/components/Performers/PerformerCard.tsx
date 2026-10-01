@@ -1,11 +1,9 @@
 import React from "react";
 import cx from "classnames"; // CUSTOM
 import { Link } from "react-router-dom";
-import { useIntl } from "react-intl";
 import { gql, useQuery } from "@apollo/client"; // CUSTOM
 import * as GQL from "src/core/generated-graphql";
 import NavUtils from "src/utils/navigation";
-import TextUtils from "src/utils/text";
 import { GridCard } from "../Shared/GridCard/GridCard";
 import { CountryFlag } from "../Shared/CountryFlag";
 import { HoverPopover } from "../Shared/HoverPopover";
@@ -470,7 +468,6 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
   // CUSTOM: begin - added sceneId, scenePerformerCount, scenePartnerPerformers props; scene marker roles query
   ({
     performer,
-    ageFromDate,
     sceneId,
     scenePerformerCount,
     scenePartnerPerformers,
@@ -481,24 +478,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
     activeSortDirection,
     activeSortValue,
   }) => {
-    const intl = useIntl();
     const { configuration } = useConfigurationContext(); // CUSTOM
-
-    const age = TextUtils.age(
-      performer.birthdate,
-      ageFromDate ?? performer.death_date
-    );
-    const ageL10nId = ageFromDate
-      ? "media_info.performer_card.age_context"
-      : "media_info.performer_card.age";
-    const ageL10String = intl.formatMessage({
-      id: "years_old",
-      defaultMessage: "years old",
-    });
-    const ageString = intl.formatMessage(
-      { id: ageL10nId },
-      { age, years_old: ageL10String }
-    );
 
     // CUSTOM: begin - scene marker roles query
     // Query for scene marker roles when in scene context
@@ -590,17 +570,11 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
 
     return (
       <>
-        {/* CUSTOM: begin - modified age display + PerformerCategoryStrip */}
+        {/* CUSTOM: begin - age line hidden + PerformerCategoryStrip */}
         <SortMetricBadgeCustom
           metric={embeddedSortMetric ? undefined : sortMetric}
           sortDirection={sortDirection}
         />
-        {/* Age line */}
-        {(age !== 0 || !sceneId) && (
-          <div className="performer-card__age">
-            {age !== 0 ? ageString : "\u00A0"}
-          </div>
-        )}
 
         {/* Role badges using shared component */}
         <PerformerCategoryStrip
@@ -610,7 +584,6 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
           scenePerformerCount={scenePerformerCount}
           scenePartnerPerformers={scenePartnerPerformers} // CUSTOM
           globalStatsOverride={studioStats ?? roleStats}
-          hideUniquePartnerCounts={false}
           studioContext={
             extraCriteria?.studio
               ? {
@@ -621,8 +594,8 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
               : undefined
           } // CUSTOM
           activeSortBy={activeSortBy}
-          // Cards outside a scene show versatility strips instead of role columns.
-          versatilityCard={!sceneId}
+          // Cards show versatility strips instead of role columns; scene cards count scene partners.
+          versatilityCard
         />
         {/* CUSTOM: end */}
       </>

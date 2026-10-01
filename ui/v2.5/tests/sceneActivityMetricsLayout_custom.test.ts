@@ -35,13 +35,6 @@ const sceneStatsPanelSource = readFileSync(
   ),
   "utf8"
 );
-const performerStatsSource = readFileSync(
-  new URL(
-    "../src/components/Performers/PerformerDetails/PerformerStatsPanel.tsx",
-    import.meta.url
-  ),
-  "utf8"
-);
 const metricsSource = readFileSync(
   new URL(
     "../src/components/Scenes/SceneActivityMetrics_custom.tsx",
@@ -217,10 +210,6 @@ test("jerk activity uses a distinct shared color across activity charts", () => 
   assert.match(metricsSource, /const soloColor = ACTIVITY_PIE_COLORS\.solo/);
   assert.match(
     sceneStatsPanelSource,
-    /const soloMarkerColor = ACTIVITY_PIE_COLORS\.solo/
-  );
-  assert.match(
-    performerStatsSource,
     /const soloMarkerColor = ACTIVITY_PIE_COLORS\.solo/
   );
   assert.doesNotMatch(metricsSource, /getSceneMarkerTagColorCustom/);

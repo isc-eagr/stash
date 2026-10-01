@@ -1,0 +1,23 @@
+/* CUSTOM: large vato portrait shown when hovering a small inline one. */
+.vato-portrait-hover,
+.vato-portrait-hover-trigger {
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.hover-popover-content.popover.vato-portrait-hover-popover {
+  max-width: calc(100vw - 1rem);
+
+  .popover-body {
+    padding: 0.25rem;
+  }
+}
+
+.vato-portrait-hover-image {
+  aspect-ratio: 2 / 3;
+  border-radius: 0.25rem;
+  display: block;
+  height: min(36rem, calc(100vh - 2rem), calc((100vw - 2rem) * 1.5));
+  object-fit: cover;
+  object-position: top;
+}

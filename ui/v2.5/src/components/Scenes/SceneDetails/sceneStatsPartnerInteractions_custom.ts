@@ -440,18 +440,6 @@ export function getSceneStatsRoleInteractionKey(
   return `${topPerformerID}::${bottomPerformerID}`;
 }
 
-export function getSceneStatsRoleInteractionCategories(
-  interaction: ISceneStatsRoleInteraction,
-  view: SceneStatsPartnerCategory | "both"
-) {
-  const requestedCategories: SceneStatsPartnerCategory[] =
-    view === "both" ? ["sex", "oral"] : [view];
-
-  return requestedCategories.filter(
-    (category) => !!interaction.categories[category]
-  );
-}
-
 export function getSceneStatsRoleInteractions(
   markers: ISceneStatsPartnerMarker[]
 ): ISceneStatsRoleInteraction[] {

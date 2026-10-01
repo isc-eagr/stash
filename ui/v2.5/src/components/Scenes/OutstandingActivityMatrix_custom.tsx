@@ -6,6 +6,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Icon } from "src/components/Shared/Icon";
 import { ModalComponent } from "src/components/Shared/Modal";
+import { VatoPortraitHover } from "src/components/Shared/VatoPortraitHover_custom";
 import TextUtils from "src/utils/text";
 import type {
   IOutstandingActivityCell,
@@ -150,15 +151,21 @@ export const OutstandingActivityMatrixTable: React.FC<ITableProps> = ({
                       className="outstanding-activity-performer"
                       to={`/performers/${column.id}`}
                     >
-                      <span
-                        aria-hidden="true"
-                        className="outstanding-activity-performer-image"
-                        style={{
-                          backgroundImage: column.imagePath
-                            ? `url(${column.imagePath})`
-                            : undefined,
-                        }}
-                      />
+                      {/* CUSTOM: compact header portrait; hover shows it large */}
+                      <VatoPortraitHover
+                        imagePath={column.imagePath}
+                        name={column.name}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="outstanding-activity-performer-image"
+                          style={{
+                            backgroundImage: column.imagePath
+                              ? `url(${column.imagePath})`
+                              : undefined,
+                          }}
+                        />
+                      </VatoPortraitHover>
                       <span>{column.name}</span>
                     </Link>
                   )}

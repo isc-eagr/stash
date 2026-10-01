@@ -1,5 +1,8 @@
 import type { IUIConfig } from "src/core/config";
-import { getPerformerRareRoleAction } from "../Performers/performerRolePartnerLabels_custom";
+import {
+  getPerformerOnlyTimeRoleAction,
+  getPerformerRareRoleAction,
+} from "../Performers/performerRolePartnerLabels_custom";
 import {
   hasMinimumRuleEvidence,
   intervalDuration,
@@ -283,39 +286,41 @@ function eventCategoryForTag(
 }
 
 function eventReportLabel(events: SceneCardInsightEvent[]) {
-  const categories: Array<{ category: EventCategory; name: string }> = [
-    { category: "facial", name: "facial" },
-    { category: "orgasm", name: "regular" },
-  ];
-  const sections = categories.flatMap(({ category, name }) => {
-    const categoryEvents = events.filter(
-      (event) => event.category === category
-    );
-    if (categoryEvents.length === 0) return [];
+  const categoryEvents = (category: EventCategory) =>
+    events.filter((event) => event.category === category);
+  // CUSTOM: A single category already is the total, so only mixed reports
+  // repeat the total and call ordinary orgasms "regular".
+  const mixed =
+    categoryEvents("facial").length > 0 && categoryEvents("orgasm").length > 0;
+  const plural = (count: number, singular: string, pluralName: string) =>
+    `${count} ${count === 1 ? singular : pluralName}`;
+  const sections = (["facial", "orgasm"] as const).flatMap((category) => {
+    const matching = categoryEvents(category);
+    if (matching.length === 0) return [];
 
-    const qualifiers = [
-      ["GOAT", categoryEvents.filter((event) => event.quality === "GOAT")],
-      [
-        "Really Hot",
-        categoryEvents.filter((event) => event.quality === "Really Hot"),
-      ],
-    ] as const;
-    const qualifierSummary = qualifiers
-      .filter(([, qualifiedEvents]) => qualifiedEvents.length > 0)
-      .map(([label, qualifiedEvents]) => `${qualifiedEvents.length} ${label}`)
+    const qualifierSummary = (["GOAT", "Really Hot"] as const)
+      .map(
+        (quality) =>
+          [
+            quality,
+            matching.filter((event) => event.quality === quality).length,
+          ] as const
+      )
+      .filter(([, count]) => count > 0)
+      .map(([quality, count]) => `${count} ${quality}`)
       .join(", ");
-    const eventName =
-      category === "facial" && categoryEvents.length !== 1 ? "facials" : name;
-    return [
-      `${categoryEvents.length} ${eventName}${
-        qualifierSummary ? ` (${qualifierSummary})` : ""
-      }`,
-    ];
+    const name =
+      category === "facial"
+        ? plural(matching.length, "facial", "facials")
+        : mixed
+        ? `${matching.length} regular`
+        : plural(matching.length, "orgasm", "orgasms");
+    return [`${name}${qualifierSummary ? ` (${qualifierSummary})` : ""}`];
   });
 
-  return `${events.length} ${events.length === 1 ? "orgasm" : "orgasms"}${
-    sections.length > 0 ? ` · ${sections.join(" · ")}` : ""
-  }`;
+  return mixed
+    ? `${plural(events.length, "orgasm", "orgasms")} · ${sections.join(" · ")}`
+    : sections[0];
 }
 
 export type OutstandingActivityAmountLevel =
@@ -384,7 +389,34 @@ type TagPresenceRow = Pick<
   "tag" | "duration" | "markerCount" | "percent"
 >;
 
+// CUSTOM: markers without an end time have no coverage, so report their count.
+function isUntimedRow(row: Pick<TagPresenceRow, "duration">) {
+  return row.duration <= 0;
+}
+
+function tagRowAmountLabel(
+  row: Pick<IOutstandingActivityRow, "tag" | "duration" | "markerCount"> & {
+    amountLevel: OutstandingActivityAmountLevel;
+  }
+) {
+  const name = displayTagName(row.tag);
+  return isUntimedRow(row)
+    ? `${name} ×${row.markerCount}`
+    : tagAmountLabel(row.amountLevel, name);
+}
+
+function tagRowStatsPart(row: Parameters<typeof tagRowAmountLabel>[0]): string {
+  return isUntimedRow(row)
+    ? `${displayTagName(row.tag)} (no end time)`
+    : tagRowAmountLabel(row);
+}
+
 function tagCoverageDetail(row: TagPresenceRow) {
+  if (isUntimedRow(row)) {
+    return `${row.markerCount} ${
+      row.markerCount === 1 ? "marker" : "markers"
+    } without an end time`;
+  }
   return `${Math.round(row.percent)}% of scene · ${markerCoverageDetail({
     duration: row.duration,
     episodes: row.markerCount,
@@ -549,16 +581,18 @@ export function getOutstandingActivityChipLabel(
   matrix: IOutstandingActivityMatrix
 ) {
   const rows = matrix.rows.slice(0, 2);
-  if (rows.length === 2 && rows[0].amountLevel === rows[1].amountLevel) {
+  if (
+    rows.length === 2 &&
+    rows[0].amountLevel === rows[1].amountLevel &&
+    !rows.some(isUntimedRow)
+  ) {
     return tagAmountLabel(
       rows[0].amountLevel,
       joinInsightNames(rows.map((row) => displayTagName(row.tag)))
     );
   }
 
-  return rows
-    .map((row) => tagAmountLabel(row.amountLevel, displayTagName(row.tag)))
-    .join(" · ");
+  return rows.map(tagRowAmountLabel).join(" · ");
 }
 
 function percentageRange(percent: number, bucketSize: number) {
@@ -770,6 +804,38 @@ function orgasmRepeatPhrase(count: number) {
   return count === 2 ? "nuts twice" : `nuts ${count} times`;
 }
 
+// CUSTOM: Separate markers for the same moment still count as simultaneous.
+const simultaneousOrgasmWindowSeconds = 5;
+
+function largestSimultaneousOrgasmGroup(markers: SceneCardInsightMarker[]) {
+  let largest: SceneCardInsightPerformer[] = [];
+  let cluster = new Map<string, SceneCardInsightPerformer>();
+  let clusterEnd = Number.NEGATIVE_INFINITY;
+  const closeCluster = () => {
+    if (cluster.size > largest.length) largest = Array.from(cluster.values());
+  };
+
+  [...markers]
+    .sort((a, b) => a.seconds - b.seconds || a.id.localeCompare(b.id))
+    .forEach((marker) => {
+      if (marker.seconds > clusterEnd + simultaneousOrgasmWindowSeconds) {
+        closeCluster();
+        cluster = new Map();
+        clusterEnd = Number.NEGATIVE_INFINITY;
+      }
+      (marker.top_performers ?? []).forEach((performer) =>
+        cluster.set(performer.id, performer)
+      );
+      clusterEnd = Math.max(
+        clusterEnd,
+        marker.seconds,
+        marker.end_seconds ?? marker.seconds
+      );
+    });
+  closeCluster();
+  return largest;
+}
+
 function getOrgasmAutomaticCandidates(
   scene: SceneCardInsightScene,
   roleTagIds: IUIConfig["roleTagIds"]
@@ -781,27 +847,13 @@ function getOrgasmAutomaticCandidates(
   );
   const candidates: InsightCandidate[] = [];
 
-  const simultaneousPerformers = orgasmMarkers.reduce<
-    SceneCardInsightPerformer[]
-  >((largestGroup, marker) => {
-    const simultaneousMarkerPerformers = Array.from(
-      new Map(
-        (marker.top_performers ?? []).map((performer) => [
-          performer.id,
-          performer,
-        ])
-      ).values()
-    );
-    return simultaneousMarkerPerformers.length > largestGroup.length
-      ? simultaneousMarkerPerformers
-      : largestGroup;
-  }, []);
+  const simultaneousPerformers = largestSimultaneousOrgasmGroup(orgasmMarkers);
   const simultaneousCount = simultaneousPerformers.length;
   if (simultaneousCount >= 2) {
     candidates.push({
       key: "orgasm-simultaneous",
       label: `${simultaneousCount} vatos nut at the same time`,
-      detail: "One orgasm marker has this many top performers",
+      detail: `Top vatos on one Orgasm marker, or on Orgasm markers that overlap or start within ${simultaneousOrgasmWindowSeconds}s`,
       tone: "event",
       kind: "orgasm-event",
       score: 2_000_000 + simultaneousCount,
@@ -835,7 +887,7 @@ function getOrgasmAutomaticCandidates(
       statsLabel: "Repeated orgasms", // CUSTOM: group performer instances.
       detail: `${markers.size} orgasm markers as top, excluding 2nd camera`,
       tone: "event",
-      performerPreview: performer, // CUSTOM: show the vato tied to the repeated-orgasm chip.
+      performerPreviews: [performer], // CUSTOM: show the vato tied to the repeated-orgasm chip.
       kind: "orgasm-event",
       score: 1_000_000 + markers.size,
     });
@@ -975,6 +1027,7 @@ function getEventReportCandidates(
       statsParts: statsParts.map(({ text }) => text),
       statsPartOrder,
       orgasmFacialEvents: events,
+      ...(goatEvents.length > 0 ? { hasGoatEvent: true } : {}),
     },
   ];
 }
@@ -1052,6 +1105,7 @@ function getAutomaticCandidates(
       detail: markerCoverageDetail(stats),
       tone: "goat",
       kind: "goat",
+      matrixTagIds: parts.map((part) => part.tagID),
       score: stats.duration * 100 + stats.episodes,
     };
   });
@@ -1197,9 +1251,7 @@ function getTagCandidates(
     const topRows = commonRows.slice(0, 2);
     candidates.push({
       key: "outstanding-activity",
-      statsParts: topRows.map((row) =>
-        tagAmountLabel(row.amountLevel, displayTagName(row.tag))
-      ), // CUSTOM
+      statsParts: topRows.map(tagRowStatsPart), // CUSTOM
       label: getOutstandingActivityChipLabel({
         ...activityMatrix,
         rows: commonRows,
@@ -1209,6 +1261,7 @@ function getTagCandidates(
         .join(" · "),
       tone: "tag",
       kind: "outstanding-activity",
+      matrixTagIds: topRows.map((row) => row.tag.id),
       score:
         topRows[0].duration * 10_000 +
         topRows.reduce((total, row) => total + row.markerCount, 0),
@@ -1229,6 +1282,7 @@ function getTagCandidates(
         .join(" · "),
       tone: "tag",
       kind: "outstanding-activity-presence",
+      matrixTagIds: uncommonRows.map((row) => row.tag.id),
       score: uncommonRows.reduce(
         (total, row) => total + row.duration * 100 + row.markerCount,
         0
@@ -1244,6 +1298,7 @@ type InteractionRole = "top" | "bottom";
 
 type InteractionGraph = {
   cast: SceneCardInsightPerformer[];
+  sidelined: SceneCardInsightPerformer[];
   directedMarkers: Map<string, Map<string, SceneCardInsightMarker>>;
   pairMarkers: Map<string, Map<string, SceneCardInsightMarker>>;
   roleMarkers: Map<string, Map<string, SceneCardInsightMarker>>;
@@ -1293,71 +1348,120 @@ function addInteractionMarker(
   groups.set(key, markers);
 }
 
+// CUSTOM: A direction needs the minimum share of the runtime, so a brief
+// flip cannot establish a whole-scene pattern. Untimed markers and scenes
+// without a duration cannot be measured and count by presence.
+function interactionDirectionHasEvidence(
+  markers: Map<string, SceneCardInsightMarker>,
+  sceneDuration: number
+) {
+  if (sceneDuration <= 0) return markers.size > 0;
+  const untimed = [...markers.values()].some(
+    (marker) => !markerInterval(marker, sceneDuration)
+  );
+  return untimed || hasMinimumRuleEvidence(markers.values(), sceneDuration);
+}
+
 function buildInteractionGraph(
   scene: SceneCardInsightScene,
   roleTagIds: IUIConfig["roleTagIds"]
 ): InteractionGraph {
-  const cast = [
+  const sceneDuration = scene.files[0]?.duration ?? 0;
+  const scenePerformers = [
     ...new Map(
       scene.performers.map((performer) => [performer.id, performer])
     ).values(),
   ].sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
-  const castIDs = new Set(cast.map((performer) => performer.id));
+  const castIDs = new Set(scenePerformers.map((performer) => performer.id));
+  const candidateDirections = new Map<
+    string,
+    {
+      category: InteractionCategory;
+      topID: string;
+      bottomID: string;
+      markers: Map<string, SceneCardInsightMarker>;
+    }
+  >();
+
+  scene.scene_markers
+    .filter(
+      (marker) => !markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId)
+    )
+    .forEach((marker) => {
+      const categories = interactionCategoriesForMarker(marker, roleTagIds);
+      if (categories.length === 0) return;
+      const castIDsFor = (performers?: SceneCardInsightPerformer[]) => [
+        ...new Set(
+          (performers ?? [])
+            .map((performer) => performer.id)
+            .filter((id) => castIDs.has(id))
+        ),
+      ];
+      const tops = castIDsFor(marker.top_performers);
+      const bottoms = castIDsFor(marker.bottom_performers);
+
+      categories.forEach((category) =>
+        tops.forEach((topID) =>
+          bottoms.forEach((bottomID) => {
+            if (topID === bottomID) return;
+            const key = interactionDirectedKey(category, topID, bottomID);
+            const direction = candidateDirections.get(key) ?? {
+              category,
+              topID,
+              bottomID,
+              markers: new Map<string, SceneCardInsightMarker>(),
+            };
+            direction.markers.set(marker.id, marker);
+            candidateDirections.set(key, direction);
+          })
+        )
+      );
+    });
+
   const directedMarkers = new Map<
     string,
     Map<string, SceneCardInsightMarker>
   >();
   const pairMarkers = new Map<string, Map<string, SceneCardInsightMarker>>();
   const roleMarkers = new Map<string, Map<string, SceneCardInsightMarker>>();
-
-  scene.scene_markers.forEach((marker) => {
-    const categories = interactionCategoriesForMarker(marker, roleTagIds);
-    if (categories.length === 0) return;
-    const tops = [
-      ...new Map(
-        (marker.top_performers ?? [])
-          .filter((performer) => castIDs.has(performer.id))
-          .map((performer) => [performer.id, performer])
-      ).values(),
-    ];
-    const bottoms = [
-      ...new Map(
-        (marker.bottom_performers ?? [])
-          .filter((performer) => castIDs.has(performer.id))
-          .map((performer) => [performer.id, performer])
-      ).values(),
-    ];
-
-    categories.forEach((category) => {
-      tops.forEach((top) => {
-        bottoms.forEach((bottom) => {
-          if (top.id === bottom.id) return;
-          addInteractionMarker(
-            directedMarkers,
-            interactionDirectedKey(category, top.id, bottom.id),
-            marker
-          );
-          addInteractionMarker(
-            pairMarkers,
-            interactionPairKey(top.id, bottom.id),
-            marker
-          );
-          addInteractionMarker(
-            roleMarkers,
-            interactionRoleKey(category, "top", top.id),
-            marker
-          );
-          addInteractionMarker(
-            roleMarkers,
-            interactionRoleKey(category, "bottom", bottom.id),
-            marker
-          );
-        });
-      });
+  candidateDirections.forEach(({ category, topID, bottomID, markers }, key) => {
+    if (!interactionDirectionHasEvidence(markers, sceneDuration)) return;
+    markers.forEach((marker) => {
+      addInteractionMarker(directedMarkers, key, marker);
+      addInteractionMarker(
+        pairMarkers,
+        interactionPairKey(topID, bottomID),
+        marker
+      );
+      addInteractionMarker(
+        roleMarkers,
+        interactionRoleKey(category, "top", topID),
+        marker
+      );
+      addInteractionMarker(
+        roleMarkers,
+        interactionRoleKey(category, "bottom", bottomID),
+        marker
+      );
     });
   });
 
-  return { cast, directedMarkers, pairMarkers, roleMarkers };
+  // CUSTOM: Patterns describe the vatos in the sex/oral action; listed cast
+  // members without a qualifying interaction are reported separately.
+  const participantIDs = new Set(
+    [...pairMarkers.keys()].flatMap((key) => key.split("::"))
+  );
+  return {
+    cast: scenePerformers.filter((performer) =>
+      participantIDs.has(performer.id)
+    ),
+    sidelined: scenePerformers.filter(
+      (performer) => !participantIDs.has(performer.id)
+    ),
+    directedMarkers,
+    pairMarkers,
+    roleMarkers,
+  };
 }
 
 function combinedInteractionMarkers(
@@ -1412,10 +1516,13 @@ function getInteractionCandidate(
     partners.get(firstID)?.add(secondID);
     partners.get(secondID)?.add(firstID);
   });
-  if (graph.cast.some((performer) => partners.get(performer.id)?.size === 0)) {
-    return [];
-  }
 
+  const sidelinedNote =
+    graph.sidelined.length > 0
+      ? `${joinInsightNames(
+          graph.sidelined.map((performer) => performer.name)
+        )} not in the sex/oral action`
+      : "";
   const count = graph.cast.length;
   const possiblePairs = (count * (count - 1)) / 2;
   const meaningfulPairCount = [...graph.pairMarkers.values()].filter(
@@ -1431,7 +1538,7 @@ function getInteractionCandidate(
       key: `interaction-${key}`,
       label,
       statsLabel: label, // CUSTOM: group performer-specific details.
-      detail,
+      detail: sidelinedNote ? `${detail} · ${sidelinedNote}` : detail,
       tone: "interaction",
       kind: "interaction",
       score: priority,
@@ -1607,19 +1714,20 @@ function getRareRoleCandidates(
 ): InsightCandidate[] {
   if (!roleStatsByPerformer) return [];
 
+  // CUSTOM: Match the role history, which counts Sex/Oral subtags and
+  // secondary tags, so a role in a descendant marker is still current.
   const activeRoles = new Set<string>();
   scene.scene_markers.forEach((marker) => {
     if (markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId)) return;
 
-    const category = activityCategoryForMarker(marker, roleTagIds);
-    if (category === "sex" || category === "oral") {
+    interactionCategoriesForMarker(marker, roleTagIds).forEach((category) => {
       (marker.top_performers ?? []).forEach((performer) =>
         activeRoles.add(`${category}:top:${performer.id}`)
       );
       (marker.bottom_performers ?? []).forEach((performer) =>
         activeRoles.add(`${category}:bottom:${performer.id}`)
       );
-    }
+    });
   });
 
   const candidates: InsightCandidate[] = [];
@@ -1643,23 +1751,43 @@ function getRareRoleCandidates(
         if (!activeRoles.has(`${category}:${role}:${performer.id}`)) return;
         const count = role === "top" ? topCount : bottomCount;
         const percent = (count / total) * 100;
-        if (count <= 0 || percent > thresholds.rareRoleMaximumPercent) {
+        // CUSTOM: The only scene with a role is notable at any threshold.
+        const onlyTime = count === 1;
+        if (
+          count <= 0 ||
+          (!onlyTime && percent > thresholds.rareRoleMaximumPercent)
+        ) {
           return;
         }
 
-        const action = getPerformerRareRoleAction(category, role);
         const usualRole: InteractionRole = role === "top" ? "bottom" : "top";
         candidates.push({
           key: `rare-${category}-${role}-${performer.id}`,
-          label: `Rare instance of ${performer.name} ${action}`,
-          statsLabel: `Rare ${category} ${role}`, // CUSTOM: group performer instances.
-          detail: `${count} of ${total} ${category}-role scenes (${Math.round(
+          label: onlyTime
+            ? `Only time ${performer.name} ${getPerformerOnlyTimeRoleAction(
+                category,
+                role
+              )}`
+            : `Rare instance of ${performer.name} ${getPerformerRareRoleAction(
+                category,
+                role
+              )}`,
+          // CUSTOM: group performer instances.
+          statsLabel: `${onlyTime ? "Only-time" : "Rare"} ${category} ${role}`,
+          // Versatile scenes count once per role, so report both role counts.
+          detail: `${topCount} top · ${bottomCount} bottom ${category} scenes (${Math.round(
             percent
-          )}%) · usually ${getPerformerRareRoleAction(category, usualRole)}`,
+          )}% ${role}) · usually ${getPerformerRareRoleAction(
+            category,
+            usualRole
+          )}`,
           tone: "rare",
-          performerPreview: performer, // CUSTOM: show the vato tied to the rare-role chip.
+          performerPreviews: [performer], // CUSTOM: show the vato tied to the rare-role chip.
           kind: "rare-role",
-          score: (thresholds.rareRoleMaximumPercent - percent) * 1000 + total,
+          score:
+            (onlyTime ? 100_000 : 0) +
+            (thresholds.rareRoleMaximumPercent - percent) * 1000 +
+            total,
         });
       });
     });
@@ -1808,6 +1936,10 @@ export function getSceneCardInsightSets(
     configuredThresholds,
     includePerformerMatrix // CUSTOM
   );
+  const matrixTagIDs = new Set(
+    outstandingActivityMatrix.rows.map((row) => row.tag.id)
+  );
+  // CUSTOM: A chip opens the matrix only when the matrix shows one of its tags.
   const candidates = getSceneCardInsightCandidates(
     scene,
     roleTagIds,
@@ -1815,15 +1947,11 @@ export function getSceneCardInsightSets(
     ratingConfig,
     roleStatsByPerformer,
     outstandingActivityMatrix
+  ).map((candidate) =>
+    candidate.matrixTagIds?.some((tagID) => matrixTagIDs.has(tagID))
+      ? { ...candidate, opensActivityMatrix: true }
+      : candidate
   );
-  const goatOpensActivityMatrix =
-    outstandingActivityMatrix.rows.length > 0 &&
-    candidates.some((candidate) => candidate.kind === "goat") &&
-    !candidates.some(
-      (candidate) =>
-        candidate.kind === "outstanding-activity" ||
-        candidate.kind === "outstanding-activity-presence"
-    );
   return {
     visible: selectSceneCardInsights(
       candidates,
@@ -1831,8 +1959,6 @@ export function getSceneCardInsightSets(
     ),
     all: selectAllSceneCardInsights(candidates),
     candidates, // CUSTOM: Stats uses the same candidates and selection as cards.
-    visibleInsightLimit: thresholds.visibleInsightLimit,
-    goatOpensActivityMatrix,
     outstandingActivityMatrix,
   };
 }

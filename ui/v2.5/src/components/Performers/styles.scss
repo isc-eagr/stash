@@ -54,68 +54,19 @@
     }
   }
 
-  /* CUSTOM: begin - activity-time cards beside the performer header details */
+  /* CUSTOM: begin - versatility bars beside the performer header details */
   .performer-header-activity {
     align-self: flex-start;
     padding-top: 0.35rem;
-  }
-
-  /* Two cells: a smaller Activity Time cell and a wider Versatility cell. */
-  .performer-header-activity-grid {
-    align-items: start;
-    display: grid;
-    gap: 1rem;
-    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
 
     .performer-versatility {
       margin-top: 0;
     }
   }
 
-  /* Match the detail-item typography; the scene overview drawer keeps the compact sizes. */
-  .performer-header-activity {
-    .performer-activity-time-metric,
-    .performer-versatility-scale {
-      padding: 0.65rem 0.8rem;
-    }
-
-    .performer-activity-time-metric {
-      span {
-        color: #868791;
-        font-size: 1rem;
-        font-weight: 700;
-      }
-
-      strong {
-        font-size: 1.4rem;
-        line-height: 1.2;
-      }
-    }
-
-    .performer-versatility-heading h3 {
-      color: #868791;
-      font-size: 1rem;
-      font-weight: 700;
-    }
-
-    .performer-versatility-chip,
-    .performer-versatility-empty {
-      font-size: 0.85rem;
-    }
-
-    .performer-versatility-ends {
-      font-size: 0.9rem;
-    }
-  }
-
   @media (max-width: 991.98px) {
     .performer-header-activity {
       margin-top: 0.75rem;
-    }
-  }
-  @media (max-width: 575.98px) {
-    .performer-header-activity-grid {
-      grid-template-columns: minmax(0, 1fr);
     }
   }
 
@@ -195,11 +146,6 @@
   gap: 0.45rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 0.65rem;
-}
-
-/* CUSTOM: performer header rows: sex boxes, oral boxes, then the solo box. */
-.performer-activity-time--rows .performer-activity-time-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .performer-activity-time-metric {
@@ -314,27 +260,6 @@
     opacity: 1;
   }
 
-  &__age {
-    color: $muted-gray;
-
-    /* Ensure age line doesn't inherit heading styles when rendered inside the title */
-    display: block;
-    font-family: $font-family-base; /* ensure body font family, not heading */
-    font-size: 1rem; /* standard body size */
-    font-weight: normal;
-    letter-spacing: normal;
-    line-height: 1.2;
-    margin-top: 0.15rem;
-
-    /* CUSTOM: begin - reserve space and normalize font for age line */
-
-    /* Reserve space even when age is not present */
-    min-height: 1.1rem; /* roughly one line of body text */
-    text-transform: none;
-
-    /* CUSTOM: end */
-  }
-
   // allow country string to be shown, but disable by default
   &__country-string {
     display: none;
@@ -386,16 +311,12 @@
     border-radius: 6px;
     display: grid;
     gap: 0.24rem;
-    grid-template-rows: 1.5rem 1.5rem 3.25rem;
+    grid-template-rows: 1.5rem;
     justify-items: center;
     min-width: 0;
     overflow: visible;
     padding: 0.1rem 0;
     width: 100%;
-
-    &.scene-context-role-badge-item {
-      grid-template-rows: 1.5rem 1.5rem 4.45rem;
-    }
 
     .category-icon-container {
       align-items: center;
@@ -410,26 +331,6 @@
       overflow: hidden;
       white-space: nowrap;
       width: 100%;
-
-      &.unique-partners-row {
-        gap: 0.08rem;
-        grid-row: 2;
-
-        .role-badge-link,
-        > span {
-          align-items: center;
-          display: inline-flex;
-          gap: 0.08rem;
-          justify-content: center;
-        }
-
-        .fa-icon,
-        svg {
-          font-size: 1.08rem;
-          margin: 0;
-          width: 1.08rem;
-        }
-      }
 
       .category-icon {
         filter: brightness(0) invert(1); /* Make white */
@@ -469,8 +370,7 @@
       }
     }
 
-    .role-total-count,
-    .arrow-count {
+    .role-total-count {
       align-items: center;
       color: white;
       display: inline-flex;
@@ -482,125 +382,6 @@
       line-height: 1;
       min-width: 0;
       text-align: center;
-    }
-
-    .solo-count,
-    .orgasm-count,
-    .feet-count {
-      align-items: center;
-      display: inline-flex;
-      grid-row: 2;
-      justify-content: center;
-      min-height: 1.5rem;
-      min-width: 0;
-      width: 100%;
-    }
-
-    .role-arrows {
-      align-self: start;
-      display: grid;
-      gap: 0.16rem;
-      grid-row: 3;
-      grid-template-rows: repeat(2, 1.2rem);
-      justify-items: center;
-      min-height: 2.56rem;
-      min-width: 0;
-      width: 100%;
-
-      .arrow-badge {
-        align-items: center;
-        border-radius: 6px !important;
-        box-sizing: border-box;
-        display: inline-flex !important;
-        font-size: 0.7rem !important;
-        gap: 0.03rem !important;
-        height: 1.2rem;
-        justify-content: flex-start;
-        line-height: 1;
-        max-width: 2.15rem;
-        min-height: 1.2rem;
-        min-width: 1.95rem;
-        overflow: hidden;
-        padding: 0 0.18rem !important;
-        width: 100%;
-
-        .fa-icon {
-          flex: 0 0 0.72rem;
-          font-size: 0.74rem;
-          margin: 0;
-          width: 0.72rem;
-        }
-
-        .arrow-main {
-          align-items: center;
-          display: inline-flex;
-          gap: 0.06rem;
-          justify-content: flex-start;
-          line-height: 1;
-          min-width: 0;
-          width: 100%;
-        }
-
-        .arrow-count {
-          flex: 1 1 auto;
-          font-weight: 600;
-          min-width: 0.45rem;
-          text-align: right;
-        }
-      }
-
-      &.scene-role-arrows {
-        gap: 0.18rem;
-        grid-template-rows: repeat(2, 1.35rem);
-        min-height: 2.88rem;
-
-        .scene-role-badge {
-          border-radius: 6px !important;
-          flex-direction: row;
-          height: 1.35rem;
-          justify-content: center;
-          max-width: 1.9rem;
-          min-height: 1.35rem;
-          min-width: 1.65rem;
-          padding: 0 0.28rem !important;
-
-          .arrow-main {
-            justify-content: center;
-          }
-
-          &.scene-role-badge-with-count {
-            gap: 0.03rem !important;
-            max-width: 2.15rem;
-            min-width: 1.95rem;
-            padding: 0 0.18rem !important;
-
-            .arrow-count {
-              min-width: 0.45rem;
-            }
-          }
-        }
-      }
-
-      .role-badge-placeholder {
-        visibility: hidden;
-      }
-
-      /* Force white text and arrow icons on the bootstrap badges for visibility */
-      .top-badge {
-        color: white !important;
-
-        .arrow-count {
-          color: white !important;
-        }
-      }
-
-      .bottom-badge {
-        color: white !important;
-
-        .arrow-count {
-          color: white !important;
-        }
-      }
     }
   }
 }

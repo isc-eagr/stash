@@ -67,7 +67,7 @@
       align-items: start;
       column-gap: 1.25rem;
       display: grid;
-      grid-template-columns: minmax(14rem, 24%) minmax(0, 1fr);
+      grid-template-columns: minmax(10rem, 18%) minmax(0, 1fr);
       row-gap: 0.65rem;
     }
 
@@ -83,15 +83,6 @@
     .scene-marker-activity-config-performers {
       grid-column: 1;
       grid-row: 2 / span 2;
-    }
-
-    .scene-marker-activity-performer {
-      max-width: 6.5rem;
-      min-width: 6.5rem;
-    }
-
-    .scene-marker-activity-performer-image {
-      width: 6.5rem;
     }
 
     .scene-marker-activity-lane {

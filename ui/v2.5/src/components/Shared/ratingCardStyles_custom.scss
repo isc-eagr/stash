@@ -373,11 +373,9 @@
   .scene-marker-card__scene,
   .scene-marker-card__details,
   .scene-group-scene-number,
-  .performer-card__age,
   .studio-overlay a,
   .performer-role-badges,
   .role-total-count,
-  .arrow-count,
   .count-button span,
   .card-popovers span {
     color: rgb(var(--rating-card-text-rgb));
@@ -430,9 +428,7 @@
   .performer-role-badges,
   .performer-role-badges .role-badge-item,
   .performer-role-badges .category-icon-container,
-  .performer-role-badges .role-badge-link,
-  .performer-role-badges .role-arrows,
-  .performer-role-badges .arrow-badge {
+  .performer-role-badges .role-badge-link {
     color: rgb(var(--rating-card-text-rgb)) !important;
   }
 
@@ -445,8 +441,7 @@
   .scene-category-count,
   .scene-category-count span,
   .performer-role-badges span,
-  .performer-role-badges .role-total-count,
-  .performer-role-badges .arrow-count {
+  .performer-role-badges .role-total-count {
     color: rgb(var(--rating-card-text-rgb)) !important;
   }
 
@@ -492,19 +487,6 @@
 
   .performer-role-badges .role-badge-item {
     background: transparent !important;
-  }
-
-  .performer-role-badges .arrow-badge {
-    box-shadow: 0 0 12px rgba(var(--rating-card-accent-rgb), 0.12),
-      inset 0 0 10px rgba(var(--rating-card-accent-rgb), 0.08);
-  }
-
-  .performer-role-badges .top-badge.arrow-badge {
-    border-color: rgba(23, 162, 184, 0.9) !important;
-  }
-
-  .performer-role-badges .bottom-badge.arrow-badge {
-    border-color: rgba(40, 167, 69, 0.92) !important;
   }
 
   /* CUSTOM: card versatility counts keep their role colors over the card link color. */
@@ -776,11 +758,9 @@
   .scene-marker-card__scene,
   .scene-marker-card__details,
   .scene-group-scene-number,
-  .performer-card__age,
   .studio-overlay a,
   .performer-role-badges,
   .role-total-count,
-  .arrow-count,
   .count-button span,
   .card-popovers span {
     color: rgb(var(--rating-card-text-rgb));
@@ -815,14 +795,6 @@
     background: rgba(var(--rating-card-accent-rgb), 0.12);
     border: 1px solid rgba(var(--rating-card-accent-rgb), 0.28);
     color: rgb(var(--rating-card-name-rgb));
-  }
-
-  .performer-role-badges .top-badge.arrow-badge {
-    border-color: rgba(23, 162, 184, 0.88) !important;
-  }
-
-  .performer-role-badges .bottom-badge.arrow-badge {
-    border-color: rgba(40, 167, 69, 0.9) !important;
   }
 
   /* CUSTOM: card versatility counts keep their role colors over the card link color. */
@@ -1096,11 +1068,9 @@
   .scene-marker-card__scene,
   .scene-marker-card__details,
   .scene-group-scene-number,
-  .performer-card__age,
   .studio-overlay a,
   .performer-role-badges,
   .role-total-count,
-  .arrow-count,
   .count-button span,
   .card-popovers span {
     color: rgb(var(--rating-card-text-rgb));
@@ -1146,14 +1116,6 @@
     color: inherit;
     filter: none;
     -webkit-filter: none;
-  }
-
-  .performer-role-badges .top-badge.arrow-badge {
-    border-color: rgba(23, 162, 184, 0.92) !important;
-  }
-
-  .performer-role-badges .bottom-badge.arrow-badge {
-    border-color: rgba(40, 167, 69, 0.94) !important;
   }
 
   /* CUSTOM: card versatility counts keep their role colors over the card link color. */

@@ -16,6 +16,7 @@ import {
 } from "./sceneMarkerChronologySearch_custom";
 import { isChronologicalSceneMarkerGoatTagged } from "./sceneMarkerChronologyLayout_custom";
 import { useScenePerformerOverview } from "./ScenePerformerOverviewPanel_custom";
+import { VatoPortraitHover } from "src/components/Shared/VatoPortraitHover_custom";
 
 export type MarkerRatingCardClassGetter = (
   marker: Pick<GQL.SceneMarkerDataFragment, "primary_tag" | "tags">
@@ -70,6 +71,8 @@ export const ActivityTypePerformerTile: React.FC<{
   detailLink?: string;
   title?: string;
   children?: React.ReactNode;
+  // Small inline tiles (Markers tab) show the big portrait on hover.
+  hoverPortrait?: boolean;
 }> = ({
   performer,
   role,
@@ -79,6 +82,7 @@ export const ActivityTypePerformerTile: React.FC<{
   detailLink,
   title,
   children,
+  hoverPortrait = false,
 }) => {
   const performerOverview = useScenePerformerOverview();
   const portrait = performer.image_path ? (
@@ -86,6 +90,15 @@ export const ActivityTypePerformerTile: React.FC<{
   ) : (
     <Icon icon={faUser} />
   );
+
+  const wrapPortrait = (element: React.ReactElement) =>
+    hoverPortrait ? (
+      <VatoPortraitHover imagePath={performer.image_path} name={performer.name}>
+        {element}
+      </VatoPortraitHover>
+    ) : (
+      element
+    );
 
   return (
     <div
@@ -100,38 +113,42 @@ export const ActivityTypePerformerTile: React.FC<{
         (role ? `${role}: ${performer.name}` : performer.name ?? undefined)
       }
     >
-      {detailLink ? (
-        <Link
-          to={detailLink}
-          aria-label={`Open ${performer.name ?? "vato"} details`}
-          className={cx(
-            "scene-marker-activity-performer-image scene-marker-activity-performer-detail-link",
-            imageClassName
-          )}
-        >
-          {portrait}
-        </Link>
-      ) : performerOverview ? (
-        <button
-          type="button"
-          aria-label={`Open ${performer.name ?? "vato"} overview`}
-          className={cx(
-            "scene-marker-activity-performer-image scene-marker-activity-performer-image-button",
-            imageClassName
-          )}
-          onClick={() => performerOverview.openPerformerOverview(performer.id)}
-        >
-          {portrait}
-        </button>
-      ) : (
-        <div
-          className={cx(
-            "scene-marker-activity-performer-image",
-            imageClassName
-          )}
-        >
-          {portrait}
-        </div>
+      {wrapPortrait(
+        detailLink ? (
+          <Link
+            to={detailLink}
+            aria-label={`Open ${performer.name ?? "vato"} details`}
+            className={cx(
+              "scene-marker-activity-performer-image scene-marker-activity-performer-detail-link",
+              imageClassName
+            )}
+          >
+            {portrait}
+          </Link>
+        ) : performerOverview ? (
+          <button
+            type="button"
+            aria-label={`Open ${performer.name ?? "vato"} overview`}
+            className={cx(
+              "scene-marker-activity-performer-image scene-marker-activity-performer-image-button",
+              imageClassName
+            )}
+            onClick={() =>
+              performerOverview.openPerformerOverview(performer.id)
+            }
+          >
+            {portrait}
+          </button>
+        ) : (
+          <div
+            className={cx(
+              "scene-marker-activity-performer-image",
+              imageClassName
+            )}
+          >
+            {portrait}
+          </div>
+        )
       )}
       {imageAccessory}
       {detailLink ? (

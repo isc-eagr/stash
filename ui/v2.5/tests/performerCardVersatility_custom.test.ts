@@ -22,23 +22,59 @@ const detailSource = readFileSync(
 
 assert.match(
   cardSource,
-  /versatilityCard=\{!sceneId\}/,
-  "performer cards use versatility strips only outside scene context"
+  /<PerformerCategoryStrip[\s\S]*?\n\s*versatilityCard\n/,
+  "performer cards use versatility strips inside and outside scenes"
+);
+assert.match(
+  readFileSync(
+    new URL(
+      "../src/components/Scenes/SceneCardPerformerPopover_custom.tsx",
+      import.meta.url
+    ),
+    "utf8"
+  ),
+  /<PerformerCategoryStrip[\s\S]*?sceneId=\{scene\.id\}[\s\S]*?versatilityCard/,
+  "the scene card performer-count popover uses scene-only versatility strips"
 );
 assert.doesNotMatch(
   detailSource,
   /versatilityCard/,
   "the performer detail header keeps the full role strip"
 );
+assert.doesNotMatch(
+  detailSource,
+  /PerformerActivityTime/,
+  "the performer detail header shows only the versatility bars"
+);
+assert.match(
+  detailSource,
+  /<PerformerVersatility\s+className="performer-versatility--detail"/,
+  "the header bars use the shared detail sizes"
+);
 assert.match(
   stripSource,
-  /if \(versatilityCard && role\.category !== "solo"\)[\s\S]*?<PerformerCardVersatilityRow/,
+  /if \(versatilityCard && !inStrip && role\.category !== "solo"\)[\s\S]*?<PerformerCardVersatilityRow/,
   "sex, oral, and facial columns become versatility rows on cards"
 );
 assert.match(
   stripSource,
-  /const stripRoles = versatilityCard\s*\? safeRolesToShow\.filter\(\(role\) => role\.category === "solo"\)/,
-  "jerk stays in the icon strip with orgasm and feet below the rows"
+  /const stripRoles = safeRolesToShow;/,
+  "every role icon stays in the strip with orgasm and feet below the rows"
+);
+assert.doesNotMatch(
+  stripSource,
+  /arrow-badge|faArrowUp|faArrowDown/,
+  "the role strip no longer renders Top/Bottom arrow badges"
+);
+assert.match(
+  stripSource,
+  /partnerTopCount: sceneFacialTopPartners[\s\S]*?partnerBottomCount: sceneFacialBottomPartners/,
+  "scene card facial strips count facial partners in the scene"
+);
+assert.match(
+  stripSource,
+  /bottomUrl=\{sceneId \? undefined : bottomUrl\}[\s\S]*?topUrl=\{sceneId \? undefined : topUrl\}/,
+  "scene card counts do not link to all-scenes results"
 );
 
 assert.match(

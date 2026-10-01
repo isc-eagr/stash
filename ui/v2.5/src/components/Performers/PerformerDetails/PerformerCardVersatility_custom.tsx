@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { HoverPopover } from "src/components/Shared/HoverPopover";
 import {
   performerVersatility,
   versatilityRoleText,
@@ -10,6 +11,7 @@ import "./versatilityScale_custom.scss";
 
 // CUSTOM: one-line versatility strip used by performer cards in place of the
 // sex/oral/facial role columns. Bottom partners on the left, top on the right.
+// Scene cards pass partner portraits to show when hovering a count.
 export const PerformerCardVersatilityRow: React.FC<{
   category: VersatilityCategory;
   icon: React.ReactNode;
@@ -20,6 +22,8 @@ export const PerformerCardVersatilityRow: React.FC<{
   bottomUrl?: string;
   linkTarget?: React.HTMLAttributeAnchorTarget;
   highlighted?: boolean;
+  topPartners?: JSX.Element;
+  bottomPartners?: JSX.Element;
 }> = ({
   category,
   icon,
@@ -30,19 +34,21 @@ export const PerformerCardVersatilityRow: React.FC<{
   bottomUrl,
   linkTarget,
   highlighted = false,
+  topPartners,
+  bottomPartners,
 }) => {
   const versatility = performerVersatility(toppedPartners, bottomedPartners);
   const topText = versatilityRoleText(category, "top", toppedPartners);
   const bottomText = versatilityRoleText(category, "bottom", bottomedPartners);
   const summary = versatility
-    ? `${versatility.label}. ${bottomText}. ${topText}.`
+    ? `${versatility.label}. ${bottomText} (${versatility.bottomPercent}%). ${topText} (${versatility.topPercent}%).`
     : "No partners recorded";
 
-  const count = (
+  const countElement = (
     value: number,
     role: "top" | "bottom",
     url: string | undefined,
-    text: string
+    text: string | undefined
   ) =>
     url && value > 0 ? (
       <Link
@@ -62,6 +68,28 @@ export const PerformerCardVersatilityRow: React.FC<{
       </span>
     );
 
+  const count = (
+    value: number,
+    role: "top" | "bottom",
+    url: string | undefined,
+    text: string,
+    partners: JSX.Element | undefined
+  ) => {
+    // The partner popover replaces the plain tooltip.
+    const element = countElement(value, role, url, partners ? undefined : text);
+    return partners ? (
+      <HoverPopover
+        content={partners}
+        placement="bottom"
+        popoverClassName="performer-partner-hover-popover"
+      >
+        {element}
+      </HoverPopover>
+    ) : (
+      element
+    );
+  };
+
   return (
     <div
       className={`performer-card-versatility-row${
@@ -80,7 +108,7 @@ export const PerformerCardVersatilityRow: React.FC<{
       ) : (
         <span className="performer-card-versatility-icon">{icon}</span>
       )}
-      {count(bottomedPartners, "bottom", bottomUrl, bottomText)}
+      {count(bottomedPartners, "bottom", bottomUrl, bottomText, bottomPartners)}
       <span
         aria-label={`${category}: ${summary}`}
         className="performer-card-versatility-track"
@@ -97,7 +125,7 @@ export const PerformerCardVersatilityRow: React.FC<{
           />
         )}
       </span>
-      {count(toppedPartners, "top", topUrl, topText)}
+      {count(toppedPartners, "top", topUrl, topText, topPartners)}
     </div>
   );
 };

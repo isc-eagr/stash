@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import * as GQL from "src/core/generated-graphql";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { useConfigurationContext } from "src/hooks/Config";
-import { FormattedMessage, useIntl } from "react-intl";
+import { FormattedMessage } from "react-intl";
 import { PatchComponent } from "src/patch";
 import { GridCard } from "../../Shared/GridCard/GridCard";
 import { CountryFlag } from "../../Shared/CountryFlag";
@@ -64,18 +64,7 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
   roleCategory,
   roleType,
 }) => {
-  const intl = useIntl();
   const { configuration } = useConfigurationContext();
-
-  const age = TextUtils.age(performer.birthdate, performer.death_date);
-  const ageL10String = intl.formatMessage({
-    id: "years_old",
-    defaultMessage: "years old",
-  });
-  const ageString = intl.formatMessage(
-    { id: "media_info.performer_card.age" },
-    { age, years_old: ageL10String }
-  );
 
   // Get role tag IDs
   const roleTagIds = configuration?.ui?.roleTagIds ?? {};
@@ -210,11 +199,6 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
               </Link>
             )}
           </>
-        }
-        details={
-          <div className="performer-card__age">
-            {age !== 0 ? ageString : "\u00A0"}
-          </div>
         }
         popovers={
           sharedScenesUrl && sharedSceneCount > 0 ? (

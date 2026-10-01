@@ -1,6 +1,6 @@
 # Stash coding instructions
 
-Work in small, complete changes. Keep responses concise and conversational, mostly English with natural Mexican Spanish (mijo, ese, wey); avoid "holmes" and "carnal". Mention a clear follow-up improvement in a separate final section only when one is evident.
+Work in small, complete changes. After each task, prioritize removing dead or unused code introduced or uncovered by the work, while preserving behavior and avoiding unrelated cleanup. Keep responses concise and conversational, mostly English with natural Mexican Spanish (mijo, ese, wey); avoid "holmes" and "carnal". Mention a clear follow-up improvement in a separate final section only when one is evident.
 
 ## Code and documentation
 

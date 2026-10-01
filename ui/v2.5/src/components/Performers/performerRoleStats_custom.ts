@@ -80,12 +80,20 @@ export function usePerformerCardRoleStats(
   performers: Array<{ id: string }>,
   skip?: boolean
 ) {
+  return usePerformerCardRoleStatsState(performers, skip).roleStatsByPerformer;
+}
+
+// CUSTOM: exposes loading so scene insights can wait for history-backed chips.
+export function usePerformerCardRoleStatsState(
+  performers: Array<{ id: string }>,
+  skip?: boolean
+) {
   // Canonical IDs let reordered/duplicated card lists share the same cache entry.
   // useQuery compares variable values without an extra effect-driven load cycle.
   const performerIDs = Array.from(
     new Set(performers.map((p) => p.id).filter((id) => id !== ""))
   ).sort();
-  const { data: roleStatsData } = useQuery<
+  const { data: roleStatsData, loading } = useQuery<
     IPerformerCardRoleStatsQueryData,
     IPerformerCardRoleStatsQueryVariables
   >(PerformerCardRoleStatsQuery, {
@@ -94,7 +102,7 @@ export function usePerformerCardRoleStats(
     skip: skip || performerIDs.length === 0,
   });
 
-  return useMemo(() => {
+  const roleStatsByPerformer = useMemo(() => {
     const ret = new Map<string, IPerformerRoleStats>();
 
     roleStatsData?.performerRoleStats.forEach((p) => {
@@ -131,6 +139,7 @@ export function usePerformerCardRoleStats(
 
     return ret;
   }, [roleStatsData]);
+  return { roleStatsByPerformer, loading };
 }
 
 // CUSTOM: detail, hover, and profile cards show exact marker totals for these badges.

@@ -147,6 +147,7 @@ interface ISceneCardProps {
     string,
     SceneCardInsightPerformerRoleStats
   >; // CUSTOM
+  roleStatsPending?: boolean; // CUSTOM
 }
 
 const Description: React.FC<{
@@ -387,6 +388,7 @@ const SceneCardPopovers = PatchComponent(
           <SceneCardInsights
             scene={props.scene}
             roleStatsByPerformer={props.roleStatsByPerformer}
+            roleStatsPending={props.roleStatsPending}
           />
           {shouldRenderPopoverGroup && (
             <>

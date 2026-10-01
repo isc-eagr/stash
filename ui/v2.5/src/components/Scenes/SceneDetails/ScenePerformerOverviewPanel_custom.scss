@@ -370,10 +370,11 @@
   }
 }
 
+/* Compact In This Scene portraits; hovering one shows it large. */
 .scene-performer-overview-interaction-partners {
   display: grid;
   gap: 0.55rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, 4.5rem);
 }
 
 .scene-performer-overview-interaction-partner {
@@ -389,6 +390,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .vato-portrait-hover,
+  .vato-portrait-hover-trigger {
+    display: block;
   }
 
   &:hover,

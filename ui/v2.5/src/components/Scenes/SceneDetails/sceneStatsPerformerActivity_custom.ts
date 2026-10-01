@@ -10,32 +10,10 @@ export interface ISceneStatsCombinedPerformerActivityMetric
   topPercent: number;
 }
 
-export interface ISceneStatsPerformerActivityLabels {
-  performerParticipationLabel: string;
-  sceneTotalLabel: string;
-}
-
 function percent(seconds: number, totalSeconds: number) {
   if (totalSeconds <= 0) return 0;
 
   return Math.round((seconds / totalSeconds) * 100);
-}
-
-export function getSceneStatsPerformerActivityLabels(
-  category: "both" | "oral" | "sex" | "solo"
-): ISceneStatsPerformerActivityLabels {
-  const activityLabel =
-    category === "both"
-      ? "Overall"
-      : category[0].toUpperCase() + category.slice(1);
-
-  return {
-    performerParticipationLabel: `Performer ${activityLabel} Participation`,
-    sceneTotalLabel:
-      category === "both"
-        ? "Total Scene Overall Activity (Sex + Oral)"
-        : `Total Scene ${activityLabel} Activity`,
-  };
 }
 
 export function getSceneStatsPerformerActivityPercent(
@@ -43,13 +21,6 @@ export function getSceneStatsPerformerActivityPercent(
   activitySeconds: number
 ) {
   return percent(performerSeconds, activitySeconds);
-}
-
-export function shouldShowSceneStatsPerformerParticipation(
-  performerCount: number,
-  category: "both" | "oral" | "sex" | "solo"
-) {
-  return category === "solo" || performerCount >= 3;
 }
 
 export function getSceneStatsCombinedPerformerActivity(

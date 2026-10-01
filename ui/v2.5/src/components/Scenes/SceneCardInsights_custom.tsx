@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { faExternalLinkAlt } from "@fortawesome/free-solid-svg-icons";
+import { faTable } from "@fortawesome/free-solid-svg-icons";
 import { Overlay, OverlayTrigger, Popover, Tooltip } from "react-bootstrap";
 import { useConfigurationContext } from "src/hooks/Config";
 import { HoverPopover } from "../Shared/HoverPopover";
@@ -31,6 +31,9 @@ interface ISceneCardInsightsProps {
     string,
     SceneCardInsightPerformerRoleStats
   >;
+  // CUSTOM: hold the strip until history-backed chips can join it, so cards
+  // do not reflow when performer role stats arrive.
+  roleStatsPending?: boolean;
   detailPage?: boolean;
 }
 
@@ -62,14 +65,8 @@ export const SceneCardInsightChip = React.forwardRef<
 SceneCardInsightChip.displayName = "SceneCardInsightChip";
 
 function SceneCardInsightDetail({ detail }: Pick<ISceneCardInsight, "detail">) {
-  // CUSTOM: Merged-tag detail strings from older and current data contain one
-  // of these bullet encodings. Render each part as its own readable line.
-  const separators = [
-    String.fromCharCode(183),
-    String.fromCharCode(194, 183),
-    String.fromCharCode(195, 8218, 194, 183),
-  ];
-  const parts = detail.split(new RegExp(`\\s*(?:${separators.join("|")})\\s*`));
+  // CUSTOM: Render each middle-dot separated part as its own readable line.
+  const parts = detail.split(/\s*·\s*/);
 
   return (
     <>
@@ -193,6 +190,7 @@ function SceneCardInsightPerformersPopover({
 export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
   scene,
   roleStatsByPerformer,
+  roleStatsPending,
   detailPage,
 }) => {
   const { configuration } = useConfigurationContext();
@@ -224,20 +222,16 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
       scene,
     ]
   );
-  if (insightSets.visible.length === 0) return null;
+  if (roleStatsPending || insightSets.visible.length === 0) return null;
   const hasOverflow = hasSceneCardInsightOverflow(
     insightSets.all.length,
-    insightSets.visibleInsightLimit
+    insightSets.visible.length
   );
 
   const renderInsightChip = (insight: ISceneCardInsight) => {
-    const opensActivityMatrix =
-      insight.key === "outstanding-activity" ||
-      insight.key === "outstanding-activity-presence" ||
-      insight.key.startsWith("goat-");
+    const opensActivityMatrix = !!insight.opensActivityMatrix;
     const hasOrgasmFacialEvents = insight.orgasmFacialEvents !== undefined;
     const orgasmFacialEventCount = insight.orgasmFacialEvents?.length ?? 0;
-    const hasEventPortraits = hasOrgasmFacialEvents;
     const ariaLabel = hasOrgasmFacialEvents
       ? `${insight.label}: event performers and quality.`
       : `${insight.label}: ${insight.detail}`;
@@ -253,7 +247,9 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
           opensActivityMatrix
             ? "scene-card-insight-clickable"
             : insight.key === "orgasm-facial-report"
-            ? "scene-card-insight-orgasm-facial-report"
+            ? `scene-card-insight-orgasm-facial-report${
+                insight.hasGoatEvent ? " scene-card-insight-event-goat" : ""
+              }`
             : undefined
         }
         label={
@@ -263,7 +259,7 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
               <Icon
                 aria-hidden="true"
                 className="scene-card-insight-modal-icon"
-                icon={faExternalLinkAlt}
+                icon={faTable}
               />
             )}
           </>
@@ -295,7 +291,7 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
       />
     );
 
-    if (hasEventPortraits) {
+    if (hasOrgasmFacialEvents) {
       return (
         <HoverPopover
           key={insight.key}
@@ -325,9 +321,7 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
       );
     }
 
-    const performerPreviews =
-      insight.performerPreviews ??
-      (insight.performerPreview ? [insight.performerPreview] : undefined);
+    const { performerPreviews } = insight;
     if (performerPreviews) {
       return (
         <HoverPopover

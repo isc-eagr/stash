@@ -21,6 +21,7 @@ import { PerformerSceneAverageRating } from "src/components/Performers/Performer
 import { getPerformerRolePartnerSectionTitle } from "src/components/Performers/performerRolePartnerLabels_custom";
 import { AliasList } from "src/components/Shared/DetailsPage/AliasList";
 import { HoverPopover } from "src/components/Shared/HoverPopover";
+import { VatoPortraitHover } from "src/components/Shared/VatoPortraitHover_custom"; // CUSTOM
 import { Icon } from "src/components/Shared/Icon";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { RatingBanner } from "src/components/Shared/RatingBanner";
@@ -362,17 +363,23 @@ const ScenePerformerOverviewPanel: React.FC<{
                             to={`/performers/${partner.id}`}
                             {...SCENE_PERFORMER_OVERVIEW_LINK_PROPS}
                           >
-                            <span className="scene-performer-overview-interaction-image">
-                              {partner.image_path ? (
-                                <img
-                                  alt={partner.name}
-                                  loading="lazy"
-                                  src={partner.image_path}
-                                />
-                              ) : (
-                                <Icon icon={faUser} />
-                              )}
-                            </span>
+                            {/* CUSTOM: compact portrait; hover shows it large */}
+                            <VatoPortraitHover
+                              imagePath={partner.image_path}
+                              name={partner.name}
+                            >
+                              <span className="scene-performer-overview-interaction-image">
+                                {partner.image_path ? (
+                                  <img
+                                    alt={partner.name}
+                                    loading="lazy"
+                                    src={partner.image_path}
+                                  />
+                                ) : (
+                                  <Icon icon={faUser} />
+                                )}
+                              </span>
+                            </VatoPortraitHover>
                             <span>{partner.name}</span>
                           </Link>
                         ))}

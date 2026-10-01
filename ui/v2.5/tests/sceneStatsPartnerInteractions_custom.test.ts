@@ -11,7 +11,6 @@ import {
   getSceneStatsPartnerBarPercent,
   getSceneStatsPartnerRoleBreakdown,
   getSceneStatsPartnerInteractions,
-  getSceneStatsRoleInteractionCategories,
   getSceneStatsRoleInteractionKey,
   getSceneStatsRoleInteractions,
   getSceneStatsRoleInteractionView,
@@ -319,21 +318,6 @@ const mainTopsChase = directionalInteractions.find(
 );
 
 assert.ok(mainTopsChase, "the matrix includes the Top-to-Bottom direction");
-assert.deepEqual(
-  getSceneStatsRoleInteractionCategories(mainTopsChase, "both"),
-  ["sex", "oral"],
-  "an Overall directional lane selects its available Sex and Oral intervals"
-);
-assert.deepEqual(
-  getSceneStatsRoleInteractionCategories(mainTopsChase, "sex"),
-  ["sex"],
-  "an activity directional lane selects only its own interval category"
-);
-assert.deepEqual(
-  getSceneStatsRoleInteractionCategories(mainTopsChase, "oral"),
-  ["oral"],
-  "each populated directional lane remains independently selectable"
-);
 assert.ok(
   directionalInteractions.some(
     (interaction) =>

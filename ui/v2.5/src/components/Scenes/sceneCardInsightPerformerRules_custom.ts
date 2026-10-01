@@ -61,7 +61,10 @@ export function getPerformerLineupCandidates(
   if (favoritePerformers.length > 0) {
     candidates.push({
       key: "lineup-favorite-vatos",
-      label: `Favorite Vatos ×${favoritePerformers.length}`,
+      label:
+        favoritePerformers.length === 1
+          ? "Favorite Vato"
+          : `Favorite Vatos ×${favoritePerformers.length}`,
       detail: performerNames(
         favoritePerformers.map((performer) => performer.name)
       ),

@@ -1,5 +1,4 @@
 import type * as GQL from "src/core/generated-graphql";
-import { isChronologicalSceneMarkerGoatTagged } from "./SceneDetails/sceneMarkerChronologyLayout_custom";
 import {
   getActivityTypePercentagesCustom,
   getPartitionPercentagesCustom,
@@ -83,7 +82,26 @@ export type SceneActivityScene = Pick<GQL.SlimSceneDataFragment, "id"> & {
     start_seconds: number;
     end_seconds: number;
   }>;
+  // CUSTOM: flattened ancestry; marker tags only carry their direct parents.
+  scene_marker_tag_ancestors?: Array<{
+    tag_id: string;
+    ancestor_ids: string[];
+  }>;
 };
+
+export type SceneActivityTagAncestors = ReadonlyMap<string, readonly string[]>;
+
+// CUSTOM: shared with the scene Stats tab so both classify markers alike.
+export function sceneActivityTagAncestors(
+  scene: Pick<SceneActivityScene, "scene_marker_tag_ancestors">
+): SceneActivityTagAncestors {
+  return new Map(
+    (scene.scene_marker_tag_ancestors ?? []).map(({ tag_id, ancestor_ids }) => [
+      tag_id,
+      ancestor_ids,
+    ])
+  );
+}
 
 function sceneActivityMarkerHasPrimaryTag(
   marker: SceneActivityScene["scene_markers"][number],
@@ -92,7 +110,7 @@ function sceneActivityMarkerHasPrimaryTag(
   return !!targetId && marker.primary_tag.id === targetId;
 }
 
-function sceneActivityMarkerCategory(
+export function sceneActivityMarkerCategory(
   marker: SceneActivityScene["scene_markers"][number],
   roleTagIds: SceneActivityRoleTagIds
 ): SceneActivityCategory | undefined {
@@ -111,44 +129,50 @@ function sceneActivityMarkerCategory(
 
 function sceneActivityTagMatches(
   tag: SceneActivityMetricTag,
-  targetTagId: string | undefined
+  targetTagId: string | undefined,
+  ancestors: SceneActivityTagAncestors
 ): boolean {
   return (
     !!targetTagId &&
     (tag.id === targetTagId ||
+      !!ancestors.get(tag.id)?.includes(targetTagId) ||
       !!tag.parents?.some((parent) =>
-        sceneActivityTagMatches(parent, targetTagId)
+        sceneActivityTagMatches(parent, targetTagId, ancestors)
       ))
   );
 }
 
 function sceneActivityMarkerHasTag(
   marker: SceneActivityScene["scene_markers"][number],
-  targetTagId: string | undefined
+  targetTagId: string | undefined,
+  ancestors: SceneActivityTagAncestors
 ) {
   return [marker.primary_tag, ...marker.tags].some((tag) =>
-    sceneActivityTagMatches(tag, targetTagId)
+    sceneActivityTagMatches(tag, targetTagId, ancestors)
   );
 }
 
-function sceneActivityMarkerIsOutstanding(
+export function sceneActivityMarkerIsOutstanding(
   marker: SceneActivityScene["scene_markers"][number],
-  roleTagIds: SceneActivityRoleTagIds
+  roleTagIds: SceneActivityRoleTagIds,
+  ancestors: SceneActivityTagAncestors
 ): boolean {
   // CUSTOM: every timed non-activity marker is Outstanding across its full range.
   if (!sceneActivityMarkerCategory(marker, roleTagIds)) return true;
 
+  const isGoat = sceneActivityMarkerHasTag(
+    marker,
+    roleTagIds.goatTagId,
+    ancestors
+  );
   // Orgasm-tagged activity markers need an explicit Really Hot/GOAT qualifier.
-  if (sceneActivityMarkerHasTag(marker, roleTagIds.orgasmTagId)) {
+  if (sceneActivityMarkerHasTag(marker, roleTagIds.orgasmTagId, ancestors)) {
     return (
-      isChronologicalSceneMarkerGoatTagged(marker, roleTagIds.goatTagId) ||
-      sceneActivityMarkerHasTag(marker, roleTagIds.reallyHotTagId)
+      isGoat ||
+      sceneActivityMarkerHasTag(marker, roleTagIds.reallyHotTagId, ancestors)
     );
   }
-  return (
-    isChronologicalSceneMarkerGoatTagged(marker, roleTagIds.goatTagId) ||
-    marker.tags.length > 0
-  );
+  return isGoat || marker.tags.length > 0;
 }
 
 function mergeSceneActivityIntervals(
@@ -242,7 +266,10 @@ export type SceneMarkerCountKeyCustom =
 // matching the backend marker-count sorts. Undefined when the needed role tags
 // are not configured.
 export function getSceneMarkerCountCustom(
-  scene: Pick<SceneActivityScene, "scene_markers">,
+  scene: Pick<
+    SceneActivityScene,
+    "scene_markers" | "scene_marker_tag_ancestors"
+  >,
   roleTagIds: SceneActivityRoleTagIds,
   key: SceneMarkerCountKeyCustom
 ): number | undefined {
@@ -254,11 +281,12 @@ export function getSceneMarkerCountCustom(
     return undefined;
   }
 
+  const ancestors = sceneActivityTagAncestors(scene);
   return scene.scene_markers.filter(
     (marker) =>
-      sceneActivityMarkerHasTag(marker, roleTagId) &&
+      sceneActivityMarkerHasTag(marker, roleTagId, ancestors) &&
       (!reallyHot ||
-        sceneActivityMarkerHasTag(marker, roleTagIds.reallyHotTagId))
+        sceneActivityMarkerHasTag(marker, roleTagIds.reallyHotTagId, ancestors))
   ).length;
 }
 
@@ -278,6 +306,7 @@ export function getSceneActivityMetrics(
     solo: [],
   };
   const outstandingIntervals: SceneActivityInterval[] = [];
+  const ancestors = sceneActivityTagAncestors(scene);
 
   scene.scene_markers.forEach((marker) => {
     if (marker.end_seconds === null || marker.end_seconds === undefined) {
@@ -296,7 +325,7 @@ export function getSceneActivityMetrics(
       intervalsByCategory[category].push(interval);
     }
 
-    if (sceneActivityMarkerIsOutstanding(marker, roleTagIds)) {
+    if (sceneActivityMarkerIsOutstanding(marker, roleTagIds, ancestors)) {
       outstandingIntervals.push(interval);
     }
   });

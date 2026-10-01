@@ -355,7 +355,7 @@
   min-width: 0;
 }
 
-/* CUSTOM: the consolidated outstanding-activity chip opens its matrix. */
+/* CUSTOM: chips with a matching Activity Matrix row open it. */
 .scene-card-insight-clickable {
   cursor: pointer;
 }
@@ -367,10 +367,11 @@
   vertical-align: 0.08em;
 }
 
+/* CUSTOM: each family keeps a distinct hue; gold belongs to GOAT only. */
 .scene-card-insight-activity {
-  background: rgba(56, 139, 253, 0.12);
-  border-color: rgba(88, 166, 255, 0.62);
-  color: #b9dcff;
+  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(148, 163, 184, 0.6);
+  color: #d5dde8;
 }
 
 .scene-card-insight-interaction {
@@ -386,15 +387,21 @@
 }
 
 .scene-card-insight-event {
-  background: rgba(210, 153, 34, 0.12);
-  border-color: rgba(227, 179, 65, 0.65);
-  color: #f4d77c;
+  background: rgba(241, 245, 249, 0.1);
+  border-color: rgba(241, 245, 249, 0.62);
+  color: #f8fafc;
+}
+
+/* CUSTOM: a GOAT orgasm or facial keeps the gold signal on its report. */
+.scene-card-insight-event-goat {
+  border-color: #d4af37;
+  box-shadow: 0 0 0.35rem rgba(212, 175, 55, 0.42);
 }
 
 .scene-card-insight-lineup {
-  background: rgba(20, 184, 166, 0.13);
-  border-color: rgba(45, 212, 191, 0.62);
-  color: #a7f3e8;
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.62);
+  color: #bae6fd;
 }
 
 .scene-card-insight-rare {
@@ -1267,7 +1274,7 @@ input[type="range"].blue-slider {
   }
 }
 
-/* CUSTOM: compact scene-detail performer cards while preserving top/bottom slots. */
+/* CUSTOM: compact scene-detail performer cards. */
 .scene-performers {
   .performer-card {
     padding: 0 0 0.5rem;
@@ -1277,34 +1284,17 @@ input[type="range"].blue-slider {
       min-height: 0;
     }
 
-    .performer-card__age {
-      line-height: 1.15;
-      margin-top: 0;
-      min-height: 0;
-    }
-
     .performer-role-badges {
       margin: 0.25rem 0;
       padding-bottom: 0.1rem;
 
       .role-badge-item {
         gap: 0.18rem;
-        grid-template-rows: 1.25rem 0 0;
+        grid-template-rows: 1.25rem;
         padding: 0;
 
         .category-icon-container {
           min-height: 1.25rem;
-        }
-
-        .solo-count,
-        .orgasm-count,
-        .feet-count {
-          min-height: 0;
-        }
-
-        &.scene-context-role-badge-item {
-          /* The arrows already render both visible and hidden role slots. */
-          grid-template-rows: 1.25rem 0 2.88rem;
         }
       }
     }
@@ -2028,13 +2018,14 @@ input[type="range"].blue-slider {
     }
   }
 
+  /* CUSTOM: compact tiles; hovering the portrait shows it large. */
   .scene-marker-activity-performer {
     align-items: center;
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
-    max-width: 11rem;
-    min-width: 10.5rem;
+    max-width: 4.75rem;
+    min-width: 4.75rem;
   }
 
   .scene-marker-activity-performer-image {
@@ -2045,10 +2036,10 @@ input[type="range"].blue-slider {
     border-radius: 0.25rem;
     color: $text-muted;
     display: flex;
-    font-size: 2.9rem;
+    font-size: 1.4rem;
     justify-content: center;
     overflow: hidden;
-    width: 10.5rem;
+    width: 3.5rem;
 
     img {
       height: 100%;
@@ -2231,10 +2222,6 @@ input[type="range"].blue-slider {
 
     .scene-marker-activity-config-body {
       grid-template-columns: minmax(0, 1fr);
-    }
-
-    .scene-marker-activity-performer-image {
-      width: 7.5rem;
     }
 
     .marker-main-row {
@@ -2537,11 +2524,15 @@ input[type="range"].blue-slider {
       justify-content: center;
       margin-top: 0.35rem;
       overflow: visible;
+    }
 
-      .role-badge-item.scene-context-role-badge-item {
-        gap: 0.12rem;
-        grid-template-rows: 1.5rem 1.5rem 3rem;
-      }
+    /* CUSTOM: versatility strips sit tight under the portrait. */
+    .performer-card-versatility {
+      margin-top: 0.35rem;
+    }
+
+    .performer-role-badges.performer-category-strip--card-icons {
+      margin-top: 0.45rem;
     }
   }
 }
@@ -2590,6 +2581,19 @@ input[type="range"].blue-slider {
 
   .scene-marker-activity-performer-image {
     width: 13.5rem;
+  }
+
+  // CUSTOM: Facial top and bottom portraits share one event column.
+  .scene-card-orgasm-facial-event--facial {
+    .scene-marker-activity-performer,
+    .scene-marker-highlight-performer {
+      max-width: 6.5rem;
+      min-width: 6.5rem;
+    }
+
+    .scene-marker-activity-performer-image {
+      width: 6.5rem;
+    }
   }
 
   .scene-marker-activity-performer-name {
@@ -2728,18 +2732,6 @@ input[type="range"].blue-slider {
     background: rgba(248, 81, 73, 0.16);
     border-color: rgba(255, 112, 102, 0.58);
     color: #ffc5c1;
-  }
-
-  .scene-card-orgasm-facial-event--facial {
-    .scene-marker-activity-performer,
-    .scene-marker-highlight-performer {
-      max-width: 6.5rem;
-      min-width: 6.5rem;
-    }
-
-    .scene-marker-activity-performer-image {
-      width: 6.5rem;
-    }
   }
 
   .scene-marker-activity-performer-top .scene-marker-activity-performer-image {
@@ -3337,12 +3329,6 @@ input[type="range"].blue-slider {
 
 /* CUSTOM: begin - compact stats panels */
 
-.custom-stats-value {
-  color: $text-muted;
-  line-height: 1.3;
-  white-space: nowrap;
-}
-
 .custom-stats-check {
   align-items: baseline;
   display: inline-flex;
@@ -3414,7 +3400,6 @@ input[type="range"].blue-slider {
   }
 }
 
-.performer-stats-panel .custom-stats-overview,
 .studio-stats-panel .custom-stats-overview {
   gap: 1.5rem;
   justify-content: center;
@@ -3426,101 +3411,12 @@ input[type="range"].blue-slider {
   row-gap: 2rem;
 }
 
-.performer-stats-panel .custom-stats-overview {
-  display: grid;
-  gap: 1.5rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
 .performer-stats-panel {
   padding-bottom: 2rem;
 }
 
-/* CUSTOM: begin - comparable performer activity bars */
-.performer-stats-bar-chart {
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.35rem;
-  min-width: 0;
-  padding: 0.85rem;
-}
-
-.performer-stats-bar-chart-header {
-  align-items: baseline;
-  display: flex;
-  gap: 0.75rem;
-  justify-content: space-between;
-  margin-bottom: 0.8rem;
-}
-
-.performer-stats-bar-chart-title {
-  font-size: 0.9rem;
-  font-weight: 600;
-  margin: 0;
-}
-
-.performer-stats-bar-chart-total {
-  color: $text-muted;
-  font-size: 0.8rem;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.performer-stats-bar-chart-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-}
-
-.performer-stats-bar-chart-row-header {
-  align-items: baseline;
-  column-gap: 0.45rem;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  margin-bottom: 0.25rem;
-}
-
-.performer-stats-bar-chart-swatch {
-  align-self: center;
-  border-radius: 50%;
-  display: block;
-  height: 0.62rem;
-  width: 0.62rem;
-}
-
-.performer-stats-bar-chart-label,
-.performer-stats-bar-chart-value,
-.performer-stats-bar-chart-percent {
-  font-size: 0.78rem;
-}
-
-.performer-stats-bar-chart-value,
-.performer-stats-bar-chart-percent {
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.performer-stats-bar-chart-percent {
-  color: $text-muted;
-}
-
-.performer-stats-bar-chart-track {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
-  height: 0.6rem;
-  overflow: hidden;
-}
-
-.performer-stats-bar-chart-fill {
-  display: block;
-  height: 100%;
-}
-
+/* CUSTOM: begin - scene activity stats layout */
 @media (max-width: 768px) {
-  .performer-stats-panel .custom-stats-overview {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .scene-activity-metrics--stats {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3572,6 +3468,7 @@ input[type="range"].blue-slider {
 
 .scene-stats-overview-panel,
 .scene-stats-performer-explorer,
+.scene-stats-partner-interactions,
 .scene-stats-interactions {
   background: rgba(0, 0, 0, 0.14);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -3601,8 +3498,7 @@ input[type="range"].blue-slider {
   }
 }
 
-.scene-stats-overview-rows,
-.scene-stats-role-rows {
+.scene-stats-overview-rows {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -3621,33 +3517,11 @@ input[type="range"].blue-slider {
   }
 }
 
-.scene-stats-overview-row-meta,
-.scene-stats-role-row-meta {
+.scene-stats-overview-row-meta {
   align-items: center;
   column-gap: 0.5rem;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
-}
-
-.scene-stats-progress-track {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  display: block;
-  height: 0.48rem;
-  margin-top: 0.25rem;
-  overflow: hidden;
-  width: 100%;
-}
-
-.scene-stats-progress-track-role {
-  height: 0.34rem;
-}
-
-.scene-stats-progress-fill {
-  border-radius: inherit;
-  display: block;
-  height: 100%;
-  min-width: 0;
 }
 
 .scene-stats-stacked-bar {
@@ -3670,7 +3544,6 @@ input[type="range"].blue-slider {
   min-height: 24rem;
 }
 
-.scene-stats-detail-toolbar,
 .scene-stats-interaction-toolbar {
   align-items: center;
   display: flex;
@@ -3684,8 +3557,8 @@ input[type="range"].blue-slider {
   }
 }
 
-.scene-stats-detail-toolbar {
-  justify-content: flex-end;
+.scene-stats-detail-tabs {
+  margin-bottom: 0.85rem;
 }
 
 .scene-stats-loop-tray {
@@ -3697,18 +3570,9 @@ input[type="range"].blue-slider {
   display: flex;
   gap: 0.75rem;
   justify-content: space-between;
-  margin-bottom: 0.85rem;
+  margin-top: 0.85rem;
   min-height: 3rem;
   padding: 0.55rem 0.7rem;
-  position: sticky;
-  top: 0;
-  z-index: 25;
-}
-
-.scene-stats-loop-tray-panel {
-  margin-bottom: 0;
-  margin-top: 0.85rem;
-  position: static;
 }
 
 .scene-stats-loop-status,
@@ -3774,7 +3638,7 @@ input[type="range"].blue-slider {
   font-size: 1rem;
   font-weight: 600;
   grid-column: span 2;
-  grid-template-columns: 6rem minmax(0, 1fr);
+  grid-template-columns: 4rem minmax(0, 1fr);
 }
 
 .scene-stats-performer-choice-image,
@@ -3793,67 +3657,57 @@ input[type="range"].blue-slider {
   width: 3rem;
 }
 
+/* CUSTOM: compact portraits; hovering shows them large. */
 .scene-stats-performer-choice-active .scene-stats-performer-choice-image {
-  width: 6rem;
+  width: 4rem;
 }
 
-.scene-stats-performer-explorer {
+.scene-stats-performer-explorer,
+.scene-stats-partner-interactions {
   padding: 0.85rem;
 }
 
-.scene-stats-performer-focus-grid {
+/* CUSTOM: Performer Explorer shows every vato with his bars below him,
+   at most four per row; narrower screens wrap sooner. */
+.scene-stats-performer-columns {
   display: grid;
   gap: 1rem;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(max(min(100%, 17rem), calc((100% - 3rem) / 4)), 1fr)
+  );
 }
 
-.scene-stats-performer-activity-grid {
-  display: grid;
-  gap: 0.7rem;
-}
-
-.scene-stats-performer-activity-grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
-}
-
-.scene-stats-performer-activity {
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.35rem;
-  padding: 0.65rem;
-}
-
-/* CUSTOM: restore activity category titles */
-.scene-stats-performer-activity-title {
-  color: $text-muted;
-  font-size: 0.8rem;
-  font-weight: 600;
-  margin-bottom: 0.45rem;
-}
-
-.scene-stats-performer-activity-total {
-  align-items: baseline;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  color: $text-muted;
+.scene-stats-performer-column {
   display: flex;
-  font-size: 0.75rem;
-  gap: 0.5rem;
-  justify-content: space-between;
-  margin-bottom: 0.6rem;
-  padding-bottom: 0.45rem;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
 }
 
-.scene-stats-performer-activity-heading {
-  align-items: baseline;
-  column-gap: 0.5rem;
+.scene-stats-performer-column-header {
+  align-items: center;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  font-size: 1rem;
+  font-weight: 600;
+  gap: 0.65rem;
+  grid-template-columns: 4rem minmax(0, 1fr);
+
+  .scene-stats-performer-choice-image {
+    width: 4rem;
+  }
+
+  > span:last-child {
+    overflow-wrap: anywhere;
+  }
 }
 
-.scene-stats-role-rows {
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
-  margin-top: 0.55rem;
-  padding-top: 0.55rem;
+.scene-stats-performer-versatility.performer-versatility {
+  margin-top: 0;
+
+  .performer-versatility-scales {
+    margin-top: 0;
+  }
 }
 
 .scene-stats-partner-label {
@@ -3864,16 +3718,7 @@ input[type="range"].blue-slider {
 }
 
 .scene-stats-partner-image {
-  width: 4.5rem;
-}
-
-.scene-stats-partner-check .form-check-label {
-  min-width: 0;
-  width: 100%;
-}
-
-.scene-stats-partner-check-partial .form-check-input {
-  box-shadow: 0 0 0 0.15rem rgba(72, 175, 240, 0.45);
+  width: 2.5rem;
 }
 
 .scene-stats-partner-table-toolbar {
@@ -3949,15 +3794,6 @@ input[type="range"].blue-slider {
   text-align: left;
 }
 
-.scene-stats-partner-table-partner .scene-stats-partner-check {
-  align-items: center;
-  display: flex;
-
-  .form-check-input {
-    margin-top: 0;
-  }
-}
-
 .scene-stats-partner-table .scene-stats-partner-table-activity-leading {
   background: rgba(72, 175, 240, 0.11);
   box-shadow: inset 0 0 0 1px rgba(72, 175, 240, 0.68),
@@ -4013,23 +3849,11 @@ input[type="range"].blue-slider {
   padding: 0;
   position: relative;
   width: 100%;
-
-  &:focus-visible {
-    box-shadow: inset 0 0 0 2px #fff;
-    outline: 2px solid #48aff0;
-    outline-offset: -2px;
-  }
-}
-
-button.scene-stats-partner-lane {
-  cursor: pointer;
 }
 
 .scene-stats-partner-lane-fill {
   display: block;
   height: 100%;
-  opacity: 0.82;
-  transition: box-shadow 120ms ease, filter 120ms ease, opacity 120ms ease;
 }
 
 .scene-stats-partner-lane-topped .scene-stats-partner-lane-fill {
@@ -4038,24 +3862,6 @@ button.scene-stats-partner-lane {
 
 .scene-stats-partner-lane-bottomed .scene-stats-partner-lane-fill {
   background: #28a745;
-}
-
-.scene-stats-partner-lane:not(.scene-stats-partner-lane-empty):hover
-  .scene-stats-partner-lane-fill,
-.scene-stats-partner-lane-active .scene-stats-partner-lane-fill {
-  opacity: 1;
-}
-
-.scene-stats-partner-lane-topped.scene-stats-partner-lane-active
-  .scene-stats-partner-lane-fill {
-  box-shadow: 0 0 0.55rem 0.18rem rgba(23, 162, 184, 0.95);
-  filter: brightness(1.35) saturate(1.15);
-}
-
-.scene-stats-partner-lane-bottomed.scene-stats-partner-lane-active
-  .scene-stats-partner-lane-fill {
-  box-shadow: 0 0 0.55rem 0.18rem rgba(40, 167, 69, 0.95);
-  filter: brightness(1.35) saturate(1.15);
 }
 
 .scene-stats-partner-lane-empty {
@@ -4155,7 +3961,7 @@ button.scene-stats-partner-lane {
 
   thead th:first-child {
     left: 0;
-    min-width: 13.5rem;
+    min-width: 9rem;
     position: sticky;
     z-index: 3;
   }
@@ -4190,7 +3996,7 @@ button.scene-stats-partner-lane {
 .scene-stats-matrix .scene-stats-matrix-performer-image {
   display: block;
   margin: 0 auto;
-  width: 6.25rem;
+  width: 3rem;
 }
 
 .scene-stats-matrix-performer-name {
@@ -4219,41 +4025,12 @@ button.scene-stats-partner-lane {
   padding: 0.6rem;
   text-align: center;
   width: 100%;
-
-  &:focus,
-  &:hover {
-    background: rgba(72, 175, 240, 0.1);
-    border-color: rgba(72, 175, 240, 0.52);
-    color: inherit;
-  }
 }
 
-.scene-stats-matrix-pair-leading,
-.scene-stats-matrix-pair-leading:focus,
-.scene-stats-matrix-pair-leading:hover {
+.scene-stats-matrix-pair-leading {
   background: rgba(72, 175, 240, 0.14);
   border-color: rgba(72, 175, 240, 0.72);
   box-shadow: inset 0 0 1rem rgba(72, 175, 240, 0.16);
-}
-
-.scene-stats-matrix-selector {
-  align-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  border-radius: 0.16rem;
-  display: inline-flex;
-  flex: 0 0 auto;
-  font-size: 0.68rem;
-  height: 0.92rem;
-  justify-content: center;
-  margin-top: 0.1rem;
-  width: 0.92rem;
-}
-
-.scene-stats-matrix-pair-active .scene-stats-matrix-selector,
-.scene-stats-matrix-pair-partial .scene-stats-matrix-selector {
-  background: #137cbd;
-  border-color: #48aff0;
-  color: #fff;
 }
 
 .scene-stats-matrix-time {
@@ -4306,7 +4083,6 @@ button.scene-stats-partner-lane {
 /* CUSTOM: end */
 
 @media (max-width: 768px) {
-  .scene-stats-detail-toolbar,
   .scene-stats-interaction-toolbar {
     align-items: stretch;
     flex-direction: column;
@@ -4349,22 +4125,21 @@ button.scene-stats-partner-lane {
     grid-template-columns: minmax(0, 1fr);
 
     .scene-stats-performer-choice-image {
+      width: 2.5rem;
+    }
+
+    .vato-portrait-hover {
       justify-self: center;
-      width: 3.75rem;
     }
   }
 
   .scene-stats-performer-choice-active {
     grid-column: span 2;
-    grid-template-columns: 5rem minmax(0, 1fr);
+    grid-template-columns: 3.5rem minmax(0, 1fr);
 
     .scene-stats-performer-choice-image {
-      width: 5rem;
+      width: 3.5rem;
     }
-  }
-
-  .scene-stats-partner-image {
-    width: 3.75rem;
   }
 
   .scene-stats-partner-table-toolbar {

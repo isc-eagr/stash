@@ -1,7 +1,7 @@
 import React from "react";
 import * as GQL from "src/core/generated-graphql";
 import { SceneCard } from "src/components/Scenes/SceneCard";
-import { usePerformerCardRoleStats } from "src/components/Performers/performerRoleStats_custom"; // CUSTOM
+import { usePerformerCardRoleStatsState } from "src/components/Performers/performerRoleStats_custom"; // CUSTOM
 
 interface IGalleryScenesPanelProps {
   scenes: GQL.SlimSceneDataFragment[];
@@ -21,7 +21,8 @@ export const GalleryScenesPanel: React.FC<IGalleryScenesPanelProps> = ({
       ),
     [scenes]
   ); // CUSTOM
-  const roleStatsByPerformer = usePerformerCardRoleStats(performers); // CUSTOM
+  const { roleStatsByPerformer, loading: roleStatsPending } =
+    usePerformerCardRoleStatsState(performers); // CUSTOM
 
   return (
     <div className="container gallery-scenes">
@@ -30,6 +31,7 @@ export const GalleryScenesPanel: React.FC<IGalleryScenesPanelProps> = ({
           scene={scene}
           key={scene.id}
           roleStatsByPerformer={roleStatsByPerformer} // CUSTOM
+          roleStatsPending={roleStatsPending} // CUSTOM
         />
       ))}
     </div>

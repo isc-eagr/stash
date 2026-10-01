@@ -5,7 +5,7 @@ import { SceneQueue } from "src/models/sceneQueue";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import { PatchComponent } from "src/patch";
 import { FilteredRecommendationRow } from "../FrontPage/FilteredRecommendationRow";
-import { usePerformerCardRoleStats } from "../Performers/performerRoleStats_custom"; // CUSTOM
+import { usePerformerCardRoleStatsState } from "../Performers/performerRoleStats_custom"; // CUSTOM
 
 interface IProps {
   isTouch: boolean;
@@ -33,10 +33,8 @@ export const SceneRecommendationRow: React.FC<IProps> = PatchComponent(
         ),
       [scenes]
     ); // CUSTOM
-    const roleStatsByPerformer = usePerformerCardRoleStats(
-      insightPerformers,
-      result.loading
-    ); // CUSTOM
+    const { roleStatsByPerformer, loading: roleStatsPending } =
+      usePerformerCardRoleStatsState(insightPerformers, result.loading); // CUSTOM
 
     const queue = useMemo(() => {
       return SceneQueue.fromListFilterModel(props.filter);
@@ -64,6 +62,7 @@ export const SceneRecommendationRow: React.FC<IProps> = PatchComponent(
                 index={index}
                 zoomIndex={1}
                 roleStatsByPerformer={roleStatsByPerformer} // CUSTOM
+                roleStatsPending={roleStatsPending} // CUSTOM
               />
             ))}
       </FilteredRecommendationRow>

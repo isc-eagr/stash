@@ -86,6 +86,8 @@ export const SceneCardPerformerPopover: React.FC<IProps> = ({
                   scenePerformerCount={scene.performers.length}
                   scenePartnerPerformers={scene.performers}
                   flushMargins
+                  // CUSTOM: scene-only versatility strips instead of Top/Bottom chips
+                  versatilityCard
                 />
               </div>
             </ActivityTypePerformerTile>

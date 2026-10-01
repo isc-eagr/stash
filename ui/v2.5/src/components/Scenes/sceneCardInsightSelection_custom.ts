@@ -4,11 +4,10 @@ import type {
   SceneCardInsightCandidateKind,
 } from "./sceneCardInsightTypes_custom";
 
-type InsightLane = "automatic" | "priority" | "activity" | "context";
-
 type InsightPolicy = {
-  lane: InsightLane;
+  // Mandatory chips always show; reserved chips outrank optional ones for a slot.
   mandatory?: boolean;
+  reserved?: boolean;
   priority: number;
 };
 
@@ -16,29 +15,20 @@ export const sceneCardInsightPolicies: Record<
   SceneCardInsightCandidateKind,
   InsightPolicy
 > = {
-  goat: { lane: "automatic", mandatory: true, priority: 1000 },
-  "outstanding-activity": {
-    lane: "automatic",
-    mandatory: true,
-    priority: 975,
-  },
-  "outstanding-activity-presence": {
-    lane: "automatic",
-    mandatory: true,
-    priority: 970,
-  },
-  "event-report": { lane: "automatic", mandatory: true, priority: 950 },
-  "no-orgasm": { lane: "priority", priority: 925 },
-  "orgasm-event": { lane: "automatic", priority: 850 },
-  "activity-quality": { lane: "activity", priority: 830 },
-  leaning: { lane: "context", priority: 825 },
+  goat: { mandatory: true, priority: 1000 },
+  "outstanding-activity": { mandatory: true, priority: 975 },
+  "outstanding-activity-presence": { mandatory: true, priority: 970 },
+  "event-report": { mandatory: true, priority: 950 },
+  "no-orgasm": { reserved: true, priority: 925 },
+  "orgasm-event": { priority: 850 },
+  "activity-quality": { priority: 830 },
+  leaning: { priority: 825 },
   // CUSTOM: History-backed rare roles outrank broad interaction patterns.
-  "rare-role": { lane: "context", priority: 805 },
-  interaction: { lane: "context", priority: 800 },
-  "negative-rating": { lane: "context", priority: 790 },
-  "favorite-lineup": { lane: "context", priority: 780 },
-  "country-lineup": { lane: "context", priority: 770 },
-  tag: { lane: "context", priority: 700 },
+  "rare-role": { priority: 805 },
+  interaction: { priority: 800 },
+  "negative-rating": { priority: 790 },
+  "favorite-lineup": { priority: 780 },
+  "country-lineup": { priority: 770 },
 };
 
 export function compareSceneCardInsightCandidates(
@@ -53,19 +43,25 @@ export function compareSceneCardInsightCandidates(
   );
 }
 
-const defaultMaxInsights = 7;
-const maxActivityInsights = 3;
-
 export function hasSceneCardInsightOverflow(
   totalInsights: number,
-  maxInsights = defaultMaxInsights
+  visibleInsights: number
 ) {
-  return totalInsights > maxInsights;
+  return totalInsights > visibleInsights;
+}
+
+function withoutSelectionFields({
+  kind: _kind,
+  score: _score,
+  matrixTagIds: _matrixTagIds,
+  ...insight
+}: SceneCardInsightCandidate): ISceneCardInsight {
+  return insight;
 }
 
 export function selectSceneCardInsights(
   candidates: SceneCardInsightCandidate[],
-  maxInsights = defaultMaxInsights
+  maxInsights: number
 ): ISceneCardInsight[] {
   const sorted = candidates
     .filter((candidate) => !candidate.statsOnly)
@@ -73,50 +69,23 @@ export function selectSceneCardInsights(
   const mandatory = sorted.filter(
     (candidate) => sceneCardInsightPolicies[candidate.kind].mandatory
   );
-  if (mandatory.length > maxInsights) {
-    return mandatory
-      .slice(0, maxInsights)
-      .map(({ kind: _kind, score: _score, ...insight }) => insight);
+  if (mandatory.length >= maxInsights) {
+    return mandatory.slice(0, maxInsights).map(withoutSelectionFields);
   }
 
-  const prioritized = sorted.filter(
-    (candidate) => sceneCardInsightPolicies[candidate.kind].lane === "priority"
+  const reserved = sorted.filter(
+    (candidate) => sceneCardInsightPolicies[candidate.kind].reserved
   );
-  const optionalAutomatic = sorted.filter((candidate) => {
-    const policy = sceneCardInsightPolicies[candidate.kind];
-    return policy.lane === "automatic" && !policy.mandatory;
-  });
-
-  const automaticCapacity = Math.max(
-    0,
-    maxInsights - mandatory.length - prioritized.length
+  const guaranteed = [...mandatory, ...reserved].slice(0, maxInsights);
+  const optional = sorted.filter(
+    (candidate) => !guaranteed.includes(candidate)
   );
-  const automatic = [
-    ...mandatory,
-    ...prioritized,
-    ...optionalAutomatic.slice(0, automaticCapacity),
-  ];
-  const availableAfterAutomatic = Math.max(0, maxInsights - automatic.length);
-  const activities = sorted
-    .filter(
-      (candidate) =>
-        sceneCardInsightPolicies[candidate.kind].lane === "activity"
-    )
-    .slice(0, Math.min(maxActivityInsights, availableAfterAutomatic));
-  const contextCapacity = Math.min(
-    Math.max(0, maxInsights - maxActivityInsights),
-    Math.max(0, maxInsights - automatic.length - activities.length)
-  );
-  const context = sorted
-    .filter(
-      (candidate) => sceneCardInsightPolicies[candidate.kind].lane === "context"
-    )
-    .slice(0, contextCapacity);
-
-  return [...automatic, ...activities, ...context]
+  return [
+    ...guaranteed,
+    ...optional.slice(0, Math.max(0, maxInsights - guaranteed.length)),
+  ]
     .sort(compareSceneCardInsightCandidates)
-    .slice(0, maxInsights)
-    .map(({ kind: _kind, score: _score, ...insight }) => insight);
+    .map(withoutSelectionFields);
 }
 
 export function selectAllSceneCardInsights(
@@ -125,5 +94,5 @@ export function selectAllSceneCardInsights(
   return [...candidates]
     .filter((candidate) => !candidate.statsOnly)
     .sort(compareSceneCardInsightCandidates)
-    .map(({ kind: _kind, score: _score, ...insight }) => insight);
+    .map(withoutSelectionFields);
 }

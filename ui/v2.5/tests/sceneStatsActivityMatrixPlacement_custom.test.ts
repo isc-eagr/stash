@@ -51,8 +51,8 @@ assert.ok(
 );
 assert.match(
   statsSource,
-  />\s*Activity Matrix\s*<\/Button>/,
-  "Detailed Stats should expose a dedicated Activity Matrix view"
+  /\{ key: "activity" as const, label: "Activity Matrix" \}/,
+  "Detailed Stats should expose a dedicated Activity Matrix tab"
 );
 assert.match(
   matrixSource,
@@ -71,7 +71,7 @@ assert.doesNotMatch(
 );
 assert.match(
   matrixStyles,
-  /\.outstanding-activity-performer-image\s*\{[\s\S]*?aspect-ratio:\s*2 \/ 3;[\s\S]*?border-radius:\s*0\.25rem;[\s\S]*?width:\s*6\.25rem;/,
+  /\.outstanding-activity-performer-image\s*\{[\s\S]*?aspect-ratio:\s*2 \/ 3;[\s\S]*?border-radius:\s*0\.25rem;[\s\S]*?width:\s*3rem;/,
   "activity headers should match the Interaction Matrix portrait geometry"
 );
 assert.match(

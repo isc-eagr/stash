@@ -51,6 +51,10 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
     const cursorAnchorRef = useRef<HTMLSpanElement>(null); // CUSTOM
     const enterTimer = useRef<number>();
     const leaveTimer = useRef<number>();
+    // CUSTOM: the show timer reads the latest placement, so a trigger can pick
+    // its side on mouse enter.
+    const placementRef = useRef(placement);
+    placementRef.current = placement;
 
     const getPopoverTarget = useCallback(
       () =>
@@ -65,15 +69,17 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
       window.clearTimeout(leaveTimer.current);
       enterTimer.current = window.setTimeout(() => {
         // CUSTOM: begin - keep tall top/bottom popovers inside the viewport
+        const currentPlacement = placementRef.current;
         const targetElement = getPopoverTarget();
         if (
-          typeof placement === "string" &&
-          (placement.startsWith("bottom") || placement.startsWith("top")) &&
+          typeof currentPlacement === "string" &&
+          (currentPlacement.startsWith("bottom") ||
+            currentPlacement.startsWith("top")) &&
           targetElement
         ) {
           const rect = targetElement.getBoundingClientRect();
           const layout = getHoverPopoverVerticalLayout({
-            preferredPlacement: placement,
+            preferredPlacement: currentPlacement,
             triggerTop: rect.top,
             triggerBottom: rect.bottom,
             viewportHeight: window.innerHeight,
@@ -85,7 +91,7 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
           );
           setPopoverMaxHeight(layout.maxHeight);
         } else {
-          setEffectivePlacement(placement);
+          setEffectivePlacement(currentPlacement);
           setPopoverMaxHeight(undefined);
         }
         // CUSTOM: end
@@ -98,7 +104,6 @@ export const HoverPopover: React.FC<IHoverPopover> = PatchComponent(
       estimatedContentHeight,
       getPopoverTarget,
       onOpen,
-      placement,
     ]);
 
     // CUSTOM: pin cursor-anchored popovers where the pointer entered so the

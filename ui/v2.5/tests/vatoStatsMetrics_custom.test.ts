@@ -10,6 +10,7 @@ import {
   performerVersatilityColor,
   performerVersatilityLabel,
   versatilityRoleText,
+  versatilityRoleTimeText,
 } from "../src/components/Performers/PerformerDetails/versatilityScale_custom.ts";
 
 test("O's per scene needs enough scenes to rank", () => {
@@ -92,5 +93,38 @@ test("versatility copy uses the spicy role wording", () => {
   assert.equal(
     versatilityRoleText("facial", "bottom", 2),
     "Took mecos from 2 vatos"
+  );
+});
+
+test("versatility percentages split bottom vs top and add up to 100", () => {
+  const partners = performerVersatility(3, 7);
+  assert.equal(partners?.bottomPercent, 70);
+  assert.equal(partners?.topPercent, 30);
+
+  // Seconds work the same way: 8:41 top vs 23:29 bottom.
+  const time = performerVersatility(521, 1409);
+  assert.equal(time?.topPercent, 27);
+  assert.equal(time?.bottomPercent, 73);
+
+  const third = performerVersatility(1, 2);
+  assert.equal((third?.topPercent ?? 0) + (third?.bottomPercent ?? 0), 100);
+});
+
+test("versatility by time copy uses the spicy role wording", () => {
+  assert.equal(
+    versatilityRoleTimeText("sex", "top", "25:17"),
+    "Fucked for 25:17"
+  );
+  assert.equal(
+    versatilityRoleTimeText("sex", "bottom", "22:06"),
+    "Got fucked for 22:06"
+  );
+  assert.equal(
+    versatilityRoleTimeText("oral", "top", "8:41"),
+    "Got his pito sucked for 8:41"
+  );
+  assert.equal(
+    versatilityRoleTimeText("oral", "bottom", "23:29"),
+    "Sucked pito for 23:29"
   );
 });

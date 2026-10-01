@@ -140,8 +140,8 @@ assert.match(
 );
 assert.match(
   insightsSource,
-  /insight\.key === "outstanding-activity" \|\|\s+insight\.key === "outstanding-activity-presence" \|\|\s+insight\.key\.startsWith\("goat-"\)/,
-  "Outstanding Activity and GOAT chips should open the activity matrix"
+  /const opensActivityMatrix = !!insight\.opensActivityMatrix;/,
+  "only chips with a matching matrix row should open the activity matrix"
 );
 assert.match(
   insightsSource,
