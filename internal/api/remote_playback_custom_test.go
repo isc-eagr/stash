@@ -322,18 +322,9 @@ func TestRemotePlaybackCanceledSubscriptionsCustom(t *testing.T) {
 	h := newRemotePlaybackHubCustom()
 	ctx, cancel := context.WithCancel(context.Background())
 	player := remoteTestStateCustom().PlayerID
-	states := h.subscribeState(ctx, player)
 	commands := h.subscribeCommands(ctx, player)
 	results := h.subscribeResults(ctx, player)
 	cancel()
-	select {
-	case _, ok := <-states:
-		if ok {
-			t.Fatal("state subscription remained open")
-		}
-	case <-time.After(time.Second):
-		t.Fatal("state subscription did not close")
-	}
 	select {
 	case _, ok := <-commands:
 		if ok {
@@ -352,7 +343,7 @@ func TestRemotePlaybackCanceledSubscriptionsCustom(t *testing.T) {
 	}
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
-	if len(h.stateSubscribers) != 0 || len(h.commandSubscribers) != 0 || len(h.resultSubscribers) != 0 {
+	if len(h.commandSubscribers) != 0 || len(h.resultSubscribers) != 0 {
 		t.Fatal("canceled subscriber was retained")
 	}
 }

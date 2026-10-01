@@ -12,7 +12,7 @@ import * as GQL from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
 import TextUtils from "src/utils/text";
 import type { ILoopSegmentInput } from "src/components/ScenePlayer/multi-segment-loop";
-import { ACTIVITY_PIE_COLORS } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
+import { ACTIVITY_PIE_COLORS } from "src/components/Shared/activityColors_custom"; // CUSTOM
 import {
   buildIntersectedLoopSegments,
   buildIntervalLoopSegments,

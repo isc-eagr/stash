@@ -10,11 +10,6 @@ import (
 	"github.com/stashapp/stash/pkg/models"
 )
 
-func (qb *SceneMarkerStore) UpdatePerformers(ctx context.Context, id int, performerIDs []int) error {
-	// Delete the existing joins and then create new ones
-	return sceneMarkerRepository.performers.replace(ctx, id, performerIDs)
-}
-
 // UpdateTopPerformers replaces all top performers for a scene marker.
 // It removes existing top associations and adds new ones with role='top'.
 func (qb *SceneMarkerStore) UpdateTopPerformers(ctx context.Context, markerID int, performerIDs []int) error {

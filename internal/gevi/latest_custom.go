@@ -161,19 +161,6 @@ func (c *Client) Latest(ctx context.Context, force bool) (*Cache, error) {
 	return refreshed, nil
 }
 
-func (c *Client) Refresh(ctx context.Context) (*Cache, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	now := c.now()
-	cached, err := c.readCache()
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-
-	return c.refreshLocked(ctx, cached, now)
-}
-
 func (c *Client) refreshLocked(ctx context.Context, existing *Cache, now time.Time) (*Cache, error) {
 	fetched, err := c.fetch(ctx, now)
 	if err != nil {

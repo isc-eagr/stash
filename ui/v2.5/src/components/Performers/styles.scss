@@ -72,6 +72,42 @@
     }
   }
 
+  /* Match the detail-item typography; the scene overview drawer keeps the compact sizes. */
+  .performer-header-activity {
+    .performer-activity-time-metric,
+    .performer-versatility-scale {
+      padding: 0.65rem 0.8rem;
+    }
+
+    .performer-activity-time-metric {
+      span {
+        color: #868791;
+        font-size: 1rem;
+        font-weight: 700;
+      }
+
+      strong {
+        font-size: 1.4rem;
+        line-height: 1.2;
+      }
+    }
+
+    .performer-versatility-heading h3 {
+      color: #868791;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .performer-versatility-chip,
+    .performer-versatility-empty {
+      font-size: 0.85rem;
+    }
+
+    .performer-versatility-ends {
+      font-size: 0.9rem;
+    }
+  }
+
   @media (max-width: 991.98px) {
     .performer-header-activity {
       margin-top: 0.75rem;
@@ -434,8 +470,7 @@
     }
 
     .role-total-count,
-    .arrow-count,
-    .arrow-percent {
+    .arrow-count {
       align-items: center;
       color: white;
       display: inline-flex;
@@ -512,11 +547,6 @@
           min-width: 0.45rem;
           text-align: right;
         }
-
-        .arrow-percent {
-          font-size: 0.68rem;
-          font-weight: 700;
-        }
       }
 
       &.scene-role-arrows {
@@ -559,12 +589,7 @@
       .top-badge {
         color: white !important;
 
-        .arrow-icon {
-          color: white !important;
-        }
-
-        .arrow-count,
-        .arrow-percent {
+        .arrow-count {
           color: white !important;
         }
       }
@@ -572,12 +597,7 @@
       .bottom-badge {
         color: white !important;
 
-        .arrow-icon {
-          color: white !important;
-        }
-
-        .arrow-count,
-        .arrow-percent {
+        .arrow-count {
           color: white !important;
         }
       }
@@ -786,8 +806,7 @@
 }
 
 /* Make tag-count and edit buttons visually aligned and the same width */
-.card-popovers .tag-count,
-.card-popovers .edit-tags {
+.card-popovers .tag-count {
   /* same dimensions and centering for visual parity */
   align-items: center;
   display: inline-flex;
@@ -807,22 +826,6 @@
 .card-popovers .tag-count .fa-icon,
 .card-popovers .tag-count svg {
   color: #fff;
-}
-
-.card-popovers .edit-tags {
-  /* match other minimal buttons: no background/border so it doesn't look highlighted */
-  background: transparent;
-  border: none;
-  border-radius: 0;
-}
-
-.card-popovers .edit-tags .fa-icon,
-.card-popovers .edit-tags svg {
-  color: $success; /* make the edit control slightly accented */
-}
-
-.card-popovers .edit-tags:hover {
-  background: transparent;
 }
 
 .scrape-dialog .performer-image {

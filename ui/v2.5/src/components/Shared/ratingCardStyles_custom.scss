@@ -258,7 +258,6 @@
 
   .thumbnail-section > a,
   .scene-card-preview,
-  .scene-marker-card-preview,
   .image-card-preview,
   .gallery-card-cover {
     display: block;
@@ -270,7 +269,6 @@
   }
 
   .scene-card-preview,
-  .scene-marker-card-preview,
   .image-card-preview,
   .gallery-card-cover {
     align-items: flex-start;
@@ -356,7 +354,6 @@
   a,
   .TruncatedText,
   .scene-card__date,
-  .scene-card__description,
   .scene-card__details,
   .image-card__date,
   .image-card__description,
@@ -406,20 +403,9 @@
   }
 
   .card-popovers .btn,
-  .gender-icon,
-  .scene-hand-icon {
+  .gender-icon {
     color: rgb(var(--rating-card-name-rgb));
     text-shadow: 0 0 6px rgba(var(--rating-card-accent-rgb), 0.2);
-  }
-
-  .scene-gay-icon,
-  .scene-mouth-icon,
-  .scene-straight-icon,
-  .scene-goatee-icon {
-    filter: var(--rating-card-icon-filter)
-      drop-shadow(0 0 7px rgba(var(--rating-card-accent-rgb), 0.38));
-    -webkit-filter: var(--rating-card-icon-filter)
-      drop-shadow(0 0 7px rgba(var(--rating-card-accent-rgb), 0.38));
   }
 
   .fa-icon,
@@ -596,7 +582,6 @@
   a,
   .TruncatedText,
   .scene-card__date,
-  .scene-card__description,
   .scene-card__details,
   .image-card__date,
   .image-card__description,
@@ -772,7 +757,6 @@
   a,
   .TruncatedText,
   .scene-card__date,
-  .scene-card__description,
   .scene-card__details,
   .image-card__date,
   .image-card__description,
@@ -805,8 +789,7 @@
   }
 
   .card-popovers .btn,
-  .gender-icon,
-  .scene-hand-icon {
+  .gender-icon {
     color: rgb(var(--rating-card-name-rgb));
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.62),
       0 0 4px rgba(var(--rating-card-accent-rgb), 0.2);
@@ -821,10 +804,6 @@
     filter: drop-shadow(0 0 5px rgba(var(--rating-card-accent-rgb), 0.28));
   }
 
-  .scene-gay-icon,
-  .scene-mouth-icon,
-  .scene-straight-icon,
-  .scene-goatee-icon,
   .category-icon {
     filter: var(--rating-card-icon-filter)
       drop-shadow(0 0 5px rgba(var(--rating-card-accent-rgb), 0.3));
@@ -879,7 +858,6 @@
 
   .thumbnail-section > a,
   .scene-card-preview,
-  .scene-marker-card-preview,
   .image-card-preview,
   .gallery-card-cover {
     display: block;
@@ -891,7 +869,6 @@
   }
 
   .scene-card-preview,
-  .scene-marker-card-preview,
   .image-card-preview,
   .gallery-card-cover {
     align-items: flex-start;
@@ -1023,7 +1000,6 @@
 
   .thumbnail-section > a,
   .scene-card-preview,
-  .scene-marker-card-preview,
   .image-card-preview,
   .gallery-card-cover {
     display: block;
@@ -1035,7 +1011,6 @@
   }
 
   .scene-card-preview,
-  .scene-marker-card-preview,
   .image-card-preview,
   .gallery-card-cover {
     align-items: flex-start;
@@ -1102,7 +1077,6 @@
   a,
   .TruncatedText,
   .scene-card__date,
-  .scene-card__description,
   .scene-card__details,
   .image-card__date,
   .image-card__description,
@@ -1136,8 +1110,7 @@
   }
 
   .card-popovers .btn,
-  .gender-icon,
-  .scene-hand-icon {
+  .gender-icon {
     color: rgb(var(--rating-card-name-rgb));
     text-shadow: 0 0 6px rgba(125, 211, 252, 0.4),
       0 0 10px rgba(59, 130, 246, 0.22);
@@ -1153,10 +1126,6 @@
       drop-shadow(0 0 8px rgba(59, 130, 246, 0.22));
   }
 
-  .scene-gay-icon,
-  .scene-mouth-icon,
-  .scene-straight-icon,
-  .scene-goatee-icon,
   .category-icon {
     filter: var(--rating-card-icon-filter)
       drop-shadow(0 0 6px rgba(147, 197, 253, 0.48))

@@ -330,5 +330,3 @@ export const PerformerImageSelectModal: React.FC<
     </div>
   );
 };
-
-export default PerformerImageSelectModal;

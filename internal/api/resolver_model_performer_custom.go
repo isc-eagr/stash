@@ -12,27 +12,6 @@ import (
 	"github.com/stashapp/stash/pkg/scene"
 )
 
-// SceneMarkerRoles returns the roles a performer has in a specific scene's markers
-func (r *performerResolver) SceneMarkerRoles(ctx context.Context, obj *models.Performer, sceneID string) (ret []string, err error) {
-	// convert sceneID to int
-	sid, err := strconv.Atoi(sceneID)
-	if err != nil {
-		return nil, err
-	}
-
-	uiConfig := config.GetInstance().GetUIConfiguration()
-	sexTagID, oralTagID, soloTagID, facialTagID, orgasmTagID, feetTagID, secondCameraTagID := getRoleTagIDs(uiConfig)
-
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.GetPerformerMarkerRolesForScene(ctx, r.repository.SceneMarker, r.repository.Tag, obj.ID, sid, sexTagID, oralTagID, soloTagID, facialTagID, orgasmTagID, feetTagID, secondCameraTagID)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-
-	return ret, nil
-}
-
 // Helper to get role tag IDs from UI configuration
 func getRoleTagIDs(uiConfig map[string]interface{}) (sexTagID, oralTagID, soloTagID, facialTagID, orgasmTagID, feetTagID, secondCameraTagID int) {
 	roleTagIDs := getRoleTagIDsFromUIConfig(uiConfig)

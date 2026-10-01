@@ -10,5 +10,3 @@ interface ISceneMarkersExcludeFilterProps {
 export const SceneMarkersExcludeFilter: React.FC<
   ISceneMarkersExcludeFilterProps
 > = (props) => <MarkerFilterEditor {...props} scope="exclude" />;
-
-export default SceneMarkersExcludeFilter;

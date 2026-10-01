@@ -164,49 +164,6 @@
   text-transform: uppercase;
 }
 
-.scenestats-filter-bar {
-  align-items: center;
-  backdrop-filter: blur(12px);
-  background: rgba(9, 10, 13, 0.94);
-  border: 1px solid rgba(218, 179, 94, 0.22);
-  border-radius: 8px;
-  bottom: 1rem;
-  box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.45);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  left: 50%;
-  max-width: min(1120px, calc(100vw - 2rem));
-  padding: 0.65rem;
-  position: fixed;
-  transform: translateX(-50%);
-  width: calc(100vw - 2rem);
-  z-index: 1030;
-}
-
-.scenestats-filter-list {
-  display: flex;
-  flex: 1 1 auto;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  min-width: 0;
-}
-
-.scenestats-filter-chip {
-  background: rgba(80, 63, 31, 0.82);
-  border: 1px solid rgba(218, 179, 94, 0.36);
-  border-radius: 999px;
-  color: #f0d58f;
-  font-size: 0.8rem;
-  font-weight: 800;
-  line-height: 1.2;
-  max-width: 100%;
-  overflow: hidden;
-  padding: 0.25rem 0.6rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .scenestats-release-chart-actions {
   align-items: center;
   display: flex;

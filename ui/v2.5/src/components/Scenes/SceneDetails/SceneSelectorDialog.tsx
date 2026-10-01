@@ -61,5 +61,3 @@ export const SceneSelectorDialog: React.FC<ISceneSelectorDialogProps> = ({
     </Modal>
   );
 };
-
-export default SceneSelectorDialog;

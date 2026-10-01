@@ -73,37 +73,6 @@ func configuredRoleTagIDCustom(uiConfig map[string]interface{}, key string) int 
 	return result
 }
 
-func (r *queryResolver) performerEthnicityCountsCustom(ctx context.Context, fiveStarOnly bool) (ret []*PerformerEthnicityCount, err error) {
-	query := "SELECT ethnicity, COUNT(*) as cnt FROM performers WHERE ethnicity IS NOT NULL AND TRIM(ethnicity) <> '' GROUP BY ethnicity ORDER BY cnt DESC"
-	if fiveStarOnly {
-		query = "SELECT ethnicity, COUNT(*) as cnt FROM performers WHERE rating IS NOT NULL AND rating >= 90 AND ethnicity IS NOT NULL AND TRIM(ethnicity) <> '' GROUP BY ethnicity ORDER BY cnt DESC"
-	}
-
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		db := manager.GetInstance().Database
-		_, rows, err := db.QuerySQL(ctx, query, nil)
-		if err != nil {
-			return err
-		}
-
-		ret = make([]*PerformerEthnicityCount, 0, len(rows))
-		for _, row := range rows {
-			if len(row) < 2 {
-				continue
-			}
-			ret = append(ret, &PerformerEthnicityCount{
-				Ethnicity: customStatsStringValue(row[0]),
-				Count:     customStatsIntValue(row[1]),
-			})
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	return ret, nil
-}
-
 func (r *queryResolver) sceneWeightedMarkerCountCustom(ctx context.Context, roleTagKey string, studioID *string, depth *int, dateRange *StatsDateRangeInput) (count int, err error) {
 	sceneScope, sceneScopeArgs, _, err := sceneStatsInputScopeCustom(studioID, depth, dateRange)
 	if err != nil {

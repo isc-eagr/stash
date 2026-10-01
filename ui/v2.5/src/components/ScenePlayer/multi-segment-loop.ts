@@ -30,15 +30,6 @@ export interface IMultiSegmentLoopOptions {
   createButton?: boolean;
 }
 
-// Events emitted by the plugin
-export type MultiSegmentLoopEvents = {
-  segmentschange: (segments: ILoopSegment[]) => void;
-  enabledchange: (enabled: boolean) => void;
-  currentsegmentchange: (index: number, segment: ILoopSegment | null) => void;
-  segmentloop: (fromSegment: ILoopSegment, toSegment: ILoopSegment) => void;
-  loopsinglechange: (segmentId: string | null) => void;
-};
-
 class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   private segments: ILoopSegment[] = [];
   private enabled: boolean = false;

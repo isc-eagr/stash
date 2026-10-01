@@ -42,17 +42,3 @@ func TestGetPerformerMarkerRolesForSceneBatchLoadsSceneDataOnce(t *testing.T) {
 	markerReader.AssertExpectations(t)
 	tagFinder.AssertExpectations(t)
 }
-
-func TestGetPerformerMarkerRolesForSceneReturnsEmptyForNonParticipant(t *testing.T) {
-	ctx := context.Background()
-	markerReader := &modelmocks.SceneMarkerReaderWriter{}
-	tagFinder := &modelmocks.TagReaderWriter{}
-
-	markerReader.On("FindBySceneID", mock.Anything, 1).Return([]*models.SceneMarker{}, nil).Once()
-
-	roles, err := GetPerformerMarkerRolesForScene(ctx, markerReader, tagFinder, 99, 1, 0, 0, 0, 0, 0, 0, 0)
-
-	require.NoError(t, err)
-	require.Empty(t, roles)
-	markerReader.AssertExpectations(t)
-}

@@ -754,5 +754,3 @@ export const MultiSegmentLoopControls: React.FC<
 
   return content;
 };
-
-export default MultiSegmentLoopControls;

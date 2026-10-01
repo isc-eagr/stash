@@ -5,14 +5,12 @@ import {
   filterCoveredChronologicalSceneMarkers,
   filterChronologicalSceneMarkers,
   getChronologicalSceneMarkerContextDisplayTags,
-  getChronologicalSceneMarkerDisplayTags,
   getChronologicalSceneMarkerDerivedWindows,
   getChronologicalSceneMarkerHighlightPerformers,
   getChronologicalSceneMarkerHighlightPerformerOrgasmRank,
   getChronologicalSceneMarkerPerformers,
   getChronologicalSceneMarkerTags,
   getCompatibleChronologicalSceneMarkerTags,
-  getSceneMarkerPerformerTagSummaries,
   groupChronologicalSceneMarkerHighlights,
   timestampBelongsToSceneMarker,
 } from "../src/components/Scenes/SceneDetails/sceneMarkerChronologySearch_custom.ts";
@@ -320,11 +318,14 @@ assert.deepEqual(
 );
 
 assert.deepEqual(
-  getChronologicalSceneMarkerDisplayTags(marker("1", 0, 20, feet, [verga]), [
+  getChronologicalSceneMarkerContextDisplayTags(
     marker("1", 0, 20, feet, [verga]),
-    marker("2", 10, 30, bj, [oral]),
-    marker("3", 30, 40, orgasm),
-  ]).map((displayTag) => `${displayTag.kind}:${displayTag.tag.id}`),
+    [
+      marker("1", 0, 20, feet, [verga]),
+      marker("2", 10, 30, bj, [oral]),
+      marker("3", 30, 40, orgasm),
+    ]
+  ).map((displayTag) => `${displayTag.kind}:${displayTag.tag.id}`),
   ["primary:feet", "secondary:verga", "overlap:bj", "overlap:oral"],
   "display tags distinguish direct primary, direct secondary, and overlapping marker tags"
 );
@@ -340,7 +341,7 @@ assert.deepEqual(
 );
 
 assert.deepEqual(
-  getChronologicalSceneMarkerDisplayTags(marker("1", 0, 20, boots), [
+  getChronologicalSceneMarkerContextDisplayTags(marker("1", 0, 20, boots), [
     marker("1", 0, 20, boots),
   ]).map((displayTag) => `${displayTag.kind}:${displayTag.tag.id}`),
   ["primary:boots", "parent:footwear"],
@@ -348,7 +349,7 @@ assert.deepEqual(
 );
 
 assert.deepEqual(
-  getChronologicalSceneMarkerDisplayTags(
+  getChronologicalSceneMarkerContextDisplayTags(
     marker("1", 0, 20, footwear, [verga]),
     [
       marker("1", 0, 20, footwear, [verga]),
@@ -367,7 +368,7 @@ assert.deepEqual(
 );
 
 assert.deepEqual(
-  getChronologicalSceneMarkerDisplayTags(
+  getChronologicalSceneMarkerContextDisplayTags(
     marker("1", 0, 20, feet, [], [], [], "scene-a"),
     [
       marker("1", 0, 20, feet, [], [], [], "scene-a"),
@@ -506,54 +507,6 @@ assert.deepEqual(
   }).map((m) => m.id),
   ["body-bj"],
   "multi-tag filter order does not affect matching"
-);
-
-const scenePerformerTagSummaries = getSceneMarkerPerformerTagSummaries([
-  marker("feet", 0, 100, feet, [], [juan], [luis]),
-  marker("oral", 0, 100, oral, [], [juan], [luis]),
-  marker("body", 0, 100, body, [], [juan], [luis]),
-  marker("facial", 20, 30, facial, [], [luis], [juan]),
-]);
-const juanSceneTagSummary = scenePerformerTagSummaries.find(
-  (summary) => summary.performer.id === juan.id
-);
-const luisSceneTagSummary = scenePerformerTagSummaries.find(
-  (summary) => summary.performer.id === luis.id
-);
-
-assert.deepEqual(
-  juanSceneTagSummary?.topTags.map((summaryTag) => summaryTag.id),
-  ["feet", "body", "oral"],
-  "scene performer summaries union every direct and computed top tag"
-);
-assert.deepEqual(
-  juanSceneTagSummary?.bottomTags,
-  [facial],
-  "scene performer summaries preserve bottom tags from contained markers"
-);
-assert.deepEqual(
-  luisSceneTagSummary?.topTags.map((summaryTag) => summaryTag.id),
-  ["facial"],
-  "scene performer summaries preserve top tags from contained markers"
-);
-assert.deepEqual(
-  luisSceneTagSummary?.bottomTags.map((summaryTag) => summaryTag.id),
-  ["feet", "body", "oral"],
-  "scene performer summaries union every overlapping computed bottom tag"
-);
-
-const duplicateRoleTagSummary = getSceneMarkerPerformerTagSummaries([
-  marker("top-feet", 0, 10, feet, [], [juan]),
-  marker("bottom-feet", 20, 30, feet, [], [], [juan]),
-])[0];
-
-assert.deepEqual(
-  [
-    duplicateRoleTagSummary.topTags.map((summaryTag) => summaryTag.id),
-    duplicateRoleTagSummary.bottomTags.map((summaryTag) => summaryTag.id),
-  ],
-  [["feet"], ["feet"]],
-  "the same scene tag remains visible in both colors when a performer has both roles"
 );
 
 const parent = tag("parent", "Parent");

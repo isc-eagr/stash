@@ -18,11 +18,6 @@ func (r *sceneMarkerResolver) BottomPerformers(ctx context.Context, obj *models.
 	return r.sceneMarkerPerformersCustom(ctx, obj, "bottom")
 }
 
-// Performers returns all performers (tops + bottoms) for backward compatibility
-func (r *sceneMarkerResolver) Performers(ctx context.Context, obj *models.SceneMarker) (ret []*models.Performer, err error) {
-	return r.sceneMarkerPerformersCustom(ctx, obj, "")
-}
-
 func (r *sceneMarkerResolver) sceneMarkerTagsCustom(ctx context.Context, obj *models.SceneMarker) ([]*models.Tag, error) {
 	relations, err := loaders.From(ctx).SceneMarkerRelations.Load(obj.ID)
 	if err != nil {
@@ -45,7 +40,7 @@ func (r *sceneMarkerResolver) sceneMarkerPerformersCustom(ctx context.Context, o
 	seen := make(map[int]struct{})
 	var ids []int
 	for _, performer := range relations.Performers {
-		if role != "" && performer.Role != role {
+		if performer.Role != role {
 			continue
 		}
 		if _, found := seen[performer.PerformerID]; found {

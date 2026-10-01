@@ -28,21 +28,6 @@ input StatsDateRangeInput {
   field: StatsDateField = RELEASE
 }
 
-"Count of performers grouped by ethnicity"
-type PerformerEthnicityCount {
-  ethnicity: String!
-  count: Int!
-}
-
-"Count of performers grouped by ethnicity and rating-card tier"
-type PerformerEthnicityTierCount {
-  ethnicity: String!
-  bronze: Int!
-  silver: Int!
-  gold: Int!
-  royal_sapphire: Int!
-}
-
 "Count of scene orgasm events grouped by year"
 type SceneOYearCount {
   year: Int!
@@ -179,7 +164,6 @@ type SceneStatsMarkerTagGroup {
 type SceneStatsScene {
   id: ID!
   title: String
-  date: String
   effective_date: String
   rating100: Int
   "O events for the scene; limited to the date range when it filters by O date"
@@ -201,7 +185,6 @@ type SceneStatsScene {
 
 "Compact SceneStats dataset returned without per-scene GraphQL relationship resolution"
 type SceneStatsResult {
-  count: Int!
   scenes: [SceneStatsScene!]!
 }
 
@@ -282,10 +265,6 @@ extend type Query {
   ): StudioRatingAdvisorStats!
   "Get scene Rating Advisor averages for scenes containing one performer"
   performerRatingAdvisorStats(performer_id: ID!): StudioRatingAdvisorStats!
-  "Get a count of performers per ethnicity (non-empty only), sorted by highest count first"
-  performerEthnicityCounts: [PerformerEthnicityCount!]!
-  "Get performer rating-tier counts per ethnicity (non-empty only), sorted by highest tier total first"
-  performerEthnicityTierCounts: [PerformerEthnicityTierCount!]!
   # CUSTOM: begin - O Stats queries; date_range always filters by O date.
   "Get a count of scene orgasm events grouped by year (ascending by year)"
   sceneOYearCounts(

@@ -109,7 +109,6 @@ type remotePlaybackHubCustom struct {
 	results map[string]*RemotePlaybackOResult
 
 	nextSubscriberID   uint64
-	stateSubscribers   map[string]map[uint64]chan *RemotePlaybackState
 	commandSubscribers map[string]map[uint64]chan *RemotePlaybackCommand
 	resultSubscribers  map[string]map[uint64]chan *RemotePlaybackOResult
 }
@@ -126,7 +125,6 @@ func newRemotePlaybackHubCustom() *remotePlaybackHubCustom {
 		stateAt:            make(map[string]time.Time),
 		pending:            make(map[string]*RemotePlaybackCommand),
 		results:            make(map[string]*RemotePlaybackOResult),
-		stateSubscribers:   make(map[string]map[uint64]chan *RemotePlaybackState),
 		commandSubscribers: make(map[string]map[uint64]chan *RemotePlaybackCommand),
 		resultSubscribers:  make(map[string]map[uint64]chan *RemotePlaybackOResult),
 	}
@@ -268,12 +266,6 @@ func (h *remotePlaybackHubCustom) update(input RemotePlaybackStateInput) (*Remot
 	}
 	h.states[input.PlayerID] = state
 	h.stateAt[input.PlayerID] = now
-	for _, subscriber := range h.stateSubscribers[input.PlayerID] {
-		select {
-		case subscriber <- copyRemotePlaybackStateCustom(state):
-		default:
-		}
-	}
 	return copyRemotePlaybackStateCustom(state), nil
 }
 
@@ -463,21 +455,6 @@ func addRemotePlaybackSubscriberCustom[T any](ctx context.Context, mutex *sync.M
 		close(channel)
 		mutex.Unlock()
 	}()
-	return channel
-}
-
-func (h *remotePlaybackHubCustom) subscribeState(ctx context.Context, playerID string) <-chan *RemotePlaybackState {
-	channel := addRemotePlaybackSubscriberCustom(ctx, &h.mutex, &h.nextSubscriberID, h.stateSubscribers, playerID, 1)
-	if state := h.state(playerID); state != nil {
-		h.mutex.Lock()
-		if ctx.Err() == nil {
-			select {
-			case channel <- state:
-			default:
-			}
-		}
-		h.mutex.Unlock()
-	}
 	return channel
 }
 

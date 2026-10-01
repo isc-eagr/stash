@@ -37,7 +37,6 @@ const (
 	sceneViewDateColumn   = "view_date"
 	scenesODatesTable     = "scenes_o_dates"
 	sceneODateColumn      = "o_date"
-	sceneMarkersTable     = "scene_markers" // CUSTOM
 
 	sceneCoverBlobColumn = "cover_blob"
 )

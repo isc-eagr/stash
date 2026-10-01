@@ -149,7 +149,6 @@ func markerGroupIsEmptyCustom(g models.SceneMarkerTagGroupInput) bool {
 		len(g.TopEthnicities) == 0 && len(g.TopCountries) == 0 && g.TopRating == nil &&
 		len(g.BottomEthnicities) == 0 && len(g.BottomCountries) == 0 && g.BottomRating == nil &&
 		len(g.BothRolesEthnicities) == 0 && len(g.BothRolesCountries) == 0 && g.BothRolesRating == nil &&
-		len(g.PerformerEthnicities) == 0 && len(g.PerformerCountries) == 0 && g.PerformerRating == nil &&
 		(g.TopAnyCount == nil || *g.TopAnyCount <= 0) && (g.BottomAnyCount == nil || *g.BottomAnyCount <= 0)
 }
 
@@ -391,24 +390,11 @@ func (b markerGroupSQLCustom) condition(g models.SceneMarkerTagGroupInput, sm st
 	}
 
 	named := markerGroupNamedIDsCustom(g)
-	legacy := func(values []string, fallback []string) []string {
-		if len(values) > 0 {
-			return values
-		}
-		return fallback
-	}
-	legacyRating := func(value *models.IntCriterionInput) *models.IntCriterionInput {
-		if value != nil {
-			return value
-		}
-		return g.PerformerRating
-	}
-
-	top, err := b.roleSide(sm, "top", g.TopPerformerIDs, g.TopAnyCount, legacy(g.TopEthnicities, g.PerformerEthnicities), legacy(g.TopCountries, g.PerformerCountries), legacyRating(g.TopRating), g.TopUnnamedPerformers, named)
+	top, err := b.roleSide(sm, "top", g.TopPerformerIDs, g.TopAnyCount, g.TopEthnicities, g.TopCountries, g.TopRating, g.TopUnnamedPerformers, named)
 	if err != nil {
 		return sqlClause{}, err
 	}
-	bottom, err := b.roleSide(sm, "bottom", g.BottomPerformerIDs, g.BottomAnyCount, legacy(g.BottomEthnicities, g.PerformerEthnicities), legacy(g.BottomCountries, g.PerformerCountries), legacyRating(g.BottomRating), g.BottomUnnamedPerformers, named)
+	bottom, err := b.roleSide(sm, "bottom", g.BottomPerformerIDs, g.BottomAnyCount, g.BottomEthnicities, g.BottomCountries, g.BottomRating, g.BottomUnnamedPerformers, named)
 	if err != nil {
 		return sqlClause{}, err
 	}

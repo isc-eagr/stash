@@ -34,13 +34,6 @@ AND (%[4]s - %[2]s.seconds) >= (%[3]s - %[1]s.seconds)
 AND 100 * (MIN(%[3]s, %[4]s) - MAX(%[1]s.seconds, %[2]s.seconds)) >= %[5]d * (%[3]s - %[1]s.seconds)`, markerAlias, sourceAlias, sceneMarkerEndExprCustom(markerAlias), sceneMarkerEndExprCustom(sourceAlias), sceneMarkerInheritedTagOverlapPercentCustom)
 }
 
-func sceneMarkerSameOrOverlapWhereCustom(baseAlias string, overlapAlias string) string {
-	return fmt.Sprintf(`(
-    %[2]s.id = %[1]s.id
-    OR (%[3]s)
-)`, baseAlias, overlapAlias, sceneMarkerOverlapWhereCustom(baseAlias, overlapAlias))
-}
-
 func sceneMarkerDirectTagSetSQLCustom(smAlias string) string {
 	return fmt.Sprintf(`SELECT %[1]s.primary_tag_id AS tag_id
 UNION ALL

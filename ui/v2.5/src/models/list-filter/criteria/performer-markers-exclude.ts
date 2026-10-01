@@ -379,6 +379,3 @@ export class PerformerMarkersExcludeCriterion extends Criterion {
     }
   }
 }
-
-// Export modifierOptions for use in CriterionEditor
-export const performerMarkersExcludeModifierOptions = modifierOptions;

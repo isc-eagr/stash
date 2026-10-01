@@ -169,27 +169,6 @@ export function statsDateRangeVariable(
   return { from: from ?? null, to: to ?? null, field: range.field };
 }
 
-export function isStatsDateRangeActive(range: IStatsDateRange) {
-  return statsDateRangeVariable(range) !== null;
-}
-
-export function statsDateRangeLabel(
-  range: IStatsDateRange,
-  today = new Date()
-) {
-  if (range.preset !== "custom") {
-    return (
-      STATS_DATE_PRESETS.find((preset) => preset.value === range.preset)
-        ?.label ?? "All time"
-    );
-  }
-  const { from, to } = resolveStatsDateRange(range, today);
-  if (from && to) return `${from} – ${to}`;
-  if (from) return `Since ${from}`;
-  if (to) return `Until ${to}`;
-  return "All time";
-}
-
 // Carry the date range from the current page into links to other stats pages.
 export function addStatsDateRangeToPath(path: string, search: string) {
   const range = readStatsDateRange(search);

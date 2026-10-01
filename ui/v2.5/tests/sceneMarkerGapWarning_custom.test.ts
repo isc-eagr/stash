@@ -2,11 +2,16 @@ import assert from "node:assert/strict";
 
 import {
   findSceneMarkerGapWarningDetails,
-  findSceneMarkerGapWarnings,
   findSceneMarkerWarnings,
   prepareSceneMarkerWarnings,
   sceneMarkerWarningDraft,
 } from "../src/components/Scenes/SceneDetails/sceneMarkerGapWarning_custom.ts";
+
+const findSceneMarkerGapWarnings = ({
+  draft,
+  ...options
+}: Parameters<typeof findSceneMarkerGapWarningDetails>[0]) =>
+  prepareSceneMarkerWarnings(options).findGapWarnings(draft);
 
 const roleTagIds = {
   sexTagId: "sex",

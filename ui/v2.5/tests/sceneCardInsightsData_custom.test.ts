@@ -4,10 +4,13 @@ import test from "node:test";
 import {
   getOutstandingActivityMatrix,
   getSceneCardInsightSets,
-  getSceneCardInsights,
   shouldShowOutstandingActivityTotalColumn,
 } from "../src/components/Scenes/sceneCardInsightsData_custom.ts";
 import { hasSceneCardInsightOverflow } from "../src/components/Scenes/sceneCardInsightSelection_custom.ts";
+
+const getSceneCardInsights = (
+  ...args: Parameters<typeof getSceneCardInsightSets>
+) => getSceneCardInsightSets(...args).visible;
 
 test("the full insight control appears only above the seven-chip limit", () => {
   assert.equal(hasSceneCardInsightOverflow(7), false);

@@ -56,7 +56,6 @@ type SceneMarkerUpdater interface {
 	UpdatePartial(ctx context.Context, id int, updatedSceneMarker SceneMarkerPartial) (*SceneMarker, error)
 	UpdateTags(ctx context.Context, markerID int, tagIDs []int) error
 	// CUSTOM: begin
-	UpdatePerformers(ctx context.Context, markerID int, performerIDs []int) error
 	UpdateTopPerformers(ctx context.Context, markerID int, performerIDs []int) error
 	UpdateBottomPerformers(ctx context.Context, markerID int, performerIDs []int) error
 	// CUSTOM: end

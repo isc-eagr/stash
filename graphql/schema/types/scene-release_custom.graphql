@@ -172,10 +172,6 @@ input ConvertSceneToReleaseInput {
   source_scene_id: ID!
   "The scene ID that will become the parent of the new release"
   target_scene_id: ID!
-  "Whether to transfer o-count/o-history from the source scene to the target scene"
-  transfer_o_history: Boolean
-  "Whether to transfer markers from the source scene to the target scene"
-  transfer_markers: Boolean
 }
 
 "Input for converting a release into a new scene"
@@ -184,8 +180,4 @@ input ConvertReleaseToSceneInput {
   request_id: String
   "The release ID to convert into a scene"
   release_id: ID!
-  "Whether to transfer o-count/o-history from the parent scene"
-  transfer_o_history: Boolean
-  "Whether to transfer markers from the parent scene"
-  transfer_markers: Boolean
 }

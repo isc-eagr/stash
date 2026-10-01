@@ -59,15 +59,6 @@ export const PerformerTagsCriterionOption = new BaseTagsCriterionOption(
 );
 
 // CUSTOM: begin
-export const MarkerTagsCriterionOption = new BaseTagsCriterionOption(
-  "marker_tags",
-  "marker_tags",
-  defaultModifierOptions
-);
-
-// Scene Marker Tags use grouped semantics for EQUALS (IS). Allow EQUALS here.
-// Supports extended groups with performer attributes (IDs, countries, ethnicities, rating)
-// Now with separate top/bottom attribute fields and both_roles support
 export type RatingCriterion = {
   modifier: CriterionModifier;
   value: number;

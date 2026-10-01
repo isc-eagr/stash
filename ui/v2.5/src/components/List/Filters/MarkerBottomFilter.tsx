@@ -410,5 +410,3 @@ export const MarkerBottomFilter: React.FC<IMarkerBottomFilterProps> = ({
     </div>
   );
 };
-
-export default MarkerBottomFilter;

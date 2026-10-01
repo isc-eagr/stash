@@ -62,5 +62,3 @@ export const MarkerFilterGroupProvider: React.FC<
     </MarkerFilterGroupContext.Provider>
   );
 };
-
-export default MarkerFilterGroupContext;

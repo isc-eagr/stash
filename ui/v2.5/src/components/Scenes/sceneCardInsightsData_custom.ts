@@ -18,7 +18,6 @@ import {
   selectSceneCardInsights,
 } from "./sceneCardInsightSelection_custom";
 import type {
-  ISceneCardInsight,
   SceneCardInsightCandidate,
   SceneCardInsightEvent,
   SceneCardInsightMarker,
@@ -1836,20 +1835,4 @@ export function getSceneCardInsightSets(
     goatOpensActivityMatrix,
     outstandingActivityMatrix,
   };
-}
-
-export function getSceneCardInsights(
-  scene: SceneCardInsightScene,
-  roleTagIds: IUIConfig["roleTagIds"],
-  configuredThresholds?: IUIConfig["sceneCardInsightThresholds"],
-  ratingConfig?: SceneCardInsightRatingConfig,
-  roleStatsByPerformer?: ReadonlyMap<string, SceneCardInsightPerformerRoleStats>
-): ISceneCardInsight[] {
-  return getSceneCardInsightSets(
-    scene,
-    roleTagIds,
-    configuredThresholds,
-    ratingConfig,
-    roleStatsByPerformer
-  ).visible;
 }

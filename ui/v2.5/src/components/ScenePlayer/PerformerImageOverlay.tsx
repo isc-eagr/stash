@@ -544,5 +544,3 @@ const DraggableOverlayImage: React.FC<IDraggableOverlayImageProps> = ({
     </div>
   );
 };
-
-export default PerformerImageOverlay;

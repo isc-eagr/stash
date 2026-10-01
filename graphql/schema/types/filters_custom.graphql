@@ -67,22 +67,6 @@ input TagIdGroupsInput {
   groups: [[ID!]!]
 }
 
-"Specifies a minimum count of performers with a given ethnicity"
-input EthnicityCountInput {
-  "The ethnicity to match (expansions handled server-side)"
-  ethnicity: String!
-  "Minimum number of distinct performers with this ethnicity required"
-  min_count: Int!
-}
-
-"Specifies a minimum count of performers from a given country"
-input CountryCountInput {
-  "The country code to match"
-  country: String!
-  "Minimum number of distinct performers from this country required"
-  min_count: Int!
-}
-
 """
 Criteria for an unnamed performer slot. Each slot must match a DISTINCT performer
 that satisfies ALL the specified criteria (AND logic within, must be distinct between slots).
@@ -121,10 +105,6 @@ input SceneMarkerTagGroupInput {
   top_ethnicities: [String!]
   "Top performer countries (OR match)"
   top_countries: [String!]
-  "Minimum counts per ethnicity for top performers (AND logic between entries)"
-  top_ethnicity_counts: [EthnicityCountInput!]
-  "Minimum counts per country for top performers (AND logic between entries)"
-  top_country_counts: [CountryCountInput!]
   "Top performer rating criterion"
   top_rating: IntCriterionInput
 
@@ -136,10 +116,6 @@ input SceneMarkerTagGroupInput {
   bottom_ethnicities: [String!]
   "Bottom performer countries (OR match)"
   bottom_countries: [String!]
-  "Minimum counts per ethnicity for bottom performers (AND logic between entries)"
-  bottom_ethnicity_counts: [EthnicityCountInput!]
-  "Minimum counts per country for bottom performers (AND logic between entries)"
-  bottom_country_counts: [CountryCountInput!]
   "Bottom performer rating criterion"
   bottom_rating: IntCriterionInput
 
@@ -149,10 +125,6 @@ input SceneMarkerTagGroupInput {
   both_roles_ethnicities: [String!]
   "Both-roles performer countries (OR match)"
   both_roles_countries: [String!]
-  "Minimum counts per ethnicity for both-roles performers (AND logic between entries)"
-  both_roles_ethnicity_counts: [EthnicityCountInput!]
-  "Minimum counts per country for both-roles performers (AND logic between entries)"
-  both_roles_country_counts: [CountryCountInput!]
   "Both-roles performer rating criterion"
   both_roles_rating: IntCriterionInput
 
@@ -182,13 +154,6 @@ input SceneMarkerTagGroupInput {
 
   "Mode for performer matching: 'AND' = top AND bottom must match, 'OR' = either can match (default: 'OR')"
   performer_mode: String
-
-  "DEPRECATED: Use top_countries/bottom_countries instead. Optional performer countries (OR match)"
-  performer_countries: [String!]
-  "DEPRECATED: Use top_ethnicities/bottom_ethnicities instead. Optional performer ethnicities (OR match)"
-  performer_ethnicities: [String!]
-  "DEPRECATED: Use top_rating/bottom_rating instead. Optional performer rating criterion"
-  performer_rating: IntCriterionInput
 }
 
 input SceneMarkerTagsCriterionInput {
@@ -253,38 +218,6 @@ input PerformerMarkerConditionInput {
   partner_rating: IntCriterionInput
 }
 
-"Filter performers by markers with specific tags and performer's role"
-input PerformerMarkerTagsCriterionInput {
-  "Tag IDs to match on markers"
-  tag_ids: [ID!]!
-  "Performer's role on the marker: 'top', 'bottom', or 'any' (default: 'any')"
-  role: String
-  "Depth for hierarchical tags"
-  depth: Int
-  "Modifier for the filter (INCLUDES, INCLUDES_ALL, EXCLUDES, IS_NULL, NOT_NULL)"
-  modifier: CriterionModifier!
-}
-
-"Filter performers by markers shared with partners having specific attributes"
-input PerformerMarkerPartnersCriterionInput {
-  "Tag IDs to match on markers (optional - filters to only markers with these tags)"
-  tag_ids: [ID!]
-  "Depth for hierarchical tags"
-  depth: Int
-  "Specific partner performers to filter by (OR match)"
-  partner_performer_ids: [ID!]
-  "Partner's ethnicities to filter by (OR match - partner must have one of these)"
-  partner_ethnicities: [String!]
-  "Partner's countries to filter by (OR match)"
-  partner_countries: [String!]
-  "Partner's rating criterion"
-  partner_rating: IntCriterionInput
-  "Partner's role: 'top', 'bottom', or 'any' (default: 'any')"
-  partner_role: String
-  "Modifier for the filter (INCLUDES, EXCLUDES)"
-  modifier: CriterionModifier!
-}
-
 # ============================================================
 # Extensions to upstream filter input types
 # ============================================================
@@ -320,10 +253,6 @@ input PerformerPartnersFilterInput {
   facial_unique: IntCriterionInput
   "Operator to combine unique metrics: 'AND' (default) or 'OR'"
   unique_operator: String
-  "Backend-only: count of distinct oral+facial bottomed partners (OR logic for lenient tops stat)"
-  any_non_sex_bottomed: IntCriterionInput
-  "Backend-only: count of distinct oral+facial topped partners (OR logic for lenient bottoms stat)"
-  any_non_sex_topped: IntCriterionInput
 }
 
 input RatingScoreCriterionFilterInput {
@@ -383,15 +312,8 @@ extend input PerformerFilterType {
   partners: PerformerPartnersFilterInput
   "Filter by scene type (sex, oral, solo, facial) — performer must have markers in scenes matching each selected type"
   scene_type: SceneTypeFilterInput
-  "Filter to only include performers that have at least one scene marker with all the selected tags"
-  marker_tags: HierarchicalMultiCriterionInput
-    @deprecated(reason: "Use performer_markers instead")
   "Filter by scene marker participation with tag + role + partner attributes"
   performer_markers: PerformerMarkersCriterionInput
-  "Filter by markers with specific tags and performer's role on those markers"
-  performer_marker_tags: PerformerMarkerTagsCriterionInput
-  "Filter by markers shared with partners having specific attributes"
-  performer_marker_partners: PerformerMarkerPartnersCriterionInput
   "Filter by configured sex/oral/solo activity percentages and performer top/bottom percentages"
   activity_percentages: PerformerActivityPercentFilterInput
   sex_activity_percent: IntCriterionInput

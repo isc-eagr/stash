@@ -329,13 +329,6 @@ func (r *mutationResolver) ConvertSceneToRelease(ctx context.Context, input Conv
 		return nil, fmt.Errorf("source and target scene cannot be the same")
 	}
 
-	if input.TransferOHistory != nil && *input.TransferOHistory {
-		return nil, fmt.Errorf("transfer_o_history is obsolete: conversion preserves source ownership without moving activity to the parent")
-	}
-	if input.TransferMarkers != nil && *input.TransferMarkers {
-		return nil, fmt.Errorf("transfer_markers is obsolete: conversion preserves source ownership without moving markers to the parent")
-	}
-
 	var ret *models.SceneRelease
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		if input.RequestID != nil {
@@ -559,13 +552,6 @@ func (r *mutationResolver) ConvertReleaseToScene(ctx context.Context, input Conv
 	releaseID, err := strconv.Atoi(input.ReleaseID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid release_id: %w", err)
-	}
-
-	if input.TransferOHistory != nil && *input.TransferOHistory {
-		return nil, fmt.Errorf("transfer_o_history is obsolete: conversion restores only this release's activity")
-	}
-	if input.TransferMarkers != nil && *input.TransferMarkers {
-		return nil, fmt.Errorf("transfer_markers is obsolete: parent markers stay with the parent")
 	}
 
 	var ret *models.Scene

@@ -102,72 +102,6 @@ func (r *queryResolver) PerformerEthnicities(ctx context.Context) (ret []string,
 	return ret, nil
 }
 
-// PerformerEthnicityCounts returns counts of performers grouped by non-empty ethnicity,
-// sorted by count descending.
-func (r *queryResolver) PerformerEthnicityCounts(ctx context.Context) (ret []*PerformerEthnicityCount, err error) {
-	return r.performerEthnicityCountsCustom(ctx, false)
-}
-
-// PerformerEthnicityTierCounts returns final metallic card-style counts grouped by
-// non-empty ethnicity. It mirrors the performers metallic_rating filter semantics,
-// including override tags and higher-priority override precedence.
-func (r *queryResolver) PerformerEthnicityTierCounts(ctx context.Context) (ret []*PerformerEthnicityTierCount, err error) {
-	thresholds := getCustomPerformerRatingTierThresholds()
-	overrides := getCustomRatingTierOverrideTags()
-	bronzeClause, bronzeArgs := customRatingTierSQLClause("bronze", thresholds, overrides)
-	silverClause, silverArgs := customRatingTierSQLClause("silver", thresholds, overrides)
-	goldClause, goldArgs := customRatingTierSQLClause("gold", thresholds, overrides)
-	royalSapphireClause, royalSapphireArgs := customRatingTierSQLClause("royal_sapphire", thresholds, overrides)
-
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		db := manager.GetInstance().Database
-		query := fmt.Sprintf(`
-SELECT
-  ethnicity,
-  SUM(CASE WHEN %s THEN 1 ELSE 0 END) AS bronze_count,
-  SUM(CASE WHEN %s THEN 1 ELSE 0 END) AS silver_count,
-  SUM(CASE WHEN %s THEN 1 ELSE 0 END) AS gold_count,
-  SUM(CASE WHEN %s THEN 1 ELSE 0 END) AS royal_sapphire_count
-FROM performers
-WHERE ethnicity IS NOT NULL
-  AND TRIM(ethnicity) <> ''
-GROUP BY ethnicity
-HAVING bronze_count + silver_count + gold_count + royal_sapphire_count > 0
-ORDER BY bronze_count + silver_count + gold_count + royal_sapphire_count DESC, ethnicity ASC`,
-			bronzeClause,
-			silverClause,
-			goldClause,
-			royalSapphireClause,
-		)
-		args := append([]interface{}{}, bronzeArgs...)
-		args = append(args, silverArgs...)
-		args = append(args, goldArgs...)
-		args = append(args, royalSapphireArgs...)
-		_, rows, err := db.QuerySQL(ctx, query, args)
-		if err != nil {
-			return err
-		}
-		out := make([]*PerformerEthnicityTierCount, 0, len(rows))
-		for _, row := range rows {
-			if len(row) < 5 {
-				continue
-			}
-			out = append(out, &PerformerEthnicityTierCount{
-				Ethnicity:     customStringValue(row[0]),
-				Bronze:        customIntValue(row[1]),
-				Silver:        customIntValue(row[2]),
-				Gold:          customIntValue(row[3]),
-				RoyalSapphire: customIntValue(row[4]),
-			})
-		}
-		ret = out
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return ret, nil
-}
-
 func customRatingTierSQLClause(tier string, thresholds customRatingTierThresholds, overrides customRatingTierOverrideTags) (string, []interface{}) {
 	var clauses []string
 	var args []interface{}
@@ -678,7 +612,6 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 			scene := &SceneStatsScene{
 				ID:                    strconv.Itoa(id),
 				Title:                 sceneStatsStringPtrValue(row[1]),
-				Date:                  sceneStatsStringPtrValue(row[2]),
 				EffectiveDate:         sceneStatsEffectiveDateValueCustom(row[3], row[2]),
 				Rating100:             vatoStatsIntPtrValue(row[4]),
 				OCounter:              customIntValue(row[5]),
@@ -697,7 +630,6 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 			out.Scenes = append(out.Scenes, scene)
 			byID[id] = scene
 		}
-		out.Count = len(out.Scenes)
 
 		if len(byID) == 0 {
 			ret = out
@@ -2826,101 +2758,6 @@ func (r *queryResolver) SceneOrgasmCount(ctx context.Context, studioID *string, 
 // Uses roleTagIds.facialTagId from UI config and includes all subtags recursively.
 func (r *queryResolver) SceneFacialCount(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (int, error) {
 	return r.sceneWeightedMarkerCountCustom(ctx, "facialTagId", studioID, depth, dateRange)
-}
-
-func (r *queryResolver) PerformerTagSceneCounts(ctx context.Context, performer_id string, tag_ids []string) ([]*PerformerTagSceneCount, error) {
-	// parse performer id
-	pid, err := strconv.Atoi(performer_id)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(tag_ids) == 0 {
-		return []*PerformerTagSceneCount{}, nil
-	}
-
-	// parse tag ids and build args
-	args := make([]interface{}, 0, 1+len(tag_ids))
-	args = append(args, pid)
-	placeholders := make([]string, len(tag_ids))
-	parsedIDs := make([]int, len(tag_ids))
-	for i, tid := range tag_ids {
-		id, err := strconv.Atoi(tid)
-		if err != nil {
-			return nil, err
-		}
-		parsedIDs[i] = id
-		args = append(args, id)
-		placeholders[i] = "?"
-	}
-
-	// Query via scene_marker_performers -> scene_markers to get counts by primary_tag_id
-	query := `SELECT sm.primary_tag_id, COUNT(DISTINCT sm.scene_id) 
-FROM scene_marker_performers smp 
-JOIN scene_markers sm ON sm.id = smp.scene_marker_id 
-WHERE smp.performer_id = ? AND sm.primary_tag_id IN (` + strings.Join(placeholders, ",") + `) 
-GROUP BY sm.primary_tag_id`
-
-	db := manager.GetInstance().Database
-
-	var rows [][]interface{}
-
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		var err error
-		_, rows, err = db.QuerySQL(ctx, query, args)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-
-	counts := make(map[int]int)
-	for _, row := range rows {
-		if len(row) < 2 {
-			continue
-		}
-
-		// tag_id may be returned as int64 or string/[]byte depending on driver
-		var tagInt int
-		switch v := row[0].(type) {
-		case int64:
-			tagInt = int(v)
-		case int:
-			tagInt = v
-		case []byte:
-			tagInt, _ = strconv.Atoi(string(v))
-		case string:
-			tagInt, _ = strconv.Atoi(v)
-		default:
-			tagInt, _ = strconv.Atoi(fmt.Sprint(v))
-		}
-
-		var cnt int
-		switch v := row[1].(type) {
-		case int64:
-			cnt = int(v)
-		case int:
-			cnt = v
-		case []byte:
-			cnt, _ = strconv.Atoi(string(v))
-		case string:
-			cnt, _ = strconv.Atoi(v)
-		default:
-			cnt, _ = strconv.Atoi(fmt.Sprint(v))
-		}
-
-		counts[tagInt] = cnt
-	}
-
-	var result []*PerformerTagSceneCount
-	for _, id := range parsedIDs {
-		c := counts[id]
-		result = append(result, &PerformerTagSceneCount{
-			TagID: strconv.Itoa(id),
-			Count: c,
-		})
-	}
-
-	return result, nil
 }
 
 // TotalOrgasmTime calculates the total time (in seconds) of all orgasm markers.

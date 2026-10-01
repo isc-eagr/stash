@@ -9,12 +9,6 @@ export const SCENE_PERFORMER_OVERVIEW_LINK_PROPS = {
   rel: "noopener noreferrer",
 } as const;
 
-export function isScenePerformerOverviewFieldExcluded(field: string) {
-  return SCENE_PERFORMER_OVERVIEW_EXCLUDED_FIELDS.some(
-    (excludedField) => excludedField === field
-  );
-}
-
 interface IPrimaryActivation {
   altKey: boolean;
   button: number;

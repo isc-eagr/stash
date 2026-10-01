@@ -18,8 +18,7 @@ type PerformerFinder interface {
 	FindByStashID(ctx context.Context, stashID StashID) ([]*Performer, error)
 	FindByStashIDStatus(ctx context.Context, hasStashID bool, stashboxEndpoint string) ([]*Performer, error)
 	FindByNames(ctx context.Context, names []string, nocase bool) ([]*Performer, error)
-	FindBySceneMarkerID(ctx context.Context, sceneMarkerID int) ([]*Performer, error)                      // CUSTOM
-	FindBySceneMarkerIDWithRole(ctx context.Context, sceneMarkerID int, role string) ([]*Performer, error) // CUSTOM
+	FindBySceneMarkerID(ctx context.Context, sceneMarkerID int) ([]*Performer, error) // CUSTOM
 }
 
 // PerformerQueryer provides methods to query performers.

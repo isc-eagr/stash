@@ -28,47 +28,6 @@
   }
 }
 
-.vatostats-filter-bar {
-  align-items: center;
-  backdrop-filter: blur(12px);
-  background: rgba(7, 11, 18, 0.94);
-  border: 1px solid rgba(76, 146, 230, 0.38);
-  border-radius: 8px;
-  bottom: 1rem;
-  box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.45);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  left: 50%;
-  max-width: min(1120px, calc(100vw - 2rem));
-  padding: 0.65rem;
-  position: fixed;
-  transform: translateX(-50%);
-  width: calc(100vw - 2rem);
-  z-index: 1030;
-}
-
-.vatostats-filter-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.vatostats-filter-chip {
-  background: rgba(26, 74, 135, 0.42);
-  border: 1px solid rgba(76, 146, 230, 0.38);
-  border-radius: 999px;
-  color: #f7f7f7;
-  font-size: 0.85rem;
-  font-weight: 700;
-  max-width: 18rem;
-  overflow: hidden;
-  padding: 0.25rem 0.65rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .vatostats-summary-grid {
   display: grid;
   gap: 1rem;

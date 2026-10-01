@@ -268,5 +268,3 @@ declare module "video.js" {
     seekButtonsMenu?: ISeekButtonsOptions;
   }
 }
-
-export default SeekButtonsPlugin;

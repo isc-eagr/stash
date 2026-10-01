@@ -61,9 +61,6 @@ export interface IMarkerPerformersGroup {
   either_performer_ids: ILabeledId[];
 }
 
-// Simplified: No modifier options exposed to UI - always use EQUALS for the scene_marker_tags filter
-const modifierOptions = [CriterionModifier.Equals];
-
 const defaultModifier = CriterionModifier.Equals;
 
 function createEmptyMarkerGroup(groupId: string): IMarkerPerformersGroup {
@@ -470,6 +467,3 @@ export const MarkerPerformersCriterionOption: CriterionOption =
     type: "marker_performers",
     makeCriterion: () => new MarkerPerformersCriterion(),
   });
-
-// Also export modifierOptions for use in CriterionEditor
-export const markerPerformersModifierOptions = modifierOptions;

@@ -118,28 +118,6 @@ func (r *mutationResolver) DeleteSceneMultiSegmentLoopPreset(ctx context.Context
 	return true, nil
 }
 
-func (r *queryResolver) FindSceneMultiSegmentLoopPresets(ctx context.Context, sceneID string) (ret []*MultiSegmentLoopPreset, err error) {
-	sceneInt, err := strconv.Atoi(sceneID)
-	if err != nil {
-		return nil, fmt.Errorf("converting scene id: %w", err)
-	}
-
-	var presets []*models.SceneLoopPreset
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		presets, err = r.repository.SceneLoopPreset.FindByScene(ctx, sceneInt)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-
-	converted := make([]*MultiSegmentLoopPreset, 0, len(presets))
-	for _, p := range presets {
-		converted = append(converted, toAPIMultiSegmentLoopPreset(p))
-	}
-
-	return converted, nil
-}
-
 func (r *sceneResolver) MultiSegmentLoopPresets(ctx context.Context, obj *models.Scene) (ret []*MultiSegmentLoopPreset, err error) {
 	var presets []*models.SceneLoopPreset
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {

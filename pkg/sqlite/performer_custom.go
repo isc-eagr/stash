@@ -24,20 +24,6 @@ func (qb *PerformerStore) FindBySceneMarkerID(ctx context.Context, sceneMarkerID
 	return ret, nil
 }
 
-func (qb *PerformerStore) FindBySceneMarkerIDWithRole(ctx context.Context, sceneMarkerID int, role string) ([]*models.Performer, error) {
-	sq := dialect.From(goqu.T("scene_marker_performers")).Select(goqu.C("performer_id")).Where(
-		goqu.C("scene_marker_id").Eq(sceneMarkerID),
-		goqu.C("role").Eq(role),
-	)
-	ret, err := qb.findBySubquery(ctx, sq)
-
-	if err != nil {
-		return nil, fmt.Errorf("getting %s performers for scene marker %d: %w", role, sceneMarkerID, err)
-	}
-
-	return ret, nil
-}
-
 func (qb *PerformerStore) GetImageBlob(ctx context.Context, performerID int) (*string, error) {
 	return qb.blobJoinQueryBuilder.getChecksum(ctx, performerID, performerImageBlobColumn)
 }

@@ -33,4 +33,3 @@ Go monolith serving a GraphQL API and the built React UI. Entry point `cmd/stash
 ## Workflow notes
 
 - Keep changes small per step, but finish both backend and frontend of a feature so nothing is left half-wired.
-- `.github/copilot-instructions.md` holds an older overlapping copy of these workflow notes; `Agents.md` is authoritative if they disagree.

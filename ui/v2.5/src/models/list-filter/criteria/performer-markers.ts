@@ -380,6 +380,3 @@ export class PerformerMarkersCriterion extends Criterion {
     }
   }
 }
-
-// Export modifierOptions for use in CriterionEditor
-export const performerMarkersModifierOptions = modifierOptions;

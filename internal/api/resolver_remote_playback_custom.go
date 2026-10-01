@@ -71,13 +71,6 @@ func (r *mutationResolver) RemotePlaybackPairingRedeem(ctx context.Context, toke
 	return remotePlaybackHub.redeemPairing(token)
 }
 
-func (r *subscriptionResolver) RemotePlaybackStateSubscribe(ctx context.Context, playerID string) (<-chan *RemotePlaybackState, error) {
-	if err := validateRemotePlaybackTokenCustom("player ID", playerID); err != nil {
-		return nil, err
-	}
-	return remotePlaybackHub.subscribeState(ctx, playerID), nil
-}
-
 func (r *subscriptionResolver) RemotePlaybackCommandSubscribe(ctx context.Context, playerID string) (<-chan *RemotePlaybackCommand, error) {
 	if err := validateRemotePlaybackTokenCustom("player ID", playerID); err != nil {
 		return nil, err

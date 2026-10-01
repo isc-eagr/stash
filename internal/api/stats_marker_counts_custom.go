@@ -39,21 +39,3 @@ FROM (
 func statsWeightedMarkerCountScopedQueryCustom(sceneScope string) string {
 	return sceneScope + ",\n" + statsWeightedMarkerCountQueryBodyCustom
 }
-
-// CUSTOM: performerRoleTagCountQueryCustom matches the performer marker filter:
-// primary and secondary tags both include the complete configured tag family.
-const performerRoleTagCountQueryCustom = `
-WITH RECURSIVE target_tags(id) AS (
-  SELECT id FROM tags WHERE id = ?
-  UNION ALL
-  SELECT tr.child_id FROM tags_relations tr JOIN target_tags tt ON tr.parent_id = tt.id
-)
-SELECT COUNT(DISTINCT smp.performer_id)
-FROM scene_marker_performers smp
-JOIN scene_markers sm ON sm.id = smp.scene_marker_id
-WHERE smp.role = ?
-  AND (sm.primary_tag_id IN (SELECT id FROM target_tags)
-    OR EXISTS (
-      SELECT 1 FROM scene_markers_tags smt
-      WHERE smt.scene_marker_id = sm.id AND smt.tag_id IN (SELECT id FROM target_tags)
-    ))`

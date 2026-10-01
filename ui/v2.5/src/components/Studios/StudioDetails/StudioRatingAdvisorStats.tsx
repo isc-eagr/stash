@@ -1,17 +1,10 @@
 import React from "react";
-import { ErrorMessage } from "src/components/Shared/ErrorMessage";
-import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { getRatingAdvisorAdjustmentTooltipLabelCustom } from "src/components/Shared/ratingAdvisorScales_custom";
 import * as GQL from "src/core/generated-graphql";
 
 import "./StudioRatingAdvisorStats.scss";
 
 type RatingAdvisorSection = GQL.StudioRatingAdvisorSectionDataFragment;
-
-interface IProps {
-  studioId: string;
-  depth: number;
-}
 
 export type StudioRatingAdvisorSectionKey =
   | "solo_scenes"
@@ -356,25 +349,4 @@ export const RatingAdvisorStatsContent: React.FC<
       </div>
     </section>
   );
-};
-
-export const StudioRatingAdvisorStats: React.FC<IProps> = ({
-  studioId,
-  depth,
-}) => {
-  const { data, loading, error } = GQL.useFindStudioRatingAdvisorStatsQuery({
-    variables: { id: studioId, depth },
-  });
-
-  if (loading && !data) {
-    return <LoadingIndicator message="Loading rating averages…" inline small />;
-  }
-  if (error) {
-    return <ErrorMessage error={error.message} />;
-  }
-
-  const stats = data?.findStudio?.studio_rating_advisor_stats;
-  if (!stats) return null;
-
-  return <RatingAdvisorStatsContent hideEmptySceneSections stats={stats} />;
 };

@@ -10,5 +10,3 @@ interface IMarkerPerformersFilterProps {
 export const MarkerPerformersFilter: React.FC<IMarkerPerformersFilterProps> = (
   props
 ) => <MarkerFilterEditor {...props} scope="markers" />;
-
-export default MarkerPerformersFilter;

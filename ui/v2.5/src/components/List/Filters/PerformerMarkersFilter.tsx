@@ -37,5 +37,3 @@ export const PerformerMarkersFilter: React.FC<IPerformerMarkersFilterProps> = ({
     </div>
   );
 };
-
-export default PerformerMarkersFilter;

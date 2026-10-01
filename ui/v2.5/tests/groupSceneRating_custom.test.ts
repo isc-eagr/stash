@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 
 import {
-  getGroupSceneBaseMaximumCustom,
   getSceneRatingModeCustom,
   GROUP_SCENE_BONUSES_CUSTOM,
   GROUP_SCENE_ENERGY_COORDINATION_CHOICES_CUSTOM,
@@ -17,7 +16,14 @@ assert.equal(getSceneRatingModeCustom(3, false), "default");
 assert.equal(getSceneRatingModeCustom(3, true), "solo");
 assert.equal(getSceneRatingModeCustom(4, false), "group");
 assert.equal(getSceneRatingModeCustom(4, true), "group");
-assert.equal(getGroupSceneBaseMaximumCustom() * 10, 100);
+assert.equal(
+  (5 * GROUP_SCENE_WEIGHTS_CUSTOM.topAttractiveness +
+    5 * GROUP_SCENE_WEIGHTS_CUSTOM.energyCoordination +
+    4 * GROUP_SCENE_WEIGHTS_CUSTOM.payoff +
+    4 * GROUP_SCENE_WEIGHTS_CUSTOM.usability) *
+    10,
+  100
+);
 assert.equal(GROUP_SCENE_WEIGHTS_CUSTOM.topAttractiveness * 50, 30);
 assert.equal(GROUP_SCENE_WEIGHTS_CUSTOM.energyCoordination * 50, 30);
 assert.equal(GROUP_SCENE_BONUSES_CUSTOM.bottomAttractiveness * 10, 5);

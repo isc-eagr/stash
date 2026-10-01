@@ -58,18 +58,6 @@ func (r *queryResolver) FindTaskProgressMilestones(ctx context.Context) (ret []*
 	return
 }
 
-func (r *queryResolver) TaskProgressMilestone(ctx context.Context, id string) (ret *models.TaskProgressMilestone, err error) {
-	milestoneID, err := strconv.Atoi(id)
-	if err != nil {
-		return nil, fmt.Errorf("%w: invalid milestone id", ErrInput)
-	}
-	err = r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = r.repository.TaskProgressTracker.FindMilestone(ctx, milestoneID)
-		return err
-	})
-	return
-}
-
 func (r *mutationResolver) TaskProgressMilestoneCreate(ctx context.Context, input TaskProgressMilestoneCreateInput) (ret *models.TaskProgressMilestone, err error) {
 	name := strings.TrimSpace(input.Name)
 	if name == "" {

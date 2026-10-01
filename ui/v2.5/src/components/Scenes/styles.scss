@@ -257,14 +257,6 @@
   padding: 0 0.65rem;
 }
 
-.scene-card-insights-hover {
-  width: 100%;
-}
-
-.scene-card-insights-hover-detail {
-  margin-top: 0.65rem;
-}
-
 .scene-card-insights-detail {
   justify-content: flex-start;
   margin: 0 0 0.65rem;
@@ -427,58 +419,6 @@
 
 /* CUSTOM: end */
 
-.scene-hand-icon {
-  color: #fff; // White color for the hand icon
-  display: inline-block;
-  font-size: 1.1em;
-  margin-right: 0.5rem;
-  transform: rotate(-45deg); // Angled diagonally to the left
-}
-
-.scene-mouth-icon {
-  display: inline-block;
-  // Force black SVGs to render as white without altering the asset
-  -webkit-filter: brightness(0) invert(1);
-  filter: brightness(0) invert(1);
-  height: 1.1em;
-  margin-right: 0.5rem;
-  vertical-align: -0.125em; // align similarly to font icons
-  width: 1.1em;
-}
-
-.scene-gay-icon {
-  display: inline-block;
-  // Force black SVGs to render as white without altering the asset
-  -webkit-filter: brightness(0) invert(1);
-  filter: brightness(0) invert(1);
-  height: 1.1em;
-  margin-right: 0.5rem;
-  vertical-align: -0.125em;
-  width: 1.1em;
-}
-
-.scene-straight-icon {
-  display: inline-block;
-  // Force black SVGs to render as white without altering the asset
-  -webkit-filter: brightness(0) invert(1);
-  filter: brightness(0) invert(1);
-  height: 1.1em;
-  margin-right: 0.5rem;
-  vertical-align: -0.125em;
-  width: 1.1em;
-}
-
-.scene-goatee-icon {
-  display: inline-block;
-  // Force black SVGs to render as white without altering the asset
-  -webkit-filter: brightness(0) invert(1);
-  filter: brightness(0) invert(1);
-  height: 1.1em;
-  margin-right: 0.5rem;
-  vertical-align: -0.125em;
-  width: 1.1em;
-}
-
 .video-section {
   position: relative;
 }
@@ -500,13 +440,6 @@
 
   .tag-select {
     width: 100%;
-  }
-
-  .tag-editor-actions {
-    display: flex;
-    gap: 0.5rem;
-    justify-content: flex-end;
-    margin-top: 0.5rem;
   }
 }
 
@@ -1690,10 +1623,6 @@ input[type="range"].blue-slider {
     }
   }
 
-  .scene-marker-chronology-tabs {
-    margin-bottom: 0.75rem;
-  }
-
   .scene-marker-chronology-list {
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 0.25rem;
@@ -1705,41 +1634,6 @@ input[type="range"].blue-slider {
     scroll-margin-top: calc(
       var(--scene-marker-activity-header-sticky-offset) + 0.65rem
     );
-  }
-
-  .scene-marker-chronology-row.marker-item {
-    align-items: center;
-    column-gap: 0.75rem;
-    cursor: pointer;
-    display: grid;
-    grid-template-columns: 8rem minmax(0, 1fr) auto;
-    padding: 0.5rem 0.75rem;
-    position: relative;
-
-    &:not(:last-child) {
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    }
-
-    &:focus-visible {
-      outline: 1px solid rgba(255, 255, 255, 0.22);
-      outline-offset: -1px;
-    }
-  }
-
-  .scene-marker-chronology-row-current.marker-item {
-    background-color: rgba(255, 255, 255, 0.035);
-
-    &::before {
-      background-color: #e66f5c;
-      border-radius: 0.45rem 0 0 0.45rem;
-      bottom: 0;
-      box-shadow: 0 0 0.45rem rgba(230, 111, 92, 0.28);
-      content: "";
-      left: 0;
-      position: absolute;
-      top: 0;
-      width: 0.32rem;
-    }
   }
 
   .scene-marker-activity-group-header {
@@ -1821,21 +1715,6 @@ input[type="range"].blue-slider {
       margin: 0;
       width: 1rem;
     }
-  }
-
-  .scene-marker-activity-group-count {
-    background-color: rgba(255, 255, 255, 0.12);
-    border-radius: 0.75rem;
-    color: #d9e2ea;
-    font-size: 0.72rem;
-    line-height: 1;
-    min-width: 1.7rem;
-    padding: 0.25rem 0.45rem;
-    text-align: center;
-  }
-
-  .scene-marker-activity-group-header + .scene-marker-chronology-row {
-    border-top: 0;
   }
 
   .scene-marker-activity-config-card {
@@ -2083,18 +1962,6 @@ input[type="range"].blue-slider {
     line-height: 1;
   }
 
-  .scene-marker-activity-highlights {
-    align-items: flex-start;
-    display: flex;
-    gap: 0.4rem;
-  }
-
-  .scene-marker-activity-highlights-checkbox {
-    flex: 0 0 auto;
-    line-height: 1;
-    margin: 0.34rem 0 0;
-  }
-
   .scene-marker-activity-highlight-pill-list {
     display: flex;
     flex-wrap: wrap;
@@ -2159,48 +2026,6 @@ input[type="range"].blue-slider {
         font-size: 0.69rem;
       }
     }
-  }
-
-  .scene-marker-chronology-row-activity-card.marker-item {
-    grid-template-columns: minmax(0, 1fr) auto;
-    min-height: 12rem;
-    padding-bottom: 1rem;
-    padding-top: 1rem;
-
-    .marker-main-row {
-      margin-bottom: 0.45rem;
-    }
-
-    .marker-timestamp {
-      /* stylelint-disable-next-line declaration-no-important -- compact chronology rows override the shared marker timestamp spacing */
-      margin-left: 0 !important;
-    }
-  }
-
-  .scene-marker-activity-type-name {
-    color: #fff;
-    display: inline-block;
-    font-size: 1.35rem;
-    font-weight: 700;
-    line-height: 1.05;
-    margin-bottom: 0.2rem;
-    max-width: 100%;
-    overflow: hidden;
-    text-align: left;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-
-    &:hover {
-      color: #fff;
-      text-decoration: underline;
-    }
-  }
-
-  .scene-marker-activity-performers {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.9rem;
-    margin-top: 0.55rem;
   }
 
   .scene-marker-activity-performer {
@@ -2269,35 +2094,6 @@ input[type="range"].blue-slider {
     /* stylelint-enable property-no-vendor-prefix */
   }
 
-  .scene-marker-highlight-config-card {
-    background-color: rgba(255, 255, 255, 0.02);
-  }
-
-  .scene-marker-highlight-marker-card {
-    position: relative;
-
-    &:focus-visible {
-      outline: 1px solid rgba(255, 255, 255, 0.22);
-      outline-offset: -1px;
-    }
-  }
-
-  .scene-marker-highlight-marker-card-current {
-    background-color: rgba(230, 111, 92, 0.09);
-
-    &::before {
-      background-color: #e66f5c;
-      border-radius: 0.45rem 0 0 0.45rem;
-      bottom: 0;
-      box-shadow: 0 0 0.45rem rgba(230, 111, 92, 0.28);
-      content: "";
-      left: 0;
-      position: absolute;
-      top: 0;
-      width: 0.32rem;
-    }
-  }
-
   .scene-marker-highlight-performer {
     max-width: 7.875rem;
     min-width: 7.875rem;
@@ -2354,77 +2150,6 @@ input[type="range"].blue-slider {
     }
   }
 
-  .scene-marker-highlight-main-row {
-    align-items: center;
-    display: grid;
-    gap: 0.45rem;
-    grid-template-columns: minmax(0, 1fr) max-content max-content auto;
-    min-width: 0;
-  }
-
-  .scene-marker-highlight-title {
-    color: #f5f8fa;
-    font-size: 0.9rem;
-    font-weight: 700;
-    min-width: 0;
-    overflow: hidden;
-    text-align: left;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-
-    &:hover {
-      color: #fff;
-      text-decoration: underline;
-    }
-  }
-
-  .scene-marker-highlight-timestamp {
-    align-items: center;
-    color: $text-muted;
-    display: inline-flex;
-    flex-wrap: wrap;
-    font-size: 0.78rem;
-    font-weight: 700;
-    gap: 0.2rem;
-    justify-content: flex-end;
-    line-height: 1.1;
-    white-space: nowrap;
-  }
-
-  .scene-marker-highlight-time-part {
-    color: $text-muted;
-    font-size: 0.78rem;
-    font-weight: 700;
-    line-height: 1.1;
-    white-space: nowrap;
-
-    &:hover {
-      color: #fff;
-      text-decoration: underline;
-    }
-  }
-
-  .scene-marker-highlight-time-separator,
-  .scene-marker-highlight-duration {
-    color: $text-muted;
-  }
-
-  .scene-marker-highlight-edit {
-    color: $text-muted;
-    font-size: 0.75rem;
-    line-height: 1;
-    white-space: nowrap;
-
-    &:hover {
-      color: #48aff0;
-    }
-  }
-
-  .scene-marker-highlight-checkbox {
-    line-height: 1;
-    margin: 0;
-  }
-
   .scene-marker-highlight-performer-tags {
     align-items: center;
     display: flex;
@@ -2460,42 +2185,6 @@ input[type="range"].blue-slider {
       background-color: rgba(75, 159, 75, 0.58);
       border: 1px dashed rgba(194, 235, 194, 0.72);
       color: #e8f7e8;
-    }
-  }
-
-  .scene-marker-chronology-thumb {
-    align-items: center;
-    aspect-ratio: 16 / 9;
-    background-color: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 0.25rem;
-    color: $text-muted;
-    display: flex;
-    justify-content: center;
-    min-width: 0;
-    overflow: hidden;
-    padding: 0;
-    width: 8rem;
-
-    img {
-      height: 100%;
-      object-fit: cover;
-      width: 100%;
-    }
-  }
-
-  .scene-marker-chronology-thumb-pending {
-    align-items: center;
-    display: flex;
-    flex-direction: column;
-    font-size: 0.75rem;
-    gap: 0.25rem;
-    line-height: 1.1;
-    padding: 0.25rem;
-    text-align: center;
-
-    .fa-icon {
-      font-size: 1.1rem;
     }
   }
 
@@ -2540,21 +2229,8 @@ input[type="range"].blue-slider {
       gap: 0.35rem;
     }
 
-    .scene-marker-chronology-row.marker-item {
-      grid-template-columns: 5.5rem minmax(0, 1fr) auto;
-    }
-
-    .scene-marker-chronology-row-activity-card.marker-item {
-      grid-template-columns: minmax(0, 1fr) auto;
-      min-height: 10rem;
-    }
-
     .scene-marker-activity-config-body {
       grid-template-columns: minmax(0, 1fr);
-    }
-
-    .scene-marker-chronology-thumb {
-      width: 5.5rem;
     }
 
     .scene-marker-activity-performer-image {
@@ -3112,8 +2788,7 @@ input[type="range"].blue-slider {
 /* CUSTOM: end */
 
 /* CUSTOM: begin - marker form performer image selects */
-.scene-marker-form-performer-option,
-.scene-marker-form-performer-value {
+.scene-marker-form-performer-option {
   align-items: center;
   display: inline-flex;
   gap: 0.65rem;
@@ -3130,8 +2805,7 @@ input[type="range"].blue-slider {
   width: min(13rem, calc(100vw - 2rem));
 }
 
-.scene-marker-form-performer-option-label,
-.scene-marker-form-performer-value span:last-child {
+.scene-marker-form-performer-option-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3631,8 +3305,7 @@ input[type="range"].blue-slider {
   // hide play and create new buttons on xs screens
   // show these in the drop down menu instead
   @include media-breakpoint-down(xs) {
-    .play-button,
-    .create-new-button {
+    .play-button {
       display: none;
     }
   }
@@ -3663,32 +3336,6 @@ input[type="range"].blue-slider {
 }
 
 /* CUSTOM: begin - compact stats panels */
-.custom-stats-list {
-  --custom-stats-label-width: 12rem;
-
-  align-items: flex-start;
-  display: flex;
-  flex-direction: column;
-  gap: 0.28rem;
-}
-
-.custom-stats-row {
-  align-items: baseline;
-  column-gap: 0.7rem;
-  display: grid;
-  grid-template-columns: minmax(0, var(--custom-stats-label-width)) max-content;
-  min-height: 1.5rem;
-  width: max-content;
-}
-
-.custom-stats-row--child {
-  margin-left: 1.35rem;
-}
-
-.custom-stats-label {
-  line-height: 1.3;
-  min-width: 0;
-}
 
 .custom-stats-value {
   color: $text-muted;
@@ -3723,10 +3370,6 @@ input[type="range"].blue-slider {
   display: flex;
   flex-wrap: wrap;
   gap: 1.25rem;
-}
-
-.custom-stats-overview-chart {
-  width: 11rem;
 }
 
 .custom-stats-overview--scene-activity {
@@ -3884,14 +3527,6 @@ input[type="range"].blue-slider {
 }
 
 /* CUSTOM: end */
-
-.studio-stats-chart {
-  width: 15rem;
-}
-
-.scene-stats-panel .custom-stats-overview > .custom-stats-list {
-  --custom-stats-label-width: 10rem;
-}
 
 /* CUSTOM: begin - scene stats explorer and interaction matrix */
 .scene-stats-panel {
@@ -4670,45 +4305,7 @@ button.scene-stats-partner-lane {
 
 /* CUSTOM: end */
 
-.custom-stats-chart-table {
-  display: flex;
-  flex-direction: column;
-  gap: 0.22rem;
-}
-
-.custom-stats-chart-row {
-  align-items: baseline;
-  column-gap: 0.5rem;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  min-width: 0;
-  width: 100%;
-
-  .custom-stats-check {
-    font-size: 0.78rem;
-  }
-
-  .custom-stats-label,
-  .custom-stats-value {
-    font-size: 0.78rem;
-  }
-}
-
-.custom-stats-color-swatch {
-  align-self: center;
-  border-radius: 50%;
-  display: block;
-  height: 0.62rem;
-  width: 0.62rem;
-}
-
 @media (max-width: 768px) {
-  .custom-stats-row {
-    grid-template-columns: minmax(0, 1fr);
-    row-gap: 0.15rem;
-    width: 100%;
-  }
-
   .scene-stats-detail-toolbar,
   .scene-stats-interaction-toolbar {
     align-items: stretch;

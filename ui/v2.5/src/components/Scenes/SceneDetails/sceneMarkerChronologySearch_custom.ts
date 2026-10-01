@@ -658,15 +658,6 @@ function getChronologicalSceneMarkerDisplayTagsFromRelatedMarkers<
   return displayTags;
 }
 
-export function getChronologicalSceneMarkerDisplayTags<
-  M extends ISceneMarkerChronologySearchMarker
->(marker: M, allMarkers: M[]): ISceneMarkerChronologyDisplayTag[] {
-  return getChronologicalSceneMarkerDisplayTagsFromRelatedMarkers(
-    marker,
-    allMarkers.filter((candidate) => markerInheritsTagsFrom(marker, candidate))
-  );
-}
-
 export function getChronologicalSceneMarkerContextDisplayTags<
   M extends ISceneMarkerChronologySearchMarker
 >(marker: M, allMarkers: M[]): ISceneMarkerChronologyDisplayTag[] {
@@ -765,44 +756,6 @@ function getHighlightPerformersFromActiveMarkers<
         directTags,
         overlappingTagIDs
       )
-    );
-  });
-
-  return Array.from(performersByID.values());
-}
-
-export function getSceneMarkerPerformerTagSummaries<
-  M extends ISceneMarkerChronologySearchMarker
->(markers: M[]): Array<ISceneMarkerChronologyHighlightPerformer<M>> {
-  const performersByID = new Map<
-    string,
-    ISceneMarkerChronologyHighlightPerformer<M>
-  >();
-
-  markers.forEach((marker) => {
-    getChronologicalSceneMarkerHighlightPerformers(marker, markers).forEach(
-      ({
-        performer,
-        topTags,
-        bottomTags,
-        topOverlapTagIDs,
-        bottomOverlapTagIDs,
-      }) => {
-        addHighlightPerformerTags(
-          performersByID,
-          performer,
-          "top",
-          topTags,
-          topOverlapTagIDs
-        );
-        addHighlightPerformerTags(
-          performersByID,
-          performer,
-          "bottom",
-          bottomTags,
-          bottomOverlapTagIDs
-        );
-      }
     );
   });
 

@@ -698,5 +698,3 @@ export const InsightStats: React.FC = () => {
     </>
   );
 };
-
-export default InsightStats;

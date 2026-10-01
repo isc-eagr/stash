@@ -25,10 +25,7 @@ const aggregateStatsSource = readFileSync(
   "utf8"
 );
 const paletteSource = readFileSync(
-  new URL(
-    "../src/components/Shared/ActivityPieChart_custom.tsx",
-    import.meta.url
-  ),
+  new URL("../src/components/Shared/activityColors_custom.ts", import.meta.url),
   "utf8"
 );
 const sceneStatsPanelSource = readFileSync(

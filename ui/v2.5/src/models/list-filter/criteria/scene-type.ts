@@ -16,8 +16,6 @@ const primaryOptions = ["sex", "oral", "solo"] as const;
 const secondaryOptions = ["facial"] as const;
 const allOptions = [...primaryOptions, ...secondaryOptions] as const;
 
-export type SceneTypeOption = (typeof allOptions)[number];
-
 // ===================== Scene Scene Type Criterion =====================
 
 export const SceneSceneTypeCriterionOption = new CriterionOption({

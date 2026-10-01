@@ -604,5 +604,3 @@ export const SettingsCustomPanel: React.FC = () => {
     </>
   );
 };
-
-export default SettingsCustomPanel;

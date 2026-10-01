@@ -71,12 +71,3 @@ export function getSceneRatingModeCustom(
 
   return performerCount === 1 || isSolo ? "solo" : "default";
 }
-
-export function getGroupSceneBaseMaximumCustom() {
-  return (
-    5 * GROUP_SCENE_WEIGHTS_CUSTOM.topAttractiveness +
-    5 * GROUP_SCENE_WEIGHTS_CUSTOM.energyCoordination +
-    4 * GROUP_SCENE_WEIGHTS_CUSTOM.payoff +
-    4 * GROUP_SCENE_WEIGHTS_CUSTOM.usability
-  );
-}

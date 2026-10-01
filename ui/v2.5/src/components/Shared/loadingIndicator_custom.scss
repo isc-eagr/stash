@@ -50,16 +50,6 @@
     color: var(--loading-overlay-accent);
     filter: drop-shadow(0 0 0.85rem var(--loading-overlay-accent-glow));
   }
-
-  .LoadingIndicator-message {
-    color: var(--loading-overlay-text);
-    font-size: 1.05rem;
-    font-weight: 700;
-    letter-spacing: 0.035em;
-    line-height: 1.45;
-    margin-bottom: 0;
-    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8);
-  }
 }
 
 body > .LoadingIndicator.loading-overlay ~ .LoadingIndicator.loading-overlay {

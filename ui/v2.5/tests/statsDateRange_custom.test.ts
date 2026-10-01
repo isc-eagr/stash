@@ -5,7 +5,6 @@ import {
   isStatsIsoDate,
   readStatsDateRange,
   resolveStatsDateRange,
-  statsDateRangeLabel,
   statsDateRangeVariable,
   writeStatsDateRange,
 } from "../src/utils/statsDateRange_custom.ts";
@@ -62,7 +61,6 @@ test("custom ranges round-trip through the URL and swap reversed bounds", () => 
     to: "2025-06-01",
     field: "O_DATE",
   });
-  assert.equal(statsDateRangeLabel(range, today), "2025-03-01 – 2025-06-01");
 });
 
 test("invalid URL values fall back safely", () => {

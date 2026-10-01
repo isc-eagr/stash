@@ -38,7 +38,6 @@ input TaskProgressMilestoneUpdateInput {
 
 extend type Query {
   findTaskProgressMilestones: [TaskProgressMilestone!]!
-  taskProgressMilestone(id: ID!): TaskProgressMilestone
 }
 
 extend type Mutation {

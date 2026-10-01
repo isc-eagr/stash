@@ -7,7 +7,6 @@ import {
   getScenePerformerOverviewActivityMetrics,
   getScenePerformerOverviewInteractions,
   getUniqueScenePerformerOverviewPartners,
-  isScenePerformerOverviewFieldExcluded,
   shouldOpenScenePerformerOverview,
 } from "../src/utils/scenePerformerOverview_custom.ts";
 
@@ -161,13 +160,11 @@ test("scene performer overview activity metrics retain zero durations", () => {
 });
 
 test("scene performer overview retains the remaining detail metadata", () => {
+  const excluded: readonly string[] = SCENE_PERFORMER_OVERVIEW_EXCLUDED_FIELDS;
   ["details", "penis_length", "tags", "career_length"].forEach((field) => {
-    assert.equal(isScenePerformerOverviewFieldExcluded(field), false);
+    assert.equal(excluded.includes(field), false);
   });
-
-  SCENE_PERFORMER_OVERVIEW_EXCLUDED_FIELDS.forEach((field) => {
-    assert.equal(isScenePerformerOverviewFieldExcluded(field), true);
-  });
+  assert.deepEqual(excluded, ["tattoos", "piercings", "stash_ids"]);
 });
 
 test("scene performer cards open the overview only for plain primary clicks", () => {

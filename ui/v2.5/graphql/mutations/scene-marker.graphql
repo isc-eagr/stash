@@ -95,12 +95,6 @@ fragment SceneMarkerMutationData on SceneMarker {
       name
     }
   }
-  performers {
-    id
-    name
-    alias_list
-    disambiguation
-  }
   top_performers {
     id
     name

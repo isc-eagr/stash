@@ -282,18 +282,3 @@ func appendPartnerIDsCustom(roles []string, prefix string, ids map[int]bool) []s
 	}
 	return append(roles, prefix+strings.Join(parts, ","))
 }
-
-// GetPerformerMarkerRolesForScene returns one performer's roles using the
-// scene-wide batch implementation retained for GraphQL compatibility.
-func GetPerformerMarkerRolesForScene(ctx context.Context, r models.SceneMarkerReader, tagFinder models.TagFinder, performerID int, sceneID int, sexTagID int, oralTagID int, soloTagID int, facialTagID int, orgasmTagID int, feetTagID int, secondCameraTagID int) ([]string, error) {
-	rolesByPerformer, err := GetPerformerMarkerRolesForSceneBatch(ctx, r, tagFinder, sceneID, sexTagID, oralTagID, soloTagID, facialTagID, orgasmTagID, feetTagID, secondCameraTagID)
-	if err != nil {
-		return nil, err
-	}
-
-	roles := rolesByPerformer[performerID]
-	if roles == nil {
-		roles = []string{}
-	}
-	return roles, nil
-}

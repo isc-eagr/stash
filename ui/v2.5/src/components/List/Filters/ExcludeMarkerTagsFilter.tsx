@@ -86,5 +86,3 @@ export const ExcludeMarkerTagsFilter: React.FC<
     </div>
   );
 };
-
-export default ExcludeMarkerTagsFilter;

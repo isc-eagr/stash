@@ -28,10 +28,6 @@ export function readInsightEntityMatch(
   }
 }
 
-export function readInsightSceneMatch(key: string): MatchSnapshot | undefined {
-  return readInsightEntityMatch(key, "scene");
-}
-
 export function createInsightEntityLink(
   entity: InsightMatchEntity,
   label: string,
@@ -66,10 +62,6 @@ export function createInsightEntityLink(
   return `${path}?c=${encodeURIComponent(
     JSON.stringify({ type: "insight_chip", modifier: "EQUALS", value: key })
   )}&z=2`;
-}
-
-export function createInsightSceneLink(label: string, ids: string[]) {
-  return createInsightEntityLink("scene", label, ids);
 }
 
 export function openInsightEntityLink(

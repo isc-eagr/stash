@@ -36,5 +36,3 @@ export const PerformerMarkersExcludeFilter: React.FC<
     </div>
   );
 };
-
-export default PerformerMarkersExcludeFilter;

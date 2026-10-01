@@ -47,17 +47,8 @@
   outline: none !important;
 }
 
-// Firefox
-.markerplayer video:full-screen {
-  outline: none !important;
-}
-
 .marker-playlist-player video::-moz-media-controls {
   display: none !important;
-}
-
-.markerplayer video:full-screen {
-  outline: none !important;
 }
 
 .marker-playlist-player video::-ms-media-controls {
@@ -96,7 +87,6 @@
       gap: 0.5rem;
     }
 
-    .back-btn,
     .save-playlist-btn,
     .load-playlist-btn,
     .toggle-playlist-btn {

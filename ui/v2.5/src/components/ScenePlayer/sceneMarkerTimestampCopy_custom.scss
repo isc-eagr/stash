@@ -135,7 +135,6 @@
   pointer-events: none;
 }
 
-.scene-marker-timestamp-copy-popover,
 .scene-marker-timestamp-picker-popover {
   background: #17232e;
   border: 1px solid #486174;
@@ -207,8 +206,7 @@
 }
 
 .scene-marker-timestamp-picker-range-label,
-.scene-marker-timestamp-picker-range-value,
-.scene-marker-timestamp-picker-actions {
+.scene-marker-timestamp-picker-range-value {
   display: none;
 }
 

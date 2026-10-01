@@ -9,7 +9,7 @@ import {
   faStar,
 } from "@fortawesome/free-solid-svg-icons";
 import { Icon } from "src/components/Shared/Icon";
-import { ACTIVITY_PIE_COLORS } from "src/components/Shared/ActivityPieChart_custom";
+import { ACTIVITY_PIE_COLORS } from "src/components/Shared/activityColors_custom";
 import { useConfigurationContext } from "src/hooks/Config";
 import mouthSvg from "src/assets/mouth.svg";
 import gaySvg from "src/assets/gay.svg";

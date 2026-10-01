@@ -108,5 +108,3 @@ export const ImageQueueIndicator: React.FC<IImageQueueIndicatorProps> = ({
     </ButtonGroup>
   );
 };
-
-export default ImageQueueIndicator;

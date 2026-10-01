@@ -72,21 +72,6 @@ mutation RemotePlaybackRecordO($input: RemotePlaybackORecordInput!) {
   }
 }
 
-subscription RemotePlaybackStateSubscribe($player_id: String!) {
-  remotePlaybackStateSubscribe(player_id: $player_id) {
-    server_id
-    player_id
-    session_id
-    scene_id
-    scene_title
-    video_timestamp
-    duration
-    playback_rate
-    status
-    updated_at
-  }
-}
-
 subscription RemotePlaybackCommandSubscribe($player_id: String!) {
   remotePlaybackCommandSubscribe(player_id: $player_id) {
     selected_segment_ids

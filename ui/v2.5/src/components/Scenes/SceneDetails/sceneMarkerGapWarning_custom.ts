@@ -532,32 +532,6 @@ export function findSceneMarkerGapWarningDetails({
   }).findGapWarningDetails(draft);
 }
 
-export function findSceneMarkerGapWarnings({
-  draft,
-  sceneMarkers,
-  negativeMarkers,
-  roleTagIds,
-}: {
-  draft: SceneMarkerGapDraft;
-  sceneMarkers: SceneMarkerGapSceneMarker[];
-  negativeMarkers: SceneMarkerGapNegativeMarker[];
-  roleTagIds: SceneMarkerGapRoleTagIds;
-}): SceneMarkerGapWarnings | undefined {
-  const details = findSceneMarkerGapWarningDetails({
-    draft,
-    sceneMarkers,
-    negativeMarkers,
-    roleTagIds,
-  });
-
-  if (!details) return undefined;
-
-  return {
-    previous: details.previous && stripGapWarningDetail(details.previous),
-    next: details.next && stripGapWarningDetail(details.next),
-  };
-}
-
 export function sceneMarkerWarningDraft(
   marker: SceneMarkerGapSceneMarker
 ): SceneMarkerGapDraft {

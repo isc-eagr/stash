@@ -18,10 +18,8 @@ import {
 } from "../src/components/InsightStats/insightStatsCache_custom.ts";
 import {
   createInsightEntityLink,
-  createInsightSceneLink,
   openInsightSceneLink,
   readInsightEntityMatch,
-  readInsightSceneMatch,
 } from "../src/utils/insightSceneLinks_custom.ts";
 import { InsightChipCriterion } from "../src/models/list-filter/criteria/insight-chip_custom.ts";
 
@@ -213,16 +211,19 @@ test("chip links restore all matching IDs, and missing snapshots fail closed", (
     },
   });
   try {
-    const link = createInsightSceneLink("Good amount of body · preview", [
-      "1",
-      "2",
-      "1",
-    ]);
+    const link = createInsightEntityLink(
+      "scene",
+      "Good amount of body · preview",
+      ["1", "2", "1"]
+    );
     const params = JSON.parse(
       new URL(link, "http://localhost").searchParams.get("c")!
     );
     assert.equal(new URL(link, "http://localhost").searchParams.get("z"), "2");
-    assert.deepEqual(readInsightSceneMatch(params.value)?.ids, ["1", "2"]);
+    assert.deepEqual(readInsightEntityMatch(params.value, "scene")?.ids, [
+      "1",
+      "2",
+    ]);
     const criterion = new InsightChipCriterion();
     criterion.fromDecodedParams(params);
     const input = {};

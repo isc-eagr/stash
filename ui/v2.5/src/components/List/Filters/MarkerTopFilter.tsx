@@ -407,5 +407,3 @@ export const MarkerTopFilter: React.FC<IMarkerTopFilterProps> = ({
     </div>
   );
 };
-
-export default MarkerTopFilter;

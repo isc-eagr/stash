@@ -1,6 +1,6 @@
 package sqlite
 
-// CUSTOM: Transfer o-history between entities, and record/retrieve video timestamps.
+// CUSTOM: Record and retrieve O video timestamps.
 
 import (
 	"context"
@@ -10,10 +10,6 @@ import (
 	"github.com/doug-martin/goqu/v9"
 	"github.com/jmoiron/sqlx"
 )
-
-func (qb *oDateManager) TransferOHistory(ctx context.Context, fromID int, toID int) error {
-	return qb.tableMgr.transferDates(ctx, fromID, toID)
-}
 
 // AddOAtVideoTimestamp inserts an O record with the current wall-clock time
 // and the provided video timestamp (seconds into the video). Returns the

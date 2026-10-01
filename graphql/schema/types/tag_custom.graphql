@@ -1,21 +1,9 @@
-# CUSTOM: All custom Tag queries and types.
-# This file uses 'extend type' to add queries related to tags
+# CUSTOM: All custom Tag fields.
+# This file uses 'extend type' to add fields to the upstream Tag type
 # without modifying the upstream tag.graphql file.
 # See CUSTOM_FEATURES.md for documentation.
-
-type PerformerTagSceneCount {
-  tag_id: ID!
-  count: Int!
-}
 
 extend type Tag {
   # CUSTOM: Sum of timed marker lengths for this tag and optional descendants.
   scene_marker_duration(depth: Int): Float!
-}
-
-extend type Query {
-  performerTagSceneCounts(
-    performer_id: ID!
-    tag_ids: [ID!]!
-  ): [PerformerTagSceneCount!]!
 }

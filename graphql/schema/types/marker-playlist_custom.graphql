@@ -10,9 +10,3 @@ input MarkerPlaylistCreateInput {
   name: String!
   marker_ids: [ID!]!
 }
-
-input MarkerPlaylistUpdateInput {
-  id: ID!
-  name: String
-  marker_ids: [ID!]
-}

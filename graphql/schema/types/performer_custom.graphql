@@ -4,10 +4,6 @@
 # See CUSTOM_FEATURES.md for documentation.
 
 extend type Performer {
-  # Scene-context marker roles: returns this performer's roles in a specific scene's markers
-  # Returns array of role strings: "sex_top", "sex_bottom", "oral_top", "oral_bottom", "facial_top", "facial_bottom", "solo"
-  scene_marker_roles(scene_id: ID!): [String!]!
-
   # Role-based scene counts from scene_marker_performers
   # Sex scenes: scenes with markers having the configured sex tag
   sex_scene_count: Int! # Resolver - total sex scenes

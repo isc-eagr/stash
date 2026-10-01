@@ -2145,5 +2145,3 @@ export const MultiVideoViewer: React.FC<IMultiVideoViewerProps> = ({
     </div>
   );
 };
-
-export default MultiVideoViewer;

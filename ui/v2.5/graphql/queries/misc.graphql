@@ -63,23 +63,4 @@ query LatestVersion {
 query PerformerEthnicities {
   performerEthnicities
 }
-
-# Performers by ethnicity for Stats page
-query PerformerEthnicityCounts {
-  performerEthnicityCounts {
-    ethnicity
-    count
-  }
-}
-
-# Performer rating tiers by ethnicity for Stats page
-query PerformerEthnicityTierCounts {
-  performerEthnicityTierCounts {
-    ethnicity
-    bronze
-    silver
-    gold
-    royal_sapphire
-  }
-}
 # CUSTOM: end

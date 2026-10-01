@@ -245,29 +245,6 @@ func (_m *PerformerReaderWriter) FindBySceneMarkerID(ctx context.Context, sceneM
 	return r0, r1
 }
 
-// FindBySceneMarkerIDWithRole provides a mock function with given fields: ctx, sceneMarkerID, role
-func (_m *PerformerReaderWriter) FindBySceneMarkerIDWithRole(ctx context.Context, sceneMarkerID int, role string) ([]*models.Performer, error) {
-	ret := _m.Called(ctx, sceneMarkerID, role)
-
-	var r0 []*models.Performer
-	if rf, ok := ret.Get(0).(func(context.Context, int, string) []*models.Performer); ok {
-		r0 = rf(ctx, sceneMarkerID, role)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*models.Performer)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, int, string) error); ok {
-		r1 = rf(ctx, sceneMarkerID, role)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // FindByStashID provides a mock function with given fields: ctx, stashID
 func (_m *PerformerReaderWriter) FindByStashID(ctx context.Context, stashID models.StashID) ([]*models.Performer, error) {
 	ret := _m.Called(ctx, stashID)

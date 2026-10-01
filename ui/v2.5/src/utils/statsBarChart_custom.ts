@@ -21,16 +21,6 @@ export function sortStatsBarData<T extends { count: number; label: string }>(
   );
 }
 
-// Fill every step between the first and last key so empty periods show up as
-// zero bars instead of disappearing from the chart.
-export function fillStatsSeries<T>(
-  keys: readonly number[],
-  counts: ReadonlyMap<number, T>,
-  empty: (key: number) => T
-): T[] {
-  return keys.map((key) => counts.get(key) ?? empty(key));
-}
-
 export function statsRange(start: number, end: number) {
   if (end < start) return [];
   return Array.from({ length: end - start + 1 }, (_, index) => start + index);

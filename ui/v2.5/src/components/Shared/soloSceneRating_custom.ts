@@ -11,11 +11,3 @@ export const SOLO_SCENE_RATING_KEYS_CUSTOM = {
   performance: "soloPerformance",
   usability: "soloUsability",
 } as const;
-
-export function getSoloSceneBaseMaximumCustom() {
-  return (
-    5 * SOLO_SCENE_WEIGHTS_CUSTOM.attractiveness +
-    4 * SOLO_SCENE_WEIGHTS_CUSTOM.performance +
-    4 * SOLO_SCENE_WEIGHTS_CUSTOM.usability
-  );
-}

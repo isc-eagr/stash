@@ -116,23 +116,6 @@ func (r *mutationResolver) SceneNegativeMarkerDestroy(ctx context.Context, id st
 	return true, nil
 }
 
-// FindSceneNegativeMarkers returns negative markers for a scene
-func (r *queryResolver) FindSceneNegativeMarkers(ctx context.Context, sceneID string) (ret []*models.SceneNegativeMarker, err error) {
-	sceneInt, err := strconv.Atoi(sceneID)
-	if err != nil {
-		return nil, fmt.Errorf("converting scene id: %w", err)
-	}
-
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = r.repository.SceneNegativeMarker.FindByScene(ctx, sceneInt)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-
-	return ret, nil
-}
-
 // SceneNegativeMarkerNames returns distinct negative marker names from all scenes.
 func (r *queryResolver) SceneNegativeMarkerNames(ctx context.Context) (ret []string, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {

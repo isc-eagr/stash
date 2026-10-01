@@ -841,8 +841,7 @@ html.application-theme-masculine-black {
     }
 
     .scene-marker-selection-summary,
-    .scene-marker-activity-group-duration,
-    .scene-marker-activity-group-count {
+    .scene-marker-activity-group-duration {
       color: var(--black-steel-text-muted);
     }
 
@@ -897,10 +896,6 @@ html.application-theme-masculine-black {
     .scene-marker-activity-config-card {
       background-color: rgba(255, 255, 255, 0.018);
       border-bottom-color: var(--black-steel-border);
-    }
-
-    .scene-marker-highlight-edit {
-      color: var(--black-steel-accent-bright);
     }
   }
 

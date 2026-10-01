@@ -1,6 +1,6 @@
 import videojs, { VideoJsPlayer } from "video.js";
 import CryptoJS from "crypto-js";
-import { ACTIVITY_PIE_COLORS } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
+import { ACTIVITY_PIE_COLORS } from "src/components/Shared/activityColors_custom"; // CUSTOM
 import {
   getSceneMarkerTimestampPickerHorizontalLayout,
   getSceneMarkerTimestampOptions,

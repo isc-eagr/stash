@@ -189,5 +189,3 @@ export const MarkerTagsFilter: React.FC<IMarkerTagsFilterProps> = ({
     </div>
   );
 };
-
-export default MarkerTagsFilter;

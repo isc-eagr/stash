@@ -10,5 +10,3 @@ interface ISceneMarkersFilterProps {
 export const SceneMarkersFilter: React.FC<ISceneMarkersFilterProps> = (
   props
 ) => <MarkerFilterEditor {...props} scope="scenes" />;
-
-export default SceneMarkersFilter;

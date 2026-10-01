@@ -4,17 +4,9 @@
 # See CUSTOM_FEATURES.md for documentation.
 
 extend type Query {
-  "Find multi-segment loop presets for a scene"
-  findSceneMultiSegmentLoopPresets(scene_id: ID!): [MultiSegmentLoopPreset!]!
-
-  "Find negative markers for a scene"
-  findSceneNegativeMarkers(scene_id: ID!): [SceneNegativeMarker!]!
-
   "Find distinct negative marker names from all scenes"
   sceneNegativeMarkerNames: [String!]!
 
-  "Find a marker playlist by ID"
-  findMarkerPlaylist(id: ID!): MarkerPlaylist
   "Find all marker playlists"
   findMarkerPlaylists: [MarkerPlaylist!]!
 
@@ -158,7 +150,6 @@ extend type Mutation {
   taskProgressTrackersReorder(ids: [ID!]!): [TaskProgressTracker!]!
 
   markerPlaylistCreate(input: MarkerPlaylistCreateInput!): MarkerPlaylist!
-  markerPlaylistUpdate(input: MarkerPlaylistUpdateInput!): MarkerPlaylist!
   markerPlaylistDestroy(id: ID!): Boolean!
 
   "Create a new release for a scene"
@@ -223,8 +214,6 @@ extend type Mutation {
 }
 
 extend type Subscription {
-  "Live state changes for the paired mobile remote"
-  remotePlaybackStateSubscribe(player_id: String!): RemotePlaybackState!
   "O-record commands delivered to the authoritative player"
   remotePlaybackCommandSubscribe(player_id: String!): RemotePlaybackCommand!
   "Successful O-record confirmations delivered to the mobile remote"

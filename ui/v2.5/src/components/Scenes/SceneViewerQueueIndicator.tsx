@@ -98,5 +98,3 @@ export const SceneViewerQueueIndicator: React.FC<
     </ButtonGroup>
   );
 };
-
-export default SceneViewerQueueIndicator;

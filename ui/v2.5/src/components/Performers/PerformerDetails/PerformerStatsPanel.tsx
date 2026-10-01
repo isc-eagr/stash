@@ -1,6 +1,6 @@
 import React from "react";
 import * as GQL from "src/core/generated-graphql";
-import { ACTIVITY_PIE_COLORS } from "src/components/Shared/ActivityPieChart_custom"; // CUSTOM
+import { ACTIVITY_PIE_COLORS } from "src/components/Shared/activityColors_custom"; // CUSTOM
 import { SceneStatsActivityMatrix } from "src/components/SceneStats/SceneStatsActivityMatrix_custom"; // CUSTOM
 import { PerformerSceneRatingAdvisorStats } from "../PerformerSceneRatingAdvisor_custom"; // CUSTOM
 import { PerformerStatsBarChart } from "./PerformerStatsBarChart_custom"; // CUSTOM

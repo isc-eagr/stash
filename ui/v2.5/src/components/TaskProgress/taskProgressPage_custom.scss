@@ -499,8 +499,7 @@
     color: #4db8ff;
   }
 
-  .progress-tracker-modal-items,
-  .progress-tracker-modal-actions {
+  .progress-tracker-modal-items {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
@@ -627,15 +626,6 @@
   .progress-description {
     overflow-wrap: anywhere;
     white-space: pre-wrap;
-  }
-
-  .progress-forecast {
-    border-top: 1px solid rgba(128, 128, 128, 0.35);
-    padding-top: 1rem;
-  }
-
-  .progress-tracker-card .progress-forecast {
-    margin-top: 1rem;
   }
 
   .progress-plan-input {
@@ -1261,10 +1251,6 @@
     gap: 0.5rem;
     padding: 0.65rem 1rem;
   }
-}
-
-.progress-tracker-modal-actions {
-  justify-content: flex-end;
 }
 
 .task-progress-tracker-modal {
