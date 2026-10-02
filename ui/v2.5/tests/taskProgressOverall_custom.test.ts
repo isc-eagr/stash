@@ -28,9 +28,14 @@ assert.match(
 );
 assert.match(overallSource, /\{t\("Details"\)\}/);
 assert.match(
-  overallSource,
+  modalSource,
   /useTaskProgressOverallGoalUpdateMutation/,
-  "the Overall items-per-day goal is persisted through the API"
+  "the Overall items-per-day goal is edited in Details and persisted through the API"
+);
+assert.doesNotMatch(
+  overallSource,
+  /progress-overall-goal-form|useTaskProgressOverallGoalUpdateMutation/,
+  "the Overall card keeps goal settings out of its summary"
 );
 assert.doesNotMatch(
   overallSource,

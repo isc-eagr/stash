@@ -3,9 +3,14 @@ import {
   activeTaskProgressReportItems,
   boundedTaskProgressReportAnchor,
   firstTaskProgressReportActivity,
+  previousTaskProgressReportPeriod,
   shiftTaskProgressReportPeriod,
+  taskProgressActivityLevel,
+  taskProgressReportDays,
+  taskProgressReportMonths,
   taskProgressReportPeriod,
   taskProgressReportRow,
+  taskProgressReportWeeks,
 } from "../src/components/TaskProgress/taskProgressReports_custom.ts";
 import type { ITaskProgressReportHistoryDay } from "../src/components/TaskProgress/taskProgressReports_custom.ts";
 
@@ -219,3 +224,75 @@ const incoming = taskProgressReportRow(
 );
 assert.equal(incoming.completed, 1);
 assert.ok(incoming.advanced > 0);
+
+assert.deepEqual(
+  previousTaskProgressReportPeriod(
+    "week",
+    taskProgressReportPeriod("week", today, today),
+    today
+  ),
+  { start: "2026-09-14", end: "2026-09-20", through: "2026-09-17" },
+  "a running week compares against the same elapsed days of last week"
+);
+assert.deepEqual(
+  previousTaskProgressReportPeriod(
+    "month",
+    taskProgressReportPeriod("month", "2026-08-17", today),
+    today
+  ),
+  { start: "2026-07-01", end: "2026-07-31", through: "2026-07-31" },
+  "a finished month compares against the whole previous month"
+);
+assert.equal(
+  previousTaskProgressReportPeriod(
+    "month",
+    taskProgressReportPeriod("month", "2026-03-30", "2026-03-30"),
+    "2026-03-30"
+  ).through,
+  "2026-02-28",
+  "the comparison window never runs past a shorter previous month"
+);
+assert.deepEqual(
+  [pastWeek.activeDays, pastWeek.elapsedDays],
+  [3, 7],
+  "active days count days with completions"
+);
+assert.deepEqual([currentWeek.activeDays, currentWeek.elapsedDays], [1, 4]);
+
+const weekDays = taskProgressReportDays(
+  history,
+  taskProgressReportPeriod("week", today, today),
+  today
+);
+assert.equal(weekDays.length, 7);
+assert.deepEqual(weekDays[0], {
+  date: "2026-09-21",
+  completed: 20,
+  goal: 20,
+  future: false,
+});
+assert.equal(weekDays[4].future, true, "days after today are future");
+assert.equal(
+  taskProgressReportMonths(
+    taskProgressReportDays(
+      history,
+      taskProgressReportPeriod("year", today, today),
+      today
+    )
+  )[8],
+  65
+);
+const monthWeeks = taskProgressReportWeeks(
+  taskProgressReportDays(
+    history,
+    taskProgressReportPeriod("month", today, today),
+    today
+  )
+);
+assert.equal(monthWeeks.length, 5);
+assert.equal(monthWeeks[0][0], undefined, "weeks start on Monday");
+assert.equal(monthWeeks[0][1]?.date, "2026-09-01");
+assert.deepEqual(
+  [0, 1, 5, 6, 10].map((completed) => taskProgressActivityLevel(completed, 10)),
+  [0, 1, 2, 3, 4]
+);

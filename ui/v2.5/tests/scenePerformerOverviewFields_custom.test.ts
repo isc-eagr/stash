@@ -44,6 +44,7 @@ test("scene performer overview excludes only requested performer fields", () => 
   assert.deepEqual([...SCENE_PERFORMER_OVERVIEW_EXCLUDED_FIELDS].sort(), [
     "piercings",
     "stash_ids",
+    "tags",
     "tattoos",
   ]);
 });
@@ -161,10 +162,11 @@ test("scene performer overview activity metrics retain zero durations", () => {
 
 test("scene performer overview retains the remaining detail metadata", () => {
   const excluded: readonly string[] = SCENE_PERFORMER_OVERVIEW_EXCLUDED_FIELDS;
-  ["details", "penis_length", "tags", "career_length"].forEach((field) => {
+  ["details", "penis_length", "career_length"].forEach((field) => {
     assert.equal(excluded.includes(field), false);
   });
-  assert.deepEqual(excluded, ["tattoos", "piercings", "stash_ids"]);
+  // Tags are shown under the name instead of in the details grid.
+  assert.deepEqual(excluded, ["tattoos", "piercings", "stash_ids", "tags"]);
 });
 
 test("scene performer cards open the overview only for plain primary clicks", () => {

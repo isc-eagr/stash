@@ -58,8 +58,13 @@ assert.match(
 );
 assert.match(
   stripSource,
-  /const stripRoles = safeRolesToShow;/,
-  "every role icon stays in the strip with orgasm and feet below the rows"
+  /const stripRoles =\s*versatilityCard && sceneId\s*\? safeRolesToShow\.filter\(\(role\) => role\.category === "solo"\)\s*: safeRolesToShow;/,
+  "scene cards keep only solo, orgasm, and feet in the strip below the rows; other cards keep every role icon"
+);
+assert.match(
+  cardSource,
+  /sceneId \}\) => \{\s*\/\/ CUSTOM[^\r\n]*\s*if \(sceneId\) return null;/,
+  "scene cards drop the tag/scenes/O-count popover strip"
 );
 assert.doesNotMatch(
   stripSource,
@@ -119,8 +124,42 @@ const overviewStyles = readFileSync(
 );
 assert.match(
   overviewSource,
-  /<PerformerActivityTime[\s\S]*?<PerformerVersatility[\s\S]*?facialToppedPartners=\{roleStats\.facial_with_top_count\}/,
-  "the scene Vato Overview drawer shows the full versatility bars below Activity Time"
+  /<PerformerVersatility[\s\S]*?facialToppedPartners=\{roleStats\.facial_with_top_count\}/,
+  "the scene Vato Overview drawer shows the full versatility bars"
+);
+assert.doesNotMatch(
+  overviewSource,
+  /PerformerActivityTime/,
+  "the scene Vato Overview drawer no longer shows Activity Time"
+);
+assert.match(
+  overviewSource,
+  /scene-performer-overview-visual[\s\S]*?scene-performer-overview-image[\s\S]*?scene-performer-overview-role-strip[\s\S]*?scene-performer-overview-identity/,
+  "the role strip sits directly below the portrait"
+);
+assert.match(
+  overviewSource,
+  /\]\.filter\(\(item\) => item\.value > 0\)/,
+  "catalog rows with no entries are hidden"
+);
+for (const target of [
+  "makePerformerScenesUrl",
+  "makePerformerGroupsUrl",
+  "makePerformerImagesUrl",
+  "makePerformerGalleriesUrl",
+  "makePerformerOStatsUrl",
+  "/studios`",
+  "/appearswithbyrole`",
+]) {
+  assert.ok(
+    overviewSource.includes(target),
+    `the drawer count rows link to ${target}`
+  );
+}
+assert.match(
+  overviewSource,
+  /condensedHeader && performer[\s\S]*?scene-performer-overview-condensed/,
+  "the drawer toolbar shows the vato's name once the profile scrolls away"
 );
 assert.match(
   overviewSource,

@@ -41,6 +41,7 @@ func loadTaskProgressMetricsCustom(ctx context.Context, trackers []*models.TaskP
 		t.CompletedCount = 0
 		t.IncomingCount = 0
 		t.ItemCounts = []*models.TaskProgressItemCount{}
+		t.CompletedItemCounts = []*models.TaskProgressItemCount{}
 		t.History = []*models.TaskProgressDay{}
 	}
 	counts := map[int]map[string]int{}
@@ -75,26 +76,21 @@ func loadTaskProgressMetricsCustom(ctx context.Context, trackers []*models.TaskP
 	for i, id := range ids {
 		args[i] = id
 	}
+	// FIXED trackers count their member states; BACKLOG trackers count completion events.
 	fixed := map[int]map[string]int{}
-	rows, err := dbWrapper.QueryxContext(ctx, "SELECT tracker_id,item_type,COUNT(*) FROM task_progress_tracker_members WHERE state='PENDING' AND tracker_id IN "+getInBinding(len(ids))+" GROUP BY tracker_id,item_type", args...)
-	if err != nil {
+	fixedCompleted := map[int]map[string]int{}
+	if err := scanTaskProgressTypeCountsCustom(ctx, "SELECT tracker_id,item_type,state,COUNT(*) FROM task_progress_tracker_members WHERE tracker_id IN "+getInBinding(len(ids))+" GROUP BY tracker_id,item_type,state", args, func(state string) map[int]map[string]int {
+		if state == "PENDING" {
+			return fixed
+		}
+		return fixedCompleted
+	}); err != nil {
 		return err
 	}
-	for rows.Next() {
-		var id, n int
-		var typ string
-		if err := rows.Scan(&id, &typ, &n); err != nil {
-			rows.Close()
-			return err
-		}
-		if fixed[id] == nil {
-			fixed[id] = map[string]int{}
-		}
-		fixed[id][typ] = n
-	}
-	err = rows.Err()
-	rows.Close()
-	if err != nil {
+	eventCompleted := map[int]map[string]int{}
+	if err := scanTaskProgressTypeCountsCustom(ctx, "SELECT tracker_id,item_type,'',COUNT(*) FROM task_progress_tracker_events WHERE event_type='COMPLETED' AND item_type IS NOT NULL AND tracker_id IN "+getInBinding(len(ids))+" GROUP BY tracker_id,item_type", args, func(string) map[int]map[string]int {
+		return eventCompleted
+	}); err != nil {
 		return err
 	}
 	for _, t := range trackers {
@@ -105,6 +101,15 @@ func loadTaskProgressMetricsCustom(ctx context.Context, trackers []*models.TaskP
 			}
 			t.CurrentCount += n
 			t.ItemCounts = append(t.ItemCounts, &models.TaskProgressItemCount{ItemType: typ, Count: n})
+		}
+		completed := eventCompleted[t.ID]
+		if t.Mode == "FIXED" {
+			completed = fixedCompleted[t.ID]
+		}
+		for _, typ := range models.TaskProgressItemTypes {
+			if n := completed[typ]; n > 0 {
+				t.CompletedItemCounts = append(t.CompletedItemCounts, &models.TaskProgressItemCount{ItemType: typ, Count: n})
+			}
 		}
 	}
 	// Aggregate events in SQLite; only one row per tracker/day crosses into Go.
@@ -134,7 +139,7 @@ ORDER BY dates.tracker_id,dates.occurred_on`
 	historyArgs = append(historyArgs, args...)
 	historyArgs = append(historyArgs, args...)
 	historyArgs = append(historyArgs, args...)
-	rows, err = dbWrapper.QueryxContext(ctx, q, historyArgs...)
+	rows, err := dbWrapper.QueryxContext(ctx, q, historyArgs...)
 	if err != nil {
 		return fmt.Errorf("loading task progress daily history: %w", err)
 	}
@@ -161,6 +166,28 @@ ORDER BY dates.tracker_id,dates.occurred_on`
 		t.CompletedCount += d.Completed
 		t.IncomingCount += d.Incoming
 		t.History = append(t.History, d)
+	}
+	return rows.Err()
+}
+
+// scanTaskProgressTypeCountsCustom reads tracker_id,item_type,state,count rows into the map chosen by state.
+func scanTaskProgressTypeCountsCustom(ctx context.Context, query string, args []interface{}, target func(state string) map[int]map[string]int) error {
+	rows, err := dbWrapper.QueryxContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, n int
+		var typ, state string
+		if err := rows.Scan(&id, &typ, &state, &n); err != nil {
+			return err
+		}
+		counts := target(state)
+		if counts[id] == nil {
+			counts[id] = map[string]int{}
+		}
+		counts[id][typ] = n
 	}
 	return rows.Err()
 }

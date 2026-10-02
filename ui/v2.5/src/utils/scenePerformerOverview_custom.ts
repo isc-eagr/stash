@@ -2,6 +2,7 @@ export const SCENE_PERFORMER_OVERVIEW_EXCLUDED_FIELDS = [
   "tattoos",
   "piercings",
   "stash_ids",
+  "tags",
 ] as const;
 
 export const SCENE_PERFORMER_OVERVIEW_LINK_PROPS = {

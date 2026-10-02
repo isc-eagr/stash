@@ -95,9 +95,11 @@ type TaskProgressTracker struct {
 	CompletedCount   int                      `json:"completed_count"`
 	IncomingCount    int                      `json:"incoming_count"`
 	ItemCounts       []*TaskProgressItemCount `json:"item_counts"`
-	History          []*TaskProgressDay       `json:"history"`
-	CreatedAt        time.Time                `json:"created_at"`
-	UpdatedAt        time.Time                `json:"updated_at"`
+	// Completed items by type; FIXED trackers count completed members.
+	CompletedItemCounts []*TaskProgressItemCount `json:"completed_item_counts"`
+	History             []*TaskProgressDay       `json:"history"`
+	CreatedAt           time.Time                `json:"created_at"`
+	UpdatedAt           time.Time                `json:"updated_at"`
 }
 
 type TaskProgressTrackerReader interface {

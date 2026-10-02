@@ -21,6 +21,10 @@ fragment TaskProgressTrackerData on TaskProgressTracker {
     item_type
     count
   }
+  completed_item_counts {
+    item_type
+    count
+  }
   history {
     date
     completed

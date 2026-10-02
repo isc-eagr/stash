@@ -567,7 +567,11 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
             (role.partnerTopCount ?? 0) + (role.partnerBottomCount ?? 0) > 0)
       )
     : [];
-  const stripRoles = safeRolesToShow;
+  // Scene cards already show sex/oral/facial in the versatility rows
+  const stripRoles =
+    versatilityCard && sceneId
+      ? safeRolesToShow.filter((role) => role.category === "solo")
+      : safeRolesToShow;
   const scenePartnerRows = (pids: string[] | undefined) => {
     if (scenePerformerCount <= 2) return undefined;
     const partners = (pids ?? [])
@@ -892,25 +896,38 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                             }`
                       }
                     >
-                      <Link
-                        to={orgasmUrl}
-                        className="role-badge-link"
-                        target={linkTarget} // CUSTOM
-                        rel={
-                          linkTarget === "_blank"
-                            ? "noopener noreferrer"
-                            : undefined
-                        } // CUSTOM
-                      >
-                        <img
-                          src={spermsSvg}
-                          alt="Orgasm"
-                          className="category-icon"
-                        />
-                        <span className="role-total-count">
-                          {orgasmTopCount}
-                        </span>
-                      </Link>
+                      {!sceneId ? (
+                        <Link
+                          to={orgasmUrl}
+                          className="role-badge-link"
+                          target={linkTarget} // CUSTOM
+                          rel={
+                            linkTarget === "_blank"
+                              ? "noopener noreferrer"
+                              : undefined
+                          } // CUSTOM
+                        >
+                          <img
+                            src={spermsSvg}
+                            alt="Orgasm"
+                            className="category-icon"
+                          />
+                          <span className="role-total-count">
+                            {orgasmTopCount}
+                          </span>
+                        </Link>
+                      ) : (
+                        <>
+                          <img
+                            src={spermsSvg}
+                            alt="Orgasm"
+                            className="category-icon"
+                          />
+                          <span className="role-total-count">
+                            {orgasmTopCount}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 );

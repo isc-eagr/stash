@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import {
+  milestoneCheckpoints,
   milestoneForecast,
   milestoneFromSearch,
+  milestoneItemProgress,
   milestoneSearch,
   milestoneTargetProgress,
-  milestoneTrackerPace,
+  milestoneTrackerIdle,
+  milestoneTrackerPeriods,
   resolveMilestoneSelection,
 } from "../src/components/TaskProgress/milestoneView_custom.ts";
 
@@ -63,25 +66,35 @@ assert.equal(
     .assumesNoIncoming,
   false
 );
-assert.equal(
-  milestoneTrackerPace(
-    {
-      started_on: "2026-09-23",
-      history: [
-        { date: "2026-09-23", completed: 5, incoming: 0, remaining: 9 },
-      ],
-    } as Parameters<typeof milestoneTrackerPace>[0],
-    "2026-09-23"
-  ),
-  5,
-  "a new tracker shows today's provisional pace"
+const trackerPeriods = milestoneTrackerPeriods(
+  {
+    history: [
+      { date: "2026-08-31", completed: 0, incoming: 0, remaining: 20 },
+      { date: "2026-09-21", completed: 4, incoming: 0, remaining: 16 },
+      { date: "2026-09-22", completed: 2, incoming: 0, remaining: 14 },
+      { date: "2026-09-23", completed: 4, incoming: 0, remaining: 10 },
+    ],
+  } as unknown as Parameters<typeof milestoneTrackerPeriods>[0],
+  "2026-09-23"
 );
-assert.equal(
-  milestoneTrackerPace(
-    { history: [] } as unknown as Parameters<typeof milestoneTrackerPace>[0],
+assert.deepEqual(
+  [
+    trackerPeriods.day.completed,
+    trackerPeriods.week.completed,
+    trackerPeriods.month.completed,
+  ],
+  [4, 10, 10],
+  "weeks start on Monday and months on the first"
+);
+assert.equal(trackerPeriods.day.percent, 20);
+assert.equal(trackerPeriods.week.percent, 50);
+assert.equal(trackerPeriods.month.percent, 50);
+assert.deepEqual(
+  milestoneTrackerPeriods(
+    { history: [] } as unknown as Parameters<typeof milestoneTrackerPeriods>[0],
     "2026-09-23"
-  ),
-  undefined
+  ).day,
+  { completed: 0, percent: 0 }
 );
 assert.deepEqual(
   milestoneTargetProgress(milestone, forecast.netRate, "2026-09-23"),
@@ -118,3 +131,46 @@ assert.equal(
   milestoneTargetProgress(milestone, 0, "2026-09-23")?.state,
   "unavailable"
 );
+
+assert.deepEqual(
+  milestoneCheckpoints(milestone.history, 30, "2026-09-23"),
+  [
+    { threshold: 25, date: "2026-09-22", reached: true },
+    { threshold: 50, date: undefined, reached: false },
+    { threshold: 75, date: undefined, reached: false },
+    { threshold: 100, date: undefined, reached: false },
+  ],
+  "checkpoints record the first day history crossed them"
+);
+assert.equal(
+  milestoneCheckpoints(milestone.history, 60, "2026-09-23")[1].reached,
+  true,
+  "progress earned before history began still counts"
+);
+assert.deepEqual(
+  milestoneItemProgress({
+    item_counts: [
+      { item_type: "scene", count: 9 },
+      { item_type: "image", count: 0 },
+      { item_type: "gallery", count: 0 },
+    ],
+    completed_item_counts: [
+      { item_type: "scene", count: 6 },
+      { item_type: "image", count: 2 },
+    ],
+  }),
+  [
+    { itemType: "scene", completed: 6, total: 15 },
+    { itemType: "image", completed: 2, total: 2 },
+  ]
+);
+
+const recentHistory = {
+  history: [{ date: "2026-09-02", completed: 3, incoming: 0, remaining: 5 }],
+} as Parameters<typeof milestoneTrackerIdle>[0];
+assert.equal(
+  milestoneTrackerIdle(recentHistory, "2026-10-01"),
+  false,
+  "completions in the last 30 days keep a tracker active across month boundaries"
+);
+assert.equal(milestoneTrackerIdle(recentHistory, "2026-10-02"), true);

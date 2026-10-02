@@ -46,7 +46,7 @@ FROM task_progress_milestones ORDER BY name COLLATE NOCASE,id`)
 	milestones := []*models.TaskProgressMilestone{}
 	byID := map[int]*models.TaskProgressMilestone{}
 	for rows.Next() {
-		m := &models.TaskProgressMilestone{TrackerIDs: []int{}, Trackers: []*models.TaskProgressTracker{}, ItemCounts: []*models.TaskProgressItemCount{}, History: []*models.TaskProgressDay{}}
+		m := &models.TaskProgressMilestone{TrackerIDs: []int{}, Trackers: []*models.TaskProgressTracker{}, ItemCounts: []*models.TaskProgressItemCount{}, CompletedItemCounts: []*models.TaskProgressItemCount{}, History: []*models.TaskProgressDay{}}
 		if err := rows.Scan(&m.ID, &m.Name, &m.TargetDate, &m.GoalPerDay, &m.Version, &m.CreatedAt, &m.UpdatedAt); err != nil {
 			rows.Close()
 			return nil, err
@@ -224,6 +224,7 @@ VALUES (?,?,?) ON CONFLICT(milestone_id,effective_on) DO UPDATE SET goal_per_day
 
 func aggregateTaskProgressMilestoneCustom(m *models.TaskProgressMilestone, goals map[string]*int, today string) {
 	counts := map[string]int{}
+	completedCounts := map[string]int{}
 	first := ""
 	for _, tracker := range m.Trackers {
 		completed := tracker.CompletedCount
@@ -239,6 +240,9 @@ func aggregateTaskProgressMilestoneCustom(m *models.TaskProgressMilestone, goals
 		for _, item := range tracker.ItemCounts {
 			counts[item.ItemType] += item.Count
 		}
+		for _, item := range tracker.CompletedItemCounts {
+			completedCounts[item.ItemType] += item.Count
+		}
 		if len(tracker.History) > 0 && (first == "" || tracker.History[0].Date < first) {
 			first = tracker.History[0].Date
 		}
@@ -246,6 +250,9 @@ func aggregateTaskProgressMilestoneCustom(m *models.TaskProgressMilestone, goals
 	m.TotalCount = m.CompletedCount + m.CurrentCount
 	for _, typ := range models.TaskProgressItemTypes {
 		m.ItemCounts = append(m.ItemCounts, &models.TaskProgressItemCount{ItemType: typ, Count: counts[typ]})
+		if completedCounts[typ] > 0 {
+			m.CompletedItemCounts = append(m.CompletedItemCounts, &models.TaskProgressItemCount{ItemType: typ, Count: completedCounts[typ]})
+		}
 	}
 	if first == "" {
 		return

@@ -12,17 +12,28 @@ import React, {
 import { Button } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Link } from "react-router-dom";
-import { faTimes, faUser } from "@fortawesome/free-solid-svg-icons";
+import {
+  faFilm,
+  faImage,
+  faImages,
+  faPlayCircle,
+  faThumbsUp,
+  faTimes,
+  faUser,
+  faUsers,
+  faVideo,
+} from "@fortawesome/free-solid-svg-icons";
 import { PerformerCategoryStrip } from "src/components/Performers/PerformerDetails/PerformerCategoryStrip";
 import { PerformerDetailsPanel } from "src/components/Performers/PerformerDetails/PerformerDetailsPanel";
-import { PerformerActivityTime } from "src/components/Performers/PerformerDetails/PerformerActivityTime";
 import { PerformerVersatility } from "src/components/Performers/PerformerDetails/PerformerVersatility_custom";
 import { PerformerSceneAverageRating } from "src/components/Performers/PerformerSceneRatingAdvisor_custom";
 import { getPerformerRolePartnerSectionTitle } from "src/components/Performers/performerRolePartnerLabels_custom";
 import { AliasList } from "src/components/Shared/DetailsPage/AliasList";
 import { HoverPopover } from "src/components/Shared/HoverPopover";
+import { TagLink } from "src/components/Shared/TagLink";
 import { VatoPortraitHover } from "src/components/Shared/VatoPortraitHover_custom"; // CUSTOM
 import { Icon } from "src/components/Shared/Icon";
+import { SweatDrops } from "src/components/Shared/SweatDrops";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { RatingBanner } from "src/components/Shared/RatingBanner";
 import * as GQL from "src/core/generated-graphql";
@@ -32,6 +43,8 @@ import {
   withExactPerformerMarkerCounts,
 } from "src/components/Performers/performerRoleStats_custom";
 import { useConfigurationContext } from "src/hooks/Config";
+import NavUtils from "src/utils/navigation";
+import { makePerformerOStatsUrl } from "src/utils/oStatsNavigation_custom";
 import {
   SCENE_PERFORMER_OVERVIEW_EXCLUDED_FIELDS,
   SCENE_PERFORMER_OVERVIEW_LINK_PROPS,
@@ -52,6 +65,24 @@ export function useScenePerformerOverview() {
 }
 
 const CLOSE_ANIMATION_MS = 220;
+const CONDENSED_HEADER_SCROLL_PX = 90;
+
+const OverviewCountRow: React.FC<{
+  icon: React.ReactNode;
+  label: React.ReactNode;
+  to: string;
+  value: number;
+}> = ({ icon, label, to, value }) => (
+  <Link
+    className="scene-performer-overview-count"
+    to={to}
+    {...SCENE_PERFORMER_OVERVIEW_LINK_PROPS}
+  >
+    <span className="scene-performer-overview-count-icon">{icon}</span>
+    <span className="scene-performer-overview-count-label">{label}</span>
+    <strong>{value}</strong>
+  </Link>
+);
 
 const ScenePerformerOverviewPanel: React.FC<{
   performerId: string;
@@ -85,6 +116,8 @@ const ScenePerformerOverviewPanel: React.FC<{
     { data: partnerImagesData, loading: partnersLoading },
   ] = GQL.usePerformerCoPerformersMiniImagesLazyQuery();
   const partnerImagesFetched = useRef(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [condensedHeader, setCondensedHeader] = useState(false);
   const partnerRoleData =
     partnerImagesData?.performerCoPerformersByRole ?? undefined;
   const partnerImages = useMemo(
@@ -115,6 +148,11 @@ const ScenePerformerOverviewPanel: React.FC<{
     [configuration?.ui.roleTagIds, performerId, scene.scene_markers]
   );
 
+  useEffect(() => {
+    setCondensedHeader(false);
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [performerId]);
+
   const loadPartnerImages = useCallback(() => {
     if (partnerImagesFetched.current) return;
     partnerImagesFetched.current = true;
@@ -141,12 +179,41 @@ const ScenePerformerOverviewPanel: React.FC<{
 
   const countItems = performer
     ? [
-        { id: "scenes", value: performer.scene_count },
-        { id: "groups", value: performer.group_count },
-        { id: "images", value: performer.image_count },
-        { id: "galleries", value: performer.gallery_count },
-        { id: "o_count", value: performer.o_counter ?? 0 },
-      ]
+        {
+          id: "scenes",
+          icon: <Icon icon={faPlayCircle} />,
+          to: NavUtils.makePerformerScenesUrl(performer),
+          value: performer.scene_count,
+        },
+        {
+          id: "groups",
+          icon: <Icon icon={faFilm} />,
+          to: NavUtils.makePerformerGroupsUrl(performer),
+          value: performer.group_count,
+        },
+        {
+          id: "images",
+          icon: <Icon icon={faImage} />,
+          to: NavUtils.makePerformerImagesUrl(performer),
+          value: performer.image_count,
+        },
+        {
+          id: "galleries",
+          icon: <Icon icon={faImages} />,
+          to: NavUtils.makePerformerGalleriesUrl(performer),
+          value: performer.gallery_count,
+        },
+        {
+          id: "o_count",
+          icon: configuration?.interface.sfwContentMode ? (
+            <Icon icon={faThumbsUp} />
+          ) : (
+            <SweatDrops />
+          ),
+          to: makePerformerOStatsUrl(performer.id),
+          value: performer.o_counter ?? 0,
+        },
+      ].filter((item) => item.value > 0)
     : [];
 
   return (
@@ -168,7 +235,20 @@ const ScenePerformerOverviewPanel: React.FC<{
         role="dialog"
       >
         <header className="scene-performer-overview-toolbar">
-          <span>Vato Overview</span>
+          {condensedHeader && performer ? (
+            <button
+              type="button"
+              className="scene-performer-overview-condensed"
+              onClick={() => scrollRef.current?.scrollTo({ top: 0 })}
+            >
+              {performer.image_path && (
+                <img alt="" src={performer.image_path} />
+              )}
+              <span>{performer.name}</span>
+            </button>
+          ) : (
+            <span>Vato Overview</span>
+          )}
           <Button
             autoFocus
             aria-label={intl.formatMessage({ id: "actions.close" })}
@@ -180,7 +260,15 @@ const ScenePerformerOverviewPanel: React.FC<{
           </Button>
         </header>
 
-        <div className="scene-performer-overview-scroll">
+        <div
+          className="scene-performer-overview-scroll"
+          ref={scrollRef}
+          onScroll={(event) =>
+            setCondensedHeader(
+              event.currentTarget.scrollTop > CONDENSED_HEADER_SCROLL_PX
+            )
+          }
+        >
           {loading && !performer && <LoadingIndicator />}
           {error && (
             <div className="scene-performer-overview-error" role="alert">
@@ -190,15 +278,28 @@ const ScenePerformerOverviewPanel: React.FC<{
           {performer && (
             <>
               <section className="scene-performer-overview-profile">
-                <div className="scene-performer-overview-image">
-                  {performer.image_path ? (
-                    <img
-                      src={performer.image_path}
-                      alt={performer.name ?? ""}
+                <div className="scene-performer-overview-visual">
+                  <div className="scene-performer-overview-image">
+                    {performer.image_path ? (
+                      <img
+                        src={performer.image_path}
+                        alt={performer.name ?? ""}
+                      />
+                    ) : (
+                      <Icon icon={faUser} />
+                    )}
+                  </div>
+                  <div
+                    aria-label="Vato role totals"
+                    className="scene-performer-overview-role-strip"
+                  >
+                    <PerformerCategoryStrip
+                      performer={performer}
+                      globalStatsOverride={roleStats}
+                      linkTarget={SCENE_PERFORMER_OVERVIEW_LINK_PROPS.target}
+                      flushMargins
                     />
-                  ) : (
-                    <Icon icon={faUser} />
-                  )}
+                  </div>
                 </div>
                 <div className="scene-performer-overview-identity">
                   <Link
@@ -215,16 +316,82 @@ const ScenePerformerOverviewPanel: React.FC<{
                     )}
                   </Link>
                   <AliasList aliases={performer.alias_list} />
+                  {performer.tags.length > 0 && (
+                    <ul className="scene-performer-overview-tags">
+                      {performer.tags.map((tag) => (
+                        <TagLink
+                          key={tag.id}
+                          linkType="performer"
+                          tag={tag}
+                          target={SCENE_PERFORMER_OVERVIEW_LINK_PROPS.target}
+                        />
+                      ))}
+                    </ul>
+                  )}
                   <div
-                    aria-label="Vato role totals"
-                    className="scene-performer-overview-role-strip"
+                    aria-label="Vato catalog totals"
+                    className="scene-performer-overview-counts"
+                    role="group"
                   >
-                    <PerformerCategoryStrip
-                      performer={performer}
-                      globalStatsOverride={roleStats}
-                      linkTarget={SCENE_PERFORMER_OVERVIEW_LINK_PROPS.target}
-                      flushMargins
-                    />
+                    {countItems.map((item) => (
+                      <OverviewCountRow
+                        key={item.id}
+                        icon={item.icon}
+                        label={<FormattedMessage id={item.id} />}
+                        to={item.to}
+                        value={item.value}
+                      />
+                    ))}
+                    {uniqueCoPerformerCount > 0 && (
+                      <HoverPopover
+                        estimatedContentHeight={partnerPopoverEstimatedHeight}
+                        placement="bottom"
+                        popoverClassName="performer-partner-hover-popover scene-performer-overview-partners-popover"
+                        onOpen={loadPartnerImages}
+                        content={
+                          <div className="scene-performer-overview-partners">
+                            {partnersLoading && partnerImages.length === 0 && (
+                              <span>Loading partners...</span>
+                            )}
+                            {!partnersLoading && partnerImages.length === 0 && (
+                              <span>No partner pictures available.</span>
+                            )}
+                            {partnerImages.map((partner) => (
+                              <Link
+                                key={partner.id}
+                                aria-label={`Open ${partner.name}`}
+                                className="scene-performer-overview-partner"
+                                to={`/performers/${partner.id}`}
+                                {...SCENE_PERFORMER_OVERVIEW_LINK_PROPS}
+                                title={partner.name}
+                              >
+                                <img
+                                  alt={partner.name}
+                                  className="image-thumbnail performer-hover-image-thumbnail"
+                                  src={partner.image_path ?? ""}
+                                />
+                                <span>{partner.name}</span>
+                              </Link>
+                            ))}
+                          </div>
+                        }
+                      >
+                        <OverviewCountRow
+                          icon={<Icon icon={faUsers} />}
+                          label="Partners"
+                          to={`/performers/${performer.id}/appearswithbyrole`}
+                          value={uniqueCoPerformerCount}
+                        />
+                      </HoverPopover>
+                    )}
+                    {studiosCount > 0 && (
+                      <OverviewCountRow
+                        icon={<Icon icon={faVideo} />}
+                        label={<FormattedMessage id="studios" />}
+                        to={`/performers/${performer.id}/studios`}
+                        value={studiosCount}
+                      />
+                    )}
                   </div>
                 </div>
               </section>
@@ -246,79 +413,10 @@ const ScenePerformerOverviewPanel: React.FC<{
                 </div>
               </section>
 
-              <section
-                aria-label="Vato catalog totals"
-                className="scene-performer-overview-counts"
-              >
-                {countItems.map((item) => (
-                  <div className="scene-performer-overview-count" key={item.id}>
-                    <strong>{item.value}</strong>
-                    <span>
-                      <FormattedMessage id={item.id} />
-                    </span>
-                  </div>
-                ))}
-                <HoverPopover
-                  className="scene-performer-overview-count"
-                  estimatedContentHeight={partnerPopoverEstimatedHeight}
-                  placement="bottom"
-                  popoverClassName="performer-partner-hover-popover scene-performer-overview-partners-popover"
-                  onOpen={loadPartnerImages}
-                  content={
-                    <div className="scene-performer-overview-partners">
-                      {partnersLoading && partnerImages.length === 0 && (
-                        <span>Loading partners...</span>
-                      )}
-                      {!partnersLoading && partnerImages.length === 0 && (
-                        <span>No partner pictures available.</span>
-                      )}
-                      {partnerImages.map((partner) => (
-                        <Link
-                          key={partner.id}
-                          aria-label={`Open ${partner.name}`}
-                          className="scene-performer-overview-partner"
-                          to={`/performers/${partner.id}`}
-                          {...SCENE_PERFORMER_OVERVIEW_LINK_PROPS}
-                          title={partner.name}
-                        >
-                          <img
-                            alt={partner.name}
-                            className="image-thumbnail performer-hover-image-thumbnail"
-                            src={partner.image_path ?? ""}
-                          />
-                          <span>{partner.name}</span>
-                        </Link>
-                      ))}
-                    </div>
-                  }
-                >
-                  <Link
-                    className="scene-performer-overview-count-link"
-                    to={`/performers/${performer.id}/appearswithbyrole`}
-                    {...SCENE_PERFORMER_OVERVIEW_LINK_PROPS}
-                  >
-                    <strong>{uniqueCoPerformerCount}</strong>
-                    <span>Partners</span>
-                  </Link>
-                </HoverPopover>
-                <div className="scene-performer-overview-count">
-                  <strong>{studiosCount}</strong>
-                  <span>
-                    <FormattedMessage id="studios" />
-                  </span>
-                </div>
-              </section>
-
               <PerformerDetailsPanel
                 performer={performer}
                 excludedFields={SCENE_PERFORMER_OVERVIEW_EXCLUDED_FIELDS}
                 linkTarget={SCENE_PERFORMER_OVERVIEW_LINK_PROPS.target}
-              />
-
-              <PerformerActivityTime
-                activityStats={performer.activity_stats}
-                className="scene-performer-overview-activity"
-                headingId={`scene-performer-overview-activity-${performer.id}`}
               />
 
               {roleStats && (

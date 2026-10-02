@@ -1,10 +1,7 @@
-import React, { useEffect, useState } from "react";
-import { Alert, Button, Card, Form } from "react-bootstrap";
+import React, { useState } from "react";
+import { Alert, Button, Card } from "react-bootstrap";
 import { FormattedNumber } from "react-intl";
-import {
-  useTaskProgressOrganizedScenesQuery,
-  useTaskProgressOverallGoalUpdateMutation,
-} from "src/core/generated-graphql";
+import { useTaskProgressOrganizedScenesQuery } from "src/core/generated-graphql";
 import {
   overallProgressPercentage,
   useProgressText,
@@ -21,15 +18,9 @@ export const TaskProgressOverall: React.FC = () => {
     fetchPolicy: "network-only",
     notifyOnNetworkStatusChange: true,
   });
-  const [updateGoal] = useTaskProgressOverallGoalUpdateMutation();
   const [showDetails, setShowDetails] = useState(false);
-  const [rate, setRate] = useState(0);
-  const [savingGoal, setSavingGoal] = useState(false);
-  const [goalError, setGoalError] = useState<string>();
   const overall = query.data?.taskProgressOverall;
-  useEffect(() => {
-    if (overall) setRate(overall.goal_per_day ?? 0);
-  }, [overall]);
+  const rate = overall?.goal_per_day ?? 0;
   const total = overall?.total_count;
   const done = overall?.organized_count;
   const remaining =
@@ -120,50 +111,6 @@ export const TaskProgressOverall: React.FC = () => {
                   {t("Details")}
                 </Button>
               </div>
-              <Form.Group
-                controlId="overall-progress-rate"
-                className="progress-overall-goal-form"
-              >
-                <Form.Label>{t("Items per day")}</Form.Label>
-                <Form.Control
-                  className="progress-plan-input"
-                  type="number"
-                  min={0}
-                  max={1000000}
-                  step={1}
-                  value={rate || ""}
-                  onChange={(e) => {
-                    const next = Math.max(
-                      0,
-                      Math.min(1000000, Math.floor(Number(e.target.value) || 0))
-                    );
-                    setRate(next);
-                  }}
-                />
-                <Button
-                  disabled={savingGoal || rate === (overall?.goal_per_day ?? 0)}
-                  onClick={async () => {
-                    setSavingGoal(true);
-                    setGoalError(undefined);
-                    try {
-                      await updateGoal({
-                        variables: { goal_per_day: rate > 0 ? rate : null },
-                      });
-                      await query.refetch();
-                    } catch (error) {
-                      setGoalError(
-                        error instanceof Error ? error.message : String(error)
-                      );
-                    } finally {
-                      setSavingGoal(false);
-                    }
-                  }}
-                  size="sm"
-                  variant="primary"
-                >
-                  {t(savingGoal ? "Saving…" : "Save")}
-                </Button>
-              </Form.Group>
               {due && (
                 <p className="progress-overall-plan">
                   <span>{t("Estimated finish")}</span>
@@ -172,13 +119,13 @@ export const TaskProgressOverall: React.FC = () => {
               )}
             </div>
           </div>
-          {goalError && <p role="alert">{goalError}</p>}
         </Card.Body>
       </Card>
       {showDetails && overall && (
         <TaskProgressOverallModal
           history={overall.history}
           goalPerDay={overall.goal_per_day}
+          onGoalSaved={() => query.refetch()}
           onClose={() => setShowDetails(false)}
         />
       )}

@@ -122,7 +122,10 @@ interface IPerformerCardProps {
 
 const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Popovers",
-  ({ performer, extraCriteria, studioStats, activeSortBy }) => {
+  ({ performer, extraCriteria, studioStats, activeSortBy, sceneId }) => {
+    // CUSTOM: scene cards drop the popover strip; the overview panel has these totals
+    if (sceneId) return null;
+
     const sceneCount = studioStats?.scene_count ?? performer.scene_count;
     const imageCount = studioStats?.image_count ?? performer.image_count;
     const galleryCount = studioStats?.gallery_count ?? performer.gallery_count;

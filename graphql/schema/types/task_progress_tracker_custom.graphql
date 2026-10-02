@@ -24,6 +24,8 @@ type TaskProgressTracker {
   completed_count: Int!
   incoming_count: Int!
   item_counts: [TaskProgressItemCount!]!
+  "Completed items by type"
+  completed_item_counts: [TaskProgressItemCount!]!
   history: [TaskProgressDay!]!
   created_at: Time!
   updated_at: Time!

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Alert, Button, Card, Form } from "react-bootstrap";
+import { Alert, Badge, Button, Card, Form } from "react-bootstrap";
 import { FormattedNumber } from "react-intl";
 import { useHistory, useLocation } from "react-router-dom";
 import * as GQL from "src/core/generated-graphql";
@@ -21,22 +21,31 @@ import { TaskProgressMilestoneForm } from "./TaskProgressMilestoneForm";
 import type { IMilestoneFormValues } from "./TaskProgressMilestoneForm";
 import { TaskProgressRing } from "./TaskProgressRing";
 import {
+  milestoneCheckpoints,
   milestoneForecast,
   milestoneFromSearch,
+  milestoneItemProgress,
   milestoneSearch,
   milestoneTargetProgress,
-  milestoneTrackerPace,
+  milestoneTrackerIdle,
+  milestoneTrackerPeriods,
   resolveMilestoneSelection,
 } from "./milestoneView_custom";
+import type { MilestoneTrackerPeriod } from "./milestoneView_custom";
 
 const lastMilestoneKey = "task-progress-last-milestone";
 
 type ContributionSortKey =
   | "title"
   | "completed"
-  | "remaining"
   | "percent"
-  | "pace";
+  | `${MilestoneTrackerPeriod}${"Completed" | "Percent"}`;
+
+const contributionPeriods: { key: MilestoneTrackerPeriod; label: string }[] = [
+  { key: "day", label: "today" },
+  { key: "week", label: "this week" },
+  { key: "month", label: "this month" },
+];
 
 interface IProps {
   trackers: readonly Tracker[];
@@ -49,10 +58,13 @@ const MilestoneDashboard: React.FC<{
   onOpenTracker: (id: string) => void;
 }> = ({ milestone, onOpenTracker }) => {
   const t = useProgressText();
-  const [contributionSort, setContributionSort] = useState<{
-    key: ContributionSortKey;
-    direction: "ascending" | "descending";
-  }>();
+  const [contributionSort, setContributionSort] = useState<
+    | {
+        key: ContributionSortKey;
+        direction: "ascending" | "descending";
+      }
+    | undefined
+  >({ key: "weekPercent", direction: "descending" });
   const today = progressToday();
   const forecast = milestoneForecast(milestone, today);
   const target = milestoneTargetProgress(
@@ -82,7 +94,12 @@ const MilestoneDashboard: React.FC<{
     planRate,
     today
   );
-  const remainingItems = milestone.item_counts.filter((item) => item.count > 0);
+  const checkpoints = milestoneCheckpoints(
+    milestone.history,
+    percentage ?? 0,
+    today
+  );
+  const itemProgress = milestoneItemProgress(milestone);
   const targetLabels: Record<NonNullable<typeof target>["state"], string> = {
     complete: "Complete",
     overdue: "Overdue",
@@ -94,9 +111,11 @@ const MilestoneDashboard: React.FC<{
   const contributionHeaders: { key: ContributionSortKey; label: string }[] = [
     { key: "title", label: "Tracker" },
     { key: "completed", label: "Completed" },
-    { key: "remaining", label: "Remaining" },
     { key: "percent", label: "%" },
-    { key: "pace", label: "Pace/day" },
+    ...contributionPeriods.flatMap(({ key, label }) => [
+      { key: `${key}Completed` as const, label: `Completed ${label}` },
+      { key: `${key}Percent` as const, label: `% ${label}` },
+    ]),
   ];
   const contributionRows = milestone.trackers.map((tracker, index) => {
     const completed =
@@ -104,39 +123,39 @@ const MilestoneDashboard: React.FC<{
         ? Math.max(0, tracker.goal - tracker.current_count)
         : tracker.completed_count;
     const total = completed + tracker.current_count;
+    const periods = milestoneTrackerPeriods(tracker, today);
+    const values: Record<Exclude<ContributionSortKey, "title">, number> = {
+      completed,
+      percent: total === 0 ? 100 : (completed / total) * 100,
+      dayCompleted: periods.day.completed,
+      dayPercent: periods.day.percent,
+      weekCompleted: periods.week.completed,
+      weekPercent: periods.week.percent,
+      monthCompleted: periods.month.completed,
+      monthPercent: periods.month.percent,
+    };
     return {
       tracker,
       index,
-      completed,
-      percent: total === 0 ? 100 : (completed / total) * 100,
-      pace: milestoneTrackerPace(tracker, today),
+      values,
+      idle: milestoneTrackerIdle(tracker, today),
     };
   });
+  const topContributor = contributionRows.reduce<
+    (typeof contributionRows)[number] | undefined
+  >(
+    (top, row) =>
+      row.values.weekCompleted > (top?.values.weekCompleted ?? 0) ? row : top,
+    undefined
+  );
   const sortedContributionRows = [...contributionRows];
   if (contributionSort) {
+    const { key } = contributionSort;
     sortedContributionRows.sort((a, b) => {
-      if (contributionSort.key === "pace") {
-        if (a.pace === undefined) return b.pace === undefined ? 0 : 1;
-        if (b.pace === undefined) return -1;
-      }
-      let comparison = 0;
-      switch (contributionSort.key) {
-        case "title":
-          comparison = a.tracker.title.localeCompare(b.tracker.title);
-          break;
-        case "completed":
-          comparison = a.completed - b.completed;
-          break;
-        case "remaining":
-          comparison = a.tracker.current_count - b.tracker.current_count;
-          break;
-        case "percent":
-          comparison = a.percent - b.percent;
-          break;
-        case "pace":
-          comparison = (a.pace ?? 0) - (b.pace ?? 0);
-          break;
-      }
+      const comparison =
+        key === "title"
+          ? a.tracker.title.localeCompare(b.tracker.title)
+          : a.values[key] - b.values[key];
       if (comparison === 0) return a.index - b.index;
       return contributionSort.direction === "ascending"
         ? comparison
@@ -189,6 +208,26 @@ const MilestoneDashboard: React.FC<{
                     currentGoalPerDay={milestone.goal_per_day}
                     history={taskProgressHistoryEntries(milestone.history)}
                   />
+                  <ul
+                    className="milestone-checkpoints"
+                    aria-label={t("Checkpoints")}
+                  >
+                    {checkpoints.map(({ threshold, date, reached }) => (
+                      <li
+                        className={`milestone-checkpoint${
+                          reached ? " milestone-checkpoint-reached" : ""
+                        }`}
+                        key={threshold}
+                      >
+                        <strong>{threshold}%</strong>
+                        <small>
+                          {date
+                            ? formatTaskProgressDate(date)
+                            : t(reached ? "Reached" : "Not yet")}
+                        </small>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
                 {percentage !== undefined && (
                   <TaskProgressRing
@@ -202,10 +241,6 @@ const MilestoneDashboard: React.FC<{
                       <div className="milestone-metric">
                         <span>{t("Percentage completed")}</span>
                         <strong>{percentage.toFixed(2)}%</strong>
-                      </div>
-                      <div className="milestone-metric">
-                        <span>{t("Percentage remaining")}</span>
-                        <strong>{(100 - percentage).toFixed(2)}%</strong>
                       </div>
                     </>
                   )}
@@ -291,16 +326,29 @@ const MilestoneDashboard: React.FC<{
               title={milestone.name}
               history={taskProgressHistoryEntries(milestone.history)}
               today={today}
+              defaultView="cumulative"
             />
           </section>
-          {remainingItems.length > 0 && (
+          {itemProgress.length > 0 && (
             <section className="milestone-item-counts">
-              <h3>{t("Remaining items")}</h3>
+              <h3>{t("Completed items")}</h3>
               <div>
-                {remainingItems.map((item) => (
-                  <span key={item.item_type}>
-                    {t(itemLabels[item.item_type] ?? item.item_type)} ·{" "}
-                    <FormattedNumber value={item.count} />
+                {itemProgress.map((item) => (
+                  <span key={item.itemType}>
+                    <span>
+                      {t(itemLabels[item.itemType] ?? item.itemType)}{" "}
+                      <strong>
+                        <FormattedNumber value={item.completed} />
+                      </strong>{" "}
+                      / <FormattedNumber value={item.total} />
+                    </span>
+                    <span className="milestone-bar" aria-hidden="true">
+                      <span
+                        style={{
+                          width: `${(item.completed / item.total) * 100}%`,
+                        }}
+                      />
+                    </span>
                   </span>
                 ))}
               </div>
@@ -384,36 +432,60 @@ const MilestoneDashboard: React.FC<{
                   </span>
                 ))}
               </div>
-              {sortedContributionRows.map(
-                ({ tracker, completed, percent, pace }) => (
+              {sortedContributionRows.map((row) => {
+                const { tracker, values } = row;
+                const top = row === topContributor;
+                return (
                   <div
-                    className="milestone-contributions-row"
+                    className={`milestone-contributions-row${
+                      top ? " milestone-contributions-top" : ""
+                    }${row.idle ? " milestone-contributions-idle" : ""}`}
                     role="row"
                     key={tracker.id}
                   >
-                    <span role="cell" data-label={t("Tracker")}>
-                      <Button
-                        variant="link"
-                        onClick={() => onOpenTracker(tracker.id)}
-                      >
-                        {tracker.title}
-                      </Button>
-                    </span>
-                    <span role="cell" data-label={t("Completed")}>
-                      <FormattedNumber value={completed} />
-                    </span>
-                    <span role="cell" data-label={t("Remaining")}>
-                      <FormattedNumber value={tracker.current_count} />
-                    </span>
-                    <span role="cell" data-label="%">
-                      {percent.toFixed(1)}%
-                    </span>
-                    <span role="cell" data-label={t("Pace/day")}>
-                      {pace === undefined ? "—" : pace.toFixed(1)}
-                    </span>
+                    {contributionHeaders.map(({ key, label }) => (
+                      <span role="cell" data-label={t(label)} key={key}>
+                        {key === "title" ? (
+                          <>
+                            <Button
+                              variant="link"
+                              onClick={() => onOpenTracker(tracker.id)}
+                            >
+                              {tracker.title}
+                            </Button>
+                            {top && (
+                              <Badge variant="success">
+                                {t("Top this week")}
+                              </Badge>
+                            )}
+                          </>
+                        ) : key === "percent" ? (
+                          <span className="milestone-percent">
+                            <span className="milestone-bar" aria-hidden="true">
+                              <span
+                                style={{
+                                  width: `${Math.min(100, values.percent)}%`,
+                                }}
+                              />
+                            </span>
+                            {values.percent.toFixed(1)}%
+                          </span>
+                        ) : key.endsWith("Percent") ? (
+                          <FormattedNumber
+                            maximumFractionDigits={2}
+                            minimumFractionDigits={2}
+                            signDisplay="exceptZero"
+                            style="percent"
+                            value={values[key] / 100}
+                          />
+                        ) : (
+                          <FormattedNumber value={values[key]} />
+                        )}
+                      </span>
+                    ))}
                   </div>
-                )
-              )}
+                );
+              })}
             </div>
           </section>
         </>

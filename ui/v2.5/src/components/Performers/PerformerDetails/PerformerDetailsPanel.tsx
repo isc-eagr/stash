@@ -192,7 +192,14 @@ export const PerformerDetailsPanel: React.FC<IPerformerDetails> =
           fullWidth={fullWidth}
         />
         <DetailItem id="details" value={details} fullWidth={fullWidth} />
-        <DetailItem id="tags" value={renderTagsField()} fullWidth={fullWidth} />
+        {/* CUSTOM: scene performer overview shows tags under the name */}
+        {!isFieldExcluded("tags") && (
+          <DetailItem
+            id="tags"
+            value={renderTagsField()}
+            fullWidth={fullWidth}
+          />
+        )}
         {/* CUSTOM: scene performer overview omits Stash IDs. */}
         {!isFieldExcluded("stash_ids") && (
           <DetailItem

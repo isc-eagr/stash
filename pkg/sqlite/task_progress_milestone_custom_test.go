@@ -14,7 +14,8 @@ func TestTaskProgressMilestoneAggregateCustom(t *testing.T) {
 		Trackers: []*models.TaskProgressTracker{
 			{
 				ID: 1, Mode: "FIXED", Goal: 100, CurrentCount: 60,
-				ItemCounts: []*models.TaskProgressItemCount{{ItemType: "scene", Count: 60}},
+				ItemCounts:          []*models.TaskProgressItemCount{{ItemType: "scene", Count: 60}},
+				CompletedItemCounts: []*models.TaskProgressItemCount{{ItemType: "scene", Count: 40}},
 				History: []*models.TaskProgressDay{
 					{Date: "2026-09-20", Remaining: 100, BaselineCount: intPointerMilestoneCustom(100)},
 					{Date: "2026-09-21", Remaining: 60, Completed: 40},
@@ -22,7 +23,8 @@ func TestTaskProgressMilestoneAggregateCustom(t *testing.T) {
 			},
 			{
 				ID: 2, Mode: "BACKLOG", CurrentCount: 3, CompletedCount: 7, IncomingCount: 2,
-				ItemCounts: []*models.TaskProgressItemCount{{ItemType: "scene", Count: 3}},
+				ItemCounts:          []*models.TaskProgressItemCount{{ItemType: "scene", Count: 3}},
+				CompletedItemCounts: []*models.TaskProgressItemCount{{ItemType: "scene", Count: 5}, {ItemType: "image", Count: 2}},
 				History: []*models.TaskProgressDay{
 					{Date: "2026-09-22", Remaining: 5, BaselineCount: intPointerMilestoneCustom(5)},
 					{Date: "2026-09-23", Remaining: 3, Completed: 4, Incoming: 2},
@@ -38,6 +40,10 @@ func TestTaskProgressMilestoneAggregateCustom(t *testing.T) {
 	require.Equal(t, 110, m.TotalCount)
 	require.Equal(t, 2, m.IncomingCount)
 	require.Equal(t, 63, m.ItemCounts[0].Count, "overlapping scenes count in each tracker")
+	require.Equal(t, []*models.TaskProgressItemCount{
+		{ItemType: "scene", Count: 45},
+		{ItemType: "image", Count: 2},
+	}, m.CompletedItemCounts, "completed types are summed and empty types omitted")
 	require.Len(t, m.History, 4)
 	require.Equal(t, 100, m.History[0].Remaining)
 	require.Equal(t, 60, m.History[1].Remaining)
