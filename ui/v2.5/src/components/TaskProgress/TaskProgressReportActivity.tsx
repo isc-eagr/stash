@@ -138,7 +138,7 @@ export const TaskProgressReportActivity: React.FC<{
                   <span
                     role="gridcell"
                     className={`progress-report-heat-${taskProgressActivityLevel(
-                      day.completed,
+                      day,
                       max
                     )}${day.future ? " progress-report-future" : ""}`}
                     key={day.date}
@@ -190,7 +190,7 @@ export const TaskProgressReportActivity: React.FC<{
                     className={
                       day
                         ? `progress-report-heat-${taskProgressActivityLevel(
-                            day.completed,
+                            day,
                             max
                           )}${day.future ? " progress-report-future" : ""}`
                         : "progress-report-heatmap-empty"

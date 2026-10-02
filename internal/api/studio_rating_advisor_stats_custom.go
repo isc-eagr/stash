@@ -253,7 +253,20 @@ selected_scenes(id, performer_count, rating100) AS (
 
 // scopedRatingAdvisorStatsQueryCustom renames the shared scope CTE so the
 // advisor body can keep reading selected_scenes with its extra columns.
-func scopedRatingAdvisorStatsQueryCustom(sceneScope string) string {
+func scopedRatingAdvisorStatsQueryCustom(sceneScope string, cohorts ...*StatsCohortInput) string {
+	body := studioRatingAdvisorStatsQueryBodyCustom
+	if len(cohorts) > 0 && cohorts[0] != nil && cohorts[0].PerformerIds != nil {
+		// The exact selected vatos include zero-scene profiles, and exclude their unselected co-stars.
+		body = strings.Replace(body, `SELECT DISTINCT 'performers', 'performer', performers_scenes.performer_id, performers.rating
+  FROM selected_scenes
+  JOIN performers_scenes ON performers_scenes.scene_id = selected_scenes.id
+  JOIN performers ON performers.id = performers_scenes.performer_id
+  WHERE EXISTS`, `SELECT 'performers', 'performer', performers.id, performers.rating
+  FROM performers
+  WHERE performers.id IN (SELECT id FROM cohort_performers)
+    AND EXISTS`, 1)
+		body = strings.ReplaceAll(body, "scores.entity_id = performers_scenes.performer_id", "scores.entity_id = performers.id")
+	}
 	return strings.Replace(sceneScope, "selected_scenes(id)", "scoped_scenes(id)", 1) + `,
 selected_scenes(id, performer_count, rating100) AS (
   SELECT scenes.id, COUNT(DISTINCT performers_scenes.performer_id), scenes.rating
@@ -261,7 +274,7 @@ selected_scenes(id, performer_count, rating100) AS (
   LEFT JOIN performers_scenes ON performers_scenes.scene_id = scenes.id
   WHERE scenes.id IN (SELECT id FROM scoped_scenes)
   GROUP BY scenes.id
-)` + studioRatingAdvisorStatsQueryBodyCustom
+)` + body
 }
 
 const performerRatingAdvisorStatsQueryCustom = `WITH selected_scenes(id, performer_count, rating100) AS (
@@ -312,7 +325,7 @@ func studioRatingAdvisorWeightedValueCustom(metric studioRatingAdvisorMetricConf
 
 func studioRatingAdvisorEmptyStatsCustom() *StudioRatingAdvisorStats {
 	return &StudioRatingAdvisorStats{
-		SoloScenes:  &StudioRatingAdvisorSectionStats{Criteria: []*StudioRatingAdvisorCriterionAverage{}, Adjustments: []*StudioRatingAdvisorAdjustmentCount{}},
+		SoloScenes:      &StudioRatingAdvisorSectionStats{Criteria: []*StudioRatingAdvisorCriterionAverage{}, Adjustments: []*StudioRatingAdvisorAdjustmentCount{}},
 		SexScenes:       &StudioRatingAdvisorSectionStats{Criteria: []*StudioRatingAdvisorCriterionAverage{}, Adjustments: []*StudioRatingAdvisorAdjustmentCount{}},
 		ThreesomeScenes: &StudioRatingAdvisorSectionStats{Criteria: []*StudioRatingAdvisorCriterionAverage{}, Adjustments: []*StudioRatingAdvisorAdjustmentCount{}},
 		GroupScenes:     &StudioRatingAdvisorSectionStats{Criteria: []*StudioRatingAdvisorCriterionAverage{}, Adjustments: []*StudioRatingAdvisorAdjustmentCount{}},
@@ -539,15 +552,15 @@ func queryRatingAdvisorStatsCustom(ctx context.Context, query string, args []int
 	return aggregateStudioRatingAdvisorRowsCustom(rows), nil
 }
 
-func (r *queryResolver) GlobalRatingAdvisorStats(ctx context.Context, studioID *string, depth *int, dateRangeInput *StatsDateRangeInput) (ret *StudioRatingAdvisorStats, err error) {
+func (r *queryResolver) GlobalRatingAdvisorStats(ctx context.Context, studioID *string, depth *int, dateRangeInput *StatsDateRangeInput, cohort *StatsCohortInput) (ret *StudioRatingAdvisorStats, err error) {
 	// CUSTOM: the shared stats scope applies the studio tree and date range.
-	sceneScope, sceneScopeArgs, _, err := sceneStatsInputScopeCustom(studioID, depth, dateRangeInput)
+	sceneScope, sceneScopeArgs, _, err := sceneStatsInputScopeCustom(studioID, depth, dateRangeInput, cohort)
 	if err != nil {
 		return nil, err
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = queryRatingAdvisorStatsCustom(ctx, scopedRatingAdvisorStatsQueryCustom(sceneScope), sceneScopeArgs)
+		ret, err = queryRatingAdvisorStatsCustom(ctx, scopedRatingAdvisorStatsQueryCustom(sceneScope, cohort), sceneScopeArgs)
 		return err
 	}); err != nil {
 		return nil, err

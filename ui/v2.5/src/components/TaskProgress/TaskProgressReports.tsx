@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Alert, Button, Form, Nav, Table } from "react-bootstrap";
 import ReactDatePicker from "react-datepicker";
-import { FormattedNumber, useIntl } from "react-intl";
+import { FormattedNumber } from "react-intl";
 import {
   useFindTaskProgressMilestonesQuery,
   useTaskProgressOrganizedScenesQuery,
@@ -19,6 +19,7 @@ import {
   firstTaskProgressReportActivity,
   previousTaskProgressReportPeriod,
   shiftTaskProgressReportPeriod,
+  taskProgressComparisonLabel,
   taskProgressReportDays,
   taskProgressReportPeriod,
   taskProgressReportRow,
@@ -33,12 +34,18 @@ import {
   useProgressText,
 } from "./progressView_custom";
 import { TaskProgressReportActivity } from "./TaskProgressReportActivity";
+import {
+  TaskProgressDelta,
+  TaskProgressItemsDelta,
+  TaskProgressPercentDelta,
+} from "./TaskProgressDelta";
 
 import "react-datepicker/dist/react-datepicker.css";
 
 interface IReportItem extends ITaskProgressReportRow {
   id: string;
   name: string;
+  previous: ITaskProgressReportRow;
 }
 
 interface IReportScope {
@@ -70,8 +77,9 @@ const SignedPercent: React.FC<{ value: number }> = ({ value }) => (
   />
 );
 
-const ReportMetrics: React.FC<{ item: ITaskProgressReportRow }> = ({
+const ReportMetrics: React.FC<{ item: IReportItem; comparison: string }> = ({
   item,
+  comparison,
 }) => (
   <>
     <td className="text-right">
@@ -79,6 +87,14 @@ const ReportMetrics: React.FC<{ item: ITaskProgressReportRow }> = ({
     </td>
     <td className="text-right">
       {item.goalDays > 0 ? `${item.goalDaysMet}/${item.goalDays}` : "—"}
+      {(item.goalDays > 0 || item.previous.goalDays > 0) && (
+        <TaskProgressDelta
+          delta={item.goalDaysMet - item.previous.goalDaysMet}
+          text={String(Math.abs(item.goalDaysMet - item.previous.goalDaysMet))}
+          label={comparison}
+          compact
+        />
+      )}
     </td>
     <td className="progress-report-goal-cell">
       <span>
@@ -106,9 +122,21 @@ const ReportMetrics: React.FC<{ item: ITaskProgressReportRow }> = ({
           />
         </span>
       )}
+      <TaskProgressItemsDelta
+        current={item.completed}
+        previous={item.previous.completed}
+        label={comparison}
+        compact
+      />
     </td>
     <td className="text-right">
       <SignedPercent value={item.advanced} />
+      <TaskProgressPercentDelta
+        current={item.advanced}
+        previous={item.previous.advanced}
+        label={comparison}
+        compact
+      />
     </td>
   </>
 );
@@ -145,8 +173,9 @@ const ReportItemsSection: React.FC<{
   idleLabels: readonly [string, string];
   items: readonly IReportItem[];
   idle: readonly string[];
+  comparison: string;
   loading: boolean;
-}> = ({ title, name, empty, idleLabels, items, idle, loading }) => {
+}> = ({ title, name, empty, idleLabels, items, idle, comparison, loading }) => {
   const t = useProgressText();
   const total = items.reduce((sum, item) => sum + item.completed, 0);
   return (
@@ -164,7 +193,7 @@ const ReportItemsSection: React.FC<{
                     <th scope="row" className="font-weight-normal">
                       {item.name}
                     </th>
-                    <ReportMetrics item={item} />
+                    <ReportMetrics item={item} comparison={comparison} />
                     <td className="progress-report-share">
                       <span className="progress-report-meter">
                         <span style={{ width: `${share}%` }} />
@@ -192,53 +221,41 @@ const ReportItemsSection: React.FC<{
   );
 };
 
-const ReportDelta: React.FC<{ delta: number; text: string; label: string }> = ({
-  delta,
-  text,
-  label,
-}) => {
-  const direction = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
-  return (
-    <small
-      className={`progress-report-delta progress-report-delta-${direction}`}
-    >
-      {direction === "up" ? "▲ " : direction === "down" ? "▼ " : "= "}
-      {direction === "flat" ? "" : `${text} `}
-      <span>{label}</span>
-    </small>
-  );
-};
-
 const ReportTiles: React.FC<{
   current: ITaskProgressReportRow;
   previous: ITaskProgressReportRow;
   comparison: string;
 }> = ({ current, previous, comparison }) => {
   const t = useProgressText();
-  const intl = useIntl();
-  const completedDelta = current.completed - previous.completed;
-  const advancedDelta = current.advanced - previous.advanced;
-  const hasGoals = current.goalDays > 0 || previous.goalDays > 0;
+  const countDelta = (now: number, before: number) => (
+    <TaskProgressDelta
+      delta={now - before}
+      text={String(Math.abs(now - before))}
+      label={comparison}
+    />
+  );
   const tiles = [
     {
       label: "Items completed",
       value: <FormattedNumber value={current.completed} />,
-      delta: completedDelta,
-      text:
-        previous.completed > 0
-          ? `${Math.round(
-              (Math.abs(completedDelta) / previous.completed) * 100
-            )}%`
-          : intl.formatNumber(Math.abs(completedDelta)),
+      delta: (
+        <TaskProgressItemsDelta
+          current={current.completed}
+          previous={previous.completed}
+          label={comparison}
+        />
+      ),
     },
     {
       label: "Progress advanced",
       value: <SignedPercent value={current.advanced} />,
-      delta: advancedDelta,
-      text: `${intl.formatNumber(Math.abs(advancedDelta), {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })} ${t("pts")}`,
+      delta: (
+        <TaskProgressPercentDelta
+          current={current.advanced}
+          previous={previous.advanced}
+          label={comparison}
+        />
+      ),
     },
     {
       label: "Goal days met",
@@ -246,14 +263,15 @@ const ReportTiles: React.FC<{
         current.goalDays > 0
           ? `${current.goalDaysMet}/${current.goalDays}`
           : "—",
-      delta: hasGoals ? current.goalDaysMet - previous.goalDaysMet : undefined,
-      text: String(Math.abs(current.goalDaysMet - previous.goalDaysMet)),
+      delta:
+        current.goalDays > 0 || previous.goalDays > 0
+          ? countDelta(current.goalDaysMet, previous.goalDaysMet)
+          : undefined,
     },
     {
       label: "Active days",
       value: `${current.activeDays}/${current.elapsedDays}`,
-      delta: current.activeDays - previous.activeDays,
-      text: String(Math.abs(current.activeDays - previous.activeDays)),
+      delta: countDelta(current.activeDays, previous.activeDays),
     },
   ];
   return (
@@ -262,13 +280,7 @@ const ReportTiles: React.FC<{
         <div className="progress-report-tile" key={tile.label}>
           <span>{t(tile.label)}</span>
           <strong>{tile.value}</strong>
-          {tile.delta !== undefined && (
-            <ReportDelta
-              delta={tile.delta}
-              text={tile.text}
-              label={comparison}
-            />
-          )}
+          {tile.delta}
         </div>
       ))}
     </div>
@@ -348,11 +360,13 @@ export const TaskProgressReports: React.FC<IProps> = ({
     id: tracker.id,
     name: tracker.title,
     ...taskProgressReportRow(tracker.history, period, today),
+    previous: taskProgressReportRow(tracker.history, previousPeriod, today),
   }));
   const milestoneItems: IReportItem[] = milestoneList.map((milestone) => ({
     id: milestone.id,
     name: milestone.name,
     ...taskProgressReportRow(milestone.history, period, today),
+    previous: taskProgressReportRow(milestone.history, previousPeriod, today),
   }));
   // Idle lists only name items that existed during the period.
   const idleTrackers = trackerItems
@@ -396,9 +410,7 @@ export const TaskProgressReports: React.FC<IProps> = ({
     })),
   ];
   const scope = scopes.find((item) => item.key === scopeKey) ?? scopes[0];
-  const comparison = t(
-    `vs ${period.through < period.end ? "same point " : ""}last ${range}`
-  );
+  const comparison = taskProgressComparisonLabel(range, period);
   const scopeGroups = [
     { group: "tracker", label: "Trackers" },
     { group: "milestone", label: "Milestones" },
@@ -595,6 +607,7 @@ export const TaskProgressReports: React.FC<IProps> = ({
         idleLabels={["tracker idle", "trackers idle"]}
         items={activeTaskProgressReportItems(trackerItems)}
         idle={idleTrackers}
+        comparison={comparison}
         loading={loading}
       />
       <ReportItemsSection
@@ -604,6 +617,7 @@ export const TaskProgressReports: React.FC<IProps> = ({
         idleLabels={["milestone idle", "milestones idle"]}
         items={activeTaskProgressReportItems(milestoneItems)}
         idle={idleMilestones}
+        comparison={comparison}
         loading={loading}
       />
     </div>

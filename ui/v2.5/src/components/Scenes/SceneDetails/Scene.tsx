@@ -724,15 +724,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                 <FormattedMessage id="details" />
               </Nav.Link>
             </Nav.Item>
-            {queueScenes.length > 0 ? (
-              <Nav.Item>
-                <Nav.Link eventKey="scene-queue-panel">
-                  <FormattedMessage id="queue" />
-                </Nav.Link>
-              </Nav.Item>
-            ) : (
-              ""
-            )}
+            {/* CUSTOM: secondary destinations are in More below. */}
             <Nav.Item>
               <Nav.Link eventKey="scene-markers-panel">
                 <FormattedMessage id="markers" />
@@ -765,33 +757,9 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               </Nav.Item>
             )}
             {/* CUSTOM: end */}
-            {scene.groups.length > 0 ? (
-              <Nav.Item>
-                <Nav.Link eventKey="scene-group-panel">
-                  <FormattedMessage
-                    id="countables.groups"
-                    values={{ count: scene.groups.length }}
-                  />
-                </Nav.Link>
-              </Nav.Item>
-            ) : (
-              ""
-            )}
-            {scene.galleries.length >= 1 ? (
-              <Nav.Item>
-                <Nav.Link eventKey="scene-galleries-panel">
-                  <FormattedMessage
-                    id="countables.galleries"
-                    values={{ count: scene.galleries.length }}
-                  />
-                </Nav.Link>
-              </Nav.Item>
-            ) : undefined}
-            <Nav.Item>
-              <Nav.Link eventKey="scene-video-filter-panel">
-                <FormattedMessage id="effect_filters.name" />
-              </Nav.Link>
-            </Nav.Item>
+            {/* CUSTOM: group navigation is in More. */}
+            {/* CUSTOM: Gallery is in More. */}
+            {/* CUSTOM: video filters are in More. */}
             {/* CUSTOM: begin - releases tab */}
             <Nav.Item>
               <Nav.Link eventKey="scene-releases-panel">
@@ -800,22 +768,8 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               </Nav.Link>
             </Nav.Item>
             {/* CUSTOM: end */}
-            <Nav.Item>
-              <Nav.Link eventKey="scene-file-info-panel">
-                <FormattedMessage id="file_info" />
-                <Counter
-                  count={activeRelease?.files.length ?? scene.files.length}
-                  hideZero
-                  hideOne
-                />{" "}
-                {/* CUSTOM */}
-              </Nav.Link>
-            </Nav.Item>
-            <Nav.Item>
-              <Nav.Link eventKey="scene-history-panel">
-                <FormattedMessage id="history" />
-              </Nav.Link>
-            </Nav.Item>
+            {/* CUSTOM: File Info is in More. */}
+            {/* CUSTOM: History is in More. */}
             {/* CUSTOM: begin - stats tab */}
             <Nav.Item>
               <Nav.Link eventKey="scene-stats-panel">Stats</Nav.Link>
@@ -826,6 +780,81 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                 <FormattedMessage id="actions.edit" />
               </Nav.Link>
             </Nav.Item>
+            {/* CUSTOM: secondary panels retain their panes, state, and shortcuts. */}
+            <Dropdown as={Nav.Item}>
+              <Dropdown.Toggle
+                as={Nav.Link}
+                className={
+                  [
+                    "scene-queue-panel",
+                    "scene-group-panel",
+                    "scene-video-filter-panel",
+                    "scene-history-panel",
+                    "scene-galleries-panel",
+                    "scene-file-info-panel",
+                  ].includes(activeTabKey)
+                    ? "active"
+                    : undefined
+                }
+              >
+                More…
+              </Dropdown.Toggle>
+              <Dropdown.Menu>
+                {scene.galleries.length > 0 && (
+                  <Dropdown.Item
+                    active={activeTabKey === "scene-galleries-panel"}
+                    onClick={() => setActiveTabKey("scene-galleries-panel")}
+                  >
+                    <FormattedMessage
+                      id="countables.galleries"
+                      values={{ count: scene.galleries.length }}
+                    />
+                  </Dropdown.Item>
+                )}
+                <Dropdown.Item
+                  active={activeTabKey === "scene-file-info-panel"}
+                  onClick={() => setActiveTabKey("scene-file-info-panel")}
+                >
+                  <FormattedMessage id="file_info" />
+                  <Counter
+                    count={activeRelease?.files.length ?? scene.files.length}
+                    hideZero
+                    hideOne
+                  />
+                </Dropdown.Item>
+                {queueScenes.length > 0 && (
+                  <Dropdown.Item
+                    active={activeTabKey === "scene-queue-panel"}
+                    onClick={() => setActiveTabKey("scene-queue-panel")}
+                  >
+                    <FormattedMessage id="queue" />
+                  </Dropdown.Item>
+                )}
+                {scene.groups.length > 0 && (
+                  <Dropdown.Item
+                    active={activeTabKey === "scene-group-panel"}
+                    onClick={() => setActiveTabKey("scene-group-panel")}
+                  >
+                    <FormattedMessage
+                      id="countables.groups"
+                      values={{ count: scene.groups.length }}
+                    />
+                  </Dropdown.Item>
+                )}
+                <Dropdown.Item
+                  active={activeTabKey === "scene-video-filter-panel"}
+                  onClick={() => setActiveTabKey("scene-video-filter-panel")}
+                >
+                  <FormattedMessage id="effect_filters.name" />
+                </Dropdown.Item>
+                <Dropdown.Item
+                  active={activeTabKey === "scene-history-panel"}
+                  onClick={() => setActiveTabKey("scene-history-panel")}
+                >
+                  <FormattedMessage id="history" />
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown>
           </ScenePageTabs>
         </Nav>
         {/* CUSTOM: begin - details panel vertical expansion toggle */}

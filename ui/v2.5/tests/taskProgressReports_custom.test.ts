@@ -6,6 +6,7 @@ import {
   previousTaskProgressReportPeriod,
   shiftTaskProgressReportPeriod,
   taskProgressActivityLevel,
+  taskProgressPeriodComparisons,
   taskProgressReportDays,
   taskProgressReportMonths,
   taskProgressReportPeriod,
@@ -293,6 +294,48 @@ assert.equal(monthWeeks.length, 5);
 assert.equal(monthWeeks[0][0], undefined, "weeks start on Monday");
 assert.equal(monthWeeks[0][1]?.date, "2026-09-01");
 assert.deepEqual(
-  [0, 1, 5, 6, 10].map((completed) => taskProgressActivityLevel(completed, 10)),
-  [0, 1, 2, 3, 4]
+  [0, 1, 5, 6, 10].map((completed) =>
+    taskProgressActivityLevel({ completed, goal: 0 }, 10)
+  ),
+  [0, 1, 2, 3, 4],
+  "days without a goal scale against the busiest day"
+);
+assert.deepEqual(
+  [1, 3, 4, 50].map((completed) =>
+    taskProgressActivityLevel({ completed, goal: 4 }, 50)
+  ),
+  [1, 3, 4, 4],
+  "days with a goal scale against it, so one huge day does not pale the rest"
+);
+
+const comparisons = taskProgressPeriodComparisons(
+  [
+    { date: "2026-08-31", completed: 0, incoming: 0, remaining: 20 },
+    { date: "2026-09-21", completed: 4, incoming: 0, remaining: 16 },
+    { date: "2026-09-22", completed: 2, incoming: 0, remaining: 14 },
+    { date: "2026-09-23", completed: 4, incoming: 0, remaining: 10 },
+  ],
+  "2026-09-23"
+);
+assert.deepEqual(
+  (["day", "week", "month"] as const).map((key) => [
+    comparisons[key].current.completed,
+    comparisons[key].current.advanced,
+    comparisons[key].previous.completed,
+    comparisons[key].previous.advanced,
+    comparisons[key].label,
+  ]),
+  [
+    [4, 20, 2, 10, "vs yesterday"],
+    [10, 50, 0, 0, "vs same point last week"],
+    [10, 50, 0, 0, "vs same point last month"],
+  ],
+  "today compares with yesterday; running weeks and months use the same elapsed days"
+);
+assert.deepEqual(
+  [
+    taskProgressPeriodComparisons([], "2026-09-23").day.current.completed,
+    taskProgressPeriodComparisons([], "2026-09-23").day.current.advanced,
+  ],
+  [0, 0]
 );

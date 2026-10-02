@@ -248,6 +248,7 @@ extend type Query {
     studio_id: ID
     depth: Int
     date_range: StatsDateRangeInput
+    cohort: StatsCohortInput
   ): StudioActivityStats!
   "Get tag activity totals for the global, studio-scoped, or performer-scoped Activity Matrix"
   sceneStatsActivityMatrix(
@@ -256,12 +257,14 @@ extend type Query {
     performer_id: ID
     include_subtags: Boolean! = false
     date_range: StatsDateRangeInput
+    cohort: StatsCohortInput
   ): [SceneStatsActivityMatrixRow!]!
   "Get scene and performer Rating Advisor averages"
   globalRatingAdvisorStats(
     studio_id: ID
     depth: Int
     date_range: StatsDateRangeInput
+    cohort: StatsCohortInput
   ): StudioRatingAdvisorStats!
   "Get scene Rating Advisor averages for scenes containing one performer"
   performerRatingAdvisorStats(performer_id: ID!): StudioRatingAdvisorStats!
@@ -477,35 +480,41 @@ extend type Query {
     studio_id: ID
     depth: Int
     date_range: StatsDateRangeInput
+    cohort: StatsCohortInput
   ): Int!
   "Get total number of facial markers (primary or secondary). Includes descendants of 'facial'."
   sceneFacialCount(
     studio_id: ID
     depth: Int
     date_range: StatsDateRangeInput
+    cohort: StatsCohortInput
   ): Int!
   "Get total time (in seconds) of orgasm markers. Uses 20s default if no end time."
   totalOrgasmTime(
     studio_id: ID
     depth: Int
     date_range: StatsDateRangeInput
+    cohort: StatsCohortInput
   ): Float!
   "Get total time (in seconds) of facial markers. Uses 20s default if no end time."
   totalFacialTime(
     studio_id: ID
     depth: Int
     date_range: StatsDateRangeInput
+    cohort: StatsCohortInput
   ): Float!
   "Get total time (in seconds) of completed sex activity markers."
   totalSexTime(
     studio_id: ID
     depth: Int
     date_range: StatsDateRangeInput
+    cohort: StatsCohortInput
   ): Float!
   "Get total time (in seconds) of completed oral activity markers."
   totalOralTime(
     studio_id: ID
     depth: Int
     date_range: StatsDateRangeInput
+    cohort: StatsCohortInput
   ): Float!
 }

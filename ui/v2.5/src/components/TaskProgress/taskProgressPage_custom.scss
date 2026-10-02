@@ -629,6 +629,38 @@
   }
 }
 
+/* CUSTOM: Previous-period comparisons shared by Reports and Milestones. */
+.progress-delta {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+
+  span {
+    color: var(--black-steel-text-muted, #bfccd6);
+    font-weight: 400;
+  }
+}
+
+.progress-delta-up {
+  color: #35c46a;
+}
+
+.progress-delta-down {
+  color: #f55656;
+}
+
+.progress-delta-flat {
+  color: var(--black-steel-text-muted, #bfccd6);
+}
+
+.progress-goal-period > .progress-delta {
+  font-size: 0.72rem;
+  margin-top: 0.4rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* CUSTOM: Keep calendar reports compact and readable at narrow widths. */
 .progress-reports {
   .nav-pills {
@@ -772,28 +804,6 @@
       font-size: 1.6rem;
       line-height: 1.15;
     }
-  }
-
-  .progress-report-delta {
-    font-size: 0.8rem;
-    font-weight: 600;
-
-    span {
-      color: var(--black-steel-text-muted, #bfccd6);
-      font-weight: 400;
-    }
-  }
-
-  .progress-report-delta-up {
-    color: #35c46a;
-  }
-
-  .progress-report-delta-down {
-    color: #f55656;
-  }
-
-  .progress-report-delta-flat {
-    color: var(--black-steel-text-muted, #bfccd6);
   }
 
   .progress-report-meter {

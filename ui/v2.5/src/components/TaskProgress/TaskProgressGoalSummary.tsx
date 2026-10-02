@@ -6,6 +6,11 @@ import {
   taskProgressCurrentPercentageChanges,
 } from "../taskProgress_custom";
 import { progressToday } from "./progressMath_custom";
+import { TaskProgressItemsDelta } from "./TaskProgressDelta";
+import type {
+  ITaskProgressPeriodComparison,
+  TaskProgressComparisonPeriod,
+} from "./taskProgressReports_custom";
 import {
   taskProgressDailyGoalState,
   useProgressText,
@@ -15,12 +20,18 @@ interface IProps {
   currentGoalPerDay?: number | null;
   history: readonly ITaskProgressHistoryEntry[];
   compact?: boolean;
+  /** Adds each period's completed-items change against the previous period. */
+  comparisons?: Record<
+    TaskProgressComparisonPeriod,
+    ITaskProgressPeriodComparison
+  >;
 }
 
 export const TaskProgressGoalSummary: React.FC<IProps> = ({
   currentGoalPerDay,
   history,
   compact = false,
+  comparisons,
 }) => {
   const t = useProgressText();
   const today = progressToday();
@@ -91,6 +102,13 @@ export const TaskProgressGoalSummary: React.FC<IProps> = ({
               <span aria-hidden="true" className="progress-goal-meter">
                 <span style={{ width: `${percentage}%` }} />
               </span>
+            )}
+            {comparisons && (
+              <TaskProgressItemsDelta
+                current={comparisons[key].current.completed}
+                previous={comparisons[key].previous.completed}
+                label={comparisons[key].label}
+              />
             )}
           </div>
         );

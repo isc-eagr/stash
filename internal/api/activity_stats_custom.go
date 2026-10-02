@@ -536,7 +536,7 @@ func queryStudioActivityStatsCustom(ctx context.Context, studioID int, depth *in
 	return queryActivityStatsCustom(ctx, &studioID, depth, nil, performerID, sexTagID, oralTagID, soloTagID, goatTagID)
 }
 
-func (r *queryResolver) SceneStatsActivity(ctx context.Context, studioID *string, depth *int, dateRangeInput *StatsDateRangeInput) (ret *StudioActivityStats, err error) {
+func (r *queryResolver) SceneStatsActivity(ctx context.Context, studioID *string, depth *int, dateRangeInput *StatsDateRangeInput, cohort *StatsCohortInput) (ret *StudioActivityStats, err error) {
 	dateRange, err := parseStatsDateRangeCustom(dateRangeInput)
 	if err != nil {
 		return nil, err
@@ -556,7 +556,7 @@ func (r *queryResolver) SceneStatsActivity(ctx context.Context, studioID *string
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = queryActivityStatsCustom(ctx, parsedStudioID, depth, dateRange, nil, sexTagID, oralTagID, soloTagID, goatTagID)
+		ret, err = queryActivityStatsCustom(ctx, parsedStudioID, depth, dateRange, nil, sexTagID, oralTagID, soloTagID, goatTagID, cohort)
 		return err
 	}); err != nil {
 		return nil, err
@@ -564,12 +564,19 @@ func (r *queryResolver) SceneStatsActivity(ctx context.Context, studioID *string
 	return ret, nil
 }
 
-func queryActivityStatsCustom(ctx context.Context, studioID *int, depth *int, dateRange *statsDateRangeCustom, performerID *int, sexTagID int, oralTagID int, soloTagID int, goatTagID int) (*StudioActivityStats, error) {
+func queryActivityStatsCustom(ctx context.Context, studioID *int, depth *int, dateRange *statsDateRangeCustom, performerID *int, sexTagID int, oralTagID int, soloTagID int, goatTagID int, cohorts ...*StatsCohortInput) (*StudioActivityStats, error) {
 	uiConfig := config.GetInstance().GetUIConfiguration()
 	_, _, _, _, orgasmTagID, _, _ := getRoleTagIDs(uiConfig)
 	roleTagIDs, _ := uiConfig["roleTagIds"].(map[string]interface{})
 	reallyHotTagID, _ := strconv.Atoi(customStringConfigValue(roleTagIDs["reallyHotTagId"]))
 	sceneScope, sceneScopeArgs := activityStatsSceneScopeCustom(studioID, depth, dateRange)
+	if len(cohorts) > 0 {
+		var scopeErr error
+		sceneScope, sceneScopeArgs, scopeErr = applyStatsCohortCustom(sceneScope, sceneScopeArgs, cohorts[0])
+		if scopeErr != nil {
+			return nil, scopeErr
+		}
+	}
 	durationQuery := sceneScope + `
 SELECT sc.id, COALESCE(MAX(video_files.duration), 0)
 FROM scenes sc

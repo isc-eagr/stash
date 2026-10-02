@@ -20,26 +20,32 @@ const summaryEnd = vatoStatsSource.indexOf(
   summaryStart
 );
 const summarySource = vatoStatsSource.slice(summaryStart, summaryEnd);
-
-assert.match(
-  summarySource,
-  /label: "Total Vatos",\s*value: totalVatos\.toLocaleString\(\),[\s\S]*?label: "Meters of Pito"/,
-  "Total Vatos should be the first Vato Stats summary card"
+const primarySummary = summarySource.slice(
+  0,
+  summarySource.indexOf("</section>")
 );
-assert.match(
-  summarySource,
-  /label: "Total Nuts",\s*value: totalNuts\.toLocaleString\(\)/,
-  "Total Nuts should show the total recorded O events"
+assert.deepEqual(
+  [...primarySummary.matchAll(/label: "([^"]+)"/g)].map((match) => match[1]),
+  [
+    "Total Vatos",
+    "Meters of Pito",
+    "Total Nuts",
+    "Total Nut Time",
+    "Estimated Liters",
+  ],
+  "all five totals should remain visible in their original order"
 );
+assert.doesNotMatch(primarySummary, /<details|Fun stats/);
+assert.match(primarySummary, /summary\.totalPenisMeters/);
+assert.match(primarySummary, /summary\.estimatedLiters/);
 assert.match(
-  summarySource,
-  /label: "Total Nut Time",\s*value: formatDuration\(totalNutTime\)/,
-  "Total Nut Time should show the total recorded O-event duration"
+  primarySummary,
+  /title:.*summary\.assumedCount.*estimated at 17 cm/
 );
-assert.match(
-  summarySource,
-  /label: "Total Nut Time"[\s\S]*?label: "Estimated Liters"/,
-  "Estimated Liters should be the final Vato Stats summary card"
+assert.match(primarySummary, /title: "Total Nuts × 3 mL"/);
+assert.doesNotMatch(
+  vatoStatsSource,
+  /o_per_scene|O's per Scene|metricIncludesPerformer/
 );
 assert.doesNotMatch(
   summarySource,
@@ -54,7 +60,7 @@ assert.doesNotMatch(
 assert.match(
   vatoStatsStyles,
   /\.vatostats-summary-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\);/,
-  "summary cards should use an even five-column desktop layout"
+  "the summary should use an even five-column desktop layout"
 );
 assert.match(
   sceneStatsSource,

@@ -3,11 +3,13 @@ query SceneStatsInsights(
   $studioId: ID
   $depth: Int
   $dateRange: StatsDateRangeInput
+  $cohort: StatsCohortInput
 ) {
   sceneStatsActivity(
     studio_id: $studioId
     depth: $depth
     date_range: $dateRange
+    cohort: $cohort
   ) {
     total_seconds
     sex_seconds
@@ -34,6 +36,7 @@ query SceneStatsInsights(
     studio_id: $studioId
     depth: $depth
     date_range: $dateRange
+    cohort: $cohort
   ) {
     overall_scene_average_rating100
     solo_scenes {
@@ -58,6 +61,7 @@ query SceneStatsActivityMatrix(
   $performerId: ID
   $includeSubTags: Boolean!
   $dateRange: StatsDateRangeInput
+  $cohort: StatsCohortInput
 ) {
   sceneStatsActivityMatrix(
     studio_id: $studioId
@@ -65,6 +69,7 @@ query SceneStatsActivityMatrix(
     performer_id: $performerId
     include_subtags: $includeSubTags
     date_range: $dateRange
+    cohort: $cohort
   ) {
     tag_id
     tag_name
@@ -79,11 +84,13 @@ query VatoStatsRatingAdvisor(
   $studioId: ID
   $depth: Int
   $dateRange: StatsDateRangeInput
+  $cohort: StatsCohortInput
 ) {
   globalRatingAdvisorStats(
     studio_id: $studioId
     depth: $depth
     date_range: $dateRange
+    cohort: $cohort
   ) {
     performers {
       ...StudioRatingAdvisorSectionData

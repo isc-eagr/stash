@@ -73,8 +73,8 @@ func configuredRoleTagIDCustom(uiConfig map[string]interface{}, key string) int 
 	return result
 }
 
-func (r *queryResolver) sceneWeightedMarkerCountCustom(ctx context.Context, roleTagKey string, studioID *string, depth *int, dateRange *StatsDateRangeInput) (count int, err error) {
-	sceneScope, sceneScopeArgs, _, err := sceneStatsInputScopeCustom(studioID, depth, dateRange)
+func (r *queryResolver) sceneWeightedMarkerCountCustom(ctx context.Context, roleTagKey string, studioID *string, depth *int, dateRange *StatsDateRangeInput, cohort *StatsCohortInput) (count int, err error) {
+	sceneScope, sceneScopeArgs, _, err := sceneStatsInputScopeCustom(studioID, depth, dateRange, cohort)
 	if err != nil {
 		return 0, err
 	}
@@ -108,8 +108,8 @@ func weightedMarkerCountInScopeCustom(ctx context.Context, roleTagKey string, sc
 	return customStatsFirstInt(rows), nil
 }
 
-func (r *queryResolver) totalWeightedMarkerTimeCustom(ctx context.Context, roleTagKey string, studioID *string, depth *int, dateRange *StatsDateRangeInput) (totalSeconds float64, err error) {
-	sceneScope, sceneScopeArgs, _, err := sceneStatsInputScopeCustom(studioID, depth, dateRange)
+func (r *queryResolver) totalWeightedMarkerTimeCustom(ctx context.Context, roleTagKey string, studioID *string, depth *int, dateRange *StatsDateRangeInput, cohort *StatsCohortInput) (totalSeconds float64, err error) {
+	sceneScope, sceneScopeArgs, _, err := sceneStatsInputScopeCustom(studioID, depth, dateRange, cohort)
 	if err != nil {
 		return 0, err
 	}

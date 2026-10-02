@@ -27,9 +27,10 @@ export function sceneStatsVatoCountBuckets(
 }
 
 export function makeSceneStatsMarkerTagURL(
-  tag: SceneStatsMarkerLinkTag | undefined
+  tag: SceneStatsMarkerLinkTag | undefined,
+  scenes?: readonly { id: string; title?: string | null }[]
 ) {
-  if (!tag) return "#";
+  if (!tag || scenes?.length === 0) return "#";
   const criterionData = {
     type: "marker_performers",
     modifier: "INCLUDES_ALL",
@@ -44,9 +45,21 @@ export function makeSceneStatsMarkerTagURL(
     bottom_countries: [],
     bottom_rating: null,
   };
-  return `/scenes/markers?c=${encodeURIComponent(
-    JSON.stringify(criterionData)
-  )}&sortby=title`;
+  const params = new URLSearchParams({ sortby: "title" });
+  params.append("c", JSON.stringify(criterionData));
+  if (scenes)
+    params.append(
+      "c",
+      JSON.stringify({
+        type: "scenes",
+        modifier: "INCLUDES",
+        value: scenes.map((scene) => ({
+          id: scene.id,
+          label: scene.title || `Scene ${scene.id}`,
+        })),
+      })
+    );
+  return `/scenes/markers?${params}`;
 }
 
 export type SceneStatsVatoCountBucket =

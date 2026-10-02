@@ -279,3 +279,7 @@ export function getPerformerSortMetricCustom(
     roleStats,
   });
 }
+
+export function getPerformerSortMetricDefinitionCustom(sortBy: string) {
+  return definitions[sortBy];
+}

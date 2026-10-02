@@ -33,10 +33,18 @@ export function makeSceneStatsActivityMatrixTagURL(
   tag: { id: string },
   studioScope?: ISceneStatsActivityMatrixStudioScope,
   includeSubTags = false,
-  performerScope?: ISceneStatsActivityMatrixPerformerScope
+  performerScope?: ISceneStatsActivityMatrixPerformerScope,
+  sceneIds?: readonly string[]
 ) {
+  if (sceneIds?.length === 0) return "#";
   const subTagParameter = `includeSubTags=${includeSubTags ? "true" : "false"}`;
   const criteria: Record<string, unknown>[] = [];
+  if (sceneIds)
+    criteria.push({
+      type: "scenes",
+      modifier: "INCLUDES",
+      value: sceneIds.map((id) => ({ id, label: `Scene ${id}` })),
+    });
   if (studioScope) {
     criteria.push({
       type: "studios",

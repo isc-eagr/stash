@@ -1,8 +1,28 @@
 import React, { useMemo } from "react";
+// CUSTOM: preview, paged history, and drilldowns share the event rows.
+import {
+  OStatsEventList,
+  OStatsLatest,
+  OStatsFullTimeline,
+} from "./OStatsTimeline_custom";
+import {
+  OStatsTimelineEventFragmentDoc,
+  type OStatsTimelineEventFragment as SceneOEvent,
+} from "src/core/generated-graphql";
+import {
+  O_STATS_TIMELINE_PATH_CUSTOM,
+  oStatsTimelinePageCustom,
+  oStatsTimelineSearchCustom,
+} from "./oStatsTimelinePaging_custom";
 import { gql, useQuery, type DocumentNode } from "@apollo/client";
 import { Alert, Button, ButtonGroup } from "react-bootstrap";
 import { Helmet } from "react-helmet";
-import { Link, RouteComponentProps, useLocation } from "react-router-dom";
+import {
+  Link,
+  RouteComponentProps,
+  useLocation,
+  useHistory,
+} from "react-router-dom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { StatsPage } from "src/components/StatsPage_custom";
@@ -15,8 +35,10 @@ import { useConfigurationContext } from "src/hooks/Config";
 import { useStatsDateRange } from "src/hooks/useStatsDateRange_custom"; // CUSTOM
 import { useTitleProps } from "src/hooks/title";
 import { statsCountryName } from "src/utils/statsCountry_custom";
-import { formatStatsTotal } from "src/utils/statsDrilldown_custom";
-import { addStatsDateRangeToPath } from "src/utils/statsDateRange_custom"; // CUSTOM
+import {
+  addStatsDateRangeToPath,
+  writeStatsDateRange,
+} from "src/utils/statsDateRange_custom"; // CUSTOM
 import { metallicRatingChartBucket } from "src/utils/metallicRatingChart_custom"; // CUSTOM
 import {
   addOStatsStudioScopeToPath,
@@ -24,15 +46,6 @@ import {
   readOStatsStudioScope,
 } from "./oStatsStudioScope_custom"; // CUSTOM
 import type { IOStatsStudioScope } from "./oStatsStudioScope_custom"; // CUSTOM
-import {
-  makeOStatsPerformerUrl,
-  makeOStatsSceneEventUrl,
-} from "src/utils/oStatsNavigation_custom";
-import TextUtils from "src/utils/text";
-import {
-  formatSceneOOrdinalLabelCustom,
-  shouldShowSceneOOrdinalChipCustom,
-} from "./oStatsEventPresentation_custom"; // CUSTOM
 import { partitionOStatsMarkerTagCountsCustom } from "./oStatsMarkerTagCharts_custom"; // CUSTOM
 import {
   fillOStatsDays,
@@ -54,36 +67,7 @@ import { formatStatsBarPercent } from "src/utils/statsBarChart_custom"; // CUSTO
 import "./OStats.scss";
 
 // CUSTOM: begin - every O Stats query accepts the studio tree and the O-date range.
-const O_EVENT_FIELDS = gql`
-  fragment OStatsSceneOEvent on SceneOEvent {
-    id
-    scene_id
-    o_date
-    is_first_for_scene
-    scene_o_number
-    video_timestamp
-    associated_tags {
-      id
-      name
-    }
-    scene {
-      id
-      title
-      date
-      paths {
-        screenshot
-      }
-      studio {
-        id
-        name
-      }
-      performers {
-        id
-        name
-      }
-    }
-  }
-`;
+const O_EVENT_FIELDS = OStatsTimelineEventFragmentDoc;
 
 const SCOPE_VARIABLES =
   "$studioId: ID, $depth: Int, $dateRange: StatsDateRangeInput";
@@ -99,7 +83,7 @@ function eventsQuery(
   return gql`
     query ${operation}(${variables}${SCOPE_VARIABLES}) {
       events: ${field}(${argumentsList}${SCOPE_ARGUMENTS}) {
-        ...OStatsSceneOEvent
+        ...OStatsTimelineEvent
       }
     }
     ${O_EVENT_FIELDS}
@@ -197,7 +181,7 @@ const EVENTS_BY_STUDIO = gql`
       depth: $depth
       date_range: $dateRange
     ) {
-      ...OStatsSceneOEvent
+      ...OStatsTimelineEvent
     }
   }
   ${O_EVENT_FIELDS}
@@ -350,35 +334,6 @@ const SCENE_O_DAY_COUNTS = gql`
 `;
 // CUSTOM: end
 
-type SceneOEvent = {
-  id: string;
-  scene_id: string;
-  o_date: string;
-  is_first_for_scene: boolean;
-  scene_o_number: number;
-  video_timestamp?: number | null;
-  associated_tags: Array<{
-    id: string;
-    name: string;
-  }>;
-  scene: {
-    id: string;
-    title?: string | null;
-    date?: string | null;
-    paths: {
-      screenshot?: string | null;
-    };
-    studio?: {
-      id: string;
-      name: string;
-    } | null;
-    performers: Array<{
-      id: string;
-      name: string;
-    }>;
-  };
-};
-
 type CountsWithUnknown<T> = {
   counts: T[];
   unknown_count: number;
@@ -443,6 +398,7 @@ type TimelineConfig = {
   variables: Record<string, unknown>;
   emptyLabel: string;
   skip?: boolean;
+  sceneId?: string; // CUSTOM: shared identity only for scene-specific timelines
 };
 
 const O_UNIT: [string, string] = ["O", "O's"];
@@ -503,16 +459,6 @@ function dayLabel(year: number, month: number, day: number) {
   });
 }
 
-function formatODate(value: string) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-
-  return parsed.toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
 function tierLabel(tier: string) {
   return (
     metallicRatingChartBucket(
@@ -521,32 +467,6 @@ function tierLabel(tier: string) {
     )?.label ?? "Unknown"
   );
 }
-
-const OStatsTimestampImage: React.FC<{
-  event: SceneOEvent;
-}> = ({ event }) => {
-  const hasTimestamp =
-    event.video_timestamp !== null && event.video_timestamp !== undefined;
-  const imagePath = hasTimestamp
-    ? `/scene/${event.scene.id}/o/${event.id}/screenshot`
-    : event.scene.paths.screenshot;
-
-  if (imagePath) {
-    // CUSTOM: dim fallback scene covers while exact O screenshots stay normal.
-    return (
-      <img
-        alt={event.scene.title ?? ""}
-        className={`ostats-event-thumb${
-          hasTimestamp ? "" : " ostats-event-thumb-scene-cover"
-        }`}
-        loading="lazy"
-        src={imagePath}
-      />
-    );
-  }
-
-  return <div className="ostats-event-thumb ostats-event-thumb-empty" />;
-};
 
 // CUSTOM: one timeline renders every drilldown; links keep the studio scope
 // and date range.
@@ -559,105 +479,16 @@ const OStatsTimeline: React.FC<{
     config.query,
     { variables: config.variables, skip: config.skip }
   );
-
   if (loading) return <LoadingIndicator />;
   if (error) return <ErrorMessage error={error.message} />;
-
-  const events = config.skip ? [] : data?.events ?? [];
-
   return (
-    <>
-      <div className="ostats-drilldown-total">
-        {formatStatsTotal(events.length, "O event", "O events")}
-      </div>
-      {events.length === 0 ? (
-        <div className="ostats-empty">{config.emptyLabel}</div>
-      ) : (
-        <ol className="ostats-timeline">
-          {events.map((event) => {
-            const scenePath = makeOStatsSceneEventUrl(
-              event.scene.id,
-              event.video_timestamp,
-              linkToEntity
-            );
-
-            return (
-              <li className="ostats-event" key={event.id}>
-                <OStatsTimestampImage event={event} />
-                <div className="ostats-event-body">
-                  <div className="ostats-event-time">
-                    {formatODate(event.o_date)}
-                    {event.is_first_for_scene && (
-                      <span className="ostats-event-new">NEW</span>
-                    )}
-                    {shouldShowSceneOOrdinalChipCustom(
-                      event.is_first_for_scene
-                    ) && (
-                      <span className="ostats-event-ordinal">
-                        {formatSceneOOrdinalLabelCustom(event.scene_o_number)}
-                      </span>
-                    )}
-                  </div>
-                  <Link
-                    className="ostats-event-title"
-                    to={withScope(scenePath)}
-                  >
-                    {event.scene.title || `Scene ${event.scene.id}`}
-                  </Link>
-                  <div className="ostats-event-meta">
-                    {event.video_timestamp !== null &&
-                      event.video_timestamp !== undefined && (
-                        <span>
-                          {TextUtils.secondsToTimestamp(event.video_timestamp)}
-                        </span>
-                      )}
-                    {event.scene.studio && (
-                      <span>{event.scene.studio.name}</span>
-                    )}
-                    {event.scene.performers.length > 0 && (
-                      <span>
-                        {event.scene.performers.map((performer, index) => (
-                          <React.Fragment key={performer.id}>
-                            {index > 0 && ", "}
-                            <Link
-                              className="ostats-event-performer"
-                              to={withScope(
-                                makeOStatsPerformerUrl(
-                                  performer.id,
-                                  linkToEntity
-                                )
-                              )}
-                            >
-                              {performer.name}
-                            </Link>
-                          </React.Fragment>
-                        ))}
-                      </span>
-                    )}
-                  </div>
-                  {event.associated_tags.length > 0 && (
-                    <div
-                      className="ostats-event-tags"
-                      aria-label="Associated marker tags"
-                    >
-                      {event.associated_tags.map((tag) => (
-                        <Link
-                          className="ostats-event-tag"
-                          key={tag.id}
-                          to={withScope(`/ostats/tag/${tag.id}`)}
-                        >
-                          {tag.name}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-      )}
-    </>
+    <OStatsEventList
+      events={config.skip ? [] : data?.events ?? []}
+      sceneId={config.sceneId}
+      emptyLabel={config.emptyLabel}
+      linkToEntity={linkToEntity}
+      withScope={withScope}
+    />
   );
 };
 
@@ -666,8 +497,10 @@ const OStatsContent: React.FC<{
   params: IRouteParams;
   studioScope?: IOStatsStudioScope;
   embedded?: boolean;
-}> = ({ params, studioScope, embedded = false }) => {
+  allTimeline?: boolean;
+}> = ({ params, studioScope, embedded = false, allTimeline = false }) => {
   const location = useLocation();
+  const history = useHistory();
   const {
     range: dateRange,
     variable: dateRangeVariable,
@@ -721,9 +554,9 @@ const OStatsContent: React.FC<{
     !!selectedUnknownCategory ||
     !!selectedPerformerId ||
     !!selectedSceneId;
-  const showTimeline = !!selectedDate || isEntityDrilldown;
-  const isDetailPage = !!selectedYear || isEntityDrilldown;
-  const showDateNavigation = !isEntityDrilldown;
+  const showTimeline = allTimeline || !!selectedDate || isEntityDrilldown;
+  const isDetailPage = allTimeline || !!selectedYear || isEntityDrilldown;
+  const showDateNavigation = !allTimeline && !isEntityDrilldown;
   const needsSceneCounts =
     !isDetailPage || !!selectedRatingBucket || !!selectedTier;
 
@@ -948,6 +781,7 @@ const OStatsContent: React.FC<{
     if (selectedSceneId) {
       return {
         query: EVENT_QUERIES.scene,
+        sceneId: selectedSceneId, // CUSTOM
         variables: { sceneID: selectedSceneId, ...scopeVariables },
         emptyLabel: "No O events found for this scene.",
       };
@@ -975,6 +809,7 @@ const OStatsContent: React.FC<{
   const names = namesQuery.data;
 
   function renderTitle() {
+    if (allTimeline) return "O Timeline";
     if (selectedTagId)
       return `O's tagged ${names?.findTag?.name ?? "Loading tag..."}`;
     if (selectedPerformerId) {
@@ -1030,6 +865,7 @@ const OStatsContent: React.FC<{
   }
 
   function renderModeLabel() {
+    if (allTimeline) return "All O's";
     if (selectedTagId || selectedUnknownCategory === "marker-tag") {
       return "By Marker Tag";
     }
@@ -1132,11 +968,31 @@ const OStatsContent: React.FC<{
         <div className="stats-header-controls">
           <StatsDateRangeFilter
             range={dateRange}
-            onChange={setDateRange}
+            onChange={(range) => {
+              if (allTimeline) {
+                history.push({
+                  ...location,
+                  search: writeStatsDateRange(
+                    oStatsTimelineSearchCustom(location.search, 1),
+                    range
+                  ),
+                });
+              } else setDateRange(range);
+            }}
             showField={false}
           />
         </div>
       </header>
+
+      {/* CUSTOM: Latest appears above totals and ranked cards. */}
+      {!isDetailPage && (
+        <OStatsLatest
+          studioId={studioScope?.id}
+          depth={studioScope?.depth}
+          dateRange={dateRangeVariable}
+          withScope={withScope}
+        />
+      )}
 
       {showOverview && (
         <div className="ostats-summary" aria-label="O totals and records">
@@ -1190,6 +1046,15 @@ const OStatsContent: React.FC<{
               {backButton}
             </div>
           </div>
+          {allTimeline && (
+            <OStatsFullTimeline
+              page={oStatsTimelinePageCustom(location.search)}
+              studioId={studioScope?.id}
+              depth={studioScope?.depth}
+              dateRange={dateRangeVariable}
+              withScope={withScope}
+            />
+          )}
           {timeline && (
             <OStatsTimeline
               config={timeline}
@@ -1444,6 +1309,7 @@ const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({
 }) => (
   <OStatsContent
     params={match.params}
+    allTimeline={match.path === O_STATS_TIMELINE_PATH_CUSTOM}
     studioScope={readOStatsStudioScope(location.search)}
   />
 );

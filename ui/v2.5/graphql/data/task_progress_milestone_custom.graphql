@@ -1,0 +1,32 @@
+# CUSTOM
+fragment TaskProgressMilestoneData on TaskProgressMilestone {
+  id
+  name
+  target_date
+  goal_per_day
+  version
+  tracker_ids
+  total_count
+  completed_count
+  incoming_count
+  current_count
+  item_counts {
+    item_type
+    count
+  }
+  completed_item_counts {
+    item_type
+    count
+  }
+  history {
+    date
+    completed
+    incoming
+    remaining
+    baseline_count
+    goal_per_day
+  }
+  trackers {
+    ...TaskProgressTrackerData
+  }
+}

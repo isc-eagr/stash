@@ -1,15 +1,3 @@
-// A vato needs this many scenes before O's per scene ranks him, so one lucky
-// scene cannot top the podium.
-export const VATO_O_PER_SCENE_MIN_SCENES = 3;
-
-export function vatoOPerScene(performer: {
-  scene_o_count: number;
-  scene_count: number;
-}) {
-  if (performer.scene_count < VATO_O_PER_SCENE_MIN_SCENES) return undefined;
-  return performer.scene_o_count / performer.scene_count;
-}
-
 export type VatoAgeChartDatum = {
   key: string;
   label: string;

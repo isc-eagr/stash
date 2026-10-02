@@ -1,0 +1,50 @@
+fragment OStatsTimelineEvent on SceneOEvent {
+  id
+  scene_id
+  o_date
+  is_first_for_scene
+  scene_o_number
+  video_timestamp
+  associated_tags {
+    id
+    name
+  }
+  scene {
+    id
+    title
+    date
+    paths {
+      screenshot
+    }
+    studio {
+      id
+      name
+    }
+    performers {
+      id
+      name
+    }
+  }
+}
+
+query OStatsEventPage(
+  $page: Int!
+  $perPage: Int!
+  $studioId: ID
+  $depth: Int
+  $dateRange: StatsDateRangeInput
+) {
+  sceneOEvents(
+    page: $page
+    per_page: $perPage
+    studio_id: $studioId
+    depth: $depth
+    date_range: $dateRange
+  ) {
+    count
+    page
+    events {
+      ...OStatsTimelineEvent
+    }
+  }
+}

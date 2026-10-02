@@ -1,8 +1,6 @@
 import type { TaskProgressMilestoneDataFragment as Milestone } from "src/core/generated-graphql";
 import {
   buildTaskProgressHistorySeries,
-  taskProgressCurrentGoalPeriods,
-  taskProgressCurrentPercentageChanges,
   taskProgressHistoryPercentages,
 } from "../taskProgress_custom";
 import {
@@ -74,22 +72,6 @@ export function milestoneForecast(
     observed: forecast.observed ?? completionPaceFinish,
     assumesNoIncoming: !forecast.observed && !!completionPaceFinish,
   };
-}
-
-export type MilestoneTrackerPeriod = "day" | "week" | "month";
-
-/** Items completed and percentage points gained in the current day/week/month. */
-export function milestoneTrackerPeriods(
-  tracker: Milestone["trackers"][number],
-  today = progressToday()
-): Record<MilestoneTrackerPeriod, { completed: number; percent: number }> {
-  const goals = taskProgressCurrentGoalPeriods(tracker.history, null, today);
-  const changes = taskProgressCurrentPercentageChanges(tracker.history, today);
-  const period = (key: MilestoneTrackerPeriod) => ({
-    completed: goals[key].completed,
-    percent: changes[key],
-  });
-  return { day: period("day"), week: period("week"), month: period("month") };
 }
 
 /** True when the tracker completed nothing in the last `days` days. */

@@ -4,7 +4,8 @@ import {
 } from "../performerDetailCounts_custom"; // CUSTOM
 import React, { useEffect, useMemo, useState } from "react";
 import type { ApolloQueryResult } from "@apollo/client"; // CUSTOM
-import { Button, Tabs, Tab, Col, Row } from "react-bootstrap";
+import { Button, Tabs, Tab, Col, Row, Dropdown } from "react-bootstrap"; // CUSTOM
+import { showPerformerMediaTabCustom } from "../performerTableColumns_custom"; // CUSTOM
 import { FormattedMessage, useIntl } from "react-intl";
 import { useHistory, Redirect, RouteComponentProps } from "react-router-dom";
 import { Helmet } from "react-helmet";
@@ -158,162 +159,205 @@ const PerformerTabs: React.FC<{
   });
 
   return (
-    <Tabs
-      id="performer-tabs"
-      mountOnEnter
-      unmountOnExit
-      activeKey={tabKey}
-      onSelect={setTabKey}
-    >
-      <Tab
-        eventKey="scenes"
-        title={
-          <TabTitleCounter
-            messageID="scenes"
-            count={performer.scene_count}
-            abbreviateCounter={abbreviateCounter}
-          />
-        }
+    <>
+      {/* CUSTOM: empty media destinations remain available without crowding the tab row. */}
+      {(performer.gallery_count === 0 ||
+        performer.image_count === 0 ||
+        performer.group_count === 0) && (
+        <Dropdown className="mb-2">
+          <Dropdown.Toggle size="sm" variant="secondary">
+            More…
+          </Dropdown.Toggle>
+          <Dropdown.Menu>
+            {(
+              [
+                ["galleries", performer.gallery_count],
+                ["images", performer.image_count],
+                ["groups", performer.group_count],
+              ] as const
+            )
+              .filter(([, count]) => count === 0)
+              .map(([key]) => (
+                <Dropdown.Item key={key} onClick={() => setTabKey(key)}>
+                  <FormattedMessage id={key} />
+                </Dropdown.Item>
+              ))}
+          </Dropdown.Menu>
+        </Dropdown>
+      )}
+      <Tabs
+        id="performer-tabs"
+        mountOnEnter
+        unmountOnExit
+        activeKey={tabKey}
+        onSelect={setTabKey}
       >
-        <PerformerScenesPanel
-          active={tabKey === "scenes"}
-          performer={performer}
-        />
-      </Tab>
-
-      <Tab
-        eventKey="galleries"
-        title={
-          <TabTitleCounter
-            messageID="galleries"
-            count={performer.gallery_count}
-            abbreviateCounter={abbreviateCounter}
-          />
-        }
-      >
-        <PerformerGalleriesPanel
-          active={tabKey === "galleries"}
-          performer={performer}
-        />
-      </Tab>
-
-      <Tab
-        eventKey="images"
-        title={
-          <TabTitleCounter
-            messageID="images"
-            count={performer.image_count}
-            abbreviateCounter={abbreviateCounter}
-          />
-        }
-      >
-        <PerformerImagesPanel
-          active={tabKey === "images"}
-          performer={performer}
-        />
-      </Tab>
-
-      <Tab
-        eventKey="groups"
-        title={
-          <TabTitleCounter
-            messageID="groups"
-            count={performer.group_count}
-            abbreviateCounter={abbreviateCounter}
-          />
-        }
-      >
-        <PerformerGroupsPanel
-          active={tabKey === "groups"}
-          performer={performer}
-        />
-      </Tab>
-
-      {/* CUSTOM: begin - Markers tab */}
-      <Tab
-        eventKey="markers"
-        title={
-          <>
-            <FormattedMessage id="markers" defaultMessage="Markers" />
-            <Counter
-              count={performerMarkersCount}
-              abbreviateCounter={abbreviateCounter}
-              hideZero
-            />
-          </>
-        }
-      >
-        <PerformerMarkersPanel
-          active={tabKey === "markers"}
-          performer={performer}
-        />
-      </Tab>
-      {/* CUSTOM: end */}
-
-      {/* CUSTOM: begin - hidden appears-with, appears-with-by-role, studios tabs */}
-      {/* HIDDEN: This tab is hidden in this fork but kept for upstream merge compatibility */}
-      {false && (
         <Tab
-          eventKey="appearswith"
+          eventKey="scenes"
           title={
             <TabTitleCounter
-              messageID="appears_with"
-              count={performer.performer_count}
+              messageID="scenes"
+              count={performer.scene_count}
               abbreviateCounter={abbreviateCounter}
             />
           }
         >
-          <PerformerAppearsWithPanel
-            active={tabKey === "appearswith"}
+          <PerformerScenesPanel
+            active={tabKey === "scenes"}
             performer={performer}
           />
         </Tab>
-      )}
-      <Tab
-        eventKey="appearswithbyrole"
-        title={
-          <>
-            <FormattedMessage
-              id="appears_with_by_role"
-              defaultMessage="Partners"
-            />
-            {uniqueCoPerformerCount > 0 && (
-              <Counter
+
+        {/* CUSTOM: selected empty destinations still support direct URLs and keyboard shortcuts. */}
+        {showPerformerMediaTabCustom(
+          performer.gallery_count,
+          "galleries",
+          tabKey
+        ) && (
+          <Tab
+            eventKey="galleries"
+            title={
+              <TabTitleCounter
+                messageID="galleries"
+                count={performer.gallery_count}
                 abbreviateCounter={abbreviateCounter}
-                count={uniqueCoPerformerCount}
               />
-            )}
-          </>
-        }
-      >
-        <PerformerAppearsWithByRolePanel
-          active={tabKey === "appearswithbyrole"}
-          performer={performer}
-        />
-      </Tab>
-      <Tab
-        eventKey="studios"
-        title={
-          <TabTitleCounter
-            messageID="studios"
-            count={studiosCount}
-            abbreviateCounter={abbreviateCounter}
+            }
+          >
+            <PerformerGalleriesPanel
+              active={tabKey === "galleries"}
+              performer={performer}
+            />
+          </Tab>
+        )}
+        {showPerformerMediaTabCustom(
+          performer.image_count,
+          "images",
+          tabKey
+        ) && (
+          <Tab
+            eventKey="images"
+            title={
+              <TabTitleCounter
+                messageID="images"
+                count={performer.image_count}
+                abbreviateCounter={abbreviateCounter}
+              />
+            }
+          >
+            <PerformerImagesPanel
+              active={tabKey === "images"}
+              performer={performer}
+            />
+          </Tab>
+        )}
+        {showPerformerMediaTabCustom(
+          performer.group_count,
+          "groups",
+          tabKey
+        ) && (
+          <Tab
+            eventKey="groups"
+            title={
+              <TabTitleCounter
+                messageID="groups"
+                count={performer.group_count}
+                abbreviateCounter={abbreviateCounter}
+              />
+            }
+          >
+            <PerformerGroupsPanel
+              active={tabKey === "groups"}
+              performer={performer}
+            />
+          </Tab>
+        )}
+        {/* CUSTOM: begin - Markers tab */}
+        <Tab
+          eventKey="markers"
+          title={
+            <>
+              <FormattedMessage id="markers" defaultMessage="Markers" />
+              <Counter
+                count={performerMarkersCount}
+                abbreviateCounter={abbreviateCounter}
+                hideZero
+              />
+            </>
+          }
+        >
+          <PerformerMarkersPanel
+            active={tabKey === "markers"}
+            performer={performer}
           />
-        }
-      >
-        <PerformerStudiosPanel
-          active={tabKey === "studios"}
-          performer={performer}
-        />
-      </Tab>
-      <Tab eventKey="stats" title="Stats">
-        <PerformerStatsPanel
-          active={tabKey === "stats"}
-          performer={performer}
-        />
-      </Tab>
-      {/* CUSTOM: end */}
-    </Tabs>
+        </Tab>
+        {/* CUSTOM: end */}
+
+        {/* CUSTOM: begin - hidden appears-with, appears-with-by-role, studios tabs */}
+        {/* HIDDEN: This tab is hidden in this fork but kept for upstream merge compatibility */}
+        {false && (
+          <Tab
+            eventKey="appearswith"
+            title={
+              <TabTitleCounter
+                messageID="appears_with"
+                count={performer.performer_count}
+                abbreviateCounter={abbreviateCounter}
+              />
+            }
+          >
+            <PerformerAppearsWithPanel
+              active={tabKey === "appearswith"}
+              performer={performer}
+            />
+          </Tab>
+        )}
+        <Tab
+          eventKey="appearswithbyrole"
+          title={
+            <>
+              <FormattedMessage
+                id="appears_with_by_role"
+                defaultMessage="Partners"
+              />
+              {uniqueCoPerformerCount > 0 && (
+                <Counter
+                  abbreviateCounter={abbreviateCounter}
+                  count={uniqueCoPerformerCount}
+                />
+              )}
+            </>
+          }
+        >
+          <PerformerAppearsWithByRolePanel
+            active={tabKey === "appearswithbyrole"}
+            performer={performer}
+          />
+        </Tab>
+        <Tab
+          eventKey="studios"
+          title={
+            <TabTitleCounter
+              messageID="studios"
+              count={studiosCount}
+              abbreviateCounter={abbreviateCounter}
+            />
+          }
+        >
+          <PerformerStudiosPanel
+            active={tabKey === "studios"}
+            performer={performer}
+          />
+        </Tab>
+        <Tab eventKey="stats" title="Stats">
+          <PerformerStatsPanel
+            active={tabKey === "stats"}
+            performer={performer}
+          />
+        </Tab>
+        {/* CUSTOM: end */}
+      </Tabs>
+    </>
   );
 };
 

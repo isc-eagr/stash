@@ -50,11 +50,6 @@
   white-space: nowrap;
 }
 
-.performer-versatility-empty {
-  color: #9aa7b6;
-  font-size: 0.68rem;
-}
-
 /* Bottom percent, track, top percent. */
 .performer-versatility-meter {
   align-items: center;
@@ -204,7 +199,6 @@
   }
 
   .performer-versatility-chip,
-  .performer-versatility-empty,
   .performer-versatility-percent {
     font-size: 0.85rem;
   }

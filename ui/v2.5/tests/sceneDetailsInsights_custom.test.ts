@@ -10,14 +10,32 @@ const detailsSource = readFileSync(
   "utf8"
 );
 
-test("scene Details places the shared insight strip after Studio Code and before Description", () => {
-  const codeIndex = detailsSource.indexOf("props.scene.code");
+test("scene Details leads with shared insights before Description", () => {
   const insightIndex = detailsSource.indexOf("<SceneCardInsights");
   const descriptionIndex = detailsSource.indexOf("{renderDetails()}");
 
-  assert.ok(codeIndex >= 0);
-  assert.ok(insightIndex > codeIndex);
+  assert.ok(insightIndex >= 0);
   assert.ok(descriptionIndex > insightIndex);
   assert.match(detailsSource, /roleStatsByPerformer=\{roleStatsByPerformer\}/);
   assert.match(detailsSource, /detailPage/);
+});
+
+test("scene maintenance dates live after the Edit form and code is absent from Details", () => {
+  const editSource = readFileSync(
+    new URL(
+      "../src/components/Scenes/SceneDetails/SceneEditPanel.tsx",
+      import.meta.url
+    ),
+    "utf8"
+  );
+  assert.doesNotMatch(
+    detailsSource,
+    /props\.scene\.(code|created_at|updated_at)/
+  );
+  const formEnd = editSource.lastIndexOf("</Form>");
+  assert.ok(formEnd >= 0);
+  for (const field of ["created_at", "updated_at"]) {
+    assert.ok(editSource.indexOf(`scene.${field}`) > formEnd);
+  }
+  assert.match(editSource, /renderInputField\("code", "text", "scene_code"\)/);
 });

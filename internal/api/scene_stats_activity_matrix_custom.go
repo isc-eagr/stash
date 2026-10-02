@@ -378,13 +378,17 @@ func sceneStatsActivityMatrixScopeCustom(studioID *string, depth *int, performer
 	}
 
 	scope := `WITH selected_scenes(id) AS (
-  SELECT DISTINCT scene_id FROM performers_scenes WHERE performer_id = ?
+  SELECT scenes.id FROM scenes WHERE EXISTS (SELECT 1 FROM performers_scenes ps WHERE ps.scene_id = scenes.id AND ps.performer_id = ?)
 )`
 	return scope, []interface{}{parsedID}, &parsedID, nil
 }
 
-func (r *queryResolver) SceneStatsActivityMatrix(ctx context.Context, studioID *string, depth *int, performerID *string, includeSubtags bool, dateRange *StatsDateRangeInput) (ret []*SceneStatsActivityMatrixRow, err error) {
+func (r *queryResolver) SceneStatsActivityMatrix(ctx context.Context, studioID *string, depth *int, performerID *string, includeSubtags bool, dateRange *StatsDateRangeInput, cohort *StatsCohortInput) (ret []*SceneStatsActivityMatrixRow, err error) {
 	sceneScope, args, markerPerformerID, err := sceneStatsActivityMatrixScopeCustom(studioID, depth, performerID, dateRange)
+	if err != nil {
+		return nil, err
+	}
+	sceneScope, args, err = applyStatsCohortCustom(sceneScope, args, cohort)
 	if err != nil {
 		return nil, err
 	}

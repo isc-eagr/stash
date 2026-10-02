@@ -99,21 +99,44 @@ const SCENE_STATS_TOTALS = gql`
     $studioId: ID
     $depth: Int
     $dateRange: StatsDateRangeInput
+    $cohort: StatsCohortInput
   ) {
     sceneOrgasmCount(
       studio_id: $studioId
       depth: $depth
       date_range: $dateRange
+      cohort: $cohort
     )
     sceneFacialCount(
       studio_id: $studioId
       depth: $depth
       date_range: $dateRange
+      cohort: $cohort
     )
-    totalOrgasmTime(studio_id: $studioId, depth: $depth, date_range: $dateRange)
-    totalFacialTime(studio_id: $studioId, depth: $depth, date_range: $dateRange)
-    totalSexTime(studio_id: $studioId, depth: $depth, date_range: $dateRange)
-    totalOralTime(studio_id: $studioId, depth: $depth, date_range: $dateRange)
+    totalOrgasmTime(
+      studio_id: $studioId
+      depth: $depth
+      date_range: $dateRange
+      cohort: $cohort
+    )
+    totalFacialTime(
+      studio_id: $studioId
+      depth: $depth
+      date_range: $dateRange
+      cohort: $cohort
+    )
+    totalSexTime(
+      studio_id: $studioId
+      depth: $depth
+      date_range: $dateRange
+      cohort: $cohort
+    )
+    totalOralTime(
+      studio_id: $studioId
+      depth: $depth
+      date_range: $dateRange
+      cohort: $cohort
+    )
   }
 `;
 
@@ -901,7 +924,7 @@ const SceneStatsFilterBar: React.FC<{
 
   return (
     <StatsFilterBar
-      label="Active Scene Stats overview filters"
+      label="Active Scene Stats filters"
       total={total}
       onUndo={onBack}
       onClear={onClear}
@@ -1060,15 +1083,6 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
     effectiveStudioScope?.depth,
     dateRangeVariable
   );
-  const totalsQuery = useQuery<SceneStatsTotalsData>(SCENE_STATS_TOTALS, {
-    skip:
-      activeSection !== "overview" || sceneQuery.loading || !!sceneQuery.error,
-    variables: {
-      dateRange: dateRangeVariable,
-      depth: effectiveStudioScope?.depth,
-      studioId: effectiveStudioScope?.id,
-    },
-  });
   const roleTagsQuery = useQuery<SceneStatsRoleTagsData>(
     SCENE_STATS_ROLE_TAGS,
     {
@@ -1134,6 +1148,22 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
       selectedYear,
     ]
   );
+  // CUSTOM: every section and aggregate shares the exact chart/release cohort.
+  const cohort = useMemo(
+    () => ({ scene_ids: filteredScenes.map((scene) => scene.id) }),
+    [filteredScenes]
+  );
+  const totalsQuery = useQuery<SceneStatsTotalsData>(SCENE_STATS_TOTALS, {
+    skip:
+      activeSection !== "overview" || sceneQuery.loading || !!sceneQuery.error,
+    variables: {
+      dateRange: dateRangeVariable,
+      depth: effectiveStudioScope?.depth,
+      studioId: effectiveStudioScope?.id,
+      cohort,
+    },
+  });
+
   // CUSTOM: summary cards follow the chart filters and release drilldown.
   const averages = useMemo(
     () => sceneStatsAverages(filteredScenes),
@@ -1293,7 +1323,9 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
       </>
     );
 
-  const summary: Partial<SceneStatsTotalsData> = totalsQuery.data ?? {};
+  const summary: Partial<SceneStatsTotalsData> = totalsQuery.loading
+    ? {}
+    : totalsQuery.data ?? {};
   const hasChartFilters = filters.length > 0 || hasSelectedYear;
   const releaseSearch = writeStatsView(location.search, sceneViewOptions, {
     ...view,
@@ -1352,31 +1384,29 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
         {headerControls}
       </header>
 
-      {activeSection === "overview" && (
-        <SceneStatsFilterBar
-          filters={filters}
-          total={`${sceneTotal.toLocaleString()} matching scenes`}
-          hasSelectedMonth={hasSelectedMonth}
-          hasSelectedYear={hasSelectedYear}
-          onRemove={(index) =>
-            setFilters((current) => removeStatsFilter(current, index))
-          }
-          onRemoveYear={clearReleaseSelection}
-          onRemoveMonth={() =>
-            navigateRelease(`${navigationBase}/${selectedYear}`)
-          }
-          onBack={() => {
-            if (filters.length > 0)
-              setFilters((current) => current.slice(0, -1));
-            else if (hasSelectedMonth)
-              navigateRelease(`${navigationBase}/${selectedYear}`);
-            else clearReleaseSelection();
-          }}
-          onClear={() => updateView({ filters: [] }, navigationBase)}
-          selectedMonth={selectedMonth}
-          selectedYear={selectedYear}
-        />
-      )}
+      {/* CUSTOM: selected filters stay removable in every section. */}
+      <SceneStatsFilterBar
+        filters={filters}
+        total={`${sceneTotal.toLocaleString()} matching scenes`}
+        hasSelectedMonth={hasSelectedMonth}
+        hasSelectedYear={hasSelectedYear}
+        onRemove={(index) =>
+          setFilters((current) => removeStatsFilter(current, index))
+        }
+        onRemoveYear={clearReleaseSelection}
+        onRemoveMonth={() =>
+          navigateRelease(`${navigationBase}/${selectedYear}`)
+        }
+        onBack={() => {
+          if (filters.length > 0) setFilters((current) => current.slice(0, -1));
+          else if (hasSelectedMonth)
+            navigateRelease(`${navigationBase}/${selectedYear}`);
+          else clearReleaseSelection();
+        }}
+        onClear={() => updateView({ filters: [] }, navigationBase)}
+        selectedMonth={selectedMonth}
+        selectedYear={selectedYear}
+      />
 
       <Nav
         activeKey={activeSection}
@@ -1623,9 +1653,14 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
                 {typeof summary.sceneOrgasmCount === "number" && (
                   <Link
                     className="scenestats-summary-card linked"
-                    title="Each matching marker counts once per assigned top vato (minimum 1), while the linked search counts marker rows. The search also includes 2nd-camera markers that this total excludes, so the numbers can differ."
+                    title="A marker with two tops counts as two nuts; one without tops counts as one. The list counts markers and can include second-camera repeats, which this total skips."
                     to={sceneStatsScopedListURL(
-                      makeSceneStatsMarkerTagURL(orgasmTag),
+                      makeSceneStatsMarkerTagURL(
+                        orgasmTag,
+                        hasChartFilters || dateRangeVariable
+                          ? filteredScenes
+                          : undefined
+                      ),
                       effectiveStudioScope
                     )}
                   >
@@ -1633,6 +1668,7 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
                       {summary.sceneOrgasmCount.toLocaleString()}
                     </div>
                     <div className="scenestats-summary-label">Total Nuts</div>
+                    <small>View markers</small>
                   </Link>
                 )}
                 {typeof summary.totalOrgasmTime === "number" &&
@@ -1649,9 +1685,14 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
                 {typeof summary.sceneFacialCount === "number" && (
                   <Link
                     className="scenestats-summary-card linked"
-                    title="Each matching marker counts once per assigned top vato (minimum 1), while the linked search counts marker rows. The search also includes 2nd-camera markers that this total excludes, so the numbers can differ."
+                    title="A marker with two tops counts as two facials; one without tops counts as one. The list counts markers and can include second-camera repeats, which this total skips."
                     to={sceneStatsScopedListURL(
-                      makeSceneStatsMarkerTagURL(facialTag),
+                      makeSceneStatsMarkerTagURL(
+                        facialTag,
+                        hasChartFilters || dateRangeVariable
+                          ? filteredScenes
+                          : undefined
+                      ),
                       effectiveStudioScope
                     )}
                   >
@@ -1661,6 +1702,7 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
                     <div className="scenestats-summary-label">
                       Total Facials
                     </div>
+                    <small>View markers</small>
                   </Link>
                 )}
                 {typeof summary.totalFacialTime === "number" &&
@@ -1697,12 +1739,6 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
                     </div>
                   )}
               </section>
-              {hasChartFilters && (
-                <p className="stats-scope-note">
-                  Nut, facial, and time totals follow the studio and dates, not
-                  chart filters.
-                </p>
-              )}
             </>
           )}
 
@@ -1982,6 +2018,7 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
       )}
       {activeSection === "insights" && (
         <SceneStatsInsights
+          cohort={cohort} // CUSTOM
           dateRange={dateRangeVariable}
           depth={effectiveStudioScope?.depth}
           studioId={effectiveStudioScope?.id}
@@ -1991,6 +2028,7 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
       {/* CUSTOM: begin */}
       {activeSection === "activity-matrix" && (
         <SceneStatsActivityMatrix
+          cohort={cohort} // CUSTOM
           dateRange={dateRangeVariable}
           depth={effectiveStudioScope?.depth}
           studioId={effectiveStudioScope?.id}

@@ -17,6 +17,8 @@ import { ExportDialog } from "../Shared/ExportDialog";
 import { DeleteEntityDialog } from "../Shared/DeleteEntityDialog";
 import { IPerformerCardExtraCriteria } from "./PerformerCard";
 import { PerformerListTable } from "./PerformerListTable";
+import { sortFilterByColumnCustom } from "../List/listTableSort_custom"; // CUSTOM
+import { PERFORMER_TABLE_ASCENDING_SORTS_CUSTOM } from "./performerTableColumns_custom"; // CUSTOM
 import { EditPerformersDialog } from "./EditPerformersDialog";
 import { cmToImperial, cmToInches, kgToLbs } from "src/utils/units";
 import TextUtils from "src/utils/text";
@@ -204,9 +206,18 @@ const PerformerList: React.FC<{
   selectedIds: Set<string>;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
   extraCriteria?: IPerformerCardExtraCriteria;
+  onSort?: (sortBy: string) => void; // CUSTOM
 }> = PatchComponent(
   "PerformerList",
-  ({ performers, filter, selectedIds, onSelectChange, extraCriteria }) => {
+  ({
+    performers,
+    filter,
+    selectedIds,
+    onSelectChange,
+    extraCriteria,
+    onSort,
+  }) => {
+    // CUSTOM
     if (performers.length === 0 && filter.displayMode !== DisplayMode.Tagger) {
       return null;
     }
@@ -230,6 +241,10 @@ const PerformerList: React.FC<{
           performers={performers}
           selectedIds={selectedIds}
           onSelectChange={onSelectChange}
+          // CUSTOM
+          sortBy={filter.sortBy}
+          sortDirection={filter.sortDirection}
+          onSort={onSort}
         />
       );
     }
@@ -630,6 +645,16 @@ export const FilteredPerformerList = PatchComponent(
                   selectedIds={selectedIds}
                   onSelectChange={onSelectChange}
                   extraCriteria={extraCriteria}
+                  // CUSTOM: table headers use the same filter state as the sort menu.
+                  onSort={(sortBy) =>
+                    setFilter(
+                      sortFilterByColumnCustom(
+                        filter,
+                        sortBy,
+                        PERFORMER_TABLE_ASCENDING_SORTS_CUSTOM
+                      )
+                    )
+                  }
                 />
               </LoadedContent>
 

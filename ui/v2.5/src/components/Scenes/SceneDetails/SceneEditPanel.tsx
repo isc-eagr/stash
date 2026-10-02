@@ -56,6 +56,7 @@ import {
 } from "src/components/Shared/CustomFields";
 import { cloneDeep } from "@apollo/client/utilities";
 import { changedSceneEditFieldsCustom } from "./sceneEditInput_custom"; // CUSTOM
+import TextUtils from "src/utils/text"; // CUSTOM
 
 const SceneScrapeDialog = lazyComponent(() => import("./SceneScrapeDialog"));
 const SceneQueryModal = lazyComponent(() => import("./SceneQueryModal"));
@@ -916,6 +917,23 @@ export const SceneEditPanel: React.FC<IProps> = ({
           </Col>
         </Row>
       </Form>
+      {/* CUSTOM: maintenance dates stay at the bottom of Edit. */}
+      {!isNew && (
+        <div className="px-3 pb-3 text-muted">
+          {scene.created_at && (
+            <div>
+              <FormattedMessage id="created_at" />:{" "}
+              {TextUtils.formatDateTime(intl, scene.created_at)}
+            </div>
+          )}
+          {scene.updated_at && (
+            <div>
+              <FormattedMessage id="updated_at" />:{" "}
+              {TextUtils.formatDateTime(intl, scene.updated_at)}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -5,7 +5,10 @@ import { OutstandingActivityMatrixTable } from "src/components/Scenes/Outstandin
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { useSceneStatsActivityMatrixQuery } from "src/core/generated-graphql";
-import type { StatsDateRangeInput } from "src/core/generated-graphql";
+import type {
+  StatsDateRangeInput,
+  StatsCohortInput,
+} from "src/core/generated-graphql";
 import {
   makeSceneStatsActivityMatrix,
   makeSceneStatsActivityMatrixTagURL,
@@ -24,6 +27,7 @@ interface IProps {
   performerId?: string;
   performerName?: string;
   dateRange?: StatsDateRangeInput | null;
+  cohort?: StatsCohortInput;
 }
 
 export const SceneStatsActivityMatrix: React.FC<IProps> = ({
@@ -34,12 +38,20 @@ export const SceneStatsActivityMatrix: React.FC<IProps> = ({
   performerId,
   performerName,
   dateRange,
+  cohort,
 }) => {
   const history = useHistory();
   const location = useLocation();
   const includeSubTags = sceneStatsIncludeSubTagsFromSearch(location.search);
   const { data, error, loading } = useSceneStatsActivityMatrixQuery({
-    variables: { studioId, depth, performerId, includeSubTags, dateRange },
+    variables: {
+      studioId,
+      depth,
+      performerId,
+      includeSubTags,
+      dateRange,
+      cohort,
+    },
     skip: !active,
   });
   const matrix = useMemo(
@@ -64,7 +76,7 @@ export const SceneStatsActivityMatrix: React.FC<IProps> = ({
       : undefined;
 
   if (!active) return null;
-  if (loading && !data) {
+  if (loading) {
     return <LoadingIndicator message="Loading activity matrix…" />;
   }
   if (error) return <ErrorMessage error={error.message} />;
@@ -107,7 +119,8 @@ export const SceneStatsActivityMatrix: React.FC<IProps> = ({
             tag,
             studioScope,
             includeSubTags,
-            performerScope
+            performerScope,
+            cohort?.scene_ids ?? undefined
           )
         }
         treeRows={treeRows}

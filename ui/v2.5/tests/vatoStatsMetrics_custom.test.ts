@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  VATO_O_PER_SCENE_MIN_SCENES,
-  buildVatoAgeChartData,
-  vatoOPerScene,
-} from "../src/components/VatoStats/vatoStatsMetrics_custom.ts";
+import { buildVatoAgeChartData } from "../src/components/VatoStats/vatoStatsMetrics_custom.ts";
 import {
   performerVersatility,
   performerVersatilityColor,
@@ -12,13 +8,6 @@ import {
   versatilityRoleText,
   versatilityRoleTimeText,
 } from "../src/components/Performers/PerformerDetails/versatilityScale_custom.ts";
-
-test("O's per scene needs enough scenes to rank", () => {
-  assert.equal(VATO_O_PER_SCENE_MIN_SCENES, 3);
-  assert.equal(vatoOPerScene({ scene_o_count: 9, scene_count: 2 }), undefined);
-  assert.equal(vatoOPerScene({ scene_o_count: 9, scene_count: 3 }), 3);
-  assert.equal(vatoOPerScene({ scene_o_count: 0, scene_count: 4 }), 0);
-});
 
 test("age chart counts distinct vatos per age", () => {
   const result = buildVatoAgeChartData([

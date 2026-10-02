@@ -225,6 +225,62 @@ export function taskProgressReportRow(
   };
 }
 
+export type TaskProgressComparisonPeriod = "day" | "week" | "month";
+
+export interface ITaskProgressPeriodComparison {
+  current: ITaskProgressReportRow;
+  previous: ITaskProgressReportRow;
+  label: string;
+}
+
+/**
+ * Today, this week, and this month next to yesterday and the previous
+ * week/month. Running periods compare against the same elapsed days.
+ */
+export function taskProgressPeriodComparisons(
+  history: readonly ITaskProgressReportHistoryDay[],
+  today: string
+): Record<TaskProgressComparisonPeriod, ITaskProgressPeriodComparison> {
+  const yesterday = addDays(today, -1);
+  const period = (range: "week" | "month"): ITaskProgressPeriodComparison => {
+    const current = taskProgressReportPeriod(range, today, today);
+    return {
+      current: taskProgressReportRow(history, current, today),
+      previous: taskProgressReportRow(
+        history,
+        previousTaskProgressReportPeriod(range, current, today),
+        today
+      ),
+      label: taskProgressComparisonLabel(range, current),
+    };
+  };
+  return {
+    day: {
+      current: taskProgressReportRow(
+        history,
+        { start: today, end: today, through: today },
+        today
+      ),
+      previous: taskProgressReportRow(
+        history,
+        { start: yesterday, end: yesterday, through: yesterday },
+        today
+      ),
+      label: "vs yesterday",
+    },
+    week: period("week"),
+    month: period("month"),
+  };
+}
+
+/** Untranslated "vs ..." label for a report period. */
+export function taskProgressComparisonLabel(
+  range: TaskProgressReportRange,
+  period: ITaskProgressReportPeriod
+): string {
+  return `vs ${period.through < period.end ? "same point " : ""}last ${range}`;
+}
+
 /** One entry per calendar day of the period; days after `through` are future. */
 export function taskProgressReportDays(
   history: readonly ITaskProgressReportHistoryDay[],
@@ -281,8 +337,15 @@ export function taskProgressReportWeeks<T extends { date: string }>(
   );
 }
 
-/** Heat level 0–4 relative to the busiest day shown. */
-export function taskProgressActivityLevel(completed: number, max: number) {
-  if (completed <= 0 || max <= 0) return 0;
-  return Math.min(4, Math.ceil((completed / max) * 4));
+/**
+ * Heat level 0–4. Days with a goal scale against it, so meeting the goal is
+ * the darkest shade; other days scale against the busiest day shown.
+ */
+export function taskProgressActivityLevel(
+  day: Pick<ITaskProgressReportDay, "completed" | "goal">,
+  max: number
+) {
+  const scale = day.goal > 0 ? day.goal : max;
+  if (day.completed <= 0 || scale <= 0) return 0;
+  return Math.min(4, Math.ceil((day.completed / scale) * 4));
 }

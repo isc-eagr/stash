@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Button } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import { RatingBanner } from "src/components/Shared/RatingBanner";
+import { STATS_TOP_PAGING_CUSTOM } from "src/utils/statsTopPaging_custom";
 
 import "./statsTopCards_custom.scss";
 
@@ -29,15 +30,14 @@ export const StatsTopCards: React.FC<{
   actions?: React.ReactNode;
   note?: string;
 }> = ({ title, items, variant, emptyLabel, actions, note }) => {
-  // Two rows per page at desktop widths: 3 scenes or 4 vatos per row.
-  const pageSize = variant === "scene" ? 6 : 8;
-  const [visibleCount, setVisibleCount] = useState(pageSize);
+  const { initial, more } = STATS_TOP_PAGING_CUSTOM[variant];
+  const [visibleCount, setVisibleCount] = useState<number>(initial);
   // Callers build items inline, so reset paging only when the ranking changes.
   const rankingKey = items.map((item) => item.key).join(",");
 
   useEffect(() => {
-    setVisibleCount(pageSize);
-  }, [rankingKey, pageSize]);
+    setVisibleCount(initial);
+  }, [rankingKey, initial]);
 
   const visibleItems = items.slice(0, visibleCount);
 
@@ -90,7 +90,7 @@ export const StatsTopCards: React.FC<{
       {items.length > visibleItems.length && (
         <div className="stats-top-more">
           <Button
-            onClick={() => setVisibleCount((current) => current + pageSize)}
+            onClick={() => setVisibleCount((current) => current + more)}
             size="sm"
             variant="secondary"
           >

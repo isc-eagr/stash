@@ -1,3 +1,4 @@
+import { gql, useQuery } from "@apollo/client"; // CUSTOM: chart-cohort totals
 import React, { useEffect, useMemo, useState } from "react";
 import {
   mostRecentOTieBreaker,
@@ -30,11 +31,7 @@ import {
   type IVatoStatsStudioScope,
   type IVatoStatsSummary,
 } from "./vatoStatsStudioScope_custom";
-import {
-  VATO_O_PER_SCENE_MIN_SCENES,
-  buildVatoAgeChartData,
-  vatoOPerScene,
-} from "./vatoStatsMetrics_custom";
+import { buildVatoAgeChartData } from "./vatoStatsMetrics_custom";
 
 import {
   buildVatoRoleChartData,
@@ -76,7 +73,6 @@ type ChartCategory =
 
 type PodiumMetric =
   | "scene_o_count"
-  | "o_per_scene"
   | "rating100"
   | "scene_count"
   | "sex_top_count"
@@ -112,11 +108,6 @@ const metricOptions: Array<{
   valueLabel: string;
 }> = [
   { key: "scene_o_count", label: "O Count", valueLabel: "O's" },
-  {
-    key: "o_per_scene",
-    label: `O's per Scene (${VATO_O_PER_SCENE_MIN_SCENES}+ scenes)`,
-    valueLabel: "O's / scene",
-  },
   { key: "rating100", label: "Rating", valueLabel: "rating" },
   { key: "scene_count", label: "Total Scenes", valueLabel: "scenes" },
   { key: "sex_top_count", label: "Sex Top Scenes", valueLabel: "top scenes" },
@@ -670,19 +661,8 @@ function metricValue(performer: VatoStatsPerformer, metric: PodiumMetric) {
     return Number.isFinite(timestamp) ? timestamp : 0;
   }
 
-  if (metric === "o_per_scene") {
-    return vatoOPerScene(performer) ?? 0;
-  }
-
   const value = performer[metric];
   return typeof value === "number" ? value : 0;
-}
-
-function metricIncludesPerformer(
-  performer: VatoStatsPerformer,
-  metric: PodiumMetric
-) {
-  return metric !== "o_per_scene" || vatoOPerScene(performer) !== undefined;
 }
 
 function formatCareerSpan(days: number) {
@@ -709,9 +689,6 @@ function formatMetricValue(
 
   const value = metricValue(performer, metric);
   if (metric === "rating100") return `${value}/100`;
-  if (metric === "o_per_scene") {
-    return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  }
   return value.toLocaleString();
 }
 
@@ -883,46 +860,67 @@ const VatoStatsFilterBar: React.FC<{
   );
 };
 
+// CUSTOM: event totals follow the selected vato cohort.
+const VATO_COHORT_TOTALS = gql`
+  query VatoStatsCohortTotals(
+    $studioId: ID
+    $depth: Int
+    $dateRange: StatsDateRangeInput
+    $cohort: StatsCohortInput
+  ) {
+    sceneOrgasmCount(
+      studio_id: $studioId
+      depth: $depth
+      date_range: $dateRange
+      cohort: $cohort
+    )
+    totalOrgasmTime(
+      studio_id: $studioId
+      depth: $depth
+      date_range: $dateRange
+      cohort: $cohort
+    )
+  }
+`;
 const VatoStatsSummary: React.FC<{
   summary: IVatoStatsSummary;
-  totalNuts: number;
-  totalNutTime: number;
+  totalNuts?: number;
+  totalNutTime?: number;
   totalVatos: number;
-}> = ({ summary, totalNuts, totalNutTime, totalVatos }) => {
-  const cards = [
-    {
-      label: "Total Vatos",
-      value: totalVatos.toLocaleString(),
-    },
-    {
-      label: "Meters of Pito",
-      value: formatDecimal(summary.totalPenisMeters, " m") ?? "—",
-    },
-    {
-      label: "Total Nuts",
-      value: totalNuts.toLocaleString(),
-    },
-    {
-      label: "Total Nut Time",
-      value: formatDuration(totalNutTime),
-    },
-    {
-      label: "Estimated Liters",
-      value: formatDecimal(summary.estimatedLiters, " L") ?? "—",
-    },
-  ];
-
-  return (
-    <section className="vatostats-summary-grid" aria-label="Vato summary stats">
-      {cards.map((card) => (
-        <div className="vatostats-summary-card" key={card.label}>
-          <div className="vatostats-summary-value">{card.value}</div>
-          <div className="vatostats-summary-label">{card.label}</div>
-        </div>
-      ))}
-    </section>
-  );
-};
+}> = ({ summary, totalNuts, totalNutTime, totalVatos }) => (
+  <section className="vatostats-summary-grid" aria-label="Vato summary stats">
+    {[
+      { label: "Total Vatos", value: totalVatos.toLocaleString() },
+      {
+        label: "Meters of Pito",
+        value: formatDecimal(summary.totalPenisMeters, " m"),
+        title: `${summary.measuredCount.toLocaleString()} measured; ${summary.assumedCount.toLocaleString()} estimated at 17 cm.`,
+      },
+      { label: "Total Nuts", value: totalNuts?.toLocaleString() ?? "—" },
+      {
+        label: "Total Nut Time",
+        value: totalNutTime === undefined ? "—" : formatDuration(totalNutTime),
+      },
+      {
+        label: "Estimated Liters",
+        value:
+          totalNuts === undefined
+            ? "—"
+            : formatDecimal(summary.estimatedLiters, " L"),
+        title: "Total Nuts × 3 mL",
+      },
+    ].map((card) => (
+      <div
+        className="vatostats-summary-card"
+        key={card.label}
+        title={card.title}
+      >
+        <div className="vatostats-summary-value">{card.value}</div>
+        <div className="vatostats-summary-label">{card.label}</div>
+      </div>
+    ))}
+  </section>
+);
 
 const VatoStatsPerformerList: React.FC<{
   metric: PodiumMetric;
@@ -1035,11 +1033,38 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
       ),
     [filters, performers]
   );
-  // CUSTOM: vato-derived totals follow the chart filters; nut totals follow
-  // the studio and date range.
+  // CUSTOM: selected vatos also constrain scene-event totals and rating criteria.
+  const cohort = useMemo(
+    () => ({ performer_ids: filteredPerformers.map((p) => p.id) }),
+    [filteredPerformers]
+  );
+  const cohortTotals = useQuery<{
+    sceneOrgasmCount: number;
+    totalOrgasmTime: number;
+  }>(VATO_COHORT_TOTALS, {
+    skip: filters.length === 0 || loading || !!error,
+    variables: {
+      studioId: studioScope?.id,
+      depth: studioScope?.depth,
+      dateRange: dateRangeVariable,
+      cohort,
+    },
+  });
+  const totalNuts =
+    filters.length === 0
+      ? data?.sceneOrgasmCount
+      : cohortTotals.loading
+      ? undefined
+      : cohortTotals.data?.sceneOrgasmCount;
+  const totalNutTime =
+    filters.length === 0
+      ? data?.totalOrgasmTime
+      : cohortTotals.loading
+      ? undefined
+      : cohortTotals.data?.totalOrgasmTime;
   const summary = useMemo(
-    () => getVatoStatsSummary(filteredPerformers, data?.sceneOrgasmCount ?? 0),
-    [data?.sceneOrgasmCount, filteredPerformers]
+    () => getVatoStatsSummary(filteredPerformers, totalNuts ?? 0),
+    [filteredPerformers, totalNuts]
   );
   const chartData = useMemo(
     () =>
@@ -1054,9 +1079,7 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
   const filteredList = useMemo(
     () =>
       rankStatsItems(
-        filteredPerformers.filter((performer) =>
-          metricIncludesPerformer(performer, metric)
-        ),
+        filteredPerformers,
         (performer) => metricValue(performer, metric),
         (performer) => performer.name,
         // CUSTOM: O Count ties go to the vato who reached it most recently.
@@ -1155,19 +1178,25 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
       ) : (
         <>
           <p className="stats-interaction-help">
-            {hasScope ? "Scoped" : "Library"} totals at a glance.
+            {filters.length > 0
+              ? "Matching vato"
+              : hasScope
+              ? "Scoped"
+              : "Library"}{" "}
+            totals at a glance.
           </p>
           <VatoStatsSummary
             summary={summary}
-            totalNuts={data?.sceneOrgasmCount ?? 0}
-            totalNutTime={data?.totalOrgasmTime ?? 0}
+            totalNuts={totalNuts}
+            totalNutTime={totalNutTime}
             totalVatos={filteredPerformers.length}
           />
-          {filters.length > 0 && (
-            <p className="stats-scope-note">
-              Nut totals follow the studio and dates, not chart filters.
-            </p>
+          {cohortTotals.error && (
+            <ErrorMessage error={cohortTotals.error.message} />
           )}
+          <p className="stats-scope-note">
+            Nut totals count events in the matching vatos’ scenes.
+          </p>
           {/* CUSTOM: ranked vato cards replace the three-slot podium. */}
           <StatsTopCards
             title={podiumDescriptor}
@@ -1219,12 +1248,13 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
             <VatoStatsPerformerList metric={metric} performers={filteredList} />
           )}
           <VatoStatsRatingAdvisor
+            cohort={cohort}
             dateRange={dateRangeVariable}
             studioScope={studioScope}
           />
           <p className="stats-interaction-help">
-            Select a bar or Unknown badge to filter the charts and rankings on
-            this page.
+            Select a bar or Unknown badge to filter the totals, criteria,
+            charts, and rankings on this page.
           </p>
           <div className="stats-chart-grid">
             {chartDefinitions

@@ -1,0 +1,5 @@
+"An optional dashboard selection. An empty ID list selects no entities."
+input StatsCohortInput {
+  scene_ids: [ID!]
+  performer_ids: [ID!]
+}

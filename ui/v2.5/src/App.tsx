@@ -296,6 +296,8 @@ export const App: React.FC = () => {
             {/* CUSTOM */}
             <Route path="/vatostats" component={VatoStats} /> {/* CUSTOM */}
             <Route path="/gevi-latest" component={GEVILatest} /> {/* CUSTOM */}
+            <Route exact path="/ostats/timeline" component={OStats} />{" "}
+            {/* CUSTOM */}
             <Route path="/ostats/vato/:performerId" component={OStats} />{" "}
             {/* CUSTOM */}
             <Route path="/ostats/scene/:sceneId" component={OStats} />{" "}

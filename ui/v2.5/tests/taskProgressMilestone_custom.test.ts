@@ -7,7 +7,6 @@ import {
   milestoneSearch,
   milestoneTargetProgress,
   milestoneTrackerIdle,
-  milestoneTrackerPeriods,
   resolveMilestoneSelection,
 } from "../src/components/TaskProgress/milestoneView_custom.ts";
 
@@ -65,36 +64,6 @@ assert.equal(
   milestoneForecast({ ...milestone, current_count: 0 }, "2026-09-23")
     .assumesNoIncoming,
   false
-);
-const trackerPeriods = milestoneTrackerPeriods(
-  {
-    history: [
-      { date: "2026-08-31", completed: 0, incoming: 0, remaining: 20 },
-      { date: "2026-09-21", completed: 4, incoming: 0, remaining: 16 },
-      { date: "2026-09-22", completed: 2, incoming: 0, remaining: 14 },
-      { date: "2026-09-23", completed: 4, incoming: 0, remaining: 10 },
-    ],
-  } as unknown as Parameters<typeof milestoneTrackerPeriods>[0],
-  "2026-09-23"
-);
-assert.deepEqual(
-  [
-    trackerPeriods.day.completed,
-    trackerPeriods.week.completed,
-    trackerPeriods.month.completed,
-  ],
-  [4, 10, 10],
-  "weeks start on Monday and months on the first"
-);
-assert.equal(trackerPeriods.day.percent, 20);
-assert.equal(trackerPeriods.week.percent, 50);
-assert.equal(trackerPeriods.month.percent, 50);
-assert.deepEqual(
-  milestoneTrackerPeriods(
-    { history: [] } as unknown as Parameters<typeof milestoneTrackerPeriods>[0],
-    "2026-09-23"
-  ).day,
-  { completed: 0, percent: 0 }
 );
 assert.deepEqual(
   milestoneTargetProgress(milestone, forecast.netRate, "2026-09-23"),

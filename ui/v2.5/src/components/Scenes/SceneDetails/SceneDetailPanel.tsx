@@ -1,7 +1,6 @@
 import React from "react";
-import { FormattedMessage, useIntl } from "react-intl";
+import { FormattedMessage } from "react-intl"; // CUSTOM: maintenance metadata lives in Edit
 import * as GQL from "src/core/generated-graphql";
-import TextUtils from "src/utils/text";
 import { TagLink } from "src/components/Shared/TagLink";
 import { PerformerCard } from "src/components/Performers/PerformerCard";
 import { sortPerformers } from "src/core/performers";
@@ -16,7 +15,7 @@ interface ISceneDetailProps {
 }
 
 export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
-  const intl = useIntl();
+  // CUSTOM: Details contains descriptive content; maintenance dates and code live in Edit.
   const performerOverview = useScenePerformerOverview(); // CUSTOM
   const { roleStatsByPerformer, loading: roleStatsPending } =
     usePerformerCardRoleStatsState(props.scene.performers); // CUSTOM
@@ -85,27 +84,12 @@ export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
     );
   }
 
-  // filename should use entire row if there is no studio
-  const sceneDetailsWidth = props.scene.studio ? "col-9" : "col-12";
-
   return (
     <>
       <div className="row">
-        <div className={`${sceneDetailsWidth} col-12 scene-details`}>
-          <h6>
-            <FormattedMessage id="created_at" />:{" "}
-            {TextUtils.formatDateTime(intl, props.scene.created_at)}{" "}
-          </h6>
-          <h6>
-            <FormattedMessage id="updated_at" />:{" "}
-            {TextUtils.formatDateTime(intl, props.scene.updated_at)}{" "}
-          </h6>
-          {props.scene.code && (
-            <h6>
-              <FormattedMessage id="scene_code" />: {props.scene.code}{" "}
-            </h6>
-          )}
-          {/* CUSTOM: scene insights between Studio Code and Description */}
+        {/* CUSTOM: descriptive information uses the full row. */}
+        <div className="col-12 scene-details">
+          {/* CUSTOM: descriptive scene insights lead Details */}
           <SceneCardInsights
             scene={props.scene}
             roleStatsByPerformer={roleStatsByPerformer}

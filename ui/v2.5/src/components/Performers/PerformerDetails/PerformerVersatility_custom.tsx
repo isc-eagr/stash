@@ -31,14 +31,7 @@ const VersatilityScale: React.FC<IScale> = ({
   const versatility = performerVersatility(top, bottom);
 
   if (!versatility) {
-    return (
-      <div className="performer-versatility-scale">
-        <div className="performer-versatility-heading">
-          <h3>{title}</h3>
-          <span className="performer-versatility-empty">No roles recorded</span>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   const { bottomPercent, topPercent } = versatility;
@@ -191,7 +184,7 @@ export const PerformerVersatility: React.FC<{
         facialBottomedPartners
       ),
     ]}
-    title="Versatility"
+    title="Versatility by Partners"
   />
 );
 

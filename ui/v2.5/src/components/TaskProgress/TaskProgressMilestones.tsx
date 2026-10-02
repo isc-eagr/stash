@@ -28,10 +28,14 @@ import {
   milestoneSearch,
   milestoneTargetProgress,
   milestoneTrackerIdle,
-  milestoneTrackerPeriods,
   resolveMilestoneSelection,
 } from "./milestoneView_custom";
-import type { MilestoneTrackerPeriod } from "./milestoneView_custom";
+import { TaskProgressPercentDelta } from "./TaskProgressDelta";
+import { taskProgressPeriodComparisons } from "./taskProgressReports_custom";
+import type {
+  ITaskProgressPeriodComparison,
+  TaskProgressComparisonPeriod,
+} from "./taskProgressReports_custom";
 
 const lastMilestoneKey = "task-progress-last-milestone";
 
@@ -39,13 +43,26 @@ type ContributionSortKey =
   | "title"
   | "completed"
   | "percent"
-  | `${MilestoneTrackerPeriod}${"Completed" | "Percent"}`;
+  | `${TaskProgressComparisonPeriod}${"Completed" | "Percent"}`;
 
-const contributionPeriods: { key: MilestoneTrackerPeriod; label: string }[] = [
+const contributionPeriods: {
+  key: TaskProgressComparisonPeriod;
+  label: string;
+}[] = [
   { key: "day", label: "today" },
   { key: "week", label: "this week" },
   { key: "month", label: "this month" },
 ];
+
+/** Current and previous percentages for a "<period>Percent" column. */
+function percentComparison(
+  periods: Record<TaskProgressComparisonPeriod, ITaskProgressPeriodComparison>,
+  key: string
+) {
+  const { current, previous, label } =
+    periods[key.replace(/Percent$/, "") as TaskProgressComparisonPeriod];
+  return { current: current.advanced, previous: previous.advanced, label };
+}
 
 interface IProps {
   trackers: readonly Tracker[];
@@ -123,21 +140,22 @@ const MilestoneDashboard: React.FC<{
         ? Math.max(0, tracker.goal - tracker.current_count)
         : tracker.completed_count;
     const total = completed + tracker.current_count;
-    const periods = milestoneTrackerPeriods(tracker, today);
+    const periods = taskProgressPeriodComparisons(tracker.history, today);
     const values: Record<Exclude<ContributionSortKey, "title">, number> = {
       completed,
       percent: total === 0 ? 100 : (completed / total) * 100,
-      dayCompleted: periods.day.completed,
-      dayPercent: periods.day.percent,
-      weekCompleted: periods.week.completed,
-      weekPercent: periods.week.percent,
-      monthCompleted: periods.month.completed,
-      monthPercent: periods.month.percent,
+      dayCompleted: periods.day.current.completed,
+      dayPercent: periods.day.current.advanced,
+      weekCompleted: periods.week.current.completed,
+      weekPercent: periods.week.current.advanced,
+      monthCompleted: periods.month.current.completed,
+      monthPercent: periods.month.current.advanced,
     };
     return {
       tracker,
       index,
       values,
+      periods,
       idle: milestoneTrackerIdle(tracker, today),
     };
   });
@@ -207,6 +225,10 @@ const MilestoneDashboard: React.FC<{
                   <TaskProgressGoalSummary
                     currentGoalPerDay={milestone.goal_per_day}
                     history={taskProgressHistoryEntries(milestone.history)}
+                    comparisons={taskProgressPeriodComparisons(
+                      milestone.history,
+                      today
+                    )}
                   />
                   <ul
                     className="milestone-checkpoints"
@@ -326,7 +348,6 @@ const MilestoneDashboard: React.FC<{
               title={milestone.name}
               history={taskProgressHistoryEntries(milestone.history)}
               today={today}
-              defaultView="cumulative"
             />
           </section>
           {itemProgress.length > 0 && (
@@ -471,13 +492,19 @@ const MilestoneDashboard: React.FC<{
                             {values.percent.toFixed(1)}%
                           </span>
                         ) : key.endsWith("Percent") ? (
-                          <FormattedNumber
-                            maximumFractionDigits={2}
-                            minimumFractionDigits={2}
-                            signDisplay="exceptZero"
-                            style="percent"
-                            value={values[key] / 100}
-                          />
+                          <>
+                            <FormattedNumber
+                              maximumFractionDigits={2}
+                              minimumFractionDigits={2}
+                              signDisplay="exceptZero"
+                              style="percent"
+                              value={values[key] / 100}
+                            />
+                            <TaskProgressPercentDelta
+                              {...percentComparison(row.periods, key)}
+                              compact
+                            />
+                          </>
                         ) : (
                           <FormattedNumber value={values[key]} />
                         )}

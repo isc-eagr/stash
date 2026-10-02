@@ -23,7 +23,6 @@ interface IProps {
   onSelectDay?: (date: string) => void;
   selectedDate?: string;
   today?: string;
-  defaultView?: TaskProgressHistoryView;
 }
 
 const CHART_WIDTH = 720;
@@ -71,12 +70,11 @@ export const TaskProgressHistoryChart: React.FC<IProps> = ({
   onSelectDay,
   selectedDate,
   today,
-  defaultView = "remaining",
 }) => {
   const intl = useIntl();
   const [chartID] = React.useState(createTaskProgressHistoryChartID);
   const [range, setRange] = React.useState<TaskProgressHistoryRange>(30);
-  const [view, setView] = React.useState<TaskProgressHistoryView>(defaultView);
+  const [view, setView] = React.useState<TaskProgressHistoryView>("cumulative");
   const [granularity, setGranularity] =
     React.useState<TaskProgressHistoryGranularity>("day");
   const [showIncoming, setShowIncoming] = React.useState(false);

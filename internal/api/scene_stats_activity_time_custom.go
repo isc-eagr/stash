@@ -59,9 +59,9 @@ func sceneStatsActivityTimeFromRowsCustom(rows [][]interface{}) float64 {
 	return activityStatsDurationCustom(intervals)
 }
 
-func (r *queryResolver) totalActivityTimeCustom(ctx context.Context, roleTagKey string, studioID *string, depth *int, dateRange *StatsDateRangeInput) (float64, error) {
+func (r *queryResolver) totalActivityTimeCustom(ctx context.Context, roleTagKey string, studioID *string, depth *int, dateRange *StatsDateRangeInput, cohort *StatsCohortInput) (float64, error) {
 	var totalSeconds float64
-	sceneScope, sceneScopeArgs, _, err := sceneStatsInputScopeCustom(studioID, depth, dateRange)
+	sceneScope, sceneScopeArgs, _, err := sceneStatsInputScopeCustom(studioID, depth, dateRange, cohort)
 	if err != nil {
 		return 0, err
 	}
@@ -98,12 +98,12 @@ func (r *queryResolver) totalActivityTimeCustom(ctx context.Context, roleTagKey 
 
 // TotalSexTime returns the overlap-merged duration of completed sex activity
 // markers. Activity markers match the configured sex tag as their primary tag.
-func (r *queryResolver) TotalSexTime(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (float64, error) {
-	return r.totalActivityTimeCustom(ctx, "sexTagId", studioID, depth, dateRange)
+func (r *queryResolver) TotalSexTime(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput, cohort *StatsCohortInput) (float64, error) {
+	return r.totalActivityTimeCustom(ctx, "sexTagId", studioID, depth, dateRange, cohort)
 }
 
 // TotalOralTime returns the overlap-merged duration of completed oral activity
 // markers. Activity markers match the configured oral tag as their primary tag.
-func (r *queryResolver) TotalOralTime(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (float64, error) {
-	return r.totalActivityTimeCustom(ctx, "oralTagId", studioID, depth, dateRange)
+func (r *queryResolver) TotalOralTime(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput, cohort *StatsCohortInput) (float64, error) {
+	return r.totalActivityTimeCustom(ctx, "oralTagId", studioID, depth, dateRange, cohort)
 }

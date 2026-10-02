@@ -26,11 +26,14 @@ func sceneStatsSceneScopeCustom(studioID *string, depth *int, dateRange *statsDa
 
 // sceneStatsInputScopeCustom parses the GraphQL date range and builds the
 // scene scope in one step for resolvers.
-func sceneStatsInputScopeCustom(studioID *string, depth *int, dateRangeInput *StatsDateRangeInput) (string, []interface{}, *statsDateRangeCustom, error) {
+func sceneStatsInputScopeCustom(studioID *string, depth *int, dateRangeInput *StatsDateRangeInput, cohorts ...*StatsCohortInput) (string, []interface{}, *statsDateRangeCustom, error) {
 	dateRange, err := parseStatsDateRangeCustom(dateRangeInput)
 	if err != nil {
 		return "", nil, nil, err
 	}
 	scope, args, err := sceneStatsSceneScopeCustom(studioID, depth, dateRange)
+	if err == nil && len(cohorts) > 0 {
+		scope, args, err = applyStatsCohortCustom(scope, args, cohorts[0])
+	}
 	return scope, args, dateRange, err
 }

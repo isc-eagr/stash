@@ -4,13 +4,17 @@ import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { RatingAdvisorStatsContent } from "src/components/Studios/StudioDetails/StudioRatingAdvisorStats";
 import { useSceneStatsInsightsQuery } from "src/core/generated-graphql";
-import type { StatsDateRangeInput } from "src/core/generated-graphql";
+import type {
+  StatsDateRangeInput,
+  StatsCohortInput,
+} from "src/core/generated-graphql";
 
 interface IProps {
   studioId?: string;
   depth?: number;
   studioName?: string;
   dateRange?: StatsDateRangeInput | null;
+  cohort?: StatsCohortInput;
 }
 
 export const SceneStatsInsights: React.FC<IProps> = ({
@@ -18,17 +22,20 @@ export const SceneStatsInsights: React.FC<IProps> = ({
   depth,
   studioName,
   dateRange,
+  cohort,
 }) => {
   const { data, error, loading } = useSceneStatsInsightsQuery({
-    variables: { studioId, depth, dateRange },
+    variables: { studioId, depth, dateRange, cohort },
   });
 
-  const scopeLabel = studioName ? `${studioName} scenes` : "every scene";
-  const ratingDescription = studioName
-    ? `Averages for ${studioName}, using only scenes where each criterion is set.`
-    : "Global averages for each scene rubric, using only scenes where that criterion is set.";
+  const scopeLabel = cohort
+    ? "the matching scenes"
+    : studioName
+    ? `${studioName} scenes`
+    : "every scene";
+  const ratingDescription = `Averages for ${scopeLabel}, using only scenes where each criterion is set.`;
 
-  if (loading && !data) {
+  if (loading) {
     return <LoadingIndicator message="Loading scene insights…" />;
   }
   if (error) {
@@ -63,7 +70,7 @@ export const SceneStatsInsights: React.FC<IProps> = ({
         title={
           studioName
             ? `${studioName} Scene Rating Criteria`
-            : "Global Scene Rating Criteria"
+            : "Scene Rating Criteria"
         }
       />
     </div>
