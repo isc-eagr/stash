@@ -681,27 +681,6 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   }
 
   /**
-   * Jump to next segment
-   */
-  nextSegment(): void {
-    if (this.segments.length === 0) return;
-    const nextIndex = (this.currentSegmentIndex + 1) % this.segments.length;
-    this.jumpToSegment(nextIndex);
-  }
-
-  /**
-   * Jump to previous segment
-   */
-  previousSegment(): void {
-    if (this.segments.length === 0) return;
-    const prevIndex =
-      this.currentSegmentIndex === 0
-        ? this.segments.length - 1
-        : this.currentSegmentIndex - 1;
-    this.jumpToSegment(prevIndex);
-  }
-
-  /**
    * Reorder segments by moving a segment to a new position
    */
   reorderSegment(fromIndex: number, toIndex: number): boolean {

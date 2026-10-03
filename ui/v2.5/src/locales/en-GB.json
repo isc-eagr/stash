@@ -706,6 +706,18 @@
         "rare_role_maximum": {
           "heading": "Rare instance maximum role share (%)",
           "description": "A current Sex or Oral role is rare when it accounts for no more than this percentage of the vato's role history. The chip still requires at least five comparable role scenes."
+        },
+        "short_outstanding_seconds": {
+          "heading": "Short Outstanding maximum length (s)",
+          "description": "A timed Outstanding marker counts as short when it lasts no more than this many seconds. Orgasm, Facial, and 2nd Camera markers are ignored."
+        },
+        "short_outstanding_percent": {
+          "heading": "Short Outstanding minimum share (%)",
+          "description": "The chip appears when at least this percentage of a scene's timed Outstanding markers are short."
+        },
+        "short_outstanding_markers": {
+          "heading": "Short Outstanding minimum markers",
+          "description": "Scenes need at least this many timed Outstanding markers before the chip can appear."
         }
       },
       "simple_marker_preview_excluded_tags": {
@@ -965,7 +977,7 @@
           "enable_chromecast": "Enable Chromecast",
           "show_ab_loop_controls": "Show AB loop controls",
           "show_multi_segment_loop_controls": "Show Multi-Segment Loop controls",
-          "show_multi_segment_loop_controls_desc": "Show the Loop tab and the loop button in the scene player.",
+          "show_multi_segment_loop_controls_desc": "Show the loop buttons in the scene player.",
           "show_official_scene_marker_layout": "Show official scene marker layout",
           "show_official_scene_marker_layout_desc": "Use the upstream primary-tag grouped layout in the scene Markers tab instead of the custom chronological layout.",
           "enable_scene_o_hotkey": "Enable O keyboard shortcut",
@@ -2000,8 +2012,6 @@
   "zip_file_count": "Zip File Count",
   "multi_segment_loop": {
     "title": "Multi-Segment Loop",
-    "tab": "Loop",
-    "menu_title": "Multi-segment loop",
     "loop": "Loop",
     "mark_start": "Mark start",
     "mark_end": "Mark end",
@@ -2009,12 +2019,8 @@
     "mark_end_hint": "End the segment that starts at {start}",
     "pending_start": "Start {start}",
     "summary": "{count, plural, one {# segment} other {# segments}} · {duration}",
-    "segment_count": "{count, plural, one {# segment} other {# segments}}",
-    "current_segment": "Segment {index} of {count}",
     "segments": "Segments",
     "no_segments": "No segments. Mark a start and end while playing, or add markers to the loop.",
-    "no_segments_short": "No segments",
-    "no_player": "The loop needs a playable video.",
     "select_all": "Select all segments",
     "select_segment": "Select segment {index}",
     "selected_count": "{count} selected",
@@ -2028,7 +2034,6 @@
     "stop_repeating": "Stop repeating this segment",
     "move_up": "Move up",
     "move_down": "Move down",
-    "edit_times": "Edit times",
     "remove_segment": "Delete segment",
     "start": "Start",
     "end": "End",
@@ -2039,13 +2044,9 @@
     "minus_one_second": "−1s",
     "plus_one_second": "+1s",
     "use_current_time": "Use current time",
-    "previous_segment": "Previous segment",
-    "next_segment": "Next segment",
-    "edit_segments": "Edit segments",
+    "edit_segments": "Edit loop segments",
     "presets": "Presets",
-    "preset": "Preset",
     "preset_count": "{count, plural, one {# saved preset} other {# saved presets}}",
-    "select_preset": "Select a preset…",
     "no_presets": "No saved presets.",
     "preset_name_placeholder": "Preset name",
     "save_needs_segments": "Add segments before saving a preset",
@@ -2057,7 +2058,13 @@
     "replace_preset": "Replace preset",
     "replace_preset_confirm": "Replace preset \"{name}\" with the current segments?",
     "delete_preset": "Delete preset",
-    "delete_preset_confirm": "Delete preset \"{name}\"?"
+    "delete_preset_confirm": "Delete preset \"{name}\"?",
+    "add_segments": "Add loop segments",
+    "turn_on": "Turn loop on",
+    "turn_off": "Turn loop off",
+    "row_hint": "Play this segment and edit its times",
+    "load_preset_hint": "Load \"{name}\"",
+    "delete_preset_hint": "Delete \"{name}\""
   },
   "marker_playlist": {
     "title": "Marker Playlist",

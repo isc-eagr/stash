@@ -1031,6 +1031,16 @@ textarea.scene-description {
     gap: 0.35rem;
   }
 
+  // The overflow tab stays a narrow icon so the row fits on one line.
+  .scene-tab-more {
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
+
+    &::after {
+      display: none;
+    }
+  }
+
   .scene-panel-density-toggle {
     flex: 0 0 auto;
     font-size: 0.8rem;
@@ -1041,13 +1051,20 @@ textarea.scene-description {
   }
 
   &.scene-tabs-compact {
+    height: calc(100vh - 4rem);
+
     .scene-overview {
-      display: none;
+      flex: 0 0 auto;
+
+      // Keep the action strip available while hiding the larger scene header.
+      > :not(.scene-toolbar) {
+        display: none;
+      }
     }
 
-    .tab-content {
+    #scene-details-container & > .tab-content {
       flex: 1 1 auto;
-      min-height: calc(100vh - 7.25rem);
+      min-height: 0;
     }
   }
 
@@ -1657,26 +1674,10 @@ input[type="range"].blue-slider {
     margin-top: 0;
   }
 
-  .scene-marker-activity-group-title,
   .scene-marker-activity-group-meta {
     align-items: center;
     display: flex;
     gap: 0.48rem;
-  }
-
-  .scene-marker-activity-group-percent {
-    background-color: #2e7298;
-    border: 1px solid #68c8fc;
-    border-radius: 1rem;
-    box-shadow: inset 0 1px rgba(255, 255, 255, 0.14);
-    color: #fff;
-    font-size: 0.61rem;
-    font-weight: 800;
-    letter-spacing: 0;
-    padding: 0.17rem 0.4rem;
-    text-shadow: none;
-    text-transform: none;
-    white-space: nowrap;
   }
 
   .scene-marker-activity-group-duration {
@@ -3541,7 +3542,75 @@ input[type="range"].blue-slider {
 }
 
 .scene-stats-detail-workspace {
+  /* CUSTOM: shared readable type across all Detailed Scene Stats tabs. */
+  font-size: 1rem;
+  line-height: 1.5;
   min-height: 24rem;
+
+  .scene-stats-section-heading > span,
+  .scene-stats-performer-choice,
+  .scene-stats-partner-legend-item,
+  .scene-stats-partner-table thead th,
+  .scene-stats-partner-composite-value,
+  .scene-stats-partner-role-values,
+  .scene-stats-no-interactions,
+  .scene-stats-matrix,
+  .scene-stats-matrix-performer-name,
+  .scene-stats-matrix-mobile-names > span,
+  .scene-stats-matrix-mobile-names strong,
+  .scene-stats-interaction-toolbar .btn,
+  .performer-versatility-heading h3,
+  .performer-versatility-chip,
+  .performer-versatility-percent,
+  .performer-versatility-ends,
+  .outstanding-activity-matrix .outstanding-activity-cell-label,
+  .outstanding-activity-matrix small {
+    font-size: inherit;
+  }
+
+  .scene-stats-section-heading h5,
+  .scene-stats-interaction-toolbar h5,
+  .outstanding-activity-matrix .outstanding-activity-heading h4 {
+    font-size: 1.25rem;
+  }
+
+  .scene-stats-performer-columns {
+    grid-template-columns: repeat(
+      auto-fit,
+      minmax(max(min(100%, 22rem), calc((100% - 3rem) / 4)), 1fr)
+    );
+  }
+
+  .performer-versatility-meter {
+    grid-template-columns: 3rem minmax(0, 1fr) 3rem;
+  }
+
+  .performer-versatility-chip {
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  .performer-versatility-ends {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    line-height: inherit;
+    overflow-wrap: anywhere;
+  }
+
+  .scene-stats-partner-table {
+    min-width: 72rem;
+  }
+
+  .scene-stats-partner-composite {
+    grid-template-rows: auto 3rem;
+    height: auto;
+    min-width: 8rem;
+  }
+
+  .scene-stats-partner-role-values > span {
+    /* CUSTOM: center readable labels even when the colored lane is short. */
+    min-width: 100%;
+  }
 }
 
 .scene-stats-interaction-toolbar {

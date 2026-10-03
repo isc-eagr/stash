@@ -19,6 +19,7 @@ import {
 } from "./progressMath_custom";
 import { TaskProgressGoalSummary } from "./TaskProgressGoalSummary";
 import { TaskProgressRing } from "./TaskProgressRing";
+import { TaskProgressCheckpoints } from "./TaskProgressCheckpoints";
 
 interface IProps {
   tracker: Tracker;
@@ -113,6 +114,11 @@ export const TaskProgressCard: React.FC<IProps> = ({
           <TaskProgressGoalSummary
             currentGoalPerDay={tracker.goal_per_day}
             history={taskProgressHistoryEntries(tracker.history)}
+          />
+          <TaskProgressCheckpoints
+            history={taskProgressHistoryEntries(tracker.history)}
+            percentage={percentage}
+            compact
           />
         </div>
         <TaskProgressRing percentage={percentage} label={t("Complete")} />

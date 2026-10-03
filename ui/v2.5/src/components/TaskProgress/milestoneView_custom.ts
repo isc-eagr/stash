@@ -1,9 +1,5 @@
 import type { TaskProgressMilestoneDataFragment as Milestone } from "src/core/generated-graphql";
 import {
-  buildTaskProgressHistorySeries,
-  taskProgressHistoryPercentages,
-} from "../taskProgress_custom";
-import {
   plannedTaskProgressFinishDate,
   progressForecast,
   progressToday,
@@ -88,30 +84,6 @@ export function milestoneTrackerIdle(
   return !tracker.history.some(
     (day) => day.date >= since && day.date <= today && day.completed > 0
   );
-}
-
-export const milestoneCheckpointThresholds = [25, 50, 75, 100] as const;
-
-/**
- * Marks each completion checkpoint and the first history date that reached it.
- * The current percentage also counts, so a checkpoint reached before history
- * began shows as reached without a date.
- */
-export function milestoneCheckpoints(
-  history: Milestone["history"],
-  percentage: number,
-  today = progressToday()
-) {
-  const points = buildTaskProgressHistorySeries(history, "all", today).filter(
-    (point) => point.cumulativeCompleted > 0
-  );
-  return milestoneCheckpointThresholds.map((threshold) => {
-    const date = points.find(
-      (point) =>
-        taskProgressHistoryPercentages(point).completedPercentage >= threshold
-    )?.date;
-    return { threshold, date, reached: !!date || percentage >= threshold };
-  });
 }
 
 /** Completed and total items per type, skipping types with no items. */

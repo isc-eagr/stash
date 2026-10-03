@@ -20,6 +20,7 @@ const insightStatsTones: Record<
   interaction: "interaction",
   "rare-role": "rare",
   "negative-rating": "negative",
+  "short-outstanding": "negative",
   "favorite-lineup": "lineup",
   "country-lineup": "lineup",
 };
@@ -37,6 +38,9 @@ export const insightThresholdLabels: Record<
   tagGoodAmountMinPercent: "Good amount of tags: minimum % of scene",
   tagLotsMinPercent: "Lots of tags: minimum % of scene",
   tagEyeCanSeeMinPercent: "As far as the eye can see: minimum % of scene",
+  shortOutstandingMaxSeconds: "Short Outstanding: maximum marker seconds",
+  shortOutstandingMinPercent: "Short Outstanding: minimum % of markers",
+  shortOutstandingMinMarkers: "Short Outstanding: minimum markers",
 };
 
 type InsightKindInfo = {
@@ -105,6 +109,15 @@ const kindInfo: Record<SceneCardInsightCandidateKind, InsightKindInfo> = {
     label: "Rating Advisor warnings",
     note: "Saved scene Rating Advisor values trigger the matching warning.",
     thresholds: [],
+  },
+  "short-outstanding": {
+    label: "Short Outstanding",
+    note: "Enough timed Outstanding markers (excluding Orgasm, Facial, and 2nd Camera) and a high share of them last no more than the maximum seconds.",
+    thresholds: [
+      "shortOutstandingMaxSeconds",
+      "shortOutstandingMinPercent",
+      "shortOutstandingMinMarkers",
+    ],
   },
   "favorite-lineup": {
     label: "Favorite Vatos",
@@ -251,6 +264,7 @@ export const insightStatsCatalog: InsightStatsDefinition[] = [
     "Ugly Tops",
     "A scene with 4+ vatos whose Group Top Attractiveness Rating Advisor value is 0 or 1."
   ),
+  definition("short-outstanding"),
   definition("favorite-lineup"),
   definition("country-lineup"),
 ];

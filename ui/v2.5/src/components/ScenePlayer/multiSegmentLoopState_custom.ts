@@ -129,3 +129,16 @@ export function loopSegmentsMatch(
     )
   );
 }
+
+/** Name of the saved preset whose segments match the current loop, if any. */
+export function matchingLoopPresetName(
+  segments: readonly Pick<ILoopRange, "start" | "end">[],
+  presets: readonly {
+    name: string;
+    segments: readonly Pick<ILoopRange, "start" | "end">[];
+  }[]
+): string | undefined {
+  if (!segments.length) return undefined;
+  return presets.find((preset) => loopSegmentsMatch(segments, preset.segments))
+    ?.name;
+}

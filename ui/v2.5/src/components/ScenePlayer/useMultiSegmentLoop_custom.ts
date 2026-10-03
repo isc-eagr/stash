@@ -27,8 +27,6 @@ export interface IMultiSegmentLoopController {
   cancelPending: () => void;
   setEnabled: (enabled: boolean) => void;
   jumpTo: (index: number) => void;
-  previous: () => void;
-  next: () => void;
   seek: (seconds: number) => void;
   addSegments: (segments: ILoopSegmentInput[]) => void;
   replaceSegments: (segments: ILoopSegmentInput[]) => ILoopSegmentInput[];
@@ -84,8 +82,6 @@ export function useMultiSegmentLoop(
       cancelPending: () => plugin?.cancelPending(),
       setEnabled: (enabled: boolean) => plugin?.setEnabled(enabled),
       jumpTo: (index: number) => plugin?.jumpToSegment(index),
-      previous: () => plugin?.previousSegment(),
-      next: () => plugin?.nextSegment(),
       seek: (seconds: number) => plugin?.player.currentTime(seconds),
       addSegments: (segments: ILoopSegmentInput[]) =>
         plugin?.addSegments(filtered(segments)),

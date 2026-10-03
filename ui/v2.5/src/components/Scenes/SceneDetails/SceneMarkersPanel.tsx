@@ -26,13 +26,11 @@ import {
   type ISceneMarkerChronologySearchFilters,
 } from "./sceneMarkerChronologySearch_custom";
 import { shouldShowOfficialSceneMarkerLayout } from "./sceneMarkerLayoutPreference_custom";
-import { getSceneMarkerScrollElement } from "./sceneMarkerDockPlacement_custom";
 import TextUtils from "src/utils/text";
 import {
   prepareSceneMarkerWarnings,
   sceneMarkerWarningDraft,
 } from "./sceneMarkerGapWarning_custom";
-import { getSceneActivityMetrics } from "../sceneActivityMetricsData_custom";
 import { getSceneMarkerSelectionCounts } from "./sceneMarkerSelection_custom";
 import { getSceneMarkerStickyHeaderOffset } from "./sceneMarkerStickyHeader_custom";
 import {
@@ -69,7 +67,7 @@ interface ISceneMarkersPanelProps {
 }
 
 function getSceneTabScrollElement() {
-  return getSceneMarkerScrollElement(); // CUSTOM: sidebar or below-player dock
+  return document.querySelector<HTMLElement>(".scene-tabs .tab-content"); // CUSTOM
 }
 
 export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
@@ -176,23 +174,6 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     () => sceneData?.findScene?.negative_markers ?? [],
     [sceneData?.findScene?.negative_markers]
   );
-  // CUSTOM: reuse the scene-detail activity calculation for Oral and Sex headers
-  const activitySectionPercents = useMemo(() => {
-    const scene = sceneData?.findScene;
-    if (!scene) return {};
-
-    const activityMetrics = getSceneActivityMetrics(
-      scene,
-      configuration?.ui.roleTagIds ?? {}
-    );
-
-    return {
-      oral: activityMetrics?.activity.find((metric) => metric.key === "oral")
-        ?.percent,
-      sex: activityMetrics?.activity.find((metric) => metric.key === "sex")
-        ?.percent,
-    };
-  }, [configuration?.ui.roleTagIds, sceneData?.findScene]);
   const markerWarningMessagesById = useMemo(() => {
     const warningsById = new Map<string, string[]>();
     const warningCalculator = prepareSceneMarkerWarnings({
@@ -349,14 +330,8 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
         );
 
         if (markerElement) {
-          const scrollElement = getSceneMarkerScrollElement(markerElement);
+          const scrollElement = getSceneTabScrollElement();
           if (scrollElement) {
-            // CUSTOM: reveal the dock on the page before centering within it.
-            if (
-              scrollElement.hasAttribute("data-scene-marker-scroll-container")
-            ) {
-              scrollElement.scrollIntoView({ block: "nearest" });
-            }
             scrollSceneMarkerIntoTabView(scrollElement, markerElement);
           }
           onFocusedMarkerHandled?.(requestId);
@@ -705,8 +680,6 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
             selectedMarkerIds={selectedMarkerIds}
             derivedWindows={derivedWindows}
             selectedDerivedWindowKeys={selectedDerivedWindowKeys}
-            // CUSTOM: activity coverage percentages for Oral and Sex section headers
-            activitySectionPercents={activitySectionPercents}
             onClickMarker={onClickMarker}
             onEdit={onOpenEditor}
             onSelectMarker={toggleSingle}

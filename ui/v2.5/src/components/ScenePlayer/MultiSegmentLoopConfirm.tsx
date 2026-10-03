@@ -4,7 +4,7 @@ import { ModalComponent } from "src/components/Shared/Modal";
 
 // Confirmation dialog for destructive loop actions. A container keeps the
 // dialog visible while the player is fullscreen.
-interface IConfirmRequest {
+export interface IMultiSegmentLoopConfirmRequest {
   header: string;
   message: React.ReactNode;
   confirmText: string;
@@ -14,7 +14,7 @@ interface IConfirmRequest {
 
 export function useMultiSegmentLoopConfirm(container?: HTMLElement | null) {
   const intl = useIntl();
-  const [request, setRequest] = useState<IConfirmRequest>();
+  const [request, setRequest] = useState<IMultiSegmentLoopConfirmRequest>();
   const close = useCallback(() => setRequest(undefined), []);
 
   const confirmModal = (
@@ -41,5 +41,10 @@ export function useMultiSegmentLoopConfirm(container?: HTMLElement | null) {
     </ModalComponent>
   );
 
-  return { confirm: setRequest, confirmModal };
+  const confirm = useCallback(
+    (next: IMultiSegmentLoopConfirmRequest) => setRequest(next),
+    []
+  );
+
+  return { confirm, confirmModal };
 }

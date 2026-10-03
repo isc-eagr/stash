@@ -815,7 +815,7 @@
     overflow: hidden;
 
     > span {
-      background: #4db8ff;
+      background: var(--progress-report-goal-color, #4db8ff);
       border-radius: inherit;
       display: block;
       height: 100%;
@@ -844,22 +844,32 @@
   }
 
   .progress-report-goal-red {
+    --progress-report-goal-color: #f55656;
+
     background: #f55656;
   }
 
   .progress-report-goal-orange {
+    --progress-report-goal-color: #f08c3a;
+
     background: #f08c3a;
   }
 
   .progress-report-goal-yellow {
+    --progress-report-goal-color: #f2c94c;
+
     background: #f2c94c;
   }
 
   .progress-report-goal-green {
+    --progress-report-goal-color: #35c46a;
+
     background: #35c46a;
   }
 
   .progress-report-goal-sapphire {
+    --progress-report-goal-color: #4db8ff;
+
     background: #4db8ff;
   }
 
@@ -894,7 +904,7 @@
     overflow: hidden;
 
     > span {
-      background: #35c46a;
+      background: var(--progress-report-goal-color, #35c46a);
       border-radius: 0.3rem 0.3rem 0 0;
       display: block;
       min-height: 2px;
@@ -967,6 +977,10 @@
       strong {
         font-size: 0.85rem;
       }
+    }
+
+    > [role="gridcell"][class*="progress-report-goal-"] {
+      color: #10161a;
     }
   }
 
@@ -1190,31 +1204,90 @@
 }
 
 .milestone-checkpoint {
-  border: 1px dashed rgba(138, 155, 168, 0.35);
-  border-radius: 0.4rem;
+  align-items: center;
   display: flex;
   flex-direction: column;
+  gap: 0.35rem;
   min-width: 5.5rem;
-  opacity: 0.55;
-  padding: 0.3rem 0.6rem;
-
-  strong {
-    font-size: 1rem;
-  }
 
   small {
     color: var(--black-steel-text-muted, #bfccd6);
     font-size: 0.72rem;
+    white-space: nowrap;
   }
 }
 
-.milestone-checkpoint-reached {
-  background: rgba(53, 196, 106, 0.12);
-  border: 1px solid rgba(53, 196, 106, 0.55);
-  opacity: 1;
+/* CUSTOM: Bronze, silver, gold, and platinum checkpoint medals. */
+@each $threshold, $highlight, $metal, $shadow,
+  $rim
+    in (
+      (25, #f6d4ac, #c58a51, #92572c, #d8a16d),
+      (50, #f4f8fc, #bbc8d3, #82919f, #d5dfe8),
+      (75, #fff0ab, #eac15a, #b47c21, #f4d47c),
+      (100, #f2ffff, #b0dce6, #749eae, #d3f4fa)
+    )
+{
+  .milestone-checkpoint-#{$threshold} {
+    --checkpoint-highlight: #{$highlight};
+    --checkpoint-metal: #{$metal};
+    --checkpoint-shadow: #{$shadow};
+    --checkpoint-rim: #{$rim};
+  }
+}
 
-  strong {
-    color: #35c46a;
+.milestone-checkpoint-medal {
+  aspect-ratio: 1;
+  background: linear-gradient(
+    135deg,
+    var(--checkpoint-highlight),
+    var(--checkpoint-metal) 40%,
+    var(--checkpoint-shadow) 75%,
+    var(--checkpoint-highlight)
+  );
+  border: 2px solid var(--checkpoint-rim);
+  border-radius: 50%;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.7),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.3);
+  color: #211b13;
+  display: grid;
+  filter: grayscale(0.85);
+  font-size: 1rem;
+  line-height: 1;
+  opacity: 0.45;
+  place-items: center;
+  position: relative;
+  width: 3.3rem;
+
+  &::after {
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 50%;
+    content: "";
+    inset: 0.2rem;
+    position: absolute;
+  }
+}
+
+.milestone-checkpoint-reached .milestone-checkpoint-medal {
+  filter: none;
+  opacity: 1;
+}
+
+/* CUSTOM: Smaller checkpoints on individual tracker cards. */
+.progress-checkpoints-compact {
+  gap: 0.35rem;
+  margin-top: 0;
+
+  .milestone-checkpoint {
+    min-width: 4.5rem;
+
+    small {
+      font-size: 0.65rem;
+    }
+  }
+
+  .milestone-checkpoint-medal {
+    font-size: 0.85rem;
+    width: 2.6rem;
   }
 }
 

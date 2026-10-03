@@ -1,4 +1,11 @@
 import assert from "node:assert/strict";
+import React from "react";
+import ReactDOMServer from "react-dom/server.js";
+import { IntlProvider } from "react-intl";
+import {
+  ReportHeadings,
+  ReportMetrics,
+} from "../src/components/TaskProgress/TaskProgressReportMetrics.tsx";
 import {
   activeTaskProgressReportItems,
   boundedTaskProgressReportAnchor,
@@ -338,4 +345,72 @@ assert.deepEqual(
     taskProgressPeriodComparisons([], "2026-09-23").day.current.advanced,
   ],
   [0, 0]
+);
+
+const renderReport = (current: typeof currentWeek, previous: typeof pastWeek) =>
+  ReactDOMServer.renderToStaticMarkup(
+    React.createElement(
+      IntlProvider,
+      { locale: "en", messages: {} },
+      React.createElement(
+        "table",
+        {},
+        React.createElement(ReportHeadings, { name: "Tracker" }),
+        React.createElement(
+          "tbody",
+          {},
+          React.createElement(
+            "tr",
+            {},
+            React.createElement("th", {}, "Test tracker"),
+            React.createElement(ReportMetrics, {
+              item: { ...current, previous },
+              comparison: "vs last week",
+            })
+          )
+        )
+      )
+    )
+  );
+
+const reportMarkup = renderReport(currentWeek, pastWeek);
+assert.deepEqual(
+  [...reportMarkup.matchAll(/<th[^>]*scope="col"[^>]*>(.*?)<\/th>/g)].map(
+    (match) => match[1]
+  ),
+  [
+    "Tracker",
+    "Total completed",
+    "Goal days met",
+    "Actual / Goal",
+    "Items Completed",
+    "% Advanced",
+  ]
+);
+const reportCells = [...reportMarkup.matchAll(/<td[^>]*>(.*?)<\/td>/g)].map(
+  (match) => match[1]
+);
+assert.equal(reportCells.length, 5, "each heading has a corresponding metric");
+assert.doesNotMatch(reportCells[0], /progress-delta/);
+assert.doesNotMatch(reportCells[1], /progress-delta/);
+assert.doesNotMatch(reportCells[2], /progress-delta/);
+assert.match(
+  reportCells[2],
+  /progress-report-meter/,
+  "Actual / Goal keeps its goal bar"
+);
+assert.match(
+  reportCells[3],
+  new RegExp(`^${currentWeek.completed}<small`),
+  "Items Completed shows this period's completions"
+);
+assert.match(reportCells[3], /progress-delta-down/);
+assert.match(reportCells[4], /progress-delta-down/);
+const improvedMarkup = renderReport(pastWeek, currentWeek);
+assert.equal((improvedMarkup.match(/progress-delta-up/g) ?? []).length, 2);
+assert.equal(
+  (renderReport(currentWeek, currentWeek).match(/progress-delta-flat/g) ?? [])
+    .length,
+  2,
+  "equal periods show neutral comparisons only for items and percentage advanced"
 );

@@ -20,8 +20,8 @@ import { TaskProgressGoalSummary } from "./TaskProgressGoalSummary";
 import { TaskProgressMilestoneForm } from "./TaskProgressMilestoneForm";
 import type { IMilestoneFormValues } from "./TaskProgressMilestoneForm";
 import { TaskProgressRing } from "./TaskProgressRing";
+import { TaskProgressCheckpoints } from "./TaskProgressCheckpoints";
 import {
-  milestoneCheckpoints,
   milestoneForecast,
   milestoneFromSearch,
   milestoneItemProgress,
@@ -109,11 +109,6 @@ const MilestoneDashboard: React.FC<{
   const plannedFinish = plannedTaskProgressFinishDate(
     milestone.current_count,
     planRate,
-    today
-  );
-  const checkpoints = milestoneCheckpoints(
-    milestone.history,
-    percentage ?? 0,
     today
   );
   const itemProgress = milestoneItemProgress(milestone);
@@ -230,26 +225,6 @@ const MilestoneDashboard: React.FC<{
                       today
                     )}
                   />
-                  <ul
-                    className="milestone-checkpoints"
-                    aria-label={t("Checkpoints")}
-                  >
-                    {checkpoints.map(({ threshold, date, reached }) => (
-                      <li
-                        className={`milestone-checkpoint${
-                          reached ? " milestone-checkpoint-reached" : ""
-                        }`}
-                        key={threshold}
-                      >
-                        <strong>{threshold}%</strong>
-                        <small>
-                          {date
-                            ? formatTaskProgressDate(date)
-                            : t(reached ? "Reached" : "Not yet")}
-                        </small>
-                      </li>
-                    ))}
-                  </ul>
                 </div>
                 {percentage !== undefined && (
                   <TaskProgressRing
@@ -340,6 +315,11 @@ const MilestoneDashboard: React.FC<{
                   </Form.Group>
                 </div>
               </div>
+              <TaskProgressCheckpoints
+                history={taskProgressHistoryEntries(milestone.history)}
+                percentage={percentage ?? 0}
+                today={today}
+              />
             </Card.Body>
           </Card>
           <section className="milestone-history">

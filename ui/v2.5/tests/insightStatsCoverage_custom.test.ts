@@ -200,13 +200,16 @@ test("chip links restore all matching IDs, and missing snapshots fail closed", (
     configurable: true,
     value: storage,
   });
-  const opened: Array<[string, string, string]> = [];
+  const opened: Array<[string, string, string?]> = [];
+  const tab: { opener: unknown } = { opener: {} };
+  let blocked = false;
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: {
-      open: (...args: [string, string, string]) => {
+      // Mirror browsers: "noopener" or a pop-up blocker returns null.
+      open: (...args: [string, string, string?]) => {
         opened.push(args);
-        return {};
+        return blocked || args[2]?.includes("noopener") ? null : tab;
       },
     },
   });
@@ -236,7 +239,10 @@ test("chip links restore all matching IDs, and missing snapshots fail closed", (
     assert.match(criterion.getLabel(), /expired/);
     assert.equal(openInsightSceneLink("Good amount of body", ["3"]), true);
     assert.equal(opened[0][1], "_blank");
-    assert.equal(opened[0][2], "noopener,noreferrer");
+    assert.equal(tab.opener, null);
+    blocked = true;
+    assert.equal(openInsightSceneLink("Good amount of body", ["3"]), false);
+    blocked = false;
 
     const performerLink = createInsightEntityLink("performer", "Gold", [
       "8",

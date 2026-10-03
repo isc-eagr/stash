@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Badge, Button, Form, InputGroup } from "react-bootstrap";
+import { Badge, Button, ButtonGroup, Form, InputGroup } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import cx from "classnames";
 import {
   faArrowDown,
   faArrowUp,
-  faEdit,
   faPlus,
   faRedo,
   faStopwatch,
+  faTimes,
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { Icon } from "src/components/Shared/Icon";
@@ -18,22 +18,26 @@ import type { ILoopSegment } from "./multi-segment-loop";
 import type { IMultiSegmentLoopController } from "./useMultiSegmentLoop_custom";
 import type { IMultiSegmentLoopPresets } from "./useMultiSegmentLoopPresets_custom";
 import type { LoopSegmentEdge } from "./multiSegmentLoopState_custom";
-import { useMultiSegmentLoopConfirm } from "./MultiSegmentLoopConfirm";
+import {
+  useMultiSegmentLoopConfirm,
+  type IMultiSegmentLoopConfirmRequest,
+} from "./MultiSegmentLoopConfirm";
 import {
   selectedMultiSegmentIdsToDelete,
   unselectedMultiSegmentIdsToDelete,
 } from "./multiSegmentSelection_custom";
 
-export const formatLoopTime = (seconds: number) =>
+const formatLoopTime = (seconds: number) =>
   TextUtils.secondsToTimestamp(seconds, true);
 
-export const loopSegmentsDuration = (segments: ILoopSegment[]) =>
+const loopSegmentsDuration = (segments: ILoopSegment[]) =>
   segments.reduce((sum, segment) => sum + (segment.end - segment.start), 0);
+
+const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 interface IMultiSegmentLoopEditorProps {
   loop: IMultiSegmentLoopController;
   presets?: IMultiSegmentLoopPresets;
-  onSeek?: (seconds: number) => void;
   /** Hosts confirmation dialogs, e.g. a fullscreen element. */
   modalContainer?: HTMLElement | null;
 }
@@ -41,7 +45,6 @@ interface IMultiSegmentLoopEditorProps {
 export const MultiSegmentLoopEditor: React.FC<IMultiSegmentLoopEditorProps> = ({
   loop,
   presets,
-  onSeek,
   modalContainer,
 }) => {
   const intl = useIntl();
@@ -51,34 +54,32 @@ export const MultiSegmentLoopEditor: React.FC<IMultiSegmentLoopEditorProps> = ({
     loop.state;
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const [editingId, setEditingId] = useState<string>();
-  const [selectedPreset, setSelectedPreset] = useState("");
+  // The last clicked row shows its time controls.
+  const [focusedId, setFocusedId] = useState<string>();
+  // The last loaded or saved preset; saving under its name needs no prompt.
+  const [lastPresetName, setLastPresetName] = useState("");
   const [presetName, setPresetName] = useState("");
   const [savingPreset, setSavingPreset] = useState(false);
 
-  // Drop selections and edits for segments that no longer exist.
+  // Drop selections and focus for segments that no longer exist.
   useEffect(() => {
     const ids = new Set(segments.map((segment) => segment.id));
     setSelectedIds((current) => {
       const next = new Set([...current].filter((id) => ids.has(id)));
       return next.size === current.size ? current : next;
     });
-    setEditingId((current) =>
+    setFocusedId((current) =>
       current && ids.has(current) ? current : undefined
     );
   }, [segments]);
 
-  useEffect(() => {
-    if (selectedPreset && !presets?.find(selectedPreset)) setSelectedPreset("");
-  }, [presets, selectedPreset]);
-
-  const seek = onSeek ?? loop.seek;
   const totalDuration = useMemo(
     () => loopSegmentsDuration(segments),
     [segments]
   );
   const allSelected =
     segments.length > 0 && selectedIds.size === segments.length;
+  const unsaved = presets?.hasUnsavedSegments ?? segments.length > 0;
   const message = (id: string, values?: Record<string, string | number>) =>
     intl.formatMessage({ id: `multi_segment_loop.${id}` }, values);
 
@@ -90,16 +91,47 @@ export const MultiSegmentLoopEditor: React.FC<IMultiSegmentLoopEditorProps> = ({
     });
   }
 
-  function confirmClearAll() {
-    confirm({
-      header: message("clear_all"),
-      message: message("clear_all_confirm", { count: segments.length }),
-      confirmText: message("clear_all"),
-      onConfirm: () => {
+  // Unsaved segments are the only thing a confirmation protects.
+  function confirmIfUnsaved(
+    request: Omit<IMultiSegmentLoopConfirmRequest, "onConfirm">,
+    action: () => void
+  ) {
+    if (!unsaved) action();
+    else confirm({ ...request, onConfirm: action });
+  }
+
+  function clearAll() {
+    confirmIfUnsaved(
+      {
+        header: message("clear_all"),
+        message: message("clear_all_confirm", { count: segments.length }),
+        confirmText: message("clear_all"),
+      },
+      () => {
         loop.clear();
         setSelectedIds(new Set());
+      }
+    );
+  }
+
+  function loadPreset(name: string) {
+    if (!presets) return;
+    confirmIfUnsaved(
+      {
+        header: message("load_preset"),
+        message: message("load_preset_confirm", {
+          name,
+          count: segments.length,
+        }),
+        confirmText: message("replace"),
+        variant: "primary",
       },
-    });
+      () => {
+        if (!presets.load(name)) return;
+        setLastPresetName(name);
+        setPresetName(name);
+      }
+    );
   }
 
   async function savePreset(name: string) {
@@ -111,16 +143,16 @@ export const MultiSegmentLoopEditor: React.FC<IMultiSegmentLoopEditorProps> = ({
       Toast.error(message("save_preset_failed"));
       return;
     }
-    setPresetName("");
-    setSelectedPreset(name);
+    setLastPresetName(name);
+    setPresetName(name);
   }
 
   function requestSavePreset() {
     const name = presetName.trim();
     if (!presets || !name || !segments.length) return;
     const existing = presets.find(name);
-    if (!existing) {
-      void savePreset(name);
+    if (!existing || sameName(existing.name, lastPresetName)) {
+      void savePreset(existing?.name ?? name);
       return;
     }
     confirm({
@@ -132,33 +164,18 @@ export const MultiSegmentLoopEditor: React.FC<IMultiSegmentLoopEditorProps> = ({
     });
   }
 
-  function requestLoadPreset() {
-    if (!presets || !selectedPreset) return;
-    if (!presets.replacesCurrentSegments(selectedPreset)) {
-      presets.load(selectedPreset);
-      return;
-    }
-    confirm({
-      header: message("load_preset"),
-      message: message("load_preset_confirm", {
-        name: selectedPreset,
-        count: segments.length,
-      }),
-      confirmText: message("replace"),
-      variant: "primary",
-      onConfirm: () => presets.load(selectedPreset),
-    });
-  }
-
-  function requestDeletePreset() {
-    if (!presets || !selectedPreset) return;
+  function deletePreset(name: string) {
+    if (!presets) return;
     confirm({
       header: message("delete_preset"),
-      message: message("delete_preset_confirm", { name: selectedPreset }),
+      message: message("delete_preset_confirm", { name }),
       confirmText: intl.formatMessage({ id: "actions.delete" }),
       onConfirm: async () => {
-        if (await presets.remove(selectedPreset)) setSelectedPreset("");
-        else Toast.error(message("delete_preset_failed"));
+        if (!(await presets.remove(name))) {
+          Toast.error(message("delete_preset_failed"));
+        } else if (sameName(name, lastPresetName)) {
+          setLastPresetName("");
+        }
       },
     });
   }
@@ -200,7 +217,7 @@ export const MultiSegmentLoopEditor: React.FC<IMultiSegmentLoopEditorProps> = ({
   const renderSegment = (segment: ILoopSegment, index: number) => {
     const active = enabled && index === currentSegmentIndex;
     const repeating = loopSingleId === segment.id;
-    const editing = editingId === segment.id;
+    const focused = focusedId === segment.id;
     const stop = (fn: () => void) => (event: React.MouseEvent) => {
       event.stopPropagation();
       fn();
@@ -212,9 +229,14 @@ export const MultiSegmentLoopEditor: React.FC<IMultiSegmentLoopEditorProps> = ({
           className={cx("msl-row", {
             active,
             repeating,
+            focused,
             selected: selectedIds.has(segment.id),
           })}
-          onClick={() => loop.jumpTo(index)}
+          onClick={() => {
+            setFocusedId(segment.id);
+            loop.jumpTo(index);
+          }}
+          title={message("row_hint")}
         >
           <Form.Check
             id={`msl-select-${segment.id}`}
@@ -229,7 +251,7 @@ export const MultiSegmentLoopEditor: React.FC<IMultiSegmentLoopEditorProps> = ({
             <Button
               variant="link"
               className="p-0"
-              onClick={stop(() => seek(segment.start))}
+              onClick={stop(() => loop.seek(segment.start))}
               title={message("seek_start")}
             >
               {formatLoopTime(segment.start)}
@@ -238,7 +260,7 @@ export const MultiSegmentLoopEditor: React.FC<IMultiSegmentLoopEditorProps> = ({
             <Button
               variant="link"
               className="p-0"
-              onClick={stop(() => seek(segment.end))}
+              onClick={stop(() => loop.seek(segment.end))}
               title={message("seek_end")}
             >
               {formatLoopTime(segment.end)}
@@ -285,17 +307,6 @@ export const MultiSegmentLoopEditor: React.FC<IMultiSegmentLoopEditorProps> = ({
             </Button>
             <Button
               size="sm"
-              variant={editing ? "primary" : "secondary"}
-              onClick={stop(() =>
-                setEditingId(editing ? undefined : segment.id)
-              )}
-              title={message("edit_times")}
-              aria-expanded={editing}
-            >
-              <Icon icon={faEdit} />
-            </Button>
-            <Button
-              size="sm"
               variant="danger"
               onClick={stop(() => loop.removeSegments([segment.id]))}
               title={message("remove_segment")}
@@ -304,7 +315,7 @@ export const MultiSegmentLoopEditor: React.FC<IMultiSegmentLoopEditorProps> = ({
             </Button>
           </div>
         </div>
-        {editing && (
+        {focused && (
           <div className="msl-row-editor">
             {renderBoundaryEditor(segment, "start")}
             {renderBoundaryEditor(segment, "end")}
@@ -420,7 +431,7 @@ export const MultiSegmentLoopEditor: React.FC<IMultiSegmentLoopEditorProps> = ({
               size="sm"
               variant="secondary"
               className="ml-auto"
-              onClick={confirmClearAll}
+              onClick={clearAll}
             >
               {message("clear_all")}
             </Button>
@@ -433,41 +444,38 @@ export const MultiSegmentLoopEditor: React.FC<IMultiSegmentLoopEditorProps> = ({
         <div className="msl-presets">
           <h6>{message("presets")}</h6>
           {presets.presets.length > 0 ? (
-            <div className="msl-preset-row">
-              <Form.Control
-                as="select"
-                className="input-control"
-                value={selectedPreset}
-                onChange={(event) => setSelectedPreset(event.target.value)}
-                aria-label={message("preset")}
-              >
-                <option value="">{message("select_preset")}</option>
-                {presets.presets.map((preset) => (
-                  <option key={preset.name} value={preset.name}>
+            <div className="msl-preset-chips">
+              {presets.presets.map((preset) => (
+                <ButtonGroup key={preset.name} size="sm">
+                  <Button
+                    variant={
+                      presets.matchingPresetName === preset.name
+                        ? "primary"
+                        : "secondary"
+                    }
+                    disabled={!loop.ready}
+                    onClick={() => loadPreset(preset.name)}
+                    title={message("load_preset_hint", { name: preset.name })}
+                  >
                     {preset.name}
-                  </option>
-                ))}
-              </Form.Control>
-              <Button
-                variant="secondary"
-                disabled={!selectedPreset || !loop.ready}
-                onClick={requestLoadPreset}
-              >
-                {intl.formatMessage({ id: "actions.load" })}
-              </Button>
-              <Button
-                variant="danger"
-                disabled={!selectedPreset}
-                onClick={requestDeletePreset}
-              >
-                {intl.formatMessage({ id: "actions.delete" })}
-              </Button>
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => deletePreset(preset.name)}
+                    title={message("delete_preset_hint", {
+                      name: preset.name,
+                    })}
+                  >
+                    <Icon icon={faTimes} />
+                  </Button>
+                </ButtonGroup>
+              ))}
             </div>
           ) : (
             <div className="text-muted mb-2">{message("no_presets")}</div>
           )}
           {presets.canSave && (
-            <InputGroup className="msl-preset-row">
+            <InputGroup className="msl-preset-save">
               <Form.Control
                 className="input-control"
                 value={presetName}

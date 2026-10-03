@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { sceneCardInsightThresholdBounds } from "../Scenes/sceneCardInsightsData_custom";
 import type { SceneCardInsightThresholdKey } from "../Scenes/sceneCardInsightTypes_custom";
 import { insightThresholdLabels } from "./insightStatsCatalog_custom";
 
@@ -14,8 +15,7 @@ export function InsightThresholdControl({
   prefix?: string;
 }) {
   const id = `insight-threshold-${prefix}-${thresholdKey}`;
-  const max = thresholdKey === "visibleInsightLimit" ? 20 : 100;
-  const min = thresholdKey === "visibleInsightLimit" ? 1 : 0;
+  const { min, max } = sceneCardInsightThresholdBounds[thresholdKey];
   const [inputValue, setInputValue] = useState(String(value));
   useEffect(() => {
     setInputValue(String(value));

@@ -29,6 +29,7 @@ import type {
   SceneCardInsightRatingConfig,
   SceneCardInsightScene,
   SceneCardInsightTag,
+  SceneCardInsightThresholdKey,
   SceneCardInsightThresholds,
 } from "./sceneCardInsightTypes_custom";
 
@@ -48,6 +49,24 @@ export const defaultSceneCardInsightThresholds: SceneCardInsightThresholds = {
   tagGoodAmountMinPercent: 10,
   tagLotsMinPercent: 25,
   tagEyeCanSeeMinPercent: 50,
+  shortOutstandingMaxSeconds: 12,
+  shortOutstandingMinPercent: 65,
+  shortOutstandingMinMarkers: 3,
+};
+
+// CUSTOM: Shared input bounds for Settings, Playground, and normalization.
+export const sceneCardInsightThresholdBounds: Record<
+  SceneCardInsightThresholdKey,
+  { min: number; max: number }
+> = {
+  visibleInsightLimit: { min: 1, max: 20 },
+  rareRoleMaximumPercent: { min: 0, max: 100 },
+  tagGoodAmountMinPercent: { min: 0, max: 100 },
+  tagLotsMinPercent: { min: 0, max: 100 },
+  tagEyeCanSeeMinPercent: { min: 0, max: 100 },
+  shortOutstandingMaxSeconds: { min: 1, max: 600 },
+  shortOutstandingMinPercent: { min: 1, max: 100 },
+  shortOutstandingMinMarkers: { min: 1, max: 100 },
 };
 
 function finiteInteger(
@@ -60,50 +79,52 @@ function finiteInteger(
   return Math.min(maximum, Math.max(minimum, Math.round(value!)));
 }
 
+function boundedThreshold(
+  value: IUIConfig["sceneCardInsightThresholds"],
+  key: SceneCardInsightThresholdKey
+) {
+  const { min, max } = sceneCardInsightThresholdBounds[key];
+  return finiteInteger(
+    value?.[key],
+    defaultSceneCardInsightThresholds[key],
+    min,
+    max
+  );
+}
+
 export function normalizeSceneCardInsightThresholds(
   value?: IUIConfig["sceneCardInsightThresholds"]
 ): SceneCardInsightThresholds {
-  const visibleInsightLimit = finiteInteger(
-    value?.visibleInsightLimit,
-    defaultSceneCardInsightThresholds.visibleInsightLimit,
-    1,
-    20
-  );
-  const tagGoodAmountMinPercent = finiteInteger(
-    value?.tagGoodAmountMinPercent,
-    defaultSceneCardInsightThresholds.tagGoodAmountMinPercent,
-    0,
-    100
+  const tagGoodAmountMinPercent = boundedThreshold(
+    value,
+    "tagGoodAmountMinPercent"
   );
   const tagLotsMinPercent = Math.max(
     tagGoodAmountMinPercent,
-    finiteInteger(
-      value?.tagLotsMinPercent,
-      defaultSceneCardInsightThresholds.tagLotsMinPercent,
-      0,
-      100
-    )
+    boundedThreshold(value, "tagLotsMinPercent")
   );
   const tagEyeCanSeeMinPercent = Math.max(
     tagLotsMinPercent,
-    finiteInteger(
-      value?.tagEyeCanSeeMinPercent,
-      defaultSceneCardInsightThresholds.tagEyeCanSeeMinPercent,
-      0,
-      100
-    )
+    boundedThreshold(value, "tagEyeCanSeeMinPercent")
   );
   return {
-    visibleInsightLimit,
-    rareRoleMaximumPercent: finiteInteger(
-      value?.rareRoleMaximumPercent,
-      defaultSceneCardInsightThresholds.rareRoleMaximumPercent,
-      0,
-      100
-    ),
+    visibleInsightLimit: boundedThreshold(value, "visibleInsightLimit"),
+    rareRoleMaximumPercent: boundedThreshold(value, "rareRoleMaximumPercent"),
     tagGoodAmountMinPercent,
     tagLotsMinPercent,
     tagEyeCanSeeMinPercent,
+    shortOutstandingMaxSeconds: boundedThreshold(
+      value,
+      "shortOutstandingMaxSeconds"
+    ),
+    shortOutstandingMinPercent: boundedThreshold(
+      value,
+      "shortOutstandingMinPercent"
+    ),
+    shortOutstandingMinMarkers: boundedThreshold(
+      value,
+      "shortOutstandingMinMarkers"
+    ),
   };
 }
 
@@ -1844,9 +1865,53 @@ function getAttractivenessNegativeCandidates(
   return candidates;
 }
 
+// CUSTOM: Outstanding moments are better when they last, so flag scenes whose
+// timed Outstanding markers are mostly very short. Orgasm/Facial events are
+// short by nature and 2nd Camera markers repeat footage, so both are skipped.
+function getShortOutstandingCandidates(
+  scene: SceneCardInsightScene,
+  roleTagIds: IUIConfig["roleTagIds"],
+  thresholds: SceneCardInsightThresholds,
+  sceneDuration: number
+): InsightCandidate[] {
+  const durations = scene.scene_markers.flatMap((marker) => {
+    if (
+      !markerIsHighlight(marker, roleTagIds) ||
+      markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId) ||
+      markerHasConfiguredTag(marker, roleTagIds?.orgasmTagId) ||
+      markerHasConfiguredTag(marker, roleTagIds?.facialTagId)
+    ) {
+      return [];
+    }
+    const interval = markerInterval(marker, sceneDuration);
+    return interval ? [interval.end - interval.start] : [];
+  });
+  if (durations.length < thresholds.shortOutstandingMinMarkers) return [];
+
+  const shortCount = durations.filter(
+    (duration) => duration <= thresholds.shortOutstandingMaxSeconds
+  ).length;
+  const percent = (shortCount / durations.length) * 100;
+  if (percent < thresholds.shortOutstandingMinPercent) return [];
+
+  return [
+    {
+      key: "short-outstanding",
+      label: "Short Outstanding",
+      detail: `${shortCount} of ${durations.length} Outstanding markers last ${
+        thresholds.shortOutstandingMaxSeconds
+      }s or less (${Math.round(percent)}%)`,
+      tone: "negative",
+      kind: "short-outstanding",
+      score: percent,
+    },
+  ];
+}
+
 function getNegativeCandidates(
   scene: SceneCardInsightScene,
-  roleTagIds: IUIConfig["roleTagIds"]
+  roleTagIds: IUIConfig["roleTagIds"],
+  thresholds: SceneCardInsightThresholds
 ) {
   const sceneDuration = scene.files[0]?.duration ?? 0;
   // CUSTOM: No-orgasm is only meaningful after a completed primary activity
@@ -1856,7 +1921,15 @@ function getNegativeCandidates(
     roleTagIds,
     sceneDuration
   );
-  const candidates = getAttractivenessNegativeCandidates(scene);
+  const candidates = [
+    ...getAttractivenessNegativeCandidates(scene),
+    ...getShortOutstandingCandidates(
+      scene,
+      roleTagIds,
+      thresholds,
+      sceneDuration
+    ),
+  ];
 
   if (
     hasCompletedActivity &&
@@ -1907,7 +1980,7 @@ function getSceneCardInsightCandidates(
       thresholds,
       roleStatsByPerformer
     ),
-    ...getNegativeCandidates(scene, roleTagIds),
+    ...getNegativeCandidates(scene, roleTagIds, thresholds),
     ...getPerformerLineupCandidates(scene, ratingConfig),
     ...getTagCandidates(
       scene,

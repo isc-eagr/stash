@@ -1,6 +1,6 @@
-/* CUSTOM: multi-segment loop player menu and Loop tab editor */
+/* CUSTOM: multi-segment loop player buttons, overlay, and editor */
 
-// Player loop button and pop-up menu, styled like the Video.js menus.
+// Player loop toggle and editor buttons.
 .video-js .vjs-control-bar .vjs-multi-segment-loop-control {
   cursor: default;
   flex: none;
@@ -25,6 +25,10 @@
     &.active {
       color: $success;
     }
+
+    &.open {
+      color: $link-color;
+    }
   }
 
   .vjs-multi-segment-badge {
@@ -46,88 +50,68 @@
     right: -2px;
     top: 2px;
   }
+}
 
-  .vjs-multi-segment-loop-menu {
-    background-color: rgba(43, 51, 63, 0.95);
-    border-radius: $border-radius;
-    bottom: 100%;
-    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.5);
-    color: $text-color;
-    font-family: $font-family-base;
-    font-size: 0.875rem;
-    line-height: 1.5;
-    margin-bottom: 0.5rem;
-    padding: 0.75rem;
-    position: absolute;
-    right: 0;
-    text-align: left;
-    width: 17rem;
+// Loop editor floating over the video, inside the player so fullscreen keeps it.
+.video-js .multi-segment-loop-overlay {
+  background-color: rgba($card-bg, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: $border-radius;
+  bottom: 4em;
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.55);
+  color: $text-color;
+  display: flex;
+  flex-direction: column;
+  font-family: $font-family-base;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  max-height: calc(100% - 5em);
+  position: absolute;
+  right: 0.75rem;
+  text-align: left;
+  width: min(36rem, calc(100% - 1.5rem));
+  z-index: 110;
 
-    .msl-menu-row {
-      align-items: center;
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 0.6rem;
+  // A dragged panel is positioned by left/top instead of the corner anchor.
+  &.is-positioned {
+    bottom: auto;
+    right: auto;
+  }
+
+  .msl-overlay-header {
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    cursor: move;
+    display: flex;
+    padding: 0.4rem 0.5rem 0.4rem 0.9rem;
+    user-select: none;
+  }
+
+  &.is-dragging .msl-overlay-header {
+    cursor: grabbing;
+  }
+
+  .msl-overlay-title {
+    flex: 1;
+    font-weight: 500;
+  }
+
+  .msl-overlay-close {
+    color: $text-muted;
+    padding: 0.15rem 0.45rem;
+
+    &:hover {
+      color: $text-color;
     }
+  }
 
-    .custom-switch {
-      margin: 0;
-    }
-
-    .msl-menu-status {
-      color: $text-muted;
-      margin-left: auto;
-      white-space: nowrap;
-    }
-
-    .msl-menu-mark {
-      flex: 1;
-    }
-
-    .msl-menu-presets {
-      border-top: 1px solid rgba(255, 255, 255, 0.15);
-      max-height: 10rem;
-      overflow-y: auto;
-      padding-top: 0.4rem;
-    }
-
-    .msl-menu-heading {
-      color: $text-muted;
-      font-size: 0.75rem;
-      padding: 0 0.5rem 0.2rem;
-      text-transform: uppercase;
-    }
-
-    .msl-menu-item {
-      background: none;
-      border: 0;
-      border-radius: $border-radius-sm;
-      color: inherit;
-      display: block;
-      overflow: hidden;
-      padding: 0.3rem 0.5rem;
-      text-align: left;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      width: 100%;
-
-      &:hover,
-      &:focus-visible {
-        background-color: rgba(255, 255, 255, 0.12);
-      }
-    }
-
-    .msl-menu-edit {
-      border-radius: 0;
-      border-top: 1px solid rgba(255, 255, 255, 0.15);
-      color: $link-color;
-      margin-top: 0.4rem;
-      padding-top: 0.5rem;
-    }
+  .msl-overlay-body {
+    overflow-y: auto;
+    padding: 0.75rem 0.9rem;
   }
 }
 
-// Segment editor used by the scene Loop tab and the viewer dialog.
+// Segment editor used by the player overlay and the viewer dialog.
 .multi-segment-loop-editor {
   .msl-toolbar {
     align-items: center;
@@ -195,6 +179,10 @@
 
     &.repeating {
       border-left-color: $info;
+    }
+
+    &.focused {
+      box-shadow: inset 0 0 0 1px rgba($link-color, 0.5);
     }
   }
 
@@ -268,16 +256,15 @@
     margin-top: 1.5rem;
   }
 
-  .msl-preset-row {
+  .msl-preset-chips {
     display: flex;
-    flex-wrap: nowrap;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
-    max-width: 32rem;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.6rem;
+  }
 
-    .form-control {
-      flex: 1;
-    }
+  .msl-preset-save {
+    max-width: 24rem;
   }
 
   @media (max-width: 575.98px) {

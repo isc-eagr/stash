@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import {
-  milestoneCheckpoints,
   milestoneForecast,
   milestoneFromSearch,
   milestoneItemProgress,
@@ -9,6 +8,7 @@ import {
   milestoneTrackerIdle,
   resolveMilestoneSelection,
 } from "../src/components/TaskProgress/milestoneView_custom.ts";
+import { taskProgressCheckpoints } from "../src/components/TaskProgress/taskProgressCheckpoints_custom.ts";
 
 assert.equal(milestoneFromSearch("?view=milestones&milestone=12"), "12");
 assert.equal(
@@ -102,7 +102,7 @@ assert.equal(
 );
 
 assert.deepEqual(
-  milestoneCheckpoints(milestone.history, 30, "2026-09-23"),
+  taskProgressCheckpoints(milestone.history, 30, "2026-09-23"),
   [
     { threshold: 25, date: "2026-09-22", reached: true },
     { threshold: 50, date: undefined, reached: false },
@@ -112,7 +112,7 @@ assert.deepEqual(
   "checkpoints record the first day history crossed them"
 );
 assert.equal(
-  milestoneCheckpoints(milestone.history, 60, "2026-09-23")[1].reached,
+  taskProgressCheckpoints(milestone.history, 60, "2026-09-23")[1].reached,
   true,
   "progress earned before history began still counts"
 );

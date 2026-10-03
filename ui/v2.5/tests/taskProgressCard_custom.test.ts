@@ -145,6 +145,38 @@ assert.match(
 assert.match(markup, /Today/);
 assert.match(markup, /This week/);
 assert.match(markup, /This month/);
+const checkpointMarkup = markup.match(
+  /<ul class="milestone-checkpoints progress-checkpoints-compact"[^>]*>(.*?)<\/ul>/
+)?.[1];
+assert.ok(checkpointMarkup, "tracker cards show compact checkpoints");
+assert.equal((checkpointMarkup.match(/<li /g) ?? []).length, 3);
+assert.match(
+  checkpointMarkup,
+  /milestone-checkpoint-25 milestone-checkpoint-reached[^>]*><strong class="milestone-checkpoint-medal">25%<\/strong><small>07\/09\/2026<\/small>/,
+  "the tracker records the first date a checkpoint was reached"
+);
+assert.match(
+  checkpointMarkup,
+  /milestone-checkpoint-50[^>]*><strong class="milestone-checkpoint-medal">50%<\/strong><small>Not yet<\/small>/
+);
+assert.match(
+  checkpointMarkup,
+  /milestone-checkpoint-75[^>]*><strong class="milestone-checkpoint-medal">75%<\/strong><small>Not yet<\/small>/
+);
+assert.doesNotMatch(checkpointMarkup, /100%/);
+const completedCheckpoints = renderCard({
+  ...tracker,
+  completed_count: 10,
+  current_count: 0,
+  history: [],
+}).match(
+  /<ul class="milestone-checkpoints progress-checkpoints-compact"[^>]*>(.*?)<\/ul>/
+)?.[1];
+assert.equal(
+  (completedCheckpoints?.match(/milestone-checkpoint-reached/g) ?? []).length,
+  3,
+  "current progress marks checkpoints reached even without historical dates"
+);
 const footerIndex = markup.indexOf("progress-tracker-footer");
 const actionsIndex = markup.indexOf(
   "progress-tracker-card-actions",

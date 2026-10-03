@@ -38,7 +38,22 @@ const weekdayLabels = Array.from({ length: 7 }, (_, index) =>
 function dayTitle(day: ITaskProgressReportDay, completedLabel: string) {
   return `${formatTaskProgressDate(day.date)}: ${
     day.completed
-  } ${completedLabel}`;
+  } ${completedLabel}${
+    day.goal > 0 && !day.future
+      ? ` / ${day.goal} (${Math.round((day.completed / day.goal) * 100)}%)`
+      : ""
+  }`;
+}
+
+function dayColorClass(day: ITaskProgressReportDay, max: number) {
+  return !day.future && day.goal > 0
+    ? `progress-report-goal-${taskProgressDailyGoalState(
+        day.completed,
+        day.goal
+      )}`
+    : `progress-report-heat-${
+        day.future ? 0 : taskProgressActivityLevel(day, max)
+      }`;
 }
 
 const ReportBars: React.FC<{ bars: readonly IBar[]; label: string }> = ({
@@ -63,7 +78,7 @@ const ReportBars: React.FC<{ bars: readonly IBar[]; label: string }> = ({
           <span className="progress-report-bar-track">
             <span
               className={
-                bar.goal
+                !bar.future && bar.goal && bar.goal > 0
                   ? `progress-report-goal-${taskProgressDailyGoalState(
                       bar.value,
                       bar.goal
@@ -80,15 +95,29 @@ const ReportBars: React.FC<{ bars: readonly IBar[]; label: string }> = ({
   );
 };
 
-const HeatLegend: React.FC = () => {
+const HeatLegend: React.FC<{ goal: boolean }> = ({ goal }) => {
   const t = useProgressText();
   return (
     <div className="progress-report-heat-legend" aria-hidden="true">
-      {t("Less")}
-      {[0, 1, 2, 3, 4].map((level) => (
-        <span className={`progress-report-heat-${level}`} key={level} />
-      ))}
-      {t("More")}
+      {t(goal ? "Daily goal" : "Less")}
+      {goal
+        ? [
+            { state: "red", label: "≤25%" },
+            { state: "orange", label: "25–50%" },
+            { state: "yellow", label: "50–80%" },
+            { state: "green", label: "80–100%" },
+            { state: "sapphire", label: ">100%" },
+          ].map(({ state, label }) => (
+            <span
+              className={`progress-report-goal-${state}`}
+              title={label}
+              key={state}
+            />
+          ))
+        : [0, 1, 2, 3, 4].map((level) => (
+            <span className={`progress-report-heat-${level}`} key={level} />
+          ))}
+      {!goal && t("More")}
     </div>
   );
 };
@@ -100,6 +129,7 @@ export const TaskProgressReportActivity: React.FC<{
   const t = useProgressText();
   const completedLabel = t("completed");
   const max = Math.max(0, ...days.map((day) => day.completed));
+  const hasGoal = days.some((day) => !day.future && day.goal > 0);
 
   if (range === "week") {
     return (
@@ -137,10 +167,9 @@ export const TaskProgressReportActivity: React.FC<{
                 day ? (
                   <span
                     role="gridcell"
-                    className={`progress-report-heat-${taskProgressActivityLevel(
-                      day,
-                      max
-                    )}${day.future ? " progress-report-future" : ""}`}
+                    className={`${dayColorClass(day, max)}${
+                      day.future ? " progress-report-future" : ""
+                    }`}
                     key={day.date}
                     title={dayTitle(day, completedLabel)}
                   >
@@ -154,7 +183,7 @@ export const TaskProgressReportActivity: React.FC<{
             </div>
           ))}
         </div>
-        <HeatLegend />
+        <HeatLegend goal={hasGoal} />
       </div>
     );
   }
@@ -189,10 +218,9 @@ export const TaskProgressReportActivity: React.FC<{
                   <span
                     className={
                       day
-                        ? `progress-report-heat-${taskProgressActivityLevel(
-                            day,
-                            max
-                          )}${day.future ? " progress-report-future" : ""}`
+                        ? `${dayColorClass(day, max)}${
+                            day.future ? " progress-report-future" : ""
+                          }`
                         : "progress-report-heatmap-empty"
                     }
                     key={day?.date ?? `empty-${slot}`}
@@ -204,7 +232,7 @@ export const TaskProgressReportActivity: React.FC<{
           })}
         </div>
       </div>
-      <HeatLegend />
+      <HeatLegend goal={hasGoal} />
       <ReportBars
         label={t("Monthly completions")}
         bars={taskProgressReportMonths(days).map((value, index) => {
@@ -215,6 +243,13 @@ export const TaskProgressReportActivity: React.FC<{
             key: start,
             label: monthFormat.format(new Date(`${start}T00:00Z`)),
             value,
+            goal: days.reduce(
+              (sum, day) =>
+                !day.future && Number(day.date.slice(5, 7)) === index + 1
+                  ? sum + day.goal
+                  : sum,
+              0
+            ),
             future: days.find((day) => day.date === start)?.future,
           };
         })}

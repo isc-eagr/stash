@@ -80,11 +80,12 @@ import type MultiSegmentLoopPlugin from "./multi-segment-loop";
 import type { ILoopSegmentInput } from "./multi-segment-loop";
 import type { IMultiSegmentLoopController } from "./useMultiSegmentLoop_custom";
 import type { IMultiSegmentLoopPresets } from "./useMultiSegmentLoopPresets_custom";
-import { MultiSegmentLoopMenu } from "./MultiSegmentLoopMenu";
+import { MultiSegmentLoopButtons } from "./MultiSegmentLoopButtons";
 import {
-  MULTI_SEGMENT_LOOP_EDITOR_OPEN_EVENT,
-  showMultiSegmentLoopControlsCustom,
-} from "./multiSegmentLoopSettings_custom";
+  MultiSegmentLoopOverlay,
+  type ILoopOverlayPosition,
+} from "./MultiSegmentLoopOverlay";
+import { showMultiSegmentLoopControlsCustom } from "./multiSegmentLoopSettings_custom";
 import { sceneMarkerLoopSegmentCustom } from "./sceneMarkerLoopSegment_custom"; // CUSTOM
 import { markerTitle } from "src/core/markers"; // CUSTOM
 import { scenePlayerGalleryIDsCustom } from "./scenePlayerGalleryIDs_custom"; // CUSTOM
@@ -383,8 +384,12 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const [showORecordOverlay, setShowORecordOverlay] = useState(true); // CUSTOM
     const [recordedOToast, setRecordedOToast] = useState<string>(); // CUSTOM
     const recordedOToastTimeoutRef = useRef<number>(); // CUSTOM
-    // CUSTOM: begin - loop control host, negative marker, performer overlay state
+    // CUSTOM: begin - loop controls, negative marker, performer overlay state
     const [loopControlEl, setLoopControlEl] = useState<HTMLElement>();
+    const [loopEditorOpen, setLoopEditorOpen] = useState(false);
+    const [loopOverlayPosition, setLoopOverlayPosition] =
+      useState<ILoopOverlayPosition>();
+    const closeLoopEditor = useCallback(() => setLoopEditorOpen(false), []);
     const showLoopControls = showMultiSegmentLoopControlsCustom(uiConfig);
 
     // Negative marker skipping - enabled by default
@@ -674,8 +679,8 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       skipButtons.setBackwardHandler(onPrevious);
     }, [getPlayer, onNext, onPrevious]);
 
-    // CUSTOM: begin - loop menu host, negative marker skip, performer image overlay buttons
-    // Host for the loop button/menu, placed left of the playback rate button
+    // CUSTOM: begin - loop button host, negative marker skip, performer image overlay buttons
+    // Host for the loop buttons, placed left of the playback rate button
     useEffect(() => {
       const controlBar = _player?.el()?.querySelector(".vjs-control-bar");
       if (!controlBar || !showLoopControls) return;
@@ -690,16 +695,9 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       return () => {
         host.remove();
         setLoopControlEl(undefined);
+        setLoopEditorOpen(false);
       };
     }, [_player, showLoopControls]);
-
-    const openLoopEditor = useCallback(() => {
-      const player = getPlayer();
-      if (player?.isFullscreen()) void player.exitFullscreen();
-      window.dispatchEvent(
-        new CustomEvent(MULTI_SEGMENT_LOOP_EDITOR_OPEN_EVENT)
-      );
-    }, [getPlayer]);
 
     // Create negative marker skip toggle button in control bar
     useEffect(() => {
@@ -1699,7 +1697,8 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       if (
         target.tagName === "INPUT" ||
         target.tagName === "TEXTAREA" ||
-        target.isContentEditable
+        target.isContentEditable ||
+        target.closest(".multi-segment-loop-overlay")
       ) {
         return;
       }
@@ -1851,15 +1850,27 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             timestampRangeCopyActive={markerTimestampRangeCopyActive} // CUSTOM
           />
         )}
-        {/* CUSTOM: begin - multi-segment loop menu, performer image overlay modal, performer image overlays */}
-        {_player && loopControlEl && multiSegmentLoop && (
-          <MultiSegmentLoopMenu
-            player={_player}
+        {/* CUSTOM: begin - multi-segment loop controls, performer image overlay modal, performer image overlays */}
+        {loopControlEl && multiSegmentLoop && (
+          <MultiSegmentLoopButtons
             container={loopControlEl}
             loop={multiSegmentLoop}
+            presetCount={multiSegmentLoopPresets?.presets.length ?? 0}
+            editorOpen={loopEditorOpen}
+            onEditorOpenChange={setLoopEditorOpen}
+          />
+        )}
+        {loopEditorOpen && _player?.el() && multiSegmentLoop && (
+          <MultiSegmentLoopOverlay
+            container={_player.el() as HTMLElement}
+            loop={multiSegmentLoop}
             presets={multiSegmentLoopPresets}
-            fullscreen={fullscreen}
-            onEditSegments={openLoopEditor}
+            position={loopOverlayPosition}
+            onPositionChange={setLoopOverlayPosition}
+            modalContainer={
+              fullscreen ? (_player.el() as HTMLElement) : undefined
+            }
+            onClose={closeLoopEditor}
           />
         )}
         {/* Performer Image Overlay Modal */}

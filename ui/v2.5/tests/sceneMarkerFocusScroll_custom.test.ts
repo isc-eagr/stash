@@ -5,6 +5,7 @@ import {
   findSceneMarkerFocusElement,
   getCenteredSceneMarkerScrollTop,
   isSceneTabScrollContainer,
+  scrollSceneMarkerIntoTabView,
 } from "../src/components/Scenes/SceneDetails/sceneMarkerFocusScroll_custom.ts";
 
 function focusElement(
@@ -77,6 +78,57 @@ assert.equal(
   0,
   "marker focus does not request a negative scene tab scroll position"
 );
+
+const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+const tabScrollRequests: ScrollToOptions[] = [];
+const pageScrollRequests: ScrollIntoViewOptions[] = [];
+let overflowY = "auto";
+const scrollElement = {
+  clientHeight: 600,
+  scrollTop: 200,
+  getBoundingClientRect: () => ({ top: 100 }),
+  scrollTo: (options: ScrollToOptions) => tabScrollRequests.push(options),
+} as unknown as HTMLElement;
+const markerElement = {
+  getBoundingClientRect: () => ({ top: 650, height: 40 }),
+  scrollIntoView: (options: ScrollIntoViewOptions) =>
+    pageScrollRequests.push(options),
+} as unknown as HTMLElement;
+
+try {
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      getComputedStyle(element: HTMLElement) {
+        assert.equal(element, scrollElement);
+        return { overflowY };
+      },
+    },
+  });
+
+  scrollSceneMarkerIntoTabView(scrollElement, markerElement);
+  assert.deepEqual(
+    tabScrollRequests,
+    [{ behavior: "smooth", top: 470 }],
+    "desktop marker focus scrolls inside the sidebar"
+  );
+  assert.deepEqual(pageScrollRequests, []);
+
+  overflowY = "visible";
+  scrollSceneMarkerIntoTabView(scrollElement, markerElement);
+  assert.equal(tabScrollRequests.length, 1);
+  assert.deepEqual(
+    pageScrollRequests,
+    [{ block: "center", behavior: "smooth" }],
+    "narrow layouts scroll the page when the sidebar does not scroll"
+  );
+} finally {
+  if (originalWindow) {
+    Object.defineProperty(globalThis, "window", originalWindow);
+  } else {
+    Reflect.deleteProperty(globalThis, "window");
+  }
+}
 
 const latestFocusRequest = {
   markerId: "marker-b",

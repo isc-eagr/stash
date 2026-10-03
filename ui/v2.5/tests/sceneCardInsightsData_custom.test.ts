@@ -2246,6 +2246,71 @@ test("No Orgasm requires completed activity with no countable Orgasm or Facial",
   );
 });
 
+test("Short Outstanding flags scenes whose timed Outstanding markers are mostly short", () => {
+  const sex = marker("sex", tag("sex", "Sex"), 0, 500);
+  const pito = (id: string, start: number, length: number | null) =>
+    marker(
+      id,
+      tag("pito", "Pito"),
+      start,
+      length === null ? null : start + length
+    );
+  const shortChip = (
+    sceneMarkers: ReturnType<typeof marker>[],
+    thresholds = {}
+  ) =>
+    getSceneCardInsightSets(
+      makeScene(sceneMarkers),
+      roleTagIds,
+      thresholds
+    ).all.find((insight) => insight.label === "Short Outstanding");
+
+  // 12s is the inclusive boundary; untimed markers are ignored.
+  const mostlyShort = [
+    sex,
+    pito("a", 10, 12),
+    pito("b", 40, 5),
+    pito("c", 80, 13),
+    pito("d", 120, 8),
+    pito("untimed", 200, null),
+  ];
+  assert.equal(
+    shortChip(mostlyShort)?.detail,
+    "3 of 4 Outstanding markers last 12s or less (75%)"
+  );
+  assert.equal(shortChip(mostlyShort)?.tone, "negative");
+
+  const halfShort = [sex, ...mostlyShort.slice(1, 4), pito("e", 300, 40)];
+  assert.equal(shortChip(halfShort), undefined);
+  assert.ok(shortChip(halfShort, { shortOutstandingMinPercent: 50 }));
+  assert.equal(
+    shortChip(mostlyShort, { shortOutstandingMinMarkers: 5 }),
+    undefined
+  );
+  assert.equal(
+    shortChip(mostlyShort, { shortOutstandingMaxSeconds: 4 }),
+    undefined
+  );
+
+  // Orgasm, Facial, and 2nd Camera markers never count toward the share.
+  const reallyHot = tag("really-hot", "Really Hot");
+  assert.equal(
+    shortChip(
+      [
+        sex,
+        pito("long", 10, 60),
+        marker("orgasm", tag("orgasm", "Orgasm"), 100, 104, [reallyHot]),
+        marker("facial", tag("facial", "Facial"), 110, 113, [reallyHot]),
+        marker("camera", tag("pito", "Pito"), 120, 125, [
+          tag("second-camera", "2nd Camera"),
+        ]),
+      ],
+      { shortOutstandingMinMarkers: 1 }
+    ),
+    undefined
+  );
+});
+
 test("Lots of filler remains retired for every marker coverage state", () => {
   const unmarkedLabels = labels([], 600);
   const incompleteActivityLabels = labels(
@@ -2570,8 +2635,10 @@ test("No Orgasm reserves a high-priority slot near the chip ceiling", () => {
     defaultThresholds
   );
 
-  assert.equal(sceneLabels.length, 6);
+  // CUSTOM: The five 10s GOAT markers also fill the free slot as Short Outstanding.
+  assert.equal(sceneLabels.length, 7);
   assert.ok(sceneLabels.includes("No Orgasm"));
+  assert.ok(sceneLabels.includes("Short Outstanding"));
   assert.equal(sceneLabels.includes("50% fucking, 50% eating pito"), false);
   assert.equal(
     sceneLabels.some((label) =>

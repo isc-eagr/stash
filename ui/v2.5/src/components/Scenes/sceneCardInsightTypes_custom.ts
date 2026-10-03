@@ -111,6 +111,7 @@ export type SceneCardInsightCandidateKind =
   | "interaction"
   | "rare-role"
   | "negative-rating"
+  | "short-outstanding"
   | "favorite-lineup"
   | "country-lineup";
 

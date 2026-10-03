@@ -69,13 +69,15 @@ export function openInsightEntityLink(
   label: string,
   ids: string[]
 ) {
-  return (
-    window.open(
-      createInsightEntityLink(entity, label, ids),
-      "_blank",
-      "noopener,noreferrer"
-    ) !== null
+  // A "noopener" feature makes window.open return null even when the tab
+  // opens, so detect blocking from the handle and detach the opener after.
+  const tab = window.open(
+    createInsightEntityLink(entity, label, ids),
+    "_blank"
   );
+  if (!tab) return false;
+  tab.opener = null;
+  return true;
 }
 
 export function openInsightSceneLink(label: string, ids: string[]) {

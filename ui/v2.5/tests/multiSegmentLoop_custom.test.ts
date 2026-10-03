@@ -243,6 +243,16 @@ test("loop state helpers", () => {
   assert.equal(loopState.loopSegmentsMatch([A], [B]), false);
 });
 
+test("segments count as saved only when a preset matches them", () => {
+  const presets = [
+    { name: "Best", segments: [A, B] },
+    { name: "Solo", segments: [C] },
+  ];
+  assert.equal(loopState.matchingLoopPresetName([A, B], presets), "Best");
+  assert.equal(loopState.matchingLoopPresetName([B, A], presets), undefined);
+  assert.equal(loopState.matchingLoopPresetName([], presets), undefined);
+});
+
 test("loop controls default on and follow the Custom setting", () => {
   assert.equal(showMultiSegmentLoopControlsCustom(undefined), true);
   assert.equal(showMultiSegmentLoopControlsCustom({}), true);

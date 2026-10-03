@@ -27,6 +27,7 @@ export const sceneCardInsightPolicies: Record<
   "rare-role": { priority: 805 },
   interaction: { priority: 800 },
   "negative-rating": { priority: 790 },
+  "short-outstanding": { priority: 785 },
   "favorite-lineup": { priority: 780 },
   "country-lineup": { priority: 770 },
 };

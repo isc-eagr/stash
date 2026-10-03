@@ -446,6 +446,39 @@ export const SettingsCustomPanel: React.FC = () => {
             saveSceneCardInsightThreshold("rareRoleMaximumPercent", value)
           }
         />
+        <NumberSetting
+          id="scene-card-insights-short-outstanding-seconds"
+          heading={sceneCardInsightSettingHeading(
+            intl.formatMessage({
+              id: "config.ui.scene_card_insights.short_outstanding_seconds.heading",
+            }),
+            "Short Outstanding",
+            "negative"
+          )}
+          subHeadingID="config.ui.scene_card_insights.short_outstanding_seconds.description"
+          value={sceneCardInsightThresholds.shortOutstandingMaxSeconds}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold("shortOutstandingMaxSeconds", value)
+          }
+        />
+        <NumberSetting
+          id="scene-card-insights-short-outstanding-percent"
+          headingID="config.ui.scene_card_insights.short_outstanding_percent.heading"
+          subHeadingID="config.ui.scene_card_insights.short_outstanding_percent.description"
+          value={sceneCardInsightThresholds.shortOutstandingMinPercent}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold("shortOutstandingMinPercent", value)
+          }
+        />
+        <NumberSetting
+          id="scene-card-insights-short-outstanding-markers"
+          headingID="config.ui.scene_card_insights.short_outstanding_markers.heading"
+          subHeadingID="config.ui.scene_card_insights.short_outstanding_markers.description"
+          value={sceneCardInsightThresholds.shortOutstandingMinMarkers}
+          onChange={(value) =>
+            saveSceneCardInsightThreshold("shortOutstandingMinMarkers", value)
+          }
+        />
       </SettingSection>
       {/* CUSTOM: end */}
 

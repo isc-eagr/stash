@@ -58,11 +58,6 @@ interface ISceneMarkersChronologicalPanel {
   search: ISceneMarkerChronologySearchFilters;
   onSearchChange: (search: ISceneMarkerChronologySearchFilters) => void;
   selectedMarkerIds: Set<string>;
-  // CUSTOM: activity section coverage percentages from the scene detail metrics
-  activitySectionPercents?: {
-    oral?: number;
-    sex?: number;
-  };
   derivedWindows?: Array<
     ISceneMarkerChronologyDerivedWindow<GQL.SceneMarkerDataFragment>
   >;
@@ -887,8 +882,6 @@ export const SceneMarkersChronologicalPanel: React.FC<
   search,
   onSearchChange,
   selectedMarkerIds,
-  // CUSTOM: activity section coverage percentages
-  activitySectionPercents = {},
   derivedWindows = [],
   selectedDerivedWindowKeys = new Set<string>(),
   onClickMarker,
@@ -1167,9 +1160,7 @@ export const SceneMarkersChronologicalPanel: React.FC<
         key={fallbackHighlightSectionKey}
       >
         <div className="scene-marker-activity-group-header">
-          <div className="scene-marker-activity-group-title">
-            <span>Other Highlights</span>
-          </div>
+          <span>Other Highlights</span>
           <div className="scene-marker-activity-group-meta">
             <span className="scene-marker-activity-group-duration">
               {formatMarkerDuration(sectionDurationSeconds)}
@@ -1234,16 +1225,7 @@ export const SceneMarkersChronologicalPanel: React.FC<
                 key={section.key}
               >
                 <div className="scene-marker-activity-group-header">
-                  <div className="scene-marker-activity-group-title">
-                    <span>{section.label}</span>
-                    {/* CUSTOM: show the scene-wide coverage used by the detail header */}
-                    {(section.key === "oral" || section.key === "sex") &&
-                      activitySectionPercents[section.key] !== undefined && (
-                        <span className="scene-marker-activity-group-percent">
-                          {activitySectionPercents[section.key]}% coverage
-                        </span>
-                      )}
-                  </div>
+                  <span>{section.label}</span>
                   <div className="scene-marker-activity-group-meta">
                     <span className="scene-marker-activity-group-duration">
                       {formatMarkerDuration(sectionDurationSeconds)}

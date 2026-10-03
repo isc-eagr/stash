@@ -3,7 +3,7 @@ import type { ApolloCache, Reference } from "@apollo/client";
 import * as GQL from "src/core/generated-graphql";
 import type { ILoopSegmentInput } from "./multi-segment-loop";
 import type { IMultiSegmentLoopController } from "./useMultiSegmentLoop_custom";
-import { loopSegmentsMatch } from "./multiSegmentLoopState_custom";
+import { matchingLoopPresetName } from "./multiSegmentLoopState_custom";
 
 // CUSTOM: begin - saved loop presets shared by the Loop tab, player menu, and viewer
 export interface ILoopPreset {
@@ -40,8 +40,10 @@ export interface IMultiSegmentLoopPresets {
   save: (name: string) => Promise<boolean>;
   load: (name: string) => boolean;
   remove: (name: string) => Promise<boolean>;
-  /** True when loading would discard different, unsaved segments. */
-  replacesCurrentSegments: (name: string) => boolean;
+  /** The saved preset whose segments match the current loop. */
+  matchingPresetName?: string;
+  /** True when the current segments match no saved preset. */
+  hasUnsavedSegments: boolean;
 }
 
 export function loopPresetsFromSource(
@@ -222,17 +224,11 @@ export function useMultiSegmentLoopPresets(
     [find, loop]
   );
 
-  const replacesCurrentSegments = useCallback(
-    (name: string) => {
-      const preset = find(name);
-      return (
-        !!preset &&
-        state.segments.length > 0 &&
-        !loopSegmentsMatch(state.segments, preset.segments)
-      );
-    },
-    [find, state.segments]
+  const matchingPresetName = useMemo(
+    () => matchingLoopPresetName(state.segments, presets),
+    [presets, state.segments]
   );
+  const hasUnsavedSegments = state.segments.length > 0 && !matchingPresetName;
 
   return useMemo(
     () => ({
@@ -242,7 +238,8 @@ export function useMultiSegmentLoopPresets(
       save,
       load,
       remove,
-      replacesCurrentSegments,
+      matchingPresetName,
+      hasUnsavedSegments,
     }),
     [
       presets,
@@ -252,7 +249,8 @@ export function useMultiSegmentLoopPresets(
       save,
       load,
       remove,
-      replacesCurrentSegments,
+      matchingPresetName,
+      hasUnsavedSegments,
     ]
   );
 }

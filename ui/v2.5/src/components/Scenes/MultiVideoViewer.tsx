@@ -25,7 +25,7 @@ import "src/components/ScenePlayer/multi-segment-loop";
 import type MultiSegmentLoopPlugin from "src/components/ScenePlayer/multi-segment-loop";
 import { useMultiSegmentLoop } from "src/components/ScenePlayer/useMultiSegmentLoop_custom";
 import { useMultiSegmentLoopPresets } from "src/components/ScenePlayer/useMultiSegmentLoopPresets_custom";
-import { MultiSegmentLoopMenu } from "src/components/ScenePlayer/MultiSegmentLoopMenu";
+import { MultiSegmentLoopButtons } from "src/components/ScenePlayer/MultiSegmentLoopButtons";
 import { MultiSegmentLoopEditor } from "src/components/ScenePlayer/MultiSegmentLoopEditor";
 import { showMultiSegmentLoopControlsCustom } from "src/components/ScenePlayer/multiSegmentLoopSettings_custom";
 import { ModalComponent } from "src/components/Shared/Modal";
@@ -812,13 +812,12 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
         style={{ position: "relative" }}
       />
       {loopPlugin && loopControlEl && (
-        <MultiSegmentLoopMenu
-          player={loopPlugin.player}
+        <MultiSegmentLoopButtons
           container={loopControlEl}
           loop={loop}
-          presets={loopPresets}
-          fullscreen={!!document.fullscreenElement}
-          onEditSegments={() => setShowLoopEditor(true)}
+          presetCount={loopPresets.presets.length}
+          editorOpen={showLoopEditor}
+          onEditorOpenChange={setShowLoopEditor}
         />
       )}
       <ModalComponent
