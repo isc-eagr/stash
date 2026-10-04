@@ -89,6 +89,10 @@ export interface IUIConfig {
   showAbLoopControls?: boolean;
 
   // CUSTOM: begin
+  // Optional scene-player controls are hidden unless explicitly shown.
+  showScenePlayerChromecastControl?: boolean;
+  showScenePlayerStreamControl?: boolean;
+  showScenePlayerAutostartControl?: boolean;
   // if true, multi-segment loop controls will be shown below the scene player
   showMultiSegmentLoopControls?: boolean;
   // if true, the scene Markers tab uses the upstream grouped primary-tag layout

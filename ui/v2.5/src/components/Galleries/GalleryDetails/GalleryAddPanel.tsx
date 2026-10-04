@@ -11,6 +11,7 @@ import { faPlus } from "@fortawesome/free-solid-svg-icons";
 import { galleryTitle } from "src/core/galleries";
 import { IItemListOperation } from "src/components/List/FilteredListToolbar";
 import { PatchComponent } from "src/patch";
+import { View } from "src/components/List/views"; // CUSTOM
 
 interface IGalleryAddProps {
   active: boolean;
@@ -104,6 +105,7 @@ export const GalleryAddPanel: React.FC<IGalleryAddProps> = PatchComponent(
 
     return (
       <FilteredImageList
+        view={View.GalleryAdd} // CUSTOM: remember the sidebar across galleries
         filterHook={filterHook}
         extraOperations={otherOperations}
         alterQuery={active}

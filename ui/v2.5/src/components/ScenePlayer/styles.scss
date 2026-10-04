@@ -3,6 +3,8 @@
 @import "videojs-seek-buttons/dist/videojs-seek-buttons.css"; // Needed for BigButtonGroup on touch
 @import "@silvermine/videojs-chromecast/dist/silvermine-videojs-chromecast.css";
 @import "@silvermine/videojs-airplay/dist/silvermine-videojs-airplay.css";
+@import "./scenePlayerControlVisibility_custom"; // CUSTOM
+@import "./scenePlayerMobileControls_custom"; // CUSTOM
 
 $scrubberHeight: 120px;
 $menuHeight: 4rem;
@@ -857,13 +859,7 @@ $font-family-monospace: sfmono-regular, menlo, monaco, consolas,
       }
     }
   }
-  @media (max-width: 576px) {
-    .vjs-control-bar {
-      .vjs-autostart-button {
-        display: none;
-      }
-    }
-  }
+  // CUSTOM: Auto Start button visibility follows Custom Settings at every width.
 
   // make controls a little more compact on smaller screens
   @media (max-width: 768px) {

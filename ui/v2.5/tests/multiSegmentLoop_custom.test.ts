@@ -6,10 +6,14 @@ import ts from "typescript";
 import * as selection from "../src/components/ScenePlayer/remoteLoopSelection_custom.ts";
 import * as boundary from "../src/components/ScenePlayer/playbackBoundary_custom.ts";
 import * as loopState from "../src/components/ScenePlayer/multiSegmentLoopState_custom.ts";
+import * as markerRepeat from "../src/components/ScenePlayer/sceneMarkerRepeat_custom.ts";
+import { sceneMarkerLoopSegmentCustom } from "../src/components/ScenePlayer/sceneMarkerLoopSegment_custom.ts";
 import { showMultiSegmentLoopControlsCustom } from "../src/components/ScenePlayer/multiSegmentLoopSettings_custom.ts";
 
 // Runs the real plugin against a minimal media clock, like remoteLoopSelection.
 const pluginExports: Record<string, any> = {};
+const timers = new Map<number, { callback: () => void; delay: number }>();
+let nextTimerId = 0;
 runInNewContext(
   ts.transpileModule(
     readFileSync(
@@ -42,8 +46,19 @@ runInNewContext(
         ? selection
         : id.includes("multiSegmentLoopState")
         ? loopState
+        : id.includes("sceneMarkerRepeat")
+        ? markerRepeat
         : boundary,
-    window: { setTimeout: () => 1, clearTimeout() {} },
+    window: {
+      setTimeout(callback: () => void, delay: number) {
+        nextTimerId += 1;
+        timers.set(nextTimerId, { callback, delay });
+        return nextTimerId;
+      },
+      clearTimeout(id: number) {
+        timers.delete(id);
+      },
+    },
   }
 );
 
@@ -53,12 +68,13 @@ const C = { id: "c", start: 50, end: 60 };
 const D = { id: "d", start: 70, end: 80 };
 
 function createLoop(enabled = true) {
-  const clock = { time: 0 };
+  timers.clear();
+  const clock = { time: 0, paused: false, rate: 1 };
   const player = {
     ready() {},
-    paused: () => false,
+    paused: () => clock.paused,
     seeking: () => false,
-    playbackRate: () => 1,
+    playbackRate: () => clock.rate,
     duration: () => 100,
     currentTime(value?: number) {
       if (value !== undefined) clock.time = value;
@@ -79,6 +95,199 @@ function createLoop(enabled = true) {
 }
 
 const current = (plugin: any) => plugin.getCurrentSegment()?.id;
+
+const repeatRange = { start: 82, end: 87, title: "Marker" };
+const loopConfiguration = (plugin: any) => {
+  const { markerRepeatId, ...configuration } = plugin.getSnapshot();
+  return JSON.stringify(configuration);
+};
+
+test("marker repeat preserves the entire active loop and resumes its playhead", () => {
+  const { plugin, clock } = createLoop();
+  plugin.jumpToSegment(2);
+  clock.time = 54.25;
+  plugin.markPoint();
+  plugin.setLoopSingleId("c");
+  clock.time = 54.25;
+  const before = loopConfiguration(plugin);
+
+  plugin.toggleMarkerRepeat("marker", repeatRange);
+  plugin.onSeeking();
+  plugin.onSeeked();
+  assert.equal(clock.time, 82);
+  assert.equal(plugin.getSnapshot().markerRepeatId, "marker");
+  assert.equal(loopConfiguration(plugin), before);
+
+  clock.time = 87;
+  plugin.checkLoop();
+  plugin.onSeeked();
+  assert.equal(clock.time, 82, "the marker repeats rather than advancing C");
+  assert.equal(loopConfiguration(plugin), before);
+
+  plugin.toggleMarkerRepeat("marker", repeatRange);
+  plugin.onSeeking();
+  plugin.onSeeked();
+  assert.equal(clock.time, 54.25);
+  assert.equal(plugin.getSnapshot().markerRepeatId, null);
+  assert.equal(loopConfiguration(plugin), before);
+  clock.time = 60;
+  plugin.checkLoop();
+  assert.equal(clock.time, 50, "the previous single-segment loop resumes");
+});
+
+test("marker repeat preserves remote subsets and their revision", () => {
+  const { plugin, clock } = createLoop();
+  const revision = plugin.getRemoteLoopState().loop_revision;
+  plugin.selectRemoteSegments(["a", "c"], revision);
+  clock.time = 14;
+  const before = JSON.stringify(plugin.getRemoteLoopState());
+  plugin.toggleMarkerRepeat("marker", repeatRange);
+  clock.time = 87;
+  plugin.checkLoop();
+  assert.equal(JSON.stringify(plugin.getRemoteLoopState()), before);
+  plugin.toggleMarkerRepeat("marker", repeatRange);
+  assert.equal(clock.time, 14);
+  clock.time = 20;
+  plugin.checkLoop();
+  assert.equal(clock.time, 50, "A still advances directly to C");
+});
+
+test("marker repeat with a disabled or empty loop restores regular playback", () => {
+  for (const empty of [false, true]) {
+    const { plugin, clock } = createLoop(false);
+    if (empty) plugin.clearSegments();
+    clock.time = 42.75;
+    const before = loopConfiguration(plugin);
+    plugin.toggleMarkerRepeat("marker", repeatRange);
+    clock.time = 87;
+    plugin.checkLoop();
+    assert.equal(clock.time, 82);
+    assert.equal(plugin.isEnabled(), false);
+    plugin.toggleMarkerRepeat("marker", repeatRange);
+    plugin.onSeeked();
+    plugin.checkLoop();
+    assert.equal(clock.time, 42.75);
+    assert.equal(loopConfiguration(plugin), before);
+    assert.equal(plugin.boundaryTimer, null);
+  }
+});
+
+test("switching repeated markers retains the original resume point", () => {
+  const { plugin, clock } = createLoop(false);
+  clock.time = 23.5;
+  plugin.toggleMarkerRepeat("first", repeatRange);
+  clock.time = 84;
+  plugin.toggleMarkerRepeat("second", { start: 63, end: 69 });
+  assert.equal(clock.time, 63);
+  assert.equal(plugin.getSnapshot().markerRepeatId, "second");
+  clock.time = 69;
+  plugin.checkLoop();
+  assert.equal(clock.time, 63);
+  plugin.toggleMarkerRepeat("second", { start: 63, end: 69 });
+  assert.equal(clock.time, 23.5);
+});
+
+test("marker repeat keeps paused scrubbing and resumes at the marker on play", () => {
+  const { plugin, clock } = createLoop();
+  clock.time = 15;
+  clock.paused = true;
+  plugin.toggleMarkerRepeat("marker", repeatRange);
+  assert.equal(clock.paused, true);
+  assert.equal(plugin.boundaryTimer, null);
+  clock.time = 45;
+  plugin.onSeeking();
+  plugin.onSeeked();
+  assert.equal(clock.time, 45, "paused scrubbing is left alone");
+  clock.paused = false;
+  plugin.onPlaying();
+  assert.equal(clock.time, 82, "playing returns to the temporary marker");
+  plugin.onSeeked();
+  clock.time = 55;
+  plugin.onSeeking();
+  plugin.onSeeked();
+  assert.equal(clock.time, 82, "a seek cannot change the configured segment");
+  assert.equal(current(plugin), "a");
+  clock.paused = true;
+  plugin.onPause();
+  plugin.toggleMarkerRepeat("marker", repeatRange);
+  assert.equal(clock.time, 15);
+  assert.equal(clock.paused, true);
+});
+
+test("temporary marker uses precise rate-aware timers and survives stalls", () => {
+  const { plugin, clock } = createLoop(false);
+  clock.time = 25;
+  clock.rate = 2;
+  plugin.toggleMarkerRepeat("marker", repeatRange);
+  assert.equal(timers.get(plugin.boundaryTimer)?.delay, 2500);
+  clock.time = 86.9;
+  timers.get(plugin.boundaryTimer)!.callback();
+  assert.equal(clock.time, 86.9, "a stalled media clock does not loop early");
+  assert.ok(Math.abs(timers.get(plugin.boundaryTimer)!.delay - 50) < 0.001);
+  clock.time = 87;
+  timers.get(plugin.boundaryTimer)!.callback();
+  assert.equal(clock.time, 82);
+  clock.rate = 0.5;
+  plugin.boundRescheduleBoundary();
+  assert.equal(timers.get(plugin.boundaryTimer)?.delay, 10000);
+  plugin.toggleMarkerRepeat("marker", repeatRange);
+  assert.equal(plugin.boundaryTimer, null, "stopping clears the repeat timer");
+});
+
+test("marker repeat uses open-marker fallback and clamps at the media end", () => {
+  const { plugin, clock } = createLoop(false);
+  clock.time = 12;
+  plugin.toggleMarkerRepeat(
+    "open",
+    sceneMarkerLoopSegmentCustom({ seconds: 92 }, "Open")
+  );
+  assert.equal(clock.time, 92);
+  assert.equal(timers.get(plugin.boundaryTimer)?.delay, 8000);
+  let playCalls = 0;
+  plugin.player.play = () => {
+    playCalls += 1;
+    clock.paused = false;
+    return Promise.resolve();
+  };
+  clock.time = 100;
+  clock.paused = true;
+  plugin.boundOnEnded();
+  assert.equal(clock.time, 92);
+  assert.equal(playCalls, 1, "reaching the file end restarts the marker");
+  plugin.toggleMarkerRepeat("open", repeatRange);
+  assert.equal(clock.time, 12);
+});
+
+test("invalid marker ranges leave playback and active repeat unchanged", () => {
+  const { plugin, clock } = createLoop(false);
+  clock.time = 23;
+  for (const range of [
+    { start: NaN, end: 25 },
+    { start: 5, end: Infinity },
+    { start: 50, end: 40 },
+    { start: 110, end: 115 },
+  ]) {
+    plugin.toggleMarkerRepeat("invalid", range);
+    assert.equal(clock.time, 23);
+    assert.equal(plugin.getSnapshot().markerRepeatId, null);
+  }
+  plugin.toggleMarkerRepeat("valid", repeatRange);
+  plugin.toggleMarkerRepeat("invalid", { start: 90, end: 89 });
+  assert.equal(plugin.getSnapshot().markerRepeatId, "valid");
+  assert.equal(clock.time, 82);
+});
+
+test("source replacement ends temporary repeat without seeking the old video", () => {
+  const { plugin, clock } = createLoop();
+  const before = loopConfiguration(plugin);
+  plugin.toggleMarkerRepeat("marker", repeatRange);
+  clock.time = 0;
+  plugin.boundClearSeek();
+  assert.equal(clock.time, 0);
+  assert.equal(plugin.getSnapshot().markerRepeatId, null);
+  assert.equal(loopConfiguration(plugin), before);
+  assert.equal(plugin.boundaryTimer, null);
+});
 
 test("subscribers receive a fresh snapshot for every edit", () => {
   const { plugin } = createLoop(false);

@@ -53,6 +53,16 @@ assert.match(
 );
 assert.match(
   stripSource,
+  /showPercentages=\{!sceneId\}/,
+  "only performer cards outside scene context show percentages beside the track"
+);
+assert.match(
+  detailSource,
+  /<PerformerVersatility[\s\S]*?performer=\{performer\}/,
+  "detail bars receive the performer for role-filtered scene links"
+);
+assert.match(
+  stripSource,
   /if \(versatilityCard && !inStrip && role\.category !== "solo"\)[\s\S]*?<PerformerCardVersatilityRow/,
   "sex, oral, and facial columns become versatility rows on cards"
 );

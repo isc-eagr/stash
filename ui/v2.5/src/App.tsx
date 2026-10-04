@@ -60,6 +60,7 @@ import moment from "moment/min/moment-with-locales";
 import { ErrorMessage } from "./components/Shared/ErrorMessage";
 import cx from "classnames";
 import { ApplicationThemeCustom } from "./components/ApplicationTheme_custom"; // CUSTOM
+import { TaskProgressAchievementMonitor } from "./components/TaskProgress/TaskProgressAchievementMonitor"; // CUSTOM
 
 const Performers = lazyComponent(
   () => import("./components/Performers/Performers")
@@ -448,6 +449,12 @@ export const App: React.FC = () => {
                     >
                       {/* CUSTOM */}
                       <ApplicationThemeCustom />
+                      {/* CUSTOM: Announce progress checkpoints from every app section. */}
+                      {!setupMatch &&
+                        systemStatusData?.systemStatus.status ===
+                          GQL.SystemStatusEnum.Ok && (
+                          <TaskProgressAchievementMonitor />
+                        )}
                       {maybeRenderReleaseNotes()}
                       <ConnectionMonitor />
                       <TroubleshootingModeOverlay />

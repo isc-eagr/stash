@@ -355,7 +355,11 @@ const renderReport = (current: typeof currentWeek, previous: typeof pastWeek) =>
       React.createElement(
         "table",
         {},
-        React.createElement(ReportHeadings, { name: "Tracker" }),
+        React.createElement(ReportHeadings, {
+          name: "Tracker",
+          range: "week",
+          isCurrentPeriod: true,
+        }),
         React.createElement(
           "tbody",
           {},
@@ -380,13 +384,58 @@ assert.deepEqual(
   ),
   [
     "Tracker",
-    "Total completed",
-    "Goal days met",
-    "Actual / Goal",
-    "Items Completed",
-    "% Advanced",
+    "Total completed through this week",
+    "Goal days met this week",
+    "Actual / Goal this week",
+    "Items completed this week",
+    "Completion change this week",
   ]
 );
+
+const headingCases = [
+  { range: "week", isCurrentPeriod: true, label: "this week" },
+  { range: "month", isCurrentPeriod: true, label: "this month" },
+  { range: "year", isCurrentPeriod: true, label: "this year" },
+  { range: "week", isCurrentPeriod: false, label: "selected week" },
+  { range: "month", isCurrentPeriod: false, label: "selected month" },
+  { range: "year", isCurrentPeriod: false, label: "selected year" },
+] as const;
+for (const { range, isCurrentPeriod, label } of headingCases) {
+  for (const name of ["Tracker", "Milestone"]) {
+    const markup = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(
+        IntlProvider,
+        { locale: "en", messages: {} },
+        React.createElement(
+          "table",
+          {},
+          React.createElement(ReportHeadings, {
+            name,
+            range,
+            isCurrentPeriod,
+            share: true,
+          })
+        )
+      )
+    );
+    assert.deepEqual(
+      [...markup.matchAll(/<th[^>]*scope="col"[^>]*>(.*?)<\/th>/g)].map(
+        (match) => match[1]
+      ),
+      [
+        name,
+        `Total completed through ${label}`,
+        `Goal days met ${label}`,
+        `Actual / Goal ${label}`,
+        `Items completed ${label}`,
+        `Completion change ${label}`,
+        `Share of ${range} completions (%)`,
+      ],
+      `${name} headings identify ${label} and distinguish cumulative totals`
+    );
+  }
+}
+
 const reportCells = [...reportMarkup.matchAll(/<td[^>]*>(.*?)<\/td>/g)].map(
   (match) => match[1]
 );

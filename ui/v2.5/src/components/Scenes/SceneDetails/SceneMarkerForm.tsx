@@ -43,11 +43,13 @@ import { Icon } from "src/components/Shared/Icon";
 import {
   faArrowDown,
   faArrowUp,
+  faArrowsRotate, // CUSTOM
   faUser,
 } from "@fortawesome/free-solid-svg-icons";
 import TextUtils from "src/utils/text";
 import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
 // CUSTOM: begin
+import { getFlippedSceneMarkerPerformers } from "./sceneMarkerPerformerFlip_custom";
 import {
   findSceneMarkerWarnings,
   type SceneMarkerGapTag,
@@ -62,7 +64,10 @@ import {
   INSERT_MARKER_SOURCE_END_REQUIRED,
   type SceneMarkerInsertMode,
 } from "./sceneMarkerFormActions_custom";
-import { toMarkerMilliseconds } from "./sceneMarkerTimestamp_custom";
+import {
+  formatSceneMarkerDuration,
+  toMarkerMilliseconds,
+} from "./sceneMarkerTimestamp_custom";
 import {
   getSequentialMarkerDraft,
   hasSequentialMarkerEnd,
@@ -489,6 +494,21 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       "bottom_performer_ids",
       items.map((item) => item.id)
     );
+  }
+
+  // CUSTOM: swap the draft only; the existing Save action persists both roles.
+  function onFlipPerformers() {
+    const flipped = getFlippedSceneMarkerPerformers(
+      topPerformers,
+      bottomPerformers
+    );
+    setTopPerformers(flipped.topPerformers);
+    setBottomPerformers(flipped.bottomPerformers);
+    formik.setValues((values) => ({
+      ...values,
+      top_performer_ids: flipped.top_performer_ids,
+      bottom_performer_ids: flipped.bottom_performer_ids,
+    }));
   }
   // CUSTOM: end
 
@@ -977,7 +997,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       <Form.Control
         plaintext
         readOnly
-        value={TextUtils.formatDurationRange(duration)}
+        value={formatSceneMarkerDuration(duration)}
       />
     );
 
@@ -1467,6 +1487,24 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     return (
       <>
         {renderField("top_performer_ids", topTitle, topControl, fullWidthProps)}
+        {/* CUSTOM: flip both performer roles without submitting the form. */}
+        <div className="d-flex justify-content-center mb-1">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={onFlipPerformers}
+            disabled={
+              formik.isSubmitting ||
+              (topPerformers.length === 0 && bottomPerformers.length === 0)
+            }
+            aria-label="Flip Top and Bottom performers"
+            title="Flip Top and Bottom performers" // CUSTOM
+          >
+            {/* CUSTOM: circular arrows indicate swapping performer roles. */}
+            <Icon icon={faArrowsRotate} />
+          </Button>
+        </div>
         {renderField(
           "bottom_performer_ids",
           bottomTitle,

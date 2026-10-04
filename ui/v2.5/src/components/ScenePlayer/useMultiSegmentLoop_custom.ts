@@ -18,6 +18,7 @@ export const EMPTY_MULTI_SEGMENT_LOOP_SNAPSHOT: IMultiSegmentLoopSnapshot = {
   loopSingleId: null,
   pendingStart: null,
   remoteSelectedIds: [],
+  markerRepeatId: null,
 };
 
 export interface IMultiSegmentLoopController {

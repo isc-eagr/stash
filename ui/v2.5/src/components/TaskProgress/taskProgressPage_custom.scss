@@ -1194,101 +1194,8 @@
   }
 }
 
-.milestone-checkpoints {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  list-style: none;
-  margin: 0.85rem 0 0;
-  padding: 0;
-}
-
-.milestone-checkpoint {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  min-width: 5.5rem;
-
-  small {
-    color: var(--black-steel-text-muted, #bfccd6);
-    font-size: 0.72rem;
-    white-space: nowrap;
-  }
-}
-
-/* CUSTOM: Bronze, silver, gold, and platinum checkpoint medals. */
-@each $threshold, $highlight, $metal, $shadow,
-  $rim
-    in (
-      (25, #f6d4ac, #c58a51, #92572c, #d8a16d),
-      (50, #f4f8fc, #bbc8d3, #82919f, #d5dfe8),
-      (75, #fff0ab, #eac15a, #b47c21, #f4d47c),
-      (100, #f2ffff, #b0dce6, #749eae, #d3f4fa)
-    )
-{
-  .milestone-checkpoint-#{$threshold} {
-    --checkpoint-highlight: #{$highlight};
-    --checkpoint-metal: #{$metal};
-    --checkpoint-shadow: #{$shadow};
-    --checkpoint-rim: #{$rim};
-  }
-}
-
-.milestone-checkpoint-medal {
-  aspect-ratio: 1;
-  background: linear-gradient(
-    135deg,
-    var(--checkpoint-highlight),
-    var(--checkpoint-metal) 40%,
-    var(--checkpoint-shadow) 75%,
-    var(--checkpoint-highlight)
-  );
-  border: 2px solid var(--checkpoint-rim);
-  border-radius: 50%;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.7),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.3);
-  color: #211b13;
-  display: grid;
-  filter: grayscale(0.85);
-  font-size: 1rem;
-  line-height: 1;
-  opacity: 0.45;
-  place-items: center;
-  position: relative;
-  width: 3.3rem;
-
-  &::after {
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    border-radius: 50%;
-    content: "";
-    inset: 0.2rem;
-    position: absolute;
-  }
-}
-
-.milestone-checkpoint-reached .milestone-checkpoint-medal {
-  filter: none;
-  opacity: 1;
-}
-
-/* CUSTOM: Smaller checkpoints on individual tracker cards. */
-.progress-checkpoints-compact {
-  gap: 0.35rem;
-  margin-top: 0;
-
-  .milestone-checkpoint {
-    min-width: 4.5rem;
-
-    small {
-      font-size: 0.65rem;
-    }
-  }
-
-  .milestone-checkpoint-medal {
-    font-size: 0.85rem;
-    width: 2.6rem;
-  }
+.milestone-contributions-period {
+  margin-bottom: 0.75rem;
 }
 
 .milestone-contributions-table {
@@ -1306,8 +1213,8 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   display: grid;
   gap: 0.5rem;
-  grid-template-columns: minmax(12rem, 2fr) repeat(8, minmax(5rem, 1fr));
-  min-width: 55rem;
+  grid-template-columns: minmax(12rem, 2fr) repeat(5, minmax(5rem, 1fr));
+  min-width: 42rem;
   padding: 0.45rem 0.65rem;
 }
 

@@ -203,7 +203,7 @@ const (
 	MaximumLoopDuration                 = "maximum_loop_duration"
 	AutostartVideo                      = "autostart_video"
 	AutostartVideoOnPlaySelected        = "autostart_video_on_play_selected"
-	autostartVideoOnPlaySelectedDefault = true
+	autostartVideoOnPlaySelectedDefault = false // CUSTOM: require opting into automatic playback
 	ContinuePlaylistDefault             = "continue_playlist_default"
 	ShowStudioAsText                    = "show_studio_as_text"
 	CSSEnabled                          = "cssenabled"

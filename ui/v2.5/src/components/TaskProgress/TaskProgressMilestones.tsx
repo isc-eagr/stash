@@ -27,42 +27,19 @@ import {
   milestoneItemProgress,
   milestoneSearch,
   milestoneTargetProgress,
-  milestoneTrackerIdle,
   resolveMilestoneSelection,
 } from "./milestoneView_custom";
 import { TaskProgressPercentDelta } from "./TaskProgressDelta";
 import { taskProgressPeriodComparisons } from "./taskProgressReports_custom";
-import type {
-  ITaskProgressPeriodComparison,
-  TaskProgressComparisonPeriod,
-} from "./taskProgressReports_custom";
+import type { TaskProgressComparisonPeriod } from "./taskProgressReports_custom";
+import {
+  milestoneContributionHeaders,
+  milestoneContributionPeriods,
+  milestoneContributionRows,
+} from "./milestoneContributions_custom";
+import type { MilestoneContributionSortKey as ContributionSortKey } from "./milestoneContributions_custom";
 
 const lastMilestoneKey = "task-progress-last-milestone";
-
-type ContributionSortKey =
-  | "title"
-  | "completed"
-  | "percent"
-  | `${TaskProgressComparisonPeriod}${"Completed" | "Percent"}`;
-
-const contributionPeriods: {
-  key: TaskProgressComparisonPeriod;
-  label: string;
-}[] = [
-  { key: "day", label: "today" },
-  { key: "week", label: "this week" },
-  { key: "month", label: "this month" },
-];
-
-/** Current and previous percentages for a "<period>Percent" column. */
-function percentComparison(
-  periods: Record<TaskProgressComparisonPeriod, ITaskProgressPeriodComparison>,
-  key: string
-) {
-  const { current, previous, label } =
-    periods[key.replace(/Percent$/, "") as TaskProgressComparisonPeriod];
-  return { current: current.advanced, previous: previous.advanced, label };
-}
 
 interface IProps {
   trackers: readonly Tracker[];
@@ -75,13 +52,15 @@ const MilestoneDashboard: React.FC<{
   onOpenTracker: (id: string) => void;
 }> = ({ milestone, onOpenTracker }) => {
   const t = useProgressText();
+  const [contributionPeriod, setContributionPeriod] =
+    useState<TaskProgressComparisonPeriod>("week");
   const [contributionSort, setContributionSort] = useState<
     | {
         key: ContributionSortKey;
         direction: "ascending" | "descending";
       }
     | undefined
-  >({ key: "weekPercent", direction: "descending" });
+  >({ key: "periodPercent", direction: "descending" });
   const today = progressToday();
   const forecast = milestoneForecast(milestone, today);
   const target = milestoneTargetProgress(
@@ -120,45 +99,19 @@ const MilestoneDashboard: React.FC<{
     on_track: "On track",
     behind: "Behind",
   };
-  const contributionHeaders: { key: ContributionSortKey; label: string }[] = [
-    { key: "title", label: "Tracker" },
-    { key: "completed", label: "Completed" },
-    { key: "percent", label: "%" },
-    ...contributionPeriods.flatMap(({ key, label }) => [
-      { key: `${key}Completed` as const, label: `Completed ${label}` },
-      { key: `${key}Percent` as const, label: `% ${label}` },
-    ]),
-  ];
-  const contributionRows = milestone.trackers.map((tracker, index) => {
-    const completed =
-      tracker.mode === "FIXED"
-        ? Math.max(0, tracker.goal - tracker.current_count)
-        : tracker.completed_count;
-    const total = completed + tracker.current_count;
-    const periods = taskProgressPeriodComparisons(tracker.history, today);
-    const values: Record<Exclude<ContributionSortKey, "title">, number> = {
-      completed,
-      percent: total === 0 ? 100 : (completed / total) * 100,
-      dayCompleted: periods.day.current.completed,
-      dayPercent: periods.day.current.advanced,
-      weekCompleted: periods.week.current.completed,
-      weekPercent: periods.week.current.advanced,
-      monthCompleted: periods.month.current.completed,
-      monthPercent: periods.month.current.advanced,
-    };
-    return {
-      tracker,
-      index,
-      values,
-      periods,
-      idle: milestoneTrackerIdle(tracker, today),
-    };
-  });
+  const contributionHeaders = milestoneContributionHeaders(contributionPeriod);
+  const contributionRows = milestoneContributionRows(
+    milestone.trackers,
+    contributionPeriod,
+    today
+  );
   const topContributor = contributionRows.reduce<
     (typeof contributionRows)[number] | undefined
   >(
     (top, row) =>
-      row.values.weekCompleted > (top?.values.weekCompleted ?? 0) ? row : top,
+      row.values.periodCompleted > (top?.values.periodCompleted ?? 0)
+        ? row
+        : top,
     undefined
   );
   const sortedContributionRows = [...contributionRows];
@@ -357,6 +310,23 @@ const MilestoneDashboard: React.FC<{
           )}
           <section className="milestone-contributions">
             <h3>{t("Trackers")}</h3>
+            <div
+              className="task-progress-history-chart-toggle milestone-contributions-period"
+              role="group"
+              aria-label={t("Tracker contribution period")}
+            >
+              {milestoneContributionPeriods.map(({ key, label }) => (
+                <button
+                  type="button"
+                  key={key}
+                  aria-pressed={contributionPeriod === key}
+                  className={contributionPeriod === key ? "active" : undefined}
+                  onClick={() => setContributionPeriod(key)}
+                >
+                  {t(label)}
+                </button>
+              ))}
+            </div>
             <div className="milestone-mobile-sort">
               <Form.Group controlId="milestone-mobile-sort" className="mb-0">
                 <Form.Label>{t("Sort by")}</Form.Label>
@@ -456,22 +426,26 @@ const MilestoneDashboard: React.FC<{
                             </Button>
                             {top && (
                               <Badge variant="success">
-                                {t("Top this week")}
+                                {t(
+                                  milestoneContributionPeriods.find(
+                                    (item) => item.key === contributionPeriod
+                                  )!.top
+                                )}
                               </Badge>
                             )}
                           </>
-                        ) : key === "percent" ? (
+                        ) : key === "percent" || key === "share" ? (
                           <span className="milestone-percent">
                             <span className="milestone-bar" aria-hidden="true">
                               <span
                                 style={{
-                                  width: `${Math.min(100, values.percent)}%`,
+                                  width: `${Math.min(100, values[key])}%`,
                                 }}
                               />
                             </span>
-                            {values.percent.toFixed(1)}%
+                            {values[key].toFixed(key === "share" ? 0 : 1)}%
                           </span>
-                        ) : key.endsWith("Percent") ? (
+                        ) : key === "periodPercent" ? (
                           <>
                             <FormattedNumber
                               maximumFractionDigits={2}
@@ -481,7 +455,9 @@ const MilestoneDashboard: React.FC<{
                               value={values[key] / 100}
                             />
                             <TaskProgressPercentDelta
-                              {...percentComparison(row.periods, key)}
+                              current={row.comparison.current.advanced}
+                              previous={row.comparison.previous.advanced}
+                              label={row.comparison.label}
                               compact
                             />
                           </>

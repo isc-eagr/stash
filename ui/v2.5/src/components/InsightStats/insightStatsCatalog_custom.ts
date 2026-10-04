@@ -18,6 +18,7 @@ const insightStatsTones: Record<
   leaning: "activity",
   "no-orgasm": "negative",
   interaction: "interaction",
+  "only-scene": "rare",
   "rare-role": "rare",
   "negative-rating": "negative",
   "short-outstanding": "negative",
@@ -98,6 +99,11 @@ const kindInfo: Record<SceneCardInsightCandidateKind, InsightKindInfo> = {
   interaction: {
     label: "Interaction patterns",
     note: "Non-2nd-Camera role assignments create the interaction graph. Each direction needs at least 5% of the runtime (untimed markers count by presence), and patterns describe only the vatos in the sex/oral action.",
+    thresholds: [],
+  },
+  "only-scene": {
+    label: "Only scene",
+    note: "A cast member appears in exactly one scene in your library, including scenes without markers. One chip per qualifying performer; coverage counts each eligible scene once.",
     thresholds: [],
   },
   "rare-role": {
@@ -228,6 +234,7 @@ export const insightStatsCatalog: InsightStatsDefinition[] = [
   ),
   definition("no-orgasm"),
   definition("leaning"),
+  definition("only-scene"),
   ...interactions.map(([key, label]) =>
     keyed(
       "interaction",

@@ -69,6 +69,10 @@
       },
       "scene_player": {
         "options": {
+          "show_chromecast_control": "Show Chromecast control",
+          "show_stream_control": "Show stream control (gear)",
+          "show_autostart_control": "Show Auto Start control",
+          "show_autostart_control_desc": "Toggles automatic playback when a scene loads. Hiding the button keeps your playback preference.",
           "show_official_scene_marker_layout": "Show official scene marker layout",
           "show_official_scene_marker_layout_desc": "Use the upstream primary-tag grouped layout in the scene Markers tab instead of the custom chronological layout.",
           "enable_scene_o_hotkey": "Enable O keyboard shortcut",

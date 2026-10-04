@@ -779,6 +779,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
           }
           icon={categoryIconElement}
           linkTarget={linkTarget}
+          showPercentages={!sceneId} // CUSTOM: catalog cards show role percentages beside the track
           topPartners={sceneId ? scenePartnerRows(role.topPids) : undefined}
           topUrl={sceneId ? undefined : topUrl}
           toppedPartners={

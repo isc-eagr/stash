@@ -422,6 +422,8 @@ const ScenePerformerOverviewPanel: React.FC<{
               {roleStats && (
                 <PerformerVersatility
                   className="scene-performer-overview-versatility"
+                  performer={performer}
+                  linkTarget={SCENE_PERFORMER_OVERVIEW_LINK_PROPS.target}
                   facialBottomedPartners={roleStats.facial_with_bottom_count}
                   facialToppedPartners={roleStats.facial_with_top_count}
                   oralBottomedPartners={roleStats.oral_with_bottom_count}

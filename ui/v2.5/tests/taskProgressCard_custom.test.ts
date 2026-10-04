@@ -149,7 +149,7 @@ const checkpointMarkup = markup.match(
   /<ul class="milestone-checkpoints progress-checkpoints-compact"[^>]*>(.*?)<\/ul>/
 )?.[1];
 assert.ok(checkpointMarkup, "tracker cards show compact checkpoints");
-assert.equal((checkpointMarkup.match(/<li /g) ?? []).length, 3);
+assert.equal((checkpointMarkup.match(/<li /g) ?? []).length, 4);
 assert.match(
   checkpointMarkup,
   /milestone-checkpoint-25 milestone-checkpoint-reached[^>]*><strong class="milestone-checkpoint-medal">25%<\/strong><small>07\/09\/2026<\/small>/,
@@ -163,7 +163,8 @@ assert.match(
   checkpointMarkup,
   /milestone-checkpoint-75[^>]*><strong class="milestone-checkpoint-medal">75%<\/strong><small>Not yet<\/small>/
 );
-assert.doesNotMatch(checkpointMarkup, /100%/);
+assert.match(checkpointMarkup, /title="Alpha Sapphire"/);
+assert.match(checkpointMarkup, /100%<\/strong><small>Not yet<\/small>/);
 const completedCheckpoints = renderCard({
   ...tracker,
   completed_count: 10,
@@ -174,7 +175,7 @@ const completedCheckpoints = renderCard({
 )?.[1];
 assert.equal(
   (completedCheckpoints?.match(/milestone-checkpoint-reached/g) ?? []).length,
-  3,
+  4,
   "current progress marks checkpoints reached even without historical dates"
 );
 const footerIndex = markup.indexOf("progress-tracker-footer");

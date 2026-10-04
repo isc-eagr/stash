@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stashapp/stash/pkg/models"
@@ -176,6 +177,57 @@ func TestRatingScoreResetPreservesCurrentRating(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 83, result.Rating100)
 	require.Empty(t, result.Scores)
+	db.AssertExpectations(t)
+}
+
+func TestRatingScoreDeleteLastSceneAnswerClearsRatingCustom(t *testing.T) {
+	for _, remaining := range [][]*models.RatingScore{
+		{},
+		{{Section: models.RatingScoreSectionBonus, Key: "theme", RawValue: 0}},
+	} {
+		t.Run(fmt.Sprintf("remaining_%d", len(remaining)), func(t *testing.T) {
+			db := mocks.NewDatabase()
+			resolver := newResolver(db)
+			rating := 10
+			db.Scene.On("Find", mock.Anything, 9794).Return(&models.Scene{ID: 9794, Rating: &rating}, nil).Once()
+			db.RatingScore.On("Delete", mock.Anything, models.RatingEntityScene, 9794,
+				models.RatingScoreSectionCriterion, "soloPerformerAppeal").Return(true, nil).Once()
+			db.RatingScore.On("FindByEntity", mock.Anything, models.RatingEntityScene, 9794).Return(remaining, nil).Once()
+			db.Scene.On("UpdatePartial", mock.Anything, 9794, mock.MatchedBy(func(partial models.ScenePartial) bool {
+				return partial.Rating.Set && partial.Rating.Null && partial.Rating.Ptr() == nil
+			})).Return(&models.Scene{ID: 9794}, nil).Once()
+
+			result, err := resolver.Mutation().RatingScoreDelete(context.Background(), models.RatingScoreDeleteInput{
+				EntityType: models.RatingEntityScene,
+				EntityID:   9794,
+				Section:    models.RatingScoreSectionCriterion,
+				Key:        "soloPerformerAppeal",
+			})
+			require.NoError(t, err)
+			require.Zero(t, result.Rating100)
+			require.Equal(t, remaining, result.Scores)
+			db.AssertExpectations(t)
+		})
+	}
+}
+
+func TestRatingScoreDeleteMissingAnswerPreservesManualRatingCustom(t *testing.T) {
+	db := mocks.NewDatabase()
+	resolver := newResolver(db)
+	rating := 83
+	db.Scene.On("Find", mock.Anything, 9794).Return(&models.Scene{ID: 9794, Rating: &rating}, nil).Twice()
+	db.RatingScore.On("Delete", mock.Anything, models.RatingEntityScene, 9794,
+		models.RatingScoreSectionCriterion, "soloPerformerAppeal").Return(false, nil).Once()
+	db.RatingScore.On("FindByEntity", mock.Anything, models.RatingEntityScene, 9794).Return([]*models.RatingScore{}, nil).Once()
+
+	result, err := resolver.Mutation().RatingScoreDelete(context.Background(), models.RatingScoreDeleteInput{
+		EntityType: models.RatingEntityScene,
+		EntityID:   9794,
+		Section:    models.RatingScoreSectionCriterion,
+		Key:        "soloPerformerAppeal",
+	})
+	require.NoError(t, err)
+	require.Equal(t, 83, result.Rating100)
 	db.AssertExpectations(t)
 }
 

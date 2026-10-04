@@ -588,25 +588,35 @@ export const TaskProgressHistoryChart: React.FC<IProps> = ({
             <strong className="task-progress-history-chart-tooltip-title">
               {formatTooltipPeriodLabel(tooltipPoint.date)}
             </strong>
-            <div
-              className={`task-progress-history-chart-tooltip-metric ${view}`}
-            >
-              <span>{metricLabel}</span>
+            <div className="task-progress-history-chart-tooltip-metric">
+              <span>{periodActivityLabel}</span>
               <strong>
-                {intl.formatNumber(Math.round(metricValue(tooltipPoint)))}
-                <small>
-                  {view === "remaining"
-                    ? formatPercentage(tooltipPercentages.remainingPercentage) +
-                      " remaining"
-                    : formatPercentage(tooltipPercentages.completedPercentage) +
-                      " completed"}
-                </small>
+                {intl.formatNumber(Math.round(tooltipPoint.completed))}
               </strong>
             </div>
             <dl>
               <div>
-                <dt>{periodActivityLabel}</dt>
-                <dd>{intl.formatNumber(Math.round(tooltipPoint.completed))}</dd>
+                <dt>
+                  {view === "remaining"
+                    ? metricLabel
+                    : intl.formatMessage(
+                        {
+                          id: "task_progress.history.cumulative_by_period",
+                          defaultMessage: "Cumulative by this {period}",
+                        },
+                        { period: granularity }
+                      )}
+                </dt>
+                <dd>
+                  {intl.formatNumber(Math.round(metricValue(tooltipPoint)))}
+                  <small>
+                    {formatPercentage(
+                      view === "remaining"
+                        ? tooltipPercentages.remainingPercentage
+                        : tooltipPercentages.completedPercentage
+                    )}
+                  </small>
+                </dd>
               </div>
               <div>
                 <dt>{periodProgressLabel}</dt>

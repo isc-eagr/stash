@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeSceneCardInsightThresholds } from "../src/components/Scenes/sceneCardInsightsData_custom.ts";
+import { createInsightStatsResult } from "../src/components/InsightStats/insightStatsData_custom.ts";
 import {
   insightStatsConfigKey,
   loadInsightSnapshot,
@@ -93,7 +94,10 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
               rating_scores: [],
               scene_marker_tag_ancestors: [],
               files: [{ duration: 600 }],
-              performers: [],
+              performers: [
+                { id: "returning", name: "Returning" },
+                ...(index === 0 ? [{ id: "only", name: "Only Vato" }] : []),
+              ],
               scene_markers: [
                 {
                   id: `activity-marker-${index}`,
@@ -144,6 +148,16 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
       30
     );
     assert.equal(fetchCount, 1);
+    const oldBaseline = createInsightStatsResult();
+    oldBaseline.rows.delete("only-scene");
+    cachedScans.set("http://localhost/graphql", {
+      ...firstSnapshot.snapshot,
+      configKey: JSON.stringify({
+        engineVersion: 5,
+        config: { roleTagIds: { sexTagId: "sex" } },
+      }),
+      baseline: oldBaseline,
+    });
     assert.deepEqual(
       retiredCaches,
       ["stash-playground-v1"],
@@ -200,6 +214,8 @@ test("worker reuses its read-only snapshot and suppresses obsolete preview resul
     );
     assert.ok(latest?.type === "result");
     assert.equal(latest.current.total, 30);
+    assert.equal(latest.current.rows.get("only-scene")?.all, 1);
+    assert.equal(latest.preview.rows.get("only-scene")?.all, 1);
     assert.equal(latest.current.rows.has("filler"), false);
     assert.equal(latest.preview.rows.has("filler"), false);
     assert.equal(latest.cacheAvailable, true);

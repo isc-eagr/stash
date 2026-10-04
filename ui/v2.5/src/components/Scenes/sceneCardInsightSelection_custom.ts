@@ -23,6 +23,7 @@ export const sceneCardInsightPolicies: Record<
   "orgasm-event": { priority: 850 },
   "activity-quality": { priority: 830 },
   leaning: { priority: 825 },
+  "only-scene": { priority: 810 },
   // CUSTOM: History-backed rare roles outrank broad interaction patterns.
   "rare-role": { priority: 805 },
   interaction: { priority: 800 },

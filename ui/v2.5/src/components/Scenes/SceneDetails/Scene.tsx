@@ -709,16 +709,19 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             </Nav.Item>
             {/* CUSTOM: end */}
             {/* CUSTOM: group navigation is in More. */}
-            {/* CUSTOM: Gallery is in More. */}
-            {/* CUSTOM: video filters are in More. */}
-            {/* CUSTOM: begin - releases tab */}
-            <Nav.Item>
-              <Nav.Link eventKey="scene-releases-panel">
-                Releases
-                <Counter count={scene.releases?.length ?? 0} hideZero />
-              </Nav.Link>
-            </Nav.Item>
+            {/* CUSTOM: begin - galleries remain a direct tab when populated */}
+            {scene.galleries.length > 0 && (
+              <Nav.Item>
+                <Nav.Link eventKey="scene-galleries-panel">
+                  <FormattedMessage
+                    id="countables.galleries"
+                    values={{ count: scene.galleries.length }}
+                  />
+                </Nav.Link>
+              </Nav.Item>
+            )}
             {/* CUSTOM: end */}
+            {/* CUSTOM: video filters and Releases are in More. */}
             {/* CUSTOM: File Info is in More. */}
             {/* CUSTOM: History is in More. */}
             {/* CUSTOM: begin - stats tab */}
@@ -741,7 +744,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                     "scene-group-panel",
                     "scene-video-filter-panel",
                     "scene-history-panel",
-                    "scene-galleries-panel",
+                    "scene-releases-panel",
                     "scene-file-info-panel",
                   ].includes(activeTabKey),
                 })}
@@ -751,17 +754,15 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                 <Icon icon={faEllipsisV} />
               </Dropdown.Toggle>
               <Dropdown.Menu>
-                {scene.galleries.length > 0 && (
-                  <Dropdown.Item
-                    active={activeTabKey === "scene-galleries-panel"}
-                    onClick={() => setActiveTabKey("scene-galleries-panel")}
-                  >
-                    <FormattedMessage
-                      id="countables.galleries"
-                      values={{ count: scene.galleries.length }}
-                    />
-                  </Dropdown.Item>
-                )}
+                {/* CUSTOM: begin - releases navigation */}
+                <Dropdown.Item
+                  active={activeTabKey === "scene-releases-panel"}
+                  onClick={() => setActiveTabKey("scene-releases-panel")}
+                >
+                  Releases
+                  <Counter count={scene.releases?.length ?? 0} hideZero />
+                </Dropdown.Item>
+                {/* CUSTOM: end */}
                 <Dropdown.Item
                   active={activeTabKey === "scene-file-info-panel"}
                   onClick={() => setActiveTabKey("scene-file-info-panel")}

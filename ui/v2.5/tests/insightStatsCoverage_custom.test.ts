@@ -150,15 +150,103 @@ test("role history matches distinct scenes, tag ancestry and narrower marker pre
   };
   const roles = deriveInsightRoleCounts([input, { ...input, id: "2" }], config);
   assert.equal(
-    roles.get("a"),
-    undefined,
+    roles.get("a")?.sex_top_count,
+    0,
     "The broad marker loses to narrower matching markers"
   );
+  assert.equal(roles.get("a")?.scene_count, 2);
   assert.equal(
     roles.get("b")?.sex_top_count,
     2,
     "Multiple markers count once per scene"
   );
+});
+
+test("library totals include unmarked scenes and cast without role tags", () => {
+  const a = { id: "a", name: "A" };
+  const b = { id: "b", name: "B" };
+  const c = { id: "c", name: "C" };
+  const inputs = [
+    { ...scene, performers: [a, b, a] },
+    { ...scene, id: "2", performers: [a, c], scene_markers: [] },
+  ];
+  const roles = deriveInsightRoleCounts(inputs, {});
+  assert.equal(roles.get("a")?.scene_count, 2);
+  assert.equal(roles.get("b")?.scene_count, 1);
+  assert.equal(roles.get("c")?.scene_count, 1);
+  assert.ok(
+    [...roles.values()].every(({ sex_top_count }) => sex_top_count === 0)
+  );
+
+  const markerOnly = { id: "marker-only", name: "Marker Only" };
+  const markerRoles = deriveInsightRoleCounts(
+    [
+      {
+        ...scene,
+        scene_markers: [
+          { ...marker("role", "sex", 0, 50), top_performers: [markerOnly] },
+        ],
+      },
+    ],
+    config
+  );
+  assert.equal(markerRoles.get(markerOnly.id)?.sex_top_count, 1);
+  assert.equal(markerRoles.get(markerOnly.id)?.scene_count, 0);
+});
+
+test("Only scene stats count each eligible scene once and include overflow", async () => {
+  const first = { id: "first", name: "First" };
+  const second = { id: "second", name: "Second" };
+  const returning = { id: "returning", name: "Returning" };
+  const inputs = [
+    {
+      ...scene,
+      performers: [first, second, first, returning],
+      scene_markers: [marker("activity", "sex", 0, 600)],
+    },
+    { ...scene, id: "2", performers: [returning], scene_markers: [] },
+  ];
+  const roles = deriveInsightRoleCounts(inputs, config);
+  const thresholds = normalizeSceneCardInsightThresholds({
+    visibleInsightLimit: 1,
+  });
+  const stats = (await calculateInsightStats(
+    inputs,
+    config,
+    thresholds,
+    roles
+  ))!;
+  const row = stats.rows.get("only-scene")!;
+  assert.equal(stats.total, 1);
+  assert.equal(stats.excludedWithoutMarkers, 1);
+  assert.equal(row.all, 1);
+  assert.equal(row.visible, 1);
+  assert.deepEqual(row.sceneIds.all, ["1"]);
+  assert.deepEqual(row.sceneIds.visible, ["1"]);
+  assert.deepEqual([...row.variants.keys()], ["Only scene"]);
+  assert.equal(row.variants.get("Only scene")?.all, 1);
+  assert.deepEqual(row.parts.get("Only scene")?.sceneIds.all, ["1"]);
+  const sets = getSceneCardInsightSets(
+    inputs[0],
+    config.roleTagIds,
+    thresholds,
+    undefined,
+    roles
+  );
+  assert.deepEqual(
+    sets.all.map(({ key }) => key),
+    ["only-scene-first", "only-scene-second"]
+  );
+  assert.equal(sets.visible.length, 1);
+
+  const overflowStats = (await calculateInsightStats(
+    inputs,
+    { ...config, roleTagIds: { ...config.roleTagIds, orgasmTagId: "orgasm" } },
+    thresholds,
+    roles
+  ))!;
+  assert.equal(overflowStats.rows.get("only-scene")?.all, 1);
+  assert.equal(overflowStats.rows.get("only-scene")?.visible, 0);
 });
 
 test("scan cache expires at twelve hours and rejects invalid timestamps", () => {

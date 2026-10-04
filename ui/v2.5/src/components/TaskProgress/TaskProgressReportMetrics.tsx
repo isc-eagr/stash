@@ -1,6 +1,9 @@
 import React from "react";
 import { FormattedNumber } from "react-intl";
-import type { ITaskProgressReportRow } from "./taskProgressReports_custom";
+import type {
+  ITaskProgressReportRow,
+  TaskProgressReportRange,
+} from "./taskProgressReports_custom";
 import {
   taskProgressDailyGoalState,
   useProgressText,
@@ -79,29 +82,32 @@ export const ReportMetrics: React.FC<{
   </>
 );
 
-export const ReportHeadings: React.FC<{ name: string; share?: boolean }> = ({
-  name,
-  share,
-}) => {
+export const ReportHeadings: React.FC<{
+  name: string;
+  range: TaskProgressReportRange;
+  isCurrentPeriod: boolean;
+  share?: boolean;
+}> = ({ name, range, isCurrentPeriod, share }) => {
   const t = useProgressText();
+  const periodLabel = `${isCurrentPeriod ? "this" : "selected"} ${range}`;
   return (
     <thead>
       <tr>
         <th scope="col">{t(name)}</th>
         <th className="text-right" scope="col">
-          {t("Total completed")}
+          {t(`Total completed through ${periodLabel}`)}
         </th>
         <th className="text-right" scope="col">
-          {t("Goal days met")}
+          {t(`Goal days met ${periodLabel}`)}
         </th>
-        <th scope="col">{t("Actual / Goal")}</th>
+        <th scope="col">{t(`Actual / Goal ${periodLabel}`)}</th>
         <th className="text-right" scope="col">
-          {t("Items Completed")}
+          {t(`Items completed ${periodLabel}`)}
         </th>
         <th className="text-right" scope="col">
-          {t("% Advanced")}
+          {t(`Completion change ${periodLabel}`)}
         </th>
-        {share && <th scope="col">{t("Share")}</th>}
+        {share && <th scope="col">{t(`Share of ${range} completions (%)`)}</th>}
       </tr>
     </thead>
   );

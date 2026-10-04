@@ -710,6 +710,7 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                 <div className="performer-header-activity col-lg-5 col-xl-4">
                   <PerformerVersatility
                     className="performer-versatility--detail"
+                    performer={performer} // CUSTOM: partner counts link to role-filtered scenes
                     oralBottomedPartners={roleStats.oral_with_bottom_count}
                     oralToppedPartners={roleStats.oral_with_top_count}
                     sexBottomedPartners={roleStats.sex_with_bottom_count}

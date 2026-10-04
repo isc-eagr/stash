@@ -109,9 +109,20 @@ class SourceSelectorPlugin extends videojs.getPlugin("plugin") {
 
   // don't auto play next source if user manually selected a source
   private manuallySelected = false;
+  private playbackRequested = false; // CUSTOM: preload and source changes must not start paused video
 
   constructor(player: VideoJsPlayer) {
     super(player);
+
+    // CUSTOM: begin - only resume fallback streams after playback was requested
+    player.on("play", () => {
+      this.playbackRequested = true;
+    });
+    player.on("pause", () => {
+      // A decoding error may pause the tech before fallback replaces it.
+      if (!player.error()) this.playbackRequested = false;
+    });
+    // CUSTOM: end
 
     this.menu = new SourceMenuButton(player);
 
@@ -127,13 +138,14 @@ class SourceSelectorPlugin extends videojs.getPlugin("plugin") {
       const paused = player.paused();
 
       player.src(loadSrc);
-      player.one("canplay", () => {
-        if (paused) {
-          player.pause();
-        }
+      // CUSTOM: preserve the paused/playing state across manual stream changes.
+      player.one("loadedmetadata", () => {
         player.currentTime(currentTime);
       });
-      player.play();
+      // CUSTOM: begin
+      if (paused) player.load();
+      else player.play();
+      // CUSTOM: end
     });
 
     player.on("ready", () => {
@@ -153,9 +165,8 @@ class SourceSelectorPlugin extends videojs.getPlugin("plugin") {
         const currentSrc = player.currentSrc();
         if (currentSrc === null) return;
 
-        if (currentSrc.includes(".m3u8") || currentSrc.includes(".mpd")) {
-          player.play();
-        } else {
+        // CUSTOM: streaming metadata is valid without starting playback.
+        if (!currentSrc.includes(".m3u8") && !currentSrc.includes(".mpd")) {
           player.error(MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED);
           return;
         }
@@ -185,8 +196,7 @@ class SourceSelectorPlugin extends videojs.getPlugin("plugin") {
         return;
       }
 
-      // TODO - make auto play next source configurable
-      // try the next source in the list
+      // CUSTOM: try the next source using the existing playback intent.
       if (
         this.selectedIndex !== -1 &&
         this.selectedIndex + 1 < this.sources.length
@@ -197,12 +207,13 @@ class SourceSelectorPlugin extends videojs.getPlugin("plugin") {
         this.menu.setSelectedSource(newSource);
 
         const currentTime = player.currentTime();
+        const resumePlayback = this.playbackRequested; // CUSTOM
         player.src(newSource);
         player.load();
         player.one("canplay", () => {
           player.currentTime(currentTime);
         });
-        player.play();
+        if (resumePlayback) player.play(); // CUSTOM: paused preloads must stay paused
       } else {
         console.log("No more sources in playlist");
       }
@@ -210,6 +221,10 @@ class SourceSelectorPlugin extends videojs.getPlugin("plugin") {
   }
 
   setSources(sources: ISource[]) {
+    // CUSTOM: begin - a new scene cannot inherit the previous scene's playback intent
+    this.playbackRequested = false;
+    this.manuallySelected = false;
+    // CUSTOM: end
     const cleanupTracks = this.cleanupTextTracks.splice(0);
     for (const track of cleanupTracks) {
       this.player.removeRemoteTextTrack(track);

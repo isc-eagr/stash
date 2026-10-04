@@ -8,9 +8,8 @@ export type SceneStatsReleaseBucket = {
   count: number;
 };
 
-// Zero-fill the release chart so empty years, months, and days stay visible.
-// Years span the first to last release year; months and days cover the whole
-// selected year or month.
+// Years show only populated buckets; months and days cover the whole
+// selected year or month, including empty periods.
 export function fillSceneStatsReleaseBuckets(
   counts: ReadonlyMap<number, number>,
   level: SceneStatsReleaseLevel,
@@ -19,9 +18,9 @@ export function fillSceneStatsReleaseBuckets(
 ): SceneStatsReleaseBucket[] {
   let values: number[];
   if (level === "year") {
-    const years = Array.from(counts.keys());
-    if (years.length === 0) return [];
-    values = statsRange(Math.min(...years), Math.max(...years));
+    values = Array.from(counts.keys())
+      .filter((year) => (counts.get(year) ?? 0) > 0)
+      .sort((a, b) => a - b);
   } else if (level === "month") {
     values = statsRange(1, 12);
   } else {

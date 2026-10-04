@@ -656,7 +656,11 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
           <Button
             variant="primary"
             disabled={(!isNew && !formik.dirty) || !isEqual(formik.errors, {})}
-            className="scene-marker-form-save" // CUSTOM
+            className={
+              formik.dirty
+                ? "scene-marker-form-save scene-marker-form-save-dirty"
+                : "scene-marker-form-save"
+            } // CUSTOM: show pending edits even while validation disables Save
             onClick={() => formik.submitForm()}
           >
             <FormattedMessage id="actions.save" />

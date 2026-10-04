@@ -89,6 +89,11 @@ import { showMultiSegmentLoopControlsCustom } from "./multiSegmentLoopSettings_c
 import { sceneMarkerLoopSegmentCustom } from "./sceneMarkerLoopSegment_custom"; // CUSTOM
 import { markerTitle } from "src/core/markers"; // CUSTOM
 import { scenePlayerGalleryIDsCustom } from "./scenePlayerGalleryIDs_custom"; // CUSTOM
+import { scenePlayerControlClassesCustom } from "./scenePlayerControlVisibility_custom"; // CUSTOM
+import {
+  shouldAutostartSceneCustom,
+  seekScenePlayerTimestampCustom,
+} from "./scenePlayerAutostart_custom"; // CUSTOM
 import {
   findContainingOrNextPlaybackRange,
   getPlaybackBoundaryDelayMs,
@@ -524,15 +529,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     useEffect(() => {
       sendSetTimestamp((value: number) => {
         const player = getPlayer();
-        if (player && value >= 0) {
-          if (player.hasStarted() && player.paused()) {
-            player.currentTime(value);
-          } else {
-            player.play()?.then(() => {
-              player.currentTime(value);
-            });
-          }
-        }
+        seekScenePlayerTimestampCustom(player, value); // CUSTOM: preserve playback state when seeking
       });
     }, [sendSetTimestamp, getPlayer]);
 
@@ -1281,14 +1278,15 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       player.load();
       player.focus();
 
-      // Check the autostart button plugin for user preference
-      const autostartButton = player.autostartButton();
-      const buttonEnabled = autostartButton.getEnabled();
-      auto.current =
-        autoplay ||
-        buttonEnabled ||
-        (interfaceConfig?.autostartVideo ?? false) ||
-        _initialTimestamp > 0;
+      // CUSTOM: queue and timestamp links cannot bypass disabled Auto Start settings.
+      auto.current = shouldAutostartSceneCustom(
+        {
+          autostartVideo: interfaceConfig?.autostartVideo,
+          autostartVideoOnPlaySelected:
+            interfaceConfig?.autostartVideoOnPlaySelected,
+        },
+        !!autoplay || _initialTimestamp > 0
+      );
 
       player.ready(() => {
         player.vttThumbnails().src(scene.paths.vtt ?? null);
@@ -1306,6 +1304,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       interactiveClient,
       autoplay,
       interfaceConfig?.autostartVideo,
+      interfaceConfig?.autostartVideoOnPlaySelected, // CUSTOM
       uiConfig?.alwaysStartFromBeginning,
       uiConfig?.disableMobileMediaAutoRotateEnabled,
       _initialTimestamp,
@@ -1410,6 +1409,21 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
           sceneMarkerLoopSegmentCustom(sceneMarker, markerTitle(sceneMarker)),
         ]);
       });
+
+      // CUSTOM: temporarily repeat the marker without editing the scene's loop.
+      markers.setOnMarkerRepeat(
+        (marker) => {
+          if (!marker.id) return;
+          player!
+            .multiSegmentLoop()
+            .toggleMarkerRepeat(
+              marker.id,
+              sceneMarkerLoopSegmentCustom(marker, marker.title)
+            );
+        },
+        (marker) =>
+          player!.multiSegmentLoop().getSnapshot().markerRepeatId === marker.id
+      );
 
       // CUSTOM: provide known duration so markers render before playback (preload=none means player.duration() is 0 until play)
       if (file?.duration) {
@@ -1779,6 +1793,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         className={cx("VideoPlayer", {
           portrait: isPortrait,
           "no-file": !file,
+          ...scenePlayerControlClassesCustom(uiConfig), // CUSTOM
         })}
         onKeyDownCapture={onKeyDown}
       >

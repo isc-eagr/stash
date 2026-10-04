@@ -24,6 +24,7 @@ export const PerformerCardVersatilityRow: React.FC<{
   highlighted?: boolean;
   topPartners?: JSX.Element;
   bottomPartners?: JSX.Element;
+  showPercentages?: boolean;
 }> = ({
   category,
   icon,
@@ -36,6 +37,7 @@ export const PerformerCardVersatilityRow: React.FC<{
   highlighted = false,
   topPartners,
   bottomPartners,
+  showPercentages = false,
 }) => {
   const versatility = performerVersatility(toppedPartners, bottomedPartners);
   const topText = versatilityRoleText(category, "top", toppedPartners);
@@ -93,8 +95,8 @@ export const PerformerCardVersatilityRow: React.FC<{
   return (
     <div
       className={`performer-card-versatility-row${
-        highlighted ? " is-highlighted" : ""
-      }`}
+        showPercentages && versatility ? " has-percentages" : ""
+      }${highlighted ? " is-highlighted" : ""}`}
     >
       {categoryUrl ? (
         <Link
@@ -109,6 +111,11 @@ export const PerformerCardVersatilityRow: React.FC<{
         <span className="performer-card-versatility-icon">{icon}</span>
       )}
       {count(bottomedPartners, "bottom", bottomUrl, bottomText, bottomPartners)}
+      {showPercentages && versatility && (
+        <span className="performer-versatility-percent is-bottom">
+          {versatility.bottomPercent}%
+        </span>
+      )}
       <span
         aria-label={`${category}: ${summary}`}
         className="performer-card-versatility-track"
@@ -125,6 +132,11 @@ export const PerformerCardVersatilityRow: React.FC<{
           />
         )}
       </span>
+      {showPercentages && versatility && (
+        <span className="performer-versatility-percent is-top">
+          {versatility.topPercent}%
+        </span>
+      )}
       {count(toppedPartners, "top", topUrl, topText, topPartners)}
     </div>
   );

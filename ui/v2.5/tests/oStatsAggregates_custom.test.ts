@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   fillOStatsDays,
   fillOStatsMonths,
-  fillOStatsYears,
+  oStatsYears,
 } from "../src/components/OStats/oStatsDateSeries_custom.ts";
 import {
   buildOStatsCalendar,
@@ -20,19 +20,21 @@ import {
 } from "../src/components/OStats/oStatsSceneBuckets_custom.ts";
 import type { IUIConfig } from "../src/core/config.ts";
 
-test("O date charts zero-fill quiet years, months, and days", () => {
+test("O date charts omit quiet years and zero-fill months and days", () => {
   assert.deepEqual(
-    fillOStatsYears([
-      { year: 2024, count: 3 },
+    oStatsYears([
       { year: 2026, count: 1 },
+      { year: 0, count: 0 },
+      { year: 2024, count: 3 },
+      { year: 2025, count: 0 },
     ]),
     [
       { value: 2024, count: 3 },
-      { value: 2025, count: 0 },
       { value: 2026, count: 1 },
     ]
   );
-  assert.deepEqual(fillOStatsYears([]), []);
+  assert.deepEqual(oStatsYears([]), []);
+  assert.deepEqual(oStatsYears([{ year: 2024, count: 0 }]), []);
   const months = fillOStatsMonths([{ month: 5, count: 2 }]);
   assert.equal(months.length, 12);
   assert.deepEqual(months[4], { value: 5, count: 2 });

@@ -78,6 +78,125 @@ const baseDraft = {
   tag_ids: [],
 };
 
+for (const duration of [0, 0.001, 2.573, 3]) {
+  for (const issueType of ["gap", "overlap"] as const) {
+    const offset = issueType === "gap" ? 1 : -0.002;
+    const draft = {
+      ...baseDraft,
+      seconds: 60.001,
+      end_seconds: 60.001 + duration,
+    };
+    const options = {
+      draft,
+      sceneMarkers: [
+        { id: "previous", seconds: 40, end_seconds: draft.seconds - offset },
+        { id: "next", seconds: draft.end_seconds + offset, end_seconds: 90 },
+      ],
+      negativeMarkers: [],
+      roleTagIds,
+    };
+    assert.equal(
+      findSceneMarkerGapWarnings(options),
+      undefined,
+      `${duration}s drafts do not warn about previous/next ${issueType}s`
+    );
+    assert.deepEqual(
+      findSceneMarkerWarnings(options).map((warning) => warning.issueType),
+      ["missing-performers"],
+      "short-marker exclusion preserves unrelated warnings"
+    );
+  }
+}
+
+for (const duration of [0.001, 2.573, 3, 3.001]) {
+  for (const issueType of ["gap", "overlap"] as const) {
+    const offset = issueType === "gap" ? 1 : -0.002;
+    const neighbors = [
+      {
+        id: "previous",
+        seconds: 60 - offset - duration,
+        end_seconds: 60 - offset,
+      },
+      {
+        id: "next",
+        seconds: 120 + offset,
+        end_seconds: 120 + offset + duration,
+      },
+    ];
+    for (const kind of ["scene-marker", "negative-marker"] as const) {
+      const warnings = findSceneMarkerGapWarnings({
+        draft: baseDraft,
+        sceneMarkers: kind === "scene-marker" ? neighbors : [],
+        negativeMarkers:
+          kind === "negative-marker"
+            ? neighbors.map((marker) => ({
+                id: marker.id,
+                start_seconds: marker.seconds,
+                end_seconds: marker.end_seconds,
+              }))
+            : [],
+        roleTagIds,
+      });
+      if (duration <= 3) {
+        assert.equal(
+          warnings,
+          undefined,
+          `short ${kind} neighbors are excluded`
+        );
+      } else {
+        assert.equal(warnings?.previous?.issueType, issueType);
+        assert.equal(warnings?.next?.issueType, issueType);
+      }
+    }
+  }
+}
+
+for (const issueType of ["gap", "overlap"] as const) {
+  const offset = issueType === "gap" ? 1 : -1;
+  const warnings = findSceneMarkerGapWarnings({
+    draft: { ...baseDraft, end_seconds: 63.001 },
+    sceneMarkers: [
+      { id: "previous", seconds: 40, end_seconds: 60 - offset },
+      { id: "next", seconds: 63.001 + offset, end_seconds: 90 },
+    ],
+    negativeMarkers: [],
+    roleTagIds,
+  });
+  assert.equal(warnings?.previous?.issueType, issueType);
+  assert.equal(warnings?.next?.issueType, issueType);
+}
+
+assert.deepEqual(
+  findSceneMarkerGapWarnings({
+    draft: baseDraft,
+    sceneMarkers: [
+      { id: "short-previous", seconds: 59, end_seconds: 61 },
+      { id: "short-next", seconds: 119, end_seconds: 121 },
+      { id: "long-previous", seconds: 40, end_seconds: 58 },
+      { id: "long-next", seconds: 122, end_seconds: 130 },
+    ],
+    negativeMarkers: [],
+    roleTagIds,
+  }),
+  {
+    previous: {
+      issueType: "gap",
+      issueSeconds: 2,
+      markerBoundarySeconds: 58,
+      closeToSeconds: 58.001,
+      adjacentMarkerType: "marker",
+    },
+    next: {
+      issueType: "gap",
+      issueSeconds: 2,
+      markerBoundarySeconds: 122,
+      closeToSeconds: 121.999,
+      adjacentMarkerType: "marker",
+    },
+  },
+  "short neighbors do not hide gaps to eligible longer markers"
+);
+
 assert.deepEqual(
   findSceneMarkerGapWarnings({
     draft: baseDraft,
@@ -779,8 +898,7 @@ assert.deepEqual(
   "broader marker warnings include metadata for fixing the other scene marker"
 );
 
-// CUSTOM: a short gap must be reported even when its two markers use
-// different primary-tag classifications (scene 353 regression).
+// Short event markers are intentionally excluded, including cross-type gaps.
 assert.equal(
   findSceneMarkerGapWarnings({
     draft: {
@@ -801,8 +919,8 @@ assert.equal(
     negativeMarkers: [],
     roleTagIds,
   })?.previous?.issueSeconds,
-  0.219,
-  "Pito/Body-to-Orgasm gaps are warned across marker types"
+  undefined,
+  "a one-second Orgasm marker no longer triggers a Pito/Body gap warning"
 );
 
 assert.deepEqual(

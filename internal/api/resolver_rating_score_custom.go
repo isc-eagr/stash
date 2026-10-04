@@ -144,6 +144,8 @@ func (r *Resolver) ratingScoreUpdateResultCustom(ctx context.Context, entityType
 	var rating100 int
 	if recalculate && hasEffectiveRatingAdvisorScoresCustom(scores) {
 		rating100, err = r.repository.RatingScore.RecalculateRating(ctx, entityType, entityID)
+	} else if recalculate && entityType == models.RatingEntityScene {
+		err = r.clearSceneAdvisorRatingCustom(ctx, entityID)
 	} else {
 		rating100, err = r.currentRating100Custom(ctx, entityType, entityID)
 	}
@@ -157,6 +159,15 @@ func (r *Resolver) ratingScoreUpdateResultCustom(ctx context.Context, entityType
 		Rating100:  rating100,
 		Scores:     scores,
 	}, nil
+}
+
+func (r *Resolver) clearSceneAdvisorRatingCustom(ctx context.Context, sceneID int) error {
+	updatedScene := models.NewScenePartial()
+	updatedScene.Rating = models.NewOptionalIntPtr(nil)
+	if _, err := r.repository.Scene.UpdatePartial(ctx, sceneID, updatedScene); err != nil {
+		return fmt.Errorf("resetting scene %d advisor rating: %w", sceneID, err)
+	}
+	return nil
 }
 
 func uniqueRatingEntityIDsCustom(groups ...[]int) []int {
@@ -317,10 +328,11 @@ func (r *mutationResolver) RatingScoreDelete(ctx context.Context, input models.R
 		if err := r.ensureRatingScoreEntityExists(ctx, input.EntityType, input.EntityID); err != nil {
 			return err
 		}
-		if _, err := r.repository.RatingScore.Delete(ctx, input.EntityType, input.EntityID, input.Section, input.Key); err != nil {
+		deleted, err := r.repository.RatingScore.Delete(ctx, input.EntityType, input.EntityID, input.Section, input.Key)
+		if err != nil {
 			return err
 		}
-		ret, err = r.ratingScoreUpdateResultCustom(ctx, input.EntityType, input.EntityID, true)
+		ret, err = r.ratingScoreUpdateResultCustom(ctx, input.EntityType, input.EntityID, deleted)
 		return err
 	}); err != nil {
 		return nil, err
@@ -346,10 +358,8 @@ func (r *mutationResolver) RatingScoreReset(ctx context.Context, entityType stri
 			return err
 		}
 		if entityType == models.RatingEntityScene {
-			updatedScene := models.NewScenePartial()
-			updatedScene.Rating = models.NewOptionalIntPtr(nil)
-			if _, err := r.repository.Scene.UpdatePartial(ctx, id, updatedScene); err != nil {
-				return fmt.Errorf("resetting scene %d advisor rating: %w", id, err)
+			if err := r.clearSceneAdvisorRatingCustom(ctx, id); err != nil {
+				return err
 			}
 		}
 		ret, err = r.ratingScoreUpdateResultCustom(ctx, entityType, id, false)

@@ -218,8 +218,9 @@ html.application-theme-masculine-black {
     }
   }
 
-  /* CUSTOM: marker saves use a distinct active state once the form is valid and dirty. */
-  .scene-marker-form-save.btn-primary:not(:disabled):not(.disabled) {
+  /* CUSTOM: negative-marker drafts show pending edits even when Save is disabled. */
+  .scene-marker-form-save.btn-primary:not(:disabled):not(.disabled),
+  .scene-marker-form-save-dirty.btn-primary {
     background-color: var(--black-steel-accent);
     border-color: var(--black-steel-accent-bright);
     box-shadow: inset 0 -2px 0 rgba(58, 29, 14, 0.72);

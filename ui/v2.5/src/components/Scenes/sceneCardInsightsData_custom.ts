@@ -14,7 +14,10 @@ import {
   type InsightInterval,
   type MarkerStats,
 } from "./sceneCardInsightFacts_custom";
-import { getPerformerLineupCandidates } from "./sceneCardInsightPerformerRules_custom";
+import {
+  getPerformerLineupCandidates,
+  getPerformerOnlySceneCandidates,
+} from "./sceneCardInsightPerformerRules_custom";
 import {
   compareSceneCardInsightCandidates,
   selectAllSceneCardInsights,
@@ -1974,6 +1977,7 @@ function getSceneCardInsightCandidates(
     ...automaticCandidates,
     ...getActivityCandidates(scene, roleTagIds),
     ...getInteractionCandidate(scene, roleTagIds),
+    ...getPerformerOnlySceneCandidates(scene, roleStatsByPerformer),
     ...getRareRoleCandidates(
       scene,
       roleTagIds,

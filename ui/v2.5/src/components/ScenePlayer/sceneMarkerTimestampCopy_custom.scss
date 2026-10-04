@@ -185,8 +185,17 @@
   padding: 0.45rem 0.55rem;
 }
 
-/* CUSTOM: action beneath the marker's start and end seek buttons. */
-.scene-marker-timeline-add-to-loop {
+/* CUSTOM: compact actions beneath the marker's start and end seek buttons. */
+.scene-marker-timeline-loop-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+.scene-marker-timeline-add-to-loop,
+.scene-marker-timeline-repeat {
   background: rgba(85, 153, 197, 0.2);
   border: 1px solid rgba(145, 194, 225, 0.7);
   border-radius: 0.35rem;
@@ -195,13 +204,17 @@
   display: block;
   font-size: 0.82rem;
   font-weight: 700;
-  margin: 0.5rem auto 0;
   padding: 0.3rem 0.65rem;
 
   &:hover,
   &:focus-visible {
     background: rgba(85, 153, 197, 0.4);
     outline: none;
+  }
+
+  &[aria-pressed="true"] {
+    background: rgba(85, 153, 197, 0.5);
+    border-color: #e3f3fc;
   }
 }
 

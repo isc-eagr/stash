@@ -26,6 +26,7 @@ export enum View {
   StudioImages = "studio_images",
 
   GalleryImages = "gallery_images",
+  GalleryAdd = "gallery_add", // CUSTOM: persist the Add panel's sidebar state
 
   StudioScenes = "studio_scenes",
   StudioGroups = "studio_groups",

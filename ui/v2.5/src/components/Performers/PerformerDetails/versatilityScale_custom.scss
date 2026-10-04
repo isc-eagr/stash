@@ -102,8 +102,13 @@
   line-height: 1.25;
   margin-top: 0.45rem;
 
-  span:last-child {
+  > :last-child {
     text-align: right;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: underline;
   }
 }
 
@@ -122,6 +127,10 @@
   gap: 0.35rem;
   grid-template-columns: 1.35rem 1.5rem minmax(0, 1fr) 1.5rem;
   padding: 0.05rem 0.1rem;
+
+  &.has-percentages {
+    grid-template-columns: 1.35rem 1.5rem 2.1rem minmax(0, 1fr) 2.1rem 1.5rem;
+  }
 
   &.is-highlighted {
     background: rgba(255, 255, 255, 0.08);

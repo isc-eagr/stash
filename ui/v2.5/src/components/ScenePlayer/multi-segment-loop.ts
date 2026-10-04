@@ -1,4 +1,5 @@
 import videojs, { VideoJsPlayer } from "video.js";
+import { SceneMarkerRepeatCustom } from "./sceneMarkerRepeat_custom"; // CUSTOM
 import {
   nextSelectedSegmentCustom,
   remoteLoopRevisionCustom,
@@ -36,6 +37,7 @@ export interface IMultiSegmentLoopSnapshot {
   loopSingleId: string | null;
   pendingStart: number | null;
   remoteSelectedIds: string[];
+  markerRepeatId: string | null;
 }
 
 export type MultiSegmentLoopListener = (
@@ -58,6 +60,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   private scheduledBoundary: number | null = null; // CUSTOM
   private loopSingleId: string | null = null; // ID of segment to loop single
   private remoteSelectedIds: string[] = []; // CUSTOM: temporary playback subset
+  private markerRepeat = new SceneMarkerRepeatCustom(); // CUSTOM
   // CUSTOM: begin - subscribers and seek bookkeeping
   private listeners = new Set<MultiSegmentLoopListener>();
   private snapshot: IMultiSegmentLoopSnapshot | null = null;
@@ -114,6 +117,17 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   private readonly boundOnSeeking = this.onSeeking.bind(this);
   private readonly boundClearSeek = (): void => {
     this.seekInProgress = false;
+    this.internalSeekTarget = null;
+    if (this.markerRepeat.active) {
+      this.markerRepeat.clear();
+      this.clearBoundaryTimer();
+      this.emitChange();
+    }
+  };
+  private readonly boundOnEnded = (): void => {
+    if (!this.markerRepeat.active) return;
+    this.advanceToNextSegment();
+    this.player.play()?.catch(() => {});
   };
   private readonly boundOnSeeked = this.onSeeked.bind(this);
   private readonly boundRescheduleBoundary = (): void => {
@@ -157,6 +171,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     this.player.on("seeked", this.boundOnSeeked);
     this.player.on("loadstart", this.boundClearSeek);
     this.player.on("durationchange", this.boundRenderSegmentMarkers);
+    this.player.on("ended", this.boundOnEnded);
     // CUSTOM: end
   }
 
@@ -171,6 +186,7 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
         loopSingleId: this.loopSingleId,
         pendingStart: this.pendingStart,
         remoteSelectedIds: this.selectedIds(),
+        markerRepeatId: this.markerRepeat.active?.markerId ?? null,
       };
     }
     return this.snapshot;
@@ -187,6 +203,27 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     this.snapshot = null;
     const snapshot = this.getSnapshot();
     this.listeners.forEach((listener) => listener(snapshot));
+  }
+
+  toggleMarkerRepeat(markerId: string, segment: ILoopSegmentInput): void {
+    const target = this.markerRepeat.toggle(
+      markerId,
+      segment,
+      this.player.currentTime(),
+      this.player.duration()
+    );
+    if (target === null) return;
+    this.clearBoundaryTimer();
+    this.seekTo(target);
+    this.scheduleBoundaryCheck(true);
+    this.emitChange();
+  }
+
+  private getPlaybackSegment(): ILoopSegmentInput | undefined {
+    return (
+      this.markerRepeat.active?.segment ??
+      (this.enabled ? this.segments[this.currentSegmentIndex] : undefined)
+    );
   }
 
   private seekTo(time: number): void {
@@ -209,6 +246,11 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     this.seekInProgress = false;
     const internalTarget = this.internalSeekTarget;
     this.internalSeekTarget = null;
+    if (this.markerRepeat.active) {
+      this.checkLoop();
+      this.scheduleBoundaryCheck(true);
+      return;
+    }
     const time = this.player.currentTime();
     const userSeek =
       internalTarget === null ||
@@ -246,6 +288,11 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   // CUSTOM: end
 
   private onPlaying(): void {
+    // CUSTOM: the temporary marker takes precedence over configured segments.
+    if (this.markerRepeat.active) {
+      this.checkLoop();
+      return;
+    }
     // When playing starts and loop is enabled, ensure we're at a valid position
     if (this.enabled && this.segments.length > 0) {
       const currentTime = this.player.currentTime();
@@ -268,6 +315,26 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   }
 
   private checkLoop(): void {
+    // CUSTOM: begin - repeat without changing the loop configuration or selection
+    const repeat = this.markerRepeat.active;
+    if (repeat) {
+      if (this.player.paused()) {
+        this.clearBoundaryTimer();
+        return;
+      }
+      if (this.seekInProgress || this.player.seeking?.()) return;
+      const time = this.player.currentTime();
+      if (
+        time >= repeat.segment.end ||
+        time < repeat.segment.start - LOOP_SEGMENT_START_TOLERANCE_SECONDS
+      ) {
+        this.advanceToNextSegment();
+      } else {
+        this.scheduleBoundaryCheck();
+      }
+      return;
+    }
+    // CUSTOM: end
     if (!this.enabled || this.segments.length === 0 || this.player.paused()) {
       this.clearBoundaryTimer(); // CUSTOM
       return;
@@ -310,13 +377,8 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
 
   // CUSTOM: begin - schedule the exact media boundary instead of cutting 100 ms early
   private scheduleBoundaryCheck(force: boolean = false): void {
-    if (!this.enabled || this.segments.length === 0 || this.player.paused()) {
-      this.clearBoundaryTimer();
-      return;
-    }
-
-    const currentSegment = this.segments[this.currentSegmentIndex];
-    if (!currentSegment) {
+    const currentSegment = this.getPlaybackSegment();
+    if (!currentSegment || this.player.paused()) {
       this.clearBoundaryTimer();
       return;
     }
@@ -341,8 +403,8 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
       this.boundaryTimer = null;
       this.scheduledBoundary = null;
 
-      const segment = this.segments[this.currentSegmentIndex];
-      if (!segment || !this.enabled || this.player.paused()) return;
+      const segment = this.getPlaybackSegment();
+      if (!segment || this.player.paused()) return;
       if (this.seekInProgress) return; // CUSTOM: "seeked" reschedules
 
       if (isPlaybackBoundaryDue(this.player.currentTime(), segment.end)) {
@@ -364,6 +426,12 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
   // CUSTOM: end
 
   private advanceToNextSegment(): void {
+    // CUSTOM: a temporary marker never advances the configured loop's index.
+    if (this.markerRepeat.active) {
+      this.seekTo(this.markerRepeat.active.segment.start);
+      this.scheduleBoundaryCheck(true);
+      return;
+    }
     const fromSegment = this.segments[this.currentSegmentIndex];
 
     // Check if single loop is enabled for the current segment
@@ -899,6 +967,8 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     this.player.off("seeked", this.boundOnSeeked);
     this.player.off("loadstart", this.boundClearSeek);
     this.player.off("durationchange", this.boundRenderSegmentMarkers);
+    this.player.off("ended", this.boundOnEnded);
+    this.markerRepeat.clear();
     // CUSTOM: end
     super.dispose();
   }

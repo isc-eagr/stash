@@ -9,32 +9,29 @@ import { Icon } from "src/components/Shared/Icon";
 import { ModalComponent } from "src/components/Shared/Modal";
 import { errorToString } from "src/utils";
 import cx from "classnames";
+import { useToastQueueCustom } from "./toastQueue_custom"; // CUSTOM
 
 export interface IToast {
   content: JSX.Element | string;
   delay?: number;
   variant?: "success" | "danger" | "warning";
   priority?: number; // higher is more important
+  enqueue?: boolean; // CUSTOM: Queue behind equal/higher priorities; interrupt lower priorities.
+  className?: string; // CUSTOM: Optional achievement color, retaining the standard toast layout.
 }
-
-interface IActiveToast extends IToast {
-  id: number;
-}
+// CUSTOM: Active toast IDs and optional queues are managed in toastQueue_custom.ts.
 
 // errors are always more important than regular toasts
 const errorPriority = 100;
 // errors should stay on screen longer
 const errorDelay = 5000;
 
-let toastID = 0;
-
 type ToastFn = (item: IToast) => void;
 
 const ToastContext = createContext<ToastFn | null>(null);
 
 export const ToastProvider: React.FC = ({ children }) => {
-  const [toast, setToast] = useState<IActiveToast>();
-  const [hiding, setHiding] = useState(false);
+  const { toast, addToast, closeToast } = useToastQueueCustom(); // CUSTOM
   const [expanded, setExpanded] = useState(false);
 
   function expand() {
@@ -48,8 +45,8 @@ export const ToastProvider: React.FC = ({ children }) => {
       <Toast
         autohide
         key={toast.id}
-        onClose={() => setHiding(true)}
-        className={toast.variant ?? "success"}
+        onClose={closeToast} // CUSTOM: Dismiss and advance optional queued notifications.
+        className={cx(toast.variant ?? "success", toast.className)} // CUSTOM
         delay={toast.delay ?? 3000}
       >
         <Toast.Header>
@@ -68,14 +65,7 @@ export const ToastProvider: React.FC = ({ children }) => {
         </Toast.Header>
       </Toast>
     );
-  }, [toast, expanded]);
-
-  function addToast(item: IToast) {
-    if (hiding || !toast || (item.priority ?? 0) >= (toast.priority ?? 0)) {
-      setHiding(false);
-      setToast({ ...item, id: toastID++ });
-    }
-  }
+  }, [toast, expanded, closeToast]); // CUSTOM
 
   function copyToClipboard() {
     const { content } = toast ?? {};
@@ -94,7 +84,7 @@ export const ToastProvider: React.FC = ({ children }) => {
           show={expanded}
           accept={{
             onClick: () => {
-              setToast(undefined);
+              closeToast(); // CUSTOM: Resume queued achievements after closing the expanded toast.
               setExpanded(false);
             },
           }}
@@ -113,7 +103,8 @@ export const ToastProvider: React.FC = ({ children }) => {
           {toast?.content}
         </ModalComponent>
       )}
-      <div className={cx("toast-container row", { hidden: !toast || hiding })}>
+      {/* CUSTOM: Queued notifications share the native toast container. */}
+      <div className={cx("toast-container row", { hidden: !toast })}>
         {toastItem}
       </div>
     </ToastContext.Provider>

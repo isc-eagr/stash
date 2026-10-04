@@ -173,6 +173,7 @@ export const ImageInput: React.FC<IImageInput> = PatchComponent(
         <OverlayTrigger
           trigger="click"
           placement="top"
+          flip // CUSTOM: Open below when there is not enough room above.
           overlay={popover}
           rootClose
         >

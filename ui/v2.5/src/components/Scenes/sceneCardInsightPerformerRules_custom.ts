@@ -2,6 +2,7 @@
 import { isRoyalSapphireRatingCard } from "../../utils/ratingCardStyles_custom";
 import type {
   SceneCardInsightCandidate,
+  SceneCardInsightPerformerRoleStats,
   SceneCardInsightRatingConfig,
   SceneCardInsightScene,
 } from "./sceneCardInsightTypes_custom";
@@ -13,6 +14,29 @@ function isMexicanCountry(value?: string | null) {
 
 function performerNames(names: string[]) {
   return names.sort((a, b) => a.localeCompare(b)).join(", ");
+}
+
+export function getPerformerOnlySceneCandidates(
+  scene: SceneCardInsightScene,
+  roleStatsByPerformer?: ReadonlyMap<string, SceneCardInsightPerformerRoleStats>
+): SceneCardInsightCandidate[] {
+  const uniquePerformers = new Map(
+    scene.performers.map((performer) => [performer.id, performer])
+  );
+  return [...uniquePerformers.values()]
+    .filter(
+      (performer) => roleStatsByPerformer?.get(performer.id)?.scene_count === 1
+    )
+    .map((performer) => ({
+      key: `only-scene-${performer.id}`,
+      label: `Only scene with ${performer.name}`,
+      statsLabel: "Only scene",
+      detail: `${performer.name} appears in only this scene in your library`,
+      tone: "rare",
+      kind: "only-scene",
+      score: 1,
+      performerPreviews: [performer],
+    }));
 }
 
 export function getPerformerLineupCandidates(

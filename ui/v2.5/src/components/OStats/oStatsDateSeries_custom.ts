@@ -13,16 +13,14 @@ function fill(
   return values.map((value) => ({ value, count: byValue.get(value) ?? 0 }));
 }
 
-// Years span the first to last year with an O, so a quiet year shows as zero.
-export function fillOStatsYears(
+// Show only years with O events, in chronological order.
+export function oStatsYears(
   counts: ReadonlyArray<{ year: number; count: number }>
 ) {
-  if (counts.length === 0) return [];
-  const years = counts.map((item) => item.year);
-  return fill(
-    statsRange(Math.min(...years), Math.max(...years)),
-    counts.map((item) => ({ value: item.year, count: item.count }))
-  );
+  return counts
+    .filter((item) => item.count > 0)
+    .map((item) => ({ value: item.year, count: item.count }))
+    .sort((a, b) => a.value - b.value);
 }
 
 export function fillOStatsMonths(

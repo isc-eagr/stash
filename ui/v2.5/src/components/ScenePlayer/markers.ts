@@ -87,6 +87,10 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     boundary?: SceneMarkerTimestampBoundary
   ) => void; // CUSTOM
   private onMarkerAddToLoop?: (marker: IMarker) => void; // CUSTOM
+  // CUSTOM: begin - temporary repeat action and current toggle state
+  private onMarkerRepeat?: (marker: IMarker) => void;
+  private isMarkerRepeating?: (marker: IMarker) => boolean;
+  // CUSTOM: end
   private timestampCopyMode = false; // CUSTOM
   private timestampRangeCopyMode = false; // CUSTOM
 
@@ -153,6 +157,16 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
   setOnMarkerAddToLoop(onMarkerAddToLoop?: (marker: IMarker) => void) {
     this.onMarkerAddToLoop = onMarkerAddToLoop;
   }
+
+  // CUSTOM: begin
+  setOnMarkerRepeat(
+    onMarkerRepeat: (marker: IMarker) => void,
+    isMarkerRepeating: (marker: IMarker) => boolean
+  ) {
+    this.onMarkerRepeat = onMarkerRepeat;
+    this.isMarkerRepeating = isMarkerRepeating;
+  }
+  // CUSTOM: end
 
   // CUSTOM: Show an exact-time picker while a marker form is waiting for a
   // timestamp copied from the player timeline.
@@ -660,6 +674,8 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
           this.hideMarkerTooltip();
         }
       );
+      const loopActions = document.createElement("div");
+      loopActions.className = "scene-marker-timeline-loop-actions";
       // CUSTOM: keep this action with the seek controls for ordinary markers.
       if (loopMarker && this.onMarkerAddToLoop) {
         const addToLoop = document.createElement("button");
@@ -678,7 +694,34 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
           this.onMarkerAddToLoop?.(loopMarker);
           this.hideMarkerTooltip();
         });
-        timestampPicker.appendChild(addToLoop);
+        loopActions.appendChild(addToLoop);
+      }
+      if (loopMarker && this.onMarkerRepeat) {
+        const repeating = this.isMarkerRepeating?.(loopMarker) ?? false;
+        const repeat = document.createElement("button");
+        repeat.type = "button";
+        repeat.className = "scene-marker-timeline-repeat";
+        repeat.textContent = repeating ? "Stop Repeating" : "Repeat Marker";
+        repeat.title = repeating
+          ? "Stop repeating this marker"
+          : "Put this marker on repeat";
+        repeat.setAttribute("aria-pressed", String(repeating));
+        repeat.addEventListener("pointerdown", (event) =>
+          event.stopPropagation()
+        );
+        repeat.addEventListener("mousedown", (event) =>
+          event.stopPropagation()
+        );
+        repeat.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          this.onMarkerRepeat?.(loopMarker);
+          this.hideMarkerTooltip();
+        });
+        loopActions.appendChild(repeat);
+      }
+      if (loopActions.childElementCount) {
+        timestampPicker.appendChild(loopActions);
       }
       this.markerTooltip.appendChild(timestampPicker);
     }

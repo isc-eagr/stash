@@ -109,6 +109,7 @@ export type SceneCardInsightCandidateKind =
   | "leaning"
   | "no-orgasm"
   | "interaction"
+  | "only-scene"
   | "rare-role"
   | "negative-rating"
   | "short-outstanding"

@@ -1,5 +1,11 @@
 import cx from "classnames";
 import React from "react";
+import { Link } from "react-router-dom";
+import { useConfigurationContext } from "src/hooks/Config";
+import {
+  makePerformerFacialMarkersWithRoleUrl,
+  makePerformerMarkerScenesWithRoleUrl,
+} from "src/utils/navigation_custom";
 import TextUtils from "src/utils/text";
 import {
   performerVersatility,
@@ -19,6 +25,9 @@ interface IScale {
   bottom: number;
   topText: string;
   bottomText: string;
+  topUrl?: string;
+  bottomUrl?: string;
+  linkTarget?: React.HTMLAttributeAnchorTarget;
 }
 
 const VersatilityScale: React.FC<IScale> = ({
@@ -27,6 +36,9 @@ const VersatilityScale: React.FC<IScale> = ({
   bottom,
   topText,
   bottomText,
+  topUrl,
+  bottomUrl,
+  linkTarget,
 }) => {
   const versatility = performerVersatility(top, bottom);
 
@@ -79,8 +91,20 @@ const VersatilityScale: React.FC<IScale> = ({
         </span>
       </div>
       <div className="performer-versatility-ends">
-        <span>{bottomText}</span>
-        <span>{topText}</span>
+        {bottomUrl && bottom > 0 ? (
+          <Link to={bottomUrl} target={linkTarget}>
+            {bottomText}
+          </Link>
+        ) : (
+          <span>{bottomText}</span>
+        )}
+        {topUrl && top > 0 ? (
+          <Link to={topUrl} target={linkTarget}>
+            {topText}
+          </Link>
+        ) : (
+          <span>{topText}</span>
+        )}
       </div>
     </div>
   );
@@ -116,8 +140,24 @@ function partnerScale(
   category: VersatilityCategory,
   title: string,
   toppedPartners: number,
-  bottomedPartners: number
+  bottomedPartners: number,
+  performer?: { id: string; name?: string },
+  tagId?: string,
+  linkTarget?: React.HTMLAttributeAnchorTarget
 ): IScale {
+  const roleUrl = (role: "top" | "bottom") => {
+    if (!performer || !tagId) return undefined;
+    return category === "facial"
+      ? makePerformerFacialMarkersWithRoleUrl(performer, tagId, title, role)
+      : makePerformerMarkerScenesWithRoleUrl(
+          performer,
+          tagId,
+          title,
+          role,
+          undefined,
+          category === "oral" ? -1 : 0
+        );
+  };
   return {
     category,
     title,
@@ -125,6 +165,9 @@ function partnerScale(
     bottom: bottomedPartners,
     topText: versatilityRoleText(category, "top", toppedPartners),
     bottomText: versatilityRoleText(category, "bottom", bottomedPartners),
+    topUrl: roleUrl("top"),
+    bottomUrl: roleUrl("bottom"),
+    linkTarget,
   };
 }
 
@@ -163,6 +206,8 @@ export const PerformerVersatility: React.FC<{
   facialToppedPartners: number;
   facialBottomedPartners: number;
   className?: string;
+  performer?: { id: string; name?: string };
+  linkTarget?: React.HTMLAttributeAnchorTarget;
 }> = ({
   sexToppedPartners,
   sexBottomedPartners,
@@ -171,22 +216,48 @@ export const PerformerVersatility: React.FC<{
   facialToppedPartners,
   facialBottomedPartners,
   className,
-}) => (
-  <VersatilitySection
-    className={className}
-    scales={[
-      partnerScale("sex", "Sex", sexToppedPartners, sexBottomedPartners),
-      partnerScale("oral", "Oral", oralToppedPartners, oralBottomedPartners),
-      partnerScale(
-        "facial",
-        "Facial",
-        facialToppedPartners,
-        facialBottomedPartners
-      ),
-    ]}
-    title="Versatility by Partners"
-  />
-);
+  performer,
+  linkTarget,
+}) => {
+  const { configuration } = useConfigurationContext();
+  const { sexTagId, oralTagId, facialTagId } =
+    configuration?.ui?.roleTagIds ?? {};
+  return (
+    <VersatilitySection
+      className={className}
+      scales={[
+        partnerScale(
+          "sex",
+          "Sex",
+          sexToppedPartners,
+          sexBottomedPartners,
+          performer,
+          sexTagId,
+          linkTarget
+        ),
+        partnerScale(
+          "oral",
+          "Oral",
+          oralToppedPartners,
+          oralBottomedPartners,
+          performer,
+          oralTagId,
+          linkTarget
+        ),
+        partnerScale(
+          "facial",
+          "Facial",
+          facialToppedPartners,
+          facialBottomedPartners,
+          performer,
+          facialTagId,
+          linkTarget
+        ),
+      ]}
+      title="Versatility by Partners"
+    />
+  );
+};
 
 // CUSTOM: overall, sex, and oral versatility from top vs bottom time; Overall
 // adds sex and oral role seconds like the scene stats. Used by the performer

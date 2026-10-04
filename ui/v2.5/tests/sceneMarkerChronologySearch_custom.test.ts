@@ -459,6 +459,23 @@ const body = tag("body", "Body");
 const sex = tag("sex", "Sex");
 const facial = tag("facial", "Facial");
 
+for (const duration of [0.002, 2.573, 3]) {
+  for (const overlapRatio of [0.49, 0.5, 1]) {
+    const recipient = marker("short-recipient", 0, duration, body);
+    const source = marker("source", duration * (1 - overlapRatio), 100, sex);
+    assert.deepEqual(
+      getChronologicalSceneMarkerContextDisplayTags(recipient, [
+        recipient,
+        source,
+      ])
+        .filter((entry) => entry.kind === "overlap")
+        .map((entry) => entry.tag.id),
+      overlapRatio >= 0.5 ? ["sex"] : [],
+      `${duration}s markers retain tag inheritance at 50% overlap`
+    );
+  }
+}
+
 assert.deepEqual(
   filterChronologicalSceneMarkers(
     [marker("body-wide", 0, 100, body), marker("sex-narrow", 25, 75, sex)],

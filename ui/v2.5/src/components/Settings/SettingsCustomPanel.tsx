@@ -171,6 +171,25 @@ export const SettingsCustomPanel: React.FC = () => {
 
       <SettingSection headingID="config.categories.custom">
         <BooleanSetting
+          id="show-scene-player-chromecast-control"
+          headingID="config.ui.scene_player.options.show_chromecast_control"
+          checked={ui.showScenePlayerChromecastControl ?? false}
+          onChange={(v) => saveUI({ showScenePlayerChromecastControl: v })}
+        />
+        <BooleanSetting
+          id="show-scene-player-stream-control"
+          headingID="config.ui.scene_player.options.show_stream_control"
+          checked={ui.showScenePlayerStreamControl ?? false}
+          onChange={(v) => saveUI({ showScenePlayerStreamControl: v })}
+        />
+        <BooleanSetting
+          id="show-scene-player-autostart-control"
+          headingID="config.ui.scene_player.options.show_autostart_control"
+          subHeadingID="config.ui.scene_player.options.show_autostart_control_desc"
+          checked={ui.showScenePlayerAutostartControl ?? false}
+          onChange={(v) => saveUI({ showScenePlayerAutostartControl: v })}
+        />
+        <BooleanSetting
           id="show-multi-segment-loop"
           headingID="config.ui.scene_player.options.show_multi_segment_loop_controls"
           subHeadingID="config.ui.scene_player.options.show_multi_segment_loop_controls_desc"

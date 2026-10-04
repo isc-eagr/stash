@@ -40,11 +40,13 @@ test("series helpers cover leap years and empty ranges", () => {
   assert.equal(daysInMonth(2025, 2), 28);
 });
 
-test("Scene Stats release charts keep empty years, months, and days", () => {
+test("Scene Stats release charts omit empty years and keep calendar months and days", () => {
   const years = fillSceneStatsReleaseBuckets(
     new Map([
-      [2019, 2],
       [2022, 1],
+      [0, 0],
+      [2019, 2],
+      [2020, 0],
     ]),
     "year"
   );
@@ -52,10 +54,13 @@ test("Scene Stats release charts keep empty years, months, and days", () => {
     years.map((bucket) => [bucket.value, bucket.count]),
     [
       [2019, 2],
-      [2020, 0],
-      [2021, 0],
       [2022, 1],
     ]
+  );
+  assert.deepEqual(fillSceneStatsReleaseBuckets(new Map(), "year"), []);
+  assert.deepEqual(
+    fillSceneStatsReleaseBuckets(new Map([[2024, 0]]), "year"),
+    []
   );
 
   const months = fillSceneStatsReleaseBuckets(new Map([[3, 4]]), "month", 2024);

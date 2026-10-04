@@ -2,7 +2,10 @@ import React from "react";
 import { formatTaskProgressDate } from "../taskProgress_custom";
 import type { ITaskProgressHistoryEntry } from "../taskProgress_custom";
 import { useProgressText } from "./progressView_custom";
-import { taskProgressCheckpoints } from "./taskProgressCheckpoints_custom";
+import {
+  taskProgressCheckpoints,
+  taskProgressCheckpointTiers,
+} from "./taskProgressCheckpoints_custom";
 
 export const TaskProgressCheckpoints: React.FC<{
   history: readonly ITaskProgressHistoryEntry[];
@@ -19,23 +22,26 @@ export const TaskProgressCheckpoints: React.FC<{
       }`}
       aria-label={t("Checkpoints")}
     >
-      {checkpoints
-        .filter(({ threshold }) => !compact || threshold < 100)
-        .map(({ threshold, date, reached }) => (
-          <li
-            className={`milestone-checkpoint milestone-checkpoint-${threshold}${
-              reached ? " milestone-checkpoint-reached" : ""
-            }`}
-            key={threshold}
-          >
-            <strong className="milestone-checkpoint-medal">{threshold}%</strong>
-            <small>
-              {date
-                ? formatTaskProgressDate(date)
-                : t(reached ? "Reached" : "Not yet")}
-            </small>
-          </li>
-        ))}
+      {checkpoints.map(({ threshold, date, reached }) => (
+        <li
+          className={`milestone-checkpoint milestone-checkpoint-${threshold}${
+            reached ? " milestone-checkpoint-reached" : ""
+          }`}
+          key={threshold}
+          title={t(
+            taskProgressCheckpointTiers.find(
+              (tier) => tier.threshold === threshold
+            )!.label
+          )}
+        >
+          <strong className="milestone-checkpoint-medal">{threshold}%</strong>
+          <small>
+            {date
+              ? formatTaskProgressDate(date)
+              : t(reached ? "Reached" : "Not yet")}
+          </small>
+        </li>
+      ))}
     </ul>
   );
 };

@@ -228,13 +228,17 @@ export type SceneMarkerWarningCalculator = {
 function createRangeIndex(
   ranges: SceneMarkerGapRange[]
 ): SceneMarkerGapRangeIndex {
-  const byStart = [...ranges].sort(
+  // Short markers are intentional events, not boundary-fix candidates.
+  const eligibleRanges = ranges.filter(
+    (range) => roundToMilliseconds(range.end - range.start) > maxGapSeconds
+  );
+  const byStart = [...eligibleRanges].sort(
     (a, b) => a.start - b.start || a.sourceOrder - b.sourceOrder
   );
 
   return {
     byStart,
-    byEnd: [...ranges].sort(
+    byEnd: [...eligibleRanges].sort(
       (a, b) => a.end - b.end || b.sourceOrder - a.sourceOrder
     ),
   };
@@ -301,7 +305,7 @@ function findPreparedSceneMarkerGapWarningDetails(
     draftEndSeconds === null ||
     draftEndSeconds === undefined ||
     !Number.isFinite(draftEndSeconds) ||
-    draftEndSeconds < draft.seconds
+    roundToMilliseconds(draftEndSeconds - draft.seconds) <= maxGapSeconds
   ) {
     return undefined;
   }

@@ -50,7 +50,7 @@ import { partitionOStatsMarkerTagCountsCustom } from "./oStatsMarkerTagCharts_cu
 import {
   fillOStatsDays,
   fillOStatsMonths,
-  fillOStatsYears,
+  oStatsYears,
 } from "./oStatsDateSeries_custom"; // CUSTOM
 import {
   O_STATS_UNKNOWN_BUCKET,
@@ -610,10 +610,10 @@ const OStatsContent: React.FC<{
   const tierOf = (scene: OStatsSceneCount) => oStatsTierBucket(scene, uiConfig);
   const totalOs = sceneCounts.reduce((sum, scene) => sum + scene.count, 0);
 
-  // Date chart: zero-filled years, months, or days.
+  // Date chart: populated years, with zero-filled months and days.
   const dateChartData = useMemo<IStatsBarDatum[]>(() => {
     if (!selectedYear) {
-      return fillOStatsYears(overview?.years ?? []).map((point) => ({
+      return oStatsYears(overview?.years ?? []).map((point) => ({
         key: String(point.value),
         label: String(point.value),
         count: point.count,
@@ -1282,12 +1282,15 @@ const OStatsContent: React.FC<{
           />
           <StatsBarChart
             title="By Scene Release Year"
-            data={eventBars(overview.byReleaseYear.counts, (item) => ({
-              key: String(item.year),
-              label: String(item.year),
-              count: item.count,
-              path: `/ostats/release-year/${item.year}`,
-            }))}
+            data={eventBars(
+              oStatsYears(overview.byReleaseYear.counts),
+              (item) => ({
+                key: String(item.value),
+                label: String(item.value),
+                count: item.count,
+                path: `/ostats/release-year/${item.value}`,
+              })
+            )}
             unit={O_UNIT}
             total={totalOs}
             sortable

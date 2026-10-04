@@ -77,9 +77,22 @@ const ReportItemsSection: React.FC<{
   idleLabels: readonly [string, string];
   items: readonly IReportItem[];
   idle: readonly string[];
+  range: TaskProgressReportRange;
+  isCurrentPeriod: boolean;
   comparison: string;
   loading: boolean;
-}> = ({ title, name, empty, idleLabels, items, idle, comparison, loading }) => {
+}> = ({
+  title,
+  name,
+  empty,
+  idleLabels,
+  items,
+  idle,
+  range,
+  isCurrentPeriod,
+  comparison,
+  loading,
+}) => {
   const t = useProgressText();
   const total = items.reduce((sum, item) => sum + item.completed, 0);
   return (
@@ -88,7 +101,12 @@ const ReportItemsSection: React.FC<{
       {items.length > 0 ? (
         <div className="table-responsive">
           <Table striped hover>
-            <ReportHeadings name={name} share />
+            <ReportHeadings
+              name={name}
+              range={range}
+              isCurrentPeriod={isCurrentPeriod}
+              share
+            />
             <tbody>
               {items.map((item) => {
                 const share = total > 0 ? (item.completed / total) * 100 : 0;
@@ -151,7 +169,7 @@ const ReportTiles: React.FC<{
       ),
     },
     {
-      label: "Progress advanced",
+      label: "Completion change",
       value: <SignedPercent value={current.advanced} />,
       delta: (
         <TaskProgressPercentDelta
@@ -511,6 +529,8 @@ export const TaskProgressReports: React.FC<IProps> = ({
         idleLabels={["tracker idle", "trackers idle"]}
         items={activeTaskProgressReportItems(trackerItems)}
         idle={idleTrackers}
+        range={range}
+        isCurrentPeriod={period.start === currentPeriod.start}
         comparison={comparison}
         loading={loading}
       />
@@ -521,6 +541,8 @@ export const TaskProgressReports: React.FC<IProps> = ({
         idleLabels={["milestone idle", "milestones idle"]}
         items={activeTaskProgressReportItems(milestoneItems)}
         idle={idleMilestones}
+        range={range}
+        isCurrentPeriod={period.start === currentPeriod.start}
         comparison={comparison}
         loading={loading}
       />

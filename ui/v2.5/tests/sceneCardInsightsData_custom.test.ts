@@ -2331,6 +2331,100 @@ test("Lots of filler remains retired for every marker coverage state", () => {
   }
 });
 
+test("Only scene uses exact library counts without needing markers or role history", () => {
+  const vato = performer("only-vato", "Only Vato", {
+    image_path: "/performer/only-vato/image",
+  });
+  const scene = makeScene([], 0, [vato]);
+  const stats = {
+    scene_count: 1,
+    sex_top_count: 0,
+    sex_bottom_count: 0,
+    facial_scene_count: 0,
+  };
+  const candidates = (sceneCount: number) =>
+    getSceneCardInsightSets(
+      scene,
+      undefined,
+      { rareRoleMaximumPercent: 0 },
+      undefined,
+      new Map([[vato.id, { ...stats, scene_count: sceneCount }]])
+    ).candidates.filter(({ kind }) => kind === "only-scene");
+
+  assert.deepEqual(candidates(1), [
+    {
+      key: "only-scene-only-vato",
+      label: "Only scene with Only Vato",
+      statsLabel: "Only scene",
+      detail: "Only Vato appears in only this scene in your library",
+      tone: "rare",
+      kind: "only-scene",
+      score: 1,
+      performerPreviews: [vato],
+    },
+  ]);
+  for (const count of [0, 2, 30, NaN]) {
+    assert.deepEqual(candidates(count), []);
+  }
+  assert.equal(
+    getSceneCardInsightSets(scene, undefined).candidates.some(
+      ({ kind }) => kind === "only-scene"
+    ),
+    false,
+    "Missing history must not imply a single scene"
+  );
+  assert.equal(
+    getSceneCardInsightSets(
+      scene,
+      undefined,
+      undefined,
+      undefined,
+      new Map()
+    ).candidates.some(({ kind }) => kind === "only-scene"),
+    false
+  );
+});
+
+test("Only scene chips deduplicate cast and remain available in overflow", () => {
+  const a = performer("a", "A");
+  const b = performer("b", "B");
+  const markerOnly = performer("marker-only", "Marker Only");
+  const stats = new Map(
+    [a, b, markerOnly].map(({ id }) => [
+      id,
+      {
+        scene_count: 1,
+        sex_top_count: 0,
+        sex_bottom_count: 0,
+        facial_scene_count: 0,
+      },
+    ])
+  );
+  const sets = getSceneCardInsightSets(
+    makeScene(
+      [marker("untimed", tag("sex", "Sex"), 0, null, [], [markerOnly])],
+      600,
+      [a, b, a]
+    ),
+    roleTagIds,
+    { visibleInsightLimit: 1 },
+    undefined,
+    stats
+  );
+  assert.deepEqual(
+    sets.all.map(({ key }) => key),
+    ["only-scene-a", "only-scene-b"]
+  );
+  assert.deepEqual(
+    sets.visible.map(({ key }) => key),
+    ["only-scene-a"]
+  );
+  assert.equal(
+    hasSceneCardInsightOverflow(sets.all.length, sets.visible.length),
+    true
+  );
+});
+
 test("a current sex role is rare only at five role scenes and twenty percent or less", () => {
   const chacalito = performer("chacalito", "Chacalito Regio");
   const sexBottomScene = makeScene([
